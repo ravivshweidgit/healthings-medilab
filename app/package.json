@@ -1,0 +1,35 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1045.0",
+    "@aws-sdk/util-dynamodb": "^3.996.2",
+    "@expo/vector-icons": "^15.0.3",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "d3-shape": "^3.2.0",
+    "expo": "~54.0.33",
+    "expo-constants": "~18.0.13",
+    "expo-status-bar": "~3.0.9",
+    "lucide-react-native": "^1.14.0",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-health-connect": "^3.5.0",
+    "react-native-svg": "15.12.1",
+    "styled-components": "^6.4.1"
+  },
+  "devDependencies": {
+    "@types/d3-shape": "^3.1.8",
+    "@types/react": "~19.1.0",
+    "babel-preset-expo": "~54.0.10",
+    "react-native-dotenv": "^3.4.11",
+    "typescript": "~5.9.2"
+  },
+  "private": true
+}
