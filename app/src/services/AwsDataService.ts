@@ -9,6 +9,7 @@ export type HealthPersistPayload = {
   syncedAt: string;
   glucose: TimePoint[];
   steps: TimePoint[];
+  heartRate: TimePoint[];
   efficiencyScore: number;
   insight: string;
   activityZones: ActivityZone[];

@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import React from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -10,22 +11,25 @@ import {
   View,
 } from 'react-native';
 import { MetabolicChart } from '../components/MetabolicChart';
-import { USER_FIRST_NAME } from '../config/ui';
 import { useHealthData } from '../hooks/useHealthData';
 import { awsDataService } from '../services/AwsDataService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 import {
   demoNoticeCopy,
   glucoseHeadline,
-  greetingLine,
+  heartRateHeadline,
   metabolicScoreLine,
-  stepsHeadline,
 } from '../utils/wellnessCopy';
+
+/** Caps logo height so it stays within the screen; image uses `contain` inside this box. */
+const BRAND_HEADER_HEIGHT = 152;
+/** Pulls the demo notice up into the letterbox below the bitmap (fixed bar + `contain`). */
+const NOTICE_OVERLAP_UNDER_LOGO = 36;
 
 export const DashboardScreen = () => {
   const {
     glucoseData,
-    stepsData,
+    heartRateData,
     efficiencyScore,
     activityZones,
     isLoading,
@@ -35,7 +39,7 @@ export const DashboardScreen = () => {
   } = useHealthData();
 
   const latestGlucose = glucoseData.at(-1)?.value ?? 0;
-  const totalSteps = Math.round(stepsData.reduce((sum, point) => sum + point.value, 0));
+  const latestHeartRate = heartRateData.at(-1)?.value ?? 0;
 
   const safeScore = Math.max(0, Math.min(100, efficiencyScore));
   const progressWidth = `${safeScore}%` as `${number}%`;
@@ -47,6 +51,7 @@ export const DashboardScreen = () => {
       syncedAt: new Date().toISOString(),
       glucose: result.metrics.glucose,
       steps: result.metrics.steps,
+      heartRate: result.metrics.heartRate ?? [],
       efficiencyScore: result.efficiencyScore,
       insight: result.insight,
       activityZones: result.activityZones,
@@ -62,11 +67,17 @@ export const DashboardScreen = () => {
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
       >
-        <Text style={styles.greeting}>{greetingLine(USER_FIRST_NAME)}</Text>
-        <Text style={styles.productTitle}>Healthings Medilab</Text>
+        <View style={styles.brandHeader} accessibilityRole="header">
+          <Image
+            source={require('../../assets/brand-logo.png')}
+            style={styles.brandLogo}
+            resizeMode="contain"
+            accessibilityLabel="Healthings Medilab"
+          />
+        </View>
 
         {demoNotice ? (
-          <View style={styles.notice}>
+          <View style={[styles.notice, { marginTop: -NOTICE_OVERLAP_UNDER_LOGO }]}>
             <Text style={styles.noticeText}>{demoNotice}</Text>
           </View>
         ) : null}
@@ -90,16 +101,16 @@ export const DashboardScreen = () => {
           </View>
           <View style={[styles.metricCard, cardShadow]}>
             <View style={[styles.iconCircle, { backgroundColor: WellnessColors.iconTintBlue }]}>
-              <Feather name="activity" size={20} color={WellnessColors.accentBlue} />
+              <Feather name="heart" size={20} color={WellnessColors.accentBlue} />
             </View>
-            <Text style={styles.metricLabel}>MOVEMENT</Text>
-            <Text style={styles.metricHeadline}>{stepsHeadline(totalSteps)}</Text>
+            <Text style={styles.metricLabel}>HEART RATE</Text>
+            <Text style={styles.metricHeadline}>{heartRateHeadline(latestHeartRate)}</Text>
           </View>
         </View>
 
         <View style={styles.chartBleed}>
           <View style={[styles.chartCardBleed, cardShadow]}>
-            <MetabolicChart glucose={glucoseData} steps={stepsData} activityZones={activityZones} />
+            <MetabolicChart glucose={glucoseData} heartRate={heartRateData} activityZones={activityZones} />
           </View>
         </View>
 
@@ -131,26 +142,23 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 40,
   },
-  greeting: {
-    fontSize: 15,
-    fontWeight: '400',
-    color: WellnessColors.textSecondary,
-    marginBottom: 4,
+  brandHeader: {
+    marginBottom: 0,
+    width: '100%',
+    height: BRAND_HEADER_HEIGHT,
+    alignSelf: 'stretch',
   },
-  productTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: WellnessColors.textPrimary,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: 20,
+  brandLogo: {
+    width: '100%',
+    height: '100%',
   },
   notice: {
     backgroundColor: WellnessColors.noticeSoftBg,
     borderWidth: 1,
     borderColor: WellnessColors.noticeSoftBorder,
     borderRadius: 16,
-    padding: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     marginBottom: 16,
   },
   noticeText: {
@@ -233,9 +241,8 @@ const styles = StyleSheet.create({
     color: WellnessColors.textPrimary,
     lineHeight: 22,
   },
-  /** Cancels scroll horizontal padding so the history graph spans the full screen width. */
+  /** Same horizontal gutter as hero/metric cards (scroll padding + card inner padding). */
   chartBleed: {
-    marginHorizontal: -20,
     marginBottom: 20,
     alignSelf: 'stretch',
     width: '100%',
@@ -243,7 +250,7 @@ const styles = StyleSheet.create({
   chartCardBleed: {
     backgroundColor: WellnessColors.surface,
     borderRadius: 24,
-    paddingHorizontal: 0,
+    paddingHorizontal: 8,
     paddingTop: 16,
     paddingBottom: 12,
     minHeight: 360,

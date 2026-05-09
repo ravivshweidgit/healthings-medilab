@@ -16,6 +16,7 @@ export type HealthSyncResult = {
 type HealthDataState = {
   glucoseData: TimePoint[];
   stepsData: TimePoint[];
+  heartRateData: TimePoint[];
   efficiencyScore: number;
   insight: string;
   activityZones: ActivityZone[];
@@ -26,6 +27,7 @@ const CACHE_KEY = 'healthings:lastMetrics';
 const emptyState: HealthDataState = {
   glucoseData: [],
   stepsData: [],
+  heartRateData: [],
   efficiencyScore: 0,
   insight: 'Waiting for first sync...',
   activityZones: [],
@@ -42,6 +44,7 @@ export const useHealthData = () => {
     setState({
       glucoseData: metrics.glucose,
       stepsData: metrics.steps,
+      heartRateData: metrics.heartRate ?? [],
       efficiencyScore: efficiency.efficiencyScore,
       insight: efficiency.insight,
       activityZones: efficiency.activityZones,

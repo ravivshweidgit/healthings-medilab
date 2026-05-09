@@ -22,6 +22,13 @@ export function stepsHeadline(total: number): string {
   return 'Every step still counts.';
 }
 
+export function heartRateHeadline(bpm: number): string {
+  if (!bpm || Number.isNaN(bpm)) return 'Heart rate will appear after sync.';
+  if (bpm >= 60 && bpm <= 100) return `About ${bpm} BPM — steady resting band.`;
+  if (bpm > 100) return `Around ${bpm} BPM — elevated vs resting.`;
+  return `About ${bpm} BPM — on the low side.`;
+}
+
 export function metabolicScoreLine(score: number): string {
   if (score >= 65) return 'Your metabolic rhythm looks strong.';
   if (score >= 40) return 'Your metabolic score is building.';

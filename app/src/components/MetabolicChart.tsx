@@ -1,5 +1,5 @@
-import React, { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import { curveMonotoneX, line } from 'd3-shape';
 import type { ActivityZone } from '../logic/MetabolicLogic';
@@ -7,21 +7,76 @@ import { WellnessColors } from '../theme/wellness';
 
 type Point = { timestamp: string; value: number };
 
-const MAX_POINTS = 400;
+/** Upper bound on series points after downsampling (memory / path complexity). */
+const MAX_SERIES_POINTS_CAP = 700;
+const MIN_SERIES_POINTS = 64;
 const REFERENCE_MG_DL = [70, 100, 140] as const;
+const REFERENCE_BPM = [60, 100, 140] as const;
 
-/** Soft accent for activity zones on white background */
-const ZONE_STROKE = '#FFB74D';
+const ACTIVITY_STRIP_PX = 10;
 
 const Y_AXIS_WIDTH = 36;
 const AXIS_HEIGHT = 30;
 const CHART_PLOT_HEIGHT = 210;
 const SVG_TOTAL_HEIGHT = CHART_PLOT_HEIGHT + AXIS_HEIGHT;
 
-const SVG_PAD_L = 10;
-const SVG_PAD_R = 12;
+const SVG_PAD_L = 6;
+const SVG_PAD_R = 8;
 const SVG_PAD_T = 12;
 const SVG_PAD_B = 8;
+
+const MS_HOUR = 60 * 60 * 1000;
+const MS_DAY = 24 * MS_HOUR;
+
+/**
+ * Zoom chips set window duration (one screen width). Default view ends at **now**; horizontal pan slides
+ * backward through history (same duration window).
+ */
+const VIEWPORT_PRESETS = [
+  { label: '16D', ms: 16 * MS_DAY },
+  { label: '8D', ms: 8 * MS_DAY },
+  { label: '4D', ms: 4 * MS_DAY },
+  { label: '2D', ms: 2 * MS_DAY },
+  { label: '24H', ms: 24 * MS_HOUR },
+  { label: '12H', ms: 12 * MS_HOUR },
+  { label: '6H', ms: 6 * MS_HOUR },
+  { label: '3H', ms: 3 * MS_HOUR },
+  { label: '1H', ms: 1 * MS_HOUR },
+] as const;
+
+const DEFAULT_VIEWPORT_PRESET_INDEX = 3;
+
+function viewportWidthPx(windowW: number): number {
+  return Math.max(180, windowW - Y_AXIS_WIDTH - 44);
+}
+
+function filterPointsByTime(points: Point[], t0: number, t1: number): Point[] {
+  return points.filter((p) => {
+    const t = new Date(p.timestamp).getTime();
+    return !Number.isNaN(t) && t >= t0 && t <= t1;
+  });
+}
+
+function mergeTimeBounds(glucose: Point[], heartRate: Point[]): { tMin: number; tMax: number } | null {
+  let tMin = Infinity;
+  let tMax = -Infinity;
+  for (const p of glucose) {
+    const t = new Date(p.timestamp).getTime();
+    if (!Number.isNaN(t)) {
+      if (t < tMin) tMin = t;
+      if (t > tMax) tMax = t;
+    }
+  }
+  for (const p of heartRate) {
+    const t = new Date(p.timestamp).getTime();
+    if (!Number.isNaN(t)) {
+      if (t < tMin) tMin = t;
+      if (t > tMax) tMax = t;
+    }
+  }
+  if (!Number.isFinite(tMin) || !Number.isFinite(tMax)) return null;
+  return { tMin, tMax };
+}
 
 function downsample<T>(arr: T[], max: number): T[] {
   if (arr.length <= max) return arr;
@@ -129,52 +184,96 @@ function buildTimeTicks(tMin: number, tMax: number, padL: number, innerW: number
 
 type Props = {
   glucose: Point[];
-  steps: Point[];
+  heartRate: Point[];
   activityZones: ActivityZone[];
 };
 
-export function MetabolicChart({ glucose, steps, activityZones }: Props) {
+export function MetabolicChart({ glucose, heartRate, activityZones }: Props) {
   const { width: windowW } = useWindowDimensions();
+  const [viewportPresetIndex, setViewportPresetIndex] = useState(DEFAULT_VIEWPORT_PRESET_INDEX);
+  const [nowAnchor, setNowAnchor] = useState(() => Date.now());
+  /** Horizontal pan offset (px). `null` until synced — treat as “live” end position in useMemo. */
+  const [scrollX, setScrollX] = useState<number | null>(null);
+  const chartScrollRef = useRef<ScrollView>(null);
+  const scrollXRef = useRef<number | null>(null);
+  scrollXRef.current = scrollX;
+  /**
+   * Native `scrollTo({ x: max })` often runs before horizontal content width is measured — it no-ops or
+   * clamps to 0. Then the first `onScroll` reports x=0 while React still maps the chart as “live”
+   * (`scrollX === null` → p=1), which breaks pan until something retriggers scroll (e.g. cycling zoom chips).
+   * We only apply `onScroll` offsets after we’ve snapped the native offset in `onContentSizeChange` /
+   * deferred retries (see viewport effect).
+   */
+  const chartPanReadyRef = useRef(false);
+  /** After a zoom-chip change we must snap once native content width is known; avoid snapping on every clock tick (slide range drift). */
+  const forceSnapChartScrollRef = useRef(true);
 
   const plotH = CHART_PLOT_HEIGHT;
   const svgH = SVG_TOTAL_HEIGHT;
-  const scrollRef = useRef<ScrollView>(null);
 
-  const scrollToLatest = useCallback(() => {
-    scrollRef.current?.scrollToEnd({ animated: false });
+  useEffect(() => {
+    setNowAnchor(Date.now());
+  }, [glucose, heartRate]);
+
+  useEffect(() => {
+    const id = setInterval(() => setNowAnchor(Date.now()), 60_000);
+    return () => clearInterval(id);
   }, []);
 
   const prepared = useMemo(() => {
-    const chartW = Dimensions.get('window').width * 3;
+    const bounds = mergeTimeBounds(glucose, heartRate);
+    if (!bounds) return null;
 
-    const g = downsample(glucose, MAX_POINTS);
-    const s = downsample(steps, MAX_POINTS);
-    const times = [
-      ...g.map((p) => new Date(p.timestamp).getTime()),
-      ...s.map((p) => new Date(p.timestamp).getTime()),
-    ].filter((n) => !Number.isNaN(n));
+    const dataTMin = bounds.tMin;
+    const vpPx = viewportWidthPx(windowW);
+    const viewportMs = VIEWPORT_PRESETS[viewportPresetIndex]?.ms ?? VIEWPORT_PRESETS[DEFAULT_VIEWPORT_PRESET_INDEX].ms;
+    const viewportLabel = VIEWPORT_PRESETS[viewportPresetIndex]?.label ?? '2D';
 
-    if (!times.length) {
-      return null;
+    /** How far the window’s end time can move from “oldest” [dataTMin + viewportMs] to “live” [now]. */
+    const slideMs = Math.max(0, nowAnchor - dataTMin - viewportMs);
+    const pxPerMs = vpPx / viewportMs;
+    const maxScrollPx = slideMs * pxPerMs;
+    const totalW = vpPx + maxScrollPx;
+    const hPanEnabled = maxScrollPx > 2;
+
+    const p =
+      scrollX === null || maxScrollPx <= 0 ? 1 : Math.min(1, Math.max(0, scrollX / maxScrollPx));
+
+    let mapTMin: number;
+    let mapTMax: number;
+    if (slideMs <= 0) {
+      mapTMax = nowAnchor;
+      mapTMin = Math.max(dataTMin, nowAnchor - viewportMs);
+    } else {
+      const endT = dataTMin + viewportMs + slideMs * p;
+      mapTMax = endT;
+      mapTMin = endT - viewportMs;
     }
 
-    let tMin = Math.min(...times);
-    let tMax = Math.max(...times);
-    if (tMin === tMax) {
-      tMax = tMin + 60 * 60 * 1000;
-    }
+    const chartW = vpPx;
+
+    const gWin = filterPointsByTime(glucose, mapTMin, mapTMax);
+    const hWin = filterPointsByTime(heartRate, mapTMin, mapTMax);
+
+    const seriesBudget = Math.min(
+      MAX_SERIES_POINTS_CAP,
+      Math.max(MIN_SERIES_POINTS, Math.floor(chartW / 8))
+    );
+    const g = downsample(gWin, seriesBudget);
+    const h = downsample(hWin, seriesBudget);
 
     const gVals = g.map((p) => p.value).filter((v) => Number.isFinite(v));
-    const sVals = s.map((p) => p.value).filter((v) => Number.isFinite(v));
+    const hVals = h.map((p) => p.value).filter((v) => Number.isFinite(v));
 
     const gDataMin = gVals.length ? Math.min(...gVals) : 70;
     const gDataMax = gVals.length ? Math.max(...gVals) : 140;
     const gDomainMin = Math.min(70, gDataMin);
     const gDomainMax = Math.max(140, gDataMax);
 
-    let sMin = sVals.length ? Math.min(...sVals) : 0;
-    let sMax = sVals.length ? Math.max(...sVals) : 1;
-    if (sMax <= sMin) sMax = sMin + 1;
+    const hDataMin = hVals.length ? Math.min(...hVals) : 72;
+    const hDataMax = hVals.length ? Math.max(...hVals) : 100;
+    const hDomainMin = Math.min(55, hDataMin - 3);
+    const hDomainMax = Math.max(145, hDataMax + 3);
 
     const padL = SVG_PAD_L;
     const padR = SVG_PAD_R;
@@ -183,17 +282,18 @@ export function MetabolicChart({ glucose, steps, activityZones }: Props) {
 
     const glucoseSlotTop = 0;
     const glucoseSlotH = plotH * 0.55;
-    const stepsSlotTop = plotH * 0.58;
-    const stepsSlotH = plotH - padT - padB - stepsSlotTop;
+    const heartSlotTop = plotH * 0.58;
+    const axisY = plotH - padB;
+    const heartSlotH = plotH - padT - padB - heartSlotTop - ACTIVITY_STRIP_PX;
 
-    const gPx = toPixelPoints(g, tMin, tMax, gDomainMin, gDomainMax, chartW, plotH, padL, padT, padR, padB, glucoseSlotTop, glucoseSlotH);
-    const sPx = toPixelPoints(s, tMin, tMax, sMin, sMax, chartW, plotH, padL, padT, padR, padB, stepsSlotTop, stepsSlotH);
+    const gPx = toPixelPoints(g, mapTMin, mapTMax, gDomainMin, gDomainMax, chartW, plotH, padL, padT, padR, padB, glucoseSlotTop, glucoseSlotH);
+    const hPx = toPixelPoints(h, mapTMin, mapTMax, hDomainMin, hDomainMax, chartW, plotH, padL, padT, padR, padB, heartSlotTop, heartSlotH);
 
     const glucosePath = buildSmoothPath(gPx);
-    const stepsPath = buildSmoothPath(sPx);
+    const heartRatePath = buildSmoothPath(hPx);
 
     const innerW = Math.max(1, chartW - padL - padR);
-    const spanT = Math.max(1, tMax - tMin);
+    const spanT = Math.max(1, mapTMax - mapTMin);
 
     const gridLines = REFERENCE_MG_DL.map((mg) => {
       const clamped = Math.min(gDomainMax, Math.max(gDomainMin, mg));
@@ -202,151 +302,275 @@ export function MetabolicChart({ glucose, steps, activityZones }: Props) {
       return { mg, y, key: `grid-${mg}` };
     });
 
-    const zoneLines = activityZones.flatMap((zone, zoneIdx) => {
+    const hrGridLines = REFERENCE_BPM.map((bpm) => {
+      const clamped = Math.min(hDomainMax, Math.max(hDomainMin, bpm));
+      const ny = (clamped - hDomainMin) / Math.max(1e-6, hDomainMax - hDomainMin);
+      const y = padT + heartSlotTop + (1 - ny) * heartSlotH;
+      return { bpm, y, key: `hr-${bpm}` };
+    });
+
+    const activityLaneY = axisY - ACTIVITY_STRIP_PX / 2;
+    const activitySegments = activityZones.flatMap((zone, zoneIdx) => {
       const start = new Date(zone.startTime).getTime();
       const end = new Date(zone.endTime).getTime();
-      const xStart = padL + ((start - tMin) / spanT) * innerW;
-      const xEnd = padL + ((end - tMin) / spanT) * innerW;
+      if (end < mapTMin || start > mapTMax) return [];
+      const clipStart = Math.max(start, mapTMin);
+      const clipEnd = Math.min(end, mapTMax);
+      const x1 = padL + ((clipStart - mapTMin) / spanT) * innerW;
+      const x2 = padL + ((clipEnd - mapTMin) / spanT) * innerW;
+      if (Math.abs(x2 - x1) < 0.5) return [];
       return [
-        { x: xStart, key: `zs-${zoneIdx}-${start}` },
-        { x: xEnd, key: `ze-${zoneIdx}-${end}` },
+        {
+          x1,
+          x2,
+          y: activityLaneY,
+          key: `act-${zoneIdx}-${start}`,
+        },
       ];
     });
 
-    const axisY = plotH - padB;
-    const timeTicks = buildTimeTicks(tMin, tMax, padL, innerW);
+    const timeTicks = buildTimeTicks(mapTMin, mapTMax, padL, innerW);
 
     return {
       glucosePath,
-      stepsPath,
+      heartRatePath,
       gridLines,
-      zoneLines,
+      hrGridLines,
+      activitySegments,
       timeTicks,
       axisY,
       chartW,
       plotH,
       svgH,
       padL,
-      padT,
-      scrollContentWidth: chartW,
+      viewportLabel,
+      maxScrollPx,
+      totalW,
+      hPanEnabled,
     };
-  }, [activityZones, glucose, plotH, steps, windowW]);
+  }, [activityZones, glucose, heartRate, nowAnchor, plotH, scrollX, viewportPresetIndex, windowW]);
 
+  const snapChartScrollToLive = () => {
+    if (!prepared) return;
+    const max = prepared.maxScrollPx;
+    if (max <= 0) {
+      setScrollX(0);
+      chartPanReadyRef.current = true;
+      return;
+    }
+    chartScrollRef.current?.scrollTo({ x: max, animated: false });
+    setScrollX(max);
+    chartPanReadyRef.current = true;
+  };
+
+  /** Chip change → jump back to “live” (scroll end). Retries help when `scrollTo` runs before content is measured. */
   useLayoutEffect(() => {
     if (!prepared) return;
-    const id = requestAnimationFrame(() => scrollToLatest());
+    chartPanReadyRef.current = false;
+    forceSnapChartScrollRef.current = true;
+    const max = prepared.maxScrollPx;
+    if (max <= 0) {
+      setScrollX(0);
+      chartPanReadyRef.current = true;
+      forceSnapChartScrollRef.current = false;
+      return;
+    }
+    const apply = () => {
+      chartScrollRef.current?.scrollTo({ x: max, animated: false });
+      setScrollX(max);
+    };
+    apply();
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        apply();
+        chartPanReadyRef.current = true;
+      });
+    });
     return () => cancelAnimationFrame(id);
-  }, [prepared, scrollToLatest]);
+  }, [viewportPresetIndex]);
+
+  /** If the scrollable range shrinks, don’t leave offset past the end. */
+  useEffect(() => {
+    if (!prepared) return;
+    setScrollX((sx) => {
+      if (sx === null) return sx;
+      return Math.min(sx, Math.max(0, prepared.maxScrollPx));
+    });
+  }, [prepared?.maxScrollPx]);
 
   if (!prepared) {
     return (
-      <View style={[styles.empty, styles.sideInset, { minHeight: plotH }]}>
+      <View style={[styles.empty, { minHeight: CHART_PLOT_HEIGHT }]}>
         <Text style={styles.emptyText}>Your trends will appear after you refresh.</Text>
       </View>
     );
   }
 
+  const chartSvg = (
+    <Svg width={prepared.chartW} height={prepared.svgH}>
+      {prepared.gridLines.map((gl) => (
+        <Line
+          key={gl.key}
+          x1={prepared.padL}
+          y1={gl.y}
+          x2={prepared.chartW - SVG_PAD_R}
+          y2={gl.y}
+          stroke={WellnessColors.gridLine}
+          strokeWidth={1}
+          opacity={0.95}
+        />
+      ))}
+      {prepared.hrGridLines.map((hl) => (
+        <Line
+          key={hl.key}
+          x1={prepared.padL}
+          y1={hl.y}
+          x2={prepared.chartW - SVG_PAD_R}
+          y2={hl.y}
+          stroke={WellnessColors.gridLine}
+          strokeWidth={1}
+          opacity={0.65}
+        />
+      ))}
+      {prepared.heartRatePath ? (
+        <Path d={prepared.heartRatePath} fill="none" stroke={WellnessColors.accentRed} strokeWidth={2} opacity={0.95} />
+      ) : null}
+      {prepared.glucosePath ? (
+        <Path d={prepared.glucosePath} fill="none" stroke={WellnessColors.accentGreen} strokeWidth={2.5} />
+      ) : null}
+
+      {prepared.activitySegments.map((seg) => (
+        <Line
+          key={seg.key}
+          x1={seg.x1}
+          y1={seg.y}
+          x2={seg.x2}
+          y2={seg.y}
+          stroke={WellnessColors.accentBlue}
+          strokeWidth={3}
+          strokeLinecap="round"
+          opacity={0.95}
+        />
+      ))}
+
+      <Line
+        x1={prepared.padL}
+        y1={prepared.axisY}
+        x2={prepared.chartW - SVG_PAD_R}
+        y2={prepared.axisY}
+        stroke={WellnessColors.gridLine}
+        strokeWidth={1}
+        opacity={0.8}
+      />
+      {prepared.timeTicks.map((tk) => (
+        <React.Fragment key={tk.key}>
+          <Line
+            x1={tk.x}
+            y1={prepared.axisY - 5}
+            x2={tk.x}
+            y2={prepared.axisY + 4}
+            stroke={WellnessColors.textSecondary}
+            strokeWidth={1}
+            opacity={0.7}
+          />
+          <SvgText x={tk.x} y={prepared.svgH - 6} fill={WellnessColors.textSecondary} fontSize={9} textAnchor="middle">
+            {tk.label}
+          </SvgText>
+        </React.Fragment>
+      ))}
+    </Svg>
+  );
+
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.chartTitle, styles.sideInset]}>HISTORY</Text>
+      <Text style={styles.chartTitle}>HISTORY</Text>
 
-      <View style={[styles.chartRow, { minHeight: svgH }]}>
+      <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={styles.viewportPresetRow}>
+        {VIEWPORT_PRESETS.map((preset, index) => {
+          const selected = index === viewportPresetIndex;
+          return (
+            <Pressable
+              key={preset.label}
+              onPress={() => setViewportPresetIndex(index)}
+              style={[styles.viewportChip, selected && styles.viewportChipSelected]}
+              accessibilityLabel={`Viewport ${preset.label}`}
+            >
+              <Text style={[styles.viewportChipText, selected && styles.viewportChipTextSelected]}>{preset.label}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      <View style={[styles.chartRow, styles.chartRowLtr, { minHeight: svgH }]}>
         <View style={[styles.yAxis, { height: plotH }]}>
           {prepared.gridLines.map((gl) => (
-            <Text key={`y-${gl.mg}`} style={[styles.yAxisLabel, { top: gl.y - 8 }]}>
+            <Text key={`y-g-${gl.mg}`} style={[styles.yAxisLabel, { top: gl.y - 8 }]}>
               {gl.mg}
+            </Text>
+          ))}
+          {prepared.hrGridLines.map((hl) => (
+            <Text key={`y-h-${hl.bpm}`} style={[styles.yAxisLabel, styles.yAxisHrLabel, { top: hl.y - 8 }]}>
+              {hl.bpm}
             </Text>
           ))}
         </View>
 
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          nestedScrollEnabled
-          directionalLockEnabled
-          showsHorizontalScrollIndicator={false}
-          scrollEventThrottle={16}
-          style={styles.hScroll}
-          contentContainerStyle={{ width: prepared.scrollContentWidth }}
-          onContentSizeChange={scrollToLatest}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={[styles.graphCanvas, { width: prepared.scrollContentWidth, height: prepared.svgH }]}>
-              <Svg width={prepared.chartW} height={prepared.svgH}>
-                {prepared.gridLines.map((gl) => (
-                  <Line
-                    key={gl.key}
-                    x1={prepared.padL}
-                    y1={gl.y}
-                    x2={prepared.chartW - SVG_PAD_R}
-                    y2={gl.y}
-                    stroke={WellnessColors.gridLine}
-                    strokeWidth={1}
-                    opacity={0.95}
-                  />
-                ))}
-                {prepared.zoneLines.map((zl) => (
-                  <Line
-                    key={zl.key}
-                    x1={zl.x}
-                    y1={prepared.padT}
-                    x2={zl.x}
-                    y2={prepared.axisY}
-                    stroke={ZONE_STROKE}
-                    strokeWidth={1}
-                    strokeDasharray="5,5"
-                    opacity={0.75}
-                  />
-                ))}
-                {prepared.stepsPath ? (
-                  <Path d={prepared.stepsPath} fill="none" stroke={WellnessColors.accentBlue} strokeWidth={2} opacity={0.9} />
-                ) : null}
-                {prepared.glucosePath ? (
-                  <Path d={prepared.glucosePath} fill="none" stroke={WellnessColors.accentGreen} strokeWidth={2.5} />
-                ) : null}
-
-                <Line
-                  x1={prepared.padL}
-                  y1={prepared.axisY}
-                  x2={prepared.chartW - SVG_PAD_R}
-                  y2={prepared.axisY}
-                  stroke={WellnessColors.gridLine}
-                  strokeWidth={1}
-                  opacity={0.8}
-                />
-                {prepared.timeTicks.map((tk) => (
-                  <React.Fragment key={tk.key}>
-                    <Line
-                      x1={tk.x}
-                      y1={prepared.axisY - 5}
-                      x2={tk.x}
-                      y2={prepared.axisY + 4}
-                      stroke={WellnessColors.textSecondary}
-                      strokeWidth={1}
-                      opacity={0.7}
-                    />
-                    <SvgText
-                      x={tk.x}
-                      y={prepared.svgH - 6}
-                      fill={WellnessColors.textSecondary}
-                      fontSize={9}
-                      textAnchor="middle"
-                    >
-                      {tk.label}
-                    </SvgText>
-                  </React.Fragment>
-                ))}
-              </Svg>
+        <View style={[styles.chartPlot, { height: prepared.svgH }]}>
+          {/* Chart underneath; horizontal pan capture on top (transparent) so swipes always hit ScrollView. */}
+          <View style={[styles.chartUnderlay, { height: prepared.svgH }]} pointerEvents="none">
+            <View style={[styles.graphCanvas, { width: prepared.chartW, height: prepared.svgH }]}>{chartSvg}</View>
           </View>
-        </ScrollView>
+          <ScrollView
+            ref={chartScrollRef}
+            horizontal
+            style={styles.chartPanScroll}
+            contentContainerStyle={{
+              width: Math.max(prepared.totalW, prepared.chartW),
+              height: prepared.svgH,
+            }}
+            scrollEnabled={prepared.hPanEnabled}
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            nestedScrollEnabled
+            directionalLockEnabled
+            onContentSizeChange={() => {
+              if (!prepared) return;
+              chartPanReadyRef.current = true;
+              const max = prepared.maxScrollPx;
+              if (max <= 0) {
+                setScrollX(0);
+                forceSnapChartScrollRef.current = false;
+                return;
+              }
+              const mustSnapToLive = scrollXRef.current === null || forceSnapChartScrollRef.current;
+              if (forceSnapChartScrollRef.current) {
+                forceSnapChartScrollRef.current = false;
+              }
+              if (!mustSnapToLive) return;
+              snapChartScrollToLive();
+            }}
+            onScroll={(e) => {
+              if (!chartPanReadyRef.current && prepared.maxScrollPx > 0) return;
+              const x = e.nativeEvent.contentOffset.x;
+              const max = prepared.maxScrollPx;
+              setScrollX(Math.min(Math.max(0, x), max));
+            }}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={{ width: Math.max(prepared.totalW, prepared.chartW), height: prepared.svgH, backgroundColor: 'transparent' }} />
+          </ScrollView>
+        </View>
       </View>
 
-      <Text style={[styles.tapHint, styles.sideInset]}>
-        Swipe sideways — newer data starts on the right; scroll left for earlier dates and times.
+      <Text style={styles.zoomHint}>
+        Window = <Text style={styles.zoomHintEm}>{prepared.viewportLabel}</Text> of time; right is live “now”, left is earlier. Swipe on
+        the chart to slide through older history (same window length).
       </Text>
-      <View style={[styles.legend, styles.sideInset]}>
+      <Text style={styles.tapHint}>Swipe right on the chart toward the past; a chip picks window size and jumps back to live.</Text>
+      <View style={styles.legend}>
         <Text style={styles.legendGlucose}>Glucose</Text>
-        <Text style={styles.legendSteps}>Activity</Text>
+        <Text style={styles.legendHeartRate}>Heart rate</Text>
+        <Text style={styles.legendActivity}>Walk / activity</Text>
       </View>
     </View>
   );
@@ -358,26 +582,76 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     minHeight: SVG_TOTAL_HEIGHT + 80,
   },
-  sideInset: {
-    paddingHorizontal: 20,
-  },
   chartTitle: {
     fontSize: 11,
     fontWeight: '600',
     color: WellnessColors.textSecondary,
     letterSpacing: 1,
-    marginBottom: 8,
+    marginBottom: 6,
     textTransform: 'uppercase',
+    textAlign: 'center',
+    width: '100%',
+  },
+  viewportPresetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+    marginBottom: 8,
+    paddingRight: 4,
+  },
+  viewportChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: WellnessColors.progressTrack,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+  },
+  viewportChipSelected: {
+    backgroundColor: WellnessColors.iconTintBlue,
+    borderColor: WellnessColors.accentBlue,
+  },
+  viewportChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: WellnessColors.textSecondary,
+    fontVariant: ['tabular-nums'],
+  },
+  viewportChipTextSelected: {
+    color: WellnessColors.accentBlue,
   },
   chartRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     width: '100%',
-    paddingLeft: 12,
+  },
+  chartRowLtr: {
+    direction: 'ltr',
+  },
+  chartPlot: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: SVG_TOTAL_HEIGHT,
+    position: 'relative',
+    overflow: 'hidden',
+    direction: 'ltr',
+  },
+  chartUnderlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+    zIndex: 0,
+  },
+  chartPanScroll: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+    zIndex: 1,
+    elevation: 3,
   },
   yAxis: {
     width: Y_AXIS_WIDTH,
-    marginRight: 4,
+    marginRight: 2,
     position: 'relative',
   },
   yAxisLabel: {
@@ -387,9 +661,9 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     color: WellnessColors.textSecondary,
   },
-  hScroll: {
-    flex: 1,
-    minWidth: 0,
+  yAxisHrLabel: {
+    fontSize: 9,
+    opacity: 0.92,
   },
   graphCanvas: {
     backgroundColor: WellnessColors.surface,
@@ -414,24 +688,43 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  zoomHint: {
+    fontSize: 11,
+    color: WellnessColors.textSecondary,
+    textAlign: 'center',
+    marginTop: 6,
+    paddingHorizontal: 8,
+    lineHeight: 16,
+  },
+  zoomHintEm: {
+    fontWeight: '600',
+    color: WellnessColors.textSecondary,
+  },
   tapHint: {
     fontSize: 11,
     color: WellnessColors.textSecondary,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 6,
   },
   legend: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 20,
+    gap: 16,
     marginTop: 10,
+    rowGap: 8,
   },
   legendGlucose: {
     color: WellnessColors.accentGreen,
     fontSize: 12,
     fontWeight: '500',
   },
-  legendSteps: {
+  legendHeartRate: {
+    color: WellnessColors.accentRed,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  legendActivity: {
     color: WellnessColors.accentBlue,
     fontSize: 12,
     fontWeight: '500',

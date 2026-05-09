@@ -12,6 +12,8 @@ export type TimePoint = {
 export type RecentMetrics = {
   glucose: TimePoint[];
   steps: TimePoint[];
+  /** BPM samples (flattened from Health Connect `HeartRate` records). */
+  heartRate: TimePoint[];
 };
 
 const HOURS_24_MS = 24 * 60 * 60 * 1000;
@@ -33,11 +35,15 @@ class SamsungHealthService {
         accessType: 'read',
         recordType: 'Steps',
       } as const,
+      {
+        accessType: 'read',
+        recordType: 'HeartRate',
+      } as const,
     ]);
 
     if (granted.length === 0) {
       throw new Error(
-        'Health Connect permissions were not granted. Open system Health Connect settings and allow Blood Glucose and Steps for this app.'
+        'Health Connect permissions were not granted. Open system Health Connect settings and allow Blood Glucose, Steps, and Heart rate for this app.'
       );
     }
 
@@ -49,7 +55,7 @@ class SamsungHealthService {
     const safeStartDate = Number.isNaN(startDate.getTime()) ? DEFAULT_START_DATE : startDate;
     const startTime = safeStartDate > endTime ? new Date(endTime.getTime() - HOURS_24_MS) : safeStartDate;
 
-    const [glucoseRecords, stepRecords] = await Promise.all([
+    const [glucoseRecords, stepRecords, heartRateRecords] = await Promise.all([
       readRecords('BloodGlucose' as never, {
         timeRangeFilter: {
           operator: 'between',
@@ -58,6 +64,13 @@ class SamsungHealthService {
         },
       } as never),
       readRecords('Steps' as never, {
+        timeRangeFilter: {
+          operator: 'between',
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+        },
+      } as never),
+      readRecords('HeartRate' as never, {
         timeRangeFilter: {
           operator: 'between',
           startTime: startTime.toISOString(),
@@ -82,7 +95,21 @@ class SamsungHealthService {
       return { timestamp, value };
     });
 
-    return { glucose, steps };
+    const heartRate: TimePoint[] = [];
+    for (const record of heartRateRecords.records as Array<Record<string, unknown>>) {
+      const samples = record.samples;
+      if (!Array.isArray(samples)) continue;
+      for (const sample of samples as Array<Record<string, unknown>>) {
+        const timestamp = String(sample.time ?? record.endTime ?? record.startTime ?? '');
+        const bpm = Number(sample.beatsPerMinute ?? 0);
+        if (timestamp && Number.isFinite(bpm) && bpm > 0) {
+          heartRate.push({ timestamp, value: Math.round(bpm) });
+        }
+      }
+    }
+    heartRate.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    return { glucose, steps, heartRate };
   }
 }
 
