@@ -24,6 +24,16 @@ type HealthDataState = {
 
 const CACHE_KEY = 'healthings:lastMetrics';
 
+/** Same ISO instant: CSV import overwrites Health Connect. */
+function mergeGlucoseCsvWins(existing: TimePoint[], imported: TimePoint[]): TimePoint[] {
+  const map = new Map<string, number>();
+  for (const p of existing) map.set(p.timestamp, p.value);
+  for (const p of imported) map.set(p.timestamp, p.value);
+  return [...map.entries()]
+    .map(([timestamp, value]) => ({ timestamp, value }))
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
 const emptyState: HealthDataState = {
   glucoseData: [],
   stepsData: [],
@@ -48,6 +58,26 @@ export const useHealthData = () => {
       efficiencyScore: efficiency.efficiencyScore,
       insight: efficiency.insight,
       activityZones: efficiency.activityZones,
+    });
+  }, []);
+
+  const applyImportedGlucose = useCallback((imported: TimePoint[]) => {
+    setState((prev) => {
+      const mergedG = mergeGlucoseCsvWins(prev.glucoseData, imported);
+      const metrics: RecentMetrics = {
+        glucose: mergedG,
+        steps: prev.stepsData,
+        heartRate: prev.heartRateData,
+      };
+      void AsyncStorage.setItem(CACHE_KEY, JSON.stringify(metrics));
+      const eff = calculateMetabolicEfficiency(mergedG, prev.stepsData);
+      return {
+        ...prev,
+        glucoseData: mergedG,
+        efficiencyScore: eff.efficiencyScore,
+        insight: eff.insight,
+        activityZones: eff.activityZones,
+      };
     });
   }, []);
 
@@ -112,6 +142,7 @@ export const useHealthData = () => {
     isLoading,
     error,
     refetch,
+    applyImportedGlucose,
     dataSource,
   };
 };

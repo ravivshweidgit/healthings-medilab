@@ -1,4 +1,6 @@
 import { Feather } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -17,6 +19,7 @@ import { CONFIG } from '../config/env';
 import { useHealthData } from '../hooks/useHealthData';
 import { buildMetabolicTrend7dFromWithings, type WeightVisceralTrendDay } from '../logic/metabolicTrend7d';
 import { awsDataService } from '../services/AwsDataService';
+import { parseCareSensAirExportCsv } from '../services/careSensCsv';
 import {
   buildAuthorizationUrl,
   fetchWeightMetrics,
@@ -78,8 +81,12 @@ export const DashboardScreen = () => {
     isLoading,
     error,
     refetch,
+    applyImportedGlucose,
     dataSource,
   } = useHealthData();
+
+  const [importBusy, setImportBusy] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
 
   const [bodyScan, setBodyScan] = useState<WeightMetricsForDashboard | null>(null);
   const [bodyScanLoading, setBodyScanLoading] = useState(true);
@@ -191,6 +198,32 @@ export const DashboardScreen = () => {
     });
   };
 
+  const handleImportCareSensCsv = useCallback(async () => {
+    setImportMessage(null);
+    setImportBusy(true);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/csv', 'text/comma-separated-values', 'application/csv', '*/*'],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+      const uri = result.assets?.[0]?.uri;
+      if (!uri) {
+        setImportMessage('No file was selected.');
+        return;
+      }
+      const text = await FileSystem.readAsStringAsync(uri);
+      const points = parseCareSensAirExportCsv(text);
+      applyImportedGlucose(points);
+      setImportMessage(`Imported ${points.length} glucose readings from CareSens CSV.`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not import CSV.';
+      setImportMessage(message);
+    } finally {
+      setImportBusy(false);
+    }
+  }, [applyImportedGlucose]);
+
   const demoNotice = demoNoticeCopy(dataSource);
 
   return (
@@ -226,8 +259,13 @@ export const DashboardScreen = () => {
 
         <View style={[styles.bodyScanCard, cardShadow]}>
           <View style={styles.bodyScanHeader}>
-            <View style={[styles.iconCircle, { backgroundColor: WellnessColors.iconTintBlue }]}>
-              <Feather name="activity" size={20} color={WellnessColors.accentBlue} />
+            <View style={styles.withingsLogoWrap}>
+              <Image
+                source={require('../../assets/WithingsLogo.jpeg')}
+                style={styles.withingsHeaderLogo}
+                resizeMode="contain"
+                accessibilityLabel="Withings"
+              />
             </View>
             <View style={styles.bodyScanTitleBlock}>
               <Text style={styles.bodyScanKicker}>BODY SCAN</Text>
@@ -367,6 +405,34 @@ export const DashboardScreen = () => {
           )}
         </Pressable>
 
+        {dataSource === 'health-connect' ? (
+          <Pressable
+            style={[styles.careSensImportButton, importBusy && styles.careSensImportButtonDisabled]}
+            onPress={handleImportCareSensCsv}
+            disabled={importBusy}
+            accessibilityRole="button"
+            accessibilityLabel="Import CareSens Air CSV"
+          >
+            {importBusy ? (
+              <ActivityIndicator color={WellnessColors.accentBlue} />
+            ) : (
+              <View style={styles.careSensImportButtonRow}>
+                <View style={styles.careSensImportLogoWrap}>
+                  <Image
+                    source={require('../../assets/CareScenseAirLogo.jpeg')}
+                    style={styles.careSensImportButtonLogo}
+                    resizeMode="contain"
+                    accessibilityIgnoresInvertColors
+                  />
+                </View>
+                <Text style={styles.careSensImportButtonLabel}>Import</Text>
+              </View>
+            )}
+          </Pressable>
+        ) : null}
+
+        {importMessage ? <Text style={styles.importMessageText}>{importMessage}</Text> : null}
+
         {error ? <Text style={styles.errorText}>We couldn't refresh just now. Try again shortly.</Text> : null}
 
         {dataSource !== 'health-connect' ? (
@@ -464,9 +530,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  withingsLogoWrap: {
+    width: 76,
+    height: 76,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  withingsHeaderLogo: {
+    width: '100%',
+    height: '100%',
+  },
   bodyScanTitleBlock: {
     flex: 1,
-    marginLeft: 12,
   },
   bodyScanKicker: {
     fontSize: 11,
@@ -711,6 +787,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: WellnessColors.textSecondary,
   },
+  careSensImportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: WellnessColors.accentBlue,
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    marginBottom: 12,
+    backgroundColor: WellnessColors.surface,
+    minHeight: 56,
+  },
+  careSensImportButtonDisabled: {
+    opacity: 0.65,
+  },
+  careSensImportButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 4,
+  },
+  careSensImportLogoWrap: {
+    flex: 1,
+    height: 40,
+    minWidth: 0,
+    marginRight: 12,
+    justifyContent: 'center',
+  },
+  careSensImportButtonLogo: {
+    width: '100%',
+    height: '100%',
+  },
+  careSensImportButtonLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: WellnessColors.accentBlue,
+    letterSpacing: 0.3,
+  },
   primaryButton: {
     backgroundColor: WellnessColors.accentBlue,
     borderRadius: 24,
@@ -725,6 +841,13 @@ const styles = StyleSheet.create({
     color: WellnessColors.surface,
     fontSize: 16,
     fontWeight: '600',
+  },
+  importMessageText: {
+    fontSize: 14,
+    color: WellnessColors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 8,
+    lineHeight: 20,
   },
   errorText: {
     color: WellnessColors.accentRed,

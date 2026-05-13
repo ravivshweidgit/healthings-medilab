@@ -1,4 +1,5 @@
 import {
+  getGrantedPermissions,
   initialize,
   readRecords,
   requestPermission,
@@ -17,7 +18,26 @@ export type RecentMetrics = {
 };
 
 const HOURS_24_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_START_DATE = new Date('2026-04-19T00:00:00.000Z');
+/** How far back to query Health Connect when no explicit start is passed (CareSens / Samsung history). */
+const DEFAULT_HISTORY_DAYS = 120;
+
+const CORE_READ_PERMISSIONS = [
+  { accessType: 'read', recordType: 'BloodGlucose' } as const,
+  { accessType: 'read', recordType: 'Steps' } as const,
+  { accessType: 'read', recordType: 'HeartRate' } as const,
+];
+
+function hasCoreReadAccess(
+  granted: Array<{ accessType?: string; recordType?: string }>
+): boolean {
+  return CORE_READ_PERMISSIONS.every((need) =>
+    granted.some((p) => p.accessType === need.accessType && p.recordType === need.recordType)
+  );
+}
+
+function defaultHealthQueryStart(): Date {
+  return new Date(Date.now() - DEFAULT_HISTORY_DAYS * 24 * 60 * 60 * 1000);
+}
 
 class SamsungHealthService {
   async initializeAndRequestPermissions(): Promise<boolean> {
@@ -26,22 +46,13 @@ class SamsungHealthService {
       throw new Error('Failed to initialize Health Connect.');
     }
 
-    const granted = await requestPermission([
-      {
-        accessType: 'read',
-        recordType: 'BloodGlucose',
-      } as const,
-      {
-        accessType: 'read',
-        recordType: 'Steps',
-      } as const,
-      {
-        accessType: 'read',
-        recordType: 'HeartRate',
-      } as const,
-    ]);
+    let granted = await getGrantedPermissions();
+    if (!hasCoreReadAccess(granted)) {
+      await requestPermission([...CORE_READ_PERMISSIONS]);
+      granted = await getGrantedPermissions();
+    }
 
-    if (granted.length === 0) {
+    if (!hasCoreReadAccess(granted)) {
       throw new Error(
         'Health Connect permissions were not granted. Open system Health Connect settings and allow Blood Glucose, Steps, and Heart rate for this app.'
       );
@@ -50,9 +61,9 @@ class SamsungHealthService {
     return true;
   }
 
-  async fetchRecentMetrics(startDate: Date = DEFAULT_START_DATE): Promise<RecentMetrics> {
+  async fetchRecentMetrics(startDate: Date = defaultHealthQueryStart()): Promise<RecentMetrics> {
     const endTime = new Date();
-    const safeStartDate = Number.isNaN(startDate.getTime()) ? DEFAULT_START_DATE : startDate;
+    const safeStartDate = Number.isNaN(startDate.getTime()) ? defaultHealthQueryStart() : startDate;
     const startTime = safeStartDate > endTime ? new Date(endTime.getTime() - HOURS_24_MS) : safeStartDate;
 
     const [glucoseRecords, stepRecords, heartRateRecords] = await Promise.all([
