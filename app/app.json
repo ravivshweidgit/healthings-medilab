@@ -2,6 +2,7 @@
   "expo": {
     "name": "app",
     "slug": "app",
+    "scheme": "healthings-medilab",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,9 +14,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.healthings.medilab"
     },
     "android": {
+      "minSdkVersion": 26,
+      "package": "com.healthings.medilab",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -27,7 +31,10 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "react-native-health-connect"
+      "expo-dev-client",
+      "react-native-health-connect",
+      "expo-secure-store",
+      "expo-web-browser"
     ]
   }
 }

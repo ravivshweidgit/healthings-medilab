@@ -1,0 +1,17 @@
+"Great! The Auth flow is ready. Now, let's implement the actual data fetching in WithingsApiService.ts.
+
+Implement fetchWeightMetrics: Use the getValidAccessToken() we just built to call https://wbsapi.withings.net/measure?action=getmeas.
+
+Filter & Map: I need the latest measurements. Please map these specific Withings types:
+
+type 1: Weight (kg)
+
+type 8: Fat Mass (kg)
+
+type 76: Muscle Mass (kg)
+
+type 88: Visceral Fat (Index)
+
+Format for UI: Return a clean object that my HealthDashboard can easily consume.
+
+Update Mock: Update the development mock data to reflect these real types so the UI looks consistent even when I'm offline."

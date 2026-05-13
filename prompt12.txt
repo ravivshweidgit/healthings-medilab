@@ -1,0 +1,19 @@
+ontext: I am moving away from Expo Go to a Development Build to support the healthings-medilab:// custom scheme for Withings OAuth.
+
+Tasks:
+
+Update app.json: >    - Ensure "scheme": "healthings-medilab" is set at the top level.
+
+Under "android", ensure there is a "package": "com.yourname.medilab" (choose a unique reverse-DNS name).
+
+Under "ios", ensure there is a "bundleIdentifier": "com.yourname.medilab".
+
+Add the expo-dev-client plugin to the "plugins" array.
+
+Dependency Update: >    - Add expo-dev-client to package.json.
+
+OAuth Logic Check: >    - In WithingsApiService.ts, ensure that WebBrowser.openAuthSessionAsync is called with the exact healthings-medilab://oauth string as the second argument.
+
+Confirm that we are NOT using AuthSession.makeRedirectUri() which might try to use the old Expo proxy.
+
+Environment: >    - Remind me to keep WITHINGS_CALLBACK_URL=healthings-medilab://oauth in my .env.

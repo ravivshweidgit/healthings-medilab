@@ -1,0 +1,9 @@
+"Let's standardize the OAuth flow to use a custom scheme.
+
+In app.json, set the scheme to healthings-medilab.
+
+In .env, update WITHINGS_CALLBACK_URL to healthings-medilab://oauth.
+
+Update the WithingsApiService and the link button to ensure they use this new URL.
+
+Since we're using Expo Go, ensure WebBrowser.openAuthSessionAsync is correctly handling this scheme so it returns me to the app after I authorize."

@@ -14,6 +14,9 @@ export const WellnessColors = {
   iconTintGreen: '#E8F5E9',
   noticeSoftBg: '#FFF8E1',
   noticeSoftBorder: '#FFE082',
+  /** Soft band for metabolic “pair” (e.g. visceral fat + glucose). */
+  metabolicPairBg: '#EDF4FF',
+  metabolicPairBorder: '#D6E8FC',
 } as const;
 
 export const cardShadow = {

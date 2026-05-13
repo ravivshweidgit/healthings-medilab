@@ -4,8 +4,9 @@
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "start:dev": "expo start --dev-client",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web"
   },
   "dependencies": {
@@ -16,7 +17,10 @@
     "d3-shape": "^3.2.0",
     "expo": "~54.0.33",
     "expo-constants": "~18.0.13",
+    "expo-dev-client": "~6.0.21",
+    "expo-secure-store": "~15.0.8",
     "expo-status-bar": "~3.0.9",
+    "expo-web-browser": "~15.0.11",
     "lucide-react-native": "^1.14.0",
     "react": "19.1.0",
     "react-native": "0.81.5",
@@ -31,5 +35,20 @@
     "react-native-dotenv": "^3.4.11",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "metro": "0.83.3",
+    "metro-config": "0.83.3",
+    "metro-runtime": "0.83.3",
+    "metro-resolver": "0.83.3",
+    "metro-file-map": "0.83.3",
+    "metro-source-map": "0.83.3",
+    "metro-cache": "0.83.3",
+    "metro-core": "0.83.3",
+    "metro-transform-worker": "0.83.3",
+    "metro-transform-plugins": "0.83.3",
+    "metro-symbolicate": "0.83.3",
+    "metro-babel-transformer": "0.83.3",
+    "metro-minify-terser": "0.83.3"
+  }
 }

@@ -1,0 +1,7 @@
+"Now that the service is ready, let's update DashboardScreen.tsx (or your main health screen).
+
+Data Integration: Use the fetchWeightMetrics() function inside a useEffect (or a React Query hook) to populate the state.
+
+UI Design: Create a new 'Body Scan' card that displays the Weight, Muscle Mass, Fat Mass, and especially the Visceral Fat Index.
+
+Comparison Logic: If we have the CareSens data loaded, let's place the latest Glucose reading right next to the Visceral Fat. This is the core of the Medilab vision: seeing the metabolic cause and effect in one place."

@@ -1,0 +1,9 @@
+"I want to use real Withings data even in development mode. Please update WithingsApiService.ts:
+
+Remove the if (__DEV__) check that forces mock data in fetchWeightMetrics and fetchWeightVisceralTrend7d.
+
+Logic Change: Only return mock data if getValidAccessToken() fails or returns null (meaning I'm not logged in yet).
+
+Implement the Link: Create a simple 'Link Withings Account' action in the Dashboard. When I click it, use WebBrowser.openAuthSessionAsync to perform the real OAuth flow using my CLIENT_ID and SECRET.
+
+Persistence: Once I log in once, the token should stay in my local SecureStore so every time I refresh the app in Dev, it pulls my real measurements from Givatayim."

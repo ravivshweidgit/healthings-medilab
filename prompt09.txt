@@ -1,0 +1,3 @@
+"The dashboard now shows the latest metrics perfectly. Let's create a Trend Analysis section.
+I want a graph that overlays Weight/Visceral Fat (from Withings) against Average Daily Glucose (from CareSens/Health Connect) over the last 7 days.
+This will help me see if my 7,200m walks are actually moving the needle on my metabolic health."

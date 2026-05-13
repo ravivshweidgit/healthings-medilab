@@ -1,3 +1,5 @@
+const path = require('path');
+
 module.exports = function (api) {
   api.cache(true);
   return {
@@ -7,7 +9,7 @@ module.exports = function (api) {
         'module:react-native-dotenv',
         {
           moduleName: '@env',
-          path: '.env',
+          path: path.join(__dirname, '.env'),
           safe: false,
           allowUndefined: true,
         },
