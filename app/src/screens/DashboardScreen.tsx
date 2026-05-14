@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -248,13 +249,25 @@ export const DashboardScreen = () => {
           </View>
         ) : null}
 
-        <View style={[styles.heroCard, cardShadow]}>
-          <Text style={styles.heroLabel}>METABOLIC SCORE</Text>
-          <Text style={styles.heroNumber}>{Math.round(safeScore)}</Text>
-          <View style={styles.heroProgressTrack}>
-            <View style={[styles.heroProgressFill, { width: progressWidth }]} />
+        <View style={styles.glucoseHistorySection}>
+          <View style={styles.chartBleed}>
+            <View style={[styles.chartCardBleed, cardShadow]}>
+              <MetabolicChart
+                glucose={glucoseData}
+                heartRate={heartRateData}
+                activityZones={activityZones}
+                withingsSnapshot={
+                  bodyScan
+                    ? {
+                        muscleMassKg: bodyScan.muscleMassKg,
+                        fatMassKg: bodyScan.fatMassKg,
+                        weightKg: bodyScan.weightKg,
+                      }
+                    : null
+                }
+              />
+            </View>
           </View>
-          <Text style={styles.heroSub}>{metabolicScoreLine(efficiencyScore)}</Text>
         </View>
 
         <View style={[styles.bodyScanCard, cardShadow]}>
@@ -267,59 +280,124 @@ export const DashboardScreen = () => {
                 accessibilityLabel="Withings"
               />
             </View>
-            <View style={styles.bodyScanTitleBlock}>
-              <Text style={styles.bodyScanKicker}>BODY SCAN</Text>
-              <Text style={styles.bodyScanSubtitle}>Withings · weight & composition</Text>
+            <View style={styles.withingsHeaderMiddle}>
+              <View
+                style={[
+                  styles.withingsStatusBadge,
+                  withingsLinked ? styles.withingsStatusBadgeOn : styles.withingsStatusBadgeOff,
+                ]}
+                accessible
+                accessibilityRole="text"
+                accessibilityLabel={
+                  withingsLinked ? 'Withings connected, signed in' : 'Withings disconnected, signed out'
+                }
+              >
+                <Text
+                  accessible={false}
+                  importantForAccessibility="no"
+                  style={[
+                    styles.withingsStatusLine,
+                    Platform.OS === 'android' && styles.withingsStatusLineAndroid,
+                    withingsLinked ? styles.withingsStatusLineOn : styles.withingsStatusLineOff,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {withingsLinked ? 'OK' : 'X'}
+                </Text>
+              </View>
             </View>
-            {bodyScanLoading ? <ActivityIndicator color={WellnessColors.accentBlue} /> : null}
-          </View>
-
-          <View style={styles.withingsLinkRow}>
-            {withingsLinked ? <Text style={styles.withingsLinkedPill}>Withings · signed in</Text> : null}
             <Pressable
-              style={[styles.withingsLinkButton, (linkBusy || bodyScanLoading) && styles.withingsLinkButtonDisabled]}
+              accessibilityRole="button"
+              accessibilityLabel={withingsLinked ? 'Re-link Withings account' : 'Link Withings account'}
+              style={[
+                styles.withingsLinkButtonCompact,
+                (linkBusy || bodyScanLoading) && styles.withingsLinkButtonDisabled,
+              ]}
               onPress={handleLinkWithings}
               disabled={linkBusy || bodyScanLoading}
-              accessibilityRole="button"
-              accessibilityLabel="Link Withings account"
             >
               {linkBusy ? (
                 <ActivityIndicator color={WellnessColors.accentBlue} size="small" />
               ) : (
-                <Text style={styles.withingsLinkButtonText}>
-                  {withingsLinked ? 'Re-link Withings account' : 'Link Withings account'}
+                <Text style={styles.withingsLinkButtonTextCompact}>
+                  {withingsLinked ? 'Re-link' : 'Link'}
                 </Text>
               )}
             </Pressable>
+            {bodyScanLoading ? <ActivityIndicator color={WellnessColors.accentBlue} style={styles.bodyScanHeaderSpinner} /> : null}
           </View>
+
           {linkError ? <Text style={styles.linkErrorText}>{linkError}</Text> : null}
 
           {bodyScanError ? <Text style={styles.bodyScanErrorText}>{bodyScanError}</Text> : null}
 
           {bodyScan && !bodyScanLoading ? (
             <>
+              <View style={[styles.bodyScanRow, styles.bodyScanTripleRow]}>
+                <View
+                  style={styles.bodyScanMetricThird}
+                  accessible
+                  accessibilityRole="text"
+                  accessibilityLabel={`Weight ${formatKg(bodyScan.weightKg)}`}
+                >
+                  <Text style={styles.bodyScanMetricLabelTriple} accessible={false}>
+                    Weight
+                  </Text>
+                  <Text
+                    style={styles.bodyScanMetricValueTriple}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
+                    accessible={false}
+                  >
+                    {formatKg(bodyScan.weightKg)}
+                  </Text>
+                </View>
+                <View
+                  style={styles.bodyScanMetricThird}
+                  accessible
+                  accessibilityRole="text"
+                  accessibilityLabel={`Muscle mass ${formatKg(bodyScan.muscleMassKg)}`}
+                >
+                  <Text style={styles.bodyScanMetricLabelTriple} accessible={false}>
+                    Muscle
+                  </Text>
+                  <Text
+                    style={styles.bodyScanMetricValueTriple}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
+                    accessible={false}
+                  >
+                    {formatKg(bodyScan.muscleMassKg)}
+                  </Text>
+                </View>
+                <View
+                  style={styles.bodyScanMetricThird}
+                  accessible
+                  accessibilityRole="text"
+                  accessibilityLabel={`Fat mass ${formatKg(bodyScan.fatMassKg)}`}
+                >
+                  <Text style={styles.bodyScanMetricLabelTriple} accessible={false}>
+                    Fat
+                  </Text>
+                  <Text
+                    style={styles.bodyScanMetricValueTriple}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
+                    accessible={false}
+                  >
+                    {formatKg(bodyScan.fatMassKg)}
+                  </Text>
+                </View>
+              </View>
+
               {formatMeasuredAt(bodyScan.measuredAt) ? (
                 <Text style={styles.bodyScanMeasured}>
                   Last measurement · {formatMeasuredAt(bodyScan.measuredAt)}
                 </Text>
               ) : null}
-
-              <View style={styles.bodyScanRow}>
-                <View style={styles.bodyScanMetricHalf}>
-                  <Text style={styles.bodyScanMetricLabel}>Weight</Text>
-                  <Text style={styles.bodyScanMetricValue}>{formatKg(bodyScan.weightKg)}</Text>
-                </View>
-                <View style={styles.bodyScanMetricHalf}>
-                  <Text style={styles.bodyScanMetricLabel}>Muscle mass</Text>
-                  <Text style={styles.bodyScanMetricValue}>{formatKg(bodyScan.muscleMassKg)}</Text>
-                </View>
-              </View>
-              <View style={styles.bodyScanRow}>
-                <View style={styles.bodyScanMetricFull}>
-                  <Text style={styles.bodyScanMetricLabel}>Fat mass</Text>
-                  <Text style={styles.bodyScanMetricValue}>{formatKg(bodyScan.fatMassKg)}</Text>
-                </View>
-              </View>
 
               {hasHealthConnectGlucose ? (
                 <View style={styles.metabolicPair}>
@@ -357,6 +435,44 @@ export const DashboardScreen = () => {
           ) : null}
         </View>
 
+        {dataSource === 'health-connect' ? (
+          <View style={styles.careSensImportSection}>
+            <Pressable
+              style={[styles.careSensImportButton, importBusy && styles.careSensImportButtonDisabled]}
+              onPress={handleImportCareSensCsv}
+              disabled={importBusy}
+              accessibilityRole="button"
+              accessibilityLabel="Import CareSens Air CSV"
+            >
+              {importBusy ? (
+                <ActivityIndicator color={WellnessColors.accentBlue} />
+              ) : (
+                <View style={styles.careSensImportButtonRow}>
+                  <View style={styles.careSensImportLogoWrap}>
+                    <Image
+                      source={require('../../assets/CareScenseAirLogo.jpeg')}
+                      style={styles.careSensImportButtonLogo}
+                      resizeMode="contain"
+                      accessibilityIgnoresInvertColors
+                    />
+                  </View>
+                  <Text style={styles.careSensImportButtonLabel}>Import</Text>
+                </View>
+              )}
+            </Pressable>
+            {importMessage ? <Text style={styles.importMessageText}>{importMessage}</Text> : null}
+          </View>
+        ) : null}
+
+        <View style={[styles.heroCard, cardShadow]}>
+          <Text style={styles.heroLabel}>METABOLIC SCORE</Text>
+          <Text style={styles.heroNumber}>{Math.round(safeScore)}</Text>
+          <View style={styles.heroProgressTrack}>
+            <View style={[styles.heroProgressFill, { width: progressWidth }]} />
+          </View>
+          <Text style={styles.heroSub}>{metabolicScoreLine(efficiencyScore)}</Text>
+        </View>
+
         <View style={styles.gridRow}>
           <View style={[styles.metricCard, cardShadow]}>
             <View style={[styles.iconCircle, { backgroundColor: WellnessColors.iconTintGreen }]}>
@@ -374,11 +490,17 @@ export const DashboardScreen = () => {
           </View>
         </View>
 
-        <View style={styles.chartBleed}>
-          <View style={[styles.chartCardBleed, cardShadow]}>
-            <MetabolicChart glucose={glucoseData} heartRate={heartRateData} activityZones={activityZones} />
-          </View>
-        </View>
+        <Pressable
+          style={[styles.primaryButton, (isLoading || bodyScanLoading || trendLoading) && styles.primaryButtonDisabled]}
+          onPress={handleSync}
+          disabled={isLoading || bodyScanLoading || trendLoading}
+        >
+          {(isLoading || bodyScanLoading || trendLoading) ? (
+            <ActivityIndicator color={WellnessColors.surface} />
+          ) : (
+            <Text style={styles.primaryButtonText}>Refresh my data</Text>
+          )}
+        </Pressable>
 
         <View style={styles.trendBleed}>
           <View style={[styles.trendCardBleed, cardShadow]}>
@@ -392,46 +514,6 @@ export const DashboardScreen = () => {
             {trend7dMerged ? <MetabolicTrendChart7d days={trend7dMerged} /> : null}
           </View>
         </View>
-
-        <Pressable
-          style={[styles.primaryButton, (isLoading || bodyScanLoading || trendLoading) && styles.primaryButtonDisabled]}
-          onPress={handleSync}
-          disabled={isLoading || bodyScanLoading || trendLoading}
-        >
-          {(isLoading || bodyScanLoading || trendLoading) ? (
-            <ActivityIndicator color={WellnessColors.surface} />
-          ) : (
-            <Text style={styles.primaryButtonText}>Refresh my data</Text>
-          )}
-        </Pressable>
-
-        {dataSource === 'health-connect' ? (
-          <Pressable
-            style={[styles.careSensImportButton, importBusy && styles.careSensImportButtonDisabled]}
-            onPress={handleImportCareSensCsv}
-            disabled={importBusy}
-            accessibilityRole="button"
-            accessibilityLabel="Import CareSens Air CSV"
-          >
-            {importBusy ? (
-              <ActivityIndicator color={WellnessColors.accentBlue} />
-            ) : (
-              <View style={styles.careSensImportButtonRow}>
-                <View style={styles.careSensImportLogoWrap}>
-                  <Image
-                    source={require('../../assets/CareScenseAirLogo.jpeg')}
-                    style={styles.careSensImportButtonLogo}
-                    resizeMode="contain"
-                    accessibilityIgnoresInvertColors
-                  />
-                </View>
-                <Text style={styles.careSensImportButtonLabel}>Import</Text>
-              </View>
-            )}
-          </Pressable>
-        ) : null}
-
-        {importMessage ? <Text style={styles.importMessageText}>{importMessage}</Text> : null}
 
         {error ? <Text style={styles.errorText}>We couldn't refresh just now. Try again shortly.</Text> : null}
 
@@ -450,7 +532,7 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 4,
     paddingBottom: 40,
   },
   brandHeader: {
@@ -470,7 +552,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 10,
     paddingHorizontal: 14,
-    marginBottom: 16,
+    marginBottom: 10,
   },
   noticeText: {
     color: WellnessColors.textPrimary,
@@ -522,73 +604,90 @@ const styles = StyleSheet.create({
   bodyScanCard: {
     backgroundColor: WellnessColors.surface,
     borderRadius: 24,
-    padding: 24,
-    marginBottom: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    marginBottom: 10,
   },
   bodyScanHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
+  },
+  bodyScanHeaderSpinner: {
+    marginLeft: 8,
   },
   withingsLogoWrap: {
-    width: 76,
-    height: 76,
+    width: 52,
+    height: 52,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   withingsHeaderLogo: {
     width: '100%',
     height: '100%',
   },
-  bodyScanTitleBlock: {
+  withingsHeaderMiddle: {
     flex: 1,
-  },
-  bodyScanKicker: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: WellnessColors.textSecondary,
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  bodyScanSubtitle: {
-    fontSize: 13,
-    color: WellnessColors.textSecondary,
-    lineHeight: 18,
-  },
-  withingsLinkRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    minWidth: 0,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 10,
+    paddingHorizontal: 4,
   },
-  withingsLinkedPill: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: WellnessColors.accentGreen,
-    backgroundColor: WellnessColors.iconTintGreen,
-    paddingVertical: 6,
+  withingsStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    maxWidth: '100%',
+    minWidth: 40,
+    minHeight: 34,
+    paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: 999,
-    overflow: 'hidden',
   },
-  withingsLinkButton: {
-    flexGrow: 1,
-    minWidth: 160,
+  withingsStatusBadgeOn: {
+    backgroundColor: WellnessColors.iconTintGreen,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.35)',
+  },
+  withingsStatusBadgeOff: {
+    backgroundColor: '#FFEBEE',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 82, 82, 0.35)',
+  },
+  withingsStatusLine: {
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 16,
+    fontVariant: ['tabular-nums'],
+    letterSpacing: 0.5,
+  },
+  withingsStatusLineOn: {
+    color: '#2E7D32',
+  },
+  withingsStatusLineOff: {
+    color: '#C62828',
+  },
+  withingsStatusLineAndroid: {
+    includeFontPadding: false,
+  },
+  withingsLinkButtonCompact: {
+    flexShrink: 0,
     borderWidth: 1,
     borderColor: WellnessColors.accentBlue,
     borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 7,
+    paddingHorizontal: 15,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 34,
+    minWidth: 72,
   },
   withingsLinkButtonDisabled: {
     opacity: 0.55,
   },
-  withingsLinkButtonText: {
-    fontSize: 14,
+  withingsLinkButtonTextCompact: {
+    fontSize: 12,
     fontWeight: '600',
     color: WellnessColors.accentBlue,
   },
@@ -605,22 +704,36 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   bodyScanMeasured: {
-    fontSize: 12,
+    fontSize: 10,
+    lineHeight: 14,
     color: WellnessColors.textSecondary,
-    marginBottom: 16,
+    marginTop: 4,
+    marginBottom: 12,
   },
   bodyScanRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  bodyScanMetricHalf: {
+  bodyScanTripleRow: {
+    gap: 6,
+  },
+  bodyScanMetricThird: {
     flex: 1,
     minWidth: 0,
   },
-  bodyScanMetricFull: {
-    flex: 1,
-    width: '100%',
+  bodyScanMetricLabelTriple: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: WellnessColors.textSecondary,
+    letterSpacing: 0.4,
+    marginBottom: 4,
+  },
+  bodyScanMetricValueTriple: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: WellnessColors.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
   bodyScanMetricLabel: {
     fontSize: 11,
@@ -628,12 +741,6 @@ const styles = StyleSheet.create({
     color: WellnessColors.textSecondary,
     letterSpacing: 0.8,
     marginBottom: 6,
-  },
-  bodyScanMetricValue: {
-    fontSize: 20,
-    fontWeight: '500',
-    color: WellnessColors.textPrimary,
-    fontVariant: ['tabular-nums'],
   },
   metabolicPair: {
     marginTop: 8,
@@ -742,7 +849,7 @@ const styles = StyleSheet.create({
   },
   /** Same horizontal gutter as hero/metric cards (scroll padding + card inner padding). */
   chartBleed: {
-    marginBottom: 20,
+    marginBottom: 6,
     alignSelf: 'stretch',
     width: '100%',
   },
@@ -750,9 +857,9 @@ const styles = StyleSheet.create({
     backgroundColor: WellnessColors.surface,
     borderRadius: 24,
     paddingHorizontal: 8,
-    paddingTop: 16,
-    paddingBottom: 12,
-    minHeight: 360,
+    paddingTop: 10,
+    paddingBottom: 8,
+    minHeight: 328,
     overflow: 'visible',
   },
   trendBleed: {
@@ -796,7 +903,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     paddingVertical: 12,
     paddingHorizontal: 18,
-    marginBottom: 12,
     backgroundColor: WellnessColors.surface,
     minHeight: 56,
   },
@@ -827,12 +933,19 @@ const styles = StyleSheet.create({
     color: WellnessColors.accentBlue,
     letterSpacing: 0.3,
   },
+  glucoseHistorySection: {
+    marginBottom: 6,
+  },
+  careSensImportSection: {
+    gap: 6,
+    marginBottom: 10,
+  },
   primaryButton: {
     backgroundColor: WellnessColors.accentBlue,
     borderRadius: 24,
     paddingVertical: 16,
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 20,
   },
   primaryButtonDisabled: {
     opacity: 0.7,

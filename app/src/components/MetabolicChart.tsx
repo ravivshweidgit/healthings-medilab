@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } fr
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import { curveMonotoneX, line } from 'd3-shape';
 import type { ActivityZone } from '../logic/MetabolicLogic';
+import type { WeightMetricsForDashboard } from '../services/WithingsApiService';
 import { WellnessColors } from '../theme/wellness';
 
 type Point = { timestamp: string; value: number };
@@ -10,8 +11,12 @@ type Point = { timestamp: string; value: number };
 /** Upper bound on series points after downsampling (memory / path complexity). */
 const MAX_SERIES_POINTS_CAP = 700;
 const MIN_SERIES_POINTS = 64;
-const REFERENCE_MG_DL = [70, 100, 140] as const;
-const REFERENCE_BPM = [60, 100, 140] as const;
+/** Single Y scale for glucose (mg/dL) and heart rate (BPM) overlaid in the same vertical space. */
+const SHARED_Y_MIN = 50;
+const SHARED_Y_MAX = 200;
+/** Horizontal grid lines (shared scale for glucose + heart rate). */
+const SHARED_Y_GRID_LINES = [50, 75, 100, 125, 150, 175, 200] as const;
+const SHARED_Y_AXIS_LABELS = new Set<number>([50, 100, 150, 200]);
 
 const ACTIVITY_STRIP_PX = 10;
 
@@ -182,13 +187,22 @@ function buildTimeTicks(tMin: number, tMax: number, padL: number, innerW: number
   return ticks;
 }
 
+type WithingsSnapshot = Pick<WeightMetricsForDashboard, 'muscleMassKg' | 'fatMassKg' | 'weightKg'>;
+
+function formatKgSnapshot(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return '—';
+  return `${value.toFixed(1)} kg`;
+}
+
 type Props = {
   glucose: Point[];
   heartRate: Point[];
   activityZones: ActivityZone[];
+  /** Latest Withings body metrics (shown under chart legend). */
+  withingsSnapshot?: WithingsSnapshot | null;
 };
 
-export function MetabolicChart({ glucose, heartRate, activityZones }: Props) {
+export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnapshot }: Props) {
   const { width: windowW } = useWindowDimensions();
   const [viewportPresetIndex, setViewportPresetIndex] = useState(DEFAULT_VIEWPORT_PRESET_INDEX);
   const [nowAnchor, setNowAnchor] = useState(() => Date.now());
@@ -262,32 +276,45 @@ export function MetabolicChart({ glucose, heartRate, activityZones }: Props) {
     const g = downsample(gWin, seriesBudget);
     const h = downsample(hWin, seriesBudget);
 
-    const gVals = g.map((p) => p.value).filter((v) => Number.isFinite(v));
-    const hVals = h.map((p) => p.value).filter((v) => Number.isFinite(v));
-
-    const gDataMin = gVals.length ? Math.min(...gVals) : 70;
-    const gDataMax = gVals.length ? Math.max(...gVals) : 140;
-    const gDomainMin = Math.min(70, gDataMin);
-    const gDomainMax = Math.max(140, gDataMax);
-
-    const hDataMin = hVals.length ? Math.min(...hVals) : 72;
-    const hDataMax = hVals.length ? Math.max(...hVals) : 100;
-    const hDomainMin = Math.min(55, hDataMin - 3);
-    const hDomainMax = Math.max(145, hDataMax + 3);
-
     const padL = SVG_PAD_L;
     const padR = SVG_PAD_R;
     const padT = SVG_PAD_T;
     const padB = SVG_PAD_B;
 
-    const glucoseSlotTop = 0;
-    const glucoseSlotH = plotH * 0.55;
-    const heartSlotTop = plotH * 0.58;
+    const chartSlotTop = 0;
+    const chartSlotH = plotH - padT - padB - ACTIVITY_STRIP_PX;
     const axisY = plotH - padB;
-    const heartSlotH = plotH - padT - padB - heartSlotTop - ACTIVITY_STRIP_PX;
 
-    const gPx = toPixelPoints(g, mapTMin, mapTMax, gDomainMin, gDomainMax, chartW, plotH, padL, padT, padR, padB, glucoseSlotTop, glucoseSlotH);
-    const hPx = toPixelPoints(h, mapTMin, mapTMax, hDomainMin, hDomainMax, chartW, plotH, padL, padT, padR, padB, heartSlotTop, heartSlotH);
+    const gPx = toPixelPoints(
+      g,
+      mapTMin,
+      mapTMax,
+      SHARED_Y_MIN,
+      SHARED_Y_MAX,
+      chartW,
+      plotH,
+      padL,
+      padT,
+      padR,
+      padB,
+      chartSlotTop,
+      chartSlotH
+    );
+    const hPx = toPixelPoints(
+      h,
+      mapTMin,
+      mapTMax,
+      SHARED_Y_MIN,
+      SHARED_Y_MAX,
+      chartW,
+      plotH,
+      padL,
+      padT,
+      padR,
+      padB,
+      chartSlotTop,
+      chartSlotH
+    );
 
     const glucosePath = buildSmoothPath(gPx);
     const heartRatePath = buildSmoothPath(hPx);
@@ -295,18 +322,16 @@ export function MetabolicChart({ glucose, heartRate, activityZones }: Props) {
     const innerW = Math.max(1, chartW - padL - padR);
     const spanT = Math.max(1, mapTMax - mapTMin);
 
-    const gridLines = REFERENCE_MG_DL.map((mg) => {
-      const clamped = Math.min(gDomainMax, Math.max(gDomainMin, mg));
-      const ny = (clamped - gDomainMin) / Math.max(1e-6, gDomainMax - gDomainMin);
-      const y = padT + glucoseSlotTop + (1 - ny) * glucoseSlotH;
-      return { mg, y, key: `grid-${mg}` };
-    });
-
-    const hrGridLines = REFERENCE_BPM.map((bpm) => {
-      const clamped = Math.min(hDomainMax, Math.max(hDomainMin, bpm));
-      const ny = (clamped - hDomainMin) / Math.max(1e-6, hDomainMax - hDomainMin);
-      const y = padT + heartSlotTop + (1 - ny) * heartSlotH;
-      return { bpm, y, key: `hr-${bpm}` };
+    const spanY = SHARED_Y_MAX - SHARED_Y_MIN;
+    const gridLines = SHARED_Y_GRID_LINES.map((v) => {
+      const ny = (v - SHARED_Y_MIN) / Math.max(1e-6, spanY);
+      const y = padT + chartSlotTop + (1 - ny) * chartSlotH;
+      return {
+        value: v,
+        y,
+        key: `grid-${v}`,
+        showAxisLabel: SHARED_Y_AXIS_LABELS.has(v),
+      };
     });
 
     const activityLaneY = axisY - ACTIVITY_STRIP_PX / 2;
@@ -335,7 +360,6 @@ export function MetabolicChart({ glucose, heartRate, activityZones }: Props) {
       glucosePath,
       heartRatePath,
       gridLines,
-      hrGridLines,
       activitySegments,
       timeTicks,
       axisY,
@@ -417,19 +441,7 @@ export function MetabolicChart({ glucose, heartRate, activityZones }: Props) {
           y2={gl.y}
           stroke={WellnessColors.gridLine}
           strokeWidth={1}
-          opacity={0.95}
-        />
-      ))}
-      {prepared.hrGridLines.map((hl) => (
-        <Line
-          key={hl.key}
-          x1={prepared.padL}
-          y1={hl.y}
-          x2={prepared.chartW - SVG_PAD_R}
-          y2={hl.y}
-          stroke={WellnessColors.gridLine}
-          strokeWidth={1}
-          opacity={0.65}
+          opacity={gl.showAxisLabel ? 0.95 : 0.62}
         />
       ))}
       {prepared.heartRatePath ? (
@@ -483,7 +495,6 @@ export function MetabolicChart({ glucose, heartRate, activityZones }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.chartTitle}>HISTORY</Text>
 
       <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={styles.viewportPresetRow}>
         {VIEWPORT_PRESETS.map((preset, index) => {
@@ -503,16 +514,13 @@ export function MetabolicChart({ glucose, heartRate, activityZones }: Props) {
 
       <View style={[styles.chartRow, styles.chartRowLtr, { minHeight: svgH }]}>
         <View style={[styles.yAxis, { height: plotH }]}>
-          {prepared.gridLines.map((gl) => (
-            <Text key={`y-g-${gl.mg}`} style={[styles.yAxisLabel, { top: gl.y - 8 }]}>
-              {gl.mg}
-            </Text>
-          ))}
-          {prepared.hrGridLines.map((hl) => (
-            <Text key={`y-h-${hl.bpm}`} style={[styles.yAxisLabel, styles.yAxisHrLabel, { top: hl.y - 8 }]}>
-              {hl.bpm}
-            </Text>
-          ))}
+          {prepared.gridLines
+            .filter((gl) => gl.showAxisLabel)
+            .map((gl) => (
+              <Text key={`y-${gl.value}`} style={[styles.yAxisLabel, { top: gl.y - 8 }]}>
+                {gl.value}
+              </Text>
+            ))}
         </View>
 
         <View style={[styles.chartPlot, { height: prepared.svgH }]}>
@@ -562,15 +570,26 @@ export function MetabolicChart({ glucose, heartRate, activityZones }: Props) {
         </View>
       </View>
 
-      <Text style={styles.zoomHint}>
-        Window = <Text style={styles.zoomHintEm}>{prepared.viewportLabel}</Text> of time; right is live “now”, left is earlier. Swipe on
-        the chart to slide through older history (same window length).
-      </Text>
-      <Text style={styles.tapHint}>Swipe right on the chart toward the past; a chip picks window size and jumps back to live.</Text>
       <View style={styles.legend}>
         <Text style={styles.legendGlucose}>Glucose</Text>
         <Text style={styles.legendHeartRate}>Heart rate</Text>
         <Text style={styles.legendActivity}>Walk / activity</Text>
+      </View>
+
+      <View style={styles.legendWithingsBlock}>
+        <Text
+          style={styles.legendWithingsLine}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.78}
+        >
+          Muscle{' '}
+          <Text style={styles.legendWithingsValue}>{formatKgSnapshot(withingsSnapshot?.muscleMassKg)}</Text>
+          {' · Fat '}
+          <Text style={styles.legendWithingsValue}>{formatKgSnapshot(withingsSnapshot?.fatMassKg)}</Text>
+          {' · Weight '}
+          <Text style={styles.legendWithingsValue}>{formatKgSnapshot(withingsSnapshot?.weightKg)}</Text>
+        </Text>
       </View>
     </View>
   );
@@ -580,24 +599,14 @@ const styles = StyleSheet.create({
   wrap: {
     width: '100%',
     alignSelf: 'stretch',
-    minHeight: SVG_TOTAL_HEIGHT + 80,
-  },
-  chartTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: WellnessColors.textSecondary,
-    letterSpacing: 1,
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-    width: '100%',
+    minHeight: SVG_TOTAL_HEIGHT + 52,
   },
   viewportPresetRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 4,
-    marginBottom: 8,
+    paddingVertical: 2,
+    marginBottom: 4,
     paddingRight: 4,
   },
   viewportChip: {
@@ -661,10 +670,6 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     color: WellnessColors.textSecondary,
   },
-  yAxisHrLabel: {
-    fontSize: 9,
-    opacity: 0.92,
-  },
   graphCanvas: {
     backgroundColor: WellnessColors.surface,
     borderRadius: 0,
@@ -688,30 +693,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  zoomHint: {
-    fontSize: 11,
-    color: WellnessColors.textSecondary,
-    textAlign: 'center',
-    marginTop: 6,
-    paddingHorizontal: 8,
-    lineHeight: 16,
-  },
-  zoomHintEm: {
-    fontWeight: '600',
-    color: WellnessColors.textSecondary,
-  },
-  tapHint: {
-    fontSize: 11,
-    color: WellnessColors.textSecondary,
-    textAlign: 'center',
-    marginTop: 6,
-  },
   legend: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 16,
-    marginTop: 10,
+    marginTop: 6,
     rowGap: 8,
   },
   legendGlucose: {
@@ -728,5 +715,24 @@ const styles = StyleSheet.create({
     color: WellnessColors.accentBlue,
     fontSize: 12,
     fontWeight: '500',
+  },
+  legendWithingsBlock: {
+    marginTop: 4,
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    paddingHorizontal: 4,
+  },
+  legendWithingsLine: {
+    width: '100%',
+    fontSize: 9,
+    color: WellnessColors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 12,
+    fontVariant: ['tabular-nums'],
+  },
+  legendWithingsValue: {
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    color: WellnessColors.textSecondary,
   },
 });
