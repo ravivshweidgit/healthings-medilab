@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
   wrap: {
     width: '100%',
     alignSelf: 'stretch',
-    minHeight: SVG_TOTAL_HEIGHT + 52,
+    minHeight: SVG_TOTAL_HEIGHT + 40,
   },
   viewportPresetRow: {
     flexDirection: 'row',
@@ -698,7 +698,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 16,
-    marginTop: 6,
+    marginTop: 4,
     rowGap: 8,
   },
   legendGlucose: {
@@ -717,7 +717,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   legendWithingsBlock: {
-    marginTop: 4,
+    marginTop: 2,
     alignItems: 'center',
     alignSelf: 'stretch',
     paddingHorizontal: 4,

@@ -12,6 +12,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { MetabolicChart } from '../components/MetabolicChart';
@@ -37,10 +38,24 @@ import {
   metabolicScoreLine,
 } from '../utils/wellnessCopy';
 
-/** Caps logo height so it stays within the screen; image uses `contain` inside this box. */
-const BRAND_HEADER_HEIGHT = 152;
-/** Pulls the demo notice up into the letterbox below the bitmap (fixed bar + `contain`). */
-const NOTICE_OVERLAP_UNDER_LOGO = 36;
+/** Must match `styles.scroll.paddingHorizontal`. */
+const SCROLL_HORIZONTAL_PADDING = 20;
+const BRAND_LOGO = require('../../assets/brand-logo.png');
+const BRAND_HEADER_HEIGHT_FALLBACK = 152;
+
+function computeBrandHeaderHeight(windowWidth: number): number {
+  const contentW = Math.max(1, windowWidth - SCROLL_HORIZONTAL_PADDING * 2);
+  try {
+    const r = Image.resolveAssetSource(BRAND_LOGO);
+    if (r?.width && r?.height && r.width > 0 && r.height > 0) {
+      const raw = (contentW * r.height) / r.width;
+      return Math.round(Math.min(220, Math.max(72, raw)));
+    }
+  } catch {
+    /* ignore */
+  }
+  return BRAND_HEADER_HEIGHT_FALLBACK;
+}
 
 function formatKg(value: number | null | undefined, decimals = 1): string {
   if (value == null || Number.isNaN(value)) return '—';
@@ -74,6 +89,13 @@ function formatMeasuredAt(iso: string | null | undefined): string | null {
 }
 
 export const DashboardScreen = () => {
+  const { width: windowWidth } = useWindowDimensions();
+  const brandHeaderHeight = useMemo(() => computeBrandHeaderHeight(windowWidth), [windowWidth]);
+  const noticeOverlapUnderLogo = useMemo(
+    () => Math.min(40, Math.round(brandHeaderHeight * 0.24)),
+    [brandHeaderHeight]
+  );
+
   const {
     glucoseData,
     heartRateData,
@@ -234,9 +256,9 @@ export const DashboardScreen = () => {
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
       >
-        <View style={styles.brandHeader} accessibilityRole="header">
+        <View style={[styles.brandHeader, { height: brandHeaderHeight }]} accessibilityRole="header">
           <Image
-            source={require('../../assets/brand-logo.png')}
+            source={BRAND_LOGO}
             style={styles.brandLogo}
             resizeMode="contain"
             accessibilityLabel="Healthings Medilab"
@@ -244,7 +266,7 @@ export const DashboardScreen = () => {
         </View>
 
         {demoNotice ? (
-          <View style={[styles.notice, { marginTop: -NOTICE_OVERLAP_UNDER_LOGO }]}>
+          <View style={[styles.notice, { marginTop: -noticeOverlapUnderLogo }]}>
             <Text style={styles.noticeText}>{demoNotice}</Text>
           </View>
         ) : null}
@@ -532,13 +554,12 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingTop: 0,
     paddingBottom: 40,
   },
   brandHeader: {
     marginBottom: 0,
     width: '100%',
-    height: BRAND_HEADER_HEIGHT,
     alignSelf: 'stretch',
   },
   brandLogo: {
@@ -604,7 +625,8 @@ const styles = StyleSheet.create({
   bodyScanCard: {
     backgroundColor: WellnessColors.surface,
     borderRadius: 24,
-    paddingVertical: 16,
+    paddingTop: 10,
+    paddingBottom: 16,
     paddingHorizontal: 18,
     marginBottom: 10,
   },
@@ -849,7 +871,7 @@ const styles = StyleSheet.create({
   },
   /** Same horizontal gutter as hero/metric cards (scroll padding + card inner padding). */
   chartBleed: {
-    marginBottom: 6,
+    marginBottom: 0,
     alignSelf: 'stretch',
     width: '100%',
   },
@@ -857,8 +879,8 @@ const styles = StyleSheet.create({
     backgroundColor: WellnessColors.surface,
     borderRadius: 24,
     paddingHorizontal: 8,
-    paddingTop: 10,
-    paddingBottom: 8,
+    paddingTop: 6,
+    paddingBottom: 4,
     minHeight: 328,
     overflow: 'visible',
   },
@@ -934,7 +956,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   glucoseHistorySection: {
-    marginBottom: 6,
+    marginBottom: 2,
   },
   careSensImportSection: {
     gap: 6,
