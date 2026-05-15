@@ -6,14 +6,14 @@ import type { MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
 import { WellnessColors } from '../theme/wellness';
 
 const N = 7;
-const PAD_L = 8;
+const PLOT_PAD_L = 36;
 const PAD_R = 10;
-const PAD_T = 8;
-const PAD_B = 26;
-const TOP_SLOT_FRAC = 0.52;
-const PLOT_H = 200;
-const SVG_H = PAD_T + PLOT_H + PAD_B;
+const PAD_TOP = 4;
+const STRIP_H = 46;
+const STRIP_GAP = 5;
+const AXIS_BOTTOM = 22;
 
+const FAT_MASS_STROKE = '#FB8C00';
 const VISCERAL_STROKE = '#7B1FA2';
 
 type PixelPoint = { x: number; y: number };
@@ -26,8 +26,8 @@ function shortDayLabel(dayKey: string): string {
   return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
 }
 
-function xAtIndex(i: number, padL: number, innerW: number): number {
-  return padL + (i / Math.max(1, N - 1)) * innerW;
+function xAtIndex(i: number, plotLeft: number, innerW: number): number {
+  return plotLeft + (i / Math.max(1, N - 1)) * innerW;
 }
 
 function domainPad(values: number[], fallbackMin: number, fallbackMax: number, padRatio: number): { min: number; max: number } {
@@ -36,8 +36,8 @@ function domainPad(values: number[], fallbackMin: number, fallbackMax: number, p
   let lo = Math.min(...finite);
   let hi = Math.max(...finite);
   if (lo === hi) {
-    lo -= 1;
-    hi += 1;
+    lo -= 0.5;
+    hi += 0.5;
   }
   const span = hi - lo;
   const pad = span * padRatio;
@@ -59,6 +59,10 @@ function buildSmoothPath(points: PixelPoint[]): string | null {
   return gen(points) ?? null;
 }
 
+function stripTop(index: number): number {
+  return PAD_TOP + index * (STRIP_H + STRIP_GAP);
+}
+
 type Props = {
   days: MetabolicTrend7dDay[];
   loading?: boolean;
@@ -71,84 +75,83 @@ export function MetabolicTrendChart7d({ days, loading }: Props) {
   const prepared = useMemo(() => {
     if (!days || days.length !== N) return null;
 
-    const padL = PAD_L;
-    const padR = PAD_R;
-    const padT = PAD_T;
-    const innerW = Math.max(1, chartW - padL - padR);
-    const topSlotH = PLOT_H * TOP_SLOT_FRAC;
-    const bottomSlotTop = padT + topSlotH + 6;
-    const bottomSlotH = PLOT_H - topSlotH - 6;
+    const plotLeft = PLOT_PAD_L;
+    const innerW = Math.max(1, chartW - plotLeft - PAD_R);
+    const plotBottom = stripTop(3) + STRIP_H;
 
-    const gVals = days.map((d) => d.avgGlucoseMgDl).filter((v): v is number => v != null && Number.isFinite(v));
     const wVals = days.map((d) => d.weightKg).filter((v): v is number => v != null && Number.isFinite(v));
+    const fVals = days.map((d) => d.fatMassKg).filter((v): v is number => v != null && Number.isFinite(v));
+    const mVals = days.map((d) => d.muscleMassKg).filter((v): v is number => v != null && Number.isFinite(v));
     const vVals = days.map((d) => d.visceralFatIndex).filter((v): v is number => v != null && Number.isFinite(v));
 
-    const gDom = domainPad(gVals, 85, 130, 0.12);
     const wDom = domainPad(wVals, 76, 82, 0.08);
+    const fDom = domainPad(fVals, 14, 20, 0.1);
+    const mDom = domainPad(mVals, 58, 64, 0.08);
     const vDom = domainPad(vVals, 7, 11, 0.12);
 
-    const gPts: PixelPoint[] = [];
-    const wPts: PixelPoint[] = [];
-    const vPts: PixelPoint[] = [];
+    const mkPts = (getter: (d: MetabolicTrend7dDay) => number | null, dom: { min: number; max: number }, stripIndex: number) => {
+      const top = stripTop(stripIndex);
+      const pts: PixelPoint[] = [];
+      days.forEach((d, i) => {
+        const v = getter(d);
+        if (v != null && Number.isFinite(v)) {
+          pts.push({
+            x: xAtIndex(i, plotLeft, innerW),
+            y: mapY(v, dom.min, dom.max, top, STRIP_H),
+          });
+        }
+      });
+      return pts;
+    };
 
-    days.forEach((d, i) => {
-      const x = xAtIndex(i, padL, innerW);
-      if (d.avgGlucoseMgDl != null && Number.isFinite(d.avgGlucoseMgDl)) {
-        gPts.push({
-          x,
-          y: mapY(d.avgGlucoseMgDl, gDom.min, gDom.max, padT, topSlotH),
-        });
-      }
-      if (d.weightKg != null && Number.isFinite(d.weightKg)) {
-        wPts.push({
-          x,
-          y: mapY(d.weightKg, wDom.min, wDom.max, bottomSlotTop, bottomSlotH),
-        });
-      }
-      if (d.visceralFatIndex != null && Number.isFinite(d.visceralFatIndex)) {
-        vPts.push({
-          x,
-          y: mapY(d.visceralFatIndex, vDom.min, vDom.max, bottomSlotTop, bottomSlotH),
-        });
-      }
-    });
+    const wPts = mkPts((d) => d.weightKg, wDom, 0);
+    const fPts = mkPts((d) => d.fatMassKg, fDom, 1);
+    const mPts = mkPts((d) => d.muscleMassKg, mDom, 2);
+    const vPts = mkPts((d) => d.visceralFatIndex, vDom, 3);
 
-    const glucosePath = buildSmoothPath(gPts);
     const weightPath = buildSmoothPath(wPts);
+    const fatPath = buildSmoothPath(fPts);
+    const musclePath = buildSmoothPath(mPts);
     const visceralPath = buildSmoothPath(vPts);
 
+    const mkGrid = (dom: { min: number; max: number }, stripIndex: number) => {
+      const top = stripTop(stripIndex);
+      return [dom.min, (dom.min + dom.max) / 2, dom.max].map((v) => ({
+        key: `g-${stripIndex}-${v}`,
+        y: mapY(v, dom.min, dom.max, top, STRIP_H),
+        label: v.toFixed(1),
+      }));
+    };
+
+    const gridW = mkGrid(wDom, 0);
+    const gridF = mkGrid(fDom, 1);
+    const gridM = mkGrid(mDom, 2);
+    const gridV = mkGrid(vDom, 3);
+
     const xTicks = days.map((d, i) => ({
-      x: xAtIndex(i, padL, innerW),
+      x: xAtIndex(i, plotLeft, innerW),
       label: shortDayLabel(d.dayKey),
       key: d.dayKey,
     }));
 
-    const gridG = [gDom.min, (gDom.min + gDom.max) / 2, gDom.max].map((mg) => ({
-      key: `gg-${mg}`,
-      y: mapY(mg, gDom.min, gDom.max, padT, topSlotH),
-      label: Math.round(mg),
-    }));
-
-    const gridW = [wDom.min, (wDom.min + wDom.max) / 2, wDom.max].map((kg) => ({
-      key: `wg-${kg}`,
-      y: mapY(kg, wDom.min, wDom.max, bottomSlotTop, bottomSlotH),
-      label: kg.toFixed(1),
-    }));
+    const svgH = stripTop(3) + STRIP_H + AXIS_BOTTOM;
 
     return {
       chartW,
-      svgH: SVG_H,
-      padL,
-      padR,
-      padT,
+      svgH,
+      plotLeft,
+      padR: PAD_R,
       innerW,
-      plotBottom: padT + PLOT_H,
-      glucosePath,
+      plotBottom,
       weightPath,
+      fatPath,
+      musclePath,
       visceralPath,
-      xTicks,
-      gridG,
       gridW,
+      gridF,
+      gridM,
+      gridV,
+      xTicks,
     };
   }, [chartW, days]);
 
@@ -169,11 +172,13 @@ export function MetabolicTrendChart7d({ days, loading }: Props) {
     );
   }
 
-  const hasAny = Boolean(prepared.glucosePath || prepared.weightPath || prepared.visceralPath);
+  const hasAny = Boolean(
+    prepared.weightPath || prepared.fatPath || prepared.musclePath || prepared.visceralPath
+  );
   if (!hasAny) {
     return (
       <View style={styles.loadingBox}>
-        <Text style={styles.loadingText}>Not enough data for a 7-day overlay yet.</Text>
+        <Text style={styles.loadingText}>Not enough Withings body data for a 7-day view yet.</Text>
       </View>
     );
   }
@@ -181,52 +186,53 @@ export function MetabolicTrendChart7d({ days, loading }: Props) {
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>TREND ANALYSIS</Text>
-      <Text style={styles.subtitle}>
-        Average daily glucose (CareSens / Health Connect) with Withings weight and visceral fat — last 7 local days.
-        Long walks (e.g. 7.2 km) should show up alongside glucose stability and composition drift.
-      </Text>
 
       <View style={styles.chartRow}>
-        <View style={[styles.yAxis, { height: PLOT_H }]}>
-          {prepared.gridG.map((g) => (
-            <Text key={g.key} style={[styles.yLab, styles.yLabGlucose, { top: g.y - 7 }]}>
-              {g.label}
-            </Text>
-          ))}
-          {prepared.gridW.map((g) => (
-            <Text key={g.key} style={[styles.yLab, styles.yLabWeight, { top: g.y - 7 }]}>
-              {g.label}
-            </Text>
-          ))}
-        </View>
         <Svg width={prepared.chartW} height={prepared.svgH} style={styles.svg}>
-          {prepared.gridG.map((g) => (
-            <Line
-              key={g.key}
-              x1={prepared.padL}
-              y1={g.y}
-              x2={prepared.chartW - prepared.padR}
-              y2={g.y}
-              stroke={WellnessColors.gridLine}
-              strokeWidth={1}
-              opacity={0.85}
-            />
-          ))}
+          {[prepared.gridW, prepared.gridF, prepared.gridM, prepared.gridV].flatMap((grid, stripIdx) =>
+            grid.map((g) => (
+              <Line
+                key={g.key}
+                x1={prepared.plotLeft}
+                y1={g.y}
+                x2={prepared.chartW - prepared.padR}
+                y2={g.y}
+                stroke={WellnessColors.gridLine}
+                strokeWidth={1}
+                opacity={stripIdx === 0 ? 0.88 : 0.5}
+              />
+            ))
+          )}
+
           {prepared.gridW.map((g) => (
-            <Line
-              key={g.key}
-              x1={prepared.padL}
-              y1={g.y}
-              x2={prepared.chartW - prepared.padR}
-              y2={g.y}
-              stroke={WellnessColors.gridLine}
-              strokeWidth={1}
-              opacity={0.45}
-            />
+            <SvgText key={`lw-${g.key}`} x={4} y={g.y + 3} fill={WellnessColors.accentBlue} fontSize={8} fontWeight="600">
+              {g.label}
+            </SvgText>
+          ))}
+          {prepared.gridF.map((g) => (
+            <SvgText key={`lf-${g.key}`} x={4} y={g.y + 3} fill={FAT_MASS_STROKE} fontSize={8} fontWeight="600">
+              {g.label}
+            </SvgText>
+          ))}
+          {prepared.gridM.map((g) => (
+            <SvgText key={`lm-${g.key}`} x={4} y={g.y + 3} fill={WellnessColors.accentGreen} fontSize={8} fontWeight="600">
+              {g.label}
+            </SvgText>
+          ))}
+          {prepared.gridV.map((g) => (
+            <SvgText key={`lv-${g.key}`} x={4} y={g.y + 3} fill={VISCERAL_STROKE} fontSize={8} fontWeight="600">
+              {g.label}
+            </SvgText>
           ))}
 
           {prepared.weightPath ? (
             <Path d={prepared.weightPath} fill="none" stroke={WellnessColors.accentBlue} strokeWidth={2.2} />
+          ) : null}
+          {prepared.fatPath ? (
+            <Path d={prepared.fatPath} fill="none" stroke={FAT_MASS_STROKE} strokeWidth={2.1} />
+          ) : null}
+          {prepared.musclePath ? (
+            <Path d={prepared.musclePath} fill="none" stroke={WellnessColors.accentGreen} strokeWidth={2.1} />
           ) : null}
           {prepared.visceralPath ? (
             <Path
@@ -237,12 +243,9 @@ export function MetabolicTrendChart7d({ days, loading }: Props) {
               strokeDasharray="6 4"
             />
           ) : null}
-          {prepared.glucosePath ? (
-            <Path d={prepared.glucosePath} fill="none" stroke={WellnessColors.accentGreen} strokeWidth={2.6} />
-          ) : null}
 
           <Line
-            x1={prepared.padL}
+            x1={prepared.plotLeft}
             y1={prepared.plotBottom}
             x2={prepared.chartW - prepared.padR}
             y2={prepared.plotBottom}
@@ -265,8 +268,9 @@ export function MetabolicTrendChart7d({ days, loading }: Props) {
       </View>
 
       <View style={styles.legend}>
-        <Text style={styles.legG}>Avg glucose (mg/dL)</Text>
         <Text style={styles.legW}>Weight (kg)</Text>
+        <Text style={styles.legF}>Fat mass (kg)</Text>
+        <Text style={styles.legM}>Muscle mass (kg)</Text>
         <Text style={styles.legV}>Visceral fat index</Text>
       </View>
     </View>
@@ -283,44 +287,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: WellnessColors.textSecondary,
     letterSpacing: 1,
-    marginBottom: 6,
+    marginBottom: 10,
     textTransform: 'uppercase',
     textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 12,
-    color: WellnessColors.textSecondary,
-    lineHeight: 18,
-    textAlign: 'center',
-    marginBottom: 14,
-    paddingHorizontal: 4,
   },
   chartRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     width: '100%',
-  },
-  yAxis: {
-    width: 36,
-    marginRight: 4,
-    position: 'relative',
-  },
-  yLab: {
-    position: 'absolute',
-    right: 0,
-    fontSize: 9,
-    fontVariant: ['tabular-nums'],
-    color: WellnessColors.textSecondary,
-    textAlign: 'right',
-    width: 36,
-  },
-  yLabGlucose: {
-    color: WellnessColors.accentGreen,
-    opacity: 0.95,
-  },
-  yLabWeight: {
-    color: WellnessColors.accentBlue,
-    opacity: 0.9,
   },
   svg: {
     flex: 1,
@@ -330,17 +304,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 12,
-    marginTop: 12,
+    gap: 10,
+    marginTop: 8,
     rowGap: 6,
-  },
-  legG: {
-    color: WellnessColors.accentGreen,
-    fontSize: 11,
-    fontWeight: '500',
   },
   legW: {
     color: WellnessColors.accentBlue,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  legF: {
+    color: FAT_MASS_STROKE,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  legM: {
+    color: WellnessColors.accentGreen,
     fontSize: 11,
     fontWeight: '500',
   },

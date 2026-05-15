@@ -7,11 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { CONFIG } from '../config/env';
-import {
-  last7LocalDayKeysOldestFirst,
-  localDayKeyFromMs,
-  type WeightVisceralTrendDay,
-} from '../logic/metabolicTrend7d';
+import { last7LocalDayKeysOldestFirst, localDayKeyFromMs, type MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
 
 const WITHINGS_AUTHORIZE_URL = 'https://account.withings.com/oauth2_user/authorize2';
 /** Token endpoint: POST, `Content-Type: application/x-www-form-urlencoded`, body includes `action=requesttoken`. */
@@ -40,7 +36,12 @@ const DASHBOARD_TYPE_LIST = [
   WITHINGS_MEASURE_TYPES.VISCERAL_FAT_INDEX,
 ] as const;
 
-const TREND_MEASURE_TYPES = [WITHINGS_MEASURE_TYPES.WEIGHT_KG, WITHINGS_MEASURE_TYPES.VISCERAL_FAT_INDEX] as const;
+const TREND_MEASURE_TYPES = [
+  WITHINGS_MEASURE_TYPES.WEIGHT_KG,
+  WITHINGS_MEASURE_TYPES.FAT_MASS_KG,
+  WITHINGS_MEASURE_TYPES.MUSCLE_MASS_KG,
+  WITHINGS_MEASURE_TYPES.VISCERAL_FAT_INDEX,
+] as const;
 
 /** Latest body-composition snapshot for HealthDashboard-style UIs. */
 export type WeightMetricsForDashboard = {
@@ -418,11 +419,13 @@ export async function fetchWithingsData(): Promise<WeightMetricsForDashboard> {
   return fetchWeightMetrics();
 }
 
-function aggregateWeightVisceralForDayGrps(
+function aggregateBodyCompositionForDayGrps(
   dayGrps: WithingsMeasureGrp[]
-): Pick<WeightVisceralTrendDay, 'weightKg' | 'visceralFatIndex'> {
+): Pick<MetabolicTrend7dDay, 'weightKg' | 'fatMassKg' | 'muscleMassKg' | 'visceralFatIndex'> {
   const sorted = [...dayGrps].filter((g) => g && typeof g.date === 'number').sort((a, b) => b.date - a.date);
   let weightKg: number | null = null;
+  let fatMassKg: number | null = null;
+  let muscleMassKg: number | null = null;
   let visceralFatIndex: number | null = null;
   for (const g of sorted) {
     for (const m of g.measures ?? []) {
@@ -435,6 +438,22 @@ function aggregateWeightVisceralForDayGrps(
         weightKg = decodeWithingsMeasureValue(m.value, m.unit);
       }
       if (
+        m.type === WITHINGS_MEASURE_TYPES.FAT_MASS_KG &&
+        fatMassKg === null &&
+        typeof m.value === 'number' &&
+        typeof m.unit === 'number'
+      ) {
+        fatMassKg = decodeWithingsMeasureValue(m.value, m.unit);
+      }
+      if (
+        m.type === WITHINGS_MEASURE_TYPES.MUSCLE_MASS_KG &&
+        muscleMassKg === null &&
+        typeof m.value === 'number' &&
+        typeof m.unit === 'number'
+      ) {
+        muscleMassKg = decodeWithingsMeasureValue(m.value, m.unit);
+      }
+      if (
         m.type === WITHINGS_MEASURE_TYPES.VISCERAL_FAT_INDEX &&
         visceralFatIndex === null &&
         typeof m.value === 'number' &&
@@ -443,32 +462,35 @@ function aggregateWeightVisceralForDayGrps(
         visceralFatIndex = decodeWithingsMeasureValue(m.value, m.unit);
       }
     }
-    if (weightKg !== null && visceralFatIndex !== null) break;
+    if (weightKg !== null && fatMassKg !== null && muscleMassKg !== null && visceralFatIndex !== null) break;
   }
-  return { weightKg, visceralFatIndex };
+  return { weightKg, fatMassKg, muscleMassKg, visceralFatIndex };
 }
 
 /** Synthetic 7-day series for dev UI (slight drift so paths are visible). */
-export function getMockWeightVisceralTrend7d(dayKeys: string[]): WeightVisceralTrendDay[] {
+export function getMockBodyCompositionTrend7d(dayKeys: string[]): MetabolicTrend7dDay[] {
   return dayKeys.map((dayKey, i) => {
     const phase = i / 6;
+    const w = 78.1 + Math.sin(phase * Math.PI) * 0.55 + i * 0.04;
     return {
       dayKey,
-      weightKg: 78.1 + Math.sin(phase * Math.PI) * 0.55 + i * 0.04,
+      weightKg: w,
+      fatMassKg: Math.max(14.2, 16.1 - i * 0.06 + Math.sin(phase * 2) * 0.15),
+      muscleMassKg: Math.max(58.5, 60.2 + i * 0.03 + Math.cos(phase * Math.PI) * 0.2),
       visceralFatIndex: Math.max(6.8, 8.4 - i * 0.09 + Math.sin(phase * 2) * 0.12),
     };
   });
 }
 
 /**
- * Daily weight & visceral fat (latest reading that local calendar day) for the last 7 days.
+ * Daily weight, fat mass, muscle mass, and visceral fat index (latest reading that local calendar day) for the last 7 days.
  * Returns mock points only when there is no valid session; otherwise live `getmeas` data.
  */
-export async function fetchWeightVisceralTrend7d(): Promise<WeightVisceralTrendDay[]> {
+export async function fetchBodyCompositionTrend7d(): Promise<MetabolicTrend7dDay[]> {
   const dayKeys = last7LocalDayKeysOldestFirst();
   const accessToken = await getValidAccessToken();
   if (!accessToken) {
-    return getMockWeightVisceralTrend7d(dayKeys);
+    return getMockBodyCompositionTrend7d(dayKeys);
   }
 
   const stored = await loadWithingsTokens();
@@ -502,8 +524,8 @@ export async function fetchWeightVisceralTrend7d(): Promise<WeightVisceralTrendD
   const groups = json.body?.measuregrps ?? [];
   return dayKeys.map((dayKey) => {
     const dayGrps = groups.filter((g) => localDayKeyFromMs(g.date * 1000) === dayKey);
-    return { dayKey, ...aggregateWeightVisceralForDayGrps(dayGrps) };
+    return { dayKey, ...aggregateBodyCompositionForDayGrps(dayGrps) };
   });
 }
 
-export type { WeightVisceralTrendDay } from '../logic/metabolicTrend7d';
+export type { MetabolicTrend7dDay } from '../logic/metabolicTrend7d';

@@ -19,13 +19,13 @@ import { MetabolicChart } from '../components/MetabolicChart';
 import { MetabolicTrendChart7d } from '../components/MetabolicTrendChart7d';
 import { CONFIG } from '../config/env';
 import { useHealthData } from '../hooks/useHealthData';
-import { buildMetabolicTrend7dFromWithings, type WeightVisceralTrendDay } from '../logic/metabolicTrend7d';
+import type { MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
 import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportCsv } from '../services/careSensCsv';
 import {
   buildAuthorizationUrl,
   fetchWeightMetrics,
-  fetchWeightVisceralTrend7d,
+  fetchBodyCompositionTrend7d,
   handleOAuthCallback,
   loadWithingsTokens,
   type WeightMetricsForDashboard,
@@ -60,16 +60,6 @@ function computeBrandHeaderHeight(windowWidth: number): number {
 function formatKg(value: number | null | undefined, decimals = 1): string {
   if (value == null || Number.isNaN(value)) return '—';
   return `${value.toFixed(decimals)} kg`;
-}
-
-function formatIndex(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return '—';
-  return value.toFixed(1);
-}
-
-function formatGlucoseMgDl(value: number): string {
-  if (!value || Number.isNaN(value)) return '—';
-  return `${Math.round(value)} mg/dL`;
 }
 
 function formatMeasuredAt(iso: string | null | undefined): string | null {
@@ -115,7 +105,7 @@ export const DashboardScreen = () => {
   const [bodyScanLoading, setBodyScanLoading] = useState(true);
   const [bodyScanError, setBodyScanError] = useState<string | null>(null);
 
-  const [withingsTrend7d, setWithingsTrend7d] = useState<WeightVisceralTrendDay[]>([]);
+  const [bodyTrend7d, setBodyTrend7d] = useState<MetabolicTrend7dDay[]>([]);
   const [trendLoading, setTrendLoading] = useState(true);
   const [trendError, setTrendError] = useState<string | null>(null);
 
@@ -129,9 +119,9 @@ export const DashboardScreen = () => {
   }, []);
 
   const trend7dMerged = useMemo(() => {
-    if (withingsTrend7d.length !== 7) return null;
-    return buildMetabolicTrend7dFromWithings(withingsTrend7d, glucoseData);
-  }, [glucoseData, withingsTrend7d]);
+    if (bodyTrend7d.length !== 7) return null;
+    return bodyTrend7d;
+  }, [bodyTrend7d]);
 
   const loadBodyScan = useCallback(async () => {
     setBodyScanError(null);
@@ -151,8 +141,8 @@ export const DashboardScreen = () => {
     setTrendError(null);
     setTrendLoading(true);
     try {
-      const series = await fetchWeightVisceralTrend7d();
-      setWithingsTrend7d(series);
+      const series = await fetchBodyCompositionTrend7d();
+      setBodyTrend7d(series);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not load 7-day trend.';
       setTrendError(message);
@@ -200,9 +190,6 @@ export const DashboardScreen = () => {
 
   const latestGlucose = glucoseData.at(-1)?.value ?? 0;
   const latestHeartRate = heartRateData.at(-1)?.value ?? 0;
-
-  /** Health Connect path (dev build) where CareSens / CGM typically syncs. */
-  const hasHealthConnectGlucose = dataSource === 'health-connect' && glucoseData.length > 0;
 
   const safeScore = Math.max(0, Math.min(100, efficiencyScore));
   const progressWidth = `${safeScore}%` as `${number}%`;
@@ -421,40 +408,23 @@ export const DashboardScreen = () => {
                 </Text>
               ) : null}
 
-              {hasHealthConnectGlucose ? (
-                <View style={styles.metabolicPair}>
-                  <Text style={styles.metabolicPairCaption}>Medilab lens · metabolic context</Text>
-                  <View style={styles.metabolicPairRow}>
-                    <View style={styles.metabolicPairHalf}>
-                      <Text style={styles.metabolicPairLabel}>Visceral fat index</Text>
-                      <Text style={styles.metabolicPairValueLarge}>{formatIndex(bodyScan.visceralFatIndex)}</Text>
-                    </View>
-                    <View style={styles.metabolicPairDivider} />
-                    <View style={styles.metabolicPairHalf}>
-                      <Text style={styles.metabolicPairLabel}>Glucose (CareSens · latest)</Text>
-                      <Text style={[styles.metabolicPairValueLarge, styles.metabolicPairGlucose]}>
-                        {formatGlucoseMgDl(latestGlucose)}
-                      </Text>
-                      <Text style={styles.metabolicPairSub} numberOfLines={2}>
-                        {glucoseHeadline(latestGlucose)}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.visceralSolo}>
-                  <Text style={styles.bodyScanMetricLabel}>Visceral fat index</Text>
-                  <Text style={styles.visceralSoloValue}>{formatIndex(bodyScan.visceralFatIndex)}</Text>
-                  <Text style={styles.visceralSoloHint}>
-                    On Android with Health Connect (e.g. CareSens), your latest glucose appears here next to visceral
-                    fat.
-                  </Text>
-                </View>
-              )}
             </>
           ) : !bodyScanLoading && !bodyScan && !bodyScanError ? (
             <Text style={styles.bodyScanEmpty}>No body scan data yet.</Text>
           ) : null}
+        </View>
+
+        <View style={styles.trendBleed}>
+          <View style={[styles.trendCardBleed, cardShadow]}>
+            {trendError ? <Text style={styles.trendErrorText}>{trendError}</Text> : null}
+            {trendLoading && !trend7dMerged ? (
+              <View style={styles.trendLoadingOnly}>
+                <ActivityIndicator color={WellnessColors.accentBlue} />
+                <Text style={styles.trendLoadingLabel}>Loading trend analysis…</Text>
+              </View>
+            ) : null}
+            {trend7dMerged ? <MetabolicTrendChart7d days={trend7dMerged} /> : null}
+          </View>
         </View>
 
         {dataSource === 'health-connect' ? (
@@ -523,19 +493,6 @@ export const DashboardScreen = () => {
             <Text style={styles.primaryButtonText}>Refresh my data</Text>
           )}
         </Pressable>
-
-        <View style={styles.trendBleed}>
-          <View style={[styles.trendCardBleed, cardShadow]}>
-            {trendError ? <Text style={styles.trendErrorText}>{trendError}</Text> : null}
-            {trendLoading && !trend7dMerged ? (
-              <View style={styles.trendLoadingOnly}>
-                <ActivityIndicator color={WellnessColors.accentBlue} />
-                <Text style={styles.trendLoadingLabel}>Loading trend analysis…</Text>
-              </View>
-            ) : null}
-            {trend7dMerged ? <MetabolicTrendChart7d days={trend7dMerged} /> : null}
-          </View>
-        </View>
 
         {error ? <Text style={styles.errorText}>We couldn't refresh just now. Try again shortly.</Text> : null}
 
@@ -756,80 +713,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: WellnessColors.textPrimary,
     fontVariant: ['tabular-nums'],
-  },
-  bodyScanMetricLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: WellnessColors.textSecondary,
-    letterSpacing: 0.8,
-    marginBottom: 6,
-  },
-  metabolicPair: {
-    marginTop: 8,
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: WellnessColors.metabolicPairBg,
-    borderWidth: 1,
-    borderColor: WellnessColors.metabolicPairBorder,
-  },
-  metabolicPairCaption: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: WellnessColors.textSecondary,
-    letterSpacing: 0.8,
-    marginBottom: 12,
-    textTransform: 'uppercase',
-  },
-  metabolicPairRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-  },
-  metabolicPairHalf: {
-    flex: 1,
-    minWidth: 0,
-  },
-  metabolicPairDivider: {
-    width: 1,
-    backgroundColor: WellnessColors.metabolicPairBorder,
-    marginHorizontal: 12,
-  },
-  metabolicPairLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: WellnessColors.textSecondary,
-    letterSpacing: 0.6,
-    marginBottom: 6,
-  },
-  metabolicPairValueLarge: {
-    fontSize: 28,
-    fontWeight: '300',
-    color: WellnessColors.textPrimary,
-    fontVariant: ['tabular-nums'],
-    marginBottom: 4,
-  },
-  metabolicPairGlucose: {
-    color: WellnessColors.accentGreen,
-  },
-  metabolicPairSub: {
-    fontSize: 12,
-    color: WellnessColors.textSecondary,
-    lineHeight: 16,
-  },
-  visceralSolo: {
-    marginTop: 4,
-    paddingTop: 4,
-  },
-  visceralSoloValue: {
-    fontSize: 32,
-    fontWeight: '200',
-    color: WellnessColors.textPrimary,
-    fontVariant: ['tabular-nums'],
-    marginBottom: 8,
-  },
-  visceralSoloHint: {
-    fontSize: 12,
-    color: WellnessColors.textSecondary,
-    lineHeight: 18,
   },
   bodyScanEmpty: {
     fontSize: 14,

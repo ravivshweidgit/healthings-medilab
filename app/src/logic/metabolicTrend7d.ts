@@ -1,17 +1,12 @@
 /**
- * Seven-day metabolic trend helpers: local calendar buckets + daily average glucose.
+ * Seven-day body-composition trend: local calendar buckets, Withings (weight, fat mass, muscle mass, visceral index).
  */
 
 export type MetabolicTrend7dDay = {
   dayKey: string;
   weightKg: number | null;
-  visceralFatIndex: number | null;
-  avgGlucoseMgDl: number | null;
-};
-
-export type WeightVisceralTrendDay = {
-  dayKey: string;
-  weightKg: number | null;
+  fatMassKg: number | null;
+  muscleMassKg: number | null;
   visceralFatIndex: number | null;
 };
 
@@ -39,33 +34,4 @@ export function last7LocalDayKeysOldestFirst(): string[] {
     keys.push(localDayKeyFromMs(d.getTime()));
   }
   return keys;
-}
-
-export function averageDailyGlucoseForDayKeys(
-  glucose: { timestamp: string; value: number }[],
-  dayKeys: string[]
-): (number | null)[] {
-  return dayKeys.map((key) => {
-    const vals: number[] = [];
-    for (const p of glucose) {
-      const dk = localDayKeyFromIso(p.timestamp);
-      if (dk === key && Number.isFinite(p.value)) vals.push(p.value);
-    }
-    if (vals.length === 0) return null;
-    return vals.reduce((a, b) => a + b, 0) / vals.length;
-  });
-}
-
-export function buildMetabolicTrend7dFromWithings(
-  withingsRows: WeightVisceralTrendDay[],
-  glucose: { timestamp: string; value: number }[]
-): MetabolicTrend7dDay[] {
-  const dayKeys = withingsRows.map((r) => r.dayKey);
-  const avgs = averageDailyGlucoseForDayKeys(glucose, dayKeys);
-  return withingsRows.map((row, i) => ({
-    dayKey: row.dayKey,
-    weightKg: row.weightKg,
-    visceralFatIndex: row.visceralFatIndex,
-    avgGlucoseMgDl: avgs[i] ?? null,
-  }));
 }

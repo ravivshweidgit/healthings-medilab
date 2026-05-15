@@ -1,6 +1,6 @@
 "I want to use real Withings data even in development mode. Please update WithingsApiService.ts:
 
-Remove the if (__DEV__) check that forces mock data in fetchWeightMetrics and fetchWeightVisceralTrend7d.
+Remove the if (__DEV__) check that forces mock data in fetchWeightMetrics and fetchBodyCompositionTrend7d.
 
 Logic Change: Only return mock data if getValidAccessToken() fails or returns null (meaning I'm not logged in yet).
 
