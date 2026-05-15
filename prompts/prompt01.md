@@ -1242,11 +1242,11 @@ MD icon
 MD
 
 איך להשתמש בזה ב-Cursor?
-שים את הקובץ בתיקיית השורש של הפרויקט שלך.
+שים את הקובץ בתיקיית `prompts` בשורש הפרויקט שלך.
 
 פתח את ה-Chat של Cursor (Ctrl+L או Cmd+L).
 
-כתוב לו: @prompt01.md - please execute the instructions in this file to initialize the project.
+כתוב לו: @prompts/prompt01.md - please execute the instructions in this file to initialize the project.
 
 מה ה-Prompt הזה כולל?
 אתחול Expo: בניית התיקיות בצורה נקייה (services, screens, logic).
