@@ -1,4 +1,3 @@
-import { Feather } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as WebBrowser from 'expo-web-browser';
@@ -31,12 +30,7 @@ import {
   type WeightMetricsForDashboard,
 } from '../services/WithingsApiService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
-import {
-  demoNoticeCopy,
-  glucoseHeadline,
-  heartRateHeadline,
-  metabolicScoreLine,
-} from '../utils/wellnessCopy';
+import { demoNoticeCopy } from '../utils/wellnessCopy';
 
 /** Must match `styles.scroll.paddingHorizontal`. */
 const SCROLL_HORIZONTAL_PADDING = 20;
@@ -89,7 +83,6 @@ export const DashboardScreen = () => {
   const {
     glucoseData,
     heartRateData,
-    efficiencyScore,
     activityZones,
     isLoading,
     error,
@@ -187,12 +180,6 @@ export const DashboardScreen = () => {
       setLinkBusy(false);
     }
   }, [loadBodyScan, loadTrend, refreshWithingsLinkState]);
-
-  const latestGlucose = glucoseData.at(-1)?.value ?? 0;
-  const latestHeartRate = heartRateData.at(-1)?.value ?? 0;
-
-  const safeScore = Math.max(0, Math.min(100, efficiencyScore));
-  const progressWidth = `${safeScore}%` as `${number}%`;
 
   const handleSync = async () => {
     const [, , result] = await Promise.all([loadBodyScan(), loadTrend(), refetch()]);
@@ -456,32 +443,6 @@ export const DashboardScreen = () => {
           </View>
         ) : null}
 
-        <View style={[styles.heroCard, cardShadow]}>
-          <Text style={styles.heroLabel}>METABOLIC SCORE</Text>
-          <Text style={styles.heroNumber}>{Math.round(safeScore)}</Text>
-          <View style={styles.heroProgressTrack}>
-            <View style={[styles.heroProgressFill, { width: progressWidth }]} />
-          </View>
-          <Text style={styles.heroSub}>{metabolicScoreLine(efficiencyScore)}</Text>
-        </View>
-
-        <View style={styles.gridRow}>
-          <View style={[styles.metricCard, cardShadow]}>
-            <View style={[styles.iconCircle, { backgroundColor: WellnessColors.iconTintGreen }]}>
-              <Feather name="droplet" size={20} color={WellnessColors.accentGreen} />
-            </View>
-            <Text style={styles.metricLabel}>GLUCOSE</Text>
-            <Text style={styles.metricHeadline}>{glucoseHeadline(latestGlucose)}</Text>
-          </View>
-          <View style={[styles.metricCard, cardShadow]}>
-            <View style={[styles.iconCircle, { backgroundColor: WellnessColors.iconTintBlue }]}>
-              <Feather name="heart" size={20} color={WellnessColors.accentBlue} />
-            </View>
-            <Text style={styles.metricLabel}>HEART RATE</Text>
-            <Text style={styles.metricHeadline}>{heartRateHeadline(latestHeartRate)}</Text>
-          </View>
-        </View>
-
         <Pressable
           style={[styles.primaryButton, (isLoading || bodyScanLoading || trendLoading) && styles.primaryButtonDisabled]}
           onPress={handleSync}
@@ -537,47 +498,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     fontWeight: '400',
-  },
-  heroCard: {
-    backgroundColor: WellnessColors.surface,
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  heroLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: WellnessColors.textSecondary,
-    letterSpacing: 1,
-    marginBottom: 12,
-  },
-  heroNumber: {
-    fontSize: 64,
-    fontWeight: '200',
-    color: WellnessColors.textPrimary,
-    marginBottom: 16,
-    fontVariant: ['tabular-nums'],
-  },
-  heroProgressTrack: {
-    width: '100%',
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: WellnessColors.progressTrack,
-    overflow: 'hidden',
-    marginBottom: 14,
-  },
-  heroProgressFill: {
-    height: '100%',
-    borderRadius: 999,
-    backgroundColor: WellnessColors.accentGreen,
-  },
-  heroSub: {
-    fontSize: 15,
-    fontWeight: '400',
-    color: WellnessColors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
   },
   bodyScanCard: {
     backgroundColor: WellnessColors.surface,
@@ -719,40 +639,7 @@ const styles = StyleSheet.create({
     color: WellnessColors.textSecondary,
     marginTop: 4,
   },
-  gridRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  metricCard: {
-    flex: 1,
-    backgroundColor: WellnessColors.surface,
-    borderRadius: 24,
-    padding: 24,
-    minHeight: 160,
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  metricLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: WellnessColors.textSecondary,
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  metricHeadline: {
-    fontSize: 15,
-    fontWeight: '400',
-    color: WellnessColors.textPrimary,
-    lineHeight: 22,
-  },
-  /** Same horizontal gutter as hero/metric cards (scroll padding + card inner padding). */
+  /** Same horizontal gutter as surface cards (scroll padding + card inner padding). */
   chartBleed: {
     marginBottom: 0,
     alignSelf: 'stretch',
