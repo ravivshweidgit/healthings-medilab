@@ -14,6 +14,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { BmrHistoryChart7d } from '../components/BmrHistoryChart7d';
 import { MetabolicChart } from '../components/MetabolicChart';
 import { MetabolicTrendChart7d } from '../components/MetabolicTrendChart7d';
 import { CONFIG } from '../config/env';
@@ -54,6 +55,11 @@ function computeBrandHeaderHeight(windowWidth: number): number {
 function formatKg(value: number | null | undefined, decimals = 1): string {
   if (value == null || Number.isNaN(value)) return '—';
   return `${value.toFixed(decimals)} kg`;
+}
+
+function formatKcal(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return '—';
+  return `${Math.round(value)} kcal`;
 }
 
 function formatMeasuredAt(iso: string | null | undefined): string | null {
@@ -116,6 +122,12 @@ export const DashboardScreen = () => {
     if (bodyTrend7d.length !== 7) return null;
     return bodyTrend7d;
   }, [bodyTrend7d]);
+
+  const hasBmrHistory = useMemo(
+    () =>
+      trend7dMerged?.some((d) => d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay)) ?? false,
+    [trend7dMerged]
+  );
 
   const loadBodyScan = useCallback(async () => {
     setBodyScanError(null);
@@ -391,7 +403,32 @@ export const DashboardScreen = () => {
                 </View>
               </View>
 
-              {formatMeasuredAt(bodyScan.measuredAt) ? (
+              {bodyScan.bmrKcalDay != null && Number.isFinite(bodyScan.bmrKcalDay) ? (
+                <View
+                  style={styles.bodyScanBmrRow}
+                  accessible
+                  accessibilityRole="text"
+                  accessibilityLabel={`BMR ${formatKcal(bodyScan.bmrKcalDay)} per day${
+                    formatMeasuredAt(bodyScan.measuredAt)
+                      ? `, measured ${formatMeasuredAt(bodyScan.measuredAt)}`
+                      : ''
+                  }`}
+                >
+                  <View style={styles.bodyScanBmrLeft}>
+                    <Text style={styles.bodyScanMetricLabelTriple} accessible={false}>
+                      BMR
+                    </Text>
+                    <Text style={styles.bodyScanBmrValue} accessible={false}>
+                      {formatKcal(bodyScan.bmrKcalDay)}
+                    </Text>
+                  </View>
+                  {formatMeasuredAt(bodyScan.measuredAt) ? (
+                    <Text style={styles.bodyScanBmrDate} accessible={false}>
+                      {formatMeasuredAt(bodyScan.measuredAt)}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : formatMeasuredAt(bodyScan.measuredAt) ? (
                 <Text style={styles.bodyScanMeasured}>
                   Last measurement · {formatMeasuredAt(bodyScan.measuredAt)}
                 </Text>
@@ -417,6 +454,14 @@ export const DashboardScreen = () => {
             ) : null}
           </View>
         </View>
+
+        {hasBmrHistory && trend7dMerged ? (
+          <View style={styles.trendBleed}>
+            <View style={[styles.trendCardBleed, styles.bmrCardBleed, cardShadow]}>
+              <BmrHistoryChart7d days={trend7dMerged} loading={trendLoading} />
+            </View>
+          </View>
+        ) : null}
 
         {dataSource === 'health-connect' ? (
           <View style={styles.careSensImportSection}>
@@ -638,6 +683,34 @@ const styles = StyleSheet.create({
     color: WellnessColors.textPrimary,
     fontVariant: ['tabular-nums'],
   },
+  bodyScanBmrRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  bodyScanBmrLeft: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 10,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  bodyScanBmrValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: WellnessColors.textPrimary,
+    fontVariant: ['tabular-nums'],
+  },
+  bodyScanBmrDate: {
+    fontSize: 10,
+    lineHeight: 14,
+    color: WellnessColors.textSecondary,
+    textAlign: 'right',
+    flexShrink: 0,
+  },
   bodyScanEmpty: {
     fontSize: 14,
     color: WellnessColors.textSecondary,
@@ -671,6 +744,11 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     minHeight: 320,
     overflow: 'visible',
+  },
+  bmrCardBleed: {
+    minHeight: 160,
+    paddingTop: 14,
+    paddingBottom: 14,
   },
   trendErrorText: {
     color: WellnessColors.accentRed,

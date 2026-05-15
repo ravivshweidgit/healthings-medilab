@@ -8,6 +8,8 @@ export type MetabolicTrend7dDay = {
   fatMassKg: number | null;
   muscleMassKg: number | null;
   visceralFatIndex: number | null;
+  /** Basal metabolic rate (kcal/day) from Withings type 226. */
+  bmrKcalDay: number | null;
 };
 
 /** One Withings scale session with full BIA (weight + fat + muscle). */
@@ -221,6 +223,55 @@ export function visceralWeekDeltaFromChartDays(days: MetabolicTrend7dDay[]): num
   return periodDeltaKg(days.map((d) => d.visceralFatIndex));
 }
 
+/** Indices of days with BMR (oldest → newest). */
+export function bmrDayIndices(days: MetabolicTrend7dDay[]): number[] {
+  const out: number[] = [];
+  days.forEach((d, i) => {
+    if (d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay)) out.push(i);
+  });
+  return out;
+}
+
+/**
+ * BMR value to plot at `dayIndex`.
+ * Withings skips the first in-window BIA day: that column shows the 2nd day's kcal.
+ */
+export function withingsChartBmrKcal(days: MetabolicTrend7dDay[], dayIndex: number): number | null {
+  const bmrIdx = bmrDayIndices(days);
+  const rank = bmrIdx.indexOf(dayIndex);
+  if (rank < 0) return null;
+
+  if (rank === 0 && bmrIdx.length >= 2) {
+    const second = days[bmrIdx[1]].bmrKcalDay;
+    return second != null && Number.isFinite(second) ? second : null;
+  }
+
+  const v = days[dayIndex].bmrKcalDay;
+  return v != null && Number.isFinite(v) ? v : null;
+}
+
+export type BmrWeekTrend = {
+  deltaKcal: number | null;
+  baselineKcal: number | null;
+};
+
+/** Week BMR change: 2nd day with data → last day (Withings-style). */
+export function resolveBmrWeekTrend(days: MetabolicTrend7dDay[]): BmrWeekTrend {
+  const idx = bmrDayIndices(days);
+  if (idx.length === 0) return { deltaKcal: null, baselineKcal: null };
+
+  const endIdx = idx[idx.length - 1];
+  const startIdx = idx.length >= 2 ? idx[1] : idx[0];
+  const start = days[startIdx].bmrKcalDay;
+  const end = days[endIdx].bmrKcalDay;
+
+  if (start == null || end == null || !Number.isFinite(start) || !Number.isFinite(end)) {
+    return { deltaKcal: null, baselineKcal: null };
+  }
+
+  return { deltaKcal: end - start, baselineKcal: start };
+}
+
 export type VisceralWeekTrend = {
   deltaIndex: number | null;
   baselineIndex: number | null;
@@ -259,7 +310,14 @@ export function buildDaysFromSessions(dayKeys: string[], sessions: CompositionSe
   return dayKeys.map((dayKey) => {
     const daySessions = sorted.filter((s) => s.dayKey === dayKey);
     if (daySessions.length === 0) {
-      return { dayKey, weightKg: null, fatMassKg: null, muscleMassKg: null, visceralFatIndex: null };
+      return {
+        dayKey,
+        weightKg: null,
+        fatMassKg: null,
+        muscleMassKg: null,
+        visceralFatIndex: null,
+        bmrKcalDay: null,
+      };
     }
     const latest = daySessions[daySessions.length - 1];
     return {
@@ -268,6 +326,7 @@ export function buildDaysFromSessions(dayKeys: string[], sessions: CompositionSe
       fatMassKg: latest.fatMassKg,
       muscleMassKg: latest.muscleMassKg,
       visceralFatIndex: latest.visceralFatIndex,
+      bmrKcalDay: null,
     };
   });
 }

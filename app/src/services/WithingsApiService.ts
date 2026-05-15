@@ -35,6 +35,8 @@ export const WITHINGS_MEASURE_TYPES = {
   FAT_MASS_KG: 8,
   MUSCLE_MASS_KG: 76,
   VISCERAL_FAT_INDEX: 88,
+  /** Basal metabolic rate (kcal/day). */
+  BMR_KCAL_DAY: 226,
 } as const;
 
 const DASHBOARD_TYPE_LIST = [
@@ -42,6 +44,7 @@ const DASHBOARD_TYPE_LIST = [
   WITHINGS_MEASURE_TYPES.FAT_MASS_KG,
   WITHINGS_MEASURE_TYPES.MUSCLE_MASS_KG,
   WITHINGS_MEASURE_TYPES.VISCERAL_FAT_INDEX,
+  WITHINGS_MEASURE_TYPES.BMR_KCAL_DAY,
 ] as const;
 
 const TREND_MEASURE_TYPES = [
@@ -49,6 +52,7 @@ const TREND_MEASURE_TYPES = [
   WITHINGS_MEASURE_TYPES.FAT_MASS_KG,
   WITHINGS_MEASURE_TYPES.MUSCLE_MASS_KG,
   WITHINGS_MEASURE_TYPES.VISCERAL_FAT_INDEX,
+  WITHINGS_MEASURE_TYPES.BMR_KCAL_DAY,
 ] as const;
 
 /** Latest body-composition snapshot for HealthDashboard-style UIs. */
@@ -58,6 +62,7 @@ export type WeightMetricsForDashboard = {
   fatMassKg: number | null;
   muscleMassKg: number | null;
   visceralFatIndex: number | null;
+  bmrKcalDay: number | null;
 };
 
 /** @deprecated Prefer `WeightMetricsForDashboard` — same shape, legacy name from body-scan mock. */
@@ -325,6 +330,7 @@ function emptyDashboardMetrics(): WeightMetricsForDashboard {
     fatMassKg: null,
     muscleMassKg: null,
     visceralFatIndex: null,
+    bmrKcalDay: null,
   };
 }
 
@@ -366,6 +372,7 @@ function mapPickedToDashboard(
     fatMassKg: get(WITHINGS_MEASURE_TYPES.FAT_MASS_KG),
     muscleMassKg: get(WITHINGS_MEASURE_TYPES.MUSCLE_MASS_KG),
     visceralFatIndex: get(WITHINGS_MEASURE_TYPES.VISCERAL_FAT_INDEX),
+    bmrKcalDay: get(WITHINGS_MEASURE_TYPES.BMR_KCAL_DAY),
   };
 }
 
@@ -377,6 +384,7 @@ export function getMockWeightMetricsForDashboard(): WeightMetricsForDashboard {
     fatMassKg: 17.9,
     muscleMassKg: 56.2,
     visceralFatIndex: 8.0,
+    bmrKcalDay: 1842,
   };
 }
 
@@ -531,6 +539,42 @@ function mergeVisceralIntoTrendDays(
   });
 }
 
+/** Newest BMR (kcal/day) per calendar day (any measuregrp). */
+function extractLatestBmrByDay(groups: WithingsMeasureGrp[]): Map<string, number> {
+  const latest = new Map<string, { dateMs: number; kcal: number }>();
+  for (const g of groups) {
+    if (!g || typeof g.date !== 'number') continue;
+    const dateMs = g.date * 1000;
+    const dayKey = localDayKeyFromMs(dateMs);
+    for (const m of g.measures ?? []) {
+      if (
+        m.type !== WITHINGS_MEASURE_TYPES.BMR_KCAL_DAY ||
+        typeof m.value !== 'number' ||
+        typeof m.unit !== 'number'
+      ) {
+        continue;
+      }
+      const kcal = decodeWithingsMeasureValue(m.value, m.unit);
+      const prev = latest.get(dayKey);
+      if (!prev || dateMs >= prev.dateMs) latest.set(dayKey, { dateMs, kcal });
+    }
+  }
+  const out = new Map<string, number>();
+  for (const [dayKey, { kcal }] of latest) out.set(dayKey, kcal);
+  return out;
+}
+
+function mergeBmrIntoTrendDays(
+  days: MetabolicTrend7dDay[],
+  bmrByDay: Map<string, number>
+): MetabolicTrend7dDay[] {
+  return days.map((d) => {
+    if (d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay)) return d;
+    const b = bmrByDay.get(d.dayKey);
+    return b != null ? { ...d, bmrKcalDay: b } : d;
+  });
+}
+
 function extractFullBiaSessions(groups: WithingsMeasureGrp[]): CompositionSession[] {
   const sessions: CompositionSession[] = [];
   for (const g of groups) {
@@ -562,6 +606,7 @@ export function getMockBodyCompositionTrend7d(dayKeys: string[]): MetabolicTrend
       fatMassKg: Math.max(14.2, 16.1 - i * 0.06 + Math.sin(phase * 2) * 0.15),
       muscleMassKg: Math.max(58.5, 60.2 + i * 0.03 + Math.cos(phase * Math.PI) * 0.2),
       visceralFatIndex: Math.max(6.8, 8.4 - i * 0.09 + Math.sin(phase * 2) * 0.12),
+      bmrKcalDay: Math.round(1835 + i * 2 + Math.sin(phase * Math.PI) * 18),
     };
   });
 }
@@ -640,9 +685,13 @@ export async function fetchBodyCompositionTrend7d(): Promise<BodyCompositionTren
   const sessions = extractFullBiaSessions(groups);
   const weightByDay = extractLatestWeightKgByDay(groups);
   const visceralByDay = extractLatestVisceralByDay(groups);
-  const days = mergeVisceralIntoTrendDays(
-    mergeWeightOnlyIntoTrendDays(buildDaysFromSessions(dayKeys, sessions), weightByDay),
-    visceralByDay
+  const bmrByDay = extractLatestBmrByDay(groups);
+  const days = mergeBmrIntoTrendDays(
+    mergeVisceralIntoTrendDays(
+      mergeWeightOnlyIntoTrendDays(buildDaysFromSessions(dayKeys, sessions), weightByDay),
+      visceralByDay
+    ),
+    bmrByDay
   );
   const anchor = resolveCompositionPeriodAnchor(sessions, dayKeys);
 
@@ -662,8 +711,9 @@ export async function fetchBodyCompositionTrend7d(): Promise<BodyCompositionTren
           weekMuscle: anchor ? (anchor.end.muscleMassKg - anchor.start.muscleMassKg).toFixed(1) : null,
           days: days.map(
             (d) =>
-              `${d.dayKey} f=${d.fatMassKg?.toFixed(1) ?? '—'} m=${d.muscleMassKg?.toFixed(1) ?? '—'}`
+              `${d.dayKey} f=${d.fatMassKg?.toFixed(1) ?? '—'} m=${d.muscleMassKg?.toFixed(1) ?? '—'} bmr=${d.bmrKcalDay != null ? Math.round(d.bmrKcalDay) : '—'}`
           ),
+          bmrDaysInWindow: bmrByDay.size,
         },
         null,
         2
