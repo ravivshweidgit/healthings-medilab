@@ -1,7 +1,8 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import { curveMonotoneX, line } from 'd3-shape';
+import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import type { ActivityZone } from '../logic/MetabolicLogic';
 import type { WeightMetricsForDashboard } from '../services/WithingsApiService';
 import { WellnessColors } from '../theme/wellness';
@@ -32,6 +33,16 @@ const SVG_PAD_B = 8;
 
 const MS_HOUR = 60 * 60 * 1000;
 const MS_DAY = 24 * MS_HOUR;
+
+/** Space for the visible-range date line above the SVG chart. */
+const DATE_HEADER_HEIGHT = 22;
+/** Lucide chevrons in day nav — sized to fit the short pill without clipping. */
+const DAY_NAV_CHEVRON_PX = 15;
+/** Treat “no movement” when shifting by a day if the clamped end is within this of the current end. */
+const TIME_SHIFT_EPS_MS = 60_000;
+/** Swipe on the date label: distance (px) or velocity to commit a ±1 day step. */
+const DATE_SWIPE_DX = 48;
+const DATE_SWIPE_VX = 0.42;
 
 /**
  * Zoom chips set window duration (one screen width). Default view ends at **now**; horizontal pan slides
@@ -132,42 +143,73 @@ function timeToX(tMs: number, tMin: number, spanT: number, padL: number, innerW:
   return padL + ((tMs - tMin) / Math.max(1, spanT)) * innerW;
 }
 
-function formatTimeTick(ms: number, rangeMs: number): string {
-  const d = new Date(ms);
-  if (rangeMs > 48 * 60 * 60 * 1000) {
-    return d.toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+function formatViewportDateHeader(tMin: number, tMax: number): string {
+  const d0 = new Date(tMin);
+  const d1 = new Date(tMax);
+  const sameLocalDay =
+    d0.getFullYear() === d1.getFullYear() && d0.getMonth() === d1.getMonth() && d0.getDate() === d1.getDate();
+  if (sameLocalDay) {
+    return d0.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
   }
-  if (rangeMs > 24 * 60 * 60 * 1000) {
-    return d.toLocaleString(undefined, {
-      weekday: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const y0 = d0.getFullYear();
+  const y1 = d1.getFullYear();
+  if (y0 === y1) {
+    const a = d0.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const b = d1.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return `${a} – ${b} · ${y0}`;
   }
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  return `${d0.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} – ${d1.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
 }
 
-function buildTimeTicks(tMin: number, tMax: number, padL: number, innerW: number): { x: number; label: string; key: string }[] {
-  const spanT = Math.max(1, tMax - tMin);
-  const spanMs = tMax - tMin;
+function computeTimeTickStepMs(spanMs: number): number {
   const target = 7;
   let stepMs = spanMs / target;
-
   const H = 60 * 60 * 1000;
   const H6 = 6 * H;
   const H12 = 12 * H;
-  const D = 24 * 60 * 60 * 1000;
-
+  const D = MS_DAY;
   if (stepMs <= H) stepMs = H;
   else if (stepMs <= H6) stepMs = H6;
   else if (stepMs <= H12) stepMs = H12;
   else if (stepMs <= D) stepMs = D;
   else stepMs = Math.ceil(stepMs / D) * D;
+  return stepMs;
+}
+
+/** Bottom axis: time only unless tick spacing is a day or more (then compact date). */
+function formatAxisTickLabel(ms: number, stepMs: number): string {
+  if (stepMs >= MS_DAY * 0.9) {
+    return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+  return new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
+/** Move the right edge of the window by `deltaDays` (local timeline), clamped to data and “now”. */
+function shiftViewportEnd(
+  mapTMax: number,
+  deltaDays: number,
+  dataTMin: number,
+  viewportMs: number,
+  nowAnchor: number
+): number {
+  let end = Math.min(nowAnchor, mapTMax + deltaDays * MS_DAY);
+  let start = end - viewportMs;
+  if (start < dataTMin) {
+    start = dataTMin;
+    end = Math.min(nowAnchor, start + viewportMs);
+  }
+  return end;
+}
+
+function buildTimeTicks(
+  tMin: number,
+  tMax: number,
+  padL: number,
+  innerW: number
+): { x: number; label: string; key: string }[] {
+  const spanT = Math.max(1, tMax - tMin);
+  const spanMs = tMax - tMin;
+  const stepMs = computeTimeTickStepMs(spanMs);
 
   const ticks: { x: number; label: string; key: string }[] = [];
   let t = Math.ceil(tMin / stepMs) * stepMs;
@@ -177,7 +219,7 @@ function buildTimeTicks(tMin: number, tMax: number, padL: number, innerW: number
     if (x >= padL - 1 && x <= padL + innerW + 1) {
       ticks.push({
         x,
-        label: formatTimeTick(t, spanMs),
+        label: formatAxisTickLabel(t, stepMs),
         key: `t-${t}-${i}`,
       });
     }
@@ -208,9 +250,39 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
   const [nowAnchor, setNowAnchor] = useState(() => Date.now());
   /** Horizontal pan offset (px). `null` until synced — treat as “live” end position in useMemo. */
   const [scrollX, setScrollX] = useState<number | null>(null);
+  /**
+   * When all history fits on screen (`slideMs <= 0`), horizontal scroll cannot move the window.
+   * Day-step arrows then move the visible range by setting the window’s end time explicitly.
+   */
+  const [endTimeOverrideMs, setEndTimeOverrideMs] = useState<number | null>(null);
   const chartScrollRef = useRef<ScrollView>(null);
   const scrollXRef = useRef<number | null>(null);
   scrollXRef.current = scrollX;
+  /** Latest day-step actions for the stable date-header `PanResponder`. */
+  const dateSwipeRef = useRef<{
+    shiftDay: (delta: number) => void;
+    canEarlier: boolean;
+    canLater: boolean;
+  }>({
+    shiftDay: () => {},
+    canEarlier: false,
+    canLater: false,
+  });
+  const dateHeaderSwipePan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, g) =>
+          Math.abs(g.dx) > 14 && Math.abs(g.dx) > Math.abs(g.dy) * 1.25,
+        onPanResponderTerminationRequest: () => true,
+        onPanResponderRelease: (_, g) => {
+          const { shiftDay, canEarlier, canLater } = dateSwipeRef.current;
+          if ((g.dx > DATE_SWIPE_DX || g.vx > DATE_SWIPE_VX) && canEarlier) shiftDay(-1);
+          else if ((g.dx < -DATE_SWIPE_DX || g.vx < -DATE_SWIPE_VX) && canLater) shiftDay(1);
+        },
+      }),
+    []
+  );
   /**
    * Native `scrollTo({ x: max })` often runs before horizontal content width is measured — it no-ops or
    * clamps to 0. Then the first `onScroll` reports x=0 while React still maps the chart as “live”
@@ -256,13 +328,27 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
     let mapTMin: number;
     let mapTMax: number;
     if (slideMs <= 0) {
-      mapTMax = nowAnchor;
-      mapTMin = Math.max(dataTMin, nowAnchor - viewportMs);
+      if (endTimeOverrideMs == null) {
+        mapTMax = nowAnchor;
+        mapTMin = Math.max(dataTMin, nowAnchor - viewportMs);
+      } else {
+        mapTMax = Math.min(nowAnchor, endTimeOverrideMs);
+        mapTMin = mapTMax - viewportMs;
+        if (mapTMin < dataTMin) {
+          mapTMin = dataTMin;
+          mapTMax = Math.min(nowAnchor, mapTMin + viewportMs);
+        }
+      }
     } else {
       const endT = dataTMin + viewportMs + slideMs * p;
       mapTMax = endT;
       mapTMin = endT - viewportMs;
     }
+
+    const endEarlier = shiftViewportEnd(mapTMax, -1, dataTMin, viewportMs, nowAnchor);
+    const endLater = shiftViewportEnd(mapTMax, 1, dataTMin, viewportMs, nowAnchor);
+    const canShiftEarlier = endEarlier < mapTMax - TIME_SHIFT_EPS_MS;
+    const canShiftLater = endLater > mapTMax + TIME_SHIFT_EPS_MS;
 
     const chartW = vpPx;
 
@@ -355,6 +441,7 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
     });
 
     const timeTicks = buildTimeTicks(mapTMin, mapTMax, padL, innerW);
+    const dateHeaderLabel = formatViewportDateHeader(mapTMin, mapTMax);
 
     return {
       glucosePath,
@@ -362,6 +449,7 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
       gridLines,
       activitySegments,
       timeTicks,
+      dateHeaderLabel,
       axisY,
       chartW,
       plotH,
@@ -371,8 +459,15 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
       maxScrollPx,
       totalW,
       hPanEnabled,
+      dataTMin,
+      viewportMs,
+      slideMs,
+      mapTMin,
+      mapTMax,
+      canShiftEarlier,
+      canShiftLater,
     };
-  }, [activityZones, glucose, heartRate, nowAnchor, plotH, scrollX, viewportPresetIndex, windowW]);
+  }, [activityZones, endTimeOverrideMs, glucose, heartRate, nowAnchor, plotH, scrollX, viewportPresetIndex, windowW]);
 
   const snapChartScrollToLive = () => {
     if (!prepared) return;
@@ -390,6 +485,7 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
   /** Chip change → jump back to “live” (scroll end). Retries help when `scrollTo` runs before content is measured. */
   useLayoutEffect(() => {
     if (!prepared) return;
+    setEndTimeOverrideMs(null);
     chartPanReadyRef.current = false;
     forceSnapChartScrollRef.current = true;
     const max = prepared.maxScrollPx;
@@ -422,6 +518,12 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
     });
   }, [prepared?.maxScrollPx]);
 
+  /** Pan-capable range: override is only meaningful when `slideMs <= 0`; clear it once the chart becomes scrollable. */
+  useEffect(() => {
+    if (!prepared || prepared.slideMs <= 0) return;
+    setEndTimeOverrideMs((v) => (v != null ? null : v));
+  }, [prepared?.slideMs]);
+
   if (!prepared) {
     return (
       <View style={[styles.empty, { minHeight: CHART_PLOT_HEIGHT }]}>
@@ -429,6 +531,26 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
       </View>
     );
   }
+
+  const shiftDay = (delta: number) => {
+    const newEnd = shiftViewportEnd(prepared.mapTMax, delta, prepared.dataTMin, prepared.viewportMs, nowAnchor);
+    if (Math.abs(newEnd - prepared.mapTMax) < TIME_SHIFT_EPS_MS) return;
+    if (prepared.slideMs > 0) {
+      setEndTimeOverrideMs(null);
+      const p = (newEnd - prepared.dataTMin - prepared.viewportMs) / prepared.slideMs;
+      const x = Math.min(prepared.maxScrollPx, Math.max(0, p * prepared.maxScrollPx));
+      chartScrollRef.current?.scrollTo({ x, animated: true });
+      setScrollX(x);
+    } else {
+      setEndTimeOverrideMs(newEnd);
+    }
+  };
+
+  dateSwipeRef.current = {
+    shiftDay,
+    canEarlier: prepared.canShiftEarlier,
+    canLater: prepared.canShiftLater,
+  };
 
   const chartSvg = (
     <Svg width={prepared.chartW} height={prepared.svgH}>
@@ -512,18 +634,83 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
         })}
       </ScrollView>
 
-      <View style={[styles.chartRow, styles.chartRowLtr, { minHeight: svgH }]}>
-        <View style={[styles.yAxis, { height: plotH }]}>
+      <View style={[styles.chartRow, styles.chartRowLtr, { minHeight: DATE_HEADER_HEIGHT + svgH }]}>
+        <View style={[styles.yAxis, { height: DATE_HEADER_HEIGHT + prepared.svgH }]}>
           {prepared.gridLines
             .filter((gl) => gl.showAxisLabel)
             .map((gl) => (
-              <Text key={`y-${gl.value}`} style={[styles.yAxisLabel, { top: gl.y - 8 }]}>
+              <Text
+                key={`y-${gl.value}`}
+                style={[styles.yAxisLabel, { top: DATE_HEADER_HEIGHT + gl.y - 8 }]}
+              >
                 {gl.value}
               </Text>
             ))}
         </View>
 
-        <View style={[styles.chartPlot, { height: prepared.svgH }]}>
+        <View style={[styles.chartPlot, { height: DATE_HEADER_HEIGHT + prepared.svgH }]}>
+          <View style={styles.chartDateHeaderOuter}>
+            <View style={styles.chartDateHeaderRow}>
+              <View style={styles.chartDateNavCol}>
+                <Pressable
+                  onPress={() => shiftDay(-1)}
+                  disabled={!prepared.canShiftEarlier}
+                  style={({ pressed }) => [
+                    styles.chartDayNavBtn,
+                    !prepared.canShiftEarlier && styles.chartDayNavBtnDisabled,
+                    pressed && prepared.canShiftEarlier && styles.chartDayNavBtnPressed,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Previous day"
+                  hitSlop={{ top: 8, bottom: 8, left: 4, right: 6 }}
+                >
+                  <ChevronLeft
+                    size={DAY_NAV_CHEVRON_PX}
+                    color={WellnessColors.textSecondary}
+                    strokeWidth={2.25}
+                  />
+                </Pressable>
+              </View>
+              <View
+                style={[styles.chartDateHeaderSwipeArea, styles.chartDateHeaderTextFlex]}
+                collapsable={false}
+                {...dateHeaderSwipePan.panHandlers}
+              >
+                <Text
+                  style={styles.chartDateHeaderText}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
+                  accessibilityRole="header"
+                  accessibilityLabel={`Chart date range: ${prepared.dateHeaderLabel}`}
+                  accessibilityHint="Swipe right for the previous day, swipe left for the next day"
+                >
+                  {prepared.dateHeaderLabel}
+                </Text>
+              </View>
+              <View style={styles.chartDateNavCol}>
+                <Pressable
+                  onPress={() => shiftDay(1)}
+                  disabled={!prepared.canShiftLater}
+                  style={({ pressed }) => [
+                    styles.chartDayNavBtn,
+                    !prepared.canShiftLater && styles.chartDayNavBtnDisabled,
+                    pressed && prepared.canShiftLater && styles.chartDayNavBtnPressed,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Next day"
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 4 }}
+                >
+                  <ChevronRight
+                    size={DAY_NAV_CHEVRON_PX}
+                    color={WellnessColors.textSecondary}
+                    strokeWidth={2.25}
+                  />
+                </Pressable>
+              </View>
+            </View>
+          </View>
+          <View style={{ height: prepared.svgH, position: 'relative' }}>
           {/* Chart underneath; horizontal pan capture on top (transparent) so swipes always hit ScrollView. */}
           <View style={[styles.chartUnderlay, { height: prepared.svgH }]} pointerEvents="none">
             <View style={[styles.graphCanvas, { width: prepared.chartW, height: prepared.svgH }]}>{chartSvg}</View>
@@ -567,6 +754,7 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
           >
             <View style={{ width: Math.max(prepared.totalW, prepared.chartW), height: prepared.svgH, backgroundColor: 'transparent' }} />
           </ScrollView>
+          </View>
         </View>
       </View>
 
@@ -599,7 +787,7 @@ const styles = StyleSheet.create({
   wrap: {
     width: '100%',
     alignSelf: 'stretch',
-    minHeight: SVG_TOTAL_HEIGHT + 40,
+    minHeight: SVG_TOTAL_HEIGHT + DATE_HEADER_HEIGHT + 40,
   },
   viewportPresetRow: {
     flexDirection: 'row',
@@ -645,6 +833,57 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     direction: 'ltr',
+  },
+  chartDateHeaderOuter: {
+    width: '100%',
+    paddingHorizontal: 6,
+    overflow: 'hidden',
+  },
+  chartDateHeaderRow: {
+    height: DATE_HEADER_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+  },
+  chartDateNavCol: {
+    width: 34,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  chartDateHeaderText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: WellnessColors.textSecondary,
+    textAlign: 'center',
+  },
+  chartDateHeaderTextFlex: {
+    flex: 1,
+    minWidth: 0,
+  },
+  chartDateHeaderSwipeArea: {
+    justifyContent: 'center',
+    alignSelf: 'stretch',
+    minHeight: DATE_HEADER_HEIGHT - 2,
+    paddingHorizontal: 2,
+  },
+  chartDayNavBtn: {
+    width: 28,
+    height: DATE_HEADER_HEIGHT - 2,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: WellnessColors.progressTrack,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+    overflow: 'hidden',
+  },
+  chartDayNavBtnPressed: {
+    opacity: 0.88,
+  },
+  chartDayNavBtnDisabled: {
+    opacity: 0.32,
   },
   chartUnderlay: {
     ...StyleSheet.absoluteFillObject,
