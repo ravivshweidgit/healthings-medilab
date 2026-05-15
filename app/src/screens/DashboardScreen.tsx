@@ -18,7 +18,7 @@ import { MetabolicChart } from '../components/MetabolicChart';
 import { MetabolicTrendChart7d } from '../components/MetabolicTrendChart7d';
 import { CONFIG } from '../config/env';
 import { useHealthData } from '../hooks/useHealthData';
-import type { MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
+import type { CompositionPeriodAnchor, MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
 import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportCsv } from '../services/careSensCsv';
 import {
@@ -99,6 +99,7 @@ export const DashboardScreen = () => {
   const [bodyScanError, setBodyScanError] = useState<string | null>(null);
 
   const [bodyTrend7d, setBodyTrend7d] = useState<MetabolicTrend7dDay[]>([]);
+  const [trendPeriodAnchor, setTrendPeriodAnchor] = useState<CompositionPeriodAnchor | null>(null);
   const [trendLoading, setTrendLoading] = useState(true);
   const [trendError, setTrendError] = useState<string | null>(null);
 
@@ -134,8 +135,9 @@ export const DashboardScreen = () => {
     setTrendError(null);
     setTrendLoading(true);
     try {
-      const series = await fetchBodyCompositionTrend7d();
-      setBodyTrend7d(series);
+      const payload = await fetchBodyCompositionTrend7d();
+      setBodyTrend7d(payload.days);
+      setTrendPeriodAnchor(payload.periodAnchor);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not load 7-day trend.';
       setTrendError(message);
@@ -410,7 +412,9 @@ export const DashboardScreen = () => {
                 <Text style={styles.trendLoadingLabel}>Loading trend analysis…</Text>
               </View>
             ) : null}
-            {trend7dMerged ? <MetabolicTrendChart7d days={trend7dMerged} /> : null}
+            {trend7dMerged ? (
+              <MetabolicTrendChart7d days={trend7dMerged} periodAnchor={trendPeriodAnchor} />
+            ) : null}
           </View>
         </View>
 

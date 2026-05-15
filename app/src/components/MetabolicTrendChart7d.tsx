@@ -2,7 +2,16 @@ import React, { useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import { curveMonotoneX, line } from 'd3-shape';
-import type { MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
+import {
+  periodAnchorBaselines,
+  periodAnchorDeltas,
+  resolveVisceralWeekTrend,
+  visceralPercentChange,
+  withingsChartCompositionKg,
+  type CompositionPeriodAnchor,
+  type MetabolicTrend7dDay,
+  type VisceralWeekTrend,
+} from '../logic/metabolicTrend7d';
 import { WellnessColors } from '../theme/wellness';
 
 const N = 7;
@@ -12,6 +21,9 @@ const PAD_TOP = 4;
 const STRIP_H = 46;
 const STRIP_GAP = 5;
 const AXIS_BOTTOM = 22;
+
+/** Minimum half-span (kg) when all fat/muscle deltas are flat. */
+const DELTA_FALLBACK_HALF_SPAN_KG = 0.5;
 
 const FAT_MASS_STROKE = '#FB8C00';
 const VISCERAL_STROKE = '#7B1FA2';
@@ -63,12 +75,70 @@ function stripTop(index: number): number {
   return PAD_TOP + index * (STRIP_H + STRIP_GAP);
 }
 
+function deltaKg(value: number | null, baseline: number | null): number | null {
+  if (value == null || baseline == null || !Number.isFinite(value)) return null;
+  return value - baseline;
+}
+
+/** Y-axis for the shared fat/muscle strip: min/max of plotted deltas with padding. */
+function deltaDomainFromValues(deltas: number[]): { min: number; max: number } {
+  const dom = domainPad(
+    deltas,
+    -DELTA_FALLBACK_HALF_SPAN_KG,
+    DELTA_FALLBACK_HALF_SPAN_KG,
+    0.15
+  );
+  if (deltas.length === 0) return dom;
+  // One-sided week: extend to 0 so the baseline line stays in the strip.
+  if (dom.max <= 0) return { min: dom.min, max: 0 };
+  if (dom.min >= 0) return { min: 0, max: dom.max };
+  return dom;
+}
+
+function formatDeltaTick(v: number): string {
+  if (Math.abs(v) < 0.05) return '0';
+  const sign = v > 0 ? '+' : '';
+  return `${sign}${v.toFixed(1)}`;
+}
+
 type Props = {
   days: MetabolicTrend7dDay[];
+  periodAnchor?: CompositionPeriodAnchor | null;
   loading?: boolean;
 };
 
-export function MetabolicTrendChart7d({ days, loading }: Props) {
+function legendLabelWithDelta(name: string, delta: number | null | undefined): string {
+  if (delta == null || !Number.isFinite(delta)) return name;
+  const sign = delta > 0 ? '+' : '';
+  return `${name} (${sign}${delta.toFixed(1)} kg)`;
+}
+
+function legendLabelWithVisceralPercent(name: string, trend: VisceralWeekTrend): string {
+  const { deltaIndex, baselineIndex } = trend;
+  if (deltaIndex == null || !Number.isFinite(deltaIndex)) return name;
+  if (baselineIndex != null) {
+    const pct = visceralPercentChange(deltaIndex, baselineIndex);
+    if (pct != null) {
+      const sign = pct > 0 ? '+' : '';
+      return `${name} (${sign}${pct.toFixed(1)}%)`;
+    }
+  }
+  const sign = deltaIndex > 0 ? '+' : '';
+  return `${name} (${sign}${deltaIndex.toFixed(2)})`;
+}
+
+function LegendItem({ color, label }: { color: string; label: string }) {
+  return (
+    <View style={styles.legendItem}>
+      <View style={[styles.legendSwatch, { backgroundColor: color }]} />
+      <Text style={styles.legendLabel} numberOfLines={1} ellipsizeMode="tail">
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+export function MetabolicTrendChart7d({ days, periodAnchor, loading }: Props) {
   const { width } = useWindowDimensions();
   const chartW = Math.max(280, width - 40);
 
@@ -77,17 +147,30 @@ export function MetabolicTrendChart7d({ days, loading }: Props) {
 
     const plotLeft = PLOT_PAD_L;
     const innerW = Math.max(1, chartW - plotLeft - PAD_R);
-    const plotBottom = stripTop(3) + STRIP_H;
+    const plotBottom = stripTop(2) + STRIP_H;
+
+    const compBase = periodAnchorBaselines(periodAnchor);
+    const fatBaseline = compBase?.fatKg ?? null;
+    const muscleBaseline = compBase?.muscleKg ?? null;
+    const chartFatKg = (i: number) => withingsChartCompositionKg(days, i, 'fatMassKg');
+    const chartMuscleKg = (i: number) => withingsChartCompositionKg(days, i, 'muscleMassKg');
 
     const wVals = days.map((d) => d.weightKg).filter((v): v is number => v != null && Number.isFinite(v));
-    const fVals = days.map((d) => d.fatMassKg).filter((v): v is number => v != null && Number.isFinite(v));
-    const mVals = days.map((d) => d.muscleMassKg).filter((v): v is number => v != null && Number.isFinite(v));
     const vVals = days.map((d) => d.visceralFatIndex).filter((v): v is number => v != null && Number.isFinite(v));
 
     const wDom = domainPad(wVals, 76, 82, 0.08);
-    const fDom = domainPad(fVals, 14, 20, 0.1);
-    const mDom = domainPad(mVals, 58, 64, 0.08);
     const vDom = domainPad(vVals, 7, 11, 0.12);
+
+    const compositionDeltas: number[] = [];
+    if (compBase && fatBaseline != null && muscleBaseline != null) {
+      days.forEach((_, i) => {
+        const f = deltaKg(chartFatKg(i), fatBaseline);
+        const m = deltaKg(chartMuscleKg(i), muscleBaseline);
+        if (f != null) compositionDeltas.push(f);
+        if (m != null) compositionDeltas.push(m);
+      });
+    }
+    const deltaDom = deltaDomainFromValues(compositionDeltas);
 
     const mkPts = (getter: (d: MetabolicTrend7dDay) => number | null, dom: { min: number; max: number }, stripIndex: number) => {
       const top = stripTop(stripIndex);
@@ -104,29 +187,45 @@ export function MetabolicTrendChart7d({ days, loading }: Props) {
       return pts;
     };
 
+    const mkDeltaPts = (getter: (i: number) => number | null, baseline: number | null, stripIndex: number) => {
+      const top = stripTop(stripIndex);
+      const pts: PixelPoint[] = [];
+      days.forEach((_, i) => {
+        if (!compBase || baseline == null) return;
+        const v = deltaKg(getter(i), baseline);
+        if (v == null) return;
+        pts.push({
+          x: xAtIndex(i, plotLeft, innerW),
+          y: mapY(v, deltaDom.min, deltaDom.max, top, STRIP_H),
+        });
+      });
+      return pts;
+    };
+
     const wPts = mkPts((d) => d.weightKg, wDom, 0);
-    const fPts = mkPts((d) => d.fatMassKg, fDom, 1);
-    const mPts = mkPts((d) => d.muscleMassKg, mDom, 2);
-    const vPts = mkPts((d) => d.visceralFatIndex, vDom, 3);
+    const fPts = mkDeltaPts(chartFatKg, fatBaseline, 1);
+    const mPts = mkDeltaPts(chartMuscleKg, muscleBaseline, 1);
+    const vPts = mkPts((d) => d.visceralFatIndex, vDom, 2);
 
     const weightPath = buildSmoothPath(wPts);
     const fatPath = buildSmoothPath(fPts);
     const musclePath = buildSmoothPath(mPts);
     const visceralPath = buildSmoothPath(vPts);
 
-    const mkGrid = (dom: { min: number; max: number }, stripIndex: number) => {
+    const mkGrid = (dom: { min: number; max: number }, stripIndex: number, labelFn: (v: number) => string) => {
       const top = stripTop(stripIndex);
       return [dom.min, (dom.min + dom.max) / 2, dom.max].map((v) => ({
         key: `g-${stripIndex}-${v}`,
         y: mapY(v, dom.min, dom.max, top, STRIP_H),
-        label: v.toFixed(1),
+        label: labelFn(v),
       }));
     };
 
-    const gridW = mkGrid(wDom, 0);
-    const gridF = mkGrid(fDom, 1);
-    const gridM = mkGrid(mDom, 2);
-    const gridV = mkGrid(vDom, 3);
+    const gridW = mkGrid(wDom, 0, (v) => v.toFixed(1));
+    const gridFM = mkGrid(deltaDom, 1, formatDeltaTick);
+    const gridV = mkGrid(vDom, 2, (v) => v.toFixed(1));
+
+    const zeroLineY = mapY(0, deltaDom.min, deltaDom.max, stripTop(1), STRIP_H);
 
     const xTicks = days.map((d, i) => ({
       x: xAtIndex(i, plotLeft, innerW),
@@ -134,26 +233,36 @@ export function MetabolicTrendChart7d({ days, loading }: Props) {
       key: d.dayKey,
     }));
 
-    const svgH = stripTop(3) + STRIP_H + AXIS_BOTTOM;
+    const svgH = stripTop(2) + STRIP_H + AXIS_BOTTOM;
+
+    const anchorDeltas = periodAnchorDeltas(periodAnchor);
+    const fatWeekDelta = anchorDeltas?.fatKg ?? null;
+    const muscleWeekDelta = anchorDeltas?.muscleKg ?? null;
+    const weightWeekDelta =
+      periodAnchor != null ? periodAnchor.end.weightKg - periodAnchor.start.weightKg : null;
+    const visceralWeekTrend = resolveVisceralWeekTrend(days, periodAnchor);
 
     return {
       chartW,
       svgH,
       plotLeft,
       padR: PAD_R,
-      innerW,
       plotBottom,
       weightPath,
       fatPath,
       musclePath,
       visceralPath,
       gridW,
-      gridF,
-      gridM,
+      gridFM,
       gridV,
+      zeroLineY,
       xTicks,
+      fatWeekDelta,
+      muscleWeekDelta,
+      weightWeekDelta,
+      visceralWeekTrend,
     };
-  }, [chartW, days]);
+  }, [chartW, days, periodAnchor]);
 
   if (loading) {
     return (
@@ -189,7 +298,7 @@ export function MetabolicTrendChart7d({ days, loading }: Props) {
 
       <View style={styles.chartRow}>
         <Svg width={prepared.chartW} height={prepared.svgH} style={styles.svg}>
-          {[prepared.gridW, prepared.gridF, prepared.gridM, prepared.gridV].flatMap((grid, stripIdx) =>
+          {[prepared.gridW, prepared.gridFM, prepared.gridV].flatMap((grid, stripIdx) =>
             grid.map((g) => (
               <Line
                 key={g.key}
@@ -204,18 +313,23 @@ export function MetabolicTrendChart7d({ days, loading }: Props) {
             ))
           )}
 
+          <Line
+            x1={prepared.plotLeft}
+            y1={prepared.zeroLineY}
+            x2={prepared.chartW - prepared.padR}
+            y2={prepared.zeroLineY}
+            stroke={WellnessColors.textSecondary}
+            strokeWidth={1}
+            opacity={0.35}
+          />
+
           {prepared.gridW.map((g) => (
             <SvgText key={`lw-${g.key}`} x={4} y={g.y + 3} fill={WellnessColors.accentBlue} fontSize={8} fontWeight="600">
               {g.label}
             </SvgText>
           ))}
-          {prepared.gridF.map((g) => (
-            <SvgText key={`lf-${g.key}`} x={4} y={g.y + 3} fill={FAT_MASS_STROKE} fontSize={8} fontWeight="600">
-              {g.label}
-            </SvgText>
-          ))}
-          {prepared.gridM.map((g) => (
-            <SvgText key={`lm-${g.key}`} x={4} y={g.y + 3} fill={WellnessColors.accentGreen} fontSize={8} fontWeight="600">
+          {prepared.gridFM.map((g) => (
+            <SvgText key={`lfm-${g.key}`} x={4} y={g.y + 3} fill={WellnessColors.textSecondary} fontSize={8} fontWeight="600">
               {g.label}
             </SvgText>
           ))}
@@ -268,10 +382,14 @@ export function MetabolicTrendChart7d({ days, loading }: Props) {
       </View>
 
       <View style={styles.legend}>
-        <Text style={styles.legW}>Weight (kg)</Text>
-        <Text style={styles.legF}>Fat mass (kg)</Text>
-        <Text style={styles.legM}>Muscle mass (kg)</Text>
-        <Text style={styles.legV}>Visceral fat index</Text>
+        <View style={styles.legendRow}>
+          <LegendItem color={WellnessColors.accentBlue} label={legendLabelWithDelta('Weight', prepared.weightWeekDelta)} />
+          <LegendItem color={FAT_MASS_STROKE} label={legendLabelWithDelta('Fat', prepared.fatWeekDelta)} />
+        </View>
+        <View style={styles.legendRow}>
+          <LegendItem color={WellnessColors.accentGreen} label={legendLabelWithDelta('Muscle', prepared.muscleWeekDelta)} />
+          <LegendItem color={VISCERAL_STROKE} label={legendLabelWithVisceralPercent('Visceral', prepared.visceralWeekTrend)} />
+        </View>
       </View>
     </View>
   );
@@ -301,32 +419,32 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   legend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 10,
     marginTop: 8,
-    rowGap: 6,
+    gap: 6,
+    alignSelf: 'stretch',
+    paddingHorizontal: 2,
   },
-  legW: {
-    color: WellnessColors.accentBlue,
-    fontSize: 11,
-    fontWeight: '500',
+  legendRow: {
+    flexDirection: 'row',
+    gap: 10,
   },
-  legF: {
-    color: FAT_MASS_STROKE,
-    fontSize: 11,
-    fontWeight: '500',
+  legendItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
   },
-  legM: {
-    color: WellnessColors.accentGreen,
-    fontSize: 11,
-    fontWeight: '500',
+  legendSwatch: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
   },
-  legV: {
-    color: VISCERAL_STROKE,
-    fontSize: 11,
+  legendLabel: {
+    flex: 1,
+    fontSize: 9.35,
     fontWeight: '500',
+    color: WellnessColors.textSecondary,
   },
   loadingBox: {
     minHeight: 160,

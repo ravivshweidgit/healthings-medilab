@@ -7,7 +7,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { CONFIG } from '../config/env';
-import { last7LocalDayKeysOldestFirst, localDayKeyFromMs, type MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
+import {
+  buildDaysFromSessions,
+  last7LocalDayKeysOldestFirst,
+  localDayKeyFromMs,
+  resolveCompositionPeriodAnchor,
+  type BodyCompositionTrendPayload,
+  type CompositionSession,
+  type MetabolicTrend7dDay,
+} from '../logic/metabolicTrend7d';
 
 const WITHINGS_AUTHORIZE_URL = 'https://account.withings.com/oauth2_user/authorize2';
 /** Token endpoint: POST, `Content-Type: application/x-www-form-urlencoded`, body includes `action=requesttoken`. */
@@ -419,53 +427,129 @@ export async function fetchWithingsData(): Promise<WeightMetricsForDashboard> {
   return fetchWeightMetrics();
 }
 
-function aggregateBodyCompositionForDayGrps(
-  dayGrps: WithingsMeasureGrp[]
+/** Read composition fields from a single `measuregrp` (one scale session — do not mix groups). */
+function measuresFromSingleGroup(
+  grp: WithingsMeasureGrp
 ): Pick<MetabolicTrend7dDay, 'weightKg' | 'fatMassKg' | 'muscleMassKg' | 'visceralFatIndex'> {
-  const sorted = [...dayGrps].filter((g) => g && typeof g.date === 'number').sort((a, b) => b.date - a.date);
   let weightKg: number | null = null;
   let fatMassKg: number | null = null;
   let muscleMassKg: number | null = null;
   let visceralFatIndex: number | null = null;
-  for (const g of sorted) {
-    for (const m of g.measures ?? []) {
-      if (
-        m.type === WITHINGS_MEASURE_TYPES.WEIGHT_KG &&
-        weightKg === null &&
-        typeof m.value === 'number' &&
-        typeof m.unit === 'number'
-      ) {
-        weightKg = decodeWithingsMeasureValue(m.value, m.unit);
-      }
-      if (
-        m.type === WITHINGS_MEASURE_TYPES.FAT_MASS_KG &&
-        fatMassKg === null &&
-        typeof m.value === 'number' &&
-        typeof m.unit === 'number'
-      ) {
-        fatMassKg = decodeWithingsMeasureValue(m.value, m.unit);
-      }
-      if (
-        m.type === WITHINGS_MEASURE_TYPES.MUSCLE_MASS_KG &&
-        muscleMassKg === null &&
-        typeof m.value === 'number' &&
-        typeof m.unit === 'number'
-      ) {
-        muscleMassKg = decodeWithingsMeasureValue(m.value, m.unit);
-      }
-      if (
-        m.type === WITHINGS_MEASURE_TYPES.VISCERAL_FAT_INDEX &&
-        visceralFatIndex === null &&
-        typeof m.value === 'number' &&
-        typeof m.unit === 'number'
-      ) {
-        visceralFatIndex = decodeWithingsMeasureValue(m.value, m.unit);
-      }
-    }
-    if (weightKg !== null && fatMassKg !== null && muscleMassKg !== null && visceralFatIndex !== null) break;
+  for (const m of grp.measures ?? []) {
+    if (typeof m.value !== 'number' || typeof m.unit !== 'number') continue;
+    const v = decodeWithingsMeasureValue(m.value, m.unit);
+    if (m.type === WITHINGS_MEASURE_TYPES.WEIGHT_KG) weightKg = v;
+    else if (m.type === WITHINGS_MEASURE_TYPES.FAT_MASS_KG) fatMassKg = v;
+    else if (m.type === WITHINGS_MEASURE_TYPES.MUSCLE_MASS_KG) muscleMassKg = v;
+    else if (m.type === WITHINGS_MEASURE_TYPES.VISCERAL_FAT_INDEX) visceralFatIndex = v;
   }
   return { weightKg, fatMassKg, muscleMassKg, visceralFatIndex };
 }
+
+function groupMeasureTypes(g: WithingsMeasureGrp): Set<number> {
+  return new Set((g.measures ?? []).map((m) => m.type));
+}
+
+function isFullBiaGroup(g: WithingsMeasureGrp): boolean {
+  const types = groupMeasureTypes(g);
+  return (
+    types.has(WITHINGS_MEASURE_TYPES.WEIGHT_KG) &&
+    types.has(WITHINGS_MEASURE_TYPES.FAT_MASS_KG) &&
+    types.has(WITHINGS_MEASURE_TYPES.MUSCLE_MASS_KG)
+  );
+}
+
+/** Newest weight reading per calendar day (any measuregrp — includes weight-only steps). */
+function extractLatestWeightKgByDay(groups: WithingsMeasureGrp[]): Map<string, number> {
+  const latest = new Map<string, { dateMs: number; kg: number }>();
+  for (const g of groups) {
+    if (!g || typeof g.date !== 'number') continue;
+    const dateMs = g.date * 1000;
+    const dayKey = localDayKeyFromMs(dateMs);
+    for (const m of g.measures ?? []) {
+      if (
+        m.type !== WITHINGS_MEASURE_TYPES.WEIGHT_KG ||
+        typeof m.value !== 'number' ||
+        typeof m.unit !== 'number'
+      ) {
+        continue;
+      }
+      const kg = decodeWithingsMeasureValue(m.value, m.unit);
+      const prev = latest.get(dayKey);
+      if (!prev || dateMs >= prev.dateMs) latest.set(dayKey, { dateMs, kg });
+    }
+  }
+  const out = new Map<string, number>();
+  for (const [dayKey, { kg }] of latest) out.set(dayKey, kg);
+  return out;
+}
+
+function mergeWeightOnlyIntoTrendDays(
+  days: MetabolicTrend7dDay[],
+  weightByDay: Map<string, number>
+): MetabolicTrend7dDay[] {
+  return days.map((d) => {
+    if (d.weightKg != null && Number.isFinite(d.weightKg)) return d;
+    const w = weightByDay.get(d.dayKey);
+    return w != null ? { ...d, weightKg: w } : d;
+  });
+}
+
+/** Newest visceral index per calendar day (any measuregrp). */
+function extractLatestVisceralByDay(groups: WithingsMeasureGrp[]): Map<string, number> {
+  const latest = new Map<string, { dateMs: number; index: number }>();
+  for (const g of groups) {
+    if (!g || typeof g.date !== 'number') continue;
+    const dateMs = g.date * 1000;
+    const dayKey = localDayKeyFromMs(dateMs);
+    for (const m of g.measures ?? []) {
+      if (
+        m.type !== WITHINGS_MEASURE_TYPES.VISCERAL_FAT_INDEX ||
+        typeof m.value !== 'number' ||
+        typeof m.unit !== 'number'
+      ) {
+        continue;
+      }
+      const index = decodeWithingsMeasureValue(m.value, m.unit);
+      const prev = latest.get(dayKey);
+      if (!prev || dateMs >= prev.dateMs) latest.set(dayKey, { dateMs, index });
+    }
+  }
+  const out = new Map<string, number>();
+  for (const [dayKey, { index }] of latest) out.set(dayKey, index);
+  return out;
+}
+
+function mergeVisceralIntoTrendDays(
+  days: MetabolicTrend7dDay[],
+  visceralByDay: Map<string, number>
+): MetabolicTrend7dDay[] {
+  return days.map((d) => {
+    if (d.visceralFatIndex != null && Number.isFinite(d.visceralFatIndex)) return d;
+    const v = visceralByDay.get(d.dayKey);
+    return v != null ? { ...d, visceralFatIndex: v } : d;
+  });
+}
+
+function extractFullBiaSessions(groups: WithingsMeasureGrp[]): CompositionSession[] {
+  const sessions: CompositionSession[] = [];
+  for (const g of groups) {
+    if (!g || typeof g.date !== 'number' || !isFullBiaGroup(g)) continue;
+    const m = measuresFromSingleGroup(g);
+    if (m.weightKg == null || m.fatMassKg == null || m.muscleMassKg == null) continue;
+    sessions.push({
+      dateMs: g.date * 1000,
+      dayKey: localDayKeyFromMs(g.date * 1000),
+      weightKg: m.weightKg,
+      fatMassKg: m.fatMassKg,
+      muscleMassKg: m.muscleMassKg,
+      visceralFatIndex: m.visceralFatIndex,
+    });
+  }
+  return sessions.sort((a, b) => a.dateMs - b.dateMs);
+}
+
+const TREND_LOOKBACK_DAYS = 21;
 
 /** Synthetic 7-day series for dev UI (slight drift so paths are visible). */
 export function getMockBodyCompositionTrend7d(dayKeys: string[]): MetabolicTrend7dDay[] {
@@ -482,20 +566,51 @@ export function getMockBodyCompositionTrend7d(dayKeys: string[]): MetabolicTrend
   });
 }
 
+function mockTrendPayload(dayKeys: string[]): BodyCompositionTrendPayload {
+  const days = getMockBodyCompositionTrend7d(dayKeys);
+  const sessions: CompositionSession[] = days
+    .filter((d) => d.fatMassKg != null && d.muscleMassKg != null && d.weightKg != null)
+    .map((d) => ({
+      dateMs: dayKeyStartMsFromDay(d.dayKey),
+      dayKey: d.dayKey,
+      weightKg: d.weightKg!,
+      fatMassKg: d.fatMassKg!,
+      muscleMassKg: d.muscleMassKg!,
+      visceralFatIndex: d.visceralFatIndex,
+    }));
+  const anchor = resolveCompositionPeriodAnchor(sessions, dayKeys);
+  return {
+    days,
+    periodAnchor: anchor,
+    debug: {
+      sessions,
+      periodStart: anchor?.start ?? null,
+      periodEnd: anchor?.end ?? null,
+      lookbackDays: TREND_LOOKBACK_DAYS,
+    },
+  };
+}
+
+function dayKeyStartMsFromDay(dayKey: string): number {
+  const parts = dayKey.split('-').map(Number);
+  const d = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0, 0);
+  return d.getTime();
+}
+
 /**
- * Daily weight, fat mass, muscle mass, and visceral fat index (latest reading that local calendar day) for the last 7 days.
- * Returns mock points only when there is no valid session; otherwise live `getmeas` data.
+ * Daily weight, fat mass, muscle mass, and visceral fat index for the last 7 local days.
+ * Week deltas skip the first in-window BIA day (Withings-style) and compare 2nd day → last day.
  */
-export async function fetchBodyCompositionTrend7d(): Promise<MetabolicTrend7dDay[]> {
+export async function fetchBodyCompositionTrend7d(): Promise<BodyCompositionTrendPayload> {
   const dayKeys = last7LocalDayKeysOldestFirst();
   const accessToken = await getValidAccessToken();
   if (!accessToken) {
-    return getMockBodyCompositionTrend7d(dayKeys);
+    return mockTrendPayload(dayKeys);
   }
 
   const stored = await loadWithingsTokens();
   const end = Math.floor(Date.now() / 1000);
-  const start = end - 9 * 24 * 3600;
+  const start = end - TREND_LOOKBACK_DAYS * 24 * 3600;
 
   const form = new URLSearchParams({
     action: 'getmeas',
@@ -522,10 +637,55 @@ export async function fetchBodyCompositionTrend7d(): Promise<MetabolicTrend7dDay
   }
 
   const groups = json.body?.measuregrps ?? [];
-  return dayKeys.map((dayKey) => {
-    const dayGrps = groups.filter((g) => localDayKeyFromMs(g.date * 1000) === dayKey);
-    return { dayKey, ...aggregateBodyCompositionForDayGrps(dayGrps) };
-  });
+  const sessions = extractFullBiaSessions(groups);
+  const weightByDay = extractLatestWeightKgByDay(groups);
+  const visceralByDay = extractLatestVisceralByDay(groups);
+  const days = mergeVisceralIntoTrendDays(
+    mergeWeightOnlyIntoTrendDays(buildDaysFromSessions(dayKeys, sessions), weightByDay),
+    visceralByDay
+  );
+  const anchor = resolveCompositionPeriodAnchor(sessions, dayKeys);
+
+  if (__DEV__) {
+    const fmt = (s: CompositionSession | null | undefined) =>
+      s
+        ? `${s.dayKey} W${s.weightKg.toFixed(1)} F${s.fatMassKg.toFixed(1)} M${s.muscleMassKg.toFixed(1)}`
+        : '—';
+    console.warn(
+      '[WithingsTrend]',
+      JSON.stringify(
+        {
+          sessionCount: sessions.length,
+          periodStart: fmt(anchor?.start),
+          periodEnd: fmt(anchor?.end),
+          weekFat: anchor ? (anchor.end.fatMassKg - anchor.start.fatMassKg).toFixed(1) : null,
+          weekMuscle: anchor ? (anchor.end.muscleMassKg - anchor.start.muscleMassKg).toFixed(1) : null,
+          days: days.map(
+            (d) =>
+              `${d.dayKey} f=${d.fatMassKg?.toFixed(1) ?? '—'} m=${d.muscleMassKg?.toFixed(1) ?? '—'}`
+          ),
+        },
+        null,
+        2
+      )
+    );
+  }
+
+  return {
+    days,
+    periodAnchor: anchor,
+    debug: {
+      sessions,
+      periodStart: anchor?.start ?? null,
+      periodEnd: anchor?.end ?? null,
+      lookbackDays: TREND_LOOKBACK_DAYS,
+    },
+  };
 }
 
-export type { MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
+export type {
+  BodyCompositionTrendDebug,
+  BodyCompositionTrendPayload,
+  CompositionSession,
+  MetabolicTrend7dDay,
+} from '../logic/metabolicTrend7d';
