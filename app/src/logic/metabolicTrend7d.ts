@@ -218,9 +218,31 @@ export function periodAnchorVisceralDelta(anchor: CompositionPeriodAnchor | null
   return end - start;
 }
 
-/** First → last visceral index in the 7-day chart series (oldest → newest). */
-export function visceralWeekDeltaFromChartDays(days: MetabolicTrend7dDay[]): number | null {
-  return periodDeltaKg(days.map((d) => d.visceralFatIndex));
+/** Indices of days with visceral index (oldest → newest). */
+export function visceralDayIndices(days: MetabolicTrend7dDay[]): number[] {
+  const out: number[] = [];
+  days.forEach((d, i) => {
+    if (d.visceralFatIndex != null && Number.isFinite(d.visceralFatIndex)) out.push(i);
+  });
+  return out;
+}
+
+/**
+ * Visceral index to plot at `dayIndex`.
+ * Withings skips the first in-window day: that column shows the 2nd day's index.
+ */
+export function withingsChartVisceralIndex(days: MetabolicTrend7dDay[], dayIndex: number): number | null {
+  const vIdx = visceralDayIndices(days);
+  const rank = vIdx.indexOf(dayIndex);
+  if (rank < 0) return null;
+
+  if (rank === 0 && vIdx.length >= 2) {
+    const second = days[vIdx[1]].visceralFatIndex;
+    return second != null && Number.isFinite(second) ? second : null;
+  }
+
+  const v = days[dayIndex].visceralFatIndex;
+  return v != null && Number.isFinite(v) ? v : null;
 }
 
 /** Indices of days with BMR (oldest → newest). */
@@ -277,32 +299,64 @@ export type VisceralWeekTrend = {
   baselineIndex: number | null;
 };
 
-/** Week visceral change for legend: anchor when meaningful, else first → last on chart. */
-export function resolveVisceralWeekTrend(
-  days: MetabolicTrend7dDay[],
-  anchor: CompositionPeriodAnchor | null | undefined
-): VisceralWeekTrend {
-  const anchorDelta = periodAnchorVisceralDelta(anchor);
-  const chartFirstLastDelta = visceralWeekDeltaFromChartDays(days);
-  const firstChartVisceral =
-    days.find((d) => d.visceralFatIndex != null && Number.isFinite(d.visceralFatIndex))?.visceralFatIndex ??
-    null;
+/** Week visceral change: 2nd day with data → last day (Withings-style). */
+export function resolveVisceralWeekTrend(days: MetabolicTrend7dDay[]): VisceralWeekTrend {
+  const idx = visceralDayIndices(days);
+  if (idx.length === 0) return { deltaIndex: null, baselineIndex: null };
 
-  if (anchorDelta != null && Math.abs(anchorDelta) >= 0.05) {
-    return { deltaIndex: anchorDelta, baselineIndex: anchor?.start.visceralFatIndex ?? null };
+  const endIdx = idx[idx.length - 1];
+  const startIdx = idx.length >= 2 ? idx[1] : idx[0];
+  const start = days[startIdx].visceralFatIndex;
+  const end = days[endIdx].visceralFatIndex;
+
+  if (start == null || end == null || !Number.isFinite(start) || !Number.isFinite(end)) {
+    return { deltaIndex: null, baselineIndex: null };
   }
-  if (chartFirstLastDelta != null) {
-    return { deltaIndex: chartFirstLastDelta, baselineIndex: firstChartVisceral };
-  }
-  if (anchorDelta != null) {
-    return { deltaIndex: anchorDelta, baselineIndex: anchor?.start.visceralFatIndex ?? null };
-  }
-  return { deltaIndex: null, baselineIndex: null };
+
+  return { deltaIndex: end - start, baselineIndex: start };
 }
 
 export function visceralPercentChange(deltaIndex: number, baselineIndex: number): number | null {
   if (!Number.isFinite(deltaIndex) || !Number.isFinite(baselineIndex) || baselineIndex === 0) return null;
   return (deltaIndex / baselineIndex) * 100;
+}
+
+export type VisceralTrendDebug = {
+  legendDeltaIndex: number | null;
+  legendPercent: number | null;
+  baselineDayKey: string | null;
+  baselineIndex: number | null;
+  endDayKey: string | null;
+  endIndex: number | null;
+  daysWithVisceral: number;
+  perDay: { dayKey: string; visceralFatIndex: number | null; chartVisceralIndex: number | null }[];
+};
+
+export function buildVisceralTrendDebug(days: MetabolicTrend7dDay[]): VisceralTrendDebug {
+  const trend = resolveVisceralWeekTrend(days);
+  const idx = visceralDayIndices(days);
+  const startIdx = idx.length >= 2 ? idx[1] : idx[0];
+  const endIdx = idx.length > 0 ? idx[idx.length - 1] : -1;
+
+  const legendPercent =
+    trend.deltaIndex != null && trend.baselineIndex != null
+      ? visceralPercentChange(trend.deltaIndex, trend.baselineIndex)
+      : null;
+
+  return {
+    legendDeltaIndex: trend.deltaIndex,
+    legendPercent,
+    baselineDayKey: startIdx >= 0 ? days[startIdx].dayKey : null,
+    baselineIndex: trend.baselineIndex,
+    endDayKey: endIdx >= 0 ? days[endIdx].dayKey : null,
+    endIndex: endIdx >= 0 ? days[endIdx].visceralFatIndex : null,
+    daysWithVisceral: idx.length,
+    perDay: days.map((d, i) => ({
+      dayKey: d.dayKey,
+      visceralFatIndex: d.visceralFatIndex,
+      chartVisceralIndex: withingsChartVisceralIndex(days, i),
+    })),
+  };
 }
 
 export function buildDaysFromSessions(dayKeys: string[], sessions: CompositionSession[]): MetabolicTrend7dDay[] {

@@ -11,7 +11,7 @@ const PAD_R = 10;
 const PAD_TOP = 4;
 const STRIP_H = 52;
 const AXIS_BOTTOM = 22;
-const BMR_STROKE = '#FF7043';
+const BMR_STROKE = WellnessColors.textPrimary;
 
 type PixelPoint = { x: number; y: number };
 

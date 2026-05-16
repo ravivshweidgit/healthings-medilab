@@ -450,7 +450,10 @@ export const DashboardScreen = () => {
               </View>
             ) : null}
             {trend7dMerged ? (
-              <MetabolicTrendChart7d days={trend7dMerged} periodAnchor={trendPeriodAnchor} />
+              <MetabolicTrendChart7d
+                days={trend7dMerged}
+                periodAnchor={trendPeriodAnchor}
+              />
             ) : null}
           </View>
         </View>

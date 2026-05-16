@@ -3,13 +3,17 @@ import { ActivityIndicator, StyleSheet, Text, View, useWindowDimensions } from '
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import { curveMonotoneX, line } from 'd3-shape';
 import {
+  buildVisceralTrendDebug,
   periodAnchorBaselines,
   periodAnchorDeltas,
   resolveVisceralWeekTrend,
+  visceralDayIndices,
   visceralPercentChange,
   withingsChartCompositionKg,
+  withingsChartVisceralIndex,
   type CompositionPeriodAnchor,
   type MetabolicTrend7dDay,
+  type VisceralTrendDebug,
   type VisceralWeekTrend,
 } from '../logic/metabolicTrend7d';
 import { WellnessColors } from '../theme/wellness';
@@ -25,7 +29,7 @@ const AXIS_BOTTOM = 22;
 /** Minimum half-span (kg) when all fat/muscle deltas are flat. */
 const DELTA_FALLBACK_HALF_SPAN_KG = 0.5;
 
-const FAT_MASS_STROKE = '#FB8C00';
+const FAT_MASS_STROKE = WellnessColors.accentRed;
 const VISCERAL_STROKE = '#7B1FA2';
 
 type PixelPoint = { x: number; y: number };
@@ -104,8 +108,14 @@ function formatDeltaTick(v: number): string {
 type Props = {
   days: MetabolicTrend7dDay[];
   periodAnchor?: CompositionPeriodAnchor | null;
+  showVisceralDebug?: boolean;
   loading?: boolean;
 };
+
+function formatIndexCell(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return value.toFixed(1);
+}
 
 function legendLabelWithDelta(name: string, delta: number | null | undefined): string {
   if (delta == null || !Number.isFinite(delta)) return name;
@@ -127,6 +137,55 @@ function legendLabelWithVisceralPercent(name: string, trend: VisceralWeekTrend):
   return `${name} (${sign}${deltaIndex.toFixed(2)})`;
 }
 
+function VisceralDebugPanel({
+  days,
+  debug,
+  shortDayLabel,
+}: {
+  days: MetabolicTrend7dDay[];
+  debug: VisceralTrendDebug;
+  shortDayLabel: (dayKey: string) => string;
+}) {
+  const vIdx = visceralDayIndices(days);
+  const legendLine =
+    debug.legendDeltaIndex != null
+      ? debug.legendPercent != null
+        ? `${debug.legendDeltaIndex >= 0 ? '+' : ''}${debug.legendDeltaIndex.toFixed(2)} (${debug.legendPercent >= 0 ? '+' : ''}${debug.legendPercent.toFixed(1)}%)`
+        : `${debug.legendDeltaIndex >= 0 ? '+' : ''}${debug.legendDeltaIndex.toFixed(2)}`
+      : '—';
+
+  return (
+    <View style={styles.debugBox}>
+      <Text style={styles.debugTitle}>Debug · visceral fat index (type 170, not 88 bone kg)</Text>
+      <Text style={styles.debugLine}>
+        Legend: {legendLine} · days w/ data: {debug.daysWithVisceral}/7
+      </Text>
+      <Text style={styles.debugLine}>
+        Baseline (2nd day w/ data): {debug.baselineDayKey ?? '—'} {formatIndexCell(debug.baselineIndex)} →{' '}
+        {debug.endDayKey ?? '—'} {formatIndexCell(debug.endIndex)}
+      </Text>
+      <View style={styles.debugTableHeader}>
+        <Text style={[styles.debugCell, styles.debugCellDay]}>Day</Text>
+        <Text style={[styles.debugCell, styles.debugCellVisceral]}>Raw</Text>
+        <Text style={[styles.debugCell, styles.debugCellVisceral]}>Chart</Text>
+      </View>
+      {debug.perDay.map((row, i) => {
+        const isShiftedFirst = vIdx.length >= 2 && vIdx[0] === i;
+        return (
+          <View key={row.dayKey} style={styles.debugTableRow}>
+            <Text style={[styles.debugCell, styles.debugCellDay]}>
+              {shortDayLabel(row.dayKey)} · {row.dayKey}
+              {isShiftedFirst ? ' · chart=2nd' : ''}
+            </Text>
+            <Text style={[styles.debugCell, styles.debugCellVisceral]}>{formatIndexCell(row.visceralFatIndex)}</Text>
+            <Text style={[styles.debugCell, styles.debugCellVisceral]}>{formatIndexCell(row.chartVisceralIndex)}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 function LegendItem({ color, label }: { color: string; label: string }) {
   return (
     <View style={styles.legendItem}>
@@ -138,7 +197,7 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   );
 }
 
-export function MetabolicTrendChart7d({ days, periodAnchor, loading }: Props) {
+export function MetabolicTrendChart7d({ days, periodAnchor, showVisceralDebug, loading }: Props) {
   const { width } = useWindowDimensions();
   const chartW = Math.max(280, width - 40);
 
@@ -155,11 +214,15 @@ export function MetabolicTrendChart7d({ days, periodAnchor, loading }: Props) {
     const chartFatKg = (i: number) => withingsChartCompositionKg(days, i, 'fatMassKg');
     const chartMuscleKg = (i: number) => withingsChartCompositionKg(days, i, 'muscleMassKg');
 
+    const chartVisceral = (i: number) => withingsChartVisceralIndex(days, i);
+
     const wVals = days.map((d) => d.weightKg).filter((v): v is number => v != null && Number.isFinite(v));
-    const vVals = days.map((d) => d.visceralFatIndex).filter((v): v is number => v != null && Number.isFinite(v));
+    const vVals = days
+      .map((_, i) => chartVisceral(i))
+      .filter((v): v is number => v != null && Number.isFinite(v));
 
     const wDom = domainPad(wVals, 76, 82, 0.08);
-    const vDom = domainPad(vVals, 7, 11, 0.12);
+    const vDom = domainPad(vVals, 3.5, 4.5, 0.12);
 
     const compositionDeltas: number[] = [];
     if (compBase && fatBaseline != null && muscleBaseline != null) {
@@ -172,11 +235,15 @@ export function MetabolicTrendChart7d({ days, periodAnchor, loading }: Props) {
     }
     const deltaDom = deltaDomainFromValues(compositionDeltas);
 
-    const mkPts = (getter: (d: MetabolicTrend7dDay) => number | null, dom: { min: number; max: number }, stripIndex: number) => {
+    const mkPts = (
+      getter: (d: MetabolicTrend7dDay, i: number) => number | null,
+      dom: { min: number; max: number },
+      stripIndex: number
+    ) => {
       const top = stripTop(stripIndex);
       const pts: PixelPoint[] = [];
       days.forEach((d, i) => {
-        const v = getter(d);
+        const v = getter(d, i);
         if (v != null && Number.isFinite(v)) {
           pts.push({
             x: xAtIndex(i, plotLeft, innerW),
@@ -205,7 +272,7 @@ export function MetabolicTrendChart7d({ days, periodAnchor, loading }: Props) {
     const wPts = mkPts((d) => d.weightKg, wDom, 0);
     const fPts = mkDeltaPts(chartFatKg, fatBaseline, 1);
     const mPts = mkDeltaPts(chartMuscleKg, muscleBaseline, 1);
-    const vPts = mkPts((d) => d.visceralFatIndex, vDom, 2);
+    const vPts = mkPts((_, i) => chartVisceral(i), vDom, 2);
 
     const weightPath = buildSmoothPath(wPts);
     const fatPath = buildSmoothPath(fPts);
@@ -240,7 +307,8 @@ export function MetabolicTrendChart7d({ days, periodAnchor, loading }: Props) {
     const muscleWeekDelta = anchorDeltas?.muscleKg ?? null;
     const weightWeekDelta =
       periodAnchor != null ? periodAnchor.end.weightKg - periodAnchor.start.weightKg : null;
-    const visceralWeekTrend = resolveVisceralWeekTrend(days, periodAnchor);
+    const visceralWeekTrend = resolveVisceralWeekTrend(days);
+    const visceralDebug = buildVisceralTrendDebug(days);
 
     return {
       chartW,
@@ -261,6 +329,7 @@ export function MetabolicTrendChart7d({ days, periodAnchor, loading }: Props) {
       muscleWeekDelta,
       weightWeekDelta,
       visceralWeekTrend,
+      visceralDebug,
     };
   }, [chartW, days, periodAnchor]);
 
@@ -391,6 +460,10 @@ export function MetabolicTrendChart7d({ days, periodAnchor, loading }: Props) {
           <LegendItem color={VISCERAL_STROKE} label={legendLabelWithVisceralPercent('Visceral', prepared.visceralWeekTrend)} />
         </View>
       </View>
+
+      {showVisceralDebug && prepared.visceralDebug ? (
+        <VisceralDebugPanel days={days} debug={prepared.visceralDebug} shortDayLabel={shortDayLabel} />
+      ) : null}
     </View>
   );
 }
@@ -445,6 +518,54 @@ const styles = StyleSheet.create({
     fontSize: 9.35,
     fontWeight: '500',
     color: WellnessColors.textSecondary,
+  },
+  debugBox: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: WellnessColors.progressTrack,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+  },
+  debugTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: WellnessColors.textSecondary,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  debugLine: {
+    fontSize: 10,
+    color: WellnessColors.textSecondary,
+    lineHeight: 14,
+    marginBottom: 4,
+  },
+  debugTableHeader: {
+    flexDirection: 'row',
+    marginTop: 6,
+    marginBottom: 4,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: WellnessColors.gridLine,
+  },
+  debugTableRow: {
+    flexDirection: 'row',
+    paddingVertical: 3,
+  },
+  debugCell: {
+    fontSize: 10,
+    fontVariant: ['tabular-nums'],
+    color: WellnessColors.textPrimary,
+  },
+  debugCellDay: {
+    flex: 1.2,
+    fontWeight: '600',
+  },
+  debugCellVisceral: {
+    flex: 1,
+    color: VISCERAL_STROKE,
+    textAlign: 'right',
   },
   loadingBox: {
     minHeight: 160,

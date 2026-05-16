@@ -34,7 +34,8 @@ export const WITHINGS_MEASURE_TYPES = {
   WEIGHT_KG: 1,
   FAT_MASS_KG: 8,
   MUSCLE_MASS_KG: 76,
-  VISCERAL_FAT_INDEX: 88,
+  /** Visceral fat index (Body Scan). Type 88 is bone mass (kg) — not visceral. */
+  VISCERAL_FAT_INDEX: 170,
   /** Basal metabolic rate (kcal/day). */
   BMR_KCAL_DAY: 226,
 } as const;
@@ -334,6 +335,20 @@ function emptyDashboardMetrics(): WeightMetricsForDashboard {
   };
 }
 
+function pickLatestVisceralFromGroups(
+  groups: WithingsMeasureGrp[]
+): { value: number; unit: number; date: number } | null {
+  const sorted = [...groups].filter((g) => g && typeof g.date === 'number').sort((a, b) => b.date - a.date);
+  const typeId = WITHINGS_MEASURE_TYPES.VISCERAL_FAT_INDEX;
+  for (const grp of sorted) {
+    const hit = grp.measures?.find((m) => m.type === typeId);
+    if (hit && typeof hit.value === 'number' && typeof hit.unit === 'number') {
+      return { value: hit.value, unit: hit.unit, date: grp.date };
+    }
+  }
+  return null;
+}
+
 /**
  * Picks the newest measurement per `type` by scanning `measuregrps` newest-first.
  */
@@ -341,6 +356,7 @@ function pickLatestMeasuresByType(groups: WithingsMeasureGrp[]): Map<number, { v
   const sorted = [...groups].filter((g) => g && typeof g.date === 'number').sort((a, b) => b.date - a.date);
   const out = new Map<number, { value: number; unit: number; date: number }>();
   for (const typeId of DASHBOARD_TYPE_LIST) {
+    if (typeId === WITHINGS_MEASURE_TYPES.VISCERAL_FAT_INDEX) continue;
     for (const grp of sorted) {
       const hit = grp.measures?.find((m) => m.type === typeId);
       if (hit && typeof hit.value === 'number' && typeof hit.unit === 'number') {
@@ -348,6 +364,10 @@ function pickLatestMeasuresByType(groups: WithingsMeasureGrp[]): Map<number, { v
         break;
       }
     }
+  }
+  const visceral = pickLatestVisceralFromGroups(groups);
+  if (visceral) {
+    out.set(WITHINGS_MEASURE_TYPES.VISCERAL_FAT_INDEX, visceral);
   }
   return out;
 }
@@ -376,14 +396,14 @@ function mapPickedToDashboard(
   };
 }
 
-/** Dev/offline sample aligned with `WeightMetricsForDashboard` (types 1, 8, 76, 88). */
+/** Dev/offline sample aligned with `WeightMetricsForDashboard`. */
 export function getMockWeightMetricsForDashboard(): WeightMetricsForDashboard {
   return {
     measuredAt: new Date().toISOString(),
     weightKg: 78.4,
     fatMassKg: 17.9,
     muscleMassKg: 56.2,
-    visceralFatIndex: 8.0,
+    visceralFatIndex: 4.1,
     bmrKcalDay: 1842,
   };
 }
@@ -605,7 +625,7 @@ export function getMockBodyCompositionTrend7d(dayKeys: string[]): MetabolicTrend
       weightKg: w,
       fatMassKg: Math.max(14.2, 16.1 - i * 0.06 + Math.sin(phase * 2) * 0.15),
       muscleMassKg: Math.max(58.5, 60.2 + i * 0.03 + Math.cos(phase * Math.PI) * 0.2),
-      visceralFatIndex: Math.max(6.8, 8.4 - i * 0.09 + Math.sin(phase * 2) * 0.12),
+      visceralFatIndex: Math.max(3.9, 4.2 - i * 0.05 + Math.sin(phase * 2) * 0.08),
       bmrKcalDay: Math.round(1835 + i * 2 + Math.sin(phase * Math.PI) * 18),
     };
   });
@@ -700,18 +720,27 @@ export async function fetchBodyCompositionTrend7d(): Promise<BodyCompositionTren
       s
         ? `${s.dayKey} W${s.weightKg.toFixed(1)} F${s.fatMassKg.toFixed(1)} M${s.muscleMassKg.toFixed(1)}`
         : '—';
+    const visceralTypeCounts: Record<string, number> = {};
+    for (const g of groups) {
+      for (const m of g.measures ?? []) {
+        if (m.type === 88 || m.type === 170) {
+          visceralTypeCounts[String(m.type)] = (visceralTypeCounts[String(m.type)] ?? 0) + 1;
+        }
+      }
+    }
     console.warn(
       '[WithingsTrend]',
       JSON.stringify(
         {
           sessionCount: sessions.length,
+          visceralMeasureTypesInFetch: visceralTypeCounts,
           periodStart: fmt(anchor?.start),
           periodEnd: fmt(anchor?.end),
           weekFat: anchor ? (anchor.end.fatMassKg - anchor.start.fatMassKg).toFixed(1) : null,
           weekMuscle: anchor ? (anchor.end.muscleMassKg - anchor.start.muscleMassKg).toFixed(1) : null,
           days: days.map(
             (d) =>
-              `${d.dayKey} f=${d.fatMassKg?.toFixed(1) ?? '—'} m=${d.muscleMassKg?.toFixed(1) ?? '—'} bmr=${d.bmrKcalDay != null ? Math.round(d.bmrKcalDay) : '—'}`
+              `${d.dayKey} f=${d.fatMassKg?.toFixed(1) ?? '—'} m=${d.muscleMassKg?.toFixed(1) ?? '—'} v=${d.visceralFatIndex?.toFixed(1) ?? '—'} bmr=${d.bmrKcalDay != null ? Math.round(d.bmrKcalDay) : '—'}`
           ),
           bmrDaysInWindow: bmrByDay.size,
         },
