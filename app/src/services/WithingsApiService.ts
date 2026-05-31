@@ -27,8 +27,8 @@ const WITHINGS_MEASURE_URL = 'https://wbsapi.withings.net/measure';
 const SECURE_TOKEN_KEY = 'healthings_withings_tokens';
 const WEB_TOKEN_FALLBACK_KEY = 'healthings_withings_tokens_web';
 
-/** Default scope for body metrics (weight, composition, etc.). */
-export const DEFAULT_WITHINGS_SCOPE = 'user.metrics';
+/** Default scope — includes activity so getintradayactivity (watch HR) works. */
+export const DEFAULT_WITHINGS_SCOPE = 'user.metrics,user.activity';
 
 /** Withings measure `type` ids we surface on the dashboard. */
 export const WITHINGS_MEASURE_TYPES = {
@@ -39,6 +39,8 @@ export const WITHINGS_MEASURE_TYPES = {
   VISCERAL_FAT_INDEX: 170,
   /** Basal metabolic rate (kcal/day). */
   BMR_KCAL_DAY: 226,
+  /** Heart rate (bpm). Spot readings from scale/watch/BPM cuff (not continuous). */
+  HEART_RATE_BPM: 11,
 } as const;
 
 const DASHBOARD_TYPE_LIST = [
@@ -768,6 +770,124 @@ export async function fetchBodyCompositionTrend7d(): Promise<BodyCompositionTren
       lookbackDays: TREND_LOOKBACK_DAYS,
     },
   };
+}
+
+/** A single heart-rate reading (bpm) at a point in time. */
+export type WithingsHeartRatePoint = { timestamp: string; value: number };
+
+/** Default lookback for intraday HR history (days). Keep small — each day = 1 API request. */
+const HEART_RATE_LOOKBACK_DAYS = 7;
+
+const WITHINGS_MEASURE_V2_URL = 'https://wbsapi.withings.net/v2/measure';
+
+type WithingsIntradayBody = {
+  series?: Record<string, { heart_rate?: number }>;
+};
+
+type WithingsIntradayJson = {
+  status: number;
+  body?: WithingsIntradayBody;
+  error?: string;
+};
+
+/** Generate mock intraday HR for one day (every 30 min, realistic BPM curve). */
+function mockIntradayHrForDay(dayStartMs: number): WithingsHeartRatePoint[] {
+  const pts: WithingsHeartRatePoint[] = [];
+  for (let i = 0; i < 48; i++) {
+    const tsMs = dayStartMs + i * 30 * 60 * 1000;
+    const hour = (tsMs / 3600000) % 24;
+    // Lower overnight, higher during day
+    const base = hour < 6 || hour > 22 ? 58 : hour < 9 || hour > 20 ? 68 : 72;
+    const bpm = Math.round(base + Math.sin(i * 0.4) * 6 + (Math.random() - 0.5) * 4);
+    pts.push({ timestamp: new Date(tsMs).toISOString(), value: Math.max(45, bpm) });
+  }
+  return pts;
+}
+
+/**
+ * Fetches continuous watch heart-rate history from Withings `getintradayactivity`
+ * (requires `user.activity` scope — included in DEFAULT_WITHINGS_SCOPE).
+ * Each calendar day is a separate API call (Withings limit: 24h per request).
+ * Returns oldest → newest, all days merged.
+ */
+export async function fetchHeartRateHistory(
+  lookbackDays: number = HEART_RATE_LOOKBACK_DAYS
+): Promise<WithingsHeartRatePoint[]> {
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) {
+    // Dev mock: last N days of synthetic data
+    const allMock: WithingsHeartRatePoint[] = [];
+    for (let i = lookbackDays - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - i);
+      allMock.push(...mockIntradayHrForDay(d.getTime()));
+    }
+    return allMock;
+  }
+
+  const stored = await loadWithingsTokens();
+  const points: WithingsHeartRatePoint[] = [];
+  const n = Math.max(1, Math.floor(lookbackDays));
+
+  for (let i = n - 1; i >= 0; i--) {
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    dayStart.setDate(dayStart.getDate() - i);
+    const startSec = Math.floor(dayStart.getTime() / 1000);
+    const endSec = startSec + 24 * 3600 - 1;
+
+    const form = new URLSearchParams({
+      action: 'getintradayactivity',
+      access_token: accessToken,
+      startdate: String(startSec),
+      enddate: String(endSec),
+      data_fields: 'heart_rate',
+    });
+    if (stored?.userid) {
+      form.set('userid', stored.userid);
+    }
+
+    try {
+      const res = await fetch(WITHINGS_MEASURE_V2_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString(),
+      });
+      const json = (await res.json()) as WithingsIntradayJson;
+      if (json.status !== 0) continue; // skip days with no data / errors silently
+
+      const series = json.body?.series ?? {};
+      for (const [tsSec, entry] of Object.entries(series)) {
+        const bpm = entry.heart_rate;
+        if (typeof bpm !== 'number' || !Number.isFinite(bpm) || bpm <= 0) continue;
+        const tsMs = Number(tsSec) * 1000;
+        if (Number.isNaN(tsMs)) continue;
+        points.push({ timestamp: new Date(tsMs).toISOString(), value: Math.round(bpm) });
+      }
+    } catch {
+      // Network error on one day — skip it, don't fail the whole fetch
+    }
+  }
+
+  points.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  if (__DEV__) {
+    console.warn(
+      '[WithingsHeartRate]',
+      JSON.stringify({ lookbackDays, intradayPoints: points.length }, null, 2)
+    );
+  }
+
+  return points;
+}
+
+/**
+ * Re-fetches only today's intraday HR from Withings (1 API call).
+ * Used for periodic background refresh without re-requesting the full history.
+ */
+export async function fetchTodayHeartRate(): Promise<WithingsHeartRatePoint[]> {
+  return fetchHeartRateHistory(1);
 }
 
 export type {

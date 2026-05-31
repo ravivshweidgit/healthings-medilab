@@ -137,6 +137,14 @@ export const useHealthData = () => {
     void bootstrap();
   }, [applyMetrics, refetch]);
 
+  /** Auto-refresh health data every 5 minutes so live HR/glucose stays current. */
+  useEffect(() => {
+    const id = setInterval(() => {
+      void refetch();
+    }, 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [refetch]);
+
   return {
     ...state,
     isLoading,

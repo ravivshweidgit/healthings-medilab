@@ -32,9 +32,12 @@ import {
   buildAuthorizationUrl,
   fetchWeightMetrics,
   fetchBodyCompositionTrend7d,
+  fetchHeartRateHistory,
+  fetchTodayHeartRate,
   handleOAuthCallback,
   loadWithingsTokens,
   type WeightMetricsForDashboard,
+  type WithingsHeartRatePoint,
 } from '../services/WithingsApiService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 import { demoNoticeCopy } from '../utils/wellnessCopy';
@@ -112,6 +115,7 @@ export const DashboardScreen = () => {
 
   const [bodyTrendDays, setBodyTrendDays] = useState<MetabolicTrend7dDay[]>([]);
   const [bodyTrendSessions, setBodyTrendSessions] = useState<CompositionSession[]>([]);
+  const [withingsHeartRate, setWithingsHeartRate] = useState<WithingsHeartRatePoint[]>([]);
   const [trendPeriodDays, setTrendPeriodDays] = useState<number>(DEFAULT_TREND_PERIOD_DAYS);
   const [trendLoading, setTrendLoading] = useState(true);
   const [trendError, setTrendError] = useState<string | null>(null);
@@ -142,6 +146,14 @@ export const DashboardScreen = () => {
     [visibleTrend]
   );
 
+  /** Prefer device (continuous) heart rate, augmented with Withings spot readings. */
+  const mergedHeartRate = useMemo(() => {
+    if (withingsHeartRate.length === 0) return heartRateData;
+    const all = [...heartRateData, ...withingsHeartRate];
+    all.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    return all;
+  }, [heartRateData, withingsHeartRate]);
+
   const loadBodyScan = useCallback(async () => {
     setBodyScanError(null);
     setBodyScanLoading(true);
@@ -171,6 +183,15 @@ export const DashboardScreen = () => {
     }
   }, []);
 
+  const loadHeartRate = useCallback(async () => {
+    try {
+      const hr = await fetchHeartRateHistory();
+      setWithingsHeartRate(hr);
+    } catch {
+      // Non-fatal: chart falls back to device heart rate only.
+    }
+  }, []);
+
   useEffect(() => {
     void loadBodyScan();
   }, [loadBodyScan]);
@@ -178,6 +199,33 @@ export const DashboardScreen = () => {
   useEffect(() => {
     void loadTrend();
   }, [loadTrend]);
+
+  useEffect(() => {
+    void loadHeartRate();
+  }, [loadHeartRate]);
+
+  /** Re-fetch today's Withings HR every 10 min so recent watch readings appear without manual sync. */
+  useEffect(() => {
+    const id = setInterval(async () => {
+      try {
+        const todayPts = await fetchTodayHeartRate();
+        if (todayPts.length === 0) return;
+        setWithingsHeartRate((prev) => {
+          // Remove old today-points and add fresh ones
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+          const todayStartMs = todayStart.getTime();
+          const older = prev.filter((p) => new Date(p.timestamp).getTime() < todayStartMs);
+          const merged = [...older, ...todayPts];
+          merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          return merged;
+        });
+      } catch {
+        // Non-fatal: periodic refresh failure is silent.
+      }
+    }, 10 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     void refreshWithingsLinkState();
@@ -198,7 +246,7 @@ export const DashboardScreen = () => {
       if (result.type === 'success' && result.url) {
         await handleOAuthCallback(result.url);
         await refreshWithingsLinkState();
-        await Promise.all([loadBodyScan(), loadTrend()]);
+        await Promise.all([loadBodyScan(), loadTrend(), loadHeartRate()]);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Withings link failed.';
@@ -206,10 +254,10 @@ export const DashboardScreen = () => {
     } finally {
       setLinkBusy(false);
     }
-  }, [loadBodyScan, loadTrend, refreshWithingsLinkState]);
+  }, [loadBodyScan, loadTrend, loadHeartRate, refreshWithingsLinkState]);
 
   const handleSync = async () => {
-    const [, , result] = await Promise.all([loadBodyScan(), loadTrend(), refetch()]);
+    const [, , , result] = await Promise.all([loadBodyScan(), loadTrend(), loadHeartRate(), refetch()]);
     if (!result) return;
     await awsDataService.persistData({
       syncedAt: new Date().toISOString(),
@@ -277,7 +325,7 @@ export const DashboardScreen = () => {
             <View style={[styles.chartCardBleed, cardShadow]}>
               <MetabolicChart
                 glucose={glucoseData}
-                heartRate={heartRateData}
+                heartRate={mergedHeartRate}
                 activityZones={activityZones}
                 withingsSnapshot={
                   bodyScan
