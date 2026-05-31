@@ -19,7 +19,13 @@ import { MetabolicChart } from '../components/MetabolicChart';
 import { MetabolicTrendChart7d } from '../components/MetabolicTrendChart7d';
 import { CONFIG } from '../config/env';
 import { useHealthData } from '../hooks/useHealthData';
-import type { CompositionPeriodAnchor, MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
+import {
+  DEFAULT_TREND_PERIOD_DAYS,
+  TREND_PERIOD_DAY_OPTIONS,
+  resolveCompositionPeriodAnchor,
+  type CompositionSession,
+  type MetabolicTrend7dDay,
+} from '../logic/metabolicTrend7d';
 import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportCsv } from '../services/careSensCsv';
 import {
@@ -104,8 +110,9 @@ export const DashboardScreen = () => {
   const [bodyScanLoading, setBodyScanLoading] = useState(true);
   const [bodyScanError, setBodyScanError] = useState<string | null>(null);
 
-  const [bodyTrend7d, setBodyTrend7d] = useState<MetabolicTrend7dDay[]>([]);
-  const [trendPeriodAnchor, setTrendPeriodAnchor] = useState<CompositionPeriodAnchor | null>(null);
+  const [bodyTrendDays, setBodyTrendDays] = useState<MetabolicTrend7dDay[]>([]);
+  const [bodyTrendSessions, setBodyTrendSessions] = useState<CompositionSession[]>([]);
+  const [trendPeriodDays, setTrendPeriodDays] = useState<number>(DEFAULT_TREND_PERIOD_DAYS);
   const [trendLoading, setTrendLoading] = useState(true);
   const [trendError, setTrendError] = useState<string | null>(null);
 
@@ -118,15 +125,21 @@ export const DashboardScreen = () => {
     setWithingsLinked(Boolean(t?.refreshToken));
   }, []);
 
-  const trend7dMerged = useMemo(() => {
-    if (bodyTrend7d.length !== 7) return null;
-    return bodyTrend7d;
-  }, [bodyTrend7d]);
+  const visibleTrend = useMemo(() => {
+    if (bodyTrendDays.length < 2) return null;
+    const n = Math.min(trendPeriodDays, bodyTrendDays.length);
+    const days = bodyTrendDays.slice(-n);
+    const anchor = resolveCompositionPeriodAnchor(
+      bodyTrendSessions,
+      days.map((d) => d.dayKey)
+    );
+    return { days, anchor };
+  }, [bodyTrendDays, bodyTrendSessions, trendPeriodDays]);
 
   const hasBmrHistory = useMemo(
     () =>
-      trend7dMerged?.some((d) => d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay)) ?? false,
-    [trend7dMerged]
+      visibleTrend?.days.some((d) => d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay)) ?? false,
+    [visibleTrend]
   );
 
   const loadBodyScan = useCallback(async () => {
@@ -148,8 +161,8 @@ export const DashboardScreen = () => {
     setTrendLoading(true);
     try {
       const payload = await fetchBodyCompositionTrend7d();
-      setBodyTrend7d(payload.days);
-      setTrendPeriodAnchor(payload.periodAnchor);
+      setBodyTrendDays(payload.days);
+      setBodyTrendSessions(payload.debug.sessions);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not load 7-day trend.';
       setTrendError(message);
@@ -443,25 +456,29 @@ export const DashboardScreen = () => {
         <View style={styles.trendBleed}>
           <View style={[styles.trendCardBleed, cardShadow]}>
             {trendError ? <Text style={styles.trendErrorText}>{trendError}</Text> : null}
-            {trendLoading && !trend7dMerged ? (
+            {trendLoading && !visibleTrend ? (
               <View style={styles.trendLoadingOnly}>
                 <ActivityIndicator color={WellnessColors.accentBlue} />
                 <Text style={styles.trendLoadingLabel}>Loading trend analysis…</Text>
               </View>
             ) : null}
-            {trend7dMerged ? (
+            {visibleTrend ? (
               <MetabolicTrendChart7d
-                days={trend7dMerged}
-                periodAnchor={trendPeriodAnchor}
+                days={visibleTrend.days}
+                periodAnchor={visibleTrend.anchor}
+                periodDays={trendPeriodDays}
+                periodOptions={TREND_PERIOD_DAY_OPTIONS}
+                availableDays={bodyTrendDays.length}
+                onPeriodChange={setTrendPeriodDays}
               />
             ) : null}
           </View>
         </View>
 
-        {hasBmrHistory && trend7dMerged ? (
+        {hasBmrHistory && visibleTrend ? (
           <View style={styles.trendBleed}>
             <View style={[styles.trendCardBleed, styles.bmrCardBleed, cardShadow]}>
-              <BmrHistoryChart7d days={trend7dMerged} loading={trendLoading} />
+              <BmrHistoryChart7d days={visibleTrend.days} loading={trendLoading} />
             </View>
           </View>
         ) : null}

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import { curveMonotoneX, line } from 'd3-shape';
 import {
@@ -18,7 +18,6 @@ import {
 } from '../logic/metabolicTrend7d';
 import { WellnessColors } from '../theme/wellness';
 
-const N = 7;
 const PLOT_PAD_L = 36;
 const PAD_R = 10;
 const PAD_TOP = 4;
@@ -42,8 +41,29 @@ function shortDayLabel(dayKey: string): string {
   return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
 }
 
-function xAtIndex(i: number, plotLeft: number, innerW: number): number {
-  return plotLeft + (i / Math.max(1, N - 1)) * innerW;
+/** Axis label: weekday + day for short windows, month + day for longer ones. */
+function axisDayLabel(dayKey: string, n: number): string {
+  const parts = dayKey.split('-').map(Number);
+  if (parts.length !== 3 || parts.some((v) => !Number.isFinite(v))) return dayKey;
+  const [y, mo, da] = parts;
+  const d = new Date(y, mo - 1, da);
+  if (n <= 8) return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+/** Evenly spaced tick indices (always includes first and last) to avoid crowding wide windows. */
+function pickTickIndices(n: number, maxTicks: number): number[] {
+  if (n <= 1) return [0];
+  if (n <= maxTicks) return Array.from({ length: n }, (_, i) => i);
+  const out = new Set<number>();
+  const step = (n - 1) / (maxTicks - 1);
+  for (let k = 0; k < maxTicks; k += 1) out.add(Math.round(k * step));
+  out.add(n - 1);
+  return Array.from(out).sort((a, b) => a - b);
+}
+
+function xAtIndex(i: number, plotLeft: number, innerW: number, n: number): number {
+  return plotLeft + (i / Math.max(1, n - 1)) * innerW;
 }
 
 function domainPad(values: number[], fallbackMin: number, fallbackMax: number, padRatio: number): { min: number; max: number } {
@@ -108,6 +128,13 @@ function formatDeltaTick(v: number): string {
 type Props = {
   days: MetabolicTrend7dDay[];
   periodAnchor?: CompositionPeriodAnchor | null;
+  /** Selected window length (days). Drives the highlighted chip. */
+  periodDays?: number;
+  /** Selectable window lengths shown as chips (e.g. [8, 16, 32, 64, 128]). */
+  periodOptions?: readonly number[];
+  /** Total days currently available; chips beyond this are disabled. */
+  availableDays?: number;
+  onPeriodChange?: (days: number) => void;
   showVisceralDebug?: boolean;
   loading?: boolean;
 };
@@ -197,13 +224,23 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   );
 }
 
-export function MetabolicTrendChart7d({ days, periodAnchor, showVisceralDebug, loading }: Props) {
+export function MetabolicTrendChart7d({
+  days,
+  periodAnchor,
+  periodDays,
+  periodOptions,
+  availableDays,
+  onPeriodChange,
+  showVisceralDebug,
+  loading,
+}: Props) {
   const { width } = useWindowDimensions();
   const chartW = Math.max(280, width - 40);
 
   const prepared = useMemo(() => {
-    if (!days || days.length !== N) return null;
+    if (!days || days.length < 2) return null;
 
+    const n = days.length;
     const plotLeft = PLOT_PAD_L;
     const innerW = Math.max(1, chartW - plotLeft - PAD_R);
     const plotBottom = stripTop(2) + STRIP_H;
@@ -246,7 +283,7 @@ export function MetabolicTrendChart7d({ days, periodAnchor, showVisceralDebug, l
         const v = getter(d, i);
         if (v != null && Number.isFinite(v)) {
           pts.push({
-            x: xAtIndex(i, plotLeft, innerW),
+            x: xAtIndex(i, plotLeft, innerW, n),
             y: mapY(v, dom.min, dom.max, top, STRIP_H),
           });
         }
@@ -262,7 +299,7 @@ export function MetabolicTrendChart7d({ days, periodAnchor, showVisceralDebug, l
         const v = deltaKg(getter(i), baseline);
         if (v == null) return;
         pts.push({
-          x: xAtIndex(i, plotLeft, innerW),
+          x: xAtIndex(i, plotLeft, innerW, n),
           y: mapY(v, deltaDom.min, deltaDom.max, top, STRIP_H),
         });
       });
@@ -294,11 +331,15 @@ export function MetabolicTrendChart7d({ days, periodAnchor, showVisceralDebug, l
 
     const zeroLineY = mapY(0, deltaDom.min, deltaDom.max, stripTop(1), STRIP_H);
 
-    const xTicks = days.map((d, i) => ({
-      x: xAtIndex(i, plotLeft, innerW),
-      label: shortDayLabel(d.dayKey),
-      key: d.dayKey,
-    }));
+    const tickIdx = new Set(pickTickIndices(n, 7));
+    const xTicks = days
+      .map((d, i) => ({ d, i }))
+      .filter(({ i }) => tickIdx.has(i))
+      .map(({ d, i }) => ({
+        x: xAtIndex(i, plotLeft, innerW, n),
+        label: axisDayLabel(d.dayKey, n),
+        key: d.dayKey,
+      }));
 
     const svgH = stripTop(2) + STRIP_H + AXIS_BOTTOM;
 
@@ -333,19 +374,55 @@ export function MetabolicTrendChart7d({ days, periodAnchor, showVisceralDebug, l
     };
   }, [chartW, days, periodAnchor]);
 
+  const selector =
+    periodOptions && periodOptions.length > 0 ? (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.periodRow}
+      >
+        {periodOptions.map((opt) => {
+          const selected = opt === periodDays;
+          const disabled = availableDays != null && availableDays > 0 && opt > availableDays;
+          return (
+            <Pressable
+              key={opt}
+              onPress={() => onPeriodChange?.(opt)}
+              disabled={disabled}
+              style={[
+                styles.periodChip,
+                selected && styles.periodChipSelected,
+                disabled && styles.periodChipDisabled,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Trend window ${opt} days`}
+            >
+              <Text style={[styles.periodChipText, selected && styles.periodChipTextSelected]}>
+                {opt}D
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    ) : null;
+
   if (loading) {
     return (
       <View style={styles.loadingBox}>
         <ActivityIndicator color={WellnessColors.accentBlue} />
-        <Text style={styles.loadingText}>Loading 7-day trend…</Text>
+        <Text style={styles.loadingText}>Loading trend…</Text>
       </View>
     );
   }
 
   if (!prepared) {
     return (
-      <View style={styles.loadingBox}>
-        <Text style={styles.loadingText}>Trend data will appear after refresh.</Text>
+      <View style={styles.wrap}>
+        <Text style={styles.title}>TREND ANALYSIS</Text>
+        {selector}
+        <View style={styles.loadingBox}>
+          <Text style={styles.loadingText}>Trend data will appear after refresh.</Text>
+        </View>
       </View>
     );
   }
@@ -355,8 +432,12 @@ export function MetabolicTrendChart7d({ days, periodAnchor, showVisceralDebug, l
   );
   if (!hasAny) {
     return (
-      <View style={styles.loadingBox}>
-        <Text style={styles.loadingText}>Not enough Withings body data for a 7-day view yet.</Text>
+      <View style={styles.wrap}>
+        <Text style={styles.title}>TREND ANALYSIS</Text>
+        {selector}
+        <View style={styles.loadingBox}>
+          <Text style={styles.loadingText}>Not enough Withings body data for this window yet.</Text>
+        </View>
       </View>
     );
   }
@@ -364,6 +445,7 @@ export function MetabolicTrendChart7d({ days, periodAnchor, showVisceralDebug, l
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>TREND ANALYSIS</Text>
+      {selector}
 
       <View style={styles.chartRow}>
         <Svg width={prepared.chartW} height={prepared.svgH} style={styles.svg}>
@@ -481,6 +563,39 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textTransform: 'uppercase',
     textAlign: 'center',
+  },
+  periodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    justifyContent: 'center',
+    flexGrow: 1,
+    paddingBottom: 10,
+    paddingHorizontal: 4,
+  },
+  periodChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: WellnessColors.progressTrack,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+  },
+  periodChipSelected: {
+    backgroundColor: WellnessColors.iconTintBlue,
+    borderColor: WellnessColors.accentBlue,
+  },
+  periodChipDisabled: {
+    opacity: 0.35,
+  },
+  periodChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: WellnessColors.textSecondary,
+    fontVariant: ['tabular-nums'],
+  },
+  periodChipTextSelected: {
+    color: WellnessColors.accentBlue,
   },
   chartRow: {
     flexDirection: 'row',

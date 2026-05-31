@@ -5,7 +5,6 @@ import { curveMonotoneX, line } from 'd3-shape';
 import { resolveBmrWeekTrend, withingsChartBmrKcal, type MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
 import { WellnessColors } from '../theme/wellness';
 
-const N = 7;
 const PLOT_PAD_L = 40;
 const PAD_R = 10;
 const PAD_TOP = 4;
@@ -20,16 +19,27 @@ type Props = {
   loading?: boolean;
 };
 
-function shortDayLabel(dayKey: string): string {
+function axisDayLabel(dayKey: string, n: number): string {
   const parts = dayKey.split('-').map(Number);
-  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return dayKey;
+  if (parts.length !== 3 || parts.some((v) => !Number.isFinite(v))) return dayKey;
   const [y, mo, da] = parts;
   const d = new Date(y, mo - 1, da);
-  return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
+  if (n <= 8) return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function xAtIndex(i: number, plotLeft: number, innerW: number): number {
-  return plotLeft + (i / Math.max(1, N - 1)) * innerW;
+function pickTickIndices(n: number, maxTicks: number): number[] {
+  if (n <= 1) return [0];
+  if (n <= maxTicks) return Array.from({ length: n }, (_, i) => i);
+  const out = new Set<number>();
+  const step = (n - 1) / (maxTicks - 1);
+  for (let k = 0; k < maxTicks; k += 1) out.add(Math.round(k * step));
+  out.add(n - 1);
+  return Array.from(out).sort((a, b) => a - b);
+}
+
+function xAtIndex(i: number, plotLeft: number, innerW: number, n: number): number {
+  return plotLeft + (i / Math.max(1, n - 1)) * innerW;
 }
 
 function domainPad(values: number[], fallbackMin: number, fallbackMax: number, padRatio: number): { min: number; max: number } {
@@ -72,8 +82,9 @@ export function BmrHistoryChart7d({ days, loading }: Props) {
   const chartW = Math.max(280, width - 40);
 
   const prepared = useMemo(() => {
-    if (!days || days.length !== N) return null;
+    if (!days || days.length < 2) return null;
 
+    const n = days.length;
     const plotLeft = PLOT_PAD_L;
     const innerW = Math.max(1, chartW - plotLeft - PAD_R);
     const top = PAD_TOP;
@@ -90,7 +101,7 @@ export function BmrHistoryChart7d({ days, loading }: Props) {
       const v = chartBmr(i);
       if (v != null && Number.isFinite(v)) {
         pts.push({
-          x: xAtIndex(i, plotLeft, innerW),
+          x: xAtIndex(i, plotLeft, innerW, n),
           y: mapY(v, dom.min, dom.max, top, STRIP_H),
         });
       }
@@ -103,11 +114,15 @@ export function BmrHistoryChart7d({ days, loading }: Props) {
       label: Math.round(v).toString(),
     }));
 
-    const xTicks = days.map((d, i) => ({
-      x: xAtIndex(i, plotLeft, innerW),
-      label: shortDayLabel(d.dayKey),
-      key: d.dayKey,
-    }));
+    const tickIdx = new Set(pickTickIndices(n, 7));
+    const xTicks = days
+      .map((d, i) => ({ d, i }))
+      .filter(({ i }) => tickIdx.has(i))
+      .map(({ d, i }) => ({
+        x: xAtIndex(i, plotLeft, innerW, n),
+        label: axisDayLabel(d.dayKey, n),
+        key: d.dayKey,
+      }));
 
     const weekDelta = resolveBmrWeekTrend(days).deltaKcal;
     const svgH = plotBottom + AXIS_BOTTOM;
@@ -135,7 +150,7 @@ export function BmrHistoryChart7d({ days, loading }: Props) {
   if (!prepared.path) {
     return (
       <View style={styles.loadingBox}>
-        <Text style={styles.loadingText}>No BMR readings in the last 7 days yet.</Text>
+        <Text style={styles.loadingText}>No BMR readings in this window yet.</Text>
       </View>
     );
   }

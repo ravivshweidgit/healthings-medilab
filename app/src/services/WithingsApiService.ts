@@ -9,8 +9,9 @@ import { Platform } from 'react-native';
 import { CONFIG } from '../config/env';
 import {
   buildDaysFromSessions,
-  last7LocalDayKeysOldestFirst,
+  lastNLocalDayKeysOldestFirst,
   localDayKeyFromMs,
+  MAX_TREND_PERIOD_DAYS,
   resolveCompositionPeriodAnchor,
   type BodyCompositionTrendPayload,
   type CompositionSession,
@@ -613,20 +614,23 @@ function extractFullBiaSessions(groups: WithingsMeasureGrp[]): CompositionSessio
   return sessions.sort((a, b) => a.dateMs - b.dateMs);
 }
 
-const TREND_LOOKBACK_DAYS = 21;
+/** Lookback covers the largest selectable window plus a buffer for the skip-first-day anchor. */
+const TREND_LOOKBACK_DAYS = MAX_TREND_PERIOD_DAYS + 7;
 
-/** Synthetic 7-day series for dev UI (slight drift so paths are visible). */
+/** Synthetic multi-day series for dev UI (slight drift so paths are visible). */
 export function getMockBodyCompositionTrend7d(dayKeys: string[]): MetabolicTrend7dDay[] {
+  const len = Math.max(1, dayKeys.length);
   return dayKeys.map((dayKey, i) => {
-    const phase = i / 6;
-    const w = 78.1 + Math.sin(phase * Math.PI) * 0.55 + i * 0.04;
+    const frac = i / Math.max(1, len - 1);
+    const phase = frac * 6;
+    const w = 78.1 + Math.sin(phase * Math.PI) * 0.55 + frac * 1.6;
     return {
       dayKey,
       weightKg: w,
-      fatMassKg: Math.max(14.2, 16.1 - i * 0.06 + Math.sin(phase * 2) * 0.15),
-      muscleMassKg: Math.max(58.5, 60.2 + i * 0.03 + Math.cos(phase * Math.PI) * 0.2),
-      visceralFatIndex: Math.max(3.9, 4.2 - i * 0.05 + Math.sin(phase * 2) * 0.08),
-      bmrKcalDay: Math.round(1835 + i * 2 + Math.sin(phase * Math.PI) * 18),
+      fatMassKg: Math.max(14.2, 16.1 - frac * 2.4 + Math.sin(phase * 2) * 0.15),
+      muscleMassKg: Math.max(58.5, 60.2 + frac * 1.2 + Math.cos(phase * Math.PI) * 0.2),
+      visceralFatIndex: Math.max(3.9, 4.2 - frac * 2 + Math.sin(phase * 2) * 0.08),
+      bmrKcalDay: Math.round(1835 + frac * 80 + Math.sin(phase * Math.PI) * 18),
     };
   });
 }
@@ -663,11 +667,12 @@ function dayKeyStartMsFromDay(dayKey: string): number {
 }
 
 /**
- * Daily weight, fat mass, muscle mass, and visceral fat index for the last 7 local days.
- * Week deltas skip the first in-window BIA day (Withings-style) and compare 2nd day → last day.
+ * Daily weight, fat mass, muscle mass, and visceral fat index for the last `MAX_TREND_PERIOD_DAYS`
+ * local days. Callers slice this to the selected window (8/16/32/64/128 days). Period deltas skip the
+ * first in-window BIA day (Withings-style) and compare 2nd day → last day.
  */
 export async function fetchBodyCompositionTrend7d(): Promise<BodyCompositionTrendPayload> {
-  const dayKeys = last7LocalDayKeysOldestFirst();
+  const dayKeys = lastNLocalDayKeysOldestFirst(MAX_TREND_PERIOD_DAYS);
   const accessToken = await getValidAccessToken();
   if (!accessToken) {
     return mockTrendPayload(dayKeys);
@@ -738,10 +743,13 @@ export async function fetchBodyCompositionTrend7d(): Promise<BodyCompositionTren
           periodEnd: fmt(anchor?.end),
           weekFat: anchor ? (anchor.end.fatMassKg - anchor.start.fatMassKg).toFixed(1) : null,
           weekMuscle: anchor ? (anchor.end.muscleMassKg - anchor.start.muscleMassKg).toFixed(1) : null,
-          days: days.map(
-            (d) =>
-              `${d.dayKey} f=${d.fatMassKg?.toFixed(1) ?? '—'} m=${d.muscleMassKg?.toFixed(1) ?? '—'} v=${d.visceralFatIndex?.toFixed(1) ?? '—'} bmr=${d.bmrKcalDay != null ? Math.round(d.bmrKcalDay) : '—'}`
-          ),
+          dayCount: days.length,
+          recentDays: days
+            .slice(-7)
+            .map(
+              (d) =>
+                `${d.dayKey} f=${d.fatMassKg?.toFixed(1) ?? '—'} m=${d.muscleMassKg?.toFixed(1) ?? '—'} v=${d.visceralFatIndex?.toFixed(1) ?? '—'} bmr=${d.bmrKcalDay != null ? Math.round(d.bmrKcalDay) : '—'}`
+            ),
           bmrDaysInWindow: bmrByDay.size,
         },
         null,

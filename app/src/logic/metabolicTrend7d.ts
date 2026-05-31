@@ -385,14 +385,25 @@ export function buildDaysFromSessions(dayKeys: string[], sessions: CompositionSe
   });
 }
 
-/** Oldest → newest (today last), local midnight boundaries. */
-export function last7LocalDayKeysOldestFirst(): string[] {
+/** Selectable trend windows (days), matching the glucose-history zoom chips. */
+export const TREND_PERIOD_DAY_OPTIONS = [8, 16, 32, 64, 128] as const;
+export const MAX_TREND_PERIOD_DAYS = 128;
+export const DEFAULT_TREND_PERIOD_DAYS = 8;
+
+/** Last `n` local calendar days, oldest → newest (today last), local midnight boundaries. */
+export function lastNLocalDayKeysOldestFirst(n: number): string[] {
+  const count = Math.max(1, Math.floor(n));
   const keys: string[] = [];
-  for (let i = 6; i >= 0; i -= 1) {
+  for (let i = count - 1; i >= 0; i -= 1) {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     d.setDate(d.getDate() - i);
     keys.push(localDayKeyFromMs(d.getTime()));
   }
   return keys;
+}
+
+/** Oldest → newest (today last), local midnight boundaries. */
+export function last7LocalDayKeysOldestFirst(): string[] {
+  return lastNLocalDayKeysOldestFirst(7);
 }
