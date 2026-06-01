@@ -10,6 +10,8 @@ export type MetabolicTrend7dDay = {
   visceralFatIndex: number | null;
   /** Basal metabolic rate (kcal/day) from Withings type 226. */
   bmrKcalDay: number | null;
+  /** Active calories burned that day from Withings getactivity (kcal). */
+  activityKcalDay: number | null;
 };
 
 /** One Withings scale session with full BIA (weight + fat + muscle). */
@@ -371,6 +373,7 @@ export function buildDaysFromSessions(dayKeys: string[], sessions: CompositionSe
         muscleMassKg: null,
         visceralFatIndex: null,
         bmrKcalDay: null,
+        activityKcalDay: null,
       };
     }
     const latest = daySessions[daySessions.length - 1];
@@ -381,6 +384,7 @@ export function buildDaysFromSessions(dayKeys: string[], sessions: CompositionSe
       muscleMassKg: latest.muscleMassKg,
       visceralFatIndex: latest.visceralFatIndex,
       bmrKcalDay: null,
+      activityKcalDay: null,
     };
   });
 }

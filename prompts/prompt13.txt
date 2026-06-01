@@ -1,0 +1,109 @@
+## Prompt 13 — Intraday Calorie Strip + Energy Section Redesign
+
+### What was built
+
+---
+
+### Section 1 — Glucose / HR chart: Intraday Calorie Strip
+
+Added a 42-px calorie bar strip **inside** MetabolicChart, positioned between the
+glucose/HR data area and the time axis. The strip auto-pans and zooms with the
+rest of the chart (same mapTMin/mapTMax/innerW).
+
+#### Three-tier bars (light → medium → dark blue)
+| Tier | Color | Source |
+|------|-------|--------|
+| BMR baseline | `#90CAF9` light blue | `bmrKcalDay ÷ 48` per 30-min slot |
+| Steps/passive | `#42A5F5` medium blue | `getintradayactivity` `calories` field |
+| Workout | `#1565C0` dark blue | `getworkouts` endpoint |
+
+**Double-counting prevention**: when a 30-min bucket contains a workout, passive
+calories for that bucket are zeroed out (workout is the authoritative source).
+
+**Workout label**: activity name + kcal displayed in black text above the dark bar.
+
+**Y-axis**: auto-scales to nearest 50 kcal above the highest non-double-counted
+total in the visible window; always at least 150 kcal.
+
+**Background**: subtle `#E3F2FD` blue tint marks the strip as a separate scale.
+
+#### Legend (section 1)
+`Glucose` · `Heart rate` · `BMR (39 kcal)` / `Steps cal` / `Workout`
+Each label coloured to match its bar. BMR label shows computed per-slot value.
+
+---
+
+### New API: getworkouts
+
+`fetchWorkoutsHistory(lookbackDays = 128)` in `WithingsApiService.ts`
+- Calls `getworkouts` with `data_fields=calories,totalcalories`
+- Returns `WorkoutSession[]` with `startMs`, `endMs`, `kcal`, `activityLabel`
+- Workout calories spread **proportionally** across 30-min buckets they overlap
+- Mock: today 9:03 bike 189 kcal, yesterday 7:30 walk 120 kcal
+
+---
+
+### New API: getintradayactivity + calories
+
+`fetchHeartRateHistory` return type changed from `WithingsHeartRatePoint[]` to
+`WithingsIntradayData = { heartRate, calories }`.
+- Added `calories` to `data_fields` in the same per-day API call (no extra requests)
+- New types: `WithingsCaloriePoint`, `WithingsIntradayData`
+- Periodic 10-min refresh also refreshes calorie data
+
+---
+
+### Section 4 — Energy section redesign (BmrHistoryChart7d)
+
+Replaced the single shared-scale chart with **three independent strips**,
+each auto-scaled from min→max of its own data:
+
+| Strip | Color | Chart type | Data |
+|-------|-------|-----------|------|
+| BMR | Black | Smooth line | `withingsChartBmrKcal(days, i)` |
+| ACTIVE CAL | `#42A5F5` blue | Smooth line | `activityKcalDay` |
+| TOTAL BURN | `#4CAF50` green | Smooth line | BMR + activityKcalDay |
+
+Each strip has:
+- 3 Y-axis tick labels (top / mid / bottom) inside the SVG
+- Strip title label in matching colour
+- "No data" message when data is absent
+
+Daily summary row (BMR + Active = Total + deficit) removed — charts tell the story.
+
+---
+
+### Activity data fallback
+
+`bodyTrendDaysWithActivity` memo in DashboardScreen:
+- If `getactivity` returns null for a day (scope missing or not synced),
+  backfill `activityKcalDay` from `workoutSessions` for that day
+- Ensures Energy section shows at least workout calories even before re-linking
+
+DEV logging added to `fetchActivityKcalByDay` to diagnose scope/API issues.
+
+---
+
+### Other fixes & polish
+
+- **Y-scale fix**: Energy section always shows ≥ 900 kcal span (headroom for future activity)
+- **Footer**: "Preview · sample wellness data" only shown when BOTH HC and Withings are unlinked
+- **Removed**: body composition line (Muscle/Fat/Weight) from section 1 legend (shown in section 2)
+- **Mock activity**: fixed to realistic 160–460 kcal/day range (was unrealistically 170–730)
+- **Workout category labels**: map of Withings numeric category → human label (Walk, Run, Indoor Biking…)
+
+---
+
+### Files changed
+- `app/src/components/MetabolicChart.tsx` — calorie strip, workout tiers, legend
+- `app/src/components/BmrHistoryChart7d.tsx` — full redesign: 3 independent strips
+- `app/src/services/WithingsApiService.ts` — fetchWorkoutsHistory, updated fetchHeartRateHistory
+- `app/src/screens/DashboardScreen.tsx` — workout state, backfill memo, footer fix
+- `app/src/logic/metabolicTrend7d.ts` — (activityKcalDay already added in previous session)
+
+---
+
+### Future
+- Food log: camera + Gen AI calorie estimation → net deficit/surplus per meal
+- Goal-aware coaching: "X kcal deficit today to hit weekly fat-loss target"
+- Sync bike/swim via manual activity logging if watch misses auto-detect

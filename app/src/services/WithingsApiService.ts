@@ -598,6 +598,85 @@ function mergeBmrIntoTrendDays(
   });
 }
 
+function mergeActivityIntoTrendDays(
+  days: MetabolicTrend7dDay[],
+  activityByDay: Map<string, number>
+): MetabolicTrend7dDay[] {
+  return days.map((d) => {
+    if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay)) return d;
+    const a = activityByDay.get(d.dayKey);
+    return a != null ? { ...d, activityKcalDay: a } : d;
+  });
+}
+
+type WithingsGetActivityJson = {
+  status: number;
+  body?: { activities?: Array<Record<string, unknown>> };
+  error?: string;
+};
+
+/**
+ * Fetches daily active calories from Withings getactivity for the given day keys.
+ * One API call covers the full date range. Requires user.activity scope.
+ */
+async function fetchActivityKcalByDay(
+  dayKeys: string[],
+  accessToken: string,
+  userid?: string
+): Promise<Map<string, number>> {
+  if (dayKeys.length === 0) return new Map();
+
+  const sorted = [...dayKeys].sort();
+  const form = new URLSearchParams({
+    action: 'getactivity',
+    access_token: accessToken,
+    startdateymd: sorted[0],
+    enddateymd: sorted[sorted.length - 1],
+    data_fields: 'active_calories,calories',
+  });
+  if (userid) form.set('userid', userid);
+
+  try {
+    const res = await fetch('https://wbsapi.withings.net/v2/measure', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
+    });
+    const json = (await res.json()) as WithingsGetActivityJson;
+
+    if (__DEV__) {
+      console.warn('[WithingsActivity] getactivity response', JSON.stringify({
+        status: json.status,
+        error: json.error,
+        activityCount: json.body?.activities?.length ?? 0,
+        sample: json.body?.activities?.slice(0, 2),
+      }, null, 2));
+    }
+
+    if (json.status !== 0) return new Map();
+
+    const out = new Map<string, number>();
+    for (const act of json.body?.activities ?? []) {
+      const dateYmd = String(act.date ?? '');
+      if (!dateYmd) continue;
+      // Withings: 'calories' = active-only burn; 'totalcalories' includes BMR
+      const active = Number(act.active_calories ?? act.calories ?? 0);
+      if (Number.isFinite(active) && active > 0) {
+        out.set(dateYmd, Math.round(active));
+      }
+    }
+
+    if (__DEV__) {
+      console.warn('[WithingsActivity] mapped days', JSON.stringify([...out.entries()], null, 2));
+    }
+
+    return out;
+  } catch (err) {
+    if (__DEV__) console.warn('[WithingsActivity] fetch error', err);
+    return new Map();
+  }
+}
+
 function extractFullBiaSessions(groups: WithingsMeasureGrp[]): CompositionSession[] {
   const sessions: CompositionSession[] = [];
   for (const g of groups) {
@@ -626,13 +705,15 @@ export function getMockBodyCompositionTrend7d(dayKeys: string[]): MetabolicTrend
     const frac = i / Math.max(1, len - 1);
     const phase = frac * 6;
     const w = 78.1 + Math.sin(phase * Math.PI) * 0.55 + frac * 1.6;
+    const bmr = Math.round(1835 + frac * 80 + Math.sin(phase * Math.PI) * 18);
     return {
       dayKey,
       weightKg: w,
       fatMassKg: Math.max(14.2, 16.1 - frac * 2.4 + Math.sin(phase * 2) * 0.15),
       muscleMassKg: Math.max(58.5, 60.2 + frac * 1.2 + Math.cos(phase * Math.PI) * 0.2),
       visceralFatIndex: Math.max(3.9, 4.2 - frac * 2 + Math.sin(phase * 2) * 0.08),
-      bmrKcalDay: Math.round(1835 + frac * 80 + Math.sin(phase * Math.PI) * 18),
+      bmrKcalDay: bmr,
+      activityKcalDay: Math.round(280 + Math.sin(phase * 1.5) * 120 + Math.cos(phase * 0.8) * 60),
     };
   });
 }
@@ -713,12 +794,16 @@ export async function fetchBodyCompositionTrend7d(): Promise<BodyCompositionTren
   const weightByDay = extractLatestWeightKgByDay(groups);
   const visceralByDay = extractLatestVisceralByDay(groups);
   const bmrByDay = extractLatestBmrByDay(groups);
-  const days = mergeBmrIntoTrendDays(
-    mergeVisceralIntoTrendDays(
-      mergeWeightOnlyIntoTrendDays(buildDaysFromSessions(dayKeys, sessions), weightByDay),
-      visceralByDay
+  const activityByDay = await fetchActivityKcalByDay(dayKeys, accessToken, stored?.userid);
+  const days = mergeActivityIntoTrendDays(
+    mergeBmrIntoTrendDays(
+      mergeVisceralIntoTrendDays(
+        mergeWeightOnlyIntoTrendDays(buildDaysFromSessions(dayKeys, sessions), weightByDay),
+        visceralByDay
+      ),
+      bmrByDay
     ),
-    bmrByDay
+    activityByDay
   );
   const anchor = resolveCompositionPeriodAnchor(sessions, dayKeys);
 
@@ -775,13 +860,22 @@ export async function fetchBodyCompositionTrend7d(): Promise<BodyCompositionTren
 /** A single heart-rate reading (bpm) at a point in time. */
 export type WithingsHeartRatePoint = { timestamp: string; value: number };
 
+/** Calorie burn for a short time slot (kcal) from Withings intraday data. */
+export type WithingsCaloriePoint = { timestamp: string; kcal: number };
+
+/** Combined result from a single `getintradayactivity` call: HR readings + calorie slots. */
+export type WithingsIntradayData = {
+  heartRate: WithingsHeartRatePoint[];
+  calories: WithingsCaloriePoint[];
+};
+
 /** Default lookback for intraday HR history (days). Keep small — each day = 1 API request. */
 const HEART_RATE_LOOKBACK_DAYS = 7;
 
 const WITHINGS_MEASURE_V2_URL = 'https://wbsapi.withings.net/v2/measure';
 
 type WithingsIntradayBody = {
-  series?: Record<string, { heart_rate?: number }>;
+  series?: Record<string, { heart_rate?: number; calories?: number }>;
 };
 
 type WithingsIntradayJson = {
@@ -790,44 +884,56 @@ type WithingsIntradayJson = {
   error?: string;
 };
 
-/** Generate mock intraday HR for one day (every 30 min, realistic BPM curve). */
-function mockIntradayHrForDay(dayStartMs: number): WithingsHeartRatePoint[] {
-  const pts: WithingsHeartRatePoint[] = [];
+/** Generate mock intraday HR + calorie data for one day (every 30 min). */
+function mockIntradayForDay(dayStartMs: number): { hr: WithingsHeartRatePoint[]; cal: WithingsCaloriePoint[] } {
+  const hr: WithingsHeartRatePoint[] = [];
+  const cal: WithingsCaloriePoint[] = [];
   for (let i = 0; i < 48; i++) {
     const tsMs = dayStartMs + i * 30 * 60 * 1000;
     const hour = (tsMs / 3600000) % 24;
     // Lower overnight, higher during day
     const base = hour < 6 || hour > 22 ? 58 : hour < 9 || hour > 20 ? 68 : 72;
     const bpm = Math.round(base + Math.sin(i * 0.4) * 6 + (Math.random() - 0.5) * 4);
-    pts.push({ timestamp: new Date(tsMs).toISOString(), value: Math.max(45, bpm) });
+    hr.push({ timestamp: new Date(tsMs).toISOString(), value: Math.max(45, bpm) });
+
+    // Simulate activity: moderate walk bursts during 8-9am and 5-7pm
+    const isActivity = (hour >= 8 && hour < 9) || (hour >= 17 && hour < 19);
+    const actKcal = isActivity ? Math.round(60 + Math.random() * 40) : 0;
+    if (actKcal > 0) {
+      cal.push({ timestamp: new Date(tsMs).toISOString(), kcal: actKcal });
+    }
   }
-  return pts;
+  return { hr, cal };
 }
 
 /**
- * Fetches continuous watch heart-rate history from Withings `getintradayactivity`
+ * Fetches continuous watch heart-rate + calorie history from Withings `getintradayactivity`
  * (requires `user.activity` scope — included in DEFAULT_WITHINGS_SCOPE).
  * Each calendar day is a separate API call (Withings limit: 24h per request).
  * Returns oldest → newest, all days merged.
  */
 export async function fetchHeartRateHistory(
   lookbackDays: number = HEART_RATE_LOOKBACK_DAYS
-): Promise<WithingsHeartRatePoint[]> {
+): Promise<WithingsIntradayData> {
   const accessToken = await getValidAccessToken();
   if (!accessToken) {
     // Dev mock: last N days of synthetic data
-    const allMock: WithingsHeartRatePoint[] = [];
+    const heartRate: WithingsHeartRatePoint[] = [];
+    const calories: WithingsCaloriePoint[] = [];
     for (let i = lookbackDays - 1; i >= 0; i--) {
       const d = new Date();
       d.setHours(0, 0, 0, 0);
       d.setDate(d.getDate() - i);
-      allMock.push(...mockIntradayHrForDay(d.getTime()));
+      const { hr, cal } = mockIntradayForDay(d.getTime());
+      heartRate.push(...hr);
+      calories.push(...cal);
     }
-    return allMock;
+    return { heartRate, calories };
   }
 
   const stored = await loadWithingsTokens();
-  const points: WithingsHeartRatePoint[] = [];
+  const heartRate: WithingsHeartRatePoint[] = [];
+  const calories: WithingsCaloriePoint[] = [];
   const n = Math.max(1, Math.floor(lookbackDays));
 
   for (let i = n - 1; i >= 0; i--) {
@@ -842,7 +948,7 @@ export async function fetchHeartRateHistory(
       access_token: accessToken,
       startdate: String(startSec),
       enddate: String(endSec),
-      data_fields: 'heart_rate',
+      data_fields: 'heart_rate,calories',
     });
     if (stored?.userid) {
       form.set('userid', stored.userid);
@@ -859,35 +965,186 @@ export async function fetchHeartRateHistory(
 
       const series = json.body?.series ?? {};
       for (const [tsSec, entry] of Object.entries(series)) {
-        const bpm = entry.heart_rate;
-        if (typeof bpm !== 'number' || !Number.isFinite(bpm) || bpm <= 0) continue;
         const tsMs = Number(tsSec) * 1000;
         if (Number.isNaN(tsMs)) continue;
-        points.push({ timestamp: new Date(tsMs).toISOString(), value: Math.round(bpm) });
+        const ts = new Date(tsMs).toISOString();
+
+        const bpm = entry.heart_rate;
+        if (typeof bpm === 'number' && Number.isFinite(bpm) && bpm > 0) {
+          heartRate.push({ timestamp: ts, value: Math.round(bpm) });
+        }
+        const kcal = entry.calories;
+        if (typeof kcal === 'number' && Number.isFinite(kcal) && kcal > 0) {
+          calories.push({ timestamp: ts, kcal });
+        }
       }
     } catch {
       // Network error on one day — skip it, don't fail the whole fetch
     }
   }
 
-  points.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  heartRate.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  calories.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
   if (__DEV__) {
     console.warn(
-      '[WithingsHeartRate]',
-      JSON.stringify({ lookbackDays, intradayPoints: points.length }, null, 2)
+      '[WithingsIntraday]',
+      JSON.stringify({ lookbackDays, hrPoints: heartRate.length, calPoints: calories.length }, null, 2)
     );
   }
 
-  return points;
+  return { heartRate, calories };
 }
 
 /**
- * Re-fetches only today's intraday HR from Withings (1 API call).
+ * Re-fetches only today's intraday HR + calories from Withings (1 API call).
  * Used for periodic background refresh without re-requesting the full history.
  */
-export async function fetchTodayHeartRate(): Promise<WithingsHeartRatePoint[]> {
+export async function fetchTodayHeartRate(): Promise<WithingsIntradayData> {
   return fetchHeartRateHistory(1);
+}
+
+/** A single Withings workout session with calorie data. */
+export type WorkoutSession = {
+  /** Activity category (Withings numeric: 1=walk, 2=run, 187=bike, etc.). */
+  category: number;
+  /** Human-readable label derived from category. */
+  activityLabel: string;
+  startMs: number;
+  endMs: number;
+  /** Active calories burned (kcal). */
+  kcal: number;
+  /** Total calories including BMR component (kcal), if available. */
+  totalKcal?: number;
+};
+
+/** Withings activity category → label map (partial; covers common types). */
+const WORKOUT_CATEGORY_LABELS: Record<number, string> = {
+  1: 'Walk', 2: 'Run', 3: 'Hike', 4: 'Skating',
+  5: 'BMX', 6: 'Biking', 7: 'Swimming', 11: 'Soccer',
+  18: 'Basketball', 21: 'Aerobics', 23: 'Elliptical',
+  24: 'Pilates', 27: 'Tennis', 28: 'Yoga', 29: 'Zumba',
+  35: 'Cardio', 70: 'Gym', 187: 'Indoor Biking', 128: 'Golf',
+};
+function workoutLabel(category: number): string {
+  return WORKOUT_CATEGORY_LABELS[category] ?? `Activity ${category}`;
+}
+
+type WithingsWorkoutsBody = {
+  series?: Array<{
+    startdate?: number;
+    enddate?: number;
+    category?: number;
+    data?: { calories?: number; totalcalories?: number };
+  }>;
+};
+type WithingsWorkoutsJson = { status: number; body?: WithingsWorkoutsBody; error?: string };
+
+/** Default number of days to fetch for workout history. */
+const WORKOUT_LOOKBACK_DAYS = 128;
+
+/** Generate mock workout sessions (today: bike ride at 9 AM). */
+function mockWorkouts(lookbackDays: number): WorkoutSession[] {
+  const sessions: WorkoutSession[] = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Today: bike ride 9:03 → 9:25
+  if (lookbackDays >= 1) {
+    const d = new Date(today);
+    sessions.push({
+      category: 187,
+      activityLabel: 'Indoor Biking',
+      startMs: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 3, 0).getTime(),
+      endMs:   new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 25, 10).getTime(),
+      kcal: 189,
+      totalKcal: 209,
+    });
+  }
+  // Yesterday: walk 7:30 → 8:00
+  if (lookbackDays >= 2) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - 1);
+    sessions.push({
+      category: 1,
+      activityLabel: 'Walk',
+      startMs: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 7, 30, 0).getTime(),
+      endMs:   new Date(d.getFullYear(), d.getMonth(), d.getDate(), 8, 0, 0).getTime(),
+      kcal: 120,
+      totalKcal: 140,
+    });
+  }
+  return sessions;
+}
+
+/**
+ * Fetches workout session history from Withings `getworkouts`.
+ * Workouts (e.g. bike, run) are tracked separately from passive intraday activity.
+ * Both endpoints are needed for a complete calorie picture.
+ */
+export async function fetchWorkoutsHistory(
+  lookbackDays: number = WORKOUT_LOOKBACK_DAYS
+): Promise<WorkoutSession[]> {
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) {
+    return mockWorkouts(lookbackDays);
+  }
+
+  const stored = await loadWithingsTokens();
+
+  // Date range: today back N days (YYYY-MM-DD format Withings expects)
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - lookbackDays + 1);
+  const fmt = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const form = new URLSearchParams({
+    action: 'getworkouts',
+    access_token: accessToken,
+    startdateymd: fmt(startDate),
+    enddateymd: fmt(endDate),
+    data_fields: 'calories,totalcalories',
+  });
+  if (stored?.userid) {
+    form.set('userid', stored.userid);
+  }
+
+  try {
+    const res = await fetch(WITHINGS_MEASURE_V2_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
+    });
+    const json = (await res.json()) as WithingsWorkoutsJson;
+    if (json.status !== 0 || !json.body?.series) return [];
+
+    const sessions: WorkoutSession[] = [];
+    for (const w of json.body.series) {
+      const startMs = (w.startdate ?? 0) * 1000;
+      const endMs   = (w.enddate   ?? 0) * 1000;
+      const kcal    = w.data?.calories ?? 0;
+      if (!startMs || !endMs || kcal <= 0) continue;
+      sessions.push({
+        category: w.category ?? 0,
+        activityLabel: workoutLabel(w.category ?? 0),
+        startMs,
+        endMs,
+        kcal,
+        totalKcal: w.data?.totalcalories,
+      });
+    }
+
+    sessions.sort((a, b) => a.startMs - b.startMs);
+
+    if (__DEV__) {
+      console.warn('[WithingsWorkouts]', JSON.stringify({ lookbackDays, sessions: sessions.length }, null, 2));
+    }
+
+    return sessions;
+  } catch {
+    return [];
+  }
 }
 
 export type {

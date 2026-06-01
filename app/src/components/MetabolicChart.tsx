@@ -1,10 +1,10 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
+import Svg, { Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { curveMonotoneX, line } from 'd3-shape';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import type { ActivityZone } from '../logic/MetabolicLogic';
-import type { WeightMetricsForDashboard } from '../services/WithingsApiService';
+import type { WithingsCaloriePoint, WorkoutSession } from '../services/WithingsApiService';
 import { WellnessColors } from '../theme/wellness';
 
 type Point = { timestamp: string; value: number };
@@ -19,11 +19,27 @@ const SHARED_Y_MAX = 200;
 const SHARED_Y_GRID_LINES = [50, 75, 100, 125, 150, 175, 200] as const;
 const SHARED_Y_AXIS_LABELS = new Set<number>([50, 100, 150, 200]);
 
-const ACTIVITY_STRIP_PX = 10;
+/** Thin walk-zone lines are replaced by the calorie bar strip; kept for Health-Connect overlay. */
+const ACTIVITY_STRIP_PX = 6;
 
 const Y_AXIS_WIDTH = 36;
 const AXIS_HEIGHT = 30;
 const CHART_PLOT_HEIGHT = 210;
+
+/**
+ * Calorie bar strip sits INSIDE the chart area, above the X axis.
+ * Glucose/HR data occupies the remaining upper portion of CHART_PLOT_HEIGHT.
+ * Layout (bottom-up from axisY):
+ *   padB (8) → calorie bars (CALORIE_STRIP_INNER) → activity lane (ACTIVITY_STRIP_PX) → glucose/HR data
+ */
+const CALORIE_STRIP_INNER = 42;
+/** Y-max for the calorie scale (kcal/30-min slot). BMR/48 ≈ 39; brisk walk ≈ 80-120. */
+const CALORIE_Y_MAX_FIXED = 150;
+const CALORIE_BMR_COLOR     = '#90CAF9'; // light blue  — BMR resting baseline bars
+const CALORIE_ACTIVE_COLOR  = '#42A5F5'; // medium blue — steps / passive activity calories
+const CALORIE_WORKOUT_COLOR = '#1565C0'; // dark blue   — explicit workout session calories
+const BUCKET_MS = 30 * 60 * 1000;
+
 const SVG_TOTAL_HEIGHT = CHART_PLOT_HEIGHT + AXIS_HEIGHT;
 
 const SVG_PAD_L = 6;
@@ -229,22 +245,20 @@ function buildTimeTicks(
   return ticks;
 }
 
-type WithingsSnapshot = Pick<WeightMetricsForDashboard, 'muscleMassKg' | 'fatMassKg' | 'weightKg'>;
-
-function formatKgSnapshot(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return '—';
-  return `${value.toFixed(1)} kg`;
-}
 
 type Props = {
   glucose: Point[];
   heartRate: Point[];
   activityZones: ActivityZone[];
-  /** Latest Withings body metrics (shown under chart legend). */
-  withingsSnapshot?: WithingsSnapshot | null;
+  /** Intraday calorie burn points from Withings (one entry per activity interval). */
+  calorieBurns?: WithingsCaloriePoint[];
+  /** Explicit workout sessions from Withings getworkouts (bike, run, etc.). */
+  workoutSessions?: WorkoutSession[];
+  /** BMR kcal/day from Withings body scan — used to compute the 30-min resting baseline bar. */
+  bmrKcalDay?: number | null;
 };
 
-export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnapshot }: Props) {
+export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns, workoutSessions, bmrKcalDay }: Props) {
   const { width: windowW } = useWindowDimensions();
   const [viewportPresetIndex, setViewportPresetIndex] = useState(DEFAULT_VIEWPORT_PRESET_INDEX);
   const [nowAnchor, setNowAnchor] = useState(() => Date.now());
@@ -368,8 +382,14 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
     const padB = SVG_PAD_B;
 
     const chartSlotTop = 0;
-    const chartSlotH = plotH - padT - padB - ACTIVITY_STRIP_PX;
+    // Glucose/HR data area is the top portion; calorie bars + activity lane sit just above the X axis.
+    const chartSlotH = plotH - padT - padB - ACTIVITY_STRIP_PX - CALORIE_STRIP_INNER;
     const axisY = plotH - padB;
+    // Calorie bar strip: from top of the strip to the X axis line.
+    const calStripBottom = axisY;
+    const calStripTop = calStripBottom - CALORIE_STRIP_INNER;
+    // Activity (walk) lane sits between the calorie strip and the glucose/HR area.
+    const activityLaneBaseY = calStripTop;
 
     const gPx = toPixelPoints(
       g,
@@ -420,7 +440,7 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
       };
     });
 
-    const activityLaneY = axisY - ACTIVITY_STRIP_PX / 2;
+    const activityLaneY = activityLaneBaseY - ACTIVITY_STRIP_PX / 2;
     const activitySegments = activityZones.flatMap((zone, zoneIdx) => {
       const start = new Date(zone.startTime).getTime();
       const end = new Date(zone.endTime).getTime();
@@ -451,10 +471,14 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
       timeTicks,
       dateHeaderLabel,
       axisY,
+      calStripTop,
+      calStripBottom,
       chartW,
       plotH,
       svgH,
       padL,
+      innerW,
+      spanT,
       viewportLabel,
       maxScrollPx,
       totalW,
@@ -468,6 +492,109 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
       canShiftLater,
     };
   }, [activityZones, endTimeOverrideMs, glucose, heartRate, nowAnchor, plotH, scrollX, viewportPresetIndex, windowW]);
+
+  /** Compute 30-min calorie bars for the currently visible time window. */
+  const caloriePrepared = useMemo(() => {
+    if (!prepared) return null;
+    const { padL, chartW, mapTMin, mapTMax, innerW, spanT, calStripTop, calStripBottom } = prepared;
+    const bmrPerSlot = bmrKcalDay != null && bmrKcalDay > 0 ? bmrKcalDay / 48 : null;
+    const hasBmr = bmrPerSlot != null;
+    const hasCal = calorieBurns != null && calorieBurns.length > 0;
+    const hasWorkouts = workoutSessions != null && workoutSessions.length > 0;
+    if (!hasBmr && !hasCal && !hasWorkouts) return null;
+
+    const stripH = calStripBottom - calStripTop;
+
+    // Bucket passive intraday calories into 30-min windows
+    const passiveBucketMap = new Map<number, number>();
+    for (const pt of (calorieBurns ?? [])) {
+      const t = new Date(pt.timestamp).getTime();
+      const bucket = Math.floor(t / BUCKET_MS) * BUCKET_MS;
+      passiveBucketMap.set(bucket, (passiveBucketMap.get(bucket) ?? 0) + pt.kcal);
+    }
+
+    // Spread workout calories proportionally across the 30-min buckets they overlap
+    const workoutBucketMap = new Map<number, number>();
+    for (const w of (workoutSessions ?? [])) {
+      const durationMs = w.endMs - w.startMs;
+      if (durationMs <= 0) continue;
+      const kcalPerMs = w.kcal / durationMs;
+      // Find all 30-min buckets this workout overlaps
+      const firstBk = Math.floor(w.startMs / BUCKET_MS) * BUCKET_MS;
+      for (let bk = firstBk; bk < w.endMs; bk += BUCKET_MS) {
+        const overlapStart = Math.max(bk, w.startMs);
+        const overlapEnd   = Math.min(bk + BUCKET_MS, w.endMs);
+        const overlapMs    = overlapEnd - overlapStart;
+        if (overlapMs <= 0) continue;
+        const bkKcal = kcalPerMs * overlapMs;
+        workoutBucketMap.set(bk, (workoutBucketMap.get(bk) ?? 0) + bkKcal);
+      }
+    }
+
+    // Buckets that contain an explicit workout: suppress passive calories to avoid double-counting.
+    // (getintradayactivity calories during a workout already reflect elevated activity.)
+    const workoutBuckets = new Set(workoutBucketMap.keys());
+
+    // Auto-scale Y-max: at least CALORIE_Y_MAX_FIXED, or highest non-double-counted total in view
+    let maxTotal = CALORIE_Y_MAX_FIXED;
+    const allBuckets = new Set([...passiveBucketMap.keys(), ...workoutBucketMap.keys()]);
+    for (const bk of allBuckets) {
+      const passive = workoutBuckets.has(bk) ? 0 : (passiveBucketMap.get(bk) ?? 0);
+      const total   = (bmrPerSlot ?? 0) + passive + (workoutBucketMap.get(bk) ?? 0);
+      if (total > maxTotal) maxTotal = total;
+    }
+    // Round up to nearest 50 for a clean axis label (avoids odd numbers like 237)
+    const calYMax = Math.ceil(maxTotal / 50) * 50;
+
+    type CalBar = {
+      x: number; w: number;
+      bmrY: number; bmrH: number;
+      actY: number; actH: number;
+      wktY: number; wktH: number;
+    };
+    const bars: CalBar[] = [];
+
+    const firstBucket = Math.floor(mapTMin / BUCKET_MS) * BUCKET_MS;
+    for (let bMs = firstBucket; bMs <= mapTMax; bMs += BUCKET_MS) {
+      const rawX1 = padL + ((bMs - mapTMin) / spanT) * innerW;
+      const rawX2 = padL + ((bMs + BUCKET_MS - mapTMin) / spanT) * innerW;
+      const x1 = Math.max(padL, rawX1);
+      const x2 = Math.min(chartW - SVG_PAD_R, rawX2);
+      const w = x2 - x1 - 1;
+      if (w < 1) continue;
+
+      const bmrKcal  = bmrPerSlot ?? 0;
+      // Suppress passive data in workout buckets (workout is the authoritative source)
+      const actKcal  = workoutBuckets.has(bMs) ? 0 : (passiveBucketMap.get(bMs) ?? 0);
+      const wktKcal  = workoutBucketMap.get(bMs) ?? 0;
+
+      const bmrH = hasBmr ? Math.max(2, Math.min(stripH, (bmrKcal / calYMax) * stripH)) : 0;
+      const totalWithAct = bmrKcal + actKcal;
+      const totalWithWkt = totalWithAct + wktKcal;
+      const actTotalBarH = Math.max(0, Math.min(stripH, (totalWithAct / calYMax) * stripH));
+      const wktTotalBarH = Math.max(0, Math.min(stripH, (totalWithWkt / calYMax) * stripH));
+      const actH = Math.max(0, actTotalBarH - bmrH);
+      const wktH = Math.max(0, wktTotalBarH - actTotalBarH);
+
+      bars.push({
+        x: x1, w,
+        bmrY: calStripBottom - bmrH,   bmrH,
+        actY: calStripBottom - bmrH - actH, actH,
+        wktY: calStripBottom - bmrH - actH - wktH, wktH,
+      });
+    }
+
+    // Workout label overlays (shown on the strip for named sessions in the window)
+    const workoutLabels: { x: number; label: string }[] = [];
+    for (const w of (workoutSessions ?? [])) {
+      if (w.endMs < mapTMin || w.startMs > mapTMax) continue;
+      const midMs = (w.startMs + w.endMs) / 2;
+      const x = padL + ((midMs - mapTMin) / spanT) * innerW;
+      workoutLabels.push({ x, label: `${w.activityLabel} ${Math.round(w.kcal)} kcal` });
+    }
+
+    return { bars, calStripTop, calStripBottom, calYMax, workoutLabels };
+  }, [prepared, calorieBurns, workoutSessions, bmrKcalDay]);
 
   const snapChartScrollToLive = () => {
     if (!prepared) return;
@@ -596,6 +723,60 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
         strokeWidth={1}
         opacity={0.8}
       />
+      {/* ── Calorie bar strip (BMR baseline + activity) inside chart area ── */}
+      {caloriePrepared ? (
+        <>
+          {/* Subtle amber-tinted background to mark the calorie strip as a separate scale */}
+          <Rect
+            x={prepared.padL} y={caloriePrepared.calStripTop}
+            width={prepared.chartW - prepared.padL - SVG_PAD_R}
+            height={caloriePrepared.calStripBottom - caloriePrepared.calStripTop}
+            fill="#E3F2FD" opacity={0.70}
+          />
+          {/* Divider line between glucose/HR zone and calorie strip */}
+          <Line
+            x1={prepared.padL} y1={caloriePrepared.calStripTop}
+            x2={prepared.chartW - SVG_PAD_R} y2={caloriePrepared.calStripTop}
+            stroke={WellnessColors.gridLine} strokeWidth={1} opacity={0.8}
+          />
+          {/* BMR baseline bars */}
+          {caloriePrepared.bars.map((bar, idx) =>
+            bar.bmrH > 0 ? (
+              <Rect key={`cbmr-${idx}`} x={bar.x} y={bar.bmrY}
+                width={bar.w} height={bar.bmrH}
+                fill={CALORIE_BMR_COLOR} opacity={0.72} rx={1} />
+            ) : null
+          )}
+          {/* Steps/passive calories stacked above BMR */}
+          {caloriePrepared.bars.map((bar, idx) =>
+            bar.actH > 0 ? (
+              <Rect key={`cact-${idx}`} x={bar.x} y={bar.actY}
+                width={bar.w} height={bar.actH}
+                fill={CALORIE_ACTIVE_COLOR} opacity={0.9} rx={1} />
+            ) : null
+          )}
+          {/* Workout session calories stacked on top (red) */}
+          {caloriePrepared.bars.map((bar, idx) =>
+            bar.wktH > 0 ? (
+              <Rect key={`cwkt-${idx}`} x={bar.x} y={bar.wktY}
+                width={bar.w} height={bar.wktH}
+                fill={CALORIE_WORKOUT_COLOR} opacity={0.88} rx={1} />
+            ) : null
+          )}
+          {/* Workout labels pinned at the middle of each session */}
+          {caloriePrepared.workoutLabels.map((lbl, idx) => (
+            <SvgText
+              key={`wlbl-${idx}`}
+              x={lbl.x} y={caloriePrepared.calStripTop + 10}
+              fill={WellnessColors.textPrimary} fontSize={8} fontWeight="700" textAnchor="middle"
+            >
+              {lbl.label}
+            </SvgText>
+          ))}
+        </>
+      ) : null}
+
+      {/* Time axis ticks + labels */}
       {prepared.timeTicks.map((tk) => (
         <React.Fragment key={tk.key}>
           <Line
@@ -636,6 +817,7 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
 
       <View style={[styles.chartRow, styles.chartRowLtr, { minHeight: DATE_HEADER_HEIGHT + svgH }]}>
         <View style={[styles.yAxis, { height: DATE_HEADER_HEIGHT + prepared.svgH }]}>
+          {/* Glucose / HR scale labels (BPM / mg·dL) */}
           {prepared.gridLines
             .filter((gl) => gl.showAxisLabel)
             .map((gl) => (
@@ -761,24 +943,22 @@ export function MetabolicChart({ glucose, heartRate, activityZones, withingsSnap
       <View style={styles.legend}>
         <Text style={styles.legendGlucose}>Glucose</Text>
         <Text style={styles.legendHeartRate}>Heart rate</Text>
-        <Text style={styles.legendActivity}>Walk / activity</Text>
+        {caloriePrepared ? (
+          <View style={styles.legendCalorieGroup}>
+            <Text style={styles.legendBmr}>
+              {'BMR'}
+              {bmrKcalDay != null && bmrKcalDay > 0
+                ? ` (${Math.round(bmrKcalDay / 48)} kcal)`
+                : ' (÷48)'}
+            </Text>
+            <Text style={styles.legendStepsCal}>Steps cal</Text>
+            <Text style={styles.legendWorkout}>Workout</Text>
+          </View>
+        ) : (
+          <Text style={styles.legendActivity}>Walk / activity</Text>
+        )}
       </View>
 
-      <View style={styles.legendWithingsBlock}>
-        <Text
-          style={styles.legendWithingsLine}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.78}
-        >
-          Muscle{' '}
-          <Text style={styles.legendWithingsValue}>{formatKgSnapshot(withingsSnapshot?.muscleMassKg)}</Text>
-          {' · Fat '}
-          <Text style={styles.legendWithingsValue}>{formatKgSnapshot(withingsSnapshot?.fatMassKg)}</Text>
-          {' · Weight '}
-          <Text style={styles.legendWithingsValue}>{formatKgSnapshot(withingsSnapshot?.weightKg)}</Text>
-        </Text>
-      </View>
     </View>
   );
 }
@@ -954,6 +1134,26 @@ const styles = StyleSheet.create({
     color: WellnessColors.accentBlue,
     fontSize: 12,
     fontWeight: '500',
+  },
+  legendCalorieGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendBmr: {
+    color: CALORIE_BMR_COLOR,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  legendStepsCal: {
+    color: CALORIE_ACTIVE_COLOR,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  legendWorkout: {
+    color: CALORIE_WORKOUT_COLOR,
+    fontSize: 12,
+    fontWeight: '600',
   },
   legendWithingsBlock: {
     marginTop: 2,

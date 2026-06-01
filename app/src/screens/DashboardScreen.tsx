@@ -22,6 +22,7 @@ import { useHealthData } from '../hooks/useHealthData';
 import {
   DEFAULT_TREND_PERIOD_DAYS,
   TREND_PERIOD_DAY_OPTIONS,
+  localDayKeyFromMs,
   resolveCompositionPeriodAnchor,
   type CompositionSession,
   type MetabolicTrend7dDay,
@@ -34,10 +35,13 @@ import {
   fetchBodyCompositionTrend7d,
   fetchHeartRateHistory,
   fetchTodayHeartRate,
+  fetchWorkoutsHistory,
   handleOAuthCallback,
   loadWithingsTokens,
   type WeightMetricsForDashboard,
+  type WithingsCaloriePoint,
   type WithingsHeartRatePoint,
+  type WorkoutSession,
 } from '../services/WithingsApiService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 import { demoNoticeCopy } from '../utils/wellnessCopy';
@@ -116,6 +120,8 @@ export const DashboardScreen = () => {
   const [bodyTrendDays, setBodyTrendDays] = useState<MetabolicTrend7dDay[]>([]);
   const [bodyTrendSessions, setBodyTrendSessions] = useState<CompositionSession[]>([]);
   const [withingsHeartRate, setWithingsHeartRate] = useState<WithingsHeartRatePoint[]>([]);
+  const [withingsCalories, setWithingsCalories] = useState<WithingsCaloriePoint[]>([]);
+  const [workoutSessions, setWorkoutSessions] = useState<WorkoutSession[]>([]);
   const [trendPeriodDays, setTrendPeriodDays] = useState<number>(DEFAULT_TREND_PERIOD_DAYS);
   const [trendLoading, setTrendLoading] = useState(true);
   const [trendError, setTrendError] = useState<string | null>(null);
@@ -129,20 +135,43 @@ export const DashboardScreen = () => {
     setWithingsLinked(Boolean(t?.refreshToken));
   }, []);
 
+  /**
+   * Patch activityKcalDay from workoutSessions for any day the getactivity API left null.
+   * This covers two cases: token missing user.activity scope, or Withings not synced yet.
+   */
+  const bodyTrendDaysWithActivity = useMemo((): MetabolicTrend7dDay[] => {
+    if (workoutSessions.length === 0) return bodyTrendDays;
+    // Sum workout kcal per local day key
+    const workoutByDay = new Map<string, number>();
+    for (const w of workoutSessions) {
+      const dk = localDayKeyFromMs(w.startMs);
+      workoutByDay.set(dk, (workoutByDay.get(dk) ?? 0) + w.kcal);
+    }
+    return bodyTrendDays.map((d) => {
+      if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay)) return d;
+      const wkt = workoutByDay.get(d.dayKey);
+      return wkt != null ? { ...d, activityKcalDay: wkt } : d;
+    });
+  }, [bodyTrendDays, workoutSessions]);
+
   const visibleTrend = useMemo(() => {
-    if (bodyTrendDays.length < 2) return null;
-    const n = Math.min(trendPeriodDays, bodyTrendDays.length);
-    const days = bodyTrendDays.slice(-n);
+    if (bodyTrendDaysWithActivity.length < 2) return null;
+    const n = Math.min(trendPeriodDays, bodyTrendDaysWithActivity.length);
+    const days = bodyTrendDaysWithActivity.slice(-n);
     const anchor = resolveCompositionPeriodAnchor(
       bodyTrendSessions,
       days.map((d) => d.dayKey)
     );
     return { days, anchor };
-  }, [bodyTrendDays, bodyTrendSessions, trendPeriodDays]);
+  }, [bodyTrendDaysWithActivity, bodyTrendSessions, trendPeriodDays]);
 
-  const hasBmrHistory = useMemo(
+  const hasEnergyHistory = useMemo(
     () =>
-      visibleTrend?.days.some((d) => d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay)) ?? false,
+      visibleTrend?.days.some(
+        (d) =>
+          (d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay)) ||
+          (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay))
+      ) ?? false,
     [visibleTrend]
   );
 
@@ -185,10 +214,20 @@ export const DashboardScreen = () => {
 
   const loadHeartRate = useCallback(async () => {
     try {
-      const hr = await fetchHeartRateHistory();
-      setWithingsHeartRate(hr);
+      const { heartRate, calories } = await fetchHeartRateHistory();
+      setWithingsHeartRate(heartRate);
+      setWithingsCalories(calories);
     } catch {
       // Non-fatal: chart falls back to device heart rate only.
+    }
+  }, []);
+
+  const loadWorkouts = useCallback(async () => {
+    try {
+      const sessions = await fetchWorkoutsHistory();
+      setWorkoutSessions(sessions);
+    } catch {
+      // Non-fatal: workout overlay is informational.
     }
   }, []);
 
@@ -204,22 +243,35 @@ export const DashboardScreen = () => {
     void loadHeartRate();
   }, [loadHeartRate]);
 
-  /** Re-fetch today's Withings HR every 10 min so recent watch readings appear without manual sync. */
+  useEffect(() => {
+    void loadWorkouts();
+  }, [loadWorkouts]);
+
+  /** Re-fetch today's Withings HR + calories every 10 min so recent readings appear without manual sync. */
   useEffect(() => {
     const id = setInterval(async () => {
       try {
-        const todayPts = await fetchTodayHeartRate();
-        if (todayPts.length === 0) return;
-        setWithingsHeartRate((prev) => {
-          // Remove old today-points and add fresh ones
-          const todayStart = new Date();
-          todayStart.setHours(0, 0, 0, 0);
-          const todayStartMs = todayStart.getTime();
-          const older = prev.filter((p) => new Date(p.timestamp).getTime() < todayStartMs);
-          const merged = [...older, ...todayPts];
-          merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-          return merged;
-        });
+        const { heartRate: todayHr, calories: todayCal } = await fetchTodayHeartRate();
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayStartMs = todayStart.getTime();
+
+        if (todayHr.length > 0) {
+          setWithingsHeartRate((prev) => {
+            const older = prev.filter((p) => new Date(p.timestamp).getTime() < todayStartMs);
+            const merged = [...older, ...todayHr];
+            merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            return merged;
+          });
+        }
+        if (todayCal.length > 0) {
+          setWithingsCalories((prev) => {
+            const older = prev.filter((p) => new Date(p.timestamp).getTime() < todayStartMs);
+            const merged = [...older, ...todayCal];
+            merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            return merged;
+          });
+        }
       } catch {
         // Non-fatal: periodic refresh failure is silent.
       }
@@ -246,7 +298,7 @@ export const DashboardScreen = () => {
       if (result.type === 'success' && result.url) {
         await handleOAuthCallback(result.url);
         await refreshWithingsLinkState();
-        await Promise.all([loadBodyScan(), loadTrend(), loadHeartRate()]);
+        await Promise.all([loadBodyScan(), loadTrend(), loadHeartRate(), loadWorkouts()]);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Withings link failed.';
@@ -254,10 +306,10 @@ export const DashboardScreen = () => {
     } finally {
       setLinkBusy(false);
     }
-  }, [loadBodyScan, loadTrend, loadHeartRate, refreshWithingsLinkState]);
+  }, [loadBodyScan, loadTrend, loadHeartRate, loadWorkouts, refreshWithingsLinkState]);
 
   const handleSync = async () => {
-    const [, , , result] = await Promise.all([loadBodyScan(), loadTrend(), loadHeartRate(), refetch()]);
+    const [, , , , result] = await Promise.all([loadBodyScan(), loadTrend(), loadHeartRate(), loadWorkouts(), refetch()]);
     if (!result) return;
     await awsDataService.persistData({
       syncedAt: new Date().toISOString(),
@@ -327,15 +379,9 @@ export const DashboardScreen = () => {
                 glucose={glucoseData}
                 heartRate={mergedHeartRate}
                 activityZones={activityZones}
-                withingsSnapshot={
-                  bodyScan
-                    ? {
-                        muscleMassKg: bodyScan.muscleMassKg,
-                        fatMassKg: bodyScan.fatMassKg,
-                        weightKg: bodyScan.weightKg,
-                      }
-                    : null
-                }
+                calorieBurns={withingsCalories}
+                workoutSessions={workoutSessions}
+                bmrKcalDay={bodyScan?.bmrKcalDay}
               />
             </View>
           </View>
@@ -523,7 +569,7 @@ export const DashboardScreen = () => {
           </View>
         </View>
 
-        {hasBmrHistory && visibleTrend ? (
+        {hasEnergyHistory && visibleTrend ? (
           <View style={styles.trendBleed}>
             <View style={[styles.trendCardBleed, styles.bmrCardBleed, cardShadow]}>
               <BmrHistoryChart7d days={visibleTrend.days} loading={trendLoading} />
@@ -574,7 +620,7 @@ export const DashboardScreen = () => {
 
         {error ? <Text style={styles.errorText}>We couldn't refresh just now. Try again shortly.</Text> : null}
 
-        {dataSource !== 'health-connect' ? (
+        {dataSource !== 'health-connect' && !withingsLinked ? (
           <Text style={styles.previewFoot}>Preview · sample wellness data</Text>
         ) : null}
       </ScrollView>
