@@ -3,7 +3,7 @@
  * Calls the REST API directly (no Node SDK needed on-device).
  */
 
-const GEMINI_API_KEY = 'AIzaSyDrLbQTcDDX0MJRLTXZkZUb3_zFZ_vaoUA';
+import { GEMINI_API_KEY } from '@env';
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 

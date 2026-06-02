@@ -1,9 +1,11 @@
 /**
- * Food log persistence — AsyncStorage CRUD.
+ * Food log persistence — AsyncStorage CRUD + JSON export/import.
  * Key per day: food_log_2026-06-01 → FoodEntry[]
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as DocumentPicker from 'expo-document-picker';
 import type { FoodItem } from './GeminiService';
 
 export type { FoodItem };
@@ -125,6 +127,81 @@ export async function getTodayMacros(): Promise<DailyMacros> {
 }
 
 export { dayKey as foodLogDayKey };
+
+// ─── Export / Import ──────────────────────────────────────────────────────────
+
+type ExportPayload = {
+  version: 1;
+  exportedAt: string;
+  days: Record<string, FoodEntry[]>;
+};
+
+/**
+ * Collects all stored days and saves a JSON file to a folder the user picks
+ * (Storage Access Framework — works without native rebuild).
+ */
+export async function exportFoodLog(): Promise<void> {
+  const keys = await getDayKeys();
+  const days: Record<string, FoodEntry[]> = {};
+  for (const dk of keys) {
+    const meals = await getMealsForDay(dk);
+    if (meals.length > 0) days[dk] = meals;
+  }
+  const payload: ExportPayload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    days,
+  };
+  const json = JSON.stringify(payload, null, 2);
+  const filename = `food_log_${dayKey(Date.now())}.json`;
+
+  // Ask the user to pick a folder (e.g. Downloads), then write the file there.
+  const perm = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+  if (!perm.granted) return; // user cancelled
+  const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(
+    perm.directoryUri,
+    filename,
+    'application/json',
+  );
+  await FileSystem.writeAsStringAsync(fileUri, json, { encoding: 'utf8' });
+}
+
+/**
+ * Picks a previously exported JSON file and merges its entries into AsyncStorage.
+ * Existing entries with the same id are overwritten; new ones are added.
+ * Returns the number of meals imported.
+ */
+export async function importFoodLog(): Promise<number> {
+  const result = await DocumentPicker.getDocumentAsync({
+    type: 'application/json',
+    copyToCacheDirectory: true,
+  });
+  if (result.canceled) return 0;
+  const uri = result.assets[0].uri;
+  const raw = await FileSystem.readAsStringAsync(uri, { encoding: 'utf8' });
+  const payload = JSON.parse(raw) as ExportPayload;
+  if (payload.version !== 1 || typeof payload.days !== 'object') {
+    throw new Error('Invalid food log file format');
+  }
+  let count = 0;
+  for (const [dk, entries] of Object.entries(payload.days)) {
+    const existing = await getMealsForDay(dk);
+    const merged = [...existing];
+    for (const entry of entries) {
+      const idx = merged.findIndex((m) => m.id === entry.id);
+      if (idx >= 0) {
+        merged[idx] = entry;
+      } else {
+        merged.push(entry);
+        count++;
+      }
+    }
+    merged.sort((a, b) => a.timestamp - b.timestamp);
+    await AsyncStorage.setItem(storageKey(dk), JSON.stringify(merged));
+    await addDayKey(dk);
+  }
+  return count;
+}
 
 // ─── Dev mock data ────────────────────────────────────────────────────────────
 

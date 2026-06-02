@@ -12,5 +12,9 @@ local.properties
 *.hprof
 .cxx/
 
+# Release keystore (never commit)
+*.keystore
+*.jks
+
 # Bundle artifacts
 *.jsbundle

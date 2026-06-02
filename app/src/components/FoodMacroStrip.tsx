@@ -5,13 +5,14 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { getDailyMacros, foodLogDayKey, type DailyMacros, type FoodEntry } from '../services/FoodLogService';
+import { getDailyMacros, foodLogDayKey, exportFoodLog, importFoodLog, type DailyMacros, type FoodEntry } from '../services/FoodLogService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -40,6 +41,8 @@ type Props = {
   refreshKey?: number;
   /** Total burn per day key (BMR + active). Balance shown for any day present in this map. */
   burnKcalByDay?: Record<string, number>;
+  /** Called after a successful import so the parent can refresh state. */
+  onImported?: () => void;
 };
 
 const COLOR_PROTEIN = '#42A5F5';
@@ -103,10 +106,32 @@ const barStyles = StyleSheet.create({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, refreshKey, burnKcalByDay }: Props) {
+export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, refreshKey, burnKcalByDay, onImported }: Props) {
   const todayMs = useMemo(() => startOfLocalDay(Date.now()), []);
   const [selectedMs, setSelectedMs] = useState(() => startOfLocalDay(Date.now()));
   const [macros, setMacros] = useState<DailyMacros | null>(null);
+
+  const handleExport = useCallback(async () => {
+    try {
+      await exportFoodLog();
+    } catch (e: any) {
+      Alert.alert('Export failed', e?.message ?? String(e));
+    }
+  }, []);
+
+  const handleImport = useCallback(async () => {
+    try {
+      const count = await importFoodLog();
+      if (count === 0) {
+        Alert.alert('Import', 'No new meals found in the file.');
+      } else {
+        Alert.alert('Import complete', `${count} meal${count === 1 ? '' : 's'} imported.`);
+        onImported?.();
+      }
+    } catch (e: any) {
+      Alert.alert('Import failed', e?.message ?? String(e));
+    }
+  }, [onImported]);
 
   const activeDayKey = foodLogDayKey(selectedMs);
   const isToday = selectedMs >= todayMs;
@@ -211,6 +236,16 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
           <Text style={styles.emptyHint}>Tap + Add to log a meal with AI</Text>
         </Pressable>
       ) : null}
+
+      {/* Footer — export / import */}
+      <View style={styles.footer}>
+        <Pressable style={styles.footerBtn} onPress={handleExport} accessibilityLabel="Export food log">
+          <Text style={styles.footerBtnText}>⬆ Export</Text>
+        </Pressable>
+        <Pressable style={styles.footerBtn} onPress={handleImport} accessibilityLabel="Import food log">
+          <Text style={styles.footerBtnText}>⬇ Import</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -234,6 +269,28 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1,
+    color: WellnessColors.textSecondary,
+  },
+  footer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: WellnessColors.gridLine,
+  },
+  footerBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: WellnessColors.progressTrack,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+  },
+  footerBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: WellnessColors.textSecondary,
   },
   dateNav: {

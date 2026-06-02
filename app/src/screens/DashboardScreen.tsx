@@ -679,6 +679,7 @@ export const DashboardScreen = () => {
           onEditMeal={handleEditMeal}
           refreshKey={foodRefreshKey}
           burnKcalByDay={burnKcalByDay}
+          onImported={() => { setFoodRefreshKey((k) => k + 1); loadTodayFood(); }}
         />
 
         {dataSource === 'health-connect' ? (
