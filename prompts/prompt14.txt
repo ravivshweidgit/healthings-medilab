@@ -3,9 +3,9 @@
 ### Goal
 Allow the user to log meals by taking a photo or typing a description.
 Gemini 2.5 Flash vision AI returns structured macronutrient JSON.
-The user can correct the result via chat before saving.
-Only the JSON is stored (no photos). The dashboard gains a food macro strip
-and meal markers on the glucose/HR timeline.
+The user can correct the result via chat before saving, and edit or delete
+previously saved meals. The dashboard gains a food macro strip (Section 5)
+and orange meal markers on the glucose/HR timeline (Section 1).
 
 ---
 
@@ -35,7 +35,7 @@ export type FoodItem = {
 };
 
 export type FoodEntry = {
-  id: string;             // uuid (Date.now() + random suffix is fine)
+  id: string;             // Date.now() + random suffix
   timestamp: number;      // ms — when the user ate (defaults to now, user can edit)
   items: FoodItem[];
   totalKcal: number;      // precomputed sum
@@ -51,220 +51,142 @@ export type FoodEntry = {
 - One key per day: `food_log_2026-06-01` → `FoodEntry[]` (JSON array)
 - Index key: `food_log_days` → `string[]` (list of day keys that have data)
 
-Helper: `dayKeyFromMs(ms: number): string` → `'2026-06-01'` (already in metabolicTrend7d as `localDayKeyFromMs`)
+---
+
+### Gemini API — important implementation notes
+
+**Endpoint (v1, not v1beta)**
+```
+POST https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=API_KEY
+```
+
+**Model**: `gemini-2.5-flash` (confirmed available via `GET /v1/models` with this key).
+Other models that appeared available at build time: gemini-2.5-pro, gemini-2.0-flash-001,
+gemini-2.5-flash-lite, gemini-3.5-flash.
+
+**system_instruction not supported in v1** — embed the system prompt as a synthetic
+user/model exchange at the start of every conversation instead:
+```json
+{ "role": "user",  "parts": [{ "text": "INSTRUCTIONS:\n{SYSTEM_PROMPT}\n\nConfirm you understand." }] },
+{ "role": "model", "parts": [{ "text": "{\"items\":[],...}" }] }
+```
+These synthetic turns must be saved into `updatedHistory` so correction turns
+(which skip re-adding system context when `history.length > 0`) still have the
+full context available.
+
+**Edit mode context seeding**: when opening an existing meal for editing, inject
+the saved items as a synthetic model turn in the conversation history, so the
+model knows what's on the plate before the user types a correction.
 
 ---
 
-### New files
+### Files created
 
 #### `app/src/services/GeminiService.ts`
-
-Responsibilities:
-- Hold the Gemini API key (hardcoded for now, move to .env later)
-- `analyzeFood(imageBase64: string | null, userText: string, history: GeminiTurn[]): Promise<FoodItem[]>`
-  - If imageBase64 is provided → first turn includes the image (multipart)
-  - If imageBase64 is null → text-only turn
-  - Appends to history, calls Gemini REST API
-  - Parses JSON from response, returns FoodItem[]
-  - On parse error: returns items with `name: 'Unknown food'` and zeros (never throws)
-- `type GeminiTurn = { role: 'user' | 'model'; text: string; imageBase64?: string }`
-
-**Gemini REST endpoint**
-```
-POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=API_KEY
-```
-
-**System instruction (sent as `system_instruction` field, not as a turn)**
-```
-You are a clinical nutrition AI embedded in a health tracking app.
-Your ONLY job is to identify food and return precise macronutrient data.
-You NEVER answer general questions.
-If the user asks anything unrelated to food, return:
-{"items":[],"confidence":"low","description":"Not a food item","suggestion":"Please describe a meal or take a photo of food."}
-
-OUTPUT RULES:
-- Return ONLY valid JSON. No markdown. No explanation. No code blocks.
-- Never add text before or after the JSON.
-
-RESPONSE FORMAT:
-{
-  "items": [
-    {
-      "name": "English dish name",
-      "name_local": "name in user language if different",
-      "grams": 150,
-      "kcal": 248,
-      "protein_g": 46.2,
-      "carb_g": 0.0,
-      "fat_g": 5.1
-    }
-  ],
-  "confidence": "high | medium | low",
-  "description": "One sentence: what you identified and how you estimated the portion",
-  "suggestion": "Optional: what info would improve accuracy"
-}
-
-ESTIMATION RULES:
-1. PHOTO MODE: estimate grams from plate context. Standard dinner plate = 26cm diameter.
-2. TEXT MODE: "a banana" = medium 120g. Adjust for "big", "small", "half".
-3. CORRECTION MODE: user may say "it was bigger" or "add tahini dressing".
-   Update the relevant items and return the FULL revised JSON.
-   Never drop items that were not mentioned in the correction.
-4. Split composite dishes into individual ingredients (e.g. shakshuka → eggs + tomato sauce).
-5. Primary source: USDA. For Israeli/Middle-Eastern dishes: Israeli Food Composition Tables.
-6. Round kcal to nearest integer. Round macros to 1 decimal place.
-7. If you cannot identify the food: return confidence "low" and your best guess.
-   Never return an empty items array without attempting an estimate.
-```
+- `analyzeFood(imageBase64, userText, history)` → `{ result, updatedHistory }`
+- `SYSTEM_PROMPT` (exported) — nutrition-only rules, JSON-only output, USDA + Israeli tables
+- `MOCK_MODE = false` flag for offline dev testing
+- Detailed DEV logging of API errors and response preview
 
 #### `app/src/services/FoodLogService.ts`
-
-```ts
-saveMeal(entry: FoodEntry): Promise<void>
-getMealsForDay(dayKey: string): Promise<FoodEntry[]>
-deleteMeal(dayKey: string, id: string): Promise<void>
-getTodayTotals(): Promise<{ kcal: number; protein_g: number; carb_g: number; fat_g: number }>
-getAllDayKeys(): Promise<string[]>
-```
+- `saveMeal(entry)` — creates or updates (same id = update)
+- `getMealsForDay(dayKey)`, `getTodayMeals()`
+- `deleteMeal(entryId, timestamp)`
+- `getDailyMacros(dayKey)`, `getTodayMacros()`
+- `foodLogDayKey(ms)` — shared day key helper
+- `seedMockFoodLog()` — pre-populates 3 meals for `__DEV__` testing
 
 #### `app/src/components/FoodLogModal.tsx`
 
-Full-screen modal triggered by a floating `+` FAB on the dashboard.
+Full-screen modal (pageSheet presentation). Two entry points:
+1. **New meal** — idle screen → camera or text → Gemini → result → save
+2. **Edit meal** — opens directly in result state with existing items pre-loaded
+   and conversation history seeded with the current meal data
 
-**States / flow:**
-1. `idle` — empty screen with two options:
-   - `[📷 Take photo]` (expo-image-picker, camera)
-   - `[💬 Describe meal]` (text input, no photo)
-2. `analyzing` — spinner while Gemini processes
-3. `result` — shows the parsed meal card + chat input for corrections
-4. `saving` — brief spinner then closes modal
+**Screens**: `idle → analyzing → result → saving`
 
-**Meal card (result state):**
+**Result screen layout:**
 ```
-┌──────────────────────────────────────┐
-│  [photo thumbnail 60×60]  Gemini sees:
-│  • Grilled chicken   150g   248 kcal │
-│  • White rice        180g   234 kcal │
-│  • Mixed salad        80g    20 kcal │
-│  ────────────────────────────────────│
-│  Total  502 kcal · P 48g · C 42g · F 8g │
-│  ⚠️ Medium confidence                │
-│  💡 "Tell me the brand of hummus…"   │
-│                                      │
-│  [Chat input: "it was bigger…"]  [↑] │
-│  ────────────────────────────────────│
-│  [🕐 Edit time: 13:30]               │
-│  [✓ Save meal]        [✕ Cancel]     │
-└──────────────────────────────────────┘
+[photo thumb]  [confidence badge]
+[description text]
+┌─ items card ─────────────────────┐
+│ Grilled chicken  150g   248 kcal │
+│ White rice       180g   234 kcal │
+│ ─────────────────────────────── │
+│  502 kcal · P 48g · C 42g · F 8g│  ← no "Total" label
+└──────────────────────────────────┘
+[💡 suggestion box if confidence < high]
+[chat input "it was bigger…"]  [→]
+[🕐 Meal time: 13:30  Edit]
 ```
 
-- Each chat correction re-calls `GeminiService.analyzeFood` (text-only, history preserved)
-- The meal card rerenders with the updated items
-- Photo is NOT stored — only used for the first Gemini call
-- Time defaults to current time; user can tap to change (DateTimePicker)
+**Action bar (bottom, paddingBottom: 48 to clear Android nav bar):**
+- New mode:  `[Cancel]  [✓ Save meal]`
+- Edit mode: `[🗑]  [✓ Save meal]  [Cancel]`
+  - 🗑 shows a confirmation Alert before deleting
+
+Props: `visible`, `onClose`, `onSaved`, `initialTimestamp?`, `editEntry?: FoodEntry`
 
 #### `app/src/components/FoodMacroStrip.tsx`
 
-Compact daily macro summary bar — shown as Section 5 on the dashboard.
+Section 5 daily macro summary. Manages its own selected-day state internally.
 
+**Header:**
 ```
-┌──────────────────────────────────────────────┐
-│  FOOD LOG · Today                            │
-│  🍽 1,890 kcal eaten                         │
-│  P ████████░░  142g    Protein               │
-│  C ██████████  198g    Carbs                 │
-│  F █████░░░░░   62g    Fat                   │
-│                                              │
-│  [+ Add meal]   Breakfast · Lunch · Snack    │
-│  (tappable meal chips → opens FoodLogModal)  │
-└──────────────────────────────────────────────┘
+FOOD LOG    ‹  Today  ›    + Add
 ```
+- `‹` / `›` navigate between days (right arrow disabled on today)
+- Day label: "Today" / "Yesterday" / "Mon, Jun 1"
+- `+ Add` button only shown on today
 
-- Macro bars are proportional to daily totals (no fixed target yet)
-- Each logged meal shown as a small chip with time + kcal
-- Tapping a chip opens it in edit mode (pre-fills history)
-- `[+ Add meal]` opens FoodLogModal in idle state
+**Body (when meals exist):**
+```
+1,890 kcal eaten today
+P ████████░░  142g
+C ██████████  198g
+F █████░░░░░   62g
+[Breakfast chip 8:00 · 237 kcal ✎ edit] [Lunch chip…]
+```
+Each meal chip is tappable → opens FoodLogModal in edit mode.
+Macro bars are proportional to the largest macro (no fixed target yet).
 
 ---
 
 ### Dashboard changes
 
 #### Section 1 — Glucose/HR chart: meal markers
+`MetabolicChart.tsx` gains `foodEntries?: FoodEntry[]` prop.
+Orange `▼` markers + kcal label appear above the time axis at each meal's timestamp.
+A vertical dashed line connects the marker to the axis.
 
-In `MetabolicChart.tsx`, add small fork icons (▼) on the time axis at each
-meal's `timestamp` that falls within the visible window.
+#### Section 5 — FoodMacroStrip
+Placed below the Energy section (Section 4), above the Refresh button.
 
-- Marker: filled triangle ▼ at the X position of the meal time
-- Color: `#FF9800` (orange, distinct from HR red and calorie blues)
-- Tap on marker → shows tooltip: meal name + kcal (e.g. "Lunch · 502 kcal")
-- Props addition: `foodEntries?: FoodEntry[]`
-
-#### Section 5 — FoodMacroStrip (new, below Energy)
-
-```tsx
-<FoodMacroStrip
-  dayKey={todayDayKey}
-  onAddMeal={() => setFoodModalVisible(true)}
-/>
-```
-
-#### Floating FAB (+ button)
-
-In `DashboardScreen.tsx`, add a floating action button fixed to the bottom-right
-of the screen (above the scroll, using `position: absolute`):
-
-```tsx
-<Pressable style={styles.fab} onPress={() => setFoodModalVisible(true)}>
-  <Text style={styles.fabIcon}>＋</Text>
-</Pressable>
-```
-
-Color: `WellnessColors.accentGreen`. Size: 56×56. Border radius 28. Shadow.
+#### Floating FAB
+Green `＋` button, `position: absolute`, bottom-right corner (bottom: 28, right: 24).
+Opens FoodLogModal in new-meal mode. Clearing `editEntry` state before opening.
 
 ---
 
-### Energy section integration (future, not in this prompt)
-
-After food log has a week of data, add a 4th strip to `BmrHistoryChart7d`:
-- **Food kcal** (orange line) — daily eaten kcal per day
-- **Net balance** label: Deficit ▼ or Surplus ▲
-This is deferred until the user has real logged data.
-
----
-
-### Dependencies to add
-
+### Dependencies added
 ```
-expo-image-picker   — camera + photo library access
-@react-native-community/datetimepicker  — meal time editor
+expo-image-picker                       — camera access
+@react-native-community/datetimepicker — meal time editor
 ```
-
-Both are Expo-compatible, no native rebuild needed beyond `expo install`.
-
----
-
-### Files to create
-1. `app/src/services/GeminiService.ts` — Gemini REST client + system prompt
-2. `app/src/services/FoodLogService.ts` — AsyncStorage CRUD
-3. `app/src/components/FoodLogModal.tsx` — camera/chat/confirm UI
-4. `app/src/components/FoodMacroStrip.tsx` — daily macro summary strip
-
-### Files to modify
-5. `app/src/components/MetabolicChart.tsx` — add `foodEntries` prop + meal markers
-6. `app/src/screens/DashboardScreen.tsx` — FAB, modal state, FoodMacroStrip, pass foodEntries
+Both require a native rebuild (`run-android.bat`) after `expo install`.
 
 ---
 
 ### What does NOT change
 - Withings integration — untouched
 - Body composition trend (Section 2) — untouched
-- Energy section / BmrHistoryChart7d (Section 4) — untouched (food line deferred)
+- Energy section / BmrHistoryChart7d (Section 4) — untouched
 - Health Connect / glucose logic — untouched
 
 ---
 
-### Mock / dev behaviour
-- In `__DEV__` mode, `FoodLogService` pre-populates today with 3 sample entries
-  (breakfast 380 kcal, lunch 620 kcal, afternoon snack 180 kcal)
-- `GeminiService` has a `MOCK_MODE = __DEV__ && false` flag — set to `true` to
-  skip the real API call and return a hardcoded shakshuka result instantly
+### Future (not in this prompt)
+- Food kcal line in Energy section (needs a week of real data first)
+- Net deficit/surplus summary row: `Burned 2,340 · Eaten 1,890 → Deficit ▼ 450 kcal`
+- Move API key to `.env` / app config
+- Meal marker tooltip on tap (currently markers are display-only)

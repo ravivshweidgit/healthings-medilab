@@ -15,6 +15,8 @@ import {
   View,
 } from 'react-native';
 import { BmrHistoryChart7d } from '../components/BmrHistoryChart7d';
+import { FoodLogModal } from '../components/FoodLogModal';
+import { FoodMacroStrip } from '../components/FoodMacroStrip';
 import { MetabolicChart } from '../components/MetabolicChart';
 import { MetabolicTrendChart7d } from '../components/MetabolicTrendChart7d';
 import { CONFIG } from '../config/env';
@@ -29,6 +31,7 @@ import {
 } from '../logic/metabolicTrend7d';
 import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportCsv } from '../services/careSensCsv';
+import { foodLogDayKey, getTodayMeals, type FoodEntry } from '../services/FoodLogService';
 import {
   buildAuthorizationUrl,
   fetchWeightMetrics,
@@ -130,9 +133,32 @@ export const DashboardScreen = () => {
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
 
+  const [foodModalVisible, setFoodModalVisible] = useState(false);
+  const [foodEditEntry, setFoodEditEntry] = useState<FoodEntry | undefined>();
+  const [foodRefreshKey, setFoodRefreshKey] = useState(0);
+  const [todayFoodEntries, setTodayFoodEntries] = useState<FoodEntry[]>([]);
+  const todayDayKey = foodLogDayKey(Date.now());
+
   const refreshWithingsLinkState = useCallback(async () => {
     const t = await loadWithingsTokens();
     setWithingsLinked(Boolean(t?.refreshToken));
+  }, []);
+
+  const loadTodayFood = useCallback(async () => {
+    const meals = await getTodayMeals();
+    setTodayFoodEntries(meals);
+  }, []);
+
+  const handleFoodSaved = useCallback(() => {
+    setFoodModalVisible(false);
+    setFoodEditEntry(undefined);
+    setFoodRefreshKey((k) => k + 1);
+    loadTodayFood();
+  }, [loadTodayFood]);
+
+  const handleEditMeal = useCallback((entry: FoodEntry) => {
+    setFoodEditEntry(entry);
+    setFoodModalVisible(true);
   }, []);
 
   /**
@@ -246,6 +272,10 @@ export const DashboardScreen = () => {
   useEffect(() => {
     void loadWorkouts();
   }, [loadWorkouts]);
+
+  useEffect(() => {
+    void loadTodayFood();
+  }, [loadTodayFood]);
 
   /** Re-fetch today's Withings HR + calories every 10 min so recent readings appear without manual sync. */
   useEffect(() => {
@@ -382,6 +412,7 @@ export const DashboardScreen = () => {
                 calorieBurns={withingsCalories}
                 workoutSessions={workoutSessions}
                 bmrKcalDay={bodyScan?.bmrKcalDay}
+                foodEntries={todayFoodEntries}
               />
             </View>
           </View>
@@ -577,6 +608,14 @@ export const DashboardScreen = () => {
           </View>
         ) : null}
 
+        {/* Section 5 — Food log */}
+        <FoodMacroStrip
+          dayKey={todayDayKey}
+          onAddMeal={() => { setFoodEditEntry(undefined); setFoodModalVisible(true); }}
+          onEditMeal={handleEditMeal}
+          refreshKey={foodRefreshKey}
+        />
+
         {dataSource === 'health-connect' ? (
           <View style={styles.careSensImportSection}>
             <Pressable
@@ -624,6 +663,23 @@ export const DashboardScreen = () => {
           <Text style={styles.previewFoot}>Preview · sample wellness data</Text>
         ) : null}
       </ScrollView>
+
+      {/* Floating action button — log a meal */}
+      <Pressable
+        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+        onPress={() => { setFoodEditEntry(undefined); setFoodModalVisible(true); }}
+        accessibilityRole="button"
+        accessibilityLabel="Log a meal"
+      >
+        <Text style={styles.fabIcon}>＋</Text>
+      </Pressable>
+
+      <FoodLogModal
+        visible={foodModalVisible}
+        onClose={() => { setFoodModalVisible(false); setFoodEditEntry(undefined); }}
+        onSaved={handleFoodSaved}
+        editEntry={foodEditEntry}
+      />
     </SafeAreaView>
   );
 };
@@ -956,6 +1012,32 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
     lineHeight: 20,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 28,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: WellnessColors.accentGreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 10,
+  },
+  fabPressed: {
+    opacity: 0.85,
+  },
+  fabIcon: {
+    color: '#fff',
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '300',
   },
   previewFoot: {
     fontSize: 11,

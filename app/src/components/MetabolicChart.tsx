@@ -5,6 +5,7 @@ import { curveMonotoneX, line } from 'd3-shape';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import type { ActivityZone } from '../logic/MetabolicLogic';
 import type { WithingsCaloriePoint, WorkoutSession } from '../services/WithingsApiService';
+import type { FoodEntry } from '../services/FoodLogService';
 import { WellnessColors } from '../theme/wellness';
 
 type Point = { timestamp: string; value: number };
@@ -246,6 +247,8 @@ function buildTimeTicks(
 }
 
 
+const MEAL_MARKER_COLOR = '#FF9800';
+
 type Props = {
   glucose: Point[];
   heartRate: Point[];
@@ -256,9 +259,11 @@ type Props = {
   workoutSessions?: WorkoutSession[];
   /** BMR kcal/day from Withings body scan — used to compute the 30-min resting baseline bar. */
   bmrKcalDay?: number | null;
+  /** Logged food entries — rendered as meal markers (▼) on the time axis. */
+  foodEntries?: FoodEntry[];
 };
 
-export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns, workoutSessions, bmrKcalDay }: Props) {
+export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns, workoutSessions, bmrKcalDay, foodEntries }: Props) {
   const { width: windowW } = useWindowDimensions();
   const [viewportPresetIndex, setViewportPresetIndex] = useState(DEFAULT_VIEWPORT_PRESET_INDEX);
   const [nowAnchor, setNowAnchor] = useState(() => Date.now());
@@ -793,6 +798,37 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
           </SvgText>
         </React.Fragment>
       ))}
+
+      {/* Meal markers — orange ▼ above the time axis for each logged food entry */}
+      {foodEntries?.map((entry) => {
+        const x = timeToX(entry.timestamp, prepared.mapTMin, prepared.spanT, prepared.padL, prepared.innerW);
+        if (x < prepared.padL - 4 || x > prepared.padL + prepared.innerW + 4) return null;
+        const kcal = Math.round(entry.totalKcal);
+        return (
+          <React.Fragment key={`meal-${entry.id}`}>
+            {/* Vertical dashed line from axis up */}
+            <Line
+              x1={x} y1={prepared.axisY - 20}
+              x2={x} y2={prepared.axisY - 4}
+              stroke={MEAL_MARKER_COLOR} strokeWidth={1.5} strokeDasharray="3,2" opacity={0.8}
+            />
+            {/* Downward triangle marker */}
+            <SvgText
+              x={x} y={prepared.axisY - 22}
+              fill={MEAL_MARKER_COLOR} fontSize={10} textAnchor="middle" fontWeight="700"
+            >
+              ▼
+            </SvgText>
+            {/* kcal label */}
+            <SvgText
+              x={x} y={prepared.axisY - 32}
+              fill={MEAL_MARKER_COLOR} fontSize={8} textAnchor="middle"
+            >
+              {kcal}
+            </SvgText>
+          </React.Fragment>
+        );
+      })}
     </Svg>
   );
 

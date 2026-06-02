@@ -1,0 +1,234 @@
+/**
+ * Gemini 2.5 Flash — food photo analysis + conversational correction.
+ * Calls the REST API directly (no Node SDK needed on-device).
+ */
+
+const GEMINI_API_KEY = 'AIzaSyDrLbQTcDDX0MJRLTXZkZUb3_zFZ_vaoUA';
+const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+/** Set to true during development to skip real API calls. */
+const MOCK_MODE = false;
+
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+export type FoodItem = {
+  name: string;
+  name_local?: string;
+  grams: number;
+  kcal: number;
+  protein_g: number;
+  carb_g: number;
+  fat_g: number;
+};
+
+export type GeminiAnalysisResult = {
+  items: FoodItem[];
+  confidence: 'high' | 'medium' | 'low';
+  description: string;
+  suggestion?: string;
+};
+
+export type GeminiTurn = {
+  role: 'user' | 'model';
+  text: string;
+  imageBase64?: string;
+  imageMimeType?: string;
+};
+
+// ─── System prompt ───────────────────────────────────────────────────────────
+
+export const SYSTEM_PROMPT = `You are a clinical nutrition AI embedded in a health tracking app.
+Your ONLY job is to identify food and return precise macronutrient data.
+You NEVER answer general questions.
+If the user asks anything unrelated to food, return:
+{"items":[],"confidence":"low","description":"Not a food item","suggestion":"Please describe a meal or take a photo of food."}
+
+OUTPUT RULES:
+- Return ONLY valid JSON. No markdown. No explanation. No code blocks.
+- Never add text before or after the JSON.
+
+RESPONSE FORMAT:
+{
+  "items": [
+    {
+      "name": "English dish name",
+      "name_local": "name in user language if different from English",
+      "grams": 150,
+      "kcal": 248,
+      "protein_g": 46.2,
+      "carb_g": 0.0,
+      "fat_g": 5.1
+    }
+  ],
+  "confidence": "high | medium | low",
+  "description": "One sentence: what you identified and how you estimated the portion",
+  "suggestion": "Optional: what info would improve accuracy"
+}
+
+ESTIMATION RULES:
+1. PHOTO MODE: estimate grams from plate context. Standard dinner plate = 26cm diameter.
+2. TEXT MODE: "a banana" = medium 120g. Adjust for "big", "small", "half".
+3. CORRECTION MODE: user may say "it was bigger" or "add tahini dressing".
+   Update the relevant items and return the FULL revised JSON.
+   Never drop items that were not mentioned in the correction.
+4. Split composite dishes into individual ingredients (e.g. shakshuka = eggs + tomato sauce).
+5. Primary source: USDA. For Israeli/Middle-Eastern dishes: Israeli Food Composition Tables.
+6. Round kcal to nearest integer. Round macros to 1 decimal place.
+7. If you cannot identify the food: return confidence "low" and your best guess.
+   Never return an empty items array without attempting an estimate.`;
+
+// ─── Mock data ───────────────────────────────────────────────────────────────
+
+const MOCK_RESULT: GeminiAnalysisResult = {
+  items: [
+    { name: 'Shakshuka', name_local: 'שקשוקה', grams: 300, kcal: 280, protein_g: 18.0, carb_g: 14.0, fat_g: 16.0 },
+    { name: 'Pita bread', name_local: 'פיתה', grams: 80, kcal: 216, protein_g: 7.2, carb_g: 43.5, fat_g: 1.8 },
+  ],
+  confidence: 'high',
+  description: 'Two eggs in tomato sauce with a side pita, standard restaurant portion.',
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function computeTotals(items: FoodItem[]): { totalKcal: number; totalProtein_g: number; totalCarb_g: number; totalFat_g: number } {
+  return items.reduce(
+    (acc, item) => ({
+      totalKcal: acc.totalKcal + item.kcal,
+      totalProtein_g: acc.totalProtein_g + item.protein_g,
+      totalCarb_g: acc.totalCarb_g + item.carb_g,
+      totalFat_g: acc.totalFat_g + item.fat_g,
+    }),
+    { totalKcal: 0, totalProtein_g: 0, totalCarb_g: 0, totalFat_g: 0 }
+  );
+}
+
+function parseGeminiJson(raw: string): GeminiAnalysisResult {
+  try {
+    const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    const items: FoodItem[] = Array.isArray(parsed.items) ? parsed.items.map((it: Partial<FoodItem>) => ({
+      name: String(it.name ?? 'Unknown food'),
+      name_local: it.name_local,
+      grams: Number(it.grams ?? 0),
+      kcal: Math.round(Number(it.kcal ?? 0)),
+      protein_g: Math.round(Number(it.protein_g ?? 0) * 10) / 10,
+      carb_g: Math.round(Number(it.carb_g ?? 0) * 10) / 10,
+      fat_g: Math.round(Number(it.fat_g ?? 0) * 10) / 10,
+    })) : [];
+    return {
+      items,
+      confidence: (parsed.confidence === 'high' || parsed.confidence === 'medium' || parsed.confidence === 'low')
+        ? parsed.confidence
+        : 'medium',
+      description: String(parsed.description ?? ''),
+      suggestion: parsed.suggestion ? String(parsed.suggestion) : undefined,
+    };
+  } catch {
+    return {
+      items: [{ name: 'Unknown food', grams: 0, kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0 }],
+      confidence: 'low',
+      description: 'Could not parse AI response.',
+      suggestion: 'Try describing the meal in text.',
+    };
+  }
+}
+
+// ─── Main API ─────────────────────────────────────────────────────────────────
+
+/**
+ * Analyze a meal photo and/or text description.
+ * Pass the full conversation history for correction turns.
+ *
+ * @param imageBase64 - JPEG/PNG base64 string (without data: prefix). Null for text-only.
+ * @param userText    - User's message ("What is this?" or "it was 200g not 100g").
+ * @param history     - All previous turns (starts empty for first call).
+ * @returns Updated history + parsed result.
+ */
+export async function analyzeFood(
+  imageBase64: string | null,
+  userText: string,
+  history: GeminiTurn[]
+): Promise<{ result: GeminiAnalysisResult; updatedHistory: GeminiTurn[] }> {
+  if (MOCK_MODE) {
+    await new Promise((r) => setTimeout(r, 800));
+    const newTurn: GeminiTurn = { role: 'user', text: userText, imageBase64: imageBase64 ?? undefined };
+    const modelTurn: GeminiTurn = { role: 'model', text: JSON.stringify(MOCK_RESULT) };
+    return { result: MOCK_RESULT, updatedHistory: [...history, newTurn, modelTurn] };
+  }
+
+  // Prepend system prompt as a synthetic user/model exchange (compatible with all API versions).
+  const systemTurns = history.length === 0 ? [
+    { role: 'user', parts: [{ text: `INSTRUCTIONS:\n${SYSTEM_PROMPT}\n\nConfirm you understand.` }] },
+    { role: 'model', parts: [{ text: '{"items":[],"confidence":"high","description":"Ready to analyze food."}' }] },
+  ] : [];
+
+  const contents = [
+    ...systemTurns,
+    ...history.map((turn) => {
+      const parts: object[] = [];
+      if (turn.imageBase64) {
+        parts.push({ inline_data: { mime_type: turn.imageMimeType ?? 'image/jpeg', data: turn.imageBase64 } });
+      }
+      parts.push({ text: turn.text });
+      return { role: turn.role, parts };
+    }),
+    {
+      role: 'user',
+      parts: [
+        ...(imageBase64 ? [{ inline_data: { mime_type: 'image/jpeg', data: imageBase64 } }] : []),
+        { text: userText || 'What food is in this photo? Give me the macros.' },
+      ],
+    },
+  ];
+
+  const body = {
+    contents,
+    generationConfig: {
+      temperature: 0.2,
+      maxOutputTokens: 1024,
+    },
+  };
+
+  const response = await fetch(GEMINI_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => '');
+    let readable = errText;
+    try {
+      const parsed = JSON.parse(errText);
+      readable = parsed?.error?.message ?? errText;
+    } catch { /* not JSON */ }
+    if (__DEV__) {
+      console.warn('[Gemini] API error', response.status, errText);
+    }
+    throw new Error(readable || `Gemini error ${response.status}`);
+  }
+
+  const json = await response.json();
+  const rawText: string = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  if (__DEV__) {
+    console.warn('[Gemini] response preview', rawText.slice(0, 200));
+  }
+  const result = parseGeminiJson(rawText);
+
+  const newUserTurn: GeminiTurn = { role: 'user', text: userText, imageBase64: imageBase64 ?? undefined };
+  const modelTurn: GeminiTurn = { role: 'model', text: rawText };
+
+  // Persist system turns into history so corrections keep the full context.
+  const systemHistoryTurns: GeminiTurn[] = history.length === 0 ? [
+    { role: 'user', text: `INSTRUCTIONS:\n${SYSTEM_PROMPT}\n\nConfirm you understand.` },
+    { role: 'model', text: '{"items":[],"confidence":"high","description":"Ready to analyze food."}' },
+  ] : [];
+
+  return {
+    result,
+    updatedHistory: [...systemHistoryTurns, ...history, newUserTurn, modelTurn],
+  };
+}
+
+export { computeTotals };
