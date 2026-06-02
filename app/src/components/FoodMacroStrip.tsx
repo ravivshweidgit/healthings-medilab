@@ -38,6 +38,8 @@ type Props = {
   onEditMeal?: (entry: FoodEntry) => void;
   /** Refresh counter — increment to trigger a reload. */
   refreshKey?: number;
+  /** Total burn per day key (BMR + active). Balance shown for any day present in this map. */
+  burnKcalByDay?: Record<string, number>;
 };
 
 const COLOR_PROTEIN = '#42A5F5';
@@ -101,7 +103,7 @@ const barStyles = StyleSheet.create({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, refreshKey }: Props) {
+export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, refreshKey, burnKcalByDay }: Props) {
   const todayMs = useMemo(() => startOfLocalDay(Date.now()), []);
   const [selectedMs, setSelectedMs] = useState(() => startOfLocalDay(Date.now()));
   const [macros, setMacros] = useState<DailyMacros | null>(null);
@@ -125,6 +127,11 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
 
   const isEmpty = !macros || macros.entries.length === 0;
   const maxMacro = macros ? Math.max(macros.protein_g, macros.carb_g, macros.fat_g, 1) : 1;
+
+  const burn    = burnKcalByDay?.[activeDayKey] ?? null;
+  const eaten   = macros ? Math.round(macros.kcal) : 0;
+  const balance = burn != null && eaten > 0 ? burn - eaten : null;
+  const isDeficit = balance != null && balance >= 0;
 
   return (
     <View style={[styles.card, cardShadow]}>
@@ -152,25 +159,38 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
         ) : <View style={styles.addBtnPlaceholder} />}
       </View>
 
-      {isEmpty ? (
-        <Pressable style={styles.emptyBox} onPress={isToday ? onAddMeal : undefined}>
-          <Text style={styles.emptyIcon}>🍽</Text>
-          <Text style={styles.emptyText}>No meals logged</Text>
-          {isToday ? <Text style={styles.emptyHint}>Tap to log a meal with AI</Text> : null}
-        </Pressable>
-      ) : (
-        <>
-          {/* Kcal total */}
-          <Text style={styles.kcalTotal}>{Math.round(macros!.kcal)} kcal eaten today</Text>
+      {/* Energy lines — always shown, columns aligned */}
+      <View style={styles.energyLines}>
+        <View style={styles.energyRow}>
+          <Text style={styles.energyNum}>{eaten > 0 ? eaten.toLocaleString() : '—'}</Text>
+          <Text style={styles.energyLabel}>kcal eaten</Text>
+        </View>
+        {burn != null ? (
+          <View style={styles.energyRow}>
+            <Text style={styles.energyNum}>{burn.toLocaleString()}</Text>
+            <Text style={styles.energyLabel}>kcal burned</Text>
+          </View>
+        ) : null}
+        {balance != null ? (
+          <View style={styles.energyRow}>
+            <Text style={[styles.energyNum, { color: isDeficit ? '#2E7D32' : '#E65100' }]}>
+              {Math.abs(balance).toLocaleString()}
+            </Text>
+            <Text style={[styles.energyLabel, { color: isDeficit ? '#2E7D32' : '#E65100' }]}>
+              kcal {isDeficit ? 'deficit' : 'surplus'}
+            </Text>
+          </View>
+        ) : null}
+      </View>
 
-          {/* Macro bars */}
-          <View style={styles.barsWrap}>
+      {/* Macro bars + chips — only when meals exist */}
+      {!isEmpty ? (
+        <>
+          <View style={[styles.barsWrap, { marginTop: 10 }]}>
             <MacroBar label="P" value={macros!.protein_g} total={maxMacro} color={COLOR_PROTEIN} unit="g" />
             <MacroBar label="C" value={macros!.carb_g}    total={maxMacro} color={COLOR_CARB}    unit="g" />
             <MacroBar label="F" value={macros!.fat_g}     total={maxMacro} color={COLOR_FAT}     unit="g" />
           </View>
-
-          {/* Meal chips */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
             {macros!.entries.map((entry) => (
               <Pressable
@@ -186,7 +206,11 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
             ))}
           </ScrollView>
         </>
-      )}
+      ) : isToday ? (
+        <Pressable onPress={onAddMeal}>
+          <Text style={styles.emptyHint}>Tap + Add to log a meal with AI</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -268,12 +292,27 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 32 },
   emptyText: { fontSize: 14, fontWeight: '600', color: WellnessColors.textPrimary, marginTop: 4 },
   emptyHint: { fontSize: 12, color: WellnessColors.textSecondary },
-  kcalTotal: {
-    fontSize: 20,
+  energyLines: {
+    marginBottom: 6,
+    gap: 3,
+  },
+  energyRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  energyNum: {
+    width: 56,
+    fontSize: 17,
     fontWeight: '700',
     color: WellnessColors.textPrimary,
-    marginBottom: 10,
+    textAlign: 'right',
     fontVariant: ['tabular-nums'],
+    marginRight: 8,
+  },
+  energyLabel: {
+    fontSize: 17,
+    fontWeight: '400',
+    color: WellnessColors.textSecondary,
   },
   barsWrap: { marginBottom: 12 },
   chipsRow: {

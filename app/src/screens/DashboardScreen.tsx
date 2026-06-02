@@ -201,6 +201,70 @@ export const DashboardScreen = () => {
     [visibleTrend]
   );
 
+  /**
+   * Total calorie burn per day key for all days covered by intraday data.
+   * BMR comes from bodyTrendDays (per-day) with bodyScan as fallback.
+   * Passive calories and workouts are bucketed per day.
+   */
+  const burnKcalByDay = useMemo((): Record<string, number> => {
+    const fallbackBmr = bodyScan?.bmrKcalDay;
+    const BUCKET_MS = 30 * 60 * 1000;
+
+    // BMR per day key from trend data
+    const bmrByDay = new Map<string, number>();
+    for (const d of bodyTrendDaysWithActivity) {
+      if (d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay)) {
+        bmrByDay.set(d.dayKey, d.bmrKcalDay);
+      }
+    }
+
+    // Passive calories bucketed by day key
+    const passiveByDay = new Map<string, Map<number, number>>();
+    for (const pt of withingsCalories) {
+      const t = new Date(pt.timestamp).getTime();
+      const dk = localDayKeyFromMs(t);
+      if (!passiveByDay.has(dk)) passiveByDay.set(dk, new Map());
+      const bk = Math.floor(t / BUCKET_MS) * BUCKET_MS;
+      const m = passiveByDay.get(dk)!;
+      m.set(bk, (m.get(bk) ?? 0) + pt.kcal);
+    }
+
+    // Workout calories + buckets by day key
+    const workoutKcalByDay = new Map<string, number>();
+    const workoutBucketsByDay = new Map<string, Set<number>>();
+    for (const w of workoutSessions) {
+      const dk = localDayKeyFromMs(w.startMs);
+      workoutKcalByDay.set(dk, (workoutKcalByDay.get(dk) ?? 0) + w.kcal);
+      if (!workoutBucketsByDay.has(dk)) workoutBucketsByDay.set(dk, new Set());
+      const bkSet = workoutBucketsByDay.get(dk)!;
+      const firstBk = Math.floor(w.startMs / BUCKET_MS) * BUCKET_MS;
+      for (let bk = firstBk; bk < w.endMs; bk += BUCKET_MS) bkSet.add(bk);
+    }
+
+    // Collect all day keys with any data — always include today so the row shows even before first activity
+    const allDayKeys = new Set<string>([
+      localDayKeyFromMs(Date.now()),
+      ...bmrByDay.keys(),
+      ...passiveByDay.keys(),
+      ...workoutKcalByDay.keys(),
+    ]);
+
+    const result: Record<string, number> = {};
+    for (const dk of allDayKeys) {
+      const bmr = bmrByDay.get(dk) ?? fallbackBmr;
+      if (!bmr || !Number.isFinite(bmr)) continue;
+
+      const wktBuckets = workoutBucketsByDay.get(dk) ?? new Set<number>();
+      const wktKcal = workoutKcalByDay.get(dk) ?? 0;
+      let passiveKcal = 0;
+      for (const [bk, kcal] of (passiveByDay.get(dk) ?? new Map())) {
+        if (!wktBuckets.has(bk)) passiveKcal += kcal;
+      }
+      result[dk] = Math.round(bmr + passiveKcal + wktKcal);
+    }
+    return result;
+  }, [bodyScan, bodyTrendDaysWithActivity, withingsCalories, workoutSessions]);
+
   /** Prefer device (continuous) heart rate, augmented with Withings spot readings. */
   const mergedHeartRate = useMemo(() => {
     if (withingsHeartRate.length === 0) return heartRateData;
@@ -614,6 +678,7 @@ export const DashboardScreen = () => {
           onAddMeal={() => { setFoodEditEntry(undefined); setFoodModalVisible(true); }}
           onEditMeal={handleEditMeal}
           refreshKey={foodRefreshKey}
+          burnKcalByDay={burnKcalByDay}
         />
 
         {dataSource === 'health-connect' ? (
