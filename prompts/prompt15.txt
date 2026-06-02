@@ -1,0 +1,175 @@
+## Prompt 15 — Release APK: Signed Local Build for Daily Use
+
+### Goal
+Produce a standalone release APK signed with a proper keystore that can be
+installed on the device and run independently — no Metro bundler, no PC required.
+
+---
+
+### Current state (from build.gradle)
+- Package: `com.healthings.medilab`
+- versionCode: 1 / versionName: "1.0.0"
+- Release build type already exists but uses the **debug keystore** — sufficient
+  for personal sideloading, but a dedicated release keystore is better practice.
+- Gemini API key hardcoded in `GeminiService.ts` — should move to `.env` before
+  building so it's not easily extractable from the APK.
+
+---
+
+### Step 1 — Move Gemini API key to .env
+
+Add to `app/.env`:
+```
+GEMINI_API_KEY=AIzaSyDrLbQTcDDX0MJRLTXZkZUb3_zFZ_vaoUA
+```
+
+Declare in `app/.env.d.ts` (or `app/src/env.d.ts` alongside existing env types):
+```ts
+declare module '@env' {
+  // ... existing keys ...
+  export const GEMINI_API_KEY: string;
+}
+```
+
+Update `GeminiService.ts`:
+```ts
+import { GEMINI_API_KEY } from '@env';
+```
+
+Add `.env` to `.gitignore` (already there — confirm).
+
+---
+
+### Step 2 — Generate release keystore (one time)
+
+Run in `app/android/app/`:
+```bash
+keytool -genkey -v \
+  -keystore healthings-release.keystore \
+  -alias healthings \
+  -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Prompts: set a strong password (store it safely — losing it means you can't update the app).
+Add `healthings-release.keystore` to `.gitignore` — never commit a keystore.
+
+---
+
+### Step 3 — Wire keystore into gradle.properties
+
+Add to `app/android/gradle.properties` (not committed to git):
+```
+MYAPP_RELEASE_STORE_FILE=healthings-release.keystore
+MYAPP_RELEASE_KEY_ALIAS=healthings
+MYAPP_RELEASE_STORE_PASSWORD=your_store_password
+MYAPP_RELEASE_KEY_PASSWORD=your_key_password
+```
+
+Update `app/android/app/build.gradle` signingConfigs block:
+```groovy
+signingConfigs {
+    debug {
+        storeFile file('debug.keystore')
+        storePassword 'android'
+        keyAlias 'androiddebugkey'
+        keyPassword 'android'
+    }
+    release {
+        if (project.hasProperty('MYAPP_RELEASE_STORE_FILE')) {
+            storeFile file(MYAPP_RELEASE_STORE_FILE)
+            storePassword MYAPP_RELEASE_STORE_PASSWORD
+            keyAlias MYAPP_RELEASE_KEY_ALIAS
+            keyPassword MYAPP_RELEASE_KEY_PASSWORD
+        }
+    }
+}
+buildTypes {
+    debug {
+        signingConfig signingConfigs.debug
+    }
+    release {
+        signingConfig signingConfigs.release
+        // ... rest unchanged ...
+    }
+}
+```
+
+---
+
+### Step 4 — Bump version
+
+In `app/android/app/build.gradle`:
+```groovy
+versionCode 2
+versionName "1.1.0"
+```
+
+In `app/app.json`:
+```json
+"version": "1.1.0"
+```
+
+---
+
+### Step 5 — Build script
+
+Create `app/build-release.bat`:
+```bat
+@echo off
+echo Building release APK...
+cd android
+call gradlew.bat assembleRelease
+cd ..
+echo.
+echo APK: android\app\build\outputs\apk\release\app-release.apk
+```
+
+---
+
+### Step 6 — Install on device
+
+```bat
+adb install -r android\app\build\outputs\apk\release\app-release.apk
+```
+
+The `-r` flag reinstalls over the existing debug build, preserving AsyncStorage data
+(meals, Withings tokens) because the package name `com.healthings.medilab` stays the same.
+
+---
+
+### What changes vs dev build
+
+| Feature | Dev build | Release APK |
+|---|---|---|
+| Needs Metro running | Yes | No |
+| Needs PC on same WiFi | Yes | No |
+| JS bundle | Loaded from Metro | Bundled inside APK |
+| Hermes JIT | Off | On (faster startup) |
+| `__DEV__` | true | false |
+| Console.warn logs | Visible | Suppressed |
+| Mock data seeding | Possible | Disabled (seedMockFoodLog is a no-op in prod) |
+| Gemini API key | Hardcoded | From .env |
+
+---
+
+### Files to change
+1. `app/.env` — add GEMINI_API_KEY
+2. `app/src/services/GeminiService.ts` — import key from @env
+3. `app/android/app/build.gradle` — proper release signingConfig + version bump
+4. `app/android/gradle.properties` — keystore credentials (NOT committed)
+5. `app/app.json` — version bump
+6. `app/build-release.bat` — convenience build script (NEW)
+7. `.gitignore` — confirm keystore + .env entries
+
+---
+
+### APK size estimate
+~60–80 MB (includes Hermes engine + React Native runtime + all assets).
+Normal for a React Native app.
+
+---
+
+### Future
+- Play Store internal track: upload the AAB (`assembleRelease` → `bundleRelease`)
+  for distribution to family/testers without sideloading
+- OTA updates via expo-updates (JS-only updates without reinstalling APK)
