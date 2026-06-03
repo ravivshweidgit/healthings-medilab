@@ -215,6 +215,16 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
       {/* Meal chips + Add card */}
       {(!isEmpty || isToday) && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+          {isToday && (
+            <Pressable
+              style={({ pressed }) => [styles.chip, styles.addChip, pressed && styles.chipPressed]}
+              onPress={onAddMeal}
+              accessibilityLabel="Add meal"
+            >
+              <Text style={styles.addChipIcon}>＋</Text>
+              <Text style={styles.addChipLabel}>Add meal</Text>
+            </Pressable>
+          )}
           {macros?.entries.map((entry) => (
             <Pressable
               key={entry.id}
@@ -227,16 +237,6 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
               <Text style={styles.chipEdit}>✎ edit</Text>
             </Pressable>
           ))}
-          {isToday && (
-            <Pressable
-              style={({ pressed }) => [styles.chip, styles.addChip, pressed && styles.chipPressed]}
-              onPress={onAddMeal}
-              accessibilityLabel="Add meal"
-            >
-              <Text style={styles.addChipIcon}>＋</Text>
-              <Text style={styles.addChipLabel}>Add meal</Text>
-            </Pressable>
-          )}
         </ScrollView>
       )}
 
