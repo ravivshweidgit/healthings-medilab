@@ -750,7 +750,6 @@ export const DashboardScreen = () => {
           )}
         </Pressable>
 
-        {error ? <Text style={styles.errorText}>We couldn't refresh just now. Try again shortly.</Text> : null}
 
         {dataSource !== 'health-connect' && !withingsLinked ? (
           <Text style={styles.previewFoot}>Preview · sample wellness data</Text>
