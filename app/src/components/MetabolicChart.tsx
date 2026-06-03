@@ -77,7 +77,7 @@ const VIEWPORT_PRESETS = [
   { label: '1H', ms: 1 * MS_HOUR },
 ] as const;
 
-const DEFAULT_VIEWPORT_PRESET_INDEX = 3;
+const DEFAULT_VIEWPORT_PRESET_INDEX = 5; // 12H
 
 function viewportWidthPx(windowW: number): number {
   return Math.max(180, windowW - Y_AXIS_WIDTH - 44);

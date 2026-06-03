@@ -167,9 +167,11 @@ export async function analyzeFood(
   ] : [];
 
   // Build the user message text — add before/after context when two images are provided.
+  // Always remind Gemini to respond in JSON to prevent plain-text responses.
+  const JSON_REMINDER = ' Respond ONLY with the JSON format specified in your instructions. No markdown, no prose.';
   const effectiveText = afterImageBase64
-    ? (userText || 'The FIRST image is the full plate before eating. The SECOND image is what was left after eating. Estimate only what was actually consumed (the difference). Give me the macros for what was eaten.')
-    : (userText || 'What food is in this photo? Give me the macros.');
+    ? (userText || ('The FIRST image is the full plate before eating. The SECOND image is what was left after eating. Estimate only what was actually consumed (the difference). Give me the macros for what was eaten.' + JSON_REMINDER))
+    : (userText || ('What food is in this photo? Give me the macros.' + JSON_REMINDER));
 
   const contents = [
     ...systemTurns,
@@ -196,6 +198,7 @@ export async function analyzeFood(
     generationConfig: {
       temperature: 0.2,
       maxOutputTokens: 1024,
+      responseMimeType: 'application/json',
     },
   };
 

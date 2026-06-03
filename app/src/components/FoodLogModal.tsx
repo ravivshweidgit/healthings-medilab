@@ -177,14 +177,20 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      quality: 0.7,
+      quality: 0.5,   // lower quality for gallery — originals can be very large
       base64: true,
       allowsEditing: false,
+      exif: false,
     });
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
-    setPhotoUri(asset.uri);
+    // Warn if base64 is extremely large (>4MB encoded ≈ ~3MB image) — Gemini has a ~20MB limit
+    // but large payloads slow things down significantly.
     const b64 = asset.base64 ?? null;
+    if (b64 && b64.length > 4_000_000) {
+      Alert.alert('Image too large', 'This photo is very large and may fail. Try a smaller image or use the camera instead.');
+    }
+    setPhotoUri(asset.uri);
     setPhotoBase64(b64);
     await runAnalysis(b64, 'What food is in this photo? Give me the macros.', []);
   }, [runAnalysis]);

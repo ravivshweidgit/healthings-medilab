@@ -392,7 +392,7 @@ export function buildDaysFromSessions(dayKeys: string[], sessions: CompositionSe
 /** Selectable trend windows (days), matching the glucose-history zoom chips. */
 export const TREND_PERIOD_DAY_OPTIONS = [8, 16, 32, 64, 128] as const;
 export const MAX_TREND_PERIOD_DAYS = 128;
-export const DEFAULT_TREND_PERIOD_DAYS = 8;
+export const DEFAULT_TREND_PERIOD_DAYS = 32;
 
 /** Last `n` local calendar days, oldest → newest (today last), local midnight boundaries. */
 export function lastNLocalDayKeysOldestFirst(n: number): string[] {
