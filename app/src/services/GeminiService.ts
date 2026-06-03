@@ -233,3 +233,101 @@ export async function analyzeFood(
 }
 
 export { computeTotals };
+
+// ─── Body composition target suggestion ──────────────────────────────────────
+
+export type BodyTargetInput = {
+  weight_kg: number;
+  fatPct: number;
+  muscleMass_kg: number;
+  bmr_kcal: number;
+  heightCm: number;
+  age: number;
+  gender: string;
+  bmi: number;
+  weeklyWeightChange_kg?: number | null;
+  avgDailyDeficit_kcal?: number | null;
+};
+
+export type BodyTargetSuggestion = {
+  targetWeight_kg: number;
+  targetFatPct: number;
+  targetMuscleMass_kg: number;
+  reasoning: string;
+  estimatedWeeks: number;
+  bmi_current: number;
+  bmi_target: number;
+};
+
+/**
+ * Asks Gemini to suggest body composition targets.
+ * Single non-conversational call — returns structured JSON.
+ */
+export async function suggestBodyTargets(input: BodyTargetInput): Promise<BodyTargetSuggestion> {
+  const lines = [
+    `Weight: ${input.weight_kg} kg`,
+    `Fat%: ${input.fatPct}%`,
+    `Muscle mass: ${input.muscleMass_kg} kg`,
+    `BMR: ${input.bmr_kcal} kcal/day`,
+    `Height: ${input.heightCm} cm`,
+    `Age: ${input.age}`,
+    `Gender: ${input.gender}`,
+    `BMI: ${input.bmi.toFixed(1)}`,
+    input.weeklyWeightChange_kg != null
+      ? `Weekly weight change: ${input.weeklyWeightChange_kg > 0 ? '+' : ''}${input.weeklyWeightChange_kg.toFixed(2)} kg/week`
+      : null,
+    input.avgDailyDeficit_kcal != null
+      ? `Average daily energy deficit: ${Math.round(input.avgDailyDeficit_kcal)} kcal`
+      : null,
+  ].filter(Boolean).join('\n');
+
+  const prompt = `Fitness coach AI. Output ONLY valid JSON, no markdown, no explanation outside JSON.
+
+METRICS:
+${lines}
+
+OUTPUT (fill real values, keep keys exactly as shown):
+{"targetWeight_kg":80.0,"targetFatPct":16.0,"targetMuscleMass_kg":65.0,"reasoning":"Max 12 words about fat loss while preserving muscle.","estimatedWeeks":14,"bmi_current":26.8,"bmi_target":25.2}
+
+RULES:
+- Healthy BMI 18.5-25 (higher ok if muscular)
+- Fat% men 10-18%, women 18-28%
+- Muscle target >= current
+- Pace 0.3-0.5 kg/week`;
+
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
+  };
+
+  const response = await fetch(GEMINI_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => '');
+    throw new Error(`Gemini error ${response.status}: ${errText.slice(0, 200)}`);
+  }
+
+  const json = await response.json();
+  const candidate = json?.candidates?.[0];
+  const finishReason: string = candidate?.finishReason ?? 'UNKNOWN';
+  const raw: string = candidate?.content?.parts?.[0]?.text ?? '';
+
+  if (!raw) throw new Error(`Empty AI response (${finishReason}). Check API key.`);
+
+  const stripped = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  const start = stripped.indexOf('{');
+  const end = stripped.lastIndexOf('}');
+  const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+
+  try {
+    return JSON.parse(cleaned) as BodyTargetSuggestion;
+  } catch {
+    // Only mention truncation if that was the reason
+    const hint = finishReason === 'MAX_TOKENS' ? ' (response truncated)' : '';
+    throw new Error(`Could not parse AI response${hint}: ${raw.slice(0, 120)}`);
+  }
+}

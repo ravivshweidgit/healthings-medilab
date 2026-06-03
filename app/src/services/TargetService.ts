@@ -59,3 +59,41 @@ export async function getCachedHeightCm(): Promise<number | null> {
 export async function setHeightCm(cm: number): Promise<void> {
   await AsyncStorage.setItem(HEIGHT_KEY, String(Math.round(cm)));
 }
+
+// ─── Body composition target ──────────────────────────────────────────────────
+
+const BODY_TARGET_KEY = 'body_target';
+
+export type BodyTarget = {
+  /** User's actual targets (editable, may differ from AI suggestion) */
+  targetWeight_kg: number;
+  targetFatPct: number;
+  targetMuscleMass_kg: number;
+  /** AI's original suggestion — always preserved for reference */
+  aiWeight_kg: number;
+  aiFatPct: number;
+  aiMuscle_kg: number;
+  /** Baseline at the time target was set */
+  startWeight_kg: number;
+  startFatPct: number;
+  startMuscle_kg: number;
+  /** AI reasoning text */
+  reasoning: string;
+  /** ISO string of when AI ran */
+  analyzedAt: string;
+  estimatedWeeks?: number;
+};
+
+export async function getBodyTarget(): Promise<BodyTarget | null> {
+  const raw = await AsyncStorage.getItem(BODY_TARGET_KEY);
+  if (!raw) return null;
+  try { return JSON.parse(raw) as BodyTarget; } catch { return null; }
+}
+
+export async function saveBodyTarget(target: BodyTarget): Promise<void> {
+  await AsyncStorage.setItem(BODY_TARGET_KEY, JSON.stringify(target));
+}
+
+export async function clearBodyTarget(): Promise<void> {
+  await AsyncStorage.removeItem(BODY_TARGET_KEY);
+}

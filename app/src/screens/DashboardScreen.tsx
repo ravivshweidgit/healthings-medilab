@@ -22,6 +22,7 @@ import { FoodLogModal } from '../components/FoodLogModal';
 import { FoodMacroStrip } from '../components/FoodMacroStrip';
 import { MetabolicChart } from '../components/MetabolicChart';
 import { MetabolicTrendChart7d } from '../components/MetabolicTrendChart7d';
+import { WeightTargetStrip } from '../components/WeightTargetStrip';
 import { CONFIG } from '../config/env';
 import { useHealthData } from '../hooks/useHealthData';
 import {
@@ -294,6 +295,39 @@ export const DashboardScreen = () => {
     }
     return result;
   }, [bodyScan, bodyTrendDaysWithActivity, withingsCalories, workoutSessions]);
+
+  /** Fat% derived from body scan (fatMassKg / weightKg * 100). */
+  const fatPct = useMemo((): number | null => {
+    const { fatMassKg, weightKg } = bodyScan ?? {};
+    if (!fatMassKg || !weightKg || weightKg <= 0) return null;
+    return (fatMassKg / weightKg) * 100;
+  }, [bodyScan]);
+
+  /** Weekly weight change (kg/week) via linear regression on up to last 14 days with data. */
+  const weeklyWeightChange_kg = useMemo((): number | null => {
+    const pts = bodyTrendDays
+      .filter((d) => d.weightKg != null)
+      .slice(-14)
+      .map((d) => ({
+        x: new Date(d.dayKey).getTime() / (7 * 24 * 3600 * 1000), // weeks
+        y: d.weightKg as number,
+      }));
+    if (pts.length < 3) return null;
+    const n = pts.length;
+    const sumX = pts.reduce((s, p) => s + p.x, 0);
+    const sumY = pts.reduce((s, p) => s + p.y, 0);
+    const sumXY = pts.reduce((s, p) => s + p.x * p.y, 0);
+    const sumX2 = pts.reduce((s, p) => s + p.x * p.x, 0);
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    return Number.isFinite(slope) ? Math.round(slope * 100) / 100 : null;
+  }, [bodyTrendDays]);
+
+  /** User age computed from stored birthdate. */
+  const userAge = useMemo((): number | null => {
+    if (!birthdatePicker) return null;
+    const iso = birthdatePicker.toISOString().split('T')[0];
+    return computeAge(iso);
+  }, [birthdatePicker]);
 
   /** Prefer device (continuous) heart rate, augmented with Withings spot readings. */
   const mergedHeartRate = useMemo(() => {
@@ -786,28 +820,43 @@ export const DashboardScreen = () => {
           <Text style={styles.previewFoot}>Preview · sample wellness data</Text>
         ) : null}
 
-        {/* My Profile — edit gender / height / birthdate */}
-        <Pressable
-          style={styles.profileRow}
-          onPress={async () => {
-            const [bd, gd] = await Promise.all([getBirthdate(), getGender()]);
-            if (gd) setGenderPicker(gd);
-            if (bd) { const d = new Date(bd); if (!isNaN(d.getTime())) setBirthdatePicker(d); }
-            setBirthdateModalVisible(true);
-          }}
-        >
-          <Text style={styles.profileRowIcon}>👤</Text>
-          <View style={styles.profileRowInfo}>
-            <Text style={styles.profileRowTitle}>My Profile</Text>
-            <Text style={styles.profileRowSub}>
-              {[
-                userGender ? userGender.charAt(0).toUpperCase() + userGender.slice(1) : null,
-                heightCm ? `${heightCm} cm` : null,
-              ].filter(Boolean).join(' · ') || 'Tap to set gender, height & birthdate'}
-            </Text>
-          </View>
-          <Text style={styles.profileRowChevron}>›</Text>
-        </Pressable>
+        {/* My Profile + My Targets — single grouped card */}
+        <View style={[styles.groupCard, cardShadow]}>
+          <Pressable
+            style={styles.profileRow}
+            onPress={async () => {
+              const [bd, gd] = await Promise.all([getBirthdate(), getGender()]);
+              if (gd) setGenderPicker(gd);
+              if (bd) { const d = new Date(bd); if (!isNaN(d.getTime())) setBirthdatePicker(d); }
+              setBirthdateModalVisible(true);
+            }}
+          >
+            <Text style={styles.profileRowIcon}>👤</Text>
+            <View style={styles.profileRowInfo}>
+              <Text style={styles.profileRowTitle}>My Profile</Text>
+              <Text style={styles.profileRowSub}>
+                {[
+                  userGender ? userGender.charAt(0).toUpperCase() + userGender.slice(1) : null,
+                  heightCm ? `${heightCm} cm` : null,
+                ].filter(Boolean).join(' · ') || 'Tap to set gender, height & birthdate'}
+              </Text>
+            </View>
+            <Text style={styles.profileRowChevron}>›</Text>
+          </Pressable>
+
+          <View style={styles.groupDivider} />
+
+          <WeightTargetStrip
+            weightKg={bodyScan?.weightKg ?? null}
+            fatPct={fatPct}
+            muscleMass_kg={bodyScan?.muscleMassKg ?? null}
+            bmr_kcal={bodyScan?.bmrKcalDay ?? null}
+            heightCm={heightCm}
+            age={userAge}
+            gender={userGender}
+            weeklyWeightChange_kg={weeklyWeightChange_kg}
+          />
+        </View>
       </ScrollView>
 
       {pullRefreshing && (
@@ -1270,16 +1319,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.3,
   },
+  groupCard: {
+    backgroundColor: WellnessColors.surface,
+    borderRadius: 20,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  groupDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: WellnessColors.gridLine,
+    marginHorizontal: 16,
+  },
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: WellnessColors.surface,
-    borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    marginTop: 8,
     gap: 12,
-    ...cardShadow,
   },
   profileRowIcon: {
     fontSize: 24,

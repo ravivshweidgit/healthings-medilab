@@ -28,7 +28,7 @@ const SECURE_TOKEN_KEY = 'healthings_withings_tokens';
 const WEB_TOKEN_FALLBACK_KEY = 'healthings_withings_tokens_web';
 
 /** Default scope — includes activity so getintradayactivity (watch HR) works. */
-export const DEFAULT_WITHINGS_SCOPE = 'user.metrics,user.activity,user.info';
+export const DEFAULT_WITHINGS_SCOPE = 'user.metrics,user.activity';
 
 /** Withings measure `type` ids we surface on the dashboard. */
 export const WITHINGS_MEASURE_TYPES = {
@@ -1144,58 +1144,6 @@ export async function fetchWorkoutsHistory(
     return sessions;
   } catch {
     return [];
-  }
-}
-
-// ─── User profile (birthdate, gender) ────────────────────────────────────────
-
-const WITHINGS_USER_URL = 'https://wbsapi.withings.net/v2/user';
-const BIRTHDATE_CACHE_KEY = 'user_birthdate';
-
-/** Clears the cached birthdate so the next fetchUserBirthdate() call hits the API. */
-export async function clearBirthdateCache(): Promise<void> {
-  await AsyncStorage.removeItem(BIRTHDATE_CACHE_KEY);
-}
-
-/**
- * Fetches the user's birthdate from Withings (`user.info` scope required).
- * Returns ISO date string e.g. "1980-03-15", or null if unavailable.
- * Caches in AsyncStorage so subsequent calls are instant.
- */
-export async function fetchUserBirthdate(): Promise<string | null> {
-  const cached = await AsyncStorage.getItem(BIRTHDATE_CACHE_KEY);
-  if (cached) return cached;
-
-  const accessToken = await getValidAccessToken();
-  if (!accessToken) return null;
-
-  const form = new URLSearchParams({
-    action: 'get',
-    access_token: accessToken,
-  });
-
-  try {
-    const res = await fetch(WITHINGS_USER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: form.toString(),
-    });
-    const json = await res.json();
-    if (json.status !== 0) return null;
-
-    // Withings may return body.user (singular) or body.users[0] depending on API version.
-    const userObj = json.body?.user ?? json.body?.users?.[0];
-    const birthdateTs: number | undefined = userObj?.birthdate;
-    if (birthdateTs == null || typeof birthdateTs !== 'number') return null;
-
-    const date = new Date(birthdateTs * 1000);
-    if (isNaN(date.getTime())) return null;
-
-    const iso = date.toISOString().split('T')[0];
-    await AsyncStorage.setItem(BIRTHDATE_CACHE_KEY, iso);
-    return iso;
-  } catch {
-    return null;
   }
 }
 
