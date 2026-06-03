@@ -1,7 +1,7 @@
 @echo off
 echo Building release APK...
 cd android
-call gradlew.bat assembleRelease
+call gradlew.bat clean assembleRelease
 cd ..
 echo.
 echo Done. APK location:

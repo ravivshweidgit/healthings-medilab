@@ -38,45 +38,17 @@ export type GeminiTurn = {
 
 // ─── System prompt ───────────────────────────────────────────────────────────
 
-export const SYSTEM_PROMPT = `You are a clinical nutrition AI embedded in a health tracking app.
-Your ONLY job is to identify food and return precise macronutrient data.
-You NEVER answer general questions.
-If the user asks anything unrelated to food, return:
-{"items":[],"confidence":"low","description":"Not a food item","suggestion":"Please describe a meal or take a photo of food."}
+export const SYSTEM_PROMPT = `You are a nutrition AI. Identify food and return macros as JSON ONLY.
+No text before or after the JSON. No markdown. No explanation.
 
-OUTPUT RULES:
-- Return ONLY valid JSON. No markdown. No explanation. No code blocks.
-- Never add text before or after the JSON.
+FORMAT (always exactly this):
+{"items":[{"name":"...","name_local":"...","grams":0,"kcal":0,"protein_g":0.0,"carb_g":0.0,"fat_g":0.0}],"confidence":"high","description":"...","suggestion":"..."}
 
-RESPONSE FORMAT:
-{
-  "items": [
-    {
-      "name": "English dish name",
-      "name_local": "name in user language if different from English",
-      "grams": 150,
-      "kcal": 248,
-      "protein_g": 46.2,
-      "carb_g": 0.0,
-      "fat_g": 5.1
-    }
-  ],
-  "confidence": "high | medium | low",
-  "description": "One sentence: what you identified and how you estimated the portion",
-  "suggestion": "Optional: what info would improve accuracy"
-}
-
-ESTIMATION RULES:
-1. PHOTO MODE: estimate grams from plate context. Standard dinner plate = 26cm diameter.
-2. TEXT MODE: "a banana" = medium 120g. Adjust for "big", "small", "half".
-3. CORRECTION MODE: user may say "it was bigger" or "add tahini dressing".
-   Update the relevant items and return the FULL revised JSON.
-   Never drop items that were not mentioned in the correction.
-4. Split composite dishes into individual ingredients (e.g. shakshuka = eggs + tomato sauce).
-5. Primary source: USDA. For Israeli/Middle-Eastern dishes: Israeli Food Composition Tables.
-6. Round kcal to nearest integer. Round macros to 1 decimal place.
-7. If you cannot identify the food: return confidence "low" and your best guess.
-   Never return an empty items array without attempting an estimate.`;
+RULES:
+- Estimate grams from plate size (standard plate = 26cm).
+- Split dishes into ingredients. Use USDA values.
+- For corrections: return full updated JSON, keep all items.
+- If unsure: best guess with confidence "low".`;
 
 // ─── Mock data ───────────────────────────────────────────────────────────────
 
@@ -103,9 +75,14 @@ function computeTotals(items: FoodItem[]): { totalKcal: number; totalProtein_g: 
   );
 }
 
-function parseGeminiJson(raw: string): GeminiAnalysisResult {
+function parseGeminiJson(raw: string, finishReason = 'STOP'): GeminiAnalysisResult {
   try {
-    const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    // Strip markdown fences, then find the first { ... } block in case Gemini
+    // prepends prose like "Here is the analysis:" before the JSON.
+    const stripped = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    const start = stripped.indexOf('{');
+    const end = stripped.lastIndexOf('}');
+    const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
     const parsed = JSON.parse(cleaned);
     const items: FoodItem[] = Array.isArray(parsed.items) ? parsed.items.map((it: Partial<FoodItem>) => ({
       name: String(it.name ?? 'Unknown food'),
@@ -125,10 +102,12 @@ function parseGeminiJson(raw: string): GeminiAnalysisResult {
       suggestion: parsed.suggestion ? String(parsed.suggestion) : undefined,
     };
   } catch {
+    // Include first 80 chars of rawText so we can diagnose what Gemini sent.
+    const preview = raw.length > 0 ? raw.slice(0, 80).replace(/\n/g, ' ') : '(empty)';
     return {
       items: [{ name: 'Unknown food', grams: 0, kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0 }],
       confidence: 'low',
-      description: 'Could not parse AI response.',
+      description: `Parse error [${finishReason}]: ${preview}`,
       suggestion: 'Try describing the meal in text.',
     };
   }
@@ -197,8 +176,7 @@ export async function analyzeFood(
     contents,
     generationConfig: {
       temperature: 0.2,
-      maxOutputTokens: 1024,
-      responseMimeType: 'application/json',
+      maxOutputTokens: 8192,
     },
   };
 
@@ -222,11 +200,22 @@ export async function analyzeFood(
   }
 
   const json = await response.json();
-  const rawText: string = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-  if (__DEV__) {
-    console.warn('[Gemini] response preview', rawText.slice(0, 200));
+  const candidate = json?.candidates?.[0];
+  const finishReason: string = candidate?.finishReason ?? 'UNKNOWN';
+  const rawText: string = candidate?.content?.parts?.[0]?.text ?? '';
+
+  // Surface any non-STOP finish reason as an explicit error.
+  if (finishReason === 'SAFETY') {
+    throw new Error('Gemini blocked the request (safety filter). Try a different photo or describe the meal in text.');
   }
-  const result = parseGeminiJson(rawText);
+  if (finishReason === 'MAX_TOKENS') {
+    throw new Error('Gemini response was cut off (MAX_TOKENS). The system prompt may be too long.');
+  }
+  if (!rawText) {
+    throw new Error(`Gemini returned empty response (finishReason: ${finishReason}). Check API key.`);
+  }
+
+  const result = parseGeminiJson(rawText, finishReason);
 
   const newUserTurn: GeminiTurn = { role: 'user', text: userText, imageBase64: imageBase64 ?? undefined };
   const modelTurn: GeminiTurn = { role: 'model', text: rawText };
