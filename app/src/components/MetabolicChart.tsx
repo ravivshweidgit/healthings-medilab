@@ -66,18 +66,18 @@ const DATE_SWIPE_VX = 0.42;
  * backward through history (same duration window).
  */
 const VIEWPORT_PRESETS = [
-  { label: '16D', ms: 16 * MS_DAY },
-  { label: '8D', ms: 8 * MS_DAY },
-  { label: '4D', ms: 4 * MS_DAY },
-  { label: '2D', ms: 2 * MS_DAY },
-  { label: '24H', ms: 24 * MS_HOUR },
-  { label: '12H', ms: 12 * MS_HOUR },
-  { label: '6H', ms: 6 * MS_HOUR },
-  { label: '3H', ms: 3 * MS_HOUR },
   { label: '1H', ms: 1 * MS_HOUR },
+  { label: '3H', ms: 3 * MS_HOUR },
+  { label: '6H', ms: 6 * MS_HOUR },
+  { label: '12H', ms: 12 * MS_HOUR },
+  { label: '24H', ms: 24 * MS_HOUR },
+  { label: '2D', ms: 2 * MS_DAY },
+  { label: '4D', ms: 4 * MS_DAY },
+  { label: '8D', ms: 8 * MS_DAY },
+  { label: '16D', ms: 16 * MS_DAY },
 ] as const;
 
-const DEFAULT_VIEWPORT_PRESET_INDEX = 5; // 12H
+const DEFAULT_VIEWPORT_PRESET_INDEX = 3; // 12H
 
 function viewportWidthPx(windowW: number): number {
   return Math.max(180, windowW - Y_AXIS_WIDTH - 44);
