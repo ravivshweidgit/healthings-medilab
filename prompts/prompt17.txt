@@ -1,40 +1,105 @@
-## Prompt 17 — My Rules + Daily Macro Targets
+## Prompt 17 — My Mentors + My Rules + Daily Macro Targets
 
 ### Goal
-Two related features built together:
+Three related features built together:
 
-1. **My Rules** — user writes free-text dietary/lifestyle rules; AI summarises them
-   into structured constraints shown in a collapsible row. The structured context
-   is passed to every future AI call (body targets, macros, meal analysis, etc.)
+1. **My Mentors** — user picks 1–3 AI mentor personas (Doctor / Nutritionist / Coach).
+   Every AI call is prefixed with the combined mentor system prompt. At least one
+   mentor is always required. Default: Coach + Nutritionist.
 
-2. **My Macros** — AI suggests daily protein/fat/carb/calorie targets using body
-   data + body targets + the structured rules from "My Rules". Targets are shown
-   as progress bars in the food log section.
+2. **My Rules** — user writes free-text dietary/lifestyle rules; AI summarises them
+   into structured constraints. The structured context is passed to every AI call.
+
+3. **My Macros** — AI suggests daily protein/fat/carb/calorie targets using body
+   data + body targets + mentor persona + structured rules. Shown as progress bars
+   in the food log section.
 
 ---
 
 ### Grouped card final layout
 
 ```
-┌─────────────────────────────────────────┐
-│ 👤  My Profile       Male · 181 cm    › │
-├─────────────────────────────────────────┤
-│ 🎯  My Targets       82 kg · 16% fat  ⌃ │
-│     [range scales if expanded]          │
-├─────────────────────────────────────────┤
-│ 📋  My Rules         Keto · IF 16:8   ⌃ │
-│     [text input + AI summary]           │
-├─────────────────────────────────────────┤
-│ 🥗  My Macros        Keto · 160P/30C  ⌃ │
-│     [macro bars if expanded]            │
-└─────────────────────────────────────────┘
+┌───────────────────────────────────────────┐
+│ 👤  My Profile        Male · 181 cm     › │
+├───────────────────────────────────────────┤
+│ 🎯  My Targets        82 kg · 16% fat   ⌃ │
+│     [range scales if expanded]            │
+├───────────────────────────────────────────┤
+│ 🧑‍⚕️  My Mentors        💪 Coach · 🥗 Nutr ⌃ │
+│     [3 toggle buttons if expanded]        │
+├───────────────────────────────────────────┤
+│ 📋  My Rules          Keto · IF 16:8    ⌃ │
+│     [text input + AI summary]             │
+├───────────────────────────────────────────┤
+│ 🥗  My Macros         Keto · 160P/30C   ⌃ │
+│     [macro bars if expanded]              │
+└───────────────────────────────────────────┘
 ```
 
 ---
 
-## PART A — My Rules
+## PART A — My Mentors
 
 ### A1 — Storage (TargetService.ts)
+
+```ts
+export type MentorType = 'doctor' | 'nutritionist' | 'coach';
+
+// Stored as array — at least one always required
+// Default: ['coach', 'nutritionist']
+const MENTOR_KEY = 'user_mentors';
+
+export async function getMentors(): Promise<MentorType[]>
+export async function saveMentors(mentors: MentorType[]): Promise<void>
+```
+
+### A2 — Mentor system prompt builder (GeminiService.ts)
+
+```ts
+export function buildMentorSystemPrompt(mentors: MentorType[]): string
+```
+
+Rules:
+- Single mentor → that mentor's persona only
+- Multiple mentors → combined persona with priority order: Doctor > Nutritionist > Coach
+  (Doctor's safety guidance always wins conflicts)
+- All three → "You are a medical doctor, nutritionist, and fitness coach AI.
+  Prioritise health safety, then food quality, then performance."
+
+Persona descriptions:
+
+| Mentor | System prompt fragment |
+|---|---|
+| 🩺 Doctor | "You are a medical doctor AI. Prioritise health risk reduction, evidence-based guidelines, and patient safety. Be conservative and clinically precise." |
+| 🥗 Nutritionist | "You are a certified nutritionist AI. Focus on food quality, macronutrient balance, micronutrients, and sustainable eating patterns." |
+| 💪 Coach | "You are a professional fitness coach AI. Focus on body composition, muscle preservation, progressive fat loss, and performance goals." |
+
+### A3 — MentorStrip component (MentorStrip.tsx)
+
+Simple collapsible row. Expanded view:
+
+```
+Your AI mentors  (select at least one)
+
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│ 🩺           │  │ 🥗           │  │ 💪           │
+│   Doctor     │  │ Nutritionist │  │    Coach     │
+│ conservative │  │ food quality │  │  performance │
+└──────────────┘  └──────────────┘  └──────────────┘
+  not selected       ✓ selected        ✓ selected
+```
+
+- Each mentor card is a Pressable toggle
+- Selected = filled background (accent colour), not selected = outlined
+- Tapping the last selected mentor shows hint: "At least one mentor required"
+- Changes save immediately (no Save button needed — single field)
+- Collapsed header shows emoji of selected mentors e.g. "💪 Coach · 🥗 Nutritionist"
+
+---
+
+## PART B — My Rules
+
+### B1 — Storage (TargetService.ts)
 
 ```ts
 export type UserRules = {
@@ -53,51 +118,60 @@ export async function saveUserRules(r: UserRules): Promise<void>
 export async function clearUserRules(): Promise<void>
 ```
 
-### A2 — GeminiService: summariseUserRules(rawText: string)
+### B2 — GeminiService: summariseUserRules()
 
-Single call, short prompt. Input: user's free-text string.
-
-Prompt instructs Gemini:
+```ts
+export async function summariseUserRules(
+  rawText: string,
+  mentors: MentorType[]
+): Promise<UserRules>
 ```
-The user has described their dietary and lifestyle rules in their own words.
+
+The mentor system prompt is prepended so the AI interprets rules through the
+right lens (a Doctor reads "diabetic" differently than a Coach would).
+
+Prompt:
+```
+{mentorSystemPrompt}
+
+The user has described their dietary and lifestyle preferences in their own words.
 Extract and structure this into the following JSON only, no markdown:
 
-{
-  "summary": "Short badge line, max 5 words, use · as separator e.g. Keto · IF 16:8",
-  "constraints": ["< 50g carbs/day", "no meat", "eating window 12pm–8pm"],
-  "aiContext": "One sentence max 20 words describing the diet for use in AI prompts"
-}
+{"summary":"Keto · IF 16:8","constraints":["< 50g carbs/day","eating window 12-8pm"],"aiContext":"Ketogenic diet with 16:8 intermittent fasting, prioritising fat loss."}
 
-User text: "<rawText>"
+Rules:
+- summary: max 5 words, use · as separator
+- constraints: max 5 items, max 8 words each
+- aiContext: max 20 words, will be used in future AI prompts
+
+User text: "{rawText}"
 ```
 
 Config: `temperature: 0.1`, `maxOutputTokens: 8192`
 
-### A3 — RulesStrip component (MacroTargetStrip.tsx — or separate RulesStrip.tsx)
+### B3 — RulesStrip component (RulesStrip.tsx)
 
 States:
 
-1. **idle** — no rules saved
-   - Placeholder text: "Describe your diet and lifestyle..."
-   - Multi-line `TextInput` (4 lines visible, scrollable)
-   - Example hint: "e.g. keto diet, diabetic, no meat, IF 16:8"
+1. **idle / editing** — text input visible
+   - Multi-line `TextInput` (4 lines, scrollable)
+   - Placeholder: "e.g. keto diet, diabetic, no meat, IF 16:8"
    - "✨ Save & Summarise" button
 
 2. **loading** — spinner "Understanding your rules…"
 
-3. **active** — rules saved and summarised
-   - Collapsed header shows `summary` (e.g. "Keto · IF 12:8")
+3. **active** — rules saved:
+   - Collapsed header shows `summary` (e.g. "Keto · IF 16:8")
    - Expanded shows:
-     - Original text (greyed, smaller)
-     - "AI understood:" section with constraint bullets (✓ each)
-     - [Edit] button — returns to text input with existing text pre-filled
-     - [Re-summarise] — re-runs AI on current text
+     - Original text (greyed, 12px)
+     - "AI understood:" section — constraint bullets with ✓
+     - [Edit] button → returns to text input pre-filled
 
 ---
 
-## PART B — My Macros
+## PART C — My Macros
 
-### B1 — DailyMacroTarget type (TargetService.ts)
+### C1 — DailyMacroTarget type (TargetService.ts)
 
 ```ts
 export type DailyMacroTarget = {
@@ -108,7 +182,8 @@ export type DailyMacroTarget = {
   diet_label: string;         // e.g. "Ketogenic", "High Protein", "Mediterranean"
   reasoning: string;          // max 15 words
   rulesContext: string;       // aiContext from UserRules at time of analysis
-  aiSuggested: {              // original AI values, preserved even after user edits
+  mentors: MentorType[];      // mentors active at time of analysis
+  aiSuggested: {              // original AI values — preserved after user edits
     protein_g: number;
     fat_g: number;
     carb_g: number;
@@ -117,79 +192,70 @@ export type DailyMacroTarget = {
   analyzedAt: string;
 };
 
-const MACRO_TARGET_KEY = 'daily_macro_target';
-
 export async function getMacroTarget(): Promise<DailyMacroTarget | null>
 export async function saveMacroTarget(t: DailyMacroTarget): Promise<void>
 export async function clearMacroTarget(): Promise<void>
 ```
 
-### B2 — GeminiService: suggestDailyMacros()
+### C2 — GeminiService: suggestDailyMacros()
 
 ```ts
 type MacroInput = {
   weight_kg: number;
-  fatMass_kg: number;        // to compute lean mass
+  fatMass_kg: number;
   muscleMass_kg: number;
   bmr_kcal: number;
   estimatedBurn_kcal: number | null;
   heightCm: number;
   age: number;
   gender: string;
-  bodyTarget: {
-    targetWeight_kg: number;
-    targetFatPct: number;
-    targetMuscleMass_kg: number;
-  } | null;
-  rulesContext: string;      // aiContext from UserRules — or '' if not set
+  bodyTarget: { targetWeight_kg: number; targetFatPct: number; targetMuscleMass_kg: number } | null;
+  rulesContext: string;       // UserRules.aiContext or '' if not set
+  mentors: MentorType[];
 };
 ```
 
-Prompt sent to Gemini (compact, no markdown in response):
+Mentor system prompt prepended. Then:
 ```
-Fitness nutrition AI. Output ONLY valid JSON.
-
 METRICS:
-Weight: {weight_kg} kg | Lean mass: {lean_kg} kg | Fat%: {fatPct}%
+Weight: {w} kg | Lean mass: {lean} kg | Fat%: {fat}%
 BMR: {bmr} kcal | Est. daily burn: {burn} kcal
-Age: {age} | Gender: {gender} | Height: {heightCm} cm
-Goal: {targetWeight_kg} kg / {targetFatPct}% fat / {targetMuscleMass_kg} kg muscle
+Age: {age} | Gender: {gender} | Height: {h} cm
+Goal: {targetWeight} kg / {targetFat}% fat / {targetMuscle} kg muscle
 Dietary rules: {rulesContext}
 
-OUTPUT:
-{"protein_g":160,"fat_g":140,"carb_g":30,"kcal":1960,"diet_label":"Ketogenic","reasoning":"Max 15 words here."}
+OUTPUT (JSON only, no markdown):
+{"protein_g":160,"fat_g":140,"carb_g":30,"kcal":1960,"diet_label":"Ketogenic","reasoning":"Max 15 words."}
 
 RULES:
 - Protein: 1.6–2.2g × lean_mass_kg
 - Respect dietary rules as highest priority
-- Calorie deficit: 300–500 kcal below burn for fat loss
+- Calorie deficit 300–500 kcal below burn for fat loss
 - diet_label: Ketogenic/Vegan/High Protein/Mediterranean/Balanced/Custom
 ```
 
 Config: `temperature: 0.2`, `maxOutputTokens: 8192`
 
-### B3 — MacroTargetStrip component
-
-New component: `app/src/components/MacroTargetStrip.tsx`
+### C3 — MacroTargetStrip component (MacroTargetStrip.tsx)
 
 Same collapsible pattern as WeightTargetStrip.
 
 States:
 
 1. **idle** — no target set
-   - Note if no UserRules set: "Add your dietary rules above for better results"
+   - If no mentors set: warn "Select a mentor above first"
    - "✨ Ask AI to set my macros" button (disabled if no body scan data)
 
-2. **loading** — spinner "Calculating your macros…"
+2. **loading** — "Calculating your macros…"
 
 3. **suggestion** — AI result:
-   - `diet_label` badge + reasoning sentence
-   - 4 columns: **Protein / Fat / Carbs / Calories**
+   - `diet_label` badge + reasoning
+   - 4 columns: Protein / Fat / Carbs / Calories
    - Accept / Edit buttons
 
-4. **editing** — 4 text inputs (P / F / C / kcal) with AI suggestion beside each
+4. **editing** — 4 inputs (P / F / C / kcal) with AI suggestion beside each
 
-5. **active** — compact display:
+5. **active** — macro bars:
    ```
    Ketogenic                              ✎ edit
    P  ████████░░░░  120g / 160g
@@ -198,76 +264,72 @@ States:
    ─────────────────────────────────────
    1,490 / 1,960 kcal
    ```
-   - Bar fill = actual / target (0–100%)
-   - Bar turns red if actual > target × 1.1 (over by 10%+)
+   - Bar turns red if actual > target × 1.1
    - "Re-analyze" button at bottom
 
-Props:
-```ts
-type MacroTargetProps = {
-  actualProtein_g: number | null;
-  actualFat_g: number | null;
-  actualCarb_g: number | null;
-  actualKcal: number | null;
-  weightKg: number | null;
-  fatMassKg: number | null;
-  muscleMass_kg: number | null;
-  bmr_kcal: number | null;
-  estimatedBurn_kcal: number | null;
-  heightCm: number | null;
-  age: number | null;
-  gender: string | null;
-  bodyTarget: BodyTarget | null;
-  userRules: UserRules | null;
-};
-```
-
-### B4 — FoodMacroStrip update
-
-When a `DailyMacroTarget` exists, update the existing P/C/F bars:
-- Bar max = target value (replaces the rolling max)
-- Label beside bar: `120g / 160g` (actual / target)
-- Calorie row: `1,490 / 1,960 kcal`
+### C4 — FoodMacroStrip update
 
 New optional prop: `macroTarget?: DailyMacroTarget | null`
 
+When set:
+- Bar max = target value
+- Labels show `actual / target` (e.g. "120g / 160g")
+- Calorie row: `1,490 / 1,960 kcal`
+
 ---
 
-### Step 5 — DashboardScreen integration
+### Step D — DashboardScreen integration
 
-- Load `getUserRules()` + `getMacroTarget()` on mount, store in state
-- Compute today's actual macros by summing `todayFoodEntries`
-- Compute `estimatedBurn_kcal` = today's value from `burnKcalByDay` (or null)
-- Add to grouped card (between WeightTargetStrip and scrollview end):
-  ```jsx
-  <View style={styles.groupDivider} />
-  <RulesStrip userRules={userRules} onSaved={setUserRules} />
-  <View style={styles.groupDivider} />
-  <MacroTargetStrip
-    actualProtein_g={...}
-    ...
-    userRules={userRules}
-    bodyTarget={bodyTarget}
-  />
-  ```
-- Pass `macroTarget` to `FoodMacroStrip`
+New state:
+```ts
+const [mentors, setMentors] = useState<MentorType[]>(['coach', 'nutritionist']);
+const [userRules, setUserRules] = useState<UserRules | null>(null);
+const [macroTarget, setMacroTarget] = useState<DailyMacroTarget | null>(null);
+```
+
+Load on mount: `getMentors()`, `getUserRules()`, `getMacroTarget()`
+
+Compute `todayActualMacros` by summing `todayFoodEntries`.
+
+Add to grouped card:
+```jsx
+<View style={styles.groupDivider} />
+<MentorStrip mentors={mentors} onChanged={setMentors} />
+<View style={styles.groupDivider} />
+<RulesStrip userRules={userRules} mentors={mentors} onSaved={setUserRules} />
+<View style={styles.groupDivider} />
+<MacroTargetStrip
+  {...bodyData}
+  userRules={userRules}
+  mentors={mentors}
+  bodyTarget={bodyTarget}
+  actualProtein_g={todayActualMacros.protein_g}
+  actualFat_g={todayActualMacros.fat_g}
+  actualCarb_g={todayActualMacros.carb_g}
+  actualKcal={todayActualMacros.kcal}
+  onSaved={setMacroTarget}
+/>
+```
+
+Pass `macroTarget` to `FoodMacroStrip`.
 
 ---
 
 ### Files to create / change
-1. `TargetService.ts` — add UserRules + DailyMacroTarget types + CRUD
-2. `GeminiService.ts` — add summariseUserRules() + suggestDailyMacros()
-3. `RulesStrip.tsx` — NEW: My Rules collapsible component
-4. `MacroTargetStrip.tsx` — NEW: My Macros collapsible component
-5. `FoodMacroStrip.tsx` — add macroTarget prop, update bars
-6. `DashboardScreen.tsx` — wire RulesStrip + MacroTargetStrip + pass macroTarget
+1. `TargetService.ts` — MentorType + UserRules + DailyMacroTarget types + all CRUD
+2. `GeminiService.ts` — buildMentorSystemPrompt() + summariseUserRules() + suggestDailyMacros()
+3. `MentorStrip.tsx` — NEW: My Mentors 3-toggle component
+4. `RulesStrip.tsx` — NEW: My Rules text input + AI summary component
+5. `MacroTargetStrip.tsx` — NEW: My Macros 5-state component
+6. `FoodMacroStrip.tsx` — add macroTarget prop, update bars to show actual/target
+7. `DashboardScreen.tsx` — wire all three strips, pass macroTarget to FoodMacroStrip
 
 ---
 
 ### Out of scope for prompt17
-- Meal timing / IF window enforcement
+- Meal timing / IF window tracking
 - Per-meal macro split
-- Weekly macro cycling / refeed days
+- Weekly macro cycling
 - Push notifications for macro compliance
-- AI commenting on yesterday's macro compliance
+- AI commenting on yesterday's compliance
 These are prompt18+.
