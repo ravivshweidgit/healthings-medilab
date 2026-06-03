@@ -1,4 +1,5 @@
 @echo off
+REM build-dev.bat — debug dev build (counterpart to build-release.bat).
 REM 1) JDK 17/21 for Gradle  2) Native build + install ^(--no-bundler^)  3) Metro in foreground ^(QR, dev menu^).
 REM Each run reinstalls the debug APK so the device matches this build ^(normal for expo run:android^).
 REM JS-only days: keep the dev client installed and run: npm run start:dev ^(no native reinstall^).
