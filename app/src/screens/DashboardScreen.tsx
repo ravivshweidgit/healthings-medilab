@@ -7,6 +7,7 @@ import {
   Image,
   Platform,
   Pressable,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -138,6 +139,8 @@ export const DashboardScreen = () => {
   const [foodRefreshKey, setFoodRefreshKey] = useState(0);
   const [todayFoodEntries, setTodayFoodEntries] = useState<FoodEntry[]>([]);
   const todayDayKey = foodLogDayKey(Date.now());
+
+  const [pullRefreshing, setPullRefreshing] = useState(false);
 
   const refreshWithingsLinkState = useCallback(async () => {
     const t = await loadWithingsTokens();
@@ -321,6 +324,22 @@ export const DashboardScreen = () => {
     }
   }, []);
 
+  const handlePullRefresh = useCallback(async () => {
+    setPullRefreshing(true);
+    try {
+      await Promise.all([
+        refetch(),
+        loadBodyScan(),
+        loadTrend(),
+        loadHeartRate(),
+        loadWorkouts(),
+        loadTodayFood(),
+      ]);
+    } finally {
+      setPullRefreshing(false);
+    }
+  }, [refetch, loadBodyScan, loadTrend, loadHeartRate, loadWorkouts, loadTodayFood]);
+
   useEffect(() => {
     void loadBodyScan();
   }, [loadBodyScan]);
@@ -450,6 +469,14 @@ export const DashboardScreen = () => {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
+        refreshControl={
+          <RefreshControl
+            refreshing={false}
+            onRefresh={handlePullRefresh}
+            colors={['transparent']}
+            tintColor="transparent"
+          />
+        }
       >
         <View style={[styles.brandHeader, { height: brandHeaderHeight }]} accessibilityRole="header">
           <Image
@@ -730,6 +757,12 @@ export const DashboardScreen = () => {
         ) : null}
       </ScrollView>
 
+      {pullRefreshing && (
+        <View style={styles.refreshOverlay} pointerEvents="none">
+          <ActivityIndicator size="large" color="#000" />
+        </View>
+      )}
+
       <FoodLogModal
         visible={foodModalVisible}
         onClose={() => { setFoodModalVisible(false); setFoodEditEntry(undefined); }}
@@ -744,6 +777,13 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: WellnessColors.background,
+  },
+  refreshOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    zIndex: 20,
   },
   scroll: {
     paddingHorizontal: 20,
