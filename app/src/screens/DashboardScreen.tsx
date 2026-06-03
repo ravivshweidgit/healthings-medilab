@@ -730,16 +730,6 @@ export const DashboardScreen = () => {
         ) : null}
       </ScrollView>
 
-      {/* Floating action button — log a meal */}
-      <Pressable
-        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
-        onPress={() => { setFoodEditEntry(undefined); setFoodModalVisible(true); }}
-        accessibilityRole="button"
-        accessibilityLabel="Log a meal"
-      >
-        <Text style={styles.fabIcon}>＋</Text>
-      </Pressable>
-
       <FoodLogModal
         visible={foodModalVisible}
         onClose={() => { setFoodModalVisible(false); setFoodEditEntry(undefined); }}
@@ -1079,31 +1069,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     lineHeight: 20,
   },
-  fab: {
-    position: 'absolute',
-    bottom: 28,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: WellnessColors.accentGreen,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    elevation: 6,
-    zIndex: 10,
-  },
-  fabPressed: {
-    opacity: 0.85,
-  },
-  fabIcon: {
-    color: '#fff',
-    fontSize: 28,
-    lineHeight: 32,
-    fontWeight: '300',
+  _unused: {
   },
   previewFoot: {
     fontSize: 11,

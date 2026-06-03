@@ -161,27 +161,22 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
   return (
     <View style={[styles.card, cardShadow]}>
       {/* Header */}
-      <View style={styles.headerRow}>
-        <Text style={styles.sectionTitle}>FOOD LOG</Text>
-        <View style={styles.dateNav}>
-          <Pressable style={styles.dateNavBtn} onPress={() => shiftDay(-1)} hitSlop={8}>
-            <Text style={styles.dateNavArrow}>‹</Text>
-          </Pressable>
-          <Text style={styles.dateLabel}>{formatDayLabel(selectedMs)}</Text>
-          <Pressable
-            style={[styles.dateNavBtn, isToday && styles.dateNavBtnDisabled]}
-            onPress={() => shiftDay(1)}
-            disabled={isToday}
-            hitSlop={8}
-          >
-            <Text style={[styles.dateNavArrow, isToday && styles.dateNavArrowDisabled]}>›</Text>
-          </Pressable>
-        </View>
-        {isToday ? (
-          <Pressable style={styles.addBtn} onPress={onAddMeal}>
-            <Text style={styles.addBtnText}>+ Add</Text>
-          </Pressable>
-        ) : <View style={styles.addBtnPlaceholder} />}
+      <Text style={styles.sectionTitle}>FOOD LOG</Text>
+
+      {/* Date navigator — centred below title */}
+      <View style={styles.dateNavRow}>
+        <Pressable style={styles.dateNavBtn} onPress={() => shiftDay(-1)} hitSlop={8}>
+          <Text style={styles.dateNavArrow}>‹</Text>
+        </Pressable>
+        <Text style={styles.dateLabel}>{formatDayLabel(selectedMs)}</Text>
+        <Pressable
+          style={[styles.dateNavBtn, isToday && styles.dateNavBtnDisabled]}
+          onPress={() => shiftDay(1)}
+          disabled={isToday}
+          hitSlop={8}
+        >
+          <Text style={[styles.dateNavArrow, isToday && styles.dateNavArrowDisabled]}>›</Text>
+        </Pressable>
       </View>
 
       {/* Energy lines — always shown, columns aligned */}
@@ -208,34 +203,42 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
         ) : null}
       </View>
 
-      {/* Macro bars + chips — only when meals exist */}
-      {!isEmpty ? (
-        <>
-          <View style={[styles.barsWrap, { marginTop: 10 }]}>
-            <MacroBar label="P" value={macros!.protein_g} total={maxMacro} color={COLOR_PROTEIN} unit="g" />
-            <MacroBar label="C" value={macros!.carb_g}    total={maxMacro} color={COLOR_CARB}    unit="g" />
-            <MacroBar label="F" value={macros!.fat_g}     total={maxMacro} color={COLOR_FAT}     unit="g" />
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-            {macros!.entries.map((entry) => (
-              <Pressable
-                key={entry.id}
-                style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
-                onPress={() => onEditMeal?.(entry)}
-              >
-                <Text style={styles.chipTime}>{formatTime(entry.timestamp)}</Text>
-                <Text style={styles.chipLabel}>{mealLabel(entry)}</Text>
-                <Text style={styles.chipKcal}>{Math.round(entry.totalKcal)} kcal</Text>
-                <Text style={styles.chipEdit}>✎ edit</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </>
-      ) : isToday ? (
-        <Pressable onPress={onAddMeal}>
-          <Text style={styles.emptyHint}>Tap + Add to log a meal with AI</Text>
-        </Pressable>
-      ) : null}
+      {/* Macro bars — only when meals exist */}
+      {!isEmpty && (
+        <View style={[styles.barsWrap, { marginTop: 10 }]}>
+          <MacroBar label="P" value={macros!.protein_g} total={maxMacro} color={COLOR_PROTEIN} unit="g" />
+          <MacroBar label="C" value={macros!.carb_g}    total={maxMacro} color={COLOR_CARB}    unit="g" />
+          <MacroBar label="F" value={macros!.fat_g}     total={maxMacro} color={COLOR_FAT}     unit="g" />
+        </View>
+      )}
+
+      {/* Meal chips + Add card */}
+      {(!isEmpty || isToday) && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+          {macros?.entries.map((entry) => (
+            <Pressable
+              key={entry.id}
+              style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
+              onPress={() => onEditMeal?.(entry)}
+            >
+              <Text style={styles.chipTime}>{formatTime(entry.timestamp)}</Text>
+              <Text style={styles.chipLabel}>{mealLabel(entry)}</Text>
+              <Text style={styles.chipKcal}>{Math.round(entry.totalKcal)} kcal</Text>
+              <Text style={styles.chipEdit}>✎ edit</Text>
+            </Pressable>
+          ))}
+          {isToday && (
+            <Pressable
+              style={({ pressed }) => [styles.chip, styles.addChip, pressed && styles.chipPressed]}
+              onPress={onAddMeal}
+              accessibilityLabel="Add meal"
+            >
+              <Text style={styles.addChipIcon}>＋</Text>
+              <Text style={styles.addChipLabel}>Add meal</Text>
+            </Pressable>
+          )}
+        </ScrollView>
+      )}
 
       {/* Footer — export / import */}
       <View style={styles.footer}>
@@ -259,17 +262,20 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     marginBottom: 10,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
   sectionTitle: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1,
     color: WellnessColors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  dateNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 10,
   },
   footer: {
     flexDirection: 'row',
@@ -338,17 +344,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  addBtnPlaceholder: {
-    width: 56,
-  },
-  emptyBox: {
+  addChip: {
+    borderStyle: 'dashed',
+    borderColor: WellnessColors.accentGreen,
     alignItems: 'center',
-    paddingVertical: 24,
-    gap: 4,
+    justifyContent: 'center',
+    minWidth: 80,
+    paddingVertical: 10,
   },
-  emptyIcon: { fontSize: 32 },
-  emptyText: { fontSize: 14, fontWeight: '600', color: WellnessColors.textPrimary, marginTop: 4 },
-  emptyHint: { fontSize: 12, color: WellnessColors.textSecondary },
+  addChipIcon: {
+    fontSize: 22,
+    color: WellnessColors.accentGreen,
+    fontWeight: '300',
+    lineHeight: 26,
+  },
+  addChipLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: WellnessColors.accentGreen,
+    marginTop: 2,
+  },
   energyLines: {
     marginBottom: 6,
     gap: 3,
