@@ -1,0 +1,145 @@
+## Prompt 16 — Weight Target: AI-Suggested Goal with Progress Tracking
+
+### Goal
+Add a weight target feature: AI suggests a target weight based on the user's
+existing Withings data, the user can accept or edit it, and the dashboard shows
+progress toward the goal with an estimated completion date.
+
+---
+
+### Data available (already fetched from Withings)
+- Current weight (kg) — from latest body scan (`bodyTrendDays` last entry)
+- Current fat% — from latest body scan
+- Current muscle mass (kg) — from latest body scan
+- BMR (kcal/day) — from latest body scan
+- Weight history (up to 128 days) — from `bodyTrendDays`
+- Height (cm) — NOT yet fetched — see Step 1 below
+- Age — NOT yet fetched — ask user to enter it once (stored locally)
+
+### Computed from existing data
+- BMI = weight / (height_m²)
+- Weekly weight change = slope of last 14-day weight history
+- Average daily energy deficit = burnKcalByDay average minus food log kcal average
+  (only for days where both are available)
+
+---
+
+### Step 1 — Fetch height from Withings
+
+Add to `WithingsApiService.ts`:
+```ts
+// meastype 4 = height (in meters, e.g. 1.78)
+export async function fetchUserHeight(): Promise<number | null>
+```
+Call `measure,getmeas` with `meastype=4`. Returns meters → store as cm.
+Height rarely changes — fetch once and cache in AsyncStorage (`user_height_cm`).
+
+---
+
+### Step 2 — User birthdate input (one-time)
+
+Height is in Withings but birthdate requires `user.info` OAuth scope we don't have.
+Instead, show a one-time prompt the first time the target screen opens:
+- Date picker: "Your date of birth" (using `@react-native-community/datetimepicker` — already installed)
+- Age is computed from birthdate at runtime (no need to store age, stays accurate year over year)
+- Stored in AsyncStorage (`user_birthdate`) as ISO string e.g. `"1980-03-15"`
+- Can be edited later via the ✎ edit button in the target card
+
+---
+
+### Step 3 — AI target suggestion
+
+Single Gemini call (not conversational). Send a structured prompt with:
+```
+Weight: 84.9 kg
+Fat%: 19.1%
+Muscle: 62.5 kg
+BMR: 1891 kcal/day
+Height: 178 cm
+Age: 45  (computed from birthdate at call time)
+BMI: 26.8 (computed)
+Weekly weight change: -0.35 kg/week (from trend)
+Average daily deficit: 320 kcal (from energy balance, if available)
+```
+
+System prompt instructs Gemini to respond with JSON:
+```json
+{
+  "targetWeight_kg": 80.0,
+  "reasoning": "At 178cm and 84.9kg your BMI is 26.8 (overweight threshold 25.0).
+    A target of 80kg brings BMI to 25.2 — just above normal range, realistic for
+    your muscle mass. At your current -0.35kg/week pace that is ~14 weeks.",
+  "estimatedWeeks": 14,
+  "bmi_current": 26.8,
+  "bmi_target": 25.2
+}
+```
+
+---
+
+### Step 4 — Target storage
+
+AsyncStorage key: `weight_target`:
+```ts
+type WeightTarget = {
+  targetWeight_kg: number;
+  setAt: number;           // timestamp
+  source: 'ai' | 'user';  // was it AI-suggested or manually entered?
+  reasoning?: string;      // AI reasoning text, shown in the card
+  estimatedWeeks?: number;
+};
+```
+
+---
+
+### Step 5 — UI: WeightTargetStrip component
+
+New component rendered between the body scan section (Section 2) and the energy
+section (Section 3) on the dashboard.
+
+#### States:
+1. **No target set** — shows "Set weight goal" button + "AI suggest" button
+2. **Loading AI suggestion** — spinner with "Analyzing your data…"
+3. **AI suggestion shown** — displays reasoning + suggested target, Accept / Edit buttons
+4. **Target active** — progress bar + key numbers
+
+#### Target active view:
+```
+WEIGHT GOAL                              ✎ edit
+████████████░░░░░░░░  62%
+
+84.9 kg → 80.0 kg        4.9 kg to go
+BMI 26.8 → 25.2          ~14 weeks at current pace
+```
+
+- Progress bar: filled = (start_weight - current) / (start_weight - target) × 100%
+  where `start_weight` = weight at the time target was set
+- "Current pace" recalculated live from last 14-day slope
+- If no slope data yet: show "—" instead of weeks estimate
+- Edit (✎) opens an inline number input to change the target weight
+
+---
+
+### Step 6 — DashboardScreen integration
+
+- Fetch height once on mount (cache in state + AsyncStorage)
+- Pass `heightCm`, `userAge`, `bodyScan`, `bodyTrendDays` to `WeightTargetStrip`
+- `WeightTargetStrip` manages its own target state via AsyncStorage
+
+---
+
+### Files to create / change
+1. `app/src/services/WithingsApiService.ts` — add `fetchUserHeight()`
+2. `app/src/services/TargetService.ts` — NEW: CRUD for `WeightTarget` + age in AsyncStorage
+3. `app/src/services/GeminiService.ts` — add `suggestWeightTarget(data)` function
+4. `app/src/components/WeightTargetStrip.tsx` — NEW component
+5. `app/src/screens/DashboardScreen.tsx` — fetch height, render WeightTargetStrip
+
+---
+
+### Out of scope for prompt16
+- Fat% target
+- Protein / macro targets
+- AI weekly review / action items
+- Notifications / reminders
+These are prompt17+.

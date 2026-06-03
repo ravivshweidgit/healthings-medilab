@@ -140,15 +140,18 @@ function parseGeminiJson(raw: string): GeminiAnalysisResult {
  * Analyze a meal photo and/or text description.
  * Pass the full conversation history for correction turns.
  *
- * @param imageBase64 - JPEG/PNG base64 string (without data: prefix). Null for text-only.
- * @param userText    - User's message ("What is this?" or "it was 200g not 100g").
- * @param history     - All previous turns (starts empty for first call).
+ * @param imageBase64      - JPEG/PNG base64 (before-meal photo). Null for text-only.
+ * @param userText         - User's message or correction text.
+ * @param history          - All previous turns (empty for first call).
+ * @param afterImageBase64 - Optional after-meal photo. When provided, AI estimates
+ *                           only what was consumed (before minus leftovers).
  * @returns Updated history + parsed result.
  */
 export async function analyzeFood(
   imageBase64: string | null,
   userText: string,
-  history: GeminiTurn[]
+  history: GeminiTurn[],
+  afterImageBase64?: string | null,
 ): Promise<{ result: GeminiAnalysisResult; updatedHistory: GeminiTurn[] }> {
   if (MOCK_MODE) {
     await new Promise((r) => setTimeout(r, 800));
@@ -162,6 +165,11 @@ export async function analyzeFood(
     { role: 'user', parts: [{ text: `INSTRUCTIONS:\n${SYSTEM_PROMPT}\n\nConfirm you understand.` }] },
     { role: 'model', parts: [{ text: '{"items":[],"confidence":"high","description":"Ready to analyze food."}' }] },
   ] : [];
+
+  // Build the user message text — add before/after context when two images are provided.
+  const effectiveText = afterImageBase64
+    ? (userText || 'The FIRST image is the full plate before eating. The SECOND image is what was left after eating. Estimate only what was actually consumed (the difference). Give me the macros for what was eaten.')
+    : (userText || 'What food is in this photo? Give me the macros.');
 
   const contents = [
     ...systemTurns,
@@ -177,7 +185,8 @@ export async function analyzeFood(
       role: 'user',
       parts: [
         ...(imageBase64 ? [{ inline_data: { mime_type: 'image/jpeg', data: imageBase64 } }] : []),
-        { text: userText || 'What food is in this photo? Give me the macros.' },
+        ...(afterImageBase64 ? [{ inline_data: { mime_type: 'image/jpeg', data: afterImageBase64 } }] : []),
+        { text: effectiveText },
       ],
     },
   ];

@@ -66,6 +66,8 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
   const [screen, setScreen] = useState<Screen>(() => editEntry ? 'result' : 'idle');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+  const [afterPhotoUri, setAfterPhotoUri] = useState<string | null>(null);
+  const [afterPhotoBase64, setAfterPhotoBase64] = useState<string | null>(null);
   const [items, setItems] = useState<FoodItem[]>(() => editEntry?.items ?? []);
   const [confidence, setConfidence] = useState<'high' | 'medium' | 'low'>('high');
   const [description, setDescription] = useState(() => editEntry ? 'Editing saved meal' : '');
@@ -108,6 +110,8 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
     setScreen('idle');
     setPhotoUri(null);
     setPhotoBase64(null);
+    setAfterPhotoUri(null);
+    setAfterPhotoBase64(null);
     setItems([]);
     setHistory([]);
     setChatText('');
@@ -123,11 +127,16 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
     onClose();
   }, [reset, onClose]);
 
-  const runAnalysis = useCallback(async (imageBase64: string | null, userText: string, hist: GeminiTurn[]) => {
+  const runAnalysis = useCallback(async (
+    imageBase64: string | null,
+    userText: string,
+    hist: GeminiTurn[],
+    afterBase64?: string | null,
+  ) => {
     setScreen('analyzing');
     setError(null);
     try {
-      const { result, updatedHistory } = await analyzeFood(imageBase64, userText, hist);
+      const { result, updatedHistory } = await analyzeFood(imageBase64, userText, hist, afterBase64);
       setItems(result.items);
       setConfidence(result.confidence);
       setDescription(result.description);
@@ -159,6 +168,45 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
     setPhotoBase64(b64);
     await runAnalysis(b64, 'What food is in this photo? Give me the macros.', []);
   }, [runAnalysis]);
+
+  const handleGallery = useCallback(async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Gallery permission required', 'Please allow photo library access in Settings.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      base64: true,
+      allowsEditing: false,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setPhotoUri(asset.uri);
+    const b64 = asset.base64 ?? null;
+    setPhotoBase64(b64);
+    await runAnalysis(b64, 'What food is in this photo? Give me the macros.', []);
+  }, [runAnalysis]);
+
+  const handleAfterPhoto = useCallback(async (source: 'camera' | 'gallery') => {
+    const perm = source === 'camera'
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission required', `Please allow ${source} access in Settings.`);
+      return;
+    }
+    const result = source === 'camera'
+      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7, base64: true })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, base64: true });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    const b64 = asset.base64 ?? null;
+    setAfterPhotoUri(asset.uri);
+    setAfterPhotoBase64(b64);
+    await runAnalysis(photoBase64, '', history, b64);
+  }, [runAnalysis, photoBase64, history]);
 
   const handleTextSubmit = useCallback(async () => {
     const text = textPrompt.trim();
@@ -232,10 +280,16 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
             {/* ── IDLE screen ── */}
             {screen === 'idle' && (
               <View style={styles.idleWrap}>
-                <Pressable style={styles.cameraBtn} onPress={handleCamera}>
-                  <Text style={styles.cameraBtnIcon}>📷</Text>
-                  <Text style={styles.cameraBtnLabel}>Take a photo</Text>
-                </Pressable>
+                <View style={styles.photoRow}>
+                  <Pressable style={styles.cameraBtn} onPress={handleCamera}>
+                    <Text style={styles.cameraBtnIcon}>📷</Text>
+                    <Text style={styles.cameraBtnLabel}>Camera</Text>
+                  </Pressable>
+                  <Pressable style={[styles.cameraBtn, styles.galleryBtn]} onPress={handleGallery}>
+                    <Text style={styles.cameraBtnIcon}>🖼</Text>
+                    <Text style={styles.cameraBtnLabel}>Gallery</Text>
+                  </Pressable>
+                </View>
 
                 <Text style={styles.orDivider}>— or describe it —</Text>
 
@@ -278,9 +332,29 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
             {(screen === 'result' || screen === 'saving') && (
               <View style={styles.resultWrap}>
 
-                {/* Photo thumbnail */}
-                {photoUri ? (
-                  <Image source={{ uri: photoUri }} style={styles.photoThumbSmall} resizeMode="cover" />
+                {/* Photo thumbnails */}
+                <View style={styles.thumbRow}>
+                  {photoUri ? (
+                    <Image source={{ uri: photoUri }} style={styles.photoThumbSmall} resizeMode="cover" />
+                  ) : null}
+                  {afterPhotoUri ? (
+                    <Image source={{ uri: afterPhotoUri }} style={styles.photoThumbSmall} resizeMode="cover" />
+                  ) : null}
+                </View>
+
+                {/* After-meal photo buttons — only if first photo exists and no after photo yet */}
+                {photoUri && !afterPhotoUri && screen === 'result' ? (
+                  <View style={styles.afterPhotoRow}>
+                    <Text style={styles.afterPhotoLabel}>Add after-meal photo to adjust portions:</Text>
+                    <View style={styles.afterPhotoBtns}>
+                      <Pressable style={styles.afterPhotoBtn} onPress={() => handleAfterPhoto('camera')}>
+                        <Text style={styles.afterPhotoBtnText}>📷 Camera</Text>
+                      </Pressable>
+                      <Pressable style={styles.afterPhotoBtn} onPress={() => handleAfterPhoto('gallery')}>
+                        <Text style={styles.afterPhotoBtnText}>🖼 Gallery</Text>
+                      </Pressable>
+                    </View>
+                  </View>
                 ) : null}
 
                 {/* Confidence badge */}
@@ -441,14 +515,22 @@ const styles = StyleSheet.create({
 
   // Idle
   idleWrap: { alignItems: 'center', paddingTop: 16 },
-  cameraBtn: {
+  photoRow: {
+    flexDirection: 'row',
     width: '100%',
+    gap: 12,
+  },
+  cameraBtn: {
+    flex: 1,
     backgroundColor: WellnessColors.accentBlue,
     borderRadius: 16,
     paddingVertical: 20,
     alignItems: 'center',
     gap: 8,
     ...cardShadow,
+  },
+  galleryBtn: {
+    backgroundColor: '#7B1FA2',
   },
   cameraBtnIcon: { fontSize: 36 },
   cameraBtnLabel: { color: '#fff', fontSize: 16, fontWeight: '700' },
@@ -495,7 +577,21 @@ const styles = StyleSheet.create({
 
   // Result
   resultWrap: { gap: 12 },
-  photoThumbSmall: { width: 72, height: 72, borderRadius: 12, alignSelf: 'flex-start' },
+  thumbRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  photoThumbSmall: { width: 72, height: 72, borderRadius: 12 },
+  afterPhotoRow: { marginBottom: 10 },
+  afterPhotoLabel: { fontSize: 12, color: WellnessColors.textSecondary, marginBottom: 6 },
+  afterPhotoBtns: { flexDirection: 'row', gap: 8 },
+  afterPhotoBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+    borderRadius: 8,
+    paddingVertical: 7,
+    alignItems: 'center',
+    backgroundColor: WellnessColors.progressTrack,
+  },
+  afterPhotoBtnText: { fontSize: 13, fontWeight: '600', color: WellnessColors.textPrimary },
   confidenceBadge: {
     alignSelf: 'flex-start',
     borderWidth: 1,
