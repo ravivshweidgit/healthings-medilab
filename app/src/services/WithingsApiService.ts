@@ -28,7 +28,7 @@ const SECURE_TOKEN_KEY = 'healthings_withings_tokens';
 const WEB_TOKEN_FALLBACK_KEY = 'healthings_withings_tokens_web';
 
 /** Default scope — includes activity so getintradayactivity (watch HR) works. */
-export const DEFAULT_WITHINGS_SCOPE = 'user.metrics,user.activity';
+export const DEFAULT_WITHINGS_SCOPE = 'user.metrics,user.activity,user.info';
 
 /** Withings measure `type` ids we surface on the dashboard. */
 export const WITHINGS_MEASURE_TYPES = {
@@ -1145,6 +1145,115 @@ export async function fetchWorkoutsHistory(
   } catch {
     return [];
   }
+}
+
+// ─── User profile (birthdate, gender) ────────────────────────────────────────
+
+const WITHINGS_USER_URL = 'https://wbsapi.withings.net/v2/user';
+const BIRTHDATE_CACHE_KEY = 'user_birthdate';
+
+/** Clears the cached birthdate so the next fetchUserBirthdate() call hits the API. */
+export async function clearBirthdateCache(): Promise<void> {
+  await AsyncStorage.removeItem(BIRTHDATE_CACHE_KEY);
+}
+
+/**
+ * Fetches the user's birthdate from Withings (`user.info` scope required).
+ * Returns ISO date string e.g. "1980-03-15", or null if unavailable.
+ * Caches in AsyncStorage so subsequent calls are instant.
+ */
+export async function fetchUserBirthdate(): Promise<string | null> {
+  const cached = await AsyncStorage.getItem(BIRTHDATE_CACHE_KEY);
+  if (cached) return cached;
+
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) return null;
+
+  const form = new URLSearchParams({
+    action: 'get',
+    access_token: accessToken,
+  });
+
+  try {
+    const res = await fetch(WITHINGS_USER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
+    });
+    const json = await res.json();
+    if (json.status !== 0) return null;
+
+    // Withings may return body.user (singular) or body.users[0] depending on API version.
+    const userObj = json.body?.user ?? json.body?.users?.[0];
+    const birthdateTs: number | undefined = userObj?.birthdate;
+    if (birthdateTs == null || typeof birthdateTs !== 'number') return null;
+
+    const date = new Date(birthdateTs * 1000);
+    if (isNaN(date.getTime())) return null;
+
+    const iso = date.toISOString().split('T')[0];
+    await AsyncStorage.setItem(BIRTHDATE_CACHE_KEY, iso);
+    return iso;
+  } catch {
+    return null;
+  }
+}
+
+// ─── User height ─────────────────────────────────────────────────────────────
+
+const HEIGHT_CACHE_KEY = 'user_height_cm';
+
+/**
+ * Fetches the user's height from Withings (meastype 4 = height in metres).
+ * Converts to cm and caches in AsyncStorage. Returns null if not available.
+ */
+export async function fetchUserHeight(): Promise<number | null> {
+  const cached = await AsyncStorage.getItem(HEIGHT_CACHE_KEY);
+  if (cached) {
+    const cm = parseFloat(cached);
+    if (!isNaN(cm) && cm > 0) return cm;
+  }
+
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) return null;
+
+  const stored = await loadWithingsTokens();
+  const end = Math.floor(Date.now() / 1000);
+  const start = end - 10 * 365 * 24 * 3600; // look back 10 years
+
+  const form = new URLSearchParams({
+    action: 'getmeas',
+    access_token: accessToken,
+    category: '1',
+    startdate: String(start),
+    enddate: String(end),
+    meastypes: '4', // 4 = height (metres)
+  });
+  if (stored?.userid) form.set('userid', stored.userid);
+
+  try {
+    const res = await fetch(WITHINGS_MEASURE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
+    });
+    const json = (await res.json()) as WithingsGetMeasJson;
+    if (json.status !== 0) return null;
+
+    for (const grp of (json.body?.measuregrps ?? [])) {
+      const hit = grp.measures?.find((m) => m.type === 4);
+      if (hit && typeof hit.value === 'number' && typeof hit.unit === 'number') {
+        const metres = decodeWithingsMeasureValue(hit.value, hit.unit);
+        if (metres && metres > 0) {
+          const cm = Math.round(metres * 100);
+          await AsyncStorage.setItem(HEIGHT_CACHE_KEY, String(cm));
+          return cm;
+        }
+      }
+    }
+  } catch { /* non-fatal */ }
+
+  return null;
 }
 
 export type {

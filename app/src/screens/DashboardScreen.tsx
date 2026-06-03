@@ -1,3 +1,4 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as WebBrowser from 'expo-web-browser';
@@ -12,6 +13,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -33,12 +35,14 @@ import {
 import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportCsv } from '../services/careSensCsv';
 import { foodLogDayKey, getTodayMeals, type FoodEntry } from '../services/FoodLogService';
+import { getBirthdate, setBirthdate, computeAge, getCachedHeightCm, setHeightCm as saveHeightCm, getGender, setGender, type Gender } from '../services/TargetService';
 import {
   buildAuthorizationUrl,
   fetchWeightMetrics,
   fetchBodyCompositionTrend7d,
   fetchHeartRateHistory,
   fetchTodayHeartRate,
+  fetchUserHeight,
   fetchWorkoutsHistory,
   handleOAuthCallback,
   loadWithingsTokens,
@@ -142,6 +146,15 @@ export const DashboardScreen = () => {
 
   const [pullRefreshing, setPullRefreshing] = useState(false);
 
+  // ─── Height + birthdate + gender ─────────────────────────────────────────
+  const [heightCm, setHeightCm] = useState<number | null>(null);
+  const [userGender, setUserGender] = useState<Gender | null>(null);
+  const [birthdateModalVisible, setBirthdateModalVisible] = useState(false);
+  const [birthdatePicker, setBirthdatePicker] = useState<Date>(new Date(1980, 0, 1));
+  const [genderPicker, setGenderPicker] = useState<Gender>('male');
+  const [showDatePickerDialog, setShowDatePickerDialog] = useState(false);
+  const [heightInput, setHeightInput] = useState('');
+
   const refreshWithingsLinkState = useCallback(async () => {
     const t = await loadWithingsTokens();
     setWithingsLinked(Boolean(t?.refreshToken));
@@ -150,6 +163,20 @@ export const DashboardScreen = () => {
   const loadTodayFood = useCallback(async () => {
     const meals = await getTodayMeals();
     setTodayFoodEntries(meals);
+  }, []);
+
+  const loadHeightAndBirthdate = useCallback(async () => {
+    // Load cached height first, then try fetching fresh from Withings.
+    const cached = await getCachedHeightCm();
+    if (cached) { setHeightCm(cached); setHeightInput(String(cached)); }
+    const fromWithings = await fetchUserHeight();
+    if (fromWithings) { setHeightCm(fromWithings); setHeightInput(String(fromWithings)); }
+
+    // Show modal if gender or birthdate not yet stored.
+    const [storedBd, gd] = await Promise.all([getBirthdate(), getGender()]);
+    if (gd) setUserGender(gd);
+    if (storedBd) { const d = new Date(storedBd); if (!isNaN(d.getTime())) setBirthdatePicker(d); }
+    if (!gd || !storedBd) setBirthdateModalVisible(true);
   }, []);
 
   const handleFoodSaved = useCallback(() => {
@@ -359,6 +386,10 @@ export const DashboardScreen = () => {
   useEffect(() => {
     void loadTodayFood();
   }, [loadTodayFood]);
+
+  useEffect(() => {
+    void loadHeightAndBirthdate();
+  }, [loadHeightAndBirthdate]);
 
   /** Re-fetch today's Withings HR + calories every 10 min so recent readings appear without manual sync. */
   useEffect(() => {
@@ -754,6 +785,29 @@ export const DashboardScreen = () => {
         {dataSource !== 'health-connect' && !withingsLinked ? (
           <Text style={styles.previewFoot}>Preview · sample wellness data</Text>
         ) : null}
+
+        {/* My Profile — edit gender / height / birthdate */}
+        <Pressable
+          style={styles.profileRow}
+          onPress={async () => {
+            const [bd, gd] = await Promise.all([getBirthdate(), getGender()]);
+            if (gd) setGenderPicker(gd);
+            if (bd) { const d = new Date(bd); if (!isNaN(d.getTime())) setBirthdatePicker(d); }
+            setBirthdateModalVisible(true);
+          }}
+        >
+          <Text style={styles.profileRowIcon}>👤</Text>
+          <View style={styles.profileRowInfo}>
+            <Text style={styles.profileRowTitle}>My Profile</Text>
+            <Text style={styles.profileRowSub}>
+              {[
+                userGender ? userGender.charAt(0).toUpperCase() + userGender.slice(1) : null,
+                heightCm ? `${heightCm} cm` : null,
+              ].filter(Boolean).join(' · ') || 'Tap to set gender, height & birthdate'}
+            </Text>
+          </View>
+          <Text style={styles.profileRowChevron}>›</Text>
+        </Pressable>
       </ScrollView>
 
       {pullRefreshing && (
@@ -768,6 +822,106 @@ export const DashboardScreen = () => {
         onSaved={handleFoodSaved}
         editEntry={foodEditEntry}
       />
+
+      {/* ── Birthdate + gender one-time modal ────────────────────────── */}
+      {birthdateModalVisible && (
+        <View style={styles.birthdateOverlay}>
+          <View style={styles.birthdateCard}>
+            <ScrollView
+              style={{ width: '100%' }}
+              contentContainerStyle={styles.birthdateScroll}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.birthdateTitle}>One quick thing</Text>
+              <Text style={styles.birthdateSubtitle}>
+                Used by AI for personalised health recommendations. Only asked once.
+              </Text>
+
+
+              {/* Gender */}
+              <Text style={styles.birthdateSectionTitle}>Gender</Text>
+              <View style={styles.genderRow}>
+                {(['male', 'female', 'other'] as Gender[]).map((g) => (
+                  <Pressable
+                    key={g}
+                    style={[styles.genderBtn, genderPicker === g && styles.genderBtnSelected]}
+                    onPress={() => setGenderPicker(g)}
+                  >
+                    <Text style={[styles.genderBtnText, genderPicker === g && styles.genderBtnTextSelected]}>
+                      {g.charAt(0).toUpperCase() + g.slice(1)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* Height */}
+              <Text style={styles.birthdateSectionTitle}>Height</Text>
+              <View style={styles.heightRow}>
+                <TextInput
+                  style={styles.heightInput}
+                  value={heightInput}
+                  onChangeText={setHeightInput}
+                  keyboardType="number-pad"
+                  maxLength={3}
+                  placeholder="e.g. 175"
+                  placeholderTextColor={WellnessColors.textSecondary}
+                />
+                <Text style={styles.heightUnit}>cm</Text>
+              </View>
+              {heightInput === '' && (
+                <Text style={styles.heightHint}>Not found in Withings — please enter manually</Text>
+              )}
+
+              {/* Birth Date */}
+              <Text style={styles.birthdateSectionTitle}>Birth Date</Text>
+              <Pressable
+                style={styles.datePickerBtn}
+                onPress={() => setShowDatePickerDialog(true)}
+              >
+                <Text style={styles.datePickerBtnText}>
+                  {birthdatePicker.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                </Text>
+                <Text style={styles.datePickerBtnIcon}>📅</Text>
+              </Pressable>
+              <Text style={styles.birthdateAge}>
+                Age: {computeAge(birthdatePicker.toISOString().split('T')[0])} years
+              </Text>
+              {showDatePickerDialog && (
+                <DateTimePicker
+                  value={birthdatePicker}
+                  mode="date"
+                  display="default"
+                  maximumDate={new Date()}
+                  minimumDate={new Date(1920, 0, 1)}
+                  onChange={(_e, date) => {
+                    setShowDatePickerDialog(false);
+                    if (date) setBirthdatePicker(date);
+                  }}
+                />
+              )}
+
+              <Pressable
+                style={styles.birthdateSaveBtn}
+                onPress={async () => {
+                  const iso = birthdatePicker.toISOString().split('T')[0];
+                  const cm = parseFloat(heightInput);
+                  await Promise.all([
+                    setBirthdate(iso),
+                    setGender(genderPicker),
+                    ...(cm > 0 ? [saveHeightCm(cm)] : []),
+                  ]);
+                  if (cm > 0) setHeightCm(cm);
+                  setUserGender(genderPicker);
+                  setBirthdateModalVisible(false);
+                }}
+              >
+                <Text style={styles.birthdateSaveBtnText}>Save</Text>
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -1115,5 +1269,187 @@ const styles = StyleSheet.create({
     color: WellnessColors.textSecondary,
     textAlign: 'center',
     letterSpacing: 0.3,
+  },
+  profileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: WellnessColors.surface,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 8,
+    gap: 12,
+    ...cardShadow,
+  },
+  profileRowIcon: {
+    fontSize: 24,
+  },
+  profileRowInfo: {
+    flex: 1,
+  },
+  profileRowTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+  },
+  profileRowSub: {
+    fontSize: 12,
+    color: WellnessColors.textSecondary,
+    marginTop: 2,
+  },
+  profileRowChevron: {
+    fontSize: 20,
+    color: WellnessColors.textSecondary,
+    fontWeight: '300',
+  },
+  birthdateOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 30,
+  },
+  birthdateCard: {
+    backgroundColor: WellnessColors.surface,
+    borderRadius: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+    width: '88%',
+    maxHeight: '88%',
+    ...cardShadow,
+  },
+  birthdateScroll: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  birthdateTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  birthdateSubtitle: {
+    fontSize: 13,
+    color: WellnessColors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  birthdateFieldLabel: {
+    alignSelf: 'flex-start',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: WellnessColors.textSecondary,
+    marginBottom: 8,
+  },
+  birthdateSectionTitle: {
+    alignSelf: 'flex-start',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#000',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+    width: '100%',
+  },
+  genderBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: WellnessColors.gridLine,
+    alignItems: 'center',
+    backgroundColor: WellnessColors.background,
+  },
+  genderBtnSelected: {
+    borderColor: WellnessColors.accentGreen,
+    backgroundColor: WellnessColors.accentGreen + '18',
+  },
+  genderBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: WellnessColors.textSecondary,
+  },
+  genderBtnTextSelected: {
+    color: WellnessColors.accentGreen,
+  },
+  heightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    gap: 10,
+    marginBottom: 4,
+  },
+  heightInput: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: WellnessColors.gridLine,
+    backgroundColor: WellnessColors.background,
+    fontSize: 18,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+    textAlign: 'center',
+  },
+  heightUnit: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: WellnessColors.textSecondary,
+    width: 32,
+  },
+  heightHint: {
+    fontSize: 11,
+    color: '#E65100',
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  datePickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: WellnessColors.gridLine,
+    backgroundColor: WellnessColors.background,
+    marginBottom: 8,
+  },
+  datePickerBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: WellnessColors.textPrimary,
+  },
+  datePickerBtnIcon: {
+    fontSize: 18,
+  },
+  birthdateAge: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: WellnessColors.accentBlue,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  birthdateSaveBtn: {
+    backgroundColor: WellnessColors.accentGreen,
+    borderRadius: 999,
+    paddingHorizontal: 40,
+    paddingVertical: 12,
+    width: '100%',
+    alignItems: 'center',
+  },
+  birthdateSaveBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
