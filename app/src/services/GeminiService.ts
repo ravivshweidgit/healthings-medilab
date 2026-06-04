@@ -4,6 +4,7 @@
  */
 
 import { GEMINI_API_KEY } from '@env';
+import type { MentorType } from './TargetService';
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
@@ -329,5 +330,174 @@ RULES:
     // Only mention truncation if that was the reason
     const hint = finishReason === 'MAX_TOKENS' ? ' (response truncated)' : '';
     throw new Error(`Could not parse AI response${hint}: ${raw.slice(0, 120)}`);
+  }
+}
+
+// ─── Mentor system prompt ─────────────────────────────────────────────────────
+
+const MENTOR_PERSONAS: Record<MentorType, string> = {
+  doctor:
+    'You are a medical doctor AI. Prioritise health risk reduction, evidence-based guidelines, and patient safety. Be conservative and clinically precise.',
+  nutritionist:
+    'You are a certified nutritionist AI. Focus on food quality, macronutrient balance, micronutrients, and sustainable eating patterns.',
+  coach:
+    'You are a professional fitness coach AI. Focus on body composition, muscle preservation, progressive fat loss, and performance goals.',
+};
+
+const MENTOR_PRIORITY: MentorType[] = ['doctor', 'nutritionist', 'coach'];
+
+export function buildMentorSystemPrompt(mentors: MentorType[]): string {
+  const ordered = MENTOR_PRIORITY.filter((m) => mentors.includes(m));
+  if (ordered.length === 1) return MENTOR_PERSONAS[ordered[0]];
+  const parts = ordered.map((m) => MENTOR_PERSONAS[m]);
+  const conjunction = ordered.length === 2
+    ? `${parts[0]} ${parts[1]}`
+    : parts.join(' ');
+  return `You are a combined AI advisor with multiple roles. ${conjunction} When advice conflicts, prioritise: safety (Doctor) > food quality (Nutritionist) > performance (Coach).`;
+}
+
+// ─── User rules summarisation ─────────────────────────────────────────────────
+
+export type UserRulesSummary = {
+  summary: string;
+  constraints: string[];
+  aiContext: string;
+};
+
+export async function summariseUserRules(
+  rawText: string,
+  mentors: MentorType[],
+): Promise<UserRulesSummary> {
+  const systemPrompt = buildMentorSystemPrompt(mentors);
+
+  const prompt = `${systemPrompt}
+
+The user described their dietary and lifestyle preferences. Extract and structure into JSON only, no markdown:
+{"summary":"Keto · IF 16:8","constraints":["< 50g carbs/day","eating window 12–8pm"],"aiContext":"Ketogenic diet with 16:8 intermittent fasting."}
+
+Rules:
+- summary: max 5 words, use · separator
+- constraints: max 5 items, max 8 words each
+- aiContext: max 20 words, used in future AI prompts
+
+User text: "${rawText.replace(/"/g, "'")}"`; 
+
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+  };
+
+  const response = await fetch(GEMINI_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.text().catch(() => '');
+    throw new Error(`Gemini error ${response.status}: ${err.slice(0, 200)}`);
+  }
+
+  const json = await response.json();
+  const raw: string = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  if (!raw) throw new Error('Empty response from Gemini');
+
+  const stripped = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  const start = stripped.indexOf('{');
+  const end = stripped.lastIndexOf('}');
+  const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+
+  try {
+    return JSON.parse(cleaned) as UserRulesSummary;
+  } catch {
+    throw new Error(`Could not parse rules summary: ${raw.slice(0, 100)}`);
+  }
+}
+
+// ─── Daily macro suggestion ───────────────────────────────────────────────────
+
+export type MacroSuggestionInput = {
+  weight_kg: number;
+  fatMass_kg: number;
+  muscleMass_kg: number;
+  bmr_kcal: number;
+  estimatedBurn_kcal: number | null;
+  heightCm: number;
+  age: number;
+  gender: string;
+  bodyTarget: { targetWeight_kg: number; targetFatPct: number; targetMuscleMass_kg: number } | null;
+  rulesContext: string;
+  mentors: MentorType[];
+};
+
+export type MacroSuggestion = {
+  protein_g: number;
+  fat_g: number;
+  carb_g: number;
+  kcal: number;
+  diet_label: string;
+  reasoning: string;
+};
+
+export async function suggestDailyMacros(input: MacroSuggestionInput): Promise<MacroSuggestion> {
+  const systemPrompt = buildMentorSystemPrompt(input.mentors);
+  const leanMass = input.weight_kg - input.fatMass_kg;
+  const fatPct = (input.fatMass_kg / input.weight_kg) * 100;
+
+  const lines = [
+    `Weight: ${input.weight_kg} kg | Lean mass: ${leanMass.toFixed(1)} kg | Fat%: ${fatPct.toFixed(1)}%`,
+    `BMR: ${input.bmr_kcal} kcal | Est. daily burn: ${input.estimatedBurn_kcal ?? 'unknown'} kcal`,
+    `Age: ${input.age} | Gender: ${input.gender} | Height: ${input.heightCm} cm`,
+    input.bodyTarget
+      ? `Goal: ${input.bodyTarget.targetWeight_kg} kg / ${input.bodyTarget.targetFatPct}% fat / ${input.bodyTarget.targetMuscleMass_kg} kg muscle`
+      : 'Goal: general health and body composition improvement',
+    input.rulesContext ? `⚠️ HARD DIETARY CONSTRAINT (must not be violated): ${input.rulesContext}` : null,
+  ].filter(Boolean).join('\n');
+
+  const prompt = `${systemPrompt}
+
+METRICS:
+${lines}
+
+OUTPUT (JSON only, no markdown):
+{"protein_g":160,"fat_g":140,"carb_g":30,"kcal":1960,"diet_label":"Ketogenic","reasoning":"Max 15 words."}
+
+RULES (apply in strict priority order):
+1. DIETARY RULES ARE HARD CONSTRAINTS — they override everything else. If the user says "< 20g carbs", carb_g MUST be ≤ 20. If the user says "keto", carb_g MUST be ≤ 20g. Never violate these.
+2. Protein: 1.6–2.2g × lean_mass_kg (preserve muscle)
+3. Calorie deficit 300–500 kcal below estimated burn for fat loss
+4. Fill remaining calories with fat after protein and carbs are set
+5. diet_label: Ketogenic/Vegan/High Protein/Mediterranean/Balanced/Custom`;
+
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
+  };
+
+  const response = await fetch(GEMINI_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.text().catch(() => '');
+    throw new Error(`Gemini error ${response.status}: ${err.slice(0, 200)}`);
+  }
+
+  const json = await response.json();
+  const candidate = json?.candidates?.[0];
+  const finishReason: string = candidate?.finishReason ?? 'UNKNOWN';
+  const raw: string = candidate?.content?.parts?.[0]?.text ?? '';
+  if (!raw) throw new Error(`Empty AI response (${finishReason})`);
+
+  const stripped = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  const start = stripped.indexOf('{');
+  const end = stripped.lastIndexOf('}');
+  const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+
+  try {
+    return JSON.parse(cleaned) as MacroSuggestion;
+  } catch {
+    const hint = finishReason === 'MAX_TOKENS' ? ' (truncated)' : '';
+    throw new Error(`Could not parse macro suggestion${hint}: ${raw.slice(0, 100)}`);
   }
 }

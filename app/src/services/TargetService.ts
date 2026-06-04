@@ -97,3 +97,81 @@ export async function saveBodyTarget(target: BodyTarget): Promise<void> {
 export async function clearBodyTarget(): Promise<void> {
   await AsyncStorage.removeItem(BODY_TARGET_KEY);
 }
+
+// ─── Mentors ──────────────────────────────────────────────────────────────────
+
+export type MentorType = 'doctor' | 'nutritionist' | 'coach';
+
+const MENTOR_KEY = 'user_mentors';
+const DEFAULT_MENTORS: MentorType[] = ['coach', 'nutritionist'];
+
+export async function getMentors(): Promise<MentorType[]> {
+  const raw = await AsyncStorage.getItem(MENTOR_KEY);
+  if (!raw) return DEFAULT_MENTORS;
+  try {
+    const parsed = JSON.parse(raw) as MentorType[];
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_MENTORS;
+  } catch { return DEFAULT_MENTORS; }
+}
+
+export async function saveMentors(mentors: MentorType[]): Promise<void> {
+  if (mentors.length === 0) return; // at least one always required
+  await AsyncStorage.setItem(MENTOR_KEY, JSON.stringify(mentors));
+}
+
+// ─── User rules ───────────────────────────────────────────────────────────────
+
+const USER_RULES_KEY = 'user_rules';
+
+export type UserRules = {
+  rawText: string;
+  summary: string;          // e.g. "Keto · IF 16:8"
+  constraints: string[];    // bullet list extracted by AI
+  aiContext: string;        // 1-sentence context passed to every AI call
+  analyzedAt: string;
+};
+
+export async function getUserRules(): Promise<UserRules | null> {
+  const raw = await AsyncStorage.getItem(USER_RULES_KEY);
+  if (!raw) return null;
+  try { return JSON.parse(raw) as UserRules; } catch { return null; }
+}
+
+export async function saveUserRules(r: UserRules): Promise<void> {
+  await AsyncStorage.setItem(USER_RULES_KEY, JSON.stringify(r));
+}
+
+export async function clearUserRules(): Promise<void> {
+  await AsyncStorage.removeItem(USER_RULES_KEY);
+}
+
+// ─── Daily macro target ───────────────────────────────────────────────────────
+
+const MACRO_TARGET_KEY = 'daily_macro_target';
+
+export type DailyMacroTarget = {
+  protein_g: number;
+  fat_g: number;
+  carb_g: number;
+  kcal: number;
+  diet_label: string;
+  reasoning: string;
+  rulesContext: string;
+  mentors: MentorType[];
+  aiSuggested: { protein_g: number; fat_g: number; carb_g: number; kcal: number };
+  analyzedAt: string;
+};
+
+export async function getMacroTarget(): Promise<DailyMacroTarget | null> {
+  const raw = await AsyncStorage.getItem(MACRO_TARGET_KEY);
+  if (!raw) return null;
+  try { return JSON.parse(raw) as DailyMacroTarget; } catch { return null; }
+}
+
+export async function saveMacroTarget(t: DailyMacroTarget): Promise<void> {
+  await AsyncStorage.setItem(MACRO_TARGET_KEY, JSON.stringify(t));
+}
+
+export async function clearMacroTarget(): Promise<void> {
+  await AsyncStorage.removeItem(MACRO_TARGET_KEY);
+}

@@ -1,0 +1,61 @@
+---
+description: Android build and install workflow for Healthings app
+alwaysApply: true
+---
+
+# Build & Install Workflow
+
+## Default behaviour after code changes
+
+**Build for compilation check only** — do not install on device unless the user
+explicitly asks to test on the phone.
+
+```
+# ✅ Default — compile check only
+Set-Location "c:\projects\healthings-medilab\app\android"
+.\gradlew.bat assembleRelease --no-build-cache
+
+# ✅ Only when user says "install" / "test on phone" / "let me test"
+adb install -r "...\app-release.apk"
+```
+
+## When to install
+- User explicitly says: "install", "test on phone", "let me try it", "rebuild and install"
+- After a bug fix the user reported from a device screenshot
+- At the end of a feature batch when the user asks to verify
+
+## When NOT to install automatically
+- After every small fix (wastes 30–40 seconds per iteration)
+- After a compilation-only change (import cleanup, type fix, dead code removal)
+- When the user just asked to "rebuild" without mentioning the phone
+
+## Commit policy — NEVER commit before phone test
+
+**Do NOT `git commit` or `git push` after a feature build until the user explicitly
+confirms they tested the APK on their phone and it works.**
+
+Trigger words that mean "ok to commit":
+- "commit", "push", "lgtm", "looks good", "works", "it's working", "ship it"
+
+Trigger words that mean "NOT ok to commit yet":
+- "build", "compile check", "let me test", "install" — wait for test result first
+
+```
+# ✅ Correct order
+1. Build APK  →  2. Install on phone (when asked)  →  3. User tests  →  4. User says "commit"  →  5. git commit & push
+
+# ❌ Never do
+Build APK  →  git commit  (skips phone test)
+```
+
+## Build command (PowerShell — no && separator)
+```powershell
+Set-Location "c:\projects\healthings-medilab\app\android"
+.\gradlew.bat assembleRelease --no-build-cache 2>&1 | Select-Object -Last 12
+```
+
+## Clean build (only when native modules / codegen errors)
+```powershell
+# clean fails if codegen dirs missing — use assembleRelease --no-build-cache instead
+.\gradlew.bat assembleRelease --no-build-cache
+```

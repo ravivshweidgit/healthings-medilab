@@ -6,12 +6,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
+import { getBurnCorrection, setBurnCorrection } from '../services/BurnCorrectionService';
 import { getDailyMacros, foodLogDayKey, exportFoodLog, importFoodLog, type DailyMacros, type FoodEntry } from '../services/FoodLogService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 
@@ -32,6 +35,8 @@ function formatDayLabel(ms: number): string {
   return new Date(ms).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+import type { DailyMacroTarget } from '../services/TargetService';
+
 type Props = {
   /** Initial day key — defaults to today. */
   dayKey?: string;
@@ -43,6 +48,8 @@ type Props = {
   burnKcalByDay?: Record<string, number>;
   /** Called after a successful import so the parent can refresh state. */
   onImported?: () => void;
+  /** Daily macro targets — when set, bars show actual vs target. */
+  macroTarget?: DailyMacroTarget | null;
 };
 
 const COLOR_PROTEIN = '#42A5F5';
@@ -65,20 +72,26 @@ function mealLabel(entry: FoodEntry): string {
 type MacroBarProps = {
   label: string;
   value: number;
-  total: number;
+  target: number;
   color: string;
-  unit: string;
+  showTarget?: boolean;
 };
 
-function MacroBar({ label, value, total, color, unit }: MacroBarProps) {
-  const ratio = total > 0 ? Math.min(1, value / total) : 0;
+function MacroBar({ label, value, target, color, showTarget }: MacroBarProps) {
+  const ratio = target > 0 ? Math.min(1, value / target) : 0;
+  const over = value > target * 1.05;
+  const valueText = showTarget
+    ? `${Math.round(value)}/${Math.round(target)}g`
+    : `${Math.round(value)}g`;
   return (
     <View style={barStyles.row}>
       <Text style={barStyles.label}>{label}</Text>
       <View style={barStyles.track}>
-        <View style={[barStyles.fill, { width: `${ratio * 100}%`, backgroundColor: color }]} />
+        <View style={[barStyles.fill, { width: `${ratio * 100}%`, backgroundColor: over ? '#EF5350' : color }]} />
       </View>
-      <Text style={barStyles.value}>{Math.round(value)}{unit}</Text>
+      <Text style={[barStyles.value, showTarget && barStyles.valueWide, over && barStyles.valueOver]}>
+        {valueText}
+      </Text>
     </View>
   );
 }
@@ -102,14 +115,19 @@ const barStyles = StyleSheet.create({
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
   },
+  valueWide: { width: 80 },
+  valueOver: { color: '#EF5350' },
 });
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, refreshKey, burnKcalByDay, onImported }: Props) {
+export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, refreshKey, burnKcalByDay, onImported, macroTarget }: Props) {
   const todayMs = useMemo(() => startOfLocalDay(Date.now()), []);
   const [selectedMs, setSelectedMs] = useState(() => startOfLocalDay(Date.now()));
   const [macros, setMacros] = useState<DailyMacros | null>(null);
+  const [burnCorrection, setBurnCorrectionState] = useState(0);
+  const [correctionModalVisible, setCorrectionModalVisible] = useState(false);
+  const [correctionInput, setCorrectionInput] = useState('');
 
   const handleExport = useCallback(async () => {
     try {
@@ -144,16 +162,32 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
   }, [todayMs]);
 
   const load = useCallback(async () => {
-    const data = await getDailyMacros(activeDayKey);
+    const [data, correction] = await Promise.all([
+      getDailyMacros(activeDayKey),
+      getBurnCorrection(activeDayKey),
+    ]);
     setMacros(data);
+    setBurnCorrectionState(correction);
   }, [activeDayKey]);
 
   useEffect(() => { load(); }, [load, refreshKey]);
 
-  const isEmpty = !macros || macros.entries.length === 0;
-  const maxMacro = macros ? Math.max(macros.protein_g, macros.carb_g, macros.fat_g, 1) : 1;
+  const handleSaveCorrection = useCallback(async () => {
+    const delta = parseInt(correctionInput.replace(/\s/g, ''), 10);
+    const value = isNaN(delta) ? 0 : delta;
+    await setBurnCorrection(activeDayKey, value);
+    setBurnCorrectionState(value);
+    setCorrectionModalVisible(false);
+  }, [correctionInput, activeDayKey]);
 
-  const burn    = burnKcalByDay?.[activeDayKey] ?? null;
+  const isEmpty = !macros || macros.entries.length === 0;
+  // When macro targets are set, bar max = target value; otherwise rolling max of actuals
+  const maxMacro = macroTarget
+    ? Math.max(macroTarget.protein_g, macroTarget.carb_g, macroTarget.fat_g, 1)
+    : macros ? Math.max(macros.protein_g, macros.carb_g, macros.fat_g, 1) : 1;
+
+  const rawBurn = burnKcalByDay?.[activeDayKey] ?? null;
+  const burn    = rawBurn != null ? rawBurn + burnCorrection : null;
   const eaten   = macros ? Math.round(macros.kcal) : 0;
   const balance = burn != null && eaten > 0 ? burn - eaten : null;
   const isDeficit = balance != null && balance >= 0;
@@ -182,14 +216,28 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
       {/* Energy lines — always shown, columns aligned */}
       <View style={styles.energyLines}>
         <View style={styles.energyRow}>
-          <Text style={styles.energyNum}>{eaten > 0 ? eaten.toLocaleString() : '—'}</Text>
-          <Text style={styles.energyLabel}>kcal eaten</Text>
+          {macroTarget ? (
+            <Text style={styles.energyLabel}>
+              <Text style={styles.energyNumInline}>{eaten > 0 ? eaten.toLocaleString() : '—'}</Text>
+              {` kcal eaten `}
+              <Text style={styles.energyTarget}>{`/ ${macroTarget.kcal.toLocaleString()}`}</Text>
+            </Text>
+          ) : (
+            <>
+              <Text style={styles.energyNum}>{eaten > 0 ? eaten.toLocaleString() : '—'}</Text>
+              <Text style={styles.energyLabel}>kcal eaten</Text>
+            </>
+          )}
         </View>
         {burn != null ? (
-          <View style={styles.energyRow}>
-            <Text style={styles.energyNum}>{burn.toLocaleString()}</Text>
-            <Text style={styles.energyLabel}>kcal burned</Text>
-          </View>
+          <Pressable style={styles.energyRow} onPress={() => { setCorrectionInput(burnCorrection !== 0 ? String(burnCorrection) : ''); setCorrectionModalVisible(true); }} hitSlop={8}>
+            <Text style={styles.energyNum}>{Math.round(burn).toLocaleString()}</Text>
+            <Text style={styles.energyLabel} numberOfLines={1}>
+              {'kcal burned'}
+              {burnCorrection !== 0 ? <Text style={styles.energyCorrection}>{` (${burnCorrection > 0 ? '+' : ''}${burnCorrection})`}</Text> : null}
+            </Text>
+            <Text style={styles.adjustBtn}>✎</Text>
+          </Pressable>
         ) : null}
         {balance != null ? (
           <View style={styles.energyRow}>
@@ -203,12 +251,12 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
         ) : null}
       </View>
 
-      {/* Macro bars — only when meals exist */}
-      {!isEmpty && (
+      {/* Macro bars — show when meals exist OR when targets are set */}
+      {(!isEmpty || macroTarget) && (
         <View style={[styles.barsWrap, { marginTop: 10 }]}>
-          <MacroBar label="P" value={macros!.protein_g} total={maxMacro} color={COLOR_PROTEIN} unit="g" />
-          <MacroBar label="C" value={macros!.carb_g}    total={maxMacro} color={COLOR_CARB}    unit="g" />
-          <MacroBar label="F" value={macros!.fat_g}     total={maxMacro} color={COLOR_FAT}     unit="g" />
+          <MacroBar label="P" value={macros?.protein_g ?? 0} target={macroTarget ? macroTarget.protein_g : maxMacro} color={COLOR_PROTEIN} showTarget={!!macroTarget} />
+          <MacroBar label="C" value={macros?.carb_g    ?? 0} target={macroTarget ? macroTarget.carb_g    : maxMacro} color={COLOR_CARB}    showTarget={!!macroTarget} />
+          <MacroBar label="F" value={macros?.fat_g     ?? 0} target={macroTarget ? macroTarget.fat_g     : maxMacro} color={COLOR_FAT}     showTarget={!!macroTarget} />
         </View>
       )}
 
@@ -249,6 +297,42 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
           <Text style={styles.footerBtnText}>⬇ Import</Text>
         </Pressable>
       </View>
+
+      {/* Burn correction modal */}
+      <Modal visible={correctionModalVisible} transparent animationType="fade" onRequestClose={() => setCorrectionModalVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setCorrectionModalVisible(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>Adjust burned calories</Text>
+            <Text style={styles.modalSub}>
+              Enter a correction (e.g. <Text style={styles.modalCode}>-188</Text> to reduce by 188 kcal).{'\n'}
+              Raw recorded: <Text style={styles.modalBold}>{rawBurn?.toLocaleString() ?? '—'} kcal</Text>
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={correctionInput}
+              onChangeText={setCorrectionInput}
+              keyboardType="numbers-and-punctuation"
+              placeholder="-188"
+              placeholderTextColor={WellnessColors.textSecondary}
+              autoFocus
+              selectTextOnFocus
+            />
+            <View style={styles.modalBtns}>
+              {burnCorrection !== 0 && (
+                <Pressable style={styles.modalBtnClear} onPress={async () => { await setBurnCorrection(activeDayKey, 0); setBurnCorrectionState(0); setCorrectionModalVisible(false); }}>
+                  <Text style={styles.modalBtnClearText}>Clear</Text>
+                </Pressable>
+              )}
+              <Pressable style={styles.modalBtnCancel} onPress={() => setCorrectionModalVisible(false)}>
+                <Text style={styles.modalBtnCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.modalBtnSave} onPress={handleSaveCorrection}>
+                <Text style={styles.modalBtnSaveText}>Save</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -381,9 +465,25 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     marginRight: 8,
   },
-  energyLabel: {
+  energyNumInline: {
     fontSize: 17,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+  },
+  energyLabel: {
+    fontSize: 15,
     fontWeight: '400',
+    color: WellnessColors.textSecondary,
+    flexShrink: 1,
+  },
+  energyTarget: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: WellnessColors.textSecondary,
+  },
+  energyCorrection: {
+    fontSize: 13,
+    fontWeight: '500',
     color: WellnessColors.textSecondary,
   },
   barsWrap: { marginBottom: 12 },
@@ -427,4 +527,86 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontVariant: ['tabular-nums'],
   },
+  adjustBtn: {
+    fontSize: 13,
+    color: WellnessColors.textSecondary,
+    marginLeft: 6,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: WellnessColors.surface,
+    borderRadius: 20,
+    padding: 22,
+    width: '100%',
+    maxWidth: 360,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+    marginBottom: 8,
+  },
+  modalSub: {
+    fontSize: 13,
+    color: WellnessColors.textSecondary,
+    marginBottom: 14,
+    lineHeight: 19,
+  },
+  modalCode: {
+    fontFamily: 'monospace',
+    color: WellnessColors.textPrimary,
+  },
+  modalBold: {
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+  },
+  modalInput: {
+    borderWidth: 1.5,
+    borderColor: WellnessColors.gridLine,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    fontSize: 20,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalBtns: {
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'flex-end',
+  },
+  modalBtnClear: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#EF5350',
+    alignItems: 'center',
+  },
+  modalBtnClearText: { fontSize: 14, color: '#EF5350', fontWeight: '600' },
+  modalBtnCancel: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: WellnessColors.gridLine,
+    alignItems: 'center',
+  },
+  modalBtnCancelText: { fontSize: 14, color: WellnessColors.textSecondary },
+  modalBtnSave: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: WellnessColors.accentGreen,
+    alignItems: 'center',
+  },
+  modalBtnSaveText: { fontSize: 14, color: '#fff', fontWeight: '700' },
 });

@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   RefreshControl,
@@ -23,6 +24,9 @@ import { FoodMacroStrip } from '../components/FoodMacroStrip';
 import { MetabolicChart } from '../components/MetabolicChart';
 import { MetabolicTrendChart7d } from '../components/MetabolicTrendChart7d';
 import { WeightTargetStrip } from '../components/WeightTargetStrip';
+import { MentorStrip } from '../components/MentorStrip';
+import { RulesStrip } from '../components/RulesStrip';
+import { MacroTargetStrip } from '../components/MacroTargetStrip';
 import { CONFIG } from '../config/env';
 import { useHealthData } from '../hooks/useHealthData';
 import {
@@ -36,7 +40,7 @@ import {
 import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportCsv } from '../services/careSensCsv';
 import { foodLogDayKey, getTodayMeals, type FoodEntry } from '../services/FoodLogService';
-import { getBirthdate, setBirthdate, computeAge, getCachedHeightCm, setHeightCm as saveHeightCm, getGender, setGender, type Gender } from '../services/TargetService';
+import { getBirthdate, setBirthdate, computeAge, getCachedHeightCm, setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors, getUserRules, getMacroTarget, getBodyTarget, type Gender, type MentorType, type UserRules, type DailyMacroTarget, type BodyTarget } from '../services/TargetService';
 import {
   buildAuthorizationUrl,
   fetchWeightMetrics,
@@ -150,7 +154,14 @@ export const DashboardScreen = () => {
   // ─── Height + birthdate + gender ─────────────────────────────────────────
   const [heightCm, setHeightCm] = useState<number | null>(null);
   const [userGender, setUserGender] = useState<Gender | null>(null);
-  const [birthdateModalVisible, setBirthdateModalVisible] = useState(false);
+  const [bodyTargetForMacros, setBodyTargetForMacros] = useState<BodyTarget | null>(null);
+  const [mentors, setMentorsState] = useState<MentorType[]>(['coach', 'nutritionist']);
+  const [userRules, setUserRules] = useState<UserRules | null>(null);
+  const [macroTarget, setMacroTarget] = useState<DailyMacroTarget | null>(null);
+  // expanded state for each collapsible row in the grouped card
+  const [mentorExpanded, setMentorExpanded] = useState(false);
+  const [rulesExpanded, setRulesExpanded] = useState(false);
+  const [macroExpanded, setMacroExpanded] = useState(false);
   const [birthdatePicker, setBirthdatePicker] = useState<Date>(new Date(1980, 0, 1));
   const [genderPicker, setGenderPicker] = useState<Gender>('male');
   const [showDatePickerDialog, setShowDatePickerDialog] = useState(false);
@@ -166,6 +177,8 @@ export const DashboardScreen = () => {
     setTodayFoodEntries(meals);
   }, []);
 
+  const [profileExpanded, setProfileExpanded] = useState(false);
+
   const loadHeightAndBirthdate = useCallback(async () => {
     // Load cached height first, then try fetching fresh from Withings.
     const cached = await getCachedHeightCm();
@@ -177,7 +190,14 @@ export const DashboardScreen = () => {
     const [storedBd, gd] = await Promise.all([getBirthdate(), getGender()]);
     if (gd) setUserGender(gd);
     if (storedBd) { const d = new Date(storedBd); if (!isNaN(d.getTime())) setBirthdatePicker(d); }
-    if (!gd || !storedBd) setBirthdateModalVisible(true);
+    if (!gd || !storedBd) setProfileExpanded(true);
+
+    // Load mentors, rules, macro target, body target
+    const [m, r, mt, bt] = await Promise.all([getMentors(), getUserRules(), getMacroTarget(), getBodyTarget()]);
+    setMentorsState(m);
+    if (r) setUserRules(r);
+    if (mt) setMacroTarget(mt);
+    if (bt) setBodyTargetForMacros(bt);
   }, []);
 
   const handleFoodSaved = useCallback(() => {
@@ -328,6 +348,27 @@ export const DashboardScreen = () => {
     const iso = birthdatePicker.toISOString().split('T')[0];
     return computeAge(iso);
   }, [birthdatePicker]);
+
+  /** Today's actual macros summed from food entries. */
+  const todayActualMacros = useMemo(() => {
+    if (todayFoodEntries.length === 0) return { protein_g: null, fat_g: null, carb_g: null, kcal: null };
+    const sum = todayFoodEntries.reduce(
+      (acc, e) => ({
+        protein_g: acc.protein_g + (e.totalProtein_g ?? 0),
+        fat_g:     acc.fat_g     + (e.totalFat_g     ?? 0),
+        carb_g:    acc.carb_g    + (e.totalCarb_g    ?? 0),
+        kcal:      acc.kcal      + (e.totalKcal      ?? 0),
+      }),
+      { protein_g: 0, fat_g: 0, carb_g: 0, kcal: 0 },
+    );
+    return sum;
+  }, [todayFoodEntries]);
+
+  /** Today's estimated burn from burnKcalByDay. */
+  const todayEstimatedBurn = useMemo(() => {
+    const todayKey = localDayKeyFromMs(Date.now());
+    return burnKcalByDay[todayKey] ?? null;
+  }, [burnKcalByDay]);
 
   /** Prefer device (continuous) heart rate, augmented with Withings spot readings. */
   const mergedHeartRate = useMemo(() => {
@@ -530,10 +571,16 @@ export const DashboardScreen = () => {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={false}
@@ -772,6 +819,7 @@ export const DashboardScreen = () => {
           refreshKey={foodRefreshKey}
           burnKcalByDay={burnKcalByDay}
           onImported={() => { setFoodRefreshKey((k) => k + 1); loadTodayFood(); }}
+          macroTarget={macroTarget}
         />
 
         {dataSource === 'health-connect' ? (
@@ -822,14 +870,10 @@ export const DashboardScreen = () => {
 
         {/* My Profile + My Targets — single grouped card */}
         <View style={[styles.groupCard, cardShadow]}>
+          {/* ── My Profile collapsible row ── */}
           <Pressable
             style={styles.profileRow}
-            onPress={async () => {
-              const [bd, gd] = await Promise.all([getBirthdate(), getGender()]);
-              if (gd) setGenderPicker(gd);
-              if (bd) { const d = new Date(bd); if (!isNaN(d.getTime())) setBirthdatePicker(d); }
-              setBirthdateModalVisible(true);
-            }}
+            onPress={() => setProfileExpanded((e) => !e)}
           >
             <Text style={styles.profileRowIcon}>👤</Text>
             <View style={styles.profileRowInfo}>
@@ -838,56 +882,15 @@ export const DashboardScreen = () => {
                 {[
                   userGender ? userGender.charAt(0).toUpperCase() + userGender.slice(1) : null,
                   heightCm ? `${heightCm} cm` : null,
+                  birthdatePicker ? `${userAge} y` : null,
                 ].filter(Boolean).join(' · ') || 'Tap to set gender, height & birthdate'}
               </Text>
             </View>
-            <Text style={styles.profileRowChevron}>›</Text>
+            <Text style={styles.profileRowChevron}>{profileExpanded ? '⌃' : '›'}</Text>
           </Pressable>
 
-          <View style={styles.groupDivider} />
-
-          <WeightTargetStrip
-            weightKg={bodyScan?.weightKg ?? null}
-            fatPct={fatPct}
-            muscleMass_kg={bodyScan?.muscleMassKg ?? null}
-            bmr_kcal={bodyScan?.bmrKcalDay ?? null}
-            heightCm={heightCm}
-            age={userAge}
-            gender={userGender}
-            weeklyWeightChange_kg={weeklyWeightChange_kg}
-          />
-        </View>
-      </ScrollView>
-
-      {pullRefreshing && (
-        <View style={styles.refreshOverlay} pointerEvents="none">
-          <ActivityIndicator size="large" color="#000" />
-        </View>
-      )}
-
-      <FoodLogModal
-        visible={foodModalVisible}
-        onClose={() => { setFoodModalVisible(false); setFoodEditEntry(undefined); }}
-        onSaved={handleFoodSaved}
-        editEntry={foodEditEntry}
-      />
-
-      {/* ── Birthdate + gender one-time modal ────────────────────────── */}
-      {birthdateModalVisible && (
-        <View style={styles.birthdateOverlay}>
-          <View style={styles.birthdateCard}>
-            <ScrollView
-              style={{ width: '100%' }}
-              contentContainerStyle={styles.birthdateScroll}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              <Text style={styles.birthdateTitle}>One quick thing</Text>
-              <Text style={styles.birthdateSubtitle}>
-                Used by AI for personalised health recommendations. Only asked once.
-              </Text>
-
-
+          {profileExpanded && (
+            <View style={styles.profileBody}>
               {/* Gender */}
               <Text style={styles.birthdateSectionTitle}>Gender</Text>
               <View style={styles.genderRow}>
@@ -918,9 +921,6 @@ export const DashboardScreen = () => {
                 />
                 <Text style={styles.heightUnit}>cm</Text>
               </View>
-              {heightInput === '' && (
-                <Text style={styles.heightHint}>Not found in Withings — please enter manually</Text>
-              )}
 
               {/* Birth Date */}
               <Text style={styles.birthdateSectionTitle}>Birth Date</Text>
@@ -933,9 +933,9 @@ export const DashboardScreen = () => {
                 </Text>
                 <Text style={styles.datePickerBtnIcon}>📅</Text>
               </Pressable>
-              <Text style={styles.birthdateAge}>
-                Age: {computeAge(birthdatePicker.toISOString().split('T')[0])} years
-              </Text>
+              {userAge != null && (
+                <Text style={styles.birthdateAge}>Age: {userAge} years</Text>
+              )}
               {showDatePickerDialog && (
                 <DateTimePicker
                   value={birthdatePicker}
@@ -962,15 +962,86 @@ export const DashboardScreen = () => {
                   ]);
                   if (cm > 0) setHeightCm(cm);
                   setUserGender(genderPicker);
-                  setBirthdateModalVisible(false);
+                  setProfileExpanded(false);
                 }}
               >
                 <Text style={styles.birthdateSaveBtnText}>Save</Text>
               </Pressable>
-            </ScrollView>
-          </View>
+            </View>
+          )}
+
+          <View style={styles.groupDivider} />
+
+          <WeightTargetStrip
+            weightKg={bodyScan?.weightKg ?? null}
+            fatPct={fatPct}
+            muscleMass_kg={bodyScan?.muscleMassKg ?? null}
+            bmr_kcal={bodyScan?.bmrKcalDay ?? null}
+            heightCm={heightCm}
+            age={userAge}
+            gender={userGender}
+            weeklyWeightChange_kg={weeklyWeightChange_kg}
+          />
+
+          <View style={styles.groupDivider} />
+
+          <MentorStrip
+            mentors={mentors}
+            onChanged={async (m) => { setMentorsState(m); await saveMentors(m); }}
+            expanded={mentorExpanded}
+            onToggleExpand={() => setMentorExpanded((e) => !e)}
+          />
+
+          <View style={styles.groupDivider} />
+
+          <RulesStrip
+            userRules={userRules}
+            mentors={mentors}
+            onSaved={setUserRules}
+            expanded={rulesExpanded}
+            onToggleExpand={() => setRulesExpanded((e) => !e)}
+          />
+
+          <View style={styles.groupDivider} />
+
+          <MacroTargetStrip
+            actualProtein_g={todayActualMacros.protein_g}
+            actualFat_g={todayActualMacros.fat_g}
+            actualCarb_g={todayActualMacros.carb_g}
+            actualKcal={todayActualMacros.kcal}
+            weightKg={bodyScan?.weightKg ?? null}
+            fatMassKg={bodyScan?.fatMassKg ?? null}
+            muscleMass_kg={bodyScan?.muscleMassKg ?? null}
+            bmr_kcal={bodyScan?.bmrKcalDay ?? null}
+            estimatedBurn_kcal={todayEstimatedBurn}
+            heightCm={heightCm}
+            age={userAge}
+            gender={userGender}
+            bodyTarget={bodyTargetForMacros}
+            userRules={userRules}
+            mentors={mentors}
+            onSaved={(t) => setMacroTarget(t ?? null)}
+            expanded={macroExpanded}
+            onToggleExpand={() => setMacroExpanded((e) => !e)}
+          />
+        </View>
+      </ScrollView>
+      </KeyboardAvoidingView>
+
+      {pullRefreshing && (
+        <View style={styles.refreshOverlay} pointerEvents="none">
+          <ActivityIndicator size="large" color="#000" />
         </View>
       )}
+
+      <FoodLogModal
+        visible={foodModalVisible}
+        onClose={() => { setFoodModalVisible(false); setFoodEditEntry(undefined); }}
+        onSaved={handleFoodSaved}
+        editEntry={foodEditEntry}
+      />
+
+      {/* ── Birthdate + gender one-time modal ────────────────────────── */}
     </SafeAreaView>
   );
 };
@@ -979,6 +1050,9 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: WellnessColors.background,
+  },
+  keyboardAvoid: {
+    flex: 1,
   },
   refreshOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1357,6 +1431,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: WellnessColors.textSecondary,
     fontWeight: '300',
+  },
+  profileBody: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   birthdateOverlay: {
     ...StyleSheet.absoluteFillObject,
