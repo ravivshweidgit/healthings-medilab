@@ -26,13 +26,17 @@ function startOfLocalDay(ms: number): number {
   return d.getTime();
 }
 
+function formatDatePart(ms: number): string {
+  return new Date(ms).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
 function formatDayLabel(ms: number): string {
   const todayMs = startOfLocalDay(Date.now());
   const dayMs   = startOfLocalDay(ms);
   const diff    = Math.round((todayMs - dayMs) / MS_DAY);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Yesterday';
-  return new Date(ms).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const datePart = formatDatePart(ms);
+  if (diff === 0) return `Today - ${datePart}`;
+  return datePart;
 }
 
 import type { DailyMacroTarget } from '../services/TargetService';
@@ -243,7 +247,7 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
         {balance != null ? (
           <View style={[styles.energyRow, styles.balanceRow, isDeficit ? styles.balanceDeficitBg : styles.balanceSurplusBg]}>
             <Text style={[styles.energyNum, { color: isDeficit ? '#2E7D32' : '#C62828' }]}>
-              {balance >= 0 ? '+' : '−'}{Math.abs(balance).toLocaleString()}
+              {Math.abs(balance).toLocaleString()}
             </Text>
             <Text style={[styles.energyLabel, { color: isDeficit ? '#2E7D32' : '#C62828' }]}>
               kcal {isDeficit ? 'deficit' : 'surplus'}
