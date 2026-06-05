@@ -92,10 +92,30 @@ export async function dismissCoachMessage(): Promise<void>
 
 ### Auto-check logic (run on each dashboard load)
 
-Check action items automatically based on live data:
-- "Stay under 20g carbs" → done if today carb_g ≤ target
-- "Log next meal" → done if a meal was logged after card generated
-- "Stay in calorie deficit" → done if eaten < burned
+AI action items include an optional `autoCheckType` so the app can tick them
+automatically without string matching:
+
+```ts
+export type AutoCheckType =
+  | 'carbs_under_target'      // done if todayCarb_g <= macroTarget.carb_g
+  | 'protein_over_target'     // done if todayProtein_g >= macroTarget.protein_g * 0.9
+  | 'calorie_deficit'         // done if todayEaten < todayBurn
+  | 'meal_logged'             // done if mealCount > mealCountAtGeneration
+  | null;                     // manual check only
+
+export type CoachActionItem = {
+  id: string;
+  text: string;
+  done: boolean;
+  autoCheckType: AutoCheckType;
+};
+```
+
+AI returns `actionItems` as objects with `text` and `autoCheckType`.
+Update the Gemini output schema accordingly:
+```json
+{"text":"...","actionItems":[{"text":"Stay under 20g carbs","autoCheckType":"carbs_under_target"}]}
+```
 
 ---
 
@@ -137,6 +157,10 @@ if (event === 'meal' && !freq.afterEachMeal) return null;  // meal events disabl
 export type CoachContext = {
   mentors: MentorType[];
   event: CoachTriggerEvent;
+  // user profile
+  age: number | null;
+  gender: string | null;
+  heightCm: number | null;
   // body
   weightKg: number | null;
   fatPct: number | null;
@@ -151,6 +175,7 @@ export type CoachContext = {
   todayFat_g: number | null;
   todayCarb_g: number | null;
   mealCount: number;
+  mealCountAtGeneration?: number;  // for 'meal_logged' auto-check
   // targets
   macroTarget: DailyMacroTarget | null;
   bodyTarget: BodyTarget | null;
@@ -278,8 +303,33 @@ Call `triggerCoachReview()` after:
 2. After Withings body scan syncs → event: `'weigh-in'`
 3. After Health Connect workout syncs → event: `'workout'`
 
+### Day-close trigger (midnight boundary — aligns with Withings)
+
+On every dashboard mount, check:
+```ts
+const lastDayClose = await AsyncStorage.getItem('last_day_close_date'); // 'YYYY-MM-DD'
+const today = new Date().toISOString().split('T')[0];
+if (lastDayClose !== today) {
+  await AsyncStorage.setItem('last_day_close_date', today);
+  triggerCoachReview('day-close', context);
+}
+```
+This fires once on the first open of each new day — same midnight boundary Withings uses.
+
 ### Dashboard scroll padding
 Add `paddingBottom: 100` to `contentContainerStyle` of main ScrollView.
+
+---
+
+## Dependencies
+
+Install before building:
+```powershell
+Set-Location "c:\projects\healthings-medilab\app"
+npm install @react-native-community/slider
+```
+Add `"@react-native-community/slider"` to `plugins` array in `app.json` if needed,
+then run `npx expo prebuild --platform android --no-install` to regenerate native files.
 
 ---
 
