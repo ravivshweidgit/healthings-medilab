@@ -304,8 +304,8 @@ function formatEnergyLine(eaten: number, burn: number | undefined): string {
   if (eaten === 0 && burn == null) return 'ENERGY: no food logged, burn unknown';
   const burnStr = burn != null ? `${burn} kcal estimated burn (BMR+passive+workouts)` : 'burn unknown';
   if (burn == null) return `ENERGY: ${eaten} kcal eaten | ${burnStr}`;
-  const balance = burn - eaten;
-  const label = balance > 0 ? 'deficit' : balance < 0 ? 'surplus' : 'even';
+  const balance = eaten - burn;
+  const label = balance < 0 ? 'deficit' : balance > 0 ? 'surplus' : 'even';
   return `ENERGY: ${eaten} kcal eaten | ${burnStr} | balance ${balance > 0 ? '+' : ''}${balance} (${label})`;
 }
 

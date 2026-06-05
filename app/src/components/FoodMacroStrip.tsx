@@ -190,8 +190,8 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
   const rawBurn = burnKcalByDay?.[activeDayKey] ?? null;
   const burn    = rawBurn != null ? rawBurn + burnCorrection : null;
   const eaten   = macros ? Math.round(macros.kcal) : 0;
-  const balance = burn != null && eaten > 0 ? burn - eaten : null;
-  const isDeficit = balance != null && balance >= 0;
+  const balance = burn != null && eaten > 0 ? eaten - burn : null;
+  const isDeficit = balance != null && balance < 0;
 
   return (
     <View style={[styles.card, cardShadow]}>
@@ -241,11 +241,11 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
           </Pressable>
         ) : null}
         {balance != null ? (
-          <View style={styles.energyRow}>
-            <Text style={[styles.energyNum, { color: isDeficit ? '#2E7D32' : '#E65100' }]}>
-              {Math.abs(balance).toLocaleString()}
+          <View style={[styles.energyRow, styles.balanceRow, isDeficit ? styles.balanceDeficitBg : styles.balanceSurplusBg]}>
+            <Text style={[styles.energyNum, { color: isDeficit ? '#2E7D32' : '#C62828' }]}>
+              {balance >= 0 ? '+' : '−'}{Math.abs(balance).toLocaleString()}
             </Text>
-            <Text style={[styles.energyLabel, { color: isDeficit ? '#2E7D32' : '#E65100' }]}>
+            <Text style={[styles.energyLabel, { color: isDeficit ? '#2E7D32' : '#C62828' }]}>
               kcal {isDeficit ? 'deficit' : 'surplus'}
             </Text>
           </View>
@@ -452,6 +452,18 @@ const styles = StyleSheet.create({
   energyRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
+  },
+  balanceRow: {
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 6,
+    marginTop: 2,
+  },
+  balanceDeficitBg: {
+    backgroundColor: '#E8F5E9',
+  },
+  balanceSurplusBg: {
+    backgroundColor: '#FFEBEE',
   },
   energyNum: {
     width: 56,

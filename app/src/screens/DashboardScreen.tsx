@@ -45,7 +45,7 @@ import {
 } from '../logic/metabolicTrend7d';
 import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportCsv } from '../services/careSensCsv';
-import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
+import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getDailyMacros, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
 import {
   getBirthdate, setBirthdate, computeAge, getCachedHeightCm,
   setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors,
@@ -178,6 +178,7 @@ export const DashboardScreen = () => {
   const [foodInitialTimestamp, setFoodInitialTimestamp] = useState<number | undefined>();
   const [foodRefreshKey, setFoodRefreshKey] = useState(0);
   const [todayFoodEntries, setTodayFoodEntries] = useState<FoodEntry[]>([]);
+  const [eatenKcalByDay, setEatenKcalByDay] = useState<Record<string, number>>({});
   const todayDayKey = foodLogDayKey(Date.now());
 
   const [pullRefreshing, setPullRefreshing] = useState(false);
@@ -303,6 +304,25 @@ export const DashboardScreen = () => {
       ) ?? false,
     [visibleTrend]
   );
+
+  const loadEatenHistory = useCallback(async (dayKeys: string[]) => {
+    if (dayKeys.length === 0) {
+      setEatenKcalByDay({});
+      return;
+    }
+    const pairs = await Promise.all(
+      dayKeys.map(async (dk) => {
+        const m = await getDailyMacros(dk);
+        return [dk, Math.round(m.kcal)] as const;
+      }),
+    );
+    setEatenKcalByDay(Object.fromEntries(pairs));
+  }, []);
+
+  useEffect(() => {
+    const keys = visibleTrend?.days.map((d) => d.dayKey) ?? [];
+    void loadEatenHistory(keys);
+  }, [visibleTrend, foodRefreshKey, loadEatenHistory]);
 
   /**
    * Total calorie burn per day key for all days covered by intraday data.
@@ -1073,7 +1093,11 @@ export const DashboardScreen = () => {
         {hasEnergyHistory && visibleTrend ? (
           <View style={styles.trendBleed}>
             <View style={[styles.trendCardBleed, styles.bmrCardBleed, cardShadow]}>
-              <BmrHistoryChart7d days={visibleTrend.days} loading={trendLoading} />
+              <BmrHistoryChart7d
+                days={visibleTrend.days}
+                loading={trendLoading}
+                eatenKcalByDay={eatenKcalByDay}
+              />
             </View>
           </View>
         ) : null}
