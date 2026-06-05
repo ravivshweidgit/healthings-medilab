@@ -2,8 +2,9 @@
 
 ### Vision
 The mentor speaks when there is new data — not on a clock, not when asked.
-Every coach card is grounded in a real event. The user can reply and open a
-free-dialogue chat at any time.
+Every message is grounded in a real event. Action items live inside the chat
+so context is always one tap away. The dashboard shows only a lightweight
+progress nudge — no duplicate full card.
 
 ---
 
@@ -43,44 +44,48 @@ export async function saveMentorFrequency(f: MentorFrequency): Promise<void>
 
 ---
 
-## PART B — Coach card (CoachCard.tsx — NEW)
+## PART B — Mentor nudge strip (dashboard inline — lightweight, no full card)
 
-A card shown at the **top of the dashboard** (above the glucose/HR chart),
-conditionally rendered only when a current coach message exists.
+A single tappable row rendered just above the glucose/HR chart on the dashboard.
+Shown only when a current (non-dismissed) coach message exists.
 
 ```
-┌─────────────────────────────────────────────┐
-│ 💪🥗 Your mentors   Jun 5 · 13:42          ✕ │
-├─────────────────────────────────────────────┤
-│ You're 0.2 kg below your muscle baseline.   │
-│ Protein is on track (127/148g). Keep it up. │
-│                                             │
-│ Action items:                               │
-│ ☐  Add 20g protein at dinner               │
-│ ☑  Stay under 20g carbs  ← auto-checked    │
-│ ☐  Log next meal                           │
-│                                             │
-│              [💬 Reply to mentors]          │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│ 💬 Mentors · 1 of 3 items done   Open →    ✕ │
+└──────────────────────────────────────────────┘
 ```
+
+- **Tap row / "Open →"** → opens ChatScreen (chat opens with the coach message
+  already visible as the first bubble, including its action items checklist)
+- **✕** → dismisses the strip (sets `dismissedAt`); ChatScreen history still accessible
+- Progress count ("1 of 3 done") updates in real time as auto-checks tick items
+- No message text and no action item list on the dashboard — those live in ChatScreen
 
 ### CoachMessage type (TargetService.ts)
 
 ```ts
+export type AutoCheckType =
+  | 'carbs_under_target'      // done if todayCarb_g <= macroTarget.carb_g
+  | 'protein_over_target'     // done if todayProtein_g >= macroTarget.protein_g * 0.9
+  | 'calorie_deficit'         // done if todayEaten < todayBurn
+  | 'meal_logged'             // done if mealCount > mealCountAtGeneration
+  | null;                     // manual tap only
+
 export type CoachActionItem = {
   id: string;
   text: string;
   done: boolean;
-  autoDone?: boolean;  // checked automatically by data (e.g. carb target met)
+  autoCheckType: AutoCheckType;
 };
 
 export type CoachMessage = {
-  id: string;                  // UUID
-  text: string;                // max 2 sentences from AI
+  id: string;                      // UUID
+  text: string;                    // max 2 sentences from AI
   actionItems: CoachActionItem[];  // 2–4 items
   triggerEvent: 'meal' | 'weigh-in' | 'workout' | 'day-close';
-  generatedAt: string;         // ISO
-  dismissedAt?: string;        // ISO — if user tapped ✕
+  generatedAt: string;             // ISO
+  dismissedAt?: string;            // ISO — set when user taps ✕
+  mealCountAtGeneration: number;   // snapshot for 'meal_logged' auto-check
 };
 
 const COACH_MESSAGE_KEY = 'coach_message_today';
@@ -90,32 +95,14 @@ export async function saveCoachMessage(m: CoachMessage): Promise<void>
 export async function dismissCoachMessage(): Promise<void>
 ```
 
-### Auto-check logic (run on each dashboard load)
+### Auto-check logic
 
-AI action items include an optional `autoCheckType` so the app can tick them
-automatically without string matching:
+Runs in two places:
+1. **On each dashboard load** — to keep the "N of M done" count current in the nudge strip
+2. **When ChatScreen opens** — to reflect latest data in the action items checklist
 
-```ts
-export type AutoCheckType =
-  | 'carbs_under_target'      // done if todayCarb_g <= macroTarget.carb_g
-  | 'protein_over_target'     // done if todayProtein_g >= macroTarget.protein_g * 0.9
-  | 'calorie_deficit'         // done if todayEaten < todayBurn
-  | 'meal_logged'             // done if mealCount > mealCountAtGeneration
-  | null;                     // manual check only
-
-export type CoachActionItem = {
-  id: string;
-  text: string;
-  done: boolean;
-  autoCheckType: AutoCheckType;
-};
-```
-
-AI returns `actionItems` as objects with `text` and `autoCheckType`.
-Update the Gemini output schema accordingly:
-```json
-{"text":"...","actionItems":[{"text":"Stay under 20g carbs","autoCheckType":"carbs_under_target"}]}
-```
+Loop through `actionItems`, apply each `autoCheckType` rule against live `CoachContext`
+data, flip `done = true` where conditions are met, and persist with `saveCoachMessage`.
 
 ---
 
@@ -125,8 +112,8 @@ Update the Gemini output schema accordingly:
 export type CoachTriggerEvent = 'meal' | 'weigh-in' | 'workout' | 'day-close';
 
 /**
- * Call this after every relevant event (meal saved, body scan synced, workout synced).
- * Checks frequency rules, then calls AI if due.
+ * Call after every relevant event (meal saved, body scan synced, workout synced).
+ * Checks frequency rules, calls AI if due.
  * Returns the new CoachMessage or null if skipped (too soon).
  */
 export async function triggerCoachReview(
@@ -175,14 +162,13 @@ export type CoachContext = {
   todayFat_g: number | null;
   todayCarb_g: number | null;
   mealCount: number;
-  mealCountAtGeneration?: number;  // for 'meal_logged' auto-check
   // targets
   macroTarget: DailyMacroTarget | null;
   bodyTarget: BodyTarget | null;
   userRules: UserRules | null;
 };
 
-export async function generateCoachMessage(ctx: CoachContext): Promise<{ text: string; actionItems: string[] }>
+export async function generateCoachMessage(ctx: CoachContext): Promise<CoachMessage>
 ```
 
 ### Prompt template
@@ -201,15 +187,23 @@ Meals logged today: {mealCount}
 Dietary rules: {rulesContext}
 
 Respond with JSON only:
-{"text":"2 sentences max. Specific to the data above.","actionItems":["item1","item2","item3"]}
+{
+  "text": "2 sentences max. Specific numbers. No generic advice.",
+  "actionItems": [
+    {"text": "Stay under 20g carbs today", "autoCheckType": "carbs_under_target"},
+    {"text": "Add 20g protein at dinner",  "autoCheckType": null},
+    {"text": "Log next meal",              "autoCheckType": "meal_logged"}
+  ]
+}
 
 Rules:
-- text: max 2 sentences, specific numbers, no generic advice
+- text: max 2 sentences, cite specific numbers from the data, no generic advice
 - actionItems: 2–4 items, max 8 words each, concrete and actionable today
+- autoCheckType: use the matching type if applicable, otherwise null
 - If event is meal: focus on remaining macros for the day
 - If event is weigh-in: focus on trend vs target, muscle vs start
 - If event is workout: focus on calorie budget impact
-- Do NOT repeat data the user already sees on screen
+- Do NOT repeat data the user already sees on the dashboard
 ```
 
 Config: `temperature: 0.3`, `maxOutputTokens: 8192`
@@ -222,14 +216,15 @@ The user can always request an immediate mentor review, ignoring the minimum gap
 
 ### Entry points
 
-1. **CoachCard** — when a card exists, show a subtle "↻ Review now" link below the
-   action items. Tapping regenerates the card with current data.
+1. **Nudge strip** — when the strip is visible, show a subtle "↻ Refresh" link
+   on the right side. Tapping regenerates with current data.
 
-2. **Floating pill** — the pill has two behaviours:
+2. **Floating pill** — two behaviours:
    - **Tap** → open ChatScreen (free dialogue)
-   - **Long-press** → trigger immediate mentor review → generates new CoachCard
+   - **Long-press** → trigger immediate mentor review → generates new message,
+     nudge strip appears / refreshes, ChatScreen auto-opens to show it
 
-3. **No card showing** (dismissed or first launch) → pill tap shows a small menu:
+3. **No strip showing** (dismissed or first launch) → pill tap shows a small menu:
    ```
    ┌──────────────────────────┐
    │  💬  Chat with mentors   │
@@ -250,37 +245,136 @@ export async function forceCoachReview(
 ```
 
 ### UX note
-- After "Review now" completes, the CoachCard appears/refreshes at top of dashboard
-- The `lastMentorCheckAt` timestamp is updated — so the next automatic check
-  counts from this manual review
+- After "Review now" completes, the nudge strip appears/refreshes on the dashboard
+- The `generatedAt` timestamp is updated — so the next automatic check counts
+  from this manual review
 - No limit on how often the user can manually review
 
 ---
 
 ## PART F — Free chat (ChatScreen.tsx — NEW)
 
-Opened from "💬 Reply to mentors" in CoachCard, or from the floating pill.
+Opened from the nudge strip "Open →", or from the floating pill.
 
 Full-screen modal. Inherits all context from CoachContext.
-Multi-turn conversation — last 10 messages sent as history.
 
 ```
-┌─────────────────────────────────────────┐
-│  ←  💬 My Mentors  🥗💪                 │
-├─────────────────────────────────────────┤
-│  [coach message shown as first bubble]  │
-│                                         │
-│  [user messages right, AI left]         │
-│                                         │
-├─────────────────────────────────────────┤
-│  ┌──────────────────────────┐  [Send]   │
-│  │ Ask your mentors…        │           │
-│  └──────────────────────────┘           │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│  ←  💬 My Mentors  🥗💪                      │
+├─────────────────────────────────────────────┤
+│                                             │
+│  ┌─────────────────────────────────────┐    │
+│  │ You're 0.2 kg below muscle target.  │    │  ← AI bubble (coach msg)
+│  │ Protein on track (127/148g).        │    │
+│  │                                     │    │
+│  │ ☐  Add 20g protein at dinner        │    │  ← action items checklist
+│  │ ☑  Stay under 20g carbs             │    │     inside the bubble
+│  │ ☐  Log next meal                    │    │
+│  └─────────────────────────────────────┘    │
+│                                             │
+│  [user messages right, AI left]             │
+│                                             │
+├─────────────────────────────────────────────┤
+│  [Review my status] [Review last meal] [+]  │  ← quick-question chips
+│  ┌──────────────────────────┐  [Send]        │
+│  │ Ask your mentors…        │                │
+│  └──────────────────────────┘                │
+└─────────────────────────────────────────────┘
 ```
 
-GeminiService: `chatWithMentors(message, history, context)` — same context as
-`generateCoachMessage`. Temperature 0.4.
+### Action items inside the coach bubble
+- Rendered as a checklist at the bottom of the first AI bubble
+- Checkboxes are tappable — manual tap toggles `done`; auto-checks tick automatically
+  when ChatScreen opens (same logic as dashboard, runs against live data)
+- Ticking / unticking persists via `saveCoachMessage`
+- The nudge strip "N of M done" count on the dashboard reflects these changes
+
+### Chat history model
+
+**One chat, per-day scope.** History resets at midnight (same boundary as Withings).
+No per-mentor threads — all mentors respond as a unified panel voice.
+
+#### Storage (TargetService.ts additions)
+
+```ts
+export type ChatMessage = {
+  role: 'user' | 'assistant';
+  text: string;
+  sentAt: string;  // ISO
+};
+
+const CHAT_HISTORY_KEY = 'chat_history_';  // + 'YYYY-MM-DD'
+const CHAT_YESTERDAY_SUMMARY_KEY = 'chat_yesterday_summary';  // plain string
+
+export async function getChatHistory(date: string): Promise<ChatMessage[]>
+// date = 'YYYY-MM-DD', returns [] if none
+
+export async function appendChatMessage(date: string, msg: ChatMessage): Promise<void>
+// Appends to today's array; trims to last 30 messages if needed
+
+export async function getYesterdaySummary(): Promise<string | null>
+export async function saveYesterdaySummary(summary: string): Promise<void>
+```
+
+#### Yesterday's context (one-sentence handoff)
+
+On the **first chat open of a new day**, if yesterday's history exists and no
+summary has been saved yet:
+1. Call `summariseChatDay(history)` in GeminiService — a lightweight call:
+   `"Summarise yesterday's health chat in one sentence (max 20 words)."`
+2. Store the result in `CHAT_YESTERDAY_SUMMARY_KEY`.
+3. Prepend it silently to the system prompt for all of today's chat calls:
+   `"Yesterday: {summary}"`
+
+This provides continuity ("you hit your carb goal yesterday") without growing
+the token budget as the day progresses.
+
+#### Sent to AI each turn
+- System prompt (mentor personas + user rules + yesterday summary if available)
+- CoachContext data block (same as `generateCoachMessage`)
+- Last **20** messages from today's history
+
+GeminiService: `chatWithMentors(message, history, context, yesterdaySummary)`.
+Temperature 0.4.
+
+---
+
+## PART F2 — Quick Questions (user-editable chat shortcuts)
+
+Up to 3 quick-question chips shown above the input bar in ChatScreen.
+Tapping a chip sends that question immediately (no extra confirm step).
+Long-pressing a chip opens inline editing to rename it.
+
+### Defaults (shipped with the app, used if nothing stored)
+```
+"Review my status"
+"Review my last meal"
+"How am I doing today?"
+```
+
+### Storage (TargetService.ts addition)
+```ts
+export type QuickQuestion = {
+  id: string;    // stable UUID assigned on first save
+  label: string; // display text, also the message sent
+};
+
+const QUICK_QUESTIONS_KEY = 'chat_quick_questions';
+
+export async function getQuickQuestions(): Promise<QuickQuestion[]>
+// Returns saved list, or the 3 defaults if nothing stored yet.
+
+export async function saveQuickQuestions(qs: QuickQuestion[]): Promise<void>
+```
+
+### UI behaviour
+- Chips shown in a single horizontal scrollable row above the text input
+- **Tap** → text is sent immediately as a user message
+- **Long-press** → chip label becomes an editable `TextInput` inline;
+  confirm with keyboard "Done" key → auto-saved
+- A **＋** chip at the far right adds a new question (max 3 total)
+- During inline edit, a **✕** appears next to the field to delete that chip
+- No separate settings screen — all editing is inline in ChatScreen
 
 ---
 
@@ -288,10 +382,12 @@ GeminiService: `chatWithMentors(message, history, context)` — same context as
 
 ### Floating pill
 ```jsx
-<Pressable style={styles.chatPill} onPress={() => setChatVisible(true)}>
-  <Text style={styles.chatPillText}>
-    {mentorEmojis}  Ask mentors
-  </Text>
+<Pressable
+  style={styles.chatPill}
+  onPress={() => setChatVisible(true)}
+  onLongPress={() => handleForceReview()}
+>
+  <Text style={styles.chatPillText}>{mentorEmojis}  Ask mentors</Text>
 </Pressable>
 ```
 Style: `position: absolute`, bottom 16, `alignSelf: 'center'`, dark pill,
@@ -314,10 +410,11 @@ if (lastDayClose !== today) {
   triggerCoachReview('day-close', context);
 }
 ```
-This fires once on the first open of each new day — same midnight boundary Withings uses.
+Fires once on the first open of each new day — same midnight boundary Withings uses.
 
 ### Dashboard scroll padding
-Add `paddingBottom: 100` to `contentContainerStyle` of main ScrollView.
+Add `paddingBottom: 100` to `contentContainerStyle` of main ScrollView so
+content is not hidden behind the floating pill.
 
 ---
 
@@ -335,13 +432,23 @@ then run `npx expo prebuild --platform android --no-install` to regenerate nativ
 
 ## Files to create / change
 
-1. `TargetService.ts` — MentorFrequency, CoachMessage, CoachActionItem types + CRUD
-2. `GeminiService.ts` — `generateCoachMessage()`, `chatWithMentors()`
-3. `CoachService.ts` — NEW: `triggerCoachReview()` (frequency gate) + `forceCoachReview()` (no gate)
-4. `CoachCard.tsx` — NEW: dismissable card with action items + Reply + Review now
-5. `ChatScreen.tsx` — NEW: full-screen chat modal
-6. `MentorStrip.tsx` — add frequency toggle + min-gap slider
-7. `DashboardScreen.tsx` — CoachCard at top, floating pill (tap=chat, long-press=review), trigger wiring
+1. `TargetService.ts` — add MentorFrequency, CoachMessage, CoachActionItem,
+   ChatMessage, QuickQuestion types + CRUD functions (getChatHistory,
+   appendChatMessage, getYesterdaySummary, saveYesterdaySummary,
+   getQuickQuestions, saveQuickQuestions, getMentorFrequency, saveMentorFrequency,
+   getCoachMessage, saveCoachMessage, dismissCoachMessage)
+2. `GeminiService.ts` — add `generateCoachMessage()`, `chatWithMentors()`,
+   `summariseChatDay()`
+3. `CoachService.ts` — NEW: `triggerCoachReview()` (frequency gate) +
+   `forceCoachReview()` (no gate) + auto-check helper
+4. `ChatScreen.tsx` — NEW: full-screen chat modal; first bubble is the coach
+   message with inline action items checklist; quick-question chips above input;
+   loads today's history on open; handles yesterday summary on first open of day
+5. `MentorStrip.tsx` — add frequency toggle + min-gap slider
+6. `DashboardScreen.tsx` — mentor nudge strip (above chart), floating pill
+   (tap=chat, long-press=force review), trigger wiring, day-close check
+
+No separate CoachCard.tsx — replaced by the inline nudge strip in DashboardScreen.
 
 ---
 
