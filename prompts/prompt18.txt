@@ -1,0 +1,304 @@
+## Prompt 18 — Proactive Mentor Coaching
+
+### Vision
+The mentor speaks when there is new data — not on a clock, not when asked.
+Every coach card is grounded in a real event. The user can reply and open a
+free-dialogue chat at any time.
+
+---
+
+## PART A — Mentor frequency setting (MentorStrip.tsx update)
+
+Add to the expanded MentorStrip body, below the mentor toggle cards:
+
+```
+┌───────────────────────────────────────────┐
+│  Review after each meal        [●  ON ]   │
+│  Minimum gap between reviews              │
+│  2h  ──────────●──────────  24h           │
+│               4h                          │
+└───────────────────────────────────────────┘
+```
+
+### Storage (TargetService.ts additions)
+
+```ts
+export type MentorFrequency = {
+  afterEachMeal: boolean;   // default: true
+  minGapHours: number;      // default: 4, range 2–24
+};
+
+const MENTOR_FREQ_KEY = 'mentor_frequency';
+
+export async function getMentorFrequency(): Promise<MentorFrequency>
+export async function saveMentorFrequency(f: MentorFrequency): Promise<void>
+```
+
+### UI controls
+
+- `Switch` (React Native) for "Review after each meal" toggle
+- `Slider` from `@react-native-community/slider` for min gap (2–24h, step 1)
+- Label below slider shows current value: "4h minimum between reviews"
+- Save on change (no save button)
+
+---
+
+## PART B — Coach card (CoachCard.tsx — NEW)
+
+A card shown at the **top of the dashboard** (above the glucose/HR chart),
+conditionally rendered only when a current coach message exists.
+
+```
+┌─────────────────────────────────────────────┐
+│ 💪🥗 Your mentors   Jun 5 · 13:42          ✕ │
+├─────────────────────────────────────────────┤
+│ You're 0.2 kg below your muscle baseline.   │
+│ Protein is on track (127/148g). Keep it up. │
+│                                             │
+│ Action items:                               │
+│ ☐  Add 20g protein at dinner               │
+│ ☑  Stay under 20g carbs  ← auto-checked    │
+│ ☐  Log next meal                           │
+│                                             │
+│              [💬 Reply to mentors]          │
+└─────────────────────────────────────────────┘
+```
+
+### CoachMessage type (TargetService.ts)
+
+```ts
+export type CoachActionItem = {
+  id: string;
+  text: string;
+  done: boolean;
+  autoDone?: boolean;  // checked automatically by data (e.g. carb target met)
+};
+
+export type CoachMessage = {
+  id: string;                  // UUID
+  text: string;                // max 2 sentences from AI
+  actionItems: CoachActionItem[];  // 2–4 items
+  triggerEvent: 'meal' | 'weigh-in' | 'workout' | 'day-close';
+  generatedAt: string;         // ISO
+  dismissedAt?: string;        // ISO — if user tapped ✕
+};
+
+const COACH_MESSAGE_KEY = 'coach_message_today';
+
+export async function getCoachMessage(): Promise<CoachMessage | null>
+export async function saveCoachMessage(m: CoachMessage): Promise<void>
+export async function dismissCoachMessage(): Promise<void>
+```
+
+### Auto-check logic (run on each dashboard load)
+
+Check action items automatically based on live data:
+- "Stay under 20g carbs" → done if today carb_g ≤ target
+- "Log next meal" → done if a meal was logged after card generated
+- "Stay in calorie deficit" → done if eaten < burned
+
+---
+
+## PART C — Event trigger engine (CoachService.ts — NEW)
+
+```ts
+export type CoachTriggerEvent = 'meal' | 'weigh-in' | 'workout' | 'day-close';
+
+/**
+ * Call this after every relevant event (meal saved, body scan synced, workout synced).
+ * Checks frequency rules, then calls AI if due.
+ * Returns the new CoachMessage or null if skipped (too soon).
+ */
+export async function triggerCoachReview(
+  event: CoachTriggerEvent,
+  context: CoachContext,
+): Promise<CoachMessage | null>
+```
+
+### Frequency gate logic
+
+```ts
+const freq = await getMentorFrequency();
+const lastMsg = await getCoachMessage();
+
+if (lastMsg && !lastMsg.dismissedAt) {
+  const hoursSinceLast = (Date.now() - new Date(lastMsg.generatedAt).getTime()) / 3_600_000;
+  if (hoursSinceLast < freq.minGapHours) return null;  // too soon
+}
+
+if (event === 'meal' && !freq.afterEachMeal) return null;  // meal events disabled
+```
+
+---
+
+## PART D — GeminiService: generateCoachMessage()
+
+```ts
+export type CoachContext = {
+  mentors: MentorType[];
+  event: CoachTriggerEvent;
+  // body
+  weightKg: number | null;
+  fatPct: number | null;
+  muscleMass_kg: number | null;
+  bmr_kcal: number | null;
+  startWeight_kg: number | null;
+  startMuscle_kg: number | null;
+  // today food
+  todayEaten: number | null;
+  todayBurn: number | null;
+  todayProtein_g: number | null;
+  todayFat_g: number | null;
+  todayCarb_g: number | null;
+  mealCount: number;
+  // targets
+  macroTarget: DailyMacroTarget | null;
+  bodyTarget: BodyTarget | null;
+  userRules: UserRules | null;
+};
+
+export async function generateCoachMessage(ctx: CoachContext): Promise<{ text: string; actionItems: string[] }>
+```
+
+### Prompt template
+
+```
+{mentorSystemPrompt}
+
+EVENT: {event} (meal logged / new weigh-in / workout synced / day close)
+
+USER DATA:
+Weight: {w} kg (start: {startW} kg, target: {targetW} kg)
+Muscle: {m} kg (start: {startM} kg, target: {targetM} kg)
+Today eaten: {eaten} kcal / {targetKcal} | P: {p}g/{tp}g | C: {c}g/{tc}g | F: {f}g/{tf}g
+Today burned: {burn} kcal | Balance: {balance} kcal
+Meals logged today: {mealCount}
+Dietary rules: {rulesContext}
+
+Respond with JSON only:
+{"text":"2 sentences max. Specific to the data above.","actionItems":["item1","item2","item3"]}
+
+Rules:
+- text: max 2 sentences, specific numbers, no generic advice
+- actionItems: 2–4 items, max 8 words each, concrete and actionable today
+- If event is meal: focus on remaining macros for the day
+- If event is weigh-in: focus on trend vs target, muscle vs start
+- If event is workout: focus on calorie budget impact
+- Do NOT repeat data the user already sees on screen
+```
+
+Config: `temperature: 0.3`, `maxOutputTokens: 8192`
+
+---
+
+## PART E — Manual "Review now" (user-initiated, bypasses frequency gate)
+
+The user can always request an immediate mentor review, ignoring the minimum gap.
+
+### Entry points
+
+1. **CoachCard** — when a card exists, show a subtle "↻ Review now" link below the
+   action items. Tapping regenerates the card with current data.
+
+2. **Floating pill** — the pill has two behaviours:
+   - **Tap** → open ChatScreen (free dialogue)
+   - **Long-press** → trigger immediate mentor review → generates new CoachCard
+
+3. **No card showing** (dismissed or first launch) → pill tap shows a small menu:
+   ```
+   ┌──────────────────────────┐
+   │  💬  Chat with mentors   │
+   │  ↻   Review my status    │
+   └──────────────────────────┘
+   ```
+
+### CoachService addition
+
+```ts
+/**
+ * Same as triggerCoachReview() but skips the frequency gate.
+ * Used for manual user-initiated reviews.
+ */
+export async function forceCoachReview(
+  context: CoachContext,
+): Promise<CoachMessage>
+```
+
+### UX note
+- After "Review now" completes, the CoachCard appears/refreshes at top of dashboard
+- The `lastMentorCheckAt` timestamp is updated — so the next automatic check
+  counts from this manual review
+- No limit on how often the user can manually review
+
+---
+
+## PART F — Free chat (ChatScreen.tsx — NEW)
+
+Opened from "💬 Reply to mentors" in CoachCard, or from the floating pill.
+
+Full-screen modal. Inherits all context from CoachContext.
+Multi-turn conversation — last 10 messages sent as history.
+
+```
+┌─────────────────────────────────────────┐
+│  ←  💬 My Mentors  🥗💪                 │
+├─────────────────────────────────────────┤
+│  [coach message shown as first bubble]  │
+│                                         │
+│  [user messages right, AI left]         │
+│                                         │
+├─────────────────────────────────────────┤
+│  ┌──────────────────────────┐  [Send]   │
+│  │ Ask your mentors…        │           │
+│  └──────────────────────────┘           │
+└─────────────────────────────────────────┘
+```
+
+GeminiService: `chatWithMentors(message, history, context)` — same context as
+`generateCoachMessage`. Temperature 0.4.
+
+---
+
+## PART G — Floating pill + dashboard wiring (DashboardScreen.tsx)
+
+### Floating pill
+```jsx
+<Pressable style={styles.chatPill} onPress={() => setChatVisible(true)}>
+  <Text style={styles.chatPillText}>
+    {mentorEmojis}  Ask mentors
+  </Text>
+</Pressable>
+```
+Style: `position: absolute`, bottom 16, `alignSelf: 'center'`, dark pill,
+white text. Always visible. `zIndex: 100`.
+
+### Trigger points
+Call `triggerCoachReview()` after:
+1. `handleFoodSaved()` — meal saved → event: `'meal'`
+2. After Withings body scan syncs → event: `'weigh-in'`
+3. After Health Connect workout syncs → event: `'workout'`
+
+### Dashboard scroll padding
+Add `paddingBottom: 100` to `contentContainerStyle` of main ScrollView.
+
+---
+
+## Files to create / change
+
+1. `TargetService.ts` — MentorFrequency, CoachMessage, CoachActionItem types + CRUD
+2. `GeminiService.ts` — `generateCoachMessage()`, `chatWithMentors()`
+3. `CoachService.ts` — NEW: `triggerCoachReview()` (frequency gate) + `forceCoachReview()` (no gate)
+4. `CoachCard.tsx` — NEW: dismissable card with action items + Reply + Review now
+5. `ChatScreen.tsx` — NEW: full-screen chat modal
+6. `MentorStrip.tsx` — add frequency toggle + min-gap slider
+7. `DashboardScreen.tsx` — CoachCard at top, floating pill (tap=chat, long-press=review), trigger wiring
+
+---
+
+## Out of scope for prompt18
+- Push notifications (requires backend)
+- Persistent chat history across app restarts
+- Proactive server-side nudges
+- Voice input / audio responses
+- Weekly review reports
+These are prompt19+.
