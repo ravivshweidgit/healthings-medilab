@@ -61,9 +61,15 @@ function RangeScale({
 }) {
   const [trackWidth, setTrackWidth] = useState(0);
 
-  const range = Math.abs(targetVal - startVal);
+  // If current has slipped past the original start, use current as the left anchor
+  const movingRight = targetVal > startVal;
+  const effectiveStart = movingRight
+    ? Math.min(startVal, currentVal)
+    : Math.max(startVal, currentVal);
+
+  const range = Math.abs(targetVal - effectiveStart);
   const progress = range > 0
-    ? Math.min(1, Math.max(0, Math.abs(currentVal - startVal) / range))
+    ? Math.min(1, Math.max(0, Math.abs(currentVal - effectiveStart) / range))
     : 0;
   const dotX = trackWidth > 0 ? progress * trackWidth : 0;
 
@@ -83,14 +89,12 @@ function RangeScale({
       </View>
 
       <View style={scaleStyles.trackRow}>
-        <Text style={scaleStyles.endpoint}>{startVal.toFixed(1)}</Text>
+        <Text style={scaleStyles.endpoint}>{effectiveStart.toFixed(1)}</Text>
         <View
           style={scaleStyles.track}
           onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
         >
-          {/* Filled progress */}
           <View style={[scaleStyles.fill, { width: dotX, backgroundColor: color }]} />
-          {/* Current position dot */}
           {trackWidth > 0 && (
             <View style={[scaleStyles.dot, { left: dotX - 8, backgroundColor: color }]} />
           )}
