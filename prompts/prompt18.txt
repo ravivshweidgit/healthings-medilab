@@ -214,23 +214,18 @@ Config: `temperature: 0.3`, `maxOutputTokens: 8192`
 
 The user can always request an immediate mentor review, ignoring the minimum gap.
 
-### Entry points
+### Entry points — kept simple
 
-1. **Nudge strip** — when the strip is visible, show a subtle "↻ Refresh" link
-   on the right side. Tapping regenerates with current data.
+1. **Nudge strip** — subtle "↻ Refresh" link on the right side. Tapping
+   regenerates with current data.
 
-2. **Floating pill** — two behaviours:
-   - **Tap** → open ChatScreen (free dialogue)
-   - **Long-press** → trigger immediate mentor review → generates new message,
-     nudge strip appears / refreshes, ChatScreen auto-opens to show it
+2. **Floating pill**:
+   - **Tap** → always opens ChatScreen directly (no menu, no conditional logic)
+   - **Long-press** → triggers force review silently; nudge strip refreshes
 
-3. **No strip showing** (dismissed or first launch) → pill tap shows a small menu:
-   ```
-   ┌──────────────────────────┐
-   │  💬  Chat with mentors   │
-   │  ↻   Review my status    │
-   └──────────────────────────┘
-   ```
+3. **Inside ChatScreen** — "Review my status" is one of the 3 default
+   quick-question chips. Tapping it sends the question and the AI responds
+   with a full review. No separate menu needed.
 
 ### CoachService addition
 
@@ -245,7 +240,7 @@ export async function forceCoachReview(
 ```
 
 ### UX note
-- After "Review now" completes, the nudge strip appears/refreshes on the dashboard
+- After force review completes, the nudge strip appears/refreshes on the dashboard
 - The `generatedAt` timestamp is updated — so the next automatic check counts
   from this manual review
 - No limit on how often the user can manually review
