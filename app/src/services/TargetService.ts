@@ -216,10 +216,16 @@ const MENTOR_FREQ_KEY = 'mentor_frequency';
 
 export type MentorFrequency = {
   afterEachMeal: boolean;  // default: true
-  minGapHours: number;     // default: 4, range 2–24
+  minGapHours: number;     // default: 4, range 0–6
 };
 
 const DEFAULT_MENTOR_FREQ: MentorFrequency = { afterEachMeal: true, minGapHours: 4 };
+const MIN_GAP_HOURS_MIN = 0;
+const MIN_GAP_HOURS_MAX = 6;
+
+function clampMinGapHours(n: number): number {
+  return Math.min(MIN_GAP_HOURS_MAX, Math.max(MIN_GAP_HOURS_MIN, Math.round(n)));
+}
 
 export async function getMentorFrequency(): Promise<MentorFrequency> {
   const raw = await AsyncStorage.getItem(MENTOR_FREQ_KEY);
@@ -228,13 +234,18 @@ export async function getMentorFrequency(): Promise<MentorFrequency> {
     const parsed = JSON.parse(raw) as Partial<MentorFrequency>;
     return {
       afterEachMeal: typeof parsed.afterEachMeal === 'boolean' ? parsed.afterEachMeal : DEFAULT_MENTOR_FREQ.afterEachMeal,
-      minGapHours: typeof parsed.minGapHours === 'number' ? parsed.minGapHours : DEFAULT_MENTOR_FREQ.minGapHours,
+      minGapHours: typeof parsed.minGapHours === 'number'
+        ? clampMinGapHours(parsed.minGapHours)
+        : DEFAULT_MENTOR_FREQ.minGapHours,
     };
   } catch { return DEFAULT_MENTOR_FREQ; }
 }
 
 export async function saveMentorFrequency(f: MentorFrequency): Promise<void> {
-  await AsyncStorage.setItem(MENTOR_FREQ_KEY, JSON.stringify(f));
+  await AsyncStorage.setItem(MENTOR_FREQ_KEY, JSON.stringify({
+    ...f,
+    minGapHours: clampMinGapHours(f.minGapHours),
+  }));
 }
 
 // ─── Coach message ────────────────────────────────────────────────────────────
@@ -332,17 +343,17 @@ export type QuickQuestion = {
 };
 
 const DEFAULT_QUICK_QUESTIONS: QuickQuestion[] = [
-  { id: 'qq-default-1', label: 'Review my status' },
-  { id: 'qq-default-2', label: 'Review my last meal' },
-  { id: 'qq-default-3', label: 'How am I doing today?' },
+  { id: 'qq-default-1', label: 'Yesterday summary' },
+  { id: 'qq-default-2', label: 'Weekly summary' },
+  { id: 'qq-default-3', label: 'Monthly summary' },
 ];
 
 const DEFAULT_QUICK_QUESTIONS_BY_LANG: Record<string, QuickQuestion[]> = {
   en: DEFAULT_QUICK_QUESTIONS,
   he: [
-    { id: 'qq-default-1', label: 'סקור את הסטטוס שלי' },
-    { id: 'qq-default-2', label: 'סקור את הארוחה האחרונה' },
-    { id: 'qq-default-3', label: 'איך אני מתקדם/ת היום?' },
+    { id: 'qq-default-1', label: 'סיכום אתמול' },
+    { id: 'qq-default-2', label: 'סיכום שבועי' },
+    { id: 'qq-default-3', label: 'סיכום חודשי' },
   ],
   es: [
     { id: 'qq-default-1', label: 'Revisa mi estado' },

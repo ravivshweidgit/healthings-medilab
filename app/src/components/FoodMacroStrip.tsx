@@ -40,7 +40,8 @@ import type { DailyMacroTarget } from '../services/TargetService';
 type Props = {
   /** Initial day key — defaults to today. */
   dayKey?: string;
-  onAddMeal: () => void;
+  /** Called with the day key currently shown in the date navigator. */
+  onAddMeal: (dayKey: string) => void;
   onEditMeal?: (entry: FoodEntry) => void;
   /** Refresh counter — increment to trigger a reload. */
   refreshKey?: number;
@@ -260,20 +261,17 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
         </View>
       )}
 
-      {/* Meal chips + Add card */}
-      {(!isEmpty || isToday) && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-          {isToday && (
-            <Pressable
-              style={({ pressed }) => [styles.chip, styles.addChip, pressed && styles.chipPressed]}
-              onPress={onAddMeal}
-              accessibilityLabel="Add meal"
-            >
-              <Text style={styles.addChipIcon}>＋</Text>
-              <Text style={styles.addChipLabel}>Add meal</Text>
-            </Pressable>
-          )}
-          {macros?.entries.map((entry) => (
+      {/* Meal chips + Add */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+        <Pressable
+          style={({ pressed }) => [styles.chip, styles.addChip, pressed && styles.chipPressed]}
+          onPress={() => onAddMeal(activeDayKey)}
+          accessibilityLabel="Add meal"
+        >
+          <Text style={styles.addChipIcon}>＋</Text>
+          <Text style={styles.addChipLabel}>{isToday ? 'Add meal' : 'Add meal here'}</Text>
+        </Pressable>
+        {macros?.entries.map((entry) => (
             <Pressable
               key={entry.id}
               style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
@@ -285,8 +283,7 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
               <Text style={styles.chipEdit}>✎ edit</Text>
             </Pressable>
           ))}
-        </ScrollView>
-      )}
+      </ScrollView>
 
       {/* Footer — export / import */}
       <View style={styles.footer}>

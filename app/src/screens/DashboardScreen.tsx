@@ -38,13 +38,14 @@ import {
   DEFAULT_TREND_PERIOD_DAYS,
   TREND_PERIOD_DAY_OPTIONS,
   localDayKeyFromMs,
+  dayKeyStartMs,
   resolveCompositionPeriodAnchor,
   type CompositionSession,
   type MetabolicTrend7dDay,
 } from '../logic/metabolicTrend7d';
 import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportCsv } from '../services/careSensCsv';
-import { foodLogDayKey, getTodayMeals, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
+import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
 import {
   getBirthdate, setBirthdate, computeAge, getCachedHeightCm,
   setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors,
@@ -174,6 +175,7 @@ export const DashboardScreen = () => {
 
   const [foodModalVisible, setFoodModalVisible] = useState(false);
   const [foodEditEntry, setFoodEditEntry] = useState<FoodEntry | undefined>();
+  const [foodInitialTimestamp, setFoodInitialTimestamp] = useState<number | undefined>();
   const [foodRefreshKey, setFoodRefreshKey] = useState(0);
   const [todayFoodEntries, setTodayFoodEntries] = useState<FoodEntry[]>([]);
   const todayDayKey = foodLogDayKey(Date.now());
@@ -518,7 +520,7 @@ export const DashboardScreen = () => {
 
   /** Day-close trigger — fires once per calendar day on first dashboard mount. */
   const checkDayClose = useCallback(async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDayKeyFromMs(Date.now());
     const lastDayClose = await AsyncStorage.getItem('last_day_close_date');
     if (lastDayClose !== today) {
       await AsyncStorage.setItem('last_day_close_date', today);
@@ -627,8 +629,8 @@ export const DashboardScreen = () => {
       const sessions = await fetchWorkoutsHistory();
       setWorkoutSessions(sessions);
 
-      const todayKey = new Date().toISOString().split('T')[0];
-      const todayStart = new Date(`${todayKey}T00:00:00`).getTime();
+      const todayKey = localDayKeyFromMs(Date.now());
+      const todayStart = dayKeyStartMs(todayKey);
       const todayMax = sessions
         .filter((s) => s.startMs >= todayStart)
         .reduce((max, s) => Math.max(max, s.startMs), 0);
@@ -1079,7 +1081,11 @@ export const DashboardScreen = () => {
         {/* Section 5 — Food log */}
         <FoodMacroStrip
           dayKey={todayDayKey}
-          onAddMeal={() => { setFoodEditEntry(undefined); setFoodModalVisible(true); }}
+          onAddMeal={(dayKey) => {
+            setFoodEditEntry(undefined);
+            setFoodInitialTimestamp(defaultMealTimestampForDay(dayKey));
+            setFoodModalVisible(true);
+          }}
           onEditMeal={handleEditMeal}
           refreshKey={foodRefreshKey}
           burnKcalByDay={burnKcalByDay}
@@ -1330,8 +1336,13 @@ export const DashboardScreen = () => {
 
       <FoodLogModal
         visible={foodModalVisible}
-        onClose={() => { setFoodModalVisible(false); setFoodEditEntry(undefined); }}
+        onClose={() => {
+          setFoodModalVisible(false);
+          setFoodEditEntry(undefined);
+          setFoodInitialTimestamp(undefined);
+        }}
         onSaved={handleFoodSaved}
+        initialTimestamp={foodInitialTimestamp}
         editEntry={foodEditEntry}
         lang={userLanguage}
       />

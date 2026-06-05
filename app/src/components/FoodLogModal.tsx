@@ -2,7 +2,7 @@
  * Food Log Modal — camera / text → Gemini AI → correction chat → save.
  */
 
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useRef, useState } from 'react';
 import {
@@ -26,7 +26,7 @@ import {
   type FoodItem,
   type GeminiTurn,
 } from '../services/GeminiService';
-import { saveMeal, deleteMeal, type FoodEntry } from '../services/FoodLogService';
+import { saveMeal, deleteMeal, foodLogDayKey, type FoodEntry } from '../services/FoodLogService';
 import { type UserLanguage } from '../services/TargetService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 
@@ -52,6 +52,15 @@ function formatTime(ms: number): string {
   return new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
+function formatMealDateTime(ms: number): string {
+  const mealDay = foodLogDayKey(ms);
+  const todayDay = foodLogDayKey(Date.now());
+  const time = formatTime(ms);
+  if (mealDay === todayDay) return time;
+  const date = new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `${date}, ${time}`;
+}
+
 function confidenceColor(c: 'high' | 'medium' | 'low'): string {
   if (c === 'high') return '#2E7D32';
   if (c === 'medium') return '#E65100';
@@ -61,6 +70,40 @@ function confidenceColor(c: 'high' | 'medium' | 'low'): string {
 function macroSummary(items: FoodItem[]): string {
   const t = computeTotals(items);
   return `${Math.round(t.totalKcal)} kcal · P ${t.totalProtein_g.toFixed(0)}g · C ${t.totalCarb_g.toFixed(0)}g · F ${t.totalFat_g.toFixed(0)}g`;
+}
+
+function capMealTimestamp(ms: number): number {
+  return Math.min(ms, Date.now());
+}
+
+function combineDateAndTime(datePart: Date, timePart: Date): number {
+  const combined = new Date(datePart);
+  combined.setHours(timePart.getHours(), timePart.getMinutes(), 0, 0);
+  return capMealTimestamp(combined.getTime());
+}
+
+/** Android: declarative datetime mode crashes — use date dialog then time dialog. */
+function openAndroidMealDateTimePicker(currentMs: number, onPick: (ms: number) => void): void {
+  const current = new Date(currentMs);
+  DateTimePickerAndroid.open({
+    value: current,
+    mode: 'date',
+    maximumDate: new Date(),
+    onChange: (event, selectedDate) => {
+      if (event.type !== 'set' || !selectedDate) return;
+      const withDate = new Date(selectedDate);
+      withDate.setHours(current.getHours(), current.getMinutes(), 0, 0);
+      DateTimePickerAndroid.open({
+        value: new Date(capMealTimestamp(withDate.getTime())),
+        mode: 'time',
+        is24Hour: true,
+        onChange: (timeEvent, selectedTime) => {
+          if (timeEvent.type !== 'set' || !selectedTime) return;
+          onPick(combineDateAndTime(selectedDate, selectedTime));
+        },
+      });
+    },
+  });
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -109,6 +152,12 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
     }
   }, [editEntry]);
 
+  React.useEffect(() => {
+    if (visible && !editEntry) {
+      setMealTime(initialTimestamp ?? Date.now());
+    }
+  }, [visible, initialTimestamp, editEntry]);
+
   const reset = useCallback(() => {
     setScreen('idle');
     setPhotoUri(null);
@@ -129,6 +178,14 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
     reset();
     onClose();
   }, [reset, onClose]);
+
+  const openMealDateTimePicker = useCallback(() => {
+    if (Platform.OS === 'android') {
+      openAndroidMealDateTimePicker(mealTime, setMealTime);
+      return;
+    }
+    setShowTimePicker(true);
+  }, [mealTime]);
 
   const runAnalysis = useCallback(async (
     imageBase64: string | null,
@@ -426,20 +483,21 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
                   </Pressable>
                 </View>
 
-                {/* Time editor */}
-                <Pressable style={styles.timeRow} onPress={() => setShowTimePicker(true)}>
-                  <Text style={styles.timeLabel}>🕐 Meal time:</Text>
-                  <Text style={styles.timeValue}>{formatTime(mealTime)}</Text>
+                {/* Date & time — past days default to 23:59 on that day */}
+                <Pressable style={styles.timeRow} onPress={openMealDateTimePicker}>
+                  <Text style={styles.timeLabel}>🕐 Date & time:</Text>
+                  <Text style={styles.timeValue}>{formatMealDateTime(mealTime)}</Text>
                   <Text style={styles.timeEdit}>Edit</Text>
                 </Pressable>
-                {showTimePicker && (
+                {showTimePicker && Platform.OS === 'ios' && (
                   <DateTimePicker
                     value={new Date(mealTime)}
-                    mode="time"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    mode="datetime"
+                    display="spinner"
+                    maximumDate={new Date()}
                     onChange={(_, date) => {
-                      setShowTimePicker(Platform.OS === 'ios');
-                      if (date) setMealTime(date.getTime());
+                      setShowTimePicker(false);
+                      if (date) setMealTime(capMealTimestamp(date.getTime()));
                     }}
                   />
                 )}

@@ -15,6 +15,12 @@ const MENTORS: { type: MentorType; emoji: string; label: string; sub: string }[]
   { type: 'coach',        emoji: '💪', label: 'Coach',        sub: 'body composition'  },
 ];
 
+function minGapLabel(hours: number): string {
+  if (hours === 0) return 'No minimum gap — refresh anytime';
+  if (hours === 1) return '1 hour minimum between reviews';
+  return `${hours} hours minimum between reviews`;
+}
+
 type Props = {
   mentors: MentorType[];
   onChanged: (mentors: MentorType[]) => void;
@@ -94,19 +100,20 @@ export function MentorStrip({ mentors, onChanged, expanded, onToggleExpand }: Pr
                 thumbColor={freq.afterEachMeal ? '#fff' : '#f4f3f4'}
               />
             </View>
-            <Text style={styles.freqSliderLabel}>Minimum gap between reviews</Text>
+            <Text style={styles.freqSliderLabel}>Minimum gap between reviews (0–6h)</Text>
             <Slider
               style={styles.slider}
-              minimumValue={2}
-              maximumValue={24}
+              minimumValue={0}
+              maximumValue={6}
               step={1}
               value={freq.minGapHours}
+              onValueChange={(v) => setFreq((prev) => ({ ...prev, minGapHours: Math.round(v) }))}
               onSlidingComplete={(v) => updateFreq({ minGapHours: Math.round(v) })}
               minimumTrackTintColor={WellnessColors.accentBlue}
               maximumTrackTintColor={WellnessColors.gridLine}
               thumbTintColor={WellnessColors.accentBlue}
             />
-            <Text style={styles.freqSliderValue}>{freq.minGapHours}h minimum between reviews</Text>
+            <Text style={styles.freqSliderValue}>{minGapLabel(freq.minGapHours)}</Text>
           </View>
         </View>
       )}

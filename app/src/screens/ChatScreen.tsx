@@ -35,10 +35,12 @@ import {
   saveYesterdaySummary,
   getQuickQuestions,
   saveQuickQuestions,
+  getMacroTarget,
+  getUserRules,
 } from '../services/TargetService';
-import { chatWithMentors, summariseChatDay, type CoachContext } from '../services/GeminiService';
+import { chatWithMentors, summariseChatDay, isYesterdayQuery, type CoachContext } from '../services/GeminiService';
 import { runAutoChecksAndPersist, refreshCoachReview } from '../services/CoachService';
-import { getTodayMeals, buildMealsAiContext } from '../services/FoodLogService';
+import { getTodayMeals, getMealsForDay, buildMealsAiContext, foodLogDayKey } from '../services/FoodLogService';
 import { WellnessColors } from '../theme/wellness';
 
 type Props = {
@@ -48,14 +50,15 @@ type Props = {
   onCoachMessageUpdated?: (msg: CoachMessage | null) => void;
 };
 
+/** Local calendar day — must match FoodLogService day keys (not UTC toISOString). */
 function todayKey(): string {
-  return new Date().toISOString().split('T')[0];
+  return foodLogDayKey(Date.now());
 }
 
 function yesterdayKey(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
-  return d.toISOString().split('T')[0];
+  return foodLogDayKey(d.getTime());
 }
 
 function actionItemsHeader(done: number, total: number, lang?: UserLanguage | null): string {
@@ -72,6 +75,36 @@ function chatBottomInset(bottom: number): number {
   if (bottom > 0) return bottom;
   // Full-screen Modal + edge-to-edge often reports 0 on Samsung; nav bar ~48dp
   return Platform.OS === 'android' ? 48 : 12;
+}
+
+async function withYesterdayFoodContext(
+  base: CoachContext,
+  message: string,
+): Promise<CoachContext> {
+  const yKey = yesterdayKey();
+  const yMeals = await getMealsForDay(yKey);
+  const yTotals = yMeals.reduce(
+    (acc, e) => ({
+      kcal: acc.kcal + e.totalKcal,
+      protein_g: acc.protein_g + e.totalProtein_g,
+      carb_g: acc.carb_g + e.totalCarb_g,
+      fat_g: acc.fat_g + e.totalFat_g,
+    }),
+    { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0 },
+  );
+  const includeMealDetail = isYesterdayQuery(message);
+  const yMealsCtx = includeMealDetail ? buildMealsAiContext(yMeals) : null;
+
+  return {
+    ...base,
+    yesterdayDate: yKey,
+    yesterdayEaten: yTotals.kcal,
+    yesterdayProtein_g: yTotals.protein_g,
+    yesterdayCarb_g: yTotals.carb_g,
+    yesterdayFat_g: yTotals.fat_g,
+    yesterdayMealCount: yMeals.length,
+    yesterdayMealsDetail: includeMealDetail ? yMealsCtx?.todayMealsDetail ?? null : null,
+  };
 }
 
 function refreshBlockedMessage(waitHours: number, minGapHours: number, lang?: UserLanguage | null): string {
@@ -524,16 +557,19 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
           }),
           { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0 },
         );
-        const freshContext: CoachContext = {
-          ...context,
-          mealCount: meals.length,
-          todayEaten: meals.length > 0 ? mealTotals.kcal : context.todayEaten,
-          todayProtein_g: meals.length > 0 ? mealTotals.protein_g : context.todayProtein_g,
-          todayCarb_g: meals.length > 0 ? mealTotals.carb_g : context.todayCarb_g,
-          todayFat_g: meals.length > 0 ? mealTotals.fat_g : context.todayFat_g,
-          lastMealSummary: mealsCtx.lastMealSummary,
-          todayMealsDetail: mealsCtx.todayMealsDetail,
-        };
+        const freshContext: CoachContext = await withYesterdayFoodContext(
+          {
+            ...context,
+            mealCount: meals.length,
+            todayEaten: meals.length > 0 ? mealTotals.kcal : context.todayEaten,
+            todayProtein_g: meals.length > 0 ? mealTotals.protein_g : context.todayProtein_g,
+            todayCarb_g: meals.length > 0 ? mealTotals.carb_g : context.todayCarb_g,
+            todayFat_g: meals.length > 0 ? mealTotals.fat_g : context.todayFat_g,
+            lastMealSummary: mealsCtx.lastMealSummary,
+            todayMealsDetail: mealsCtx.todayMealsDetail,
+          },
+          trimmed,
+        );
 
         const replyText = await chatWithMentors(
           trimmed,
@@ -585,7 +621,11 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
   }, []);
 
   const buildFreshContext = useCallback(async (): Promise<CoachContext> => {
-    const meals = await getTodayMeals();
+    const [meals, macroTarget, userRules] = await Promise.all([
+      getTodayMeals(),
+      getMacroTarget(),
+      getUserRules(),
+    ]);
     const mealsCtx = buildMealsAiContext(meals);
     const mealTotals = meals.reduce(
       (acc, e) => ({
@@ -598,6 +638,8 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
     );
     return {
       ...context,
+      macroTarget: macroTarget ?? context.macroTarget,
+      userRules: userRules ?? context.userRules,
       mealCount: meals.length,
       todayEaten: meals.length > 0 ? mealTotals.kcal : context.todayEaten,
       todayProtein_g: meals.length > 0 ? mealTotals.protein_g : context.todayProtein_g,

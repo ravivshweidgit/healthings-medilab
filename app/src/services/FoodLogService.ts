@@ -167,6 +167,15 @@ export async function getTodayMacros(): Promise<DailyMacros> {
 
 export { dayKey as foodLogDayKey };
 
+/** Default timestamp when adding a meal on a given calendar day (local). Today = now; past days = 23:59. */
+export function defaultMealTimestampForDay(dk: string): number {
+  if (dk === dayKey(Date.now())) return Date.now();
+  const parts = dk.split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return Date.now();
+  const [y, m, d] = parts;
+  return new Date(y, m - 1, d, 23, 59, 0, 0).getTime();
+}
+
 // ─── Export / Import ──────────────────────────────────────────────────────────
 
 type ExportPayload = {

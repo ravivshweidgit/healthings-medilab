@@ -869,8 +869,10 @@ export type WithingsIntradayData = {
   calories: WithingsCaloriePoint[];
 };
 
-/** Default lookback for intraday HR history (days). Keep small — each day = 1 API request. */
+/** Default lookback for dashboard refresh (days). Reviews pass an explicit window. */
 const HEART_RATE_LOOKBACK_DAYS = 7;
+/** Parallel Withings intraday requests (one calendar day each). */
+const INTRADAY_FETCH_CONCURRENCY = 6;
 
 const WITHINGS_MEASURE_V2_URL = 'https://wbsapi.withings.net/v2/measure';
 
@@ -906,8 +908,64 @@ function mockIntradayForDay(dayStartMs: number): { hr: WithingsHeartRatePoint[];
   return { hr, cal };
 }
 
+async function fetchIntradayOneDay(
+  daysAgo: number,
+  accessToken: string,
+  userid?: string,
+): Promise<{ hr: WithingsHeartRatePoint[]; cal: WithingsCaloriePoint[] }> {
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  dayStart.setDate(dayStart.getDate() - daysAgo);
+  const startSec = Math.floor(dayStart.getTime() / 1000);
+  const endSec = startSec + 24 * 3600 - 1;
+
+  const form = new URLSearchParams({
+    action: 'getintradayactivity',
+    access_token: accessToken,
+    startdate: String(startSec),
+    enddate: String(endSec),
+    data_fields: 'heart_rate,calories',
+  });
+  if (userid) {
+    form.set('userid', userid);
+  }
+
+  const hr: WithingsHeartRatePoint[] = [];
+  const cal: WithingsCaloriePoint[] = [];
+
+  try {
+    const res = await fetch(WITHINGS_MEASURE_V2_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
+    });
+    const json = (await res.json()) as WithingsIntradayJson;
+    if (json.status !== 0) return { hr, cal };
+
+    const series = json.body?.series ?? {};
+    for (const [tsSec, entry] of Object.entries(series)) {
+      const tsMs = Number(tsSec) * 1000;
+      if (Number.isNaN(tsMs)) continue;
+      const ts = new Date(tsMs).toISOString();
+
+      const bpm = entry.heart_rate;
+      if (typeof bpm === 'number' && Number.isFinite(bpm) && bpm > 0) {
+        hr.push({ timestamp: ts, value: Math.round(bpm) });
+      }
+      const kcal = entry.calories;
+      if (typeof kcal === 'number' && Number.isFinite(kcal) && kcal > 0) {
+        cal.push({ timestamp: ts, kcal });
+      }
+    }
+  } catch {
+    // skip failed day
+  }
+
+  return { hr, cal };
+}
+
 /**
- * Fetches continuous watch heart-rate + calorie history from Withings `getintradayactivity`
+ * Fetches continuous 24/7 watch heart-rate + calorie history from Withings `getintradayactivity`
  * (requires `user.activity` scope — included in DEFAULT_WITHINGS_SCOPE).
  * Each calendar day is a separate API call (Withings limit: 24h per request).
  * Returns oldest → newest, all days merged.
@@ -935,51 +993,16 @@ export async function fetchHeartRateHistory(
   const heartRate: WithingsHeartRatePoint[] = [];
   const calories: WithingsCaloriePoint[] = [];
   const n = Math.max(1, Math.floor(lookbackDays));
+  const dayOffsets = Array.from({ length: n }, (_, idx) => n - 1 - idx);
 
-  for (let i = n - 1; i >= 0; i--) {
-    const dayStart = new Date();
-    dayStart.setHours(0, 0, 0, 0);
-    dayStart.setDate(dayStart.getDate() - i);
-    const startSec = Math.floor(dayStart.getTime() / 1000);
-    const endSec = startSec + 24 * 3600 - 1;
-
-    const form = new URLSearchParams({
-      action: 'getintradayactivity',
-      access_token: accessToken,
-      startdate: String(startSec),
-      enddate: String(endSec),
-      data_fields: 'heart_rate,calories',
-    });
-    if (stored?.userid) {
-      form.set('userid', stored.userid);
-    }
-
-    try {
-      const res = await fetch(WITHINGS_MEASURE_V2_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: form.toString(),
-      });
-      const json = (await res.json()) as WithingsIntradayJson;
-      if (json.status !== 0) continue; // skip days with no data / errors silently
-
-      const series = json.body?.series ?? {};
-      for (const [tsSec, entry] of Object.entries(series)) {
-        const tsMs = Number(tsSec) * 1000;
-        if (Number.isNaN(tsMs)) continue;
-        const ts = new Date(tsMs).toISOString();
-
-        const bpm = entry.heart_rate;
-        if (typeof bpm === 'number' && Number.isFinite(bpm) && bpm > 0) {
-          heartRate.push({ timestamp: ts, value: Math.round(bpm) });
-        }
-        const kcal = entry.calories;
-        if (typeof kcal === 'number' && Number.isFinite(kcal) && kcal > 0) {
-          calories.push({ timestamp: ts, kcal });
-        }
-      }
-    } catch {
-      // Network error on one day — skip it, don't fail the whole fetch
+  for (let i = 0; i < dayOffsets.length; i += INTRADAY_FETCH_CONCURRENCY) {
+    const chunk = dayOffsets.slice(i, i + INTRADAY_FETCH_CONCURRENCY);
+    const results = await Promise.all(
+      chunk.map((daysAgo) => fetchIntradayOneDay(daysAgo, accessToken, stored?.userid)),
+    );
+    for (const day of results) {
+      heartRate.push(...day.hr);
+      calories.push(...day.cal);
     }
   }
 
