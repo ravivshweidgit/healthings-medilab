@@ -175,3 +175,229 @@ export async function saveMacroTarget(t: DailyMacroTarget): Promise<void> {
 export async function clearMacroTarget(): Promise<void> {
   await AsyncStorage.removeItem(MACRO_TARGET_KEY);
 }
+
+// ─── User language ────────────────────────────────────────────────────────────
+
+const LANGUAGE_KEY = 'user_language';
+
+export type UserLanguage = {
+  code: string;   // BCP-47 e.g. 'en', 'he', 'es', 'fr', 'de', 'ar', 'ru'
+  label: string;  // display name e.g. 'English'
+};
+
+export const SUPPORTED_LANGUAGES: UserLanguage[] = [
+  { code: 'en', label: 'English' },
+  { code: 'he', label: 'עברית' },
+  { code: 'es', label: 'Español' },
+  { code: 'fr', label: 'Français' },
+  { code: 'de', label: 'Deutsch' },
+  { code: 'ar', label: 'العربية' },
+  { code: 'ru', label: 'Русский' },
+];
+
+export const DEFAULT_LANGUAGE: UserLanguage = SUPPORTED_LANGUAGES[0];
+
+export async function getLanguage(): Promise<UserLanguage> {
+  const raw = await AsyncStorage.getItem(LANGUAGE_KEY);
+  if (!raw) return DEFAULT_LANGUAGE;
+  try {
+    const parsed = JSON.parse(raw) as UserLanguage;
+    return parsed?.code ? parsed : DEFAULT_LANGUAGE;
+  } catch { return DEFAULT_LANGUAGE; }
+}
+
+export async function setLanguage(lang: UserLanguage): Promise<void> {
+  await AsyncStorage.setItem(LANGUAGE_KEY, JSON.stringify(lang));
+}
+
+// ─── Mentor frequency ─────────────────────────────────────────────────────────
+
+const MENTOR_FREQ_KEY = 'mentor_frequency';
+
+export type MentorFrequency = {
+  afterEachMeal: boolean;  // default: true
+  minGapHours: number;     // default: 4, range 2–24
+};
+
+const DEFAULT_MENTOR_FREQ: MentorFrequency = { afterEachMeal: true, minGapHours: 4 };
+
+export async function getMentorFrequency(): Promise<MentorFrequency> {
+  const raw = await AsyncStorage.getItem(MENTOR_FREQ_KEY);
+  if (!raw) return DEFAULT_MENTOR_FREQ;
+  try {
+    const parsed = JSON.parse(raw) as Partial<MentorFrequency>;
+    return {
+      afterEachMeal: typeof parsed.afterEachMeal === 'boolean' ? parsed.afterEachMeal : DEFAULT_MENTOR_FREQ.afterEachMeal,
+      minGapHours: typeof parsed.minGapHours === 'number' ? parsed.minGapHours : DEFAULT_MENTOR_FREQ.minGapHours,
+    };
+  } catch { return DEFAULT_MENTOR_FREQ; }
+}
+
+export async function saveMentorFrequency(f: MentorFrequency): Promise<void> {
+  await AsyncStorage.setItem(MENTOR_FREQ_KEY, JSON.stringify(f));
+}
+
+// ─── Coach message ────────────────────────────────────────────────────────────
+
+const COACH_MESSAGE_KEY = 'coach_message_today';
+
+export type AutoCheckType =
+  | 'carbs_under_target'   // done if todayCarb_g <= macroTarget.carb_g
+  | 'protein_over_target'  // done if todayProtein_g >= macroTarget.protein_g * 0.9
+  | 'calorie_deficit'      // done if todayEaten < todayBurn
+  | 'meal_logged'          // done if mealCount > mealCountAtGeneration
+  | null;                  // manual tap only
+
+export type CoachActionItem = {
+  id: string;
+  text: string;
+  done: boolean;
+  autoCheckType: AutoCheckType;
+};
+
+export type CoachMessage = {
+  id: string;
+  text: string;
+  actionItems: CoachActionItem[];
+  triggerEvent: 'meal' | 'weigh-in' | 'workout' | 'day-close';
+  generatedAt: string;           // ISO
+  dismissedAt?: string;          // ISO — set when user taps ✕
+  mealCountAtGeneration: number;
+  generatedLangCode?: string;    // BCP-47 code when message was created
+};
+
+export async function getCoachMessage(): Promise<CoachMessage | null> {
+  const raw = await AsyncStorage.getItem(COACH_MESSAGE_KEY);
+  if (!raw) return null;
+  try { return JSON.parse(raw) as CoachMessage; } catch { return null; }
+}
+
+export async function saveCoachMessage(m: CoachMessage): Promise<void> {
+  await AsyncStorage.setItem(COACH_MESSAGE_KEY, JSON.stringify(m));
+}
+
+export async function dismissCoachMessage(): Promise<void> {
+  const msg = await getCoachMessage();
+  if (!msg) return;
+  await saveCoachMessage({ ...msg, dismissedAt: new Date().toISOString() });
+}
+
+export async function clearCoachMessage(): Promise<void> {
+  await AsyncStorage.removeItem(COACH_MESSAGE_KEY);
+}
+
+// ─── Chat history ─────────────────────────────────────────────────────────────
+
+const CHAT_HISTORY_KEY = 'chat_history_';          // + 'YYYY-MM-DD'
+const CHAT_YESTERDAY_SUMMARY_KEY = 'chat_yesterday_summary';
+
+export type ChatMessage = {
+  role: 'user' | 'assistant';
+  text: string;
+  sentAt: string;  // ISO
+};
+
+export async function getChatHistory(date: string): Promise<ChatMessage[]> {
+  const raw = await AsyncStorage.getItem(CHAT_HISTORY_KEY + date);
+  if (!raw) return [];
+  try { return JSON.parse(raw) as ChatMessage[]; } catch { return []; }
+}
+
+export async function appendChatMessage(date: string, msg: ChatMessage): Promise<void> {
+  const history = await getChatHistory(date);
+  history.push(msg);
+  const trimmed = history.length > 30 ? history.slice(-30) : history;
+  await AsyncStorage.setItem(CHAT_HISTORY_KEY + date, JSON.stringify(trimmed));
+}
+
+export async function clearChatHistory(date: string): Promise<void> {
+  await AsyncStorage.removeItem(CHAT_HISTORY_KEY + date);
+}
+
+export async function getYesterdaySummary(): Promise<string | null> {
+  return AsyncStorage.getItem(CHAT_YESTERDAY_SUMMARY_KEY);
+}
+
+export async function saveYesterdaySummary(summary: string): Promise<void> {
+  await AsyncStorage.setItem(CHAT_YESTERDAY_SUMMARY_KEY, summary);
+}
+
+// ─── Quick questions ──────────────────────────────────────────────────────────
+
+const QUICK_QUESTIONS_KEY = 'chat_quick_questions';
+
+export type QuickQuestion = {
+  id: string;    // stable UUID
+  label: string; // display text, also the message sent
+};
+
+const DEFAULT_QUICK_QUESTIONS: QuickQuestion[] = [
+  { id: 'qq-default-1', label: 'Review my status' },
+  { id: 'qq-default-2', label: 'Review my last meal' },
+  { id: 'qq-default-3', label: 'How am I doing today?' },
+];
+
+const DEFAULT_QUICK_QUESTIONS_BY_LANG: Record<string, QuickQuestion[]> = {
+  en: DEFAULT_QUICK_QUESTIONS,
+  he: [
+    { id: 'qq-default-1', label: 'סקור את הסטטוס שלי' },
+    { id: 'qq-default-2', label: 'סקור את הארוחה האחרונה' },
+    { id: 'qq-default-3', label: 'איך אני מתקדם/ת היום?' },
+  ],
+  es: [
+    { id: 'qq-default-1', label: 'Revisa mi estado' },
+    { id: 'qq-default-2', label: 'Revisa mi última comida' },
+    { id: 'qq-default-3', label: '¿Cómo voy hoy?' },
+  ],
+  fr: [
+    { id: 'qq-default-1', label: 'Bilan de ma journée' },
+    { id: 'qq-default-2', label: 'Analyser mon dernier repas' },
+    { id: 'qq-default-3', label: 'Comment je m\'en sors?' },
+  ],
+  de: [
+    { id: 'qq-default-1', label: 'Status prüfen' },
+    { id: 'qq-default-2', label: 'Letzte Mahlzeit prüfen' },
+    { id: 'qq-default-3', label: 'Wie laufe ich heute?' },
+  ],
+  ar: [
+    { id: 'qq-default-1', label: 'راجع حالتي' },
+    { id: 'qq-default-2', label: 'راجع وجبتي الأخيرة' },
+    { id: 'qq-default-3', label: 'كيف حالي اليوم؟' },
+  ],
+  ru: [
+    { id: 'qq-default-1', label: 'Проверь мой статус' },
+    { id: 'qq-default-2', label: 'Разбор последнего приёма пищи' },
+    { id: 'qq-default-3', label: 'Как у меня дела сегодня?' },
+  ],
+};
+
+const QUICK_QUESTIONS_LANG_KEY = 'chat_quick_questions_lang';
+
+function defaultQuickQuestions(langCode?: string): QuickQuestion[] {
+  return DEFAULT_QUICK_QUESTIONS_BY_LANG[langCode ?? 'en'] ?? DEFAULT_QUICK_QUESTIONS;
+}
+
+export async function getQuickQuestions(lang?: UserLanguage | null): Promise<QuickQuestion[]> {
+  const code = lang?.code ?? 'en';
+  const savedLang = await AsyncStorage.getItem(QUICK_QUESTIONS_LANG_KEY);
+  const raw = await AsyncStorage.getItem(QUICK_QUESTIONS_KEY);
+  if (raw && savedLang === code) {
+    try {
+      const parsed = JSON.parse(raw) as QuickQuestion[];
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch { /* fall through */ }
+  }
+  return defaultQuickQuestions(code);
+}
+
+export async function saveQuickQuestions(qs: QuickQuestion[], lang?: UserLanguage | null): Promise<void> {
+  await AsyncStorage.setItem(QUICK_QUESTIONS_KEY, JSON.stringify(qs));
+  if (lang) await AsyncStorage.setItem(QUICK_QUESTIONS_LANG_KEY, lang.code);
+}
+
+/** Reset chips to language defaults (e.g. after user changes language). */
+export async function resetQuickQuestionsForLanguage(lang: UserLanguage): Promise<QuickQuestion[]> {
+  const qs = defaultQuickQuestions(lang.code);
+  await saveQuickQuestions(qs, lang);
+  return qs;
+}

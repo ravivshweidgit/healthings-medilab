@@ -79,6 +79,45 @@ export async function getTodayMeals(): Promise<FoodEntry[]> {
   return getMealsForDay(dayKey(Date.now()));
 }
 
+/** Formats today's meals for AI mentor context — full item-level detail. */
+export function buildMealsAiContext(entries: FoodEntry[]): {
+  lastMealSummary: string | null;
+  todayMealsDetail: string | null;
+} {
+  if (entries.length === 0) {
+    return { lastMealSummary: null, todayMealsDetail: null };
+  }
+
+  const sorted = [...entries].sort((a, b) => a.timestamp - b.timestamp);
+
+  const formatMeal = (entry: FoodEntry, index: number): string => {
+    const time = new Date(entry.timestamp).toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const itemLines = entry.items.length > 0
+      ? entry.items.map((i) => {
+          const name = i.name_local || i.name;
+          return `    • ${name}: ${Math.round(i.grams)}g, ${Math.round(i.kcal)} kcal, P${i.protein_g}g C${i.carb_g}g F${i.fat_g}g`;
+        }).join('\n')
+      : '    • (items not stored — totals only)';
+    return [
+      `Meal ${index + 1} at ${time}:`,
+      itemLines,
+      `  Total: ${entry.totalKcal} kcal | P${entry.totalProtein_g}g C${entry.totalCarb_g}g F${entry.totalFat_g}g`,
+      entry.note ? `  Note: ${entry.note}` : null,
+    ].filter(Boolean).join('\n');
+  };
+
+  const mealBlocks = sorted.map((e, i) => formatMeal(e, i));
+  const last = sorted[sorted.length - 1];
+
+  return {
+    lastMealSummary: formatMeal(last, sorted.length - 1).replace(/\n/g, ' | '),
+    todayMealsDetail: mealBlocks.join('\n\n'),
+  };
+}
+
 export async function saveMeal(entry: Omit<FoodEntry, 'id'> & { id?: string }): Promise<FoodEntry> {
   const dk = dayKey(entry.timestamp);
   const saved: FoodEntry = { ...entry, id: entry.id ?? makeId() };

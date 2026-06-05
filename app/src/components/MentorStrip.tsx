@@ -3,9 +3,10 @@
  * At least one must always be selected.
  */
 
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { type MentorType } from '../services/TargetService';
+import React, { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import Slider from '@react-native-community/slider';
+import { type MentorType, type MentorFrequency, getMentorFrequency, saveMentorFrequency } from '../services/TargetService';
 import { WellnessColors } from '../theme/wellness';
 
 const MENTORS: { type: MentorType; emoji: string; label: string; sub: string }[] = [
@@ -23,6 +24,17 @@ type Props = {
 
 export function MentorStrip({ mentors, onChanged, expanded, onToggleExpand }: Props) {
   const [hint, setHint] = useState(false);
+  const [freq, setFreq] = useState<MentorFrequency>({ afterEachMeal: true, minGapHours: 4 });
+
+  useEffect(() => {
+    getMentorFrequency().then(setFreq);
+  }, []);
+
+  const updateFreq = async (patch: Partial<MentorFrequency>) => {
+    const updated = { ...freq, ...patch };
+    setFreq(updated);
+    await saveMentorFrequency(updated);
+  };
 
   const toggle = (type: MentorType) => {
     if (mentors.includes(type)) {
@@ -68,6 +80,34 @@ export function MentorStrip({ mentors, onChanged, expanded, onToggleExpand }: Pr
             })}
           </View>
           {hint && <Text style={styles.hintText}>At least one mentor is required</Text>}
+
+          {/* Frequency controls */}
+          <View style={styles.freqSection}>
+            <View style={styles.freqToggleRow}>
+              <View style={styles.freqToggleInfo}>
+                <Text style={styles.freqToggleLabel}>Review after each meal</Text>
+              </View>
+              <Switch
+                value={freq.afterEachMeal}
+                onValueChange={(v) => updateFreq({ afterEachMeal: v })}
+                trackColor={{ false: WellnessColors.gridLine, true: WellnessColors.accentGreen }}
+                thumbColor={freq.afterEachMeal ? '#fff' : '#f4f3f4'}
+              />
+            </View>
+            <Text style={styles.freqSliderLabel}>Minimum gap between reviews</Text>
+            <Slider
+              style={styles.slider}
+              minimumValue={2}
+              maximumValue={24}
+              step={1}
+              value={freq.minGapHours}
+              onSlidingComplete={(v) => updateFreq({ minGapHours: Math.round(v) })}
+              minimumTrackTintColor={WellnessColors.accentBlue}
+              maximumTrackTintColor={WellnessColors.gridLine}
+              thumbTintColor={WellnessColors.accentBlue}
+            />
+            <Text style={styles.freqSliderValue}>{freq.minGapHours}h minimum between reviews</Text>
+          </View>
         </View>
       )}
     </View>
@@ -105,4 +145,23 @@ const styles = StyleSheet.create({
   cardSub: { fontSize: 10, color: WellnessColors.textSecondary, textAlign: 'center' },
   cardSubSelected: { color: '#388E3C' },
   hintText: { fontSize: 11, color: '#E53935', textAlign: 'center', marginTop: 8 },
+
+  freqSection: {
+    marginTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: WellnessColors.gridLine,
+    paddingTop: 14,
+    gap: 6,
+  },
+  freqToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  freqToggleInfo: { flex: 1 },
+  freqToggleLabel: { fontSize: 13, fontWeight: '600', color: WellnessColors.textPrimary },
+  freqSliderLabel: { fontSize: 12, color: WellnessColors.textSecondary, marginBottom: 2 },
+  slider: { width: '100%', height: 36 },
+  freqSliderValue: { fontSize: 12, color: WellnessColors.accentBlue, textAlign: 'center', fontWeight: '600' },
 });

@@ -4,7 +4,78 @@
  */
 
 import { GEMINI_API_KEY } from '@env';
-import type { MentorType } from './TargetService';
+import type { MentorType, DailyMacroTarget, BodyTarget, UserRules, CoachMessage, CoachActionItem, AutoCheckType, ChatMessage, UserLanguage } from './TargetService';
+
+/** Returns a language instruction line to append to any AI prompt. */
+function langInstruction(lang?: UserLanguage | null): string {
+  if (!lang || lang.code === 'en') return '';
+  return `\nRespond entirely in ${lang.label} (${lang.code}). All text in the response must be in ${lang.label}.`;
+}
+
+/** Stronger instruction for JSON coach responses — action item text often copied from English examples. */
+function coachJsonLangInstruction(lang?: UserLanguage | null): string {
+  if (!lang || lang.code === 'en') return '';
+  return `\nLANGUAGE (mandatory): Write "text" AND every actionItems[].text in ${lang.label} (${lang.code}) only. Keep autoCheckType values exactly as English keys (carbs_under_target, etc.). Do NOT use English for user-visible strings.`;
+}
+
+const COACH_JSON_EXAMPLES: Record<string, string> = {
+  en: '{"text":"2 sentences max. Specific numbers.","actionItems":[{"text":"Stay under 20g carbs today","autoCheckType":"carbs_under_target"},{"text":"Add 20g protein at dinner","autoCheckType":null},{"text":"Log next meal","autoCheckType":"meal_logged"}]}',
+  he: '{"text":"אכלת 1039 מתוך 1950 קק״ל. נשארו 911 קק״ל ליום.","actionItems":[{"text":"להישאר מתחת ל-20g פחמימות","autoCheckType":"carbs_under_target"},{"text":"להוסיף 20g חלבון בארוחת ערב","autoCheckType":null},{"text":"לרשום את הארוחה הבאה","autoCheckType":"meal_logged"}]}',
+};
+
+function coachJsonExample(lang?: UserLanguage | null): string {
+  return COACH_JSON_EXAMPLES[lang?.code ?? 'en'] ?? COACH_JSON_EXAMPLES.en;
+}
+
+function isValidActionItemText(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (t.startsWith('<')) return false;
+  if (/user language|short action/i.test(t)) return false;
+  return true;
+}
+
+function buildFallbackActionItems(ctx: CoachContext): CoachActionItem[] {
+  const code = ctx.lang?.code ?? 'en';
+  const carb = ctx.macroTarget?.carb_g;
+  const protein = ctx.macroTarget?.protein_g;
+  const ts = Date.now();
+  const labels =
+    code === 'he'
+      ? {
+          carbs: carb != null ? `להישאר מתחת ל-${Math.round(carb)}g פחמימות` : 'לשמור על יעד הפחמימות',
+          protein: protein != null ? `להגיע ל-${Math.round(protein)}g חלבון` : 'להגיע ליעד החלבון',
+          meal: 'לרשום את הארוחה הבאה',
+        }
+      : {
+          carbs: carb != null ? `Stay under ${Math.round(carb)}g carbs` : 'Stay within carb target',
+          protein: protein != null ? `Hit ${Math.round(protein)}g protein` : 'Hit protein target',
+          meal: 'Log your next meal',
+        };
+  return [
+    { id: `fb-${ts}-0`, text: labels.carbs, done: false, autoCheckType: 'carbs_under_target' },
+    { id: `fb-${ts}-1`, text: labels.protein, done: false, autoCheckType: 'protein_over_target' },
+    { id: `fb-${ts}-2`, text: labels.meal, done: false, autoCheckType: 'meal_logged' },
+  ];
+}
+
+function normalizeCoachActionItems(
+  raw: Array<{ text: string; autoCheckType: string | null }> | undefined,
+  ctx: CoachContext,
+): CoachActionItem[] {
+  const parsed = (raw ?? [])
+    .filter((item) => isValidActionItemText(String(item.text ?? '')))
+    .slice(0, 4)
+    .map((item, i) => ({
+      id: `ai-${Date.now()}-${i}`,
+      text: String(item.text).trim(),
+      done: false,
+      autoCheckType: (['carbs_under_target', 'protein_over_target', 'calorie_deficit', 'meal_logged'].includes(item.autoCheckType ?? '')
+        ? item.autoCheckType as AutoCheckType
+        : null),
+    }));
+  return parsed.length >= 2 ? parsed : buildFallbackActionItems(ctx);
+}
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
@@ -132,6 +203,7 @@ export async function analyzeFood(
   userText: string,
   history: GeminiTurn[],
   afterImageBase64?: string | null,
+  lang?: UserLanguage | null,
 ): Promise<{ result: GeminiAnalysisResult; updatedHistory: GeminiTurn[] }> {
   if (MOCK_MODE) {
     await new Promise((r) => setTimeout(r, 800));
@@ -140,9 +212,14 @@ export async function analyzeFood(
     return { result: MOCK_RESULT, updatedHistory: [...history, newTurn, modelTurn] };
   }
 
+  const langNote = langInstruction(lang);
+  const systemPromptWithLang = langNote
+    ? `${SYSTEM_PROMPT}${langNote}\nIMPORTANT: food item "name" field should be in ${lang!.label}, "name_local" can stay in original script.`
+    : SYSTEM_PROMPT;
+
   // Prepend system prompt as a synthetic user/model exchange (compatible with all API versions).
   const systemTurns = history.length === 0 ? [
-    { role: 'user', parts: [{ text: `INSTRUCTIONS:\n${SYSTEM_PROMPT}\n\nConfirm you understand.` }] },
+    { role: 'user', parts: [{ text: `INSTRUCTIONS:\n${systemPromptWithLang}\n\nConfirm you understand.` }] },
     { role: 'model', parts: [{ text: '{"items":[],"confidence":"high","description":"Ready to analyze food."}' }] },
   ] : [];
 
@@ -223,7 +300,7 @@ export async function analyzeFood(
 
   // Persist system turns into history so corrections keep the full context.
   const systemHistoryTurns: GeminiTurn[] = history.length === 0 ? [
-    { role: 'user', text: `INSTRUCTIONS:\n${SYSTEM_PROMPT}\n\nConfirm you understand.` },
+    { role: 'user', text: `INSTRUCTIONS:\n${systemPromptWithLang}\n\nConfirm you understand.` },
     { role: 'model', text: '{"items":[],"confidence":"high","description":"Ready to analyze food."}' },
   ] : [];
 
@@ -264,7 +341,7 @@ export type BodyTargetSuggestion = {
  * Asks Gemini to suggest body composition targets.
  * Single non-conversational call — returns structured JSON.
  */
-export async function suggestBodyTargets(input: BodyTargetInput): Promise<BodyTargetSuggestion> {
+export async function suggestBodyTargets(input: BodyTargetInput, lang?: UserLanguage | null): Promise<BodyTargetSuggestion> {
   const lines = [
     `Weight: ${input.weight_kg} kg`,
     `Fat%: ${input.fatPct}%`,
@@ -294,7 +371,7 @@ RULES:
 - Healthy BMI 18.5-25 (higher ok if muscular)
 - Fat% men 10-18%, women 18-28%
 - Muscle target >= current
-- Pace 0.3-0.5 kg/week`;
+- Pace 0.3-0.5 kg/week${langInstruction(lang)}`;
 
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -367,6 +444,7 @@ export type UserRulesSummary = {
 export async function summariseUserRules(
   rawText: string,
   mentors: MentorType[],
+  lang?: UserLanguage | null,
 ): Promise<UserRulesSummary> {
   const systemPrompt = buildMentorSystemPrompt(mentors);
 
@@ -380,7 +458,7 @@ Rules:
 - constraints: max 5 items, max 8 words each
 - aiContext: max 20 words, used in future AI prompts
 
-User text: "${rawText.replace(/"/g, "'")}"`; 
+User text: "${rawText.replace(/"/g, "'")}"${langInstruction(lang)}`; 
 
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -438,7 +516,7 @@ export type MacroSuggestion = {
   reasoning: string;
 };
 
-export async function suggestDailyMacros(input: MacroSuggestionInput): Promise<MacroSuggestion> {
+export async function suggestDailyMacros(input: MacroSuggestionInput, lang?: UserLanguage | null): Promise<MacroSuggestion> {
   const systemPrompt = buildMentorSystemPrompt(input.mentors);
   const leanMass = input.weight_kg - input.fatMass_kg;
   const fatPct = (input.fatMass_kg / input.weight_kg) * 100;
@@ -466,7 +544,7 @@ RULES (apply in strict priority order):
 2. Protein: 1.6–2.2g × lean_mass_kg (preserve muscle)
 3. Calorie deficit 300–500 kcal below estimated burn for fat loss
 4. Fill remaining calories with fat after protein and carbs are set
-5. diet_label: Ketogenic/Vegan/High Protein/Mediterranean/Balanced/Custom`;
+5. diet_label: Ketogenic/Vegan/High Protein/Mediterranean/Balanced/Custom${langInstruction(lang)}`;
 
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -500,4 +578,225 @@ RULES (apply in strict priority order):
     const hint = finishReason === 'MAX_TOKENS' ? ' (truncated)' : '';
     throw new Error(`Could not parse macro suggestion${hint}: ${raw.slice(0, 100)}`);
   }
+}
+
+// ─── Coach context & message generation ───────────────────────────────────────
+
+export type CoachTriggerEvent = 'meal' | 'weigh-in' | 'workout' | 'day-close';
+
+export type CoachContext = {
+  mentors: MentorType[];
+  event: CoachTriggerEvent;
+  lang?: UserLanguage | null;
+  // user profile
+  age: number | null;
+  gender: string | null;
+  heightCm: number | null;
+  // body
+  weightKg: number | null;
+  fatPct: number | null;
+  muscleMass_kg: number | null;
+  bmr_kcal: number | null;
+  startWeight_kg: number | null;
+  startMuscle_kg: number | null;
+  // today food
+  todayEaten: number | null;
+  todayBurn: number | null;
+  todayProtein_g: number | null;
+  todayFat_g: number | null;
+  todayCarb_g: number | null;
+  mealCount: number;
+  lastMealSummary: string | null;
+  todayMealsDetail: string | null;
+  // targets
+  macroTarget: DailyMacroTarget | null;
+  bodyTarget: BodyTarget | null;
+  userRules: UserRules | null;
+};
+
+function buildCoachDataBlock(ctx: CoachContext): string {
+  const n = (v: number | null, unit = '') => v != null ? `${v}${unit}` : '—';
+  const summaryLines = [
+    `EVENT: ${ctx.event}`,
+    `Weight: ${n(ctx.weightKg, ' kg')} (start: ${n(ctx.startWeight_kg, ' kg')}, target: ${n(ctx.bodyTarget?.targetWeight_kg ?? null, ' kg')})`,
+    `Muscle: ${n(ctx.muscleMass_kg, ' kg')} (start: ${n(ctx.startMuscle_kg, ' kg')}, target: ${n(ctx.bodyTarget?.targetMuscleMass_kg ?? null, ' kg')})`,
+    `Today eaten: ${n(ctx.todayEaten, ' kcal')} / ${n(ctx.macroTarget?.kcal ?? null, ' kcal target')} | P: ${n(ctx.todayProtein_g, 'g')}/${n(ctx.macroTarget?.protein_g ?? null, 'g')} | C: ${n(ctx.todayCarb_g, 'g')}/${n(ctx.macroTarget?.carb_g ?? null, 'g')} | F: ${n(ctx.todayFat_g, 'g')}/${n(ctx.macroTarget?.fat_g ?? null, 'g')}`,
+    `Today burned: ${n(ctx.todayBurn, ' kcal')} | Balance: ${ctx.todayEaten != null && ctx.todayBurn != null ? Math.round(ctx.todayEaten - ctx.todayBurn) + ' kcal' : '—'}`,
+    `Meals logged today: ${ctx.mealCount}`,
+    ctx.userRules?.aiContext ? `Dietary rules: ${ctx.userRules.aiContext}` : null,
+  ].filter(Boolean);
+
+  const mealSection = ctx.todayMealsDetail
+    ? [
+        '=== MEAL LOG (full detail — use this when reviewing meals) ===',
+        ctx.todayMealsDetail,
+        ctx.lastMealSummary ? `Most recent meal (summary): ${ctx.lastMealSummary}` : null,
+        '=== END MEAL LOG ===',
+      ].filter(Boolean).join('\n')
+    : '=== MEAL LOG ===\nNo meals logged today.\n=== END MEAL LOG ===';
+
+  return [...summaryLines, '', mealSection].join('\n');
+}
+
+/** Detect meal-review questions in any supported language. */
+export function isMealReviewQuery(text: string): boolean {
+  const t = text.toLowerCase();
+  return /meal|ארוחה|comida|repas|mahlzeit|وجبة|приём|manger|essen|food log|last eat/i.test(t);
+}
+
+export async function generateCoachMessage(ctx: CoachContext): Promise<CoachMessage> {
+  const systemPrompt = buildMentorSystemPrompt(ctx.mentors);
+  const dataBlock = buildCoachDataBlock(ctx);
+
+  const jsonExample = coachJsonExample(ctx.lang);
+
+  const prompt = `${systemPrompt}
+
+USER DATA:
+${dataBlock}
+
+Respond with JSON only (no markdown, no prose):
+${jsonExample}
+
+Rules:
+- text: max 2 sentences, cite specific numbers from the data, no generic advice
+- actionItems: 2–4 items, max 8 words each, concrete and actionable today — same language as text
+- autoCheckType: use "carbs_under_target", "protein_over_target", "calorie_deficit", "meal_logged", or null (always English keys)
+- If event is meal: focus on remaining macros for the day
+- If event is weigh-in: focus on trend vs target, muscle vs start
+- If event is workout: focus on calorie budget impact
+- Do NOT repeat data the user already sees on the dashboard${coachJsonLangInstruction(ctx.lang)}`;
+
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
+  };
+
+  const response = await fetch(GEMINI_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.text().catch(() => '');
+    throw new Error(`Gemini coach error ${response.status}: ${err.slice(0, 200)}`);
+  }
+
+  const json = await response.json();
+  const raw: string = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  if (!raw) throw new Error('Empty AI response for coach message');
+
+  const stripped = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  const start = stripped.indexOf('{');
+  const end = stripped.lastIndexOf('}');
+  const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+
+  let parsed: { text: string; actionItems: Array<{ text: string; autoCheckType: string | null }> };
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    throw new Error(`Could not parse coach message: ${raw.slice(0, 100)}`);
+  }
+
+  const actionItems = normalizeCoachActionItems(parsed.actionItems, ctx);
+
+  return {
+    id: `coach-${Date.now()}`,
+    text: String(parsed.text ?? ''),
+    actionItems,
+    triggerEvent: ctx.event,
+    generatedAt: new Date().toISOString(),
+    mealCountAtGeneration: ctx.mealCount,
+    generatedLangCode: ctx.lang?.code ?? 'en',
+  };
+}
+
+// ─── Free chat with mentors ────────────────────────────────────────────────────
+
+export async function chatWithMentors(
+  message: string,
+  history: ChatMessage[],
+  ctx: CoachContext,
+  yesterdaySummary: string | null,
+): Promise<string> {
+  const systemPrompt = buildMentorSystemPrompt(ctx.mentors);
+  const dataBlock = buildCoachDataBlock(ctx);
+  const yesterdayLine = yesterdaySummary ? `\nYesterday: ${yesterdaySummary}` : '';
+
+  const systemText = `${systemPrompt}${yesterdayLine}
+
+CURRENT USER DATA:
+${dataBlock}
+
+You are responding in a free chat. Be concise, specific, and supportive.
+The MEAL LOG section contains every food item logged today with grams and macros. When the user asks about their last meal or any meal, review that data directly — never say you lack meal details if MEAL LOG is present.
+Ignore any earlier chat messages where you said meal details were unavailable; always use the current MEAL LOG block.${langInstruction(ctx.lang)}`;
+
+  // Build history turns (max last 20 messages)
+  const recentHistory = history.slice(-20);
+
+  // For meal-review questions, repeat meal log in the user turn so the model cannot miss it
+  let userMessage = message;
+  if (isMealReviewQuery(message) && ctx.todayMealsDetail) {
+    userMessage = `${message}\n\nUse this meal log (already in your context — cite specific foods and numbers):\n${ctx.todayMealsDetail}`;
+  }
+
+  const contents = [
+    { role: 'user', parts: [{ text: `SYSTEM CONTEXT:\n${systemText}\n\nAcknowledge.` }] },
+    { role: 'model', parts: [{ text: 'Understood. I have full meal log access and will use it.' }] },
+    ...recentHistory.map((m) => ({
+      role: m.role === 'user' ? 'user' : 'model',
+      parts: [{ text: m.text }],
+    })),
+    { role: 'user', parts: [{ text: userMessage }] },
+  ];
+
+  const body = {
+    contents,
+    generationConfig: { temperature: 0.4, maxOutputTokens: 8192 },
+  };
+
+  const response = await fetch(GEMINI_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.text().catch(() => '');
+    throw new Error(`Gemini chat error ${response.status}: ${err.slice(0, 200)}`);
+  }
+
+  const json = await response.json();
+  const raw: string = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  if (!raw) throw new Error('Empty response from mentor chat');
+  return raw.trim();
+}
+
+// ─── Summarise yesterday's chat ────────────────────────────────────────────────
+
+export async function summariseChatDay(history: ChatMessage[]): Promise<string> {
+  if (history.length === 0) return '';
+
+  const transcript = history
+    .map((m) => `${m.role === 'user' ? 'User' : 'Mentor'}: ${m.text}`)
+    .join('\n')
+    .slice(0, 3000);
+
+  const prompt = `Summarise this health coaching chat in one sentence (max 20 words). Focus on key outcomes or advice.\n\n${transcript}`;
+
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.2, maxOutputTokens: 256 },
+  };
+
+  const response = await fetch(GEMINI_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) return '';
+
+  const json = await response.json();
+  const raw: string = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  return raw.trim().slice(0, 200);
 }

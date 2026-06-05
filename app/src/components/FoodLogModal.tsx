@@ -27,6 +27,7 @@ import {
   type GeminiTurn,
 } from '../services/GeminiService';
 import { saveMeal, deleteMeal, type FoodEntry } from '../services/FoodLogService';
+import { type UserLanguage } from '../services/TargetService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -41,6 +42,8 @@ type Props = {
   initialTimestamp?: number;
   /** Pass an existing entry to open directly in edit/result mode. */
   editEntry?: FoodEntry;
+  /** User's preferred language — AI will respond in this language. */
+  lang?: UserLanguage | null;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -62,7 +65,7 @@ function macroSummary(items: FoodItem[]): string {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, editEntry }: Props) {
+export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, editEntry, lang }: Props) {
   const [screen, setScreen] = useState<Screen>(() => editEntry ? 'result' : 'idle');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
@@ -136,7 +139,7 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
     setScreen('analyzing');
     setError(null);
     try {
-      const { result, updatedHistory } = await analyzeFood(imageBase64, userText, hist, afterBase64);
+      const { result, updatedHistory } = await analyzeFood(imageBase64, userText, hist, afterBase64, lang);
       setItems(result.items);
       setConfidence(result.confidence);
       setDescription(result.description);

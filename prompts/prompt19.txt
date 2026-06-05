@@ -1,0 +1,396 @@
+## Prompt 19 — Period Reviews & Layered Mentor Memory
+
+### Vision
+Daily mentor coaching stays **light and event-driven** (Prompt 18).
+Deeper history questions — “how was my week?”, “how was May?” — are answered by
+**on-demand period reviews**, not by sending full logs on every chat turn.
+
+Generate a review **once**, **save the result**, and **reuse the saved summary**
+in later chat messages. Raw multi-day data is only sent to Gemini when the user
+explicitly requests (or regenerates) a weekly or monthly review.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Token layers (cheapest → most expensive)                   │
+├─────────────────────────────────────────────────────────────┤
+│  Every chat turn    │ Today stats + meal log + rollups    │
+│  Every chat turn    │ Yesterday chat one-liner (existing) │
+│  Every chat turn    │ Latest saved weekly/monthly blurbs  │
+│  On demand only     │ Full period analysis → saved artifact│
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Prerequisites (Prompt 18 — already built)
+- `CoachService.ts` — `triggerCoachReview`, `refreshCoachReview`, frequency gate
+- `ChatScreen.tsx` — collapsible coach panel, FAQ question bar (tap chip → fill
+  input; Send required), gated ↻ refresh on action items
+- `GeminiService.ts` — `chatWithMentors`, `generateCoachMessage`, `summariseChatDay`
+- `TargetService.ts` — coach message, chat history, quick questions, language
+- Event triggers: meal, weigh-in, workout, day-close
+
+---
+
+## PART A — Daily rollup (light, automatic)
+
+Built at **day-close** (same midnight boundary as food log / Withings).
+One compact record per calendar day — **no per-item meal detail**.
+
+### Storage (TargetService.ts)
+
+```ts
+export type DailyRollup = {
+  date: string;              // 'YYYY-MM-DD'
+  kcal: number;
+  protein_g: number;
+  carb_g: number;
+  fat_g: number;
+  mealCount: number;
+  weightKg: number | null;   // latest Withings weight that day, if any
+  fatMassKg: number | null;
+  muscleMassKg: number | null;
+  burnKcal: number | null;   // estimated total burn that day
+  chatOneLiner: string | null; // from summariseChatDay() if chat existed
+  generatedAt: string;         // ISO
+};
+
+const DAILY_ROLLUP_KEY = 'daily_rollup_';   // + 'YYYY-MM-DD'
+const ROLLUP_INDEX_KEY = 'daily_rollup_index'; // string[] of dates, newest last
+
+export async function getDailyRollup(date: string): Promise<DailyRollup | null>
+export async function saveDailyRollup(r: DailyRollup): Promise<void>
+export async function getRecentRollups(days: number): Promise<DailyRollup[]>
+// Returns up to `days` rollups ending yesterday (or today if day incomplete).
+// Missing days are omitted — do not fabricate zeros.
+```
+
+### Build logic (CoachService.ts or new ReviewService.ts)
+
+Call `finalizeDailyRollup(date)` once per day from the existing day-close path
+(after `last_day_close_date` advances):
+
+1. Read food log macros for `date` via `getDailyMacros(date)`
+2. Read body composition for `date` from cached trend data if available
+3. Read burn for `date` from dashboard burn map if available (best-effort; null OK)
+4. If chat history for `date` is non-empty and no one-liner stored yet →
+   `summariseChatDay(history)` → `chatOneLiner`
+5. Persist `DailyRollup` and append `date` to index (trim index to last 90 dates)
+
+**Size target:** ~50–80 tokens per day when formatted for AI (~350–560 tokens for 7 days).
+
+---
+
+## PART B — Saved period reviews (weekly / monthly)
+
+Heavy analysis runs **only** when the user asks. Output is persisted and reused.
+
+### Storage (TargetService.ts)
+
+```ts
+export type PeriodReviewType = 'weekly' | 'monthly';
+
+export type PeriodReview = {
+  id: string;                    // UUID
+  periodType: PeriodReviewType;
+  periodKey: string;             // ISO week '2026-W23' or month '2026-06'
+  coversFrom: string;            // 'YYYY-MM-DD' inclusive
+  coversTo: string;              // 'YYYY-MM-DD' inclusive
+  summaryText: string;           // 3–5 sentences, user's language
+  highlights: string[];          // 3–5 bullet strings
+  actionItems: CoachActionItem[]; // 2–4 optional follow-ups for next period
+  generatedAt: string;
+  generatedLangCode: string;     // BCP-47, same pattern as CoachMessage
+};
+
+const PERIOD_REVIEW_KEY = 'period_review_'; // + periodType + '_' + periodKey
+
+export async function getPeriodReview(
+  type: PeriodReviewType,
+  periodKey: string,
+): Promise<PeriodReview | null>
+
+export async function savePeriodReview(r: PeriodReview): Promise<void>
+
+export async function getLatestPeriodReview(
+  type: PeriodReviewType,
+): Promise<PeriodReview | null>
+```
+
+### Period key rules
+
+| Type | Key | Covers |
+|------|-----|--------|
+| **weekly** | ISO week `YYYY-Www` (locale: Sunday or Monday — pick one, document in code) | Mon–Sun or Sun–Sat of that week |
+| **monthly** | `YYYY-MM` | 1st – last day of calendar month |
+
+Default review target when user taps “Weekly review”:
+- **Current week so far** if today is mid-week
+- Label in UI: “Week of Jun 2 – Jun 8 (through today)”
+
+---
+
+## PART C — Review engine (ReviewService.ts — NEW)
+
+```ts
+export type ReviewGenerateResult =
+  | { ok: true; review: PeriodReview; fromCache: boolean }
+  | { ok: false; reason: 'too_soon'; waitHours: number; minGapHours: number }
+  | { ok: false; reason: 'insufficient_data'; message: string };
+
+/**
+ * Returns cached review if fresh enough; otherwise generates via Gemini.
+ * `force` skips cache but still respects min-gap (same as refreshCoachReview).
+ */
+export async function generatePeriodReview(
+  type: PeriodReviewType,
+  context: CoachContext,
+  options?: { force?: boolean; periodKey?: string },
+): Promise<ReviewGenerateResult>
+```
+
+### Cache freshness
+
+Return cached review without calling Gemini when **all** are true:
+- Saved review exists for requested `periodKey`
+- `generatedLangCode` matches user's current language
+- `coversTo` ≥ last date with any logged data in the period (review still “complete”)
+- Not `force`
+
+Otherwise regenerate (subject to frequency gate).
+
+### Frequency gate
+
+Reuse `checkCoachReviewGate()` from `CoachService.ts` (mentor min-gap setting).
+Weekly/monthly generation counts as a “review” for gap purposes — prevents spam.
+
+Optional: add `minGapHours` bypass label in UI (“Try again in ~3h”).
+
+### Data assembled for generation (heavy call — not stored raw)
+
+For **weekly** (example):
+- All `DailyRollup` rows in the period (7 lines max)
+- Body trend delta: start weight/fat/muscle → end (from rollups or trend API)
+- Macro target adherence: days under carb target, avg protein, etc. (computed locally)
+- User rules + mentor personas (existing)
+- Do **not** include full meal item lists unless period has ≤ 2 days of meals total
+
+For **monthly**:
+- Up to 31 daily rollups (cap display at 30; aggregate stats in prompt)
+- Weekly review summaries already saved for weeks inside the month (inject those
+  instead of re-sending 31 raw days when ≥ 3 weekly reviews exist)
+
+---
+
+## PART D — GeminiService additions
+
+```ts
+export async function generatePeriodReview(
+  type: PeriodReviewType,
+  rollups: DailyRollup[],
+  context: CoachContext,
+  priorWeeklySummaries?: string[],  // for monthly only
+): Promise<Omit<PeriodReview, 'id' | 'generatedAt' | 'generatedLangCode'>>
+```
+
+### Prompt template (weekly example)
+
+```
+{mentorSystemPrompt}
+
+PERIOD: Weekly review
+COVERS: {coversFrom} – {coversTo}
+
+DAILY ROLLUPS (one line per day):
+{formattedRollups}
+
+BODY CHANGE: weight {wStart}→{wEnd} kg, fat {fStart}→{fEnd} kg, muscle {mStart}→{mEnd} kg
+MACRO TARGETS: {targetSummary}
+DIETARY RULES: {rulesContext}
+
+Respond with JSON only:
+{
+  "summaryText": "3–5 sentences. Specific numbers. Same language as user.",
+  "highlights": ["bullet 1", "bullet 2", "bullet 3"],
+  "actionItems": [
+    {"text": "…", "autoCheckType": null}
+  ]
+}
+
+Rules:
+- highlights: 3–5 items, max 12 words each
+- actionItems: 2–4 items, forward-looking for next week, autoCheckType usually null
+- No generic advice; cite numbers from rollups
+- Same language as user profile{langInstruction}
+```
+
+Config: `temperature: 0.35`, `maxOutputTokens: 8192`
+
+Add helper:
+
+```ts
+/** Compact block injected into every chatWithMentors call (~200–400 tokens). */
+export function buildMemoryContextBlock(
+  rollups: DailyRollup[],       // last 7 days
+  latestWeekly: PeriodReview | null,
+  latestMonthly: PeriodReview | null,
+): string
+```
+
+Format:
+
+```
+=== RECENT DAYS (rollup) ===
+2026-06-01: 1920 kcal, P125g, C45g, 3 meals, wt 82.1 kg
+...
+=== END RECENT DAYS ===
+
+=== SAVED REVIEWS (use these for history questions; do not invent) ===
+Weekly (through 2026-06-01): {summaryText}
+Monthly (2026-05): {summaryText}
+=== END SAVED REVIEWS ===
+```
+
+Update `chatWithMentors()` to accept optional `memoryBlock: string | null` and
+append after `CURRENT USER DATA`. Keep yesterday one-liner for backward compatibility
+or fold into rollups once stable.
+
+---
+
+## PART E — Chat UI (ChatScreen.tsx)
+
+### Default quick questions (add to language defaults in TargetService.ts)
+
+```
+"Weekly review"
+"Monthly review"
+"How was my week?"
+```
+
+(Keep existing status / meal questions. User can edit/delete in FAQ dialog.)
+
+### Behaviour
+
+| User action | Result |
+|-------------|--------|
+| Tap **Weekly review** chip | Fills input OR triggers review flow (see below) |
+| Tap **↻ Refresh** on coach panel | Still regenerates **today's** coach message only (unchanged) |
+| Send “Weekly review” / tap dedicated chip with long-press | Run `generatePeriodReview('weekly', …)` |
+
+**Recommended UX for period reviews:**
+
+1. User taps chip **“Weekly review”** → fills input: `Weekly review` (existing
+   pick-not-send pattern) OR opens a confirm sheet — **prefer fill + Send** for consistency.
+2. On Send, detect period-review intent via regex (weekly/monthly + Hebrew equivalents).
+3. If cached review exists and fresh → insert as a **mentor chat bubble** (no new Gemini
+   call) with formatted card text + optional action items.
+4. If stale/missing → show “Generating weekly review…” → call Gemini → save → show bubble.
+5. Follow-up questions in same session use **saved review text** via `memoryBlock`.
+
+### Period review bubble (in chat history)
+
+Store as `ChatMessage` with optional metadata:
+
+```ts
+// Extend ChatMessage in TargetService (backward compatible):
+export type ChatMessage = {
+  role: 'user' | 'assistant';
+  text: string;
+  sentAt: string;
+  periodReviewId?: string;  // links to saved PeriodReview.id
+};
+```
+
+Rendering: assistant bubble with title `📊 Weekly review · Jun 2–8` and body
+`summaryText` + bullet highlights.
+
+---
+
+## PART F — Dashboard day-close hook (DashboardScreen.tsx)
+
+Extend existing `checkDayClose`:
+
+```ts
+// After last_day_close_date advances:
+await finalizeDailyRollup(yesterday);  // yesterday = day that just ended
+await triggerCoachReview('day-close', context);  // existing
+```
+
+On first app open of a new day, yesterday's rollup is finalized before today's
+coach message is generated.
+
+---
+
+## PART G — Token budget (design constraints)
+
+| Layer | When sent | Approx. input tokens |
+|-------|-----------|----------------------|
+| Today coach data + meal log | Every chat message | 800–2,500 |
+| Yesterday chat one-liner | Every chat message | ~30 |
+| 7-day daily rollups | Every chat message | ~350–560 |
+| Latest weekly + monthly saved summaries | Every chat message | ~150–350 |
+| **Typical chat turn total** | | **~1,500–3,500** |
+| Full weekly generation (once) | On demand | ~2,000–5,000 input |
+| Full monthly generation (once) | On demand | ~4,000–10,000 input |
+
+**Rules:**
+- Never attach full multi-day meal item logs to `chatWithMentors` by default.
+- Period generation may read rollups only; load item-level meals only for
+  “review my meal on Tuesday” if that day has ≤ 3 meals (future enhancement).
+- Saved reviews are the cache — follow-up chats must not re-run monthly analysis.
+
+---
+
+## PART H — Localization
+
+- Period review JSON and UI strings follow `UserLanguage` (same as Prompt 18).
+- Detect review intent in Hebrew: `סקירה שבועית`, `סקירה חודשית`, `איך היה השבוע`.
+- `generatedLangCode` mismatch → treat cache as stale, regenerate in current language.
+
+---
+
+## Files to create / change
+
+1. `TargetService.ts` — `DailyRollup`, `PeriodReview` types + CRUD, extend
+   `ChatMessage` with optional `periodReviewId`
+2. `ReviewService.ts` — **NEW** — `finalizeDailyRollup`, `generatePeriodReview`,
+   rollup index maintenance
+3. `CoachService.ts` — export `checkCoachReviewGate` (if not already); call
+   finalize from day-close helper
+4. `GeminiService.ts` — `generatePeriodReview()`, `buildMemoryContextBlock()`,
+   update `chatWithMentors()` signature
+5. `ChatScreen.tsx` — period-review intent on send, review bubble rendering,
+   load rollups + latest reviews into memory block each send
+6. `DashboardScreen.tsx` — wire `finalizeDailyRollup(yesterday)` in day-close
+7. `TargetService.ts` quick questions — add weekly/monthly defaults per language
+
+No new screens — everything lives in existing ChatScreen + storage.
+
+---
+
+## Acceptance checklist
+
+- [ ] Day-close creates a `DailyRollup` for the day that ended
+- [ ] Chat includes last 7 rollups + latest saved weekly/monthly blurbs (~400 tokens extra)
+- [ ] “Weekly review” on Send generates once, saves, shows card; second ask same week uses cache
+- [ ] Regenerate respects mentor min-gap; shows wait message if too soon
+- [ ] Follow-up “what about last week?” answers from saved review, not hallucination
+- [ ] Language change invalidates stale cached reviews
+- [ ] Monthly review reuses weekly summaries when available (lower token cost)
+
+---
+
+## Out of scope for prompt19
+
+- Push notifications (“Your weekly review is ready”)
+- Server-side storage / cross-device sync
+- Quarterly / yearly reviews (same pattern — prompt20+)
+- Export PDF / share sheet
+- Automatic weekly review every Sunday without user action
+- Item-level “what did I eat on March 3?” unless explicitly requested (prompt20+)
+
+---
+
+## Out of scope / already deferred (prompt20+)
+
+- Backend sync of reviews
+- Voice read-aloud of reviews
+- Coach comparing reviews across users / population benchmarks

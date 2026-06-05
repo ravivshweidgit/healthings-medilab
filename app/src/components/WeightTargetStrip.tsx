@@ -18,6 +18,7 @@ import {
   getBodyTarget,
   saveBodyTarget,
   type BodyTarget,
+  type UserLanguage,
 } from '../services/TargetService';
 import { WellnessColors } from '../theme/wellness';
 
@@ -36,6 +37,7 @@ export type BodyTargetProps = {
   /** Computed trends */
   weeklyWeightChange_kg?: number | null;
   avgDailyDeficit_kcal?: number | null;
+  lang?: UserLanguage | null;
 };
 
 type Screen = 'idle' | 'loading' | 'suggestion' | 'editing' | 'active';
@@ -214,6 +216,7 @@ export function WeightTargetStrip({
   gender,
   weeklyWeightChange_kg,
   avgDailyDeficit_kcal,
+  lang,
 }: BodyTargetProps) {
   const [screen, setScreen] = useState<Screen>('idle');
   const [target, setTarget] = useState<BodyTarget | null>(null);
@@ -258,7 +261,7 @@ export function WeightTargetStrip({
         weeklyWeightChange_kg,
         avgDailyDeficit_kcal,
       };
-      const result = await suggestBodyTargets(input);
+      const result = await suggestBodyTargets(input, lang);
       const now = new Date().toISOString();
       const proposed: BodyTarget = {
         targetWeight_kg: result.targetWeight_kg,

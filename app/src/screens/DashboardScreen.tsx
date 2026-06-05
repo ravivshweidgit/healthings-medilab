@@ -2,11 +2,13 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as WebBrowser from 'expo-web-browser';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -18,6 +20,8 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BmrHistoryChart7d } from '../components/BmrHistoryChart7d';
 import { FoodLogModal } from '../components/FoodLogModal';
 import { FoodMacroStrip } from '../components/FoodMacroStrip';
@@ -27,6 +31,7 @@ import { WeightTargetStrip } from '../components/WeightTargetStrip';
 import { MentorStrip } from '../components/MentorStrip';
 import { RulesStrip } from '../components/RulesStrip';
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
+import { ChatScreen } from './ChatScreen';
 import { CONFIG } from '../config/env';
 import { useHealthData } from '../hooks/useHealthData';
 import {
@@ -39,8 +44,16 @@ import {
 } from '../logic/metabolicTrend7d';
 import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportCsv } from '../services/careSensCsv';
-import { foodLogDayKey, getTodayMeals, type FoodEntry } from '../services/FoodLogService';
-import { getBirthdate, setBirthdate, computeAge, getCachedHeightCm, setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors, getUserRules, getMacroTarget, getBodyTarget, type Gender, type MentorType, type UserRules, type DailyMacroTarget, type BodyTarget } from '../services/TargetService';
+import { foodLogDayKey, getTodayMeals, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
+import {
+  getBirthdate, setBirthdate, computeAge, getCachedHeightCm,
+  setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors,
+  getUserRules, getMacroTarget, getBodyTarget, getCoachMessage, saveCoachMessage, dismissCoachMessage, clearCoachMessage,
+  getLanguage, setLanguage, SUPPORTED_LANGUAGES, resetQuickQuestionsForLanguage,
+  type Gender, type MentorType, type UserRules, type DailyMacroTarget, type BodyTarget, type CoachMessage, type UserLanguage,
+} from '../services/TargetService';
+import { type CoachContext } from '../services/GeminiService';
+import { triggerCoachReview, forceCoachReview, refreshCoachReview, runAutoChecksAndPersist } from '../services/CoachService';
 import {
   buildAuthorizationUrl,
   fetchWeightMetrics,
@@ -104,7 +117,23 @@ function formatMeasuredAt(iso: string | null | undefined): string | null {
   }
 }
 
+function navBarBottomInset(bottom: number): number {
+  if (bottom > 0) return bottom;
+  return Platform.OS === 'android' ? 48 : 16;
+}
+
+function refreshBlockedMessage(waitHours: number, minGapHours: number, langCode?: string): string {
+  if (langCode === 'he') {
+    return `ניתן לרענן כל ${minGapHours} שעות. נסו/י שוב בעוד כ-${waitHours} שעות.`;
+  }
+  return `Reviews are limited to once every ${minGapHours}h. Try again in about ${waitHours}h.`;
+}
+
+const COACH_LAST_WEIGH_IN_KEY = 'coach_last_weigh_in_at';
+const COACH_LAST_WORKOUT_MS_KEY = 'coach_last_workout_start_ms';
+
 export const DashboardScreen = () => {
+  const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const brandHeaderHeight = useMemo(() => computeBrandHeaderHeight(windowWidth), [windowWidth]);
   const noticeOverlapUnderLogo = useMemo(
@@ -151,6 +180,13 @@ export const DashboardScreen = () => {
 
   const [pullRefreshing, setPullRefreshing] = useState(false);
 
+  // ─── Coach message + chat ────────────────────────────────────────────────
+  const [coachMsg, setCoachMsg] = useState<CoachMessage | null>(null);
+  const [chatVisible, setChatVisible] = useState(false);
+  const forceReviewRef = useRef(false);
+  // Always holds the latest coachContext to avoid stale closure issues
+  const coachContextRef = useRef<CoachContext | null>(null);
+
   // ─── Height + birthdate + gender ─────────────────────────────────────────
   const [heightCm, setHeightCm] = useState<number | null>(null);
   const [userGender, setUserGender] = useState<Gender | null>(null);
@@ -158,6 +194,7 @@ export const DashboardScreen = () => {
   const [mentors, setMentorsState] = useState<MentorType[]>(['coach', 'nutritionist']);
   const [userRules, setUserRules] = useState<UserRules | null>(null);
   const [macroTarget, setMacroTarget] = useState<DailyMacroTarget | null>(null);
+  const [userLanguage, setUserLanguage] = useState<UserLanguage>(SUPPORTED_LANGUAGES[0]);
   // expanded state for each collapsible row in the grouped card
   const [mentorExpanded, setMentorExpanded] = useState(false);
   const [rulesExpanded, setRulesExpanded] = useState(false);
@@ -192,19 +229,32 @@ export const DashboardScreen = () => {
     if (storedBd) { const d = new Date(storedBd); if (!isNaN(d.getTime())) setBirthdatePicker(d); }
     if (!gd || !storedBd) setProfileExpanded(true);
 
-    // Load mentors, rules, macro target, body target
-    const [m, r, mt, bt] = await Promise.all([getMentors(), getUserRules(), getMacroTarget(), getBodyTarget()]);
+    // Load mentors, rules, macro target, body target, language
+    const [m, r, mt, bt, lang] = await Promise.all([getMentors(), getUserRules(), getMacroTarget(), getBodyTarget(), getLanguage()]);
     setMentorsState(m);
     if (r) setUserRules(r);
     if (mt) setMacroTarget(mt);
     if (bt) setBodyTargetForMacros(bt);
+    setUserLanguage(lang);
   }, []);
 
   const handleFoodSaved = useCallback(() => {
     setFoodModalVisible(false);
     setFoodEditEntry(undefined);
     setFoodRefreshKey((k) => k + 1);
-    loadTodayFood();
+    loadTodayFood().then(async () => {
+      const ctx = coachContextRef.current;
+      if (!ctx) return;
+      const storedLang = await getLanguage();
+      triggerCoachReview('meal', {
+        ...ctx,
+        lang: storedLang,
+        event: 'meal',
+        mealCount: ctx.mealCount + 1,
+      })
+        .then((newMsg) => { if (newMsg) setCoachMsg(newMsg); })
+        .catch(() => {/* non-fatal */});
+    });
   }, [loadTodayFood]);
 
   const handleEditMeal = useCallback((entry: FoodEntry) => {
@@ -370,6 +420,144 @@ export const DashboardScreen = () => {
     return burnKcalByDay[todayKey] ?? null;
   }, [burnKcalByDay]);
 
+  /** Meal detail strings for mentor AI context. */
+  const mealContext = useMemo(
+    () => buildMealsAiContext(todayFoodEntries),
+    [todayFoodEntries],
+  );
+
+  /** Build CoachContext from current state — memoized to avoid recreating on every render. */
+  const coachContext = useMemo((): CoachContext => {
+    const ctx: CoachContext = {
+      mentors,
+      event: 'meal', // default; overridden in trigger calls
+      lang: userLanguage,
+      age: userAge,
+      gender: userGender,
+      heightCm,
+      weightKg: bodyScan?.weightKg ?? null,
+      fatPct,
+      muscleMass_kg: bodyScan?.muscleMassKg ?? null,
+      bmr_kcal: bodyScan?.bmrKcalDay ?? null,
+      startWeight_kg: bodyTargetForMacros?.startWeight_kg ?? null,
+      startMuscle_kg: bodyTargetForMacros?.startMuscle_kg ?? null,
+      todayEaten: todayActualMacros.kcal,
+      todayBurn: todayEstimatedBurn,
+      todayProtein_g: todayActualMacros.protein_g,
+      todayFat_g: todayActualMacros.fat_g,
+      todayCarb_g: todayActualMacros.carb_g,
+      mealCount: todayFoodEntries.length,
+      lastMealSummary: mealContext.lastMealSummary,
+      todayMealsDetail: mealContext.todayMealsDetail,
+      macroTarget,
+      bodyTarget: bodyTargetForMacros,
+      userRules,
+    };
+    coachContextRef.current = ctx;
+    return ctx;
+  }, [
+    mentors, userAge, userGender, heightCm, bodyScan, fatPct, bodyTargetForMacros,
+    todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, macroTarget, userRules, userLanguage,
+  ]);
+
+  /** Regenerate coach message using stored language (not stale React state). */
+  const refreshCoachForLanguage = useCallback(async () => {
+    const storedLang = await getLanguage();
+    const ctx = coachContextRef.current;
+    if (!ctx) return null;
+    try {
+      const newMsg = await forceCoachReview({ ...ctx, lang: storedLang, event: 'day-close' });
+      setCoachMsg(newMsg);
+      return newMsg;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  /** Load coach message on mount and run auto-checks. */
+  const loadCoachMessage = useCallback(async () => {
+    const storedLang = await getLanguage();
+    let msg = await getCoachMessage();
+    let needsRegen = false;
+
+    if (msg?.dismissedAt) {
+      setCoachMsg(null);
+      return;
+    }
+
+    if (msg) {
+      const msgLang = msg.generatedLangCode ?? 'en';
+      if (msgLang !== storedLang.code) {
+        await clearCoachMessage();
+        msg = null;
+        needsRegen = true;
+      }
+    }
+
+    if (!msg) {
+      setCoachMsg(null);
+      if (needsRegen) {
+        await refreshCoachForLanguage();
+      }
+      return;
+    }
+
+    const ctx = coachContextRef.current;
+    const data = {
+      todayCarb_g: ctx?.todayCarb_g ?? null,
+      todayProtein_g: ctx?.todayProtein_g ?? null,
+      todayEaten: ctx?.todayEaten ?? null,
+      todayBurn: ctx?.todayBurn ?? null,
+      mealCount: ctx?.mealCount ?? 0,
+      macroTargetCarb_g: ctx?.macroTarget?.carb_g ?? null,
+      macroTargetProtein_g: ctx?.macroTarget?.protein_g ?? null,
+    };
+    const updated = await runAutoChecksAndPersist(msg, data);
+    setCoachMsg(updated);
+  }, [refreshCoachForLanguage]);
+
+  /** Day-close trigger — fires once per calendar day on first dashboard mount. */
+  const checkDayClose = useCallback(async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const lastDayClose = await AsyncStorage.getItem('last_day_close_date');
+    if (lastDayClose !== today) {
+      await AsyncStorage.setItem('last_day_close_date', today);
+      const ctx = coachContextRef.current;
+      if (!ctx) return;
+      try {
+        const newMsg = await triggerCoachReview('day-close', { ...ctx, event: 'day-close' });
+        if (newMsg) setCoachMsg(newMsg);
+      } catch {
+        // Non-fatal
+      }
+    }
+  }, []);
+
+  /** Gated refresh — respects mentor min-gap setting. */
+  const handleRefreshCoach = useCallback(async () => {
+    if (forceReviewRef.current) return;
+    forceReviewRef.current = true;
+    try {
+      const storedLang = await getLanguage();
+      const ctx = coachContextRef.current;
+      if (!ctx) return;
+      const event = (await getCoachMessage())?.triggerEvent ?? 'day-close';
+      const result = await refreshCoachReview({ ...ctx, lang: storedLang, event }, event);
+      if (!result.ok) {
+        Alert.alert(
+          storedLang.code === 'he' ? 'עוד מוקדם לרענון' : 'Too soon to refresh',
+          refreshBlockedMessage(result.waitHours, result.minGapHours, storedLang.code),
+        );
+        return;
+      }
+      setCoachMsg(result.message);
+    } catch {
+      // Silent failure
+    } finally {
+      forceReviewRef.current = false;
+    }
+  }, []);
+
   /** Prefer device (continuous) heart rate, augmented with Withings spot readings. */
   const mergedHeartRate = useMemo(() => {
     if (withingsHeartRate.length === 0) return heartRateData;
@@ -384,6 +572,23 @@ export const DashboardScreen = () => {
     try {
       const metrics = await fetchWeightMetrics();
       setBodyScan(metrics);
+
+      if (metrics.measuredAt) {
+        const prev = await AsyncStorage.getItem(COACH_LAST_WEIGH_IN_KEY);
+        await AsyncStorage.setItem(COACH_LAST_WEIGH_IN_KEY, metrics.measuredAt);
+        if (prev && prev !== metrics.measuredAt) {
+          const ctx = coachContextRef.current;
+          if (ctx) {
+            const storedLang = await getLanguage();
+            const newMsg = await triggerCoachReview('weigh-in', {
+              ...ctx,
+              lang: storedLang,
+              event: 'weigh-in',
+            });
+            if (newMsg) setCoachMsg(newMsg);
+          }
+        }
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not load body scan.';
       setBodyScanError(message);
@@ -421,6 +626,31 @@ export const DashboardScreen = () => {
     try {
       const sessions = await fetchWorkoutsHistory();
       setWorkoutSessions(sessions);
+
+      const todayKey = new Date().toISOString().split('T')[0];
+      const todayStart = new Date(`${todayKey}T00:00:00`).getTime();
+      const todayMax = sessions
+        .filter((s) => s.startMs >= todayStart)
+        .reduce((max, s) => Math.max(max, s.startMs), 0);
+      if (todayMax === 0) return;
+
+      const prevRaw = await AsyncStorage.getItem(COACH_LAST_WORKOUT_MS_KEY);
+      const prev = prevRaw ? Number(prevRaw) : 0;
+      const next = Math.max(prev, todayMax);
+      await AsyncStorage.setItem(COACH_LAST_WORKOUT_MS_KEY, String(next));
+
+      if (prevRaw && todayMax > prev) {
+        const ctx = coachContextRef.current;
+        if (ctx) {
+          const storedLang = await getLanguage();
+          const newMsg = await triggerCoachReview('workout', {
+            ...ctx,
+            lang: storedLang,
+            event: 'workout',
+          });
+          if (newMsg) setCoachMsg(newMsg);
+        }
+      }
     } catch {
       // Non-fatal: workout overlay is informational.
     }
@@ -463,8 +693,16 @@ export const DashboardScreen = () => {
   }, [loadTodayFood]);
 
   useEffect(() => {
-    void loadHeightAndBirthdate();
-  }, [loadHeightAndBirthdate]);
+    void (async () => {
+      await loadHeightAndBirthdate();
+      await loadCoachMessage();
+    })();
+  }, [loadHeightAndBirthdate, loadCoachMessage]);
+
+  useEffect(() => {
+    void checkDayClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** Re-fetch today's Withings HR + calories every 10 min so recent readings appear without manual sync. */
   useEffect(() => {
@@ -577,7 +815,7 @@ export const DashboardScreen = () => {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingBottom: 32 + navBarBottomInset(insets.bottom) }]}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
         keyboardShouldPersistTaps="handled"
@@ -604,6 +842,33 @@ export const DashboardScreen = () => {
             <Text style={styles.noticeText}>{demoNotice}</Text>
           </View>
         ) : null}
+
+        {/* Mentor nudge strip — shown only when a non-dismissed coach message exists */}
+        {coachMsg && !coachMsg.dismissedAt && (
+          <Pressable
+            style={styles.nudgeStrip}
+            onPress={() => setChatVisible(true)}
+          >
+            <Text style={styles.nudgeStripText}>
+              💬 Mentors · {coachMsg.actionItems.filter((i) => i.done).length} of {coachMsg.actionItems.length} done
+            </Text>
+            <Pressable
+              style={styles.nudgeRefreshBtn}
+              onPress={handleRefreshCoach}
+              hitSlop={8}
+            >
+              <Text style={styles.nudgeRefreshText}>↻</Text>
+            </Pressable>
+            <Text style={styles.nudgeOpenText}>Open →</Text>
+            <Pressable
+              style={styles.nudgeDismissBtn}
+              onPress={async () => { await dismissCoachMessage(); setCoachMsg(null); }}
+              hitSlop={8}
+            >
+              <Text style={styles.nudgeDismissText}>✕</Text>
+            </Pressable>
+          </Pressable>
+        )}
 
         <View style={styles.glucoseHistorySection}>
           <View style={styles.chartBleed}>
@@ -883,6 +1148,7 @@ export const DashboardScreen = () => {
                   userGender ? userGender.charAt(0).toUpperCase() + userGender.slice(1) : null,
                   heightCm ? `${heightCm} cm` : null,
                   birthdatePicker ? `${userAge} y` : null,
+                  userLanguage.code !== 'en' ? userLanguage.label : null,
                 ].filter(Boolean).join(' · ') || 'Tap to set gender, height & birthdate'}
               </Text>
             </View>
@@ -950,16 +1216,41 @@ export const DashboardScreen = () => {
                 />
               )}
 
+              {/* Language */}
+              <Text style={styles.birthdateSectionTitle}>Language</Text>
+              <View style={styles.langRow}>
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <Pressable
+                    key={lang.code}
+                    style={[styles.langBtn, userLanguage.code === lang.code && styles.langBtnSelected]}
+                    onPress={() => setUserLanguage(lang)}
+                  >
+                    <Text style={[styles.langBtnText, userLanguage.code === lang.code && styles.langBtnTextSelected]}>
+                      {lang.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
               <Pressable
                 style={styles.birthdateSaveBtn}
                 onPress={async () => {
                   const iso = birthdatePicker.toISOString().split('T')[0];
                   const cm = parseFloat(heightInput);
+                  const prevLang = await getLanguage();
+                  const langChanged = prevLang.code !== userLanguage.code;
                   await Promise.all([
                     setBirthdate(iso),
                     setGender(genderPicker),
+                    setLanguage(userLanguage),
                     ...(cm > 0 ? [saveHeightCm(cm)] : []),
                   ]);
+                  if (langChanged) {
+                    await clearCoachMessage();
+                    setCoachMsg(null);
+                    await resetQuickQuestionsForLanguage(userLanguage);
+                    await refreshCoachForLanguage();
+                  }
                   if (cm > 0) setHeightCm(cm);
                   setUserGender(genderPicker);
                   setProfileExpanded(false);
@@ -981,6 +1272,7 @@ export const DashboardScreen = () => {
             age={userAge}
             gender={userGender}
             weeklyWeightChange_kg={weeklyWeightChange_kg}
+            lang={userLanguage}
           />
 
           <View style={styles.groupDivider} />
@@ -1000,6 +1292,7 @@ export const DashboardScreen = () => {
             onSaved={setUserRules}
             expanded={rulesExpanded}
             onToggleExpand={() => setRulesExpanded((e) => !e)}
+            lang={userLanguage}
           />
 
           <View style={styles.groupDivider} />
@@ -1023,6 +1316,7 @@ export const DashboardScreen = () => {
             onSaved={(t) => setMacroTarget(t ?? null)}
             expanded={macroExpanded}
             onToggleExpand={() => setMacroExpanded((e) => !e)}
+            lang={userLanguage}
           />
         </View>
       </ScrollView>
@@ -1039,7 +1333,25 @@ export const DashboardScreen = () => {
         onClose={() => { setFoodModalVisible(false); setFoodEditEntry(undefined); }}
         onSaved={handleFoodSaved}
         editEntry={foodEditEntry}
+        lang={userLanguage}
       />
+
+      {/* Chat screen modal */}
+      <Modal
+        visible={chatVisible}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setChatVisible(false)}
+      >
+        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+          <ChatScreen
+            visible={chatVisible}
+            onClose={() => setChatVisible(false)}
+            context={coachContext}
+            onCoachMessageUpdated={(msg) => setCoachMsg(msg)}
+          />
+        </SafeAreaProvider>
+      </Modal>
 
       {/* ── Birthdate + gender one-time modal ────────────────────────── */}
     </SafeAreaView>
@@ -1064,7 +1376,7 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: 20,
     paddingTop: 0,
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   brandHeader: {
     marginBottom: 0,
@@ -1385,6 +1697,31 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     lineHeight: 20,
   },
+  // Mentor nudge strip
+  nudgeStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EAF4FB',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#B3D9F0',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 10,
+    gap: 8,
+  },
+  nudgeStripText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: WellnessColors.textPrimary,
+  },
+  nudgeRefreshBtn: { padding: 2 },
+  nudgeRefreshText: { fontSize: 16, color: WellnessColors.accentBlue },
+  nudgeOpenText: { fontSize: 13, color: WellnessColors.accentBlue, fontWeight: '600' },
+  nudgeDismissBtn: { padding: 2 },
+  nudgeDismissText: { fontSize: 14, color: WellnessColors.textSecondary },
+
   _unused: {
   },
   previewFoot: {
@@ -1512,6 +1849,34 @@ const styles = StyleSheet.create({
   },
   genderBtnTextSelected: {
     color: WellnessColors.accentGreen,
+  },
+  langRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+    width: '100%',
+  },
+  langBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: WellnessColors.gridLine,
+    alignItems: 'center',
+    backgroundColor: WellnessColors.background,
+  },
+  langBtnSelected: {
+    borderColor: WellnessColors.accentBlue,
+    backgroundColor: WellnessColors.accentBlue + '15',
+  },
+  langBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: WellnessColors.textSecondary,
+  },
+  langBtnTextSelected: {
+    color: WellnessColors.accentBlue,
   },
   heightRow: {
     flexDirection: 'row',

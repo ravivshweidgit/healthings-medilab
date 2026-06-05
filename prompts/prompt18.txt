@@ -55,9 +55,9 @@ Shown only when a current (non-dismissed) coach message exists.
 └──────────────────────────────────────────────┘
 ```
 
-- **Tap row / "Open →"** → opens ChatScreen (chat opens with the coach message
-  already visible as the first bubble, including its action items checklist)
-- **✕** → dismisses the strip (sets `dismissedAt`); ChatScreen history still accessible
+- **Tap row / "Open →"** → opens ChatScreen (coach panel pinned at top; chat scrolls below)
+- **↻** → gated refresh (`refreshCoachReview`) — regenerates coach message + action items if min-gap allows; alert if too soon
+- **✕** → dismisses the strip (sets `dismissedAt`); chat history for today remains in storage
 - Progress count ("1 of 3 done") updates in real time as auto-checks tick items
 - No message text and no action item list on the dashboard — those live in ChatScreen
 
@@ -86,6 +86,7 @@ export type CoachMessage = {
   generatedAt: string;             // ISO
   dismissedAt?: string;            // ISO — set when user taps ✕
   mealCountAtGeneration: number;   // snapshot for 'meal_logged' auto-check
+  generatedLangCode?: string;    // BCP-47 code when message was created (language sync)
 };
 
 const COACH_MESSAGE_KEY = 'coach_message_today';
@@ -93,6 +94,8 @@ const COACH_MESSAGE_KEY = 'coach_message_today';
 export async function getCoachMessage(): Promise<CoachMessage | null>
 export async function saveCoachMessage(m: CoachMessage): Promise<void>
 export async function dismissCoachMessage(): Promise<void>
+export async function clearCoachMessage(): Promise<void>
+export async function clearChatHistory(date: string): Promise<void>
 ```
 
 ### Auto-check logic
@@ -136,6 +139,32 @@ if (lastMsg && !lastMsg.dismissedAt) {
 if (event === 'meal' && !freq.afterEachMeal) return null;  // meal events disabled
 ```
 
+Also export:
+
+```ts
+export async function checkCoachReviewGate(): Promise<
+  { allowed: true } | { allowed: false; waitHours: number; minGapHours: number }
+>;
+
+/** Manual refresh — respects min-gap only (not meal toggle). */
+export async function refreshCoachReview(
+  context: CoachContext,
+  event?: CoachTriggerEvent,
+): Promise<
+  | { ok: true; message: CoachMessage }
+  | { ok: false; reason: 'too_soon'; waitHours: number; minGapHours: number }
+>;
+
+/** Bypasses frequency gate — used internally for language-mismatch regen only. */
+export async function forceCoachReview(context: CoachContext): Promise<CoachMessage>
+```
+
+Event triggers wired in `DashboardScreen.tsx`:
+1. `handleFoodSaved()` → `'meal'`
+2. New Withings `measuredAt` on body scan sync → `'weigh-in'`
+3. New workout session today → `'workout'`
+4. First open of each calendar day → `'day-close'`
+
 ---
 
 ## PART D — GeminiService: generateCoachMessage()
@@ -162,6 +191,9 @@ export type CoachContext = {
   todayFat_g: number | null;
   todayCarb_g: number | null;
   mealCount: number;
+  lastMealSummary: string | null;
+  todayMealsDetail: string | null;
+  lang?: UserLanguage | null;
   // targets
   macroTarget: DailyMacroTarget | null;
   bodyTarget: BodyTarget | null;
@@ -210,79 +242,72 @@ Config: `temperature: 0.3`, `maxOutputTokens: 8192`
 
 ---
 
-## PART E — Manual "Review now" (user-initiated, bypasses frequency gate)
+## PART E — Manual refresh (user-initiated, respects min-gap)
 
-The user can always request an immediate mentor review, ignoring the minimum gap.
+Regenerating coach text + action items uses **`refreshCoachReview()`** — same
+min-gap setting as automatic events (MentorStrip slider). No bypass from the UI.
 
-### Entry points — kept simple
+### Entry points
 
-1. **Nudge strip** — subtle "↻ Refresh" link on the right side. Tapping
-   regenerates with current data.
+1. **Nudge strip ↻** — gated refresh; alert if too soon
+2. **ChatScreen coach panel footer ↻ Refresh / ↻ רענן** — same gated refresh
+3. **Quick-question chips** — "Review my status" etc. fill the input; user taps
+   **Send** for a free-chat answer (does not regenerate the action-item list)
 
-2. **Floating pill**:
-   - **Tap** → always opens ChatScreen directly (no menu, no conditional logic)
-   - **Long-press** → triggers force review silently; nudge strip refreshes
+### Not used (removed during implementation)
 
-3. **Inside ChatScreen** — "Review my status" is one of the 3 default
-   quick-question chips. Tapping it sends the question and the AI responds
-   with a full review. No separate menu needed.
-
-### CoachService addition
-
-```ts
-/**
- * Same as triggerCoachReview() but skips the frequency gate.
- * Used for manual user-initiated reviews.
- */
-export async function forceCoachReview(
-  context: CoachContext,
-): Promise<CoachMessage>
-```
+- **Floating "Ask mentors" pill** — removed; duplicated nudge strip entry
+- **Force review on every tap** — `forceCoachReview()` retained only for
+  language-mismatch auto-regeneration (`generatedLangCode` ≠ user language)
 
 ### UX note
-- After force review completes, the nudge strip appears/refreshes on the dashboard
-- The `generatedAt` timestamp is updated — so the next automatic check counts
-  from this manual review
-- No limit on how often the user can manually review
+- After refresh completes, nudge strip + coach panel update; `generatedAt` resets
+  the min-gap clock for automatic events too
+- If min-gap not met, show alert: e.g. "Try again in about 3h" / "עוד מוקדם לרענון"
 
 ---
 
 ## PART F — Free chat (ChatScreen.tsx — NEW)
 
-Opened from the nudge strip "Open →", or from the floating pill.
+Opened from the nudge strip only (no floating pill).
 
-Full-screen modal. Inherits all context from CoachContext.
+Full-screen modal inside `SafeAreaProvider`. Inherits `CoachContext` from dashboard.
 
 ```
 ┌─────────────────────────────────────────────┐
 │  ←  💬 My Mentors  🥗💪                      │
 ├─────────────────────────────────────────────┤
-│                                             │
-│  ┌─────────────────────────────────────┐    │
-│  │ You're 0.2 kg below muscle target.  │    │  ← AI bubble (coach msg)
-│  │ Protein on track (127/148g).        │    │
-│  │                                     │    │
-│  │ ☐  Add 20g protein at dinner        │    │  ← action items checklist
-│  │ ☑  Stay under 20g carbs             │    │     inside the bubble
-│  │ ☐  Log next meal                    │    │
-│  └─────────────────────────────────────┘    │
-│                                             │
-│  [user messages right, AI left]             │
+│ ▼ משימות · 1/4          [collapsible panel] │  ← pinned, not in scroll
+│   (expand: coach text + checklist)          │
+│   ↻ Refresh   Clear   Expand/Collapse       │
+├─────────────────────────────────────────────┤
+│  [user messages right, AI left — scrolls]   │  ← opens at latest message
 │                                             │
 ├─────────────────────────────────────────────┤
-│  [Review my status] [Review last meal] [+]  │  ← quick-question chips
 │  ┌──────────────────────────┐  [Send]        │
 │  │ Ask your mentors…        │                │
 │  └──────────────────────────┘                │
+│  [chip] [chip] [chip]              [FAQ]     │  ← tap chip = fill input
 └─────────────────────────────────────────────┘
 ```
 
-### Action items inside the coach bubble
-- Rendered as a checklist at the bottom of the first AI bubble
-- Checkboxes are tappable — manual tap toggles `done`; auto-checks tick automatically
-  when ChatScreen opens (same logic as dashboard, runs against live data)
-- Ticking / unticking persists via `saveCoachMessage`
-- The nudge strip "N of M done" count on the dashboard reflects these changes
+### Collapsible coach panel (replaces scroll bubble)
+- **Pinned above** the chat `FlatList` — tasks and messages do not share scroll
+- **Collapsed by default** when reopening chat with existing messages; **expanded**
+  when no messages yet (first visit)
+- **Header row** — ▼/▲ + summary (`משימות · 1/4` or truncated coach text)
+- **Expanded body** — coach `text` + action-item checklist
+- **Footer** — `↻ Refresh` | `Clear` (if chat history) | `Expand` / `Collapse`
+- Checkboxes tappable; auto-checks on open; persists via `saveCoachMessage`
+- **Clear** — deletes today's chat messages only; coach message + action items stay
+
+### Safe area
+- `react-native-safe-area-context` on app root + inside chat `Modal`
+- Bottom input padded above Samsung system nav bar
+
+### Action items + refresh
+- **↻ Refresh** calls `refreshCoachReview()` with fresh meal log + live context
+- Respects mentor min-gap; spinner on button while generating
 
 ### Chat history model
 
@@ -326,73 +351,55 @@ the token budget as the day progresses.
 
 #### Sent to AI each turn
 - System prompt (mentor personas + user rules + yesterday summary if available)
-- CoachContext data block (same as `generateCoachMessage`)
+- CoachContext data block including **=== MEAL LOG ===** full item detail for today
 - Last **20** messages from today's history
+- Meal-review queries also repeat `todayMealsDetail` in the user turn
 
 GeminiService: `chatWithMentors(message, history, context, yesterdaySummary)`.
+Coach/action-item text follows `UserLanguage` (Hebrew + other supported locales).
 Temperature 0.4.
 
 ---
 
 ## PART F2 — Quick Questions (user-editable chat shortcuts)
 
-Up to 3 quick-question chips shown above the input bar in ChatScreen.
-Tapping a chip sends that question immediately (no extra confirm step).
-Long-pressing a chip opens inline editing to rename it.
+Defaults are **language-aware** (see `DEFAULT_QUICK_QUESTIONS_BY_LANG` in
+TargetService). Up to **5** questions stored per language.
 
-### Defaults (shipped with the app, used if nothing stored)
+### Defaults (English)
 ```
 "Review my status"
 "Review my last meal"
 "How am I doing today?"
 ```
 
-### Storage (TargetService.ts addition)
+### Storage (TargetService.ts)
 ```ts
-export type QuickQuestion = {
-  id: string;    // stable UUID assigned on first save
-  label: string; // display text, also the message sent
-};
+export type QuickQuestion = { id: string; label: string };
 
-const QUICK_QUESTIONS_KEY = 'chat_quick_questions';
-
-export async function getQuickQuestions(): Promise<QuickQuestion[]>
-// Returns saved list, or the 3 defaults if nothing stored yet.
-
-export async function saveQuickQuestions(qs: QuickQuestion[]): Promise<void>
+export async function getQuickQuestions(lang?: UserLanguage | null): Promise<QuickQuestion[]>
+export async function saveQuickQuestions(qs: QuickQuestion[], lang?: UserLanguage | null): Promise<void>
+export async function resetQuickQuestionsForLanguage(lang: UserLanguage): Promise<QuickQuestion[]>
 ```
 
-### UI behaviour
-- Chips shown in a single horizontal scrollable row above the text input
-- **Tap** → text is sent immediately as a user message
-- **Long-press** → chip label becomes an editable `TextInput` inline;
-  confirm with keyboard "Done" key → auto-saved
-- A **＋** chip at the far right adds a new question (max 3 total)
-- During inline edit, a **✕** appears next to the field to delete that chip
-- No separate settings screen — all editing is inline in ChatScreen
+### UI behaviour (as built)
+- **Row 1:** text input + **Send**
+- **Row 2:** horizontal scroll of question **chips** + **FAQ / שאלות** button
+- **Tap chip** → fills input text only (**Send still required** — avoids accidental sends)
+- **Tap FAQ** → modal dialog: edit labels, **→** fills input, ✕ delete, ＋ add (max 5), Done saves
+- No inline chip editing in the input row
 
 ---
 
-## PART G — Floating pill + dashboard wiring (DashboardScreen.tsx)
+## PART G — Dashboard wiring (DashboardScreen.tsx)
 
-### Floating pill
-```jsx
-<Pressable
-  style={styles.chatPill}
-  onPress={() => setChatVisible(true)}
-  onLongPress={() => handleForceReview()}
->
-  <Text style={styles.chatPillText}>{mentorEmojis}  Ask mentors</Text>
-</Pressable>
-```
-Style: `position: absolute`, bottom 16, `alignSelf: 'center'`, dark pill,
-white text. Always visible. `zIndex: 100`.
+### Chat entry
+- **Nudge strip only** — no floating pill (removed: overlapped system nav bar and
+  duplicated nudge). When nudge dismissed, chat is not reachable from dashboard
+  until next coach message (acceptable trade-off).
 
 ### Trigger points
-Call `triggerCoachReview()` after:
-1. `handleFoodSaved()` — meal saved → event: `'meal'`
-2. After Withings body scan syncs → event: `'weigh-in'`
-3. After Health Connect workout syncs → event: `'workout'`
+See PART C — all four events wired with `triggerCoachReview()` + frequency gate.
 
 ### Day-close trigger (midnight boundary — aligns with Withings)
 
@@ -405,52 +412,54 @@ if (lastDayClose !== today) {
   triggerCoachReview('day-close', context);
 }
 ```
-Fires once on the first open of each new day — same midnight boundary Withings uses.
 
-### Dashboard scroll padding
-Add `paddingBottom: 100` to `contentContainerStyle` of main ScrollView so
-content is not hidden behind the floating pill.
+### Scroll padding
+`paddingBottom` on main ScrollView includes safe-area inset (no pill offset).
+
+### Language
+User language picker in My Profile; threaded into all Gemini calls; coach message
+cleared/regenerated when `generatedLangCode` mismatches selected language.
 
 ---
 
 ## Dependencies
 
-Install before building:
 ```powershell
 Set-Location "c:\projects\healthings-medilab\app"
 npm install @react-native-community/slider
+npx expo install react-native-safe-area-context
 ```
-Add `"@react-native-community/slider"` to `plugins` array in `app.json` if needed,
-then run `npx expo prebuild --platform android --no-install` to regenerate native files.
+Run `npx expo prebuild --platform android --no-install` after adding native modules.
 
 ---
 
 ## Files to create / change
 
-1. `TargetService.ts` — add MentorFrequency, CoachMessage, CoachActionItem,
-   ChatMessage, QuickQuestion types + CRUD functions (getChatHistory,
-   appendChatMessage, getYesterdaySummary, saveYesterdaySummary,
-   getQuickQuestions, saveQuickQuestions, getMentorFrequency, saveMentorFrequency,
-   getCoachMessage, saveCoachMessage, dismissCoachMessage)
-2. `GeminiService.ts` — add `generateCoachMessage()`, `chatWithMentors()`,
-   `summariseChatDay()`
-3. `CoachService.ts` — NEW: `triggerCoachReview()` (frequency gate) +
-   `forceCoachReview()` (no gate) + auto-check helper
-4. `ChatScreen.tsx` — NEW: full-screen chat modal; first bubble is the coach
-   message with inline action items checklist; quick-question chips above input;
-   loads today's history on open; handles yesterday summary on first open of day
-5. `MentorStrip.tsx` — add frequency toggle + min-gap slider
-6. `DashboardScreen.tsx` — mentor nudge strip (above chart), floating pill
-   (tap=chat, long-press=force review), trigger wiring, day-close check
+1. `TargetService.ts` — MentorFrequency, CoachMessage (+ `generatedLangCode`),
+   ChatMessage, QuickQuestion, UserLanguage, coach/chat/quick-question CRUD,
+   `clearCoachMessage`, `clearChatHistory`
+2. `GeminiService.ts` — `generateCoachMessage()`, `chatWithMentors()`,
+   `summariseChatDay()`, meal log block, language-aware coach JSON
+3. `CoachService.ts` — **NEW** — `triggerCoachReview`, `refreshCoachReview`,
+   `checkCoachReviewGate`, `forceCoachReview`, `runAutoChecksAndPersist`
+4. `ChatScreen.tsx` — **NEW** — collapsible coach panel, gated ↻ refresh, FAQ
+   modal, quick-question bar (fill input), clear chat, safe-area input
+5. `MentorStrip.tsx` — frequency toggle + min-gap slider
+6. `DashboardScreen.tsx` — nudge strip, chat modal, event triggers (meal /
+   weigh-in / workout / day-close), language profile picker
+7. `FoodLogService.ts` — `buildMealsAiContext()` for chat/coach meal detail
+8. `App.tsx` — `SafeAreaProvider` wrapper
 
-No separate CoachCard.tsx — replaced by the inline nudge strip in DashboardScreen.
+No separate CoachCard.tsx — replaced by nudge strip + ChatScreen coach panel.
 
 ---
 
 ## Out of scope for prompt18
 - Push notifications (requires backend)
-- Persistent chat history across app restarts
+- Multi-day history / weekly review reports → **prompt19** (see `prompts/prompt19.txt`)
 - Proactive server-side nudges
 - Voice input / audio responses
-- Weekly review reports
-These are prompt19+.
+- Chat entry when nudge dismissed (no floating pill)
+- Item-level meal history across past days in free chat
+
+Note: per-day chat history **is** persisted in AsyncStorage (`chat_history_YYYY-MM-DD`).

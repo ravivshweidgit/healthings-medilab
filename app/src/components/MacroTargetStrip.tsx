@@ -20,6 +20,7 @@ import {
   type DailyMacroTarget,
   type MentorType,
   type UserRules,
+  type UserLanguage,
 } from '../services/TargetService';
 import { WellnessColors } from '../theme/wellness';
 
@@ -44,6 +45,7 @@ export type MacroTargetProps = {
   onSaved?: (t: DailyMacroTarget) => void;
   expanded: boolean;
   onToggleExpand: () => void;
+  lang?: UserLanguage | null;
 };
 
 type Screen = 'idle' | 'loading' | 'suggestion' | 'editing' | 'active';
@@ -128,7 +130,7 @@ export function MacroTargetStrip({
   actualProtein_g, actualFat_g, actualCarb_g, actualKcal,
   weightKg, fatMassKg, muscleMass_kg, bmr_kcal, estimatedBurn_kcal,
   heightCm, age, gender, bodyTarget, userRules, mentors,
-  onSaved, expanded, onToggleExpand,
+  onSaved, expanded, onToggleExpand, lang,
 }: MacroTargetProps) {
   const [screen, setScreen] = useState<Screen>('idle');
   const [target, setTarget] = useState<DailyMacroTarget | null>(null);
@@ -169,7 +171,7 @@ export function MacroTargetStrip({
         rulesContext: userRules?.aiContext ?? '',
         mentors,
       };
-      const result = await suggestDailyMacros(input);
+      const result = await suggestDailyMacros(input, lang);
       const now = new Date().toISOString();
       const proposed: DailyMacroTarget = {
         protein_g: result.protein_g,

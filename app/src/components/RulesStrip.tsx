@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { summariseUserRules } from '../services/GeminiService';
-import { saveUserRules, type MentorType, type UserRules } from '../services/TargetService';
+import { saveUserRules, type MentorType, type UserRules, type UserLanguage } from '../services/TargetService';
 import { WellnessColors } from '../theme/wellness';
 
 type Props = {
@@ -21,9 +21,10 @@ type Props = {
   onSaved: (rules: UserRules) => void;
   expanded: boolean;
   onToggleExpand: () => void;
+  lang?: UserLanguage | null;
 };
 
-export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpand }: Props) {
+export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpand, lang }: Props) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(userRules?.rawText ?? '');
   const [loading, setLoading] = useState(false);
@@ -36,7 +37,7 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
     setError(null);
     setLoading(true);
     try {
-      const result = await summariseUserRules(text.trim(), mentors);
+      const result = await summariseUserRules(text.trim(), mentors, lang);
       const rules: UserRules = {
         rawText: text.trim(),
         summary: result.summary,
