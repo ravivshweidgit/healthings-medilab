@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -18,6 +18,7 @@ import {
   Text,
   TextInput,
   View,
+  type KeyboardEvent,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -680,6 +681,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
   const [coachExpanded, setCoachExpanded] = useState(false);
   const [refreshingCoach, setRefreshingCoach] = useState(false);
   const [anyChatHistory, setAnyChatHistory] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
   const mentorEmojis = context.mentors
@@ -693,6 +695,28 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
       setActiveMentor(mentorTabs[0]!);
     }
   }, [mentorTabs, activeMentor]);
+
+  useEffect(() => {
+    if (!visible) {
+      setKeyboardHeight(0);
+      return;
+    }
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = (e: KeyboardEvent) => {
+      setKeyboardHeight(e.endCoordinates.height);
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToEnd({ animated: true });
+      });
+    };
+    const onHide = () => setKeyboardHeight(0);
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [visible]);
 
   const loadHistoryForMentor = useCallback(async (mentor: MentorType) => {
     const h = await getChatHistory(todayKey(), mentor);
@@ -1006,11 +1030,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
         <View style={styles.backBtn} />
       </View>
 
-      <KeyboardAvoidingView
-        style={[styles.flex, styles.minHeight0]}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}
-      >
+      <View style={[styles.flex, styles.minHeight0]}>
         <View style={[styles.flex, styles.minHeight0]}>
           <FlatList
             ref={listRef}
@@ -1045,7 +1065,12 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
             }
           />
 
-          <View style={styles.bottomChrome}>
+          <View
+            style={[
+              styles.bottomChrome,
+              keyboardHeight > 0 && { marginBottom: keyboardHeight },
+            ]}
+          >
             {sending ? (
               <View style={styles.sendingRow}>
                 <ActivityIndicator size="small" color={WellnessColors.accentBlue} />
@@ -1063,7 +1088,15 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
               rtl={ui.rtl}
             />
 
-            <View style={[styles.inputArea, { paddingBottom: chatBottomInset(insets.bottom) }]}>
+            <View
+              style={[
+                styles.inputArea,
+                {
+                  paddingBottom:
+                    keyboardHeight > 0 ? 8 : chatBottomInset(insets.bottom),
+                },
+              ]}
+            >
               <TextInput
                 style={[styles.textInput, ui.rtl && styles.rtlInput]}
                 value={inputText}
@@ -1074,6 +1107,11 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
                 maxLength={500}
                 returnKeyType="default"
                 textAlign={ui.rtl ? 'right' : 'left'}
+                onFocus={() => {
+                  requestAnimationFrame(() => {
+                    listRef.current?.scrollToEnd({ animated: true });
+                  });
+                }}
               />
               <View style={[styles.inputToolbar, ui.rtl && styles.inputToolbarRtl]}>
                 <View style={styles.inputToolbarActions}>
@@ -1135,7 +1173,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
             </View>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
 
       <FaqModal
         visible={faqVisible}
