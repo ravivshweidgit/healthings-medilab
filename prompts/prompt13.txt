@@ -31,6 +31,18 @@ total in the visible window; always at least 150 kcal.
 `Glucose` · `Heart rate` · `BMR (39 kcal)` / `Steps cal` / `Workout`
 Each label coloured to match its bar. BMR label shows computed per-slot value.
 
+#### Glucose chart UX polish (2026-06-07 — verified on device)
+
+| Feature | Detail |
+|---------|--------|
+| Plot height | 210 → **273 px** (~30% taller glucose/HR band; calorie strip unchanged) |
+| Y axis | Default **50–175** mg/dL (shared with HR); **auto-expands** in 10 mg/dL steps when visible data exceeds band (hard clamp 40–250) |
+| Grid | Horizontal lines every **10**; axis labels every 10 in default band, every 20/30 when expanded |
+| In-range band | Light green backdrop **70–100 mg/dL** (`rgba(76,175,80,0.16)`) |
+| Touch scrub | Tap glucose/HR area → **slim vertical badge** (glucose / HR / time); **drag left/right** moves crosshair; ~42% white, minimal padding |
+| Pan vs scrub | Horizontal **pan** via calorie strip swipe or day nav; scrub clears on pan / zoom chip change |
+| Dual Y axis | **Deferred** — glucose + HR still share one scale until Phase 2 |
+
 ---
 
 ### New API: getworkouts
@@ -95,7 +107,7 @@ DEV logging added to `fetchActivityKcalByDay` to diagnose scope/API issues.
 ---
 
 ### Files changed
-- `app/src/components/MetabolicChart.tsx` — calorie strip, workout tiers, legend
+- `app/src/components/MetabolicChart.tsx` — calorie strip, workout tiers, legend, Y auto-scale, 70–100 band, touch scrub badge
 - `app/src/components/BmrHistoryChart7d.tsx` — full redesign: 3 independent strips
 - `app/src/services/WithingsApiService.ts` — fetchWorkoutsHistory, updated fetchHeartRateHistory
 - `app/src/screens/DashboardScreen.tsx` — workout state, backfill memo, footer fix

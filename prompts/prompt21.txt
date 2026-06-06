@@ -25,7 +25,7 @@ glucose overlay chart, prompt08 visceral+glucose pair card (defer).
 | Statistical noise filter | `cgmStatisticalFilter.ts` |
 | Range stats for mentors | `cgmRangeStats.ts` |
 | Meal ↔ glucose correlation | `mealGlucoseAnalysis.ts` → `buildGlucoseMentorContext()` |
-| Chart | `MetabolicChart.tsx` — glucose line (50–200 mg/dL shared Y with HR), meals, calorie strip |
+| Chart | `MetabolicChart.tsx` — auto Y 50–175 (10 mg/dL grid), 70–100 target band, touch scrub badge, meals, calorie strip (HR shares Y; dual axis deferred) |
 | Coach / chat / `/7` review | `GeminiService.ts`, `ReviewService.ts`, `CoachContext.glucoseHistory` |
 | HC permission UX | Dashboard error banner + `openHealthConnectSettings()`; `requestPermission()` result used directly |
 | Optional debug export | `healthConnectDebugExport.ts` — **disabled** (`HC_SYNC_DEBUG_ENABLED = false`); re-enable for field diagnosis |
@@ -363,6 +363,7 @@ UI button removed after green-line verification.
 - [x] HC glucose parse (`inMilligramsPerDeciliter`) + warm-up filter (CSV serial only)
 - [x] CSV import → chart + live HC tail; **Sync preserves both** (PART A, device verified 2026-06-06)
 - [x] Manual test E2 pass on device (CSV + HC + Sync)
+- [x] MetabolicChart touch scrub + 70–100 target band + auto Y (prompt13, device verified 2026-06-07)
 - [ ] Nutritionist chat cites MEAL GLUCOSE numbers after meal + Sync (PART C)
 - [ ] `/7` period review includes `GLUCOSE & FOOD IMPACT` with period stats
 - [ ] CGM status row visible; permission error shows actionable message (PART B — banner shipped, row TODO)

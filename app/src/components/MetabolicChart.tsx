@@ -1,6 +1,15 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import Svg, { Line, Path, Rect, Text as SvgText } from 'react-native-svg';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  PanResponder,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+  type GestureResponderEvent,
+} from 'react-native';
+import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { curveMonotoneX, line } from 'd3-shape';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import type { ActivityZone } from '../logic/MetabolicLogic';
@@ -13,19 +22,26 @@ type Point = { timestamp: string; value: number };
 /** Upper bound on series points after downsampling (memory / path complexity). */
 const MAX_SERIES_POINTS_CAP = 700;
 const MIN_SERIES_POINTS = 64;
-/** Single Y scale for glucose (mg/dL) and heart rate (BPM) overlaid in the same vertical space. */
-const SHARED_Y_MIN = 50;
-const SHARED_Y_MAX = 200;
-/** Horizontal grid lines (shared scale for glucose + heart rate). */
-const SHARED_Y_GRID_LINES = [50, 75, 100, 125, 150, 175, 200] as const;
-const SHARED_Y_AXIS_LABELS = new Set<number>([50, 100, 150, 200]);
+/** Default Y band (mg/dL / BPM shared scale) — expands when visible data exceeds 175 or drops below 50. */
+const DEFAULT_Y_MIN = 50;
+const DEFAULT_Y_MAX = 175;
+const Y_HARD_MIN = 40;
+const Y_HARD_MAX = 250;
+/** Grid lines every 10 mg/dL; axis labels every 10 in the default band, coarser when auto-expanded. */
+const Y_GRID_STEP = 10;
+const Y_MIN_SPAN = 100;
+/** In-range glucose band (mg/dL) — light green backdrop on the chart. */
+const GLUCOSE_TARGET_MIN = 70;
+const GLUCOSE_TARGET_MAX = 100;
+const GLUCOSE_TARGET_FILL = 'rgba(76, 175, 80, 0.16)';
 
 /** Thin walk-zone lines are replaced by the calorie bar strip; kept for Health-Connect overlay. */
 const ACTIVITY_STRIP_PX = 6;
 
 const Y_AXIS_WIDTH = 36;
 const AXIS_HEIGHT = 30;
-const CHART_PLOT_HEIGHT = 210;
+/** Glucose/HR plot height — ~30% taller than original 210px for finer Y resolution. */
+const CHART_PLOT_HEIGHT = 273;
 
 /**
  * Calorie bar strip sits INSIDE the chart area, above the X axis.
@@ -88,6 +104,78 @@ function filterPointsByTime(points: Point[], t0: number, t1: number): Point[] {
     const t = new Date(p.timestamp).getTime();
     return !Number.isNaN(t) && t >= t0 && t <= t1;
   });
+}
+
+type YGridLine = { value: number; showAxisLabel: boolean };
+
+function computeSharedYDomain(glucose: Point[], heartRate: Point[]): { yMin: number; yMax: number; gridLines: YGridLine[] } {
+  const values = [...glucose, ...heartRate].map((p) => p.value).filter((v) => v > 0);
+  let yMin = DEFAULT_Y_MIN;
+  let yMax = DEFAULT_Y_MAX;
+
+  if (values.length > 0) {
+    const dataMin = Math.min(...values);
+    const dataMax = Math.max(...values);
+    const pad = Math.max(10, (dataMax - dataMin) * 0.1);
+    if (dataMax + pad > DEFAULT_Y_MAX) {
+      yMax = Math.ceil((dataMax + pad) / Y_GRID_STEP) * Y_GRID_STEP;
+    }
+    if (dataMin - pad < DEFAULT_Y_MIN) {
+      yMin = Math.floor((dataMin - pad) / Y_GRID_STEP) * Y_GRID_STEP;
+    }
+  }
+
+  yMin = Math.max(Y_HARD_MIN, yMin);
+  yMax = Math.min(Y_HARD_MAX, yMax);
+  if (yMax - yMin < Y_MIN_SPAN) {
+    yMax = Math.min(Y_HARD_MAX, yMin + Y_MIN_SPAN);
+  }
+
+  const gridValues: number[] = [];
+  for (let v = Math.ceil(yMin / Y_GRID_STEP) * Y_GRID_STEP; v <= yMax; v += Y_GRID_STEP) {
+    gridValues.push(v);
+  }
+  const span = yMax - yMin;
+  const labelEvery = span <= 140 ? 10 : span <= 180 ? 20 : 30;
+  const gridLines = gridValues.map((value) => ({
+    value,
+    showAxisLabel: value % labelEvery === 0,
+  }));
+
+  return { yMin, yMax, gridLines };
+}
+
+function valueToY(
+  value: number,
+  vMin: number,
+  vMax: number,
+  padT: number,
+  chartSlotTop: number,
+  chartSlotH: number
+): number {
+  const spanV = Math.max(1e-6, vMax - vMin);
+  const ny = (value - vMin) / spanV;
+  return padT + chartSlotTop + (1 - ny) * chartSlotH;
+}
+
+function nearestPointByTime(points: Point[], targetMs: number, maxDeltaMs: number): Point | null {
+  let best: Point | null = null;
+  let bestD = Infinity;
+  for (const p of points) {
+    const t = new Date(p.timestamp).getTime();
+    if (Number.isNaN(t)) continue;
+    const d = Math.abs(t - targetMs);
+    if (d < bestD) {
+      bestD = d;
+      best = p;
+    }
+  }
+  if (!best || bestD > maxDeltaMs) return null;
+  return best;
+}
+
+function formatScrubTime(ms: number): string {
+  return new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
 function mergeTimeBounds(glucose: Point[], heartRate: Point[]): { tMin: number; tMax: number } | null {
@@ -274,6 +362,9 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
    * Day-step arrows then move the visible range by setting the window’s end time explicitly.
    */
   const [endTimeOverrideMs, setEndTimeOverrideMs] = useState<number | null>(null);
+  /** Selected instant for touch scrub tooltip (ms). Cleared on horizontal pan / zoom change. */
+  const [scrubMs, setScrubMs] = useState<number | null>(null);
+  const chartTouchRef = useRef({ x0: 0, y0: 0, tapPending: false });
   const chartScrollRef = useRef<ScrollView>(null);
   const scrollXRef = useRef<number | null>(null);
   scrollXRef.current = scrollX;
@@ -373,6 +464,7 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
 
     const gWin = filterPointsByTime(glucose, mapTMin, mapTMax);
     const hWin = filterPointsByTime(heartRate, mapTMin, mapTMax);
+    const { yMin, yMax, gridLines: yGridDefs } = computeSharedYDomain(gWin, hWin);
 
     const seriesBudget = Math.min(
       MAX_SERIES_POINTS_CAP,
@@ -400,8 +492,8 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
       g,
       mapTMin,
       mapTMax,
-      SHARED_Y_MIN,
-      SHARED_Y_MAX,
+      yMin,
+      yMax,
       chartW,
       plotH,
       padL,
@@ -415,8 +507,8 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
       h,
       mapTMin,
       mapTMax,
-      SHARED_Y_MIN,
-      SHARED_Y_MAX,
+      yMin,
+      yMax,
       chartW,
       plotH,
       padL,
@@ -433,15 +525,15 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
     const innerW = Math.max(1, chartW - padL - padR);
     const spanT = Math.max(1, mapTMax - mapTMin);
 
-    const spanY = SHARED_Y_MAX - SHARED_Y_MIN;
-    const gridLines = SHARED_Y_GRID_LINES.map((v) => {
-      const ny = (v - SHARED_Y_MIN) / Math.max(1e-6, spanY);
+    const spanY = yMax - yMin;
+    const gridLines = yGridDefs.map((gl) => {
+      const ny = (gl.value - yMin) / Math.max(1e-6, spanY);
       const y = padT + chartSlotTop + (1 - ny) * chartSlotH;
       return {
-        value: v,
+        value: gl.value,
         y,
-        key: `grid-${v}`,
-        showAxisLabel: SHARED_Y_AXIS_LABELS.has(v),
+        key: `grid-${gl.value}`,
+        showAxisLabel: gl.showAxisLabel,
       };
     });
 
@@ -468,6 +560,27 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
     const timeTicks = buildTimeTicks(mapTMin, mapTMax, padL, innerW);
     const dateHeaderLabel = formatViewportDateHeader(mapTMin, mapTMax);
 
+    const targetBandTopY = valueToY(
+      Math.min(GLUCOSE_TARGET_MAX, yMax),
+      yMin,
+      yMax,
+      padT,
+      chartSlotTop,
+      chartSlotH
+    );
+    const targetBandBottomY = valueToY(
+      Math.max(GLUCOSE_TARGET_MIN, yMin),
+      yMin,
+      yMax,
+      padT,
+      chartSlotTop,
+      chartSlotH
+    );
+    const targetBandVisible =
+      GLUCOSE_TARGET_MAX >= yMin &&
+      GLUCOSE_TARGET_MIN <= yMax &&
+      targetBandBottomY - targetBandTopY > 1;
+
     return {
       glucosePath,
       heartRatePath,
@@ -482,6 +595,7 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
       plotH,
       svgH,
       padL,
+      padT,
       innerW,
       spanT,
       viewportLabel,
@@ -495,6 +609,15 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
       mapTMax,
       canShiftEarlier,
       canShiftLater,
+      gWin,
+      hWin,
+      yMin,
+      yMax,
+      chartSlotTop,
+      chartSlotH,
+      targetBandTopY,
+      targetBandBottomY,
+      targetBandVisible,
     };
   }, [activityZones, endTimeOverrideMs, glucose, heartRate, nowAnchor, plotH, scrollX, viewportPresetIndex, windowW]);
 
@@ -618,6 +741,7 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
   useLayoutEffect(() => {
     if (!prepared) return;
     setEndTimeOverrideMs(null);
+    setScrubMs(null);
     chartPanReadyRef.current = false;
     forceSnapChartScrollRef.current = true;
     const max = prepared.maxScrollPx;
@@ -656,6 +780,105 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
     setEndTimeOverrideMs((v) => (v != null ? null : v));
   }, [prepared?.slideMs]);
 
+  const scrub = useMemo(() => {
+    if (scrubMs == null || !prepared) return null;
+    const {
+      mapTMin,
+      mapTMax,
+      spanT,
+      padL,
+      padT,
+      innerW,
+      gWin,
+      hWin,
+      yMin,
+      yMax,
+      chartSlotTop,
+      chartSlotH,
+      calStripTop,
+    } = prepared;
+    if (scrubMs < mapTMin - 1000 || scrubMs > mapTMax + 1000) return null;
+
+    const xPx = padL + ((scrubMs - mapTMin) / Math.max(1, spanT)) * innerW;
+    const glucoseTolerance = Math.max(15 * 60 * 1000, prepared.viewportMs / 48);
+    const hrTolerance = Math.max(30 * 60 * 1000, prepared.viewportMs / 12);
+    const gPt = nearestPointByTime(gWin, scrubMs, glucoseTolerance);
+    const hPt = nearestPointByTime(hWin, scrubMs, hrTolerance);
+
+    return {
+      ms: scrubMs,
+      xPx,
+      glucose: gPt?.value ?? null,
+      hr: hPt?.value ?? null,
+      glucoseYPx: gPt ? valueToY(gPt.value, yMin, yMax, padT, chartSlotTop, chartSlotH) : null,
+      hrYPx: hPt ? valueToY(hPt.value, yMin, yMax, padT, chartSlotTop, chartSlotH) : null,
+      dataTopY: padT + chartSlotTop,
+      dataBottomY: calStripTop,
+    };
+  }, [prepared, scrubMs]);
+
+  const applyScrubFromX = useCallback((locationX: number) => {
+    if (!prepared) return;
+    const x = Math.min(
+      prepared.chartW - prepared.padL - SVG_PAD_R,
+      Math.max(prepared.padL, locationX)
+    );
+    const ms = prepared.mapTMin + ((x - prepared.padL) / Math.max(1, prepared.innerW)) * prepared.spanT;
+    setScrubMs(ms);
+  }, [prepared]);
+
+  /** When scrub is visible, capture horizontal drag in the glucose/HR band to move the crosshair. */
+  const scrubDragPan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderGrant: (e) => {
+          applyScrubFromX(e.nativeEvent.locationX);
+        },
+        onPanResponderMove: (e) => {
+          applyScrubFromX(e.nativeEvent.locationX);
+        },
+      }),
+    [applyScrubFromX]
+  );
+
+  const handleChartTouchStart = useCallback(
+    (e: GestureResponderEvent) => {
+      if (!prepared || scrubMs != null) return;
+      const { locationX, locationY } = e.nativeEvent;
+      if (locationY > prepared.calStripTop) return;
+      chartTouchRef.current = { x0: locationX, y0: locationY, tapPending: true };
+    },
+    [prepared, scrubMs]
+  );
+
+  const handleChartTouchMove = useCallback(
+    (e: GestureResponderEvent) => {
+      if (!prepared || !chartTouchRef.current.tapPending || scrubMs != null) return;
+      const { locationX, locationY } = e.nativeEvent;
+      const dx = locationX - chartTouchRef.current.x0;
+      const dy = locationY - chartTouchRef.current.y0;
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        chartTouchRef.current.tapPending = false;
+      }
+    },
+    [prepared, scrubMs]
+  );
+
+  const handleChartTouchEnd = useCallback(
+    (e: GestureResponderEvent) => {
+      if (!prepared || scrubMs != null) return;
+      const { locationX, locationY } = e.nativeEvent;
+      if (chartTouchRef.current.tapPending && locationY <= prepared.calStripTop) {
+        applyScrubFromX(locationX);
+      }
+      chartTouchRef.current.tapPending = false;
+    },
+    [applyScrubFromX, prepared, scrubMs]
+  );
+
   if (!prepared) {
     return (
       <View style={[styles.empty, { minHeight: CHART_PLOT_HEIGHT }]}>
@@ -686,6 +909,15 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
 
   const chartSvg = (
     <Svg width={prepared.chartW} height={prepared.svgH}>
+      {prepared.targetBandVisible ? (
+        <Rect
+          x={prepared.padL}
+          y={prepared.targetBandTopY}
+          width={prepared.chartW - prepared.padL - SVG_PAD_R}
+          height={prepared.targetBandBottomY - prepared.targetBandTopY}
+          fill={GLUCOSE_TARGET_FILL}
+        />
+      ) : null}
       {prepared.gridLines.map((gl) => (
         <Line
           key={gl.key}
@@ -703,6 +935,41 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
       ) : null}
       {prepared.glucosePath ? (
         <Path d={prepared.glucosePath} fill="none" stroke={WellnessColors.accentGreen} strokeWidth={2.5} />
+      ) : null}
+
+      {scrub ? (
+        <>
+          <Line
+            x1={scrub.xPx}
+            y1={scrub.dataTopY}
+            x2={scrub.xPx}
+            y2={scrub.dataBottomY}
+            stroke={WellnessColors.textSecondary}
+            strokeWidth={1}
+            strokeDasharray="4,3"
+            opacity={0.85}
+          />
+          {scrub.glucoseYPx != null ? (
+            <Circle
+              cx={scrub.xPx}
+              cy={scrub.glucoseYPx}
+              r={5}
+              fill={WellnessColors.accentGreen}
+              stroke="#fff"
+              strokeWidth={1.5}
+            />
+          ) : null}
+          {scrub.hrYPx != null ? (
+            <Circle
+              cx={scrub.xPx}
+              cy={scrub.hrYPx}
+              r={4.5}
+              fill={WellnessColors.accentRed}
+              stroke="#fff"
+              strokeWidth={1.5}
+            />
+          ) : null}
+        </>
       ) : null}
 
       {prepared.activitySegments.map((seg) => (
@@ -933,6 +1200,33 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
           <View style={[styles.chartUnderlay, { height: prepared.svgH }]} pointerEvents="none">
             <View style={[styles.graphCanvas, { width: prepared.chartW, height: prepared.svgH }]}>{chartSvg}</View>
           </View>
+          {scrub ? (
+            <View
+              pointerEvents="none"
+              style={[
+                styles.scrubBadge,
+                {
+                  left: Math.min(Math.max(scrub.xPx - 28, 4), prepared.chartW - 60),
+                  top: 4,
+                },
+              ]}
+            >
+              <Text style={styles.scrubBadgeGlucose}>
+                {scrub.glucose != null ? `${Math.round(scrub.glucose)} mg/dL` : '—'}
+              </Text>
+              <Text style={styles.scrubBadgeHr}>
+                {scrub.hr != null ? `${Math.round(scrub.hr)} bpm` : '— bpm'}
+              </Text>
+              <Text style={styles.scrubBadgeTime}>{formatScrubTime(scrub.ms)}</Text>
+            </View>
+          ) : null}
+          {scrubMs != null ? (
+            <View
+              style={[styles.scrubDragLayer, { height: prepared.calStripTop }]}
+              collapsable={false}
+              {...scrubDragPan.panHandlers}
+            />
+          ) : null}
           <ScrollView
             ref={chartScrollRef}
             horizontal
@@ -946,6 +1240,10 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
             scrollEventThrottle={16}
             nestedScrollEnabled
             directionalLockEnabled
+            onTouchStart={handleChartTouchStart}
+            onTouchMove={handleChartTouchMove}
+            onTouchEnd={handleChartTouchEnd}
+            onScrollBeginDrag={() => setScrubMs(null)}
             onContentSizeChange={() => {
               if (!prepared) return;
               chartPanReadyRef.current = true;
@@ -1112,6 +1410,47 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     zIndex: 1,
     elevation: 3,
+  },
+  scrubDragLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 3,
+    elevation: 5,
+    backgroundColor: 'transparent',
+  },
+  scrubBadge: {
+    position: 'absolute',
+    zIndex: 2,
+    alignItems: 'center',
+    paddingVertical: 1,
+    paddingHorizontal: 3,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.42)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(76, 175, 80, 0.16)',
+  },
+  scrubBadgeGlucose: {
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '700',
+    color: WellnessColors.accentGreen,
+    fontVariant: ['tabular-nums'],
+  },
+  scrubBadgeHr: {
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '700',
+    color: WellnessColors.accentRed,
+    fontVariant: ['tabular-nums'],
+  },
+  scrubBadgeTime: {
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: '500',
+    color: WellnessColors.textSecondary,
+    fontVariant: ['tabular-nums'],
   },
   yAxis: {
     width: Y_AXIS_WIDTH,
