@@ -1,5 +1,8 @@
 ## Prompt 20 — Photo assistant: analyze → chat → add/remove → approve
 
+**Phase 1 (shipped):** photo session, add/remove preview, approve-before-apply, stacked preview on phone.
+**Phase 2 (deferred):** dedupe on add, partial-gram remove, discard photo session, highlight matched lines.
+
 ### Vision
 When logging or **editing** a meal, the user can attach photos (camera or gallery),
 correct the AI item list via chat, then explicitly **add** those items to the meal
@@ -14,15 +17,16 @@ Replaces the old before/after dual-photo flow.
 ## User flow
 
 ```
-1. 📷 Camera or gallery (idle new meal, or "+ Photo" while editing)
+1. 📷 Camera or gallery (idle new meal, or "Update with a photo" while editing)
 2. 🤖 Gemini analyzes photo → item list (photo session only)
 3. 💬 Chat corrections on the photo list (same JSON format as today)
 4. User chooses intent:
      [ Add to meal ]     [ Remove from meal ]
    Empty meal: single button [ Use as meal ] (= add to empty)
    Remove = "this photo is food I did NOT eat" → drop matching lines from meal
-5. Preview — two columns:
-     CURRENT MEAL          AFTER UPDATE
+5. Preview — stacked vertically (phone-friendly):
+     CURRENT MEAL
+     AFTER UPDATE
      + macro delta (Δ kcal, P/C/F)
 6. [ Cancel ]  [ Approve update ]  → updates working meal, clears photo session
 7. [ ✓ Save meal ]  → persists (unchanged)
@@ -45,6 +49,20 @@ Rules:
 - Photo chat **only** updates `photoSession.items`, never `items` directly.
 - Meal chat (no active photo session) updates `items` via `analyzeFood` (existing text correction).
 - Approve copies `mergePreview.after` → `items`.
+- Save bar hidden while `mergePreview` is open — user must Approve or Cancel first.
+
+---
+
+## Chat input (single bar, context-aware)
+
+One chat field on the result screen; placeholder and routing depend on context:
+
+| Context | Placeholder / behaviour |
+|---------|-------------------------|
+| `photoSession` active | Correct **photo list** only ("only half the pita"…) |
+| No photo session | Correct **meal** via text ("add a coffee"…) |
+
+Meal text correction is blocked while a photo session is active (finish or approve photo flow first).
 
 ---
 
@@ -54,28 +72,30 @@ No Gemini call for add/remove.
 
 | Mode | Logic |
 |------|--------|
-| **add** | Concatenate photo items onto meal |
+| **add** | Concatenate photo items onto meal (no dedupe in Phase 1) |
 | **remove** | Drop meal rows whose name matches any photo item (fuzzy: name / name_local, substring) |
 
-User must fix photo list via chat before Remove if portions differ.
+User must fix photo list via chat before Remove if portions differ (whole-line remove only).
+
+UI hint shown: *Remove = photo shows food you did not eat (leftovers)*.
 
 ---
 
 ## UI sections (result screen)
 
-1. **Your meal** — `items` list + total (always visible when non-empty)
+1. **Your meal** — `items` list + total (visible when non-empty or editing)
 2. **Photo assistant** (when `photoSession`):
    - Thumbnail, confidence, description
-   - Photo item list
-   - Chat input (photo corrections)
-   - 📷 / 🖼 add another photo replaces session
-   - Add to meal | Remove from meal (or Use as meal if empty)
+   - Photo item list ("From photo")
+   - 📷 / 🖼 New photo replaces session (fresh history)
+   - Add to meal | Remove from meal (or **Use as meal** if empty)
 3. **Preview** (when `mergePreview`):
-   - Side-by-side CURRENT | AFTER
-   - Δ macros
+   - **Current meal** on top, **After update** below (stacked, not side-by-side)
+   - Δ macros row
    - Cancel | Approve update
-4. **Meal chat** — visible when `!photoSession && !mergePreview` (text-only corrections)
-5. Date/time, Save, Delete
+4. **Chat** — single input (see above); hidden during preview
+5. **Update with a photo** — camera/gallery when meal has items and no active photo session
+6. Date/time, Save, Delete
 
 ---
 
@@ -95,29 +115,50 @@ User must fix photo list via chat before Remove if portions differ.
 
 ---
 
-## Files
+## Files (Phase 1)
 
 | File | Change |
 |------|--------|
 | `app/src/logic/mealPhotoMerge.ts` | **NEW** — add/remove preview |
-| `app/src/components/FoodLogModal.tsx` | Photo session, preview UI, + Photo on edit |
-| `app/src/services/GeminiService.ts` | Optional: deprecate `afterImageBase64` param (keep for compat, unused) |
+| `app/src/components/FoodLogModal.tsx` | Photo session, stacked preview UI, photo on edit |
+| `app/src/services/GeminiService.ts` | `afterImageBase64` still in signature but unused (cleanup deferred) |
+
+Commit: `3397f8c` — pushed to `main`.
 
 ---
 
-## Acceptance checklist
+## Acceptance checklist (Phase 1 — verified on device)
 
-- [ ] Edit meal → + Photo → camera → analyze → chat fixes photo list
-- [ ] Add to meal shows CURRENT vs AFTER; Approve updates meal; Save persists
-- [ ] Remove from meal removes lines matching photo items; preview before apply
-- [ ] New meal camera uses Use as meal with empty CURRENT preview
-- [ ] Text-only log and meal chat correction still work
-- [ ] Before/after photo UI removed
+- [x] Edit meal → camera/gallery → analyze → chat fixes photo list
+- [x] Add to meal shows CURRENT vs AFTER (stacked); Approve updates meal; Save persists
+- [x] Remove from meal removes lines matching photo items; preview before apply
+- [x] New meal camera uses Use as meal with empty CURRENT preview
+- [x] Text-only log and meal chat correction still work
+- [x] Before/after photo UI removed
 
 ---
 
-## Out of scope
+## Out of scope (Phase 1)
 
 - Persisting photo thumbnails on FoodEntry
 - AI-driven fuzzy remove (local name match only)
 - Partial gram subtraction without user correcting photo list first
+- Dedupe when adding items already in the meal
+
+---
+
+## Phase 2 (future)
+
+| Item | Notes |
+|------|-------|
+| Dedupe on add | Same name → merge grams or ask user |
+| Partial remove | Subtract photo grams from matched meal line |
+| Discard photo session | Cancel without approving merge |
+| Highlight matches | Show which meal lines Remove will drop before preview |
+| GeminiService cleanup | Remove `afterImageBase64` param and dual-image prompt branch |
+
+### Phase 2 acceptance (future)
+
+- [ ] Add same item twice → dedupe or merge, not duplicate lines
+- [ ] Remove half portion via chat-adjusted photo grams subtracts from meal line
+- [ ] User can dismiss photo session without approving
