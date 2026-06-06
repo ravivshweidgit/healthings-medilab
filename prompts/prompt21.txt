@@ -1,0 +1,336 @@
+## Prompt 21 — Connect CGM (CareSens → Health Connect) and verify end-to-end
+
+### Vision
+CGM data pipeline logic is largely built (prompt13 chart, prompt19 mentor/review blocks).
+Prompt 21 closes the **connection loop**: user can see that CareSens glucose is linked,
+data survives Sync, mentors cite real numbers, and we have a repeatable test plan.
+
+**Build order:** ship PART A–E (connect + verify) first on a live CareSens device.
+PART G (manual low-corruption exclusions) ships **after** connection is confirmed working.
+
+**Not in scope:** direct BLE to CareSens, SmartLog cloud, iOS HealthKit, prompt09 7-day
+glucose overlay chart, prompt08 visceral+glucose pair card (defer).
+
+---
+
+## Current state (already shipped — do not rebuild)
+
+| Layer | Status |
+|-------|--------|
+| Health Connect read (`BloodGlucose`) | `SamsungHealthService.ts` — 120-day window |
+| CareSens CSV import | `careSensCsv.ts` + Import button on dashboard |
+| Cache | `healthMetricsCache.ts` — `healthings:lastMetrics` |
+| Warm-up filter (24h per sensor) | `cgmWarmupFilter.ts` |
+| Statistical noise filter | `cgmStatisticalFilter.ts` |
+| Range stats for mentors | `cgmRangeStats.ts` |
+| Meal ↔ glucose correlation | `mealGlucoseAnalysis.ts` → `buildGlucoseMentorContext()` |
+| Chart | `MetabolicChart.tsx` — glucose line, HR, meals, calorie strip |
+| Coach / chat / `/7` review | `GeminiService.ts`, `ReviewService.ts`, `CoachContext.glucoseHistory` |
+
+### Known gap (must fix in prompt21)
+
+**CSV history lost on Sync.** `useHealthData.refetch()` replaces cached glucose with
+Health Connect only. `ReviewService` already triple-merges (HC + cache + live);
+dashboard hook does not — CSV-only points disappear after pull-to-refresh / 5-min auto-sync.
+
+---
+
+## PART A — Fix glucose merge on every refetch (`useHealthData.ts`)
+
+Mirror `ReviewService.fetchPeriodIntraday()` merge strategy:
+
+```ts
+import { mergeGlucoseTimePoints, loadCachedHealthMetrics } from '../services/healthMetricsCache';
+
+// Inside refetch(), after HC fetch:
+const cached = await loadCachedHealthMetrics();
+const mergedRaw = mergeGlucoseTimePoints([
+  metrics.glucose,           // Health Connect (authoritative on duplicate timestamp)
+  cached?.glucose ?? [],     // includes prior CSV import
+]);
+const knownStarts = mergeCgmSessionStarts(
+  cached?.cgmSessionStarts,
+  undefined, // CSV sessions already in cache
+);
+applyMetrics(
+  { glucose: mergedRaw, steps: metrics.steps, heartRate: metrics.heartRate },
+  knownStarts,
+);
+```
+
+Rules:
+- **Duplicate timestamp:** HC wins (same as `mergeGlucoseCsvWins` for CSV-over-HC on import)
+- **Persist merged raw** in `healthings:lastMetrics`, not HC-only
+- **Bootstrap** from cache then refetch — unchanged order, but refetch must not shrink series
+- Export `mergeGlucoseTimePoints` usage consistently; avoid duplicating merge logic in a third place
+
+### Acceptance (merge)
+- Import CSV → chart shows history → tap **Sync** → point count does **not** drop
+- HC adds new points after CSV import → both sources visible on chart
+- Mentor `todayMealGlucoseDetail` uses same merged series as chart
+
+---
+
+## PART B — CGM connection status UI (`DashboardScreen.tsx`)
+
+Add a **CareSens / Health Connect status row** above or beside the glucose chart
+(parallel to Withings OK/X badge on body scan card).
+
+```
+┌──────────────────────────────────────────────┐
+│  CareSens  [ OK ]  latest 98 mg/dL · 14:32  │
+│  1,842 readings · synced 2 min ago           │
+└──────────────────────────────────────────────┘
+```
+
+States:
+
+| State | Badge | Subtext |
+|-------|-------|---------|
+| Connected | green **OK** | latest value + time + sample count + last sync |
+| Permission denied | red **X** | "Allow Blood Glucose in Health Connect" + tap opens HC settings |
+| No data yet | amber **—** | "Enable CareSens → Samsung Health sharing, then Sync" |
+| Demo mode | grey **Demo** | hidden Import button; synthetic data (Expo Go) |
+
+Data from `useHealthData`:
+- `glucoseData.length`, latest point from filtered series
+- `error` from HC permission/fetch failures
+- `dataSource === 'health-connect'` vs demo
+- Last successful `refetch` timestamp (add `lastSyncedAt` to hook return)
+
+Optional one-liner under chart when filters active:
+- `cgmStatSummary` from hook (e.g. "1 day excluded as sensor error")
+- Warm-up: "First 24h after sensor change excluded from stats"
+
+Reuse `glucoseHeadline()` from `wellnessCopy.ts` or inline — **wire it** (currently dead code).
+
+Only show CareSens import button when `dataSource === 'health-connect'` (already true).
+
+---
+
+## PART C — Fresh CGM in chat coach refresh (`ChatScreen.tsx`)
+
+`buildFreshContext()` reloads meals/macros but **not** glucose from cache/HC.
+Coach ↻ refresh can cite stale CGM after Sync.
+
+Fix:
+- Pass `glucoseHistory`, `todayMealGlucoseDetail` from dashboard `coachContext` **or**
+- Reload from `loadCachedHealthMetrics()` + `buildGlucoseMentorContext()` inside
+  `buildFreshContext()` using today's meals
+
+Mentor Nutritionist/Doctor must see updated MEAL GLUCOSE block after dashboard Sync
+without closing and reopening chat.
+
+---
+
+## PART D — Optional coach trigger after CGM sync (low priority)
+
+No new `CoachTriggerEvent` required for MVP.
+
+If implemented:
+- After first non-empty HC glucose fetch or successful CSV import →
+  `triggerCoachReview('meal', context)` **only when** `todayMealCount > 0` and min-gap allows
+- Do **not** spam on 5-min auto-refetch — gate with `lastCgmCoachAt` AsyncStorage key
+
+Skip if merge + status UI + test checklist pass first.
+
+---
+
+## PART E — Manual test plan (device — required before commit)
+
+Run on **physical Android dev APK** (`expo run:android` / release APK). Document results
+in PR or commit message.
+
+### E1 — Health Connect path
+1. CareSens Air app → enable sharing to Samsung Health / Health Connect
+2. Open Healthings → grant **Blood Glucose** permission when prompted
+3. Tap **Sync** → status row shows **OK**, chart has green glucose line
+4. Log a timed meal → open chat (Nutritionist tab) → ask "Review my last meal"
+5. Reply cites pre-meal / peak / delta from MEAL GLUCOSE block (not "no CGM data")
+
+### E2 — CSV import path
+1. Export CSV from CareSens Air app
+2. Tap **Import** on dashboard → success message with reading count
+3. Chart updates immediately
+4. Tap **Sync** → **reading count must not decrease** (PART A fix)
+5. Nutritionist `/7` or chip "סיכום שבועי" → period block includes
+   `GLUCOSE & FOOD IMPACT` with avg/min/max
+
+### E3 — Filter sanity
+1. New sensor session → first 24h excluded; mentor does not alarm on warm-up lows
+2. With ≥14 days history and one isolated low day (min &lt;54) → stat filter excludes;
+   optional status line mentions exclusion
+
+### E4 — Regression
+1. Withings body scan + glucose chart still render together
+2. Mentor nudge strip still above chart
+3. Demo mode (Expo Go) still shows synthetic glucose — status shows **Demo**
+
+---
+
+## PART F — Unit tests (recommended, no device)
+
+Add under `app/src/__tests__/` or colocated `*.test.ts` (Jest if configured; else
+document as manual-only and add tests when test runner lands).
+
+| Module | Cases |
+|--------|-------|
+| `careSensCsv.ts` | mmol→mg/dL, serial change → new session, missing columns error |
+| `cgmWarmupFilter.ts` | 24h excluded after session start; gap-based HC session |
+| `cgmStatisticalFilter.ts` | 1/100 low days excluded; &lt;14 days history → no exclusion |
+| `mealGlucoseAnalysis.ts` | meal window finds peak; no glucose → empty block |
+| `healthMetricsCache.mergeGlucoseTimePoints` | HC + CSV merge, duplicate timestamp resolution |
+
+Minimum for prompt21 done: **merge unit test** + manual E1/E2 pass on phone.
+
+---
+
+## PART G — Manual exclusion of corrupted low CGM windows (after connection works)
+
+Automatic filters (warm-up, statistical noise) already drop bad days in code.
+Users still need a way to **mark specific time ranges** as sensor corruption — e.g.
+compression lows, adhesive failure, obvious false readings — without hiding real highs.
+
+### Anti-cheat rule (hard requirement)
+
+| Reading level | User can exclude? |
+|---------------|-------------------|
+| **All samples in range &lt; 65 mg/dL** | Yes — mark window as corrupted sensor data |
+| **Any sample ≥ 65 mg/dL in range** | **No** — UI disabled; cannot save exclusion |
+
+Rationale: excluding high spikes would let users hide post-meal glucose; only sub-65
+windows are plausible sensor failure / compression artifact, not dietary cheating.
+
+Threshold **65 mg/dL** is fixed in code (not user-configurable).
+
+### UX (chart-driven)
+
+1. Long-press or **Edit CGM** mode on `MetabolicChart` → drag/select a time range
+2. App computes min/max in selection:
+   - if `max < 65` → show **"Mark as sensor error"** confirm
+   - if `max ≥ 65` → show disabled state: *"Only low corruption (&lt;65) can be removed"*
+3. Excluded ranges stored locally; chart greys out segment; mentors/stats ignore those points
+4. **Manage exclusions** list — view + undo (restore points to series)
+
+```
+┌──────────────────────────────────────────────┐
+│  Glucose chart                    [ Edit ]   │
+│  ~~grey band~~ = user-excluded corruption    │
+├──────────────────────────────────────────────┤
+│  Excluded windows (2)                        │
+│  Jun 4 03:12–05:40  max 52  [ Undo ]         │
+│  Jun 2 11:00–11:45  max 61  [ Undo ]         │
+└──────────────────────────────────────────────┘
+```
+
+### Storage (`TargetService.ts` or `healthMetricsCache.ts`)
+
+```ts
+export type CgmManualExclusion = {
+  id: string;
+  startMs: number;
+  endMs: number;
+  maxMgDl: number;       // must be < 65 at creation time (validated)
+  reason?: 'sensor_error'; // only allowed enum for now
+  createdAt: string;     // ISO
+};
+
+const CGM_MANUAL_EXCLUSIONS_KEY = 'cgm_manual_exclusions';
+
+export async function getCgmManualExclusions(): Promise<CgmManualExclusion[]>
+export async function addCgmManualExclusion(e: CgmManualExclusion): Promise<void>
+export async function removeCgmManualExclusion(id: string): Promise<void>
+```
+
+Apply exclusions in `prepareGlucoseSeries()` **after** warm-up + statistical filters:
+drop any point whose timestamp falls inside an exclusion window.
+
+Mentor context: append one line when exclusions active:
+`USER-EXCLUDED SENSOR ERRORS: N windows (all peaks &lt;65 mg/dL) — do not cite those readings.`
+
+### Acceptance (PART G)
+- User can exclude a window where all readings &lt; 65; chart + mentor stats update
+- Selection spanning any reading ≥ 65 → action blocked with clear message
+- Undo restores points; Sync does not remove exclusion list
+- Exclusions survive app restart (AsyncStorage)
+
+### PART G files (future commit after A–E verified)
+
+| File | Change |
+|------|--------|
+| `healthMetricsCache.ts` / new `cgmManualExclusions.ts` | CRUD + apply in `prepareGlucoseSeries` |
+| `MetabolicChart.tsx` | Range select + grey overlay for excluded segments |
+| `DashboardScreen.tsx` | Exclusions list + Edit mode entry |
+| `mealGlucoseAnalysis.ts` | Respect exclusions in meal correlation |
+
+---
+
+## Files to create / change
+
+| File | Change |
+|------|--------|
+| `app/src/hooks/useHealthData.ts` | Triple-merge on refetch; `lastSyncedAt`; persist merged raw |
+| `app/src/services/healthMetricsCache.ts` | Ensure `loadCachedHealthMetrics` exported; merge helper shared |
+| `app/src/screens/DashboardScreen.tsx` | CGM status row; filter summary line; wire `glucoseHeadline` |
+| `app/src/screens/ChatScreen.tsx` | Fresh glucose in `buildFreshContext()` |
+| `app/src/utils/wellnessCopy.ts` | Use or extend `glucoseHeadline()` |
+| `app/src/__tests__/cgmMerge.test.ts` | **NEW** — merge + CSV parse smoke tests (if Jest available) |
+
+No changes to `GeminiService` CGM prompts unless mentor still says "no CGM" after fix —
+then verify `buildGlucoseMentorContext()` receives non-empty series.
+
+---
+
+## Dependencies / environment
+
+- Android dev build only for real CGM (`dataSource === 'health-connect'`)
+- CareSens Air → Samsung Health → Health Connect sharing enabled
+- `react-native-health-connect` already in `app.json`; minSdk 26
+- `MainActivity.kt` — `HealthConnectPermissionDelegate` already set
+
+```powershell
+Set-Location "c:\projects\healthings-medilab\app\android"
+.\gradlew.bat assembleRelease --no-build-cache
+adb install -r "...\app-release.apk"
+```
+
+---
+
+## Acceptance checklist (prompt21 complete)
+
+### Phase 1 — connection (ship first)
+- [ ] HC permission grant → chart + status **OK** with latest mg/dL
+- [ ] CSV import → chart updates; **Sync preserves CSV points** (PART A)
+- [ ] Nutritionist chat cites MEAL GLUCOSE numbers after meal + Sync
+- [ ] `/7` period review includes `GLUCOSE & FOOD IMPACT` with period stats
+- [ ] CGM status row visible; permission error shows actionable message
+- [ ] Chat coach ↻ refresh sees post-Sync glucose (PART C)
+- [ ] Manual test E1–E4 documented on device
+- [ ] (Optional) unit tests for merge + CSV parse
+
+### Phase 2 — corruption UX (after Phase 1 on live CGM)
+- [ ] User can mark sub-65 time windows as sensor error; ≥65 blocked
+- [ ] Exclusions reflected in chart, stats, and mentor context
+- [ ] Undo restores excluded readings
+
+---
+
+## Out of scope for prompt21
+
+- Direct CareSens BLE / SmartLog API (prompt01 vision)
+- Apple HealthKit / iOS CGM
+- Prompt08 visceral fat + latest glucose side-by-side card
+- Prompt09 7-day body vs avg glucose trend chart
+- CGM time-in-range coach auto-check action items
+- Push notification on hypo/hyper
+- Showing `efficiencyScore` / MetabolicLogic insight on dashboard UI
+- Excluding CGM windows that contain any reading **≥ 65 mg/dL** (anti-cheat — see PART G)
+
+---
+
+## References
+
+- Prompt13 — `MetabolicChart` glucose/HR/calorie strip
+- Prompt19 — CGM filters, `buildGlucoseMentorContext`, period review glucose block
+- Prompt18 — mentor nudge strip above glucose chart
+- `readme.md` — CareSens via Samsung Health / Health Connect
