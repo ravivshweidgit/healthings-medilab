@@ -47,7 +47,7 @@ import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportWithSessions } from '../services/careSensCsv';
 import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getDailyMacros, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
 import { buildGlucoseMentorContext } from '../logic/mealGlucoseAnalysis';
-import { mentorsCollectiveLabel } from '../logic/mentorLabels';
+import { activeMentorEmojis, mentorsCollectiveLabel } from '../logic/mentorLabels';
 import {
   getBirthdate, setBirthdate, computeAge, getCachedHeightCm,
   setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors,
@@ -855,11 +855,17 @@ export const DashboardScreen = () => {
           <Pressable
             style={styles.nudgeStrip}
             onPress={() => setChatVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`${mentorsCollectiveLabel(userLanguage, userMentorGender ?? mentorGenderPicker, userGender)}, ${coachMsg.actionItems.filter((i) => i.done).length} of ${coachMsg.actionItems.length} action items`}
           >
-            <Text style={styles.nudgeStripText}>
-              💬 {mentorsCollectiveLabel(userLanguage, userMentorGender ?? mentorGenderPicker, userGender)} · {coachMsg.actionItems.filter((i) => i.done).length} of {coachMsg.actionItems.length} done
+            <Text style={styles.nudgeStripIcons} numberOfLines={1}>
+              {activeMentorEmojis(mentors)}
             </Text>
-            <Text style={styles.nudgeOpenText}>Open →</Text>
+            <Text style={styles.nudgeStripCount} numberOfLines={1}>
+              {`${coachMsg.actionItems.filter((i) => i.done).length}/${coachMsg.actionItems.length}`}
+            </Text>
+            <View style={styles.nudgeStripSpacer} />
+            <Text style={styles.nudgeStripChevron}>›</Text>
           </Pressable>
         )}
 
@@ -1723,13 +1729,27 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     gap: 8,
   },
-  nudgeStripText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '600',
-    color: WellnessColors.textPrimary,
+  nudgeStripIcons: {
+    fontSize: 17,
+    letterSpacing: 1,
+    flexShrink: 0,
   },
-  nudgeOpenText: { fontSize: 13, color: WellnessColors.accentBlue, fontWeight: '600' },
+  nudgeStripCount: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+    flexShrink: 0,
+  },
+  nudgeStripSpacer: {
+    flex: 1,
+    minWidth: 4,
+  },
+  nudgeStripChevron: {
+    fontSize: 20,
+    color: WellnessColors.textSecondary,
+    fontWeight: '300',
+    flexShrink: 0,
+  },
   _unused: {
   },
   previewFoot: {

@@ -121,6 +121,14 @@ export function chatMentorSenderLabel(
   return mentorsCollectiveLabel(lang, mentorGender, userGender);
 }
 
+export function activeMentorEmojis(mentors: MentorType[]): string {
+  const order: MentorType[] = ['doctor', 'nutritionist', 'coach'];
+  return order
+    .filter((m) => mentors.includes(m))
+    .map((m) => MENTOR_EMOJI[m])
+    .join('');
+}
+
 export function formatActiveMentorsHeader(
   mentors: MentorType[],
   lang?: UserLanguage | null,

@@ -51,14 +51,18 @@ Shown whenever a current coach message exists.
 
 ```
 ┌──────────────────────────────────────────────┐
-│ 💬 Mentors · 1 of 3 items done   Open →    │
+│ 🩺🥗💪  2/4                              › │
 └──────────────────────────────────────────────┘
 ```
 
-- **Tap row / "Open →"** → opens ChatScreen (coach panel pinned at top; chat scrolls below)
+- **Tap row / `›`** → opens ChatScreen (same chevron pattern as My Profile / My Targets rows)
+- **No 💬 icon**, no "Open →" text, no collective label on the strip (too long in Hebrew)
+- **Left:** active mentor emojis only (`activeMentorEmojis()` — doctor → nutritionist → coach, up to 3)
+- **Next:** compact progress **`done/total`** (e.g. `2/4`); full label in `accessibilityLabel`
+- **Right:** `›` chevron (`profileRowChevron` style)
 - **No ✕ dismiss** — dismissing the strip accidentally hid action items in chat (removed)
 - **No ↻ on dashboard** — refresh only in ChatScreen where the user sees the result (removed)
-- Progress count ("1 of 3 done") updates in real time as auto-checks tick items
+- Progress updates in real time as auto-checks tick items
 - No message text and no action item list on the dashboard — those live in ChatScreen
 
 ### CoachMessage type (TargetService.ts)
@@ -103,7 +107,7 @@ export async function clearChatHistory(date: string): Promise<void>
 ### Auto-check logic
 
 Runs in two places:
-1. **On each dashboard load** — to keep the "N of M done" count current in the nudge strip
+1. **On each dashboard load** — to keep the **`done/total`** count current in the nudge strip
 2. **When ChatScreen opens** — to reflect latest data in the action items checklist
 
 Loop through `actionItems`, apply each `autoCheckType` rule against live `CoachContext`
@@ -283,9 +287,9 @@ Full-screen modal inside `SafeAreaProvider`. Inherits `CoachContext` from dashbo
 
 ```
 ┌─────────────────────────────────────────────┐
-│  ←  💬 המנטוריות שלי                         │
+│  ←  🩺🥗💪 המנטוריות שלי                    │
 ├─────────────────────────────────────────────┤
-│ ▶ משימות · 1/4   [collapsible coach panel]  │  ← pinned top; scroll inside when open
+│ ▼ 2/4          [collapsible coach panel]    │  ← collapsed summary = done/total only
 │   (🥗 / 💪 / 🩺 separate voice cards)         │
 ├─────────────────────────────────────────────┤
 │  [messages for ACTIVE TAB only — scrolls]   │
@@ -303,6 +307,7 @@ Full-screen modal inside `SafeAreaProvider`. Inherits `CoachContext` from dashbo
 ### Collapsible coach panel
 - **Pinned above** message list — not in FlatList scroll
 - **Starts collapsed** on open (even after refresh); user expands to read tasks
+- **Collapsed header** shows **`done/total`** only (e.g. `2/4`) when action items exist — no 💬 icon
 - **Expanded body** — when 2+ mentors, **separate cards** per voice from `mentorLines`
   (🥗 green / 💪 blue / 🩺 purple tints); fallback splits blended text via `mentorChatText.ts`
 - **Internal ScrollView** `maxHeight: 220` when expanded — panel never fills the screen
@@ -492,7 +497,7 @@ Run `npx expo prebuild --platform android --no-install` after adding native modu
 4. `ChatScreen.tsx` — **NEW** — per-mentor tabs, collapsible coach panel with voice cards,
    bottom toolbar (↑↓ clear export send), FAQ modal, safe-area layout
 5. `mentorChatText.ts` — **NEW** — mentor line parsing, segment UI, blended fallback split
-6. `mentorLabels.ts` — **NEW** — gender-aware possessive/collective labels (he/ar/en)
+6. `mentorLabels.ts` — **NEW** — gender-aware possessive/collective labels; `activeMentorEmojis()`
 7. `mentorChatExport.ts` (logic) + `services/mentorChatExport.ts` — **NEW** — HTML export
 8. `MentorStrip.tsx` — frequency toggle + min-gap slider + mentor voice Male/Female
 9. `DashboardScreen.tsx` — nudge strip, chat modal, event triggers, language profile picker
@@ -525,3 +530,6 @@ Note: per-day chat history **is** persisted in AsyncStorage (`chat_history_YYYY-
 - **Bottom toolbar** — scroll ↑↓, clear active tab, HTML export ↗, send — single row
 - **Coach panel** starts collapsed; internal scroll capped at 220px when expanded
 - **HTML export** — full day snapshot (tasks + all mentor chat sections with history)
+- **Nudge strip compact** — `🩺🥗💪 2/4 ›` (mentor icons + fraction + chevron; no 💬 / Open →)
+- **Chat header** — active mentor emojis + collective title (no 💬)
+- **Keyboard** — bottom chrome lifts above keyboard on Android Modal (`Keyboard` height listener)

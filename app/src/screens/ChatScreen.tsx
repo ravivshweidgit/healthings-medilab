@@ -48,7 +48,7 @@ import { runAutoChecksAndPersist, refreshCoachReview } from '../services/CoachSe
 import { exportMentorChat } from '../services/mentorChatExport';
 import { normalizeMentorChatText, buildMentorDisplaySegments, mentorBubbleColors, hasSeparateMentorVoices } from '../logic/mentorChatText';
 import type { MentorLines } from '../logic/mentorChatText';
-import { mentorPossessiveLabel, mentorsCollectiveLabel, MENTOR_EMOJI } from '../logic/mentorLabels';
+import { activeMentorEmojis, mentorPossessiveLabel, mentorsCollectiveLabel, MENTOR_EMOJI } from '../logic/mentorLabels';
 import { getTodayMeals, getMealsForDay, buildMealsAiContext, foodLogDayKey } from '../services/FoodLogService';
 import { WellnessColors } from '../theme/wellness';
 
@@ -70,14 +70,8 @@ function yesterdayKey(): string {
   return foodLogDayKey(d.getTime());
 }
 
-function actionItemsHeader(done: number, total: number, lang?: UserLanguage | null): string {
-  if (lang?.code === 'he') return `משימות · ${done}/${total} הושלמו`;
-  if (lang?.code === 'es') return `Tareas · ${done}/${total} hechas`;
-  if (lang?.code === 'fr') return `Actions · ${done}/${total} faites`;
-  if (lang?.code === 'de') return `Aufgaben · ${done}/${total} erledigt`;
-  if (lang?.code === 'ar') return `مهام · ${done}/${total} منجزة`;
-  if (lang?.code === 'ru') return `Задачи · ${done}/${total} выполнено`;
-  return `Action items · ${done}/${total} done`;
+function actionItemsHeader(done: number, total: number, _lang?: UserLanguage | null): string {
+  return `${done}/${total}`;
 }
 
 function chatBottomInset(bottom: number): number {
@@ -129,7 +123,7 @@ function chatUiStrings(context: CoachContext) {
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
   if (lang?.code === 'he') {
     return {
-      header: `💬 ${collective}`,
+      header: collective,
       placeholder: `שאל/י את ${collective}…`,
       send: 'שלח',
       empty: `שאל/י את ${collective} על יעדים, ארוחות או התקדמות.`,
@@ -161,7 +155,7 @@ function chatUiStrings(context: CoachContext) {
   }
   if (lang?.code === 'ar') {
     return {
-      header: `💬 ${collective}`,
+      header: collective,
       placeholder: `اسأل ${collective}…`,
       send: 'إرسال',
       empty: `اسأل ${collective} عن أهدافك أو وجباتك أو تقدمك.`,
@@ -192,7 +186,7 @@ function chatUiStrings(context: CoachContext) {
     };
   }
   return {
-    header: `💬 ${collective}`,
+    header: collective,
     placeholder: `Ask ${collective.toLowerCase()}…`,
     send: 'Send',
     empty: `Ask ${collective.toLowerCase()} anything about your health goals, meals, or progress.`,
@@ -684,9 +678,6 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
-  const mentorEmojis = context.mentors
-    .map((m) => MENTOR_EMOJI[m] ?? '')
-    .join('');
   const ui = chatUiStrings(context);
   const tabUi = mentorTabStrings(activeMentor, context);
 
@@ -1026,7 +1017,9 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
         <Pressable onPress={onClose} style={styles.backBtn} hitSlop={8}>
           <Text style={styles.backBtnText}>←</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>{ui.header}  {mentorEmojis}</Text>
+        <Text style={[styles.headerTitle, ui.rtl && styles.rtlText]} numberOfLines={1}>
+          {`${activeMentorEmojis(context.mentors)} ${ui.header}`}
+        </Text>
         <View style={styles.backBtn} />
       </View>
 
