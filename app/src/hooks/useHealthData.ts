@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { calculateMetabolicEfficiency, type ActivityZone } from '../logic/MetabolicLogic';
 import type { CgmSessionStart } from '../logic/cgmWarmupFilter';
 import { generateDemoRecentMetrics } from '../services/demoHealthMetrics';
@@ -52,7 +52,6 @@ function applyGlucoseToMetrics(
   );
   return {
     metrics: {
-      ...metrics,
       glucose: raw,
       cgmSessionStarts: sessionStarts,
     },
@@ -88,18 +87,19 @@ export const useHealthData = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dataSource] = useState<HealthDataSource>(() => getHealthDataSource());
+  const refetchInFlight = useRef<Promise<HealthSyncResult | null> | null>(null);
 
   const applyMetrics = useCallback((metrics: RecentMetrics, knownSessionStarts?: CgmSessionStart[]) => {
     const { metrics: cached, filtered, sessionStarts, cgmStatSummary } = applyGlucoseToMetrics(
       metrics,
       knownSessionStarts,
     );
-    const efficiency = calculateMetabolicEfficiency(filtered, metrics.steps);
+    const efficiency = calculateMetabolicEfficiency(filtered, metrics.steps ?? []);
     setState({
       glucoseData: filtered,
       cgmSessionStarts: sessionStarts,
       cgmStatSummary,
-      stepsData: metrics.steps,
+      stepsData: metrics.steps ?? [],
       heartRateData: metrics.heartRate ?? [],
       efficiencyScore: efficiency.efficiencyScore,
       insight: efficiency.insight,
@@ -129,18 +129,18 @@ export const useHealthData = () => {
           applyGlucoseToMetrics(
           {
             glucose: mergedRaw,
-            steps: prev.stepsData,
-            heartRate: prev.heartRateData,
           },
           sessionStarts,
         );
         persistMetrics(toStore);
-        const eff = calculateMetabolicEfficiency(filtered, prev.stepsData);
+        const eff = calculateMetabolicEfficiency(filtered, []);
         return {
           ...prev,
           glucoseData: filtered,
           cgmSessionStarts: allStarts,
           cgmStatSummary,
+          stepsData: [],
+          heartRateData: [],
           efficiencyScore: eff.efficiencyScore,
           insight: eff.insight,
           activityZones: eff.activityZones,
@@ -151,43 +151,56 @@ export const useHealthData = () => {
   );
 
   const refetch = useCallback(async (): Promise<HealthSyncResult | null> => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      if (dataSource !== 'health-connect') {
-        const metrics = generateDemoRecentMetrics();
-        applyMetrics(metrics);
-        const { filtered } = prepareGlucoseSeries(metrics.glucose);
-        const efficiency = calculateMetabolicEfficiency(filtered, metrics.steps);
+    if (refetchInFlight.current) {
+      return refetchInFlight.current;
+    }
+
+    const run = (async (): Promise<HealthSyncResult | null> => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        if (dataSource !== 'health-connect') {
+          const metrics = generateDemoRecentMetrics();
+          applyMetrics(metrics);
+          const { filtered } = prepareGlucoseSeries(metrics.glucose);
+          const efficiency = calculateMetabolicEfficiency(filtered, metrics.steps ?? []);
+          return {
+            metrics,
+            efficiencyScore: efficiency.efficiencyScore,
+            insight: efficiency.insight,
+            activityZones: efficiency.activityZones,
+          };
+        }
+
+        await samsungHealthService.initializeAndRequestPermissions();
+        const metrics = await samsungHealthService.fetchRecentMetrics();
+        const cached = await AsyncStorage.getItem(CACHE_KEY);
+        const knownStarts = cached
+          ? ((JSON.parse(cached) as CachedHealthMetrics).cgmSessionStarts ?? undefined)
+          : undefined;
+        applyMetrics(metrics, knownStarts);
+        const { filtered } = prepareGlucoseSeries(metrics.glucose, knownStarts);
+        const efficiency = calculateMetabolicEfficiency(filtered, metrics.steps ?? []);
         return {
           metrics,
           efficiencyScore: efficiency.efficiencyScore,
           insight: efficiency.insight,
           activityZones: efficiency.activityZones,
         };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to sync health data.';
+        setError(message);
+        return null;
+      } finally {
+        setIsLoading(false);
       }
+    })();
 
-      await samsungHealthService.initializeAndRequestPermissions();
-      const metrics = await samsungHealthService.fetchRecentMetrics();
-      const cached = await AsyncStorage.getItem(CACHE_KEY);
-      const knownStarts = cached
-        ? ((JSON.parse(cached) as CachedHealthMetrics).cgmSessionStarts ?? undefined)
-        : undefined;
-      applyMetrics(metrics, knownStarts);
-      const { filtered } = prepareGlucoseSeries(metrics.glucose, knownStarts);
-      const efficiency = calculateMetabolicEfficiency(filtered, metrics.steps);
-      return {
-        metrics,
-        efficiencyScore: efficiency.efficiencyScore,
-        insight: efficiency.insight,
-        activityZones: efficiency.activityZones,
-      };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to sync health data.';
-      setError(message);
-      return null;
+    refetchInFlight.current = run;
+    try {
+      return await run;
     } finally {
-      setIsLoading(false);
+      refetchInFlight.current = null;
     }
   }, [applyMetrics, dataSource]);
 

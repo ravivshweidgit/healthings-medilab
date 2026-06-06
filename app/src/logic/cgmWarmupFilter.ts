@@ -37,13 +37,34 @@ export function detectCgmSessionStarts(
 
   if (sorted.length === 0) return [];
 
-  const starts: CgmSessionStart[] = [{ startMs: sorted[0].ms }];
+  // Health Connect / xDrip may start mid-sensor — do not treat the first reading as a new
+  // session (that would hide 24h of live data). Only gaps imply a new sensor without CSV hints.
+  const starts: CgmSessionStart[] = [];
   for (let i = 1; i < sorted.length; i++) {
     if (sorted[i].ms - sorted[i - 1].ms > SESSION_GAP_MS) {
       starts.push({ startMs: sorted[i].ms });
     }
   }
   return starts;
+}
+
+/** Warm-up applies only to CareSens CSV sessions (serial) and gap-detected new sensors — not HC stream anchors. */
+export function warmupSessionStarts(
+  knownSessionStarts: CgmSessionStart[] | undefined,
+  gapStarts: CgmSessionStart[],
+): CgmSessionStart[] {
+  const serialStarts = (knownSessionStarts ?? []).filter((s) => s.serial);
+  const merged = [...serialStarts, ...gapStarts];
+  const map = new Map<number, CgmSessionStart>();
+  for (const s of merged) map.set(s.startMs, s);
+  return [...map.values()].sort((a, b) => a.startMs - b.startMs);
+}
+
+export function sanitizePersistedSessionStarts(
+  knownSessionStarts: CgmSessionStart[] | undefined,
+  gapStarts: CgmSessionStart[],
+): CgmSessionStart[] {
+  return warmupSessionStarts(knownSessionStarts, gapStarts);
 }
 
 export function isCgmWarmupMs(ms: number, sessionStarts: CgmSessionStart[]): boolean {

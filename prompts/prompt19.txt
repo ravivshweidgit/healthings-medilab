@@ -114,7 +114,7 @@ Mentors (Nutritionist 🥗, Doctor 🩺) must cite **avg / min / max** and range
 
 **Pipeline** (`cgmWarmupFilter.ts`, `cgmStatisticalFilter.ts`, `cgmRangeStats.ts`, `mealGlucoseAnalysis.ts`):
 
-1. **Multi-session warm-up** — first 24h after each sensor install excluded (CareSens serial + sequence reset on CSV import; gap-based fallback for HC-only).
+1. **Multi-session warm-up** — first 24h after each **CareSens CSV serial** session or **24h+ gap** in data; **not** applied to Health Connect/xDrip stream start (mid-sensor bridge).
 2. **Statistical filter** — if ≤5% of CGM days have daily min &lt;54 mg/dL (and ≤3 days), exclude those whole days as likely sensor error (e.g. isolated Apr 7 @ 40 mg/dL).
 3. **Range stats for mentors** — % readings below 70, 70–100, above 100 mg/dL; **low-day count** (days with daily min &lt;70); compression-low guidance when relevant.
 

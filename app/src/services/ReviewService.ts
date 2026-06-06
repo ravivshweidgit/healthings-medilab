@@ -276,7 +276,7 @@ function formatHrSummary(points: WithingsHeartRatePoint[], dayKey: string): stri
   return `HEART RATE (24/7): avg ${avg} bpm | min ${Math.min(...vals)} | max ${Math.max(...vals)} | ${dayPts.length} readings`;
 }
 
-/** Withings intraday + Health Connect watch HR + CGM (HC + app cache + live dashboard). */
+/** Withings intraday + CGM from Health Connect only (no HC heart rate). */
 async function fetchPeriodIntraday(
   dayCount: number,
   appGlucose?: TimePoint[] | null,
@@ -291,14 +291,6 @@ async function fetchPeriodIntraday(
     loadCachedHealthMetrics(),
   ]);
 
-  const heartRate = [...withings.heartRate];
-  if (health?.heartRate?.length) {
-    for (const p of health.heartRate) {
-      heartRate.push({ timestamp: p.timestamp, value: p.value });
-    }
-    heartRate.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  }
-
   const mergedRaw = mergeGlucoseTimePoints([
     health?.glucose ?? [],
     cached?.glucose ?? [],
@@ -307,7 +299,7 @@ async function fetchPeriodIntraday(
   const { filtered, sessionStarts, statFilter } = prepareGlucoseSeries(mergedRaw, cached?.cgmSessionStarts);
 
   return {
-    heartRate,
+    heartRate: withings.heartRate,
     calories: withings.calories,
     glucose: filtered,
     cgmSessionStarts: sessionStarts,

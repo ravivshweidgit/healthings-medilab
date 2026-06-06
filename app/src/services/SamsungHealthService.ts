@@ -1,6 +1,7 @@
 import {
   getGrantedPermissions,
   initialize,
+  openHealthConnectSettings,
   readRecords,
   requestPermission,
 } from 'react-native-health-connect';
@@ -11,10 +12,11 @@ export type TimePoint = {
 };
 
 export type RecentMetrics = {
+  /** Blood glucose from Health Connect (CareSens / Samsung Health path). */
   glucose: TimePoint[];
-  steps: TimePoint[];
-  /** BPM samples (flattened from Health Connect `HeartRate` records). */
-  heartRate: TimePoint[];
+  /** Demo-only — never read from Health Connect. */
+  steps?: TimePoint[];
+  heartRate?: TimePoint[];
 };
 
 const HOURS_24_MS = 24 * 60 * 60 * 1000;
@@ -23,8 +25,6 @@ const DEFAULT_HISTORY_DAYS = 120;
 
 const CORE_READ_PERMISSIONS = [
   { accessType: 'read', recordType: 'BloodGlucose' } as const,
-  { accessType: 'read', recordType: 'Steps' } as const,
-  { accessType: 'read', recordType: 'HeartRate' } as const,
 ];
 
 function hasCoreReadAccess(
@@ -39,8 +39,25 @@ function defaultHealthQueryStart(): Date {
   return new Date(Date.now() - DEFAULT_HISTORY_DAYS * 24 * 60 * 60 * 1000);
 }
 
+export type HealthConnectReadDebug = {
+  queryStart: string;
+  queryEnd: string;
+  grantedPermissions: unknown;
+  rawReadResponse: unknown;
+};
+
+function mapGlucoseRecords(records: Array<Record<string, unknown>>): TimePoint[] {
+  return records.map((record) => {
+    const timestamp = String(
+      record.time ?? record.endTime ?? record.startTime ?? new Date().toISOString(),
+    );
+    const value = parseBloodGlucoseMgDl(record);
+    return { timestamp, value };
+  });
+}
+
 class SamsungHealthService {
-  async initializeAndRequestPermissions(): Promise<boolean> {
+  async initializeAndRequestPermissions(): Promise<unknown[]> {
     const isInitialized = await initialize();
     if (!isInitialized) {
       throw new Error('Failed to initialize Health Connect.');
@@ -48,95 +65,85 @@ class SamsungHealthService {
 
     let granted = await getGrantedPermissions();
     if (!hasCoreReadAccess(granted)) {
-      await requestPermission([...CORE_READ_PERMISSIONS]);
+      // Use the permission dialog result directly — getGrantedPermissions() can lag right after grant.
+      granted = await requestPermission([...CORE_READ_PERMISSIONS]);
+    }
+    if (!hasCoreReadAccess(granted)) {
       granted = await getGrantedPermissions();
     }
 
     if (!hasCoreReadAccess(granted)) {
       throw new Error(
-        'Health Connect permissions were not granted. Open system Health Connect settings and allow Blood Glucose, Steps, and Heart rate for this app.'
+        'Health Connect needs Blood glucose read access. Open Health Connect → App permissions → Healthings → allow Blood glucose.'
       );
     }
 
-    return true;
+    return granted;
   }
 
   async fetchRecentMetrics(startDate: Date = defaultHealthQueryStart()): Promise<RecentMetrics> {
+    const { metrics } = await this.fetchRecentMetricsWithDebug(startDate);
+    return metrics;
+  }
+
+  async fetchRecentMetricsWithDebug(
+    startDate: Date = defaultHealthQueryStart(),
+  ): Promise<{ metrics: RecentMetrics; debug: HealthConnectReadDebug }> {
     const endTime = new Date();
     const safeStartDate = Number.isNaN(startDate.getTime()) ? defaultHealthQueryStart() : startDate;
     const startTime = safeStartDate > endTime ? new Date(endTime.getTime() - HOURS_24_MS) : safeStartDate;
+    const grantedPermissions = await getGrantedPermissions();
 
-    const [glucoseRecords, stepRecords, heartRateRecords] = await Promise.all([
-      readRecords('BloodGlucose' as never, {
-        timeRangeFilter: {
-          operator: 'between',
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-        },
-      } as never),
-      readRecords('Steps' as never, {
-        timeRangeFilter: {
-          operator: 'between',
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-        },
-      } as never),
-      readRecords('HeartRate' as never, {
-        timeRangeFilter: {
-          operator: 'between',
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-        },
-      } as never),
-    ]);
+    const glucoseRecords = await readRecords('BloodGlucose' as never, {
+      timeRangeFilter: {
+        operator: 'between',
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+      },
+    } as never);
 
-    const glucose: TimePoint[] = (glucoseRecords.records as Array<Record<string, unknown>>).map((record) => {
-      const timestamp = String(
-        record.time ?? record.endTime ?? record.startTime ?? new Date().toISOString()
-      );
-      const value = parseBloodGlucoseMgDl(record);
-      return { timestamp, value };
-    });
+    const records = (glucoseRecords.records ?? []) as Array<Record<string, unknown>>;
+    const glucose = mapGlucoseRecords(records);
 
-    const steps: TimePoint[] = (stepRecords.records as Array<Record<string, unknown>>).map((record) => {
-      const timestamp = String(
-        record.endTime ?? record.time ?? record.startTime ?? new Date().toISOString()
-      );
-      const value = Number(record.count ?? record.value ?? 0);
-      return { timestamp, value };
-    });
-
-    const heartRate: TimePoint[] = [];
-    for (const record of heartRateRecords.records as Array<Record<string, unknown>>) {
-      const samples = record.samples;
-      if (!Array.isArray(samples)) continue;
-      for (const sample of samples as Array<Record<string, unknown>>) {
-        const timestamp = String(sample.time ?? record.endTime ?? record.startTime ?? '');
-        const bpm = Number(sample.beatsPerMinute ?? 0);
-        if (timestamp && Number.isFinite(bpm) && bpm > 0) {
-          heartRate.push({ timestamp, value: Math.round(bpm) });
-        }
-      }
-    }
-    heartRate.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-    return { glucose, steps, heartRate };
+    return {
+      metrics: { glucose },
+      debug: {
+        queryStart: startTime.toISOString(),
+        queryEnd: endTime.toISOString(),
+        grantedPermissions,
+        rawReadResponse: glucoseRecords,
+      },
+    };
   }
 }
 
 export const samsungHealthService = new SamsungHealthService();
 
-/** Health Connect stores glucose as `{ level: { value, unit } }` (mg/dL or mmol/L). */
-function parseBloodGlucoseMgDl(record: Record<string, unknown>): number {
+export { openHealthConnectSettings };
+
+/** Health Connect / react-native-health-connect glucose level shapes. */
+export function parseBloodGlucoseMgDl(record: Record<string, unknown>): number {
   const raw = record.level ?? record.value;
-  if (raw && typeof raw === 'object' && 'value' in raw) {
-    const v = Number((raw as { value: number }).value);
-    const unit = String((raw as { unit?: string }).unit ?? '');
-    if (unit === 'millimolesPerLiter') {
-      return Math.round(v * 18.0182);
+  if (raw && typeof raw === 'object') {
+    const level = raw as Record<string, unknown>;
+    // Native HC format from react-native-health-connect (see ReactBloodGlucoseRecord.kt).
+    if ('inMilligramsPerDeciliter' in level) {
+      const mg = Number(level.inMilligramsPerDeciliter);
+      if (Number.isFinite(mg) && mg > 0) return Math.round(mg);
     }
-    return Math.round(v);
+    if ('inMillimolesPerLiter' in level) {
+      const mmol = Number(level.inMillimolesPerLiter);
+      if (Number.isFinite(mmol) && mmol > 0) return Math.round(mmol * 18.0182);
+    }
+    if ('value' in level) {
+      const v = Number(level.value);
+      const unit = String(level.unit ?? '');
+      if (Number.isFinite(v) && v > 0) {
+        if (unit === 'millimolesPerLiter') return Math.round(v * 18.0182);
+        return Math.round(v);
+      }
+    }
   }
   const n = Number(raw ?? 0);
-  return Number.isFinite(n) ? Math.round(n) : 0;
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
 }

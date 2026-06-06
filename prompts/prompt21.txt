@@ -17,21 +17,50 @@ glucose overlay chart, prompt08 visceral+glucose pair card (defer).
 
 | Layer | Status |
 |-------|--------|
-| Health Connect read (`BloodGlucose`) | `SamsungHealthService.ts` — 120-day window |
+| Health Connect read (`BloodGlucose`) | `SamsungHealthService.ts` — 120-day window; **glucose only** (no HC heart rate or steps) |
+| HC glucose parse | `parseBloodGlucoseMgDl()` — reads `level.inMilligramsPerDeciliter` / `inMillimolesPerLiter` (react-native-health-connect shape) |
 | CareSens CSV import | `careSensCsv.ts` + Import button on dashboard |
 | Cache | `healthMetricsCache.ts` — `healthings:lastMetrics` |
-| Warm-up filter (24h per sensor) | `cgmWarmupFilter.ts` |
+| Warm-up filter (24h per sensor) | `cgmWarmupFilter.ts` — **CSV serial + gap-based sessions only** (not HC/xDrip stream anchors) |
 | Statistical noise filter | `cgmStatisticalFilter.ts` |
 | Range stats for mentors | `cgmRangeStats.ts` |
 | Meal ↔ glucose correlation | `mealGlucoseAnalysis.ts` → `buildGlucoseMentorContext()` |
-| Chart | `MetabolicChart.tsx` — glucose line, HR, meals, calorie strip |
+| Chart | `MetabolicChart.tsx` — glucose line (50–200 mg/dL shared Y with HR), meals, calorie strip |
 | Coach / chat / `/7` review | `GeminiService.ts`, `ReviewService.ts`, `CoachContext.glucoseHistory` |
+| HC permission UX | Dashboard error banner + `openHealthConnectSettings()`; `requestPermission()` result used directly |
+| Optional debug export | `healthConnectDebugExport.ts` — **disabled** (`HC_SYNC_DEBUG_ENABLED = false`); re-enable for field diagnosis |
 
-### Known gap (must fix in prompt21)
+### Verified on device (2026-06-06, Samsung SM-G998B)
 
-**CSV history lost on Sync.** `useHealthData.refetch()` replaces cached glucose with
-Health Connect only. `ReviewService` already triple-merges (HC + cache + live);
-dashboard hook does not — CSV-only points disappear after pull-to-refresh / 5-min auto-sync.
+**Working pipeline:**
+
+```
+CareSens Air → xDrip+ (companion / 640G·Eversense source) → Health Connect → Healthings chart (green line)
+```
+
+- xDrip+ package: `com.eveningoutpost.dexdrip` — enable in CareSens → Manage Data & Connections
+- xDrip+ → HC: Settings → Inter-app → **Send data to Health Connect**
+- Healthings → HC: **Read Blood glucose** granted
+- **Refresh my data** → green glucose line on dashboard (~5 min xDrip cadence)
+
+**Not reliable in testing:** CareSens → Samsung Health → HC for glucose (activity synced; glucose often delayed or absent in HC Browse). CSV import and xDrip→HC remain fallbacks.
+
+**Bugs fixed during connection sprint:**
+
+| Issue | Fix |
+|-------|-----|
+| Chart empty despite HC data | Parse HC `inMilligramsPerDeciliter` (was expecting `{ value, unit }`) |
+| `chartGlucoseCount: 0` with 8 parsed points | Warm-up excluded all xDrip readings — stale HC session start in cache; warm-up now **serial + gap only** |
+| Permission flash / false denied | Use `requestPermission()` return value; persistent HC error banner |
+| App crash on launch | Duplicate export of `parseBloodGlucoseMgDl` (getter conflict) |
+| APK reinstall | HC permission must be re-granted for Healthings |
+
+**Health Connect scope:** app reads **Blood glucose only** from HC. Heart rate, steps,
+calories, and workouts come from **Withings** — never merged from HC (avoids duplicate streams).
+Manifest permission: `android.permission.health.READ_BLOOD_GLUCOSE` only.
+`AndroidManifest.xml`: `activity-alias` for Android 14+ permission usage + `queries` for HC package.
+
+### Known gap (must fix in prompt21 — still open)
 
 ---
 
@@ -141,12 +170,21 @@ Skip if merge + status UI + test checklist pass first.
 Run on **physical Android dev APK** (`expo run:android` / release APK). Document results
 in PR or commit message.
 
-### E1 — Health Connect path
-1. CareSens Air app → enable sharing to Samsung Health / Health Connect
-2. Open Healthings → grant **Blood Glucose** permission when prompted
-3. Tap **Sync** → status row shows **OK**, chart has green glucose line
-4. Log a timed meal → open chat (Nutritionist tab) → ask "Review my last meal"
-5. Reply cites pre-meal / peak / delta from MEAL GLUCOSE block (not "no CGM data")
+### E1 — Health Connect path (verified 2026-06-06 via xDrip+)
+
+**Recommended path:** CareSens → **xDrip+** → Health Connect → Healthings (faster than Samsung Health → HC).
+
+1. Install xDrip+ APK from [NightscoutFoundation/xDrip releases](https://github.com/NightscoutFoundation/xDrip) (not on Play Store)
+2. CareSens Air → Settings → Manage Data & Connections → **xDrip+ ON**
+3. xDrip+ → Hardware Data Source → **640G / Eversense** (companion mode)
+4. xDrip+ → Inter-app → **Send data to Health Connect** ON
+5. Health Connect → App permissions → **xDrip+** write + **Healthings** read Blood glucose
+6. Open Healthings → grant HC if prompted → **Refresh my data** → green glucose line
+7. (Optional) Log meal → Nutritionist chat → verify MEAL GLUCOSE block (after PART C)
+
+**Alternate:** CareSens → Samsung Health → HC (often slow; glucose may not appear in HC Browse).
+
+**After APK reinstall:** re-grant Healthings **Read Blood glucose** in Health Connect.
 
 ### E2 — CSV import path
 1. Export CSV from CareSens Air app
@@ -269,10 +307,15 @@ Mentor context: append one line when exclusions active:
 
 | File | Change |
 |------|--------|
-| `app/src/hooks/useHealthData.ts` | Triple-merge on refetch; `lastSyncedAt`; persist merged raw |
-| `app/src/services/healthMetricsCache.ts` | Ensure `loadCachedHealthMetrics` exported; merge helper shared |
-| `app/src/screens/DashboardScreen.tsx` | CGM status row; filter summary line; wire `glucoseHeadline` |
-| `app/src/screens/ChatScreen.tsx` | Fresh glucose in `buildFreshContext()` |
+| `app/src/hooks/useHealthData.ts` | Triple-merge on refetch (TODO); refetch mutex; HC error state |
+| `app/src/services/SamsungHealthService.ts` | HC glucose-only; parse fix; permission flow |
+| `app/src/services/healthMetricsCache.ts` | `warmupSessionStarts` / `sanitizePersistedSessionStarts` |
+| `app/src/logic/cgmWarmupFilter.ts` | No first-point HC anchor; serial+gap warm-up only |
+| `app/src/services/healthConnectDebugExport.ts` | Optional JSON export (disabled) |
+| `app/src/services/ReviewService.ts` | Period reviews: Withings HR; HC contributes glucose only |
+| `app/android/.../AndroidManifest.xml` | `READ_BLOOD_GLUCOSE`; HC activity-alias; queries |
+| `app/src/screens/DashboardScreen.tsx` | CGM status row (TODO); HC error banner; Import button |
+| `app/src/screens/ChatScreen.tsx` | Fresh glucose in `buildFreshContext()` (TODO) |
 | `app/src/utils/wellnessCopy.ts` | Use or extend `glucoseHeadline()` |
 | `app/src/__tests__/cgmMerge.test.ts` | **NEW** — merge + CSV parse smoke tests (if Jest available) |
 
@@ -284,9 +327,12 @@ then verify `buildGlucoseMentorContext()` receives non-empty series.
 ## Dependencies / environment
 
 - Android dev build only for real CGM (`dataSource === 'health-connect'`)
-- CareSens Air → Samsung Health → Health Connect sharing enabled
+- **Primary:** CareSens → xDrip+ → Health Connect (see E1)
+- **Fallback:** CareSens CSV import on dashboard
+- **Optional:** CareSens → Samsung Health → HC (unreliable for glucose in field testing)
 - `react-native-health-connect` already in `app.json`; minSdk 26
 - `MainActivity.kt` — `HealthConnectPermissionDelegate` already set
+- xDrip+ sideload: disable Play Protect scan temporarily if install blocked
 
 ```powershell
 Set-Location "c:\projects\healthings-medilab\app\android"
@@ -294,16 +340,24 @@ Set-Location "c:\projects\healthings-medilab\app\android"
 adb install -r "...\app-release.apk"
 ```
 
+### Field debug (optional, off by default)
+
+`app/src/services/healthConnectDebugExport.ts` writes `Download/healthings/hc-sync-latest.json`
+when re-wired into `useHealthData.refetch` with `HC_SYNC_DEBUG_ENABLED = true`.
+Used to diagnose read vs parse vs chart filter (`rawRecordCount`, `parsedNonZeroCount`, `chartGlucoseCount`).
+UI button removed after green-line verification.
+
 ---
 
 ## Acceptance checklist (prompt21 complete)
 
 ### Phase 1 — connection (ship first)
-- [ ] HC permission grant → chart + status **OK** with latest mg/dL
+- [x] HC permission grant → chart green glucose line (xDrip+ → HC path, device verified 2026-06-06)
+- [x] HC glucose parse (`inMilligramsPerDeciliter`) + warm-up filter (serial/gap only)
 - [ ] CSV import → chart updates; **Sync preserves CSV points** (PART A)
-- [ ] Nutritionist chat cites MEAL GLUCOSE numbers after meal + Sync
+- [ ] Nutritionist chat cites MEAL GLUCOSE numbers after meal + Sync (PART C)
 - [ ] `/7` period review includes `GLUCOSE & FOOD IMPACT` with period stats
-- [ ] CGM status row visible; permission error shows actionable message
+- [ ] CGM status row visible; permission error shows actionable message (PART B — banner shipped, row TODO)
 - [ ] Chat coach ↻ refresh sees post-Sync glucose (PART C)
 - [ ] Manual test E1–E4 documented on device
 - [ ] (Optional) unit tests for merge + CSV parse

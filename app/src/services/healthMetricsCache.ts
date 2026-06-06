@@ -1,11 +1,13 @@
 /**
- * Cached health metrics (Health Connect sync + CareSens CSV merge) — same source as the dashboard chart.
+ * Cached CGM (Health Connect glucose + CareSens CSV merge) — same source as the dashboard chart.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   detectCgmSessionStarts,
   excludeCgmWarmupReadings,
+  sanitizePersistedSessionStarts,
+  warmupSessionStarts,
   type CgmSessionStart,
 } from '../logic/cgmWarmupFilter';
 import {
@@ -55,9 +57,15 @@ export function prepareGlucoseSeries(
 } {
   const gapStarts = detectCgmSessionStarts(raw);
   const sessionStarts = mergeCgmSessionStarts(knownSessionStarts, gapStarts);
-  const afterWarmup = excludeCgmWarmupReadings(raw, sessionStarts);
+  const warmupStarts = warmupSessionStarts(knownSessionStarts, gapStarts);
+  const afterWarmup = excludeCgmWarmupReadings(raw, warmupStarts);
   const { filtered, meta: statFilter } = applyCgmStatisticalFilter(afterWarmup);
-  return { filtered, sessionStarts, raw, statFilter };
+  return {
+    filtered,
+    sessionStarts: sanitizePersistedSessionStarts(knownSessionStarts, gapStarts),
+    raw,
+    statFilter,
+  };
 }
 
 /** Merge glucose arrays; later entries win on duplicate timestamps (CSV import behaviour). */

@@ -34,6 +34,7 @@ import { MacroTargetStrip } from '../components/MacroTargetStrip';
 import { ChatScreen } from './ChatScreen';
 import { CONFIG } from '../config/env';
 import { useHealthData } from '../hooks/useHealthData';
+import { openHealthConnectSettings } from '../services/SamsungHealthService';
 import {
   DEFAULT_TREND_PERIOD_DAYS,
   TREND_PERIOD_DAY_OPTIONS,
@@ -141,7 +142,7 @@ export const DashboardScreen = () => {
     glucoseData,
     cgmSessionStarts,
     cgmStatSummary,
-    heartRateData,
+    heartRateData: _heartRateData,
     activityZones,
     isLoading,
     error,
@@ -563,13 +564,8 @@ export const DashboardScreen = () => {
     }
   }, []);
 
-  /** Prefer device (continuous) heart rate, augmented with Withings spot readings. */
-  const mergedHeartRate = useMemo(() => {
-    if (withingsHeartRate.length === 0) return heartRateData;
-    const all = [...heartRateData, ...withingsHeartRate];
-    all.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    return all;
-  }, [heartRateData, withingsHeartRate]);
+  /** Heart rate chart line — Withings only (never Health Connect). */
+  const mergedHeartRate = withingsHeartRate;
 
   const loadBodyScan = useCallback(async () => {
     setBodyScanError(null);
@@ -772,12 +768,24 @@ export const DashboardScreen = () => {
 
   const handleSync = async () => {
     const [, , , , result] = await Promise.all([loadBodyScan(), loadTrend(), loadHeartRate(), loadWorkouts(), refetch()]);
-    if (!result) return;
+    if (!result) {
+      if (dataSource === 'health-connect') {
+        Alert.alert(
+          'Health Connect',
+          'Healthings needs permission to read Blood glucose. Tap Open settings → App permissions → Healthings → allow Blood glucose.',
+          [
+            { text: 'Open settings', onPress: () => openHealthConnectSettings() },
+            { text: 'Cancel', style: 'cancel' },
+          ],
+        );
+      }
+      return;
+    }
     await awsDataService.persistData({
       syncedAt: new Date().toISOString(),
       glucose: result.metrics.glucose,
-      steps: result.metrics.steps,
-      heartRate: result.metrics.heartRate ?? [],
+      steps: [],
+      heartRate: [],
       efficiencyScore: result.efficiencyScore,
       insight: result.insight,
       activityZones: result.activityZones,
@@ -1123,6 +1131,18 @@ export const DashboardScreen = () => {
           </View>
         ) : null}
 
+        {dataSource === 'health-connect' && error ? (
+          <Pressable
+            style={styles.hcErrorBanner}
+            onPress={() => openHealthConnectSettings()}
+            accessibilityRole="button"
+            accessibilityLabel="Open Health Connect settings to allow blood glucose read access"
+          >
+            <Text style={styles.hcErrorBannerText}>{error}</Text>
+            <Text style={styles.hcErrorBannerAction}>Open Health Connect settings →</Text>
+          </Pressable>
+        ) : null}
+
         <Pressable
           style={[styles.primaryButton, (isLoading || bodyScanLoading || trendLoading) && styles.primaryButtonDisabled]}
           onPress={handleSync}
@@ -1134,7 +1154,6 @@ export const DashboardScreen = () => {
             <Text style={styles.primaryButtonText}>Refresh my data</Text>
           )}
         </Pressable>
-
 
         {dataSource !== 'health-connect' && !withingsLinked ? (
           <Text style={styles.previewFoot}>Preview · sample wellness data</Text>
@@ -1715,6 +1734,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
     lineHeight: 20,
+  },
+  hcErrorBanner: {
+    backgroundColor: WellnessColors.noticeSoftBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: WellnessColors.noticeSoftBorder,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+  },
+  hcErrorBannerText: {
+    fontSize: 14,
+    color: WellnessColors.textPrimary,
+    lineHeight: 20,
+    marginBottom: 6,
+  },
+  hcErrorBannerAction: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: WellnessColors.accentBlue,
   },
   // Mentor nudge strip
   nudgeStrip: {
