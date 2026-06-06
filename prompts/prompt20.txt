@@ -1,0 +1,123 @@
+## Prompt 20 — Photo assistant: analyze → chat → add/remove → approve
+
+### Vision
+When logging or **editing** a meal, the user can attach photos (camera or gallery),
+correct the AI item list via chat, then explicitly **add** those items to the meal
+or **remove** matching items (photo shows what was **not** eaten / leftovers).
+
+Nothing merges until the user sees **current vs updated** lists and taps **Approve**.
+
+Replaces the old before/after dual-photo flow.
+
+---
+
+## User flow
+
+```
+1. 📷 Camera or gallery (idle new meal, or "+ Photo" while editing)
+2. 🤖 Gemini analyzes photo → item list (photo session only)
+3. 💬 Chat corrections on the photo list (same JSON format as today)
+4. User chooses intent:
+     [ Add to meal ]     [ Remove from meal ]
+   Empty meal: single button [ Use as meal ] (= add to empty)
+   Remove = "this photo is food I did NOT eat" → drop matching lines from meal
+5. Preview — two columns:
+     CURRENT MEAL          AFTER UPDATE
+     + macro delta (Δ kcal, P/C/F)
+6. [ Cancel ]  [ Approve update ]  → updates working meal, clears photo session
+7. [ ✓ Save meal ]  → persists (unchanged)
+```
+
+User can repeat steps 1–6 (another photo) before saving.
+
+---
+
+## State model (FoodLogModal.tsx)
+
+| State | Purpose |
+|-------|---------|
+| `items` | Approved working meal (what Save writes) |
+| `mealHistory` | Gemini turns for **text corrections on the meal** (edit mode seed) |
+| `photoSession` | Active photo analysis: `{ uri, base64, items, confidence, description, suggestion, history }` |
+| `mergePreview` | `{ mode, before, after }` from local merge — no AI |
+
+Rules:
+- Photo chat **only** updates `photoSession.items`, never `items` directly.
+- Meal chat (no active photo session) updates `items` via `analyzeFood` (existing text correction).
+- Approve copies `mergePreview.after` → `items`.
+
+---
+
+## Local merge (mealPhotoMerge.ts)
+
+No Gemini call for add/remove.
+
+| Mode | Logic |
+|------|--------|
+| **add** | Concatenate photo items onto meal |
+| **remove** | Drop meal rows whose name matches any photo item (fuzzy: name / name_local, substring) |
+
+User must fix photo list via chat before Remove if portions differ.
+
+---
+
+## UI sections (result screen)
+
+1. **Your meal** — `items` list + total (always visible when non-empty)
+2. **Photo assistant** (when `photoSession`):
+   - Thumbnail, confidence, description
+   - Photo item list
+   - Chat input (photo corrections)
+   - 📷 / 🖼 add another photo replaces session
+   - Add to meal | Remove from meal (or Use as meal if empty)
+3. **Preview** (when `mergePreview`):
+   - Side-by-side CURRENT | AFTER
+   - Δ macros
+   - Cancel | Approve update
+4. **Meal chat** — visible when `!photoSession && !mergePreview` (text-only corrections)
+5. Date/time, Save, Delete
+
+---
+
+## Removed
+
+- Before/after second photo (`afterPhotoUri`, `handleAfterPhoto`, dual-image `analyzeFood` for leftovers)
+- Immediate overwrite of `items` when a photo is analyzed during edit
+
+---
+
+## New meal (idle)
+
+| Path | Behaviour |
+|------|-----------|
+| Camera / gallery | Photo session → chat → Use as meal → preview (empty → photo items) → Approve |
+| Text describe | Direct `analyzeFood` → `items` (unchanged) |
+
+---
+
+## Files
+
+| File | Change |
+|------|--------|
+| `app/src/logic/mealPhotoMerge.ts` | **NEW** — add/remove preview |
+| `app/src/components/FoodLogModal.tsx` | Photo session, preview UI, + Photo on edit |
+| `app/src/services/GeminiService.ts` | Optional: deprecate `afterImageBase64` param (keep for compat, unused) |
+
+---
+
+## Acceptance checklist
+
+- [ ] Edit meal → + Photo → camera → analyze → chat fixes photo list
+- [ ] Add to meal shows CURRENT vs AFTER; Approve updates meal; Save persists
+- [ ] Remove from meal removes lines matching photo items; preview before apply
+- [ ] New meal camera uses Use as meal with empty CURRENT preview
+- [ ] Text-only log and meal chat correction still work
+- [ ] Before/after photo UI removed
+
+---
+
+## Out of scope
+
+- Persisting photo thumbnails on FoodEntry
+- AI-driven fuzzy remove (local name match only)
+- Partial gram subtraction without user correcting photo list first

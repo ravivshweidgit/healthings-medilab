@@ -1,5 +1,6 @@
 /**
  * Food Log Modal — camera / text → Gemini AI → correction chat → save.
+ * Photo assistant (prompt20): analyze photo → chat → add/remove preview → approve.
  */
 
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
@@ -24,9 +25,11 @@ import {
   computeTotals,
   SYSTEM_PROMPT,
   type FoodItem,
+  type GeminiAnalysisResult,
   type GeminiTurn,
 } from '../services/GeminiService';
 import { saveMeal, deleteMeal, foodLogDayKey, type FoodEntry } from '../services/FoodLogService';
+import { buildMealMergePreview, type MealMergePreview } from '../logic/mealPhotoMerge';
 import { type UserLanguage } from '../services/TargetService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 
@@ -34,15 +37,22 @@ import { WellnessColors, cardShadow } from '../theme/wellness';
 
 type Screen = 'idle' | 'analyzing' | 'result' | 'saving';
 
+type PhotoSession = {
+  uri: string;
+  base64: string | null;
+  items: FoodItem[];
+  confidence: 'high' | 'medium' | 'low';
+  description: string;
+  suggestion?: string;
+  history: GeminiTurn[];
+};
+
 type Props = {
   visible: boolean;
   onClose: () => void;
   onSaved: () => void;
-  /** Pre-fill timestamp (e.g. when editing an existing entry). */
   initialTimestamp?: number;
-  /** Pass an existing entry to open directly in edit/result mode. */
   editEntry?: FoodEntry;
-  /** User's preferred language — AI will respond in this language. */
   lang?: UserLanguage | null;
 };
 
@@ -72,6 +82,17 @@ function macroSummary(items: FoodItem[]): string {
   return `${Math.round(t.totalKcal)} kcal · P ${t.totalProtein_g.toFixed(0)}g · C ${t.totalCarb_g.toFixed(0)}g · F ${t.totalFat_g.toFixed(0)}g`;
 }
 
+function macroDelta(before: FoodItem[], after: FoodItem[]): string {
+  const b = computeTotals(before);
+  const a = computeTotals(after);
+  const dk = Math.round(a.totalKcal - b.totalKcal);
+  const dp = (a.totalProtein_g - b.totalProtein_g).toFixed(0);
+  const dc = (a.totalCarb_g - b.totalCarb_g).toFixed(0);
+  const df = (a.totalFat_g - b.totalFat_g).toFixed(0);
+  const sign = dk >= 0 ? '+' : '';
+  return `${sign}${dk} kcal · P ${dp}g · C ${dc}g · F ${df}g`;
+}
+
 function capMealTimestamp(ms: number): number {
   return Math.min(ms, Date.now());
 }
@@ -82,7 +103,6 @@ function combineDateAndTime(datePart: Date, timePart: Date): number {
   return capMealTimestamp(combined.getTime());
 }
 
-/** Android: declarative datetime mode crashes — use date dialog then time dialog. */
 function openAndroidMealDateTimePicker(currentMs: number, onPick: (ms: number) => void): void {
   const current = new Date(currentMs);
   DateTimePickerAndroid.open({
@@ -106,49 +126,101 @@ function openAndroidMealDateTimePicker(currentMs: number, onPick: (ms: number) =
   });
 }
 
+function seedMealHistory(entry: FoodEntry): GeminiTurn[] {
+  const seedJson = JSON.stringify({
+    items: entry.items,
+    confidence: 'high',
+    description: 'Previously saved meal.',
+  });
+  return [
+    { role: 'user', text: `INSTRUCTIONS:\n${SYSTEM_PROMPT}\n\nConfirm you understand.` },
+    { role: 'model', text: '{"items":[],"confidence":"high","description":"Ready to analyze food."}' },
+    { role: 'user', text: 'Here is the current meal I already saved. I may want to correct it.' },
+    { role: 'model', text: seedJson },
+  ];
+}
+
+function applyAnalysisResult(
+  result: GeminiAnalysisResult,
+  updatedHistory: GeminiTurn[],
+): Pick<PhotoSession, 'items' | 'confidence' | 'description' | 'suggestion' | 'history'> {
+  return {
+    items: result.items,
+    confidence: result.confidence,
+    description: result.description,
+    suggestion: result.suggestion,
+    history: updatedHistory,
+  };
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function FoodItemsCard({ items, title }: { items: FoodItem[]; title?: string }) {
+  if (items.length === 0) {
+    return (
+      <View style={[styles.itemsCard, cardShadow]}>
+        {title ? <Text style={styles.itemsCardTitle}>{title}</Text> : null}
+        <Text style={styles.emptyItemsText}>Empty</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={[styles.itemsCard, cardShadow]}>
+      {title ? <Text style={styles.itemsCardTitle}>{title}</Text> : null}
+      {items.map((item, i) => (
+        <View key={`item-${i}`} style={[styles.itemRow, i > 0 && styles.itemRowBorder]}>
+          <View style={styles.itemLeft}>
+            <Text style={styles.itemName}>{item.name_local ?? item.name}</Text>
+            <Text style={styles.itemGrams}>{item.grams}g</Text>
+          </View>
+          <View style={styles.itemRight}>
+            <Text style={styles.itemKcal}>{item.kcal} kcal</Text>
+            <Text style={styles.itemMacros}>P {item.protein_g}g · C {item.carb_g}g · F {item.fat_g}g</Text>
+          </View>
+        </View>
+      ))}
+      <View style={[styles.itemRow, styles.totalRow]}>
+        <Text style={styles.totalValue}>{macroSummary(items)}</Text>
+      </View>
+    </View>
+  );
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, editEntry, lang }: Props) {
-  const [screen, setScreen] = useState<Screen>(() => editEntry ? 'result' : 'idle');
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
-  const [afterPhotoUri, setAfterPhotoUri] = useState<string | null>(null);
-  const [afterPhotoBase64, setAfterPhotoBase64] = useState<string | null>(null);
+  const [screen, setScreen] = useState<Screen>(() => (editEntry ? 'result' : 'idle'));
   const [items, setItems] = useState<FoodItem[]>(() => editEntry?.items ?? []);
+  const [mealHistory, setMealHistory] = useState<GeminiTurn[]>(() =>
+    editEntry ? seedMealHistory(editEntry) : [],
+  );
+  const [photoSession, setPhotoSession] = useState<PhotoSession | null>(null);
+  const [mergePreview, setMergePreview] = useState<MealMergePreview | null>(null);
   const [confidence, setConfidence] = useState<'high' | 'medium' | 'low'>('high');
-  const [description, setDescription] = useState(() => editEntry ? 'Editing saved meal' : '');
+  const [description, setDescription] = useState(() => (editEntry ? 'Editing saved meal' : ''));
   const [suggestion, setSuggestion] = useState<string | undefined>();
-  const [history, setHistory] = useState<GeminiTurn[]>([]);
   const [chatText, setChatText] = useState('');
   const [mealTime, setMealTime] = useState(() => editEntry?.timestamp ?? initialTimestamp ?? Date.now());
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [textPrompt, setTextPrompt] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | undefined>(() => editEntry?.id);
+  const [hadPhotoForSave, setHadPhotoForSave] = useState(false);
+  const [analyzingPhotoUri, setAnalyzingPhotoUri] = useState<string | null>(null);
   const chatInputRef = useRef<TextInput>(null);
 
-  // Re-initialise when editEntry changes (e.g. user taps a different chip).
   React.useEffect(() => {
     if (editEntry) {
       setScreen('result');
       setItems(editEntry.items);
       setMealTime(editEntry.timestamp);
-      setDescription('Editing saved meal — use the chat to make corrections');
+      setDescription('Editing saved meal — add a photo or use chat to correct');
       setEditingId(editEntry.id);
+      setMealHistory(seedMealHistory(editEntry));
+      setPhotoSession(null);
+      setMergePreview(null);
       setChatText('');
       setError(null);
-      // Seed history with the existing meal so corrections have full context.
-      const seedJson = JSON.stringify({
-        items: editEntry.items,
-        confidence: 'high',
-        description: 'Previously saved meal.',
-      });
-      setHistory([
-        { role: 'user', text: `INSTRUCTIONS:\n${SYSTEM_PROMPT}\n\nConfirm you understand.` },
-        { role: 'model', text: '{"items":[],"confidence":"high","description":"Ready to analyze food."}' },
-        { role: 'user', text: 'Here is the current meal I already saved. I may want to correct it.' },
-        { role: 'model', text: seedJson },
-      ]);
     }
   }, [editEntry]);
 
@@ -160,18 +232,21 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
 
   const reset = useCallback(() => {
     setScreen('idle');
-    setPhotoUri(null);
-    setPhotoBase64(null);
-    setAfterPhotoUri(null);
-    setAfterPhotoBase64(null);
     setItems([]);
-    setHistory([]);
+    setMealHistory([]);
+    setPhotoSession(null);
+    setMergePreview(null);
     setChatText('');
     setTextPrompt('');
     setError(null);
     setEditingId(undefined);
+    setHadPhotoForSave(false);
     setMealTime(initialTimestamp ?? Date.now());
     setShowTimePicker(false);
+    setConfidence('high');
+    setDescription('');
+    setSuggestion(undefined);
+    setAnalyzingPhotoUri(null);
   }, [initialTimestamp]);
 
   const handleClose = useCallback(() => {
@@ -187,112 +262,173 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
     setShowTimePicker(true);
   }, [mealTime]);
 
-  const runAnalysis = useCallback(async (
-    imageBase64: string | null,
-    userText: string,
-    hist: GeminiTurn[],
-    afterBase64?: string | null,
-  ) => {
-    setScreen('analyzing');
-    setError(null);
-    try {
-      const { result, updatedHistory } = await analyzeFood(imageBase64, userText, hist, afterBase64, lang);
-      setItems(result.items);
-      setConfidence(result.confidence);
-      setDescription(result.description);
-      setSuggestion(result.suggestion);
-      setHistory(updatedHistory);
-      setScreen('result');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'AI analysis failed. Please try again.');
-      setScreen('idle');
-    }
-  }, []);
+  const runMealAnalysis = useCallback(
+    async (userText: string, hist: GeminiTurn[]) => {
+      setScreen('analyzing');
+      setAnalyzingPhotoUri(null);
+      setError(null);
+      try {
+        const { result, updatedHistory } = await analyzeFood(null, userText, hist, null, lang);
+        setItems(result.items);
+        setConfidence(result.confidence);
+        setDescription(result.description);
+        setSuggestion(result.suggestion);
+        setMealHistory(updatedHistory);
+        setScreen('result');
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'AI analysis failed. Please try again.');
+        setScreen('result');
+      }
+    },
+    [lang],
+  );
 
-  const handleCamera = useCallback(async () => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Camera permission required', 'Please allow camera access in Settings.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      quality: 0.7,
-      base64: true,
-      allowsEditing: false,
-    });
-    if (result.canceled || !result.assets[0]) return;
-    const asset = result.assets[0];
-    setPhotoUri(asset.uri);
-    const b64 = asset.base64 ?? null;
-    setPhotoBase64(b64);
-    await runAnalysis(b64, 'What food is in this photo? Give me the macros.', []);
-  }, [runAnalysis]);
+  const runPhotoAnalysis = useCallback(
+    async (
+      uri: string,
+      imageBase64: string | null,
+      userText: string,
+      hist: GeminiTurn[],
+    ) => {
+      setScreen('analyzing');
+      setAnalyzingPhotoUri(uri);
+      setError(null);
+      setMergePreview(null);
+      try {
+        const { result, updatedHistory } = await analyzeFood(imageBase64, userText, hist, null, lang);
+        setPhotoSession({
+          uri,
+          base64: imageBase64,
+          ...applyAnalysisResult(result, updatedHistory),
+        });
+        setHadPhotoForSave(true);
+        setScreen('result');
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'AI analysis failed. Please try again.');
+        setScreen(items.length > 0 || editEntry ? 'result' : 'idle');
+      }
+    },
+    [lang, items.length, editEntry],
+  );
 
-  const handleGallery = useCallback(async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Gallery permission required', 'Please allow photo library access in Settings.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.5,   // lower quality for gallery — originals can be very large
-      base64: true,
-      allowsEditing: false,
-      exif: false,
-    });
-    if (result.canceled || !result.assets[0]) return;
-    const asset = result.assets[0];
-    // Warn if base64 is extremely large (>4MB encoded ≈ ~3MB image) — Gemini has a ~20MB limit
-    // but large payloads slow things down significantly.
-    const b64 = asset.base64 ?? null;
-    if (b64 && b64.length > 4_000_000) {
-      Alert.alert('Image too large', 'This photo is very large and may fail. Try a smaller image or use the camera instead.');
-    }
-    setPhotoUri(asset.uri);
-    setPhotoBase64(b64);
-    await runAnalysis(b64, 'What food is in this photo? Give me the macros.', []);
-  }, [runAnalysis]);
+  const pickImage = useCallback(
+    async (source: 'camera' | 'gallery') => {
+      const perm =
+        source === 'camera'
+          ? await ImagePicker.requestCameraPermissionsAsync()
+          : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert(
+          'Permission required',
+          `Please allow ${source === 'camera' ? 'camera' : 'photo library'} access in Settings.`,
+        );
+        return;
+      }
+      const result =
+        source === 'camera'
+          ? await ImagePicker.launchCameraAsync({
+              mediaTypes: ['images'],
+              quality: 0.7,
+              base64: true,
+              allowsEditing: false,
+            })
+          : await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              quality: 0.5,
+              base64: true,
+              allowsEditing: false,
+              exif: false,
+            });
+      if (result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+      const b64 = asset.base64 ?? null;
+      if (b64 && b64.length > 4_000_000) {
+        Alert.alert(
+          'Image too large',
+          'This photo is very large and may fail. Try a smaller image or use the camera instead.',
+        );
+      }
+      await runPhotoAnalysis(asset.uri, b64, 'What food is in this photo? Give me the macros.', []);
+    },
+    [runPhotoAnalysis],
+  );
 
-  const handleAfterPhoto = useCallback(async (source: 'camera' | 'gallery') => {
-    const perm = source === 'camera'
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission required', `Please allow ${source} access in Settings.`);
-      return;
-    }
-    const result = source === 'camera'
-      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7, base64: true })
-      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, base64: true });
-    if (result.canceled || !result.assets[0]) return;
-    const asset = result.assets[0];
-    const b64 = asset.base64 ?? null;
-    setAfterPhotoUri(asset.uri);
-    setAfterPhotoBase64(b64);
-    await runAnalysis(photoBase64, '', history, b64);
-  }, [runAnalysis, photoBase64, history]);
+  const handleCamera = useCallback(() => pickImage('camera'), [pickImage]);
+  const handleGallery = useCallback(() => pickImage('gallery'), [pickImage]);
+  const handleAddPhoto = useCallback(
+    (source: 'camera' | 'gallery') => pickImage(source),
+    [pickImage],
+  );
 
   const handleTextSubmit = useCallback(async () => {
     const text = textPrompt.trim();
     if (!text) return;
-    await runAnalysis(null, text, []);
-  }, [textPrompt, runAnalysis]);
+    setTextPrompt('');
+    await runMealAnalysis(text, []);
+  }, [textPrompt, runMealAnalysis]);
 
   const handleCorrection = useCallback(async () => {
     const text = chatText.trim();
-    if (!text || screen !== 'result') return;
+    if (!text || screen !== 'result' || mergePreview) return;
     setChatText('');
-    await runAnalysis(null, text, history);
-  }, [chatText, history, screen, runAnalysis]);
+
+    if (photoSession) {
+      setScreen('analyzing');
+      setError(null);
+      try {
+        const { result, updatedHistory } = await analyzeFood(
+          null,
+          text,
+          photoSession.history,
+          null,
+          lang,
+        );
+        setPhotoSession((prev) =>
+          prev ? { ...prev, ...applyAnalysisResult(result, updatedHistory) } : prev,
+        );
+        setScreen('result');
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'AI analysis failed. Please try again.');
+        setScreen('result');
+      }
+      return;
+    }
+
+    await runMealAnalysis(text, mealHistory);
+  }, [chatText, screen, mergePreview, photoSession, mealHistory, runMealAnalysis, lang]);
+
+  const handleStartMerge = useCallback(
+    (mode: 'add' | 'remove') => {
+      if (!photoSession || photoSession.items.length === 0) return;
+      setMergePreview(buildMealMergePreview(mode, items, photoSession.items));
+    },
+    [photoSession, items],
+  );
+
+  const handleApproveMerge = useCallback(() => {
+    if (!mergePreview) return;
+    setItems(mergePreview.after);
+    setMergePreview(null);
+    setPhotoSession(null);
+    setChatText('');
+    setDescription(
+      mergePreview.mode === 'add'
+        ? 'Photo items added to meal'
+        : 'Matching items removed from meal',
+    );
+  }, [mergePreview]);
+
+  const handleCancelMerge = useCallback(() => {
+    setMergePreview(null);
+  }, []);
 
   const handleDelete = useCallback(async () => {
     if (!editingId) return;
     Alert.alert('Delete meal', 'Remove this meal from your log?', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Delete', style: 'destructive',
+        text: 'Delete',
+        style: 'destructive',
         onPress: async () => {
           setScreen('saving');
           await deleteMeal(editingId, mealTime);
@@ -316,24 +452,25 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
         totalProtein_g: Math.round(totals.totalProtein_g * 10) / 10,
         totalCarb_g: Math.round(totals.totalCarb_g * 10) / 10,
         totalFat_g: Math.round(totals.totalFat_g * 10) / 10,
-        source: photoBase64 ? 'camera-ai' : history.length > 0 ? 'text-ai' : 'manual',
+        source: hadPhotoForSave ? 'camera-ai' : mealHistory.length > 0 ? 'text-ai' : 'manual',
       });
       reset();
       onSaved();
-    } catch (e) {
+    } catch {
       setError('Failed to save. Please try again.');
       setScreen('result');
     }
-  }, [items, mealTime, photoBase64, history, reset, onSaved]);
+  }, [items, mealTime, hadPhotoForSave, mealHistory, editingId, reset, onSaved]);
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  const showMealSection = items.length > 0 || editingId != null;
+  const chatPlaceholder = photoSession
+    ? 'Correct photo list: "only half the pita", "add coffee"…'
+    : 'Correct meal: "it was bigger", "add a coffee"…';
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
       <KeyboardAvoidingView style={styles.kav} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.container}>
-
-          {/* Header */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>{editingId ? 'Edit Meal' : 'Log Meal'}</Text>
             <Pressable onPress={handleClose} style={styles.closeBtn} hitSlop={12}>
@@ -342,8 +479,6 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
           </View>
 
           <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-
-            {/* ── IDLE screen ── */}
             {screen === 'idle' && (
               <View style={styles.idleWrap}>
                 <View style={styles.photoRow}>
@@ -383,107 +518,189 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
               </View>
             )}
 
-            {/* ── ANALYZING screen ── */}
             {screen === 'analyzing' && (
               <View style={styles.analyzingWrap}>
-                {photoUri ? (
-                  <Image source={{ uri: photoUri }} style={styles.photoThumb} resizeMode="cover" />
+                {analyzingPhotoUri ? (
+                  <Image source={{ uri: analyzingPhotoUri }} style={styles.photoThumb} resizeMode="cover" />
                 ) : null}
                 <ActivityIndicator color={WellnessColors.accentBlue} size="large" style={{ marginTop: 24 }} />
                 <Text style={styles.analyzingLabel}>Analyzing with Gemini AI…</Text>
               </View>
             )}
 
-            {/* ── RESULT screen ── */}
             {(screen === 'result' || screen === 'saving') && (
               <View style={styles.resultWrap}>
-
-                {/* Photo thumbnails */}
-                <View style={styles.thumbRow}>
-                  {photoUri ? (
-                    <Image source={{ uri: photoUri }} style={styles.photoThumbSmall} resizeMode="cover" />
-                  ) : null}
-                  {afterPhotoUri ? (
-                    <Image source={{ uri: afterPhotoUri }} style={styles.photoThumbSmall} resizeMode="cover" />
-                  ) : null}
-                </View>
-
-                {/* After-meal photo buttons — only if first photo exists and no after photo yet */}
-                {photoUri && !afterPhotoUri && screen === 'result' ? (
-                  <View style={styles.afterPhotoRow}>
-                    <Text style={styles.afterPhotoLabel}>Add after-meal photo to adjust portions:</Text>
-                    <View style={styles.afterPhotoBtns}>
-                      <Pressable style={styles.afterPhotoBtn} onPress={() => handleAfterPhoto('camera')}>
-                        <Text style={styles.afterPhotoBtnText}>📷 Camera</Text>
+                {mergePreview ? (
+                  <View style={styles.previewSection}>
+                    <Text style={styles.sectionTitle}>Preview update</Text>
+                    <Text style={styles.previewModeLabel}>
+                      {mergePreview.mode === 'add' ? 'Adding photo items to meal' : 'Removing items shown in photo'}
+                    </Text>
+                    <View style={styles.previewColumns}>
+                      <View style={styles.previewCol}>
+                        <Text style={styles.previewColTitle}>Current meal</Text>
+                        <FoodItemsCard items={mergePreview.before} />
+                      </View>
+                      <View style={styles.previewCol}>
+                        <Text style={styles.previewColTitle}>After update</Text>
+                        <FoodItemsCard items={mergePreview.after} />
+                      </View>
+                    </View>
+                    <View style={styles.deltaBox}>
+                      <Text style={styles.deltaLabel}>Change</Text>
+                      <Text style={styles.deltaValue}>{macroDelta(mergePreview.before, mergePreview.after)}</Text>
+                    </View>
+                    <View style={styles.previewActions}>
+                      <Pressable style={styles.cancelPreviewBtn} onPress={handleCancelMerge} disabled={screen === 'saving'}>
+                        <Text style={styles.cancelPreviewBtnText}>Cancel</Text>
                       </Pressable>
-                      <Pressable style={styles.afterPhotoBtn} onPress={() => handleAfterPhoto('gallery')}>
+                      <Pressable style={styles.approveBtn} onPress={handleApproveMerge} disabled={screen === 'saving'}>
+                        <Text style={styles.approveBtnText}>✓ Approve update</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : null}
+
+                {showMealSection && !mergePreview ? (
+                  <View style={styles.mealSection}>
+                    <Text style={styles.sectionTitle}>Your meal</Text>
+                    {!photoSession && description && items.length > 0 ? (
+                      <Text style={styles.descriptionText}>{description}</Text>
+                    ) : null}
+                    <FoodItemsCard items={items} />
+                  </View>
+                ) : null}
+
+                {photoSession && !mergePreview ? (
+                  <View style={styles.photoSection}>
+                    <Text style={styles.sectionTitle}>Photo assistant</Text>
+                    <Image source={{ uri: photoSession.uri }} style={styles.photoThumbSmall} resizeMode="cover" />
+                    <View
+                      style={[
+                        styles.confidenceBadge,
+                        {
+                          backgroundColor: confidenceColor(photoSession.confidence) + '20',
+                          borderColor: confidenceColor(photoSession.confidence) + '60',
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.confidenceText, { color: confidenceColor(photoSession.confidence) }]}>
+                        {photoSession.confidence === 'high'
+                          ? '✓ High confidence'
+                          : photoSession.confidence === 'medium'
+                            ? '⚠ Medium confidence'
+                            : '⚠ Low confidence'}
+                      </Text>
+                    </View>
+                    {photoSession.description ? (
+                      <Text style={styles.descriptionText}>{photoSession.description}</Text>
+                    ) : null}
+                    <FoodItemsCard items={photoSession.items} title="From photo" />
+                    {photoSession.suggestion ? (
+                      <View style={styles.suggestionBox}>
+                        <Text style={styles.suggestionText}>💡 {photoSession.suggestion}</Text>
+                      </View>
+                    ) : null}
+
+                    <View style={styles.photoRow}>
+                      <Pressable style={styles.afterPhotoBtn} onPress={() => handleAddPhoto('camera')}>
+                        <Text style={styles.afterPhotoBtnText}>📷 New photo</Text>
+                      </Pressable>
+                      <Pressable style={styles.afterPhotoBtn} onPress={() => handleAddPhoto('gallery')}>
                         <Text style={styles.afterPhotoBtnText}>🖼 Gallery</Text>
                       </Pressable>
                     </View>
+
+                    {photoSession.items.length > 0 ? (
+                      <View style={styles.intentRow}>
+                        {items.length === 0 ? (
+                          <Pressable style={styles.useMealBtn} onPress={() => handleStartMerge('add')}>
+                            <Text style={styles.useMealBtnText}>Use as meal</Text>
+                          </Pressable>
+                        ) : (
+                          <>
+                            <Pressable style={styles.addBtn} onPress={() => handleStartMerge('add')}>
+                              <Text style={styles.addBtnText}>+ Add to meal</Text>
+                            </Pressable>
+                            <Pressable style={styles.removeBtn} onPress={() => handleStartMerge('remove')}>
+                              <Text style={styles.removeBtnText}>− Remove from meal</Text>
+                            </Pressable>
+                          </>
+                        )}
+                      </View>
+                    ) : null}
+                    <Text style={styles.removeHint}>
+                      Remove = photo shows food you did not eat (leftovers)
+                    </Text>
                   </View>
                 ) : null}
 
-                {/* Confidence badge */}
-                <View style={[styles.confidenceBadge, { backgroundColor: confidenceColor(confidence) + '20', borderColor: confidenceColor(confidence) + '60' }]}>
-                  <Text style={[styles.confidenceText, { color: confidenceColor(confidence) }]}>
-                    {confidence === 'high' ? '✓ High confidence' : confidence === 'medium' ? '⚠ Medium confidence' : '⚠ Low confidence'}
-                  </Text>
-                </View>
-
-                {/* Description */}
-                {description ? <Text style={styles.descriptionText}>{description}</Text> : null}
-
-                {/* Food items list */}
-                <View style={[styles.itemsCard, cardShadow]}>
-                  {items.map((item, i) => (
-                    <View key={`item-${i}`} style={[styles.itemRow, i > 0 && styles.itemRowBorder]}>
-                      <View style={styles.itemLeft}>
-                        <Text style={styles.itemName}>{item.name_local ?? item.name}</Text>
-                        <Text style={styles.itemGrams}>{item.grams}g</Text>
-                      </View>
-                      <View style={styles.itemRight}>
-                        <Text style={styles.itemKcal}>{item.kcal} kcal</Text>
-                        <Text style={styles.itemMacros}>P {item.protein_g}g · C {item.carb_g}g · F {item.fat_g}g</Text>
-                      </View>
+                {!photoSession && !mergePreview && items.length > 0 ? (
+                  <>
+                    <View
+                      style={[
+                        styles.confidenceBadge,
+                        {
+                          backgroundColor: confidenceColor(confidence) + '20',
+                          borderColor: confidenceColor(confidence) + '60',
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.confidenceText, { color: confidenceColor(confidence) }]}>
+                        {confidence === 'high'
+                          ? '✓ High confidence'
+                          : confidence === 'medium'
+                            ? '⚠ Medium confidence'
+                            : '⚠ Low confidence'}
+                      </Text>
                     </View>
-                  ))}
-
-                  {/* Total row */}
-                  <View style={[styles.itemRow, styles.totalRow]}>
-                  <Text style={styles.totalValue}>{macroSummary(items)}</Text>
-                  </View>
-                </View>
-
-                {/* Suggestion */}
-                {suggestion ? (
-                  <View style={styles.suggestionBox}>
-                    <Text style={styles.suggestionText}>💡 {suggestion}</Text>
-                  </View>
+                    {suggestion ? (
+                      <View style={styles.suggestionBox}>
+                        <Text style={styles.suggestionText}>💡 {suggestion}</Text>
+                      </View>
+                    ) : null}
+                  </>
                 ) : null}
 
-                {/* Chat correction input */}
-                <View style={styles.chatRow}>
-                  <TextInput
-                    ref={chatInputRef}
-                    style={styles.chatInput}
-                    placeholder='Correct it: "it was bigger", "add a coffee"…'
-                    placeholderTextColor={WellnessColors.textSecondary}
-                    value={chatText}
-                    onChangeText={setChatText}
-                    onSubmitEditing={handleCorrection}
-                    returnKeyType="send"
-                    editable={screen === 'result'}
-                  />
-                  <Pressable
-                    style={[styles.sendBtn, (!chatText.trim() || screen !== 'result') && styles.sendBtnDisabled]}
-                    onPress={handleCorrection}
-                    disabled={!chatText.trim() || screen !== 'result'}
-                  >
-                    <Text style={styles.sendBtnText}>→</Text>
-                  </Pressable>
-                </View>
+                {!mergePreview && (screen === 'result' || screen === 'saving') ? (
+                  <>
+                    {!photoSession && items.length > 0 ? (
+                      <View style={styles.addPhotoRow}>
+                        <Text style={styles.addPhotoLabel}>Update with a photo:</Text>
+                        <View style={styles.photoRow}>
+                          <Pressable style={styles.afterPhotoBtn} onPress={() => handleAddPhoto('camera')}>
+                            <Text style={styles.afterPhotoBtnText}>📷 Camera</Text>
+                          </Pressable>
+                          <Pressable style={styles.afterPhotoBtn} onPress={() => handleAddPhoto('gallery')}>
+                            <Text style={styles.afterPhotoBtnText}>🖼 Gallery</Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    ) : null}
 
-                {/* Date & time — past days default to 23:59 on that day */}
+                    <View style={styles.chatRow}>
+                      <TextInput
+                        ref={chatInputRef}
+                        style={styles.chatInput}
+                        placeholder={chatPlaceholder}
+                        placeholderTextColor={WellnessColors.textSecondary}
+                        value={chatText}
+                        onChangeText={setChatText}
+                        onSubmitEditing={handleCorrection}
+                        returnKeyType="send"
+                        editable={screen === 'result'}
+                      />
+                      <Pressable
+                        style={[styles.sendBtn, (!chatText.trim() || screen !== 'result') && styles.sendBtnDisabled]}
+                        onPress={handleCorrection}
+                        disabled={!chatText.trim() || screen !== 'result'}
+                      >
+                        <Text style={styles.sendBtnText}>→</Text>
+                      </Pressable>
+                    </View>
+                  </>
+                ) : null}
+
                 <Pressable style={styles.timeRow} onPress={openMealDateTimePicker}>
                   <Text style={styles.timeLabel}>🕐 Date & time:</Text>
                   <Text style={styles.timeValue}>{formatMealDateTime(mealTime)}</Text>
@@ -505,11 +722,9 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
               </View>
             )}
-
           </ScrollView>
 
-          {/* Bottom actions */}
-          {(screen === 'result' || screen === 'saving') && (
+          {(screen === 'result' || screen === 'saving') && !mergePreview ? (
             <View style={styles.actions}>
               {editingId ? (
                 <Pressable style={styles.deleteBtn} onPress={handleDelete} disabled={screen === 'saving'}>
@@ -521,13 +736,15 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
                 </Pressable>
               )}
               <Pressable
-                style={[styles.saveBtn, screen === 'saving' && styles.saveBtnDisabled]}
+                style={[styles.saveBtn, (screen === 'saving' || items.length === 0) && styles.saveBtnDisabled]}
                 onPress={handleSave}
-                disabled={screen === 'saving'}
+                disabled={screen === 'saving' || items.length === 0}
               >
-                {screen === 'saving'
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.saveBtnText}>✓ Save meal</Text>}
+                {screen === 'saving' ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveBtnText}>✓ Save meal</Text>
+                )}
               </Pressable>
               {editingId ? (
                 <Pressable style={styles.cancelBtn} onPress={handleClose}>
@@ -535,8 +752,7 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
                 </Pressable>
               ) : null}
             </View>
-          )}
-
+          ) : null}
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -567,26 +783,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: WellnessColors.textPrimary,
   },
-  closeBtn: {
-    padding: 4,
-  },
-  closeBtnText: {
-    fontSize: 18,
-    color: WellnessColors.textSecondary,
-  },
+  closeBtn: { padding: 4 },
+  closeBtnText: { fontSize: 18, color: WellnessColors.textSecondary },
   scroll: { flex: 1 },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
+  scrollContent: { padding: 20, paddingBottom: 40 },
 
-  // Idle
   idleWrap: { alignItems: 'center', paddingTop: 16 },
-  photoRow: {
-    flexDirection: 'row',
-    width: '100%',
-    gap: 12,
-  },
+  photoRow: { flexDirection: 'row', width: '100%', gap: 12 },
   cameraBtn: {
     flex: 1,
     backgroundColor: WellnessColors.accentBlue,
@@ -596,21 +799,11 @@ const styles = StyleSheet.create({
     gap: 8,
     ...cardShadow,
   },
-  galleryBtn: {
-    backgroundColor: '#7B1FA2',
-  },
+  galleryBtn: { backgroundColor: '#7B1FA2' },
   cameraBtnIcon: { fontSize: 36 },
   cameraBtnLabel: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  orDivider: {
-    color: WellnessColors.textSecondary,
-    fontSize: 13,
-    marginVertical: 20,
-  },
-  textInputRow: {
-    flexDirection: 'row',
-    width: '100%',
-    gap: 8,
-  },
+  orDivider: { color: WellnessColors.textSecondary, fontSize: 13, marginVertical: 20 },
+  textInputRow: { flexDirection: 'row', width: '100%', gap: 8 },
   describeInput: {
     flex: 1,
     borderWidth: 1,
@@ -633,32 +826,15 @@ const styles = StyleSheet.create({
   sendBtnDisabled: { opacity: 0.4 },
   sendBtnText: { color: '#fff', fontSize: 20, fontWeight: '700' },
 
-  // Analyzing
   analyzingWrap: { alignItems: 'center', paddingTop: 24 },
   photoThumb: { width: '100%', height: 200, borderRadius: 16 },
-  analyzingLabel: {
-    marginTop: 16,
-    color: WellnessColors.textSecondary,
-    fontSize: 14,
-  },
+  analyzingLabel: { marginTop: 16, color: WellnessColors.textSecondary, fontSize: 14 },
 
-  // Result
   resultWrap: { gap: 12 },
-  thumbRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
-  photoThumbSmall: { width: 72, height: 72, borderRadius: 12 },
-  afterPhotoRow: { marginBottom: 10 },
-  afterPhotoLabel: { fontSize: 12, color: WellnessColors.textSecondary, marginBottom: 6 },
-  afterPhotoBtns: { flexDirection: 'row', gap: 8 },
-  afterPhotoBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
-    borderRadius: 8,
-    paddingVertical: 7,
-    alignItems: 'center',
-    backgroundColor: WellnessColors.progressTrack,
-  },
-  afterPhotoBtnText: { fontSize: 13, fontWeight: '600', color: WellnessColors.textPrimary },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: WellnessColors.textPrimary },
+  mealSection: { gap: 8 },
+  photoSection: { gap: 8, marginTop: 4 },
+  photoThumbSmall: { width: 88, height: 88, borderRadius: 12 },
   confidenceBadge: {
     alignSelf: 'flex-start',
     borderWidth: 1,
@@ -667,15 +843,24 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   confidenceText: { fontSize: 12, fontWeight: '600' },
-  descriptionText: {
-    color: WellnessColors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
+  descriptionText: { color: WellnessColors.textSecondary, fontSize: 13, lineHeight: 18 },
   itemsCard: {
     backgroundColor: WellnessColors.surface,
     borderRadius: 16,
     overflow: 'hidden',
+  },
+  itemsCardTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: WellnessColors.textSecondary,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  emptyItemsText: {
+    padding: 16,
+    fontSize: 13,
+    color: WellnessColors.textSecondary,
+    fontStyle: 'italic',
   },
   itemRow: {
     flexDirection: 'row',
@@ -683,10 +868,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  itemRowBorder: {
-    borderTopWidth: 1,
-    borderTopColor: WellnessColors.gridLine,
-  },
+  itemRowBorder: { borderTopWidth: 1, borderTopColor: WellnessColors.gridLine },
   itemLeft: { flex: 1 },
   itemName: { fontSize: 14, fontWeight: '600', color: WellnessColors.textPrimary },
   itemGrams: { fontSize: 12, color: WellnessColors.textSecondary },
@@ -698,7 +880,6 @@ const styles = StyleSheet.create({
     borderTopColor: WellnessColors.accentBlue + '40',
     backgroundColor: WellnessColors.iconTintBlue,
   },
-  totalLabel: { flex: 1, fontSize: 13, fontWeight: '700', color: WellnessColors.accentBlue },
   totalValue: { fontSize: 13, fontWeight: '700', color: WellnessColors.accentBlue },
   suggestionBox: {
     backgroundColor: WellnessColors.noticeSoftBg,
@@ -708,10 +889,84 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   suggestionText: { fontSize: 13, color: '#5D4037', lineHeight: 18 },
-  chatRow: {
-    flexDirection: 'row',
-    gap: 8,
+
+  intentRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  useMealBtn: {
+    flex: 1,
+    backgroundColor: WellnessColors.accentGreen,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
   },
+  useMealBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  addBtn: {
+    flex: 1,
+    backgroundColor: WellnessColors.accentBlue,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  addBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  removeBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: WellnessColors.accentRed + '60',
+    backgroundColor: '#FFEBEE',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  removeBtnText: { color: WellnessColors.accentRed, fontSize: 14, fontWeight: '700' },
+  removeHint: { fontSize: 11, color: WellnessColors.textSecondary, fontStyle: 'italic' },
+
+  previewSection: { gap: 10 },
+  previewModeLabel: { fontSize: 13, color: WellnessColors.textSecondary },
+  previewColumns: { gap: 16 },
+  previewCol: { gap: 6 },
+  previewColTitle: { fontSize: 12, fontWeight: '600', color: WellnessColors.textSecondary },
+  deltaBox: {
+    backgroundColor: WellnessColors.iconTintBlue,
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  deltaLabel: { fontSize: 13, fontWeight: '600', color: WellnessColors.textPrimary },
+  deltaValue: { fontSize: 13, fontWeight: '700', color: WellnessColors.accentBlue },
+  previewActions: { flexDirection: 'row', gap: 10 },
+  cancelPreviewBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+    alignItems: 'center',
+  },
+  cancelPreviewBtnText: { fontSize: 14, fontWeight: '600', color: WellnessColors.textSecondary },
+  approveBtn: {
+    flex: 2,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: WellnessColors.accentGreen,
+    alignItems: 'center',
+  },
+  approveBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+
+  addPhotoRow: { gap: 6 },
+  addPhotoLabel: { fontSize: 12, color: WellnessColors.textSecondary },
+  afterPhotoBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+    borderRadius: 8,
+    paddingVertical: 7,
+    alignItems: 'center',
+    backgroundColor: WellnessColors.progressTrack,
+  },
+  afterPhotoBtnText: { fontSize: 13, fontWeight: '600', color: WellnessColors.textPrimary },
+
+  chatRow: { flexDirection: 'row', gap: 8 },
   chatInput: {
     flex: 1,
     borderWidth: 1,
@@ -723,25 +978,13 @@ const styles = StyleSheet.create({
     backgroundColor: WellnessColors.surface,
     color: WellnessColors.textPrimary,
   },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-  },
+  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 },
   timeLabel: { fontSize: 13, color: WellnessColors.textSecondary },
   timeValue: { fontSize: 13, fontWeight: '600', color: WellnessColors.textPrimary },
   timeEdit: { fontSize: 12, color: WellnessColors.accentBlue, marginLeft: 4 },
 
-  // Error
-  errorText: {
-    color: WellnessColors.accentRed,
-    fontSize: 13,
-    marginTop: 8,
-    textAlign: 'center',
-  },
+  errorText: { color: WellnessColors.accentRed, fontSize: 13, marginTop: 8, textAlign: 'center' },
 
-  // Actions bar
   actions: {
     flexDirection: 'row',
     gap: 12,
