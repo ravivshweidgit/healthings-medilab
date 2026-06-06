@@ -121,7 +121,7 @@ UI hint shown: *Remove = photo shows food you did not eat (leftovers)*.
 |------|--------|
 | `app/src/logic/mealPhotoMerge.ts` | **NEW** — add/remove preview |
 | `app/src/components/FoodLogModal.tsx` | Photo session, stacked preview UI, photo on edit |
-| `app/src/services/GeminiService.ts` | `afterImageBase64` still in signature but unused (cleanup deferred) |
+| `app/src/services/GeminiService.ts` | `afterImageBase64` still in signature but unused (cleanup deferred); language-aware meal edit seed (`seedMealEditHistory`) |
 
 Commit: `3397f8c` — pushed to `main`.
 

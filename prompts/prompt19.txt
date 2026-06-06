@@ -24,9 +24,11 @@ token/API cost (see bottom of this file).
 
 ### Prerequisites (Prompt 18 — already built)
 - `CoachService.ts` — `triggerCoachReview`, `refreshCoachReview`, frequency gate
-- `ChatScreen.tsx` — collapsible coach panel, FAQ question bar, gated ↻ refresh
-- `GeminiService.ts` — `chatWithMentors`, `generateCoachMessage`, `summariseChatDay`
-- `TargetService.ts` — coach message, chat history, quick questions, language
+- `ChatScreen.tsx` — per-mentor tabs, collapsible coach panel with voice cards,
+  bottom toolbar (scroll / clear tab / HTML export / send), FAQ question bar, gated ↻ refresh
+- `GeminiService.ts` — `chatWithMentor`, `generateCoachMessage` (+ `mentorLines`), `summariseChatDay`
+- `TargetService.ts` — coach message, per-mentor chat history, quick questions, language, mentor gender
+- `mentorChatExport.ts` — HTML export (tasks + all mentor chat sections)
 - Event triggers: meal, weigh-in, workout, day-close
 
 ---
@@ -62,8 +64,9 @@ export type PeriodReviewRequest =
 export const MAX_REVIEW_DAYS = 128;
 ```
 
-On Send, `chatWithMentors()` calls `buildPeriodReviewBlock(request, macroTarget)` and
+On Send, `chatWithMentor(activeMentor, ...)` calls `buildPeriodReviewBlock(request, macroTarget)` and
 appends the block to the system prompt with `PERIOD_REVIEW_CHAT_INSTRUCTION`.
+Period reviews work from **any mentor tab** — same snapshot, reply in that mentor's voice.
 
 **UX:** chip tap fills input; user taps **Send** (same as Prompt 18 — no accidental sends).
 Long reviews (`/30`, `/100`) may take several seconds while Withings intraday data loads.
@@ -160,7 +163,7 @@ export async function buildYesterdayWorkoutRollup(): Promise<string>;
 export const PERIOD_REVIEW_CHAT_INSTRUCTION = '…'; // full snapshot + HR vs workout guidance
 ```
 
-`chatWithMentors()`:
+`chatWithMentor(mentor, ...)`:
 1. `detectPeriodReviewQuery(message)` on user text
 2. If match → `buildPeriodReviewBlock` → append to system prompt
 3. User turn augmented: “Use the PERIOD REVIEW block…”
@@ -179,6 +182,8 @@ Coach prompt additions:
 - Yesterday meal log in chat context; backdated meal logging (`defaultMealTimestampForDay`)
 - Language threaded through all Gemini calls
 - CGM warm-up + statistical noise filters; mentor range % and low-day stats (see CGM section above)
+- Per-mentor chat tabs + `mentorLines` coach separation (Prompt 18 batch)
+- HTML chat export via toolbar ↗ (`mentorChatExport.ts`)
 
 ---
 
@@ -209,8 +214,9 @@ Users can add custom chips (e.g. `/7`) via FAQ dialog (max 5).
 | `ReviewService.ts` | **NEW** — detect, snapshot, yesterday rollup, HR/workout correlation |
 | `GeminiService.ts` | Period block injection, mentor combos, coach/chat prompts |
 | `WithingsApiService.ts` | Parallel intraday HR fetch; `fetchIntradayOneDay` |
-| `ChatScreen.tsx` | Yesterday food context, refresh gating messages |
-| `TargetService.ts` | Quick questions, min-gap 0–6 |
+| `ChatScreen.tsx` | Per-mentor tabs, export toolbar, yesterday food context, refresh gating |
+| `TargetService.ts` | Quick questions, min-gap 0–6, per-mentor chat keys |
+| `mentorChatExport.ts` | HTML export (logic + SAF write) |
 | `FoodLogService.ts` | Backdated meal timestamps |
 | `FoodMacroStrip.tsx`, `FoodLogModal.tsx` | Backdated meal UI |
 | `MentorStrip.tsx` | Min-gap slider range |
@@ -228,6 +234,7 @@ No new screens. No cached review storage in Phase 1.
 - [x] Each workout shows HR during session vs resting baseline + recovery when data exists
 - [x] Normal chat does **not** send full multi-day logs (only yesterday workout rollup)
 - [x] ↻ Refresh on coach panel still regenerates **today's** coach message only
+- [x] HTML export includes coach tasks + each mentor's chat section (verified on device)
 
 ---
 
@@ -295,4 +302,4 @@ Inject ~200–400 tokens every turn; full snapshot only on explicit request or c
 - Server-side storage / cross-device sync
 - Automatic weekly review every Sunday without user action
 - Quarterly / yearly reviews
-- Export PDF / share sheet
+- Export PDF / share sheet (HTML export shipped in Prompt 18)

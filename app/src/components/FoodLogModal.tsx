@@ -23,7 +23,7 @@ import {
 import {
   analyzeFood,
   computeTotals,
-  SYSTEM_PROMPT,
+  seedMealEditHistory,
   type FoodItem,
   type GeminiAnalysisResult,
   type GeminiTurn,
@@ -126,18 +126,8 @@ function openAndroidMealDateTimePicker(currentMs: number, onPick: (ms: number) =
   });
 }
 
-function seedMealHistory(entry: FoodEntry): GeminiTurn[] {
-  const seedJson = JSON.stringify({
-    items: entry.items,
-    confidence: 'high',
-    description: 'Previously saved meal.',
-  });
-  return [
-    { role: 'user', text: `INSTRUCTIONS:\n${SYSTEM_PROMPT}\n\nConfirm you understand.` },
-    { role: 'model', text: '{"items":[],"confidence":"high","description":"Ready to analyze food."}' },
-    { role: 'user', text: 'Here is the current meal I already saved. I may want to correct it.' },
-    { role: 'model', text: seedJson },
-  ];
+function seedMealHistory(entry: FoodEntry, lang?: UserLanguage | null): GeminiTurn[] {
+  return seedMealEditHistory(entry, lang);
 }
 
 function applyAnalysisResult(
@@ -192,7 +182,7 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
   const [screen, setScreen] = useState<Screen>(() => (editEntry ? 'result' : 'idle'));
   const [items, setItems] = useState<FoodItem[]>(() => editEntry?.items ?? []);
   const [mealHistory, setMealHistory] = useState<GeminiTurn[]>(() =>
-    editEntry ? seedMealHistory(editEntry) : [],
+    editEntry ? seedMealHistory(editEntry, lang) : [],
   );
   const [photoSession, setPhotoSession] = useState<PhotoSession | null>(null);
   const [mergePreview, setMergePreview] = useState<MealMergePreview | null>(null);
@@ -216,13 +206,13 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
       setMealTime(editEntry.timestamp);
       setDescription('Editing saved meal — add a photo or use chat to correct');
       setEditingId(editEntry.id);
-      setMealHistory(seedMealHistory(editEntry));
+      setMealHistory(seedMealHistory(editEntry, lang));
       setPhotoSession(null);
       setMergePreview(null);
       setChatText('');
       setError(null);
     }
-  }, [editEntry]);
+  }, [editEntry, lang?.code]);
 
   React.useEffect(() => {
     if (visible && !editEntry) {

@@ -95,6 +95,22 @@ Your AI mentors  (select at least one)
 - Changes save immediately (no Save button needed — single field)
 - Collapsed header shows emoji of selected mentors e.g. "💪 Coach · 🥗 Nutritionist"
 
+### A4 — Mentor voice (Male / Female) — shipped
+
+Below mentor toggles, a **voice row** sets how mentors are addressed in Hebrew/Arabic:
+
+```
+Mentor voice    [ Male ]  [ Female ]
+```
+
+- Stored: `getMentorGender()` / `saveMentorGender()` (`MENTOR_GENDER_KEY`)
+- Defaults to user profile gender when unset
+- Labels via `mentorLabels.ts`:
+  - Hebrew female: `התזונאית שלי`, `המאמנת שלי`, `הרופאה שלי`
+  - Hebrew male: `התזונאי שלי`, `המאמן שלי`, `הרופא שלי`
+  - Arabic equivalents in same file
+- Used in: MentorStrip header, ChatScreen tabs, coach panel segments, HTML export
+
 ---
 
 ## PART B — My Rules
@@ -316,13 +332,16 @@ Pass `macroTarget` to `FoodMacroStrip`.
 ---
 
 ### Files to create / change
-1. `TargetService.ts` — MentorType + UserRules + DailyMacroTarget types + all CRUD
+1. `TargetService.ts` — MentorType + UserRules + DailyMacroTarget types + all CRUD;
+   `getMentorGender` / `saveMentorGender`; `UserLanguage` + `getLanguage` / `setLanguage`
 2. `GeminiService.ts` — buildMentorSystemPrompt() + summariseUserRules() + suggestDailyMacros()
-3. `MentorStrip.tsx` — NEW: My Mentors 3-toggle component
-4. `RulesStrip.tsx` — NEW: My Rules text input + AI summary component
-5. `MacroTargetStrip.tsx` — NEW: My Macros 5-state component
-6. `FoodMacroStrip.tsx` — add macroTarget prop, update bars to show actual/target
-7. `DashboardScreen.tsx` — wire all three strips, pass macroTarget to FoodMacroStrip
+3. `MentorStrip.tsx` — NEW: My Mentors 3-toggle component + voice Male/Female row
+4. `mentorLabels.ts` — **NEW** — possessive/collective labels (he/ar/en, gender-aware)
+5. `RulesStrip.tsx` — NEW: My Rules text input + AI summary component
+6. `MacroTargetStrip.tsx` — NEW: My Macros 5-state component
+7. `FoodMacroStrip.tsx` — add macroTarget prop, update bars to show actual/target
+8. `DashboardScreen.tsx` — wire all three strips, language picker in My Profile,
+   pass macroTarget to FoodMacroStrip
 
 ---
 

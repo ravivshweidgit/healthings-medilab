@@ -648,6 +648,11 @@ export function buildMealGlucoseAiContext(meals: FoodEntry[], glucose: TimePoint
   return [
     '=== MEAL GLUCOSE RESPONSE (CGM ~5 min samples) ===',
     `CGM samples in sync: ${sampleCount} | Meals with usable window: ${analyzed}/${results.length}`,
+    ...(analyzed === 0
+      ? [
+          'Meals logged but post-meal CGM window not yet usable — CGM IS synced; cite today avg/min/max from RECENT CGM; do NOT say CGM unavailable.',
+        ]
+      : []),
     'Reference: pre-meal avg (25 min before), peak 5–120 min after, +60/+120 min marks.',
     'Ideal post-meal: peak rise often <30–50 mg/dL; 2 h often back toward pre-meal (individual targets vary).',
     '',

@@ -4,7 +4,15 @@
  */
 
 import { GEMINI_API_KEY } from '@env';
-import type { MentorType, DailyMacroTarget, BodyTarget, UserRules, CoachMessage, CoachActionItem, AutoCheckType, ChatMessage, UserLanguage } from './TargetService';
+import {
+  combineMentorLines,
+  extractMentorLinesFromParsed,
+  hasSeparateMentorVoices,
+  normalizeMentorChatText,
+  resolveMentorReplyText,
+  type MentorLines,
+} from '../logic/mentorChatText';
+import type { MentorType, DailyMacroTarget, BodyTarget, UserRules, CoachMessage, CoachActionItem, AutoCheckType, ChatMessage, UserLanguage, Gender } from './TargetService';
 import type { TimePoint } from './SamsungHealthService';
 import {
   buildYesterdayWorkoutRollup,
@@ -25,10 +33,64 @@ function coachJsonLangInstruction(lang?: UserLanguage | null): string {
   return `\nLANGUAGE (mandatory): Write "text" AND every actionItems[].text in ${lang.label} (${lang.code}) only. Keep autoCheckType values exactly as English keys (carbs_under_target, etc.). Do NOT use English for user-visible strings.`;
 }
 
+/** Mandatory language for meal JSON — description/suggestion often stay English without this. */
+function foodJsonLangInstruction(lang?: UserLanguage | null): string {
+  if (!lang || lang.code === 'en') return '';
+  return `\nLANGUAGE (mandatory): Write "description", "suggestion", and every items[].name in ${lang.label} (${lang.code}). items[].name_local may use the original script on the plate/menu. Do NOT use English for user-visible strings.`;
+}
+
+export function buildFoodSystemPrompt(lang?: UserLanguage | null): string {
+  const langNote = foodJsonLangInstruction(lang);
+  if (!langNote) return SYSTEM_PROMPT;
+  return `${SYSTEM_PROMPT}${langNote}`;
+}
+
+function defaultFoodAnalysisPrompt(
+  lang?: UserLanguage | null,
+  opts?: { beforeAfter?: boolean },
+): string {
+  const jsonReminder = ' Respond ONLY with the JSON format specified in your instructions. No markdown, no prose.';
+  if (opts?.beforeAfter) {
+    if (lang?.code === 'he') {
+      return `התמונה הראשונה — צלחת לפני הארוחה. השנייה — מה שנשאר. העריך/י רק מה שנאכל בפועל (ההפרש).${jsonReminder}`;
+    }
+    if (lang?.code === 'ar') {
+      return `الصورة الأولى قبل الوجبة والثانية بعدها. قدّر ما تم أكله فقط (الفرق).${jsonReminder}`;
+    }
+    return 'The FIRST image is the full plate before eating. The SECOND image is what was left after eating. Estimate only what was actually consumed (the difference). Give me the macros for what was eaten.' + jsonReminder;
+  }
+  if (lang?.code === 'he') {
+    return `מה יש בארוחה? החזר/י מקרו ב-JSON.${jsonReminder}`;
+  }
+  if (lang?.code === 'ar') {
+    return `ما الطعام في هذه الوجبة؟ أعد الماكروز بصيغة JSON.${jsonReminder}`;
+  }
+  return 'What food is in this photo? Give me the macros.' + jsonReminder;
+}
+
+function coachJsonTextExample(ctx: CoachContext): string {
+  const code = ctx.lang?.code ?? 'en';
+  const kcal = Math.round(ctx.macroTarget?.kcal ?? 1950);
+  const active = MENTOR_PRIORITY.filter((m) => ctx.mentors.includes(m));
+  if (active.length <= 1) {
+    return code === 'he' ? `אכלת 0 מתוך ${kcal} קק״ל.` : 'One sentence with specific numbers.';
+  }
+  const lines: string[] = [];
+  if (ctx.mentors.includes('doctor')) {
+    lines.push(code === 'he' ? '🩺 משפט בטיחות עם מספרים.' : '🩺 One safety sentence with numbers.');
+  }
+  if (ctx.mentors.includes('nutritionist')) {
+    lines.push(code === 'he' ? '🥗 משפט תזונה עם חלבון/פחמימות/CGM.' : '🥗 One nutrition sentence with macro/CGM numbers.');
+  }
+  if (ctx.mentors.includes('coach')) {
+    lines.push(code === 'he' ? '💪 משפט הרכב גוף או אימון.' : '💪 One body-composition or training sentence.');
+  }
+  return lines.join('\\n');
+}
+
 function coachJsonExample(ctx: CoachContext): string {
   const carb = Math.round(ctx.macroTarget?.carb_g ?? 35);
   const protein = Math.round(ctx.macroTarget?.protein_g ?? 140);
-  const kcal = Math.round(ctx.macroTarget?.kcal ?? 1950);
   const code = ctx.lang?.code ?? 'en';
   const hasCoach = ctx.mentors.includes('coach');
   const hasNut = ctx.mentors.includes('nutritionist');
@@ -58,10 +120,24 @@ function coachJsonExample(ctx: CoachContext): string {
     );
   }
   if (parts.length === 0) parts.push(coachEx);
-  const text =
-    code === 'he'
-      ? `אכלת 0 מתוך ${kcal} קק״ל.`
-      : '2 sentences max. Specific numbers.';
+  const active = MENTOR_PRIORITY.filter((m) => ctx.mentors.includes(m));
+  if (active.length >= 2) {
+    const mentorLines: Record<string, string> = {};
+    if (ctx.mentors.includes('nutritionist')) {
+      mentorLines.nutritionist =
+        code === 'he' ? 'משפט תזונה עם חלבון/פחמימות/CGM.' : 'One nutrition sentence with macro/CGM numbers.';
+    }
+    if (ctx.mentors.includes('coach')) {
+      mentorLines.coach =
+        code === 'he' ? 'משפט הרכב גוף או אימון.' : 'One body-composition or training sentence.';
+    }
+    if (ctx.mentors.includes('doctor')) {
+      mentorLines.doctor =
+        code === 'he' ? 'משפט בטיחות עם מספרים.' : 'One safety sentence with numbers.';
+    }
+    return `{"mentorLines":${JSON.stringify(mentorLines)},"actionItems":[${parts.join(',')}]}`;
+  }
+  const text = coachJsonTextExample(ctx);
   return `{"text":"${text}","actionItems":[${parts.join(',')}]}`;
 }
 
@@ -217,6 +293,75 @@ function buildFallbackActionItems(ctx: CoachContext): CoachActionItem[] {
   return items.slice(0, 4);
 }
 
+/** Last resort: split a blended reply into per-mentor lines via a short JSON call. */
+async function splitBlendedMentorReply(
+  blendedText: string,
+  ctx: CoachContext,
+): Promise<MentorLines | null> {
+  if (ctx.mentors.length < 2 || !blendedText.trim()) return null;
+
+  const keys = MENTOR_PRIORITY.filter((m) => ctx.mentors.includes(m));
+  const keyExample = keys.map((k) => `"${k}":"one sentence"`).join(',');
+  const prompt = `Split this health coaching message into separate mentor voices. Return JSON only:
+{"mentorLines":{${keyExample}}}
+Active mentors: ${keys.join(', ')}. One sentence per key. No emoji in values. Same language as original.
+
+Original:
+${blendedText.slice(0, 1200)}`;
+
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: geminiGenerationConfig({ temperature: 0.1, maxOutputTokens: 1024 }),
+  };
+
+  try {
+    const response = await fetch(GEMINI_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) return null;
+    const json = await response.json();
+    const raw: string = extractGeminiText(json?.candidates?.[0]);
+    const stripped = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    const start = stripped.indexOf('{');
+    const end = stripped.lastIndexOf('}');
+    if (start === -1 || end <= start) return null;
+    const parsed = JSON.parse(stripped.slice(start, end + 1)) as Record<string, unknown>;
+    const lines = extractMentorLinesFromParsed(parsed, ctx.mentors);
+    if (!lines) return null;
+    const count = ctx.mentors.filter((m) => lines[m]?.trim()).length;
+    return count >= 2 ? lines : null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveCoachReplyText(
+  parsed: Record<string, unknown>,
+  ctx: CoachContext,
+): Promise<{ text: string; mentorLines?: MentorLines }> {
+  let mentorLines = extractMentorLinesFromParsed(parsed, ctx.mentors);
+  const textField = typeof parsed.text === 'string' ? parsed.text : undefined;
+  let text = mentorLines
+    ? combineMentorLines(mentorLines, ctx.mentors) || resolveMentorReplyText(undefined, textField, ctx.mentors)
+    : resolveMentorReplyText(undefined, textField, ctx.mentors);
+
+  if (ctx.mentors.length >= 2 && !hasSeparateMentorVoices(text, mentorLines ?? undefined, ctx.mentors)) {
+    const split = await splitBlendedMentorReply(text, ctx);
+    if (split) {
+      mentorLines = split;
+      text = combineMentorLines(split, ctx.mentors);
+    }
+  }
+
+  const lineCount = mentorLines ? ctx.mentors.filter((m) => mentorLines![m]?.trim()).length : 0;
+  return {
+    text,
+    mentorLines: lineCount >= 2 ? (mentorLines ?? undefined) : undefined,
+  };
+}
+
 function normalizeCoachActionItems(
   raw: Array<{ text: string; autoCheckType: string | null }> | undefined,
   ctx: CoachContext,
@@ -336,6 +481,34 @@ RULES:
 - For corrections: return full updated JSON, keep all items.
 - If unsure: best guess with confidence "low".`;
 
+/** History seed when editing a saved meal — includes language-aware system prompt. */
+export function seedMealEditHistory(entry: { items: FoodItem[] }, lang?: UserLanguage | null): GeminiTurn[] {
+  const systemPrompt = buildFoodSystemPrompt(lang);
+  const seedJson = JSON.stringify({
+    items: entry.items,
+    confidence: 'high',
+    description: lang?.code === 'he' ? 'ארוחה שמורה.' : lang?.code === 'ar' ? 'وجبة محفوظة.' : 'Previously saved meal.',
+  });
+  const readyLine =
+    lang?.code === 'he'
+      ? '{"items":[],"confidence":"high","description":"מוכן לניתוח ארוחות."}'
+      : lang?.code === 'ar'
+        ? '{"items":[],"confidence":"high","description":"جاهز لتحليل الوجبات."}'
+        : '{"items":[],"confidence":"high","description":"Ready to analyze food."}';
+  const editIntro =
+    lang?.code === 'he'
+      ? 'זו הארוחה השמורה שלי. אולי ארצה לתקן אותה.'
+      : lang?.code === 'ar'
+        ? 'هذه وجبتي المحفوظة. قد أريد تصحيحها.'
+        : 'Here is the current meal I already saved. I may want to correct it.';
+  return [
+    { role: 'user', text: `INSTRUCTIONS:\n${systemPrompt}\n\nConfirm you understand.` },
+    { role: 'model', text: readyLine },
+    { role: 'user', text: editIntro },
+    { role: 'model', text: seedJson },
+  ];
+}
+
 // ─── Mock data ───────────────────────────────────────────────────────────────
 
 const MOCK_RESULT: GeminiAnalysisResult = {
@@ -426,23 +599,42 @@ export async function analyzeFood(
     return { result: MOCK_RESULT, updatedHistory: [...history, newTurn, modelTurn] };
   }
 
-  const langNote = langInstruction(lang);
-  const systemPromptWithLang = langNote
-    ? `${SYSTEM_PROMPT}${langNote}\nIMPORTANT: food item "name" field should be in ${lang!.label}, "name_local" can stay in original script.`
-    : SYSTEM_PROMPT;
+  const systemPromptWithLang = buildFoodSystemPrompt(lang);
 
   // Prepend system prompt as a synthetic user/model exchange (compatible with all API versions).
+  const readyLine =
+    lang?.code === 'he'
+      ? '{"items":[],"confidence":"high","description":"מוכן לניתוח ארוחות."}'
+      : lang?.code === 'ar'
+        ? '{"items":[],"confidence":"high","description":"جاهز لتحليل الوجبات."}'
+        : '{"items":[],"confidence":"high","description":"Ready to analyze food."}';
   const systemTurns = history.length === 0 ? [
     { role: 'user', parts: [{ text: `INSTRUCTIONS:\n${systemPromptWithLang}\n\nConfirm you understand.` }] },
-    { role: 'model', parts: [{ text: '{"items":[],"confidence":"high","description":"Ready to analyze food."}' }] },
+    { role: 'model', parts: [{ text: readyLine }] },
   ] : [];
 
-  // Build the user message text — add before/after context when two images are provided.
-  // Always remind Gemini to respond in JSON to prevent plain-text responses.
-  const JSON_REMINDER = ' Respond ONLY with the JSON format specified in your instructions. No markdown, no prose.';
-  const effectiveText = afterImageBase64
-    ? (userText || ('The FIRST image is the full plate before eating. The SECOND image is what was left after eating. Estimate only what was actually consumed (the difference). Give me the macros for what was eaten.' + JSON_REMINDER))
-    : (userText || ('What food is in this photo? Give me the macros.' + JSON_REMINDER));
+  const JSON_REMINDER = lang?.code === 'he'
+    ? ' החזר/י JSON בלבד לפי ההוראות.'
+    : lang?.code === 'ar'
+      ? ' JSON فقط حسب التعليمات.'
+      : ' Respond ONLY with the JSON format specified in your instructions. No markdown, no prose.';
+  const langTail = foodJsonLangInstruction(lang);
+  const effectiveText = (() => {
+    let base: string;
+    if (afterImageBase64) {
+      base = userText || defaultFoodAnalysisPrompt(lang, { beforeAfter: true });
+    } else {
+      base = userText || defaultFoodAnalysisPrompt(lang);
+    }
+    if (!userText && !afterImageBase64 && !imageBase64) {
+      return base;
+    }
+    if (userText && !base.includes('JSON')) {
+      return base + JSON_REMINDER;
+    }
+    return base;
+  })();
+  const userTextWithLang = langTail && history.length > 0 ? `${effectiveText}${langTail}` : effectiveText;
 
   const contents = [
     ...systemTurns,
@@ -459,7 +651,7 @@ export async function analyzeFood(
       parts: [
         ...(imageBase64 ? [{ inline_data: { mime_type: 'image/jpeg', data: imageBase64 } }] : []),
         ...(afterImageBase64 ? [{ inline_data: { mime_type: 'image/jpeg', data: afterImageBase64 } }] : []),
-        { text: effectiveText },
+        { text: userTextWithLang },
       ],
     },
   ];
@@ -658,27 +850,25 @@ const MENTOR_COMBO_PROMPTS: Record<string, string> = {
   'doctor+nutritionist': `You advise as Doctor 🩺 AND Nutritionist 🥗 — both active; both must inform every reply.
 Doctor: safety, clinical risk, conservative limits; interpret CGM avg/min/max when present.
 Nutritionist: food quality, macros, meal structure, glycemic impact — CGM is mandatory when data is in context.
-In "text": at least one safety/clinical note AND one nutrition+CGM note (2 sentences max).
-In actionItems: mix safety-aware food actions — never aggressive unsafe deficits.`,
+Use mentorLines with separate "doctor" and "nutritionist" keys — one sentence each with numbers. NEVER one blended paragraph.`,
 
   'doctor+coach': `You advise as Doctor 🩺 AND Coach 💪 — both active; both must inform every reply.
 Doctor: health risk, safe rate of loss, red flags, recovery; CGM when present.
 Coach: body composition, muscle preservation, training, performance, deficit strategy.
-In "text": at least one clinical/safety note AND one composition/training note (2 sentences max).
-In actionItems: mix safe health guardrails with body-composition actions.`,
+Use mentorLines with separate "doctor" and "coach" keys — one sentence each with numbers. NEVER one blended paragraph.`,
 
   'nutritionist+coach': `You advise as Nutritionist 🥗 AND Coach 💪 — both active; BOTH must speak in every reply.
 Nutritionist lens: food quality, macros, meal timing, CGM glycemic response (avg/min/max when data present) — NOT optional.
 Coach lens: body composition, muscle mass, training recovery, progressive fat loss, performance — NOT just food.
 CRITICAL: Do NOT let nutrition dominate. The Coach must always have a visible angle (muscle, composition, movement, recovery, tomorrow's training).
-In "text": one sentence from Nutritionist (include CGM numbers when block present) AND one from Coach (2 sentences max).
+Use mentorLines with separate "nutritionist" and "coach" keys — one sentence each with numbers. NEVER one blended paragraph.
 In actionItems: include at least one food/macro or CGM-aware item AND at least one body-composition or activity item.
 If conflict: food quality (Nutritionist) > reckless deficit (Coach) — but Coach still contributes.`,
 
   'doctor+nutritionist+coach': `You advise as Doctor 🩺, Nutritionist 🥗, AND Coach 💪 — all three active; each must inform every reply.
 Priority when advice conflicts: safety (Doctor) > food quality + CGM (Nutritionist) > performance (Coach).
 Nutritionist MUST use CGM data when in context — avg/min/max mg/dL, good vs needs improvement.
-In "text": weave clinical safety, nutrition+CGM, and body-composition/training (2 sentences max — hit all three angles briefly).
+Use mentorLines with separate "doctor", "nutritionist", and "coach" keys — one sentence each with numbers. NEVER one blended paragraph.
 In actionItems: spread across safety-aware eating, macro/CGM targets, and composition/training — at least one item per active mentor angle where possible.`,
 };
 
@@ -702,6 +892,8 @@ function buildCgmMentorRules(ctx: CoachContext): string {
   }
   return `
 - CGM (TODAY / RECENT / MEAL GLUCOSE blocks) is a PRIMARY input — never ignore it
+- NEVER say "no CGM data" (or equivalent) when USER DATA includes MEAL GLUCOSE, TODAY CGM, or RECENT CGM with samples — CGM is synced; say post-meal window not ready yet if Meals with usable window is 0/N
+- When MEAL GLUCOSE shows "CGM samples in sync" but usable window is 0/N, cite today's avg/min/max from the block and explain meal-level response is not ready yet — do NOT claim CGM is unavailable
 - Nutritionist 🥗 MUST interpret glucose in every reply: quote avg, min, max (mg/dL); cite range % (below 70 / 70–100 / above 100) and low-day count when present
 - Mention compression lows if relevant: sleeping on the sensor can falsely lower readings — isolated low days may be artifact
 - Exclude sensor warm-up (first 24h after install) and statistically excluded rare sensor-error days — see filter lines in USER DATA
@@ -871,6 +1063,7 @@ export type CoachContext = {
   mentors: MentorType[];
   event: CoachTriggerEvent;
   lang?: UserLanguage | null;
+  mentorGender?: Gender | null;
   // user profile
   age: number | null;
   gender: string | null;
@@ -1039,7 +1232,8 @@ Rules:
 - Match tone and action items to LOCAL TIME NOW and TIME-AWARE COACHING above
 - When Coach 💪 is in ACTIVE MENTORS, actionItems MUST include at least one Coach item (autoCheckType null): movement, muscle, training, or body-composition — not food macros
 - Reflect ALL active mentors in ACTIVE MENTORS — do not silence Coach when Nutritionist is also selected (and vice versa)
-- text: max 2 sentences, cite specific numbers from the data, no generic advice
+- When 2+ mentors in ACTIVE MENTORS: use "mentorLines" object with one key per active mentor ("doctor", "nutritionist", "coach") — one sentence per key, no emoji in values. Do NOT use a single blended "text" field.
+- When only 1 mentor active: use "text" (one sentence with specific numbers)
 - actionItems: 2–4 items, max 8 words each, concrete and actionable for THIS time of day — same language as text
 - autoCheckType: use "carbs_under_target", "protein_over_target", "calorie_deficit", "meal_logged", or null (always English keys)
 - carbs_under_target MUST cite carb target ${carbTarget != null ? `${Math.round(carbTarget)}g` : 'from USER DATA C:/target line'} — never use generic 20g keto defaults
@@ -1049,7 +1243,8 @@ Rules:
 - If event is weigh-in: focus on trend vs target, muscle vs start
 - If event is workout: focus on calorie budget impact and HR during session vs resting baseline when YESTERDAY WORKOUTS includes HR lines
 - Do NOT repeat data the user already sees on the dashboard
-- If Nutritionist 🥗 is active and CGM blocks are in USER DATA, "text" MUST include glucose avg/min/max (mg/dL) and good-vs-needs-improvement verdict${coachJsonLangInstruction(ctx.lang)}`;
+- If Nutritionist 🥗 is active and CGM blocks are in USER DATA, "text" MUST include glucose avg/min/max (mg/dL) and good-vs-needs-improvement verdict
+- NEVER say "no CGM data" when MEAL GLUCOSE / TODAY CGM / RECENT CGM blocks are in USER DATA — say synced; if meal window not ready, cite today avg/min/max anyway${coachJsonLangInstruction(ctx.lang)}`;
 
   const glucoseCoachRule = buildCgmMentorRules(ctx);
 
@@ -1077,7 +1272,11 @@ Rules:
   const end = stripped.lastIndexOf('}');
   const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
 
-  let parsed: { text: string; actionItems: Array<{ text: string; autoCheckType: string | null }> };
+  let parsed: {
+    text?: string;
+    mentorLines?: MentorLines;
+    actionItems: Array<{ text: string; autoCheckType: string | null }>;
+  };
   try {
     parsed = JSON.parse(cleaned);
   } catch {
@@ -1085,10 +1284,12 @@ Rules:
   }
 
   const actionItems = normalizeCoachActionItems(parsed.actionItems, ctx);
+  const { text, mentorLines } = await resolveCoachReplyText(parsed as Record<string, unknown>, ctx);
 
   return {
     id: `coach-${Date.now()}`,
-    text: String(parsed.text ?? ''),
+    text,
+    mentorLines,
     actionItems,
     triggerEvent: ctx.event,
     generatedAt: new Date().toISOString(),
@@ -1099,75 +1300,26 @@ Rules:
 
 // ─── Free chat with mentors ────────────────────────────────────────────────────
 
-export async function chatWithMentors(
-  message: string,
-  history: ChatMessage[],
-  ctx: CoachContext,
-  yesterdaySummary: string | null,
-): Promise<string> {
-  const systemPrompt = buildMentorSystemPrompt(ctx.mentors);
-  const dataBlock = buildChatDataBlock(ctx);
-  const yesterdayWorkouts = await buildYesterdayWorkoutRollup();
-  const periodRequest = detectPeriodReviewQuery(message);
-  const periodBlock = periodRequest
-    ? await buildPeriodReviewBlock(periodRequest, ctx.macroTarget, ctx.glucoseHistory)
-    : '';
-  const yesterdayChatLine = yesterdaySummary ? `\nYesterday chat summary: ${yesterdaySummary}` : '';
-  const yesterdayMealSection = ctx.yesterdayMealsDetail
-    ? `\n\n=== YESTERDAY MEAL LOG (${ctx.yesterdayDate}) ===\n${ctx.yesterdayMealsDetail}\n=== END YESTERDAY MEAL LOG ===`
-    : '';
-  const periodSection = periodBlock ? `\n\n${periodBlock}\n\n${PERIOD_REVIEW_CHAT_INSTRUCTION}` : '';
+export type MentorChatReply = {
+  text: string;
+  mentorLines?: MentorLines;
+};
 
-  const systemText = `${systemPrompt}${yesterdayChatLine}
+const MENTOR_ONLY_HINT: Record<MentorType, string> = {
+  doctor: 'You are ONLY the Doctor 🩺 in this reply — clinical safety angle only. Do not speak as nutritionist or coach.',
+  nutritionist:
+    'You are ONLY the Nutritionist 🥗 in this reply — food, macros, CGM angle only. Do not speak as doctor or coach.',
+  coach: 'You are ONLY the Coach 💪 in this reply — body composition, training, movement angle only. Do not speak as doctor or nutritionist.',
+};
 
-CURRENT USER DATA:
-${dataBlock}
-${yesterdayWorkouts}${yesterdayMealSection}${periodSection}
+function chatErrorMessage(lang?: UserLanguage | null): string {
+  const code = lang?.code ?? 'en';
+  return code === 'he'
+    ? 'סליחה, לא הצלחתי להשיב הפעם. נסה/י שוב בעוד רגע.'
+    : 'Sorry, I could not reply this time. Please try again in a moment.';
+}
 
-You are responding in a free chat. Be concise, specific, and supportive.
-Match your tone to LOCAL TIME NOW and TIME-AWARE COACHING in the data — early morning means gentle, not alarmist.
-When multiple mentors are active (see ACTIVE MENTORS), include each mentor's perspective — especially Coach 💪 body-composition angle when Coach is selected.
-Reply directly to the user — never output THOUGHT, internal reasoning, numbered analysis steps, or planning in English unless the user wrote in English.
-The MEAL LOG section is today's food. YESTERDAY WORKOUTS shows yesterday's training sessions from Withings with HR during each session when watch data exists.
-When MEAL GLUCOSE, TODAY CGM, or RECENT CGM blocks are in USER DATA, Nutritionist 🥗 MUST lead with glucose interpretation (avg/min/max mg/dL) — this is core nutritionist work, not optional. Doctor 🩺 adds clinical safety on the same numbers. With meals, name foods before spikes; without meals, assess trend and urge food logging.
-YESTERDAY rollup/meal lines are yesterday's food — use for אתמול / yesterday questions.
-When PERIOD REVIEW block is present, analyze the full snapshot (body, energy, HR, food, workouts): what went well, what to improve, specific next steps.
-When GLUCOSE & FOOD IMPACT is in PERIOD REVIEW, Nutritionist and Doctor must cite which foods preceded spikes and recommend swaps for repeat offenders.
-Users can request any window via slash commands: /1 or /yesterday, /7, /30, /100 (up to 128 days).
-When the user asks about their last meal or any meal today, review today's MEAL LOG directly — never say you lack meal details if MEAL LOG is present.
-When YESTERDAY MEAL LOG is present, cite specific foods and numbers from it for yesterday questions.
-Ignore any earlier chat messages where you said yesterday's data was unavailable; always use the YESTERDAY blocks above.${langInstruction(ctx.lang)}`;
-
-  // Build history turns (max last 20 messages)
-  const recentHistory = history.slice(-20);
-
-  // Repeat meal logs in the user turn so the model cannot miss them
-  let userMessage = message;
-  if (periodRequest) {
-    userMessage = `${message}\n\nUse the PERIOD REVIEW block in context. Each active mentor: what was good, what to improve, 2–4 concrete suggestions. For GLUCOSE: quote period avg, min, max (mg/dL) from the block; ignore sensor warm-up (first 24h) lows; do NOT give vague CGM summaries.`;
-  } else if (ctx.mentors.includes('nutritionist') && (ctx.todayMealGlucoseDetail || (ctx.glucoseHistory?.length ?? 0) > 0)) {
-    userMessage = `${message}\n\nNutritionist: address CGM in USER DATA first — quote recent avg/min/max (mg/dL) and say if glucose looks good or needs improvement.`;
-  } else if (isMealReviewQuery(message) && !isYesterdayQuery(message) && ctx.todayMealsDetail) {
-    const glucoseHint = ctx.todayMealGlucoseDetail
-      ? '\n\nUse TODAY CGM / MEAL GLUCOSE in context: say if glucose looks good or needs improvement (specific mg/dL).'
-      : '';
-    userMessage = `${message}\n\nUse today's meal log (already in your context — cite specific foods and numbers):\n${ctx.todayMealsDetail}${glucoseHint}`;
-  } else if (isYesterdayQuery(message) && ctx.yesterdayMealsDetail) {
-    userMessage = `${message}\n\nUse yesterday's meal log (already in your context — cite specific foods and numbers):\n${ctx.yesterdayMealsDetail}`;
-  } else if (isYesterdayQuery(message) && ctx.yesterdayDate) {
-    userMessage = `${message}\n\nUse the YESTERDAY rollup in your context for macro totals (protein, carbs, kcal).`;
-  }
-
-  const contents = [
-    { role: 'user', parts: [{ text: `SYSTEM CONTEXT:\n${systemText}\n\nAcknowledge.` }] },
-    { role: 'model', parts: [{ text: 'Understood. I will use local time, food, workouts, and period reviews when provided.' }] },
-    ...recentHistory.map((m) => ({
-      role: m.role === 'user' ? 'user' : 'model',
-      parts: [{ text: m.role === 'assistant' ? stripLeakedThinking(m.text) : m.text }],
-    })),
-    { role: 'user', parts: [{ text: userMessage }] },
-  ];
-
+async function fetchGeminiChat(contents: Array<{ role: string; parts: Array<{ text: string }> }>): Promise<string> {
   const body = {
     contents,
     generationConfig: geminiGenerationConfig({ temperature: 0.4, maxOutputTokens: 8192 }),
@@ -1184,14 +1336,156 @@ Ignore any earlier chat messages where you said yesterday's data was unavailable
   }
 
   const json = await response.json();
-  const raw: string = extractGeminiText(json?.candidates?.[0]);
-  if (!raw.trim()) {
-    const code = ctx.lang?.code ?? 'en';
-    return code === 'he'
-      ? 'סליחה, לא הצלחתי להשיב הפעם. נסה/י שוב בעוד רגע.'
-      : 'Sorry, I could not reply this time. Please try again in a moment.';
+  return extractGeminiText(json?.candidates?.[0]);
+}
+
+function buildChatContextBlocks(
+  ctx: CoachContext,
+  message: string,
+  yesterdaySummary: string | null,
+): {
+  dataBlock: string;
+  yesterdayWorkouts: Promise<string>;
+  periodRequest: ReturnType<typeof detectPeriodReviewQuery>;
+  periodBlock: Promise<string>;
+  yesterdayChatLine: string;
+  yesterdayMealSection: string;
+  periodSection: Promise<string>;
+  userMessage: string;
+} {
+  const dataBlock = buildChatDataBlock(ctx);
+  const yesterdayWorkouts = buildYesterdayWorkoutRollup();
+  const periodRequest = detectPeriodReviewQuery(message);
+  const periodBlock = periodRequest
+    ? buildPeriodReviewBlock(periodRequest, ctx.macroTarget, ctx.glucoseHistory)
+    : Promise.resolve('');
+  const yesterdayChatLine = yesterdaySummary ? `\nYesterday chat summary: ${yesterdaySummary}` : '';
+  const yesterdayMealSection = ctx.yesterdayMealsDetail
+    ? `\n\n=== YESTERDAY MEAL LOG (${ctx.yesterdayDate}) ===\n${ctx.yesterdayMealsDetail}\n=== END YESTERDAY MEAL LOG ===`
+    : '';
+  const periodSection = periodBlock.then((block) =>
+    block ? `\n\n${block}\n\n${PERIOD_REVIEW_CHAT_INSTRUCTION}` : '',
+  );
+
+  let userMessage = message;
+  if (periodRequest) {
+    userMessage = `${message}\n\nUse the PERIOD REVIEW block in context. What was good, what to improve, 2–4 concrete suggestions. For GLUCOSE: quote period avg, min, max (mg/dL) from the block; ignore sensor warm-up (first 24h) lows; do NOT give vague CGM summaries.`;
+  } else if (ctx.mentors.includes('nutritionist') && (ctx.todayMealGlucoseDetail || (ctx.glucoseHistory?.length ?? 0) > 0)) {
+    userMessage = `${message}\n\nAddress CGM in USER DATA first — quote recent avg/min/max (mg/dL) and say if glucose looks good or needs improvement.`;
+  } else if (isMealReviewQuery(message) && !isYesterdayQuery(message) && ctx.todayMealsDetail) {
+    const glucoseHint = ctx.todayMealGlucoseDetail
+      ? '\n\nUse TODAY CGM / MEAL GLUCOSE in context: say if glucose looks good or needs improvement (specific mg/dL).'
+      : '';
+    userMessage = `${message}\n\nUse today's meal log (already in your context — cite specific foods and numbers):\n${ctx.todayMealsDetail}${glucoseHint}`;
+  } else if (isYesterdayQuery(message) && ctx.yesterdayMealsDetail) {
+    userMessage = `${message}\n\nUse yesterday's meal log (already in your context — cite specific foods and numbers):\n${ctx.yesterdayMealsDetail}`;
+  } else if (isYesterdayQuery(message) && ctx.yesterdayDate) {
+    userMessage = `${message}\n\nUse the YESTERDAY rollup in your context for macro totals (protein, carbs, kcal).`;
   }
-  return raw.trim();
+
+  return {
+    dataBlock,
+    yesterdayWorkouts,
+    periodRequest,
+    periodBlock,
+    yesterdayChatLine,
+    yesterdayMealSection,
+    periodSection,
+    userMessage,
+  };
+}
+
+function buildChatSystemText(
+  mentor: MentorType | null,
+  ctx: CoachContext,
+  blocks: {
+    dataBlock: string;
+    yesterdayWorkouts: string;
+    yesterdayChatLine: string;
+    yesterdayMealSection: string;
+    periodSection: string;
+  },
+): string {
+  const mentors = mentor ? [mentor] : ctx.mentors;
+  const systemPrompt = buildMentorSystemPrompt(mentors);
+  const onlyHint = mentor ? `\n${MENTOR_ONLY_HINT[mentor]}` : '';
+
+  return `${systemPrompt}${blocks.yesterdayChatLine}${onlyHint}
+
+CURRENT USER DATA:
+${blocks.dataBlock}
+${blocks.yesterdayWorkouts}${blocks.yesterdayMealSection}${blocks.periodSection}
+
+You are responding in a free chat. Be concise, specific, and supportive.
+Match your tone to LOCAL TIME NOW and TIME-AWARE COACHING in the data — early morning means gentle, not alarmist.
+Reply directly to the user — never output THOUGHT, internal reasoning, numbered analysis steps, or planning in English unless the user wrote in English.
+Reply in plain prose only — never use **text**, **actionItems**, JSON, or markdown section headers. 2–4 sentences with specific numbers.
+The MEAL LOG section is today's food. YESTERDAY WORKOUTS shows yesterday's training sessions from Withings with HR during each session when watch data exists.
+When MEAL GLUCOSE, TODAY CGM, or RECENT CGM blocks are in USER DATA, Nutritionist 🥗 MUST lead with glucose interpretation (avg/min/max mg/dL) — this is core nutritionist work, not optional. Doctor 🩺 adds clinical safety on the same numbers. With meals, name foods before spikes; without meals, assess trend and urge food logging.
+YESTERDAY rollup/meal lines are yesterday's food — use for אתמול / yesterday questions.
+When PERIOD REVIEW block is present, analyze the full snapshot (body, energy, HR, food, workouts): what went well, what to improve, specific next steps.
+When GLUCOSE & FOOD IMPACT is in PERIOD REVIEW, Nutritionist and Doctor must cite which foods preceded spikes and recommend swaps for repeat offenders.
+Users can request any window via slash commands: /1 or /yesterday, /7, /30, /100 (up to 128 days).
+When the user asks about their last meal or any meal today, review today's MEAL LOG directly — never say you lack meal details if MEAL LOG is present.
+When YESTERDAY MEAL LOG is present, cite specific foods and numbers from it for yesterday questions.
+Ignore any earlier chat messages where you said yesterday's data was unavailable; always use the YESTERDAY blocks above.${langInstruction(ctx.lang)}`;
+}
+
+async function chatWithSingleMentor(
+  mentor: MentorType,
+  message: string,
+  history: ChatMessage[],
+  ctx: CoachContext,
+  yesterdaySummary: string | null,
+): Promise<string> {
+  const blocks = buildChatContextBlocks(ctx, message, yesterdaySummary);
+  const [yesterdayWorkouts, periodSection] = await Promise.all([blocks.yesterdayWorkouts, blocks.periodSection]);
+  const systemText = buildChatSystemText(mentor, ctx, {
+    dataBlock: blocks.dataBlock,
+    yesterdayWorkouts,
+    yesterdayChatLine: blocks.yesterdayChatLine,
+    yesterdayMealSection: blocks.yesterdayMealSection,
+    periodSection,
+  });
+  const recentHistory = history.slice(-20);
+  const contents = [
+    { role: 'user', parts: [{ text: `SYSTEM CONTEXT:\n${systemText}\n\nAcknowledge.` }] },
+    { role: 'model', parts: [{ text: 'Understood. I will use local time, food, workouts, and period reviews when provided.' }] },
+    ...recentHistory.map((m) => ({
+      role: m.role === 'user' ? 'user' : 'model',
+      parts: [{ text: m.role === 'assistant' ? stripLeakedThinking(m.text) : m.text }],
+    })),
+    { role: 'user', parts: [{ text: blocks.userMessage }] },
+  ];
+
+  const raw = await fetchGeminiChat(contents);
+  if (!raw.trim()) return '';
+  return normalizeMentorChatText(stripLeakedThinking(raw.trim()));
+}
+
+export async function chatWithMentor(
+  mentor: MentorType,
+  message: string,
+  history: ChatMessage[],
+  ctx: CoachContext,
+  yesterdaySummary: string | null,
+): Promise<string> {
+  const scopedCtx: CoachContext = { ...ctx, mentors: [mentor] };
+  const text = await chatWithSingleMentor(mentor, message, history, scopedCtx, yesterdaySummary);
+  if (!text.trim()) return chatErrorMessage(ctx.lang);
+  return text;
+}
+
+/** @deprecated Use chatWithMentor for tabbed chat. */
+export async function chatWithMentors(
+  message: string,
+  history: ChatMessage[],
+  ctx: CoachContext,
+  yesterdaySummary: string | null,
+): Promise<MentorChatReply> {
+  const mentor = ctx.mentors[0] ?? 'coach';
+  const text = await chatWithMentor(mentor, message, history, ctx, yesterdaySummary);
+  return { text };
 }
 
 // ─── Summarise yesterday's chat ────────────────────────────────────────────────

@@ -4,7 +4,7 @@
  * FAQ quick questions open from the coach footer (or header when no coach message).
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -23,12 +23,15 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   type CoachMessage,
   type ChatMessage,
+  type Gender,
   type QuickQuestion,
   type MentorType,
   type UserLanguage,
   getCoachMessage,
   saveCoachMessage,
   getChatHistory,
+  getAllChatHistories,
+  hasAnyChatHistory,
   appendChatMessage,
   clearChatHistory,
   getYesterdaySummary,
@@ -37,9 +40,14 @@ import {
   saveQuickQuestions,
   getMacroTarget,
   getUserRules,
+  MENTOR_CHAT_TAB_ORDER,
 } from '../services/TargetService';
-import { chatWithMentors, summariseChatDay, isYesterdayQuery, type CoachContext } from '../services/GeminiService';
+import { chatWithMentor, summariseChatDay, isYesterdayQuery, type CoachContext } from '../services/GeminiService';
 import { runAutoChecksAndPersist, refreshCoachReview } from '../services/CoachService';
+import { exportMentorChat } from '../services/mentorChatExport';
+import { normalizeMentorChatText, buildMentorDisplaySegments, mentorBubbleColors, hasSeparateMentorVoices } from '../logic/mentorChatText';
+import type { MentorLines } from '../logic/mentorChatText';
+import { mentorPossessiveLabel, mentorsCollectiveLabel, MENTOR_EMOJI } from '../logic/mentorLabels';
 import { getTodayMeals, getMealsForDay, buildMealsAiContext, foodLogDayKey } from '../services/FoodLogService';
 import { WellnessColors } from '../theme/wellness';
 
@@ -114,14 +122,17 @@ function refreshBlockedMessage(waitHours: number, minGapHours: number, lang?: Us
   return `Reviews are limited to once every ${minGapHours}h. Try again in about ${waitHours}h.`;
 }
 
-function chatUiStrings(lang?: UserLanguage | null) {
+function chatUiStrings(context: CoachContext) {
+  const { lang, mentors, mentorGender, gender: userGender } = context;
+  const collective = mentorsCollectiveLabel(lang, mentorGender, userGender as Gender | null);
+  const rtl = lang?.code === 'he' || lang?.code === 'ar';
   if (lang?.code === 'he') {
     return {
-      header: '💬 המנטורים שלי',
-      placeholder: 'שאל/י את המנטורים…',
+      header: `💬 ${collective}`,
+      placeholder: `שאל/י את ${collective}…`,
       send: 'שלח',
-      empty: 'שאל/י את המנטורים על יעדים, ארוחות או התקדמות.',
-      thinking: 'המנטורים חושבים…',
+      empty: `שאל/י את ${collective} על יעדים, ארוחות או התקדמות.`,
+      thinking: `${collective} חושבים…`,
       faq: 'שאלות',
       refresh: '↻ רענן',
       refreshTitle: 'מרענן משימות…',
@@ -137,15 +148,54 @@ function chatUiStrings(lang?: UserLanguage | null) {
       faqNew: 'שאלה חדשה',
       expand: 'פתח',
       collapse: 'סגור',
+      exportChat: 'ייצוא',
+      exportEmptyTitle: 'אין מה לייצא',
+      exportEmptyMessage: 'אין משימות או הודעות שיחה להיום.',
+      exportDoneTitle: 'נשמר',
+      exportDoneMessage: 'קובץ HTML נשמר בתיקייה שבחרת — פתח/י בדפדפן לעברית נכונה.',
+      scrollTop: 'גלול למעלה',
+      scrollBottom: 'גלול למטה',
+      rtl,
+    };
+  }
+  if (lang?.code === 'ar') {
+    return {
+      header: `💬 ${collective}`,
+      placeholder: `اسأل ${collective}…`,
+      send: 'إرسال',
+      empty: `اسأل ${collective} عن أهدافك أو وجباتك أو تقدمك.`,
+      thinking: `${collective} يفكرون…`,
+      faq: 'أسئلة',
+      refresh: '↻ تحديث',
+      refreshTitle: 'جاري تحديث المهام…',
+      refreshBlockedTitle: 'مبكر للتحديث',
+      clearChat: 'مسح',
+      clearTitle: 'مسح محادثة اليوم؟',
+      clearMessage: 'ستُحذف جميع رسائل اليوم. المهام أعلاه تبقى.',
+      cancel: 'إلغاء',
+      faqTitle: 'أسئلة شائعة',
+      faqHint: 'حرّر سؤالاً، اضغط → للملء، ثم أرسل. تم = حفظ.',
+      faqAdd: '＋ إضافة سؤال',
+      faqDone: 'تم',
+      faqNew: 'سؤال جديد',
+      expand: 'فتح',
+      collapse: 'إغلاق',
+      exportChat: 'تصدير',
+      exportEmptyTitle: 'لا يوجد ما يُصدَّر',
+      exportEmptyMessage: 'لا مهام أو رسائل لليوم بعد.',
+      exportDoneTitle: 'تم الحفظ',
+      exportDoneMessage: 'تم حفظ HTML — افتح في المتصفح.',
+      scrollTop: 'الانتقال للأعلى',
+      scrollBottom: 'الانتقال للأسفل',
       rtl: true,
     };
   }
   return {
-    header: '💬 My Mentors',
-    placeholder: 'Ask your mentors…',
+    header: `💬 ${collective}`,
+    placeholder: `Ask ${collective.toLowerCase()}…`,
     send: 'Send',
-    empty: 'Ask your mentors anything about your health goals, meals, or progress.',
-    thinking: 'Mentors are thinking…',
+    empty: `Ask ${collective.toLowerCase()} anything about your health goals, meals, or progress.`,
+    thinking: `${collective} are thinking…`,
     faq: 'FAQ',
     refresh: '↻ Refresh',
     refreshTitle: 'Refreshing tasks…',
@@ -161,8 +211,51 @@ function chatUiStrings(lang?: UserLanguage | null) {
     faqNew: 'New question',
     expand: 'Expand',
     collapse: 'Collapse',
-    rtl: false,
+    exportChat: 'Export',
+    exportEmptyTitle: 'Nothing to export',
+    exportEmptyMessage: 'No action items or chat messages for today yet.',
+    exportDoneTitle: 'Saved',
+    exportDoneMessage: 'HTML file saved — open in a browser for proper layout.',
+    scrollTop: 'Scroll to top',
+    scrollBottom: 'Scroll to bottom',
+    rtl,
   };
+}
+
+function mentorTabStrings(mentor: MentorType, context: CoachContext) {
+  const label = mentorPossessiveLabel(
+    mentor,
+    context.lang,
+    context.mentorGender,
+    context.gender as Gender | null,
+  );
+  const code = context.lang?.code ?? 'en';
+  if (code === 'he') {
+    return {
+      placeholder: `שאל/י את ${label}…`,
+      empty: `שאל/י את ${label} על יעדים, ארוחות או התקדמות.`,
+      thinking: `${label} חושב/ת…`,
+      clearMessage: `כל הודעות ${label} להיום יימחקו. המשימות למעלה נשארות.`,
+    };
+  }
+  if (code === 'ar') {
+    return {
+      placeholder: `اسأل ${label}…`,
+      empty: `اسأل ${label} عن أهدافك أو وجباتك أو تقدمك.`,
+      thinking: `${label} يفكر…`,
+      clearMessage: `ستُحذف جميع رسائل ${label} لليوم. المهام أعلاه تبقى.`,
+    };
+  }
+  return {
+    placeholder: `Ask ${label}…`,
+    empty: `Ask ${label} about your goals, meals, or progress.`,
+    thinking: `${label} is thinking…`,
+    clearMessage: `All messages with ${label} today will be deleted. Action items above stay.`,
+  };
+}
+
+function orderedActiveMentors(mentors: MentorType[]): MentorType[] {
+  return MENTOR_CHAT_TAB_ORDER.filter((m) => mentors.includes(m));
 }
 
 function coachPanelSummary(msg: CoachMessage, lang?: UserLanguage | null): string {
@@ -179,25 +272,27 @@ function coachPanelSummary(msg: CoachMessage, lang?: UserLanguage | null): strin
 function CollapsibleCoachPanel({
   msg,
   lang,
+  mentorGender,
+  userGender,
+  activeMentors,
   ui,
   expanded,
-  hasChatHistory,
   refreshing,
   onToggleExpanded,
   onToggleItem,
   onRefreshCoach,
-  onClearChat,
 }: {
   msg: CoachMessage;
   lang?: UserLanguage | null;
+  mentorGender?: Gender | null;
+  userGender?: Gender | null;
+  activeMentors: MentorType[];
   ui: ReturnType<typeof chatUiStrings>;
   expanded: boolean;
-  hasChatHistory: boolean;
   refreshing: boolean;
   onToggleExpanded: () => void;
   onToggleItem: (itemId: string) => void;
   onRefreshCoach: () => void;
-  onClearChat: () => void;
 }) {
   const doneCount = msg.actionItems.filter((i) => i.done).length;
   const total = msg.actionItems.length;
@@ -213,8 +308,23 @@ function CollapsibleCoachPanel({
       </Pressable>
 
       {expanded ? (
-        <View style={styles.coachPanelBody}>
-          <Text style={[styles.coachBubbleText, ui.rtl && styles.rtlText]}>{msg.text}</Text>
+        <ScrollView
+          style={styles.coachPanelScroll}
+          contentContainerStyle={styles.coachPanelBody}
+          nestedScrollEnabled
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <MentorVoiceSegments
+            text={msg.text}
+            mentorLines={msg.mentorLines}
+            activeMentors={activeMentors}
+            lang={lang}
+            mentorGender={mentorGender}
+            userGender={userGender}
+            rtl={ui.rtl}
+            variant="coach"
+          />
           {msg.actionItems.length > 0 && (
             <View style={styles.actionItemsWrap}>
               <Text style={styles.actionItemsHeader}>
@@ -236,12 +346,12 @@ function CollapsibleCoachPanel({
               ))}
             </View>
           )}
-        </View>
+        </ScrollView>
       ) : null}
 
       <View style={styles.coachBubbleFooter}>
         <Pressable
-          style={styles.coachBubbleAction}
+          style={styles.coachBubbleActionFlex}
           onPress={onRefreshCoach}
           hitSlop={8}
           disabled={refreshing}
@@ -252,17 +362,64 @@ function CollapsibleCoachPanel({
             <Text style={styles.coachBubbleActionText}>{ui.refresh}</Text>
           )}
         </Pressable>
-        {hasChatHistory ? (
-          <Pressable style={styles.coachBubbleAction} onPress={onClearChat} hitSlop={8}>
-            <Text style={styles.coachBubbleClearText}>{ui.clearChat}</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.coachBubbleActionSpacer} />
-        )}
-        <Pressable style={styles.coachBubbleAction} onPress={onToggleExpanded} hitSlop={8}>
+        <Pressable style={styles.coachBubbleActionFlex} onPress={onToggleExpanded} hitSlop={8}>
           <Text style={styles.coachBubbleActionText}>{expanded ? ui.collapse : ui.expand}</Text>
         </Pressable>
       </View>
+    </View>
+  );
+}
+
+function MentorTabBar({
+  mentors,
+  active,
+  onSelect,
+  lang,
+  mentorGender,
+  userGender,
+  rtl,
+}: {
+  mentors: MentorType[];
+  active: MentorType;
+  onSelect: (m: MentorType) => void;
+  lang?: UserLanguage | null;
+  mentorGender?: Gender | null;
+  userGender?: Gender | null;
+  rtl?: boolean;
+}) {
+  const tabs = orderedActiveMentors(mentors);
+  if (tabs.length === 0) return null;
+
+  return (
+    <View style={styles.tabBarPinned}>
+      {tabs.map((m, index) => {
+        const selected = m === active;
+        const colors = mentorBubbleColors(m);
+        return (
+          <Pressable
+            key={m}
+            style={[
+              styles.tabBtnPinned,
+              index > 0 && styles.tabBtnPinnedGap,
+              selected && {
+                backgroundColor: colors.backgroundColor,
+                borderColor: colors.borderColor,
+              },
+            ]}
+            onPress={() => onSelect(m)}
+            disabled={tabs.length === 1}
+          >
+            <Text
+              style={[styles.tabBtnText, selected && styles.tabBtnTextActive, rtl && styles.rtlText]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+            >
+              {`${MENTOR_EMOJI[m]} ${mentorPossessiveLabel(m, lang, mentorGender, userGender)}`}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -406,16 +563,103 @@ function FaqModal({
   );
 }
 
+function MentorVoiceSegments({
+  text,
+  mentorLines,
+  activeMentors,
+  lang,
+  mentorGender,
+  userGender,
+  rtl,
+  variant,
+}: {
+  text: string;
+  mentorLines?: MentorLines;
+  activeMentors: MentorType[];
+  lang?: UserLanguage | null;
+  mentorGender?: Gender | null;
+  userGender?: Gender | null;
+  rtl?: boolean;
+  variant: 'chat' | 'coach';
+}) {
+  const segments = buildMentorDisplaySegments(text, mentorLines, activeMentors);
+  const multiVoice = hasSeparateMentorVoices(text, mentorLines, activeMentors);
+  const textStyle = variant === 'chat' ? styles.msgTextAI : styles.coachBubbleText;
+  const labelStyle = variant === 'chat' ? styles.mentorSegmentLabel : styles.mentorSegmentLabelCoach;
+
+  if (!multiVoice) {
+    return (
+      <Text style={[textStyle, rtl && styles.rtlText]}>
+        {segments[0]?.text ?? normalizeMentorChatText(text)}
+      </Text>
+    );
+  }
+
+  return (
+    <View style={variant === 'chat' ? styles.mentorVoiceStack : undefined}>
+      {segments.map((seg, i) => {
+        const colors = mentorBubbleColors(seg.mentor);
+        const cardStyle = variant === 'chat' ? styles.msgBubble : styles.coachSegmentCard;
+        return (
+          <View
+            key={`seg-${i}`}
+            style={[
+              cardStyle,
+              {
+                backgroundColor: colors.backgroundColor,
+                borderColor: colors.borderColor,
+                borderWidth: 1,
+              },
+              variant === 'chat' && styles.msgBubbleAI,
+            ]}
+          >
+            {seg.mentor ? (
+              <Text style={[labelStyle, rtl && styles.rtlText]}>
+                {`${seg.emoji ?? ''} ${mentorPossessiveLabel(seg.mentor, lang, mentorGender, userGender)}`.trim()}
+              </Text>
+            ) : null}
+            <Text style={[textStyle, rtl && styles.rtlText]}>{seg.text}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 // ─── Message bubble ───────────────────────────────────────────────────────────
 
-function MessageBubble({ msg }: { msg: ChatMessage }) {
+function MessageBubble({
+  msg,
+  mentor,
+  rtl,
+}: {
+  msg: ChatMessage;
+  mentor: MentorType;
+  rtl?: boolean;
+}) {
   const isUser = msg.role === 'user';
+  const colors = mentorBubbleColors(mentor);
+
+  if (isUser) {
+    return (
+      <View style={[styles.msgWrap, styles.msgWrapUser]}>
+        <View style={[styles.msgBubble, styles.msgBubbleUser]}>
+          <Text style={[styles.msgText, styles.msgTextUser, rtl && styles.rtlText]}>{msg.text}</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.msgWrap, isUser ? styles.msgWrapUser : styles.msgWrapAI]}>
-      <View style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAI]}>
-        <Text style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAI]}>
-          {msg.text}
-        </Text>
+    <View style={[styles.msgWrap, styles.msgWrapAI]}>
+      <View
+        style={[
+          styles.msgBubble,
+          styles.msgBubbleAI,
+          { backgroundColor: colors.backgroundColor, borderColor: colors.borderColor },
+        ]}
+      >
+        <Text style={[styles.msgTextAI, rtl && styles.rtlText]}>{msg.text}</Text>
       </View>
     </View>
   );
@@ -425,6 +669,8 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
 
 export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }: Props) {
   const insets = useSafeAreaInsets();
+  const mentorTabs = useMemo(() => orderedActiveMentors(context.mentors), [context.mentors]);
+  const [activeMentor, setActiveMentor] = useState<MentorType>(mentorTabs[0] ?? 'coach');
   const [coachMsg, setCoachMsg] = useState<CoachMessage | null>(null);
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [questions, setQuestions] = useState<QuickQuestion[]>([]);
@@ -433,20 +679,36 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
   const [faqVisible, setFaqVisible] = useState(false);
   const [coachExpanded, setCoachExpanded] = useState(false);
   const [refreshingCoach, setRefreshingCoach] = useState(false);
+  const [anyChatHistory, setAnyChatHistory] = useState(false);
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
   const mentorEmojis = context.mentors
-    .map((m) => ({ doctor: '🩺', nutritionist: '🥗', coach: '💪' }[m] ?? ''))
+    .map((m) => MENTOR_EMOJI[m] ?? '')
     .join('');
-  const ui = chatUiStrings(context.lang);
+  const ui = chatUiStrings(context);
+  const tabUi = mentorTabStrings(activeMentor, context);
+
+  useEffect(() => {
+    if (mentorTabs.length > 0 && !mentorTabs.includes(activeMentor)) {
+      setActiveMentor(mentorTabs[0]!);
+    }
+  }, [mentorTabs, activeMentor]);
+
+  const loadHistoryForMentor = useCallback(async (mentor: MentorType) => {
+    const h = await getChatHistory(todayKey(), mentor);
+    setHistory(h);
+    return h;
+  }, []);
+
+  const refreshAnyChatFlag = useCallback(async () => {
+    setAnyChatHistory(await hasAnyChatHistory(todayKey(), context.mentors));
+  }, [context.mentors]);
 
   const loadData = useCallback(async () => {
     const today = todayKey();
     const yesterday = yesterdayKey();
 
-    // Load today's chat history
-    const h = await getChatHistory(today);
-    setHistory(h);
+    await refreshAnyChatFlag();
 
     // Load coach message and run auto-checks
     const msg = await getCoachMessage();
@@ -476,7 +738,8 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
     // Yesterday summary: generate on first open of a new day if needed
     const existingSummary = await getYesterdaySummary();
     if (!existingSummary) {
-      const yesterdayHistory = await getChatHistory(yesterday);
+      const yesterdayHistories = await getAllChatHistories(yesterday, context.mentors);
+      const yesterdayHistory = Object.values(yesterdayHistories).flat();
       if (yesterdayHistory.length > 0) {
         try {
           const summary = await summariseChatDay(yesterdayHistory);
@@ -486,7 +749,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
         }
       }
     }
-  }, [context, onCoachMessageUpdated]);
+  }, [context, onCoachMessageUpdated, refreshAnyChatFlag]);
 
   useEffect(() => {
     if (visible) {
@@ -494,11 +757,16 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
     }
   }, [visible, loadData]);
 
-  /** Collapsed when resuming chat; expanded on first open with no messages yet. */
   useEffect(() => {
     if (!visible) return;
-    setCoachExpanded(history.length === 0);
-  }, [visible, history.length]);
+    void loadHistoryForMentor(activeMentor);
+  }, [visible, activeMentor, loadHistoryForMentor]);
+
+  /** Coach panel starts collapsed so bottom tabs/input stay visible. */
+  useEffect(() => {
+    if (!visible) return;
+    setCoachExpanded(false);
+  }, [visible]);
 
   /** Chat opens at latest message when there is history. */
   useEffect(() => {
@@ -513,19 +781,55 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, []);
 
+  const scrollToTop = useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
+
+  const canScrollChat = history.length > 0 || coachMsg != null;
+  const canClearChat = history.length > 0;
+  const canExportChat = anyChatHistory || coachMsg != null;
+
   const handleClearChat = useCallback(() => {
-    Alert.alert(ui.clearTitle, ui.clearMessage, [
+    Alert.alert(ui.clearTitle, tabUi.clearMessage, [
       { text: ui.cancel, style: 'cancel' },
       {
         text: ui.clearChat,
         style: 'destructive',
         onPress: async () => {
-          await clearChatHistory(todayKey());
+          await clearChatHistory(todayKey(), context.mentors, activeMentor);
           setHistory([]);
+          await refreshAnyChatFlag();
         },
       },
     ]);
-  }, [ui]);
+  }, [ui, tabUi.clearMessage, context.mentors, activeMentor, refreshAnyChatFlag]);
+
+  const handleExportChat = useCallback(async () => {
+    const historyByMentor = await getAllChatHistories(todayKey(), context.mentors);
+    const hasHistory = Object.values(historyByMentor).some((h) => (h?.length ?? 0) > 0);
+    if (!coachMsg && !hasHistory) {
+      Alert.alert(ui.exportEmptyTitle, ui.exportEmptyMessage);
+      return;
+    }
+    try {
+      const saved = await exportMentorChat({
+        dayKey: todayKey(),
+        mentors: context.mentors,
+        coachMsg,
+        historyByMentor,
+        lang: context.lang,
+        mentorGender: context.mentorGender,
+      });
+      if (saved) {
+        Alert.alert(ui.exportDoneTitle, ui.exportDoneMessage);
+      }
+    } catch (err) {
+      Alert.alert(
+        ui.exportEmptyTitle,
+        err instanceof Error ? err.message : 'Export failed',
+      );
+    }
+  }, [coachMsg, context.mentors, context.lang, context.mentorGender, ui]);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -536,14 +840,15 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
       const userMsg: ChatMessage = { role: 'user', text: trimmed, sentAt: new Date().toISOString() };
 
       setHistory((prev) => [...prev, userMsg]);
-      await appendChatMessage(today, userMsg);
+      await appendChatMessage(today, activeMentor, userMsg);
+      setAnyChatHistory(true);
       setInputText('');
       setSending(true);
       scrollToBottom();
 
       try {
         const yesterdaySummary = await getYesterdaySummary();
-        const currentHistory = await getChatHistory(today);
+        const currentHistory = await getChatHistory(today, activeMentor);
 
         // Fresh meal log on every send — avoids stale dashboard context
         const meals = await getTodayMeals();
@@ -571,15 +876,20 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
           trimmed,
         );
 
-        const replyText = await chatWithMentors(
+        const replyText = await chatWithMentor(
+          activeMentor,
           trimmed,
           currentHistory.slice(0, -1),
           freshContext,
           yesterdaySummary,
         );
-        const aiMsg: ChatMessage = { role: 'assistant', text: replyText, sentAt: new Date().toISOString() };
+        const aiMsg: ChatMessage = {
+          role: 'assistant',
+          text: replyText,
+          sentAt: new Date().toISOString(),
+        };
         setHistory((prev) => [...prev, aiMsg]);
-        await appendChatMessage(today, aiMsg);
+        await appendChatMessage(today, activeMentor, aiMsg);
         scrollToBottom();
       } catch (err) {
         const errMsg: ChatMessage = {
@@ -592,7 +902,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
         setSending(false);
       }
     },
-    [sending, context, scrollToBottom]
+    [sending, context, activeMentor, scrollToBottom]
   );
 
   const handleToggleActionItem = useCallback(
@@ -665,7 +975,6 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
         return;
       }
       setCoachMsg(result.message);
-      setCoachExpanded(true);
       onCoachMessageUpdated?.(result.message);
     } catch (err) {
       Alert.alert(
@@ -698,75 +1007,133 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
       </View>
 
       <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={[styles.flex, styles.minHeight0]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
       >
-        {coachMsg ? (
-          <CollapsibleCoachPanel
-            msg={coachMsg}
-            lang={context.lang}
-            ui={ui}
-            expanded={coachExpanded}
-            hasChatHistory={history.length > 0}
-            refreshing={refreshingCoach}
-            onToggleExpanded={() => setCoachExpanded((v) => !v)}
-            onToggleItem={handleToggleActionItem}
-            onRefreshCoach={handleRefreshCoach}
-            onClearChat={handleClearChat}
+        <View style={[styles.flex, styles.minHeight0]}>
+          <FlatList
+            ref={listRef}
+            style={[styles.chatList, styles.minHeight0]}
+            data={history}
+            keyExtractor={(_, index) => `msg-${index}`}
+            ListHeaderComponent={
+              coachMsg ? (
+                <CollapsibleCoachPanel
+                  msg={coachMsg}
+                  lang={context.lang}
+                  mentorGender={context.mentorGender}
+                  userGender={context.gender as Gender | null}
+                  activeMentors={context.mentors}
+                  ui={ui}
+                  expanded={coachExpanded}
+                  refreshing={refreshingCoach}
+                  onToggleExpanded={() => setCoachExpanded((v) => !v)}
+                  onToggleItem={handleToggleActionItem}
+                  onRefreshCoach={handleRefreshCoach}
+                />
+              ) : null
+            }
+            renderItem={({ item }) => (
+              <MessageBubble msg={item} mentor={activeMentor} rtl={ui.rtl} />
+            )}
+            contentContainerStyle={styles.messageList}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={
+              <Text style={[styles.emptyText, ui.rtl && styles.rtlText]}>{tabUi.empty}</Text>
+            }
           />
-        ) : null}
 
-        <FlatList
-          ref={listRef}
-          style={styles.chatList}
-          data={history}
-          keyExtractor={(_, index) => `msg-${index}`}
-          renderItem={({ item }) => <MessageBubble msg={item} />}
-          contentContainerStyle={styles.messageList}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            <Text style={[styles.emptyText, ui.rtl && styles.rtlText]}>{ui.empty}</Text>
-          }
-        />
+          <View style={styles.bottomChrome}>
+            {sending ? (
+              <View style={styles.sendingRow}>
+                <ActivityIndicator size="small" color={WellnessColors.accentBlue} />
+                <Text style={styles.sendingText}>{tabUi.thinking}</Text>
+              </View>
+            ) : null}
 
-        {/* Sending indicator */}
-        {sending && (
-          <View style={styles.sendingRow}>
-            <ActivityIndicator size="small" color={WellnessColors.accentBlue} />
-            <Text style={styles.sendingText}>{ui.thinking}</Text>
-          </View>
-        )}
-
-        {/* Bottom input — pad above system nav bar (Modal often reports inset 0) */}
-        <View style={[styles.inputArea, { paddingBottom: chatBottomInset(insets.bottom) }]}>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={[styles.textInput, ui.rtl && styles.rtlInput]}
-              value={inputText}
-              onChangeText={setInputText}
-              placeholder={ui.placeholder}
-              placeholderTextColor={WellnessColors.textSecondary}
-              multiline
-              maxLength={500}
-              returnKeyType="default"
-              textAlign={ui.rtl ? 'right' : 'left'}
+            <MentorTabBar
+              mentors={context.mentors}
+              active={activeMentor}
+              onSelect={setActiveMentor}
+              lang={context.lang}
+              mentorGender={context.mentorGender}
+              userGender={context.gender as Gender | null}
+              rtl={ui.rtl}
             />
-            <Pressable
-              style={[styles.sendBtn, (!inputText.trim() || sending) && styles.sendBtnDisabled]}
-              onPress={() => sendMessage(inputText)}
-              disabled={!inputText.trim() || sending}
-            >
-              <Text style={styles.sendBtnText}>{ui.send}</Text>
-            </Pressable>
+
+            <View style={[styles.inputArea, { paddingBottom: chatBottomInset(insets.bottom) }]}>
+              <TextInput
+                style={[styles.textInput, ui.rtl && styles.rtlInput]}
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder={tabUi.placeholder}
+                placeholderTextColor={WellnessColors.textSecondary}
+                multiline
+                maxLength={500}
+                returnKeyType="default"
+                textAlign={ui.rtl ? 'right' : 'left'}
+              />
+              <View style={[styles.inputToolbar, ui.rtl && styles.inputToolbarRtl]}>
+                <View style={styles.inputToolbarActions}>
+                  <Pressable
+                    style={[styles.scrollBtn, !canScrollChat && styles.toolbarBtnDisabled]}
+                    onPress={scrollToTop}
+                    disabled={!canScrollChat}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={ui.scrollTop}
+                  >
+                    <Text style={styles.scrollBtnText}>↑</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.scrollBtn, !canScrollChat && styles.toolbarBtnDisabled]}
+                    onPress={scrollToBottom}
+                    disabled={!canScrollChat}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={ui.scrollBottom}
+                  >
+                    <Text style={styles.scrollBtnText}>↓</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.clearBtn, !canClearChat && styles.toolbarBtnDisabled]}
+                    onPress={handleClearChat}
+                    disabled={!canClearChat}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={ui.clearChat}
+                  >
+                    <Text style={[styles.clearBtnText, ui.rtl && styles.rtlText]}>{ui.clearChat}</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.exportBtn, !canExportChat && styles.toolbarBtnDisabled]}
+                    onPress={() => void handleExportChat()}
+                    disabled={!canExportChat}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={ui.exportChat}
+                  >
+                    <Text style={styles.exportBtnIcon}>↗</Text>
+                  </Pressable>
+                </View>
+                <Pressable
+                  style={[styles.sendBtn, (!inputText.trim() || sending) && styles.sendBtnDisabled]}
+                  onPress={() => sendMessage(inputText)}
+                  disabled={!inputText.trim() || sending}
+                >
+                  <Text style={styles.sendBtnText}>{ui.send}</Text>
+                </Pressable>
+              </View>
+              <QuickQuestionBar
+                questions={questions}
+                ui={ui}
+                onPick={pickQuestion}
+                onEdit={() => setFaqVisible(true)}
+              />
+            </View>
           </View>
-          <QuickQuestionBar
-            questions={questions}
-            ui={ui}
-            onPick={pickQuestion}
-            onEdit={() => setFaqVisible(true)}
-          />
         </View>
       </KeyboardAvoidingView>
 
@@ -788,6 +1155,7 @@ const styles = StyleSheet.create({
     backgroundColor: WellnessColors.background,
   },
   flex: { flex: 1 },
+  minHeight0: { minHeight: 0 },
 
   // Header
   header: {
@@ -810,7 +1178,7 @@ const styles = StyleSheet.create({
   },
 
   // Message list
-  chatList: { flex: 1 },
+  chatList: { flex: 1, minHeight: 0 },
   messageList: {
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -828,7 +1196,7 @@ const styles = StyleSheet.create({
   rtlText: { writingDirection: 'rtl' },
   rtlInput: { writingDirection: 'rtl' },
 
-  // Coach panel (pinned above chat)
+  // Coach panel (scrolls with chat via FlatList header)
   coachPanel: {
     backgroundColor: '#EAF4FB',
     borderBottomWidth: 1,
@@ -836,6 +1204,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: 8,
+    marginBottom: 8,
   },
   coachPanelHeader: {
     flexDirection: 'row',
@@ -858,11 +1227,27 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     paddingBottom: 4,
   },
+  coachPanelScroll: {
+    maxHeight: 220,
+  },
   coachBubbleText: {
     fontSize: 14,
     lineHeight: 21,
     color: WellnessColors.textPrimary,
     fontWeight: '500',
+  },
+  mentorSegmentGap: { marginTop: 10 },
+  mentorSegmentLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WellnessColors.accentBlue,
+    marginBottom: 4,
+  },
+  mentorSegmentLabelCoach: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2E7D5A',
+    marginBottom: 4,
   },
   actionItemsWrap: {
     marginTop: 12,
@@ -895,9 +1280,14 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#B3D9F0',
+    gap: 4,
   },
-  coachBubbleAction: { paddingVertical: 4, paddingHorizontal: 2, minWidth: 52 },
-  coachBubbleActionSpacer: { minWidth: 52 },
+  coachBubbleActionFlex: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
   coachBubbleActionText: {
     fontSize: 13,
     fontWeight: '700',
@@ -909,10 +1299,45 @@ const styles = StyleSheet.create({
     color: WellnessColors.textSecondary,
   },
 
+  tabBarPinned: {
+    flexDirection: 'row',
+    backgroundColor: WellnessColors.surface,
+    paddingHorizontal: 10,
+    paddingTop: 8,
+    paddingBottom: 6,
+  },
+  tabBtnPinned: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: WellnessColors.gridLine,
+    backgroundColor: WellnessColors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 46,
+  },
+  tabBtnPinnedGap: {
+    marginLeft: 8,
+  },
+  tabBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: WellnessColors.textSecondary,
+  },
+  tabBtnTextActive: {
+    color: WellnessColors.textPrimary,
+    fontWeight: '700',
+  },
+
   // Chat bubbles
   msgWrap: { marginBottom: 8, flexDirection: 'row' },
   msgWrapUser: { justifyContent: 'flex-end' },
   msgWrapAI: { justifyContent: 'flex-start' },
+  mentorVoiceStackWrap: { flexDirection: 'column', alignItems: 'flex-start', maxWidth: '85%' },
+  mentorVoiceStack: { gap: 6, width: '100%' },
+  coachSegmentCard: { borderRadius: 10, padding: 10, marginBottom: 6 },
   msgBubble: { maxWidth: '80%', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
   msgBubbleUser: { backgroundColor: WellnessColors.accentBlue, borderBottomRightRadius: 4 },
   msgBubbleAI: { backgroundColor: WellnessColors.surface, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: WellnessColors.gridLine },
@@ -930,12 +1355,23 @@ const styles = StyleSheet.create({
   },
   sendingText: { fontSize: 12, color: WellnessColors.textSecondary },
 
-  // Input area
-  inputArea: {
+  bottomChrome: {
+    flexShrink: 0,
+    backgroundColor: WellnessColors.surface,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: WellnessColors.gridLine,
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    zIndex: 10,
+  },
+
+  // Input area
+  inputArea: {
     backgroundColor: WellnessColors.surface,
-    paddingTop: 10,
+    paddingTop: 6,
   },
 
   // FAQ modal
@@ -1011,17 +1447,12 @@ const styles = StyleSheet.create({
   },
   faqDoneBtnText: { fontSize: 15, fontWeight: '700', color: WellnessColors.textPrimary },
 
-  // Text input row
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 12,
-    gap: 8,
-  },
+  // Text input + toolbar
   textInput: {
-    flex: 1,
     minHeight: 40,
     maxHeight: 100,
+    marginHorizontal: 12,
+    marginBottom: 8,
     backgroundColor: WellnessColors.background,
     borderRadius: 20,
     borderWidth: 1,
@@ -1031,13 +1462,83 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: WellnessColors.textPrimary,
   },
+  inputToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingBottom: 4,
+    gap: 6,
+  },
+  inputToolbarRtl: {
+    flexDirection: 'row-reverse',
+  },
+  inputToolbarActions: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    gap: 5,
+    minWidth: 0,
+  },
+  scrollBtn: {
+    width: 36,
+    height: 40,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+    backgroundColor: WellnessColors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toolbarBtnDisabled: { opacity: 0.4 },
+  scrollBtnText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: WellnessColors.accentBlue,
+    lineHeight: 22,
+  },
+  clearBtn: {
+    height: 40,
+    paddingHorizontal: 8,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#EF9A9A',
+    backgroundColor: '#FCEEF0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  clearBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WellnessColors.accentRed,
+  },
+  exportBtn: {
+    width: 36,
+    height: 40,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#42A5F5',
+    backgroundColor: '#E3F2FD',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  exportBtnIcon: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: WellnessColors.accentBlue,
+    lineHeight: 20,
+  },
   sendBtn: {
     backgroundColor: WellnessColors.accentBlue,
     borderRadius: 20,
-    paddingHorizontal: 18,
+    paddingHorizontal: 14,
     paddingVertical: 10,
+    minHeight: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   sendBtnDisabled: { opacity: 0.5 },
   sendBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },

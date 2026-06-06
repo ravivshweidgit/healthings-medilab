@@ -47,11 +47,12 @@ import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportWithSessions } from '../services/careSensCsv';
 import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getDailyMacros, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
 import { buildGlucoseMentorContext } from '../logic/mealGlucoseAnalysis';
+import { mentorsCollectiveLabel } from '../logic/mentorLabels';
 import {
   getBirthdate, setBirthdate, computeAge, getCachedHeightCm,
   setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors,
   getUserRules, getMacroTarget, getBodyTarget, getCoachMessage, saveCoachMessage, clearCoachMessage,
-  getLanguage, setLanguage, SUPPORTED_LANGUAGES, resetQuickQuestionsForLanguage,
+  getLanguage, setLanguage, getMentorGender, SUPPORTED_LANGUAGES, resetQuickQuestionsForLanguage,
   type Gender, type MentorType, type UserRules, type DailyMacroTarget, type BodyTarget, type CoachMessage, type UserLanguage,
 } from '../services/TargetService';
 import { type CoachContext } from '../services/GeminiService';
@@ -199,6 +200,8 @@ export const DashboardScreen = () => {
   const [macroExpanded, setMacroExpanded] = useState(false);
   const [birthdatePicker, setBirthdatePicker] = useState<Date>(new Date(1980, 0, 1));
   const [genderPicker, setGenderPicker] = useState<Gender>('male');
+  const [mentorGenderPicker, setMentorGenderPicker] = useState<Gender>('female');
+  const [userMentorGender, setUserMentorGender] = useState<Gender | null>(null);
   const [showDatePickerDialog, setShowDatePickerDialog] = useState(false);
   const [heightInput, setHeightInput] = useState('');
 
@@ -222,8 +225,15 @@ export const DashboardScreen = () => {
     if (fromWithings) { setHeightCm(fromWithings); setHeightInput(String(fromWithings)); }
 
     // Show modal if gender or birthdate not yet stored.
-    const [storedBd, gd] = await Promise.all([getBirthdate(), getGender()]);
+    const [storedBd, gd, mgd] = await Promise.all([getBirthdate(), getGender(), getMentorGender()]);
     if (gd) setUserGender(gd);
+    if (gd === 'male' || gd === 'female') setGenderPicker(gd);
+    if (mgd) {
+      setUserMentorGender(mgd);
+      if (mgd === 'male' || mgd === 'female') setMentorGenderPicker(mgd);
+    } else if (gd === 'male' || gd === 'female') {
+      setMentorGenderPicker(gd);
+    }
     if (storedBd) { const d = new Date(storedBd); if (!isNaN(d.getTime())) setBirthdatePicker(d); }
     if (!gd || !storedBd) setProfileExpanded(true);
 
@@ -454,6 +464,7 @@ export const DashboardScreen = () => {
       mentors,
       event: 'meal', // default; overridden in trigger calls
       lang: userLanguage,
+      mentorGender: userMentorGender ?? mentorGenderPicker,
       age: userAge,
       gender: userGender,
       heightCm,
@@ -480,7 +491,7 @@ export const DashboardScreen = () => {
     coachContextRef.current = ctx;
     return ctx;
   }, [
-    mentors, userAge, userGender, heightCm, bodyScan, fatPct, bodyTargetForMacros,
+    mentors, userAge, userGender, userMentorGender, mentorGenderPicker, heightCm, bodyScan, fatPct, bodyTargetForMacros,
     todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, mealGlucoseContext, glucoseData, macroTarget, userRules, userLanguage,
   ]);
 
@@ -846,7 +857,7 @@ export const DashboardScreen = () => {
             onPress={() => setChatVisible(true)}
           >
             <Text style={styles.nudgeStripText}>
-              💬 Mentors · {coachMsg.actionItems.filter((i) => i.done).length} of {coachMsg.actionItems.length} done
+              💬 {mentorsCollectiveLabel(userLanguage, userMentorGender ?? mentorGenderPicker, userGender)} · {coachMsg.actionItems.filter((i) => i.done).length} of {coachMsg.actionItems.length} done
             </Text>
             <Text style={styles.nudgeOpenText}>Open →</Text>
           </Pressable>
@@ -1272,6 +1283,13 @@ export const DashboardScreen = () => {
             onChanged={async (m) => { setMentorsState(m); await saveMentors(m); }}
             expanded={mentorExpanded}
             onToggleExpand={() => setMentorExpanded((e) => !e)}
+            lang={userLanguage}
+            mentorGender={userMentorGender ?? mentorGenderPicker}
+            onMentorGenderChange={(g) => {
+              setMentorGenderPicker(g);
+              setUserMentorGender(g);
+            }}
+            userGender={userGender}
           />
 
           <View style={styles.groupDivider} />

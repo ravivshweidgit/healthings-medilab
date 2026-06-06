@@ -6,19 +6,60 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { type MentorType, type MentorFrequency, getMentorFrequency, saveMentorFrequency } from '../services/TargetService';
+import {
+  type Gender,
+  type MentorFrequency,
+  type MentorType,
+  type UserLanguage,
+  getMentorFrequency,
+  saveMentorFrequency,
+  setMentorGender,
+} from '../services/TargetService';
+import {
+  MENTOR_EMOJI,
+  formatActiveMentorsHeader,
+  mentorCardSubtitle,
+  mentorPossessiveLabel,
+  mentorsStripTitle,
+} from '../logic/mentorLabels';
 import { WellnessColors } from '../theme/wellness';
 
-const MENTORS: { type: MentorType; emoji: string; label: string; sub: string }[] = [
-  { type: 'doctor',       emoji: '🩺', label: 'Doctor',       sub: 'health & safety'  },
-  { type: 'nutritionist', emoji: '🥗', label: 'Nutritionist', sub: 'food quality'      },
-  { type: 'coach',        emoji: '💪', label: 'Coach',        sub: 'body composition'  },
-];
+const MENTOR_TYPES: MentorType[] = ['doctor', 'nutritionist', 'coach'];
 
-function minGapLabel(hours: number): string {
+function minGapLabel(hours: number, lang?: UserLanguage | null): string {
+  if (lang?.code === 'he') {
+    if (hours === 0) return 'ללא מרווח מינימלי — רענון בכל עת';
+    if (hours === 1) return 'שעה מינימום בין סקירות';
+    return `${hours} שעות מינימום בין סקירות`;
+  }
   if (hours === 0) return 'No minimum gap — refresh anytime';
   if (hours === 1) return '1 hour minimum between reviews';
   return `${hours} hours minimum between reviews`;
+}
+
+function voiceUi(lang?: UserLanguage | null) {
+  if (lang?.code === 'he') {
+    return {
+      title: 'קול המנטור',
+      hint: 'הרופא/ה שלי, התזונאי/ת שלי — זכר או נקבה',
+      male: 'זכר',
+      female: 'נקבה',
+    };
+  }
+  if (lang?.code === 'ar') {
+    return {
+      title: 'صوت المرشد',
+      hint: 'طبيبي / أخصائية التغذية — ذكر أو أنثى',
+      male: 'ذكر',
+      female: 'أنثى',
+    };
+  }
+  return {
+    title: 'Mentor voice',
+    hint: 'My doctor / My nutritionist — male or female titles',
+    male: 'Male',
+    female: 'Female',
+  };
 }
 
 type Props = {
@@ -26,9 +67,22 @@ type Props = {
   onChanged: (mentors: MentorType[]) => void;
   expanded: boolean;
   onToggleExpand: () => void;
+  lang?: UserLanguage | null;
+  mentorGender: Gender;
+  onMentorGenderChange: (gender: Gender) => void;
+  userGender?: Gender | null;
 };
 
-export function MentorStrip({ mentors, onChanged, expanded, onToggleExpand }: Props) {
+export function MentorStrip({
+  mentors,
+  onChanged,
+  expanded,
+  onToggleExpand,
+  lang,
+  mentorGender,
+  onMentorGenderChange,
+  userGender,
+}: Props) {
   const [hint, setHint] = useState(false);
   const [freq, setFreq] = useState<MentorFrequency>({ afterEachMeal: true, minGapHours: 4 });
 
@@ -51,16 +105,29 @@ export function MentorStrip({ mentors, onChanged, expanded, onToggleExpand }: Pr
     }
   };
 
-  const headerSub = mentors
-    .map((m) => { const f = MENTORS.find((x) => x.type === m); return f ? `${f.emoji} ${f.label}` : ''; })
-    .join(' · ');
+  const headerSub = formatActiveMentorsHeader(mentors, lang, mentorGender, userGender);
+  const stripTitle = mentorsStripTitle(lang);
+  const selectHint =
+    lang?.code === 'he' ? 'בחר/י יועצים (לפחות אחד)' : 'Select your AI advisors (at least one)';
+  const reviewAfterMeal =
+    lang?.code === 'he' ? 'סקירה אחרי כל ארוחה' : 'Review after each meal';
+  const gapSliderLabel =
+    lang?.code === 'he' ? 'מרווח מינימום בין סקירות (0–6 שעות)' : 'Minimum gap between reviews (0–6h)';
+  const hintRequired =
+    lang?.code === 'he' ? 'נדרש לפחות מנטור אחד' : 'At least one mentor is required';
+  const voice = voiceUi(lang);
+
+  const pickVoice = async (g: Gender) => {
+    onMentorGenderChange(g);
+    await setMentorGender(g);
+  };
 
   return (
     <View style={styles.wrap}>
       <Pressable style={styles.headerRow} onPress={onToggleExpand}>
         <Text style={styles.headerIcon}>🧑‍⚕️</Text>
         <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>My Mentors</Text>
+          <Text style={styles.headerTitle}>{stripTitle}</Text>
           <Text style={styles.headerSub}>{headerSub}</Text>
         </View>
         <Text style={styles.chevron}>{expanded ? '⌃' : '›'}</Text>
@@ -68,10 +135,13 @@ export function MentorStrip({ mentors, onChanged, expanded, onToggleExpand }: Pr
 
       {expanded && (
         <View style={styles.body}>
-          <Text style={styles.bodyHint}>Select your AI advisors (at least one)</Text>
+          <Text style={styles.bodyHint}>{selectHint}</Text>
           <View style={styles.cardsRow}>
-            {MENTORS.map(({ type, emoji, label, sub }) => {
+            {MENTOR_TYPES.map((type) => {
               const selected = mentors.includes(type);
+              const emoji = MENTOR_EMOJI[type];
+              const label = mentorPossessiveLabel(type, lang, mentorGender, userGender);
+              const sub = mentorCardSubtitle(type, lang);
               return (
                 <Pressable
                   key={type}
@@ -85,13 +155,30 @@ export function MentorStrip({ mentors, onChanged, expanded, onToggleExpand }: Pr
               );
             })}
           </View>
-          {hint && <Text style={styles.hintText}>At least one mentor is required</Text>}
+          {hint && <Text style={styles.hintText}>{hintRequired}</Text>}
 
-          {/* Frequency controls */}
+          <View style={styles.voiceSection}>
+            <Text style={styles.freqToggleLabel}>{voice.title}</Text>
+            <Text style={styles.voiceHint}>{voice.hint}</Text>
+            <View style={styles.voiceRow}>
+              {(['male', 'female'] as Gender[]).map((g) => (
+                <Pressable
+                  key={g}
+                  style={[styles.voiceBtn, mentorGender === g && styles.voiceBtnSelected]}
+                  onPress={() => void pickVoice(g)}
+                >
+                  <Text style={[styles.voiceBtnText, mentorGender === g && styles.voiceBtnTextSelected]}>
+                    {g === 'male' ? voice.male : voice.female}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
           <View style={styles.freqSection}>
             <View style={styles.freqToggleRow}>
               <View style={styles.freqToggleInfo}>
-                <Text style={styles.freqToggleLabel}>Review after each meal</Text>
+                <Text style={styles.freqToggleLabel}>{reviewAfterMeal}</Text>
               </View>
               <Switch
                 value={freq.afterEachMeal}
@@ -100,7 +187,7 @@ export function MentorStrip({ mentors, onChanged, expanded, onToggleExpand }: Pr
                 thumbColor={freq.afterEachMeal ? '#fff' : '#f4f3f4'}
               />
             </View>
-            <Text style={styles.freqSliderLabel}>Minimum gap between reviews (0–6h)</Text>
+            <Text style={styles.freqSliderLabel}>{gapSliderLabel}</Text>
             <Slider
               style={styles.slider}
               minimumValue={0}
@@ -113,7 +200,7 @@ export function MentorStrip({ mentors, onChanged, expanded, onToggleExpand }: Pr
               maximumTrackTintColor={WellnessColors.gridLine}
               thumbTintColor={WellnessColors.accentBlue}
             />
-            <Text style={styles.freqSliderValue}>{minGapLabel(freq.minGapHours)}</Text>
+            <Text style={styles.freqSliderValue}>{minGapLabel(freq.minGapHours, lang)}</Text>
           </View>
         </View>
       )}
@@ -152,6 +239,30 @@ const styles = StyleSheet.create({
   cardSub: { fontSize: 10, color: WellnessColors.textSecondary, textAlign: 'center' },
   cardSubSelected: { color: '#388E3C' },
   hintText: { fontSize: 11, color: '#E53935', textAlign: 'center', marginTop: 8 },
+
+  voiceSection: {
+    marginTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: WellnessColors.gridLine,
+    paddingTop: 14,
+    gap: 6,
+  },
+  voiceHint: { fontSize: 11, color: WellnessColors.textSecondary, marginBottom: 4 },
+  voiceRow: { flexDirection: 'row', gap: 8 },
+  voiceBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: WellnessColors.gridLine,
+    alignItems: 'center',
+  },
+  voiceBtnSelected: {
+    borderColor: WellnessColors.accentBlue,
+    backgroundColor: '#EAF4FB',
+  },
+  voiceBtnText: { fontSize: 13, fontWeight: '600', color: WellnessColors.textSecondary },
+  voiceBtnTextSelected: { color: WellnessColors.accentBlue },
 
   freqSection: {
     marginTop: 16,

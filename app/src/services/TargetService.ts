@@ -45,6 +45,21 @@ export async function setGender(gender: Gender): Promise<void> {
   await AsyncStorage.setItem(GENDER_KEY, gender);
 }
 
+// ─── Mentor voice gender (Hebrew/Arabic titles) ─────────────────────────────
+
+const MENTOR_GENDER_KEY = 'mentor_gender';
+
+/** Affects possessive mentor titles in Hebrew/Arabic (e.g. הרופאה שלי vs הרופא שלי). */
+export async function getMentorGender(): Promise<Gender | null> {
+  const raw = await AsyncStorage.getItem(MENTOR_GENDER_KEY);
+  if (raw === 'male' || raw === 'female' || raw === 'other') return raw;
+  return null;
+}
+
+export async function setMentorGender(gender: Gender): Promise<void> {
+  await AsyncStorage.setItem(MENTOR_GENDER_KEY, gender);
+}
+
 // ─── Height ───────────────────────────────────────────────────────────────────
 
 /** Returns cached height in cm or null. */
@@ -269,6 +284,8 @@ export type CoachActionItem = {
 export type CoachMessage = {
   id: string;
   text: string;
+  /** Per-mentor lines when 2+ mentors — drives separate UI cards. */
+  mentorLines?: Partial<Record<MentorType, string>>;
   actionItems: CoachActionItem[];
   triggerEvent: 'meal' | 'weigh-in' | 'workout' | 'day-close';
   generatedAt: string;           // ISO
@@ -302,10 +319,13 @@ export async function clearCoachMessage(): Promise<void> {
   await AsyncStorage.removeItem(COACH_MESSAGE_KEY);
 }
 
-// ─── Chat history ─────────────────────────────────────────────────────────────
+// ─── Chat history (per mentor, per day) ───────────────────────────────────────
 
-const CHAT_HISTORY_KEY = 'chat_history_';          // + 'YYYY-MM-DD'
-const CHAT_YESTERDAY_SUMMARY_KEY = 'chat_yesterday_summary';
+const CHAT_HISTORY_KEY = 'chat_history_';          // + 'YYYY-MM-DD' + '_' + mentor
+const CHAT_HISTORY_LEGACY_SUFFIX = '';             // legacy: chat_history_YYYY-MM-DD
+
+/** Tab order in chat UI. */
+export const MENTOR_CHAT_TAB_ORDER: MentorType[] = ['nutritionist', 'coach', 'doctor'];
 
 export type ChatMessage = {
   role: 'user' | 'assistant';
@@ -313,22 +333,67 @@ export type ChatMessage = {
   sentAt: string;  // ISO
 };
 
-export async function getChatHistory(date: string): Promise<ChatMessage[]> {
-  const raw = await AsyncStorage.getItem(CHAT_HISTORY_KEY + date);
-  if (!raw) return [];
-  try { return JSON.parse(raw) as ChatMessage[]; } catch { return []; }
+function chatHistoryStorageKey(date: string, mentor: MentorType): string {
+  return `${CHAT_HISTORY_KEY}${date}_${mentor}`;
 }
 
-export async function appendChatMessage(date: string, msg: ChatMessage): Promise<void> {
-  const history = await getChatHistory(date);
+export async function getChatHistory(date: string, mentor: MentorType): Promise<ChatMessage[]> {
+  const raw = await AsyncStorage.getItem(chatHistoryStorageKey(date, mentor));
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as ChatMessage[];
+  } catch {
+    return [];
+  }
+}
+
+export async function getAllChatHistories(
+  date: string,
+  mentors: MentorType[],
+): Promise<Partial<Record<MentorType, ChatMessage[]>>> {
+  const out: Partial<Record<MentorType, ChatMessage[]>> = {};
+  await Promise.all(
+    mentors.map(async (m) => {
+      out[m] = await getChatHistory(date, m);
+    }),
+  );
+  return out;
+}
+
+export async function hasAnyChatHistory(date: string, mentors: MentorType[]): Promise<boolean> {
+  for (const m of mentors) {
+    if ((await getChatHistory(date, m)).length > 0) return true;
+  }
+  const legacy = await AsyncStorage.getItem(`${CHAT_HISTORY_KEY}${date}${CHAT_HISTORY_LEGACY_SUFFIX}`);
+  if (legacy) {
+    try {
+      const parsed = JSON.parse(legacy) as ChatMessage[];
+      return parsed.length > 0;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+export async function appendChatMessage(date: string, mentor: MentorType, msg: ChatMessage): Promise<void> {
+  const history = await getChatHistory(date, mentor);
   history.push(msg);
   const trimmed = history.length > 30 ? history.slice(-30) : history;
-  await AsyncStorage.setItem(CHAT_HISTORY_KEY + date, JSON.stringify(trimmed));
+  await AsyncStorage.setItem(chatHistoryStorageKey(date, mentor), JSON.stringify(trimmed));
 }
 
-export async function clearChatHistory(date: string): Promise<void> {
-  await AsyncStorage.removeItem(CHAT_HISTORY_KEY + date);
+/** Clear one mentor's chat, or all mentors for the day when mentor omitted. */
+export async function clearChatHistory(date: string, mentors: MentorType[], mentor?: MentorType): Promise<void> {
+  if (mentor) {
+    await AsyncStorage.removeItem(chatHistoryStorageKey(date, mentor));
+    return;
+  }
+  await Promise.all(mentors.map((m) => AsyncStorage.removeItem(chatHistoryStorageKey(date, m))));
+  await AsyncStorage.removeItem(`${CHAT_HISTORY_KEY}${date}${CHAT_HISTORY_LEGACY_SUFFIX}`);
 }
+
+const CHAT_YESTERDAY_SUMMARY_KEY = 'chat_yesterday_summary';
 
 export async function getYesterdaySummary(): Promise<string | null> {
   return AsyncStorage.getItem(CHAT_YESTERDAY_SUMMARY_KEY);

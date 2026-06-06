@@ -80,7 +80,8 @@ export type CoachActionItem = {
 
 export type CoachMessage = {
   id: string;                      // UUID
-  text: string;                    // max 2 sentences from AI
+  text: string;                    // combined fallback / single-mentor text
+  mentorLines?: Partial<Record<MentorType, string>>;  // one sentence per active mentor when 2+
   actionItems: CoachActionItem[];  // 2–4 items
   triggerEvent: 'meal' | 'weigh-in' | 'workout' | 'day-close';
   generatedAt: string;             // ISO
@@ -221,7 +222,10 @@ Dietary rules: {rulesContext}
 
 Respond with JSON only:
 {
-  "text": "2 sentences max. Specific numbers. No generic advice.",
+  "mentorLines": {
+    "nutritionist": "one sentence with numbers",
+    "coach": "one sentence with numbers"
+  },
   "actionItems": [
     {"text": "Stay under 20g carbs today", "autoCheckType": "carbs_under_target"},
     {"text": "Add 20g protein at dinner",  "autoCheckType": null},
@@ -230,7 +234,8 @@ Respond with JSON only:
 }
 
 Rules:
-- text: max 2 sentences, cite specific numbers from the data, no generic advice
+- When 2+ active mentors: use `mentorLines` — one key per active mentor, one sentence each with numbers; do NOT blend into one paragraph
+- Single mentor: `mentorLines` with one key OR legacy `text` field
 - actionItems: 2–4 items, max 8 words each, concrete and actionable today
 - autoCheckType: use the matching type if applicable, otherwise null
 - If event is meal: focus on remaining macros for the day
@@ -273,51 +278,65 @@ min-gap setting as automatic events (MentorStrip slider). No bypass from the UI.
 
 Opened from the nudge strip only (no floating pill).
 
-Full-screen modal inside `SafeAreaProvider`. Inherits `CoachContext` from dashboard.
+Full-screen modal inside `SafeAreaProvider`. Inherits `CoachContext` from dashboard
+(includes `mentorGender`, `lang`, active `mentors`).
 
 ```
 ┌─────────────────────────────────────────────┐
-│  ←  💬 My Mentors  🥗💪                      │
+│  ←  💬 המנטוריות שלי                         │
 ├─────────────────────────────────────────────┤
-│ ▼ משימות · 1/4          [collapsible panel] │  ← pinned, not in scroll
-│   (expand: coach text + checklist)          │
-│   ↻ Refresh   Clear   Expand/Collapse       │
+│ ▶ משימות · 1/4   [collapsible coach panel]  │  ← pinned top; scroll inside when open
+│   (🥗 / 💪 / 🩺 separate voice cards)         │
 ├─────────────────────────────────────────────┤
-│  [user messages right, AI left — scrolls]   │  ← opens at latest message
+│  [messages for ACTIVE TAB only — scrolls]   │
 │                                             │
 ├─────────────────────────────────────────────┤
-│  ┌──────────────────────────┐  [Send]        │
-│  │ Ask your mentors…        │                │
-│  └──────────────────────────┘                │
-│  [chip] [chip] [chip]              [FAQ]     │  ← tap chip = fill input
+│  🥗 התזונאית │ 💪 המאמנת │ 🩺 הרופאה        │  ← pinned mentor tabs
+│  ┌──────────────────────────┐               │
+│  │ Ask…                     │               │
+│  └──────────────────────────┘               │
+│  ↑ ↓  נקה  ↗  [שלח]                         │  ← single-row toolbar
+│  [chip] [chip] [chip]              [FAQ]    │
 └─────────────────────────────────────────────┘
 ```
 
-### Collapsible coach panel (replaces scroll bubble)
-- **Pinned above** the chat `FlatList` — tasks and messages do not share scroll
-- **Collapsed by default** when reopening chat with existing messages; **expanded**
-  when no messages yet (first visit)
-- **Header row** — ▼/▲ + summary (`משימות · 1/4` or truncated coach text)
-- **Expanded body** — coach `text` + action-item checklist
-- **Footer** — `↻ Refresh` | `Clear` (if chat history) | `Expand` / `Collapse`
+### Collapsible coach panel
+- **Pinned above** message list — not in FlatList scroll
+- **Starts collapsed** on open (even after refresh); user expands to read tasks
+- **Expanded body** — when 2+ mentors, **separate cards** per voice from `mentorLines`
+  (🥗 green / 💪 blue / 🩺 purple tints); fallback splits blended text via `mentorChatText.ts`
+- **Internal ScrollView** `maxHeight: 220` when expanded — panel never fills the screen
+- **↻ Refresh** in panel header — gated `refreshCoachReview()`; does not auto-expand
 - Checkboxes tappable; auto-checks on open; persists via `saveCoachMessage`
-- **Clear** — deletes today's chat messages only; coach message + action items stay
+- **Clear chat** moved to bottom toolbar (see below) — not in coach footer
+
+### Per-mentor chat tabs (shipped)
+- One tab per **active** mentor (`MENTOR_CHAT_TAB_ORDER`: nutritionist → coach → doctor)
+- Tab label = possessive + emoji (e.g. `🥗 התזונאית שלי`) — gender from `mentorGender`
+- Each tab has **its own history** and **its own API call** — no blended multi-mentor reply
+- Switching tabs loads that mentor's messages; bubble colours match mentor accent
+- `chatWithMentor(mentor, message, history, ctx, yesterdaySummary)` in GeminiService
+- `chatWithMentors()` retained as deprecated wrapper (uses first mentor only)
+
+### Bottom chrome (pinned — never scrolls off screen)
+- Mentor tabs + text input + action toolbar live in `bottomChrome` (`flexShrink: 0`)
+- Parent flex chain uses `minHeight: 0` so FlatList does not push chrome off-screen
+- **Toolbar (single row, no wrap):**
+  - `↑` / `↓` — scroll message list to top / bottom
+  - `נקה` — clears **active tab only** (`clearChatHistory(date, mentors, activeMentor)`)
+  - `↗` — HTML export (icon only; `accessibilityLabel` = export label)
+  - `שלח` / Send — send message to active mentor
+- Export enabled when coach message exists OR any mentor has chat history
 
 ### Safe area
 - `react-native-safe-area-context` on app root + inside chat `Modal`
 - Bottom input padded above Samsung system nav bar
 
-### Action items + refresh
-- **↻ Refresh** calls `refreshCoachReview()` with fresh meal log + live context
-- After refresh, panel remains expanded so action items stay visible
-- Respects mentor min-gap; spinner on button while generating
-
 ### Chat history model
 
-**One chat, per-day scope.** History resets at midnight (same boundary as Withings).
-No per-mentor threads — all mentors respond as a unified panel voice.
+**Per-mentor threads, per-day scope.** History resets at midnight (same boundary as Withings).
 
-#### Storage (TargetService.ts additions)
+#### Storage (TargetService.ts)
 
 ```ts
 export type ChatMessage = {
@@ -326,15 +345,13 @@ export type ChatMessage = {
   sentAt: string;  // ISO
 };
 
-const CHAT_HISTORY_KEY = 'chat_history_';  // + 'YYYY-MM-DD'
-const CHAT_YESTERDAY_SUMMARY_KEY = 'chat_yesterday_summary';  // plain string
+const CHAT_HISTORY_KEY = 'chat_history_';  // + 'YYYY-MM-DD' + '_' + mentor
+// Legacy unified key chat_history_YYYY-MM-DD still read by hasAnyChatHistory only
 
-export async function getChatHistory(date: string): Promise<ChatMessage[]>
-// date = 'YYYY-MM-DD', returns [] if none
-
-export async function appendChatMessage(date: string, msg: ChatMessage): Promise<void>
-// Appends to today's array; trims to last 30 messages if needed
-
+export async function getChatHistory(date: string, mentor: MentorType): Promise<ChatMessage[]>
+export async function getAllChatHistories(date: string, mentors: MentorType[]): Promise<Partial<Record<MentorType, ChatMessage[]>>>
+export async function appendChatMessage(date: string, mentor: MentorType, msg: ChatMessage): Promise<void>
+export async function clearChatHistory(date: string, mentors: MentorType[], mentor?: MentorType): Promise<void>
 export async function getYesterdaySummary(): Promise<string | null>
 export async function saveYesterdaySummary(summary: string): Promise<void>
 ```
@@ -352,14 +369,13 @@ summary has been saved yet:
 This provides continuity ("you hit your carb goal yesterday") without growing
 the token budget as the day progresses.
 
-#### Sent to AI each turn
-- System prompt (mentor personas + user rules + yesterday summary if available)
+#### Sent to AI each turn (per active tab)
+- System prompt (single mentor persona + user rules + yesterday summary if available)
 - CoachContext data block including **=== MEAL LOG ===** full item detail for today
-- Last **20** messages from today's history
+- Last **20** messages from **that mentor's** history for today
 - Meal-review queries also repeat `todayMealsDetail` in the user turn
 
-GeminiService: `chatWithMentors(message, history, context, yesterdaySummary)`.
-Coach/action-item text follows `UserLanguage` (Hebrew + other supported locales).
+GeminiService: `chatWithMentor(mentor, ...)`. Coach/action-item text follows `UserLanguage`.
 Temperature 0.4.
 
 ---
@@ -391,6 +407,35 @@ export async function resetQuickQuestionsForLanguage(lang: UserLanguage): Promis
 - **Tap chip** → fills input text only (**Send still required** — avoids accidental sends)
 - **Tap FAQ** → modal dialog: edit labels, **→** fills input, ✕ delete, ＋ add (max 5), Done saves
 - No inline chip editing in the input row
+
+---
+
+## PART F3 — HTML chat export (shipped)
+
+Toolbar **↗** saves UTF-8 HTML via Storage Access Framework (user picks folder).
+
+```ts
+// mentorChatExport.ts (logic) + services/mentorChatExport.ts (SAF write)
+export async function exportMentorChat(params: {
+  dayKey: string;
+  mentors: MentorType[];
+  coachMsg: CoachMessage | null;
+  historyByMentor: Partial<Record<MentorType, ChatMessage[]>>;
+  lang?: UserLanguage | null;
+  mentorGender?: Gender | null;
+}): Promise<boolean>
+```
+
+Export contents:
+- RTL Hebrew/Arabic when user language requires it
+- **משימות** section — coach `mentorLines` as labelled segments + action checklist
+- **שיחה** section — one sub-section per mentor with history (skips empty tabs)
+- Filename: `mentor_chat_YYYY-MM-DD.html`
+- Export always includes **all mentors with history**, not just the active tab
+
+Supporting modules:
+- `mentorChatText.ts` — `mentorLines` parse/combine, segment display, blended-text split fallback
+- `mentorLabels.ts` — possessive labels for export headers
 
 ---
 
@@ -437,20 +482,22 @@ Run `npx expo prebuild --platform android --no-install` after adding native modu
 
 ## Files to create / change
 
-1. `TargetService.ts` — MentorFrequency, CoachMessage (+ `generatedLangCode`),
-   ChatMessage, QuickQuestion, UserLanguage, coach/chat/quick-question CRUD,
-   `clearCoachMessage`, `clearChatHistory`
-2. `GeminiService.ts` — `generateCoachMessage()`, `chatWithMentors()`,
-   `summariseChatDay()`, meal log block, language-aware coach JSON
+1. `TargetService.ts` — MentorFrequency, CoachMessage (+ `mentorLines`, `generatedLangCode`),
+   ChatMessage (per-mentor keys), QuickQuestion, UserLanguage, `getMentorGender`,
+   coach/chat/quick-question CRUD, `clearCoachMessage`, `clearChatHistory(date, mentors, mentor?)`
+2. `GeminiService.ts` — `generateCoachMessage()` with `mentorLines` JSON,
+   `chatWithMentor()`, `summariseChatDay()`, meal log block, language-aware coach JSON
 3. `CoachService.ts` — **NEW** — `triggerCoachReview`, `refreshCoachReview`,
    `checkCoachReviewGate`, `forceCoachReview`, `runAutoChecksAndPersist`
-4. `ChatScreen.tsx` — **NEW** — collapsible coach panel, gated ↻ refresh, FAQ
-   modal, quick-question bar (fill input), clear chat, safe-area input
-5. `MentorStrip.tsx` — frequency toggle + min-gap slider
-6. `DashboardScreen.tsx` — nudge strip, chat modal, event triggers (meal /
-   weigh-in / workout / day-close), language profile picker
-7. `FoodLogService.ts` — `buildMealsAiContext()` for chat/coach meal detail
-8. `App.tsx` — `SafeAreaProvider` wrapper
+4. `ChatScreen.tsx` — **NEW** — per-mentor tabs, collapsible coach panel with voice cards,
+   bottom toolbar (↑↓ clear export send), FAQ modal, safe-area layout
+5. `mentorChatText.ts` — **NEW** — mentor line parsing, segment UI, blended fallback split
+6. `mentorLabels.ts` — **NEW** — gender-aware possessive/collective labels (he/ar/en)
+7. `mentorChatExport.ts` (logic) + `services/mentorChatExport.ts` — **NEW** — HTML export
+8. `MentorStrip.tsx` — frequency toggle + min-gap slider + mentor voice Male/Female
+9. `DashboardScreen.tsx` — nudge strip, chat modal, event triggers, language profile picker
+10. `FoodLogService.ts` — `buildMealsAiContext()` for chat/coach meal detail
+11. `App.tsx` — `SafeAreaProvider` wrapper
 
 No separate CoachCard.tsx — replaced by nudge strip + ChatScreen coach panel.
 
@@ -463,7 +510,7 @@ No separate CoachCard.tsx — replaced by nudge strip + ChatScreen coach panel.
 - Voice input / audio responses
 - Item-level meal history across past days in free chat
 
-Note: per-day chat history **is** persisted in AsyncStorage (`chat_history_YYYY-MM-DD`).
+Note: per-day chat history **is** persisted in AsyncStorage (`chat_history_YYYY-MM-DD_{mentor}`).
 
 ---
 
@@ -472,3 +519,9 @@ Note: per-day chat history **is** persisted in AsyncStorage (`chat_history_YYYY-
 - Removed nudge strip **✕** and **↻** — chat-only refresh; action items never disappear from storage
 - Coach panel stays **expanded after refresh** (`coachExpanded` not reset on `coachMsg.id` change)
 - Legacy `dismissedAt` migrated on load so previously dismissed action items recover
+- **Per-mentor tabs** — separate voices in chat and export; `chatWithMentor` per tab
+- **Coach `mentorLines`** — separate 🥗/💪/🩺 cards in coach panel + HTML export
+- **Mentor voice Male/Female** — possessive Hebrew/Arabic labels across strip, tabs, export
+- **Bottom toolbar** — scroll ↑↓, clear active tab, HTML export ↗, send — single row
+- **Coach panel** starts collapsed; internal scroll capped at 220px when expanded
+- **HTML export** — full day snapshot (tasks + all mentor chat sections with history)
