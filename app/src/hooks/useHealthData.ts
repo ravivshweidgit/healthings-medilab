@@ -1,9 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 import { calculateMetabolicEfficiency, type ActivityZone } from '../logic/MetabolicLogic';
+import type { CgmSessionStart } from '../logic/cgmWarmupFilter';
 import { generateDemoRecentMetrics } from '../services/demoHealthMetrics';
 import type { HealthDataSource } from '../services/healthRuntime';
 import { getHealthDataSource } from '../services/healthRuntime';
+import {
+  HEALTH_METRICS_CACHE_KEY,
+  mergeCgmSessionStarts,
+  prepareGlucoseSeries,
+  type CachedHealthMetrics,
+} from '../services/healthMetricsCache';
 import { samsungHealthService, type RecentMetrics, type TimePoint } from '../services/SamsungHealthService';
 
 export type HealthSyncResult = {
@@ -15,6 +22,8 @@ export type HealthSyncResult = {
 
 type HealthDataState = {
   glucoseData: TimePoint[];
+  cgmSessionStarts: CgmSessionStart[];
+  cgmStatSummary: string | null;
   stepsData: TimePoint[];
   heartRateData: TimePoint[];
   efficiencyScore: number;
@@ -22,7 +31,36 @@ type HealthDataState = {
   activityZones: ActivityZone[];
 };
 
-const CACHE_KEY = 'healthings:lastMetrics';
+const CACHE_KEY = HEALTH_METRICS_CACHE_KEY;
+
+function persistMetrics(metrics: CachedHealthMetrics): void {
+  void AsyncStorage.setItem(CACHE_KEY, JSON.stringify(metrics));
+}
+
+function applyGlucoseToMetrics(
+  metrics: RecentMetrics,
+  knownSessionStarts?: CgmSessionStart[],
+): {
+  metrics: CachedHealthMetrics;
+  filtered: TimePoint[];
+  sessionStarts: CgmSessionStart[];
+  cgmStatSummary: string | null;
+} {
+  const { filtered, sessionStarts, raw, statFilter } = prepareGlucoseSeries(
+    metrics.glucose,
+    knownSessionStarts,
+  );
+  return {
+    metrics: {
+      ...metrics,
+      glucose: raw,
+      cgmSessionStarts: sessionStarts,
+    },
+    filtered,
+    sessionStarts,
+    cgmStatSummary: statFilter.summaryLine,
+  };
+}
 
 /** Same ISO instant: CSV import overwrites Health Connect. */
 function mergeGlucoseCsvWins(existing: TimePoint[], imported: TimePoint[]): TimePoint[] {
@@ -36,6 +74,8 @@ function mergeGlucoseCsvWins(existing: TimePoint[], imported: TimePoint[]): Time
 
 const emptyState: HealthDataState = {
   glucoseData: [],
+  cgmSessionStarts: [],
+  cgmStatSummary: null,
   stepsData: [],
   heartRateData: [],
   efficiencyScore: 0,
@@ -49,37 +89,66 @@ export const useHealthData = () => {
   const [error, setError] = useState<string | null>(null);
   const [dataSource] = useState<HealthDataSource>(() => getHealthDataSource());
 
-  const applyMetrics = useCallback((metrics: RecentMetrics) => {
-    const efficiency = calculateMetabolicEfficiency(metrics.glucose, metrics.steps);
+  const applyMetrics = useCallback((metrics: RecentMetrics, knownSessionStarts?: CgmSessionStart[]) => {
+    const { metrics: cached, filtered, sessionStarts, cgmStatSummary } = applyGlucoseToMetrics(
+      metrics,
+      knownSessionStarts,
+    );
+    const efficiency = calculateMetabolicEfficiency(filtered, metrics.steps);
     setState({
-      glucoseData: metrics.glucose,
+      glucoseData: filtered,
+      cgmSessionStarts: sessionStarts,
+      cgmStatSummary,
       stepsData: metrics.steps,
       heartRateData: metrics.heartRate ?? [],
       efficiencyScore: efficiency.efficiencyScore,
       insight: efficiency.insight,
       activityZones: efficiency.activityZones,
     });
+    persistMetrics(cached);
   }, []);
 
-  const applyImportedGlucose = useCallback((imported: TimePoint[]) => {
-    setState((prev) => {
-      const mergedG = mergeGlucoseCsvWins(prev.glucoseData, imported);
-      const metrics: RecentMetrics = {
-        glucose: mergedG,
-        steps: prev.stepsData,
-        heartRate: prev.heartRateData,
-      };
-      void AsyncStorage.setItem(CACHE_KEY, JSON.stringify(metrics));
-      const eff = calculateMetabolicEfficiency(mergedG, prev.stepsData);
-      return {
-        ...prev,
-        glucoseData: mergedG,
-        efficiencyScore: eff.efficiencyScore,
-        insight: eff.insight,
-        activityZones: eff.activityZones,
-      };
-    });
-  }, []);
+  const applyImportedGlucose = useCallback(
+    async (importedRaw: TimePoint[], importedSessionStarts?: CgmSessionStart[]) => {
+      let cached: CachedHealthMetrics | null = null;
+      try {
+        const raw = await AsyncStorage.getItem(CACHE_KEY);
+        cached = raw ? (JSON.parse(raw) as CachedHealthMetrics) : null;
+      } catch {
+        cached = null;
+      }
+
+      setState((prev) => {
+        const existingRaw = cached?.glucose ?? [];
+        const mergedRaw = mergeGlucoseCsvWins(existingRaw, importedRaw);
+        const sessionStarts = mergeCgmSessionStarts(
+          cached?.cgmSessionStarts ?? prev.cgmSessionStarts,
+          importedSessionStarts,
+        );
+        const { metrics: toStore, filtered, sessionStarts: allStarts, cgmStatSummary } =
+          applyGlucoseToMetrics(
+          {
+            glucose: mergedRaw,
+            steps: prev.stepsData,
+            heartRate: prev.heartRateData,
+          },
+          sessionStarts,
+        );
+        persistMetrics(toStore);
+        const eff = calculateMetabolicEfficiency(filtered, prev.stepsData);
+        return {
+          ...prev,
+          glucoseData: filtered,
+          cgmSessionStarts: allStarts,
+          cgmStatSummary,
+          efficiencyScore: eff.efficiencyScore,
+          insight: eff.insight,
+          activityZones: eff.activityZones,
+        };
+      });
+    },
+    [],
+  );
 
   const refetch = useCallback(async (): Promise<HealthSyncResult | null> => {
     setIsLoading(true);
@@ -88,8 +157,8 @@ export const useHealthData = () => {
       if (dataSource !== 'health-connect') {
         const metrics = generateDemoRecentMetrics();
         applyMetrics(metrics);
-        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(metrics));
-        const efficiency = calculateMetabolicEfficiency(metrics.glucose, metrics.steps);
+        const { filtered } = prepareGlucoseSeries(metrics.glucose);
+        const efficiency = calculateMetabolicEfficiency(filtered, metrics.steps);
         return {
           metrics,
           efficiencyScore: efficiency.efficiencyScore,
@@ -100,9 +169,13 @@ export const useHealthData = () => {
 
       await samsungHealthService.initializeAndRequestPermissions();
       const metrics = await samsungHealthService.fetchRecentMetrics();
-      applyMetrics(metrics);
-      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(metrics));
-      const efficiency = calculateMetabolicEfficiency(metrics.glucose, metrics.steps);
+      const cached = await AsyncStorage.getItem(CACHE_KEY);
+      const knownStarts = cached
+        ? ((JSON.parse(cached) as CachedHealthMetrics).cgmSessionStarts ?? undefined)
+        : undefined;
+      applyMetrics(metrics, knownStarts);
+      const { filtered } = prepareGlucoseSeries(metrics.glucose, knownStarts);
+      const efficiency = calculateMetabolicEfficiency(filtered, metrics.steps);
       return {
         metrics,
         efficiencyScore: efficiency.efficiencyScore,
@@ -123,8 +196,8 @@ export const useHealthData = () => {
       try {
         const cached = await AsyncStorage.getItem(CACHE_KEY);
         if (cached) {
-          const parsed = JSON.parse(cached) as RecentMetrics;
-          applyMetrics(parsed);
+          const parsed = JSON.parse(cached) as CachedHealthMetrics;
+          applyMetrics(parsed, parsed.cgmSessionStarts);
           setIsLoading(false);
         }
       } catch {

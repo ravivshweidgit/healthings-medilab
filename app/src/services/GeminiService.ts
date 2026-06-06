@@ -5,6 +5,7 @@
 
 import { GEMINI_API_KEY } from '@env';
 import type { MentorType, DailyMacroTarget, BodyTarget, UserRules, CoachMessage, CoachActionItem, AutoCheckType, ChatMessage, UserLanguage } from './TargetService';
+import type { TimePoint } from './SamsungHealthService';
 import {
   buildYesterdayWorkoutRollup,
   buildPeriodReviewBlock,
@@ -627,9 +628,9 @@ RULES:
 
 const MENTOR_PERSONAS: Record<MentorType, string> = {
   doctor:
-    'You are a medical doctor AI. Prioritise health risk reduction, evidence-based guidelines, and patient safety. Be conservative and clinically precise.',
+    'You are a medical doctor AI. Prioritise health risk reduction, evidence-based guidelines, and patient safety. When CGM data (TODAY/RECENT/MEAL GLUCOSE blocks) is present, interpret avg/min/max mg/dL and flag concerning patterns — exclude sensor warm-up false lows.',
   nutritionist:
-    'You are a certified nutritionist AI. Focus on food quality, macronutrient balance, micronutrients, and sustainable eating patterns.',
+    'You are a certified clinical nutritionist AI with CGM expertise. Continuous glucose is a PRIMARY input equal to macros — you MUST relate food, meal timing, and carbs to glucose response whenever CGM data is in context. Quote avg/min/max mg/dL; assess if glucose looks good or needs improvement; link spikes to foods when meals are logged.',
   coach:
     'You are a professional fitness coach AI. Focus on body composition, muscle preservation, progressive fat loss, training recovery, and performance goals.',
 };
@@ -655,29 +656,30 @@ const MENTOR_COMBO_PROMPTS: Record<string, string> = {
   coach: MENTOR_PERSONAS.coach,
 
   'doctor+nutritionist': `You advise as Doctor 🩺 AND Nutritionist 🥗 — both active; both must inform every reply.
-Doctor: safety, clinical risk, conservative limits on deficit and supplements.
-Nutritionist: food quality, macros, meal structure, sustainable eating.
-In "text": at least one safety/clinical note AND one nutrition note (2 sentences max).
+Doctor: safety, clinical risk, conservative limits; interpret CGM avg/min/max when present.
+Nutritionist: food quality, macros, meal structure, glycemic impact — CGM is mandatory when data is in context.
+In "text": at least one safety/clinical note AND one nutrition+CGM note (2 sentences max).
 In actionItems: mix safety-aware food actions — never aggressive unsafe deficits.`,
 
   'doctor+coach': `You advise as Doctor 🩺 AND Coach 💪 — both active; both must inform every reply.
-Doctor: health risk, safe rate of loss, red flags, recovery.
+Doctor: health risk, safe rate of loss, red flags, recovery; CGM when present.
 Coach: body composition, muscle preservation, training, performance, deficit strategy.
 In "text": at least one clinical/safety note AND one composition/training note (2 sentences max).
 In actionItems: mix safe health guardrails with body-composition actions.`,
 
   'nutritionist+coach': `You advise as Nutritionist 🥗 AND Coach 💪 — both active; BOTH must speak in every reply.
-Nutritionist lens: food quality, macros, meal timing, hitting protein/carb/fat targets, sustainable eating.
+Nutritionist lens: food quality, macros, meal timing, CGM glycemic response (avg/min/max when data present) — NOT optional.
 Coach lens: body composition, muscle mass, training recovery, progressive fat loss, performance — NOT just food.
 CRITICAL: Do NOT let nutrition dominate. The Coach must always have a visible angle (muscle, composition, movement, recovery, tomorrow's training).
-In "text": one sentence from Nutritionist AND one from Coach (2 sentences max).
-In actionItems: include at least one food/macro item AND at least one body-composition or activity item (e.g. protein target + muscle-preserving deficit, or log meal + brief walk/recovery).
+In "text": one sentence from Nutritionist (include CGM numbers when block present) AND one from Coach (2 sentences max).
+In actionItems: include at least one food/macro or CGM-aware item AND at least one body-composition or activity item.
 If conflict: food quality (Nutritionist) > reckless deficit (Coach) — but Coach still contributes.`,
 
   'doctor+nutritionist+coach': `You advise as Doctor 🩺, Nutritionist 🥗, AND Coach 💪 — all three active; each must inform every reply.
-Priority when advice conflicts: safety (Doctor) > food quality (Nutritionist) > performance (Coach).
-In "text": weave clinical safety, nutrition, and body-composition/training (2 sentences max — hit all three angles briefly).
-In actionItems: spread across safety-aware eating, macro targets, and composition/training — at least one item per active mentor angle where possible.`,
+Priority when advice conflicts: safety (Doctor) > food quality + CGM (Nutritionist) > performance (Coach).
+Nutritionist MUST use CGM data when in context — avg/min/max mg/dL, good vs needs improvement.
+In "text": weave clinical safety, nutrition+CGM, and body-composition/training (2 sentences max — hit all three angles briefly).
+In actionItems: spread across safety-aware eating, macro/CGM targets, and composition/training — at least one item per active mentor angle where possible.`,
 };
 
 export function buildMentorSystemPrompt(mentors: MentorType[]): string {
@@ -685,6 +687,26 @@ export function buildMentorSystemPrompt(mentors: MentorType[]): string {
   if (ordered.length === 0) return MENTOR_COMBO_PROMPTS.coach;
   const key = mentorComboKey(ordered);
   return MENTOR_COMBO_PROMPTS[key] ?? MENTOR_PERSONAS[ordered[0]!];
+}
+
+/** Rules appended when CGM data is available — Nutritionist/Doctor must use it. */
+function buildCgmMentorRules(ctx: CoachContext): string {
+  const hasCgm =
+    Boolean(ctx.todayMealGlucoseDetail) ||
+    (ctx.glucoseHistory != null && ctx.glucoseHistory.length > 0);
+  if (!hasCgm) return '';
+  const hasNut = ctx.mentors.includes('nutritionist');
+  const hasDoc = ctx.mentors.includes('doctor');
+  if (!hasNut && !hasDoc) {
+    return '\n- CGM data is in USER DATA — cite avg/min/max mg/dL when relevant.';
+  }
+  return `
+- CGM (TODAY / RECENT / MEAL GLUCOSE blocks) is a PRIMARY input — never ignore it
+- Nutritionist 🥗 MUST interpret glucose in every reply: quote avg, min, max (mg/dL); cite range % (below 70 / 70–100 / above 100) and low-day count when present
+- Mention compression lows if relevant: sleeping on the sensor can falsely lower readings — isolated low days may be artifact
+- Exclude sensor warm-up (first 24h after install) and statistically excluded rare sensor-error days — see filter lines in USER DATA
+- Without meal logs: still assess CGM; urge logging meals to link spikes to specific foods
+- Do NOT give vague CGM summaries ("elevated days") without numbers`;
 }
 
 export function formatActiveMentorsLine(mentors: MentorType[]): string {
@@ -869,6 +891,10 @@ export type CoachContext = {
   mealCount: number;
   lastMealSummary: string | null;
   todayMealsDetail: string | null;
+  /** Per-meal or today-only CGM summary when glucose samples exist. */
+  todayMealGlucoseDetail: string | null;
+  /** Same CGM series as the dashboard chart (HC sync + CareSens CSV). */
+  glucoseHistory: TimePoint[];
   // yesterday food (chat only — optional rollup + on-demand meal detail)
   yesterdayDate?: string | null;
   yesterdayEaten?: number | null;
@@ -945,7 +971,11 @@ function buildCoachDataBlock(ctx: CoachContext): string {
       ].filter(Boolean).join('\n')
     : '=== MEAL LOG ===\nNo meals logged today.\n=== END MEAL LOG ===';
 
-  return [...summaryLines, '', mealSection].join('\n');
+  const glucoseSection = ctx.todayMealGlucoseDetail
+    ? ['', ctx.todayMealGlucoseDetail].join('\n')
+    : null;
+
+  return [...summaryLines, '', mealSection, glucoseSection].filter(Boolean).join('\n');
 }
 
 function formatYesterdayRollup(ctx: CoachContext): string | null {
@@ -1018,10 +1048,13 @@ Rules:
 - If event is meal: focus on remaining macros for the day
 - If event is weigh-in: focus on trend vs target, muscle vs start
 - If event is workout: focus on calorie budget impact and HR during session vs resting baseline when YESTERDAY WORKOUTS includes HR lines
-- Do NOT repeat data the user already sees on the dashboard${coachJsonLangInstruction(ctx.lang)}`;
+- Do NOT repeat data the user already sees on the dashboard
+- If Nutritionist 🥗 is active and CGM blocks are in USER DATA, "text" MUST include glucose avg/min/max (mg/dL) and good-vs-needs-improvement verdict${coachJsonLangInstruction(ctx.lang)}`;
+
+  const glucoseCoachRule = buildCgmMentorRules(ctx);
 
   const body = {
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    contents: [{ role: 'user', parts: [{ text: `${prompt}${glucoseCoachRule}` }] }],
     generationConfig: geminiGenerationConfig({ temperature: 0.3, maxOutputTokens: 8192 }),
   };
 
@@ -1077,7 +1110,7 @@ export async function chatWithMentors(
   const yesterdayWorkouts = await buildYesterdayWorkoutRollup();
   const periodRequest = detectPeriodReviewQuery(message);
   const periodBlock = periodRequest
-    ? await buildPeriodReviewBlock(periodRequest, ctx.macroTarget)
+    ? await buildPeriodReviewBlock(periodRequest, ctx.macroTarget, ctx.glucoseHistory)
     : '';
   const yesterdayChatLine = yesterdaySummary ? `\nYesterday chat summary: ${yesterdaySummary}` : '';
   const yesterdayMealSection = ctx.yesterdayMealsDetail
@@ -1096,8 +1129,10 @@ Match your tone to LOCAL TIME NOW and TIME-AWARE COACHING in the data — early 
 When multiple mentors are active (see ACTIVE MENTORS), include each mentor's perspective — especially Coach 💪 body-composition angle when Coach is selected.
 Reply directly to the user — never output THOUGHT, internal reasoning, numbered analysis steps, or planning in English unless the user wrote in English.
 The MEAL LOG section is today's food. YESTERDAY WORKOUTS shows yesterday's training sessions from Withings with HR during each session when watch data exists.
+When MEAL GLUCOSE, TODAY CGM, or RECENT CGM blocks are in USER DATA, Nutritionist 🥗 MUST lead with glucose interpretation (avg/min/max mg/dL) — this is core nutritionist work, not optional. Doctor 🩺 adds clinical safety on the same numbers. With meals, name foods before spikes; without meals, assess trend and urge food logging.
 YESTERDAY rollup/meal lines are yesterday's food — use for אתמול / yesterday questions.
 When PERIOD REVIEW block is present, analyze the full snapshot (body, energy, HR, food, workouts): what went well, what to improve, specific next steps.
+When GLUCOSE & FOOD IMPACT is in PERIOD REVIEW, Nutritionist and Doctor must cite which foods preceded spikes and recommend swaps for repeat offenders.
 Users can request any window via slash commands: /1 or /yesterday, /7, /30, /100 (up to 128 days).
 When the user asks about their last meal or any meal today, review today's MEAL LOG directly — never say you lack meal details if MEAL LOG is present.
 When YESTERDAY MEAL LOG is present, cite specific foods and numbers from it for yesterday questions.
@@ -1109,9 +1144,14 @@ Ignore any earlier chat messages where you said yesterday's data was unavailable
   // Repeat meal logs in the user turn so the model cannot miss them
   let userMessage = message;
   if (periodRequest) {
-    userMessage = `${message}\n\nUse the PERIOD REVIEW block in context. Each active mentor: what was good, what to improve, 2–4 concrete suggestions.`;
+    userMessage = `${message}\n\nUse the PERIOD REVIEW block in context. Each active mentor: what was good, what to improve, 2–4 concrete suggestions. For GLUCOSE: quote period avg, min, max (mg/dL) from the block; ignore sensor warm-up (first 24h) lows; do NOT give vague CGM summaries.`;
+  } else if (ctx.mentors.includes('nutritionist') && (ctx.todayMealGlucoseDetail || (ctx.glucoseHistory?.length ?? 0) > 0)) {
+    userMessage = `${message}\n\nNutritionist: address CGM in USER DATA first — quote recent avg/min/max (mg/dL) and say if glucose looks good or needs improvement.`;
   } else if (isMealReviewQuery(message) && !isYesterdayQuery(message) && ctx.todayMealsDetail) {
-    userMessage = `${message}\n\nUse today's meal log (already in your context — cite specific foods and numbers):\n${ctx.todayMealsDetail}`;
+    const glucoseHint = ctx.todayMealGlucoseDetail
+      ? '\n\nUse TODAY CGM / MEAL GLUCOSE in context: say if glucose looks good or needs improvement (specific mg/dL).'
+      : '';
+    userMessage = `${message}\n\nUse today's meal log (already in your context — cite specific foods and numbers):\n${ctx.todayMealsDetail}${glucoseHint}`;
   } else if (isYesterdayQuery(message) && ctx.yesterdayMealsDetail) {
     userMessage = `${message}\n\nUse yesterday's meal log (already in your context — cite specific foods and numbers):\n${ctx.yesterdayMealsDetail}`;
   } else if (isYesterdayQuery(message) && ctx.yesterdayDate) {

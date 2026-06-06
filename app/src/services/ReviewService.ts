@@ -16,6 +16,10 @@ import {
 } from '../logic/metabolicTrend7d';
 import { getDailyMacros, buildMealsAiContext } from './FoodLogService';
 import {
+  buildDayMealGlucoseBlock,
+  buildPeriodMealGlucoseSection,
+} from '../logic/mealGlucoseAnalysis';
+import {
   fetchWorkoutsHistory,
   fetchBodyCompositionTrend7d,
   fetchHeartRateHistory,
@@ -24,7 +28,14 @@ import {
   type WithingsCaloriePoint,
   type WithingsIntradayData,
 } from './WithingsApiService';
-import { samsungHealthService } from './SamsungHealthService';
+import {
+  loadCachedHealthMetrics,
+  mergeGlucoseTimePoints,
+  filterGlucoseToDayKeys,
+  prepareGlucoseSeries,
+} from './healthMetricsCache';
+import type { CgmSessionStart } from '../logic/cgmWarmupFilter';
+import { samsungHealthService, type TimePoint } from './SamsungHealthService';
 import type { DailyMacroTarget } from './TargetService';
 
 export const MAX_REVIEW_DAYS = 128;
@@ -265,15 +276,19 @@ function formatHrSummary(points: WithingsHeartRatePoint[], dayKey: string): stri
   return `HEART RATE (24/7): avg ${avg} bpm | min ${Math.min(...vals)} | max ${Math.max(...vals)} | ${dayPts.length} readings`;
 }
 
-/** Withings intraday + Health Connect watch HR for the full review window. */
-async function fetchPeriodIntraday(dayCount: number): Promise<WithingsIntradayData> {
+/** Withings intraday + Health Connect watch HR + CGM (HC + app cache + live dashboard). */
+async function fetchPeriodIntraday(
+  dayCount: number,
+  appGlucose?: TimePoint[] | null,
+): Promise<WithingsIntradayData & { glucose: TimePoint[]; cgmSessionStarts: CgmSessionStart[]; cgmStatSummary: string | null }> {
   const periodStart = new Date();
   periodStart.setDate(periodStart.getDate() - dayCount);
   periodStart.setHours(0, 0, 0, 0);
 
-  const [withings, health] = await Promise.all([
+  const [withings, health, cached] = await Promise.all([
     fetchHeartRateHistory(dayCount),
     samsungHealthService.fetchRecentMetrics(periodStart).catch(() => null),
+    loadCachedHealthMetrics(),
   ]);
 
   const heartRate = [...withings.heartRate];
@@ -284,7 +299,20 @@ async function fetchPeriodIntraday(dayCount: number): Promise<WithingsIntradayDa
     heartRate.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }
 
-  return { heartRate, calories: withings.calories };
+  const mergedRaw = mergeGlucoseTimePoints([
+    health?.glucose ?? [],
+    cached?.glucose ?? [],
+    appGlucose ?? [],
+  ]);
+  const { filtered, sessionStarts, statFilter } = prepareGlucoseSeries(mergedRaw, cached?.cgmSessionStarts);
+
+  return {
+    heartRate,
+    calories: withings.calories,
+    glucose: filtered,
+    cgmSessionStarts: sessionStarts,
+    cgmStatSummary: statFilter.summaryLine,
+  };
 }
 
 function formatBodyMetrics(d: MetabolicTrend7dDay | undefined): string {
@@ -429,6 +457,7 @@ export async function buildYesterdayWorkoutRollup(): Promise<string> {
 export async function buildPeriodReviewBlock(
   request: PeriodReviewRequest,
   macroTarget?: DailyMacroTarget | null,
+  appGlucose?: TimePoint[] | null,
 ): Promise<string> {
   const dayCount = reviewDayCount(request);
   const dayKeys = windowDayKeys(dayCount);
@@ -436,8 +465,10 @@ export async function buildPeriodReviewBlock(
   const [workouts, bodyPayload, intraday] = await Promise.all([
     fetchWorkoutsHistory(Math.max(dayCount + 7, 14)),
     fetchBodyCompositionTrend7d(),
-    fetchPeriodIntraday(dayCount),
+    fetchPeriodIntraday(dayCount, appGlucose),
   ]);
+
+  const periodGlucose = filterGlucoseToDayKeys(intraday.glucose, dayKeys);
 
   const bodyByDay = bodyDayMap(bodyPayload.days);
   const burnByDay = computeBurnKcalByDay(bodyPayload.days, intraday.calories, workouts);
@@ -454,9 +485,30 @@ export async function buildPeriodReviewBlock(
     '',
     buildTrendSection(dayKeys, bodyPayload.days, bodyPayload.debug.sessions),
     buildMacroAdherenceSummary(dayKeys, macrosByDay, macroTarget),
-    '',
-    'DAILY DETAIL (newest last):',
   ];
+
+  const glucoseSection = buildPeriodMealGlucoseSection(
+    dayKeys,
+    macrosByDay,
+    periodGlucose,
+    intraday.cgmSessionStarts,
+    intraday.cgmStatSummary,
+  );
+  if (glucoseSection) {
+    lines.push('', glucoseSection);
+  } else if (intraday.glucose.length > 0) {
+    lines.push(
+      '',
+      `GLUCOSE: ${intraday.glucose.length} CGM samples loaded but none fall in this ${dayKeys.length}-day review window (days ${dayKeys[0]} → ${dayKeys[dayKeys.length - 1]}). Try a shorter window or check meal/day alignment.`,
+    );
+  } else {
+    lines.push(
+      '',
+      'GLUCOSE: no CGM data available — sync Health Connect on the dashboard or import CareSens CSV.',
+    );
+  }
+
+  lines.push('', 'DAILY DETAIL (newest last):');
 
   for (const dk of dayKeys) {
     const macros = macrosByDay.get(dk)!;
@@ -471,6 +523,14 @@ export async function buildPeriodReviewBlock(
       hrLine,
       'FOOD & MEALS:',
       formatFoodBlock(dk, macros),
+    );
+
+    const dayGlucoseBlock = buildDayMealGlucoseBlock(macros.entries, periodGlucose, dk);
+    if (dayGlucoseBlock) {
+      lines.push(dayGlucoseBlock);
+    }
+
+    lines.push(
       'WORKOUTS (+ HR during each session):',
       `  ${formatDayWorkouts(workouts, dk, intraday.heartRate)}`,
     );
@@ -481,4 +541,4 @@ export async function buildPeriodReviewBlock(
 }
 
 export const PERIOD_REVIEW_CHAT_INSTRUCTION =
-  'When a PERIOD REVIEW block is present: analyze the FULL snapshot — body trends, BMR, energy balance, heart rate, food logs, workouts, macro adherence. For each workout, use HR during session (avg, max, vs resting baseline, recovery) to judge intensity and recovery — Coach 💪 should lead on this. Say what went well, what to improve, and give 2–4 concrete next steps. Each active mentor must contribute their angle. Cite specific numbers from the block.';
+  'When a PERIOD REVIEW block is present: analyze the FULL snapshot — body trends, BMR, energy balance, heart rate, food logs, GLUCOSE & FOOD IMPACT (CGM vs meals), workouts, macro adherence. For GLUCOSE: MUST quote period avg, min, max (mg/dL) from Period CGM stats; exclude first 24h sensor warm-up (falsely low — see CGM sensor start line); never vague phrases like "elevated days" without numbers. For each workout, use HR during session (avg, max, vs resting baseline, recovery) — Coach 💪 leads on this. Nutritionist 🥗 and Doctor 🩺: trusted CGM trend + foods before spikes when meals exist. Say what went well, what to improve, and give 2–4 concrete next steps. Each active mentor must contribute their angle. Cite specific numbers from the block.';

@@ -44,8 +44,9 @@ import {
   type MetabolicTrend7dDay,
 } from '../logic/metabolicTrend7d';
 import { awsDataService } from '../services/AwsDataService';
-import { parseCareSensAirExportCsv } from '../services/careSensCsv';
+import { parseCareSensAirExportWithSessions } from '../services/careSensCsv';
 import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getDailyMacros, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
+import { buildGlucoseMentorContext } from '../logic/mealGlucoseAnalysis';
 import {
   getBirthdate, setBirthdate, computeAge, getCachedHeightCm,
   setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors,
@@ -144,6 +145,8 @@ export const DashboardScreen = () => {
 
   const {
     glucoseData,
+    cgmSessionStarts,
+    cgmStatSummary,
     heartRateData,
     activityZones,
     isLoading,
@@ -448,6 +451,11 @@ export const DashboardScreen = () => {
     [todayFoodEntries],
   );
 
+  const mealGlucoseContext = useMemo(
+    () => buildGlucoseMentorContext(todayFoodEntries, glucoseData, cgmSessionStarts, cgmStatSummary),
+    [todayFoodEntries, glucoseData, cgmSessionStarts, cgmStatSummary],
+  );
+
   /** Build CoachContext from current state — memoized to avoid recreating on every render. */
   const coachContext = useMemo((): CoachContext => {
     const ctx: CoachContext = {
@@ -471,6 +479,8 @@ export const DashboardScreen = () => {
       mealCount: todayFoodEntries.length,
       lastMealSummary: mealContext.lastMealSummary,
       todayMealsDetail: mealContext.todayMealsDetail,
+      todayMealGlucoseDetail: mealGlucoseContext,
+      glucoseHistory: glucoseData,
       macroTarget,
       bodyTarget: bodyTargetForMacros,
       userRules,
@@ -479,7 +489,7 @@ export const DashboardScreen = () => {
     return ctx;
   }, [
     mentors, userAge, userGender, heightCm, bodyScan, fatPct, bodyTargetForMacros,
-    todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, macroTarget, userRules, userLanguage,
+    todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, mealGlucoseContext, glucoseData, macroTarget, userRules, userLanguage,
   ]);
 
   /** Regenerate coach message using stored language (not stale React state). */
@@ -816,9 +826,11 @@ export const DashboardScreen = () => {
         return;
       }
       const text = await FileSystem.readAsStringAsync(uri);
-      const points = parseCareSensAirExportCsv(text);
-      applyImportedGlucose(points);
-      setImportMessage(`Imported ${points.length} glucose readings from CareSens CSV.`);
+      const { points, sessionStarts } = parseCareSensAirExportWithSessions(text);
+      await applyImportedGlucose(points, sessionStarts);
+      setImportMessage(
+        `Imported ${points.length} CareSens readings (${sessionStarts.length} sensor session${sessionStarts.length === 1 ? '' : 's'}; first 24h warm-up excluded from chart).`,
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not import CSV.';
       setImportMessage(message);
