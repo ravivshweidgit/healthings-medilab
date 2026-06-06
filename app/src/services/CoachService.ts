@@ -96,7 +96,7 @@ export async function checkCoachReviewGate(): Promise<CoachReviewGate> {
   const freq = await getMentorFrequency();
   const lastMsg = await getCoachMessage();
 
-  if (lastMsg && !lastMsg.dismissedAt) {
+  if (lastMsg) {
     const hoursSinceLast =
       (Date.now() - new Date(lastMsg.generatedAt).getTime()) / 3_600_000;
     if (hoursSinceLast < freq.minGapHours) {

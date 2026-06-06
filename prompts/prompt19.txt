@@ -84,6 +84,7 @@ This is intentionally richer than rollup-only summaries — mentors cite real nu
 | Body trend | `fetchBodyCompositionTrend7d` | wt, fat, muscle, visceral, BMR, activity kcal/day |
 | Energy | computed locally | eaten vs burn (BMR + passive + workouts), deficit/surplus |
 | Heart rate | `fetchHeartRateHistory(N)` + Health Connect | 24/7 daily avg/min/max + **per-workout HR** |
+| CGM | `healthMetricsCache` + CareSens CSV + HC | Filtered glucose, meal correlation, period stats |
 | Trends | `metabolicTrend7d` helpers | Period weight/BIA/visceral/BMR deltas |
 | Macros | local | Adherence vs `DailyMacroTarget` |
 
@@ -104,6 +105,20 @@ recovery = avg bpm in +5–15 min after session end.
 - Health Connect (`SamsungHealthService.fetchRecentMetrics`) merged for the review window.
 - Full HR detail for entire period (no artificial day cap).
 
+### CGM glucose (CareSens / Health Connect) — shipped
+
+Mentors (Nutritionist 🥗, Doctor 🩺) must cite **avg / min / max** and range percentages — not vague summaries.
+
+**Pipeline** (`cgmWarmupFilter.ts`, `cgmStatisticalFilter.ts`, `cgmRangeStats.ts`, `mealGlucoseAnalysis.ts`):
+
+1. **Multi-session warm-up** — first 24h after each sensor install excluded (CareSens serial + sequence reset on CSV import; gap-based fallback for HC-only).
+2. **Statistical filter** — if ≤5% of CGM days have daily min &lt;54 mg/dL (and ≤3 days), exclude those whole days as likely sensor error (e.g. isolated Apr 7 @ 40 mg/dL).
+3. **Range stats for mentors** — % readings below 70, 70–100, above 100 mg/dL; **low-day count** (days with daily min &lt;70); compression-low guidance when relevant.
+
+Period block includes `GLUCOSE & FOOD IMPACT (period)` with period avg/min/max, range %, low-day count, meal spike correlation when meals logged.
+
+Everyday coach/chat: `buildGlucoseMentorContext()` — today/recent CGM + meal glucose when data present.
+
 ### Period block structure (abbreviated)
 
 ```
@@ -111,13 +126,14 @@ recovery = avg bpm in +5–15 min after session end.
 Macro targets: …
 TREND ANALYSIS (period): weight Δ, BIA fat/muscle, visceral, BMR avg
 MACRO ADHERENCE: …
-
+GLUCOSE & FOOD IMPACT (period): avg/min/max, range %, low days, meal spikes
 DAILY DETAIL (newest last):
 --- YYYY-MM-DD ---
 BODY: wt … | fat … | muscle … | visceral … | BMR … | Withings activity …
 ENERGY: eaten … | burn … | balance …
 HEART RATE (24/7): avg … | min … | max … | N readings
 FOOD & MEALS: (full item detail)
+MEAL GLUCOSE / CGM day stats (when samples in window)
 WORKOUTS (+ HR during each session): …
 === END PERIOD REVIEW ===
 ```
@@ -162,6 +178,7 @@ Coach prompt additions:
 - Thinking leak stripped from chat (`stripLeakedThinking`)
 - Yesterday meal log in chat context; backdated meal logging (`defaultMealTimestampForDay`)
 - Language threaded through all Gemini calls
+- CGM warm-up + statistical noise filters; mentor range % and low-day stats (see CGM section above)
 
 ---
 

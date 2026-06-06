@@ -272,7 +272,6 @@ export type CoachMessage = {
   actionItems: CoachActionItem[];
   triggerEvent: 'meal' | 'weigh-in' | 'workout' | 'day-close';
   generatedAt: string;           // ISO
-  dismissedAt?: string;          // ISO — set when user taps ✕
   mealCountAtGeneration: number;
   generatedLangCode?: string;    // BCP-47 code when message was created
 };
@@ -280,17 +279,23 @@ export type CoachMessage = {
 export async function getCoachMessage(): Promise<CoachMessage | null> {
   const raw = await AsyncStorage.getItem(COACH_MESSAGE_KEY);
   if (!raw) return null;
-  try { return JSON.parse(raw) as CoachMessage; } catch { return null; }
+  try {
+    const msg = JSON.parse(raw) as CoachMessage & { dismissedAt?: string };
+    // Recover action items for users who tapped ✕ before dismiss was removed.
+    if (msg.dismissedAt) {
+      const { dismissedAt: _removed, ...rest } = msg;
+      const migrated = rest as CoachMessage;
+      await saveCoachMessage(migrated);
+      return migrated;
+    }
+    return msg;
+  } catch {
+    return null;
+  }
 }
 
 export async function saveCoachMessage(m: CoachMessage): Promise<void> {
   await AsyncStorage.setItem(COACH_MESSAGE_KEY, JSON.stringify(m));
-}
-
-export async function dismissCoachMessage(): Promise<void> {
-  const msg = await getCoachMessage();
-  if (!msg) return;
-  await saveCoachMessage({ ...msg, dismissedAt: new Date().toISOString() });
 }
 
 export async function clearCoachMessage(): Promise<void> {

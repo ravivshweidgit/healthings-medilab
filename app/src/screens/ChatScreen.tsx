@@ -452,7 +452,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
     const msg = await getCoachMessage();
     const msgLang = msg?.generatedLangCode ?? 'en';
     const userLang = context.lang?.code ?? 'en';
-    if (msg && !msg.dismissedAt && msgLang === userLang) {
+    if (msg && msgLang === userLang) {
       const data = {
         todayCarb_g: context.todayCarb_g,
         todayProtein_g: context.todayProtein_g,
@@ -498,7 +498,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
   useEffect(() => {
     if (!visible) return;
     setCoachExpanded(history.length === 0);
-  }, [visible, history.length, coachMsg?.id]);
+  }, [visible, history.length]);
 
   /** Chat opens at latest message when there is history. */
   useEffect(() => {

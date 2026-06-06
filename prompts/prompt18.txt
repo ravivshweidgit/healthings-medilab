@@ -47,17 +47,17 @@ export async function saveMentorFrequency(f: MentorFrequency): Promise<void>
 ## PART B — Mentor nudge strip (dashboard inline — lightweight, no full card)
 
 A single tappable row rendered just above the glucose/HR chart on the dashboard.
-Shown only when a current (non-dismissed) coach message exists.
+Shown whenever a current coach message exists.
 
 ```
 ┌──────────────────────────────────────────────┐
-│ 💬 Mentors · 1 of 3 items done   Open →    ✕ │
+│ 💬 Mentors · 1 of 3 items done   Open →    │
 └──────────────────────────────────────────────┘
 ```
 
 - **Tap row / "Open →"** → opens ChatScreen (coach panel pinned at top; chat scrolls below)
-- **↻** → gated refresh (`refreshCoachReview`) — regenerates coach message + action items if min-gap allows; alert if too soon
-- **✕** → dismisses the strip (sets `dismissedAt`); chat history for today remains in storage
+- **No ✕ dismiss** — dismissing the strip accidentally hid action items in chat (removed)
+- **No ↻ on dashboard** — refresh only in ChatScreen where the user sees the result (removed)
 - Progress count ("1 of 3 done") updates in real time as auto-checks tick items
 - No message text and no action item list on the dashboard — those live in ChatScreen
 
@@ -84,10 +84,11 @@ export type CoachMessage = {
   actionItems: CoachActionItem[];  // 2–4 items
   triggerEvent: 'meal' | 'weigh-in' | 'workout' | 'day-close';
   generatedAt: string;             // ISO
-  dismissedAt?: string;            // ISO — set when user taps ✕
   mealCountAtGeneration: number;   // snapshot for 'meal_logged' auto-check
   generatedLangCode?: string;    // BCP-47 code when message was created (language sync)
 };
+
+// Legacy `dismissedAt` in AsyncStorage is migrated away on load (recover action items).
 
 const COACH_MESSAGE_KEY = 'coach_message_today';
 
@@ -249,20 +250,21 @@ min-gap setting as automatic events (MentorStrip slider). No bypass from the UI.
 
 ### Entry points
 
-1. **Nudge strip ↻** — gated refresh; alert if too soon
-2. **ChatScreen coach panel footer ↻ Refresh / ↻ רענן** — same gated refresh
-3. **Quick-question chips** — "Review my status" etc. fill the input; user taps
+1. **ChatScreen coach panel footer ↻ Refresh / ↻ רענן** — gated refresh; alert if too soon
+2. **Quick-question chips** — "Review my status" etc. fill the input; user taps
    **Send** for a free-chat answer (does not regenerate the action-item list)
 
 ### Not used (removed during implementation)
 
+- **Nudge strip ↻** — removed; user could not see refresh result until opening chat
+- **Nudge strip ✕** — removed; incorrectly hid action items from chat permanently
 - **Floating "Ask mentors" pill** — removed; duplicated nudge strip entry
 - **Force review on every tap** — `forceCoachReview()` retained only for
   language-mismatch auto-regeneration (`generatedLangCode` ≠ user language)
 
 ### UX note
-- After refresh completes, nudge strip + coach panel update; `generatedAt` resets
-  the min-gap clock for automatic events too
+- After refresh completes, coach panel **stays expanded** (do not re-collapse on new `coachMsg.id`)
+- Nudge strip progress count updates via `onCoachMessageUpdated`
 - If min-gap not met, show alert: e.g. "Try again in about 3h" / "עוד מוקדם לרענון"
 
 ---
@@ -307,6 +309,7 @@ Full-screen modal inside `SafeAreaProvider`. Inherits `CoachContext` from dashbo
 
 ### Action items + refresh
 - **↻ Refresh** calls `refreshCoachReview()` with fresh meal log + live context
+- After refresh, panel remains expanded so action items stay visible
 - Respects mentor min-gap; spinner on button while generating
 
 ### Chat history model
@@ -395,8 +398,7 @@ export async function resetQuickQuestionsForLanguage(lang: UserLanguage): Promis
 
 ### Chat entry
 - **Nudge strip only** — no floating pill (removed: overlapped system nav bar and
-  duplicated nudge). When nudge dismissed, chat is not reachable from dashboard
-  until next coach message (acceptable trade-off).
+  duplicated nudge). Strip is always tappable while a coach message exists.
 
 ### Trigger points
 See PART C — all four events wired with `triggerCoachReview()` + frequency gate.
@@ -459,7 +461,14 @@ No separate CoachCard.tsx — replaced by nudge strip + ChatScreen coach panel.
 - Multi-day history / weekly review reports → **prompt19** (see `prompts/prompt19.txt`)
 - Proactive server-side nudges
 - Voice input / audio responses
-- Chat entry when nudge dismissed (no floating pill)
 - Item-level meal history across past days in free chat
 
 Note: per-day chat history **is** persisted in AsyncStorage (`chat_history_YYYY-MM-DD`).
+
+---
+
+## Shipped UX fixes (post–Phase 1)
+
+- Removed nudge strip **✕** and **↻** — chat-only refresh; action items never disappear from storage
+- Coach panel stays **expanded after refresh** (`coachExpanded` not reset on `coachMsg.id` change)
+- Legacy `dismissedAt` migrated on load so previously dismissed action items recover

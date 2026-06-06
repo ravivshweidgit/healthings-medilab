@@ -50,12 +50,12 @@ import { buildGlucoseMentorContext } from '../logic/mealGlucoseAnalysis';
 import {
   getBirthdate, setBirthdate, computeAge, getCachedHeightCm,
   setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors,
-  getUserRules, getMacroTarget, getBodyTarget, getCoachMessage, saveCoachMessage, dismissCoachMessage, clearCoachMessage,
+  getUserRules, getMacroTarget, getBodyTarget, getCoachMessage, saveCoachMessage, clearCoachMessage,
   getLanguage, setLanguage, SUPPORTED_LANGUAGES, resetQuickQuestionsForLanguage,
   type Gender, type MentorType, type UserRules, type DailyMacroTarget, type BodyTarget, type CoachMessage, type UserLanguage,
 } from '../services/TargetService';
 import { type CoachContext } from '../services/GeminiService';
-import { triggerCoachReview, forceCoachReview, refreshCoachReview, runAutoChecksAndPersist } from '../services/CoachService';
+import { triggerCoachReview, forceCoachReview, runAutoChecksAndPersist } from '../services/CoachService';
 import {
   buildAuthorizationUrl,
   fetchWeightMetrics,
@@ -124,13 +124,6 @@ function navBarBottomInset(bottom: number): number {
   return Platform.OS === 'android' ? 48 : 16;
 }
 
-function refreshBlockedMessage(waitHours: number, minGapHours: number, langCode?: string): string {
-  if (langCode === 'he') {
-    return `ניתן לרענן כל ${minGapHours} שעות. נסו/י שוב בעוד כ-${waitHours} שעות.`;
-  }
-  return `Reviews are limited to once every ${minGapHours}h. Try again in about ${waitHours}h.`;
-}
-
 const COACH_LAST_WEIGH_IN_KEY = 'coach_last_weigh_in_at';
 const COACH_LAST_WORKOUT_MS_KEY = 'coach_last_workout_start_ms';
 
@@ -189,7 +182,6 @@ export const DashboardScreen = () => {
   // ─── Coach message + chat ────────────────────────────────────────────────
   const [coachMsg, setCoachMsg] = useState<CoachMessage | null>(null);
   const [chatVisible, setChatVisible] = useState(false);
-  const forceReviewRef = useRef(false);
   // Always holds the latest coachContext to avoid stale closure issues
   const coachContextRef = useRef<CoachContext | null>(null);
 
@@ -512,11 +504,6 @@ export const DashboardScreen = () => {
     let msg = await getCoachMessage();
     let needsRegen = false;
 
-    if (msg?.dismissedAt) {
-      setCoachMsg(null);
-      return;
-    }
-
     if (msg) {
       const msgLang = msg.generatedLangCode ?? 'en';
       if (msgLang !== storedLang.code) {
@@ -562,31 +549,6 @@ export const DashboardScreen = () => {
       } catch {
         // Non-fatal
       }
-    }
-  }, []);
-
-  /** Gated refresh — respects mentor min-gap setting. */
-  const handleRefreshCoach = useCallback(async () => {
-    if (forceReviewRef.current) return;
-    forceReviewRef.current = true;
-    try {
-      const storedLang = await getLanguage();
-      const ctx = coachContextRef.current;
-      if (!ctx) return;
-      const event = (await getCoachMessage())?.triggerEvent ?? 'day-close';
-      const result = await refreshCoachReview({ ...ctx, lang: storedLang, event }, event);
-      if (!result.ok) {
-        Alert.alert(
-          storedLang.code === 'he' ? 'עוד מוקדם לרענון' : 'Too soon to refresh',
-          refreshBlockedMessage(result.waitHours, result.minGapHours, storedLang.code),
-        );
-        return;
-      }
-      setCoachMsg(result.message);
-    } catch {
-      // Silent failure
-    } finally {
-      forceReviewRef.current = false;
     }
   }, []);
 
@@ -877,8 +839,8 @@ export const DashboardScreen = () => {
           </View>
         ) : null}
 
-        {/* Mentor nudge strip — shown only when a non-dismissed coach message exists */}
-        {coachMsg && !coachMsg.dismissedAt && (
+        {/* Mentor nudge strip — tap to open chat */}
+        {coachMsg && (
           <Pressable
             style={styles.nudgeStrip}
             onPress={() => setChatVisible(true)}
@@ -886,21 +848,7 @@ export const DashboardScreen = () => {
             <Text style={styles.nudgeStripText}>
               💬 Mentors · {coachMsg.actionItems.filter((i) => i.done).length} of {coachMsg.actionItems.length} done
             </Text>
-            <Pressable
-              style={styles.nudgeRefreshBtn}
-              onPress={handleRefreshCoach}
-              hitSlop={8}
-            >
-              <Text style={styles.nudgeRefreshText}>↻</Text>
-            </Pressable>
             <Text style={styles.nudgeOpenText}>Open →</Text>
-            <Pressable
-              style={styles.nudgeDismissBtn}
-              onPress={async () => { await dismissCoachMessage(); setCoachMsg(null); }}
-              hitSlop={8}
-            >
-              <Text style={styles.nudgeDismissText}>✕</Text>
-            </Pressable>
           </Pressable>
         )}
 
@@ -1763,12 +1711,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: WellnessColors.textPrimary,
   },
-  nudgeRefreshBtn: { padding: 2 },
-  nudgeRefreshText: { fontSize: 16, color: WellnessColors.accentBlue },
   nudgeOpenText: { fontSize: 13, color: WellnessColors.accentBlue, fontWeight: '600' },
-  nudgeDismissBtn: { padding: 2 },
-  nudgeDismissText: { fontSize: 14, color: WellnessColors.textSecondary },
-
   _unused: {
   },
   previewFoot: {
