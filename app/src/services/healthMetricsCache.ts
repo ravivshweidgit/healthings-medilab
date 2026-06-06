@@ -68,17 +68,18 @@ export function prepareGlucoseSeries(
   };
 }
 
-/** Merge glucose arrays; later entries win on duplicate timestamps (CSV import behaviour). */
+/** Merge glucose arrays; later sources win on duplicate instants (by epoch ms). */
 export function mergeGlucoseTimePoints(sources: TimePoint[][]): TimePoint[] {
-  const map = new Map<string, number>();
+  const map = new Map<number, TimePoint>();
   for (const src of sources) {
     for (const p of src) {
-      if (p.value > 0) map.set(p.timestamp, p.value);
+      if (p.value <= 0) continue;
+      const ms = new Date(p.timestamp).getTime();
+      if (Number.isNaN(ms)) continue;
+      map.set(ms, { timestamp: new Date(ms).toISOString(), value: p.value });
     }
   }
-  return [...map.entries()]
-    .map(([timestamp, value]) => ({ timestamp, value }))
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  return [...map.values()].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 
 export function filterGlucoseToDayKeys(glucose: TimePoint[], dayKeys: string[]): TimePoint[] {

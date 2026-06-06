@@ -21,7 +21,7 @@ glucose overlay chart, prompt08 visceral+glucose pair card (defer).
 | HC glucose parse | `parseBloodGlucoseMgDl()` — reads `level.inMilligramsPerDeciliter` / `inMillimolesPerLiter` (react-native-health-connect shape) |
 | CareSens CSV import | `careSensCsv.ts` + Import button on dashboard |
 | Cache | `healthMetricsCache.ts` — `healthings:lastMetrics` |
-| Warm-up filter (24h per sensor) | `cgmWarmupFilter.ts` — **CSV serial + gap-based sessions only** (not HC/xDrip stream anchors) |
+| Warm-up filter (24h per sensor) | `cgmWarmupFilter.ts` — **CSV serial sessions only** (gap-detected starts are metadata; not warm-up) |
 | Statistical noise filter | `cgmStatisticalFilter.ts` |
 | Range stats for mentors | `cgmRangeStats.ts` |
 | Meal ↔ glucose correlation | `mealGlucoseAnalysis.ts` → `buildGlucoseMentorContext()` |
@@ -45,12 +45,16 @@ CareSens Air → xDrip+ (companion / 640G·Eversense source) → Health Connect 
 
 **Not reliable in testing:** CareSens → Samsung Health → HC for glucose (activity synced; glucose often delayed or absent in HC Browse). CSV import and xDrip→HC remain fallbacks.
 
+**CSV + HC together (verified 2026-06-06):** Import CareSens CSV → chart shows history **and** live xDrip/HC green tail → **Refresh** preserves both.
+Import toast: `Imported X CSV + Y HC readings → Z on chart`.
+
 **Bugs fixed during connection sprint:**
 
 | Issue | Fix |
 |-------|-----|
 | Chart empty despite HC data | Parse HC `inMilligramsPerDeciliter` (was expecting `{ value, unit }`) |
-| `chartGlucoseCount: 0` with 8 parsed points | Warm-up excluded all xDrip readings — stale HC session start in cache; warm-up now **serial + gap only** |
+| `chartGlucoseCount: 0` with 8 parsed points | Warm-up excluded all xDrip readings — gap after CSV treated as new session; warm-up now **CSV serial only** |
+| HC live tail lost after CSV import | Gap-based warm-up hid post-export HC readings; import merges `cache → HC → CSV`; refetch/sync mutex |
 | Permission flash / false denied | Use `requestPermission()` return value; persistent HC error banner |
 | App crash on launch | Duplicate export of `parseBloodGlucoseMgDl` (getter conflict) |
 | APK reinstall | HC permission must be re-granted for Healthings |
@@ -60,43 +64,46 @@ calories, and workouts come from **Withings** — never merged from HC (avoids d
 Manifest permission: `android.permission.health.READ_BLOOD_GLUCOSE` only.
 `AndroidManifest.xml`: `activity-alias` for Android 14+ permission usage + `queries` for HC package.
 
-### Known gap (must fix in prompt21 — still open)
-
 ---
 
-## PART A — Fix glucose merge on every refetch (`useHealthData.ts`)
+## PART A — Merge glucose on every refetch (`useHealthData.ts`) — **shipped**
 
-Mirror `ReviewService.fetchPeriodIntraday()` merge strategy:
+`refetch()` merges Health Connect with cached glucose via `mergeGlucoseTimePoints`.
+**Later source wins** on duplicate timestamps → pass `[cached, HC]` so HC is authoritative.
+
+```ts
+const cached = await loadCachedHealthMetrics();
+const mergedRaw = mergeGlucoseTimePoints([cached?.glucose ?? [], metrics.glucose]);
+applyMetrics({ glucose: mergedRaw }, cached?.cgmSessionStarts);
+```
+
+If CSV history was already lost from cache, **re-import CSV once** — Sync will preserve it after this fix.
+
+**CSV import** also fetches live HC and merges `cache → HC → CSV` (CSV wins duplicate timestamps; HC keeps readings newer than the export).
+
+Rules:
+- **Duplicate instant (epoch ms):** on **Sync/refetch** HC wins (`[cached, HC]`); on **CSV import** CSV wins (`[cache, HC, CSV]`)
+- **`withGlucoseSyncLock`** — import and refetch cannot overwrite each other mid-flight
+- **Persist merged raw** in `healthings:lastMetrics`, not HC-only
+- **Bootstrap** from cache then refetch — unchanged order, but refetch must not shrink series
 
 ```ts
 import { mergeGlucoseTimePoints, loadCachedHealthMetrics } from '../services/healthMetricsCache';
 
-// Inside refetch(), after HC fetch:
 const cached = await loadCachedHealthMetrics();
 const mergedRaw = mergeGlucoseTimePoints([
-  metrics.glucose,           // Health Connect (authoritative on duplicate timestamp)
-  cached?.glucose ?? [],     // includes prior CSV import
+  cached?.glucose ?? [],
+  metrics.glucose,
 ]);
-const knownStarts = mergeCgmSessionStarts(
-  cached?.cgmSessionStarts,
-  undefined, // CSV sessions already in cache
-);
-applyMetrics(
-  { glucose: mergedRaw, steps: metrics.steps, heartRate: metrics.heartRate },
-  knownStarts,
-);
+const knownStarts = mergeCgmSessionStarts(cached?.cgmSessionStarts, undefined);
+applyMetrics({ glucose: mergedRaw }, knownStarts);
 ```
 
-Rules:
-- **Duplicate timestamp:** HC wins (same as `mergeGlucoseCsvWins` for CSV-over-HC on import)
-- **Persist merged raw** in `healthings:lastMetrics`, not HC-only
-- **Bootstrap** from cache then refetch — unchanged order, but refetch must not shrink series
-- Export `mergeGlucoseTimePoints` usage consistently; avoid duplicating merge logic in a third place
-
-### Acceptance (merge)
-- Import CSV → chart shows history → tap **Sync** → point count does **not** drop
+### Acceptance (merge) — verified on device
+- Import CSV → chart shows history **and** live HC tail → tap **Sync** → neither drops
 - HC adds new points after CSV import → both sources visible on chart
 - Mentor `todayMealGlucoseDetail` uses same merged series as chart
+- `mergeGlucoseTimePoints` dedupes by epoch ms (CSV `toISOString` vs HC `...Z` no longer duplicates)
 
 ---
 
@@ -186,11 +193,11 @@ in PR or commit message.
 
 **After APK reinstall:** re-grant Healthings **Read Blood glucose** in Health Connect.
 
-### E2 — CSV import path
+### E2 — CSV import path (verified 2026-06-06)
 1. Export CSV from CareSens Air app
-2. Tap **Import** on dashboard → success message with reading count
-3. Chart updates immediately
-4. Tap **Sync** → **reading count must not decrease** (PART A fix)
+2. Tap **Import** on dashboard → toast `Imported X CSV + Y HC readings → Z on chart`
+3. Chart shows CSV history **and** live HC green tail (xDrip still writing)
+4. Tap **Sync** → **neither CSV history nor HC tail decreases**
 5. Nutritionist `/7` or chip "סיכום שבועי" → period block includes
    `GLUCOSE & FOOD IMPACT` with avg/min/max
 
@@ -214,7 +221,7 @@ document as manual-only and add tests when test runner lands).
 | Module | Cases |
 |--------|-------|
 | `careSensCsv.ts` | mmol→mg/dL, serial change → new session, missing columns error |
-| `cgmWarmupFilter.ts` | 24h excluded after session start; gap-based HC session |
+| `cgmWarmupFilter.ts` | 24h excluded after CSV serial session start; gap after CSV does **not** warm-up HC |
 | `cgmStatisticalFilter.ts` | 1/100 low days excluded; &lt;14 days history → no exclusion |
 | `mealGlucoseAnalysis.ts` | meal window finds peak; no glucose → empty block |
 | `healthMetricsCache.mergeGlucoseTimePoints` | HC + CSV merge, duplicate timestamp resolution |
@@ -307,10 +314,10 @@ Mentor context: append one line when exclusions active:
 
 | File | Change |
 |------|--------|
-| `app/src/hooks/useHealthData.ts` | Triple-merge on refetch (TODO); refetch mutex; HC error state |
+| `app/src/hooks/useHealthData.ts` | Merge on refetch + import; `withGlucoseSyncLock`; `GlucoseImportResult` |
 | `app/src/services/SamsungHealthService.ts` | HC glucose-only; parse fix; permission flow |
 | `app/src/services/healthMetricsCache.ts` | `warmupSessionStarts` / `sanitizePersistedSessionStarts` |
-| `app/src/logic/cgmWarmupFilter.ts` | No first-point HC anchor; serial+gap warm-up only |
+| `app/src/logic/cgmWarmupFilter.ts` | Warm-up CSV serial only; gap starts metadata only |
 | `app/src/services/healthConnectDebugExport.ts` | Optional JSON export (disabled) |
 | `app/src/services/ReviewService.ts` | Period reviews: Withings HR; HC contributes glucose only |
 | `app/android/.../AndroidManifest.xml` | `READ_BLOOD_GLUCOSE`; HC activity-alias; queries |
@@ -353,8 +360,9 @@ UI button removed after green-line verification.
 
 ### Phase 1 — connection (ship first)
 - [x] HC permission grant → chart green glucose line (xDrip+ → HC path, device verified 2026-06-06)
-- [x] HC glucose parse (`inMilligramsPerDeciliter`) + warm-up filter (serial/gap only)
-- [ ] CSV import → chart updates; **Sync preserves CSV points** (PART A)
+- [x] HC glucose parse (`inMilligramsPerDeciliter`) + warm-up filter (CSV serial only)
+- [x] CSV import → chart + live HC tail; **Sync preserves both** (PART A, device verified 2026-06-06)
+- [x] Manual test E2 pass on device (CSV + HC + Sync)
 - [ ] Nutritionist chat cites MEAL GLUCOSE numbers after meal + Sync (PART C)
 - [ ] `/7` period review includes `GLUCOSE & FOOD IMPACT` with period stats
 - [ ] CGM status row visible; permission error shows actionable message (PART B — banner shipped, row TODO)

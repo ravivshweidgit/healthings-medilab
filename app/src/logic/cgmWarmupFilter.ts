@@ -48,16 +48,12 @@ export function detectCgmSessionStarts(
   return starts;
 }
 
-/** Warm-up applies only to CareSens CSV sessions (serial) and gap-detected new sensors — not HC stream anchors. */
+/** Warm-up applies only to CareSens CSV sessions (serial). Gap-based starts are metadata only — applying warm-up after a CSV→HC gap was hiding live HC readings. */
 export function warmupSessionStarts(
   knownSessionStarts: CgmSessionStart[] | undefined,
-  gapStarts: CgmSessionStart[],
+  _gapStarts?: CgmSessionStart[],
 ): CgmSessionStart[] {
-  const serialStarts = (knownSessionStarts ?? []).filter((s) => s.serial);
-  const merged = [...serialStarts, ...gapStarts];
-  const map = new Map<number, CgmSessionStart>();
-  for (const s of merged) map.set(s.startMs, s);
-  return [...map.values()].sort((a, b) => a.startMs - b.startMs);
+  return (knownSessionStarts ?? []).filter((s) => s.serial);
 }
 
 export function sanitizePersistedSessionStarts(

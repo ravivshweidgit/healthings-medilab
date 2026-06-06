@@ -796,21 +796,21 @@ export const DashboardScreen = () => {
     setImportMessage(null);
     setImportBusy(true);
     try {
-      const result = await DocumentPicker.getDocumentAsync({
+      const pick = await DocumentPicker.getDocumentAsync({
         type: ['text/csv', 'text/comma-separated-values', 'application/csv', '*/*'],
         copyToCacheDirectory: true,
       });
-      if (result.canceled) return;
-      const uri = result.assets?.[0]?.uri;
+      if (pick.canceled) return;
+      const uri = pick.assets?.[0]?.uri;
       if (!uri) {
         setImportMessage('No file was selected.');
         return;
       }
       const text = await FileSystem.readAsStringAsync(uri);
       const { points, sessionStarts } = parseCareSensAirExportWithSessions(text);
-      await applyImportedGlucose(points, sessionStarts);
+      const importResult = await applyImportedGlucose(points, sessionStarts);
       setImportMessage(
-        `Imported ${points.length} CareSens readings (${sessionStarts.length} sensor session${sessionStarts.length === 1 ? '' : 's'}; first 24h warm-up excluded from chart).`,
+        `Imported ${importResult.csvCount} CSV + ${importResult.hcCount} HC readings → ${importResult.chartCount} on chart (${importResult.sessionCount} sensor session${importResult.sessionCount === 1 ? '' : 's'}).`,
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not import CSV.';
