@@ -431,18 +431,40 @@ function buildMacroAdherenceSummary(
   ].join(' | ');
 }
 
-/** Compact rollup — included on every chat/coach turn. */
-export async function buildYesterdayWorkoutRollup(): Promise<string> {
-  const dk = dayKeyDaysAgo(1);
+function formatWorkoutRollup(
+  sessions: WorkoutSession[],
+  hrPoints: WithingsHeartRatePoint[] | undefined,
+  daysAgo: number,
+  label: 'TODAY' | 'YESTERDAY',
+): string {
+  const dk = dayKeyDaysAgo(daysAgo);
+  const block = formatDayWorkouts(sessions, dk, hrPoints);
+  if (block === 'No workouts logged.') {
+    return `${label} WORKOUTS (${dk}): none logged`;
+  }
+  return `${label} WORKOUTS (${dk}):\n  ${block}`;
+}
+
+/** Today + yesterday workout lines — single Withings fetch for chat/coach context. */
+export async function buildChatWorkoutRollups(): Promise<{ today: string; yesterday: string }> {
   const [sessions, intraday] = await Promise.all([
     fetchWorkoutsHistory(14),
     fetchHeartRateHistory(3),
   ]);
-  const block = formatDayWorkouts(sessions, dk, intraday.heartRate);
-  if (block === 'No workouts logged.') {
-    return `YESTERDAY WORKOUTS (${dk}): none logged`;
-  }
-  return `YESTERDAY WORKOUTS (${dk}):\n  ${block}`;
+  const hr = intraday.heartRate;
+  return {
+    today: formatWorkoutRollup(sessions, hr, 0, 'TODAY'),
+    yesterday: formatWorkoutRollup(sessions, hr, 1, 'YESTERDAY'),
+  };
+}
+
+/** Compact rollup — included on every chat/coach turn. */
+export async function buildYesterdayWorkoutRollup(): Promise<string> {
+  return (await buildChatWorkoutRollups()).yesterday;
+}
+
+export async function buildTodayWorkoutRollup(): Promise<string> {
+  return (await buildChatWorkoutRollups()).today;
 }
 
 /** Full app snapshot — only when user asks for a period review (/7, chips, etc.). */

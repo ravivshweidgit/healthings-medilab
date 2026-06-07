@@ -15,6 +15,7 @@ token/API cost (see bottom of this file).
 │  Token layers (as built)                                    │
 ├─────────────────────────────────────────────────────────────┤
 │  Every chat/coach turn │ Today stats + meal log + rules     │
+│  Every chat/coach turn │ TODAY WORKOUTS (+ HR/session)      │
 │  Every chat/coach turn │ YESTERDAY WORKOUTS (+ HR/session)  │
 │  Every chat/coach turn │ Yesterday chat one-liner (P18)     │
 │  On demand only        │ PERIOD REVIEW full snapshot block  │
@@ -144,7 +145,7 @@ WORKOUTS (+ HR during each session): …
 ### Everyday chat (no period review)
 
 Compact only:
-- `YESTERDAY WORKOUTS` with HR-during-session lines (3-day HR fetch)
+- `TODAY WORKOUTS` + `YESTERDAY WORKOUTS` with HR-during-session lines (3-day HR fetch; single Withings fetch via `buildChatWorkoutRollups()`)
 - Today meal log, coach context, yesterday chat one-liner (Prompt 18)
 
 ---
@@ -158,7 +159,9 @@ export async function buildPeriodReviewBlock(
   macroTarget?: DailyMacroTarget | null,
 ): Promise<string>;
 
+export async function buildChatWorkoutRollups(): Promise<{ today: string; yesterday: string }>;
 export async function buildYesterdayWorkoutRollup(): Promise<string>;
+export async function buildTodayWorkoutRollup(): Promise<string>;
 
 export const PERIOD_REVIEW_CHAT_INSTRUCTION = '…'; // full snapshot + HR vs workout guidance
 ```

@@ -15,7 +15,7 @@ import {
 import type { MentorType, DailyMacroTarget, BodyTarget, UserRules, CoachMessage, CoachActionItem, AutoCheckType, ChatMessage, UserLanguage, Gender } from './TargetService';
 import type { TimePoint } from './SamsungHealthService';
 import {
-  buildYesterdayWorkoutRollup,
+  buildChatWorkoutRollups,
   buildPeriodReviewBlock,
   detectPeriodReviewQuery,
   PERIOD_REVIEW_CHAT_INSTRUCTION,
@@ -1212,7 +1212,7 @@ export function isYesterdayQuery(text: string): boolean {
 export async function generateCoachMessage(ctx: CoachContext): Promise<CoachMessage> {
   const systemPrompt = buildMentorSystemPrompt(ctx.mentors);
   const dataBlock = buildCoachDataBlock(ctx);
-  const yesterdayWorkouts = await buildYesterdayWorkoutRollup();
+  const { today: todayWorkouts, yesterday: yesterdayWorkouts } = await buildChatWorkoutRollups();
 
   const jsonExample = coachJsonExample(ctx);
   const carbTarget = ctx.macroTarget?.carb_g;
@@ -1222,6 +1222,8 @@ export async function generateCoachMessage(ctx: CoachContext): Promise<CoachMess
 
 USER DATA:
 ${dataBlock}
+
+${todayWorkouts}
 
 ${yesterdayWorkouts}
 
@@ -1241,7 +1243,7 @@ Rules:
 - Dietary rules in USER DATA override any generic diet assumptions
 - If event is meal: focus on remaining macros for the day
 - If event is weigh-in: focus on trend vs target, muscle vs start
-- If event is workout: focus on calorie budget impact and HR during session vs resting baseline when YESTERDAY WORKOUTS includes HR lines
+- If event is workout: focus on calorie budget impact and HR during session vs resting baseline when TODAY WORKOUTS or YESTERDAY WORKOUTS includes HR lines
 - Do NOT repeat data the user already sees on the dashboard
 - If Nutritionist 🥗 is active and CGM blocks are in USER DATA, "text" MUST include glucose avg/min/max (mg/dL) and good-vs-needs-improvement verdict
 - NEVER say "no CGM data" when MEAL GLUCOSE / TODAY CGM / RECENT CGM blocks are in USER DATA — say synced; if meal window not ready, cite today avg/min/max anyway${coachJsonLangInstruction(ctx.lang)}`;
@@ -1345,7 +1347,7 @@ function buildChatContextBlocks(
   yesterdaySummary: string | null,
 ): {
   dataBlock: string;
-  yesterdayWorkouts: Promise<string>;
+  workoutRollups: Promise<{ today: string; yesterday: string }>;
   periodRequest: ReturnType<typeof detectPeriodReviewQuery>;
   periodBlock: Promise<string>;
   yesterdayChatLine: string;
@@ -1354,7 +1356,7 @@ function buildChatContextBlocks(
   userMessage: string;
 } {
   const dataBlock = buildChatDataBlock(ctx);
-  const yesterdayWorkouts = buildYesterdayWorkoutRollup();
+  const workoutRollups = buildChatWorkoutRollups();
   const periodRequest = detectPeriodReviewQuery(message);
   const periodBlock = periodRequest
     ? buildPeriodReviewBlock(periodRequest, ctx.macroTarget, ctx.glucoseHistory)
@@ -1385,7 +1387,7 @@ function buildChatContextBlocks(
 
   return {
     dataBlock,
-    yesterdayWorkouts,
+    workoutRollups,
     periodRequest,
     periodBlock,
     yesterdayChatLine,
@@ -1400,6 +1402,7 @@ function buildChatSystemText(
   ctx: CoachContext,
   blocks: {
     dataBlock: string;
+    todayWorkouts: string;
     yesterdayWorkouts: string;
     yesterdayChatLine: string;
     yesterdayMealSection: string;
@@ -1414,13 +1417,15 @@ function buildChatSystemText(
 
 CURRENT USER DATA:
 ${blocks.dataBlock}
+${blocks.todayWorkouts}
+
 ${blocks.yesterdayWorkouts}${blocks.yesterdayMealSection}${blocks.periodSection}
 
 You are responding in a free chat. Be concise, specific, and supportive.
 Match your tone to LOCAL TIME NOW and TIME-AWARE COACHING in the data — early morning means gentle, not alarmist.
 Reply directly to the user — never output THOUGHT, internal reasoning, numbered analysis steps, or planning in English unless the user wrote in English.
 Reply in plain prose only — never use **text**, **actionItems**, JSON, or markdown section headers. 2–4 sentences with specific numbers.
-The MEAL LOG section is today's food. YESTERDAY WORKOUTS shows yesterday's training sessions from Withings with HR during each session when watch data exists.
+The MEAL LOG section is today's food. TODAY WORKOUTS lists today's Withings sessions (activity, time, kcal, HR when watch data exists). YESTERDAY WORKOUTS is the same for yesterday. When the user asks about activity or training today, cite TODAY WORKOUTS — do not say workouts are missing if they appear there.
 When MEAL GLUCOSE, TODAY CGM, or RECENT CGM blocks are in USER DATA, Nutritionist 🥗 MUST lead with glucose interpretation (avg/min/max mg/dL) — this is core nutritionist work, not optional. Doctor 🩺 adds clinical safety on the same numbers. With meals, name foods before spikes; without meals, assess trend and urge food logging.
 YESTERDAY rollup/meal lines are yesterday's food — use for אתמול / yesterday questions.
 When PERIOD REVIEW block is present, analyze the full snapshot (body, energy, HR, food, workouts): what went well, what to improve, specific next steps.
@@ -1439,10 +1444,11 @@ async function chatWithSingleMentor(
   yesterdaySummary: string | null,
 ): Promise<string> {
   const blocks = buildChatContextBlocks(ctx, message, yesterdaySummary);
-  const [yesterdayWorkouts, periodSection] = await Promise.all([blocks.yesterdayWorkouts, blocks.periodSection]);
+  const [workoutRollups, periodSection] = await Promise.all([blocks.workoutRollups, blocks.periodSection]);
   const systemText = buildChatSystemText(mentor, ctx, {
     dataBlock: blocks.dataBlock,
-    yesterdayWorkouts,
+    todayWorkouts: workoutRollups.today,
+    yesterdayWorkouts: workoutRollups.yesterday,
     yesterdayChatLine: blocks.yesterdayChatLine,
     yesterdayMealSection: blocks.yesterdayMealSection,
     periodSection,

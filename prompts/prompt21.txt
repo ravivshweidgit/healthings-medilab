@@ -172,6 +172,27 @@ Skip if merge + status UI + test checklist pass first.
 
 ---
 
+## PART F — TODAY WORKOUTS in mentor/coach context (shipped 2026-06-07)
+
+**Problem:** Chat/coach context only included `YESTERDAY WORKOUTS`. Coach could not see today's
+Withings sessions (bike, walk) and asked the user to type activities manually.
+
+**Fix:**
+- `ReviewService.buildChatWorkoutRollups()` — one `fetchWorkoutsHistory` + HR fetch →
+  `TODAY WORKOUTS (date):` and `YESTERDAY WORKOUTS (date):` blocks (activity, time, kcal, HR lines)
+- `GeminiService.generateCoachMessage` + `chatWithSingleMentor` inject **both** blocks every turn
+- System prompt: cite `TODAY WORKOUTS` for activity / today-progress questions; do not claim workouts missing if listed
+
+**Files:** `ReviewService.ts`, `GeminiService.ts`
+
+**Acceptance (device verified 2026-06-07):**
+- Coach tab → “איך אני מתקדם/ת היום?” → names today's bike rides + walk, burn, deficit, protein
+- Follow-up tips reference activity volume without re-pasting full daily dump
+
+**Not in scope:** Coach pinned task strip still macro/deficit-only; conversation continuity / CGM repetition (separate prompt work).
+
+---
+
 ## PART E — Manual test plan (device — required before commit)
 
 Run on **physical Android dev APK** (`expo run:android` / release APK). Document results
@@ -364,6 +385,7 @@ UI button removed after green-line verification.
 - [x] CSV import → chart + live HC tail; **Sync preserves both** (PART A, device verified 2026-06-06)
 - [x] Manual test E2 pass on device (CSV + HC + Sync)
 - [x] MetabolicChart touch scrub + 70–100 target band + auto Y (prompt13, device verified 2026-06-07)
+- [x] Coach chat cites **TODAY WORKOUTS** (Withings bike/walk + kcal) without user typing activities (PART F, device verified 2026-06-07)
 - [ ] Nutritionist chat cites MEAL GLUCOSE numbers after meal + Sync (PART C)
 - [ ] `/7` period review includes `GLUCOSE & FOOD IMPACT` with period stats
 - [ ] CGM status row visible; permission error shows actionable message (PART B — banner shipped, row TODO)
