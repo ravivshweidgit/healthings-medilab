@@ -79,6 +79,42 @@ async function tryWriteCachedSaf(json: string, filename: string): Promise<string
   }
 }
 
+/** Write JSON to app debug dir + Download/healthings when writable (shared debug sink). */
+export async function writeJsonToHealthingsDebugDir(
+  filename: string,
+  data: unknown,
+): Promise<{ savedPaths: string[]; saveNotes: string[] }> {
+  const savedPaths: string[] = [];
+  const saveNotes: string[] = [];
+  const json = JSON.stringify(data, null, 2);
+
+  try {
+    await FileSystem.makeDirectoryAsync(APP_DEBUG_DIR, { intermediates: true });
+    const appPath = `${APP_DEBUG_DIR}${filename}`;
+    await FileSystem.writeAsStringAsync(appPath, json, { encoding: 'utf8' });
+    savedPaths.push(appPath);
+    saveNotes.push('App folder (always written)');
+  } catch (err) {
+    saveNotes.push(`App folder write failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  const publicPath = await tryWritePublicDownloads(json, filename);
+  if (publicPath) {
+    savedPaths.push(publicPath);
+    saveNotes.push('Public Downloads/healthings');
+  } else {
+    saveNotes.push('Public Downloads/healthings not writable (Android scoped storage)');
+  }
+
+  const safPath = await tryWriteCachedSaf(json, filename);
+  if (safPath) {
+    savedPaths.push(safPath);
+    saveNotes.push('Saved via previously chosen Downloads folder');
+  }
+
+  return { savedPaths, saveNotes };
+}
+
 /** Persist HC sync debug JSON for sharing (Downloads/healthings when possible). */
 export async function saveHealthConnectSyncDebug(
   report: Omit<HealthConnectSyncDebugReport, 'savedPaths' | 'saveNotes'>,

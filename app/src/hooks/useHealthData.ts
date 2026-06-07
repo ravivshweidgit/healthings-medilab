@@ -212,7 +212,10 @@ export const useHealthData = () => {
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to sync health data.';
-        setError(message);
+        const cached = await loadCachedHealthMetrics();
+        const hasCachedGlucose = (cached?.glucose?.length ?? 0) > 0;
+        // Background refetch can fail transiently while cache + chart are still valid — avoid error flash.
+        setError(hasCachedGlucose ? null : message);
         return null;
       } finally {
         setIsLoading(false);

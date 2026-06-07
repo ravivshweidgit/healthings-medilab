@@ -57,6 +57,31 @@ function mapGlucoseRecords(records: Array<Record<string, unknown>>): TimePoint[]
 }
 
 class SamsungHealthService {
+  /** Once read or permission check succeeds, avoid re-prompting on transient getGrantedPermissions() gaps. */
+  private sessionAccessOk = false;
+
+  private markAccessOk(): void {
+    this.sessionAccessOk = true;
+  }
+
+  /** Probe read when permission APIs disagree (known HC / Android 14 quirk). */
+  private async probeBloodGlucoseRead(): Promise<boolean> {
+    try {
+      const endTime = new Date();
+      const startTime = new Date(endTime.getTime() - HOURS_24_MS);
+      await readRecords('BloodGlucose' as never, {
+        timeRangeFilter: {
+          operator: 'between',
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+        },
+      } as never);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async initializeAndRequestPermissions(): Promise<unknown[]> {
     const isInitialized = await initialize();
     if (!isInitialized) {
@@ -64,21 +89,34 @@ class SamsungHealthService {
     }
 
     let granted = await getGrantedPermissions();
-    if (!hasCoreReadAccess(granted)) {
+    if (hasCoreReadAccess(granted)) {
+      this.markAccessOk();
+      return granted;
+    }
+
+    if (!this.sessionAccessOk) {
       // Use the permission dialog result directly — getGrantedPermissions() can lag right after grant.
       granted = await requestPermission([...CORE_READ_PERMISSIONS]);
-    }
-    if (!hasCoreReadAccess(granted)) {
-      granted = await getGrantedPermissions();
-    }
-
-    if (!hasCoreReadAccess(granted)) {
-      throw new Error(
-        'Health Connect needs Blood glucose read access. Open Health Connect → App permissions → Healthings → allow Blood glucose.'
-      );
+      if (hasCoreReadAccess(granted)) {
+        this.markAccessOk();
+        return granted;
+      }
     }
 
-    return granted;
+    granted = await getGrantedPermissions();
+    if (hasCoreReadAccess(granted)) {
+      this.markAccessOk();
+      return granted;
+    }
+
+    if (this.sessionAccessOk || (await this.probeBloodGlucoseRead())) {
+      this.markAccessOk();
+      return granted;
+    }
+
+    throw new Error(
+      'Health Connect needs Blood glucose read access. Open Health Connect → App permissions → Healthings → allow Blood glucose.'
+    );
   }
 
   async fetchRecentMetrics(startDate: Date = defaultHealthQueryStart()): Promise<RecentMetrics> {
@@ -104,6 +142,9 @@ class SamsungHealthService {
 
     const records = (glucoseRecords.records ?? []) as Array<Record<string, unknown>>;
     const glucose = mapGlucoseRecords(records);
+    if (glucose.length > 0) {
+      this.markAccessOk();
+    }
 
     return {
       metrics: { glucose },

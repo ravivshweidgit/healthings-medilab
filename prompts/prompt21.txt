@@ -55,7 +55,7 @@ Import toast: `Imported X CSV + Y HC readings → Z on chart`.
 | Chart empty despite HC data | Parse HC `inMilligramsPerDeciliter` (was expecting `{ value, unit }`) |
 | `chartGlucoseCount: 0` with 8 parsed points | Warm-up excluded all xDrip readings — gap after CSV treated as new session; warm-up now **CSV serial only** |
 | HC live tail lost after CSV import | Gap-based warm-up hid post-export HC readings; import merges `cache → HC → CSV`; refetch/sync mutex |
-| Permission flash / false denied | Use `requestPermission()` return value; persistent HC error banner |
+| Permission flash / false denied | `sessionAccessOk` + probe read; soft-fail refetch when cache has glucose (prompt22); banner copy differs from xDrip toast |
 | App crash on launch | Duplicate export of `parseBloodGlucoseMgDl` (getter conflict) |
 | APK reinstall | HC permission must be re-granted for Healthings |
 
@@ -370,10 +370,12 @@ adb install -r "...\app-release.apk"
 
 ### Field debug (optional, off by default)
 
-`app/src/services/healthConnectDebugExport.ts` writes `Download/healthings/hc-sync-latest.json`
-when re-wired into `useHealthData.refetch` with `HC_SYNC_DEBUG_ENABLED = true`.
-Used to diagnose read vs parse vs chart filter (`rawRecordCount`, `parsedNonZeroCount`, `chartGlucoseCount`).
-UI button removed after green-line verification.
+`healthConnectDebugExport.ts`:
+- `HC_SYNC_DEBUG_ENABLED = false` — re-wire `saveHealthConnectSyncDebug()` into `useHealthData.refetch` for `hc-sync-latest.json`
+- `writeJsonToHealthingsDebugDir()` — shared sink for debug JSON
+
+`unhandledRejectionLog.ts` (always on at startup): `unhandled-errors-latest.json` — Hermes
+unhandled rejections + global JS errors. See **prompt22** for pull path and xDrip toast investigation.
 
 ---
 
@@ -418,4 +420,5 @@ UI button removed after green-line verification.
 - Prompt13 — `MetabolicChart` glucose/HR/calorie strip
 - Prompt19 — CGM filters, `buildGlucoseMentorContext`, period review glucose block
 - Prompt18 — mentor nudge strip above glucose chart
+- Prompt22 — HC permission hardening, unhandled error logging, xDrip toast attribution
 - `readme.md` — CareSens via Samsung Health / Health Connect

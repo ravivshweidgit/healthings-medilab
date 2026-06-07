@@ -1,7 +1,10 @@
 import { registerRootComponent } from 'expo';
 
 import { WITHINGS_CALLBACK_URL } from './src/config/env';
+import { installUnhandledErrorLogging } from './src/services/unhandledRejectionLog';
 import App from './App';
+
+installUnhandledErrorLogging();
 
 if (__DEV__) {
   console.warn(

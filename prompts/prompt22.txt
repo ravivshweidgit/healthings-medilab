@@ -1,0 +1,102 @@
+## Prompt 22 — HC permission hardening + field error logging (shipped 2026-06-07)
+
+### Trigger
+Intermittent bottom toast: *"ERROR: Health Connect needs permissions! - try from settings menu again"*
+while chart + CSV + HC sync still worked. Needed to know if Healthings threw it or another app.
+
+### Investigation outcome (device logcat, 2026-06-07)
+
+| Finding | Detail |
+|---------|--------|
+| Toast text | **Not found** in Healthings repo or release bundle |
+| Healthings errors | Banner uses different copy (`Health Connect needs Blood glucose read access…`) |
+| Toast owner | **`com.eveningoutpost.dexdrip`** (xDrip+) at 01:53 — logcat `Toast: show: caller = …dexdrip…JoH` + `NotificationService: … pkg=com.eveningoutpost.dexdrip` |
+| Other toasts | `com.android.phone`, `com.samsung.android.app.smartcapture` — unrelated |
+| Unhandled JS log | No `[Healthings]` rejection lines when xDrip toast appeared — **not** an unhandled Healthings promise |
+
+**Conclusion:** Mystery toast is **xDrip+ HC write permission**, not a Healthings bug. Fix on xDrip side:
+Health Connect → **xDrip+** → Blood glucose **Write**; xDrip+ → Inter-app → Send data to Health Connect ON.
+
+**Attribution command (field):**
+```powershell
+adb logcat -c
+adb logcat | Select-String -Pattern "Toast: show: caller|NotificationService.*pkg="
+```
+Only `NotificationService: … pkg=` on dismiss is authoritative; `Toast$_2176` is System UI renderer.
+
+---
+
+## PART A — HC read hardening (`SamsungHealthService.ts`)
+
+**Problem:** `getGrantedPermissions()` can lag or return empty briefly after grant / background
+refetch — false permission errors while reads still succeed.
+
+**Fix:**
+- `sessionAccessOk` — once read or permission check succeeds, skip re-throw on transient gaps
+- `probeBloodGlucoseRead()` — 24h `readRecords('BloodGlucose')` probe when APIs disagree
+- Successful glucose read marks session OK
+
+Healthings still throws only when probe fails and session never succeeded.
+
+---
+
+## PART B — Refetch soft-fail (`useHealthData.ts`)
+
+**Problem:** Background `refetch()` permission blip showed error banner while cached glucose
+on chart was still valid.
+
+**Fix:** If `loadCachedHealthMetrics()` has glucose → `setError(null)` on catch; banner only
+when cache empty.
+
+---
+
+## PART C — Unhandled error logging (`unhandledRejectionLog.ts`)
+
+**Purpose:** Capture Hermes unhandled promise rejections + global JS errors for field diagnosis.
+
+**Wiring:**
+- `app/index.ts` → `installUnhandledErrorLogging()` at startup
+- `healthConnectDebugExport.writeJsonToHealthingsDebugDir()` — shared JSON sink
+
+**Output:** `unhandled-errors-latest.json` (up to 40 entries, AsyncStorage + file)
+
+**Paths:**
+- Preferred: `/storage/emulated/0/Download/healthings/` (often blocked on release — scoped storage)
+- Fallback: app private `healthings-debug/` (release `run-as` not available)
+
+**Pull (when file exists):**
+```powershell
+adb pull /storage/emulated/0/Download/healthings/unhandled-errors-latest.json .
+```
+
+**Note:** Did not capture xDrip toast — that toast is native/xDrip, not Healthings JS.
+
+---
+
+## Files
+
+| File | Change |
+|------|--------|
+| `SamsungHealthService.ts` | sessionAccessOk, probe read, markAccessOk on success |
+| `useHealthData.ts` | suppress error when cached glucose present |
+| `unhandledRejectionLog.ts` | **NEW** — Hermes + ErrorUtils logging |
+| `healthConnectDebugExport.ts` | `writeJsonToHealthingsDebugDir()` helper |
+| `index.ts` | install logging at entry |
+
+`HC_SYNC_DEBUG_ENABLED` remains **false** — separate from unhandled-error log.
+
+---
+
+## Acceptance
+
+- [x] Chart + HC tail still work after APK with changes (device verified 2026-06-07)
+- [x] logcat attributes xDrip HC permission toast to `com.eveningoutpost.dexdrip`
+- [ ] Transient HC permission banner reduced on background refetch (needs longer soak test)
+- [ ] Unhandled Healthings JS error captured to app debug folder when one occurs
+
+---
+
+## References
+
+- Prompt21 — HC pipeline, xDrip+ path, `healthConnectDebugExport` hc-sync JSON
+- Prompt21 PART F — TODAY WORKOUTS (separate commit)
