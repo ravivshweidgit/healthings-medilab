@@ -33,10 +33,11 @@ function coachJsonLangInstruction(lang?: UserLanguage | null): string {
   return `\nLANGUAGE (mandatory): Write "text" AND every actionItems[].text in ${lang.label} (${lang.code}) only. Keep autoCheckType values exactly as English keys (carbs_under_target, etc.). Do NOT use English for user-visible strings.`;
 }
 
-/** Mandatory language for meal JSON — description/suggestion often stay English without this. */
+/** Mandatory language for meal JSON — name_local is the display name shown in the app. */
 function foodJsonLangInstruction(lang?: UserLanguage | null): string {
   if (!lang || lang.code === 'en') return '';
-  return `\nLANGUAGE (mandatory): Write "description", "suggestion", and every items[].name in ${lang.label} (${lang.code}). items[].name_local may use the original script on the plate/menu. Do NOT use English for user-visible strings.`;
+  return `\nLANGUAGE (mandatory): Write "description" and "suggestion" in ${lang.label} (${lang.code}).
+For each item: "name" = canonical ENGLISH name (for nutrition lookup); "name_local" = the SAME food written in ${lang.label} (${lang.code}) — REQUIRED, this is the name shown to the user in the app. Never leave "name_local" in English when the app language is not English. Keep numbers (grams, kcal, macros) unchanged.`;
 }
 
 export function buildFoodSystemPrompt(lang?: UserLanguage | null): string {
@@ -476,9 +477,10 @@ FORMAT (always exactly this):
 {"items":[{"name":"...","name_local":"...","grams":0,"kcal":0,"protein_g":0.0,"carb_g":0.0,"fat_g":0.0}],"confidence":"high","description":"...","suggestion":"..."}
 
 RULES:
+- "name" = canonical English food name; "name_local" = same food in the user's app language (for English users, name_local may equal name).
 - Estimate grams from plate size (standard plate = 26cm).
 - Split dishes into ingredients. Use USDA values.
-- For corrections: return full updated JSON, keep all items.
+- For corrections: return full updated JSON, keep all items; keep both name fields in the correct languages.
 - If unsure: best guess with confidence "low".`;
 
 /** History seed when editing a saved meal — includes language-aware system prompt. */

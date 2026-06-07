@@ -1,0 +1,93 @@
+## Prompt 24 — Meal photo: name_local is the USER'S language (display name)
+
+### Trigger (user report 2026-06-07)
+Hebrew app user photographed a meal. AI returned an **English** item list. User asked it to
+translate to Hebrew; it said it did, but left **`name_local` in English**. Only after the user
+explained "name_local should be the Hebrew" did the model produce Hebrew. The instruction is
+the bug — not the model.
+
+### Root cause
+
+Two name fields, intended design (see `MOCK_RESULT` / `FoodLogService` mock):
+- `name` = canonical **English** name (USDA lookup, dedup/matching in `mealPhotoMerge.ts`)
+- `name_local` = the **user's app language** display name (e.g. שקשוקה, פיתה)
+
+**The UI shows `name_local` first**, so it is the field the user actually reads:
+```
+FoodLogModal.tsx:163   <Text>{item.name_local ?? item.name}</Text>
+FoodLogService.ts:100  const name = i.name_local || i.name;
+mealGlucoseAnalysis.ts cite i.name_local || i.name
+```
+
+**But `foodJsonLangInstruction` says the opposite** (current):
+```
+Write "description", "suggestion", and every items[].name in {label} ({code}).
+items[].name_local may use the original script on the plate/menu. Do NOT use English for user-visible strings.
+```
+- Puts user language in **`name`** (should be English canonical)
+- Says **`name_local`** *"may"* use "original script on the plate/menu" — weak + ambiguous,
+  so the model leaves it English
+
+Result: `name_local` (the displayed field) stays English for non-English users.
+
+---
+
+## Fix — `foodJsonLangInstruction` (GeminiService.ts)
+
+Make field roles explicit and `name_local` **required** in the user's language:
+
+```
+LANGUAGE (mandatory): Write "description" and "suggestion" in {label} ({code}).
+For each item: "name" = canonical ENGLISH name (for nutrition lookup);
+"name_local" = the SAME food written in {label} ({code}) — REQUIRED, this is the name
+shown to the user in the app. Never leave "name_local" in English when the app language
+is not English. Keep numbers (grams, kcal, macros) unchanged.
+```
+
+### `SYSTEM_PROMPT` FORMAT note (applies to English path too)
+
+Add one clarifying line under FORMAT so roles are unambiguous even with no language override:
+```
+- "name" = canonical English food name; "name_local" = same food in the user's app language
+  (for English users, name_local may equal name).
+```
+
+---
+
+## Why keep English `name`
+
+`mealPhotoMerge.ts` matches/dedupes on both `name` and `name_local`:
+```ts
+const namesA = [a.name, a.name_local].filter(Boolean) as string[];
+```
+A stable English `name` keeps add/remove matching robust across photo sessions and
+USDA lookups, while `name_local` carries the localized display string.
+
+---
+
+## Files changed (implemented 2026-06-08)
+
+| File | Change |
+|------|--------|
+| `app/src/services/GeminiService.ts` | Rewrote `foodJsonLangInstruction`; added name/name_local RULES in `SYSTEM_PROMPT` |
+
+No UI change — `FoodLogModal` / `FoodLogService` already prefer `name_local`.
+`seedMealEditHistory` already localizes; unaffected.
+
+---
+
+## Acceptance (device verified 2026-06-08)
+
+- [x] Hebrew app → gallery photo analyze → items show **Hebrew** names immediately (no manual "translate" turn)
+- [ ] `name` still canonical English in stored JSON (verify via meal export / merge still matches)
+- [ ] Arabic app → `name_local` in Arabic
+- [ ] English app → `name_local` present (may mirror `name`); no regression
+- [ ] Correction turns ("add rice") keep both name fields populated in the right languages
+
+---
+
+## References
+
+- Prompt20 — photo assistant flow (analyze → chat → add/remove → approve); `mealPhotoMerge`
+- Prompt14 — meal edit history seed (`seedMealEditHistory`)
+- Prompt17 — multilingual UI / language picker groundwork
