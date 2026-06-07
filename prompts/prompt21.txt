@@ -146,6 +146,13 @@ Only show CareSens import button when `dataSource === 'health-connect'` (already
 
 ## PART C — Fresh CGM in chat coach refresh (`ChatScreen.tsx`)
 
+> **Status (2026-06-08): mostly mitigated by prompt23.** Chat turns and `generateCoachMessage`
+> now inject `buildPeriodReviewBlock({days:2})`, which re-fetches HC + cache via
+> `fetchPeriodIntraday()` every turn — so glucose is usually fresh even when `context.glucoseHistory`
+> is stale. Remaining gap: `buildFreshContext()` still does not explicitly reload
+> `glucoseHistory` / `todayMealGlucoseDetail`, so if the snapshot fetch fails (`.catch`) the
+> compact fallback can use stale context glucose. The explicit reload below is the safety net.
+
 `buildFreshContext()` reloads meals/macros but **not** glucose from cache/HC.
 Coach ↻ refresh can cite stale CGM after Sync.
 

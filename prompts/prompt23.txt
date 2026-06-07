@@ -457,10 +457,37 @@ Use **three mentor tabs** on the same day. Export HTML after each scenario.
 
 ---
 
+## Post-implementation status (device verified 2026-06-08, shipped `6ef81f8`)
+
+**Working well** (export `mentor_chat_2026-06-08 (1).html`):
+- Full today+yesterday data awareness — all three mentors cite real numbers (eaten 1475 kcal,
+  P172/C40/F74, deficit −1443, glucose avg 88 / min 36 / max 124, time-in-range %) with no
+  "please type your data" prompts.
+- Workouts + HR: Coach cites "5 workouts yesterday"; Doctor pulled per-workout HR (118/120 bpm
+  cycling, 97 bpm daily avg) on follow-up — 24/7 HR + workout data flowing.
+- `/7` deep review: weight 84.8→83.4, fat 19.1→17.4, visceral 4.1→3.9, muscle +0.2.
+- Date-span guard holds in **chat** ("the 2 reliable days with CGM").
+
+**Residual polish → DEFERRED TO PROMPT25** (same generation/UI surface, avoid double-touch):
+1. **Date-span wobble in the COACH PANEL** — `generateCoachMessage` action-items text said glucose
+   avg over "3 days" while chat correctly said "2 days". The panel generation needs the same
+   date-span guard the chat path got.
+2. **Gender addressing mix** — mentor self-voice is correctly feminine (אני ממליצה ✅) but
+   user-address mixes masculine/feminine in one thread (שימי לב vs היית פעיל / זכור).
+   `genderInstruction` isn't fully holding — needs reinforcement.
+3. **Mild CGM repetition** within a tab — softened vs before but the nutritionist still
+   re-dumps the 88 / 18%-below-70 block on an immediate follow-up.
+
+These are prompt-tuning, not data/structural defects. Folded into prompt25 because that prompt
+rewrites the coach panel generation + adds per-mentor structure where these fixes naturally land.
+
+---
+
 ## References
 
 - Prompt18 — chat history persistence, per-mentor tabs
 - Prompt19 — `buildGlucoseMentorContext`, period review blocks
 - Prompt21 PART F — TODAY WORKOUTS (shipped `c6dd4b0`)
 - Prompt21 PART C — fresh CGM on chat ↻ (still TODO; independent of this prompt)
-- Device export: `mentor_chat_2026-06-07.html` — repetition + wrong window symptoms
+- Prompt25 — per-mentor coach panel + the three residual polish items above
+- Device exports: `mentor_chat_2026-06-07.html` (symptoms), `mentor_chat_2026-06-08 (1).html` (fix verified)
