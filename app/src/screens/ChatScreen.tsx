@@ -8,9 +8,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   FlatList,
   Keyboard,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -136,11 +136,12 @@ function chatUiStrings(context: CoachContext) {
       clearTitle: 'לנקות את השיחה?',
       clearMessage: 'כל הודעות היום יימחקו. המשימות למעלה נשארות.',
       cancel: 'ביטול',
-      faqTitle: 'שאלות נפוצות',
-      faqHint: 'ערכ/י שאלה, לחצ/י → למילוי בשדה, ואז שלח/י. סיום = שמירה.',
-      faqAdd: '＋ הוסף שאלה',
+      faqTitle: 'שאלות מהירות',
+      faqHint: 'ערכ/י, הוסף/י או מחק/י שאלות. לחצ/י → לשליחה מיידית.',
+      faqAdd: 'הוסף שאלה',
       faqDone: 'סיום',
-      faqNew: 'שאלה חדשה',
+      faqSave: 'שמירה',
+      faqNew: '',
       expand: 'פתח',
       collapse: 'סגור',
       exportChat: 'ייצוא',
@@ -168,11 +169,12 @@ function chatUiStrings(context: CoachContext) {
       clearTitle: 'مسح محادثة اليوم؟',
       clearMessage: 'ستُحذف جميع رسائل اليوم. المهام أعلاه تبقى.',
       cancel: 'إلغاء',
-      faqTitle: 'أسئلة شائعة',
-      faqHint: 'حرّر سؤالاً، اضغط → للملء، ثم أرسل. تم = حفظ.',
-      faqAdd: '＋ إضافة سؤال',
+      faqTitle: 'أسئلة سريعة',
+      faqHint: 'حرّر أو أضف أو احذف الأسئلة. اضغط → للإرسال فوراً.',
+      faqAdd: 'إضافة سؤال',
       faqDone: 'تم',
-      faqNew: 'سؤال جديد',
+      faqSave: 'حفظ',
+      faqNew: '',
       expand: 'فتح',
       collapse: 'إغلاق',
       exportChat: 'تصدير',
@@ -200,10 +202,11 @@ function chatUiStrings(context: CoachContext) {
     clearMessage: 'All messages from today will be deleted. Action items above stay.',
     cancel: 'Cancel',
     faqTitle: 'Quick questions',
-    faqHint: 'Edit a question, tap → to fill the box, then Send. Done saves.',
-    faqAdd: '＋ Add question',
+    faqHint: 'Edit, add, or delete questions. Tap → to send one now.',
+    faqAdd: 'Add question',
     faqDone: 'Done',
-    faqNew: 'New question',
+    faqSave: 'Save',
+    faqNew: '',
     expand: 'Expand',
     collapse: 'Collapse',
     exportChat: 'Export',
@@ -468,6 +471,8 @@ function QuickQuestionBar({
 
 // ─── FAQ modal (editable quick questions) ────────────────────────────────────
 
+const MAX_QUICK_QUESTIONS = 5;
+
 function FaqModal({
   visible,
   ui,
@@ -483,78 +488,160 @@ function FaqModal({
   onSave: (qs: QuickQuestion[]) => void;
   onPick: (label: string) => void;
 }) {
-  const [draft, setDraft] = useState<QuickQuestion[]>(questions);
+  // Rows hold the structure (ids); live text lives in a ref so re-renders never revert
+  // what the user types. Inputs are uncontrolled (defaultValue) keyed by id.
+  const [rows, setRows] = useState<QuickQuestion[]>(questions);
+  const textRef = useRef<Record<string, string>>({});
+  const seededRef = useRef(false);
+  const [kbHeight, setKbHeight] = useState(0);
 
+  // Seed once on open (rising edge of visible) — never re-sync while editing.
   useEffect(() => {
-    if (visible) setDraft(questions);
+    if (visible && !seededRef.current) {
+      setRows(questions);
+      textRef.current = Object.fromEntries(questions.map((q) => [q.id, q.label]));
+      seededRef.current = true;
+    } else if (!visible) {
+      seededRef.current = false;
+    }
   }, [visible, questions]);
 
-  const updateLabel = (id: string, label: string) => {
-    setDraft((prev) => prev.map((q) => (q.id === id ? { ...q, label } : q)));
+  useEffect(() => {
+    if (!visible) {
+      setKbHeight(0);
+      return;
+    }
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = (e: KeyboardEvent) => setKbHeight(e.endCoordinates?.height ?? 0);
+    const onHide = () => setKbHeight(0);
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    const backSub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose();
+      return true;
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+      backSub.remove();
+    };
+  }, [visible, onClose]);
+
+  const setText = (id: string, text: string) => {
+    textRef.current[id] = text;
   };
 
   const deleteRow = (id: string) => {
-    setDraft((prev) => prev.filter((q) => q.id !== id));
+    delete textRef.current[id];
+    setRows((prev) => prev.filter((q) => q.id !== id));
   };
 
   const addRow = () => {
-    if (draft.length >= 5) return;
-    setDraft((prev) => [...prev, { id: `qq-${Date.now()}`, label: ui.faqNew }]);
+    setRows((prev) => {
+      if (prev.length >= MAX_QUICK_QUESTIONS) return prev;
+      const id = `qq-${Date.now()}`;
+      textRef.current[id] = '';
+      return [...prev, { id, label: '' }];
+    });
   };
 
-  const handlePick = (q: QuickQuestion) => {
-    const trimmed = q.label.trim();
+  const collect = (): QuickQuestion[] =>
+    rows
+      .map((r) => ({ id: r.id, label: (textRef.current[r.id] ?? '').trim() }))
+      .filter((r) => r.label.length > 0);
+
+  const handlePick = (id: string) => {
+    const trimmed = (textRef.current[id] ?? '').trim();
     if (!trimmed) return;
-    const saved = draft.map((row) => (row.id === q.id ? { ...row, label: trimmed } : row));
-    onSave(saved);
+    onSave(collect());
     onPick(trimmed);
     onClose();
   };
 
   const handleDone = () => {
-    const cleaned = draft
-      .map((q) => ({ ...q, label: q.label.trim() }))
-      .filter((q) => q.label.length > 0);
+    const cleaned = collect();
     onSave(cleaned.length > 0 ? cleaned : questions);
     onClose();
   };
 
+  if (!visible) return null;
+
+  // Overlay inside the chat screen — NOT a nested <Modal>. Chat already lives in a
+  // full-screen Modal on Dashboard; a second Modal breaks TextInput / Pressable on Android.
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.faqOverlay} onPress={onClose}>
-        <Pressable style={styles.faqCard} onPress={() => {}}>
-          <Text style={[styles.faqTitle, ui.rtl && styles.rtlText]}>{ui.faqTitle}</Text>
+    <View style={styles.faqOverlayRoot} pointerEvents="box-none">
+      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" />
+      <View
+        style={[styles.faqOverlayInner, kbHeight > 0 && { paddingBottom: kbHeight + 12 }]}
+        pointerEvents="box-none"
+      >
+        <View style={styles.faqCard}>
+          <View style={[styles.faqHeader, ui.rtl && styles.faqHeaderRtl]}>
+            <Text style={[styles.faqTitle, ui.rtl && styles.rtlText]}>{ui.faqTitle}</Text>
+            <View style={styles.faqCountBadge}>
+              <Text style={styles.faqCountText}>{`${rows.length}/${MAX_QUICK_QUESTIONS}`}</Text>
+            </View>
+          </View>
           <Text style={[styles.faqHint, ui.rtl && styles.rtlText]}>{ui.faqHint}</Text>
-          <ScrollView style={styles.faqList} keyboardShouldPersistTaps="handled">
-            {draft.map((q) => (
-              <View key={q.id} style={styles.faqRow}>
+
+          <ScrollView
+            style={styles.faqList}
+            keyboardShouldPersistTaps="always"
+            keyboardDismissMode="none"
+            nestedScrollEnabled
+          >
+            {rows.map((q, idx) => (
+              <View key={q.id} style={[styles.faqRow, ui.rtl && styles.faqRowRtl]}>
+                <View style={styles.faqNumber}>
+                  <Text style={styles.faqNumberText}>{idx + 1}</Text>
+                </View>
                 <TextInput
                   style={[styles.faqInput, ui.rtl && styles.rtlInput]}
-                  value={q.label}
-                  onChangeText={(text) => updateLabel(q.id, text)}
+                  defaultValue={q.label}
+                  onChangeText={(text) => setText(q.id, text)}
+                  placeholder={ui.faqAdd}
+                  placeholderTextColor={WellnessColors.textSecondary}
                   multiline
                   textAlign={ui.rtl ? 'right' : 'left'}
                 />
-                <Pressable style={styles.faqSendBtn} onPress={() => handlePick(q)} hitSlop={6}>
-                  <Text style={styles.faqSendBtnText}>→</Text>
+                <Pressable
+                  style={styles.faqSendBtn}
+                  onPress={() => handlePick(q.id)}
+                  hitSlop={8}
+                  accessibilityLabel={ui.send}
+                >
+                  <Text style={styles.faqSendBtnText}>{ui.rtl ? '←' : '→'}</Text>
                 </Pressable>
-                <Pressable style={styles.faqDeleteBtn} onPress={() => deleteRow(q.id)} hitSlop={6}>
+                <Pressable
+                  style={styles.faqDeleteBtn}
+                  onPress={() => deleteRow(q.id)}
+                  hitSlop={8}
+                  accessibilityLabel="Delete"
+                >
                   <Text style={styles.faqDeleteBtnText}>✕</Text>
                 </Pressable>
               </View>
             ))}
-            {draft.length < 5 ? (
+            {rows.length < MAX_QUICK_QUESTIONS ? (
               <Pressable style={styles.faqAddBtn} onPress={addRow}>
+                <Text style={styles.faqAddPlus}>＋</Text>
                 <Text style={styles.faqAddBtnText}>{ui.faqAdd}</Text>
               </Pressable>
             ) : null}
           </ScrollView>
-          <Pressable style={styles.faqDoneBtn} onPress={handleDone}>
-            <Text style={styles.faqDoneBtnText}>{ui.faqDone}</Text>
-          </Pressable>
-        </Pressable>
-      </Pressable>
-    </Modal>
+
+          <View style={[styles.faqFooter, ui.rtl && styles.faqHeaderRtl]}>
+            <Pressable style={styles.faqCancelBtn} onPress={onClose} hitSlop={6}>
+              <Text style={styles.faqCancelBtnText}>{ui.cancel}</Text>
+            </Pressable>
+            <Pressable style={styles.faqSaveBtn} onPress={handleDone} hitSlop={6}>
+              <Text style={styles.faqSaveBtnText}>{ui.faqSave}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -1425,78 +1512,134 @@ const styles = StyleSheet.create({
     paddingTop: 6,
   },
 
-  // FAQ modal
-  faqOverlay: {
-    flex: 1,
+  // FAQ overlay (absolute — not a nested Modal)
+  faqOverlayRoot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 300,
+    elevation: 300,
     backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  faqOverlayInner: {
+    flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
   faqCard: {
     backgroundColor: WellnessColors.surface,
-    borderRadius: 16,
-    padding: 18,
-    maxHeight: '75%',
+    borderRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+    elevation: 8,
   },
+  faqHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  faqHeaderRtl: { flexDirection: 'row-reverse' },
   faqTitle: {
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: WellnessColors.textPrimary,
-    marginBottom: 6,
+  },
+  faqCountBadge: {
+    backgroundColor: WellnessColors.background,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  faqCountText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WellnessColors.textSecondary,
   },
   faqHint: {
-    fontSize: 12,
+    fontSize: 12.5,
     color: WellnessColors.textSecondary,
     lineHeight: 18,
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  faqList: { maxHeight: 320 },
+  faqList: { maxHeight: 360 },
   faqRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
+    gap: 8,
+    marginBottom: 10,
   },
-  faqInput: {
-    flex: 1,
-    minHeight: 40,
-    backgroundColor: WellnessColors.background,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: WellnessColors.textPrimary,
-  },
-  faqSendBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  faqRowRtl: { flexDirection: 'row-reverse' },
+  faqNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: WellnessColors.accentBlue,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  faqSendBtnText: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  faqDeleteBtn: { paddingHorizontal: 6, paddingVertical: 8 },
-  faqDeleteBtnText: { fontSize: 16, color: WellnessColors.accentRed },
-  faqAddBtn: {
-    alignSelf: 'flex-start',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    marginTop: 4,
-  },
-  faqAddBtnText: { fontSize: 14, fontWeight: '600', color: WellnessColors.accentBlue },
-  faqDoneBtn: {
-    marginTop: 14,
+  faqNumberText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  faqInput: {
+    flex: 1,
+    minHeight: 44,
     backgroundColor: WellnessColors.background,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: WellnessColors.gridLine,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: WellnessColors.textPrimary,
+  },
+  faqSendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: WellnessColors.accentBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  faqSendBtnText: { color: '#fff', fontSize: 19, fontWeight: '700' },
+  faqDeleteBtn: {
+    width: 36,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  faqDeleteBtnText: { fontSize: 17, color: WellnessColors.accentRed, fontWeight: '700' },
+  faqAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     paddingVertical: 12,
+    marginTop: 2,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: WellnessColors.accentBlue,
+    borderStyle: 'dashed',
+  },
+  faqAddPlus: { fontSize: 16, fontWeight: '800', color: WellnessColors.accentBlue },
+  faqAddBtnText: { fontSize: 14, fontWeight: '700', color: WellnessColors.accentBlue },
+  faqFooter: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  faqCancelBtn: {
+    flex: 1,
+    backgroundColor: WellnessColors.background,
+    borderRadius: 14,
+    paddingVertical: 13,
     alignItems: 'center',
   },
-  faqDoneBtnText: { fontSize: 15, fontWeight: '700', color: WellnessColors.textPrimary },
+  faqCancelBtnText: { fontSize: 15, fontWeight: '700', color: WellnessColors.textSecondary },
+  faqSaveBtn: {
+    flex: 2,
+    backgroundColor: WellnessColors.accentBlue,
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  faqSaveBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
 
   // Text input + toolbar
   textInput: {
