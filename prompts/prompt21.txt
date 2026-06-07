@@ -189,7 +189,7 @@ Withings sessions (bike, walk) and asked the user to type activities manually.
 - Coach tab → “איך אני מתקדם/ת היום?” → names today's bike rides + walk, burn, deficit, protein
 - Follow-up tips reference activity volume without re-pasting full daily dump
 
-**Not in scope:** Coach pinned task strip still macro/deficit-only; conversation continuity / CGM repetition (separate prompt work).
+**Not in scope:** Coach pinned task strip still macro/deficit-only; conversation continuity / CGM repetition → **prompt23**.
 
 ---
 
@@ -421,4 +421,5 @@ unhandled rejections + global JS errors. See **prompt22** for pull path and xDri
 - Prompt19 — CGM filters, `buildGlucoseMentorContext`, period review glucose block
 - Prompt18 — mentor nudge strip above glucose chart
 - Prompt22 — HC permission hardening, unhandled error logging, xDrip toast attribution
+- Prompt23 — mentor chat conversation quality (intent-based nudges, continuity rules)
 - `readme.md` — CareSens via Samsung Health / Health Connect

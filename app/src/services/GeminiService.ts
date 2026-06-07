@@ -15,16 +15,44 @@ import {
 import type { MentorType, DailyMacroTarget, BodyTarget, UserRules, CoachMessage, CoachActionItem, AutoCheckType, ChatMessage, UserLanguage, Gender } from './TargetService';
 import type { TimePoint } from './SamsungHealthService';
 import {
-  buildChatWorkoutRollups,
   buildPeriodReviewBlock,
   detectPeriodReviewQuery,
   PERIOD_REVIEW_CHAT_INSTRUCTION,
+  type PeriodReviewRequest,
 } from './ReviewService';
+import { detectChatIntent, type ChatIntent } from '../logic/chatIntent';
+import { resolveMentorGender } from '../logic/mentorLabels';
 
 /** Returns a language instruction line to append to any AI prompt. */
 function langInstruction(lang?: UserLanguage | null): string {
   if (!lang || lang.code === 'en') return '';
   return `\nRespond entirely in ${lang.label} (${lang.code}). All text in the response must be in ${lang.label}.`;
+}
+
+/**
+ * PART F — gender awareness for chat. Two axes: user sex (clinical + address) and the
+ * mentor's own voice (self-reference in gendered languages). Grammatical-gender block only
+ * for Hebrew/Arabic; other languages get a one-line clinical note.
+ */
+function genderInstruction(ctx: CoachContext): string {
+  const userSex = ctx.gender ?? 'unknown';
+  const voice = resolveMentorGender(ctx.mentorGender, ctx.gender as Gender | null);
+  const code = ctx.lang?.code;
+  const facts = `\nGENDER — USER SEX: ${userSex} | MENTOR VOICE (your own gender): ${voice}.`;
+  if (code === 'he' || code === 'ar') {
+    return `${facts}
+- Address the user with matching forms consistently — masculine (אתה, שים לב) OR feminine (את, שימי לב) — never mix in one thread. If other/unknown, prefer neutral phrasing.
+- When you refer to yourself, use your MENTOR VOICE gender (female: אני ממליצה, שמחה לעזור | male: אני ממליץ, שמח לעזור).
+- Use USER SEX for clinical/nutrition interpretation (healthy fat% range, BMR, glucose context).`;
+  }
+  const gendered = code === 'es' || code === 'fr' || code === 'ru' || code === 'de' || code === 'pt' || code === 'it';
+  if (gendered) {
+    return `${facts}
+- If your reply language uses grammatical gender, address the user matching USER SEX and refer to yourself matching MENTOR VOICE — consistently within the thread.
+- Use USER SEX for clinical/nutrition interpretation (healthy fat% range, BMR, glucose context).`;
+  }
+  return `${facts}
+- Use USER SEX for clinical/nutrition interpretation (healthy fat% range, BMR, glucose context).`;
 }
 
 /** Stronger instruction for JSON coach responses — action item text often copied from English examples. */
@@ -896,11 +924,22 @@ function buildCgmMentorRules(ctx: CoachContext): string {
 - CGM (TODAY / RECENT / MEAL GLUCOSE blocks) is a PRIMARY input — never ignore it
 - NEVER say "no CGM data" (or equivalent) when USER DATA includes MEAL GLUCOSE, TODAY CGM, or RECENT CGM with samples — CGM is synced; say post-meal window not ready yet if Meals with usable window is 0/N
 - When MEAL GLUCOSE shows "CGM samples in sync" but usable window is 0/N, cite today's avg/min/max from the block and explain meal-level response is not ready yet — do NOT claim CGM is unavailable
-- Nutritionist 🥗 MUST interpret glucose in every reply: quote avg, min, max (mg/dL); cite range % (below 70 / 70–100 / above 100) and low-day count when present
+- When glucose is the topic OR this is the first reply in the tab today OR the user asked for status/overview: quote avg, min, max (mg/dL) and range % (below 70 / 70–100 / above 100) and low-day count when present
+- On follow-ups about food targets, hunger, or fat/protein without a glucose question: answer that topic directly — do NOT re-open with the same CGM block you already gave this tab
 - Mention compression lows if relevant: sleeping on the sensor can falsely lower readings — isolated low days may be artifact
 - Exclude sensor warm-up (first 24h after install) and statistically excluded rare sensor-error days — see filter lines in USER DATA
 - Without meal logs: still assess CGM; urge logging meals to link spikes to specific foods
 - Do NOT give vague CGM summaries ("elevated days") without numbers`;
+}
+
+/** Rules appended on the Coach tab — mirror the CGM pattern so coach is not under-constrained. */
+function buildCoachMentorRules(ctx: CoachContext): string {
+  if (!ctx.mentors.includes('coach')) return '';
+  return `
+- TODAY WORKOUTS in USER DATA lists today's Withings sessions — cite by name when discussing activity or daily progress
+- On today-progress questions: [activity if any] → [P/C/F vs target] → [balance/deficit] → one concrete next step
+- Do NOT claim workouts are missing when TODAY WORKOUTS lists sessions
+- Do NOT repeat the same macro numbers verbatim if your prior reply in this tab already stated them unchanged`;
 }
 
 export function formatActiveMentorsLine(mentors: MentorType[]): string {
@@ -1149,10 +1188,13 @@ function buildCoachDataBlock(ctx: CoachContext): string {
     `TIME-AWARE COACHING: ${guidance}`,
     formatActiveMentorsLine(ctx.mentors),
     `EVENT: ${ctx.event}`,
+    `Profile: sex ${ctx.gender ?? 'unknown'}, age ${n(ctx.age)}, height ${n(ctx.heightCm, ' cm')}, language ${ctx.lang?.label ?? 'English'}`,
     `Weight: ${n(ctx.weightKg, ' kg')} (start: ${n(ctx.startWeight_kg, ' kg')}, target: ${n(ctx.bodyTarget?.targetWeight_kg ?? null, ' kg')})`,
-    `Muscle: ${n(ctx.muscleMass_kg, ' kg')} (start: ${n(ctx.startMuscle_kg, ' kg')}, target: ${n(ctx.bodyTarget?.targetMuscleMass_kg ?? null, ' kg')})`,
-    `Today eaten: ${n(ctx.todayEaten, ' kcal')} / ${n(ctx.macroTarget?.kcal ?? null, ' kcal target')} | P: ${n(ctx.todayProtein_g, 'g')}/${n(ctx.macroTarget?.protein_g ?? null, 'g')} | C: ${n(ctx.todayCarb_g, 'g')}/${n(ctx.macroTarget?.carb_g ?? null, 'g')} | F: ${n(ctx.todayFat_g, 'g')}/${n(ctx.macroTarget?.fat_g ?? null, 'g')}`,
-    `Today burned: ${n(ctx.todayBurn, ' kcal')} | Balance: ${ctx.todayEaten != null && ctx.todayBurn != null ? Math.round(ctx.todayEaten - ctx.todayBurn) + ' kcal' : '—'}`,
+    `Body fat: ${n(ctx.fatPct, '%')} (target: ${n(ctx.bodyTarget?.targetFatPct ?? null, '%')}) | Muscle: ${n(ctx.muscleMass_kg, ' kg')} (start: ${n(ctx.startMuscle_kg, ' kg')}, target: ${n(ctx.bodyTarget?.targetMuscleMass_kg ?? null, ' kg')})`,
+    `BMR (resting energy, already counted inside "burned" below): ${n(ctx.bmr_kcal, ' kcal/day')}`,
+    `Energy IN — eaten today: ${n(ctx.todayEaten, ' kcal')} / ${n(ctx.macroTarget?.kcal ?? null, ' kcal target')} | P: ${n(ctx.todayProtein_g, 'g')}/${n(ctx.macroTarget?.protein_g ?? null, 'g')} | C: ${n(ctx.todayCarb_g, 'g')}/${n(ctx.macroTarget?.carb_g ?? null, 'g')} | F: ${n(ctx.todayFat_g, 'g')}/${n(ctx.macroTarget?.fat_g ?? null, 'g')}`,
+    `Energy OUT — burned today (TOTAL = BMR + activity + workouts, do NOT add BMR again): ${n(ctx.todayBurn, ' kcal')}`,
+    `Balance (eaten − burned): ${ctx.todayEaten != null && ctx.todayBurn != null ? Math.round(ctx.todayEaten - ctx.todayBurn) + ' kcal' : '—'} (negative = deficit, positive = surplus)`,
     `Meals logged today: ${ctx.mealCount}`,
     ctx.userRules?.aiContext ? `Dietary rules: ${ctx.userRules.aiContext}` : null,
   ].filter(Boolean);
@@ -1173,32 +1215,30 @@ function buildCoachDataBlock(ctx: CoachContext): string {
   return [...summaryLines, '', mealSection, glucoseSection].filter(Boolean).join('\n');
 }
 
-function formatYesterdayRollup(ctx: CoachContext): string | null {
-  if (!ctx.yesterdayDate) return null;
-  const n = (v: number | null | undefined, unit = '') =>
-    v != null ? `${Math.round(v)}${unit}` : '—';
-  const date = ctx.yesterdayDate;
-  const count = ctx.yesterdayMealCount ?? 0;
-  if (count === 0) {
-    return `YESTERDAY (${date}): no meals logged`;
-  }
+/**
+ * Chat header — profile, goals/targets, dietary rules, local time. The actual collected DATA
+ * (body, energy, food, CGM, HR, workouts for today + yesterday) is NOT summarized here; it is
+ * injected in full via the always-on 2-day snapshot (see buildChatContextBlocks).
+ */
+function buildChatDataBlock(ctx: CoachContext): string {
+  const { clockLine, guidance } = formatLocalTimeContext();
+  const n = (v: number | null | undefined, unit = '') => (v != null ? `${v}${unit}` : '—');
+  const bt = ctx.bodyTarget;
   const mt = ctx.macroTarget;
   return [
-    `YESTERDAY (${date}):`,
-    `eaten ${n(ctx.yesterdayEaten, ' kcal')}${mt?.kcal != null ? ` / ${mt.kcal} target` : ''}`,
-    `P: ${n(ctx.yesterdayProtein_g, 'g')}${mt?.protein_g != null ? `/${mt.protein_g}g` : ''}`,
-    `C: ${n(ctx.yesterdayCarb_g, 'g')}${mt?.carb_g != null ? `/${mt.carb_g}g` : ''}`,
-    `F: ${n(ctx.yesterdayFat_g, 'g')}${mt?.fat_g != null ? `/${mt.fat_g}g` : ''}`,
-    `${count} meals`,
-  ].join(' | ');
+    clockLine,
+    `TIME-AWARE COACHING: ${guidance}`,
+    formatActiveMentorsLine(ctx.mentors),
+    `Profile: sex ${ctx.gender ?? 'unknown'}, age ${n(ctx.age)}, height ${n(ctx.heightCm, ' cm')}, language ${ctx.lang?.label ?? 'English'}`,
+    `Goals: target weight ${n(bt?.targetWeight_kg ?? null, ' kg')} | target fat ${n(bt?.targetFatPct ?? null, '%')} | target muscle ${n(bt?.targetMuscleMass_kg ?? null, ' kg')} | start weight ${n(ctx.startWeight_kg, ' kg')} | start muscle ${n(ctx.startMuscle_kg, ' kg')}`,
+    `Daily macro target: ${n(mt?.kcal ?? null, ' kcal')} | P ${n(mt?.protein_g ?? null, 'g')} | C ${n(mt?.carb_g ?? null, 'g')} | F ${n(mt?.fat_g ?? null, 'g')}`,
+    ctx.userRules?.aiContext ? `Dietary rules: ${ctx.userRules.aiContext}` : null,
+  ].filter(Boolean).join('\n');
 }
 
-/** Chat context — today block plus compact yesterday rollup. */
-function buildChatDataBlock(ctx: CoachContext): string {
-  const base = buildCoachDataBlock(ctx);
-  const rollup = formatYesterdayRollup(ctx);
-  return rollup ? `${base}\n\n${rollup}` : base;
-}
+/** Used when the always-on today+yesterday snapshot is injected (not an explicit /N review). */
+const DEFAULT_SNAPSHOT_INSTRUCTION =
+  'The block above (titled PERIOD REVIEW) is your COMPLETE data for today and yesterday — body composition incl. visceral and BMR, 24/7 heart rate, energy balance, full food logs, full CGM with meal impact, and every workout with HR. It is your source of truth; cite exact numbers from it. Do NOT dump or list the whole block — answer the user\'s actual question concisely and mention only what is relevant.';
 
 /** Detect meal-review questions in any supported language. */
 export function isMealReviewQuery(text: string): boolean {
@@ -1214,20 +1254,26 @@ export function isYesterdayQuery(text: string): boolean {
 export async function generateCoachMessage(ctx: CoachContext): Promise<CoachMessage> {
   const systemPrompt = buildMentorSystemPrompt(ctx.mentors);
   const dataBlock = buildCoachDataBlock(ctx);
-  const { today: todayWorkouts, yesterday: yesterdayWorkouts } = await buildChatWorkoutRollups();
+  // Same full today+yesterday snapshot the chat mentors get — so action items are derived from
+  // the complete picture (yesterday, 24/7 HR, visceral, full CGM), not just today's summary.
+  const snapshot = await buildPeriodReviewBlock(
+    { mode: 'days', days: 2 },
+    ctx.macroTarget,
+    ctx.glucoseHistory,
+  ).catch(() => '');
 
   const jsonExample = coachJsonExample(ctx);
   const carbTarget = ctx.macroTarget?.carb_g;
   const proteinTarget = ctx.macroTarget?.protein_g;
 
+  const snapshotSection = snapshot
+    ? `\n\n${snapshot}\n(The PERIOD REVIEW above is your COMPLETE today+yesterday data — body incl. visceral + BMR, 24/7 HR, energy, full food logs, full CGM with meal impact, every workout with HR. Use it to make action items specific and grounded; the USER DATA block above frames today's targets for the autoCheckType keys.)`
+    : '';
+
   const prompt = `${systemPrompt}
 
 USER DATA:
-${dataBlock}
-
-${todayWorkouts}
-
-${yesterdayWorkouts}
+${dataBlock}${snapshotSection}
 
 Respond with JSON only (no markdown, no prose):
 ${jsonExample}
@@ -1245,7 +1291,7 @@ Rules:
 - Dietary rules in USER DATA override any generic diet assumptions
 - If event is meal: focus on remaining macros for the day
 - If event is weigh-in: focus on trend vs target, muscle vs start
-- If event is workout: focus on calorie budget impact and HR during session vs resting baseline when TODAY WORKOUTS or YESTERDAY WORKOUTS includes HR lines
+- If event is workout: focus on calorie budget impact and HR during session vs resting baseline using the WORKOUTS (+ HR during each session) lines in the PERIOD REVIEW
 - Do NOT repeat data the user already sees on the dashboard
 - If Nutritionist 🥗 is active and CGM blocks are in USER DATA, "text" MUST include glucose avg/min/max (mg/dL) and good-vs-needs-improvement verdict
 - NEVER say "no CGM data" when MEAL GLUCOSE / TODAY CGM / RECENT CGM blocks are in USER DATA — say synced; if meal window not ready, cite today avg/min/max anyway${coachJsonLangInstruction(ctx.lang)}`;
@@ -1343,60 +1389,140 @@ async function fetchGeminiChat(contents: Array<{ role: string; parts: Array<{ te
   return extractGeminiText(json?.candidates?.[0]);
 }
 
+/**
+ * PART C — short, intent-specific instruction appended to the user's message.
+ * Returns '' when no special steering is needed (continuity rules carry the rest).
+ */
+function buildTurnHint(
+  mentor: MentorType,
+  intent: ChatIntent,
+  ctx: CoachContext,
+  historyLen: number,
+): string {
+  const hasCgm = Boolean(ctx.todayMealGlucoseDetail) || (ctx.glucoseHistory?.length ?? 0) > 0;
+
+  if (mentor === 'coach') {
+    if (intent === 'today_progress') {
+      return 'Outline: TODAY WORKOUTS (if any) → macros vs target → balance/deficit → one concrete next step. Do not repeat unchanged stats from prior coach replies.';
+    }
+    if (intent === 'activity') {
+      return 'Cite TODAY WORKOUTS by name (activity, duration, kcal, HR). If none logged, say so once.';
+    }
+  }
+
+  if (mentor === 'nutritionist') {
+    if (intent === 'glucose' && hasCgm) {
+      return 'Quote avg/min/max (mg/dL) and range % from USER DATA. Name foods if MEAL GLUCOSE links spikes.';
+    }
+    if (intent === 'today_progress') {
+      return 'Brief status: macros vs target, plus one CGM line only if you have not already stated it in this tab today.';
+    }
+    if (intent === 'food_target') {
+      return 'Answer the fat/protein/hunger question directly. Do NOT open with a full CGM recap unless the user asked about glucose.';
+    }
+  }
+
+  if (mentor === 'doctor' && intent === 'glucose' && hasCgm) {
+    return 'Clinical safety on the numbers in USER DATA; add the compression-low caveat when lows are present.';
+  }
+
+  if (intent === 'general' && historyLen > 0) {
+    return 'Answer the latest question only — skip re-listing daily stats already covered in earlier turns.';
+  }
+
+  return '';
+}
+
 function buildChatContextBlocks(
   ctx: CoachContext,
   message: string,
   yesterdaySummary: string | null,
+  mentor: MentorType,
+  historyLen: number,
 ): {
   dataBlock: string;
-  workoutRollups: Promise<{ today: string; yesterday: string }>;
   periodRequest: ReturnType<typeof detectPeriodReviewQuery>;
-  periodBlock: Promise<string>;
   yesterdayChatLine: string;
-  yesterdayMealSection: string;
   periodSection: Promise<string>;
   userMessage: string;
+  intent: ChatIntent;
+  dataScopeBlock: string;
 } {
   const dataBlock = buildChatDataBlock(ctx);
-  const workoutRollups = buildChatWorkoutRollups();
   const periodRequest = detectPeriodReviewQuery(message);
-  const periodBlock = periodRequest
-    ? buildPeriodReviewBlock(periodRequest, ctx.macroTarget, ctx.glucoseHistory)
-    : Promise.resolve('');
-  const yesterdayChatLine = yesterdaySummary ? `\nYesterday chat summary: ${yesterdaySummary}` : '';
-  const yesterdayMealSection = ctx.yesterdayMealsDetail
-    ? `\n\n=== YESTERDAY MEAL LOG (${ctx.yesterdayDate}) ===\n${ctx.yesterdayMealsDetail}\n=== END YESTERDAY MEAL LOG ===`
-    : '';
-  const periodSection = periodBlock.then((block) =>
-    block ? `\n\n${block}\n\n${PERIOD_REVIEW_CHAT_INSTRUCTION}` : '',
+  const intent = detectChatIntent(message, { hasPeriodReview: Boolean(periodRequest) });
+  const dataScopeBlock = buildDataScopeBlock(ctx, historyLen, periodRequest);
+
+  // Always inject the FULL today+yesterday snapshot (no summarizing). An explicit /N request
+  // widens the window; otherwise default to a 2-day (yesterday + today) snapshot.
+  const reviewRequest: PeriodReviewRequest = periodRequest ?? { mode: 'days', days: 2 };
+  const snapshot = buildPeriodReviewBlock(reviewRequest, ctx.macroTarget, ctx.glucoseHistory);
+  const snapshotInstruction = periodRequest ? PERIOD_REVIEW_CHAT_INSTRUCTION : DEFAULT_SNAPSHOT_INSTRUCTION;
+  const periodSection = snapshot.then((block) =>
+    block ? `\n\n${block}\n\n${snapshotInstruction}` : '',
   );
+
+  const yesterdayChatLine = yesterdaySummary ? `\nYesterday chat summary: ${yesterdaySummary}` : '';
 
   let userMessage = message;
   if (periodRequest) {
     userMessage = `${message}\n\nUse the PERIOD REVIEW block in context. What was good, what to improve, 2–4 concrete suggestions. For GLUCOSE: quote period avg, min, max (mg/dL) from the block; ignore sensor warm-up (first 24h) lows; do NOT give vague CGM summaries.`;
-  } else if (ctx.mentors.includes('nutritionist') && (ctx.todayMealGlucoseDetail || (ctx.glucoseHistory?.length ?? 0) > 0)) {
-    userMessage = `${message}\n\nAddress CGM in USER DATA first — quote recent avg/min/max (mg/dL) and say if glucose looks good or needs improvement.`;
-  } else if (isMealReviewQuery(message) && !isYesterdayQuery(message) && ctx.todayMealsDetail) {
-    const glucoseHint = ctx.todayMealGlucoseDetail
-      ? '\n\nUse TODAY CGM / MEAL GLUCOSE in context: say if glucose looks good or needs improvement (specific mg/dL).'
-      : '';
-    userMessage = `${message}\n\nUse today's meal log (already in your context — cite specific foods and numbers):\n${ctx.todayMealsDetail}${glucoseHint}`;
-  } else if (isYesterdayQuery(message) && ctx.yesterdayMealsDetail) {
-    userMessage = `${message}\n\nUse yesterday's meal log (already in your context — cite specific foods and numbers):\n${ctx.yesterdayMealsDetail}`;
-  } else if (isYesterdayQuery(message) && ctx.yesterdayDate) {
-    userMessage = `${message}\n\nUse the YESTERDAY rollup in your context for macro totals (protein, carbs, kcal).`;
+  } else {
+    const hint = buildTurnHint(mentor, intent, ctx, historyLen);
+    if (hint) userMessage = `${message}\n\n${hint}`;
   }
 
   return {
     dataBlock,
-    workoutRollups,
     periodRequest,
-    periodBlock,
     yesterdayChatLine,
-    yesterdayMealSection,
     periodSection,
     userMessage,
+    intent,
+    dataScopeBlock,
   };
+}
+
+/**
+ * PART 0 — the mentor's entry-point knowledge: it always holds TODAY's full app data and
+ * YESTERDAY's full app data. This block states that fixed scope (not conditional) so the
+ * mentor knows its baseline; actual values/absences live in the USER DATA blocks below.
+ * Anything older needs /N AND must be verified against a loaded PERIOD REVIEW before citing.
+ */
+function buildDataScopeBlock(
+  ctx: CoachContext,
+  historyLen: number,
+  periodRequest: ReturnType<typeof detectPeriodReviewQuery>,
+): string {
+  const periodLine = periodRequest
+    ? `\n- PERIOD REVIEW (${periodRequest.mode === 'yesterday' ? 'yesterday' : `${periodRequest.days} days`}) IS loaded for this turn — use it for the longer-range answer (verify each number appears in that block before citing).`
+    : '';
+  const firstTurnNote =
+    historyLen === 0
+      ? 'first message in this tab today'
+      : `${historyLen} earlier turn(s) in this tab today — read them before replying`;
+
+  return `YOUR DATA AT THE START OF THIS CHAT (${firstTurnNote}):
+You always hold the user's FULL, UN-SUMMARIZED app data for TODAY and YESTERDAY, in the data
+block below (titled PERIOD REVIEW). Both days include every metric the app collects:
+  - Body composition: weight, fat mass, muscle mass, visceral fat index, BMR
+  - Energy: calories eaten, total burned (BMR + passive + workouts), balance
+  - Heart rate: 24/7 readings (avg/min/max) plus HR during each workout
+  - Meals: every meal with foods, grams, and macros
+  - Glucose (CGM): full readings with per-meal impact, avg/min/max, time-in-range
+  - Workouts: each Withings session — activity, duration, kcal, HR
+
+This today+yesterday set is the COMPLETE data in front of you. Read exact numbers from that
+block. If it shows a category empty (e.g. "No meals logged"), report that — never ask the user
+to type data already present here (meals, workouts, HR, glucose, body, visceral).
+
+OLDER HISTORY (anything before yesterday):
+- It is NOT in front of you unless a longer PERIOD REVIEW window is loaded this turn.${periodLine}
+- If the user asks about a longer range (a week, a month, "lately") and only the 2-day window is
+  loaded, do NOT guess or assume the history exists. Give the today/yesterday view and ask the
+  user to load it: "for a full 7-day review send /7" (also /30, /N up to 128 days).
+- Whatever window is loaded, verify each figure actually appears in the block before citing —
+  if a metric is missing or empty there, say so rather than inventing it.`;
 }
 
 function buildChatSystemText(
@@ -1404,38 +1530,46 @@ function buildChatSystemText(
   ctx: CoachContext,
   blocks: {
     dataBlock: string;
-    todayWorkouts: string;
-    yesterdayWorkouts: string;
     yesterdayChatLine: string;
-    yesterdayMealSection: string;
     periodSection: string;
+    dataScopeBlock: string;
+    intent: ChatIntent;
+    historyLen: number;
   },
 ): string {
   const mentors = mentor ? [mentor] : ctx.mentors;
   const systemPrompt = buildMentorSystemPrompt(mentors);
   const onlyHint = mentor ? `\n${MENTOR_ONLY_HINT[mentor]}` : '';
+  const coachRules = mentor === 'coach' ? buildCoachMentorRules(ctx) : '';
+  const cgmRules = buildCgmMentorRules(ctx);
+  const isFirstTurn = blocks.historyLen === 0;
 
   return `${systemPrompt}${blocks.yesterdayChatLine}${onlyHint}
 
-CURRENT USER DATA:
-${blocks.dataBlock}
-${blocks.todayWorkouts}
+${blocks.dataScopeBlock}
 
-${blocks.yesterdayWorkouts}${blocks.yesterdayMealSection}${blocks.periodSection}
+CONVERSATION (mandatory):
+- Read prior turns in this tab before replying.
+- Answer the user's LATEST question first — do not re-open with a full daily summary unless they asked for status/overview${isFirstTurn ? ' (this IS the first turn, so an overview is fine here)' : ''}.
+- Do NOT repeat stats, warnings, or CGM summaries you already gave in this tab today unless (a) the user asks again about glucose/status, or (b) new meals/workouts/sync materially changed the numbers.
+- Reference earlier thread naturally when relevant ("כמו שציינתי…", "בהמשך לשאלה על השומן…").
+- Keep replies 2–4 sentences unless the user asked for a period review (/7, /30) or a detailed meal breakdown.
+
+PROFILE / GOALS / SETTINGS:
+${blocks.dataBlock}
+${blocks.periodSection}
 
 You are responding in a free chat. Be concise, specific, and supportive.
-Match your tone to LOCAL TIME NOW and TIME-AWARE COACHING in the data — early morning means gentle, not alarmist.
+Match your tone to LOCAL TIME NOW and TIME-AWARE COACHING above — early morning means gentle, not alarmist.
 Reply directly to the user — never output THOUGHT, internal reasoning, numbered analysis steps, or planning in English unless the user wrote in English.
 Reply in plain prose only — never use **text**, **actionItems**, JSON, or markdown section headers. 2–4 sentences with specific numbers.
-The MEAL LOG section is today's food. TODAY WORKOUTS lists today's Withings sessions (activity, time, kcal, HR when watch data exists). YESTERDAY WORKOUTS is the same for yesterday. When the user asks about activity or training today, cite TODAY WORKOUTS — do not say workouts are missing if they appear there.
-When MEAL GLUCOSE, TODAY CGM, or RECENT CGM blocks are in USER DATA, Nutritionist 🥗 MUST lead with glucose interpretation (avg/min/max mg/dL) — this is core nutritionist work, not optional. Doctor 🩺 adds clinical safety on the same numbers. With meals, name foods before spikes; without meals, assess trend and urge food logging.
-YESTERDAY rollup/meal lines are yesterday's food — use for אתמול / yesterday questions.
-When PERIOD REVIEW block is present, analyze the full snapshot (body, energy, HR, food, workouts): what went well, what to improve, specific next steps.
-When GLUCOSE & FOOD IMPACT is in PERIOD REVIEW, Nutritionist and Doctor must cite which foods preceded spikes and recommend swaps for repeat offenders.
+All of today's and yesterday's data — body, visceral, BMR, energy, 24/7 HR, meals, CGM, workouts — is in the data block above. When asked about activity, meals, glucose, HR, or body metrics, cite the exact numbers from it; never say data is missing if it appears there.
+When glucose is the topic, or this is the first reply in the tab today, or the user asked for status/overview: Nutritionist 🥗 leads with glucose interpretation (avg/min/max mg/dL) and Doctor 🩺 adds clinical safety on the same numbers. On follow-ups about food targets, hunger, or fat/protein without a glucose question, answer that topic directly — do NOT re-open with the same CGM block.
+CGM DATE SPAN (mandatory): only cite "N days" when the data block explicitly states N days. If unsure, say "the available CGM window" — never invent 7 days. Slash commands (/7, /30) widen the loaded window — use that block's day count.
+When the user asks for a longer review (/7, /30), analyze the full snapshot (body, energy, HR, food, workouts): what went well, what to improve, specific next steps.
+When GLUCOSE & FOOD IMPACT is present, Nutritionist and Doctor must cite which foods preceded spikes and recommend swaps for repeat offenders.
 Users can request any window via slash commands: /1 or /yesterday, /7, /30, /100 (up to 128 days).
-When the user asks about their last meal or any meal today, review today's MEAL LOG directly — never say you lack meal details if MEAL LOG is present.
-When YESTERDAY MEAL LOG is present, cite specific foods and numbers from it for yesterday questions.
-Ignore any earlier chat messages where you said yesterday's data was unavailable; always use the YESTERDAY blocks above.${langInstruction(ctx.lang)}`;
+Ignore any earlier chat messages where you said data was unavailable; always use the data block above.${coachRules}${cgmRules}${genderInstruction(ctx)}${langInstruction(ctx.lang)}`;
 }
 
 async function chatWithSingleMentor(
@@ -1445,15 +1579,15 @@ async function chatWithSingleMentor(
   ctx: CoachContext,
   yesterdaySummary: string | null,
 ): Promise<string> {
-  const blocks = buildChatContextBlocks(ctx, message, yesterdaySummary);
-  const [workoutRollups, periodSection] = await Promise.all([blocks.workoutRollups, blocks.periodSection]);
+  const blocks = buildChatContextBlocks(ctx, message, yesterdaySummary, mentor, history.length);
+  const periodSection = await blocks.periodSection;
   const systemText = buildChatSystemText(mentor, ctx, {
     dataBlock: blocks.dataBlock,
-    todayWorkouts: workoutRollups.today,
-    yesterdayWorkouts: workoutRollups.yesterday,
     yesterdayChatLine: blocks.yesterdayChatLine,
-    yesterdayMealSection: blocks.yesterdayMealSection,
     periodSection,
+    dataScopeBlock: blocks.dataScopeBlock,
+    intent: blocks.intent,
+    historyLen: history.length,
   });
   const recentHistory = history.slice(-20);
   const contents = [

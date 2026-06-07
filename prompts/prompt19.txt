@@ -23,6 +23,9 @@ token/API cost (see bottom of this file).
 └─────────────────────────────────────────────────────────────┘
 ```
 
+Prompt23 adds a **data-awareness layer**: each chat turn tells the mentor its current data
+scope (today/yesterday/CGM window) and that the user can expose deeper history with `/N`.
+
 ### Prerequisites (Prompt 18 — already built)
 - `CoachService.ts` — `triggerCoachReview`, `refreshCoachReview`, frequency gate
 - `ChatScreen.tsx` — per-mentor tabs, collapsible coach panel with voice cards,

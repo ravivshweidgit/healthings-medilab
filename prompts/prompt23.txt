@@ -1,0 +1,466 @@
+## Prompt 23 — Mentor chat conversation quality (intent-based prompts)
+
+### Vision
+Mentor chat should feel like a **conversation**, not a daily report re-sent on every turn.
+History is already passed to Gemini (up to 20 prior turns per tab) — the fix is **how we
+instruct the model** and **when we append per-message nudges**, not more plumbing.
+
+**Symptom (device export 2026-06-07):**
+- Nutritionist opens **every** reply with the same 2-day CGM avg/min/max — even for “טיפים
+  לתפריט”, “אבל אני לא רעב”, fat-target questions
+- Nutritionist claimed “שבעת הימים” when only **2 days** of CGM existed — user had to correct
+- Coach tab improved after prompt21 PART F (TODAY WORKOUTS) — follow-ups read more naturally
+- Gender mix in Hebrew: אתה / את / פעיל/ה in the same thread
+
+**Root cause:**
+| Layer | Current behaviour | Effect |
+|-------|-------------------|--------|
+| System rules | `MUST lead with glucose` on every turn | Overrides chat continuity |
+| Per-message nudge | `Address CGM first…` whenever CGM exists + nutritionist tab | Same opener every reply |
+| `buildCgmMentorRules` | `MUST interpret glucose in every reply` | Reinforces repetition |
+| Coach persona | One generic sentence; no `buildCoachMentorRules` | Under-constrained vs nutritionist |
+| Date span | No guard tying “N days” to actual block content | Hallucinated windows |
+| Data awareness | Mentor never told **what it can see** or that `/N` exposes more history | Guesses windows; asks user to type data it already has; never offers `/7` |
+| Gender (2 axes) | Neither **user sex** nor **mentor voice** reaches the chat prompt | Mixed אתה/את to user; random ממליץ/ממליצה self-reference; no clinical sex context |
+
+**Prerequisites (shipped — do not rebuild):**
+- Prompt18 — per-mentor tabs, chat history in AsyncStorage, coach panel
+- Prompt19 — period reviews, CGM mentor context blocks
+- Prompt21 PART F — `TODAY WORKOUTS` + `YESTERDAY WORKOUTS` in every chat/coach turn
+- Prompt22 — HC hardening (unrelated to this prompt)
+
+---
+
+## Design — three layers
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Layer 0 — Data awareness (NEW)                             │
+│  Tell the mentor what it can see THIS turn + that the user  │
+│  can expose more history with /7 /30 /N (up to 128 days)    │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 1 — Context (unchanged)                              │
+│  USER DATA, TODAY/YESTERDAY WORKOUTS, MEAL LOG, CGM blocks  │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 2 — Intent routing (NEW)                             │
+│  Detect question type → append short turn-specific hint     │
+│  Only when relevant — not on every send                     │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 3 — Conversation rules (NEW)                         │
+│  Use prior turns; don't repeat unchanged stats; answer      │
+│  the latest question first                                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+> **Key insight (user feedback 2026-06-07):** the mentor often isn't *aware* of the data
+> it already holds or what it can pull in. A short, explicit "here's your data scope this
+> turn, and the user can request `/7` `/30` `/N` for deeper history" block fixes both the
+> hallucinated windows **and** the "please type your workouts/glucose" responses for data
+> that is already in context.
+
+**Not in scope for prompt23:**
+- THOUGHT / chain-of-thought stripping strategy (separate design discussion)
+- Coach pinned task strip activity line (prompt21 PART F deferred item)
+- Fresh CGM in chat ↻ refresh (prompt21 PART C — separate quick fix)
+- Per-tab history merge (Coach tab still isolated from Nutritionist tab by design)
+- Model / endpoint change (stay on Gemini 2.5 Flash v1 + existing `stripLeakedThinking`)
+
+---
+
+## PART 0 — Data-availability / capability block (`buildDataScopeBlock`)
+
+**The mentor must know what it can see and what the user can request.** This is the
+foundational fix — most repetition/hallucination/"please type your data" issues trace back
+to the model not knowing its own data scope.
+
+New helper in `GeminiService.ts`, prepended to the chat system text (all tabs):
+
+```ts
+function buildDataScopeBlock(
+  ctx: CoachContext,
+  historyLen: number,
+  periodRequest: ReturnType<typeof detectPeriodReviewQuery>,
+): string
+```
+
+**It is fixed entry-point knowledge, NOT conditional.** Per the user (2026-06-07): "mentor will
+get today's full app data + yesterday's full app data, and this is what the mentor sees and knows
+at the start of the chat." So the block always states the **same** full scope — every category
+the app collects, for **today and yesterday** — regardless of what is currently populated.
+Actual values (and any empties) live in the data block below (see PART G), never summarized here.
+
+Renders a **fixed** block:
+
+```
+YOUR DATA AT THE START OF THIS CHAT ({first message | N earlier turns} in this tab today):
+You always hold the user's FULL, UN-SUMMARIZED app data for TODAY and YESTERDAY, in the data
+block below (titled PERIOD REVIEW). Both days include every metric the app collects:
+  - Body composition: weight, fat mass, muscle mass, visceral fat index, BMR
+  - Energy: calories eaten, total burned (BMR + passive + workouts), balance
+  - Heart rate: 24/7 readings (avg/min/max) plus HR during each workout
+  - Meals: every meal with foods, grams, and macros
+  - Glucose (CGM): full readings with per-meal impact, avg/min/max, time-in-range
+  - Workouts: each Withings session — activity, duration, kcal, HR
+
+This today+yesterday set is the COMPLETE data in front of you. Read exact numbers from that
+block. If it shows a category empty, report that — never ask the user to type data already present.
+
+OLDER HISTORY (anything before yesterday):
+- NOT in front of you unless a longer PERIOD REVIEW window is loaded this turn.
+{- PERIOD REVIEW (X days) IS loaded — use it; verify each number appears before citing.}
+- If the user asks a longer range and only the 2-day window is loaded, do NOT guess. Give
+  today/yesterday and ask: "for a full 7-day review send /7" (also /30, /N up to 128 days).
+- Whatever window is loaded, verify each figure appears in the block before citing — if a
+  metric is missing/empty, say so rather than inventing it.
+```
+
+### Construction rules
+- **Fixed scope, never conditional.** Every category line is always shown; presence/absence of
+  actual values is handled by the data block (PART G), not by hiding lines here.
+- **PERIOD REVIEW line:** only when an explicit `periodRequest` (/N) widens the window beyond the
+  default 2 days (X = days / "yesterday").
+- **Verify-exists rule (key):** the mentor must confirm a figure appears in the loaded block
+  before citing it, and must not assume older history exists just because the user asked.
+- Orientation only — actual numbers live in the full snapshot below.
+
+This block makes PART E (date-span guard) and the "don't ask for data you already have / don't
+invent history" behaviour explicit rather than implied.
+
+---
+
+## PART A — Conversation continuity rules (`buildChatSystemText`)
+
+Add a **CONVERSATION** block to the system prompt (all mentor tabs):
+
+```
+CONVERSATION (mandatory):
+- Read prior turns in this tab before replying.
+- Answer the user's LATEST question first — do not re-open with a full daily summary unless they asked for status/overview.
+- Do NOT repeat stats, warnings, or CGM summaries you already gave in this tab today unless:
+  (a) the user asks again about glucose/status, or
+  (b) new meals/workouts/sync materially changed the numbers.
+- Reference earlier thread naturally when relevant ("כמו שציינתי…", "בהמשך לשאלה על השומן…").
+- Keep replies 2–4 sentences unless the user asked for a period review (/7, /30) or detailed meal breakdown.
+```
+
+**Soften** the existing unconditional rule at line ~1429:
+- **Before:** `Nutritionist MUST lead with glucose interpretation…`
+- **After:** `When glucose is the topic (see turn hint), Nutritionist leads with avg/min/max…`
+
+Pass `historyLength` into `buildChatSystemText` so the model knows follow-ups exist:
+- `Chat turns in this tab today: N` (N = `history.length` before current send)
+
+---
+
+## PART B — Intent detectors (`chatIntent.ts` — NEW)
+
+New file: `app/src/logic/chatIntent.ts`
+
+Export types + detectors (regex, Hebrew + English). Keep functions **pure** and unit-testable.
+
+```ts
+export type ChatIntent =
+  | 'period_review'      // handled by detectPeriodReviewQuery — skip duplicate
+  | 'today_progress'
+  | 'activity'
+  | 'glucose'
+  | 'meal_review'
+  | 'yesterday'
+  | 'food_target'        // fat/protein/carb/hunger tips
+  | 'general';
+
+export function detectChatIntent(text: string, opts?: {
+  hasPeriodReview?: boolean;
+}): ChatIntent;
+
+export function isTodayProgressQuery(text: string): boolean;
+export function isActivityQuery(text: string): boolean;
+export function isGlucoseQuery(text: string): boolean;
+export function isFoodTargetQuery(text: string): boolean;
+```
+
+### Pattern tables (minimum)
+
+| Intent | Hebrew examples | English examples |
+|--------|-----------------|------------------|
+| `today_progress` | איך אני מתקדם, מה המצב היום, איך הולך היום, סטטוס היום | how am I doing today, today's progress, status today |
+| `activity` | פעילות, אימון, אופניים, הליכה, כמה שרפתי | activity, workout, training, burned today |
+| `glucose` | סוכר, גלוקוז, CGM, ממוצע סוכר, טווח | glucose, blood sugar, CGM, avg glucose |
+| `food_target` | שומן, חלבון, פחמימות, רעב, מה לאכול, תפריט | fat, protein, carbs, hungry, meal tips, menu |
+| `meal_review` | (reuse `isMealReviewQuery`) | meal, last eat, food log |
+| `yesterday` | (reuse `isYesterdayQuery`) | yesterday, last night |
+
+`detectChatIntent` priority order:
+1. If `detectPeriodReviewQuery` matches → defer to existing period path (return `period_review` or let caller skip)
+2. `yesterday` if `isYesterdayQuery`
+3. `activity` if `isActivityQuery`
+4. `glucose` if `isGlucoseQuery`
+5. `today_progress` if `isTodayProgressQuery`
+6. `meal_review` if `isMealReviewQuery`
+7. `food_target` if `isFoodTargetQuery`
+8. `general`
+
+---
+
+## PART C — Conditional per-message nudges (`buildChatContextBlocks`)
+
+**Replace** the unconditional CGM nudge (current ~line 1375–1376):
+
+```ts
+// BEFORE — fires on every nutritionist message when CGM exists:
+} else if (ctx.mentors.includes('nutritionist') && hasCgm) {
+  userMessage = `${message}\n\nAddress CGM in USER DATA first…`;
+```
+
+**After** — `buildTurnHint(mentor, intent, ctx, history)` returns `''` or a short append.
+
+| Mentor | Intent | Turn hint (append to userMessage) |
+|--------|--------|-----------------------------------|
+| Coach | `today_progress` | Outline: TODAY WORKOUTS (if any) → macros vs target → deficit/balance → **one** next step. Don't repeat unchanged stats from prior coach replies. |
+| Coach | `activity` | Cite TODAY WORKOUTS by name (activity, duration, kcal, HR). If none logged, say so once. |
+| Nutritionist | `glucose` | Quote avg/min/max (mg/dL) + range % from USER DATA. Name foods if MEAL GLUCOSE links spikes. |
+| Nutritionist | `today_progress` | Brief status: macros + **one** CGM line only if not already stated in this tab's history. |
+| Nutritionist | `food_target` | Answer fat/protein/hunger directly. **Do not** open with full CGM recap unless user asked about glucose. |
+| Nutritionist | `meal_review` | Use MEAL LOG; add CGM only if MEAL GLUCOSE block exists and meal timing is relevant. |
+| Doctor | `glucose` | Clinical safety on numbers in USER DATA; compression-low caveat when lows present. |
+| Any | `general` + `history.length > 0` | Answer latest question only; skip re-listing daily stats already covered in prior turns. |
+| Any | `general` + `history.length === 0` | First message of tab today — full daily overview OK for status-style questions. |
+
+**First message detection:** `history.length === 0` (caller passes count; `ChatScreen` already has `currentHistory.slice(0, -1)`).
+
+Wire in `chatWithSingleMentor`:
+```ts
+const intent = detectChatIntent(message, { hasPeriodReview: Boolean(periodRequest) });
+const turnHint = buildTurnHint(mentor, intent, ctx, history.length);
+const userMessage = turnHint ? `${message}\n\n${turnHint}` : message;
+// period_review and meal/yesterday paths keep existing specialised hints — turnHint skipped when those fire
+```
+
+---
+
+## PART D — Mentor-specific rule blocks
+
+### D1 — `buildCoachMentorRules(ctx)` (mirror `buildCgmMentorRules`)
+
+New function in `GeminiService.ts`. Append to coach tab system text when `mentor === 'coach'`.
+
+```
+- TODAY WORKOUTS in USER DATA lists today's Withings sessions — cite by name when discussing activity or daily progress
+- On today-progress questions: [activity if any] → [P/C/F vs target] → [balance/deficit] → one concrete next step
+- Do NOT claim workouts are missing when TODAY WORKOUTS lists sessions
+- Do NOT repeat the same macro numbers verbatim if your prior reply in this tab already stated them unchanged
+```
+
+Also use in `generateCoachMessage` when Coach 💪 is active (lighter version for JSON strip).
+
+### D2 — Soften `buildCgmMentorRules(ctx)`
+
+Change “MUST interpret glucose **in every reply**” to:
+
+```
+- When glucose is the topic OR this is the first reply in the tab today OR user asked for status/overview: quote avg, min, max (mg/dL) and range %
+- On follow-ups about food targets, hunger, or fat/protein without a glucose question: answer that topic directly — do not re-open with the same CGM block
+```
+
+Keep hard bans: never say “no CGM data” when blocks exist; warm-up / compression-low guidance unchanged.
+
+---
+
+## PART E — Date-range accuracy guard
+
+**Problem:** Model said “7 days” when RECENT CGM block covered 2 days.
+
+Add to system prompt (Nutritionist + Doctor when CGM blocks present):
+
+```
+CGM DATE SPAN (mandatory):
+- Only cite "N days" when USER DATA or PERIOD REVIEW explicitly states N days of samples (e.g. "RECENT CGM (2 days):" or period block header).
+- If unsure, say "the available CGM window" or quote the exact day keys/dates from the block — never invent 7 days.
+- Slash commands (/7, /30) load PERIOD REVIEW — use that block's day count, not RECENT CGM length.
+```
+
+Optional helper in `chatIntent.ts` or `mealGlucoseAnalysis.ts`:
+```ts
+/** Parse "RECENT CGM (N days)" or similar from todayMealGlucoseDetail for turn hints */
+export function parseCgmDaySpanFromContext(detail: string | null): number | null;
+```
+
+---
+
+## PART F — Gender awareness (two axes)
+
+**Current gap (verified 2026-06-07):** neither gender reaches the chat/coach prompt.
+- `ctx.gender` (user profile sex) — used **only** in `suggestMacros` / `suggestBodyTargets`
+  one-shot calls; **absent** from `buildCoachDataBlock` and chat system text.
+- `ctx.mentorGender` (voice picker Male/Female) — used **only** for UI labels
+  (`mentorLabels.ts`, tabs, HTML export); **never** injected into any prompt.
+
+Both already flow into `CoachContext` — they just need to reach the prompt.
+
+### F1 — User profile + full energy/body data in the chat block
+
+`buildCoachDataBlock` (used by coach strip + chat) was missing several profile/energy fields
+that only existed in the one-shot `suggestMacros` / `suggestBodyTargets` calls. Add them so the
+mentor's entry-point knowledge is complete:
+- `Profile: sex, age, height, language`
+- `Body fat: X% (target Y%)` and `Muscle …`
+- `BMR: N kcal/day (resting energy)`
+- (already present: weight, eaten/burned/balance, P/C/F vs target, meals, dietary rules)
+
+User sex is used for clinical/nutrition interpretation (healthy fat% range, BMR, glucose
+context) in **all** languages, and for Hebrew/Arabic address consistency.
+
+### F2 — Mentor self-sex (Hebrew/Arabic self-reference)
+
+The voice picker sets a feminine/masculine **mentor**. The AI must refer to **itself**
+with matching gendered forms (אני ממליצה vs אני ממליץ; שמחה vs שמח לעזור).
+
+### F3 — `genderInstruction(ctx)` — appended to chat system text
+
+Always states both facts: `GENDER — USER SEX: {x} | MENTOR VOICE (your own gender): {y}`.
+Then grammatical guidance by language:
+- **he / ar:** explicit forms — address user by USER SEX (אתה/את, שים/שימי לב), self-reference by
+  MENTOR VOICE (אני ממליץ/ממליצה), never mix in a thread.
+- **es / fr / ru / de / pt / it:** "if your language uses grammatical gender, match USER SEX for
+  the user and MENTOR VOICE for yourself, consistently."
+- **all languages:** use USER SEX for clinical/nutrition interpretation.
+
+`MENTOR VOICE` derives from `ctx.mentorGender` via `resolveMentorGender` (fallback to user sex).
+
+### F4 — Wiring
+- `genderInstruction(ctx)` called inside `buildChatSystemText` (after `langInstruction`).
+- Mentor voice value from `ctx.mentorGender` (fallback: derive from `ctx.gender`/neutral if null, matching `resolveMentorGender` in `mentorLabels.ts`).
+- Coach JSON strip (`generateCoachMessage`) gets `USER SEX` via the data block; mentor self-gender matters less there (short lines) but include the voice note when `lang` is he/ar.
+
+---
+
+## PART G — Always-on full today+yesterday snapshot (no summarizing)
+
+**Per the user (2026-06-07): "don't summarize anything, any data counts."** The old chat data
+block (`buildCoachDataBlock` + yesterday rollup) was a compacted summary — single eaten/burned
+lines, a one-line yesterday rollup, partial CGM. That is replaced by the **full** period-review
+snapshot, injected on **every** chat turn.
+
+### Mechanism
+- `buildChatContextBlocks` always builds `buildPeriodReviewBlock(request, macroTarget, glucose)`:
+  - no slash command → `request = { mode: 'days', days: 2 }` (yesterday + today).
+  - explicit `/N`, `/7`, `/30`, `/yesterday` → that wider window (still includes today+yesterday).
+- The snapshot already contains, **per day**: body metrics (weight/fat/muscle/visceral/BMR),
+  energy (eaten / total burned / balance), 24/7 HR (avg/min/max), full food log, CGM with
+  per-meal impact + avg/min/max + time-in-range, and every workout with HR. Nothing summarized.
+
+### Block roles after this change
+- `buildChatDataBlock` is reduced to a **settings/config header** only: local time + time-aware
+  guidance, active mentors, profile (sex/age/height/language), goals (target weight/fat/muscle +
+  start values), daily macro target, dietary rules. It carries **no** daily metrics — those are
+  in the snapshot. Labelled `PROFILE / GOALS / SETTINGS` in the system text.
+- The separate `TODAY WORKOUTS` / `YESTERDAY WORKOUTS` / `YESTERDAY MEAL LOG` injections are
+  **removed** from chat (the snapshot supersedes them). `buildChatWorkoutRollups` is retained
+  only for the coach JSON strip (`generateCoachMessage`).
+- Two snapshot instructions:
+  - explicit `/N` → `PERIOD_REVIEW_CHAT_INSTRUCTION` (full analysis, 2–4 next steps).
+  - default 2-day → `DEFAULT_SNAPSHOT_INSTRUCTION`: "this is your complete today+yesterday data,
+    cite exact numbers, but do NOT dump the whole block — answer the question concisely."
+
+### Cost note
+Each chat turn now runs the period-review fetches (workouts, body trend, intraday, macros×days)
+instead of the lighter rollup. Accepted by the user in exchange for complete, un-summarized data.
+
+---
+
+## Files to create / change
+
+| File | Change |
+|------|--------|
+| `app/src/logic/chatIntent.ts` | **NEW** — intent detectors + `detectChatIntent` + `parseCgmDaySpanFromContext` |
+| `app/src/services/GeminiService.ts` | `buildDataScopeBlock` (fixed scope), `buildTurnHint`, `buildCoachMentorRules`, soften `buildCgmMentorRules`, `genderInstruction`, **PART G** always-on 2-day snapshot (`buildChatDataBlock` → settings header, `DEFAULT_SNAPSHOT_INSTRUCTION`, remove TODAY/YESTERDAY WORKOUTS + YESTERDAY MEAL LOG from chat), update `buildChatSystemText`, `buildChatContextBlocks`, `chatWithSingleMentor` |
+| `prompts/prompt21.txt` | Cross-ref prompt23 for deferred conversation work |
+| `prompts/prompt19.txt` | Note intent layer in token table (optional one line) |
+
+No changes to `ChatScreen.tsx` unless passing `history.length` requires a signature tweak
+(`chatWithMentor` already receives history).
+
+Optional tests: `app/src/__tests__/chatIntent.test.ts` — Hebrew/English pattern smoke tests.
+
+---
+
+## Implementation order
+
+1. `chatIntent.ts` — detectors + `parseCgmDaySpanFromContext` + tests
+2. `buildDataScopeBlock` + prepend in `buildChatSystemText` (PART 0 — foundational)
+3. `buildTurnHint` + wire `buildChatContextBlocks` (remove unconditional CGM nudge)
+4. Conversation block + soften system rules in `buildChatSystemText`
+5. `buildCoachMentorRules` + soften `buildCgmMentorRules`
+6. Date-span guard + `genderInstruction` (user sex + mentor voice) + `USER SEX` in data block
+7. **PART G** — always-on 2-day snapshot: `buildChatDataBlock` → settings header, inject full
+   `buildPeriodReviewBlock` every turn (default `{days:2}`), `DEFAULT_SNAPSHOT_INSTRUCTION`,
+   remove separate TODAY/YESTERDAY WORKOUTS + YESTERDAY MEAL LOG from chat
+8. Build → install → device chat export verification
+
+---
+
+## Manual test plan (device — required before commit)
+
+Use **three mentor tabs** on the same day. Export HTML after each scenario.
+
+### T1 — Nutritionist repetition (primary regression)
+
+1. Nutritionist tab → “איך אני מתקדם/ת היום?” → **may** include CGM summary (first message OK)
+2. Same tab → “טיפים לתפריט” → **must NOT** repeat same avg/min/max opener; answers menu tips
+3. Same tab → “אבל אני לא רעב” → empathy + fat/protein angle; **no** CGM re-dump
+4. Same tab → “מה עם יעד השומן?” → fat target advice; **no** CGM re-dump
+
+### T2 — CGM date span + capability awareness
+
+1. With ~2 days CGM in context → ask “איך הסוכר השבוע?”
+2. Reply must **not** claim 7 days; instead use available window **and** offer “for a full 7-day review, send /7”
+3. Trigger `/7` → period block present → may cite 7-day period stats from that block
+
+### T2b — Don't ask for data already in context
+
+1. Coach/Nutritionist tab with workouts + meals synced → ask a progress question
+2. Reply must **not** say “tell me your workouts/meals” — it already has TODAY WORKOUTS + MEAL LOG
+
+### T3 — Coach today progress (regression guard for PART F)
+
+1. Coach tab → “איך אני מתקדם/ת היום?” → names TODAY WORKOUTS + macros + one action
+2. Follow-up → “מה עם השומן?” → fat gap; **does not** re-paste full workout + burn block
+
+### T4 — Activity explicit
+
+1. Coach tab → “איך אנחנו מבחינת פעילות?” → cites each session from TODAY WORKOUTS
+
+### T5 — Gender (Hebrew profile) — both axes
+
+1. **User sex:** set profile male → Hebrew chat → consistent masculine address (no את/שימי לב mix); set female → consistent feminine
+2. **Mentor voice:** set a mentor to Female voice → its Hebrew self-reference is feminine (אני ממליצה); set Male → masculine (אני ממליץ)
+3. Mentor voice and user sex are **independent** (e.g. female nutritionist advising a male user reads correctly on both)
+
+---
+
+## Acceptance checklist
+
+- [ ] Mentor is told ALL data it holds for today + yesterday (body, meals, macros, calories, workouts+HR, CGM) — not CGM-only
+- [ ] Mentor offers `/7` `/30` `/N` for longer-range questions instead of guessing
+- [ ] Mentor never asks the user to type workouts/meals/glucose/body metrics already in context
+- [ ] When older history is requested but no PERIOD REVIEW is loaded, mentor asks to load it (does not assume it exists); when loaded, cites only figures present in the block
+- [ ] Nutritionist follow-ups (food tips, hunger, fat) do **not** repeat identical CGM opener
+- [ ] First message of tab may still give overview when user asks status/progress
+- [ ] No invented “7 days” without PERIOD REVIEW or explicit N-day block
+- [ ] Coach today-progress cites TODAY WORKOUTS + macros (PART F regression pass)
+- [ ] Coach activity question names sessions explicitly
+- [ ] Mentor knows USER SEX (clinical context all languages; consistent Hebrew/Arabic address)
+- [ ] Mentor refers to itself with its voice gender (אני ממליצה / ממליץ) in Hebrew/Arabic
+- [ ] User-address gender and mentor self-gender stay consistent and independent within a thread
+- [ ] Period reviews (`/7`, chips) unchanged — still use PERIOD REVIEW block
+- [ ] `prompt21.txt` references prompt23
+
+---
+
+## References
+
+- Prompt18 — chat history persistence, per-mentor tabs
+- Prompt19 — `buildGlucoseMentorContext`, period review blocks
+- Prompt21 PART F — TODAY WORKOUTS (shipped `c6dd4b0`)
+- Prompt21 PART C — fresh CGM on chat ↻ (still TODO; independent of this prompt)
+- Device export: `mentor_chat_2026-06-07.html` — repetition + wrong window symptoms
