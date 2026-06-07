@@ -44,7 +44,7 @@ import {
   MENTOR_CHAT_TAB_ORDER,
 } from '../services/TargetService';
 import { chatWithMentor, summariseChatDay, isYesterdayQuery, type CoachContext } from '../services/GeminiService';
-import { runAutoChecksAndPersist, refreshCoachReview } from '../services/CoachService';
+import { runAutoChecksAndPersist, refreshCoachReview, forceCoachReview } from '../services/CoachService';
 import { exportMentorChat } from '../services/mentorChatExport';
 import { normalizeMentorChatText, buildMentorDisplaySegments, mentorBubbleColors, hasSeparateMentorVoices } from '../logic/mentorChatText';
 import type { MentorLines } from '../logic/mentorChatText';
@@ -677,6 +677,8 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
   const [anyChatHistory, setAnyChatHistory] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  /** Guards the one-shot coach auto-regen per chat open (avoids API spam on repeated failures). */
+  const coachAutoRegenRef = useRef(false);
 
   const ui = chatUiStrings(context);
   const tabUi = mentorTabStrings(activeMentor, context);
@@ -744,6 +746,23 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
       onCoachMessageUpdated?.(updated);
     } else {
       setCoachMsg(null);
+      // Auto-recover: a transient generation failure (e.g. a failed day-close
+      // regen after midnight, or a stale-language message that was cleared but
+      // not replaced) can leave no valid coach message — so the panel + action
+      // items vanish until the next trigger. Regenerate once per open so they
+      // come back without needing an app restart. forceCoachReview bypasses the
+      // min-gap gate because there is currently nothing to show.
+      if (!coachAutoRegenRef.current) {
+        coachAutoRegenRef.current = true;
+        try {
+          const event = msg?.triggerEvent ?? 'day-close';
+          const regenerated = await forceCoachReview({ ...context, event });
+          setCoachMsg(regenerated);
+          onCoachMessageUpdated?.(regenerated);
+        } catch {
+          // Non-fatal: leave the panel empty; manual ↻ refresh stays available.
+        }
+      }
     }
 
     // Load quick questions (language-aware defaults)
@@ -781,6 +800,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
   useEffect(() => {
     if (!visible) return;
     setCoachExpanded(false);
+    coachAutoRegenRef.current = false; // allow one auto-regen attempt per open
   }, [visible]);
 
   /** Chat opens at latest message when there is history. */

@@ -52,7 +52,7 @@ import { activeMentorEmojis, mentorsCollectiveLabel } from '../logic/mentorLabel
 import {
   getBirthdate, setBirthdate, computeAge, getCachedHeightCm,
   setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors,
-  getUserRules, getMacroTarget, getBodyTarget, getCoachMessage, saveCoachMessage, clearCoachMessage,
+  getUserRules, getMacroTarget, getBodyTarget, getCoachMessage, saveCoachMessage,
   getLanguage, setLanguage, getMentorGender, SUPPORTED_LANGUAGES, resetQuickQuestionsForLanguage,
   type Gender, type MentorType, type UserRules, type DailyMacroTarget, type BodyTarget, type CoachMessage, type UserLanguage,
 } from '../services/TargetService';
@@ -513,27 +513,45 @@ export const DashboardScreen = () => {
   /** Load coach message on mount and run auto-checks. */
   const loadCoachMessage = useCallback(async () => {
     const storedLang = await getLanguage();
-    let msg = await getCoachMessage();
-    let needsRegen = false;
+    const msg = await getCoachMessage();
+    const ctx = coachContextRef.current;
 
     if (msg) {
       const msgLang = msg.generatedLangCode ?? 'en';
-      if (msgLang !== storedLang.code) {
-        await clearCoachMessage();
-        msg = null;
-        needsRegen = true;
+      if (msgLang !== storedLang.code && ctx) {
+        // Generate-then-replace: never clear storage until a new message succeeds.
+        try {
+          const newMsg = await forceCoachReview({
+            ...ctx,
+            lang: storedLang,
+            event: msg.triggerEvent ?? 'day-close',
+          });
+          setCoachMsg(newMsg);
+          return;
+        } catch {
+          // Regen failed — keep showing the stale message rather than an empty panel.
+        }
       }
+    } else if (ctx) {
+      // No stored message — try once (e.g. after a failed day-close regen at midnight).
+      try {
+        const newMsg = await forceCoachReview({ ...ctx, lang: storedLang, event: 'day-close' });
+        setCoachMsg(newMsg);
+        return;
+      } catch {
+        setCoachMsg(null);
+        return;
+      }
+    } else {
+      setCoachMsg(null);
+      return;
     }
 
     if (!msg) {
       setCoachMsg(null);
-      if (needsRegen) {
-        await refreshCoachForLanguage();
-      }
       return;
     }
 
-    const ctx = coachContextRef.current;
     const data = {
       todayCarb_g: ctx?.todayCarb_g ?? null,
       todayProtein_g: ctx?.todayProtein_g ?? null,
@@ -545,7 +563,7 @@ export const DashboardScreen = () => {
     };
     const updated = await runAutoChecksAndPersist(msg, data);
     setCoachMsg(updated);
-  }, [refreshCoachForLanguage]);
+  }, []);
 
   /** Day-close trigger — fires once per calendar day on first dashboard mount. */
   const checkDayClose = useCallback(async () => {
@@ -1272,9 +1290,8 @@ export const DashboardScreen = () => {
                     ...(cm > 0 ? [saveHeightCm(cm)] : []),
                   ]);
                   if (langChanged) {
-                    await clearCoachMessage();
-                    setCoachMsg(null);
                     await resetQuickQuestionsForLanguage(userLanguage);
+                    // Generate-then-replace: forceCoachReview overwrites storage on success only.
                     await refreshCoachForLanguage();
                   }
                   if (cm > 0) setHeightCm(cm);
