@@ -23,6 +23,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   type CoachMessage,
+  type CoachActionItem,
   type ChatMessage,
   type Gender,
   type QuickQuestion,
@@ -142,6 +143,8 @@ function chatUiStrings(context: CoachContext) {
       faqDone: 'סיום',
       faqSave: 'שמירה',
       faqNew: '',
+      winsLabel: 'מה הולך טוב',
+      improveLabel: 'מה לשפר',
       expand: 'פתח',
       collapse: 'סגור',
       exportChat: 'ייצוא',
@@ -175,6 +178,8 @@ function chatUiStrings(context: CoachContext) {
       faqDone: 'تم',
       faqSave: 'حفظ',
       faqNew: '',
+      winsLabel: 'ما يسير جيداً',
+      improveLabel: 'ما يمكن تحسينه',
       expand: 'فتح',
       collapse: 'إغلاق',
       exportChat: 'تصدير',
@@ -207,6 +212,8 @@ function chatUiStrings(context: CoachContext) {
     faqDone: 'Done',
     faqSave: 'Save',
     faqNew: '',
+    winsLabel: 'What\'s going well',
+    improveLabel: 'What to improve',
     expand: 'Expand',
     collapse: 'Collapse',
     exportChat: 'Export',
@@ -265,6 +272,89 @@ function coachPanelSummary(msg: CoachMessage, lang?: UserLanguage | null): strin
   return t.length > 72 ? `${t.slice(0, 72)}…` : t;
 }
 
+/** prompt25 — a coach message uses the new structured layout if it carries any structured field. */
+function isStructuredCoach(msg: CoachMessage): boolean {
+  return Boolean(
+    msg.summary?.trim() ||
+    (msg.wins && Object.keys(msg.wins).length > 0) ||
+    (msg.improve && Object.keys(msg.improve).length > 0) ||
+    msg.actionItems.some((i) => i.mentor),
+  );
+}
+
+function truncateOneLine(text: string, max = 72): string {
+  const t = text.replace(/\s+/g, ' ').trim();
+  return t.length > max ? `${t.slice(0, max)}…` : t;
+}
+
+/** prompt25 — one mentor's block: header, wins, improve, action items. */
+function CoachMentorSection({
+  mentor,
+  wins,
+  improve,
+  items,
+  lang,
+  mentorGender,
+  userGender,
+  ui,
+  onToggleItem,
+}: {
+  mentor: MentorType;
+  wins?: string[];
+  improve?: string[];
+  items: CoachActionItem[];
+  lang?: UserLanguage | null;
+  mentorGender?: Gender | null;
+  userGender?: Gender | null;
+  ui: ReturnType<typeof chatUiStrings>;
+  onToggleItem: (itemId: string) => void;
+}) {
+  const hasWins = (wins?.length ?? 0) > 0;
+  const hasImprove = (improve?.length ?? 0) > 0;
+  if (!hasWins && !hasImprove && items.length === 0) return null;
+
+  return (
+    <View style={styles.coachMentorSection}>
+      <Text style={[styles.coachMentorHeader, ui.rtl && styles.rtlText]}>
+        {`${MENTOR_EMOJI[mentor]} ${mentorPossessiveLabel(mentor, lang, mentorGender, userGender)}`}
+      </Text>
+
+      {hasWins ? (
+        <View style={styles.coachSubBlock}>
+          <Text style={[styles.coachSubLabel, ui.rtl && styles.rtlText]}>{ui.winsLabel}</Text>
+          {wins!.map((w, i) => (
+            <View key={`w-${i}`} style={[styles.coachBulletRow, ui.rtl && styles.coachBulletRowRtl]}>
+              <Text style={styles.coachBulletWin}>✓</Text>
+              <Text style={[styles.coachBulletText, ui.rtl && styles.rtlText]}>{w}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {hasImprove ? (
+        <View style={styles.coachSubBlock}>
+          <Text style={[styles.coachSubLabel, ui.rtl && styles.rtlText]}>{ui.improveLabel}</Text>
+          {improve!.map((w, i) => (
+            <View key={`i-${i}`} style={[styles.coachBulletRow, ui.rtl && styles.coachBulletRowRtl]}>
+              <Text style={styles.coachBulletImprove}>↑</Text>
+              <Text style={[styles.coachBulletText, ui.rtl && styles.rtlText]}>{w}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {items.map((item) => (
+        <Pressable key={item.id} style={styles.actionItemRow} onPress={() => onToggleItem(item.id)}>
+          <Text style={styles.actionItemCheck}>{item.done ? '☑' : '☐'}</Text>
+          <Text style={[styles.actionItemText, item.done && styles.actionItemTextDone, ui.rtl && styles.rtlText]}>
+            {item.text}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 // ─── Collapsible coach panel (pinned above chat) ─────────────────────────────
 
 function CollapsibleCoachPanel({
@@ -294,15 +384,22 @@ function CollapsibleCoachPanel({
 }) {
   const doneCount = msg.actionItems.filter((i) => i.done).length;
   const total = msg.actionItems.length;
-  const summary = coachPanelSummary(msg, lang);
+  const structured = isStructuredCoach(msg);
+  const headerText = msg.summary?.trim() ? truncateOneLine(msg.summary) : coachPanelSummary(msg, lang);
+  const untaggedItems = msg.actionItems.filter((i) => !i.mentor || !activeMentors.includes(i.mentor));
 
   return (
     <View style={styles.coachPanel}>
       <Pressable style={styles.coachPanelHeader} onPress={onToggleExpanded}>
         <Text style={styles.coachPanelChevron}>{expanded ? '▲' : '▼'}</Text>
         <Text style={[styles.coachPanelSummary, ui.rtl && styles.rtlText]} numberOfLines={1}>
-          {summary}
+          {headerText}
         </Text>
+        {total > 0 ? (
+          <View style={styles.coachPanelCountBadge}>
+            <Text style={styles.coachPanelCountText}>{`${doneCount}/${total}`}</Text>
+          </View>
+        ) : null}
       </Pressable>
 
       {expanded ? (
@@ -313,36 +410,72 @@ function CollapsibleCoachPanel({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <MentorVoiceSegments
-            text={msg.text}
-            mentorLines={msg.mentorLines}
-            activeMentors={activeMentors}
-            lang={lang}
-            mentorGender={mentorGender}
-            userGender={userGender}
-            rtl={ui.rtl}
-            variant="coach"
-          />
-          {msg.actionItems.length > 0 && (
-            <View style={styles.actionItemsWrap}>
-              <Text style={styles.actionItemsHeader}>
-                {actionItemsHeader(doneCount, total, lang)}
-              </Text>
-              {msg.actionItems.map((item) => (
-                <Pressable
-                  key={item.id}
-                  style={styles.actionItemRow}
-                  onPress={() => onToggleItem(item.id)}
-                >
-                  <Text style={styles.actionItemCheck}>{item.done ? '☑' : '☐'}</Text>
-                  <Text
-                    style={[styles.actionItemText, item.done && styles.actionItemTextDone, ui.rtl && styles.rtlText]}
-                  >
-                    {item.text}
-                  </Text>
-                </Pressable>
+          {structured ? (
+            <>
+              {msg.summary?.trim() ? (
+                <Text style={[styles.coachSummaryText, ui.rtl && styles.rtlText]}>{msg.summary.trim()}</Text>
+              ) : null}
+              {activeMentors.map((m) => (
+                <CoachMentorSection
+                  key={m}
+                  mentor={m}
+                  wins={msg.wins?.[m]}
+                  improve={msg.improve?.[m]}
+                  items={msg.actionItems.filter((i) => i.mentor === m)}
+                  lang={lang}
+                  mentorGender={mentorGender}
+                  userGender={userGender}
+                  ui={ui}
+                  onToggleItem={onToggleItem}
+                />
               ))}
-            </View>
+              {untaggedItems.length > 0 ? (
+                <View style={styles.coachMentorSection}>
+                  {untaggedItems.map((item) => (
+                    <Pressable key={item.id} style={styles.actionItemRow} onPress={() => onToggleItem(item.id)}>
+                      <Text style={styles.actionItemCheck}>{item.done ? '☑' : '☐'}</Text>
+                      <Text style={[styles.actionItemText, item.done && styles.actionItemTextDone, ui.rtl && styles.rtlText]}>
+                        {item.text}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <MentorVoiceSegments
+                text={msg.text}
+                mentorLines={msg.mentorLines}
+                activeMentors={activeMentors}
+                lang={lang}
+                mentorGender={mentorGender}
+                userGender={userGender}
+                rtl={ui.rtl}
+                variant="coach"
+              />
+              {msg.actionItems.length > 0 && (
+                <View style={styles.actionItemsWrap}>
+                  <Text style={styles.actionItemsHeader}>
+                    {actionItemsHeader(doneCount, total, lang)}
+                  </Text>
+                  {msg.actionItems.map((item) => (
+                    <Pressable
+                      key={item.id}
+                      style={styles.actionItemRow}
+                      onPress={() => onToggleItem(item.id)}
+                    >
+                      <Text style={styles.actionItemCheck}>{item.done ? '☑' : '☐'}</Text>
+                      <Text
+                        style={[styles.actionItemText, item.done && styles.actionItemTextDone, ui.rtl && styles.rtlText]}
+                      >
+                        {item.text}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </>
           )}
         </ScrollView>
       ) : null}
@@ -1361,6 +1494,54 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: WellnessColors.textPrimary,
   },
+  coachPanelCountBadge: {
+    backgroundColor: WellnessColors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#B3D9F0',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  coachPanelCountText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: WellnessColors.accentBlue,
+  },
+  coachSummaryText: {
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '600',
+    color: WellnessColors.textPrimary,
+    marginBottom: 6,
+  },
+  coachMentorSection: {
+    marginTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#B3D9F0',
+    paddingTop: 10,
+    gap: 6,
+  },
+  coachMentorHeader: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#2E7D5A',
+  },
+  coachSubBlock: { gap: 3 },
+  coachSubLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: WellnessColors.textSecondary,
+    letterSpacing: 0.3,
+  },
+  coachBulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  coachBulletRowRtl: { flexDirection: 'row-reverse' },
+  coachBulletWin: { fontSize: 13, lineHeight: 21, color: '#2E7D5A', fontWeight: '700' },
+  coachBulletImprove: { fontSize: 13, lineHeight: 21, color: WellnessColors.accentBlue, fontWeight: '700' },
+  coachBulletText: { flex: 1, fontSize: 13, lineHeight: 20, color: WellnessColors.textPrimary },
   coachPanelBody: {
     paddingTop: 6,
     paddingBottom: 4,

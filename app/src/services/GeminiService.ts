@@ -65,7 +65,7 @@ function genderInstruction(ctx: CoachContext): string {
 /** Stronger instruction for JSON coach responses — action item text often copied from English examples. */
 function coachJsonLangInstruction(lang?: UserLanguage | null): string {
   if (!lang || lang.code === 'en') return '';
-  return `\nLANGUAGE (mandatory): Write "text" AND every actionItems[].text in ${lang.label} (${lang.code}) only. Keep autoCheckType values exactly as English keys (carbs_under_target, etc.). Do NOT use English for user-visible strings.`;
+  return `\nLANGUAGE (mandatory): Write "summary", every wins[]/improve[] bullet, AND every actionItems[].text in ${lang.label} (${lang.code}) only. Keep mentor tags and autoCheckType values exactly as English keys (nutritionist/coach/doctor, carbs_under_target, etc.). Do NOT use English for user-visible strings.`;
 }
 
 /** Mandatory language for meal JSON — name_local is the display name shown in the app. */
@@ -104,77 +104,58 @@ function defaultFoodAnalysisPrompt(
   return 'What food is in this photo? Give me the macros.' + jsonReminder;
 }
 
-function coachJsonTextExample(ctx: CoachContext): string {
-  const code = ctx.lang?.code ?? 'en';
-  const kcal = Math.round(ctx.macroTarget?.kcal ?? 1950);
-  const active = MENTOR_PRIORITY.filter((m) => ctx.mentors.includes(m));
-  if (active.length <= 1) {
-    return code === 'he' ? `אכלת 0 מתוך ${kcal} קק״ל.` : 'One sentence with specific numbers.';
-  }
-  const lines: string[] = [];
-  if (ctx.mentors.includes('doctor')) {
-    lines.push(code === 'he' ? '🩺 משפט בטיחות עם מספרים.' : '🩺 One safety sentence with numbers.');
-  }
-  if (ctx.mentors.includes('nutritionist')) {
-    lines.push(code === 'he' ? '🥗 משפט תזונה עם חלבון/פחמימות/CGM.' : '🥗 One nutrition sentence with macro/CGM numbers.');
-  }
-  if (ctx.mentors.includes('coach')) {
-    lines.push(code === 'he' ? '💪 משפט הרכב גוף או אימון.' : '💪 One body-composition or training sentence.');
-  }
-  return lines.join('\\n');
-}
-
 function coachJsonExample(ctx: CoachContext): string {
   const carb = Math.round(ctx.macroTarget?.carb_g ?? 35);
   const protein = Math.round(ctx.macroTarget?.protein_g ?? 140);
   const code = ctx.lang?.code ?? 'en';
-  const hasCoach = ctx.mentors.includes('coach');
-  const hasNut = ctx.mentors.includes('nutritionist');
-  const coachEx =
-    code === 'he'
-      ? '{"text":"הליכה קצרה או מתיחות","autoCheckType":null}'
-      : '{"text":"Short walk or stretch","autoCheckType":null}';
-  const parts: string[] = [];
-  if (hasNut) {
-    parts.push(
-      code === 'he'
-        ? `{"text":"להישאר מתחת ל-${carb}g פחמימות","autoCheckType":"carbs_under_target"}`
-        : `{"text":"Stay under ${carb}g carbs today","autoCheckType":"carbs_under_target"}`,
-    );
-    parts.push(
-      code === 'he'
-        ? `{"text":"להגיע ל-${protein}g חלבון","autoCheckType":"protein_over_target"}`
-        : `{"text":"Hit ${protein}g protein","autoCheckType":"protein_over_target"}`,
-    );
-  }
-  if (hasCoach) parts.push(coachEx);
-  if (hasNut) {
-    parts.push(
-      code === 'he'
-        ? '{"text":"לרשום את הארוחה הבאה","autoCheckType":"meal_logged"}'
-        : '{"text":"Log next meal","autoCheckType":"meal_logged"}',
-    );
-  }
-  if (parts.length === 0) parts.push(coachEx);
+  const he = code === 'he';
   const active = MENTOR_PRIORITY.filter((m) => ctx.mentors.includes(m));
-  if (active.length >= 2) {
-    const mentorLines: Record<string, string> = {};
-    if (ctx.mentors.includes('nutritionist')) {
-      mentorLines.nutritionist =
-        code === 'he' ? 'משפט תזונה עם חלבון/פחמימות/CGM.' : 'One nutrition sentence with macro/CGM numbers.';
-    }
-    if (ctx.mentors.includes('coach')) {
-      mentorLines.coach =
-        code === 'he' ? 'משפט הרכב גוף או אימון.' : 'One body-composition or training sentence.';
-    }
-    if (ctx.mentors.includes('doctor')) {
-      mentorLines.doctor =
-        code === 'he' ? 'משפט בטיחות עם מספרים.' : 'One safety sentence with numbers.';
-    }
-    return `{"mentorLines":${JSON.stringify(mentorLines)},"actionItems":[${parts.join(',')}]}`;
+
+  const summary = he
+    ? 'משפט-שניים שמסכמים את היום עם מספרים.'
+    : 'One or two sentences summarizing the day with numbers.';
+
+  const winsBy: Record<MentorType, string> = {
+    nutritionist: he ? 'גלוקוז ממוצע 92 — בטווח' : 'Glucose avg 92 — in range',
+    coach: he ? 'נרשמה הליכה 45 דק׳' : 'Walk logged 45 min',
+    doctor: he ? 'אין ערכים מתחת ל-70 היום' : 'No lows below 70 today',
+  };
+  const improveBy: Record<MentorType, string> = {
+    nutritionist: he ? `חלבון 68g מול יעד ${protein}g` : `Protein 68g vs ${protein}g target`,
+    coach: he ? 'אין אימון כוח השבוע' : 'No strength session this week',
+    doctor: he ? 'לעקוב אחרי ערכים נמוכים' : 'Watch for low readings',
+  };
+  const actionBy: Record<MentorType, string> = {
+    nutritionist: he
+      ? `{"text":"להגיע ל-${protein}g חלבון","mentor":"nutritionist","autoCheckType":"protein_over_target"}`
+      : `{"text":"Hit ${protein}g protein","mentor":"nutritionist","autoCheckType":"protein_over_target"}`,
+    coach: he
+      ? '{"text":"הליכה 20 דק׳ אחרי הארוחה","mentor":"coach","autoCheckType":null}'
+      : '{"text":"20-min walk after dinner","mentor":"coach","autoCheckType":null}',
+    doctor: he
+      ? '{"text":"לבדוק סוכר שעתיים אחרי ארוחה","mentor":"doctor","autoCheckType":null}'
+      : '{"text":"Recheck glucose 2h post-meal","mentor":"doctor","autoCheckType":null}',
+  };
+
+  const winsObj: Record<string, string[]> = {};
+  const improveObj: Record<string, string[]> = {};
+  const actionParts: string[] = [];
+  for (const m of active) {
+    winsObj[m] = [winsBy[m]];
+    improveObj[m] = [improveBy[m]];
+    actionParts.push(actionBy[m]);
   }
-  const text = coachJsonTextExample(ctx);
-  return `{"text":"${text}","actionItems":[${parts.join(',')}]}`;
+  // Show the nutritionist a second auto-checkable item so carbs_under_target appears.
+  if (ctx.mentors.includes('nutritionist')) {
+    actionParts.push(
+      he
+        ? `{"text":"להישאר מתחת ל-${carb}g פחמימות","mentor":"nutritionist","autoCheckType":"carbs_under_target"}`
+        : `{"text":"Stay under ${carb}g carbs","mentor":"nutritionist","autoCheckType":"carbs_under_target"}`,
+    );
+  }
+  if (actionParts.length === 0) actionParts.push(actionBy.coach);
+
+  return `{"summary":"${summary}","wins":${JSON.stringify(winsObj)},"improve":${JSON.stringify(improveObj)},"actionItems":[${actionParts.join(',')}]}`;
 }
 
 function isCoachActionItem(item: CoachActionItem): boolean {
@@ -186,64 +167,110 @@ function isCoachActionItem(item: CoachActionItem): boolean {
 
 function buildCoachActionItem(ctx: CoachContext): CoachActionItem {
   const code = ctx.lang?.code ?? 'en';
+  const he = code === 'he';
   const hour = new Date().getHours();
   const earlyMorning = hour < 6;
   const muscle = ctx.muscleMass_kg;
   const targetMuscle = ctx.bodyTarget?.targetMuscleMass_kg;
   const targetWeight = ctx.bodyTarget?.targetWeight_kg;
-  const ts = Date.now();
 
-  if (code === 'he') {
-    if (earlyMorning) {
-      return { id: `coach-${ts}`, text: 'לתכנן תנועה/אימון להיום', done: false, autoCheckType: null };
-    }
-    if (muscle != null && targetMuscle != null) {
-      return {
-        id: `coach-${ts}`,
-        text: `לשמור על השריר (${Math.round(muscle)}→${Math.round(targetMuscle)}kg)`,
-        done: false,
-        autoCheckType: null,
-      };
-    }
-    if (targetWeight != null) {
-      return {
-        id: `coach-${ts}`,
-        text: `להתקדם ליעד ${Math.round(targetWeight)}kg`,
-        done: false,
-        autoCheckType: null,
-      };
-    }
-    return { id: `coach-${ts}`, text: 'הליכה קצרה או מתיחות', done: false, autoCheckType: null };
-  }
-
+  let text: string;
   if (earlyMorning) {
-    return { id: `coach-${ts}`, text: 'Plan movement or training today', done: false, autoCheckType: null };
+    text = he ? 'לתכנן תנועה/אימון להיום' : 'Plan movement or training today';
+  } else if (muscle != null && targetMuscle != null) {
+    text = he
+      ? `לשמור על השריר (${Math.round(muscle)}→${Math.round(targetMuscle)}kg)`
+      : `Protect muscle (${Math.round(muscle)}→${Math.round(targetMuscle)}kg)`;
+  } else if (targetWeight != null) {
+    text = he ? `להתקדם ליעד ${Math.round(targetWeight)}kg` : `Progress toward ${Math.round(targetWeight)}kg`;
+  } else {
+    text = he ? 'הליכה קצרה או מתיחות' : 'Short walk or stretch';
   }
-  if (muscle != null && targetMuscle != null) {
-    return {
-      id: `coach-${ts}`,
-      text: `Protect muscle (${Math.round(muscle)}→${Math.round(targetMuscle)}kg)`,
-      done: false,
-      autoCheckType: null,
-    };
-  }
-  if (targetWeight != null) {
-    return {
-      id: `coach-${ts}`,
-      text: `Progress toward ${Math.round(targetWeight)}kg`,
-      done: false,
-      autoCheckType: null,
-    };
-  }
-  return { id: `coach-${ts}`, text: 'Short walk or stretch', done: false, autoCheckType: null };
+  return { id: `coach-${Date.now()}`, text, done: false, autoCheckType: null, mentor: 'coach' };
 }
 
+/** Doctor safety fallback (prompt25) — injected when Doctor active but model gave no doctor item. */
+function buildDoctorActionItem(ctx: CoachContext): CoachActionItem {
+  const he = ctx.lang?.code === 'he';
+  const text = he ? 'לבדוק סוכר שעתיים אחרי ארוחה' : 'Recheck glucose 2h post-meal';
+  return { id: `doctor-${Date.now()}`, text, done: false, autoCheckType: null, mentor: 'doctor' };
+}
+
+/** prompt25 — guarantee each ACTIVE mentor has at least one action item. */
 function ensureMentorActionItems(items: CoachActionItem[], ctx: CoachContext): CoachActionItem[] {
-  if (!ctx.mentors.includes('coach')) return items.slice(0, 4);
-  if (items.some(isCoachActionItem)) return items.slice(0, 4);
-  const coachItem = buildCoachActionItem(ctx);
-  const merged = items.length >= 4 ? [...items.slice(0, 3), coachItem] : [...items, coachItem];
-  return merged.slice(0, 4);
+  const out = [...items];
+  for (const m of MENTOR_PRIORITY.filter((x) => ctx.mentors.includes(x))) {
+    if (out.some((i) => i.mentor === m)) continue;
+    if (m === 'coach') out.push(buildCoachActionItem(ctx));
+    else if (m === 'doctor') out.push(buildDoctorActionItem(ctx));
+    else if (m === 'nutritionist') out.push(...buildNutritionistActionItems(ctx));
+  }
+  return out;
+}
+
+/** prompt25 — cap action items at `perMentor` per mentor; untagged items pass through. */
+function capPerMentor(
+  items: CoachActionItem[],
+  mentors: MentorType[],
+  perMentor: number,
+): CoachActionItem[] {
+  const counts: Partial<Record<MentorType, number>> = {};
+  const out: CoachActionItem[] = [];
+  for (const item of items) {
+    const m = item.mentor;
+    if (!m || !mentors.includes(m)) {
+      out.push(item);
+      continue;
+    }
+    const n = (counts[m] ?? 0) + 1;
+    counts[m] = n;
+    if (n <= perMentor) out.push(item);
+  }
+  return out;
+}
+
+/** Nutritionist fallbacks (carbs + protein), tagged for the nutritionist. */
+function buildNutritionistActionItems(ctx: CoachContext): CoachActionItem[] {
+  const code = ctx.lang?.code ?? 'en';
+  const he = code === 'he';
+  const carb = ctx.macroTarget?.carb_g;
+  const protein = ctx.macroTarget?.protein_g;
+  const ts = Date.now();
+  const items: CoachActionItem[] = [];
+  items.push({
+    id: `nut-${ts}-c`,
+    text: he
+      ? carb != null ? `להישאר מתחת ל-${Math.round(carb)}g פחמימות` : 'לשמור על יעד הפחמימות'
+      : carb != null ? `Stay under ${Math.round(carb)}g carbs` : 'Stay within carb target',
+    done: false,
+    autoCheckType: 'carbs_under_target',
+    mentor: 'nutritionist',
+  });
+  items.push({
+    id: `nut-${ts}-p`,
+    text: he
+      ? protein != null ? `להגיע ל-${Math.round(protein)}g חלבון` : 'להגיע ליעד החלבון'
+      : protein != null ? `Hit ${Math.round(protein)}g protein` : 'Hit protein target',
+    done: false,
+    autoCheckType: 'protein_over_target',
+    mentor: 'nutritionist',
+  });
+  return items;
+}
+
+/** Map a raw mentor string from the model to an active MentorType, else undefined. */
+function resolveActionItemMentor(raw: unknown, ctx: CoachContext): MentorType | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const k = raw.toLowerCase().replace(/[^a-z]/g, '');
+  const m = k === 'doctor' || k === 'nutritionist' || k === 'coach' ? (k as MentorType) : undefined;
+  return m && ctx.mentors.includes(m) ? m : undefined;
+}
+
+/** Infer the owning mentor for an untagged item from its autoCheckType / text. */
+function inferActionItemMentor(item: CoachActionItem, ctx: CoachContext): MentorType | undefined {
+  if (item.autoCheckType != null && ctx.mentors.includes('nutritionist')) return 'nutritionist';
+  if (ctx.mentors.includes('coach') && isCoachActionItem(item)) return 'coach';
+  return undefined;
 }
 
 function actionItemTextForCheck(
@@ -309,24 +336,19 @@ function buildFallbackActionItems(ctx: CoachContext): CoachActionItem[] {
         };
   const items: CoachActionItem[] = [];
   if (hasNutritionist) {
-    items.push({ id: `fb-${ts}-0`, text: labels.carbs, done: false, autoCheckType: 'carbs_under_target' });
-    items.push({ id: `fb-${ts}-1`, text: labels.protein, done: false, autoCheckType: 'protein_over_target' });
-    items.push({ id: `fb-${ts}-2`, text: labels.meal, done: false, autoCheckType: 'meal_logged' });
+    items.push({ id: `fb-${ts}-0`, text: labels.carbs, done: false, autoCheckType: 'carbs_under_target', mentor: 'nutritionist' });
+    items.push({ id: `fb-${ts}-1`, text: labels.protein, done: false, autoCheckType: 'protein_over_target', mentor: 'nutritionist' });
   }
   if (hasCoach) {
-    items.push({
-      id: `fb-${ts}-c`,
-      text: labels.coach,
-      done: false,
-      autoCheckType: null,
-    });
+    items.push({ id: `fb-${ts}-c`, text: labels.coach, done: false, autoCheckType: null, mentor: 'coach' });
+  }
+  if (ctx.mentors.includes('doctor')) {
+    items.push(buildDoctorActionItem(ctx));
   }
   if (items.length === 0) {
-    items.push(
-      { id: `fb-${ts}-0`, text: labels.meal, done: false, autoCheckType: 'meal_logged' },
-    );
+    items.push({ id: `fb-${ts}-0`, text: labels.meal, done: false, autoCheckType: 'meal_logged', mentor: 'nutritionist' });
   }
-  return items.slice(0, 4);
+  return items;
 }
 
 /** Last resort: split a blended reply into per-mentor lines via a short JSON call. */
@@ -399,23 +421,47 @@ async function resolveCoachReplyText(
 }
 
 function normalizeCoachActionItems(
-  raw: Array<{ text: string; autoCheckType: string | null }> | undefined,
+  raw: Array<{ text: string; autoCheckType: string | null; mentor?: string }> | undefined,
   ctx: CoachContext,
 ): CoachActionItem[] {
-  const parsed = (raw ?? [])
+  const parsed: CoachActionItem[] = (raw ?? [])
     .filter((item) => isValidActionItemText(String(item.text ?? '')))
-    .slice(0, 4)
-    .map((item, i) => ({
-      id: `ai-${Date.now()}-${i}`,
-      text: String(item.text).trim(),
-      done: false,
-      autoCheckType: (['carbs_under_target', 'protein_over_target', 'calorie_deficit', 'meal_logged'].includes(item.autoCheckType ?? '')
-        ? item.autoCheckType as AutoCheckType
-        : null),
-    }));
-  const items = parsed.length >= 2 ? parsed : buildFallbackActionItems(ctx);
+    .map((item, i) => {
+      const autoCheckType: AutoCheckType = ['carbs_under_target', 'protein_over_target', 'calorie_deficit', 'meal_logged'].includes(item.autoCheckType ?? '')
+        ? (item.autoCheckType as AutoCheckType)
+        : null;
+      const base: CoachActionItem = {
+        id: `ai-${Date.now()}-${i}`,
+        text: String(item.text).trim(),
+        done: false,
+        autoCheckType,
+      };
+      base.mentor = resolveActionItemMentor(item.mentor, ctx) ?? inferActionItemMentor(base, ctx);
+      return base;
+    });
+  const items = parsed.length >= 1 ? parsed : buildFallbackActionItems(ctx);
   const aligned = items.map((item) => alignActionItemToMacroTarget(item, ctx));
-  return ensureMentorActionItems(aligned, ctx);
+  const ensured = ensureMentorActionItems(aligned, ctx);
+  return capPerMentor(ensured, ctx.mentors, 2);
+}
+
+/** prompt25 — parse per-mentor wins/improve bullet maps; keep active mentors only, ≤3 each. */
+function parseMentorBulletMap(
+  raw: unknown,
+  ctx: CoachContext,
+): Partial<Record<MentorType, string[]>> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const out: Partial<Record<MentorType, string[]>> = {};
+  for (const m of MENTOR_PRIORITY.filter((x) => ctx.mentors.includes(x))) {
+    const list = (raw as Record<string, unknown>)[m];
+    if (!Array.isArray(list)) continue;
+    const bullets = list
+      .map((b) => String(b ?? '').trim())
+      .filter((b) => isValidActionItemText(b))
+      .slice(0, 3);
+    if (bullets.length > 0) out[m] = bullets;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
@@ -1308,24 +1354,23 @@ Respond with JSON only (no markdown, no prose):
 ${jsonExample}
 
 Rules:
-- Match tone and action items to LOCAL TIME NOW and TIME-AWARE COACHING above
-- When Coach 💪 is in ACTIVE MENTORS, actionItems MUST include at least one Coach item (autoCheckType null): movement, muscle, training, or body-composition — not food macros
-- Reflect ALL active mentors in ACTIVE MENTORS — do not silence Coach when Nutritionist is also selected (and vice versa)
-- When 2+ mentors in ACTIVE MENTORS: use "mentorLines" object with one key per active mentor ("doctor", "nutritionist", "coach") — one sentence per key, no emoji in values. Do NOT use a single blended "text" field.
-- When only 1 mentor active: use "text" (one sentence with specific numbers)
-- actionItems: 2–4 items, max 8 words each, concrete and actionable for THIS time of day — same language as text
-- autoCheckType: use "carbs_under_target", "protein_over_target", "calorie_deficit", "meal_logged", or null (always English keys)
+- Output keys: "summary", "wins", "improve", "actionItems". Include ONLY active mentors as keys inside wins/improve and as "mentor" tags in actionItems.
+- "summary": 1–2 sentences blending the day's headline across all mentors, with specific numbers, matched to LOCAL TIME NOW. Not a per-mentor paragraph.
+- "wins" and "improve": objects keyed by mentor ("nutritionist", "coach", "doctor"). For EACH active mentor give 0–3 short bullets from that mentor's lens (Nutritionist → food/macros/CGM; Coach → composition/training/recovery; Doctor → safety/clinical). Cite numbers. Empty array is allowed.
+- "actionItems": 1–2 PER ACTIVE mentor, each tagged with "mentor". Max 8 words each, concrete and actionable for THIS time of day, same language as summary.
+  - Nutritionist 🥗 items: food/macros/CGM (autoCheckType: carbs_under_target / protein_over_target / calorie_deficit / meal_logged when it fits).
+  - Coach 💪 items: movement, muscle, training, or body-composition (autoCheckType null).
+  - Doctor 🩺 items: safety / clinical follow-up (autoCheckType null).
+- autoCheckType keys are always English: "carbs_under_target", "protein_over_target", "calorie_deficit", "meal_logged", or null.
 - carbs_under_target MUST cite carb target ${carbTarget != null ? `${Math.round(carbTarget)}g` : 'from USER DATA C:/target line'} — never use generic 20g keto defaults
 - protein_over_target MUST cite protein target ${proteinTarget != null ? `${Math.round(proteinTarget)}g` : 'from USER DATA P:/target line'}
 - Dietary rules in USER DATA override any generic diet assumptions
-- If event is meal: focus on remaining macros for the day
-- If event is weigh-in: focus on trend vs target, muscle vs start
-- If event is workout: focus on calorie budget impact and HR during session vs resting baseline using the WORKOUTS (+ HR during each session) lines in the PERIOD REVIEW
+- If event is meal: focus on remaining macros for the day. If weigh-in: trend vs target, muscle vs start. If workout: calorie budget + HR during session vs resting baseline from the WORKOUTS lines in the PERIOD REVIEW.
 - Do NOT repeat data the user already sees on the dashboard
-- If Nutritionist 🥗 is active and CGM blocks are in USER DATA, "text" MUST include glucose avg/min/max (mg/dL) and good-vs-needs-improvement verdict
+- If Nutritionist 🥗 is active and CGM blocks are in USER DATA, the nutritionist's wins/improve MUST cite glucose avg/min/max (mg/dL) with a good-vs-needs-improvement verdict
 - NEVER say "no CGM data" when MEAL GLUCOSE / TODAY CGM / RECENT CGM blocks are in USER DATA — say synced; if meal window not ready, cite today avg/min/max anyway
 - CGM DATE SPAN (mandatory): only state a day count that appears in the PERIOD REVIEW / CGM stats block. The default window is today + yesterday — do NOT say "3 days" or "this week" unless a wider window is loaded. If unsure, say "the available CGM window".
-- Do NOT repeat the same glucose stat block in more than one place: the Nutritionist 🥗 owns the CGM numbers (avg/min/max), the Doctor 🩺 adds only safety interpretation — never restate the same numbers${coachJsonLangInstruction(ctx.lang)}`;
+- Glucose numbers belong to the Nutritionist 🥗 ONLY (in their wins/improve); the Doctor 🩺 adds safety interpretation without restating the same avg/min/max${coachJsonLangInstruction(ctx.lang)}`;
 
   const glucoseCoachRule = buildCgmMentorRules(ctx);
 
@@ -1354,9 +1399,12 @@ Rules:
   const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
 
   let parsed: {
+    summary?: string;
+    wins?: unknown;
+    improve?: unknown;
     text?: string;
     mentorLines?: MentorLines;
-    actionItems: Array<{ text: string; autoCheckType: string | null }>;
+    actionItems: Array<{ text: string; autoCheckType: string | null; mentor?: string }>;
   };
   try {
     parsed = JSON.parse(cleaned);
@@ -1365,12 +1413,27 @@ Rules:
   }
 
   const actionItems = normalizeCoachActionItems(parsed.actionItems, ctx);
-  const { text, mentorLines } = await resolveCoachReplyText(parsed as Record<string, unknown>, ctx);
+  const wins = parseMentorBulletMap(parsed.wins, ctx);
+  const improve = parseMentorBulletMap(parsed.improve, ctx);
+  const summaryText = typeof parsed.summary === 'string' ? normalizeMentorChatText(parsed.summary) : '';
+
+  // Back-compat: older messages used text/mentorLines. New format leads with summary; keep a
+  // non-empty `text` so any legacy reader (and the collapsed one-liner fallback) still works.
+  let text = summaryText;
+  let mentorLines: MentorLines | undefined;
+  if (!text) {
+    const resolved = await resolveCoachReplyText(parsed as Record<string, unknown>, ctx);
+    text = resolved.text;
+    mentorLines = resolved.mentorLines;
+  }
 
   return {
     id: `coach-${Date.now()}`,
     text,
     mentorLines,
+    summary: summaryText || undefined,
+    wins,
+    improve,
     actionItems,
     triggerEvent: ctx.event,
     generatedAt: new Date().toISOString(),
@@ -1402,8 +1465,7 @@ function chatErrorMessage(lang?: UserLanguage | null): string {
 
 /**
  * Pull the user-facing text out of a strict JSON chat envelope ({"response":"…"}).
- * The JSON contract gives the model no free-text slot, so leaked reasoning (THOUGHT,
- * Plan:) can't reach the user. Falls back to leak-stripping if parsing fails.
+ * Only the parsed "response" field is shown — never raw model output (no leak-stripping game).
  */
 function parseChatEnvelope(raw: string): string {
   const stripped = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
@@ -1421,12 +1483,11 @@ function parseChatEnvelope(raw: string): string {
         /* fall through to truncation salvage */
       }
     }
-    // Truncated JSON (response hit the token ceiling mid-string): pull the text
-    // after "response":" and unescape it so the user still sees a clean partial reply.
+    // Truncated JSON (token ceiling mid-string): pull the text after "response":".
     const salvage = salvageTruncatedResponse(stripped);
     if (salvage) return salvage;
   }
-  return stripLeakedThinking(stripped);
+  return '';
 }
 
 /** Recover the prose from a cut-off {"response":"…  envelope that never closed. */
@@ -1449,22 +1510,19 @@ function salvageTruncatedResponse(stripped: string): string | null {
   return unescaped.length > 0 ? unescaped : null;
 }
 
-const CHAT_RESPONSE_SCHEMA = {
-  type: 'OBJECT',
-  properties: { response: { type: 'STRING' } },
-  required: ['response'],
-};
-
 async function fetchGeminiChat(contents: Array<{ role: string; parts: Array<{ text: string }> }>): Promise<string> {
   const body = {
     contents,
     generationConfig: geminiGenerationConfig({
-      // Dynamic thinking shares this ceiling, so give long /7 /30 reviews ample room.
+      // Thinking tokens count against maxOutputTokens. Dynamic (-1) thinking could consume the
+      // whole ceiling on long /7 /30 reviews and truncate the answer mid-word, so bound it and
+      // leave the bulk of the budget for the visible reply.
       temperature: 0.4,
       maxOutputTokens: 32768,
-      thinkingBudget: -1,
+      thinkingBudget: 8192,
+      // JSON mode without responseSchema — schema-constrained decoding treated Hebrew gershayim
+      // (ASCII ") as end-of-string and cut replies at ק"ג / מ"ג. Prompt enforces valid JSON instead.
       responseMimeType: 'application/json',
-      responseSchema: CHAT_RESPONSE_SCHEMA,
     }),
   };
 
@@ -1656,6 +1714,7 @@ You are responding in a free chat. Be concise, specific, and supportive.
 Match your tone to LOCAL TIME NOW and TIME-AWARE COACHING above — early morning means gentle, not alarmist.
 OUTPUT FORMAT (mandatory): respond with a single JSON object and nothing else — {"response":"<your reply to the user>"}. Put your entire user-facing reply inside the "response" string. Never write THOUGHT, planning, reasoning, or any text outside this JSON object.
 Inside "response" write plain prose only — no **bold**, no markdown headers, no nested JSON. 2–4 sentences with specific numbers (period reviews /7 /30 may be longer). Use \n for line breaks inside the string.
+JSON STRING SAFETY (mandatory): never put ASCII double-quote (") inside the response text — it breaks JSON. For Hebrew abbreviations use single quotes instead: ק'ג not ק"ג, מ'ג/ד'ל not מ"ג/ד"ל, ק'ק'ל not קק"ל. If you must use a double-quote in the text, escape it as \\".
 All of today's and yesterday's data — body, visceral, BMR, energy, 24/7 HR, meals, CGM, workouts — is in the data block above. When asked about activity, meals, glucose, HR, or body metrics, cite the exact numbers from it; never say data is missing if it appears there.
 When glucose is the topic, or this is the first reply in the tab today, or the user asked for status/overview: Nutritionist 🥗 leads with glucose interpretation (avg/min/max mg/dL) and Doctor 🩺 adds clinical safety on the same numbers. On follow-ups about food targets, hunger, or fat/protein without a glucose question, answer that topic directly — do NOT re-open with the same CGM block.
 CGM DATE SPAN (mandatory): only cite "N days" when the data block explicitly states N days. If unsure, say "the available CGM window" — never invent 7 days. Slash commands (/7, /30) widen the loaded window — use that block's day count.
@@ -1685,7 +1744,7 @@ async function chatWithSingleMentor(
   const recentHistory = history.slice(-20);
   const contents = [
     { role: 'user', parts: [{ text: `SYSTEM CONTEXT:\n${systemText}\n\nAcknowledge.` }] },
-    { role: 'model', parts: [{ text: '{"response":"Understood. I will reply only as a single JSON object {\\"response\\":\\"...\\"} with plain prose inside, using local time, food, workouts, CGM, and period reviews when provided."}' }] },
+    { role: 'model', parts: [{ text: '{"response":"Understood. I will reply only as {\\"response\\":\\"...\\"} with plain prose inside. Hebrew units use single quotes (ק\'ג, מ\'ג/ד\'ל) never ASCII double-quotes inside the string."}' }] },
     ...recentHistory.map((m) => ({
       role: m.role === 'user' ? 'user' : 'model',
       parts: [{ text: m.role === 'assistant' ? stripLeakedThinking(m.text) : m.text }],
@@ -1695,7 +1754,7 @@ async function chatWithSingleMentor(
 
   const raw = await fetchGeminiChat(contents);
   if (!raw.trim()) return '';
-  return normalizeMentorChatText(stripLeakedThinking(raw.trim()));
+  return normalizeMentorChatText(raw.trim());
 }
 
 export async function chatWithMentor(

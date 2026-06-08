@@ -4,15 +4,19 @@
 
 import type { MentorType } from '../services/TargetService';
 
-/** Strip leaked JSON section markers and trim. */
+/** Strip leaked JSON section markers, stray HTML tags, and trim. */
 export function normalizeMentorChatText(text: string): string {
   return text
     .replace(/\\n/g, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
+    // The model sometimes emits literal structural HTML tags (e.g. <body>) as separators
+    // inside the JSON reply. Drop them so they never reach the user / export.
+    .replace(/<\/?(?:body|html|head|p|div|span|section|article|ul|ol|li|h[1-6])\b[^>]*>/gi, '')
     .replace(/\*\*text\*\*\s*/gi, '')
     .replace(/\*\*actionItems\*\*\s*/gi, '')
     .replace(/^\*\s+/gm, '')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 

@@ -1,0 +1,279 @@
+## Prompt 25 — Coach panel: structured review (summary · per-mentor wins · improve · actions)
+
+### Concept (user, 2026-06-08)
+Separate the two concerns that have been tangled in the coach panel:
+
+1. **DATA SET = what the mentor KNOWS about you.** The full today+yesterday snapshot
+   (`buildPeriodReviewBlock({days:2})`) — body incl. visceral + BMR, 24/7 HR, energy balance,
+   full food logs, full CGM with meal impact, every workout with HR. This is fixed, complete,
+   un-summarized. Already wired into both chat (prompt23 PART G) and action-item generation.
+2. **GUIDANCE = how the mentor TALKS.** On top of the data, the coach panel gives a short
+   structured review: a one-line summary, then **per-mentor** blocks — each mentor's wins,
+   what to improve, and 1–2 action items — so the user always knows **which mentor said what**.
+
+This prompt is about (2): restructure the coach message output + panel UI. The data set (1) is
+unchanged from prompt23/the action-items-data unification.
+
+---
+
+## Decisions (locked with user)
+- **Panel layout (top→bottom):** Summary → **per-mentor sections** (each: wins → improve → action items).
+- **Per-mentor content:** each active mentor contributes their own `wins` (1–3), `improve` (1–3),
+  and `actionItems` (1–2). User explicitly prefers this — it makes mentor ownership clear.
+- **Action item count:** **1–2 per active mentor** (no overall cap; up to 6 with all three active).
+- **Auto-check kept:** action items keep `autoCheckType` + the "X/Y done" progress count and
+  auto-ticking (carbs under target, protein hit, calorie deficit, meal logged).
+- **Doctor fallback:** confirmed — if Doctor 🩺 produces no action item, inject a safety fallback
+  (e.g. "Recheck glucose 2h post-meal" / Hebrew equivalent).
+
+---
+
+## Data model changes (`TargetService.ts`)
+
+Extend `CoachActionItem` with its owning mentor:
+```ts
+export type CoachActionItem = {
+  id: string;
+  text: string;
+  done: boolean;
+  autoCheckType: AutoCheckType;
+  mentor?: MentorType;   // NEW — which mentor owns this item. Optional for back-compat.
+};
+```
+
+Extend `CoachMessage` with structured review fields (all optional → old stored messages still parse):
+```ts
+export type CoachMessage = {
+  id: string;
+  text: string;                                        // kept: blended fallback + collapsed summary
+  mentorLines?: Partial<Record<MentorType, string>>; // kept: back-compat / older messages
+  summary?: string;                                    // NEW — 1–2 sentence headline (all mentors)
+  wins?: Partial<Record<MentorType, string[]>>;        // NEW — per-mentor "what's going well"
+  improve?: Partial<Record<MentorType, string[]>>;     // NEW — per-mentor "what to improve"
+  actionItems: CoachActionItem[];                      // mentor-tagged, 1–2 per active mentor
+  triggerEvent: 'meal' | 'weigh-in' | 'workout' | 'day-close';
+  generatedAt: string;
+  mealCountAtGeneration: number;
+  generatedLangCode?: string;
+};
+```
+
+**Migration:** none needed. `getCoachMessage` keeps parsing old JSON; missing structured fields →
+panel falls back to `mentorLines`/`text` + flat action list; missing `actionItems[].mentor` →
+items render in a legacy "general" group.
+
+---
+
+## Generation changes (`GeminiService.ts` → `generateCoachMessage`)
+
+### New JSON contract
+The model returns (JSON only, same data blocks above it — USER DATA + the 2-day PERIOD REVIEW):
+```json
+{
+  "summary": "one or two sentences, headline of the day",
+  "wins": {
+    "nutritionist": ["glucose avg 92 mg/dL — in range"],
+    "coach": ["walk logged 45 min"],
+    "doctor": ["no lows below 70 today"]
+  },
+  "improve": {
+    "nutritionist": ["protein 68g vs 140g target"],
+    "coach": ["no strength session yet this week"],
+    "doctor": []
+  },
+  "actionItems": [
+    {"text": "Hit 140g protein", "mentor": "nutritionist", "autoCheckType": "protein_over_target"},
+    {"text": "20-min walk after dinner", "mentor": "coach", "autoCheckType": null},
+    {"text": "Recheck glucose 2h post-meal", "mentor": "doctor", "autoCheckType": null}
+  ]
+}
+```
+- Only include keys for **ACTIVE** mentors in `wins` / `improve` / `actionItems`.
+- `coachJsonExample` is rebuilt to this shape (localized example text, per active mentor).
+- `mentorLines`/`text` are **dropped from the new contract** but the type keeps them for old data.
+  The collapsed-panel one-liner uses `summary` (fallback to `text`).
+
+### New rules block (replaces the mentorLines-centric rules)
+- `summary`: 1–2 sentences, same language as user, specific numbers, time-of-day aware. Blends
+  the day's headline across mentors — not a per-mentor paragraph.
+- `wins` / `improve`: **objects keyed by mentor** (`nutritionist`, `coach`, `doctor`). For each
+  ACTIVE mentor:
+  - `wins`: 0–3 bullets from that mentor's lens (Nutritionist → food/CGM/macros; Coach →
+    composition/training/recovery; Doctor → safety/clinical trends). Cite numbers. Empty array OK.
+  - `improve`: 0–3 bullets from that mentor's lens. Empty array OK.
+- `actionItems`: **1–2 per ACTIVE mentor**, each tagged with `"mentor"`:
+  - Nutritionist 🥗: food/macros/CGM (`autoCheckType`: carbs_under_target / protein_over_target /
+    calorie_deficit / meal_logged where it fits).
+  - Coach 💪: movement / muscle / training / composition (`autoCheckType: null`).
+  - Doctor 🩺: safety / clinical follow-up (`autoCheckType: null`).
+  - Max 8 words each, actionable for THIS time of day, same language as summary.
+- Keep existing: carb/protein target citing, dietary-rules override, "don't repeat dashboard data",
+  CGM avg/min/max when nutritionist + CGM present, never "no CGM data" when blocks exist.
+
+### Parsing / normalization
+- Parse `summary` (default `''`).
+- Parse `wins` / `improve` as `Partial<Record<MentorType, string[]>>`:
+  - Only keep keys that are active mentors.
+  - Per mentor: clamp to 3 bullets, trim, drop empties + placeholder text.
+- `normalizeCoachActionItems`:
+  - Carry `mentor` through; validate it's one of the **active** mentors (else drop tag).
+  - **Cap = 2 per active mentor** via `capPerMentor(items, ctx.mentors, 2)`.
+  - `alignActionItemToMacroTarget` unchanged.
+- `ensureMentorActionItems`: guarantee **each active mentor has ≥1 action item**. Per-mentor
+  fallbacks:
+  - Nutritionist: carbs + protein targets (existing fallback logic).
+  - Coach: `buildCoachActionItem` (existing).
+  - Doctor: safety fallback — e.g. he: "לבדוק סוכר שעתיים אחרי ארוחה" / en: "Recheck glucose 2h post-meal".
+- `buildFallbackActionItems`: tag each fallback with its `mentor`; produce 1–2 per active mentor.
+- Drop the old `.slice(0,4)` ceilings in favor of the per-mentor cap.
+
+### resolveCoachReplyText
+- Still produce a `text` (blended) for back-compat + collapsed summary fallback.
+- `summary` is the primary collapsed string. `mentorLines` only for legacy data.
+- New panel reads `summary` + per-mentor `wins`/`improve`/grouped `actionItems`.
+
+---
+
+## Auto-check (`CoachService.ts`)
+- `applyAutoChecks` / `runAutoChecksAndPersist` unchanged — key off `autoCheckType`, iterate all
+  items regardless of `mentor`.
+- "X/Y done" count = done / total across all mentors (unchanged).
+
+---
+
+## UI changes (`ChatScreen.tsx` → `CollapsibleCoachPanel`)
+
+### Collapsed header
+- Summary line = `msg.summary ?? coachPanelSummary(msg)` (fallback for old messages).
+- Keep the "X/Y" done badge from action items.
+
+### Expanded body (top → bottom)
+1. **Summary** — `msg.summary` as a short paragraph (fallback: `MentorVoiceSegments` for old msgs).
+2. **Per-mentor sections** — for each active mentor in `MENTOR_PRIORITY` order that has any
+   wins, improve, or action items for that mentor:
+   ```
+   🥗 Nutritionist
+     ✓ wins bullets (hide subsection if empty)
+     ↑ improve bullets (hide subsection if empty)
+     ☐ action items (1–2, tappable, auto-tick)
+   💪 Coach
+     ...
+   🩺 Doctor
+     ...
+   ```
+   - Mentor sub-header: emoji + localized label (`mentorLabels.ts`).
+   - Wins sub-label: localized "What's going well" (short).
+   - Improve sub-label: localized "What to improve" (short).
+   - Action items: ☐/☑ toggle, strike-through when done, `onToggleItem`.
+   - **Skip entire mentor section** if that mentor has no wins, no improve, and no action items.
+   - Untagged legacy action items → final "general" group (no mentor header).
+
+### Localization
+- Section labels via `chatUiStrings`: summary context, wins sub-label, improve sub-label (he + en).
+- Mentor labels reuse `mentorLabels.ts`.
+
+### Backward compatibility
+- If `summary`/`wins`/`improve` all absent (old message) → render existing `MentorVoiceSegments`
+  + flat action list exactly as today.
+
+---
+
+## PART P — Prompt23 residual polish (folded in here, device-observed 2026-06-08)
+
+These three came out of the prompt23 device test (`mentor_chat_2026-06-08 (1).html`). They live
+on the same generation/UI surface this prompt rewrites, so fix them here rather than touching the
+coach code twice.
+
+### P1 — Date-span guard in the COACH PANEL (`generateCoachMessage`)
+- Symptom: panel action-items/wins said glucose avg over "**3 days**" while chat correctly said
+  "**2 days**" (the CGM window is ~2 reliable days).
+- Fix: apply the same date-span rule the chat path uses. The 2-day snapshot is now injected into
+  `generateCoachMessage` (done in prompt23), so add to the coach JSON rules:
+  "Only state a day count that appears in the PERIOD REVIEW / CGM stats block. The default window
+  is today + yesterday — do NOT say '3 days' / 'this week' unless a wider review is loaded."
+- Reuse the chat guard wording so both paths stay consistent.
+
+### P2 — Gender addressing consistency (`genderInstruction`, both chat + panel)
+- Symptom: mentor self-voice correct (feminine: אני ממליצה ✅) but **user-address** mixes
+  masculine/feminine in one thread (שימי לב … then היית פעיל / זכור).
+- Fix: strengthen `genderInstruction` — make USER-SEX address forms explicit and repeat the
+  constraint at the END of the prompt (last instruction wins with the model):
+  - he/ar masculine user: אתה / שים לב / היית / זכור (all masculine, no feminine forms).
+  - he/ar feminine user: את / שימי לב / היית / זכרי (all feminine).
+  - Never mix within one reply; mentor self-reference gender is independent (keep MENTOR VOICE).
+- Apply to both `buildChatSystemText` and `generateCoachMessage` (panel currently only gets it
+  via `buildCgmMentorRules`; ensure `genderInstruction` is appended to the coach JSON prompt too).
+
+### P3 — CGM repetition in panel/chat follow-ups
+- Symptom: nutritionist re-dumps the 88 / 18%-below-70 block on an immediate follow-up.
+- Mostly handled in chat by prompt23 continuity rules; in the panel, the per-mentor `wins`/
+  `improve` split (this prompt) naturally reduces it — state glucose once under the right mentor,
+  not in every section. Add a rule: "Do not repeat the same glucose stat block in more than one
+  mentor section; the Nutritionist owns the CGM number, the Doctor adds only safety interpretation."
+
+---
+
+## Files to change
+
+| File | Change |
+|------|--------|
+| `app/src/services/TargetService.ts` | Add `mentor?` to `CoachActionItem`; add `summary?`/`wins?`/`improve?` (per-mentor maps) to `CoachMessage` |
+| `app/src/services/GeminiService.ts` | New JSON contract; parse per-mentor wins/improve; mentor-tag + per-mentor cap; per-mentor fallbacks incl. doctor; keep snapshot data injection; **P1** panel date-span guard; **P2** append `genderInstruction` to coach prompt; **P3** single-owner CGM rule |
+| `app/src/services/CoachService.ts` | No logic change (verify auto-check on tagged items) |
+| `app/src/screens/ChatScreen.tsx` | `CollapsibleCoachPanel`: summary + per-mentor sections (wins/improve/actions); legacy fallback |
+| `app/src/screens/DashboardScreen.tsx` | Coach preview uses `summary` (fallback to text) |
+| chat UI strings | Add wins/improve sub-labels (he + en) |
+
+---
+
+## Acceptance
+- [ ] All-three-mentors message: Summary, then 🥗/💪/🩺 sections each with wins + improve + 1–2 action items.
+- [ ] User can tell which mentor gave each bullet and each action item.
+- [ ] Single-mentor message: one mentor section only; no empty mentor blocks.
+- [ ] "X/Y done" + auto-tick still work (meal_logged, carbs_under_target, etc.).
+- [ ] Hebrew: summary, per-mentor wins/improve/actions all Hebrew; gender-consistent.
+- [ ] Old stored coach message (pre-prompt25) still renders via legacy fallback.
+- [ ] Empty wins/improve subsections hidden within a mentor block (mentor block still shown if it has action items).
+- [ ] Doctor fallback injected when Doctor active but model returned no doctor action item.
+- [ ] Action items ≤2 per mentor; never more than 6 total.
+- [ ] **P1** Coach panel never states a day count not in the loaded window (no "3 days" when window is 2).
+- [ ] **P2** Hebrew user-address forms stay consistent (all masculine OR all feminine) across a reply, in both chat and panel; mentor self-voice independent.
+- [ ] **P3** A glucose stat block appears under only one mentor section, not repeated.
+
+---
+
+## Implementation status (2026-06-08)
+
+**PART P — DONE** (committed earlier):
+- P1 coach-panel date-span guard, P2 `genderInstruction` appended to coach prompt, P3 single-owner
+  CGM rule (Nutritionist owns numbers, Doctor adds safety only).
+
+**Redesign — DONE** (this build, compile-verified, awaiting device test):
+- `TargetService.ts`: `CoachActionItem.mentor?` + `CoachMessage.summary?/wins?/improve?` added.
+- `GeminiService.ts`:
+  - `coachJsonExample` rebuilt to `{summary, wins, improve, actionItems[]}` with per-active-mentor
+    localized examples; old `coachJsonTextExample` removed.
+  - New rules block (summary + per-mentor wins/improve + 1–2 tagged action items per mentor).
+  - `coachJsonLangInstruction` covers summary/wins/improve.
+  - `normalizeCoachActionItems` carries/validates `mentor` (`resolveActionItemMentor`), infers it
+    for untagged items (`inferActionItemMentor`), then `capPerMentor(items, mentors, 2)`.
+  - `ensureMentorActionItems` guarantees ≥1 item per active mentor; per-mentor fallbacks:
+    `buildNutritionistActionItems` (carbs+protein), `buildCoachActionItem`, `buildDoctorActionItem`.
+  - `buildFallbackActionItems` now mentor-tags every item incl. doctor safety fallback.
+  - `parseMentorBulletMap` parses wins/improve (active mentors only, ≤3 bullets each).
+  - `generateCoachMessage` returns `summary/wins/improve`; `text = summary` (legacy
+    `resolveCoachReplyText` only used as a fallback when summary is empty).
+- `ChatScreen.tsx`:
+  - `isStructuredCoach` gate; collapsed header shows summary one-liner + X/Y badge.
+  - `CoachMentorSection` renders emoji+label header, ✓ wins, ↑ improve, ☐ tappable action items.
+  - Per-mentor sections in active order; untagged items in a trailing general group.
+  - Legacy `MentorVoiceSegments` + flat list fallback for pre-prompt25 stored messages.
+  - `winsLabel`/`improveLabel` added to he/ar/en `chatUiStrings`.
+- `CoachService.ts` / `DashboardScreen.tsx`: unchanged (auto-check keys off `autoCheckType`;
+  dashboard shows only the X/Y nudge badge — no text/summary rendered).
+
+## References
+- Prompt23 PART G — always-on 2-day snapshot (the DATA SET this builds guidance on top of)
+- Prompt23 Post-implementation status — source of the PART P residual polish items
+- Prompt18 — original proactive coach panel + action items + auto-check
+- `mentorLabels.ts` — emoji + localized mentor labels for section headers

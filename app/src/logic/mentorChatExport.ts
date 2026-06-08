@@ -2,10 +2,10 @@
  * Mentor chat export — plain text + HTML (RTL-aware for Hebrew).
  */
 
-import type { ChatMessage, CoachMessage, Gender, MentorType, UserLanguage } from '../services/TargetService';
+import type { ChatMessage, CoachActionItem, CoachMessage, Gender, MentorType, UserLanguage } from '../services/TargetService';
 import { MENTOR_CHAT_TAB_ORDER } from '../services/TargetService';
 import { normalizeMentorChatText, buildMentorDisplaySegments, parseMentorReplySegments } from './mentorChatText';
-import { chatMentorSenderLabel, mentorPossessiveLabel, mentorsCollectiveLabel } from './mentorLabels';
+import { chatMentorSenderLabel, MENTOR_EMOJI, mentorPossessiveLabel, mentorsCollectiveLabel } from './mentorLabels';
 
 function isRtl(lang?: UserLanguage | null): boolean {
   return lang?.code === 'he' || lang?.code === 'ar';
@@ -38,6 +38,8 @@ function exportUi(
       noItems: '(אין משימות)',
       noCoach: '(אין הודעת מנטור פעילה)',
       noChat: '(אין הודעות)',
+      winsLabel: 'מה הולך טוב',
+      improveLabel: 'מה לשפר',
     };
   }
   if (lang?.code === 'ar') {
@@ -53,6 +55,8 @@ function exportUi(
       noItems: '(لا مهام)',
       noCoach: '(لا رسالة مرشد نشطة)',
       noChat: '(لا رسائل)',
+      winsLabel: 'ما يسير جيداً',
+      improveLabel: 'ما يمكن تحسينه',
     };
   }
   return {
@@ -67,7 +71,74 @@ function exportUi(
     noItems: '(no action items)',
     noCoach: '(no active mentor message)',
     noChat: '(no messages)',
+    winsLabel: "What's going well",
+    improveLabel: 'What to improve',
   };
+}
+
+/** prompt25 — coach message uses the structured layout when summary/wins/improve exist or items group by mentor. */
+function isStructuredCoach(msg: CoachMessage, mentors: MentorType[] = []): boolean {
+  return Boolean(
+    msg.summary?.trim() ||
+    (msg.wins && Object.keys(msg.wins).length > 0) ||
+    (msg.improve && Object.keys(msg.improve).length > 0) ||
+    msg.actionItems.some((i) => i.mentor) ||
+    (mentors.length > 0 && msg.actionItems.some((i) => resolveExportMentor(i, mentors) != null)),
+  );
+}
+
+/** Resolve owning mentor for export — uses stored tag or infers from autoCheckType / text. */
+function resolveExportMentor(item: CoachActionItem, mentors: MentorType[]): MentorType | undefined {
+  if (item.mentor && mentors.includes(item.mentor)) return item.mentor;
+  if (item.autoCheckType != null && mentors.includes('nutritionist')) return 'nutritionist';
+  if (
+    mentors.includes('coach') &&
+    /muscle|training|walk|workout|stretch|composition|שריר|אימון|הליכה|מתיחות|כוח/i.test(item.text)
+  ) {
+    return 'coach';
+  }
+  if (
+    mentors.includes('doctor') &&
+    /glucose|hypo|sugar|clinical|סוכר|היפו|רפוא|בדוק|תסמינ/i.test(item.text)
+  ) {
+    return 'doctor';
+  }
+  return undefined;
+}
+
+function itemsForMentor(msg: CoachMessage, mentor: MentorType, mentors: MentorType[]): CoachActionItem[] {
+  return msg.actionItems.filter((i) => resolveExportMentor(i, mentors) === mentor);
+}
+
+function mentorSectionHasContent(
+  mentor: MentorType,
+  msg: CoachMessage,
+  mentors: MentorType[],
+): boolean {
+  const wins = msg.wins?.[mentor]?.length ?? 0;
+  const improve = msg.improve?.[mentor]?.length ?? 0;
+  const items = itemsForMentor(msg, mentor, mentors).length;
+  return wins > 0 || improve > 0 || items > 0;
+}
+
+function untaggedActionItems(msg: CoachMessage, mentors: MentorType[]): CoachActionItem[] {
+  return msg.actionItems.filter((i) => resolveExportMentor(i, mentors) == null);
+}
+
+function actionItemsTextLines(items: CoachActionItem[]): string[] {
+  return items.map((item) => `${item.done ? '☑' : '☐'} ${item.text}`);
+}
+
+function actionItemsHtml(items: CoachActionItem[]): string {
+  if (items.length === 0) return '';
+  const rows = items
+    .map((item) => {
+      const mark = item.done ? '☑' : '☐';
+      const cls = item.done ? 'done' : '';
+      return `<li class="${cls}"><span class="check">${mark}</span> ${escapeHtml(item.text)}</li>`;
+    })
+    .join('\n');
+  return `<ul class="action-list">${rows}</ul>`;
 }
 
 function escapeHtml(text: string): string {
@@ -114,7 +185,59 @@ function mentorReplyHtml(
     .join('\n');
 }
 
-function formatActionItems(coachMsg: CoachMessage, lang?: UserLanguage | null, mentors: MentorType[] = [], mentorGender?: Gender | null): string[] {
+function formatStructuredCoachText(
+  coachMsg: CoachMessage,
+  mentors: MentorType[],
+  lang?: UserLanguage | null,
+  mentorGender?: Gender | null,
+): string[] {
+  const ui = exportUi(lang, mentors, mentorGender);
+  const lines: string[] = [];
+  const summary = (coachMsg.summary?.trim() || coachMsg.text.trim());
+  if (summary) lines.push(summary);
+  lines.push('');
+
+  let anySection = false;
+  for (const m of MENTOR_CHAT_TAB_ORDER) {
+    if (!mentors.includes(m) || !mentorSectionHasContent(m, coachMsg, mentors)) continue;
+    anySection = true;
+    const label = `${MENTOR_EMOJI[m]} ${mentorPossessiveLabel(m, lang, mentorGender)}`;
+    lines.push(`--- ${label} ---`);
+    const wins = coachMsg.wins?.[m];
+    if (wins?.length) {
+      lines.push(ui.winsLabel);
+      for (const w of wins) lines.push(`  ✓ ${w}`);
+    }
+    const improve = coachMsg.improve?.[m];
+    if (improve?.length) {
+      lines.push(ui.improveLabel);
+      for (const w of improve) lines.push(`  ↑ ${w}`);
+    }
+    const items = itemsForMentor(coachMsg, m, mentors);
+    if (items.length > 0) lines.push(...actionItemsTextLines(items));
+    lines.push('');
+  }
+
+  const untagged = untaggedActionItems(coachMsg, mentors);
+  if (untagged.length > 0) {
+    anySection = true;
+    lines.push(...actionItemsTextLines(untagged));
+    lines.push('');
+  }
+
+  if (!anySection && coachMsg.actionItems.length === 0) {
+    lines.push(ui.noItems);
+  }
+
+  return lines;
+}
+
+function formatLegacyCoachText(
+  coachMsg: CoachMessage,
+  lang?: UserLanguage | null,
+  mentors: MentorType[] = [],
+  mentorGender?: Gender | null,
+): string[] {
   const lines: string[] = [];
   lines.push(coachMsg.text.trim());
   lines.push('');
@@ -123,11 +246,84 @@ function formatActionItems(coachMsg: CoachMessage, lang?: UserLanguage | null, m
     lines.push(ui.noItems);
     return lines;
   }
-  for (const item of coachMsg.actionItems) {
-    const mark = item.done ? '☑' : '☐';
-    lines.push(`${mark} ${item.text}`);
-  }
+  lines.push(...actionItemsTextLines(coachMsg.actionItems));
   return lines;
+}
+
+function formatCoachText(
+  coachMsg: CoachMessage,
+  mentors: MentorType[],
+  lang?: UserLanguage | null,
+  mentorGender?: Gender | null,
+): string[] {
+  if (isStructuredCoach(coachMsg, mentors)) {
+    return formatStructuredCoachText(coachMsg, mentors, lang, mentorGender);
+  }
+  return formatLegacyCoachText(coachMsg, lang, mentors, mentorGender);
+}
+
+function formatStructuredCoachHtml(
+  coachMsg: CoachMessage,
+  mentors: MentorType[],
+  lang?: UserLanguage | null,
+  mentorGender?: Gender | null,
+): string {
+  const ui = exportUi(lang, mentors, mentorGender);
+  const parts: string[] = [];
+  const summary = coachMsg.summary?.trim() || coachMsg.text.trim();
+  if (summary) {
+    parts.push(`<div class="coach-summary"><div class="body" dir="auto">${inlineHtmlFromText(summary)}</div></div>`);
+  }
+
+  for (const m of MENTOR_CHAT_TAB_ORDER) {
+    if (!mentors.includes(m) || !mentorSectionHasContent(m, coachMsg, mentors)) continue;
+    const label = `${MENTOR_EMOJI[m]} ${mentorPossessiveLabel(m, lang, mentorGender)}`;
+    const wins = coachMsg.wins?.[m];
+    const improve = coachMsg.improve?.[m];
+    const items = itemsForMentor(coachMsg, m, mentors);
+
+    let inner = '';
+    if (wins?.length) {
+      const bullets = wins
+        .map((w) => `<li><span class="bullet-win">✓</span> ${escapeHtml(w)}</li>`)
+        .join('\n');
+      inner += `<div class="coach-sub-block"><div class="coach-sub-label">${escapeHtml(ui.winsLabel)}</div><ul class="coach-bullets">${bullets}</ul></div>`;
+    }
+    if (improve?.length) {
+      const bullets = improve
+        .map((w) => `<li><span class="bullet-improve">↑</span> ${escapeHtml(w)}</li>`)
+        .join('\n');
+      inner += `<div class="coach-sub-block"><div class="coach-sub-label">${escapeHtml(ui.improveLabel)}</div><ul class="coach-bullets">${bullets}</ul></div>`;
+    }
+    if (items.length > 0) inner += actionItemsHtml(items);
+
+    parts.push(`<div class="coach-mentor-section"><div class="coach-mentor-header">${escapeHtml(label)}</div>${inner}</div>`);
+  }
+
+  const untagged = untaggedActionItems(coachMsg, mentors);
+  if (untagged.length > 0) {
+    parts.push(`<div class="coach-mentor-section">${actionItemsHtml(untagged)}</div>`);
+  }
+
+  if (parts.length === 0 && coachMsg.actionItems.length === 0) {
+    return `<p class="muted">${escapeHtml(ui.noItems)}</p>`;
+  }
+
+  return parts.join('\n');
+}
+
+function formatLegacyCoachHtml(
+  coachMsg: CoachMessage,
+  mentors: MentorType[],
+  lang?: UserLanguage | null,
+  mentorGender?: Gender | null,
+): string {
+  const ui = exportUi(lang, mentors, mentorGender);
+  const body = `<div class="coach-text">${mentorReplyHtml(coachMsg.text, lang, mentorGender, coachMsg.mentorLines, mentors)}</div>`;
+  if (coachMsg.actionItems.length === 0) {
+    return `${body}<p class="muted">${escapeHtml(ui.noItems)}</p>`;
+  }
+  return `${body}${actionItemsHtml(coachMsg.actionItems)}`;
 }
 
 function formatChatHistoryForMentor(
@@ -189,7 +385,7 @@ export function formatMentorChatExport(params: {
 
   blocks.push(`=== ${ui.actionSection.toUpperCase()} ===`);
   if (coachMsg) {
-    blocks.push(...formatActionItems(coachMsg, lang, mentors, mentorGender));
+    blocks.push(...formatCoachText(coachMsg, mentors, lang, mentorGender));
   } else {
     blocks.push(ui.noCoach);
   }
@@ -216,24 +412,11 @@ export function formatMentorChatExportHtml(params: {
   const ui = exportUi(lang, mentors, mentorGender);
   const exportedAt = new Date().toISOString();
 
-  let actionCoachHtml = `<p class="muted">${escapeHtml(ui.noCoach)}</p>`;
-  let actionListHtml = '';
-
-  if (coachMsg) {
-    actionCoachHtml = `<div class="coach-text">${mentorReplyHtml(coachMsg.text, lang, mentorGender, coachMsg.mentorLines, mentors)}</div>`;
-    if (coachMsg.actionItems.length === 0) {
-      actionListHtml = `<p class="muted">${escapeHtml(ui.noItems)}</p>`;
-    } else {
-      const items = coachMsg.actionItems
-        .map((item) => {
-          const mark = item.done ? '☑' : '☐';
-          const cls = item.done ? 'done' : '';
-          return `<li class="${cls}"><span class="check">${mark}</span> ${escapeHtml(item.text)}</li>`;
-        })
-        .join('\n');
-      actionListHtml = `<ul class="action-list">${items}</ul>`;
-    }
-  }
+  const actionCoachHtml = coachMsg
+    ? isStructuredCoach(coachMsg, mentors)
+      ? formatStructuredCoachHtml(coachMsg, mentors, lang, mentorGender)
+      : formatLegacyCoachHtml(coachMsg, mentors, lang, mentorGender)
+    : `<p class="muted">${escapeHtml(ui.noCoach)}</p>`;
 
   const chatSections: string[] = [];
   let anyChat = false;
@@ -307,6 +490,26 @@ export function formatMentorChatExportHtml(params: {
     .body.intro { margin-bottom: 8px; }
     .mentor-segment { margin-top: 10px; }
     .mentor-segment-label { font-size: 0.88rem; font-weight: 700; color: #2E7D5A; margin-bottom: 4px; }
+    .coach-summary { margin-bottom: 14px; font-weight: 600; }
+    .coach-mentor-section {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid #eef2f6;
+    }
+    .coach-mentor-section:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+    .coach-mentor-header { font-size: 0.95rem; font-weight: 800; color: #2E7D5A; margin-bottom: 8px; }
+    .coach-sub-block { margin-bottom: 8px; }
+    .coach-sub-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #666;
+      letter-spacing: 0.03em;
+      margin-bottom: 4px;
+    }
+    .coach-bullets { list-style: none; padding: 0; margin: 0 0 8px; }
+    .coach-bullets li { padding: 3px 0; display: flex; gap: 6px; align-items: flex-start; }
+    .bullet-win { color: #2E7D5A; font-weight: 700; flex-shrink: 0; }
+    .bullet-improve { color: #1565C0; font-weight: 700; flex-shrink: 0; }
     .muted { color: #777; font-style: italic; }
   </style>
 </head>
@@ -320,7 +523,6 @@ export function formatMentorChatExportHtml(params: {
     <section>
       <h2>${escapeHtml(ui.actionSection)}</h2>
       ${actionCoachHtml}
-      ${actionListHtml}
     </section>
     <section>
       <h2>${escapeHtml(ui.chatSection)}</h2>

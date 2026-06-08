@@ -279,6 +279,8 @@ export type CoachActionItem = {
   text: string;
   done: boolean;
   autoCheckType: AutoCheckType;
+  /** Which mentor owns this item (prompt25). Optional for back-compat with old data. */
+  mentor?: MentorType;
 };
 
 export type CoachMessage = {
@@ -286,6 +288,12 @@ export type CoachMessage = {
   text: string;
   /** Per-mentor lines when 2+ mentors — drives separate UI cards. */
   mentorLines?: Partial<Record<MentorType, string>>;
+  /** prompt25 — 1–2 sentence headline blending all mentors. */
+  summary?: string;
+  /** prompt25 — per-mentor "what's going well" bullets. */
+  wins?: Partial<Record<MentorType, string[]>>;
+  /** prompt25 — per-mentor "what to improve" bullets. */
+  improve?: Partial<Record<MentorType, string[]>>;
   actionItems: CoachActionItem[];
   triggerEvent: 'meal' | 'weigh-in' | 'workout' | 'day-close';
   generatedAt: string;           // ISO
