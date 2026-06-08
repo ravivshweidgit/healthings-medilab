@@ -8,6 +8,7 @@ import type { MentorType } from '../services/TargetService';
 export function normalizeMentorChatText(text: string): string {
   return text
     .replace(/\\n/g, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
     .replace(/\*\*text\*\*\s*/gi, '')
     .replace(/\*\*actionItems\*\*\s*/gi, '')
     .replace(/^\*\s+/gm, '')

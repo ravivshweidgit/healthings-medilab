@@ -411,13 +411,35 @@ function normalizeCoachActionItems(
   return ensureMentorActionItems(aligned, ctx);
 }
 const GEMINI_MODEL = 'gemini-2.5-flash';
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
 type GeminiPart = { text?: string; thought?: boolean };
 
-/** v1 endpoint — no thinkingConfig (v1beta-only). Rely on stripLeakedThinking instead. */
-function geminiGenerationConfig(config: { temperature: number; maxOutputTokens: number }) {
-  return config;
+type GeminiGenOptions = {
+  temperature: number;
+  maxOutputTokens: number;
+  /** 0 = off; -1 = dynamic. Default 0 (JSON/vision). Chat uses -1. */
+  thinkingBudget?: number;
+  /** Force a structured JSON response (e.g. 'application/json'). */
+  responseMimeType?: string;
+  /** Optional response schema enforced by the API when responseMimeType is JSON. */
+  responseSchema?: object;
+};
+
+/** v1beta — thinkingConfig keeps reasoning out of the user-visible response. */
+function geminiGenerationConfig(config: GeminiGenOptions) {
+  const thinkingBudget = config.thinkingBudget ?? 0;
+  const out: Record<string, unknown> = {
+    temperature: config.temperature,
+    maxOutputTokens: config.maxOutputTokens,
+    thinkingConfig: {
+      thinkingBudget,
+      includeThoughts: false,
+    },
+  };
+  if (config.responseMimeType) out.responseMimeType = config.responseMimeType;
+  if (config.responseSchema) out.responseSchema = config.responseSchema;
+  return out;
 }
 
 /** Prefer non-thought parts; fall back to all text parts if the model only returned thought parts. */
@@ -1369,10 +1391,72 @@ function chatErrorMessage(lang?: UserLanguage | null): string {
     : 'Sorry, I could not reply this time. Please try again in a moment.';
 }
 
+/**
+ * Pull the user-facing text out of a strict JSON chat envelope ({"response":"…"}).
+ * The JSON contract gives the model no free-text slot, so leaked reasoning (THOUGHT,
+ * Plan:) can't reach the user. Falls back to leak-stripping if parsing fails.
+ */
+function parseChatEnvelope(raw: string): string {
+  const stripped = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  try {
+    const obj = JSON.parse(stripped);
+    if (obj && typeof obj.response === 'string') return obj.response.trim();
+  } catch {
+    // Sometimes a valid object is wrapped in stray prose — grab the first {...} block.
+    const match = stripped.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        const obj = JSON.parse(match[0]);
+        if (obj && typeof obj.response === 'string') return obj.response.trim();
+      } catch {
+        /* fall through to truncation salvage */
+      }
+    }
+    // Truncated JSON (response hit the token ceiling mid-string): pull the text
+    // after "response":" and unescape it so the user still sees a clean partial reply.
+    const salvage = salvageTruncatedResponse(stripped);
+    if (salvage) return salvage;
+  }
+  return stripLeakedThinking(stripped);
+}
+
+/** Recover the prose from a cut-off {"response":"…  envelope that never closed. */
+function salvageTruncatedResponse(stripped: string): string | null {
+  const keyIdx = stripped.indexOf('"response"');
+  if (keyIdx === -1) return null;
+  const colon = stripped.indexOf(':', keyIdx);
+  if (colon === -1) return null;
+  const firstQuote = stripped.indexOf('"', colon + 1);
+  if (firstQuote === -1) return null;
+  let body = stripped.slice(firstQuote + 1);
+  // Drop a trailing closing quote/brace if present.
+  body = body.replace(/"\s*\}?\s*$/, '');
+  const unescaped = body
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t')
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\')
+    .trim();
+  return unescaped.length > 0 ? unescaped : null;
+}
+
+const CHAT_RESPONSE_SCHEMA = {
+  type: 'OBJECT',
+  properties: { response: { type: 'STRING' } },
+  required: ['response'],
+};
+
 async function fetchGeminiChat(contents: Array<{ role: string; parts: Array<{ text: string }> }>): Promise<string> {
   const body = {
     contents,
-    generationConfig: geminiGenerationConfig({ temperature: 0.4, maxOutputTokens: 8192 }),
+    generationConfig: geminiGenerationConfig({
+      // Dynamic thinking shares this ceiling, so give long /7 /30 reviews ample room.
+      temperature: 0.4,
+      maxOutputTokens: 32768,
+      thinkingBudget: -1,
+      responseMimeType: 'application/json',
+      responseSchema: CHAT_RESPONSE_SCHEMA,
+    }),
   };
 
   const response = await fetch(GEMINI_ENDPOINT, {
@@ -1386,7 +1470,7 @@ async function fetchGeminiChat(contents: Array<{ role: string; parts: Array<{ te
   }
 
   const json = await response.json();
-  return extractGeminiText(json?.candidates?.[0]);
+  return parseChatEnvelope(extractGeminiText(json?.candidates?.[0]));
 }
 
 /**
@@ -1561,8 +1645,8 @@ ${blocks.periodSection}
 
 You are responding in a free chat. Be concise, specific, and supportive.
 Match your tone to LOCAL TIME NOW and TIME-AWARE COACHING above — early morning means gentle, not alarmist.
-Reply directly to the user — never output THOUGHT, internal reasoning, numbered analysis steps, or planning in English unless the user wrote in English.
-Reply in plain prose only — never use **text**, **actionItems**, JSON, or markdown section headers. 2–4 sentences with specific numbers.
+OUTPUT FORMAT (mandatory): respond with a single JSON object and nothing else — {"response":"<your reply to the user>"}. Put your entire user-facing reply inside the "response" string. Never write THOUGHT, planning, reasoning, or any text outside this JSON object.
+Inside "response" write plain prose only — no **bold**, no markdown headers, no nested JSON. 2–4 sentences with specific numbers (period reviews /7 /30 may be longer). Use \n for line breaks inside the string.
 All of today's and yesterday's data — body, visceral, BMR, energy, 24/7 HR, meals, CGM, workouts — is in the data block above. When asked about activity, meals, glucose, HR, or body metrics, cite the exact numbers from it; never say data is missing if it appears there.
 When glucose is the topic, or this is the first reply in the tab today, or the user asked for status/overview: Nutritionist 🥗 leads with glucose interpretation (avg/min/max mg/dL) and Doctor 🩺 adds clinical safety on the same numbers. On follow-ups about food targets, hunger, or fat/protein without a glucose question, answer that topic directly — do NOT re-open with the same CGM block.
 CGM DATE SPAN (mandatory): only cite "N days" when the data block explicitly states N days. If unsure, say "the available CGM window" — never invent 7 days. Slash commands (/7, /30) widen the loaded window — use that block's day count.
@@ -1592,7 +1676,7 @@ async function chatWithSingleMentor(
   const recentHistory = history.slice(-20);
   const contents = [
     { role: 'user', parts: [{ text: `SYSTEM CONTEXT:\n${systemText}\n\nAcknowledge.` }] },
-    { role: 'model', parts: [{ text: 'Understood. I will use local time, food, workouts, and period reviews when provided.' }] },
+    { role: 'model', parts: [{ text: '{"response":"Understood. I will reply only as a single JSON object {\\"response\\":\\"...\\"} with plain prose inside, using local time, food, workouts, CGM, and period reviews when provided."}' }] },
     ...recentHistory.map((m) => ({
       role: m.role === 'user' ? 'user' : 'model',
       parts: [{ text: m.role === 'assistant' ? stripLeakedThinking(m.text) : m.text }],
