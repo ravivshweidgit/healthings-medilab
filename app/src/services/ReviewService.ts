@@ -287,7 +287,7 @@ function formatHrSummary(points: WithingsHeartRatePoint[], dayKey: string): stri
 async function fetchPeriodIntraday(
   dayCount: number,
   appGlucose?: TimePoint[] | null,
-): Promise<WithingsIntradayData & { glucose: TimePoint[]; cgmSessionStarts: CgmSessionStart[]; cgmStatSummary: string | null }> {
+): Promise<WithingsIntradayData & { glucose: TimePoint[]; glucoseRaw: TimePoint[]; cgmSessionStarts: CgmSessionStart[]; cgmStatSummary: string | null }> {
   const periodStart = new Date();
   periodStart.setDate(periodStart.getDate() - dayCount);
   periodStart.setHours(0, 0, 0, 0);
@@ -309,9 +309,41 @@ async function fetchPeriodIntraday(
     heartRate: withings.heartRate,
     calories: withings.calories,
     glucose: filtered,
+    glucoseRaw: mergedRaw,
     cgmSessionStarts: sessionStarts,
     cgmStatSummary: statFilter.summaryLine,
   };
+}
+
+/**
+ * Full per-day CGM series (every ~5-min sample, RAW — warm-up NOT removed) so the mentor can
+ * correlate meal timestamps with glucose timestamps and judge short spikes / compression lows
+ * itself. Only emitted for the short (today+yesterday) window; wider /N reviews keep aggregates.
+ */
+function formatDayGlucoseSeries(glucose: TimePoint[], dayKey: string): string | null {
+  const dayPts = glucose
+    .filter((p) => localDayKeyFromMs(new Date(p.timestamp).getTime()) === dayKey)
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  if (dayPts.length === 0) return null;
+
+  const readings = dayPts.map((p) => {
+    const hhmm = new Date(p.timestamp).toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    return `${hhmm}=${Math.round(p.value)}`;
+  });
+  const last = dayPts[dayPts.length - 1]!;
+  const lastTime = new Date(last.timestamp).toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  return [
+    `CGM ALL READINGS (${dayPts.length} raw samples, HH:MM=mg/dL — match meal times above to these; warm-up lows NOT removed, so isolated lows may be sensor warm-up or compression):`,
+    `  ${readings.join(', ')}`,
+    `  Latest reading this day: ${Math.round(last.value)} mg/dL at ${lastTime}`,
+  ].join('\n');
 }
 
 function formatBodyMetrics(d: MetabolicTrend7dDay | undefined): string {
@@ -490,6 +522,9 @@ export async function buildPeriodReviewBlock(
   ]);
 
   const periodGlucose = filterGlucoseToDayKeys(intraday.glucose, dayKeys);
+  // RAW samples (warm-up kept) for the full per-sample dump — only used for the short window.
+  const periodGlucoseRaw = filterGlucoseToDayKeys(intraday.glucoseRaw, dayKeys);
+  const includeFullGlucoseSeries = dayKeys.length <= 2;
 
   const bodyByDay = bodyDayMap(bodyPayload.days);
   const burnByDay = computeBurnKcalByDay(bodyPayload.days, intraday.calories, workouts);
@@ -549,6 +584,11 @@ export async function buildPeriodReviewBlock(
     const dayGlucoseBlock = buildDayMealGlucoseBlock(macros.entries, periodGlucose, dk);
     if (dayGlucoseBlock) {
       lines.push(dayGlucoseBlock);
+    }
+
+    if (includeFullGlucoseSeries) {
+      const fullSeries = formatDayGlucoseSeries(periodGlucoseRaw, dk);
+      if (fullSeries) lines.push(fullSeries);
     }
 
     lines.push(

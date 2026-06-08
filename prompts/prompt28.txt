@@ -1,0 +1,74 @@
+## Prompt 28 — Full CGM sample history + day-pacing macro targets
+
+### Trigger (user reports 2026-06-09)
+Export `mentor_chat_2026-06-09.html` showed mentors could cite daily CGM averages and
+per-meal summaries, but failed when the user asked for granular glucose reasoning:
+- "graph dropped to 40 then jumped to 100 in 15 min — compression?"
+- "what is the last glucose reading and its timestamp?"
+- "I thought you see full 5-min sampling history"
+
+Nutritionist admitted: "אין לי גישה לקריאה בודדת אחרונה עם חותמת זמן... רק סיכום יומי".
+
+Separately, midday "how am I doing today?" replies compared intake to **full-day** macro
+targets (e.g. 111g protein vs 146g target at 13:48) instead of pacing by hour — making
+normal mid-day progress look like failure.
+
+User request: mentor gets **full CGM history for today and yesterday** (every ~5 min sample,
+meal timestamps align with glucose timestamps), and macro guidance should match **time of day**.
+
+---
+
+## Fix 1 — Full per-sample CGM series (today + yesterday)
+
+`ReviewService.ts`:
+- `fetchPeriodIntraday` now returns `glucoseRaw` (merged, unfiltered) alongside `glucose`
+  (warm-up + stat-filtered, used for aggregates).
+- New `formatDayGlucoseSeries()` emits per day in PERIOD REVIEW when window ≤ 2 days:
+  ```
+  CGM ALL READINGS (N raw samples, HH:MM=mg/dL — match meal times above to these; warm-up lows NOT removed…):
+    00:03=92, 00:08=90, …
+    Latest reading this day: 84 mg/dL at 01:15
+  ```
+- RAW series intentionally keeps warm-up lows so mentor can judge compression / sensor artifact.
+- Wider `/N` reviews (7+ days) keep aggregates only — full dump would blow token budget.
+
+`GeminiService.ts`:
+- `DEFAULT_SNAPSHOT_INSTRUCTION` — mentor can cite latest reading + time and analyze spikes
+  from timestamped samples.
+- `buildCgmMentorRules` — NEVER claim "only daily summaries" when CGM ALL READINGS is present.
+
+---
+
+## Fix 2 — Day-pacing macro targets
+
+`GeminiService.ts` — new `formatDayPacingLine()` in shared profile header (coach + chat):
+- Uses existing `LOCAL TIME NOW` (HH:MM refreshed each send).
+- Linear guide across 07:00–23:00 eating window:
+  - Reach-targets pro-rated: kcal, protein, fat ("on-pace-by-now").
+  - Carbs = **full-day ceiling** (keto — never pro-rated up).
+- Rule: shortfall normal for the hour is NOT failure; 0 eaten early morning is expected.
+
+Example line:
+```
+DAY PACING: now 13:48, ~43% through 07:00–23:00. On-pace-by-now: ~764 kcal | P63g | F53g.
+Carbs 35g FULL-DAY CEILING.
+```
+
+---
+
+## Files changed
+- `app/src/services/ReviewService.ts` — `glucoseRaw`, `formatDayGlucoseSeries`, inject in 2-day window
+- `app/src/services/GeminiService.ts` — `formatDayPacingLine`, CGM + snapshot instructions
+
+---
+
+## Test plan (device, 2026-06-09)
+- [x] Last glucose reading + timestamp — nutritionist cites specific HH:MM from CGM ALL READINGS
+- [x] Spike/compression question — mentor reads samples around the window
+- [x] "How am I doing today?" — compares to on-pace-by-now, not full-day targets only
+- [x] Meal review still works (prompt27 regression)
+
+---
+
+## Status
+**Implemented and phone-tested.** Committed with code changes.

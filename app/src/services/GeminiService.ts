@@ -1000,6 +1000,7 @@ function buildCgmMentorRules(ctx: CoachContext): string {
 - NEVER say "no CGM data" (or equivalent) when USER DATA includes MEAL GLUCOSE, TODAY CGM, or RECENT CGM with samples — CGM is synced; say post-meal window not ready yet if Meals with usable window is 0/N
 - When MEAL GLUCOSE shows "CGM samples in sync" but usable window is 0/N, cite today's avg/min/max from the block and explain meal-level response is not ready yet — do NOT claim CGM is unavailable
 - When glucose is the topic OR this is the first reply in the tab today OR the user asked for status/overview: quote avg, min, max (mg/dL) and range % (below 70 / 70–100 / above 100) and low-day count when present
+- For TODAY and YESTERDAY you ALSO have the full per-sample series ("CGM ALL READINGS", every ~5 min with HH:MM timestamps). You CAN state the latest reading and its time, and analyze a specific spike/drop by reading the timestamped samples around a meal time — NEVER say you only have daily summaries when this line is present
 - On follow-ups about food targets, hunger, or fat/protein without a glucose question: answer that topic directly — do NOT re-open with the same CGM block you already gave this tab
 - Mention compression lows if relevant: sleeping on the sensor can falsely lower readings — isolated low days may be artifact
 - Exclude sensor warm-up (first 24h after install) and statistically excluded rare sensor-error days — see filter lines in USER DATA
@@ -1256,6 +1257,31 @@ function formatLocalTimeContext(now = new Date()): { clockLine: string; guidance
 }
 
 /**
+ * Pace daily targets to the current time of day, so the mentor judges "am I on track" relative to
+ * how far the day has advanced — not as if the day were already over. Reach-targets (kcal, protein,
+ * fat) are pro-rated linearly across a typical 07:00–23:00 eating window; carbs stay a FULL-DAY
+ * ceiling (keto: stay under all day, never pro-rated up).
+ */
+function formatDayPacingLine(ctx: CoachContext, now = new Date()): string {
+  const START_HOUR = 7;
+  const END_HOUR = 23;
+  const hoursIntoDay = now.getHours() + now.getMinutes() / 60;
+  const frac = Math.max(0, Math.min(1, (hoursIntoDay - START_HOUR) / (END_HOUR - START_HOUR)));
+  const pct = Math.round(frac * 100);
+  const timeStr = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const mt = ctx.macroTarget;
+
+  const base = `DAY PACING (judge intake by the hour, NOT as if the day is over): now ${timeStr}, ~${pct}% through the typical 07:00–23:00 eating window.`;
+  const guide =
+    mt != null
+      ? ` On-pace-by-now (linear guide for reach-targets): ~${Math.round(mt.kcal * frac)} kcal | P${Math.round(mt.protein_g * frac)}g | F${Math.round(mt.fat_g * frac)}g. Carbs ${Math.round(mt.carb_g)}g is a FULL-DAY CEILING (stay under all day — do NOT pro-rate).`
+      : '';
+  const rule =
+    ' A shortfall that is normal for this hour is NOT a failure; only flag a genuine gap late in the day. Early morning with 0 eaten is expected.';
+  return `${base}${guide}${rule}`;
+}
+
+/**
  * Single shared header used by BOTH the coach panel and chat: profile, goals/targets, dietary
  * rules, local time. It carries NO collected day data (meals, energy, CGM, HR, workouts, body) —
  * that all comes from ONE place, the today+yesterday PERIOD REVIEW snapshot. Keeping the data in
@@ -1269,6 +1295,7 @@ function buildProfileTargetsHeader(ctx: CoachContext): string[] {
   return [
     clockLine,
     `TIME-AWARE COACHING: ${guidance}`,
+    formatDayPacingLine(ctx),
     formatActiveMentorsLine(ctx.mentors),
     `Profile: sex ${ctx.gender ?? 'unknown'}, age ${n(ctx.age)}, height ${n(ctx.heightCm, ' cm')}, language ${ctx.lang?.label ?? 'English'}`,
     `Goals: target weight ${n(bt?.targetWeight_kg ?? null, ' kg')} | target fat ${n(bt?.targetFatPct ?? null, '%')} | target muscle ${n(bt?.targetMuscleMass_kg ?? null, ' kg')} | start weight ${n(ctx.startWeight_kg, ' kg')} | start muscle ${n(ctx.startMuscle_kg, ' kg')}`,
@@ -1299,7 +1326,7 @@ function buildChatDataBlock(ctx: CoachContext): string {
 
 /** Used when the always-on today+yesterday snapshot is injected (not an explicit /N review). */
 const DEFAULT_SNAPSHOT_INSTRUCTION =
-  'The block above (titled PERIOD REVIEW) is your COMPLETE data for today and yesterday — body composition incl. visceral and BMR, 24/7 heart rate, energy balance, full food logs, full CGM with meal impact, and every workout with HR. It is your source of truth; cite exact numbers from it. Do NOT dump or list the whole block — answer the user\'s actual question concisely and mention only what is relevant.';
+  'The block above (titled PERIOD REVIEW) is your COMPLETE data for today and yesterday — body composition incl. visceral and BMR, 24/7 heart rate, energy balance, full food logs, full CGM with meal impact, every workout with HR, AND the full per-sample CGM series ("CGM ALL READINGS", every ~5 min with HH:MM timestamps). It is your source of truth; cite exact numbers from it. You CAN answer "what is my latest glucose reading / its time?" from the CGM ALL READINGS line (and the "Latest reading this day"), and you CAN judge a specific spike/drop by reading the timestamped samples around a meal time. Do NOT dump or list the whole block — answer the user\'s actual question concisely and mention only what is relevant.';
 
 /** Detect meal-review questions in any supported language. */
 export function isMealReviewQuery(text: string): boolean {
