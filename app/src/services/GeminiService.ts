@@ -1255,47 +1255,13 @@ function formatLocalTimeContext(now = new Date()): { clockLine: string; guidance
   return { clockLine, guidance: guidanceByPhase[phase] };
 }
 
-function buildCoachDataBlock(ctx: CoachContext): string {
-  const { clockLine, guidance } = formatLocalTimeContext();
-  const n = (v: number | null, unit = '') => v != null ? `${v}${unit}` : '—';
-  const summaryLines = [
-    clockLine,
-    `TIME-AWARE COACHING: ${guidance}`,
-    formatActiveMentorsLine(ctx.mentors),
-    `EVENT: ${ctx.event}`,
-    `Profile: sex ${ctx.gender ?? 'unknown'}, age ${n(ctx.age)}, height ${n(ctx.heightCm, ' cm')}, language ${ctx.lang?.label ?? 'English'}`,
-    `Weight: ${n(ctx.weightKg, ' kg')} (start: ${n(ctx.startWeight_kg, ' kg')}, target: ${n(ctx.bodyTarget?.targetWeight_kg ?? null, ' kg')})`,
-    `Body fat: ${n(ctx.fatPct, '%')} (target: ${n(ctx.bodyTarget?.targetFatPct ?? null, '%')}) | Muscle: ${n(ctx.muscleMass_kg, ' kg')} (start: ${n(ctx.startMuscle_kg, ' kg')}, target: ${n(ctx.bodyTarget?.targetMuscleMass_kg ?? null, ' kg')})`,
-    `BMR (resting energy, already counted inside "burned" below): ${n(ctx.bmr_kcal, ' kcal/day')}`,
-    `Energy IN — eaten today: ${n(ctx.todayEaten, ' kcal')} / ${n(ctx.macroTarget?.kcal ?? null, ' kcal target')} | P: ${n(ctx.todayProtein_g, 'g')}/${n(ctx.macroTarget?.protein_g ?? null, 'g')} | C: ${n(ctx.todayCarb_g, 'g')}/${n(ctx.macroTarget?.carb_g ?? null, 'g')} | F: ${n(ctx.todayFat_g, 'g')}/${n(ctx.macroTarget?.fat_g ?? null, 'g')}`,
-    `Energy OUT — burned today (TOTAL = BMR + activity + workouts, do NOT add BMR again): ${n(ctx.todayBurn, ' kcal')}`,
-    `Balance (eaten − burned): ${ctx.todayEaten != null && ctx.todayBurn != null ? Math.round(ctx.todayEaten - ctx.todayBurn) + ' kcal' : '—'} (negative = deficit, positive = surplus)`,
-    `Meals logged today: ${ctx.mealCount}`,
-    ctx.userRules?.aiContext ? `Dietary rules: ${ctx.userRules.aiContext}` : null,
-  ].filter(Boolean);
-
-  const mealSection = ctx.todayMealsDetail
-    ? [
-        '=== MEAL LOG (full detail — use this when reviewing meals) ===',
-        ctx.todayMealsDetail,
-        ctx.lastMealSummary ? `Most recent meal (summary): ${ctx.lastMealSummary}` : null,
-        '=== END MEAL LOG ===',
-      ].filter(Boolean).join('\n')
-    : '=== MEAL LOG ===\nNo meals logged today.\n=== END MEAL LOG ===';
-
-  const glucoseSection = ctx.todayMealGlucoseDetail
-    ? ['', ctx.todayMealGlucoseDetail].join('\n')
-    : null;
-
-  return [...summaryLines, '', mealSection, glucoseSection].filter(Boolean).join('\n');
-}
-
 /**
- * Chat header — profile, goals/targets, dietary rules, local time. The actual collected DATA
- * (body, energy, food, CGM, HR, workouts for today + yesterday) is NOT summarized here; it is
- * injected in full via the always-on 2-day snapshot (see buildChatContextBlocks).
+ * Single shared header used by BOTH the coach panel and chat: profile, goals/targets, dietary
+ * rules, local time. It carries NO collected day data (meals, energy, CGM, HR, workouts, body) —
+ * that all comes from ONE place, the today+yesterday PERIOD REVIEW snapshot. Keeping the data in
+ * one source guarantees the panel and chat always see structurally identical today+yesterday data.
  */
-function buildChatDataBlock(ctx: CoachContext): string {
+function buildProfileTargetsHeader(ctx: CoachContext): string[] {
   const { clockLine, guidance } = formatLocalTimeContext();
   const n = (v: number | null | undefined, unit = '') => (v != null ? `${v}${unit}` : '—');
   const bt = ctx.bodyTarget;
@@ -1308,7 +1274,27 @@ function buildChatDataBlock(ctx: CoachContext): string {
     `Goals: target weight ${n(bt?.targetWeight_kg ?? null, ' kg')} | target fat ${n(bt?.targetFatPct ?? null, '%')} | target muscle ${n(bt?.targetMuscleMass_kg ?? null, ' kg')} | start weight ${n(ctx.startWeight_kg, ' kg')} | start muscle ${n(ctx.startMuscle_kg, ' kg')}`,
     `Daily macro target: ${n(mt?.kcal ?? null, ' kcal')} | P ${n(mt?.protein_g ?? null, 'g')} | C ${n(mt?.carb_g ?? null, 'g')} | F ${n(mt?.fat_g ?? null, 'g')}`,
     ctx.userRules?.aiContext ? `Dietary rules: ${ctx.userRules.aiContext}` : null,
-  ].filter(Boolean).join('\n');
+  ].filter((l): l is string => Boolean(l));
+}
+
+/**
+ * Coach header = shared profile/targets header + the coaching EVENT. All day data (meals, energy,
+ * CGM, HR, workouts, body) is supplied by the PERIOD REVIEW snapshot in generateCoachMessage —
+ * the SAME source chat uses — so there is no second, divergent "today" computation.
+ */
+function buildCoachDataBlock(ctx: CoachContext): string {
+  const lines = buildProfileTargetsHeader(ctx);
+  lines.splice(3, 0, `EVENT: ${ctx.event}`);
+  return lines.join('\n');
+}
+
+/**
+ * Chat header — identical shared profile/targets header. The collected day DATA (body, energy,
+ * food, CGM, HR, workouts for today + yesterday) is injected in full via the always-on 2-day
+ * snapshot (see buildChatContextBlocks) — the same source the coach panel uses.
+ */
+function buildChatDataBlock(ctx: CoachContext): string {
+  return buildProfileTargetsHeader(ctx).join('\n');
 }
 
 /** Used when the always-on today+yesterday snapshot is injected (not an explicit /N review). */
@@ -1342,7 +1328,7 @@ export async function generateCoachMessage(ctx: CoachContext): Promise<CoachMess
   const proteinTarget = ctx.macroTarget?.protein_g;
 
   const snapshotSection = snapshot
-    ? `\n\n${snapshot}\n(The PERIOD REVIEW above is your COMPLETE today+yesterday data — body incl. visceral + BMR, 24/7 HR, energy, full food logs, full CGM with meal impact, every workout with HR. Use it to make action items specific and grounded; the USER DATA block above frames today's targets for the autoCheckType keys.)`
+    ? `\n\n${snapshot}\n(The PERIOD REVIEW above is your COMPLETE today+yesterday data and your ONLY source for collected values — body incl. visceral + BMR, 24/7 HR, energy in/out/balance, full food logs, full CGM with meal impact, every workout with HR. Read all numbers from it; the USER DATA header above carries only profile, goals and macro targets for the autoCheckType keys.)`
     : '';
 
   const prompt = `${systemPrompt}
@@ -1362,13 +1348,13 @@ Rules:
   - Coach 💪 items: movement, muscle, training, or body-composition (autoCheckType null).
   - Doctor 🩺 items: safety / clinical follow-up (autoCheckType null).
 - autoCheckType keys are always English: "carbs_under_target", "protein_over_target", "calorie_deficit", "meal_logged", or null.
-- carbs_under_target MUST cite carb target ${carbTarget != null ? `${Math.round(carbTarget)}g` : 'from USER DATA C:/target line'} — never use generic 20g keto defaults
-- protein_over_target MUST cite protein target ${proteinTarget != null ? `${Math.round(proteinTarget)}g` : 'from USER DATA P:/target line'}
+- carbs_under_target MUST cite carb target ${carbTarget != null ? `${Math.round(carbTarget)}g` : 'from the Daily macro target line'} — never use generic 20g keto defaults
+- protein_over_target MUST cite protein target ${proteinTarget != null ? `${Math.round(proteinTarget)}g` : 'from the Daily macro target line'}
 - Dietary rules in USER DATA override any generic diet assumptions
 - If event is meal: focus on remaining macros for the day. If weigh-in: trend vs target, muscle vs start. If workout: calorie budget + HR during session vs resting baseline from the WORKOUTS lines in the PERIOD REVIEW.
 - Do NOT repeat data the user already sees on the dashboard
-- If Nutritionist 🥗 is active and CGM blocks are in USER DATA, the nutritionist's wins/improve MUST cite glucose avg/min/max (mg/dL) with a good-vs-needs-improvement verdict
-- NEVER say "no CGM data" when MEAL GLUCOSE / TODAY CGM / RECENT CGM blocks are in USER DATA — say synced; if meal window not ready, cite today avg/min/max anyway
+- If Nutritionist 🥗 is active and the PERIOD REVIEW has CGM/glucose data, the nutritionist's wins/improve MUST cite glucose avg/min/max (mg/dL) with a good-vs-needs-improvement verdict
+- NEVER say "no CGM data" when the PERIOD REVIEW has glucose/meal-impact samples — say synced; if meal window not ready, cite today avg/min/max anyway
 - CGM DATE SPAN (mandatory): only state a day count that appears in the PERIOD REVIEW / CGM stats block. The default window is today + yesterday — do NOT say "3 days" or "this week" unless a wider window is loaded. If unsure, say "the available CGM window".
 - Glucose numbers belong to the Nutritionist 🥗 ONLY (in their wins/improve); the Doctor 🩺 adds safety interpretation without restating the same avg/min/max${coachJsonLangInstruction(ctx.lang)}`;
 

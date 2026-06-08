@@ -1,0 +1,83 @@
+## Prompt 27 — Unify coach panel + chat data (today included in period window)
+
+### Trigger (user reports 2026-06-08)
+Nutritionist chat insisted it had no meals for **today (Jun 8)** even after refresh,
+while the food log and coach panel clearly showed today's breakfast + lunch (321 kcal).
+Export `mentor_chat_2026-06-08 (1).html` showed the mismatch:
+- Coach panel summary: "צריכת קלוריות של 321 קק"ל" (today correct).
+- Nutritionist chat at 10:21–10:22: "אין לי מידע על ארוחות מהיום, 8 ביוני".
+
+User also flagged a design smell: panel and chat might be reading different data instead
+of one shared today+yesterday snapshot.
+
+---
+
+## Root cause (two related bugs)
+
+### Bug 1 — `windowDayKeys` excluded today
+`ReviewService.windowDayKeys` built the PERIOD REVIEW day list with:
+```
+for (let daysAgo = dayCount; daysAgo >= 1; daysAgo--)
+```
+So the default 2-day snapshot was **[day-before-yesterday, yesterday]** — never today.
+Chat mentors only read collected data from `buildPeriodReviewBlock`, so today's meals,
+glucose, HR, and workouts were invisible in chat.
+
+`/yesterday` mode was unaffected (always `daysAgo = 1`). `/N` windows also ended
+yesterday instead of today.
+
+### Bug 2 — duplicate "today" computation masked the bug in the coach panel
+Coach panel prompt had **two** data paths:
+1. `buildCoachDataBlock` — profile + today's energy summary + `MEAL LOG` + today CGM
+   (from `ctx.todayMealsDetail` via `getTodayMeals()` in ChatScreen).
+2. `buildPeriodReviewBlock({days:2})` — full today+yesterday snapshot.
+
+Chat prompt had only path 2 (plus a slim profile header via `buildChatDataBlock`).
+
+When path 2 was broken, the coach panel still looked correct because path 1 backfilled
+today's meals. Chat had no backfill → "no data for Jun 8".
+
+---
+
+## Fix (implemented 2026-06-08)
+
+### 1. `windowDayKeys` — windows end today
+`ReviewService.ts`:
+- `/yesterday` → `[yesterday]` only (unchanged).
+- Any `/N` and the default 2-day snapshot → **today + N−1 prior days**, oldest first:
+  `for (let daysAgo = dayCount - 1; daysAgo >= 0; daysAgo--)`.
+- `/7` now means last 7 days **including today** (e.g. Jun 2 → Jun 8), not ending yesterday.
+
+### 2. Single shared data architecture (`GeminiService.ts`)
+- New `buildProfileTargetsHeader(ctx)` — profile, goals, macro targets, dietary rules,
+  local time. **No collected day data** (no meals, energy, CGM, HR, workouts, body).
+- `buildCoachDataBlock` = shared header + `EVENT:` line.
+- `buildChatDataBlock` = shared header only.
+- Both coach panel and chat inject **one** collected-data source:
+  `buildPeriodReviewBlock({ mode: 'days', days: 2 })` (or wider `/N` in chat).
+- Removed duplicate `MEAL LOG` + today glucose sections from the coach header.
+- Coach prompt rules updated to cite CGM/energy from PERIOD REVIEW, not the old header.
+
+`ctx.today*` fields remain on `CoachContext` for dashboard UI and CGM rule triggers;
+they no longer feed the AI prompt as a second data path.
+
+---
+
+## Files changed
+- `app/src/services/ReviewService.ts` — `windowDayKeys(request)` includes today.
+- `app/src/services/GeminiService.ts` — `buildProfileTargetsHeader`, unified headers,
+  coach prompt references point at PERIOD REVIEW only.
+
+---
+
+## Test plan (device, 2026-06-08)
+- [x] Nutritionist chat sees Jun 8 meals after fix ("can see 8 jun last meal").
+- [ ] Coach panel refresh + chat agree on today's meal count/kcal.
+- [ ] `/7` range is today-inclusive; `/yesterday` still yesterday-only.
+- [ ] Coach 💪 / Doctor 🩺 still cite workouts, HR, CGM from period block.
+- [ ] No regressions: Hebrew JSON truncation, no THOUGHT leak, structured coach panel.
+
+---
+
+## Status
+**Implemented and phone-tested (Jun 8 meals in chat).** Committed with code changes.

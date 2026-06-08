@@ -88,9 +88,16 @@ function dayKeyDaysAgo(daysAgo: number): string {
   return localDayKeyFromMs(d.getTime());
 }
 
-function windowDayKeys(dayCount: number): string[] {
+function windowDayKeys(request: PeriodReviewRequest): string[] {
+  // /yesterday → just yesterday. Any /N (and the default 2-day snapshot) is a window
+  // that ENDS TODAY: today + the N-1 prior days, oldest first. Excluding today here was a
+  // bug — the chat snapshot then missed meals/glucose/workouts logged earlier today.
+  if (request.mode === 'yesterday') {
+    return [dayKeyDaysAgo(1)];
+  }
+  const dayCount = Math.min(request.days, MAX_REVIEW_DAYS);
   const keys: string[] = [];
-  for (let daysAgo = dayCount; daysAgo >= 1; daysAgo--) {
+  for (let daysAgo = dayCount - 1; daysAgo >= 0; daysAgo--) {
     keys.push(dayKeyDaysAgo(daysAgo));
   }
   return keys;
@@ -474,7 +481,7 @@ export async function buildPeriodReviewBlock(
   appGlucose?: TimePoint[] | null,
 ): Promise<string> {
   const dayCount = reviewDayCount(request);
-  const dayKeys = windowDayKeys(dayCount);
+  const dayKeys = windowDayKeys(request);
 
   const [workouts, bodyPayload, intraday] = await Promise.all([
     fetchWorkoutsHistory(Math.max(dayCount + 7, 14)),
