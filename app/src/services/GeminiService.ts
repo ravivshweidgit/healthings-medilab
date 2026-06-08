@@ -40,9 +40,16 @@ function genderInstruction(ctx: CoachContext): string {
   const code = ctx.lang?.code;
   const facts = `\nGENDER — USER SEX: ${userSex} | MENTOR VOICE (your own gender): ${voice}.`;
   if (code === 'he' || code === 'ar') {
+    const addressForms =
+      userSex === 'male'
+        ? 'MASCULINE only: אתה, שים לב, היית, צרכת, זכור, המשך, שלך (זכר). Never use feminine forms (את, שימי, היית feminine, זכרי).'
+        : userSex === 'female'
+          ? 'FEMININE only: את, שימי לב, היית, צרכת, זכרי, המשיכי, שלך (נקבה). Never use masculine forms (אתה, שים, זכור, המשך).'
+          : 'USER SEX is unknown — prefer neutral phrasing and avoid gendered verbs where possible.';
     return `${facts}
-- Address the user with matching forms consistently — masculine (אתה, שים לב) OR feminine (את, שימי לב) — never mix in one thread. If other/unknown, prefer neutral phrasing.
-- When you refer to yourself, use your MENTOR VOICE gender (female: אני ממליצה, שמחה לעזור | male: אני ממליץ, שמח לעזור).
+- USER ADDRESS (mandatory, every sentence): ${addressForms}
+- Pick the one set matching USER SEX and use it for EVERY verb and pronoun directed at the user. Never mix masculine and feminine in the same reply.
+- When you refer to yourself, use your MENTOR VOICE gender (female: אני ממליצה, שמחה לעזור | male: אני ממליץ, שמח לעזור) — this is independent of USER SEX.
 - Use USER SEX for clinical/nutrition interpretation (healthy fat% range, BMR, glucose context).`;
   }
   const gendered = code === 'es' || code === 'fr' || code === 'ru' || code === 'de' || code === 'pt' || code === 'it';
@@ -1316,12 +1323,14 @@ Rules:
 - If event is workout: focus on calorie budget impact and HR during session vs resting baseline using the WORKOUTS (+ HR during each session) lines in the PERIOD REVIEW
 - Do NOT repeat data the user already sees on the dashboard
 - If Nutritionist 🥗 is active and CGM blocks are in USER DATA, "text" MUST include glucose avg/min/max (mg/dL) and good-vs-needs-improvement verdict
-- NEVER say "no CGM data" when MEAL GLUCOSE / TODAY CGM / RECENT CGM blocks are in USER DATA — say synced; if meal window not ready, cite today avg/min/max anyway${coachJsonLangInstruction(ctx.lang)}`;
+- NEVER say "no CGM data" when MEAL GLUCOSE / TODAY CGM / RECENT CGM blocks are in USER DATA — say synced; if meal window not ready, cite today avg/min/max anyway
+- CGM DATE SPAN (mandatory): only state a day count that appears in the PERIOD REVIEW / CGM stats block. The default window is today + yesterday — do NOT say "3 days" or "this week" unless a wider window is loaded. If unsure, say "the available CGM window".
+- Do NOT repeat the same glucose stat block in more than one place: the Nutritionist 🥗 owns the CGM numbers (avg/min/max), the Doctor 🩺 adds only safety interpretation — never restate the same numbers${coachJsonLangInstruction(ctx.lang)}`;
 
   const glucoseCoachRule = buildCgmMentorRules(ctx);
 
   const body = {
-    contents: [{ role: 'user', parts: [{ text: `${prompt}${glucoseCoachRule}` }] }],
+    contents: [{ role: 'user', parts: [{ text: `${prompt}${glucoseCoachRule}${genderInstruction(ctx)}` }] }],
     generationConfig: geminiGenerationConfig({ temperature: 0.3, maxOutputTokens: 8192 }),
   };
 
