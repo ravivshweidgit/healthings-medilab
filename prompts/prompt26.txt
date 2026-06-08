@@ -1,0 +1,123 @@
+## Prompt 26 — Mentor chat: stop THOUGHT/Plan leakage (v1beta + strict JSON envelope)
+
+### Trigger (user reports 2026-06-08)
+Mentor chat replies (Hebrew) sometimes opened with the model's internal reasoning
+shown verbatim to the user. From the chat export:
+- 02:55 "כפית קינמון זה 2 גר פחמימה??" → reply began with a raw `THOUGHT` block
+  ("The user is asking about the carb content of a teaspoon of cinnamon… Response
+  should be concise…") before the actual Hebrew answer.
+- 02:55 "לא ידעתי שככ הרבה" → another `THOUGHT` preamble.
+- 02:49 "המלצות, נקודות לשיפור" → leaked an English `Plan:` preamble.
+
+The same never happened on meal-photo analysis.
+
+### Root cause
+Gemini 2.5 is a *thinking* model. Two distinct things happen:
+1. **Native thought parts** — returned as response parts flagged `thought: true`
+   (clean; we already filter these in `extractGeminiText`).
+2. **Reasoning baked into the text part** — the model writes "THOUGHT" / "Plan:" as
+   ordinary output text with no metadata. This is the leak.
+
+Why it leaked in chat but not images:
+- **Chat** was open-ended Hebrew prose with a free-text slot — easy place for the
+  model to narrate planning.
+- **Meal photos** use a strict JSON contract ("return JSON only"), so there is no
+  free-text slot; any preamble would break parsing. Vision is also a fill-a-template
+  task, not open reasoning.
+
+Why we couldn't configure it away: we were on the legacy **`/v1/`** endpoint, which
+does **not** support `thinkingConfig`. So we could only string-strip after the fact,
+and the simple stripper only matched `THOUGHT:` *with a colon* — bare `THOUGHT` and
+`Plan:` slipped through.
+
+---
+
+## Fix (layered, implemented 2026-06-08)
+
+### Layer 1 — v1beta + thinkingConfig (did NOT fully solve it alone)
+- Endpoint `/v1/` → `/v1beta/` (thinkingConfig is v1beta-only).
+- `geminiGenerationConfig` now always sends:
+  ```
+  thinkingConfig: { thinkingBudget, includeThoughts: false }
+  ```
+  - JSON/vision calls: `thinkingBudget = 0` (thinking off) — matches prior behaviour,
+    so meal photos are unaffected.
+  - Chat: `thinkingBudget = -1` (dynamic) so reasoning quality is kept, but
+    `includeThoughts: false` so thought parts are not returned.
+- Device test: **still leaked**. The model kept verbalizing planning in the text part.
+
+### Layer 2 — strict JSON envelope on chat (the real fix)
+Force chat replies through Gemini's native structured output so there is no free-text
+slot for a preamble:
+```
+responseMimeType: 'application/json'
+responseSchema: { type:'OBJECT', properties:{ response:{ type:'STRING' } }, required:['response'] }
+```
+- `fetchGeminiChat` parses `{"response":"..."}` via `parseChatEnvelope()` and returns
+  ONLY `obj.response`. The caller stores that clean text in chat history, so replayed
+  context never re-exposes leaked reasoning either.
+- System prompt OUTPUT FORMAT rewritten: was "never use JSON" (contradicted the
+  envelope) → now "respond with a single JSON object {\"response\":\"…\"}, plain prose
+  inside, use \n for line breaks". Synthetic acknowledgement turn also emits the JSON
+  shape to prime the format.
+
+### Layer 3 — truncation salvage + token ceiling (/7 reviews)
+With dynamic thinking, reasoning tokens **share** `maxOutputTokens`. A long `/7`
+review burned the 8192 budget and the JSON string was cut after ~3 lines → parse fail.
+- Chat `maxOutputTokens` 8192 → **32768**.
+- `salvageTruncatedResponse()` recovers prose from a cut-off `{"response":"…` that
+  never closed (pull text after `"response":"`, unescape `\n \t \" \\`), so a cut
+  reply still renders cleanly instead of breaking.
+
+### Layer 4 — `<br>` normalization (display)
+The JSON envelope changed the model's line-break habit: it began emitting literal
+`<br>` inside the response string. `normalizeMentorChatText` only converted `\n`.
+- Added `.replace(/<br\s*\/?>/gi, '\n')` to `normalizeMentorChatText` — covers chat
+  display AND HTML export (export normalizes before HTML-escaping, then re-inserts
+  `<br>`, so order is correct).
+
+---
+
+## Files changed
+
+| File | Change |
+|------|--------|
+| `app/src/services/GeminiService.ts` | v1beta endpoint; `thinkingConfig` in `geminiGenerationConfig`; chat JSON envelope (`responseMimeType`/`responseSchema`); `parseChatEnvelope` + `salvageTruncatedResponse`; chat `maxOutputTokens` 32768; OUTPUT FORMAT system instruction rewrite; JSON-shaped ack turn |
+| `app/src/logic/mentorChatText.ts` | `normalizeMentorChatText` converts `<br>` → newline |
+
+The legacy `stripLeakedThinking` remains as a cheap fallback inside `parseChatEnvelope`
+for the rare case JSON parsing and salvage both fail.
+
+Commits: `537e500` (v1beta + JSON envelope + `<br>`).
+
+---
+
+## Meal-image impact: none expected
+Food analysis shares only the endpoint move + `thinkingBudget: 0` (thinking off,
+closer to prior behaviour). It does NOT use the chat envelope, `parseChatEnvelope`,
+the higher token ceiling, or `normalizeMentorChatText`. v1beta is Google's documented
+path for `inline_data` vision, so risk is low.
+
+---
+
+## Acceptance (device verified 2026-06-08)
+- [x] Short Hebrew follow-ups (cinnamon-style) → no `THOUGHT`/`Plan:` preamble
+- [x] `/7` review renders full multi-section text, no mid-reply cutoff
+- [x] Line breaks render correctly (no literal `<br>` tags)
+- [ ] Meal photo analyze (Hebrew) — sanity check no regression on v1beta
+- [ ] HTML export still shows correct line breaks for new replies
+
+---
+
+## Why not JSON-envelope every call?
+Trade-offs of the strict envelope: no token streaming, Hebrew + JSON escaping risk on
+long strings, parse-failure fallback path. Chat justifies it (leak-prone, not
+streamed). JSON/vision calls already have their own contracts and never leaked, so
+they stay on `thinkingBudget: 0` without the envelope.
+
+---
+
+## References
+- Prompt23 — mentor chat data awareness / quality; deferred polish to prompt25
+- Prompt24 — meal photo JSON contract (the pattern that never leaked)
+- Prompt25 — coach panel redesign (separate, still spec-only)
