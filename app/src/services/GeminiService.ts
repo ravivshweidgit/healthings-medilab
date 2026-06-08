@@ -1714,6 +1714,7 @@ ${blocks.dataScopeBlock}
 
 CONVERSATION (mandatory):
 - Read prior turns in this tab before replying.
+- Each user message is prefixed with the time it was sent, e.g. "[13:25] ...". Use it to relate the question to timestamped CGM/meal data and time of day; do NOT repeat the "[HH:MM]" prefix back in your reply.
 - Answer the user's LATEST question first — do not re-open with a full daily summary unless they asked for status/overview${isFirstTurn ? ' (this IS the first turn, so an overview is fine here)' : ''}.
 - Do NOT repeat stats, warnings, or CGM summaries you already gave in this tab today unless (a) the user asks again about glucose/status, or (b) new meals/workouts/sync materially changed the numbers.
 - Reference earlier thread naturally when relevant ("כמו שציינתי…", "בהמשך לשאלה על השומן…").
@@ -1735,6 +1736,25 @@ When the user asks for a longer review (/7, /30), analyze the full snapshot (bod
 When GLUCOSE & FOOD IMPACT is present, Nutritionist and Doctor must cite which foods preceded spikes and recommend swaps for repeat offenders.
 Users can request any window via slash commands: /1 or /yesterday, /7, /30, /100 (up to 128 days).
 Ignore any earlier chat messages where you said data was unavailable; always use the data block above.${coachRules}${cgmRules}${genderInstruction(ctx)}${langInstruction(ctx.lang)}`;
+}
+
+/**
+ * Tags each user turn with the time it was asked, so the mentor can relate a question to the
+ * timestamped CGM/meal data (e.g. "the spike at 13:10" vs a question asked at 13:25) and judge
+ * how much of the day had elapsed when the user asked. Includes the date when not today.
+ */
+function formatChatMsgTimePrefix(iso: string, now = new Date()): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return '';
+  const d = new Date(t);
+  const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (sameDay) return `[${time}] `;
+  const date = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `[${date} ${time}] `;
 }
 
 async function chatWithSingleMentor(
@@ -1760,9 +1780,13 @@ async function chatWithSingleMentor(
     { role: 'model', parts: [{ text: '{"response":"Understood. I will reply only as {\\"response\\":\\"...\\"} with plain prose inside. Hebrew units use single quotes (ק\'ג, מ\'ג/ד\'ל) never ASCII double-quotes inside the string."}' }] },
     ...recentHistory.map((m) => ({
       role: m.role === 'user' ? 'user' : 'model',
-      parts: [{ text: m.role === 'assistant' ? stripLeakedThinking(m.text) : m.text }],
+      parts: [{
+        text: m.role === 'assistant'
+          ? stripLeakedThinking(m.text)
+          : `${formatChatMsgTimePrefix(m.sentAt)}${m.text}`,
+      }],
     })),
-    { role: 'user', parts: [{ text: blocks.userMessage }] },
+    { role: 'user', parts: [{ text: `${formatChatMsgTimePrefix(new Date().toISOString())}${blocks.userMessage}` }] },
   ];
 
   const raw = await fetchGeminiChat(contents);

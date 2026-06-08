@@ -65,6 +65,13 @@ function todayKey(): string {
   return foodLogDayKey(Date.now());
 }
 
+/** HH:MM for a chat bubble, from the message's ISO sentAt. */
+function formatBubbleTime(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return '';
+  return new Date(t).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
 function yesterdayKey(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
@@ -855,11 +862,16 @@ function MessageBubble({
   const isUser = msg.role === 'user';
   const colors = mentorBubbleColors(mentor);
 
+  const time = formatBubbleTime(msg.sentAt);
+
   if (isUser) {
     return (
       <View style={[styles.msgWrap, styles.msgWrapUser]}>
         <View style={[styles.msgBubble, styles.msgBubbleUser]}>
           <Text style={[styles.msgText, styles.msgTextUser, rtl && styles.rtlText]}>{msg.text}</Text>
+          {time ? (
+            <Text style={[styles.msgTime, styles.msgTimeUser, rtl && styles.rtlText]}>{time}</Text>
+          ) : null}
         </View>
       </View>
     );
@@ -875,6 +887,9 @@ function MessageBubble({
         ]}
       >
         <Text style={[styles.msgTextAI, rtl && styles.rtlText]}>{msg.text}</Text>
+        {time ? (
+          <Text style={[styles.msgTime, styles.msgTimeAI, rtl && styles.rtlText]}>{time}</Text>
+        ) : null}
       </View>
     </View>
   );
@@ -1663,6 +1678,9 @@ const styles = StyleSheet.create({
   msgText: { fontSize: 14, lineHeight: 21 },
   msgTextUser: { color: '#fff' },
   msgTextAI: { color: WellnessColors.textPrimary },
+  msgTime: { fontSize: 10, marginTop: 4 },
+  msgTimeUser: { color: 'rgba(255,255,255,0.7)', textAlign: 'right' },
+  msgTimeAI: { color: WellnessColors.textSecondary, textAlign: 'right' },
 
   // Sending indicator
   sendingRow: {
