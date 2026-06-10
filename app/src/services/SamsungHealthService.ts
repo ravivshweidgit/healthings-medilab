@@ -22,6 +22,10 @@ export type RecentMetrics = {
 const HOURS_24_MS = 24 * 60 * 60 * 1000;
 /** How far back to query Health Connect when no explicit start is passed (CareSens / Samsung history). */
 const DEFAULT_HISTORY_DAYS = 120;
+/** Health Connect max records per page (HC caps pageSize at 5000). */
+const HC_PAGE_SIZE = 5000;
+/** Safety cap on pagination loops: 5000 × 200 = 1M readings (~9.5 years of 5-min CGM). */
+const HC_MAX_PAGES = 200;
 
 const CORE_READ_PERMISSIONS = [
   { accessType: 'read', recordType: 'BloodGlucose' } as const,
@@ -132,15 +136,32 @@ class SamsungHealthService {
     const startTime = safeStartDate > endTime ? new Date(endTime.getTime() - HOURS_24_MS) : safeStartDate;
     const grantedPermissions = await getGrantedPermissions();
 
-    const glucoseRecords = await readRecords('BloodGlucose' as never, {
-      timeRangeFilter: {
-        operator: 'between',
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
-      },
-    } as never);
+    // Health Connect returns at most `pageSize` records per call (default 1000, ascending by time)
+    // and hands back a `pageToken` for the rest. With CGM at ~5-min cadence, >~3.5 days of history
+    // exceeds one page, so a single read silently drops the NEWEST readings and the chart freezes.
+    // Page through every token so live data keeps flowing regardless of history size.
+    const records: Array<Record<string, unknown>> = [];
+    const pages: unknown[] = [];
+    let pageToken: string | undefined;
+    let pageGuard = 0;
+    do {
+      const page = (await readRecords('BloodGlucose' as never, {
+        timeRangeFilter: {
+          operator: 'between',
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+        },
+        pageSize: HC_PAGE_SIZE,
+        ...(pageToken ? { pageToken } : {}),
+      } as never)) as { records?: Array<Record<string, unknown>>; pageToken?: string };
 
-    const records = (glucoseRecords.records ?? []) as Array<Record<string, unknown>>;
+      const pageRecords = (page.records ?? []) as Array<Record<string, unknown>>;
+      records.push(...pageRecords);
+      pages.push(page);
+      pageToken = page.pageToken || undefined;
+      pageGuard += 1;
+    } while (pageToken && pageGuard < HC_MAX_PAGES);
+
     const glucose = mapGlucoseRecords(records);
     if (glucose.length > 0) {
       this.markAccessOk();
@@ -152,7 +173,7 @@ class SamsungHealthService {
         queryStart: startTime.toISOString(),
         queryEnd: endTime.toISOString(),
         grantedPermissions,
-        rawReadResponse: glucoseRecords,
+        rawReadResponse: pages.length === 1 ? pages[0] : pages,
       },
     };
   }
