@@ -1,0 +1,253 @@
+## Prompt 29 — Full local backup (export / import all on-device data as one JSON)
+
+---
+
+## Architecture vision — persistence-first, sync-as-adapter
+
+This prompt is the guiding doc for both backup **and** future data-source integrations.
+The backup feature is the first concrete expression of a deeper architectural principle.
+
+### Principle 1 — Local persistence is the single source of truth
+- Everything the user owns lives in **local storage on the phone** (AsyncStorage +
+  SecureStore). This is the durable layer.
+- The UI reads **only** from persistence — never directly from an external API.
+- Backup = a snapshot of this one layer. Restore = merge back into it.
+
+### Principle 2 — Sync feeds persistence; it never owns it
+- External sources (Withings, CareSens/xDrip+ → Health Connect, Samsung Health, Libre,
+  Tanita, …) are **upstream feeders**. Their only job is **fetch → normalize → merge into
+  the local store**.
+- Merge is **additive and idempotent**: new points fill gaps, existing points stay. A sync
+  never wipes or "owns" the truth.
+- Because the truth is local, **sync stays dumb and cheap** — pull N days, merge, done. No
+  reconciliation, no "which side wins" state machine, no heavy sync engine.
+
+### Principle 3 — Provider-agnostic adapters (the contract)
+The persistence layer defines a **stable, normalized shape per metric**. Every device or
+service is just a swappable **adapter** that maps its data into that shape. The rest of the
+app never knows or cares where a data point came from.
+
+Canonical local stores (the contract):
+- **Glucose** → `healthings:lastMetrics.glucose` + `cgmSessionStarts`
+- **Activity / calories burned** → day-keyed local store
+- **Body composition** (weight / fat / muscle / BMR) → local store
+- **Heart rate** → local store
+
+Interchangeable adapters (each only does fetch → normalize → merge):
+| Source | Feeds | Notes |
+|---|---|---|
+| CareSens → xDrip+ → Health Connect | Glucose | current |
+| **Libre** (LibreLinkUp / HC) | Glucose | drop-in, same merge |
+| Withings | Body comp, HR, activity calories | current |
+| **Samsung Health** (steps) | Activity → calories (derived) | steps × formula → kcal |
+| **Tanita** (if/when API) | Body composition | drop-in |
+
+Rules that keep this clean:
+1. **One normalized shape per metric** — merge logic written once *per metric*, not per provider.
+2. **Idempotent + source-tagged merge** — dedupe by timestamp/day; optionally stamp each point
+   with its `source` so conflicts resolve (e.g. prefer Withings calories over Samsung-derived)
+   without rewriting merge.
+3. **Adapters are pluggable** — adding Libre / Tanita = write one adapter + register it. Zero
+   changes to UI, persistence, or other adapters.
+4. **Derived metrics are just another adapter** — Samsung steps → kcal is a transform that
+   merges into the *same* activity store; the store doesn't know it was derived.
+
+### Implication for current code (gap to close)
+- **CGM** already follows this — `healthings:lastMetrics` is the persisted truth; HC/CSV merge in. ✅
+- **Food, burn edits, profile, chat** are persisted. ✅
+- **Withings body/HR/trend/workouts** are the gap — currently API-fetched into React state,
+  **not persisted**. To match the vision they should merge into a local store on each sync,
+  and the UI should read from there.
+
+---
+
+## Next target — "simple user" persona (Samsung Health steps + AI BMR)
+
+A lightweight user who does **not** own a Withings scale or a CGM, but still gets a working
+energy/activity picture:
+
+- **Activity history from Samsung Health steps** — connect Samsung Health (which writes to
+  Google Health Connect); the Samsung adapter reads **steps** and merges them into the local
+  activity store.
+- **Activity calories derived from steps** — steps × a per-user formula (weight / stride /
+  MET-based) → kcal, merged into the same activity store as any other source.
+- **BMR from AI** — estimate BMR from **age + weight** (e.g. Mifflin-St Jeor with sensible
+  defaults) when no smart-scale BMR exists.
+- **Manual BMR override** — user can type their own BMR (e.g. measured by a professional with
+  a body-composition smart scale) which takes precedence over the AI estimate.
+- **Result:** a simple user has **basic energy** (BMR + step-derived activity) — less precise
+  than Withings, but fully functional and offline-first.
+
+### Known concern — Samsung → Health Connect cadence
+Lesson learned from glucose: Samsung Health does **not** write steps to Health Connect every
+5 minutes. The cadence is coarser/bursty (batched, on app open, periodic). The steps adapter
+must therefore:
+- Tolerate irregular / batched write intervals (don't assume fixed sampling).
+- Aggregate to a stable **day-keyed** activity total rather than fixed-interval slots.
+- Re-merge on each sync so late-arriving step batches backfill prior hours/days (same
+  additive-merge guarantee as glucose).
+
+---
+
+### Trigger (user request 2026-06-10)
+All app data lives **only** on the phone (AsyncStorage + SecureStore). If the phone is
+lost or the app is reinstalled, everything is gone: food log, manual burn edits, profile,
+targets, mentors/rules, chat history, and the CGM (glucose) cache.
+
+Cloud sync is **explicitly off the table** — health data in the cloud means HIPAA / GDPR /
+medical-device regulatory burden (BAAs, residency, breach liability). The user wants a
+**100% local, user-controlled** backup instead:
+
+> "JSON yes — export creates a file with CGM and all Withings data, all local data exported.
+>  You can export/import this data."
+
+Design model:
+- **Export** → app writes a single `healthings-backup_YYYY-MM-DD.json` to a folder the user
+  picks (Downloads, Drive, email-to-self). The user owns the file; nothing leaves the device
+  unless they move it.
+- **Import** → user picks that file back; app merges/restores into local storage.
+- No servers, no accounts, no PII in transit. Regulatory surface ≈ zero because we never hold
+  the data.
+
+This extends the existing `exportFoodLog` / `importFoodLog` pattern (food only) to **all**
+local app data.
+
+---
+
+## Local storage inventory (source of truth for the backup)
+
+Persistence mechanisms in `app/src`: **AsyncStorage**, **expo-secure-store** (Withings
+tokens, native only), **expo-file-system** (export/import/debug files). No MMKV / SQLite.
+
+### Tier 1 — user-authored / irreplaceable (MUST back up)
+| Key / pattern | Data | Owner |
+|---|---|---|
+| `food_log_days` + `food_log_{YYYY-MM-DD}` | Meal index + `FoodEntry[]` per day | `FoodLogService.ts` |
+| `burn_correction_{YYYY-MM-DD}` | Manual kcal burn delta (no index — use `getAllKeys()`) | `BurnCorrectionService.ts` |
+| `user_birthdate`, `user_gender`, `user_height_cm` | Profile | `TargetService.ts` (+ Withings shares height) |
+| `body_target`, `daily_macro_target`, `user_rules` | Goals + dietary constraints | `TargetService.ts` |
+| `user_mentors`, `mentor_gender`, `mentor_frequency` | Mentor config | `TargetService.ts` |
+| `user_language` | UI/mentor language | `TargetService.ts` |
+| `coach_message_today` | Today's coach summary + action items | `TargetService.ts` / `CoachService.ts` |
+| `chat_history_{YYYY-MM-DD}_{mentor}` (+ legacy `chat_history_{date}`) | Chat per mentor/day (no index — use `getAllKeys()`) | `TargetService.ts` |
+| `chat_yesterday_summary`, `chat_quick_questions`, `chat_quick_questions_lang` | Chat support state | `TargetService.ts` |
+
+### Tier 2 — CGM history not easily reconstructed (MUST back up)
+| Key | Data | Owner |
+|---|---|---|
+| `healthings:lastMetrics` | Raw `glucose[]` + `cgmSessionStarts` (and steps/HR) | `healthMetricsCache.ts` / `useHealthData.ts` |
+
+CGM that survives restarts lives almost entirely here. Health Connect is re-fetchable; the
+original CareSens CSV is **not** stored after import.
+
+### Tier 3 — optional / sensitive
+| Key | Data | Owner | Note |
+|---|---|---|---|
+| `healthings_withings_tokens` (SecureStore; web → `healthings_withings_tokens_web`) | OAuth refresh/access tokens | `WithingsApiService.ts` | Restores Withings link without re-OAuth. Treat as sensitive. |
+
+### Withings device data (HR, body scan, trend, workouts)
+NOT persisted locally — fetched from the API on load. To make a backup self-contained
+(viewable after reinstall before re-linking), the export should pull a **snapshot** at
+export time (up to 128 days HR/calories + body trend + workouts) and store it under a new
+key `healthings:withingsBackup`, which the dashboard can read as a fallback.
+
+### Exclude (device/diagnostic state — do NOT back up)
+`healthings:unhandledErrorLog`, `healthings:debugDownloadsDirUri`, `healthings:persistedHealth`
+(write-only/dev), `last_day_close_date`, `coach_last_weigh_in_at`, `coach_last_workout_start_ms`.
+
+---
+
+## Backup file format (versioned envelope)
+
+```jsonc
+{
+  "version": 1,
+  "app": "healthings-medilab",
+  "exportedAt": "2026-06-10T19:00:00.000Z",
+  "asyncStorage": { "<key>": "<raw string value>", ... },  // all non-excluded keys
+  "withingsTokens": { "accessToken": "...", "refreshToken": "...", ... } | null,
+  "withingsSnapshot": {                                     // pulled live at export when linked
+    "exportedAt": "...",
+    "bodyScan": { ... } | null,
+    "bodyTrend": { ... } | null,
+    "intraday": { "heartRate": [...], "calories": [...] } | null,
+    "workouts": [ ... ] | null
+  } | null
+}
+```
+
+- `asyncStorage` is captured generically via `AsyncStorage.getAllKeys()` minus the exclude
+  set — so future keys are backed up automatically without code changes.
+- Validate on import: `version === 1` and `app === 'healthings-medilab'`; else throw.
+
+---
+
+## Implementation plan
+
+### New service: `app/src/services/LocalBackupService.ts`
+- `buildLocalBackupPayload(): Promise<LocalBackupPayload>`
+  - `AsyncStorage.getAllKeys()` → filter exclude set + `healthings:withingsBackup` → read each.
+  - `loadWithingsTokens()` for `withingsTokens`.
+  - When Withings linked, pull live snapshot (`fetchWeightMetrics`, `fetchBodyCompositionTrend7d`,
+    `fetchHeartRateHistory(128)`, `fetchWorkoutsHistory(128)`), each guarded with `.catch(() => null)`;
+    fall back to cached `healthings:withingsBackup` if the pull fails / not linked.
+- `exportLocalBackup(): Promise<void>`
+  - SAF directory picker (same as `exportFoodLog`) → write `healthings-backup_{today}.json` pretty-printed.
+- `importLocalBackup(): Promise<LocalBackupImportResult>`
+  - DocumentPicker (`application/json`) → read → validate envelope.
+  - **Merge** strategy (never blind-wipe):
+    - `food_log_*` → merge by meal `id` (reuse the `importFoodLog` rule).
+    - `chat_history_*` → merge by `(sentAt|role|text)` dedupe.
+    - `healthings:lastMetrics` → merge glucose/steps/HR by epoch ms (`mergeGlucoseTimePoints`)
+      + `mergeCgmSessionStarts`.
+    - all other keys → restore (overwrite) from backup.
+  - Restore Withings tokens via `saveWithingsTokens` (Tier 3).
+  - Store `withingsSnapshot` under `healthings:withingsBackup`.
+  - Return counts: `keysRestored`, `mealsAdded`, `glucosePointsMerged`, `withingsSnapshotRestored`, `tokensRestored`.
+
+### UI: Dashboard "My Profile" group (`DashboardScreen.tsx`)
+- Add **Export all data** + **Import all data** buttons (new row in the profile/targets group card,
+  or a small "Backup" subsection). Busy state + `ActivityIndicator`.
+- On export success → `Alert` "Backup saved to the folder you picked."
+- On import success → reload all local data (`refetch`, `loadBodyScan`, `loadTrend`, `loadHeartRate`,
+  `loadWorkouts`, `loadTodayFood`), then `Alert` with the per-section counts.
+- Cancel (user dismissed picker) → silent no-op.
+
+### Optional follow-up (not required for v1)
+- Dashboard reads `healthings:withingsBackup` as a fallback so restored Withings metrics render
+  before the user re-links.
+- Encrypt-at-rest option for the file if tokens are included (or simply exclude tokens by default
+  and offer "include Withings login" as an explicit checkbox).
+
+---
+
+## Constraints / decisions
+- **Local only. No AWS / cloud. No accounts.** (`AwsDataService` stays unused for this.)
+- Single JSON file, versioned, merge-on-import (idempotent — re-importing adds nothing new).
+- Generic key capture so new AsyncStorage keys are covered without touching the backup code.
+- Withings tokens are sensitive: default include (so restore re-links), but document the risk;
+  a future toggle can exclude them.
+
+---
+
+## Files (planned)
+- **NEW** `app/src/services/LocalBackupService.ts` — build / export / import / merge.
+- `app/src/screens/DashboardScreen.tsx` — Export/Import buttons + post-import reload.
+- (reuse) `FoodLogService`, `healthMetricsCache`, `WithingsApiService`, `BurnCorrectionService`.
+
+---
+
+## Test plan (device)
+- [ ] Export → file `healthings-backup_YYYY-MM-DD.json` appears in chosen folder; valid JSON.
+- [ ] Reinstall app (or clear data) → Import the file → food log, profile, targets, mentors,
+      rules, chat history, manual burn edits all return.
+- [ ] CGM chart shows restored glucose history after import.
+- [ ] Re-importing the same file twice adds 0 new meals / 0 new CGM points (idempotent merge).
+- [ ] Withings: with link present at export, snapshot is captured; after reinstall + import,
+      Withings metrics/link restored (or re-link works).
+- [ ] Excluded keys (error log, debug dir, trigger-dedup) are NOT in the file.
+
+---
+
+## Status
+**Spec only — not implemented.** Awaiting go-ahead to build per this plan.
