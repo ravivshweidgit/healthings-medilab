@@ -46,7 +46,7 @@ import {
 } from '../logic/metabolicTrend7d';
 import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportWithSessions } from '../services/careSensCsv';
-import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getDailyMacros, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
+import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getRecentMeals, getDailyMacros, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
 import { buildGlucoseMentorContext } from '../logic/mealGlucoseAnalysis';
 import { activeMentorEmojis, mentorsCollectiveLabel } from '../logic/mentorLabels';
 import {
@@ -78,6 +78,8 @@ import { demoNoticeCopy } from '../utils/wellnessCopy';
 
 /** Must match `styles.scroll.paddingHorizontal`. */
 const SCROLL_HORIZONTAL_PADDING = 20;
+/** How far back to load meals for historical chart markers (days). */
+const CHART_MEAL_LOOKBACK_DAYS = 31;
 const BRAND_LOGO = require('../../assets/brand-logo.png');
 const BRAND_HEADER_HEIGHT_FALLBACK = 152;
 
@@ -176,6 +178,8 @@ export const DashboardScreen = () => {
   const [foodInitialTimestamp, setFoodInitialTimestamp] = useState<number | undefined>();
   const [foodRefreshKey, setFoodRefreshKey] = useState(0);
   const [todayFoodEntries, setTodayFoodEntries] = useState<FoodEntry[]>([]);
+  /** Meals across the last month for historical chart markers when panning back. */
+  const [chartMeals, setChartMeals] = useState<FoodEntry[]>([]);
   const [eatenKcalByDay, setEatenKcalByDay] = useState<Record<string, number>>({});
   const todayDayKey = foodLogDayKey(Date.now());
 
@@ -212,8 +216,12 @@ export const DashboardScreen = () => {
   }, []);
 
   const loadTodayFood = useCallback(async () => {
-    const meals = await getTodayMeals();
+    const [meals, recent] = await Promise.all([
+      getTodayMeals(),
+      getRecentMeals(CHART_MEAL_LOOKBACK_DAYS),
+    ]);
     setTodayFoodEntries(meals);
+    setChartMeals(recent);
   }, []);
 
   const [profileExpanded, setProfileExpanded] = useState(false);
@@ -905,7 +913,7 @@ export const DashboardScreen = () => {
                 calorieBurns={withingsCalories}
                 workoutSessions={workoutSessions}
                 bmrKcalDay={bodyScan?.bmrKcalDay}
-                foodEntries={todayFoodEntries}
+                foodEntries={chartMeals}
               />
             </View>
           </View>

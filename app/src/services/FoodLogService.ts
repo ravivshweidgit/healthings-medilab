@@ -79,6 +79,21 @@ export async function getTodayMeals(): Promise<FoodEntry[]> {
   return getMealsForDay(dayKey(Date.now()));
 }
 
+/**
+ * Meals from the last `days` calendar days (including today), oldest first.
+ * Used for historical meal markers on the chart when panning back.
+ */
+export async function getRecentMeals(days: number): Promise<FoodEntry[]> {
+  const cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
+  cutoff.setDate(cutoff.getDate() - (Math.max(1, days) - 1));
+  const cutoffKey = dayKey(cutoff.getTime());
+
+  const keys = (await getDayKeys()).filter((dk) => dk >= cutoffKey);
+  const all = await Promise.all(keys.map((dk) => getMealsForDay(dk)));
+  return all.flat().sort((a, b) => a.timestamp - b.timestamp);
+}
+
 /** Formats today's meals for AI mentor context — full item-level detail. */
 export function buildMealsAiContext(entries: FoodEntry[]): {
   lastMealSummary: string | null;
