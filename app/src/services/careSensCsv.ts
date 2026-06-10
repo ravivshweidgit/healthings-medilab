@@ -2,7 +2,7 @@ import {
   excludeCgmWarmupReadings,
   type CgmSessionStart,
 } from '../logic/cgmWarmupFilter';
-import type { TimePoint } from './SamsungHealthService';
+import type { TimePoint } from './HealthConnectService';
 
 /** RFC4180-style row split (handles quoted fields with commas). */
 export function parseCsvLine(line: string): string[] {

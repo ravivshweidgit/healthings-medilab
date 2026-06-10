@@ -17,7 +17,7 @@ glucose overlay chart, prompt08 visceral+glucose pair card (defer).
 
 | Layer | Status |
 |-------|--------|
-| Health Connect read (`BloodGlucose`) | `SamsungHealthService.ts` — 120-day window; **glucose only** (no HC heart rate or steps) |
+| Health Connect read (`BloodGlucose`) | `HealthConnectService.ts` — 120-day window; **glucose only** (no HC heart rate or steps) |
 | HC glucose parse | `parseBloodGlucoseMgDl()` — reads `level.inMilligramsPerDeciliter` / `inMillimolesPerLiter` (react-native-health-connect shape) |
 | CareSens CSV import | `careSensCsv.ts` + Import button on dashboard |
 | Cache | `healthMetricsCache.ts` — `healthings:lastMetrics` |
@@ -343,7 +343,7 @@ Mentor context: append one line when exclusions active:
 | File | Change |
 |------|--------|
 | `app/src/hooks/useHealthData.ts` | Merge on refetch + import; `withGlucoseSyncLock`; `GlucoseImportResult` |
-| `app/src/services/SamsungHealthService.ts` | HC glucose-only; parse fix; permission flow |
+| `app/src/services/HealthConnectService.ts` | HC glucose-only; parse fix; permission flow; paginated reads |
 | `app/src/services/healthMetricsCache.ts` | `warmupSessionStarts` / `sanitizePersistedSessionStarts` |
 | `app/src/logic/cgmWarmupFilter.ts` | Warm-up CSV serial only; gap starts metadata only |
 | `app/src/services/healthConnectDebugExport.ts` | Optional JSON export (disabled) |

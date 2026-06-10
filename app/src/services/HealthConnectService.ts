@@ -12,7 +12,7 @@ export type TimePoint = {
 };
 
 export type RecentMetrics = {
-  /** Blood glucose from Health Connect (CareSens / Samsung Health path). */
+  /** Blood glucose from Health Connect (xDrip+ live path; CareSens CSV merge). */
   glucose: TimePoint[];
   /** Demo-only — never read from Health Connect. */
   steps?: TimePoint[];
@@ -20,7 +20,7 @@ export type RecentMetrics = {
 };
 
 const HOURS_24_MS = 24 * 60 * 60 * 1000;
-/** How far back to query Health Connect when no explicit start is passed (CareSens / Samsung history). */
+/** How far back to query Health Connect when no explicit start is passed (CGM history). */
 const DEFAULT_HISTORY_DAYS = 120;
 /** Health Connect max records per page (HC caps pageSize at 5000). */
 const HC_PAGE_SIZE = 5000;
@@ -60,7 +60,7 @@ function mapGlucoseRecords(records: Array<Record<string, unknown>>): TimePoint[]
   });
 }
 
-class SamsungHealthService {
+class HealthConnectService {
   /** Once read or permission check succeeds, avoid re-prompting on transient getGrantedPermissions() gaps. */
   private sessionAccessOk = false;
 
@@ -179,7 +179,7 @@ class SamsungHealthService {
   }
 }
 
-export const samsungHealthService = new SamsungHealthService();
+export const healthConnectService = new HealthConnectService();
 
 export { openHealthConnectSettings };
 

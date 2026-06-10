@@ -3,7 +3,7 @@ import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import { CONFIG, isCloudEnabled } from '../config/env';
 import type { ActivityZone } from '../logic/MetabolicLogic';
-import type { TimePoint } from './SamsungHealthService';
+import type { TimePoint } from './HealthConnectService';
 
 export type HealthPersistPayload = {
   syncedAt: string;

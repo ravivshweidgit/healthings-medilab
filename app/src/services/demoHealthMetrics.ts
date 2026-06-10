@@ -1,4 +1,4 @@
-import type { RecentMetrics } from './SamsungHealthService';
+import type { RecentMetrics } from './HealthConnectService';
 
 const FIVE_MIN_MS = 5 * 60 * 1000;
 const DEFAULT_START_MS = new Date('2026-04-19T00:00:00.000Z').getTime();

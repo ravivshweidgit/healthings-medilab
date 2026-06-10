@@ -3,7 +3,7 @@
  * Detect session starts (serial change, sequence reset, or long gap) and exclude warm-up.
  */
 
-import type { TimePoint } from '../services/SamsungHealthService';
+import type { TimePoint } from '../services/HealthConnectService';
 
 export const CGM_WARMUP_HOURS = 24;
 export const CGM_SESSION_GAP_HOURS = 24;

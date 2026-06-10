@@ -14,7 +14,7 @@ import {
   applyCgmStatisticalFilter,
   type CgmStatisticalFilterMeta,
 } from '../logic/cgmStatisticalFilter';
-import type { RecentMetrics, TimePoint } from './SamsungHealthService';
+import type { RecentMetrics, TimePoint } from './HealthConnectService';
 
 export const HEALTH_METRICS_CACHE_KEY = 'healthings:lastMetrics';
 

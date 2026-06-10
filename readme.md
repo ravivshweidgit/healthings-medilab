@@ -11,27 +11,27 @@ Most health apps show data in silos. Medilab bridges the gap by overlaying:
 - **Structural Composition:** Advanced body metrics (Visceral fat, Vascular age).
 
 ## 🛠 Supported Hardware & Integrations
-- **CareSens Air (CGM):** Synced via Samsung Health / Health Connect.
+- **CareSens Air (CGM):** Live via xDrip+ → Health Connect; historical via CSV import.
 - **Withings Body Scan:** Advanced body composition and segmental analysis.
 - **Withings ScanWatch 2:** 24/7 heart rate, SpO2, and activity tracking.
-- **Samsung Health:** Serving as the primary data aggregator for mobile telemetry.
+- **Health Connect:** Android platform API for CGM glucose reads (xDrip+ writer).
 
 ## 🏗 Technical Architecture
 - **Frontend:** React Native (Expo) for cross-platform mobile access.
 - **Backend:** AWS DynamoDB for secure, private time-series data storage.
 - **Cloud:** AWS S3 for raw data dumps and long-term analysis.
-- **Data Pipeline:** `Hardware` -> `Samsung Health/Withings Cloud` -> `Medilab App` -> `AWS DynamoDB`
+- **Data Pipeline:** `CGM (xDrip+ → HC)` + `Withings Cloud` -> `Medilab App` -> `AWS DynamoDB`
 
 ## 📂 Project Structure
 - `/app`: React Native Expo source code.
-- `/services`: Connectors for Samsung Health, Withings API, and AWS.
+- `/services`: Connectors for Health Connect, Withings API, and AWS.
 - `/logic`: Correlation algorithms (e.g., Glucose Spike vs. Activity Intensity).
 - `/docs`: Architecture diagrams and research.
 
 ## 🚦 Getting Started for Cursor AI
 1. **Initial Setup:** Run `npx create-expo-app app` to initialize the mobile client.
 2. **Environment:** Create a `.env` file for AWS credentials (`AWS_ACCESS_KEY`, `AWS_SECRET_KEY`) and Withings API keys.
-3. **Connectivity:** Focus on implementing the `SamsungHealthService` first to pull existing CareSens data.
+3. **Connectivity:** CGM via `HealthConnectService` (xDrip+ → Health Connect); body metrics via Withings API.
 
 ## 📝 License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

@@ -4,7 +4,7 @@
 
 import { foodLogDayKey } from '../services/FoodLogService';
 import { CGM_STAT_MIN_SAMPLES_PER_DAY } from './cgmStatisticalFilter';
-import type { TimePoint } from '../services/SamsungHealthService';
+import type { TimePoint } from '../services/HealthConnectService';
 
 /** Daily min below this → counted as a "low day" for mentor stats. */
 export const CGM_CLINICAL_LOW_DAY_THRESHOLD_MG_DL = 70;

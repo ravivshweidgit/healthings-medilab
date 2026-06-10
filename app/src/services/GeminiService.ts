@@ -13,7 +13,7 @@ import {
   type MentorLines,
 } from '../logic/mentorChatText';
 import type { MentorType, DailyMacroTarget, BodyTarget, UserRules, CoachMessage, CoachActionItem, AutoCheckType, ChatMessage, UserLanguage, Gender } from './TargetService';
-import type { TimePoint } from './SamsungHealthService';
+import type { TimePoint } from './HealthConnectService';
 import {
   buildPeriodReviewBlock,
   detectPeriodReviewQuery,

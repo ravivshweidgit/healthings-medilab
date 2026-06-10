@@ -35,7 +35,7 @@ import {
   prepareGlucoseSeries,
 } from './healthMetricsCache';
 import type { CgmSessionStart } from '../logic/cgmWarmupFilter';
-import { samsungHealthService, type TimePoint } from './SamsungHealthService';
+import { healthConnectService, type TimePoint } from './HealthConnectService';
 import type { DailyMacroTarget } from './TargetService';
 
 export const MAX_REVIEW_DAYS = 128;
@@ -294,7 +294,7 @@ async function fetchPeriodIntraday(
 
   const [withings, health, cached] = await Promise.all([
     fetchHeartRateHistory(dayCount),
-    samsungHealthService.fetchRecentMetrics(periodStart).catch(() => null),
+    healthConnectService.fetchRecentMetrics(periodStart).catch(() => null),
     loadCachedHealthMetrics(),
   ]);
 

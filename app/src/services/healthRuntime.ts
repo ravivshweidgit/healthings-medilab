@@ -6,7 +6,7 @@ export type HealthDataSource = 'health-connect' | 'demo-expo-go' | 'demo-non-and
 
 /**
  * Health Connect native APIs are not available inside the Expo Go store client.
- * Use a dev build (`expo run:android` / EAS) for real Samsung Health / CareSens data.
+ * Use a dev build (`expo run:android` / EAS) for real Health Connect / CGM data.
  */
 export function getHealthDataSource(): HealthDataSource {
   if (Platform.OS !== 'android') {

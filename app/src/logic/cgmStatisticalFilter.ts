@@ -4,7 +4,7 @@
  */
 
 import { foodLogDayKey } from '../services/FoodLogService';
-import type { TimePoint } from '../services/SamsungHealthService';
+import type { TimePoint } from '../services/HealthConnectService';
 
 /** Daily min below this → "low day" (isolated extreme lows, e.g. 40 mg/dL artifact). */
 export const CGM_STAT_LOW_DAY_THRESHOLD_MG_DL = 54;

@@ -1,4 +1,4 @@
-import type { TimePoint } from '../services/SamsungHealthService';
+import type { TimePoint } from '../services/HealthConnectService';
 
 export type ActivityZone = {
   startTime: string;
@@ -42,7 +42,7 @@ export const calculateMetabolicEfficiency = (
   if (!glucose.length || !steps.length) {
     return {
       efficiencyScore: 0,
-      insight: 'Not enough data yet. Connect Samsung Health and sync at least 24h.',
+      insight: 'Not enough data yet. Connect Health Connect and sync at least 24h.',
       activityZones: [],
     };
   }

@@ -3,7 +3,7 @@
  */
 
 import { foodLogDayKey, type FoodEntry } from '../services/FoodLogService';
-import type { TimePoint } from '../services/SamsungHealthService';
+import type { TimePoint } from '../services/HealthConnectService';
 import {
   CGM_WARMUP_HOURS,
   formatCgmSessionLines,

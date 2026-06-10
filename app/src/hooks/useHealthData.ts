@@ -13,7 +13,7 @@ import {
   prepareGlucoseSeries,
   type CachedHealthMetrics,
 } from '../services/healthMetricsCache';
-import { samsungHealthService, type RecentMetrics, type TimePoint } from '../services/SamsungHealthService';
+import { healthConnectService, type RecentMetrics, type TimePoint } from '../services/HealthConnectService';
 
 export type HealthSyncResult = {
   metrics: RecentMetrics;
@@ -130,8 +130,8 @@ export const useHealthData = () => {
         let hcGlucose: TimePoint[] = [];
         if (dataSource === 'health-connect') {
           try {
-            await samsungHealthService.initializeAndRequestPermissions();
-            hcGlucose = (await samsungHealthService.fetchRecentMetrics()).glucose;
+            await healthConnectService.initializeAndRequestPermissions();
+            hcGlucose = (await healthConnectService.fetchRecentMetrics()).glucose;
           } catch {
             // Non-fatal: CSV import still applies from file + cache.
           }
@@ -194,8 +194,8 @@ export const useHealthData = () => {
           };
         }
 
-        await samsungHealthService.initializeAndRequestPermissions();
-        const metrics = await samsungHealthService.fetchRecentMetrics();
+        await healthConnectService.initializeAndRequestPermissions();
+        const metrics = await healthConnectService.fetchRecentMetrics();
         const cached = await loadCachedHealthMetrics();
         // HC wins on duplicate instant; keep CSV history from cache (prompt21 PART A).
         const mergedRaw = mergeGlucoseTimePoints([cached?.glucose ?? [], metrics.glucose]);

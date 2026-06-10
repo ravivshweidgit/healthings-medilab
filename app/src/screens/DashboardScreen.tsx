@@ -34,7 +34,7 @@ import { MacroTargetStrip } from '../components/MacroTargetStrip';
 import { ChatScreen } from './ChatScreen';
 import { CONFIG } from '../config/env';
 import { useHealthData } from '../hooks/useHealthData';
-import { openHealthConnectSettings } from '../services/SamsungHealthService';
+import { openHealthConnectSettings } from '../services/HealthConnectService';
 import {
   DEFAULT_TREND_PERIOD_DAYS,
   TREND_PERIOD_DAY_OPTIONS,
