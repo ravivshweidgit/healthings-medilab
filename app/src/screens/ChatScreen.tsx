@@ -5,11 +5,13 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
 import {
   ActivityIndicator,
   Alert,
   BackHandler,
   FlatList,
+  Image,
   Keyboard,
   Platform,
   Pressable,
@@ -76,6 +78,21 @@ function yesterdayKey(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
   return foodLogDayKey(d.getTime());
+}
+
+/** In-memory only — preview URI is never written to AsyncStorage. */
+type ChatMessageUI = ChatMessage & { previewUri?: string };
+
+type PendingChatImage = { uri: string; base64: string; mimeType: string };
+
+function defaultImagePrompt(lang?: UserLanguage | null): string {
+  if (lang?.code === 'he') {
+    return 'צירפתי תמונה. מה את/ה ממליצ/ה לי, לפי היעדים והכללים שלי?';
+  }
+  if (lang?.code === 'ar') {
+    return 'أرفقت صورة. ماذا تنصحني وفق أهدافي وقواعدي؟';
+  }
+  return 'I attached a photo. What do you recommend for me based on my goals and dietary rules?';
 }
 
 function actionItemsHeader(done: number, total: number, _lang?: UserLanguage | null): string {
@@ -154,6 +171,10 @@ function chatUiStrings(context: CoachContext) {
       improveLabel: 'מה לשפר',
       expand: 'פתח',
       collapse: 'סגור',
+      attachPhoto: 'צרף',
+      attachTitle: 'צרף תמונה',
+      attachCamera: 'מצלמה',
+      attachGallery: 'גלריה',
       exportChat: 'ייצוא',
       exportEmptyTitle: 'אין מה לייצא',
       exportEmptyMessage: 'אין משימות או הודעות שיחה להיום.',
@@ -189,6 +210,10 @@ function chatUiStrings(context: CoachContext) {
       improveLabel: 'ما يمكن تحسينه',
       expand: 'فتح',
       collapse: 'إغلاق',
+      attachPhoto: 'صورة',
+      attachTitle: 'إرفاق صورة',
+      attachCamera: 'كاميرا',
+      attachGallery: 'معرض',
       exportChat: 'تصدير',
       exportEmptyTitle: 'لا يوجد ما يُصدَّر',
       exportEmptyMessage: 'لا مهام أو رسائل لليوم بعد.',
@@ -223,6 +248,10 @@ function chatUiStrings(context: CoachContext) {
     improveLabel: 'What to improve',
     expand: 'Expand',
     collapse: 'Collapse',
+    attachPhoto: 'Photo',
+    attachTitle: 'Attach photo',
+    attachCamera: 'Camera',
+    attachGallery: 'Gallery',
     exportChat: 'Export',
     exportEmptyTitle: 'Nothing to export',
     exportEmptyMessage: 'No action items or chat messages for today yet.',
@@ -855,7 +884,7 @@ function MessageBubble({
   mentor,
   rtl,
 }: {
-  msg: ChatMessage;
+  msg: ChatMessageUI;
   mentor: MentorType;
   rtl?: boolean;
 }) {
@@ -868,6 +897,9 @@ function MessageBubble({
     return (
       <View style={[styles.msgWrap, styles.msgWrapUser]}>
         <View style={[styles.msgBubble, styles.msgBubbleUser]}>
+          {msg.previewUri ? (
+            <Image source={{ uri: msg.previewUri }} style={styles.msgAttachedImage} resizeMode="cover" />
+          ) : null}
           <Text style={[styles.msgText, styles.msgTextUser, rtl && styles.rtlText]}>{msg.text}</Text>
           {time ? (
             <Text style={[styles.msgTime, styles.msgTimeUser, rtl && styles.rtlText]}>{time}</Text>
@@ -902,9 +934,10 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
   const mentorTabs = useMemo(() => orderedActiveMentors(context.mentors), [context.mentors]);
   const [activeMentor, setActiveMentor] = useState<MentorType>(mentorTabs[0] ?? 'coach');
   const [coachMsg, setCoachMsg] = useState<CoachMessage | null>(null);
-  const [history, setHistory] = useState<ChatMessage[]>([]);
+  const [history, setHistory] = useState<ChatMessageUI[]>([]);
   const [questions, setQuestions] = useState<QuickQuestion[]>([]);
   const [inputText, setInputText] = useState('');
+  const [pendingImage, setPendingImage] = useState<PendingChatImage | null>(null);
   const [sending, setSending] = useState(false);
   const [faqVisible, setFaqVisible] = useState(false);
   const [coachExpanded, setCoachExpanded] = useState(false);
@@ -1101,18 +1134,76 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
     }
   }, [coachMsg, context.mentors, context.lang, context.mentorGender, ui]);
 
+  const pickChatImage = useCallback(async (source: 'camera' | 'gallery') => {
+    const perm =
+      source === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert(
+        'Permission required',
+        `Please allow ${source === 'camera' ? 'camera' : 'photo library'} access in Settings.`,
+      );
+      return;
+    }
+    const result =
+      source === 'camera'
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            quality: 0.5,
+            base64: true,
+            allowsEditing: false,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            quality: 0.4,
+            base64: true,
+            allowsEditing: false,
+            exif: false,
+          });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    const base64 = asset.base64;
+    if (!base64) {
+      Alert.alert('Photo error', 'Could not read this image. Try another photo.');
+      return;
+    }
+    if (base64.length > 4_000_000) {
+      Alert.alert('Image too large', 'This photo is too large. Try a smaller image or use the camera.');
+      return;
+    }
+    const mimeType = asset.mimeType?.startsWith('image/') ? asset.mimeType : 'image/jpeg';
+    setPendingImage({ uri: asset.uri, base64, mimeType });
+  }, []);
+
+  const handleAttachPhoto = useCallback(() => {
+    Alert.alert(ui.attachTitle, undefined, [
+      { text: ui.cancel, style: 'cancel' },
+      { text: ui.attachCamera, onPress: () => void pickChatImage('camera') },
+      { text: ui.attachGallery, onPress: () => void pickChatImage('gallery') },
+    ]);
+  }, [ui, pickChatImage]);
+
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text: string, attachment?: PendingChatImage | null) => {
       const trimmed = text.trim();
-      if (!trimmed || sending) return;
+      const image = attachment ?? null;
+      if ((!trimmed && !image) || sending) return;
 
+      const promptText = trimmed || defaultImagePrompt(context.lang);
       const today = todayKey();
-      const userMsg: ChatMessage = { role: 'user', text: trimmed, sentAt: new Date().toISOString() };
+      const sentAt = new Date().toISOString();
+      const storedMsg: ChatMessage = { role: 'user', text: promptText, sentAt };
+      const displayMsg: ChatMessageUI = {
+        ...storedMsg,
+        previewUri: image?.uri,
+      };
 
-      setHistory((prev) => [...prev, userMsg]);
-      await appendChatMessage(today, activeMentor, userMsg);
+      setHistory((prev) => [...prev, displayMsg]);
+      await appendChatMessage(today, activeMentor, storedMsg);
       setAnyChatHistory(true);
       setInputText('');
+      setPendingImage(null);
       setSending(true);
       scrollToBottom();
 
@@ -1143,15 +1234,17 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
             lastMealSummary: mealsCtx.lastMealSummary,
             todayMealsDetail: mealsCtx.todayMealsDetail,
           },
-          trimmed,
+          promptText,
         );
 
         const replyText = await chatWithMentor(
           activeMentor,
-          trimmed,
+          promptText,
           currentHistory.slice(0, -1),
           freshContext,
           yesterdaySummary,
+          image?.base64 ?? null,
+          image?.mimeType,
         );
         const aiMsg: ChatMessage = {
           role: 'assistant',
@@ -1172,7 +1265,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
         setSending(false);
       }
     },
-    [sending, context, activeMentor, scrollToBottom]
+    [sending, context, activeMentor, scrollToBottom],
   );
 
   const handleToggleActionItem = useCallback(
@@ -1345,6 +1438,14 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
                 },
               ]}
             >
+              {pendingImage ? (
+                <View style={[styles.attachPreviewRow, ui.rtl && styles.attachPreviewRowRtl]}>
+                  <Image source={{ uri: pendingImage.uri }} style={styles.attachPreviewThumb} resizeMode="cover" />
+                  <Pressable style={styles.attachPreviewClear} onPress={() => setPendingImage(null)} hitSlop={8}>
+                    <Text style={styles.attachPreviewClearText}>✕</Text>
+                  </Pressable>
+                </View>
+              ) : null}
               <TextInput
                 style={[styles.textInput, ui.rtl && styles.rtlInput]}
                 value={inputText}
@@ -1363,6 +1464,16 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
               />
               <View style={[styles.inputToolbar, ui.rtl && styles.inputToolbarRtl]}>
                 <View style={styles.inputToolbarActions}>
+                  <Pressable
+                    style={styles.attachBtn}
+                    onPress={handleAttachPhoto}
+                    disabled={sending}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={ui.attachTitle}
+                  >
+                    <Text style={styles.attachBtnIcon}>📷</Text>
+                  </Pressable>
                   <Pressable
                     style={[styles.scrollBtn, !canScrollChat && styles.toolbarBtnDisabled]}
                     onPress={scrollToTop}
@@ -1405,9 +1516,12 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
                   </Pressable>
                 </View>
                 <Pressable
-                  style={[styles.sendBtn, (!inputText.trim() || sending) && styles.sendBtnDisabled]}
-                  onPress={() => sendMessage(inputText)}
-                  disabled={!inputText.trim() || sending}
+                  style={[
+                    styles.sendBtn,
+                    ((!inputText.trim() && !pendingImage) || sending) && styles.sendBtnDisabled,
+                  ]}
+                  onPress={() => void sendMessage(inputText, pendingImage)}
+                  disabled={(!inputText.trim() && !pendingImage) || sending}
                 >
                   <Text style={styles.sendBtnText}>{ui.send}</Text>
                 </Pressable>
@@ -1677,7 +1791,56 @@ const styles = StyleSheet.create({
   msgBubbleAI: { backgroundColor: WellnessColors.surface, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: WellnessColors.gridLine },
   msgText: { fontSize: 14, lineHeight: 21 },
   msgTextUser: { color: '#fff' },
+  msgAttachedImage: {
+    width: 160,
+    height: 120,
+    borderRadius: 10,
+    marginBottom: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
   msgTextAI: { color: WellnessColors.textPrimary },
+  attachPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 12,
+    marginBottom: 8,
+    gap: 8,
+  },
+  attachPreviewRowRtl: { flexDirection: 'row-reverse' },
+  attachPreviewThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+  },
+  attachPreviewClear: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: WellnessColors.background,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachPreviewClearText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: WellnessColors.textSecondary,
+  },
+  attachBtn: {
+    width: 36,
+    height: 40,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+    backgroundColor: WellnessColors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  attachBtnIcon: { fontSize: 18, lineHeight: 22 },
   msgTime: { fontSize: 10, marginTop: 4 },
   msgTimeUser: { color: 'rgba(255,255,255,0.7)', textAlign: 'right' },
   msgTimeAI: { color: WellnessColors.textSecondary, textAlign: 'right' },

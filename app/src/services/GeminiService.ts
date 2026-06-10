@@ -1523,7 +1523,11 @@ function salvageTruncatedResponse(stripped: string): string | null {
   return unescaped.length > 0 ? unescaped : null;
 }
 
-async function fetchGeminiChat(contents: Array<{ role: string; parts: Array<{ text: string }> }>): Promise<string> {
+type GeminiChatPart =
+  | { text: string }
+  | { inline_data: { mime_type: string; data: string } };
+
+async function fetchGeminiChat(contents: Array<{ role: string; parts: GeminiChatPart[] }>): Promise<string> {
   const body = {
     contents,
     generationConfig: geminiGenerationConfig({
@@ -1763,6 +1767,8 @@ async function chatWithSingleMentor(
   history: ChatMessage[],
   ctx: CoachContext,
   yesterdaySummary: string | null,
+  imageBase64?: string | null,
+  imageMimeType: string = 'image/jpeg',
 ): Promise<string> {
   const blocks = buildChatContextBlocks(ctx, message, yesterdaySummary, mentor, history.length);
   const periodSection = await blocks.periodSection;
@@ -1786,7 +1792,19 @@ async function chatWithSingleMentor(
           : `${formatChatMsgTimePrefix(m.sentAt)}${m.text}`,
       }],
     })),
-    { role: 'user', parts: [{ text: `${formatChatMsgTimePrefix(new Date().toISOString())}${blocks.userMessage}` }] },
+    {
+      role: 'user',
+      parts: [
+        ...(imageBase64
+          ? [{ inline_data: { mime_type: imageMimeType, data: imageBase64 } } satisfies GeminiChatPart]
+          : []),
+        {
+          text: `${formatChatMsgTimePrefix(new Date().toISOString())}${blocks.userMessage}${
+            imageBase64 ? '\n[User attached a photo — read it and answer using their goals and rules above.]' : ''
+          }`,
+        },
+      ],
+    },
   ];
 
   const raw = await fetchGeminiChat(contents);
@@ -1800,9 +1818,19 @@ export async function chatWithMentor(
   history: ChatMessage[],
   ctx: CoachContext,
   yesterdaySummary: string | null,
+  imageBase64?: string | null,
+  imageMimeType?: string,
 ): Promise<string> {
   const scopedCtx: CoachContext = { ...ctx, mentors: [mentor] };
-  const text = await chatWithSingleMentor(mentor, message, history, scopedCtx, yesterdaySummary);
+  const text = await chatWithSingleMentor(
+    mentor,
+    message,
+    history,
+    scopedCtx,
+    yesterdaySummary,
+    imageBase64,
+    imageMimeType,
+  );
   if (!text.trim()) return chatErrorMessage(ctx.lang);
   return text;
 }
