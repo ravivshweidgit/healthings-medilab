@@ -89,6 +89,93 @@ must therefore:
 
 ---
 
+## Source configuration (sensor setup) — how the user picks their stack
+
+The user thinks in **devices they own**; the app thinks in **metric domains**. The config
+screen bridges the two: the user toggles the devices/services they use, and the app resolves
+which source feeds each metric (with a fixed priority when more than one can).
+
+### Recommended model (v1: simple, device-toggle + fixed priority)
+A persisted config object (also included in backup):
+
+```jsonc
+// AsyncStorage key: "source_config"
+{
+  "version": 1,
+  "glucose":         "health-connect" | "none",        // CareSens/Libre via Health Connect
+  "activity":        "withings" | "samsung-steps" | "none",
+  "bodyComposition": "withings" | "manual" | "none",
+  "bmr":             "withings" | "manual" | "ai",
+  "heartRate":       "withings" | "none"
+}
+```
+
+**Resolution priority when multiple sources could fill a metric** (highest wins per day):
+- **BMR:** `manual override` (if set) > `withings` (measured) > `ai` (estimate from age+weight).
+- **Activity:** `withings` (day has data) > `samsung-steps` (derived) > none.
+- **Body comp:** `withings` > `manual` > none.
+- **Glucose / HR:** single source each for now.
+
+The selected source per metric is just **which adapter is allowed to run**; the merge layer
+and `source` tag (Principle 3) handle the rest. Switching a source never wipes existing data —
+it only changes who feeds new data.
+
+### UX suggestion
+- **Onboarding step "Connect your devices"** + a **Settings → Data Sources** section (same
+  component). Friendly device toggles, not raw metric dropdowns:
+  - ☐ Withings (scale / watch) → enables body comp, BMR, HR, activity
+  - ☐ Samsung Health (steps) → enables step-derived activity
+  - ☐ CGM via Health Connect (CareSens / Libre) → enables glucose
+  - ☐ Manual BMR (I have my BMR from a professional) → BMR override input
+- App derives the `source_config` from the toggles; show a one-line "what you'll get" summary
+  (e.g. "Energy: BMR (AI) + steps activity. No glucose.").
+- **Advanced (later):** expose the per-metric priority list for power users with 2 sources.
+
+### "Simple user" resolves to:
+```
+{ glucose: "none", activity: "samsung-steps",
+  bodyComposition: "none", bmr: "ai", heartRate: "none" }
+```
+…with an optional manual BMR override flipping `bmr` → `"manual"`.
+
+---
+
+## Recommended build order (do this tomorrow)
+
+Withings-persistence-first, because Withings is the **richest** source — modeling the local
+stores on it means every later adapter (Samsung, Libre, Tanita) fills a strict **subset** and
+never forces a schema change.
+
+1. **Persist Withings into local stores** (close the gap in Principle 3's "Implication").
+   Define day-keyed, **source-tagged** stores for activity-kcal, body comp, BMR, HR. UI reads
+   from these stores, not the API. This *defines the contract*.
+
+   **The contract already exists — it's the types we already fetch.** Persistence schema =
+   existing Withings shapes + a `source` tag. No new schema to invent:
+   | Existing type (today) | Becomes persisted store | Source tag |
+   |---|---|---|
+   | `WeightMetricsForDashboard` (`weightKg`, `fatMassKg`, `muscleMassKg`, `visceralFatIndex`, `bmrKcalDay`) | Body composition + BMR (latest + day-keyed) | `withings` / `manual` |
+   | `MetabolicTrend7dDay` (`dayKey`, weight/fat/muscle/visceral, `bmrKcalDay`, `activityKcalDay`) | Day-keyed body+energy trend | `withings` |
+   | `WithingsHeartRatePoint[]` / `WithingsCaloriePoint[]` (`WithingsIntradayData`) | HR + activity-kcal slots | `withings` |
+   | `WorkoutSession[]` | Workouts | `withings` |
+   So step 1 is mostly: write what `loadBodyScan` / `loadTrend` / `loadHeartRate` /
+   `loadWorkouts` already produce into AsyncStorage on each sync, and read it back on load.
+   Samsung later fills the **same** `activityKcalDay` / activity-slot fields, tagged
+   `samsung-steps`.
+2. **Source configuration** — `source_config` model + Settings/onboarding toggles above.
+3. **Activity store + Samsung steps adapter + AI/manual BMR** — the simple-user path lands on
+   already-proven infrastructure:
+   - Samsung adapter: steps → day-keyed kcal → merge (tagged `samsung-steps`).
+   - AI BMR (Mifflin-St Jeor from age+weight) fills the BMR slot; manual override beats it.
+4. **Local backup** (the rest of this prompt) — now trivial: one local layer to snapshot, and
+   Withings data is finally inside it.
+
+Model the activity store as **day-keyed totals with a `source` tag**, never Withings-specific
+intraday slots — otherwise Samsung's coarse/batched step writes won't fit cleanly. Source-
+neutral slot shape from day one.
+
+---
+
 ### Trigger (user request 2026-06-10)
 All app data lives **only** on the phone (AsyncStorage + SecureStore). If the phone is
 lost or the app is reinstalled, everything is gone: food log, manual burn edits, profile,
@@ -131,6 +218,8 @@ tokens, native only), **expo-file-system** (export/import/debug files). No MMKV 
 | `coach_message_today` | Today's coach summary + action items | `TargetService.ts` / `CoachService.ts` |
 | `chat_history_{YYYY-MM-DD}_{mentor}` (+ legacy `chat_history_{date}`) | Chat per mentor/day (no index — use `getAllKeys()`) | `TargetService.ts` |
 | `chat_yesterday_summary`, `chat_quick_questions`, `chat_quick_questions_lang` | Chat support state | `TargetService.ts` |
+| `source_config` | Selected data sources per metric (sensor setup) | NEW (this prompt) |
+| `manual_bmr_kcal` | User-entered BMR override (when `bmr: "manual"`) | NEW (this prompt) |
 
 ### Tier 2 — CGM history not easily reconstructed (MUST back up)
 | Key | Data | Owner |
@@ -250,4 +339,5 @@ key `healthings:withingsBackup`, which the dashboard can read as a fallback.
 ---
 
 ## Status
-**Spec only — not implemented.** Awaiting go-ahead to build per this plan.
+**Spec only — not implemented.** Ready to build tomorrow per the "Recommended build order"
+(Withings persistence → source config → Samsung steps + AI/manual BMR → local backup).
