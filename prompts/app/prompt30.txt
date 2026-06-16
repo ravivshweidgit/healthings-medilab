@@ -1,0 +1,339 @@
+## Prompt 30 — Lab results log (PDF import, like food log)
+
+---
+
+### Trigger (user request 2026-06-16)
+User wants a **lab results log** in the app — same spirit as the food log: pick a file,
+AI extracts structured data, user reviews/edits, save locally, mentors can cite it in chat
+and the coach panel.
+
+**Reference files** (real Clalit online printouts, same blood draw `16.06.2026 10:10`):
+
+| File | Panel | Sample highlights |
+|---|---|---|
+| `16-06-26 15-52.PDF` | Chemistry / lipids / liver / renal | GLUCOSE 91 mg/dL, CHOLESTEROL 225.6, LDL calc 170.0, HDL 44, TRIGLYCERIDES 60, AST 17, ALT 14, CREATININE 1.26 |
+| `16-06-26 14-29.pdf` | CBC / differential | WBC 5.3 K/ul, HB 14.4 g/dl, HCT 44.1%, PLT 225 K/ul, NEUT% 63.2% |
+
+Both share the same Clalit header/footer pattern (Hebrew RTL, English test codes).
+
+---
+
+### Goal
+1. User imports a **PDF lab report** (starting with **Clalit און־ליין** printouts).
+2. **Gemini** parses the PDF into structured `LabResult[]` JSON (like food photo → `FoodItem[]`).
+3. User **reviews** extracted values in a modal (edit / delete rows / confirm).
+4. Saved reports persist in **AsyncStorage** (local only — no cloud).
+5. **All mentors** (Doctor 🩺, Nutritionist 🥗, Coach 💪) see saved lab data in coach
+   panel + chat USER DATA — same persistence-first model as food log and My Rules.
+6. **Export / import JSON** for the lab log (mirror `exportFoodLog` / `importFoodLog`).
+
+### Mandatory — mentors MUST see lab reports
+**Non-negotiable:** once the user saves a lab report, **every mentor** (Doctor 🩺, Nutritionist 🥗,
+Coach 💪) receives the structured lab data in **both**:
+- **Chat** — USER DATA header on every message (via `buildFreshContext()` reload).
+- **Coach panel** — same shared header in `generateCoachMessage()` (identical source as chat).
+
+Same architecture as food log + My Rules: one `buildProfileTargetsHeader()` block, no second
+copy of lab data elsewhere. Mentors must **never** say labs are unavailable when `LAB RESULTS`
+is present in USER DATA.
+
+---
+
+### Vision — why this matters
+Food log closes the **energy** loop. Lab log closes the **clinical baseline** loop:
+
+- User's **My Rules** may say "lower cholesterol" — lab PDF proves LDL 170 vs target < 100.
+- **Doctor mentor** can interpret trends across imports (not diagnose — safety + follow-up).
+- **Nutritionist** can tie dietary rules to measured lipids / glucose / HbA1c when present.
+- Complements CGM (point-in-time finger-stick / lab glucose vs continuous sensor).
+
+All data stays on-device (aligns with prompt29 backup tier).
+
+---
+
+### Reference PDF format — Clalit online (v1 parser target)
+
+**Header (both samples):**
+```
+רביב שוויד, מספר תעודת זהות:24667792
+תדפיס של טבלה המרכזת תוצאות של בדיקות מעבדה מאתר כללית און־ליין
+תאריך הבדיקה ושעת ביצועה 10:10 16.06.2026
+```
+
+**Table columns (RTL):** `תוצאה לעומת טווח הנורמה` | `תוצאה` | `שם הבדיקה`
+
+**Row pattern:** `{value} {unit} {TEST_CODE}` — e.g. `91 mg/dL GLUCOSE`, `5.3 K/ul WBC`.
+
+**Footer notes (chemistry panel):** Hebrew reference hints per test group, e.g.:
+- CHOLESTEROL: ערך רצוי קטן מ 200
+- CHOLESTEROL-LDL calc: ערך רצוי קטן מ 100
+- TRIGLYCERIDES: ערך רצוי קטן מ150
+
+**Footer stamp:** `הודפס מאתר כללית ב־16.06.2026 בשעה 15:52 בעבור …`
+
+**Parser implications:**
+- One PDF = usually **one panel** (chemistry OR CBC). Same draw date → merge into one
+  `LabReport` with multiple `panels[]` when user imports a second file for the same visit.
+- Extract: `patientName`, `patientId` (תעודת זהות), `collectedAt` (specimen time),
+  `printedAt`, `labProvider: 'clalit'`, `panelType` (inferred: `chemistry` | `cbc` | `other`).
+- Map test `code` to canonical English key; keep `nameOriginal` as printed.
+- `referenceText` from footer notes when matched to test code; `flag` (`low`|`high`|`normal`|`unknown`)
+  when norm column or note allows inference — OK to leave `unknown` in v1.
+
+**Out of scope v1:** scanned/image-only PDFs with no text layer, other HMOs (Maccabi, Meuhedet,
+Leumit), HL7/FHIR, manual range databases. Design adapter hook `labProvider` for later.
+
+---
+
+### Data model
+
+```ts
+// app/src/services/LabLogService.ts
+
+export type LabResultFlag = 'low' | 'high' | 'normal' | 'unknown';
+
+export type LabResult = {
+  code: string;              // canonical e.g. "GLUCOSE", "CHOLESTEROL_LDL"
+  name: string;              // English display name
+  nameOriginal?: string;     // as printed (often English code on Clalit)
+  value: number;
+  unit: string;              // "mg/dL", "g/dl", "K/ul", "U/L", "%"
+  flag: LabResultFlag;
+  referenceText?: string;    // Hebrew/English note from PDF footer
+};
+
+export type LabPanel = {
+  id: string;
+  panelType: 'chemistry' | 'cbc' | 'other';
+  results: LabResult[];
+};
+
+export type LabReport = {
+  id: string;                // uuid
+  labProvider: 'clalit' | 'unknown';
+  patientName?: string;
+  patientId?: string;        // Israeli ID — sensitive; local only
+  collectedAt: string;       // ISO from "תאריך הבדיקה" (specimen time)
+  printedAt?: string;        // ISO from footer stamp
+  importedAt: string;        // ISO when user saved
+  source: 'pdf-ai' | 'manual';
+  panels: LabPanel[];
+  note?: string;
+};
+```
+
+**AsyncStorage key pattern** (mirror food log):
+- Index: `lab_log_reports` → `string[]` (report ids, sorted by `collectedAt` desc)
+- Per report: `lab_report_{id}` → `LabReport` JSON
+
+**Merge rule (by report date):** one stored `LabReport` per **calendar draw day**
+(`collectedAt` date, local timezone). Importing more PDFs for the same day **merges into that
+single report** as additional `panels[]`:
+- 3 PDFs on `2026-06-16` (chemistry + CBC + lipids-only reprint) → **1 report**, up to 3 panels.
+- Same `panelType` on same day → replace that panel (latest import wins).
+- Different calendar days → separate reports in the index.
+
+Use `reportDate` helper: `collectedAt` normalized to `YYYY-MM-DD` for merge lookup.
+
+---
+
+### Gemini PDF parsing
+
+**Endpoint:** same as food log — `gemini-2.5-flash` v1 `generateContent`.
+
+**Input:** PDF bytes as `inline_data` with `mime_type: 'application/pdf'` (read via
+`expo-file-system` base64 from `expo-document-picker` result).
+
+**New function:** `parseLabReportPdf(base64Pdf, lang?)` in `GeminiService.ts`
+→ returns `{ report: Omit<LabReport,'id'|'importedAt'>, confidence: 'high'|'low' }`.
+
+**Prompt rules (embed as synthetic user/model exchange like food log):**
+- Output JSON only — no markdown.
+- Extract every numeric row from the table; do not invent tests not in the PDF.
+- Parse specimen date from `תאריך הבדיקה ושעת ביצועה` → ISO 8601 local Israel time.
+- Normalize codes: `CHOLESTEROL-LDL calc` → `CHOLESTEROL_LDL`, `NEUT.abs` → `NEUT_ABS`.
+- Units must match PDF (`mg/dL` vs `g/dl` — preserve as printed).
+- If a value is non-numeric (`0 HEMOLYTIC`, `0 LIPEMIC`) → store as `note` on panel, skip as result.
+- Attach footer reference notes to matching tests when possible.
+
+**Example response shape:**
+```json
+{
+  "labProvider": "clalit",
+  "patientName": "רביב שוויד",
+  "patientId": "24667792",
+  "collectedAt": "2026-06-16T10:10:00+03:00",
+  "printedAt": "2026-06-16T15:52:00+03:00",
+  "panelType": "chemistry",
+  "results": [
+    { "code": "GLUCOSE", "name": "Glucose", "nameOriginal": "GLUCOSE", "value": 91, "unit": "mg/dL", "flag": "unknown" },
+    { "code": "CHOLESTEROL", "name": "Total cholesterol", "nameOriginal": "CHOLESTEROL", "value": 225.6, "unit": "mg/dL", "flag": "high", "referenceText": "ערך רצוי קטן מ 200" }
+  ]
+}
+```
+
+**MOCK_MODE:** optional dev fixture from the two reference PDFs for offline UI work.
+
+---
+
+### UI — like food log
+
+#### Dashboard strip: `LabResultsStrip.tsx` (new)
+- Collapsible row in profile/health group (near My Rules / food macros).
+- Header: **My Lab Results** + latest draw date + count (e.g. `16 Jun 2026 · 2 panels`).
+- Expanded: list of saved reports (newest first); tap → detail.
+- Actions: **Import PDF** (primary), **Export JSON**, **Import JSON** (reuse food-log SAF/picker patterns).
+
+#### Modal: `LabReportModal.tsx` (new)
+Flow mirrors `FoodLogModal.tsx`:
+1. User picks PDF → loading spinner "Reading lab report…"
+2. Show extracted table (code, value, unit, flag color, reference note).
+3. Allow edit value/unit, delete spurious rows, add manual row.
+4. **Save** → `LabLogService.saveReport()`
+5. On save success → optional toast: "Doctor mentor can now see these results."
+
+**Flag colors:** high/low subtle amber/red; normal green; unknown grey.
+
+#### No chart v1
+Table + mentor context only. Trend chart (LDL over time) = prompt31+.
+
+---
+
+### Mentor / coach context injection (mandatory)
+
+**New helper:** `buildLabsAiContext(reports: LabReport[]): string | null` in `LabLogService.ts`.
+
+Format (compact — token budget). **Default = one merged report** (all panels for that draw day):
+```
+LAB RESULTS (latest draw — local PDFs, not medical advice):
+Report 2026-06-16 (Clalit) — chemistry + cbc:
+  GLUCOSE 91 mg/dL | CHOLESTEROL 225.6 mg/dL (ref <200, high) | LDL 170.0 mg/dL (ref <100, high) | HDL 44 | TRIGLYCERIDES 60 | ...
+  WBC 5.3 K/ul | HB 14.4 g/dl | HCT 44.1% | PLT 225 K/ul | ...
+```
+
+**Where injected (both paths, always):**
+| Surface | Function | When loaded |
+|---|---|---|
+| Chat mentors | `buildChatDataBlock()` → `buildProfileTargetsHeader()` | Every send via `buildFreshContext()` + `getLatestLabReport()` |
+| Coach panel | `buildCoachDataBlock()` → same header | Every `generateCoachMessage()` / refresh |
+
+**Scope (default vs /N):**
+
+| Mode | Lab reports in context |
+|---|---|
+| **Default** (every chat turn + coach panel) | **Latest report only** — the single most recent merged draw (all panels for that date) |
+| **`/N` period review** (`/7`, `/30`, …) | Every stored report whose **report date** falls in the **same N-day window** as PERIOD REVIEW (today + N−1 prior days), as `LAB HISTORY (N-day window)` — one block per draw day, each with all its panels |
+
+- Storage may have many draw days; default context stays small (1 report).
+- Trend questions ("how did my LDL change?") need `/N` wide enough to cover both draw dates.
+- Coach panel always uses **latest report only** (no slash commands on dashboard).
+
+**Per-mentor behaviour (prompt rules):**
+| Mentor | Must use labs for |
+|---|---|
+| Doctor 🩺 | Cholesterol, CBC, kidney (creatinine/urea), liver enzymes, uric acid, glucose; flags + follow-up; never diagnose |
+| Nutritionist 🥗 | Lipids, glucose, HbA1c when discussing diet / My Rules (e.g. LDL 170 vs cholesterol-lowering rules) |
+| Coach 💪 | Recovery/training context only when relevant (e.g. low Hb, high CK) — do not invent clinical advice |
+
+**Hard rules (add to coach + chat system prompts):**
+- When `LAB RESULTS` is in USER DATA, **never** claim labs are missing or unknown.
+- When user asks "my blood test / בדיקות דם / last labs", quote exact values from the block.
+- Labs + My Rules + CGM together: Nutritionist reconciles diet rules with measured lipids/glucose.
+- Informational only — not a substitute for a physician.
+
+---
+
+### Export / import
+
+Mirror `FoodLogService` export/import:
+
+```ts
+type LabExportPayload = {
+  version: 1;
+  exportedAt: string;
+  reports: Record<string, LabReport>;  // id → report
+};
+```
+
+- `exportLabLog()` → SAF folder → `lab_log_YYYY-MM-DD.json`
+- `importLabLog()` → DocumentPicker → merge by `report.id` (overwrite same id, add new)
+
+**prompt29 backup:** add to Tier 1:
+| Key | Data |
+|---|---|
+| `lab_log_reports` + `lab_report_{id}` | Lab PDF imports |
+
+---
+
+### Implementation plan
+
+1. **`LabLogService.ts`** — CRUD, index, merge panels, `buildLabsAiContext`, export/import.
+2. **`GeminiService.ts`** — `parseLabReportPdf`, prompt + JSON validation/normalization.
+3. **`LabReportModal.tsx`** — import → review → save.
+4. **`LabResultsStrip.tsx`** — dashboard UI + expand/collapse.
+5. **`DashboardScreen.tsx`** — wire strip, load reports on mount, refresh after import.
+6. **`ChatScreen.tsx`** — `buildFreshContext()` also calls `getLatestLabReports()` (or inline in service).
+7. **`GeminiService.ts`** — inject `buildLabsAiContext` in `buildProfileTargetsHeader`.
+8. **i18n copy** — Hebrew UI strings for import/review (user is Hebrew-first).
+
+### Dependencies
+- **No new native modules required v1** — `expo-document-picker` + `expo-file-system` + Gemini PDF input.
+- If Gemini PDF fails on device, fallback: show error "Could not read PDF — try exporting from Clalit again".
+
+### Privacy / safety
+- Israeli ID + name stay in AsyncStorage only; included in local backup/export JSON user controls.
+- Mentor disclaimer: informational, not a substitute for a physician.
+- Sensitive tests note on Clalit PDF ("מידע רפואי רגיש לא מוצגות") — app cannot import what isn't in the file.
+
+---
+
+### Files (planned)
+| File | Action |
+|---|---|
+| `app/src/services/LabLogService.ts` | **NEW** |
+| `app/src/services/GeminiService.ts` | `parseLabReportPdf`, header injection, doctor rules |
+| `app/src/components/LabResultsStrip.tsx` | **NEW** |
+| `app/src/components/LabReportModal.tsx` | **NEW** |
+| `app/src/screens/DashboardScreen.tsx` | Wire lab strip + modal |
+| `app/src/screens/ChatScreen.tsx` | Fresh lab context on send |
+| `prompts/app/prompt29.txt` | (follow-up) add lab keys to backup inventory |
+
+---
+
+### Test plan (device — use reference PDFs)
+
+**Import / parse**
+- [ ] Import `16-06-26 15-52.PDF` → ≥20 chemistry rows; GLUCOSE=91, CHOLESTEROL=225.6, LDL=170.0.
+- [ ] Import `16-06-26 14-29.pdf` → CBC rows; HB=14.4, WBC=5.3, PLT=225.
+- [ ] Second import same draw date → single report with 2 panels (chemistry + cbc).
+- [ ] Re-import same file → idempotent (no duplicate panels).
+
+**UI**
+- [ ] Strip shows latest date; expand lists both panels.
+- [ ] Edit a value → save → persists after app restart.
+- [ ] Export JSON → clear app data → import JSON → reports restored.
+
+**Mentors**
+- [ ] Chat (Doctor): "מה תוצאות הכולסטרול שלי?" → cites LDL 170, total 225.6 from LAB RESULTS.
+- [ ] Chat (Nutritionist): rules mention cholesterol → references lab LDL in context of diet.
+- [ ] Coach panel refresh → Doctor improve/wins mentions lipids when relevant.
+- [ ] Without any import → mentors do not invent lab values.
+
+**Regression**
+- [ ] Food log, My Rules, CGM chat still work (no token blow-up from lab block).
+
+---
+
+### Recommended build order
+1. `LabLogService` + types + mock fixture from reference PDFs (UI dev without API).
+2. `parseLabReportPdf` + phone test with real Clalit PDFs.
+3. `LabReportModal` review flow.
+4. Dashboard strip + export/import.
+5. Mentor context injection + chat fresh reload.
+6. prompt29 backup keys (can ship lab log before full backup).
+
+---
+
+### Status
+**Spec only — not implemented.** Reference PDFs validated (Clalit chemistry + CBC, 2026-06-16).
+Ready to build.
