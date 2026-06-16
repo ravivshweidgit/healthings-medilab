@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>הצעת שותפות · Healthings.ai Medilab ועידית הלפרין</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&family=Montserrat:ital,wght@0,600;0,700;0,800;1,800&display=swap" rel="stylesheet">
+    <style>
+        @page { size: A4; margin: 0; }
+
+        :root {
+            /* Gemini reference palette */
+            --navy: #1a2b3c;
+            --navy-deep: #122031;
+            --teal: #30c5c5;
+            --teal-deep: #1f8f93;
+            --rose: #a11d33;
+            --ink: #1a2b3c;
+            --slate: #3f5061;
+            --muted: #7a8794;
+            --line: #e4e8ee;
+            --paper: #f7f9fb;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Heebo', 'Segoe UI', Arial, sans-serif;
+            color: var(--ink);
+            background: #e9edf4;
+            line-height: 1.6;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .sheet {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 18px auto;
+            background: #ffffff;
+            box-shadow: 0 12px 44px rgba(26, 43, 60, 0.16);
+            padding: 30px 34px 0;
+            position: relative;
+        }
+
+        /* ===== Brand header ===== */
+        .brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        .brand .wordmark {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 33px;
+            letter-spacing: -0.3px;
+            color: var(--navy);
+            line-height: 1;
+            direction: ltr;
+        }
+        .brand .w-thin { font-weight: 600; }
+        .brand .w-bold { font-weight: 700; }
+        .brand .pulse { flex: 0 0 auto; }
+
+        .tagline {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            color: var(--navy);
+            font-size: 11.5px;
+            font-weight: 500;
+            margin-top: 9px;
+        }
+        .tagline .heart { flex: 0 0 auto; }
+
+        .rule {
+            height: 2px; border: 0; margin: 18px 0 16px;
+            background: linear-gradient(270deg, var(--navy) 0%, var(--teal) 55%, rgba(48,197,197,0) 100%);
+        }
+
+        .doc-title {
+            text-align: center;
+            font-weight: 800;
+            font-size: 20px;
+            color: var(--navy);
+            margin: 2px 0 5px;
+            line-height: 1.35;
+        }
+        .doc-sub {
+            text-align: center;
+            font-size: 10.5px;
+            color: var(--muted);
+            margin: 0 0 20px;
+            font-weight: 500;
+        }
+
+        /* ===== Grid ===== */
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+        .card {
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 16px 18px 14px;
+        }
+        .card-h {
+            color: var(--navy);
+            font-size: 13.5px;
+            font-weight: 700;
+            margin: 0 0 9px;
+        }
+
+        .card p { margin: 0 0 7px; font-size: 10px; color: var(--slate); line-height: 1.6; }
+        .card p:last-child { margin-bottom: 0; }
+        .card li strong, .card p strong { color: var(--navy); font-weight: 700; }
+
+        /* ===== Clean bullets (RTL) ===== */
+        ul.bullets { list-style: none; margin: 0; padding: 0; }
+        ul.bullets li {
+            position: relative;
+            padding-right: 15px;
+            font-size: 10px;
+            color: var(--slate);
+            margin-bottom: 7px;
+            line-height: 1.55;
+        }
+        ul.bullets li:last-child { margin-bottom: 0; }
+        ul.bullets li::before {
+            content: "";
+            position: absolute;
+            right: 0; top: 7px;
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: var(--teal);
+        }
+
+        /* ===== Key Synergy formula (kept LTR) ===== */
+        .formula {
+            display: flex; align-items: flex-end; justify-content: center;
+            gap: 9px; margin: 8px 0 5px; flex-wrap: wrap;
+            direction: ltr;
+        }
+        .term { text-align: center; }
+        .term .lab {
+            font-size: 8px; font-weight: 700; letter-spacing: .2px;
+            margin-bottom: 3px;
+        }
+        .term .math {
+            font-family: 'Cambria Math', 'Times New Roman', serif;
+            font-style: italic; font-weight: 700; font-size: 20px; color: var(--navy);
+        }
+        .term.t1 .lab { color: var(--navy); }
+        .term.t2 .lab { color: var(--teal-deep); }
+        .term.t3 .lab { color: var(--rose); }
+        .op { font-size: 22px; font-weight: 800; color: var(--navy); padding-bottom: 1px; line-height: 1; }
+        .formula-note { text-align: center; font-size: 9px; color: var(--muted); margin-top: 4px; }
+
+        /* ===== Clinical Integration Path ===== */
+        .path {
+            grid-column: 1 / -1;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 16px 18px 18px;
+            background: var(--paper);
+            margin: 16px 0;
+        }
+        .path-bandrow { display: flex; gap: 6px; margin-bottom: 9px; }
+        .band {
+            text-align: center; padding: 7px 6px;
+            border-radius: 7px; font-size: 9px; font-weight: 700; color: #fff;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            line-height: 1.15;
+        }
+        .band.b1 { background: var(--navy); }
+        .band.b2 { background: var(--teal-deep); }
+        .band.b3 { background: var(--teal); color: #0c3a3a; }
+        .band-goalspace { flex: 0 0 92px; }
+
+        /* Chevrons mirrored for RTL — arrows point LEFT, flow right→left */
+        .steps { display: flex; align-items: stretch; }
+        .step {
+            flex: 1;
+            color: #fff;
+            padding: 10px 20px 10px 10px;
+            margin-right: -11px;
+            clip-path: polygon(100% 0, 13px 0, 0 50%, 13px 100%, 100% 100%, calc(100% - 13px) 50%);
+            position: relative;
+        }
+        .step:first-child {
+            margin-right: 0;
+            padding-right: 12px;
+            clip-path: polygon(100% 0, 13px 0, 0 50%, 13px 100%, 100% 100%);
+            border-radius: 0 7px 7px 0;
+        }
+        .step .n { font-size: 8px; font-weight: 700; opacity: .9; }
+        .step .t { font-size: 9px; font-weight: 600; line-height: 1.3; margin-top: 2px; }
+        .step.s1 { background: #1a2b3c; }
+        .step.s2 { background: #244a5c; }
+        .step.s3 { background: #257e85; }
+        .step.s4 { background: #30c5c5; color: #0c3a3a; }
+        .step .role { font-size: 7px; font-weight: 800; opacity: .85; }
+        .step.bridge { box-shadow: 0 0 0 2px var(--rose); z-index: 3; }
+        .step.bridge .tag {
+            display: inline-block; margin-top: 3px;
+            background: var(--rose); color: #fff;
+            font-size: 7px; font-weight: 800;
+            padding: 1px 6px; border-radius: 999px;
+        }
+        .path-caption {
+            margin-top: 11px; font-size: 9.5px; color: var(--slate); line-height: 1.55;
+            border-right: 3px solid var(--rose); padding-right: 9px;
+        }
+        .path-caption strong { color: var(--navy); font-weight: 700; }
+
+        .goal {
+            flex: 0 0 92px;
+            background: var(--navy);
+            color: #fff;
+            border-radius: 7px 0 0 7px;
+            margin-right: -11px;
+            padding: 8px 18px 8px 8px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center;
+            clip-path: polygon(calc(100% - 13px) 0, 0 0, 0 100%, calc(100% - 13px) 100%, 100% 50%);
+        }
+        .goal .t { font-size: 9.5px; font-weight: 700; line-height: 1.2; }
+        .goal .s { font-size: 7.5px; color: var(--teal); margin-top: 2px; font-weight: 500; direction: ltr; }
+
+        /* ===== Footer ===== */
+        .footer {
+            margin: 20px -34px 0;
+            background: var(--navy);
+            color: #aebccb;
+            padding: 13px 34px;
+            text-align: center;
+            font-size: 9px;
+            letter-spacing: .5px;
+            font-weight: 500;
+        }
+        .footer strong { color: #fff; font-weight: 700; }
+        .footer .en { font-family: 'Montserrat', sans-serif; }
+
+        @media print {
+            body { background: #fff; }
+            .sheet { margin: 0; box-shadow: none; }
+            .card, .path, .grid { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+<div class="sheet">
+
+    <!-- ===== BRAND HEADER ===== -->
+    <div class="brand">
+        <div class="wordmark">
+            <span class="w-thin">Healthings.ai</span>
+            <svg class="pulse" width="60" height="28" viewBox="0 0 60 28" aria-hidden="true">
+                <polyline points="0,14 13,14 19,14 24,4 32,24 38,8 43,14 60,14"
+                    fill="none" stroke="#30c5c5" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="w-bold">Medilab</span>
+        </div>
+    </div>
+    <div class="tagline">
+        <svg class="heart" width="13" height="13" viewBox="0 0 32 32" aria-hidden="true">
+            <path fill="#a11d33" d="M16 28S3 20.2 3 11.6C3 7.4 6.3 4.2 10.3 4.2c2.4 0 4.6 1.2 5.7 3.1 1.1-1.9 3.3-3.1 5.7-3.1 4 0 7.3 3.2 7.3 7.4C29 20.2 16 28 16 28z"/>
+        </svg>
+        <span>ניטור וליווי בריאותי מתקדם</span>
+    </div>
+
+    <hr class="rule">
+
+    <h1 class="doc-title">הצעת שותפות: קידום מטבולי מבוסס AI באסתטיקה הקלינית</h1>
+    <p class="doc-sub">שותפות אסטרטגית בלעדית — Healthings.ai Medilab ועידית הלפרין אסתטיקה רפואית</p>
+
+    <!-- ===== CONTENT GRID ===== -->
+    <div class="grid">
+
+        <!-- Executive Summary -->
+        <div class="card">
+            <div class="card-h">תקציר מנהלים</div>
+            <ul class="bullets">
+                <li>משלב את מכשירי האסתטיקה המתקדמים של הקליניקה עם <strong>ניטור מטבולי רציף ברמה קלינית</strong>.</li>
+                <li>אינטגרציה בלעדית עם <strong>Withings</strong> — הסטנדרט העולמי (Gold Standard) לחיישנים רפואיים ביתיים.</li>
+                <li>אפליקציית פרימיום של <strong>Healthings.ai</strong>, מבוססת <strong>Local-First ושומרת פרטיות</strong>, פועלת כזרוע הדיגיטלית של הקליניקה.</li>
+                <li>ממצבת את הקליניקה בשווקי ה‑<strong>Longevity, ה‑Biohacking וניטור מטופלים מרחוק (RPM)</strong>.</li>
+            </ul>
+        </div>
+
+        <!-- Longevity Lab Concept -->
+        <div class="card">
+            <div class="card-h">תפיסת מעבדת האריכות</div>
+            <p>כל טיפול פועל על הגוף <strong>מבחוץ</strong>. כדי להגיע לתוצאה מלאה, הגוף חייב להגיב <strong>מבפנים</strong>.</p>
+            <p>האפליקציה שומרת על סביבה מטבולית אופטימלית כך שהתאים משתקמים, מייצרים קולגן חדש ומפנים את השומן המפורק — והופכת את הקליניקה למעבדת אריכות מטבולית אמיתית.</p>
+        </div>
+
+        <!-- Key Synergy -->
+        <div class="card">
+            <div class="card-h">הסינרגיה המרכזית</div>
+            <div class="formula">
+                <div class="term t1">
+                    <div class="lab">Withings · מכשור</div>
+                    <div class="math">M<sub>outside</sub></div>
+                </div>
+                <div class="op">&times;</div>
+                <div class="term t2">
+                    <div class="lab">Healthings.ai</div>
+                    <div class="math">AI<sub>inside</sub></div>
+                </div>
+                <div class="op">&equals;</div>
+                <div class="term t3">
+                    <div class="lab">הלפרין · תוצאה</div>
+                    <div class="math">E</div>
+                </div>
+            </div>
+            <div class="formula-note">מכשור מתקדם &times; איזון מטבולי חכם &equals; אפקטיביות מיטבית</div>
+        </div>
+
+        <!-- Metabolic AI Co-Pilot -->
+        <div class="card">
+            <div class="card-h">קו‑פיילוט מטבולי מבוסס AI לאנטי‑אייג'ינג</div>
+            <ul class="bullets">
+                <li><strong>צילום ארוחה ב‑AI Vision:</strong> מצלמים את האוכל — והמערכת מפרקת אותו אוטומטית לרכיבים תזונתיים ומסמנת תזונה דלקתית הפוגעת בקולגן.</li>
+                <li><strong>סנכרון פסיבי מ‑Withings:</strong> הרכב גוף סגמנטלי, דופק במנוחה, איכות שינה ומדדי לב וכלי דם.</li>
+                <li><strong>ניטור גלוקוז (CGM):</strong> מונע את תהליך הסִכְרוּר (Glycation) המקשיח את סיבי הקולגן והאלסטין.</li>
+            </ul>
+        </div>
+
+        <!-- ===== CLINICAL INTEGRATION PATH (full width) ===== -->
+        <div class="path">
+            <div class="card-h">מסלול האינטגרציה הקליני</div>
+            <div class="path-bandrow">
+                <div class="band b1" style="flex:2;">Withings וקליטת מטופלות</div>
+                <div class="band b2" style="flex:1;">מנוע Healthings.ai</div>
+                <div class="band b3" style="flex:1;">עידית הלפרין · ולידציה קלינית</div>
+                <div class="band-goalspace"></div>
+            </div>
+            <div class="steps">
+                <div class="step s1"><div class="role">Withings</div><div class="n">שלב 1</div><div class="t">קליטת מטופלות והגדרת מכשירים</div></div>
+                <div class="step s2"><div class="role">Withings</div><div class="n">שלב 2</div><div class="t">סנכרון נתונים פסיבי ורציף</div></div>
+                <div class="step s3"><div class="role">Healthings.ai</div><div class="n">שלב 3</div><div class="t">מנוע הנחיה מטבולי מבוסס AI</div></div>
+                <div class="step s4 bridge"><div class="role">הלפרין</div><div class="n">שלב 4</div><div class="t">ולידציה קלינית וחותמת איכות</div><span class="tag">הגשר</span></div>
+                <div class="goal">
+                    <div class="t">התרחבות גלובלית</div>
+                    <div class="s">ENZO · North America</div>
+                </div>
+            </div>
+            <div class="path-caption">
+                שלבים 1–2 שייכים ל‑<strong>Withings וקליטת המטופלות</strong>; שלב 3 הוא <strong>מנוע ה‑Healthings.ai</strong> הפועל ברקע. <strong>שלב 4 — הוולידציה הקלינית של עידית — הוא הגשר הבלעדי שמפעיל את ההתרחבות לצפון אמריקה עם ENZO.</strong>
+            </div>
+        </div>
+
+        <!-- Winning Business Model -->
+        <div class="card">
+            <div class="card-h">המודל העסקי המנצח</div>
+            <ul class="bullets">
+                <li><strong>אפס עלות פיתוח:</strong> אנחנו בונים ותומכים בטכנולוגיה; את משמשת כ‑Product Owner קלינית.</li>
+                <li><strong>חבילות פרימיום:</strong> מוכרים את האפליקציה בתוך סדרות הטיפול המובילות שלך (לדוגמה: "סדרת חיטוב ומעבדה מטבולית").</li>
+                <li><strong>חומרה בבעלות המטופלת:</strong> המטופלות רוכשות את Withings ישירות — אפס סיכון מלאי או לוגיסטיקה לקליניקה.</li>
+            </ul>
+        </div>
+
+        <!-- Next Steps -->
+        <div class="card">
+            <div class="card-h">הצעדים הבאים</div>
+            <ul class="bullets">
+                <li>הקמת ה‑<strong>Alpha Site</strong> והוכחת ההיתכנות המדעית הראשונה בעולם בקליניקה.</li>
+                <li>אימות תוצאות השטח וקבלת "חותמת האיכות" הקלינית.</li>
+                <li>הפעלת השותף שלנו בצפון אמריקה <strong>(ENZO)</strong> כדי לשכפל את המודל המוכח לאלפי קליניקות אסתטיקה ו‑Wellness.</li>
+            </ul>
+        </div>
+
+    </div>
+
+    <div class="footer">
+        <strong class="en">Healthings.ai Medilab</strong> &nbsp;•&nbsp; סודי וקנייני &nbsp;•&nbsp; 2026
+    </div>
+
+</div>
+</body>
+</html>
