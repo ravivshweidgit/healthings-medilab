@@ -1047,8 +1047,8 @@ The user described their dietary and lifestyle preferences. Extract and structur
 
 Rules:
 - summary: max 5 words, use · separator
-- constraints: max 5 items, max 8 words each
-- aiContext: max 20 words, used in future AI prompts
+- constraints: max 5 items, max 8 words each — primary source injected into coach/chat USER DATA; write clear actionable bullets
+- aiContext: max 20 words, compact fallback only (macro-target reasoning when constraints are empty)
 
 User text: "${rawText.replace(/"/g, "'")}"${langInstruction(lang)}`; 
 
@@ -1281,11 +1281,29 @@ function formatDayPacingLine(ctx: CoachContext, now = new Date()): string {
   return `${base}${guide}${rule}`;
 }
 
+/** Dietary rules for coach/chat — same structured bullets as My Rules → "AI understood". */
+function formatUserRulesLines(rules: UserRules): string[] {
+  const lines: string[] = [];
+  lines.push(rules.summary ? `Dietary rules (${rules.summary}):` : 'Dietary rules:');
+  if (rules.constraints.length > 0) {
+    lines.push(...rules.constraints.map((c) => `- ${c}`));
+    return lines;
+  }
+  if (rules.aiContext) {
+    lines.push(`- ${rules.aiContext}`);
+    return lines;
+  }
+  const raw = rules.rawText?.trim();
+  if (raw) lines.push(`- ${raw.replace(/"/g, "'")}`);
+  return lines;
+}
+
 /**
  * Single shared header used by BOTH the coach panel and chat: profile, goals/targets, dietary
- * rules, local time. It carries NO collected day data (meals, energy, CGM, HR, workouts, body) —
- * that all comes from ONE place, the today+yesterday PERIOD REVIEW snapshot. Keeping the data in
- * one source guarantees the panel and chat always see structurally identical today+yesterday data.
+ * rules (summary + AI-extracted constraint bullets — same as My Rules UI), local time. It carries
+ * NO collected day data (meals, energy, CGM, HR, workouts, body) — that all comes from ONE place,
+ * the today+yesterday PERIOD REVIEW snapshot. Keeping the data in one source guarantees the panel
+ * and chat always see structurally identical today+yesterday data.
  */
 function buildProfileTargetsHeader(ctx: CoachContext): string[] {
   const { clockLine, guidance } = formatLocalTimeContext();
@@ -1300,7 +1318,7 @@ function buildProfileTargetsHeader(ctx: CoachContext): string[] {
     `Profile: sex ${ctx.gender ?? 'unknown'}, age ${n(ctx.age)}, height ${n(ctx.heightCm, ' cm')}, language ${ctx.lang?.label ?? 'English'}`,
     `Goals: target weight ${n(bt?.targetWeight_kg ?? null, ' kg')} | target fat ${n(bt?.targetFatPct ?? null, '%')} | target muscle ${n(bt?.targetMuscleMass_kg ?? null, ' kg')} | start weight ${n(ctx.startWeight_kg, ' kg')} | start muscle ${n(ctx.startMuscle_kg, ' kg')}`,
     `Daily macro target: ${n(mt?.kcal ?? null, ' kcal')} | P ${n(mt?.protein_g ?? null, 'g')} | C ${n(mt?.carb_g ?? null, 'g')} | F ${n(mt?.fat_g ?? null, 'g')}`,
-    ctx.userRules?.aiContext ? `Dietary rules: ${ctx.userRules.aiContext}` : null,
+    ...(ctx.userRules ? formatUserRulesLines(ctx.userRules) : []),
   ].filter((l): l is string => Boolean(l));
 }
 
@@ -1377,7 +1395,7 @@ Rules:
 - autoCheckType keys are always English: "carbs_under_target", "protein_over_target", "calorie_deficit", "meal_logged", or null.
 - carbs_under_target MUST cite carb target ${carbTarget != null ? `${Math.round(carbTarget)}g` : 'from the Daily macro target line'} — never use generic 20g keto defaults
 - protein_over_target MUST cite protein target ${proteinTarget != null ? `${Math.round(proteinTarget)}g` : 'from the Daily macro target line'}
-- Dietary rules in USER DATA override any generic diet assumptions
+- Dietary rules in USER DATA (summary + bullet constraints under "Dietary rules") override any generic diet assumptions; when asked what the user's rules are, quote those bullets — do NOT paraphrase vaguely or invent rules
 - If event is meal: focus on remaining macros for the day. If weigh-in: trend vs target, muscle vs start. If workout: calorie budget + HR during session vs resting baseline from the WORKOUTS lines in the PERIOD REVIEW.
 - Do NOT repeat data the user already sees on the dashboard
 - If Nutritionist 🥗 is active and the PERIOD REVIEW has CGM/glucose data, the nutritionist's wins/improve MUST cite glucose avg/min/max (mg/dL) with a good-vs-needs-improvement verdict
@@ -1734,6 +1752,7 @@ OUTPUT FORMAT (mandatory): respond with a single JSON object and nothing else �
 Inside "response" write plain prose only — no **bold**, no markdown headers, no nested JSON. 2–4 sentences with specific numbers (period reviews /7 /30 may be longer). Use \n for line breaks inside the string.
 JSON STRING SAFETY (mandatory): never put ASCII double-quote (") inside the response text — it breaks JSON. For Hebrew abbreviations use single quotes instead: ק'ג not ק"ג, מ'ג/ד'ל not מ"ג/ד"ל, ק'ק'ל not קק"ל. If you must use a double-quote in the text, escape it as \\".
 All of today's and yesterday's data — body, visceral, BMR, energy, 24/7 HR, meals, CGM, workouts — is in the data block above. When asked about activity, meals, glucose, HR, or body metrics, cite the exact numbers from it; never say data is missing if it appears there.
+When the user asks about their dietary rules, restrictions, or what is written in My Rules: quote the bullet list under Dietary rules in PROFILE / GOALS / SETTINGS (same structured summary as the app) — do NOT paraphrase vaguely or repeat raw free-text.
 When glucose is the topic, or this is the first reply in the tab today, or the user asked for status/overview: Nutritionist 🥗 leads with glucose interpretation (avg/min/max mg/dL) and Doctor 🩺 adds clinical safety on the same numbers. On follow-ups about food targets, hunger, or fat/protein without a glucose question, answer that topic directly — do NOT re-open with the same CGM block.
 CGM DATE SPAN (mandatory): only cite "N days" when the data block explicitly states N days. If unsure, say "the available CGM window" — never invent 7 days. Slash commands (/7, /30) widen the loaded window — use that block's day count.
 When the user asks for a longer review (/7, /30), analyze the full snapshot (body, energy, HR, food, workouts): what went well, what to improve, specific next steps.

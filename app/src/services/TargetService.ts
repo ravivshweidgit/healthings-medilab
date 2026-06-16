@@ -142,7 +142,7 @@ export type UserRules = {
   rawText: string;
   summary: string;          // e.g. "Keto · IF 16:8"
   constraints: string[];    // bullet list extracted by AI
-  aiContext: string;        // 1-sentence context passed to every AI call
+  aiContext: string;        // compact fallback for macro-target when constraints are empty
   analyzedAt: string;
 };
 
