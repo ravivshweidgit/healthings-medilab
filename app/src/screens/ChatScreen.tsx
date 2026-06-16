@@ -1184,115 +1184,6 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
     ]);
   }, [ui, pickChatImage]);
 
-  const sendMessage = useCallback(
-    async (text: string, attachment?: PendingChatImage | null) => {
-      const trimmed = text.trim();
-      const image = attachment ?? null;
-      if ((!trimmed && !image) || sending) return;
-
-      const promptText = trimmed || defaultImagePrompt(context.lang);
-      const today = todayKey();
-      const sentAt = new Date().toISOString();
-      const storedMsg: ChatMessage = { role: 'user', text: promptText, sentAt };
-      const displayMsg: ChatMessageUI = {
-        ...storedMsg,
-        previewUri: image?.uri,
-      };
-
-      setHistory((prev) => [...prev, displayMsg]);
-      await appendChatMessage(today, activeMentor, storedMsg);
-      setAnyChatHistory(true);
-      setInputText('');
-      setPendingImage(null);
-      setSending(true);
-      scrollToBottom();
-
-      try {
-        const yesterdaySummary = await getYesterdaySummary();
-        const currentHistory = await getChatHistory(today, activeMentor);
-
-        // Fresh meal log on every send — avoids stale dashboard context
-        const meals = await getTodayMeals();
-        const mealsCtx = buildMealsAiContext(meals);
-        const mealTotals = meals.reduce(
-          (acc, e) => ({
-            kcal: acc.kcal + e.totalKcal,
-            protein_g: acc.protein_g + e.totalProtein_g,
-            carb_g: acc.carb_g + e.totalCarb_g,
-            fat_g: acc.fat_g + e.totalFat_g,
-          }),
-          { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0 },
-        );
-        const freshContext: CoachContext = await withYesterdayFoodContext(
-          {
-            ...context,
-            mealCount: meals.length,
-            todayEaten: meals.length > 0 ? mealTotals.kcal : context.todayEaten,
-            todayProtein_g: meals.length > 0 ? mealTotals.protein_g : context.todayProtein_g,
-            todayCarb_g: meals.length > 0 ? mealTotals.carb_g : context.todayCarb_g,
-            todayFat_g: meals.length > 0 ? mealTotals.fat_g : context.todayFat_g,
-            lastMealSummary: mealsCtx.lastMealSummary,
-            todayMealsDetail: mealsCtx.todayMealsDetail,
-          },
-          promptText,
-        );
-
-        const replyText = await chatWithMentor(
-          activeMentor,
-          promptText,
-          currentHistory.slice(0, -1),
-          freshContext,
-          yesterdaySummary,
-          image?.base64 ?? null,
-          image?.mimeType,
-        );
-        const aiMsg: ChatMessage = {
-          role: 'assistant',
-          text: replyText,
-          sentAt: new Date().toISOString(),
-        };
-        setHistory((prev) => [...prev, aiMsg]);
-        await appendChatMessage(today, activeMentor, aiMsg);
-        scrollToBottom();
-      } catch (err) {
-        const errMsg: ChatMessage = {
-          role: 'assistant',
-          text: err instanceof Error ? `Error: ${err.message}` : 'Could not get a response. Try again.',
-          sentAt: new Date().toISOString(),
-        };
-        setHistory((prev) => [...prev, errMsg]);
-      } finally {
-        setSending(false);
-      }
-    },
-    [sending, context, activeMentor, scrollToBottom],
-  );
-
-  const handleToggleActionItem = useCallback(
-    async (itemId: string) => {
-      if (!coachMsg) return;
-      const updated = {
-        ...coachMsg,
-        actionItems: coachMsg.actionItems.map((item) =>
-          item.id === itemId ? { ...item, done: !item.done } : item
-        ),
-      };
-      await saveCoachMessage(updated);
-      setCoachMsg(updated);
-      onCoachMessageUpdated?.(updated);
-    },
-    [coachMsg, onCoachMessageUpdated]
-  );
-
-  const handleSaveQuestions = useCallback(async (qs: QuickQuestion[]) => {
-    setQuestions(qs);
-    await saveQuickQuestions(qs, context.lang);
-  }, [context.lang]);
-
-  const pickQuestion = useCallback((label: string) => {
-    setInputText(label.trim());
-  }, []);
-
   const buildFreshContext = useCallback(async (): Promise<CoachContext> => {
     const [meals, macroTarget, userRules] = await Promise.all([
       getTodayMeals(),
@@ -1322,6 +1213,93 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
       todayMealsDetail: mealsCtx.todayMealsDetail,
     };
   }, [context]);
+
+  const sendMessage = useCallback(
+    async (text: string, attachment?: PendingChatImage | null) => {
+      const trimmed = text.trim();
+      const image = attachment ?? null;
+      if ((!trimmed && !image) || sending) return;
+
+      const promptText = trimmed || defaultImagePrompt(context.lang);
+      const today = todayKey();
+      const sentAt = new Date().toISOString();
+      const storedMsg: ChatMessage = { role: 'user', text: promptText, sentAt };
+      const displayMsg: ChatMessageUI = {
+        ...storedMsg,
+        previewUri: image?.uri,
+      };
+
+      setHistory((prev) => [...prev, displayMsg]);
+      await appendChatMessage(today, activeMentor, storedMsg);
+      setAnyChatHistory(true);
+      setInputText('');
+      setPendingImage(null);
+      setSending(true);
+      scrollToBottom();
+
+      try {
+        const [yesterdaySummary, currentHistory, baseFresh] = await Promise.all([
+          getYesterdaySummary(),
+          getChatHistory(today, activeMentor),
+          buildFreshContext(),
+        ]);
+        const freshContext: CoachContext = await withYesterdayFoodContext(baseFresh, promptText);
+
+        const replyText = await chatWithMentor(
+          activeMentor,
+          promptText,
+          currentHistory.slice(0, -1),
+          freshContext,
+          yesterdaySummary,
+          image?.base64 ?? null,
+          image?.mimeType,
+        );
+        const aiMsg: ChatMessage = {
+          role: 'assistant',
+          text: replyText,
+          sentAt: new Date().toISOString(),
+        };
+        setHistory((prev) => [...prev, aiMsg]);
+        await appendChatMessage(today, activeMentor, aiMsg);
+        scrollToBottom();
+      } catch (err) {
+        const errMsg: ChatMessage = {
+          role: 'assistant',
+          text: err instanceof Error ? `Error: ${err.message}` : 'Could not get a response. Try again.',
+          sentAt: new Date().toISOString(),
+        };
+        setHistory((prev) => [...prev, errMsg]);
+      } finally {
+        setSending(false);
+      }
+    },
+    [sending, activeMentor, scrollToBottom, buildFreshContext],
+  );
+
+  const handleToggleActionItem = useCallback(
+    async (itemId: string) => {
+      if (!coachMsg) return;
+      const updated = {
+        ...coachMsg,
+        actionItems: coachMsg.actionItems.map((item) =>
+          item.id === itemId ? { ...item, done: !item.done } : item
+        ),
+      };
+      await saveCoachMessage(updated);
+      setCoachMsg(updated);
+      onCoachMessageUpdated?.(updated);
+    },
+    [coachMsg, onCoachMessageUpdated]
+  );
+
+  const handleSaveQuestions = useCallback(async (qs: QuickQuestion[]) => {
+    setQuestions(qs);
+    await saveQuickQuestions(qs, context.lang);
+  }, [context.lang]);
+
+  const pickQuestion = useCallback((label: string) => {
+    setInputText(label.trim());
+  }, []);
 
   const handleRefreshCoach = useCallback(async () => {
     if (refreshingCoach) return;

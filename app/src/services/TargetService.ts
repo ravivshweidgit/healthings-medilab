@@ -141,7 +141,7 @@ const USER_RULES_KEY = 'user_rules';
 export type UserRules = {
   rawText: string;
   summary: string;          // e.g. "Keto · IF 16:8"
-  constraints: string[];    // bullet list extracted by AI
+  constraints: string[];    // AI-understood bullets — injected into coach panel + chat
   aiContext: string;        // compact fallback for macro-target when constraints are empty
   analyzedAt: string;
 };
