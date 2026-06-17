@@ -24,10 +24,121 @@ carbs) and proposed **135P / 30C / 110F / 1650 kcal** — but **did not write ta
 
 ## Goals
 
-1. **Shared fiber↔carb rule** in code + nutritionist prompts (not user teaching the model each time).
-2. **Nutritionist chat can propose macro target updates** → user confirms → `saveMacroTarget()`.
-3. **`suggestDailyMacros`** and coach/chat use the same coupling rule.
-4. **Nutritionist auto-refreshes macro targets** on new weight or lab import via **Gemini** with full revision context (7d+ data).
+1. **One source of truth** for macro targets — dashboard reset/suggest, chat, and weigh-in/lab auto-revision all call the **same** revision pipeline (context + Gemini + post-process + fallback).
+2. **Shared fiber↔carb rule** in code + nutritionist prompts (not user teaching the model each time).
+3. **Nutritionist chat can propose macro target updates** → user confirms → `saveMacroTarget()`.
+4. **Nutritionist auto-refreshes macro targets** on new weight or lab import — same brain, no confirm.
+
+---
+
+## PART 0 — One source of truth (`suggestMacroTargets`)
+
+**Locked (2026-06-17):** every path that **computes** daily macro targets must use one module.
+Today `suggestDailyMacros()` is a thin profile-only Gemini call (weight, BMR, today's burn) —
+**delete that logic** and replace with the full revision brain from PART D.
+
+### All entry points → same pipeline
+
+| Entry point | Trigger | Human confirm? |
+|-------------|---------|----------------|
+| **MacroTargetStrip** — first-time "Analyze" or after **reset** | `dashboard-suggest` | Yes — existing suggestion screen → Accept |
+| **Nutritionist chat** — "set my macros" / `macroProposal` | `chat-proposal` | Yes — `MacroProposalCard` |
+| **Withings weigh-in** — new weight | `weigh-in` | No — auto-save + toast |
+| **Lab import** — new draw | `lab-import` | No — auto-save + toast |
+
+**Only the apply step differs** (confirm vs auto-save). Context build, Gemini call, post-process,
+and deterministic fallback are **identical**.
+
+### Single orchestrator
+
+```ts
+// app/src/logic/macroAutoAdjust.ts (or macroRevision.ts)
+
+export type MacroRevisionTrigger =
+  | 'dashboard-suggest'   // MacroTargetStrip idle → Analyze (incl. after reset)
+  | 'chat-proposal'       // Nutritionist chat macro intent
+  | 'weigh-in'
+  | 'lab-import';
+
+export async function suggestMacroTargets(opts: {
+  trigger: MacroRevisionTrigger;
+  triggerDetail?: string;   // e.g. "81.4 kg", report id, "user asked in chat"
+  lang?: UserLanguage | null;
+}): Promise<MacroSuggestion> {
+  const context = await buildMacroRevisionContext(opts);
+  try {
+    const raw = await reviseMacroTargetsWithGemini(context, opts.lang);
+    return postProcessMacroSuggestion(raw, userRules);
+  } catch {
+    return deterministicMacroFallback(context); // PART D math — never 30/30 fiber default
+  }
+}
+```
+
+### What each caller does with the result
+
+```ts
+// MacroTargetStrip handleAsk — replace suggestDailyMacros(input)
+const result = await suggestMacroTargets({ trigger: 'dashboard-suggest' });
+// → show suggestion screen; user taps Accept → saveMacroTarget()
+
+// ChatScreen — on macro intent OR when parsing macroProposal from reply
+const result = await suggestMacroTargets({ trigger: 'chat-proposal', triggerDetail: userMessage });
+// → show MacroProposalCard with same numbers (mentor prose may differ; card uses orchestrator output)
+
+// DashboardScreen / LabLogService — event hooks
+const result = await suggestMacroTargets({ trigger: 'weigh-in', triggerDetail: `${weightKg} kg` });
+if (materiallyChanged(saved, result)) await saveMacroTarget(result); // no confirm
+```
+
+**Chat note:** when user asks for macro recommendation, **do not** rely on the default 2-day chat
+snapshot. Either (a) run `suggestMacroTargets({ trigger: 'chat-proposal' })` in app code and attach
+`macroProposal` to the card, or (b) inject `buildMacroRevisionContext()` into the chat system prompt
+for that turn — both must use the **same** `buildMacroRevisionContext()` string as dashboard.
+
+Prefer **(a)** for one JSON parse path: chat mentor gives prose; app fills `macroProposal` from
+`suggestMacroTargets()` so chat and dashboard never diverge.
+
+### Deprecate `suggestDailyMacros`
+
+```ts
+/** @deprecated — thin wrapper; use suggestMacroTargets({ trigger: 'dashboard-suggest' }). */
+export async function suggestDailyMacros(_input: MacroSuggestionInput, lang?: UserLanguage | null) {
+  return suggestMacroTargets({ trigger: 'dashboard-suggest', lang });
+}
+```
+
+Remove `MacroSuggestionInput` profile-only prompt from GeminiService once migrated.
+
+### `buildMacroRevisionContext` — shared trigger union
+
+```ts
+async function buildMacroRevisionContext(opts: {
+  trigger: MacroRevisionTrigger;
+  triggerDetail?: string;
+}): Promise<string> {
+  const period7 = await buildPeriodReviewBlock({ mode: 'days', days: 7 }, macroTarget, null);
+  const weightTrend14 = formatWeightTrendLines(bodyTrendDays, 14);
+  const bodyTrend28 = formatBodyCompTrendLines(bodyTrendDays, 28);
+  const labs = await buildLabsForMacroRevision();
+  return [
+    `=== MACRO REVISION (${opts.trigger}${opts.triggerDetail ? `: ${opts.triggerDetail}` : ''}) ===`,
+    formatCurrentMacroTarget(macroTarget), // null after reset — OK
+    formatBodyTarget(bodyTarget),
+    formatUserRules(userRules),
+    formatProfileBasics(profile),          // BMR, lean mass, height, age, sex
+    weightTrend14,
+    bodyTrend28,
+    labs,
+    period7,
+    'Use ALL sections above to set daily macro TARGETS (not meal advice).',
+  ].filter(Boolean).join('\n\n');
+}
+```
+
+**7d burn for kcal:** use **7-day average** daily burn from `period7` / `computeBurnKcalByDay`, not
+`estimatedBurn_kcal` for today only (dashboard strip currently passes today's burn — wrong for
+maintenance/deficit sizing).
 
 ---
 
@@ -69,9 +180,9 @@ export function deriveFiberTargetFromCarbs(carb_g: number): number {
 
 | Call site | Change |
 |-----------|--------|
-| `suggestDailyMacros()` | After parse: `fiber_g = deriveFiberTargetFromCarbs(carb_g)`; prompt rule replaces generic "25–35g" |
+| `postProcessMacroSuggestion()` (PART 0) | After every `suggestMacroTargets()` path: `fiber_g = deriveFiberTargetFromCarbs(carb_g)` |
 | `saveMacroTarget()` / `withFiberTarget()` | Sanitize on save: `fiber_g = deriveFiberTargetFromCarbs(carb_g)` unless user explicitly overrode in UI |
-| `GeminiService` nutritionist system prompt | State fiber⊆carbs + derive rule; never suggest `fiber_g > carb_g` |
+| `reviseMacroTargetsWithGemini()` prompt | State fiber⊆carbs + derive rule; never suggest `fiber_g > carb_g` |
 | `generateCoachMessage` / chat | When citing macro targets, show coupled fiber (Fi line already in header) |
 
 ### Nutritionist prompt text (add to nutritionist lens)
@@ -139,30 +250,30 @@ Also offer proactively when nutritionist detects **fiber_g ≥ carb_g** in store
 
 ### Context for proposal
 
-Nutritionist must read PERIOD REVIEW before proposing:
-- `estimatedBurn_kcal` / today's workouts (bike, walk)
-- Current `Daily macro target` line in profile header
-- My Rules (hard carb cap)
-- Body target (weight 80 kg, deficit → maintenance note when within ~1 kg)
+**Do not use the 2-day chat snapshot for macro math.** Call `suggestMacroTargets({ trigger: 'chat-proposal' })`
+(PART 0) — same 7d + trends + labs as dashboard reset and weigh-in. Mentor `response` prose may
+summarize; `macroProposal` numbers come from the orchestrator.
 
 ### Files
 
 | File | Change |
 |------|--------|
 | `app/src/logic/macroFiberCoupling.ts` | **NEW** — `deriveFiberTargetFromCarbs`, `clampFiberToCarbs`, `macroKcalFromPcf` |
+| `app/src/logic/macroAutoAdjust.ts` | **NEW** — `suggestMacroTargets`, `buildMacroRevisionContext`, fallback |
 | `app/src/services/TargetService.ts` | Sanitize fiber on save; export helpers |
-| `app/src/services/GeminiService.ts` | Nutritionist prompt + `macroProposal` parse; `suggestDailyMacros` coupling |
-| `app/src/screens/ChatScreen.tsx` | `MacroProposalCard` + confirm → `saveMacroTarget` |
-| `app/src/components/MacroTargetStrip.tsx` | Optional banner "עודכן מהצ'אט" |
+| `app/src/services/GeminiService.ts` | `reviseMacroTargetsWithGemini()`; chat `macroProposal`; deprecate profile-only suggest |
+| `app/src/screens/ChatScreen.tsx` | `MacroProposalCard` + `suggestMacroTargets` on macro intent |
+| `app/src/components/MacroTargetStrip.tsx` | `handleAsk` → `suggestMacroTargets`; banner "עודכן מהצ'אט" |
 
 ---
 
-## PART C — Smarter default macro suggestion (same session)
+## PART C — Quality (all paths via PART 0)
 
-When nutritionist proposes macros in chat, also:
+Because every path uses `suggestMacroTargets()`:
 
-1. **Compute kcal** from P/C/F if user asks — don't make user ask twice.
-2. **Cite activity** from PERIOD REVIEW when justifying kcal; taper deficit/surplus as user nears goal (PART D).
+1. **Kcal** always derived from 7d avg burn + gap-to-goal taper — user never asks twice.
+2. **Activity** (bike, walk) cited from 7d PERIOD REVIEW in `reasoning`.
+3. **Near goal** → maintenance kcal in same output whether user reset on dashboard, asked in chat, or weighed in.
 
 ---
 
@@ -195,21 +306,18 @@ should follow without user asking.
 ```
 onWeighIn(weightKg) | onLabImported(reportId)
   → if manualLock && !newLab && weightKg === lastWeightKg → skip
-  → block = buildMacroRevisionContext({ trigger, days: 7 })
-  → proposed = await reviseMacroTargetsWithGemini(block)   // nutritionist-only prompt
-  → postProcess: fiber coupling, fiber≤carbs, kcal sanity
+  → proposed = await suggestMacroTargets({ trigger, triggerDetail })  // PART 0
   → if materially same as saved → silent exit
   → else saveMacroTarget(proposed)   // NO user confirm
   → brief Alert/toast: "יעדי המאקרו עודכנו" + reason + new kcal/P/C/F/Fi
   → clear manualLock; store lastWeightKg + lastLabReportId
 ```
 
-**No human in the loop** for weigh-in or lab import (PART B chat still confirms).
+**No human in the loop** for weigh-in or lab import. Dashboard suggest and chat still confirm (PART 0 table).
 
-### Data injected into Gemini (mandatory)
+### Data injected into Gemini (mandatory — via `buildMacroRevisionContext`)
 
-Macro revision is **not** a 2-day chat snapshot. Build one **MACRO REVISION** block per event
-by loading persistence (same sources as `/7` review):
+Used by **all** triggers (dashboard reset/suggest, chat, weigh-in, lab). Not the 2-day chat snapshot.
 
 | Window | Data | Purpose |
 |--------|------|---------|
@@ -251,30 +359,8 @@ LAB HISTORY (2 draws …):
 Report 2026-03-01 …
 ```
 
-Implementation sketch:
-
-```ts
-async function buildMacroRevisionContext(opts: {
-  trigger: 'weigh-in' | 'lab-import';
-  triggerDetail: string;
-}): Promise<string> {
-  const period7 = await buildPeriodReviewBlock({ mode: 'days', days: 7 }, macroTarget, null);
-  const weightTrend14 = formatWeightTrendLines(bodyTrendDays, 14);
-  const bodyTrend28 = formatBodyCompTrendLines(bodyTrendDays, 28);
-  const labs = await buildLabsForMacroRevision();
-  return [
-    `=== MACRO REVISION (${opts.trigger}: ${opts.triggerDetail}) ===`,
-    formatCurrentMacroTarget(macroTarget),
-    formatBodyTarget(bodyTarget),
-    formatUserRules(userRules),
-    weightTrend14,
-    bodyTrend28,
-    labs,
-    period7,
-    'Use ALL sections above to set revised daily macro TARGETS (not meal advice).',
-  ].filter(Boolean).join('\n\n');
-}
-```
+Full sketch lives in **PART 0** (`MacroRevisionTrigger` union includes `dashboard-suggest` and
+`chat-proposal`).
 
 **Note:** pass `null` for `appGlucose` in period review — CGM comes from `syncCgmStore()` inside
 `buildPeriodReviewBlock` (persistence source of truth).
@@ -321,10 +407,10 @@ CGM (7d block — GLUCOSE & FOOD IMPACT + MEAL GLUCOSE):
 
 ### Gemini call — `reviseMacroTargetsWithGemini()`
 
-Extend `GeminiService.ts` (or wrap `suggestDailyMacros`):
+Called only from `suggestMacroTargets()` (PART 0) — not from chat's 2-day context builder.
 
 - **Mentor:** nutritionist only
-- **Input:** `buildMacroRevisionContext()` block + trigger line
+- **Input:** `buildMacroRevisionContext()` block (trigger line in header)
 - **Output JSON** (same shape as `MacroSuggestion`):
 
 ```json
@@ -351,7 +437,7 @@ Extend `GeminiService.ts` (or wrap `suggestDailyMacros`):
 **Fallback:** if Gemini fails or parse error → deterministic taper (gap-to-goal math below) so
 weigh-in path never silently no-ops.
 
-### Post-process (code, always)
+### Post-process (code, always — `postProcessMacroSuggestion` in PART 0)
 
 ```ts
 proposed.fiber_g = deriveFiberTargetFromCarbs(proposed.carb_g);
@@ -452,45 +538,53 @@ export type MacroAutoAdjustState = {
 
 | File | Change |
 |------|--------|
-| `app/src/logic/macroAutoAdjust.ts` | triggers, `buildMacroRevisionContext`, fallback taper |
-| `app/src/services/GeminiService.ts` | `reviseMacroTargetsWithGemini()` + revision prompt |
+| `app/src/logic/macroAutoAdjust.ts` | **PART 0** — `suggestMacroTargets`, context, fallback, event hooks |
+| `app/src/logic/macroFiberCoupling.ts` | PART A — coupling + `postProcessMacroSuggestion` helpers |
+| `app/src/services/GeminiService.ts` | `reviseMacroTargetsWithGemini()`; deprecate profile-only `suggestDailyMacros` |
 | `app/src/services/ReviewService.ts` | reuse `buildPeriodReviewBlock({ days: 7 })` |
 | `app/src/services/LabLogService.ts` | `buildLabsForMacroRevision()`; hook after `saveParsedLabPanel` |
-| `app/src/screens/DashboardScreen.tsx` | after Withings sync |
-| `app/src/components/MacroTargetStrip.tsx` | `manualLock` on user save |
+| `app/src/screens/DashboardScreen.tsx` | weigh-in → `suggestMacroTargets`; pass nothing special to MacroTargetStrip |
+| `app/src/components/MacroTargetStrip.tsx` | `handleAsk` → `suggestMacroTargets({ trigger: 'dashboard-suggest' })`; `manualLock` on edit |
+| `app/src/screens/ChatScreen.tsx` | macro intent → `suggestMacroTargets({ trigger: 'chat-proposal' })` |
 
 ---
 
 ## Acceptance checklist
 
+### PART 0 — one source of truth
+- [ ] `suggestMacroTargets()` is the **only** function that computes macro targets via AI
+- [ ] Dashboard **reset → Analyze** and chat macro ask return **same numbers** (same day, same data)
+- [ ] Weigh-in auto-save uses same pipeline; only apply step differs (no confirm)
+- [ ] 7d avg burn used for kcal (not today-only `estimatedBurn_kcal`)
+- [ ] `suggestDailyMacros` is a deprecated wrapper or removed
+
 ### PART A — fiber coupling
 - [ ] `deriveFiberTargetFromCarbs(30)` → 20; `(100)` → 30; never > carb_g
-- [ ] `suggestDailyMacros` for keto/low-carb user returns fiber ≤ carbs (not 30/30)
+- [ ] All `suggestMacroTargets` paths return fiber ≤ carbs (not 30/30)
 - [ ] Saved targets always satisfy `fiber_g ≤ carb_g`
 - [ ] Nutritionist coach/chat does not warn "31g carbs over 30g" while ignoring fiber impossibility
 
 ### PART B — chat update
-- [ ] Nutritionist proposes `macroProposal` in structured JSON
+- [ ] `macroProposal` numbers from `suggestMacroTargets({ trigger: 'chat-proposal' })`
 - [ ] Confirmation card; cancel does nothing; confirm calls `saveMacroTarget`
 - [ ] Dashboard macro strip shows new targets without app restart
 - [ ] Coach action items refresh (carb/protein auto-check thresholds)
 
-### PART C — quality
-- [ ] Proposal cites burn/workouts when user asks about activity
-- [ ] Near goal weight → maintenance note in proposal
+### PART C — quality (via PART 0)
+- [ ] `reasoning` cites 7d burn/workouts when user asks about activity
+- [ ] Near goal weight → maintenance kcal in dashboard, chat, and weigh-in paths
 
-### PART D — Gemini auto-review (no human in loop)
-- [ ] New weight or lab import builds **7d PERIOD REVIEW** + 14d weight trend + labs + current targets
-- [ ] `reviseMacroTargetsWithGemini()` returns new P/C/F/Fi/kcal
+### PART D — auto-review (no human in loop)
+- [ ] New weight or lab import calls `suggestMacroTargets` with correct trigger
 - [ ] 7d block includes CGM period stats + per-day meal glucose when synced
-- [ ] `buildLabsForMacroRevision()` injects latest + prior draw into revision block
-- [ ] Lab import trigger includes new + prior labs in Gemini prompt
+- [ ] `buildLabsForMacroRevision()` injects latest + prior draw
 - [ ] Deterministic fallback if Gemini fails
 - [ ] Toast names trigger; manual lock until next weight/lab
 
 ### Device test (from chat replay)
-- [ ] User: "בוא נקבע יעדי מקרו" → one-shot proposal with kcal + Fi=20 for C=30
-- [ ] Confirm → targets match chat; fiber bar shows 20g target
+- [ ] Dashboard reset → Analyze: kcal + Fi=20 for C=30 (matches chat)
+- [ ] User: "בוא נקבע יעדי מקרו" → card shows **same** numbers as dashboard Analyze
+- [ ] Confirm → targets match; fiber bar shows 20g target
 
 ---
 
