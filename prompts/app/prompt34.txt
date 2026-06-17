@@ -1,0 +1,176 @@
+## Prompt 34 — CGM visibility + chat safety net (remainder of prompt21)
+
+**Split from prompt21 (2026-06-17).** Prompt21 is done: persistence layer, HC/CSV merge,
+mentor sync-on-read, chart, filters, TODAY WORKOUTS. See `prompts/app/done/prompt21.txt`.
+
+This prompt tracks **only what is still open** — mostly UX and a small chat fallback.
+
+**Architecture (do not rebuild):** `CgmPersistenceService` → `healthings:lastMetrics`;
+`ReviewService` calls `syncCgmStore()` before period reviews. Reference: `done/prompt29.txt`.
+
+**Build order:** Phase 1 (B + C + device verify) → Phase 2 (manual exclusions) → optional tests.
+
+---
+
+## Phase 1 — Ship first
+
+### PART A — CGM status row (`DashboardScreen.tsx`)
+
+Add a **CareSens / Health Connect status row** above or beside the glucose chart
+(parallel to Withings OK/X on body scan card).
+
+```
+┌──────────────────────────────────────────────┐
+│  CareSens  [ OK ]  latest 98 mg/dL · 14:32  │
+│  1,842 readings · synced 2 min ago           │
+└──────────────────────────────────────────────┘
+```
+
+| State | Badge | Subtext |
+|-------|-------|---------|
+| Connected | green **OK** | latest value + time + sample count + last sync |
+| Permission denied | red **X** | "Allow Blood Glucose in Health Connect" + tap → HC settings |
+| No data yet | amber **—** | "Enable CareSens → xDrip+ → Health Connect, then Sync" |
+| Demo mode | grey **Demo** | synthetic data (Expo Go) |
+
+**Data:**
+- `useHealthData`: `glucoseData`, `error`, `dataSource`, `cgmStatSummary`
+- Add **`lastSyncedAt`** on successful sync (mirror `WithingsPersistenceService.lastSyncedAt`)
+- Wire `glucoseHeadline()` from `wellnessCopy.ts` for latest value copy
+
+Optional filter one-liner under chart when `cgmStatSummary` or warm-up active.
+
+HC error **banner** already exists; this row is the positive "connected" counterpart.
+
+**Files:** `DashboardScreen.tsx`, `CgmPersistenceService.ts` or `useHealthData.ts`, `wellnessCopy.ts`
+
+---
+
+### PART B — Chat `buildFreshContext` CGM safety net (`ChatScreen.tsx`)
+
+**Context:** `buildPeriodReviewBlock` already calls `syncCgmStore()` every chat turn — main path is fresh.
+
+**Gap:** `buildFreshContext()` spreads stale `context.glucoseHistory` if period review fetch fails.
+
+```ts
+const cgm = await loadCgmViewFromStore();
+const meals = await getTodayMeals();
+return {
+  ...context,
+  glucoseHistory: cgm.glucose,
+  todayMealGlucoseDetail: buildGlucoseMentorContext(
+    meals, cgm.glucose, cgm.cgmSessionStarts, cgm.cgmStatSummary,
+  ),
+  // ...existing meal/macro/rules reload...
+};
+```
+
+Prefer **read-only** `loadCgmViewFromStore` (not full `syncCgmStore`) — lighter; sync already runs in review block.
+
+**Acceptance:** After dashboard Sync, coach ↻ / chat without reopening tab cites updated glucose.
+
+**Files:** `ChatScreen.tsx` — import from `CgmPersistenceService`, `mealGlucoseAnalysis`
+
+---
+
+### PART C — Device verification (required before closing Phase 1)
+
+Run on physical Android APK. Document pass/fail in commit when closing Phase 1.
+
+| Test | Verify |
+|------|--------|
+| E1 xDrip+ → HC | Refresh → chart; kill app → reopen → data from store |
+| E1 mentor | Log meal → Nutritionist chat → PERIOD REVIEW has MEAL GLUCOSE / CGM ALL READINGS |
+| E2 CSV + Sync | Import → Sync → store count does not shrink |
+| E2 `/7` | `GLUCOSE & FOOD IMPACT` with period avg/min/max |
+| E3 filters | Warm-up + stat exclusion lines when applicable |
+| E4 regression | Withings + chart + nudge strip; demo shows **Demo** badge |
+| E4 offline | Airplane mode after sync → dashboard CGM from store |
+
+---
+
+## Phase 2 — Manual low-corruption exclusions (after Phase 1 on live CGM)
+
+Users mark **specific time ranges** as sensor corruption (compression lows). Automatic warm-up +
+stat filters already exist.
+
+### Anti-cheat (hard)
+
+| Range max | User can exclude? |
+|-----------|-------------------|
+| All samples **< 65 mg/dL** | Yes |
+| Any sample **≥ 65 mg/dL** | **No** — blocked |
+
+### UX
+1. Long-press or **Edit CGM** on `MetabolicChart` → select time range
+2. If `max < 65` → confirm "Mark as sensor error"; else disabled message
+3. Grey excluded segments on chart; mentors ignore those points
+4. **Manage exclusions** list with Undo
+
+### Storage
+```ts
+export type CgmManualExclusion = {
+  id: string;
+  startMs: number;
+  endMs: number;
+  maxMgDl: number;       // < 65 at creation
+  reason?: 'sensor_error';
+  createdAt: string;
+};
+// key: cgm_manual_exclusions
+```
+
+Apply in `prepareGlucoseSeries()` after warm-up + stat filters.
+Mentor line when active: `USER-EXCLUDED SENSOR ERRORS: N windows (all peaks <65 mg/dL)`.
+
+**Files:** new `cgmManualExclusions.ts`, `healthMetricsCache.ts`, `MetabolicChart.tsx`, `DashboardScreen.tsx`, `mealGlucoseAnalysis.ts`
+
+---
+
+## Phase 3 — Optional (low priority)
+
+### Coach trigger after first CGM sync
+After first non-empty HC fetch or CSV import → `triggerCoachReview('meal')` only when
+`todayMealCount > 0`; gate with `lastCgmCoachAt` — do not spam 5-min refetch.
+
+### Unit tests
+| Module | Cases |
+|--------|-------|
+| `CgmPersistenceService` | sync HC wins; import CSV wins; failed sync keeps cache |
+| `cgmWarmupFilter.ts` | CSV serial warm-up only |
+| `mealGlucoseAnalysis.ts` | meal peak window |
+
+---
+
+## Acceptance checklist
+
+### Phase 1
+- [ ] CGM status row + `lastSyncedAt` (PART A)
+- [ ] `buildFreshContext` reloads CGM from store (PART B)
+- [ ] E1–E4 device verification documented (PART C)
+
+### Phase 2
+- [ ] Sub-65 exclusion windows; ≥65 blocked
+- [ ] Chart grey + mentor stats respect exclusions
+- [ ] Undo restores; survives restart
+
+### Phase 3 (optional)
+- [ ] Persistence merge unit tests
+- [ ] Post-sync coach trigger (if desired)
+
+---
+
+## Out of scope
+
+- Rebuilding `CgmPersistenceService` / merge (prompt21 + prompt29 — done)
+- Direct CareSens BLE, iOS HealthKit, push alerts
+- prompt08 visceral+glucose card, prompt09 7-day trend overlay
+
+---
+
+## References
+
+- `done/prompt21.txt` — full CGM connection history + shipped checklist
+- `done/prompt29.txt` — persistence-first architecture
+- prompt22 — HC permission hardening
+- prompt23 — PERIOD REVIEW every chat turn

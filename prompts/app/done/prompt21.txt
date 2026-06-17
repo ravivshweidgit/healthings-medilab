@@ -1,0 +1,383 @@
+## Prompt 21 — CGM connection loop: visibility + verify end-to-end
+
+**Status: done (2026-06-17)** — CGM persistence, HC/CSV merge, mentor sync-on-read, chart,
+filters, and TODAY WORKOUTS shipped. Remaining UX/safety-net/exclusions → **`prompt34.txt`**.
+
+### Vision (updated 2026-06-17 — persistence-first)
+
+CGM **analytics** are shipped (prompt13 chart, prompt19 mentor/review blocks, prompt29
+persistence layer). The local store is now the source of truth; Health Connect and CareSens
+CSV are **sync adapters** that merge into it.
+
+Prompt 21 closes what remains of the **connection loop**:
+
+1. User can **see** that CareSens glucose is linked (status row, not just a chart line)
+2. Data **survives** Sync and app restart — ✅ solved by `CgmPersistenceService`
+3. Mentors cite **real, current** numbers — ✅ mostly solved via `ReviewService` sync-on-read;
+   small safety-net gap in `ChatScreen.buildFreshContext()`
+4. Repeatable **device test plan** (E1–E4)
+
+**Build order:** ship PART B + PART C safety net + E checklist on a live CareSens device.
+PART G (manual low-corruption exclusions) ships **after** connection UX is confirmed.
+
+**Not in scope:** direct BLE to CareSens, SmartLog cloud, iOS HealthKit, prompt09 7-day
+glucose overlay chart, prompt08 visceral+glucose pair card (defer).
+
+**Architecture reference:** `prompts/app/done/prompt29.txt` — persistence-first principle;
+`CgmPersistenceService.ts` + `HealthPersistenceService.ts`.
+
+---
+
+## Persistence architecture (shipped — do not rebuild)
+
+### Principle
+```
+Adapters (HC, CSV)  →  sync*()  →  merge  →  local store  →  UI + mentors
+```
+
+- **Store key:** `healthings:lastMetrics` (`CachedHealthMetrics`)
+- **Raw fields:** `glucose[]` (all merged samples) + `cgmSessionStarts[]`
+- **View layer:** `prepareGlucoseSeries()` → filtered chart series + `cgmStatSummary`
+- **Never wipe on failed sync:** `syncCgmStore()` returns cached store when HC unavailable
+
+### Services
+
+| Layer | File | Role |
+|-------|------|------|
+| CGM store | `CgmPersistenceService.ts` | `loadCgmStore`, `saveCgmStore`, `syncCgmStore`, `mergeImportedGlucoseIntoStore`, `loadCgmViewFromStore` |
+| Merge + filters | `healthMetricsCache.ts` | `mergeGlucoseTimePoints`, `prepareGlucoseSeries`, `filterGlucoseToDayKeys` |
+| Unified facade | `HealthPersistenceService.ts` | `loadHealthPersistence()` / `syncHealthPersistence()` (CGM + Withings) |
+| Dashboard hook | `useHealthData.ts` | Bootstrap from store → background `syncCgmStore`; `withGlucoseSyncLock` on import/refetch |
+| Mentors / reviews | `ReviewService.ts` | `syncCgmStore()` then `loadCgmViewFromStore()` before `buildPeriodReviewBlock` |
+
+### Merge rules (in `CgmPersistenceService`)
+
+| Operation | Merge order | Winner on duplicate instant |
+|-----------|-------------|----------------------------|
+| **Sync** (`syncCgmStore`) | `[store, HC]` | HC |
+| **CSV import** (`mergeImportedGlucoseIntoStore`) | `[store, HC, CSV]` | CSV |
+
+Both paths **persist merged raw** to AsyncStorage before updating the chart view.
+
+### Mentor CGM path (current)
+
+Chat and coach do **not** rely on React `coachContext.glucoseHistory` alone:
+
+1. Every turn: `buildPeriodReviewBlock({ days: 2 })` (or wider on `/7`, `/30`)
+2. Block builder calls `syncCgmStore()` + `loadCgmViewFromStore(appGlucose)`
+3. Injects `GLUCOSE & FOOD IMPACT`, per-day `MEAL GLUCOSE`, and (today+yesterday)
+   `CGM ALL READINGS` raw series
+
+Dashboard still builds `todayMealGlucoseDetail` via `buildGlucoseMentorContext()` for CGM
+rule flags; **numbers** in chat come from PERIOD REVIEW + persistence.
+
+---
+
+## Current state (analytics + pipeline — already shipped)
+
+| Layer | Status |
+|-------|--------|
+| Health Connect read (`BloodGlucose`) | `HealthConnectService.ts` — 120-day window; **glucose only** |
+| HC glucose parse | `parseBloodGlucoseMgDl()` — `inMilligramsPerDeciliter` / `inMillimolesPerLiter` |
+| CareSens CSV import | `careSensCsv.ts` + Import button on dashboard → `mergeImportedGlucoseIntoStore` |
+| Local CGM store | `CgmPersistenceService.ts` → `healthings:lastMetrics` ✅ phone-tested 2026-06-16 |
+| Warm-up filter (24h per sensor) | `cgmWarmupFilter.ts` — **CSV serial sessions only** |
+| Statistical noise filter | `cgmStatisticalFilter.ts` |
+| Range stats for mentors | `cgmRangeStats.ts` |
+| Meal ↔ glucose correlation | `mealGlucoseAnalysis.ts` → `buildGlucoseMentorContext()` |
+| Chart | `MetabolicChart.tsx` — auto Y 50–175, 70–100 target band, touch scrub |
+| Coach / chat / `/7` review | `GeminiService.ts`, `ReviewService.ts`; glucose from persistence sync-on-read |
+| HC permission UX | Dashboard error banner + `openHealthConnectSettings()` |
+| TODAY WORKOUTS in mentor context | `ReviewService.buildChatWorkoutRollups()` ✅ PART F shipped 2026-06-07 |
+| Optional debug export | `healthConnectDebugExport.ts` — disabled (`HC_SYNC_DEBUG_ENABLED = false`) |
+
+### Verified on device (Samsung SM-G998B)
+
+**Working pipeline:**
+
+```
+CareSens Air → xDrip+ → Health Connect → syncCgmStore → healthings:lastMetrics → chart + mentors
+```
+
+- xDrip+ package: `com.eveningoutpost.dexdrip`
+- **Refresh my data** → green glucose line (~5 min cadence)
+- CSV import + Sync → both history and live tail preserved in store (airplane-mode dashboard OK)
+
+**Not reliable:** CareSens → Samsung Health → HC for glucose (CSV + xDrip→HC remain fallbacks).
+
+**Historical bugs (fixed — do not regress):**
+
+| Issue | Fix |
+|-------|-----|
+| Chart empty despite HC data | Parse HC `inMilligramsPerDeciliter` |
+| Warm-up hid all xDrip readings | Warm-up CSV serial only; gap starts = metadata |
+| HC tail lost after CSV import | Persistence merge `[store, HC, CSV]` + sync mutex |
+| Sync wiped cache | `syncCgmStore` merges into store; failed sync returns cache |
+| Permission flash / false denied | `sessionAccessOk` + probe read (prompt22) |
+
+---
+
+## PART A — Persist + merge on every sync/import — **shipped**
+
+Implemented in `CgmPersistenceService.ts` (not inline in `useHealthData`).
+
+`useHealthData` is a thin consumer:
+- **Bootstrap:** `loadCgmStore()` → paint chart immediately
+- **Refetch:** `syncCgmStore(dataSource)` → merge HC into store → `applyView`
+- **Import:** `mergeImportedGlucoseIntoStore()` → merge CSV into store
+- **`withGlucoseSyncLock`** — import and refetch cannot race
+
+### Acceptance (merge + persistence) — verified
+- [x] Import CSV → chart shows history **and** live HC tail → Sync → neither drops
+- [x] HC adds new points after CSV import → both visible; store grows
+- [x] App restart / airplane mode → chart still shows cached glucose
+- [x] `ReviewService` mentors read from store after `syncCgmStore()`
+- [x] `mergeGlucoseTimePoints` dedupes by epoch ms
+
+---
+
+## PART B — CGM connection status UI (`DashboardScreen.tsx`) — **open**
+
+Add a **CareSens / Health Connect status row** above or beside the glucose chart
+(parallel to Withings OK/X badge on body scan card).
+
+```
+┌──────────────────────────────────────────────┐
+│  CareSens  [ OK ]  latest 98 mg/dL · 14:32  │
+│  1,842 readings · synced 2 min ago           │
+└──────────────────────────────────────────────┘
+```
+
+States:
+
+| State | Badge | Subtext |
+|-------|-------|---------|
+| Connected | green **OK** | latest value + time + sample count + last sync |
+| Permission denied | red **X** | "Allow Blood Glucose in Health Connect" + tap opens HC settings |
+| No data yet | amber **—** | "Enable CareSens → xDrip+ → Health Connect, then Sync" |
+| Demo mode | grey **Demo** | hidden Import button; synthetic data (Expo Go) |
+
+Data sources:
+- `glucoseData.length`, latest point from filtered view (`useHealthData`)
+- `error` from HC permission/fetch failures
+- `dataSource === 'health-connect'` vs demo
+- **`lastSyncedAt`** — add to CGM store or hook return (mirror `WithingsPersistenceService.lastSyncedAt`)
+
+Optional one-liner under chart when filters active:
+- `cgmStatSummary` from hook
+- Warm-up: "First 24h after sensor change excluded from stats"
+
+Reuse `glucoseHeadline()` from `wellnessCopy.ts` — **wire it** (currently dead code).
+
+HC error **banner** already shipped; this row is the positive "connected" counterpart.
+
+---
+
+## PART C — Fresh CGM in chat coach refresh (`ChatScreen.tsx`) — **mostly mitigated**
+
+> **Status (2026-06-17):** Persistence + prompt23 closed the main gap. `buildPeriodReviewBlock`
+> calls `syncCgmStore()` every chat/coach turn, so mentors usually see post-Sync glucose even
+> when dashboard `coachContext.glucoseHistory` is stale.
+
+**Remaining gap (safety net only):**
+
+`buildFreshContext()` reloads meals/macros/rules but **not** `glucoseHistory` /
+`todayMealGlucoseDetail`. If `buildPeriodReviewBlock` fails (`.catch(() => '')`), fallback
+rules in `buildCgmMentorRules` still see stale `context.glucoseHistory`.
+
+Fix (small):
+```ts
+// Inside buildFreshContext():
+const cgm = await loadCgmViewFromStore();
+const meals = await getTodayMeals();
+return {
+  ...context,
+  glucoseHistory: cgm.glucose,
+  todayMealGlucoseDetail: buildGlucoseMentorContext(
+    meals, cgm.glucose, cgm.cgmSessionStarts, cgm.cgmStatSummary,
+  ),
+  // ...existing meal/macro reload...
+};
+```
+
+Optional: call `syncCgmStore()` here instead of read-only `loadCgmViewFromStore` if we want
+chat ↻ to trigger HC pull (heavier; prefer read-only safety net).
+
+Coach ↻ refresh should cite updated MEAL GLUCOSE / PERIOD REVIEW after dashboard Sync
+without closing chat — verify on device after fix.
+
+---
+
+## PART D — Optional coach trigger after CGM sync (low priority)
+
+No new `CoachTriggerEvent` required for MVP.
+
+If implemented:
+- After first non-empty HC glucose fetch or successful CSV import →
+  `triggerCoachReview('meal', context)` **only when** `todayMealCount > 0` and min-gap allows
+- Do **not** spam on 5-min auto-refetch — gate with `lastCgmCoachAt` AsyncStorage key
+
+Skip if status UI + test checklist pass first.
+
+---
+
+## PART E — Manual test plan (device — required before closing prompt21)
+
+Run on **physical Android dev APK**. Document results in commit message.
+
+### E1 — Health Connect path (xDrip+ recommended)
+
+1. CareSens → xDrip+ → HC → Healthings (see original E1 steps)
+2. **Refresh** → green line; kill app → reopen → chart still populated (persistence)
+3. Log meal → Nutritionist chat → PERIOD REVIEW shows MEAL GLUCOSE / CGM ALL READINGS
+
+### E2 — CSV import path
+
+1. Import CSV → toast with counts → chart history + HC tail
+2. Sync → store count does not shrink
+3. `/7` or weekly chip → `GLUCOSE & FOOD IMPACT` with period avg/min/max
+
+### E3 — Filter sanity
+
+1. New sensor session → first 24h excluded from trusted stats
+2. Isolated low day → stat filter exclusion line in `cgmStatSummary`
+
+### E4 — Regression
+
+1. Withings body scan + glucose chart together
+2. Mentor nudge strip above chart
+3. Demo mode synthetic glucose — status shows **Demo**
+4. Airplane mode after sync → dashboard CGM from store (no HC required)
+
+---
+
+## PART F — TODAY WORKOUTS in mentor/coach context — **shipped 2026-06-07**
+
+`ReviewService.buildChatWorkoutRollups()` → TODAY + YESTERDAY workout blocks in coach/chat.
+See git history / prompt21 archive notes. Not part of remaining work.
+
+---
+
+## PART G — Unit tests (recommended, no device)
+
+| Module | Cases |
+|--------|-------|
+| `careSensCsv.ts` | mmol→mg/dL, serial change → new session |
+| `cgmWarmupFilter.ts` | 24h excluded after CSV serial; gap does not warm-up HC |
+| `cgmStatisticalFilter.ts` | 1/100 low days excluded; <14 days → no exclusion |
+| `mealGlucoseAnalysis.ts` | meal window finds peak; no glucose → empty block |
+| `CgmPersistenceService` / `mergeGlucoseTimePoints` | sync merge HC wins; import merge CSV wins; failed sync keeps cache |
+
+Minimum for prompt21 done: **merge/persistence smoke test** + manual E1/E2 pass on phone.
+
+---
+
+## PART H — Manual exclusion of corrupted low CGM windows (after B + C verified)
+
+Automatic filters (warm-up, statistical noise) already drop bad days.
+Users still need to **mark specific time ranges** as sensor corruption (compression lows, etc.).
+
+### Anti-cheat rule (hard requirement)
+
+| Reading level | User can exclude? |
+|---------------|-------------------|
+| **All samples in range < 65 mg/dL** | Yes |
+| **Any sample ≥ 65 mg/dL in range** | **No** — UI disabled |
+
+Apply exclusions in `prepareGlucoseSeries()` **after** warm-up + statistical filters.
+Store in `cgm_manual_exclusions` (see original PART G schema in git history).
+
+**Not started** — ship after Phase 1 checklist passes.
+
+---
+
+## Files to create / change (remaining)
+
+| File | Change |
+|------|--------|
+| `app/src/screens/DashboardScreen.tsx` | CGM status row (PART B) |
+| `app/src/hooks/useHealthData.ts` or `CgmPersistenceService.ts` | `lastSyncedAt` on successful sync |
+| `app/src/screens/ChatScreen.tsx` | `buildFreshContext()` reload CGM from store (PART C safety net) |
+| `app/src/utils/wellnessCopy.ts` | Wire `glucoseHeadline()` in status row |
+| `app/src/__tests__/cgmPersistence.test.ts` | **NEW** — merge + failed-sync-keeps-cache (PART G tests) |
+
+**Already shipped — touch only if regressing:**
+
+| File | Role |
+|------|------|
+| `CgmPersistenceService.ts` | CGM store + sync adapters |
+| `HealthPersistenceService.ts` | Unified load/sync facade |
+| `healthMetricsCache.ts` | Merge + `prepareGlucoseSeries` |
+| `useHealthData.ts` | Dashboard consumer |
+| `ReviewService.ts` | Sync-on-read for mentor blocks |
+| `HealthConnectService.ts` | HC glucose adapter |
+| `cgmWarmupFilter.ts`, `cgmStatisticalFilter.ts`, `mealGlucoseAnalysis.ts` | Filters + mentor text |
+
+---
+
+## Dependencies / environment
+
+- Android dev build for real CGM (`dataSource === 'health-connect'`)
+- **Primary:** CareSens → xDrip+ → Health Connect
+- **Fallback:** CareSens CSV import
+- `react-native-health-connect` in `app.json`; minSdk 26
+
+```powershell
+Set-Location "c:\projects\healthings-medilab\app\android"
+.\gradlew.bat assembleRelease --no-build-cache
+```
+
+Install on device only when user asks to test.
+
+---
+
+## Acceptance checklist (prompt21 complete)
+
+### Phase 1 — connection + visibility (ship first)
+
+**Data layer (persistence) — done:**
+- [x] Local store `healthings:lastMetrics` survives restart + failed sync
+- [x] `syncCgmStore` merges HC into store; CSV import merges `[store, HC, CSV]`
+- [x] Chart + mentors read filtered view from same store
+- [x] `ReviewService` syncs CGM before period review blocks
+- [x] HC glucose parse + warm-up filter (CSV serial only)
+- [x] CSV + HC + Sync preserved (device verified 2026-06-06, persistence verified 2026-06-16)
+- [x] Coach cites TODAY WORKOUTS (PART F, 2026-06-07)
+- [x] MetabolicChart touch scrub + 70–100 band (prompt13)
+
+**UX + safety net — open:**
+- [ ] CGM **status row** visible; permission error actionable (PART B — banner shipped, row TODO)
+- [ ] `lastSyncedAt` shown in status row
+- [ ] Nutritionist chat cites MEAL GLUCOSE after meal + Sync (verify PERIOD REVIEW on device)
+- [ ] `/7` includes `GLUCOSE & FOOD IMPACT` with period stats (verify on device)
+- [ ] `buildFreshContext()` reloads CGM from store (PART C safety net)
+- [ ] Manual E1–E4 documented on device
+- [ ] (Optional) unit tests for persistence merge
+
+### Phase 2 — corruption UX (PART H, after Phase 1)
+- [ ] User can mark sub-65 windows as sensor error; ≥65 blocked
+- [ ] Exclusions in chart, stats, mentor context
+- [ ] Undo restores readings
+
+---
+
+## Out of scope for prompt21
+
+- Rebuilding persistence layer (see prompt29 — done)
+- Direct CareSens BLE / SmartLog API
+- Apple HealthKit / iOS CGM
+- Prompt08 visceral + latest glucose card
+- Prompt09 7-day body vs avg glucose trend chart
+- CGM push notifications on hypo/hyper
+- Excluding windows with any reading ≥ 65 mg/dL (anti-cheat — PART H)
+
+---
+
+## References
+
+- **prompt29** — persistence-first architecture, `CgmPersistenceService`, backup inventory
+- Prompt13 — `MetabolicChart`
+- Prompt19 — CGM filters, `buildGlucoseMentorContext`, period review glucose block
+- Prompt18 — mentor nudge strip above glucose chart
+- Prompt22 — HC permission hardening, unhandled error logging
+- Prompt23 — mentor chat conversation quality; PERIOD REVIEW every turn (mitigates PART C)
