@@ -2,6 +2,7 @@
 
 **Phase 1 (shipped):** photo session, add/remove preview, approve-before-apply, stacked preview on phone.
 **Phase 2 (deferred):** dedupe on add, partial-gram remove, discard photo session, highlight matched lines.
+**Phase 3 (new):** problem-only meal safety alert (blocking modal + red problem markers on offending lines).
 
 ### Vision
 When logging or **editing** a meal, the user can attach photos (camera or gallery),
@@ -162,3 +163,64 @@ Commit: `3397f8c` — pushed to `main`.
 - [ ] Add same item twice → dedupe or merge, not duplicate lines
 - [ ] Remove half portion via chat-adjusted photo grams subtracts from meal line
 - [ ] User can dismiss photo session without approving
+
+---
+
+## Phase 3 (priority) — Problem-only alert on meal mismatch
+
+User requirement (2026-06-17): if a photo-based meal (or edited meal) conflicts with targets/rules,
+show an **unmissable** alert. If no mismatch, **show nothing**.
+
+### Trigger
+- Run check on **Save meal** (after latest photo/text edits are applied to `items`).
+- If no issues: save immediately (silent).
+- If issues exist: block with modal and mark problematic lines in red.
+
+### Detection scope (v1)
+1. **Macro target mismatch** (today totals including this meal):
+   - carbs over target
+   - calories over target
+   - protein far under expected pace (optional warning severity)
+2. **My Rules mismatch** from `userRules.constraints`:
+   - direct keyword-level conflicts only in v1 (clear violations)
+
+No mismatch => no alert, no coach/chat interruption.
+
+### UX behavior
+- Blocking modal (cannot miss):
+  - Title: "Nutritionist alert"
+  - Body: short problem message (1-3 lines max)
+  - Buttons: `Edit meal` (primary), `Save anyway` (secondary)
+- Meal item rows that triggered checks get:
+  - red border (or red left rail)
+  - small warning icon/dot
+- Keep warning state tied to current `items`; clear markers when issue is fixed.
+
+### Data model additions (FoodLogModal)
+- `mealIssues: MealIssue[]`
+- `showIssueModal: boolean`
+- `overrideSaveOnce: boolean` (set true only after user taps `Save anyway` for current snapshot)
+
+Suggested shape:
+```ts
+type MealIssue = {
+  id: string;
+  severity: 'warning' | 'critical';
+  code: 'carb_over' | 'kcal_over' | 'protein_low' | 'rule_conflict';
+  message: string;
+  itemNames?: string[]; // lines to mark red
+};
+```
+
+### Files
+- `app/src/components/FoodLogModal.tsx` — issue detection, modal gate, red row styling
+- `app/src/services/TargetService.ts` (read-only use) — macro target / user rules fetch for check
+- optional helper:
+  - `app/src/logic/mealIssueAnalysis.ts` — pure local mismatch detector
+
+### Acceptance checklist (Phase 3)
+- [ ] Save meal with no mismatch => no modal, no red markers.
+- [ ] Save meal with mismatch => modal appears before save.
+- [ ] `Edit meal` keeps modal closed and leaves unsaved meal open with red-marked offending lines.
+- [ ] `Save anyway` persists once for current snapshot.
+- [ ] After fixing offending items, red markers disappear and save is silent.
