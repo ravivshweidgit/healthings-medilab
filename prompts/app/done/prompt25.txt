@@ -1,5 +1,8 @@
 ## Prompt 25 — Coach panel: structured review (summary · per-mentor wins · improve · actions)
 
+**Status: done (2026-06-17)** — Per-mentor coach panel shipped and phone-tested. Chat opens with
+panel expanded at top from dashboard (`ChatScreen.tsx`).
+
 ### Concept (user, 2026-06-08)
 Separate the two concerns that have been tangled in the coach panel:
 
@@ -227,18 +230,19 @@ coach code twice.
 ---
 
 ## Acceptance
-- [ ] All-three-mentors message: Summary, then 🥗/💪/🩺 sections each with wins + improve + 1–2 action items.
-- [ ] User can tell which mentor gave each bullet and each action item.
-- [ ] Single-mentor message: one mentor section only; no empty mentor blocks.
-- [ ] "X/Y done" + auto-tick still work (meal_logged, carbs_under_target, etc.).
-- [ ] Hebrew: summary, per-mentor wins/improve/actions all Hebrew; gender-consistent.
-- [ ] Old stored coach message (pre-prompt25) still renders via legacy fallback.
-- [ ] Empty wins/improve subsections hidden within a mentor block (mentor block still shown if it has action items).
-- [ ] Doctor fallback injected when Doctor active but model returned no doctor action item.
-- [ ] Action items ≤2 per mentor; never more than 6 total.
-- [ ] **P1** Coach panel never states a day count not in the loaded window (no "3 days" when window is 2).
-- [ ] **P2** Hebrew user-address forms stay consistent (all masculine OR all feminine) across a reply, in both chat and panel; mentor self-voice independent.
-- [ ] **P3** A glucose stat block appears under only one mentor section, not repeated.
+- [x] All-three-mentors message: Summary, then 🥗/💪/🩺 sections each with wins + improve + 1–2 action items.
+- [x] User can tell which mentor gave each bullet and each action item.
+- [x] Single-mentor message: one mentor section only; no empty mentor blocks.
+- [x] "X/Y done" + auto-tick still work (meal_logged, carbs_under_target, etc.).
+- [x] Hebrew: summary, per-mentor wins/improve/actions all Hebrew; gender-consistent.
+- [x] Old stored coach message (pre-prompt25) still renders via legacy fallback.
+- [x] Empty wins/improve subsections hidden within a mentor block (mentor block still shown if it has action items).
+- [x] Doctor fallback injected when Doctor active but model returned no doctor action item.
+- [x] Action items ≤2 per mentor; never more than 6 total.
+- [x] **P1** Coach panel never states a day count not in the loaded window (no "3 days" when window is 2).
+- [x] **P2** Hebrew user-address forms stay consistent (all masculine OR all feminine) across a reply, in both chat and panel; mentor self-voice independent.
+- [x] **P3** A glucose stat block appears under only one mentor section, not repeated.
+- [x] Chat opens from dashboard with coach panel expanded at top (2026-06-17).
 
 ---
 

@@ -1065,21 +1065,16 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
     void loadHistoryForMentor(activeMentor);
   }, [visible, activeMentor, loadHistoryForMentor]);
 
-  /** Coach panel starts collapsed so bottom tabs/input stay visible. */
+  /** Opening chat from dashboard: expand coach panel and scroll to top so review is visible. */
   useEffect(() => {
     if (!visible) return;
-    setCoachExpanded(false);
+    setCoachExpanded(true);
     coachAutoRegenRef.current = false; // allow one auto-regen attempt per open
-  }, [visible]);
-
-  /** Chat opens at latest message when there is history. */
-  useEffect(() => {
-    if (!visible || history.length === 0) return;
     const t = setTimeout(() => {
-      listRef.current?.scrollToEnd({ animated: false });
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
     }, 100);
     return () => clearTimeout(t);
-  }, [visible, history.length, coachMsg?.id]);
+  }, [visible]);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
