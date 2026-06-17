@@ -35,6 +35,7 @@ import { MacroTargetStrip } from '../components/MacroTargetStrip';
 import { ChatScreen } from './ChatScreen';
 import { CONFIG } from '../config/env';
 import { useHealthData } from '../hooks/useHealthData';
+import { useWithingsData } from '../hooks/useWithingsData';
 import { openHealthConnectSettings } from '../services/HealthConnectService';
 import {
   DEFAULT_TREND_PERIOD_DAYS,
@@ -62,18 +63,8 @@ import { type CoachContext } from '../services/GeminiService';
 import { triggerCoachReview, forceCoachReview, runAutoChecksAndPersist } from '../services/CoachService';
 import {
   buildAuthorizationUrl,
-  fetchWeightMetrics,
-  fetchBodyCompositionTrend7d,
-  fetchHeartRateHistory,
-  fetchTodayHeartRate,
-  fetchUserHeight,
-  fetchWorkoutsHistory,
   handleOAuthCallback,
   loadWithingsTokens,
-  type WeightMetricsForDashboard,
-  type WithingsCaloriePoint,
-  type WithingsHeartRatePoint,
-  type WorkoutSession,
 } from '../services/WithingsApiService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 import { demoNoticeCopy } from '../utils/wellnessCopy';
@@ -155,21 +146,24 @@ export const DashboardScreen = () => {
     dataSource,
   } = useHealthData();
 
+  const {
+    bodyScan,
+    bodyTrendDays,
+    bodyTrendSessions,
+    heartRate: withingsHeartRate,
+    calories: withingsCalories,
+    workouts: workoutSessions,
+    bodyScanLoading,
+    bodyScanError,
+    trendLoading,
+    trendError,
+    sync: syncWithings,
+  } = useWithingsData();
+
   const [importBusy, setImportBusy] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
 
-  const [bodyScan, setBodyScan] = useState<WeightMetricsForDashboard | null>(null);
-  const [bodyScanLoading, setBodyScanLoading] = useState(true);
-  const [bodyScanError, setBodyScanError] = useState<string | null>(null);
-
-  const [bodyTrendDays, setBodyTrendDays] = useState<MetabolicTrend7dDay[]>([]);
-  const [bodyTrendSessions, setBodyTrendSessions] = useState<CompositionSession[]>([]);
-  const [withingsHeartRate, setWithingsHeartRate] = useState<WithingsHeartRatePoint[]>([]);
-  const [withingsCalories, setWithingsCalories] = useState<WithingsCaloriePoint[]>([]);
-  const [workoutSessions, setWorkoutSessions] = useState<WorkoutSession[]>([]);
   const [trendPeriodDays, setTrendPeriodDays] = useState<number>(DEFAULT_TREND_PERIOD_DAYS);
-  const [trendLoading, setTrendLoading] = useState(true);
-  const [trendError, setTrendError] = useState<string | null>(null);
 
   const [withingsLinked, setWithingsLinked] = useState(false);
   const [linkBusy, setLinkBusy] = useState(false);
@@ -237,11 +231,11 @@ export const DashboardScreen = () => {
   }, []);
 
   const loadHeightAndBirthdate = useCallback(async () => {
-    // Load cached height first, then try fetching fresh from Withings.
     const cached = await getCachedHeightCm();
-    if (cached) { setHeightCm(cached); setHeightInput(String(cached)); }
-    const fromWithings = await fetchUserHeight();
-    if (fromWithings) { setHeightCm(fromWithings); setHeightInput(String(fromWithings)); }
+    if (cached) {
+      setHeightCm(cached);
+      setHeightInput(String(cached));
+    }
 
     // Show modal if gender or birthdate not yet stored.
     const [storedBd, gd, mgd] = await Promise.all([getBirthdate(), getGender(), getMentorGender()]);
@@ -604,70 +598,60 @@ export const DashboardScreen = () => {
   /** Heart rate chart line — Withings only (never Health Connect). */
   const mergedHeartRate = withingsHeartRate;
 
-  const loadBodyScan = useCallback(async () => {
-    setBodyScanError(null);
-    setBodyScanLoading(true);
+  const handlePullRefresh = useCallback(async () => {
+    setPullRefreshing(true);
     try {
-      const metrics = await fetchWeightMetrics();
-      setBodyScan(metrics);
+      await Promise.all([refetch(), syncWithings(), loadTodayFood()]);
+    } finally {
+      setPullRefreshing(false);
+    }
+  }, [refetch, syncWithings, loadTodayFood]);
 
-      if (metrics.measuredAt) {
-        const prev = await AsyncStorage.getItem(COACH_LAST_WEIGH_IN_KEY);
-        await AsyncStorage.setItem(COACH_LAST_WEIGH_IN_KEY, metrics.measuredAt);
-        if (prev && prev !== metrics.measuredAt) {
-          const ctx = coachContextRef.current;
-          if (ctx) {
-            const storedLang = await getLanguage();
-            const newMsg = await triggerCoachReview('weigh-in', {
-              ...ctx,
-              lang: storedLang,
-              event: 'weigh-in',
-            });
-            if (newMsg) setCoachMsg(newMsg);
-          }
+  useEffect(() => {
+    void loadTodayFood();
+  }, [loadTodayFood]);
+
+  useEffect(() => {
+    void (async () => {
+      await loadHeightAndBirthdate();
+      await loadLabReports();
+      await loadCoachMessage();
+    })();
+  }, [loadHeightAndBirthdate, loadLabReports, loadCoachMessage]);
+
+  useEffect(() => {
+    void checkDayClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Coach weigh-in trigger when persisted body scan advances. */
+  useEffect(() => {
+    if (!bodyScan?.measuredAt) return;
+    void (async () => {
+      const prev = await AsyncStorage.getItem(COACH_LAST_WEIGH_IN_KEY);
+      await AsyncStorage.setItem(COACH_LAST_WEIGH_IN_KEY, bodyScan.measuredAt!);
+      if (prev && prev !== bodyScan.measuredAt) {
+        const ctx = coachContextRef.current;
+        if (ctx) {
+          const storedLang = await getLanguage();
+          const newMsg = await triggerCoachReview('weigh-in', {
+            ...ctx,
+            lang: storedLang,
+            event: 'weigh-in',
+          });
+          if (newMsg) setCoachMsg(newMsg);
         }
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not load body scan.';
-      setBodyScanError(message);
-    } finally {
-      setBodyScanLoading(false);
-    }
-  }, []);
+    })();
+  }, [bodyScan?.measuredAt]);
 
-  const loadTrend = useCallback(async () => {
-    setTrendError(null);
-    setTrendLoading(true);
-    try {
-      const payload = await fetchBodyCompositionTrend7d();
-      setBodyTrendDays(payload.days);
-      setBodyTrendSessions(payload.debug.sessions);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not load 7-day trend.';
-      setTrendError(message);
-    } finally {
-      setTrendLoading(false);
-    }
-  }, []);
-
-  const loadHeartRate = useCallback(async () => {
-    try {
-      const { heartRate, calories } = await fetchHeartRateHistory();
-      setWithingsHeartRate(heartRate);
-      setWithingsCalories(calories);
-    } catch {
-      // Non-fatal: chart falls back to device heart rate only.
-    }
-  }, []);
-
-  const loadWorkouts = useCallback(async () => {
-    try {
-      const sessions = await fetchWorkoutsHistory();
-      setWorkoutSessions(sessions);
-
+  /** Coach workout trigger when today's workout list grows. */
+  useEffect(() => {
+    if (workoutSessions.length === 0) return;
+    void (async () => {
       const todayKey = localDayKeyFromMs(Date.now());
       const todayStart = dayKeyStartMs(todayKey);
-      const todayMax = sessions
+      const todayMax = workoutSessions
         .filter((s) => s.startMs >= todayStart)
         .reduce((max, s) => Math.max(max, s.startMs), 0);
       if (todayMax === 0) return;
@@ -689,91 +673,8 @@ export const DashboardScreen = () => {
           if (newMsg) setCoachMsg(newMsg);
         }
       }
-    } catch {
-      // Non-fatal: workout overlay is informational.
-    }
-  }, []);
-
-  const handlePullRefresh = useCallback(async () => {
-    setPullRefreshing(true);
-    try {
-      await Promise.all([
-        refetch(),
-        loadBodyScan(),
-        loadTrend(),
-        loadHeartRate(),
-        loadWorkouts(),
-        loadTodayFood(),
-      ]);
-    } finally {
-      setPullRefreshing(false);
-    }
-  }, [refetch, loadBodyScan, loadTrend, loadHeartRate, loadWorkouts, loadTodayFood]);
-
-  useEffect(() => {
-    void loadBodyScan();
-  }, [loadBodyScan]);
-
-  useEffect(() => {
-    void loadTrend();
-  }, [loadTrend]);
-
-  useEffect(() => {
-    void loadHeartRate();
-  }, [loadHeartRate]);
-
-  useEffect(() => {
-    void loadWorkouts();
-  }, [loadWorkouts]);
-
-  useEffect(() => {
-    void loadTodayFood();
-  }, [loadTodayFood]);
-
-  useEffect(() => {
-    void (async () => {
-      await loadHeightAndBirthdate();
-      await loadLabReports();
-      await loadCoachMessage();
     })();
-  }, [loadHeightAndBirthdate, loadLabReports, loadCoachMessage]);
-
-  useEffect(() => {
-    void checkDayClose();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  /** Re-fetch today's Withings HR + calories every 10 min so recent readings appear without manual sync. */
-  useEffect(() => {
-    const id = setInterval(async () => {
-      try {
-        const { heartRate: todayHr, calories: todayCal } = await fetchTodayHeartRate();
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
-        const todayStartMs = todayStart.getTime();
-
-        if (todayHr.length > 0) {
-          setWithingsHeartRate((prev) => {
-            const older = prev.filter((p) => new Date(p.timestamp).getTime() < todayStartMs);
-            const merged = [...older, ...todayHr];
-            merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-            return merged;
-          });
-        }
-        if (todayCal.length > 0) {
-          setWithingsCalories((prev) => {
-            const older = prev.filter((p) => new Date(p.timestamp).getTime() < todayStartMs);
-            const merged = [...older, ...todayCal];
-            merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-            return merged;
-          });
-        }
-      } catch {
-        // Non-fatal: periodic refresh failure is silent.
-      }
-    }, 10 * 60 * 1000);
-    return () => clearInterval(id);
-  }, []);
+  }, [workoutSessions]);
 
   useEffect(() => {
     void refreshWithingsLinkState();
@@ -794,7 +695,7 @@ export const DashboardScreen = () => {
       if (result.type === 'success' && result.url) {
         await handleOAuthCallback(result.url);
         await refreshWithingsLinkState();
-        await Promise.all([loadBodyScan(), loadTrend(), loadHeartRate(), loadWorkouts()]);
+        await syncWithings();
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Withings link failed.';
@@ -802,10 +703,10 @@ export const DashboardScreen = () => {
     } finally {
       setLinkBusy(false);
     }
-  }, [loadBodyScan, loadTrend, loadHeartRate, loadWorkouts, refreshWithingsLinkState]);
+  }, [syncWithings, refreshWithingsLinkState]);
 
   const handleSync = async () => {
-    const [, , , , result] = await Promise.all([loadBodyScan(), loadTrend(), loadHeartRate(), loadWorkouts(), refetch()]);
+    const [, result] = await Promise.all([syncWithings(), refetch()]);
     if (!result) {
       if (dataSource === 'health-connect') {
         Alert.alert(

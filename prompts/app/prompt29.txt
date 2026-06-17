@@ -52,12 +52,12 @@ Rules that keep this clean:
 4. **Derived metrics are just another adapter** — Samsung steps → kcal is a transform that
    merges into the *same* activity store; the store doesn't know it was derived.
 
-### Implication for current code (gap to close)
-- **CGM** already follows this — `healthings:lastMetrics` is the persisted truth; HC/CSV merge in. ✅
-- **Food, burn edits, profile, chat** are persisted. ✅
-- **Withings body/HR/trend/workouts** are the gap — currently API-fetched into React state,
-  **not persisted**. To match the vision they should merge into a local store on each sync,
-  and the UI should read from there.
+### Implication for current code
+- **CGM** — `healthings:lastMetrics` via `CgmPersistenceService.ts`; `useHealthData` loads cache first, HC/CSV merge on sync. ✅ phone-tested (2026-06-16)
+- **Withings** — `healthings:withingsStore` via `WithingsPersistenceService.ts` + `useWithingsData.ts`; body scan, trend, HR, calories, workouts; dashboard + `ReviewService` read persistence only. ✅ phone-tested (2026-06-16, offline/airplane mode OK)
+- **Food, burn edits, profile, chat, labs** — persisted in their existing services. ✅
+- **Height** — `user_height_cm` in `TargetService.ts`; user enters once in profile. **Not synced from Withings.** ✅
+- **Still open:** `source_config`, Samsung steps adapter, AI/manual BMR, full `LocalBackupService` export/import.
 
 ---
 
@@ -140,29 +140,15 @@ it only changes who feeds new data.
 
 ---
 
-## Recommended build order (do this tomorrow)
+## Recommended build order
 
-Withings-persistence-first, because Withings is the **richest** source — modeling the local
-stores on it means every later adapter (Samsung, Libre, Tanita) fills a strict **subset** and
-never forces a schema change.
-
-1. **Persist Withings into local stores** (close the gap in Principle 3's "Implication").
-   Define day-keyed, **source-tagged** stores for activity-kcal, body comp, BMR, HR. UI reads
-   from these stores, not the API. This *defines the contract*.
-
-   **The contract already exists — it's the types we already fetch.** Persistence schema =
-   existing Withings shapes + a `source` tag. No new schema to invent:
-   | Existing type (today) | Becomes persisted store | Source tag |
-   |---|---|---|
-   | `WeightMetricsForDashboard` (`weightKg`, `fatMassKg`, `muscleMassKg`, `visceralFatIndex`, `bmrKcalDay`) | Body composition + BMR (latest + day-keyed) | `withings` / `manual` |
-   | `MetabolicTrend7dDay` (`dayKey`, weight/fat/muscle/visceral, `bmrKcalDay`, `activityKcalDay`) | Day-keyed body+energy trend | `withings` |
-   | `WithingsHeartRatePoint[]` / `WithingsCaloriePoint[]` (`WithingsIntradayData`) | HR + activity-kcal slots | `withings` |
-   | `WorkoutSession[]` | Workouts | `withings` |
-   So step 1 is mostly: write what `loadBodyScan` / `loadTrend` / `loadHeartRate` /
-   `loadWorkouts` already produce into AsyncStorage on each sync, and read it back on load.
-   Samsung later fills the **same** `activityKcalDay` / activity-slot fields, tagged
-   `samsung-steps`.
-2. **Source configuration** — `source_config` model + Settings/onboarding toggles above.
+1. **Persist Withings + formalize CGM persistence** — ✅ **DONE** (2026-06-16, phone-tested).
+   - `WithingsPersistenceService.ts` + `useWithingsData.ts` → key `healthings:withingsStore`
+   - `CgmPersistenceService.ts` + refactored `useHealthData.ts` → key `healthings:lastMetrics`
+   - `HealthPersistenceService.ts` — facade `loadHealthPersistence()` / `syncHealthPersistence()`
+   - `ReviewService` — sync then read from stores (no direct API for mentor blocks)
+   - Cold start: cache paints UI; sync updates in background. **Airplane-mode test passes** (offline shows full dashboard).
+2. **Source configuration** — `source_config` model + Settings/onboarding toggles.
 3. **Activity store + Samsung steps adapter + AI/manual BMR** — the simple-user path lands on
    already-proven infrastructure:
    - Samsung adapter: steps → day-keyed kcal → merge (tagged `samsung-steps`).
@@ -211,7 +197,7 @@ tokens, native only), **expo-file-system** (export/import/debug files). No MMKV 
 |---|---|---|
 | `food_log_days` + `food_log_{YYYY-MM-DD}` | Meal index + `FoodEntry[]` per day | `FoodLogService.ts` |
 | `burn_correction_{YYYY-MM-DD}` | Manual kcal burn delta (no index — use `getAllKeys()`) | `BurnCorrectionService.ts` |
-| `user_birthdate`, `user_gender`, `user_height_cm` | Profile | `TargetService.ts` (+ Withings shares height) |
+| `user_birthdate`, `user_gender`, `user_height_cm` | Profile (`user_height_cm` = user-entered once, not device sync) | `TargetService.ts` |
 | `body_target`, `daily_macro_target`, `user_rules` | Goals + dietary constraints | `TargetService.ts` |
 | `user_mentors`, `mentor_gender`, `mentor_frequency` | Mentor config | `TargetService.ts` |
 | `user_language` | UI/mentor language | `TargetService.ts` |
@@ -221,24 +207,24 @@ tokens, native only), **expo-file-system** (export/import/debug files). No MMKV 
 | `source_config` | Selected data sources per metric (sensor setup) | NEW (this prompt) |
 | `manual_bmr_kcal` | User-entered BMR override (when `bmr: "manual"`) | NEW (this prompt) |
 
-### Tier 2 — CGM history not easily reconstructed (MUST back up)
+### Tier 2 — device metrics (MUST back up)
 | Key | Data | Owner |
 |---|---|---|
-| `healthings:lastMetrics` | Raw `glucose[]` + `cgmSessionStarts` (and steps/HR) | `healthMetricsCache.ts` / `useHealthData.ts` |
+| `healthings:lastMetrics` | Raw `glucose[]` + `cgmSessionStarts` | `CgmPersistenceService.ts` / `healthMetricsCache.ts` |
+| `healthings:withingsStore` | Body scan, trend days/sessions, HR, calories, workouts | `WithingsPersistenceService.ts` |
 
-CGM that survives restarts lives almost entirely here. Health Connect is re-fetchable; the
-original CareSens CSV is **not** stored after import.
+CGM that survives restarts lives in `healthings:lastMetrics`. Withings metrics survive in
+`healthings:withingsStore` (sync merges from API when linked; UI never reads API directly).
+Health Connect glucose is re-fetchable; the original CareSens CSV is **not** stored after import.
 
 ### Tier 3 — optional / sensitive
 | Key | Data | Owner | Note |
 |---|---|---|---|
 | `healthings_withings_tokens` (SecureStore; web → `healthings_withings_tokens_web`) | OAuth refresh/access tokens | `WithingsApiService.ts` | Restores Withings link without re-OAuth. Treat as sensitive. |
 
-### Withings device data (HR, body scan, trend, workouts)
-NOT persisted locally — fetched from the API on load. To make a backup self-contained
-(viewable after reinstall before re-linking), the export should pull a **snapshot** at
-export time (up to 128 days HR/calories + body trend + workouts) and store it under a new
-key `healthings:withingsBackup`, which the dashboard can read as a fallback.
+### Withings OAuth tokens (Tier 3 — optional / sensitive)
+See Tier 3 table below. Device metrics are in `healthings:withingsStore` — no live snapshot
+pull needed at export time (generic `asyncStorage` capture includes the store key).
 
 ### Exclude (device/diagnostic state — do NOT back up)
 `healthings:unhandledErrorLog`, `healthings:debugDownloadsDirUri`, `healthings:persistedHealth`
@@ -253,17 +239,13 @@ key `healthings:withingsBackup`, which the dashboard can read as a fallback.
   "version": 1,
   "app": "healthings-medilab",
   "exportedAt": "2026-06-10T19:00:00.000Z",
-  "asyncStorage": { "<key>": "<raw string value>", ... },  // all non-excluded keys
-  "withingsTokens": { "accessToken": "...", "refreshToken": "...", ... } | null,
-  "withingsSnapshot": {                                     // pulled live at export when linked
-    "exportedAt": "...",
-    "bodyScan": { ... } | null,
-    "bodyTrend": { ... } | null,
-    "intraday": { "heartRate": [...], "calories": [...] } | null,
-    "workouts": [ ... ] | null
-  } | null
+  "asyncStorage": { "<key>": "<raw string value>", ... },  // includes healthings:withingsStore, healthings:lastMetrics, food_log_*, etc.
+  "withingsTokens": { "accessToken": "...", "refreshToken": "...", ... } | null
 }
 ```
+
+- `withingsSnapshot` in envelope is **optional** — only if we need a legacy fallback; v1 can
+  rely on `healthings:withingsStore` inside `asyncStorage`.
 
 - `asyncStorage` is captured generically via `AsyncStorage.getAllKeys()` minus the exclude
   set — so future keys are backed up automatically without code changes.
@@ -319,14 +301,31 @@ key `healthings:withingsBackup`, which the dashboard can read as a fallback.
 
 ---
 
-## Files (planned)
+## Files (implemented + planned)
+
+**Shipped (persistence layer, 2026-06-16):**
+- `app/src/services/CgmPersistenceService.ts`
+- `app/src/services/WithingsPersistenceService.ts`
+- `app/src/services/HealthPersistenceService.ts`
+- `app/src/hooks/useWithingsData.ts`
+- `app/src/hooks/useHealthData.ts` (refactored)
+- `app/src/screens/DashboardScreen.tsx`
+- `app/src/services/ReviewService.ts`
+
+**Planned (backup + simple-user path):**
 - **NEW** `app/src/services/LocalBackupService.ts` — build / export / import / merge.
-- `app/src/screens/DashboardScreen.tsx` — Export/Import buttons + post-import reload.
+- `app/src/screens/DashboardScreen.tsx` — Export/Import all data buttons.
 - (reuse) `FoodLogService`, `healthMetricsCache`, `WithingsApiService`, `BurnCorrectionService`.
 
 ---
 
 ## Test plan (device)
+
+**Persistence layer — DONE (2026-06-16)**
+- [x] Cold start + pull refresh: CGM, Withings body/trend/HR/energy, food log, labs, workouts look correct.
+- [x] **Airplane mode** after warm cache: force-close → offline open → full dashboard from persistence (no mock flash, no empty wipe).
+
+**Local backup — not built yet**
 - [ ] Export → file `healthings-backup_YYYY-MM-DD.json` appears in chosen folder; valid JSON.
 - [ ] Reinstall app (or clear data) → Import the file → food log, profile, targets, mentors,
       rules, chat history, manual burn edits all return.
@@ -339,5 +338,6 @@ key `healthings:withingsBackup`, which the dashboard can read as a fallback.
 ---
 
 ## Status
-**Spec only — not implemented.** Ready to build tomorrow per the "Recommended build order"
-(Withings persistence → source config → Samsung steps + AI/manual BMR → local backup).
+**Partial — persistence layer shipped and phone-tested (2026-06-16).** Steps 1 of build order
+done (CGM + Withings stores, offline OK). Still open: source config, Samsung steps + AI BMR,
+full local backup export/import (`LocalBackupService`).

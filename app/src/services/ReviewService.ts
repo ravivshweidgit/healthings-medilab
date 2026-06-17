@@ -20,23 +20,17 @@ import {
   buildDayMealGlucoseBlock,
   buildPeriodMealGlucoseSection,
 } from '../logic/mealGlucoseAnalysis';
-import {
-  fetchWorkoutsHistory,
-  fetchBodyCompositionTrend7d,
-  fetchHeartRateHistory,
-  type WorkoutSession,
-  type WithingsHeartRatePoint,
-  type WithingsCaloriePoint,
-  type WithingsIntradayData,
+import type {
+  WorkoutSession,
+  WithingsHeartRatePoint,
+  WithingsCaloriePoint,
+  WithingsIntradayData,
 } from './WithingsApiService';
-import {
-  loadCachedHealthMetrics,
-  mergeGlucoseTimePoints,
-  filterGlucoseToDayKeys,
-  prepareGlucoseSeries,
-} from './healthMetricsCache';
+import { filterGlucoseToDayKeys } from './healthMetricsCache';
 import type { CgmSessionStart } from '../logic/cgmWarmupFilter';
-import { healthConnectService, type TimePoint } from './HealthConnectService';
+import { loadCgmViewFromStore, syncCgmStore } from './CgmPersistenceService';
+import { loadWithingsStore, syncWithingsStore } from './WithingsPersistenceService';
+import type { TimePoint } from './HealthConnectService';
 import type { DailyMacroTarget } from './TargetService';
 
 export const MAX_REVIEW_DAYS = 128;
@@ -284,35 +278,40 @@ function formatHrSummary(points: WithingsHeartRatePoint[], dayKey: string): stri
   return `HEART RATE (24/7): avg ${avg} bpm | min ${Math.min(...vals)} | max ${Math.max(...vals)} | ${dayPts.length} readings`;
 }
 
-/** Withings intraday + CGM from Health Connect only (no HC heart rate). */
-async function fetchPeriodIntraday(
+function filterPointsByLookbackDays<T extends { timestamp: string }>(
+  points: T[],
+  dayCount: number,
+): T[] {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - dayCount);
+  cutoff.setHours(0, 0, 0, 0);
+  const cutoffMs = cutoff.getTime();
+  return points.filter((p) => {
+    const ms = Date.parse(p.timestamp);
+    return !Number.isNaN(ms) && ms >= cutoffMs;
+  });
+}
+
+function filterWorkoutsByLookback(sessions: WorkoutSession[], lookbackDays: number): WorkoutSession[] {
+  const cutoffMs = Date.now() - lookbackDays * 24 * 3600 * 1000;
+  return sessions.filter((s) => s.startMs >= cutoffMs);
+}
+
+/** Withings intraday + CGM from local persistence (sync runs before read in callers). */
+async function loadPeriodIntradayFromPersistence(
   dayCount: number,
   appGlucose?: TimePoint[] | null,
 ): Promise<WithingsIntradayData & { glucose: TimePoint[]; glucoseRaw: TimePoint[]; cgmSessionStarts: CgmSessionStart[]; cgmStatSummary: string | null }> {
-  const periodStart = new Date();
-  periodStart.setDate(periodStart.getDate() - dayCount);
-  periodStart.setHours(0, 0, 0, 0);
-
-  const [withings, health, cached] = await Promise.all([
-    fetchHeartRateHistory(dayCount),
-    healthConnectService.fetchRecentMetrics(periodStart).catch(() => null),
-    loadCachedHealthMetrics(),
-  ]);
-
-  const mergedRaw = mergeGlucoseTimePoints([
-    health?.glucose ?? [],
-    cached?.glucose ?? [],
-    appGlucose ?? [],
-  ]);
-  const { filtered, sessionStarts, statFilter } = prepareGlucoseSeries(mergedRaw, cached?.cgmSessionStarts);
+  const withingsStore = await loadWithingsStore();
+  const cgm = await loadCgmViewFromStore(appGlucose);
 
   return {
-    heartRate: withings.heartRate,
-    calories: withings.calories,
-    glucose: filtered,
-    glucoseRaw: mergedRaw,
-    cgmSessionStarts: sessionStarts,
-    cgmStatSummary: statFilter.summaryLine,
+    heartRate: filterPointsByLookbackDays(withingsStore.heartRate, dayCount),
+    calories: filterPointsByLookbackDays(withingsStore.calories, dayCount),
+    glucose: cgm.glucose,
+    glucoseRaw: cgm.glucoseRaw,
+    cgmSessionStarts: cgm.cgmSessionStarts,
+    cgmStatSummary: cgm.cgmStatSummary,
   };
 }
 
@@ -485,13 +484,12 @@ function formatWorkoutRollup(
   return `${label} WORKOUTS (${dk}):\n  ${block}`;
 }
 
-/** Today + yesterday workout lines — single Withings fetch for chat/coach context. */
+/** Today + yesterday workout lines — reads persisted Withings store. */
 export async function buildChatWorkoutRollups(): Promise<{ today: string; yesterday: string }> {
-  const [sessions, intraday] = await Promise.all([
-    fetchWorkoutsHistory(14),
-    fetchHeartRateHistory(3),
-  ]);
-  const hr = intraday.heartRate;
+  await syncWithingsStore();
+  const store = await loadWithingsStore();
+  const sessions = filterWorkoutsByLookback(store.workouts, 14);
+  const hr = filterPointsByLookbackDays(store.heartRate, 3);
   return {
     today: formatWorkoutRollup(sessions, hr, 0, 'TODAY'),
     yesterday: formatWorkoutRollup(sessions, hr, 1, 'YESTERDAY'),
@@ -517,11 +515,20 @@ export async function buildPeriodReviewBlock(
   const dayCount = reviewDayCount(request);
   const dayKeys = windowDayKeys(request);
 
-  const [workouts, bodyPayload, intraday] = await Promise.all([
-    fetchWorkoutsHistory(Math.max(dayCount + 7, 14)),
-    fetchBodyCompositionTrend7d(),
-    fetchPeriodIntraday(dayCount, appGlucose),
-  ]);
+  await Promise.all([syncWithingsStore(), syncCgmStore()]);
+  const withingsStore = await loadWithingsStore();
+  const workouts = filterWorkoutsByLookback(withingsStore.workouts, Math.max(dayCount + 7, 14));
+  const bodyPayload = {
+    days: withingsStore.bodyTrendDays,
+    periodAnchor: null,
+    debug: {
+      sessions: withingsStore.bodyTrendSessions,
+      periodStart: null,
+      periodEnd: null,
+      lookbackDays: 0,
+    },
+  };
+  const intraday = await loadPeriodIntradayFromPersistence(dayCount, appGlucose);
 
   const periodGlucose = filterGlucoseToDayKeys(intraday.glucose, dayKeys);
   // RAW samples (warm-up kept) for the full per-sample dump — only used for the short window.

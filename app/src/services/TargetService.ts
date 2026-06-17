@@ -62,7 +62,7 @@ export async function setMentorGender(gender: Gender): Promise<void> {
 
 // ─── Height ───────────────────────────────────────────────────────────────────
 
-/** Returns cached height in cm or null. */
+/** User-entered height in cm (`user_height_cm`). Not synced from devices. */
 export async function getCachedHeightCm(): Promise<number | null> {
   const raw = await AsyncStorage.getItem(HEIGHT_KEY);
   if (!raw) return null;

@@ -1,19 +1,17 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { calculateMetabolicEfficiency, type ActivityZone } from '../logic/MetabolicLogic';
 import type { CgmSessionStart } from '../logic/cgmWarmupFilter';
-import { generateDemoRecentMetrics } from '../services/demoHealthMetrics';
+import type { ActivityZone } from '../logic/MetabolicLogic';
+import {
+  hasCgmData,
+  loadCgmStore,
+  mergeImportedGlucoseIntoStore,
+  syncCgmStore,
+  viewFromCgmStore,
+  type CgmViewState,
+} from '../services/CgmPersistenceService';
 import type { HealthDataSource } from '../services/healthRuntime';
 import { getHealthDataSource } from '../services/healthRuntime';
-import {
-  HEALTH_METRICS_CACHE_KEY,
-  loadCachedHealthMetrics,
-  mergeCgmSessionStarts,
-  mergeGlucoseTimePoints,
-  prepareGlucoseSeries,
-  type CachedHealthMetrics,
-} from '../services/healthMetricsCache';
-import { healthConnectService, type RecentMetrics, type TimePoint } from '../services/HealthConnectService';
+import type { RecentMetrics, TimePoint } from '../services/HealthConnectService';
 
 export type HealthSyncResult = {
   metrics: RecentMetrics;
@@ -30,46 +28,7 @@ export type GlucoseImportResult = {
   sessionCount: number;
 };
 
-type HealthDataState = {
-  glucoseData: TimePoint[];
-  cgmSessionStarts: CgmSessionStart[];
-  cgmStatSummary: string | null;
-  stepsData: TimePoint[];
-  heartRateData: TimePoint[];
-  efficiencyScore: number;
-  insight: string;
-  activityZones: ActivityZone[];
-};
-
-const CACHE_KEY = HEALTH_METRICS_CACHE_KEY;
-
-function persistMetrics(metrics: CachedHealthMetrics): void {
-  void AsyncStorage.setItem(CACHE_KEY, JSON.stringify(metrics));
-}
-
-function applyGlucoseToMetrics(
-  metrics: RecentMetrics,
-  knownSessionStarts?: CgmSessionStart[],
-): {
-  metrics: CachedHealthMetrics;
-  filtered: TimePoint[];
-  sessionStarts: CgmSessionStart[];
-  cgmStatSummary: string | null;
-} {
-  const { filtered, sessionStarts, raw, statFilter } = prepareGlucoseSeries(
-    metrics.glucose,
-    knownSessionStarts,
-  );
-  return {
-    metrics: {
-      glucose: raw,
-      cgmSessionStarts: sessionStarts,
-    },
-    filtered,
-    sessionStarts,
-    cgmStatSummary: statFilter.summaryLine,
-  };
-}
+type HealthDataState = CgmViewState;
 
 const emptyState: HealthDataState = {
   glucoseData: [],
@@ -104,72 +63,29 @@ export const useHealthData = () => {
     }
   }, []);
 
-  const applyMetrics = useCallback((metrics: RecentMetrics, knownSessionStarts?: CgmSessionStart[]) => {
-    const { metrics: cached, filtered, sessionStarts, cgmStatSummary } = applyGlucoseToMetrics(
-      metrics,
-      knownSessionStarts,
-    );
-    const efficiency = calculateMetabolicEfficiency(filtered, metrics.steps ?? []);
-    setState({
-      glucoseData: filtered,
-      cgmSessionStarts: sessionStarts,
-      cgmStatSummary,
-      stepsData: metrics.steps ?? [],
-      heartRateData: metrics.heartRate ?? [],
-      efficiencyScore: efficiency.efficiencyScore,
-      insight: efficiency.insight,
-      activityZones: efficiency.activityZones,
-    });
-    persistMetrics(cached);
+  const applyView = useCallback((view: CgmViewState) => {
+    setState(view);
   }, []);
 
   const applyImportedGlucose = useCallback(
     async (importedRaw: TimePoint[], importedSessionStarts?: CgmSessionStart[]): Promise<GlucoseImportResult> => {
       return withGlucoseSyncLock(async () => {
-        const cached = await loadCachedHealthMetrics();
-        let hcGlucose: TimePoint[] = [];
-        if (dataSource === 'health-connect') {
-          try {
-            await healthConnectService.initializeAndRequestPermissions();
-            hcGlucose = (await healthConnectService.fetchRecentMetrics()).glucose;
-          } catch {
-            // Non-fatal: CSV import still applies from file + cache.
-          }
-        }
-
-        // Later sources win on duplicate instants: CSV > HC > cache.
-        const mergedRaw = mergeGlucoseTimePoints([
-          cached?.glucose ?? [],
-          hcGlucose,
+        const result = await mergeImportedGlucoseIntoStore(
           importedRaw,
-        ]);
-        const sessionStarts = mergeCgmSessionStarts(
-          cached?.cgmSessionStarts,
           importedSessionStarts,
+          dataSource,
         );
-        const { metrics: toStore, filtered, sessionStarts: allStarts, cgmStatSummary } =
-          applyGlucoseToMetrics({ glucose: mergedRaw }, sessionStarts);
-        persistMetrics(toStore);
-        const eff = calculateMetabolicEfficiency(filtered, []);
-        setState((prev) => ({
-          ...prev,
-          glucoseData: filtered,
-          cgmSessionStarts: allStarts,
-          cgmStatSummary,
-          efficiencyScore: eff.efficiencyScore,
-          insight: eff.insight,
-          activityZones: eff.activityZones,
-        }));
+        applyView(result.view);
         return {
-          csvCount: importedRaw.length,
-          hcCount: hcGlucose.length,
-          mergedRawCount: mergedRaw.length,
-          chartCount: filtered.length,
-          sessionCount: allStarts.length,
+          csvCount: result.csvCount,
+          hcCount: result.hcCount,
+          mergedRawCount: result.mergedRawCount,
+          chartCount: result.chartCount,
+          sessionCount: result.sessionCount,
         };
       });
     },
-    [dataSource, withGlucoseSyncLock],
+    [applyView, dataSource, withGlucoseSyncLock],
   );
 
   const refetch = useCallback(async (): Promise<HealthSyncResult | null> => {
@@ -181,41 +97,26 @@ export const useHealthData = () => {
       setIsLoading(true);
       setError(null);
       try {
-        if (dataSource !== 'health-connect') {
-          const metrics = generateDemoRecentMetrics();
-          applyMetrics(metrics);
-          const { filtered } = prepareGlucoseSeries(metrics.glucose);
-          const efficiency = calculateMetabolicEfficiency(filtered, metrics.steps ?? []);
-          return {
-            metrics,
-            efficiencyScore: efficiency.efficiencyScore,
-            insight: efficiency.insight,
-            activityZones: efficiency.activityZones,
-          };
+        const result = await syncCgmStore(dataSource);
+        if (!result) {
+          setError('Failed to sync health data.');
+          return null;
         }
-
-        await healthConnectService.initializeAndRequestPermissions();
-        const metrics = await healthConnectService.fetchRecentMetrics();
-        const cached = await loadCachedHealthMetrics();
-        // HC wins on duplicate instant; keep CSV history from cache (prompt21 PART A).
-        const mergedRaw = mergeGlucoseTimePoints([cached?.glucose ?? [], metrics.glucose]);
-        const knownStarts = cached?.cgmSessionStarts;
-        const mergedMetrics: RecentMetrics = { glucose: mergedRaw };
-        applyMetrics(mergedMetrics, knownStarts);
-        const { filtered } = prepareGlucoseSeries(mergedRaw, knownStarts);
-        const efficiency = calculateMetabolicEfficiency(filtered, metrics.steps ?? []);
+        applyView(result.view);
         return {
-          metrics: mergedMetrics,
-          efficiencyScore: efficiency.efficiencyScore,
-          insight: efficiency.insight,
-          activityZones: efficiency.activityZones,
+          metrics: { glucose: result.store.glucose },
+          efficiencyScore: result.view.efficiencyScore,
+          insight: result.view.insight,
+          activityZones: result.view.activityZones,
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to sync health data.';
-        const cached = await loadCachedHealthMetrics();
-        const hasCachedGlucose = (cached?.glucose?.length ?? 0) > 0;
-        // Background refetch can fail transiently while cache + chart are still valid — avoid error flash.
-        setError(hasCachedGlucose ? null : message);
+        const cached = await loadCgmStore();
+        if (hasCgmData(cached)) {
+          setError(null);
+          return null;
+        }
+        setError(message);
         return null;
       } finally {
         setIsLoading(false);
@@ -228,28 +129,25 @@ export const useHealthData = () => {
     } finally {
       refetchInFlight.current = null;
     }
-  }, [applyMetrics, dataSource, withGlucoseSyncLock]);
+  }, [applyView, dataSource, withGlucoseSyncLock]);
 
   useEffect(() => {
     const bootstrap = async () => {
       try {
-        const cached = await AsyncStorage.getItem(CACHE_KEY);
-        if (cached) {
-          const parsed = JSON.parse(cached) as CachedHealthMetrics;
-          applyMetrics(parsed, parsed.cgmSessionStarts);
+        const cached = await loadCgmStore();
+        if (hasCgmData(cached)) {
+          applyView(viewFromCgmStore(cached!));
           setIsLoading(false);
         }
       } catch {
-        // Non-fatal: cache parse/read failure should not block live fetch.
+        // Non-fatal: cache read failure should not block sync.
       }
-
       await refetch();
     };
 
     void bootstrap();
-  }, [applyMetrics, refetch]);
+  }, [applyView, dataSource, refetch]);
 
-  /** Auto-refresh health data every 5 minutes so live HR/glucose stays current. */
   useEffect(() => {
     const id = setInterval(() => {
       void refetch();
