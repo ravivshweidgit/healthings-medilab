@@ -8,7 +8,6 @@ Active / backlog specs stay in `prompts/app/`:
 |------|------------------|
 | prompt31.txt | Spec only — source config + Samsung + AI/manual BMR |
 | prompt32.txt | Spec only — backup import QA + hardening (deferred) |
-| prompt33.txt | Spec only — period review cache + daily rollups (from prompt19 phase 2) |
 
 **prompt20** — done (Phase 1 + 3 + rules/fiber). Phase 2 photo polish deferred inside `done/prompt20.txt`.
 
@@ -17,3 +16,5 @@ Active / backlog specs stay in `prompts/app/`:
 **prompt25** — done (per-mentor coach panel + open-at-top on chat entry). Phone-tested 2026-06-17.
 
 **prompt34** — closed without ship (2026-06-17). Status row declined; chat fallback unnecessary with persistence. Manual CGM exclusions deferred inside `done/prompt34.txt`.
+
+**prompt33** — closed without ship (2026-06-17). Default 2-day full snapshot + `/N` is sufficient; rollup/cache optimization deferred inside `done/prompt33.txt`.
