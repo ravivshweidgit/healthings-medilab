@@ -15,6 +15,7 @@ import {
   type CompositionSession,
 } from '../logic/metabolicTrend7d';
 import { getDailyMacros, buildMealsAiContext } from './FoodLogService';
+import { buildLabsAiContext, getLabReportsForDayKeys } from './LabLogService';
 import {
   buildDayMealGlucoseBlock,
   buildPeriodMealGlucoseSection,
@@ -511,6 +512,7 @@ export async function buildPeriodReviewBlock(
   request: PeriodReviewRequest,
   macroTarget?: DailyMacroTarget | null,
   appGlucose?: TimePoint[] | null,
+  options?: { includeLabHistory?: boolean },
 ): Promise<string> {
   const dayCount = reviewDayCount(request);
   const dayKeys = windowDayKeys(request);
@@ -595,6 +597,12 @@ export async function buildPeriodReviewBlock(
       'WORKOUTS (+ HR during each session):',
       `  ${formatDayWorkouts(workouts, dk, intraday.heartRate)}`,
     );
+  }
+
+  if (options?.includeLabHistory) {
+    const labReports = await getLabReportsForDayKeys(dayKeys);
+    const labBlock = buildLabsAiContext(labReports, 'history');
+    if (labBlock) lines.push('', labBlock);
   }
 
   lines.push('', '=== END PERIOD REVIEW ===');

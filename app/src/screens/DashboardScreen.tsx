@@ -30,6 +30,7 @@ import { MetabolicTrendChart7d } from '../components/MetabolicTrendChart7d';
 import { WeightTargetStrip } from '../components/WeightTargetStrip';
 import { MentorStrip } from '../components/MentorStrip';
 import { RulesStrip } from '../components/RulesStrip';
+import { LabResultsStrip } from '../components/LabResultsStrip';
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
 import { ChatScreen } from './ChatScreen';
 import { CONFIG } from '../config/env';
@@ -47,6 +48,7 @@ import {
 import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportWithSessions } from '../services/careSensCsv';
 import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getRecentMeals, getDailyMacros, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
+import { getAllLabReports, getLabsAiContextForHeader, type LabReport } from '../services/LabLogService';
 import { buildGlucoseMentorContext } from '../logic/mealGlucoseAnalysis';
 import { activeMentorEmojis, mentorsCollectiveLabel } from '../logic/mentorLabels';
 import {
@@ -197,6 +199,8 @@ export const DashboardScreen = () => {
   const [bodyTargetForMacros, setBodyTargetForMacros] = useState<BodyTarget | null>(null);
   const [mentors, setMentorsState] = useState<MentorType[]>(['coach', 'nutritionist']);
   const [userRules, setUserRules] = useState<UserRules | null>(null);
+  const [labReports, setLabReports] = useState<LabReport[]>([]);
+  const [labsAiContext, setLabsAiContext] = useState<string | null>(null);
   const [macroTarget, setMacroTarget] = useState<DailyMacroTarget | null>(null);
   const [userLanguage, setUserLanguage] = useState<UserLanguage>(SUPPORTED_LANGUAGES[0]);
   // expanded state for each collapsible row in the grouped card
@@ -225,6 +229,12 @@ export const DashboardScreen = () => {
   }, []);
 
   const [profileExpanded, setProfileExpanded] = useState(false);
+
+  const loadLabReports = useCallback(async () => {
+    const [reports, ctx] = await Promise.all([getAllLabReports(), getLabsAiContextForHeader()]);
+    setLabReports(reports);
+    setLabsAiContext(ctx);
+  }, []);
 
   const loadHeightAndBirthdate = useCallback(async () => {
     // Load cached height first, then try fetching fresh from Withings.
@@ -496,12 +506,13 @@ export const DashboardScreen = () => {
       macroTarget,
       bodyTarget: bodyTargetForMacros,
       userRules,
+      labsAiContext,
     };
     coachContextRef.current = ctx;
     return ctx;
   }, [
     mentors, userAge, userGender, userMentorGender, mentorGenderPicker, heightCm, bodyScan, fatPct, bodyTargetForMacros,
-    todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, mealGlucoseContext, glucoseData, macroTarget, userRules, userLanguage,
+    todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, mealGlucoseContext, glucoseData, macroTarget, userRules, labsAiContext, userLanguage,
   ]);
 
   /** Regenerate coach message using stored language (not stale React state). */
@@ -722,9 +733,10 @@ export const DashboardScreen = () => {
   useEffect(() => {
     void (async () => {
       await loadHeightAndBirthdate();
+      await loadLabReports();
       await loadCoachMessage();
     })();
-  }, [loadHeightAndBirthdate, loadCoachMessage]);
+  }, [loadHeightAndBirthdate, loadLabReports, loadCoachMessage]);
 
   useEffect(() => {
     void checkDayClose();
@@ -1126,6 +1138,13 @@ export const DashboardScreen = () => {
           burnKcalByDay={burnKcalByDay}
           onImported={() => { setFoodRefreshKey((k) => k + 1); loadTodayFood(); }}
           macroTarget={macroTarget}
+        />
+
+        {/* Section 6 — Lab results */}
+        <LabResultsStrip
+          reports={labReports}
+          onReportsChanged={loadLabReports}
+          lang={userLanguage}
         />
 
         {dataSource === 'health-connect' ? (

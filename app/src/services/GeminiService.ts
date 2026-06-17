@@ -13,6 +13,7 @@ import {
   type MentorLines,
 } from '../logic/mentorChatText';
 import type { MentorType, DailyMacroTarget, BodyTarget, UserRules, CoachMessage, CoachActionItem, AutoCheckType, ChatMessage, UserLanguage, Gender } from './TargetService';
+import type { ParsedLabPdf, LabPanelType, LabResult, LabResultFlag } from './LabLogService';
 import type { TimePoint } from './HealthConnectService';
 import {
   buildPeriodReviewBlock,
@@ -1083,6 +1084,142 @@ User text: "${rawText.replace(/"/g, "'")}"${langInstruction(lang)}`;
   }
 }
 
+// ─── Lab report PDF parsing ───────────────────────────────────────────────────
+
+export type LabPdfParseResult = {
+  parsed: ParsedLabPdf;
+  confidence: 'high' | 'low';
+};
+
+const LAB_PARSE_MOCK: ParsedLabPdf = {
+  labProvider: 'clalit',
+  patientName: 'רביב שוויד',
+  patientId: '24667792',
+  collectedAt: '2026-06-16T10:10:00+03:00',
+  printedAt: '2026-06-16T15:52:00+03:00',
+  panelType: 'chemistry',
+  results: [
+    { code: 'GLUCOSE', name: 'Glucose', nameOriginal: 'GLUCOSE', value: 91, unit: 'mg/dL', flag: 'unknown' },
+    { code: 'CHOLESTEROL', name: 'Total cholesterol', nameOriginal: 'CHOLESTEROL', value: 225.6, unit: 'mg/dL', flag: 'high', referenceText: 'ערך רצוי קטן מ 200' },
+    { code: 'CHOLESTEROL_LDL', name: 'LDL cholesterol', nameOriginal: 'CHOLESTEROL-LDL calc', value: 170, unit: 'mg/dL', flag: 'high', referenceText: 'ערך רצוי קטן מ 100' },
+    { code: 'CHOLESTEROL_HDL', name: 'HDL cholesterol', nameOriginal: 'CHOLESTEROL- HDL', value: 44, unit: 'mg/dL', flag: 'unknown' },
+    { code: 'TRIGLYCERIDES', name: 'Triglycerides', nameOriginal: 'TRIGLYCERIDES', value: 60, unit: 'mg/dL', flag: 'unknown' },
+  ],
+};
+
+function normalizeLabFlag(v: unknown): LabResultFlag {
+  if (v === 'low' || v === 'high' || v === 'normal') return v;
+  return 'unknown';
+}
+
+function normalizePanelType(v: unknown): LabPanelType {
+  if (v === 'chemistry' || v === 'cbc') return v;
+  return 'other';
+}
+
+function normalizeLabResults(raw: unknown): LabResult[] {
+  if (!Array.isArray(raw)) return [];
+  const out: LabResult[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const o = item as Record<string, unknown>;
+    const value = Number(o.value);
+    if (!Number.isFinite(value)) continue;
+    const code = String(o.code ?? o.nameOriginal ?? 'UNKNOWN').trim().replace(/\s+/g, '_').toUpperCase();
+    out.push({
+      code,
+      name: String(o.name ?? code),
+      nameOriginal: o.nameOriginal != null ? String(o.nameOriginal) : undefined,
+      value,
+      unit: String(o.unit ?? '').trim(),
+      flag: normalizeLabFlag(o.flag),
+      referenceText: o.referenceText != null ? String(o.referenceText) : undefined,
+    });
+  }
+  return out;
+}
+
+export async function parseLabReportPdf(
+  pdfBase64: string,
+  lang?: UserLanguage | null,
+  useMock = false,
+): Promise<LabPdfParseResult> {
+  if (useMock || MOCK_MODE) {
+    await new Promise((r) => setTimeout(r, 600));
+    return { parsed: LAB_PARSE_MOCK, confidence: 'high' };
+  }
+
+  const prompt = `You are a medical lab report parser. Extract structured data from this PDF lab printout (Israeli Clalit online format).
+
+Output JSON only, no markdown:
+{"labProvider":"clalit","patientName":"...","patientId":"...","collectedAt":"2026-06-16T10:10:00+03:00","printedAt":"2026-06-16T15:52:00+03:00","panelType":"chemistry","panelNote":null,"results":[{"code":"GLUCOSE","name":"Glucose","nameOriginal":"GLUCOSE","value":91,"unit":"mg/dL","flag":"unknown","referenceText":null}]}
+
+Rules:
+- Extract EVERY numeric test row from the table; do not invent tests not in the PDF.
+- Parse specimen date/time from "תאריך הבדיקה ושעת ביצועה" → ISO 8601 with +03:00 offset.
+- panelType: "chemistry" (metabolic/lipids/liver/renal), "cbc" (blood count/differential), or "other".
+- Normalize codes: CHOLESTEROL-LDL calc → CHOLESTEROL_LDL, NEUT.abs → NEUT_ABS.
+- flag: "high", "low", "normal", or "unknown" (from norm column or footer Hebrew notes).
+- Skip non-numeric QC rows (HEMOLYTIC, LIPEMIC, ICTERIC) — put text in panelNote if needed.
+- Attach footer reference notes to matching tests when present.
+- labProvider: "clalit" if from כללית, else "unknown".${langInstruction(lang)}`;
+
+  const body = {
+    contents: [{
+      role: 'user',
+      parts: [
+        { inline_data: { mime_type: 'application/pdf', data: pdfBase64 } },
+        { text: prompt },
+      ],
+    }],
+    generationConfig: geminiGenerationConfig({ temperature: 0.1, maxOutputTokens: 8192 }),
+  };
+
+  const response = await fetch(GEMINI_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.text().catch(() => '');
+    throw new Error(`Gemini lab PDF error ${response.status}: ${err.slice(0, 200)}`);
+  }
+
+  const json = await response.json();
+  const raw: string = extractGeminiText(json?.candidates?.[0]);
+  if (!raw) throw new Error('Empty response parsing lab PDF');
+
+  const stripped = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  const start = stripped.indexOf('{');
+  const end = stripped.lastIndexOf('}');
+  const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(cleaned) as Record<string, unknown>;
+  } catch {
+    throw new Error(`Could not parse lab PDF JSON: ${raw.slice(0, 120)}`);
+  }
+
+  const results = normalizeLabResults(data.results);
+  if (results.length === 0) {
+    throw new Error('No lab results found in PDF — try exporting again from Clalit');
+  }
+
+  const parsed: ParsedLabPdf = {
+    labProvider: data.labProvider === 'clalit' ? 'clalit' : 'unknown',
+    patientName: data.patientName != null ? String(data.patientName) : undefined,
+    patientId: data.patientId != null ? String(data.patientId) : undefined,
+    collectedAt: String(data.collectedAt ?? new Date().toISOString()),
+    printedAt: data.printedAt != null ? String(data.printedAt) : undefined,
+    panelType: normalizePanelType(data.panelType),
+    results,
+    panelNote: data.panelNote != null ? String(data.panelNote) : undefined,
+  };
+
+  return { parsed, confidence: results.length >= 5 ? 'high' : 'low' };
+}
+
 // ─── Daily macro suggestion ───────────────────────────────────────────────────
 
 export type MacroSuggestionInput = {
@@ -1217,6 +1354,8 @@ export type CoachContext = {
   macroTarget: DailyMacroTarget | null;
   bodyTarget: BodyTarget | null;
   userRules: UserRules | null;
+  /** Latest lab draw formatted for mentors (from LabLogService). */
+  labsAiContext: string | null;
 };
 
 type DayPhase = 'early_morning' | 'morning' | 'midday' | 'afternoon' | 'evening' | 'late_evening';
@@ -1323,6 +1462,7 @@ function buildProfileTargetsHeader(ctx: CoachContext): string[] {
     `Goals: target weight ${n(bt?.targetWeight_kg ?? null, ' kg')} | target fat ${n(bt?.targetFatPct ?? null, '%')} | target muscle ${n(bt?.targetMuscleMass_kg ?? null, ' kg')} | start weight ${n(ctx.startWeight_kg, ' kg')} | start muscle ${n(ctx.startMuscle_kg, ' kg')}`,
     `Daily macro target: ${n(mt?.kcal ?? null, ' kcal')} | P ${n(mt?.protein_g ?? null, 'g')} | C ${n(mt?.carb_g ?? null, 'g')} | F ${n(mt?.fat_g ?? null, 'g')}`,
     ...(ctx.userRules ? formatUserRulesForContext(ctx.userRules) : []),
+    ...(ctx.labsAiContext ? [ctx.labsAiContext] : []),
   ].filter((l): l is string => Boolean(l));
 }
 
@@ -1400,6 +1540,7 @@ Rules:
 - carbs_under_target MUST cite carb target ${carbTarget != null ? `${Math.round(carbTarget)}g` : 'from the Daily macro target line'} — never use generic 20g keto defaults
 - protein_over_target MUST cite protein target ${proteinTarget != null ? `${Math.round(proteinTarget)}g` : 'from the Daily macro target line'}
 - Dietary rules in USER DATA (My Rules — AI understood bullets) override any generic diet assumptions; when asked what the user's rules are, quote those bullets — do NOT paraphrase vaguely or invent rules
+- When LAB RESULTS is in USER DATA, never claim labs are missing; cite exact values for cholesterol, CBC, kidney, liver, glucose when relevant; informational only — not a diagnosis
 - If event is meal: focus on remaining macros for the day. If weigh-in: trend vs target, muscle vs start. If workout: calorie budget + HR during session vs resting baseline from the WORKOUTS lines in the PERIOD REVIEW.
 - Do NOT repeat data the user already sees on the dashboard
 - If Nutritionist 🥗 is active and the PERIOD REVIEW has CGM/glucose data, the nutritionist's wins/improve MUST cite glucose avg/min/max (mg/dL) with a good-vs-needs-improvement verdict
@@ -1646,7 +1787,12 @@ function buildChatContextBlocks(
   // Always inject the FULL today+yesterday snapshot (no summarizing). An explicit /N request
   // widens the window; otherwise default to a 2-day (yesterday + today) snapshot.
   const reviewRequest: PeriodReviewRequest = periodRequest ?? { mode: 'days', days: 2 };
-  const snapshot = buildPeriodReviewBlock(reviewRequest, ctx.macroTarget, ctx.glucoseHistory);
+  const snapshot = buildPeriodReviewBlock(
+    reviewRequest,
+    ctx.macroTarget,
+    ctx.glucoseHistory,
+    { includeLabHistory: Boolean(periodRequest) },
+  );
   const snapshotInstruction = periodRequest ? PERIOD_REVIEW_CHAT_INSTRUCTION : DEFAULT_SNAPSHOT_INSTRUCTION;
   const periodSection = snapshot.then((block) =>
     block ? `\n\n${block}\n\n${snapshotInstruction}` : '',
@@ -1757,6 +1903,7 @@ Inside "response" write plain prose only — no **bold**, no markdown headers, n
 JSON STRING SAFETY (mandatory): never put ASCII double-quote (") inside the response text — it breaks JSON. For Hebrew abbreviations use single quotes instead: ק'ג not ק"ג, מ'ג/ד'ל not מ"ג/ד"ל, ק'ק'ל not קק"ל. If you must use a double-quote in the text, escape it as \\".
 All of today's and yesterday's data — body, visceral, BMR, energy, 24/7 HR, meals, CGM, workouts — is in the data block above. When asked about activity, meals, glucose, HR, or body metrics, cite the exact numbers from it; never say data is missing if it appears there.
 When the user asks about their dietary rules, restrictions, or what is written in My Rules: quote the bullet list under My Rules — AI understood in PROFILE / GOALS / SETTINGS (same structured summary as the app) — do NOT paraphrase vaguely or repeat raw free-text.
+When the user asks about blood tests, labs, cholesterol, or בדיקות דם: quote exact values from LAB RESULTS in USER DATA; for trends across older draws use the LAB HISTORY block when /N loaded — never invent values.
 When glucose is the topic, or this is the first reply in the tab today, or the user asked for status/overview: Nutritionist 🥗 leads with glucose interpretation (avg/min/max mg/dL) and Doctor 🩺 adds clinical safety on the same numbers. On follow-ups about food targets, hunger, or fat/protein without a glucose question, answer that topic directly — do NOT re-open with the same CGM block.
 CGM DATE SPAN (mandatory): only cite "N days" when the data block explicitly states N days. If unsure, say "the available CGM window" — never invent 7 days. Slash commands (/7, /30) widen the loaded window — use that block's day count.
 When the user asks for a longer review (/7, /30), analyze the full snapshot (body, energy, HR, food, workouts): what went well, what to improve, specific next steps.

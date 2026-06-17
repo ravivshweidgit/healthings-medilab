@@ -46,6 +46,7 @@ import {
   getUserRules,
   MENTOR_CHAT_TAB_ORDER,
 } from '../services/TargetService';
+import { getLabsAiContextForHeader } from '../services/LabLogService';
 import { chatWithMentor, summariseChatDay, isYesterdayQuery, type CoachContext } from '../services/GeminiService';
 import { runAutoChecksAndPersist, refreshCoachReview, forceCoachReview } from '../services/CoachService';
 import { exportMentorChat } from '../services/mentorChatExport';
@@ -1185,10 +1186,11 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
   }, [ui, pickChatImage]);
 
   const buildFreshContext = useCallback(async (): Promise<CoachContext> => {
-    const [meals, macroTarget, userRules] = await Promise.all([
+    const [meals, macroTarget, userRules, labsAiContext] = await Promise.all([
       getTodayMeals(),
       getMacroTarget(),
       getUserRules(),
+      getLabsAiContextForHeader(),
     ]);
     const mealsCtx = buildMealsAiContext(meals);
     const mealTotals = meals.reduce(
@@ -1204,6 +1206,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
       ...context,
       macroTarget: macroTarget ?? context.macroTarget,
       userRules: userRules ?? context.userRules,
+      labsAiContext: labsAiContext ?? context.labsAiContext,
       mealCount: meals.length,
       todayEaten: meals.length > 0 ? mealTotals.kcal : context.todayEaten,
       todayProtein_g: meals.length > 0 ? mealTotals.protein_g : context.todayProtein_g,
