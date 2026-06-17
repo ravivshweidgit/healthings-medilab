@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import {
   analyzeFood,
+  checkMealAgainstUserRules,
   computeTotals,
   seedMealEditHistory,
   type FoodItem,
@@ -31,9 +32,11 @@ import {
 import { saveMeal, deleteMeal, foodLogDayKey, getDailyMacros, type FoodEntry } from '../services/FoodLogService';
 import { buildMealMergePreview, type MealMergePreview } from '../logic/mealPhotoMerge';
 import {
-  analyzeMealIssues,
+  analyzeMacroMealIssues,
   flaggedItemIndices,
   issueModalBody,
+  mealIssuesFromFoodItems,
+  mealIssuesFromGeminiRules,
   mealItemsSnapshotKey,
   type MealIssue,
 } from '../logic/mealIssueAnalysis';
@@ -86,7 +89,7 @@ function confidenceColor(c: 'high' | 'medium' | 'low'): string {
 
 function macroSummary(items: FoodItem[]): string {
   const t = computeTotals(items);
-  return `${Math.round(t.totalKcal)} kcal · P ${t.totalProtein_g.toFixed(0)}g · C ${t.totalCarb_g.toFixed(0)}g · F ${t.totalFat_g.toFixed(0)}g`;
+  return `${Math.round(t.totalKcal)} kcal · P ${t.totalProtein_g.toFixed(0)}g · C ${t.totalCarb_g.toFixed(0)}g · F ${t.totalFat_g.toFixed(0)}g · Fi ${t.totalFiber_g.toFixed(0)}g`;
 }
 
 function macroDelta(before: FoodItem[], after: FoodItem[]): string {
@@ -96,8 +99,9 @@ function macroDelta(before: FoodItem[], after: FoodItem[]): string {
   const dp = (a.totalProtein_g - b.totalProtein_g).toFixed(0);
   const dc = (a.totalCarb_g - b.totalCarb_g).toFixed(0);
   const df = (a.totalFat_g - b.totalFat_g).toFixed(0);
+  const dfi = (a.totalFiber_g - b.totalFiber_g).toFixed(0);
   const sign = dk >= 0 ? '+' : '';
-  return `${sign}${dk} kcal · P ${dp}g · C ${dc}g · F ${df}g`;
+  return `${sign}${dk} kcal · P ${dp}g · C ${dc}g · F ${df}g · Fi ${dfi}g`;
 }
 
 function capMealTimestamp(ms: number): number {
@@ -173,7 +177,7 @@ function FoodItemsCard({
     <View style={[styles.itemsCard, cardShadow]}>
       {title ? <Text style={styles.itemsCardTitle}>{title}</Text> : null}
       {items.map((item, i) => {
-        const flagged = flaggedIndices?.has(i);
+        const flagged = flaggedIndices?.has(i) || item.rule_conflict;
         return (
           <View
             key={`item-${i}`}
@@ -190,11 +194,14 @@ function FoodItemsCard({
                   {item.name_local ?? item.name}
                 </Text>
               </View>
+              {flagged && item.rule_message ? (
+                <Text style={styles.itemRuleMessage}>{item.rule_message}</Text>
+              ) : null}
               <Text style={styles.itemGrams}>{item.grams}g</Text>
             </View>
             <View style={styles.itemRight}>
               <Text style={styles.itemKcal}>{item.kcal} kcal</Text>
-              <Text style={styles.itemMacros}>P {item.protein_g}g · C {item.carb_g}g · F {item.fat_g}g</Text>
+              <Text style={styles.itemMacros}>P {item.protein_g}g · C {item.carb_g}g · F {item.fat_g}g · Fi {item.fiber_g ?? 0}g</Text>
             </View>
           </View>
         );
@@ -277,7 +284,12 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
     setOverrideSnapshotKey(null);
   }, [initialTimestamp]);
 
-  const recomputeMealIssues = useCallback(async (mealItems: FoodItem[], timestamp: number, excludeId?: string) => {
+  const recomputeMealIssues = useCallback(async (
+    mealItems: FoodItem[],
+    timestamp: number,
+    excludeId?: string,
+    useGeminiRules = false,
+  ) => {
     const [macroTarget, userRules, dayMacros] = await Promise.all([
       getMacroTarget(),
       getUserRules(),
@@ -294,14 +306,29 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
         }),
         { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0 },
       );
-    return analyzeMealIssues({
+    const issueInput = {
       items: mealItems,
       dayTotalsBeforeMeal: before,
       macroTarget,
-      userRules,
       mealTimestamp: timestamp,
-    });
-  }, []);
+    };
+
+    const macroIssues = analyzeMacroMealIssues(issueInput);
+    let ruleIssues = mealIssuesFromFoodItems(mealItems);
+
+    if (useGeminiRules && userRules) {
+      try {
+        const geminiIssues = await checkMealAgainstUserRules(mealItems, userRules, lang);
+        if (geminiIssues.length > 0) {
+          ruleIssues = mealIssuesFromGeminiRules(geminiIssues);
+        }
+      } catch {
+        // Offline — rely on rule_conflict markers from the last analyzeFood response.
+      }
+    }
+
+    return [...macroIssues, ...ruleIssues];
+  }, [lang]);
 
   React.useEffect(() => {
     if (items.length === 0) {
@@ -319,7 +346,7 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
     }
 
     let cancelled = false;
-    void recomputeMealIssues(items, mealTime, editingId).then((issues) => {
+    void recomputeMealIssues(items, mealTime, editingId, false).then((issues) => {
       if (cancelled) return;
       setMealIssues(issues);
       if (issues.length === 0) setShowIssueModal(false);
@@ -348,7 +375,8 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
       setAnalyzingPhotoUri(null);
       setError(null);
       try {
-        const { result, updatedHistory } = await analyzeFood(null, userText, hist, null, lang);
+        const userRules = await getUserRules();
+        const { result, updatedHistory } = await analyzeFood(null, userText, hist, null, lang, userRules);
         setItems(result.items);
         setConfidence(result.confidence);
         setDescription(result.description);
@@ -375,7 +403,8 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
       setError(null);
       setMergePreview(null);
       try {
-        const { result, updatedHistory } = await analyzeFood(imageBase64, userText, hist, null, lang);
+        const userRules = await getUserRules();
+        const { result, updatedHistory } = await analyzeFood(imageBase64, userText, hist, null, lang, userRules);
         setPhotoSession({
           uri,
           base64: imageBase64,
@@ -428,7 +457,7 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
           'This photo is very large and may fail. Try a smaller image or use the camera instead.',
         );
       }
-      await runPhotoAnalysis(asset.uri, b64, 'What food is in this photo? Give me the macros.', []);
+      await runPhotoAnalysis(asset.uri, b64, '', []);
     },
     [runPhotoAnalysis],
   );
@@ -456,12 +485,14 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
       setScreen('analyzing');
       setError(null);
       try {
+        const userRules = await getUserRules();
         const { result, updatedHistory } = await analyzeFood(
           null,
           text,
           photoSession.history,
           null,
           lang,
+          userRules,
         );
         setPhotoSession((prev) =>
           prev ? { ...prev, ...applyAnalysisResult(result, updatedHistory) } : prev,
@@ -529,6 +560,7 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
       totalProtein_g: Math.round(totals.totalProtein_g * 10) / 10,
       totalCarb_g: Math.round(totals.totalCarb_g * 10) / 10,
       totalFat_g: Math.round(totals.totalFat_g * 10) / 10,
+      totalFiber_g: Math.round(totals.totalFiber_g * 10) / 10,
       source: hadPhotoForSave ? 'camera-ai' : mealHistory.length > 0 ? 'text-ai' : 'manual',
     });
     reset();
@@ -539,15 +571,16 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
     if (items.length === 0) return;
 
     const snapshot = mealItemsSnapshotKey(items);
-    const issues = await recomputeMealIssues(items, mealTime, editingId);
+    setScreen('saving');
+    const issues = await recomputeMealIssues(items, mealTime, editingId, true);
     setMealIssues(issues);
 
     if (issues.length > 0 && !(overrideSaveOnce && overrideSnapshotKey === snapshot)) {
+      setScreen('result');
       setShowIssueModal(true);
       return;
     }
 
-    setScreen('saving');
     try {
       await persistSave();
     } catch {
@@ -1014,6 +1047,7 @@ const styles = StyleSheet.create({
   itemWarningDot: { fontSize: 12, color: '#C62828' },
   itemName: { fontSize: 14, fontWeight: '600', color: WellnessColors.textPrimary },
   itemNameFlagged: { color: '#B71C1C' },
+  itemRuleMessage: { fontSize: 11, color: '#C62828', marginTop: 2, lineHeight: 15 },
   itemGrams: { fontSize: 12, color: WellnessColors.textSecondary },
   itemRight: { alignItems: 'flex-end' },
   itemKcal: { fontSize: 14, fontWeight: '700', color: WellnessColors.textPrimary },

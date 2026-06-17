@@ -23,6 +23,7 @@ import {
 } from './ReviewService';
 import { detectChatIntent, type ChatIntent } from '../logic/chatIntent';
 import { resolveMentorGender } from '../logic/mentorLabels';
+import { formatUserRulesLines, formatUserRulesBlock } from '../logic/userRulesContext';
 
 /** Returns a language instruction line to append to any AI prompt. */
 function langInstruction(lang?: UserLanguage | null): string {
@@ -72,14 +73,17 @@ function coachJsonLangInstruction(lang?: UserLanguage | null): string {
 /** Mandatory language for meal JSON — name_local is the display name shown in the app. */
 function foodJsonLangInstruction(lang?: UserLanguage | null): string {
   if (!lang || lang.code === 'en') return '';
-  return `\nLANGUAGE (mandatory): Write "description" and "suggestion" in ${lang.label} (${lang.code}).
+  return `\nLANGUAGE (mandatory): Write "description", "suggestion", and "rule_message" in ${lang.label} (${lang.code}).
 For each item: "name" = canonical ENGLISH name (for nutrition lookup); "name_local" = the SAME food written in ${lang.label} (${lang.code}) — REQUIRED, this is the name shown to the user in the app. Never leave "name_local" in English when the app language is not English. Keep numbers (grams, kcal, macros) unchanged.`;
 }
 
-export function buildFoodSystemPrompt(lang?: UserLanguage | null): string {
+export function buildFoodSystemPrompt(lang?: UserLanguage | null, userRules?: UserRules | null): string {
   const langNote = foodJsonLangInstruction(lang);
-  if (!langNote) return SYSTEM_PROMPT;
-  return `${SYSTEM_PROMPT}${langNote}`;
+  let prompt = langNote ? `${SYSTEM_PROMPT}${langNote}` : SYSTEM_PROMPT;
+  if (userRules) {
+    prompt += `\n\nUSER DIETARY RULES (same as Nutritionist mentor — apply on every analysis):\n${formatUserRulesBlock(userRules)}`;
+  }
+  return prompt;
 }
 
 function defaultFoodAnalysisPrompt(
@@ -556,6 +560,11 @@ export type FoodItem = {
   protein_g: number;
   carb_g: number;
   fat_g: number;
+  fiber_g: number;
+  /** True when this item violates the user's My Rules (set by Gemini). */
+  rule_conflict?: boolean;
+  /** Short reason when rule_conflict is true. */
+  rule_message?: string;
 };
 
 export type GeminiAnalysisResult = {
@@ -578,14 +587,16 @@ export const SYSTEM_PROMPT = `You are a nutrition AI. Identify food and return m
 No text before or after the JSON. No markdown. No explanation.
 
 FORMAT (always exactly this):
-{"items":[{"name":"...","name_local":"...","grams":0,"kcal":0,"protein_g":0.0,"carb_g":0.0,"fat_g":0.0}],"confidence":"high","description":"...","suggestion":"..."}
+{"items":[{"name":"...","name_local":"...","grams":0,"kcal":0,"protein_g":0.0,"carb_g":0.0,"fat_g":0.0,"fiber_g":0.0,"rule_conflict":false,"rule_message":""}],"confidence":"high","description":"...","suggestion":"..."}
 
 RULES:
 - "name" = canonical English food name; "name_local" = same food in the user's app language (for English users, name_local may equal name).
 - Estimate grams from plate size (standard plate = 26cm).
 - Split dishes into ingredients. Use USDA values.
+- "fiber_g" = dietary fiber only (not total carbs); estimate per ingredient.
 - For corrections: return full updated JSON, keep all items; keep both name fields in the correct languages.
-- If unsure: best guess with confidence "low".`;
+- If unsure: best guess with confidence "low".
+- When USER DIETARY RULES are provided: set rule_conflict true only for items that clearly violate those rules (explicit or clearly implied). Set rule_message to one short sentence why. Otherwise rule_conflict false and rule_message "".`;
 
 /** History seed when editing a saved meal — includes language-aware system prompt. */
 export function seedMealEditHistory(entry: { items: FoodItem[] }, lang?: UserLanguage | null): GeminiTurn[] {
@@ -619,8 +630,8 @@ export function seedMealEditHistory(entry: { items: FoodItem[] }, lang?: UserLan
 
 const MOCK_RESULT: GeminiAnalysisResult = {
   items: [
-    { name: 'Shakshuka', name_local: 'שקשוקה', grams: 300, kcal: 280, protein_g: 18.0, carb_g: 14.0, fat_g: 16.0 },
-    { name: 'Pita bread', name_local: 'פיתה', grams: 80, kcal: 216, protein_g: 7.2, carb_g: 43.5, fat_g: 1.8 },
+    { name: 'Shakshuka', name_local: 'שקשוקה', grams: 300, kcal: 280, protein_g: 18.0, carb_g: 14.0, fat_g: 16.0, fiber_g: 4.0 },
+    { name: 'Pita bread', name_local: 'פיתה', grams: 80, kcal: 216, protein_g: 7.2, carb_g: 43.5, fat_g: 1.8, fiber_g: 2.5 },
   ],
   confidence: 'high',
   description: 'Two eggs in tomato sauce with a side pita, standard restaurant portion.',
@@ -628,15 +639,16 @@ const MOCK_RESULT: GeminiAnalysisResult = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function computeTotals(items: FoodItem[]): { totalKcal: number; totalProtein_g: number; totalCarb_g: number; totalFat_g: number } {
+function computeTotals(items: FoodItem[]): { totalKcal: number; totalProtein_g: number; totalCarb_g: number; totalFat_g: number; totalFiber_g: number } {
   return items.reduce(
     (acc, item) => ({
       totalKcal: acc.totalKcal + item.kcal,
       totalProtein_g: acc.totalProtein_g + item.protein_g,
       totalCarb_g: acc.totalCarb_g + item.carb_g,
       totalFat_g: acc.totalFat_g + item.fat_g,
+      totalFiber_g: acc.totalFiber_g + (item.fiber_g ?? 0),
     }),
-    { totalKcal: 0, totalProtein_g: 0, totalCarb_g: 0, totalFat_g: 0 }
+    { totalKcal: 0, totalProtein_g: 0, totalCarb_g: 0, totalFat_g: 0, totalFiber_g: 0 }
   );
 }
 
@@ -657,6 +669,9 @@ function parseGeminiJson(raw: string, finishReason = 'STOP'): GeminiAnalysisResu
       protein_g: Math.round(Number(it.protein_g ?? 0) * 10) / 10,
       carb_g: Math.round(Number(it.carb_g ?? 0) * 10) / 10,
       fat_g: Math.round(Number(it.fat_g ?? 0) * 10) / 10,
+      fiber_g: Math.round(Number(it.fiber_g ?? 0) * 10) / 10,
+      rule_conflict: Boolean(it.rule_conflict),
+      rule_message: it.rule_message ? String(it.rule_message) : undefined,
     })) : [];
     return {
       items,
@@ -670,7 +685,7 @@ function parseGeminiJson(raw: string, finishReason = 'STOP'): GeminiAnalysisResu
     // Include first 80 chars of rawText so we can diagnose what Gemini sent.
     const preview = raw.length > 0 ? raw.slice(0, 80).replace(/\n/g, ' ') : '(empty)';
     return {
-      items: [{ name: 'Unknown food', grams: 0, kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0 }],
+      items: [{ name: 'Unknown food', grams: 0, kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0, fiber_g: 0 }],
       confidence: 'low',
       description: `Parse error [${finishReason}]: ${preview}`,
       suggestion: 'Try describing the meal in text.',
@@ -697,6 +712,7 @@ export async function analyzeFood(
   history: GeminiTurn[],
   afterImageBase64?: string | null,
   lang?: UserLanguage | null,
+  userRules?: UserRules | null,
 ): Promise<{ result: GeminiAnalysisResult; updatedHistory: GeminiTurn[] }> {
   if (MOCK_MODE) {
     await new Promise((r) => setTimeout(r, 800));
@@ -705,7 +721,7 @@ export async function analyzeFood(
     return { result: MOCK_RESULT, updatedHistory: [...history, newTurn, modelTurn] };
   }
 
-  const systemPromptWithLang = buildFoodSystemPrompt(lang);
+  const systemPromptWithLang = buildFoodSystemPrompt(lang, userRules);
 
   // Prepend system prompt as a synthetic user/model exchange (compatible with all API versions).
   const readyLine =
@@ -725,6 +741,9 @@ export async function analyzeFood(
       ? ' JSON فقط حسب التعليمات.'
       : ' Respond ONLY with the JSON format specified in your instructions. No markdown, no prose.';
   const langTail = foodJsonLangInstruction(lang);
+  const rulesTail = userRules && history.length > 0
+    ? `\n\nApply USER DIETARY RULES above; set rule_conflict and rule_message on violating items in JSON.`
+    : '';
   const effectiveText = (() => {
     let base: string;
     if (afterImageBase64) {
@@ -740,7 +759,11 @@ export async function analyzeFood(
     }
     return base;
   })();
-  const userTextWithLang = langTail && history.length > 0 ? `${effectiveText}${langTail}` : effectiveText;
+  const userTextWithLang = (() => {
+    let text = langTail && history.length > 0 ? `${effectiveText}${langTail}` : effectiveText;
+    if (rulesTail) text += rulesTail;
+    return text;
+  })();
 
   const contents = [
     ...systemTurns,
@@ -1084,6 +1107,78 @@ User text: "${rawText.replace(/"/g, "'")}"${langInstruction(lang)}`;
   }
 }
 
+// ─── Meal save rule check (same My Rules block as mentor chat) ────────────────
+
+export type MealRuleCheckIssue = {
+  itemName: string;
+  severity: 'warning' | 'critical';
+  message: string;
+};
+
+export async function checkMealAgainstUserRules(
+  items: FoodItem[],
+  userRules: UserRules,
+  lang?: UserLanguage | null,
+): Promise<MealRuleCheckIssue[]> {
+  if (MOCK_MODE || items.length === 0) return [];
+
+  const itemLines = items
+    .map((item) => {
+      const label = item.name_local ?? item.name;
+      return `- ${label} (${item.name}): ${item.grams}g, ${item.kcal} kcal, P${item.protein_g}g C${item.carb_g}g F${item.fat_g}g Fi${item.fiber_g ?? 0}g`;
+    })
+    .join('\n');
+
+  const prompt = `You are the Nutritionist mentor. The user is about to SAVE this meal to their food log.
+Apply MY RULES exactly as you would in chat — including implied goals (e.g. lower cholesterol, heart-healthy fats only).
+
+${formatUserRulesBlock(userRules)}
+
+MEAL TO SAVE:
+${itemLines}
+
+Return JSON ONLY (no markdown):
+{"issues":[{"itemName":"<display name from meal list>","severity":"critical"|"warning","message":"<one short sentence why it violates rules>"}]}
+
+Rules for your response:
+- Flag ONLY clear violations of the user's rules (explicit or clearly implied from their text).
+- Do NOT flag foods the user prefers or that fit the rules.
+- itemName must match the meal label (before the English name in parentheses).
+- If no violations, return {"issues":[]}
+- Max 5 issues.${langInstruction(lang)}`;
+
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: geminiGenerationConfig({ temperature: 0.1, maxOutputTokens: 1024 }),
+  };
+
+  const response = await fetch(GEMINI_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.text().catch(() => '');
+    throw new Error(`Gemini error ${response.status}: ${err.slice(0, 200)}`);
+  }
+
+  const json = await response.json();
+  const raw: string = extractGeminiText(json?.candidates?.[0]);
+  if (!raw) return [];
+
+  const stripped = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  const start = stripped.indexOf('{');
+  const end = stripped.lastIndexOf('}');
+  const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+
+  try {
+    const parsed = JSON.parse(cleaned) as { issues?: MealRuleCheckIssue[] };
+    return Array.isArray(parsed.issues) ? parsed.issues : [];
+  } catch {
+    return [];
+  }
+}
+
 // ─── Lab report PDF parsing ───────────────────────────────────────────────────
 
 export type LabPdfParseResult = {
@@ -1240,6 +1335,7 @@ export type MacroSuggestion = {
   protein_g: number;
   fat_g: number;
   carb_g: number;
+  fiber_g: number;
   kcal: number;
   diet_label: string;
   reasoning: string;
@@ -1266,14 +1362,15 @@ METRICS:
 ${lines}
 
 OUTPUT (JSON only, no markdown):
-{"protein_g":160,"fat_g":140,"carb_g":30,"kcal":1960,"diet_label":"Ketogenic","reasoning":"Max 15 words."}
+{"protein_g":160,"fat_g":140,"carb_g":30,"fiber_g":30,"kcal":1960,"diet_label":"Ketogenic","reasoning":"Max 15 words."}
 
 RULES (apply in strict priority order):
 1. DIETARY RULES ARE HARD CONSTRAINTS — they override everything else. If the user says "< 20g carbs", carb_g MUST be ≤ 20. If the user says "keto", carb_g MUST be ≤ 20g. Never violate these.
 2. Protein: 1.6–2.2g × lean_mass_kg (preserve muscle)
 3. Calorie deficit 300–500 kcal below estimated burn for fat loss
 4. Fill remaining calories with fat after protein and carbs are set
-5. diet_label: Ketogenic/Vegan/High Protein/Mediterranean/Balanced/Custom${langInstruction(lang)}`;
+5. fiber_g: daily dietary fiber target (typical 25–35g; higher when rules mention vegetables, cholesterol, or heart health)
+6. diet_label: Ketogenic/Vegan/High Protein/Mediterranean/Balanced/Custom${langInstruction(lang)}`;
 
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -1302,7 +1399,11 @@ RULES (apply in strict priority order):
   const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
 
   try {
-    return JSON.parse(cleaned) as MacroSuggestion;
+    const parsed = JSON.parse(cleaned) as MacroSuggestion;
+    return {
+      ...parsed,
+      fiber_g: Math.round(Number(parsed.fiber_g) || 30),
+    };
   } catch {
     const hint = finishReason === 'MAX_TOKENS' ? ' (truncated)' : '';
     throw new Error(`Could not parse macro suggestion${hint}: ${raw.slice(0, 100)}`);
@@ -1422,23 +1523,7 @@ function formatDayPacingLine(ctx: CoachContext, now = new Date()): string {
 
 /** My Rules AI summary — injected into coach panel and chat USER DATA (matches RulesStrip UI). */
 function formatUserRulesForContext(rules: UserRules): string[] {
-  const lines: string[] = [];
-  lines.push(
-    rules.summary
-      ? `My Rules — AI understood (${rules.summary}):`
-      : 'My Rules — AI understood:',
-  );
-  if (rules.constraints.length > 0) {
-    lines.push(...rules.constraints.map((c) => `- ${c}`));
-    return lines;
-  }
-  if (rules.aiContext) {
-    lines.push(`- ${rules.aiContext}`);
-    return lines;
-  }
-  const raw = rules.rawText?.trim();
-  if (raw) lines.push(`- ${raw.replace(/"/g, "'")}`);
-  return lines;
+  return formatUserRulesLines(rules);
 }
 
 /**
@@ -1460,7 +1545,7 @@ function buildProfileTargetsHeader(ctx: CoachContext): string[] {
     formatActiveMentorsLine(ctx.mentors),
     `Profile: sex ${ctx.gender ?? 'unknown'}, age ${n(ctx.age)}, height ${n(ctx.heightCm, ' cm')}, language ${ctx.lang?.label ?? 'English'}`,
     `Goals: target weight ${n(bt?.targetWeight_kg ?? null, ' kg')} | target fat ${n(bt?.targetFatPct ?? null, '%')} | target muscle ${n(bt?.targetMuscleMass_kg ?? null, ' kg')} | start weight ${n(ctx.startWeight_kg, ' kg')} | start muscle ${n(ctx.startMuscle_kg, ' kg')}`,
-    `Daily macro target: ${n(mt?.kcal ?? null, ' kcal')} | P ${n(mt?.protein_g ?? null, 'g')} | C ${n(mt?.carb_g ?? null, 'g')} | F ${n(mt?.fat_g ?? null, 'g')}`,
+    `Daily macro target: ${n(mt?.kcal ?? null, ' kcal')} | P ${n(mt?.protein_g ?? null, 'g')} | C ${n(mt?.carb_g ?? null, 'g')} | F ${n(mt?.fat_g ?? null, 'g')} | Fi ${n(mt?.fiber_g ?? null, 'g')}`,
     ...(ctx.userRules ? formatUserRulesForContext(ctx.userRules) : []),
     ...(ctx.labsAiContext ? [ctx.labsAiContext] : []),
   ].filter((l): l is string => Boolean(l));

@@ -168,19 +168,43 @@ export type DailyMacroTarget = {
   protein_g: number;
   fat_g: number;
   carb_g: number;
+  fiber_g?: number;
   kcal: number;
   diet_label: string;
   reasoning: string;
   rulesContext: string;
   mentors: MentorType[];
-  aiSuggested: { protein_g: number; fat_g: number; carb_g: number; kcal: number };
+  aiSuggested: { protein_g: number; fat_g: number; carb_g: number; fiber_g?: number; kcal: number };
   analyzedAt: string;
 };
+
+export const DEFAULT_FIBER_TARGET_G = 30;
+
+export function resolveFiberTarget_g(target: Pick<DailyMacroTarget, 'fiber_g' | 'aiSuggested'>): number {
+  return target.fiber_g ?? target.aiSuggested?.fiber_g ?? DEFAULT_FIBER_TARGET_G;
+}
+
+export function withFiberTarget(t: DailyMacroTarget): DailyMacroTarget {
+  const fiber_g = resolveFiberTarget_g(t);
+  return {
+    ...t,
+    fiber_g,
+    aiSuggested: { ...t.aiSuggested, fiber_g: t.aiSuggested?.fiber_g ?? fiber_g },
+  };
+}
 
 export async function getMacroTarget(): Promise<DailyMacroTarget | null> {
   const raw = await AsyncStorage.getItem(MACRO_TARGET_KEY);
   if (!raw) return null;
-  try { return JSON.parse(raw) as DailyMacroTarget; } catch { return null; }
+  try {
+    const t = JSON.parse(raw) as DailyMacroTarget;
+    if (t.fiber_g == null) {
+      const migrated = withFiberTarget(t);
+      await AsyncStorage.setItem(MACRO_TARGET_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+    return t;
+  } catch { return null; }
 }
 
 export async function saveMacroTarget(t: DailyMacroTarget): Promise<void> {

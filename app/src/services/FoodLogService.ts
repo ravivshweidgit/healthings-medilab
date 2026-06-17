@@ -18,6 +18,7 @@ export type FoodEntry = {
   totalProtein_g: number;
   totalCarb_g: number;
   totalFat_g: number;
+  totalFiber_g?: number;
   note?: string;
   source: 'camera-ai' | 'text-ai' | 'manual';
 };
@@ -27,8 +28,15 @@ export type DailyMacros = {
   protein_g: number;
   carb_g: number;
   fat_g: number;
+  fiber_g: number;
   entries: FoodEntry[];
 };
+
+/** Fiber for a saved meal — sums items when legacy entries lack totalFiber_g. */
+export function entryFiber_g(entry: FoodEntry): number {
+  if (entry.totalFiber_g != null && Number.isFinite(entry.totalFiber_g)) return entry.totalFiber_g;
+  return entry.items.reduce((acc, item) => acc + (item.fiber_g ?? 0), 0);
+}
 
 const KEY_INDEX = 'food_log_days';
 
@@ -113,13 +121,13 @@ export function buildMealsAiContext(entries: FoodEntry[]): {
     const itemLines = entry.items.length > 0
       ? entry.items.map((i) => {
           const name = i.name_local || i.name;
-          return `    • ${name}: ${Math.round(i.grams)}g, ${Math.round(i.kcal)} kcal, P${i.protein_g}g C${i.carb_g}g F${i.fat_g}g`;
+          return `    • ${name}: ${Math.round(i.grams)}g, ${Math.round(i.kcal)} kcal, P${i.protein_g}g C${i.carb_g}g F${i.fat_g}g Fi${i.fiber_g ?? 0}g`;
         }).join('\n')
       : '    • (items not stored — totals only)';
     return [
       `Meal ${index + 1} at ${time}:`,
       itemLines,
-      `  Total: ${entry.totalKcal} kcal | P${entry.totalProtein_g}g C${entry.totalCarb_g}g F${entry.totalFat_g}g`,
+      `  Total: ${entry.totalKcal} kcal | P${entry.totalProtein_g}g C${entry.totalCarb_g}g F${entry.totalFat_g}g Fi${entryFiber_g(entry)}g`,
       entry.note ? `  Note: ${entry.note}` : null,
     ].filter(Boolean).join('\n');
   };
@@ -170,9 +178,10 @@ export async function getDailyMacros(dk: string): Promise<DailyMacros> {
       protein_g: acc.protein_g + e.totalProtein_g,
       carb_g: acc.carb_g + e.totalCarb_g,
       fat_g: acc.fat_g + e.totalFat_g,
+      fiber_g: acc.fiber_g + entryFiber_g(e),
       entries: [...acc.entries, e],
     }),
-    { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0, entries: [] as FoodEntry[] }
+    { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0, fiber_g: 0, entries: [] as FoodEntry[] }
   );
 }
 

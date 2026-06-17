@@ -374,7 +374,7 @@ function formatFoodBlock(
 ): string {
   const header = [
     `${Math.round(macros.kcal)} kcal eaten`,
-    `P${Math.round(macros.protein_g)}g C${Math.round(macros.carb_g)}g F${Math.round(macros.fat_g)}g`,
+    `P${Math.round(macros.protein_g)}g C${Math.round(macros.carb_g)}g F${Math.round(macros.fat_g)}g Fi${Math.round(macros.fiber_g ?? 0)}g`,
     `${macros.entries.length} meals`,
   ].join(' | ');
   if (macros.entries.length === 0) return header;
@@ -541,7 +541,7 @@ export async function buildPeriodReviewBlock(
   const macrosByDay = new Map(dayKeys.map((dk, i) => [dk, macrosList[i]]));
 
   const targetLine = macroTarget
-    ? `Macro targets: ${macroTarget.kcal} kcal | P${macroTarget.protein_g}g C${macroTarget.carb_g}g F${macroTarget.fat_g}g`
+    ? `Macro targets: ${macroTarget.kcal} kcal | P${macroTarget.protein_g}g C${macroTarget.carb_g}g F${macroTarget.fat_g}g${macroTarget.fiber_g != null ? ` Fi${macroTarget.fiber_g}g` : ''}`
     : '';
 
   const lines: string[] = [

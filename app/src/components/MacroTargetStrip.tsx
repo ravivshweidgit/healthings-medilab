@@ -15,7 +15,9 @@ import { suggestDailyMacros, type MacroSuggestionInput } from '../services/Gemin
 import {
   clearMacroTarget,
   getMacroTarget,
+  resolveFiberTarget_g,
   saveMacroTarget,
+  withFiberTarget,
   type BodyTarget,
   type DailyMacroTarget,
   type MentorType,
@@ -30,6 +32,7 @@ export type MacroTargetProps = {
   actualProtein_g: number | null;
   actualFat_g: number | null;
   actualCarb_g: number | null;
+  actualFiber_g: number | null;
   actualKcal: number | null;
   weightKg: number | null;
   fatMassKg: number | null;
@@ -127,7 +130,7 @@ const editStyles = StyleSheet.create({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function MacroTargetStrip({
-  actualProtein_g, actualFat_g, actualCarb_g, actualKcal,
+  actualProtein_g, actualFat_g, actualCarb_g, actualFiber_g, actualKcal,
   weightKg, fatMassKg, muscleMass_kg, bmr_kcal, estimatedBurn_kcal,
   heightCm, age, gender, bodyTarget, userRules, mentors,
   onSaved, expanded, onToggleExpand, lang,
@@ -139,16 +142,17 @@ export function MacroTargetStrip({
   const [editP, setEditP] = useState('');
   const [editF, setEditF] = useState('');
   const [editC, setEditC] = useState('');
+  const [editFi, setEditFi] = useState('');
   const [editK, setEditK] = useState('');
 
   useEffect(() => {
-    getMacroTarget().then((t) => { if (t) { setTarget(t); setScreen('active'); } });
+    getMacroTarget().then((t) => { if (t) { setTarget(withFiberTarget(t)); setScreen('active'); } });
   }, []);
 
   const canAnalyze = !!(weightKg && fatMassKg != null && muscleMass_kg && bmr_kcal && heightCm && age && gender);
 
   const headerSub = target
-    ? `${target.protein_g}P / ${target.fat_g}F / ${target.carb_g}C`
+    ? `${target.protein_g}P / ${target.fat_g}F / ${target.carb_g}C / ${resolveFiberTarget_g(target)}Fi`
     : 'Tap to set AI macro targets';
 
   const handleAsk = useCallback(async () => {
@@ -177,12 +181,13 @@ export function MacroTargetStrip({
         protein_g: result.protein_g,
         fat_g: result.fat_g,
         carb_g: result.carb_g,
+        fiber_g: result.fiber_g,
         kcal: result.kcal,
         diet_label: result.diet_label,
         reasoning: result.reasoning,
         rulesContext: userRules?.aiContext ?? '',
         mentors,
-        aiSuggested: { protein_g: result.protein_g, fat_g: result.fat_g, carb_g: result.carb_g, kcal: result.kcal },
+        aiSuggested: { protein_g: result.protein_g, fat_g: result.fat_g, carb_g: result.carb_g, fiber_g: result.fiber_g, kcal: result.kcal },
         analyzedAt: now,
       };
       setSuggestion(proposed);
@@ -205,6 +210,7 @@ export function MacroTargetStrip({
     setEditP(String(src.protein_g));
     setEditF(String(src.fat_g));
     setEditC(String(src.carb_g));
+    setEditFi(String(resolveFiberTarget_g(src)));
     setEditK(String(src.kcal));
     setScreen('editing');
   }, []);
@@ -212,15 +218,22 @@ export function MacroTargetStrip({
   const handleSaveEdit = useCallback(async () => {
     const base = suggestion ?? target;
     if (!base) return;
-    const p = parseFloat(editP), f = parseFloat(editF), c = parseFloat(editC), k = parseFloat(editK);
+    const p = parseFloat(editP), f = parseFloat(editF), c = parseFloat(editC), fi = parseFloat(editFi), k = parseFloat(editK);
     if ([p, f, c, k].some(isNaN)) return;
-    const updated: DailyMacroTarget = { ...base, protein_g: p, fat_g: f, carb_g: c, kcal: k };
+    const updated: DailyMacroTarget = {
+      ...base,
+      protein_g: p,
+      fat_g: f,
+      carb_g: c,
+      fiber_g: isNaN(fi) ? base.fiber_g : fi,
+      kcal: k,
+    };
     await saveMacroTarget(updated);
     setTarget(updated);
     onSaved?.(updated);
     setSuggestion(null);
     setScreen('active');
-  }, [editP, editF, editC, editK, suggestion, target, onSaved]);
+  }, [editP, editF, editC, editFi, editK, suggestion, target, onSaved]);
 
   const handleReset = useCallback(async () => {
     await clearMacroTarget();
@@ -289,6 +302,7 @@ export function MacroTargetStrip({
                   { label: 'Protein', val: suggestion.protein_g, unit: 'g' },
                   { label: 'Fat',     val: suggestion.fat_g,     unit: 'g' },
                   { label: 'Carbs',   val: suggestion.carb_g,    unit: 'g' },
+                  { label: 'Fiber',   val: suggestion.fiber_g ?? 30, unit: 'g' },
                   { label: 'Calories',val: suggestion.kcal,      unit: 'kcal' },
                 ].map(({ label, val, unit }) => (
                   <View key={label} style={styles.suggItem}>
@@ -315,6 +329,7 @@ export function MacroTargetStrip({
               <EditField label="Protein" value={editP} onChange={setEditP} unit="g"    aiVal={(suggestion ?? target)?.aiSuggested.protein_g ?? 0} />
               <EditField label="Fat"     value={editF} onChange={setEditF} unit="g"    aiVal={(suggestion ?? target)?.aiSuggested.fat_g ?? 0}     />
               <EditField label="Carbs"   value={editC} onChange={setEditC} unit="g"    aiVal={(suggestion ?? target)?.aiSuggested.carb_g ?? 0}    />
+              <EditField label="Fiber"   value={editFi} onChange={setEditFi} unit="g" aiVal={(suggestion ?? target)?.aiSuggested.fiber_g ?? (suggestion ?? target)?.fiber_g ?? 0} />
               <EditField label="Calories"value={editK} onChange={setEditK} unit="kcal" aiVal={(suggestion ?? target)?.aiSuggested.kcal ?? 0}      />
               <View style={styles.suggBtns}>
                 <Pressable style={[styles.btn, styles.btnAccept]} onPress={handleSaveEdit}>
@@ -333,6 +348,7 @@ export function MacroTargetStrip({
               <MacroBar label="P" actual={actualProtein_g} target={target.protein_g} color="#4CAF50" />
               <MacroBar label="C" actual={actualCarb_g}    target={target.carb_g}    color="#FF9800" />
               <MacroBar label="F" actual={actualFat_g}     target={target.fat_g}     color="#2196F3" />
+              <MacroBar label="Fi" actual={actualFiber_g} target={resolveFiberTarget_g(target)} color="#66BB6A" />
               <View style={styles.kcalRow}>
                 <Text style={styles.kcalText}>
                   {actualKcal != null ? Math.round(actualKcal) : '—'} / {Math.round(target.kcal)} kcal

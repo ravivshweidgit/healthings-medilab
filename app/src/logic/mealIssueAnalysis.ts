@@ -1,9 +1,10 @@
 /**
- * Pure local meal-issue detector for save-time nutritionist alerts (prompt20 Phase 3).
+ * Meal-issue helpers — local macro checks + Gemini rule markers on FoodItem.
+ * Rules are NOT matched locally; use analyzeFood rule_conflict or checkMealAgainstUserRules.
  */
 
 import type { FoodItem } from '../services/GeminiService';
-import type { DailyMacroTarget, UserRules } from '../services/TargetService';
+import type { DailyMacroTarget } from '../services/TargetService';
 
 export type MealIssueCode = 'carb_over' | 'kcal_over' | 'protein_low' | 'rule_conflict';
 
@@ -26,43 +27,11 @@ export type MealIssueInput = {
   items: FoodItem[];
   dayTotalsBeforeMeal: DayMacroTotals;
   macroTarget: DailyMacroTarget | null;
-  userRules: UserRules | null;
   mealTimestamp: number;
 };
 
-type RuleKeywordGroup = {
-  ruleTerms: string[];
-  foodTerms: string[];
-};
-
-const RULE_KEYWORD_GROUPS: RuleKeywordGroup[] = [
-  { ruleTerms: ['red meat', 'beef'], foodTerms: ['beef', 'steak', 'burger', 'lamb', 'veal', 'bison', 'hamburger'] },
-  { ruleTerms: ['pork'], foodTerms: ['pork', 'bacon', 'ham', 'prosciutto', 'sausage', 'chorizo'] },
-  { ruleTerms: ['shellfish', 'shrimp', 'prawn'], foodTerms: ['shrimp', 'prawn', 'lobster', 'crab', 'shellfish', 'mussel'] },
-  { ruleTerms: ['dairy', 'lactose', 'milk', 'cheese'], foodTerms: ['milk', 'cheese', 'yogurt', 'butter', 'cream', 'dairy', 'paneer'] },
-  { ruleTerms: ['gluten', 'wheat', 'bread'], foodTerms: ['wheat', 'bread', 'pasta', 'pita', 'flour', 'gluten', 'bagel', 'croissant'] },
-  { ruleTerms: ['sugar', 'sweet', 'dessert'], foodTerms: ['sugar', 'cake', 'candy', 'chocolate', 'syrup', 'honey', 'cookie', 'ice cream'] },
-  { ruleTerms: ['fried', 'deep fried'], foodTerms: ['fried', 'fries', 'tempura', 'fry'] },
-  { ruleTerms: ['alcohol', 'wine', 'beer'], foodTerms: ['alcohol', 'wine', 'beer', 'vodka', 'whiskey', 'cocktail'] },
-  { ruleTerms: ['egg'], foodTerms: ['egg', 'omelet', 'omelette', 'shakshuka'] },
-  { ruleTerms: ['fish'], foodTerms: ['fish', 'salmon', 'tuna', 'sardine', 'mackerel', 'trout'] },
-];
-
-const NEGATION_PATTERN =
-  /(?:^|\b)(?:no|avoid|without|skip|exclude|don't|do not|never|limit|reduce)\s+([a-z\u0590-\u05FF][a-z\u0590-\u05FF\s-]{1,48})/gi;
-
 function itemDisplayName(item: FoodItem): string {
   return item.name_local ?? item.name;
-}
-
-function itemSearchText(item: FoodItem): string {
-  return `${item.name} ${item.name_local ?? ''}`.toLowerCase();
-}
-
-function matchesTerm(text: string, term: string): boolean {
-  const t = term.trim().toLowerCase();
-  if (t.length < 3) return false;
-  return text.includes(t);
 }
 
 function mealTotals(items: FoodItem[]): DayMacroTotals {
@@ -96,61 +65,34 @@ function kcalContributors(items: FoodItem[]): string[] {
   return (top.length > 0 ? top : sorted.slice(0, 2)).map(itemDisplayName);
 }
 
-function extractForbiddenTerms(constraint: string): string[] {
-  const terms: string[] = [];
-  let match: RegExpExecArray | null;
-  const re = new RegExp(NEGATION_PATTERN.source, NEGATION_PATTERN.flags);
-  while ((match = re.exec(constraint)) !== null) {
-    const chunk = match[1]?.trim();
-    if (chunk && chunk.length >= 3) terms.push(chunk);
-  }
-  return terms;
+export function mealIssuesFromFoodItems(items: FoodItem[]): MealIssue[] {
+  return items
+    .filter((item) => item.rule_conflict)
+    .map((item, index) => ({
+      id: `item-rule-${index}-${itemDisplayName(item)}`,
+      severity: 'critical' as const,
+      code: 'rule_conflict' as const,
+      message: item.rule_message?.trim() || `"${itemDisplayName(item)}" conflicts with your dietary rules.`,
+      itemNames: [itemDisplayName(item)],
+    }));
 }
 
-function findRuleConflicts(items: FoodItem[], userRules: UserRules | null): MealIssue[] {
-  if (!userRules?.constraints?.length) return [];
-
-  const issues: MealIssue[] = [];
-  const constraintsLower = userRules.constraints.map((c) => c.toLowerCase());
-
-  for (const item of items) {
-    const label = itemSearchText(item);
-    const display = itemDisplayName(item);
-    const hits: string[] = [];
-
-    for (const constraint of constraintsLower) {
-      for (const term of extractForbiddenTerms(constraint)) {
-        if (matchesTerm(label, term) || matchesTerm(constraint, display.toLowerCase())) {
-          hits.push(constraint);
-        }
-      }
-
-      for (const group of RULE_KEYWORD_GROUPS) {
-        const ruleHit = group.ruleTerms.some((t) => constraint.includes(t));
-        if (!ruleHit) continue;
-        if (group.foodTerms.some((food) => matchesTerm(label, food))) {
-          hits.push(constraint);
-        }
-      }
-    }
-
-    if (hits.length > 0) {
-      const uniqueHit = [...new Set(hits)][0];
-      issues.push({
-        id: `rule-${display}`,
-        severity: 'critical',
-        code: 'rule_conflict',
-        message: `"${display}" may conflict with your rule: ${uniqueHit}`,
-        itemNames: [display],
-      });
-    }
-  }
-
-  return issues;
+export function mealIssuesFromGeminiRules(geminiIssues: Array<{
+  itemName: string;
+  severity: 'warning' | 'critical';
+  message: string;
+}>): MealIssue[] {
+  return geminiIssues.map((issue, index) => ({
+    id: `gemini-rule-${index}-${issue.itemName}`,
+    severity: issue.severity,
+    code: 'rule_conflict' as const,
+    message: issue.message,
+    itemNames: [issue.itemName],
+  }));
 }
 
-export function analyzeMealIssues(input: MealIssueInput): MealIssue[] {
-  const { items, dayTotalsBeforeMeal, macroTarget, userRules, mealTimestamp } = input;
+export function analyzeMacroMealIssues(input: MealIssueInput): MealIssue[] {
+  const { items, dayTotalsBeforeMeal, macroTarget, mealTimestamp } = input;
   if (items.length === 0) return [];
 
   const issues: MealIssue[] = [];
@@ -195,20 +137,27 @@ export function analyzeMealIssues(input: MealIssueInput): MealIssue[] {
     }
   }
 
-  issues.push(...findRuleConflicts(items, userRules));
   return issues;
 }
 
 export function flaggedItemIndices(items: FoodItem[], issues: MealIssue[]): Set<number> {
+  const indices = foodItemRuleConflictIndices(items);
   const flaggedNames = new Set(
     issues.flatMap((issue) => issue.itemNames ?? []).map((n) => n.toLowerCase()),
   );
-  if (flaggedNames.size === 0) return new Set();
+  if (flaggedNames.size === 0) return indices;
 
-  const indices = new Set<number>();
   items.forEach((item, index) => {
     const names = [item.name, item.name_local ?? ''].map((n) => n.toLowerCase());
     if (names.some((n) => flaggedNames.has(n))) indices.add(index);
+  });
+  return indices;
+}
+
+export function foodItemRuleConflictIndices(items: FoodItem[]): Set<number> {
+  const indices = new Set<number>();
+  items.forEach((item, index) => {
+    if (item.rule_conflict) indices.add(index);
   });
   return indices;
 }
@@ -223,6 +172,9 @@ export function mealItemsSnapshotKey(items: FoodItem[]): string {
       protein_g: i.protein_g,
       carb_g: i.carb_g,
       fat_g: i.fat_g,
+      fiber_g: i.fiber_g,
+      rule_conflict: i.rule_conflict,
+      rule_message: i.rule_message,
     })),
   );
 }

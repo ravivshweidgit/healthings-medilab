@@ -1,8 +1,11 @@
 ## Prompt 20 — Photo assistant: analyze → chat → add/remove → approve
 
+**Status: done (2026-06-17)** — Phase 1 + Phase 3 shipped and phone-tested. Phase 2 photo polish deferred (see below).
+
 **Phase 1 (shipped):** photo session, add/remove preview, approve-before-apply, stacked preview on phone.
 **Phase 2 (deferred):** dedupe on add, partial-gram remove, discard photo session, highlight matched lines.
-**Phase 3 (new):** problem-only meal safety alert (blocking modal + red problem markers on offending lines).
+**Phase 3 (shipped):** problem-only meal safety alert + Gemini My Rules on photo/save (`rule_conflict` in food JSON).
+**Also shipped with Phase 3 batch:** dietary `fiber_g` on food items, totals, macro targets, and dashboard bars.
 
 ### Vision
 When logging or **editing** a meal, the user can attach photos (camera or gallery),
@@ -176,13 +179,9 @@ show an **unmissable** alert. If no mismatch, **show nothing**.
 - If no issues: save immediately (silent).
 - If issues exist: block with modal and mark problematic lines in red.
 
-### Detection scope (v1)
-1. **Macro target mismatch** (today totals including this meal):
-   - carbs over target
-   - calories over target
-   - protein far under expected pace (optional warning severity)
-2. **My Rules mismatch** from `userRules.constraints`:
-   - direct keyword-level conflicts only in v1 (clear violations)
+### Detection scope (shipped)
+1. **Macro target mismatch** (day totals including this meal): carbs over, kcal over, protein behind pace (warning).
+2. **My Rules mismatch** via Gemini (`checkMealAgainstUserRules` on save; `rule_conflict` on `analyzeFood` JSON) — same My Rules block as mentor chat. No local keyword matcher.
 
 No mismatch => no alert, no coach/chat interruption.
 
@@ -218,9 +217,11 @@ type MealIssue = {
 - optional helper:
   - `app/src/logic/mealIssueAnalysis.ts` — pure local mismatch detector
 
-### Acceptance checklist (Phase 3)
-- [ ] Save meal with no mismatch => no modal, no red markers.
-- [ ] Save meal with mismatch => modal appears before save.
-- [ ] `Edit meal` keeps modal closed and leaves unsaved meal open with red-marked offending lines.
-- [ ] `Save anyway` persists once for current snapshot.
-- [ ] After fixing offending items, red markers disappear and save is silent.
+### Acceptance checklist (Phase 3 — verified on device)
+- [x] Save meal with no mismatch => no modal, no red markers.
+- [x] Save meal with mismatch => modal appears before save.
+- [x] `Edit meal` keeps modal closed and leaves unsaved meal open with red-marked offending lines.
+- [x] `Save anyway` persists once for current snapshot.
+- [x] After fixing offending items, red markers disappear and save is silent.
+- [x] Photo/text analyze flags `rule_conflict` items in JSON; red markers before save.
+- [x] Gemini save check uses same My Rules as mentor (not local keywords).

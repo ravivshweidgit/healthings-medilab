@@ -444,15 +444,16 @@ export const DashboardScreen = () => {
 
   /** Today's actual macros summed from food entries. */
   const todayActualMacros = useMemo(() => {
-    if (todayFoodEntries.length === 0) return { protein_g: null, fat_g: null, carb_g: null, kcal: null };
+    if (todayFoodEntries.length === 0) return { protein_g: null, fat_g: null, carb_g: null, fiber_g: null, kcal: null };
     const sum = todayFoodEntries.reduce(
       (acc, e) => ({
         protein_g: acc.protein_g + (e.totalProtein_g ?? 0),
         fat_g:     acc.fat_g     + (e.totalFat_g     ?? 0),
         carb_g:    acc.carb_g    + (e.totalCarb_g    ?? 0),
+        fiber_g:   acc.fiber_g   + (e.totalFiber_g ?? e.items.reduce((s, i) => s + (i.fiber_g ?? 0), 0)),
         kcal:      acc.kcal      + (e.totalKcal      ?? 0),
       }),
-      { protein_g: 0, fat_g: 0, carb_g: 0, kcal: 0 },
+      { protein_g: 0, fat_g: 0, carb_g: 0, fiber_g: 0, kcal: 0 },
     );
     return sum;
   }, [todayFoodEntries]);
@@ -1329,6 +1330,7 @@ export const DashboardScreen = () => {
             actualProtein_g={todayActualMacros.protein_g}
             actualFat_g={todayActualMacros.fat_g}
             actualCarb_g={todayActualMacros.carb_g}
+            actualFiber_g={todayActualMacros.fiber_g}
             actualKcal={todayActualMacros.kcal}
             weightKg={bodyScan?.weightKg ?? null}
             fatMassKg={bodyScan?.fatMassKg ?? null}

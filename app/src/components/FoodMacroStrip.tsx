@@ -40,6 +40,7 @@ function formatDayLabel(ms: number): string {
 }
 
 import type { DailyMacroTarget } from '../services/TargetService';
+import { resolveFiberTarget_g } from '../services/TargetService';
 
 type Props = {
   /** Initial day key — defaults to today. */
@@ -60,6 +61,7 @@ type Props = {
 const COLOR_PROTEIN = '#42A5F5';
 const COLOR_CARB    = '#FF9800';
 const COLOR_FAT     = '#EF5350';
+const COLOR_FIBER   = '#66BB6A';
 
 function formatTime(ms: number): string {
   return new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
@@ -188,8 +190,9 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
   const isEmpty = !macros || macros.entries.length === 0;
   // When macro targets are set, bar max = target value; otherwise rolling max of actuals
   const maxMacro = macroTarget
-    ? Math.max(macroTarget.protein_g, macroTarget.carb_g, macroTarget.fat_g, 1)
-    : macros ? Math.max(macros.protein_g, macros.carb_g, macros.fat_g, 1) : 1;
+    ? Math.max(macroTarget.protein_g, macroTarget.carb_g, macroTarget.fat_g, resolveFiberTarget_g(macroTarget), 1)
+    : macros ? Math.max(macros.protein_g, macros.carb_g, macros.fat_g, macros.fiber_g, 1) : 1;
+  const fiberTarget = macroTarget ? resolveFiberTarget_g(macroTarget) : maxMacro;
 
   const rawBurn = burnKcalByDay?.[activeDayKey] ?? null;
   const burn    = rawBurn != null ? rawBurn + burnCorrection : null;
@@ -262,6 +265,7 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
           <MacroBar label="P" value={macros?.protein_g ?? 0} target={macroTarget ? macroTarget.protein_g : maxMacro} color={COLOR_PROTEIN} showTarget={!!macroTarget} />
           <MacroBar label="C" value={macros?.carb_g    ?? 0} target={macroTarget ? macroTarget.carb_g    : maxMacro} color={COLOR_CARB}    showTarget={!!macroTarget} />
           <MacroBar label="F" value={macros?.fat_g     ?? 0} target={macroTarget ? macroTarget.fat_g     : maxMacro} color={COLOR_FAT}     showTarget={!!macroTarget} />
+          <MacroBar label="Fi" value={macros?.fiber_g ?? 0} target={fiberTarget} color={COLOR_FIBER} showTarget={!!macroTarget} />
         </View>
       )}
 
