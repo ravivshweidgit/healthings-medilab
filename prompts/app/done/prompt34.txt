@@ -1,14 +1,18 @@
 ## Prompt 34 — CGM visibility + chat safety net (remainder of prompt21)
 
+**Status: closed (2026-06-17)** — Not shipped. Persistence + per-turn `syncCgmStore()` in period
+reviews made the status row and chat fallback unnecessary for this user (chart = connection proof).
+Phase 2 manual sub-65 exclusions deferred — revisit only if compression lows become a real problem.
+
 **Split from prompt21 (2026-06-17).** Prompt21 is done: persistence layer, HC/CSV merge,
 mentor sync-on-read, chart, filters, TODAY WORKOUTS. See `prompts/app/done/prompt21.txt`.
 
-This prompt tracks **only what is still open** — mostly UX and a small chat fallback.
+This prompt tracked **optional** UX and a small chat fallback — closed without implementation.
 
 **Architecture (do not rebuild):** `CgmPersistenceService` → `healthings:lastMetrics`;
 `ReviewService` calls `syncCgmStore()` before period reviews. Reference: `done/prompt29.txt`.
 
-**Build order:** Phase 1 (B + C + device verify) → Phase 2 (manual exclusions) → optional tests.
+**Original build order:** Phase 1 (status row + safety net + device verify) → Phase 2 (manual exclusions).
 
 ---
 
@@ -144,19 +148,19 @@ After first non-empty HC fetch or CSV import → `triggerCoachReview('meal')` on
 
 ## Acceptance checklist
 
-### Phase 1
-- [ ] CGM status row + `lastSyncedAt` (PART A)
-- [ ] `buildFreshContext` reloads CGM from store (PART B)
-- [ ] E1–E4 device verification documented (PART C)
+### Phase 1 — closed without ship
+- [x] Status row — **declined** (user: chart is sufficient connection signal)
+- [x] `buildFreshContext` CGM reload — **not needed** (persistence + `syncCgmStore` per chat turn)
+- [x] CGM pipeline verified on device via prompt21 / persistence (2026-06-16+)
 
-### Phase 2
+### Phase 2 — deferred (not scheduled)
 - [ ] Sub-65 exclusion windows; ≥65 blocked
 - [ ] Chart grey + mentor stats respect exclusions
 - [ ] Undo restores; survives restart
 
-### Phase 3 (optional)
+### Phase 3 — optional (not scheduled)
 - [ ] Persistence merge unit tests
-- [ ] Post-sync coach trigger (if desired)
+- [ ] Post-sync coach trigger
 
 ---
 
