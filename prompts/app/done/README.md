@@ -8,6 +8,7 @@ Active / backlog specs stay in `prompts/app/`:
 |------|------------------|
 | prompt31.txt | Spec only — source config + Samsung + AI/manual BMR |
 | prompt32.txt | Spec only — backup import QA + hardening (deferred) |
+| prompt35.txt | Fiber↔carb coupling, chat macro confirm, Gemini macro revision (7d context) on weigh-in/lab |
 
 **prompt20** — done (Phase 1 + 3 + rules/fiber). Phase 2 photo polish deferred inside `done/prompt20.txt`.
 
