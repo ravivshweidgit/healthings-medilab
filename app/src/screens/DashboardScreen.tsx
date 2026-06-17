@@ -32,6 +32,7 @@ import { MentorStrip } from '../components/MentorStrip';
 import { RulesStrip } from '../components/RulesStrip';
 import { LabResultsStrip } from '../components/LabResultsStrip';
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
+import { applyAutoMacroRevision } from '../logic/macroAutoAdjust';
 import { ChatScreen } from './ChatScreen';
 import { CONFIG } from '../config/env';
 import { useHealthData } from '../hooks/useHealthData';
@@ -228,9 +229,14 @@ export const DashboardScreen = () => {
   const [profileExpanded, setProfileExpanded] = useState(false);
 
   const loadLabReports = useCallback(async () => {
-    const [reports, ctx] = await Promise.all([getAllLabReports(), getLabsAiContextForHeader()]);
+    const [reports, ctx, mt] = await Promise.all([
+      getAllLabReports(),
+      getLabsAiContextForHeader(),
+      getMacroTarget(),
+    ]);
     setLabReports(reports);
     setLabsAiContext(ctx);
+    if (mt) setMacroTarget(mt);
   }, []);
 
   const loadHeightAndBirthdate = useCallback(async () => {
@@ -648,6 +654,18 @@ export const DashboardScreen = () => {
       }
     })();
   }, [bodyScan?.measuredAt]);
+
+  /** Auto macro revision on new scale weight (prompt35). */
+  useEffect(() => {
+    const w = bodyScan?.weightKg;
+    if (w == null || !Number.isFinite(w)) return;
+    void applyAutoMacroRevision({
+      trigger: 'weigh-in',
+      triggerDetail: `${w.toFixed(1)} kg`,
+      weightKg: w,
+      onSaved: (t) => setMacroTarget(t),
+    });
+  }, [bodyScan?.weightKg]);
 
   /** Coach workout trigger when today's workout list grows. */
   useEffect(() => {
@@ -1407,6 +1425,7 @@ export const DashboardScreen = () => {
             onClose={() => setChatVisible(false)}
             context={coachContext}
             onCoachMessageUpdated={(msg) => setCoachMsg(msg)}
+            onMacroTargetUpdated={(t) => setMacroTarget(t)}
           />
         </SafeAreaProvider>
       </Modal>

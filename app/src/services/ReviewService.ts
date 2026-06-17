@@ -211,7 +211,7 @@ function bodyDayMap(days: MetabolicTrend7dDay[]): Map<string, MetabolicTrend7dDa
   return new Map(days.map((d) => [d.dayKey, d]));
 }
 
-function computeBurnKcalByDay(
+export function computeBurnKcalByDay(
   bodyDays: MetabolicTrend7dDay[],
   caloriePoints: WithingsCaloriePoint[],
   sessions: WorkoutSession[],
@@ -618,3 +618,19 @@ export async function buildPeriodReviewBlock(
 
 export const PERIOD_REVIEW_CHAT_INSTRUCTION =
   'When a PERIOD REVIEW block is present: analyze the FULL snapshot — body trends, BMR, energy balance, heart rate, food logs, GLUCOSE & FOOD IMPACT (CGM vs meals), workouts, macro adherence. For GLUCOSE: MUST quote period avg, min, max (mg/dL) from Period CGM stats; exclude first 24h sensor warm-up (falsely low — see CGM sensor start line); never vague phrases like "elevated days" without numbers. For each workout, use HR during session (avg, max, vs resting baseline, recovery) — Coach 💪 leads on this. Nutritionist 🥗 and Doctor 🩺: trusted CGM trend + foods before spikes when meals exist. Say what went well, what to improve, and give 2–4 concrete next steps. Each active mentor must contribute their angle. Cite specific numbers from the block.';
+
+/** 7-day average total daily burn (BMR + passive + workouts) for macro revision. */
+export async function get7DayAverageBurnKcal(): Promise<number | null> {
+  await syncWithingsStore();
+  const store = await loadWithingsStore();
+  const dayKeys = windowDayKeys({ mode: 'days', days: 7 });
+  const workouts = filterWorkoutsByLookback(store.workouts, 14);
+  const burnByDay = computeBurnKcalByDay(store.bodyTrendDays, store.calories, workouts);
+  const burns: number[] = [];
+  for (const dk of dayKeys) {
+    const b = burnByDay.get(dk);
+    if (b != null && b > 0) burns.push(b);
+  }
+  if (burns.length === 0) return null;
+  return Math.round(burns.reduce((a, b) => a + b, 0) / burns.length);
+}

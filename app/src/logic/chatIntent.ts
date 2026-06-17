@@ -43,12 +43,49 @@ export function isGlucoseQuery(text: string): boolean {
   );
 }
 
-/** Food/macro targets, hunger, "what to eat", menu tips. */
-export function isFoodTargetQuery(text: string): boolean {
+/** Explicit slash command — same pipeline as dashboard Analyze (7d revision context). */
+export function isMacroSlashCommand(text: string): boolean {
+  const t = text.trim();
+  return /^\/macros?\b/i.test(t) || /^\/מקרו\b/.test(t);
+}
+
+/** Set/adjust daily macro targets — nutritionist macro brain (prompt35). */
+export function isMacroTargetQuery(text: string): boolean {
+  if (isMacroSlashCommand(text)) return true;
   const t = text.toLowerCase();
   return (
-    /שומן|חלבון|פחמימ|רעב|לא רעב|מה לאכול|מה עוד לאכול|תפריט|יעד|טיפים/.test(text) ||
-    /\bfat\b|protein|carb|hungry|not hungry|what to eat|what else to eat|menu|meal tips|macro target|how much (more )?(protein|fat|carb)/.test(t) ||
+    /יעדי?\s*מקרו|מאקרו|יעדים|קלוריות ליום|עדכן את היעדים|בוא נקבע|קבע יעד|מה המאקרו|מומלץ/.test(text) ||
+    /macro target|set my macros|update macro|daily macros|recommended macros|calorie target|reset macros|suggest macros/.test(t) ||
+    /objetivo.*macro|macros diarios|objectif macro/.test(t)
+  );
+}
+
+/** Slash or natural-language macro revision request (nutritionist tab). */
+export function isMacroChatRequest(text: string): boolean {
+  return isMacroTargetQuery(text);
+}
+
+export function macroSlashIntro(langCode?: string | null): string {
+  if (langCode === 'he') {
+    return 'יעדי המאקרו מחושבים מ-7 ימי נתונים (שריפה, פעילות, CGM, בדיקות דם וכללים). בדוק/י את המספרים ואשר/י למטה.';
+  }
+  return 'Macro targets from your 7-day data (burn, activity, CGM, labs, rules). Review the numbers and confirm below.';
+}
+
+export function macroSlashWrongTabHint(langCode?: string | null): string {
+  if (langCode === 'he') {
+    return 'פקודת /macros זמינה בלשונית תזונאית 🥗 בלבד.';
+  }
+  return '/macros is available on the Nutritionist 🥗 tab only.';
+}
+
+/** Food/macro targets, hunger, "what to eat", menu tips. */
+export function isFoodTargetQuery(text: string): boolean {
+  if (isMacroTargetQuery(text)) return false;
+  const t = text.toLowerCase();
+  return (
+    /שומן|חלבון|פחמימ|רעב|לא רעב|מה לאכול|מה עוד לאכול|תפריט|טיפים/.test(text) ||
+    /\bfat\b|protein|carb|hungry|not hungry|what to eat|what else to eat|menu|meal tips|how much (more )?(protein|fat|carb)/.test(t) ||
     /proteína|grasa|carbohidrat|hambre|protéine|graisse|hunger|hambre/.test(t)
   );
 }

@@ -25,6 +25,7 @@ import {
   type LabResult,
   type ParsedLabPdf,
 } from '../services/LabLogService';
+import { applyAutoMacroRevision } from '../logic/macroAutoAdjust';
 import type { UserLanguage } from '../services/TargetService';
 import { WellnessColors } from '../theme/wellness';
 
@@ -138,6 +139,11 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
     setLoading(true);
     try {
       const saved = await saveParsedLabPanel(draft);
+      await applyAutoMacroRevision({
+        trigger: 'lab-import',
+        triggerDetail: saved.collectedAt.slice(0, 10),
+        labReportId: saved.id,
+      });
       onSaved(saved);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Save failed');

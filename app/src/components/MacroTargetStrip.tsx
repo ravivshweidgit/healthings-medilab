@@ -11,10 +11,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { suggestDailyMacros, type MacroSuggestionInput } from '../services/GeminiService';
+import { suggestMacroTargets, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
 import {
   clearMacroTarget,
   getMacroTarget,
+  getMentors,
+  getUserRules,
   resolveFiberTarget_g,
   saveMacroTarget,
   withFiberTarget,
@@ -160,43 +162,19 @@ export function MacroTargetStrip({
     setError(null);
     setScreen('loading');
     try {
-      const input: MacroSuggestionInput = {
-        weight_kg: weightKg!,
-        fatMass_kg: fatMassKg!,
-        muscleMass_kg: muscleMass_kg!,
-        bmr_kcal: bmr_kcal!,
-        estimatedBurn_kcal,
-        heightCm: heightCm!,
-        age: age!,
-        gender: gender!,
-        bodyTarget: bodyTarget
-          ? { targetWeight_kg: bodyTarget.targetWeight_kg, targetFatPct: bodyTarget.targetFatPct, targetMuscleMass_kg: bodyTarget.targetMuscleMass_kg }
-          : null,
-        rulesContext: userRules?.aiContext ?? '',
-        mentors,
-      };
-      const result = await suggestDailyMacros(input, lang);
-      const now = new Date().toISOString();
-      const proposed: DailyMacroTarget = {
-        protein_g: result.protein_g,
-        fat_g: result.fat_g,
-        carb_g: result.carb_g,
-        fiber_g: result.fiber_g,
-        kcal: result.kcal,
-        diet_label: result.diet_label,
-        reasoning: result.reasoning,
-        rulesContext: userRules?.aiContext ?? '',
-        mentors,
-        aiSuggested: { protein_g: result.protein_g, fat_g: result.fat_g, carb_g: result.carb_g, fiber_g: result.fiber_g, kcal: result.kcal },
-        analyzedAt: now,
-      };
+      const [result, rules, mentorList] = await Promise.all([
+        suggestMacroTargets({ trigger: 'dashboard-suggest', lang }),
+        getUserRules(),
+        getMentors(),
+      ]);
+      const proposed = macroSuggestionToDailyTarget(result, rules, mentorList);
       setSuggestion(proposed);
       setScreen('suggestion');
     } catch (e: any) {
       setError(e?.message ?? 'AI analysis failed');
       setScreen('idle');
     }
-  }, [canAnalyze, weightKg, fatMassKg, muscleMass_kg, bmr_kcal, estimatedBurn_kcal, heightCm, age, gender, bodyTarget, userRules, mentors]);
+  }, [canAnalyze, lang]);
 
   const handleAccept = useCallback(async () => {
     if (!suggestion) return;
@@ -228,7 +206,7 @@ export function MacroTargetStrip({
       fiber_g: isNaN(fi) ? base.fiber_g : fi,
       kcal: k,
     };
-    await saveMacroTarget(updated);
+    await saveMacroTarget(updated, { userEdited: true });
     setTarget(updated);
     onSaved?.(updated);
     setSuggestion(null);

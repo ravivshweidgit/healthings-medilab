@@ -47,7 +47,16 @@ import {
   MENTOR_CHAT_TAB_ORDER,
 } from '../services/TargetService';
 import { getLabsAiContextForHeader } from '../services/LabLogService';
-import { chatWithMentor, summariseChatDay, isYesterdayQuery, type CoachContext } from '../services/GeminiService';
+import { chatWithMentor, summariseChatDay, isYesterdayQuery, type CoachContext, type MacroSuggestion } from '../services/GeminiService';
+import {
+  isMacroChatRequest,
+  isMacroSlashCommand,
+  macroSlashIntro,
+  macroSlashWrongTabHint,
+} from '../logic/chatIntent';
+import { suggestMacroTargets } from '../logic/macroAutoAdjust';
+import { MacroProposalCard } from '../components/MacroProposalCard';
+import type { DailyMacroTarget } from '../services/TargetService';
 import { runAutoChecksAndPersist, refreshCoachReview, forceCoachReview } from '../services/CoachService';
 import { exportMentorChat } from '../services/mentorChatExport';
 import { normalizeMentorChatText, buildMentorDisplaySegments, mentorBubbleColors, hasSeparateMentorVoices } from '../logic/mentorChatText';
@@ -61,6 +70,7 @@ type Props = {
   onClose: () => void;
   context: CoachContext;
   onCoachMessageUpdated?: (msg: CoachMessage | null) => void;
+  onMacroTargetUpdated?: (target: DailyMacroTarget) => void;
 };
 
 /** Local calendar day — must match FoodLogService day keys (not UTC toISOString). */
@@ -81,8 +91,12 @@ function yesterdayKey(): string {
   return foodLogDayKey(d.getTime());
 }
 
-/** In-memory only — preview URI is never written to AsyncStorage. */
-type ChatMessageUI = ChatMessage & { previewUri?: string };
+/** In-memory only — preview URI and macro proposal are never written to AsyncStorage. */
+type ChatMessageUI = ChatMessage & {
+  previewUri?: string;
+  macroProposal?: MacroSuggestion;
+  macroDismissed?: boolean;
+};
 
 type PendingChatImage = { uri: string; base64: string; mimeType: string };
 
@@ -884,10 +898,16 @@ function MessageBubble({
   msg,
   mentor,
   rtl,
+  lang,
+  onMacroApplied,
+  onMacroDismiss,
 }: {
   msg: ChatMessageUI;
   mentor: MentorType;
   rtl?: boolean;
+  lang?: UserLanguage | null;
+  onMacroApplied?: (target: DailyMacroTarget) => void;
+  onMacroDismiss?: () => void;
 }) {
   const isUser = msg.role === 'user';
   const colors = mentorBubbleColors(mentor);
@@ -920,6 +940,14 @@ function MessageBubble({
         ]}
       >
         <Text style={[styles.msgTextAI, rtl && styles.rtlText]}>{msg.text}</Text>
+        {!msg.macroDismissed && msg.macroProposal ? (
+          <MacroProposalCard
+            proposal={msg.macroProposal}
+            lang={lang}
+            onApplied={onMacroApplied}
+            onDismiss={onMacroDismiss}
+          />
+        ) : null}
         {time ? (
           <Text style={[styles.msgTime, styles.msgTimeAI, rtl && styles.rtlText]}>{time}</Text>
         ) : null}
@@ -930,7 +958,7 @@ function MessageBubble({
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
-export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }: Props) {
+export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, onMacroTargetUpdated }: Props) {
   const insets = useSafeAreaInsets();
   const mentorTabs = useMemo(() => orderedActiveMentors(context.mentors), [context.mentors]);
   const [activeMentor, setActiveMentor] = useState<MentorType>(mentorTabs[0] ?? 'coach');
@@ -945,7 +973,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
   const [refreshingCoach, setRefreshingCoach] = useState(false);
   const [anyChatHistory, setAnyChatHistory] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const listRef = useRef<FlatList<ChatMessage>>(null);
+  const listRef = useRef<FlatList<ChatMessageUI>>(null);
   /** Guards the one-shot coach auto-regen per chat open (avoids API spam on repeated failures). */
   const coachAutoRegenRef = useRef(false);
 
@@ -1243,22 +1271,76 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
         ]);
         const freshContext: CoachContext = await withYesterdayFoodContext(baseFresh, promptText);
 
-        const replyText = await chatWithMentor(
-          activeMentor,
-          promptText,
-          currentHistory.slice(0, -1),
-          freshContext,
-          yesterdaySummary,
-          image?.base64 ?? null,
-          image?.mimeType,
-        );
-        const aiMsg: ChatMessage = {
+        if (isMacroSlashCommand(promptText) && activeMentor !== 'nutritionist') {
+          const aiMsg: ChatMessageUI = {
+            role: 'assistant',
+            text: macroSlashWrongTabHint(freshContext.lang?.code),
+            sentAt: new Date().toISOString(),
+          };
+          setHistory((prev) => [...prev, aiMsg]);
+          await appendChatMessage(today, activeMentor, {
+            role: 'assistant',
+            text: aiMsg.text,
+            sentAt: aiMsg.sentAt,
+          });
+          scrollToBottom();
+          return;
+        }
+
+        const wantsMacro = activeMentor === 'nutritionist' && isMacroChatRequest(promptText);
+        const macroSlash = wantsMacro && isMacroSlashCommand(promptText);
+
+        let replyText: string;
+        let macroResult: Awaited<ReturnType<typeof suggestMacroTargets>> | null = null;
+
+        if (macroSlash) {
+          macroResult = await suggestMacroTargets({
+            trigger: 'chat-proposal',
+            triggerDetail: promptText,
+            lang: freshContext.lang,
+          });
+          replyText = macroSlashIntro(freshContext.lang?.code);
+        } else if (wantsMacro) {
+          [replyText, macroResult] = await Promise.all([
+            chatWithMentor(
+              activeMentor,
+              promptText,
+              currentHistory.slice(0, -1),
+              freshContext,
+              yesterdaySummary,
+              image?.base64 ?? null,
+              image?.mimeType,
+            ),
+            suggestMacroTargets({
+              trigger: 'chat-proposal',
+              triggerDetail: promptText,
+              lang: freshContext.lang,
+            }),
+          ]);
+        } else {
+          replyText = await chatWithMentor(
+            activeMentor,
+            promptText,
+            currentHistory.slice(0, -1),
+            freshContext,
+            yesterdaySummary,
+            image?.base64 ?? null,
+            image?.mimeType,
+          );
+        }
+
+        const aiMsg: ChatMessageUI = {
           role: 'assistant',
           text: replyText,
           sentAt: new Date().toISOString(),
+          macroProposal: macroResult ?? undefined,
         };
         setHistory((prev) => [...prev, aiMsg]);
-        await appendChatMessage(today, activeMentor, aiMsg);
+        await appendChatMessage(today, activeMentor, {
+          role: 'assistant',
+          text: replyText,
+          sentAt: aiMsg.sentAt,
+        });
         scrollToBottom();
       } catch (err) {
         const errMsg: ChatMessage = {
@@ -1271,8 +1353,21 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
         setSending(false);
       }
     },
-    [sending, activeMentor, scrollToBottom, buildFreshContext],
+    [sending, activeMentor, scrollToBottom, buildFreshContext, context.lang],
   );
+
+  const handleMacroApplied = useCallback(
+    (target: DailyMacroTarget) => {
+      onMacroTargetUpdated?.(target);
+    },
+    [onMacroTargetUpdated],
+  );
+
+  const handleMacroDismiss = useCallback((sentAt: string) => {
+    setHistory((prev) =>
+      prev.map((m) => (m.sentAt === sentAt ? { ...m, macroDismissed: true } : m)),
+    );
+  }, []);
 
   const handleToggleActionItem = useCallback(
     async (itemId: string) => {
@@ -1349,7 +1444,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
 
       <View style={[styles.flex, styles.minHeight0]}>
         <View style={[styles.flex, styles.minHeight0]}>
-          <FlatList
+          <FlatList<ChatMessageUI>
             ref={listRef}
             style={[styles.chatList, styles.minHeight0]}
             data={history}
@@ -1372,7 +1467,18 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }:
               ) : null
             }
             renderItem={({ item }) => (
-              <MessageBubble msg={item} mentor={activeMentor} rtl={ui.rtl} />
+              <MessageBubble
+                msg={item}
+                mentor={activeMentor}
+                rtl={ui.rtl}
+                lang={context.lang}
+                onMacroApplied={handleMacroApplied}
+                onMacroDismiss={
+                  item.macroProposal && !item.macroDismissed
+                    ? () => handleMacroDismiss(item.sentAt)
+                    : undefined
+                }
+              />
             )}
             contentContainerStyle={styles.messageList}
             showsVerticalScrollIndicator={false}

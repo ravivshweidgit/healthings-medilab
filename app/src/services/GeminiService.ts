@@ -951,7 +951,7 @@ const MENTOR_PERSONAS: Record<MentorType, string> = {
   doctor:
     'You are a medical doctor AI. Prioritise health risk reduction, evidence-based guidelines, and patient safety. When CGM data (TODAY/RECENT/MEAL GLUCOSE blocks) is present, interpret avg/min/max mg/dL and flag concerning patterns — exclude sensor warm-up false lows.',
   nutritionist:
-    'You are a certified clinical nutritionist AI with CGM expertise. Continuous glucose is a PRIMARY input equal to macros — you MUST relate food, meal timing, and carbs to glucose response whenever CGM data is in context. Quote avg/min/max mg/dL; assess if glucose looks good or needs improvement; link spikes to foods when meals are logged.',
+    'You are a certified clinical nutritionist AI with CGM expertise. Continuous glucose is a PRIMARY input equal to macros — you MUST relate food, meal timing, and carbs to glucose response whenever CGM data is in context. Quote avg/min/max mg/dL; assess if glucose looks good or needs improvement; link spikes to foods when meals are logged. FIBER ↔ CARB: fiber is inside total carbs on labels — fiber_g must never exceed carb_g; for carb ≤45g aim fiber ≈ ⅔×carbs; for higher carbs aim ~30g fiber not ⅔ of carbs.',
   coach:
     'You are a professional fitness coach AI. Focus on body composition, muscle preservation, progressive fat loss, training recovery, and performance goals.',
 };
@@ -1341,36 +1341,42 @@ export type MacroSuggestion = {
   reasoning: string;
 };
 
-export async function suggestDailyMacros(input: MacroSuggestionInput, lang?: UserLanguage | null): Promise<MacroSuggestion> {
-  const systemPrompt = buildMentorSystemPrompt(input.mentors);
-  const leanMass = input.weight_kg - input.fatMass_kg;
-  const fatPct = (input.fatMass_kg / input.weight_kg) * 100;
+const FIBER_CARB_RULE = `
+FIBER ↔ CARB (mandatory):
+- Dietary fiber is counted INSIDE total carbohydrates on food labels — fiber_g must NEVER exceed carb_g.
+- When daily carb target ≤ 45g: recommend fiber_g ≈ round(⅔ × carb_g) from quality low-carb sources.
+- When carb target > 45g: recommend fiber_g ≈ 30g/day (standard band), NOT ⅔ of carbs.
+- If user's rules imply very low carbs (keto, <30g), proactively set realistic fiber — do not default both to 30g.`;
 
-  const lines = [
-    `Weight: ${input.weight_kg} kg | Lean mass: ${leanMass.toFixed(1)} kg | Fat%: ${fatPct.toFixed(1)}%`,
-    `BMR: ${input.bmr_kcal} kcal | Est. daily burn: ${input.estimatedBurn_kcal ?? 'unknown'} kcal`,
-    `Age: ${input.age} | Gender: ${input.gender} | Height: ${input.heightCm} cm`,
-    input.bodyTarget
-      ? `Goal: ${input.bodyTarget.targetWeight_kg} kg / ${input.bodyTarget.targetFatPct}% fat / ${input.bodyTarget.targetMuscleMass_kg} kg muscle`
-      : 'Goal: general health and body composition improvement',
-    input.rulesContext ? `⚠️ HARD DIETARY CONSTRAINT (must not be violated): ${input.rulesContext}` : null,
-  ].filter(Boolean).join('\n');
+const MACRO_REVISION_PROMPT = `You are a certified clinical nutritionist revising DAILY MACRO TARGETS (not meal advice).
 
-  const prompt = `${systemPrompt}
+${FIBER_CARB_RULE}
 
-METRICS:
-${lines}
+CGM (7d block — GLUCOSE & FOOD IMPACT + MEAL GLUCOSE):
+- MUST cite period avg, min, max (mg/dL) in reasoning when CGM present.
+- Use meal-spike / problem-food lines to justify carb and fiber targets.
+- kcal deficit/surplus comes mainly from weight goal + 7d avg burn, moderated by CGM stability.
+- Lows <70 (trusted days): do not cut kcal further — note in reasoning.
+
+RULES (strict priority):
+1. My Rules are HARD constraints (carb cap, keto, etc.) — never violate.
+2. At/past weight goal → maintenance kcal ≈ 7d avg burn, not continued large deficit.
+3. Loss vs gain from start weight vs target weight; taper deficit/surplus by kg-to-goal.
+4. Labs: informational only — kidney/lipids may cap protein/fat increases, not diagnose.
+5. kcal must align with 4×P + 4×C + 9×F within ~50 kcal.
 
 OUTPUT (JSON only, no markdown):
-{"protein_g":160,"fat_g":140,"carb_g":30,"fiber_g":30,"kcal":1960,"diet_label":"Ketogenic","reasoning":"Max 15 words."}
+{"protein_g":135,"fat_g":110,"carb_g":30,"fiber_g":20,"kcal":2190,"diet_label":"Low carb · deficit","reasoning":"7d avg burn 2439; weight 81.4→80; CGM stable"}`;
 
-RULES (apply in strict priority order):
-1. DIETARY RULES ARE HARD CONSTRAINTS — they override everything else. If the user says "< 20g carbs", carb_g MUST be ≤ 20. If the user says "keto", carb_g MUST be ≤ 20g. Never violate these.
-2. Protein: 1.6–2.2g × lean_mass_kg (preserve muscle)
-3. Calorie deficit 300–500 kcal below estimated burn for fat loss
-4. Fill remaining calories with fat after protein and carbs are set
-5. fiber_g: daily dietary fiber target (typical 25–35g; higher when rules mention vegetables, cholesterol, or heart health)
-6. diet_label: Ketogenic/Vegan/High Protein/Mediterranean/Balanced/Custom${langInstruction(lang)}`;
+/** Nutritionist-only Gemini revision — input is full MACRO REVISION context block. */
+export async function reviseMacroTargetsWithGemini(
+  contextBlock: string,
+  lang?: UserLanguage | null,
+): Promise<MacroSuggestion> {
+  const prompt = `${MACRO_REVISION_PROMPT}${langInstruction(lang)}
+
+MACRO REVISION DATA:
+${contextBlock}`;
 
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -1384,14 +1390,14 @@ RULES (apply in strict priority order):
   });
   if (!response.ok) {
     const err = await response.text().catch(() => '');
-    throw new Error(`Gemini error ${response.status}: ${err.slice(0, 200)}`);
+    throw new Error(`Gemini macro revision error ${response.status}: ${err.slice(0, 200)}`);
   }
 
   const json = await response.json();
   const candidate = json?.candidates?.[0];
   const finishReason: string = candidate?.finishReason ?? 'UNKNOWN';
   const raw: string = extractGeminiText(candidate);
-  if (!raw) throw new Error(`Empty AI response (${finishReason})`);
+  if (!raw) throw new Error(`Empty AI macro revision (${finishReason})`);
 
   const stripped = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
   const start = stripped.indexOf('{');
@@ -1401,13 +1407,26 @@ RULES (apply in strict priority order):
   try {
     const parsed = JSON.parse(cleaned) as MacroSuggestion;
     return {
-      ...parsed,
-      fiber_g: Math.round(Number(parsed.fiber_g) || 30),
+      protein_g: Math.round(Number(parsed.protein_g) || 0),
+      fat_g: Math.round(Number(parsed.fat_g) || 0),
+      carb_g: Math.round(Number(parsed.carb_g) || 0),
+      fiber_g: Math.round(Number(parsed.fiber_g) || 0),
+      kcal: Math.round(Number(parsed.kcal) || 0),
+      diet_label: String(parsed.diet_label ?? 'Custom'),
+      reasoning: String(parsed.reasoning ?? ''),
     };
   } catch {
     const hint = finishReason === 'MAX_TOKENS' ? ' (truncated)' : '';
-    throw new Error(`Could not parse macro suggestion${hint}: ${raw.slice(0, 100)}`);
+    throw new Error(`Could not parse macro revision${hint}: ${raw.slice(0, 100)}`);
   }
+}
+
+/**
+ * @deprecated Use suggestMacroTargets from macroAutoAdjust.ts
+ */
+export async function suggestDailyMacros(input: MacroSuggestionInput, lang?: UserLanguage | null): Promise<MacroSuggestion> {
+  const { suggestMacroTargets } = await import('../logic/macroAutoAdjust');
+  return suggestMacroTargets({ trigger: 'dashboard-suggest', lang });
 }
 
 // ─── Coach context & message generation ───────────────────────────────────────
@@ -1942,6 +1961,7 @@ OLDER HISTORY (anything before yesterday):
 - If the user asks about a longer range (a week, a month, "lately") and only the 2-day window is
   loaded, do NOT guess or assume the history exists. Give the today/yesterday view and ask the
   user to load it: "for a full 7-day review send /7" (also /30, /N up to 128 days).
+- Nutritionist tab only: /macros (or /macro) runs the full 7-day macro revision pipeline and shows a confirm card — cite that flow when asked how to update targets; do not invent different numbers in prose.
 - Whatever window is loaded, verify each figure actually appears in the block before citing —
   if a metric is missing or empty there, say so rather than inventing it.`;
 }
@@ -1993,7 +2013,7 @@ When glucose is the topic, or this is the first reply in the tab today, or the u
 CGM DATE SPAN (mandatory): only cite "N days" when the data block explicitly states N days. If unsure, say "the available CGM window" — never invent 7 days. Slash commands (/7, /30) widen the loaded window — use that block's day count.
 When the user asks for a longer review (/7, /30), analyze the full snapshot (body, energy, HR, food, workouts): what went well, what to improve, specific next steps.
 When GLUCOSE & FOOD IMPACT is present, Nutritionist and Doctor must cite which foods preceded spikes and recommend swaps for repeat offenders.
-Users can request any window via slash commands: /1 or /yesterday, /7, /30, /100 (up to 128 days).
+Users can request any window via slash commands: /1 or /yesterday, /7, /30, /100 (up to 128 days). Nutritionist tab: /macros for daily macro target revision (7-day data).
 Ignore any earlier chat messages where you said data was unavailable; always use the data block above.${coachRules}${cgmRules}${genderInstruction(ctx)}${langInstruction(ctx.lang)}`;
 }
 

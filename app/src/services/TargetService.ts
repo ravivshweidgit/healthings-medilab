@@ -4,6 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { deriveFiberTargetFromCarbs } from '../logic/macroFiberCoupling';
 
 const BIRTHDATE_KEY = 'user_birthdate';   // ISO date string e.g. "1980-03-15"
 const HEIGHT_KEY    = 'user_height_cm';   // shared with WithingsApiService cache
@@ -207,12 +208,56 @@ export async function getMacroTarget(): Promise<DailyMacroTarget | null> {
   } catch { return null; }
 }
 
-export async function saveMacroTarget(t: DailyMacroTarget): Promise<void> {
-  await AsyncStorage.setItem(MACRO_TARGET_KEY, JSON.stringify(t));
+export async function saveMacroTarget(t: DailyMacroTarget, opts?: { userEdited?: boolean }): Promise<void> {
+  const fiber_g = deriveFiberTargetFromCarbs(t.carb_g);
+  const sanitized = withFiberTarget({ ...t, fiber_g });
+  await AsyncStorage.setItem(MACRO_TARGET_KEY, JSON.stringify(sanitized));
+  if (opts?.userEdited) {
+    await setMacroManualLock(true);
+  }
 }
 
 export async function clearMacroTarget(): Promise<void> {
   await AsyncStorage.removeItem(MACRO_TARGET_KEY);
+}
+
+// ─── Macro auto-adjust state (prompt35) ───────────────────────────────────────
+
+const MACRO_AUTO_ADJUST_KEY = 'macro_auto_adjust_state';
+
+export type MacroAutoAdjustState = {
+  lastWeightKg: number;
+  lastLabReportId: string | null;
+  lastKcal: number;
+  lastAdjustedAt: string;
+  manualLock: boolean;
+};
+
+const DEFAULT_MACRO_AUTO_ADJUST: MacroAutoAdjustState = {
+  lastWeightKg: 0,
+  lastLabReportId: null,
+  lastKcal: 0,
+  lastAdjustedAt: '',
+  manualLock: false,
+};
+
+export async function getMacroAutoAdjustState(): Promise<MacroAutoAdjustState> {
+  const raw = await AsyncStorage.getItem(MACRO_AUTO_ADJUST_KEY);
+  if (!raw) return { ...DEFAULT_MACRO_AUTO_ADJUST };
+  try {
+    return { ...DEFAULT_MACRO_AUTO_ADJUST, ...(JSON.parse(raw) as MacroAutoAdjustState) };
+  } catch {
+    return { ...DEFAULT_MACRO_AUTO_ADJUST };
+  }
+}
+
+export async function saveMacroAutoAdjustState(state: MacroAutoAdjustState): Promise<void> {
+  await AsyncStorage.setItem(MACRO_AUTO_ADJUST_KEY, JSON.stringify(state));
+}
+
+export async function setMacroManualLock(locked: boolean): Promise<void> {
+  const state = await getMacroAutoAdjustState();
+  await saveMacroAutoAdjustState({ ...state, manualLock: locked });
 }
 
 // ─── User language ────────────────────────────────────────────────────────────
@@ -448,6 +493,7 @@ const DEFAULT_QUICK_QUESTIONS: QuickQuestion[] = [
   { id: 'qq-default-1', label: 'Yesterday summary' },
   { id: 'qq-default-2', label: 'Weekly summary' },
   { id: 'qq-default-3', label: 'Monthly summary' },
+  { id: 'qq-macros', label: '/macros' },
 ];
 
 const DEFAULT_QUICK_QUESTIONS_BY_LANG: Record<string, QuickQuestion[]> = {
@@ -456,6 +502,7 @@ const DEFAULT_QUICK_QUESTIONS_BY_LANG: Record<string, QuickQuestion[]> = {
     { id: 'qq-default-1', label: 'סיכום אתמול' },
     { id: 'qq-default-2', label: 'סיכום שבועי' },
     { id: 'qq-default-3', label: 'סיכום חודשי' },
+    { id: 'qq-macros', label: '/macros' },
   ],
   es: [
     { id: 'qq-default-1', label: 'Revisa mi estado' },

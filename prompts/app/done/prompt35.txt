@@ -1,0 +1,41 @@
+## Prompt 35 — Nutritionist macro brain
+
+**Status: done (2026-06-18)** — Shipped and phone-tested.
+
+Prompt35 delivered one source of truth for macro targets across dashboard, chat, and auto events.
+
+### What shipped
+
+- Unified macro pipeline via `suggestMacroTargets` for:
+  - dashboard Analyze (after reset too),
+  - nutritionist macro chat requests (including `/macros`),
+  - weigh-in auto revision,
+  - lab-import auto revision.
+- Fiber↔carb coupling in code:
+  - `fiber_g <= carb_g`,
+  - low carb (`<=45g`) -> fiber about `2/3 * carbs`,
+  - higher carb -> fiber about `30g`.
+- Chat macro confirm flow:
+  - nutritionist shows proposal card,
+  - user confirms to save target.
+- Auto macro revision (no confirm) on:
+  - new weight,
+  - new lab import.
+- Revision context includes:
+  - 7-day period review,
+  - trend context,
+  - latest + prior labs.
+- `/macros` slash command in nutritionist chat tab to explicitly run the same macro pipeline.
+
+### Primary files touched
+
+- `app/src/logic/macroAutoAdjust.ts`
+- `app/src/logic/macroFiberCoupling.ts`
+- `app/src/components/MacroProposalCard.tsx`
+- `app/src/components/MacroTargetStrip.tsx`
+- `app/src/screens/ChatScreen.tsx`
+- `app/src/screens/DashboardScreen.tsx`
+- `app/src/services/GeminiService.ts`
+- `app/src/services/TargetService.ts`
+- `app/src/services/LabLogService.ts`
+- `app/src/services/ReviewService.ts`

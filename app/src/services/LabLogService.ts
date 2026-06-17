@@ -185,6 +185,17 @@ export async function getLabsAiContextForHeader(): Promise<string | null> {
   return buildLabsAiContext(latest ? [latest] : [], 'latest');
 }
 
+/** Latest draw + one prior draw for macro revision (trends: UREA, creatinine, LDL). */
+export async function buildLabsForMacroRevision(): Promise<string | null> {
+  const all = await getAllLabReports();
+  const forRevision = all.slice(0, 2);
+  if (forRevision.length === 0) return null;
+  return buildLabsAiContext(
+    forRevision,
+    forRevision.length === 1 ? 'latest' : 'history',
+  );
+}
+
 /** Merge parsed PDF panel into storage (same draw day → one report). */
 export async function saveParsedLabPanel(parsed: ParsedLabPdf): Promise<LabReport> {
   const dateKey = reportDateKey(parsed.collectedAt);
