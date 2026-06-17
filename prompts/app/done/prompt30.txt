@@ -335,5 +335,4 @@ type LabExportPayload = {
 ---
 
 ### Status
-**Spec only — not implemented.** Reference PDFs validated (Clalit chemistry + CBC, 2026-06-16).
-Ready to build.
+**Implemented and phone-tested (2026-06-16).** Clalit chemistry + CBC PDFs validated; lab card on dashboard below food log; mentor context + `/N` lab history wired. prompt29 backup keys still open.
