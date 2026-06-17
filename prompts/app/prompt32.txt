@@ -1,0 +1,41 @@
+## Prompt 32 — Backup import QA + hardening (deferred phase)
+
+Created on 2026-06-17 after prompt29 phase closure.
+
+---
+
+## Context
+
+`prompt29` shipped persistence + backup export and JSON compliance checks.
+User approved deferring import/re-import device QA to a later phase.
+
+---
+
+## Goal
+
+Validate and harden backup **import** behavior without changing the export contract.
+
+---
+
+## Test plan (device)
+
+- [ ] Import backup on same phone and verify restored state (food, CGM, Withings, labs, chat, profile).
+- [ ] Re-import same backup and confirm idempotent counters (near-zero added records).
+- [ ] Import on clean/new phone and verify snapshot parity with source phone.
+- [ ] Verify Withings tokens restore behavior (linked state expected).
+- [ ] Validate graceful handling for invalid/malformed JSON.
+
+---
+
+## Potential hardening items
+
+- [ ] Improve import summary granularity (per-domain counters).
+- [ ] Add explicit warning/confirmation before overwrite-style key restores.
+- [ ] Add optional "dry run" preview of what will be merged.
+- [ ] Add lightweight schema migration hooks for future backup versions.
+
+---
+
+## Status
+
+Spec only — deferred by user; implement later.

@@ -50,6 +50,7 @@ import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportWithSessions } from '../services/careSensCsv';
 import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getRecentMeals, getDailyMacros, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
 import { getAllLabReports, getLabsAiContextForHeader, type LabReport } from '../services/LabLogService';
+import { exportLocalBackup, importLocalBackup } from '../services/LocalBackupService';
 import { buildGlucoseMentorContext } from '../logic/mealGlucoseAnalysis';
 import { activeMentorEmojis, mentorsCollectiveLabel } from '../logic/mentorLabels';
 import {
@@ -162,6 +163,8 @@ export const DashboardScreen = () => {
 
   const [importBusy, setImportBusy] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
 
   const [trendPeriodDays, setTrendPeriodDays] = useState<number>(DEFAULT_TREND_PERIOD_DAYS);
 
@@ -759,6 +762,53 @@ export const DashboardScreen = () => {
     }
   }, [applyImportedGlucose]);
 
+  const handleExportBackup = useCallback(async () => {
+    setBackupBusy(true);
+    setBackupMessage(null);
+    try {
+      await exportLocalBackup();
+      setBackupMessage('Backup exported.');
+      Alert.alert('Backup', 'Backup saved to the folder you picked.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not export backup.';
+      setBackupMessage(message);
+      Alert.alert('Backup', message);
+    } finally {
+      setBackupBusy(false);
+    }
+  }, []);
+
+  const handleImportBackup = useCallback(async () => {
+    setBackupBusy(true);
+    setBackupMessage(null);
+    try {
+      const result = await importLocalBackup();
+      if (result.keysRestored === 0 && !result.tokensRestored) {
+        setBackupMessage('Import cancelled.');
+        return;
+      }
+
+      await Promise.all([
+        refetch(),
+        syncWithings(),
+        loadTodayFood(),
+        loadLabReports(),
+        loadHeightAndBirthdate(),
+        loadCoachMessage(),
+      ]);
+
+      const summary = `Restored ${result.keysRestored} keys • +${result.mealsAdded} meals • +${result.chatMessagesAdded} chat messages • +${result.glucosePointsMerged} glucose points${result.tokensRestored ? ' • Withings link restored' : ''}`;
+      setBackupMessage(summary);
+      Alert.alert('Backup imported', summary);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not import backup.';
+      setBackupMessage(message);
+      Alert.alert('Backup', message);
+    } finally {
+      setBackupBusy(false);
+    }
+  }, [loadCoachMessage, loadHeightAndBirthdate, loadLabReports, loadTodayFood, refetch, syncWithings]);
+
   const demoNotice = demoNoticeCopy(dataSource);
 
   return (
@@ -1296,6 +1346,29 @@ export const DashboardScreen = () => {
             onToggleExpand={() => setMacroExpanded((e) => !e)}
             lang={userLanguage}
           />
+
+          <View style={styles.groupDivider} />
+          <View style={styles.backupSection}>
+            <Text style={styles.backupTitle}>App Backup</Text>
+            <View style={styles.backupButtonRow}>
+              <Pressable
+                style={[styles.backupButton, backupBusy && styles.backupButtonDisabled]}
+                onPress={handleExportBackup}
+                disabled={backupBusy}
+              >
+                <Text style={styles.backupButtonText}>Export all data</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.backupButton, backupBusy && styles.backupButtonDisabled]}
+                onPress={handleImportBackup}
+                disabled={backupBusy}
+              >
+                <Text style={styles.backupButtonText}>Import all data</Text>
+              </Pressable>
+            </View>
+            {backupBusy ? <ActivityIndicator color={WellnessColors.accentBlue} style={styles.backupSpinner} /> : null}
+            {backupMessage ? <Text style={styles.backupMessage}>{backupMessage}</Text> : null}
+          </View>
         </View>
       </ScrollView>
       </KeyboardAvoidingView>
@@ -1752,6 +1825,46 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: WellnessColors.gridLine,
     marginHorizontal: 16,
+  },
+  backupSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 10,
+  },
+  backupTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+  },
+  backupButtonRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  backupButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: WellnessColors.accentBlue,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: WellnessColors.surface,
+  },
+  backupButtonDisabled: {
+    opacity: 0.6,
+  },
+  backupButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: WellnessColors.accentBlue,
+  },
+  backupSpinner: {
+    marginTop: 2,
+  },
+  backupMessage: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: WellnessColors.textSecondary,
   },
   profileRow: {
     flexDirection: 'row',

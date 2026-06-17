@@ -1,5 +1,8 @@
 ## Prompt 29 — Full local backup (export / import all on-device data as one JSON)
 
+> Scope split (2026-06-17): Samsung/source-config/simple-user design moved to `prompt31.txt`.
+> This prompt now tracks backup/export-import only.
+
 ---
 
 ## Architecture vision — persistence-first, sync-as-adapter
@@ -61,82 +64,12 @@ Rules that keep this clean:
 
 ---
 
-## Next target — "simple user" persona (Samsung Health steps + AI BMR)
+## Source config + Samsung scope moved
 
-A lightweight user who does **not** own a Withings scale or a CGM, but still gets a working
-energy/activity picture:
-
-- **Activity history from Samsung Health steps** — connect Samsung Health (which writes to
-  Google Health Connect); the Samsung adapter reads **steps** and merges them into the local
-  activity store.
-- **Activity calories derived from steps** — steps × a per-user formula (weight / stride /
-  MET-based) → kcal, merged into the same activity store as any other source.
-- **BMR from AI** — estimate BMR from **age + weight** (e.g. Mifflin-St Jeor with sensible
-  defaults) when no smart-scale BMR exists.
-- **Manual BMR override** — user can type their own BMR (e.g. measured by a professional with
-  a body-composition smart scale) which takes precedence over the AI estimate.
-- **Result:** a simple user has **basic energy** (BMR + step-derived activity) — less precise
-  than Withings, but fully functional and offline-first.
-
-### Known concern — Samsung → Health Connect cadence
-Lesson learned from glucose: Samsung Health does **not** write steps to Health Connect every
-5 minutes. The cadence is coarser/bursty (batched, on app open, periodic). The steps adapter
-must therefore:
-- Tolerate irregular / batched write intervals (don't assume fixed sampling).
-- Aggregate to a stable **day-keyed** activity total rather than fixed-interval slots.
-- Re-merge on each sync so late-arriving step batches backfill prior hours/days (same
-  additive-merge guarantee as glucose).
-
----
-
-## Source configuration (sensor setup) — how the user picks their stack
-
-The user thinks in **devices they own**; the app thinks in **metric domains**. The config
-screen bridges the two: the user toggles the devices/services they use, and the app resolves
-which source feeds each metric (with a fixed priority when more than one can).
-
-### Recommended model (v1: simple, device-toggle + fixed priority)
-A persisted config object (also included in backup):
-
-```jsonc
-// AsyncStorage key: "source_config"
-{
-  "version": 1,
-  "glucose":         "health-connect" | "none",        // CareSens/Libre via Health Connect
-  "activity":        "withings" | "samsung-steps" | "none",
-  "bodyComposition": "withings" | "manual" | "none",
-  "bmr":             "withings" | "manual" | "ai",
-  "heartRate":       "withings" | "none"
-}
-```
-
-**Resolution priority when multiple sources could fill a metric** (highest wins per day):
-- **BMR:** `manual override` (if set) > `withings` (measured) > `ai` (estimate from age+weight).
-- **Activity:** `withings` (day has data) > `samsung-steps` (derived) > none.
-- **Body comp:** `withings` > `manual` > none.
-- **Glucose / HR:** single source each for now.
-
-The selected source per metric is just **which adapter is allowed to run**; the merge layer
-and `source` tag (Principle 3) handle the rest. Switching a source never wipes existing data —
-it only changes who feeds new data.
-
-### UX suggestion
-- **Onboarding step "Connect your devices"** + a **Settings → Data Sources** section (same
-  component). Friendly device toggles, not raw metric dropdowns:
-  - ☐ Withings (scale / watch) → enables body comp, BMR, HR, activity
-  - ☐ Samsung Health (steps) → enables step-derived activity
-  - ☐ CGM via Health Connect (CareSens / Libre) → enables glucose
-  - ☐ Manual BMR (I have my BMR from a professional) → BMR override input
-- App derives the `source_config` from the toggles; show a one-line "what you'll get" summary
-  (e.g. "Energy: BMR (AI) + steps activity. No glucose.").
-- **Advanced (later):** expose the per-metric priority list for power users with 2 sources.
-
-### "Simple user" resolves to:
-```
-{ glucose: "none", activity: "samsung-steps",
-  bodyComposition: "none", bmr: "ai", heartRate: "none" }
-```
-…with an optional manual BMR override flipping `bmr` → `"manual"`.
+- See `prompts/app/prompt31.txt` for:
+  - `source_config` model
+  - Samsung steps adapter and activity merge
+  - AI/manual BMR path for simple-user mode
 
 ---
 
@@ -148,17 +81,8 @@ it only changes who feeds new data.
    - `HealthPersistenceService.ts` — facade `loadHealthPersistence()` / `syncHealthPersistence()`
    - `ReviewService` — sync then read from stores (no direct API for mentor blocks)
    - Cold start: cache paints UI; sync updates in background. **Airplane-mode test passes** (offline shows full dashboard).
-2. **Source configuration** — `source_config` model + Settings/onboarding toggles.
-3. **Activity store + Samsung steps adapter + AI/manual BMR** — the simple-user path lands on
-   already-proven infrastructure:
-   - Samsung adapter: steps → day-keyed kcal → merge (tagged `samsung-steps`).
-   - AI BMR (Mifflin-St Jeor from age+weight) fills the BMR slot; manual override beats it.
-4. **Local backup** (the rest of this prompt) — now trivial: one local layer to snapshot, and
-   Withings data is finally inside it.
-
-Model the activity store as **day-keyed totals with a `source` tag**, never Withings-specific
-intraday slots — otherwise Samsung's coarse/batched step writes won't fit cleanly. Source-
-neutral slot shape from day one.
+2. **Local backup export/import** — in progress in this prompt.
+3. **Source config + Samsung + AI/manual BMR** — moved to `prompt31.txt`.
 
 ---
 
@@ -204,8 +128,8 @@ tokens, native only), **expo-file-system** (export/import/debug files). No MMKV 
 | `coach_message_today` | Today's coach summary + action items | `TargetService.ts` / `CoachService.ts` |
 | `chat_history_{YYYY-MM-DD}_{mentor}` (+ legacy `chat_history_{date}`) | Chat per mentor/day (no index — use `getAllKeys()`) | `TargetService.ts` |
 | `chat_yesterday_summary`, `chat_quick_questions`, `chat_quick_questions_lang` | Chat support state | `TargetService.ts` |
-| `source_config` | Selected data sources per metric (sensor setup) | NEW (this prompt) |
-| `manual_bmr_kcal` | User-entered BMR override (when `bmr: "manual"`) | NEW (this prompt) |
+| `source_config` | Moved to `prompt31` | `SourceConfigService` (planned) |
+| `manual_bmr_kcal` | Moved to `prompt31` | `SourceConfigService` (planned) |
 
 ### Tier 2 — device metrics (MUST back up)
 | Key | Data | Owner |
@@ -325,19 +249,14 @@ pull needed at export time (generic `asyncStorage` capture includes the store ke
 - [x] Cold start + pull refresh: CGM, Withings body/trend/HR/energy, food log, labs, workouts look correct.
 - [x] **Airplane mode** after warm cache: force-close → offline open → full dashboard from persistence (no mock flash, no empty wipe).
 
-**Local backup — not built yet**
-- [ ] Export → file `healthings-backup_YYYY-MM-DD.json` appears in chosen folder; valid JSON.
-- [ ] Reinstall app (or clear data) → Import the file → food log, profile, targets, mentors,
-      rules, chat history, manual burn edits all return.
-- [ ] CGM chart shows restored glucose history after import.
-- [ ] Re-importing the same file twice adds 0 new meals / 0 new CGM points (idempotent merge).
-- [ ] Withings: with link present at export, snapshot is captured; after reinstall + import,
-      Withings metrics/link restored (or re-link works).
-- [ ] Excluded keys (error log, debug dir, trigger-dedup) are NOT in the file.
+**Local backup — phase accepted (2026-06-17)**
+- [x] Export → file `healthings-backup_YYYY-MM-DD.json` appears in chosen folder; valid JSON.
+- [x] Envelope/key compliance check passed (`version`, `app`, required persistence keys present).
+- [ ] Import/re-import device QA moved to `prompt32` (deferred by user decision).
 
 ---
 
 ## Status
-**Partial — persistence layer shipped and phone-tested (2026-06-16).** Steps 1 of build order
-done (CGM + Withings stores, offline OK). Still open: source config, Samsung steps + AI BMR,
-full local backup export/import (`LocalBackupService`).
+**Done for this phase (2026-06-17).** Persistence + backup export path shipped, compile-verified,
+and backup JSON compliance validated. Import QA/hardening is intentionally deferred to `prompt32`.
+Source config + Samsung + AI/manual BMR remain in `prompt31`.

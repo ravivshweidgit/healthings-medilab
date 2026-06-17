@@ -1,0 +1,60 @@
+## Prompt 31 — Source config + Samsung steps + AI/manual BMR
+
+Split from `prompt29` on 2026-06-17 so `prompt29` can focus only on backup/export-import.
+
+---
+
+## Goal
+
+Support a "simple user" mode (no Withings, no CGM) with:
+- Samsung Health steps from Health Connect
+- step-derived activity calories
+- AI-estimated BMR with optional manual override
+- clear source selection per metric via `source_config`
+
+---
+
+## `source_config` model
+
+```jsonc
+// AsyncStorage key: "source_config"
+{
+  "version": 1,
+  "glucose": "health-connect" | "none",
+  "activity": "withings" | "samsung-steps" | "none",
+  "bodyComposition": "withings" | "manual" | "none",
+  "bmr": "withings" | "manual" | "ai",
+  "heartRate": "withings" | "none"
+}
+```
+
+Priority rules:
+- BMR: `manual` > `withings` > `ai`
+- Activity: `withings` > `samsung-steps` > `none`
+- Body comp: `withings` > `manual` > `none`
+
+---
+
+## Implementation outline
+
+1. Add `SourceConfigService.ts` for load/save/defaults.
+2. Add onboarding/settings toggles to set `source_config`.
+3. Build Samsung steps adapter:
+   - read steps from Health Connect
+   - convert steps → kcal/day
+   - merge into activity store (idempotent)
+4. Add AI BMR estimation and `manual_bmr_kcal` override key.
+5. Ensure dashboard/mentor context read merged persistence only.
+
+---
+
+## Notes
+
+- Samsung write cadence to Health Connect is bursty; merge must be additive and day-keyed.
+- Keep provider-agnostic store shape so future adapters (Libre/Tanita) plug in without UI changes.
+
+---
+
+## Status
+
+Spec only — not implemented.

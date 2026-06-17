@@ -10,4 +10,5 @@ Active / backlog specs stay in `prompts/app/`:
 | prompt20.txt | Phase 2 deferred |
 | prompt21.txt | CGM status row + fresh chat glucose still open |
 | prompt25.txt | Coach redesign checklist / device test open |
-| prompt29.txt | Partial — persistence layer done; backup + source config open |
+| prompt31.txt | Spec only — source config + Samsung + AI/manual BMR |
+| prompt32.txt | Spec only — backup import QA + hardening (deferred) |
