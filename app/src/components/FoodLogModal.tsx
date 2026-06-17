@@ -28,9 +28,16 @@ import {
   type GeminiAnalysisResult,
   type GeminiTurn,
 } from '../services/GeminiService';
-import { saveMeal, deleteMeal, foodLogDayKey, type FoodEntry } from '../services/FoodLogService';
+import { saveMeal, deleteMeal, foodLogDayKey, getDailyMacros, type FoodEntry } from '../services/FoodLogService';
 import { buildMealMergePreview, type MealMergePreview } from '../logic/mealPhotoMerge';
-import { type UserLanguage } from '../services/TargetService';
+import {
+  analyzeMealIssues,
+  flaggedItemIndices,
+  issueModalBody,
+  mealItemsSnapshotKey,
+  type MealIssue,
+} from '../logic/mealIssueAnalysis';
+import { getMacroTarget, getUserRules, type UserLanguage } from '../services/TargetService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -145,7 +152,15 @@ function applyAnalysisResult(
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function FoodItemsCard({ items, title }: { items: FoodItem[]; title?: string }) {
+function FoodItemsCard({
+  items,
+  title,
+  flaggedIndices,
+}: {
+  items: FoodItem[];
+  title?: string;
+  flaggedIndices?: Set<number>;
+}) {
   if (items.length === 0) {
     return (
       <View style={[styles.itemsCard, cardShadow]}>
@@ -157,18 +172,33 @@ function FoodItemsCard({ items, title }: { items: FoodItem[]; title?: string }) 
   return (
     <View style={[styles.itemsCard, cardShadow]}>
       {title ? <Text style={styles.itemsCardTitle}>{title}</Text> : null}
-      {items.map((item, i) => (
-        <View key={`item-${i}`} style={[styles.itemRow, i > 0 && styles.itemRowBorder]}>
-          <View style={styles.itemLeft}>
-            <Text style={styles.itemName}>{item.name_local ?? item.name}</Text>
-            <Text style={styles.itemGrams}>{item.grams}g</Text>
+      {items.map((item, i) => {
+        const flagged = flaggedIndices?.has(i);
+        return (
+          <View
+            key={`item-${i}`}
+            style={[
+              styles.itemRow,
+              i > 0 && styles.itemRowBorder,
+              flagged && styles.itemRowFlagged,
+            ]}
+          >
+            <View style={styles.itemLeft}>
+              <View style={styles.itemNameRow}>
+                {flagged ? <Text style={styles.itemWarningDot}>⚠</Text> : null}
+                <Text style={[styles.itemName, flagged && styles.itemNameFlagged]}>
+                  {item.name_local ?? item.name}
+                </Text>
+              </View>
+              <Text style={styles.itemGrams}>{item.grams}g</Text>
+            </View>
+            <View style={styles.itemRight}>
+              <Text style={styles.itemKcal}>{item.kcal} kcal</Text>
+              <Text style={styles.itemMacros}>P {item.protein_g}g · C {item.carb_g}g · F {item.fat_g}g</Text>
+            </View>
           </View>
-          <View style={styles.itemRight}>
-            <Text style={styles.itemKcal}>{item.kcal} kcal</Text>
-            <Text style={styles.itemMacros}>P {item.protein_g}g · C {item.carb_g}g · F {item.fat_g}g</Text>
-          </View>
-        </View>
-      ))}
+        );
+      })}
       <View style={[styles.itemRow, styles.totalRow]}>
         <Text style={styles.totalValue}>{macroSummary(items)}</Text>
       </View>
@@ -197,6 +227,10 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
   const [editingId, setEditingId] = useState<string | undefined>(() => editEntry?.id);
   const [hadPhotoForSave, setHadPhotoForSave] = useState(false);
   const [analyzingPhotoUri, setAnalyzingPhotoUri] = useState<string | null>(null);
+  const [mealIssues, setMealIssues] = useState<MealIssue[]>([]);
+  const [showIssueModal, setShowIssueModal] = useState(false);
+  const [overrideSaveOnce, setOverrideSaveOnce] = useState(false);
+  const [overrideSnapshotKey, setOverrideSnapshotKey] = useState<string | null>(null);
   const chatInputRef = useRef<TextInput>(null);
 
   React.useEffect(() => {
@@ -237,7 +271,63 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
     setDescription('');
     setSuggestion(undefined);
     setAnalyzingPhotoUri(null);
+    setMealIssues([]);
+    setShowIssueModal(false);
+    setOverrideSaveOnce(false);
+    setOverrideSnapshotKey(null);
   }, [initialTimestamp]);
+
+  const recomputeMealIssues = useCallback(async (mealItems: FoodItem[], timestamp: number, excludeId?: string) => {
+    const [macroTarget, userRules, dayMacros] = await Promise.all([
+      getMacroTarget(),
+      getUserRules(),
+      getDailyMacros(foodLogDayKey(timestamp)),
+    ]);
+    const before = dayMacros.entries
+      .filter((entry) => entry.id !== excludeId)
+      .reduce(
+        (acc, entry) => ({
+          kcal: acc.kcal + entry.totalKcal,
+          protein_g: acc.protein_g + entry.totalProtein_g,
+          carb_g: acc.carb_g + entry.totalCarb_g,
+          fat_g: acc.fat_g + entry.totalFat_g,
+        }),
+        { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0 },
+      );
+    return analyzeMealIssues({
+      items: mealItems,
+      dayTotalsBeforeMeal: before,
+      macroTarget,
+      userRules,
+      mealTimestamp: timestamp,
+    });
+  }, []);
+
+  React.useEffect(() => {
+    if (items.length === 0) {
+      setMealIssues([]);
+      setShowIssueModal(false);
+      setOverrideSaveOnce(false);
+      setOverrideSnapshotKey(null);
+      return;
+    }
+
+    const snapshot = mealItemsSnapshotKey(items);
+    if (overrideSnapshotKey && snapshot !== overrideSnapshotKey) {
+      setOverrideSaveOnce(false);
+      setOverrideSnapshotKey(null);
+    }
+
+    let cancelled = false;
+    void recomputeMealIssues(items, mealTime, editingId).then((issues) => {
+      if (cancelled) return;
+      setMealIssues(issues);
+      if (issues.length === 0) setShowIssueModal(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [items, mealTime, editingId, overrideSnapshotKey, recomputeMealIssues]);
 
   const handleClose = useCallback(() => {
     reset();
@@ -429,28 +519,58 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
     ]);
   }, [editingId, mealTime, reset, onSaved]);
 
+  const persistSave = useCallback(async () => {
+    const totals = computeTotals(items);
+    await saveMeal({
+      id: editingId,
+      timestamp: mealTime,
+      items,
+      totalKcal: Math.round(totals.totalKcal),
+      totalProtein_g: Math.round(totals.totalProtein_g * 10) / 10,
+      totalCarb_g: Math.round(totals.totalCarb_g * 10) / 10,
+      totalFat_g: Math.round(totals.totalFat_g * 10) / 10,
+      source: hadPhotoForSave ? 'camera-ai' : mealHistory.length > 0 ? 'text-ai' : 'manual',
+    });
+    reset();
+    onSaved();
+  }, [items, mealTime, hadPhotoForSave, mealHistory, editingId, reset, onSaved]);
+
   const handleSave = useCallback(async () => {
     if (items.length === 0) return;
+
+    const snapshot = mealItemsSnapshotKey(items);
+    const issues = await recomputeMealIssues(items, mealTime, editingId);
+    setMealIssues(issues);
+
+    if (issues.length > 0 && !(overrideSaveOnce && overrideSnapshotKey === snapshot)) {
+      setShowIssueModal(true);
+      return;
+    }
+
     setScreen('saving');
-    const totals = computeTotals(items);
     try {
-      await saveMeal({
-        id: editingId,
-        timestamp: mealTime,
-        items,
-        totalKcal: Math.round(totals.totalKcal),
-        totalProtein_g: Math.round(totals.totalProtein_g * 10) / 10,
-        totalCarb_g: Math.round(totals.totalCarb_g * 10) / 10,
-        totalFat_g: Math.round(totals.totalFat_g * 10) / 10,
-        source: hadPhotoForSave ? 'camera-ai' : mealHistory.length > 0 ? 'text-ai' : 'manual',
-      });
-      reset();
-      onSaved();
+      await persistSave();
     } catch {
       setError('Failed to save. Please try again.');
       setScreen('result');
     }
-  }, [items, mealTime, hadPhotoForSave, mealHistory, editingId, reset, onSaved]);
+  }, [items, mealTime, editingId, overrideSaveOnce, overrideSnapshotKey, recomputeMealIssues, persistSave]);
+
+  const handleSaveAnyway = useCallback(async () => {
+    const snapshot = mealItemsSnapshotKey(items);
+    setOverrideSaveOnce(true);
+    setOverrideSnapshotKey(snapshot);
+    setShowIssueModal(false);
+    setScreen('saving');
+    try {
+      await persistSave();
+    } catch {
+      setError('Failed to save. Please try again.');
+      setScreen('result');
+    }
+  }, [items, persistSave]);
+
+  const flaggedIndices = flaggedItemIndices(items, mealIssues);
 
   const showMealSection = items.length > 0 || editingId != null;
   const chatPlaceholder = photoSession
@@ -557,7 +677,7 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
                     {!photoSession && description && items.length > 0 ? (
                       <Text style={styles.descriptionText}>{description}</Text>
                     ) : null}
-                    <FoodItemsCard items={items} />
+                    <FoodItemsCard items={items} flaggedIndices={flaggedIndices} />
                   </View>
                 ) : null}
 
@@ -743,6 +863,31 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
               ) : null}
             </View>
           ) : null}
+
+          {showIssueModal && mealIssues.length > 0 ? (
+            <View style={styles.issueOverlay}>
+              <View style={styles.issueModalCard}>
+                <Text style={styles.issueModalTitle}>Nutritionist alert</Text>
+                <Text style={styles.issueModalBody}>{issueModalBody(mealIssues)}</Text>
+                <View style={styles.issueModalActions}>
+                  <Pressable
+                    style={styles.issueEditBtn}
+                    onPress={() => setShowIssueModal(false)}
+                    disabled={screen === 'saving'}
+                  >
+                    <Text style={styles.issueEditText}>Edit meal</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.issueSaveAnywayBtn}
+                    onPress={() => void handleSaveAnyway()}
+                    disabled={screen === 'saving'}
+                  >
+                    <Text style={styles.issueSaveAnywayText}>Save anyway</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          ) : null}
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -859,8 +1004,16 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   itemRowBorder: { borderTopWidth: 1, borderTopColor: WellnessColors.gridLine },
+  itemRowFlagged: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#C62828',
+    backgroundColor: '#FFEBEE',
+  },
   itemLeft: { flex: 1 },
+  itemNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  itemWarningDot: { fontSize: 12, color: '#C62828' },
   itemName: { fontSize: 14, fontWeight: '600', color: WellnessColors.textPrimary },
+  itemNameFlagged: { color: '#B71C1C' },
   itemGrams: { fontSize: 12, color: WellnessColors.textSecondary },
   itemRight: { alignItems: 'flex-end' },
   itemKcal: { fontSize: 14, fontWeight: '700', color: WellnessColors.textPrimary },
@@ -1014,4 +1167,50 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+
+  issueOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    zIndex: 50,
+  },
+  issueModalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: WellnessColors.surface,
+    borderRadius: 18,
+    padding: 20,
+    gap: 14,
+    ...cardShadow,
+  },
+  issueModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#B71C1C',
+    textAlign: 'center',
+  },
+  issueModalBody: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: WellnessColors.textPrimary,
+    textAlign: 'center',
+  },
+  issueModalActions: { gap: 10, marginTop: 4 },
+  issueEditBtn: {
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: WellnessColors.accentBlue,
+    alignItems: 'center',
+  },
+  issueEditText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  issueSaveAnywayBtn: {
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+    alignItems: 'center',
+  },
+  issueSaveAnywayText: { fontSize: 14, fontWeight: '600', color: WellnessColors.textSecondary },
 });

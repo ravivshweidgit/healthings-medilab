@@ -1,0 +1,66 @@
+## Prompt 33 — Period review cache + daily rollups (from prompt19 Phase 2)
+
+Split from `prompt19` after shipping Phase 1 (`/N` period review is live).
+
+---
+
+## Goal
+
+Reduce repeated token/API cost for historical reviews while keeping mentor context useful.
+
+---
+
+## Scope (deferred from prompt19)
+
+### 1) Daily rollup at day-close
+
+Create and persist compact daily summaries:
+
+```ts
+export type DailyRollup = {
+  date: string;
+  kcal: number; protein_g: number; carb_g: number; fat_g: number;
+  mealCount: number;
+  weightKg: number | null; fatMassKg: number | null; muscleMassKg: number | null;
+  burnKcal: number | null;
+  chatOneLiner: string | null;
+  generatedAt: string;
+};
+```
+
+### 2) Saved period review artifacts (cache)
+
+Cache weekly/monthly review outputs:
+
+```ts
+export type PeriodReview = {
+  id: string;
+  periodType: 'weekly' | 'monthly';
+  periodKey: string;
+  coversFrom: string; coversTo: string;
+  summaryText: string;
+  highlights: string[];
+  actionItems: CoachActionItem[];
+  generatedAt: string;
+  generatedLangCode: string;
+};
+```
+
+### 3) Lightweight memory block on every chat turn
+
+Inject compact memory (last 7 rollups + latest weekly/monthly summary), while full snapshots remain on-demand.
+
+---
+
+## Acceptance checklist
+
+- [ ] Day-close writes `DailyRollup` for closed day
+- [ ] Chat includes compact memory block without full snapshot cost
+- [ ] Repeated weekly review in same week uses cache
+- [ ] Link chat entries to cached review artifact IDs
+
+---
+
+## Status
+
+Spec only — deferred.
