@@ -13,7 +13,7 @@ Prompt35 delivered one source of truth for macro targets across dashboard, chat,
   - lab-import auto revision.
 - Fiber↔carb coupling in code:
   - `fiber_g <= carb_g`,
-  - low carb (`<=45g`) -> fiber about `2/3 * carbs`,
+  - low carb (`<=60g`) -> fiber about `1/2 * carbs`,
   - higher carb -> fiber about `30g`.
 - Chat macro confirm flow:
   - nutritionist shows proposal card,

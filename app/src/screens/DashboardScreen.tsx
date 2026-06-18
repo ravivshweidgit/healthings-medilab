@@ -1361,6 +1361,7 @@ export const DashboardScreen = () => {
             bodyTarget={bodyTargetForMacros}
             userRules={userRules}
             mentors={mentors}
+            savedTarget={macroTarget}
             onSaved={(t) => setMacroTarget(t ?? null)}
             expanded={macroExpanded}
             onToggleExpand={() => setMacroExpanded((e) => !e)}

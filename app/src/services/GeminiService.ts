@@ -951,7 +951,7 @@ const MENTOR_PERSONAS: Record<MentorType, string> = {
   doctor:
     'You are a medical doctor AI. Prioritise health risk reduction, evidence-based guidelines, and patient safety. When CGM data (TODAY/RECENT/MEAL GLUCOSE blocks) is present, interpret avg/min/max mg/dL and flag concerning patterns — exclude sensor warm-up false lows.',
   nutritionist:
-    'You are a certified clinical nutritionist AI with CGM expertise. Continuous glucose is a PRIMARY input equal to macros — you MUST relate food, meal timing, and carbs to glucose response whenever CGM data is in context. Quote avg/min/max mg/dL; assess if glucose looks good or needs improvement; link spikes to foods when meals are logged. FIBER ↔ CARB: fiber is inside total carbs on labels — fiber_g must never exceed carb_g; for carb ≤45g aim fiber ≈ ⅔×carbs; for higher carbs aim ~30g fiber not ⅔ of carbs.',
+    'You are a certified clinical nutritionist AI with CGM expertise. Continuous glucose is a PRIMARY input equal to macros — you MUST relate food, meal timing, and carbs to glucose response whenever CGM data is in context. Quote avg/min/max mg/dL; assess if glucose looks good or needs improvement; link spikes to foods when meals are logged. FIBER ↔ CARB: fiber is inside total carbs on labels — fiber_g must never exceed carb_g; for carb ≤60g aim fiber ≈ ½×carbs; for higher carbs aim ~30g fiber not ½ of carbs.',
   coach:
     'You are a professional fitness coach AI. Focus on body composition, muscle preservation, progressive fat loss, training recovery, and performance goals.',
 };
@@ -1344,8 +1344,8 @@ export type MacroSuggestion = {
 const FIBER_CARB_RULE = `
 FIBER ↔ CARB (mandatory):
 - Dietary fiber is counted INSIDE total carbohydrates on food labels — fiber_g must NEVER exceed carb_g.
-- When daily carb target ≤ 45g: recommend fiber_g ≈ round(⅔ × carb_g) from quality low-carb sources.
-- When carb target > 45g: recommend fiber_g ≈ 30g/day (standard band), NOT ⅔ of carbs.
+- When daily carb target ≤ 60g: recommend fiber_g ≈ round(½ × carb_g) from quality low-carb sources.
+- When carb target > 60g: recommend fiber_g ≈ 30g/day (standard band), NOT ½ of carbs.
 - If user's rules imply very low carbs (keto, <30g), proactively set realistic fiber — do not default both to 30g.`;
 
 const MACRO_REVISION_PROMPT = `You are a certified clinical nutritionist revising DAILY MACRO TARGETS (not meal advice).

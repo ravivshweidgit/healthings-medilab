@@ -2,7 +2,7 @@
  * Fiber ↔ carb coupling — fiber is counted inside total carbs on food labels.
  */
 
-export const LOW_CARB_FIBER_THRESHOLD_G = 45;
+export const LOW_CARB_FIBER_THRESHOLD_G = 60;
 export const STANDARD_FIBER_TARGET_G = 30;
 
 /** Fiber grams cannot exceed total carb grams (fiber ⊆ carbs on labels). */
@@ -11,13 +11,13 @@ export function clampFiberToCarbs(fiber_g: number, carb_g: number): number {
 }
 
 /**
- * When carbs are very low, aim for ~⅔ of carb grams as fiber.
- * When carbs are higher, cap at standard daily fiber — not ⅔ of high carbs.
+ * When carbs are very low, aim for ~½ of carb grams as fiber.
+ * When carbs are higher, cap at standard daily fiber — not ½ of high carbs.
  */
 export function deriveFiberTargetFromCarbs(carb_g: number): number {
   const c = Math.max(0, carb_g);
   if (c <= LOW_CARB_FIBER_THRESHOLD_G) {
-    return clampFiberToCarbs(Math.round((2 / 3) * c), c);
+    return clampFiberToCarbs(Math.round(0.5 * c), c);
   }
   return clampFiberToCarbs(STANDARD_FIBER_TARGET_G, c);
 }

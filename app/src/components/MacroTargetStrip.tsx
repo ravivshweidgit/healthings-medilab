@@ -47,6 +47,8 @@ export type MacroTargetProps = {
   bodyTarget: BodyTarget | null;
   userRules: UserRules | null;
   mentors: MentorType[];
+  /** Parent-held target — refreshes strip after weigh-in/lab auto-revision. */
+  savedTarget?: DailyMacroTarget | null;
   onSaved?: (t: DailyMacroTarget) => void;
   expanded: boolean;
   onToggleExpand: () => void;
@@ -54,6 +56,25 @@ export type MacroTargetProps = {
 };
 
 type Screen = 'idle' | 'loading' | 'suggestion' | 'editing' | 'active';
+
+function formatMacroUpdatedAt(iso: string | undefined, lang?: UserLanguage | null): string | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  const d = new Date(t);
+  const he = lang?.code === 'he';
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  const time = d.toLocaleTimeString(he ? 'he-IL' : undefined, { hour: '2-digit', minute: '2-digit' });
+  if (sameDay) {
+    return he ? `עודכן היום ${time}` : `Updated today ${time}`;
+  }
+  const date = d.toLocaleDateString(he ? 'he-IL' : undefined, { day: 'numeric', month: 'short' });
+  return he ? `עודכן ${date} ${time}` : `Updated ${date} ${time}`;
+}
 
 // ─── Macro bar ────────────────────────────────────────────────────────────────
 
@@ -134,7 +155,7 @@ const editStyles = StyleSheet.create({
 export function MacroTargetStrip({
   actualProtein_g, actualFat_g, actualCarb_g, actualFiber_g, actualKcal,
   weightKg, fatMassKg, muscleMass_kg, bmr_kcal, estimatedBurn_kcal,
-  heightCm, age, gender, bodyTarget, userRules, mentors,
+  heightCm, age, gender, bodyTarget, userRules, mentors, savedTarget,
   onSaved, expanded, onToggleExpand, lang,
 }: MacroTargetProps) {
   const [screen, setScreen] = useState<Screen>('idle');
@@ -151,11 +172,20 @@ export function MacroTargetStrip({
     getMacroTarget().then((t) => { if (t) { setTarget(withFiberTarget(t)); setScreen('active'); } });
   }, []);
 
+  useEffect(() => {
+    if (savedTarget) {
+      setTarget(withFiberTarget(savedTarget));
+      setScreen((s) => (s === 'loading' || s === 'suggestion' || s === 'editing' ? s : 'active'));
+    }
+  }, [savedTarget]);
+
   const canAnalyze = !!(weightKg && fatMassKg != null && muscleMass_kg && bmr_kcal && heightCm && age && gender);
 
   const headerSub = target
     ? `${target.protein_g}P / ${target.fat_g}F / ${target.carb_g}C / ${resolveFiberTarget_g(target)}Fi`
     : 'Tap to set AI macro targets';
+
+  const updatedLabel = target ? formatMacroUpdatedAt(target.analyzedAt, lang) : null;
 
   const handleAsk = useCallback(async () => {
     if (!canAnalyze) { setError('Need body scan data and profile to analyse.'); return; }
@@ -205,6 +235,7 @@ export function MacroTargetStrip({
       carb_g: c,
       fiber_g: isNaN(fi) ? base.fiber_g : fi,
       kcal: k,
+      analyzedAt: new Date().toISOString(),
     };
     await saveMacroTarget(updated, { userEdited: true });
     setTarget(updated);
@@ -228,6 +259,9 @@ export function MacroTargetStrip({
         <View style={styles.headerInfo}>
           <Text style={styles.headerTitle}>My Macros</Text>
           <Text style={styles.headerSub} numberOfLines={1}>{headerSub}</Text>
+          {updatedLabel ? (
+            <Text style={styles.headerUpdated} numberOfLines={1}>{updatedLabel}</Text>
+          ) : null}
         </View>
         {screen === 'active' && expanded && (
           <View style={styles.headerActions}>
@@ -323,6 +357,9 @@ export function MacroTargetStrip({
           {/* active */}
           {screen === 'active' && target && (
             <View>
+              {updatedLabel ? (
+                <Text style={styles.updatedDetail}>{updatedLabel}</Text>
+              ) : null}
               <MacroBar label="P" actual={actualProtein_g} target={target.protein_g} color="#4CAF50" />
               <MacroBar label="C" actual={actualCarb_g}    target={target.carb_g}    color="#FF9800" />
               <MacroBar label="F" actual={actualFat_g}     target={target.fat_g}     color="#2196F3" />
@@ -350,6 +387,7 @@ const styles = StyleSheet.create({
   headerInfo: { flex: 1 },
   headerTitle: { fontSize: 14, fontWeight: '700', color: WellnessColors.textPrimary },
   headerSub: { fontSize: 12, color: WellnessColors.textSecondary, marginTop: 2 },
+  headerUpdated: { fontSize: 11, color: WellnessColors.accentGreen, marginTop: 2, fontWeight: '600' },
   headerActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   editLink: { fontSize: 13, color: WellnessColors.accentBlue, fontWeight: '600' },
   resetLink: { fontSize: 11, color: WellnessColors.textSecondary },
@@ -386,6 +424,7 @@ const styles = StyleSheet.create({
 
   activeLabelRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 6 },
   dietBadgeSmall: { fontSize: 11, fontWeight: '700', color: '#F57F17', backgroundColor: '#FFF8E1', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  updatedDetail: { fontSize: 11, color: WellnessColors.accentGreen, fontWeight: '600', marginBottom: 8 },
   kcalRow: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: WellnessColors.gridLine, paddingTop: 8, marginTop: 4, marginBottom: 10 },
   kcalText: { fontSize: 13, fontWeight: '600', color: WellnessColors.textSecondary, textAlign: 'center' },
   reanalyzeBtn: { borderWidth: 1, borderColor: WellnessColors.gridLine, borderRadius: 10, paddingVertical: 8, alignItems: 'center' },
