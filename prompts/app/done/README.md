@@ -17,6 +17,8 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt35** — done (2026-06-18). Shipped unified macro pipeline: fiber↔carb coupling, `/macros` + chat confirm card, and auto macro revision on weigh-in/lab using 7-day context + labs.
 
+**prompt36** — done (2026-06-18). Monitoring-driven macro revision: ENERGY BALANCE + CARB GUIDANCE injection, kcal safety floor, cholesterol-first prompt, tiered carb rules, My Rules parse fix + Goals context. Phone-tested ~2325 kcal P141 C50 F173 Fi25.
+
 **prompt34** — closed without ship (2026-06-17). Status row declined; chat fallback unnecessary with persistence. Manual CGM exclusions deferred inside `done/prompt34.txt`.
 
 **prompt33** — closed without ship (2026-06-17). Default 2-day full snapshot + `/N` is sufficient; rollup/cache optimization deferred inside `done/prompt33.txt`.

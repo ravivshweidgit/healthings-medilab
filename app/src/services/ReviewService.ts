@@ -470,6 +470,37 @@ function buildMacroAdherenceSummary(
   ].join(' | ');
 }
 
+/** Eaten totals only — for macro revision (no saved targets or adherence judgments). */
+function buildMacroEatenSummary(
+  dayKeys: string[],
+  macrosByDay: Map<string, Awaited<ReturnType<typeof getDailyMacros>>>,
+): string {
+  let mealDays = 0;
+  let totalKcal = 0;
+  let totalProtein = 0;
+  let totalCarbs = 0;
+  let totalFat = 0;
+  let totalFiber = 0;
+
+  for (const dk of dayKeys) {
+    const m = macrosByDay.get(dk);
+    if (!m || m.entries.length === 0) continue;
+    mealDays++;
+    totalKcal += m.kcal;
+    totalProtein += m.protein_g;
+    totalCarbs += m.carb_g;
+    totalFat += m.fat_g;
+    totalFiber += m.fiber_g ?? 0;
+  }
+
+  if (mealDays === 0) return 'FOOD MACROS (7d): no logged meals in period';
+  return [
+    'FOOD MACROS (7d, eaten only — not targets):',
+    `${mealDays}/${dayKeys.length} days with meals`,
+    `avg ${Math.round(totalKcal / mealDays)} kcal | P${Math.round(totalProtein / mealDays)}g C${Math.round(totalCarbs / mealDays)}g F${Math.round(totalFat / mealDays)}g Fi${Math.round(totalFiber / mealDays)}g`,
+  ].join(' | ');
+}
+
 function formatWorkoutRollup(
   sessions: WorkoutSession[],
   hrPoints: WithingsHeartRatePoint[] | undefined,
@@ -510,7 +541,7 @@ export async function buildPeriodReviewBlock(
   request: PeriodReviewRequest,
   macroTarget?: DailyMacroTarget | null,
   appGlucose?: TimePoint[] | null,
-  options?: { includeLabHistory?: boolean },
+  options?: { includeLabHistory?: boolean; rawDataOnly?: boolean },
 ): Promise<string> {
   const dayCount = reviewDayCount(request);
   const dayKeys = windowDayKeys(request);
@@ -540,16 +571,26 @@ export async function buildPeriodReviewBlock(
   const macrosList = await Promise.all(dayKeys.map((dk) => getDailyMacros(dk)));
   const macrosByDay = new Map(dayKeys.map((dk, i) => [dk, macrosList[i]]));
 
-  const targetLine = macroTarget
-    ? `Macro targets: ${macroTarget.kcal} kcal | P${macroTarget.protein_g}g C${macroTarget.carb_g}g F${macroTarget.fat_g}g${macroTarget.fiber_g != null ? ` Fi${macroTarget.fiber_g}g` : ''}`
-    : '';
+  const rawDataOnly = options?.rawDataOnly === true;
+  const targetLine =
+    !rawDataOnly && macroTarget
+      ? `Macro targets: ${macroTarget.kcal} kcal | P${macroTarget.protein_g}g C${macroTarget.carb_g}g F${macroTarget.fat_g}g${macroTarget.fiber_g != null ? ` Fi${macroTarget.fiber_g}g` : ''}`
+      : '';
+
+  const periodHeader = rawDataOnly
+    ? `=== ${dayKeys.length}-DAY RAW DATA (${dayKeys[0]} → ${dayKeys[dayKeys.length - 1]}) ===`
+    : `=== PERIOD REVIEW: ${periodTitle(request, dayKeys)} ===`;
+
+  const macroSummaryLine = rawDataOnly
+    ? buildMacroEatenSummary(dayKeys, macrosByDay)
+    : buildMacroAdherenceSummary(dayKeys, macrosByDay, macroTarget);
 
   const lines: string[] = [
-    `=== PERIOD REVIEW: ${periodTitle(request, dayKeys)} ===`,
+    periodHeader,
     targetLine,
     '',
     buildTrendSection(dayKeys, bodyPayload.days, bodyPayload.debug.sessions),
-    buildMacroAdherenceSummary(dayKeys, macrosByDay, macroTarget),
+    macroSummaryLine,
   ];
 
   const glucoseSection = buildPeriodMealGlucoseSection(
@@ -612,12 +653,12 @@ export async function buildPeriodReviewBlock(
     if (labBlock) lines.push('', labBlock);
   }
 
-  lines.push('', '=== END PERIOD REVIEW ===');
+  lines.push('', rawDataOnly ? `=== END ${dayKeys.length}-DAY RAW DATA ===` : '=== END PERIOD REVIEW ===');
   return lines.filter((l) => l !== '').join('\n');
 }
 
 export const PERIOD_REVIEW_CHAT_INSTRUCTION =
-  'When a PERIOD REVIEW block is present: analyze the FULL snapshot — body trends, BMR, energy balance, heart rate, food logs, GLUCOSE & FOOD IMPACT (CGM vs meals), workouts, macro adherence. For GLUCOSE: MUST quote period avg, min, max (mg/dL) from Period CGM stats; exclude first 24h sensor warm-up (falsely low — see CGM sensor start line); never vague phrases like "elevated days" without numbers. For each workout, use HR during session (avg, max, vs resting baseline, recovery) — Coach 💪 leads on this. Nutritionist 🥗 and Doctor 🩺: trusted CGM trend + foods before spikes when meals exist. Say what went well, what to improve, and give 2–4 concrete next steps. Each active mentor must contribute their angle. Cite specific numbers from the block.';
+  'When a RAW DATA block is present: analyze the FULL snapshot — body trends, BMR, energy balance, heart rate, food logs (incl. FOOD MACROS eaten averages), GLUCOSE & FOOD IMPACT (CGM vs meals), workouts. Do NOT compare to saved app macro targets — judge from what was actually eaten. For GLUCOSE: MUST quote period avg, min, max (mg/dL) from Period CGM stats; exclude first 24h sensor warm-up (falsely low — see CGM sensor start line); never vague phrases like "elevated days" without numbers. For each workout, use HR during session (avg, max, vs resting baseline, recovery) — Coach 💪 leads on this. Nutritionist 🥗 and Doctor 🩺: trusted CGM trend + foods before spikes when meals exist. Say what went well, what to improve, and give 2–4 concrete next steps. Each active mentor must contribute their angle. Cite specific numbers from the block.';
 
 /** 7-day average total daily burn (BMR + passive + workouts) for macro revision. */
 export async function get7DayAverageBurnKcal(): Promise<number | null> {
@@ -633,4 +674,28 @@ export async function get7DayAverageBurnKcal(): Promise<number | null> {
   }
   if (burns.length === 0) return null;
   return Math.round(burns.reduce((a, b) => a + b, 0) / burns.length);
+}
+
+/** 7-day average kcal eaten (days with logged meals only). */
+export async function get7DayAverageEatenKcal(): Promise<number | null> {
+  const dayKeys = windowDayKeys({ mode: 'days', days: 7 });
+  const macrosList = await Promise.all(dayKeys.map((dk) => getDailyMacros(dk)));
+  const kcals: number[] = [];
+  for (const m of macrosList) {
+    if (m.entries.length > 0 && m.kcal > 0) kcals.push(m.kcal);
+  }
+  if (kcals.length === 0) return null;
+  return Math.round(kcals.reduce((a, b) => a + b, 0) / kcals.length);
+}
+
+/** 7-day average carbs eaten (days with logged meals only). */
+export async function get7DayAverageEatenCarb_g(): Promise<number | null> {
+  const dayKeys = windowDayKeys({ mode: 'days', days: 7 });
+  const macrosList = await Promise.all(dayKeys.map((dk) => getDailyMacros(dk)));
+  const carbs: number[] = [];
+  for (const m of macrosList) {
+    if (m.entries.length > 0) carbs.push(m.carb_g);
+  }
+  if (carbs.length === 0) return null;
+  return Math.round(carbs.reduce((a, b) => a + b, 0) / carbs.length);
 }

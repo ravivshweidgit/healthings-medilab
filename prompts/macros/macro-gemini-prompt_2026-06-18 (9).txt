@@ -1,0 +1,724 @@
+## Role
+You are a certified clinical nutritionist revising **daily macro targets** (not meal advice).
+
+
+## Fiber ↔ carb (mandatory)
+- Dietary fiber is counted INSIDE total carbohydrates on food labels — `fiber_g` must NEVER exceed `carb_g`.
+- When daily carb target ≤ 60g: recommend `fiber_g` ≈ round(½ × `carb_g`) from **high-fiber whole foods** (vegetables, seeds, legumes — per My Rules).
+- When carb target > 60g: recommend `fiber_g` ≈ 30g/day (standard band), NOT ½ of carbs.
+- **"סיבים ממקורות דלי פחמימה"** means prefer fiber-rich **foods** that are not sugary/refined — it does **NOT** mean minimize total `carb_g` or a ketogenic diet.
+
+## Energy balance (do this FIRST — before P/C/F)
+The data section includes **ENERGY BALANCE (computed)** — a **monitoring-driven** target using:
+- **Smartwatch** 7d avg burn (TDEE anchor — not BMR)
+- **Smart scale** 14d weight trend (adaptive deficit/surplus)
+- **Food log** 7d eaten avg (floor check)
+- **CGM** lows (&lt;70) may require holding higher
+
+**Use the computed `kcal` for JSON** unless CGM lows require adjustment (explain in `reasoning`).
+
+Textbook method (already applied in computed block):
+- Loss rate targets: **0.3% BW/week** near goal · **0.5%** moderate gap · **0.7%** far (max)
+- Energy: **7700 kcal ≈ 1 kg** body-weight change → daily deficit/surplus
+- **% TDEE caps**: ~5–7% near goal / on-track · up to **12%** mid-gap · **20%** (500 kcal) absolute max
+- **Adaptive**: if scale shows loss **faster than target** → **do not deepen** cut (clinic rarely has this daily data)
+- Absolute floor: sex/age minimum + never below **75%** of measured burn
+
+Work order:
+1. Set `kcal` from **ENERGY BALANCE (computed)**.
+2. Derive `protein_g`, `carb_g`, `fat_g`, `fiber_g` to sum to that kcal.
+3. In `reasoning`, cite burn, scale trend rate, deficit % TDEE, target kcal — then macros.
+
+## Primary goal (My Rules + labs — before macro split)
+Read My Rules **summary** and LAB RESULTS to find the **primary** goal:
+- **Cholesterol / lipids** (כולסטרול, LDL, saturated fat limits) → lead with **fat quality** and **soluble fiber** — **not** carb minimization.
+- **Kidney** (creatinine/urea) → protein cap (Kidney section).
+- **Body weight** → `kcal` already set in ENERGY BALANCE (computed).
+
+When cholesterol is primary: `diet_label` and `reasoning` must center lipids and heart-healthy fats — never "low-carb" / "keto" unless user raw text says so.
+
+## Fat (derivation — especially when cholesterol is primary)
+When LDL/total cholesterol is high in labs OR My Rules cite כולסטרול/cholesterol:
+- Set `protein_g` and `carb_g` first; `fat_g` fills remaining kcal toward ENERGY BALANCE target.
+- Favor **unsaturated** fats per My Rules (salmon, nuts, seeds, olive oil); respect saturated-fat / cholesterol-food limits in rules.
+- High `fat_g` from kcal math is OK if fats are rule-aligned — do **not** slash `carb_g` just to lower fat grams when cholesterol (not keto) is the goal.
+- Cite lipid lab values in `reasoning` when LAB RESULTS present.
+
+## Carbs (derivation)
+Use **CARB GUIDANCE (computed)** in the data block when present.
+
+Professional tiers (already applied in computed block when possible):
+- **Explicit gram cap** in My Rules → obey cap.
+- **7d eaten avg ≥ 50g/day** → habit anchor **±10g** (adherence — not a lipid textbook rule).
+- **7d eaten avg &lt; 50g** + **cholesterol/LDL primary** + no explicit low-carb rule → do **not** treat low habit as optimal; suggest **50–80g** soluble-fiber carbs (vegetables, legumes, seeds) — modest step up from habit.
+- **7d eaten avg &lt; 50g** + intentional low-carb or CGM requires lows → may hold near habit; explain tradeoff in `reasoning`.
+- CGM meal-spike lines may justify **specific** lowering — not blanket carb cuts for cholesterol alone.
+
+## CGM (7-day block)
+Context: GLUCOSE & FOOD IMPACT + MEAL GLUCOSE in the data section below.
+- MUST cite period avg, min, max (mg/dL) in `reasoning` when CGM present.
+- Use meal-spike / problem-food lines to justify carb and fiber targets.
+- Lows &lt;70 (trusted days): do not cut kcal further — note in `reasoning`.
+
+## Kidney (lab results)
+Scope: creatinine / urea on **latest draw** in LAB RESULTS.
+- When creatinine or urea is flagged **high**: `protein_g` ≤ round(2.2 × lean mass kg); if lean mass missing use round(2.0 × weight kg).
+- Cite exact lab values in `reasoning`; do not raise protein above 7d eaten protein avg without strong justification.
+- If My Rules omit kidney/protein limits while these labs are high: set `rules_advice` with one concrete sentence the user can paste into My Rules.
+
+## Priority rules
+1. **My Rules** are HARD constraints — never violate when setting macros.
+2. **Energy balance**: `kcal` comes from **ENERGY BALANCE (computed)** in the data block — not BMR, not 7d eaten avg as primary formula.
+3. Labs: informational only — kidney/lipids may cap protein/fat increases, not diagnose.
+4. kcal must align with 4×P + 4×C + 9×F within ~50 kcal.
+
+## My Rules integrity
+Compare the My Rules block to labs, CGM, 7d food log, and weight goal.
+- If rules fit the data: **omit** `rules_advice` entirely — stay silent.
+- If rules conflict with data or recent meals (e.g. "avoid X" but X logged): set `rules_advice` to one short paragraph — suggest concrete rule text edits only.
+- Do **not** repeat rules that already match; do **not** relabel the diet (e.g. keto/ketogenic) unless the user's **raw** rules text says so — quote constraint bullets, not AI summary labels alone.
+- `diet_label`: describe goals (cholesterol, IF, etc.) — never "keto/ketogenic" unless user raw text explicitly says keto.
+
+## Output format
+Return **JSON only** — no markdown, no preamble. Every numeric field must be a positive integer **derived from the data block**, not copied from the schema below.
+
+```json
+{"protein_g":integer,"fat_g":integer,"carb_g":integer,"fiber_g":integer,"kcal":integer,"diet_label":"string","reasoning":"string — burn, deficit/surplus, kcal math, then weight→goal, CGM avg/min/max when present","rules_advice":"omit when aligned; else string"}
+```
+Respond entirely in עברית (he). All text in the response must be in עברית.
+
+---
+
+## Macro revision data
+
+=== MACRO REVISION (dashboard-suggest) ===
+
+Body target: 80 kg | fat 16% | muscle 65 kg
+Start: 84.05 kg | muscle 62.370000000000005 kg
+
+My Rules — AI understood:
+Summary: כולסטרול גבוה
+Goals: הורדת LDL; שומנים בריאים ללב; מודעות לכליות
+- להימנע מאנטריקוט וקממבר
+- להעדיף סלמון, שקדים וזרעי דלעת
+- להגביל שומנים רוויים וכולסטרול תזונתי
+- להגביל חלבון ל-2.2 גרם לקילו מסה רזה כשקריאטינין או אוריאה גבוהים
+
+Profile: sex male | age 56 | height 181 cm
+Weight: 81.2 kg | lean mass 64.3 kg | BMR 1842 kcal/day
+7-day avg burn: 2447 kcal/day
+
+WEIGHT TREND (14d):
+  2026-06-05: 83.9 kg
+  2026-06-06: 83.6 kg
+  2026-06-07: 83.4 kg
+  2026-06-08: 83.7 kg
+  2026-06-09: 84.0 kg
+  2026-06-10: 82.9 kg
+  2026-06-11: 83.0 kg
+  2026-06-12: 82.4 kg
+  2026-06-13: 82.3 kg
+  2026-06-14: 82.0 kg
+  2026-06-15: 81.3 kg
+  2026-06-16: 81.7 kg
+  2026-06-17: 81.4 kg
+  2026-06-18: 81.2 kg
+  Δ -2.7 kg over window
+
+## ENERGY BALANCE (computed — use this for JSON `kcal`)
+Method: textbook % body-weight/week × 7700 kcal/kg, anchored on **7d wearable burn** (not BMR), adapted to **smart-scale 14d trend** and **7d food intake**.
+7-day avg burn (watch TDEE): 2447 kcal/day
+Current 81.2 kg → goal 80 kg (1.2 kg remaining)
+14d weight Δ: -2.7 kg
+Observed loss rate (scale): 1.36 kg/week
+Target loss rate (textbook): 0.24 kg/week (0.30% body weight)
+Direction: loss
+Recommended deficit: 122 kcal/day (5% of measured TDEE)
+Target kcal: 2325 (= 2447 burn − 122 deficit)
+Rule applied: Scale: losing 1.36 kg/wk (faster than 0.24 kg/wk target) → cap at ~5% TDEE (~122 kcal/day) — do not deepen cut.
+Monitoring: Smart scale 14d Δ drives adaptive taper; wearable burn anchors TDEE; food log confirms intake.
+Hard limits: max 489 kcal below burn (20% TDEE cap); absolute floor 1835 kcal (sex/age/active).
+Set JSON `kcal` to the target above unless CGM lows (<70 trusted day) require holding higher — explain any change in `reasoning`.
+
+## CARB GUIDANCE (computed — use for JSON `carb_g`)
+7d eaten carb avg: 33g/day — **below 50g** (low-carb habit, not required for cholesterol/LDL)
+Primary goal cholesterol → favor **soluble-fiber carbs** (vegetables, legumes, seeds per My Rules) — not carb minimization.
+→ suggest **50–80g** band; start near **50g** (modest step up from habit).
+Do NOT lock to eaten avg ±10g when avg <50g and goal is lipids — professional practice favors adequate fiber carbs unless CGM spikes or user chose low-carb.
+
+BODY COMP TREND (28d):
+  2026-05-22: W 85.4 kg | fat 18.8 kg | muscle 63.3 kg | visceral 4
+  2026-05-23: W 85.3 kg | fat 18.7 kg | muscle 63.3 kg | visceral 4
+  2026-05-24: W 84.4 kg | fat 20.2 kg | muscle 61.0 kg | visceral 4.2
+  2026-05-25: W 84.5 kg | fat 20.0 kg | muscle 61.3 kg | visceral 4.2
+  2026-05-26: W 85.2 kg | fat 19.0 kg | muscle 62.9 kg | visceral 4.1000000000000005
+  2026-05-27: W 85.2 kg | fat 19.0 kg | muscle 62.9 kg | visceral 4.1000000000000005
+  2026-05-28: W 85.7 kg | fat 19.1 kg | muscle 63.3 kg | visceral 4.1000000000000005
+  2026-05-29: W — | fat — | muscle — | visceral —
+  2026-05-30: W 84.7 kg | fat 16.8 kg | muscle 64.5 kg | visceral 3.8000000000000003
+  2026-05-31: W 84.9 kg | fat 18.9 kg | muscle 62.6 kg | visceral 4.1000000000000005
+  2026-06-01: W 84.8 kg | fat 18.9 kg | muscle 62.6 kg | visceral 4.1000000000000005
+  2026-06-02: W 84.9 kg | fat 19.1 kg | muscle 62.5 kg | visceral 4.1000000000000005
+  2026-06-03: W 84.8 kg | fat 17.6 kg | muscle 63.9 kg | visceral 3.9000000000000004
+  2026-06-04: W 84.5 kg | fat 17.0 kg | muscle 64.1 kg | visceral 3.8000000000000003
+  2026-06-05: W 83.9 kg | fat 17.3 kg | muscle 63.3 kg | visceral 3.9000000000000004
+  2026-06-06: W 83.6 kg | fat 17.8 kg | muscle 62.5 kg | visceral 3.9000000000000004
+  2026-06-07: W 83.4 kg | fat 17.4 kg | muscle 62.7 kg | visceral 3.9000000000000004
+  2026-06-08: W 83.7 kg | fat 17.0 kg | muscle 63.4 kg | visceral 3.8000000000000003
+  2026-06-09: W 84.0 kg | fat 18.4 kg | muscle 62.4 kg | visceral 4
+  2026-06-10: W 82.9 kg | fat 17.6 kg | muscle 62.0 kg | visceral 3.9000000000000004
+  2026-06-11: W 83.0 kg | fat 17.7 kg | muscle 62.0 kg | visceral 3.9000000000000004
+  2026-06-12: W 82.4 kg | fat 17.3 kg | muscle 61.9 kg | visceral 3.8000000000000003
+  2026-06-13: W 82.3 kg | fat 17.4 kg | muscle 61.6 kg | visceral 3.9000000000000004
+  2026-06-14: W 82.0 kg | fat 17.3 kg | muscle 61.5 kg | visceral 3.9000000000000004
+  2026-06-15: W 81.3 kg | fat 17.3 kg | muscle 60.8 kg | visceral 3.9000000000000004
+  2026-06-16: W 81.7 kg | fat 17.6 kg | muscle 61.0 kg | visceral 3.9000000000000004
+  2026-06-17: W 81.4 kg | fat 16.8 kg | muscle 61.4 kg | visceral 3.8000000000000003
+  2026-06-18: W 81.2 kg | fat 16.9 kg | muscle 61.1 kg | visceral 3.8000000000000003
+
+LAB RESULTS (latest draw — local PDFs, not medical advice):
+Report 2026-06-16 (Clalit) — chemistry + cbc:
+  GLUCOSE 91 mg/dL (70-100) | UREA 45.4 mg/dL (17-43, high) | CREATININE 1.26 mg/dL (0.67-1.17, high) | URIC_ACID 6.4 mg/dL (3.5-7.2) | SODIUM 140.4 mEq/L (135-145) | POTASSIUM 4.2 mEq/L (3.5-5.1) | CALCIUM 9.83 mg/dL (8.5-10.5) | PHOSPHORUS 2.31 mg/dL (2.5-5, low) | PROTEIN_TOTAL 7.65 g/dl (6.6-8.3) | ALBUMIN 4.34 g/dl (3.5-5.2) | CHOLESTEROL 225.6 mg/dL (ערך רצוי קטן מ 200, high) | TRIGLYCERIDES 60 mg/dL (ערך רצוי קטן מ150) | CHOLESTEROL_HDL 44 mg/dL (ערך רצוי גדול מ 40) | CHOLESTEROL_LDL 170 mg/dL (ערך רצוי קטן מ 100, high) | NON_HDL_CHOLESTEROL 182 mg/dL | IRON 54 µg/dl (60-160, low) | BILIRUBIN_TOTAL 0.57 mg/dl (0.3-1.2) | BILIRUBIN_DIRECT 0.1 mg/dl (0.1-0.3) | AST_GOT 17 U/L (0-35) | ALT_GPT 14 U/L (0-45) | GGT 13 U/L (0-55) | ALK_PHOSPHATASE 54 U/L (30-120) | LDH 129 U/L (5-248) | CK_CREAT_KINASE_CPK 105 U/L (20-200)
+  WBC 5.3 K/ul | RBC 4.98 M/ul | HB 14.4 g/dl | HCT 44.1 % | MCH 28.9 pg | MCHC 32.7 g/dl | RDW 13.1 % | MCV 88.6 fL | NEUT% 63.2 % | LYM% 23.6 % | MONO% 10 % | EOS% 2.3 % | BASO% 0.9 % | LUC% 0 % (low) | NEUT_ABS 3.3 K/ul | LYMP_ABS 1.3 K/ul | MONO_ABS 0.5 K/ul | EOS_ABS 0.1 K/ul | BASO_ABS 0.1 K/ul | LUC_ABS 0 K/ul (low) | PLT 225 K/ul | MPV 12.3 fL
+
+=== 7-DAY RAW DATA (2026-06-12 → 2026-06-18) ===
+TREND ANALYSIS (period):
+  Weight: 82.4 → 81.2 kg (Δ -1.2 kg)
+  Body comp (Withings BIA 2026-06-13→2026-06-18): fat 17.4→16.9 kg (Δ -0.5), muscle 61.6→61.1 kg (Δ -0.5)
+  Visceral index: 3.8 → 3.8 (Δ +0.0)
+  BMR: avg 1850 kcal/day (7 days with data)
+FOOD MACROS (7d, eaten only — not targets): | 7/7 days with meals | avg 1676 kcal | P155g C33g F103g Fi3g
+GLUCOSE & FOOD IMPACT (period):
+CGM session start serial C1Q6U0A00882: Apr 4, 9:54 PM | warm-up until Apr 5, 9:54 PM — excluded from stats/chart | CGM session start serial C1Q6T0A01864: Apr 19, 10:30 PM | warm-up until Apr 20, 10:30 PM — excluded from stats/chart
+CGM samples in window: 1971 | Days with CGM: 7/7 | Trusted days: 7
+Period CGM (trusted, excl. warm-up + rare sensor-error days): avg 94 | min 67 | max 151 mg/dL | 0% readings >140 | 1971 samples / 7 days
+Mentor MUST quote period avg, min, and max (mg/dL) in the reply — not vague summaries.
+Time in range (by readings): 0% below 70 | 77% 70–100 | 23% above 100 mg/dL (1971 samples)
+Mentor MUST cite these range percentages when discussing glucose control.
+Low days (daily min <70 mg/dL): 1/7 period days (14%) — dates: 2026-06-14. Mentor: mention low-day count; consider compression lows if isolated.
+Sleeping with pressure on the sensor can cause false low CGM readings (compression lows). Isolated low days may be artifact — confirm with fingerstick if symptomatic.
+Highest max days: 2026-06-15 max 151, 2026-06-18 max 122, 2026-06-17 max 120
+Highest avg days: 2026-06-15 avg 96, 2026-06-16 avg 96, 2026-06-17 avg 96
+Period CGM assessment: trusted glucose trend looks good — cite period avg/min/max below
+Match each meal to pre-meal baseline and 2 h peak (~5 min CGM). Flag foods before moderate/sharp rises.
+
+FOODS LINKED TO HIGHER GLUCOSE (appeared before moderate/sharp rises — review portions/swaps):
+  • בשר טחון ברוטב — 1 meal(s), avg peak rise +61 mg/dL
+  • ביצת עין — 1 meal(s), avg peak rise +61 mg/dL
+  • סלט מלפפונים — 1 meal(s), avg peak rise +61 mg/dL
+  • סלט צנוניות — 1 meal(s), avg peak rise +61 mg/dL
+  • שעועית צהובה עם פלפל צהוב — 1 meal(s), avg peak rise +61 mg/dL
+  • קוקה קולה זירו — 1 meal(s), avg peak rise +61 mg/dL
+  • אבקת חלבון מי גבינה בטעם קפה — 1 meal(s), avg peak rise +34 mg/dL
+  • קינמון — 1 meal(s), avg peak rise +34 mg/dL
+
+MEALS WITH ELEVATED GLUCOSE RESPONSE:
+  2026-06-15 9:06 AM: אבקת חלבון מי גבינה בטעם קפה, קינמון (+34 mg/dL, moderate rise)
+  2026-06-15 12:22 PM: בשר טחון ברוטב, ביצת עין, סלט מלפפונים, סלט צנוניות, שעועית צהובה עם פלפל צהוב, קוקה קולה זירו (+61 mg/dL, sharp spike)
+DAILY DETAIL (newest last):
+--- 2026-06-12 ---
+BODY: | wt 82.4 kg | fat 17.3 kg | muscle 61.9 kg | visceral 3.8 | BMR 1869 kcal/day | Withings activity — kcal
+ENERGY: 1954 kcal eaten | 2291 kcal estimated burn (BMR+passive+workouts) | balance -337 (deficit)
+HEART RATE (24/7): avg 76 bpm | min 49 | max 125 | 142 readings
+FOOD & MEALS:
+1954 kcal eaten | P190g C29g F118g Fi0g | 8 meals
+Meal 1 at 8:46 AM:
+    • אבקת חלבון מי גבינה בטעם קפה: 33g, 126 kcal, P25g C3.9g F1.1g Fi0g
+    • קינמון: 1g, 3 kcal, P0g C1.1g F0g Fi0g
+    • חומץ: 15g, 3 kcal, P0g C0.1g F0g Fi0g
+  Total: 132 kcal | P25g C5.1g F1.1g Fi0g
+
+Meal 2 at 11:16 AM:
+    • גבינת קממבר: 94g, 288 kcal, P17.8g C1.4g F23.7g Fi0g
+  Total: 288 kcal | P17.8g C1.4g F23.7g Fi0g
+
+Meal 3 at 2:44 PM:
+    • חזה עוף צלוי: 120g, 198 kcal, P37.2g C0g F4.4g Fi0g
+    • חסה רומית: 80g, 14 kcal, P0.9g C2.8g F0.2g Fi0g
+    • רוטב קיסר: 60g, 248 kcal, P1.2g C3.6g F26.4g Fi0g
+    • גבינת פרמזן: 15g, 60 kcal, P5.4g C0.6g F4g Fi0g
+  Total: 520 kcal | P44.7g C7g F35g Fi0g
+
+Meal 4 at 5:05 PM:
+    • אבקת חלבון מי גבינה בטעם קפה: 33g, 126 kcal, P25g C3.9g F1.1g Fi0g
+    • קינמון: 1g, 3 kcal, P0g C1.1g F0g Fi0g
+  Total: 129 kcal | P25g C5g F1.1g Fi0g
+
+Meal 5 at 5:10 PM:
+    • גבינת קממבר: 31g, 95 kcal, P5.9g C0.5g F7.8g Fi0g
+  Total: 95 kcal | P5.9g C0.5g F7.8g Fi0g
+
+Meal 6 at 5:23 PM:
+    • סטייק אנטריקוט בקר: 150g, 402 kcal, P39.9g C0g F26.7g Fi0g
+  Total: 402 kcal | P39.9g C0g F26.7g Fi0g
+
+Meal 7 at 8:16 PM:
+    • שמנת 9%: 200g, 228 kcal, P7g C9.4g F18g Fi0g
+  Total: 228 kcal | P7g C9.4g F18g Fi0g
+
+Meal 8 at 10:25 PM:
+    • גבינת צפתית 5% שומן: 100g, 160 kcal, P25g C1g F5g Fi0g
+  Total: 160 kcal | P25g C1g F5g Fi0g
+MEAL GLUCOSE:
+  Meal 1 at 8:46 AM: אבקת חלבון מי גבינה בטעם קפה, קינמון, חומץ (132 kcal, 5g C)
+    Pre-meal (25 min avg): 84 mg/dL
+    Peak: 98 mg/dL at +110 min (+14 mg/dL vs pre-meal)
+    At +60 min: 96 mg/dL
+    At +120 min: 92 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 2 at 11:16 AM: גבינת קממבר (288 kcal, 1g C)
+    Pre-meal (25 min avg): 96 mg/dL
+    Peak: 100 mg/dL at +65 min (+4 mg/dL vs pre-meal)
+    At +60 min: 96 mg/dL
+    At +120 min: 93 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 3 at 2:44 PM: חזה עוף צלוי, חסה רומית, רוטב קיסר +1 more (520 kcal, 7g C)
+    Pre-meal (25 min avg): 84 mg/dL
+    Peak: 102 mg/dL at +42 min (+18 mg/dL vs pre-meal)
+    At +60 min: 97 mg/dL
+    At +120 min: 95 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 4 at 5:05 PM: אבקת חלבון מי גבינה בטעם קפה, קינמון (129 kcal, 5g C)
+    Pre-meal (25 min avg): 94 mg/dL
+    Peak: 105 mg/dL at +35 min (+11 mg/dL vs pre-meal)
+    At +60 min: 87 mg/dL
+    At +120 min: 94 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 5 at 5:10 PM: גבינת קממבר (95 kcal, 1g C)
+    Pre-meal (25 min avg): 93 mg/dL
+    Peak: 105 mg/dL at +31 min (+12 mg/dL vs pre-meal)
+    At +60 min: 88 mg/dL
+    At +120 min: 96 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 6 at 5:23 PM: סטייק אנטריקוט בקר (402 kcal, 0g C)
+    Pre-meal (25 min avg): 93 mg/dL
+    Peak: 105 mg/dL at +18 min (+12 mg/dL vs pre-meal)
+    At +60 min: 88 mg/dL
+    At +120 min: 90 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 7 at 8:16 PM: שמנת 9% (228 kcal, 9g C)
+    Pre-meal (25 min avg): 89 mg/dL
+    Peak: 104 mg/dL at +29 min (+15 mg/dL vs pre-meal)
+    At +60 min: 91 mg/dL
+    At +120 min: 89 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 8 at 10:25 PM: גבינת צפתית 5% שומן (160 kcal, 1g C)
+    Pre-meal (25 min avg): 90 mg/dL
+    Peak: 99 mg/dL at +41 min (+9 mg/dL vs pre-meal)
+    At +60 min: 94 mg/dL
+    Assessment: steady response (18 post-meal samples)
+WORKOUTS (+ HR during each session):
+  Walk 4:18 PM–4:28 PM (10 min, 41 kcal active)
+    HR during session: avg 94 max 94 bpm (1 readings) | resting baseline ~74 bpm
+  Walk 6:56 PM–7:55 PM (59 min, 268 kcal active)
+    HR during session: avg 107 max 125 bpm (6 readings) | resting baseline ~74 bpm | +10 min recovery avg 102 bpm
+--- 2026-06-13 ---
+BODY: | wt 82.3 kg | fat 17.4 kg | muscle 61.6 kg | visceral 3.9 | BMR 1859 kcal/day | Withings activity — kcal
+ENERGY: 2183 kcal eaten | 2608 kcal estimated burn (BMR+passive+workouts) | balance -425 (deficit)
+HEART RATE (24/7): avg 75 bpm | min 42 | max 124 | 139 readings
+FOOD & MEALS:
+2183 kcal eaten | P196g C45g F138g Fi0g | 7 meals
+Meal 1 at 8:44 AM:
+    • אבקת חלבון מי גבינה בטעם קפה: 33g, 126 kcal, P25g C3.9g F1.1g Fi0g
+    • קינמון: 1g, 3 kcal, P0g C1.1g F0g Fi0g
+    • חומץ מזוקק: 8g, 2 kcal, P0g C0.1g F0g Fi0g
+  Total: 131 kcal | P25g C5.1g F1.1g Fi0g
+
+Meal 2 at 10:40 AM:
+    • ביצת עין: 100g, 196 kcal, P13.6g C1.1g F15.3g Fi0g
+    • פסטרמה הודו: 42g, 49 kcal, P8.8g C0.8g F1.2g Fi0g
+    • מלפפון: 150g, 23 kcal, P1g C4.9g F0.3g Fi0g
+    • חמאה: 7g, 50 kcal, P0.1g C0g F5.7g Fi0g
+  Total: 318 kcal | P23.5g C6.8g F22.5g Fi0g
+
+Meal 3 at 12:44 PM:
+    • סלט טונה: 150g, 285 kcal, P22.5g C6g F19.5g Fi0g
+    • סלט ביצים: 150g, 330 kcal, P15g C3g F28.5g Fi0g
+    • דג מלוח (לדוגמה, הרינג): 50g, 115 kcal, P10g C0g F8g Fi0g
+  Total: 730 kcal | P47.5g C9g F56g Fi0g
+
+Meal 4 at 12:51 PM:
+    • חסה: 30g, 5 kcal, P0.5g C1g F0.1g Fi0g
+    • מלפפון: 50g, 8 kcal, P0.3g C1.9g F0.1g Fi0g
+    • עגבנייה: 50g, 9 kcal, P0.5g C2g F0.1g Fi0g
+    • זיתי קלמטה: 30g, 46 kcal, P0.3g C2g F4.5g Fi0g
+  Total: 68 kcal | P1.6g C6.9g F4.8g Fi0g
+
+Meal 5 at 12:58 PM:
+    • טונה (גולמית): 20g, 26 kcal, P4.6g C0g F0.6g Fi0g
+  Total: 26 kcal | P4.6g C0g F0.6g Fi0g
+
+Meal 6 at 4:24 PM:
+    • פילה אמנון: 150g, 145 kcal, P30.3g C0g F2.9g Fi0g
+    • רוטב עגבניות: 100g, 32 kcal, P1.4g C6.9g F0.2g Fi0g
+    • פלפל אדום: 50g, 16 kcal, P0.7g C3.7g F0.1g Fi0g
+    • בצל: 30g, 12 kcal, P0.3g C2.8g F0g Fi0g
+    • שום: 10g, 15 kcal, P0.6g C3.3g F0.1g Fi0g
+  Total: 220 kcal | P33.3g C16.7g F3.3g Fi0g
+
+Meal 7 at 8:05 PM:
+    • סטייק אנטריקוט בקר: 250g, 690 kcal, P60g C0g F50g Fi0g
+  Total: 690 kcal | P60g C0g F50g Fi0g
+MEAL GLUCOSE:
+  Meal 1 at 8:44 AM: אבקת חלבון מי גבינה בטעם קפה, קינמון, חומץ מזוקק (131 kcal, 5g C)
+    Pre-meal (25 min avg): 86 mg/dL
+    Peak: 101 mg/dL at +106 min (+15 mg/dL vs pre-meal)
+    At +60 min: 89 mg/dL
+    At +120 min: 100 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 2 at 10:40 AM: ביצת עין, פסטרמה הודו, מלפפון +1 more (318 kcal, 7g C)
+    Pre-meal (25 min avg): 96 mg/dL
+    Peak: 104 mg/dL at +40 min (+8 mg/dL vs pre-meal)
+    At +60 min: 100 mg/dL
+    At +120 min: 97 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 3 at 12:44 PM: סלט טונה, סלט ביצים, דג מלוח (לדוגמה, הרינג) (730 kcal, 9g C)
+    Pre-meal (25 min avg): 95 mg/dL
+    Peak: 97 mg/dL at +61 min (+2 mg/dL vs pre-meal)
+    At +60 min: 97 mg/dL
+    At +120 min: 95 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 4 at 12:51 PM: חסה, מלפפון, עגבנייה +1 more (68 kcal, 7g C)
+    Pre-meal (25 min avg): 95 mg/dL
+    Peak: 97 mg/dL at +55 min (+2 mg/dL vs pre-meal)
+    At +60 min: 96 mg/dL
+    At +120 min: 93 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 5 at 12:58 PM: טונה (גולמית) (26 kcal, 0g C)
+    Pre-meal (25 min avg): 93 mg/dL
+    Peak: 97 mg/dL at +47 min (+4 mg/dL vs pre-meal)
+    At +60 min: 92 mg/dL
+    At +120 min: 92 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 6 at 4:24 PM: פילה אמנון, רוטב עגבניות, פלפל אדום +2 more (220 kcal, 17g C)
+    Pre-meal (25 min avg): 100 mg/dL
+    Peak: 113 mg/dL at +42 min (+13 mg/dL vs pre-meal)
+    At +60 min: 109 mg/dL
+    At +120 min: 96 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 7 at 8:05 PM: סטייק אנטריקוט בקר (690 kcal, 0g C)
+    Pre-meal (25 min avg): 87 mg/dL
+    Peak: 99 mg/dL at +75 min (+12 mg/dL vs pre-meal)
+    At +60 min: 93 mg/dL
+    At +120 min: 101 mg/dL
+    Assessment: steady response (23 post-meal samples)
+WORKOUTS (+ HR during each session):
+  Walk 8:57 AM–10:05 AM (68 min, 279 kcal active)
+    HR during session: avg 100 max 113 bpm (5 readings) | resting baseline ~73 bpm | +10 min recovery avg 98 bpm
+  Walk 8:48 PM–10:19 PM (91 min, 424 kcal active)
+    HR during session: avg 104 max 124 bpm (7 readings) | resting baseline ~73 bpm | +10 min recovery avg 99 bpm
+--- 2026-06-14 ---
+BODY: | wt 82.0 kg | fat 17.3 kg | muscle 61.5 kg | visceral 3.9 | BMR 1856 kcal/day | Withings activity — kcal
+ENERGY: 1310 kcal eaten | 2873 kcal estimated burn (BMR+passive+workouts) | balance -1563 (deficit)
+HEART RATE (24/7): avg 95 bpm | min 47 | max 158 | 266 readings
+FOOD & MEALS:
+1310 kcal eaten | P146g C12g F74g Fi0g | 2 meals
+Meal 1 at 12:34 PM:
+    • חזה עוף: 200g, 330 kcal, P62g C0g F7g Fi0g
+    • חרדל גרגירים: 30g, 40 kcal, P2.1g C2.7g F2.1g Fi0g
+    • מלפפון: 100g, 15 kcal, P0.7g C3.6g F0.1g Fi0g
+    • כרוב אדום: 70g, 18 kcal, P0.9g C4.2g F0.1g Fi0g
+    • צנון: 50g, 8 kcal, P0.3g C1.6g F0.1g Fi0g
+    • מיונז: 20g, 140 kcal, P0.2g C0.3g F15.4g Fi0g
+    • קוקה-קולה זירו: 330g, 0 kcal, P0g C0g F0g Fi0g
+  Total: 551 kcal | P66.2g C12.4g F24.8g Fi0g
+
+Meal 2 at 7:50 PM:
+    • סטייק בקר: 300g, 759 kcal, P79.8g C0g F48.9g Fi0g
+  Total: 759 kcal | P79.8g C0g F48.9g Fi0g
+MEAL GLUCOSE:
+  Meal 1 at 12:34 PM: חזה עוף, חרדל גרגירים, מלפפון +4 more (551 kcal, 12g C)
+    Pre-meal (25 min avg): 87 mg/dL
+    Peak: 116 mg/dL at +86 min (+29 mg/dL vs pre-meal)
+    At +60 min: 89 mg/dL
+    At +120 min: 92 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 2 at 7:50 PM: סטייק בקר (759 kcal, 0g C)
+    Pre-meal (25 min avg): 90 mg/dL
+    Peak: 100 mg/dL at +41 min (+10 mg/dL vs pre-meal)
+    At +60 min: 100 mg/dL
+    At +120 min: 98 mg/dL
+    Assessment: steady response (23 post-meal samples)
+WORKOUTS (+ HR during each session):
+  Biking 8:53 AM–9:15 AM (22 min, 243 kcal active)
+    HR during session: avg 123 max 158 bpm (49 readings) | resting baseline ~79 bpm | +10 min recovery avg 118 bpm
+  Walk 1:07 PM–1:30 PM (23 min, 95 kcal active)
+    HR during session: no watch readings in this window
+  Walk 3:19 PM–3:47 PM (28 min, 139 kcal active)
+    HR during session: avg 110 max 115 bpm (3 readings) | resting baseline ~79 bpm | +10 min recovery avg 118 bpm
+  Biking 5:56 PM–6:35 PM (39 min, 299 kcal active)
+    HR during session: avg 104 max 137 bpm (80 readings) | resting baseline ~79 bpm | +10 min recovery avg 76 bpm
+  Walk 11:04 PM–11:54 PM (50 min, 208 kcal active)
+    HR during session: avg 100 max 104 bpm (3 readings) | resting baseline ~79 bpm
+--- 2026-06-15 ---
+BODY: | wt 81.3 kg | fat 17.3 kg | muscle 60.8 kg | visceral 3.9 | BMR 1833 kcal/day | Withings activity — kcal
+ENERGY: 1955 kcal eaten | 2530 kcal estimated burn (BMR+passive+workouts) | balance -575 (deficit)
+HEART RATE (24/7): avg 99 bpm | min 50 | max 144 | 265 readings
+FOOD & MEALS:
+1955 kcal eaten | P188g C44g F117g Fi0g | 6 meals
+Meal 1 at 9:06 AM:
+    • אבקת חלבון מי גבינה בטעם קפה: 33g, 126 kcal, P25g C3.9g F1.1g Fi0g
+    • קינמון: 1g, 3 kcal, P0g C1.1g F0g Fi0g
+  Total: 129 kcal | P25g C5g F1.1g Fi0g
+
+Meal 2 at 12:22 PM:
+    • בשר טחון ברוטב: 150g, 375 kcal, P30g C10g F24g Fi0g
+    • ביצת עין: 50g, 78 kcal, P6.3g C0.6g F5.3g Fi0g
+    • סלט מלפפונים: 100g, 15 kcal, P0.7g C3.6g F0.1g Fi0g
+    • סלט צנוניות: 70g, 11 kcal, P0.7g C2.3g F0.1g Fi0g
+    • שעועית צהובה עם פלפל צהוב: 150g, 75 kcal, P3g C15g F0.5g Fi0g
+    • קוקה קולה זירו: 330g, 0 kcal, P0g C0g F0g Fi0g
+  Total: 554 kcal | P40.7g C31.5g F30g Fi0g
+
+Meal 3 at 5:46 PM:
+    • אבקת חלבון מי גבינה בטעם קפה: 33g, 126 kcal, P25g C3.9g F1.1g Fi0g
+    • קינמון: 1g, 3 kcal, P0g C1.1g F0g Fi0g
+    • חומץ: 15g, 3 kcal, P0g C0.1g F0g Fi0g
+  Total: 132 kcal | P25g C5.1g F1.1g Fi0g
+
+Meal 4 at 6:13 PM:
+    • סטייק בקר: 150g, 375 kcal, P45g C0g F22.5g Fi0g
+  Total: 375 kcal | P45g C0g F22.5g Fi0g
+
+Meal 5 at 7:59 PM:
+    • גבינת ברי: 125g, 385 kcal, P23.6g C1.9g F31.5g Fi0g
+  Total: 385 kcal | P23.6g C1.9g F31.5g Fi0g
+
+Meal 6 at 8:16 PM:
+    • גבינת קממבר: 125g, 380 kcal, P28.8g C0.6g F30.6g Fi0g
+  Total: 380 kcal | P28.8g C0.6g F30.6g Fi0g
+MEAL GLUCOSE:
+  Meal 1 at 9:06 AM: אבקת חלבון מי גבינה בטעם קפה, קינמון (129 kcal, 5g C)
+    Pre-meal (25 min avg): 86 mg/dL
+    Peak: 120 mg/dL at +119 min (+34 mg/dL vs pre-meal)
+    At +60 min: 107 mg/dL
+    At +120 min: 120 mg/dL
+    Assessment: moderate post-meal rise (23 post-meal samples)
+  Meal 2 at 12:22 PM: בשר טחון ברוטב, ביצת עין, סלט מלפפונים +3 more (554 kcal, 32g C)
+    Pre-meal (25 min avg): 90 mg/dL
+    Peak: 151 mg/dL at +34 min (+61 mg/dL vs pre-meal)
+    At +60 min: 140 mg/dL
+    At +120 min: 115 mg/dL
+    Assessment: sharp spike — review carbs/portions (23 post-meal samples)
+  Meal 3 at 5:46 PM: אבקת חלבון מי גבינה בטעם קפה, קינמון, חומץ (132 kcal, 5g C)
+    Pre-meal (25 min avg): 91 mg/dL
+    Peak: 120 mg/dL at +40 min (+29 mg/dL vs pre-meal)
+    At +60 min: 112 mg/dL
+    At +120 min: 99 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 4 at 6:13 PM: סטייק בקר (375 kcal, 0g C)
+    Pre-meal (25 min avg): 102 mg/dL
+    Peak: 120 mg/dL at +12 min (+18 mg/dL vs pre-meal)
+    At +60 min: 94 mg/dL
+    At +120 min: 101 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 5 at 7:59 PM: גבינת ברי (385 kcal, 2g C)
+    Pre-meal (25 min avg): 100 mg/dL
+    Peak: 104 mg/dL at +7 min (+4 mg/dL vs pre-meal)
+    At +60 min: 101 mg/dL
+    At +120 min: 89 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 6 at 8:16 PM: גבינת קממבר (380 kcal, 1g C)
+    Pre-meal (25 min avg): 103 mg/dL
+    Peak: 101 mg/dL at +40 min (-2 mg/dL vs pre-meal)
+    At +60 min: 96 mg/dL
+    At +120 min: 93 mg/dL
+    Assessment: steady response (22 post-meal samples)
+WORKOUTS (+ HR during each session):
+  Biking 9:17 AM–9:45 AM (29 min, 203 kcal active)
+    HR during session: avg 110 max 139 bpm (60 readings) | resting baseline ~81 bpm | +10 min recovery avg 58 bpm
+  Walk 1:31 PM–1:57 PM (26 min, 112 kcal active)
+    HR during session: avg 103 max 105 bpm (2 readings) | resting baseline ~81 bpm | +10 min recovery avg 87 bpm
+  Biking 5:05 PM–5:38 PM (33 min, 352 kcal active)
+    HR during session: avg 122 max 144 bpm (71 readings) | resting baseline ~81 bpm
+--- 2026-06-16 ---
+BODY: | wt 81.7 kg | fat 17.6 kg | muscle 61.0 kg | visceral 3.9 | BMR 1838 kcal/day | Withings activity — kcal
+ENERGY: 1850 kcal eaten | 2087 kcal estimated burn (BMR+passive+workouts) | balance -237 (deficit)
+HEART RATE (24/7): avg 77 bpm | min 36 | max 137 | 139 readings
+FOOD & MEALS:
+1850 kcal eaten | P138g C41g F125g Fi0g | 6 meals
+Meal 1 at 11:19 AM:
+    • גבינת צפתית 5% שומן: 100g, 160 kcal, P12g C1g F5g Fi0g
+    • חומץ תפוחים: 15g, 3 kcal, P0g C0.1g F0g Fi0g
+  Total: 163 kcal | P12g C1.1g F5g Fi0g
+
+Meal 2 at 12:09 PM:
+    • גבינת קממבר: 100g, 304 kcal, P23g C0.5g F24.5g Fi0g
+  Total: 304 kcal | P23g C0.5g F24.5g Fi0g
+
+Meal 3 at 3:05 PM:
+    • פרוסות הודו: 100g, 104 kcal, P18g C1g F3g Fi0g
+    • ביצים מקושקשות: 120g, 187 kcal, P15g C1.4g F13.8g Fi0g
+    • כרובית: 150g, 38 kcal, P2.9g C7.6g F0.4g Fi0g
+    • שמן זית: 14g, 119 kcal, P0g C0g F13.5g Fi0g
+  Total: 448 kcal | P35.9g C10g F30.7g Fi0g
+
+Meal 4 at 5:11 PM:
+    • שקדים: 12g, 69 kcal, P2.5g C2.5g F6g Fi0g
+    • גרעיני דלעת: 15g, 84 kcal, P4g C3.5g F7g Fi0g
+  Total: 153 kcal | P6.5g C6g F13g Fi0g
+
+Meal 5 at 5:12 PM:
+    • אבקת חלבון מי גבינה בטעם קפה: 33g, 126 kcal, P25g C3.9g F1.1g Fi0g
+    • קינמון: 1g, 3 kcal, P0g C1.1g F0g Fi0g
+  Total: 129 kcal | P25g C5g F1.1g Fi0g
+
+Meal 6 at 9:19 PM:
+    • סלמון בגריל: 150g, 306 kcal, P30.6g C0g F19.5g Fi0g
+    • אבוקדו: 120g, 192 kcal, P2.4g C10.2g F17.4g Fi0g
+    • חסה: 100g, 15 kcal, P1.4g C2.9g F0.2g Fi0g
+    • מלפפון: 100g, 15 kcal, P0.7g C3.6g F0.1g Fi0g
+    • מיץ לימון: 25g, 6 kcal, P0.2g C1.9g F0.1g Fi0g
+    • שמן זית: 14g, 119 kcal, P0g C0g F13.5g Fi0g
+  Total: 653 kcal | P35.3g C18.6g F50.8g Fi0g
+MEAL GLUCOSE:
+  Meal 1 at 11:19 AM: גבינת צפתית 5% שומן, חומץ תפוחים (163 kcal, 1g C)
+    Pre-meal (25 min avg): 104 mg/dL
+    Peak: 117 mg/dL at +36 min (+13 mg/dL vs pre-meal)
+    At +60 min: 107 mg/dL
+    At +120 min: 100 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 2 at 12:09 PM: גבינת קממבר (304 kcal, 1g C)
+    Pre-meal (25 min avg): 114 mg/dL
+    Peak: 107 mg/dL at +12 min (-7 mg/dL vs pre-meal)
+    At +60 min: 99 mg/dL
+    At +120 min: 102 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 3 at 3:05 PM: פרוסות הודו, ביצים מקושקשות, כרובית +1 more (448 kcal, 10g C)
+    Pre-meal (25 min avg): 102 mg/dL
+    Peak: 116 mg/dL at +75 min (+14 mg/dL vs pre-meal)
+    At +60 min: 112 mg/dL
+    At +120 min: 107 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 4 at 5:11 PM: שקדים, גרעיני דלעת (153 kcal, 6g C)
+    Pre-meal (25 min avg): 108 mg/dL
+    Peak: 113 mg/dL at +19 min (+5 mg/dL vs pre-meal)
+    At +60 min: 98 mg/dL
+    At +120 min: 104 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 5 at 5:12 PM: אבקת חלבון מי גבינה בטעם קפה, קינמון (129 kcal, 5g C)
+    Pre-meal (25 min avg): 108 mg/dL
+    Peak: 113 mg/dL at +19 min (+5 mg/dL vs pre-meal)
+    At +60 min: 98 mg/dL
+    At +120 min: 104 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 6 at 9:19 PM: סלמון בגריל, אבוקדו, חסה +3 more (653 kcal, 19g C)
+    Pre-meal (25 min avg): 96 mg/dL
+    Peak: 103 mg/dL at +52 min (+7 mg/dL vs pre-meal)
+    At +60 min: 103 mg/dL
+    At +120 min: 98 mg/dL
+    Assessment: steady response (23 post-meal samples)
+WORKOUTS (+ HR during each session):
+  Walk 9:08 AM–9:28 AM (20 min, 83 kcal active)
+    HR during session: avg 101 max 104 bpm (2 readings) | resting baseline ~76 bpm | +10 min recovery avg 87 bpm
+  Walk 9:34 AM–9:39 AM (5 min, 20 kcal active)
+    HR during session: no watch readings in this window
+  Walk 10:23 AM–10:44 AM (21 min, 102 kcal active)
+    HR during session: avg 111 max 111 bpm (1 readings) | resting baseline ~76 bpm | +10 min recovery avg 36 bpm
+--- 2026-06-17 ---
+BODY: | wt 81.4 kg | fat 16.8 kg | muscle 61.4 kg | visceral 3.8 | BMR 1851 kcal/day | Withings activity — kcal
+ENERGY: 1731 kcal eaten | 2480 kcal estimated burn (BMR+passive+workouts) | balance -749 (deficit)
+HEART RATE (24/7): avg 91 bpm | min 44 | max 165 | 256 readings
+FOOD & MEALS:
+1731 kcal eaten | P122g C31g F119g Fi7g | 4 meals
+Meal 1 at 12:52 PM:
+    • פילה דג בגריל: 150g, 200 kcal, P30g C0g F8g Fi0g
+    • קולסלאו: 100g, 120 kcal, P1g C10g F8g Fi2g
+    • סלט מלפפונים: 70g, 10 kcal, P0.5g C2g F0.1g Fi0.7g
+    • סלט צנוניות: 50g, 8 kcal, P0.5g C1.5g F0.1g Fi0.8g
+    • פלח לימון: 20g, 6 kcal, P0.1g C2g F0g Fi0.6g
+    • קוקה קולה זירו: 330g, 0 kcal, P0g C0g F0g Fi0g
+    • מים: 240g, 0 kcal, P0g C0g F0g Fi0g
+  Total: 344 kcal | P32.1g C15.5g F16.2g Fi4.1g
+
+Meal 2 at 4:16 PM:
+    • שקדים: 4g, 22 kcal, P0.8g C0.8g F1.9g Fi0.4g
+  Total: 22 kcal | P0.8g C0.8g F1.9g Fi0.4g
+
+Meal 3 at 5:03 PM:
+    • יוגורט יווני 0% שומן: 250g, 171 kcal, P25g C8.8g F0g Fi0g
+    • שקדים: 12g, 69 kcal, P2.5g C2.5g F6.1g Fi1.4g
+  Total: 240 kcal | P27.5g C11.3g F6.1g Fi1.4g
+
+Meal 4 at 8:09 PM:
+    • פילה סלמון: 300g, 612 kcal, P61.2g C0g F39g Fi0g
+    • חסה רומית: 40g, 7 kcal, P0.5g C1.3g F0.1g Fi0.8g
+    • מלפפון: 25g, 4 kcal, P0.2g C0.9g F0g Fi0.4g
+    • שמן זית: 56g, 499 kcal, P0g C0g F56g Fi0g
+    • מיץ לימון: 15g, 3 kcal, P0.1g C1g F0g Fi0g
+  Total: 1125 kcal | P62g C3.2g F95.1g Fi1.2g
+MEAL GLUCOSE:
+  Meal 1 at 12:52 PM: פילה דג בגריל, קולסלאו, סלט מלפפונים +4 more (344 kcal, 16g C)
+    Pre-meal (25 min avg): 92 mg/dL
+    Peak: 120 mg/dL at +64 min (+28 mg/dL vs pre-meal)
+    At +60 min: 113 mg/dL
+    At +120 min: 109 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 2 at 4:16 PM: שקדים (22 kcal, 1g C)
+    Pre-meal (25 min avg): 92 mg/dL
+    Peak: 105 mg/dL at +100 min (+13 mg/dL vs pre-meal)
+    At +60 min: 89 mg/dL
+    At +120 min: 102 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 3 at 5:03 PM: יוגורט יווני 0% שומן, שקדים (240 kcal, 11g C)
+    Pre-meal (25 min avg): 88 mg/dL
+    Peak: 105 mg/dL at +52 min (+17 mg/dL vs pre-meal)
+    At +60 min: 102 mg/dL
+    At +120 min: 100 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 4 at 8:09 PM: פילה סלמון, חסה רומית, מלפפון +2 more (1125 kcal, 3g C)
+    Pre-meal (25 min avg): 90 mg/dL
+    Peak: 113 mg/dL at +46 min (+23 mg/dL vs pre-meal)
+    At +60 min: 107 mg/dL
+    At +120 min: 106 mg/dL
+    Assessment: steady response (23 post-meal samples)
+WORKOUTS (+ HR during each session):
+  Biking 9:24 AM–9:48 AM (24 min, 244 kcal active)
+    HR during session: avg 118 max 165 bpm (50 readings) | resting baseline ~72 bpm | +10 min recovery avg 96 bpm
+  Walk 1:41 PM–2:06 PM (25 min, 103 kcal active)
+    HR during session: avg 99 max 119 bpm (3 readings) | resting baseline ~72 bpm | +10 min recovery avg 83 bpm
+  Biking 7:09 PM–7:40 PM (31 min, 262 kcal active)
+    HR during session: avg 109 max 148 bpm (67 readings) | resting baseline ~72 bpm | +10 min recovery avg 110 bpm
+--- 2026-06-18 ---
+BODY: | wt 81.2 kg | fat 16.9 kg | muscle 61.1 kg | visceral 3.8 | BMR 1842 kcal/day | Withings activity — kcal
+ENERGY: 748 kcal eaten | 2263 kcal estimated burn (BMR+passive+workouts) | balance -1515 (deficit)
+HEART RATE (24/7): avg 92 bpm | min 44 | max 165 | 159 readings
+FOOD & MEALS:
+748 kcal eaten | P102g C28g F26g Fi14g | 2 meals
+Meal 1 at 8:15 AM:
+    • אבקת חלבון מי גבינה: 33g, 126 kcal, P25g C3.9g F1.1g Fi0g
+    • פסיליום: 7g, 23 kcal, P0.4g C5.8g F0.1g Fi5.6g
+    • שקדים: 17g, 95 kcal, P3.5g C3.7g F8.3g Fi2g
+    • זרעי דלעת: 7g, 39 kcal, P1.9g C1.5g F3.3g Fi0.8g
+  Total: 283 kcal | P30.8g C14.9g F12.8g Fi8.4g
+
+Meal 2 at 12:00 PM:
+    • חסה רומית: 150g, 26 kcal, P1.7g C5g F0.4g Fi2.4g
+    • מלפפון: 100g, 15 kcal, P0.7g C3.6g F0.1g Fi1.5g
+    • חזה עוף: 200g, 330 kcal, P62g C0g F7.2g Fi0g
+    • פלח לימון: 30g, 9 kcal, P0.3g C3g F0.1g Fi0.8g
+    • קוקה קולה זירו: 330g, 0 kcal, P0g C0g F0g Fi0g
+    • פטרוזיליה: 20g, 7 kcal, P0.6g C1.2g F0.1g Fi0.5g
+    • ביצה: 50g, 78 kcal, P6.3g C0.6g F5.3g Fi0g
+  Total: 465 kcal | P71.6g C13.4g F13.2g Fi5.2g
+MEAL GLUCOSE:
+  Meal 1 at 8:15 AM: אבקת חלבון מי גבינה, פסיליום, שקדים +1 more (283 kcal, 15g C)
+    Pre-meal (25 min avg): 88 mg/dL
+    Peak: 110 mg/dL at +111 min (+22 mg/dL vs pre-meal)
+    At +60 min: 92 mg/dL
+    At +120 min: 107 mg/dL
+    Assessment: steady response (23 post-meal samples)
+  Meal 2 at 12:00 PM: חסה רומית, מלפפון, חזה עוף +4 more (465 kcal, 13g C)
+    Pre-meal (25 min avg): 97 mg/dL
+    Peak: 122 mg/dL at +76 min (+25 mg/dL vs pre-meal)
+    At +60 min: 111 mg/dL
+    At +120 min: 108 mg/dL
+    Assessment: steady response (23 post-meal samples)
+WORKOUTS (+ HR during each session):
+  Biking 8:47 AM–9:18 AM (30 min, 297 kcal active)
+    HR during session: avg 119 max 165 bpm (61 readings) | resting baseline ~74 bpm | +10 min recovery avg 87 bpm
+  Walk 1:53 PM–2:19 PM (26 min, 107 kcal active)
+    HR during session: avg 103 max 108 bpm (2 readings) | resting baseline ~74 bpm | +10 min recovery avg 81 bpm
+=== END 7-DAY RAW DATA ===
+
+Derive daily macro TARGETS from the raw data above (not meal advice). Do not copy prior app targets — conclude P/C/F/kcal from weight goal, burn, food eaten, CGM, labs, and rules.

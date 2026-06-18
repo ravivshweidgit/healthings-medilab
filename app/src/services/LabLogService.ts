@@ -185,6 +185,84 @@ export async function getLabsAiContextForHeader(): Promise<string | null> {
   return buildLabsAiContext(latest ? [latest] : [], 'latest');
 }
 
+export type KidneyLabMarker = {
+  code: string;
+  name: string;
+  value: number;
+  unit: string;
+  flag: LabResultFlag;
+};
+
+export type KidneyLabStatus = {
+  creatinine: KidneyLabMarker | null;
+  urea: KidneyLabMarker | null;
+  hasHighMarker: boolean;
+};
+
+function resultMatchBlob(r: LabResult): string {
+  return `${r.code} ${r.name} ${r.nameOriginal ?? ''}`.toUpperCase();
+}
+
+function isCreatinineResult(r: LabResult): boolean {
+  return /CREATININ|קריאאטינין/.test(resultMatchBlob(r));
+}
+
+function isUreaResult(r: LabResult): boolean {
+  return /\bUREA\b|\bBUN\b|אוריא/.test(resultMatchBlob(r));
+}
+
+/** Scan one lab report for creatinine / urea markers and high flags. */
+export function scanKidneyLabStatus(report: LabReport): KidneyLabStatus {
+  let creatinine: KidneyLabMarker | null = null;
+  let urea: KidneyLabMarker | null = null;
+  for (const panel of report.panels) {
+    for (const r of panel.results) {
+      if (!creatinine && isCreatinineResult(r)) {
+        creatinine = {
+          code: r.code,
+          name: r.name,
+          value: r.value,
+          unit: r.unit,
+          flag: r.flag,
+        };
+      }
+      if (!urea && isUreaResult(r)) {
+        urea = {
+          code: r.code,
+          name: r.name,
+          value: r.value,
+          unit: r.unit,
+          flag: r.flag,
+        };
+      }
+    }
+  }
+  const hasHighMarker =
+    creatinine?.flag === 'high' || urea?.flag === 'high';
+  return { creatinine, urea, hasHighMarker };
+}
+
+export async function getLatestKidneyLabStatus(): Promise<KidneyLabStatus | null> {
+  const latest = await getLatestLabReport();
+  if (!latest) return null;
+  const status = scanKidneyLabStatus(latest);
+  if (!status.creatinine && !status.urea) return null;
+  return status;
+}
+
+export function formatKidneyMarkersSummary(status: KidneyLabStatus): string {
+  const parts: string[] = [];
+  if (status.creatinine) {
+    const hi = status.creatinine.flag === 'high' ? ' (high)' : '';
+    parts.push(`creatinine ${status.creatinine.value} ${status.creatinine.unit}${hi}`);
+  }
+  if (status.urea) {
+    const hi = status.urea.flag === 'high' ? ' (high)' : '';
+    parts.push(`urea ${status.urea.value} ${status.urea.unit}${hi}`);
+  }
+  return parts.join(', ');
+}
+
 /** Latest draw + one prior draw for macro revision (trends: UREA, creatinine, LDL). */
 export async function buildLabsForMacroRevision(): Promise<string | null> {
   const all = await getAllLabReports();

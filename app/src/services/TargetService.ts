@@ -143,7 +143,7 @@ export type UserRules = {
   rawText: string;
   summary: string;          // e.g. "Keto · IF 16:8"
   constraints: string[];    // AI-understood bullets — injected into coach panel + chat
-  aiContext: string;        // compact fallback for macro-target when constraints are empty
+  aiContext: string;        // deprecated — no longer generated; kept for storage compat
   analyzedAt: string;
 };
 

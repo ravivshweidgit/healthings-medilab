@@ -1,0 +1,117 @@
+## Prompt 36 — Macro energy + cholesterol-first revision (monitoring-driven)
+
+**Status: done (2026-06-18)** — Shipped and phone-tested.
+
+Follows **prompt35** (unified macro pipeline). This batch fixes dangerous kcal targets, injects
+computed energy/carb guidance into the Gemini prompt, and reframes rules around **cholesterol/LDL**
+(not implicit low-carb / keto).
+
+### Phone-tested result (dashboard-suggest)
+
+| Macro | Value | Notes |
+|-------|-------|-------|
+| kcal | **2325** | 2447 burn − 122 (5% TDEE); not BMR (~1842) or ~1514 |
+| P | **141** | Kidney cap 2.2× lean (64.3 kg) |
+| C | **50** | CARB GUIDANCE band (was ~30 from habit lock) |
+| F | **173** | Fills kcal after P/C; heart-healthy framing |
+| Fi | **25** | ~½× carbs (soluble-fiber goal) |
+
+Reference export: `prompts/macros/macro-gemini-prompt_2026-06-18 (9).txt`
+
+---
+
+### What shipped
+
+#### 1) Textbook adaptive energy balance (code + prompt injection)
+
+- `computeMacroEnergyPlan()` — single source of truth:
+  - Anchor on **7d wearable burn** (not BMR).
+  - Target loss rate: **0.3% / 0.5% / 0.7% BW/week** → **7700 kcal/kg**.
+  - **% TDEE caps** (5–7% near goal, up to 20% / 500 kcal max).
+  - **Adaptive taper** from **smart-scale 14d trend** (if losing faster than target → do not deepen cut).
+  - Sex/age **absolute floor** + 95% of 7d eaten kcal floor.
+- `formatEnergyBalanceBlock()` injected into macro revision context.
+- `applyKcalEnergyFloor()` post-process if Gemini returns below plan.
+- Prompt: use **ENERGY BALANCE (computed)** for JSON `kcal`.
+
+#### 2) Cholesterol-first macro framing (not carb minimization)
+
+- Prompt sections: **Primary goal**, **Fat derivation**, revised **Carbs**.
+- Removed keto mislabel from rules summarizer and macro prompt.
+- Deprecated blind **Constraints: aiContext** line (was injecting קטוגנית).
+- Fiber rule clarified: “דלי פחמימה” = food quality, not minimize total carbs.
+
+#### 3) Tiered CARB GUIDANCE (computed)
+
+- `get7DayAverageEatenCarb_g()` + `formatCarbGuidanceBlock()`:
+  - **≥50g eaten** → habit anchor ±10g (adherence).
+  - **<50g + cholesterol primary** + no explicit low-carb rule → **50–80g** soluble-fiber band (start ~50g).
+  - Explicit gram cap in My Rules → obey cap.
+- User case: 33g eaten → suggest **50g** (not lock to 30g).
+
+#### 4) My Rules save fix + safe Goals context
+
+- `summariseUserRules()` — lightweight JSON prompt (no full mentor system prompt).
+- `rulesJsonLangInstruction()` — Hebrew values, English keys (fixes parse errors).
+- `parseUserRulesSummary()` — regex fallback.
+- Optional `context` → stored as `aiContext`, shown as **Goals:** (keto filtered).
+- `scripts/test-rules-summary.mjs` for API smoke test.
+
+#### 5) Kidney + rules integrity (from same batch)
+
+- Kidney prompt + `applyKidneyMacroGuardrail()` (protein ≤ 2.2× lean).
+- `rules_advice` in macro JSON when rules conflict data; `RulesAdviceBanner` in UI.
+- Macro revision **temperature 0**; raw-data-only context (no saved targets in prompt).
+- `macroPromptExport.ts` — export last prompt from phone.
+
+---
+
+### Architecture
+
+```
+buildMacroRevisionBundle()
+  → ENERGY BALANCE (computed)   ← computeMacroEnergyPlan()
+  → CARB GUIDANCE (computed)    ← formatCarbGuidanceBlock()
+  → labs, CGM, FOOD MACROS, trends, My Rules (Goals + bullets)
+
+reviseMacroTargetsWithGemini(context)
+  → finalizeMacroSuggestion()
+      → postProcessMacroSuggestion (fiber, explicit carb cap)
+      → applyKidneyMacroGuardrail
+      → applyKcalEnergyFloor
+```
+
+---
+
+### Primary files touched
+
+- `app/src/logic/macroAutoAdjust.ts` — energy plan, carb guidance, bundle, finalize
+- `app/src/logic/macroFiberCoupling.ts` — kidney cap, carb cap parse (no keto→20 clamp)
+- `app/src/logic/userRulesContext.ts` — Goals line, keto filter
+- `app/src/services/GeminiService.ts` — MACRO_REVISION_PROMPT, summariseUserRules, rules parse
+- `app/src/services/ReviewService.ts` — `get7DayAverageEatenKcal`, `get7DayAverageEatenCarb_g`
+- `app/src/services/macroPromptExport.ts`
+- `app/src/services/LabLogService.ts` — kidney status for macro revision
+- `app/src/components/RulesStrip.tsx` — save `context` as `aiContext`
+- `app/src/components/RulesAdviceBanner.tsx`
+- `app/src/components/MacroTargetStrip.tsx` — prompt export link
+- `scripts/test-rules-summary.mjs`
+- `scripts/run-gemini-prompt-file.mjs` — API test against exported prompts
+
+---
+
+### Verification
+
+1. Export prompt — must include `ENERGY BALANCE (computed)` + `CARB GUIDANCE (computed)`.
+2. No `Constraints: קטוגנית` line.
+3. My Rules → Save & Summarise — no “Could not parse rules summary”.
+4. Macro suggest → ~2325 kcal, C~50, P≤141, cholesterol-centered `diet_label` / reasoning.
+5. API: `node scripts/run-gemini-prompt-file.mjs "prompts/macros/macro-gemini-prompt_2026-06-18 (9).txt"`
+
+---
+
+### Deferred / not in scope
+
+- Commit to git (wait for user “commit” / “ship it”).
+- Post-process carb floor/ceiling in code (prompt + Gemini only for carb band).
+- Full clinical MNT absolute kcal floors beyond sex/age heuristic.

@@ -5,6 +5,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -12,6 +13,8 @@ import {
   View,
 } from 'react-native';
 import { suggestMacroTargets, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
+import { buildAndExportMacroPrompt } from '../services/macroPromptExport';
+import { RulesAdviceBanner } from './RulesAdviceBanner';
 import {
   clearMacroTarget,
   getMacroTarget,
@@ -167,6 +170,8 @@ export function MacroTargetStrip({
   const [editC, setEditC] = useState('');
   const [editFi, setEditFi] = useState('');
   const [editK, setEditK] = useState('');
+  const [exportBusy, setExportBusy] = useState(false);
+  const [rulesAdvice, setRulesAdvice] = useState<string | null>(null);
 
   useEffect(() => {
     getMacroTarget().then((t) => { if (t) { setTarget(withFiberTarget(t)); setScreen('active'); } });
@@ -190,6 +195,7 @@ export function MacroTargetStrip({
   const handleAsk = useCallback(async () => {
     if (!canAnalyze) { setError('Need body scan data and profile to analyse.'); return; }
     setError(null);
+    setRulesAdvice(null);
     setScreen('loading');
     try {
       const [result, rules, mentorList] = await Promise.all([
@@ -197,6 +203,7 @@ export function MacroTargetStrip({
         getUserRules(),
         getMentors(),
       ]);
+      setRulesAdvice(result.rules_advice ?? null);
       const proposed = macroSuggestionToDailyTarget(result, rules, mentorList);
       setSuggestion(proposed);
       setScreen('suggestion');
@@ -205,6 +212,45 @@ export function MacroTargetStrip({
       setScreen('idle');
     }
   }, [canAnalyze, lang]);
+
+  const handleExportPrompt = useCallback(async () => {
+    setExportBusy(true);
+    setError(null);
+    try {
+      const result = await buildAndExportMacroPrompt({ trigger: 'dashboard-suggest', lang });
+      if (!result.ok) {
+        Alert.alert(lang?.code === 'he' ? 'בוטל' : 'Cancelled', lang?.code === 'he' ? 'לא נבחר תיקייה' : 'No folder selected');
+        return;
+      }
+      Alert.alert(
+        lang?.code === 'he' ? 'פרומפט יוצא' : 'Prompt exported',
+        lang?.code === 'he'
+          ? `${result.charCount.toLocaleString()} תווים · macro-gemini-prompt_${new Date().toISOString().slice(0, 10)}.txt`
+          : `${result.charCount.toLocaleString()} chars · macro-gemini-prompt_${new Date().toISOString().slice(0, 10)}.txt`,
+      );
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Export failed';
+      setError(msg);
+    } finally {
+      setExportBusy(false);
+    }
+  }, [lang]);
+
+  const exportPromptLink = (
+    <Pressable
+      style={styles.exportPromptBtn}
+      onPress={handleExportPrompt}
+      disabled={exportBusy}
+    >
+      {exportBusy ? (
+        <ActivityIndicator size="small" color={WellnessColors.accentBlue} />
+      ) : (
+        <Text style={styles.exportPromptText}>
+          {lang?.code === 'he' ? 'ייצוא פרומפט Gemini (ללא קריאת AI)' : 'Export Gemini prompt (no AI call)'}
+        </Text>
+      )}
+    </Pressable>
+  );
 
   const handleAccept = useCallback(async () => {
     if (!suggestion) return;
@@ -248,6 +294,7 @@ export function MacroTargetStrip({
     await clearMacroTarget();
     setTarget(null);
     setSuggestion(null);
+    setRulesAdvice(null);
     onSaved?.(null as any);
     setScreen('idle');
   }, [onSaved]);
@@ -292,6 +339,7 @@ export function MacroTargetStrip({
               >
                 <Text style={styles.aiBtnText}>✨ Ask AI to set my macros</Text>
               </Pressable>
+              {exportPromptLink}
             </View>
           )}
 
@@ -306,6 +354,12 @@ export function MacroTargetStrip({
           {/* suggestion */}
           {screen === 'suggestion' && suggestion && (
             <View>
+              {rulesAdvice ? (
+                <RulesAdviceBanner
+                  advice={rulesAdvice}
+                  rtl={lang?.code === 'he' || lang?.code === 'ar'}
+                />
+              ) : null}
               <View style={styles.reasoningBox}>
                 <Text style={styles.reasoningText}>{suggestion.reasoning}</Text>
               </View>
@@ -372,6 +426,7 @@ export function MacroTargetStrip({
               <Pressable style={styles.reanalyzeBtn} onPress={() => { setTarget(null); setScreen('idle'); }}>
                 <Text style={styles.reanalyzeBtnText}>Re-analyze with AI</Text>
               </Pressable>
+              {exportPromptLink}
             </View>
           )}
         </View>
@@ -429,4 +484,6 @@ const styles = StyleSheet.create({
   kcalText: { fontSize: 13, fontWeight: '600', color: WellnessColors.textSecondary, textAlign: 'center' },
   reanalyzeBtn: { borderWidth: 1, borderColor: WellnessColors.gridLine, borderRadius: 10, paddingVertical: 8, alignItems: 'center' },
   reanalyzeBtnText: { fontSize: 12, color: WellnessColors.textSecondary, fontWeight: '600' },
+  exportPromptBtn: { marginTop: 10, paddingVertical: 8, alignItems: 'center' },
+  exportPromptText: { fontSize: 12, color: WellnessColors.accentBlue, textDecorationLine: 'underline' },
 });

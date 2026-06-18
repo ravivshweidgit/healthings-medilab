@@ -1049,36 +1049,96 @@ export function formatActiveMentorsLine(mentors: MentorType[]): string {
   return `ACTIVE MENTORS: ${labels} — every reply must reflect ALL selected mentors (see system prompt).`;
 }
 
-// ─── User rules summarisation ─────────────────────────────────────────────────
+/** JSON rules summary — keys stay English; string values follow app language. */
+function rulesJsonLangInstruction(lang?: UserLanguage | null): string {
+  if (!lang || lang.code === 'en') return '';
+  return `\nLANGUAGE: Write JSON string values (summary, context, each constraints[] item) in ${lang.label} (${lang.code}). Keys must stay exactly "summary", "constraints", and optional "context". Output ONLY valid JSON — no markdown, no prose before or after.`;
+}
+
+function parseUserRulesSummary(raw: string, finishReason = 'UNKNOWN'): UserRulesSummary {
+  const stripped = raw.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+  const start = stripped.indexOf('{');
+  const end = stripped.lastIndexOf('}');
+  const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+
+  const normalize = (parsed: Partial<UserRulesSummary>): UserRulesSummary => ({
+    summary: String(parsed.summary ?? '').trim(),
+    constraints: (Array.isArray(parsed.constraints) ? parsed.constraints : [])
+      .map((c) => String(c).trim())
+      .filter(Boolean)
+      .slice(0, 5),
+    ...(String(parsed.context ?? '').trim()
+      ? { context: String(parsed.context).trim() }
+      : {}),
+  });
+
+  try {
+    const parsed = normalize(JSON.parse(cleaned) as UserRulesSummary);
+    if (parsed.summary || parsed.constraints.length > 0) return parsed;
+  } catch {
+    /* regex fallback */
+  }
+
+  const pickString = (key: string): string | null => {
+    const re = new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`);
+    const m = cleaned.match(re);
+    return m ? m[1]!.replace(/\\"/g, '"').trim() : null;
+  };
+
+  const constraints: string[] = [];
+  const arr = cleaned.match(/"constraints"\s*:\s*\[([\s\S]*?)\]/);
+  if (arr) {
+    const re = /"((?:[^"\\]|\\.)*)"/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(arr[1]!)) !== null) {
+      const item = m[1]!.replace(/\\"/g, '"').trim();
+      if (item) constraints.push(item);
+    }
+  }
+
+  const summary = pickString('summary') ?? '';
+  const context = pickString('context') ?? undefined;
+  if (summary || constraints.length > 0) {
+    return normalize({ summary, constraints, context });
+  }
+
+  const hint = finishReason === 'MAX_TOKENS' ? ' (truncated)' : '';
+  throw new Error(`Could not parse rules summary${hint}: ${raw.slice(0, 120)}`);
+}
 
 export type UserRulesSummary = {
   summary: string;
   constraints: string[];
-  aiContext: string;
+  /** One-line goal framing (stored as aiContext) — not a diet label like keto. */
+  context?: string;
 };
 
 export async function summariseUserRules(
   rawText: string,
-  mentors: MentorType[],
+  _mentors: MentorType[],
   lang?: UserLanguage | null,
 ): Promise<UserRulesSummary> {
-  const systemPrompt = buildMentorSystemPrompt(mentors);
+  const prompt = `You are a clinical nutritionist assistant. Extract the user's dietary rules into JSON only.
 
-  const prompt = `${systemPrompt}
-
-The user described their dietary and lifestyle preferences. Extract and structure into JSON only, no markdown:
-{"summary":"Keto · IF 16:8","constraints":["< 50g carbs/day","eating window 12–8pm"],"aiContext":"Ketogenic diet with 16:8 intermittent fasting."}
+Schema (English keys only):
+{"summary":"High cholesterol · IF 16:8","context":"Lower LDL; heart-healthy fats; kidney-aware protein","constraints":["avoid entrecôte","prefer salmon and nuts"]}
 
 Rules:
-- summary: max 5 words, use · separator
-- constraints: max 5 items, max 8 words each — primary source injected into coach/chat USER DATA; write clear actionable bullets
-- aiContext: max 20 words, compact fallback only (macro-target reasoning when constraints are empty)
+- summary: max 5 words, · separator — user's framing (cholesterol, kidney, IF, etc.)
+- context: optional ONE short sentence — primary goals (e.g. cholesterol, kidney) — NOT a diet brand name
+- constraints: max 5 items, max 8 words each — actionable bullets from user text only
+- Do NOT label as keto, ketogenic, or קטוגנית unless the user explicitly wrote keto/קטו/קטוגנית
+- Do NOT invent carb gram caps the user did not state
+- "סיבים מירקות וזרעים" / fiber from vegetables & seeds = food quality — NOT low-carb/keto diet
 
-User text: "${rawText.replace(/"/g, "'")}"${langInstruction(lang)}`; 
+User text:
+"""
+${rawText.replace(/"/g, "'")}
+"""${rulesJsonLangInstruction(lang)}`;
 
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: geminiGenerationConfig({ temperature: 0.1, maxOutputTokens: 8192 }),
+    generationConfig: geminiGenerationConfig({ temperature: 0, maxOutputTokens: 2048 }),
   };
 
   const response = await fetch(GEMINI_ENDPOINT, {
@@ -1092,19 +1152,12 @@ User text: "${rawText.replace(/"/g, "'")}"${langInstruction(lang)}`;
   }
 
   const json = await response.json();
-  const raw: string = extractGeminiText(json?.candidates?.[0]);
+  const candidate = json?.candidates?.[0];
+  const finishReason: string = candidate?.finishReason ?? 'UNKNOWN';
+  const raw: string = extractGeminiText(candidate);
   if (!raw) throw new Error('Empty response from Gemini');
 
-  const stripped = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-  const start = stripped.indexOf('{');
-  const end = stripped.lastIndexOf('}');
-  const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
-
-  try {
-    return JSON.parse(cleaned) as UserRulesSummary;
-  } catch {
-    throw new Error(`Could not parse rules summary: ${raw.slice(0, 100)}`);
-  }
+  return parseUserRulesSummary(raw, finishReason);
 }
 
 // ─── Meal save rule check (same My Rules block as mentor chat) ────────────────
@@ -1339,48 +1392,133 @@ export type MacroSuggestion = {
   kcal: number;
   diet_label: string;
   reasoning: string;
+  /** Set only when My Rules should be edited; omitted when rules fit labs/CGM/food/weight. */
+  rules_advice?: string;
 };
 
-const FIBER_CARB_RULE = `
-FIBER ↔ CARB (mandatory):
-- Dietary fiber is counted INSIDE total carbohydrates on food labels — fiber_g must NEVER exceed carb_g.
-- When daily carb target ≤ 60g: recommend fiber_g ≈ round(½ × carb_g) from quality low-carb sources.
-- When carb target > 60g: recommend fiber_g ≈ 30g/day (standard band), NOT ½ of carbs.
-- If user's rules imply very low carbs (keto, <30g), proactively set realistic fiber — do not default both to 30g.`;
+function normalizeRulesAdvice(raw: unknown): string | undefined {
+  if (raw == null) return undefined;
+  const s = String(raw).trim();
+  if (!s) return undefined;
+  if (/^(ok|aligned|no change|none|n\/?a|—|-)$/i.test(s)) return undefined;
+  if (/תואם|אין צורך|ללא שינוי|הכללים מתאימים/i.test(s)) return undefined;
+  return s;
+}
 
-const MACRO_REVISION_PROMPT = `You are a certified clinical nutritionist revising DAILY MACRO TARGETS (not meal advice).
+const FIBER_CARB_RULE = `
+## Fiber ↔ carb (mandatory)
+- Dietary fiber is counted INSIDE total carbohydrates on food labels — \`fiber_g\` must NEVER exceed \`carb_g\`.
+- When daily carb target ≤ 60g: recommend \`fiber_g\` ≈ round(½ × \`carb_g\`) from **high-fiber whole foods** (vegetables, seeds, legumes — per My Rules).
+- When carb target > 60g: recommend \`fiber_g\` ≈ 30g/day (standard band), NOT ½ of carbs.
+- **"סיבים ממקורות דלי פחמימה"** means prefer fiber-rich **foods** that are not sugary/refined — it does **NOT** mean minimize total \`carb_g\` or a ketogenic diet.`;
+
+const MACRO_REVISION_PROMPT = `## Role
+You are a certified clinical nutritionist revising **daily macro targets** (not meal advice).
 
 ${FIBER_CARB_RULE}
 
-CGM (7d block — GLUCOSE & FOOD IMPACT + MEAL GLUCOSE):
-- MUST cite period avg, min, max (mg/dL) in reasoning when CGM present.
+## Energy balance (do this FIRST — before P/C/F)
+The data section includes **ENERGY BALANCE (computed)** — a **monitoring-driven** target using:
+- **Smartwatch** 7d avg burn (TDEE anchor — not BMR)
+- **Smart scale** 14d weight trend (adaptive deficit/surplus)
+- **Food log** 7d eaten avg (floor check)
+- **CGM** lows (&lt;70) may require holding higher
+
+**Use the computed \`kcal\` for JSON** unless CGM lows require adjustment (explain in \`reasoning\`).
+
+Textbook method (already applied in computed block):
+- Loss rate targets: **0.3% BW/week** near goal · **0.5%** moderate gap · **0.7%** far (max)
+- Energy: **7700 kcal ≈ 1 kg** body-weight change → daily deficit/surplus
+- **% TDEE caps**: ~5–7% near goal / on-track · up to **12%** mid-gap · **20%** (500 kcal) absolute max
+- **Adaptive**: if scale shows loss **faster than target** → **do not deepen** cut (clinic rarely has this daily data)
+- Absolute floor: sex/age minimum + never below **75%** of measured burn
+
+Work order:
+1. Set \`kcal\` from **ENERGY BALANCE (computed)**.
+2. Derive \`protein_g\`, \`carb_g\`, \`fat_g\`, \`fiber_g\` to sum to that kcal.
+3. In \`reasoning\`, cite burn, scale trend rate, deficit % TDEE, target kcal — then macros.
+
+## Primary goal (My Rules + labs — before macro split)
+Read My Rules **summary** and LAB RESULTS to find the **primary** goal:
+- **Cholesterol / lipids** (כולסטרול, LDL, saturated fat limits) → lead with **fat quality** and **soluble fiber** — **not** carb minimization.
+- **Kidney** (creatinine/urea) → protein cap (Kidney section).
+- **Body weight** → \`kcal\` already set in ENERGY BALANCE (computed).
+
+When cholesterol is primary: \`diet_label\` and \`reasoning\` must center lipids and heart-healthy fats — never "low-carb" / "keto" unless user raw text says so.
+
+## Fat (derivation — especially when cholesterol is primary)
+When LDL/total cholesterol is high in labs OR My Rules cite כולסטרול/cholesterol:
+- Set \`protein_g\` and \`carb_g\` first; \`fat_g\` fills remaining kcal toward ENERGY BALANCE target.
+- Favor **unsaturated** fats per My Rules (salmon, nuts, seeds, olive oil); respect saturated-fat / cholesterol-food limits in rules.
+- High \`fat_g\` from kcal math is OK if fats are rule-aligned — do **not** slash \`carb_g\` just to lower fat grams when cholesterol (not keto) is the goal.
+- Cite lipid lab values in \`reasoning\` when LAB RESULTS present.
+
+## Carbs (derivation)
+Use **CARB GUIDANCE (computed)** in the data block when present.
+
+Professional tiers (already applied in computed block when possible):
+- **Explicit gram cap** in My Rules → obey cap.
+- **7d eaten avg ≥ 50g/day** → habit anchor **±10g** (adherence — not a lipid textbook rule).
+- **7d eaten avg &lt; 50g** + **cholesterol/LDL primary** + no explicit low-carb rule → do **not** treat low habit as optimal; suggest **50–80g** soluble-fiber carbs (vegetables, legumes, seeds) — modest step up from habit.
+- **7d eaten avg &lt; 50g** + intentional low-carb or CGM requires lows → may hold near habit; explain tradeoff in \`reasoning\`.
+- CGM meal-spike lines may justify **specific** lowering — not blanket carb cuts for cholesterol alone.
+
+## CGM (7-day block)
+Context: GLUCOSE & FOOD IMPACT + MEAL GLUCOSE in the data section below.
+- MUST cite period avg, min, max (mg/dL) in \`reasoning\` when CGM present.
 - Use meal-spike / problem-food lines to justify carb and fiber targets.
-- kcal deficit/surplus comes mainly from weight goal + 7d avg burn, moderated by CGM stability.
-- Lows <70 (trusted days): do not cut kcal further — note in reasoning.
+- Lows &lt;70 (trusted days): do not cut kcal further — note in \`reasoning\`.
 
-RULES (strict priority):
-1. My Rules are HARD constraints (carb cap, keto, etc.) — never violate.
-2. At/past weight goal → maintenance kcal ≈ 7d avg burn, not continued large deficit.
-3. Loss vs gain from start weight vs target weight; taper deficit/surplus by kg-to-goal.
-4. Labs: informational only — kidney/lipids may cap protein/fat increases, not diagnose.
-5. kcal must align with 4×P + 4×C + 9×F within ~50 kcal.
+## Kidney (lab results)
+Scope: creatinine / urea on **latest draw** in LAB RESULTS.
+- When creatinine or urea is flagged **high**: \`protein_g\` ≤ round(2.2 × lean mass kg); if lean mass missing use round(2.0 × weight kg).
+- Cite exact lab values in \`reasoning\`; do not raise protein above 7d eaten protein avg without strong justification.
+- If My Rules omit kidney/protein limits while these labs are high: set \`rules_advice\` with one concrete sentence the user can paste into My Rules.
 
-OUTPUT (JSON only, no markdown):
-{"protein_g":135,"fat_g":110,"carb_g":30,"fiber_g":20,"kcal":2190,"diet_label":"Low carb · deficit","reasoning":"7d avg burn 2439; weight 81.4→80; CGM stable"}`;
+## Priority rules
+1. **My Rules** are HARD constraints — never violate when setting macros.
+2. **Energy balance**: \`kcal\` comes from **ENERGY BALANCE (computed)** in the data block — not BMR, not 7d eaten avg as primary formula.
+3. Labs: informational only — kidney/lipids may cap protein/fat increases, not diagnose.
+4. kcal must align with 4×P + 4×C + 9×F within ~50 kcal.
+
+## My Rules integrity
+Compare the My Rules block to labs, CGM, 7d food log, and weight goal.
+- If rules fit the data: **omit** \`rules_advice\` entirely — stay silent.
+- If rules conflict with data or recent meals (e.g. "avoid X" but X logged): set \`rules_advice\` to one short paragraph — suggest concrete rule text edits only.
+- Do **not** repeat rules that already match; do **not** relabel the diet (e.g. keto/ketogenic) unless the user's **raw** rules text says so — quote constraint bullets, not AI summary labels alone.
+- \`diet_label\`: describe goals (cholesterol, IF, etc.) — never "keto/ketogenic" unless user raw text explicitly says keto.
+
+## Output format
+Return **JSON only** — no markdown, no preamble. Every numeric field must be a positive integer **derived from the data block**, not copied from the schema below.
+
+\`\`\`json
+{"protein_g":integer,"fat_g":integer,"carb_g":integer,"fiber_g":integer,"kcal":integer,"diet_label":"string","reasoning":"string — burn, deficit/surplus, kcal math, then weight→goal, CGM avg/min/max when present","rules_advice":"omit when aligned; else string"}
+\`\`\``;
+
+/** Nutritionist-only Gemini revision — input is full MACRO REVISION context block. */
+export function buildMacroRevisionGeminiPrompt(
+  contextBlock: string,
+  lang?: UserLanguage | null,
+): string {
+  return `${MACRO_REVISION_PROMPT}${langInstruction(lang)}
+
+---
+
+## Macro revision data
+
+${contextBlock}`;
+}
 
 /** Nutritionist-only Gemini revision — input is full MACRO REVISION context block. */
 export async function reviseMacroTargetsWithGemini(
   contextBlock: string,
   lang?: UserLanguage | null,
 ): Promise<MacroSuggestion> {
-  const prompt = `${MACRO_REVISION_PROMPT}${langInstruction(lang)}
-
-MACRO REVISION DATA:
-${contextBlock}`;
+  const prompt = buildMacroRevisionGeminiPrompt(contextBlock, lang);
 
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: geminiGenerationConfig({ temperature: 0.2, maxOutputTokens: 8192 }),
+    generationConfig: geminiGenerationConfig({ temperature: 0, maxOutputTokens: 8192 }),
   };
 
   const response = await fetch(GEMINI_ENDPOINT, {
@@ -1405,7 +1543,8 @@ ${contextBlock}`;
   const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
 
   try {
-    const parsed = JSON.parse(cleaned) as MacroSuggestion;
+    const parsed = JSON.parse(cleaned) as MacroSuggestion & { rules_advice?: unknown };
+    const rules_advice = normalizeRulesAdvice(parsed.rules_advice);
     return {
       protein_g: Math.round(Number(parsed.protein_g) || 0),
       fat_g: Math.round(Number(parsed.fat_g) || 0),
@@ -1414,6 +1553,7 @@ ${contextBlock}`;
       kcal: Math.round(Number(parsed.kcal) || 0),
       diet_label: String(parsed.diet_label ?? 'Custom'),
       reasoning: String(parsed.reasoning ?? ''),
+      ...(rules_advice ? { rules_advice } : {}),
     };
   } catch {
     const hint = finishReason === 'MAX_TOKENS' ? ' (truncated)' : '';
@@ -1521,7 +1661,7 @@ function formatLocalTimeContext(now = new Date()): { clockLine: string; guidance
  * fat) are pro-rated linearly across a typical 07:00–23:00 eating window; carbs stay a FULL-DAY
  * ceiling (keto: stay under all day, never pro-rated up).
  */
-function formatDayPacingLine(ctx: CoachContext, now = new Date()): string {
+function formatDayPacingLine(ctx: CoachContext, now = new Date(), omitTargets = false): string {
   const START_HOUR = 7;
   const END_HOUR = 23;
   const hoursIntoDay = now.getHours() + now.getMinutes() / 60;
@@ -1532,7 +1672,7 @@ function formatDayPacingLine(ctx: CoachContext, now = new Date()): string {
 
   const base = `DAY PACING (judge intake by the hour, NOT as if the day is over): now ${timeStr}, ~${pct}% through the typical 07:00–23:00 eating window.`;
   const guide =
-    mt != null
+    !omitTargets && mt != null
       ? ` On-pace-by-now (linear guide for reach-targets): ~${Math.round(mt.kcal * frac)} kcal | P${Math.round(mt.protein_g * frac)}g | F${Math.round(mt.fat_g * frac)}g. Carbs ${Math.round(mt.carb_g)}g is a FULL-DAY CEILING (stay under all day — do NOT pro-rate).`
       : '';
   const rule =
@@ -1552,7 +1692,8 @@ function formatUserRulesForContext(rules: UserRules): string[] {
  * the today+yesterday PERIOD REVIEW snapshot. Keeping the data in one source guarantees the panel
  * and chat always see structurally identical today+yesterday data.
  */
-function buildProfileTargetsHeader(ctx: CoachContext): string[] {
+function buildProfileTargetsHeader(ctx: CoachContext, opts?: { omitMacroTarget?: boolean }): string[] {
+  const omitMacroTarget = opts?.omitMacroTarget === true;
   const { clockLine, guidance } = formatLocalTimeContext();
   const n = (v: number | null | undefined, unit = '') => (v != null ? `${v}${unit}` : '—');
   const bt = ctx.bodyTarget;
@@ -1560,11 +1701,13 @@ function buildProfileTargetsHeader(ctx: CoachContext): string[] {
   return [
     clockLine,
     `TIME-AWARE COACHING: ${guidance}`,
-    formatDayPacingLine(ctx),
+    formatDayPacingLine(ctx, new Date(), omitMacroTarget),
     formatActiveMentorsLine(ctx.mentors),
     `Profile: sex ${ctx.gender ?? 'unknown'}, age ${n(ctx.age)}, height ${n(ctx.heightCm, ' cm')}, language ${ctx.lang?.label ?? 'English'}`,
     `Goals: target weight ${n(bt?.targetWeight_kg ?? null, ' kg')} | target fat ${n(bt?.targetFatPct ?? null, '%')} | target muscle ${n(bt?.targetMuscleMass_kg ?? null, ' kg')} | start weight ${n(ctx.startWeight_kg, ' kg')} | start muscle ${n(ctx.startMuscle_kg, ' kg')}`,
-    `Daily macro target: ${n(mt?.kcal ?? null, ' kcal')} | P ${n(mt?.protein_g ?? null, 'g')} | C ${n(mt?.carb_g ?? null, 'g')} | F ${n(mt?.fat_g ?? null, 'g')} | Fi ${n(mt?.fiber_g ?? null, 'g')}`,
+    ...(!omitMacroTarget
+      ? [`Daily macro target: ${n(mt?.kcal ?? null, ' kcal')} | P ${n(mt?.protein_g ?? null, 'g')} | C ${n(mt?.carb_g ?? null, 'g')} | F ${n(mt?.fat_g ?? null, 'g')} | Fi ${n(mt?.fiber_g ?? null, 'g')}`]
+      : []),
     ...(ctx.userRules ? formatUserRulesForContext(ctx.userRules) : []),
     ...(ctx.labsAiContext ? [ctx.labsAiContext] : []),
   ].filter((l): l is string => Boolean(l));
@@ -1586,8 +1729,8 @@ function buildCoachDataBlock(ctx: CoachContext): string {
  * food, CGM, HR, workouts for today + yesterday) is injected in full via the always-on 2-day
  * snapshot (see buildChatContextBlocks) — the same source the coach panel uses.
  */
-function buildChatDataBlock(ctx: CoachContext): string {
-  return buildProfileTargetsHeader(ctx).join('\n');
+function buildChatDataBlock(ctx: CoachContext, opts?: { omitMacroTarget?: boolean }): string {
+  return buildProfileTargetsHeader(ctx, opts).join('\n');
 }
 
 /** Used when the always-on today+yesterday snapshot is injected (not an explicit /N review). */
@@ -1883,19 +2026,22 @@ function buildChatContextBlocks(
   intent: ChatIntent;
   dataScopeBlock: string;
 } {
-  const dataBlock = buildChatDataBlock(ctx);
   const periodRequest = detectPeriodReviewQuery(message);
+  const dataBlock = buildChatDataBlock(ctx, { omitMacroTarget: Boolean(periodRequest) });
   const intent = detectChatIntent(message, { hasPeriodReview: Boolean(periodRequest) });
   const dataScopeBlock = buildDataScopeBlock(ctx, historyLen, periodRequest);
 
   // Always inject the FULL today+yesterday snapshot (no summarizing). An explicit /N request
-  // widens the window; otherwise default to a 2-day (yesterday + today) snapshot.
+  // widens the window and uses raw eaten data only (no saved macro targets).
   const reviewRequest: PeriodReviewRequest = periodRequest ?? { mode: 'days', days: 2 };
   const snapshot = buildPeriodReviewBlock(
     reviewRequest,
-    ctx.macroTarget,
+    periodRequest ? null : ctx.macroTarget,
     ctx.glucoseHistory,
-    { includeLabHistory: Boolean(periodRequest) },
+    {
+      includeLabHistory: Boolean(periodRequest),
+      rawDataOnly: Boolean(periodRequest),
+    },
   );
   const snapshotInstruction = periodRequest ? PERIOD_REVIEW_CHAT_INSTRUCTION : DEFAULT_SNAPSHOT_INSTRUCTION;
   const periodSection = snapshot.then((block) =>
@@ -1906,7 +2052,7 @@ function buildChatContextBlocks(
 
   let userMessage = message;
   if (periodRequest) {
-    userMessage = `${message}\n\nUse the PERIOD REVIEW block in context. What was good, what to improve, 2–4 concrete suggestions. For GLUCOSE: quote period avg, min, max (mg/dL) from the block; ignore sensor warm-up (first 24h) lows; do NOT give vague CGM summaries.`;
+    userMessage = `${message}\n\nUse the RAW DATA block in context. What was good, what to improve, 2–4 concrete suggestions. For food: cite eaten macro averages and daily totals from the block (not saved app targets). For GLUCOSE: quote period avg, min, max (mg/dL) from the block; ignore sensor warm-up (first 24h) lows; do NOT give vague CGM summaries.`;
   } else {
     const hint = buildTurnHint(mentor, intent, ctx, historyLen);
     if (hint) userMessage = `${message}\n\n${hint}`;

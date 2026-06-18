@@ -1288,35 +1288,17 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
         }
 
         const wantsMacro = activeMentor === 'nutritionist' && isMacroChatRequest(promptText);
-        const macroSlash = wantsMacro && isMacroSlashCommand(promptText);
 
         let replyText: string;
         let macroResult: Awaited<ReturnType<typeof suggestMacroTargets>> | null = null;
 
-        if (macroSlash) {
+        if (wantsMacro) {
           macroResult = await suggestMacroTargets({
             trigger: 'chat-proposal',
             triggerDetail: promptText,
             lang: freshContext.lang,
           });
           replyText = macroSlashIntro(freshContext.lang?.code);
-        } else if (wantsMacro) {
-          [replyText, macroResult] = await Promise.all([
-            chatWithMentor(
-              activeMentor,
-              promptText,
-              currentHistory.slice(0, -1),
-              freshContext,
-              yesterdaySummary,
-              image?.base64 ?? null,
-              image?.mimeType,
-            ),
-            suggestMacroTargets({
-              trigger: 'chat-proposal',
-              triggerDetail: promptText,
-              lang: freshContext.lang,
-            }),
-          ]);
         } else {
           replyText = await chatWithMentor(
             activeMentor,

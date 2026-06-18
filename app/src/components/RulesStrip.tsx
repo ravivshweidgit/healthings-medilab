@@ -42,7 +42,7 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
         rawText: text.trim(),
         summary: result.summary,
         constraints: result.constraints,
-        aiContext: result.aiContext,
+        aiContext: (result.context ?? '').trim(),
         analyzedAt: new Date().toISOString(),
       };
       await saveUserRules(rules);
@@ -89,7 +89,7 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
                   style={styles.textInput}
                   value={text}
                   onChangeText={setText}
-                  placeholder="e.g. keto diet, diabetic, no meat, IF 16:8"
+                  placeholder="e.g. high cholesterol, IF 16:8, avoid red meat, kidney protein limit"
                   placeholderTextColor={WellnessColors.textSecondary}
                   multiline
                   numberOfLines={4}

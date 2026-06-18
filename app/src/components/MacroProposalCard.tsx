@@ -13,6 +13,7 @@ import {
   type UserLanguage,
 } from '../services/TargetService';
 import { macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
+import { RulesAdviceBanner } from './RulesAdviceBanner';
 import { WellnessColors } from '../theme/wellness';
 
 type Props = {
@@ -47,6 +48,9 @@ export function MacroProposalCard({ proposal, lang, onApplied, onDismiss }: Prop
     <View style={styles.card}>
       <Text style={[styles.title, rtl && styles.rtl]}>{title}</Text>
       <Text style={[styles.summary, rtl && styles.rtl]}>{summary}</Text>
+      {proposal.rules_advice ? (
+        <RulesAdviceBanner advice={proposal.rules_advice} rtl={rtl} />
+      ) : null}
       {proposal.reasoning ? (
         <Text style={[styles.reason, rtl && styles.rtl]} numberOfLines={3}>
           {proposal.reasoning}
