@@ -9,7 +9,7 @@ Active / backlog specs stay in `prompts/app/`:
 | prompt31.txt | Spec only — source config + Samsung + AI/manual BMR |
 | prompt32.txt | Spec only — backup import QA + hardening (deferred) |
 | prompt38.txt | Planned — secondary lab findings (liver, iron, uric acid) |
-| prompt40.txt | Planned — recipe/day-plan viewer, kitchen units (nutritionist chat) |
+| prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
 
 **prompt20** — done (Phase 1 + 3 + rules/fiber). Phase 2 photo polish deferred inside `done/prompt20.txt`.
 
@@ -24,6 +24,8 @@ Active / backlog specs stay in `prompts/app/`:
 **prompt37** — done (2026-06-19). Lab GUIDANCE blocks, clinical profiling, profile banner. Phone-tested ~2391 kcal P141 C54 F179 Fi27.
 
 **prompt39** — done (2026-06-19). Food log history for meal AI ("usual shake", "last evening"); lab results strip at dashboard bottom. Phone-tested.
+
+**prompt40a** — done (2026-06-19). Nutritionist recipe cards: `/eat` `/recipe`, AI kitchen units, viewer, log-as-meal. Phone-tested. **40b** → `prompt40b.txt`.
 
 **prompt34** — closed without ship (2026-06-17). Status row declined; chat fallback unnecessary with persistence. Manual CGM exclusions deferred inside `done/prompt34.txt`.
 

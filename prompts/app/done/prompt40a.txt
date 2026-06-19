@@ -1,0 +1,98 @@
+## Prompt 40a — Nutritionist recipe cards (single meal / `/eat` / `/recipe`)
+
+**Status: done (2026-06-19)** — Shipped and phone-tested.
+
+Commit: `0709809` — *Ship prompt40a recipe cards in nutritionist chat with AI kitchen units.*
+
+Spec split: **40b** → `prompts/app/prompt40b.txt` (daily/weekly plans, export, preferences).
+
+Builds on **prompt39** (food log history) and **MacroProposalCard** pattern (`/macros`).
+
+---
+
+### Design principle
+
+> **Chat = conversation. Viewer = document.**
+
+Short chat intro + **RecipeCard** → **RecipeViewerModal** — not HTML in the bubble.
+
+---
+
+### What shipped
+
+#### Recipe pipeline
+
+- `mealPlanTypes.ts` — `RecipePlan`, `RecipeIngredient`, `finalizeRecipePlan`
+- `recipePlanService.ts` — `generateRecipePlan()` structured JSON
+- Kitchen units from **AI only**: `amount_display` (English) + `amount_display_local` (user language) + `grams` for food log
+- No code-side unit translation (i18n-safe)
+
+#### Chat (nutritionist tab)
+
+- `RecipeCard.tsx`, `RecipeViewerModal.tsx`
+- `ChatScreen` branch: recipe intent → card (like `/macros`)
+- `FoodLogModal` prefill from **Log as meal**
+- Slash + hint: `/eat`, `/recipe`, `/אכול` (+ trailing text)
+- `/daily`, `/weekly` → deferred message (implemented in 40b)
+- Natural language: `בנה לי שייק`, `בנה את השייק מאתמול בערב`, etc.
+
+#### `/eat` vs `/recipe`
+
+| | `/eat` | `/recipe` |
+|---|--------|-----------|
+| Sizing | Fits **remaining macros today** | Faithful recipe |
+| History hint | Rebuild + optional scale | Copy from log |
+
+#### Rebuild from food log (40a2)
+
+- `formatFoodLogHistoryForMealAi()` injected into recipe prompt
+- Same history engine as prompt39; different surface (recipe card vs food log add)
+
+#### Food log UX (bundled with 40a test pass)
+
+- 2-line item rows (name full width; kcal + P/C/F/Fi below)
+- Shorter `name_local` prompt in `GeminiService` (~25–35 chars)
+- `mentorChatText.ts` strips `<i>`, `<b>`, etc.
+
+---
+
+### Primary files
+
+| File | Role |
+|------|------|
+| `app/src/logic/mealPlanTypes.ts` | Types + display helpers |
+| `app/src/logic/recipePlanService.ts` | Gemini recipe JSON + prompt |
+| `app/src/logic/chatIntent.ts` | `parseMealSlashCommand`, recipe intents |
+| `app/src/logic/foodLogMealHistory.ts` | History block (prompt39 reuse) |
+| `app/src/components/RecipeCard.tsx` | Inline chat card |
+| `app/src/components/RecipeViewerModal.tsx` | Full-screen recipe |
+| `app/src/screens/ChatScreen.tsx` | Wire nutritionist branch |
+| `app/src/components/FoodLogModal.tsx` | `prefillItems`, 2-line layout |
+
+---
+
+### Phone-tested (2026-06-19)
+
+- [x] Recipe card + viewer — kitchen units from AI (scoop, count, tsp)
+- [x] `/eat`, `/recipe`, natural language shake
+- [x] Log as meal → food log pre-filled
+- [x] Fiber (Fi) per ingredient + day total in viewer
+- [x] RTL Hebrew layout
+- [x] Rebuild from log phrases (history in prompt)
+
+---
+
+### Deferred → prompt40b
+
+- `/daily` full day plan + viewer
+- `/weekly` week plan + viewer
+- Export HTML / plain text
+- Food likes / dislikes profile
+- Saved recipes library (optional)
+
+---
+
+### Related
+
+- **prompt39** — food log history ("add my usual shake")
+- **prompt40b** — day/week menus + export + preferences

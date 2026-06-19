@@ -1,0 +1,202 @@
+## Prompt 40b — Day & week meal plans, export, food preferences
+
+**Status: planned** — builds on **prompt40a** (done).
+
+**40a shipped:** single-recipe cards, `/eat`, `/recipe`, kitchen units, log-as-meal. See `done/prompt40a.txt`.
+
+---
+
+### Goals (remaining from original prompt40)
+
+1. **Full-day menu** — `/daily` → readable plan view (not chat prose)
+2. **Week menu** — `/weekly` → 7-day viewer
+3. **Export** — share day/week as HTML + plain text from viewer
+4. **Food preferences** — likes / dislikes (soft), separate from My Rules (hard)
+5. **Optional:** saved recipes library; link to prompt39 frequent meals
+
+### Design principle (unchanged)
+
+> **Chat = conversation. Viewer = document.**
+
+Same card + full-screen pattern as **RecipeCard** / **MacroProposalCard**.
+
+---
+
+## Slash commands (nutritionist tab)
+
+| Command | Output | Status |
+|---------|--------|--------|
+| `/daily` | `DayPlan` card → timeline viewer | **40b** |
+| `/daily low carb` | Day plan + hint | **40b** |
+| `/daily like yesterday` | Day shaped from food log | **40b** |
+| `/weekly` | `WeekPlan` card | **40b2** |
+| `/weekly no fish` | Week + hint / dislikes | **40b2** |
+| `/יום` `/שבוע` | Hebrew aliases | **40b** |
+
+Today `/daily` and `/weekly` return **“coming next”** — replace with real pipeline in 40b.
+
+**Context injected:** macro target, eaten today, food log history, **FoodPreferences** (40f), My Rules.
+
+---
+
+## UI — day plan viewer
+
+```
+┌─ Today's menu ────────────────────────┐
+│ Target: 2391 kcal · Plan: 2280 (95%)  │
+├───────────────────────────────────────┤
+│ ☀ Breakfast  08:00 — tap to expand     │
+│ 🌤 Lunch      13:00                    │
+│ 🌙 Dinner     19:30                    │
+├───────────────────────────────────────┤
+│ Day total: P141 C54 F179 Fi27          │
+│ [ Export ]  [ Close ]                  │
+└───────────────────────────────────────┘
+```
+
+Expand meal → nested **RecipePlan** ingredient rows (reuse 40a viewer patterns).
+
+---
+
+## UI — week plan viewer (40b2)
+
+- Phone default: collapsed days + expand
+- Optional: horizontal weekday tabs
+- Top: **Export week**
+
+---
+
+## JSON schemas
+
+### `DayPlan`
+
+```json
+{
+  "title": "Saturday lean day",
+  "title_local": "יום רזה — שבת",
+  "date_hint": "today",
+  "meals": [
+    {
+      "slot": "breakfast",
+      "time_hint": "08:00",
+      "label": "Greek yogurt bowl",
+      "label_local": "קערת יוגורט יווני",
+      "recipe": { "...RecipePlan..." },
+      "total_kcal": 420
+    }
+  ],
+  "day_total_kcal": 2280,
+  "day_total_protein_g": 141,
+  "notes": "..."
+}
+```
+
+### `WeekPlan`
+
+```json
+{
+  "title": "Week of Jun 16",
+  "title_local": "שבוע 16–22 ביוני",
+  "days": [{ "weekday": "sun", "label": "Sunday", "day_plan": { "...DayPlan..." } }],
+  "week_notes": "..."
+}
+```
+
+Kitchen units: same AI rules as 40a (`amount_display` + `amount_display_local` + `grams`).
+
+---
+
+## Food preferences (40f)
+
+```ts
+type FoodPreferences = {
+  likes: string[];
+  dislikes: string[];
+  updatedAt: string;
+};
+```
+
+- Profile UI: **Food tastes** (separate from My Rules)
+- Injected into `/daily`, `/weekly`, `/eat`, recipe generation
+- Soft constraints only
+
+---
+
+## Export (40e)
+
+From viewer only (not chat):
+
+| Format | Use |
+|--------|-----|
+| HTML | Rich share (template from JSON; reuse `mentorChatExport` patterns) |
+| Plain text | WhatsApp |
+
+---
+
+## Phased delivery
+
+| Phase | Scope | Phone test |
+|-------|--------|------------|
+| **40b** | `generateDayPlan`, `DayPlanCard`, day viewer, `/daily` | "/daily" |
+| **40b2** | `generateWeekPlan`, week viewer, `/weekly` | "/weekly" |
+| **40e** | Export day/week | Share from viewer |
+| **40f** | `FoodPreferences` + profile UI | Plans avoid dislikes |
+| **40c** | Saved recipes library | Optional |
+| **40d** | Saved recipe ↔ food log history | Optional |
+
+---
+
+## Primary files (expected)
+
+| File | Role |
+|------|------|
+| `app/src/logic/dayPlanService.ts` | `generateDayPlan` |
+| `app/src/logic/weekPlanService.ts` | `generateWeekPlan` |
+| `app/src/logic/planExport.ts` | HTML + plain text |
+| `app/src/logic/foodPreferences.ts` | Storage + prompt block |
+| `app/src/components/DayPlanCard.tsx` | Inline chat card |
+| `app/src/components/WeekPlanCard.tsx` | Inline chat card |
+| `app/src/components/DayPlanViewerModal.tsx` | Timeline |
+| `app/src/components/WeekPlanViewerModal.tsx` | 7-day view |
+| `app/src/components/FoodPreferencesStrip.tsx` | Profile UI |
+| `app/src/screens/ChatScreen.tsx` | Wire `/daily` `/weekly` |
+| `app/src/services/TargetService.ts` | `FoodPreferences` |
+
+Reuse from 40a: `mealPlanTypes.ts`, `recipePlanService.ts`, `foodLogMealHistory.ts`, `chatIntent.ts`.
+
+---
+
+## Acceptance (40b)
+
+- [ ] "/daily" → day card + expandable meals (not chat wall of text)
+- [ ] Day totals vs macro target
+- [ ] Each meal loggable independently (prefill food log)
+- [ ] Chat intro ≤2 sentences
+
+## Acceptance (40b2)
+
+- [ ] `/weekly` → navigable week view
+
+## Acceptance (40e)
+
+- [ ] Export HTML + plain text, RTL Hebrew OK
+
+## Acceptance (40f)
+
+- [ ] Likes/dislikes in profile; plans respect dislikes
+
+---
+
+## Open questions
+
+1. **40f before 40b?** Preferences improve `/daily` quality — recommend 40f first or parallel.
+2. **Weekly:** full 7-day detail vs Mon–Fri + weekend summary?
+3. **Export default:** HTML file vs WhatsApp plain text?
+
+---
+
+## Related
+
+- **prompt40a** — recipe cards (done)
+- **prompt39** — food log history
+- **prompt38** — secondary lab flags (parallel)
