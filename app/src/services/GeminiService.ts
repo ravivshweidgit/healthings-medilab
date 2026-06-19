@@ -1392,6 +1392,12 @@ export type MacroSuggestion = {
   kcal: number;
   diet_label: string;
   reasoning: string;
+  /** Computed clinical profile — echo CLINICAL PROFILE block; e.g. "lipid-primary + kidney cap". */
+  clinical_profile?: string;
+  /** Macro derivation order after kcal — echo CLINICAL PROFILE block. */
+  macro_order?: string;
+  /** P/C/F priority after kcal — echo CLINICAL PROFILE block, e.g. "P (cap) → C+Fi → F (fill)". */
+  pcf_priority?: string;
   /** Set only when My Rules should be edited; omitted when rules fit labs/CGM/food/weight. */
   rules_advice?: string;
 };
@@ -1435,20 +1441,51 @@ Textbook method (already applied in computed block):
 
 Work order:
 1. Set \`kcal\` from **ENERGY BALANCE (computed)**.
-2. Derive \`protein_g\`, \`carb_g\`, \`fat_g\`, \`fiber_g\` to sum to that kcal.
-3. In \`reasoning\`, cite burn, scale trend rate, deficit % TDEE, target kcal — then macros.
+2. **Clinical profile** — lab synthesis, primary driver + constraints, macro derivation order (section below).
+3. Set \`protein_g\`, \`carb_g\`, \`fiber_g\`, then \`fat_g\` fills remaining kcal per chosen order.
+4. In \`reasoning\`: profile + order → burn, scale trend, deficit % TDEE, target kcal → macros with cited labs/CGM.
 
-## Primary goal (My Rules + labs — before macro split)
-Read My Rules **summary** and LAB RESULTS to find the **primary** goal:
-- **Cholesterol / lipids** (כולסטרול, LDL, saturated fat limits) → lead with **fat quality** and **soluble fiber** — **not** carb minimization.
-- **Kidney** (creatinine/urea) → protein cap (Kidney section).
-- **Body weight** → \`kcal\` already set in ENERGY BALANCE (computed).
+## Clinical profile & macro order (after kcal — before grams)
+Before setting P/C/F/Fi, build a short clinical profile from My Rules, full **LAB RESULTS**, CGM 7d block, weight goal, and computed GUIDANCE blocks — use blocks for caps/bands; do not re-derive what they already state.
 
-When cholesterol is primary: \`diet_label\` and \`reasoning\` must center lipids and heart-healthy fats — never "low-carb" / "keto" unless user raw text says so.
+### A — Lab synthesis (textbook)
+- Scan the **latest** chemistry + CBC draw; cite abnormal values in \`reasoning\`.
+- Note **pattern** when relevant (e.g. high LDL + normal TG/glucose → isolated LDL elevation, not metabolic syndrome).
+- **Secondary** flags (iron, phosphorus, liver enzymes, uric acid): mention in \`reasoning\` or \`rules_advice\` when nutrition-relevant — they do not override P/C/F unless clearly tied to macros.
 
-## Fat (derivation — especially when cholesterol is primary)
-When LDL/total cholesterol is high in labs OR My Rules cite כולסטרול/cholesterol:
-- Set \`protein_g\` and \`carb_g\` first; \`fat_g\` fills remaining kcal toward ENERGY BALANCE target.
+### B — Profile (primary + constraints)
+Pick **one primary** macro driver and list **secondary constraints**:
+
+| Primary | When |
+| lipid | LDL/total chol high OR My Rules center cholesterol / כולסטרול |
+| glycemic | Fasting glucose or HbA1c high OR CGM poorly controlled (per GLYCEMIC GUIDANCE) |
+| weight | Labs/rules OK; body-composition goal dominates |
+| explicit_low_carb | User **raw** rules text explicitly requests low-carb / keto |
+
+Secondary constraints (can stack): **kidney** (creatinine/urea high → protein cap), **energy_cautious** (scale losing faster than ENERGY BALANCE target), CGM lows (&lt;70).
+
+When multiple apply: primary sets **macro derivation order**; secondaries apply **caps/bands** (lab conflict order: kidney → glycemic → lipid → CARB GUIDANCE).
+
+### C — Macro derivation order (after \`kcal\`)
+| Profile | Order for grams |
+| kidney constraint + lipid primary | protein cap (KIDNEY GUIDANCE) → carbs/fiber (CARB + LIPID GUIDANCE) → fat fills remaining kcal |
+| glycemic primary | carbs/fiber (GLYCEMIC + CARB GUIDANCE) → protein → fat fills remaining kcal |
+| weight-only / balanced | protein → carbs/fiber → fat fills remaining kcal |
+| explicit_low_carb | carb cap per rules → protein → fat fills remaining kcal |
+
+**Always:** \`fat_g\` = remaining kcal after P/C/Fi (÷9, round). Fat **quality** still governed by My Rules and LIPID GUIDANCE — high \`fat_g\` from math is OK when unsaturated-focused.
+
+State profile and order in \`reasoning\` (user language OK in \`reasoning\` only).
+
+**JSON profile fields (\`clinical_profile\`, \`macro_order\`, \`pcf_priority\`):** professional **medical English only** — echo CLINICAL PROFILE block exactly; never Hebrew in these fields.
+
+### D — \`diet_label\`
+Describe goals (cholesterol, kidney, weight, IF) — never "keto/ketogenic" unless user raw text explicitly says keto.
+When lipid-primary: center lipids and heart-healthy fats in \`diet_label\` and \`reasoning\` — not carb minimization.
+
+## Fat (derivation)
+After profile order: \`fat_g\` typically **fills** remaining kcal toward ENERGY BALANCE target.
+When lipid-primary OR LDL/total cholesterol high in labs:
 - Favor **unsaturated** fats per My Rules (salmon, nuts, seeds, olive oil); respect saturated-fat / cholesterol-food limits in rules.
 - High \`fat_g\` from kcal math is OK if fats are rule-aligned — do **not** slash \`carb_g\` just to lower fat grams when cholesterol (not keto) is the goal.
 - Cite lipid lab values in \`reasoning\` when LAB RESULTS present.
@@ -1470,16 +1507,23 @@ Context: GLUCOSE & FOOD IMPACT + MEAL GLUCOSE in the data section below.
 - Lows &lt;70 (trusted days): do not cut kcal further — note in \`reasoning\`.
 
 ## Kidney (lab results)
-Scope: creatinine / urea on **latest draw** in LAB RESULTS.
+Scope: **KIDNEY GUIDANCE (computed)** when present; else creatinine / urea on latest draw in LAB RESULTS.
 - When creatinine or urea is flagged **high**: \`protein_g\` ≤ round(2.2 × lean mass kg); if lean mass missing use round(2.0 × weight kg).
 - Cite exact lab values in \`reasoning\`; do not raise protein above 7d eaten protein avg without strong justification.
 - If My Rules omit kidney/protein limits while these labs are high: set \`rules_advice\` with one concrete sentence the user can paste into My Rules.
 
+## Lipids (lab results)
+Use **LIPID GUIDANCE (computed)** when present — fat quality and fiber, **not** carb minimization for LDL alone.
+
+## Glycemic (lab results + CGM)
+Use **GLYCEMIC GUIDANCE (computed)** when present; cross-check **CGM 7-day block** (labs alone are not enough for daily carb targets).
+
 ## Priority rules
 1. **My Rules** are HARD constraints — never violate when setting macros.
 2. **Energy balance**: \`kcal\` comes from **ENERGY BALANCE (computed)** in the data block — not BMR, not 7d eaten avg as primary formula.
-3. Labs: informational only — kidney/lipids may cap protein/fat increases, not diagnose.
-4. kcal must align with 4×P + 4×C + 9×F within ~50 kcal.
+3. **Lab conflict order**: kidney protein cap → glycemic carb caution → lipid fat quality → CARB GUIDANCE band.
+4. Labs: informational only — not a diagnosis; kidney/lipids/glycemic guide caps and reasoning.
+5. kcal must align with 4×P + 4×C + 9×F within ~50 kcal.
 
 ## My Rules integrity
 Compare the My Rules block to labs, CGM, 7d food log, and weight goal.
@@ -1492,7 +1536,7 @@ Compare the My Rules block to labs, CGM, 7d food log, and weight goal.
 Return **JSON only** — no markdown, no preamble. Every numeric field must be a positive integer **derived from the data block**, not copied from the schema below.
 
 \`\`\`json
-{"protein_g":integer,"fat_g":integer,"carb_g":integer,"fiber_g":integer,"kcal":integer,"diet_label":"string","reasoning":"string — burn, deficit/surplus, kcal math, then weight→goal, CGM avg/min/max when present","rules_advice":"omit when aligned; else string"}
+{"protein_g":integer,"fat_g":integer,"carb_g":integer,"fiber_g":integer,"kcal":integer,"diet_label":"string","clinical_profile":"string — medical English, echo CLINICAL PROFILE","macro_order":"string — medical English, echo CLINICAL PROFILE","pcf_priority":"string — echo CLINICAL PROFILE P/C/F line","reasoning":"string — (1) lab synthesis + profile + macro order, (2) burn/deficit/kcal, (3) P/C/F/Fi with cited labs/CGM","rules_advice":"omit when aligned; else string"}
 \`\`\``;
 
 /** Nutritionist-only Gemini revision — input is full MACRO REVISION context block. */
@@ -1545,6 +1589,9 @@ export async function reviseMacroTargetsWithGemini(
   try {
     const parsed = JSON.parse(cleaned) as MacroSuggestion & { rules_advice?: unknown };
     const rules_advice = normalizeRulesAdvice(parsed.rules_advice);
+    const clinical_profile = String(parsed.clinical_profile ?? '').trim() || undefined;
+    const macro_order = String(parsed.macro_order ?? '').trim() || undefined;
+    const pcf_priority = String(parsed.pcf_priority ?? '').trim() || undefined;
     return {
       protein_g: Math.round(Number(parsed.protein_g) || 0),
       fat_g: Math.round(Number(parsed.fat_g) || 0),
@@ -1553,6 +1600,9 @@ export async function reviseMacroTargetsWithGemini(
       kcal: Math.round(Number(parsed.kcal) || 0),
       diet_label: String(parsed.diet_label ?? 'Custom'),
       reasoning: String(parsed.reasoning ?? ''),
+      ...(clinical_profile ? { clinical_profile } : {}),
+      ...(macro_order ? { macro_order } : {}),
+      ...(pcf_priority ? { pcf_priority } : {}),
       ...(rules_advice ? { rules_advice } : {}),
     };
   } catch {

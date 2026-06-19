@@ -15,6 +15,7 @@ import {
 import { suggestMacroTargets, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
 import { buildAndExportMacroPrompt } from '../services/macroPromptExport';
 import { RulesAdviceBanner } from './RulesAdviceBanner';
+import { MacroClinicalProfileBanner } from './MacroClinicalProfileBanner';
 import {
   clearMacroTarget,
   getMacroTarget,
@@ -360,6 +361,13 @@ export function MacroTargetStrip({
                   rtl={lang?.code === 'he' || lang?.code === 'ar'}
                 />
               ) : null}
+              {suggestion.clinical_profile ? (
+                <MacroClinicalProfileBanner
+                  clinicalProfile={suggestion.clinical_profile}
+                  pcfPriority={suggestion.pcf_priority}
+                  macroOrder={suggestion.macro_order}
+                />
+              ) : null}
               <View style={styles.reasoningBox}>
                 <Text style={styles.reasoningText}>{suggestion.reasoning}</Text>
               </View>
@@ -413,6 +421,14 @@ export function MacroTargetStrip({
             <View>
               {updatedLabel ? (
                 <Text style={styles.updatedDetail}>{updatedLabel}</Text>
+              ) : null}
+              {target.clinical_profile ? (
+                <MacroClinicalProfileBanner
+                  clinicalProfile={target.clinical_profile}
+                  pcfPriority={target.pcf_priority}
+                  macroOrder={target.macro_order}
+                  compact
+                />
               ) : null}
               <MacroBar label="P" actual={actualProtein_g} target={target.protein_g} color="#4CAF50" />
               <MacroBar label="C" actual={actualCarb_g}    target={target.carb_g}    color="#FF9800" />

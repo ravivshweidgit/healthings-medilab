@@ -16,9 +16,23 @@ import { buildPeriodReviewBlock, get7DayAverageBurnKcal, get7DayAverageEatenKcal
 import {
   buildLabsForMacroRevision,
   formatKidneyMarkersSummary,
+  getLatestGlycemicLabStatus,
   getLatestKidneyLabStatus,
+  getLatestLipidLabStatus,
+  type GlycemicLabStatus,
   type KidneyLabStatus,
+  type LipidLabStatus,
 } from '../services/LabLogService';
+import {
+  formatGlycemicGuidanceBlock,
+  formatKidneyGuidanceBlock,
+  formatLipidGuidanceBlock,
+} from './macroLabGuidance';
+import {
+  computeClinicalProfile,
+  formatClinicalProfileBlock,
+  type ClinicalProfileSummary,
+} from './macroClinicalProfile';
 import { loadWithingsStore, syncWithingsStore } from '../services/WithingsPersistenceService';
 import {
   getBodyTarget,
@@ -61,11 +75,14 @@ export type MacroRevisionBundle = {
   userRules: UserRules | null;
   macroTarget: DailyMacroTarget | null;
   kidneyLabStatus: KidneyLabStatus | null;
+  lipidLabStatus: LipidLabStatus | null;
+  glycemicLabStatus: GlycemicLabStatus | null;
   avgEatenKcal7d: number | null;
   avgEatenCarb7d: number | null;
   weightDelta14dKg: number | null;
   age: number | null;
   gender: Gender | null;
+  clinicalProfile: ClinicalProfileSummary;
 };
 
 /** ~7700 kcal per kg body-weight change (textbook energy density). */
@@ -403,7 +420,13 @@ function finalizeMacroSuggestion(
   if (floor != null) {
     processed = applyKcalEnergyFloor(processed, floor);
   }
-  return processed;
+  const cp = bundle.clinicalProfile;
+  return {
+    ...processed,
+    clinical_profile: processed.clinical_profile?.trim() || cp.profileLine,
+    macro_order: processed.macro_order?.trim() || cp.macroOrder,
+    pcf_priority: processed.pcf_priority?.trim() || cp.pcfPriority,
+  };
 }
 
 function fmtKg(v: number | null | undefined, decimals = 1): string {
@@ -568,9 +591,11 @@ export async function buildMacroRevisionBundle(opts: {
   const weightTrend14 = formatWeightTrendLines(store.bodyTrendDays, 14);
   const weightDelta14dKg = weightDeltaKg(store.bodyTrendDays, 14);
   const bodyTrend28 = formatBodyCompTrendLines(store.bodyTrendDays, 28);
-  const [labs, kidneyLabStatus] = await Promise.all([
+  const [labs, kidneyLabStatus, lipidLabStatus, glycemicLabStatus] = await Promise.all([
     buildLabsForMacroRevision(),
     getLatestKidneyLabStatus(),
+    getLatestLipidLabStatus(),
+    getLatestGlycemicLabStatus(),
   ]);
 
   const header = `=== MACRO REVISION (${opts.trigger}${opts.triggerDetail ? `: ${opts.triggerDetail}` : ''}) ===`;
@@ -585,6 +610,20 @@ export async function buildMacroRevisionBundle(opts: {
     gender,
   });
 
+  const clinicalProfile = computeClinicalProfile({
+    userRules,
+    kidney: kidneyLabStatus,
+    lipid: lipidLabStatus,
+    glycemic: glycemicLabStatus,
+    energyPlan: energyPlan
+      ? {
+          direction: energyPlan.direction,
+          observedWeeklyLossKg: energyPlan.observedWeeklyLossKg,
+          targetWeeklyLossKg: energyPlan.targetWeeklyLossKg,
+        }
+      : null,
+  });
+
   const contextText = [
     header,
     formatBodyTarget(bodyTarget),
@@ -592,6 +631,10 @@ export async function buildMacroRevisionBundle(opts: {
     formatProfileBasics({ age, gender, heightCm, weightKg, fatMassKg, bmr_kcal, leanMassKg, avgBurn7d }),
     weightTrend14,
     energyPlan ? formatEnergyBalanceBlock(energyPlan) : null,
+    formatClinicalProfileBlock(clinicalProfile),
+    formatKidneyGuidanceBlock({ kidney: kidneyLabStatus, leanMassKg, weightKg }),
+    formatLipidGuidanceBlock({ lipid: lipidLabStatus, userRules }),
+    formatGlycemicGuidanceBlock({ glycemic: glycemicLabStatus }),
     formatCarbGuidanceBlock({ avgEatenCarb7d, userRules }),
     bodyTrend28,
     labs,
@@ -612,11 +655,14 @@ export async function buildMacroRevisionBundle(opts: {
     userRules,
     macroTarget,
     kidneyLabStatus,
+    lipidLabStatus,
+    glycemicLabStatus,
     avgEatenKcal7d,
     avgEatenCarb7d,
     weightDelta14dKg,
     age,
     gender,
+    clinicalProfile,
   };
 }
 
@@ -688,6 +734,9 @@ export function macroSuggestionToDailyTarget(
     kcal: result.kcal,
     diet_label: result.diet_label,
     reasoning: result.reasoning,
+    clinical_profile: result.clinical_profile,
+    macro_order: result.macro_order,
+    pcf_priority: result.pcf_priority,
     rulesContext: userRules?.constraints?.length
       ? userRules.constraints.join(' · ')
       : (userRules?.rawText ?? ''),

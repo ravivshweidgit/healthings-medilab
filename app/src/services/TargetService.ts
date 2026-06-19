@@ -173,6 +173,10 @@ export type DailyMacroTarget = {
   kcal: number;
   diet_label: string;
   reasoning: string;
+  /** Nutrition profile from last macro analysis (computed + AI). */
+  clinical_profile?: string;
+  macro_order?: string;
+  pcf_priority?: string;
   rulesContext: string;
   mentors: MentorType[];
   aiSuggested: { protein_g: number; fat_g: number; carb_g: number; fiber_g?: number; kcal: number };

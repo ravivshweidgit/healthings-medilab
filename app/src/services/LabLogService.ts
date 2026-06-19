@@ -263,6 +263,116 @@ export function formatKidneyMarkersSummary(status: KidneyLabStatus): string {
   return parts.join(', ');
 }
 
+export type LipidLabMarker = KidneyLabMarker;
+
+export type LipidLabStatus = {
+  ldl: LipidLabMarker | null;
+  totalCholesterol: LipidLabMarker | null;
+  triglycerides: LipidLabMarker | null;
+  hdl: LipidLabMarker | null;
+  hasActionableMarker: boolean;
+};
+
+export type GlycemicLabStatus = {
+  glucose: LipidLabMarker | null;
+  hba1c: LipidLabMarker | null;
+  hasHighMarker: boolean;
+};
+
+function pickMarker(r: LabResult): LipidLabMarker {
+  return {
+    code: r.code,
+    name: r.name,
+    value: r.value,
+    unit: r.unit,
+    flag: r.flag,
+  };
+}
+
+function isLdlResult(r: LabResult): boolean {
+  return /CHOLESTEROL.?LDL|LDL.?CHOL|\bLDL\b/i.test(resultMatchBlob(r));
+}
+
+function isTotalCholResult(r: LabResult): boolean {
+  const b = resultMatchBlob(r);
+  if (/NON.?HDL/i.test(b)) return false;
+  return /\bCHOLESTEROL\b/i.test(b) && !/LDL|HDL|NON/i.test(b);
+}
+
+function isHdlResult(r: LabResult): boolean {
+  return /CHOLESTEROL.?HDL|\bHDL\b/i.test(resultMatchBlob(r));
+}
+
+function isTriglycerideResult(r: LabResult): boolean {
+  return /TRIGLYCERID|\bTG\b/i.test(resultMatchBlob(r));
+}
+
+function isGlucoseResult(r: LabResult): boolean {
+  const b = resultMatchBlob(r);
+  return /\bGLUCOSE\b|\bGLUC\b|סוכר/i.test(b) && !/HBA1C|A1C|המוגלובין/i.test(b);
+}
+
+function isHba1cResult(r: LabResult): boolean {
+  return /HBA1C|HBA_?1C|HEMOGLOBIN.?A1C|\bA1C\b/i.test(resultMatchBlob(r));
+}
+
+export function scanLipidLabStatus(report: LabReport): LipidLabStatus {
+  let ldl: LipidLabMarker | null = null;
+  let totalCholesterol: LipidLabMarker | null = null;
+  let triglycerides: LipidLabMarker | null = null;
+  let hdl: LipidLabMarker | null = null;
+
+  for (const panel of report.panels) {
+    for (const r of panel.results) {
+      if (!ldl && isLdlResult(r)) ldl = pickMarker(r);
+      if (!totalCholesterol && isTotalCholResult(r)) totalCholesterol = pickMarker(r);
+      if (!triglycerides && isTriglycerideResult(r)) triglycerides = pickMarker(r);
+      if (!hdl && isHdlResult(r)) hdl = pickMarker(r);
+    }
+  }
+
+  const hasActionableMarker =
+    ldl?.flag === 'high' ||
+    totalCholesterol?.flag === 'high' ||
+    triglycerides?.flag === 'high' ||
+    hdl?.flag === 'low';
+
+  return { ldl, totalCholesterol, triglycerides, hdl, hasActionableMarker };
+}
+
+export function scanGlycemicLabStatus(report: LabReport): GlycemicLabStatus {
+  let glucose: LipidLabMarker | null = null;
+  let hba1c: LipidLabMarker | null = null;
+
+  for (const panel of report.panels) {
+    for (const r of panel.results) {
+      if (!glucose && isGlucoseResult(r)) glucose = pickMarker(r);
+      if (!hba1c && isHba1cResult(r)) hba1c = pickMarker(r);
+    }
+  }
+
+  const hasHighMarker = glucose?.flag === 'high' || hba1c?.flag === 'high';
+  return { glucose, hba1c, hasHighMarker };
+}
+
+export async function getLatestLipidLabStatus(): Promise<LipidLabStatus | null> {
+  const latest = await getLatestLabReport();
+  if (!latest) return null;
+  const status = scanLipidLabStatus(latest);
+  if (!status.ldl && !status.totalCholesterol && !status.triglycerides && !status.hdl) {
+    return null;
+  }
+  return status;
+}
+
+export async function getLatestGlycemicLabStatus(): Promise<GlycemicLabStatus | null> {
+  const latest = await getLatestLabReport();
+  if (!latest) return null;
+  const status = scanGlycemicLabStatus(latest);
+  if (!status.glucose && !status.hba1c) return null;
+  return status;
+}
+
 /** Latest draw + one prior draw for macro revision (trends: UREA, creatinine, LDL). */
 export async function buildLabsForMacroRevision(): Promise<string | null> {
   const all = await getAllLabReports();

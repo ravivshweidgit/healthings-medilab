@@ -1,0 +1,55 @@
+## Prompt 38 — Secondary lab findings (common issues, non-macro)
+
+**Status: planned** — split from prompt37 P1 backlog.
+
+Builds on **prompt37** (P0 lipid/kidney/glycemic GUIDANCE + clinical profile banner).
+
+### Goal
+
+Acknowledge **common abnormal labs** that do not primarily drive P/C/F splits — so the product
+responds like a clinician for more users, without bloating the macro pipeline.
+
+### Tier model (unchanged)
+
+| Tier | When | Example |
+|------|------|---------|
+| A — Code guardrail | Unsafe if wrong | (none new in 38) |
+| B — Computed GUIDANCE | Clear macro band | (none new in 38 — use 37) |
+| C — Prompt + chat | Clinical note, meals | Liver, iron, uric acid |
+| D — My Rules | Individual | Statin, CKD stage, allergies |
+
+### Scope (38a — prompt/chat only, no macro regression)
+
+| Condition | Markers | Delivery |
+|-----------|---------|----------|
+| Liver | ALT, AST, GGT elevated | `reasoning` + `rules_advice`; nutritionist chat |
+| Uric acid / gout | Uric acid high | Meal flags in food log; chat purine guidance |
+| Iron / CBC | Low iron, low Hb | `reasoning` flag; chat (foods + MD referral); **no** auto protein change |
+
+Optional: **Secondary findings** line in macro `reasoning` template (scan latest draw for Tier-C flags).
+
+### Scope (38b — later, if user data warrants)
+
+| Condition | Build when |
+|-----------|------------|
+| `LIVER GUIDANCE` block | Repeated ALT↑ users |
+| Uric acid meal rule check | Gout in My Rules or uric acid high |
+| Metabolic pattern (high TG + low HDL) | Extend lipid profile line |
+
+### Out of scope
+
+- New P/C/F guardrails for iron, liver, uric acid (unless explicit clinical rule added later)
+- Full disease modules (CKD stage, thyroid dosing, etc.)
+
+### Acceptance (38a)
+
+- [ ] Macro revision `reasoning` mentions secondary flags when present (iron low, ALT↑, uric acid high)
+- [ ] Nutritionist chat cites these from LAB RESULTS when user asks
+- [ ] No regression on prompt37 phone-tested macros / profile banner
+- [ ] Move to `done/` when phone-tested
+
+### Primary files (expected)
+
+- `app/src/services/GeminiService.ts` — macro `reasoning` template, chat lab hints
+- `app/src/logic/macroLabGuidance.ts` — optional `formatSecondaryFindingsBlock()` (Tier C)
+- `app/src/services/GeminiService.ts` — meal / chat uric acid flags (38b)

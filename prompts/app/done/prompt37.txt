@@ -1,0 +1,82 @@
+## Prompt 37 — Lab GUIDANCE blocks, clinical profiling, profile banner
+
+**Status: done (2026-06-19)** — Shipped and phone-tested.
+
+Builds on **prompt36** (energy balance, carb tiers, kidney protein cap).
+
+### Phone-tested result (dashboard-suggest, 2026-06-19)
+
+| Macro | Value | Notes |
+|-------|-------|-------|
+| kcal | **2391** | Adaptive deficit; wearable burn anchor |
+| P | **141** | Renal protein cap (2.2× lean) |
+| C | **54** | CARB GUIDANCE band |
+| F | **179** | Fills remainder after P/C |
+| Fi | **27** | ~½× carbs |
+
+**Clinical profile banner (My Macros):**
+- `Lipid-primary + renal protein cap + adaptive deficit caution`
+- `P (cap) → C+Fi → F (remainder)`
+- Full sequence: `kcal → protein cap → carbs/fiber → fat remainder`
+
+---
+
+### What shipped
+
+#### 37a — Lab GUIDANCE blocks (Tier B)
+
+- `scanLipidLabStatus`, `scanGlycemicLabStatus` in `LabLogService.ts`
+- `formatKidneyGuidanceBlock`, `formatLipidGuidanceBlock`, `formatGlycemicGuidanceBlock` in `macroLabGuidance.ts`
+- Injected in `buildMacroRevisionBundle()` after ENERGY BALANCE, before CARB GUIDANCE
+
+#### 37b — Clinical profiling (prompt)
+
+- `MACRO_REVISION_PROMPT`: **Clinical profile & macro order** section
+- Work order: kcal → profile → P/C/F/Fi in chosen order
+- Lab conflict order: kidney → glycemic → lipid → carb band
+
+#### 37c — Profile feedback (computed + UI)
+
+- `macroClinicalProfile.ts` — deterministic profile from labs, rules, energy plan
+- `CLINICAL PROFILE (computed)` block in macro revision context
+- JSON fields `clinical_profile`, `macro_order`, `pcf_priority` (code fills if Gemini omits)
+- `MacroClinicalProfileBanner` — dashboard suggestion, saved targets, chat proposal card
+- Saved on `DailyMacroTarget`
+
+Professional **medical English** in profile fields; `reasoning` may use user language.
+
+---
+
+### Architecture
+
+```
+buildMacroRevisionBundle()
+  → ENERGY BALANCE (computed)
+  → CLINICAL PROFILE (computed)
+  → KIDNEY / LIPID / GLYCEMIC GUIDANCE
+  → CARB GUIDANCE (computed)
+  → labs, CGM, FOOD MACROS, trends, My Rules
+
+finalizeMacroSuggestion()
+  → postProcess → kidney guardrail → kcal floor → profile fields
+```
+
+---
+
+### Primary files
+
+- `app/src/services/LabLogService.ts`
+- `app/src/logic/macroLabGuidance.ts`
+- `app/src/logic/macroClinicalProfile.ts`
+- `app/src/logic/macroAutoAdjust.ts`
+- `app/src/services/GeminiService.ts` — `MACRO_REVISION_PROMPT`
+- `app/src/services/TargetService.ts`
+- `app/src/components/MacroClinicalProfileBanner.tsx`
+- `app/src/components/MacroTargetStrip.tsx`
+- `app/src/components/MacroProposalCard.tsx`
+
+---
+
+### Deferred → prompt38
+
+Secondary lab patterns (liver, uric acid, iron/CBC) — Tier C reasoning/chat first, not macro pipeline.
