@@ -19,6 +19,8 @@ Builds on **prompt36** (energy balance, carb tiers, kidney protein cap).
 - `P (cap) → C+Fi → F (remainder)`
 - Full sequence: `kcal → protein cap → carbs/fiber → fat remainder`
 
+Reference export: `prompts/macros/macro-gemini-prompt_2026-06-19-prompt37.txt`
+
 ---
 
 ### What shipped
@@ -80,3 +82,8 @@ finalizeMacroSuggestion()
 ### Deferred → prompt38
 
 Secondary lab patterns (liver, uric acid, iron/CBC) — Tier C reasoning/chat first, not macro pipeline.
+
+### Verification
+
+1. Export must include `CLINICAL PROFILE`, `KIDNEY/LIPID/GLYCEMIC GUIDANCE`, clinical profiling sections.
+2. API: `node scripts/run-gemini-prompt-file.mjs "prompts/macros/macro-gemini-prompt_2026-06-19-prompt37.txt"`
