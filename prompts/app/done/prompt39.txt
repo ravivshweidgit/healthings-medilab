@@ -1,0 +1,116 @@
+## Prompt 39 — Food log history for meal AI + dashboard lab strip
+
+**Status: done (2026-06-19)** — Shipped and phone-tested.
+
+Commit: `0a56538` — *Add food log history for AI meal references; move lab strip to dashboard bottom.*
+
+Builds on existing food log AI (`analyzeFood`, `FoodLogModal`) and dashboard layout.
+
+---
+
+### Goals
+
+#### 39a — Natural-language references to past meals (food log)
+
+User can type phrases like:
+
+| User says | Expected behavior |
+|-----------|-------------------|
+| "add last evening's shake" / "הוסף את השייק מאתמול בערב" | Copy items from matching history entry |
+| "my usual shake" / "השייק הרגיל שלי" | Use **FREQUENT MEALS** pattern (≥2 repeats in window) |
+| "same chicken breast meal" / "אותה ארוחת עוף" | Match by food names + recent time |
+| "הוסף כף קינמון" | Normal add — estimate new item (not history) |
+| "chicken 100→200" / correction on result screen | Update **current conversation** meal JSON |
+
+#### 39b — Dashboard UX
+
+Move **Lab results** strip to the **bottom** of the dashboard scroll (least-used section).
+
+---
+
+### Phone-tested (2026-06-19)
+
+- Food log history references — **success**
+- Normal adds and in-meal corrections unchanged — **confirmed**
+
+---
+
+### What shipped
+
+#### 39a — Food log history pipeline
+
+1. **`foodLogMealHistory.ts`**
+   - `computeFrequentMealPatterns()` — recurring meals (signature = sorted item names + grams)
+   - `formatFoodLogHistoryForMealAi()` — compact block for prompt injection
+   - 14-day lookback; excludes meal being edited
+   - Per meal: id, date/time, day part (morning/afternoon/evening/night), items + macros
+   - **FREQUENT MEALS** footer for "usual" / "regular"
+
+2. **`GeminiService.ts`**
+   - `buildFoodSystemPrompt(lang, userRules, foodLogHistory?)` — appends history + **FOOD HISTORY RULES**
+   - `analyzeFood(..., foodLogHistory?)` — passes history into system prompt
+   - Rules: match past meals from history; corrections use conversation JSON, not history
+
+3. **`FoodLogModal.tsx`**
+   - Loads `getRecentMeals(14)` when modal opens
+   - `resolveFoodLogHistory()` — ensures block ready before each analysis (race-safe)
+   - Wired on: text submit, photo analysis, chat correction
+   - Hebrew/English placeholders hint at history phrases
+
+#### 39b — Dashboard
+
+- `DashboardScreen.tsx` — `LabResultsStrip` moved below My Profile / backup card
+
+---
+
+### Architecture
+
+```
+FoodLogModal (visible)
+  → getRecentMeals(14)
+  → formatFoodLogHistoryForMealAi(entries, { excludeEntryId, lookbackDays: 14 })
+  → analyzeFood(..., foodLogHistory)
+       → buildFoodSystemPrompt(..., foodLogHistory)
+            → SYSTEM_PROMPT + user rules + FOOD LOG HISTORY + FOOD HISTORY RULES
+```
+
+**Separation of concerns**
+
+| Context | Used for |
+|---------|----------|
+| `foodLogHistory` (system prompt) | "yesterday", "usual", "same as last time" |
+| `mealHistory` (GeminiTurn[]) | Corrections to current meal in modal |
+| Fresh text / photo | New meal estimate (USDA-style) |
+
+---
+
+### Primary files
+
+- `app/src/logic/foodLogMealHistory.ts` *(new)*
+- `app/src/services/GeminiService.ts` — `buildFoodSystemPrompt`, `analyzeFood`
+- `app/src/components/FoodLogModal.tsx`
+- `app/src/screens/DashboardScreen.tsx` — lab strip position
+- `app/src/services/FoodLogService.ts` — `getRecentMeals` (existing)
+
+---
+
+### Out of scope
+
+- Mentor chat food context changes (`buildMealsAiContext` — today-only, unchanged)
+- Cross-day meal templates / favorites UI
+- Syncing history block to cloud backup format changes
+
+---
+
+### Verification
+
+1. Log a shake twice → open food log → "my usual shake" → items match frequent pattern.
+2. Log shake yesterday evening → "הוסף את השייק מאתמול בערב" → copies prior entry.
+3. On result screen: "הוסף כף קינמון" → adds item; "עוף 200" → updates current chicken only.
+4. Dashboard: lab results card appears at bottom of scroll.
+
+---
+
+### Related backlog
+
+- **prompt38** — secondary lab findings (liver, iron, uric acid) in macro/chat Tier C

@@ -19,6 +19,10 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt36** — done (2026-06-18). Monitoring-driven macro revision: ENERGY BALANCE + CARB GUIDANCE injection, kcal safety floor, cholesterol-first prompt, tiered carb rules, My Rules parse fix + Goals context. Phone-tested ~2325 kcal P141 C50 F173 Fi25.
 
+**prompt37** — done (2026-06-19). Lab GUIDANCE blocks, clinical profiling, profile banner. Phone-tested ~2391 kcal P141 C54 F179 Fi27.
+
+**prompt39** — done (2026-06-19). Food log history for meal AI ("usual shake", "last evening"); lab results strip at dashboard bottom. Phone-tested.
+
 **prompt34** — closed without ship (2026-06-17). Status row declined; chat fallback unnecessary with persistence. Manual CGM exclusions deferred inside `done/prompt34.txt`.
 
 **prompt33** — closed without ship (2026-06-17). Default 2-day full snapshot + `/N` is sufficient; rollup/cache optimization deferred inside `done/prompt33.txt`.
