@@ -29,7 +29,8 @@ import {
   type GeminiAnalysisResult,
   type GeminiTurn,
 } from '../services/GeminiService';
-import { saveMeal, deleteMeal, foodLogDayKey, getDailyMacros, type FoodEntry } from '../services/FoodLogService';
+import { saveMeal, deleteMeal, foodLogDayKey, getDailyMacros, getRecentMeals, type FoodEntry } from '../services/FoodLogService';
+import { formatFoodLogHistoryForMealAi } from '../logic/foodLogMealHistory';
 import { buildMealMergePreview, type MealMergePreview } from '../logic/mealPhotoMerge';
 import {
   analyzeMacroMealIssues,
@@ -238,7 +239,25 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [overrideSaveOnce, setOverrideSaveOnce] = useState(false);
   const [overrideSnapshotKey, setOverrideSnapshotKey] = useState<string | null>(null);
+  const [foodLogHistoryContext, setFoodLogHistoryContext] = useState<string | null>(null);
   const chatInputRef = useRef<TextInput>(null);
+
+  const loadFoodLogHistory = useCallback(async (excludeId?: string) => {
+    const meals = await getRecentMeals(14);
+    const block = formatFoodLogHistoryForMealAi(meals, { excludeEntryId: excludeId, lookbackDays: 14 });
+    setFoodLogHistoryContext(block);
+    return block;
+  }, []);
+
+  const resolveFoodLogHistory = useCallback(async () => {
+    if (foodLogHistoryContext) return foodLogHistoryContext;
+    return loadFoodLogHistory(editingId ?? undefined);
+  }, [foodLogHistoryContext, editingId, loadFoodLogHistory]);
+
+  React.useEffect(() => {
+    if (!visible) return;
+    void loadFoodLogHistory(editingId);
+  }, [visible, editingId, loadFoodLogHistory]);
 
   React.useEffect(() => {
     if (editEntry) {
@@ -282,6 +301,7 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
     setShowIssueModal(false);
     setOverrideSaveOnce(false);
     setOverrideSnapshotKey(null);
+    setFoodLogHistoryContext(null);
   }, [initialTimestamp]);
 
   const recomputeMealIssues = useCallback(async (
@@ -376,7 +396,16 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
       setError(null);
       try {
         const userRules = await getUserRules();
-        const { result, updatedHistory } = await analyzeFood(null, userText, hist, null, lang, userRules);
+        const historyBlock = await resolveFoodLogHistory();
+        const { result, updatedHistory } = await analyzeFood(
+          null,
+          userText,
+          hist,
+          null,
+          lang,
+          userRules,
+          historyBlock,
+        );
         setItems(result.items);
         setConfidence(result.confidence);
         setDescription(result.description);
@@ -388,7 +417,7 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
         setScreen('result');
       }
     },
-    [lang],
+    [lang, resolveFoodLogHistory],
   );
 
   const runPhotoAnalysis = useCallback(
@@ -404,7 +433,16 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
       setMergePreview(null);
       try {
         const userRules = await getUserRules();
-        const { result, updatedHistory } = await analyzeFood(imageBase64, userText, hist, null, lang, userRules);
+        const historyBlock = await resolveFoodLogHistory();
+        const { result, updatedHistory } = await analyzeFood(
+          imageBase64,
+          userText,
+          hist,
+          null,
+          lang,
+          userRules,
+          historyBlock,
+        );
         setPhotoSession({
           uri,
           base64: imageBase64,
@@ -417,7 +455,7 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
         setScreen(items.length > 0 || editEntry ? 'result' : 'idle');
       }
     },
-    [lang, items.length, editEntry],
+    [lang, items.length, editEntry, resolveFoodLogHistory],
   );
 
   const pickImage = useCallback(
@@ -486,6 +524,7 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
       setError(null);
       try {
         const userRules = await getUserRules();
+        const historyBlock = await resolveFoodLogHistory();
         const { result, updatedHistory } = await analyzeFood(
           null,
           text,
@@ -493,6 +532,7 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
           null,
           lang,
           userRules,
+          historyBlock,
         );
         setPhotoSession((prev) =>
           prev ? { ...prev, ...applyAnalysisResult(result, updatedHistory) } : prev,
@@ -506,7 +546,7 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
     }
 
     await runMealAnalysis(text, mealHistory);
-  }, [chatText, screen, mergePreview, photoSession, mealHistory, runMealAnalysis, lang]);
+  }, [chatText, screen, mergePreview, photoSession, mealHistory, runMealAnalysis, lang, resolveFoodLogHistory]);
 
   const handleStartMerge = useCallback(
     (mode: 'add' | 'remove') => {
@@ -606,9 +646,17 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
   const flaggedIndices = flaggedItemIndices(items, mealIssues);
 
   const showMealSection = items.length > 0 || editingId != null;
+  const rtl = lang?.code === 'he' || lang?.code === 'ar';
+  const describePlaceholder = rtl
+    ? 'למשל "שייק חלבון" או "הוסף את השייק מאתמול בערב"'
+    : 'e.g. "protein shake" or "add last evening\'s shake"';
   const chatPlaceholder = photoSession
-    ? 'Correct photo list: "only half the pita", "add coffee"…'
-    : 'Correct meal: "it was bigger", "add a coffee"…';
+    ? rtl
+      ? 'תיקון מהתמונה: "חצי פיתה", "הוסף קפה"…'
+      : 'Correct photo list: "only half the pita", "add coffee"…'
+    : rtl
+      ? 'תיקון או מהעבר: "אותה ארוחת עוף", "השייק הרגיל שלי"…'
+      : 'Correct or from history: "same chicken meal", "my usual shake"…';
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
@@ -640,7 +688,7 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
                 <View style={styles.textInputRow}>
                   <TextInput
                     style={styles.describeInput}
-                    placeholder='e.g. "shakshuka with pita" or "100g almonds"'
+                    placeholder={describePlaceholder}
                     placeholderTextColor={WellnessColors.textSecondary}
                     value={textPrompt}
                     onChangeText={setTextPrompt}

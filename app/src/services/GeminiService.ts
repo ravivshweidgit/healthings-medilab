@@ -77,11 +77,24 @@ function foodJsonLangInstruction(lang?: UserLanguage | null): string {
 For each item: "name" = canonical ENGLISH name (for nutrition lookup); "name_local" = the SAME food written in ${lang.label} (${lang.code}) — REQUIRED, this is the name shown to the user in the app. Never leave "name_local" in English when the app language is not English. Keep numbers (grams, kcal, macros) unchanged.`;
 }
 
-export function buildFoodSystemPrompt(lang?: UserLanguage | null, userRules?: UserRules | null): string {
+export function buildFoodSystemPrompt(
+  lang?: UserLanguage | null,
+  userRules?: UserRules | null,
+  foodLogHistory?: string | null,
+): string {
   const langNote = foodJsonLangInstruction(lang);
   let prompt = langNote ? `${SYSTEM_PROMPT}${langNote}` : SYSTEM_PROMPT;
   if (userRules) {
     prompt += `\n\nUSER DIETARY RULES (same as Nutritionist mentor — apply on every analysis):\n${formatUserRulesBlock(userRules)}`;
+  }
+  if (foodLogHistory?.trim()) {
+    prompt += `\n\n${foodLogHistory.trim()}`;
+    prompt += `\n\nFOOD HISTORY RULES:
+- When the user references a past meal ("last evening", "yesterday", "usual", "same as", "my regular shake", "הוסף את השייק מאתמול", "אותה ארוחת עוף"): copy items from FOOD LOG HISTORY — same name, name_local, grams, kcal, and macros unless they specify a change.
+- Prefer the closest match by time + food names; use FREQUENT MEALS for "usual" / "regular".
+- In "description", cite which history meal you matched (date/time or frequent label).
+- If no match: best estimate from text; confidence "low".
+- If the user is correcting the CURRENT meal in the conversation (change grams, add/remove an item like "הוסף כף קינמון", "chicken 100→200"): use the conversation JSON, not FOOD LOG HISTORY.`;
   }
   return prompt;
 }
@@ -713,6 +726,7 @@ export async function analyzeFood(
   afterImageBase64?: string | null,
   lang?: UserLanguage | null,
   userRules?: UserRules | null,
+  foodLogHistory?: string | null,
 ): Promise<{ result: GeminiAnalysisResult; updatedHistory: GeminiTurn[] }> {
   if (MOCK_MODE) {
     await new Promise((r) => setTimeout(r, 800));
@@ -721,7 +735,7 @@ export async function analyzeFood(
     return { result: MOCK_RESULT, updatedHistory: [...history, newTurn, modelTurn] };
   }
 
-  const systemPromptWithLang = buildFoodSystemPrompt(lang, userRules);
+  const systemPromptWithLang = buildFoodSystemPrompt(lang, userRules, foodLogHistory);
 
   // Prepend system prompt as a synthetic user/model exchange (compatible with all API versions).
   const readyLine =

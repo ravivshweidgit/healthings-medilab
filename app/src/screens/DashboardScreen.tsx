@@ -1110,13 +1110,6 @@ export const DashboardScreen = () => {
           macroTarget={macroTarget}
         />
 
-        {/* Section 6 — Lab results */}
-        <LabResultsStrip
-          reports={labReports}
-          onReportsChanged={loadLabReports}
-          lang={userLanguage}
-        />
-
         {dataSource === 'health-connect' ? (
           <View style={styles.careSensImportSection}>
             <Pressable
@@ -1391,6 +1384,13 @@ export const DashboardScreen = () => {
             {backupMessage ? <Text style={styles.backupMessage}>{backupMessage}</Text> : null}
           </View>
         </View>
+
+        {/* Lab results — least-used; bottom of dashboard */}
+        <LabResultsStrip
+          reports={labReports}
+          onReportsChanged={loadLabReports}
+          lang={userLanguage}
+        />
       </ScrollView>
       </KeyboardAvoidingView>
 
