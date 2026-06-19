@@ -444,7 +444,7 @@ export function isRecipeRequest(text: string): boolean { ... }
 | `app/src/logic/chatIntent.ts` | Slash + meal-plan intents |
 | `app/src/logic/foodLogMealHistory.ts` | Reuse for rebuild-from-log (prompt39) |
 | `app/src/logic/foodPreferences.ts` | Likes/dislikes storage + prompt block |
-| `app/src/logic/recipeUnits.ts` | Kitchen unit rules, grams → display |
+| `app/src/logic/recipePlanService.ts` | `generateRecipePlan` + kitchen-unit prompt (AI-only) |
 | `app/src/logic/planExport.ts` | HTML + plain text export from JSON |
 | `app/src/services/GeminiService.ts` | `generateRecipePlan`, `generateDayPlan`, `generateWeekPlan` |
 | `app/src/services/FoodLogService.ts` | Today eaten, `getRecentMeals` |

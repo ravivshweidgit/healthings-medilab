@@ -74,7 +74,7 @@ function coachJsonLangInstruction(lang?: UserLanguage | null): string {
 function foodJsonLangInstruction(lang?: UserLanguage | null): string {
   if (!lang || lang.code === 'en') return '';
   return `\nLANGUAGE (mandatory): Write "description", "suggestion", and "rule_message" in ${lang.label} (${lang.code}).
-For each item: "name" = canonical ENGLISH name (for nutrition lookup); "name_local" = the SAME food written in ${lang.label} (${lang.code}) — REQUIRED, this is the name shown to the user in the app. Never leave "name_local" in English when the app language is not English. Keep numbers (grams, kcal, macros) unchanged.`;
+For each item: "name" = canonical ENGLISH name (for nutrition lookup); "name_local" = the SAME food written in ${lang.label} (${lang.code}) — REQUIRED, this is the name shown to the user in the app. Never leave "name_local" in English when the app language is not English. Keep "name_local" SHORT for on-screen lists (~25–35 characters when possible): drop filler words (e.g. "בטעם"), abbreviate flavor, but keep protein source if it matters (whey vs casein). Put longer detail in "description", not name_local. Keep numbers (grams, kcal, macros) unchanged.`;
 }
 
 export function buildFoodSystemPrompt(
@@ -603,7 +603,7 @@ FORMAT (always exactly this):
 {"items":[{"name":"...","name_local":"...","grams":0,"kcal":0,"protein_g":0.0,"carb_g":0.0,"fat_g":0.0,"fiber_g":0.0,"rule_conflict":false,"rule_message":""}],"confidence":"high","description":"...","suggestion":"..."}
 
 RULES:
-- "name" = canonical English food name; "name_local" = same food in the user's app language (for English users, name_local may equal name).
+- "name" = canonical English food name; "name_local" = short display label in the user's app language (compact ~25–35 chars when possible; full detail goes in "description").
 - Estimate grams from plate size (standard plate = 26cm).
 - Split dishes into ingredients. Use USDA values.
 - "fiber_g" = dietary fiber only (not total carbs); estimate per ingredient.

@@ -64,6 +64,9 @@ type Props = {
   onSaved: () => void;
   initialTimestamp?: number;
   editEntry?: FoodEntry;
+  /** Pre-fill from recipe card (prompt40) — opens on result screen. */
+  prefillItems?: FoodItem[];
+  prefillDescription?: string;
   lang?: UserLanguage | null;
 };
 
@@ -188,21 +191,23 @@ function FoodItemsCard({
               flagged && styles.itemRowFlagged,
             ]}
           >
-            <View style={styles.itemLeft}>
-              <View style={styles.itemNameRow}>
-                {flagged ? <Text style={styles.itemWarningDot}>⚠</Text> : null}
-                <Text style={[styles.itemName, flagged && styles.itemNameFlagged]}>
-                  {item.name_local ?? item.name}
-                </Text>
-              </View>
-              {flagged && item.rule_message ? (
-                <Text style={styles.itemRuleMessage}>{item.rule_message}</Text>
-              ) : null}
-              <Text style={styles.itemGrams}>{item.grams}g</Text>
+            <View style={styles.itemNameRow}>
+              {flagged ? <Text style={styles.itemWarningDot}>⚠</Text> : null}
+              <Text
+                style={[styles.itemName, flagged && styles.itemNameFlagged]}
+              >
+                {item.name_local ?? item.name}
+              </Text>
             </View>
-            <View style={styles.itemRight}>
+            {flagged && item.rule_message ? (
+              <Text style={styles.itemRuleMessage}>{item.rule_message}</Text>
+            ) : null}
+            <Text style={styles.itemGrams}>{item.grams}g</Text>
+            <View style={styles.itemMetricsRow}>
               <Text style={styles.itemKcal}>{item.kcal} kcal</Text>
-              <Text style={styles.itemMacros}>P {item.protein_g}g · C {item.carb_g}g · F {item.fat_g}g · Fi {item.fiber_g ?? 0}g</Text>
+              <Text style={styles.itemMacros}>
+                P {item.protein_g}g · C {item.carb_g}g · F {item.fat_g}g · Fi {item.fiber_g ?? 0}g
+              </Text>
             </View>
           </View>
         );
@@ -216,16 +221,29 @@ function FoodItemsCard({
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, editEntry, lang }: Props) {
-  const [screen, setScreen] = useState<Screen>(() => (editEntry ? 'result' : 'idle'));
-  const [items, setItems] = useState<FoodItem[]>(() => editEntry?.items ?? []);
+export function FoodLogModal({
+  visible,
+  onClose,
+  onSaved,
+  initialTimestamp,
+  editEntry,
+  prefillItems,
+  prefillDescription,
+  lang,
+}: Props) {
+  const [screen, setScreen] = useState<Screen>(() =>
+    editEntry || (prefillItems && prefillItems.length > 0) ? 'result' : 'idle',
+  );
+  const [items, setItems] = useState<FoodItem[]>(() => editEntry?.items ?? prefillItems ?? []);
   const [mealHistory, setMealHistory] = useState<GeminiTurn[]>(() =>
     editEntry ? seedMealHistory(editEntry, lang) : [],
   );
   const [photoSession, setPhotoSession] = useState<PhotoSession | null>(null);
   const [mergePreview, setMergePreview] = useState<MealMergePreview | null>(null);
   const [confidence, setConfidence] = useState<'high' | 'medium' | 'low'>('high');
-  const [description, setDescription] = useState(() => (editEntry ? 'Editing saved meal' : ''));
+  const [description, setDescription] = useState(() =>
+    editEntry ? 'Editing saved meal' : prefillDescription ?? '',
+  );
   const [suggestion, setSuggestion] = useState<string | undefined>();
   const [chatText, setChatText] = useState('');
   const [mealTime, setMealTime] = useState(() => editEntry?.timestamp ?? initialTimestamp ?? Date.now());
@@ -258,6 +276,23 @@ export function FoodLogModal({ visible, onClose, onSaved, initialTimestamp, edit
     if (!visible) return;
     void loadFoodLogHistory(editingId);
   }, [visible, editingId, loadFoodLogHistory]);
+
+  React.useEffect(() => {
+    if (!visible || editEntry) return;
+    if (prefillItems && prefillItems.length > 0) {
+      setScreen('result');
+      setItems(prefillItems);
+      setDescription(prefillDescription ?? '');
+      setMealHistory([]);
+      setPhotoSession(null);
+      setMergePreview(null);
+      setChatText('');
+      setError(null);
+      setEditingId(undefined);
+      setMealTime(initialTimestamp ?? Date.now());
+      setConfidence('high');
+    }
+  }, [visible, prefillItems, prefillDescription, editEntry, initialTimestamp]);
 
   React.useEffect(() => {
     if (editEntry) {
@@ -1079,10 +1114,11 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'stretch',
     paddingHorizontal: 16,
     paddingVertical: 10,
+    gap: 4,
   },
   itemRowBorder: { borderTopWidth: 1, borderTopColor: WellnessColors.gridLine },
   itemRowFlagged: {
@@ -1090,16 +1126,29 @@ const styles = StyleSheet.create({
     borderLeftColor: '#C62828',
     backgroundColor: '#FFEBEE',
   },
-  itemLeft: { flex: 1 },
-  itemNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  itemWarningDot: { fontSize: 12, color: '#C62828' },
-  itemName: { fontSize: 14, fontWeight: '600', color: WellnessColors.textPrimary },
+  itemNameRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, width: '100%' },
+  itemWarningDot: { fontSize: 11, color: '#C62828', marginTop: 1 },
+  itemName: {
+    flex: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    fontSize: 12,
+    fontWeight: '600',
+    color: WellnessColors.textPrimary,
+    lineHeight: 17,
+  },
   itemNameFlagged: { color: '#B71C1C' },
-  itemRuleMessage: { fontSize: 11, color: '#C62828', marginTop: 2, lineHeight: 15 },
+  itemRuleMessage: { fontSize: 11, color: '#C62828', lineHeight: 15 },
   itemGrams: { fontSize: 12, color: WellnessColors.textSecondary },
-  itemRight: { alignItems: 'flex-end' },
+  itemMetricsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: 10,
+    rowGap: 2,
+  },
   itemKcal: { fontSize: 14, fontWeight: '700', color: WellnessColors.textPrimary },
-  itemMacros: { fontSize: 11, color: WellnessColors.textSecondary },
+  itemMacros: { fontSize: 11, color: WellnessColors.textSecondary, flexShrink: 1 },
   totalRow: {
     borderTopWidth: 2,
     borderTopColor: WellnessColors.accentBlue + '40',

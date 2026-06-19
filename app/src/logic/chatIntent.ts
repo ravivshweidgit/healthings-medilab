@@ -79,6 +79,94 @@ export function macroSlashWrongTabHint(langCode?: string | null): string {
   return '/macros is available on the Nutritionist 🥗 tab only.';
 }
 
+/** Meal-plan slash commands (prompt40) — nutritionist tab only. */
+export type MealSlashCommand = 'eat' | 'recipe' | 'daily' | 'weekly';
+
+export function parseMealSlashCommand(
+  text: string,
+): { command: MealSlashCommand; hint: string } | null {
+  const t = text.trim();
+  const patterns: [RegExp, MealSlashCommand][] = [
+    [/^\/eat\b/i, 'eat'],
+    [/^\/אכול\b/, 'eat'],
+    [/^\/recipe\b/i, 'recipe'],
+    [/^\/מתכון\b/, 'recipe'],
+    [/^\/daily\b/i, 'daily'],
+    [/^\/יום\b/, 'daily'],
+    [/^\/weekly\b/i, 'weekly'],
+    [/^\/שבוע\b/, 'weekly'],
+  ];
+  for (const [re, command] of patterns) {
+    const m = t.match(re);
+    if (m) {
+      return { command, hint: t.slice(m[0].length).trim() };
+    }
+  }
+  return null;
+}
+
+export function isMealPlanSlashCommand(text: string): boolean {
+  return parseMealSlashCommand(text) != null;
+}
+
+export function mealPlanSlashWrongTabHint(langCode?: string | null): string {
+  if (langCode === 'he') {
+    return 'פקודות /eat /recipe /daily /weekly זמינות בלשונית תזונאית 🥗 בלבד.';
+  }
+  return '/eat, /recipe, /daily, and /weekly are available on the Nutritionist 🥗 tab only.';
+}
+
+export function mealPlanDeferredHint(command: MealSlashCommand, langCode?: string | null): string {
+  if (command === 'daily') {
+    return langCode === 'he'
+      ? 'תפריט יומי (/daily) יגיע בגרסה הבאה — נסה/י /recipe או "בנה לי שייק".'
+      : 'Daily menu (/daily) is coming next — try /recipe or "build me a protein shake".';
+  }
+  return langCode === 'he'
+    ? 'תפריט שבועי (/weekly) יגיע בגרסה הבאה — נסה/י /recipe או /daily בהמשך.'
+    : 'Weekly menu (/weekly) is coming next — try /recipe for now.';
+}
+
+export function recipePlanIntro(langCode?: string | null): string {
+  if (langCode === 'he') {
+    return 'הנה המתכון — לחץ/י לפתיחה או לרישום בארוחות.';
+  }
+  return 'Here is your recipe — tap to open or log as a meal.';
+}
+
+function isNaturalRecipeRequest(text: string): boolean {
+  const t = text.trim();
+  if (isMacroTargetQuery(t)) return false;
+  return (
+    /בנה|תבנה|הכן|מתכון|שייק|סמודי|איך להכין|מאתמול|אתמול בערב|הרגיל שלי|אותו שייק|אותה ארוחה/.test(t) ||
+    /\b(build|make|prepare|recipe|shake|smoothie|protein shake)\b/i.test(t) ||
+    /from last evening|last night|my usual|same (shake|meal)/i.test(t)
+  );
+}
+
+/** Nutritionist structured recipe / eat-now request (prompt40a). */
+export function isRecipePlanChatRequest(text: string): boolean {
+  const slash = parseMealSlashCommand(text);
+  if (slash) return slash.command === 'eat' || slash.command === 'recipe';
+  return isNaturalRecipeRequest(text);
+}
+
+export function resolveRecipePlanMode(
+  text: string,
+): { mode: 'eat_now' | 'recipe'; hint: string } {
+  const slash = parseMealSlashCommand(text);
+  if (slash?.command === 'eat') {
+    return { mode: 'eat_now', hint: slash.hint || text };
+  }
+  if (slash?.command === 'recipe') {
+    return { mode: 'recipe', hint: slash.hint || text };
+  }
+  if (/מה לאכול|what (should i|to) eat|רעב|hungry/i.test(text) && !/תפריט|menu|יום|week/i.test(text)) {
+    return { mode: 'eat_now', hint: text };
+  }
+  return { mode: 'recipe', hint: text };
+}
+
 /** Food/macro targets, hunger, "what to eat", menu tips. */
 export function isFoodTargetQuery(text: string): boolean {
   if (isMacroTargetQuery(text)) return false;

@@ -51,11 +51,24 @@ import { chatWithMentor, summariseChatDay, isYesterdayQuery, type CoachContext, 
 import {
   isMacroChatRequest,
   isMacroSlashCommand,
+  isMealPlanSlashCommand,
+  isRecipePlanChatRequest,
   macroSlashIntro,
   macroSlashWrongTabHint,
+  mealPlanDeferredHint,
+  mealPlanSlashWrongTabHint,
+  parseMealSlashCommand,
+  recipePlanIntro,
+  resolveRecipePlanMode,
 } from '../logic/chatIntent';
 import { suggestMacroTargets } from '../logic/macroAutoAdjust';
 import { MacroProposalCard } from '../components/MacroProposalCard';
+import { RecipeCard } from '../components/RecipeCard';
+import { RecipeViewerModal } from '../components/RecipeViewerModal';
+import { FoodLogModal } from '../components/FoodLogModal';
+import { recipePlanToFoodItems, type RecipePlan } from '../logic/mealPlanTypes';
+import { generateRecipePlan } from '../logic/recipePlanService';
+import type { FoodItem } from '../services/GeminiService';
 import type { DailyMacroTarget } from '../services/TargetService';
 import { runAutoChecksAndPersist, refreshCoachReview, forceCoachReview } from '../services/CoachService';
 import { exportMentorChat } from '../services/mentorChatExport';
@@ -96,6 +109,8 @@ type ChatMessageUI = ChatMessage & {
   previewUri?: string;
   macroProposal?: MacroSuggestion;
   macroDismissed?: boolean;
+  recipePlan?: RecipePlan;
+  recipeDismissed?: boolean;
 };
 
 type PendingChatImage = { uri: string; base64: string; mimeType: string };
@@ -901,6 +916,9 @@ function MessageBubble({
   lang,
   onMacroApplied,
   onMacroDismiss,
+  onRecipeOpen,
+  onRecipeLog,
+  onRecipeDismiss,
 }: {
   msg: ChatMessageUI;
   mentor: MentorType;
@@ -908,6 +926,9 @@ function MessageBubble({
   lang?: UserLanguage | null;
   onMacroApplied?: (target: DailyMacroTarget) => void;
   onMacroDismiss?: () => void;
+  onRecipeOpen?: (plan: RecipePlan) => void;
+  onRecipeLog?: (plan: RecipePlan) => void;
+  onRecipeDismiss?: () => void;
 }) {
   const isUser = msg.role === 'user';
   const colors = mentorBubbleColors(mentor);
@@ -948,6 +969,15 @@ function MessageBubble({
             onDismiss={onMacroDismiss}
           />
         ) : null}
+        {!msg.recipeDismissed && msg.recipePlan && onRecipeOpen && onRecipeLog ? (
+          <RecipeCard
+            plan={msg.recipePlan}
+            lang={lang}
+            onOpen={() => onRecipeOpen(msg.recipePlan!)}
+            onLogMeal={() => onRecipeLog(msg.recipePlan!)}
+            onDismiss={onRecipeDismiss}
+          />
+        ) : null}
         {time ? (
           <Text style={[styles.msgTime, styles.msgTimeAI, rtl && styles.rtlText]}>{time}</Text>
         ) : null}
@@ -973,6 +1003,12 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
   const [refreshingCoach, setRefreshingCoach] = useState(false);
   const [anyChatHistory, setAnyChatHistory] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [recipeViewerPlan, setRecipeViewerPlan] = useState<RecipePlan | null>(null);
+  const [foodLogVisible, setFoodLogVisible] = useState(false);
+  const [foodLogPrefill, setFoodLogPrefill] = useState<{
+    items: FoodItem[];
+    description: string;
+  } | null>(null);
   const listRef = useRef<FlatList<ChatMessageUI>>(null);
   /** Guards the one-shot coach auto-regen per chat open (avoids API spam on repeated failures). */
   const coachAutoRegenRef = useRef(false);
@@ -1287,10 +1323,53 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
           return;
         }
 
+        if (isMealPlanSlashCommand(promptText) && activeMentor !== 'nutritionist') {
+          const aiMsg: ChatMessageUI = {
+            role: 'assistant',
+            text: mealPlanSlashWrongTabHint(freshContext.lang?.code),
+            sentAt: new Date().toISOString(),
+          };
+          setHistory((prev) => [...prev, aiMsg]);
+          await appendChatMessage(today, activeMentor, {
+            role: 'assistant',
+            text: aiMsg.text,
+            sentAt: aiMsg.sentAt,
+          });
+          scrollToBottom();
+          return;
+        }
+
+        const mealSlash = parseMealSlashCommand(promptText);
+        if (
+          mealSlash &&
+          activeMentor === 'nutritionist' &&
+          (mealSlash.command === 'daily' || mealSlash.command === 'weekly')
+        ) {
+          const aiMsg: ChatMessageUI = {
+            role: 'assistant',
+            text: mealPlanDeferredHint(mealSlash.command, freshContext.lang?.code),
+            sentAt: new Date().toISOString(),
+          };
+          setHistory((prev) => [...prev, aiMsg]);
+          await appendChatMessage(today, activeMentor, {
+            role: 'assistant',
+            text: aiMsg.text,
+            sentAt: aiMsg.sentAt,
+          });
+          scrollToBottom();
+          return;
+        }
+
         const wantsMacro = activeMentor === 'nutritionist' && isMacroChatRequest(promptText);
+        const wantsRecipe =
+          activeMentor === 'nutritionist' &&
+          !image &&
+          isRecipePlanChatRequest(promptText) &&
+          !wantsMacro;
 
         let replyText: string;
         let macroResult: Awaited<ReturnType<typeof suggestMacroTargets>> | null = null;
+        let recipeResult: RecipePlan | null = null;
 
         if (wantsMacro) {
           macroResult = await suggestMacroTargets({
@@ -1299,6 +1378,16 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
             lang: freshContext.lang,
           });
           replyText = macroSlashIntro(freshContext.lang?.code);
+        } else if (wantsRecipe) {
+          const { mode, hint } = resolveRecipePlanMode(promptText);
+          recipeResult = await generateRecipePlan({
+            userMessage: promptText,
+            hint,
+            mode,
+            command: mealSlash?.command,
+            lang: freshContext.lang,
+          });
+          replyText = recipePlanIntro(freshContext.lang?.code);
         } else {
           replyText = await chatWithMentor(
             activeMentor,
@@ -1316,6 +1405,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
           text: replyText,
           sentAt: new Date().toISOString(),
           macroProposal: macroResult ?? undefined,
+          recipePlan: recipeResult ?? undefined,
         };
         setHistory((prev) => [...prev, aiMsg]);
         await appendChatMessage(today, activeMentor, {
@@ -1349,6 +1439,25 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
     setHistory((prev) =>
       prev.map((m) => (m.sentAt === sentAt ? { ...m, macroDismissed: true } : m)),
     );
+  }, []);
+
+  const handleRecipeDismiss = useCallback((sentAt: string) => {
+    setHistory((prev) =>
+      prev.map((m) => (m.sentAt === sentAt ? { ...m, recipeDismissed: true } : m)),
+    );
+  }, []);
+
+  const openRecipeLog = useCallback((plan: RecipePlan) => {
+    setFoodLogPrefill({
+      items: recipePlanToFoodItems(plan),
+      description: plan.source_note || plan.title,
+    });
+    setFoodLogVisible(true);
+  }, []);
+
+  const handleFoodLogSaved = useCallback(() => {
+    setFoodLogVisible(false);
+    setFoodLogPrefill(null);
   }, []);
 
   const handleToggleActionItem = useCallback(
@@ -1458,6 +1567,15 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
                 onMacroDismiss={
                   item.macroProposal && !item.macroDismissed
                     ? () => handleMacroDismiss(item.sentAt)
+                    : undefined
+                }
+                onRecipeOpen={item.recipePlan && !item.recipeDismissed ? setRecipeViewerPlan : undefined}
+                onRecipeLog={
+                  item.recipePlan && !item.recipeDismissed ? openRecipeLog : undefined
+                }
+                onRecipeDismiss={
+                  item.recipePlan && !item.recipeDismissed
+                    ? () => handleRecipeDismiss(item.sentAt)
                     : undefined
                 }
               />
@@ -1608,6 +1726,33 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
         onClose={() => setFaqVisible(false)}
         onSave={handleSaveQuestions}
         onPick={pickQuestion}
+      />
+
+      <RecipeViewerModal
+        visible={recipeViewerPlan != null}
+        plan={recipeViewerPlan}
+        lang={context.lang}
+        onClose={() => setRecipeViewerPlan(null)}
+        onLogMeal={
+          recipeViewerPlan
+            ? () => {
+                openRecipeLog(recipeViewerPlan);
+                setRecipeViewerPlan(null);
+              }
+            : undefined
+        }
+      />
+
+      <FoodLogModal
+        visible={foodLogVisible}
+        onClose={() => {
+          setFoodLogVisible(false);
+          setFoodLogPrefill(null);
+        }}
+        onSaved={handleFoodLogSaved}
+        prefillItems={foodLogPrefill?.items}
+        prefillDescription={foodLogPrefill?.description}
+        lang={context.lang}
       />
     </SafeAreaView>
   );
