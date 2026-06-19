@@ -8,6 +8,8 @@ Active / backlog specs stay in `prompts/app/`:
 |------|------------------|
 | prompt31.txt | Spec only — source config + Samsung + AI/manual BMR |
 | prompt32.txt | Spec only — backup import QA + hardening (deferred) |
+| prompt38.txt | Planned — secondary lab findings (liver, iron, uric acid) |
+| prompt40.txt | Planned — recipe/day-plan viewer, kitchen units (nutritionist chat) |
 
 **prompt20** — done (Phase 1 + 3 + rules/fiber). Phase 2 photo polish deferred inside `done/prompt20.txt`.
 

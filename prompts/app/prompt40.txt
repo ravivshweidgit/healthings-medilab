@@ -1,0 +1,552 @@
+## Prompt 40 — Recipe & meal plans (kitchen units, viewer, slash commands)
+
+**Status: planned** — Item 3 from dashboard UX batch (after prompt39 food log history).
+
+**User thoughts (2026-06-19):** export daily/weekly plans; slash commands `/eat` `/daily` `/weekly`; foods I like / don't like; natural language **"בנה את השייק מאתמול בערב"** (rebuild from food log history).
+
+### Problem (user-reported)
+
+When working with **Nutritionist 🥗** in chat:
+
+1. **Shake / recipe help** — user needs **kitchen measures** (tsp, tbsp, scoop, cups, unit count), not only grams. Grams are fine for bulk items (salmon 150g); impractical for powders, spices, nut butter, whey scoop.
+2. **Full-day / week menu** — user wants a **readable plan view**, not long prose in the chat bubble. Chat currently shows plain `Text`; model sometimes leaks `<br>`, `<i>`, other HTML — `normalizeMentorChatText` strips some tags but chat is not a document viewer.
+3. **"What should I eat now?"** — needs a quick suggestion grounded in **remaining macros today**, time of day, preferences, and history — not a wall of text.
+4. **Food preferences** — no structured **likes / dislikes** today (only My Rules constraints). Plans should respect "I love salmon, hate cottage cheese."
+5. **Rebuild from log** — same idea as prompt39 food log, but in **nutritionist chat**: "בנה את השייק מאתמול בערב" → recipe card with kitchen units, copied from logged meal.
+6. User is **unsure of exact UX** — this spec proposes options and a recommended path.
+
+### Design principle
+
+> **Chat = conversation. Viewer = document.**
+
+Same pattern as **MacroProposalCard** (`/macros`): short chat line + structured card / full-screen viewer — not HTML in the bubble.
+
+---
+
+## UI options (pick one for v1)
+
+### Option A — **Structured card + full-screen sheet** (recommended)
+
+```
+┌─ Chat bubble ─────────────────────────┐
+│ בניתי לך שייק חלבון — לחץ לפתיחה      │
+│ ┌─────────────────────────────────┐   │
+│ │ 🥤 Protein shake · 1 serving    │   │
+│ │ P32 C12 F8 · 280 kcal           │   │
+│ │ [ Open recipe ]  [ Log meal ]   │   │
+│ └─────────────────────────────────┘   │
+└───────────────────────────────────────┘
+```
+
+Tap **Open recipe** → page-sheet modal:
+
+```
+┌─ Protein shake ───────────────────────┐
+│ 1 serving · ~280 kcal                 │
+│ P32  C12  F8  Fi4                     │
+├───────────────────────────────────────┤
+│ INGREDIENTS                           │
+│ 1 scoop    whey protein      (30g)    │
+│ 1 tbsp     almond butter     (15g)    │
+│ 1 cup      unsweetened almond milk    │
+│ ½ tsp      cinnamon                   │
+│ 1          banana            (120g)   │
+├───────────────────────────────────────┤
+│ [ Share ]  [ Log as meal ]  [ Close ] │
+└───────────────────────────────────────┘
+```
+
+**Day plan** — same card pattern, opens **timeline sheet**:
+
+```
+┌─ Today's menu ────────────────────────┐
+│ Target: 2391 kcal · Plan: 2280 (95%)  │
+├───────────────────────────────────────┤
+│ ☀ Breakfast  08:00                    │
+│    Greek yogurt bowl — tap to expand    │
+│ 🌤 Lunch      13:00                    │
+│    Salmon + salad — tap to expand     │
+│ 🌙 Dinner     19:30                    │
+│    Chicken stir-fry — tap to expand   │
+├───────────────────────────────────────┤
+│ Day total: P141 C54 F179              │
+└───────────────────────────────────────┘
+```
+
+**Why recommended:** Native RN components (fast, accessible, RTL); grams kept for food-log; kitchen units shown first; no WebView HTML leaks; mirrors MacroProposalCard success.
+
+**Weekly plan** — same viewer pattern, 7-day tabs or vertical scroll; **Export** button (see 40e).
+
+---
+
+### Option B — WebView HTML document
+
+Chat card → **Open** loads HTML in `WebView` (reuse `mentorChatExport.ts` styling).
+
+| Pros | Cons |
+|------|------|
+| Rich layout (tables, columns) quickly | Model HTML in chat still leaks if not gated |
+| Familiar “recipe page” feel | Harder RTL, dark mode, offline |
+| Easy share/export | Security/sanitization burden |
+
+**Use only for Share/Export**, not primary in-app viewer — unless team strongly wants HTML fidelity.
+
+---
+
+### Option C — Chat-only with better formatting
+
+Improve `normalizeMentorChatText` + bullet lists in bubble.
+
+| Pros | Cons |
+|------|------|
+| Smallest build | Full-day menu still scrolls badly |
+| | Does not fix “document” need |
+| | Still fights model HTML |
+
+**Not recommended** as the main solution for day plans; OK as quick fix for `<i>` leaks.
+
+---
+
+## Slash commands (nutritionist tab only)
+
+Mirror `/macros` pattern: nutritionist tab, structured JSON pipeline, short chat intro + card.
+
+**Commands accept trailing text** — slash sets the *pipeline*; everything after the command is the *user hint* (same message, no second prompt).
+
+```
+/eat shake from last evening
+       └────────────────────── hint (parsed + passed to Gemini + history matcher)
+```
+
+| Command | Meaning | Output |
+|---------|---------|--------|
+| `/eat` | What should I eat **right now**? | `RecipePlan` — sized to **remaining macros today** + time of day |
+| `/eat chicken salad` | Eat now, biased by hint | Same |
+| `/eat shake from last evening` | Rebuild / suggest that meal **now** | History match → `RecipePlan` card (kitchen units) |
+| `/eat השייק מאתמול בערב` | Hebrew hint on same command | Same |
+| `/daily` | Plan my **whole day** | `DayPlan` card (today) |
+| `/daily low carb` | Day plan with modifier | `DayPlan` + constraint in hint |
+| `/daily like yesterday` | Day shaped like prior log day | `DayPlan` + food log history in context |
+| `/weekly` | Plan my **week** | `WeekPlan` card |
+| `/weekly no fish` | Week plan respecting hint | `WeekPlan` + dislikes / hint |
+| `/recipe protein shake` | Force single recipe (no "now" sizing) | `RecipePlan` |
+| `/אכול` `/יום` `/שבוע` | Hebrew command aliases | Same; hint may be Hebrew or English |
+
+**Parsing (code):**
+
+```ts
+// Returns { command: 'eat' | 'daily' | 'weekly' | 'recipe', hint: string }
+parseMealSlashCommand(text: string): MealSlashCommand | null
+
+// Examples:
+// "/eat shake from last evening" → { command: 'eat', hint: 'shake from last evening' }
+// "/daily"                       → { command: 'daily', hint: '' }
+// "/weekly no fish"              → { command: 'weekly', hint: 'no fish' }
+```
+
+When `hint` references history ("last evening", "yesterday", "usual", "מאתמול", "הרגיל"):
+→ run **history matcher first** (prompt39 block), then `generateRecipePlan` / day plan with matched entry as template.
+
+When `hint` is empty:
+→ `/eat` uses remaining macros + time; `/daily` / `/weekly` use targets + preferences only.
+
+**`/eat` vs `/recipe`:**
+
+| | `/eat` | `/recipe` |
+|---|--------|-----------|
+| Sizing | Fits **remaining today** (may scale servings) | Full recipe as written |
+| History hint | "same shake as last night" → rebuild + optional scale | "shake from last evening" → faithful copy |
+| Use case | "What now?" | "Give me the recipe" |
+
+**`/eat` context (auto-injected):**
+
+- Parsed `hint` string (if any)
+- Local time + meal slot (breakfast / lunch / dinner / snack)
+- `macroTarget` vs **eaten so far today** (remaining P/C/F/kcal)
+- Food preferences (likes / dislikes)
+- Food log history (recent meals, frequent patterns — prompt39 `formatFoodLogHistoryForMealAi`)
+- My Rules + labs (hard constraints)
+
+**Wrong tab:** same hint as `/macros` — "available on Nutritionist 🥗 tab only."
+
+Natural language **without** slash still works via intent detection; commands force the structured path reliably. **Prefer slash + hint** when user wants both behavior and specificity in one message.
+
+---
+
+## Rebuild from food log ("בנה את השייק מאתמול בערב")
+
+**Same history engine as prompt39**, wired into nutritionist recipe generation:
+
+```
+User: "בנה את השייק מאתמול בערב"
+  → getRecentMeals(14) + formatFoodLogHistoryForMealAi()
+  → generateRecipeFromHistory()  // match entry → RecipePlan JSON
+  → enrich with kitchen units (scoop/tsp) where grams-only in log
+  → RecipeCard + viewer
+```
+
+| Surface | Action |
+|---------|--------|
+| Food log modal | **Add** meal to log (`analyzeFood` + history) |
+| Nutritionist chat | **Build** recipe card for viewing / re-cooking (`generateRecipePlan` + history) |
+
+Prompt rule: when history match found, **copy items/macros** from log; add `amount_display` kitchen units for small ingredients; cite matched date/time in card subtitle.
+
+Examples (slash + hint **or** plain language):
+
+- `/eat shake from last evening` → rebuild evening shake, sized for now if needed
+- `/eat` (no hint) → AI picks from remaining macros
+- "בנה את השייק מאתמול בערב" → same as above without slash (intent `rebuild_from_log`)
+- `/recipe shake from last evening` → faithful recipe card, no "remaining kcal" scaling
+- "same as my usual chicken meal" → FREQUENT MEALS pattern → recipe card
+- `/daily like yesterday` → day plan modeled on prior log day
+
+---
+
+## Food preferences — likes & dislikes (40f)
+
+**Gap today:** `UserRules` = constraints (keto, kidney, cholesterol). No explicit **preference** list.
+
+**Proposed:** `FoodPreferences` in profile (separate from medical rules):
+
+```ts
+type FoodPreferences = {
+  likes: string[];      // "salmon", "almonds", "שייק חלבון"
+  dislikes: string[];   // "cottage cheese", "כבד עוף"
+  updatedAt: string;
+};
+```
+
+**UI (My Profile or Food section):**
+
+```
+┌─ Foods I like ────────────────────────┐
+│ salmon · almonds · protein shake  [+] │
+├─ Foods I avoid ───────────────────────┤
+│ cottage cheese · liver            [+] │
+└───────────────────────────────────────┘
+```
+
+- Free-text chips + optional AI parse from chat: "I hate cottage cheese" → offer to save to dislikes
+- **Optional assist:** infer candidates from food log (frequent = like candidate; never repeated after one try = weak dislike signal) — user confirms, never auto-write
+- Injected into: `/eat`, `/daily`, `/weekly`, recipe generation, nutritionist chat USER DATA block
+
+**Not** mixed into My Rules medical constraints — preferences are soft (avoid when possible), rules are hard.
+
+---
+
+## Recommended architecture (Option A)
+
+### 40a — Recipe card (shake / single meal / `/eat`)
+
+**Trigger** (nutritionist tab):
+
+- Slash: `/eat`, `/recipe`, `/אכול`
+- Intent: `recipe` — shake, smoothie, recipe, מתכון, שייק, איך להכין
+- Intent: `rebuild_from_log` — בנה את ה… מאתמול, same as last night, השייק מאתמול
+- Intent: `day_plan` — full day, תפריט ליום (or `/daily`)
+- Intent: `week_plan` — weekly, תפריט לשבוע (or `/weekly`)
+
+**Flow:**
+
+```
+User message
+  → detectMealPlanIntent()  // slash > rebuild > week > day > recipe > eat-now
+  → load: macroTarget, today eaten, foodPreferences, foodLogHistory
+  → generateRecipePlan() | generateDayPlan() | generateWeekPlan()
+  → ChatMessageUI { text: short intro, recipeCard?, dayPlanCard?, weekPlanCard? }
+  → RecipeViewerModal / DayPlanViewerModal / WeekPlanViewerModal
+```
+
+**JSON schema — `RecipePlan`:**
+
+```json
+{
+  "title": "Protein shake",
+  "title_local": "שייק חלבון",
+  "servings": 1,
+  "items": [
+    {
+      "name": "whey protein",
+      "name_local": "אבקת חלבון",
+      "amount_display": "1 scoop",
+      "amount_display_local": "1 סקופ",
+      "grams": 30,
+      "kcal": 120,
+      "protein_g": 24,
+      "carb_g": 3,
+      "fat_g": 1,
+      "fiber_g": 0
+    }
+  ],
+  "steps": ["Blend 30 seconds."],
+  "total_kcal": 280,
+  "total_protein_g": 32,
+  "confidence": "medium"
+}
+```
+
+**Unit rules (prompt + code validation):**
+
+| Food type | Primary display | Grams |
+|-----------|-----------------|-------|
+| Powders (whey, cocoa, cinnamon) | scoop / tsp / tbsp | secondary, smaller text |
+| Liquids (milk, oil) | cup / tbsp / ml | optional secondary |
+| Countable (egg, banana, slice) | count + size | weight in parentheses |
+| Proteins / fish / meat | **grams** (150g salmon) | primary |
+| Vegetables (bulk) | grams or cup | either |
+
+Prompt line: *"Never give only grams for amounts under ~30g that users measure with spoons/scoops unless they asked for grams."*
+
+**Actions:**
+
+- **Log as meal** → map `items[]` to `FoodItem[]` → open `FoodLogModal` pre-filled (recommend over silent save)
+- **Share** → HTML or plain text via export helpers (40e)
+- **Save recipe** → optional library (40c)
+
+---
+
+### 40b — Day plan viewer (`/daily`)
+
+**JSON schema — `DayPlan`:**
+
+```json
+{
+  "title": "Saturday lean day",
+  "title_local": "יום רזה — שבת",
+  "date_hint": "today",
+  "meals": [
+    {
+      "slot": "breakfast",
+      "time_hint": "08:00",
+      "label": "Greek yogurt bowl",
+      "label_local": "קערת יוגורט יווני",
+      "recipe": { "...RecipePlan subset..." },
+      "total_kcal": 420
+    }
+  ],
+  "day_total_kcal": 2280,
+  "day_total_protein_g": 141,
+  "remaining_vs_target": { "kcal": -111, "protein_g": 0 },
+  "notes": "Swap rice for cauliflower if carbs tight."
+}
+```
+
+**UI:**
+
+- Top: plan totals vs `macroTarget` (reuse `FoodMacroStrip` styling)
+- List: meal slots with expand → nested recipe ingredient rows
+- Per meal: **Log this meal**
+- **Export day** (40e)
+
+**Chat intro** (1–2 sentences max):
+
+> "הכנתי תפריט ליום שמתאים ליעדים שלך — פתח/י לצפייה."
+
+No ingredient tables in the bubble.
+
+---
+
+### 40b2 — Week plan viewer (`/weekly`)
+
+**JSON schema — `WeekPlan`:**
+
+```json
+{
+  "title": "Week of Jun 16",
+  "title_local": "שבוע 16–22 ביוני",
+  "days": [
+    { "weekday": "sun", "label": "Sunday", "day_plan": { "...DayPlan..." } }
+  ],
+  "week_notes": "Batch-cook chicken Sunday; fish twice."
+}
+```
+
+**UI options:**
+
+| Layout | Best for |
+|--------|----------|
+| Horizontal weekday tabs | Quick scan |
+| Vertical 7 cards | Export / print |
+| Collapsed summary + expand day | Phone default |
+
+Top bar: **Export week** · optional "same breakfast all week" toggle in prompt.
+
+---
+
+### 40e — Export daily / weekly plans
+
+**From viewer** (not from chat bubble):
+
+| Format | Use |
+|--------|-----|
+| **HTML** | Rich share (reuse `mentorChatExport.ts` patterns — tables, RTL, print CSS) |
+| **Plain text** | WhatsApp / SMS |
+| **Copy to clipboard** | Quick share |
+
+Export content:
+
+- Kitchen units primary, grams in parentheses
+- Day/week macro totals vs target
+- Per-meal ingredient lists
+- Optional: shopping list section (deduped ingredients) — **v1.1**
+
+**Not** raw model HTML — **template renders structured JSON** (no leak risk).
+
+---
+
+### 40c — Persistence (optional v1.1)
+
+- Save recipes to `AsyncStorage` key `saved_recipes_v1`
+- "My recipes" entry from food log or nutritionist tab
+- Frequent recipes feed into prompt39 **FREQUENT MEALS** (future link)
+
+**Defer** if v1 scope is tight.
+
+---
+
+## Chat / HTML leak fix (small, can ship with 40a)
+
+1. Extend `normalizeMentorChatText` to strip `<i>`, `<b>`, `<em>`, `<strong>` (or map to plain text).
+2. Keep chat prompt rule: **plain prose in `response`** — recipes/day plans must use structured JSON path, not HTML tables in chat.
+3. `MessageBubble` today renders `msg.text` only — structured cards render beside it (like `macroProposal`).
+
+---
+
+## Detection (`chatIntent.ts`)
+
+```ts
+export type ChatIntent =
+  | ... existing ...
+  | 'eat_now'      // /eat
+  | 'recipe'
+  | 'rebuild_from_log'
+  | 'day_plan'     // /daily
+  | 'week_plan';   // /weekly
+
+```ts
+export function parseMealSlashCommand(text: string): { command: MealSlashCommand; hint: string } | null
+export function isEatNowCommand(text: string): boolean { ... }  // /eat, /אכול (+ optional hint)
+export function isDailyPlanCommand(text: string): boolean { ... }
+export function isWeeklyPlanCommand(text: string): boolean { ... }
+export function isRebuildFromLogRequest(text: string): boolean { ... }
+export function isRecipeRequest(text: string): boolean { ... }
+```
+
+**Priority:** slash commands → `rebuild_from_log` → `week_plan` → `day_plan` → `eat_now` → `recipe` → `food_target`.
+
+---
+
+## Primary files (expected)
+
+| File | Role |
+|------|------|
+| `app/src/logic/chatIntent.ts` | Slash + meal-plan intents |
+| `app/src/logic/foodLogMealHistory.ts` | Reuse for rebuild-from-log (prompt39) |
+| `app/src/logic/foodPreferences.ts` | Likes/dislikes storage + prompt block |
+| `app/src/logic/recipeUnits.ts` | Kitchen unit rules, grams → display |
+| `app/src/logic/planExport.ts` | HTML + plain text export from JSON |
+| `app/src/services/GeminiService.ts` | `generateRecipePlan`, `generateDayPlan`, `generateWeekPlan` |
+| `app/src/services/FoodLogService.ts` | Today eaten, `getRecentMeals` |
+| `app/src/components/FoodPreferencesStrip.tsx` | Profile UI for likes/dislikes |
+| `app/src/components/RecipeCard.tsx` | Inline chat card |
+| `app/src/components/DayPlanCard.tsx` | Inline chat card |
+| `app/src/components/WeekPlanCard.tsx` | Inline chat card |
+| `app/src/components/RecipeViewerModal.tsx` | Full-screen recipe |
+| `app/src/components/DayPlanViewerModal.tsx` | Timeline day view |
+| `app/src/components/WeekPlanViewerModal.tsx` | 7-day view |
+| `app/src/screens/ChatScreen.tsx` | Wire slash commands, cards, modals |
+| `app/src/logic/mentorChatText.ts` | Strip remaining HTML leaks |
+| `app/src/services/TargetService.ts` | `FoodPreferences`, `ChatMessage` plan fields |
+
+---
+
+## Phased delivery
+
+| Phase | Scope | Phone test |
+|-------|--------|------------|
+| **40a** | Recipe JSON + card + viewer + kitchen units + Log meal | "בנה לי שייק חלבון" |
+| **40a2** | Rebuild from log + history in nutritionist prompt | "בנה את השייק מאתמול בערב" |
+| **40a3** | `/eat` — eat now vs remaining macros | "/eat" at 15:00 |
+| **40b** | `/daily` day plan + viewer + macro compare | "/daily" |
+| **40b2** | `/weekly` week plan viewer | "/weekly" |
+| **40e** | Export day/week HTML + plain text | Share from viewer |
+| **40f** | Food likes/dislikes profile + prompt injection | Plans avoid dislikes |
+| **40c** | Saved recipes library | Optional |
+| **40d** | Saved recipe ↔ food log history (prompt39) | Optional |
+
+---
+
+## Acceptance (40a)
+
+- [ ] Nutritionist: "בנה לי שייק חלבון" → card appears, not HTML in chat
+- [ ] Viewer shows scoop/tsp/cup for small items; salmon stays in grams
+- [ ] **Log as meal** opens food log with correct items/macros
+- [ ] Corrections in chat ("יותר קינמון") update recipe via follow-up or re-call
+- [ ] No visible `<br>` / `<i>` in chat for recipe flow
+- [ ] RTL Hebrew layout in viewer
+
+## Acceptance (40a2 — rebuild from log)
+
+- [ ] "בנה את השייק מאתמול בערב" → recipe card matches logged meal macros
+- [ ] Kitchen units added on top of logged grams where applicable
+- [ ] Card subtitle cites matched date/time
+
+## Acceptance (40a3 — /eat)
+
+- [ ] `/eat` suggests one meal/snack fitting **remaining** kcal/P/C/F today
+- [ ] `/eat shake from last evening` → history match + recipe card (kitchen units)
+- [ ] `/eat השייק מאתמול בערב` → same in Hebrew hint
+- [ ] Hint + empty command body still uses structured pipeline (not free chat prose)
+- [ ] Respects food dislikes; prefers likes when possible
+- [ ] Wrong mentor tab → hint message (like `/macros`)
+
+## Acceptance (40b — /daily)
+
+- [ ] "/daily" or "תפריט ליום שלם" → day card + expandable meals
+- [ ] Day totals shown vs macro target
+- [ ] Each meal loggable independently
+- [ ] Chat bubble stays short (≤2 sentences)
+
+## Acceptance (40b2 — /weekly)
+
+- [ ] `/weekly` → week card, 7 days navigable
+- [ ] Export week produces readable HTML + plain text
+
+## Acceptance (40e — export)
+
+- [ ] Export from viewer (not chat) — no raw HTML tags visible in chat
+- [ ] Hebrew RTL renders correctly in HTML export
+
+## Acceptance (40f — preferences)
+
+- [ ] User can save likes/dislikes in profile
+- [ ] `/daily` plan avoids disliked foods
+- [ ] Chat can suggest "add cottage cheese to avoid list?" on explicit hate statement
+
+---
+
+## Out of scope
+
+- Photo-based recipe OCR
+- Cooking timers / video
+- Grocery delivery integration
+- Doctor/coach tabs generating meal plans (nutritionist only for v1)
+- Auto-learning preferences without user confirm
+
+---
+
+## Open questions (user to decide)
+
+1. **v1 slice:** 40a + 40a2 (recipe + rebuild) first, or jump to `/daily` too?
+2. **Log meal:** open FoodLogModal pre-filled vs save immediately? *(Recommend pre-filled.)*
+3. **Preferences UI:** separate "Food tastes" card in profile vs extend My Rules? *(Recommend separate — soft vs hard.)*
+4. **Weekly plan:** full 7-day detail or Mon–Fri + weekend summary?
+5. **Export default:** HTML file share vs WhatsApp plain text?
+
+---
+
+## Related
+
+- **prompt39** — food log history in **food log modal** ("add my usual shake") — **40a2** reuses same history in **nutritionist chat** ("build yesterday's shake")
+- **prompt38** — secondary lab flags in nutritionist chat (parallel backlog)
