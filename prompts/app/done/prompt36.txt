@@ -16,7 +16,7 @@ computed energy/carb guidance into the Gemini prompt, and reframes rules around 
 | F | **173** | Fills kcal after P/C; heart-healthy framing |
 | Fi | **25** | ~½× carbs (soluble-fiber goal) |
 
-Reference export: `prompts/macros/macro-gemini-prompt_2026-06-18 (9).txt`
+Reference export: superseded by `prompts/macros/macro-gemini-prompt_2026-06-19-prompt37.txt` (includes prompt36 + 37).
 
 ---
 
@@ -106,7 +106,7 @@ reviseMacroTargetsWithGemini(context)
 2. No `Constraints: קטוגנית` line.
 3. My Rules → Save & Summarise — no “Could not parse rules summary”.
 4. Macro suggest → ~2325 kcal, C~50, P≤141, cholesterol-centered `diet_label` / reasoning.
-5. API: `node scripts/run-gemini-prompt-file.mjs "prompts/macros/macro-gemini-prompt_2026-06-18 (9).txt"`
+5. API: `node scripts/run-gemini-prompt-file.mjs "prompts/macros/macro-gemini-prompt_2026-06-19-prompt37.txt"`
 
 ---
 
