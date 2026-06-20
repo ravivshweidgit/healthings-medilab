@@ -12,7 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { suggestMacroTargets, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
+import { suggestMacroTargets, confirmSavedMacroTarget, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
 import { buildAndExportMacroPrompt } from '../services/macroPromptExport';
 import { RulesAdviceBanner } from './RulesAdviceBanner';
 import { MacroClinicalProfileBanner } from './MacroClinicalProfileBanner';
@@ -199,7 +199,7 @@ export function MacroTargetStrip({
     setRulesAdvice(null);
     setScreen('loading');
     try {
-      const [result, rules, mentorList] = await Promise.all([
+      const [{ suggestion: result }, rules, mentorList] = await Promise.all([
         suggestMacroTargets({ trigger: 'dashboard-suggest', lang }),
         getUserRules(),
         getMentors(),
@@ -255,7 +255,7 @@ export function MacroTargetStrip({
 
   const handleAccept = useCallback(async () => {
     if (!suggestion) return;
-    await saveMacroTarget(suggestion);
+    await confirmSavedMacroTarget(suggestion);
     setTarget(suggestion);
     onSaved?.(suggestion);
     setScreen('active');

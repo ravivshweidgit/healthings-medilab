@@ -57,12 +57,21 @@ import {
 } from '../services/TargetService';
 import { reviseMacroTargetsWithGemini, type MacroSuggestion } from '../services/GeminiService';
 import { captureMacroGeminiPrompt } from '../services/macroPromptExport';
+import {
+  appendMacroRevisionLog,
+  getMacroRevisionLog,
+  type MacroRevisionSource,
+  type MacroRevisionTrigger,
+} from './macroRevisionLog';
+import { assessAutoApplyBlock } from './macroRevisionGuard';
 
-export type MacroRevisionTrigger =
-  | 'dashboard-suggest'
-  | 'chat-proposal'
-  | 'weigh-in'
-  | 'lab-import';
+export type { MacroRevisionTrigger, MacroRevisionSource };
+export { getMacroRevisionLog } from './macroRevisionLog';
+
+export type MacroRevisionResult = {
+  suggestion: MacroSuggestion;
+  source: MacroRevisionSource;
+};
 
 export type MacroRevisionBundle = {
   contextText: string;
@@ -756,7 +765,7 @@ export async function suggestMacroTargets(opts: {
   trigger: MacroRevisionTrigger;
   triggerDetail?: string;
   lang?: UserLanguage | null;
-}): Promise<MacroSuggestion> {
+}): Promise<MacroRevisionResult> {
   const bundle = await buildMacroRevisionBundle(opts);
   const lang = opts.lang ?? (await getLanguage());
   await captureMacroGeminiPrompt({
@@ -766,12 +775,67 @@ export async function suggestMacroTargets(opts: {
     contextText: bundle.contextText,
   });
   const langCode = lang?.code ?? 'en';
+  let source: MacroRevisionSource = 'gemini';
+  let suggestion: MacroSuggestion;
   try {
     const raw = await reviseMacroTargetsWithGemini(bundle.contextText, lang);
-    return finalizeMacroSuggestion(raw, bundle, langCode);
+    suggestion = finalizeMacroSuggestion(raw, bundle, langCode);
   } catch {
-    return deterministicMacroFallback(bundle, langCode);
+    source = 'fallback';
+    suggestion = deterministicMacroFallback(bundle, langCode);
   }
+
+  await appendMacroRevisionLog({
+    at: new Date().toISOString(),
+    trigger: opts.trigger,
+    triggerDetail: opts.triggerDetail,
+    source,
+    kcal: suggestion.kcal,
+    protein_g: suggestion.protein_g,
+    carb_g: suggestion.carb_g,
+    fat_g: suggestion.fat_g,
+    fiber_g: suggestion.fiber_g,
+    applied: false,
+  });
+
+  return { suggestion, source };
+}
+
+/** Save macro proposal after explicit user confirm (chat card / dashboard). Sets manual lock. */
+export async function confirmMacroTargetFromProposal(
+  proposal: MacroSuggestion,
+): Promise<DailyMacroTarget> {
+  const [userRules, mentors] = await Promise.all([getUserRules(), getMentors()]);
+  const target = macroSuggestionToDailyTarget(proposal, userRules, mentors);
+  await confirmSavedMacroTarget(target, 'chat-proposal');
+  return target;
+}
+
+/** After user confirms an already-built DailyMacroTarget (dashboard strip). */
+export async function confirmSavedMacroTarget(
+  target: DailyMacroTarget,
+  trigger: MacroRevisionTrigger = 'dashboard-suggest',
+): Promise<void> {
+  await saveMacroTarget(target);
+  const state = await getMacroAutoAdjustState();
+  await saveMacroAutoAdjustState({
+    ...state,
+    lastKcal: target.kcal,
+    lastAdjustedAt: new Date().toISOString(),
+    manualLock: true,
+  });
+  await appendMacroRevisionLog({
+    at: new Date().toISOString(),
+    trigger,
+    triggerDetail: 'user confirmed',
+    source: 'gemini',
+    kcal: target.kcal,
+    protein_g: target.protein_g,
+    carb_g: target.carb_g,
+    fat_g: target.fat_g,
+    fiber_g: target.fiber_g ?? deriveFiberTargetFromCarbs(target.carb_g),
+    applied: true,
+  });
 }
 
 export function materiallyChanged(
@@ -786,6 +850,22 @@ export function materiallyChanged(
   const savedFi = saved.fiber_g ?? deriveFiberTargetFromCarbs(saved.carb_g);
   if (Math.abs(savedFi - proposed.fiber_g) >= 5) return true;
   return false;
+}
+
+function notifyMacroReviewNeeded(
+  trigger: MacroRevisionTrigger,
+  triggerDetail: string | undefined,
+  proposed: MacroSuggestion,
+  blockReasons: string[],
+  langCode: string,
+): void {
+  const he = langCode === 'he';
+  const line = `${proposed.kcal} kcal · P${proposed.protein_g} · C${proposed.carb_g} · F${proposed.fat_g}`;
+  const title = he ? 'נדרש עדכון מאקרו ידני' : 'Macro review needed';
+  const body = he
+    ? `לא עודכנו יעדים אוטומטית${triggerDetail ? ` (שקילה ${triggerDetail})` : ''}.\n${line}\nסיבה: ${blockReasons.join('; ')}\nשלח/י /macros בצ'אט תזונאית לאישור.`
+    : `Targets were not auto-updated${triggerDetail ? ` (weigh-in ${triggerDetail})` : ''}.\n${line}\nReason: ${blockReasons.join('; ')}\nSend /macros in nutritionist chat to confirm.`;
+  Alert.alert(title, body, [{ text: he ? 'הבנתי' : 'OK' }]);
 }
 
 function notifyMacroUpdated(
@@ -837,32 +917,73 @@ export async function applyAutoMacroRevision(opts: {
     if (state.lastLabReportId === id) return null;
   }
 
-  const proposed = await suggestMacroTargets({
+  if (state.manualLock) {
+    if (opts.trigger === 'weigh-in' && opts.weightKg != null) {
+      await saveMacroAutoAdjustState({ ...state, lastWeightKg: opts.weightKg });
+    }
+    if (opts.trigger === 'lab-import' && opts.labReportId) {
+      await saveMacroAutoAdjustState({ ...state, lastLabReportId: opts.labReportId });
+    }
+    return null;
+  }
+
+  const { suggestion: proposed, source } = await suggestMacroTargets({
     trigger: opts.trigger,
     triggerDetail: opts.triggerDetail,
     lang,
   });
 
   const saved = await getMacroTarget();
-  if (!materiallyChanged(saved, proposed)) {
+  const [userRules, mentors, recentLog, avgEatenCarb7d] = await Promise.all([
+    getUserRules(),
+    getMentors(),
+    getMacroRevisionLog(),
+    get7DayAverageEatenCarb_g(),
+  ]);
+
+  const block = assessAutoApplyBlock({
+    proposed,
+    saved,
+    source,
+    avgEatenCarb7d,
+    userRules,
+    recentLog,
+    manualLock: state.manualLock,
+  });
+
+  const bumpState = async () => {
     if (opts.trigger === 'weigh-in' && opts.weightKg != null) {
-      await saveMacroAutoAdjustState({
-        ...state,
-        lastWeightKg: opts.weightKg,
-        manualLock: false,
-      });
+      await saveMacroAutoAdjustState({ ...state, lastWeightKg: opts.weightKg });
     }
     if (opts.trigger === 'lab-import' && opts.labReportId) {
-      await saveMacroAutoAdjustState({
-        ...state,
-        lastLabReportId: opts.labReportId,
-        manualLock: false,
-      });
+      await saveMacroAutoAdjustState({ ...state, lastLabReportId: opts.labReportId });
     }
+  };
+
+  if (block.blocked) {
+    await appendMacroRevisionLog({
+      at: new Date().toISOString(),
+      trigger: opts.trigger,
+      triggerDetail: opts.triggerDetail,
+      source,
+      kcal: proposed.kcal,
+      protein_g: proposed.protein_g,
+      carb_g: proposed.carb_g,
+      fat_g: proposed.fat_g,
+      fiber_g: proposed.fiber_g,
+      applied: false,
+      blockReason: block.reasons.join('; '),
+    });
+    await bumpState();
+    notifyMacroReviewNeeded(opts.trigger, opts.triggerDetail, proposed, block.reasons, lang.code);
     return null;
   }
 
-  const [userRules, mentors] = await Promise.all([getUserRules(), getMentors()]);
+  if (!materiallyChanged(saved, proposed)) {
+    await bumpState();
+    return null;
+  }
+
   const target = macroSuggestionToDailyTarget(proposed, userRules, mentors);
   await saveMacroTarget(target);
 
@@ -872,6 +993,19 @@ export async function applyAutoMacroRevision(opts: {
     lastKcal: target.kcal,
     lastAdjustedAt: new Date().toISOString(),
     manualLock: false,
+  });
+
+  await appendMacroRevisionLog({
+    at: new Date().toISOString(),
+    trigger: opts.trigger,
+    triggerDetail: opts.triggerDetail,
+    source,
+    kcal: target.kcal,
+    protein_g: target.protein_g,
+    carb_g: target.carb_g,
+    fat_g: target.fat_g,
+    fiber_g: target.fiber_g ?? deriveFiberTargetFromCarbs(target.carb_g),
+    applied: true,
   });
 
   notifyMacroUpdated(opts.trigger, opts.triggerDetail, proposed, lang.code);

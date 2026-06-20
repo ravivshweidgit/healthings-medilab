@@ -1639,7 +1639,8 @@ export async function reviseMacroTargetsWithGemini(
  */
 export async function suggestDailyMacros(input: MacroSuggestionInput, lang?: UserLanguage | null): Promise<MacroSuggestion> {
   const { suggestMacroTargets } = await import('../logic/macroAutoAdjust');
-  return suggestMacroTargets({ trigger: 'dashboard-suggest', lang });
+  const { suggestion } = await suggestMacroTargets({ trigger: 'dashboard-suggest', lang });
+  return suggestion;
 }
 
 // ─── Coach context & message generation ───────────────────────────────────────

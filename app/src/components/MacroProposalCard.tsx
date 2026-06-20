@@ -5,14 +5,8 @@
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { MacroSuggestion } from '../services/GeminiService';
-import {
-  getMentors,
-  getUserRules,
-  saveMacroTarget,
-  type DailyMacroTarget,
-  type UserLanguage,
-} from '../services/TargetService';
-import { macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
+import type { DailyMacroTarget, UserLanguage } from '../services/TargetService';
+import { confirmMacroTargetFromProposal } from '../logic/macroAutoAdjust';
 import { RulesAdviceBanner } from './RulesAdviceBanner';
 import { MacroClinicalProfileBanner } from './MacroClinicalProfileBanner';
 import { WellnessColors } from '../theme/wellness';
@@ -36,9 +30,7 @@ export function MacroProposalCard({ proposal, lang, onApplied, onDismiss }: Prop
   const handleApply = useCallback(async () => {
     setBusy(true);
     try {
-      const [rules, mentors] = await Promise.all([getUserRules(), getMentors()]);
-      const target = macroSuggestionToDailyTarget(proposal, rules, mentors);
-      await saveMacroTarget(target);
+      const target = await confirmMacroTargetFromProposal(proposal);
       onApplied?.(target);
     } finally {
       setBusy(false);

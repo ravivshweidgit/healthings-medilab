@@ -1414,7 +1414,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
           role: 'assistant',
           text: replyText,
           sentAt: new Date().toISOString(),
-          macroProposal: macroResult ?? undefined,
+          macroProposal: macroResult?.suggestion,
           recipePlan: recipeResult ?? undefined,
         };
         setHistory((prev) => [...prev, aiMsg]);
