@@ -1,10 +1,10 @@
 ## Prompt 40a — Nutritionist recipe cards (single meal / `/eat` / `/recipe`)
 
-**Status: done (2026-06-19)** — Shipped and phone-tested.
+**Status: done (2026-06-20)** — Shipped and phone-tested.
 
-Commit: `0709809` — *Ship prompt40a recipe cards in nutritionist chat with AI kitchen units.*
+Commits: `0709809` (recipe cards) + follow-up (slash-only, English commands, autocomplete, food-log refresh).
 
-Spec split: **40b** → `prompts/app/prompt40b.txt` (daily/weekly plans, export, preferences).
+Spec split: **40b** → `prompts/app/prompt40b.txt` (day/week plans, export, preferences).
 
 Builds on **prompt39** (food log history) and **MacroProposalCard** pattern (`/macros`).
 
@@ -30,17 +30,43 @@ Short chat intro + **RecipeCard** → **RecipeViewerModal** — not HTML in the 
 #### Chat (nutritionist tab)
 
 - `RecipeCard.tsx`, `RecipeViewerModal.tsx`
-- `ChatScreen` branch: recipe intent → card (like `/macros`)
+- `ChatScreen` branch: recipe slash → card (like `/macros`)
 - `FoodLogModal` prefill from **Log as meal**
-- Slash + hint: `/eat`, `/recipe`, `/אכול` (+ trailing text)
-- `/daily`, `/weekly` → deferred message (implemented in 40b)
-- Natural language: `בנה לי שייק`, `בנה את השייק מאתמול בערב`, etc.
+- **`SlashCommandSuggestions.tsx`** — `/` autocomplete picker
+- **`chatSlashCommands.ts`** — catalog + filter (English tokens; hints localized)
+- Food log refreshes after **Log as meal** from chat (`DashboardScreen` → `onFoodLogSaved`)
+
+#### Slash commands — English tokens only
+
+**Slash required** — natural language (e.g. "build me a shake") stays normal chat, no recipe card.
+
+| Group | Commands | Meaning |
+|-------|----------|---------|
+| **Eat now** | `/eat` | Recipe card scaled to **remaining macros today** |
+| **Recipe** | `/recipe` `/recipt` `/create` | Faithful recipe card (+ optional hint in any language) |
+| **Macros** | `/macros` | Macro target revision (not a recipe) |
+| **Review** | `/7` `/30` `/yesterday` or any `/N` (1–128) | Period review (all mentor tabs) |
+
+**Hint after command** can be Hebrew: `/recipe השייק הקבוע`
+
+**Why no Hebrew slash tokens** (`/מתכון`, `/בנה`, …): JS `\b` word boundaries fail on Hebrew; RTL input reordering. Industry norm: English `/commands` + localized hints.
+
+**Menu deferred (40b):** `/menu` `/menu-d` `/menu-w` `/daily` `/weekly` → parse but return “coming next” hint only.
+
+#### Autocomplete (`/` picker)
+
+- Nutritionist: `/eat`, `/recipe`, `/create`, `/recipt`, `/macros`
+- All tabs: `/7`, `/30`, `/yesterday` — `/7` hint notes “or type /N (1–128)”
+- No `/1` in picker (`/yesterday` or typed `/1` still work)
+- Recipe commands ranked first on nutritionist tab; scrollable list (no 8-item cap)
 
 #### `/eat` vs `/recipe`
 
 | | `/eat` | `/recipe` |
 |---|--------|-----------|
+| Mode | `eat_now` | `recipe` |
 | Sizing | Fits **remaining macros today** | Faithful recipe |
+| UI | Same **RecipeCard** | Same **RecipeCard** |
 | History hint | Rebuild + optional scale | Copy from log |
 
 #### Rebuild from food log (40a2)
@@ -62,20 +88,26 @@ Short chat intro + **RecipeCard** → **RecipeViewerModal** — not HTML in the 
 |------|------|
 | `app/src/logic/mealPlanTypes.ts` | Types + display helpers |
 | `app/src/logic/recipePlanService.ts` | Gemini recipe JSON + prompt |
-| `app/src/logic/chatIntent.ts` | `parseMealSlashCommand`, recipe intents |
+| `app/src/logic/chatIntent.ts` | Recipe + menu slash parse, `isRecipeSlashCommand` |
+| `app/src/logic/chatSlashCommands.ts` | `/` autocomplete catalog |
+| `app/src/components/SlashCommandSuggestions.tsx` | Autocomplete UI |
 | `app/src/logic/foodLogMealHistory.ts` | History block (prompt39 reuse) |
 | `app/src/components/RecipeCard.tsx` | Inline chat card |
 | `app/src/components/RecipeViewerModal.tsx` | Full-screen recipe |
-| `app/src/screens/ChatScreen.tsx` | Wire nutritionist branch |
+| `app/src/screens/ChatScreen.tsx` | Wire nutritionist branch + autocomplete |
+| `app/src/screens/DashboardScreen.tsx` | `onFoodLogSaved` after chat log |
 | `app/src/components/FoodLogModal.tsx` | `prefillItems`, 2-line layout |
 
 ---
 
-### Phone-tested (2026-06-19)
+### Phone-tested (2026-06-19 – 2026-06-20)
 
 - [x] Recipe card + viewer — kitchen units from AI (scoop, count, tsp)
-- [x] `/eat`, `/recipe`, natural language shake
-- [x] Log as meal → food log pre-filled
+- [x] `/recipe` + Hebrew hint → recipe card (not chat prose)
+- [x] `/eat` → recipe card sized to remaining macros
+- [x] Natural language shake → normal chat (no accidental card)
+- [x] `/` autocomplete — English commands, Hebrew hints
+- [x] Log as meal → food log pre-filled + dashboard list refreshes
 - [x] Fiber (Fi) per ingredient + day total in viewer
 - [x] RTL Hebrew layout
 - [x] Rebuild from log phrases (history in prompt)
@@ -84,8 +116,8 @@ Short chat intro + **RecipeCard** → **RecipeViewerModal** — not HTML in the 
 
 ### Deferred → prompt40b
 
-- `/daily` full day plan + viewer
-- `/weekly` week plan + viewer
+- `/menu-d` full day plan + viewer
+- `/menu-w` week plan + viewer
 - Export HTML / plain text
 - Food likes / dislikes profile
 - Saved recipes library (optional)
@@ -96,3 +128,4 @@ Short chat intro + **RecipeCard** → **RecipeViewerModal** — not HTML in the 
 
 - **prompt39** — food log history ("add my usual shake")
 - **prompt40b** — day/week menus + export + preferences
+- **prompt41** — CGM chat tiering (unchanged by 40a slash work)

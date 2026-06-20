@@ -64,7 +64,7 @@ export function isGlucoseDeepDiveQuery(text: string): boolean {
 /** Explicit slash command — same pipeline as dashboard Analyze (7d revision context). */
 export function isMacroSlashCommand(text: string): boolean {
   const t = text.trim();
-  return /^\/macros?\b/i.test(t) || /^\/מקרו\b/.test(t);
+  return /^\/macros?\b/i.test(t);
 }
 
 /** Set/adjust daily macro targets — nutritionist macro brain (prompt35). */
@@ -97,22 +97,41 @@ export function macroSlashWrongTabHint(langCode?: string | null): string {
   return '/macros is available on the Nutritionist 🥗 tab only.';
 }
 
-/** Meal-plan slash commands (prompt40) — nutritionist tab only. */
-export type MealSlashCommand = 'eat' | 'recipe' | 'daily' | 'weekly';
+/** Meal / recipe / menu slash commands — nutritionist tab only. */
+export type MealSlashCommand =
+  | 'eat'
+  | 'recipe'
+  | 'menu_day'
+  | 'menu_week'
+  | 'menu_month'
+  | 'menu_help';
+
+export function isMenuSlashCommand(command: MealSlashCommand): boolean {
+  return (
+    command === 'menu_day' ||
+    command === 'menu_week' ||
+    command === 'menu_month' ||
+    command === 'menu_help'
+  );
+}
 
 export function parseMealSlashCommand(
   text: string,
 ): { command: MealSlashCommand; hint: string } | null {
   const t = text.trim();
+  /** Order matters: longer / more specific patterns first. */
   const patterns: [RegExp, MealSlashCommand][] = [
     [/^\/eat\b/i, 'eat'],
-    [/^\/אכול\b/, 'eat'],
     [/^\/recipe\b/i, 'recipe'],
-    [/^\/מתכון\b/, 'recipe'],
-    [/^\/daily\b/i, 'daily'],
-    [/^\/יום\b/, 'daily'],
-    [/^\/weekly\b/i, 'weekly'],
-    [/^\/שבוע\b/, 'weekly'],
+    [/^\/recipt\b/i, 'recipe'],
+    [/^\/create\b/i, 'recipe'],
+    [/^\/menu-d\b/i, 'menu_day'],
+    [/^\/menu-w\b/i, 'menu_week'],
+    [/^\/menu-m\b/i, 'menu_month'],
+    [/^\/menue\b/i, 'menu_help'],
+    [/^\/menu\b/i, 'menu_help'],
+    [/^\/daily\b/i, 'menu_day'],
+    [/^\/weekly\b/i, 'menu_week'],
   ];
   for (const [re, command] of patterns) {
     const m = t.match(re);
@@ -127,22 +146,39 @@ export function isMealPlanSlashCommand(text: string): boolean {
   return parseMealSlashCommand(text) != null;
 }
 
-export function mealPlanSlashWrongTabHint(langCode?: string | null): string {
-  if (langCode === 'he') {
-    return 'פקודות /eat /recipe /daily /weekly זמינות בלשונית תזונאית 🥗 בלבד.';
-  }
-  return '/eat, /recipe, /daily, and /weekly are available on the Nutritionist 🥗 tab only.';
+export function isRecipeSlashCommand(text: string): boolean {
+  const slash = parseMealSlashCommand(text);
+  return slash?.command === 'eat' || slash?.command === 'recipe';
 }
 
-export function mealPlanDeferredHint(command: MealSlashCommand, langCode?: string | null): string {
-  if (command === 'daily') {
-    return langCode === 'he'
-      ? 'תפריט יומי (/daily) יגיע בגרסה הבאה — נסה/י /recipe או "בנה לי שייק".'
-      : 'Daily menu (/daily) is coming next — try /recipe or "build me a protein shake".';
+export function mealPlanSlashWrongTabHint(langCode?: string | null): string {
+  if (langCode === 'he') {
+    return 'פקודות מתכון (/eat /recipe /create …) זמינות בלשונית תזונאית 🥗 בלבד.';
   }
-  return langCode === 'he'
-    ? 'תפריט שבועי (/weekly) יגיע בגרסה הבאה — נסה/י /recipe או /daily בהמשך.'
-    : 'Weekly menu (/weekly) is coming next — try /recipe for now.';
+  return 'Recipe commands (/eat, /recipe, /create, …) are available on the Nutritionist 🥗 tab only.';
+}
+
+/** Menu plans — deferred until prompt40b. */
+export function menuSlashDeferredHint(command: MealSlashCommand, langCode?: string | null): string {
+  const he = langCode === 'he';
+  if (command === 'menu_help') {
+    return he
+      ? 'תפריטים (/menu) יגיעו בגרסה הבאה. עכשיו: /recipe למתכון בודד · /eat למה לאכול עכשיו.'
+      : 'Menu plans (/menu) coming next. For now: /recipe for one recipe, /eat for what to eat now.';
+  }
+  if (command === 'menu_day') {
+    return he
+      ? 'תפריט יומי (/menu-d) יגיע בגרסה הבאה — כרגע /recipe למתכון בודד.'
+      : 'Day menu (/menu-d) coming next — use /recipe for a single recipe card now.';
+  }
+  if (command === 'menu_week') {
+    return he
+      ? 'תפריט שבועי (/menu-w) יגיע בגרסה הבאה — כרגע /recipe למתכון בודד.'
+      : 'Week menu (/menu-w) coming next — use /recipe for a single recipe card now.';
+  }
+  return he
+    ? 'תפריט חודשי (/menu-m) יגיע בגרסה הבאה — כרגע /recipe למתכון בודד.'
+    : 'Month menu (/menu-m) coming next — use /recipe for a single recipe card now.';
 }
 
 export function recipePlanIntro(langCode?: string | null): string {
@@ -152,21 +188,9 @@ export function recipePlanIntro(langCode?: string | null): string {
   return 'Here is your recipe — tap to open or log as a meal.';
 }
 
-function isNaturalRecipeRequest(text: string): boolean {
-  const t = text.trim();
-  if (isMacroTargetQuery(t)) return false;
-  return (
-    /בנה|תבנה|הכן|מתכון|שייק|סמודי|איך להכין|מאתמול|אתמול בערב|הרגיל שלי|אותו שייק|אותה ארוחה/.test(t) ||
-    /\b(build|make|prepare|recipe|shake|smoothie|protein shake)\b/i.test(t) ||
-    /from last evening|last night|my usual|same (shake|meal)/i.test(t)
-  );
-}
-
-/** Nutritionist structured recipe / eat-now request (prompt40a). */
+/** Structured recipe / eat-now — slash commands only (no natural-language trigger). */
 export function isRecipePlanChatRequest(text: string): boolean {
-  const slash = parseMealSlashCommand(text);
-  if (slash) return slash.command === 'eat' || slash.command === 'recipe';
-  return isNaturalRecipeRequest(text);
+  return isRecipeSlashCommand(text);
 }
 
 export function resolveRecipePlanMode(
@@ -176,13 +200,7 @@ export function resolveRecipePlanMode(
   if (slash?.command === 'eat') {
     return { mode: 'eat_now', hint: slash.hint || text };
   }
-  if (slash?.command === 'recipe') {
-    return { mode: 'recipe', hint: slash.hint || text };
-  }
-  if (/מה לאכול|what (should i|to) eat|רעב|hungry/i.test(text) && !/תפריט|menu|יום|week/i.test(text)) {
-    return { mode: 'eat_now', hint: text };
-  }
-  return { mode: 'recipe', hint: text };
+  return { mode: 'recipe', hint: slash?.hint || text };
 }
 
 /** Food/macro targets, hunger, "what to eat", menu tips. */

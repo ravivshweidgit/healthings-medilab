@@ -72,7 +72,7 @@ Optional offer: *"רוצה פירוט?"* / *"Want the numbers?"*
 - [ ] "Give me the numbers" / תן מספרים → avg/min/max cited
 - [ ] `/7 what is my glucose day avg? what is my night avg` → day + night avgs (07–23 / 23–07)
 - [ ] First message of tab → short glucose headline, not dashboard
-- [ ] `/recipe` shake → recipe card regression (prompt40a)
+- [x] `/recipe` shake → recipe card regression (prompt40a)
 
 ---
 

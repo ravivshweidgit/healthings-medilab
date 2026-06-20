@@ -25,7 +25,7 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt39** — done (2026-06-19). Food log history for meal AI ("usual shake", "last evening"); lab results strip at dashboard bottom. Phone-tested.
 
-**prompt40a** — done (2026-06-19). Nutritionist recipe cards: `/eat` `/recipe`, AI kitchen units, viewer, log-as-meal. Phone-tested. **40b** → `prompt40b.txt`.
+**prompt40a** — done (2026-06-20). Nutritionist recipe cards: slash-only `/eat` `/recipe`, English commands + Hebrew hints, `/` autocomplete, log-as-meal + dashboard refresh. Phone-tested. **40b** → `prompt40b.txt`.
 
 **prompt41** — done (2026-06-19). CGM chat: qualitative glucose by default, deep dive on request; `/7` full CGM series (≤7d) + day/night averages (07:00–23:00 / 23:00–07:00). APK installed for phone test.
 

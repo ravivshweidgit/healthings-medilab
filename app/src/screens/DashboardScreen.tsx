@@ -1427,6 +1427,7 @@ export const DashboardScreen = () => {
             context={coachContext}
             onCoachMessageUpdated={(msg) => setCoachMsg(msg)}
             onMacroTargetUpdated={(t) => setMacroTarget(t)}
+            onFoodLogSaved={handleFoodSaved}
           />
         </SafeAreaProvider>
       </Modal>

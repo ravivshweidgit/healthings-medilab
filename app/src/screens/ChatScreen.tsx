@@ -52,10 +52,11 @@ import {
   isMacroChatRequest,
   isMacroSlashCommand,
   isMealPlanSlashCommand,
+  isMenuSlashCommand,
   isRecipePlanChatRequest,
   macroSlashIntro,
   macroSlashWrongTabHint,
-  mealPlanDeferredHint,
+  menuSlashDeferredHint,
   mealPlanSlashWrongTabHint,
   parseMealSlashCommand,
   recipePlanIntro,
@@ -64,6 +65,8 @@ import {
 import { suggestMacroTargets } from '../logic/macroAutoAdjust';
 import { MacroProposalCard } from '../components/MacroProposalCard';
 import { RecipeCard } from '../components/RecipeCard';
+import { SlashCommandSuggestions } from '../components/SlashCommandSuggestions';
+import { filterSlashCommandSuggestions } from '../logic/chatSlashCommands';
 import { RecipeViewerModal } from '../components/RecipeViewerModal';
 import { FoodLogModal } from '../components/FoodLogModal';
 import { recipePlanToFoodItems, type RecipePlan } from '../logic/mealPlanTypes';
@@ -84,6 +87,8 @@ type Props = {
   context: CoachContext;
   onCoachMessageUpdated?: (msg: CoachMessage | null) => void;
   onMacroTargetUpdated?: (target: DailyMacroTarget) => void;
+  /** Dashboard food list + coach refresh after log-from-recipe in chat. */
+  onFoodLogSaved?: () => void;
 };
 
 /** Local calendar day — must match FoodLogService day keys (not UTC toISOString). */
@@ -988,7 +993,7 @@ function MessageBubble({
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
-export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, onMacroTargetUpdated }: Props) {
+export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, onMacroTargetUpdated, onFoodLogSaved }: Props) {
   const insets = useSafeAreaInsets();
   const mentorTabs = useMemo(() => orderedActiveMentors(context.mentors), [context.mentors]);
   const [activeMentor, setActiveMentor] = useState<MentorType>(mentorTabs[0] ?? 'coach');
@@ -1015,6 +1020,11 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
 
   const ui = chatUiStrings(context);
   const tabUi = mentorTabStrings(activeMentor, context);
+
+  const slashSuggestions = useMemo(
+    () => filterSlashCommandSuggestions(inputText, activeMentor, context.lang?.code),
+    [inputText, activeMentor, context.lang?.code],
+  );
 
   useEffect(() => {
     if (mentorTabs.length > 0 && !mentorTabs.includes(activeMentor)) {
@@ -1343,11 +1353,11 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
         if (
           mealSlash &&
           activeMentor === 'nutritionist' &&
-          (mealSlash.command === 'daily' || mealSlash.command === 'weekly')
+          isMenuSlashCommand(mealSlash.command)
         ) {
           const aiMsg: ChatMessageUI = {
             role: 'assistant',
-            text: mealPlanDeferredHint(mealSlash.command, freshContext.lang?.code),
+            text: menuSlashDeferredHint(mealSlash.command, freshContext.lang?.code),
             sentAt: new Date().toISOString(),
           };
           setHistory((prev) => [...prev, aiMsg]);
@@ -1458,7 +1468,8 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
   const handleFoodLogSaved = useCallback(() => {
     setFoodLogVisible(false);
     setFoodLogPrefill(null);
-  }, []);
+    onFoodLogSaved?.();
+  }, [onFoodLogSaved]);
 
   const handleToggleActionItem = useCallback(
     async (itemId: string) => {
@@ -1628,6 +1639,11 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
                   </Pressable>
                 </View>
               ) : null}
+              <SlashCommandSuggestions
+                options={slashSuggestions}
+                rtl={ui.rtl}
+                onSelect={(insert) => setInputText(insert)}
+              />
               <TextInput
                 style={[styles.textInput, ui.rtl && styles.rtlInput]}
                 value={inputText}

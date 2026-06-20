@@ -24,18 +24,73 @@ Same card + full-screen pattern as **RecipeCard** / **MacroProposalCard**.
 
 ## Slash commands (nutritionist tab)
 
-| Command | Output | Status |
-|---------|--------|--------|
-| `/daily` | `DayPlan` card → timeline viewer | **40b** |
-| `/daily low carb` | Day plan + hint | **40b** |
-| `/daily like yesterday` | Day shaped from food log | **40b** |
-| `/weekly` | `WeekPlan` card | **40b2** |
-| `/weekly no fish` | Week + hint / dislikes | **40b2** |
-| `/יום` `/שבוע` | Hebrew aliases | **40b** |
+### Shipped (40a) — immediate single meal / recipe (Nutritionist tab)
 
-Today `/daily` and `/weekly` return **“coming next”** — replace with real pipeline in 40b.
+**Not menu plans** — one `RecipePlan` card only. **Slash required** (no natural-language trigger).
+
+**English slash tokens only** — hint after command may be Hebrew (e.g. `/recipe השייק הקבוע`). No Hebrew command tokens (RTL + regex reliability).
+
+| Group | Commands | Meaning |
+|-------|----------|---------|
+| **Eat now** | `/eat` | One meal for **remaining macros today** (same RecipeCard UI) |
+| **Recipe** | `/recipe` `/recipt` `/create` | One recipe card (+ optional hint) |
+
+Also: **`/macros`** — macro targets (not a recipe).
+
+Autocomplete: `/` picker on nutritionist tab; review shortcuts `/7` `/30` `/yesterday` on all tabs (`/7` hint: or type `/N` 1–128).
+
+---
+
+### Planned (40b+) — menu program (`/menu` prefix, English only)
+
+**Separate feature** — multi-meal `DayPlan` / `WeekPlan` / month TBD. Never mixed with `/recipe`.
+
+#### English — `/menu` family (accept `/menue` typo alias)
+
+| Command | Output |
+|---------|--------|
+| `/menu` | One-line help: day / week / month subcommands |
+| `/menu-d` …hint | Day menu → `DayPlan` card |
+| `/menu-w` …hint | Week menu → `WeekPlan` card |
+| `/menu-m` …hint | Month menu (TBD) |
+
+#### Legacy aliases (still parse, map to menu-*)
+
+| Old | Maps to |
+|-----|---------|
+| `/daily` | `/menu-d` |
+| `/weekly` | `/menu-w` |
+
+Bare `/menu` → **help only** (recommend: do not silently pick day vs week).
+
+Today `/daily` and `/weekly` still return **“coming next”** until 40b ships.
 
 **Context injected:** macro target, eaten today, food log history, **FoodPreferences** (40f), My Rules.
+
+---
+
+### Command mental model (final)
+
+```
+Immediate (now)     →  /eat
+One recipe (doc)    →  /recipe /create /recipt
+Menu program        →  /menu-*  (/daily /weekly legacy)
+Macro targets       →  /macros
+Data review         →  /7 /30 /yesterday /N  (all mentor tabs; N = 1–128)
+```
+
+Hint text after any command may be in the user's language (Hebrew OK).
+
+---
+
+### Command design notes
+
+1. **`/menu` = menus only** — never route to `RecipePlan`.
+2. **Everything else in the recipe list = one meal/recipe** — no day timeline.
+3. **`/menue`** — optional typo alias for `/menu` in parser.
+4. **English slash tokens only** — no Hebrew `/מתכון` etc. (40a follow-up).
+5. **Month** — `/menu-m` stretch; ship day + week first.
+6. **Wrong command:** `/recipe full day` → suggest `/menu-d`.
 
 ---
 
@@ -137,8 +192,9 @@ From viewer only (not chat):
 
 | Phase | Scope | Phone test |
 |-------|--------|------------|
-| **40b** | `generateDayPlan`, `DayPlanCard`, day viewer, `/daily` | "/daily" |
-| **40b2** | `generateWeekPlan`, week viewer, `/weekly` | "/weekly" |
+| **40b** | `generateDayPlan`, `DayPlanCard`, day viewer, `/eat-d` (+ `/daily` alias) | "/eat-d" |
+| **40b2** | `generateWeekPlan`, week viewer, `/eat-w` (+ `/weekly` alias) | "/eat-w" |
+| **40b3** | Month plan (optional), `/menu-m` | "/menu-m" |
 | **40e** | Export day/week | Share from viewer |
 | **40f** | `FoodPreferences` + profile UI | Plans avoid dislikes |
 | **40c** | Saved recipes library | Optional |
