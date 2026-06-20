@@ -43,6 +43,24 @@ export function isGlucoseQuery(text: string): boolean {
   );
 }
 
+/** User wants exact glucose stats (avg/min/max, day-night, analysis) — not a headline-only reply. */
+export function isGlucoseDeepDiveQuery(text: string): boolean {
+  const t = text.toLowerCase();
+  if (
+    /analyze|analysis|numbers|numeric|statistics|stats|breakdown|break down|tell me more|more detail|details|deep dive|in depth|exact|specific reading|latest reading|last reading|time in range|day avg|night avg|day vs night|spike at|compression/.test(t)
+  ) {
+    return true;
+  }
+  if (
+    /נתח|מספרים|ממוצע|מינימום|מקסימום|פירוט|בפירוט|עוד פרטים|קריאה אחרונה|יום.*לילה|יום מול לילה|ספייק/.test(text)
+  ) {
+    return true;
+  }
+  if (/\b(avg|average|min|max)\b/.test(t) && isGlucoseQuery(text)) return true;
+  if (/^\/(\d+)\b/i.test(t.trim()) && isGlucoseQuery(text)) return true;
+  return false;
+}
+
 /** Explicit slash command — same pipeline as dashboard Analyze (7d revision context). */
 export function isMacroSlashCommand(text: string): boolean {
   const t = text.trim();

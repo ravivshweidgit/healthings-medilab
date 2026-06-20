@@ -1,0 +1,82 @@
+## Prompt 41 — CGM chat: qualitative default + /7 day-night + full 7-day series
+
+**Status: done (2026-06-19)** — Code shipped; APK installed for phone test.
+
+Extends **prompt28** (2-day CGM ALL READINGS) and nutritionist CGM-forcing behavior.
+
+---
+
+### Problems (user-reported)
+
+1. **Annoying glucose dumps** — Nutritionist forced to relate every reply to CGM, but opened with avg/min/max mg/dL even on "hi" or food questions. Colleague feedback: too many numbers by default.
+2. **`/7` glucose gaps** — `/7 what is my glucose day avg? what is my night avg` failed because period reviews only included full per-sample CGM for ≤2 days (aggregates only for /7).
+
+---
+
+### Fix 1 — Tiered CGM chat replies (qualitative default)
+
+**Design:** CGM stays a PRIMARY input (model reads data every turn). **What the user hears** is tiered:
+
+| Tier | When | Reply |
+|------|------|--------|
+| Headline (default) | First message, food questions, "how's my sugar?" | stable / in range / elevated / low-side — **no mg/dL** |
+| Deep dive | User asks numbers, avg/min/max, analyze, `/7` + glucose stats | Full stats from PERIOD REVIEW block |
+
+**Deep-dive triggers** — `isGlucoseDeepDiveQuery()` in `chatIntent.ts`:
+- EN: analyze, numbers, avg, min, max, details, day avg, night avg, …
+- HE: מספרים, ממוצע, פירוט, נתח, …
+- `/N` + glucose question with stats wording
+
+**Prompt changes** — `GeminiService.ts`:
+- Nutritionist persona: qualitative default, mg/dL only on deep dive
+- `buildCgmMentorRules(ctx, { glucoseDeepDive })` — tiered rules
+- `buildTurnHint` — headline vs deep per intent
+- `buildChatSystemText` — first turn qualitative; macros/food still use numbers
+- Coach panel wins/improve: qualitative glucose unless notably concerning
+
+Optional offer: *"רוצה פירוט?"* / *"Want the numbers?"*
+
+---
+
+### Fix 2 — `/7` full CGM + day vs night averages
+
+**ReviewService.ts:**
+- `MAX_FULL_CGM_SERIES_DAYS = 7` — `CGM ALL READINGS` per day in period reviews up to 7 days (was ≤2)
+- `/30+` still aggregates only (token budget)
+
+**mealGlucoseAnalysis.ts:**
+- `buildPeriodDayNightGlucoseLines()` — precomputed averages in PERIOD REVIEW:
+  - **Day:** 07:00–23:00 local (breakfast through late evening)
+  - **Night:** 23:00–07:00 local (overnight + dawn)
+  - Period totals + per-day breakdown
+
+**Chat steering:** glucose `/7` + deep dive → cite CGM DAY vs NIGHT block and ALL READINGS when present.
+
+---
+
+### Primary files
+
+| File | Role |
+|------|------|
+| `app/src/logic/chatIntent.ts` | `isGlucoseDeepDiveQuery` |
+| `app/src/services/GeminiService.ts` | Tiered personas, CGM rules, turn hints |
+| `app/src/services/ReviewService.ts` | 7-day full series cap, period instruction |
+| `app/src/logic/mealGlucoseAnalysis.ts` | Day/night stats block |
+
+---
+
+### Phone test plan
+
+- [ ] "How is my glucose?" → qualitative only, no mg/dL dump
+- [ ] Food/protein question → answers food first, no CGM stats block
+- [ ] "Give me the numbers" / תן מספרים → avg/min/max cited
+- [ ] `/7 what is my glucose day avg? what is my night avg` → day + night avgs (07–23 / 23–07)
+- [ ] First message of tab → short glucose headline, not dashboard
+- [ ] `/recipe` shake → recipe card regression (prompt40a)
+
+---
+
+### Related
+
+- **prompt28** — 2-day CGM ALL READINGS (extended to 7d here)
+- **prompt40a** — recipe cards (unchanged)

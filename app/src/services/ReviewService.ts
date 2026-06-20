@@ -35,6 +35,9 @@ import type { DailyMacroTarget } from './TargetService';
 
 export const MAX_REVIEW_DAYS = 128;
 
+/** Full per-sample CGM series (HH:MM=mg/dL) included in period reviews up to this many days. */
+export const MAX_FULL_CGM_SERIES_DAYS = 7;
+
 export type PeriodReviewRequest =
   | { mode: 'yesterday' }
   | { mode: 'days'; days: number };
@@ -318,7 +321,8 @@ async function loadPeriodIntradayFromPersistence(
 /**
  * Full per-day CGM series (every ~5-min sample, RAW — warm-up NOT removed) so the mentor can
  * correlate meal timestamps with glucose timestamps and judge short spikes / compression lows
- * itself. Only emitted for the short (today+yesterday) window; wider /N reviews keep aggregates.
+ * itself. Emitted when the review window is ≤ MAX_FULL_CGM_SERIES_DAYS (7); wider /N reviews
+ * keep aggregates + day/night stats only (token budget).
  */
 function formatDayGlucoseSeries(glucose: TimePoint[], dayKey: string): string | null {
   const dayPts = glucose
@@ -564,7 +568,7 @@ export async function buildPeriodReviewBlock(
   const periodGlucose = filterGlucoseToDayKeys(intraday.glucose, dayKeys);
   // RAW samples (warm-up kept) for the full per-sample dump — only used for the short window.
   const periodGlucoseRaw = filterGlucoseToDayKeys(intraday.glucoseRaw, dayKeys);
-  const includeFullGlucoseSeries = dayKeys.length <= 2;
+  const includeFullGlucoseSeries = dayKeys.length <= MAX_FULL_CGM_SERIES_DAYS;
 
   const bodyByDay = bodyDayMap(bodyPayload.days);
   const burnByDay = computeBurnKcalByDay(bodyPayload.days, intraday.calories, workouts);
@@ -658,7 +662,7 @@ export async function buildPeriodReviewBlock(
 }
 
 export const PERIOD_REVIEW_CHAT_INSTRUCTION =
-  'When a RAW DATA block is present: analyze the FULL snapshot — body trends, BMR, energy balance, heart rate, food logs (incl. FOOD MACROS eaten averages), GLUCOSE & FOOD IMPACT (CGM vs meals), workouts. Do NOT compare to saved app macro targets — judge from what was actually eaten. For GLUCOSE: MUST quote period avg, min, max (mg/dL) from Period CGM stats; exclude first 24h sensor warm-up (falsely low — see CGM sensor start line); never vague phrases like "elevated days" without numbers. For each workout, use HR during session (avg, max, vs resting baseline, recovery) — Coach 💪 leads on this. Nutritionist 🥗 and Doctor 🩺: trusted CGM trend + foods before spikes when meals exist. Say what went well, what to improve, and give 2–4 concrete next steps. Each active mentor must contribute their angle. Cite specific numbers from the block.';
+  'When a PERIOD REVIEW or RAW DATA block is present: analyze the FULL snapshot — body trends, BMR, energy balance, heart rate, food logs (incl. FOOD MACROS eaten averages), GLUCOSE & FOOD IMPACT (CGM vs meals), workouts. Do NOT compare to saved app macro targets — judge from what was actually eaten. For GLUCOSE: use Period CGM stats and the CGM DAY vs NIGHT block for day/night averages; for windows ≤7 days each day also has CGM ALL READINGS (every ~5 min, HH:MM=mg/dL) — cite from these, never invent. Exclude first 24h sensor warm-up (falsely low — see CGM sensor start line). For each workout, use HR during session (avg, max, vs resting baseline, recovery) — Coach 💪 leads on this. Nutritionist 🥗 and Doctor 🩺: trusted CGM trend + foods before spikes when meals exist. Say what went well, what to improve, and give 2–4 concrete next steps. Each active mentor must contribute their angle. Cite specific numbers from the block.';
 
 /** 7-day average total daily burn (BMR + passive + workouts) for macro revision. */
 export async function get7DayAverageBurnKcal(): Promise<number | null> {

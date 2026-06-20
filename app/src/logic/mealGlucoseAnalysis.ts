@@ -288,6 +288,68 @@ function formatResultLine(r: MealGlucoseResult): string {
   return lines.join('\n');
 }
 
+/** Daytime 07:00–22:59 local (breakfast through late evening); nighttime 23:00–06:59 (overnight + dawn). */
+const CGM_DAY_START_HOUR = 7;
+const CGM_NIGHT_START_HOUR = 23;
+
+function isCgmDaytimeHour(hour: number): boolean {
+  return hour >= CGM_DAY_START_HOUR && hour < CGM_NIGHT_START_HOUR;
+}
+
+function avgRounded(vals: number[]): number | null {
+  if (vals.length === 0) return null;
+  return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+}
+
+function dayNightGlucoseValues(
+  glucose: TimePoint[],
+  dayKey: string,
+): { dayVals: number[]; nightVals: number[] } {
+  const dayVals: number[] = [];
+  const nightVals: number[] = [];
+  for (const p of glucoseOnDay(glucose, dayKey)) {
+    const h = new Date(p.timestamp).getHours();
+    if (isCgmDaytimeHour(h)) dayVals.push(p.value);
+    else nightVals.push(p.value);
+  }
+  return { dayVals, nightVals };
+}
+
+/** Per-day and period day vs night averages for /7+ reviews. */
+export function buildPeriodDayNightGlucoseLines(
+  dayKeys: string[],
+  glucose: TimePoint[],
+): string[] {
+  if (glucose.length === 0 || dayKeys.length === 0) return [];
+
+  const perDay: string[] = [];
+  const allDay: number[] = [];
+  const allNight: number[] = [];
+
+  for (const dk of dayKeys) {
+    const { dayVals, nightVals } = dayNightGlucoseValues(glucose, dk);
+    allDay.push(...dayVals);
+    allNight.push(...nightVals);
+    const dayAvg = avgRounded(dayVals);
+    const nightAvg = avgRounded(nightVals);
+    if (dayAvg == null && nightAvg == null) continue;
+    perDay.push(
+      `  ${dk}: day avg ${dayAvg ?? '—'} mg/dL (${dayVals.length} samples, 07:00–23:00) | night avg ${nightAvg ?? '—'} mg/dL (${nightVals.length} samples, 23:00–07:00)`,
+    );
+  }
+
+  if (perDay.length === 0) return [];
+
+  const periodDayAvg = avgRounded(allDay);
+  const periodNightAvg = avgRounded(allNight);
+
+  return [
+    'CGM DAY vs NIGHT (local time — day 07:00–23:00, night 23:00–07:00):',
+    `  Period avg: day ${periodDayAvg ?? '—'} mg/dL (${allDay.length} samples) | night ${periodNightAvg ?? '—'} mg/dL (${allNight.length} samples)`,
+    ...perDay,
+  ];
+}
+
 function formatDayGlucoseStats(
   glucose: TimePoint[],
   dayKey: string,
@@ -595,12 +657,14 @@ export function buildPeriodMealGlucoseSection(
 
   const periodAssessment = assessGlucosePeriod(dayKeys, glucose);
   const statsLines = buildPeriodGlucoseStatsLines(dayKeys, glucose);
+  const dayNightLines = buildPeriodDayNightGlucoseLines(dayKeys, glucose);
 
   const lines = [
     'GLUCOSE & FOOD IMPACT (period):',
     ...(filterLine ? [filterLine] : []),
     `CGM samples in window: ${sortGlucose(glucose).length} | Days with CGM: ${daysWithCgm}/${dayKeys.length} | Trusted days: ${periodAssessment.trustedDayCount}`,
     ...statsLines,
+    ...dayNightLines,
     `Period CGM assessment: ${periodAssessment.label}`,
   ];
 

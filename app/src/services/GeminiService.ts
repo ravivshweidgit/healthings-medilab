@@ -21,7 +21,7 @@ import {
   PERIOD_REVIEW_CHAT_INSTRUCTION,
   type PeriodReviewRequest,
 } from './ReviewService';
-import { detectChatIntent, type ChatIntent } from '../logic/chatIntent';
+import { detectChatIntent, isGlucoseDeepDiveQuery, isGlucoseQuery, type ChatIntent } from '../logic/chatIntent';
 import { resolveMentorGender } from '../logic/mentorLabels';
 import { formatUserRulesLines, formatUserRulesBlock } from '../logic/userRulesContext';
 
@@ -963,9 +963,9 @@ RULES:
 
 const MENTOR_PERSONAS: Record<MentorType, string> = {
   doctor:
-    'You are a medical doctor AI. Prioritise health risk reduction, evidence-based guidelines, and patient safety. When CGM data (TODAY/RECENT/MEAL GLUCOSE blocks) is present, interpret avg/min/max mg/dL and flag concerning patterns — exclude sensor warm-up false lows.',
+    'You are a medical doctor AI. Prioritise health risk reduction, evidence-based guidelines, and patient safety. When CGM data is present, give qualitative safety assessment by default; cite avg/min/max only when user asks for numbers or pattern is clinically urgent — exclude sensor warm-up false lows.',
   nutritionist:
-    'You are a certified clinical nutritionist AI with CGM expertise. Continuous glucose is a PRIMARY input equal to macros — you MUST relate food, meal timing, and carbs to glucose response whenever CGM data is in context. Quote avg/min/max mg/dL; assess if glucose looks good or needs improvement; link spikes to foods when meals are logged. FIBER ↔ CARB: fiber is inside total carbs on labels — fiber_g must never exceed carb_g; for carb ≤60g aim fiber ≈ ½×carbs; for higher carbs aim ~30g fiber not ½ of carbs.',
+    'You are a certified clinical nutritionist AI with CGM expertise. Continuous glucose is a PRIMARY input — always consider it when advising on food and meal timing. DEFAULT reply: one short qualitative glucose verdict (stable / in range / a bit high / on the low side / worth watching) — NO mg/dL unless the user asks for numbers or deep analysis. FIBER ↔ CARB: fiber is inside total carbs on labels — fiber_g must never exceed carb_g; for carb ≤60g aim fiber ≈ ½×carbs; for higher carbs aim ~30g fiber not ½ of carbs.',
   coach:
     'You are a professional fitness coach AI. Focus on body composition, muscle preservation, progressive fat loss, training recovery, and performance goals.',
 };
@@ -991,9 +991,9 @@ const MENTOR_COMBO_PROMPTS: Record<string, string> = {
   coach: MENTOR_PERSONAS.coach,
 
   'doctor+nutritionist': `You advise as Doctor 🩺 AND Nutritionist 🥗 — both active; both must inform every reply.
-Doctor: safety, clinical risk, conservative limits; interpret CGM avg/min/max when present.
-Nutritionist: food quality, macros, meal structure, glycemic impact — CGM is mandatory when data is in context.
-Use mentorLines with separate "doctor" and "nutritionist" keys — one sentence each with numbers. NEVER one blended paragraph.`,
+Doctor: safety, clinical risk, conservative limits; CGM qualitatively unless user asks for numbers.
+Nutritionist: food quality, macros, meal structure, glycemic impact — qualitative CGM by default.
+Use mentorLines with separate "doctor" and "nutritionist" keys — one sentence each. NEVER one blended paragraph.`,
 
   'doctor+coach': `You advise as Doctor 🩺 AND Coach 💪 — both active; both must inform every reply.
 Doctor: health risk, safe rate of loss, red flags, recovery; CGM when present.
@@ -1001,17 +1001,17 @@ Coach: body composition, muscle preservation, training, performance, deficit str
 Use mentorLines with separate "doctor" and "coach" keys — one sentence each with numbers. NEVER one blended paragraph.`,
 
   'nutritionist+coach': `You advise as Nutritionist 🥗 AND Coach 💪 — both active; BOTH must speak in every reply.
-Nutritionist lens: food quality, macros, meal timing, CGM glycemic response (avg/min/max when data present) — NOT optional.
+Nutritionist lens: food quality, macros, meal timing, qualitative CGM (stable/elevated/etc.) — NOT optional; numbers only if user asks.
 Coach lens: body composition, muscle mass, training recovery, progressive fat loss, performance — NOT just food.
 CRITICAL: Do NOT let nutrition dominate. The Coach must always have a visible angle (muscle, composition, movement, recovery, tomorrow's training).
-Use mentorLines with separate "nutritionist" and "coach" keys — one sentence each with numbers. NEVER one blended paragraph.
+Use mentorLines with separate "nutritionist" and "coach" keys — one sentence each. NEVER one blended paragraph.
 In actionItems: include at least one food/macro or CGM-aware item AND at least one body-composition or activity item.
 If conflict: food quality (Nutritionist) > reckless deficit (Coach) — but Coach still contributes.`,
 
   'doctor+nutritionist+coach': `You advise as Doctor 🩺, Nutritionist 🥗, AND Coach 💪 — all three active; each must inform every reply.
 Priority when advice conflicts: safety (Doctor) > food quality + CGM (Nutritionist) > performance (Coach).
-Nutritionist MUST use CGM data when in context — avg/min/max mg/dL, good vs needs improvement.
-Use mentorLines with separate "doctor", "nutritionist", and "coach" keys — one sentence each with numbers. NEVER one blended paragraph.
+Nutritionist: qualitative CGM by default; mg/dL only when user asks for numbers or analysis.
+Use mentorLines with separate "doctor", "nutritionist", and "coach" keys — one sentence each. NEVER one blended paragraph.
 In actionItems: spread across safety-aware eating, macro/CGM targets, and composition/training — at least one item per active mentor angle where possible.`,
 };
 
@@ -1023,27 +1023,36 @@ export function buildMentorSystemPrompt(mentors: MentorType[]): string {
 }
 
 /** Rules appended when CGM data is available — Nutritionist/Doctor must use it. */
-function buildCgmMentorRules(ctx: CoachContext): string {
+function buildCgmMentorRules(ctx: CoachContext, opts?: { glucoseDeepDive?: boolean }): string {
   const hasCgm =
     Boolean(ctx.todayMealGlucoseDetail) ||
     (ctx.glucoseHistory != null && ctx.glucoseHistory.length > 0);
   if (!hasCgm) return '';
   const hasNut = ctx.mentors.includes('nutritionist');
   const hasDoc = ctx.mentors.includes('doctor');
+  const deepDive = opts?.glucoseDeepDive === true;
   if (!hasNut && !hasDoc) {
-    return '\n- CGM data is in USER DATA — cite avg/min/max mg/dL when relevant.';
+    return deepDive
+      ? '\n- CGM data is in USER DATA — cite avg/min/max mg/dL when relevant.'
+      : '\n- CGM data is in USER DATA — mention glucose qualitatively (stable/elevated) when relevant; no mg/dL unless user asked for numbers.';
   }
+  const deepDiveRules = deepDive
+    ? `
+- DEEP DIVE (user asked for numbers/analysis): quote avg, min, max (mg/dL), range %, day/night averages when in block; name foods if MEAL GLUCOSE links spikes`
+    : `
+- DEFAULT (headline): one short qualitative glucose verdict — stable / in range / a bit high / on the low side / worth watching. NO mg/dL, avg/min/max, or range % in the reply
+- Offer detail only when something looks off OR user may want more — e.g. "רוצה פירוט?" / "Want the numbers?" — do NOT dump stats unprompted`;
   return `
-- CGM (TODAY / RECENT / MEAL GLUCOSE blocks) is a PRIMARY input — never ignore it
+- CGM (TODAY / RECENT / MEAL GLUCOSE blocks) is a PRIMARY input — read it every turn; relate food advice to glycemic impact internally
 - NEVER say "no CGM data" (or equivalent) when USER DATA includes MEAL GLUCOSE, TODAY CGM, or RECENT CGM with samples — CGM is synced; say post-meal window not ready yet if Meals with usable window is 0/N
-- When MEAL GLUCOSE shows "CGM samples in sync" but usable window is 0/N, cite today's avg/min/max from the block and explain meal-level response is not ready yet — do NOT claim CGM is unavailable
-- When glucose is the topic OR this is the first reply in the tab today OR the user asked for status/overview: quote avg, min, max (mg/dL) and range % (below 70 / 70–100 / above 100) and low-day count when present
-- For TODAY and YESTERDAY you ALSO have the full per-sample series ("CGM ALL READINGS", every ~5 min with HH:MM timestamps). You CAN state the latest reading and its time, and analyze a specific spike/drop by reading the timestamped samples around a meal time — NEVER say you only have daily summaries when this line is present
-- On follow-ups about food targets, hunger, or fat/protein without a glucose question: answer that topic directly — do NOT re-open with the same CGM block you already gave this tab
+- When MEAL GLUCOSE shows "CGM samples in sync" but usable window is 0/N, give a qualitative today assessment; cite avg/min/max only in DEEP DIVE mode — do NOT claim CGM is unavailable
+- First message in this tab today: qualitative glucose headline only — NOT a stats block${deepDiveRules}
+- For reviews ≤7 days you ALSO have CGM ALL READINGS (HH:MM=mg/dL) and CGM DAY vs NIGHT — use for DEEP DIVE only; never say you only have daily summaries when these lines are present
+- On follow-ups about food targets, hunger, or fat/protein without a glucose question: answer that topic directly — weave glucose qualitatively at most; do NOT re-open with CGM stats
 - Mention compression lows if relevant: sleeping on the sensor can falsely lower readings — isolated low days may be artifact
 - Exclude sensor warm-up (first 24h after install) and statistically excluded rare sensor-error days — see filter lines in USER DATA
-- Without meal logs: still assess CGM; urge logging meals to link spikes to specific foods
-- Do NOT give vague CGM summaries ("elevated days") without numbers`;
+- Without meal logs: still note glucose qualitatively; urge logging meals to link spikes to specific foods
+- Qualitative verdicts must be grounded in the data — never generic if you read concerning patterns; switch to DEEP DIVE numbers when clinically urgent (symptomatic lows)`;
 }
 
 /** Rules appended on the Coach tab — mirror the CGM pattern so coach is not under-constrained. */
@@ -1854,12 +1863,12 @@ Rules:
 - When LAB RESULTS is in USER DATA, never claim labs are missing; cite exact values for cholesterol, CBC, kidney, liver, glucose when relevant; informational only — not a diagnosis
 - If event is meal: focus on remaining macros for the day. If weigh-in: trend vs target, muscle vs start. If workout: calorie budget + HR during session vs resting baseline from the WORKOUTS lines in the PERIOD REVIEW.
 - Do NOT repeat data the user already sees on the dashboard
-- If Nutritionist 🥗 is active and the PERIOD REVIEW has CGM/glucose data, the nutritionist's wins/improve MUST cite glucose avg/min/max (mg/dL) with a good-vs-needs-improvement verdict
+- If Nutritionist 🥗 is active and the PERIOD REVIEW has CGM/glucose data, the nutritionist's wins/improve should include a short qualitative glucose verdict (stable / needs improvement); cite avg/min/max only when clearly notable or concerning
 - NEVER say "no CGM data" when the PERIOD REVIEW has glucose/meal-impact samples — say synced; if meal window not ready, cite today avg/min/max anyway
 - CGM DATE SPAN (mandatory): only state a day count that appears in the PERIOD REVIEW / CGM stats block. The default window is today + yesterday — do NOT say "3 days" or "this week" unless a wider window is loaded. If unsure, say "the available CGM window".
 - Glucose numbers belong to the Nutritionist 🥗 ONLY (in their wins/improve); the Doctor 🩺 adds safety interpretation without restating the same avg/min/max${coachJsonLangInstruction(ctx.lang)}`;
 
-  const glucoseCoachRule = buildCgmMentorRules(ctx);
+  const glucoseCoachRule = buildCgmMentorRules(ctx, { glucoseDeepDive: false });
 
   const body = {
     contents: [{ role: 'user', parts: [{ text: `${prompt}${glucoseCoachRule}${genderInstruction(ctx)}` }] }],
@@ -1939,7 +1948,7 @@ export type MentorChatReply = {
 const MENTOR_ONLY_HINT: Record<MentorType, string> = {
   doctor: 'You are ONLY the Doctor 🩺 in this reply — clinical safety angle only. Do not speak as nutritionist or coach.',
   nutritionist:
-    'You are ONLY the Nutritionist 🥗 in this reply — food, macros, CGM angle only. Do not speak as doctor or coach.',
+    'You are ONLY the Nutritionist 🥗 in this reply — food, macros, qualitative CGM angle only. No mg/dL unless user asked for numbers. Do not speak as doctor or coach.',
   coach: 'You are ONLY the Coach 💪 in this reply — body composition, training, movement angle only. Do not speak as doctor or nutritionist.',
 };
 
@@ -2040,6 +2049,7 @@ function buildTurnHint(
   intent: ChatIntent,
   ctx: CoachContext,
   historyLen: number,
+  glucoseDeepDive: boolean,
 ): string {
   const hasCgm = Boolean(ctx.todayMealGlucoseDetail) || (ctx.glucoseHistory?.length ?? 0) > 0;
 
@@ -2054,18 +2064,22 @@ function buildTurnHint(
 
   if (mentor === 'nutritionist') {
     if (intent === 'glucose' && hasCgm) {
-      return 'Quote avg/min/max (mg/dL) and range % from USER DATA. Name foods if MEAL GLUCOSE links spikes.';
+      return glucoseDeepDive
+        ? 'DEEP DIVE: quote avg/min/max (mg/dL), day/night if in block, range %. Name foods if MEAL GLUCOSE links spikes.'
+        : 'One qualitative glucose verdict only — stable / in range / elevated / low-side. NO mg/dL. Offer "want the numbers?" if useful.';
     }
     if (intent === 'today_progress') {
-      return 'Brief status: macros vs target, plus one CGM line only if you have not already stated it in this tab today.';
+      return 'Brief status: macros vs target. At most one qualitative CGM phrase (stable/elevated) — no mg/dL unless not yet mentioned qualitatively today.';
     }
     if (intent === 'food_target') {
-      return 'Answer the fat/protein/hunger question directly. Do NOT open with a full CGM recap unless the user asked about glucose.';
+      return 'Answer the fat/protein/hunger question directly. At most weave glucose qualitatively — no stats block.';
     }
   }
 
   if (mentor === 'doctor' && intent === 'glucose' && hasCgm) {
-    return 'Clinical safety on the numbers in USER DATA; add the compression-low caveat when lows are present.';
+    return glucoseDeepDive
+      ? 'Clinical safety on the numbers in USER DATA; add the compression-low caveat when lows are present.'
+      : 'Clinical safety in plain language — stable vs concern. NO mg/dL unless urgent; offer detail if needed.';
   }
 
   if (intent === 'general' && historyLen > 0) {
@@ -2089,11 +2103,13 @@ function buildChatContextBlocks(
   userMessage: string;
   intent: ChatIntent;
   dataScopeBlock: string;
+  glucoseDeepDive: boolean;
 } {
   const periodRequest = detectPeriodReviewQuery(message);
   const dataBlock = buildChatDataBlock(ctx, { omitMacroTarget: Boolean(periodRequest) });
   const intent = detectChatIntent(message, { hasPeriodReview: Boolean(periodRequest) });
   const dataScopeBlock = buildDataScopeBlock(ctx, historyLen, periodRequest);
+  const glucoseDeepDive = isGlucoseDeepDiveQuery(message);
 
   // Always inject the FULL today+yesterday snapshot (no summarizing). An explicit /N request
   // widens the window and uses raw eaten data only (no saved macro targets).
@@ -2116,9 +2132,17 @@ function buildChatContextBlocks(
 
   let userMessage = message;
   if (periodRequest) {
-    userMessage = `${message}\n\nUse the RAW DATA block in context. What was good, what to improve, 2–4 concrete suggestions. For food: cite eaten macro averages and daily totals from the block (not saved app targets). For GLUCOSE: quote period avg, min, max (mg/dL) from the block; ignore sensor warm-up (first 24h) lows; do NOT give vague CGM summaries.`;
+    if (isGlucoseQuery(message)) {
+      if (glucoseDeepDive) {
+        userMessage = `${message}\n\nAnswer from the PERIOD REVIEW block. For day vs night averages use the CGM DAY vs NIGHT section (07:00–23:00 day, 23:00–07:00 night). For windows ≤7 days each day includes CGM ALL READINGS (HH:MM=mg/dL) for time-specific analysis. Ignore sensor warm-up (first 24h) lows unless the user asks about them.`;
+      } else {
+        userMessage = `${message}\n\nAnswer from the PERIOD REVIEW block with a qualitative glucose summary (stable / in range / elevated / low-side). NO mg/dL unless clinically urgent.`;
+      }
+    } else {
+      userMessage = `${message}\n\nUse the PERIOD REVIEW block in context. What was good, what to improve, 2–4 concrete suggestions. For food: cite eaten macro averages and daily totals from the block (not saved app targets). For GLUCOSE: qualitative verdict only unless user asked for numbers.`;
+    }
   } else {
-    const hint = buildTurnHint(mentor, intent, ctx, historyLen);
+    const hint = buildTurnHint(mentor, intent, ctx, historyLen, glucoseDeepDive);
     if (hint) userMessage = `${message}\n\n${hint}`;
   }
 
@@ -2130,6 +2154,7 @@ function buildChatContextBlocks(
     userMessage,
     intent,
     dataScopeBlock,
+    glucoseDeepDive,
   };
 }
 
@@ -2186,13 +2211,14 @@ function buildChatSystemText(
     dataScopeBlock: string;
     intent: ChatIntent;
     historyLen: number;
+    glucoseDeepDive: boolean;
   },
 ): string {
   const mentors = mentor ? [mentor] : ctx.mentors;
   const systemPrompt = buildMentorSystemPrompt(mentors);
   const onlyHint = mentor ? `\n${MENTOR_ONLY_HINT[mentor]}` : '';
   const coachRules = mentor === 'coach' ? buildCoachMentorRules(ctx) : '';
-  const cgmRules = buildCgmMentorRules(ctx);
+  const cgmRules = buildCgmMentorRules(ctx, { glucoseDeepDive: blocks.glucoseDeepDive });
   const isFirstTurn = blocks.historyLen === 0;
 
   return `${systemPrompt}${blocks.yesterdayChatLine}${onlyHint}
@@ -2202,7 +2228,7 @@ ${blocks.dataScopeBlock}
 CONVERSATION (mandatory):
 - Read prior turns in this tab before replying.
 - Each user message is prefixed with the time it was sent, e.g. "[13:25] ...". Use it to relate the question to timestamped CGM/meal data and time of day; do NOT repeat the "[HH:MM]" prefix back in your reply.
-- Answer the user's LATEST question first — do not re-open with a full daily summary unless they asked for status/overview${isFirstTurn ? ' (this IS the first turn, so an overview is fine here)' : ''}.
+- Answer the user's LATEST question first — do not re-open with a full daily summary unless they asked for status/overview${isFirstTurn ? ' (first turn: short qualitative glucose headline if relevant — no mg/dL unless DEEP DIVE)' : ''}.
 - Do NOT repeat stats, warnings, or CGM summaries you already gave in this tab today unless (a) the user asks again about glucose/status, or (b) new meals/workouts/sync materially changed the numbers.
 - Reference earlier thread naturally when relevant ("כמו שציינתי…", "בהמשך לשאלה על השומן…").
 - Keep replies 2–4 sentences unless the user asked for a period review (/7, /30) or a detailed meal breakdown.
@@ -2214,15 +2240,15 @@ ${blocks.periodSection}
 You are responding in a free chat. Be concise, specific, and supportive.
 Match your tone to LOCAL TIME NOW and TIME-AWARE COACHING above — early morning means gentle, not alarmist.
 OUTPUT FORMAT (mandatory): respond with a single JSON object and nothing else — {"response":"<your reply to the user>"}. Put your entire user-facing reply inside the "response" string. Never write THOUGHT, planning, reasoning, or any text outside this JSON object.
-Inside "response" write plain prose only — no **bold**, no markdown headers, no nested JSON. 2–4 sentences with specific numbers (period reviews /7 /30 may be longer). Use \n for line breaks inside the string.
+Inside "response" write plain prose only — no **bold**, no markdown headers, no nested JSON. 2–4 sentences; use specific numbers for macros/food/workouts — but CGM defaults to qualitative (stable/elevated) unless DEEP DIVE. Period reviews /7 /30 with explicit number requests may be longer. Use \n for line breaks inside the string.
 JSON STRING SAFETY (mandatory): never put ASCII double-quote (") inside the response text — it breaks JSON. For Hebrew abbreviations use single quotes instead: ק'ג not ק"ג, מ'ג/ד'ל not מ"ג/ד"ל, ק'ק'ל not קק"ל. If you must use a double-quote in the text, escape it as \\".
-All of today's and yesterday's data — body, visceral, BMR, energy, 24/7 HR, meals, CGM, workouts — is in the data block above. When asked about activity, meals, glucose, HR, or body metrics, cite the exact numbers from it; never say data is missing if it appears there.
+All of today's and yesterday's data — body, visceral, BMR, energy, 24/7 HR, meals, CGM, workouts — is in the data block above. Use exact numbers for food/macros/workouts when asked; for glucose use qualitative verdict by default (see CGM rules below).
 When the user asks about their dietary rules, restrictions, or what is written in My Rules: quote the bullet list under My Rules — AI understood in PROFILE / GOALS / SETTINGS (same structured summary as the app) — do NOT paraphrase vaguely or repeat raw free-text.
 When the user asks about blood tests, labs, cholesterol, or בדיקות דם: quote exact values from LAB RESULTS in USER DATA; for trends across older draws use the LAB HISTORY block when /N loaded — never invent values.
-When glucose is the topic, or this is the first reply in the tab today, or the user asked for status/overview: Nutritionist 🥗 leads with glucose interpretation (avg/min/max mg/dL) and Doctor 🩺 adds clinical safety on the same numbers. On follow-ups about food targets, hunger, or fat/protein without a glucose question, answer that topic directly — do NOT re-open with the same CGM block.
+CGM DEFAULT: qualitative one-liner (stable / in range / elevated / low-side). DEEP DIVE (user asked for numbers, avg, analysis, or /7+/30 with glucose stats): cite avg/min/max, day/night, meal spikes from the block. On food/hunger/recipe questions without glucose ask: answer that topic — at most one qualitative glucose phrase.
 CGM DATE SPAN (mandatory): only cite "N days" when the data block explicitly states N days. If unsure, say "the available CGM window" — never invent 7 days. Slash commands (/7, /30) widen the loaded window — use that block's day count.
 When the user asks for a longer review (/7, /30), analyze the full snapshot (body, energy, HR, food, workouts): what went well, what to improve, specific next steps.
-When GLUCOSE & FOOD IMPACT is present, Nutritionist and Doctor must cite which foods preceded spikes and recommend swaps for repeat offenders.
+When GLUCOSE & FOOD IMPACT is present and user asked for detail: cite which foods preceded spikes and recommend swaps for repeat offenders.
 Users can request any window via slash commands: /1 or /yesterday, /7, /30, /100 (up to 128 days). Nutritionist tab: /macros for daily macro target revision (7-day data).
 Ignore any earlier chat messages where you said data was unavailable; always use the data block above.${coachRules}${cgmRules}${genderInstruction(ctx)}${langInstruction(ctx.lang)}`;
 }
@@ -2264,6 +2290,7 @@ async function chatWithSingleMentor(
     dataScopeBlock: blocks.dataScopeBlock,
     intent: blocks.intent,
     historyLen: history.length,
+    glucoseDeepDive: blocks.glucoseDeepDive,
   });
   const recentHistory = history.slice(-20);
   const contents = [
