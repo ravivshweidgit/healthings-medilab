@@ -1,0 +1,108 @@
+## Prompt 42 — Macro revision guards, audit log, manual lock
+
+**Status: done (2026-06-20)** — Shipped and phone-tested.
+
+Commit: `ff22c92` — *Add macro revision guards, audit log, and manual lock on confirm.*
+
+Extends **prompt35** (unified macro pipeline), **prompt36** (CARB GUIDANCE), **prompt37** (clinical profile).
+
+### Problem (user-reported)
+
+- Same `/macros` pipeline, inconsistent carbs across triggers: saved **52** → weigh-in auto **30** → chat **55**.
+- Weigh-in **auto-applied** without confirm; suspicious **C=30** matched deterministic fallback default.
+- User confirmed **C=53** three times — need stable guardrails, not prompt leak (saved targets are **not** in Gemini context).
+
+---
+
+### Design principle
+
+> **AI proposes. Human confirms. Scale never silently overrides locked or outlier carbs.**
+
+Same Gemini prompt as prompt35–37. Changes are **apply-layer only** (when to save automatically).
+
+---
+
+### What shipped
+
+#### 1) Local revision audit log (`macroRevisionLog.ts`)
+
+- AsyncStorage key `macro_revision_log_v1`, max **20** entries.
+- Logged on every `suggestMacroTargets()` + confirm/auto-apply outcomes.
+- Fields: `at`, `trigger`, `triggerDetail`, `source` (gemini|fallback), kcal/P/C/F/Fi, `applied`, `blockReason?`.
+- **Not sent to Gemini** — device-only for outlier detection and future UI.
+- Each `/macros` → 1 entry (`applied: false`); each confirm → 1 entry (`applied: true`).
+
+#### 2) Auto-apply guardrails (`macroRevisionGuard.ts`)
+
+Block weigh-in / lab-import **auto-save** when any of:
+
+| Guard | Rule |
+|-------|------|
+| Manual lock | User confirmed targets in chat or dashboard |
+| API fallback | `deterministicMacroFallback` (default C=30) |
+| Carb delta | \|ΔC\| ≥ **15g** or ≥ **25%** vs saved |
+| CARB GUIDANCE band | Proposed C outside computed band (habit / cholesterol / rules cap) |
+| Recent median | Proposed C ≥ **15g** from median of last 3 Gemini log entries |
+
+On block → alert *“Macro review needed — send /macros to confirm”*; **do not save**.
+
+Small safe changes (e.g. C 52→54) still auto-apply when unlocked.
+
+Constants: `CARB_AUTO_APPLY_ABS_DELTA_G = 15`, `CARB_AUTO_APPLY_PCT_DELTA = 0.25`.
+
+#### 3) Manual lock on confirm
+
+- `confirmMacroTargetFromProposal()` — chat **MacroProposalCard**
+- `confirmSavedMacroTarget()` — dashboard strip accept
+- Sets `manualLock: true` in `MacroAutoAdjustState`
+- Weigh-in skips revision while locked (updates `lastWeightKg` only)
+
+#### 4) `suggestMacroTargets` return type
+
+```ts
+{ suggestion: MacroSuggestion; source: 'gemini' | 'fallback' }
+```
+
+Chat/dashboard unchanged UX — user always confirms proposal card.
+
+#### 5) Prompt hygiene (unchanged from 36)
+
+- Saved macro targets **not** injected into `contextText`.
+- Revision log **not** injected into Gemini.
+- Instruction remains: *“Do not copy prior app targets.”*
+
+---
+
+### Primary files
+
+| File | Role |
+|------|------|
+| `app/src/logic/macroRevisionLog.ts` | Audit log storage + median helper |
+| `app/src/logic/macroRevisionGuard.ts` | CARB band + auto-apply block assessment |
+| `app/src/logic/macroAutoAdjust.ts` | Pipeline, confirm helpers, guarded `applyAutoMacroRevision` |
+| `app/src/components/MacroProposalCard.tsx` | `confirmMacroTargetFromProposal` |
+| `app/src/components/MacroTargetStrip.tsx` | `confirmSavedMacroTarget` |
+| `app/src/screens/DashboardScreen.tsx` | Weigh-in → `applyAutoMacroRevision` |
+
+---
+
+### Phone-tested (2026-06-20)
+
+- [x] `/macros` ×3 → stable C≈53 (no prompt leak)
+- [x] Confirm → manual lock; weigh-in does not silently change carbs
+- [x] Rules change (e.g. carb cap) → `/macros` reflects new band
+- [x] Export Gemini prompt — no saved targets in data block
+
+### Deferred
+
+- [ ] UI: “Macro revision history” under macro strip (read `getMacroRevisionLog()`)
+- [ ] Unit tests: `assessAutoApplyBlock`, `computeCarbGuidanceBand`, `parseCarbCapFromRules`
+- [ ] Optional: “AI vs band” one-liner on MacroProposalCard
+
+---
+
+### Related
+
+- **prompt35** — unified macro pipeline (auto-apply behavior **refined** here)
+- **prompt36** — CARB GUIDANCE bands used by guards
+- **prompt37** — clinical profile + lab blocks in revision context

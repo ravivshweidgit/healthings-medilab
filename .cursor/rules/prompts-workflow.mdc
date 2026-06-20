@@ -1,0 +1,62 @@
+---
+description: Keep prompts/app specs in sync with shipped code — done vs backlog
+alwaysApply: true
+---
+
+# Prompts directory workflow
+
+## Layout
+
+```
+prompts/app/
+  promptNN.txt      ← backlog / planned (not yet done)
+  done/
+    promptNN.txt    ← shipped or explicitly closed
+    README.md       ← index of done + active backlog table
+  macros/           ← exported Gemini prompt dumps (reference, not ship specs)
+```
+
+## When to update prompts
+
+**After shipping a feature batch** (phone-tested or user confirmed):
+
+1. Create or update `prompts/app/done/promptNN.txt` — status, problem, what shipped, files, phone checklist.
+2. Move spec from `prompts/app/` → `done/` if it was backlog; or split (e.g. 40a done, 40b stays backlog).
+3. Update `prompts/app/done/README.md` — one-line entry + backlog table.
+4. Note commit hash in the done spec when available.
+5. If Gemini prompt text changed materially, export to `prompts/macros/` (optional reference dump).
+
+**Do not** leave shipped behavior documented only in chat — code and prompts must match.
+
+## Done vs backlog rules
+
+| State | Location | README |
+|-------|----------|--------|
+| Shipped + tested | `done/promptNN.txt` | Listed under done summaries |
+| Planned / partial | `prompts/app/promptNN.txt` | Listed in backlog table with reason |
+| Closed without ship | `done/promptNN.txt` | Note “closed without ship” + why |
+
+## Spec content (done files)
+
+Each done prompt should include:
+
+- **Status** + date + commit when known
+- **Builds on** — prior prompt numbers
+- **Problem** — user-visible issue
+- **What shipped** — tables, commands, files
+- **Phone-tested** checklist `[x]` / `[ ]`
+- **Deferred** — future work moved to backlog prompt if needed
+- **Related** — cross-links to other prompts
+
+## Code ↔ prompt alignment
+
+- Primary files table in spec must match real paths under `app/src/`.
+- Slash commands, thresholds, and behavior in spec must match `chatIntent.ts`, services, etc.
+- When behavior **supersedes** an older prompt (e.g. 42 refines 35 auto-apply), add a line in the older done spec: *“Auto-apply refined in prompt42.”*
+
+## Agent checklist (before commit / when user says “ship it”)
+
+- [ ] Done spec written or updated?
+- [ ] `done/README.md` updated?
+- [ ] Backlog prompt trimmed if scope moved to done?
+- [ ] No orphaned claims in backlog that are already shipped?

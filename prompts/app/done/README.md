@@ -29,6 +29,8 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt41** — done (2026-06-19). CGM chat: qualitative glucose by default, deep dive on request; `/7` full CGM series (≤7d) + day/night averages (07:00–23:00 / 23:00–07:00). APK installed for phone test.
 
+**prompt42** — done (2026-06-20). Macro revision guards: audit log, manual lock on confirm, block unsafe weigh-in auto-apply (carb outlier / fallback). Phone-tested. Refines prompt35 auto-apply.
+
 **prompt34** — closed without ship (2026-06-17). Status row declined; chat fallback unnecessary with persistence. Manual CGM exclusions deferred inside `done/prompt34.txt`.
 
 **prompt33** — closed without ship (2026-06-17). Default 2-day full snapshot + `/N` is sufficient; rollup/cache optimization deferred inside `done/prompt33.txt`.

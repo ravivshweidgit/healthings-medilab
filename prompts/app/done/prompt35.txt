@@ -21,6 +21,7 @@ Prompt35 delivered one source of truth for macro targets across dashboard, chat,
 - Auto macro revision (no confirm) on:
   - new weight,
   - new lab import.
+  - **Refined in prompt42** — guarded auto-apply, manual lock, outlier blocking.
 - Revision context includes:
   - 7-day period review,
   - trend context,
