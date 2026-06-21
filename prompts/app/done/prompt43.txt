@@ -1,0 +1,71 @@
+## Prompt 43 — Mentor food-science estimates (omega / nutrients)
+
+**Status: done (2026-06-22)** — Phone-tested; user confirmed "looking good".
+
+Builds on **prompt41** (qualitative CGM default) and **prompt23** (data-scope guardrails).
+
+---
+
+### Problem (user-reported, mentor_chat 2026-06-21)
+
+Nutritionist refused omega-3/omega-6 questions despite full meal log in context:
+- "מה יחס אומגה 3 אומגה 6?" → repeated "not in meal log / can't calculate"
+- Even "300g salmon — what ratio?" refused until user supplied the answer
+- Almost every reply opened with "רמות הגלוקוז יציבות" on non-glucose threads
+
+Root cause: `buildDataScopeBlock` "don't invent missing metrics" was over-applied to **general nutrition knowledge**, blocking USDA-style estimates from logged food names + grams.
+
+---
+
+### What shipped
+
+**Design:** Two data tiers in mentor chat:
+
+| Tier | Source | Examples |
+|------|--------|----------|
+| Personal synced | USER DATA / PERIOD REVIEW only | glucose, weight, labs, logged P/C/F/Fi |
+| Food-science estimate | Meal names + grams + reference tables | omega-3/6, vitamins, sodium per food, daily ω totals |
+
+**Rules:**
+- NEVER refuse a food/nutrient question
+- LEAD with estimate (rough grams + ω3:ω6 ratio when asked)
+- Label as estimated; brief caveat at end OK — do NOT open with "data not in app"
+- NO glucose opener on omega/vitamin/nutrient threads
+
+**Code:**
+- `nutrition_knowledge` intent + `isNutritionKnowledgeQuery()` in `chatIntent.ts`
+- `buildTurnHint` — nutritionist + doctor estimate-first hints
+- `buildDataScopeBlock` — "don't invent" scoped to synced metrics only
+- `GENERAL FOOD KNOWLEDGE` block in `buildChatSystemText`
+- `buildCgmMentorRules` — skip glucose opener on food-science follow-ups
+
+---
+
+### Primary files
+
+| File | Role |
+|------|------|
+| `app/src/logic/chatIntent.ts` | `nutrition_knowledge` intent, `isNutritionKnowledgeQuery` |
+| `app/src/services/GeminiService.ts` | Turn hints, data-scope split, GENERAL FOOD KNOWLEDGE |
+
+---
+
+### Phone-tested
+
+- [x] "מה יחס אומגה 3 אומגה 6 יומיים אחרונים?" — qualitative + foods from log, no refusal
+- [x] "מה יחס אומגה 3 ו 6 בסלמון?" — 5:1–10:1 favoring ω-3, no glucose opener
+- [x] "יכול להעריך אומגה 3 6 ממוצע יומי?" — estimate-first with rough grams/ratio (after prompt tighten)
+
+---
+
+### Deferred
+
+- **prompt44 (backlog idea):** Store sat_fat, chol_mg, sodium_mg, omega3_g, omega6_g per food item for exact daily sums + dashboard — estimates in chat are sufficient for now
+- Coach panel still cites 140g protein target vs doctor kidney cap 133g — separate alignment fix
+
+---
+
+### Related
+
+- **prompt41** — qualitative CGM default (this prompt adds nutrient-thread exception)
+- **prompt37** — lab GUIDANCE for LDL/kidney (doctor nutrition_knowledge hint ties to labs)

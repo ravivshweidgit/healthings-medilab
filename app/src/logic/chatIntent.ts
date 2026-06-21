@@ -11,6 +11,7 @@ export type ChatIntent =
   | 'meal_review'
   | 'yesterday'
   | 'food_target'
+  | 'nutrition_knowledge'
   | 'general';
 
 /** "How am I doing today / today's progress / status" across languages. */
@@ -203,6 +204,17 @@ export function resolveRecipePlanMode(
   return { mode: 'recipe', hint: slash?.hint || text };
 }
 
+/** Micronutrients / fatty acids / food-science — not stored in meal-log macros. */
+export function isNutritionKnowledgeQuery(text: string): boolean {
+  const t = text.toLowerCase();
+  return (
+    /אומגה|ניוטרינט|נוריינט|חומצ(?:ת|ות)\s*שומן|ויטמין|מינרל|סידן|ברזל|אבץ|מגנזיום|אשלגן|שומנים בריא|סודיום|נתר|epa|dha|ala/.test(text) ||
+    /\bomega[\s-]?[36]\b|omega[\s-]?3|omega[\s-]?6|nutrient|vitamin|mineral|fatty acid|micronutrient|sodium|cholesterol/.test(t) ||
+    (/(העריך|ממוצע\s*יומי|estimate|daily average)/i.test(text) &&
+      /אומגה|omega|ויטמין|vitamin|סודיום|sodium|cholesterol|כולסטרול|שומן/.test(text))
+  );
+}
+
 /** Food/macro targets, hunger, "what to eat", menu tips. */
 export function isFoodTargetQuery(text: string): boolean {
   if (isMacroTargetQuery(text)) return false;
@@ -240,6 +252,7 @@ export function detectChatIntent(
   if (isTodayProgressQuery(text)) return 'today_progress';
   if (isMealIntentQuery(text)) return 'meal_review';
   if (isFoodTargetQuery(text)) return 'food_target';
+  if (isNutritionKnowledgeQuery(text)) return 'nutrition_knowledge';
   return 'general';
 }
 

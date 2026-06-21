@@ -1048,7 +1048,7 @@ function buildCgmMentorRules(ctx: CoachContext, opts?: { glucoseDeepDive?: boole
 - When MEAL GLUCOSE shows "CGM samples in sync" but usable window is 0/N, give a qualitative today assessment; cite avg/min/max only in DEEP DIVE mode — do NOT claim CGM is unavailable
 - First message in this tab today: qualitative glucose headline only — NOT a stats block${deepDiveRules}
 - For reviews ≤7 days you ALSO have CGM ALL READINGS (HH:MM=mg/dL) and CGM DAY vs NIGHT — use for DEEP DIVE only; never say you only have daily summaries when these lines are present
-- On follow-ups about food targets, hunger, or fat/protein without a glucose question: answer that topic directly — weave glucose qualitatively at most; do NOT re-open with CGM stats
+- On follow-ups about food targets, hunger, fat/protein, or food-science (omega, vitamins, nutrients) without a glucose question: answer that topic directly — NO glucose opener; weave glucose qualitatively at most; do NOT re-open with CGM stats
 - Mention compression lows if relevant: sleeping on the sensor can falsely lower readings — isolated low days may be artifact
 - Exclude sensor warm-up (first 24h after install) and statistically excluded rare sensor-error days — see filter lines in USER DATA
 - Without meal logs: still note glucose qualitatively; urge logging meals to link spikes to specific foods
@@ -2075,12 +2075,19 @@ function buildTurnHint(
     if (intent === 'food_target') {
       return 'Answer the fat/protein/hunger question directly. At most weave glucose qualitatively — no stats block.';
     }
+    if (intent === 'nutrition_knowledge') {
+      return 'Food-science / micronutrient question: LEAD with your best estimate from logged meals (food names + grams) and standard USDA-style tables — give rough daily grams and ω3:ω6 ratio when asked (e.g. ~3–5g ω-3, ratio ~1:1–1:3). Label numbers as estimated. Do NOT open with "data not in the app" or refuse. One brief caveat at the end is OK. NO glucose opener.';
+    }
   }
 
   if (mentor === 'doctor' && intent === 'glucose' && hasCgm) {
     return glucoseDeepDive
       ? 'Clinical safety on the numbers in USER DATA; add the compression-low caveat when lows are present.'
       : 'Clinical safety in plain language — stable vs concern. NO mg/dL unless urgent; offer detail if needed.';
+  }
+
+  if (mentor === 'doctor' && intent === 'nutrition_knowledge') {
+    return 'Nutrient / fatty-acid question: answer from standard references when USER DATA lacks per-food fatty acids. Relate to the user\'s labs (e.g. LDL, kidney) when relevant. NO glucose opener unless glycemic impact is the question.';
   }
 
   if (intent === 'general' && historyLen > 0) {
@@ -2199,7 +2206,10 @@ OLDER HISTORY (anything before yesterday):
   user to load it: "for a full 7-day review send /7" (also /30, /N up to 128 days).
 - Nutritionist tab only: /macros (or /macro) runs the full 7-day macro revision pipeline and shows a confirm card — cite that flow when asked how to update targets; do not invent different numbers in prose.
 - Whatever window is loaded, verify each figure actually appears in the block before citing —
-  if a metric is missing or empty there, say so rather than inventing it.`;
+  if a personal synced metric is missing or empty there, say so rather than inventing it.
+- This rule applies to USER-SYNCED metrics only (glucose, weight, labs, logged macros) — NOT to
+  food-science estimates (omega, vitamins, sodium per food). For those, estimate from meal names
+  + grams using standard nutrition tables; label as estimated. Never refuse a food question.`;
 }
 
 function buildChatSystemText(
@@ -2246,7 +2256,8 @@ JSON STRING SAFETY (mandatory): never put ASCII double-quote (") inside the resp
 All of today's and yesterday's data — body, visceral, BMR, energy, 24/7 HR, meals, CGM, workouts — is in the data block above. Use exact numbers for food/macros/workouts when asked; for glucose use qualitative verdict by default (see CGM rules below).
 When the user asks about their dietary rules, restrictions, or what is written in My Rules: quote the bullet list under My Rules — AI understood in PROFILE / GOALS / SETTINGS (same structured summary as the app) — do NOT paraphrase vaguely or repeat raw free-text.
 When the user asks about blood tests, labs, cholesterol, or בדיקות דם: quote exact values from LAB RESULTS in USER DATA; for trends across older draws use the LAB HISTORY block when /N loaded — never invent values.
-CGM DEFAULT: qualitative one-liner (stable / in range / elevated / low-side). DEEP DIVE (user asked for numbers, avg, analysis, or /7+/30 with glucose stats): cite avg/min/max, day/night, meal spikes from the block. On food/hunger/recipe questions without glucose ask: answer that topic — at most one qualitative glucose phrase.
+GENERAL FOOD KNOWLEDGE (mandatory): Meal logs list calories, protein, carbs, fat, fiber — NOT fatty acids, vitamins, or minerals per item. When the user asks about those (omega-3/6, nutrients, daily averages, food quality): ALWAYS answer — estimate from logged food names + grams using USDA-style reference tables. Give rough grams and ratios when asked (e.g. daily ω-3 ~3–5g, ω3:ω6 ~1:1–1:3). Lead with the estimate; do NOT open with "data not in the app" or refuse. One brief "estimated from food tables" caveat at the end is enough. Distinguish exact USER DATA (logged P/C/F/Fi) from estimated micronutrients.
+CGM DEFAULT: qualitative one-liner (stable / in range / elevated / low-side). DEEP DIVE (user asked for numbers, avg, analysis, or /7+/30 with glucose stats): cite avg/min/max, day/night, meal spikes from the block. On food/hunger/recipe/nutrient questions without glucose ask: answer that topic — at most one qualitative glucose phrase; NO glucose opener on omega/vitamin/nutrient threads.
 CGM DATE SPAN (mandatory): only cite "N days" when the data block explicitly states N days. If unsure, say "the available CGM window" — never invent 7 days. Slash commands (/7, /30) widen the loaded window — use that block's day count.
 When the user asks for a longer review (/7, /30), analyze the full snapshot (body, energy, HR, food, workouts): what went well, what to improve, specific next steps.
 When GLUCOSE & FOOD IMPACT is present and user asked for detail: cite which foods preceded spikes and recommend swaps for repeat offenders.
