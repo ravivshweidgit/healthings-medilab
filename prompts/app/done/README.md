@@ -33,6 +33,8 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt43** — done (2026-06-22). Mentor food-science estimates: omega/nutrient questions answered from meals + USDA-style tables; no refusal / no glucose opener on nutrient threads. Phone-tested.
 
+**prompt44** — done (2026-06-22). Macro energy timeline: `targetWeeks` in My Targets drives deficit (~700 kcal cap for ≤2 wk), trimmed 7d TDEE burn, loss direction from current weight, P→C+Fi→F fill, manual target edit. Phone-tested ~707 kcal deficit / ~1913 kcal target.
+
 **prompt34** — closed without ship (2026-06-17). Status row declined; chat fallback unnecessary with persistence. Manual CGM exclusions deferred inside `done/prompt34.txt`.
 
 **prompt33** — closed without ship (2026-06-17). Default 2-day full snapshot + `/N` is sufficient; rollup/cache optimization deferred inside `done/prompt33.txt`.

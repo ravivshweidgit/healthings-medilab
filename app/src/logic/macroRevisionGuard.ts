@@ -4,7 +4,7 @@
 
 import type { DailyMacroTarget, UserRules } from '../services/TargetService';
 import type { MacroSuggestion } from '../services/GeminiService';
-import { parseCarbCapFromRules } from './macroFiberCoupling';
+import { parseCarbCapFromRules, parseCarbMinFromRules } from './macroFiberCoupling';
 import {
   medianRecentGeminiCarbs,
   type MacroRevisionLogEntry,
@@ -38,7 +38,14 @@ export function computeCarbGuidanceBand(
   avgEatenCarb7d: number | null,
   userRules: UserRules | null,
 ): CarbGuidanceBand | null {
+  const rulesFloor = parseCarbMinFromRules(userRules);
   const cap = parseCarbCapFromRules(userRules);
+
+  if (rulesFloor != null) {
+    const max = cap != null ? Math.max(rulesFloor, cap) : rulesFloor + 25;
+    return { min: rulesFloor, max, label: 'rules floor' };
+  }
+
   if (cap != null) {
     return { min: Math.max(0, cap - 10), max: cap, label: 'rules cap' };
   }

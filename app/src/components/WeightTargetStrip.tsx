@@ -157,13 +157,13 @@ function EditField({
   value,
   onChange,
   unit,
-  aiSuggested,
+  hint,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   unit: string;
-  aiSuggested: number;
+  hint?: string;
 }) {
   return (
     <View style={editStyles.row}>
@@ -179,7 +179,7 @@ function EditField({
         />
         <Text style={editStyles.unit}>{unit}</Text>
       </View>
-      <Text style={editStyles.ai}>AI: {aiSuggested.toFixed(1)}</Text>
+      {hint ? <Text style={editStyles.hint}>{hint}</Text> : null}
     </View>
   );
 }
@@ -201,7 +201,7 @@ const editStyles = StyleSheet.create({
     textAlign: 'center',
   },
   unit: { fontSize: 13, fontWeight: '600', color: WellnessColors.textSecondary, width: 28 },
-  ai: { fontSize: 11, color: WellnessColors.textSecondary, width: 64, textAlign: 'right' },
+  hint: { fontSize: 11, color: WellnessColors.textSecondary, width: 72, textAlign: 'right' },
 });
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -228,6 +228,7 @@ export function WeightTargetStrip({
   const [editWeight, setEditWeight] = useState('');
   const [editFat, setEditFat] = useState('');
   const [editMuscle, setEditMuscle] = useState('');
+  const [editWeeks, setEditWeeks] = useState('');
 
   // Load stored target on mount
   useEffect(() => {
@@ -276,6 +277,7 @@ export function WeightTargetStrip({
         reasoning: result.reasoning,
         analyzedAt: now,
         estimatedWeeks: result.estimatedWeeks,
+        targetWeeks: result.estimatedWeeks,
       };
       setSuggestion(proposed);
       setScreen('suggestion');
@@ -292,26 +294,59 @@ export function WeightTargetStrip({
     setScreen('active');
   }, [suggestion]);
 
-  const handleOpenEdit = useCallback((src: BodyTarget) => {
-    setEditWeight(src.targetWeight_kg.toFixed(1));
-    setEditFat(src.targetFatPct.toFixed(1));
-    setEditMuscle(src.targetMuscleMass_kg.toFixed(1));
-    setScreen('editing');
-  }, []);
+  const handleOpenEdit = useCallback(
+    (src?: BodyTarget | null) => {
+      const s = src ?? target;
+      if (s) {
+        setEditWeight(s.targetWeight_kg.toFixed(1));
+        setEditFat(s.targetFatPct.toFixed(1));
+        setEditMuscle(s.targetMuscleMass_kg.toFixed(1));
+        const w = s.targetWeeks ?? s.estimatedWeeks;
+        setEditWeeks(w != null && w > 0 ? String(Math.round(w)) : '');
+      } else {
+        setEditWeight(weightKg != null ? weightKg.toFixed(1) : '');
+        setEditFat(fatPct != null ? fatPct.toFixed(1) : '');
+        setEditMuscle(muscleMass_kg != null ? muscleMass_kg.toFixed(1) : '');
+        setEditWeeks('');
+      }
+      setError(null);
+      setScreen('editing');
+    },
+    [target, weightKg, fatPct, muscleMass_kg],
+  );
 
   const handleSaveEdit = useCallback(async () => {
     const base = suggestion ?? target;
-    if (!base) return;
     const w = parseFloat(editWeight);
     const f = parseFloat(editFat);
     const m = parseFloat(editMuscle);
-    if (isNaN(w) || isNaN(f) || isNaN(m)) return;
-    const updated: BodyTarget = { ...base, targetWeight_kg: w, targetFatPct: f, targetMuscleMass_kg: m };
+    const weeks = parseInt(editWeeks, 10);
+    if (isNaN(w) || isNaN(f) || isNaN(m) || w <= 0 || f <= 0 || m <= 0) {
+      setError('Enter valid weight, fat %, and muscle mass.');
+      return;
+    }
+    const now = new Date().toISOString();
+    const updated: BodyTarget = {
+      targetWeight_kg: w,
+      targetFatPct: f,
+      targetMuscleMass_kg: m,
+      aiWeight_kg: base?.aiWeight_kg ?? w,
+      aiFatPct: base?.aiFatPct ?? f,
+      aiMuscle_kg: base?.aiMuscle_kg ?? m,
+      startWeight_kg: base?.startWeight_kg ?? weightKg ?? w,
+      startFatPct: base?.startFatPct ?? fatPct ?? f,
+      startMuscle_kg: base?.startMuscle_kg ?? muscleMass_kg ?? m,
+      reasoning: base?.reasoning?.trim() ? base.reasoning : 'Manual target',
+      analyzedAt: base?.analyzedAt ?? now,
+      estimatedWeeks: base?.estimatedWeeks,
+      targetWeeks: !isNaN(weeks) && weeks > 0 ? weeks : base?.targetWeeks,
+    };
     await saveBodyTarget(updated);
     setTarget(updated);
     setSuggestion(null);
+    setError(null);
     setScreen('active');
-  }, [editWeight, editFat, editMuscle, suggestion, target]);
+  }, [editWeight, editFat, editMuscle, editWeeks, suggestion, target, weightKg, fatPct, muscleMass_kg]);
 
   const handleReset = useCallback(async () => {
     await clearBodyTarget();
@@ -322,8 +357,12 @@ export function WeightTargetStrip({
 
   // ── Summary line shown in collapsed header ────────────────────────────────
   const headerSub = target
-    ? `${target.targetWeight_kg.toFixed(1)} kg · ${target.targetFatPct.toFixed(1)}% fat · ${target.targetMuscleMass_kg.toFixed(1)} kg muscle`
-    : 'Tap to set AI-powered body goals';
+    ? `${target.targetWeight_kg.toFixed(1)} kg · ${target.targetFatPct.toFixed(1)}% fat · ${target.targetMuscleMass_kg.toFixed(1)} kg muscle${
+        (target.targetWeeks ?? target.estimatedWeeks)
+          ? ` · ${target.targetWeeks ?? target.estimatedWeeks}w`
+          : ''
+      }`
+    : 'Tap to set your body goals';
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -336,14 +375,18 @@ export function WeightTargetStrip({
           <Text style={styles.headerTitle}>My Targets</Text>
           <Text style={styles.headerSub}>{headerSub}</Text>
         </View>
-        {screen === 'active' && expanded && (
+        {(screen === 'active' || screen === 'idle') && expanded && (
           <View style={styles.headerActions}>
-            <Pressable onPress={() => handleOpenEdit(target!)} hitSlop={8}>
-              <Text style={styles.editLink}>✎</Text>
-            </Pressable>
-            <Pressable onPress={(e) => { e.stopPropagation?.(); handleReset(); }} hitSlop={8}>
-              <Text style={styles.resetLink}>reset</Text>
-            </Pressable>
+            {screen === 'active' && target ? (
+              <Pressable onPress={() => handleOpenEdit()} hitSlop={8}>
+                <Text style={styles.editLink}>✎</Text>
+              </Pressable>
+            ) : null}
+            {screen === 'active' && target ? (
+              <Pressable onPress={(e) => { e.stopPropagation?.(); handleReset(); }} hitSlop={8}>
+                <Text style={styles.resetLink}>reset</Text>
+              </Pressable>
+            ) : null}
           </View>
         )}
         <Text style={styles.chevron}>{expanded ? '⌃' : '›'}</Text>
@@ -355,17 +398,20 @@ export function WeightTargetStrip({
       {screen === 'idle' && (
         <View style={styles.idleWrap}>
           <Text style={styles.idleText}>
-            {canAnalyze
-              ? 'Let AI analyse your body composition and suggest realistic targets.'
-              : 'Link Withings and complete your profile to enable AI goal setting.'}
+            Set weight, body comp, and weeks to goal — edit anytime without AI.
           </Text>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          <Pressable style={styles.manualBtn} onPress={() => handleOpenEdit()}>
+            <Text style={styles.manualBtnText}>✎ Set / edit targets</Text>
+          </Pressable>
           <Pressable
-            style={[styles.aiBtn, !canAnalyze && styles.aiBtnDisabled]}
+            style={[styles.aiBtnOutline, !canAnalyze && styles.aiBtnDisabled]}
             onPress={handleAiSuggest}
             disabled={!canAnalyze}
           >
-            <Text style={styles.aiBtnText}>✨ Ask AI to set my goals</Text>
+            <Text style={[styles.aiBtnOutlineText, !canAnalyze && styles.aiBtnOutlineTextDisabled]}>
+              ✨ Suggest with AI {canAnalyze ? '' : '(needs Withings + profile)'}
+            </Text>
           </Pressable>
         </View>
       )}
@@ -419,27 +465,38 @@ export function WeightTargetStrip({
       {/* ── editing ── */}
       {screen === 'editing' && (
         <View>
+          <Text style={styles.editHint}>
+            {target || suggestion ? 'Update your targets' : 'Enter your targets (saved locally)'}
+          </Text>
           <EditField
             label="Weight"
             value={editWeight}
             onChange={setEditWeight}
             unit="kg"
-            aiSuggested={(suggestion ?? target)?.aiWeight_kg ?? 0}
+            hint={weightKg != null ? `now ${weightKg.toFixed(1)}` : undefined}
           />
           <EditField
             label="Fat %"
             value={editFat}
             onChange={setEditFat}
             unit="%"
-            aiSuggested={(suggestion ?? target)?.aiFatPct ?? 0}
+            hint={fatPct != null ? `now ${fatPct.toFixed(1)}` : undefined}
           />
           <EditField
             label="Muscle"
             value={editMuscle}
             onChange={setEditMuscle}
             unit="kg"
-            aiSuggested={(suggestion ?? target)?.aiMuscle_kg ?? 0}
+            hint={muscleMass_kg != null ? `now ${muscleMass_kg.toFixed(1)}` : undefined}
           />
+          <EditField
+            label="Weeks"
+            value={editWeeks}
+            onChange={setEditWeeks}
+            unit="wks"
+            hint="macro kcal"
+          />
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
           <View style={styles.editBtns}>
             <Pressable style={[styles.suggestionBtn, styles.suggestionBtnAccept]} onPress={handleSaveEdit}>
               <Text style={styles.suggestionBtnTextAccept}>Save</Text>
@@ -455,53 +512,82 @@ export function WeightTargetStrip({
       )}
 
       {/* ── active ── */}
-      {screen === 'active' && target && weightKg != null && fatPct != null && muscleMass_kg != null && (
+      {screen === 'active' && target && (
         <View style={styles.activeWrap}>
-          <RangeScale
-            label="Weight"
-            startVal={target.startWeight_kg}
-            currentVal={weightKg}
-            targetVal={target.targetWeight_kg}
-            unit="kg"
-            color={WellnessColors.accentBlue}
-          />
-          <RangeScale
-            label="Fat %"
-            startVal={target.startFatPct}
-            currentVal={fatPct}
-            targetVal={target.targetFatPct}
-            unit="%"
-            color="#EF5350"
-          />
-          <RangeScale
-            label="Muscle"
-            startVal={target.startMuscle_kg}
-            currentVal={muscleMass_kg}
-            targetVal={target.targetMuscleMass_kg}
-            unit="kg"
-            color={WellnessColors.accentGreen}
-            higherIsBetter
-          />
+          {weightKg != null && fatPct != null && muscleMass_kg != null ? (
+            <>
+              <RangeScale
+                label="Weight"
+                startVal={target.startWeight_kg}
+                currentVal={weightKg}
+                targetVal={target.targetWeight_kg}
+                unit="kg"
+                color={WellnessColors.accentBlue}
+              />
+              <RangeScale
+                label="Fat %"
+                startVal={target.startFatPct}
+                currentVal={fatPct}
+                targetVal={target.targetFatPct}
+                unit="%"
+                color="#EF5350"
+              />
+              <RangeScale
+                label="Muscle"
+                startVal={target.startMuscle_kg}
+                currentVal={muscleMass_kg}
+                targetVal={target.targetMuscleMass_kg}
+                unit="kg"
+                color={WellnessColors.accentGreen}
+                higherIsBetter
+              />
+            </>
+          ) : (
+            <View style={styles.manualSummary}>
+              <Text style={styles.manualSummaryLine}>
+                Target: {target.targetWeight_kg.toFixed(1)} kg · {target.targetFatPct.toFixed(1)}% fat ·{' '}
+                {target.targetMuscleMass_kg.toFixed(1)} kg muscle
+              </Text>
+              <Text style={styles.manualSummarySub}>Link Withings for progress scales</Text>
+            </View>
+          )}
 
-          {target.estimatedWeeks ? (
+          {(target.targetWeeks ?? target.estimatedWeeks) ? (
             <Text style={styles.paceText}>
-              ~{target.estimatedWeeks} weeks estimated at a sustainable pace
+              {target.targetWeeks
+                ? `Target: ${target.targetWeeks} weeks to reach goal (drives macro kcal)`
+                : `~${target.estimatedWeeks} weeks estimated — tap ✎ to set your timeline`}
             </Text>
+          ) : (
+            <Text style={styles.paceText}>Tap ✎ to set weeks to goal (drives macro kcal)</Text>
+          )}
+
+          {target.reasoning && target.reasoning !== 'Manual target' ? (
+            <View style={styles.reasoningBox}>
+              <Text style={styles.reasoningIcon}>💡</Text>
+              <View style={styles.reasoningContent}>
+                <Text style={styles.reasoningText}>{target.reasoning}</Text>
+                <Text style={styles.analyzedAt}>
+                  AI ·{' '}
+                  {new Date(target.analyzedAt).toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </Text>
+              </View>
+            </View>
           ) : null}
 
-          <View style={styles.reasoningBox}>
-            <Text style={styles.reasoningIcon}>💡</Text>
-            <View style={styles.reasoningContent}>
-              <Text style={styles.reasoningText}>{target.reasoning}</Text>
-              <Text style={styles.analyzedAt}>
-                AI · {new Date(target.analyzedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-              </Text>
-            </View>
-          </View>
-
-          <Pressable style={styles.reanalyzeBtn} onPress={() => { setTarget(null); setScreen('idle'); }}>
-            <Text style={styles.reanalyzeBtnText}>Re-analyze with AI</Text>
+          <Pressable style={styles.editTargetsBtn} onPress={() => handleOpenEdit()}>
+            <Text style={styles.editTargetsBtnText}>✎ Edit targets</Text>
           </Pressable>
+
+          {canAnalyze ? (
+            <Pressable style={styles.reanalyzeBtn} onPress={handleAiSuggest}>
+              <Text style={styles.reanalyzeBtnText}>Suggest with AI</Text>
+            </Pressable>
+          ) : null}
         </View>
       )}
       </View>}
@@ -546,17 +632,41 @@ const styles = StyleSheet.create({
   body: { marginTop: 16 },
 
   // idle
-  idleWrap: { alignItems: 'center', paddingVertical: 8, gap: 10 },
+  idleWrap: { alignItems: 'stretch', paddingVertical: 8, gap: 10 },
   idleText: { fontSize: 13, color: WellnessColors.textSecondary, textAlign: 'center', lineHeight: 18 },
   errorText: { fontSize: 12, color: '#E53935', textAlign: 'center' },
+  manualBtn: {
+    backgroundColor: WellnessColors.accentBlue,
+    borderRadius: 999,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  manualBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   aiBtn: {
     backgroundColor: WellnessColors.accentGreen,
     borderRadius: 999,
     paddingHorizontal: 24,
     paddingVertical: 12,
   },
-  aiBtnDisabled: { backgroundColor: WellnessColors.gridLine },
+  aiBtnOutline: {
+    borderWidth: 1.5,
+    borderColor: WellnessColors.gridLine,
+    borderRadius: 999,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  aiBtnOutlineText: { color: WellnessColors.textPrimary, fontWeight: '600', fontSize: 13 },
+  aiBtnOutlineTextDisabled: { color: WellnessColors.textSecondary },
+  aiBtnDisabled: { borderColor: WellnessColors.gridLine, opacity: 0.7 },
   aiBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  editHint: {
+    fontSize: 12,
+    color: WellnessColors.textSecondary,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
 
   // loading
   loadingWrap: { alignItems: 'center', paddingVertical: 20, gap: 12 },
@@ -594,6 +704,22 @@ const styles = StyleSheet.create({
 
   // active
   activeWrap: {},
+  manualSummary: {
+    backgroundColor: WellnessColors.gridLine,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  manualSummaryLine: { fontSize: 13, fontWeight: '600', color: WellnessColors.textPrimary },
+  manualSummarySub: { fontSize: 11, color: WellnessColors.textSecondary, marginTop: 4 },
+  editTargetsBtn: {
+    backgroundColor: WellnessColors.accentBlue,
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  editTargetsBtnText: { fontSize: 14, color: '#fff', fontWeight: '700' },
   paceText: {
     fontSize: 12,
     color: WellnessColors.textSecondary,

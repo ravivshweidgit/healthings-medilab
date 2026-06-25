@@ -97,7 +97,10 @@ export type BodyTarget = {
   reasoning: string;
   /** ISO string of when AI ran */
   analyzedAt: string;
+  /** AI-suggested weeks to reach target (informational). */
   estimatedWeeks?: number;
+  /** User-set weeks to reach target — drives macro kcal/deficit when set. */
+  targetWeeks?: number;
 };
 
 export async function getBodyTarget(): Promise<BodyTarget | null> {
@@ -231,6 +234,8 @@ const MACRO_AUTO_ADJUST_KEY = 'macro_auto_adjust_state';
 
 export type MacroAutoAdjustState = {
   lastWeightKg: number;
+  /** Withings body scan timestamp — dedupe weigh-in macro runs (weight alone can repeat). */
+  lastWeighInAt: string | null;
   lastLabReportId: string | null;
   lastKcal: number;
   lastAdjustedAt: string;
@@ -239,6 +244,7 @@ export type MacroAutoAdjustState = {
 
 const DEFAULT_MACRO_AUTO_ADJUST: MacroAutoAdjustState = {
   lastWeightKg: 0,
+  lastWeighInAt: null,
   lastLabReportId: null,
   lastKcal: 0,
   lastAdjustedAt: '',

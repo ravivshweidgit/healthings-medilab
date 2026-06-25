@@ -965,7 +965,7 @@ const MENTOR_PERSONAS: Record<MentorType, string> = {
   doctor:
     'You are a medical doctor AI. Prioritise health risk reduction, evidence-based guidelines, and patient safety. When CGM data is present, give qualitative safety assessment by default; cite avg/min/max only when user asks for numbers or pattern is clinically urgent — exclude sensor warm-up false lows.',
   nutritionist:
-    'You are a certified clinical nutritionist AI with CGM expertise. Continuous glucose is a PRIMARY input — always consider it when advising on food and meal timing. DEFAULT reply: one short qualitative glucose verdict (stable / in range / a bit high / on the low side / worth watching) — NO mg/dL unless the user asks for numbers or deep analysis. FIBER ↔ CARB: fiber is inside total carbs on labels — fiber_g must never exceed carb_g; for carb ≤60g aim fiber ≈ ½×carbs; for higher carbs aim ~30g fiber not ½ of carbs.',
+    'You are a certified clinical nutritionist AI with CGM expertise. Continuous glucose is a PRIMARY input — always consider it when advising on food and meal timing. DEFAULT reply: one short qualitative glucose verdict (stable / in range / a bit high / on the low side / worth watching) — NO mg/dL unless the user asks for numbers or deep analysis. FIBER ↔ CARB: fiber is inside total carbs on labels — fiber_g must never exceed carb_g; default target ≈ 55%×carb_g (e.g. 66g C → ~36g Fi); My Rules gram floors override.',
   coach:
     'You are a professional fitness coach AI. Focus on body composition, muscle preservation, progressive fat loss, training recovery, and performance goals.',
 };
@@ -1150,8 +1150,10 @@ Rules:
 - summary: max 5 words, · separator — user's framing (cholesterol, kidney, IF, etc.)
 - context: optional ONE short sentence — primary goals (e.g. cholesterol, kidney) — NOT a diet brand name
 - constraints: max 5 items, max 8 words each — actionable bullets from user text only
+- ALWAYS copy explicit gram targets verbatim into constraints (e.g. "carbs at least 65g", "fiber at least 35g") — these are HARD floors/caps
 - Do NOT label as keto, ketogenic, or קטוגנית unless the user explicitly wrote keto/קטו/קטוגנית
 - Do NOT invent carb gram caps the user did not state
+- Do NOT drop or soften numeric minimums the user stated (carbs, fiber, protein)
 - "סיבים מירקות וזרעים" / fiber from vegetables & seeds = food quality — NOT low-carb/keto diet
 
 User text:
@@ -1437,8 +1439,8 @@ function normalizeRulesAdvice(raw: unknown): string | undefined {
 const FIBER_CARB_RULE = `
 ## Fiber ↔ carb (mandatory)
 - Dietary fiber is counted INSIDE total carbohydrates on food labels — \`fiber_g\` must NEVER exceed \`carb_g\`.
-- When daily carb target ≤ 60g: recommend \`fiber_g\` ≈ round(½ × \`carb_g\`) from **high-fiber whole foods** (vegetables, seeds, legumes — per My Rules).
-- When carb target > 60g: recommend \`fiber_g\` ≈ 30g/day (standard band), NOT ½ of carbs.
+- **Priority:** (1) verbatim **My Rules** gram floors for carb_g / fiber_g — HARD; (2) LDL/cholesterol soft band ~55% fiber/carbs when no fiber rule; (3) generic default below.
+- Generic default: \`fiber_g\` ≈ round(55% × \`carb_g\`) from high-fiber whole foods (avocado, vegetables, seeds, psyllium); min **30g** when \`carb_g\` ≥ 55g (e.g. 66g C → ~36g Fi).
 - **"סיבים ממקורות דלי פחמימה"** means prefer fiber-rich **foods** that are not sugary/refined — it does **NOT** mean minimize total \`carb_g\` or a ketogenic diet.`;
 
 const MACRO_REVISION_PROMPT = `## Role
@@ -1450,7 +1452,7 @@ ${FIBER_CARB_RULE}
 The data section includes **ENERGY BALANCE (computed)** — a **monitoring-driven** target using:
 - **Smartwatch** 7d avg burn (TDEE anchor — not BMR)
 - **Smart scale** 14d weight trend (adaptive deficit/surplus)
-- **Food log** 7d eaten avg (floor check)
+- **Food log** 7d eaten avg (context only — do not raise kcal above burn on a loss goal)
 - **CGM** lows (&lt;70) may require holding higher
 
 **Use the computed \`kcal\` for JSON** unless CGM lows require adjustment (explain in \`reasoning\`).
@@ -1459,7 +1461,7 @@ Textbook method (already applied in computed block):
 - Loss rate targets: **0.3% BW/week** near goal · **0.5%** moderate gap · **0.7%** far (max)
 - Energy: **7700 kcal ≈ 1 kg** body-weight change → daily deficit/surplus
 - **% TDEE caps**: ~5–7% near goal / on-track · up to **12%** mid-gap · **20%** (500 kcal) absolute max
-- **Adaptive**: if scale shows loss **faster than target** → **do not deepen** cut (clinic rarely has this daily data)
+- **Adaptive**: if scale shows loss **faster than target** → **do not deepen** cut toward TDEE **unless** 7d eaten avg is already well below burn (then keep textbook deficit — see ENERGY BALANCE block).
 - Absolute floor: sex/age minimum + never below **75%** of measured burn
 
 Work order:
@@ -1542,7 +1544,7 @@ Use **LIPID GUIDANCE (computed)** when present — fat quality and fiber, **not*
 Use **GLYCEMIC GUIDANCE (computed)** when present; cross-check **CGM 7-day block** (labs alone are not enough for daily carb targets).
 
 ## Priority rules
-1. **My Rules** are HARD constraints — never violate when setting macros.
+1. **My Rules verbatim text** — explicit gram floors/caps (carb, fiber, protein) are **HARD**; beat generic 55% fiber default, CARB GUIDANCE band, and AI summary alone.
 2. **Energy balance**: \`kcal\` comes from **ENERGY BALANCE (computed)** in the data block — not BMR, not 7d eaten avg as primary formula.
 3. **Lab conflict order**: kidney protein cap → glycemic carb caution → lipid fat quality → CARB GUIDANCE band.
 4. Labs: informational only — not a diagnosis; kidney/lipids/glycemic guide caps and reasoning.

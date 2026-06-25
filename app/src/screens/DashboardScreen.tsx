@@ -655,17 +655,19 @@ export const DashboardScreen = () => {
     })();
   }, [bodyScan?.measuredAt]);
 
-  /** Auto macro revision on new scale weight (prompt35). */
+  /** Auto macro revision on new scale reading (prompt35) — keyed on measuredAt, not weight alone. */
   useEffect(() => {
     const w = bodyScan?.weightKg;
-    if (w == null || !Number.isFinite(w)) return;
+    const measuredAt = bodyScan?.measuredAt;
+    if (w == null || !Number.isFinite(w) || !measuredAt) return;
     void applyAutoMacroRevision({
       trigger: 'weigh-in',
       triggerDetail: `${w.toFixed(1)} kg`,
       weightKg: w,
+      measuredAt,
       onSaved: (t) => setMacroTarget(t),
     });
-  }, [bodyScan?.weightKg]);
+  }, [bodyScan?.measuredAt, bodyScan?.weightKg]);
 
   /** Coach workout trigger when today's workout list grows. */
   useEffect(() => {

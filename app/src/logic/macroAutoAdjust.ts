@@ -7,9 +7,15 @@ import type { MetabolicTrend7dDay } from './metabolicTrend7d';
 import {
   applyKidneyMacroGuardrail,
   deriveFiberTargetFromCarbs,
+  FIBER_FLOOR_CARB_THRESHOLD_G,
+  FIBER_TO_CARB_RATIO,
+  kidneyProteinCapG,
   macroKcalFromPcf,
   parseCarbCapFromRules,
+  parseCarbMinFromRules,
+  parseFiberMinFromRules,
   postProcessMacroSuggestion,
+  STANDARD_FIBER_TARGET_G,
   type MacroPcf,
 } from './macroFiberCoupling';
 import { buildPeriodReviewBlock, get7DayAverageBurnKcal, get7DayAverageEatenKcal, get7DayAverageEatenCarb_g } from '../services/ReviewService';
@@ -33,6 +39,7 @@ import {
   formatClinicalProfileBlock,
   type ClinicalProfileSummary,
 } from './macroClinicalProfile';
+import { formatMacroRevisionRulesBlock } from './userRulesContext';
 import { loadWithingsStore, syncWithingsStore } from '../services/WithingsPersistenceService';
 import {
   getBodyTarget,
@@ -102,10 +109,18 @@ function absoluteKcalFloor(
   burn: number,
   gender: Gender | null,
   age: number | null,
+  burnPct = 0.75,
 ): number {
   const sexMin = gender === 'female' ? 1400 : gender === 'male' ? 1650 : 1525;
   const ageAdj = age != null && age >= 55 ? 100 : 0;
-  return Math.max(sexMin + ageAdj, Math.round(burn * 0.75));
+  return Math.max(sexMin + ageAdj, Math.round(burn * burnPct));
+}
+
+/** Max daily deficit when user sets an explicit goal timeline (7700 kcal/kg physics). */
+function userTimelineDeficitCap(burn: number, timelineWeeks: number): number {
+  const pct =
+    timelineWeeks <= 2 ? 0.27 : timelineWeeks <= 4 ? 0.22 : timelineWeeks <= 8 ? 0.18 : 0.15;
+  return Math.min(850, Math.round(burn * pct));
 }
 
 function deficitKcalFromWeeklyKg(weeklyKg: number): number {
@@ -142,9 +157,10 @@ function weightDeltaKg(days: MetabolicTrend7dDay[], lookback: number): number | 
 
 export type GoalDirection = 'loss' | 'gain' | 'maintain';
 
-export function goalDirection(startKg: number, targetKg: number): GoalDirection {
-  if (Math.abs(startKg - targetKg) < 0.5) return 'maintain';
-  return startKg > targetKg ? 'loss' : 'gain';
+/** Loss/gain from **current** scale weight vs goal — not start weight at goal creation. */
+export function goalDirection(currentKg: number, targetKg: number): GoalDirection {
+  if (Math.abs(currentKg - targetKg) < 0.5) return 'maintain';
+  return currentKg > targetKg ? 'loss' : 'gain';
 }
 
 export function kcalAdjustmentFromGap(
@@ -228,8 +244,7 @@ export function computeMacroEnergyPlan(opts: MacroEnergyPlanInput): MacroEnergyP
     };
   }
 
-  const startKg = opts.bodyTarget?.startWeight_kg ?? weightKg;
-  const direction = goalDirection(startKg, targetKg);
+  const direction = goalDirection(weightKg, targetKg);
   const gapKg = Math.abs(weightKg - targetKg);
   const delta14 = opts.weightDelta14dKg;
   const observedWeekly = observedWeeklyLossKg(delta14);
@@ -240,6 +255,8 @@ export function computeMacroEnergyPlan(opts: MacroEnergyPlanInput): MacroEnergyP
   let monitoringNote: string;
   let targetKcal: number;
   let deficitKcal: number;
+  let appliedAbsFloor = absFloor;
+  let appliedMaxDeficit = maxDeficitKcal;
 
   if (direction === 'maintain') {
     scenario = 'maintenance';
@@ -260,62 +277,118 @@ export function computeMacroEnergyPlan(opts: MacroEnergyPlanInput): MacroEnergyP
     deficitKcal = -surplusKcal;
     targetKcal = Math.round(burn + surplusKcal);
   } else {
+    const timelineWeeks =
+      opts.bodyTarget?.targetWeeks ?? opts.bodyTarget?.estimatedWeeks ?? null;
+    const useUserTimeline = timelineWeeks != null && timelineWeeks > 0;
+
     const targetPctBw = targetWeeklyLossPctBw(gapKg, nearGoal);
-    const targetWeeklyLossKg = weightKg * targetPctBw;
-    const deficitFromRate = deficitKcalFromWeeklyKg(targetWeeklyLossKg);
+    let planWeeklyLossKg = useUserTimeline
+      ? gapKg / timelineWeeks!
+      : weightKg * targetPctBw;
+
+    let deficitFromRate = deficitKcalFromWeeklyKg(planWeeklyLossKg);
     const maxPct = maxDeficitPctTdee(gapKg, nearGoal);
     const maxFromPct = Math.round(burn * maxPct);
-    deficitKcal = Math.min(deficitFromRate, maxFromPct, maxDeficitKcal);
 
-    if (observedWeekly != null && targetWeeklyLossKg > 0) {
-      if (observedWeekly >= targetWeeklyLossKg * 1.5) {
-        deficitKcal = Math.min(deficitKcal, Math.round(burn * 0.05));
-        scenario = 'adaptive_fast_loss';
-        rule =
-          `Scale: losing ${observedWeekly.toFixed(2)} kg/wk (faster than ${targetWeeklyLossKg.toFixed(2)} kg/wk target) → cap at ~5% TDEE (~${Math.round(burn * 0.05)} kcal/day) — do not deepen cut.`;
-        monitoringNote =
-          'Smart scale 14d Δ drives adaptive taper; wearable burn anchors TDEE; food log confirms intake.';
-      } else if (observedWeekly >= targetWeeklyLossKg) {
-        deficitKcal = Math.min(deficitKcal, Math.round(burn * 0.07));
-        scenario = nearGoal ? 'near_goal_on_track' : 'on_track_loss';
-        rule =
-          `Scale on/at target rate (${observedWeekly.toFixed(2)} vs ${targetWeeklyLossKg.toFixed(2)} kg/wk) → ~7% TDEE max (~${Math.round(burn * 0.07)} kcal/day).`;
-        monitoringNote =
-          'Scale trend matches textbook rate; deficit capped by % TDEE from wearable burn.';
-      } else if (nearGoal) {
-        scenario = 'near_goal_stable';
-        rule =
-          `<2 kg to goal — target ${(targetPctBw * 100).toFixed(1)}% BW/wk (${targetWeeklyLossKg.toFixed(2)} kg/wk) → ${deficitKcal} kcal/day from energy balance formula.`;
-        monitoringNote =
-          'Near goal: conservative % BW/week; burn from watch; scale Δ confirms pace.';
-      } else {
-        scenario = 'standard_loss';
-        rule =
-          `${gapKg.toFixed(1)} kg to goal — target ${(targetPctBw * 100).toFixed(1)}% BW/wk → up to ${Math.round(maxPct * 100)}% TDEE deficit (${deficitKcal} kcal/day).`;
-        monitoringNote =
-          'Textbook % BW/week loss rate; TDEE from 7d wearable burn; scale trend adjusts cap.';
-      }
-    } else {
-      scenario = nearGoal ? 'near_goal_no_trend' : 'standard_loss';
+    if (useUserTimeline) {
+      appliedAbsFloor = absoluteKcalFloor(burn, gender, age, 0.7);
+      appliedMaxDeficit = userTimelineDeficitCap(burn, timelineWeeks!);
+      const uncappedDeficit = deficitFromRate;
+      deficitKcal = Math.min(uncappedDeficit, appliedMaxDeficit);
+      scenario = 'user_timeline';
+      const timelineSrc =
+        opts.bodyTarget?.targetWeeks != null ? 'user timeline' : 'AI timeline estimate';
+      const expectedKgAtPace =
+        (deficitKcal * 7 * timelineWeeks!) / KCAL_PER_KG_BODYWEIGHT;
       rule =
-        `${gapKg.toFixed(1)} kg to goal — target ${(targetPctBw * 100).toFixed(1)}% BW/wk (${deficitKcal} kcal/day deficit from measured burn).`;
+        `${gapKg.toFixed(1)} kg in ${timelineWeeks} weeks (${timelineSrc}) → ${planWeeklyLossKg.toFixed(2)} kg/wk` +
+        (uncappedDeficit > deficitKcal
+          ? ` → full gap needs ~${uncappedDeficit} kcal/day; using ~${deficitKcal} kcal/day (≤${Math.round((appliedMaxDeficit / burn) * 100)}% TDEE) → ~${expectedKgAtPace.toFixed(1)} kg in ${timelineWeeks} wk at this pace.`
+          : ` → ${deficitKcal} kcal/day deficit (7700 kcal/kg).`);
       monitoringNote =
-        'Insufficient 14d scale trend — using textbook rate × wearable TDEE; recheck when more weigh-ins.';
+        'User timeline drives deficit from gap ÷ weeks; short deadlines allow up to ~27% TDEE (~700 kcal at typical burn).';
+    } else {
+      appliedAbsFloor = absFloor;
+      appliedMaxDeficit = maxDeficitKcal;
+      deficitKcal = Math.min(deficitFromRate, maxFromPct, maxDeficitKcal);
+      const eaten = opts.avgEatenKcal7d;
+      const eatenLow = eaten != null && eaten > 0 && eaten < burn - 300;
+      const farFromGoal = gapKg >= 2;
+
+      if (observedWeekly != null && planWeeklyLossKg > 0) {
+        if (observedWeekly >= planWeeklyLossKg * 1.5) {
+          if (farFromGoal || eatenLow) {
+            scenario = 'standard_loss_fast_scale';
+            rule =
+              `Scale losing ${observedWeekly.toFixed(2)} kg/wk (faster than ${planWeeklyLossKg.toFixed(2)} kg/wk) but ${gapKg.toFixed(1)} kg to goal` +
+              (eatenLow ? ` and 7d eaten ${Math.round(eaten!)} kcal` : '') +
+              ` — keep textbook ~${deficitKcal} kcal/day deficit (no 5% TDEE taper-up).`;
+            monitoringNote =
+              'Fast scale loss noted; macro target stays on textbook rate until <2 kg to goal and intake nears burn.';
+          } else {
+            deficitKcal = Math.min(deficitKcal, Math.round(burn * 0.05));
+            scenario = 'adaptive_fast_loss';
+            rule =
+              `Scale: losing ${observedWeekly.toFixed(2)} kg/wk (faster than ${planWeeklyLossKg.toFixed(2)} kg/wk target) → cap at ~5% TDEE (~${Math.round(burn * 0.05)} kcal/day) — do not deepen cut.`;
+            monitoringNote =
+              'No user timeline set — adaptive taper from scale trend; set target weeks in My Targets to override.';
+          }
+        } else if (observedWeekly >= planWeeklyLossKg) {
+          if (farFromGoal && eatenLow) {
+            scenario = 'standard_loss';
+            rule =
+              `Scale on/at target rate with ${gapKg.toFixed(1)} kg to goal and low 7d eaten (${Math.round(eaten!)} kcal) — textbook ~${deficitKcal} kcal/day deficit.`;
+            monitoringNote =
+              'On-track scale trend; textbook deficit until near goal or intake rises.';
+          } else {
+            deficitKcal = Math.min(deficitKcal, Math.round(burn * 0.07));
+            scenario = nearGoal ? 'near_goal_on_track' : 'on_track_loss';
+            rule =
+              `Scale on/at target rate (${observedWeekly.toFixed(2)} vs ${planWeeklyLossKg.toFixed(2)} kg/wk) → ~7% TDEE max (~${Math.round(burn * 0.07)} kcal/day).`;
+            monitoringNote =
+              'Scale trend matches textbook rate; deficit capped by % TDEE from wearable burn.';
+          }
+        } else if (nearGoal) {
+          scenario = 'near_goal_stable';
+          rule =
+            `<2 kg to goal — target ${(targetPctBw * 100).toFixed(1)}% BW/wk (${planWeeklyLossKg.toFixed(2)} kg/wk) → ${deficitKcal} kcal/day from energy balance formula.`;
+          monitoringNote =
+            'Near goal: conservative % BW/week; burn from watch; scale Δ confirms pace.';
+        } else {
+          scenario = 'standard_loss';
+          rule =
+            `${gapKg.toFixed(1)} kg to goal — target ${(targetPctBw * 100).toFixed(1)}% BW/wk → up to ${Math.round(maxPct * 100)}% TDEE deficit (${deficitKcal} kcal/day).`;
+          monitoringNote =
+            'Textbook % BW/week loss rate; TDEE from 7d wearable burn; scale trend adjusts cap.';
+        }
+      } else {
+        scenario = nearGoal ? 'near_goal_no_trend' : 'standard_loss';
+        rule =
+          `${gapKg.toFixed(1)} kg to goal — target ${(targetPctBw * 100).toFixed(1)}% BW/wk (${deficitKcal} kcal/day deficit from measured burn).`;
+        monitoringNote =
+          'Insufficient 14d scale trend — using textbook rate × wearable TDEE; recheck when more weigh-ins.';
+      }
     }
 
     targetKcal = Math.round(burn - deficitKcal);
-    targetKcal = Math.max(targetKcal, absFloor);
-    targetKcal = Math.max(targetKcal, Math.round(burn - maxDeficitKcal));
-    if (opts.avgEatenKcal7d != null && opts.avgEatenKcal7d > 0) {
-      targetKcal = Math.max(targetKcal, Math.round(opts.avgEatenKcal7d * 0.95));
-    }
+    targetKcal = Math.max(targetKcal, appliedAbsFloor);
+    targetKcal = Math.max(targetKcal, Math.round(burn - appliedMaxDeficit));
+    // Loss: intake must stay below measured burn — do not raise toward prior overeating.
+    targetKcal = Math.min(targetKcal, Math.round(burn - 50));
+
     deficitKcal = Math.max(0, burn - targetKcal);
   }
 
   const deficitPctTdee =
     burn > 0 ? Math.round((Math.abs(burn - targetKcal) / burn) * 1000) / 10 : 0;
+  const timelineWeeksForReturn =
+    opts.bodyTarget?.targetWeeks ?? opts.bodyTarget?.estimatedWeeks ?? null;
   const targetWeeklyLossKg =
-    direction === 'loss' ? weightKg * targetWeeklyLossPctBw(gapKg, nearGoal) : 0;
+    direction === 'loss'
+      ? timelineWeeksForReturn != null && timelineWeeksForReturn > 0
+        ? gapKg / timelineWeeksForReturn
+        : weightKg * targetWeeklyLossPctBw(gapKg, nearGoal)
+      : 0;
 
   return {
     avgBurn7d: burn,
@@ -330,8 +403,8 @@ export function computeMacroEnergyPlan(opts: MacroEnergyPlanInput): MacroEnergyP
     deficitPctTdee,
     targetKcal,
     minKcal: targetKcal,
-    absoluteFloorKcal: absFloor,
-    maxDeficitKcal,
+    absoluteFloorKcal: appliedAbsFloor,
+    maxDeficitKcal: appliedMaxDeficit,
     scenario,
     rule,
     monitoringNote,
@@ -373,8 +446,10 @@ export function formatEnergyBalanceBlock(plan: MacroEnergyPlan): string {
 
   return [
     '## ENERGY BALANCE (computed — use this for JSON `kcal`)',
-    'Method: textbook % body-weight/week × 7700 kcal/kg, anchored on **7d wearable burn** (not BMR), adapted to **smart-scale 14d trend** and **7d food intake**.',
-    `7-day avg burn (watch TDEE): ${plan.avgBurn7d} kcal/day`,
+    plan.scenario === 'user_timeline'
+      ? 'Method: **user timeline** — (kg to goal ÷ target weeks) × 7700 kcal/kg ÷ 7, capped at ~27% TDEE for ≤2 wk deadlines; anchored on **7d wearable burn**. Direction uses **current scale weight** vs goal.'
+      : 'Method: textbook % body-weight/week × 7700 kcal/kg, anchored on **7d wearable burn** (not BMR), adapted to **smart-scale 14d trend**. Direction uses **current scale weight** vs goal (not start weight at goal creation).',
+    `7-day avg burn (watch TDEE, highest day excluded, ≥6 days with data): ${plan.avgBurn7d} kcal/day`,
     `Current ${plan.weightKg.toFixed(1)} kg → goal ${plan.targetKg} kg (${plan.gapKg.toFixed(1)} kg remaining)`,
     deltaLine,
     observedLine,
@@ -391,11 +466,15 @@ export function formatEnergyBalanceBlock(plan: MacroEnergyPlan): string {
     .join('\n');
 }
 
-function applyKcalEnergyFloor<T extends MacroPcf>(macros: T, floorKcal: number): T {
-  if (macros.kcal >= floorKcal - 25) return macros;
+/** P(cap) → C+Fi (already set) → F fills remainder from energy plan target. */
+function applyMacroEnergyTarget<T extends MacroPcf>(macros: T, plan: MacroEnergyPlan): T {
+  let kcalTarget = plan.targetKcal;
+  if (plan.direction === 'loss' && plan.avgBurn7d > 0) {
+    kcalTarget = Math.min(kcalTarget, plan.avgBurn7d - 50);
+  }
   const fat_g = Math.max(
     40,
-    Math.round((floorKcal - 4 * macros.protein_g - 4 * macros.carb_g) / 9),
+    Math.round((kcalTarget - 4 * macros.protein_g - 4 * macros.carb_g) / 9),
   );
   const kcal = macroKcalFromPcf(macros.protein_g, macros.carb_g, fat_g);
   return { ...macros, fat_g, kcal };
@@ -417,7 +496,7 @@ function finalizeMacroSuggestion(
       ? formatKidneyMarkersSummary(bundle.kidneyLabStatus)
       : undefined,
   });
-  const floor = computeMacroKcalFloor({
+  const energyPlan = computeMacroEnergyPlan({
     avgBurn7d: bundle.avgBurn7d,
     weightKg: bundle.weightKg,
     bodyTarget: bundle.bodyTarget,
@@ -426,8 +505,8 @@ function finalizeMacroSuggestion(
     age: bundle.age,
     gender: bundle.gender,
   });
-  if (floor != null) {
-    processed = applyKcalEnergyFloor(processed, floor);
+  if (energyPlan != null) {
+    processed = applyMacroEnergyTarget(processed, energyPlan);
   }
   const cp = bundle.clinicalProfile;
   return {
@@ -445,10 +524,14 @@ function fmtKg(v: number | null | undefined, decimals = 1): string {
 
 function formatBodyTarget(bt: BodyTarget | null): string | null {
   if (!bt) return 'Body target: not set';
+  const weeks = bt.targetWeeks ?? bt.estimatedWeeks;
   return [
     `Body target: ${bt.targetWeight_kg} kg | fat ${bt.targetFatPct}% | muscle ${bt.targetMuscleMass_kg} kg`,
+    weeks != null && weeks > 0 ? `Timeline: ${weeks} weeks to goal` : null,
     `Start: ${bt.startWeight_kg} kg | muscle ${bt.startMuscle_kg} kg`,
-  ].join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 function isCholesterolPrimaryGoal(rules: UserRules | null): boolean {
@@ -470,9 +553,21 @@ export function formatCarbGuidanceBlock(opts: {
   userRules: UserRules | null;
 }): string | null {
   const avg = opts.avgEatenCarb7d;
+  const cap = parseCarbCapFromRules(opts.userRules);
+  const floor = parseCarbMinFromRules(opts.userRules);
+
+  if (floor != null) {
+    const lines = [
+      '## CARB GUIDANCE (computed — use for JSON `carb_g`)',
+      `My Rules explicit **floor**: ≥ ${floor}g carbs/day (HARD — overrides habit anchor and cholesterol band).`,
+    ];
+    if (cap != null) lines.push(`My Rules explicit cap: ≤ ${cap}g.`);
+    if (avg != null) lines.push(`7d eaten carb avg: ${avg}g/day — set carb_g ≥ ${floor}g.`);
+    return lines.join('\n');
+  }
+
   if (avg == null) return null;
 
-  const cap = parseCarbCapFromRules(opts.userRules);
   if (cap != null) {
     return [
       '## CARB GUIDANCE (computed — use for JSON `carb_g`)',
@@ -491,8 +586,8 @@ export function formatCarbGuidanceBlock(opts: {
   }
 
   if (isCholesterolPrimaryGoal(opts.userRules) && !hasExplicitLowCarbIntent(opts.userRules)) {
-    const suggestMin = 50;
-    const suggestMax = 80;
+    const suggestMin = Math.max(50, floor ?? 50);
+    const suggestMax = Math.max(suggestMin, 80);
     const suggest = Math.min(suggestMax, Math.max(suggestMin, Math.round(avg + 17)));
     return [
       '## CARB GUIDANCE (computed — use for JSON `carb_g`)',
@@ -510,15 +605,37 @@ export function formatCarbGuidanceBlock(opts: {
   ].join('\n');
 }
 
-function formatUserRulesBlock(rules: UserRules | null): string | null {
-  if (!rules) return null;
-  const lines = ['My Rules — AI understood:'];
-  if (rules.summary) lines.push(`Summary: ${rules.summary}`);
-  const ctx = rules.aiContext?.trim();
-  if (ctx && !/קטוגנ|ketogenic|\bketo\b/i.test(ctx)) {
-    lines.push(`Goals: ${ctx}`);
+function formatFiberGuidanceBlock(opts: {
+  userRules: UserRules | null;
+  lipidLabStatus: LipidLabStatus | null;
+}): string {
+  const { userRules, lipidLabStatus } = opts;
+  const rulesFloor = parseFiberMinFromRules(userRules);
+  const ratioPct = Math.round(FIBER_TO_CARB_RATIO * 100);
+
+  if (rulesFloor != null) {
+    return [
+      '## FIBER GUIDANCE (computed — use for JSON `fiber_g`)',
+      `My Rules explicit **floor**: ≥ ${rulesFloor}g fiber/day (HARD — overrides default ${ratioPct}% ratio).`,
+      'fiber_g must be ≥ that floor and ≤ carb_g (fiber is inside total carbs on labels).',
+    ].join('\n');
   }
-  for (const c of rules.constraints ?? []) lines.push(`- ${c}`);
+
+  const lipidPrimary =
+    isCholesterolPrimaryGoal(userRules) || Boolean(lipidLabStatus?.hasActionableMarker);
+
+  const lines = [
+    '## FIBER GUIDANCE (computed — use for JSON `fiber_g`)',
+    `Default (no explicit fiber rule in My Rules): fiber_g ≈ round(${ratioPct}% × carb_g), min ${STANDARD_FIBER_TARGET_G}g when carb_g ≥ ${FIBER_FLOOR_CARB_THRESHOLD_G}g.`,
+    'fiber_g must never exceed carb_g. Verbatim My Rules floors override this default.',
+  ];
+
+  if (lipidPrimary && !hasExplicitLowCarbIntent(userRules)) {
+    lines.push(
+      'LDL/cholesterol primary → soluble-fiber whole foods (avocado ~250g/day, veg, seeds, psyllium); example **66g carbs → ~36g fiber**.',
+    );
+  }
+
   return lines.join('\n');
 }
 
@@ -636,7 +753,7 @@ export async function buildMacroRevisionBundle(opts: {
   const contextText = [
     header,
     formatBodyTarget(bodyTarget),
-    formatUserRulesBlock(userRules),
+    userRules ? formatMacroRevisionRulesBlock(userRules) : null,
     formatProfileBasics({ age, gender, heightCm, weightKg, fatMassKg, bmr_kcal, leanMassKg, avgBurn7d }),
     weightTrend14,
     energyPlan ? formatEnergyBalanceBlock(energyPlan) : null,
@@ -645,6 +762,7 @@ export async function buildMacroRevisionBundle(opts: {
     formatLipidGuidanceBlock({ lipid: lipidLabStatus, userRules }),
     formatGlycemicGuidanceBlock({ glycemic: glycemicLabStatus }),
     formatCarbGuidanceBlock({ avgEatenCarb7d, userRules }),
+    formatFiberGuidanceBlock({ userRules, lipidLabStatus }),
     bodyTrend28,
     labs,
     period7,
@@ -682,8 +800,7 @@ export function deterministicMacroFallback(
   const burn = bundle.avgBurn7d ?? bundle.bmr_kcal ?? 2000;
   const weightKg = bundle.weightKg ?? bundle.bodyTarget?.startWeight_kg ?? 80;
   const targetKg = bundle.bodyTarget?.targetWeight_kg ?? weightKg;
-  const startKg = bundle.bodyTarget?.startWeight_kg ?? weightKg;
-  const direction = goalDirection(startKg, targetKg);
+  const direction = goalDirection(weightKg, targetKg);
   const energyPlan = computeMacroEnergyPlan({
     avgBurn7d: bundle.avgBurn7d ?? burn,
     weightKg: bundle.weightKg,
@@ -696,11 +813,21 @@ export function deterministicMacroFallback(
   const targetKcal = energyPlan?.targetKcal ?? Math.round(burn);
   const deficitKcal = energyPlan?.deficitKcal ?? Math.max(0, burn - targetKcal);
 
-  const lean = bundle.leanMassKg ?? (weightKg * 0.75);
-  const protein_g = Math.round(1.8 * lean);
+  const lean = bundle.leanMassKg ?? weightKg * 0.75;
+  const kidneyCap =
+    bundle.kidneyLabStatus?.hasHighMarker
+      ? kidneyProteinCapG(bundle.leanMassKg, bundle.weightKg)
+      : null;
+  let protein_g = Math.round(1.8 * lean);
+  if (kidneyCap != null) protein_g = Math.min(protein_g, kidneyCap);
+
   const carbCap = parseCarbCapFromRules(bundle.userRules);
-  const carb_g = carbCap ?? 30;
-  const fiber_g = deriveFiberTargetFromCarbs(carb_g);
+  const carbMin = parseCarbMinFromRules(bundle.userRules);
+  let carb_g = carbMin ?? carbCap ?? 30;
+  if (carbMin != null && carbCap != null) carb_g = Math.min(carbCap, Math.max(carbMin, carb_g));
+  const fiberMin = parseFiberMinFromRules(bundle.userRules);
+  let fiber_g = deriveFiberTargetFromCarbs(carb_g);
+  if (fiberMin != null && fiber_g < fiberMin) fiber_g = Math.min(fiberMin, carb_g);
   const fat_g = Math.max(
     40,
     Math.round((targetKcal - 4 * protein_g - 4 * carb_g) / 9),
@@ -895,6 +1022,8 @@ export async function applyAutoMacroRevision(opts: {
   trigger: 'weigh-in' | 'lab-import';
   triggerDetail?: string;
   weightKg?: number | null;
+  /** Withings measuredAt ISO — new reading even when weight unchanged must re-run revision. */
+  measuredAt?: string | null;
   labReportId?: string | null;
   onSaved?: (t: DailyMacroTarget) => void;
 }): Promise<DailyMacroTarget | null> {
@@ -903,12 +1032,14 @@ export async function applyAutoMacroRevision(opts: {
 
   if (opts.trigger === 'weigh-in') {
     const w = opts.weightKg;
+    const at = opts.measuredAt ?? null;
     if (w == null) return null;
-    if (state.lastAdjustedAt === '' && state.lastWeightKg === 0) {
-      await saveMacroAutoAdjustState({ ...state, lastWeightKg: w });
+    if (state.lastAdjustedAt === '' && state.lastWeightKg === 0 && !state.lastWeighInAt) {
+      await saveMacroAutoAdjustState({ ...state, lastWeightKg: w, lastWeighInAt: at });
       return null;
     }
-    if (Math.abs(state.lastWeightKg - w) < 0.05) return null;
+    if (at && state.lastWeighInAt === at) return null;
+    if (!at && Math.abs(state.lastWeightKg - w) < 0.05) return null;
   }
 
   if (opts.trigger === 'lab-import') {
@@ -919,7 +1050,11 @@ export async function applyAutoMacroRevision(opts: {
 
   if (state.manualLock) {
     if (opts.trigger === 'weigh-in' && opts.weightKg != null) {
-      await saveMacroAutoAdjustState({ ...state, lastWeightKg: opts.weightKg });
+      await saveMacroAutoAdjustState({
+        ...state,
+        lastWeightKg: opts.weightKg,
+        lastWeighInAt: opts.measuredAt ?? state.lastWeighInAt,
+      });
     }
     if (opts.trigger === 'lab-import' && opts.labReportId) {
       await saveMacroAutoAdjustState({ ...state, lastLabReportId: opts.labReportId });
@@ -953,7 +1088,11 @@ export async function applyAutoMacroRevision(opts: {
 
   const bumpState = async () => {
     if (opts.trigger === 'weigh-in' && opts.weightKg != null) {
-      await saveMacroAutoAdjustState({ ...state, lastWeightKg: opts.weightKg });
+      await saveMacroAutoAdjustState({
+        ...state,
+        lastWeightKg: opts.weightKg,
+        lastWeighInAt: opts.measuredAt ?? state.lastWeighInAt,
+      });
     }
     if (opts.trigger === 'lab-import' && opts.labReportId) {
       await saveMacroAutoAdjustState({ ...state, lastLabReportId: opts.labReportId });
@@ -989,6 +1128,7 @@ export async function applyAutoMacroRevision(opts: {
 
   await saveMacroAutoAdjustState({
     lastWeightKg: opts.weightKg ?? state.lastWeightKg,
+    lastWeighInAt: opts.measuredAt ?? state.lastWeighInAt,
     lastLabReportId: opts.labReportId ?? state.lastLabReportId,
     lastKcal: target.kcal,
     lastAdjustedAt: new Date().toISOString(),

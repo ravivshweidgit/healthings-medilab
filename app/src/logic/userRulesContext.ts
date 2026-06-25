@@ -31,3 +31,19 @@ export function formatUserRulesLines(rules: UserRules): string[] {
 export function formatUserRulesBlock(rules: UserRules): string {
   return formatUserRulesLines(rules).join('\n');
 }
+
+/** Macro revision — verbatim user text is authoritative; AI summary is secondary. */
+export function formatMacroRevisionRulesBlock(rules: UserRules): string {
+  const parts: string[] = ['=== MY RULES (verbatim — HARD constraints; numeric mins/maxes here win) ==='];
+  const raw = rules.rawText?.trim();
+  if (raw) parts.push(raw);
+  else parts.push('(empty)');
+  parts.push('', '=== AI summary (secondary — do not drop verbatim numbers above) ===');
+  if (rules.summary) parts.push(`Summary: ${rules.summary}`);
+  const ctx = rules.aiContext?.trim();
+  if (ctx && !/קטוגנ|ketogenic|\bketo\b/i.test(ctx)) {
+    parts.push(`Goals: ${ctx}`);
+  }
+  for (const c of rules.constraints ?? []) parts.push(`- ${c}`);
+  return parts.join('\n');
+}

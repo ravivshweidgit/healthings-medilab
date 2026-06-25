@@ -664,20 +664,58 @@ export async function buildPeriodReviewBlock(
 export const PERIOD_REVIEW_CHAT_INSTRUCTION =
   'When a PERIOD REVIEW or RAW DATA block is present: analyze the FULL snapshot — body trends, BMR, energy balance, heart rate, food logs (incl. FOOD MACROS eaten averages), GLUCOSE & FOOD IMPACT (CGM vs meals), workouts. Do NOT compare to saved app macro targets — judge from what was actually eaten. For GLUCOSE: use Period CGM stats and the CGM DAY vs NIGHT block for day/night averages; for windows ≤7 days each day also has CGM ALL READINGS (every ~5 min, HH:MM=mg/dL) — cite from these, never invent. Exclude first 24h sensor warm-up (falsely low — see CGM sensor start line). For each workout, use HR during session (avg, max, vs resting baseline, recovery) — Coach 💪 leads on this. Nutritionist 🥗 and Doctor 🩺: trusted CGM trend + foods before spikes when meals exist. Say what went well, what to improve, and give 2–4 concrete next steps. Each active mentor must contribute their angle. Cite specific numbers from the block.';
 
-/** 7-day average total daily burn (BMR + passive + workouts) for macro revision. */
-export async function get7DayAverageBurnKcal(): Promise<number | null> {
-  await syncWithingsStore();
-  const store = await loadWithingsStore();
-  const dayKeys = windowDayKeys({ mode: 'days', days: 7 });
-  const workouts = filterWorkoutsByLookback(store.workouts, 14);
-  const burnByDay = computeBurnKcalByDay(store.bodyTrendDays, store.calories, workouts);
+/** Minimum days with burn data before TDEE avg is used for macros. */
+const MIN_BURN_DAYS_FOR_TDEE = 6;
+/** Prefer this many recent days after expanding lookback if 7d window is sparse. */
+const TDEE_BURN_WINDOW_DAYS = 7;
+
+function burnsFromDayKeys(burnByDay: Map<string, number>, dayKeys: string[]): number[] {
   const burns: number[] = [];
   for (const dk of dayKeys) {
     const b = burnByDay.get(dk);
     if (b != null && b > 0) burns.push(b);
   }
-  if (burns.length === 0) return null;
-  return Math.round(burns.reduce((a, b) => a + b, 0) / burns.length);
+  return burns;
+}
+
+/** Mean daily burn excluding the single highest day (outlier bike days). */
+export function averageBurnExcludingMax(burns: number[]): number | null {
+  if (burns.length < MIN_BURN_DAYS_FOR_TDEE) return null;
+  const max = Math.max(...burns);
+  let removedMax = false;
+  const trimmed = burns.filter((b) => {
+    if (!removedMax && b === max) {
+      removedMax = true;
+      return false;
+    }
+    return true;
+  });
+  if (trimmed.length === 0) return null;
+  return Math.round(trimmed.reduce((a, b) => a + b, 0) / trimmed.length);
+}
+
+/** 7-day average total daily burn (BMR + passive + workouts) for macro revision. */
+export async function get7DayAverageBurnKcal(): Promise<number | null> {
+  await syncWithingsStore();
+  const store = await loadWithingsStore();
+  const workouts = filterWorkoutsByLookback(store.workouts, 14);
+  const burnByDay = computeBurnKcalByDay(store.bodyTrendDays, store.calories, workouts);
+
+  let burns = burnsFromDayKeys(burnByDay, windowDayKeys({ mode: 'days', days: TDEE_BURN_WINDOW_DAYS }));
+
+  if (burns.length < MIN_BURN_DAYS_FOR_TDEE) {
+    const keys14 = windowDayKeys({ mode: 'days', days: 14 });
+    const recent: number[] = [];
+    for (const dk of keys14) {
+      const b = burnByDay.get(dk);
+      if (b != null && b > 0) recent.push(b);
+    }
+    if (recent.length >= MIN_BURN_DAYS_FOR_TDEE) {
+      burns = recent.slice(-TDEE_BURN_WINDOW_DAYS);
+    }
+  }
+
+  return averageBurnExcludingMax(burns);
 }
 
 /** 7-day average kcal eaten (days with logged meals only). */

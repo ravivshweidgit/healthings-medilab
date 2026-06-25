@@ -1,0 +1,117 @@
+## Prompt 44 — Macro energy timeline, TDEE burn, manual targets
+
+**Status: done (2026-06-22)** — Phone-tested; user confirmed "looking good now" (~707 kcal/day deficit with 2-week timeline).
+
+Builds on **prompt36** (ENERGY BALANCE), **prompt37** (clinical profile), **prompt42** (revision guards).
+
+*Energy plan / user-timeline behavior refined here; supersedes prompt36 adaptive-only deficit caps when `targetWeeks` is set.*
+
+---
+
+### Problem (user-reported)
+
+Macro revision showed wrong energy anchor for active fat loss:
+
+| Symptom | Cause |
+|---------|--------|
+| Target kcal ~2593–2736 (at/above burn) | Loss vs maintain used **start weight** at goal; eaten-kcal floor raised intake on loss |
+| Deficit ~136 kcal despite fast scale loss | Adaptive "fast loss" capped at 5% TDEE even when ≥2 kg to goal and 7d eaten already low (~1805) |
+| Fat ~224g inflated | High kcal anchor + old energy floor bumped fat instead of P→C+Fi→F fill |
+| User set **2 weeks** — deficit still ~300 | `user_timeline` applied 12% TDEE + 500 kcal caps before physics (~1375 needed for 2.5 kg) |
+| Burn ~2729 felt high | 7d mean included outlier bike day (~3011) |
+| No way to edit timeline without AI | `estimatedWeeks` from AI only; not persisted as user override |
+
+User math check: ~0.8 kg in 9 days ≈ **700 kcal/day** deficit (7700 kcal/kg). Two-week full gap (2.5 kg) needs ~1375 kcal/day; app should cap at ~700 kcal (27% TDEE) and state realistic kg at that pace (~1.3 kg in 2 wk).
+
+---
+
+### What shipped
+
+#### 1) User timeline drives deficit (`targetWeeks`)
+
+- `BodyTarget.targetWeeks?: number` — user override in **My Targets**
+- `computeMacroEnergyPlan`: when `targetWeeks` or `estimatedWeeks` set → `user_timeline` scenario
+- Deficit = `(gapKg / weeks) × 7700 / 7`, capped at **~27% TDEE** (≤2 wk), **~22%** (≤4 wk), not 12%/500
+- Intake floor **70% burn** on user timeline (vs 75%) so ~700 kcal deficit is reachable
+- Rule text: if physics needs more than cap → "full gap needs ~X; using ~Y → ~Z kg in N wk at this pace"
+
+#### 2) Loss direction & adaptive fixes
+
+- `goalDirection(currentKg, targetKg)` — **current scale weight** vs goal (not start weight at goal creation)
+- Removed eaten-kcal floor that raised loss targets toward prior overeating
+- Skip 5% TDEE taper when **≥2 kg to goal** OR **7d eaten < burn − 300**
+- Loss intake always **below burn − 50**
+
+#### 3) Macro fill order P(cap) → C+Fi → F
+
+- `applyMacroEnergyTarget()` — fat fills remainder from energy plan target (min 40g fat)
+- Replaces `applyKcalEnergyFloor` fat inflation path in finalize pipeline
+
+#### 4) TDEE burn average (watch)
+
+- `get7DayAverageBurnKcal()` — require **≥6 days** with burn data
+- **Drop highest day** before averaging (`averageBurnExcludingMax`)
+- If sparse 7d window → last 7 burns from **14d** lookback
+- ENERGY BALANCE block documents "highest day excluded"
+
+#### 5) Manual My Targets edit (`WeightTargetStrip`)
+
+- **Set / edit targets** without AI — weight, fat %, muscle, **weeks**
+- Persists `targetWeeks`; strip shows timeline and "drives macro kcal" hint
+
+#### 6) Kidney protein cap (unchanged behavior, clarified)
+
+- `applyKidneyMacroGuardrail` — **ceiling only** (trim if above 2.2 g/kg lean); does not force protein to cap
+
+---
+
+### Primary files
+
+| File | Role |
+|------|------|
+| `app/src/logic/macroAutoAdjust.ts` | `goalDirection`, `computeMacroEnergyPlan`, `user_timeline` caps, `applyMacroEnergyTarget`, ENERGY BALANCE format |
+| `app/src/services/ReviewService.ts` | `get7DayAverageBurnKcal`, `averageBurnExcludingMax` |
+| `app/src/services/TargetService.ts` | `targetWeeks` on `BodyTarget` |
+| `app/src/components/WeightTargetStrip.tsx` | Manual target + weeks edit UI |
+| `app/src/logic/macroFiberCoupling.ts` | Kidney cap, carb/fiber floors, post-process |
+| `app/src/logic/macroRevisionGuard.ts` | Guard tweaks for revised energy path |
+| `app/src/logic/userRulesContext.ts` | Rules context for macro bundle |
+| `app/src/services/GeminiService.ts` | Macro revision prompt alignment |
+| `app/src/screens/DashboardScreen.tsx` | Target strip wiring |
+
+---
+
+### Phone-tested
+
+- [x] My Targets — set **2 weeks** manually (no AI)
+- [x] Re-analyze macros — **~707 kcal/day deficit**, target **~1913 kcal** (burn ~2620 after trim)
+- [x] Rule explains full 2.5 kg needs ~1375; applied ~707 → ~1.3 kg in 2 wk
+- [x] User: "looking good now"
+
+---
+
+### Example numbers (post-fix)
+
+| Metric | Value |
+|--------|-------|
+| Current → goal | 80.5 → 78 kg (2.5 kg gap) |
+| Timeline | 2 weeks (user) |
+| 7d burn (trimmed) | ~2620 kcal |
+| Deficit applied | ~707 kcal/day (~27% TDEE) |
+| Target kcal | ~1913 |
+
+---
+
+### Deferred
+
+- **Optional `targetDays`** (e.g. 9-day goal) — weeks-only for now; 9d ≈ 700 kcal for ~0.8 kg works in formula if entered as 9/7 weeks
+- **Per-food omega/sat_fat storage** — still backlog (see prompt43 deferred)
+- **Protein target at kidney cap** — cap remains ceiling; Gemini may propose below cap (~115g vs 140g ceiling)
+
+---
+
+### Related
+
+- **prompt36** — original ENERGY BALANCE; timeline + caps refined in prompt44
+- **prompt42** — auto-apply guards unchanged; same `/macros` pipeline
+- **prompt43** — mentor nutrient estimates (orthogonal)
