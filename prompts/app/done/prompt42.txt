@@ -55,7 +55,7 @@ Constants: `CARB_AUTO_APPLY_ABS_DELTA_G = 15`, `CARB_AUTO_APPLY_PCT_DELTA = 0.25
 - `confirmMacroTargetFromProposal()` — chat **MacroProposalCard**
 - `confirmSavedMacroTarget()` — dashboard strip accept
 - Sets `manualLock: true` in `MacroAutoAdjustState`
-- Weigh-in skips revision while locked (updates `lastWeightKg` only)
+- Weigh-in with manual lock: still runs Gemini revision; auto-save blocked with alert (*Macro review needed — send /macros*)
 
 #### 4) `suggestMacroTargets` return type
 
@@ -92,6 +92,16 @@ Chat/dashboard unchanged UX — user always confirms proposal card.
 - [x] Confirm → manual lock; weigh-in does not silently change carbs
 - [x] Rules change (e.g. carb cap) → `/macros` reflects new band
 - [x] Export Gemini prompt — no saved targets in data block
+
+### Follow-up (2026-06-22) — weigh-in activation
+
+`applyAutoMacroRevision` (`macroAutoAdjust.ts`):
+
+- Dedupe via revision log for `measuredAt`, not `lastWeighInAt` alone — fixes stuck state when lock path marked weigh-in processed without running
+- First weigh-in runs macro revision when no saved targets yet
+- Log entry when proposal unchanged (prevents re-run every app open)
+
+Phone-tested: [ ]
 
 ### Deferred
 

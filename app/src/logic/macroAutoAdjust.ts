@@ -67,6 +67,7 @@ import { captureMacroGeminiPrompt } from '../services/macroPromptExport';
 import {
   appendMacroRevisionLog,
   getMacroRevisionLog,
+  type MacroRevisionLogEntry,
   type MacroRevisionSource,
   type MacroRevisionTrigger,
 } from './macroRevisionLog';
@@ -979,6 +980,20 @@ export function materiallyChanged(
   return false;
 }
 
+function weighInMacroAlreadyProcessed(
+  measuredAt: string,
+  weightKg: number,
+  log: MacroRevisionLogEntry[],
+): boolean {
+  const measuredMs = Date.parse(measuredAt);
+  if (Number.isNaN(measuredMs)) return false;
+  const detail = `${weightKg.toFixed(1)} kg`;
+  return log.some((e) => {
+    if (e.trigger !== 'weigh-in' || e.triggerDetail !== detail) return false;
+    const logMs = Date.parse(e.at);
+    return !Number.isNaN(logMs) && logMs >= measuredMs - 60_000;
+  });
+}
 function notifyMacroReviewNeeded(
   trigger: MacroRevisionTrigger,
   triggerDetail: string | undefined,
@@ -1034,32 +1049,28 @@ export async function applyAutoMacroRevision(opts: {
     const w = opts.weightKg;
     const at = opts.measuredAt ?? null;
     if (w == null) return null;
-    if (state.lastAdjustedAt === '' && state.lastWeightKg === 0 && !state.lastWeighInAt) {
-      await saveMacroAutoAdjustState({ ...state, lastWeightKg: w, lastWeighInAt: at });
+
+    if (at) {
+      const log = await getMacroRevisionLog();
+      if (weighInMacroAlreadyProcessed(at, w, log)) return null;
+    } else if (Math.abs(state.lastWeightKg - w) < 0.05) {
       return null;
     }
-    if (at && state.lastWeighInAt === at) return null;
-    if (!at && Math.abs(state.lastWeightKg - w) < 0.05) return null;
+
+    // Legacy bootstrap: skip only when macros already saved but auto-adjust state never initialized.
+    if (state.lastAdjustedAt === '' && state.lastWeightKg === 0 && !state.lastWeighInAt) {
+      const saved = await getMacroTarget();
+      if (saved) {
+        await saveMacroAutoAdjustState({ ...state, lastWeightKg: w, lastWeighInAt: at });
+        return null;
+      }
+    }
   }
 
   if (opts.trigger === 'lab-import') {
     const id = opts.labReportId;
     if (!id) return null;
     if (state.lastLabReportId === id) return null;
-  }
-
-  if (state.manualLock) {
-    if (opts.trigger === 'weigh-in' && opts.weightKg != null) {
-      await saveMacroAutoAdjustState({
-        ...state,
-        lastWeightKg: opts.weightKg,
-        lastWeighInAt: opts.measuredAt ?? state.lastWeighInAt,
-      });
-    }
-    if (opts.trigger === 'lab-import' && opts.labReportId) {
-      await saveMacroAutoAdjustState({ ...state, lastLabReportId: opts.labReportId });
-    }
-    return null;
   }
 
   const { suggestion: proposed, source } = await suggestMacroTargets({
@@ -1119,6 +1130,19 @@ export async function applyAutoMacroRevision(opts: {
   }
 
   if (!materiallyChanged(saved, proposed)) {
+    await appendMacroRevisionLog({
+      at: new Date().toISOString(),
+      trigger: opts.trigger,
+      triggerDetail: opts.triggerDetail,
+      source,
+      kcal: proposed.kcal,
+      protein_g: proposed.protein_g,
+      carb_g: proposed.carb_g,
+      fat_g: proposed.fat_g,
+      fiber_g: proposed.fiber_g,
+      applied: false,
+      blockReason: 'unchanged vs saved',
+    });
     await bumpState();
     return null;
   }
