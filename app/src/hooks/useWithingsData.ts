@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import type { CompositionSession, MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
 import { fetchTodayHeartRate, getValidAccessToken, loadWithingsTokens } from '../services/WithingsApiService';
 import type { WeightMetricsForDashboard, WithingsCaloriePoint, WithingsHeartRatePoint, WorkoutSession } from '../services/WithingsApiService';
@@ -9,6 +10,11 @@ import {
   syncWithingsStore,
   type WithingsPersistedStore,
 } from '../services/WithingsPersistenceService';
+import {
+  formatHrSyncDiagLine,
+  loadWithingsHrSyncDiag,
+  type WithingsHrSyncDiag,
+} from '../services/withingsHrSyncDiag';
 
 export type WithingsDataState = {
   bodyScan: WeightMetricsForDashboard | null;
@@ -45,7 +51,12 @@ export function useWithingsData() {
   const [bodyScanError, setBodyScanError] = useState<string | null>(null);
   const [trendLoading, setTrendLoading] = useState(true);
   const [trendError, setTrendError] = useState<string | null>(null);
+  const [hrSyncDiag, setHrSyncDiag] = useState<WithingsHrSyncDiag | null>(null);
   const syncInFlight = useRef<Promise<WithingsPersistedStore> | null>(null);
+
+  const refreshHrDiag = useCallback(async () => {
+    setHrSyncDiag(await loadWithingsHrSyncDiag());
+  }, []);
 
   const applyStore = useCallback((store: WithingsPersistedStore) => {
     setState(storeToState(store));
@@ -64,6 +75,7 @@ export function useWithingsData() {
       try {
         const store = await syncWithingsStore();
         applyStore(store);
+        await refreshHrDiag();
         return store;
       } catch (err) {
         const cached = await loadWithingsStore();
@@ -84,7 +96,7 @@ export function useWithingsData() {
     } finally {
       syncInFlight.current = null;
     }
-  }, [applyStore]);
+  }, [applyStore, refreshHrDiag]);
 
   const refreshTodayIntraday = useCallback(async () => {
     const tokens = await loadWithingsTokens();
@@ -92,14 +104,22 @@ export function useWithingsData() {
     const accessToken = await getValidAccessToken();
     if (!accessToken) return;
     try {
-      const { heartRate: todayHr, calories: todayCal } = await fetchTodayHeartRate();
-      if (todayHr.length === 0 && todayCal.length === 0) return;
-      const store = await mergeTodayWithingsIntraday(todayHr, todayCal);
+      const todayFetch = await fetchTodayHeartRate();
+      const { heartRate: todayHr, calories: todayCal } = todayFetch;
+      if (todayHr.length === 0 && todayCal.length === 0) {
+        await refreshHrDiag();
+        return;
+      }
+      const store = await mergeTodayWithingsIntraday(todayHr, todayCal, {
+        apiStatus: todayFetch.apiStatus,
+        apiError: todayFetch.apiError,
+      });
       applyStore(store);
+      await refreshHrDiag();
     } catch {
       // Non-fatal: periodic refresh failure is silent.
     }
-  }, [applyStore]);
+  }, [applyStore, refreshHrDiag]);
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -110,19 +130,28 @@ export function useWithingsData() {
           setBodyScanLoading(false);
           setTrendLoading(false);
         }
+        await refreshHrDiag();
       } catch {
         // Non-fatal: cache read failure should not block sync.
       }
       await sync();
     };
     void bootstrap();
-  }, [applyStore, sync]);
+  }, [applyStore, refreshHrDiag, sync]);
 
   useEffect(() => {
     const id = setInterval(() => {
       void refreshTodayIntraday();
-    }, 10 * 60 * 1000);
+    }, 5 * 60 * 1000);
     return () => clearInterval(id);
+  }, [refreshTodayIntraday]);
+
+  useEffect(() => {
+    const onState = (next: AppStateStatus) => {
+      if (next === 'active') void refreshTodayIntraday();
+    };
+    const sub = AppState.addEventListener('change', onState);
+    return () => sub.remove();
   }, [refreshTodayIntraday]);
 
   return {
@@ -133,5 +162,7 @@ export function useWithingsData() {
     trendError,
     sync,
     refreshTodayIntraday,
+    hrSyncDiag,
+    hrSyncDiagLine: formatHrSyncDiagLine(hrSyncDiag),
   };
 }

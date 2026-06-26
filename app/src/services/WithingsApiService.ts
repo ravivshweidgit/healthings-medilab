@@ -869,6 +869,11 @@ export type WithingsIntradayData = {
   calories: WithingsCaloriePoint[];
 };
 
+export type WithingsIntradayTodayFetch = WithingsIntradayData & {
+  apiStatus: number | null;
+  apiError: string | null;
+};
+
 /** Default lookback for dashboard refresh (days). Reviews pass an explicit window. */
 const HEART_RATE_LOOKBACK_DAYS = 7;
 /** Parallel Withings intraday requests (one calendar day each). */
@@ -912,12 +917,22 @@ async function fetchIntradayOneDay(
   daysAgo: number,
   accessToken: string,
   userid?: string,
-): Promise<{ hr: WithingsHeartRatePoint[]; cal: WithingsCaloriePoint[] }> {
+  /** For today only: end at now so Withings returns the latest synced watch buckets. */
+  endAtNow = false,
+): Promise<{
+  hr: WithingsHeartRatePoint[];
+  cal: WithingsCaloriePoint[];
+  apiStatus: number | null;
+  apiError: string | null;
+}> {
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
   dayStart.setDate(dayStart.getDate() - daysAgo);
   const startSec = Math.floor(dayStart.getTime() / 1000);
-  const endSec = startSec + 24 * 3600 - 1;
+  const endSec =
+    endAtNow && daysAgo === 0
+      ? Math.floor(Date.now() / 1000)
+      : startSec + 24 * 3600 - 1;
 
   const form = new URLSearchParams({
     action: 'getintradayactivity',
@@ -932,6 +947,8 @@ async function fetchIntradayOneDay(
 
   const hr: WithingsHeartRatePoint[] = [];
   const cal: WithingsCaloriePoint[] = [];
+  let apiStatus: number | null = null;
+  let apiError: string | null = null;
 
   try {
     const res = await fetch(WITHINGS_MEASURE_V2_URL, {
@@ -940,12 +957,21 @@ async function fetchIntradayOneDay(
       body: form.toString(),
     });
     const json = (await res.json()) as WithingsIntradayJson;
-    if (json.status !== 0) return { hr, cal };
+    apiStatus = json.status ?? null;
+    apiError = json.error ?? null;
+    if (json.status !== 0) {
+      if (__DEV__) {
+        console.warn('[WithingsIntraday] API error', { daysAgo, status: json.status, error: json.error });
+      }
+      return { hr, cal, apiStatus, apiError };
+    }
 
     const series = json.body?.series ?? {};
     for (const [tsSec, entry] of Object.entries(series)) {
-      const tsMs = Number(tsSec) * 1000;
-      if (Number.isNaN(tsMs)) continue;
+      const raw = Number(tsSec);
+      if (!Number.isFinite(raw) || raw <= 0) continue;
+      // Withings series keys are unix seconds; guard ms keys if API ever returns them.
+      const tsMs = raw >= 1e12 ? Math.round(raw) : Math.round(raw * 1000);
       const ts = new Date(tsMs).toISOString();
 
       const bpm = entry.heart_rate;
@@ -957,11 +983,11 @@ async function fetchIntradayOneDay(
         cal.push({ timestamp: ts, kcal });
       }
     }
-  } catch {
-    // skip failed day
+  } catch (err) {
+    apiError = err instanceof Error ? err.message : 'network error';
   }
 
-  return { hr, cal };
+  return { hr, cal, apiStatus, apiError };
 }
 
 /**
@@ -1020,11 +1046,34 @@ export async function fetchHeartRateHistory(
 }
 
 /**
- * Re-fetches only today's intraday HR + calories from Withings (1 API call).
+ * Re-fetches only today's intraday HR + calories from Withings (1 API call, end = now).
  * Used for periodic background refresh without re-requesting the full history.
  */
+export async function fetchIntradayToday(): Promise<WithingsIntradayTodayFetch> {
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    const { hr, cal } = mockIntradayForDay(d.getTime());
+    return { heartRate: hr, calories: cal, apiStatus: 0, apiError: null };
+  }
+  const stored = await loadWithingsTokens();
+  const { hr, cal, apiStatus, apiError } = await fetchIntradayOneDay(
+    0,
+    accessToken,
+    stored?.userid,
+    true,
+  );
+  if (__DEV__) {
+    const latest = hr.length > 0 ? hr[hr.length - 1]!.timestamp : null;
+    console.warn('[WithingsIntraday] today', { hrPoints: hr.length, latest, apiStatus, apiError });
+  }
+  return { heartRate: hr, calories: cal, apiStatus, apiError };
+}
+
+/** @deprecated alias — use fetchIntradayToday */
 export async function fetchTodayHeartRate(): Promise<WithingsIntradayData> {
-  return fetchHeartRateHistory(1);
+  return fetchIntradayToday();
 }
 
 /** A single Withings workout session with calorie data. */

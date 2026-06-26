@@ -108,10 +108,8 @@ User math check: ~0.8 kg in 9 days ≈ **700 kcal/day** deficit (7700 kcal/kg). 
 - **Per-food omega/sat_fat storage** — still backlog (see prompt43 deferred)
 - **Protein target at kidney cap** — cap remains ceiling; Gemini may propose below cap (~115g vs 140g ceiling)
 
----
-
 ### Related
 
 - **prompt36** — original ENERGY BALANCE; timeline + caps refined in prompt44
-- **prompt42** — auto-apply guards unchanged; same `/macros` pipeline
+- **prompt42** — auto-apply guards unchanged; weigh-in activation follow-up in same spec § 2026-06-22
 - **prompt43** — mentor nutrient estimates (orthogonal)

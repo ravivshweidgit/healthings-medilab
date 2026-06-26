@@ -160,6 +160,8 @@ export const DashboardScreen = () => {
     trendLoading,
     trendError,
     sync: syncWithings,
+    refreshTodayIntraday,
+    hrSyncDiagLine,
   } = useWithingsData();
 
   const [importBusy, setImportBusy] = useState(false);
@@ -611,11 +613,11 @@ export const DashboardScreen = () => {
   const handlePullRefresh = useCallback(async () => {
     setPullRefreshing(true);
     try {
-      await Promise.all([refetch(), syncWithings(), loadTodayFood()]);
+      await Promise.all([refetch(), syncWithings(), refreshTodayIntraday(), loadTodayFood()]);
     } finally {
       setPullRefreshing(false);
     }
-  }, [refetch, syncWithings, loadTodayFood]);
+  }, [refetch, syncWithings, refreshTodayIntraday, loadTodayFood]);
 
   useEffect(() => {
     void loadTodayFood();
@@ -1054,6 +1056,12 @@ export const DashboardScreen = () => {
               ) : formatMeasuredAt(bodyScan.measuredAt) ? (
                 <Text style={styles.bodyScanMeasured}>
                   Last measurement · {formatMeasuredAt(bodyScan.measuredAt)}
+                </Text>
+              ) : null}
+
+              {hrSyncDiagLine ? (
+                <Text style={styles.hrSyncDiagText} selectable>
+                  {hrSyncDiagLine}
                 </Text>
               ) : null}
 
@@ -1592,6 +1600,13 @@ const styles = StyleSheet.create({
     color: WellnessColors.textSecondary,
     marginTop: 4,
     marginBottom: 12,
+  },
+  hrSyncDiagText: {
+    fontSize: 10,
+    lineHeight: 14,
+    color: WellnessColors.textSecondary,
+    marginTop: 2,
+    marginBottom: 10,
   },
   bodyScanRow: {
     flexDirection: 'row',

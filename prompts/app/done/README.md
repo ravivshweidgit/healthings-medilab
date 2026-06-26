@@ -35,6 +35,10 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt44** — done (2026-06-22). Macro energy timeline: `targetWeeks` in My Targets drives deficit (~700 kcal cap for ≤2 wk), trimmed 7d TDEE burn, loss direction from current weight, P→C+Fi→F fill, manual target edit. Phone-tested ~707 kcal deficit / ~1913 kcal target.
 
+**prompt45** — done (2026-06-22). Withings HR sync hardening: empty-fetch guard, today merge, foreground/5min refresh, mismatch-only dashboard diag. 2026-06-22 stall was Withings cloud stale (API = store); diag proved not an app drop bug.
+
+**prompt42 follow-up** — weigh-in macro activation (`measuredAt` dedupe, first weigh-in, unchanged log) documented in `done/prompt42.txt` § Follow-up 2026-06-22.
+
 **prompt34** — closed without ship (2026-06-17). Status row declined; chat fallback unnecessary with persistence. Manual CGM exclusions deferred inside `done/prompt34.txt`.
 
 **prompt33** — closed without ship (2026-06-17). Default 2-day full snapshot + `/N` is sufficient; rollup/cache optimization deferred inside `done/prompt33.txt`.

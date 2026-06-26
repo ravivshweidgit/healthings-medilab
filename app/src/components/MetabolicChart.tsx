@@ -20,7 +20,7 @@ import { WellnessColors } from '../theme/wellness';
 type Point = { timestamp: string; value: number };
 
 /** Upper bound on series points after downsampling (memory / path complexity). */
-const MAX_SERIES_POINTS_CAP = 700;
+const MAX_SERIES_POINTS_CAP = 1000;
 const MIN_SERIES_POINTS = 64;
 /** Default Y band (mg/dL / BPM shared scale) — expands when visible data exceeds 175 or drops below 50. */
 const DEFAULT_Y_MIN = 50;
@@ -202,7 +202,10 @@ function mergeTimeBounds(glucose: Point[], heartRate: Point[]): { tMin: number; 
 function downsample<T>(arr: T[], max: number): T[] {
   if (arr.length <= max) return arr;
   const step = Math.ceil(arr.length / max);
-  return arr.filter((_, i) => i % step === 0);
+  const out = arr.filter((_, i) => i % step === 0);
+  const last = arr[arr.length - 1];
+  if (last != null && out[out.length - 1] !== last) out.push(last);
+  return out;
 }
 
 type PixelPoint = { x: number; y: number };

@@ -1,0 +1,46 @@
+## Prompt 45 — Withings HR sync hardening + mismatch diagnostics
+
+**Status: done (2026-06-22)** — Shipped; root cause of 2026-06-22 stall was Withings cloud (API stale until phone restart). App hardening + diag still shipped.
+
+Builds on **prompt21** (Withings persistence), dashboard metabolic chart.
+
+### Problem (user-reported)
+
+- HR chart on dashboard stopped updating ~10:30 while Withings app showed data through ~15:30.
+- Needed to know whether Medilab dropped data, failed to merge, or Withings API was stale.
+
+### What shipped
+
+| Area | Change |
+|------|--------|
+| **Diagnostics** | `withingsHrSyncDiag.ts` — compare API today vs store before/after merge; infer failure layer (`api` / `merge` / `persist` / `ok`) |
+| **Dashboard** | Mismatch-only line under body scan BMR (`formatHrSyncDiagLine` returns null when `failureLayer === 'ok'`) |
+| **Empty fetch guard** | `replaceTodayIntraday` skips wipe when API returns zero HR points for today |
+| **Today merge** | `mergeHeartRateWithFreshToday` replaces today's slice when API has fresher intraday |
+| **API** | `fetchIntradayToday` with `endAtNow`; status/error on response |
+| **Refresh** | Foreground + 5 min poll in `useWithingsData`; pull-to-refresh calls `refreshTodayIntraday` |
+| **Chart** | `MetabolicChart` downsample keeps last point; cap 1000 points |
+
+### Primary files
+
+- `app/src/services/withingsHrSyncDiag.ts` (new)
+- `app/src/services/WithingsPersistenceService.ts`
+- `app/src/services/WithingsApiService.ts`
+- `app/src/hooks/useWithingsData.ts`
+- `app/src/screens/DashboardScreen.tsx`
+- `app/src/components/MetabolicChart.tsx`
+
+### Phone-tested
+
+- [x] HR resumed after Withings cloud refresh + Medilab pull (upstream stall, not app merge bug)
+- [x] Diag line hidden when API and store aligned
+- [ ] Mismatch line visible when API ≠ store (not re-tested artificially)
+
+### Deferred
+
+- [ ] Dev-only toggle to force-show HR diag line
+- [ ] Unit tests: `inferHrFailureLayer`, `mergeHeartRateWithFreshToday`
+
+### Related
+
+- **prompt42** — orthogonal (weigh-in macro activation follow-up same day)

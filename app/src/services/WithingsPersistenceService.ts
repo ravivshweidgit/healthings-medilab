@@ -3,10 +3,11 @@
  * Sync adapters fetch from the API and merge into this store; screens read from here only.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { CompositionSession, MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
+import { dayKeyStartMs, localDayKeyFromMs, type CompositionSession, type MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
 import {
   fetchBodyCompositionTrend7d,
   fetchHeartRateHistory,
+  fetchIntradayToday,
   fetchWeightMetrics,
   fetchWorkoutsHistory,
   getValidAccessToken,
@@ -16,8 +17,16 @@ import {
   type WithingsHeartRatePoint,
   type WorkoutSession,
 } from './WithingsApiService';
+import {
+  buildHrSyncDiag,
+  filterTodayHr,
+  saveWithingsHrSyncDiag,
+} from './withingsHrSyncDiag';
 
 export const WITHINGS_STORE_KEY = 'healthings:withingsStore';
+
+/** Keep this many days of intraday HR/calories in AsyncStorage (chart pan is ≤16D). */
+const MAX_INTRADAY_STORE_DAYS = 21;
 
 export type WithingsPersistedStore = {
   version: 1;
@@ -49,6 +58,65 @@ export function hasWithingsData(store: WithingsPersistedStore): boolean {
     store.calories.length > 0 ||
     store.workouts.length > 0
   );
+}
+
+function trimIntradayHistory<T extends { timestamp: string }>(points: T[]): T[] {
+  const cutoffMs = Date.now() - MAX_INTRADAY_STORE_DAYS * 24 * 60 * 60 * 1000;
+  return points.filter((p) => {
+    const ms = Date.parse(p.timestamp);
+    return !Number.isNaN(ms) && ms >= cutoffMs;
+  });
+}
+
+function localDayStartMs(): number {
+  return dayKeyStartMs(localDayKeyFromMs(Date.now()));
+}
+
+function isTodayTimestamp(timestamp: string): boolean {
+  const ms = Date.parse(timestamp);
+  return !Number.isNaN(ms) && ms >= localDayStartMs();
+}
+
+function stripToday<T extends { timestamp: string }>(points: T[]): T[] {
+  return points.filter((p) => !isTodayTimestamp(p.timestamp));
+}
+
+/** Replace today's intraday slice with a fresh API fetch (Withings is source of truth for today). */
+export function replaceTodayIntraday<T extends { timestamp: string }>(
+  prev: T[],
+  freshToday: T[],
+): T[] {
+  if (freshToday.length === 0) return prev;
+  const todayStartMs = localDayStartMs();
+  const older = prev.filter((p) => {
+    const ms = Date.parse(p.timestamp);
+    return !Number.isNaN(ms) && ms < todayStartMs;
+  });
+  const today = freshToday
+    .filter((p) => {
+      const ms = Date.parse(p.timestamp);
+      return !Number.isNaN(ms) && ms >= todayStartMs;
+    })
+    .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
+  return [...older, ...today];
+}
+
+function mergeHeartRateWithFreshToday(
+  prev: WithingsHeartRatePoint[],
+  history: WithingsHeartRatePoint[],
+  todayFresh: WithingsHeartRatePoint[],
+): WithingsHeartRatePoint[] {
+  const olderMerged = mergeByTimestamp(stripToday(prev), stripToday(history));
+  return replaceTodayIntraday(olderMerged, todayFresh);
+}
+
+function mergeCaloriesWithFreshToday(
+  prev: WithingsCaloriePoint[],
+  history: WithingsCaloriePoint[],
+  todayFresh: WithingsCaloriePoint[],
+): WithingsCaloriePoint[] {
+  const olderMerged = mergeByTimestamp(stripToday(prev), stripToday(history));
+  return replaceTodayIntraday(olderMerged, todayFresh);
 }
 
 function mergeBodyScan(
@@ -144,7 +212,12 @@ export async function loadWithingsStore(): Promise<WithingsPersistedStore> {
 }
 
 export async function saveWithingsStore(store: WithingsPersistedStore): Promise<void> {
-  await AsyncStorage.setItem(WITHINGS_STORE_KEY, JSON.stringify(store));
+  const trimmed: WithingsPersistedStore = {
+    ...store,
+    heartRate: trimIntradayHistory(store.heartRate),
+    calories: trimIntradayHistory(store.calories),
+  };
+  await AsyncStorage.setItem(WITHINGS_STORE_KEY, JSON.stringify(trimmed));
 }
 
 /**
@@ -164,25 +237,69 @@ export async function syncWithingsStore(): Promise<WithingsPersistedStore> {
   }
 
   try {
-    const [bodyScan, trend, intraday, workouts] = await Promise.all([
+    const [bodyScan, trend, intraday, todayIntraday, workouts] = await Promise.all([
       fetchWeightMetrics(),
       fetchBodyCompositionTrend7d(),
       fetchHeartRateHistory(),
+      fetchIntradayToday(),
       fetchWorkoutsHistory(),
     ]);
 
-    const merged = mergeIntoWithingsStore(prev, {
-      lastSyncedAt: new Date().toISOString(),
-      bodyScan,
-      bodyTrendDays: trend.days,
-      bodyTrendSessions: trend.debug.sessions,
-      heartRate: intraday.heartRate,
-      calories: intraday.calories,
-      workouts,
+    const heartRate = mergeHeartRateWithFreshToday(
+      prev.heartRate,
+      intraday.heartRate,
+      todayIntraday.heartRate,
+    );
+    const calories = mergeCaloriesWithFreshToday(
+      prev.calories,
+      intraday.calories,
+      todayIntraday.calories,
+    );
+
+    const merged: WithingsPersistedStore = {
+      ...mergeIntoWithingsStore(prev, {
+        lastSyncedAt: new Date().toISOString(),
+        bodyScan,
+        bodyTrendDays: trend.days,
+        bodyTrendSessions: trend.debug.sessions,
+        workouts,
+      }),
+      heartRate,
+      calories,
+    };
+
+    let saveError: string | null = null;
+    try {
+      await saveWithingsStore(merged);
+    } catch (err) {
+      saveError = err instanceof Error ? err.message : String(err);
+    }
+
+    const diag = buildHrSyncDiag({
+      apiToday: todayIntraday.heartRate,
+      api7dToday: filterTodayHr(intraday.heartRate),
+      storeBefore: prev.heartRate,
+      storeAfter: merged.heartRate,
+      apiStatus: todayIntraday.apiStatus,
+      apiError: todayIntraday.apiError,
+      saveError,
+      tokenScope: tokens.scope ?? null,
     });
-    await saveWithingsStore(merged);
+    await saveWithingsHrSyncDiag(diag);
+
     return merged;
-  } catch {
+  } catch (err) {
+    const diag = buildHrSyncDiag({
+      apiToday: [],
+      api7dToday: [],
+      storeBefore: prev.heartRate,
+      storeAfter: prev.heartRate,
+      apiStatus: null,
+      apiError: err instanceof Error ? err.message : 'sync failed',
+      saveError: null,
+      tokenScope: tokens.scope ?? null,
+    });
+    await saveWithingsHrSyncDiag(diag);
     return prev;
   }
 }
@@ -191,20 +308,32 @@ export async function syncWithingsStore(): Promise<WithingsPersistedStore> {
 export async function mergeTodayWithingsIntraday(
   todayHr: WithingsHeartRatePoint[],
   todayCal: WithingsCaloriePoint[],
+  meta?: { apiStatus: number | null; apiError: string | null },
 ): Promise<WithingsPersistedStore> {
   const prev = await loadWithingsStore();
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayStartMs = todayStart.getTime();
-
-  const olderHr = prev.heartRate.filter((p) => Date.parse(p.timestamp) < todayStartMs);
-  const olderCal = prev.calories.filter((p) => Date.parse(p.timestamp) < todayStartMs);
-
-  const merged = mergeIntoWithingsStore(prev, {
-    heartRate: [...olderHr, ...todayHr],
-    calories: [...olderCal, ...todayCal],
+  const tokens = await loadWithingsTokens();
+  const merged: WithingsPersistedStore = {
+    ...prev,
     lastSyncedAt: new Date().toISOString(),
+    heartRate: replaceTodayIntraday(prev.heartRate, todayHr),
+    calories: replaceTodayIntraday(prev.calories, todayCal),
+  };
+  let saveError: string | null = null;
+  try {
+    await saveWithingsStore(merged);
+  } catch (err) {
+    saveError = err instanceof Error ? err.message : String(err);
+  }
+  const diag = buildHrSyncDiag({
+    apiToday: todayHr,
+    api7dToday: [],
+    storeBefore: prev.heartRate,
+    storeAfter: merged.heartRate,
+    apiStatus: meta?.apiStatus ?? null,
+    apiError: meta?.apiError ?? null,
+    saveError,
+    tokenScope: tokens?.scope ?? null,
   });
-  await saveWithingsStore(merged);
+  await saveWithingsHrSyncDiag(diag);
   return merged;
 }
