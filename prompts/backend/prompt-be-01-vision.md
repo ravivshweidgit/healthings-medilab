@@ -242,12 +242,14 @@ Prefer **store-and-forward, end-to-end encrypted** over live P2P/WebRTC:
 
 ---
 
-## 8. Open decisions (blocking Phase 1)
-- **Stack**: self-hosted Node behind `api.healthings.ai` (max control, best fit for
-  zero-knowledge) **vs** Supabase behind the domain (fastest: Auth + Postgres + Storage +
-  Realtime out of the box; can still do client-side E2E so it stays zero-knowledge).
-- **Repo layout**: backend in this monorepo (e.g. `/server`) vs a separate repo.
-- **Auth method**: email+password, OTP/passwordless, or social — for both user types.
+## 8. Open decisions — **resolved (2026-06-22)**
 
-> Status: vision agreed. Next action = resolve the three open decisions, then write
-> `prompt-be-02-accounts-auth.md`.
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| **Stack** | **Node.js (Fastify) + PostgreSQL** on Hostinger VPS | Max control; fits zero-knowledge relay later; no vendor lock-in |
+| **Repo layout** | **Monorepo `/server`** alongside `/app` | One clone, shared prompts, deploy server independently |
+| **Auth (MVP)** | **Email OTP** (passwordless) | Low friction for clinic alpha; no password reset flow |
+
+Domains unchanged: `api.healthings.ai` (REST) · `rt.healthings.ai` (later).
+
+> **Next:** `prompt-be-02-accounts-auth.md` — Phase 1 ship spec (signup/login only).
