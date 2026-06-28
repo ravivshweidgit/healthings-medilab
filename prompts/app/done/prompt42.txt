@@ -105,6 +105,8 @@ Phone-tested: [x]
 
 ### Follow-up (2026-06-28) — weigh-in actionable review (not dead-end alert)
 
+Commit: `ac69355` — *Fix weigh-in macro review with actionable Accept UI and Gemini retry.*
+
 **Problem:** After scale sync, user got Hebrew alert *“נדרש עדכון מאקרו ידני”* with fallback numbers and *“send /macros”* — **no targets saved**, no Accept button. Manual lock blocked all weigh-in auto-apply even when Gemini succeeded.
 
 **What shipped:**
