@@ -82,13 +82,9 @@ export function assessAutoApplyBlock(opts: {
   avgEatenCarb7d: number | null;
   userRules: UserRules | null;
   recentLog: MacroRevisionLogEntry[];
-  manualLock: boolean;
 }): AutoApplyBlockAssessment {
   const reasons: string[] = [];
 
-  if (opts.manualLock) {
-    reasons.push('manual lock (confirmed targets)');
-  }
   if (opts.source === 'fallback') {
     reasons.push('AI fallback (not Gemini)');
   }

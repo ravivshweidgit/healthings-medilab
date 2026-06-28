@@ -22,6 +22,7 @@ Prompt35 delivered one source of truth for macro targets across dashboard, chat,
   - new weight,
   - new lab import.
   - **Refined in prompt42** — guarded auto-apply, manual lock, outlier blocking.
+  - **Weigh-in apply UX refined in prompt42 § 2026-06-28** — actionable My Macros proposal; manual lock no longer blocks auto-apply.
 - Revision context includes:
   - 7-day period review,
   - trend context,

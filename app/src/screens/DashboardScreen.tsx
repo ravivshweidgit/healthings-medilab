@@ -32,7 +32,7 @@ import { MentorStrip } from '../components/MentorStrip';
 import { RulesStrip } from '../components/RulesStrip';
 import { LabResultsStrip } from '../components/LabResultsStrip';
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
-import { applyAutoMacroRevision } from '../logic/macroAutoAdjust';
+import { applyAutoMacroRevision, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
 import { ChatScreen } from './ChatScreen';
 import { CONFIG } from '../config/env';
 import { useHealthData } from '../hooks/useHealthData';
@@ -207,6 +207,9 @@ export const DashboardScreen = () => {
   const [mentorExpanded, setMentorExpanded] = useState(false);
   const [rulesExpanded, setRulesExpanded] = useState(false);
   const [macroExpanded, setMacroExpanded] = useState(false);
+  const [macroWeighInSuggestion, setMacroWeighInSuggestion] = useState<DailyMacroTarget | null>(null);
+  const [macroWeighInHint, setMacroWeighInHint] = useState<string | null>(null);
+  const [macroAnalyzeRequestId, setMacroAnalyzeRequestId] = useState(0);
   const [birthdatePicker, setBirthdatePicker] = useState<Date>(new Date(1980, 0, 1));
   const [genderPicker, setGenderPicker] = useState<Gender>('male');
   const [mentorGenderPicker, setMentorGenderPicker] = useState<Gender>('female');
@@ -668,8 +671,32 @@ export const DashboardScreen = () => {
       weightKg: w,
       measuredAt,
       onSaved: (t) => setMacroTarget(t),
+      onNeedsReview: async ({ proposal, source, triggerDetail }) => {
+        setMacroExpanded(true);
+        const he = userLanguage?.code === 'he';
+        if (source === 'gemini') {
+          const [rules, mentorList] = await Promise.all([getUserRules(), getMentors()]);
+          setMacroWeighInHint(
+            triggerDetail
+              ? he
+                ? `אחרי שקילה ${triggerDetail} — אשר/י את היעדים המוצעים`
+                : `After weigh-in ${triggerDetail} — confirm proposed targets`
+              : he
+                ? 'אשר/י את היעדים המוצעים אחרי השקילה'
+                : 'Confirm proposed targets after weigh-in',
+          );
+          setMacroWeighInSuggestion(macroSuggestionToDailyTarget(proposal, rules, mentorList));
+        } else {
+          setMacroWeighInHint(
+            he
+              ? 'לא הצלחנו לעדכן אוטומטית — מחשבים מחדש…'
+              : 'Could not auto-update — recalculating…',
+          );
+          setMacroAnalyzeRequestId((n) => n + 1);
+        }
+      },
     });
-  }, [bodyScan?.measuredAt, bodyScan?.weightKg]);
+  }, [bodyScan?.measuredAt, bodyScan?.weightKg, userLanguage?.code]);
 
   /** Coach workout trigger when today's workout list grows. */
   useEffect(() => {
@@ -1366,6 +1393,13 @@ export const DashboardScreen = () => {
             mentors={mentors}
             savedTarget={macroTarget}
             onSaved={(t) => setMacroTarget(t ?? null)}
+            weighInSuggestion={macroWeighInSuggestion}
+            weighInSuggestionHint={macroWeighInHint}
+            onWeighInSuggestionConsumed={() => {
+              setMacroWeighInSuggestion(null);
+              setMacroWeighInHint(null);
+            }}
+            analyzeRequestId={macroAnalyzeRequestId}
             expanded={macroExpanded}
             onToggleExpand={() => setMacroExpanded((e) => !e)}
             lang={userLanguage}

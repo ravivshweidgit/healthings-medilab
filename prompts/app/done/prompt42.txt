@@ -38,7 +38,7 @@ Block weigh-in / lab-import **auto-save** when any of:
 
 | Guard | Rule |
 |-------|------|
-| Manual lock | User confirmed targets in chat or dashboard |
+| ~~Manual lock~~ | ~~User confirmed targets in chat or dashboard~~ — **removed from block 2026-06-28**; lock still set on confirm |
 | API fallback | `deterministicMacroFallback` (default C=30) |
 | Carb delta | \|ΔC\| ≥ **15g** or ≥ **25%** vs saved |
 | CARB GUIDANCE band | Proposed C outside computed band (habit / cholesterol / rules cap) |
@@ -54,8 +54,8 @@ Constants: `CARB_AUTO_APPLY_ABS_DELTA_G = 15`, `CARB_AUTO_APPLY_PCT_DELTA = 0.25
 
 - `confirmMacroTargetFromProposal()` — chat **MacroProposalCard**
 - `confirmSavedMacroTarget()` — dashboard strip accept
-- Sets `manualLock: true` in `MacroAutoAdjustState`
-- Weigh-in with manual lock: still runs Gemini revision; auto-save blocked with alert (*Macro review needed — send /macros*)
+- Sets `manualLock: true` in `MacroAutoAdjustState` (audit / future use; **no longer blocks weigh-in auto-apply** as of 2026-06-28)
+- ~~Weigh-in with manual lock: still runs Gemini revision; auto-save blocked with alert~~ → **2026-06-28:** actionable My Macros proposal or safe auto-apply
 
 #### 4) `suggestMacroTargets` return type
 
@@ -101,7 +101,26 @@ Chat/dashboard unchanged UX — user always confirms proposal card.
 - First weigh-in runs macro revision when no saved targets yet
 - Log entry when proposal unchanged (prevents re-run every app open)
 
-Phone-tested: [ ]
+Phone-tested: [x]
+
+### Follow-up (2026-06-28) — weigh-in actionable review (not dead-end alert)
+
+**Problem:** After scale sync, user got Hebrew alert *“נדרש עדכון מאקרו ידני”* with fallback numbers and *“send /macros”* — **no targets saved**, no Accept button. Manual lock blocked all weigh-in auto-apply even when Gemini succeeded.
+
+**What shipped:**
+
+| Change | Detail |
+|--------|--------|
+| Manual lock | Still set on confirm (`manualLock: true`) — **removed from `assessAutoApplyBlock`**; carb/outlier/fallback guards unchanged |
+| Dead-end alert | Dashboard weigh-in uses `onNeedsReview` → **My Macros** expands with proposal + **Accept**, or auto-**Analyze** when Gemini failed |
+| Gemini retry | 1 retry (1.2s delay) on `weigh-in` / `lab-import` before `deterministicMacroFallback` |
+| Lab import | Still uses legacy alert when `onNeedsReview` not wired (`LabReportModal`) |
+
+**Auto-apply still blocked when:** API fallback, \|ΔC\| ≥ 15g or ≥ 25%, CARB GUIDANCE band miss, recent Gemini median outlier.
+
+**Primary files:** `macroRevisionGuard.ts`, `macroAutoAdjust.ts`, `MacroTargetStrip.tsx`, `DashboardScreen.tsx`
+
+Phone-tested: [ ] — APK installed 2026-06-28; scale test deferred.
 
 ### Deferred
 

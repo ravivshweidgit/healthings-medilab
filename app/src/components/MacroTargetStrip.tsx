@@ -2,7 +2,7 @@
  * My Macros — AI-suggested daily macro targets with progress bars.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -54,6 +54,12 @@ export type MacroTargetProps = {
   /** Parent-held target — refreshes strip after weigh-in/lab auto-revision. */
   savedTarget?: DailyMacroTarget | null;
   onSaved?: (t: DailyMacroTarget) => void;
+  /** Weigh-in blocked auto-save — parent injects Gemini proposal for one-tap Accept. */
+  weighInSuggestion?: DailyMacroTarget | null;
+  weighInSuggestionHint?: string | null;
+  onWeighInSuggestionConsumed?: () => void;
+  /** Increment to auto-run Analyze (e.g. when weigh-in Gemini failed). */
+  analyzeRequestId?: number;
   expanded: boolean;
   onToggleExpand: () => void;
   lang?: UserLanguage | null;
@@ -160,11 +166,13 @@ export function MacroTargetStrip({
   actualProtein_g, actualFat_g, actualCarb_g, actualFiber_g, actualKcal,
   weightKg, fatMassKg, muscleMass_kg, bmr_kcal, estimatedBurn_kcal,
   heightCm, age, gender, bodyTarget, userRules, mentors, savedTarget,
-  onSaved, expanded, onToggleExpand, lang,
+  onSaved, weighInSuggestion, weighInSuggestionHint, onWeighInSuggestionConsumed,
+  analyzeRequestId, expanded, onToggleExpand, lang,
 }: MacroTargetProps) {
   const [screen, setScreen] = useState<Screen>('idle');
   const [target, setTarget] = useState<DailyMacroTarget | null>(null);
   const [suggestion, setSuggestion] = useState<DailyMacroTarget | null>(null);
+  const [suggestionHint, setSuggestionHint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editP, setEditP] = useState('');
   const [editF, setEditF] = useState('');
@@ -173,6 +181,15 @@ export function MacroTargetStrip({
   const [editK, setEditK] = useState('');
   const [exportBusy, setExportBusy] = useState(false);
   const [rulesAdvice, setRulesAdvice] = useState<string | null>(null);
+  const lastAnalyzeRequestId = useRef(0);
+
+  useEffect(() => {
+    if (!weighInSuggestion) return;
+    setSuggestion(withFiberTarget(weighInSuggestion));
+    setSuggestionHint(weighInSuggestionHint ?? null);
+    setScreen('suggestion');
+    onWeighInSuggestionConsumed?.();
+  }, [weighInSuggestion, weighInSuggestionHint, onWeighInSuggestionConsumed]);
 
   useEffect(() => {
     getMacroTarget().then((t) => { if (t) { setTarget(withFiberTarget(t)); setScreen('active'); } });
@@ -197,6 +214,7 @@ export function MacroTargetStrip({
     if (!canAnalyze) { setError('Need body scan data and profile to analyse.'); return; }
     setError(null);
     setRulesAdvice(null);
+    setSuggestionHint(null);
     setScreen('loading');
     try {
       const [{ suggestion: result }, rules, mentorList] = await Promise.all([
@@ -213,6 +231,13 @@ export function MacroTargetStrip({
       setScreen('idle');
     }
   }, [canAnalyze, lang]);
+
+  useEffect(() => {
+    if (analyzeRequestId == null || analyzeRequestId <= 0) return;
+    if (analyzeRequestId === lastAnalyzeRequestId.current) return;
+    lastAnalyzeRequestId.current = analyzeRequestId;
+    void handleAsk();
+  }, [analyzeRequestId, handleAsk]);
 
   const handleExportPrompt = useCallback(async () => {
     setExportBusy(true);
@@ -258,6 +283,7 @@ export function MacroTargetStrip({
     await confirmSavedMacroTarget(suggestion);
     setTarget(suggestion);
     onSaved?.(suggestion);
+    setSuggestionHint(null);
     setScreen('active');
   }, [suggestion, onSaved]);
 
@@ -355,6 +381,11 @@ export function MacroTargetStrip({
           {/* suggestion */}
           {screen === 'suggestion' && suggestion && (
             <View>
+              {suggestionHint ? (
+                <Text style={[styles.weighInHint, lang?.code === 'he' && styles.rtl]}>
+                  {suggestionHint}
+                </Text>
+              ) : null}
               {rulesAdvice ? (
                 <RulesAdviceBanner
                   advice={rulesAdvice}
@@ -477,6 +508,16 @@ const styles = StyleSheet.create({
   loadingText: { fontSize: 13, color: WellnessColors.textSecondary },
 
   reasoningBox: { backgroundColor: '#FFF8E1', borderRadius: 10, padding: 10, marginBottom: 12 },
+  weighInHint: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2E7D32',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+  },
+  rtl: { textAlign: 'right', writingDirection: 'rtl' },
   dietBadge: { fontSize: 12, fontWeight: '700', color: '#F57F17', marginBottom: 4 },
   reasoningText: { fontSize: 13, color: '#5D4037', lineHeight: 18 },
 

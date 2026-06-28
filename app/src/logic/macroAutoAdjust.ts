@@ -73,6 +73,34 @@ import {
 } from './macroRevisionLog';
 import { assessAutoApplyBlock } from './macroRevisionGuard';
 
+export type MacroNeedsReviewPayload = {
+  proposal: MacroSuggestion;
+  source: MacroRevisionSource;
+  blockReasons: string[];
+  triggerDetail?: string;
+};
+
+const GEMINI_AUTO_RETRY_DELAY_MS = 1200;
+
+async function reviseMacroWithGeminiRetry(
+  contextText: string,
+  lang: UserLanguage | null | undefined,
+  retries: number,
+): Promise<MacroSuggestion> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await reviseMacroTargetsWithGemini(contextText, lang);
+    } catch (e) {
+      lastErr = e;
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, GEMINI_AUTO_RETRY_DELAY_MS));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 export type { MacroRevisionTrigger, MacroRevisionSource };
 export { getMacroRevisionLog } from './macroRevisionLog';
 
@@ -903,12 +931,15 @@ export async function suggestMacroTargets(opts: {
     contextText: bundle.contextText,
   });
   const langCode = lang?.code ?? 'en';
+  const geminiRetries =
+    opts.trigger === 'weigh-in' || opts.trigger === 'lab-import' ? 1 : 0;
   let source: MacroRevisionSource = 'gemini';
   let suggestion: MacroSuggestion;
   try {
-    const raw = await reviseMacroTargetsWithGemini(bundle.contextText, lang);
+    const raw = await reviseMacroWithGeminiRetry(bundle.contextText, lang, geminiRetries);
     suggestion = finalizeMacroSuggestion(raw, bundle, langCode);
-  } catch {
+  } catch (e) {
+    console.warn('[macroAutoAdjust] Gemini revision failed, using fallback', e);
     source = 'fallback';
     suggestion = deterministicMacroFallback(bundle, langCode);
   }
@@ -1041,6 +1072,8 @@ export async function applyAutoMacroRevision(opts: {
   measuredAt?: string | null;
   labReportId?: string | null;
   onSaved?: (t: DailyMacroTarget) => void;
+  /** When auto-save is blocked — show proposal UI instead of a dead-end alert. */
+  onNeedsReview?: (payload: MacroNeedsReviewPayload) => void;
 }): Promise<DailyMacroTarget | null> {
   const state = await getMacroAutoAdjustState();
   const lang = await getLanguage();
@@ -1094,7 +1127,6 @@ export async function applyAutoMacroRevision(opts: {
     avgEatenCarb7d,
     userRules,
     recentLog,
-    manualLock: state.manualLock,
   });
 
   const bumpState = async () => {
@@ -1125,7 +1157,16 @@ export async function applyAutoMacroRevision(opts: {
       blockReason: block.reasons.join('; '),
     });
     await bumpState();
-    notifyMacroReviewNeeded(opts.trigger, opts.triggerDetail, proposed, block.reasons, lang.code);
+    if (opts.onNeedsReview) {
+      opts.onNeedsReview({
+        proposal: proposed,
+        source,
+        blockReasons: block.reasons,
+        triggerDetail: opts.triggerDetail,
+      });
+    } else {
+      notifyMacroReviewNeeded(opts.trigger, opts.triggerDetail, proposed, block.reasons, lang.code);
+    }
     return null;
   }
 
