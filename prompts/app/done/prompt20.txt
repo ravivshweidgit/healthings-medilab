@@ -225,3 +225,26 @@ type MealIssue = {
 - [x] After fixing offending items, red markers disappear and save is silent.
 - [x] Photo/text analyze flags `rule_conflict` items in JSON; red markers before save.
 - [x] Gemini save check uses same My Rules as mentor (not local keywords).
+
+### Follow-up (2026-06-29) — Gemini per-item fat rules (no local keyword matcher)
+
+Commit: `c3ef5d7` — *Refine meal save alerts to Gemini per-item fat rule checks.*
+
+**Problem:** Nutritionist alert on save gave false positives — e.g. “lacks fish/nuts/olive oil” on whey; plant protein (אבקת חלבון מהצומח) flagged as dairy. Brief local-regex experiment reverted.
+
+**Principle:** My Rules violations = **Gemini only** (`analyzeFood` `rule_conflict` + `checkMealAgainstUserRules` on save). Code does macro math (carb/kcal/protein pace) + merge only.
+
+**What shipped:**
+
+| Change | Detail |
+|--------|--------|
+| Per-item | Evaluate **each meal line** — flag only **violations**, never “missing” preferred foods |
+| Fat logic | Plant protein (מהצומח) / plant fats pass; whey/dairy animal fat flagged when rules restrict |
+| Guidance | `MEAL_FAT_RULE_FLAGGING_GUIDANCE` in `userRulesContext.ts` → `buildFoodSystemPrompt` + save check |
+| Merge | `mergeMealRuleIssues` — combine analyzeFood markers + save-time Gemini issues |
+
+**Files:** `userRulesContext.ts`, `GeminiService.ts`, `FoodLogModal.tsx`, `mealIssueAnalysis.ts`
+
+Phone-tested: [x] — 2026-06-29; user confirmed whey vs plant protein alerts OK.
+
+---

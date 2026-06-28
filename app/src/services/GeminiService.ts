@@ -23,7 +23,7 @@ import {
 } from './ReviewService';
 import { detectChatIntent, isGlucoseDeepDiveQuery, isGlucoseQuery, type ChatIntent } from '../logic/chatIntent';
 import { resolveMentorGender } from '../logic/mentorLabels';
-import { formatUserRulesLines, formatUserRulesBlock } from '../logic/userRulesContext';
+import { formatUserRulesLines, formatUserRulesBlock, MEAL_FAT_RULE_FLAGGING_GUIDANCE } from '../logic/userRulesContext';
 
 /** Returns a language instruction line to append to any AI prompt. */
 function langInstruction(lang?: UserLanguage | null): string {
@@ -86,6 +86,7 @@ export function buildFoodSystemPrompt(
   let prompt = langNote ? `${SYSTEM_PROMPT}${langNote}` : SYSTEM_PROMPT;
   if (userRules) {
     prompt += `\n\nUSER DIETARY RULES (same as Nutritionist mentor — apply on every analysis):\n${formatUserRulesBlock(userRules)}`;
+    prompt += `\n\n${MEAL_FAT_RULE_FLAGGING_GUIDANCE}`;
   }
   if (foodLogHistory?.trim()) {
     prompt += `\n\n${foodLogHistory.trim()}`;
@@ -609,7 +610,7 @@ RULES:
 - "fiber_g" = dietary fiber only (not total carbs); estimate per ingredient.
 - For corrections: return full updated JSON, keep all items; keep both name fields in the correct languages.
 - If unsure: best guess with confidence "low".
-- When USER DIETARY RULES are provided: set rule_conflict true only for items that clearly violate those rules (explicit or clearly implied). Set rule_message to one short sentence why. Otherwise rule_conflict false and rule_message "".`;
+- When USER DIETARY RULES are provided: evaluate EACH item line — set rule_conflict true only if THAT item violates rules (not because the meal lacks something). Read name_local carefully (e.g. plant protein מהצומח vs whey מי גבינה). rule_message = one short sentence why. Otherwise rule_conflict false and rule_message "".`;
 
 /** History seed when editing a saved meal — includes language-aware system prompt. */
 export function seedMealEditHistory(entry: { items: FoodItem[] }, lang?: UserLanguage | null): GeminiTurn[] {
@@ -1208,21 +1209,24 @@ export async function checkMealAgainstUserRules(
     .join('\n');
 
   const prompt = `You are the Nutritionist mentor. The user is about to SAVE this meal to their food log.
-Apply MY RULES exactly as you would in chat — including implied goals (e.g. lower cholesterol, heart-healthy fats only).
+Check EVERY item line independently against MY RULES. Flag only lines that VIOLATE — never flag because something is missing from the meal.
 
 ${formatUserRulesBlock(userRules)}
 
-MEAL TO SAVE:
+${MEAL_FAT_RULE_FLAGGING_GUIDANCE}
+
+MEAL TO SAVE (check each line):
 ${itemLines}
 
 Return JSON ONLY (no markdown):
-{"issues":[{"itemName":"<display name from meal list>","severity":"critical"|"warning","message":"<one short sentence why it violates rules>"}]}
+{"issues":[{"itemName":"<display name from meal list>","severity":"critical"|"warning","message":"<one short sentence why THIS item violates rules>"}]}
 
 Rules for your response:
-- Flag ONLY clear violations of the user's rules (explicit or clearly implied from their text).
-- Do NOT flag foods the user prefers or that fit the rules.
-- itemName must match the meal label (before the English name in parentheses).
-- If no violations, return {"issues":[]}
+- Loop each item: plant-fat items pass; animal/dairy fat items fail when rules favor plant fats.
+- Whey protein: warning — dairy/animal fat on that line. Almonds/olive oil: no issue.
+- Do NOT flag "missing" preferred foods. Do NOT flag psyllium/fiber for fat.
+- itemName must match the violating line's label (before the English name in parentheses).
+- If no line violates, return {"issues":[]}
 - Max 5 issues.${langInstruction(lang)}`;
 
   const body = {

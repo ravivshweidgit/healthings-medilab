@@ -11,7 +11,7 @@ Active / backlog specs stay in `prompts/app/`:
 | prompt38.txt | Planned — secondary lab findings (liver, iron, uric acid) |
 | prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
 
-**prompt20** — done (Phase 1 + 3 + rules/fiber). Phase 2 photo polish deferred inside `done/prompt20.txt`.
+**prompt20** — done (Phase 1 + 3 + rules/fiber). Phase 2 photo polish deferred inside `done/prompt20.txt`. **Follow-up 2026-06-29** — Gemini per-item fat rules (plant vs whey); phone-tested. See `done/prompt20.txt` § Follow-up 2026-06-29.
 
 **prompt21** — done (CGM persistence + merge + mentors).
 

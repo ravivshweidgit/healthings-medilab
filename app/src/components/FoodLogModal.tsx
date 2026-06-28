@@ -38,6 +38,7 @@ import {
   issueModalBody,
   mealIssuesFromFoodItems,
   mealIssuesFromGeminiRules,
+  mergeMealRuleIssues,
   mealItemsSnapshotKey,
   type MealIssue,
 } from '../logic/mealIssueAnalysis';
@@ -374,9 +375,10 @@ export function FoodLogModal({
     if (useGeminiRules && userRules) {
       try {
         const geminiIssues = await checkMealAgainstUserRules(mealItems, userRules, lang);
-        if (geminiIssues.length > 0) {
-          ruleIssues = mealIssuesFromGeminiRules(geminiIssues);
-        }
+        ruleIssues = mergeMealRuleIssues(
+          ruleIssues,
+          mealIssuesFromGeminiRules(geminiIssues),
+        );
       } catch {
         // Offline — rely on rule_conflict markers from the last analyzeFood response.
       }

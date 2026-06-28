@@ -1,6 +1,6 @@
 /**
- * Meal-issue helpers — local macro checks + Gemini rule markers on FoodItem.
- * Rules are NOT matched locally; use analyzeFood rule_conflict or checkMealAgainstUserRules.
+ * Meal-issue helpers — local macro math + Gemini rule markers on FoodItem.
+ * My Rules violations come from Gemini (analyzeFood rule_conflict + save-time check).
  */
 
 import type { FoodItem } from '../services/GeminiService';
@@ -63,6 +63,20 @@ function kcalContributors(items: FoodItem[]): string[] {
   const sorted = [...items].sort((a, b) => b.kcal - a.kcal);
   const top = sorted.filter((i) => i.kcal >= 80);
   return (top.length > 0 ? top : sorted.slice(0, 2)).map(itemDisplayName);
+}
+
+export function mergeMealRuleIssues(...groups: MealIssue[][]): MealIssue[] {
+  const seen = new Set<string>();
+  const out: MealIssue[] = [];
+  for (const group of groups) {
+    for (const issue of group) {
+      const key = `${issue.code}::${(issue.itemNames ?? []).join('|').toLowerCase()}::${issue.message}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(issue);
+    }
+  }
+  return out;
 }
 
 export function mealIssuesFromFoodItems(items: FoodItem[]): MealIssue[] {

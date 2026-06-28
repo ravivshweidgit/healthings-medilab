@@ -49,13 +49,21 @@ Build APK  →  git commit  (skips phone test)
 ```
 
 ## Build command (PowerShell — no && separator)
+
+**Show live progress** when the user is waiting (build / install). Do **not** pipe to
+`Select-Object -Last N` — that hides output until the end and looks frozen.
+
 ```powershell
+$env:GRADLE_USER_HOME = "C:\gradle-hm"   # short path — avoids Windows 260-char CMake failures
 Set-Location "c:\projects\healthings-medilab\app\android"
-.\gradlew.bat assembleRelease --no-build-cache 2>&1 | Select-Object -Last 12
+.\gradlew.bat assembleRelease --no-build-cache --console=plain
 ```
+
+Agent-only quick tail (user not watching): last 12 lines is OK.
 
 ## Clean build (only when native modules / codegen errors)
 ```powershell
-# clean fails if codegen dirs missing — use assembleRelease --no-build-cache instead
-.\gradlew.bat assembleRelease --no-build-cache
+$env:GRADLE_USER_HOME = "C:\gradle-hm"
+Set-Location "c:\projects\healthings-medilab\app\android"
+.\gradlew.bat assembleRelease --no-build-cache --console=plain
 ```
