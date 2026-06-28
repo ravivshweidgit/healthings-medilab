@@ -122,7 +122,7 @@ Commit: `ac69355` — *Fix weigh-in macro review with actionable Accept UI and G
 
 **Primary files:** `macroRevisionGuard.ts`, `macroAutoAdjust.ts`, `MacroTargetStrip.tsx`, `DashboardScreen.tsx`
 
-Phone-tested: [ ] — APK installed 2026-06-28; scale test deferred.
+Phone-tested: [x] — 2026-06-28; user confirmed phone matches code/spec (`ac69355`).
 
 ### Deferred
 
