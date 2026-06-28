@@ -228,7 +228,7 @@ type MealIssue = {
 
 ### Follow-up (2026-06-29) — Gemini per-item fat rules (no local keyword matcher)
 
-Commit: `c3ef5d7` — *Refine meal save alerts to Gemini per-item fat rule checks.*
+Commit: `06141e4` — *Refine meal save alerts to Gemini per-item fat rule checks.*
 
 **Problem:** Nutritionist alert on save gave false positives — e.g. “lacks fish/nuts/olive oil” on whey; plant protein (אבקת חלבון מהצומח) flagged as dairy. Brief local-regex experiment reverted.
 
