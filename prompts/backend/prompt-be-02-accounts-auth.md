@@ -5,7 +5,7 @@ Builds on **prompt-be-01-vision.md** §7 phase 1.
 
 ### Decisions (locked)
 
-- Monorepo `server/` · Fastify + PostgreSQL · Hostinger VPS
+- Monorepo `server/` · Fastify + PostgreSQL · Hetzner VPS
 - Email OTP only (no password) · JWT access + refresh
 - Roles: `patient` | `mentor` (set at first signup; immutable in MVP)
 
@@ -61,18 +61,17 @@ refresh_tokens (id uuid PK, user_id FK, token_hash text, expires_at, revoked_at,
 | `server/src/db/schema.sql` | migrations |
 | `server/src/routes/auth.ts` | OTP + JWT routes |
 | `server/src/services/email.ts` | SMTP / console |
-| `server/.env.example` | local + Hostinger template |
-| `server/DEPLOY-HOSTINGER.md` | VPS setup |
+| `server/.env.example` | local + production template |
+| `server/DEPLOY-HETZNER.md` | Hetzner VPS setup |
 
 ---
 
-## Deploy (Hostinger VPS)
+## Deploy (Hetzner VPS)
 
-1. Ubuntu 22.04+ VPS · install Node 20, PostgreSQL 15, nginx
-2. Create DB + user · run `npm run migrate`
-3. systemd unit for `node dist/index.js` · nginx → `127.0.0.1:3000`
-4. TLS via Certbot · DNS `api.healthings.ai` → VPS IP
-5. SMTP: Hostinger mailbox or Resend for OTP mail
+1. Ubuntu 22.04+ VPS · DNS `api.healthings.ai` → server IP
+2. Run `server/scripts/hetzner-bootstrap.sh` · TLS via Certbot (see `DEPLOY-HETZNER.md`)
+3. Smoke test: `server/scripts/smoke-test.sh`
+4. SMTP: `console` for alpha · Resend or any SMTP for production OTP mail
 
 ---
 

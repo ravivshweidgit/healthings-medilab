@@ -1,6 +1,5 @@
 #!/bin/bash
-# Full OTP auth smoke test — run on VPS or locally against BASE_URL.
-# With SMTP_MODE=console, read OTP from: journalctl -u healthings-api -n 30 --no-pager
+# Healthings API — OTP auth smoke test. See ../DEPLOY-HETZNER.md §2
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-https://api.healthings.ai}"

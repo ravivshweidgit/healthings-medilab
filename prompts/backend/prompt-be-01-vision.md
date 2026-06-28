@@ -246,10 +246,10 @@ Prefer **store-and-forward, end-to-end encrypted** over live P2P/WebRTC:
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| **Stack** | **Node.js (Fastify) + PostgreSQL** on Hostinger VPS | Max control; fits zero-knowledge relay later; no vendor lock-in |
+| **Stack** | **Node.js (Fastify) + PostgreSQL** on Hetzner VPS | Max control; fits zero-knowledge relay later; no vendor lock-in |
 | **Repo layout** | **Monorepo `/server`** alongside `/app` | One clone, shared prompts, deploy server independently |
 | **Auth (MVP)** | **Email OTP** (passwordless) | Low friction for clinic alpha; no password reset flow |
 
 Domains unchanged: `api.healthings.ai` (REST) · `rt.healthings.ai` (later).
 
-> **Next:** `prompt-be-02-accounts-auth.md` — Phase 1 ship spec (signup/login only).
+> **Hosting update (2026-06-29):** Production runs on **Hetzner VPS** (`server/DEPLOY-HETZNER.md`, `scripts/hetzner-bootstrap.sh`). Original spec said Hostinger — same stack, different provider.

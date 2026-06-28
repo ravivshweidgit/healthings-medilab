@@ -37,7 +37,7 @@ Backend auth exists but the phone app had no identity — no way to sign in agai
 
 ## Server validation
 
-`server/scripts/smoke-test.sh` — full OTP flow on VPS (see `DEPLOY-HOSTINGER.md` §7).
+`server/scripts/smoke-test.sh` — full OTP flow on VPS (see `DEPLOY-HETZNER.md` §2).
 
 ## Phone-tested
 

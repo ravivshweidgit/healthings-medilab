@@ -6,12 +6,12 @@ patient ↔ dietitian data sharing (relay).
 - App-side prompts live in `../app/`.
 - Backend prompts: `prompt-be-01` (vision) and up.
 
-## Decisions (locked 2026-06-22)
+## Decisions (locked 2026-06-22, hosting updated 2026-06-29)
 
 | Topic | Choice |
 |-------|--------|
 | Stack | Node.js Fastify + PostgreSQL |
-| Hosting | Hostinger VPS → `api.healthings.ai` |
+| Hosting | **Hetzner VPS** → `api.healthings.ai` |
 | Repo | Monorepo `/server` |
 | Auth MVP | Email OTP + JWT |
 
@@ -35,4 +35,4 @@ patient ↔ dietitian data sharing (relay).
 
 ## Code
 
-Implementation: [`../../server/`](../../server/) · deploy guide: `server/DEPLOY-HOSTINGER.md`
+Implementation: [`../../server/`](../../server/) · deploy: `server/DEPLOY-HETZNER.md`

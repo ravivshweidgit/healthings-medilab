@@ -3,7 +3,7 @@
 Email OTP authentication for MediLab / Healthings.ai.
 
 - Spec: [`../prompts/backend/prompt-be-02-accounts-auth.md`](../prompts/backend/prompt-be-02-accounts-auth.md)
-- Deploy: [DEPLOY-HOSTINGER.md](./DEPLOY-HOSTINGER.md)
+- Deploy: [DEPLOY-HETZNER.md](./DEPLOY-HETZNER.md)
 
 ## Quick start
 

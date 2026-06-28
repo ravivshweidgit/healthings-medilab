@@ -1,4 +1,5 @@
 #!/bin/bash
+# Healthings API — first-time Hetzner VPS setup. See ../DEPLOY-HETZNER.md
 set -euo pipefail
 
 if [ ! -f /root/.healthings_db_pass ]; then
