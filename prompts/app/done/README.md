@@ -39,7 +39,7 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt42 follow-up** — weigh-in macro activation (`measuredAt` dedupe, first weigh-in, unchanged log) documented in `done/prompt42.txt` § Follow-up 2026-06-22.
 
-**prompt42 follow-up (2026-06-28)** — Weigh-in macro review: remove manual lock from auto-apply block, Gemini retry, My Macros Accept UI instead of dead-end alert. APK installed; phone test on next scale sync. See `done/prompt42.txt` § Follow-up 2026-06-28 (`ac69355`).
+**prompt42 follow-up (2026-06-28)** — Weigh-in macro review: remove manual lock from auto-apply block, Gemini retry, My Macros Accept UI instead of dead-end alert. **APK = repo** (`ac69355`); weigh-in behavior phone-tested `[ ]` until next scale sync. See `done/prompt42.txt` § Follow-up 2026-06-28.
 
 **prompt34** — closed without ship (2026-06-17). Status row declined; chat fallback unnecessary with persistence. Manual CGM exclusions deferred inside `done/prompt34.txt`.
 

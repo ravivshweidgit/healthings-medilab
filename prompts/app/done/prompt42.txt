@@ -122,7 +122,9 @@ Commit: `ac69355` — *Fix weigh-in macro review with actionable Accept UI and G
 
 **Primary files:** `macroRevisionGuard.ts`, `macroAutoAdjust.ts`, `MacroTargetStrip.tsx`, `DashboardScreen.tsx`
 
-Phone-tested: [ ] — APK installed 2026-06-28; verify on next Withings weigh-in (auto-update or My Macros Accept).
+**Build alignment:** APK on device matches repo (`ac69355` on `main`) — installed 2026-06-28.
+
+Phone-tested: [ ] — weigh-in behavior **not** verified yet; test on next Withings scale sync (expect auto-update or My Macros → Accept, not dead-end alert).
 
 ### Deferred
 
