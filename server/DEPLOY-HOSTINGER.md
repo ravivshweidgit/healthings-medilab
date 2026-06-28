@@ -112,14 +112,37 @@ MAIL_FROM="Healthings <otp@yourdomain.com>"
 
 ## 7. Smoke test
 
+Quick health check:
+
 ```bash
 curl https://api.healthings.ai/health
+```
 
+Full OTP flow (run on VPS after deploy):
+
+```bash
+cd /opt/healthings-api/server
+chmod +x scripts/smoke-test.sh
+
+# Step 1 — health only
+./scripts/smoke-test.sh
+
+# Step 2 — request OTP
+EMAIL=you@example.com ./scripts/smoke-test.sh
+
+# If SMTP_MODE=console, read code from logs:
+journalctl -u healthings-api -n 40 --no-pager | grep -i otp
+
+# Step 3 — verify + refresh + logout
+EMAIL=you@example.com OTP_CODE=123456 ./scripts/smoke-test.sh
+```
+
+Manual curls (same flow):
+
+```bash
 curl -X POST https://api.healthings.ai/v1/auth/otp/request \
   -H 'Content-Type: application/json' \
   -d '{"email":"you@example.com","role":"patient"}'
-
-# Check server logs for OTP if SMTP_MODE=console
 
 curl -X POST https://api.healthings.ai/v1/auth/otp/verify \
   -H 'Content-Type: application/json' \

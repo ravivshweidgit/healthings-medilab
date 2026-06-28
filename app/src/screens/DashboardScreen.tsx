@@ -29,6 +29,7 @@ import { MetabolicChart } from '../components/MetabolicChart';
 import { MetabolicTrendChart7d } from '../components/MetabolicTrendChart7d';
 import { WeightTargetStrip } from '../components/WeightTargetStrip';
 import { MentorStrip } from '../components/MentorStrip';
+import { AccountStrip } from '../components/AccountStrip';
 import { RulesStrip } from '../components/RulesStrip';
 import { LabResultsStrip } from '../components/LabResultsStrip';
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
@@ -168,6 +169,7 @@ export const DashboardScreen = () => {
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [accountExpanded, setAccountExpanded] = useState(false);
 
   const [trendPeriodDays, setTrendPeriodDays] = useState<number>(DEFAULT_TREND_PERIOD_DAYS);
 
@@ -1403,6 +1405,13 @@ export const DashboardScreen = () => {
             expanded={macroExpanded}
             onToggleExpand={() => setMacroExpanded((e) => !e)}
             lang={userLanguage}
+          />
+
+          <View style={styles.groupDivider} />
+
+          <AccountStrip
+            expanded={accountExpanded}
+            onToggleExpand={() => setAccountExpanded((e) => !e)}
           />
 
           <View style={styles.groupDivider} />

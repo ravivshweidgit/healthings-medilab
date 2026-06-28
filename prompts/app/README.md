@@ -10,6 +10,7 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 | `prompt32.txt` | Backup import QA + hardening |
 | `prompt38.txt` | Secondary lab findings (liver, iron, uric acid) |
 | `prompt40b.txt` | Day/week meal plans, export, food preferences |
+| `prompt46.txt` | Medical rules import + My Rules (medical overrides; conflict feedback) |
 
 ## Done (`prompts/app/done/`)
 

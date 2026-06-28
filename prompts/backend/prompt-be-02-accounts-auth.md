@@ -1,6 +1,6 @@
 # Backend Phase 1 — Accounts + Auth (email OTP)
 
-**Status: in progress (2026-06-22)**  
+**Status: done (server, 2026-06-28)** — app login in `prompt-be-02b-app-login.md`  
 Builds on **prompt-be-01-vision.md** §7 phase 1.
 
 ### Decisions (locked)
@@ -76,23 +76,20 @@ refresh_tokens (id uuid PK, user_id FK, token_hash text, expires_at, revoked_at,
 
 ---
 
-## App integration (phase 1b — separate app prompt)
+## App integration (phase 1b)
 
-- SecureStore: `healthings_access_token`, `healthings_refresh_token`
-- Settings: email login · optional “skip for now” (local-only mode preserved)
-- All existing flows work offline without account
+→ **`prompt-be-02b-app-login.md`** — AccountStrip, AuthApiService, SecureStore tokens.
 
 ---
 
 ## Phone-tested
 
-- [ ] `curl` OTP flow on VPS
-- [ ] App login screen (future `prompt-be-02b` or app prompt)
+- [ ] `curl` / `smoke-test.sh` OTP flow on VPS
+- [ ] App login — see `prompt-be-02b-app-login.md`
 
 ## Deferred → prompt-be-03
 
-- `account_shares` request/approve
-- Encrypted sync blob upload/download
+→ **`prompt-be-03-account-shares.md`** — patient ↔ clinic mentor link, sponsor flag for `be-06`.
 
 ## Related
 

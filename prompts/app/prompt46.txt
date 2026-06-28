@@ -1,0 +1,282 @@
+# Prompt 46 — Medical rules import + My Rules (medical overrides)
+
+**Status: backlog (spec draft 2026-06-29)**  
+Builds on **prompt20** (My Rules, meal rule checks) · **prompt39** (lab PDF import pattern) · **prompt-be-03** (optional clinic mentor link — orthogonal).
+
+---
+
+## Problem
+
+Users receive a **personal plan from a licensed clinic / nutritionist** (PDF or photo). Today they must paste into a single **My Rules** box. There is no separation between:
+
+- **Clinical plan** (authoritative)
+- **Personal preferences** (secondary)
+
+Product decision (locked 2026-06-29):
+
+- **Medical rules** — imported licensed plan; **override** My Rules on conflict
+- **My rules** — user preferences; **save always allowed**; **feedback** when conflicting with medical
+- Solo users: import any RD report; clinic patients: same import + optional mentor link (`be-03`)
+
+---
+
+## User flows
+
+### A — Import medical plan (first time or replace)
+
+```
+Dashboard → Medical rules strip → Import plan
+  → pick PDF or photo (camera / gallery)
+  → Gemini parses → review screen (raw + summary + constraints)
+  → Save → stored as medicalRules
+  → all AI (meals, mentors, macros) uses medical-first merge
+```
+
+Replace import: confirm dialog (“Replace current medical plan?”).
+
+### B — Edit My Rules (unchanged entry, new conflict UX)
+
+```
+Dashboard → My Rules → edit text → Save & Summarise
+  → if medicalRules exist:
+       Gemini checkMyRulesAgainstMedical(personal, medical)
+       → show conflict banner/list (non-blocking)
+  → user can Save anyway
+  → stored as personalRules (existing user_rules key migrated — see Storage)
+```
+
+### C — No medical plan yet
+
+- **Medical rules** strip: “Import your clinic plan” (empty)
+- **My rules** works as today (single source until medical exists)
+- Effective rules for AI = personal only
+
+### D — Runtime (all AI)
+
+```
+Effective rules = merge(medical, personal)
+  medical wins on conflict
+  personal applies where compatible
+```
+
+User never “turns off” medical rules without deleting/replacing import.
+
+---
+
+## UI
+
+### Dashboard — two strips (above or replacing single RulesStrip)
+
+| Strip | Icon / title | Collapsed subtitle |
+|-------|----------------|-------------------|
+| **Medical rules** | 🏥 Medical plan | Summary or “Import clinic plan” |
+| **My rules** | 📋 My rules | Existing summary or “Personal preferences” |
+
+**Medical strip actions**
+
+- Import PDF (reuse `DocumentPicker` + optional camera — same as labs)
+- View parsed summary + constraints + original text (read-only default)
+- Replace import
+- Clear medical plan (confirm — rare; solo user switching RD)
+
+**My rules strip**
+
+- Keep existing edit / Save & Summarise flow (`RulesStrip` logic)
+- After summarise, if conflicts: **`RulesConflictBanner`** below editor (amber, not Alert blocking)
+
+Example conflict copy:
+
+> ⚠️ **Conflicts with your medical plan:** “Stay keto” vs medical max carbs 130g/day. **Medical plan wins** for meals and mentors. You can still save this as a personal note.
+
+Buttons: **Save anyway** (primary) · **Edit**
+
+---
+
+## Storage (`TargetService.ts`)
+
+### Types
+
+```ts
+export type RulesBundle = {
+  medical: UserRules | null;   // imported licensed plan
+  personal: UserRules | null;  // user My Rules
+};
+
+// UserRules shape unchanged:
+// { rawText, summary, constraints, aiContext?, analyzedAt }
+```
+
+### Keys
+
+| Key | Content |
+|-----|---------|
+| `medical_rules` | `UserRules` JSON |
+| `user_rules` | **personal** rules (keep key for backward compat) |
+
+### Migration (on first load)
+
+- If `user_rules` exists and `medical_rules` empty → treat existing blob as **personal** (no data loss)
+- Optional one-time banner: “You can now import your clinic plan separately”
+
+### Metadata on medical import (inside `UserRules` or wrapper)
+
+```ts
+importedAt: string
+source: 'pdf' | 'photo'
+// optional later: mentorShareId, clinicName
+```
+
+---
+
+## AI / prompt layer (`userRulesContext.ts`)
+
+### New helpers (single source of truth)
+
+| Function | Purpose |
+|----------|---------|
+| `getRulesBundle()` | load medical + personal |
+| `formatMedicalRulesBlock(rules)` | MEDICAL section header |
+| `formatPersonalRulesBlock(rules)` | MY RULES section header |
+| `formatEffectiveRulesBlock(bundle)` | **Used everywhere** — medical first + override instruction |
+| `formatMacroRevisionRulesBlock(bundle)` | macro path — medical verbatim wins over personal |
+
+**Override instruction** (append to every effective block):
+
+```
+If Personal Rules conflict with Medical Rules, follow Medical Rules only.
+Personal Rules apply only where compatible.
+```
+
+Replace direct `formatUserRulesBlock(userRules)` call sites with `formatEffectiveRulesBlock(bundle)` when bundle has medical.
+
+Call sites to update:
+
+- `GeminiService.ts` — `buildFoodSystemPrompt`, coach context, `checkMealAgainstUserRules`, `summariseUserRules` (personal only)
+- `macroAutoAdjust.ts` / macro revision
+- `recipePlanService.ts`
+- `FoodLogModal.tsx` — meal rule check uses **effective** rules (medical wins)
+
+### New Gemini calls
+
+#### 1. `parseMedicalPlanPdf(base64)` / `parseMedicalPlanImage(base64)`
+
+- Model: `gemini-2.5-flash`
+- Input: PDF (like `parseLabReportPdf`) or meal-photo-style image
+- Output JSON:
+
+```json
+{
+  "rawText": "verbatim plan text",
+  "summary": "short label e.g. Mediterranean · 130g carb",
+  "constraints": ["max 130g carbs/day", "no saturated fat", "…"]
+}
+```
+
+- Prompt: licensed nutritionist / clinical diet plan; preserve numbers and Hebrew; extract HARD constraints
+
+#### 2. `checkMyRulesAgainstMedical(personal, medical, lang?)`
+
+- Input: two `UserRules` blobs
+- Output JSON:
+
+```json
+{
+  "conflicts": [
+    { "personalLine": "…", "medicalLine": "…", "message": "one short sentence" }
+  ]
+}
+```
+
+- Empty `conflicts` → no banner
+- Called **before or after** summarise on personal save; non-blocking
+
+#### 3. `summariseUserRules` — unchanged scope
+
+- Applies to **personal** rules only when user taps Save & Summarise on My Rules strip
+- Medical import uses `parseMedicalPlan*` + optional second pass summarise on rawText if parse incomplete
+
+---
+
+## Meal / mentor behavior
+
+| Check | Rules source |
+|-------|----------------|
+| `rule_conflict` on food analyze | **Effective** (medical wins) |
+| `checkMealAgainstUserRules` on save | **Effective** |
+| Nutritionist alert modal (prompt20) | Violations vs **effective** rules |
+| Mentor chat USER DATA | Effective rules block |
+| Macro revision | Medical verbatim + personal secondary (`formatMacroRevisionRulesBlock`) |
+
+My Rules conflict feedback does **not** block meal save — same as prompt20 philosophy.
+
+---
+
+## Primary files
+
+| Path | Change |
+|------|--------|
+| `app/src/services/TargetService.ts` | `RulesBundle`, `getRulesBundle`, `saveMedicalRules`, migration |
+| `app/src/logic/userRulesContext.ts` | effective merge + override headers |
+| `app/src/services/GeminiService.ts` | parse medical PDF/image; conflict check |
+| `app/src/components/MedicalRulesStrip.tsx` | **new** — import + view |
+| `app/src/components/RulesStrip.tsx` | conflict banner; load/save personal only |
+| `app/src/components/RulesConflictBanner.tsx` | **new** — optional shared UI |
+| `app/src/screens/DashboardScreen.tsx` | two strips; pass bundle to children |
+| `app/src/components/FoodLogModal.tsx` | effective rules in checks |
+| `app/src/components/MacroTargetStrip.tsx` | effective rules for macro suggest |
+
+Reuse patterns from:
+
+- `LabReportModal.tsx` / `LabLogService.ts` — PDF pick + parse + review
+- `RulesStrip.tsx` — summarise + constraints display
+
+---
+
+## Out of scope (this prompt)
+
+- Server storage of plan text (stays local-first)
+- Mentor pushing plan from dashboard (`be-05`)
+- Validating RD license (trust user import)
+- Blocking save of personal rules on conflict
+- Auto-sync medical rules from clinic API
+
+---
+
+## Phone-tested
+
+- [ ] Import Hebrew PDF clinic plan → medical strip populated
+- [ ] Import photo of printed plan → same
+- [ ] My Rules save with conflict → banner + Save anyway works
+- [ ] My Rules compatible with medical → no banner
+- [ ] Meal save flags violation of **medical** rule (not personal-only conflict)
+- [ ] Macro suggest respects medical carb limit over personal preference
+- [ ] Upgrade: existing `user_rules` only → still works as personal
+- [ ] Clear / replace medical plan
+
+---
+
+## Deferred
+
+- Link import to mentor share metadata (`be-03` approved share id)
+- OCR polish for handwritten plans
+- Structured macros embedded in medical plan → auto-seed `DailyMacroTarget` (future prompt)
+
+---
+
+## Related
+
+- **prompt20** — meal nutritionist alert; effective rules
+- **prompt39** — lab PDF import pattern
+- **prompt-be-03** — clinic mentor link (billing separate in `be-06`)
+- **prompt-be-01** — solo vs clinic paths; many clinics as mentors
+
+---
+
+## Implementation notes
+
+1. Ship **storage + effective merge** first (can paste medical into import review manually for test)
+2. Then **PDF import**
+3. Then **photo import**
+4. Then **conflict check** on personal save
+
+Keep Gemini key in app for alpha; move to API proxy when `be-06` gates AI.
