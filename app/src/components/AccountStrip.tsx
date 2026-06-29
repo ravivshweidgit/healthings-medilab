@@ -1,5 +1,5 @@
 /**
- * Healthings account — email OTP sign-in (optional; app works offline without it).
+ * Signed-in account — email, role, biometric unlock, sign out.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -7,122 +7,73 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
+  Switch,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import { logoutAuth, type AuthUser } from '../services/AuthApiService';
 import {
-  checkApiHealth,
-  logoutAuth,
-  requestOtp,
-  restoreAuthSession,
-  verifyOtp,
-  type AuthUser,
-  type UserRole,
-} from '../services/AuthApiService';
+  authenticateWithBiometric,
+  biometricUnlockLabel,
+  canUseBiometricUnlock,
+  isBiometricUnlockEnabled,
+  setBiometricUnlockEnabled,
+} from '../services/BiometricUnlockService';
 import { WellnessColors } from '../theme/wellness';
 
 type Props = {
+  user: AuthUser;
   expanded: boolean;
   onToggleExpand: () => void;
-  onAuthChanged?: (user: AuthUser | null) => void;
+  onSignedOut: () => void;
 };
 
-type Step = 'signed-out' | 'code-sent' | 'signed-in';
-
-export function AccountStrip({ expanded, onToggleExpand, onAuthChanged }: Props) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [step, setStep] = useState<Step>('signed-out');
-  const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
-  const [role, setRole] = useState<UserRole>('patient');
+export function AccountStrip({ user, expanded, onToggleExpand, onSignedOut }: Props) {
   const [busy, setBusy] = useState(false);
-  const [booting, setBooting] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [apiOk, setApiOk] = useState<boolean | null>(null);
-
-  const applyUser = useCallback(
-    (next: AuthUser | null) => {
-      setUser(next);
-      setStep(next ? 'signed-in' : 'signed-out');
-      onAuthChanged?.(next);
-    },
-    [onAuthChanged],
-  );
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [biometricLabel, setBiometricLabel] = useState('Fingerprint');
 
   useEffect(() => {
-    let cancelled = false;
+    if (!expanded) return;
     void (async () => {
-      const [restored, healthy] = await Promise.all([restoreAuthSession(), checkApiHealth()]);
-      if (cancelled) return;
-      setApiOk(healthy);
-      if (restored) {
-        applyUser(restored);
-        setEmail(restored.email);
-      }
-      setBooting(false);
+      const [available, enabled, label] = await Promise.all([
+        canUseBiometricUnlock(),
+        isBiometricUnlockEnabled(),
+        biometricUnlockLabel(),
+      ]);
+      setBiometricAvailable(available);
+      setBiometricEnabled(enabled);
+      setBiometricLabel(label);
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [applyUser]);
+  }, [expanded]);
 
-  const headerSub = booting
-    ? 'Checking…'
-    : user
-      ? user.email
-      : 'Optional — sign in to sync later';
-
-  const handleSendCode = useCallback(async () => {
-    const trimmed = email.trim();
-    if (!trimmed) return;
+  const handleBiometricToggle = useCallback(async (next: boolean) => {
     setError(null);
-    setBusy(true);
-    try {
-      await requestOtp(trimmed, role);
-      setStep('code-sent');
-      setCode('');
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Could not send code';
-      setError(msg);
-    } finally {
-      setBusy(false);
+    if (next) {
+      const ok = await authenticateWithBiometric();
+      if (!ok) return;
+      await setBiometricUnlockEnabled(true);
+      setBiometricEnabled(true);
+      return;
     }
-  }, [email, role]);
-
-  const handleVerify = useCallback(async () => {
-    const trimmedEmail = email.trim();
-    const trimmedCode = code.trim();
-    if (!trimmedEmail || trimmedCode.length !== 6) return;
-    setError(null);
-    setBusy(true);
-    try {
-      const next = await verifyOtp(trimmedEmail, trimmedCode);
-      applyUser(next);
-      setCode('');
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Invalid code';
-      setError(msg);
-    } finally {
-      setBusy(false);
-    }
-  }, [applyUser, code, email]);
+    await setBiometricUnlockEnabled(false);
+    setBiometricEnabled(false);
+  }, []);
 
   const handleLogout = useCallback(async () => {
     setError(null);
     setBusy(true);
     try {
       await logoutAuth();
-      applyUser(null);
-      setStep('signed-out');
-      setCode('');
+      onSignedOut();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Logout failed';
-      setError(msg);
+      setError(e instanceof Error ? e.message : 'Sign out failed');
     } finally {
       setBusy(false);
     }
-  }, [applyUser]);
+  }, [onSignedOut]);
 
   return (
     <View style={styles.wrap}>
@@ -131,7 +82,7 @@ export function AccountStrip({ expanded, onToggleExpand, onAuthChanged }: Props)
         <View style={styles.headerInfo}>
           <Text style={styles.headerTitle}>Account</Text>
           <Text style={styles.headerSub} numberOfLines={1}>
-            {headerSub}
+            {user.email}
           </Text>
         </View>
         <Text style={styles.chevron}>{expanded ? '⌃' : '›'}</Text>
@@ -139,128 +90,38 @@ export function AccountStrip({ expanded, onToggleExpand, onAuthChanged }: Props)
 
       {expanded && (
         <View style={styles.body}>
-          {booting ? (
-            <View style={styles.loadingWrap}>
-              <ActivityIndicator color={WellnessColors.accentGreen} />
-            </View>
-          ) : user ? (
-            <View>
-              <Text style={styles.signedInLine}>{user.email}</Text>
-              <Text style={styles.roleLine}>Role: {user.role}</Text>
-              {error ? <Text style={styles.errorText}>{error}</Text> : null}
-              <Pressable
-                style={[styles.logoutBtn, busy && styles.btnDisabled]}
-                onPress={handleLogout}
-                disabled={busy}
-              >
-                {busy ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.logoutBtnText}>Sign out</Text>
-                )}
-              </Pressable>
-            </View>
-          ) : (
-            <View>
-              <Text style={styles.hint}>
-                Email + one-time code. No password. You can skip and keep using the app locally.
-              </Text>
-              {apiOk === false ? (
-                <Text style={styles.warnText}>Cannot reach server — check connection and try again.</Text>
-              ) : null}
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="you@example.com"
-                placeholderTextColor={WellnessColors.textSecondary}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!busy && step !== 'code-sent'}
-              />
-              {step === 'signed-out' && (
-                <View style={styles.roleRow}>
-                  <Pressable
-                    style={[styles.roleChip, role === 'patient' && styles.roleChipOn]}
-                    onPress={() => setRole('patient')}
-                  >
-                    <Text style={[styles.roleChipText, role === 'patient' && styles.roleChipTextOn]}>
-                      Patient
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.roleChip, role === 'mentor' && styles.roleChipOn]}
-                    onPress={() => setRole('mentor')}
-                  >
-                    <Text style={[styles.roleChipText, role === 'mentor' && styles.roleChipTextOn]}>
-                      Mentor
-                    </Text>
-                  </Pressable>
-                </View>
-              )}
-              {step === 'code-sent' && (
-                <>
-                  <Text style={styles.codeHint}>Enter the 6-digit code from your email.</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={code}
-                    onChangeText={setCode}
-                    placeholder="123456"
-                    placeholderTextColor={WellnessColors.textSecondary}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    editable={!busy}
-                  />
-                </>
-              )}
-              {error ? <Text style={styles.errorText}>{error}</Text> : null}
-              <View style={styles.btnsRow}>
-                {step === 'signed-out' ? (
-                  <Pressable
-                    style={[styles.primaryBtn, (!email.trim() || busy) && styles.btnDisabled]}
-                    onPress={handleSendCode}
-                    disabled={!email.trim() || busy}
-                  >
-                    {busy ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                      <Text style={styles.primaryBtnText}>Send code</Text>
-                    )}
-                  </Pressable>
-                ) : (
-                  <Pressable
-                    style={[styles.primaryBtn, (code.length !== 6 || busy) && styles.btnDisabled]}
-                    onPress={handleVerify}
-                    disabled={code.length !== 6 || busy}
-                  >
-                    {busy ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                      <Text style={styles.primaryBtnText}>Verify & sign in</Text>
-                    )}
-                  </Pressable>
-                )}
-                <Pressable
-                  style={styles.secondaryBtn}
-                  onPress={() => {
-                    if (step === 'code-sent') {
-                      setStep('signed-out');
-                      setCode('');
-                      setError(null);
-                    } else {
-                      onToggleExpand();
-                    }
-                  }}
-                  disabled={busy}
-                >
-                  <Text style={styles.secondaryBtnText}>
-                    {step === 'code-sent' ? 'Change email' : 'Skip for now'}
-                  </Text>
-                </Pressable>
+          <Text style={styles.signedInLine}>{user.email}</Text>
+          <Text style={styles.roleLine}>
+            {user.role === 'mentor' ? 'Mentor / clinic' : 'Patient'}
+          </Text>
+
+          {biometricAvailable ? (
+            <View style={styles.biometricRow}>
+              <View style={styles.biometricText}>
+                <Text style={styles.biometricTitle}>Unlock with {biometricLabel}</Text>
+                <Text style={styles.biometricHint}>Required when opening the app</Text>
               </View>
+              <Switch
+                value={biometricEnabled}
+                onValueChange={(next) => void handleBiometricToggle(next)}
+                trackColor={{ false: WellnessColors.gridLine, true: WellnessColors.accentGreen }}
+                thumbColor="#fff"
+              />
             </View>
-          )}
+          ) : null}
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          <Pressable
+            style={[styles.logoutBtn, busy && styles.btnDisabled]}
+            onPress={handleLogout}
+            disabled={busy}
+          >
+            {busy ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.logoutBtnText}>Sign out</Text>
+            )}
+          </Pressable>
         </View>
       )}
     </View>
@@ -301,83 +162,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     gap: 8,
   },
-  hint: {
-    fontSize: 13,
-    color: WellnessColors.textSecondary,
-    lineHeight: 18,
-  },
-  warnText: {
-    fontSize: 13,
-    color: '#b45309',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: WellnessColors.textPrimary,
-    backgroundColor: '#fff',
-  },
-  roleRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  roleChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
-  },
-  roleChipOn: {
-    backgroundColor: WellnessColors.accentGreen,
-    borderColor: WellnessColors.accentGreen,
-  },
-  roleChipText: {
-    fontSize: 13,
-    color: WellnessColors.textSecondary,
-  },
-  roleChipTextOn: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  codeHint: {
-    fontSize: 13,
-    color: WellnessColors.textSecondary,
-  },
-  btnsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
-  },
-  primaryBtn: {
-    backgroundColor: WellnessColors.accentGreen,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-    minWidth: 120,
-    alignItems: 'center',
-  },
-  primaryBtnText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  secondaryBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  secondaryBtnText: {
-    color: WellnessColors.accentBlue,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  btnDisabled: {
-    opacity: 0.5,
-  },
   signedInLine: {
     fontSize: 15,
     fontWeight: '600',
@@ -386,8 +170,28 @@ const styles = StyleSheet.create({
   roleLine: {
     fontSize: 13,
     color: WellnessColors.textSecondary,
-    marginTop: 4,
-    marginBottom: 10,
+    marginBottom: 4,
+  },
+  biometricRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 8,
+    marginBottom: 4,
+  },
+  biometricText: {
+    flex: 1,
+  },
+  biometricTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: WellnessColors.textPrimary,
+  },
+  biometricHint: {
+    fontSize: 12,
+    color: WellnessColors.textSecondary,
+    marginTop: 2,
   },
   logoutBtn: {
     alignSelf: 'flex-start',
@@ -401,12 +205,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
+  btnDisabled: {
+    opacity: 0.5,
+  },
   errorText: {
     fontSize: 13,
     color: '#c0392b',
-  },
-  loadingWrap: {
-    paddingVertical: 12,
-    alignItems: 'center',
   },
 });

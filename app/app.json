@@ -37,6 +37,12 @@
       "expo-dev-client",
       "react-native-health-connect",
       "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Healthings to use Face ID to unlock the app."
+        }
+      ],
       "expo-web-browser",
       "@react-native-community/datetimepicker"
     ]

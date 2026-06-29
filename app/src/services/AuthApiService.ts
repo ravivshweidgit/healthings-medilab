@@ -37,8 +37,12 @@ function apiBase(): string {
 
 async function parseError(res: Response): Promise<string> {
   try {
-    const body = (await res.json()) as { error?: string };
+    const body = (await res.json()) as { error?: string; message?: string };
+    if (body?.error === 'Not Found') {
+      return 'API route not found — check HEALTHINGS_API_URL uses https://api.healthings.ai';
+    }
     if (body?.error) return body.error;
+    if (body?.message) return body.message;
   } catch {
     /* ignore */
   }

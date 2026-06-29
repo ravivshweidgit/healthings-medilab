@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Alpha: API is HTTP-only until enable-tls.sh runs on VPS. Remove when using https:// -->
+<network-security-config>
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="false">api.healthings.ai</domain>
+  </domain-config>
+</network-security-config>

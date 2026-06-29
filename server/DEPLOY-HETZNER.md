@@ -36,20 +36,16 @@ The script:
 - Writes `/opt/healthings-api/server/.env` (`SMTP_MODE=console`, JWT secret)
 - Installs **systemd** + **nginx** (HTTP on port 80)
 
-### TLS (required for production app)
+### TLS (required before production / HTTPS default)
 
-Bootstrap sets HTTP only. After DNS resolves:
-
-```bash
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d api.healthings.ai
-```
-
-Verify:
+Bootstrap sets **HTTP only**. The app defaults to `http://` until TLS is enabled.
 
 ```bash
-curl https://api.healthings.ai/health
+bash /opt/healthings-api/server/scripts/enable-tls.sh
+# or: certbot --nginx -d api.healthings.ai
 ```
+
+Then set app `HEALTHINGS_API_URL=https://api.healthings.ai` and remove cleartext network config (see `app/android/.../network_security_config.xml`).
 
 ---
 
@@ -131,27 +127,38 @@ Same units as `scripts/hetzner-bootstrap.sh` (WorkingDirectory `/opt/healthings-
 
 ---
 
-## 5. SMTP (OTP email)
+## 5. SMTP (OTP email) — **enable for real mail**
 
-**Alpha / dev:** `SMTP_MODE=console` — OTP codes in logs:
+**Alpha default:** `SMTP_MODE=console` — codes only in logs (`journalctl -u healthings-api | grep OTP`).
+
+**To send email now** (Resend — free tier, ~5 min):
+
+1. Sign up at [resend.com](https://resend.com) → **API Keys** → create key (`re_…`)
+2. Open **Hetzner Cloud** → your server → **Console** (browser SSH as root)
+3. Run (paste your key):
 
 ```bash
-journalctl -u healthings-api -f
+cd /opt/healthings-api && git pull
+SMTP_PASS=re_PASTE_YOUR_KEY_HERE \
+SMTP_FROM="Healthings <onboarding@resend.dev>" \
+bash server/scripts/enable-smtp.sh
 ```
 
-**Production:** set `SMTP_MODE=smtp` in `/opt/healthings-api/server/.env` using any provider (e.g. [Resend](https://resend.com), SendGrid, mailbox on your domain). Example:
+Use `onboarding@resend.dev` for first test; then verify **healthings.ai** in Resend (add DNS records where you manage the domain) and set:
 
-```
-SMTP_MODE=smtp
-SMTP_HOST=smtp.resend.com
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=resend
-SMTP_PASS=re_xxxxxxxx
-MAIL_FROM="Healthings <otp@healthings.ai>"
+```bash
+SMTP_PASS=re_xxx SMTP_FROM="Healthings <otp@healthings.ai>" bash server/scripts/enable-smtp.sh
 ```
 
-Then `systemctl restart healthings-api`.
+**Stack:** API on **Hetzner VPS** · domain **healthings.ai** (Porkbun) · OTP mail via **Porkbun Email Hosting** (`otp@healthings.ai`).
+
+Interactive setup on the VPS (prompts for mailbox password):
+
+```bash
+/root/set-smtp-porkbun.sh
+```
+
+(Same script in repo: `server/scripts/set-smtp-porkbun.sh`)
 
 ---
 

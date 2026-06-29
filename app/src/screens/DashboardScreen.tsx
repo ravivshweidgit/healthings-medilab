@@ -69,6 +69,7 @@ import {
   handleOAuthCallback,
   loadWithingsTokens,
 } from '../services/WithingsApiService';
+import { type AuthUser } from '../services/AuthApiService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 import { demoNoticeCopy } from '../utils/wellnessCopy';
 
@@ -127,7 +128,12 @@ function navBarBottomInset(bottom: number): number {
 const COACH_LAST_WEIGH_IN_KEY = 'coach_last_weigh_in_at';
 const COACH_LAST_WORKOUT_MS_KEY = 'coach_last_workout_start_ms';
 
-export const DashboardScreen = () => {
+type DashboardScreenProps = {
+  user: AuthUser;
+  onSignedOut: () => void;
+};
+
+export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const brandHeaderHeight = useMemo(() => computeBrandHeaderHeight(windowWidth), [windowWidth]);
@@ -1410,8 +1416,10 @@ export const DashboardScreen = () => {
           <View style={styles.groupDivider} />
 
           <AccountStrip
+            user={user}
             expanded={accountExpanded}
             onToggleExpand={() => setAccountExpanded((e) => !e)}
+            onSignedOut={onSignedOut}
           />
 
           <View style={styles.groupDivider} />

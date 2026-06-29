@@ -16,18 +16,27 @@ export async function sendOtpEmail(email: string, code: string): Promise<void> {
 
   const transport = nodemailer.createTransport({
     host: config.SMTP_HOST,
-    port: config.SMTP_PORT ?? 465,
-    secure: config.SMTP_SECURE ?? true,
+    port: config.SMTP_PORT ?? 587,
+    secure: config.SMTP_SECURE ?? false,
+    requireTLS: !(config.SMTP_SECURE ?? false),
     auth: {
       user: config.SMTP_USER,
       pass: config.SMTP_PASS,
     },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
   });
 
-  await transport.sendMail({
-    from: config.MAIL_FROM,
-    to: email,
-    subject,
-    text,
-  });
+  try {
+    await transport.sendMail({
+      from: config.MAIL_FROM,
+      to: email,
+      subject,
+      text,
+    });
+  } catch (err) {
+    console.error('[OTP email failed]', err);
+    console.log(`[OTP] ${email} → ${code}`);
+  }
 }
