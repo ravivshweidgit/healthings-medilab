@@ -5,6 +5,14 @@ alwaysApply: true
 
 # Build & Install Workflow
 
+## User shorthand
+
+| Shorthand | Meaning | Agent action |
+|-----------|---------|--------------|
+| **bi** | build + install | Run `assembleRelease`, then `adb install -r` on success — same as "build install" |
+
+Treat **bi**, **build install**, and **build and install** as equivalent: compile release APK, then install on the connected phone. Show live build output when the user is waiting.
+
 ## Default behaviour after code changes
 
 **Build for compilation check only** — do not install on device unless the user
@@ -20,7 +28,7 @@ adb install -r "...\app-release.apk"
 ```
 
 ## When to install
-- User explicitly says: "install", "test on phone", "let me try it", "rebuild and install"
+- User explicitly says: "install", **"bi"**, "build install", "test on phone", "let me try it", "rebuild and install"
 - After a bug fix the user reported from a device screenshot
 - At the end of a feature batch when the user asks to verify
 
@@ -57,7 +65,10 @@ Build APK  →  git commit  (skips phone test)
 $env:GRADLE_USER_HOME = "C:\gradle-hm"   # short path — avoids Windows 260-char CMake failures
 Set-Location "c:\projects\healthings-medilab\app\android"
 .\gradlew.bat assembleRelease --no-build-cache --console=plain
+adb install -r "c:\projects\healthings-medilab\app\android\app\build\outputs\apk\release\app-release.apk"
 ```
+
+The last line is for **bi** / install only — skip `adb install` when the user asked for build alone.
 
 Agent-only quick tail (user not watching): last 12 lines is OK.
 

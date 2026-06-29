@@ -1465,6 +1465,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           reports={labReports}
           onReportsChanged={() => void loadLabReports(true)}
           lang={userLanguage}
+          gender={userGender}
         />
       </ScrollView>
       </KeyboardAvoidingView>

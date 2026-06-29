@@ -2,7 +2,7 @@
  * Lab results — dashboard card (same pattern as FoodMacroStrip).
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,18 +13,21 @@ import {
   View,
 } from 'react-native';
 import {
+  buildLipidTrendPoints,
   exportLabLog,
   importLabLog,
   type LabReport,
 } from '../services/LabLogService';
-import type { UserLanguage } from '../services/TargetService';
+import type { Gender, UserLanguage } from '../services/TargetService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 import { LabReportModal } from './LabReportModal';
+import { LipidTrendChart } from './LipidTrendChart';
 
 type Props = {
   reports: LabReport[];
   onReportsChanged: () => void;
   lang?: UserLanguage | null;
+  gender?: Gender | null;
 };
 
 function formatDrawDate(iso: string): string {
@@ -51,7 +54,7 @@ function highlightResult(report: LabReport): string | null {
   return null;
 }
 
-export function LabResultsStrip({ reports, onReportsChanged, lang }: Props) {
+export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Props) {
   const [modalVisible, setModalVisible] = useState(false);
   const [autoPick, setAutoPick] = useState(false);
   const [viewReport, setViewReport] = useState<LabReport | null>(null);
@@ -59,6 +62,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang }: Props) {
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
 
   const latest = reports[0] ?? null;
+  const lipidTrendPoints = useMemo(() => buildLipidTrendPoints(reports), [reports]);
 
   const openImport = useCallback(() => {
     setViewReport(null);
@@ -158,6 +162,14 @@ export function LabResultsStrip({ reports, onReportsChanged, lang }: Props) {
           );
         })}
       </ScrollView>
+
+      {lipidTrendPoints.length >= 2 ? (
+        <LipidTrendChart points={lipidTrendPoints} rtl={rtl} gender={gender} />
+      ) : lipidTrendPoints.length === 1 ? (
+        <Text style={styles.trendHint}>
+          {rtl ? 'ייבאו דוח נוסף כדי לראות מגמת כולסטרול' : 'Import another draw to see cholesterol trends'}
+        </Text>
+      ) : null}
 
       <View style={styles.footer}>
         <Pressable style={styles.footerBtn} onPress={() => void handleExport()} accessibilityLabel="Export lab log">
@@ -269,6 +281,15 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: WellnessColors.accentBlue,
     marginTop: 2,
+  },
+  trendHint: {
+    fontSize: 11,
+    color: WellnessColors.textSecondary,
+    textAlign: 'center',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: WellnessColors.gridLine,
   },
   footer: {
     flexDirection: 'row',

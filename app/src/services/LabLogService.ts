@@ -376,6 +376,35 @@ export async function getLatestGlycemicLabStatus(): Promise<GlycemicLabStatus | 
   return status;
 }
 
+/** One draw-day point for lipid trend charts (oldest → newest). */
+export type LipidTrendPoint = {
+  dateKey: string;
+  collectedAt: string;
+  ldl: number | null;
+  totalCholesterol: number | null;
+  hdl: number | null;
+  triglycerides: number | null;
+};
+
+/** Extract lipid time series from saved reports — one row per draw date. */
+export function buildLipidTrendPoints(reports: LabReport[]): LipidTrendPoint[] {
+  const sorted = [...reports].sort((a, b) => a.collectedAt.localeCompare(b.collectedAt));
+  const points: LipidTrendPoint[] = [];
+  for (const report of sorted) {
+    const lipids = scanLipidLabStatus(report);
+    if (!lipids.ldl && !lipids.totalCholesterol && !lipids.hdl && !lipids.triglycerides) continue;
+    points.push({
+      dateKey: reportDateKey(report.collectedAt),
+      collectedAt: report.collectedAt,
+      ldl: lipids.ldl?.value ?? null,
+      totalCholesterol: lipids.totalCholesterol?.value ?? null,
+      hdl: lipids.hdl?.value ?? null,
+      triglycerides: lipids.triglycerides?.value ?? null,
+    });
+  }
+  return points;
+}
+
 /** Latest draw + one prior draw for macro revision (trends: UREA, creatinine, LDL). */
 export async function buildLabsForMacroRevision(): Promise<string | null> {
   const all = await getAllLabReports();
