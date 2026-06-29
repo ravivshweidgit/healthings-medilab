@@ -51,7 +51,19 @@ Dashboard → My Rules → edit text → Save & Summarise
 - **My rules** works as today (single source until medical exists)
 - Effective rules for AI = personal only
 
-### D — Runtime (all AI)
+### D — Clinic sends plan (linked patient)
+
+```
+Clinic uploads PDF on web (be-05 / be-03 plans API)
+  → patient app: banner "New plan from <clinic>"
+  → Review screen (same as flow A — parse on device)
+  → Apply → medical_rules updated locally
+  → POST /v1/plans/:id/applied → clinic portal shows "Applied"
+```
+
+Patient must **approve** apply (same as import review — not silent overwrite). Solo user without clinic link uses flow A only.
+
+### E — Runtime (all AI)
 
 ```
 Effective rules = merge(medical, personal)
@@ -234,11 +246,10 @@ Reuse patterns from:
 
 ## Out of scope (this prompt)
 
-- Server storage of plan text (stays local-first)
-- Mentor pushing plan from dashboard (`be-05`)
+- Parsed rule JSON on server (PDF relay only — parse on phone)
 - Validating RD license (trust user import)
 - Blocking save of personal rules on conflict
-- Auto-sync medical rules from clinic API
+- Clinic editing rule text in browser (upload PDF only — **`prompt-be-05-clinic-dashboard.md`**)
 
 ---
 
@@ -252,12 +263,13 @@ Reuse patterns from:
 - [ ] Macro suggest respects medical carb limit over personal preference
 - [ ] Upgrade: existing `user_rules` only → still works as personal
 - [ ] Clear / replace medical plan
+- [ ] Clinic uploads PDF → patient apply → effective rules update; clinic status **applied**
 
 ---
 
 ## Deferred
 
-- Link import to mentor share metadata (`be-03` approved share id)
+- Link import to mentor share metadata (partially: plan uploads use `share_id`)
 - OCR polish for handwritten plans
 - Structured macros embedded in medical plan → auto-seed `DailyMacroTarget` (future prompt)
 
@@ -275,8 +287,9 @@ Reuse patterns from:
 ## Implementation notes
 
 1. Ship **storage + effective merge** first (can paste medical into import review manually for test)
-2. Then **PDF import**
-3. Then **photo import**
-4. Then **conflict check** on personal save
+2. Then **PDF import** (patient pick file — flow A)
+3. Then **clinic plan relay** (download PDF from API — flow D; shares **`prompt-be-03`** + **`prompt49`**)
+4. Then **photo import**
+5. Then **conflict check** on personal save
 
 Keep Gemini key in app for alpha; move to API proxy when `be-06` gates AI.

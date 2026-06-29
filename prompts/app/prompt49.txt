@@ -1,0 +1,110 @@
+## Prompt 49 — Link to clinic + share data with sponsor
+
+**Status: backlog**  
+**Builds on:** `done/prompt-be-02b-app-login.md` · `prompts/backend/prompt-be-03-account-shares.md` · `prompt-be-04` · `prompt-be-06`.
+
+---
+
+### Problem
+
+Patients can sign in, but there is no UI to:
+
+- Link to a clinic/nutritionist account (invite or request)
+- Approve/reject pending links
+- **Share local phone data** with an approved clinic (encrypted upload)
+- See when **AI is sponsored** by the clinic
+
+Clinics use the **web portal** (be-05); patients use this app prompt.
+
+---
+
+### What ships
+
+#### 49a — Account / clinic link strip
+
+**Surface:** extend `AccountStrip.tsx` or new **“My clinic”** card on dashboard.
+
+| State | UI |
+|-------|-----|
+| No link | “Link to clinic” → enter clinic email → `POST /v1/shares/request` |
+| Pending (they invited you) | Banner: “&lt;clinic&gt; invited you” → Approve / Reject |
+| Pending (you requested) | “Waiting for &lt;clinic&gt; to approve” |
+| Approved | “Linked to &lt;clinic display name&gt;” + **Share data** + Revoke |
+| Approved + sponsor | Badge: “AI sponsored by &lt;clinic&gt;” (from `/v1/wallet` + share) |
+
+On login: `GET /v1/shares/pending-for-me` — show badge if action needed.
+
+#### 49b — Share with clinic (encrypted upload)
+
+**Service:** `ShareExportService.ts` (see be-04)
+
+1. Confirm dialog: what will be shared (meals, CGM, labs, weight, rules — last N days)
+2. Build export JSON (reuse backup keys / subset)
+3. Encrypt + `POST /v1/sync/upload`
+4. Success: “Shared with &lt;clinic&gt; · &lt;timestamp&gt;”
+5. Error: retry; offline queue (optional v2)
+
+**Not automatic on link approve** — patient explicitly taps **Share** (privacy). Optional setting “Share automatically weekly” → v2.
+
+#### 49c — Revoke
+
+- Revoke link → `POST /v1/shares/:id/revoke`
+- Prompt: “Clinic will lose access to future data. Delete copies on server?” → optional delete blobs (be-04)
+
+#### 49d — Clinic plan updates (medical rules)
+
+When `GET /v1/plans/pending` returns rows:
+
+1. Banner on dashboard / Medical rules strip: **“&lt;Clinic&gt; sent a new plan”**
+2. Tap → download PDF → **`MedicalRulesReviewScreen`** (shared with prompt46 import)
+3. **Apply** → save `medical_rules` locally → `POST /v1/plans/:id/applied`
+4. **Dismiss** (optional) — stays pending until apply or superseded
+
+On app open + after login: poll pending plans if linked to clinic.
+
+#### 49e — Solo path unchanged
+
+- No clinic required; app fully usable
+- Patient pays own AI when be-06 live (wallet UI minimal: balance in Account)
+
+---
+
+### Primary files
+
+| File | Role |
+|------|------|
+| `app/src/services/ShareApiService.ts` | `/v1/shares/*` client |
+| `app/src/services/PlansApiService.ts` | `/v1/plans/pending`, download, applied |
+| `app/src/services/ShareExportService.ts` | export + encrypt + upload |
+| `app/src/components/ClinicLinkStrip.tsx` | link UI |
+| `app/src/screens/DashboardScreen.tsx` | mount strip |
+| `app/src/components/AccountStrip.tsx` | sponsored badge hook |
+
+---
+
+### Phone-tested checklist
+
+- [ ] Request clinic by email → clinic sees pending on web (be-05)
+- [ ] Approve clinic invite → approved state + sponsor badge
+- [ ] Share data → clinic portal shows last sync + charts
+- [ ] Revoke → clinic gets 403 on download
+- [ ] Solo user — no clinic UI noise (collapsed / hidden)
+- [ ] Clinic PDF upload → patient apply → medical rules updated; clinic sees **applied**
+
+---
+
+### Deferred
+
+- Push notification when clinic invites or sends plan
+- Auto-sync schedule
+- In-app chat with human clinic (AI mentors remain separate)
+
+---
+
+### Related
+
+- **`prompts/backend/prompt-be-03-account-shares.md`** — link API
+- **`prompts/backend/prompt-be-04-encrypted-sync.md`** — upload
+- **`prompts/backend/prompt-be-05-clinic-dashboard.md`** — clinic web UI
+- **`prompts/backend/prompt-be-06-token-wallet.md`** — sponsored AI billing
+- **`prompt46.txt`** — parse + apply medical rules (patient import + clinic PDF apply)

@@ -16,5 +16,5 @@ Shipped backend specs live here. Active / backlog specs stay in `prompts/backend
 
 | File | Topic |
 |------|--------|
-| `prompt-be-03-account-shares.md` | Patient ↔ mentor link, sponsor billing (draft) |
-| be-04+ | Encrypted sync, mentor dashboard API, token wallet (planned, no files yet) |
+| `prompt-be-03-account-shares.md` | Patient ↔ mentor link, sponsor billing (spec draft) |
+| be-04+ | See backlog table in [`README.md`](../README.md) |

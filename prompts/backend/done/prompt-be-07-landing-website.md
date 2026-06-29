@@ -37,9 +37,9 @@ Mentors and users need a single URL to discover and **download** the app (`healt
 
 ## Deferred
 
-- Play Store internal testing → **`prompt47.txt`**
+- Play Store internal testing → **`prompt47.txt`** (app)
 - Play Store public link when listed
-- Mentor sign-up / waitlist form
+- Clinic web portal → **`prompt-be-05-clinic-dashboard.md`** (replaces “mentor sign-up” waitlist)
 - iOS TestFlight
 - GitHub Releases as alternate APK host
 - Remove optional `*.healthings.ai` → `pixie.porkbun.com` wildcard in Porkbun

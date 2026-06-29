@@ -12,6 +12,7 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 | `prompt40b.txt` | Day/week meal plans, export, food preferences |
 | `prompt46.txt` | Medical rules import + My Rules (medical overrides; conflict feedback) |
 | `prompt47.txt` | Play Store internal testing (local-first privacy; AAB + privacy page) |
+| `prompt49.txt` | Link to clinic + share encrypted data + sponsored AI badge |
 
 ## Done (`prompts/app/done/`)
 

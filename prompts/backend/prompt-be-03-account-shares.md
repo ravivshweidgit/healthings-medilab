@@ -159,6 +159,8 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT;
 |------|---------|
 | `server/src/db/schema.sql` | `account_shares` + optional `display_name` |
 | `server/src/routes/shares.ts` | REST handlers |
+| `server/src/routes/plans.ts` | medical plan PDF relay |
+| `server/src/services/plans.ts` | upload/download; share gate |
 | `server/src/services/shares.ts` | state machine, validation, attach patient on register |
 | `server/src/services/sponsor.ts` | `resolveAiPayer()` stub for `be-06` |
 | `server/src/routes/auth.ts` | after `findOrCreateUser`, call `attachPendingShares(email)` |
@@ -166,9 +168,9 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT;
 
 ---
 
-## App integration (phase 2b — separate app prompt)
+## App integration (phase 2b — **`prompt49.txt`**)
 
-Not in this server prompt; reference only:
+Full UI spec: **`prompts/app/prompt49.txt`**. Summary:
 
 | Surface | Behavior |
 |---------|----------|
@@ -178,7 +180,77 @@ Not in this server prompt; reference only:
 | **On login** | Fetch `/v1/shares/pending-for-me`; badge if action needed |
 | **Sponsored UI** | “AI sponsored by &lt;clinic display name&gt;” when approved sponsor exists |
 
-Nutritionist **report import → My Rules** — app **`prompt46.txt`** (medical + personal; medical wins). Server linking: **`prompt-be-03-account-shares.md`**.
+Nutritionist **report import → My Rules** — app **`prompt46.txt`** (medical + personal; medical wins). **Clinic PDF upload** — § Medical plan relay below + **`prompt-be-05-clinic-dashboard.md`**.
+
+---
+
+## Medical plan relay (PDF) — clinic writes rules, phone applies
+
+**Metabolic OS loop:** clinic sets rules → AI checks each meal on phone → clinic reviews day → clinic updates rules.
+
+| Path | Who | Where rules become active |
+|------|-----|---------------------------|
+| **A — Patient import** | Patient | Phone only (`prompt46` — pick PDF locally) |
+| **B — Clinic upload** | Clinic on web | Phone after patient **Review & apply** (`prompt46` + `prompt49`) |
+
+**Local-first:** server stores **PDF file only** (relay). **No parsed rules on server.** Patient app downloads PDF → `parseMedicalPlanPdf` on device → saves `medical_rules` locally. Clinic never holds patient’s active rule JSON.
+
+### Endpoints
+
+| Endpoint | Method | Auth | Role | Body | Response |
+|----------|--------|------|------|------|----------|
+| `/v1/plans/upload` | POST | Bearer | **mentor** | multipart PDF + `{ patientId }` or `{ shareId }` | `{ plan }` |
+| `/v1/plans/pending` | GET | Bearer | **patient** | — | `{ plans[] }` awaiting apply |
+| `/v1/plans/:id/download` | GET | Bearer | **patient** | — | PDF bytes |
+| `/v1/plans/:id/applied` | POST | Bearer | **patient** | `{ appliedAt }` | `{ ok }` — after local save |
+| `/v1/plans` | GET | Bearer | mentor | `?patientId=` | list sent plans + status |
+
+**Access:** mentor upload requires **approved** share with that patient. Patient download only for plans addressed to them.
+
+### Plan object
+
+```json
+{
+  "id": "uuid",
+  "shareId": "uuid",
+  "mentorId": "uuid",
+  "patientId": "uuid",
+  "status": "pending | applied | superseded",
+  "filename": "plan-june.pdf",
+  "uploadedAt": "ISO",
+  "appliedAt": "ISO | null",
+  "clinicDisplayName": "Dr. Cohen Nutrition"
+}
+```
+
+- New clinic upload **supersedes** prior `pending` plan for same share (one pending at a time).
+- **`applied`** when patient taps Apply on phone (rules saved locally).
+
+### Schema
+
+```sql
+CREATE TABLE IF NOT EXISTS medical_plan_uploads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  share_id UUID NOT NULL REFERENCES account_shares (id) ON DELETE CASCADE,
+  mentor_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  patient_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'applied', 'superseded')),
+  filename TEXT NOT NULL,
+  storage_path TEXT NOT NULL,
+  uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  applied_at TIMESTAMPTZ
+);
+```
+
+PDF on disk under `/var/healthings/plans/` (same pattern as be-04 blobs). **Delete on share revoke** (optional retain for audit — post-MVP).
+
+### Clinic portal (be-05)
+
+Patient detail → **Upload plan (PDF)** → shows “Sent · pending patient apply” or “Applied · 2026-06-29”.
+
+### Patient app (prompt49 + prompt46)
+
+Banner: **“&lt;Clinic&gt; sent a new medical plan”** → Review (same UI as local PDF import) → **Apply** → `medical_rules` updated → POST `/applied`.
 
 ---
 
@@ -221,6 +293,7 @@ curl https://api.healthings.ai/v1/shares?status=approved \
 - [ ] Revoke → sponsor index allows new clinic link
 - [ ] Solo patient — no shares, app works
 - [ ] App UI phase 2b (when built)
+- [ ] Clinic uploads PDF → patient pending banner → apply → medical rules on phone; clinic sees **applied**
 
 ---
 
@@ -228,9 +301,10 @@ curl https://api.healthings.ai/v1/shares?status=approved \
 
 | Item | Prompt |
 |------|--------|
-| Mentor wallet + AI debit | **prompt-be-06** |
-| Encrypted blob sync | **prompt-be-04** |
-| Mentor dashboard patient list UI | **prompt-be-05** + app |
+| Mentor wallet + AI debit | **`prompt-be-06-token-wallet.md`** |
+| Encrypted blob sync | **`prompt-be-04-encrypted-sync.md`** |
+| Clinic web portal + patient charts | **`prompt-be-05-clinic-dashboard.md`** |
+| App link + share UI | **`prompt49.txt`** |
 | Token transfer between wallets | **Not MVP** — mentor is billed directly, not pre-transfer |
 | Multiple simultaneous sponsors | Post-MVP |
 | Stripe / card | Post-alpha |
