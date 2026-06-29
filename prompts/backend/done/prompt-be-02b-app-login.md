@@ -71,7 +71,7 @@ Production (2026-06-29): Let's Encrypt HTTPS on `api.healthings.ai`; Porkbun `ot
 
 ## Deferred → prompt-be-03
 
-→ **`prompt-be-03-account-shares.md`** — optional clinic link; mentor pays AI when approved.
+→ **`../prompt-be-03-account-shares.md`** — optional clinic link; mentor pays AI when approved.
 
 ## Related
 

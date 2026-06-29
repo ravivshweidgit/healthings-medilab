@@ -1,7 +1,7 @@
 # Backend Phase 2 — Account shares (patient ↔ mentor / clinic)
 
 **Status: backlog (spec draft 2026-06-29)**  
-Builds on **prompt-be-02-accounts-auth.md** · **prompt-be-02b-app-login.md**.
+Builds on **`done/prompt-be-02-accounts-auth.md`** · **`done/prompt-be-02b-app-login.md`**.
 
 ### Decisions (locked 2026-06-29)
 
@@ -239,9 +239,9 @@ curl https://api.healthings.ai/v1/shares?status=approved \
 
 ## Related
 
-- **prompt-be-01** — vision (updated GTM: many clinics, no alpha site)
-- **prompt-be-02** — auth + roles
-- **prompt-be-02b** — app login (evolve to required sign-in + link UI)
+- **`done/prompt-be-01-vision.md`** — vision (updated GTM: many clinics, no alpha site)
+- **`done/prompt-be-02-accounts-auth.md`** — auth + roles
+- **`done/prompt-be-02b-app-login.md`** — app login (evolve to required sign-in + link UI)
 - **prompt-be-06** — `resolveAiPayer()` consumer
 - App (planned) — nutritionist report import → My Rules
 

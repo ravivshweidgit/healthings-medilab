@@ -4,7 +4,8 @@ Spec/working prompts for the **backend phase**: user accounts, authentication, a
 patient ↔ dietitian data sharing (relay).
 
 - App-side prompts live in `../app/`.
-- Backend prompts: `prompt-be-01` (vision) and up.
+- **Done** specs: [`done/`](./done/README.md)
+- **Backlog** specs: this folder (`prompt-be-03+`)
 
 ## Decisions (locked 2026-06-22, hosting updated 2026-06-29)
 
@@ -15,18 +16,19 @@ patient ↔ dietitian data sharing (relay).
 | Repo | Monorepo `/server` |
 | Auth MVP | Email OTP + JWT |
 
-## Scope of this phase
+## Backlog (`prompts/backend/`)
 
-| Phase | Prompt | Status |
-|-------|--------|--------|
-| Vision | `prompt-be-01-vision.md` | done |
-| Accounts + auth | `prompt-be-02-accounts-auth.md` | done (server) |
-| App login | `prompt-be-02b-app-login.md` | **done — phone-tested 2026-06-29** |
-| Landing site | `prompt-be-07-landing-website.md` | **done — live 2026-06-29** |
-| Account shares | `prompt-be-03-account-shares.md` | **spec draft** |
-| Encrypted sync | `prompt-be-04` (planned) | backlog |
-| Mentor dashboard API | `prompt-be-05` (planned) | backlog |
-| Token wallet | `prompt-be-06` (planned) | backlog |
+| File | Topic |
+|------|--------|
+| `prompt-be-03-account-shares.md` | Patient ↔ mentor link, sponsor billing (spec draft) |
+
+Planned (no spec file yet): **be-04** encrypted sync · **be-05** mentor dashboard API · **be-06** token wallet
+
+## Done (`prompts/backend/done/`)
+
+See [done/README.md](./done/README.md) for summaries.
+
+Recent: **be-07** healthings.ai landing · **be-02b** app login · **be-02** server auth · **be-01** vision
 
 ## Principles
 

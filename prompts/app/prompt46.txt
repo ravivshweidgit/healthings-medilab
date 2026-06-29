@@ -267,8 +267,8 @@ Reuse patterns from:
 
 - **prompt20** — meal nutritionist alert; effective rules
 - **prompt39** — lab PDF import pattern
-- **prompt-be-03** — clinic mentor link (billing separate in `be-06`)
-- **prompt-be-01** — solo vs clinic paths; many clinics as mentors
+- **`prompts/backend/prompt-be-03-account-shares.md`** — clinic mentor link (billing separate in `be-06`)
+- **`prompts/backend/done/prompt-be-01-vision.md`** — solo vs clinic paths; many clinics as mentors
 
 ---
 

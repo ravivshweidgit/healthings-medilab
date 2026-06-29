@@ -1,6 +1,6 @@
 # Healthings landing site — healthings.ai
 
-Public download page for the Android app. Spec: `prompts/backend/prompt-be-07-landing-website.md`.
+Public download page for the Android app. Spec: `prompts/backend/done/prompt-be-07-landing-website.md`.
 
 ## Local preview
 

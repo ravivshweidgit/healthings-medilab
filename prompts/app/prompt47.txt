@@ -1,7 +1,7 @@
 # Prompt 47 — Google Play internal testing (local-first alpha)
 
 **Status: backlog**  
-**Builds on:** prompt15 (release signing) · prompt-be-07 (healthings.ai) · prompt-be-02b (email login)
+**Builds on:** prompt15 (release signing) · done/prompt-be-07 (healthings.ai) · done/prompt-be-02b (email login)
 
 ---
 
@@ -100,7 +100,7 @@ Deploy via `website/` + `deploy-website.sh` (same VPS).
 
 ### 5. Website + spec updates
 
-- `prompt-be-07` — add Play internal link when live
+- **`prompts/backend/done/prompt-be-07-landing-website.md`** — add Play internal link when live
 - `website/index.html` — secondary CTA “Get it on Google Play (alpha testers)”
 - `server/DEPLOY-WEBSITE.md` — privacy page deploy note
 
@@ -154,7 +154,7 @@ Deploy via `website/` + `deploy-website.sh` (same VPS).
 ## Related
 
 - **prompt15** — release signing, APK today
-- **prompt-be-07** — healthings.ai download site
-- **prompt-be-01** — local-first vision
-- **prompt-be-03** — mentor link (future server data)
+- **`done/prompt-be-07-landing-website.md`** — healthings.ai download site
+- **`done/prompt-be-01-vision.md`** — local-first vision
+- **`prompt-be-03-account-shares.md`** — mentor link (future server data)
 - **prompt-be-04** — encrypted sync (future privacy claims)

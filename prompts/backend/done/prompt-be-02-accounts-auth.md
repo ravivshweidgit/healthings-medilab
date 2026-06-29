@@ -88,7 +88,7 @@ refresh_tokens (id uuid PK, user_id FK, token_hash text, expires_at, revoked_at,
 
 ## Deferred → prompt-be-03
 
-→ **`prompt-be-03-account-shares.md`** — patient ↔ clinic mentor link, sponsor flag for `be-06`.
+→ **`../prompt-be-03-account-shares.md`** — patient ↔ clinic mentor link, sponsor flag for `be-06`.
 
 ## Related
 
