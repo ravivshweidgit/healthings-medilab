@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Healthings Medilab — AI metabolic health coach. Track glucose, meals, and progress with your mentor."
+    />
+    <title>Healthings Medilab — Download</title>
+    <link rel="icon" href="assets/icon.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="hero">
+        <img
+          class="logo"
+          src="assets/brand-logo.png"
+          width="640"
+          height="200"
+          alt="Healthings Medilab"
+        />
+        <p class="badge">Android alpha</p>
+        <h1>Your metabolic health coach</h1>
+        <p class="lead">
+          Connect CGM and meals, get AI coaching, and share progress with your mentor — private
+          by design, on your phone.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Download the app</h2>
+        <a id="download-link" class="download-btn" href="downloads/healthings-medilab.apk">
+          Download for Android
+        </a>
+        <p id="download-status" class="download-note">
+          Free alpha · email sign-in · no password
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>What you get</h2>
+        <ul class="features">
+          <li>CGM trends and meal logging in one place</li>
+          <li>AI coach that knows your rules and targets</li>
+          <li>Optional mentor / clinic link (coming soon)</li>
+          <li>Fingerprint unlock after first sign-in</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>Install (Android)</h2>
+        <ol class="steps">
+          <li>Tap <strong>Download for Android</strong> above.</li>
+          <li>If prompted, allow installs from your browser (unknown sources).</li>
+          <li>Open the APK and install <strong>Healthings</strong>.</li>
+          <li>Sign in with your email — we send a one-time code (no password).</li>
+        </ol>
+      </section>
+
+      <p class="footer">
+        Questions? <a href="mailto:otp@healthings.ai">otp@healthings.ai</a><br />
+        API: <a href="https://api.healthings.ai/health">api.healthings.ai</a>
+      </p>
+    </main>
+    <script>
+      fetch('downloads/healthings-medilab.apk', { method: 'HEAD' })
+        .then(function (res) {
+          if (!res.ok) throw new Error('missing');
+        })
+        .catch(function () {
+          var link = document.getElementById('download-link');
+          var status = document.getElementById('download-status');
+          link.classList.add('disabled');
+          link.removeAttribute('href');
+          status.textContent = 'APK not published yet — check back soon.';
+        });
+    </script>
+  </body>
+</html>

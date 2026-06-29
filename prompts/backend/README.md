@@ -22,6 +22,7 @@ patient ↔ dietitian data sharing (relay).
 | Vision | `prompt-be-01-vision.md` | done |
 | Accounts + auth | `prompt-be-02-accounts-auth.md` | done (server) |
 | App login | `prompt-be-02b-app-login.md` | **done — phone-tested 2026-06-29** |
+| Landing site | `prompt-be-07-landing-website.md` | **scaffold in repo — deploy pending** |
 | Account shares | `prompt-be-03-account-shares.md` | **spec draft** |
 | Encrypted sync | `prompt-be-04` (planned) | backlog |
 | Mentor dashboard API | `prompt-be-05` (planned) | backlog |
