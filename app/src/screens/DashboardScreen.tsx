@@ -51,7 +51,7 @@ import {
 import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportWithSessions } from '../services/careSensCsv';
 import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getRecentMeals, getDailyMacros, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
-import { getAllLabReports, getLabsAiContextForHeader, type LabReport } from '../services/LabLogService';
+import { buildLabsAiContext, getAllLabReports, type LabReport } from '../services/LabLogService';
 import { exportLocalBackup, importLocalBackup } from '../services/LocalBackupService';
 import { buildGlucoseMentorContext } from '../logic/mealGlucoseAnalysis';
 import { activeMentorEmojis, mentorsCollectiveLabel } from '../logic/mentorLabels';
@@ -241,15 +241,29 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
   const [profileExpanded, setProfileExpanded] = useState(false);
 
-  const loadLabReports = useCallback(async () => {
-    const [reports, ctx, mt] = await Promise.all([
+  const loadLabReports = useCallback(async (refreshCoach = false) => {
+    const [reports, mt] = await Promise.all([
       getAllLabReports(),
-      getLabsAiContextForHeader(),
       getMacroTarget(),
     ]);
+    const ctx = buildLabsAiContext(reports, 'all');
     setLabReports(reports);
     setLabsAiContext(ctx);
     if (mt) setMacroTarget(mt);
+
+    if (coachContextRef.current) {
+      coachContextRef.current = { ...coachContextRef.current, labsAiContext: ctx };
+    }
+
+    if (refreshCoach && ctx && coachContextRef.current) {
+      const storedLang = await getLanguage();
+      const newMsg = await triggerCoachReview('meal', {
+        ...coachContextRef.current,
+        lang: storedLang,
+        event: 'meal',
+      });
+      if (newMsg) setCoachMsg(newMsg);
+    }
   }, []);
 
   const loadHeightAndBirthdate = useCallback(async () => {
@@ -1449,7 +1463,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         {/* Lab results — least-used; bottom of dashboard */}
         <LabResultsStrip
           reports={labReports}
-          onReportsChanged={loadLabReports}
+          onReportsChanged={() => void loadLabReports(true)}
           lang={userLanguage}
         />
       </ScrollView>

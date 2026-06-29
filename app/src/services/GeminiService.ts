@@ -1694,7 +1694,7 @@ export type CoachContext = {
   macroTarget: DailyMacroTarget | null;
   bodyTarget: BodyTarget | null;
   userRules: UserRules | null;
-  /** Latest lab draw formatted for mentors (from LabLogService). */
+  /** All saved lab draws formatted for mentors (from LabLogService). */
   labsAiContext: string | null;
 };
 

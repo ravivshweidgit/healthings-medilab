@@ -161,10 +161,10 @@ function formatReportBlock(report: LabReport, prefix: string): string[] {
   return lines;
 }
 
-/** Build mentor context — latest draw or multi-report history. */
+/** Build mentor context — one draw, all saved draws, or period-review window. */
 export function buildLabsAiContext(
   reports: LabReport[],
-  mode: 'latest' | 'history' = 'latest',
+  mode: 'latest' | 'all' | 'history' = 'latest',
 ): string | null {
   if (reports.length === 0) return null;
   const sorted = [...reports].sort((a, b) => b.collectedAt.localeCompare(a.collectedAt));
@@ -172,7 +172,9 @@ export function buildLabsAiContext(
   const header =
     mode === 'latest'
       ? 'LAB RESULTS (latest draw — local PDFs, not medical advice):'
-      : `LAB HISTORY (${slice.length} draw${slice.length === 1 ? '' : 's'} in review window — not medical advice):`;
+      : mode === 'all'
+        ? `LAB RESULTS (${slice.length} saved draw${slice.length === 1 ? '' : 's'} — local PDFs, not medical advice):`
+        : `LAB HISTORY (${slice.length} draw${slice.length === 1 ? '' : 's'} in review window — not medical advice):`;
   const lines: string[] = [header];
   for (const r of slice) {
     lines.push(...formatReportBlock(r, 'Report'));
@@ -180,9 +182,10 @@ export function buildLabsAiContext(
   return lines.join('\n');
 }
 
+/** All saved lab draws — injected into coach panel + chat USER DATA on every turn. */
 export async function getLabsAiContextForHeader(): Promise<string | null> {
-  const latest = await getLatestLabReport();
-  return buildLabsAiContext(latest ? [latest] : [], 'latest');
+  const all = await getAllLabReports();
+  return buildLabsAiContext(all, 'all');
 }
 
 export type KidneyLabMarker = {
