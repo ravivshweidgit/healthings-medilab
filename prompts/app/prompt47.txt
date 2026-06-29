@@ -1,0 +1,160 @@
+# Prompt 47 — Google Play internal testing (local-first alpha)
+
+**Status: backlog**  
+**Builds on:** prompt15 (release signing) · prompt-be-07 (healthings.ai) · prompt-be-02b (email login)
+
+---
+
+## Problem
+
+Alpha testers (Ehud, mentors, early patients) struggle with **sideload APK** from healthings.ai:
+
+- “Install blocked” / unknown sources
+- ~101 MB download, no auto-updates
+- Trust: “Why isn’t it on the Play Store?”
+
+We need **normal Play install** for a small tester list without a full public launch.
+
+---
+
+## Why local-first helps Play review
+
+Healthings is **local-first** — the phone is the source of truth. This is our strongest Play Store story.
+
+| Data | Where it lives | Sent to server? |
+|------|----------------|-----------------|
+| CGM, meals, labs, rules, macros, backups | **On device** (AsyncStorage / local files) | **No** (alpha) |
+| Email + OTP auth | Server (`api.healthings.ai`) | Yes — account identity only |
+| Gemini AI prompts | Google API from app | User-initiated; meal/CGM text in request |
+| Withings OAuth | Withings + local tokens | Not our server DB (alpha) |
+| Mentor share / encrypted sync | Future (be-03+) | Not in this prompt |
+
+**Play listing tone:** personal metabolic coach · track meals & glucose on your phone · alpha · not a medical device · does not diagnose.
+
+**We do NOT claim** zero-knowledge E2E sync until be-04 ships — be honest: health metrics stay on device; server holds account email and (later) encrypted blobs only.
+
+---
+
+## What ships
+
+### 1. Build pipeline
+
+| Item | Detail |
+|------|--------|
+| AAB | `cd app/android && .\gradlew.bat bundleRelease` |
+| Output | `app/build/outputs/bundle/release/app-release.aab` |
+| Signing | Existing `keystore.properties` + `healthings-release.keystore` |
+| Optional size | `reactNativeArchitectures=arm64-v8a` for phone-only (~half APK size; Play serves per-device anyway) |
+| Version | Bump `versionCode` + `versionName` each upload |
+
+Script (new): `app/scripts/bundle-release.ps1` — build AAB, print path + version.
+
+### 2. Play Console — **internal testing** track (not production)
+
+| Step | Detail |
+|------|--------|
+| Account | Google Play Developer — **$25 one-time** (owner pays once) |
+| App id | `com.healthings.medilab` (must match `app.json` / manifest) |
+| Upload | First AAB to **Internal testing** |
+| Testers | Email list (Ehud, Raviv, …) — max 100 internal |
+| Link | Play-generated opt-in URL — share instead of APK sideload |
+
+No public store listing required for internal-only; minimal listing still needed inside console.
+
+### 3. Required web pages (healthings.ai)
+
+| Page | Purpose |
+|------|---------|
+| `/privacy` | Privacy policy — local-first, email auth, Gemini/Withings third parties |
+| `/` (update) | “Join alpha on Play Store” button when link exists; keep APK as fallback |
+
+Deploy via `website/` + `deploy-website.sh` (same VPS).
+
+**Privacy policy must state clearly:**
+
+- Health data (glucose, meals, labs, weight) stored **on your device**
+- You can export/delete via in-app backup
+- Account: email + OTP only; no password
+- AI: meal/CGM context sent to Google Gemini when you use coach features
+- Withings: optional OAuth; data stays in app
+- Contact: otp@healthings.ai
+- Alpha software — not for emergency medical use
+
+### 4. Play Console forms (draft answers)
+
+**Data safety (high level):**
+
+- Collects: email address (account)
+- Does **not** collect health data to developer server (alpha)
+- Data encrypted in transit (HTTPS API)
+- Users can request account deletion (manual alpha: email support)
+- Health Connect: read blood glucose — used for on-device charts only
+
+**Health apps / sensitive permissions:**
+
+- Declare Health Connect glucose read
+- Purpose: user-initiated wellness tracking, not diagnosis
+- Link to privacy policy
+
+**Content rating:** questionnaire — no violence; health/wellness
+
+### 5. Website + spec updates
+
+- `prompt-be-07` — add Play internal link when live
+- `website/index.html` — secondary CTA “Get it on Google Play (alpha testers)”
+- `server/DEPLOY-WEBSITE.md` — privacy page deploy note
+
+---
+
+## Out of scope (this prompt)
+
+- Public production release / marketing listing
+- Play billing / subscriptions
+- Data safety for server-side health sync (be-03 / be-04)
+- iOS App Store
+- Removing APK download (keep both during alpha)
+
+---
+
+## Primary files
+
+| Path | Purpose |
+|------|---------|
+| `app/android/app/build.gradle` | versionCode / versionName |
+| `app/android/gradle.properties` | optional arm64-only |
+| `app/scripts/bundle-release.ps1` | AAB build helper |
+| `website/privacy.html` | Privacy policy |
+| `website/index.html` | Play + APK CTAs |
+| `server/DEPLOY-WEBSITE.md` | deploy notes |
+
+---
+
+## Phone-tested checklist
+
+- [ ] AAB builds signed with release keystore
+- [ ] Internal testing link opens Play Store on tester phone
+- [ ] Install → open → login (OTP) → dashboard
+- [ ] Health Connect permission flow still works after Play install
+- [ ] Update: upload new AAB with higher versionCode → tester gets update via Play
+- [ ] Privacy policy URL loads from Play listing
+
+---
+
+## Risks / mitigations
+
+| Risk | Mitigation |
+|------|------------|
+| Google rejects health app | Local-first copy; no diagnostic claims; internal track first |
+| Review delay (days) | Start internal while keeping healthings.ai APK |
+| Keystore loss | Backup `healthings-release.keystore` + passwords offline (not git) |
+| versionCode forget | Script echoes version; checklist before upload |
+
+---
+
+## Related
+
+- **prompt15** — release signing, APK today
+- **prompt-be-07** — healthings.ai download site
+- **prompt-be-01** — local-first vision
+- **prompt-be-03** — mentor link (future server data)
+- **prompt-be-04** — encrypted sync (future privacy claims)

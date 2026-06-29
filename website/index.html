@@ -35,8 +35,16 @@
         </p>
       </section>
 
+      <section id="play-section" class="card" hidden>
+        <h2>Google Play (alpha testers)</h2>
+        <a id="play-link" class="download-btn play-btn" href="#">
+          Get it on Google Play
+        </a>
+        <p class="download-note">Recommended for testers — installs and updates via Play Store.</p>
+      </section>
+
       <section class="card">
-        <h2>Download the app</h2>
+        <h2>Download the app (APK)</h2>
         <a id="download-link" class="download-btn" href="downloads/healthings-medilab.apk">
           Download for Android
         </a>
@@ -56,7 +64,16 @@
       </section>
 
       <section class="card">
-        <h2>Install (Android)</h2>
+        <h2>Install from Google Play</h2>
+        <ol class="steps">
+          <li>Open the <strong>Play Store alpha link</strong> from your invite email.</li>
+          <li>Tap <strong>Become a tester</strong>, then <strong>Download</strong>.</li>
+          <li>Sign in with your email — we send a one-time code (no password).</li>
+        </ol>
+      </section>
+
+      <section class="card">
+        <h2>Install from APK</h2>
         <ol class="steps">
           <li>Tap <strong>Download for Android</strong> above.</li>
           <li>If prompted, allow installs from your browser (unknown sources).</li>
@@ -67,10 +84,21 @@
 
       <p class="footer">
         Questions? <a href="mailto:otp@healthings.ai">otp@healthings.ai</a><br />
+        <a href="privacy.html">Privacy policy</a> ·
         API: <a href="https://api.healthings.ai/health">api.healthings.ai</a>
       </p>
     </main>
     <script>
+      // Paste Play Console internal-testing opt-in URL after first upload:
+      var PLAY_STORE_ALPHA_URL = '';
+
+      if (PLAY_STORE_ALPHA_URL) {
+        var playSection = document.getElementById('play-section');
+        var playLink = document.getElementById('play-link');
+        playSection.hidden = false;
+        playLink.href = PLAY_STORE_ALPHA_URL;
+      }
+
       fetch('downloads/healthings-medilab.apk', { method: 'HEAD' })
         .then(function (res) {
           if (!res.ok) throw new Error('missing');

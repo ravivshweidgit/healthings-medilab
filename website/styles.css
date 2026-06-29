@@ -136,6 +136,34 @@ h1 {
   background: var(--green-dark);
 }
 
+.download-btn.play-btn {
+  background: var(--navy);
+}
+
+.download-btn.play-btn:hover {
+  background: #0f1a24;
+}
+
+.prose h2 {
+  font-size: 1rem;
+  margin: 24px 0 8px;
+  color: var(--navy);
+}
+
+.prose h2:first-child {
+  margin-top: 0;
+}
+
+.prose p,
+.prose ul {
+  margin: 0 0 12px;
+  color: var(--text);
+}
+
+.prose ul {
+  padding-left: 1.2rem;
+}
+
 .download-btn.disabled {
   background: #b0b0b0;
   pointer-events: none;

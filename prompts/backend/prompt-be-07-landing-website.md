@@ -37,7 +37,8 @@ Mentors and users need a single URL to discover and **download** the app (`healt
 
 ## Deferred
 
-- Play Store link when listed
+- Play Store internal testing → **`prompt47.txt`**
+- Play Store public link when listed
 - Mentor sign-up / waitlist form
 - iOS TestFlight
 - GitHub Releases as alternate APK host
