@@ -1,6 +1,6 @@
 # Backend — Landing website (healthings.ai)
 
-**Status: backlog** — site scaffold in repo; DNS + VPS deploy pending  
+**Status: shipped (2026-06-29)** — live at https://healthings.ai  
 Builds on **prompt-be-01-vision.md** § distribution.
 
 ---
@@ -9,7 +9,7 @@ Builds on **prompt-be-01-vision.md** § distribution.
 
 Mentors and users need a single URL to discover and **download** the app (`healthings.ai`), not only the API subdomain.
 
-## What ships (repo)
+## What ships
 
 | Area | Detail |
 |------|--------|
@@ -18,6 +18,7 @@ Mentors and users need a single URL to discover and **download** the app (`healt
 | APK publish | `website/scripts/publish-apk.ps1` / `.sh` |
 | Deploy | `server/scripts/deploy-website.sh` + `DEPLOY-WEBSITE.md` |
 | Nginx | `healthings.ai` + `www` → `/var/www/healthings`; `/downloads/` APK MIME |
+| Live URLs | https://healthings.ai · https://www.healthings.ai · APK at `/downloads/healthings-medilab.apk` |
 
 ## UX
 
@@ -28,11 +29,11 @@ Mentors and users need a single URL to discover and **download** the app (`healt
 
 ## Deploy checklist
 
-- [ ] DNS: apex + `www` → Hetzner VPS
-- [ ] `git pull` on VPS + `deploy-website.sh`
-- [ ] Certbot TLS for `healthings.ai`, `www.healthings.ai`
-- [ ] Publish APK (`publish-apk` + scp or build on CI)
-- [ ] Phone: open healthings.ai → download → install → login
+- [x] DNS: apex + `www` A → `178.105.218.202` (Porkbun)
+- [x] `git pull` on VPS + `deploy-website.sh`
+- [x] Certbot TLS for `healthings.ai`, `www.healthings.ai`
+- [x] Publish APK (`publish-apk` + scp to VPS)
+- [ ] Phone: open healthings.ai → download → install → login (full path from browser)
 
 ## Deferred
 
@@ -40,6 +41,7 @@ Mentors and users need a single URL to discover and **download** the app (`healt
 - Mentor sign-up / waitlist form
 - iOS TestFlight
 - GitHub Releases as alternate APK host
+- Remove optional `*.healthings.ai` → `pixie.porkbun.com` wildcard in Porkbun
 
 ## Related
 
