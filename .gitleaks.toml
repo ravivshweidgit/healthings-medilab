@@ -1,0 +1,15 @@
+title = "healthings-medilab gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+  '''server/DEPLOY-HETZNER\.md''',
+  '''server/DEPLOY-WEBSITE\.md''',
+  '''server/scripts/enable-smtp\.sh''',
+  '''server/scripts/set-smtp-porkbun\.sh''',
+  '''server/\.env\.example''',
+  '''app/\.env\.example''',
+  '''prompts/''',
+]
