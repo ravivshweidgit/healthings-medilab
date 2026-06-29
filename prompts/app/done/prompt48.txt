@@ -1,0 +1,120 @@
+## Prompt 48 — Lipid trend charts + all lab draws in mentor context
+
+**Status: done (2026-06-29)** — Shipped and phone-tested.
+
+**Commits:**
+- `308500f` — Give mentors access to all saved lab reports in chat and coach context.
+- `fa0d6b1` — Add four-strip lipid trend charts with green safe zones under lab results.
+
+**Builds on:** `done/prompt30.txt` (lab log), `done/prompt39.txt` (lab strip on dashboard).
+
+**Supersedes in prompt30:** “No chart v1” and “latest report only” default mentor scope (see prompt30 § Superseded by prompt48).
+
+---
+
+### Problems
+
+1. **Single combined lipid chart** — Total, LDL, HDL, and TG shared one Y-axis; HDL/TG labels collided; trends were hard to read.
+2. **Mentors saw only the latest draw** — Older lab imports were invisible in chat/coach USER DATA; users asking “how did my LDL change?” needed `/N` wide enough to cover both dates.
+
+---
+
+### What shipped
+
+#### 48a — Four-strip lipid trend charts (dashboard)
+
+**Component:** `app/src/components/LipidTrendChart.tsx`
+
+Stacked mini-charts (energy-strip pattern), shown in `LabResultsStrip` when ≥2 draw days have lipid data:
+
+| Strip | Safe zone (green band) | Direction |
+|-------|------------------------|-----------|
+| **TOTAL** | &lt; 200 mg/dL | Lower is better — fill below threshold |
+| **LDL** | &lt; 100 mg/dL | Lower is better |
+| **TG** | &lt; 150 mg/dL | Lower is better |
+| **HDL** | ≥ 40 (male) / ≥ 50 (female) mg/dL | Higher is better — fill **above** threshold |
+
+**Behaviour:**
+- Each strip **auto-scales Y** from that metric’s values + always includes the target band in domain.
+- One line + value label **below** each dot (no cross-series collision).
+- Strips with &lt;2 data points for that metric are **hidden**.
+- Shared X-axis (draw dates) at bottom; strip title shows target (e.g. `LDL · <100 mg/dL`).
+- Disclaimer: *General adult targets — not medical advice* (EN) / Hebrew equivalent when RTL.
+- With only one draw: hint *Import another draw to see cholesterol trends* (no chart).
+
+**Data helper:** `buildLipidTrendPoints(reports)` in `LabLogService.ts` — one row per draw day, fields: `ldl`, `totalCholesterol`, `hdl`, `triglycerides`.
+
+**Gender:** `DashboardScreen` passes `userGender` → `LabResultsStrip` → `LipidTrendChart` for HDL threshold.
+
+#### 48b — All saved lab draws in mentor USER DATA
+
+**Service:** `LabLogService.getLabsAiContextForHeader()`
+
+- Loads **all** reports via `getAllLabReports()`.
+- Formats with `buildLabsAiContext(reports, 'all')`:
+  ```
+  LAB RESULTS (N saved draws — local PDFs, not medical advice):
+  Report 2026-06-16 (Clalit) — chemistry:
+    ...
+  Report 2026-06-29 (Clalit) — chemistry:
+    ...
+  ```
+
+**Where injected (unchanged paths, expanded scope):**
+
+| Surface | Function | When loaded |
+|---------|----------|-------------|
+| Chat | `buildFreshContext()` → `getLabsAiContextForHeader()` | Every send |
+| Coach panel | `buildProfileTargetsHeader()` via `labsAiContext` | Every `generateCoachMessage()` / refresh after lab save |
+
+**Coach refresh on lab save:** `loadLabReports(true)` in `DashboardScreen` calls `triggerCoachReview` so panel picks up new labs without opening chat.
+
+**Period review (`/N`):** unchanged — still uses `getLabReportsForDayKeys` + `buildLabsAiContext(..., 'history')` for window-scoped history.
+
+---
+
+### Primary files
+
+| File | Role |
+|------|------|
+| `app/src/components/LipidTrendChart.tsx` | Four-strip SVG charts + safe zones |
+| `app/src/services/LabLogService.ts` | `buildLipidTrendPoints`, `buildLabsAiContext` mode `'all'`, `getLabsAiContextForHeader` |
+| `app/src/components/LabResultsStrip.tsx` | Renders chart; passes `gender` |
+| `app/src/screens/DashboardScreen.tsx` | `gender={userGender}`; coach refresh on lab import |
+| `app/src/services/GeminiService.ts` | `CoachContext.labsAiContext` comment (all draws) |
+
+---
+
+### Phone-tested (2026-06-29)
+
+**Lipid charts**
+- [x] Two+ chemistry draws → four strips (Total, LDL, TG, HDL) visible.
+- [x] Green safe zones match targets (Total/ LDL/ TG below, HDL above).
+- [x] Value labels below dots; no HDL/TG collision; right-edge labels not clipped after margin tweak.
+- [x] Hebrew title + disclaimer; strip headers show thresholds.
+- [x] One draw only → hint to import another (no chart).
+
+**Mentors — all draws**
+- [x] After importing second draw, mentors can cite values from **both** dates without `/N`.
+- [x] Coach panel refreshes after lab save (`loadLabReports(true)`).
+
+**Regression**
+- [x] Lab import/export, PDF parse, report chips unchanged.
+- [x] Food log, CGM, coach chat still work.
+
+---
+
+### Deferred
+
+- Amber **borderline** bands (e.g. Total 200–239) — optional polish.
+- **Trend delta in strip title** (e.g. `LDL · ↓51`) — backlog if users ask.
+- Parse per-test `referenceText` from PDF for dynamic thresholds instead of fixed adult defaults.
+- Secondary findings strip (liver, iron, uric acid) → `prompt38.txt`.
+
+---
+
+### Related
+
+- `done/prompt30.txt` — lab log v1; chart + mentor scope superseded here.
+- `done/prompt39.txt` — lab strip placement on dashboard.
+- `.cursor/rules/build-workflow.mdc` — **bi** = build + install shorthand (same session).

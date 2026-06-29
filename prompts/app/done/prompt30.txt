@@ -195,7 +195,9 @@ Flow mirrors `FoodLogModal.tsx`:
 **Flag colors:** high/low subtle amber/red; normal green; unknown grey.
 
 #### No chart v1
-Table + mentor context only. Trend chart (LDL over time) = prompt31+.
+Table + mentor context only. ~~Trend chart (LDL over time) = prompt31+.~~ **Shipped in prompt48** — four-strip lipid trends on dashboard.
+
+> **Superseded by prompt48 (2026-06-29):** Lipid trend charts + all-draw mentor context. See `done/prompt48.txt`.
 
 ---
 
@@ -214,19 +216,19 @@ Report 2026-06-16 (Clalit) — chemistry + cbc:
 **Where injected (both paths, always):**
 | Surface | Function | When loaded |
 |---|---|---|
-| Chat mentors | `buildChatDataBlock()` → `buildProfileTargetsHeader()` | Every send via `buildFreshContext()` + `getLatestLabReport()` |
+| Chat mentors | `buildChatDataBlock()` → `buildProfileTargetsHeader()` | Every send via `buildFreshContext()` + `getLabsAiContextForHeader()` (all draws — prompt48) |
 | Coach panel | `buildCoachDataBlock()` → same header | Every `generateCoachMessage()` / refresh |
 
 **Scope (default vs /N):**
 
 | Mode | Lab reports in context |
 |---|---|
-| **Default** (every chat turn + coach panel) | **Latest report only** — the single most recent merged draw (all panels for that date) |
+| **Default** (every chat turn + coach panel) | ~~**Latest report only**~~ → **All saved draws** (prompt48) — every stored report in `LAB RESULTS (N saved draws …)` |
 | **`/N` period review** (`/7`, `/30`, …) | Every stored report whose **report date** falls in the **same N-day window** as PERIOD REVIEW (today + N−1 prior days), as `LAB HISTORY (N-day window)` — one block per draw day, each with all its panels |
 
-- Storage may have many draw days; default context stays small (1 report).
-- Trend questions ("how did my LDL change?") need `/N` wide enough to cover both draw dates.
-- Coach panel always uses **latest report only** (no slash commands on dashboard).
+- ~~Storage may have many draw days; default context stays small (1 report).~~ Default now includes full lab history (prompt48); token budget still compact per draw.
+- Trend questions on dashboard chart use `LipidTrendChart`; mentors also see all draws in USER DATA without `/N`.
+- ~~Coach panel always uses **latest report only** (no slash commands on dashboard).~~ Coach panel uses **all saved draws** (prompt48).
 
 **Per-mentor behaviour (prompt rules):**
 | Mentor | Must use labs for |
@@ -336,3 +338,5 @@ type LabExportPayload = {
 
 ### Status
 **Implemented and phone-tested (2026-06-16).** Clalit chemistry + CBC PDFs validated; lab card on dashboard below food log; mentor context + `/N` lab history wired. prompt29 backup keys still open.
+
+**Follow-up shipped in prompt48 (2026-06-29):** Four-strip lipid trend charts; default mentor/coach context = all saved lab draws (`308500f`, `fa0d6b1`).
