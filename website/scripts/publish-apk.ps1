@@ -10,5 +10,5 @@ if (-not (Test-Path $ApkSrc)) {
 
 Copy-Item -Force $ApkSrc $ApkDst
 $Size = [math]::Round((Get-Item $ApkDst).Length / 1MB, 1)
-Write-Host "OK — ${Size} MB → website\downloads\healthings-medilab.apk"
+Write-Host "OK - ${Size} MB -> website\downloads\healthings-medilab.apk"
 Write-Host "Deploy: bash server/scripts/deploy-website.sh (on VPS after rsync/scp)"
