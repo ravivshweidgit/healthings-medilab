@@ -133,26 +133,20 @@ Same units as `scripts/hetzner-bootstrap.sh` (WorkingDirectory `/opt/healthings-
 
 **To send email now** (Resend — free tier, ~5 min):
 
-1. Sign up at [resend.com](https://resend.com) → **API Keys** → create key (`re_…`)
+1. Sign up at [resend.com](https://resend.com) → **API Keys** → create key
 2. Open **Hetzner Cloud** → your server → **Console** (browser SSH as root)
-3. Run (paste your key):
+3. Run (paste your key from the Resend dashboard — do not commit it):
 
 ```bash
 cd /opt/healthings-api && git pull
-SMTP_PASS=re_PASTE_YOUR_KEY_HERE \
-SMTP_FROM="Healthings <onboarding@resend.dev>" \
+export SMTP_PASS='paste-key-from-resend-dashboard'
+export SMTP_FROM='Healthings <onboarding@resend.dev>'
 bash server/scripts/enable-smtp.sh
 ```
 
-Use `onboarding@resend.dev` for first test; then verify **healthings.ai** in Resend (add DNS records where you manage the domain) and set:
+Use `onboarding@resend.dev` for first test; then verify **healthings.ai** in Resend (add DNS records where you manage the domain) and set `SMTP_FROM` to `Healthings <otp@healthings.ai>` before re-running the script.
 
-```bash
-SMTP_PASS=re_xxx SMTP_FROM="Healthings <otp@healthings.ai>" bash server/scripts/enable-smtp.sh
-```
-
-**Stack:** API on **Hetzner VPS** · domain **healthings.ai** (Porkbun) · OTP mail via **Porkbun Email Hosting** (`otp@healthings.ai`).
-
-Interactive setup on the VPS (prompts for mailbox password):
+**Production (current):** Porkbun mailbox — interactive setup on the VPS (password never in git):
 
 ```bash
 /root/set-smtp-porkbun.sh

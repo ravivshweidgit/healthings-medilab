@@ -2,8 +2,12 @@
 # Switch Healthings API from console OTP to real SMTP email.
 # Run on Hetzner VPS as root (Hetzner Console → SSH if no local key).
 #
-# Resend (recommended — works with healthings.ai on Hetzner):
-#   SMTP_PASS=re_xxxxxxxx SMTP_FROM="Healthings <otp@healthings.ai>" ./enable-smtp.sh
+# Resend: create an API key at resend.com, then:
+#   export SMTP_PASS='your-key-from-dashboard'
+#   export SMTP_FROM='Healthings <otp@healthings.ai>'
+#   ./enable-smtp.sh
+#
+# Porkbun mailbox: use server/scripts/set-smtp-porkbun.sh (prompts for password).
 set -euo pipefail
 
 ENV_FILE="${ENV_FILE:-/opt/healthings-api/server/.env}"
@@ -14,8 +18,8 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 
 if [ -z "${SMTP_PASS:-}" ]; then
-  echo "Set SMTP_PASS (Resend API key or mailbox password)."
-  echo "Example: SMTP_PASS=re_xxx SMTP_FROM='Healthings <otp@healthings.ai>' $0"
+  echo "Set SMTP_PASS in the environment (Resend API key or mailbox password)."
+  echo "Example: export SMTP_PASS='your-key-or-password' && $0"
   exit 1
 fi
 

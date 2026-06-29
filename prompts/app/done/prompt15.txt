@@ -15,12 +15,12 @@ installed on the device and run independently — no Metro bundler, no PC requir
 
 #### Step 2 — Generate release keystore ✓
 - Keystore: `app/android/app/healthings-release.keystore`
-- Alias: `healthings`, Password: `REDACTED`
-- Added `*.keystore` and `*.jks` to `app/android/.gitignore` — never committed
+- Alias: `healthings`; passwords in `app/android/keystore.properties` (gitignored — see `keystore.properties.example`)
+- Added `*.keystore`, `*.jks`, and `keystore.properties` to `app/android/.gitignore` — never committed
 
 #### Step 3 — Wire keystore into gradle ✓
-- `app/android/gradle.properties` — added MYAPP_RELEASE_* properties (password in file, not committed)
-- `app/android/app/build.gradle` — added `signingConfigs.release` block with `hasProperty` guard
+- `app/android/keystore.properties` — local signing secrets (not in git)
+- `app/android/app/build.gradle` — `signingConfigs.release` reads `keystore.properties`
 - Release `buildType` now uses `signingConfigs.release` instead of `signingConfigs.debug`
 - **JDK fix**: added `org.gradle.java.home=C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.8.9-hotspot`
   to `gradle.properties` — JDK 24 (system default) caused CMake restriction errors with
@@ -99,4 +99,4 @@ For subsequent updates (same release keystore):
 - Play Store internal track: change `assembleRelease` → `bundleRelease` to get an AAB,
   upload to Play Console for distribution without sideloading
 - OTA updates via expo-updates (JS-only updates without reinstalling APK)
-- Move keystore password out of gradle.properties into a local-only secrets file
+- ~~Move keystore password out of gradle.properties~~ → done (`keystore.properties`, gitignored)
