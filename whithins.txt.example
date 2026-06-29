@@ -1,0 +1,9 @@
+application information
+
+ClientID    your_withings_client_id
+
+Secret  your_withings_client_secret
+
+# Copy to whithins.txt (gitignored) or set in app/.env:
+# WITHINGS_CLIENT_ID=...
+# WITHINGS_CLIENT_SECRET=...
