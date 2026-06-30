@@ -53,6 +53,7 @@ import { parseCareSensAirExportWithSessions } from '../services/careSensCsv';
 import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getRecentMeals, getDailyMacros, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
 import { buildLabsAiContext, getAllLabReports, type LabReport } from '../services/LabLogService';
 import { exportLocalBackup, importLocalBackup } from '../services/LocalBackupService';
+import { shareVisitReport, VISIT_REPORT_DAY_OPTIONS, type VisitReportDayCount } from '../services/visitReportService';
 import { buildGlucoseMentorContext } from '../logic/mealGlucoseAnalysis';
 import { activeMentorEmojis, mentorsCollectiveLabel } from '../logic/mentorLabels';
 import {
@@ -175,6 +176,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [visitReportBusy, setVisitReportBusy] = useState(false);
   const [accountExpanded, setAccountExpanded] = useState(false);
 
   const [trendPeriodDays, setTrendPeriodDays] = useState<number>(DEFAULT_TREND_PERIOD_DAYS);
@@ -507,6 +509,55 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     () => buildGlucoseMentorContext(todayFoodEntries, glucoseData, cgmSessionStarts, cgmStatSummary),
     [todayFoodEntries, glucoseData, cgmSessionStarts, cgmStatSummary],
   );
+
+  const visitReportUi = useMemo(() => {
+    const dayLabel = (n: VisitReportDayCount): string => {
+      if (userLanguage.code === 'he') {
+        if (n === 90) return '90 ימים (~3 חודשים)';
+        return `${n} ימים`;
+      }
+      if (userLanguage.code === 'ar') {
+        if (n === 90) return '90 يوماً (~3 أشهر)';
+        return `${n} ${n === 7 || n === 30 ? 'أيام' : 'يوماً'}`;
+      }
+      if (n === 90) return '90 days (~3 mo)';
+      return `${n} days`;
+    };
+    if (userLanguage.code === 'he') {
+      return {
+        title: 'דוח ביקור',
+        subtitle: 'דוח הערכת תזונה פנימית — סיכום מקצועי + נספח נתונים מלא',
+        dayLabel,
+        busy: 'מכין דוח…',
+        doneTitle: 'דוח מוכן',
+        doneMessage: 'בחר/י איך לשתף (אימייל, Drive, הדפסה)',
+        errorTitle: 'דוח ביקור',
+        cgmNote: 'נספח א: גרפים (שומנים, גוף, אנרגיה, CGM). CGM דקה-דקה — בנספח ב (7 ימים).',
+      };
+    }
+    if (userLanguage.code === 'ar') {
+      return {
+        title: 'تقرير الزيارة',
+        subtitle: 'نتائج المختبر — كل السجل. ملخص CGM/الوجبات — حسب الفترة.',
+        dayLabel,
+        busy: 'جاري التحضير…',
+        doneTitle: 'التقرير جاهز',
+        doneMessage: 'اختر طريقة المشاركة (بريد، Drive، طباعة)',
+        errorTitle: 'تقرير الزيارة',
+        cgmNote: 'CGM كل 5 دقائق في 7 أيام فقط؛ 30/90 — متوسطات ووجبات يومية.',
+      };
+    }
+    return {
+      title: 'Visit report',
+      subtitle: 'Internal nutrition assessment — clinical summary + full data appendix',
+      dayLabel,
+      busy: 'Building report…',
+      doneTitle: 'Report ready',
+      doneMessage: 'Choose how to share (email, Drive, print)',
+      errorTitle: 'Visit report',
+      cgmNote: 'Appendix A: charts (lipids, body, energy, CGM). Full CGM readings in Appendix B (7d).',
+    };
+  }, [userLanguage.code]);
 
   /** Build CoachContext from current state — memoized to avoid recreating on every render. */
   const coachContext = useMemo((): CoachContext => {
@@ -880,6 +931,26 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       setBackupBusy(false);
     }
   }, [loadCoachMessage, loadHeightAndBirthdate, loadLabReports, loadTodayFood, refetch, syncWithings]);
+
+  const handleShareVisitReport = useCallback(
+    async (dayCount: VisitReportDayCount) => {
+      setVisitReportBusy(true);
+      try {
+        const result = await shareVisitReport({ dayCount, lang: userLanguage });
+        if (result.ok) {
+          Alert.alert(visitReportUi.doneTitle, visitReportUi.doneMessage);
+        } else if (result.error) {
+          Alert.alert(visitReportUi.errorTitle, result.error);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Could not build visit report.';
+        Alert.alert(visitReportUi.errorTitle, message);
+      } finally {
+        setVisitReportBusy(false);
+      }
+    },
+    [userLanguage, visitReportUi],
+  );
 
   const demoNotice = demoNoticeCopy(dataSource);
 
@@ -1437,6 +1508,28 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           />
 
           <View style={styles.groupDivider} />
+          <View style={styles.visitReportSection}>
+            <Text style={styles.visitReportTitle}>{visitReportUi.title}</Text>
+            <Text style={styles.visitReportSubtitle}>{visitReportUi.subtitle}</Text>
+            <View style={styles.visitReportButtonGrid}>
+              {VISIT_REPORT_DAY_OPTIONS.map((days) => (
+                <Pressable
+                  key={days}
+                  style={[styles.visitReportButton, visitReportBusy && styles.visitReportButtonDisabled]}
+                  onPress={() => void handleShareVisitReport(days)}
+                  disabled={visitReportBusy}
+                >
+                  <Text style={styles.visitReportButtonText}>{visitReportUi.dayLabel(days)}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.visitReportNote}>{visitReportUi.cgmNote}</Text>
+            {visitReportBusy ? (
+              <ActivityIndicator color={WellnessColors.accentBlue} style={styles.visitReportSpinner} />
+            ) : null}
+          </View>
+
+          <View style={styles.groupDivider} />
           <View style={styles.backupSection}>
             <Text style={styles.backupTitle}>App Backup</Text>
             <View style={styles.backupButtonRow}>
@@ -1931,6 +2024,54 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: WellnessColors.gridLine,
     marginHorizontal: 16,
+  },
+  visitReportSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  visitReportTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+  },
+  visitReportSubtitle: {
+    fontSize: 12,
+    color: WellnessColors.textSecondary,
+    lineHeight: 17,
+  },
+  visitReportButtonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  visitReportButton: {
+    width: '48%',
+    flexGrow: 1,
+    borderWidth: 1,
+    borderColor: '#2E7D5A',
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: WellnessColors.surface,
+  },
+  visitReportButtonDisabled: {
+    opacity: 0.6,
+  },
+  visitReportButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2E7D5A',
+  },
+  visitReportSpinner: {
+    marginTop: 4,
+  },
+  visitReportNote: {
+    fontSize: 11,
+    color: WellnessColors.textSecondary,
+    lineHeight: 15,
   },
   backupSection: {
     paddingHorizontal: 16,

@@ -39,6 +39,8 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt48** — done (2026-06-29). Lipid trend charts (Total/LDL/TG/HDL strips + green safe zones); mentors/coach see **all saved lab draws** in USER DATA. Phone-tested. Commits `308500f`, `fa0d6b1`. Supersedes prompt30 chart deferral + latest-only scope.
 
+**prompt50** — done (2026-06-30). Nutritionist visit report: clinical HTML export (7/14/30/90d), Appendix A charts (lipids/body/energy/CGM), Appendix B raw data. Phone-tested. See `done/prompt50.txt`.
+
 **prompt42 follow-up** — weigh-in macro activation (`measuredAt` dedupe, first weigh-in, unchanged log) documented in `done/prompt42.txt` § Follow-up 2026-06-22.
 
 **prompt42 follow-up (2026-06-28)** — Weigh-in macro review: remove manual lock from auto-apply block, Gemini retry, My Macros Accept UI instead of dead-end alert. **APK = repo** (`ac69355`); weigh-in behavior phone-tested `[ ]` until next scale sync. See `done/prompt42.txt` § Follow-up 2026-06-28.

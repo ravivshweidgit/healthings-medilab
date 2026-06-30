@@ -1,0 +1,115 @@
+## Prompt 50 — Nutritionist visit report (HTML share)
+
+**Status: done (2026-06-30)** — Shipped and phone-tested.
+
+**Builds on:** `done/prompt48.txt` (lipid strips), `done/prompt41.txt` (period review / CGM), `done/prompt35.txt` (macros), Withings body trend.
+
+---
+
+### Problem
+
+Before a nutritionist visit, the user needed a **dedicated export** — not chat history — that reads like an internal professional note and includes app-collected evidence (labs, intake, CGM, body comp) with visual trends.
+
+---
+
+### What shipped
+
+#### Dashboard UI
+
+**Screen:** `app/src/screens/DashboardScreen.tsx`
+
+- **Visit report** section (above App Backup): 7 / 14 / 30 / 90 day windows.
+- Hebrew / English / Arabic UI strings.
+- Share via Android share sheet (email, Drive, print).
+
+#### Report builder
+
+**Service:** `app/src/services/visitReportService.ts`
+
+- Gathers profile, labs (all draws), food log, CGM, Withings body/activity, macro targets, coach message.
+- Builds HTML and shares via `expo-sharing`.
+
+#### Clinical narrative
+
+**Logic:** `app/src/logic/visitReportClinical.ts`
+
+Professional nutrition assessment note (sections 1–8 + clinical impression):
+
+1. Profile & goals  
+2. Anthropometrics / body composition  
+3. Laboratory results (incl. LDL trend table)  
+4. Dietary intake summary  
+5. CGM / glycemic response  
+6. Energy balance & activity  
+7. Nutrition plan / targets  
+8. Data quality notes  
+
+Hebrew when `lang=he`.
+
+#### HTML export
+
+**Logic:** `app/src/logic/visitReportExport.ts`
+
+- Styled HTML document (RTL when Hebrew).
+- **Appendix A — Charts** (open by default): lipids, Withings body, energy eaten vs burn, daily CGM average.
+- **Appendix B — Detailed data**: full lab tables + raw period review text (full 5-min CGM for ≤7 days).
+
+#### Static chart SVGs
+
+**Logic:** `app/src/logic/visitReportChartSvg.ts`
+
+Mirrors in-app dashboard charts as embeddable SVG:
+
+| Chart | Source pattern |
+|-------|----------------|
+| Lipid trends | `LipidTrendChart.tsx` — four strips, safe bands, value pills below dots |
+| Body comp | Withings weight / fat / muscle strips |
+| Energy | Daily eaten vs burn |
+| CGM | Daily average glucose |
+
+**Lipid strip polish (phone-tested):** titles in dedicated row above plot (TOTAL / LDL / TG / HDL + target mg/dL), plot frame, LTR chart container in RTL reports, escaped `<` thresholds for HTML safety.
+
+---
+
+### Not in report
+
+- Main intraday MetabolicChart (pan/zoom CGM + meal markers) — daily CGM avg + appendix text only.
+- Chat history / Gemini visit narrative.
+- Clinic medical rules PDF import (→ `prompt46.txt` backlog).
+
+---
+
+### Phone-tested checklist
+
+- [x] Visit report buttons (7/14/30/90) on dashboard
+- [x] HTML share opens in browser / email
+- [x] Clinical sections readable in Hebrew
+- [x] Appendix A lipid charts — titles above strips, value pills, safe bands
+- [x] LDL trend visible (e.g. 170 → 118.5 mg/dL)
+
+---
+
+### Primary files
+
+| File | Role |
+|------|------|
+| `app/src/services/visitReportService.ts` | Gather data, share HTML |
+| `app/src/logic/visitReportClinical.ts` | Clinical narrative |
+| `app/src/logic/visitReportExport.ts` | HTML formatter |
+| `app/src/logic/visitReportChartSvg.ts` | Appendix A SVG charts |
+| `app/src/screens/DashboardScreen.tsx` | Visit report UI |
+
+---
+
+### Deferred
+
+- Medical rules from clinic PDF (`prompt46.txt`).
+- MetabolicChart snapshot in appendix.
+- Server-side / portal delivery (see clinic sharing specs).
+
+---
+
+### Related
+
+- `done/prompt48.txt` — lipid strip chart logic reused in appendix.
+- `done/prompt41.txt` — period review block in appendix B.
