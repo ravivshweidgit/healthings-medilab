@@ -1,6 +1,6 @@
 ## Prompt 50 — Nutritionist visit report (HTML share)
 
-**Status: done (2026-06-30)** — Shipped and phone-tested.
+**Status: done (2026-06-30)** — Shipped and phone-tested. Commit `e778a7f`.
 
 **Builds on:** `done/prompt48.txt` (lipid strips), `done/prompt41.txt` (period review / CGM), `done/prompt35.txt` (macros), Withings body trend.
 
