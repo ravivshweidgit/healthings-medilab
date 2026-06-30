@@ -411,6 +411,9 @@ export async function clearCoachMessage(): Promise<void> {
 const CHAT_HISTORY_KEY = 'chat_history_';          // + 'YYYY-MM-DD' + '_' + mentor
 const CHAT_HISTORY_LEGACY_SUFFIX = '';             // legacy: chat_history_YYYY-MM-DD
 
+/** Max turns kept on device and sent to Gemini per mentor per calendar day. */
+export const CHAT_HISTORY_MAX_MESSAGES = 1000;
+
 /** Tab order in chat UI. */
 export const MENTOR_CHAT_TAB_ORDER: MentorType[] = ['nutritionist', 'coach', 'doctor'];
 
@@ -466,7 +469,10 @@ export async function hasAnyChatHistory(date: string, mentors: MentorType[]): Pr
 export async function appendChatMessage(date: string, mentor: MentorType, msg: ChatMessage): Promise<void> {
   const history = await getChatHistory(date, mentor);
   history.push(msg);
-  const trimmed = history.length > 30 ? history.slice(-30) : history;
+  const trimmed =
+    history.length > CHAT_HISTORY_MAX_MESSAGES
+      ? history.slice(-CHAT_HISTORY_MAX_MESSAGES)
+      : history;
   await AsyncStorage.setItem(chatHistoryStorageKey(date, mentor), JSON.stringify(trimmed));
 }
 

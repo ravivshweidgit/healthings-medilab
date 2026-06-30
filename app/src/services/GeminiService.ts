@@ -12,7 +12,19 @@ import {
   resolveMentorReplyText,
   type MentorLines,
 } from '../logic/mentorChatText';
-import type { MentorType, DailyMacroTarget, BodyTarget, UserRules, CoachMessage, CoachActionItem, AutoCheckType, ChatMessage, UserLanguage, Gender } from './TargetService';
+import {
+  CHAT_HISTORY_MAX_MESSAGES,
+  type MentorType,
+  type DailyMacroTarget,
+  type BodyTarget,
+  type UserRules,
+  type CoachMessage,
+  type CoachActionItem,
+  type AutoCheckType,
+  type ChatMessage,
+  type UserLanguage,
+  type Gender,
+} from './TargetService';
 import type { ParsedLabPdf, LabPanelType, LabResult, LabResultFlag } from './LabLogService';
 import type { TimePoint } from './HealthConnectService';
 import {
@@ -2310,7 +2322,7 @@ async function chatWithSingleMentor(
     historyLen: history.length,
     glucoseDeepDive: blocks.glucoseDeepDive,
   });
-  const recentHistory = history.slice(-20);
+  const recentHistory = history.slice(-CHAT_HISTORY_MAX_MESSAGES);
   const contents = [
     { role: 'user', parts: [{ text: `SYSTEM CONTEXT:\n${systemText}\n\nAcknowledge.` }] },
     { role: 'model', parts: [{ text: '{"response":"Understood. I will reply only as {\\"response\\":\\"...\\"} with plain prose inside. Hebrew units use single quotes (ק\'ג, מ\'ג/ד\'ל) never ASCII double-quotes inside the string."}' }] },
