@@ -37,9 +37,9 @@ import {
   flaggedItemIndices,
   issueModalBody,
   mealIssuesFromFoodItems,
-  mealIssuesFromGeminiRules,
-  mergeMealRuleIssues,
+  mealItemsCompositionKey,
   mealItemsSnapshotKey,
+  syncFoodItemRuleFlags,
   type MealIssue,
 } from '../logic/mealIssueAnalysis';
 import { getMacroTarget, getUserRules, type UserLanguage } from '../services/TargetService';
@@ -260,6 +260,7 @@ export function FoodLogModal({
   const [overrideSnapshotKey, setOverrideSnapshotKey] = useState<string | null>(null);
   const [foodLogHistoryContext, setFoodLogHistoryContext] = useState<string | null>(null);
   const chatInputRef = useRef<TextInput>(null);
+  const mealCompositionKey = mealItemsCompositionKey(items);
 
   const loadFoodLogHistory = useCallback(async (excludeId?: string) => {
     const meals = await getRecentMeals(14);
@@ -344,11 +345,9 @@ export function FoodLogModal({
     mealItems: FoodItem[],
     timestamp: number,
     excludeId?: string,
-    useGeminiRules = false,
   ) => {
-    const [macroTarget, userRules, dayMacros] = await Promise.all([
+    const [macroTarget, dayMacros] = await Promise.all([
       getMacroTarget(),
-      getUserRules(),
       getDailyMacros(foodLogDayKey(timestamp)),
     ]);
     const before = dayMacros.entries
@@ -370,22 +369,35 @@ export function FoodLogModal({
     };
 
     const macroIssues = analyzeMacroMealIssues(issueInput);
-    let ruleIssues = mealIssuesFromFoodItems(mealItems);
+    return [...macroIssues, ...mealIssuesFromFoodItems(mealItems)];
+  }, []);
 
-    if (useGeminiRules && userRules) {
-      try {
-        const geminiIssues = await checkMealAgainstUserRules(mealItems, userRules, lang);
-        ruleIssues = mergeMealRuleIssues(
-          ruleIssues,
-          mealIssuesFromGeminiRules(geminiIssues),
+  React.useEffect(() => {
+    if (!visible || items.length === 0) return;
+
+    let cancelled = false;
+    void (async () => {
+      const userRules = await getUserRules();
+      if (cancelled) return;
+      if (!userRules) {
+        setItems((prev) =>
+          prev.map((item) => ({ ...item, rule_conflict: false, rule_message: undefined })),
         );
-      } catch {
-        // Offline — rely on rule_conflict markers from the last analyzeFood response.
+        return;
       }
-    }
+      try {
+        const geminiIssues = await checkMealAgainstUserRules(items, userRules, lang);
+        if (cancelled) return;
+        setItems((prev) => syncFoodItemRuleFlags(prev, geminiIssues));
+      } catch {
+        // Offline — keep items; macro checks still run.
+      }
+    })();
 
-    return [...macroIssues, ...ruleIssues];
-  }, [lang]);
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, mealCompositionKey, lang?.code]);
 
   React.useEffect(() => {
     if (items.length === 0) {
@@ -403,7 +415,7 @@ export function FoodLogModal({
     }
 
     let cancelled = false;
-    void recomputeMealIssues(items, mealTime, editingId, false).then((issues) => {
+    void recomputeMealIssues(items, mealTime, editingId).then((issues) => {
       if (cancelled) return;
       setMealIssues(issues);
       if (issues.length === 0) setShowIssueModal(false);

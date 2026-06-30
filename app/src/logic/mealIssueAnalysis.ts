@@ -193,6 +193,44 @@ export function mealItemsSnapshotKey(items: FoodItem[]): string {
   );
 }
 
+/** Meal composition only — for re-checking rules when items change (ignores stale rule flags). */
+export function mealItemsCompositionKey(items: FoodItem[]): string {
+  return JSON.stringify(
+    items.map((i) => ({
+      name: i.name,
+      name_local: i.name_local,
+      grams: i.grams,
+      kcal: i.kcal,
+      protein_g: i.protein_g,
+      carb_g: i.carb_g,
+      fat_g: i.fat_g,
+      fiber_g: i.fiber_g,
+    })),
+  );
+}
+
+function namesMatchItem(itemName: string, item: FoodItem): boolean {
+  const key = itemName.toLowerCase().trim();
+  if (!key) return false;
+  const labels = [item.name_local, item.name].filter(Boolean).map((n) => n!.toLowerCase().trim());
+  return labels.some((label) => label === key || label.includes(key) || key.includes(label));
+}
+
+/** Re-apply Gemini rule check results onto items (clears stale rule_conflict from saved meals). */
+export function syncFoodItemRuleFlags(
+  items: FoodItem[],
+  geminiIssues: Array<{ itemName: string; message: string }>,
+): FoodItem[] {
+  return items.map((item) => {
+    const hit = geminiIssues.find((issue) => namesMatchItem(issue.itemName, item));
+    return {
+      ...item,
+      rule_conflict: Boolean(hit),
+      rule_message: hit?.message?.trim() || undefined,
+    };
+  });
+}
+
 export function issueModalBody(issues: MealIssue[]): string {
   return issues
     .slice(0, 3)

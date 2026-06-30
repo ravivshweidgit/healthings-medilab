@@ -23,7 +23,7 @@ import {
 } from './ReviewService';
 import { detectChatIntent, isGlucoseDeepDiveQuery, isGlucoseQuery, type ChatIntent } from '../logic/chatIntent';
 import { resolveMentorGender } from '../logic/mentorLabels';
-import { formatUserRulesLines, formatUserRulesBlock, MEAL_FAT_RULE_FLAGGING_GUIDANCE } from '../logic/userRulesContext';
+import { formatUserRulesLines, formatUserRulesBlock, formatMacroRevisionRulesBlock, MEAL_FAT_RULE_FLAGGING_GUIDANCE } from '../logic/userRulesContext';
 
 /** Returns a language instruction line to append to any AI prompt. */
 function langInstruction(lang?: UserLanguage | null): string {
@@ -85,7 +85,7 @@ export function buildFoodSystemPrompt(
   const langNote = foodJsonLangInstruction(lang);
   let prompt = langNote ? `${SYSTEM_PROMPT}${langNote}` : SYSTEM_PROMPT;
   if (userRules) {
-    prompt += `\n\nUSER DIETARY RULES (same as Nutritionist mentor — apply on every analysis):\n${formatUserRulesBlock(userRules)}`;
+    prompt += `\n\nUSER DIETARY RULES (same as Nutritionist mentor — apply on every analysis):\n${formatMacroRevisionRulesBlock(userRules)}`;
     prompt += `\n\n${MEAL_FAT_RULE_FLAGGING_GUIDANCE}`;
   }
   if (foodLogHistory?.trim()) {
@@ -1211,7 +1211,7 @@ export async function checkMealAgainstUserRules(
   const prompt = `You are the Nutritionist mentor. The user is about to SAVE this meal to their food log.
 Check EVERY item line independently against MY RULES. Flag only lines that VIOLATE — never flag because something is missing from the meal.
 
-${formatUserRulesBlock(userRules)}
+${formatMacroRevisionRulesBlock(userRules)}
 
 ${MEAL_FAT_RULE_FLAGGING_GUIDANCE}
 
@@ -1222,8 +1222,8 @@ Return JSON ONLY (no markdown):
 {"issues":[{"itemName":"<display name from meal list>","severity":"critical"|"warning","message":"<one short sentence why THIS item violates rules>"}]}
 
 Rules for your response:
-- Loop each item: plant-fat items pass; animal/dairy fat items fail when rules favor plant fats.
-- Whey protein: warning — dairy/animal fat on that line. Almonds/olive oil: no issue.
+- Apply ONLY what MY RULES say — verbatim Original may allow exceptions (e.g. whey isolate while limiting other animal fats).
+- Plant-fat items pass when rules favor unsaturated sources; flag animal/dairy fat only when rules forbid it without an exception.
 - Do NOT flag "missing" preferred foods. Do NOT flag psyllium/fiber for fat.
 - itemName must match the violating line's label (before the English name in parentheses).
 - If no line violates, return {"issues":[]}
