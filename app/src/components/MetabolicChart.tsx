@@ -648,7 +648,13 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
     const workoutBucketMap = new Map<number, number>();
     for (const w of (workoutSessions ?? [])) {
       const durationMs = w.endMs - w.startMs;
-      if (durationMs <= 0) continue;
+      if (durationMs <= 0) {
+        if (w.kcal > 0) {
+          const bk = Math.floor(w.startMs / BUCKET_MS) * BUCKET_MS;
+          workoutBucketMap.set(bk, (workoutBucketMap.get(bk) ?? 0) + w.kcal);
+        }
+        continue;
+      }
       const kcalPerMs = w.kcal / durationMs;
       // Find all 30-min buckets this workout overlaps
       const firstBk = Math.floor(w.startMs / BUCKET_MS) * BUCKET_MS;
@@ -666,12 +672,12 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
     // (getintradayactivity calories during a workout already reflect elevated activity.)
     const workoutBuckets = new Set(workoutBucketMap.keys());
 
-    // Auto-scale Y-max: at least CALORIE_Y_MAX_FIXED, or highest non-double-counted total in view
+    // Auto-scale Y-max from the visible window only (global peaks were shrinking bars to invisibility).
     let maxTotal = CALORIE_Y_MAX_FIXED;
-    const allBuckets = new Set([...passiveBucketMap.keys(), ...workoutBucketMap.keys()]);
-    for (const bk of allBuckets) {
-      const passive = workoutBuckets.has(bk) ? 0 : (passiveBucketMap.get(bk) ?? 0);
-      const total   = (bmrPerSlot ?? 0) + passive + (workoutBucketMap.get(bk) ?? 0);
+    const visibleFirstBk = Math.floor(mapTMin / BUCKET_MS) * BUCKET_MS;
+    for (let bMs = visibleFirstBk; bMs <= mapTMax; bMs += BUCKET_MS) {
+      const passive = workoutBuckets.has(bMs) ? 0 : (passiveBucketMap.get(bMs) ?? 0);
+      const total   = (bmrPerSlot ?? 0) + passive + (workoutBucketMap.get(bMs) ?? 0);
       if (total > maxTotal) maxTotal = total;
     }
     // Round up to nearest 50 for a clean axis label (avoids odd numbers like 237)
@@ -704,8 +710,8 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
       const totalWithWkt = totalWithAct + wktKcal;
       const actTotalBarH = Math.max(0, Math.min(stripH, (totalWithAct / calYMax) * stripH));
       const wktTotalBarH = Math.max(0, Math.min(stripH, (totalWithWkt / calYMax) * stripH));
-      const actH = Math.max(0, actTotalBarH - bmrH);
-      const wktH = Math.max(0, wktTotalBarH - actTotalBarH);
+      const actH = actKcal > 0 && actTotalBarH > bmrH ? Math.max(2, actTotalBarH - bmrH) : 0;
+      const wktH = wktKcal > 0 && wktTotalBarH > actTotalBarH ? Math.max(2, wktTotalBarH - actTotalBarH) : 0;
 
       bars.push({
         x: x1, w,

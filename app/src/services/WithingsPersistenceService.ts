@@ -26,7 +26,7 @@ import {
 export const WITHINGS_STORE_KEY = 'healthings:withingsStore';
 
 /** Keep this many days of intraday HR/calories in AsyncStorage (chart pan is ≤16D). */
-const MAX_INTRADAY_STORE_DAYS = 21;
+const MAX_INTRADAY_STORE_DAYS = 60;
 
 export type WithingsPersistedStore = {
   version: 1;
@@ -106,6 +106,7 @@ function mergeHeartRateWithFreshToday(
   history: WithingsHeartRatePoint[],
   todayFresh: WithingsHeartRatePoint[],
 ): WithingsHeartRatePoint[] {
+  if (todayFresh.length === 0 && history.length === 0) return prev;
   const olderMerged = mergeByTimestamp(stripToday(prev), stripToday(history));
   return replaceTodayIntraday(olderMerged, todayFresh);
 }
@@ -115,6 +116,8 @@ function mergeCaloriesWithFreshToday(
   history: WithingsCaloriePoint[],
   todayFresh: WithingsCaloriePoint[],
 ): WithingsCaloriePoint[] {
+  // HR-only refresh must not strip today's calories when the API returned no calorie points.
+  if (todayFresh.length === 0 && history.length === 0) return prev;
   const olderMerged = mergeByTimestamp(stripToday(prev), stripToday(history));
   return replaceTodayIntraday(olderMerged, todayFresh);
 }
@@ -155,10 +158,29 @@ function mergeSessions(prev: CompositionSession[], next: CompositionSession[]): 
   return [...map.values()].sort((a, b) => a.dateMs - b.dateMs);
 }
 
+/** Ensure chart calorie bars can render (re-link API sometimes returns enddate === startdate). */
+function normalizeWorkoutSession(w: WorkoutSession): WorkoutSession {
+  if (w.endMs > w.startMs) return w;
+  return { ...w, endMs: w.startMs + 30 * 60 * 1000 };
+}
+
 function mergeWorkouts(prev: WorkoutSession[], next: WorkoutSession[]): WorkoutSession[] {
   const map = new Map<number, WorkoutSession>();
-  for (const w of prev) map.set(w.startMs, w);
-  for (const w of next) map.set(w.startMs, w);
+  const durationMs = (w: WorkoutSession) => Math.max(0, w.endMs - w.startMs);
+  const prefer = (a: WorkoutSession, b: WorkoutSession): WorkoutSession => {
+    const aDur = durationMs(a);
+    const bDur = durationMs(b);
+    if (aDur <= 0 && bDur > 0) return b;
+    if (bDur <= 0 && aDur > 0) return a;
+    if (bDur !== aDur) return bDur > aDur ? b : a;
+    return b.kcal >= a.kcal ? b : a;
+  };
+  for (const w of prev) map.set(w.startMs, normalizeWorkoutSession(w));
+  for (const w of next) {
+    const existing = map.get(w.startMs);
+    const normalized = normalizeWorkoutSession(w);
+    map.set(w.startMs, existing ? prefer(existing, normalized) : normalized);
+  }
   return [...map.values()].sort((a, b) => a.startMs - b.startMs);
 }
 
@@ -173,7 +195,9 @@ function normalizeStore(raw: unknown): WithingsPersistedStore {
     bodyTrendSessions: Array.isArray(o.bodyTrendSessions) ? o.bodyTrendSessions : [],
     heartRate: Array.isArray(o.heartRate) ? o.heartRate : [],
     calories: Array.isArray(o.calories) ? o.calories : [],
-    workouts: Array.isArray(o.workouts) ? o.workouts : [],
+    workouts: Array.isArray(o.workouts)
+      ? o.workouts.map((w) => normalizeWorkoutSession(w as WorkoutSession))
+      : [],
   };
 }
 
@@ -237,32 +261,44 @@ export async function syncWithingsStore(): Promise<WithingsPersistedStore> {
   }
 
   try {
-    const [bodyScan, trend, intraday, todayIntraday, workouts] = await Promise.all([
+    // Fast path: today's intraday (1 API call) so the chart updates before 60-day backfill.
+    const todayIntraday = await fetchIntradayToday();
+    let working: WithingsPersistedStore = prev;
+    if (todayIntraday.heartRate.length > 0 || todayIntraday.calories.length > 0) {
+      working = {
+        ...prev,
+        lastSyncedAt: new Date().toISOString(),
+        heartRate: mergeHeartRateWithFreshToday(prev.heartRate, [], todayIntraday.heartRate),
+        calories: mergeCaloriesWithFreshToday(prev.calories, [], todayIntraday.calories),
+      };
+      await saveWithingsStore(working);
+    }
+
+    const [bodyScan, trend, intraday, workouts] = await Promise.all([
       fetchWeightMetrics(),
       fetchBodyCompositionTrend7d(),
       fetchHeartRateHistory(),
-      fetchIntradayToday(),
       fetchWorkoutsHistory(),
     ]);
 
     const heartRate = mergeHeartRateWithFreshToday(
-      prev.heartRate,
+      working.heartRate,
       intraday.heartRate,
       todayIntraday.heartRate,
     );
     const calories = mergeCaloriesWithFreshToday(
-      prev.calories,
+      working.calories,
       intraday.calories,
       todayIntraday.calories,
     );
 
     const merged: WithingsPersistedStore = {
-      ...mergeIntoWithingsStore(prev, {
+      ...mergeIntoWithingsStore(working, {
         lastSyncedAt: new Date().toISOString(),
         bodyScan,
         bodyTrendDays: trend.days,
         bodyTrendSessions: trend.debug.sessions,
-        workouts,
+        ...(workouts.length > 0 ? { workouts } : {}),
       }),
       heartRate,
       calories,
@@ -278,7 +314,7 @@ export async function syncWithingsStore(): Promise<WithingsPersistedStore> {
     const diag = buildHrSyncDiag({
       apiToday: todayIntraday.heartRate,
       api7dToday: filterTodayHr(intraday.heartRate),
-      storeBefore: prev.heartRate,
+      storeBefore: working.heartRate,
       storeAfter: merged.heartRate,
       apiStatus: todayIntraday.apiStatus,
       apiError: todayIntraday.apiError,

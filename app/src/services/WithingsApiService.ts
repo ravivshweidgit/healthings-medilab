@@ -874,8 +874,8 @@ export type WithingsIntradayTodayFetch = WithingsIntradayData & {
   apiError: string | null;
 };
 
-/** Default lookback for dashboard refresh (days). Reviews pass an explicit window. */
-const HEART_RATE_LOOKBACK_DAYS = 7;
+/** Default lookback for dashboard refresh (days). Align with workout history window. */
+const HEART_RATE_LOOKBACK_DAYS = 60;
 /** Parallel Withings intraday requests (one calendar day each). */
 const INTRADAY_FETCH_CONCURRENCY = 6;
 
@@ -1112,6 +1112,12 @@ type WithingsWorkoutsBody = {
 };
 type WithingsWorkoutsJson = { status: number; body?: WithingsWorkoutsBody; error?: string };
 
+/** Withings measure timestamps are unix seconds; guard ms if API ever returns them. */
+function withingsUnixToMs(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  return value >= 1e12 ? Math.round(value) : Math.round(value * 1000);
+}
+
 /** Default number of days to fetch for workout history. */
 const WORKOUT_LOOKBACK_DAYS = 128;
 
@@ -1193,10 +1199,12 @@ export async function fetchWorkoutsHistory(
 
     const sessions: WorkoutSession[] = [];
     for (const w of json.body.series) {
-      const startMs = (w.startdate ?? 0) * 1000;
-      const endMs   = (w.enddate   ?? 0) * 1000;
-      const kcal    = w.data?.calories ?? 0;
-      if (!startMs || !endMs || kcal <= 0) continue;
+      const startMs = withingsUnixToMs(w.startdate ?? 0);
+      let endMs = withingsUnixToMs(w.enddate ?? 0);
+      const kcal = w.data?.calories ?? w.data?.totalcalories ?? 0;
+      if (!startMs || kcal <= 0) continue;
+      // Withings sometimes returns enddate === startdate; chart bars need a positive span.
+      if (!endMs || endMs <= startMs) endMs = startMs + 30 * 60 * 1000;
       sessions.push({
         category: w.category ?? 0,
         activityLabel: workoutLabel(w.category ?? 0),

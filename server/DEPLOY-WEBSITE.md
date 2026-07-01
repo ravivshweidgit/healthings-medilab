@@ -21,7 +21,7 @@ Set-Location c:\projects\healthings-medilab
 **One command (build if needed + upload + deploy):**
 
 ```bat
-publish-apk-VPS.bat
+app\publish-apk-vps.bat
 ```
 
 Uses SSH key `~/.ssh/hetzner_healthings` (see `~/.ssh/config` Host `healthings-api`).
@@ -84,6 +84,10 @@ website/
   assets/             Logo, favicon
   downloads/          healthings-medilab.apk (not in git)
   scripts/publish-apk.*
-app/scripts/
-  bundle-release.ps1  Build signed AAB for Play Console
+app/
+  build-release.bat   Release APK (sideload)
+  build-aab.bat       Release AAB (Play Store)
+  publish-apk-vps.bat Build APK + publish to healthings.ai VPS
+  scripts/
+    bundle-release.ps1  Build signed AAB for Play Console
 ```

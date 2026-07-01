@@ -1,6 +1,8 @@
 @echo off
 setlocal EnableExtensions
-cd /d "%~dp0"
+REM Build release APK (if needed), copy to website/downloads, upload + deploy on VPS.
+set "REPO=%~dp0.."
+cd /d "%REPO%"
 
 set "KEY=%USERPROFILE%\.ssh\hetzner_healthings"
 set "HOST=root@178.105.218.202"

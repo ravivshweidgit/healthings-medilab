@@ -14,6 +14,11 @@ withings.txt
 credentials.json
 **/secrets.json
 
+# Local app backups (personal health data — PC archive only)
+app/healthings-backup/
+healthings-backup_*.json
+healthings_visit_*.html
+
 # --- OS / editor ---
 .DS_Store
 Thumbs.db
