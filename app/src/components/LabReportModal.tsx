@@ -2,11 +2,12 @@
  * Lab report import modal — PDF pick, AI parse, review, save; view saved reports.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { parseLabReportPdf } from '../services/GeminiService';
 import {
   readPdfBase64FromUri,
@@ -45,18 +47,30 @@ function flagColor(flag: LabResult['flag']): string {
   return WellnessColors.textSecondary;
 }
 
+type LoadingPhase = 'parse' | 'save' | null;
+
+function bottomInset(insetsBottom: number): number {
+  if (insetsBottom > 0) return insetsBottom;
+  return Platform.OS === 'android' ? 48 : 16;
+}
+
 export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, viewReport }: Props) {
-  const [loading, setLoading] = useState(false);
+  const insets = useSafeAreaInsets();
+  const footerPadBottom = bottomInset(insets.bottom);
+  const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>(null);
   const [draft, setDraft] = useState<ParsedLabPdf | null>(null);
   const [editingReport, setEditingReport] = useState<LabReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const autoPickStartedRef = useRef(false);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
+  const loading = loadingPhase != null;
 
   const reset = useCallback(() => {
     setDraft(null);
     setEditingReport(null);
     setError(null);
-    setLoading(false);
+    setLoadingPhase(null);
+    autoPickStartedRef.current = false;
   }, []);
 
   useEffect(() => {
@@ -80,7 +94,7 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
       if (autoPickPdf) onClose();
       return;
     }
-    setLoading(true);
+    setLoadingPhase('parse');
     try {
       const base64 = await readPdfBase64FromUri(result.assets[0].uri);
       const { parsed } = await parseLabReportPdf(base64, lang);
@@ -94,12 +108,17 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
         onClose();
       }
     } finally {
-      setLoading(false);
+      setLoadingPhase(null);
     }
   }, [autoPickPdf, lang, onClose, rtl]);
 
   useEffect(() => {
-    if (visible && autoPickPdf && !draft && !loading && !viewReport) {
+    if (!visible) {
+      autoPickStartedRef.current = false;
+      return;
+    }
+    if (autoPickPdf && !autoPickStartedRef.current && !draft && !loading && !viewReport) {
+      autoPickStartedRef.current = true;
       void pickAndParse();
     }
   }, [visible, autoPickPdf, draft, loading, pickAndParse, viewReport]);
@@ -136,39 +155,47 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
 
   const handleSaveImport = useCallback(async () => {
     if (!draft || draft.results.length === 0) return;
-    setLoading(true);
+    setLoadingPhase('save');
     try {
       const saved = await saveParsedLabPanel(draft);
-      await applyAutoMacroRevision({
+      onSaved(saved);
+      // Macro revision uses Gemini separately — run after modal closes so we don't re-show "reading PDF".
+      void applyAutoMacroRevision({
         trigger: 'lab-import',
         triggerDetail: saved.collectedAt.slice(0, 10),
         labReportId: saved.id,
+      }).catch(() => {
+        // Non-fatal: labs are saved; macro proposal can be run manually from targets strip.
       });
-      onSaved(saved);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Save failed');
-    } finally {
-      setLoading(false);
+      setLoadingPhase(null);
     }
   }, [draft, onSaved]);
 
   const handleSaveView = useCallback(async () => {
     if (!editingReport) return;
-    setLoading(true);
+    setLoadingPhase('save');
     try {
       await updateLabReport(editingReport);
       onSaved(editingReport);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Save failed');
-    } finally {
-      setLoading(false);
+      setLoadingPhase(null);
     }
   }, [editingReport, onSaved]);
 
   const title = rtl ? 'תוצאות מעבדה' : 'Lab results';
   const saveLabel = rtl ? 'שמור' : 'Save';
   const pickLabel = rtl ? 'בחר PDF' : 'Choose PDF';
-  const loadingLabel = rtl ? 'קורא את הדוח…' : 'Reading lab report…';
+  const loadingLabel =
+    loadingPhase === 'save'
+      ? rtl
+        ? 'שומר…'
+        : 'Saving…'
+      : rtl
+        ? 'קורא את הדוח…'
+        : 'Reading lab report…';
 
   const renderResultRow = (
     r: LabResult,
@@ -206,7 +233,7 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
           <Text style={styles.title}>{title}</Text>
           <Pressable onPress={onClose} hitSlop={12}>
@@ -251,7 +278,7 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
               )}
             </ScrollView>
             {error && <Text style={styles.errorText}>{error}</Text>}
-            <View style={styles.footer}>
+            <View style={[styles.footer, { paddingBottom: 16 + footerPadBottom }]}>
               <Pressable style={styles.primaryBtn} onPress={() => void handleSaveImport()}>
                 <Text style={styles.primaryBtnText}>✓ {saveLabel}</Text>
               </Pressable>
@@ -283,20 +310,20 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
               ))}
             </ScrollView>
             {error && <Text style={styles.errorText}>{error}</Text>}
-            <View style={styles.footer}>
+            <View style={[styles.footer, { paddingBottom: 16 + footerPadBottom }]}>
               <Pressable style={styles.primaryBtn} onPress={() => void handleSaveView()}>
                 <Text style={styles.primaryBtnText}>✓ {saveLabel}</Text>
               </Pressable>
             </View>
           </>
         )}
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: WellnessColors.background, paddingTop: 48 },
+  container: { flex: 1, backgroundColor: WellnessColors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -356,7 +383,7 @@ const styles = StyleSheet.create({
   refText: { fontSize: 11, color: WellnessColors.textSecondary, marginTop: 4, fontStyle: 'italic' },
   flag: { fontSize: 11, marginTop: 2, textTransform: 'uppercase' },
   deleteBtn: { fontSize: 18, paddingTop: 4 },
-  footer: { padding: 16, borderTopWidth: 1, borderTopColor: WellnessColors.gridLine },
+  footer: { padding: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: WellnessColors.gridLine },
   primaryBtn: {
     backgroundColor: WellnessColors.accentBlue,
     borderRadius: 12,

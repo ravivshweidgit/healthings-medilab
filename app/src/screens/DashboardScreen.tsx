@@ -1556,7 +1556,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         {/* Lab results — least-used; bottom of dashboard */}
         <LabResultsStrip
           reports={labReports}
-          onReportsChanged={() => void loadLabReports(true)}
+          onReportsChanged={() => void loadLabReports(false)}
           lang={userLanguage}
           gender={userGender}
         />
