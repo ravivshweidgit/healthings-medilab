@@ -282,9 +282,12 @@
       charts.drawMetabolicChart(metabolicHost, ctx.parsed, ctx, () => paintDashboardCharts(panel, ctx));
     }
     const trendHost = panel.querySelector('#trend-host');
+    const energyHost = panel.querySelector('#energy-host');
+    const allDays = ctx.parsed.withings?.bodyTrendDays || [];
+    const pd = ctx.trendPeriod ?? 32;
+    const chartOpts = { tall: true, periodDays: pd };
+    const windowDays = charts.trendWindowSlice(allDays, pd);
     if (trendHost) {
-      const allDays = ctx.parsed.withings?.bodyTrendDays || [];
-      const pd = ctx.trendPeriod ?? 32;
       charts.drawTrendAnalysis(
         trendHost,
         allDays,
@@ -295,10 +298,12 @@
           ctx.trendPeriod = p;
           paintDashboardCharts(panel, ctx);
         },
+        chartOpts,
       );
     }
-    const energyHost = panel.querySelector('#energy-host');
-    if (energyHost) charts.drawEnergyChart(energyHost, ctx.parsed.withings?.bodyTrendDays || [], ctx.parsed.eatenByDay, ctx.parsed.burnByDay);
+    if (energyHost) {
+      charts.drawEnergyChart(energyHost, windowDays, ctx.parsed.eatenByDay, chartOpts);
+    }
     const foodHost = panel.querySelector('#food-host');
     if (foodHost) renderFoodLog(foodHost, ctx);
     const profileHost = panel.querySelector('#profile-host');
@@ -323,8 +328,10 @@
           <div><div class="lbl">Fat</div><div class="val">${body.fatMassKg != null ? body.fatMassKg.toFixed(1) + ' kg' : '—'}</div></div>
         </div>${body.bmrKcalDay ? `<div class="bmr-row">BMR <strong>${Math.round(body.bmrKcalDay)} kcal</strong></div>` : ''}` : '<p class="empty">No body scan</p>'}
       </div>
-      <div class="dash-card"><div id="trend-host"></div></div>
-      <div class="dash-card"><div id="energy-host"></div></div>
+      <div class="charts-row">
+        <div class="dash-card chart-half"><div id="trend-host"></div></div>
+        <div class="dash-card chart-half"><div id="energy-host"></div></div>
+      </div>
       <div class="grid-2">
         <div class="dash-card"><div id="food-host"></div></div>
         <div class="dash-card"><div id="profile-host"></div><div id="lipid-host" style="margin-top:16px"></div></div>

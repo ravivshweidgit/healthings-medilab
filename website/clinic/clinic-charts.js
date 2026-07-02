@@ -344,6 +344,59 @@
     return v != null && Number.isFinite(v) ? v : null;
   }
 
+  function bmrDayIndices(days) {
+    const out = [];
+    days.forEach((d, i) => {
+      if (d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay)) out.push(i);
+    });
+    return out;
+  }
+
+  function withingsChartBmrKcal(days, dayIndex) {
+    const bmrIdx = bmrDayIndices(days);
+    const rank = bmrIdx.indexOf(dayIndex);
+    if (rank < 0) return null;
+    if (rank === 0 && bmrIdx.length >= 2) {
+      const second = days[bmrIdx[1]].bmrKcalDay;
+      return second != null && Number.isFinite(second) ? second : null;
+    }
+    const v = days[dayIndex].bmrKcalDay;
+    return v != null && Number.isFinite(v) ? v : null;
+  }
+
+  function resolveBmrWeekTrend(days) {
+    const idx = bmrDayIndices(days);
+    if (!idx.length) return { deltaKcal: null };
+    const endIdx = idx[idx.length - 1];
+    const startIdx = idx.length >= 2 ? idx[1] : idx[0];
+    const start = days[startIdx].bmrKcalDay;
+    const end = days[endIdx].bmrKcalDay;
+    if (start == null || end == null) return { deltaKcal: null };
+    return { deltaKcal: end - start };
+  }
+
+  function yTicks(min, max) {
+    const mid = (min + max) / 2;
+    return [max, mid, min].map(Math.round);
+  }
+
+  function balanceDomain(values) {
+    const dom = domainPad(values.length > 0 ? values : [-200, 200], -400, 400, 0.12);
+    dom.min = Math.min(dom.min, 0);
+    dom.max = Math.max(dom.max, 0);
+    return dom;
+  }
+
+  function avgRounded(values) {
+    if (!values.length) return null;
+    return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
+  }
+
+  function stripAvgLabel(avg) {
+    if (avg == null) return '';
+    return ` (avg ${avg.toLocaleString()} kcal)`;
+  }
+
   function dayKeyStartMs(dayKey) {
     const parts = dayKey.split('-').map(Number);
     if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return NaN;
@@ -439,10 +492,6 @@
     return top + (1 - (v - vMin) / span) * height;
   }
 
-  function stripTop(index) {
-    return TREND_PAD_TOP + index * (TREND_STRIP_H + TREND_STRIP_GAP);
-  }
-
   function deltaDomainFromValues(deltas) {
     const dom = domainPad(deltas, -DELTA_FALLBACK_HALF_SPAN_KG, DELTA_FALLBACK_HALF_SPAN_KG, 0.15);
     if (!deltas.length) return dom;
@@ -493,10 +542,19 @@
     return `${name} (${deltaIndex > 0 ? '+' : ''}${deltaIndex.toFixed(2)})`;
   }
 
-  function drawTrendAnalysis(host, allDays, sessions, periodDays, availableDays, onPeriodChange) {
+  function trendWindowSlice(allDays, periodDays) {
+    const days = allDays || [];
+    const period = periodDays || DEFAULT_TREND_PERIOD;
+    return days.slice(-Math.min(period, days.length));
+  }
+
+  function drawTrendAnalysis(host, allDays, sessions, periodDays, availableDays, onPeriodChange, opts) {
+    const scale = opts?.tall ? 2 : 1;
+    const stripH = TREND_STRIP_H * scale;
+    const stripTopAt = (index) => TREND_PAD_TOP + index * (stripH + TREND_STRIP_GAP);
     const period = periodDays || DEFAULT_TREND_PERIOD;
     const avail = availableDays ?? (allDays || []).length;
-    const slice = (allDays || []).slice(-Math.min(period, avail));
+    const slice = trendWindowSlice(allDays, period);
     if (slice.length < 2) {
       host.innerHTML = `
         <div class="trend-wrap">
@@ -517,7 +575,7 @@
     const plotLeft = TREND_PAD_L;
     const innerW = Math.max(1, W - plotLeft - TREND_PAD_R);
     const n = slice.length;
-    const plotBottom = stripTop(2) + TREND_STRIP_H;
+    const plotBottom = stripTopAt(2) + stripH;
     const svgH = plotBottom + TREND_AXIS_BOTTOM;
 
     const wVals = slice.map((d) => d.weightKg).filter((v) => v != null && Number.isFinite(v));
@@ -535,29 +593,29 @@
       });
     }
     const deltaDom = deltaDomainFromValues(compositionDeltas);
-    const zeroLineY = mapY(0, deltaDom.min, deltaDom.max, stripTop(1), TREND_STRIP_H);
+    const zeroLineY = mapY(0, deltaDom.min, deltaDom.max, stripTopAt(1), stripH);
 
     function mkPts(getter, dom, stripIndex) {
-      const top = stripTop(stripIndex);
+      const top = stripTopAt(stripIndex);
       const pts = [];
       slice.forEach((d, i) => {
         const v = getter(d, i);
         if (v != null && Number.isFinite(v)) {
-          pts.push({ x: xAtIndex(i, plotLeft, innerW, n), y: mapY(v, dom.min, dom.max, top, TREND_STRIP_H) });
+          pts.push({ x: xAtIndex(i, plotLeft, innerW, n), y: mapY(v, dom.min, dom.max, top, stripH) });
         }
       });
       return pts;
     }
 
     function mkDeltaPts(getter, baseline, stripIndex) {
-      const top = stripTop(stripIndex);
+      const top = stripTopAt(stripIndex);
       const pts = [];
       slice.forEach((_, i) => {
         if (!compBase || baseline == null) return;
         const raw = getter(i);
         if (raw == null) return;
         const v = raw - baseline;
-        pts.push({ x: xAtIndex(i, plotLeft, innerW, n), y: mapY(v, deltaDom.min, deltaDom.max, top, TREND_STRIP_H) });
+        pts.push({ x: xAtIndex(i, plotLeft, innerW, n), y: mapY(v, deltaDom.min, deltaDom.max, top, stripH) });
       });
       return pts;
     }
@@ -568,9 +626,9 @@
     const vPts = mkPts((_, i) => withingsChartVisceralIndex(slice, i), vDom, 2);
 
     function mkGrid(dom, stripIndex, labelFn, labelColor, opacity) {
-      const top = stripTop(stripIndex);
+      const top = stripTopAt(stripIndex);
       return [dom.min, (dom.min + dom.max) / 2, dom.max].map((v) => ({
-        y: mapY(v, dom.min, dom.max, top, TREND_STRIP_H),
+        y: mapY(v, dom.min, dom.max, top, stripH),
         label: labelFn(v),
         color: labelColor,
         opacity: opacity ?? 0.5,
@@ -652,73 +710,208 @@
     });
   }
 
-  function drawEnergyChart(host, days, eatenByDay, burnByDay) {
-    const slice = (days || []).slice(-14);
-    if (!slice.length) {
-      host.innerHTML = '<p class="empty">No energy history in snapshot</p>';
+  function drawEnergyChart(host, days, eatenByDay, opts) {
+    const scale = opts?.tall ? 2 : 1;
+    const ENERGY_PAD_L = 44;
+    const ENERGY_PAD_R = 10;
+    const ENERGY_PAD_TOP = 6;
+    const ENERGY_TITLE_H = 15;
+    const ENERGY_STRIP_H = 58 * scale;
+    const ENERGY_STRIP_UNIT = ENERGY_TITLE_H + ENERGY_STRIP_H;
+    const ENERGY_AXIS_BOTTOM = 24;
+    const ENERGY_NUM_STRIPS = 5;
+    const COLOR_BMR = '#1A1A1A';
+    const COLOR_ACTIVITY = '#42A5F5';
+    const COLOR_TOTAL = '#4CAF50';
+    const COLOR_EATEN = '#FF9800';
+    const COLOR_BALANCE_LINE = '#37474F';
+    const COLOR_DEFICIT_ZONE = '#E8F5E9';
+    const COLOR_SURPLUS_ZONE = '#FFEBEE';
+    const COLOR_DEFICIT_DOT = '#2E7D32';
+    const COLOR_SURPLUS_DOT = '#C62828';
+    const COLOR_GRID = '#e8eaed';
+
+    const slice = days || [];
+    if (slice.length < 2) {
+      host.innerHTML = `
+        <div class="energy-wrap">
+          <div class="energy-title">ENERGY</div>
+          <p class="empty">No energy history in snapshot</p>
+        </div>`;
       return;
     }
-    const W = host.clientWidth || 800;
-    const stripH = 40;
-    const padL = 44;
-    const padR = 10;
-    const titleH = 14;
-    const strips = 4;
-    const H = 8 + strips * (titleH + stripH + 4) + 20;
-    const innerW = W - padL - padR;
+
+    const W = Math.max(280, host.clientWidth || 400);
     const n = slice.length;
-    const xAt = (i) => padL + (i / Math.max(1, n - 1)) * innerW;
+    const plotLeft = ENERGY_PAD_L;
+    const innerW = Math.max(1, W - plotLeft - ENERGY_PAD_R);
+    const svgH = ENERGY_PAD_TOP + ENERGY_NUM_STRIPS * ENERGY_STRIP_UNIT + ENERGY_AXIS_BOTTOM;
 
-    const bmrVals = slice.map((d) => d.bmrKcalDay ?? burnByDay[d.dayKey] ?? null);
-    const actVals = slice.map((d) => d.activityKcalDay ?? null);
-    const eatenVals = slice.map((d) => eatenByDay[d.dayKey] ?? 0);
-    const totalVals = slice.map((d, i) => {
-      const b = burnByDay[d.dayKey];
-      return b ?? ((bmrVals[i] || 0) + (actVals[i] || 0));
+    const bmrVals = [];
+    const actVals = [];
+    const totalVals = [];
+    const eatenVals = [];
+    const balanceVals = [];
+
+    slice.forEach((d, i) => {
+      const bmr = withingsChartBmrKcal(slice, i);
+      const act = d.activityKcalDay;
+      const eaten = eatenByDay?.[d.dayKey] ?? 0;
+      const chartBurn = bmr != null && act != null ? bmr + act : null;
+      if (bmr != null) bmrVals.push(bmr);
+      if (act != null && act > 0) actVals.push(act);
+      if (chartBurn != null) totalVals.push(chartBurn);
+      if (eaten > 0) eatenVals.push(eaten);
+      if (chartBurn != null && eaten > 0) balanceVals.push(eaten - chartBurn);
     });
-    const balVals = eatenVals.map((e, i) => (totalVals[i] ? e - totalVals[i] : null));
 
-    function stripPath(vals, top, lo, hi) {
+    const bmrDom = domainPad(bmrVals, 1600, 2400, 0.06);
+    const actDom = domainPad(actVals, 0, 500, 0.06);
+    actDom.min = 0;
+    const totDom = domainPad(totalVals, 1800, 2800, 0.06);
+    const eatenDom = domainPad(eatenVals, 1200, 2200, 0.06);
+    eatenDom.min = 0;
+    const balDom = balanceDomain(balanceVals);
+
+    const stripDataTop = (idx) => ENERGY_PAD_TOP + idx * ENERGY_STRIP_UNIT + ENERGY_TITLE_H;
+    const myBmr = (v) => mapY(v, bmrDom.min, bmrDom.max, stripDataTop(0), ENERGY_STRIP_H);
+    const myAct = (v) => mapY(v, actDom.min, actDom.max, stripDataTop(1), ENERGY_STRIP_H);
+    const myTotal = (v) => mapY(v, totDom.min, totDom.max, stripDataTop(2), ENERGY_STRIP_H);
+    const myEaten = (v) => mapY(v, eatenDom.min, eatenDom.max, stripDataTop(3), ENERGY_STRIP_H);
+    const myBalance = (v) => mapY(v, balDom.min, balDom.max, stripDataTop(4), ENERGY_STRIP_H);
+
+    function mkLinePts(getter) {
       const pts = [];
-      vals.forEach((v, i) => {
+      slice.forEach((d, i) => {
+        const v = getter(d, i);
         if (v != null && Number.isFinite(v)) {
-          pts.push({ x: xAt(i), y: top + titleH + stripH - ((v - lo) / (hi - lo)) * stripH });
+          pts.push({ x: xAtIndex(i, plotLeft, innerW, n), y: v });
         }
       });
-      return pts.length > 1 ? smoothPath(pts) : '';
+      return pts;
     }
 
-    const kcalMax = Math.max(500, ...totalVals.filter(Boolean), ...eatenVals, 2000);
-    const balMax = Math.max(500, ...balVals.filter((v) => v != null).map((v) => Math.abs(v)), 500);
+    const bmrPts = mkLinePts((_, i) => {
+      const v = withingsChartBmrKcal(slice, i);
+      return v != null ? myBmr(v) : null;
+    });
+    const actPts = mkLinePts((d) => (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay) ? myAct(d.activityKcalDay) : null));
+    const totalPts = mkLinePts((d, i) => {
+      const bmr = withingsChartBmrKcal(slice, i);
+      const act = d.activityKcalDay;
+      return bmr != null && act != null ? myTotal(bmr + act) : null;
+    });
+    const eatenPts = mkLinePts((d) => {
+      const eaten = eatenByDay?.[d.dayKey] ?? 0;
+      return eaten > 0 ? myEaten(eaten) : null;
+    });
+    const balancePts = mkLinePts((d, i) => {
+      const bmr = withingsChartBmrKcal(slice, i);
+      const act = d.activityKcalDay;
+      const chartBurn = bmr != null && act != null ? bmr + act : null;
+      const eaten = eatenByDay?.[d.dayKey] ?? 0;
+      return chartBurn != null && eaten > 0 ? myBalance(eaten - chartBurn) : null;
+    });
 
-    let top = 6;
-    const configs = [
-      { label: 'BMR', color: '#1A1A1A', vals: bmrVals, lo: 0, hi: kcalMax },
-      { label: 'ACTIVITY', color: '#42A5F5', vals: actVals, lo: 0, hi: kcalMax },
-      { label: 'TOTAL BURN', color: '#4CAF50', vals: totalVals, lo: 0, hi: kcalMax },
-      { label: 'EATEN', color: '#FF9800', vals: eatenVals, lo: 0, hi: kcalMax },
-    ];
-
-    let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}">`;
-    for (const cfg of configs) {
-      svg += `<text x="${padL}" y="${top + 10}" font-size="9" font-weight="700" fill="${cfg.color}">${cfg.label}</text>`;
-      const p = stripPath(cfg.vals, top, cfg.lo, cfg.hi);
-      if (p) svg += `<path d="${p}" fill="none" stroke="${cfg.color}" stroke-width="2"/>`;
-      top += titleH + stripH + 4;
-      svg += `<line x1="${padL}" y1="${top - 4}" x2="${W - padR}" y2="${top - 4}" stroke="#f0f0f0"/>`;
-    }
-    svg += `<text x="${padL}" y="${top + 10}" font-size="9" font-weight="700" fill="#37474F">BALANCE</text>`;
-    const balTop = top;
-    const balPath = stripPath(balVals.map((v) => (v != null ? v + balMax : null)), balTop, 0, balMax * 2);
-    if (balPath) svg += `<path d="${balPath}" fill="none" stroke="#37474F" stroke-width="2.2"/>`;
-    svg += `<line x1="${padL}" y1="${balTop + titleH + stripH / 2}" x2="${W - padR}" y2="${balTop + titleH + stripH / 2}" stroke="#ccc" stroke-dasharray="4,3"/>`;
+    const balanceDots = [];
     slice.forEach((d, i) => {
-      if (i % Math.ceil(n / 5) === 0 || i === n - 1) {
-        svg += `<text x="${xAt(i)}" y="${H - 2}" font-size="9" fill="#888" text-anchor="middle">${d.dayKey?.slice(5) || ''}</text>`;
+      const bmr = withingsChartBmrKcal(slice, i);
+      const act = d.activityKcalDay;
+      const chartBurn = bmr != null && act != null ? bmr + act : null;
+      const eaten = eatenByDay?.[d.dayKey] ?? 0;
+      if (chartBurn != null && eaten > 0) {
+        const value = eaten - chartBurn;
+        balanceDots.push({
+          x: xAtIndex(i, plotLeft, innerW, n),
+          y: myBalance(value),
+          value,
+        });
       }
     });
+
+    function renderStripGrid(dom, stripIdx) {
+      let out = '';
+      for (const v of yTicks(dom.min, dom.max)) {
+        const y = mapY(v, dom.min, dom.max, stripDataTop(stripIdx), ENERGY_STRIP_H);
+        out += `<line x1="${plotLeft}" y1="${y}" x2="${W - ENERGY_PAD_R}" y2="${y}" stroke="${COLOR_GRID}" stroke-width="1" opacity="0.5"/>`;
+        out += `<text x="3" y="${y + 3}" font-size="8" fill="${TREND_MUTED}">${v}</text>`;
+      }
+      return out;
+    }
+
+    const balanceStripTop = stripDataTop(4);
+    const balanceStripBottom = balanceStripTop + ENERGY_STRIP_H;
+    const balanceZeroY = myBalance(0);
+    const surplusZoneH = Math.max(0, balanceZeroY - balanceStripTop);
+    const deficitZoneH = Math.max(0, balanceStripBottom - balanceZeroY);
+
+    const tickIdx = new Set(pickTickIndices(n, 7));
+    const xAxisY = ENERGY_PAD_TOP + ENERGY_NUM_STRIPS * ENERGY_STRIP_UNIT;
+    const xTicks = slice
+      .map((d, i) => ({ d, i }))
+      .filter(({ i }) => tickIdx.has(i))
+      .map(({ d, i }) => ({
+        x: xAtIndex(i, plotLeft, innerW, n),
+        label: axisDayLabel(d.dayKey, n),
+      }));
+
+    const weekDelta = resolveBmrWeekTrend(slice).deltaKcal;
+    const avgBmr = avgRounded(bmrVals);
+    const avgActivity = avgRounded(actVals);
+    const avgTotalBurn = avgRounded(totalVals);
+    const avgEaten = avgRounded(eatenVals);
+    const avgBalance = avgRounded(balanceVals);
+
+    let svg = `<svg class="energy-svg" viewBox="0 0 ${W} ${svgH}" width="100%" height="${svgH}">`;
+
+    for (let div = 0; div < ENERGY_NUM_STRIPS; div += 1) {
+      const y = ENERGY_PAD_TOP + div * ENERGY_STRIP_UNIT;
+      svg += `<line x1="${plotLeft}" y1="${y}" x2="${W - ENERGY_PAD_R}" y2="${y}" stroke="${COLOR_GRID}" stroke-width="1" opacity="0.6"/>`;
+    }
+
+    svg += `<text x="${plotLeft + 4}" y="${ENERGY_PAD_TOP + 11}" font-size="9" font-weight="700" fill="${COLOR_BMR}">BMR${stripAvgLabel(avgBmr)}${weekDelta != null ? ` · Δ${weekDelta >= 0 ? '+' : ''}${Math.round(weekDelta)} kcal` : ''}</text>`;
+    svg += renderStripGrid(bmrDom, 0);
+    if (bmrPts.length > 1) svg += `<path d="${smoothPath(bmrPts)}" fill="none" stroke="${COLOR_BMR}" stroke-width="2.2"/>`;
+
+    svg += `<text x="${plotLeft + 4}" y="${ENERGY_PAD_TOP + ENERGY_STRIP_UNIT + 11}" font-size="9" font-weight="700" fill="${COLOR_ACTIVITY}">ACTIVITY KCAL${stripAvgLabel(avgActivity)}</text>`;
+    svg += renderStripGrid(actDom, 1);
+    if (actPts.length > 1) svg += `<path d="${smoothPath(actPts)}" fill="none" stroke="${COLOR_ACTIVITY}" stroke-width="2.2"/>`;
+
+    svg += `<text x="${plotLeft + 4}" y="${ENERGY_PAD_TOP + 2 * ENERGY_STRIP_UNIT + 11}" font-size="9" font-weight="700" fill="${COLOR_TOTAL}">TOTAL BURN${stripAvgLabel(avgTotalBurn)}</text>`;
+    svg += renderStripGrid(totDom, 2);
+    if (totalPts.length > 1) svg += `<path d="${smoothPath(totalPts)}" fill="none" stroke="${COLOR_TOTAL}" stroke-width="2.2"/>`;
+
+    svg += `<text x="${plotLeft + 4}" y="${ENERGY_PAD_TOP + 3 * ENERGY_STRIP_UNIT + 11}" font-size="9" font-weight="700" fill="${COLOR_EATEN}">EATEN${stripAvgLabel(avgEaten)}</text>`;
+    svg += renderStripGrid(eatenDom, 3);
+    if (eatenPts.length > 1) svg += `<path d="${smoothPath(eatenPts)}" fill="none" stroke="${COLOR_EATEN}" stroke-width="2.2"/>`;
+
+    svg += `<text x="${plotLeft + 4}" y="${ENERGY_PAD_TOP + 4 * ENERGY_STRIP_UNIT + 11}" font-size="9" font-weight="700" fill="${COLOR_BALANCE_LINE}">BALANCE (eaten − burn)${avgBalance != null ? ` (avg ${avgBalance >= 0 ? '+' : ''}${avgBalance.toLocaleString()} kcal)` : ''}</text>`;
+    if (surplusZoneH > 12) {
+      svg += `<rect x="${plotLeft}" y="${balanceStripTop}" width="${innerW}" height="${surplusZoneH}" fill="${COLOR_SURPLUS_ZONE}" opacity="0.95"/>`;
+    }
+    if (deficitZoneH > 12) {
+      svg += `<rect x="${plotLeft}" y="${balanceZeroY}" width="${innerW}" height="${deficitZoneH}" fill="${COLOR_DEFICIT_ZONE}" opacity="0.95"/>`;
+    }
+    svg += `<line x1="${plotLeft}" y1="${balanceZeroY}" x2="${W - ENERGY_PAD_R}" y2="${balanceZeroY}" stroke="${COLOR_BALANCE_LINE}" stroke-width="1.2" opacity="0.45"/>`;
+    svg += renderStripGrid(balDom, 4);
+    if (balancePts.length > 1) svg += `<path d="${smoothPath(balancePts)}" fill="none" stroke="${COLOR_BALANCE_LINE}" stroke-width="2.4"/>`;
+    for (const dot of balanceDots) {
+      const fill = dot.value < 0 ? COLOR_DEFICIT_DOT : dot.value > 0 ? COLOR_SURPLUS_DOT : COLOR_BALANCE_LINE;
+      svg += `<circle cx="${dot.x}" cy="${dot.y}" r="4" fill="${fill}" stroke="#fff" stroke-width="1.5"/>`;
+    }
+
+    svg += `<line x1="${plotLeft}" y1="${xAxisY}" x2="${W - ENERGY_PAD_R}" y2="${xAxisY}" stroke="${COLOR_GRID}" stroke-width="1" opacity="0.8"/>`;
+    for (const tk of xTicks) {
+      svg += `<text x="${tk.x}" y="${svgH - 6}" font-size="9" fill="${TREND_MUTED}" text-anchor="middle">${tk.label}</text>`;
+    }
     svg += '</svg>';
-    host.innerHTML = `<div class="chart-head"><strong>Energy (kcal)</strong></div>${svg}`;
+
+    host.innerHTML = `
+      <div class="energy-wrap">
+        <div class="energy-title">ENERGY</div>
+        ${opts?.periodDays ? `<div class="energy-subtitle">${opts.periodDays}D · same window as trend</div>` : ''}
+        <div class="chart-wrap">${svg}</div>
+      </div>`;
   }
 
   function drawLipidChart(host, labs) {
@@ -766,6 +959,7 @@
   global.ClinicCharts = {
     computeBurnByDay,
     eatenByDay,
+    trendWindowSlice,
     drawMetabolicChart,
     drawTrendAnalysis,
     drawEnergyChart,
