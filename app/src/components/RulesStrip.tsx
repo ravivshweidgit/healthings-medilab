@@ -5,6 +5,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -19,7 +20,9 @@ import {
   formatHistoryDate,
   formatHistorySource,
   getUserRulesHistory,
+  historyEntryMatchesActive,
   historyRowPreview,
+  restoreUserRulesFromHistory,
   saveUserRulesWithHistory,
   type UserRulesHistoryEntry,
 } from '../services/UserRulesHistoryService';
@@ -41,8 +44,10 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<UserRulesHistoryEntry[]>([]);
   const [historyEntry, setHistoryEntry] = useState<UserRulesHistoryEntry | null>(null);
+  const [restoring, setRestoring] = useState(false);
 
   const headerSub = userRules?.summary ?? 'Tap to add your dietary rules';
+  const canRestoreEntry = historyEntry != null && !historyEntryMatchesActive(historyEntry, userRules);
 
   const refreshHistory = useCallback(async () => {
     setHistory(await getUserRulesHistory());
@@ -75,6 +80,37 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
       setLoading(false);
     }
   }, [text, mentors, lang, onSaved, refreshHistory]);
+
+  const handleRestore = useCallback(() => {
+    if (!historyEntry || !canRestoreEntry) return;
+    Alert.alert(
+      'Restore this version?',
+      'Your current rules will be saved to history and this version will become active.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Restore',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              setRestoring(true);
+              try {
+                const restored = await restoreUserRulesFromHistory(historyEntry.id);
+                if (!restored) return;
+                onSaved(restored);
+                setText(restored.rawText);
+                setEditing(false);
+                await refreshHistory();
+                setHistoryEntry(null);
+              } finally {
+                setRestoring(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }, [historyEntry, canRestoreEntry, onSaved, refreshHistory]);
 
   return (
     <View style={styles.wrap}>
@@ -179,9 +215,24 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
                   )}
                   <Text style={styles.modalRaw}>{historyEntry.rules.rawText}</Text>
                 </ScrollView>
-                <Pressable style={styles.modalCloseBtn} onPress={() => setHistoryEntry(null)}>
-                  <Text style={styles.modalCloseText}>Close</Text>
-                </Pressable>
+                <View style={styles.modalActions}>
+                  {canRestoreEntry && (
+                    <Pressable
+                      style={[styles.modalRestoreBtn, restoring && styles.modalRestoreBtnDisabled]}
+                      onPress={handleRestore}
+                      disabled={restoring}
+                    >
+                      {restoring ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.modalRestoreText}>↩ Restore as active rules</Text>
+                      )}
+                    </Pressable>
+                  )}
+                  <Pressable style={styles.modalCloseBtn} onPress={() => setHistoryEntry(null)}>
+                    <Text style={styles.modalCloseText}>Close</Text>
+                  </Pressable>
+                </View>
               </>
             )}
           </View>
@@ -266,8 +317,16 @@ const styles = StyleSheet.create({
   modalScroll: { maxHeight: 360 },
   modalConstraints: { marginBottom: 10 },
   modalRaw: { fontSize: 14, color: WellnessColors.textPrimary, lineHeight: 21 },
+  modalActions: { marginTop: 16, gap: 10 },
+  modalRestoreBtn: {
+    backgroundColor: WellnessColors.accentGreen,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalRestoreBtnDisabled: { opacity: 0.7 },
+  modalRestoreText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   modalCloseBtn: {
-    marginTop: 16,
     alignSelf: 'center',
     paddingVertical: 10,
     paddingHorizontal: 24,

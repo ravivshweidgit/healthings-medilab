@@ -24,7 +24,7 @@
 
 **Write paths:** patient Save & Summarise · clinic overlay pull · server clinic rules PUT — all archive when `rawText` changes; skip if first save or unchanged rawText.
 
-**Restore:** view-only in MVP (no restore button).
+**Restore:** phone + clinic portal — archives current rules, promotes selected history snapshot to active (removed from history list on phone).
 
 ---
 
@@ -47,13 +47,12 @@
 - [ ] Re-save identical rawText → no duplicate history row
 - [ ] 31st save → oldest dropped (30 cap)
 - [ ] Clinic portal Rules tab shows server history after second clinic save
-- [ ] Mentor chat / meal checks still use latest rules only
+- [ ] Restore from history → current archived, selected version active (mentors use restored rules)
 
 ---
 
 ### Deferred
 
-- Restore version to active
 - Push patient history to server for unified clinic timeline
 - Diff view
 

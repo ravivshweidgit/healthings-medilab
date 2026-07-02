@@ -768,12 +768,26 @@
     }
   }
 
-  function renderRulesHistoryHost(host, history) {
+  function rulesRawEqual(a, b) {
+    return (a?.rawText?.trim() ?? '') === (b?.rawText?.trim() ?? '');
+  }
+
+  async function restoreRulesFromHistory(ctx, panel, historyEntry) {
+    const raw = historyEntry?.rules?.rawText?.trim();
+    if (!raw) return;
+    if (!window.confirm('Restore this version as the patient\'s live rules? Current rules will be archived to history.')) return;
+    const textarea = panel.querySelector('#rules-raw');
+    if (textarea) textarea.value = raw;
+    await saveRules(ctx, panel);
+  }
+
+  function renderRulesHistoryHost(host, history, ctx, panel) {
     if (!host) return;
     if (!history.length) {
       host.innerHTML = '<p class="sub rules-hint" style="margin-top:20px">No prior versions yet — history appears after a second save with different text.</p>';
       return;
     }
+    const liveRules = effectiveRules(ctx.parsed, ctx.overlay);
     host.innerHTML = `
       <h3 class="rules-history-title">Version history</h3>
       <ul class="rules-history-list">
@@ -786,6 +800,7 @@
             <div class="rules-history-detail hidden" id="history-detail-${esc(h.id)}">
               ${h.rules?.constraints?.length ? `<ul class="rules-constraints">${h.rules.constraints.map((c) => `<li>✓ ${esc(c)}</li>`).join('')}</ul>` : ''}
               <pre class="rules-raw">${esc(h.rules?.rawText || '')}</pre>
+              ${!rulesRawEqual(h.rules, liveRules) ? `<button type="button" class="ws-btn secondary rules-restore-btn" data-restore-id="${esc(h.id)}">Restore as live rules</button>` : ''}
             </div>
           </li>`).join('')}
       </ul>`;
@@ -796,13 +811,21 @@
         if (detail) detail.classList.toggle('hidden');
       });
     });
+    host.querySelectorAll('.rules-restore-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-restore-id');
+        const entry = history.find((h) => h.id === id);
+        if (entry) void restoreRulesFromHistory(ctx, panel, entry);
+      });
+    });
   }
 
   async function loadRulesHistory(panel, ctx) {
     const host = panel.querySelector('#rules-history-host');
     const history = await fetchRulesHistory(ctx);
     if (!host || !panel.contains(host)) return;
-    renderRulesHistoryHost(host, history);
+    renderRulesHistoryHost(host, history, ctx, panel);
   }
 
   function renderRules(panel, ctx) {

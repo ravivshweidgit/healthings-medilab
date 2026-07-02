@@ -48,6 +48,10 @@ export async function appendUserRulesHistory(
   await AsyncStorage.setItem(USER_RULES_HISTORY_KEY, JSON.stringify({ entries: next }));
 }
 
+async function persistUserRulesHistory(entries: UserRulesHistoryEntry[]): Promise<void> {
+  await AsyncStorage.setItem(USER_RULES_HISTORY_KEY, JSON.stringify({ entries }));
+}
+
 /** Archive prior rules when rawText changes, then persist the new active rules. */
 export async function saveUserRulesWithHistory(
   next: UserRules,
@@ -63,6 +67,42 @@ export async function saveUserRulesWithHistory(
     });
   }
   await saveUserRules(next);
+}
+
+/** Promote a history snapshot to active rules; archives current rules first. */
+export async function restoreUserRulesFromHistory(entryId: string): Promise<UserRules | null> {
+  const entries = await getUserRulesHistory();
+  const entry = entries.find((e) => e.id === entryId);
+  if (!entry) return null;
+
+  const current = await getUserRules();
+  if (current && rawTextEqual(current, entry.rules)) return current;
+
+  if (current?.rawText?.trim() && !rawTextEqual(current, entry.rules)) {
+    await appendUserRulesHistory({
+      savedAt: new Date().toISOString(),
+      source: 'patient',
+      rules: current,
+    });
+  }
+
+  const restored: UserRules = {
+    ...entry.rules,
+    analyzedAt: new Date().toISOString(),
+  };
+  await saveUserRules(restored);
+
+  const afterAppend = await getUserRulesHistory();
+  await persistUserRulesHistory(afterAppend.filter((e) => e.id !== entryId));
+
+  return restored;
+}
+
+export function historyEntryMatchesActive(
+  entry: UserRulesHistoryEntry,
+  active: UserRules | null,
+): boolean {
+  return rawTextEqual(active, entry.rules);
 }
 
 export function formatHistorySource(entry: UserRulesHistoryEntry): string {
