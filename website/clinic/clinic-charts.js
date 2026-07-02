@@ -184,7 +184,11 @@
     const parts = dateKey.split('-').map(Number);
     if (parts.length !== 3 || parts.some((v) => !Number.isFinite(v))) return dateKey;
     const [y, mo, da] = parts;
-    return new Date(y, mo - 1, da).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    return new Date(y, mo - 1, da).toLocaleDateString(undefined, {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
   }
 
   function lipidPickTickIndices(n, maxTicks) {

@@ -69,7 +69,11 @@ function axisDateLabel(dateKey: string): string {
   const parts = dateKey.split('-').map(Number);
   if (parts.length !== 3) return dateKey;
   const [y, mo, da] = parts;
-  return new Date(y, mo - 1, da).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return new Date(y, mo - 1, da).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 function xAt(i: number, n: number, innerW: number): number {

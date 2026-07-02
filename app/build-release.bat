@@ -1,11 +1,3 @@
 @echo off
-echo Building release APK...
-cd android
-call gradlew.bat clean assembleRelease
-cd ..
-echo.
-echo Done. APK location:
-echo   android\app\build\outputs\apk\release\app-release.apk
-echo.
-echo To install on connected device:
-echo   adb install -r android\app\build\outputs\apk\release\app-release.apk
+REM Legacy wrapper — use build-APK.bat (live Gradle log, short cache path).
+call "%~dp0build-APK.bat" %*
