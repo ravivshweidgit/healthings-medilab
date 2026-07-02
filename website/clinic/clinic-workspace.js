@@ -8,6 +8,7 @@
   const MACRO_KEY = 'daily_macro_target';
   const RULES_KEY = 'user_rules';
   const MENTOR_KEY = 'user_mentors';
+  const NUTRITION_DIRECTIVES_KEY = 'nutrition_directives_v1';
 
   const MENTORS = [
     { id: 'doctor', label: 'Doctor', emoji: '🩺' },
@@ -137,7 +138,66 @@
       profile,
       mentors: Array.isArray(mentors) ? mentors : ['nutritionist'],
       labs: parseLabs(store),
+      nutritionDirectives: parseNutritionDirectives(store),
     };
+  }
+
+  function parseNutritionDirectives(store) {
+    let activeId = null;
+    let entries = [];
+    try {
+      if (store[NUTRITION_DIRECTIVES_KEY]) {
+        const d = JSON.parse(store[NUTRITION_DIRECTIVES_KEY]);
+        activeId = d.activeId ?? null;
+        entries = Array.isArray(d.entries) ? d.entries : [];
+      }
+    } catch { /* */ }
+    entries = entries
+      .map((e) => normalizeNutritionEntry(e))
+      .filter((e) => e.fullText.trim());
+    return { activeId, entries };
+  }
+
+  function normalizeNutritionEntry(raw) {
+    let fullText = String(raw.fullText ?? '').trim();
+    if (!fullText && Array.isArray(raw.goals) && raw.goals.length) {
+      const blocks = [];
+      if (raw.goals.length) blocks.push('Goals', ...raw.goals.map((g) => `- ${g}`));
+      if (Array.isArray(raw.menuTargets) && raw.menuTargets.length) {
+        blocks.push('', 'Menu targets', ...raw.menuTargets.map((g) => `- ${g}`));
+      }
+      if (raw.macroSummary) blocks.push('', String(raw.macroSummary));
+      if (raw.sampleMenu) blocks.push('', String(raw.sampleMenu));
+      fullText = blocks.join('\n').trim();
+    }
+    const title = String(raw.title ?? '').trim() || 'Nutritionist report';
+    return {
+      id: String(raw.id ?? ''),
+      importedAt: String(raw.importedAt ?? ''),
+      sessionDate: raw.sessionDate ?? null,
+      title,
+      sourceFileName: raw.sourceFileName ?? null,
+      fullText,
+      lang: raw.lang ?? null,
+    };
+  }
+
+  function formatDirectiveDate(entry) {
+    const iso = entry.sessionDate || entry.importedAt;
+    const t = Date.parse(iso);
+    if (Number.isNaN(t)) return String(iso).slice(0, 10);
+    return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  function directivePreviewLine(entry) {
+    const lines = String(entry.fullText || '').split('\n').map((s) => s.trim()).filter(Boolean);
+    if (lines.length <= 1) return null;
+    return lines[1].slice(0, 80);
+  }
+
+  function directiveRtl(entry, profile) {
+    if (entry.lang === 'he' || entry.lang === 'mixed') return true;
+    return profileRtl(profile);
   }
 
   function parseLabs(store) {
@@ -910,6 +970,71 @@
     }
   }
 
+  function renderNutritionReports(panel, ctx) {
+    const store = ctx.parsed.nutritionDirectives || { activeId: null, entries: [] };
+    const entries = store.entries || [];
+    const intro = `<p class="sub snapshot-note" style="margin:0 0 16px">Nutritionist session reports from the patient snapshot — read-only. The <strong>Active</strong> report is what mentors use on the phone (overrides My Rules on conflict). Use <strong>Refresh snapshot</strong> after the patient imports a new PDF.</p>`;
+
+    if (!entries.length) {
+      panel.innerHTML = `
+        ${intro}
+        <div class="nutrition-tab-wrap">
+          <div class="nutrition-card">
+            <p class="nutrition-section-title">NUTRITION REPORTS</p>
+            <p class="nutrition-summary-line">No nutrition reports in this snapshot.</p>
+          </div>
+        </div>`;
+      return;
+    }
+
+    const effectiveActiveId = store.activeId || entries[0]?.id;
+    const active = entries.find((e) => e.id === effectiveActiveId) || entries[0];
+    let selectedId = ctx.nutritionSelectedId || effectiveActiveId;
+    if (!entries.find((e) => e.id === selectedId)) selectedId = effectiveActiveId;
+    const selected = entries.find((e) => e.id === selectedId) || active;
+    const rtl = directiveRtl(selected, ctx.parsed.profile);
+
+    const chipsHtml = entries.map((entry) => {
+      const isActive = entry.id === effectiveActiveId;
+      const isSelected = entry.id === selectedId;
+      const preview = directivePreviewLine(entry);
+      return `
+        <button type="button" class="nutrition-chip${isActive ? ' nutrition-chip-active' : ''}${isSelected ? ' nutrition-chip-selected' : ''}" data-id="${esc(entry.id)}">
+          <span class="nutrition-chip-date">${esc(formatDirectiveDate(entry))}</span>
+          <span class="nutrition-chip-label">${esc(entry.title)}</span>
+          ${isActive ? '<span class="nutrition-chip-badge">Active</span>' : ''}
+          ${preview ? `<span class="nutrition-chip-preview">${esc(preview)}</span>` : ''}
+          <span class="nutrition-chip-view">✎ view</span>
+        </button>`;
+    }).join('');
+
+    const activeBadge = selected.id === effectiveActiveId
+      ? ' · <span class="nutrition-chip-badge">Active</span>'
+      : '';
+
+    panel.innerHTML = `
+      ${intro}
+      <div class="nutrition-tab-wrap">
+        <div class="nutrition-card">
+          <p class="nutrition-section-title">NUTRITION REPORTS</p>
+          <p class="nutrition-summary-line">Active: ${esc(active.title)} · ${esc(formatDirectiveDate(active))}</p>
+          <div class="nutrition-chip-row">${chipsHtml}</div>
+          <div class="nutrition-detail-panel${rtl ? ' nutrition-rtl' : ''}">
+            <h3 class="nutrition-detail-title">${esc(selected.title)}</h3>
+            <p class="nutrition-detail-meta">${esc(formatDirectiveDate(selected))}${selected.sourceFileName ? ` · ${esc(selected.sourceFileName)}` : ''}${activeBadge}</p>
+            <pre class="nutrition-detail-body">${esc(selected.fullText)}</pre>
+          </div>
+        </div>
+      </div>`;
+
+    panel.querySelectorAll('.nutrition-chip').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        ctx.nutritionSelectedId = btn.getAttribute('data-id');
+        renderNutritionReports(panel, ctx);
+      });
+    });
+  }
+
   function renderLabs(panel, ctx) {
     const labs = ctx.parsed.labs;
     if (!labs.length) {
@@ -943,6 +1068,7 @@
     if (!body) return;
     if (tab === 'dashboard') renderDashboard(body, ctx);
     else if (tab === 'foodlog') renderFoodLogTab(body, ctx);
+    else if (tab === 'nutrition') renderNutritionReports(body, ctx);
     else if (tab === 'profile') renderProfileTab(body, ctx);
     else if (tab === 'lipids') renderLipidsTab(body, ctx);
     else if (tab === 'chat') renderChat(body, ctx);
@@ -957,6 +1083,7 @@
       { id: 'profile', label: 'Profile' },
       { id: 'lipids', label: 'Lipids' },
       { id: 'foodlog', label: 'Food log' },
+      { id: 'nutrition', label: 'Nutrition reports' },
       { id: 'chat', label: 'Mentors & chat' },
       { id: 'rules', label: 'Rules (live)' },
       { id: 'labs', label: 'Labs' },
