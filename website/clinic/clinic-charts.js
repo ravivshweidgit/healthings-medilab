@@ -9,14 +9,20 @@
   const CAL_STEPS = '#42A5F5';
   const CAL_WORKOUT = '#1565C0';
   const MEAL_ORANGE = '#FF9800';
+  const MS_DAY = 86400000;
   const VIEWPORT_PRESETS = [
     { label: '1H', ms: 3600000 },
     { label: '3H', ms: 3 * 3600000 },
     { label: '6H', ms: 6 * 3600000 },
     { label: '12H', ms: 12 * 3600000 },
-    { label: '24H', ms: 86400000 },
-    { label: '2D', ms: 2 * 86400000 },
+    { label: '24H', ms: MS_DAY },
+    { label: '2D', ms: 2 * MS_DAY },
+    { label: '4D', ms: 4 * MS_DAY },
+    { label: '8D', ms: 8 * MS_DAY },
+    { label: '16D', ms: 16 * MS_DAY },
+    { label: '32D', ms: 32 * MS_DAY },
   ];
+  const DEFAULT_VIEWPORT_INDEX = 3; // 12H
 
   function smoothPath(points) {
     if (points.length < 2) return '';
@@ -167,9 +173,16 @@
     });
   }
 
+  function formatMetabolicAxisLabel(ms, spanMs) {
+    if (spanMs >= MS_DAY * 0.9) {
+      return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }
+    return new Date(ms).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
   function drawMetabolicChart(host, data, ctx, onChange) {
-    const vpIdx = ctx.chartVp ?? 3;
-    const preset = VIEWPORT_PRESETS[vpIdx] || VIEWPORT_PRESETS[3];
+    const vpIdx = ctx.chartVp ?? DEFAULT_VIEWPORT_INDEX;
+    const preset = VIEWPORT_PRESETS[vpIdx] || VIEWPORT_PRESETS[DEFAULT_VIEWPORT_INDEX];
     const chartEnd = ctx.chartEndMs ?? Date.now();
     const t1 = chartEnd;
     const t0 = t1 - preset.ms;
@@ -296,13 +309,15 @@
     for (let i = 0; i <= 4; i++) {
       const t = t0 + (i / 4) * (t1 - t0);
       const x = xOf(t);
-      const lbl = new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+      const lbl = formatMetabolicAxisLabel(t, preset.ms);
       svg += `<line x1="${x}" y1="${plotH - 8}" x2="${x}" y2="${plotH - 2}" stroke="#999" stroke-width="1"/>`;
       svg += `<text x="${x}" y="${H - 6}" font-size="9" fill="#7c7c7c" text-anchor="middle">${lbl}</text>`;
     }
     svg += '</svg>';
 
-    const dateLabel = new Date(t0).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+    const dateLabel = preset.ms >= MS_DAY
+      ? `${new Date(t0).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${new Date(t1).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
+      : new Date(t0).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
     const chips = VIEWPORT_PRESETS.map((p, i) =>
       `<button type="button" class="chip${i === vpIdx ? ' active' : ''}" data-vp="${i}">${p.label}</button>`,
     ).join('');
@@ -310,7 +325,7 @@
 
     host.innerHTML = `
       <div class="chart-toolbar">
-        <div class="chip-row">${chips}</div>
+        <div class="chip-row metabolic-chips">${chips}</div>
         <div class="date-nav">
           <button type="button" class="nav-arrow" data-shift="-1" aria-label="Earlier">‹</button>
           <span class="date-label">${dateLabel}</span>

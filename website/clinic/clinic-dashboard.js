@@ -18,6 +18,10 @@
     { label: '12H', ms: 12 * MS_HOUR },
     { label: '24H', ms: MS_DAY },
     { label: '2D', ms: 2 * MS_DAY },
+    { label: '4D', ms: 4 * MS_DAY },
+    { label: '8D', ms: 8 * MS_DAY },
+    { label: '16D', ms: 16 * MS_DAY },
+    { label: '32D', ms: 32 * MS_DAY },
   ];
   const DEFAULT_VIEWPORT = 3; // 12H
 

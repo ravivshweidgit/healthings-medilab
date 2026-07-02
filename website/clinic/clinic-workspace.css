@@ -397,6 +397,13 @@ body.clinic-workspace {
   margin-bottom: 8px;
 }
 .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.metabolic-chips {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+.metabolic-chips .chip { flex-shrink: 0; }
 
 .date-nav {
   display: flex;
