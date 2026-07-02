@@ -178,17 +178,48 @@ body.clinic-workspace {
   gap: 16px;
   margin-bottom: 16px;
   align-items: stretch;
+  min-height: 520px;
 }
 .chart-half {
   min-width: 0;
   margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.chart-half #trend-host,
+.chart-half #energy-host {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.trend-wrap,
+.energy-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+.trend-wrap .chart-wrap,
+.energy-wrap .chart-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+}
+.trend-svg,
+.energy-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 @media (max-width: 1100px) {
   .charts-row { grid-template-columns: 1fr; }
   .chart-half { margin-bottom: 16px; }
 }
 
-.energy-wrap { width: 100%; }
+.energy-wrap { width: 100%; flex: 1; display: flex; flex-direction: column; min-height: 100%; }
 .energy-title {
   font-size: 11px;
   font-weight: 600;

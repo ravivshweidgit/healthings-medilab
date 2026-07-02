@@ -285,9 +285,10 @@
     const energyHost = panel.querySelector('#energy-host');
     const allDays = charts.enrichBodyTrendDays(ctx.parsed.withings, ctx.parsed.burnByDay);
     const pd = ctx.trendPeriod ?? 32;
-    const chartOpts = { tall: true, periodDays: pd };
+    const chartOpts = { fillHeight: true, periodDays: pd };
     const windowDays = charts.trendWindowSlice(allDays, pd);
-    if (trendHost) {
+    const drawTrend = () => {
+      if (!trendHost) return;
       charts.drawTrendAnalysis(
         trendHost,
         allDays,
@@ -300,10 +301,22 @@
         },
         chartOpts,
       );
-    }
-    if (energyHost) {
+    };
+    const drawEnergy = () => {
+      if (!energyHost) return;
       charts.drawEnergyChart(energyHost, windowDays, ctx.parsed.eatenByDay, chartOpts);
-    }
+    };
+    drawEnergy();
+    drawTrend();
+    requestAnimationFrame(() => {
+      const row = panel.querySelector('.charts-row');
+      const h = row?.clientHeight || 0;
+      if (h > 0 && ctx._chartRowH !== h) {
+        ctx._chartRowH = h;
+        drawEnergy();
+        drawTrend();
+      }
+    });
     const foodHost = panel.querySelector('#food-host');
     if (foodHost) renderFoodLog(foodHost, ctx);
     const profileHost = panel.querySelector('#profile-host');

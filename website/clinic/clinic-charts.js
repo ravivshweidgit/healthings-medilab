@@ -599,6 +599,25 @@
     return `${name} (${deltaIndex > 0 ? '+' : ''}${deltaIndex.toFixed(2)})`;
   }
 
+  function rowCardHeight(host) {
+    const card = host.closest('.chart-half');
+    const row = card?.closest('.charts-row');
+    if (!row) return card?.clientHeight || 0;
+    let maxH = 0;
+    row.querySelectorAll('.chart-half').forEach((el) => {
+      maxH = Math.max(maxH, el.offsetHeight);
+    });
+    return maxH || card?.clientHeight || 0;
+  }
+
+  function resolveStripHeight(host, numStrips, minStripH, chromeH) {
+    const cardH = rowCardHeight(host);
+    if (cardH < 120) return minStripH;
+    const available = cardH - chromeH;
+    if (available < numStrips * minStripH) return minStripH;
+    return Math.floor(available / numStrips);
+  }
+
   function trendWindowSlice(allDays, periodDays) {
     const days = allDays || [];
     const period = periodDays || DEFAULT_TREND_PERIOD;
@@ -606,8 +625,10 @@
   }
 
   function drawTrendAnalysis(host, allDays, sessions, periodDays, availableDays, onPeriodChange, opts) {
-    const scale = opts?.tall ? 2 : 1;
-    const stripH = TREND_STRIP_H * scale;
+    const fill = opts?.fillHeight !== false;
+    const stripH = fill
+      ? resolveStripHeight(host, 3, TREND_STRIP_H, 175)
+      : TREND_STRIP_H * (opts?.tall ? 2 : 1);
     const stripTopAt = (index) => TREND_PAD_TOP + index * (stripH + TREND_STRIP_GAP);
     const period = periodDays || DEFAULT_TREND_PERIOD;
     const avail = availableDays ?? (allDays || []).length;
@@ -709,7 +730,7 @@
     const weightWeekDelta = anchor ? anchor.end.weightKg - anchor.start.weightKg : null;
     const visceralWeekTrend = resolveVisceralWeekTrend(slice);
 
-    let svg = `<svg class="trend-svg" viewBox="0 0 ${W} ${svgH}" width="100%" height="${svgH}">`;
+    let svg = `<svg class="trend-svg" viewBox="0 0 ${W} ${svgH}" width="100%" height="${fill ? '100%' : svgH}"${fill ? ' preserveAspectRatio="none"' : ''}>`;
     for (const g of [...gridW, ...gridFM, ...gridV]) {
       svg += `<line x1="${plotLeft}" y1="${g.y}" x2="${W - TREND_PAD_R}" y2="${g.y}" stroke="${TREND_GRID}" stroke-width="1" opacity="${g.opacity}"/>`;
     }
@@ -768,12 +789,15 @@
   }
 
   function drawEnergyChart(host, days, eatenByDay, opts) {
-    const scale = opts?.tall ? 2 : 1;
+    const fill = opts?.fillHeight !== false;
+    const ENERGY_BASE_STRIP_H = 58;
+    const ENERGY_STRIP_H = fill
+      ? resolveStripHeight(host, 5, ENERGY_BASE_STRIP_H, 95)
+      : ENERGY_BASE_STRIP_H * (opts?.tall ? 2 : 1);
     const ENERGY_PAD_L = 44;
     const ENERGY_PAD_R = 10;
     const ENERGY_PAD_TOP = 6;
     const ENERGY_TITLE_H = 15;
-    const ENERGY_STRIP_H = 58 * scale;
     const ENERGY_STRIP_UNIT = ENERGY_TITLE_H + ENERGY_STRIP_H;
     const ENERGY_AXIS_BOTTOM = 24;
     const ENERGY_NUM_STRIPS = 5;
@@ -919,7 +943,7 @@
     const avgEaten = avgRounded(eatenVals);
     const avgBalance = avgRounded(balanceVals);
 
-    let svg = `<svg class="energy-svg" viewBox="0 0 ${W} ${svgH}" width="100%" height="${svgH}">`;
+    let svg = `<svg class="energy-svg" viewBox="0 0 ${W} ${svgH}" width="100%" height="${fill ? '100%' : svgH}"${fill ? ' preserveAspectRatio="none"' : ''}>`;
 
     for (let div = 0; div < ENERGY_NUM_STRIPS; div += 1) {
       const y = ENERGY_PAD_TOP + div * ENERGY_STRIP_UNIT;
