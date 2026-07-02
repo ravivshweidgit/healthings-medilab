@@ -1,0 +1,32 @@
+---
+description: App UI language vs coach/meals language
+alwaysApply: true
+---
+
+# Language policy
+
+## Default split
+
+| Layer | Language | Examples |
+|-------|----------|----------|
+| **App UI (chrome)** | **English only** | Screen titles, buttons, settings labels, errors, clinic link strip, website portal |
+| **Coach & meals** | **User language** (`userLanguage` in TargetService) | Gemini chat, coach card, meal `name_local`, quick questions, AI rules text |
+| **Exported documents** | **User language** | Visit report HTML body, clinical narrative in exports |
+
+Do **not** add `langCode === 'he'` (or other locale) branches to new UI components. Pass `userLanguage` / `lang` only into AI prompts, meal parsing, chat, and export **content** builders.
+
+## Settings UX
+
+The dashboard language picker controls **coach & meals language**, not full app localization. Prefer copy like “Coach & meals language” over a generic “Language” label when touching that control.
+
+## RTL
+
+Hebrew/Arabic still need correct text direction in **user-content areas** (chat bubbles, meal lists, exported HTML) even when chrome stays English LTR.
+
+## Intent detection
+
+Chat slash commands and natural-language triggers may stay multilingual (`chatIntent.ts`) — that is input parsing, not UI chrome.
+
+## When to revisit
+
+Full UI i18n (react-i18next or similar) is a later milestone if mass-market users cannot use English settings. Until then, keep chrome English and localize generated content only.
