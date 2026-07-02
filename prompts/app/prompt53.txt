@@ -1,0 +1,279 @@
+## Prompt 53 — Import nutritionist session reports (directive history)
+
+**Status: backlog (spec draft 2026-07-03)**  
+**Builds on:** `prompt39` / `LabReportModal` (PDF pick + Gemini parse) · `prompt46.txt` (medical/clinic plan authority) · `prompt51.txt` (history pattern) · `prompt52.txt` (rawText-only rules — directives are **separate** from My Rules).
+
+**Fixture (local dev, do not commit):** `app/סיכום מפגש ראשון.pdf` — Hebrew first-session summary (goals, menu targets, sample day menu, macro totals, tasks). Use for parse QA only.
+
+---
+
+### Problem
+
+Patients receive **nutritionist / clinic session PDFs** (e.g. *סיכום מפגש ראשון*) with:
+
+- Clinical goals (LDL, weight, HDL)
+- Prescribed macro bands (protein g/kg, fiber, saturated fat %)
+- Example daily menu (breakfast / lunch / dinner)
+- Tasks (next labs, supplements)
+- Provider contact
+
+Today there is **no import path** — user must manually copy fragments into **My Rules**, losing structure and prior sessions. `prompt46` plans a single “medical plan” overwrite; real care is **serial session reports** (visit 1, visit 2, …).
+
+---
+
+### Product decision (locked 2026-07-03, revised)
+
+| Rule | Detail |
+|------|--------|
+| **Separate stores** | **Directives** = imported PDF archive (full session). **My Rules** = your working dietary notes (`user_rules`). |
+| **Append directives** | Each import adds to directive history. Latest = **active directive** by default. |
+| **No report count cap** | Keep **all** imported reports on device (like lab reports). Text-only storage is small (~5–15 KB/report); include in backup. No silent drop — user deletes manually if needed. |
+| **Authority at runtime** | For AI (mentors, macros, meal check): **active directive > My Rules** on conflict. |
+| **Update My Rules from report** | **Yes — optional, user-confirmed.** After import (or from directive detail): **“Update My Rules from this report”** merges compatible content into `user_rules`. See flow below. |
+| **Parse** | Gemini extracts structured sections + `fullText`; user reviews before save. |
+| **No summarise-on-save** | Directives and My Rules updates use **verbatim text** (`prompt52`). |
+| **PDF file** | Parsed text + metadata in MVP; optional PDF bytes in cache (v2). |
+| **Clinic push** | Defer to `prompt49d` / `prompt46` — patient import first. |
+
+---
+
+### Sample content (from fixture PDF)
+
+Expected parse sections for *סיכום מפגש ראשון*:
+
+| Section | Example |
+|---------|---------|
+| `sessionDate` | 2026-07-02 |
+| `title` | סיכום מפגש ראשון |
+| `goals` | LDL &lt;100; maintain weight loss; raise HDL |
+| `menuTargets` | Protein 1.2–1.5 g/kg; fiber 30–35g (10–12 soluble); sat fat &lt;7% energy |
+| `sampleMenu` | Breakfast / lunch / dinner bullets (Hebrew) |
+| `macroSummary` | 1690 kcal, P112, net carbs 43, fiber 37, sat fat 13.5g |
+| `guidelines` | 3L water; strength training; stop whey powder… |
+| `tasks` | Next labs: vitamin D; monitor creatinine/urea |
+| `providerContact` | מיכל · 054-6568015 |
+| `fullText` | Full extracted text for search / mentor context |
+
+---
+
+### User flow
+
+```
+Dashboard → Nutrition directives strip
+  → Import PDF → Gemini parse → Review screen
+  → Save → append to directive history; set as active
+  → optional: "Update My Rules from this report" (see below)
+  → optional: "Use macro summary as starting point" → macro strip (user confirm)
+```
+
+#### Update My Rules from report (optional)
+
+When directive and personal rules **don’t need to fight**:
+
+```
+After save (or from directive detail) → "Update My Rules from this report"
+  → Build candidate text from directive: goals + menuTargets + guidelines
+     (exclude sample menu bullets, tasks, contact — or user toggles sections)
+  → If existing My Rules empty → pre-fill candidate → user edits → Save
+  → If My Rules exist:
+       Gemini diff: conflicts[] vs compatible additions
+       UI: show conflicts (amber) + "Will add" (green)
+       Buttons: Merge compatible · Replace with report text · Cancel
+  → Save uses prompt51 history (archive old user_rules before write)
+```
+
+| Case | Behaviour |
+|------|-----------|
+| No My Rules yet | One-tap fill from report; user can trim before Save |
+| Compatible additions | **Merge** — append new lines to `rawText` (dedupe near-duplicates) |
+| Conflicts | Show both sides; **directive still wins for AI**; user chooses what lands in My Rules for their own reference |
+| User declines | Directive alone is enough — mentors still see full directive block |
+
+**Not automatic** — import does not silently overwrite My Rules. User opts in per report.
+
+**History list**
+
+- Row: `{title or filename} · {sessionDate or importedAt}`
+- Badge **Active** on current directive
+- Tap → read-only detail (all sections)
+- Actions: **Set active** · **Delete** (confirm)
+
+**Replace active**
+
+- Importing always adds history; new import becomes active unless user picks another from list.
+
+---
+
+### Data model (phone)
+
+AsyncStorage key: `nutrition_directives_v1`
+
+```ts
+export type NutritionDirective = {
+  id: string;
+  importedAt: string;       // ISO
+  sessionDate: string | null; // from PDF if parsed
+  title: string;            // parsed or filename
+  sourceFileName: string | null;
+  fullText: string;         // authoritative blob for AI
+  goals: string[];
+  menuTargets: string[];
+  sampleMenu: string;       // markdown or plain multiline
+  macroSummary: string | null;
+  guidelines: string[];
+  tasks: string[];
+  providerContact: string | null;
+  lang: 'he' | 'en' | 'mixed' | null;
+};
+
+export type NutritionDirectivesStore = {
+  activeId: string | null;
+  entries: NutritionDirective[];  // newest first — unbounded; user deletes to free space
+};
+```
+
+Service: `NutritionDirectiveService.ts` — `importFromPdf`, `list`, `getActive`, `setActive`, `delete`, `append`.
+
+New: `proposeMyRulesUpdateFromDirective(directive, currentRules)` in `GeminiService.ts` → `{ mergedText, conflicts: { topic, directiveLine, myRulesLine }[], additions: string[] }`.
+
+New: `applyMyRulesFromDirective(...)` — uses `saveUserRulesWithHistory` (`prompt51`).
+
+---
+
+### Gemini parse
+
+New: `parseNutritionDirectivePdf(base64, lang?)` in `GeminiService.ts` (mirror `parseLabReportPdf`).
+
+**Output JSON schema** (strict):
+
+```json
+{
+  "title": "סיכום מפגש ראשון",
+  "sessionDate": "2026-07-02",
+  "goals": ["..."],
+  "menuTargets": ["..."],
+  "sampleMenu": "ארוחת בוקר: ...",
+  "macroSummary": "1690 kcal · P112 · ...",
+  "guidelines": ["..."],
+  "tasks": ["..."],
+  "providerContact": "...",
+  "fullText": "..."
+}
+```
+
+Prompt rules:
+
+- Preserve **numbers and Hebrew** verbatim in `fullText` and section arrays
+- Do not invent items not in PDF
+- `sessionDate`: DD.MM.YY or explicit date in header → ISO
+- If parse fails partially, still return `fullText` from OCR layer; user can edit review screen
+
+---
+
+### AI injection
+
+New: `formatActiveDirectiveBlock(directive)` in `nutritionDirectiveContext.ts`
+
+```
+=== NUTRITIONIST DIRECTIVE (active — authoritative over My Rules) ===
+Title: ... · Session: ...
+Goals:
+- ...
+Menu targets:
+- ...
+[sample menu excerpt if present]
+Guidelines / tasks: ...
+Full text:
+{fullText}
+```
+
+Inject in:
+
+- `GeminiService` coach / chat context (before My Rules block)
+- `formatMacroRevisionRulesBlock` / macro suggest (directive menu targets as HARD bands when numeric)
+- `checkMealAgainstUserRules` — check directive **then** My Rules
+- Visit report appendix (optional section “Active nutritionist plan”)
+
+**Do not** auto-change `daily_macro_target` on import — offer button **“Use macro summary as starting point”** → opens macro strip with values pre-filled for user confirm (`prompt35`).
+
+---
+
+### UI
+
+**`NutritionDirectivesStrip.tsx`** (dashboard — below My Rules or combined “Plans” card)
+
+| State | Collapsed subtitle |
+|-------|-------------------|
+| None | “Import nutritionist report (PDF)” |
+| Has active | `{title} · {sessionDate}` |
+| History only | “{n} reports — tap to view” |
+
+**`NutritionDirectiveReviewModal.tsx`** — parse preview, section TextInputs, Save / Cancel (clone `LabReportModal` patterns).
+
+**`NutritionDirectiveDetailScreen.tsx`** or modal — history list + detail.
+
+English UI chrome per `language-policy.mdc`; PDF content stays Hebrew.
+
+---
+
+### Primary files
+
+| File | Role |
+|------|------|
+| `app/src/services/NutritionDirectiveService.ts` | **NEW** — storage CRUD |
+| `app/src/services/GeminiService.ts` | `parseNutritionDirectivePdf` |
+| `app/src/logic/nutritionDirectiveContext.ts` | **NEW** — AI formatters |
+| `app/src/components/NutritionDirectivesStrip.tsx` | **NEW** — dashboard entry |
+| `app/src/components/NutritionDirectiveReviewModal.tsx` | **NEW** — import review |
+| `app/src/screens/DashboardScreen.tsx` | mount strip |
+| `app/src/logic/userRulesContext.ts` | inject directive before My Rules |
+| `app/src/services/LocalBackupService.ts` | include `nutrition_directives_v1` in backup |
+| `app/src/services/ShareExportService.ts` | include in clinic snapshot export (read-only) |
+
+---
+
+### Phone-tested checklist
+
+- [ ] Import `סיכום מפגש ראשון.pdf` → review shows goals, menu, macros, tasks in Hebrew
+- [ ] Save → appears in history; marked **Active**
+- [ ] Second PDF import → two entries; newest active; first still in list
+- [ ] Mentor chat cites directive block (spot-check LDL &lt;100, protein g/kg)
+- [ ] Meal save flags conflict with directive (e.g. whey if directive says stop)
+- [ ] Set older entry active → AI context switches
+- [ ] Delete entry → confirm; active falls back to next newest
+- [ ] Import PDF → save → **Update My Rules** → merged text in My Rules; old rules in history (`prompt51`)
+- [ ] Import with conflicting My Rules → conflict list shown; Merge adds only compatible lines
+- [ ] Decline update → directive active; My Rules unchanged; AI still uses directive first
+- [ ] Many imports (10+) → all retained; backup/restore keeps full list
+- [ ] Airplane mode after import → directive still readable
+- [ ] Local backup restore → full directive history preserved
+
+---
+
+### Deferred
+
+- Clinic uploads PDF → patient inbox (`prompt49d`)
+- Photo/camera import (v2 — same parser)
+- Full-text search across directive history
+- Link directive entry to calendar appointment
+- Server sync of directives (encrypted blob field — v3)
+- Merge into `prompt46` `medical_rules` key vs separate store (keep **separate** unless product merges strips)
+
+---
+
+### Ship order
+
+1. **`prompt52`** — rawText My Rules (reduces confusion with directives)
+2. **`prompt53`** — this import (can ship without 46/51)
+3. **`prompt51`** — optional: directive import also appends to unified “plan history” later
+4. **`prompt46`** — medical strip UI; may **reuse** `NutritionDirectiveReviewModal` + share parse function
+
+---
+
+### Related
+
+- **`prompt46.txt`** — medical vs personal rules authority
+- **`prompt51.txt`** — My Rules version history (orthogonal)
+- **`prompt52.txt`** — no Gemini summarise on My Rules save
+- **`done/prompt39.txt`** — lab PDF import pattern
+- **`done/prompt30.txt`** — lab storage model reference

@@ -1,0 +1,65 @@
+## Prompt 51 — My Rules version history (patient + clinic edits)
+
+**Status: shipped 2026-07-03** (phone-tested `[ ]` pending)  
+**Builds on:** `done/prompt20.txt` · clinic overlay rules · `macro_revision_log_v1` pattern
+
+---
+
+### Problem
+
+**My Rules** was a single blob — every patient or clinic save overwrote prior text with no audit trail.
+
+---
+
+### What shipped
+
+| Area | Change |
+|------|--------|
+| Phone | `UserRulesHistoryService.ts` — `user_rules_history_v1`, max 30, `saveUserRulesWithHistory()` |
+| Phone UI | `RulesStrip.tsx` — Past versions list + read-only detail modal |
+| Phone clinic pull | `ClinicOverlayService.ts` archives local rules before applying clinic overlay |
+| Server DB | `clinic_patient_rules_history` table in `schema.sql` |
+| Server API | Archive on `saveRulesForPatient`; `GET /v1/clinic/patients/:id/rules/history` |
+| Clinic web | Version history panel on Rules tab (`clinic-workspace.js`) |
+
+**Write paths:** patient Save & Summarise · clinic overlay pull · server clinic rules PUT — all archive when `rawText` changes; skip if first save or unchanged rawText.
+
+**Restore:** view-only in MVP (no restore button).
+
+---
+
+### Primary files
+
+- `app/src/services/UserRulesHistoryService.ts` (NEW)
+- `app/src/components/RulesStrip.tsx`
+- `app/src/services/ClinicOverlayService.ts`
+- `server/src/db/schema.sql`
+- `server/src/services/clinicOverlay.ts`
+- `server/src/routes/clinic.ts`
+- `website/clinic/clinic-workspace.js` · `clinic-workspace.css` · `patient.html`
+
+---
+
+### Phone-tested checklist
+
+- [ ] Patient edits My Rules → old version in History with "You"
+- [ ] Clinic saves rules → phone poll → History shows "Clinic" with prior text
+- [ ] Re-save identical rawText → no duplicate history row
+- [ ] 31st save → oldest dropped (30 cap)
+- [ ] Clinic portal Rules tab shows server history after second clinic save
+- [ ] Mentor chat / meal checks still use latest rules only
+
+---
+
+### Deferred
+
+- Restore version to active
+- Push patient history to server for unified clinic timeline
+- Diff view
+
+---
+
+### Related
+
+- **`prompt52.txt`** — rawText-only save (backlog)
+- **`prompt53.txt`** — nutritionist PDF directive history (backlog)

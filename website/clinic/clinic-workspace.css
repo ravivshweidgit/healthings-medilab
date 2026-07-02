@@ -390,6 +390,24 @@ body.clinic-workspace {
 .rules-constraints { margin-top: 16px; }
 .rules-constraints li { margin-bottom: 6px; font-size: 0.9rem; }
 .rules-hint { font-size: 0.82rem; color: var(--muted); margin-top: 8px; }
+.rules-history-title { margin: 24px 0 10px; font-size: 1rem; }
+.rules-history-list { list-style: none; margin: 0; padding: 0; }
+.rules-history-item { border-bottom: 1px solid var(--grid, #e8e8e8); }
+.rules-history-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 12px 0;
+  cursor: pointer;
+  font: inherit;
+}
+.rules-history-btn:hover { background: rgba(0,0,0,0.03); }
+.rules-history-meta { display: block; font-weight: 600; font-size: 0.88rem; }
+.rules-history-preview { display: block; font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+.rules-history-detail { margin: 0 0 12px; padding: 12px; background: var(--surface, #f7f7f7); border-radius: 8px; }
+.rules-history-detail.hidden { display: none; }
 
 /* Labs table */
 .data-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }

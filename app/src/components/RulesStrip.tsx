@@ -2,17 +2,27 @@
  * My Rules — free-text dietary/lifestyle rules, summarised by AI.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { summariseUserRules } from '../services/GeminiService';
-import { saveUserRules, type MentorType, type UserRules, type UserLanguage } from '../services/TargetService';
+import { type MentorType, type UserRules, type UserLanguage } from '../services/TargetService';
+import {
+  formatHistoryDate,
+  formatHistorySource,
+  getUserRulesHistory,
+  historyRowPreview,
+  saveUserRulesWithHistory,
+  type UserRulesHistoryEntry,
+} from '../services/UserRulesHistoryService';
 import { WellnessColors } from '../theme/wellness';
 
 type Props = {
@@ -29,8 +39,18 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
   const [text, setText] = useState(userRules?.rawText ?? '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<UserRulesHistoryEntry[]>([]);
+  const [historyEntry, setHistoryEntry] = useState<UserRulesHistoryEntry | null>(null);
 
   const headerSub = userRules?.summary ?? 'Tap to add your dietary rules';
+
+  const refreshHistory = useCallback(async () => {
+    setHistory(await getUserRulesHistory());
+  }, []);
+
+  useEffect(() => {
+    if (expanded) void refreshHistory();
+  }, [expanded, refreshHistory]);
 
   const handleSave = useCallback(async () => {
     if (!text.trim()) return;
@@ -45,15 +65,16 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
         aiContext: (result.context ?? '').trim(),
         analyzedAt: new Date().toISOString(),
       };
-      await saveUserRules(rules);
+      await saveUserRulesWithHistory(rules, { source: 'patient' });
       onSaved(rules);
+      await refreshHistory();
       setEditing(false);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to summarise rules');
     } finally {
       setLoading(false);
     }
-  }, [text, mentors, onSaved]);
+  }, [text, mentors, lang, onSaved, refreshHistory]);
 
   return (
     <View style={styles.wrap}>
@@ -68,7 +89,6 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
 
       {expanded && (
         <View style={styles.body}>
-            {/* Active view — summary shown */}
             {userRules && !editing && !loading && (
               <View>
                 <Text style={styles.sectionLabel}>AI understood:</Text>
@@ -82,7 +102,6 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
               </View>
             )}
 
-            {/* Input view */}
             {(!userRules || editing) && !loading && (
               <View>
                 <TextInput
@@ -113,15 +132,61 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
               </View>
             )}
 
-            {/* Loading */}
             {loading && (
               <View style={styles.loadingWrap}>
                 <ActivityIndicator color={WellnessColors.accentGreen} />
                 <Text style={styles.loadingText}>Understanding your rules…</Text>
               </View>
             )}
+
+            {!loading && history.length > 0 && (
+              <View style={styles.historySection}>
+                <Text style={styles.sectionLabel}>Past versions ({history.length})</Text>
+                {history.map((entry) => (
+                  <Pressable
+                    key={entry.id}
+                    style={styles.historyRow}
+                    onPress={() => setHistoryEntry(entry)}
+                  >
+                    <Text style={styles.historyRowTitle} numberOfLines={1}>
+                      {formatHistoryDate(entry.savedAt)} · {formatHistorySource(entry)}
+                    </Text>
+                    <Text style={styles.historyRowSub} numberOfLines={2}>
+                      {historyRowPreview(entry)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
         </View>
       )}
+
+      <Modal visible={historyEntry != null} animationType="slide" transparent onRequestClose={() => setHistoryEntry(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            {historyEntry && (
+              <>
+                <Text style={styles.modalTitle}>
+                  {formatHistoryDate(historyEntry.savedAt)} · {formatHistorySource(historyEntry)}
+                </Text>
+                <ScrollView style={styles.modalScroll}>
+                  {historyEntry.rules.constraints.length > 0 && (
+                    <View style={styles.modalConstraints}>
+                      {historyEntry.rules.constraints.map((c, i) => (
+                        <Text key={i} style={styles.constraintLine}>✓ {c}</Text>
+                      ))}
+                    </View>
+                  )}
+                  <Text style={styles.modalRaw}>{historyEntry.rules.rawText}</Text>
+                </ScrollView>
+                <Pressable style={styles.modalCloseBtn} onPress={() => setHistoryEntry(null)}>
+                  <Text style={styles.modalCloseText}>Close</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -175,4 +240,37 @@ const styles = StyleSheet.create({
 
   loadingWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
   loadingText: { fontSize: 13, color: WellnessColors.textSecondary },
+
+  historySection: { marginTop: 20, borderTopWidth: 1, borderTopColor: WellnessColors.gridLine, paddingTop: 14 },
+  historyRow: {
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: WellnessColors.gridLine,
+  },
+  historyRowTitle: { fontSize: 13, fontWeight: '600', color: WellnessColors.textPrimary },
+  historyRowSub: { fontSize: 12, color: WellnessColors.textSecondary, marginTop: 3 },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: WellnessColors.background,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: '78%',
+    padding: 20,
+  },
+  modalTitle: { fontSize: 15, fontWeight: '700', color: WellnessColors.textPrimary, marginBottom: 12 },
+  modalScroll: { maxHeight: 360 },
+  modalConstraints: { marginBottom: 10 },
+  modalRaw: { fontSize: 14, color: WellnessColors.textPrimary, lineHeight: 21 },
+  modalCloseBtn: {
+    marginTop: 16,
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
+  modalCloseText: { fontSize: 15, fontWeight: '600', color: WellnessColors.accentBlue },
 });

@@ -189,3 +189,16 @@ CREATE TABLE IF NOT EXISTS clinic_patient_overlays (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by UUID REFERENCES users (id) ON DELETE SET NULL
 );
+
+-- Prior clinic overlay rules snapshots (archived before each rawText change).
+CREATE TABLE IF NOT EXISTS clinic_patient_rules_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  mentor_id UUID REFERENCES users (id) ON DELETE SET NULL,
+  rules_json JSONB NOT NULL,
+  saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  superseded_by TEXT NOT NULL DEFAULT 'clinic'
+);
+
+CREATE INDEX IF NOT EXISTS idx_rules_history_patient
+  ON clinic_patient_rules_history (patient_id, saved_at DESC);

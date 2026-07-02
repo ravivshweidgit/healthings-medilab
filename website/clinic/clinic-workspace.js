@@ -744,6 +744,67 @@
     return parsed.userRules;
   }
 
+  function formatRulesHistoryDate(iso) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  function rulesHistoryPreview(rules) {
+    const summary = rules?.summary?.trim();
+    if (summary) return summary;
+    const line = (rules?.rawText || '').trim().split('\n')[0] || '';
+    return line.length > 80 ? `${line.slice(0, 77)}…` : line;
+  }
+
+  async function fetchRulesHistory(ctx) {
+    try {
+      const res = await ctx.api(`/v1/clinic/patients/${ctx.patientId}/rules/history`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.history || [];
+    } catch {
+      return [];
+    }
+  }
+
+  function renderRulesHistoryHost(host, history) {
+    if (!host) return;
+    if (!history.length) {
+      host.innerHTML = '<p class="sub rules-hint" style="margin-top:20px">No prior versions yet — history appears after a second save with different text.</p>';
+      return;
+    }
+    host.innerHTML = `
+      <h3 class="rules-history-title">Version history</h3>
+      <ul class="rules-history-list">
+        ${history.map((h) => `
+          <li class="rules-history-item">
+            <button type="button" class="rules-history-btn" data-history-id="${esc(h.id)}">
+              <span class="rules-history-meta">${esc(formatRulesHistoryDate(h.savedAt))} · ${esc(h.mentorLabel || 'Clinic')}</span>
+              <span class="rules-history-preview">${esc(rulesHistoryPreview(h.rules))}</span>
+            </button>
+            <div class="rules-history-detail hidden" id="history-detail-${esc(h.id)}">
+              ${h.rules?.constraints?.length ? `<ul class="rules-constraints">${h.rules.constraints.map((c) => `<li>✓ ${esc(c)}</li>`).join('')}</ul>` : ''}
+              <pre class="rules-raw">${esc(h.rules?.rawText || '')}</pre>
+            </div>
+          </li>`).join('')}
+      </ul>`;
+    host.querySelectorAll('.rules-history-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-history-id');
+        const detail = host.querySelector(`#history-detail-${CSS.escape(id)}`);
+        if (detail) detail.classList.toggle('hidden');
+      });
+    });
+  }
+
+  async function loadRulesHistory(panel, ctx) {
+    const host = panel.querySelector('#rules-history-host');
+    const history = await fetchRulesHistory(ctx);
+    if (!host || !panel.contains(host)) return;
+    renderRulesHistoryHost(host, history);
+  }
+
   function renderRules(panel, ctx) {
     const rules = effectiveRules(ctx.parsed, ctx.overlay);
     const raw = rules?.rawText || '';
@@ -764,9 +825,11 @@
           ${rules.summary ? `<p class="sub">Summary: ${esc(rules.summary)}</p>` : ''}
         </div>` : ''}
         <p class="rules-hint">Snapshot rules are shown until you save. After save, clinic rules override on the server.</p>
-      </div>`;
+      </div>
+      <div id="rules-history-host"><p class="sub rules-hint" style="margin-top:20px">Loading version history…</p></div>`;
 
     panel.querySelector('#rules-save')?.addEventListener('click', () => void saveRules(ctx, panel));
+    void loadRulesHistory(panel, ctx);
   }
 
   async function saveRules(ctx, panel) {
@@ -789,6 +852,7 @@
       ctx.overlay = data.overlay;
       if (status) status.textContent = 'Saved — patient will receive on next app open';
       renderRules(panel, ctx);
+      void loadRulesHistory(panel, ctx);
     } catch (e) {
       if (status) status.textContent = '';
       const msg = e instanceof Error ? e.message : 'Save failed';

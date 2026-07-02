@@ -13,14 +13,14 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 | `prompt46.txt` | Medical rules import + My Rules (medical overrides; conflict feedback) |
 | `prompt47.txt` | Play Store internal testing (local-first privacy; AAB + privacy page) |
 | `prompt49.txt` | Link to clinic + share encrypted data + sponsored AI badge |
-| `prompt51.txt` | My Rules version history (patient + clinic edits, audit trail) |
 | `prompt52.txt` | My Rules rawText-only save — deprecate summarise-on-save |
+| `prompt53.txt` | Import nutritionist session PDFs — directive history |
 
 ## Done (`prompts/app/done/`)
 
 See [done/README.md](./done/README.md) for the full index.
 
-Recent: **48** lipid trend charts + all lab draws for mentors · **40a** recipe slash commands · **41** tiered CGM chat · **42** macro revision guards.
+Recent: **51** My Rules version history (patient + clinic) · **48** lipid trend charts + all lab draws for mentors · **40a** recipe slash commands.
 
 ## Macros reference dumps
 

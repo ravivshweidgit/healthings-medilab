@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authFetch } from './AuthApiService';
-import { getUserRules, saveUserRules, type UserRules } from './TargetService';
+import { saveUserRulesWithHistory } from './UserRulesHistoryService';
+import { getUserRules, type UserRules } from './TargetService';
 
 const CLINIC_RULES_SYNC_AT_KEY = 'healthings:clinicRulesSyncedAt';
 
@@ -44,7 +45,7 @@ export async function pullClinicOverlays(): Promise<UserRules | null> {
       aiContext: rules.aiContext ?? '',
       analyzedAt: rules.analyzedAt || overlay.updatedAt,
     };
-    await saveUserRules(saved);
+    await saveUserRulesWithHistory(saved, { source: 'clinic', clinicLabel: 'Clinic' });
     await AsyncStorage.setItem(CLINIC_RULES_SYNC_AT_KEY, overlay.updatedAt);
     return saved;
   } catch {

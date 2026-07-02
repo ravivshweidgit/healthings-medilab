@@ -26,6 +26,17 @@ export type ClinicOverlay = {
   updatedBy: string | null;
 };
 
+export type ClinicRulesHistoryEntry = {
+  id: string;
+  rules: ClinicUserRules;
+  savedAt: string;
+  mentorId: string | null;
+  mentorLabel: string;
+  supersededBy: string;
+};
+
+const MAX_SERVER_HISTORY = 50;
+
 type OverlayRow = {
   patient_id: string;
   rules_json: ClinicUserRules | null;
@@ -102,12 +113,76 @@ export async function getOverlayForPatient(patient: PublicUser): Promise<ClinicO
   return rowToOverlay(rows[0]);
 }
 
+async function archiveRulesHistory(
+  patientId: string,
+  mentorId: string,
+  rules: ClinicUserRules,
+  supersededBy: 'clinic' | 'patient' = 'clinic',
+): Promise<void> {
+  await query(
+    `INSERT INTO clinic_patient_rules_history (patient_id, mentor_id, rules_json, superseded_by)
+     VALUES ($1, $2, $3, $4)`,
+    [patientId, mentorId, rules, supersededBy],
+  );
+  await query(
+    `DELETE FROM clinic_patient_rules_history
+     WHERE id IN (
+       SELECT id FROM clinic_patient_rules_history
+       WHERE patient_id = $1
+       ORDER BY saved_at DESC
+       OFFSET $2
+     )`,
+    [patientId, MAX_SERVER_HISTORY],
+  );
+}
+
+export async function getRulesHistoryForMentor(
+  mentor: PublicUser,
+  patientId: string,
+): Promise<ClinicRulesHistoryEntry[]> {
+  await assertMentorPatientAccess(mentor, patientId);
+  const { rows } = await query<{
+    id: string;
+    rules_json: ClinicUserRules;
+    saved_at: Date;
+    mentor_id: string | null;
+    superseded_by: string;
+    mentor_email: string | null;
+    mentor_display_name: string | null;
+  }>(
+    `SELECT h.id, h.rules_json, h.saved_at, h.mentor_id, h.superseded_by,
+            u.email AS mentor_email, u.display_name AS mentor_display_name
+     FROM clinic_patient_rules_history h
+     LEFT JOIN users u ON u.id = h.mentor_id
+     WHERE h.patient_id = $1
+     ORDER BY h.saved_at DESC
+     LIMIT $2`,
+    [patientId, MAX_SERVER_HISTORY],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    rules: r.rules_json,
+    savedAt: r.saved_at.toISOString(),
+    mentorId: r.mentor_id,
+    mentorLabel: r.mentor_display_name?.trim() || r.mentor_email || 'Clinic',
+    supersededBy: r.superseded_by,
+  }));
+}
+
 export async function saveRulesForPatient(
   mentor: PublicUser,
   patientId: string,
   rules: ClinicUserRules,
 ): Promise<ClinicOverlay> {
   await assertMentorPatientAccess(mentor, patientId);
+  const { rows: existingRows } = await query<OverlayRow>(
+    `SELECT * FROM clinic_patient_overlays WHERE patient_id = $1`,
+    [patientId],
+  );
+  const existingRules = existingRows[0]?.rules_json ?? null;
+  if (existingRules?.rawText?.trim() && existingRules.rawText.trim() !== rules.rawText.trim()) {
+    await archiveRulesHistory(patientId, mentor.id, existingRules, 'clinic');
+  }
   const { rows } = await query<OverlayRow>(
     `INSERT INTO clinic_patient_overlays (patient_id, rules_json, updated_at, updated_by)
      VALUES ($1, $2, NOW(), $3)

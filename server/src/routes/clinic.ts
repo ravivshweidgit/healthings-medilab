@@ -8,6 +8,7 @@ import {
   assertMentorType,
   getOverlayForMentor,
   getOverlayForPatient,
+  getRulesHistoryForMentor,
   saveRulesForPatient,
   type ClinicUserRules,
 } from '../services/clinicOverlay.js';
@@ -38,6 +39,19 @@ export async function registerClinicRoutes(app: FastifyInstance) {
     try {
       const overlay = await getOverlayForPatient(user);
       return { overlay };
+    } catch (err) {
+      if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  app.get('/v1/clinic/patients/:patientId/rules/history', { preHandler: authenticate }, async (request, reply) => {
+    const params = z.object({ patientId: z.string().uuid() }).parse(request.params);
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    try {
+      const history = await getRulesHistoryForMentor(user, params.patientId);
+      return { history };
     } catch (err) {
       if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
       throw err;
