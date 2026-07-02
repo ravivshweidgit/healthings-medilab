@@ -74,7 +74,7 @@ import {
 } from '../services/WithingsApiService';
 import { type AuthUser } from '../services/AuthApiService';
 import { pullClinicOverlays } from '../services/ClinicOverlayService';
-import { fulfillPendingClinicSyncRequests } from '../services/ClinicSyncService';
+import { CLINIC_SYNC_POLL_MS, fulfillPendingClinicSyncRequests } from '../services/ClinicSyncService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 import { demoNoticeCopy } from '../utils/wellnessCopy';
 
@@ -691,6 +691,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   /** Heart rate chart line — Withings only (never Health Connect). */
   const mergedHeartRate = withingsHeartRate;
 
+  const applyClinicOverlays = useCallback(async () => {
+    const rules = await pullClinicOverlays();
+    if (rules) {
+      setUserRules(rules);
+      await loadCoachMessage();
+    }
+  }, [loadCoachMessage]);
+
   const handlePullRefresh = useCallback(async () => {
     setPullRefreshing(true);
     try {
@@ -700,11 +708,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         refreshTodayIntraday(),
         loadTodayFood(),
         user.role === 'patient' ? fulfillPendingClinicSyncRequests() : Promise.resolve(),
+        user.role === 'patient' ? applyClinicOverlays() : Promise.resolve(),
       ]);
     } finally {
       setPullRefreshing(false);
     }
-  }, [refetch, syncWithings, refreshTodayIntraday, loadTodayFood, user.role]);
+  }, [refetch, syncWithings, refreshTodayIntraday, loadTodayFood, user.role, applyClinicOverlays]);
 
   useEffect(() => {
     void loadTodayFood();
@@ -720,19 +729,18 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
   useEffect(() => {
     if (user.role !== 'patient') return;
-    void (async () => {
-      const updated = await pullClinicOverlays();
-      if (updated) await loadCoachMessage();
-    })();
+    void applyClinicOverlays();
     const sub = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') return;
-      void (async () => {
-        const updated = await pullClinicOverlays();
-        if (updated) await loadCoachMessage();
-      })();
+      if (state === 'active') void applyClinicOverlays();
     });
-    return () => sub.remove();
-  }, [user.role, loadCoachMessage]);
+    const poll = setInterval(() => {
+      void applyClinicOverlays();
+    }, CLINIC_SYNC_POLL_MS);
+    return () => {
+      sub.remove();
+      clearInterval(poll);
+    };
+  }, [user.role, applyClinicOverlays]);
 
   useEffect(() => {
     void checkDayClose();
