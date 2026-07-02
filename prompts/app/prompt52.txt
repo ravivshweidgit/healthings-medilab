@@ -1,0 +1,185 @@
+## Prompt 52 — My Rules: rawText-only save (deprecate summarise-on-save)
+
+**Status: backlog (spec draft 2026-07-02)**  
+**Builds on:** `done/prompt20.txt` (My Rules) · `prompt51.txt` (rules history — implement **52 before or with 51**) · clinic overlay rules (`summariseRulesForClinic`, `RulesStrip`, `userRulesContext.ts`).
+
+**Investigation (2026-07-02):** AI summary/constraints are **in use** but **lossy and blocking**. Macros and meal checks already treat `rawText` as authoritative (`formatMacroRevisionRulesBlock`). Summary mainly powers UI chrome and secondary mentor bullets — often **hurts** (Hebrew multi-paragraph rules, 5×8-word cap, save fails offline, clinic stub vs background AI mismatch).
+
+---
+
+### Problem
+
+Today every My Rules save **requires Gemini**:
+
+| Surface | Current behaviour | Pain |
+|---------|-------------------|------|
+| Phone `RulesStrip` | **Save & Summarise** → `summariseUserRules()` → save or **error** | No offline save; API failure blocks user |
+| Clinic Rules tab | **Save & analyse with AI** → stub + background `summariseRulesForClinic` | Extra latency/complexity; empty constraints until AI finishes |
+| Mentor / coach context | If `constraints.length > 0`, bullets listed **before** full `rawText` | Model may follow wrong shortened bullets |
+| Storage | `summary`, `constraints`, `aiContext` + `rawText` | Two sources of truth; `aiContext` already marked deprecated in `TargetService` |
+
+User rules are **verbatim clinical instructions** (grams, Hebrew, exceptions). Compressing them to 5 bullets loses information and can mislead meal flags and macro tone.
+
+---
+
+### Product decision (locked 2026-07-02)
+
+| Rule | Detail |
+|------|--------|
+| **Source of truth** | **`rawText` only** for all AI injection (mentors, coach, macros, meal check, recipes, visit report). |
+| **Save** | **Instant** — no Gemini on save path. Button: **Save** (not “Save & Summarise”). |
+| **summary / constraints / aiContext** | **Stop generating** on new saves. Keep fields on `UserRules` for **backward compat** when reading old data; new saves may set `summary: ''`, `constraints: []`, `aiContext: ''`. |
+| **UI** | Show **full rawText** in expanded Rules strip. Collapsed subtitle = first line of `rawText` (trimmed, ~60 chars) or “My Rules”. Remove “AI understood” section for new saves. |
+| **Clinic portal** | Button: **Save rules** (drop “& analyse with AI”). Server saves `rawText` only — **remove** `summariseRulesForClinic` from save path (or keep dead code behind flag until deleted). |
+| **Optional summarise** | **v2 / skip for MVP** — separate non-blocking “Summarise for display” if ever needed. |
+| **History (prompt51)** | Archive full `UserRules` blob; history entries from pre-52 may still have old summary/constraints — display `rawText` prominently. |
+
+---
+
+### Behaviour changes
+
+#### Phone — `RulesStrip.tsx`
+
+1. `handleSave`: persist immediately:
+
+```ts
+await saveUserRulesWithHistory({
+  rawText: text.trim(),
+  summary: '',
+  constraints: [],
+  aiContext: '',
+  analyzedAt: new Date().toISOString(),
+}, { source: 'patient' });
+```
+
+2. Remove `summariseUserRules` import and loading state “Understanding your rules…”.
+3. Collapsed `headerSub`: `firstLine(userRules.rawText)` not `userRules.summary`.
+4. Expanded view: drop “AI understood” / green checkmarks; show `rawText` + Edit.
+5. If legacy rules have `constraints.length > 0`, show one line: “Older AI summary on file — edit & save to use text only” (optional, one release).
+
+#### Phone — `userRulesContext.ts`
+
+**`formatUserRulesLines`** — simplify:
+
+```ts
+export function formatUserRulesLines(rules: UserRules): string[] {
+  const raw = rules.rawText?.trim();
+  if (!raw) return [];
+  return ['My Rules:', `- ${raw.replace(/"/g, "'")}`];
+}
+```
+
+**`formatMacroRevisionRulesBlock`** — drop secondary AI block; single verbatim section:
+
+```ts
+=== MY RULES (verbatim — HARD constraints) ===
+{rawText}
+```
+
+Keep `MEAL_FAT_RULE_FLAGGING_GUIDANCE` unchanged.
+
+**`isCholesterolPrimaryGoal` / `hasExplicitLowCarbIntent`** (macroAutoAdjust, macroRevisionGuard, macroClinicalProfile, macroFiberCoupling): scan **`rawText` only** (drop summary/constraints/aiContext from blob). Reduces false positives from bad summaries.
+
+#### Phone — `visitReportExport.ts` / `visitReportClinical.ts`
+
+- Section 7 / rules HTML: **`rawText` only** (pre block). Ignore legacy summary/constraints unless raw empty.
+
+#### Server — `clinic.ts` + `geminiClinic.ts`
+
+`PUT /v1/clinic/patients/:id/rules`:
+
+```ts
+const rules: ClinicUserRules = {
+  rawText: body.rawText.trim(),
+  summary: '',
+  constraints: [],
+  analyzedAt: new Date().toISOString(),
+  updatedByClinic: true,
+};
+await saveRulesForPatient(...);
+return { overlay, rules };
+```
+
+- Delete fire-and-forget `summariseRulesForClinic` on this route.
+- `mentorChatReply` rules block: use **`clinicRules.rawText` only** (drop constraints list).
+- Keep `summariseRulesForClinic` function only if another caller exists; else remove.
+
+#### Clinic web — `clinic-workspace.js`
+
+- Button label: **Save rules**
+- Remove constraints/summary display after save; show saved raw text + `updatedAt`.
+- Dashboard snapshot “My Rules” collapse: use first line of `rawText`, body shows full raw.
+
+#### `ClinicOverlayService.ts`
+
+- Pull applies `rawText` + empty summary/constraints (or preserve server fields but phone ignores them in formatters).
+
+---
+
+### What stays the same
+
+- `user_rules` AsyncStorage key and export in clinic snapshot.
+- `checkMealAgainstUserRules` — still Gemini at **meal save** (reads verbatim rules block).
+- Macro revision Gemini — still uses `formatMacroRevisionRulesBlock` (now raw-only).
+- `summariseUserRules` in `GeminiService.ts` — **leave exported** but unused, or delete in same PR if no scripts depend on it.
+
+---
+
+### Migration / compat
+
+| Case | Handling |
+|------|----------|
+| Existing users with summary + constraints | Continue to work until they edit & save; then raw-only |
+| Clinic overlay with AI fields | Phone formatters ignore summary/constraints after 52 |
+| Snapshot vN on server | Old blobs may have constraints in export — clinic dashboard may show until re-save; optional one-time display prefer `rawText` |
+
+No AsyncStorage migration script required.
+
+---
+
+### Primary files
+
+| File | Change |
+|------|--------|
+| `app/src/components/RulesStrip.tsx` | Save without Gemini; UI raw-only |
+| `app/src/logic/userRulesContext.ts` | raw-only formatters |
+| `app/src/logic/macroAutoAdjust.ts` | goal detection from rawText |
+| `app/src/logic/macroRevisionGuard.ts` |同上 |
+| `app/src/logic/macroClinicalProfile.ts` |同上 |
+| `app/src/logic/macroFiberCoupling.ts` |同上 |
+| `app/src/logic/visitReportExport.ts` | rules section raw only |
+| `app/src/logic/visitReportClinical.ts` | section 7 raw only |
+| `app/src/services/ClinicOverlayService.ts` | save pulled rules without trusting AI fields |
+| `server/src/routes/clinic.ts` | drop summarise on PUT |
+| `server/src/services/geminiClinic.ts` | mentor chat rawText; remove or orphan summarise |
+| `website/clinic/clinic-workspace.js` | Save rules UI |
+| `app/src/services/UserRulesHistoryService.ts` | (prompt51) archive before save |
+
+---
+
+### Phone-tested checklist
+
+- [ ] Edit My Rules → **Save** works in airplane mode (no Gemini)
+- [ ] Hebrew multi-paragraph rules save and show verbatim in strip
+- [ ] Mentor chat cites full rules (spot-check USER DATA block)
+- [ ] Meal save rule check still runs (uses rawText block)
+- [ ] Macro suggest / weigh-in still sees cholesterol intent from Hebrew rawText
+- [ ] Clinic **Save rules** → phone receives full text within poll window
+- [ ] Visit report rules section shows full rawText
+- [ ] Legacy user with old constraints: after one save, “AI understood” UI gone
+
+---
+
+### Deferred
+
+- Optional “Summarise for display” (non-blocking)
+- Remove `summary` / `constraints` / `aiContext` from `UserRules` type entirely (breaking; v3)
+- `prompt46` medical vs personal split — raw-only applies to dietary `user_rules`; medical import unchanged
+
+---
+
+### Related
+
+- **`prompt51.txt`** — history should archive before `saveUserRules`; ship together or 52 first
+- **`done/prompt20.txt`** — original My Rules + meal check
+- **`done/prompt36.txt`** — macro rules context (already raw-first in revision block)

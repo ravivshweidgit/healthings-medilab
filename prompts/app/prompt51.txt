@@ -1,0 +1,182 @@
+## Prompt 51 — My Rules version history (patient + clinic edits)
+
+**Status: backlog (spec draft 2026-07-02)**  
+**Builds on:** `done/prompt20.txt` (My Rules) · `prompt49.txt` (clinic link + share) · clinic overlay rules (`clinic_patient_overlays`, `ClinicOverlayService`, `RulesStrip`) · `macro_revision_log_v1` pattern (`macroRevisionLog.ts`).
+
+---
+
+### Problem
+
+**My Rules** is a single blob (`user_rules` in AsyncStorage). Every save — patient edit in `RulesStrip` or clinic **Save & analyse** on the portal — **overwrites** the previous text with no audit trail.
+
+Users and clinics cannot:
+
+- See **who changed rules when** (patient vs clinic)
+- Compare **before / after** (e.g. clinic added “XOXO”, prior Hebrew LDL guidance)
+- Recover context for mentors (“rules changed on 2 Jul — what did coach say then?”)
+
+Clinic portal only stores **latest** `rules_json` on `clinic_patient_overlays`; phone pull replaces local rules with no history.
+
+---
+
+### Product decision (locked 2026-07-02)
+
+| Rule | Detail |
+|------|--------|
+| **Current rules** | One active record — same as today (`user_rules` on phone; `clinic_patient_overlays.rules_json` on server). Mentors, meal checks, macros keep reading **current only**. |
+| **On every change** | Append **previous** active snapshot to history **before** writing the new active rules. |
+| **Sources** | `patient` (phone Save) · `clinic` (portal Save rules · sync to phone via `pullClinicOverlays`). After **prompt52**, no Gemini on save. |
+| **Timestamp** | Each history row has `savedAt` (ISO). Active rules keep `analyzedAt` as today. |
+| **Restore** | **v2** — MVP is view-only history; optional “Restore this version” later. |
+| **Retention** | Phone: last **30** versions (config constant). Server clinic history: last **50** per patient (or unbounded with index — pick 50 for MVP). |
+| **Medical rules** | Out of scope here — see `prompt46.txt`. History applies to **dietary My Rules** / clinic overlay rules only. |
+
+---
+
+### Data model
+
+#### Phone — active (unchanged key)
+
+`user_rules` → `UserRules` (`TargetService.ts`):
+
+```ts
+{ rawText, summary, constraints, aiContext, analyzedAt }
+```
+
+#### Phone — history (new)
+
+AsyncStorage key: `user_rules_history_v1`
+
+```ts
+type UserRulesHistoryEntry = {
+  id: string;              // uuid
+  savedAt: string;         // when this version was superseded (archived)
+  source: 'patient' | 'clinic';
+  clinicLabel?: string;    // mentor display name when source === 'clinic'
+  rules: UserRules;        // full snapshot at archive time
+};
+
+type UserRulesHistoryStore = {
+  entries: UserRulesHistoryEntry[];  // newest first
+};
+```
+
+#### Server — clinic history (new table)
+
+```sql
+CREATE TABLE clinic_patient_rules_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  mentor_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  rules_json JSONB NOT NULL,
+  saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  superseded_by TEXT NOT NULL DEFAULT 'clinic'  -- 'clinic' | 'patient' (who caused next version)
+);
+CREATE INDEX idx_rules_history_patient ON clinic_patient_rules_history(patient_id, saved_at DESC);
+```
+
+On `PUT /v1/clinic/patients/:id/rules`: if overlay already has `rules_json`, **INSERT** that row into history, then upsert new rules (current behaviour).
+
+Optional `GET /v1/clinic/patients/:patientId/rules/history` for portal UI.
+
+Patient-origin updates on phone do **not** need to POST history to server in MVP — clinic sees history of **clinic saves** + whatever was on server before each clinic save. Phone holds **full** history including patient edits.
+
+---
+
+### Write paths (must all archive)
+
+| Trigger | Archive what | Then write |
+|---------|--------------|------------|
+| `RulesStrip` → Save & Summarise | Current `getUserRules()` if non-empty and `rawText` changed | `saveUserRules(new)` + `appendUserRulesHistory({ source: 'patient', rules: old })` |
+| `pullClinicOverlays` applies clinic rules | Current local rules if different from incoming | `saveUserRules(incoming)` + history `{ source: 'clinic', clinicLabel }` |
+| Server `saveRulesForPatient` | Current `rules_json` on overlay row | INSERT history + upsert overlay |
+
+Centralize phone writes in `TargetService.saveUserRules` or new `UserRulesService.ts`:
+
+```ts
+export async function saveUserRulesWithHistory(
+  next: UserRules,
+  meta: { source: 'patient' | 'clinic'; clinicLabel?: string },
+): Promise<void>
+```
+
+- If no prior rules → skip history append (first save).
+- If `rawText` unchanged (only summary/constraints refresh) → **no** history row (avoid noise from re-summarise).
+
+---
+
+### UI
+
+#### Phone — `RulesStrip.tsx`
+
+- Collapsed header unchanged (summary line).
+- Expanded: current rules + **History** section below (or chevron “Past versions (N)”).
+- Each row: `2 Jul 2026 · Clinic` or `28 Jun 2026 · You` + summary or first line of `rawText`.
+- Tap row → read-only modal: full `rawText`, constraints, timestamp, source.
+- No restore in MVP.
+
+#### Clinic — `clinic-workspace.js` Rules tab
+
+- Below editor: **Version history** list (from `GET .../rules/history` or embedded in overlay response).
+- Row: `savedAt` · mentor email/display name · truncated rawText.
+- Click → expand read-only (same as phone).
+
+#### Mentors / Gemini
+
+- **No change** — still inject **current** `user_rules` only.
+- Optional v2: “Rules changed since last chat” one-liner if `analyzedAt` &lt; last message — defer.
+
+---
+
+### Sync / snapshot
+
+| Surface | Behaviour |
+|---------|-----------|
+| Clinic encrypted snapshot (`ShareExportService`) | Export **current** `user_rules` only (same as today). |
+| Local backup (`LocalBackupService`) | Include `user_rules_history_v1` in generic capture so restore on new phone keeps history. |
+| `healthings:clinicRulesSyncedAt` | Keep; unrelated to history key. |
+
+---
+
+### Primary files
+
+| Area | File | Change |
+|------|------|--------|
+| Phone model | `app/src/services/UserRulesHistoryService.ts` | **NEW** — append, list, max 30 |
+| Phone save | `app/src/services/TargetService.ts` or wrapper | `saveUserRulesWithHistory` |
+| Phone UI | `app/src/components/RulesStrip.tsx` | History list + read-only detail |
+| Phone clinic pull | `app/src/services/ClinicOverlayService.ts` | Use `saveUserRulesWithHistory` |
+| Server DB | `server/src/db/schema.sql` + migrate | `clinic_patient_rules_history` |
+| Server API | `server/src/services/clinicOverlay.ts` | Archive on `saveRulesForPatient` |
+| Server routes | `server/src/routes/clinic.ts` | Optional GET history |
+| Clinic web | `website/clinic/clinic-workspace.js` | History panel on Rules tab |
+| Tests | `app/src/__tests__/userRulesHistory.test.ts` | append, cap, skip duplicate rawText |
+
+---
+
+### Phone-tested checklist
+
+- [ ] Patient edits My Rules → old version appears in History with “You” + timestamp
+- [ ] Clinic saves rules → phone receives update within poll window → History shows “Clinic” row with prior patient text
+- [ ] Re-save identical rawText (re-summarise only) → **no** duplicate history row
+- [ ] 31st save → oldest dropped (30 cap)
+- [ ] Clinic portal Rules tab shows server history after second clinic save
+- [ ] Mentor chat / meal rule check still use **latest** rules only
+- [ ] Local backup restore on second phone → history entries present
+
+---
+
+### Deferred (v2)
+
+- **Restore** version → becomes active + archives current
+- Push patient history entry to server for unified clinic timeline
+- Diff view (highlight rawText changes)
+- Export history in visit report appendix
+
+---
+
+### Related
+
+- **`prompt46.txt`** — medical vs personal rules (separate keys); implement 51 first on current `user_rules` or after 46 split
+- **`done/prompt42.txt`** — `macro_revision_log_v1` (same append + cap pattern)
+- **`prompt52.txt`** — rawText-only save; drop summarise-on-save (ship before or with 51)

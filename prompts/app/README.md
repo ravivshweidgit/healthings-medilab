@@ -13,6 +13,8 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 | `prompt46.txt` | Medical rules import + My Rules (medical overrides; conflict feedback) |
 | `prompt47.txt` | Play Store internal testing (local-first privacy; AAB + privacy page) |
 | `prompt49.txt` | Link to clinic + share encrypted data + sponsored AI badge |
+| `prompt51.txt` | My Rules version history (patient + clinic edits, audit trail) |
+| `prompt52.txt` | My Rules rawText-only save — deprecate summarise-on-save |
 
 ## Done (`prompts/app/done/`)
 
