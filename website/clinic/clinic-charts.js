@@ -23,6 +23,8 @@
     { label: '32D', ms: 32 * MS_DAY },
   ];
   const DEFAULT_VIEWPORT_INDEX = 3; // 12H
+  const CHARTS_ROW_HEIGHT = 520;
+  const MAX_ACTIVITY_KCAL_DAY = 5000;
 
   function smoothPath(points) {
     if (points.length < 2) return '';
@@ -116,61 +118,29 @@
       .filter(Boolean);
   }
 
-  function passiveActivityByDay(withings) {
-    const calories = withings?.calories || [];
-    const workouts = withings?.workouts || [];
-    const workoutBucketsByDay = new Map();
-    for (const w of workouts) {
-      const dk = dayKeyFromMs(w.startMs);
-      if (!workoutBucketsByDay.has(dk)) workoutBucketsByDay.set(dk, new Set());
-      const set = workoutBucketsByDay.get(dk);
-      for (let bk = Math.floor(w.startMs / BUCKET_MS) * BUCKET_MS; bk < w.endMs; bk += BUCKET_MS) set.add(bk);
-    }
-    const workoutKcalByDay = new Map();
-    for (const w of workouts) {
-      const dk = dayKeyFromMs(w.startMs);
-      workoutKcalByDay.set(dk, (workoutKcalByDay.get(dk) || 0) + (w.kcal || 0));
-    }
-    const passiveByDay = new Map();
-    for (const pt of calories) {
-      const t = Date.parse(pt.timestamp);
-      const dk = dayKeyFromMs(t);
-      const bk = Math.floor(t / BUCKET_MS) * BUCKET_MS;
-      if (!(workoutBucketsByDay.get(dk) || new Set()).has(bk)) {
-        passiveByDay.set(dk, (passiveByDay.get(dk) || 0) + (pt.kcal || 0));
-      }
-    }
-    const out = new Map();
-    const keys = new Set([...passiveByDay.keys(), ...workoutKcalByDay.keys()]);
-    for (const dk of keys) {
-      const total = (passiveByDay.get(dk) || 0) + (workoutKcalByDay.get(dk) || 0);
-      if (total > 0) out.set(dk, Math.round(total));
-    }
-    return out;
-  }
-
-  /** Match phone DashboardScreen bodyTrendDaysWithActivity + passive fallback for clinic snapshots. */
-  function enrichBodyTrendDays(withings, burnByDay) {
+  /** Phone: activityKcalDay from Withings, else sum workouts for that day only. */
+  function enrichBodyTrendDays(withings) {
     const days = (withings?.bodyTrendDays || []).map((d) => ({ ...d }));
     const workoutByDay = new Map();
     for (const w of withings?.workouts || []) {
       const dk = dayKeyFromMs(w.startMs);
       workoutByDay.set(dk, (workoutByDay.get(dk) || 0) + (w.kcal || 0));
     }
-    const passiveByDay = passiveActivityByDay(withings);
     return days.map((d) => {
-      if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay)) return d;
+      if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay)) {
+        if (d.activityKcalDay > MAX_ACTIVITY_KCAL_DAY) return { ...d, activityKcalDay: null };
+        return d;
+      }
       const wkt = workoutByDay.get(d.dayKey);
       if (wkt != null && wkt > 0) return { ...d, activityKcalDay: Math.round(wkt) };
-      const passive = passiveByDay.get(d.dayKey);
-      if (passive != null && passive > 0) return { ...d, activityKcalDay: passive };
-      const burn = burnByDay?.[d.dayKey];
-      const bmr = d.bmrKcalDay;
-      if (burn != null && bmr != null && burn > bmr) {
-        return { ...d, activityKcalDay: Math.round(burn - bmr) };
-      }
       return d;
     });
+  }
+
+  function chartActivityKcal(d) {
+    const v = d.activityKcalDay;
+    if (v == null || !Number.isFinite(v) || v <= 0 || v > MAX_ACTIVITY_KCAL_DAY) return null;
+    return v;
   }
 
   function formatMetabolicAxisLabel(ms, spanMs) {
@@ -614,21 +584,8 @@
     return `${name} (${deltaIndex > 0 ? '+' : ''}${deltaIndex.toFixed(2)})`;
   }
 
-  function rowCardHeight(host) {
-    const card = host.closest('.chart-half');
-    const row = card?.closest('.charts-row');
-    if (!row) return card?.clientHeight || 0;
-    let maxH = 0;
-    row.querySelectorAll('.chart-half').forEach((el) => {
-      maxH = Math.max(maxH, el.offsetHeight);
-    });
-    return maxH || card?.clientHeight || 0;
-  }
-
-  function resolveStripHeight(host, numStrips, minStripH, chromeH) {
-    const cardH = rowCardHeight(host);
-    if (cardH < 120) return minStripH;
-    const available = cardH - chromeH;
+  function resolveStripHeight(numStrips, minStripH, chromeH) {
+    const available = CHARTS_ROW_HEIGHT - chromeH;
     if (available < numStrips * minStripH) return minStripH;
     return Math.floor(available / numStrips);
   }
@@ -642,7 +599,7 @@
   function drawTrendAnalysis(host, allDays, sessions, periodDays, availableDays, onPeriodChange, opts) {
     const fill = opts?.fillHeight !== false;
     const stripH = fill
-      ? resolveStripHeight(host, 3, TREND_STRIP_H, 175)
+      ? resolveStripHeight(3, TREND_STRIP_H, 175)
       : TREND_STRIP_H * (opts?.tall ? 2 : 1);
     const stripTopAt = (index) => TREND_PAD_TOP + index * (stripH + TREND_STRIP_GAP);
     const period = periodDays || DEFAULT_TREND_PERIOD;
@@ -745,7 +702,7 @@
     const weightWeekDelta = anchor ? anchor.end.weightKg - anchor.start.weightKg : null;
     const visceralWeekTrend = resolveVisceralWeekTrend(slice);
 
-    let svg = `<svg class="trend-svg" viewBox="0 0 ${W} ${svgH}" width="100%" height="${fill ? '100%' : svgH}"${fill ? ' preserveAspectRatio="none"' : ''}>`;
+    let svg = `<svg class="trend-svg" viewBox="0 0 ${W} ${svgH}" width="100%" height="${svgH}">`;
     for (const g of [...gridW, ...gridFM, ...gridV]) {
       svg += `<line x1="${plotLeft}" y1="${g.y}" x2="${W - TREND_PAD_R}" y2="${g.y}" stroke="${TREND_GRID}" stroke-width="1" opacity="${g.opacity}"/>`;
     }
@@ -807,7 +764,7 @@
     const fill = opts?.fillHeight !== false;
     const ENERGY_BASE_STRIP_H = 58;
     const ENERGY_STRIP_H = fill
-      ? resolveStripHeight(host, 5, ENERGY_BASE_STRIP_H, 95)
+      ? resolveStripHeight(5, ENERGY_BASE_STRIP_H, 95)
       : ENERGY_BASE_STRIP_H * (opts?.tall ? 2 : 1);
     const ENERGY_PAD_L = 44;
     const ENERGY_PAD_R = 10;
@@ -851,7 +808,7 @@
 
     slice.forEach((d, i) => {
       const bmr = withingsChartBmrKcal(slice, i);
-      const act = d.activityKcalDay;
+      const act = chartActivityKcal(d);
       const eaten = eatenByDay?.[d.dayKey] ?? 0;
       const chartBurn = bmr != null && act != null ? bmr + act : null;
       if (bmr != null) bmrVals.push(bmr);
@@ -891,10 +848,13 @@
       const v = withingsChartBmrKcal(slice, i);
       return v != null ? myBmr(v) : null;
     });
-    const actPts = mkLinePts((d) => (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay) ? myAct(d.activityKcalDay) : null));
+    const actPts = mkLinePts((d) => {
+      const act = chartActivityKcal(d);
+      return act != null ? myAct(act) : null;
+    });
     const totalPts = mkLinePts((d, i) => {
       const bmr = withingsChartBmrKcal(slice, i);
-      const act = d.activityKcalDay;
+      const act = chartActivityKcal(d);
       return bmr != null && act != null ? myTotal(bmr + act) : null;
     });
     const eatenPts = mkLinePts((d) => {
@@ -903,7 +863,7 @@
     });
     const balancePts = mkLinePts((d, i) => {
       const bmr = withingsChartBmrKcal(slice, i);
-      const act = d.activityKcalDay;
+      const act = chartActivityKcal(d);
       const chartBurn = bmr != null && act != null ? bmr + act : null;
       const eaten = eatenByDay?.[d.dayKey] ?? 0;
       return chartBurn != null && eaten > 0 ? myBalance(eaten - chartBurn) : null;
@@ -912,7 +872,7 @@
     const balanceDots = [];
     slice.forEach((d, i) => {
       const bmr = withingsChartBmrKcal(slice, i);
-      const act = d.activityKcalDay;
+      const act = chartActivityKcal(d);
       const chartBurn = bmr != null && act != null ? bmr + act : null;
       const eaten = eatenByDay?.[d.dayKey] ?? 0;
       if (chartBurn != null && eaten > 0) {
@@ -958,7 +918,7 @@
     const avgEaten = avgRounded(eatenVals);
     const avgBalance = avgRounded(balanceVals);
 
-    let svg = `<svg class="energy-svg" viewBox="0 0 ${W} ${svgH}" width="100%" height="${fill ? '100%' : svgH}"${fill ? ' preserveAspectRatio="none"' : ''}>`;
+    let svg = `<svg class="energy-svg" viewBox="0 0 ${W} ${svgH}" width="100%" height="${svgH}">`;
 
     for (let div = 0; div < ENERGY_NUM_STRIPS; div += 1) {
       const y = ENERGY_PAD_TOP + div * ENERGY_STRIP_UNIT;
