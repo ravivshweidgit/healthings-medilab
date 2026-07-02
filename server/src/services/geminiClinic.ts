@@ -4,9 +4,45 @@ import { query } from '../db/pool.js';
 import type { ClinicChatMessage, ClinicUserRules } from './clinicOverlay.js';
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
-const GEMINI_TIMEOUT_MS = 25_000;
+const GEMINI_TIMEOUT_MS = 60_000;
 
 type MentorType = 'doctor' | 'nutritionist' | 'coach';
+
+type GeminiPart = { text?: string; thought?: boolean };
+
+type GeminiGenOptions = {
+  temperature: number;
+  maxOutputTokens: number;
+  /** 0 = off. Bound thinking so visible reply keeps most of maxOutputTokens. */
+  thinkingBudget?: number;
+};
+
+function geminiGenerationConfig(config: GeminiGenOptions): Record<string, unknown> {
+  return {
+    temperature: config.temperature,
+    maxOutputTokens: config.maxOutputTokens,
+    thinkingConfig: {
+      thinkingBudget: config.thinkingBudget ?? 0,
+      includeThoughts: false,
+    },
+  };
+}
+
+/** Prefer non-thought parts (matches phone GeminiService). */
+function extractGeminiText(candidate: { content?: { parts?: GeminiPart[] } } | undefined): string {
+  const parts = candidate?.content?.parts ?? [];
+  const visible = parts
+    .filter((p) => !p.thought && typeof p.text === 'string')
+    .map((p) => p.text!.trim())
+    .filter(Boolean);
+  if (visible.length) return visible.join('\n\n').trim();
+  return parts
+    .filter((p) => typeof p.text === 'string')
+    .map((p) => p.text!.trim())
+    .filter(Boolean)
+    .join('\n\n')
+    .trim();
+}
 
 const MENTOR_LABEL: Record<MentorType, string> = {
   doctor: 'Doctor',
@@ -19,9 +55,16 @@ function geminiEndpoint(): string | null {
   return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${config.GEMINI_API_KEY}`;
 }
 
-async function geminiText(prompt: string, temperature = 0.3): Promise<string> {
+async function geminiText(
+  prompt: string,
+  options: { temperature?: number; maxOutputTokens?: number; thinkingBudget?: number } = {},
+): Promise<string> {
   const url = geminiEndpoint();
   if (!url) throw new Error('GEMINI_API_KEY not configured on server');
+
+  const temperature = options.temperature ?? 0.3;
+  const maxOutputTokens = options.maxOutputTokens ?? 2048;
+  const thinkingBudget = options.thinkingBudget ?? 0;
 
   const response = await fetch(url, {
     method: 'POST',
@@ -29,7 +72,7 @@ async function geminiText(prompt: string, temperature = 0.3): Promise<string> {
     signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature, maxOutputTokens: 2048 },
+      generationConfig: geminiGenerationConfig({ temperature, maxOutputTokens, thinkingBudget }),
     }),
   });
 
@@ -39,10 +82,17 @@ async function geminiText(prompt: string, temperature = 0.3): Promise<string> {
   }
 
   const json = (await response.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    candidates?: Array<{
+      content?: { parts?: GeminiPart[] };
+      finishReason?: string;
+    }>;
   };
-  const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
+  const candidate = json.candidates?.[0];
+  const text = extractGeminiText(candidate);
   if (!text.trim()) throw new Error('Empty Gemini response');
+  if (candidate?.finishReason === 'MAX_TOKENS') {
+    return `${text.trim()}\n\n[Response truncated — ask a shorter follow-up or split your question.]`;
+  }
   return text.trim();
 }
 
@@ -70,7 +120,7 @@ ${rawText.replace(/"/g, "'")}
 """`;
 
   try {
-    const raw = await geminiText(prompt, 0);
+    const raw = await geminiText(prompt, { temperature: 0, maxOutputTokens: 2048, thinkingBudget: 0 });
     const parsed = extractJsonObject(raw);
     return {
       rawText: rawText.trim(),
@@ -263,7 +313,11 @@ ${message}
 Reply as the ${MENTOR_LABEL[mentorType]} mentor (plain text, no JSON).`;
 
   try {
-    return await geminiText(prompt, 0.4);
+    return await geminiText(prompt, {
+      temperature: 0.4,
+      maxOutputTokens: 8192,
+      thinkingBudget: 4096,
+    });
   } catch (e) {
     return e instanceof Error ? e.message : 'AI chat unavailable';
   }
