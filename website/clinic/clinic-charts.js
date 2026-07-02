@@ -112,10 +112,107 @@
       .sort((a, b) => (a.collectedAt || '').localeCompare(b.collectedAt || ''))
       .map((report) => {
         const lip = scanLipids(report);
-        if (lip.ldl == null && lip.totalCholesterol == null && lip.hdl == null) return null;
-        return { date: (report.collectedAt || '').slice(0, 10), ...lip };
+        if (lip.ldl == null && lip.totalCholesterol == null && lip.hdl == null && lip.triglycerides == null) return null;
+        const dateKey = (report.collectedAt || '').slice(0, 10);
+        return { dateKey, date: dateKey, ...lip };
       })
       .filter(Boolean);
+  }
+
+  const LIPID_PAD_L = 36;
+  const LIPID_PAD_R = 12;
+  const LIPID_X_INSET = 26;
+  const LIPID_PAD_TOP = 4;
+  const LIPID_TITLE_H = 14;
+  const LIPID_STRIP_H = 88;
+  const LIPID_STRIP_UNIT = LIPID_TITLE_H + LIPID_STRIP_H;
+  const LIPID_LABEL_RESERVE = 16;
+  const LIPID_PLOT_H = LIPID_STRIP_H - LIPID_LABEL_RESERVE;
+  const LIPID_AXIS_BOTTOM = 22;
+  const LIPID_SAFE_FILL = 'rgba(76, 175, 80, 0.16)';
+  const LIPID_GRID = '#e8edf2';
+  const LIPID_MUTED = '#888';
+
+  function hdlSafeThreshold(gender) {
+    return gender === 'female' ? 50 : 40;
+  }
+
+  function buildLipidStripDefs(gender) {
+    const hdlT = hdlSafeThreshold(gender);
+    return [
+      { key: 'totalCholesterol', label: 'TOTAL', labelHe: 'כולסטרול כולל', color: '#1565C0', mode: 'below', threshold: 200, thresholdLabel: '<200' },
+      { key: 'ldl', label: 'LDL', labelHe: 'LDL', color: '#C62828', mode: 'below', threshold: 100, thresholdLabel: '<100' },
+      { key: 'triglycerides', label: 'TG', labelHe: 'TG', color: '#FF9800', mode: 'below', threshold: 150, thresholdLabel: '<150' },
+      { key: 'hdl', label: 'HDL', labelHe: 'HDL', color: '#2E7D32', mode: 'above', threshold: hdlT, thresholdLabel: `≥${hdlT}` },
+    ];
+  }
+
+  function lipidAxisDateLabel(dateKey) {
+    const parts = dateKey.split('-').map(Number);
+    if (parts.length !== 3 || parts.some((v) => !Number.isFinite(v))) return dateKey;
+    const [y, mo, da] = parts;
+    return new Date(y, mo - 1, da).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  }
+
+  function lipidPickTickIndices(n, maxTicks) {
+    if (n <= 1) return [0];
+    if (n <= maxTicks) return Array.from({ length: n }, (_, i) => i);
+    const out = new Set();
+    const step = (n - 1) / (maxTicks - 1);
+    for (let k = 0; k < maxTicks; k++) out.add(Math.round(k * step));
+    out.add(n - 1);
+    return Array.from(out).sort((a, b) => a - b);
+  }
+
+  function lipidXAtIndex(i, plotLeft, innerW, n) {
+    const plotInner = Math.max(1, innerW - LIPID_X_INSET * 2);
+    return plotLeft + LIPID_X_INSET + (i / Math.max(1, n - 1)) * plotInner;
+  }
+
+  function lipidClampLabelCenter(x, pillW, svgW) {
+    const half = pillW / 2 + 2;
+    return Math.min(svgW - half, Math.max(half, x));
+  }
+
+  function lipidMapY(v, vMin, vMax, top, height) {
+    const span = Math.max(1e-6, vMax - vMin);
+    return top + (1 - (v - vMin) / span) * height;
+  }
+
+  function lipidStripDomain(values, mode, threshold) {
+    let lo = Math.min(...values);
+    let hi = Math.max(...values);
+    if (mode === 'below') {
+      hi = Math.max(hi, threshold);
+      lo = Math.min(lo, 0);
+    } else {
+      lo = Math.min(lo, Math.max(0, threshold - 15));
+      hi = Math.max(hi, threshold + 15);
+    }
+    if (lo === hi) { lo -= 8; hi += 8; }
+    const pad = (hi - lo) * 0.1;
+    return { min: Math.max(0, lo - pad), max: hi + pad };
+  }
+
+  function lipidYTicks(min, max) {
+    return [max, (min + max) / 2, min].map((v) => Math.round(v));
+  }
+
+  function formatLabValue(v) {
+    return Number.isInteger(v) ? String(v) : v.toFixed(1);
+  }
+
+  function lipidSafeBandRect(dom, mode, threshold, stripTop) {
+    if (threshold < dom.min || threshold > dom.max) return null;
+    const yThreshold = lipidMapY(threshold, dom.min, dom.max, stripTop, LIPID_PLOT_H);
+    const yBottom = lipidMapY(dom.min, dom.min, dom.max, stripTop, LIPID_PLOT_H);
+    const yTop = lipidMapY(dom.max, dom.min, dom.max, stripTop, LIPID_PLOT_H);
+    if (mode === 'below') {
+      const h = yBottom - yThreshold;
+      return h > 1 ? { y: yThreshold, h } : null;
+    }
+    const h = yThreshold - yTop;
+    return h > 1 ? { y: yTop, h } : null;
   }
 
   /** Phone: activityKcalDay from Withings, else sum workouts for that day only. */
@@ -970,45 +1067,123 @@
       </div>`;
   }
 
-  function drawLipidChart(host, labs) {
+  function drawLipidChart(host, labs, opts) {
+    const gender = opts?.gender || null;
+    const rtl = !!opts?.rtl;
     const pts = buildLipidPoints(labs);
-    if (pts.length < 1) {
-      host.innerHTML = '<p class="empty">No lipid labs in snapshot</p>';
+    if (pts.length < 2) {
+      host.innerHTML = '<p class="empty">Need at least 2 lipid lab draws in snapshot to show trends</p>';
       return;
     }
-    const W = host.clientWidth || 600;
-    const H = 180;
-    const padL = 40;
-    const innerW = W - padL - 10;
-    const n = pts.length;
-    const xAt = (i) => padL + (i / Math.max(1, n - 1)) * innerW;
-    const all = pts.flatMap((p) => [p.ldl, p.hdl, p.totalCholesterol, p.triglycerides].filter((v) => v != null));
-    const lo = Math.min(...all) * 0.9;
-    const hi = Math.max(...all) * 1.1;
-    const yOf = (v) => 20 + (H - 40) - ((v - lo) / (hi - lo)) * (H - 40);
 
-    function lineFor(key, color) {
-      const arr = [];
-      pts.forEach((p, i) => {
-        if (p[key] != null) arr.push({ x: xAt(i), y: yOf(p[key]) });
+    const chartW = Math.max(280, host.clientWidth || 640);
+    const stripDefs = buildLipidStripDefs(gender);
+    const n = pts.length;
+    const plotLeft = LIPID_PAD_L;
+    const innerW = Math.max(1, chartW - plotLeft - LIPID_PAD_R);
+    const chartRight = chartW - LIPID_PAD_R;
+
+    const visible = [];
+    let stripIdx = 0;
+    for (const def of stripDefs) {
+      const values = [];
+      pts.forEach((p) => {
+        const v = p[def.key];
+        if (v != null && Number.isFinite(v)) values.push(v);
       });
-      return arr.length > 1 ? `<path d="${smoothPath(arr)}" fill="none" stroke="${color}" stroke-width="2"/>` : '';
+      if (values.length < 2) continue;
+
+      const dom = lipidStripDomain(values, def.mode, def.threshold);
+      const stripTop = LIPID_PAD_TOP + stripIdx * LIPID_STRIP_UNIT + LIPID_TITLE_H;
+      const plotPts = [];
+      pts.forEach((p, i) => {
+        const v = p[def.key];
+        if (v == null || !Number.isFinite(v)) return;
+        plotPts.push({
+          x: lipidXAtIndex(i, plotLeft, innerW, n),
+          y: lipidMapY(v, dom.min, dom.max, stripTop, LIPID_PLOT_H),
+          value: v,
+          dataIndex: i,
+        });
+      });
+
+      visible.push({
+        def,
+        stripIdx,
+        dom,
+        pts: plotPts,
+        path: smoothPath(plotPts),
+        grid: lipidYTicks(dom.min, dom.max).map((v, k) => ({
+          y: lipidMapY(v, dom.min, dom.max, stripTop, LIPID_PLOT_H),
+          label: String(v),
+          key: `${def.key}-g-${k}`,
+        })),
+        safeRect: lipidSafeBandRect(dom, def.mode, def.threshold, stripTop),
+        stripTop,
+      });
+      stripIdx += 1;
+    }
+
+    if (!visible.length) {
+      host.innerHTML = '<p class="empty">No lipid series with 2+ values in snapshot</p>';
+      return;
+    }
+
+    const tickIdx = new Set(lipidPickTickIndices(n, 5));
+    const xTicks = pts
+      .map((p, i) => ({ p, i }))
+      .filter(({ i }) => tickIdx.has(i))
+      .map(({ p, i }) => ({
+        x: lipidXAtIndex(i, plotLeft, innerW, n),
+        label: lipidAxisDateLabel(p.dateKey || p.date),
+        key: p.dateKey || p.date,
+      }));
+
+    const svgH = LIPID_PAD_TOP + visible.length * LIPID_STRIP_UNIT + LIPID_AXIS_BOTTOM;
+    const xAxisY = LIPID_PAD_TOP + visible.length * LIPID_STRIP_UNIT + 14;
+    const title = rtl ? 'מגמת כולסטרול' : 'Cholesterol trends';
+    const disclaimer = rtl
+      ? 'טווחי יעד למבוגרים — לא ייעוץ רפואי'
+      : 'General adult targets — not medical advice';
+
+    let svg = '';
+    for (const strip of visible) {
+      if (strip.stripIdx > 0) {
+        svg += `<line x1="${plotLeft}" y1="${LIPID_PAD_TOP + strip.stripIdx * LIPID_STRIP_UNIT}" x2="${chartRight}" y2="${LIPID_PAD_TOP + strip.stripIdx * LIPID_STRIP_UNIT}" stroke="${LIPID_GRID}" stroke-width="1" opacity="0.6"/>`;
+      }
+      const label = rtl ? strip.def.labelHe : strip.def.label;
+      svg += `<text x="${plotLeft + 4}" y="${LIPID_PAD_TOP + strip.stripIdx * LIPID_STRIP_UNIT + 11}" fill="${strip.def.color}" font-size="9" font-weight="700">${label} · ${strip.def.thresholdLabel} mg/dL</text>`;
+      if (strip.safeRect) {
+        svg += `<rect x="${plotLeft}" y="${strip.safeRect.y}" width="${chartRight - plotLeft}" height="${strip.safeRect.h}" fill="${LIPID_SAFE_FILL}"/>`;
+      }
+      for (const g of strip.grid) {
+        svg += `<line x1="${plotLeft}" y1="${g.y}" x2="${chartRight}" y2="${g.y}" stroke="${LIPID_GRID}" stroke-width="1" opacity="0.5"/>`;
+        svg += `<text x="${plotLeft - 4}" y="${g.y + 3}" font-size="8" fill="${LIPID_MUTED}" text-anchor="end">${g.label}</text>`;
+      }
+      if (strip.path) svg += `<path d="${strip.path}" fill="none" stroke="${strip.def.color}" stroke-width="2.2"/>`;
+      for (const pt of strip.pts) {
+        svg += `<circle cx="${pt.x}" cy="${pt.y}" r="3.5" fill="${strip.def.color}"/>`;
+        const lab = formatLabValue(pt.value);
+        const w = Math.max(24, lab.length * 5.4 + 8);
+        const lx = lipidClampLabelCenter(pt.x, w, chartW);
+        const ly = pt.y + 14;
+        svg += `<rect x="${lx - w / 2}" y="${ly - 9}" width="${w}" height="13" rx="3" fill="#fff" stroke="${strip.def.color}" stroke-width="0.75"/>`;
+        svg += `<text x="${lx}" y="${ly}" font-size="9" font-weight="600" fill="${strip.def.color}" text-anchor="middle">${lab}</text>`;
+      }
+    }
+    for (const t of xTicks) {
+      svg += `<text x="${t.x}" y="${xAxisY}" font-size="9" fill="${LIPID_MUTED}" text-anchor="middle">${t.label}</text>`;
     }
 
     host.innerHTML = `
-      <div class="chart-head"><strong>Lipid trend</strong></div>
-      <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}">
-        ${lineFor('ldl', '#FF5252')}
-        ${lineFor('hdl', '#4CAF50')}
-        ${lineFor('totalCholesterol', '#2196F3')}
-        ${lineFor('triglycerides', '#FF9800')}
-        ${pts.map((p, i) => `<text x="${xAt(i)}" y="${H - 6}" font-size="9" fill="#888" text-anchor="middle">${p.date?.slice(5) || ''}</text>`).join('')}
-      </svg>
-      <div class="chart-legend">
-        <span class="leg" style="color:#FF5252">LDL</span>
-        <span class="leg" style="color:#4CAF50">HDL</span>
-        <span class="leg" style="color:#2196F3">Total chol</span>
-        <span class="leg" style="color:#FF9800">Triglycerides</span>
+      <div class="lipid-wrap${rtl ? ' rtl' : ''}">
+        <div class="lipid-title">${title}</div>
+        <div class="lipid-chart-box">
+          <svg viewBox="0 0 ${chartW} ${svgH}" width="100%" height="${svgH}" role="img" aria-label="${title}">
+            ${svg}
+          </svg>
+        </div>
+        <div class="lipid-disclaimer">${disclaimer}</div>
       </div>`;
   }
 

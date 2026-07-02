@@ -640,8 +640,6 @@
         chartOpts,
       );
     }
-    const lipidHost = panel.querySelector('#lipid-host');
-    if (lipidHost) charts.drawLipidChart(lipidHost, ctx.parsed.labs);
   }
 
   function renderDashboard(panel, ctx) {
@@ -663,8 +661,7 @@
       <div class="charts-row">
         <div class="dash-card chart-half"><div id="trend-host"></div></div>
         <div class="dash-card chart-half"><div id="energy-host"></div></div>
-      </div>
-      <div class="dash-card"><div id="lipid-host"></div></div>`;
+      </div>`;
     paintDashboardCharts(panel, ctx);
   }
 
@@ -797,6 +794,27 @@
     }
   }
 
+  function profileRtl(profile) {
+    const lang = String(profile?.language || '').toLowerCase();
+    return lang.includes('עבר') || lang === 'hebrew' || lang === 'he' || lang.startsWith('he');
+  }
+
+  function renderLipidsTab(panel, ctx) {
+    const charts = global.ClinicCharts;
+    const pts = charts?.buildLipidPoints(ctx.parsed.labs) || [];
+    panel.innerHTML = `
+      <p class="sub snapshot-note" style="margin:0 0 16px">Lipid trends from lab reports in snapshot${pts.length ? ` — ${pts.length} draw${pts.length === 1 ? '' : 's'}` : ''}.</p>
+      <div class="dash-card lipid-tab-card"><div id="lipid-trend-host"></div></div>
+      ${pts.length >= 2 ? '' : '<p class="sub" style="margin-top:12px;text-align:center">Need at least 2 lipid lab draws in the snapshot to show trend charts.</p>'}`;
+    const host = panel.querySelector('#lipid-trend-host');
+    if (host && charts) {
+      charts.drawLipidChart(host, ctx.parsed.labs, {
+        gender: ctx.parsed.profile?.gender || null,
+        rtl: profileRtl(ctx.parsed.profile),
+      });
+    }
+  }
+
   function renderLabs(panel, ctx) {
     const labs = ctx.parsed.labs;
     if (!labs.length) {
@@ -831,6 +849,7 @@
     if (tab === 'dashboard') renderDashboard(body, ctx);
     else if (tab === 'foodlog') renderFoodLogTab(body, ctx);
     else if (tab === 'profile') renderProfileTab(body, ctx);
+    else if (tab === 'lipids') renderLipidsTab(body, ctx);
     else if (tab === 'chat') renderChat(body, ctx);
     else if (tab === 'rules') renderRules(body, ctx);
     else if (tab === 'labs') renderLabs(body, ctx);
@@ -840,6 +859,7 @@
     const tabs = [
       { id: 'dashboard', label: 'Dashboard' },
       { id: 'profile', label: 'Profile' },
+      { id: 'lipids', label: 'Lipids' },
       { id: 'foodlog', label: 'Food log' },
       { id: 'chat', label: 'Mentors & chat' },
       { id: 'rules', label: 'Rules (live)' },
