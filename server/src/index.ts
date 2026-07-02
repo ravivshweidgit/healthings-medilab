@@ -10,6 +10,7 @@ import { registerSponsorshipRoutes } from './routes/sponsorships.js';
 import { registerUsageRoutes } from './routes/usage.js';
 import { registerWalletRoutes } from './routes/wallet.js';
 import { registerSyncRoutes } from './routes/sync.js';
+import { registerClinicRoutes } from './routes/clinic.js';
 
 const VERSION = '0.1.0';
 
@@ -35,6 +36,7 @@ async function main() {
   await registerUsageRoutes(app);
   await registerWalletRoutes(app);
   await registerSyncRoutes(app);
+  await registerClinicRoutes(app);
 
   app.setErrorHandler((err, _request, reply) => {
     if (err instanceof ZodError) {

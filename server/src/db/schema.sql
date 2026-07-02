@@ -168,3 +168,12 @@ CREATE TABLE IF NOT EXISTS sync_blobs (
 
 CREATE INDEX IF NOT EXISTS idx_sync_blobs_patient_created
   ON sync_blobs (patient_id, created_at DESC);
+
+-- Mentor/clinic edits that overlay the patient snapshot (rules, clinic-side chat).
+CREATE TABLE IF NOT EXISTS clinic_patient_overlays (
+  patient_id UUID PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+  rules_json JSONB,
+  chat_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by UUID REFERENCES users (id) ON DELETE SET NULL
+);

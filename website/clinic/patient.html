@@ -3,74 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Healthings — Patient data</title>
+    <title>Healthings — Patient workspace</title>
     <link rel="icon" href="../assets/icon.png" type="image/png" />
-    <link rel="stylesheet" href="../styles.css" />
-    <style>
-      .portal-wrap { max-width: 900px; margin: 0 auto; padding: 24px 16px 48px; }
-      .portal-card { margin-bottom: 16px; }
-      .portal-btn {
-        display: inline-block; margin-top: 8px; padding: 10px 16px; border-radius: 8px;
-        background: #2e7d5a; color: #fff; font-weight: 700; border: none; cursor: pointer;
-      }
-      .portal-btn.secondary { background: #fff; color: #444; border: 1px solid #dde3ea; }
-      .muted { color: #666; font-size: 0.9rem; }
-      .error { color: #c0392b; font-size: 0.9rem; margin-top: 8px; }
-      .top-links { margin-bottom: 16px; font-size: 0.9rem; }
-      .top-links a { color: #2e7d5a; }
-      .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
-      .stat-box { border: 1px solid #eef2f6; border-radius: 8px; padding: 12px; }
-      .stat-box strong { display: block; font-size: 1.25rem; }
-      table.data-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-      table.data-table th, table.data-table td { border-bottom: 1px solid #eef2f6; padding: 8px 6px; text-align: left; }
-      .section-title { margin: 0 0 8px; font-size: 1.05rem; }
-    </style>
+    <link rel="stylesheet" href="clinic-workspace.css" />
   </head>
-  <body>
-    <div class="portal-wrap">
-      <p class="top-links"><a href="index.html">← Clinic portal</a></p>
-
-      <section class="card portal-card">
-        <h1 id="patient-title">Patient data</h1>
-        <p id="patient-meta" class="muted">Loading…</p>
-        <p id="load-error" class="error" hidden></p>
-        <button id="reload-btn" class="portal-btn secondary" type="button" hidden>Reload</button>
-      </section>
-
-      <div id="content" hidden>
-        <section class="card portal-card">
-          <h2 class="section-title">Overview</h2>
-          <div id="overview-stats" class="stat-grid"></div>
-        </section>
-
-        <section class="card portal-card">
-          <h2 class="section-title">Recent meals</h2>
-          <div id="meals-section"></div>
-        </section>
-
-        <section class="card portal-card">
-          <h2 class="section-title">CGM (glucose)</h2>
-          <div id="cgm-section"></div>
-        </section>
-
-        <section class="card portal-card">
-          <h2 class="section-title">Body / Withings</h2>
-          <div id="withings-section"></div>
-        </section>
-
-        <section class="card portal-card">
-          <h2 class="section-title">Lab reports</h2>
-          <div id="labs-section"></div>
-        </section>
-
-        <section class="card portal-card">
-          <h2 class="section-title">Targets &amp; rules</h2>
-          <div id="targets-section"></div>
-        </section>
-      </div>
-    </div>
+  <body class="clinic-workspace">
+    <header class="ws-topbar">
+      <a href="index.html">← Clinic portal</a>
+      <h1 id="patient-title">Patient workspace</h1>
+      <span class="badge">Clinic view</span>
+      <span id="patient-meta" class="meta">Loading…</span>
+      <button id="reload-btn" class="ws-btn" type="button" hidden>Reload snapshot</button>
+    </header>
+    <p id="load-error" class="ws-error" hidden></p>
+    <nav class="ws-tabs" id="ws-tabs" hidden></nav>
+    <main class="ws-main" id="ws-main" hidden></main>
 
     <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+    <script src="clinic-workspace.js"></script>
     <script>
       const API = 'https://api.healthings.ai';
       const TOKEN_KEY = 'healthings_clinic_tokens';
@@ -111,232 +61,71 @@
         el.hidden = !msg;
       }
 
-      function bytesFromBase64(b64) {
-        const binary = atob(b64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        return bytes;
-      }
-
-      function parseExport(payload) {
-        const store = payload.asyncStorage || {};
-        const meals = [];
-        for (const [key, raw] of Object.entries(store)) {
-          const m = key.match(/^food_log_(\d{4}-\d{2}-\d{2})$/);
-          if (!m) continue;
-          try {
-            const rows = JSON.parse(raw);
-            for (const meal of rows) {
-              meals.push({ day: m[1], ...meal });
-            }
-          } catch { /* skip */ }
-        }
-        meals.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
-        let cgm = null;
-        if (store['healthings:lastMetrics']) {
-          try { cgm = JSON.parse(store['healthings:lastMetrics']); } catch { /* */ }
-        }
-
-        let withings = null;
-        if (store['healthings:withingsStore']) {
-          try { withings = JSON.parse(store['healthings:withingsStore']); } catch { /* */ }
-        }
-
-        const labs = [];
-        for (const [key, raw] of Object.entries(store)) {
-          if (!key.startsWith('lab_report_')) continue;
-          try { labs.push(JSON.parse(raw)); } catch { /* */ }
-        }
-        labs.sort((a, b) => (b.collectedAt || '').localeCompare(a.collectedAt || ''));
-
-        let macroTarget = null;
-        let bodyTarget = null;
-        let userRules = null;
-        try { if (store.macro_target) macroTarget = JSON.parse(store.macro_target); } catch { /* */ }
-        try { if (store.body_target) bodyTarget = JSON.parse(store.body_target); } catch { /* */ }
-        try { if (store.user_rules) userRules = JSON.parse(store.user_rules); } catch { /* */ }
-
-        return { meals, cgm, withings, labs, macroTarget, bodyTarget, userRules };
-      }
-
-      function renderOverview(el, summary, parsed) {
-        const glucose = parsed.cgm?.glucose || [];
-        const recentGlucose = glucose.slice(-500);
-        let avg = '—';
-        if (recentGlucose.length) {
-          const sum = recentGlucose.reduce((a, p) => a + (p.value || 0), 0);
-          avg = Math.round(sum / recentGlucose.length) + ' mg/dL';
-        }
-        const weight = parsed.withings?.bodyScan?.weightKg;
-        el.innerHTML = [
-          box('Meals', String(parsed.meals.length)),
-          box('CGM points', String(glucose.length)),
-          box('Recent avg glucose', avg),
-          box('Weight', weight != null ? weight.toFixed(1) + ' kg' : '—'),
-          box('Lab reports', String(parsed.labs.length)),
-          box('Window', summary.lookbackMode === 'full' ? 'Full history' : summary.lookbackDays + ' days'),
-        ].join('');
-        function box(label, value) {
-          return '<div class="stat-box"><span class="muted">' + label + '</span><strong>' + value + '</strong></div>';
-        }
-      }
-
-      function renderMeals(el, meals) {
-        if (!meals.length) {
-          el.innerHTML = '<p class="muted">No meals in this snapshot.</p>';
-          return;
-        }
-        const rows = meals.slice(0, 40).map((m) => {
-          const when = m.timestamp ? new Date(m.timestamp).toLocaleString() : m.day;
-          const name = m.name || m.description || m.title || 'Meal';
-          const kcal = m.calories != null ? m.calories + ' kcal' : '';
-          const carbs = m.carbsG != null ? m.carbsG + 'g C' : '';
-          return '<tr><td>' + when + '</td><td>' + escapeHtml(name) + '</td><td>' + kcal + '</td><td>' + carbs + '</td></tr>';
-        }).join('');
-        el.innerHTML = '<table class="data-table"><thead><tr><th>When</th><th>Meal</th><th>Cal</th><th>Macros</th></tr></thead><tbody>' + rows + '</tbody></table>';
-      }
-
-      function renderCgm(el, cgm) {
-        const glucose = cgm?.glucose || [];
-        if (!glucose.length) {
-          el.innerHTML = '<p class="muted">No CGM data in this snapshot.</p>';
-          return;
-        }
-        const last = glucose.slice(-24);
-        const rows = last.map((p) => {
-          const when = new Date(p.timestamp).toLocaleString();
-          return '<tr><td>' + when + '</td><td>' + (p.value != null ? p.value + ' mg/dL' : '—') + '</td></tr>';
-        }).join('');
-        el.innerHTML = '<p class="muted">' + glucose.length + ' points total · showing last 24</p>' +
-          '<table class="data-table"><thead><tr><th>Time</th><th>Glucose</th></tr></thead><tbody>' + rows + '</tbody></table>';
-      }
-
-      function renderWithings(el, withings) {
-        if (!withings) {
-          el.innerHTML = '<p class="muted">No Withings data in this snapshot.</p>';
-          return;
-        }
-        const scan = withings.bodyScan;
-        const trend = withings.bodyTrendDays || [];
-        let html = '';
-        if (scan) {
-          html += '<p><strong>Latest scan:</strong> ' + (scan.weightKg != null ? scan.weightKg.toFixed(1) + ' kg' : '—');
-          if (scan.fatMassKg != null) html += ' · fat ' + scan.fatMassKg.toFixed(1) + ' kg';
-          if (scan.muscleMassKg != null) html += ' · muscle ' + scan.muscleMassKg.toFixed(1) + ' kg';
-          html += '</p>';
-        }
-        if (trend.length) {
-          const rows = trend.slice(-14).map((d) =>
-            '<tr><td>' + d.dayKey + '</td><td>' + (d.weightKg != null ? d.weightKg.toFixed(1) : '—') + '</td><td>' +
-            (d.fatMassKg != null ? d.fatMassKg.toFixed(1) : '—') + '</td></tr>'
-          ).join('');
-          html += '<table class="data-table"><thead><tr><th>Day</th><th>Weight kg</th><th>Fat kg</th></tr></thead><tbody>' + rows + '</tbody></table>';
-        }
-        if (!html) html = '<p class="muted">Withings store present but empty.</p>';
-        el.innerHTML = html;
-      }
-
-      function renderLabs(el, labs) {
-        if (!labs.length) {
-          el.innerHTML = '<p class="muted">No lab reports in this snapshot.</p>';
-          return;
-        }
-        let html = '';
-        for (const report of labs.slice(0, 5)) {
-          html += '<p><strong>' + escapeHtml(report.collectedAt || 'Unknown date') + '</strong></p><ul>';
-          for (const panel of report.panels || []) {
-            for (const r of (panel.results || []).slice(0, 8)) {
-              html += '<li>' + escapeHtml(r.name || r.code) + ': ' + r.value + ' ' + escapeHtml(r.unit || '') +
-                (r.flag && r.flag !== 'normal' ? ' (' + r.flag + ')' : '') + '</li>';
-            }
-          }
-          html += '</ul>';
-        }
-        el.innerHTML = html;
-      }
-
-      function renderTargets(el, macroTarget, bodyTarget, userRules) {
-        let html = '';
-        if (macroTarget) {
-          html += '<p><strong>Daily macros:</strong> ' + macroTarget.calories + ' kcal · P ' + macroTarget.proteinG +
-            'g · C ' + macroTarget.carbsG + 'g · F ' + macroTarget.fatG + 'g</p>';
-        }
-        if (bodyTarget) {
-          html += '<p><strong>Body target:</strong> ' + JSON.stringify(bodyTarget) + '</p>';
-        }
-        if (userRules?.rules?.length) {
-          html += '<p><strong>User rules:</strong></p><ul>';
-          for (const rule of userRules.rules) {
-            html += '<li>' + escapeHtml(rule) + '</li>';
-          }
-          html += '</ul>';
-        }
-        if (!html) html = '<p class="muted">No targets or rules in snapshot.</p>';
-        el.innerHTML = html;
-      }
-
-      function escapeHtml(s) {
-        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      }
-
-      async function loadPatient() {
-        const params = new URLSearchParams(location.search);
-        const patientId = params.get('patientId');
+      async function loadWorkspace() {
+        const patientId = new URLSearchParams(location.search).get('patientId');
         if (!patientId) {
-          showError('Missing patientId in URL');
+          showError('Missing patientId in URL.');
           return;
         }
-
-        const tokens = loadTokens();
-        if (!tokens?.access) {
+        if (!loadTokens()?.access) {
           location.href = 'index.html';
           return;
         }
 
         showError('');
-        document.getElementById('patient-meta').textContent = 'Loading shared snapshot…';
+        document.getElementById('patient-meta').textContent = 'Loading snapshot…';
 
-        const res = await api('/v1/sync/latest?patientId=' + encodeURIComponent(patientId));
-        if (res.status === 404) {
-          document.getElementById('patient-meta').textContent = 'Patient linked but no data uploaded yet.';
-          showError('Ask the patient to tap “Share data with clinic” in the app (Data sharing section).');
+        const syncRes = await api('/v1/sync/latest?patientId=' + encodeURIComponent(patientId));
+        if (syncRes.status === 404) {
+          showError('Patient linked but no snapshot yet. Ask them to tap “Share data with clinic” in the app.');
           document.getElementById('reload-btn').hidden = false;
           return;
         }
-        if (!res.ok) {
-          showError((await res.json()).error || 'Could not load data');
-          document.getElementById('reload-btn').hidden = false;
+        if (!syncRes.ok) {
+          showError((await syncRes.json().catch(() => ({}))).error || 'Could not load snapshot');
           return;
         }
 
-        const data = await res.json();
-        const blob = data.blob;
-        const summary = blob.summary;
-        const bytes = bytesFromBase64(data.payloadGzipBase64);
-        const jsonStr = pako.inflate(bytes, { to: 'string' });
-        const payload = JSON.parse(jsonStr);
-        const parsed = parseExport(payload);
+        const syncData = await syncRes.json();
+        const blob = syncData.blob;
+        const bytes = Uint8Array.from(atob(syncData.payloadGzipBase64), (c) => c.charCodeAt(0));
+        const payload = JSON.parse(pako.inflate(bytes, { to: 'string' }));
+        const parsed = ClinicWorkspace.parseSnapshot(payload);
 
-        document.getElementById('patient-title').textContent = 'Patient snapshot';
+        let overlay = null;
+        const ovRes = await api('/v1/clinic/patients/' + encodeURIComponent(patientId) + '/overlay');
+        if (ovRes.ok) {
+          const ovData = await ovRes.json();
+          overlay = ovData.overlay;
+        }
+
+        document.getElementById('patient-title').textContent = 'Patient workspace';
         document.getElementById('patient-meta').textContent =
-          'Shared ' + new Date(blob.createdAt).toLocaleString() +
-          ' · v' + blob.version + ' · ' + Math.round(blob.byteSize / 1024) + ' KB' +
-          (summary.lookbackMode === 'full' ? ' · full history' : ' · last ' + summary.lookbackDays + ' days');
+          'Snapshot v' + blob.version + ' · shared ' + new Date(blob.createdAt).toLocaleString() +
+          ' · ' + Math.round(blob.byteSize / 1024) + ' KB' +
+          (overlay?.rules ? ' · clinic rules active' : '');
 
-        renderOverview(document.getElementById('overview-stats'), summary, parsed);
-        renderMeals(document.getElementById('meals-section'), parsed.meals);
-        renderCgm(document.getElementById('cgm-section'), parsed.cgm);
-        renderWithings(document.getElementById('withings-section'), parsed.withings);
-        renderLabs(document.getElementById('labs-section'), parsed.labs);
-        renderTargets(document.getElementById('targets-section'), parsed.macroTarget, parsed.bodyTarget, parsed.userRules);
+        const ctx = {
+          patientId,
+          parsed,
+          blob,
+          overlay,
+          api,
+          tab: 'dashboard',
+          activeMentor: parsed.mentors[0] || 'nutritionist',
+        };
 
-        document.getElementById('content').hidden = false;
+        const main = document.getElementById('ws-main');
+        const tabs = document.getElementById('ws-tabs');
+        tabs.hidden = false;
+        main.hidden = false;
+        ClinicWorkspace.initTabs(tabs, ctx, main);
+        ClinicWorkspace.renderWorkspace(main, ctx);
         document.getElementById('reload-btn').hidden = false;
       }
 
-      document.getElementById('reload-btn').onclick = () => void loadPatient();
-      loadPatient();
+      document.getElementById('reload-btn').onclick = () => void loadWorkspace();
+      loadWorkspace();
     </script>
   </body>
 </html>

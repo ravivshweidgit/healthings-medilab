@@ -174,7 +174,7 @@
         if (share.status === 'approved') {
           const view = document.createElement('a');
           view.className = 'portal-btn';
-          view.textContent = 'View data';
+          view.textContent = 'Open workspace';
           view.href = share.patientId ? 'patient.html?patientId=' + encodeURIComponent(share.patientId) : '#';
           if (!share.patientId) view.style.opacity = '0.5';
           actions.append(view);

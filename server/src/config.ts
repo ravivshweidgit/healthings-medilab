@@ -29,6 +29,7 @@ const envSchema = z.object({
   TOKEN_PACK_PRICE_CENTS: z.coerce.number().default(500),
   STRIPE_CURRENCY: z.string().default('usd'),
   STRIPE_SECRET_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
   /** When true and Stripe absent: simulate card charge + grant pack on auto-reload. */
   AUTO_RELOAD_SIMULATE: z
     .string()

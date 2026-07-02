@@ -72,6 +72,7 @@ import {
   loadWithingsTokens,
 } from '../services/WithingsApiService';
 import { type AuthUser } from '../services/AuthApiService';
+import { pullClinicOverlays } from '../services/ClinicOverlayService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 import { demoNoticeCopy } from '../utils/wellnessCopy';
 
@@ -708,6 +709,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       await loadCoachMessage();
     })();
   }, [loadHeightAndBirthdate, loadLabReports, loadCoachMessage]);
+
+  useEffect(() => {
+    if (user.role !== 'patient') return;
+    void (async () => {
+      const updated = await pullClinicOverlays();
+      if (updated) await loadCoachMessage();
+    })();
+  }, [user.role, loadCoachMessage]);
 
   useEffect(() => {
     void checkDayClose();
