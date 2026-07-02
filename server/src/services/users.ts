@@ -5,6 +5,7 @@ type UserRow = {
   id: string;
   email: string;
   role: UserRole;
+  display_name: string | null;
   created_at: Date;
 };
 
@@ -13,6 +14,7 @@ function toPublicUser(row: UserRow): PublicUser {
     id: row.id,
     email: row.email,
     role: row.role,
+    displayName: row.display_name,
     createdAt: row.created_at.toISOString(),
   };
 }
@@ -40,4 +42,17 @@ export async function findOrCreateUser(
     [email, role],
   );
   return toPublicUser(rows[0]);
+}
+
+export async function updateUserDisplayName(
+  userId: string,
+  displayName: string,
+): Promise<PublicUser | null> {
+  const trimmed = displayName.trim();
+  if (!trimmed) return null;
+  const { rows } = await query<UserRow>(
+    `UPDATE users SET display_name = $2, updated_at = NOW() WHERE id = $1 RETURNING *`,
+    [userId, trimmed],
+  );
+  return rows[0] ? toPublicUser(rows[0]) : null;
 }

@@ -5,6 +5,11 @@ import { ZodError } from 'zod';
 import { config } from './config.js';
 import { pool } from './db/pool.js';
 import { registerAuthRoutes } from './routes/auth.js';
+import { registerShareRoutes } from './routes/shares.js';
+import { registerSponsorshipRoutes } from './routes/sponsorships.js';
+import { registerUsageRoutes } from './routes/usage.js';
+import { registerWalletRoutes } from './routes/wallet.js';
+import { registerSyncRoutes } from './routes/sync.js';
 
 const VERSION = '0.1.0';
 
@@ -25,6 +30,11 @@ async function main() {
   app.get('/health', async () => ({ ok: true, version: VERSION }));
 
   await registerAuthRoutes(app);
+  await registerShareRoutes(app);
+  await registerSponsorshipRoutes(app);
+  await registerUsageRoutes(app);
+  await registerWalletRoutes(app);
+  await registerSyncRoutes(app);
 
   app.setErrorHandler((err, _request, reply) => {
     if (err instanceof ZodError) {

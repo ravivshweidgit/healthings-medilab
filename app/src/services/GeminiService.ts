@@ -1,9 +1,5 @@
-/**
- * Gemini 2.5 Flash — food photo analysis + conversational correction.
- * Calls the REST API directly (no Node SDK needed on-device).
- */
-
 import { GEMINI_API_KEY } from '@env';
+import { reportAiUsage } from './UsageApiService';
 import {
   combineMentorLines,
   extractMentorLinesFromParsed,
@@ -856,6 +852,7 @@ export async function analyzeFood(
   }
 
   const result = parseGeminiJson(rawText, finishReason);
+  reportAiUsage('ai_meal');
 
   const newUserTurn: GeminiTurn = { role: 'user', text: userText, imageBase64: imageBase64 ?? undefined };
   const modelTurn: GeminiTurn = { role: 'model', text: rawText };
@@ -1942,6 +1939,8 @@ Rules:
     mentorLines = resolved.mentorLines;
   }
 
+  reportAiUsage('ai_coach');
+
   return {
     id: `coach-${Date.now()}`,
     text,
@@ -1956,7 +1955,6 @@ Rules:
     generatedLangCode: ctx.lang?.code ?? 'en',
   };
 }
-
 // ─── Free chat with mentors ────────────────────────────────────────────────────
 
 export type MentorChatReply = {
@@ -2374,6 +2372,7 @@ export async function chatWithMentor(
     imageMimeType,
   );
   if (!text.trim()) return chatErrorMessage(ctx.lang);
+  reportAiUsage('ai_chat');
   return text;
 }
 

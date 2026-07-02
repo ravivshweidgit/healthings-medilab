@@ -1,12 +1,11 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { authenticate } from '../middleware/authenticate.js';
 import {
   issueRefreshToken,
   revokeRefreshTokensForUser,
   rotateRefreshToken,
   signAccessToken,
-  verifyAccessToken,
-  type UserRole,
 } from '../services/jwt.js';
 import {
   OtpInvalidError,
@@ -14,7 +13,8 @@ import {
   createOtpRequest,
   verifyOtpAndGetEmail,
 } from '../services/otp.js';
-import { findOrCreateUser, findUserById } from '../services/users.js';
+import { attachPendingShares } from '../services/shares.js';
+import { findOrCreateUser, findUserById, updateUserDisplayName } from '../services/users.js';
 
 const roleSchema = z.enum(['patient', 'mentor']);
 
@@ -32,24 +32,9 @@ const refreshBody = z.object({
   refreshToken: z.string().min(20),
 });
 
-async function authenticate(request: FastifyRequest, reply: FastifyReply) {
-  const header = request.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
-    return reply.code(401).send({ error: 'Unauthorized' });
-  }
-  try {
-    const claims = verifyAccessToken(header.slice(7));
-    request.userId = claims.sub;
-  } catch {
-    return reply.code(401).send({ error: 'Invalid or expired token' });
-  }
-}
-
-declare module 'fastify' {
-  interface FastifyRequest {
-    userId?: string;
-  }
-}
+const patchMeBody = z.object({
+  displayName: z.string().min(1).max(120),
+});
 
 export async function registerAuthRoutes(app: FastifyInstance) {
   app.post('/v1/auth/otp/request', async (request, reply) => {
@@ -70,6 +55,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     try {
       const { email, role } = await verifyOtpAndGetEmail(body.email, body.code);
       const user = await findOrCreateUser(email, role);
+      if (user.role === 'patient') {
+        await attachPendingShares(user.email, user.id);
+      }
       const accessToken = signAccessToken(user);
       const refreshToken = await issueRefreshToken(user.id);
       return { accessToken, refreshToken, user };
@@ -104,6 +92,15 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
   app.get('/v1/me', { preHandler: authenticate }, async (request, reply) => {
     const user = await findUserById(request.userId!);
+    if (!user) {
+      return reply.code(404).send({ error: 'User not found' });
+    }
+    return { user };
+  });
+
+  app.patch('/v1/me', { preHandler: authenticate }, async (request, reply) => {
+    const body = patchMeBody.parse(request.body);
+    const user = await updateUserDisplayName(request.userId!, body.displayName);
     if (!user) {
       return reply.code(404).send({ error: 'User not found' });
     }

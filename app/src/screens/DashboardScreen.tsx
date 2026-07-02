@@ -30,6 +30,7 @@ import { MetabolicTrendChart7d } from '../components/MetabolicTrendChart7d';
 import { WeightTargetStrip } from '../components/WeightTargetStrip';
 import { MentorStrip } from '../components/MentorStrip';
 import { AccountStrip } from '../components/AccountStrip';
+import { ClinicLinkStrip } from '../components/ClinicLinkStrip';
 import { RulesStrip } from '../components/RulesStrip';
 import { LabResultsStrip } from '../components/LabResultsStrip';
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
@@ -178,6 +179,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const [visitReportBusy, setVisitReportBusy] = useState(false);
   const [accountExpanded, setAccountExpanded] = useState(false);
+  const [clinicExpanded, setClinicExpanded] = useState(false);
 
   const [trendPeriodDays, setTrendPeriodDays] = useState<number>(DEFAULT_TREND_PERIOD_DAYS);
 
@@ -1505,6 +1507,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             expanded={accountExpanded}
             onToggleExpand={() => setAccountExpanded((e) => !e)}
             onSignedOut={onSignedOut}
+          />
+
+          <View style={styles.groupDivider} />
+          <ClinicLinkStrip
+            user={user}
+            expanded={clinicExpanded}
+            onToggleExpand={() => setClinicExpanded((e) => !e)}
           />
 
           <View style={styles.groupDivider} />

@@ -9,6 +9,7 @@ export type PublicUser = {
   id: string;
   email: string;
   role: UserRole;
+  displayName: string | null;
   createdAt: string;
 };
 

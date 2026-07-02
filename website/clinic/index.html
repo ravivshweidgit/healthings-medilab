@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Healthings — Clinic portal</title>
+    <link rel="icon" href="../assets/icon.png" type="image/png" />
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      .portal-wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+      .portal-card { margin-bottom: 16px; }
+      .portal-input {
+        width: 100%; box-sizing: border-box; padding: 10px 12px; margin: 8px 0;
+        border: 1px solid #dde3ea; border-radius: 8px; font-size: 15px;
+      }
+      .portal-btn {
+        display: inline-block; margin-top: 8px; padding: 10px 16px; border-radius: 8px;
+        background: #2e7d5a; color: #fff; font-weight: 700; border: none; cursor: pointer;
+      }
+      .portal-btn.secondary { background: #fff; color: #444; border: 1px solid #dde3ea; margin-left: 8px; }
+      .portal-btn.danger { background: #c62828; }
+      .share-row {
+        border: 1px solid #eef2f6; border-radius: 8px; padding: 12px; margin-top: 10px;
+        display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between;
+      }
+      .muted { color: #666; font-size: 0.9rem; }
+      .error { color: #c0392b; font-size: 0.9rem; margin-top: 8px; }
+      .top-links { margin-bottom: 16px; font-size: 0.9rem; }
+      .top-links a { color: #2e7d5a; }
+      #app-view { display: none; }
+    </style>
+  </head>
+  <body>
+    <div class="portal-wrap">
+      <p class="top-links"><a href="../index.html">← Patient download</a></p>
+
+      <section id="login-view" class="card portal-card">
+        <h1>Clinic portal</h1>
+        <p class="muted">Sign in with your mentor / clinic account (email OTP).</p>
+        <div id="login-step-email">
+          <input id="email" class="portal-input" type="email" placeholder="clinic@example.com" />
+          <button id="send-code" class="portal-btn" type="button">Send code</button>
+        </div>
+        <div id="login-step-code" hidden>
+          <p class="muted">Code sent to <span id="email-display"></span></p>
+          <input id="code" class="portal-input" type="text" inputmode="numeric" maxlength="6" placeholder="123456" />
+          <button id="verify-code" class="portal-btn" type="button">Sign in</button>
+        </div>
+        <p id="login-error" class="error" hidden></p>
+      </section>
+
+      <section id="app-view">
+        <div class="card portal-card">
+          <h2>My clinic</h2>
+          <p class="muted">Signed in as <strong id="user-email"></strong></p>
+          <label class="muted" for="display-name">Clinic display name (shown to patients)</label>
+          <input id="display-name" class="portal-input" type="text" placeholder="Dr. Cohen Nutrition" />
+          <button id="save-name" class="portal-btn secondary" type="button">Save name</button>
+          <button id="logout" class="portal-btn secondary" type="button">Sign out</button>
+        </div>
+
+        <div class="card portal-card">
+          <h2>Invite patient (data access)</h2>
+          <p class="muted">Optional whitelist for encrypted sync later. Use &ldquo;Sponsor AI&rdquo; on a linked patient to pay for their coach.</p>
+          <input id="patient-email" class="portal-input" type="email" placeholder="patient@example.com" />
+          <button id="invite-btn" class="portal-btn" type="button">Send invite</button>
+        </div>
+
+        <div class="card portal-card">
+          <h2>AI credits</h2>
+          <p class="muted">When balance runs low, your saved card is charged automatically and tokens reload. AI is never blocked.</p>
+          <p><strong>Balance:</strong> <span id="wallet-balance">—</span> tokens</p>
+          <p class="muted" id="wallet-pm">Payment method: —</p>
+          <button id="simulate-card-btn" class="portal-btn secondary" type="button">Attach test card (alpha)</button>
+          <button id="load-pack-btn" class="portal-btn" type="button">Manual token pack</button>
+        </div>
+
+        <div class="card portal-card">
+          <h2>AI usage</h2>
+          <p class="muted">Usage debits payer credits (Stripe later).</p>
+          <div id="usage-summary"></div>
+        </div>
+
+        <div class="card portal-card">
+          <h2>Pending requests</h2>
+          <div id="pending-list"></div>
+        </div>
+
+        <div class="card portal-card">
+          <h2>Linked patients</h2>
+          <div id="approved-list"></div>
+        </div>
+
+        <p id="app-error" class="error" hidden></p>
+      </section>
+    </div>
+
+    <script>
+      const API = 'https://api.healthings.ai';
+      const TOKEN_KEY = 'healthings_clinic_tokens';
+
+      function loadTokens() {
+        try { return JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null'); } catch { return null; }
+      }
+      function saveTokens(access, refresh) {
+        localStorage.setItem(TOKEN_KEY, JSON.stringify({ access, refresh }));
+      }
+      function clearTokens() { localStorage.removeItem(TOKEN_KEY); }
+
+      async function api(path, opts = {}) {
+        const tokens = loadTokens();
+        const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+        if (tokens?.access) headers.Authorization = 'Bearer ' + tokens.access;
+        const res = await fetch(API + path, { ...opts, headers });
+        if (res.status === 401 && tokens?.refresh) {
+          const r = await fetch(API + '/v1/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken: tokens.refresh }),
+          });
+          if (r.ok) {
+            const data = await r.json();
+            saveTokens(data.accessToken, data.refreshToken);
+            headers.Authorization = 'Bearer ' + data.accessToken;
+            return fetch(API + path, { ...opts, headers });
+          }
+          clearTokens();
+        }
+        return res;
+      }
+
+      function showError(el, msg) {
+        el.textContent = msg || '';
+        el.hidden = !msg;
+      }
+
+      function shareLabel(s) {
+        return s.mentorDisplayName || s.mentorEmail;
+      }
+
+      function formatExpiry(iso) {
+        try {
+          return new Date(iso).toLocaleDateString();
+        } catch {
+          return iso;
+        }
+      }
+
+      function renderShareActions(container, share, onAction, sponsorByPatient) {
+        const row = document.createElement('div');
+        row.className = 'share-row';
+        const label = document.createElement('div');
+        let sub = share.status;
+        const sp = share.patientId ? sponsorByPatient.get(share.patientId) : null;
+        if (sp) {
+          sub += sp.active
+            ? ' · AI sponsor until ' + formatExpiry(sp.expiresAt)
+            : ' · AI sponsorship expired ' + formatExpiry(sp.expiresAt);
+        }
+        label.innerHTML = '<strong>' + share.patientEmail + '</strong><br><span class="muted">' + sub + '</span>';
+        row.appendChild(label);
+        const actions = document.createElement('div');
+        if (share.status === 'pending' && share.initiatedBy === 'patient') {
+          const ok = document.createElement('button');
+          ok.className = 'portal-btn';
+          ok.textContent = 'Approve';
+          ok.onclick = () => onAction('approve', share.id);
+          const no = document.createElement('button');
+          no.className = 'portal-btn secondary';
+          no.textContent = 'Reject';
+          no.onclick = () => onAction('reject', share.id);
+          actions.append(ok, no);
+        }
+        if (share.status === 'approved') {
+          const view = document.createElement('a');
+          view.className = 'portal-btn';
+          view.textContent = 'View data';
+          view.href = share.patientId ? 'patient.html?patientId=' + encodeURIComponent(share.patientId) : '#';
+          if (!share.patientId) view.style.opacity = '0.5';
+          actions.append(view);
+          const rev = document.createElement('button');
+          rev.className = 'portal-btn danger';
+          rev.textContent = 'Revoke access';
+          rev.onclick = () => onAction('revoke', share.id);
+          actions.append(rev);
+          if (share.patientId) {
+            const active = sp && sp.active;
+            const spBtn = document.createElement('button');
+            spBtn.className = 'portal-btn secondary';
+            spBtn.textContent = active ? 'Stop AI sponsorship' : 'Sponsor AI';
+            spBtn.onclick = () => onAction(active ? 'sponsor-off' : 'sponsor-on', share.patientId);
+            actions.append(spBtn);
+          }
+        }
+        row.appendChild(actions);
+        container.appendChild(row);
+      }
+
+      function renderUsageSummary(el, data) {
+        if (!data || !data.byPatient || data.byPatient.length === 0) {
+          el.innerHTML = '<p class="muted">No AI usage recorded yet.</p>';
+          return;
+        }
+        let html = '<p><strong>Total tokens (all patients):</strong> ' + data.totalTokens + '</p>';
+        data.byPatient.forEach((row) => {
+          html += '<div class="share-row"><div><strong>' + row.patientEmail + '</strong><br><span class="muted">' +
+            row.totalTokens + ' tokens · ' + row.eventCount + ' events</span></div></div>';
+        });
+        el.innerHTML = html;
+      }
+
+      async function refreshDashboard() {
+        const meRes = await api('/v1/me');
+        if (!meRes.ok) throw new Error('Session expired');
+        const { user } = await meRes.json();
+        if (user.role !== 'mentor') throw new Error('This portal is for clinic / mentor accounts only');
+        document.getElementById('user-email').textContent = user.email;
+        document.getElementById('display-name').value = user.displayName || '';
+
+        const [pendingRes, approvedRes, sponsorRes, usageRes, walletRes] = await Promise.all([
+          api('/v1/shares/pending-for-me'),
+          api('/v1/shares?status=approved'),
+          api('/v1/sponsorships/mine'),
+          api('/v1/usage/summary'),
+          api('/v1/wallet'),
+        ]);
+        const pending = (await pendingRes.json()).shares || [];
+        const approved = (await approvedRes.json()).shares || [];
+        const sponsored = (await sponsorRes.json()).sponsorships || [];
+        const usage = usageRes.ok ? await usageRes.json() : null;
+        const wallet = walletRes.ok ? (await walletRes.json()).wallet : null;
+        document.getElementById('wallet-balance').textContent =
+          wallet ? String(wallet.balanceTokens) : '—';
+        document.getElementById('wallet-pm').textContent = wallet
+          ? (wallet.paymentMethodOnFile ? 'Payment method: card on file' : 'Payment method: none (auto-reload simulated in alpha)')
+          : 'Payment method: —';
+        const sponsorByPatient = new Map(sponsored.map((s) => [s.patientId, s]));
+
+        const pendingEl = document.getElementById('pending-list');
+        const approvedEl = document.getElementById('approved-list');
+        const usageEl = document.getElementById('usage-summary');
+        pendingEl.innerHTML = pending.length ? '' : '<p class="muted">No pending requests.</p>';
+        approvedEl.innerHTML = approved.length ? '' : '<p class="muted">No linked patients yet.</p>';
+        renderUsageSummary(usageEl, usage);
+
+        async function act(action, id) {
+          if (action === 'sponsor-on') {
+            const days = window.prompt('Sponsor AI for how many days? (default 90)', '90');
+            if (days === null) return;
+            const n = parseInt(days, 10) || 90;
+            const exp = new Date();
+            exp.setUTCDate(exp.getUTCDate() + n);
+            const res = await api('/v1/sponsorships/enable', {
+              method: 'POST',
+              body: JSON.stringify({ patientId: id, expiresAt: exp.toISOString() }),
+            });
+            if (!res.ok) throw new Error((await res.json()).error || 'Could not enable sponsorship');
+          } else if (action === 'sponsor-off') {
+            const res = await api('/v1/sponsorships/disable', {
+              method: 'POST',
+              body: JSON.stringify({ patientId: id }),
+            });
+            if (!res.ok) throw new Error((await res.json()).error || 'Could not disable sponsorship');
+          } else {
+            const res = await api('/v1/shares/' + id + '/' + action, { method: 'POST' });
+            if (!res.ok) throw new Error((await res.json()).error || 'Action failed');
+          }
+          await refreshDashboard();
+        }
+
+        pending.forEach((s) => renderShareActions(pendingEl, s, act, sponsorByPatient));
+        approved.forEach((s) => renderShareActions(approvedEl, s, act, sponsorByPatient));
+      }
+
+      async function boot() {
+        const tokens = loadTokens();
+        if (!tokens?.access) return;
+        try {
+          await refreshDashboard();
+          document.getElementById('login-view').hidden = true;
+          document.getElementById('app-view').style.display = 'block';
+        } catch {
+          clearTokens();
+        }
+      }
+
+      let loginEmail = '';
+
+      document.getElementById('send-code').onclick = async () => {
+        showError(document.getElementById('login-error'), '');
+        loginEmail = document.getElementById('email').value.trim().toLowerCase();
+        if (!loginEmail) return;
+        const res = await fetch(API + '/v1/auth/otp/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: loginEmail, role: 'mentor' }),
+        });
+        if (!res.ok) {
+          showError(document.getElementById('login-error'), (await res.json()).error || 'Could not send code');
+          return;
+        }
+        document.getElementById('login-step-email').hidden = true;
+        document.getElementById('login-step-code').hidden = false;
+        document.getElementById('email-display').textContent = loginEmail;
+      };
+
+      document.getElementById('verify-code').onclick = async () => {
+        showError(document.getElementById('login-error'), '');
+        const code = document.getElementById('code').value.trim();
+        const res = await fetch(API + '/v1/auth/otp/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: loginEmail, code }),
+        });
+        if (!res.ok) {
+          showError(document.getElementById('login-error'), (await res.json()).error || 'Invalid code');
+          return;
+        }
+        const data = await res.json();
+        saveTokens(data.accessToken, data.refreshToken);
+        document.getElementById('login-view').hidden = true;
+        document.getElementById('app-view').style.display = 'block';
+        try {
+          await refreshDashboard();
+        } catch (e) {
+          showError(document.getElementById('app-error'), e.message);
+        }
+      };
+
+      document.getElementById('logout').onclick = () => {
+        clearTokens();
+        location.reload();
+      };
+
+      document.getElementById('save-name').onclick = async () => {
+        showError(document.getElementById('app-error'), '');
+        const displayName = document.getElementById('display-name').value.trim();
+        const res = await api('/v1/me', {
+          method: 'PATCH',
+          body: JSON.stringify({ displayName }),
+        });
+        if (!res.ok) showError(document.getElementById('app-error'), (await res.json()).error || 'Save failed');
+      };
+
+      document.getElementById('invite-btn').onclick = async () => {
+        showError(document.getElementById('app-error'), '');
+        const patientEmail = document.getElementById('patient-email').value.trim().toLowerCase();
+        if (!patientEmail) return;
+        const res = await api('/v1/shares/invite', {
+          method: 'POST',
+          body: JSON.stringify({ patientEmail }),
+        });
+        if (!res.ok) {
+          showError(document.getElementById('app-error'), (await res.json()).error || 'Invite failed');
+          return;
+        }
+        document.getElementById('patient-email').value = '';
+        await refreshDashboard();
+      };
+
+      document.getElementById('simulate-card-btn').onclick = async () => {
+        showError(document.getElementById('app-error'), '');
+        const res = await api('/v1/wallet/payment-method/simulate', { method: 'POST', body: '{}' });
+        if (!res.ok) {
+          showError(document.getElementById('app-error'), (await res.json()).error || 'Failed');
+          return;
+        }
+        await refreshDashboard();
+      };
+
+      document.getElementById('load-pack-btn').onclick = async () => {
+        showError(document.getElementById('app-error'), '');
+        const res = await api('/v1/wallet/add-pack', { method: 'POST', body: '{}' });
+        if (!res.ok) {
+          showError(document.getElementById('app-error'), (await res.json()).error || 'Load pack failed');
+          return;
+        }
+        await refreshDashboard();
+      };
+
+      boot();
+    </script>
+  </body>
+</html>

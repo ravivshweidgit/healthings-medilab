@@ -49,7 +49,7 @@ async function parseError(res: Response): Promise<string> {
   return `Request failed (${res.status})`;
 }
 
-async function authFetch(
+export async function authFetch(
   path: string,
   init: RequestInit = {},
   opts?: { accessToken?: string | null; retryOn401?: boolean },

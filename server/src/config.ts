@@ -19,6 +19,21 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   MAIL_FROM: z.string().default('Healthings <noreply@healthings.ai>'),
   CORS_ORIGINS: z.string().default('*'),
+  /** Starter AI credit per account ($ pack mapped to tokens — see TOKEN_PACK_SIZE). */
+  INITIAL_TOKEN_GRANT: z.coerce.number().default(100),
+  TOKEN_PACK_SIZE: z.coerce.number().default(100),
+  AI_TOKENS_PER_MEAL: z.coerce.number().default(1),
+  AI_TOKENS_PER_CHAT_TURN: z.coerce.number().default(1),
+  /** Default sponsorship length when mentor omits expiresAt (days). */
+  SPONSORSHIP_DEFAULT_DAYS: z.coerce.number().default(90),
+  TOKEN_PACK_PRICE_CENTS: z.coerce.number().default(500),
+  STRIPE_CURRENCY: z.string().default('usd'),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  /** When true and Stripe absent: simulate card charge + grant pack on auto-reload. */
+  AUTO_RELOAD_SIMULATE: z
+    .string()
+    .optional()
+    .transform((v) => v !== 'false'),
 });
 
 const parsed = envSchema.safeParse(process.env);
