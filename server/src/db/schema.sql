@@ -169,6 +169,18 @@ CREATE TABLE IF NOT EXISTS sync_blobs (
 CREATE INDEX IF NOT EXISTS idx_sync_blobs_patient_created
   ON sync_blobs (patient_id, created_at DESC);
 
+-- Clinic asks patient to upload a fresh snapshot (cleared when patient shares).
+CREATE TABLE IF NOT EXISTS sync_update_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  mentor_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (patient_id, mentor_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sync_update_requests_patient
+  ON sync_update_requests (patient_id, requested_at DESC);
+
 -- Mentor/clinic edits that overlay the patient snapshot (rules, clinic-side chat).
 CREATE TABLE IF NOT EXISTS clinic_patient_overlays (
   patient_id UUID PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,

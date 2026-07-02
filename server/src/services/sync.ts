@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { query } from '../db/pool.js';
 import type { PublicUser } from './jwt.js';
 import { hasApprovedShare } from './shares.js';
+import { clearSyncUpdateRequestsForPatient } from './syncRequests.js';
 
 export type SyncSummary = {
   generatedAt: string;
@@ -101,6 +102,8 @@ export async function uploadSyncBlob(
      RETURNING *`,
     [user.id, version, payloadGzip.length, payloadHash, summary, payloadGzip],
   );
+
+  await clearSyncUpdateRequestsForPatient(user.id);
 
   return toPublicBlob(rows[0]!);
 }

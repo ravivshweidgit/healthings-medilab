@@ -26,7 +26,7 @@ import {
   type AccountShare,
   type WalletView,
 } from '../services/ShareApiService';
-import { fetchMyLatestSyncMeta, type PublicSyncBlob } from '../services/SyncApiService';
+import { fetchMyLatestSyncMeta, fetchSyncUpdateRequests, type PublicSyncBlob, type SyncUpdateRequest } from '../services/SyncApiService';
 import { shareClinicExport, type SyncLookbackMode } from '../services/ShareExportService';
 import { loadCachedApprovedShares, saveCachedApprovedShares } from '../services/ShareCacheService';
 import { WellnessColors } from '../theme/wellness';
@@ -51,12 +51,15 @@ const L = {
   noShares: 'No accounts whitelisted — app works fully without sharing',
   mentorWeb: 'Mentor account: manage patients and AI sponsorship at healthings.ai/clinic',
   shareData: 'Share data with clinic',
-  shareDataHint: 'Uploads a snapshot (not live). After new labs or meals, share again — clinic Reload only fetches the latest upload. Labs always include full history.',
+  shareDataHint: 'Uploads a snapshot when you choose — not automatic. If your clinic requested an update, tap Share here. Labs always include full history.',
   share90d: 'Last 90 days',
   shareFull: 'Full history on phone',
   shareSuccess: 'Data shared',
   lastShared: 'Last shared',
   neverShared: 'No upload yet — tap Share after linking a clinic',
+  clinicRequested: 'requested a fresh snapshot',
+  clinicRequestedHint: 'Share your latest phone data so the clinic can reload.',
+  shareNow: 'Share now',
   sponsored: 'AI sponsored by',
   sponsoredUntil: 'until',
   sponsorshipExpired: 'AI sponsorship expired',
@@ -70,22 +73,25 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand }: Props) {
   const [approved, setApproved] = useState<AccountShare[]>([]);
   const [wallet, setWallet] = useState<WalletView | null>(null);
   const [lastSync, setLastSync] = useState<PublicSyncBlob | null>(null);
+  const [syncRequests, setSyncRequests] = useState<SyncUpdateRequest[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (user.role !== 'patient') return;
     try {
-      const [pendingRows, approvedRows, walletView, syncMeta] = await Promise.all([
+      const [pendingRows, approvedRows, walletView, syncMeta, requestRows] = await Promise.all([
         listPendingSharesForMe(),
         listShares('approved'),
         fetchWallet(),
         fetchMyLatestSyncMeta().catch(() => null),
+        fetchSyncUpdateRequests().catch(() => [] as SyncUpdateRequest[]),
       ]);
       setPending(pendingRows);
       setApproved(approvedRows);
       await saveCachedApprovedShares(approvedRows);
       setWallet(walletView);
       setLastSync(syncMeta);
+      setSyncRequests(requestRows);
       setError(null);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Could not load sharing settings';
@@ -145,12 +151,19 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand }: Props) {
   }, [approved.length, run]);
 
   const headerSub = useMemo(() => {
+    if (syncRequests.length > 0) {
+      const who = clinicDisplayLabel({
+        mentorEmail: syncRequests[0]!.mentorEmail,
+        mentorDisplayName: syncRequests[0]!.mentorDisplayName,
+      });
+      return `${who} ${L.clinicRequested}`;
+    }
     if (approved.length === 0) {
       return pending.length > 0 ? L.waiting : L.noShares;
     }
     if (approved.length === 1) return `${L.sharesWith} ${clinicDisplayLabel(approved[0])}`;
     return `${approved.length} accounts whitelisted`;
-  }, [approved, pending.length]);
+  }, [approved, pending.length, syncRequests]);
 
   if (user.role === 'mentor') {
     return (
@@ -165,6 +178,30 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand }: Props) {
 
   return (
     <View style={styles.wrap}>
+      {syncRequests.length > 0 ? (
+        <View style={styles.requestCard}>
+          <Text style={styles.requestTitle}>
+            {syncRequests.map((r) => clinicDisplayLabel({
+              mentorEmail: r.mentorEmail,
+              mentorDisplayName: r.mentorDisplayName,
+            })).join(', ')}{' '}
+            {L.clinicRequested}
+          </Text>
+          <Text style={styles.requestHint}>{L.clinicRequestedHint}</Text>
+          <Pressable
+            style={[styles.btnPrimary, busy && styles.btnDisabled]}
+            onPress={promptShare}
+            disabled={busy || approved.length === 0}
+          >
+            {busy ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.btnPrimaryText}>{L.shareNow}</Text>
+            )}
+          </Pressable>
+        </View>
+      ) : null}
+
       <Pressable style={styles.headerRow} onPress={onToggleExpand}>
         <Text style={styles.headerIcon}>🔗</Text>
         <View style={styles.headerInfo}>
@@ -340,6 +377,26 @@ const styles = StyleSheet.create({
     color: WellnessColors.textSecondary,
   },
   body: { marginTop: 12, gap: 10 },
+  requestCard: {
+    backgroundColor: '#E8F5E9',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#A5D6A7',
+    padding: 12,
+    gap: 8,
+    marginBottom: 4,
+  },
+  requestTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1B5E20',
+    lineHeight: 20,
+  },
+  requestHint: {
+    fontSize: 13,
+    color: '#2E7D32',
+    lineHeight: 18,
+  },
   hint: { fontSize: 13, color: WellnessColors.textSecondary, lineHeight: 18 },
   sectionLabel: { fontSize: 14, fontWeight: '600', color: WellnessColors.textPrimary, marginTop: 4 },
   input: {

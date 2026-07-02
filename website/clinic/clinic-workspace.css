@@ -62,6 +62,7 @@ body.clinic-workspace {
 }
 .ws-btn.primary { background: var(--green); color: #fff; border-color: var(--green); }
 .ws-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.sync-status-hint { color: #c0392b; font-weight: 600; }
 
 .ws-tabs {
   max-width: var(--max-w);

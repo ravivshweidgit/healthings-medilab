@@ -20,6 +20,15 @@ export type PublicSyncBlob = {
   createdAt: string;
 };
 
+export type SyncUpdateRequest = {
+  id: string;
+  patientId: string;
+  mentorId: string;
+  mentorEmail: string;
+  mentorDisplayName: string | null;
+  requestedAt: string;
+};
+
 class SyncApiError extends Error {
   status: number;
 
@@ -63,4 +72,10 @@ export async function fetchMyLatestSyncMeta(): Promise<PublicSyncBlob | null> {
   const res = await authFetch('/v1/sync/mine');
   const data = await parseJson<{ blob: PublicSyncBlob | null }>(res);
   return data.blob;
+}
+
+export async function fetchSyncUpdateRequests(): Promise<SyncUpdateRequest[]> {
+  const res = await authFetch('/v1/sync/requests');
+  const data = await parseJson<{ requests: SyncUpdateRequest[] }>(res);
+  return data.requests;
 }

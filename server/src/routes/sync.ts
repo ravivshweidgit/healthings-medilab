@@ -9,6 +9,10 @@ import {
   uploadSyncBlob,
   type SyncSummary,
 } from '../services/sync.js';
+import {
+  SyncRequestError,
+  listSyncUpdateRequestsForPatient,
+} from '../services/syncRequests.js';
 
 const summarySchema = z.object({
   generatedAt: z.string(),
@@ -76,6 +80,21 @@ export async function registerSyncRoutes(app: FastifyInstance) {
       return { blob };
     } catch (err) {
       if (err instanceof SyncError) {
+        return reply.code(err.status).send({ error: err.message });
+      }
+      throw err;
+    }
+  });
+
+  app.get('/v1/sync/requests', { preHandler: authenticate }, async (request, reply) => {
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+
+    try {
+      const requests = await listSyncUpdateRequestsForPatient(user);
+      return { requests };
+    } catch (err) {
+      if (err instanceof SyncRequestError) {
         return reply.code(err.status).send({ error: err.message });
       }
       throw err;

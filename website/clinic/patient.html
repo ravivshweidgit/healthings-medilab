@@ -13,15 +13,17 @@
       <h1 id="patient-title">Patient workspace</h1>
       <span class="badge">Clinic view</span>
       <span id="patient-meta" class="meta">Loading…</span>
-      <button id="reload-btn" class="ws-btn" type="button" hidden title="Fetches latest upload from server — patient must re-share from the app after new data">Reload snapshot</button>
+      <span id="sync-status-hint" class="meta sync-status-hint" hidden></span>
+      <button id="request-sync-btn" class="ws-btn" type="button" hidden>Request fresh snapshot</button>
+      <button id="reload-btn" class="ws-btn" type="button" hidden title="Fetches the latest upload from the server">Reload snapshot</button>
     </header>
     <p id="load-error" class="ws-error" hidden></p>
     <nav class="ws-tabs" id="ws-tabs" hidden></nav>
     <main class="ws-main" id="ws-main" hidden></main>
 
     <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
-    <script src="clinic-charts.js?v=20260702b"></script>
-    <script src="clinic-workspace.js?v=20260702b"></script>
+    <script src="clinic-charts.js?v=20260702c"></script>
+    <script src="clinic-workspace.js?v=20260702c"></script>
     <script>
       const API = 'https://api.healthings.ai';
       const TOKEN_KEY = 'healthings_clinic_tokens';
@@ -62,6 +64,50 @@
         el.hidden = !msg;
       }
 
+      async function refreshSyncStatus(patientId) {
+        const hint = document.getElementById('sync-status-hint');
+        const requestBtn = document.getElementById('request-sync-btn');
+        requestBtn.hidden = false;
+        const res = await api('/v1/clinic/patients/' + encodeURIComponent(patientId) + '/sync-status');
+        if (!res.ok) {
+          hint.hidden = true;
+          requestBtn.disabled = false;
+          return;
+        }
+        const status = await res.json();
+        if (status.waitingOnPatient) {
+          const when = status.updateRequest?.requestedAt
+            ? new Date(status.updateRequest.requestedAt).toLocaleString()
+            : '';
+          hint.textContent = 'Update requested' + (when ? ' · ' + when : '') + ' · waiting for patient to share in app';
+          hint.hidden = false;
+          requestBtn.disabled = true;
+        } else {
+          hint.hidden = true;
+          requestBtn.disabled = false;
+        }
+      }
+
+      async function requestFreshSnapshot(patientId) {
+        const requestBtn = document.getElementById('request-sync-btn');
+        requestBtn.disabled = true;
+        try {
+          const res = await api('/v1/clinic/patients/' + encodeURIComponent(patientId) + '/request-sync', {
+            method: 'POST',
+            body: '{}',
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            alert(err.error || 'Could not request snapshot');
+            return;
+          }
+          await refreshSyncStatus(patientId);
+        } finally {
+          if (!document.getElementById('sync-status-hint').hidden) return;
+          requestBtn.disabled = false;
+        }
+      }
+
       async function loadWorkspace() {
         const patientId = new URLSearchParams(location.search).get('patientId');
         if (!patientId) {
@@ -75,11 +121,12 @@
 
         showError('');
         document.getElementById('patient-meta').textContent = 'Loading snapshot…';
+        document.getElementById('reload-btn').hidden = false;
+        void refreshSyncStatus(patientId);
 
         const syncRes = await api('/v1/sync/latest?patientId=' + encodeURIComponent(patientId));
         if (syncRes.status === 404) {
-          showError('Patient linked but no snapshot yet. Ask them to tap “Share data with clinic” in the app.');
-          document.getElementById('reload-btn').hidden = false;
+          showError('No snapshot yet. Tap “Request fresh snapshot” — the patient will see a banner in the app to share.');
           return;
         }
         if (!syncRes.ok) {
@@ -107,8 +154,7 @@
         document.getElementById('patient-meta').textContent =
           'Snapshot v' + blob.version + ' · shared ' + new Date(blob.createdAt).toLocaleString() +
           ' · ' + Math.round(blob.byteSize / 1024) + ' KB' +
-          (overlay?.rules ? ' · clinic rules active' : '') +
-          ' · reload after patient re-shares';
+          (overlay?.rules ? ' · clinic rules active' : '');
 
         const ctx = {
           patientId,
@@ -126,10 +172,14 @@
         main.hidden = false;
         ClinicWorkspace.initTabs(tabs, ctx, main);
         ClinicWorkspace.renderWorkspace(main, ctx);
-        document.getElementById('reload-btn').hidden = false;
+        void refreshSyncStatus(patientId);
       }
 
       document.getElementById('reload-btn').onclick = () => void loadWorkspace();
+      document.getElementById('request-sync-btn').onclick = () => {
+        const patientId = new URLSearchParams(location.search).get('patientId');
+        if (patientId) void requestFreshSnapshot(patientId);
+      };
       loadWorkspace();
     </script>
   </body>

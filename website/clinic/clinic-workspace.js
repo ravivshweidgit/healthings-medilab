@@ -803,7 +803,7 @@
     const charts = global.ClinicCharts;
     const pts = charts?.buildLipidPoints(ctx.parsed.labs) || [];
     panel.innerHTML = `
-      <p class="sub snapshot-note" style="margin:0 0 16px">Lipid trends from lab reports in snapshot${pts.length ? ` — ${pts.length} draw${pts.length === 1 ? '' : 's'}` : ''}. Patient must tap <strong>Share data with clinic</strong> on the phone after new labs; then use Reload snapshot here.</p>
+      <p class="sub snapshot-note" style="margin:0 0 16px">Lipid trends from lab reports in snapshot${pts.length ? ` — ${pts.length} draw${pts.length === 1 ? '' : 's'}` : ''}. Use <strong>Request fresh snapshot</strong> when you need new data; patient shares from the app, then <strong>Reload snapshot</strong>.</p>
       <div class="dash-card lipid-tab-card"><div id="lipid-trend-host"></div></div>
       ${pts.length >= 2 ? '' : '<p class="sub" style="margin-top:12px;text-align:center">Need at least 2 lipid lab draws in the snapshot to show trend charts.</p>'}`;
     const host = panel.querySelector('#lipid-trend-host');

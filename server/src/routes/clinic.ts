@@ -11,6 +11,11 @@ import {
   saveRulesForPatient,
 } from '../services/clinicOverlay.js';
 import { mentorChatReply, summariseRulesForClinic } from '../services/geminiClinic.js';
+import {
+  SyncRequestError,
+  getPatientSyncStatusForMentor,
+  requestPatientSyncUpdate,
+} from '../services/syncRequests.js';
 
 export async function registerClinicRoutes(app: FastifyInstance) {
   app.get('/v1/clinic/patients/:patientId/overlay', { preHandler: authenticate }, async (request, reply) => {
@@ -84,6 +89,35 @@ export async function registerClinicRoutes(app: FastifyInstance) {
       return { reply: replyText, thread };
     } catch (err) {
       if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  app.get('/v1/clinic/patients/:patientId/sync-status', { preHandler: authenticate }, async (request, reply) => {
+    const params = z.object({ patientId: z.string().uuid() }).parse(request.params);
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    try {
+      const status = await getPatientSyncStatusForMentor(user, params.patientId);
+      return status;
+    } catch (err) {
+      if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
+      if (err instanceof SyncRequestError) return reply.code(err.status).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  app.post('/v1/clinic/patients/:patientId/request-sync', { preHandler: authenticate }, async (request, reply) => {
+    const params = z.object({ patientId: z.string().uuid() }).parse(request.params);
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    try {
+      const requestRow = await requestPatientSyncUpdate(user, params.patientId);
+      const status = await getPatientSyncStatusForMentor(user, params.patientId);
+      return { request: requestRow, status };
+    } catch (err) {
+      if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
+      if (err instanceof SyncRequestError) return reply.code(err.status).send({ error: err.message });
       throw err;
     }
   });
