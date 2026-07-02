@@ -285,105 +285,369 @@
     });
   }
 
-  function drawTrendAnalysis(host, days, periodDays, onPeriodChange) {
-    const slice = (days || []).slice(-(periodDays || 14));
+  const TREND_PERIOD_OPTIONS = [8, 16, 32, 64, 128];
+  const DEFAULT_TREND_PERIOD = 32;
+  const TREND_BLUE = '#2196F3';
+  const TREND_GREEN = '#4CAF50';
+  const TREND_FAT = '#FF5252';
+  const TREND_VISCERAL = '#7B1FA2';
+  const TREND_GRID = '#e8eaed';
+  const TREND_MUTED = '#6b7280';
+  const TREND_PAD_L = 36;
+  const TREND_PAD_R = 10;
+  const TREND_PAD_TOP = 4;
+  const TREND_STRIP_H = 46;
+  const TREND_STRIP_GAP = 5;
+  const TREND_AXIS_BOTTOM = 22;
+  const DELTA_FALLBACK_HALF_SPAN_KG = 0.5;
+
+  function isCompositionDay(d) {
+    return d.fatMassKg != null && d.muscleMassKg != null
+      && Number.isFinite(d.fatMassKg) && Number.isFinite(d.muscleMassKg);
+  }
+
+  function compositionDayIndices(days) {
+    const out = [];
+    days.forEach((d, i) => { if (isCompositionDay(d)) out.push(i); });
+    return out;
+  }
+
+  function withingsChartCompositionKg(days, dayIndex, field) {
+    const compIdx = compositionDayIndices(days);
+    const rank = compIdx.indexOf(dayIndex);
+    if (rank < 0) return null;
+    if (rank === 0 && compIdx.length >= 2) {
+      const second = days[compIdx[1]][field];
+      return second != null && Number.isFinite(second) ? second : null;
+    }
+    const v = days[dayIndex][field];
+    return v != null && Number.isFinite(v) ? v : null;
+  }
+
+  function visceralDayIndices(days) {
+    const out = [];
+    days.forEach((d, i) => {
+      if (d.visceralFatIndex != null && Number.isFinite(d.visceralFatIndex)) out.push(i);
+    });
+    return out;
+  }
+
+  function withingsChartVisceralIndex(days, dayIndex) {
+    const vIdx = visceralDayIndices(days);
+    const rank = vIdx.indexOf(dayIndex);
+    if (rank < 0) return null;
+    if (rank === 0 && vIdx.length >= 2) {
+      const second = days[vIdx[1]].visceralFatIndex;
+      return second != null && Number.isFinite(second) ? second : null;
+    }
+    const v = days[dayIndex].visceralFatIndex;
+    return v != null && Number.isFinite(v) ? v : null;
+  }
+
+  function dayKeyStartMs(dayKey) {
+    const parts = dayKey.split('-').map(Number);
+    if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return NaN;
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+
+  function compositionSessionsPerDayInWindow(sessions, windowDayKeys) {
+    if (!windowDayKeys.length) return [];
+    const windowStart = dayKeyStartMs(windowDayKeys[0]);
+    const windowEndExclusive = dayKeyStartMs(windowDayKeys[windowDayKeys.length - 1]) + 86400000;
+    if (!Number.isFinite(windowStart)) return [];
+    const inWindow = (sessions || []).filter((s) => s.dateMs >= windowStart && s.dateMs < windowEndExclusive);
+    const latestByDay = new Map();
+    for (const s of inWindow) {
+      const prev = latestByDay.get(s.dayKey);
+      if (!prev || s.dateMs >= prev.dateMs) latestByDay.set(s.dayKey, s);
+    }
+    const ordered = [];
+    for (const dk of windowDayKeys) {
+      const s = latestByDay.get(dk);
+      if (s) ordered.push(s);
+    }
+    return ordered;
+  }
+
+  function resolveCompositionPeriodAnchor(sessions, windowDayKeys) {
+    const perDay = compositionSessionsPerDayInWindow(sessions, windowDayKeys);
+    if (!perDay.length) return null;
+    const end = perDay[perDay.length - 1];
+    const start = perDay.length >= 2 ? perDay[1] : perDay[0];
+    return { start, end };
+  }
+
+  function resolveAnchorFromDays(days) {
+    const comp = days.filter(isCompositionDay);
+    if (!comp.length) return null;
+    const end = comp[comp.length - 1];
+    const start = comp.length >= 2 ? comp[1] : comp[0];
+    const toSession = (d) => ({
+      dateMs: dayKeyStartMs(d.dayKey),
+      dayKey: d.dayKey,
+      weightKg: d.weightKg ?? 0,
+      fatMassKg: d.fatMassKg ?? 0,
+      muscleMassKg: d.muscleMassKg ?? 0,
+      visceralFatIndex: d.visceralFatIndex,
+    });
+    return { start: toSession(start), end: toSession(end) };
+  }
+
+  function periodAnchorBaselines(anchor) {
+    if (!anchor) return null;
+    return { fatKg: anchor.start.fatMassKg, muscleKg: anchor.start.muscleMassKg };
+  }
+
+  function periodAnchorDeltas(anchor) {
+    if (!anchor) return null;
+    return {
+      fatKg: anchor.end.fatMassKg - anchor.start.fatMassKg,
+      muscleKg: anchor.end.muscleMassKg - anchor.start.muscleMassKg,
+    };
+  }
+
+  function resolveVisceralWeekTrend(days) {
+    const idx = visceralDayIndices(days);
+    if (!idx.length) return { deltaIndex: null, baselineIndex: null };
+    const endIdx = idx[idx.length - 1];
+    const startIdx = idx.length >= 2 ? idx[1] : idx[0];
+    const start = days[startIdx].visceralFatIndex;
+    const end = days[endIdx].visceralFatIndex;
+    if (start == null || end == null) return { deltaIndex: null, baselineIndex: null };
+    return { deltaIndex: end - start, baselineIndex: start };
+  }
+
+  function visceralPercentChange(deltaIndex, baselineIndex) {
+    if (!Number.isFinite(deltaIndex) || !Number.isFinite(baselineIndex) || baselineIndex === 0) return null;
+    return (deltaIndex / baselineIndex) * 100;
+  }
+
+  function domainPad(values, fallbackMin, fallbackMax, padRatio) {
+    const finite = values.filter((v) => Number.isFinite(v));
+    if (!finite.length) return { min: fallbackMin, max: fallbackMax };
+    let lo = Math.min(...finite);
+    let hi = Math.max(...finite);
+    if (lo === hi) { lo -= 0.5; hi += 0.5; }
+    const pad = (hi - lo) * padRatio;
+    return { min: lo - pad, max: hi + pad };
+  }
+
+  function mapY(v, vMin, vMax, top, height) {
+    const span = Math.max(1e-6, vMax - vMin);
+    return top + (1 - (v - vMin) / span) * height;
+  }
+
+  function stripTop(index) {
+    return TREND_PAD_TOP + index * (TREND_STRIP_H + TREND_STRIP_GAP);
+  }
+
+  function deltaDomainFromValues(deltas) {
+    const dom = domainPad(deltas, -DELTA_FALLBACK_HALF_SPAN_KG, DELTA_FALLBACK_HALF_SPAN_KG, 0.15);
+    if (!deltas.length) return dom;
+    if (dom.max <= 0) return { min: dom.min, max: 0 };
+    if (dom.min >= 0) return { min: 0, max: dom.max };
+    return dom;
+  }
+
+  function formatDeltaTick(v) {
+    if (Math.abs(v) < 0.05) return '0';
+    return `${v > 0 ? '+' : ''}${v.toFixed(1)}`;
+  }
+
+  function axisDayLabel(dayKey, n) {
+    const parts = dayKey.split('-').map(Number);
+    if (parts.length !== 3) return dayKey;
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    if (n <= 8) return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function pickTickIndices(n, maxTicks) {
+    if (n <= 1) return [0];
+    if (n <= maxTicks) return Array.from({ length: n }, (_, i) => i);
+    const out = new Set();
+    const step = (n - 1) / (maxTicks - 1);
+    for (let k = 0; k < maxTicks; k += 1) out.add(Math.round(k * step));
+    out.add(n - 1);
+    return Array.from(out).sort((a, b) => a - b);
+  }
+
+  function xAtIndex(i, plotLeft, innerW, n) {
+    return plotLeft + (i / Math.max(1, n - 1)) * innerW;
+  }
+
+  function legendDeltaKg(name, delta) {
+    if (delta == null || !Number.isFinite(delta)) return name;
+    return `${name} (${delta > 0 ? '+' : ''}${delta.toFixed(1)} kg)`;
+  }
+
+  function legendVisceral(name, trend) {
+    const { deltaIndex, baselineIndex } = trend;
+    if (deltaIndex == null || !Number.isFinite(deltaIndex)) return name;
+    if (baselineIndex != null) {
+      const pct = visceralPercentChange(deltaIndex, baselineIndex);
+      if (pct != null) return `${name} (${pct > 0 ? '+' : ''}${pct.toFixed(1)}%)`;
+    }
+    return `${name} (${deltaIndex > 0 ? '+' : ''}${deltaIndex.toFixed(2)})`;
+  }
+
+  function drawTrendAnalysis(host, allDays, sessions, periodDays, availableDays, onPeriodChange) {
+    const period = periodDays || DEFAULT_TREND_PERIOD;
+    const avail = availableDays ?? (allDays || []).length;
+    const slice = (allDays || []).slice(-Math.min(period, avail));
     if (slice.length < 2) {
-      host.innerHTML = '<p class="empty">Need more body trend days in snapshot</p>';
+      host.innerHTML = `
+        <div class="trend-wrap">
+          <div class="trend-title">TREND ANALYSIS</div>
+          <p class="empty">Need more body trend days in snapshot</p>
+        </div>`;
       return;
     }
-    const W = host.clientWidth || 800;
-    const stripH = 46;
-    const gap = 5;
-    const padL = 36;
-    const padR = 10;
-    const titleH = 15;
-    const axisH = 22;
-    const strips = 3;
-    const H = padL / 2 + strips * (titleH + stripH + gap) + axisH;
-    const innerW = W - padL - padR;
+
+    const windowDayKeys = slice.map((d) => d.dayKey);
+    const anchor = resolveCompositionPeriodAnchor(sessions, windowDayKeys)
+      || resolveAnchorFromDays(slice);
+    const compBase = periodAnchorBaselines(anchor);
+    const fatBaseline = compBase?.fatKg ?? null;
+    const muscleBaseline = compBase?.muscleKg ?? null;
+
+    const W = Math.max(320, host.clientWidth || 800);
+    const plotLeft = TREND_PAD_L;
+    const innerW = Math.max(1, W - plotLeft - TREND_PAD_R);
     const n = slice.length;
-    const xAt = (i) => padL + (i / Math.max(1, n - 1)) * innerW;
+    const plotBottom = stripTop(2) + TREND_STRIP_H;
+    const svgH = plotBottom + TREND_AXIS_BOTTOM;
 
-    const weights = slice.map((d) => d.weightKg).filter((v) => v != null);
-    const wLo = Math.min(...weights) - 0.3;
-    const wHi = Math.max(...weights) + 0.3;
-    const yW = (v, top) => top + titleH + stripH - ((v - wLo) / (wHi - wLo)) * stripH;
+    const wVals = slice.map((d) => d.weightKg).filter((v) => v != null && Number.isFinite(v));
+    const vVals = slice.map((_, i) => withingsChartVisceralIndex(slice, i)).filter((v) => v != null);
+    const wDom = domainPad(wVals, 76, 82, 0.08);
+    const vDom = domainPad(vVals, 3.5, 4.5, 0.12);
 
-    const fatBase = slice.find((d) => d.fatMassKg != null)?.fatMassKg ?? 0;
-    const muscleBase = slice.find((d) => d.muscleMassKg != null)?.muscleMassKg ?? 0;
-    const deltas = slice.flatMap((d) => [d.fatMassKg - fatBase, d.muscleMassKg - muscleBase].filter((v) => Number.isFinite(v)));
-    const dLo = Math.min(-0.5, ...deltas, 0);
-    const dHi = Math.max(0.5, ...deltas, 0);
-    const strip1Top = 4;
-    const strip2Top = strip1Top + titleH + stripH + gap;
-    const strip3Top = strip2Top + titleH + stripH + gap;
-    const yD = (v, top) => top + titleH + stripH - ((v - dLo) / (dHi - dLo)) * stripH;
+    const compositionDeltas = [];
+    if (compBase && fatBaseline != null && muscleBaseline != null) {
+      slice.forEach((_, i) => {
+        const f = withingsChartCompositionKg(slice, i, 'fatMassKg');
+        const m = withingsChartCompositionKg(slice, i, 'muscleMassKg');
+        if (f != null && fatBaseline != null) compositionDeltas.push(f - fatBaseline);
+        if (m != null && muscleBaseline != null) compositionDeltas.push(m - muscleBaseline);
+      });
+    }
+    const deltaDom = deltaDomainFromValues(compositionDeltas);
+    const zeroLineY = mapY(0, deltaDom.min, deltaDom.max, stripTop(1), TREND_STRIP_H);
 
-    const visceral = slice.map((d) => d.visceralFatIndex ?? d.visceralFat ?? null);
-    const vVals = visceral.filter((v) => v != null);
-    const vLo = vVals.length ? Math.min(...vVals) - 0.2 : 3;
-    const vHi = vVals.length ? Math.max(...vVals) + 0.2 : 5;
-    const yV = (v) => strip3Top + titleH + stripH - ((v - vLo) / (vHi - vLo)) * stripH;
-
-    function pathFor(getter, yFn) {
+    function mkPts(getter, dom, stripIndex) {
+      const top = stripTop(stripIndex);
       const pts = [];
       slice.forEach((d, i) => {
-        const v = getter(d);
-        if (v != null && Number.isFinite(v)) pts.push({ x: xAt(i), y: yFn(v, 0) });
+        const v = getter(d, i);
+        if (v != null && Number.isFinite(v)) {
+          pts.push({ x: xAtIndex(i, plotLeft, innerW, n), y: mapY(v, dom.min, dom.max, top, TREND_STRIP_H) });
+        }
       });
-      return pts.length > 1 ? smoothPath(pts) : '';
+      return pts;
     }
 
-    const wPath = pathFor((d) => d.weightKg, (v, _) => yW(v, strip1Top));
-    const fatPath = pathFor((d) => d.fatMassKg - fatBase, (v) => yD(v, strip2Top));
-    const musclePath = (() => {
+    function mkDeltaPts(getter, baseline, stripIndex) {
+      const top = stripTop(stripIndex);
       const pts = [];
-      slice.forEach((d, i) => {
-        if (d.muscleMassKg != null) pts.push({ x: xAt(i), y: yD(d.muscleMassKg - muscleBase, strip2Top) });
+      slice.forEach((_, i) => {
+        if (!compBase || baseline == null) return;
+        const raw = getter(i);
+        if (raw == null) return;
+        const v = raw - baseline;
+        pts.push({ x: xAtIndex(i, plotLeft, innerW, n), y: mapY(v, deltaDom.min, deltaDom.max, top, TREND_STRIP_H) });
       });
-      return pts.length > 1 ? smoothPath(pts) : '';
-    })();
-    const vPath = (() => {
-      const pts = [];
-      slice.forEach((d, i) => {
-        const v = d.visceralFatIndex ?? d.visceralFat;
-        if (v != null) pts.push({ x: xAt(i), y: yV(v) });
-      });
-      return pts.length > 1 ? smoothPath(pts) : '';
-    })();
+      return pts;
+    }
 
-    const periodChips = [7, 14, 30].map((d) =>
-      `<button type="button" class="chip${d === periodDays ? ' active' : ''}" data-period="${d}">${d}D</button>`,
-    ).join('');
+    const wPts = mkPts((d) => d.weightKg, wDom, 0);
+    const fPts = mkDeltaPts((i) => withingsChartCompositionKg(slice, i, 'fatMassKg'), fatBaseline, 1);
+    const mPts = mkDeltaPts((i) => withingsChartCompositionKg(slice, i, 'muscleMassKg'), muscleBaseline, 1);
+    const vPts = mkPts((_, i) => withingsChartVisceralIndex(slice, i), vDom, 2);
+
+    function mkGrid(dom, stripIndex, labelFn, labelColor, opacity) {
+      const top = stripTop(stripIndex);
+      return [dom.min, (dom.min + dom.max) / 2, dom.max].map((v) => ({
+        y: mapY(v, dom.min, dom.max, top, TREND_STRIP_H),
+        label: labelFn(v),
+        color: labelColor,
+        opacity: opacity ?? 0.5,
+      }));
+    }
+
+    const gridW = mkGrid(wDom, 0, (v) => v.toFixed(1), TREND_BLUE, 0.88);
+    const gridFM = mkGrid(deltaDom, 1, formatDeltaTick, TREND_MUTED, 0.5);
+    const gridV = mkGrid(vDom, 2, (v) => v.toFixed(1), TREND_VISCERAL, 0.5);
+
+    const tickIdx = new Set(pickTickIndices(n, 7));
+    const xTicks = slice
+      .map((d, i) => ({ d, i }))
+      .filter(({ i }) => tickIdx.has(i))
+      .map(({ d, i }) => ({
+        x: xAtIndex(i, plotLeft, innerW, n),
+        label: axisDayLabel(d.dayKey, n),
+      }));
+
+    const anchorDeltas = periodAnchorDeltas(anchor);
+    const weightWeekDelta = anchor ? anchor.end.weightKg - anchor.start.weightKg : null;
+    const visceralWeekTrend = resolveVisceralWeekTrend(slice);
+
+    let svg = `<svg class="trend-svg" viewBox="0 0 ${W} ${svgH}" width="100%" height="${svgH}">`;
+    for (const g of [...gridW, ...gridFM, ...gridV]) {
+      svg += `<line x1="${plotLeft}" y1="${g.y}" x2="${W - TREND_PAD_R}" y2="${g.y}" stroke="${TREND_GRID}" stroke-width="1" opacity="${g.opacity}"/>`;
+    }
+    svg += `<line x1="${plotLeft}" y1="${zeroLineY}" x2="${W - TREND_PAD_R}" y2="${zeroLineY}" stroke="${TREND_MUTED}" stroke-width="1" opacity="0.35"/>`;
+    for (const g of gridW) {
+      svg += `<text x="4" y="${g.y + 3}" font-size="8" font-weight="600" fill="${TREND_BLUE}">${g.label}</text>`;
+    }
+    for (const g of gridFM) {
+      svg += `<text x="4" y="${g.y + 3}" font-size="8" font-weight="600" fill="${TREND_MUTED}">${g.label}</text>`;
+    }
+    for (const g of gridV) {
+      svg += `<text x="4" y="${g.y + 3}" font-size="8" font-weight="600" fill="${TREND_VISCERAL}">${g.label}</text>`;
+    }
+    if (wPts.length > 1) svg += `<path d="${smoothPath(wPts)}" fill="none" stroke="${TREND_BLUE}" stroke-width="2.2"/>`;
+    if (fPts.length > 1) svg += `<path d="${smoothPath(fPts)}" fill="none" stroke="${TREND_FAT}" stroke-width="2.1"/>`;
+    if (mPts.length > 1) svg += `<path d="${smoothPath(mPts)}" fill="none" stroke="${TREND_GREEN}" stroke-width="2.1"/>`;
+    if (vPts.length > 1) {
+      svg += `<path d="${smoothPath(vPts)}" fill="none" stroke="${TREND_VISCERAL}" stroke-width="2" stroke-dasharray="6 4"/>`;
+    }
+    svg += `<line x1="${plotLeft}" y1="${plotBottom}" x2="${W - TREND_PAD_R}" y2="${plotBottom}" stroke="${TREND_GRID}" stroke-width="1"/>`;
+    for (const tk of xTicks) {
+      svg += `<text x="${tk.x}" y="${svgH - 8}" font-size="9" fill="${TREND_MUTED}" text-anchor="middle">${tk.label}</text>`;
+    }
+    svg += '</svg>';
+
+    const periodChips = TREND_PERIOD_OPTIONS.map((opt) => {
+      const selected = opt === period;
+      const disabled = avail > 0 && opt > avail;
+      return `<button type="button" class="chip trend-chip${selected ? ' active' : ''}${disabled ? ' disabled' : ''}" data-period="${opt}" ${disabled ? 'disabled' : ''}>${opt}D</button>`;
+    }).join('');
 
     host.innerHTML = `
-      <div class="chart-head"><strong>Trend analysis</strong><div class="chip-row">${periodChips}</div></div>
-      <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}">
-        <text x="${padL}" y="${strip1Top + 11}" font-size="9" font-weight="700" fill="#666">WEIGHT</text>
-        ${wPath ? `<path d="${wPath}" fill="none" stroke="#2196F3" stroke-width="2.2"/>` : ''}
-        <line x1="${padL}" y1="${strip2Top}" x2="${W - padR}" y2="${strip2Top}" stroke="#eee"/>
-        <text x="${padL}" y="${strip2Top + 11}" font-size="9" font-weight="700" fill="#666">FAT / MUSCLE Δ</text>
-        <line x1="${padL}" y1="${yD(0, strip2Top)}" x2="${W - padR}" y2="${yD(0, strip2Top)}" stroke="#bbb" stroke-dasharray="4,3"/>
-        ${fatPath ? `<path d="${fatPath}" fill="none" stroke="#FF5252" stroke-width="2"/>` : ''}
-        ${musclePath ? `<path d="${musclePath}" fill="none" stroke="#4CAF50" stroke-width="2"/>` : ''}
-        <line x1="${padL}" y1="${strip3Top}" x2="${W - padR}" y2="${strip3Top}" stroke="#eee"/>
-        <text x="${padL}" y="${strip3Top + 11}" font-size="9" font-weight="700" fill="#666">VISCERAL</text>
-        ${vPath ? `<path d="${vPath}" fill="none" stroke="#7B1FA2" stroke-width="2"/>` : ''}
-        ${slice.map((d, i) => i % Math.ceil(n / 6) === 0 || i === n - 1
-          ? `<text x="${xAt(i)}" y="${H - 4}" font-size="9" fill="#888" text-anchor="middle">${d.dayKey?.slice(5) || ''}</text>` : '').join('')}
-      </svg>
-      <div class="chart-legend">
-        <span class="leg" style="color:#2196F3">● Weight</span>
-        <span class="leg" style="color:#FF5252">● Fat Δ</span>
-        <span class="leg" style="color:#4CAF50">● Muscle Δ</span>
-        <span class="leg" style="color:#7B1FA2">● Visceral</span>
+      <div class="trend-wrap">
+        <div class="trend-title">TREND ANALYSIS</div>
+        <div class="chip-row trend-chips">${periodChips}</div>
+        <div class="chart-wrap">${svg}</div>
+        <div class="trend-legend">
+          <div class="trend-legend-row">
+            <span class="trend-leg"><i style="background:${TREND_BLUE}"></i>${legendDeltaKg('Weight', weightWeekDelta)}</span>
+            <span class="trend-leg"><i style="background:${TREND_FAT}"></i>${legendDeltaKg('Fat', anchorDeltas?.fatKg)}</span>
+          </div>
+          <div class="trend-legend-row">
+            <span class="trend-leg"><i style="background:${TREND_GREEN}"></i>${legendDeltaKg('Muscle', anchorDeltas?.muscleKg)}</span>
+            <span class="trend-leg"><i style="background:${TREND_VISCERAL}"></i>${legendVisceral('Visceral', visceralWeekTrend)}</span>
+          </div>
+        </div>
       </div>`;
 
     host.querySelectorAll('[data-period]').forEach((btn) => {
       btn.addEventListener('click', () => {
+        if (btn.disabled) return;
         const p = parseInt(btn.getAttribute('data-period'), 10);
         if (onPeriodChange) onPeriodChange(p);
-        else drawTrendAnalysis(host, days, p, onPeriodChange);
       });
     });
   }

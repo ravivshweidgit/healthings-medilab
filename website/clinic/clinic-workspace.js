@@ -283,11 +283,19 @@
     }
     const trendHost = panel.querySelector('#trend-host');
     if (trendHost) {
-      const pd = ctx.trendPeriod ?? 14;
-      charts.drawTrendAnalysis(trendHost, ctx.parsed.withings?.bodyTrendDays || [], pd, (p) => {
-        ctx.trendPeriod = p;
-        paintDashboardCharts(panel, ctx);
-      });
+      const allDays = ctx.parsed.withings?.bodyTrendDays || [];
+      const pd = ctx.trendPeriod ?? 32;
+      charts.drawTrendAnalysis(
+        trendHost,
+        allDays,
+        ctx.parsed.withings?.bodyTrendSessions || [],
+        pd,
+        allDays.length,
+        (p) => {
+          ctx.trendPeriod = p;
+          paintDashboardCharts(panel, ctx);
+        },
+      );
     }
     const energyHost = panel.querySelector('#energy-host');
     if (energyHost) charts.drawEnergyChart(energyHost, ctx.parsed.withings?.bodyTrendDays || [], ctx.parsed.eatenByDay, ctx.parsed.burnByDay);
