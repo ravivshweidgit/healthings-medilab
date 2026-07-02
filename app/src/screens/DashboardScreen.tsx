@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -73,6 +74,7 @@ import {
 } from '../services/WithingsApiService';
 import { type AuthUser } from '../services/AuthApiService';
 import { pullClinicOverlays } from '../services/ClinicOverlayService';
+import { fulfillPendingClinicSyncRequests } from '../services/ClinicSyncService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 import { demoNoticeCopy } from '../utils/wellnessCopy';
 
@@ -713,9 +715,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   useEffect(() => {
     if (user.role !== 'patient') return;
     void (async () => {
+      await fulfillPendingClinicSyncRequests();
       const updated = await pullClinicOverlays();
       if (updated) await loadCoachMessage();
     })();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      void fulfillPendingClinicSyncRequests();
+    });
+    return () => sub.remove();
   }, [user.role, loadCoachMessage]);
 
   useEffect(() => {

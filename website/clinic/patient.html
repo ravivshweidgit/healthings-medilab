@@ -79,7 +79,7 @@
           const when = status.updateRequest?.requestedAt
             ? new Date(status.updateRequest.requestedAt).toLocaleString()
             : '';
-          hint.textContent = 'Update requested' + (when ? ' · ' + when : '') + ' · waiting for patient to share in app';
+          hint.textContent = 'Update requested' + (when ? ' · ' + when : '') + ' · patient app uploads when opened — then Reload snapshot';
           hint.hidden = false;
           requestBtn.disabled = true;
         } else {
@@ -126,7 +126,7 @@
 
         const syncRes = await api('/v1/sync/latest?patientId=' + encodeURIComponent(patientId));
         if (syncRes.status === 404) {
-          showError('No snapshot yet. Tap “Request fresh snapshot” — the patient will see a banner in the app to share.');
+          showError('No snapshot yet. Tap “Request fresh snapshot” — patient app uploads automatically when they open it.');
           return;
         }
         if (!syncRes.ok) {
