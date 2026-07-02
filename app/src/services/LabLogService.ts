@@ -292,7 +292,12 @@ function pickMarker(r: LabResult): LipidLabMarker {
   };
 }
 
+function isNonHdlResult(r: LabResult): boolean {
+  return /NON[_\s-]?HDL/i.test(resultMatchBlob(r));
+}
+
 function isLdlResult(r: LabResult): boolean {
+  if (isNonHdlResult(r)) return false;
   return /CHOLESTEROL.?LDL|LDL.?CHOL|\bLDL\b/i.test(resultMatchBlob(r));
 }
 
@@ -303,7 +308,12 @@ function isTotalCholResult(r: LabResult): boolean {
 }
 
 function isHdlResult(r: LabResult): boolean {
-  return /CHOLESTEROL.?HDL|\bHDL\b/i.test(resultMatchBlob(r));
+  if (isNonHdlResult(r)) return false;
+  const b = resultMatchBlob(r);
+  if (/RATIO|\/|יחס/i.test(b)) return false;
+  const code = r.code.toUpperCase();
+  if (code === 'CHOLESTEROL_HDL' || /^CHOLESTEROL[_-]HDL$/i.test(code)) return true;
+  return /CHOLESTEROL.?HDL|\bHDL\b/i.test(b);
 }
 
 function isTriglycerideResult(r: LabResult): boolean {

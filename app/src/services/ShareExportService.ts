@@ -6,7 +6,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { deflate } from 'pako';
 import type { CachedHealthMetrics } from './healthMetricsCache';
 import { HEALTH_METRICS_CACHE_KEY } from './healthMetricsCache';
-import { reportDateKey, type LabReport } from './LabLogService';
 import { uploadSyncPayload, type SyncLookbackMode, type SyncSummary } from './SyncApiService';
 import { WITHINGS_STORE_KEY, type WithingsPersistedStore } from './WithingsPersistenceService';
 
@@ -106,27 +105,6 @@ function trimWithingsStore(raw: string, cutoffDay: string): string {
   });
 }
 
-async function trimLabReports(cutoffDay: string): Promise<{ indexRaw: string | null; reportKeys: string[] }> {
-  const indexRaw = await AsyncStorage.getItem('lab_log_reports');
-  if (!indexRaw) return { indexRaw: null, reportKeys: [] };
-  const ids = JSON.parse(indexRaw) as string[];
-  const kept: string[] = [];
-  for (const id of ids) {
-    const raw = await AsyncStorage.getItem(`lab_report_${id}`);
-    if (!raw) continue;
-    try {
-      const report = JSON.parse(raw) as LabReport;
-      if (reportDateKey(report.collectedAt) >= cutoffDay) kept.push(id);
-    } catch {
-      /* skip corrupt */
-    }
-  }
-  return {
-    indexRaw: JSON.stringify(kept),
-    reportKeys: kept.map((id) => `lab_report_${id}`),
-  };
-}
-
 function detectIncludes(asyncStorage: Record<string, string>): string[] {
   const includes: string[] = [];
   if (Object.keys(asyncStorage).some(isFoodDayKey)) includes.push('meals');
@@ -162,15 +140,12 @@ export async function buildClinicExport(lookbackMode: SyncLookbackMode = '90d'):
   const exportKeys = allKeys.filter((k) => !EXCLUDED_ASYNC_KEYS.has(k));
   const pairs = await AsyncStorage.multiGet(exportKeys);
 
-  const labTrim = lookbackMode === 'full' ? null : await trimLabReports(cutoffDay);
-  const labKeep = new Set(labTrim?.reportKeys ?? []);
-
   const asyncStorage: Record<string, string> = {};
   for (const [key, value] of pairs) {
     if (value == null) continue;
-    if (key.startsWith('lab_report_') && lookbackMode !== 'full' && !labKeep.has(key)) continue;
-    if (key === 'lab_log_reports' && labTrim) {
-      asyncStorage[key] = labTrim.indexRaw ?? '[]';
+    // Labs: always full history — small payload, clinic lipid trends need all draw dates.
+    if (key.startsWith('lab_report_') || key === 'lab_log_reports') {
+      asyncStorage[key] = value;
       continue;
     }
     if (lookbackMode !== 'full') {

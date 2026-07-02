@@ -13,15 +13,15 @@
       <h1 id="patient-title">Patient workspace</h1>
       <span class="badge">Clinic view</span>
       <span id="patient-meta" class="meta">Loading…</span>
-      <button id="reload-btn" class="ws-btn" type="button" hidden>Reload snapshot</button>
+      <button id="reload-btn" class="ws-btn" type="button" hidden title="Fetches latest upload from server — patient must re-share from the app after new data">Reload snapshot</button>
     </header>
     <p id="load-error" class="ws-error" hidden></p>
     <nav class="ws-tabs" id="ws-tabs" hidden></nav>
     <main class="ws-main" id="ws-main" hidden></main>
 
     <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
-    <script src="clinic-charts.js"></script>
-    <script src="clinic-workspace.js"></script>
+    <script src="clinic-charts.js?v=20260702b"></script>
+    <script src="clinic-workspace.js?v=20260702b"></script>
     <script>
       const API = 'https://api.healthings.ai';
       const TOKEN_KEY = 'healthings_clinic_tokens';
@@ -107,7 +107,8 @@
         document.getElementById('patient-meta').textContent =
           'Snapshot v' + blob.version + ' · shared ' + new Date(blob.createdAt).toLocaleString() +
           ' · ' + Math.round(blob.byteSize / 1024) + ' KB' +
-          (overlay?.rules ? ' · clinic rules active' : '');
+          (overlay?.rules ? ' · clinic rules active' : '') +
+          ' · reload after patient re-shares';
 
         const ctx = {
           patientId,

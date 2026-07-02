@@ -51,7 +51,7 @@ const L = {
   noShares: 'No accounts whitelisted — app works fully without sharing',
   mentorWeb: 'Mentor account: manage patients and AI sponsorship at healthings.ai/clinic',
   shareData: 'Share data with clinic',
-  shareDataHint: 'Uploads a snapshot (not live). Clinics see meals, CGM, labs, and Withings from your phone.',
+  shareDataHint: 'Uploads a snapshot (not live). After new labs or meals, share again — clinic Reload only fetches the latest upload. Labs always include full history.',
   share90d: 'Last 90 days',
   shareFull: 'Full history on phone',
   shareSuccess: 'Data shared',

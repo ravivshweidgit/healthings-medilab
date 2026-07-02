@@ -1,4 +1,4 @@
-import { gunzipSync } from 'node:zlib';
+import { gunzipSync, inflateSync } from 'node:zlib';
 import { config } from '../config.js';
 import { query } from '../db/pool.js';
 import type { ClinicChatMessage, ClinicUserRules } from './clinicOverlay.js';
@@ -94,6 +94,15 @@ type SnapshotExport = {
   exportedAt?: string;
 };
 
+function decompressSnapshotPayload(buf: Buffer): string {
+  // App uploads pako.deflate (zlib); clinic web uses pako.inflate. Try zlib first, then gzip.
+  try {
+    return inflateSync(buf).toString('utf8');
+  } catch {
+    return gunzipSync(buf).toString('utf8');
+  }
+}
+
 export async function loadLatestSnapshotExport(patientId: string): Promise<SnapshotExport | null> {
   const { rows } = await query<{ payload_gzip: Buffer }>(
     `SELECT payload_gzip FROM sync_blobs WHERE patient_id = $1 ORDER BY version DESC LIMIT 1`,
@@ -101,8 +110,48 @@ export async function loadLatestSnapshotExport(patientId: string): Promise<Snaps
   );
   const row = rows[0];
   if (!row) return null;
-  const json = gunzipSync(row.payload_gzip).toString('utf8');
-  return JSON.parse(json) as SnapshotExport;
+  try {
+    const json = decompressSnapshotPayload(row.payload_gzip);
+    return JSON.parse(json) as SnapshotExport;
+  } catch {
+    return null;
+  }
+}
+
+type LabReportRow = {
+  collectedAt?: string;
+  panels?: Array<{
+    results?: Array<{ name?: string; value?: number | string; unit?: string }>;
+  }>;
+};
+
+function formatLabReports(store: Record<string, string>): string | null {
+  const reports: LabReportRow[] = [];
+  for (const [key, raw] of Object.entries(store)) {
+    if (!key.startsWith('lab_report_')) continue;
+    try {
+      reports.push(JSON.parse(raw) as LabReportRow);
+    } catch { /* skip */ }
+  }
+  reports.sort((a, b) => (b.collectedAt ?? '').localeCompare(a.collectedAt ?? ''));
+  if (!reports.length) return null;
+
+  const blocks: string[] = [];
+  for (const report of reports.slice(0, 10)) {
+    const resultLines: string[] = [];
+    for (const panel of report.panels ?? []) {
+      for (const r of panel.results ?? []) {
+        const name = r.name ?? '?';
+        const value = r.value ?? '—';
+        const unit = r.unit ? ` ${r.unit}` : '';
+        resultLines.push(`${name}: ${value}${unit}`);
+      }
+    }
+    if (resultLines.length) {
+      blocks.push(`Draw ${report.collectedAt ?? 'unknown'}:\n  ${resultLines.slice(0, 40).join('\n  ')}`);
+    }
+  }
+  return blocks.length ? blocks.join('\n\n') : null;
 }
 
 function buildPatientContextBlock(exportData: SnapshotExport | null): string {
@@ -110,6 +159,9 @@ function buildPatientContextBlock(exportData: SnapshotExport | null): string {
 
   const store = exportData.asyncStorage;
   const lines: string[] = [];
+
+  const labsBlock = formatLabReports(store);
+  if (labsBlock) lines.push(`Lab reports (newest first):\n${labsBlock}`);
 
   const withingsRaw = store['healthings:withingsStore'];
   if (withingsRaw) {

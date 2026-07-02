@@ -91,19 +91,52 @@
     return m;
   }
 
+  function lipidResultBlob(r) {
+    return `${r.code || ''} ${r.name || ''} ${r.nameOriginal || ''}`.toUpperCase();
+  }
+
+  function isNonHdlResult(r) {
+    return /NON[_\s-]?HDL/i.test(lipidResultBlob(r));
+  }
+
+  function isLdlResult(r) {
+    if (isNonHdlResult(r)) return false;
+    return /CHOLESTEROL.?LDL|LDL.?CHOL|\bLDL\b/i.test(lipidResultBlob(r));
+  }
+
+  function isHdlResult(r) {
+    if (isNonHdlResult(r)) return false;
+    const b = lipidResultBlob(r);
+    if (/RATIO|\/|יחס/i.test(b)) return false;
+    const code = (r.code || '').toUpperCase();
+    if (code === 'CHOLESTEROL_HDL' || /^CHOLESTEROL[_-]HDL$/i.test(code)) return true;
+    return /CHOLESTEROL.?HDL|\bHDL\b/i.test(b);
+  }
+
+  function isTotalCholResult(r) {
+    if (isNonHdlResult(r)) return false;
+    const b = lipidResultBlob(r);
+    return /\bCHOLESTEROL\b/i.test(b) && !/LDL|HDL|NON/i.test(b);
+  }
+
+  function isTriglycerideResult(r) {
+    return /TRIGLYCERID|\bTG\b/i.test(lipidResultBlob(r));
+  }
+
   function scanLipids(report) {
-    const out = { ldl: null, hdl: null, totalCholesterol: null, triglycerides: null };
+    let ldl = null;
+    let hdl = null;
+    let totalCholesterol = null;
+    let triglycerides = null;
     for (const panel of report.panels || []) {
       for (const r of panel.results || []) {
-        const c = (r.code || '').toUpperCase();
-        const n = r.name?.toUpperCase() || '';
-        if (c.includes('LDL') || n.includes('LDL')) out.ldl = r.value;
-        if (c.includes('HDL') || n.includes('HDL')) out.hdl = r.value;
-        if (c.includes('CHOLESTEROL') && !c.includes('LDL') && !c.includes('HDL')) out.totalCholesterol = r.value;
-        if (c.includes('TRIG') || n.includes('TRIG')) out.triglycerides = r.value;
+        if (ldl == null && isLdlResult(r)) ldl = r.value;
+        if (hdl == null && isHdlResult(r)) hdl = r.value;
+        if (totalCholesterol == null && isTotalCholResult(r)) totalCholesterol = r.value;
+        if (triglycerides == null && isTriglycerideResult(r)) triglycerides = r.value;
       }
     }
-    return out;
+    return { ldl, hdl, totalCholesterol, triglycerides };
   }
 
   function buildLipidPoints(labs) {
