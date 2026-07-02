@@ -277,7 +277,7 @@
     if (!charts) return;
     const metabolicHost = panel.querySelector('#metabolic-host');
     if (metabolicHost) {
-      if (ctx.chartVp == null) ctx.chartVp = 1;
+      if (ctx.chartVp == null) ctx.chartVp = 3;
       if (ctx.chartEndMs == null) ctx.chartEndMs = Date.now();
       charts.drawMetabolicChart(metabolicHost, ctx.parsed, ctx, () => paintDashboardCharts(panel, ctx));
     }

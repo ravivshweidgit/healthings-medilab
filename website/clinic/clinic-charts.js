@@ -168,8 +168,8 @@
   }
 
   function drawMetabolicChart(host, data, ctx, onChange) {
-    const vpIdx = ctx.chartVp ?? 2;
-    const preset = VIEWPORT_PRESETS[vpIdx] || VIEWPORT_PRESETS[2];
+    const vpIdx = ctx.chartVp ?? 3;
+    const preset = VIEWPORT_PRESETS[vpIdx] || VIEWPORT_PRESETS[3];
     const chartEnd = ctx.chartEndMs ?? Date.now();
     const t1 = chartEnd;
     const t0 = t1 - preset.ms;
