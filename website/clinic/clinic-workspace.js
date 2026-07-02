@@ -392,6 +392,67 @@
     return mt.fiber_g ?? mt.aiSuggested?.fiber_g ?? 30;
   }
 
+  function expandPcfPriority(pcfPriority) {
+    const map = {
+      'P (cap) → C+Fi → F (remainder)': 'Protein (cap) → Carbohydrate + fiber → Fat (fills remaining kcal)',
+      'P → C+Fi → F (remainder)': 'Protein → Carbohydrate + fiber → Fat (fills remaining kcal)',
+      'C+Fi → P → F (remainder)': 'Carbohydrate + fiber → Protein → Fat (fills remaining kcal)',
+      'C (cap) → P → F (remainder)': 'Carbohydrate (cap) → Protein → Fat (fills remaining kcal)',
+      'P (cap) → C+Fi → F (fill)': 'Protein (cap) → Carbohydrate + fiber → Fat (fills remaining kcal)',
+      'P → C+Fi → F (fill)': 'Protein → Carbohydrate + fiber → Fat (fills remaining kcal)',
+      'C+Fi → P → F (fill)': 'Carbohydrate + fiber → Protein → Fat (fills remaining kcal)',
+      'C (cap) → P → F (fill)': 'Carbohydrate (cap) → Protein → Fat (fills remaining kcal)',
+      'P (cap) → C+Fi → F (suppl.)': 'Protein (cap) → Carbohydrate + fiber → Fat (fills remaining kcal)',
+      'P → C+Fi → F (suppl.)': 'Protein → Carbohydrate + fiber → Fat (fills remaining kcal)',
+      'C+Fi → P → F (suppl.)': 'Carbohydrate + fiber → Protein → Fat (fills remaining kcal)',
+      'C (cap) → P → F (suppl.)': 'Carbohydrate (cap) → Protein → Fat (fills remaining kcal)',
+    };
+    return map[pcfPriority] ?? pcfPriority;
+  }
+
+  function renderClinicalProfileBanner(mt) {
+    if (!mt?.clinical_profile?.trim()) return '';
+    const pcfShort = mt.pcf_priority?.trim() || null;
+    const pcfExpanded = pcfShort ? expandPcfPriority(pcfShort) : null;
+    return `
+      <div class="clinical-profile-banner">
+        <div class="clinical-profile-title">Clinical profile</div>
+        <div class="clinical-profile-text">${esc(mt.clinical_profile.trim())}</div>
+        ${pcfShort ? `
+          <div class="clinical-pcf-row">
+            <div class="clinical-pcf-label">Macro priority (P → C → F)</div>
+            <div class="clinical-pcf-short">${esc(pcfShort)}</div>
+            ${pcfExpanded && pcfExpanded !== pcfShort ? `<div class="clinical-pcf-detail">${esc(pcfExpanded)}</div>` : ''}
+          </div>` : ''}
+        ${mt.macro_order ? `<div class="clinical-order">Full sequence: ${esc(mt.macro_order)}</div>` : ''}
+      </div>`;
+  }
+
+  function macroBarWithActual(label, actual, tgt, color) {
+    const hasActual = actual > 0;
+    const ratio = tgt > 0 && hasActual ? Math.min(1, actual / tgt) : 0;
+    const over = tgt > 0 && hasActual && actual > tgt * 1.05;
+    const text = tgt ? `${hasActual ? Math.round(actual) : '—'} / ${Math.round(tgt)}g` : `${hasActual ? Math.round(actual) : '—'}g`;
+    const fillColor = over ? '#EF5350' : color;
+    return `<div class="macro-row"><span>${label}</span><div class="track"><div class="fill" style="width:${ratio * 100}%;background:${fillColor}"></div></div><span class="${over ? 'macro-over' : ''}">${text}</span></div>`;
+  }
+
+  function renderMacroTargetsBody(mt, ctx) {
+    const today = dailyMacros(ctx.parsed.todayMeals || []);
+    const eaten = today.kcal > 0 ? Math.round(today.kcal) : null;
+    return `
+      ${renderClinicalProfileBanner(mt)}
+      <div class="macro-bars profile-macros">
+        ${macroBarWithActual('P', today.protein_g, mt.protein_g, '#4CAF50')}
+        ${macroBarWithActual('C', today.carb_g, mt.carb_g, '#FF9800')}
+        ${macroBarWithActual('F', today.fat_g, mt.fat_g, '#2196F3')}
+        ${macroBarWithActual('Fi', today.fiber_g, fiberTarget_g(mt), '#66BB6A')}
+      </div>
+      <div class="macro-kcal-row">${eaten != null ? eaten.toLocaleString() : '—'} / ${Math.round(mt.kcal).toLocaleString()} kcal</div>
+      ${mt.diet_label ? `<p class="macro-diet-label">${esc(mt.diet_label)}</p>` : ''}
+      ${mt.reasoning ? `<p class="reasoning-block">${esc(mt.reasoning)}</p>` : ''}`;
+  }
+
   function targetsHeaderSub(bt) {
     if (!bt) return 'No body targets in snapshot';
     const weeks = bt.targetWeeks ?? bt.estimatedWeeks;
@@ -508,17 +569,7 @@
 
     const macrosSub = `${esc(macrosHeaderSub(mt))}${mt?.analyzedAt ? `<span class="macro-updated">Updated ${esc(formatIsoShort(mt.analyzedAt))}</span>` : ''}`;
 
-    const macrosBody = mt ? `
-      ${detailList([
-        ['Daily kcal', mt.kcal],
-        ['Diet', mt.diet_label],
-        ['Protein', `${mt.protein_g}g`],
-        ['Carbs', `${mt.carb_g}g`],
-        ['Fat', `${mt.fat_g}g`],
-        ['Fiber', `${fiberTarget_g(mt)}g`],
-        ['Updated', formatIsoShort(mt.analyzedAt)],
-      ])}
-      ${mt.reasoning ? `<p class="reasoning-block">${esc(mt.reasoning)}</p>` : ''}` : '<p class="empty">No macro targets in snapshot</p>';
+    const macrosBody = mt ? renderMacroTargetsBody(mt, ctx) : '<p class="empty">No macro targets in snapshot</p>';
 
     const coachSub = coach?.summary || coach?.text?.slice(0, 120) || 'No coach message';
     const coachIcons = mentors.map((m) => mentorMeta(m).emoji).join(' ');
