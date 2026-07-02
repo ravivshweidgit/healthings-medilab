@@ -376,25 +376,185 @@
     if (host) renderFoodLog(host, ctx, panel);
   }
 
-  function renderProfileTargets(host, ctx) {
+  function mentorMeta(id) {
+    return MENTORS.find((x) => x.id === id) || { id, label: id, emoji: '•' };
+  }
+
+  function mentorsHeaderSub(mentors) {
+    return mentors.map((m) => {
+      const x = mentorMeta(m);
+      return `${x.emoji} ${x.label}`;
+    }).join(' · ') || 'No mentors selected';
+  }
+
+  function fiberTarget_g(mt) {
+    if (!mt) return 30;
+    return mt.fiber_g ?? mt.aiSuggested?.fiber_g ?? 30;
+  }
+
+  function targetsHeaderSub(bt) {
+    if (!bt) return 'No body targets in snapshot';
+    const weeks = bt.targetWeeks ?? bt.estimatedWeeks;
+    return `${Number(bt.targetWeight_kg).toFixed(1)} kg · ${Number(bt.targetFatPct).toFixed(1)}% fat · ${Number(bt.targetMuscleMass_kg).toFixed(1)} kg muscle${weeks ? ` · ${weeks}w` : ''}`;
+  }
+
+  function macrosHeaderSub(mt) {
+    if (!mt) return 'No macro targets in snapshot';
+    return `${mt.protein_g}P / ${mt.fat_g}F / ${mt.carb_g}C / ${fiberTarget_g(mt)}Fi`;
+  }
+
+  function formatIsoShort(iso) {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return iso;
+    }
+  }
+
+  function detailList(rows) {
+    const items = rows.filter((r) => r[1] != null && r[1] !== '');
+    if (!items.length) return '<p class="empty">Not set in snapshot</p>';
+    return `<dl class="profile-dl">${items.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(String(v))}</dd>`).join('')}</dl>`;
+  }
+
+  function collapseSection(key, icon, title, sub, bodyHtml, expanded) {
+    return `
+      <button type="button" class="collapse-header${expanded ? ' open' : ''}" data-collapse="${key}" aria-expanded="${expanded ? 'true' : 'false'}">
+        <span class="row-icon">${icon}</span>
+        <span class="collapse-info">
+          <span class="collapse-title">${esc(title)}</span>
+          <span class="sub">${sub}</span>
+        </span>
+        <span class="collapse-chevron" aria-hidden="true">${expanded ? '⌃' : '›'}</span>
+      </button>
+      ${expanded ? `<div class="collapse-body">${bodyHtml}</div>` : ''}`;
+  }
+
+  function renderCoachBody(coach, mentors) {
+    if (!coach) return '<p class="empty">No coach message in snapshot</p>';
+    const done = (coach.actionItems || []).filter((i) => i.done).length;
+    const total = (coach.actionItems || []).length;
+    const mentorBlocks = mentors.map((m) => {
+      const meta = mentorMeta(m);
+      const wins = coach.wins?.[m] || [];
+      const improve = coach.improve?.[m] || [];
+      const items = (coach.actionItems || []).filter((i) => i.mentor === m);
+      if (!wins.length && !improve.length && !items.length && !coach.mentorLines?.[m]) return '';
+      return `
+        <div class="coach-mentor-block">
+          <div class="coach-mentor-title">${meta.emoji} ${esc(meta.label)}</div>
+          ${coach.mentorLines?.[m] ? `<p class="coach-line">${esc(coach.mentorLines[m])}</p>` : ''}
+          ${wins.length ? `<div class="coach-list-label">Wins</div><ul>${wins.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
+          ${improve.length ? `<div class="coach-list-label">Improve</div><ul>${improve.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
+          ${items.length ? `<ul class="action-items">${items.map((i) => `<li class="${i.done ? 'done' : ''}">${i.done ? '☑' : '☐'} ${esc(i.text)}</li>`).join('')}</ul>` : ''}
+        </div>`;
+    }).join('');
+    const untagged = (coach.actionItems || []).filter((i) => !i.mentor || !mentors.includes(i.mentor));
+    return `
+      ${coach.summary ? `<p class="coach-summary">${esc(coach.summary)}</p>` : ''}
+      ${coach.text && !coach.summary ? `<p class="coach-summary">${esc(coach.text)}</p>` : ''}
+      ${total ? `<p class="coach-progress">${done}/${total} action items done</p>` : ''}
+      ${mentorBlocks}
+      ${untagged.length ? `<ul class="action-items">${untagged.map((i) => `<li class="${i.done ? 'done' : ''}">${i.done ? '☑' : '☐'} ${esc(i.text)}</li>`).join('')}</ul>` : ''}
+      ${coach.generatedAt ? `<p class="coach-meta">Generated ${esc(formatIsoShort(coach.generatedAt))}${coach.triggerEvent ? ` · ${esc(coach.triggerEvent)}` : ''}</p>` : ''}`;
+  }
+
+  function renderProfileGroup(host, ctx) {
+    if (!ctx.profileExpand) ctx.profileExpand = {};
+    const ex = ctx.profileExpand;
     const p = ctx.parsed.profile || {};
-    const parts = [p.gender, p.heightCm ? `${p.heightCm} cm` : null, p.age != null ? `${p.age} y` : null, p.language].filter(Boolean);
-    const mt = ctx.parsed.macroTarget;
     const bt = ctx.parsed.bodyTarget;
+    const mt = ctx.parsed.macroTarget;
+    const rules = ctx.parsed.userRules;
     const coach = ctx.parsed.coachMsg;
-    const mentors = ctx.parsed.mentors.map((m) => MENTORS.find((x) => x.id === m)?.emoji || m).join(' ');
-    const bodyTargetLine = bt
-      ? `${bt.targetWeight_kg?.toFixed?.(1) ?? bt.targetWeight_kg} kg · fat ${bt.targetFatPct}% · muscle ${bt.targetMuscleMass_kg?.toFixed?.(1) ?? bt.targetMuscleMass_kg} kg`
-      : null;
+    const mentors = ctx.parsed.mentors || [];
+    const gender = p.gender ? String(p.gender).charAt(0).toUpperCase() + String(p.gender).slice(1) : null;
+    const profileSub = [gender, p.heightCm ? `${p.heightCm} cm` : null, p.age != null ? `${p.age} y` : null, p.language].filter(Boolean).join(' · ') || 'Not set in snapshot';
+
+    const profileBody = detailList([
+      ['Gender', gender],
+      ['Height', p.heightCm ? `${p.heightCm} cm` : null],
+      ['Birth date', p.birthdate],
+      ['Age', p.age != null ? `${p.age} years` : null],
+      ['Language', p.language],
+    ]);
+
+    const targetsBody = bt ? `
+      ${detailList([
+        ['Target weight', `${Number(bt.targetWeight_kg).toFixed(1)} kg`],
+        ['Target fat', `${Number(bt.targetFatPct).toFixed(1)}%`],
+        ['Target muscle', `${Number(bt.targetMuscleMass_kg).toFixed(1)} kg`],
+        ['Timeline', bt.targetWeeks ?? bt.estimatedWeeks ? `${bt.targetWeeks ?? bt.estimatedWeeks} weeks` : null],
+        ['Start weight', bt.startWeight_kg != null ? `${Number(bt.startWeight_kg).toFixed(1)} kg` : null],
+        ['Start fat', bt.startFatPct != null ? `${Number(bt.startFatPct).toFixed(1)}%` : null],
+        ['Start muscle', bt.startMuscle_kg != null ? `${Number(bt.startMuscle_kg).toFixed(1)} kg` : null],
+        ['Set', formatIsoShort(bt.analyzedAt)],
+      ])}
+      ${bt.reasoning ? `<p class="reasoning-block">${esc(bt.reasoning)}</p>` : ''}` : '<p class="empty">No body targets in snapshot</p>';
+
+    const mentorsBody = `
+      <div class="mentor-pills">${mentors.map((m) => {
+        const x = mentorMeta(m);
+        return `<span class="mentor-pill active">${x.emoji} ${esc(x.label)}</span>`;
+      }).join('')}</div>
+      <p class="sub" style="margin-top:12px">Active mentors from patient app snapshot (read-only).</p>`;
+
+    const rulesBody = rules ? `
+      ${rules.summary ? `<p class="rules-summary">${esc(rules.summary)}</p>` : ''}
+      ${(rules.constraints || []).length ? `<div class="coach-list-label">AI understood</div><ul class="rules-list">${rules.constraints.map((c) => `<li>✓ ${esc(c)}</li>`).join('')}</ul>` : ''}
+      ${rules.rawText ? `<p class="rules-raw">${esc(rules.rawText)}</p>` : ''}
+      ${rules.analyzedAt ? `<p class="coach-meta">Updated ${esc(formatIsoShort(rules.analyzedAt))}</p>` : ''}` : '<p class="empty">No dietary rules in snapshot</p>';
+
+    const macrosSub = `${esc(macrosHeaderSub(mt))}${mt?.analyzedAt ? `<span class="macro-updated">Updated ${esc(formatIsoShort(mt.analyzedAt))}</span>` : ''}`;
+
+    const macrosBody = mt ? `
+      ${detailList([
+        ['Daily kcal', mt.kcal],
+        ['Diet', mt.diet_label],
+        ['Protein', `${mt.protein_g}g`],
+        ['Carbs', `${mt.carb_g}g`],
+        ['Fat', `${mt.fat_g}g`],
+        ['Fiber', `${fiberTarget_g(mt)}g`],
+        ['Updated', formatIsoShort(mt.analyzedAt)],
+      ])}
+      ${mt.reasoning ? `<p class="reasoning-block">${esc(mt.reasoning)}</p>` : ''}` : '<p class="empty">No macro targets in snapshot</p>';
+
+    const coachSub = coach?.summary || coach?.text?.slice(0, 120) || 'No coach message';
+    const coachIcons = mentors.map((m) => mentorMeta(m).emoji).join(' ');
+
     host.innerHTML = `
-      <div class="group-card">
-        <div class="collapse-row"><span class="row-icon">👤</span><div><strong>My Profile</strong><div class="sub">${parts.join(' · ') || 'Not set in snapshot'}</div></div></div>
-        <div class="collapse-row"><span class="row-icon">🎯</span><div><strong>My Targets</strong>
-          ${mt ? `<div class="sub">${esc(mt.diet_label || 'Macros')}: ${mt.kcal} kcal · P${mt.protein_g} C${mt.carb_g} F${mt.fat_g}g</div>` : '<div class="sub">No macro targets</div>'}
-          ${bodyTargetLine ? `<div class="sub">Body: ${esc(bodyTargetLine)}</div>` : ''}
-        </div></div>
-        ${coach ? `<div class="collapse-row"><span class="row-icon">${mentors}</span><div><strong>Coach</strong><div class="sub">${esc(coach.summary || coach.text?.slice(0, 120) || '')}</div></div></div>` : ''}
+      <div class="group-card profile-group">
+        ${collapseSection('profile', '👤', 'My Profile', esc(profileSub), profileBody, !!ex.profile)}
+        <div class="group-divider"></div>
+        ${collapseSection('targets', '🎯', 'My Targets', esc(targetsHeaderSub(bt)), targetsBody, !!ex.targets)}
+        <div class="group-divider"></div>
+        ${collapseSection('mentors', '🧑‍⚕️', 'My Mentors', esc(mentorsHeaderSub(mentors)), mentorsBody, !!ex.mentors)}
+        <div class="group-divider"></div>
+        ${collapseSection('rules', '📋', 'My Rules', esc(rules?.summary || 'No dietary rules'), rulesBody, !!ex.rules)}
+        <div class="group-divider"></div>
+        ${collapseSection('macros', '🥗', 'My Macros', macrosSub, macrosBody, !!ex.macros)}
+        ${coach ? `
+        <div class="group-divider"></div>
+        ${collapseSection('coach', coachIcons || '💬', 'Coach', esc(coachSub), renderCoachBody(coach, mentors), !!ex.coach)}` : ''}
       </div>`;
+
+    host.querySelectorAll('[data-collapse]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const k = btn.getAttribute('data-collapse');
+        if (!k) return;
+        ex[k] = !ex[k];
+        renderProfileGroup(host, ctx);
+      });
+    });
+  }
+
+  function renderProfileTab(panel, ctx) {
+    panel.innerHTML = `
+      <p class="sub snapshot-note" style="margin:0 0 16px">Patient profile, targets, and mentor context from snapshot — read-only. Tap a row to expand like on the phone.</p>
+      <div class="dash-card profile-tab-card"><div id="profile-group-host"></div></div>`;
+    const host = panel.querySelector('#profile-group-host');
+    if (host) renderProfileGroup(host, ctx);
   }
 
   function paintDashboardCharts(panel, ctx) {
@@ -429,8 +589,6 @@
         chartOpts,
       );
     }
-    const profileHost = panel.querySelector('#profile-host');
-    if (profileHost) renderProfileTargets(profileHost, ctx);
     const lipidHost = panel.querySelector('#lipid-host');
     if (lipidHost) charts.drawLipidChart(lipidHost, ctx.parsed.labs);
   }
@@ -455,10 +613,7 @@
         <div class="dash-card chart-half"><div id="trend-host"></div></div>
         <div class="dash-card chart-half"><div id="energy-host"></div></div>
       </div>
-      <div class="grid-2">
-        <div class="dash-card"><div id="profile-host"></div></div>
-        <div class="dash-card"><div id="lipid-host"></div></div>
-      </div>`;
+      <div class="dash-card"><div id="lipid-host"></div></div>`;
     paintDashboardCharts(panel, ctx);
   }
 
@@ -624,6 +779,7 @@
     if (!body) return;
     if (tab === 'dashboard') renderDashboard(body, ctx);
     else if (tab === 'foodlog') renderFoodLogTab(body, ctx);
+    else if (tab === 'profile') renderProfileTab(body, ctx);
     else if (tab === 'chat') renderChat(body, ctx);
     else if (tab === 'rules') renderRules(body, ctx);
     else if (tab === 'labs') renderLabs(body, ctx);
@@ -632,6 +788,7 @@
   function initTabs(tabsEl, ctx, mainEl) {
     const tabs = [
       { id: 'dashboard', label: 'Dashboard' },
+      { id: 'profile', label: 'Profile' },
       { id: 'foodlog', label: 'Food log' },
       { id: 'chat', label: 'Mentors & chat' },
       { id: 'rules', label: 'Rules (live)' },

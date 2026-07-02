@@ -641,5 +641,79 @@ body.clinic-workspace {
   border-bottom: 1px solid var(--grid);
 }
 .group-card .collapse-row:last-child { border-bottom: none; }
-.group-card .row-icon { font-size: 1.3rem; }
-.group-card .sub { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+.group-card .row-icon { font-size: 1.3rem; flex-shrink: 0; }
+.group-card .sub { display: block; font-size: 0.82rem; color: var(--muted); margin-top: 4px; line-height: 1.35; }
+.profile-tab-card { max-width: 640px; margin: 0 auto; }
+.profile-group { padding: 4px 0; }
+.profile-group .group-divider {
+  height: 1px;
+  background: var(--grid);
+  margin: 0 16px;
+}
+.profile-group .collapse-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.profile-group .collapse-header:hover { background: rgba(0, 0, 0, 0.02); }
+.profile-group .collapse-info { flex: 1; min-width: 0; }
+.profile-group .collapse-title {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+.profile-group .collapse-chevron {
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  color: var(--muted);
+  font-weight: 300;
+  line-height: 1;
+}
+.profile-group .collapse-body {
+  padding: 0 16px 16px 52px;
+}
+.profile-dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  margin: 0;
+  font-size: 0.88rem;
+}
+.profile-dl dt { color: var(--muted); font-weight: 600; margin: 0; }
+.profile-dl dd { margin: 0; }
+.reasoning-block, .rules-raw, .coach-summary, .coach-line {
+  font-size: 0.88rem;
+  line-height: 1.45;
+  margin: 12px 0 0;
+  white-space: pre-wrap;
+}
+.rules-summary { font-weight: 600; font-size: 0.9rem; margin: 0 0 8px; }
+.rules-list { margin: 8px 0; padding-left: 1.1rem; font-size: 0.88rem; }
+.rules-list li { margin-bottom: 4px; }
+.mentor-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.mentor-pill {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--grid);
+  font-size: 0.85rem;
+  background: #f8f9fa;
+}
+.mentor-pill.active { border-color: #42A5F5; background: rgba(66, 165, 245, 0.1); }
+.macro-updated { display: block; font-size: 0.75rem; color: var(--green); margin-top: 4px; font-weight: 600; }
+.coach-mentor-block { margin-top: 14px; }
+.coach-mentor-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 6px; }
+.coach-list-label { font-size: 0.75rem; font-weight: 700; color: var(--muted); margin: 10px 0 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+.coach-mentor-block ul { margin: 0; padding-left: 1.1rem; font-size: 0.88rem; }
+.coach-mentor-block li { margin-bottom: 4px; }
+.coach-progress, .coach-meta { font-size: 0.78rem; color: var(--muted); margin: 10px 0 0; }
+.action-items { list-style: none; padding: 0; margin: 10px 0 0; font-size: 0.88rem; }
+.action-items li { padding: 6px 0; border-bottom: 1px solid var(--grid); }
+.action-items li.done { color: var(--muted); text-decoration: line-through; }
