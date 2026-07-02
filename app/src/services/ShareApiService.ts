@@ -51,6 +51,9 @@ class ShareApiError extends Error {
 async function parseError(res: Response): Promise<string> {
   try {
     const body = (await res.json()) as { error?: string };
+    if (body?.error === 'Unauthorized') {
+      return 'Session expired — sign out and sign in again';
+    }
     if (body?.error) return body.error;
   } catch {
     /* ignore */

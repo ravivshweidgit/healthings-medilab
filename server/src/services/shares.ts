@@ -111,6 +111,14 @@ async function findDuplicatePending(mentorId: string, patientEmail: string): Pro
   return rows.length > 0;
 }
 
+async function findApprovedShare(patientId: string, mentorId: string): Promise<PublicShare | null> {
+  const { rows } = await query<ShareRow>(
+    `${shareSelect} WHERE s.patient_id = $1 AND s.mentor_id = $2 AND s.status = 'approved' LIMIT 1`,
+    [patientId, mentorId],
+  );
+  return rows[0] ? toPublicShare(rows[0]) : null;
+}
+
 export async function attachPendingShares(patientEmail: string, patientId: string): Promise<number> {
   const { rowCount } = await query(
     `UPDATE account_shares
@@ -161,6 +169,9 @@ export async function requestMentor(patient: PublicUser, mentorEmailRaw: string)
   if (!mentor || mentor.role !== 'mentor') {
     throw new ShareError('No clinic account found for that email', 404);
   }
+
+  const existing = await findApprovedShare(patient.id, mentor.id);
+  if (existing) return existing;
 
   if (await findDuplicatePending(mentor.id, normalizeEmail(patient.email))) {
     throw new ShareError('A pending request already exists for this clinic', 409);

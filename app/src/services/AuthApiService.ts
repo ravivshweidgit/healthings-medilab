@@ -1,4 +1,5 @@
 import { CONFIG } from '../config/env';
+import { clearCachedApprovedShares } from './ShareCacheService';
 import { clearAuthTokens, loadAuthTokens, saveAuthTokens } from './AuthTokenStore';
 
 export type UserRole = 'patient' | 'mentor';
@@ -49,6 +50,16 @@ async function parseError(res: Response): Promise<string> {
   return `Request failed (${res.status})`;
 }
 
+let refreshInFlight: Promise<{ accessToken: string; user: AuthUser } | null> | null = null;
+
+async function refreshAuthSessionSingleFlight(): Promise<{ accessToken: string; user: AuthUser } | null> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = refreshAuthSession().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
+}
+
 export async function authFetch(
   path: string,
   init: RequestInit = {},
@@ -65,7 +76,7 @@ export async function authFetch(
 
   const res = await fetch(`${apiBase()}${path}`, { ...init, headers });
   if (res.status === 401 && opts?.retryOn401 !== false) {
-    const refreshed = await refreshAuthSession();
+    const refreshed = await refreshAuthSessionSingleFlight();
     if (refreshed) {
       return authFetch(path, init, { accessToken: refreshed.accessToken, retryOn401: false });
     }
@@ -141,7 +152,7 @@ export async function restoreAuthSession(): Promise<AuthUser | null> {
   const user = await fetchCurrentUser();
   if (user) return user;
 
-  const refreshed = await refreshAuthSession();
+  const refreshed = await refreshAuthSessionSingleFlight();
   return refreshed?.user ?? null;
 }
 
@@ -152,6 +163,7 @@ export async function logoutAuth(): Promise<void> {
     /* offline logout still clears local tokens */
   }
   await clearAuthTokens();
+  await clearCachedApprovedShares();
 }
 
 export async function checkApiHealth(): Promise<boolean> {

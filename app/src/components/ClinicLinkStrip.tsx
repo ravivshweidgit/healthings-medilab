@@ -28,6 +28,7 @@ import {
 } from '../services/ShareApiService';
 import { fetchMyLatestSyncMeta, type PublicSyncBlob } from '../services/SyncApiService';
 import { shareClinicExport, type SyncLookbackMode } from '../services/ShareExportService';
+import { loadCachedApprovedShares, saveCachedApprovedShares } from '../services/ShareCacheService';
 import { WellnessColors } from '../theme/wellness';
 
 type Props = {
@@ -82,13 +83,23 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand }: Props) {
       ]);
       setPending(pendingRows);
       setApproved(approvedRows);
+      await saveCachedApprovedShares(approvedRows);
       setWallet(walletView);
       setLastSync(syncMeta);
       setError(null);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Could not load sharing settings');
+      const msg = e instanceof Error ? e.message : 'Could not load sharing settings';
+      setError(msg);
     }
   }, [user.role]);
+
+  useEffect(() => {
+    if (user.role !== 'patient') return;
+    void loadCachedApprovedShares().then((cached) => {
+      if (cached.length) setApproved(cached);
+    });
+    void refresh();
+  }, [user.role, refresh]);
 
   useEffect(() => {
     if (expanded) void refresh();
