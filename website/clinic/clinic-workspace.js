@@ -15,16 +15,6 @@
     { id: 'coach', label: 'Coach', emoji: '💪' },
   ];
 
-  const MS_HOUR = 3600000;
-  const MS_DAY = 86400000;
-  const VIEWPORT_PRESETS = [
-    { label: '6H', ms: 6 * MS_HOUR },
-    { label: '12H', ms: 12 * MS_HOUR },
-    { label: '24H', ms: MS_DAY },
-    { label: '2D', ms: 2 * MS_DAY },
-    { label: '7D', ms: 7 * MS_DAY },
-  ];
-
   function esc(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
@@ -86,18 +76,65 @@
     try { if (store[COACH_KEY]) coachMsg = JSON.parse(store[COACH_KEY]); } catch { /* */ }
     try { if (store[MENTOR_KEY]) mentors = JSON.parse(store[MENTOR_KEY]); } catch { /* */ }
 
+    let profile = { gender: null, heightCm: null, birthdate: null, age: null, language: null };
+    try {
+      if (store.user_gender) profile.gender = JSON.parse(store.user_gender);
+      else if (store.user_gender) profile.gender = store.user_gender;
+    } catch { profile.gender = store.user_gender || null; }
+    try {
+      const h = store.user_height_cm;
+      if (h) profile.heightCm = parseInt(h, 10);
+    } catch { /* */ }
+    try {
+      if (store.user_birthdate) {
+        profile.birthdate = store.user_birthdate.replace(/^"|"$/g, '');
+        const t = Date.parse(profile.birthdate);
+        if (!Number.isNaN(t)) {
+          const age = Math.floor((Date.now() - t) / (365.25 * 86400000));
+          profile.age = age;
+        }
+      }
+    } catch { /* */ }
+    try {
+      if (store.user_language) {
+        const lang = JSON.parse(store.user_language);
+        profile.language = lang.label || lang.code || null;
+      }
+    } catch { /* */ }
+
+    let bodyTarget = null;
+    try { if (store.body_target) bodyTarget = JSON.parse(store.body_target); } catch { /* */ }
+
+    const mealsByDay = {};
+    for (const m of meals) {
+      const dk = m.day || dayKeyFromMs(m.timestamp);
+      if (!mealsByDay[dk]) mealsByDay[dk] = [];
+      mealsByDay[dk].push(m);
+    }
+
     const today = todayKey();
     const todayMeals = meals.filter((m) => m.day === today || dayKeyFromMs(m.timestamp) === today);
+    const eatenByDay = {};
+    for (const m of meals) {
+      const dk = m.day || dayKeyFromMs(m.timestamp);
+      eatenByDay[dk] = (eatenByDay[dk] || 0) + (m.totalKcal || 0);
+    }
+    const burnByDay = withings && global.ClinicCharts ? global.ClinicCharts.computeBurnByDay(withings) : {};
 
     return {
       meals,
+      mealsByDay,
       todayMeals,
+      eatenByDay,
+      burnByDay,
       chatFromSnapshot,
       glucose: cgm?.glucose || [],
       withings,
       macroTarget,
+      bodyTarget,
       userRules,
       coachMsg,
+      profile,
       mentors: Array.isArray(mentors) ? mentors : ['nutritionist'],
       labs: parseLabs(store),
     };
@@ -119,8 +156,9 @@
         protein_g: a.protein_g + (e.totalProtein_g || 0),
         carb_g: a.carb_g + (e.totalCarb_g || 0),
         fat_g: a.fat_g + (e.totalFat_g || 0),
+        fiber_g: a.fiber_g + (e.totalFiber_g || 0),
       }),
-      { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0 },
+      { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0, fiber_g: 0 },
     );
   }
 
@@ -146,169 +184,144 @@
     });
   }
 
-  function drawMetabolicChart(host, data, viewportIndex) {
-    const preset = VIEWPORT_PRESETS[viewportIndex] ?? VIEWPORT_PRESETS[1];
-    const t1 = Date.now();
-    const t0 = t1 - preset.ms;
-    const W = host.clientWidth || 900;
-    const plotH = 280;
-    const axisH = 28;
-    const calH = 40;
-    const H = plotH + axisH;
-    const padL = 44;
-    const padR = 12;
-    const padT = 14;
-    const padB = 8;
-    const innerW = W - padL - padR;
-    const dataH = plotH - padT - padB - calH;
-
-    const glucose = data.glucose.filter((p) => {
-      const t = Date.parse(p.timestamp);
-      return t >= t0 && t <= t1;
-    });
-    const heartRate = (data.withings?.heartRate || []).filter((p) => {
-      const t = Date.parse(p.timestamp);
-      return t >= t0 && t <= t1;
-    }).map((p) => ({ timestamp: p.timestamp, value: p.bpm || p.value || 0 }));
-
-    const calories = (data.withings?.calories || []).filter((p) => {
-      const t = Date.parse(p.timestamp);
-      return t >= t0 && t <= t1;
-    });
-    const workouts = (data.withings?.workouts || []).filter((w) => w.startMs >= t0 && w.startMs <= t1);
-    const chartMeals = data.meals.filter((m) => m.timestamp >= t0 && m.timestamp <= t1);
-
-    let yMin = 50;
-    let yMax = 175;
-    const vals = [...glucose, ...heartRate].map((p) => p.value).filter((v) => v > 0);
-    if (vals.length) {
-      const lo = Math.min(...vals);
-      const hi = Math.max(...vals);
-      if (hi + 10 > yMax) yMax = Math.ceil((hi + 10) / 10) * 10;
-      if (lo - 10 < yMin) yMin = Math.floor((lo - 10) / 10) * 10;
-    }
-
-    const xOf = (t) => padL + ((t - t0) / (t1 - t0)) * innerW;
-    const yOf = (v) => padT + dataH - ((v - yMin) / (yMax - yMin)) * dataH;
-
-    let svg = `<svg class="metabolic-svg" viewBox="0 0 ${W} ${H}" width="100%" height="${H}">`;
-    svg += `<rect x="${padL}" y="${yOf(100)}" width="${innerW}" height="${yOf(70) - yOf(100)}" fill="rgba(76,175,80,0.14)"/>`;
-
-    for (let v = Math.ceil(yMin / 10) * 10; v <= yMax; v += 10) {
-      const y = yOf(v);
-      svg += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#e8e8e8"/>`;
-      if (v % 20 === 0) svg += `<text x="6" y="${y + 4}" font-size="10" fill="#888">${v}</text>`;
-    }
-
-    const bucketMs = 30 * 60 * 1000;
-    const calMap = new Map();
-    for (const c of calories) {
-      const t = Date.parse(c.timestamp);
-      const b = Math.floor(t / bucketMs) * bucketMs;
-      calMap.set(b, (calMap.get(b) || 0) + (c.kcal || c.value || 0));
-    }
-    for (const w of workouts) {
-      const b = Math.floor(w.startMs / bucketMs) * bucketMs;
-      calMap.set(b, (calMap.get(b) || 0) + (w.kcal || 0));
-    }
-    const barW = Math.max(3, innerW / Math.max(1, preset.ms / bucketMs) - 1);
-    for (const [b, kcal] of calMap) {
-      if (b < t0 || b > t1) continue;
-      const h = (kcal / 150) * calH;
-      svg += `<rect x="${xOf(b) - barW / 2}" y="${padT + dataH + calH - h}" width="${barW}" height="${h}" fill="#42A5F5" rx="1"/>`;
-    }
-
-    function path(points, color, w) {
-      if (points.length < 2) return '';
-      const sorted = [...points].sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
-      let d = '';
-      sorted.forEach((p, i) => {
-        const x = xOf(Date.parse(p.timestamp));
-        const y = yOf(p.value);
-        d += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
-      });
-      return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${w}"/>`;
-    }
-
-    svg += path(heartRate, '#90CAF9', 1.5);
-    svg += path(glucose, '#4CAF50', 2.5);
-    for (const m of chartMeals) {
-      svg += `<circle cx="${xOf(m.timestamp)}" cy="${padT + 8}" r="5" fill="#FF9800" stroke="#fff" stroke-width="1"/>`;
-    }
-    for (let i = 0; i <= 5; i++) {
-      const t = t0 + (i / 5) * (t1 - t0);
-      svg += `<text x="${xOf(t)}" y="${plotH - 2}" font-size="10" fill="#888" text-anchor="middle">${new Date(t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</text>`;
-    }
-    svg += '</svg>';
-
-    const chips = VIEWPORT_PRESETS.map((p, i) =>
-      `<button type="button" class="chip${i === viewportIndex ? ' active' : ''}" data-vp="${i}">${p.label}</button>`,
-    ).join('');
-
-    host.innerHTML = `
-      <div class="chart-head">
-        <strong>Metabolic chart</strong>
-        <div>${chips}</div>
-      </div>
-      <div class="chart-wrap">${svg}</div>
-      <p class="sub">Glucose (green) · heart rate (blue) · calories (bars) · meals (orange dots). From patient snapshot.</p>`;
-
-    host.querySelectorAll('.chip').forEach((btn) => {
-      btn.addEventListener('click', () => drawMetabolicChart(host, data, parseInt(btn.getAttribute('data-vp'), 10)));
-    });
+  function formatDayLabel(dayKey) {
+    const t = Date.parse(dayKey + 'T12:00:00');
+    const d = Number.isNaN(t) ? new Date() : new Date(t);
+    const datePart = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    return dayKey === todayKey() ? `Today - ${datePart}` : datePart;
   }
 
-  function renderDashboard(panel, ctx) {
-    const { parsed, blob } = ctx;
-    const body = parsed.withings?.bodyScan;
-    const macros = dailyMacros(parsed.todayMeals);
-    const coach = parsed.coachMsg;
-
-    panel.innerHTML = `
-      <div class="card" style="margin-bottom:20px;background:#fff">
-        <div id="metabolic-host"></div>
-      </div>
-      <div class="grid-3" style="margin-bottom:20px">
-        <div class="card">
-          <h3>Body (Withings)</h3>
-          ${body ? `
-          <div class="metric-grid" style="grid-template-columns:1fr 1fr">
-            <div class="metric-box"><div class="lbl">Weight</div><div class="val">${body.weightKg != null ? body.weightKg.toFixed(1) + ' kg' : '—'}</div></div>
-            <div class="metric-box"><div class="lbl">Muscle</div><div class="val">${body.muscleMassKg != null ? body.muscleMassKg.toFixed(1) + ' kg' : '—'}</div></div>
-            <div class="metric-box"><div class="lbl">Fat</div><div class="val">${body.fatMassKg != null ? body.fatMassKg.toFixed(1) + ' kg' : '—'}</div></div>
-            <div class="metric-box"><div class="lbl">BMR</div><div class="val">${body.bmrKcalDay != null ? Math.round(body.bmrKcalDay) + '' : '—'}</div></div>
-          </div>` : '<p class="empty">No body data in snapshot</p>'}
-        </div>
-        <div class="card">
-          <h3>Today's nutrition</h3>
-          <p style="font-size:1.4rem;font-weight:800;margin:0 0 12px">${Math.round(macros.kcal)} kcal</p>
-          ${macroBar('P', macros.protein_g, parsed.macroTarget?.protein_g, '#42A5F5')}
-          ${macroBar('C', macros.carb_g, parsed.macroTarget?.carb_g, '#FF9800')}
-          ${macroBar('F', macros.fat_g, parsed.macroTarget?.fat_g, '#EF5350')}
-          <div style="margin-top:12px">
-            ${parsed.todayMeals.slice(0, 6).map((m) => `
-              <div class="meal-row">
-                <span>${esc(mealLabel(m))} <span style="color:#888;font-size:0.8rem">${new Date(m.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span></span>
-                <strong>${Math.round(m.totalKcal || 0)} kcal</strong>
-              </div>`).join('') || '<p class="sub">No meals today in snapshot</p>'}
-          </div>
-        </div>
-        <div class="card">
-          <h3>AI coach (snapshot)</h3>
-          ${coach ? `<p style="line-height:1.5;font-size:0.92rem">${esc(coach.summary || coach.text || '')}</p>
-            <p class="sub">${coach.actionItems?.length || 0} action items in patient app</p>` : '<p class="empty">No coach message in snapshot</p>'}
-          <p class="sub" style="margin-top:12px">Snapshot v${blob.version} · ${blob.summary?.lookbackMode === 'full' ? 'full history' : (blob.summary?.lookbackDays || 90) + ' days'}</p>
-        </div>
-      </div>`;
-
-    const host = panel.querySelector('#metabolic-host');
-    if (host) drawMetabolicChart(host, parsed, 1);
+  function shiftDayKey(dayKey, delta) {
+    const t = Date.parse(dayKey + 'T12:00:00');
+    const d = new Date(t);
+    d.setDate(d.getDate() + delta);
+    const next = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return next > todayKey() ? todayKey() : next;
   }
 
   function macroBar(label, val, tgt, color) {
     const ratio = tgt > 0 ? Math.min(1, val / tgt) : 0;
     const text = tgt ? `${Math.round(val)}/${Math.round(tgt)}g` : `${Math.round(val)}g`;
     return `<div class="macro-row"><span>${label}</span><div class="track"><div class="fill" style="width:${ratio * 100}%;background:${color}"></div></div><span>${text}</span></div>`;
+  }
+
+  function renderFoodLog(host, ctx) {
+    const dk = ctx.foodDayKey || todayKey();
+    const meals = ctx.parsed.mealsByDay[dk] || [];
+    const macros = dailyMacros(meals);
+    const target = ctx.parsed.macroTarget;
+    const eaten = Math.round(macros.kcal);
+    const burn = ctx.parsed.burnByDay[dk] ?? null;
+    const balance = burn != null && eaten > 0 ? eaten - burn : null;
+    const isToday = dk >= todayKey();
+    const fiberT = target?.fiber_g ?? 30;
+
+    host.innerHTML = `
+      <div class="food-log-card">
+        <div class="food-log-title">FOOD LOG</div>
+        <div class="date-nav">
+          <button type="button" class="nav-arrow" data-food-shift="-1">‹</button>
+          <span class="date-label">${formatDayLabel(dk)}</span>
+          <button type="button" class="nav-arrow" data-food-shift="1" ${isToday ? 'disabled' : ''}>›</button>
+        </div>
+        <div class="energy-lines">
+          <div class="energy-row">${target
+            ? `<span><strong>${eaten > 0 ? eaten.toLocaleString() : '—'}</strong> kcal eaten / <span class="muted">${target.kcal.toLocaleString()}</span></span>`
+            : `<span><strong>${eaten > 0 ? eaten.toLocaleString() : '—'}</strong> kcal eaten</span>`}</div>
+          ${burn != null ? `<div class="energy-row"><strong>${Math.round(burn).toLocaleString()}</strong> kcal burned</div>` : ''}
+          ${balance != null ? `<div class="energy-row balance ${balance < 0 ? 'deficit' : 'surplus'}"><strong>${Math.abs(balance).toLocaleString()}</strong> kcal ${balance < 0 ? 'deficit' : 'surplus'}</div>` : ''}
+        </div>
+        ${macroBar('P', macros.protein_g, target?.protein_g, '#42A5F5')}
+        ${macroBar('C', macros.carb_g, target?.carb_g, '#FF9800')}
+        ${macroBar('F', macros.fat_g, target?.fat_g, '#EF5350')}
+        ${macroBar('Fi', macros.fiber_g || 0, fiberT, '#66BB6A')}
+        <div class="meal-list">${meals.length ? meals.map((m) => `
+            <div class="meal-row">
+              <span>${esc(mealLabel(m))} <span class="muted">${new Date(m.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span></span>
+              <strong>${Math.round(m.totalKcal || 0)} kcal</strong>
+            </div>`).join('') : '<p class="empty">No meals this day</p>'}</div>
+      </div>`;
+
+    host.querySelector('[data-food-shift="-1"]')?.addEventListener('click', () => {
+      ctx.foodDayKey = shiftDayKey(dk, -1);
+      renderFoodLog(host, ctx);
+    });
+    host.querySelector('[data-food-shift="1"]')?.addEventListener('click', () => {
+      if (!isToday) { ctx.foodDayKey = shiftDayKey(dk, 1); renderFoodLog(host, ctx); }
+    });
+  }
+
+  function renderProfileTargets(host, ctx) {
+    const p = ctx.parsed.profile || {};
+    const parts = [p.gender, p.heightCm ? `${p.heightCm} cm` : null, p.age != null ? `${p.age} y` : null, p.language].filter(Boolean);
+    const mt = ctx.parsed.macroTarget;
+    const bt = ctx.parsed.bodyTarget;
+    const coach = ctx.parsed.coachMsg;
+    const mentors = ctx.parsed.mentors.map((m) => MENTORS.find((x) => x.id === m)?.emoji || m).join(' ');
+    const bodyTargetLine = bt
+      ? `${bt.targetWeight_kg?.toFixed?.(1) ?? bt.targetWeight_kg} kg · fat ${bt.targetFatPct}% · muscle ${bt.targetMuscleMass_kg?.toFixed?.(1) ?? bt.targetMuscleMass_kg} kg`
+      : null;
+    host.innerHTML = `
+      <div class="group-card">
+        <div class="collapse-row"><span class="row-icon">👤</span><div><strong>My Profile</strong><div class="sub">${parts.join(' · ') || 'Not set in snapshot'}</div></div></div>
+        <div class="collapse-row"><span class="row-icon">🎯</span><div><strong>My Targets</strong>
+          ${mt ? `<div class="sub">${esc(mt.diet_label || 'Macros')}: ${mt.kcal} kcal · P${mt.protein_g} C${mt.carb_g} F${mt.fat_g}g</div>` : '<div class="sub">No macro targets</div>'}
+          ${bodyTargetLine ? `<div class="sub">Body: ${esc(bodyTargetLine)}</div>` : ''}
+        </div></div>
+        ${coach ? `<div class="collapse-row"><span class="row-icon">${mentors}</span><div><strong>Coach</strong><div class="sub">${esc(coach.summary || coach.text?.slice(0, 120) || '')}</div></div></div>` : ''}
+      </div>`;
+  }
+
+  function paintDashboardCharts(panel, ctx) {
+    const charts = global.ClinicCharts;
+    if (!charts) return;
+    const metabolicHost = panel.querySelector('#metabolic-host');
+    if (metabolicHost) {
+      if (ctx.chartVp == null) ctx.chartVp = 1;
+      if (ctx.chartEndMs == null) ctx.chartEndMs = Date.now();
+      charts.drawMetabolicChart(metabolicHost, ctx.parsed, ctx, () => paintDashboardCharts(panel, ctx));
+    }
+    const trendHost = panel.querySelector('#trend-host');
+    if (trendHost) {
+      const pd = ctx.trendPeriod ?? 14;
+      charts.drawTrendAnalysis(trendHost, ctx.parsed.withings?.bodyTrendDays || [], pd, (p) => {
+        ctx.trendPeriod = p;
+        paintDashboardCharts(panel, ctx);
+      });
+    }
+    const energyHost = panel.querySelector('#energy-host');
+    if (energyHost) charts.drawEnergyChart(energyHost, ctx.parsed.withings?.bodyTrendDays || [], ctx.parsed.eatenByDay, ctx.parsed.burnByDay);
+    const foodHost = panel.querySelector('#food-host');
+    if (foodHost) renderFoodLog(foodHost, ctx);
+    const profileHost = panel.querySelector('#profile-host');
+    if (profileHost) renderProfileTargets(profileHost, ctx);
+    const lipidHost = panel.querySelector('#lipid-host');
+    if (lipidHost) charts.drawLipidChart(lipidHost, ctx.parsed.labs);
+  }
+
+  function renderDashboard(panel, ctx) {
+    const body = ctx.parsed.withings?.bodyScan;
+    const coach = ctx.parsed.coachMsg;
+    const mentors = ctx.parsed.mentors.map((m) => MENTORS.find((x) => x.id === m)?.emoji || '').join('');
+    panel.innerHTML = `
+      <p class="snapshot-note">Read-only snapshot · patient phone data · v${ctx.blob.version}</p>
+      ${coach ? `<div class="nudge-strip"><span>${mentors}</span><span class="nudge-count">${(coach.actionItems || []).filter((i) => i.done).length}/${(coach.actionItems || []).length}</span><span class="nudge-text">${esc(coach.summary || '')}</span></div>` : ''}
+      <div class="dash-card metabolic-card"><div id="metabolic-host"></div></div>
+      <div class="dash-card withings-card">
+        <div class="withings-head"><span class="withings-logo">Withings</span><span class="status-ok">OK</span><span class="muted">snapshot</span></div>
+        ${body ? `<div class="body-metrics-row">
+          <div><div class="lbl">Weight</div><div class="val">${body.weightKg != null ? body.weightKg.toFixed(1) + ' kg' : '—'}</div></div>
+          <div><div class="lbl">Muscle</div><div class="val">${body.muscleMassKg != null ? body.muscleMassKg.toFixed(1) + ' kg' : '—'}</div></div>
+          <div><div class="lbl">Fat</div><div class="val">${body.fatMassKg != null ? body.fatMassKg.toFixed(1) + ' kg' : '—'}</div></div>
+        </div>${body.bmrKcalDay ? `<div class="bmr-row">BMR <strong>${Math.round(body.bmrKcalDay)} kcal</strong></div>` : ''}` : '<p class="empty">No body scan</p>'}
+      </div>
+      <div class="dash-card"><div id="trend-host"></div></div>
+      <div class="dash-card"><div id="energy-host"></div></div>
+      <div class="grid-2">
+        <div class="dash-card"><div id="food-host"></div></div>
+        <div class="dash-card"><div id="profile-host"></div><div id="lipid-host" style="margin-top:16px"></div></div>
+      </div>`;
+    paintDashboardCharts(panel, ctx);
   }
 
   function renderChat(panel, ctx) {

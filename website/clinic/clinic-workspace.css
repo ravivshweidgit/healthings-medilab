@@ -263,3 +263,127 @@ body.clinic-workspace {
 .lab-panel { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--grid); }
 
 .empty { color: var(--muted); text-align: center; padding: 32px 16px; }
+
+/* Phone-like dashboard cards */
+.snapshot-note { font-size: 0.82rem; color: var(--muted); margin: 0 0 12px; }
+.nudge-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  font-size: 0.88rem;
+}
+.nudge-count { font-weight: 800; color: var(--green); }
+.nudge-text { flex: 1; color: #5d4037; }
+
+.dash-card {
+  background: var(--surface);
+  border: 1px solid var(--grid);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.metabolic-card { padding: 14px 16px 10px; }
+
+.chart-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.date-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.date-nav .date-label { min-width: 180px; text-align: center; color: #37474f; }
+.nav-arrow {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--grid);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #555;
+}
+.nav-arrow:disabled { opacity: 0.35; cursor: default; }
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.chart-legend .leg::before {
+  content: '●';
+  margin-right: 4px;
+}
+.chart-legend .leg.glucose::before { color: #4caf50; }
+.chart-legend .leg.hr::before { color: #ff5252; }
+.chart-legend .leg.bmr::before { color: #90caf9; }
+.chart-legend .leg.steps::before { color: #42a5f5; }
+.chart-legend .leg.workout::before { color: #1565c0; }
+
+.withings-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.withings-logo { font-weight: 800; font-size: 0.95rem; color: #333; }
+.status-ok {
+  background: #4caf50;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.body-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  text-align: center;
+}
+.body-metrics-row .lbl { font-size: 0.75rem; color: var(--muted); font-weight: 600; }
+.body-metrics-row .val { font-size: 1.15rem; font-weight: 800; margin-top: 4px; }
+.bmr-row { margin-top: 10px; font-size: 0.88rem; color: var(--muted); }
+
+.food-log-card .food-log-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #888;
+  margin-bottom: 8px;
+}
+.food-log-card .energy-lines { margin: 10px 0 14px; }
+.food-log-card .energy-row { font-size: 0.92rem; margin-bottom: 4px; }
+.food-log-card .energy-row.balance.deficit { color: var(--green); }
+.food-log-card .energy-row.balance.surplus { color: var(--orange); }
+.food-log-card .muted { color: var(--muted); font-size: 0.82rem; }
+.meal-list { margin-top: 12px; }
+
+.group-card .collapse-row {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--grid);
+}
+.group-card .collapse-row:last-child { border-bottom: none; }
+.group-card .row-icon { font-size: 1.3rem; }
+.group-card .sub { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }

@@ -20,6 +20,7 @@
     <main class="ws-main" id="ws-main" hidden></main>
 
     <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+    <script src="clinic-charts.js"></script>
     <script src="clinic-workspace.js"></script>
     <script>
       const API = 'https://api.healthings.ai';
@@ -91,6 +92,9 @@
         const bytes = Uint8Array.from(atob(syncData.payloadGzipBase64), (c) => c.charCodeAt(0));
         const payload = JSON.parse(pako.inflate(bytes, { to: 'string' }));
         const parsed = ClinicWorkspace.parseSnapshot(payload);
+        if (typeof ClinicCharts !== 'undefined' && parsed.withings) {
+          parsed.burnByDay = ClinicCharts.computeBurnByDay(parsed.withings);
+        }
 
         let overlay = null;
         const ovRes = await api('/v1/clinic/patients/' + encodeURIComponent(patientId) + '/overlay');
