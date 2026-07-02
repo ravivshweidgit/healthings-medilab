@@ -781,7 +781,10 @@
         method: 'PUT',
         body: JSON.stringify({ rawText: raw }),
       });
-      if (!res.ok) throw new Error((await res.json()).error || 'Save failed');
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || `Save failed (${res.status})`);
+      }
       const data = await res.json();
       ctx.overlay = data.overlay;
       if (status) status.textContent = 'Saved — patient will receive on next app open';
@@ -789,7 +792,11 @@
     } catch (e) {
       if (status) status.textContent = '';
       const msg = e instanceof Error ? e.message : 'Save failed';
-      alert(msg === 'Failed to fetch' ? 'Could not reach the server. Check your connection and try again.' : msg);
+      alert(
+        msg === 'Failed to fetch'
+          ? 'Could not reach the server. Hard-refresh the page (Ctrl+Shift+R) and try again.'
+          : msg,
+      );
     } finally {
       if (btn) btn.disabled = false;
     }

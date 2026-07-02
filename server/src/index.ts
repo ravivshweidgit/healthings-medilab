@@ -28,6 +28,21 @@ async function main() {
     timeWindow: '1 minute',
   });
 
+  // Allow GET requests that mistakenly send Content-Type: application/json with no body.
+  app.removeContentTypeParser('application/json');
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+    const text = typeof body === 'string' ? body : body.toString('utf8');
+    if (!text || text.length === 0) {
+      done(null, undefined);
+      return;
+    }
+    try {
+      done(null, JSON.parse(text));
+    } catch (err) {
+      done(err instanceof Error ? err : new Error(String(err)), undefined);
+    }
+  });
+
   app.get('/health', async () => ({ ok: true, version: VERSION }));
 
   await registerAuthRoutes(app);
@@ -41,6 +56,14 @@ async function main() {
   app.setErrorHandler((err, _request, reply) => {
     if (err instanceof ZodError) {
       return reply.code(400).send({ error: 'Invalid request', details: err.flatten() });
+    }
+    const statusCode =
+      typeof (err as { statusCode?: number }).statusCode === 'number'
+        ? (err as { statusCode: number }).statusCode
+        : 500;
+    if (statusCode < 500) {
+      const message = err instanceof Error ? err.message : 'Request failed';
+      return reply.code(statusCode).send({ error: message });
     }
     app.log.error(err);
     return reply.code(500).send({ error: 'Internal server error' });

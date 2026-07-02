@@ -20,44 +20,13 @@
     <nav class="ws-tabs" id="ws-tabs" hidden></nav>
     <main class="ws-main" id="ws-main" hidden></main>
 
+    <script src="clinic-api.js?v=20260702e"></script>
     <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
-    <script src="clinic-charts.js?v=20260702d"></script>
-    <script src="clinic-workspace.js?v=20260702d"></script>
+    <script src="clinic-charts.js?v=20260702e"></script>
+    <script src="clinic-workspace.js?v=20260702e"></script>
     <script>
-      const API = 'https://api.healthings.ai';
-      const TOKEN_KEY = 'healthings_clinic_tokens';
+      const { api, loadTokens, saveTokens, clearTokens } = ClinicApi;
       let pollTimer = null;
-
-      function loadTokens() {
-        try { return JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null'); } catch { return null; }
-      }
-      function saveTokens(access, refresh) {
-        localStorage.setItem(TOKEN_KEY, JSON.stringify({ access, refresh }));
-      }
-      function clearTokens() { localStorage.removeItem(TOKEN_KEY); }
-
-      async function api(path, opts = {}) {
-        const tokens = loadTokens();
-        const headers = { ...(opts.headers || {}) };
-        if (opts.body != null) headers['Content-Type'] = 'application/json';
-        if (tokens?.access) headers.Authorization = 'Bearer ' + tokens.access;
-        const res = await fetch(API + path, { ...opts, headers });
-        if (res.status === 401 && tokens?.refresh) {
-          const r = await fetch(API + '/v1/auth/refresh', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refreshToken: tokens.refresh }),
-          });
-          if (r.ok) {
-            const data = await r.json();
-            saveTokens(data.accessToken, data.refreshToken);
-            headers.Authorization = 'Bearer ' + data.accessToken;
-            return fetch(API + path, { ...opts, headers, body: opts.body });
-          }
-          clearTokens();
-        }
-        return res;
-      }
 
       function showError(msg) {
         const el = document.getElementById('load-error');
