@@ -38,7 +38,8 @@
 
       async function api(path, opts = {}) {
         const tokens = loadTokens();
-        const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+        const headers = { ...(opts.headers || {}) };
+        if (opts.body != null) headers['Content-Type'] = 'application/json';
         if (tokens?.access) headers.Authorization = 'Bearer ' + tokens.access;
         const res = await fetch(API + path, { ...opts, headers });
         if (res.status === 401 && tokens?.refresh) {
@@ -51,7 +52,7 @@
             const data = await r.json();
             saveTokens(data.accessToken, data.refreshToken);
             headers.Authorization = 'Bearer ' + data.accessToken;
-            return fetch(API + path, { ...opts, headers });
+            return fetch(API + path, { ...opts, headers, body: opts.body });
           }
           clearTokens();
         }

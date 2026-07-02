@@ -788,7 +788,8 @@
       renderRules(panel, ctx);
     } catch (e) {
       if (status) status.textContent = '';
-      alert(e instanceof Error ? e.message : 'Save failed');
+      const msg = e instanceof Error ? e.message : 'Save failed';
+      alert(msg === 'Failed to fetch' ? 'Could not reach the server. Check your connection and try again.' : msg);
     } finally {
       if (btn) btn.disabled = false;
     }

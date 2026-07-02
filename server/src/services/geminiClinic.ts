@@ -4,6 +4,7 @@ import { query } from '../db/pool.js';
 import type { ClinicChatMessage, ClinicUserRules } from './clinicOverlay.js';
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_TIMEOUT_MS = 25_000;
 
 type MentorType = 'doctor' | 'nutritionist' | 'coach';
 
@@ -25,6 +26,7 @@ async function geminiText(prompt: string, temperature = 0.3): Promise<string> {
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: { temperature, maxOutputTokens: 2048 },

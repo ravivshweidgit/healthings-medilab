@@ -9,6 +9,7 @@ import {
   getOverlayForMentor,
   getOverlayForPatient,
   saveRulesForPatient,
+  type ClinicUserRules,
 } from '../services/clinicOverlay.js';
 import { mentorChatReply, summariseRulesForClinic } from '../services/geminiClinic.js';
 import {
@@ -49,12 +50,26 @@ export async function registerClinicRoutes(app: FastifyInstance) {
     const user = await findUserById(request.userId!);
     if (!user) return reply.code(404).send({ error: 'User not found' });
     try {
-      const rules = await summariseRulesForClinic(body.rawText);
-      const overlay = await saveRulesForPatient(user, params.patientId, rules);
-      return { overlay, rules };
+      const rawText = body.rawText.trim();
+      const stubRules: ClinicUserRules = {
+        rawText,
+        summary: rawText.slice(0, 48),
+        constraints: [],
+        analyzedAt: new Date().toISOString(),
+      };
+      const overlay = await saveRulesForPatient(user, params.patientId, stubRules);
+
+      void summariseRulesForClinic(rawText)
+        .then((rules) => saveRulesForPatient(user, params.patientId, rules))
+        .catch((err) => {
+          request.log.warn({ err }, 'Clinic rules AI summarise failed; kept raw save');
+        });
+
+      return { overlay, rules: stubRules };
     } catch (err) {
       if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
-      throw err;
+      request.log.error(err);
+      return reply.code(500).send({ error: 'Failed to save rules' });
     }
   });
 
