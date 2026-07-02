@@ -201,13 +201,105 @@
 
   function macroBar(label, val, tgt, color) {
     const ratio = tgt > 0 ? Math.min(1, val / tgt) : 0;
+    const over = tgt > 0 && val > tgt * 1.05;
     const text = tgt ? `${Math.round(val)}/${Math.round(tgt)}g` : `${Math.round(val)}g`;
-    return `<div class="macro-row"><span>${label}</span><div class="track"><div class="fill" style="width:${ratio * 100}%;background:${color}"></div></div><span>${text}</span></div>`;
+    const fillColor = over ? '#EF5350' : color;
+    return `<div class="macro-row"><span>${label}</span><div class="track"><div class="fill" style="width:${ratio * 100}%;background:${fillColor}"></div></div><span class="${over ? 'macro-over' : ''}">${text}</span></div>`;
   }
 
-  function renderFoodLog(host, ctx) {
+  function entryFiber(meal) {
+    if (meal.totalFiber_g != null && Number.isFinite(meal.totalFiber_g)) return meal.totalFiber_g;
+    return (meal.items || []).reduce((a, i) => a + (i.fiber_g || 0), 0);
+  }
+
+  function macroSummaryMeal(meal) {
+    const items = meal.items || [];
+    if (items.length) {
+      const t = items.reduce(
+        (a, i) => ({
+          kcal: a.kcal + (i.kcal || 0),
+          p: a.p + (i.protein_g || 0),
+          c: a.c + (i.carb_g || 0),
+          f: a.f + (i.fat_g || 0),
+          fi: a.fi + (i.fiber_g || 0),
+        }),
+        { kcal: 0, p: 0, c: 0, f: 0, fi: 0 },
+      );
+      return `${Math.round(t.kcal)} kcal · P ${t.p.toFixed(0)}g · C ${t.c.toFixed(0)}g · F ${t.f.toFixed(0)}g · Fi ${t.fi.toFixed(0)}g`;
+    }
+    return `${Math.round(meal.totalKcal || 0)} kcal · P ${Math.round(meal.totalProtein_g || 0)}g · C ${Math.round(meal.totalCarb_g || 0)}g · F ${Math.round(meal.totalFat_g || 0)}g · Fi ${Math.round(entryFiber(meal))}g`;
+  }
+
+  function showMealModal(panel, meal) {
+    const modalRoot = panel.querySelector('#meal-modal-root');
+    if (!modalRoot) return;
+    const items = meal.items || [];
+    const title = mealLabel(meal);
+    const time = new Date(meal.timestamp).toLocaleString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const itemsHtml = items.length
+      ? items.map((item, i) => {
+        const flagged = item.rule_conflict;
+        const name = esc(item.name_local || item.name || 'Item');
+        return `
+          <div class="meal-item-row${flagged ? ' flagged' : ''}">
+            <div class="meal-item-name">${flagged ? '⚠ ' : ''}${name}</div>
+            ${flagged && item.rule_message ? `<div class="meal-item-rule">${esc(item.rule_message)}</div>` : ''}
+            <div class="meal-item-grams">${Math.round(item.grams || 0)}g</div>
+            <div class="meal-item-metrics">
+              <span class="meal-item-kcal">${Math.round(item.kcal || 0)} kcal</span>
+              <span class="meal-item-macros">P ${item.protein_g ?? 0}g · C ${item.carb_g ?? 0}g · F ${item.fat_g ?? 0}g · Fi ${item.fiber_g ?? 0}g</span>
+            </div>
+          </div>`;
+      }).join('')
+      : `<p class="empty" style="padding:16px">No item breakdown in snapshot (totals only).</p>
+         <div class="meal-totals-only">
+           <strong>${Math.round(meal.totalKcal || 0)} kcal</strong>
+           · P ${Math.round(meal.totalProtein_g || 0)}g · C ${Math.round(meal.totalCarb_g || 0)}g · F ${Math.round(meal.totalFat_g || 0)}g
+         </div>`;
+
+    modalRoot.hidden = false;
+    modalRoot.innerHTML = `
+      <div class="meal-modal-overlay" data-close-meal>
+        <div class="meal-modal-card" role="dialog" aria-label="Meal details">
+          <div class="meal-modal-head">
+            <div>
+              <div class="meal-modal-title">${esc(title)}</div>
+              <div class="meal-modal-time">${esc(time)}</div>
+            </div>
+            <button type="button" class="meal-modal-close" data-close-meal aria-label="Close">✕</button>
+          </div>
+          ${meal.note ? `<p class="meal-modal-note">${esc(meal.note)}</p>` : ''}
+          <div class="meal-items-card">${itemsHtml}
+            <div class="meal-item-row meal-item-total">
+              <span class="meal-item-kcal">${macroSummaryMeal(meal)}</span>
+            </div>
+          </div>
+          <p class="meal-modal-readonly">Read-only snapshot from patient app</p>
+        </div>
+      </div>`;
+
+    modalRoot.querySelector('.meal-modal-overlay')?.addEventListener('click', (e) => {
+      if (e.target.classList.contains('meal-modal-overlay')) {
+        modalRoot.hidden = true;
+        modalRoot.innerHTML = '';
+      }
+    });
+    modalRoot.querySelector('.meal-modal-card')?.addEventListener('click', (e) => e.stopPropagation());
+    modalRoot.querySelector('.meal-modal-close')?.addEventListener('click', () => {
+      modalRoot.hidden = true;
+      modalRoot.innerHTML = '';
+    });
+  }
+
+  function renderFoodLog(host, ctx, panel) {
     const dk = ctx.foodDayKey || todayKey();
-    const meals = ctx.parsed.mealsByDay[dk] || [];
+    const meals = [...(ctx.parsed.mealsByDay[dk] || [])].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     const macros = dailyMacros(meals);
     const target = ctx.parsed.macroTarget;
     const eaten = Math.round(macros.kcal);
@@ -215,40 +307,73 @@
     const balance = burn != null && eaten > 0 ? eaten - burn : null;
     const isToday = dk >= todayKey();
     const fiberT = target?.fiber_g ?? 30;
+    const isDeficit = balance != null && balance < 0;
 
     host.innerHTML = `
       <div class="food-log-card">
         <div class="food-log-title">FOOD LOG</div>
-        <div class="date-nav">
-          <button type="button" class="nav-arrow" data-food-shift="-1">‹</button>
+        <div class="date-nav food-date-nav">
+          <button type="button" class="nav-arrow" data-food-shift="-1" aria-label="Previous day">‹</button>
           <span class="date-label">${formatDayLabel(dk)}</span>
-          <button type="button" class="nav-arrow" data-food-shift="1" ${isToday ? 'disabled' : ''}>›</button>
+          <button type="button" class="nav-arrow" data-food-shift="1" ${isToday ? 'disabled' : ''} aria-label="Next day">›</button>
         </div>
         <div class="energy-lines">
-          <div class="energy-row">${target
-            ? `<span><strong>${eaten > 0 ? eaten.toLocaleString() : '—'}</strong> kcal eaten / <span class="muted">${target.kcal.toLocaleString()}</span></span>`
-            : `<span><strong>${eaten > 0 ? eaten.toLocaleString() : '—'}</strong> kcal eaten</span>`}</div>
-          ${burn != null ? `<div class="energy-row"><strong>${Math.round(burn).toLocaleString()}</strong> kcal burned</div>` : ''}
-          ${balance != null ? `<div class="energy-row balance ${balance < 0 ? 'deficit' : 'surplus'}"><strong>${Math.abs(balance).toLocaleString()}</strong> kcal ${balance < 0 ? 'deficit' : 'surplus'}</div>` : ''}
+          <div class="energy-row">
+            ${target
+              ? `<span class="energy-num">${eaten > 0 ? eaten.toLocaleString() : '—'}</span><span class="energy-label">kcal eaten <span class="energy-target">/ ${target.kcal.toLocaleString()}</span></span>`
+              : `<span class="energy-num">${eaten > 0 ? eaten.toLocaleString() : '—'}</span><span class="energy-label">kcal eaten</span>`}
+          </div>
+          ${burn != null ? `<div class="energy-row"><span class="energy-num">${Math.round(burn).toLocaleString()}</span><span class="energy-label">kcal burned</span></div>` : ''}
+          ${balance != null ? `<div class="balance-pill ${isDeficit ? 'deficit' : 'surplus'}"><span class="energy-num">${Math.abs(balance).toLocaleString()}</span><span class="energy-label">kcal ${isDeficit ? 'deficit' : 'surplus'}</span></div>` : ''}
         </div>
-        ${macroBar('P', macros.protein_g, target?.protein_g, '#42A5F5')}
-        ${macroBar('C', macros.carb_g, target?.carb_g, '#FF9800')}
-        ${macroBar('F', macros.fat_g, target?.fat_g, '#EF5350')}
-        ${macroBar('Fi', macros.fiber_g || 0, fiberT, '#66BB6A')}
-        <div class="meal-list">${meals.length ? meals.map((m) => `
-            <div class="meal-row">
-              <span>${esc(mealLabel(m))} <span class="muted">${new Date(m.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span></span>
-              <strong>${Math.round(m.totalKcal || 0)} kcal</strong>
-            </div>`).join('') : '<p class="empty">No meals this day</p>'}</div>
+        ${(meals.length || target) ? `
+        <div class="macro-bars">
+          ${macroBar('P', macros.protein_g, target?.protein_g, '#42A5F5')}
+          ${macroBar('C', macros.carb_g, target?.carb_g, '#FF9800')}
+          ${macroBar('F', macros.fat_g, target?.fat_g, '#EF5350')}
+          ${macroBar('Fi', macros.fiber_g || 0, fiberT, '#66BB6A')}
+        </div>` : ''}
+        <div class="meal-chips-row">
+          ${meals.length ? meals.map((m, i) => `
+            <button type="button" class="meal-chip" data-meal-idx="${i}">
+              <span class="chip-time">${new Date(m.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+              <span class="chip-label">${esc(mealLabel(m))}</span>
+              <span class="chip-kcal">${Math.round(m.totalKcal || 0)} kcal</span>
+              <span class="chip-view">✎ view</span>
+            </button>`).join('') : '<p class="empty" style="padding:12px 0">No meals this day</p>'}
+        </div>
       </div>`;
+
+    const rerender = () => {
+      if (panel) renderFoodLog(host, ctx, panel);
+      else renderFoodLog(host, ctx);
+    };
 
     host.querySelector('[data-food-shift="-1"]')?.addEventListener('click', () => {
       ctx.foodDayKey = shiftDayKey(dk, -1);
-      renderFoodLog(host, ctx);
+      rerender();
     });
     host.querySelector('[data-food-shift="1"]')?.addEventListener('click', () => {
-      if (!isToday) { ctx.foodDayKey = shiftDayKey(dk, 1); renderFoodLog(host, ctx); }
+      if (!isToday) { ctx.foodDayKey = shiftDayKey(dk, 1); rerender(); }
     });
+    host.querySelectorAll('.meal-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const idx = parseInt(chip.getAttribute('data-meal-idx'), 10);
+        const meal = meals[idx];
+        if (meal && panel) showMealModal(panel, meal);
+      });
+    });
+  }
+
+  function renderFoodLogTab(panel, ctx) {
+    panel.innerHTML = `
+      <p class="sub snapshot-note" style="margin:0 0 16px">Patient food log from snapshot — read-only. Click a meal card to see items like on the phone.</p>
+      <div class="food-log-page">
+        <div class="dash-card food-log-panel"><div id="food-log-host"></div></div>
+        <div id="meal-modal-root" hidden></div>
+      </div>`;
+    const host = panel.querySelector('#food-log-host');
+    if (host) renderFoodLog(host, ctx, panel);
   }
 
   function renderProfileTargets(host, ctx) {
@@ -304,8 +429,6 @@
         chartOpts,
       );
     }
-    const foodHost = panel.querySelector('#food-host');
-    if (foodHost) renderFoodLog(foodHost, ctx);
     const profileHost = panel.querySelector('#profile-host');
     if (profileHost) renderProfileTargets(profileHost, ctx);
     const lipidHost = panel.querySelector('#lipid-host');
@@ -333,8 +456,8 @@
         <div class="dash-card chart-half"><div id="energy-host"></div></div>
       </div>
       <div class="grid-2">
-        <div class="dash-card"><div id="food-host"></div></div>
-        <div class="dash-card"><div id="profile-host"></div><div id="lipid-host" style="margin-top:16px"></div></div>
+        <div class="dash-card"><div id="profile-host"></div></div>
+        <div class="dash-card"><div id="lipid-host"></div></div>
       </div>`;
     paintDashboardCharts(panel, ctx);
   }
@@ -500,6 +623,7 @@
     const body = root.querySelector('#tab-body');
     if (!body) return;
     if (tab === 'dashboard') renderDashboard(body, ctx);
+    else if (tab === 'foodlog') renderFoodLogTab(body, ctx);
     else if (tab === 'chat') renderChat(body, ctx);
     else if (tab === 'rules') renderRules(body, ctx);
     else if (tab === 'labs') renderLabs(body, ctx);
@@ -508,6 +632,7 @@
   function initTabs(tabsEl, ctx, mainEl) {
     const tabs = [
       { id: 'dashboard', label: 'Dashboard' },
+      { id: 'foodlog', label: 'Food log' },
       { id: 'chat', label: 'Mentors & chat' },
       { id: 'rules', label: 'Rules (live)' },
       { id: 'labs', label: 'Labs' },
