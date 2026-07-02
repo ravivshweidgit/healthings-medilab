@@ -803,7 +803,7 @@
     const charts = global.ClinicCharts;
     const pts = charts?.buildLipidPoints(ctx.parsed.labs) || [];
     panel.innerHTML = `
-      <p class="sub snapshot-note" style="margin:0 0 16px">Lipid trends from lab reports in snapshot${pts.length ? ` — ${pts.length} draw${pts.length === 1 ? '' : 's'}` : ''}. <strong>Request fresh snapshot</strong> on the clinic portal — patient phone uploads when opened, then <strong>Reload snapshot</strong>.</p>
+      <p class="sub snapshot-note" style="margin:0 0 16px">Lipid trends from lab reports in snapshot${pts.length ? ` — ${pts.length} draw${pts.length === 1 ? '' : 's'}` : ''}. Use <strong>Refresh snapshot</strong> on the portal header to load the latest patient upload.</p>
       <div class="dash-card lipid-tab-card"><div id="lipid-trend-host"></div></div>
       ${pts.length >= 2 ? '' : '<p class="sub" style="margin-top:12px;text-align:center">Need at least 2 lipid lab draws in the snapshot to show trend charts.</p>'}`;
     const host = panel.querySelector('#lipid-trend-host');
@@ -856,6 +856,7 @@
   }
 
   function initTabs(tabsEl, ctx, mainEl) {
+    if (global.__clinicTab) ctx.tab = global.__clinicTab;
     const tabs = [
       { id: 'dashboard', label: 'Dashboard' },
       { id: 'profile', label: 'Profile' },
@@ -872,6 +873,7 @@
       tabsEl.querySelectorAll('.ws-tab').forEach((btn) => {
         btn.addEventListener('click', () => {
           ctx.tab = btn.getAttribute('data-tab');
+          global.__clinicTab = ctx.tab;
           paint();
           renderWorkspace(mainEl, ctx);
         });

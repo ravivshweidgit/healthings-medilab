@@ -14,19 +14,19 @@
       <span class="badge">Clinic view</span>
       <span id="patient-meta" class="meta">Loading…</span>
       <span id="sync-status-hint" class="meta sync-status-hint" hidden></span>
-      <button id="request-sync-btn" class="ws-btn" type="button" hidden>Request fresh snapshot</button>
-      <button id="reload-btn" class="ws-btn" type="button" hidden title="Fetches the latest upload from the server">Reload snapshot</button>
+      <button id="refresh-snapshot-btn" class="ws-btn primary" type="button" hidden>Refresh snapshot</button>
     </header>
     <p id="load-error" class="ws-error" hidden></p>
     <nav class="ws-tabs" id="ws-tabs" hidden></nav>
     <main class="ws-main" id="ws-main" hidden></main>
 
     <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
-    <script src="clinic-charts.js?v=20260702c"></script>
-    <script src="clinic-workspace.js?v=20260702c"></script>
+    <script src="clinic-charts.js?v=20260702d"></script>
+    <script src="clinic-workspace.js?v=20260702d"></script>
     <script>
       const API = 'https://api.healthings.ai';
       const TOKEN_KEY = 'healthings_clinic_tokens';
+      let pollTimer = null;
 
       function loadTokens() {
         try { return JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null'); } catch { return null; }
@@ -64,76 +64,32 @@
         el.hidden = !msg;
       }
 
-      async function refreshSyncStatus(patientId) {
+      function setSyncHint(text, show) {
         const hint = document.getElementById('sync-status-hint');
-        const requestBtn = document.getElementById('request-sync-btn');
-        requestBtn.hidden = false;
+        hint.textContent = text || '';
+        hint.hidden = !show;
+      }
+
+      async function fetchSyncStatus(patientId) {
         const res = await api('/v1/clinic/patients/' + encodeURIComponent(patientId) + '/sync-status');
-        if (!res.ok) {
-          hint.hidden = true;
-          requestBtn.disabled = false;
-          return;
-        }
-        const status = await res.json();
-        if (status.waitingOnPatient) {
-          const when = status.updateRequest?.requestedAt
-            ? new Date(status.updateRequest.requestedAt).toLocaleString()
-            : '';
-          hint.textContent = 'Update requested' + (when ? ' · ' + when : '') + ' · patient app uploads when opened — then Reload snapshot';
-          hint.hidden = false;
-          requestBtn.disabled = true;
-        } else {
-          hint.hidden = true;
-          requestBtn.disabled = false;
-        }
+        if (!res.ok) return null;
+        return res.json();
       }
 
-      async function requestFreshSnapshot(patientId) {
-        const requestBtn = document.getElementById('request-sync-btn');
-        requestBtn.disabled = true;
-        try {
-          const res = await api('/v1/clinic/patients/' + encodeURIComponent(patientId) + '/request-sync', {
-            method: 'POST',
-            body: '{}',
-          });
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            alert(err.error || 'Could not request snapshot');
-            return;
-          }
-          await refreshSyncStatus(patientId);
-        } finally {
-          if (!document.getElementById('sync-status-hint').hidden) return;
-          requestBtn.disabled = false;
-        }
-      }
-
-      async function loadWorkspace() {
-        const patientId = new URLSearchParams(location.search).get('patientId');
-        if (!patientId) {
-          showError('Missing patientId in URL.');
-          return;
-        }
-        if (!loadTokens()?.access) {
-          location.href = 'index.html';
-          return;
-        }
-
-        showError('');
-        document.getElementById('patient-meta').textContent = 'Loading snapshot…';
-        document.getElementById('reload-btn').hidden = false;
-        void refreshSyncStatus(patientId);
-
+      async function renderWorkspaceFromSync(patientId) {
         const syncRes = await api('/v1/sync/latest?patientId=' + encodeURIComponent(patientId));
         if (syncRes.status === 404) {
-          showError('No snapshot yet. Tap “Request fresh snapshot” — patient app uploads automatically when they open it.');
-          return;
+          showError('No snapshot yet. Tap Refresh snapshot — patient phone uploads when they open the app.');
+          document.getElementById('ws-tabs').hidden = true;
+          document.getElementById('ws-main').hidden = true;
+          return false;
         }
         if (!syncRes.ok) {
           showError((await syncRes.json().catch(() => ({}))).error || 'Could not load snapshot');
-          return;
+          return false;
         }
 
+        showError('');
         const syncData = await syncRes.json();
         const blob = syncData.blob;
         const bytes = Uint8Array.from(atob(syncData.payloadGzipBase64), (c) => c.charCodeAt(0));
@@ -162,7 +118,7 @@
           blob,
           overlay,
           api,
-          tab: 'dashboard',
+          tab: window.__clinicTab || 'dashboard',
           activeMentor: parsed.mentors[0] || 'nutritionist',
         };
 
@@ -172,14 +128,87 @@
         main.hidden = false;
         ClinicWorkspace.initTabs(tabs, ctx, main);
         ClinicWorkspace.renderWorkspace(main, ctx);
-        void refreshSyncStatus(patientId);
+        return true;
       }
 
-      document.getElementById('reload-btn').onclick = () => void loadWorkspace();
-      document.getElementById('request-sync-btn').onclick = () => {
+      async function loadWorkspace() {
         const patientId = new URLSearchParams(location.search).get('patientId');
-        if (patientId) void requestFreshSnapshot(patientId);
-      };
+        if (!patientId) {
+          showError('Missing patientId in URL.');
+          return;
+        }
+        if (!loadTokens()?.access) {
+          location.href = 'index.html';
+          return;
+        }
+
+        document.getElementById('refresh-snapshot-btn').hidden = false;
+        document.getElementById('patient-meta').textContent = 'Loading snapshot…';
+        setSyncHint('', false);
+        await renderWorkspaceFromSync(patientId);
+      }
+
+      function stopPolling() {
+        if (pollTimer) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+      }
+
+      async function refreshSnapshot() {
+        const patientId = new URLSearchParams(location.search).get('patientId');
+        if (!patientId) return;
+
+        const btn = document.getElementById('refresh-snapshot-btn');
+        btn.disabled = true;
+        const prevLabel = btn.textContent;
+        btn.textContent = 'Refreshing…';
+        stopPolling();
+
+        try {
+          const reqRes = await api('/v1/clinic/patients/' + encodeURIComponent(patientId) + '/request-sync', {
+            method: 'POST',
+            body: '{}',
+          });
+          if (!reqRes.ok) {
+            const err = await reqRes.json().catch(() => ({}));
+            alert(err.error || 'Could not refresh snapshot');
+            return;
+          }
+
+          await renderWorkspaceFromSync(patientId);
+
+          let status = await fetchSyncStatus(patientId);
+          if (!status?.waitingOnPatient) {
+            setSyncHint('', false);
+            return;
+          }
+
+          setSyncHint('Waiting for patient phone to open the app… checking every few seconds', true);
+
+          let attempts = 0;
+          pollTimer = setInterval(async () => {
+            attempts += 1;
+            status = await fetchSyncStatus(patientId);
+            if (!status?.waitingOnPatient) {
+              stopPolling();
+              setSyncHint('New snapshot received', true);
+              await renderWorkspaceFromSync(patientId);
+              setTimeout(() => setSyncHint('', false), 4000);
+              return;
+            }
+            if (attempts >= 20) {
+              stopPolling();
+              setSyncHint('Still waiting — ask patient to open the app, then tap Refresh snapshot again', true);
+            }
+          }, 3000);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = prevLabel;
+        }
+      }
+
+      document.getElementById('refresh-snapshot-btn').onclick = () => void refreshSnapshot();
       loadWorkspace();
     </script>
   </body>
