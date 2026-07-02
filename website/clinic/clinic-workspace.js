@@ -283,7 +283,7 @@
     }
     const trendHost = panel.querySelector('#trend-host');
     const energyHost = panel.querySelector('#energy-host');
-    const allDays = ctx.parsed.withings?.bodyTrendDays || [];
+    const allDays = charts.enrichBodyTrendDays(ctx.parsed.withings, ctx.parsed.burnByDay);
     const pd = ctx.trendPeriod ?? 32;
     const chartOpts = { tall: true, periodDays: pd };
     const windowDays = charts.trendWindowSlice(allDays, pd);

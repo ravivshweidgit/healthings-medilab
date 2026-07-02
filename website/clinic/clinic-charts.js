@@ -110,6 +110,63 @@
       .filter(Boolean);
   }
 
+  function passiveActivityByDay(withings) {
+    const calories = withings?.calories || [];
+    const workouts = withings?.workouts || [];
+    const workoutBucketsByDay = new Map();
+    for (const w of workouts) {
+      const dk = dayKeyFromMs(w.startMs);
+      if (!workoutBucketsByDay.has(dk)) workoutBucketsByDay.set(dk, new Set());
+      const set = workoutBucketsByDay.get(dk);
+      for (let bk = Math.floor(w.startMs / BUCKET_MS) * BUCKET_MS; bk < w.endMs; bk += BUCKET_MS) set.add(bk);
+    }
+    const workoutKcalByDay = new Map();
+    for (const w of workouts) {
+      const dk = dayKeyFromMs(w.startMs);
+      workoutKcalByDay.set(dk, (workoutKcalByDay.get(dk) || 0) + (w.kcal || 0));
+    }
+    const passiveByDay = new Map();
+    for (const pt of calories) {
+      const t = Date.parse(pt.timestamp);
+      const dk = dayKeyFromMs(t);
+      const bk = Math.floor(t / BUCKET_MS) * BUCKET_MS;
+      if (!(workoutBucketsByDay.get(dk) || new Set()).has(bk)) {
+        passiveByDay.set(dk, (passiveByDay.get(dk) || 0) + (pt.kcal || 0));
+      }
+    }
+    const out = new Map();
+    const keys = new Set([...passiveByDay.keys(), ...workoutKcalByDay.keys()]);
+    for (const dk of keys) {
+      const total = (passiveByDay.get(dk) || 0) + (workoutKcalByDay.get(dk) || 0);
+      if (total > 0) out.set(dk, Math.round(total));
+    }
+    return out;
+  }
+
+  /** Match phone DashboardScreen bodyTrendDaysWithActivity + passive fallback for clinic snapshots. */
+  function enrichBodyTrendDays(withings, burnByDay) {
+    const days = (withings?.bodyTrendDays || []).map((d) => ({ ...d }));
+    const workoutByDay = new Map();
+    for (const w of withings?.workouts || []) {
+      const dk = dayKeyFromMs(w.startMs);
+      workoutByDay.set(dk, (workoutByDay.get(dk) || 0) + (w.kcal || 0));
+    }
+    const passiveByDay = passiveActivityByDay(withings);
+    return days.map((d) => {
+      if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay)) return d;
+      const wkt = workoutByDay.get(d.dayKey);
+      if (wkt != null && wkt > 0) return { ...d, activityKcalDay: Math.round(wkt) };
+      const passive = passiveByDay.get(d.dayKey);
+      if (passive != null && passive > 0) return { ...d, activityKcalDay: passive };
+      const burn = burnByDay?.[d.dayKey];
+      const bmr = d.bmrKcalDay;
+      if (burn != null && bmr != null && burn > bmr) {
+        return { ...d, activityKcalDay: Math.round(burn - bmr) };
+      }
+      return d;
+    });
+  }
+
   function drawMetabolicChart(host, data, ctx, onChange) {
     const vpIdx = ctx.chartVp ?? 2;
     const preset = VIEWPORT_PRESETS[vpIdx] || VIEWPORT_PRESETS[2];
@@ -959,6 +1016,7 @@
   global.ClinicCharts = {
     computeBurnByDay,
     eatenByDay,
+    enrichBodyTrendDays,
     trendWindowSlice,
     drawMetabolicChart,
     drawTrendAnalysis,
