@@ -184,7 +184,7 @@
             return;
           }
 
-          setSyncHint('Waiting for patient phone to open the app… checking every few seconds', true);
+          setSyncHint('Waiting for patient app to upload snapshot… checking every few seconds', true);
 
           let attempts = 0;
           pollTimer = setInterval(async () => {
@@ -199,7 +199,7 @@
             }
             if (attempts >= 20) {
               stopPolling();
-              setSyncHint('Still waiting — ask patient to open the app, then tap Refresh snapshot again', true);
+              setSyncHint('Still waiting — ensure the patient app is open (or pull down to refresh on the phone), then tap Refresh snapshot again', true);
             }
           }, 3000);
         } finally {

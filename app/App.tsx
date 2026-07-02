@@ -1,7 +1,7 @@
 import * as WebBrowser from 'expo-web-browser';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   authenticateWithBiometric,
@@ -13,6 +13,10 @@ import {
   wasBiometricPromptShown,
 } from './src/services/BiometricUnlockService';
 import { restoreAuthSession, type AuthUser } from './src/services/AuthApiService';
+import {
+  CLINIC_SYNC_POLL_MS,
+  fulfillPendingClinicSyncRequests,
+} from './src/services/ClinicSyncService';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { WellnessColors } from './src/theme/wellness';
@@ -82,6 +86,25 @@ export default function App() {
   const handleSignedOut = useCallback(() => {
     setUser(null);
   }, []);
+
+  useEffect(() => {
+    if (!user || user.role !== 'patient') return;
+
+    void fulfillPendingClinicSyncRequests();
+
+    const onActive = (state: string) => {
+      if (state === 'active') void fulfillPendingClinicSyncRequests();
+    };
+    const appStateSub = AppState.addEventListener('change', onActive);
+    const pollTimer = setInterval(() => {
+      void fulfillPendingClinicSyncRequests();
+    }, CLINIC_SYNC_POLL_MS);
+
+    return () => {
+      appStateSub.remove();
+      clearInterval(pollTimer);
+    };
+  }, [user]);
 
   return (
     <SafeAreaProvider>

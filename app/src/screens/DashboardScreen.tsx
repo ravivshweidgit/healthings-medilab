@@ -694,11 +694,17 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const handlePullRefresh = useCallback(async () => {
     setPullRefreshing(true);
     try {
-      await Promise.all([refetch(), syncWithings(), refreshTodayIntraday(), loadTodayFood()]);
+      await Promise.all([
+        refetch(),
+        syncWithings(),
+        refreshTodayIntraday(),
+        loadTodayFood(),
+        user.role === 'patient' ? fulfillPendingClinicSyncRequests() : Promise.resolve(),
+      ]);
     } finally {
       setPullRefreshing(false);
     }
-  }, [refetch, syncWithings, refreshTodayIntraday, loadTodayFood]);
+  }, [refetch, syncWithings, refreshTodayIntraday, loadTodayFood, user.role]);
 
   useEffect(() => {
     void loadTodayFood();
@@ -715,13 +721,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   useEffect(() => {
     if (user.role !== 'patient') return;
     void (async () => {
-      await fulfillPendingClinicSyncRequests();
       const updated = await pullClinicOverlays();
       if (updated) await loadCoachMessage();
     })();
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') return;
-      void fulfillPendingClinicSyncRequests();
+      void (async () => {
+        const updated = await pullClinicOverlays();
+        if (updated) await loadCoachMessage();
+      })();
     });
     return () => sub.remove();
   }, [user.role, loadCoachMessage]);
