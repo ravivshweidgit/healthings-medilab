@@ -47,6 +47,7 @@ import {
   MENTOR_CHAT_TAB_ORDER,
 } from '../services/TargetService';
 import { getLabsAiContextForHeader } from '../services/LabLogService';
+import { getNutritionDirectiveAiContext } from '../services/NutritionDirectiveService';
 import { chatWithMentor, summariseChatDay, isYesterdayQuery, type CoachContext, type MacroSuggestion } from '../services/GeminiService';
 import {
   isMacroChatRequest,
@@ -1255,11 +1256,12 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
   }, [ui, pickChatImage]);
 
   const buildFreshContext = useCallback(async (): Promise<CoachContext> => {
-    const [meals, macroTarget, userRules, labsAiContext] = await Promise.all([
+    const [meals, macroTarget, userRules, labsAiContext, nutritionDirectiveContext] = await Promise.all([
       getTodayMeals(),
       getMacroTarget(),
       getUserRules(),
       getLabsAiContextForHeader(),
+      getNutritionDirectiveAiContext(),
     ]);
     const mealsCtx = buildMealsAiContext(meals);
     const mealTotals = meals.reduce(
@@ -1276,6 +1278,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
       macroTarget: macroTarget ?? context.macroTarget,
       userRules: userRules ?? context.userRules,
       labsAiContext: labsAiContext ?? context.labsAiContext,
+      nutritionDirectiveContext: nutritionDirectiveContext ?? context.nutritionDirectiveContext,
       mealCount: meals.length,
       todayEaten: meals.length > 0 ? mealTotals.kcal : context.todayEaten,
       todayProtein_g: meals.length > 0 ? mealTotals.protein_g : context.todayProtein_g,

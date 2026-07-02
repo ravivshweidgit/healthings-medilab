@@ -41,7 +41,9 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt50** — done (2026-06-30). Nutritionist visit report: clinical HTML export (7/14/30/90d), Appendix A charts (lipids/body/energy/CGM), Appendix B raw data. Phone-tested. See `done/prompt50.txt`.
 
-**prompt51** — done (2026-07-03). My Rules version history: phone `user_rules_history_v1` (30 cap), clinic `clinic_patient_rules_history`, Rules tab history on portal. Phone-tested `[ ]` pending. See `done/prompt51.txt`.
+**prompt51** — done (2026-07-03). My Rules version history: phone `user_rules_history_v1` (30 cap), clinic `clinic_patient_rules_history`, Rules tab history on portal. Phone-tested. See `done/prompt51.txt`.
+
+**prompt53** — done (2026-07-03). Nutritionist session PDF import: plain-text directive history on phone, dashboard strip, AI context (directive > My Rules). Phone-tested `[x]`. See `done/prompt53.txt`. **Next:** `prompt54` local-first clinic relay.
 
 **prompt42 follow-up** — weigh-in macro activation (`measuredAt` dedupe, first weigh-in, unchanged log) documented in `done/prompt42.txt` § Follow-up 2026-06-22.
 

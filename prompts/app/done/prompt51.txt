@@ -60,5 +60,5 @@
 
 ### Related
 
-- **`prompt52.txt`** — rawText-only save (backlog)
-- **`prompt53.txt`** — nutritionist PDF directive history (backlog)
+- **`prompt54.txt`** — local-first clinic relay (NEXT)
+- **`done/prompt53.txt`** — nutritionist PDF directive history (shipped)

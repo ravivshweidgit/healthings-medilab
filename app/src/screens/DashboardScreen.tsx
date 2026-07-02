@@ -33,6 +33,7 @@ import { MentorStrip } from '../components/MentorStrip';
 import { AccountStrip } from '../components/AccountStrip';
 import { ClinicLinkStrip } from '../components/ClinicLinkStrip';
 import { RulesStrip } from '../components/RulesStrip';
+import { NutritionDirectivesStrip } from '../components/NutritionDirectivesStrip';
 import { LabResultsStrip } from '../components/LabResultsStrip';
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
 import { applyAutoMacroRevision, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
@@ -54,6 +55,12 @@ import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportWithSessions } from '../services/careSensCsv';
 import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getRecentMeals, getDailyMacros, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
 import { buildLabsAiContext, getAllLabReports, type LabReport } from '../services/LabLogService';
+import {
+  getActiveNutritionDirective,
+  getNutritionDirectiveAiContext,
+  listNutritionDirectives,
+  type NutritionDirective,
+} from '../services/NutritionDirectiveService';
 import { exportLocalBackup, importLocalBackup } from '../services/LocalBackupService';
 import { shareVisitReport, VISIT_REPORT_DAY_OPTIONS, type VisitReportDayCount } from '../services/visitReportService';
 import { buildGlucoseMentorContext } from '../logic/mealGlucoseAnalysis';
@@ -216,6 +223,9 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [userRules, setUserRules] = useState<UserRules | null>(null);
   const [labReports, setLabReports] = useState<LabReport[]>([]);
   const [labsAiContext, setLabsAiContext] = useState<string | null>(null);
+  const [nutritionDirectiveContext, setNutritionDirectiveContext] = useState<string | null>(null);
+  const [nutritionDirectives, setNutritionDirectives] = useState<NutritionDirective[]>([]);
+  const [directiveActiveId, setDirectiveActiveId] = useState<string | null>(null);
   const [macroTarget, setMacroTarget] = useState<DailyMacroTarget | null>(null);
   const [userLanguage, setUserLanguage] = useState<UserLanguage>(SUPPORTED_LANGUAGES[0]);
   // expanded state for each collapsible row in the grouped card
@@ -263,6 +273,32 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     }
 
     if (refreshCoach && ctx && coachContextRef.current) {
+      const storedLang = await getLanguage();
+      const newMsg = await triggerCoachReview('meal', {
+        ...coachContextRef.current,
+        lang: storedLang,
+        event: 'meal',
+      });
+      if (newMsg) setCoachMsg(newMsg);
+    }
+  }, []);
+
+  const loadNutritionDirectives = useCallback(async (refreshCoach = false) => {
+    const [aiCtx, active, entries] = await Promise.all([
+      getNutritionDirectiveAiContext(),
+      getActiveNutritionDirective(),
+      listNutritionDirectives(),
+    ]);
+    setNutritionDirectiveContext(aiCtx);
+    setNutritionDirectives(entries);
+    setDirectiveActiveId(active?.id ?? null);
+    if (coachContextRef.current) {
+      coachContextRef.current = {
+        ...coachContextRef.current,
+        nutritionDirectiveContext: aiCtx,
+      };
+    }
+    if (refreshCoach && coachContextRef.current) {
       const storedLang = await getLanguage();
       const newMsg = await triggerCoachReview('meal', {
         ...coachContextRef.current,
@@ -594,12 +630,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       bodyTarget: bodyTargetForMacros,
       userRules,
       labsAiContext,
+      nutritionDirectiveContext,
     };
     coachContextRef.current = ctx;
     return ctx;
   }, [
     mentors, userAge, userGender, userMentorGender, mentorGenderPicker, heightCm, bodyScan, fatPct, bodyTargetForMacros,
-    todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, mealGlucoseContext, glucoseData, macroTarget, userRules, labsAiContext, userLanguage,
+    todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, mealGlucoseContext, glucoseData, macroTarget, userRules, labsAiContext, nutritionDirectiveContext, userLanguage,
   ]);
 
   /** Regenerate coach message using stored language (not stale React state). */
@@ -723,9 +760,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     void (async () => {
       await loadHeightAndBirthdate();
       await loadLabReports();
+      await loadNutritionDirectives();
       await loadCoachMessage();
     })();
-  }, [loadHeightAndBirthdate, loadLabReports, loadCoachMessage]);
+  }, [loadHeightAndBirthdate, loadLabReports, loadNutritionDirectives, loadCoachMessage]);
 
   useEffect(() => {
     if (user.role !== 'patient') return;
@@ -951,6 +989,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         syncWithings(),
         loadTodayFood(),
         loadLabReports(),
+        loadNutritionDirectives(),
         loadHeightAndBirthdate(),
         loadCoachMessage(),
       ]);
@@ -1595,7 +1634,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           </View>
         </View>
 
-        {/* Lab results — least-used; bottom of dashboard */}
+        {/* Nutrition + lab archives — bottom of dashboard */}
+        <NutritionDirectivesStrip
+          directives={nutritionDirectives}
+          activeId={directiveActiveId}
+          onChanged={() => void loadNutritionDirectives(true)}
+          lang={userLanguage}
+        />
         <LabResultsStrip
           reports={labReports}
           onReportsChanged={() => void loadLabReports(false)}

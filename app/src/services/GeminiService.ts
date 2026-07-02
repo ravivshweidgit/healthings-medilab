@@ -32,6 +32,7 @@ import {
 import { detectChatIntent, isGlucoseDeepDiveQuery, isGlucoseQuery, type ChatIntent } from '../logic/chatIntent';
 import { resolveMentorGender } from '../logic/mentorLabels';
 import { formatUserRulesLines, formatUserRulesBlock, formatMacroRevisionRulesBlock, MEAL_FAT_RULE_FLAGGING_GUIDANCE } from '../logic/userRulesContext';
+import { formatDirectiveAndRulesForChecks } from '../logic/nutritionDirectiveContext';
 
 /** Returns a language instruction line to append to any AI prompt. */
 function langInstruction(lang?: UserLanguage | null): string {
@@ -1205,10 +1206,12 @@ export type MealRuleCheckIssue = {
 
 export async function checkMealAgainstUserRules(
   items: FoodItem[],
-  userRules: UserRules,
+  userRules: UserRules | null,
   lang?: UserLanguage | null,
+  nutritionDirectiveContext?: string | null,
 ): Promise<MealRuleCheckIssue[]> {
   if (MOCK_MODE || items.length === 0) return [];
+  if (!userRules?.rawText?.trim() && !nutritionDirectiveContext?.trim()) return [];
 
   const itemLines = items
     .map((item) => {
@@ -1217,10 +1220,17 @@ export async function checkMealAgainstUserRules(
     })
     .join('\n');
 
-  const prompt = `You are the Nutritionist mentor. The user is about to SAVE this meal to their food log.
-Check EVERY item line independently against MY RULES. Flag only lines that VIOLATE — never flag because something is missing from the meal.
+  const rulesCombined = formatDirectiveAndRulesForChecks(
+    nutritionDirectiveContext,
+    userRules?.rawText?.trim()
+      ? formatMacroRevisionRulesBlock(userRules)
+      : '=== MY RULES ===\n(none — apply NUTRITIONIST DIRECTIVE only)',
+  );
 
-${formatMacroRevisionRulesBlock(userRules)}
+  const prompt = `You are the Nutritionist mentor. The user is about to SAVE this meal to their food log.
+Check EVERY item line independently against the NUTRITIONIST DIRECTIVE (if present) and MY RULES. Flag only lines that VIOLATE — never flag because something is missing from the meal.
+
+${rulesCombined}
 
 ${MEAL_FAT_RULE_FLAGGING_GUIDANCE}
 
@@ -1231,7 +1241,8 @@ Return JSON ONLY (no markdown):
 {"issues":[{"itemName":"<display name from meal list>","severity":"critical"|"warning","message":"<one short sentence why THIS item violates rules>"}]}
 
 Rules for your response:
-- Apply ONLY what MY RULES say — verbatim Original may allow exceptions (e.g. whey isolate while limiting other animal fats).
+- Apply NUTRITIONIST DIRECTIVE first on conflict, then MY RULES.
+- Apply ONLY what the blocks say — verbatim Original may allow exceptions (e.g. whey isolate while limiting other animal fats).
 - Plant-fat items pass when rules favor unsaturated sources; flag animal/dairy fat only when rules forbid it without an exception.
 - Do NOT flag "missing" preferred foods. Do NOT flag psyllium/fiber for fat.
 - itemName must match the violating line's label (before the English name in parentheses).
@@ -1404,6 +1415,112 @@ Rules:
   };
 
   return { parsed, confidence: results.length >= 5 ? 'high' : 'low' };
+}
+
+// ─── Nutritionist session PDF ─────────────────────────────────────────────────
+
+export type ParsedNutritionDirectivePdf = {
+  title: string;
+  sessionDate: string | null;
+  fullText: string;
+  lang: 'he' | 'en' | 'mixed' | null;
+};
+
+export async function parseNutritionDirectivePdf(
+  pdfBase64: string,
+  lang?: UserLanguage | null,
+  useMock = false,
+): Promise<ParsedNutritionDirectivePdf> {
+  if (useMock || MOCK_MODE) {
+    await new Promise((r) => setTimeout(r, 600));
+    return {
+      title: 'סיכום מפגש ראשון',
+      sessionDate: '2026-07-02',
+      fullText: 'סיכום מפגש ראשון\n\nיעדים:\n- LDL <100\n- שמירה על ירידה במשקל\n\nיעדי תפריט:\n- חלבון 1.2–1.5 g/kg\n\nארוחת בוקר:\n- …\n\nארוחת צהריים:\n- …\n\nסיכום מאקרו:\n1690 kcal · P112\n\nמשימות:\n- בדיקות ויטמין D',
+      lang: 'he',
+    };
+  }
+
+  const prompt = `You transcribe a nutritionist session report PDF into plain text for the patient app.
+
+Your #1 job is LAYOUT: reproduce the PDF's visual structure with line breaks — not one long paragraph.
+
+Output JSON only, no markdown fences:
+{"title":"…","sessionDate":"YYYY-MM-DD or null","fullText":"…","lang":"he|en|mixed|null"}
+
+fullText rules (most important):
+1. Copy every word/number exactly as written (Hebrew/English). Do not summarize, paraphrase, omit, or reorder.
+2. Blank line between sections: whenever the PDF shows a new block (title, goals, menu targets, sample meals, macro totals, guidelines, tasks, contact), insert TWO line breaks (\\n\\n) before that block.
+3. One line per bullet: each bullet or numbered item must be on its own line; separate items with a single \\n.
+4. Meal blocks: put "ארוחת בוקר", "ארוחת צהריים", "ארוחת ערב" (or English equivalents) each on their own line, with a blank line before each meal section if the PDF separates them.
+5. In JSON, encode line breaks as \\n inside the fullText string (not spaces). A report with 8 sections should have many \\n characters — if fullText is one continuous line, you failed the layout task; fix before responding.
+
+Example shape (content is illustrative — yours must match the PDF):
+{"title":"סיכום מפגש ראשון","sessionDate":"2026-07-02","fullText":"סיכום מפגש ראשון\\n\\nיעדים:\\n- LDL <100\\n- …\\n\\nיעדי תפריט:\\n- חלבון …\\n\\nארוחת בוקר:\\n- …\\n\\nארוחת צהריים:\\n- …\\n\\nסיכום מאקרו:\\n1690 kcal …\\n\\nמשימות:\\n- …\\n\\nמיכל · 054-…","lang":"he"}
+
+Other fields:
+- title: document title or first heading line.
+- sessionDate: parse DD.MM.YY or header date → ISO YYYY-MM-DD, or null.
+- lang: "he", "en", "mixed", or null.
+
+Before you output: scan fullText — confirm blank lines (\\n\\n) between major sections and one item per line.${langInstruction(lang)}`;
+
+  const body = {
+    contents: [{
+      role: 'user',
+      parts: [
+        { inline_data: { mime_type: 'application/pdf', data: pdfBase64 } },
+        { text: prompt },
+      ],
+    }],
+    generationConfig: geminiGenerationConfig({ temperature: 0.1, maxOutputTokens: 8192 }),
+  };
+
+  const response = await fetch(GEMINI_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.text().catch(() => '');
+    throw new Error(`Gemini directive PDF error ${response.status}: ${err.slice(0, 200)}`);
+  }
+
+  const json = await response.json();
+  const raw: string = extractGeminiText(json?.candidates?.[0]);
+  if (!raw) throw new Error('Empty response parsing nutritionist PDF');
+
+  const stripped = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  const start = stripped.indexOf('{');
+  const end = stripped.lastIndexOf('}');
+  const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(cleaned) as Record<string, unknown>;
+  } catch {
+    throw new Error(`Could not parse directive PDF JSON: ${raw.slice(0, 120)}`);
+  }
+
+  const fullText = String(data.fullText ?? '').trim();
+  if (!fullText) throw new Error('No text extracted from PDF — try a clearer export');
+
+  const langRaw = data.lang != null ? String(data.lang) : null;
+  const parsedLang =
+    langRaw === 'he' || langRaw === 'en' || langRaw === 'mixed' ? langRaw : null;
+
+  const titleRaw = String(data.title ?? '').trim();
+  const title =
+    titleRaw ||
+    fullText.split('\n').map((s) => s.trim()).find(Boolean)?.slice(0, 80) ||
+    'Nutritionist report';
+
+  return {
+    title,
+    sessionDate: data.sessionDate != null ? String(data.sessionDate).slice(0, 10) : null,
+    fullText,
+    lang: parsedLang,
+  };
 }
 
 // ─── Daily macro suggestion ───────────────────────────────────────────────────
@@ -1705,6 +1822,8 @@ export type CoachContext = {
   userRules: UserRules | null;
   /** All saved lab draws formatted for mentors (from LabLogService). */
   labsAiContext: string | null;
+  /** Active nutritionist session directive (authoritative over My Rules). */
+  nutritionDirectiveContext: string | null;
 };
 
 type DayPhase = 'early_morning' | 'morning' | 'midday' | 'afternoon' | 'evening' | 'late_evening';
@@ -1797,6 +1916,7 @@ function buildProfileTargetsHeader(ctx: CoachContext, opts?: { omitMacroTarget?:
     ...(!omitMacroTarget
       ? [`Daily macro target: ${n(mt?.kcal ?? null, ' kcal')} | P ${n(mt?.protein_g ?? null, 'g')} | C ${n(mt?.carb_g ?? null, 'g')} | F ${n(mt?.fat_g ?? null, 'g')} | Fi ${n(mt?.fiber_g ?? null, 'g')}`]
       : []),
+    ...(ctx.nutritionDirectiveContext ? [ctx.nutritionDirectiveContext] : []),
     ...(ctx.userRules ? formatUserRulesForContext(ctx.userRules) : []),
     ...(ctx.labsAiContext ? [ctx.labsAiContext] : []),
   ].filter((l): l is string => Boolean(l));

@@ -7,6 +7,7 @@ import { deflate } from 'pako';
 import type { CachedHealthMetrics } from './healthMetricsCache';
 import { HEALTH_METRICS_CACHE_KEY } from './healthMetricsCache';
 import { uploadSyncPayload, type SyncLookbackMode, type SyncSummary } from './SyncApiService';
+import { NUTRITION_DIRECTIVES_KEY } from './NutritionDirectiveService';
 import { WITHINGS_STORE_KEY, type WithingsPersistedStore } from './WithingsPersistenceService';
 
 const EXPORT_APP = 'healthings-medilab';
@@ -113,6 +114,7 @@ function detectIncludes(asyncStorage: Record<string, string>): string[] {
   if (asyncStorage[WITHINGS_STORE_KEY]) includes.push('withings');
   if (asyncStorage.body_target || asyncStorage.macro_target) includes.push('targets');
   if (asyncStorage.user_rules) includes.push('rules');
+  if (asyncStorage[NUTRITION_DIRECTIVES_KEY]) includes.push('directives');
   return includes;
 }
 

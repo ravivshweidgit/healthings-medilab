@@ -1,0 +1,79 @@
+## Prompt 53 — Import nutritionist session reports (directive history)
+
+**Status: shipped 2026-07-03** (phone-tested `[x]` — user accepted after import + spacing fix)  
+**Builds on:** `done/prompt39.txt` (PDF pick + Gemini) · `prompt52` rawText-only intent · `done/prompt51.txt` (history pattern — orthogonal store)
+
+---
+
+### Problem
+
+Nutritionist session PDFs (e.g. *סיכום מפגש ראשון*) had no import path — users copied fragments into My Rules, losing visit history and clinic authority at runtime.
+
+---
+
+### What shipped (MVP)
+
+| Area | Change |
+|------|--------|
+| Storage | `NutritionDirectiveService.ts` — `nutrition_directives_v1`, unbounded history, `activeId` |
+| Parse | `parseNutritionDirectivePdf()` — Gemini transcribes PDF to **plain `fullText` only** (+ optional `title`, `sessionDate`, `lang`); prompt emphasizes `\n\n` between sections, one bullet per line |
+| Review | `NutritionDirectiveReviewModal.tsx` — editable title/date + single report text body |
+| Dashboard | `NutritionDirectivesStrip.tsx` — LabResultsStrip-style card at bottom; horizontal chips; import / view / set active / delete |
+| AI | `nutritionDirectiveContext.ts` — active directive block before My Rules in coach, chat, meal check |
+| Export | `ShareExportService.ts` — `nutrition_directives_v1` in snapshot blob |
+| Backup | Included via generic AsyncStorage export (not excluded) |
+
+**Product rules (shipped):**
+
+- Directives **separate** from My Rules; latest import = active by default
+- **Verbatim plain text** — no structured goals/menu fields in UI or storage (legacy structured entries migrated to `fullText` on read)
+- Active directive **wins over My Rules** in AI context on conflict
+
+---
+
+### Primary files
+
+| File | Role |
+|------|------|
+| `app/src/services/NutritionDirectiveService.ts` | CRUD + active selection |
+| `app/src/services/GeminiService.ts` | `parseNutritionDirectivePdf`, `CoachContext.nutritionDirectiveContext` |
+| `app/src/logic/nutritionDirectiveContext.ts` | AI block formatter |
+| `app/src/components/NutritionDirectiveReviewModal.tsx` | Import review |
+| `app/src/components/NutritionDirectivesStrip.tsx` | Dashboard strip |
+| `app/src/screens/DashboardScreen.tsx` | Load + mount strip |
+| `app/src/screens/ChatScreen.tsx` | Directive context in chat |
+| `app/src/components/FoodLogModal.tsx` | Directive before meal check |
+| `app/src/services/ShareExportService.ts` | Snapshot export key |
+
+**Fixture (local dev, do not commit):** `app/סיכום מפגש ראשון.pdf`
+
+---
+
+### Phone-tested checklist
+
+- [x] Import Hebrew session PDF → plain text review (sections separated by blank lines)
+- [x] Save → history chip; marked **Active**
+- [x] View detail → full plain text (not structured form)
+- [ ] Second PDF → two entries; newest active
+- [ ] Mentor chat cites directive content
+- [ ] Meal check uses directive before My Rules
+- [ ] Set older active / delete / backup restore
+
+---
+
+### Deferred (from original spec)
+
+- **Update My Rules from this report** (merge flow)
+- **Use macro summary as starting point** → macro strip
+- Clinic workspace display of directives from snapshot
+- Photo/camera import · full-text search · server sync
+- See **`prompt54.txt`** for local-first clinic relay (next)
+
+---
+
+### Related
+
+- **`prompt54.txt`** — ephemeral relay, revoke purge, rules mailbox (NEXT)
+- **`prompt52.txt`** — My Rules rawText-only save
+- **`done/prompt39.txt`** — lab PDF import pattern
+- **`prompt46.txt`** — medical strip (may reuse review modal later)

@@ -43,6 +43,7 @@ import {
   type MealIssue,
 } from '../logic/mealIssueAnalysis';
 import { getMacroTarget, getUserRules, type UserLanguage } from '../services/TargetService';
+import { getNutritionDirectiveAiContext } from '../services/NutritionDirectiveService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -378,15 +379,16 @@ export function FoodLogModal({
     let cancelled = false;
     void (async () => {
       const userRules = await getUserRules();
+      const directiveCtx = await getNutritionDirectiveAiContext();
       if (cancelled) return;
-      if (!userRules) {
+      if (!userRules && !directiveCtx) {
         setItems((prev) =>
           prev.map((item) => ({ ...item, rule_conflict: false, rule_message: undefined })),
         );
         return;
       }
       try {
-        const geminiIssues = await checkMealAgainstUserRules(items, userRules, lang);
+        const geminiIssues = await checkMealAgainstUserRules(items, userRules, lang, directiveCtx);
         if (cancelled) return;
         setItems((prev) => syncFoodItemRuleFlags(prev, geminiIssues));
       } catch {
