@@ -1,18 +1,36 @@
 ## Prompt 49 — Link to clinic + share data with sponsor
 
-**Status: backlog**  
+**Status: backlog (49a partial — `ClinicLinkStrip.tsx` + `ShareApiService.ts` in local WIP; 49b not started)**  
 **Builds on:** `done/prompt-be-02b-app-login.md` · `prompts/backend/prompt-be-03-account-shares.md` · `prompt-be-04` · `prompt-be-06`.
+
+---
+
+### Product decisions (locked 2026-07 — align with `prompt-be-04`)
+
+| Decision | Rule |
+|----------|------|
+| **Payload** | Encrypted **image of phone persistence** — same JSON subset as `LocalBackupService` / App Backup. Not live phone access. |
+| **Default window** | **Last 90 days** (`lookbackMode: '90d'`). |
+| **Extended window** | Patient may choose **Full history on phone** (`lookbackMode: 'full'`) — e.g. clinic wants 5 years. Patient controls what leaves the device. |
+| **Clinic visibility** | **Once shared, clinic can view all data in that snapshot** — meals, CGM, labs, Withings, rules, targets (read-only). All-or-nothing per upload; no per-field ACL in MVP. |
+| **Updates** | New phone data → patient taps **Share** again (new blob version). Clinic uses **latest** unless viewing history. |
+| **Compression** | JSON → **gzip** → encrypt → upload. ~2.5 MB raw (2 mo) → ~240 KB gzip; 90d steady ~280 KB; 5y full ~1.2 MB gzip. |
+| **Not on link approve** | Approving a clinic link does **not** auto-upload — patient must tap **Share data** explicitly. |
+
+```ts
+buildClinicExport({ lookbackMode: '90d' | 'full' })  // default '90d'
+```
 
 ---
 
 ### Problem
 
-Patients can sign in, but there is no UI to:
+Patients can sign in, but the app still needs:
 
-- Link to a clinic/nutritionist account (invite or request)
-- Approve/reject pending links
-- **Share local phone data** with an approved clinic (encrypted upload)
-- See when **AI is sponsored** by the clinic
+- ~~Link to a clinic/nutritionist~~ (49a WIP — request/approve/revoke in `ClinicLinkStrip`)
+- **Share local phone data** with an approved clinic (encrypted upload — **49b**)
+- Show **last shared** timestamp + lookback label (90d vs full)
+- See when **AI is sponsored** by the clinic (49a WIP — wallet badge)
 
 Clinics use the **web portal** (be-05); patients use this app prompt.
 
@@ -22,29 +40,35 @@ Clinics use the **web portal** (be-05); patients use this app prompt.
 
 #### 49a — Account / clinic link strip
 
-**Surface:** extend `AccountStrip.tsx` or new **“My clinic”** card on dashboard.
+**Surface:** `ClinicLinkStrip.tsx` on dashboard (partial WIP).
 
 | State | UI |
 |-------|-----|
-| No link | “Link to clinic” → enter clinic email → `POST /v1/shares/request` |
-| Pending (they invited you) | Banner: “&lt;clinic&gt; invited you” → Approve / Reject |
+| No link | Enter clinic email → `POST /v1/shares/request` |
+| Pending (they invited you) | “&lt;clinic&gt; invited you” → Approve / Reject |
 | Pending (you requested) | “Waiting for &lt;clinic&gt; to approve” |
-| Approved | “Linked to &lt;clinic display name&gt;” + **Share data** + Revoke |
-| Approved + sponsor | Badge: “AI sponsored by &lt;clinic&gt;” (from `/v1/wallet` + share) |
+| Approved | “Shares data with &lt;clinic&gt;” + **Share data** + Revoke + last-shared line |
+| Approved + sponsor | “AI sponsored by &lt;clinic&gt;” (from `/v1/wallet`) |
 
 On login: `GET /v1/shares/pending-for-me` — show badge if action needed.
 
+**Last shared line (when blob exists):** `Shared · 28 Jun 2026 · 90 days` or `Shared · … · full history`
+
 #### 49b — Share with clinic (encrypted upload)
 
-**Service:** `ShareExportService.ts` (see be-04)
+**Service:** `ShareExportService.ts` (see `prompt-be-04`)
 
-1. Confirm dialog: what will be shared (meals, CGM, labs, weight, rules — last N days)
-2. Build export JSON (reuse backup keys / subset)
-3. Encrypt + `POST /v1/sync/upload`
-4. Success: “Shared with &lt;clinic&gt; · &lt;timestamp&gt;”
+1. **Confirm dialog** — patient picks window:
+   - **90 days (recommended)** — default; ~280 KB upload
+   - **Full history on phone** — when clinic needs long range (e.g. 5 years); larger upload (~1 MB+ gzip)
+   - List what is included: meals, CGM, labs, Withings (weight/HR/workouts), rules, targets
+   - Explicit: “Clinic will see **all** data in this snapshot”
+2. `buildClinicExport({ lookbackMode })` — reuse `LocalBackupService` key list + time filter; exclude tokens/secrets (`EXCLUDED_ASYNC_KEYS`, no `withingsTokens`)
+3. JSON → gzip → encrypt (AES-256-GCM per be-04) → `POST /v1/sync/upload` with `summary.lookbackMode`
+4. Success: “Shared with &lt;clinic&gt; · &lt;timestamp&gt; · 90 days” (or “full history”)
 5. Error: retry; offline queue (optional v2)
 
-**Not automatic on link approve** — patient explicitly taps **Share** (privacy). Optional setting “Share automatically weekly” → v2.
+**Not automatic on link approve** — patient explicitly taps **Share**. Optional “Share automatically weekly” → v2.
 
 #### 49c — Revoke
 
@@ -75,8 +99,9 @@ On app open + after login: poll pending plans if linked to clinic.
 |------|------|
 | `app/src/services/ShareApiService.ts` | `/v1/shares/*` client |
 | `app/src/services/PlansApiService.ts` | `/v1/plans/pending`, download, applied |
-| `app/src/services/ShareExportService.ts` | export + encrypt + upload |
-| `app/src/components/ClinicLinkStrip.tsx` | link UI |
+| `app/src/services/ShareExportService.ts` | `buildClinicExport`, gzip, encrypt, upload |
+| `app/src/services/LocalBackupService.ts` | reuse export key list / merge helpers (refactor shared builder) |
+| `app/src/components/ClinicLinkStrip.tsx` | link UI + Share button + last-shared |
 | `app/src/screens/DashboardScreen.tsx` | mount strip |
 | `app/src/components/AccountStrip.tsx` | sponsored badge hook |
 
@@ -86,9 +111,11 @@ On app open + after login: poll pending plans if linked to clinic.
 
 - [ ] Request clinic by email → clinic sees pending on web (be-05)
 - [ ] Approve clinic invite → approved state + sponsor badge
-- [ ] Share data → clinic portal shows last sync + charts
+- [ ] Share data (default 90d) → clinic portal shows last sync + **all** chart sections
+- [ ] Share full history → clinic sees `lookbackMode: full` label + wider date range
+- [ ] Re-share after new meals → clinic latest blob updates
 - [ ] Revoke → clinic gets 403 on download
-- [ ] Solo user — no clinic UI noise (collapsed / hidden)
+- [ ] Solo user — strip usable but no clinic required
 - [ ] Clinic PDF upload → patient apply → medical rules updated; clinic sees **applied**
 
 ---
@@ -96,7 +123,9 @@ On app open + after login: poll pending plans if linked to clinic.
 ### Deferred
 
 - Push notification when clinic invites or sends plan
-- Auto-sync schedule
+- Auto-sync schedule (weekly Wi‑Fi)
+- Mentor-initiated “please share 180d” request banner (v2)
+- CGM retention/rollup on phone for multi-year local storage (separate prompt)
 - In-app chat with human clinic (AI mentors remain separate)
 
 ---

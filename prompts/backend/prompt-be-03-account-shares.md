@@ -11,7 +11,7 @@ Builds on **`done/prompt-be-02-accounts-auth.md`** · **`done/prompt-be-02b-app-
 - **Mentor pays AI** for **approved** linked patients — sponsored debit from mentor wallet (**prompt-be-06**); no patient card required while sponsored
 - **Many clinics** — same API for every mentor; no per-clinic deploy
 - Bidirectional onboarding — mentor invites patient **or** patient requests mentor; other party approves
-- **One active sponsor mentor per patient** (MVP) — at most one `approved` share with `sponsor_ai = true` per patient
+- **One active sponsor mentor per patient** (MVP) — ~~superseded~~ **decoupled in shipped code:** many shares; optional `ai_sponsorships` with split % (see `done/prompt-be-03-account-shares.md`)
 
 ---
 

@@ -1,7 +1,19 @@
 # Backend Phase 4 — Clinic web portal (mentor dashboard)
 
-**Status: backlog (spec draft 2026-06-29)**  
+**Status: backlog (spec draft 2026-06-29; product decisions locked 2026-07)**  
 **Builds on:** `done/prompt-be-02b-app-login.md` · `prompt-be-03-account-shares.md` · `prompt-be-04-encrypted-sync.md`.
+
+---
+
+## Product decisions (locked 2026-07 — align with be-04 + prompt49)
+
+| Decision | Rule |
+|----------|------|
+| **Data source** | Decrypt latest `sync_blobs` ciphertext from be-04 — **phone persistence snapshot**, not live API to patient device. |
+| **Visibility** | **Once patient has shared, clinic can view all sections in that snapshot** (meals, CGM, labs, Withings, rules, targets). Read-only. No per-field hiding in MVP. |
+| **Window label** | Show `summary.lookbackMode`: **“90 days”** or **“Full history”** + `dayRange.from`–`to`. Patient chose window at share time. |
+| **Refresh** | **Last updated** = blob `createdAt`. New data only after patient taps Share again in app. |
+| **Cannot pull** | Clinic cannot request sync from browser — patient must push. (Optional “please share” nudge → v2.) |
 
 ---
 
@@ -49,17 +61,21 @@ Update **`done/prompt-be-07-landing-website.md`** when live: patient CTA + **Cli
 | Page | Features |
 |------|----------|
 | **Home** | Pending invites/requests count; quick “Invite patient” |
-| **Patients** | Table: email, display name, link status, last sync time, sponsor badge |
+| **Patients** | Table: email, display name, link status, **last sync** + lookback (90d / full), sponsor badge |
 | **Invite** | Enter patient email → `POST /v1/shares/invite` |
 | **Requests** | Incoming patient requests → approve / reject |
-| **Patient detail** | Decrypt latest blob (be-04); read-only views: |
+| **Patient detail** | Decrypt latest blob (be-04); **read-only views for entire snapshot** |
 
 **Patient detail — read-only charts (MVP):**
 
-- CGM trend (reuse chart logic port or simplified SVG)
-- Recent meals list (7–14 days)
-- Latest lab summary
-- Weight trend if present
+Render from decrypted export JSON (same keys as App Backup). Show **full date range in blob** (not hard-coded 7d):
+
+- CGM / glucose trend (downsample for display if needed)
+- Meals + macros (all days in snapshot)
+- Lab reports (all in snapshot)
+- Withings: weight trend, HR, workouts, calorie strip data if present
+- Rules / targets summary (read-only text)
+- Header: **“Shared data · 90 days · updated &lt;date&gt;”** or **“Full history · updated …”**
 - **No AI chat in portal v1** — clinic uses data view; patient AI stays in app
 
 **Patient detail — medical plan (rules loop):**
@@ -92,9 +108,9 @@ Clinic invites patient email     OR     Patient requests clinic email
               ↓                                    ↓
          pending share  ←—— counterparty approve ——→  approved
               ↓
-Patient taps "Share with clinic" in app → be-04 upload
+Patient taps "Share with clinic" in app (default 90d or full history) → be-04 upload
               ↓
-Clinic portal "Last updated" refreshes → open patient → view charts
+Clinic portal "Last updated" + lookback label → open patient → view **all** snapshot sections
 ```
 
 ### 5. Tech stack (recommended)
