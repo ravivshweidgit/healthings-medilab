@@ -16,7 +16,7 @@ Shipped clinic sync stores **full patient exports in Postgres** (`sync_blobs`) a
 
 | # | Rule | Detail |
 |---|------|--------|
-| **1** | **Snapshot relay, cleared on revoke** | Patient share/refresh → gzip export in **server heap `Map`** (or single slot), not durable `sync_blobs`. **DELETE** on share revoke (+ optional TTL while linked, e.g. 8h). |
+| **1** | **Snapshot relay, immediate purge on revoke** | Patient share/refresh → gzip in **server heap `Map` only** — **not** Postgres `sync_blobs`. **Revoke → instant `delete(patientId)`** — no DB row, no archive. Optional TTL while linked (e.g. 8h). |
 | **2** | **Pending My Rules mailbox** | Clinic saves rules → `pendingRules` on relay. Phone polls → `saveUserRulesWithHistory({ source: 'clinic' })` → **null** pending. Poll when null → no-op. **No** `clinic_patient_overlays.rules_json`. |
 | **3** | **Clinic mentor chat not on server** | Browser holds `thread[]`; each `POST` sends `priorMessages`. Server returns Gemini reply only. Refresh/close tab → lost (intentional). **No** `chat_json` DB. |
 | **4** | **Patient manual Share (app)** | On **Data sharing** strip, each approved clinic row: **Share** (upload snapshot to relay) + **Revoke**. Share places gzip on server **waiting for clinic to collect** — remains while link is approved even if patient **closes the app**. Clinic collects via portal **Refresh snapshot** (or reads relay directly). Auto-upload on clinic request + on first approve still applies. |
@@ -24,11 +24,15 @@ Shipped clinic sync stores **full patient exports in Postgres** (`sync_blobs`) a
 **Also:**
 
 - **My Rules history** — phone only (`user_rules_history_v1`); **remove** `clinic_patient_rules_history` + portal server history UI.
-- **Revoke hook** — purge relay snapshot + pending rules + `sync_update_requests` for patient.
-- **`privacy.html`** — default on device; optional relay while linked; deleted on revoke; clinic chat not stored.
+- **Revoke hook** — **immediate purge** of relay slot (`Map.delete`) — snapshot, pending rules, chat workspace, `sync_update_requests`. **No health export in DB** after revoke (stop writing `sync_blobs` / `clinic_patient_overlays` on ship).
+- **`privacy.html`** — we do not upload health data by default; optional share only on patient action; revoke removes server copy; user always in control; regional unavailability line; no PHI via email.
 - **Gemini on server** — still processes snapshot/priorMessages in flight; disclose in policy.
 
-**Regulatory positioning (wellness alpha):** not SaMD; optional patient-directed share; no longitudinal server medical record.
+**Regulatory positioning (wellness alpha):** not SaMD; **we do not upload health data** unless the patient chooses (approve link + Share); **revoke → immediate purge, no DB**; user always in control; no longitudinal server medical record.
+
+**Regulatory fallback:** relay is an isolatable layer — regulators can require disabling clinic sharing only; the phone app continues. Privacy copy (locked): *“Optional clinic sharing may be unavailable in your region.”* Config kill switch: `CLINIC_RELAY_ENABLED=false` → no upload/read; accounts unchanged.
+
+**No email ingestion:** `otp@healthings.ai` is sign-in and account requests only; never accept patient health exports by email.
 
 ---
 
@@ -46,7 +50,7 @@ Clinic portal
   save rules     ──► PUT pendingRules (mailbox)
   chat           ──► POST { message, priorMessages } → { reply } (stateless)
 
-Revoke share     ──► relay.delete(patientId) + clear pending + sync requests
+Revoke share     ──► relay.delete(patientId) immediately — nothing in DB
 ```
 
 **App UX (Data sharing strip — `ClinicLinkStrip`)**
@@ -54,7 +58,7 @@ Revoke share     ──► relay.delete(patientId) + clear pending + sync reques
 | Control | Behaviour |
 |---------|-----------|
 | **Share** | Patient taps → `shareClinicExport('90d')` → relay slot updated; show last-shared time + version. Works with app closed afterward (blob on server). |
-| **Revoke** | Purge relay + end whitelist (existing). |
+| **Revoke** | **Immediate purge** of in-memory relay — snapshot, pending rules, chat; **no database copy** of health export. |
 | Status line | `Last shared: … (vN)` or `No upload yet — tap Share or wait for clinic refresh` |
 
 **Alpha note:** Until relay ships, `POST /v1/sync/upload` still writes `sync_blobs`; UI and API shape unchanged so relay swap is server-only.

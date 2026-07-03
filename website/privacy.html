@@ -31,7 +31,9 @@
         <h1>Privacy Policy</h1>
         <p class="lead">
           Healthings Medilab is <strong>local-first</strong>: your health data stays on your phone.
-          Last updated: June 29, 2026.
+          <strong>We do not upload your health data</strong> unless you choose to share with a linked
+          clinic — and you can <strong>revoke</strong> that at any time. You are always in control.
+          Last updated: July 3, 2026.
         </p>
       </section>
 
@@ -41,6 +43,9 @@
           Healthings is an alpha wellness app — a personal metabolic coach for meals, glucose,
           and progress. It is <strong>not a medical device</strong> and does not diagnose or
           treat conditions. Do not use it for emergency medical decisions.
+          <strong>Your health data stays on your device by default.</strong> Uploading to our
+          server happens only when <strong>you</strong> approve clinic sharing and choose to
+          share — never automatically without your link and your action.
         </p>
 
         <h2>What stays on your device</h2>
@@ -54,14 +59,50 @@
           <li>Withings tokens and synced weight data (if you connect Withings)</li>
         </ul>
         <p>
-          We do <strong>not</strong> upload this health data to our server in the alpha version.
-          You can export or delete your data using in-app backup tools.
+          We do <strong>not</strong> upload this health data to our server. You control exports
+          and deletion through in-app backup tools.
+        </p>
+
+        <h2>Optional clinic sharing (your choice)</h2>
+        <p>
+          Sharing with a clinic is <strong>entirely optional</strong>. Nothing is uploaded until
+          you <strong>approve</strong> a clinic in <strong>Data sharing</strong> and tap
+          <strong>Share</strong> (or respond to a refresh request while the app is open after you
+          have already approved that clinic). <strong>You are always in control:</strong> you choose
+          who to link, when to share, and you can <strong>revoke access</strong> at any time.
+        </p>
+        <p>
+          While a link is approved and you have shared, a current snapshot sits in
+          <strong>temporary server memory only</strong> — a handoff for that clinic, not saved in our
+          database and not a permanent medical record.
+          <strong>Revoke</strong> <strong>immediately purges</strong> that copy (snapshot, pending
+          rules, and clinic workspace data for that link). The app works fully without any clinic
+          link.
+        </p>
+        <p>
+          Clinic mentor chat and rule suggestions (when enabled) apply only while you keep a
+          clinic linked. They are workspace aids for your care team — not a copy of your full
+          history on our servers.
+        </p>
+        <p>
+          <strong>Optional clinic sharing may be unavailable in your region</strong> if required by
+          law or regulator guidance. The wellness app on your phone continues to work without
+          clinic sharing.
+        </p>
+        <p>
+          We do <strong>not</strong> accept patient health exports by email. Do not send health
+          data to <a href="mailto:otp@healthings.ai">otp@healthings.ai</a> — that address is for
+          sign-in codes and account requests only.
         </p>
 
         <h2>What we collect on our server</h2>
         <ul>
           <li><strong>Email address</strong> — for sign-in with a one-time code (no password)</li>
           <li><strong>Account metadata</strong> — login timestamps needed to operate auth</li>
+          <li>
+            <strong>Optional clinic link</strong> — if you approve sharing, which clinic accounts may
+            access your snapshot (whitelist only; no health export without your action)
+          </li>
         </ul>
         <p>API host: <a href="https://api.healthings.ai/health">api.healthings.ai</a> (HTTPS).</p>
 
