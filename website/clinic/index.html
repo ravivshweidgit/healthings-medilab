@@ -260,13 +260,18 @@
         showError(document.getElementById('login-error'), '');
         loginEmail = document.getElementById('email').value.trim().toLowerCase();
         if (!loginEmail) return;
-        const res = await fetch(API + '/v1/auth/otp/request', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: loginEmail, role: 'mentor' }),
-        });
-        if (!res.ok) {
-          showError(document.getElementById('login-error'), (await res.json()).error || 'Could not send code');
+        try {
+          const res = await api('/v1/auth/otp/request', {
+            method: 'POST',
+            body: JSON.stringify({ email: loginEmail, role: 'mentor' }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showError(document.getElementById('login-error'), err.error || 'Could not send code');
+            return;
+          }
+        } catch {
+          showError(document.getElementById('login-error'), 'Could not reach server — try again');
           return;
         }
         document.getElementById('login-step-email').hidden = true;
@@ -277,23 +282,27 @@
       document.getElementById('verify-code').onclick = async () => {
         showError(document.getElementById('login-error'), '');
         const code = document.getElementById('code').value.trim();
-        const res = await fetch(API + '/v1/auth/otp/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: loginEmail, code }),
-        });
-        if (!res.ok) {
-          showError(document.getElementById('login-error'), (await res.json()).error || 'Invalid code');
-          return;
-        }
-        const data = await res.json();
-        saveTokens(data.accessToken, data.refreshToken);
-        document.getElementById('login-view').hidden = true;
-        document.getElementById('app-view').style.display = 'block';
         try {
-          await refreshDashboard();
-        } catch (e) {
-          showError(document.getElementById('app-error'), e.message);
+          const res = await api('/v1/auth/otp/verify', {
+            method: 'POST',
+            body: JSON.stringify({ email: loginEmail, code }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showError(document.getElementById('login-error'), err.error || 'Invalid code');
+            return;
+          }
+          const data = await res.json();
+          saveTokens(data.accessToken, data.refreshToken);
+          document.getElementById('login-view').hidden = true;
+          document.getElementById('app-view').style.display = 'block';
+          try {
+            await refreshDashboard();
+          } catch (e) {
+            showError(document.getElementById('app-error'), e.message);
+          }
+        } catch {
+          showError(document.getElementById('login-error'), 'Could not reach server — try again');
         }
       };
 
