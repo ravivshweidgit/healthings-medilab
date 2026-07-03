@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import type { AuthUser } from '../services/AuthApiService';
-import { shareInitialClinicSnapshotIfLinked } from '../services/ClinicSyncService';
+import { shareClinicSnapshotNow, shareInitialClinicSnapshotIfLinked } from '../services/ClinicSyncService';
 import {
   approveShare,
   clinicDisplayLabel,
@@ -40,7 +40,8 @@ type Props = {
 const L = {
   title: 'Data sharing',
   subtitle: 'Optional whitelist — who may access your data',
-  clinicSyncHint: 'Your clinic requests updates from the portal. When you open the app, new data uploads automatically.',
+  clinicSyncHint:
+    'Your clinic can collect from the server after you tap Share — even if you close the app. Opening the app also auto-uploads when the clinic requests an update.',
   emailPh: 'clinic@example.com',
   send: 'Send request',
   waiting: 'Waiting for approval',
@@ -48,11 +49,13 @@ const L = {
   approve: 'Approve',
   reject: 'Reject',
   sharesWith: 'Shares data with',
+  share: 'Share',
+  shareOk: 'Snapshot uploaded — your clinic can collect it from their portal.',
   revoke: 'Revoke access',
   noShares: 'No accounts whitelisted — app works fully without sharing',
   mentorWeb: 'Mentor account: manage patients and AI sponsorship at healthings.ai/clinic',
   lastShared: 'Last shared',
-  neverShared: 'No upload yet — opens automatically when clinic requests',
+  neverShared: 'No upload yet — tap Share or wait for clinic to request an update',
   sponsored: 'AI sponsored by',
   sponsoredUntil: 'until',
   sponsorshipExpired: 'AI sponsorship expired',
@@ -223,22 +226,40 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand }: Props) {
               <Text style={styles.cardText}>
                 {L.sharesWith} {clinicDisplayLabel(share)}
               </Text>
-              <Pressable
-                style={[styles.btnGhost, busy && styles.btnDisabled]}
-                onPress={() => {
-                  Alert.alert(L.revoke, 'Remove this account from your whitelist?', [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: L.revoke,
-                      style: 'destructive',
-                      onPress: () => void run(async () => { await revokeShare(share.id); }),
-                    },
-                  ]);
-                }}
-                disabled={busy}
-              >
-                <Text style={styles.btnGhostText}>{L.revoke}</Text>
-              </Pressable>
+              <View style={styles.row}>
+                <Pressable
+                  style={[styles.btnPrimary, busy && styles.btnDisabled]}
+                  onPress={() =>
+                    void run(async () => {
+                      await shareClinicSnapshotNow();
+                      Alert.alert(L.share, L.shareOk);
+                    })
+                  }
+                  disabled={busy}
+                >
+                  {busy ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.btnPrimaryText}>{L.share}</Text>
+                  )}
+                </Pressable>
+                <Pressable
+                  style={[styles.btnGhost, busy && styles.btnDisabled]}
+                  onPress={() => {
+                    Alert.alert(L.revoke, 'Remove this account from your whitelist?', [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: L.revoke,
+                        style: 'destructive',
+                        onPress: () => void run(async () => { await revokeShare(share.id); }),
+                      },
+                    ]);
+                  }}
+                  disabled={busy}
+                >
+                  <Text style={styles.btnGhostText}>{L.revoke}</Text>
+                </Pressable>
+              </View>
             </View>
           ))}
 

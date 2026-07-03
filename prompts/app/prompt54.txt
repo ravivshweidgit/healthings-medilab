@@ -1,7 +1,7 @@
 ## Prompt 54 — Local-first clinic relay (ephemeral snapshot + rules mailbox + stateless chat)
 
-**Status: backlog (spec draft 2026-07-03)**  
-**Priority:** **after `prompt53`** (nutritionist session PDF import)  
+**Status: backlog — app **Share** button shipped + phone-tested 2026-07-03; server relay pending**  
+**Priority:** **next** (after `done/prompt53`)  
 **Builds on:** `prompt49.txt` · `done/prompt51.txt` (phone rules history) · clinic refresh snapshot flow
 
 ---
@@ -19,6 +19,7 @@ Shipped clinic sync stores **full patient exports in Postgres** (`sync_blobs`) a
 | **1** | **Snapshot relay, cleared on revoke** | Patient share/refresh → gzip export in **server heap `Map`** (or single slot), not durable `sync_blobs`. **DELETE** on share revoke (+ optional TTL while linked, e.g. 8h). |
 | **2** | **Pending My Rules mailbox** | Clinic saves rules → `pendingRules` on relay. Phone polls → `saveUserRulesWithHistory({ source: 'clinic' })` → **null** pending. Poll when null → no-op. **No** `clinic_patient_overlays.rules_json`. |
 | **3** | **Clinic mentor chat not on server** | Browser holds `thread[]`; each `POST` sends `priorMessages`. Server returns Gemini reply only. Refresh/close tab → lost (intentional). **No** `chat_json` DB. |
+| **4** | **Patient manual Share (app)** | On **Data sharing** strip, each approved clinic row: **Share** (upload snapshot to relay) + **Revoke**. Share places gzip on server **waiting for clinic to collect** — remains while link is approved even if patient **closes the app**. Clinic collects via portal **Refresh snapshot** (or reads relay directly). Auto-upload on clinic request + on first approve still applies. |
 
 **Also:**
 
@@ -35,16 +36,28 @@ Shipped clinic sync stores **full patient exports in Postgres** (`sync_blobs`) a
 
 ```
 Phone (source of truth)
-  share/refresh ──► POST /v1/sync/upload ──► relay.set(patientId, snapshotGzip, summary)
+  Share (manual) ──► POST /v1/sync/upload ──► relay.set(patientId, snapshotGzip, summary)
+  clinic refresh ──► sync_update_request ──► phone auto-upload when app open (unchanged)
   poll rules     ──► GET consume pendingRules ──► apply + null
 
 Clinic portal
   view patient   ──► GET relay snapshot (approved share only)
+  Refresh snap   ──► requests phone OR reads relay if patient already tapped Share
   save rules     ──► PUT pendingRules (mailbox)
   chat           ──► POST { message, priorMessages } → { reply } (stateless)
 
 Revoke share     ──► relay.delete(patientId) + clear pending + sync requests
 ```
+
+**App UX (Data sharing strip — `ClinicLinkStrip`)**
+
+| Control | Behaviour |
+|---------|-----------|
+| **Share** | Patient taps → `shareClinicExport('90d')` → relay slot updated; show last-shared time + version. Works with app closed afterward (blob on server). |
+| **Revoke** | Purge relay + end whitelist (existing). |
+| Status line | `Last shared: … (vN)` or `No upload yet — tap Share or wait for clinic refresh` |
+
+**Alpha note:** Until relay ships, `POST /v1/sync/upload` still writes `sync_blobs`; UI and API shape unchanged so relay swap is server-only.
 
 **Storage:** in-memory `Map` per `patientId` on single VPS (alpha). Redis + TTL when multi-instance.
 
@@ -75,6 +88,8 @@ Revoke share     ──► relay.delete(patientId) + clear pending + sync reques
 | Server clinic | `server/src/services/clinicOverlay.ts` — slim to mailbox + stateless chat |
 | Server shares | `server/src/services/shares.ts` — revoke purge |
 | App pull | `app/src/services/ClinicOverlayService.ts` — consume pending |
+| App share | `app/src/services/ClinicSyncService.ts` — `shareClinicSnapshotNow()` |
+| App UI | `app/src/components/ClinicLinkStrip.tsx` — **Share** + Revoke per approved clinic |
 | Clinic web | `website/clinic/clinic-workspace.js` — in-memory chat; drop server history |
 | Privacy | `website/privacy.html` |
 | Spec cross-links | `prompt49.txt`, `prompt-be-04`, `prompt-be-05`, `done/prompt51.txt` (amend) |
@@ -83,8 +98,11 @@ Revoke share     ──► relay.delete(patientId) + clear pending + sync reques
 
 ### Phone-tested checklist
 
-- [ ] Share snapshot → clinic portal loads → data not in Postgres (`sync_blobs` empty)
-- [ ] Revoke share → mentor 404; relay empty; phone data intact
+- [x] **Share** on approved clinic → upload succeeds; last-shared line updates
+- [x] Close app → clinic **Refresh snapshot** still loads data (relay waiting)
+- [ ] **Revoke** → relay empty; clinic 404; phone data intact
+- [ ] Clinic **request sync** while app open → auto-upload still works
+- [ ] Share snapshot → clinic portal loads → data not in Postgres after relay ship (`sync_blobs` empty)
 - [ ] Clinic edits rules → phone poll applies → server pending null
 - [ ] Clinic chat multi-turn works with `priorMessages`; hard refresh loses thread
 - [ ] My Rules history only on phone; no server history endpoint
@@ -93,6 +111,6 @@ Revoke share     ──► relay.delete(patientId) + clear pending + sync reques
 
 ### Related
 
-- **`prompt53.txt`** — ship **first** (nutritionist directives on phone)
+- **`done/prompt53.txt`** — nutritionist directives (shipped)
 - **`prompt52.txt`** — rawText-only My Rules (can ship with 53 or 54)
 - **`prompt-be-04-encrypted-sync.md`** — true E2E ciphertext deferred; alpha uses relay per this prompt

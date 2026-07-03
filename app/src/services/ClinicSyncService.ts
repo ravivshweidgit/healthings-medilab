@@ -5,7 +5,7 @@
 
 import { listShares } from './ShareApiService';
 import { fetchSyncUpdateRequests } from './SyncApiService';
-import { shareClinicExport } from './ShareExportService';
+import { shareClinicExport, type ShareExportResult } from './ShareExportService';
 
 /** Poll while dashboard is mounted so clinic refresh works if app was already open. */
 export const CLINIC_SYNC_POLL_MS = 10_000;
@@ -52,4 +52,13 @@ export async function shareInitialClinicSnapshotIfLinked(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Patient taps Share — upload snapshot for clinic to collect (stays on server if app closes). */
+export async function shareClinicSnapshotNow(): Promise<ShareExportResult> {
+  const approved = await listShares('approved');
+  if (approved.length === 0) {
+    throw new Error('No linked clinic accounts');
+  }
+  return shareClinicExport('90d');
 }

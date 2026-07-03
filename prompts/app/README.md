@@ -6,7 +6,7 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 
 | Order | Prompt | Topic |
 |-------|--------|--------|
-| **1 — next** | **`prompt54.txt`** | Local-first clinic relay — snapshot nulled on revoke, rules mailbox, stateless chat |
+| **1 — next** | **`prompt54.txt`** | Local-first clinic relay — **Share button shipped**; server relay + revoke purge + rules mailbox pending |
 | 2 | `prompt52.txt` | My Rules rawText-only save (optional with 54) |
 
 ## Backlog (`prompts/app/`)
@@ -21,7 +21,7 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 | `prompt47.txt` | Play Store internal testing (local-first privacy; AAB + privacy page) |
 | `prompt49.txt` | Link to clinic + share encrypted data + sponsored AI badge |
 | `prompt52.txt` | My Rules rawText-only save — deprecate summarise-on-save |
-| `prompt54.txt` | **NEXT** — Local-first clinic relay (revoke purge, rules mailbox, stateless chat) |
+| `prompt54.txt` | **NEXT** — relay + mailbox (Share button on phone **done** 2026-07-03) |
 
 ## Done (`prompts/app/done/`)
 
