@@ -891,25 +891,28 @@
   function renderRules(panel, ctx) {
     const rules = effectiveRules(ctx.parsed, ctx.overlay);
     const raw = rules?.rawText || '';
+    const rtl = profileRtl(ctx.parsed.profile);
 
     panel.innerHTML = `
-      <p class="sub" style="margin:0 0 16px"><strong>Live rules</strong> — edits save to the server and sync to the patient's phone when they open the app.</p>
-      <div class="rules-editor">
-        <label for="rules-raw"><strong>Patient dietary rules</strong></label>
-        <textarea id="rules-raw" placeholder="e.g. Low cholesterol, carbs at least 130g, avoid red meat…">${esc(raw)}</textarea>
-        <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
-          <button type="button" class="ws-btn primary" id="rules-save">Save &amp; analyse with AI</button>
-          <span id="rules-status" class="sub"></span>
+      <p class="sub rules-intro"><strong>Live rules</strong> — edits save to the server and sync to the patient's phone when they open the app.</p>
+      <div class="rules-layout">
+        <div class="rules-editor">
+          <label for="rules-raw"><strong>Patient dietary rules</strong></label>
+          <textarea id="rules-raw"${rtl ? ' dir="rtl"' : ''} placeholder="e.g. Low cholesterol, carbs at least 130g, avoid red meat…">${esc(raw)}</textarea>
+          <div class="rules-actions">
+            <button type="button" class="ws-btn primary" id="rules-save">Save &amp; analyse with AI</button>
+            <span id="rules-status" class="sub"></span>
+          </div>
+          ${rules?.constraints?.length ? `
+          <div class="rules-constraints">
+            <strong>AI understood:</strong>
+            <ul>${rules.constraints.map((c) => `<li>✓ ${esc(c)}</li>`).join('')}</ul>
+            ${rules.summary ? `<p class="sub">Summary: ${esc(rules.summary)}</p>` : ''}
+          </div>` : ''}
+          <p class="rules-hint">Snapshot rules are shown until you save. After save, clinic rules override on the server.</p>
         </div>
-        ${rules?.constraints?.length ? `
-        <div class="rules-constraints">
-          <strong>AI understood:</strong>
-          <ul>${rules.constraints.map((c) => `<li>✓ ${esc(c)}</li>`).join('')}</ul>
-          ${rules.summary ? `<p class="sub">Summary: ${esc(rules.summary)}</p>` : ''}
-        </div>` : ''}
-        <p class="rules-hint">Snapshot rules are shown until you save. After save, clinic rules override on the server.</p>
-      </div>
-      <div id="rules-history-host"><p class="sub rules-hint" style="margin-top:20px">Loading version history…</p></div>`;
+        <div id="rules-history-host" class="rules-history-panel"><p class="sub rules-hint">Loading version history…</p></div>
+      </div>`;
 
     panel.querySelector('#rules-save')?.addEventListener('click', () => void saveRules(ctx, panel));
     void loadRulesHistory(panel, ctx);
@@ -1060,9 +1063,10 @@
 
   function renderWorkspace(root, ctx) {
     const tab = ctx.tab || 'dashboard';
+    const fillHeight = tab === 'rules';
     root.innerHTML = `
-      <div class="ws-panel">
-        <div id="tab-body"></div>
+      <div class="ws-panel${fillHeight ? ' ws-panel-fill' : ''}">
+        <div id="tab-body"${fillHeight ? ' class="rules-tab"' : ''}></div>
       </div>`;
     const body = root.querySelector('#tab-body');
     if (!body) return;

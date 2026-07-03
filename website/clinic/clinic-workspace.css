@@ -25,6 +25,8 @@ body.clinic-workspace {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .ws-topbar {
@@ -91,7 +93,12 @@ body.clinic-workspace {
 .ws-main {
   max-width: var(--max-w);
   margin: 0 auto;
-  padding: 0 24px 48px;
+  padding: 0 24px 24px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
 }
 
 .ws-panel {
@@ -100,6 +107,21 @@ body.clinic-workspace {
   box-shadow: var(--shadow);
   padding: 20px 24px 28px;
   min-height: 400px;
+}
+
+.ws-panel-fill {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.ws-panel-fill #tab-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .ws-error { color: var(--red); padding: 12px 24px; max-width: var(--max-w); margin: 0 auto; }
@@ -377,20 +399,61 @@ body.clinic-workspace {
 }
 
 /* Rules */
-.rules-editor textarea {
+.rules-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 12px;
+}
+.rules-intro { margin: 0; flex-shrink: 0; }
+.rules-layout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 16px;
+}
+.rules-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 8px;
+}
+.rules-editor label { flex-shrink: 0; }
+.rules-editor textarea,
+.rules-editor #rules-raw {
+  flex: 1;
   width: 100%;
-  min-height: 160px;
+  min-height: 240px;
   border: 1px solid var(--grid);
   border-radius: 10px;
   padding: 12px;
   font-family: inherit;
   font-size: 0.95rem;
   line-height: 1.5;
+  resize: none;
+  overflow-y: auto;
 }
-.rules-constraints { margin-top: 16px; }
+.rules-actions {
+  flex-shrink: 0;
+  margin-top: 4px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.rules-constraints { margin-top: 8px; flex-shrink: 0; }
 .rules-constraints li { margin-bottom: 6px; font-size: 0.9rem; }
-.rules-hint { font-size: 0.82rem; color: var(--muted); margin-top: 8px; }
-.rules-history-title { margin: 24px 0 10px; font-size: 1rem; }
+.rules-hint { font-size: 0.82rem; color: var(--muted); margin-top: 4px; flex-shrink: 0; }
+.rules-history-panel {
+  flex-shrink: 0;
+  max-height: min(28vh, 220px);
+  overflow-y: auto;
+  border-top: 1px solid var(--grid);
+  padding-top: 12px;
+}
+.rules-history-title { margin: 0 0 10px; font-size: 1rem; }
 .rules-history-list { list-style: none; margin: 0; padding: 0; }
 .rules-history-item { border-bottom: 1px solid var(--grid, #e8e8e8); }
 .rules-history-btn {
