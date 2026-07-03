@@ -405,6 +405,7 @@ body.clinic-workspace {
   flex-direction: column;
   min-height: 0;
   gap: 12px;
+  overflow-y: auto;
 }
 .rules-intro { margin: 0; flex-shrink: 0; }
 .rules-layout {
@@ -412,46 +413,90 @@ body.clinic-workspace {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  gap: 16px;
+  gap: 12px;
 }
-.rules-editor {
+.rules-fold {
+  border: 1px solid var(--grid);
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+.rules-fold-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border: none;
+  background: #fafbfc;
+  cursor: pointer;
+  font: inherit;
+}
+.rules-fold-toggle:hover { background: rgba(0, 0, 0, 0.03); }
+.rules-fold-title { font-weight: 700; flex-shrink: 0; }
+.rules-fold-preview {
   flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rules-fold-meta {
+  font-size: 0.82rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.rules-fold-chevron {
+  color: var(--muted);
+  flex-shrink: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+.rules-fold.is-open .rules-fold-toggle { border-bottom: 1px solid var(--grid); }
+.rules-fold-body { padding: 12px 14px 14px; }
+.rules-fold:not(.is-open) .rules-fold-body { display: none; }
+.rules-fold.is-open .rules-fold-preview { display: none; }
+.rules-editor-section .rules-fold-body {
   display: flex;
   flex-direction: column;
-  min-height: 0;
   gap: 8px;
 }
-.rules-editor label { flex-shrink: 0; }
-.rules-editor textarea,
-.rules-editor #rules-raw {
-  flex: 1;
+.rules-editor-section textarea,
+.rules-editor-section #rules-raw {
   width: 100%;
-  min-height: 240px;
+  min-height: 120px;
   border: 1px solid var(--grid);
   border-radius: 10px;
   padding: 12px;
   font-family: inherit;
   font-size: 0.95rem;
   line-height: 1.5;
-  resize: none;
-  overflow-y: auto;
+  resize: vertical;
+  overflow-y: hidden;
+  box-sizing: border-box;
 }
 .rules-actions {
   flex-shrink: 0;
-  margin-top: 4px;
   display: flex;
   gap: 10px;
   align-items: center;
 }
-.rules-constraints { margin-top: 8px; flex-shrink: 0; }
+.rules-constraints { flex-shrink: 0; }
 .rules-constraints li { margin-bottom: 6px; font-size: 0.9rem; }
-.rules-hint { font-size: 0.82rem; color: var(--muted); margin-top: 4px; flex-shrink: 0; }
+.rules-hint { font-size: 0.82rem; color: var(--muted); margin: 0; flex-shrink: 0; }
+.rules-history-section.is-open .rules-history-panel {
+  max-height: none;
+  overflow: visible;
+  border-top: none;
+  padding-top: 0;
+}
 .rules-history-panel {
   flex-shrink: 0;
   max-height: min(28vh, 220px);
   overflow-y: auto;
-  border-top: 1px solid var(--grid);
-  padding-top: 12px;
 }
 .rules-history-title { margin: 0 0 10px; font-size: 1rem; }
 .rules-history-list { list-style: none; margin: 0; padding: 0; }
@@ -471,6 +516,11 @@ body.clinic-workspace {
 .rules-history-preview { display: block; font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
 .rules-history-detail { margin: 0 0 12px; padding: 12px; background: var(--surface, #f7f7f7); border-radius: 8px; }
 .rules-history-detail.hidden { display: none; }
+.rules-history-detail .rules-raw {
+  margin: 0;
+  max-height: none;
+  overflow: visible;
+}
 .rules-restore-btn { margin-top: 12px; }
 
 /* Labs table */

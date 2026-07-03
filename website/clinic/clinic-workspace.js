@@ -841,6 +841,56 @@
     await saveRules(ctx, panel);
   }
 
+  function rulesTextPreview(raw) {
+    const line = String(raw || '').trim().split('\n').find(Boolean) || 'No rules yet';
+    return line.length > 96 ? `${line.slice(0, 93)}…` : line;
+  }
+
+  function autosizeRulesTextarea(textarea) {
+    if (!textarea) return;
+    textarea.style.height = '0px';
+    textarea.style.height = `${Math.max(120, textarea.scrollHeight)}px`;
+  }
+
+  function wireRulesFolds(panel, ctx) {
+    const editorFold = panel.querySelector('.rules-editor-section');
+    const editorToggle = panel.querySelector('#rules-editor-toggle');
+    const editorOpen = ctx.rulesEditorExpanded !== false;
+    if (editorFold) editorFold.classList.toggle('is-open', editorOpen);
+    editorToggle?.setAttribute('aria-expanded', editorOpen ? 'true' : 'false');
+    const editorChevron = editorToggle?.querySelector('.rules-fold-chevron');
+    if (editorChevron) editorChevron.textContent = editorOpen ? '⌃' : '›';
+
+    editorToggle?.addEventListener('click', () => {
+      const open = ctx.rulesEditorExpanded === false;
+      ctx.rulesEditorExpanded = open;
+      editorFold?.classList.toggle('is-open', open);
+      editorToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (editorChevron) editorChevron.textContent = open ? '⌃' : '›';
+      if (open) autosizeRulesTextarea(panel.querySelector('#rules-raw'));
+    });
+
+    const textarea = panel.querySelector('#rules-raw');
+    if (editorOpen) autosizeRulesTextarea(textarea);
+    textarea?.addEventListener('input', () => autosizeRulesTextarea(textarea));
+
+    const historyFold = panel.querySelector('.rules-history-section');
+    const historyToggle = panel.querySelector('#rules-history-toggle');
+    const historyOpen = !!ctx.rulesHistoryExpanded;
+    if (historyFold) historyFold.classList.toggle('is-open', historyOpen);
+    historyToggle?.setAttribute('aria-expanded', historyOpen ? 'true' : 'false');
+    const historyChevron = historyToggle?.querySelector('.rules-fold-chevron');
+    if (historyChevron) historyChevron.textContent = historyOpen ? '⌃' : '›';
+
+    historyToggle?.addEventListener('click', () => {
+      ctx.rulesHistoryExpanded = !ctx.rulesHistoryExpanded;
+      const open = ctx.rulesHistoryExpanded;
+      historyFold?.classList.toggle('is-open', open);
+      historyToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (historyChevron) historyChevron.textContent = open ? '⌃' : '›';
+    });
+  }
+
   function renderRulesHistoryHost(host, history, ctx, panel) {
     if (!host) return;
     if (!history.length) {
@@ -849,7 +899,6 @@
     }
     const liveRules = effectiveRules(ctx.parsed, ctx.overlay);
     host.innerHTML = `
-      <h3 class="rules-history-title">Version history</h3>
       <ul class="rules-history-list">
         ${history.map((h) => `
           <li class="rules-history-item">
@@ -868,7 +917,10 @@
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-history-id');
         const detail = host.querySelector(`#history-detail-${CSS.escape(id)}`);
-        if (detail) detail.classList.toggle('hidden');
+        if (!detail) return;
+        const willOpen = detail.classList.contains('hidden');
+        host.querySelectorAll('.rules-history-detail').forEach((d) => d.classList.add('hidden'));
+        if (willOpen) detail.classList.remove('hidden');
       });
     });
     host.querySelectorAll('.rules-restore-btn').forEach((btn) => {
@@ -885,6 +937,12 @@
     const host = panel.querySelector('#rules-history-host');
     const history = await fetchRulesHistory(ctx);
     if (!host || !panel.contains(host)) return;
+    const meta = panel.querySelector('.rules-history-section .rules-fold-meta');
+    if (meta) {
+      meta.textContent = history.length
+        ? `${history.length} version${history.length === 1 ? '' : 's'}`
+        : 'No prior versions';
+    }
     renderRulesHistoryHost(host, history, ctx, panel);
   }
 
@@ -892,29 +950,47 @@
     const rules = effectiveRules(ctx.parsed, ctx.overlay);
     const raw = rules?.rawText || '';
     const rtl = profileRtl(ctx.parsed.profile);
+    const editorOpen = ctx.rulesEditorExpanded !== false;
+    const historyOpen = !!ctx.rulesHistoryExpanded;
 
     panel.innerHTML = `
       <p class="sub rules-intro"><strong>Live rules</strong> — edits save to the server and sync to the patient's phone when they open the app.</p>
       <div class="rules-layout">
-        <div class="rules-editor">
-          <label for="rules-raw"><strong>Patient dietary rules</strong></label>
-          <textarea id="rules-raw"${rtl ? ' dir="rtl"' : ''} placeholder="e.g. Low cholesterol, carbs at least 130g, avoid red meat…">${esc(raw)}</textarea>
-          <div class="rules-actions">
-            <button type="button" class="ws-btn primary" id="rules-save">Save &amp; analyse with AI</button>
-            <span id="rules-status" class="sub"></span>
+        <div class="rules-fold rules-editor-section${editorOpen ? ' is-open' : ''}">
+          <button type="button" class="rules-fold-toggle" id="rules-editor-toggle" aria-expanded="${editorOpen ? 'true' : 'false'}">
+            <span class="rules-fold-title">Patient dietary rules</span>
+            <span class="rules-fold-preview">${esc(rulesTextPreview(raw))}</span>
+            <span class="rules-fold-chevron">${editorOpen ? '⌃' : '›'}</span>
+          </button>
+          <div class="rules-fold-body">
+            <textarea id="rules-raw"${rtl ? ' dir="rtl"' : ''} placeholder="e.g. Low cholesterol, carbs at least 130g, avoid red meat…">${esc(raw)}</textarea>
+            <div class="rules-actions">
+              <button type="button" class="ws-btn primary" id="rules-save">Save &amp; analyse with AI</button>
+              <span id="rules-status" class="sub"></span>
+            </div>
+            ${rules?.constraints?.length ? `
+            <div class="rules-constraints">
+              <strong>AI understood:</strong>
+              <ul>${rules.constraints.map((c) => `<li>✓ ${esc(c)}</li>`).join('')}</ul>
+              ${rules.summary ? `<p class="sub">Summary: ${esc(rules.summary)}</p>` : ''}
+            </div>` : ''}
+            <p class="rules-hint">Snapshot rules are shown until you save. After save, clinic rules override on the server.</p>
           </div>
-          ${rules?.constraints?.length ? `
-          <div class="rules-constraints">
-            <strong>AI understood:</strong>
-            <ul>${rules.constraints.map((c) => `<li>✓ ${esc(c)}</li>`).join('')}</ul>
-            ${rules.summary ? `<p class="sub">Summary: ${esc(rules.summary)}</p>` : ''}
-          </div>` : ''}
-          <p class="rules-hint">Snapshot rules are shown until you save. After save, clinic rules override on the server.</p>
         </div>
-        <div id="rules-history-host" class="rules-history-panel"><p class="sub rules-hint">Loading version history…</p></div>
+        <div class="rules-fold rules-history-section${historyOpen ? ' is-open' : ''}">
+          <button type="button" class="rules-fold-toggle" id="rules-history-toggle" aria-expanded="${historyOpen ? 'true' : 'false'}">
+            <span class="rules-fold-title">Version history</span>
+            <span class="rules-fold-meta">Tap to expand</span>
+            <span class="rules-fold-chevron">${historyOpen ? '⌃' : '›'}</span>
+          </button>
+          <div class="rules-fold-body">
+            <div id="rules-history-host" class="rules-history-panel"><p class="sub rules-hint">Loading version history…</p></div>
+          </div>
+        </div>
       </div>`;
 
     panel.querySelector('#rules-save')?.addEventListener('click', () => void saveRules(ctx, panel));
+    wireRulesFolds(panel, ctx);
     void loadRulesHistory(panel, ctx);
   }
 
