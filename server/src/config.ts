@@ -54,7 +54,7 @@ export const OTP = {
   ttlMinutes: 10,
   maxAttempts: 5,
   requestWindowMinutes: 15,
-  maxRequestsPerWindow: 3,
+  maxRequestsPerWindow: 50,
 } as const;
 
 export const JWT = {
