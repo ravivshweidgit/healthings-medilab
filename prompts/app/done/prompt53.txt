@@ -1,6 +1,7 @@
 ## Prompt 53 — Import nutritionist session reports (directive history)
 
-**Status: shipped 2026-07-03** (phone-tested `[x]` — user accepted after import + spacing fix)  
+**Status: shipped + closed 2026-07-03** (phone import `[x]` · clinic Nutrition reports tab `[x]` — user accepted MVP, no further 53 polish)  
+**Commits:** `b2c1cd3` (phone) · `5343c1a` (clinic tab)  
 **Builds on:** `done/prompt39.txt` (PDF pick + Gemini) · `prompt52` rawText-only intent · `done/prompt51.txt` (history pattern — orthogonal store)
 
 ---
@@ -22,6 +23,7 @@ Nutritionist session PDFs (e.g. *סיכום מפגש ראשון*) had no import 
 | AI | `nutritionDirectiveContext.ts` — active directive block before My Rules in coach, chat, meal check |
 | Export | `ShareExportService.ts` — `nutrition_directives_v1` in snapshot blob |
 | Backup | Included via generic AsyncStorage export (not excluded) |
+| Clinic portal | `website/clinic/clinic-workspace.js` — **Nutrition reports** tab; read-only chips + plain `fullText` from snapshot |
 
 **Product rules (shipped):**
 
@@ -44,6 +46,8 @@ Nutritionist session PDFs (e.g. *סיכום מפגש ראשון*) had no import 
 | `app/src/screens/ChatScreen.tsx` | Directive context in chat |
 | `app/src/components/FoodLogModal.tsx` | Directive before meal check |
 | `app/src/services/ShareExportService.ts` | Snapshot export key |
+| `website/clinic/clinic-workspace.js` | Parse `nutrition_directives_v1` + Nutrition reports tab |
+| `website/clinic/clinic-workspace.css` | Phone-style nutrition chips + detail panel |
 
 **Fixture (local dev, do not commit):** `app/סיכום מפגש ראשון.pdf`
 
@@ -54,20 +58,18 @@ Nutritionist session PDFs (e.g. *סיכום מפגש ראשון*) had no import 
 - [x] Import Hebrew session PDF → plain text review (sections separated by blank lines)
 - [x] Save → history chip; marked **Active**
 - [x] View detail → full plain text (not structured form)
-- [ ] Second PDF → two entries; newest active
-- [ ] Mentor chat cites directive content
-- [ ] Meal check uses directive before My Rules
-- [ ] Set older active / delete / backup restore
+- [x] Clinic portal → Nutrition reports tab from snapshot (read-only)
+
+**Deferred polish (not blocking ship):** second PDF / active switch / delete / backup restore QA; mentor + meal-check spot-checks.
 
 ---
 
-### Deferred (from original spec)
+### Deferred (future prompts)
 
 - **Update My Rules from this report** (merge flow)
 - **Use macro summary as starting point** → macro strip
-- Clinic workspace display of directives from snapshot
-- Photo/camera import · full-text search · server sync
-- See **`prompt54.txt`** for local-first clinic relay (next)
+- Photo/camera import · full-text search
+- **`prompt54`** — local-first clinic relay (NEXT)
 
 ---
 
