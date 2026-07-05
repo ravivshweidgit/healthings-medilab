@@ -206,6 +206,75 @@ function formatLabReports(store: Record<string, string>): string | null {
   return blocks.length ? blocks.join('\n\n') : null;
 }
 
+type FoodMeal = {
+  timestamp?: number;
+  totalKcal?: number;
+  totalProtein_g?: number;
+  totalCarb_g?: number;
+  totalFat_g?: number;
+  totalFiber_g?: number;
+  note?: string;
+  items?: Array<{
+    name?: string;
+    name_local?: string;
+    grams?: number;
+    kcal?: number;
+  }>;
+};
+
+function parseFoodLogsFromStore(store: Record<string, string>): Map<string, FoodMeal[]> {
+  const byDay = new Map<string, FoodMeal[]>();
+  for (const [key, raw] of Object.entries(store)) {
+    const m = key.match(/^food_log_(\d{4}-\d{2}-\d{2})$/);
+    if (!m) continue;
+    try {
+      const meals = JSON.parse(raw) as FoodMeal[];
+      if (Array.isArray(meals)) byDay.set(m[1]!, meals);
+    } catch {
+      /* skip corrupt day */
+    }
+  }
+  return byDay;
+}
+
+/** Multi-day food log for clinic mentor chat — matches Food log tab in portal. */
+function formatFoodLogBlock(store: Record<string, string>, lookbackDays = 31): string | null {
+  const byDay = parseFoodLogsFromStore(store);
+  if (byDay.size === 0) return null;
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - lookbackDays);
+  const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
+
+  const dayKeys = [...byDay.keys()].sort((a, b) => b.localeCompare(a));
+  const lines: string[] = ['Food log (by day, newest first — use for questions about any listed date):'];
+
+  for (const dk of dayKeys) {
+    if (dk < cutoffKey) continue;
+    const meals = [...(byDay.get(dk) ?? [])].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+    if (!meals.length) continue;
+    const kcal = meals.reduce((a, m) => a + (m.totalKcal ?? 0), 0);
+    const p = meals.reduce((a, m) => a + (m.totalProtein_g ?? 0), 0);
+    const c = meals.reduce((a, m) => a + (m.totalCarb_g ?? 0), 0);
+    const f = meals.reduce((a, m) => a + (m.totalFat_g ?? 0), 0);
+    lines.push(
+      `${dk}: ${meals.length} meals, ${Math.round(kcal)} kcal, P${Math.round(p)} C${Math.round(c)} F${Math.round(f)} g`,
+    );
+    for (const meal of meals) {
+      const time = meal.timestamp
+        ? new Date(meal.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
+        : '??:??';
+      const itemNames = (meal.items ?? [])
+        .map((i) => i.name_local || i.name || '')
+        .filter(Boolean)
+        .join(', ');
+      lines.push(`  · ${time} — ${itemNames || 'meal'}: ${Math.round(meal.totalKcal ?? 0)} kcal`);
+    }
+  }
+
+  return lines.length > 1 ? lines.join('\n') : null;
+}
+
 function buildPatientContextBlock(exportData: SnapshotExport | null): string {
   if (!exportData?.asyncStorage) return 'No patient snapshot uploaded yet.';
 
@@ -240,19 +309,8 @@ function buildPatientContextBlock(exportData: SnapshotExport | null): string {
     } catch { /* */ }
   }
 
-  const today = new Date();
-  const dk = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const foodRaw = store[`food_log_${dk}`];
-  if (foodRaw) {
-    try {
-      const meals = JSON.parse(foodRaw) as Array<{ totalKcal?: number; totalProtein_g?: number; totalCarb_g?: number; totalFat_g?: number }>;
-      const kcal = meals.reduce((a, m) => a + (m.totalKcal ?? 0), 0);
-      const p = meals.reduce((a, m) => a + (m.totalProtein_g ?? 0), 0);
-      const c = meals.reduce((a, m) => a + (m.totalCarb_g ?? 0), 0);
-      const f = meals.reduce((a, m) => a + (m.totalFat_g ?? 0), 0);
-      lines.push(`Today food: ${meals.length} meals, ${Math.round(kcal)} kcal, P${Math.round(p)} C${Math.round(c)} F${Math.round(f)} g`);
-    } catch { /* */ }
-  }
+  const foodBlock = formatFoodLogBlock(store);
+  if (foodBlock) lines.push(foodBlock);
 
   const rulesRaw = store.user_rules;
   if (rulesRaw) {
