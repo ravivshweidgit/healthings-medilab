@@ -75,8 +75,101 @@ h1 {
 .lead {
   font-size: 1.05rem;
   color: var(--muted);
-  margin: 0 auto 28px;
+  margin: 0 auto 16px;
   max-width: 34rem;
+}
+
+.lead-second {
+  margin-bottom: 28px;
+}
+
+.lead em {
+  font-style: normal;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.card-intro {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.card-foot {
+  margin: 16px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.card h3 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 10px;
+  color: var(--muted);
+}
+
+.compare-grid {
+  display: grid;
+  gap: 16px;
+}
+
+@media (min-width: 560px) {
+  .compare-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+}
+
+.compare-col ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  font-size: 0.92rem;
+}
+
+.compare-before li {
+  padding-left: 1.1rem;
+  position: relative;
+  color: var(--muted);
+}
+
+.compare-before li::before {
+  content: '—';
+  position: absolute;
+  left: 0;
+  color: #bbb;
+}
+
+.compare-after li {
+  padding-left: 1.5rem;
+  position: relative;
+  color: var(--text);
+}
+
+.compare-after li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: var(--green);
+  font-weight: 700;
+}
+
+.compare-after h3 {
+  color: var(--green-dark);
+}
+
+.loop-steps li {
+  margin-bottom: 10px;
+}
+
+.loop-steps li:last-child {
+  margin-bottom: 0;
 }
 
 .card {
