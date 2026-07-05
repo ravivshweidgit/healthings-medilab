@@ -1,0 +1,109 @@
+## Prompt 55 — Welcome & Quick Start (profile, devices, imports, targets, food log)
+
+**Status: shipped 2026-07-05** (phone-tested power user — scale + watch + CGM; step 6 keeps saved targets + My Rules)  
+**Builds on:** `prompt31.txt` (source_config — folded here) · `done/prompt53.txt` · lab import · `WeightTargetStrip` · `MacroTargetStrip` · `FoodLogModal`
+
+---
+
+### Problem
+
+Alpha testers hit empty profile / no guidance. **Welcome & Quick Start** is the standard first-run path for every install — alpha now, production later.
+
+---
+
+### What shipped
+
+| Area | Change |
+|------|--------|
+| Wizard | `WelcomeQuickStartWizard.tsx` — 7 steps, Back/Next, `Quick Start · N of 7` |
+| Gate | `ProfileCompletenessService.ts` — `onboarding_complete_v1`; show when profile incomplete **or** flag unset |
+| Source config | `SourceConfigService.ts` — `source_config` from step 2 device survey |
+| Manual body | `ManualBodyService.ts` — `manual_body_v1` + `manual_body_history_v1`, `logManualWeighIn()` |
+| Manual trend/energy | `ManualTrendService.ts` + `MetabolicTrendChart7d` **`weightOnly`** — weight strip + Mifflin BMR + HC steps when no scale |
+| Steps → kcal | `SamsungStepsAdapter.ts` + `HealthConnectService.fetchDailyStepTotals()` |
+| BMR estimate | `bmrEstimate.ts` — Mifflin–St Jeor + AI fat% fallback |
+| Dashboard | Wizard gate, manual trend merge, My Profile **Log weigh-in**, **Quick Start again** |
+| Step 5 | Optional lab + nutrition PDF (`autoPickPdf`), independent **Skip for now** per card |
+| Step 6 | Reuse **existing** body + macro targets on upgrade; Withings scan for body input; My Rules block; save on **Next** only; **Regenerate with AI** optional |
+| Step 4 copy | “Tap Next — Health Connect may open once…” (informational screen) |
+
+**Storage keys:** `onboarding_complete_v1`, `source_config`, `manual_body_v1`, `manual_body_history_v1`, `manual_bmr_kcal` (TargetService)
+
+---
+
+### Wizard steps
+
+| Step | Title | Content |
+|------|--------|---------|
+| 1 | Welcome | Gender, height, birthdate, language, mentor voice (he/ar) |
+| 2 | Devices | Withings scale Y/N · watch Y/N · CGM Y/N |
+| 3 | Weight | Manual kg OR “Link Withings on dashboard” (no OAuth in wizard) |
+| 4 | Permissions | HC glucose if CGM; HC steps if **no** watch |
+| 5 | Reports | Optional lab PDF + nutritionist PDF — skip OK |
+| 6 | Targets | Body + daily macros — keeps saved targets for existing users |
+| 7 | Food log | Tutorial + optional first meal |
+
+---
+
+### Manual mode (no Withings scale)
+
+- **TREND:** weight-only chart; ≥2 weigh-in days for slope; 1 weigh-in → flat + hint  
+- **ENERGY:** Mifflin BMR/day + steps→kcal + food eaten  
+- **My Profile:** Log weigh-in → history + trend refresh  
+
+---
+
+### Primary files
+
+| File | Role |
+|------|------|
+| `app/src/components/WelcomeQuickStartWizard.tsx` | Wizard UI |
+| `app/src/services/ProfileCompletenessService.ts` | Completeness + onboarding flag |
+| `app/src/services/SourceConfigService.ts` | `source_config` |
+| `app/src/services/ManualBodyService.ts` | Manual body + history |
+| `app/src/services/ManualTrendService.ts` | Manual trend/energy days |
+| `app/src/services/SamsungStepsAdapter.ts` | Steps → active kcal |
+| `app/src/logic/bmrEstimate.ts` | Mifflin + profile estimate |
+| `app/src/components/MetabolicTrendChart7d.tsx` | `weightOnly` mode |
+| `app/src/screens/DashboardScreen.tsx` | Gate, manual trend, weigh-in |
+| `app/src/services/HealthConnectService.ts` | Daily step totals |
+| `app/src/services/TargetService.ts` | `manual_bmr_kcal` |
+| `app/src/logic/macroAutoAdjust.ts` | `onboarding` trigger |
+
+---
+
+### Phone-tested checklist
+
+**Power user (Withings scale + watch + CGM, upgrade with backup):**
+
+- [x] Wizard opens when `onboarding_complete_v1` unset (existing profile pre-fills step 1)
+- [x] Step 2 Y/Y/Y → completes; step 4 glucose HC (informational — tap Next)
+- [x] Step 6 keeps **saved** body + macro targets + My Rules (no blind overwrite)
+- [x] Finish → wizard does not auto-reopen; dashboard Withings trend/energy OK
+- [x] My Profile → Quick Start again works
+
+**Not phone-tested this pass (defer to next tester / fresh install):**
+
+- [ ] Fresh install empty profile
+- [ ] No scale — manual weight-only trend + energy
+- [ ] No watch — HC steps → kcal
+- [ ] Step 5 lab/nutrition import paths
+- [ ] Step 7 first meal modal
+
+---
+
+### Deferred
+
+- Step 4 HC polish: permission status chips, **Open Health Connect settings** when denied  
+- Upgrade pre-fill step 2 from existing Withings link / HC data  
+- My Profile read-only **Your devices** summary (scale/watch/CGM)  
+- iOS HealthKit steps · Tanita · clinic in wizard · backup on first run (`prompt32`)  
+- CGM brand (CareSens vs Libre2) — wizard stays generic CGM Y/N  
+
+---
+
+### Related
+
+- **`prompt31.txt`** — spec folded into 55; implement there, not separately  
+- **`prompt54.txt`** — clinic relay (parallel)  
+- **`done/prompt53.txt`** — nutrition PDF in step 5  

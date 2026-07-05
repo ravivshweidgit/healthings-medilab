@@ -137,6 +137,10 @@ type Props = {
   onPeriodChange?: (days: number) => void;
   showVisceralDebug?: boolean;
   loading?: boolean;
+  /** Manual mode: weight strip only — no Withings BIA composition. */
+  weightOnly?: boolean;
+  /** Distinct manual weigh-in days; used for honest copy when < 2. */
+  weighInDayCount?: number;
 };
 
 function formatIndexCell(value: number | null | undefined): string {
@@ -233,11 +237,73 @@ export function MetabolicTrendChart7d({
   onPeriodChange,
   showVisceralDebug,
   loading,
+  weightOnly,
+  weighInDayCount,
 }: Props) {
   const { width } = useWindowDimensions();
   const chartW = Math.max(280, width - 40);
 
+  const weightOnlyPrepared = useMemo(() => {
+    if (!weightOnly || !days || days.length < 2) return null;
+
+    const n = days.length;
+    const plotLeft = PLOT_PAD_L;
+    const innerW = Math.max(1, chartW - plotLeft - PAD_R);
+    const plotBottom = stripTop(0) + STRIP_H;
+
+    const wVals = days.map((d) => d.weightKg).filter((v): v is number => v != null && Number.isFinite(v));
+    if (wVals.length === 0) return null;
+
+    const wDom = domainPad(wVals, wVals[0] - 1, wVals[0] + 1, 0.08);
+
+    const wPts: PixelPoint[] = [];
+    days.forEach((d, i) => {
+      if (d.weightKg != null && Number.isFinite(d.weightKg)) {
+        wPts.push({
+          x: xAtIndex(i, plotLeft, innerW, n),
+          y: mapY(d.weightKg, wDom.min, wDom.max, stripTop(0), STRIP_H),
+        });
+      }
+    });
+
+    const weightPath = buildSmoothPath(wPts);
+    const gridW = [wDom.min, (wDom.min + wDom.max) / 2, wDom.max].map((v) => ({
+      key: `gw-${v}`,
+      y: mapY(v, wDom.min, wDom.max, stripTop(0), STRIP_H),
+      label: v.toFixed(1),
+    }));
+
+    const tickIdx = new Set(pickTickIndices(n, 7));
+    const xTicks = days
+      .map((d, i) => ({ d, i }))
+      .filter(({ i }) => tickIdx.has(i))
+      .map(({ d, i }) => ({
+        x: xAtIndex(i, plotLeft, innerW, n),
+        label: axisDayLabel(d.dayKey, n),
+        key: d.dayKey,
+      }));
+
+    const svgH = stripTop(0) + STRIP_H + AXIS_BOTTOM;
+    const firstW = days.find((d) => d.weightKg != null)?.weightKg ?? null;
+    const lastW = [...days].reverse().find((d) => d.weightKg != null)?.weightKg ?? null;
+    const weightWeekDelta =
+      firstW != null && lastW != null ? lastW - firstW : null;
+
+    return {
+      chartW,
+      svgH,
+      plotLeft,
+      padR: PAD_R,
+      plotBottom,
+      weightPath,
+      gridW,
+      xTicks,
+      weightWeekDelta,
+    };
+  }, [chartW, days, weightOnly]);
+
   const prepared = useMemo(() => {
+    if (weightOnly) return null;
     if (!days || days.length < 2) return null;
 
     const n = days.length;
@@ -372,7 +438,9 @@ export function MetabolicTrendChart7d({
       visceralWeekTrend,
       visceralDebug,
     };
-  }, [chartW, days, periodAnchor]);
+  }, [chartW, days, periodAnchor, weightOnly]);
+
+  const activePrepared = weightOnly ? weightOnlyPrepared : prepared;
 
   const selector =
     periodOptions && periodOptions.length > 0 ? (
@@ -415,32 +483,111 @@ export function MetabolicTrendChart7d({
     );
   }
 
-  if (!prepared) {
+  const emptyCopy = weightOnly
+    ? 'Log weigh-ins in My Profile to see your weight trend. Fat and muscle need a Withings scale.'
+    : 'Trend data will appear after refresh.';
+
+  if (!activePrepared) {
     return (
       <View style={styles.wrap}>
         <Text style={styles.title}>TREND ANALYSIS</Text>
         {selector}
         <View style={styles.loadingBox}>
-          <Text style={styles.loadingText}>Trend data will appear after refresh.</Text>
+          <Text style={styles.loadingText}>{emptyCopy}</Text>
         </View>
       </View>
     );
   }
 
-  const hasAny = Boolean(
-    prepared.weightPath || prepared.fatPath || prepared.musclePath || prepared.visceralPath
-  );
+  const hasAny = weightOnly
+    ? Boolean(activePrepared.weightPath)
+    : Boolean(
+        prepared?.weightPath || prepared?.fatPath || prepared?.musclePath || prepared?.visceralPath
+      );
   if (!hasAny) {
     return (
       <View style={styles.wrap}>
         <Text style={styles.title}>TREND ANALYSIS</Text>
         {selector}
         <View style={styles.loadingBox}>
-          <Text style={styles.loadingText}>Not enough Withings body data for this window yet.</Text>
+          <Text style={styles.loadingText}>
+            {weightOnly
+              ? emptyCopy
+              : 'Not enough Withings body data for this window yet.'}
+          </Text>
         </View>
       </View>
     );
   }
+
+  if (weightOnly && weightOnlyPrepared) {
+    const p = weightOnlyPrepared;
+    return (
+      <View style={styles.wrap}>
+        <Text style={styles.title}>TREND ANALYSIS</Text>
+        {selector}
+        {weighInDayCount != null && weighInDayCount < 2 ? (
+          <Text style={styles.weightOnlyHint}>
+            One weigh-in logged — line is flat until you log again.
+          </Text>
+        ) : null}
+        <View style={styles.chartRow}>
+          <Svg width={p.chartW} height={p.svgH} style={styles.svg}>
+            {p.gridW.map((g) => (
+              <Line
+                key={g.key}
+                x1={p.plotLeft}
+                y1={g.y}
+                x2={p.chartW - p.padR}
+                y2={g.y}
+                stroke={WellnessColors.gridLine}
+                strokeWidth={1}
+                opacity={0.88}
+              />
+            ))}
+            {p.gridW.map((g) => (
+              <SvgText key={`lw-${g.key}`} x={4} y={g.y + 3} fill={WellnessColors.accentBlue} fontSize={8} fontWeight="600">
+                {g.label}
+              </SvgText>
+            ))}
+            {p.weightPath ? (
+              <Path d={p.weightPath} fill="none" stroke={WellnessColors.accentBlue} strokeWidth={2.2} />
+            ) : null}
+            <Line
+              x1={p.plotLeft}
+              y1={p.plotBottom}
+              x2={p.chartW - p.padR}
+              y2={p.plotBottom}
+              stroke={WellnessColors.gridLine}
+              strokeWidth={1}
+            />
+            {p.xTicks.map((tk) => (
+              <SvgText
+                key={tk.key}
+                x={tk.x}
+                y={p.svgH - 8}
+                fill={WellnessColors.textSecondary}
+                fontSize={9}
+                textAnchor="middle"
+              >
+                {tk.label}
+              </SvgText>
+            ))}
+          </Svg>
+        </View>
+        <View style={styles.legend}>
+          <View style={styles.legendRow}>
+            <LegendItem
+              color={WellnessColors.accentBlue}
+              label={legendLabelWithDelta('Weight', p.weightWeekDelta)}
+            />
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  if (!prepared) return null;
 
   return (
     <View style={styles.wrap}>
@@ -694,5 +841,13 @@ const styles = StyleSheet.create({
     color: WellnessColors.textSecondary,
     textAlign: 'center',
     lineHeight: 19,
+  },
+  weightOnlyHint: {
+    fontSize: 12,
+    color: WellnessColors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 8,
+    lineHeight: 17,
+    paddingHorizontal: 8,
   },
 });

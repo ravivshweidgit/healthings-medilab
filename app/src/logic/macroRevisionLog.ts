@@ -8,7 +8,8 @@ export type MacroRevisionTrigger =
   | 'dashboard-suggest'
   | 'chat-proposal'
   | 'weigh-in'
-  | 'lab-import';
+  | 'lab-import'
+  | 'onboarding';
 
 export type MacroRevisionSource = 'gemini' | 'fallback';
 

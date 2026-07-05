@@ -31,6 +31,8 @@ const CORE_READ_PERMISSIONS = [
   { accessType: 'read', recordType: 'BloodGlucose' } as const,
 ];
 
+const STEPS_READ_PERMISSION = { accessType: 'read', recordType: 'Steps' } as const;
+
 function hasCoreReadAccess(
   granted: Array<{ accessType?: string; recordType?: string }>
 ): boolean {
@@ -121,6 +123,47 @@ class HealthConnectService {
     throw new Error(
       'Health Connect needs Blood glucose read access. Open Health Connect → App permissions → Healthings → allow Blood glucose.'
     );
+  }
+
+  async requestStepsPermission(): Promise<boolean> {
+    try {
+      const isInitialized = await initialize();
+      if (!isInitialized) return false;
+      const granted = await requestPermission([STEPS_READ_PERMISSION]);
+      return granted.some(
+        (p) => p.accessType === STEPS_READ_PERMISSION.accessType && p.recordType === STEPS_READ_PERMISSION.recordType,
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  /** Daily step totals (Samsung Health → Health Connect) for activity kcal estimation. */
+  async fetchDailyStepTotals(startDate: Date, endDate: Date = new Date()): Promise<Map<string, number>> {
+    const byDay = new Map<string, number>();
+    try {
+      const isInitialized = await initialize();
+      if (!isInitialized) return byDay;
+      const page = (await readRecords('Steps' as never, {
+        timeRangeFilter: {
+          operator: 'between',
+          startTime: startDate.toISOString(),
+          endTime: endDate.toISOString(),
+        },
+        pageSize: HC_PAGE_SIZE,
+      } as never)) as { records?: Array<Record<string, unknown>> };
+      for (const record of page.records ?? []) {
+        const count = Number(record.count ?? 0);
+        if (!Number.isFinite(count) || count <= 0) continue;
+        const ts = String(record.endTime ?? record.startTime ?? record.time ?? '');
+        const dk = ts.slice(0, 10);
+        if (!dk) continue;
+        byDay.set(dk, (byDay.get(dk) ?? 0) + count);
+      }
+    } catch {
+      /* permission or HC unavailable */
+    }
+    return byDay;
   }
 
   async fetchRecentMetrics(startDate: Date = defaultHealthQueryStart()): Promise<RecentMetrics> {

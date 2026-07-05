@@ -57,4 +57,4 @@ Priority rules:
 
 ## Status
 
-Spec only — **implement in prompt55** (welcome wizard). See `prompt55.txt`.
+Spec only — **shipped in `done/prompt55.txt`**. See done spec for `source_config`, Samsung steps, manual BMR.

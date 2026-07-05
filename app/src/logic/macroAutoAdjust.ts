@@ -41,6 +41,7 @@ import {
 } from './macroClinicalProfile';
 import { formatMacroRevisionRulesBlock } from './userRulesContext';
 import { loadWithingsStore, syncWithingsStore } from '../services/WithingsPersistenceService';
+import { getManualBody } from '../services/ManualBodyService';
 import {
   getBodyTarget,
   getBirthdate,
@@ -730,11 +731,14 @@ export async function buildMacroRevisionBundle(opts: {
     ]);
 
   const scan = store.bodyScan;
-  const weightKg = scan?.weightKg ?? null;
-  const fatMassKg = scan?.fatMassKg ?? null;
+  const manual = await getManualBody();
+  const weightKg = scan?.weightKg ?? manual?.weight_kg ?? null;
+  const fatMassKg =
+    scan?.fatMassKg ??
+    (manual != null ? (manual.weight_kg * manual.fat_pct) / 100 : null);
   const leanMassKg =
     weightKg != null && fatMassKg != null ? weightKg - fatMassKg : null;
-  const bmr_kcal = scan?.bmrKcalDay ?? null;
+  const bmr_kcal = scan?.bmrKcalDay ?? manual?.bmr_kcal ?? null;
   const age = birthdate ? computeAge(birthdate) : null;
 
   const period7 = await buildPeriodReviewBlock(

@@ -6,7 +6,7 @@ Active / backlog specs stay in `prompts/app/`:
 
 | File | Why still active |
 |------|------------------|
-| prompt31.txt | Spec only — source config + Samsung + AI/manual BMR |
+| prompt31.txt | Spec only — **shipped in done/prompt55** (source_config + Samsung steps) |
 | prompt32.txt | Spec only — backup import QA + hardening (deferred) |
 | prompt38.txt | Planned — secondary lab findings (liver, iron, uric acid) |
 | prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
@@ -44,6 +44,8 @@ Active / backlog specs stay in `prompts/app/`:
 **prompt51** — done (2026-07-03). My Rules version history: phone `user_rules_history_v1` (30 cap), clinic `clinic_patient_rules_history`, Rules tab history on portal. Phone-tested. See `done/prompt51.txt`.
 
 **prompt53** — done + closed (2026-07-03). Nutritionist PDF import on phone (plain-text directive history) + clinic **Nutrition reports** tab. User accepted MVP. See `done/prompt53.txt`. **Next:** `prompt54` local-first clinic relay.
+
+**prompt55** — done (2026-07-05). Welcome & Quick Start wizard (7 steps, all users), `source_config`, manual body/trend/energy, step 6 keeps saved targets + My Rules on upgrade. Phone-tested power user (Withings + CGM). See `done/prompt55.txt`. **Deferred:** HC step 4 status UI, device survey in My Profile.
 
 **prompt42 follow-up** — weigh-in macro activation (`measuredAt` dedupe, first weigh-in, unchanged log) documented in `done/prompt42.txt` § Follow-up 2026-06-22.
 

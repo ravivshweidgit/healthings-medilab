@@ -6,7 +6,6 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 
 | Order | Prompt | Topic |
 |-------|--------|--------|
-| **0 — ship first (alpha + GA onboarding)** | **`prompt55.txt`** | Welcome & Quick Start — **every user's** first-run path (profile, imports, targets, food log) |
 | **1 — next** | **`prompt54.txt`** | Local-first clinic relay — **Share button shipped**; server relay + revoke purge pending |
 | 2 | `prompt52.txt` | My Rules rawText-only save (optional with 54) |
 
@@ -14,7 +13,7 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 
 | File | Topic |
 |------|--------|
-| `prompt31.txt` | Source config + Samsung steps — **→ implement in prompt55** |
+| `prompt31.txt` | Source config spec — **shipped in `done/prompt55.txt`** |
 | `prompt32.txt` | Backup import QA + hardening |
 | `prompt38.txt` | Secondary lab findings (liver, iron, uric acid) |
 | `prompt40b.txt` | Day/week meal plans, export, food preferences |
@@ -22,13 +21,12 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 | `prompt47.txt` | Play Store internal testing (local-first privacy; AAB + privacy page) |
 | `prompt49.txt` | Link to clinic + share encrypted data + sponsored AI badge |
 | `prompt52.txt` | My Rules rawText-only save — deprecate summarise-on-save |
-| `prompt55.txt` | **Onboarding (all users)** — Welcome & Quick Start; alpha ships first |
 
 ## Done (`prompts/app/done/`)
 
 See [done/README.md](./done/README.md) for the full index.
 
-Recent: **53** nutritionist PDF import (plain-text directive history) · **51** My Rules version history · **48** lipid trend charts.
+Recent: **55** Welcome & Quick Start + manual trend/energy · **53** nutritionist PDF import · **51** My Rules version history.
 
 ## Macros reference dumps
 

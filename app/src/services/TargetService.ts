@@ -76,6 +76,19 @@ export async function setHeightCm(cm: number): Promise<void> {
   await AsyncStorage.setItem(HEIGHT_KEY, String(Math.round(cm)));
 }
 
+const MANUAL_BMR_KEY = 'manual_bmr_kcal';
+
+export async function getManualBmrKcal(): Promise<number | null> {
+  const raw = await AsyncStorage.getItem(MANUAL_BMR_KEY);
+  if (!raw) return null;
+  const n = parseFloat(raw);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+}
+
+export async function setManualBmrKcal(kcal: number): Promise<void> {
+  await AsyncStorage.setItem(MANUAL_BMR_KEY, String(Math.round(kcal)));
+}
+
 // ─── Body composition target ──────────────────────────────────────────────────
 
 const BODY_TARGET_KEY = 'body_target';

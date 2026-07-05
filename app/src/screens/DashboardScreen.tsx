@@ -35,7 +35,13 @@ import { ClinicLinkStrip } from '../components/ClinicLinkStrip';
 import { RulesStrip } from '../components/RulesStrip';
 import { NutritionDirectivesStrip } from '../components/NutritionDirectivesStrip';
 import { LabResultsStrip } from '../components/LabResultsStrip';
+import { WelcomeQuickStartWizard } from '../components/WelcomeQuickStartWizard';
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
+import { getManualBody, getManualBodyHistory, logManualWeighIn, manualBodyToDashboardMetrics, countDistinctWeighInDays, type ManualBodySnapshot } from '../services/ManualBodyService';
+import { buildManualTrendDays } from '../services/ManualTrendService';
+import { loadSourceConfig, type SourceConfig } from '../services/SourceConfigService';
+import { fetchDailyStepTotalsForTrend } from '../services/SamsungStepsAdapter';
+import { clearOnboardingCompletedAt, shouldShowQuickStart } from '../services/ProfileCompletenessService';
 import { applyAutoMacroRevision, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
 import { ChatScreen } from './ChatScreen';
 import { CONFIG } from '../config/env';
@@ -183,6 +189,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     hrSyncDiagLine,
   } = useWithingsData();
 
+  const effectiveBodyScan = useMemo(() => {
+    if (bodyScan?.weightKg != null) return bodyScan;
+    if (manualBodySnap) return manualBodyToDashboardMetrics(manualBodySnap);
+    return bodyScan;
+  }, [bodyScan, manualBodySnap]);
+
   const [importBusy, setImportBusy] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [backupBusy, setBackupBusy] = useState(false);
@@ -257,6 +269,53 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, []);
 
   const [profileExpanded, setProfileExpanded] = useState(false);
+  const [quickStartVisible, setQuickStartVisible] = useState(false);
+  const [manualBodySnap, setManualBodySnap] = useState<ManualBodySnapshot | null>(null);
+  const [manualTrendDays, setManualTrendDays] = useState<MetabolicTrend7dDay[]>([]);
+  const [manualTrendLoading, setManualTrendLoading] = useState(false);
+  const [manualWeighInDayCount, setManualWeighInDayCount] = useState(0);
+  const [sourceConfig, setSourceConfig] = useState<SourceConfig | null>(null);
+  const [weighInInput, setWeighInInput] = useState('');
+  const [weighInSaving, setWeighInSaving] = useState(false);
+
+  const loadManualTrend = useCallback(async (manualSnap?: ManualBodySnapshot | null) => {
+    setManualTrendLoading(true);
+    try {
+      const [config, history, gender, height, bd] = await Promise.all([
+        loadSourceConfig(),
+        getManualBodyHistory(),
+        getGender(),
+        getCachedHeightCm(),
+        getBirthdate(),
+      ]);
+      setSourceConfig(config);
+      setManualWeighInDayCount(countDistinctWeighInDays(history));
+      const snap = manualSnap ?? (await getManualBody());
+      if (history.length === 0 && !snap) {
+        setManualTrendDays([]);
+        return;
+      }
+      const age = bd ? computeAge(bd) : null;
+      if (!gender || !height || !age || age < 13) {
+        setManualTrendDays([]);
+        return;
+      }
+      const latestWeight = snap?.weight_kg ?? history[history.length - 1]?.weight_kg ?? 0;
+      const lookback = Math.max(...TREND_PERIOD_DAY_OPTIONS, DEFAULT_TREND_PERIOD_DAYS);
+      const stepMap = await fetchDailyStepTotalsForTrend(lookback, latestWeight, height, gender);
+      const days = buildManualTrendDays({
+        lookbackDays: lookback,
+        heightCm: height,
+        ageYears: age,
+        gender,
+        history: history.length > 0 ? history : snap ? [snap] : [],
+        stepTotalsByDay: stepMap,
+      });
+      setManualTrendDays(days);
+    } finally {
+      setManualTrendLoading(false);
+    }
+  }, []);
 
   const loadLabReports = useCallback(async (refreshCoach = false) => {
     const [reports, mt] = await Promise.all([
@@ -327,16 +386,31 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       setMentorGenderPicker(gd);
     }
     if (storedBd) { const d = new Date(storedBd); if (!isNaN(d.getTime())) setBirthdatePicker(d); }
-    if (!gd || !storedBd) setProfileExpanded(true);
 
-    // Load mentors, rules, macro target, body target, language
-    const [m, r, mt, bt, lang] = await Promise.all([getMentors(), getUserRules(), getMacroTarget(), getBodyTarget(), getLanguage()]);
+    const [m, r, mt, bt, lang, manual] = await Promise.all([
+      getMentors(),
+      getUserRules(),
+      getMacroTarget(),
+      getBodyTarget(),
+      getLanguage(),
+      getManualBody(),
+    ]);
+    setManualBodySnap(manual);
     setMentorsState(m);
     if (r) setUserRules(r);
     if (mt) setMacroTarget(mt);
     if (bt) setBodyTargetForMacros(bt);
     setUserLanguage(lang);
-  }, []);
+
+    void loadManualTrend(manual);
+
+    const needQuickStart = await shouldShowQuickStart();
+    if (needQuickStart) {
+      setQuickStartVisible(true);
+    } else if (!gd || !storedBd) {
+      setProfileExpanded(true);
+    }
+  }, [loadManualTrend]);
 
   const handleFoodSaved = useCallback(() => {
     setFoodModalVisible(false);
@@ -362,24 +436,34 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     setFoodModalVisible(true);
   }, []);
 
+  const useManualWeightTrend = useMemo(() => {
+    if (sourceConfig?.bodyComposition === 'manual') return true;
+    if (bodyScan?.weightKg != null) return false;
+    const withingsWeightDays = bodyTrendDays.filter((d) => d.weightKg != null).length;
+    return withingsWeightDays < 2 && manualBodySnap != null;
+  }, [sourceConfig, bodyScan, bodyTrendDays, manualBodySnap]);
+
+  const baseTrendDays = useManualWeightTrend ? manualTrendDays : bodyTrendDays;
+
   /**
    * Patch activityKcalDay from workoutSessions for any day the getactivity API left null.
    * This covers two cases: token missing user.activity scope, or Withings not synced yet.
    */
   const bodyTrendDaysWithActivity = useMemo((): MetabolicTrend7dDay[] => {
-    if (workoutSessions.length === 0) return bodyTrendDays;
+    if (useManualWeightTrend) return baseTrendDays;
+    if (workoutSessions.length === 0) return baseTrendDays;
     // Sum workout kcal per local day key
     const workoutByDay = new Map<string, number>();
     for (const w of workoutSessions) {
       const dk = localDayKeyFromMs(w.startMs);
       workoutByDay.set(dk, (workoutByDay.get(dk) ?? 0) + w.kcal);
     }
-    return bodyTrendDays.map((d) => {
+    return baseTrendDays.map((d) => {
       if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay)) return d;
       const wkt = workoutByDay.get(d.dayKey);
       return wkt != null ? { ...d, activityKcalDay: wkt } : d;
     });
-  }, [bodyTrendDays, workoutSessions]);
+  }, [baseTrendDays, useManualWeightTrend, workoutSessions]);
 
   const visibleTrend = useMemo(() => {
     if (bodyTrendDaysWithActivity.length < 2) return null;
@@ -427,7 +511,25 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
    * Passive calories and workouts are bucketed per day.
    */
   const burnKcalByDay = useMemo((): Record<string, number> => {
-    const fallbackBmr = bodyScan?.bmrKcalDay;
+    const fallbackBmr = effectiveBodyScan?.bmrKcalDay;
+
+    if (useManualWeightTrend) {
+      const result: Record<string, number> = {};
+      for (const d of bodyTrendDaysWithActivity) {
+        const bmr = d.bmrKcalDay ?? fallbackBmr;
+        if (!bmr || !Number.isFinite(bmr)) continue;
+        const activity = d.activityKcalDay ?? 0;
+        result[d.dayKey] = Math.round(bmr + activity);
+      }
+      const todayKey = localDayKeyFromMs(Date.now());
+      if (!result[todayKey] && fallbackBmr && Number.isFinite(fallbackBmr)) {
+        const todayActivity =
+          bodyTrendDaysWithActivity.find((d) => d.dayKey === todayKey)?.activityKcalDay ?? 0;
+        result[todayKey] = Math.round(fallbackBmr + todayActivity);
+      }
+      return result;
+    }
+
     const BUCKET_MS = 30 * 60 * 1000;
 
     // BMR per day key from trend data
@@ -483,18 +585,19 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       result[dk] = Math.round(bmr + passiveKcal + wktKcal);
     }
     return result;
-  }, [bodyScan, bodyTrendDaysWithActivity, withingsCalories, workoutSessions]);
+  }, [effectiveBodyScan, bodyTrendDaysWithActivity, withingsCalories, workoutSessions, useManualWeightTrend]);
 
   /** Fat% derived from body scan (fatMassKg / weightKg * 100). */
   const fatPct = useMemo((): number | null => {
-    const { fatMassKg, weightKg } = bodyScan ?? {};
+    const { fatMassKg, weightKg } = effectiveBodyScan ?? {};
+    if (manualBodySnap && manualBodySnap.weight_kg > 0) return manualBodySnap.fat_pct;
     if (!fatMassKg || !weightKg || weightKg <= 0) return null;
     return (fatMassKg / weightKg) * 100;
-  }, [bodyScan]);
+  }, [effectiveBodyScan, manualBodySnap]);
 
   /** Weekly weight change (kg/week) via linear regression on up to last 14 days with data. */
   const weeklyWeightChange_kg = useMemo((): number | null => {
-    const pts = bodyTrendDays
+    const pts = baseTrendDays
       .filter((d) => d.weightKg != null)
       .slice(-14)
       .map((d) => ({
@@ -509,7 +612,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     const sumX2 = pts.reduce((s, p) => s + p.x * p.x, 0);
     const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
     return Number.isFinite(slope) ? Math.round(slope * 100) / 100 : null;
-  }, [bodyTrendDays]);
+  }, [baseTrendDays]);
+
+  const trendChartLoading = useManualWeightTrend ? manualTrendLoading : trendLoading;
+  const trendAvailableDays = useManualWeightTrend ? manualTrendDays.length : bodyTrendDays.length;
 
   /** User age computed from stored birthdate. */
   const userAge = useMemo((): number | null => {
@@ -610,10 +716,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       age: userAge,
       gender: userGender,
       heightCm,
-      weightKg: bodyScan?.weightKg ?? null,
+      weightKg: effectiveBodyScan?.weightKg ?? null,
       fatPct,
-      muscleMass_kg: bodyScan?.muscleMassKg ?? null,
-      bmr_kcal: bodyScan?.bmrKcalDay ?? null,
+      muscleMass_kg: effectiveBodyScan?.muscleMassKg ?? null,
+      bmr_kcal: effectiveBodyScan?.bmrKcalDay ?? null,
       startWeight_kg: bodyTargetForMacros?.startWeight_kg ?? null,
       startMuscle_kg: bodyTargetForMacros?.startMuscle_kg ?? null,
       todayEaten: todayActualMacros.kcal,
@@ -635,7 +741,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     coachContextRef.current = ctx;
     return ctx;
   }, [
-    mentors, userAge, userGender, userMentorGender, mentorGenderPicker, heightCm, bodyScan, fatPct, bodyTargetForMacros,
+    mentors, userAge, userGender, userMentorGender, mentorGenderPicker, heightCm, effectiveBodyScan, fatPct, bodyTargetForMacros,
     todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, mealGlucoseContext, glucoseData, macroTarget, userRules, labsAiContext, nutritionDirectiveContext, userLanguage,
   ]);
 
@@ -744,13 +850,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         syncWithings(),
         refreshTodayIntraday(),
         loadTodayFood(),
+        loadManualTrend(),
         user.role === 'patient' ? fulfillPendingClinicSyncRequests() : Promise.resolve(),
         user.role === 'patient' ? applyClinicOverlays() : Promise.resolve(),
       ]);
     } finally {
       setPullRefreshing(false);
     }
-  }, [refetch, syncWithings, refreshTodayIntraday, loadTodayFood, user.role, applyClinicOverlays]);
+  }, [refetch, syncWithings, refreshTodayIntraday, loadTodayFood, loadManualTrend, user.role, applyClinicOverlays]);
 
   useEffect(() => {
     void loadTodayFood();
@@ -1092,7 +1199,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 activityZones={activityZones}
                 calorieBurns={withingsCalories}
                 workoutSessions={workoutSessions}
-                bmrKcalDay={bodyScan?.bmrKcalDay}
+                bmrKcalDay={effectiveBodyScan?.bmrKcalDay}
                 foodEntries={chartMeals}
               />
             </View>
@@ -1267,8 +1374,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
         <View style={styles.trendBleed}>
           <View style={[styles.trendCardBleed, cardShadow]}>
-            {trendError ? <Text style={styles.trendErrorText}>{trendError}</Text> : null}
-            {trendLoading && !visibleTrend ? (
+            {trendError && !useManualWeightTrend ? <Text style={styles.trendErrorText}>{trendError}</Text> : null}
+            {trendChartLoading && !visibleTrend ? (
               <View style={styles.trendLoadingOnly}>
                 <ActivityIndicator color={WellnessColors.accentBlue} />
                 <Text style={styles.trendLoadingLabel}>Loading trend analysis…</Text>
@@ -1277,11 +1384,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             {visibleTrend ? (
               <MetabolicTrendChart7d
                 days={visibleTrend.days}
-                periodAnchor={visibleTrend.anchor}
+                periodAnchor={useManualWeightTrend ? null : visibleTrend.anchor}
                 periodDays={trendPeriodDays}
                 periodOptions={TREND_PERIOD_DAY_OPTIONS}
-                availableDays={bodyTrendDays.length}
+                availableDays={trendAvailableDays}
                 onPeriodChange={setTrendPeriodDays}
+                weightOnly={useManualWeightTrend}
+                weighInDayCount={manualWeighInDayCount}
               />
             ) : null}
           </View>
@@ -1292,7 +1401,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             <View style={[styles.trendCardBleed, styles.bmrCardBleed, cardShadow]}>
               <BmrHistoryChart7d
                 days={visibleTrend.days}
-                loading={trendLoading}
+                loading={trendChartLoading}
                 eatenKcalByDay={eatenKcalByDay}
               />
             </View>
@@ -1367,7 +1476,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           )}
         </Pressable>
 
-        {dataSource !== 'health-connect' && !withingsLinked ? (
+        {dataSource !== 'health-connect' && !withingsLinked && !effectiveBodyScan?.weightKg ? (
           <Text style={styles.previewFoot}>Preview · sample wellness data</Text>
         ) : null}
 
@@ -1471,6 +1580,64 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               </View>
 
               <Pressable
+                style={styles.quickStartAgainBtn}
+                onPress={() => {
+                  void clearOnboardingCompletedAt().then(() => setQuickStartVisible(true));
+                }}
+              >
+                <Text style={styles.quickStartAgainText}>Quick Start again</Text>
+              </Pressable>
+
+              {useManualWeightTrend && userGender && heightCm && userAge ? (
+                <>
+                  <Text style={styles.birthdateSectionTitle}>Log weigh-in</Text>
+                  <Text style={styles.weighInHint}>
+                    Update your weight to track trend without a scale. Composition stays AI-estimated.
+                  </Text>
+                  <View style={styles.weighInRow}>
+                    <TextInput
+                      style={styles.weighInInput}
+                      keyboardType="decimal-pad"
+                      placeholder={
+                        effectiveBodyScan?.weightKg != null
+                          ? `now ${effectiveBodyScan.weightKg.toFixed(1)} kg`
+                          : 'Weight (kg)'
+                      }
+                      placeholderTextColor={WellnessColors.textSecondary}
+                      value={weighInInput}
+                      onChangeText={setWeighInInput}
+                    />
+                    <Pressable
+                      style={[styles.weighInBtn, weighInSaving && styles.weighInBtnDisabled]}
+                      disabled={weighInSaving}
+                      onPress={async () => {
+                        const w = parseFloat(weighInInput.replace(',', '.'));
+                        if (!(w > 0) || w > 400) {
+                          Alert.alert('Weigh-in', 'Enter a valid weight in kg.');
+                          return;
+                        }
+                        setWeighInSaving(true);
+                        try {
+                          const snap = await logManualWeighIn(w, {
+                            gender: userGender,
+                            heightCm,
+                            ageYears: userAge,
+                          });
+                          setManualBodySnap(snap);
+                          setWeighInInput('');
+                          await loadManualTrend(snap);
+                        } finally {
+                          setWeighInSaving(false);
+                        }
+                      }}
+                    >
+                      <Text style={styles.weighInBtnText}>{weighInSaving ? '…' : 'Save'}</Text>
+                    </Pressable>
+                  </View>
+                </>
+              ) : null}
+
+              <Pressable
                 style={styles.birthdateSaveBtn}
                 onPress={async () => {
                   const iso = birthdatePicker.toISOString().split('T')[0];
@@ -1501,10 +1668,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           <View style={styles.groupDivider} />
 
           <WeightTargetStrip
-            weightKg={bodyScan?.weightKg ?? null}
+            weightKg={effectiveBodyScan?.weightKg ?? null}
             fatPct={fatPct}
-            muscleMass_kg={bodyScan?.muscleMassKg ?? null}
-            bmr_kcal={bodyScan?.bmrKcalDay ?? null}
+            muscleMass_kg={effectiveBodyScan?.muscleMassKg ?? null}
+            bmr_kcal={effectiveBodyScan?.bmrKcalDay ?? null}
             heightCm={heightCm}
             age={userAge}
             gender={userGender}
@@ -1547,10 +1714,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             actualCarb_g={todayActualMacros.carb_g}
             actualFiber_g={todayActualMacros.fiber_g}
             actualKcal={todayActualMacros.kcal}
-            weightKg={bodyScan?.weightKg ?? null}
-            fatMassKg={bodyScan?.fatMassKg ?? null}
-            muscleMass_kg={bodyScan?.muscleMassKg ?? null}
-            bmr_kcal={bodyScan?.bmrKcalDay ?? null}
+            weightKg={effectiveBodyScan?.weightKg ?? null}
+            fatMassKg={effectiveBodyScan?.fatMassKg ?? null}
+            muscleMass_kg={effectiveBodyScan?.muscleMassKg ?? null}
+            bmr_kcal={effectiveBodyScan?.bmrKcalDay ?? null}
             estimatedBurn_kcal={todayEstimatedBurn}
             heightCm={heightCm}
             age={userAge}
@@ -1667,6 +1834,21 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         initialTimestamp={foodInitialTimestamp}
         editEntry={foodEditEntry}
         lang={userLanguage}
+      />
+
+      <WelcomeQuickStartWizard
+        visible={quickStartVisible}
+        onComplete={() => {
+          setQuickStartVisible(false);
+          void loadHeightAndBirthdate();
+          void loadManualTrend();
+        }}
+        onOpenFoodLog={() => {
+          setQuickStartVisible(false);
+          setFoodModalVisible(true);
+          void loadHeightAndBirthdate();
+          void loadManualTrend();
+        }}
       />
 
       {/* Chat screen modal */}
@@ -2396,6 +2578,53 @@ const styles = StyleSheet.create({
     color: WellnessColors.accentBlue,
     marginTop: 4,
     marginBottom: 16,
+  },
+  quickStartAgainBtn: {
+    marginBottom: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  quickStartAgainText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: WellnessColors.accentBlue,
+  },
+  weighInHint: {
+    fontSize: 12,
+    color: WellnessColors.textSecondary,
+    lineHeight: 17,
+    marginBottom: 8,
+  },
+  weighInRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  weighInInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: WellnessColors.textPrimary,
+    backgroundColor: WellnessColors.surface,
+  },
+  weighInBtn: {
+    backgroundColor: WellnessColors.accentBlue,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  weighInBtnDisabled: {
+    opacity: 0.6,
+  },
+  weighInBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
   },
   birthdateSaveBtn: {
     backgroundColor: WellnessColors.accentGreen,
