@@ -6,14 +6,15 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 
 | Order | Prompt | Topic |
 |-------|--------|--------|
-| **1 — next** | **`prompt54.txt`** | Local-first clinic relay — **Share button shipped**; server relay + revoke purge + rules mailbox pending |
+| **0 — ship first (alpha + GA onboarding)** | **`prompt55.txt`** | Welcome & Quick Start — **every user's** first-run path (profile, imports, targets, food log) |
+| **1 — next** | **`prompt54.txt`** | Local-first clinic relay — **Share button shipped**; server relay + revoke purge pending |
 | 2 | `prompt52.txt` | My Rules rawText-only save (optional with 54) |
 
 ## Backlog (`prompts/app/`)
 
 | File | Topic |
 |------|--------|
-| `prompt31.txt` | Source config, Samsung, AI/manual BMR |
+| `prompt31.txt` | Source config + Samsung steps — **→ implement in prompt55** |
 | `prompt32.txt` | Backup import QA + hardening |
 | `prompt38.txt` | Secondary lab findings (liver, iron, uric acid) |
 | `prompt40b.txt` | Day/week meal plans, export, food preferences |
@@ -21,7 +22,7 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 | `prompt47.txt` | Play Store internal testing (local-first privacy; AAB + privacy page) |
 | `prompt49.txt` | Link to clinic + share encrypted data + sponsored AI badge |
 | `prompt52.txt` | My Rules rawText-only save — deprecate summarise-on-save |
-| `prompt54.txt` | **NEXT** — relay + mailbox (Share button on phone **done** 2026-07-03) |
+| `prompt55.txt` | **Onboarding (all users)** — Welcome & Quick Start; alpha ships first |
 
 ## Done (`prompts/app/done/`)
 

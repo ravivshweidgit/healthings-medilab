@@ -1,0 +1,241 @@
+## Prompt 55 — Welcome & Quick Start (profile, devices, imports, targets, food log)
+
+**Status: backlog (spec draft 2026-07-05; revised — Quick Start + imports + food log; universal onboarding)**  
+**Priority:** **ship first for alpha testers**; design is **every user's first-run path**, not a temporary alpha hack  
+**Builds on:** `prompt31.txt` · `done/prompt53.txt` (nutritionist PDF) · lab import (`LabReportModal`) · `WeightTargetStrip` · `MacroTargetStrip` · `FoodLogModal`
+
+---
+
+### Problem
+
+Alpha testers exposed the gap (empty profile, no guidance). The **Welcome & Quick Start** wizard is the **standard onboarding** for **any new install** — alpha now, production later. Same flow, same storage keys; only copy/t polish may evolve.
+
+After public launch: still shown when profile incomplete or `onboarding_complete_v1` unset; optional **Quick Start again** from My Profile for anyone.
+
+---
+
+### Product goal
+
+**Welcome & Quick Start** — the default first-run experience for every user. One guided flow on first dashboard entry (and re-runnable from My Profile). Sets up profile and devices, **optionally imports** lab + nutritionist PDFs, generates AI targets, and **teaches how to log meals**.
+
+User is always in control: imports and “try first meal” are **optional**; only profile + weight + confirmed targets are required to finish.
+
+**Privacy:** PDFs parsed on device via Gemini; stored locally only (same as existing lab / nutrition flows).
+
+---
+
+### Trigger (all users)
+
+Show when **any** of missing:
+
+- `user_gender` OR `user_height_cm` OR `user_birthdate` OR language unset  
+- OR `onboarding_complete_v1` not set  
+
+**New account / fresh install / cleared app data** → wizard runs. **Existing users** with complete profile + flag set → skip.
+
+Re-show from **My Profile → “Quick Start again”** (any user; reopens wizard; does not wipe saved data).
+
+**Storage:** `onboarding_complete_v1` = ISO timestamp when user finishes step 7.
+
+---
+
+### Wizard steps (7 — Welcome & Quick Start)
+
+| Step | Title | Content |
+|------|--------|---------|
+| **1** | Welcome | Local-first, not medical advice. **Gender** · **Height (cm)** · **Birth date** · **Language**. Hebrew/Arabic: **Mentor voice gender**. Age ≥ 13. |
+| **2** | Your devices | **Withings body scale?** Y/N · **Withings watch?** Y/N · **Track glucose (CGM)?** Y/N |
+| **3** | Starting weight | No scale → **current weight (kg)** required. Yes scale → weight now OR “Link Withings later” (no OAuth in wizard). |
+| **4** | Permissions | Steps (HC) if no watch; glucose (HC) if CGM yes. One-line why each. |
+| **5** | **Bring your reports** | Optional imports — **Skip all** always visible. |
+| **6** | Your targets | AI body → confirm **`BodyTarget`** → AI macros → confirm **`DailyMacroTarget`**. Lab import in step 5 may refine macros here (see below). |
+| **7** | **Log your meals** | Short tutorial + optional first meal (see Food log quick start). |
+
+**Progress:** “Quick Start · 3 of 7” (not “Welcome” only — both names in header subtitle on step 1).
+
+---
+
+#### Step 5 — Bring your reports (optional)
+
+Two cards, each independent:
+
+| Card | Action | Reuse |
+|------|--------|--------|
+| **Lab report (PDF)** | “Import lab PDF” → pick file → review parsed panel → save | `LabReportModal` with `autoPickPdf` |
+| **Nutritionist session (PDF)** | “Import session summary” → pick → review plain text → save | `NutritionDirectiveReviewModal` with `autoPickPdf` |
+
+Copy:
+
+- “Already have blood work? Import a PDF — we’ll read lipids, kidney markers, and more for smarter macros.”
+- “Have a nutritionist visit summary? Import it — coaches will follow your plan text.”
+- **Skip for now** — no penalty; strips on dashboard work the same later.
+
+**Order:** if user imports **lab first**, run macro suggestion in step 6 with lab context (`applyAutoMacroRevision` / `suggestMacroTargets` with labs — same as post-save lab flow). If **nutritionist PDF**, set active directive before step 6 so macro + coach context include `nutrition_directives_v1`.
+
+**Do not require** either import to proceed.
+
+---
+
+#### Step 7 — Food log quick start
+
+**Goal:** explain how daily meal documentation works — not a long tutorial.
+
+**Show (illustrated or bullet + icons):**
+
+1. **Dashboard chart** — tap **+** on the metabolic chart (or “Add meal”) to open the food log.
+2. **Photo** — take a picture of your plate; AI lists items and macros; you approve.
+3. **Text** — describe the meal in words (“2 eggs, toast, coffee”); AI parses it.
+4. **Coach chat** — ask in mentor chat; coach can suggest what to log (meals still save via food log modal).
+
+**Optional CTA:** **“Log my first meal”** → opens `FoodLogModal` embedded or full-screen; on save or cancel, user can **Finish Quick Start**.
+
+**Skip:** “I’ll log later” → finish without opening modal.
+
+**After finish:** one-time coach tip or dashboard hint pointing to + button (dismissible).
+
+---
+
+### `source_config` (from prompt31 — ship here)
+
+AsyncStorage key: `source_config`
+
+```jsonc
+{
+  "version": 1,
+  "glucose": "health-connect" | "none",          // from step 2 CGM Y/N
+  "activity": "withings" | "samsung-steps" | "none",
+  "bodyComposition": "withings" | "manual" | "none",
+  "bmr": "withings" | "manual" | "ai-estimate",
+  "heartRate": "withings" | "none"
+}
+```
+
+**Priority rules (runtime):**
+
+| Metric | Resolution order |
+|--------|------------------|
+| BMR | `manual_bmr_kcal` override > Withings measure > **Mifflin–St Jeor** from profile+weight > AI estimate |
+| Body comp | Withings scan > **`manual_body_v1`** (below) |
+| Activity burn | Withings calories > **steps → kcal** (computed) > none |
+| Glucose | Health Connect merge > CSV import > none |
+
+Set defaults from step 2 answers when wizard completes.
+
+---
+
+### Manual body (no Withings scale)
+
+AsyncStorage key: `manual_body_v1`
+
+```jsonc
+{
+  "weight_kg": 82.5,
+  "fat_pct": 22.0,           // AI-estimated at onboarding; user-editable later
+  "muscle_mass_kg": 58.0,    // AI-estimated; muscle ≈ weight − fat mass
+  "bmr_kcal": 1780,          // Mifflin default OR AI; stored as manual_bmr when user locks
+  "measuredAt": "2026-07-05T…",
+  "source": "ai-estimate" | "user-entered"
+}
+```
+
+**AI body estimate (step 6):** call existing `suggestBodyTargets()` with input built from manual snapshot + profile. **Fallback if Gemini fails:** Mifflin BMR + healthy fat% band by gender (no network block).
+
+**Static manual BMR:** persist `manual_bmr_kcal` in `TargetService` (new key) when user confirms targets; dashboard reads it when `source_config.bmr` is `manual` or `ai-estimate` and no Withings BMR.
+
+---
+
+### Samsung / Health Connect steps → kcal (no watch)
+
+**Read:** steps only from Health Connect (Samsung Health syncs steps there — do **not** trust Samsung-reported active kcal; known bugs).
+
+**Compute daily active kcal from steps** (simple, documented):
+
+```
+stepLength_m ≈ height_cm * 0.415 / 100   // or gender-aware 0.413/0.415
+distance_km = steps * stepLength_m / 1000
+active_kcal ≈ weight_kg * distance_km * 0.8   // ~ walking MET shorthand; tune in code comments
+```
+
+Merge into existing activity store **day-keyed**, idempotent (same as CGM merge pattern in `CgmPersistenceService` / `HealthPersistenceService`).
+
+**Service:** `SamsungStepsAdapter.ts` or extend Health Connect reader — filter record type Steps only.
+
+---
+
+### AI targets (step 6)
+
+1. **Body targets** — `suggestBodyTargets()` → `saveBodyTarget()`.  
+2. **Macro targets** — `suggestMacroTargets({ trigger: 'onboarding', lang })`; if lab imported in step 5, include lab guidance (same pipeline as `LabReportModal` save).  
+3. **Confirm card** — user taps **Save targets** (no silent auto-save).
+
+After finish: set `onboarding_complete_v1`, persist `source_config`.
+
+**Withings OAuth:** if user answered Y to scale/watch, dashboard **Link Withings** banner (non-blocking).
+
+---
+
+### UX rules
+
+- English UI strings only (language policy).  
+- Multi-step **Back** / **Next**; progress **1/7 … 7/7**.  
+- Header: **Quick Start** (subtitle “Welcome to Healthings” on step 1 only).  
+- **Required to Finish:** gender, height, birthdate, language, weight path, saved body + macro targets.  
+- **Optional:** lab PDF, nutritionist PDF, first meal, Withings link.  
+- Do not run Withings OAuth inside wizard.  
+- My Profile remains editable; **Quick Start again** reopens wizard.
+
+---
+
+### Primary files
+
+| Area | File |
+|------|------|
+| Wizard UI | `app/src/components/WelcomeQuickStartWizard.tsx` **NEW** |
+| Completeness | `app/src/services/ProfileCompletenessService.ts` **NEW** |
+| Source config | `app/src/services/SourceConfigService.ts` **NEW** |
+| Manual body | `app/src/services/ManualBodyService.ts` **NEW** |
+| Steps → kcal | `app/src/services/SamsungStepsAdapter.ts` **NEW** |
+| BMR fallback | `app/src/logic/bmrEstimate.ts` **NEW** |
+| Lab import | Reuse `LabReportModal.tsx` (`autoPickPdf`) |
+| Nutrition import | Reuse `NutritionDirectiveReviewModal.tsx` (`autoPickPdf`) |
+| Food tutorial | Step 7 inline + optional `FoodLogModal.tsx` |
+| Dashboard gate | `DashboardScreen.tsx` |
+
+---
+
+### Phone-tested checklist
+
+- [ ] Fresh install → wizard appears before useful coach/macros  
+- [ ] Step 1 saves gender, height, birthdate, language (+ mentor gender if he/ar)  
+- [ ] No scale path: weight → AI body → editable → saved  
+- [ ] No watch path: HC steps permission → steps on chart → kcal computed (not Samsung kcal field)  
+- [ ] Withings Y: wizard completes without OAuth; Link banner works after  
+- [ ] CGM Y: glucose permission + sync works  
+- [ ] Step 5: lab PDF import → saved → step 6 macros reflect lipids/kidney if present  
+- [ ] Step 5: nutritionist PDF → active directive → coach context on dashboard  
+- [ ] Step 5: Skip all → finish OK  
+- [ ] Step 7: tutorial visible; “Log my first meal” opens food modal; skip OK  
+- [ ] Finish sets `onboarding_complete_v1`; Quick Start does not auto-reopen  
+- [ ] My Profile → Quick Start again works  
+- [ ] Existing user with profile → skipped  
+
+---
+
+### Deferred (not in 55)
+
+- iOS HealthKit steps (Android-first alpha)  
+- Tanita / other scales  
+- Clinic sharing in wizard (stay in Data sharing strip)  
+- Import backup on first run (`prompt32`)
+
+---
+
+### Related
+
+- **`prompt31.txt`** — source_config spec (fold into 55)  
+- **`prompt54.txt`** — clinic relay (parallel OK)  
+- **`prompt47.txt`** — Play privacy mentions onboarding local-only  
+- **`done/prompt53.txt`** — nutritionist PDF verbatim import (reuse in step 5)  
+- **`LabReportModal`** / **`LabLogService`** — lab PDF import (step 5)  
+- **`done/prompt40a.txt`** — `/eat` / recipes (mention in step 7 as advanced, not required)  
+- **`website/privacy.html`** — age 13+, Health Connect permissions  
