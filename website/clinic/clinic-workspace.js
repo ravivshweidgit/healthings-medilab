@@ -776,11 +776,31 @@
     return `<div class="bubble ${cls}"><div>${esc(m.text)}</div><div class="time">${who} · ${new Date(m.sentAt).toLocaleString()}</div></div>`;
   }
 
+  function thinkingBubbleHtml() {
+    return `<div class="bubble assistant thinking" id="chat-thinking" aria-live="polite"><div class="chat-thinking-row"><span class="chat-spinner" aria-hidden="true"></span><span>Mentor thinking…</span></div></div>`;
+  }
+
   async function sendChat(ctx, input, panel) {
     const text = input?.value?.trim();
     if (!text || !ctx.api) return;
     const btn = panel.querySelector('#chat-send');
+    const msgs = panel.querySelector('#chat-msgs');
     if (btn) btn.disabled = true;
+    if (input) input.disabled = true;
+
+    const userSentAt = new Date().toISOString();
+    if (msgs) {
+      const empty = msgs.querySelector('.empty');
+      if (empty) empty.remove();
+      msgs.insertAdjacentHTML(
+        'beforeend',
+        bubbleHtml({ role: 'user', text, sentAt: userSentAt, fromClinic: true }),
+      );
+      msgs.insertAdjacentHTML('beforeend', thinkingBubbleHtml());
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+    if (input) input.value = '';
+
     try {
       const res = await ctx.api(`/v1/clinic/patients/${ctx.patientId}/chat`, {
         method: 'POST',
@@ -790,12 +810,14 @@
       const data = await res.json();
       if (!ctx.overlay) ctx.overlay = { chat: {} };
       ctx.overlay.chat[ctx.activeMentor || 'nutritionist'] = data.thread;
-      input.value = '';
       renderChat(panel, ctx);
     } catch (e) {
+      panel.querySelector('#chat-thinking')?.remove();
       alert(e instanceof Error ? e.message : 'Chat failed');
     } finally {
       if (btn) btn.disabled = false;
+      if (input) input.disabled = false;
+      input?.focus();
     }
   }
 

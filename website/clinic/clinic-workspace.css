@@ -379,6 +379,31 @@ body.clinic-workspace {
 .bubble.assistant { background: #fff; border: 1px solid var(--grid); border-bottom-left-radius: 4px; }
 .bubble .time { font-size: 0.7rem; color: var(--muted); margin-top: 6px; }
 
+.bubble.thinking {
+  opacity: 0.95;
+  border-style: dashed;
+}
+.chat-thinking-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.92rem;
+}
+.chat-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--grid);
+  border-top-color: #1976d2;
+  border-radius: 50%;
+  animation: chat-spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes chat-spin {
+  to { transform: rotate(360deg); }
+}
+
 .chat-compose {
   display: flex;
   gap: 10px;
