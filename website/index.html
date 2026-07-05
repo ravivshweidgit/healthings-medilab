@@ -29,24 +29,35 @@
         />
         <p class="badge">Android alpha</p>
 
-        <div class="hero-get-app">
-          <p class="hero-get-app-label">Get the app</p>
-          <a
-            id="play-link"
-            class="play-badge-link"
-            href="https://play.google.com/apps/internaltest/4701238109724209688"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <img
-              class="play-badge"
-              src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"
-              width="270"
-              height="80"
-              alt="Get it on Google Play"
-            />
-          </a>
-          <p class="download-note">Join internal testing on Play Store</p>
+        <div class="hero-download">
+          <div class="hero-get-app">
+            <p class="hero-get-app-label">Get the app</p>
+            <a
+              id="play-link"
+              class="play-badge-link"
+              href="https://play.google.com/apps/internaltest/4701238109724209688"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                class="play-badge"
+                src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"
+                width="270"
+                height="80"
+                alt="Get it on Google Play"
+              />
+            </a>
+            <p class="download-note">Join internal testing on Play Store</p>
+          </div>
+
+          <div class="hero-install">
+            <p class="hero-get-app-label">How to install</p>
+            <ol class="steps">
+              <li>Open the <strong>Google Play</strong> link (or your tester invite email).</li>
+              <li>Tap <strong>Become a tester</strong>, then <strong>Download</strong>.</li>
+              <li>Sign in with your email — a one-time code, no password.</li>
+            </ol>
+          </div>
         </div>
 
         <h1>A full metabolic OS</h1>
@@ -62,74 +73,67 @@
         </p>
       </section>
 
-      <section class="card">
-        <h2>One system, not four apps</h2>
-        <p class="card-intro">Charts tell you what happened. MediLab tells you what to do next.</p>
-        <div class="compare-grid">
-          <div class="compare-col compare-before">
-            <h3>What people use today</h3>
-            <ul>
-              <li>Glucose app — curve, no meal plan</li>
-              <li>Scale app — weight, no macro targets</li>
-              <li>Food app — calories, no lab context</li>
-              <li>Lab report — PDF sitting in email</li>
-              <li>Nutritionist plan — paper or PDF, not in the app</li>
-              <li>You — the integrator every day</li>
-            </ul>
+      <div class="cards-row">
+        <section class="card">
+          <h2>One system, not four apps</h2>
+          <p class="card-intro">Charts tell you what happened. MediLab tells you what to do next.</p>
+          <div class="compare-stack">
+            <div class="compare-col compare-before">
+              <h3>What people use today</h3>
+              <ul>
+                <li>Glucose app — curve, no meal plan</li>
+                <li>Scale app — weight, no macro targets</li>
+                <li>Food app — calories, no lab context</li>
+                <li>Lab report — PDF sitting in email</li>
+                <li>Nutritionist plan — paper or PDF, not in the app</li>
+                <li>You — the integrator every day</li>
+              </ul>
+            </div>
+            <div class="compare-col compare-after">
+              <h3>Healthings Medilab</h3>
+              <ul>
+                <li>Lab reports imported — lipids, kidney, glucose in your targets</li>
+                <li>Nutritionist reports and rules — built into daily macros</li>
+                <li>System learns your body from food, scale, and trends over time</li>
+                <li>Daily macro targets and meal decisions — you confirm each change</li>
+                <li>Weekly review — what worked, what to change</li>
+                <li>Optional devices deepen the picture as you connect them</li>
+              </ul>
+            </div>
           </div>
-          <div class="compare-col compare-after">
-            <h3>Healthings Medilab</h3>
-            <ul>
-              <li>Lab reports imported — lipids, kidney, glucose in your targets</li>
-              <li>Nutritionist reports and rules — built into daily macros</li>
-              <li>System learns your body from food, scale, and trends over time</li>
-              <li>Daily macro targets and meal decisions — you confirm each change</li>
-              <li>Weekly review — what worked, what to change</li>
-              <li>Optional devices deepen the picture as you connect them</li>
-            </ul>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="card">
-        <h2>How it works</h2>
-        <ol class="steps loop-steps">
-          <li><strong>Import</strong> blood lab reports and your nutritionist’s plan (PDF)</li>
-          <li><strong>Log</strong> meals and weigh in — the OS learns your body over time</li>
-          <li><strong>Review</strong> daily macro targets — confirm before they update</li>
-          <li><strong>Ask</strong> AI mentors between visits — on your plan, not generic diet chat</li>
-          <li><strong>Share</strong> a weekly brief with your nutritionist via the clinic portal</li>
-        </ol>
-        <p class="card-foot">
-          With a licensed nutritionist: they set rules and targets; you arrive at each visit with a
-          full metabolic brief, not screenshots. On your own: same system — many users reach similar
-          targets because the OS applies the same integrated logic to your data.
-        </p>
-      </section>
+        <section class="card">
+          <h2>How it works</h2>
+          <ol class="steps loop-steps">
+            <li><strong>Import</strong> blood lab reports and your nutritionist’s plan (PDF)</li>
+            <li><strong>Log</strong> meals and weigh in — the OS learns your body over time</li>
+            <li><strong>Review</strong> daily macro targets — confirm before they update</li>
+            <li><strong>Ask</strong> AI mentors between visits — on your plan, not generic diet chat</li>
+            <li><strong>Share</strong> a weekly brief with your nutritionist via the clinic portal</li>
+          </ol>
+          <p class="card-foot">
+            With a licensed nutritionist: they set rules and targets; you arrive at each visit with a
+            full metabolic brief, not screenshots. On your own: same system — many users reach similar
+            targets because the OS applies the same integrated logic to your data.
+          </p>
+        </section>
 
-      <section class="card">
-        <h2>Who it’s for</h2>
-        <p class="card-intro">
-          People working on weight, lipids, glucose, or body composition who <em>track between
-          visits</em> — and nutritionists who want that tracking in one place.
-        </p>
-        <ul class="features">
-          <li>You log food and check in on your body regularly</li>
-          <li>Blood labs and nutritionist reports inform what you eat — not a folder of PDFs</li>
-          <li>The system learns your body and adjusts targets as your trend changes</li>
-          <li>You want daily decisions, not another dashboard</li>
-          <li>Optional scale, watch, or sensor data — the OS grows with your setup</li>
-        </ul>
-      </section>
-
-      <section class="card">
-        <h2>How to install</h2>
-        <ol class="steps">
-          <li>Open the <strong>Google Play</strong> link above (or use the invite from your tester email).</li>
-          <li>Tap <strong>Become a tester</strong>, then <strong>Download</strong>.</li>
-          <li>Sign in with your email — we send a one-time code (no password).</li>
-        </ol>
-      </section>
+        <section class="card">
+          <h2>Who it’s for</h2>
+          <p class="card-intro">
+            People working on weight, lipids, glucose, or body composition who <em>track between
+            visits</em> — and nutritionists who want that tracking in one place.
+          </p>
+          <ul class="features">
+            <li>You log food and check in on your body regularly</li>
+            <li>Blood labs and nutritionist reports inform what you eat — not a folder of PDFs</li>
+            <li>The system learns your body and adjusts targets as your trend changes</li>
+            <li>You want daily decisions, not another dashboard</li>
+            <li>Optional scale, watch, or sensor data — the OS grows with your setup</li>
+          </ul>
+        </section>
+      </div>
 
       <p class="footer">
         Questions? <a href="mailto:otp@healthings.ai">otp@healthings.ai</a><br />

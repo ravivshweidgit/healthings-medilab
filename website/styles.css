@@ -34,7 +34,7 @@ a {
 }
 
 .wrap {
-  max-width: 720px;
+  max-width: 1080px;
   margin: 0 auto;
   padding: 24px 20px 48px;
 }
@@ -65,10 +65,18 @@ a {
   margin-bottom: 20px;
 }
 
+.hero-download {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 24px 40px;
+  margin: 0 auto 28px;
+  text-align: left;
+}
+
 .hero-get-app {
   text-align: center;
-  margin: 0 auto 28px;
-  max-width: 20rem;
 }
 
 .hero-get-app-label {
@@ -86,6 +94,19 @@ a {
 
 .hero-get-app .download-note {
   margin-top: 10px;
+}
+
+.hero-install {
+  max-width: 22rem;
+}
+
+.hero-install .hero-get-app-label {
+  text-align: left;
+}
+
+.hero-install .steps {
+  font-size: 0.9rem;
+  color: var(--muted);
 }
 
 h1 {
@@ -135,15 +156,26 @@ h1 {
   color: var(--muted);
 }
 
-.compare-grid {
+.compare-stack {
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
-@media (min-width: 560px) {
-  .compare-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
+.cards-row {
+  display: grid;
+  gap: 20px;
+  margin-bottom: 20px;
+  align-items: start;
+}
+
+.cards-row .card {
+  margin-bottom: 0;
+  height: 100%;
+}
+
+@media (min-width: 860px) {
+  .cards-row {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
