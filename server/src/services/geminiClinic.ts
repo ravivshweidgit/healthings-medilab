@@ -237,8 +237,79 @@ function parseFoodLogsFromStore(store: Record<string, string>): Map<string, Food
   return byDay;
 }
 
+/** Patient device TZ — inferred from food_log day keys vs meal epoch ms (server runs UTC). */
+function dayKeyFromMsWithOffset(ms: number, utcOffsetMinutes: number): string {
+  const d = new Date(ms + utcOffsetMinutes * 60_000);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+}
+
+function dayKeyFromIsoWithOffset(iso: string, utcOffsetMinutes: number): string | null {
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return null;
+  return dayKeyFromMsWithOffset(ms, utcOffsetMinutes);
+}
+
+function formatHmFromMsWithOffset(ms: number, utcOffsetMinutes: number): string {
+  const d = new Date(ms + utcOffsetMinutes * 60_000);
+  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+}
+
+function formatHmFromIsoWithOffset(iso: string, utcOffsetMinutes: number): string {
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return '??:??';
+  return formatHmFromMsWithOffset(ms, utcOffsetMinutes);
+}
+
+function patientLocalHour(iso: string, utcOffsetMinutes: number): number {
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return 0;
+  return new Date(ms + utcOffsetMinutes * 60_000).getUTCHours();
+}
+
+function formatUtcOffsetLabel(utcOffsetMinutes: number): string {
+  if (utcOffsetMinutes === 0) return 'UTC';
+  const sign = utcOffsetMinutes >= 0 ? '+' : '-';
+  const abs = Math.abs(utcOffsetMinutes);
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  return m === 0 ? `UTC${sign}${h}` : `UTC${sign}${h}:${String(m).padStart(2, '0')}`;
+}
+
+function inferPatientUtcOffsetMinutes(store: Record<string, string>): number {
+  let bestOffset = 0;
+  let bestScore = -Infinity;
+  for (let offsetMin = -720; offsetMin <= 840; offsetMin += 30) {
+    let score = 0;
+    for (const [key, raw] of Object.entries(store)) {
+      const m = key.match(/^food_log_(\d{4}-\d{2}-\d{2})$/);
+      if (!m) continue;
+      const expectedDay = m[1]!;
+      try {
+        const meals = JSON.parse(raw) as FoodMeal[];
+        if (!Array.isArray(meals)) continue;
+        for (const meal of meals) {
+          if (!meal.timestamp) continue;
+          if (dayKeyFromMsWithOffset(meal.timestamp, offsetMin) === expectedDay) score += 2;
+          else score -= 1;
+        }
+      } catch {
+        /* skip corrupt day */
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestOffset = offsetMin;
+    }
+  }
+  return bestOffset;
+}
+
 /** Multi-day food log for clinic mentor chat — matches Food log tab in portal. */
-function formatFoodLogBlock(store: Record<string, string>, lookbackDays = 31): string | null {
+function formatFoodLogBlock(
+  store: Record<string, string>,
+  lookbackDays = 31,
+  utcOffsetMinutes = 0,
+): string | null {
   const byDay = parseFoodLogsFromStore(store);
   if (byDay.size === 0) return null;
 
@@ -247,7 +318,10 @@ function formatFoodLogBlock(store: Record<string, string>, lookbackDays = 31): s
   const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
 
   const dayKeys = [...byDay.keys()].sort((a, b) => b.localeCompare(a));
-  const lines: string[] = ['Food log (by day, newest first — use for questions about any listed date):'];
+  const tzLabel = formatUtcOffsetLabel(utcOffsetMinutes);
+  const lines: string[] = [
+    `Food log (by day, newest first — meal times patient local ${tzLabel}; use for questions about any listed date):`,
+  ];
 
   for (const dk of dayKeys) {
     if (dk < cutoffKey) continue;
@@ -262,7 +336,7 @@ function formatFoodLogBlock(store: Record<string, string>, lookbackDays = 31): s
     );
     for (const meal of meals) {
       const time = meal.timestamp
-        ? new Date(meal.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
+        ? formatHmFromMsWithOffset(meal.timestamp, utcOffsetMinutes)
         : '??:??';
       const itemNames = (meal.items ?? [])
         .map((i) => i.name_local || i.name || '')
@@ -275,11 +349,122 @@ function formatFoodLogBlock(store: Record<string, string>, lookbackDays = 31): s
   return lines.length > 1 ? lines.join('\n') : null;
 }
 
+type GlucosePoint = { timestamp: string; value: number };
+
+function avgRounded(vals: number[]): number | null {
+  if (!vals.length) return null;
+  return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+}
+
+function isDaytimeReading(iso: string, utcOffsetMinutes: number): boolean {
+  const h = patientLocalHour(iso, utcOffsetMinutes);
+  return h >= 7 && h < 23;
+}
+
+function glucoseOnDay(glucose: GlucosePoint[], dayKey: string, utcOffsetMinutes: number): GlucosePoint[] {
+  return glucose.filter(
+    (p) => dayKeyFromIsoWithOffset(p.timestamp, utcOffsetMinutes) === dayKey && p.value > 0,
+  );
+}
+
+function formatDayGlucoseSeries(
+  glucose: GlucosePoint[],
+  dayKey: string,
+  utcOffsetMinutes: number,
+): string | null {
+  const dayPts = glucoseOnDay(glucose, dayKey, utcOffsetMinutes).sort(
+    (a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp),
+  );
+  if (!dayPts.length) return null;
+  const readings = dayPts.map(
+    (p) => `${formatHmFromIsoWithOffset(p.timestamp, utcOffsetMinutes)}=${Math.round(p.value)}`,
+  );
+  const last = dayPts[dayPts.length - 1]!;
+  return `  CGM readings (${dayPts.length} samples, HH:MM=mg/dL patient local — match Food log meal times): ${readings.join(', ')} | latest ${Math.round(last.value)} mg/dL at ${formatHmFromIsoWithOffset(last.timestamp, utcOffsetMinutes)}`;
+}
+
+/** Multi-day CGM for clinic mentor chat — matches dashboard chart data in portal. */
+function formatCgmBlock(
+  store: Record<string, string>,
+  lookbackDays = 31,
+  fullSeriesDays = 7,
+  utcOffsetMinutes = 0,
+): string | null {
+  const cgmRaw = store['healthings:lastMetrics'];
+  if (!cgmRaw) return null;
+  let glucose: GlucosePoint[] = [];
+  try {
+    const cgm = JSON.parse(cgmRaw) as { glucose?: GlucosePoint[] };
+    glucose = (cgm.glucose ?? []).filter((p) => p.value > 0 && Date.parse(p.timestamp));
+  } catch {
+    return null;
+  }
+  if (!glucose.length) return null;
+
+  glucose.sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
+
+  const cutoffMs = Date.now() - lookbackDays * 86_400_000;
+  const cutoffKey = dayKeyFromMsWithOffset(cutoffMs, utcOffsetMinutes);
+
+  const byDay = new Map<string, GlucosePoint[]>();
+  for (const p of glucose) {
+    const dk = dayKeyFromIsoWithOffset(p.timestamp, utcOffsetMinutes);
+    if (!dk || dk < cutoffKey) continue;
+    const list = byDay.get(dk) ?? [];
+    list.push(p);
+    byDay.set(dk, list);
+  }
+  if (byDay.size === 0) return null;
+
+  const dayKeys = [...byDay.keys()].sort((a, b) => b.localeCompare(a));
+  const fullSeriesCutoffMs = Date.now() - fullSeriesDays * 86_400_000;
+  const fullSeriesCutoffKey = dayKeyFromMsWithOffset(fullSeriesCutoffMs, utcOffsetMinutes);
+  const tzLabel = formatUtcOffsetLabel(utcOffsetMinutes);
+
+  const lines: string[] = [
+    `CGM glucose (by day, newest first — times patient local ${tzLabel}; correlate spikes with Food log meal times):`,
+    `Total: ${glucose.length} samples in snapshot | ${byDay.size} days with readings in last ${lookbackDays} days`,
+  ];
+
+  const dayNightLines: string[] = [];
+  for (const dk of dayKeys) {
+    const dayPts = byDay.get(dk) ?? [];
+    const dayVals = dayPts.filter((p) => isDaytimeReading(p.timestamp, utcOffsetMinutes)).map((p) => p.value);
+    const nightVals = dayPts.filter((p) => !isDaytimeReading(p.timestamp, utcOffsetMinutes)).map((p) => p.value);
+    const dayAvg = avgRounded(dayVals);
+    const nightAvg = avgRounded(nightVals);
+    if (dayAvg == null && nightAvg == null) continue;
+    dayNightLines.push(
+      `  ${dk}: day avg ${dayAvg ?? '—'} mg/dL (${dayVals.length} samples, 07:00–23:00) | night avg ${nightAvg ?? '—'} mg/dL (${nightVals.length} samples)`,
+    );
+  }
+  if (dayNightLines.length) {
+    lines.push('CGM DAY vs NIGHT (local time):', ...dayNightLines);
+  }
+
+  for (const dk of dayKeys) {
+    const dayPts = byDay.get(dk) ?? [];
+    const vals = dayPts.map((p) => p.value);
+    const avg = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const pctAbove140 = Math.round((vals.filter((v) => v > 140).length / vals.length) * 100);
+    lines.push(`${dk}: avg ${avg} | min ${min} | max ${max} mg/dL | ${pctAbove140}% readings >140 | ${vals.length} samples`);
+    if (dk >= fullSeriesCutoffKey) {
+      const series = formatDayGlucoseSeries(glucose, dk, utcOffsetMinutes);
+      if (series) lines.push(series);
+    }
+  }
+
+  return lines.length > 1 ? lines.join('\n') : null;
+}
+
 function buildPatientContextBlock(exportData: SnapshotExport | null): string {
   if (!exportData?.asyncStorage) return 'No patient snapshot uploaded yet.';
 
   const store = exportData.asyncStorage;
   const lines: string[] = [];
+  const utcOffsetMinutes = inferPatientUtcOffsetMinutes(store);
 
   const labsBlock = formatLabReports(store);
   if (labsBlock) lines.push(`Lab reports (newest first):\n${labsBlock}`);
@@ -296,20 +481,10 @@ function buildPatientContextBlock(exportData: SnapshotExport | null): string {
     } catch { /* */ }
   }
 
-  const cgmRaw = store['healthings:lastMetrics'];
-  if (cgmRaw) {
-    try {
-      const cgm = JSON.parse(cgmRaw) as { glucose?: Array<{ timestamp: string; value: number }> };
-      const g = cgm.glucose ?? [];
-      if (g.length) {
-        const recent = g.slice(-120);
-        const avg = recent.reduce((a, p) => a + p.value, 0) / recent.length;
-        lines.push(`CGM: ${g.length} points, recent avg ${Math.round(avg)} mg/dL`);
-      }
-    } catch { /* */ }
-  }
+  const cgmBlock = formatCgmBlock(store, 31, 7, utcOffsetMinutes);
+  if (cgmBlock) lines.push(cgmBlock);
 
-  const foodBlock = formatFoodLogBlock(store);
+  const foodBlock = formatFoodLogBlock(store, 31, utcOffsetMinutes);
   if (foodBlock) lines.push(foodBlock);
 
   const rulesRaw = store.user_rules;
@@ -356,6 +531,7 @@ export async function mentorChatReply(
   const prompt = `You are the ${MENTOR_LABEL[mentorType]} AI mentor in a clinical nutrition app.
 The clinic staff is chatting on behalf of reviewing this patient's data. Answer in clear, practical prose.
 Use the patient data below. Do not invent labs or meals not listed.
+When CGM glucose lists a date with avg/min/max or HH:MM readings, that date HAS glucose data — cite it and correlate with Food log meals. Never say glucose/CGM is missing for a date that appears in the CGM block.
 
 PATIENT DATA:
 ${dataBlock}
