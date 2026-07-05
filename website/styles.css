@@ -116,6 +116,28 @@ h1 {
   font-weight: 700;
 }
 
+.play-card {
+  text-align: center;
+}
+
+.play-badge-link {
+  display: inline-block;
+  line-height: 0;
+  border-radius: 8px;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.play-badge-link:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.play-badge {
+  width: min(100%, 270px);
+  height: auto;
+  display: block;
+}
+
 .download-btn {
   display: block;
   width: 100%;

@@ -35,22 +35,24 @@
         </p>
       </section>
 
-      <section id="play-section" class="card" hidden>
-        <h2>Google Play (alpha testers)</h2>
-        <a id="play-link" class="download-btn play-btn" href="#">
-          Get it on Google Play
+      <section class="card play-card">
+        <h2>Get the app</h2>
+        <a
+          id="play-link"
+          class="play-badge-link"
+          href="https://play.google.com/apps/internaltest/4701238109724209688"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img
+            class="play-badge"
+            src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"
+            width="270"
+            height="80"
+            alt="Get it on Google Play"
+          />
         </a>
-        <p class="download-note">Recommended for testers — installs and updates via Play Store.</p>
-      </section>
-
-      <section class="card">
-        <h2>Download the app (APK)</h2>
-        <a id="download-link" class="download-btn" href="downloads/healthings-medilab.apk">
-          Download for Android
-        </a>
-        <p id="download-status" class="download-note">
-          Free alpha · email sign-in · no password
-        </p>
+        <p class="download-note">Android alpha — join internal testing, then install and update via Play Store.</p>
       </section>
 
       <section class="card">
@@ -64,20 +66,10 @@
       </section>
 
       <section class="card">
-        <h2>Install from Google Play</h2>
+        <h2>How to install</h2>
         <ol class="steps">
-          <li>Open the <strong>Play Store alpha link</strong> from your invite email.</li>
+          <li>Open the <strong>Google Play</strong> link above (or use the invite from your tester email).</li>
           <li>Tap <strong>Become a tester</strong>, then <strong>Download</strong>.</li>
-          <li>Sign in with your email — we send a one-time code (no password).</li>
-        </ol>
-      </section>
-
-      <section class="card">
-        <h2>Install from APK</h2>
-        <ol class="steps">
-          <li>Tap <strong>Download for Android</strong> above.</li>
-          <li>If prompted, allow installs from your browser (unknown sources).</li>
-          <li>Open the APK and install <strong>Healthings</strong>.</li>
           <li>Sign in with your email — we send a one-time code (no password).</li>
         </ol>
       </section>
@@ -89,28 +81,5 @@
         API: <a href="https://api.healthings.ai/health">api.healthings.ai</a>
       </p>
     </main>
-    <script>
-      // Paste Play Console internal-testing opt-in URL after first upload:
-      var PLAY_STORE_ALPHA_URL = 'https://play.google.com/apps/internaltest/4701238109724209688';
-
-      if (PLAY_STORE_ALPHA_URL) {
-        var playSection = document.getElementById('play-section');
-        var playLink = document.getElementById('play-link');
-        playSection.hidden = false;
-        playLink.href = PLAY_STORE_ALPHA_URL;
-      }
-
-      fetch('downloads/healthings-medilab.apk', { method: 'HEAD' })
-        .then(function (res) {
-          if (!res.ok) throw new Error('missing');
-        })
-        .catch(function () {
-          var link = document.getElementById('download-link');
-          var status = document.getElementById('download-status');
-          link.classList.add('disabled');
-          link.removeAttribute('href');
-          status.textContent = 'APK not published yet — check back soon.';
-        });
-    </script>
   </body>
 </html>
