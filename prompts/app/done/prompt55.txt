@@ -1,6 +1,6 @@
 ## Prompt 55 — Welcome & Quick Start (profile, devices, imports, targets, food log)
 
-**Status: shipped 2026-07-05** (phone-tested power user — scale + watch + CGM; step 6 keeps saved targets + My Rules)  
+**Status: shipped 2026-07-05** · **Commit:** `2882056` (phone-tested power user — scale + watch + CGM; step 6 keeps saved targets + My Rules)  
 **Builds on:** `prompt31.txt` (source_config — folded here) · `done/prompt53.txt` · lab import · `WeightTargetStrip` · `MacroTargetStrip` · `FoodLogModal`
 
 ---

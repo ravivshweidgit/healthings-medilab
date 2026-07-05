@@ -45,7 +45,7 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt53** — done + closed (2026-07-03). Nutritionist PDF import on phone (plain-text directive history) + clinic **Nutrition reports** tab. User accepted MVP. See `done/prompt53.txt`. **Next:** `prompt54` local-first clinic relay.
 
-**prompt55** — done (2026-07-05). Welcome & Quick Start wizard (7 steps, all users), `source_config`, manual body/trend/energy, step 6 keeps saved targets + My Rules on upgrade. Phone-tested power user (Withings + CGM). See `done/prompt55.txt`. **Deferred:** HC step 4 status UI, device survey in My Profile.
+**prompt55** — done (2026-07-05). Welcome & Quick Start wizard (7 steps, all users), `source_config`, manual body/trend/energy, step 6 keeps saved targets + My Rules on upgrade. Phone-tested power user (Withings + CGM). See `done/prompt55.txt` (`2882056`). **Deferred:** HC step 4 status UI, device survey in My Profile.
 
 **prompt42 follow-up** — weigh-in macro activation (`measuredAt` dedupe, first weigh-in, unchanged log) documented in `done/prompt42.txt` § Follow-up 2026-06-22.
 
