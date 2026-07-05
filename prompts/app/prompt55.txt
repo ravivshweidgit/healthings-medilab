@@ -55,22 +55,28 @@ Re-show from **My Profile → “Quick Start again”** (any user; reopens wizar
 
 ---
 
-#### Step 5 — Bring your reports (optional)
+#### Step 5 — Bring your reports (optional — skip OK)
+
+User may have **neither**, **one**, or **both**. Every path is valid.
 
 Two cards, each independent:
 
-| Card | Action | Reuse |
-|------|--------|--------|
-| **Lab report (PDF)** | “Import lab PDF” → pick file → review parsed panel → save | `LabReportModal` with `autoPickPdf` |
-| **Nutritionist session (PDF)** | “Import session summary” → pick → review plain text → save | `NutritionDirectiveReviewModal` with `autoPickPdf` |
+| Card | Action | Skip |
+|------|--------|------|
+| **Lab report (PDF)** | “Import lab PDF” → pick → review → save | **“Skip for now”** — no lab on hand |
+| **Nutritionist session (PDF)** | “Import session summary” → pick → review → save | **“Skip for now”** — no visit summary |
+
+**Footer:** primary **Continue** (or **Skip all for now**) — advances to step 6 without any import. No guilt copy; dashboard lab + nutrition strips work the same later.
 
 Copy:
 
 - “Already have blood work? Import a PDF — we’ll read lipids, kidney markers, and more for smarter macros.”
 - “Have a nutritionist visit summary? Import it — coaches will follow your plan text.”
-- **Skip for now** — no penalty; strips on dashboard work the same later.
+- “Don’t have these yet? **Skip for now** — you can add them anytime from the dashboard.”
 
-**Order:** if user imports **lab first**, run macro suggestion in step 6 with lab context (`applyAutoMacroRevision` / `suggestMacroTargets` with labs — same as post-save lab flow). If **nutritionist PDF**, set active directive before step 6 so macro + coach context include `nutrition_directives_v1`.
+**Reuse:** `LabReportModal` / `NutritionDirectiveReviewModal` with `autoPickPdf`.
+
+**Order:** lab import before step 6 → macro suggestion includes labs; nutritionist PDF → active directive before step 6. **Neither imported** → step 6 uses profile + weight only (normal).
 
 **Do not require** either import to proceed.
 
@@ -213,7 +219,9 @@ After finish: set `onboarding_complete_v1`, persist `source_config`.
 - [ ] CGM Y: glucose permission + sync works  
 - [ ] Step 5: lab PDF import → saved → step 6 macros reflect lipids/kidney if present  
 - [ ] Step 5: nutritionist PDF → active directive → coach context on dashboard  
-- [ ] Step 5: Skip all → finish OK  
+- [ ] Step 5: no lab → **Skip for now** on lab card → continue OK  
+- [ ] Step 5: no nutritionist PDF → **Skip for now** on nutrition card → continue OK  
+- [ ] Step 5: **Skip all for now** → step 6 without any import  
 - [ ] Step 7: tutorial visible; “Log my first meal” opens food modal; skip OK  
 - [ ] Finish sets `onboarding_complete_v1`; Quick Start does not auto-reopen  
 - [ ] My Profile → Quick Start again works  
