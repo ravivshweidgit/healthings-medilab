@@ -66,17 +66,60 @@ a {
 }
 
 .hero-download {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 24px 40px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px 28px;
+  align-items: start;
+  max-width: 640px;
   margin: 0 auto 28px;
   text-align: left;
 }
 
 .hero-get-app {
   text-align: center;
+  min-width: 0;
+}
+
+.hero-get-app .play-badge {
+  width: min(100%, 200px);
+}
+
+.hero-install {
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.hero-install .hero-get-app-label {
+  text-align: left;
+  margin-bottom: 10px;
+}
+
+.hero-install .steps {
+  font-size: 0.85rem;
+  color: var(--muted);
+  padding-left: 1.1rem;
+  margin: 0;
+}
+
+@media (min-width: 520px) {
+  .hero-download {
+    gap: 16px 40px;
+    max-width: 680px;
+  }
+
+  .hero-get-app .play-badge {
+    width: min(100%, 240px);
+  }
+
+  .hero-install .steps {
+    font-size: 0.9rem;
+  }
+}
+
+@media (min-width: 640px) {
+  .hero-get-app .play-badge {
+    width: min(100%, 270px);
+  }
 }
 
 .hero-get-app-label {
@@ -94,19 +137,6 @@ a {
 
 .hero-get-app .download-note {
   margin-top: 10px;
-}
-
-.hero-install {
-  max-width: 22rem;
-}
-
-.hero-install .hero-get-app-label {
-  text-align: left;
-}
-
-.hero-install .steps {
-  font-size: 0.9rem;
-  color: var(--muted);
 }
 
 h1 {
