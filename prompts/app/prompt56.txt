@@ -1,0 +1,168 @@
+## Prompt 56 — iOS alpha (shared UI, HealthKit services layer)
+
+**Status: backlog (spec 2026-07-05)**  
+**Priority:** after `prompt54` server relay **or** parallel if iPhone testers blocked on Android-only  
+**Builds on:** `done/prompt55.txt` (`source_config`, Quick Start, manual body/trend) · `prompt47.txt` (Play pattern → TestFlight)
+
+---
+
+### Problem
+
+iPhone friends cannot join alpha: no iOS binary, no TestFlight, health layer hard-coded to **Android Health Connect + Samsung steps**. The **UI is already cross-platform** (React Native); only the **services / permissions / build pipeline** differ.
+
+User mental model (correct):
+
+- **Same app** — dashboard, food log, coach, My Rules, Quick Start, Withings OAuth, lab/nutrition PDFs  
+- **Different backends** — Android: Health Connect + Samsung steps; iOS: **HealthKit** (+ Withings, manual, CSV CGM import)  
+- **`source_config`** drives which adapter runs — platform is a **configuration + adapter** issue, not a second product  
+
+---
+
+### Product goal
+
+**iOS internal alpha (TestFlight)** with parity on **core coaching loop**:
+
+| Feature | iOS alpha |
+|---------|-----------|
+| Login OTP | Yes |
+| Quick Start wizard | Yes — step 4 **Apple Health** permissions (not Health Connect copy) |
+| Food log + coach + macros + My Rules | Yes |
+| Withings scale/watch | Yes (OAuth + existing Withings services) |
+| Live CGM | **HealthKit** blood glucose read (Libre/CareSens via companion apps that write to Apple Health — verify with testers) |
+| Steps → activity kcal | **HealthKit** step count (replaces Samsung/HC steps adapter) |
+| CareSens CSV import | Yes (same as Android) |
+| Clinic share | Yes (when prompt54 relay ships) |
+| Manual weight / trend | Yes (same manual path as prompt55) |
+
+**Not in v1 iOS alpha:** Tanita, direct Libre BLE, iOS-specific widgets, App Store production listing.
+
+---
+
+### Architecture — platform adapters
+
+```
+                    ┌─────────────────────────────────┐
+                    │  Shared UI (screens, wizard)     │
+                    └───────────────┬─────────────────┘
+                                    │
+                    ┌───────────────▼─────────────────┐
+                    │  source_config (v2)            │
+                    │  + platform defaults           │
+                    └───────────────┬─────────────────┘
+          ┌─────────────────────────┼─────────────────────────┐
+          ▼                         ▼                         ▼
+   HealthConnectService      HealthKitService (NEW)     Withings / Manual / CSV
+   (Android only)            (iOS only)                 (both platforms)
+```
+
+### `source_config` v2 (extend, migrate v1 → v2 on read)
+
+```jsonc
+{
+  "version": 2,
+  "glucose": "health-connect" | "healthkit" | "none",
+  "activity": "withings" | "healthkit-steps" | "samsung-steps" | "none",
+  "bodyComposition": "withings" | "manual" | "none",
+  "bmr": "withings" | "manual" | "ai-estimate",
+  "heartRate": "withings" | "healthkit" | "none"
+}
+```
+
+**Platform defaults when saving from Quick Start step 2:**
+
+| Survey answer | Android | iOS |
+|---------------|---------|-----|
+| CGM Y | `glucose: health-connect` | `glucose: healthkit` |
+| Watch N, need steps | `activity: samsung-steps` | `activity: healthkit-steps` |
+| Watch Y | `activity: withings` | `activity: withings` |
+| Scale / manual | same | same |
+
+**Wizard step 4 copy (iOS):** “Tap Next — Apple Health may open once…” + request HealthKit read types (glucose, steps).
+
+**Runtime:** `getHealthDataSource()` → `'health-connect' | 'healthkit' | 'demo-expo-go'` (remove `'demo-non-android'` for release builds).
+
+---
+
+### New / changed files
+
+| Area | File |
+|------|------|
+| HealthKit adapter | `app/src/services/HealthKitService.ts` **NEW** |
+| Steps → kcal (iOS) | extend `SamsungStepsAdapter.ts` → rename or add `StepsToKcalAdapter` used by both HC + HK |
+| Platform health facade | `app/src/services/PlatformHealthService.ts` **NEW** — delegates to HC or HK by `Platform.OS` + `source_config` |
+| Source config | `SourceConfigService.ts` — v2 types, `sourceConfigFromDevices(survey, platform)` |
+| Health runtime | `healthRuntime.ts` — iOS → healthkit when native module present |
+| Wizard | `WelcomeQuickStartWizard.tsx` — step 4 iOS branch |
+| Dashboard | hide Android-only HC banner on iOS; show HealthKit settings hint |
+| Native | `expo prebuild` → `ios/` + HealthKit entitlements in `app.json` / plugin |
+| Build | `eas.json` **NEW** — iOS TestFlight profile (build on EAS cloud — **no Mac required** for routine builds) |
+
+**Dependency (evaluate):** `@kingstinct/react-native-healthkit` or Expo config plugin + `react-native-health` — pick one that supports glucose + steps on Expo 54 dev client.
+
+---
+
+### Build & release (you do not need a Mac for every build)
+
+| Requirement | Who / what |
+|-------------|------------|
+| **Apple Developer Program** | ~$99/yr — you enroll once |
+| **Mac** | **Optional** if using **EAS Build** (Expo cloud builds iOS on their Macs) |
+| **First-time setup** | Apple credentials in EAS, bundle id `com.healthings.medilab`, HealthKit capability |
+| **TestFlight** | EAS Submit or manual upload to App Store Connect |
+| **Tester invite** | App Store Connect → Internal testing (similar to Play internal) |
+
+**Windows dev machine OK** for: JS/TS, `eas build --platform ios`, TestFlight upload.
+
+**Mac needed locally only if:** debugging native HealthKit issues without EAS, or avoiding EAS cost.
+
+---
+
+### Implementation phases
+
+**Phase A — Build boots on iOS (no health yet)**  
+- `npx expo prebuild --platform ios` (or EAS)  
+- Dev client / TestFlight shell  
+- Login, dashboard, food log, coach — confirm no Android-only imports crash  
+
+**Phase B — HealthKit read path**  
+- Glucose + steps permissions  
+- Wire `PlatformHealthService` into `useHealthData` / CGM merge (same store as Android)  
+- `source_config` v2 + wizard step 4 iOS  
+
+**Phase C — Withings + manual on iOS**  
+- OAuth redirect scheme on iOS  
+- Manual trend path (prompt55) unchanged  
+
+**Phase D — TestFlight alpha**  
+- Bump iOS `version` / build number  
+- Internal testers (iPhone friends)  
+- Privacy policy line: Apple Health optional read  
+
+---
+
+### Phone-tested checklist
+
+- [ ] TestFlight install → OTP login → dashboard  
+- [ ] Quick Start completes on iOS  
+- [ ] Apple Health glucose permission → CGM chart (tester with Libre/CareSens → Health)  
+- [ ] Apple Health steps → activity kcal when no Withings watch  
+- [ ] Withings link + body scan on iPhone  
+- [ ] Food log + coach + My Rules unchanged vs Android  
+- [ ] No “sample data — Health Connect” banner on iOS release build  
+
+---
+
+### Deferred
+
+- App Store **production** listing (TestFlight-only alpha first)  
+- HealthKit **write**  
+- Direct Libre 2 BLE  
+- iPad layout polish  
+
+---
+
+### Related
+
+- **`done/prompt55.txt`** — Quick Start + `source_config` v1 (extend to v2 here)  
+- **`prompt47.txt`** — Play internal (mirror for TestFlight)  
+- **`prompt54.txt`** — clinic relay (platform-agnostic once relay ships)  
