@@ -1,0 +1,36 @@
+## Prompt 59 — Steps setup guide (Samsung Health → Health Connect)
+
+**Status: shipped 2026-07-07** · **Commit:** (this commit) · phone-tested (power user saw guide)  
+**Builds on:** `done/prompt58.txt` (watch off → HC steps)
+
+---
+
+### Problem
+
+Watch off uses Health Connect steps, but users must enable Samsung Health → HC step sync **and** grant Healthings Steps read. No in-app guidance — activity kcal stays zero.
+
+---
+
+### What shipped
+
+| Area | Change |
+|------|--------|
+| `HealthConnectStepsGuide` | Card: Open Samsung Health, Open Health Connect, Allow Healthings read steps |
+| `healthAppLinks.openSamsungHealthApp()` | Android intent to launch Samsung Health |
+| My Profile | Guide when Withings watch = No; re-request Steps on toggle |
+| Quick Start step 4 | Same guide when watch = No |
+
+---
+
+### Phone-tested checklist
+
+- [x] Power user: guide visible when watch No (after bi)
+- [ ] Fresh user: wizard step 4 + steps → energy after walk
+- [ ] Open Samsung Health launches app
+- [ ] Allow read steps → permission granted
+
+---
+
+### Related
+
+- **`done/prompt58.txt`** — watch off routing

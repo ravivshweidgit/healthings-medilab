@@ -68,6 +68,7 @@ import { WellnessColors } from '../theme/wellness';
 const TOTAL_STEPS = 7;
 
 import { SetupToggleRow } from './SetupToggleRow';
+import { HealthConnectStepsGuide } from './HealthConnectStepsGuide';
 
 type Props = {
   visible: boolean;
@@ -619,11 +620,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
               {tracksCgm ? (
                 <Text style={styles.hint}>Blood glucose — for CGM charts and meal impact.</Text>
               ) : null}
-              {!hasWatch ? (
-                <Text style={styles.hint}>
-                  Steps — Samsung Health writes steps here; we compute activity calories (not Samsung kcal).
-                </Text>
-              ) : null}
+              {!hasWatch ? <HealthConnectStepsGuide /> : null}
               {permBusy ? <ActivityIndicator style={{ marginTop: 12 }} /> : null}
               {permNote ? <Text style={styles.hint}>{permNote}</Text> : null}
             </>

@@ -40,6 +40,7 @@ import { MacroTargetStrip } from '../components/MacroTargetStrip';
 import { getManualBody, getManualBodyHistory, logManualWeighIn, saveManualFatPct, manualBodyToDashboardMetrics, countDistinctWeighInDays, type ManualBodySnapshot } from '../services/ManualBodyService';
 import { buildManualTrendDays } from '../services/ManualTrendService';
 import { SetupToggleRow } from '../components/SetupToggleRow';
+import { HealthConnectStepsGuide } from '../components/HealthConnectStepsGuide';
 import {
   loadSourceConfig,
   saveSourceConfig,
@@ -55,7 +56,7 @@ import { ChatScreen } from './ChatScreen';
 import { CONFIG } from '../config/env';
 import { useHealthData } from '../hooks/useHealthData';
 import { useWithingsData } from '../hooks/useWithingsData';
-import { openHealthConnectSettings } from '../services/HealthConnectService';
+import { healthConnectService, openHealthConnectSettings } from '../services/HealthConnectService';
 import {
   DEFAULT_TREND_PERIOD_DAYS,
   TREND_PERIOD_DAY_OPTIONS,
@@ -503,6 +504,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         await loadManualTrend();
       }
       if (config.activity === 'samsung-steps') {
+        await healthConnectService.requestStepsPermission();
         await loadHcStepTotals();
       }
     },
@@ -1728,12 +1730,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     label="Withings watch"
                     value={setupToggles.withingsWatch}
                     onChange={(v) => void persistSetupToggles({ ...setupToggles, withingsWatch: v })}
-                    hint={
-                      !setupToggles.withingsWatch
-                        ? 'Activity uses Health Connect step counts.'
-                        : undefined
-                    }
                   />
+                  {!setupToggles.withingsWatch ? (
+                    <HealthConnectStepsGuide onPermissionGranted={() => void loadHcStepTotals()} />
+                  ) : null}
                   <SetupToggleRow
                     label="CGM"
                     value={setupToggles.cgm}

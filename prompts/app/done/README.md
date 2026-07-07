@@ -13,6 +13,8 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt58** — done (2026-07-07). Editable Your setup: 3 toggles (scale/watch/CGM), HC steps when watch off, no OAuth auto-promote. Compile-check OK; phone test pending. See `done/prompt58.txt`.
 
+**prompt59** — done (2026-07-07). Steps setup guide (Samsung Health → HC → Healthings read). Power user guide visible; fresh-user test deferred. See `done/prompt59.txt`.
+
 **prompt20** — done (Phase 1 + 3 + rules/fiber). Phase 2 photo polish deferred inside `done/prompt20.txt`. **Follow-up 2026-06-29** — Gemini per-item fat rules (plant vs whey); phone-tested. See `done/prompt20.txt` § Follow-up 2026-06-29.
 
 **prompt21** — done (CGM persistence + merge + mentors).

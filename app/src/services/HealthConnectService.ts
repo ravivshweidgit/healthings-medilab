@@ -138,6 +138,19 @@ class HealthConnectService {
     }
   }
 
+  async hasStepsReadPermission(): Promise<boolean> {
+    try {
+      const isInitialized = await initialize();
+      if (!isInitialized) return false;
+      const granted = await getGrantedPermissions();
+      return granted.some(
+        (p) => p.accessType === STEPS_READ_PERMISSION.accessType && p.recordType === STEPS_READ_PERMISSION.recordType,
+      );
+    } catch {
+      return false;
+    }
+  }
+
   /** Daily step totals (Samsung Health → Health Connect) for activity kcal estimation. */
   async fetchDailyStepTotals(startDate: Date, endDate: Date = new Date()): Promise<Map<string, number>> {
     const byDay = new Map<string, number>();
