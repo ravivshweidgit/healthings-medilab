@@ -96,7 +96,7 @@ Alpha testers hit empty profile / no guidance. **Welcome & Quick Start** is the 
 
 - Step 4 HC polish: permission status chips, **Open Health Connect settings** when denied  
 - Upgrade pre-fill step 2 from existing Withings link / HC data  
-- My Profile read-only **Your devices** summary (scale/watch/CGM)  
+- My Profile read-only **Your devices** summary (scale/watch/CGM) — **shipped in prompt57**
 - iOS HealthKit steps · Tanita · clinic in wizard · backup on first run (`prompt32`)  
 - CGM brand (CareSens vs Libre2) — wizard stays generic CGM Y/N  
 

@@ -1,0 +1,60 @@
+## Prompt 57 — My Profile: Your setup + optional body composition
+
+**Status: shipped 2026-07-07** · **Commit:** (this commit) · compile-check OK; phone test pending  
+**Builds on:** `done/prompt55.txt` (Quick Start, `source_config`, manual body/trend)  
+**Closes deferred item from prompt55:** My Profile read-only **Your devices** summary
+
+---
+
+### Problem
+
+Quick Start step 2 (devices) and step 3 (weight) are not visible after onboarding. Users cannot see how the app routes body/activity/glucose, cannot optionally refine body fat % without re-running the wizard, and linking Withings on the dashboard did not refresh `source_config`.
+
+---
+
+### What shipped
+
+| Area | Change |
+|------|--------|
+| **Your setup** | Read-only chips in My Profile from `source_config` + live Withings link state |
+| **Body tracking** | Optional weight log + optional **body fat %** in My Profile only (no wizard steps, no prompts) |
+| **Muscle** | Derived from weight + fat % — never asked |
+| **Labels** | Dashboard body tiles: Withings vs manual; fat shows **est.** when AI-estimated |
+| **Withings link** | `applyWithingsLinkToSourceConfig()` — body/BMR/HR paths upgrade without Quick Start |
+| **Manual body** | `fat_pct_source: 'estimated' \| 'user'`; preserve user fat on weigh-in |
+
+**Principles:** user responsibility only; trends from existing persistence (`manual_body_history_v1`, Withings store); manual history kept when Withings upgrades.
+
+---
+
+### Primary files
+
+| File | Role |
+|------|------|
+| `app/src/services/SourceConfigService.ts` | `applyWithingsLinkToSourceConfig()` |
+| `app/src/logic/sourceConfigLabels.ts` | Chip labels for setup summary |
+| `app/src/services/ManualBodyService.ts` | `fat_pct_source`, `saveManualFatPct`, weigh-in preserves user fat |
+| `app/src/screens/DashboardScreen.tsx` | Your setup, body fields, dashboard provenance labels |
+
+---
+
+### Phone-tested checklist
+
+- [ ] My Profile → **Your setup** shows body / activity / glucose chips matching Quick Start choices
+- [ ] Manual path: log weight → trend updates; optional fat % → muscle recalculates; fat tile shows no **est.** when user-set
+- [ ] Link Withings → chips update; Withings body replaces manual on dashboard when sync succeeds; manual history retained in storage
+- [ ] Withings user: body section hidden when scale data present; setup shows Withings scale
+
+---
+
+### Deferred
+
+- Step 4 HC permission status chips (`prompt55` deferral)
+- Upgrade pre-fill step 2 from existing Withings / HC (`prompt55`)
+
+---
+
+### Related
+
+- **`done/prompt55.txt`** — wizard + manual trend; deferral closed here
+- **`prompt56.txt`** — iOS HealthKit (parallel)

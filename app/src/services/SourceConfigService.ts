@@ -62,3 +62,17 @@ export async function loadSourceConfig(): Promise<SourceConfig> {
 export async function saveSourceConfig(config: SourceConfig): Promise<void> {
   await AsyncStorage.setItem(SOURCE_CONFIG_KEY, JSON.stringify(config));
 }
+
+/** After OAuth link — upgrade routing without re-running Quick Start. */
+export async function applyWithingsLinkToSourceConfig(): Promise<SourceConfig> {
+  const config = await loadSourceConfig();
+  const next: SourceConfig = { ...config };
+  if (config.bodyComposition !== 'manual') {
+    next.bodyComposition = 'withings';
+    next.bmr = 'withings';
+  }
+  if (config.heartRate === 'none') next.heartRate = 'withings';
+  if (config.activity === 'none') next.activity = 'withings';
+  await saveSourceConfig(next);
+  return next;
+}

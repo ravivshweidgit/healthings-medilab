@@ -13,6 +13,8 @@ const HISTORY_CAP = 128;
 
 export type ManualBodySource = 'ai-estimate' | 'user-entered';
 
+export type FatPctSource = 'estimated' | 'user';
+
 export type ManualBodySnapshot = {
   weight_kg: number;
   fat_pct: number;
@@ -20,6 +22,8 @@ export type ManualBodySnapshot = {
   bmr_kcal: number;
   measuredAt: string;
   source: ManualBodySource;
+  /** When omitted, treat as estimated (legacy snapshots). */
+  fat_pct_source?: FatPctSource;
 };
 
 export async function getManualBody(): Promise<ManualBodySnapshot | null> {
@@ -75,17 +79,33 @@ export async function saveManualBody(snapshot: ManualBodySnapshot): Promise<void
   await appendManualBodyHistory(snapshot);
 }
 
-/** Log a new weigh-in; refreshes composition estimate from profile. */
-export async function logManualWeighIn(
+function resolveFatPctForWeighIn(
+  existing: ManualBodySnapshot | null,
+  opts: { gender: Gender; heightCm: number; ageYears: number; fatPct?: number },
   weightKg: number,
-  opts: { gender: Gender; heightCm: number; ageYears: number },
-): Promise<ManualBodySnapshot> {
+): { fat_pct: number; muscle_mass_kg: number; bmr_kcal: number; fat_pct_source: FatPctSource } {
+  const userFat =
+    opts.fatPct ??
+    (existing?.fat_pct_source === 'user' ? existing.fat_pct : undefined);
   const est = estimateBodyFromProfile({
     gender: opts.gender,
     weightKg,
     heightCm: opts.heightCm,
     ageYears: opts.ageYears,
+    fatPct: userFat,
   });
+  const fat_pct_source: FatPctSource =
+    opts.fatPct != null || existing?.fat_pct_source === 'user' ? 'user' : 'estimated';
+  return { ...est, fat_pct_source };
+}
+
+/** Log a new weigh-in; keeps user fat % when set, else AI-estimates from profile. */
+export async function logManualWeighIn(
+  weightKg: number,
+  opts: { gender: Gender; heightCm: number; ageYears: number; fatPct?: number },
+): Promise<ManualBodySnapshot> {
+  const existing = await getManualBody();
+  const est = resolveFatPctForWeighIn(existing, opts, weightKg);
   const snap: ManualBodySnapshot = {
     weight_kg: weightKg,
     fat_pct: est.fat_pct,
@@ -93,6 +113,35 @@ export async function logManualWeighIn(
     bmr_kcal: est.bmr_kcal,
     measuredAt: new Date().toISOString(),
     source: 'user-entered',
+    fat_pct_source: est.fat_pct_source,
+  };
+  await saveManualBody(snap);
+  return snap;
+}
+
+/** Update body fat % on the latest manual snapshot (optional My Profile field). */
+export async function saveManualFatPct(
+  fatPct: number,
+  opts: { gender: Gender; heightCm: number; ageYears: number },
+): Promise<ManualBodySnapshot | null> {
+  if (!(fatPct >= 3 && fatPct <= 65)) return null;
+  const existing = await getManualBody();
+  if (!existing?.weight_kg) return null;
+  const est = estimateBodyFromProfile({
+    gender: opts.gender,
+    weightKg: existing.weight_kg,
+    heightCm: opts.heightCm,
+    ageYears: opts.ageYears,
+    fatPct,
+  });
+  const snap: ManualBodySnapshot = {
+    weight_kg: existing.weight_kg,
+    fat_pct: est.fat_pct,
+    muscle_mass_kg: est.muscle_mass_kg,
+    bmr_kcal: est.bmr_kcal,
+    measuredAt: existing.measuredAt,
+    source: existing.source,
+    fat_pct_source: 'user',
   };
   await saveManualBody(snap);
   return snap;

@@ -37,9 +37,10 @@ import { NutritionDirectivesStrip } from '../components/NutritionDirectivesStrip
 import { LabResultsStrip } from '../components/LabResultsStrip';
 import { WelcomeQuickStartWizard } from '../components/WelcomeQuickStartWizard';
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
-import { getManualBody, getManualBodyHistory, logManualWeighIn, manualBodyToDashboardMetrics, countDistinctWeighInDays, type ManualBodySnapshot } from '../services/ManualBodyService';
+import { getManualBody, getManualBodyHistory, logManualWeighIn, saveManualFatPct, manualBodyToDashboardMetrics, countDistinctWeighInDays, type ManualBodySnapshot } from '../services/ManualBodyService';
 import { buildManualTrendDays } from '../services/ManualTrendService';
-import { loadSourceConfig, type SourceConfig } from '../services/SourceConfigService';
+import { applyWithingsLinkToSourceConfig, loadSourceConfig, type SourceConfig } from '../services/SourceConfigService';
+import { buildSetupChips } from '../logic/sourceConfigLabels';
 import { fetchDailyStepTotalsForTrend } from '../services/SamsungStepsAdapter';
 import { clearOnboardingCompletedAt, shouldShowQuickStart } from '../services/ProfileCompletenessService';
 import { applyAutoMacroRevision, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
@@ -277,6 +278,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [sourceConfig, setSourceConfig] = useState<SourceConfig | null>(null);
   const [weighInInput, setWeighInInput] = useState('');
   const [weighInSaving, setWeighInSaving] = useState(false);
+  const [fatPctInput, setFatPctInput] = useState('');
+  const [fatPctSaving, setFatPctSaving] = useState(false);
 
   const loadManualTrend = useCallback(async (manualSnap?: ManualBodySnapshot | null) => {
     setManualTrendLoading(true);
@@ -442,6 +445,31 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     const withingsWeightDays = bodyTrendDays.filter((d) => d.weightKg != null).length;
     return withingsWeightDays < 2 && manualBodySnap != null;
   }, [sourceConfig, bodyScan, bodyTrendDays, manualBodySnap]);
+
+  const setupChips = useMemo(
+    () => buildSetupChips(sourceConfig ?? { version: 1, glucose: 'none', activity: 'none', bodyComposition: 'none', bmr: 'ai-estimate', heartRate: 'none' }, withingsLinked),
+    [sourceConfig, withingsLinked],
+  );
+
+  const showManualBodyInProfile = useMemo(() => {
+    if (!userGender || !heightCm || !userAge) return false;
+    if (bodyScan?.weightKg != null && sourceConfig?.bodyComposition !== 'manual') return false;
+    return true;
+  }, [userGender, heightCm, userAge, bodyScan, sourceConfig]);
+
+  const displayBodyScan = useMemo(() => {
+    if (bodyScan?.weightKg != null) {
+      return { metrics: bodyScan, provenance: 'withings' as const };
+    }
+    if (effectiveBodyScan?.weightKg != null) {
+      return {
+        metrics: effectiveBodyScan,
+        provenance: 'manual' as const,
+        fatEstimated: manualBodySnap?.fat_pct_source !== 'user',
+      };
+    }
+    return null;
+  }, [bodyScan, effectiveBodyScan, manualBodySnap]);
 
   const baseTrendDays = useManualWeightTrend ? manualTrendDays : bodyTrendDays;
 
@@ -986,6 +1014,17 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     void refreshWithingsLinkState();
   }, [refreshWithingsLinkState]);
 
+  useEffect(() => {
+    if (!profileExpanded) return;
+    void loadSourceConfig().then(setSourceConfig);
+  }, [profileExpanded]);
+
+  useEffect(() => {
+    if (manualBodySnap?.fat_pct_source === 'user') {
+      setFatPctInput(String(manualBodySnap.fat_pct));
+    }
+  }, [manualBodySnap]);
+
   const handleLinkWithings = useCallback(async () => {
     setLinkError(null);
     setLinkBusy(true);
@@ -1001,6 +1040,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       if (result.type === 'success' && result.url) {
         await handleOAuthCallback(result.url);
         await refreshWithingsLinkState();
+        const nextConfig = await applyWithingsLinkToSourceConfig();
+        setSourceConfig(nextConfig);
         await syncWithings();
       }
     } catch (err) {
@@ -1267,14 +1308,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
           {bodyScanError ? <Text style={styles.bodyScanErrorText}>{bodyScanError}</Text> : null}
 
-          {bodyScan && !bodyScanLoading ? (
+          {displayBodyScan && !bodyScanLoading ? (
             <>
               <View style={[styles.bodyScanRow, styles.bodyScanTripleRow]}>
                 <View
                   style={styles.bodyScanMetricThird}
                   accessible
                   accessibilityRole="text"
-                  accessibilityLabel={`Weight ${formatKg(bodyScan.weightKg)}`}
+                  accessibilityLabel={`Weight ${formatKg(displayBodyScan.metrics.weightKg)}`}
                 >
                   <Text style={styles.bodyScanMetricLabelTriple} accessible={false}>
                     Weight
@@ -1286,14 +1327,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     minimumFontScale={0.85}
                     accessible={false}
                   >
-                    {formatKg(bodyScan.weightKg)}
+                    {formatKg(displayBodyScan.metrics.weightKg)}
                   </Text>
                 </View>
                 <View
                   style={styles.bodyScanMetricThird}
                   accessible
                   accessibilityRole="text"
-                  accessibilityLabel={`Muscle mass ${formatKg(bodyScan.muscleMassKg)}`}
+                  accessibilityLabel={`Muscle mass ${formatKg(displayBodyScan.metrics.muscleMassKg)}`}
                 >
                   <Text style={styles.bodyScanMetricLabelTriple} accessible={false}>
                     Muscle
@@ -1305,17 +1346,17 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     minimumFontScale={0.85}
                     accessible={false}
                   >
-                    {formatKg(bodyScan.muscleMassKg)}
+                    {formatKg(displayBodyScan.metrics.muscleMassKg)}
                   </Text>
                 </View>
                 <View
                   style={styles.bodyScanMetricThird}
                   accessible
                   accessibilityRole="text"
-                  accessibilityLabel={`Fat mass ${formatKg(bodyScan.fatMassKg)}`}
+                  accessibilityLabel={`Fat mass ${formatKg(displayBodyScan.metrics.fatMassKg)}`}
                 >
                   <Text style={styles.bodyScanMetricLabelTriple} accessible={false}>
-                    Fat
+                    Fat{displayBodyScan.provenance === 'manual' && displayBodyScan.fatEstimated ? ' (est.)' : ''}
                   </Text>
                   <Text
                     style={styles.bodyScanMetricValueTriple}
@@ -1324,19 +1365,26 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     minimumFontScale={0.85}
                     accessible={false}
                   >
-                    {formatKg(bodyScan.fatMassKg)}
+                    {formatKg(displayBodyScan.metrics.fatMassKg)}
                   </Text>
                 </View>
               </View>
 
-              {bodyScan.bmrKcalDay != null && Number.isFinite(bodyScan.bmrKcalDay) ? (
+              {displayBodyScan.provenance === 'manual' ? (
+                <Text style={styles.bodyScanProvenance}>
+                  Manual weigh-in
+                  {displayBodyScan.fatEstimated ? ' · fat % estimated from profile' : ' · fat % entered by you'}
+                </Text>
+              ) : null}
+
+              {displayBodyScan.metrics.bmrKcalDay != null && Number.isFinite(displayBodyScan.metrics.bmrKcalDay) ? (
                 <View
                   style={styles.bodyScanBmrRow}
                   accessible
                   accessibilityRole="text"
-                  accessibilityLabel={`BMR ${formatKcal(bodyScan.bmrKcalDay)} per day${
-                    formatMeasuredAt(bodyScan.measuredAt)
-                      ? `, measured ${formatMeasuredAt(bodyScan.measuredAt)}`
+                  accessibilityLabel={`BMR ${formatKcal(displayBodyScan.metrics.bmrKcalDay)} per day${
+                    formatMeasuredAt(displayBodyScan.metrics.measuredAt)
+                      ? `, measured ${formatMeasuredAt(displayBodyScan.metrics.measuredAt)}`
                       : ''
                   }`}
                 >
@@ -1345,18 +1393,18 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                       BMR
                     </Text>
                     <Text style={styles.bodyScanBmrValue} accessible={false}>
-                      {formatKcal(bodyScan.bmrKcalDay)}
+                      {formatKcal(displayBodyScan.metrics.bmrKcalDay)}
                     </Text>
                   </View>
-                  {formatMeasuredAt(bodyScan.measuredAt) ? (
+                  {formatMeasuredAt(displayBodyScan.metrics.measuredAt) ? (
                     <Text style={styles.bodyScanBmrDate} accessible={false}>
-                      {formatMeasuredAt(bodyScan.measuredAt)}
+                      {formatMeasuredAt(displayBodyScan.metrics.measuredAt)}
                     </Text>
                   ) : null}
                 </View>
-              ) : formatMeasuredAt(bodyScan.measuredAt) ? (
+              ) : formatMeasuredAt(displayBodyScan.metrics.measuredAt) ? (
                 <Text style={styles.bodyScanMeasured}>
-                  Last measurement · {formatMeasuredAt(bodyScan.measuredAt)}
+                  Last measurement · {formatMeasuredAt(displayBodyScan.metrics.measuredAt)}
                 </Text>
               ) : null}
 
@@ -1367,7 +1415,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               ) : null}
 
             </>
-          ) : !bodyScanLoading && !bodyScan && !bodyScanError ? (
+          ) : !bodyScanLoading && !displayBodyScan && !bodyScanError ? (
             <Text style={styles.bodyScanEmpty}>No body scan data yet.</Text>
           ) : null}
         </View>
@@ -1588,11 +1636,21 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 <Text style={styles.quickStartAgainText}>Quick Start again</Text>
               </Pressable>
 
-              {useManualWeightTrend && userGender && heightCm && userAge ? (
+              <Text style={styles.birthdateSectionTitle}>Your setup</Text>
+              <View style={styles.setupChipRow}>
+                {setupChips.map((chip) => (
+                  <View key={chip.key} style={styles.setupChip}>
+                    <Text style={styles.setupChipLabel}>{chip.label}</Text>
+                    <Text style={styles.setupChipValue}>{chip.value}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {showManualBodyInProfile ? (
                 <>
-                  <Text style={styles.birthdateSectionTitle}>Log weigh-in</Text>
+                  <Text style={styles.birthdateSectionTitle}>Body</Text>
                   <Text style={styles.weighInHint}>
-                    Update your weight to track trend without a scale. Composition stays AI-estimated.
+                    Optional — log weight when you want. Muscle is calculated from weight and fat %.
                   </Text>
                   <View style={styles.weighInRow}>
                     <TextInput
@@ -1600,7 +1658,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                       keyboardType="decimal-pad"
                       placeholder={
                         effectiveBodyScan?.weightKg != null
-                          ? `now ${effectiveBodyScan.weightKg.toFixed(1)} kg`
+                          ? `Weight · now ${effectiveBodyScan.weightKg.toFixed(1)} kg`
                           : 'Weight (kg)'
                       }
                       placeholderTextColor={WellnessColors.textSecondary}
@@ -1616,12 +1674,16 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                           Alert.alert('Weigh-in', 'Enter a valid weight in kg.');
                           return;
                         }
+                        const fatOpt = fatPctInput.trim()
+                          ? parseFloat(fatPctInput.replace(',', '.'))
+                          : undefined;
                         setWeighInSaving(true);
                         try {
                           const snap = await logManualWeighIn(w, {
-                            gender: userGender,
-                            heightCm,
-                            ageYears: userAge,
+                            gender: userGender!,
+                            heightCm: heightCm!,
+                            ageYears: userAge!,
+                            fatPct: fatOpt,
                           });
                           setManualBodySnap(snap);
                           setWeighInInput('');
@@ -1632,6 +1694,49 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                       }}
                     >
                       <Text style={styles.weighInBtnText}>{weighInSaving ? '…' : 'Save'}</Text>
+                    </Pressable>
+                  </View>
+                  <View style={styles.weighInRow}>
+                    <TextInput
+                      style={styles.weighInInput}
+                      keyboardType="decimal-pad"
+                      placeholder={
+                        manualBodySnap?.fat_pct_source === 'user'
+                          ? `Body fat · now ${manualBodySnap.fat_pct.toFixed(1)} %`
+                          : 'Body fat % (optional)'
+                      }
+                      placeholderTextColor={WellnessColors.textSecondary}
+                      value={fatPctInput}
+                      onChangeText={setFatPctInput}
+                    />
+                    <Pressable
+                      style={[styles.weighInBtn, fatPctSaving && styles.weighInBtnDisabled]}
+                      disabled={fatPctSaving}
+                      onPress={async () => {
+                        const fp = parseFloat(fatPctInput.replace(',', '.'));
+                        if (!(fp >= 3 && fp <= 65)) {
+                          Alert.alert('Body fat', 'Enter a value between 3 and 65 %.');
+                          return;
+                        }
+                        setFatPctSaving(true);
+                        try {
+                          const snap = await saveManualFatPct(fp, {
+                            gender: userGender!,
+                            heightCm: heightCm!,
+                            ageYears: userAge!,
+                          });
+                          if (!snap) {
+                            Alert.alert('Body fat', 'Log your weight first.');
+                            return;
+                          }
+                          setManualBodySnap(snap);
+                          await loadManualTrend(snap);
+                        } finally {
+                          setFatPctSaving(false);
+                        }
+                      }}
+                    >
+                      <Text style={styles.weighInBtnText}>{fatPctSaving ? '…' : 'Save'}</Text>
                     </Pressable>
                   </View>
                 </>
@@ -2625,6 +2730,40 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 14,
+  },
+  setupChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  setupChip: {
+    backgroundColor: WellnessColors.background,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minWidth: '30%',
+    flexGrow: 1,
+  },
+  setupChipLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: WellnessColors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  setupChipValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: WellnessColors.textPrimary,
+    marginTop: 2,
+  },
+  bodyScanProvenance: {
+    fontSize: 11,
+    color: WellnessColors.textSecondary,
+    marginTop: 4,
+    marginBottom: 4,
+    paddingHorizontal: 4,
   },
   birthdateSaveBtn: {
     backgroundColor: WellnessColors.accentGreen,
