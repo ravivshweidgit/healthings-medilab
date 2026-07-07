@@ -15,6 +15,8 @@ taskkill /IM adb.exe /F >nul 2>&1
 call "%~dp0check-java-for-android.bat"
 if errorlevel 1 exit /b 1
 
+set "GRADLE_USER_HOME=C:\gradle-hm"
+
 echo.
 echo === npx expo run:android --no-bundler ^(native build + install^) ===
 echo First lines can take a bit; Gradle log should stream below.

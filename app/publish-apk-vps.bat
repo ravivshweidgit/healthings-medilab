@@ -18,7 +18,7 @@ if not exist "%KEY%" (
 
 if not exist "%RELEASE_APK%" (
   echo Building release APK...
-  if not defined GRADLE_USER_HOME set GRADLE_USER_HOME=C:\gradle-hm
+  set "GRADLE_USER_HOME=C:\gradle-hm"
   pushd app\android
   call gradlew.bat assembleRelease --no-build-cache --console=plain
   if errorlevel 1 (

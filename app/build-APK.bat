@@ -11,7 +11,8 @@ cd /d "%~dp0"
 call "%~dp0check-java-for-android.bat"
 if errorlevel 1 exit /b 1
 
-if not defined GRADLE_USER_HOME set "GRADLE_USER_HOME=C:\gradle-hm"
+REM Always override — sandbox/CI may set a long GRADLE_USER_HOME (260-char ninja failures).
+set "GRADLE_USER_HOME=C:\gradle-hm"
 
 echo.
 echo === Healthings release APK ===

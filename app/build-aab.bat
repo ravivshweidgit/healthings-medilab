@@ -1,7 +1,7 @@
 @echo off
 setlocal
 echo Building release AAB for Google Play...
-if not defined GRADLE_USER_HOME set GRADLE_USER_HOME=C:\gradle-hm
+set "GRADLE_USER_HOME=C:\gradle-hm"
 cd /d "%~dp0android"
 call gradlew.bat bundleRelease --no-build-cache --console=plain
 if errorlevel 1 (

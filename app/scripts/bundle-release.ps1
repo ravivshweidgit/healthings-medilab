@@ -9,7 +9,7 @@ if (-not (Test-Path $KeystoreProps)) {
   Write-Error "Missing keystore.properties. Copy keystore.properties.example -> android/keystore.properties"
 }
 
-$env:GRADLE_USER_HOME = if ($env:GRADLE_USER_HOME) { $env:GRADLE_USER_HOME } else { "C:\gradle-hm" }
+$env:GRADLE_USER_HOME = "C:\gradle-hm"
 Set-Location $Android
 
 Write-Host "Building release AAB (bundleRelease)..."

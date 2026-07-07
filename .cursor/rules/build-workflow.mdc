@@ -25,9 +25,28 @@ app\build-APK.bat           REM build only — live log
 app\build-APK.bat install   REM build + adb install (bi)
 ```
 
-`build-APK.bat` sets `GRADLE_USER_HOME=C:\gradle-hm` (short path — avoids Windows
-260-char CMake failures), checks JDK via `check-java-for-android.bat`, and passes
-`--console=plain` so Gradle streams task lines immediately.
+`build-APK.bat` **always** sets `GRADLE_USER_HOME=C:\gradle-hm` (short path — avoids
+Windows 260-char CMake/ninja failures), checks JDK via `check-java-for-android.bat`,
+and passes `--console=plain` so Gradle streams task lines immediately.
+
+## GRADLE_USER_HOME — required on Windows (especially agents)
+
+**Recurring failure:** Cursor sandbox (and some shells) pre-set `GRADLE_USER_HOME` to a
+long temp path (`…\cursor-sandbox-cache\…\gradle\…`). Native modules then fail with:
+
+```
+ninja: error: Stat(…/libreactnative.so): Filename longer than 260 characters
+```
+
+**Fix:** this repo **always** uses `C:\gradle-hm` — never the sandbox default.
+
+| Who | What to do |
+|-----|------------|
+| **Agent** | Prefer `app\build-APK.bat` (forces short path). If build still hits 260-char ninja, prefix: `$env:GRADLE_USER_HOME = "C:\gradle-hm"` then re-run. **Do not** retry the same long-path build blindly. |
+| **Raw gradlew** | Set `$env:GRADLE_USER_HOME = "C:\gradle-hm"` **before** any `gradlew.bat` call. |
+| **User terminal** | `build-APK.bat` / `build-dev.bat` set it for you. |
+
+Create the folder once if missing: `mkdir C:\gradle-hm` (Gradle creates caches inside).
 
 | Script | Purpose |
 |--------|---------|
@@ -80,6 +99,8 @@ Build APK  →  git commit  (skips phone test)
 ```
 
 ## Agent fallback (PowerShell — no && separator)
+
+**First line is mandatory** — sandbox may already export a long `GRADLE_USER_HOME`.
 
 If the batch file cannot be used, mirror its flags exactly:
 
