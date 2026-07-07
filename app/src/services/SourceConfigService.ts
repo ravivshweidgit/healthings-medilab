@@ -27,6 +27,13 @@ export type DeviceSurvey = {
   tracksGlucose: boolean;
 };
 
+/** My Profile + Quick Start step 2 — three binary toggles (8 states). */
+export type SetupToggles = {
+  withingsScale: boolean;
+  withingsWatch: boolean;
+  cgm: boolean;
+};
+
 const DEFAULT_CONFIG: SourceConfig = {
   version: 1,
   glucose: 'none',
@@ -36,15 +43,31 @@ const DEFAULT_CONFIG: SourceConfig = {
   heartRate: 'none',
 };
 
-export function sourceConfigFromDevices(survey: DeviceSurvey, usesManualWeight: boolean): SourceConfig {
+export function togglesFromSourceConfig(c: SourceConfig): SetupToggles {
+  return {
+    withingsScale: c.bodyComposition === 'withings',
+    withingsWatch: c.activity === 'withings',
+    cgm: c.glucose === 'health-connect',
+  };
+}
+
+export function sourceConfigFromToggles(t: SetupToggles): SourceConfig {
   return {
     version: 1,
-    glucose: survey.tracksGlucose ? 'health-connect' : 'none',
-    activity: survey.hasWithingsWatch ? 'withings' : 'samsung-steps',
-    bodyComposition: survey.hasWithingsScale && !usesManualWeight ? 'withings' : usesManualWeight ? 'manual' : 'none',
-    bmr: survey.hasWithingsScale && !usesManualWeight ? 'withings' : 'ai-estimate',
-    heartRate: survey.hasWithingsWatch ? 'withings' : 'none',
+    glucose: t.cgm ? 'health-connect' : 'none',
+    activity: t.withingsWatch ? 'withings' : 'samsung-steps',
+    bodyComposition: t.withingsScale ? 'withings' : 'manual',
+    bmr: t.withingsScale ? 'withings' : 'manual',
+    heartRate: t.withingsWatch ? 'withings' : 'none',
   };
+}
+
+export function sourceConfigFromDevices(survey: DeviceSurvey, usesManualWeight: boolean): SourceConfig {
+  return sourceConfigFromToggles({
+    withingsScale: survey.hasWithingsScale && !usesManualWeight,
+    withingsWatch: survey.hasWithingsWatch,
+    cgm: survey.tracksGlucose,
+  });
 }
 
 export async function loadSourceConfig(): Promise<SourceConfig> {
@@ -61,18 +84,4 @@ export async function loadSourceConfig(): Promise<SourceConfig> {
 
 export async function saveSourceConfig(config: SourceConfig): Promise<void> {
   await AsyncStorage.setItem(SOURCE_CONFIG_KEY, JSON.stringify(config));
-}
-
-/** After OAuth link — upgrade routing without re-running Quick Start. */
-export async function applyWithingsLinkToSourceConfig(): Promise<SourceConfig> {
-  const config = await loadSourceConfig();
-  const next: SourceConfig = { ...config };
-  if (config.bodyComposition !== 'manual') {
-    next.bodyComposition = 'withings';
-    next.bmr = 'withings';
-  }
-  if (config.heartRate === 'none') next.heartRate = 'withings';
-  if (config.activity === 'none') next.activity = 'withings';
-  await saveSourceConfig(next);
-  return next;
 }

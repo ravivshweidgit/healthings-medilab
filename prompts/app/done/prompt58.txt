@@ -1,0 +1,55 @@
+## Prompt 58 — Editable Your setup (My Profile device routing)
+
+**Status: shipped 2026-07-07** · **Commit:** (this commit) · compile-check OK; phone test pending  
+**Builds on:** `done/prompt57.txt` · `done/prompt55.txt`  
+**Supersedes:** read-only chips (prompt57); OAuth auto-promote (prompt57)
+
+---
+
+### Problem
+
+**Your setup** was read-only; labels inferred from `withingsLinked`; OAuth silently promoted routing; `activity` not wired for HC steps when watch off.
+
+---
+
+### What shipped
+
+| Area | Change |
+|------|--------|
+| **3 toggles** | Withings scale / Withings watch / CGM — Yes/No in My Profile (`SetupToggleRow`) |
+| **8 states** | `SetupToggles` ↔ `sourceConfigFromToggles()` single mapper; wizard step 2 uses same |
+| **OAuth** | Removed `applyWithingsLinkToSourceConfig` — link only syncs, does not flip toggles |
+| **Activity** | Watch off → HC steps on trend/energy even with Withings body (`useHcStepsForActivity`) |
+| **Body routing** | `effectiveBodyScan` respects `bodyComposition === 'manual'` vs withings |
+| **CGM** | Glucose chart hidden when CGM toggle off |
+| **Labels** | `sourceConfigLabels` from config only (no `withingsLinked` guess) |
+
+---
+
+### Primary files
+
+| File | Role |
+|------|------|
+| `app/src/components/SetupToggleRow.tsx` | Shared Yes/No row (wizard + profile) |
+| `app/src/services/SourceConfigService.ts` | `SetupToggles`, mappers, no auto-promote |
+| `app/src/logic/sourceConfigLabels.ts` | Config-only chip labels |
+| `app/src/components/WelcomeQuickStartWizard.tsx` | Uses `SetupToggleRow` |
+| `app/src/screens/DashboardScreen.tsx` | Editable toggles, HC activity overlay, CGM gate |
+
+---
+
+### Phone-tested checklist
+
+- [ ] Toggles mirror Quick Start step 2 after onboarding
+- [ ] Scale Off → manual body section; manual metrics on dashboard
+- [ ] Watch Off + Scale On + linked → Withings body, HC step kcal on energy
+- [ ] Watch On → Withings activity on energy
+- [ ] CGM Off → glucose chart hidden
+- [ ] Link Withings does not flip toggles
+
+---
+
+### Related
+
+- **`done/prompt57.txt`** — read-only chips (editing moved here)
+- **`prompt56.txt`** — iOS adapters

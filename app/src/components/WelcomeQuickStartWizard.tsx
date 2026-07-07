@@ -67,41 +67,13 @@ import { WellnessColors } from '../theme/wellness';
 
 const TOTAL_STEPS = 7;
 
+import { SetupToggleRow } from './SetupToggleRow';
+
 type Props = {
   visible: boolean;
   onComplete: () => void;
   onOpenFoodLog?: () => void;
 };
-
-function YesNoRow({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: boolean | null;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <View style={styles.yesNoBlock}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <View style={styles.yesNoRow}>
-        <Pressable
-          style={[styles.yesNoBtn, value === true && styles.yesNoBtnOn]}
-          onPress={() => onChange(true)}
-        >
-          <Text style={[styles.yesNoText, value === true && styles.yesNoTextOn]}>Yes</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.yesNoBtn, value === false && styles.yesNoBtnOn]}
-          onPress={() => onChange(false)}
-        >
-          <Text style={[styles.yesNoText, value === false && styles.yesNoTextOn]}>No</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
 
 export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: Props) {
   const [step, setStep] = useState(1);
@@ -597,9 +569,9 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
           {step === 2 && (
             <>
               <Text style={styles.lead}>Tell us what devices you use — we’ll pick the right data sources.</Text>
-              <YesNoRow label="Withings body scale?" value={hasScale} onChange={setHasScale} />
-              <YesNoRow label="Withings watch or activity band?" value={hasWatch} onChange={setHasWatch} />
-              <YesNoRow label="Track glucose (CGM)?" value={tracksCgm} onChange={setTracksCgm} />
+              <SetupToggleRow label="Withings body scale?" value={hasScale} onChange={setHasScale} />
+              <SetupToggleRow label="Withings watch or activity band?" value={hasWatch} onChange={setHasWatch} />
+              <SetupToggleRow label="Track glucose (CGM)?" value={tracksCgm} onChange={setTracksCgm} />
             </>
           )}
 
@@ -907,19 +879,6 @@ const styles = StyleSheet.create({
     backgroundColor: WellnessColors.progressTrack,
   },
   bullet: { fontSize: 14, lineHeight: 22, color: WellnessColors.textPrimary, marginBottom: 8 },
-  yesNoBlock: { marginBottom: 16 },
-  yesNoRow: { flexDirection: 'row', gap: 10 },
-  yesNoBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
-    alignItems: 'center',
-  },
-  yesNoBtnOn: { backgroundColor: '#2E7D5A', borderColor: '#2E7D5A' },
-  yesNoText: { fontWeight: '700', color: WellnessColors.textSecondary },
-  yesNoTextOn: { color: '#fff' },
   optionCard: {
     borderWidth: 1,
     borderColor: WellnessColors.gridLine,
