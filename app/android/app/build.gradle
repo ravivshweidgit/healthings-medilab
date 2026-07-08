@@ -99,8 +99,8 @@ android {
         // Health Connect (react-native-health-connect / androidx.health.connect) requires minSdk 26+
         minSdkVersion Math.max(rootProject.ext.minSdkVersion as Integer, 26)
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 14
-        versionName "1.1.8"
+        versionCode 15
+        versionName "1.1.9"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
