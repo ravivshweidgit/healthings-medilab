@@ -499,6 +499,139 @@ function formatCgmBlock(
   return lines.length > 1 ? lines.join('\n') : null;
 }
 
+type WorkoutSession = {
+  category?: number;
+  activityLabel?: string;
+  startMs: number;
+  endMs: number;
+  kcal: number;
+};
+
+type HeartRatePoint = {
+  timestamp: string;
+  value: number;
+};
+
+type WithingsSnapshot = {
+  bodyScan?: {
+    weightKg?: number;
+    fatMassKg?: number;
+    muscleMassKg?: number;
+    bmrKcalDay?: number;
+  };
+  bodyTrendDays?: Array<{
+    dayKey: string;
+    activityKcalDay?: number | null;
+    bmrKcalDay?: number | null;
+  }>;
+  heartRate?: HeartRatePoint[];
+  workouts?: WorkoutSession[];
+};
+
+function parseWithingsStore(store: Record<string, string>): WithingsSnapshot | null {
+  const raw = store['healthings:withingsStore'];
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as WithingsSnapshot;
+  } catch {
+    return null;
+  }
+}
+
+function hrDuringWorkout(hrPoints: HeartRatePoint[], startMs: number, endMs: number): string | null {
+  const during = hrPoints.filter((p) => {
+    const t = Date.parse(p.timestamp);
+    return Number.isFinite(t) && t >= startMs && t <= endMs;
+  });
+  if (!during.length) return null;
+  const vals = during.map((p) => p.value).filter((v) => v > 0);
+  if (!vals.length) return null;
+  const avg = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+  const max = Math.max(...vals);
+  return `HR avg ${avg} max ${max} bpm (${vals.length} readings)`;
+}
+
+function formatWorkoutLine(
+  workout: WorkoutSession,
+  utcOffsetMinutes: number,
+  hrPoints: HeartRatePoint[],
+): string {
+  const start = formatHmFromMsWithOffset(workout.startMs, utcOffsetMinutes);
+  const end = formatHmFromMsWithOffset(workout.endMs, utcOffsetMinutes);
+  const durMin = Math.max(1, Math.round((workout.endMs - workout.startMs) / 60_000));
+  const label = workout.activityLabel?.trim() || `Activity ${workout.category ?? '?'}`;
+  const kcal = Math.round(workout.kcal ?? 0);
+  const hr = hrDuringWorkout(hrPoints, workout.startMs, workout.endMs);
+  return hr
+    ? `${label} ${start}–${end} (${durMin} min, ${kcal} kcal active) | ${hr}`
+    : `${label} ${start}–${end} (${durMin} min, ${kcal} kcal active)`;
+}
+
+/** Withings workout sessions + daily active calories for clinic mentor chat. */
+function formatWorkoutsBlock(
+  store: Record<string, string>,
+  lookbackDays = 31,
+  utcOffsetMinutes = 0,
+): string | null {
+  const withings = parseWithingsStore(store);
+  if (!withings) return null;
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - lookbackDays);
+  const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
+
+  const hrPoints = (withings.heartRate ?? []).filter((p) => p.value > 0 && Date.parse(p.timestamp));
+  const workouts = (withings.workouts ?? []).filter(
+    (w) => Number.isFinite(w.startMs) && Number.isFinite(w.endMs) && w.endMs > w.startMs,
+  );
+
+  const workoutsByDay = new Map<string, WorkoutSession[]>();
+  for (const w of workouts) {
+    const dk = dayKeyFromMsWithOffset(w.startMs, utcOffsetMinutes);
+    if (dk < cutoffKey) continue;
+    const list = workoutsByDay.get(dk) ?? [];
+    list.push(w);
+    workoutsByDay.set(dk, list);
+  }
+  for (const list of workoutsByDay.values()) {
+    list.sort((a, b) => a.startMs - b.startMs);
+  }
+
+  const activityByDay = new Map<string, number>();
+  for (const d of withings.bodyTrendDays ?? []) {
+    if (!d.dayKey || d.dayKey < cutoffKey) continue;
+    if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay) && d.activityKcalDay > 0) {
+      activityByDay.set(d.dayKey, Math.round(d.activityKcalDay));
+    }
+  }
+
+  const dayKeys = [...new Set([...workoutsByDay.keys(), ...activityByDay.keys()])].sort((a, b) =>
+    b.localeCompare(a),
+  );
+  if (!dayKeys.length) return null;
+
+  const tzLabel = formatUtcOffsetLabel(utcOffsetMinutes);
+  const lines: string[] = [
+    `Workouts & activity (by day, newest first — times patient local ${tzLabel}; correlate with Food log meals and CGM):`,
+    `Total: ${workouts.length} timed session(s) in snapshot | ${dayKeys.length} day(s) with activity data`,
+  ];
+
+  for (const dk of dayKeys) {
+    const dayWorkouts = workoutsByDay.get(dk) ?? [];
+    const dailyActive = activityByDay.get(dk);
+    if (dayWorkouts.length > 0) {
+      lines.push(`${dk}: ${dayWorkouts.length} session(s)${dailyActive ? `, ${dailyActive} kcal daily active total` : ''}`);
+      for (const w of dayWorkouts) {
+        lines.push(`  · ${formatWorkoutLine(w, utcOffsetMinutes, hrPoints)}`);
+      }
+    } else if (dailyActive) {
+      lines.push(`${dk}: ${dailyActive} kcal active (daily total — no timed workout sessions in snapshot)`);
+    }
+  }
+
+  return lines.length > 1 ? lines.join('\n') : null;
+}
+
 function buildPatientContextBlock(exportData: SnapshotExport | null): string {
   if (!exportData?.asyncStorage) return 'No patient snapshot uploaded yet.';
 
@@ -509,16 +642,12 @@ function buildPatientContextBlock(exportData: SnapshotExport | null): string {
   const labsBlock = formatLabReports(store);
   if (labsBlock) lines.push(`Lab reports (newest first):\n${labsBlock}`);
 
-  const withingsRaw = store['healthings:withingsStore'];
-  if (withingsRaw) {
-    try {
-      const w = JSON.parse(withingsRaw) as { bodyScan?: { weightKg?: number; fatMassKg?: number; muscleMassKg?: number; bmrKcalDay?: number } };
-      if (w.bodyScan) {
-        lines.push(
-          `Body: weight ${w.bodyScan.weightKg ?? '—'} kg, fat ${w.bodyScan.fatMassKg ?? '—'} kg, muscle ${w.bodyScan.muscleMassKg ?? '—'} kg, BMR ${w.bodyScan.bmrKcalDay ?? '—'} kcal`,
-        );
-      }
-    } catch { /* */ }
+  const withings = parseWithingsStore(store);
+  if (withings?.bodyScan) {
+    const b = withings.bodyScan;
+    lines.push(
+      `Body: weight ${b.weightKg ?? '—'} kg, fat ${b.fatMassKg ?? '—'} kg, muscle ${b.muscleMassKg ?? '—'} kg, BMR ${b.bmrKcalDay ?? '—'} kcal`,
+    );
   }
 
   const cgmBlock = formatCgmBlock(store, 31, 7, utcOffsetMinutes);
@@ -526,6 +655,9 @@ function buildPatientContextBlock(exportData: SnapshotExport | null): string {
 
   const foodBlock = formatFoodLogBlock(store, 31, utcOffsetMinutes);
   if (foodBlock) lines.push(foodBlock);
+
+  const workoutsBlock = formatWorkoutsBlock(store, 31, utcOffsetMinutes);
+  if (workoutsBlock) lines.push(workoutsBlock);
 
   const rulesRaw = store.user_rules;
   if (rulesRaw) {
@@ -589,6 +721,7 @@ export async function mentorChatReply(
 The clinic staff is chatting on behalf of reviewing this patient's data. Answer in clear, practical prose.
 Use the patient data below. Do not invent labs or meals not listed.
 When CGM glucose lists a date with avg/min/max or HH:MM readings, that date HAS glucose data — cite it and correlate with Food log meals. Never say glucose/CGM is missing for a date that appears in the CGM block.
+When Workouts & activity lists timed sessions for a date/time, that exercise IS logged — cite start/end, duration, and kcal. Correlate walks/workouts with CGM trends after meals. Never say exercise is missing for a date that appears in the Workouts block.
 
 PATIENT DATA:
 ${dataBlock}
