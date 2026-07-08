@@ -1,6 +1,6 @@
 ## Prompt 63 — Clinic Refresh shows newer patient My Rules
 
-**Status: shipping 2026-07-08**  
+**Status: done 2026-07-08** (clinic portal tested) · commit `7da920e`  
 **Builds on:** `done/prompt51.txt` (rules history / clinic overlay)
 
 ---
@@ -11,7 +11,7 @@ Clinic **Refresh snapshot** uploaded the phone’s `user_rules`, but the Rules t
 
 ---
 
-### What ships
+### What shipped
 
 | Layer | Fix |
 |------|-----|
@@ -30,15 +30,15 @@ Clinic **Refresh snapshot** uploaded the phone’s `user_rules`, but the Rules t
 
 ---
 
-### Verify
+### Phone-tested checklist
 
-1. Deploy website + API restart
-2. Patient edits My Rules on phone (saves with new `analyzedAt`)
-3. Clinic **Refresh snapshot** → Rules tab shows patient text + “newer rules from the patient phone” hint
-4. Clinic Save still adopts/overrides and pushes to phone on next open
+- [x] Patient edits My Rules on phone
+- [x] Clinic **Refresh snapshot** → Rules tab shows updated patient text
+- [x] Hint explains newer rules from patient phone
+- [ ] Clinic Save still adopts/overrides and pushes to phone on next open (smoke)
 
 ---
 
 ### Related
 
-- **prompt51** — overlay still authoritative when clinic `analyzedAt` is newer
+- **`done/prompt51.txt`** — overlay still authoritative when clinic `analyzedAt` is newer

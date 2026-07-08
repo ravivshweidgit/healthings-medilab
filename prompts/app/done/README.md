@@ -20,6 +20,8 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt62** — done (2026-07-08). Collapsible glucose + trend/energy; Food Log moved up; AI chat strip labeled. Phone-tested. See `done/prompt62.txt`.
 
+**prompt63** — done (2026-07-08). Clinic Refresh surfaces newer patient My Rules (portal + sync reconcile). Clinic portal tested. See `done/prompt63.txt` (`7da920e`).
+
 **prompt59** — done (2026-07-07). Steps setup guide (Samsung Health → HC → Healthings read). Power user guide visible; fresh-user test deferred. See `done/prompt59.txt`.
 
 **prompt20** — done (Phase 1 + 3 + rules/fiber). Phase 2 photo polish deferred inside `done/prompt20.txt`. **Follow-up 2026-06-29** — Gemini per-item fat rules (plant vs whey); phone-tested. See `done/prompt20.txt` § Follow-up 2026-06-29.
