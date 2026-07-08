@@ -19,7 +19,7 @@ import {
   type LabReport,
 } from '../services/LabLogService';
 import type { Gender, UserLanguage } from '../services/TargetService';
-import { WellnessColors, cardShadow } from '../theme/wellness';
+import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
 import { LabReportModal } from './LabReportModal';
 import { LipidTrendChart } from './LipidTrendChart';
 
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 14,
     paddingBottom: 16,
-    marginBottom: 10,
+    marginBottom: dashCardGap,
   },
   sectionTitle: {
     fontSize: 11,

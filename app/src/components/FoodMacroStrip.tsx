@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { getBurnCorrection, setBurnCorrection } from '../services/BurnCorrectionService';
 import { getDailyMacros, foodLogDayKey, exportFoodLog, importFoodLog, type DailyMacros, type FoodEntry } from '../services/FoodLogService';
-import { WellnessColors, cardShadow } from '../theme/wellness';
+import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
 
 const MS_DAY = 24 * 60 * 60 * 1000;
 
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 14,
     paddingBottom: 16,
-    marginBottom: 14,
+    marginBottom: dashCardGap,
     borderWidth: 1.5,
     borderColor: 'rgba(76, 175, 80, 0.35)',
   },

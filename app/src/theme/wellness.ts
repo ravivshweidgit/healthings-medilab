@@ -26,3 +26,6 @@ export const cardShadow = {
   shadowRadius: 10,
   elevation: 2,
 } as const;
+
+/** Vertical gap between dashboard surface cards (single-direction marginBottom). */
+export const dashCardGap = 14;

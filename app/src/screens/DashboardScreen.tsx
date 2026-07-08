@@ -98,7 +98,7 @@ import {
 import { type AuthUser } from '../services/AuthApiService';
 import { pullClinicOverlays } from '../services/ClinicOverlayService';
 import { CLINIC_SYNC_POLL_MS, fulfillPendingClinicSyncRequests } from '../services/ClinicSyncService';
-import { WellnessColors, cardShadow } from '../theme/wellness';
+import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
 import { demoNoticeCopy } from '../utils/wellnessCopy';
 
 /** Must match `styles.scroll.paddingHorizontal`. */
@@ -2307,7 +2307,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 10,
     paddingHorizontal: 14,
-    marginBottom: 10,
+    marginBottom: dashCardGap,
   },
   noticeText: {
     color: WellnessColors.textPrimary,
@@ -2321,7 +2321,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 16,
     paddingHorizontal: 18,
-    marginBottom: 10,
+    marginBottom: dashCardGap,
   },
   bodyScanHeader: {
     flexDirection: 'row',
@@ -2512,7 +2512,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   trendBleed: {
-    marginBottom: 20,
+    marginBottom: dashCardGap,
     alignSelf: 'stretch',
     width: '100%',
   },
@@ -2627,18 +2627,18 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   glucoseHistorySection: {
-    marginBottom: 2,
+    marginBottom: dashCardGap,
   },
   careSensImportSection: {
     gap: 6,
-    marginBottom: 10,
+    marginBottom: dashCardGap,
   },
   primaryButton: {
     backgroundColor: WellnessColors.accentBlue,
     borderRadius: 24,
     paddingVertical: 16,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: dashCardGap,
   },
   primaryButtonDisabled: {
     opacity: 0.7,
@@ -2669,7 +2669,7 @@ const styles = StyleSheet.create({
     borderColor: WellnessColors.noticeSoftBorder,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    marginBottom: 12,
+    marginBottom: dashCardGap,
   },
   hcErrorBannerText: {
     fontSize: 14,
@@ -2692,7 +2692,7 @@ const styles = StyleSheet.create({
     borderColor: '#B3D9F0',
     paddingVertical: 10,
     paddingHorizontal: 14,
-    marginBottom: 10,
+    marginBottom: dashCardGap,
     gap: 10,
   },
   nudgeStripIcons: {
@@ -2732,7 +2732,7 @@ const styles = StyleSheet.create({
   groupCard: {
     backgroundColor: WellnessColors.surface,
     borderRadius: 20,
-    marginTop: 8,
+    marginBottom: dashCardGap,
     overflow: 'hidden',
   },
   groupDivider: {

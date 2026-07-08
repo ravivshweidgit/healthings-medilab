@@ -20,7 +20,7 @@ import {
   type NutritionDirective,
 } from '../services/NutritionDirectiveService';
 import type { UserLanguage } from '../services/TargetService';
-import { WellnessColors, cardShadow } from '../theme/wellness';
+import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
 import { NutritionDirectiveReviewModal } from './NutritionDirectiveReviewModal';
 
 type Props = {
@@ -104,7 +104,7 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
 
   return (
     <View style={[styles.card, cardShadow]}>
-      <Text style={styles.sectionTitle}>{sectionTitle}</Text>
+      <Text style={[styles.sectionTitle, rtl && styles.sectionTitleRtl]}>{sectionTitle}</Text>
       <Text style={styles.summaryLine}>{summaryLine}</Text>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
@@ -194,9 +194,9 @@ const styles = StyleSheet.create({
     backgroundColor: WellnessColors.surface,
     borderRadius: 24,
     paddingHorizontal: 18,
-    paddingTop: 14,
+    paddingTop: 16,
     paddingBottom: 16,
-    marginBottom: 10,
+    marginBottom: dashCardGap,
   },
   sectionTitle: {
     fontSize: 11,
@@ -204,7 +204,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     color: WellnessColors.textSecondary,
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
+  },
+  sectionTitleRtl: {
+    letterSpacing: 0,
+    fontSize: 13,
+    lineHeight: 18,
   },
   summaryLine: {
     fontSize: 12,
