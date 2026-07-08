@@ -206,6 +206,17 @@ function formatLabReports(store: Record<string, string>): string | null {
   return blocks.length ? blocks.join('\n\n') : null;
 }
 
+type FoodMealItem = {
+  name?: string;
+  name_local?: string;
+  grams?: number;
+  kcal?: number;
+  protein_g?: number;
+  carb_g?: number;
+  fat_g?: number;
+  fiber_g?: number;
+};
+
 type FoodMeal = {
   timestamp?: number;
   totalKcal?: number;
@@ -214,13 +225,49 @@ type FoodMeal = {
   totalFat_g?: number;
   totalFiber_g?: number;
   note?: string;
-  items?: Array<{
-    name?: string;
-    name_local?: string;
-    grams?: number;
-    kcal?: number;
-  }>;
+  items?: FoodMealItem[];
 };
+
+function formatFoodLogItemLine(item: FoodMealItem): string {
+  const name = (item.name_local || item.name || 'item').trim();
+  const grams = item.grams;
+  const kcal = item.kcal;
+  const hasGrams = grams != null && Number.isFinite(grams);
+  const hasKcal = kcal != null && Number.isFinite(kcal);
+  const hasMacros =
+    item.protein_g != null ||
+    item.carb_g != null ||
+    item.fat_g != null ||
+    item.fiber_g != null;
+  if (hasGrams && hasKcal && hasMacros) {
+    return `${name}: ${Math.round(grams)}g, ${Math.round(kcal)} kcal, P${Math.round(item.protein_g ?? 0)}g C${Math.round(item.carb_g ?? 0)}g F${Math.round(item.fat_g ?? 0)}g Fi${Math.round(item.fiber_g ?? 0)}g`;
+  }
+  if (hasGrams && hasKcal) {
+    return `${name}: ${Math.round(grams)}g, ${Math.round(kcal)} kcal`;
+  }
+  if (hasGrams) return `${name}: ${Math.round(grams)}g`;
+  return name;
+}
+
+function formatFoodLogMealLines(meal: FoodMeal, utcOffsetMinutes: number): string[] {
+  const time = meal.timestamp
+    ? formatHmFromMsWithOffset(meal.timestamp, utcOffsetMinutes)
+    : '??:??';
+  const lines: string[] = [`  · ${time}:`];
+  const items = meal.items ?? [];
+  if (items.length > 0) {
+    for (const item of items) {
+      lines.push(`      • ${formatFoodLogItemLine(item)}`);
+    }
+  } else {
+    lines.push('      • (items not stored — totals only)');
+  }
+  lines.push(
+    `    Total: ${Math.round(meal.totalKcal ?? 0)} kcal | P${Math.round(meal.totalProtein_g ?? 0)}g C${Math.round(meal.totalCarb_g ?? 0)}g F${Math.round(meal.totalFat_g ?? 0)}g Fi${Math.round(meal.totalFiber_g ?? 0)}g`,
+  );
+  if (meal.note?.trim()) lines.push(`    Note: ${meal.note.trim()}`);
+  return lines;
+}
 
 function parseFoodLogsFromStore(store: Record<string, string>): Map<string, FoodMeal[]> {
   const byDay = new Map<string, FoodMeal[]>();
@@ -335,14 +382,7 @@ function formatFoodLogBlock(
       `${dk}: ${meals.length} meals, ${Math.round(kcal)} kcal, P${Math.round(p)} C${Math.round(c)} F${Math.round(f)} g`,
     );
     for (const meal of meals) {
-      const time = meal.timestamp
-        ? formatHmFromMsWithOffset(meal.timestamp, utcOffsetMinutes)
-        : '??:??';
-      const itemNames = (meal.items ?? [])
-        .map((i) => i.name_local || i.name || '')
-        .filter(Boolean)
-        .join(', ');
-      lines.push(`  · ${time} — ${itemNames || 'meal'}: ${Math.round(meal.totalKcal ?? 0)} kcal`);
+      lines.push(...formatFoodLogMealLines(meal, utcOffsetMinutes));
     }
   }
 
