@@ -1,0 +1,80 @@
+## Prompt 60 — Optional cloud backup (opt-in, purge on off)
+
+**Status: shipping 2026-07-08** · phone test pending · **requires API deploy + `npm run migrate`**
+
+**Builds on:** `LocalBackupService` · `prompt-be-04` (alpha: HTTPS + ACL, not E2E yet)
+
+---
+
+### Problem
+
+Data is local-first; users who lose a phone need disaster recovery. Optional cloud backup must be explicit opt-in; off must purge server copy. Auto-upload must not let a thin/empty phone wipe a richer cloud copy.
+
+---
+
+### What ships
+
+| Layer | Change |
+|-------|--------|
+| **Server** | `user_cloud_backups` (+ fingerprint JSONB, previous blob columns); `GET/PUT/DELETE /v1/account/backup` + status |
+| **App** | Account → Cloud backup toggle, Back up now, Restore |
+| **Payload** | Local export shape, gzip, **no Withings tokens** |
+| **Off** | `DELETE` purges current + previous; phone unchanged |
+| **Richness guard** | Fingerprint (`earliestDay`, `mealDays`, `byteSize`, …). Phone may replace cloud only if ≥ as rich. **409** + Force replace / Restore UI |
+| **Previous blob** | On successful overwrite, old payload moved to `prev_*` (one generation) |
+| **Daily auto** | ~once per 24h when opted in + app active (`maybeRunOpportunisticCloudBackup`) |
+
+---
+
+### Overwrite rules (summary)
+
+Block if phone is emptyish vs rich cloud, phone `earliestDay` newer than cloud, **fewer meal days than cloud**, or size &lt; 50% of cloud — unless `force: true`. Never fewer meals.
+
+---
+
+### Primary files
+
+| File | Role |
+|------|------|
+| `app/src/logic/backupFingerprint.ts` | Fingerprint + `canOverwriteCloudBackup` |
+| `server/src/logic/backupFingerprint.ts` | Same guard server-side |
+| `server/src/db/schema.sql` | Table + ALTER columns |
+| `server/src/services/cloudBackup.ts` | Upsert / prev / purge / 409 |
+| `app/src/services/CloudBackupService.ts` | Upload / daily / force |
+| `app/src/components/AccountStrip.tsx` | Toggle + blocked alert |
+| `app/src/screens/DashboardScreen.tsx` | Opportunistic backup on active |
+
+---
+
+### Deploy
+
+```bash
+cd /opt/healthings-api && git pull && npm ci && npm run build && npm run migrate
+pm2 restart healthings-api
+```
+
+---
+
+### Phone-tested checklist
+
+- [ ] Toggle On → upload → last backup time
+- [ ] Back up now refreshes
+- [ ] Thin phone vs rich cloud → blocked; Force replace works; Restore works
+- [ ] Off → server purged
+- [ ] Second day / reopen app → opportunistic upload (after 24h)
+- [ ] Mentor: no cloud backup UI
+
+---
+
+### Deferred
+
+- E2E encryption (`prompt-be-04`)
+- UI to restore **previous** blob explicitly
+- TTL cleanup for `prev_*` after N days
+
+---
+
+### Related
+
+- **`prompt54.txt`** — clinic relay (orthogonal)
+- **`done/prompt29.txt`** — local backup key inventory

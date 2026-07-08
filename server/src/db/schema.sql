@@ -202,3 +202,25 @@ CREATE TABLE IF NOT EXISTS clinic_patient_rules_history (
 
 CREATE INDEX IF NOT EXISTS idx_rules_history_patient
   ON clinic_patient_rules_history (patient_id, saved_at DESC);
+
+-- Optional patient cloud backup (one row per user; deleted when user turns off).
+-- Previous blob retained for recovery if a bad overwrite slips through.
+CREATE TABLE IF NOT EXISTS user_cloud_backups (
+  user_id UUID PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+  byte_size INT NOT NULL,
+  payload_hash TEXT NOT NULL,
+  exported_at TIMESTAMPTZ NOT NULL,
+  payload_gzip BYTEA NOT NULL,
+  fingerprint JSONB,
+  prev_payload_gzip BYTEA,
+  prev_byte_size INT,
+  prev_exported_at TIMESTAMPTZ,
+  prev_fingerprint JSONB,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE user_cloud_backups ADD COLUMN IF NOT EXISTS fingerprint JSONB;
+ALTER TABLE user_cloud_backups ADD COLUMN IF NOT EXISTS prev_payload_gzip BYTEA;
+ALTER TABLE user_cloud_backups ADD COLUMN IF NOT EXISTS prev_byte_size INT;
+ALTER TABLE user_cloud_backups ADD COLUMN IF NOT EXISTS prev_exported_at TIMESTAMPTZ;
+ALTER TABLE user_cloud_backups ADD COLUMN IF NOT EXISTS prev_fingerprint JSONB;

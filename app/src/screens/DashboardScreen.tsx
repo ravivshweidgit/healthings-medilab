@@ -51,6 +51,7 @@ import {
 } from '../services/SourceConfigService';
 import { fetchDailyStepTotalsForTrend, stepsToActiveKcal } from '../services/SamsungStepsAdapter';
 import { clearOnboardingCompletedAt, shouldShowQuickStart } from '../services/ProfileCompletenessService';
+import { maybeRunOpportunisticCloudBackup } from '../services/CloudBackupService';
 import { applyAutoMacroRevision, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
 import { ChatScreen } from './ChatScreen';
 import { CONFIG } from '../config/env';
@@ -973,8 +974,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   useEffect(() => {
     if (user.role !== 'patient') return;
     void applyClinicOverlays();
+    void maybeRunOpportunisticCloudBackup();
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void applyClinicOverlays();
+      if (state === 'active') {
+        void applyClinicOverlays();
+        void maybeRunOpportunisticCloudBackup();
+      }
     });
     const poll = setInterval(() => {
       void applyClinicOverlays();
@@ -1197,6 +1202,28 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     }
   }, []);
 
+  const refreshAfterBackupRestore = useCallback(async () => {
+    await Promise.all([
+      refetch(),
+      syncWithings(),
+      loadTodayFood(),
+      loadLabReports(),
+      loadNutritionDirectives(),
+      loadHeightAndBirthdate(),
+      loadCoachMessage(),
+      loadManualTrend(),
+    ]);
+  }, [
+    loadCoachMessage,
+    loadHeightAndBirthdate,
+    loadLabReports,
+    loadManualTrend,
+    loadNutritionDirectives,
+    loadTodayFood,
+    refetch,
+    syncWithings,
+  ]);
+
   const handleImportBackup = useCallback(async () => {
     setBackupBusy(true);
     setBackupMessage(null);
@@ -1207,15 +1234,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         return;
       }
 
-      await Promise.all([
-        refetch(),
-        syncWithings(),
-        loadTodayFood(),
-        loadLabReports(),
-        loadNutritionDirectives(),
-        loadHeightAndBirthdate(),
-        loadCoachMessage(),
-      ]);
+      await refreshAfterBackupRestore();
 
       const summary = `Restored ${result.keysRestored} keys • +${result.mealsAdded} meals • +${result.chatMessagesAdded} chat messages • +${result.glucosePointsMerged} glucose points${result.tokensRestored ? ' • Withings link restored' : ''}`;
       setBackupMessage(summary);
@@ -1227,7 +1246,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     } finally {
       setBackupBusy(false);
     }
-  }, [loadCoachMessage, loadHeightAndBirthdate, loadLabReports, loadTodayFood, refetch, syncWithings]);
+  }, [refreshAfterBackupRestore]);
 
   const handleShareVisitReport = useCallback(
     async (dayCount: VisitReportDayCount) => {
@@ -1952,6 +1971,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             expanded={accountExpanded}
             onToggleExpand={() => setAccountExpanded((e) => !e)}
             onSignedOut={onSignedOut}
+            onDataRestored={refreshAfterBackupRestore}
           />
 
           <View style={styles.groupDivider} />

@@ -23,7 +23,7 @@ type LocalBackupPayload = {
   app: 'healthings-medilab';
   exportedAt: string;
   asyncStorage: Record<string, string>;
-  withingsTokens: WithingsOAuthTokens | null;
+  withingsTokens?: WithingsOAuthTokens | null;
 };
 
 export type LocalBackupImportResult = {
@@ -110,7 +110,7 @@ async function refreshFoodDayIndex(): Promise<void> {
   await AsyncStorage.setItem(FOOD_DAY_INDEX_KEY, JSON.stringify(dayKeys));
 }
 
-export async function exportLocalBackup(): Promise<void> {
+async function collectAsyncStorageExport(): Promise<Record<string, string>> {
   const allKeys = await AsyncStorage.getAllKeys();
   const exportKeys = allKeys.filter((k) => !EXCLUDED_ASYNC_KEYS.has(k));
   const pairs = await AsyncStorage.multiGet(exportKeys);
@@ -118,39 +118,28 @@ export async function exportLocalBackup(): Promise<void> {
   for (const [key, value] of pairs) {
     if (value != null) asyncStorage[key] = value;
   }
+  return asyncStorage;
+}
 
-  const payload: LocalBackupPayload = {
+/** Build backup JSON payload (local file or cloud — cloud omits Withings tokens). */
+export async function buildLocalBackupPayload(opts?: {
+  includeWithingsTokens?: boolean;
+}): Promise<LocalBackupPayload> {
+  const includeWithingsTokens = opts?.includeWithingsTokens !== false;
+  return {
     version: BACKUP_VERSION,
     app: BACKUP_APP,
     exportedAt: new Date().toISOString(),
-    asyncStorage,
-    withingsTokens: await loadWithingsTokens(),
+    asyncStorage: await collectAsyncStorageExport(),
+    ...(includeWithingsTokens
+      ? { withingsTokens: await loadWithingsTokens() }
+      : {}),
   };
-
-  const perm = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-  if (!perm.granted) return;
-
-  const filename = `healthings-backup_${todayKey()}.json`;
-  const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(
-    perm.directoryUri,
-    filename,
-    'application/json',
-  );
-  await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(payload, null, 2), { encoding: 'utf8' });
 }
 
-export async function importLocalBackup(): Promise<LocalBackupImportResult> {
-  const pick = await DocumentPicker.getDocumentAsync({
-    type: 'application/json',
-    copyToCacheDirectory: true,
-  });
-  if (pick.canceled) {
-    return { keysRestored: 0, mealsAdded: 0, chatMessagesAdded: 0, glucosePointsMerged: 0, tokensRestored: false };
-  }
-
-  const raw = await FileSystem.readAsStringAsync(pick.assets[0].uri, { encoding: 'utf8' });
-  const payload = validateBackupPayload(raw);
-
+export async function applyLocalBackupPayload(
+  payload: LocalBackupPayload,
+): Promise<LocalBackupImportResult> {
   let keysRestored = 0;
   let mealsAdded = 0;
   let chatMessagesAdded = 0;
@@ -185,7 +174,6 @@ export async function importLocalBackup(): Promise<LocalBackupImportResult> {
       continue;
     }
 
-    // Generic restore/overwrite for all remaining keys.
     await AsyncStorage.setItem(key, incomingRaw);
     keysRestored += 1;
   }
@@ -199,4 +187,33 @@ export async function importLocalBackup(): Promise<LocalBackupImportResult> {
   }
 
   return { keysRestored, mealsAdded, chatMessagesAdded, glucosePointsMerged, tokensRestored };
+}
+
+export async function exportLocalBackup(): Promise<void> {
+  const payload = await buildLocalBackupPayload({ includeWithingsTokens: true });
+
+  const perm = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+  if (!perm.granted) return;
+
+  const filename = `healthings-backup_${todayKey()}.json`;
+  const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(
+    perm.directoryUri,
+    filename,
+    'application/json',
+  );
+  await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(payload, null, 2), { encoding: 'utf8' });
+}
+
+export async function importLocalBackup(): Promise<LocalBackupImportResult> {
+  const pick = await DocumentPicker.getDocumentAsync({
+    type: 'application/json',
+    copyToCacheDirectory: true,
+  });
+  if (pick.canceled) {
+    return { keysRestored: 0, mealsAdded: 0, chatMessagesAdded: 0, glucosePointsMerged: 0, tokensRestored: false };
+  }
+
+  const raw = await FileSystem.readAsStringAsync(pick.assets[0].uri, { encoding: 'utf8' });
+  const payload = validateBackupPayload(raw);
+  return applyLocalBackupPayload(payload);
 }
