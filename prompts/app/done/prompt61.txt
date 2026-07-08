@@ -1,0 +1,47 @@
+## Prompt 61 — One-tap text meal save
+
+**Status: done 2026-07-08** (phone-tested)  
+**Builds on:** `done/prompt20.txt` (photo approve flow)
+
+---
+
+### Problem
+
+Users fail to log meals: after AI parse they must find and tap **Save meal**. Extra taps feel like an approve step. Simple text meals should persist in one action.
+
+---
+
+### What shipped
+
+| Path | Behavior |
+|------|----------|
+| **Text describe + send** | Analyze → if clean → **auto-save**, modal **stays open** to check time/items → **Done** |
+| **Text + correction chat** | Refinements apply to saved meal; Done re-saves |
+| **Recipe Log meal** | Same stay-open review |
+| **Photo / + Add / − Remove** | Unchanged — merge preview → Approve → Save |
+| **Meal issues** | Nutritionist alert → Edit / Save anyway |
+| **Edit existing meal** | Explicit Save (no surprise auto-close) |
+
+---
+
+### Primary file
+
+`app/src/components/FoodLogModal.tsx` — `tryAutoSaveTextMeal`, wired from `runMealAnalysis` (first text turn) + recipe prefill. Dashboard `handleFoodSaved` respects `close !== false`.
+
+---
+
+### Phone-tested checklist
+
+- [x] Type meal → send → meal appears on dashboard (no second Save tap)
+- [x] Modal stays open after auto-save for time/items check → Done
+- [ ] If macro/rules alert → modal; Save anyway still works
+- [ ] Photo path still needs Approve + Save
+- [ ] Correction chat does not auto-save mid-edit
+- [ ] Edit meal still requires Save
+
+---
+
+### Related
+
+- **`done/prompt20.txt`** — photo multi-step kept
+- **`done/prompt62.txt`** — Food Log findability on dashboard

@@ -1,0 +1,48 @@
+## Prompt 62 — Collapsible glucose & trend (Food Log findability)
+
+**Status: done 2026-07-08** (phone-tested)  
+**Builds on:** dashboard layout; food log UX (`done/prompt61.txt`)
+
+---
+
+### Problem
+
+Users struggle to find the Food Log. Tall glucose and trend charts push it far down the dashboard. Mentor strip was unclear as the AI chat entry.
+
+---
+
+### What shipped
+
+| Change | Behavior |
+|--------|----------|
+| **Order** | Body scan → **Food Log** → Glucose → Trend & Energy |
+| **Glucose** | Collapsible header; **collapsed by default**; sub shows latest mg/dL + age |
+| **Trend & Energy** | One collapsible section; weight trend + ENERGY chart when expanded; sub shows weight + delta |
+| **Persist** | Expand state in AsyncStorage (`dash_glucose_chart_expanded`, `dash_trend_chart_expanded`) |
+| **Food Log** | Slight green border + title tint so the section reads as primary |
+| **AI chat strip** | Always visible; title **AI chat** + subtitle (actions or “Ask your mentors · tap to open”) |
+
+---
+
+### Primary files
+
+- `app/src/screens/DashboardScreen.tsx`
+- `app/src/components/FoodMacroStrip.tsx`
+- `app/src/components/MetabolicTrendChart7d.tsx` (`hideTitle`)
+
+---
+
+### Phone-tested checklist
+
+- [x] Food Log visible without expanding charts (after Withings card)
+- [x] Glucose row expands / collapses
+- [x] Trend & Energy expands together; ENERGY chart under weight trend
+- [x] AI chat strip readable as chat entry
+- [ ] Expand prefs survive app restart (smoke)
+- [ ] Expanded charts still pan / period chips work
+
+---
+
+### Related
+
+- **`done/prompt61.txt`** — one-tap meal save

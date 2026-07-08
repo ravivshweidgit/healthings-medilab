@@ -63,7 +63,8 @@ type PhotoSession = {
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  /** Refresh dashboard; pass `{ close: false }` to keep the modal open (auto-save review). */
+  onSaved: (opts?: { close?: boolean }) => void;
   initialTimestamp?: number;
   editEntry?: FoodEntry;
   /** Pre-fill from recipe card (prompt40) — opens on result screen. */
@@ -260,6 +261,7 @@ export function FoodLogModal({
   const [overrideSaveOnce, setOverrideSaveOnce] = useState(false);
   const [overrideSnapshotKey, setOverrideSnapshotKey] = useState<string | null>(null);
   const [foodLogHistoryContext, setFoodLogHistoryContext] = useState<string | null>(null);
+  const [autoSavedBanner, setAutoSavedBanner] = useState(false);
   const chatInputRef = useRef<TextInput>(null);
   const mealCompositionKey = mealItemsCompositionKey(items);
 
@@ -340,6 +342,7 @@ export function FoodLogModal({
     setOverrideSaveOnce(false);
     setOverrideSnapshotKey(null);
     setFoodLogHistoryContext(null);
+    setAutoSavedBanner(false);
   }, [initialTimestamp]);
 
   const recomputeMealIssues = useCallback(async (
@@ -372,6 +375,84 @@ export function FoodLogModal({
     const macroIssues = analyzeMacroMealIssues(issueInput);
     return [...macroIssues, ...mealIssuesFromFoodItems(mealItems)];
   }, []);
+
+  const persistMealItems = useCallback(
+    async (opts: {
+      mealItems: FoodItem[];
+      historyLen: number;
+      fromPhoto: boolean;
+      id?: string;
+      timestamp: number;
+      /** Keep modal open so user can fix time / items after first auto-save. */
+      stayOpen?: boolean;
+    }) => {
+      const totals = computeTotals(opts.mealItems);
+      const saved = await saveMeal({
+        id: opts.id,
+        timestamp: opts.timestamp,
+        items: opts.mealItems,
+        totalKcal: Math.round(totals.totalKcal),
+        totalProtein_g: Math.round(totals.totalProtein_g * 10) / 10,
+        totalCarb_g: Math.round(totals.totalCarb_g * 10) / 10,
+        totalFat_g: Math.round(totals.totalFat_g * 10) / 10,
+        totalFiber_g: Math.round(totals.totalFiber_g * 10) / 10,
+        source: opts.fromPhoto ? 'camera-ai' : opts.historyLen > 0 ? 'text-ai' : 'manual',
+      });
+      if (opts.stayOpen) {
+        setEditingId(saved.id);
+        setItems(saved.items);
+        setMealTime(saved.timestamp);
+        setMealHistory((h) => (h.length > 0 ? h : []));
+        setScreen('result');
+        setAutoSavedBanner(true);
+        onSaved({ close: false });
+        return;
+      }
+      reset();
+      onSaved({ close: true });
+    },
+    [reset, onSaved],
+  );
+
+  /**
+   * Text path: send → AI → save when clean, stay open to review time/items.
+   * Photo / +/- merge / meal issues stay multi-step.
+   */
+  const tryAutoSaveTextMeal = useCallback(
+    async (mealItems: FoodItem[], historyLen: number): Promise<boolean> => {
+      if (editingId || mealItems.length === 0) return false;
+      setScreen('saving');
+      const issues = await recomputeMealIssues(mealItems, mealTime, undefined);
+      setMealIssues(issues);
+      if (issues.length > 0) {
+        setScreen('result');
+        setShowIssueModal(true);
+        return false;
+      }
+      try {
+        await persistMealItems({
+          mealItems,
+          historyLen,
+          fromPhoto: false,
+          timestamp: mealTime,
+          stayOpen: true,
+        });
+        return true;
+      } catch {
+        setError('Failed to save. Please try again.');
+        setScreen('result');
+        return false;
+      }
+    },
+    [editingId, mealTime, recomputeMealIssues, persistMealItems],
+  );
+
+  // Recipe "Log meal" — same one-tap save when clean (no photo path).
+  React.useEffect(() => {
+    if (!visible || editEntry) return;
+    if (!prefillItems || prefillItems.length === 0) return;
+    void tryAutoSaveTextMeal(prefillItems, 0);
+  }, [visible, prefillItems, editEntry, tryAutoSaveTextMeal]);
 
   React.useEffect(() => {
     if (!visible || items.length === 0) return;
@@ -462,13 +543,22 @@ export function FoodLogModal({
         setDescription(result.description);
         setSuggestion(result.suggestion);
         setMealHistory(updatedHistory);
+
+        // First text parse: one tap = describe + send → auto-save when clean.
+        // Corrections (hist) stay on result so the user can refine, then Save.
+        // Photo / +/- merge never uses this path.
+        if (hist.length === 0 && !editingId && result.items.length > 0) {
+          const saved = await tryAutoSaveTextMeal(result.items, updatedHistory.length);
+          if (saved) return;
+        }
+
         setScreen('result');
       } catch (e) {
         setError(e instanceof Error ? e.message : 'AI analysis failed. Please try again.');
         setScreen('result');
       }
     },
-    [lang, resolveFoodLogHistory],
+    [lang, resolveFoodLogHistory, editingId, tryAutoSaveTextMeal],
   );
 
   const runPhotoAnalysis = useCallback(
@@ -642,28 +732,22 @@ export function FoodLogModal({
   }, [editingId, mealTime, reset, onSaved]);
 
   const persistSave = useCallback(async () => {
-    const totals = computeTotals(items);
-    await saveMeal({
+    await persistMealItems({
+      mealItems: items,
+      historyLen: mealHistory.length,
+      fromPhoto: hadPhotoForSave,
       id: editingId,
       timestamp: mealTime,
-      items,
-      totalKcal: Math.round(totals.totalKcal),
-      totalProtein_g: Math.round(totals.totalProtein_g * 10) / 10,
-      totalCarb_g: Math.round(totals.totalCarb_g * 10) / 10,
-      totalFat_g: Math.round(totals.totalFat_g * 10) / 10,
-      totalFiber_g: Math.round(totals.totalFiber_g * 10) / 10,
-      source: hadPhotoForSave ? 'camera-ai' : mealHistory.length > 0 ? 'text-ai' : 'manual',
+      stayOpen: false,
     });
-    reset();
-    onSaved();
-  }, [items, mealTime, hadPhotoForSave, mealHistory, editingId, reset, onSaved]);
+  }, [items, mealHistory.length, hadPhotoForSave, editingId, mealTime, persistMealItems]);
 
   const handleSave = useCallback(async () => {
     if (items.length === 0) return;
 
     const snapshot = mealItemsSnapshotKey(items);
     setScreen('saving');
-    const issues = await recomputeMealIssues(items, mealTime, editingId, true);
+    const issues = await recomputeMealIssues(items, mealTime, editingId);
     setMealIssues(issues);
 
     if (issues.length > 0 && !(overrideSaveOnce && overrideSnapshotKey === snapshot)) {
@@ -766,12 +850,19 @@ export function FoodLogModal({
                   <Image source={{ uri: analyzingPhotoUri }} style={styles.photoThumb} resizeMode="cover" />
                 ) : null}
                 <ActivityIndicator color={WellnessColors.accentBlue} size="large" style={{ marginTop: 24 }} />
-                <Text style={styles.analyzingLabel}>Analyzing with Gemini AI…</Text>
+                <Text style={styles.analyzingLabel}>Analyzing…</Text>
               </View>
             )}
 
             {(screen === 'result' || screen === 'saving') && (
               <View style={styles.resultWrap}>
+                {autoSavedBanner ? (
+                  <View style={styles.autoSavedBanner}>
+                    <Text style={styles.autoSavedBannerText}>
+                      Saved — check time and items, then tap Done. Use chat to correct if needed.
+                    </Text>
+                  </View>
+                ) : null}
                 {mergePreview ? (
                   <View style={styles.previewSection}>
                     <Text style={styles.sectionTitle}>Preview update</Text>
@@ -977,18 +1068,32 @@ export function FoodLogModal({
                   <Text style={styles.cancelBtnText}>Cancel</Text>
                 </Pressable>
               )}
-              <Pressable
-                style={[styles.saveBtn, (screen === 'saving' || items.length === 0) && styles.saveBtnDisabled]}
-                onPress={handleSave}
-                disabled={screen === 'saving' || items.length === 0}
-              >
-                {screen === 'saving' ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.saveBtnText}>✓ Save meal</Text>
-                )}
-              </Pressable>
-              {editingId ? (
+              {autoSavedBanner && editingId ? (
+                <Pressable
+                  style={[styles.saveBtn, screen === 'saving' && styles.saveBtnDisabled]}
+                  onPress={() => void handleSave()}
+                  disabled={screen === 'saving'}
+                >
+                  {screen === 'saving' ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.saveBtnText}>Done</Text>
+                  )}
+                </Pressable>
+              ) : (
+                <Pressable
+                  style={[styles.saveBtn, (screen === 'saving' || items.length === 0) && styles.saveBtnDisabled]}
+                  onPress={handleSave}
+                  disabled={screen === 'saving' || items.length === 0}
+                >
+                  {screen === 'saving' ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.saveBtnText}>✓ Save meal</Text>
+                  )}
+                </Pressable>
+              )}
+              {editingId && !autoSavedBanner ? (
                 <Pressable style={styles.cancelBtn} onPress={handleClose}>
                   <Text style={styles.cancelBtnText}>Cancel</Text>
                 </Pressable>
@@ -1030,6 +1135,19 @@ export function FoodLogModal({
 
 const styles = StyleSheet.create({
   kav: { flex: 1 },
+  autoSavedBanner: {
+    backgroundColor: WellnessColors.iconTintGreen,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  autoSavedBannerText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: WellnessColors.textPrimary,
+    fontWeight: '600',
+  },
   container: {
     flex: 1,
     backgroundColor: WellnessColors.background,

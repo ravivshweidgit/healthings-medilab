@@ -141,6 +141,8 @@ type Props = {
   weightOnly?: boolean;
   /** Distinct manual weigh-in days; used for honest copy when < 2. */
   weighInDayCount?: number;
+  /** When parent already shows a section header (dashboard collapse). */
+  hideTitle?: boolean;
 };
 
 function formatIndexCell(value: number | null | undefined): string {
@@ -239,6 +241,7 @@ export function MetabolicTrendChart7d({
   loading,
   weightOnly,
   weighInDayCount,
+  hideTitle = false,
 }: Props) {
   const { width } = useWindowDimensions();
   const chartW = Math.max(280, width - 40);
@@ -490,7 +493,7 @@ export function MetabolicTrendChart7d({
   if (!activePrepared) {
     return (
       <View style={styles.wrap}>
-        <Text style={styles.title}>TREND ANALYSIS</Text>
+        {hideTitle ? null : <Text style={styles.title}>TREND ANALYSIS</Text>}
         {selector}
         <View style={styles.loadingBox}>
           <Text style={styles.loadingText}>{emptyCopy}</Text>
@@ -507,7 +510,7 @@ export function MetabolicTrendChart7d({
   if (!hasAny) {
     return (
       <View style={styles.wrap}>
-        <Text style={styles.title}>TREND ANALYSIS</Text>
+        {hideTitle ? null : <Text style={styles.title}>TREND ANALYSIS</Text>}
         {selector}
         <View style={styles.loadingBox}>
           <Text style={styles.loadingText}>
@@ -524,7 +527,7 @@ export function MetabolicTrendChart7d({
     const p = weightOnlyPrepared;
     return (
       <View style={styles.wrap}>
-        <Text style={styles.title}>TREND ANALYSIS</Text>
+        {hideTitle ? null : <Text style={styles.title}>TREND ANALYSIS</Text>}
         {selector}
         {weighInDayCount != null && weighInDayCount < 2 ? (
           <Text style={styles.weightOnlyHint}>
@@ -591,7 +594,7 @@ export function MetabolicTrendChart7d({
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>TREND ANALYSIS</Text>
+      {hideTitle ? null : <Text style={styles.title}>TREND ANALYSIS</Text>}
       {selector}
 
       <View style={styles.chartRow}>

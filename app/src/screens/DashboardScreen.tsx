@@ -80,7 +80,7 @@ import {
 import { exportLocalBackup, importLocalBackup } from '../services/LocalBackupService';
 import { shareVisitReport, VISIT_REPORT_DAY_OPTIONS, type VisitReportDayCount } from '../services/visitReportService';
 import { buildGlucoseMentorContext } from '../logic/mealGlucoseAnalysis';
-import { activeMentorEmojis, mentorsCollectiveLabel } from '../logic/mentorLabels';
+import { activeMentorEmojis } from '../logic/mentorLabels';
 import {
   getBirthdate, setBirthdate, computeAge, getCachedHeightCm,
   setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors,
@@ -105,8 +105,57 @@ import { demoNoticeCopy } from '../utils/wellnessCopy';
 const SCROLL_HORIZONTAL_PADDING = 20;
 /** How far back to load meals for historical chart markers (days). */
 const CHART_MEAL_LOOKBACK_DAYS = 31;
+/** Persist glucose / trend expand state so compact stays default after relaunch. */
+const DASH_GLUCOSE_EXPANDED_KEY = 'dash_glucose_chart_expanded';
+const DASH_TREND_EXPANDED_KEY = 'dash_trend_chart_expanded';
 const BRAND_LOGO = require('../../assets/brand-logo.png');
 const BRAND_HEADER_HEIGHT_FALLBACK = 152;
+
+function formatRelativeAgo(iso: string): string {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return '';
+  const mins = Math.max(0, Math.round((Date.now() - ms) / 60_000));
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 36) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
+}
+
+function latestGlucoseSummary(
+  points: { timestamp: string; value: number }[]
+): { valueLabel: string; ago: string } | null {
+  let best: { timestamp: string; value: number } | null = null;
+  for (const p of points) {
+    if (!Number.isFinite(p.value) || p.value <= 0) continue;
+    if (!best || Date.parse(p.timestamp) > Date.parse(best.timestamp)) best = p;
+  }
+  if (!best) return null;
+  return {
+    valueLabel: `${Math.round(best.value)} mg/dL`,
+    ago: formatRelativeAgo(best.timestamp),
+  };
+}
+
+function trendWeightSummary(
+  days: MetabolicTrend7dDay[]
+): { weightLabel: string; deltaLabel: string | null } | null {
+  const weights = days
+    .map((d) => d.weightKg)
+    .filter((v): v is number => v != null && Number.isFinite(v));
+  if (weights.length === 0) return null;
+  const latest = weights[weights.length - 1];
+  const first = weights[0];
+  const delta = weights.length >= 2 ? latest - first : null;
+  return {
+    weightLabel: formatKg(latest),
+    deltaLabel:
+      delta != null && Math.abs(delta) >= 0.05
+        ? `${delta > 0 ? '+' : ''}${delta.toFixed(1)} kg`
+        : null,
+  };
+}
 
 function computeBrandHeaderHeight(windowWidth: number): number {
   const contentW = Math.max(1, windowWidth - SCROLL_HORIZONTAL_PADDING * 2);
@@ -261,6 +310,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [mentorExpanded, setMentorExpanded] = useState(false);
   const [rulesExpanded, setRulesExpanded] = useState(false);
   const [macroExpanded, setMacroExpanded] = useState(false);
+  /** Glucose + trend (incl. energy) charts: collapsed by default so Food Log sits higher. */
+  const [glucoseExpanded, setGlucoseExpanded] = useState(false);
+  const [trendExpanded, setTrendExpanded] = useState(false);
+  const [dashExpandPrefsLoaded, setDashExpandPrefsLoaded] = useState(false);
   const [macroWeighInSuggestion, setMacroWeighInSuggestion] = useState<DailyMacroTarget | null>(null);
   const [macroWeighInHint, setMacroWeighInHint] = useState<string | null>(null);
   const [macroAnalyzeRequestId, setMacroAnalyzeRequestId] = useState(0);
@@ -430,11 +483,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     }
   }, [loadManualTrend]);
 
-  const handleFoodSaved = useCallback(() => {
-    setFoodModalVisible(false);
-    setFoodEditEntry(undefined);
+  const handleFoodSaved = useCallback((opts?: { close?: boolean }) => {
+    const shouldClose = opts?.close !== false;
+    if (shouldClose) {
+      setFoodModalVisible(false);
+      setFoodEditEntry(undefined);
+    }
     setFoodRefreshKey((k) => k + 1);
     loadTodayFood().then(async () => {
+      if (!shouldClose) return;
       const ctx = coachContextRef.current;
       if (!ctx) return;
       const storedLang = await getLanguage();
@@ -577,6 +634,16 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           (d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay)) ||
           (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay))
       ) ?? false,
+    [visibleTrend]
+  );
+
+  const glucoseCompactSummary = useMemo(
+    () => latestGlucoseSummary(glucoseData),
+    [glucoseData]
+  );
+
+  const trendCompactSummary = useMemo(
+    () => (visibleTrend ? trendWeightSummary(visibleTrend.days) : null),
     [visibleTrend]
   );
 
@@ -964,6 +1031,31 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
   useEffect(() => {
     void (async () => {
+      try {
+        const [g, t] = await AsyncStorage.multiGet([
+          DASH_GLUCOSE_EXPANDED_KEY,
+          DASH_TREND_EXPANDED_KEY,
+        ]);
+        if (g[1] === 'true') setGlucoseExpanded(true);
+        if (t[1] === 'true') setTrendExpanded(true);
+      } finally {
+        setDashExpandPrefsLoaded(true);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!dashExpandPrefsLoaded) return;
+    void AsyncStorage.setItem(DASH_GLUCOSE_EXPANDED_KEY, glucoseExpanded ? 'true' : 'false');
+  }, [glucoseExpanded, dashExpandPrefsLoaded]);
+
+  useEffect(() => {
+    if (!dashExpandPrefsLoaded) return;
+    void AsyncStorage.setItem(DASH_TREND_EXPANDED_KEY, trendExpanded ? 'true' : 'false');
+  }, [trendExpanded, dashExpandPrefsLoaded]);
+
+  useEffect(() => {
+    void (async () => {
       await loadHeightAndBirthdate();
       await loadLabReports();
       await loadNutritionDirectives();
@@ -1306,42 +1398,30 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           </View>
         ) : null}
 
-        {/* Mentor nudge strip — tap to open chat */}
-        {coachMsg && (
-          <Pressable
-            style={styles.nudgeStrip}
-            onPress={() => setChatVisible(true)}
-            accessibilityRole="button"
-            accessibilityLabel={`${mentorsCollectiveLabel(userLanguage, userMentorGender ?? mentorGenderPicker, userGender)}, ${coachMsg.actionItems.filter((i) => i.done).length} of ${coachMsg.actionItems.length} action items`}
-          >
-            <Text style={styles.nudgeStripIcons} numberOfLines={1}>
-              {activeMentorEmojis(mentors)}
+        {/* AI chat entry — always visible; mentors + optional action progress */}
+        <Pressable
+          style={styles.nudgeStrip}
+          onPress={() => setChatVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel={
+            coachMsg
+              ? `Open AI chat, ${coachMsg.actionItems.filter((i) => i.done).length} of ${coachMsg.actionItems.length} action items`
+              : 'Open AI chat with your mentors'
+          }
+        >
+          <Text style={styles.nudgeStripIcons} numberOfLines={1}>
+            {activeMentorEmojis(mentors)}
+          </Text>
+          <View style={styles.nudgeStripTextCol}>
+            <Text style={styles.nudgeStripTitle}>AI chat</Text>
+            <Text style={styles.nudgeStripSub} numberOfLines={1}>
+              {coachMsg
+                ? `${coachMsg.actionItems.filter((i) => i.done).length}/${coachMsg.actionItems.length} actions · tap to open`
+                : 'Ask your mentors · tap to open'}
             </Text>
-            <Text style={styles.nudgeStripCount} numberOfLines={1}>
-              {`${coachMsg.actionItems.filter((i) => i.done).length}/${coachMsg.actionItems.length}`}
-            </Text>
-            <View style={styles.nudgeStripSpacer} />
-            <Text style={styles.nudgeStripChevron}>›</Text>
-          </Pressable>
-        )}
-
-        {sourceConfig?.glucose === 'health-connect' ? (
-        <View style={styles.glucoseHistorySection}>
-          <View style={styles.chartBleed}>
-            <View style={[styles.chartCardBleed, cardShadow]}>
-              <MetabolicChart
-                glucose={glucoseData}
-                heartRate={mergedHeartRate}
-                activityZones={activityZones}
-                calorieBurns={withingsCalories}
-                workoutSessions={workoutSessions}
-                bmrKcalDay={effectiveBodyScan?.bmrKcalDay}
-                foodEntries={chartMeals}
-              />
-            </View>
           </View>
-        </View>
-        ) : null}
+          <Text style={styles.nudgeStripChevron}>›</Text>
+        </Pressable>
 
         <View style={[styles.bodyScanCard, cardShadow]}>
           <View style={styles.bodyScanHeader}>
@@ -1516,43 +1596,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           ) : null}
         </View>
 
-        <View style={styles.trendBleed}>
-          <View style={[styles.trendCardBleed, cardShadow]}>
-            {trendError && !useManualWeightTrend ? <Text style={styles.trendErrorText}>{trendError}</Text> : null}
-            {trendChartLoading && !visibleTrend ? (
-              <View style={styles.trendLoadingOnly}>
-                <ActivityIndicator color={WellnessColors.accentBlue} />
-                <Text style={styles.trendLoadingLabel}>Loading trend analysis…</Text>
-              </View>
-            ) : null}
-            {visibleTrend ? (
-              <MetabolicTrendChart7d
-                days={visibleTrend.days}
-                periodAnchor={useManualWeightTrend ? null : visibleTrend.anchor}
-                periodDays={trendPeriodDays}
-                periodOptions={TREND_PERIOD_DAY_OPTIONS}
-                availableDays={trendAvailableDays}
-                onPeriodChange={setTrendPeriodDays}
-                weightOnly={useManualWeightTrend}
-                weighInDayCount={manualWeighInDayCount}
-              />
-            ) : null}
-          </View>
-        </View>
-
-        {hasEnergyHistory && visibleTrend ? (
-          <View style={styles.trendBleed}>
-            <View style={[styles.trendCardBleed, styles.bmrCardBleed, cardShadow]}>
-              <BmrHistoryChart7d
-                days={visibleTrend.days}
-                loading={trendChartLoading}
-                eatenKcalByDay={eatenKcalByDay}
-              />
-            </View>
-          </View>
-        ) : null}
-
-        {/* Section 5 — Food log */}
+        {/* Food log — above charts so users find it without scrolling past glucose/trend */}
         <FoodMacroStrip
           dayKey={todayDayKey}
           onAddMeal={(dayKey) => {
@@ -1566,6 +1610,132 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           onImported={() => { setFoodRefreshKey((k) => k + 1); loadTodayFood(); }}
           macroTarget={macroTarget}
         />
+
+        {sourceConfig?.glucose === 'health-connect' ? (
+          <View style={styles.glucoseHistorySection}>
+            <View style={styles.chartBleed}>
+              <View
+                style={[
+                  styles.chartCardBleed,
+                  !glucoseExpanded && styles.chartCardBleedCollapsed,
+                  cardShadow,
+                ]}
+              >
+                <Pressable
+                  style={styles.dashCollapseHeader}
+                  onPress={() => setGlucoseExpanded((v) => !v)}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: glucoseExpanded }}
+                  accessibilityLabel={
+                    glucoseExpanded ? 'Collapse glucose chart' : 'Expand glucose chart'
+                  }
+                >
+                  <View style={styles.dashCollapseHeaderText}>
+                    <Text style={styles.dashCollapseTitle}>GLUCOSE</Text>
+                    {!glucoseExpanded ? (
+                      <Text style={styles.dashCollapseSub} numberOfLines={1}>
+                        {glucoseCompactSummary
+                          ? `${glucoseCompactSummary.valueLabel}${
+                              glucoseCompactSummary.ago
+                                ? ` · ${glucoseCompactSummary.ago}`
+                                : ''
+                            }`
+                          : 'Tap to open chart'}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.dashCollapseChevron}>{glucoseExpanded ? '⌃' : '›'}</Text>
+                </Pressable>
+                {glucoseExpanded ? (
+                  <MetabolicChart
+                    glucose={glucoseData}
+                    heartRate={mergedHeartRate}
+                    activityZones={activityZones}
+                    calorieBurns={withingsCalories}
+                    workoutSessions={workoutSessions}
+                    bmrKcalDay={effectiveBodyScan?.bmrKcalDay}
+                    foodEntries={chartMeals}
+                  />
+                ) : null}
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        <View style={styles.trendBleed}>
+          <View
+            style={[
+              styles.trendCardBleed,
+              !trendExpanded && styles.trendCardBleedCollapsed,
+              cardShadow,
+            ]}
+          >
+            <Pressable
+              style={styles.dashCollapseHeader}
+              onPress={() => setTrendExpanded((v) => !v)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: trendExpanded }}
+              accessibilityLabel={
+                trendExpanded
+                  ? 'Collapse trend analysis and energy'
+                  : 'Expand trend analysis and energy'
+              }
+            >
+              <View style={styles.dashCollapseHeaderText}>
+                <Text style={styles.dashCollapseTitle}>TREND & ENERGY</Text>
+                {!trendExpanded ? (
+                  <Text style={styles.dashCollapseSub} numberOfLines={1}>
+                    {trendCompactSummary
+                      ? `${trendCompactSummary.weightLabel}${
+                          trendCompactSummary.deltaLabel
+                            ? ` · ${trendCompactSummary.deltaLabel}`
+                            : ''
+                        }`
+                      : trendChartLoading
+                        ? 'Loading…'
+                        : 'Tap to open charts'}
+                  </Text>
+                ) : null}
+              </View>
+              <Text style={styles.dashCollapseChevron}>{trendExpanded ? '⌃' : '›'}</Text>
+            </Pressable>
+            {trendExpanded ? (
+              <>
+                {trendError && !useManualWeightTrend ? (
+                  <Text style={styles.trendErrorText}>{trendError}</Text>
+                ) : null}
+                {trendChartLoading && !visibleTrend ? (
+                  <View style={styles.trendLoadingOnly}>
+                    <ActivityIndicator color={WellnessColors.accentBlue} />
+                    <Text style={styles.trendLoadingLabel}>Loading trend analysis…</Text>
+                  </View>
+                ) : null}
+                {visibleTrend ? (
+                  <MetabolicTrendChart7d
+                    days={visibleTrend.days}
+                    periodAnchor={useManualWeightTrend ? null : visibleTrend.anchor}
+                    periodDays={trendPeriodDays}
+                    periodOptions={TREND_PERIOD_DAY_OPTIONS}
+                    availableDays={trendAvailableDays}
+                    onPeriodChange={setTrendPeriodDays}
+                    weightOnly={useManualWeightTrend}
+                    weighInDayCount={manualWeighInDayCount}
+                    hideTitle
+                  />
+                ) : null}
+                {hasEnergyHistory && visibleTrend ? (
+                  <View style={styles.bmrInsideTrend}>
+                    <BmrHistoryChart7d
+                      days={visibleTrend.days}
+                      loading={trendChartLoading}
+                      eatenKcalByDay={eatenKcalByDay}
+                    />
+                  </View>
+                ) : null}
+              </>
+            ) : null}
+          </View>
+        </View>
 
         {dataSource === 'health-connect' ? (
           <View style={styles.careSensImportSection}>
@@ -2335,6 +2505,12 @@ const styles = StyleSheet.create({
     minHeight: 328,
     overflow: 'visible',
   },
+  chartCardBleedCollapsed: {
+    minHeight: 0,
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingHorizontal: 12,
+  },
   trendBleed: {
     marginBottom: 20,
     alignSelf: 'stretch',
@@ -2349,10 +2525,49 @@ const styles = StyleSheet.create({
     minHeight: 320,
     overflow: 'visible',
   },
+  trendCardBleedCollapsed: {
+    minHeight: 0,
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
   bmrCardBleed: {
     minHeight: 160,
     paddingTop: 14,
     paddingBottom: 14,
+  },
+  bmrInsideTrend: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: WellnessColors.gridLine,
+  },
+  dashCollapseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  dashCollapseHeaderText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  dashCollapseTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    color: WellnessColors.textSecondary,
+  },
+  dashCollapseSub: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: WellnessColors.textPrimary,
+    marginTop: 2,
+  },
+  dashCollapseChevron: {
+    fontSize: 18,
+    color: WellnessColors.textSecondary,
+    paddingHorizontal: 4,
   },
   trendErrorText: {
     color: WellnessColors.accentRed,
@@ -2467,7 +2682,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: WellnessColors.accentBlue,
   },
-  // Mentor nudge strip
+  // AI chat entry strip
   nudgeStrip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2478,22 +2693,27 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     marginBottom: 10,
-    gap: 8,
+    gap: 10,
   },
   nudgeStripIcons: {
-    fontSize: 17,
+    fontSize: 20,
     letterSpacing: 1,
     flexShrink: 0,
   },
-  nudgeStripCount: {
-    fontSize: 14,
+  nudgeStripTextCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  nudgeStripTitle: {
+    fontSize: 15,
     fontWeight: '700',
     color: WellnessColors.textPrimary,
-    flexShrink: 0,
   },
-  nudgeStripSpacer: {
-    flex: 1,
-    minWidth: 4,
+  nudgeStripSub: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: WellnessColors.textSecondary,
+    marginTop: 1,
   },
   nudgeStripChevron: {
     fontSize: 20,
