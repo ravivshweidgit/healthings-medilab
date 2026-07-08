@@ -1,6 +1,7 @@
 /**
  * Food Log Modal — camera / text → Gemini AI → correction chat → save.
- * Photo assistant (prompt20): analyze photo → chat → add/remove preview → approve.
+ * New meal: text or first photo auto-saves and stays open for Done review.
+ * Photo add/remove merge on existing meals still uses approve preview.
  */
 
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
@@ -415,11 +416,14 @@ export function FoodLogModal({
   );
 
   /**
-   * Text path: send → AI → save when clean, stay open to review time/items.
-   * Photo / +/- merge / meal issues stay multi-step.
+   * New meal (text or first photo): analyze → save when clean, stay open to review time/items.
+   * Photo +/- merge on existing items / edits stay multi-step.
    */
-  const tryAutoSaveTextMeal = useCallback(
-    async (mealItems: FoodItem[], historyLen: number): Promise<boolean> => {
+  const tryAutoSaveNewMeal = useCallback(
+    async (
+      mealItems: FoodItem[],
+      opts: { fromPhoto: boolean; historyLen: number },
+    ): Promise<boolean> => {
       if (editingId || mealItems.length === 0) return false;
       setScreen('saving');
       const issues = await recomputeMealIssues(mealItems, mealTime, undefined);
@@ -432,8 +436,8 @@ export function FoodLogModal({
       try {
         await persistMealItems({
           mealItems,
-          historyLen,
-          fromPhoto: false,
+          historyLen: opts.historyLen,
+          fromPhoto: opts.fromPhoto,
           timestamp: mealTime,
           stayOpen: true,
         });
@@ -447,12 +451,12 @@ export function FoodLogModal({
     [editingId, mealTime, recomputeMealIssues, persistMealItems],
   );
 
-  // Recipe "Log meal" — same one-tap save when clean (no photo path).
+  // Recipe "Log meal" — same one-tap save when clean.
   React.useEffect(() => {
     if (!visible || editEntry) return;
     if (!prefillItems || prefillItems.length === 0) return;
-    void tryAutoSaveTextMeal(prefillItems, 0);
-  }, [visible, prefillItems, editEntry, tryAutoSaveTextMeal]);
+    void tryAutoSaveNewMeal(prefillItems, { fromPhoto: false, historyLen: 0 });
+  }, [visible, prefillItems, editEntry, tryAutoSaveNewMeal]);
 
   React.useEffect(() => {
     if (!visible || items.length === 0) return;
@@ -544,11 +548,12 @@ export function FoodLogModal({
         setSuggestion(result.suggestion);
         setMealHistory(updatedHistory);
 
-        // First text parse: one tap = describe + send → auto-save when clean.
-        // Corrections (hist) stay on result so the user can refine, then Save.
-        // Photo / +/- merge never uses this path.
+        // First parse (text): describe + send → auto-save when clean.
         if (hist.length === 0 && !editingId && result.items.length > 0) {
-          const saved = await tryAutoSaveTextMeal(result.items, updatedHistory.length);
+          const saved = await tryAutoSaveNewMeal(result.items, {
+            fromPhoto: false,
+            historyLen: updatedHistory.length,
+          });
           if (saved) return;
         }
 
@@ -558,7 +563,7 @@ export function FoodLogModal({
         setScreen('result');
       }
     },
-    [lang, resolveFoodLogHistory, editingId, tryAutoSaveTextMeal],
+    [lang, resolveFoodLogHistory, editingId, tryAutoSaveNewMeal],
   );
 
   const runPhotoAnalysis = useCallback(
@@ -584,19 +589,41 @@ export function FoodLogModal({
           userRules,
           historyBlock,
         );
+        setItems(result.items);
+        setConfidence(result.confidence);
+        setDescription(result.description);
+        setSuggestion(result.suggestion);
+        setMealHistory(updatedHistory);
+        setHadPhotoForSave(true);
+
+        const isFirstPhotoNewMeal =
+          hist.length === 0 && !editingId && items.length === 0 && result.items.length > 0;
+
+        // First photo on a new meal: same as text — auto-save, stay open, Done (no Use/Approve/Save).
+        if (isFirstPhotoNewMeal) {
+          const saved = await tryAutoSaveNewMeal(result.items, {
+            fromPhoto: true,
+            historyLen: updatedHistory.length,
+          });
+          if (saved) {
+            setPhotoSession(null);
+            setMergePreview(null);
+            return;
+          }
+        }
+
         setPhotoSession({
           uri,
           base64: imageBase64,
           ...applyAnalysisResult(result, updatedHistory),
         });
-        setHadPhotoForSave(true);
         setScreen('result');
       } catch (e) {
         setError(e instanceof Error ? e.message : 'AI analysis failed. Please try again.');
         setScreen(items.length > 0 || editEntry ? 'result' : 'idle');
       }
     },
-    [lang, items.length, editEntry, resolveFoodLogHistory],
+    [lang, items.length, editEntry, editingId, resolveFoodLogHistory, tryAutoSaveNewMeal],
   );
 
   const pickImage = useCallback(

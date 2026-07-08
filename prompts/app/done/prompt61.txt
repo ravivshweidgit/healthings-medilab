@@ -15,10 +15,11 @@ Users fail to log meals: after AI parse they must find and tap **Save meal**. Ex
 
 | Path | Behavior |
 |------|----------|
-| **Text describe + send** | Analyze → if clean → **auto-save**, modal **stays open** to check time/items → **Done** |
+| **Text describe + send** | Analyze → if clean → **auto-save**, modal **stays open** → **Done** |
+| **Camera / gallery (new meal)** | Same — no Use as meal / Approve / Save |
 | **Text + correction chat** | Refinements apply to saved meal; Done re-saves |
 | **Recipe Log meal** | Same stay-open review |
-| **Photo / + Add / − Remove** | Unchanged — merge preview → Approve → Save |
+| **Photo + Add / − on existing meal** | Merge preview → Approve → Save (or Done if already saved) |
 | **Meal issues** | Nutritionist alert → Edit / Save anyway |
 | **Edit existing meal** | Explicit Save (no surprise auto-close) |
 
@@ -34,8 +35,9 @@ Users fail to log meals: after AI parse they must find and tap **Save meal**. Ex
 
 - [x] Type meal → send → meal appears on dashboard (no second Save tap)
 - [x] Modal stays open after auto-save for time/items check → Done
+- [x] Photo new meal → auto-save → Done (no Use/Approve/Save)
 - [ ] If macro/rules alert → modal; Save anyway still works
-- [ ] Photo path still needs Approve + Save
+- [ ] Photo + Add/− on existing meal still uses Approve
 - [ ] Correction chat does not auto-save mid-edit
 - [ ] Edit meal still requires Save
 
