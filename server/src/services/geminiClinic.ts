@@ -519,8 +519,25 @@ export async function mentorChatReply(
 ): Promise<string> {
   const snapshot = await loadLatestSnapshotExport(patientId);
   const dataBlock = buildPatientContextBlock(snapshot);
-  const rulesBlock = clinicRules
-    ? `CLINIC-UPDATED RULES (authoritative):\n${clinicRules.rawText}\n${clinicRules.constraints.map((c) => `- ${c}`).join('\n')}`
+
+  let snapRules: ClinicUserRules | null = null;
+  const rulesRaw = snapshot?.asyncStorage?.user_rules;
+  if (rulesRaw) {
+    try {
+      const parsed = JSON.parse(rulesRaw) as ClinicUserRules;
+      if (parsed?.rawText?.trim()) snapRules = parsed;
+    } catch { /* */ }
+  }
+
+  const snapAt = snapRules?.analyzedAt ? Date.parse(snapRules.analyzedAt) : 0;
+  const clinicAt = clinicRules?.analyzedAt ? Date.parse(clinicRules.analyzedAt) : 0;
+  const liveRules =
+    snapRules && Number.isFinite(snapAt) && (!clinicRules || snapAt > (Number.isFinite(clinicAt) ? clinicAt : 0))
+      ? snapRules
+      : clinicRules ?? snapRules;
+
+  const rulesBlock = liveRules
+    ? `${clinicRules && liveRules === clinicRules ? 'CLINIC-UPDATED RULES (authoritative)' : 'PATIENT RULES (from phone / snapshot)'}:\n${liveRules.rawText}\n${(liveRules.constraints ?? []).map((c) => `- ${c}`).join('\n')}`
     : '';
 
   const historyText = history

@@ -821,9 +821,34 @@
     }
   }
 
+  /** Prefer patient snapshot rules when they are newer than a clinic overlay (Refresh must surface phone edits). */
+  function rulesAnalyzedMs(rules) {
+    if (!rules?.analyzedAt) return 0;
+    const t = Date.parse(rules.analyzedAt);
+    return Number.isFinite(t) ? t : 0;
+  }
+
   function effectiveRules(parsed, overlay) {
-    if (overlay?.rules) return overlay.rules;
-    return parsed.userRules;
+    const fromSnap = parsed?.userRules || null;
+    const fromOverlay = overlay?.rules || null;
+    if (!fromOverlay) return fromSnap;
+    if (!fromSnap) return fromOverlay;
+    if (rulesRawEqual(fromSnap, fromOverlay)) return fromOverlay;
+    return rulesAnalyzedMs(fromSnap) > rulesAnalyzedMs(fromOverlay) ? fromSnap : fromOverlay;
+  }
+
+  function rulesSourceHint(parsed, overlay) {
+    const fromSnap = parsed?.userRules || null;
+    const fromOverlay = overlay?.rules || null;
+    if (!fromOverlay) return 'Showing rules from the patient snapshot. Save to push clinic edits to their phone.';
+    if (!fromSnap) return 'Showing clinic rules (no rules in this snapshot). Save syncs to the patient phone.';
+    if (rulesRawEqual(fromSnap, fromOverlay)) {
+      return 'Clinic and snapshot rules match. Save updates the patient phone.';
+    }
+    if (rulesAnalyzedMs(fromSnap) > rulesAnalyzedMs(fromOverlay)) {
+      return 'Showing newer rules from the patient phone (snapshot). Save to adopt/edit as clinic rules.';
+    }
+    return 'Showing clinic rules (newer than the phone snapshot). Snapshot rules are overridden until the patient edits again.';
   }
 
   function formatRulesHistoryDate(iso) {
@@ -974,6 +999,7 @@
     const rtl = profileRtl(ctx.parsed.profile);
     const editorOpen = ctx.rulesEditorExpanded !== false;
     const historyOpen = !!ctx.rulesHistoryExpanded;
+    const sourceHint = rulesSourceHint(ctx.parsed, ctx.overlay);
 
     panel.innerHTML = `
       <p class="sub rules-intro"><strong>Live rules</strong> — edits save to the server and sync to the patient's phone when they open the app.</p>
@@ -996,7 +1022,7 @@
               <ul>${rules.constraints.map((c) => `<li>✓ ${esc(c)}</li>`).join('')}</ul>
               ${rules.summary ? `<p class="sub">Summary: ${esc(rules.summary)}</p>` : ''}
             </div>` : ''}
-            <p class="rules-hint">Snapshot rules are shown until you save. After save, clinic rules override on the server.</p>
+            <p class="rules-hint">${esc(sourceHint)}</p>
           </div>
         </div>
         <div class="rules-fold rules-history-section${historyOpen ? ' is-open' : ''}">

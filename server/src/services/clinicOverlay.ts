@@ -115,7 +115,7 @@ export async function getOverlayForPatient(patient: PublicUser): Promise<ClinicO
 
 async function archiveRulesHistory(
   patientId: string,
-  mentorId: string,
+  mentorId: string | null,
   rules: ClinicUserRules,
   supersededBy: 'clinic' | 'patient' = 'clinic',
 ): Promise<void> {
@@ -194,6 +194,44 @@ export async function saveRulesForPatient(
     [patientId, { ...rules, updatedByClinic: true }, mentor.id],
   );
   return rowToOverlay(rows[0]!);
+}
+
+/**
+ * When a patient sync blob carries newer My Rules than the clinic overlay,
+ * clear overlay rules (archive first) so Refresh / portal show the phone text.
+ * Chat and other overlay fields are left untouched.
+ */
+export async function reconcileOverlayRulesFromPatientSnapshot(
+  patientId: string,
+  patientRules: ClinicUserRules | null | undefined,
+): Promise<boolean> {
+  if (!patientRules?.rawText?.trim() || !patientRules.analyzedAt) return false;
+  const patientAt = Date.parse(patientRules.analyzedAt);
+  if (!Number.isFinite(patientAt)) return false;
+
+  const { rows } = await query<OverlayRow>(
+    `SELECT * FROM clinic_patient_overlays WHERE patient_id = $1`,
+    [patientId],
+  );
+  const row = rows[0];
+  const overlayRules = row?.rules_json ?? null;
+  if (!overlayRules?.rawText?.trim()) return false;
+
+  const overlayRaw = overlayRules.rawText.trim();
+  const patientRaw = patientRules.rawText.trim();
+  if (overlayRaw === patientRaw) return false;
+
+  const overlayAt = Date.parse(overlayRules.analyzedAt || row?.updated_at?.toISOString() || '');
+  if (Number.isFinite(overlayAt) && patientAt <= overlayAt) return false;
+
+  await archiveRulesHistory(patientId, row?.updated_by ?? null, overlayRules, 'patient');
+  await query(
+    `UPDATE clinic_patient_overlays
+     SET rules_json = NULL, updated_at = NOW(), updated_by = NULL
+     WHERE patient_id = $1`,
+    [patientId],
+  );
+  return true;
 }
 
 export async function appendChatMessages(

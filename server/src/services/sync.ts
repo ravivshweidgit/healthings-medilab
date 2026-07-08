@@ -1,8 +1,33 @@
 import { createHash } from 'node:crypto';
+import { gunzipSync, inflateSync } from 'node:zlib';
 import { query } from '../db/pool.js';
 import type { PublicUser } from './jwt.js';
 import { hasApprovedShare } from './shares.js';
 import { clearSyncUpdateRequestsForPatient } from './syncRequests.js';
+import { reconcileOverlayRulesFromPatientSnapshot, type ClinicUserRules } from './clinicOverlay.js';
+
+function decompressSyncPayload(buf: Buffer): string {
+  try {
+    return inflateSync(buf).toString('utf8');
+  } catch {
+    return gunzipSync(buf).toString('utf8');
+  }
+}
+
+function patientRulesFromSyncPayload(payloadGzip: Buffer): ClinicUserRules | null {
+  try {
+    const parsed = JSON.parse(decompressSyncPayload(payloadGzip)) as {
+      asyncStorage?: Record<string, string>;
+    };
+    const raw = parsed.asyncStorage?.user_rules;
+    if (!raw) return null;
+    const rules = JSON.parse(raw) as ClinicUserRules;
+    if (!rules?.rawText?.trim()) return null;
+    return rules;
+  } catch {
+    return null;
+  }
+}
 
 export type SyncSummary = {
   generatedAt: string;
@@ -104,6 +129,12 @@ export async function uploadSyncBlob(
   );
 
   await clearSyncUpdateRequestsForPatient(user.id);
+
+  try {
+    await reconcileOverlayRulesFromPatientSnapshot(user.id, patientRulesFromSyncPayload(payloadGzip));
+  } catch {
+    // Non-fatal: snapshot still uploaded; portal can still prefer newer snapshot text.
+  }
 
   return toPublicBlob(rows[0]!);
 }

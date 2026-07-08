@@ -1,0 +1,44 @@
+## Prompt 63 — Clinic Refresh shows newer patient My Rules
+
+**Status: shipping 2026-07-08**  
+**Builds on:** `done/prompt51.txt` (rules history / clinic overlay)
+
+---
+
+### Problem
+
+Clinic **Refresh snapshot** uploaded the phone’s `user_rules`, but the Rules tab (and mentor chat) always preferred a clinic overlay once it existed — patient corrections never appeared after refresh.
+
+---
+
+### What ships
+
+| Layer | Fix |
+|------|-----|
+| Portal `effectiveRules` | Newer `analyzedAt` wins (snapshot vs overlay); hint text explains source |
+| Sync upload | If snapshot rules are newer than overlay, archive overlay → clear `rules_json` |
+| Mentor chat | Same newer-wins picker for the rules prompt block |
+
+---
+
+### Primary files
+
+- `website/clinic/clinic-workspace.js`
+- `server/src/services/clinicOverlay.ts` (`reconcileOverlayRulesFromPatientSnapshot`)
+- `server/src/services/sync.ts`
+- `server/src/services/geminiClinic.ts`
+
+---
+
+### Verify
+
+1. Deploy website + API restart
+2. Patient edits My Rules on phone (saves with new `analyzedAt`)
+3. Clinic **Refresh snapshot** → Rules tab shows patient text + “newer rules from the patient phone” hint
+4. Clinic Save still adopts/overrides and pushes to phone on next open
+
+---
+
+### Related
+
+- **prompt51** — overlay still authoritative when clinic `analyzedAt` is newer
