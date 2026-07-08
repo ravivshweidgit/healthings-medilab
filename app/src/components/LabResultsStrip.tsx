@@ -2,7 +2,7 @@
  * Lab results — dashboard card (same pattern as FoodMacroStrip).
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,6 +12,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   buildLipidTrendPoints,
   exportLabLog,
@@ -20,8 +21,11 @@ import {
 } from '../services/LabLogService';
 import type { Gender, UserLanguage } from '../services/TargetService';
 import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
+import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import { LabReportModal } from './LabReportModal';
 import { LipidTrendChart } from './LipidTrendChart';
+
+const EXPANDED_KEY = 'dash_lab_results_expanded';
 
 type Props = {
   reports: LabReport[];
@@ -59,10 +63,28 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
   const [autoPick, setAutoPick] = useState(false);
   const [viewReport, setViewReport] = useState<LabReport | null>(null);
   const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
 
   const latest = reports[0] ?? null;
   const lipidTrendPoints = useMemo(() => buildLipidTrendPoints(reports), [reports]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const v = await AsyncStorage.getItem(EXPANDED_KEY);
+        if (v === 'true') setExpanded(true);
+      } finally {
+        setPrefsLoaded(true);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!prefsLoaded) return;
+    void AsyncStorage.setItem(EXPANDED_KEY, expanded ? 'true' : 'false');
+  }, [expanded, prefsLoaded]);
 
   const openImport = useCallback(() => {
     setViewReport(null);
@@ -130,10 +152,19 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
       : 'Import a Clalit online lab PDF';
 
   return (
-    <View style={[styles.card, cardShadow]}>
-      <Text style={styles.sectionTitle}>{sectionTitle}</Text>
-      <Text style={styles.summaryLine}>{latestLine}</Text>
+    <View style={[styles.card, cardShadow, !expanded && styles.cardCollapsed]}>
+      <DashboardCollapseHeader
+        title={sectionTitle}
+        subtitle={latestLine}
+        expanded={expanded}
+        onToggle={() => setExpanded((v) => !v)}
+        titleRtl={rtl}
+        collapseLabel={rtl ? 'כווץ תוצאות מעבדה' : 'Collapse lab results'}
+        expandLabel={rtl ? 'הרחב תוצאות מעבדה' : 'Expand lab results'}
+      />
 
+      {expanded ? (
+      <>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
         <Pressable
           style={({ pressed }) => [styles.chip, styles.addChip, pressed && styles.chipPressed]}
@@ -183,6 +214,8 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
           )}
         </Pressable>
       </View>
+      </>
+      ) : null}
 
       <LabReportModal
         visible={modalVisible}
@@ -201,25 +234,14 @@ const styles = StyleSheet.create({
     backgroundColor: WellnessColors.surface,
     borderRadius: 24,
     paddingHorizontal: 18,
-    paddingTop: 14,
+    paddingTop: 6,
     paddingBottom: 16,
     marginBottom: dashCardGap,
   },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    color: WellnessColors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 6,
+  cardCollapsed: {
+    paddingBottom: 8,
   },
-  summaryLine: {
-    fontSize: 12,
-    color: WellnessColors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  chipsRow: { gap: 8, paddingBottom: 2 },
+  chipsRow: { gap: 8, paddingBottom: 2, paddingTop: 4 },
   chip: {
     backgroundColor: WellnessColors.background,
     borderRadius: 12,

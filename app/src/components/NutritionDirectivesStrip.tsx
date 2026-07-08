@@ -2,7 +2,7 @@
  * Nutritionist session reports — dashboard card (same pattern as LabResultsStrip).
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -12,6 +12,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   deleteNutritionDirective,
   directivePreviewLine,
@@ -21,7 +22,10 @@ import {
 } from '../services/NutritionDirectiveService';
 import type { UserLanguage } from '../services/TargetService';
 import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
+import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import { NutritionDirectiveReviewModal } from './NutritionDirectiveReviewModal';
+
+const EXPANDED_KEY = 'dash_nutrition_reports_expanded';
 
 type Props = {
   directives: NutritionDirective[];
@@ -38,6 +42,8 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
   const [importVisible, setImportVisible] = useState(false);
   const [autoPick, setAutoPick] = useState(false);
   const [detailEntry, setDetailEntry] = useState<NutritionDirective | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
 
   const effectiveActiveId = activeId ?? directives[0]?.id ?? null;
@@ -45,6 +51,22 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
     () => directives.find((d) => d.id === effectiveActiveId) ?? directives[0] ?? null,
     [directives, effectiveActiveId],
   );
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const v = await AsyncStorage.getItem(EXPANDED_KEY);
+        if (v === 'true') setExpanded(true);
+      } finally {
+        setPrefsLoaded(true);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!prefsLoaded) return;
+    void AsyncStorage.setItem(EXPANDED_KEY, expanded ? 'true' : 'false');
+  }, [expanded, prefsLoaded]);
 
   const openImport = useCallback(() => {
     setAutoPick(true);
@@ -103,10 +125,19 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
       : 'Import a nutritionist session summary PDF';
 
   return (
-    <View style={[styles.card, cardShadow]}>
-      <Text style={[styles.sectionTitle, rtl && styles.sectionTitleRtl]}>{sectionTitle}</Text>
-      <Text style={styles.summaryLine}>{summaryLine}</Text>
+    <View style={[styles.card, cardShadow, !expanded && styles.cardCollapsed]}>
+      <DashboardCollapseHeader
+        title={sectionTitle}
+        subtitle={summaryLine}
+        expanded={expanded}
+        onToggle={() => setExpanded((v) => !v)}
+        titleRtl={rtl}
+        collapseLabel={rtl ? 'כווץ דוחות תזונה' : 'Collapse nutrition reports'}
+        expandLabel={rtl ? 'הרחב דוחות תזונה' : 'Expand nutrition reports'}
+      />
 
+      {expanded ? (
+      <>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
         <Pressable
           style={({ pressed }) => [styles.chip, styles.addChip, pressed && styles.chipPressed]}
@@ -140,6 +171,8 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
           );
         })}
       </ScrollView>
+      </>
+      ) : null}
 
       <NutritionDirectiveReviewModal
         visible={importVisible}
@@ -194,30 +227,14 @@ const styles = StyleSheet.create({
     backgroundColor: WellnessColors.surface,
     borderRadius: 24,
     paddingHorizontal: 18,
-    paddingTop: 16,
+    paddingTop: 6,
     paddingBottom: 16,
     marginBottom: dashCardGap,
   },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    color: WellnessColors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 8,
+  cardCollapsed: {
+    paddingBottom: 8,
   },
-  sectionTitleRtl: {
-    letterSpacing: 0,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  summaryLine: {
-    fontSize: 12,
-    color: WellnessColors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  chipsRow: { gap: 8, paddingBottom: 2 },
+  chipsRow: { gap: 8, paddingBottom: 2, paddingTop: 4 },
   chip: {
     backgroundColor: WellnessColors.background,
     borderRadius: 12,

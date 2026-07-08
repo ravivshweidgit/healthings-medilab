@@ -32,6 +32,7 @@ import { WeightTargetStrip } from '../components/WeightTargetStrip';
 import { MentorStrip } from '../components/MentorStrip';
 import { AccountStrip } from '../components/AccountStrip';
 import { ClinicLinkStrip } from '../components/ClinicLinkStrip';
+import { DashboardCollapseHeader } from '../components/DashboardCollapseHeader';
 import { RulesStrip } from '../components/RulesStrip';
 import { NutritionDirectivesStrip } from '../components/NutritionDirectivesStrip';
 import { LabResultsStrip } from '../components/LabResultsStrip';
@@ -108,6 +109,7 @@ const CHART_MEAL_LOOKBACK_DAYS = 31;
 /** Persist glucose / trend expand state so compact stays default after relaunch. */
 const DASH_GLUCOSE_EXPANDED_KEY = 'dash_glucose_chart_expanded';
 const DASH_TREND_EXPANDED_KEY = 'dash_trend_chart_expanded';
+const DASH_SETTINGS_CARD_EXPANDED_KEY = 'dash_settings_card_expanded';
 const BRAND_LOGO = require('../../assets/brand-logo.png');
 const BRAND_HEADER_HEIGHT_FALLBACK = 152;
 
@@ -313,6 +315,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   /** Glucose + trend (incl. energy) charts: collapsed by default so Food Log sits higher. */
   const [glucoseExpanded, setGlucoseExpanded] = useState(false);
   const [trendExpanded, setTrendExpanded] = useState(false);
+  const [settingsCardExpanded, setSettingsCardExpanded] = useState(false);
   const [dashExpandPrefsLoaded, setDashExpandPrefsLoaded] = useState(false);
   const [macroWeighInSuggestion, setMacroWeighInSuggestion] = useState<DailyMacroTarget | null>(null);
   const [macroWeighInHint, setMacroWeighInHint] = useState<string | null>(null);
@@ -790,6 +793,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     return computeAge(iso);
   }, [birthdatePicker]);
 
+  const settingsCardSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (userGender) parts.push(userGender.charAt(0).toUpperCase() + userGender.slice(1));
+    if (heightCm) parts.push(`${heightCm} cm`);
+    if (userAge != null) parts.push(`${userAge} y`);
+    if (mentors.length > 0) parts.push(`${mentors.length} mentor${mentors.length === 1 ? '' : 's'}`);
+    return parts.length > 0 ? parts.join(' · ') : 'Tap to open';
+  }, [userGender, heightCm, userAge, mentors]);
+
   /** Today's actual macros summed from food entries. */
   const todayActualMacros = useMemo(() => {
     if (todayFoodEntries.length === 0) return { protein_g: null, fat_g: null, carb_g: null, fiber_g: null, kcal: null };
@@ -1032,12 +1044,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   useEffect(() => {
     void (async () => {
       try {
-        const [g, t] = await AsyncStorage.multiGet([
+        const [g, t, s] = await AsyncStorage.multiGet([
           DASH_GLUCOSE_EXPANDED_KEY,
           DASH_TREND_EXPANDED_KEY,
+          DASH_SETTINGS_CARD_EXPANDED_KEY,
         ]);
         if (g[1] === 'true') setGlucoseExpanded(true);
         if (t[1] === 'true') setTrendExpanded(true);
+        if (s[1] === 'true') setSettingsCardExpanded(true);
       } finally {
         setDashExpandPrefsLoaded(true);
       }
@@ -1053,6 +1067,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     if (!dashExpandPrefsLoaded) return;
     void AsyncStorage.setItem(DASH_TREND_EXPANDED_KEY, trendExpanded ? 'true' : 'false');
   }, [trendExpanded, dashExpandPrefsLoaded]);
+
+  useEffect(() => {
+    if (!dashExpandPrefsLoaded) return;
+    void AsyncStorage.setItem(DASH_SETTINGS_CARD_EXPANDED_KEY, settingsCardExpanded ? 'true' : 'false');
+  }, [settingsCardExpanded, dashExpandPrefsLoaded]);
 
   useEffect(() => {
     void (async () => {
@@ -1795,7 +1814,18 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         ) : null}
 
         {/* My Profile + My Targets — single grouped card */}
-        <View style={[styles.groupCard, cardShadow]}>
+        <View style={[styles.groupCard, cardShadow, !settingsCardExpanded && styles.groupCardCollapsed]}>
+          <DashboardCollapseHeader
+            title="PROFILE & SETTINGS"
+            subtitle={settingsCardSummary}
+            expanded={settingsCardExpanded}
+            onToggle={() => setSettingsCardExpanded((v) => !v)}
+            style={styles.groupCardCollapseHeader}
+            collapseLabel="Collapse profile and settings"
+            expandLabel="Expand profile and settings"
+          />
+          {settingsCardExpanded ? (
+          <>
           {/* ── My Profile collapsible row ── */}
           <Pressable
             style={styles.profileRow}
@@ -2195,6 +2225,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             {backupBusy ? <ActivityIndicator color={WellnessColors.accentBlue} style={styles.backupSpinner} /> : null}
             {backupMessage ? <Text style={styles.backupMessage}>{backupMessage}</Text> : null}
           </View>
+          </>
+          ) : null}
         </View>
 
         {/* Nutrition + lab archives — bottom of dashboard */}
@@ -2734,6 +2766,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginBottom: dashCardGap,
     overflow: 'hidden',
+  },
+  groupCardCollapsed: {
+    paddingBottom: 2,
+  },
+  groupCardCollapseHeader: {
+    paddingHorizontal: 12,
   },
   groupDivider: {
     height: StyleSheet.hairlineWidth,
