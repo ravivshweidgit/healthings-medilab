@@ -40,7 +40,7 @@ import {
   type ClinicalProfileSummary,
 } from './macroClinicalProfile';
 import { formatMacroRevisionRulesBlock } from './userRulesContext';
-import { loadWithingsStore, syncWithingsStore } from '../services/WithingsPersistenceService';
+import { loadMetricsStore, syncMetricsStore } from '../services/MetricsPersistenceService';
 import { getManualBody } from '../services/ManualBodyService';
 import {
   getBodyTarget,
@@ -715,13 +715,13 @@ export async function buildMacroRevisionBundle(opts: {
   trigger: MacroRevisionTrigger;
   triggerDetail?: string;
 }): Promise<MacroRevisionBundle> {
-  await syncWithingsStore();
+  await syncMetricsStore();
   const [macroTarget, bodyTarget, userRules, store, avgBurn7d, avgEatenKcal7d, avgEatenCarb7d, birthdate, heightCm, gender] =
     await Promise.all([
       getMacroTarget(),
       getBodyTarget(),
       getUserRules(),
-      loadWithingsStore(),
+      loadMetricsStore(),
       get7DayAverageBurnKcal(),
       get7DayAverageEatenKcal(),
       get7DayAverageEatenCarb_g(),

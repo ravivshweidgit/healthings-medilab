@@ -92,7 +92,10 @@ export function fingerprintFromBackupPayload(
     if (chat) pushDay(days, chat[1]);
   }
 
-  daysFromWithingsStore(asyncStorage['healthings:withingsStore'], days);
+  daysFromWithingsStore(
+    asyncStorage['healthings:metricsStore'] ?? asyncStorage['healthings:withingsStore'],
+    days,
+  );
   const glucosePoints = daysFromCgm(asyncStorage['healthings:lastMetrics'], days);
   daysFromManualBody(asyncStorage['manual_body_history_v1'], days);
   pushDay(days, measuredAtDay(asyncStorage['manual_body_v1']));

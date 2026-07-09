@@ -1088,6 +1088,8 @@ export type WorkoutSession = {
   kcal: number;
   /** Total calories including BMR component (kcal), if available. */
   totalKcal?: number;
+  /** Data origin when not from Withings cloud API. */
+  source?: 'withings' | 'health-connect';
 };
 
 /** Withings activity category → label map (partial; covers common types). */

@@ -5,24 +5,24 @@
  *   adapters (Health Connect, Withings, CSV) → sync* → merge → persistence
  */
 import { syncCgmStore, loadCgmStore, type CgmSyncResult } from './CgmPersistenceService';
-import { loadWithingsStore, syncWithingsStore, type WithingsPersistedStore } from './WithingsPersistenceService';
+import { loadMetricsStore, syncMetricsStore, type MetricsPersistedStore } from './MetricsPersistenceService';
 
 export type HealthPersistenceSnapshot = {
   cgm: Awaited<ReturnType<typeof loadCgmStore>>;
-  withings: WithingsPersistedStore;
+  metrics: MetricsPersistedStore;
 };
 
 /** Load all persisted health metrics (no network). */
 export async function loadHealthPersistence(): Promise<HealthPersistenceSnapshot> {
-  const [cgm, withings] = await Promise.all([loadCgmStore(), loadWithingsStore()]);
-  return { cgm, withings };
+  const [cgm, metrics] = await Promise.all([loadCgmStore(), loadMetricsStore()]);
+  return { cgm, metrics };
 }
 
 /** Sync all adapters into persistence, then return the updated snapshot. */
 export async function syncHealthPersistence(): Promise<{
   cgm: CgmSyncResult | null;
-  withings: WithingsPersistedStore;
+  metrics: MetricsPersistedStore;
 }> {
-  const [cgm, withings] = await Promise.all([syncCgmStore(), syncWithingsStore()]);
-  return { cgm, withings };
+  const [cgm, metrics] = await Promise.all([syncCgmStore(), syncMetricsStore()]);
+  return { cgm, metrics };
 }

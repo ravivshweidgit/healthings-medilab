@@ -1,11 +1,11 @@
 /**
- * Guided setup: Samsung Health writes steps → Health Connect → Healthings reads.
+ * Guided setup: watch apps write activity → Health Connect → Healthings reads.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { WellnessColors } from '../theme/wellness';
-import { openSamsungHealthApp } from '../services/healthAppLinks';
+import { openGarminConnectApp, openSamsungHealthApp } from '../services/healthAppLinks';
 import { healthConnectService, openHealthConnectSettings } from '../services/HealthConnectService';
 
 type Props = {
@@ -13,13 +13,13 @@ type Props = {
 };
 
 export function HealthConnectStepsGuide({ onPermissionGranted }: Props) {
-  const [stepsAllowed, setStepsAllowed] = useState<boolean | null>(null);
+  const [activityAllowed, setActivityAllowed] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
   const refreshStatus = useCallback(async () => {
-    const ok = await healthConnectService.hasStepsReadPermission();
-    setStepsAllowed(ok);
+    const ok = await healthConnectService.hasActivityReadPermission();
+    setActivityAllowed(ok);
     return ok;
   }, []);
 
@@ -31,13 +31,15 @@ export function HealthConnectStepsGuide({ onPermissionGranted }: Props) {
     setBusy(true);
     setNote(null);
     try {
-      const ok = await healthConnectService.requestStepsPermission();
-      setStepsAllowed(ok);
+      const ok = await healthConnectService.requestActivityPermissions();
+      setActivityAllowed(ok);
       if (ok) {
-        setNote('Healthings can read steps from Health Connect.');
+        setNote('Healthings can read workouts, calories, and heart rate from Health Connect.');
         onPermissionGranted?.();
       } else {
-        setNote('Permission not granted — tap Open Health Connect and allow Steps for Healthings.');
+        setNote(
+          'Permission not granted — tap Open Health Connect and allow Exercise, Active calories, Steps, and Heart rate for Healthings.',
+        );
       }
     } finally {
       setBusy(false);
@@ -46,19 +48,29 @@ export function HealthConnectStepsGuide({ onPermissionGranted }: Props) {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Activity from phone steps</Text>
+      <Text style={styles.title}>Activity from Health Connect</Text>
       <Text style={styles.lead}>
-        Two apps must be set up — most people only do the second and wonder why steps are zero.
-      </Text>
-      <Text style={styles.step}>1. Samsung Health → share Steps with Health Connect</Text>
-      <Pressable style={styles.btn} onPress={() => void openSamsungHealthApp()}>
-        <Text style={styles.btnText}>Open Samsung Health</Text>
-      </Pressable>
-      <Text style={styles.stepHint}>
-        In Samsung Health: menu → Settings → Health Connect → allow Steps (wording may vary).
+        Your watch app must share with Health Connect first — then Healthings can read named workouts,
+        active calories, and heart rate (Garmin, Samsung, Pixel, etc.).
       </Text>
 
-      <Text style={styles.step}>2. Health Connect → let Healthings read Steps</Text>
+      <Text style={styles.step}>1a. Garmin Connect → share with Health Connect</Text>
+      <Pressable style={styles.btn} onPress={() => void openGarminConnectApp()}>
+        <Text style={styles.btnText}>Open Garmin Connect</Text>
+      </Pressable>
+      <Text style={styles.stepHint}>
+        In Garmin Connect: Settings → Health Connect → enable activities, steps, calories, and heart rate.
+      </Text>
+
+      <Text style={styles.step}>1b. Samsung Health → share Steps with Health Connect (Samsung phones)</Text>
+      <Pressable style={styles.btnSecondary} onPress={() => void openSamsungHealthApp()}>
+        <Text style={styles.btnSecondaryText}>Open Samsung Health</Text>
+      </Pressable>
+      <Text style={styles.stepHint}>
+        In Samsung Health: menu → Settings → Health Connect → allow Steps and workouts.
+      </Text>
+
+      <Text style={styles.step}>2. Health Connect → let Healthings read activity</Text>
       <Pressable style={styles.btnSecondary} onPress={() => openHealthConnectSettings()}>
         <Text style={styles.btnSecondaryText}>Open Health Connect</Text>
       </Pressable>
@@ -70,14 +82,14 @@ export function HealthConnectStepsGuide({ onPermissionGranted }: Props) {
         {busy ? (
           <ActivityIndicator color="#fff" size="small" />
         ) : (
-          <Text style={styles.btnText}>Allow Healthings to read steps</Text>
+          <Text style={styles.btnText}>Allow Healthings to read activity</Text>
         )}
       </Pressable>
 
-      {stepsAllowed === true ? (
-        <Text style={styles.ok}>✓ Healthings has Steps permission</Text>
-      ) : stepsAllowed === false ? (
-        <Text style={styles.warn}>Steps permission not granted yet</Text>
+      {activityAllowed === true ? (
+        <Text style={styles.ok}>✓ Healthings has activity permissions</Text>
+      ) : activityAllowed === false ? (
+        <Text style={styles.warn}>Activity permissions not granted yet</Text>
       ) : null}
       {note ? <Text style={styles.note}>{note}</Text> : null}
     </View>

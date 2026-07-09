@@ -37,6 +37,7 @@ import {
   sourceConfigFromDevices,
   type DeviceSurvey,
 } from '../services/SourceConfigService';
+import { syncMetricsStore } from '../services/MetricsPersistenceService';
 import { syncSamsungStepsIfConfigured } from '../services/SamsungStepsAdapter';
 import {
   computeAge,
@@ -241,8 +242,12 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
         }
       }
       if (!hasWatch) {
-        const ok = await healthConnectService.requestStepsPermission();
-        notes.push(ok ? 'Steps access granted.' : 'Steps: allow in Health Connect for Samsung step counting.');
+        const ok = await healthConnectService.requestActivityPermissions();
+        notes.push(
+          ok
+            ? 'Activity access granted (workouts, active calories, steps, heart rate).'
+            : 'Activity: allow Exercise, Active calories, Steps, and Heart rate in Health Connect.',
+        );
       }
     } finally {
       setPermNote(notes.join(' '));
@@ -406,6 +411,9 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     const w = parseFloat(weightInput);
     const cm = parseFloat(heightInput);
     if (usesManual && w > 0 && cm > 0) {
+      if (!deviceSurvey.withingsWatch) {
+        await syncMetricsStore();
+      }
       await syncSamsungStepsIfConfigured(w, cm, gender);
     }
     await setOnboardingCompletedAt();

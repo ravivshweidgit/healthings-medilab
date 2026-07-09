@@ -8,7 +8,16 @@ import type { CachedHealthMetrics } from './healthMetricsCache';
 import { HEALTH_METRICS_CACHE_KEY } from './healthMetricsCache';
 import { uploadSyncPayload, type SyncLookbackMode, type SyncSummary } from './SyncApiService';
 import { NUTRITION_DIRECTIVES_KEY } from './NutritionDirectiveService';
-import { WITHINGS_STORE_KEY, type WithingsPersistedStore } from './WithingsPersistenceService';
+import {
+  METRICS_STORE_KEY,
+  coalesceMetricsStores,
+  hasMetricsData,
+  loadMetricsStore,
+  syncMetricsStore,
+  type MetricsPersistedStore,
+} from './MetricsPersistenceService';
+
+const LEGACY_WITHINGS_STORE_KEY = 'healthings:withingsStore';
 
 const EXPORT_APP = 'healthings-medilab';
 const EXPORT_VERSION = 1;
@@ -89,8 +98,8 @@ function trimCgm(raw: string, cutoffDay: string): string {
   return JSON.stringify({ ...data, glucose, cgmSessionStarts: sessionStarts });
 }
 
-function trimWithingsStore(raw: string, cutoffDay: string): string {
-  const store = JSON.parse(raw) as WithingsPersistedStore;
+function trimMetricsStore(raw: string, cutoffDay: string): string {
+  const store = JSON.parse(raw) as MetricsPersistedStore;
   const cutoffMs = Date.parse(`${cutoffDay}T00:00:00`);
   const after = (ts: string) => {
     const ms = Date.parse(ts);
@@ -111,7 +120,7 @@ function detectIncludes(asyncStorage: Record<string, string>): string[] {
   if (Object.keys(asyncStorage).some(isFoodDayKey)) includes.push('meals');
   if (asyncStorage[HEALTH_METRICS_CACHE_KEY]) includes.push('cgm');
   if (Object.keys(asyncStorage).some((k) => k.startsWith('lab_report_'))) includes.push('labs');
-  if (asyncStorage[WITHINGS_STORE_KEY]) includes.push('withings');
+  if (asyncStorage[METRICS_STORE_KEY] || asyncStorage[LEGACY_WITHINGS_STORE_KEY]) includes.push('metrics');
   if (asyncStorage.body_target || asyncStorage.macro_target) includes.push('targets');
   if (asyncStorage.user_rules) includes.push('rules');
   if (asyncStorage[NUTRITION_DIRECTIVES_KEY]) includes.push('directives');
@@ -134,7 +143,10 @@ function dayRangeFromKeys(asyncStorage: Record<string, string>): { from: string;
   return { from: days[0]!, to: days[days.length - 1]! };
 }
 
-export async function buildClinicExport(lookbackMode: SyncLookbackMode = '90d'): Promise<ClinicExportPayload> {
+export async function buildClinicExport(
+  lookbackMode: SyncLookbackMode = '90d',
+  metricsOverride?: MetricsPersistedStore,
+): Promise<ClinicExportPayload> {
   const lookbackDays = lookbackMode === 'full' ? 3650 : 90;
   const cutoffDay = lookbackMode === 'full' ? '1970-01-01' : cutoffDayKey(lookbackDays);
 
@@ -150,6 +162,9 @@ export async function buildClinicExport(lookbackMode: SyncLookbackMode = '90d'):
       asyncStorage[key] = value;
       continue;
     }
+    if (key === METRICS_STORE_KEY || key === LEGACY_WITHINGS_STORE_KEY) {
+      continue;
+    }
     if (lookbackMode !== 'full') {
       const fd = foodDayFromKey(key);
       if (fd && fd < cutoffDay) continue;
@@ -159,12 +174,20 @@ export async function buildClinicExport(lookbackMode: SyncLookbackMode = '90d'):
         asyncStorage[key] = trimCgm(value, cutoffDay);
         continue;
       }
-      if (key === WITHINGS_STORE_KEY) {
-        asyncStorage[key] = trimWithingsStore(value, cutoffDay);
-        continue;
-      }
     }
     asyncStorage[key] = value;
+  }
+
+  let canonicalMetrics = metricsOverride ?? (await loadMetricsStore());
+  if (!hasMetricsData(canonicalMetrics)) {
+    const pairs = await AsyncStorage.multiGet([METRICS_STORE_KEY, LEGACY_WITHINGS_STORE_KEY]);
+    const coalesced = coalesceMetricsStores(pairs[0]?.[1] ?? null, pairs[1]?.[1] ?? null);
+    if (hasMetricsData(coalesced)) canonicalMetrics = coalesced;
+  }
+  if (hasMetricsData(canonicalMetrics)) {
+    const json = JSON.stringify(canonicalMetrics);
+    asyncStorage[METRICS_STORE_KEY] =
+      lookbackMode !== 'full' ? trimMetricsStore(json, cutoffDay) : json;
   }
 
   return {
@@ -177,7 +200,11 @@ export async function buildClinicExport(lookbackMode: SyncLookbackMode = '90d'):
 }
 
 export async function shareClinicExport(lookbackMode: SyncLookbackMode = '90d'): Promise<ShareExportResult> {
-  const payload = await buildClinicExport(lookbackMode);
+  const synced = await syncMetricsStore();
+  if (!hasMetricsData(synced)) {
+    console.warn('[ClinicExport] metrics store empty after sync — snapshot may lack body/HR/workouts');
+  }
+  const payload = await buildClinicExport(lookbackMode, synced);
   const json = JSON.stringify(payload);
   const compressed = deflate(json);
   const payloadGzipBase64 = bytesToBase64(compressed);

@@ -29,7 +29,7 @@ import {
   getUserRules,
   type UserLanguage,
 } from './TargetService';
-import { loadWithingsStore, syncWithingsStore } from './WithingsPersistenceService';
+import { loadMetricsStore, syncMetricsStore } from './MetricsPersistenceService';
 
 export type VisitReportDayCount = 7 | 14 | 30 | 90;
 
@@ -91,20 +91,21 @@ export async function buildVisitReportContent(opts: {
     getAllLabReports(),
   ]);
 
-  await Promise.all([syncWithingsStore(), syncCgmStore()]);
-  const [withingsStore, cgmView] = await Promise.all([
-    loadWithingsStore(),
+  await Promise.all([syncMetricsStore(), syncCgmStore()]);
+  const [metricsStore, cgmView] = await Promise.all([
+    loadMetricsStore(),
     loadCgmViewFromStore(),
   ]);
+  const reportWorkouts = metricsStore.workouts;
 
-  const bodyScan = withingsStore.bodyScan;
+  const bodyScan = metricsStore.bodyScan;
   const profile = buildVisitReportProfile({
     birthdate,
     gender,
     heightCm,
     weightKg: bodyScan?.weightKg ?? null,
     weightMeasuredAt: bodyScan?.measuredAt ?? null,
-    weightTrendLine: weightTrendLine(withingsStore.bodyTrendDays, dayCount),
+    weightTrendLine: weightTrendLine(metricsStore.bodyTrendDays, dayCount),
   });
 
   const periodRequest: PeriodReviewRequest = { mode: 'days', days: dayCount };
@@ -127,11 +128,11 @@ export async function buildVisitReportContent(opts: {
     labs: labReports,
     coachMsg,
     includeCoach: mentors.includes('nutritionist'),
-    bodyTrendDays: withingsStore.bodyTrendDays,
-    compositionSessions: withingsStore.bodyTrendSessions,
-    workouts: withingsStore.workouts,
-    caloriePoints: withingsStore.calories,
-    heartRatePoints: withingsStore.heartRate,
+    bodyTrendDays: metricsStore.bodyTrendDays,
+    compositionSessions: metricsStore.bodyTrendSessions,
+    workouts: reportWorkouts,
+    caloriePoints: metricsStore.calories,
+    heartRatePoints: metricsStore.heartRate,
     glucose: cgmView.glucose,
     cgmSessionStarts: cgmView.cgmSessionStarts,
     cgmStatSummary: cgmView.cgmStatSummary,
@@ -147,16 +148,16 @@ export async function buildVisitReportContent(opts: {
     }),
   );
   const burnByDay = computeBurnKcalByDay(
-    withingsStore.bodyTrendDays,
-    withingsStore.calories,
-    withingsStore.workouts,
+    metricsStore.bodyTrendDays,
+    metricsStore.calories,
+    reportWorkouts,
   );
   const chartAppendix = buildVisitReportCharts({
     dayCount,
     dayKeys,
     lipidPoints: buildLipidTrendPoints(labReports),
     gender,
-    bodyTrendDays: withingsStore.bodyTrendDays,
+    bodyTrendDays: metricsStore.bodyTrendDays,
     eatenByDay,
     burnByDay,
     glucose: cgmView.glucose,

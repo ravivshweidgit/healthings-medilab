@@ -4,12 +4,12 @@ import type { CompositionSession, MetabolicTrend7dDay } from '../logic/metabolic
 import { fetchTodayHeartRate, getValidAccessToken, loadWithingsTokens } from '../services/WithingsApiService';
 import type { WeightMetricsForDashboard, WithingsCaloriePoint, WithingsHeartRatePoint, WorkoutSession } from '../services/WithingsApiService';
 import {
-  hasWithingsData,
-  loadWithingsStore,
+  hasMetricsData,
+  loadMetricsStore,
   mergeTodayWithingsIntraday,
-  syncWithingsStore,
-  type WithingsPersistedStore,
-} from '../services/WithingsPersistenceService';
+  syncMetricsStore,
+  type MetricsPersistedStore,
+} from '../services/MetricsPersistenceService';
 import {
   formatHrSyncDiagLine,
   loadWithingsHrSyncDiag,
@@ -25,7 +25,7 @@ export type WithingsDataState = {
   workouts: WorkoutSession[];
 };
 
-function storeToState(store: WithingsPersistedStore): WithingsDataState {
+function storeToState(store: MetricsPersistedStore): WithingsDataState {
   return {
     bodyScan: store.bodyScan,
     bodyTrendDays: store.bodyTrendDays,
@@ -52,35 +52,35 @@ export function useWithingsData() {
   const [trendLoading, setTrendLoading] = useState(true);
   const [trendError, setTrendError] = useState<string | null>(null);
   const [hrSyncDiag, setHrSyncDiag] = useState<WithingsHrSyncDiag | null>(null);
-  const syncInFlight = useRef<Promise<WithingsPersistedStore> | null>(null);
+  const syncInFlight = useRef<Promise<MetricsPersistedStore> | null>(null);
 
   const refreshHrDiag = useCallback(async () => {
     setHrSyncDiag(await loadWithingsHrSyncDiag());
   }, []);
 
-  const applyStore = useCallback((store: WithingsPersistedStore) => {
+  const applyStore = useCallback((store: MetricsPersistedStore) => {
     setState(storeToState(store));
   }, []);
 
-  const sync = useCallback(async (): Promise<WithingsPersistedStore> => {
+  const sync = useCallback(async (): Promise<MetricsPersistedStore> => {
     if (syncInFlight.current) {
       return syncInFlight.current;
     }
 
-    const run = (async (): Promise<WithingsPersistedStore> => {
+    const run = (async (): Promise<MetricsPersistedStore> => {
       setBodyScanLoading(true);
       setTrendLoading(true);
       setBodyScanError(null);
       setTrendError(null);
       try {
-        const store = await syncWithingsStore();
+        const store = await syncMetricsStore();
         applyStore(store);
         await refreshHrDiag();
         return store;
       } catch (err) {
-        const cached = await loadWithingsStore();
+        const cached = await loadMetricsStore();
         applyStore(cached);
-        const message = err instanceof Error ? err.message : 'Could not sync Withings data.';
+        const message = err instanceof Error ? err.message : 'Could not sync device metrics.';
         setBodyScanError(cached.bodyScan ? null : message);
         setTrendError(cached.bodyTrendDays.length > 0 ? null : message);
         return cached;
@@ -124,8 +124,8 @@ export function useWithingsData() {
   useEffect(() => {
     const bootstrap = async () => {
       try {
-        const cached = await loadWithingsStore();
-        if (hasWithingsData(cached)) {
+        const cached = await loadMetricsStore();
+        if (hasMetricsData(cached)) {
           applyStore(cached);
           setBodyScanLoading(false);
           setTrendLoading(false);

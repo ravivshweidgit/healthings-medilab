@@ -3,6 +3,7 @@
  */
 (function (global) {
   const CGM_KEY = 'healthings:lastMetrics';
+  const METRICS_KEY = 'healthings:metricsStore';
   const WITHINGS_KEY = 'healthings:withingsStore';
   const COACH_KEY = 'coach_message_today';
   const MACRO_KEY = 'daily_macro_target';
@@ -71,7 +72,10 @@
     let mentors = ['nutritionist'];
 
     try { if (store[CGM_KEY]) cgm = JSON.parse(store[CGM_KEY]); } catch { /* */ }
-    try { if (store[WITHINGS_KEY]) withings = JSON.parse(store[WITHINGS_KEY]); } catch { /* */ }
+    try {
+      const metricsRaw = store[METRICS_KEY] ?? store[WITHINGS_KEY];
+      if (metricsRaw) withings = JSON.parse(metricsRaw);
+    } catch { /* */ }
     try { if (store[MACRO_KEY]) macroTarget = JSON.parse(store[MACRO_KEY]); } catch { /* */ }
     try { if (store[RULES_KEY]) userRules = JSON.parse(store[RULES_KEY]); } catch { /* */ }
     try { if (store[COACH_KEY]) coachMsg = JSON.parse(store[COACH_KEY]); } catch { /* */ }

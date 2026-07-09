@@ -29,7 +29,7 @@ import type {
 import { filterGlucoseToDayKeys } from './healthMetricsCache';
 import type { CgmSessionStart } from '../logic/cgmWarmupFilter';
 import { loadCgmViewFromStore, syncCgmStore } from './CgmPersistenceService';
-import { loadWithingsStore, syncWithingsStore } from './WithingsPersistenceService';
+import { loadMetricsStore, syncMetricsStore, type MetricsPersistedStore } from './MetricsPersistenceService';
 import type { TimePoint } from './HealthConnectService';
 import type { DailyMacroTarget } from './TargetService';
 
@@ -305,7 +305,7 @@ async function loadPeriodIntradayFromPersistence(
   dayCount: number,
   appGlucose?: TimePoint[] | null,
 ): Promise<WithingsIntradayData & { glucose: TimePoint[]; glucoseRaw: TimePoint[]; cgmSessionStarts: CgmSessionStart[]; cgmStatSummary: string | null }> {
-  const withingsStore = await loadWithingsStore();
+  const withingsStore = await loadMetricsStore();
   const cgm = await loadCgmViewFromStore(appGlucose);
 
   return {
@@ -519,15 +519,15 @@ function formatWorkoutRollup(
   return `${label} WORKOUTS (${dk}):\n  ${block}`;
 }
 
-/** Today + yesterday workout lines — reads persisted Withings store. */
+/** Today + yesterday workout lines — persisted Withings or Health Connect activity store. */
 export async function buildChatWorkoutRollups(): Promise<{ today: string; yesterday: string }> {
-  await syncWithingsStore();
-  const store = await loadWithingsStore();
+  await syncMetricsStore();
+  const store = await loadMetricsStore();
   const sessions = filterWorkoutsByLookback(store.workouts, 14);
-  const hr = filterPointsByLookbackDays(store.heartRate, 3);
+  const hrFiltered = filterPointsByLookbackDays(store.heartRate, 3);
   return {
-    today: formatWorkoutRollup(sessions, hr, 0, 'TODAY'),
-    yesterday: formatWorkoutRollup(sessions, hr, 1, 'YESTERDAY'),
+    today: formatWorkoutRollup(sessions, hrFiltered, 0, 'TODAY'),
+    yesterday: formatWorkoutRollup(sessions, hrFiltered, 1, 'YESTERDAY'),
   };
 }
 
@@ -550,9 +550,12 @@ export async function buildPeriodReviewBlock(
   const dayCount = reviewDayCount(request);
   const dayKeys = windowDayKeys(request);
 
-  await Promise.all([syncWithingsStore(), syncCgmStore()]);
-  const withingsStore = await loadWithingsStore();
-  const workouts = filterWorkoutsByLookback(withingsStore.workouts, Math.max(dayCount + 7, 14));
+  await Promise.all([syncMetricsStore(), syncCgmStore()]);
+  const withingsStore = await loadMetricsStore();
+  const workoutsFiltered = filterWorkoutsByLookback(
+    withingsStore.workouts,
+    Math.max(dayCount + 7, 14),
+  );
   const bodyPayload = {
     days: withingsStore.bodyTrendDays,
     periodAnchor: null,
@@ -571,7 +574,7 @@ export async function buildPeriodReviewBlock(
   const includeFullGlucoseSeries = dayKeys.length <= MAX_FULL_CGM_SERIES_DAYS;
 
   const bodyByDay = bodyDayMap(bodyPayload.days);
-  const burnByDay = computeBurnKcalByDay(bodyPayload.days, intraday.calories, workouts);
+  const burnByDay = computeBurnKcalByDay(bodyPayload.days, intraday.calories, workoutsFiltered);
   const macrosList = await Promise.all(dayKeys.map((dk) => getDailyMacros(dk)));
   const macrosByDay = new Map(dayKeys.map((dk, i) => [dk, macrosList[i]]));
 
@@ -647,7 +650,7 @@ export async function buildPeriodReviewBlock(
 
     lines.push(
       'WORKOUTS (+ HR during each session):',
-      `  ${formatDayWorkouts(workouts, dk, intraday.heartRate)}`,
+      `  ${formatDayWorkouts(workoutsFiltered, dk, intraday.heartRate)}`,
     );
   }
 
@@ -696,10 +699,10 @@ export function averageBurnExcludingMax(burns: number[]): number | null {
 
 /** 7-day average total daily burn (BMR + passive + workouts) for macro revision. */
 export async function get7DayAverageBurnKcal(): Promise<number | null> {
-  await syncWithingsStore();
-  const store = await loadWithingsStore();
-  const workouts = filterWorkoutsByLookback(store.workouts, 14);
-  const burnByDay = computeBurnKcalByDay(store.bodyTrendDays, store.calories, workouts);
+  await syncMetricsStore();
+  const store = await loadMetricsStore();
+  const workoutsFiltered = filterWorkoutsByLookback(store.workouts, 14);
+  const burnByDay = computeBurnKcalByDay(store.bodyTrendDays, store.calories, workoutsFiltered);
 
   let burns = burnsFromDayKeys(burnByDay, windowDayKeys({ mode: 'days', days: TDEE_BURN_WINDOW_DAYS }));
 

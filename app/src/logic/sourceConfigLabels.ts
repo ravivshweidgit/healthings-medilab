@@ -22,7 +22,9 @@ function bodyChip(config: SourceConfig): string {
 
 function activityChip(config: SourceConfig): string {
   if (config.activity === 'withings') return 'Withings watch';
-  if (config.activity === 'samsung-steps') return 'Health Connect steps';
+  if (config.activity === 'health-connect' || config.activity === 'samsung-steps') {
+    return 'Health Connect activity';
+  }
   return 'Off';
 }
 

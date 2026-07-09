@@ -43,6 +43,7 @@ import { buildManualTrendDays } from '../services/ManualTrendService';
 import { SetupToggleRow } from '../components/SetupToggleRow';
 import { HealthConnectStepsGuide } from '../components/HealthConnectStepsGuide';
 import {
+  isHealthConnectActivity,
   loadSourceConfig,
   saveSourceConfig,
   sourceConfigFromToggles,
@@ -514,7 +515,19 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     setFoodModalVisible(true);
   }, []);
 
-  const useHcStepsForActivity = sourceConfig?.activity === 'samsung-steps';
+  const useHcActivity = isHealthConnectActivity(sourceConfig?.activity ?? 'none');
+
+  const loadHcStepTotals = useCallback(async () => {
+    if (!useHcActivity || !heightCm || !userGender) {
+      setHcStepTotalsByDay(new Map());
+      return;
+    }
+    const weightKg =
+      effectiveBodyScan?.weightKg ?? manualBodySnap?.weight_kg ?? bodyScan?.weightKg ?? 70;
+    const lookback = Math.max(...TREND_PERIOD_DAY_OPTIONS, DEFAULT_TREND_PERIOD_DAYS);
+    const map = await fetchDailyStepTotalsForTrend(lookback, weightKg, heightCm, userGender);
+    setHcStepTotalsByDay(map);
+  }, [useHcActivity, heightCm, userGender, effectiveBodyScan, manualBodySnap, bodyScan]);
 
   const useManualWeightTrend = useMemo(() => {
     if (sourceConfig?.bodyComposition === 'manual') return true;
@@ -543,18 +556,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     return null;
   }, [bodyScan, effectiveBodyScan, manualBodySnap, sourceConfig]);
 
-  const loadHcStepTotals = useCallback(async () => {
-    if (!useHcStepsForActivity || !heightCm || !userGender) {
-      setHcStepTotalsByDay(new Map());
-      return;
-    }
-    const weightKg =
-      effectiveBodyScan?.weightKg ?? manualBodySnap?.weight_kg ?? bodyScan?.weightKg ?? 70;
-    const lookback = Math.max(...TREND_PERIOD_DAY_OPTIONS, DEFAULT_TREND_PERIOD_DAYS);
-    const map = await fetchDailyStepTotalsForTrend(lookback, weightKg, heightCm, userGender);
-    setHcStepTotalsByDay(map);
-  }, [useHcStepsForActivity, heightCm, userGender, effectiveBodyScan, manualBodySnap, bodyScan]);
-
   const persistSetupToggles = useCallback(
     async (next: SetupToggles) => {
       const config = sourceConfigFromToggles(next);
@@ -564,12 +565,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       if (config.bodyComposition === 'manual') {
         await loadManualTrend();
       }
-      if (config.activity === 'samsung-steps') {
-        await healthConnectService.requestStepsPermission();
+      if (isHealthConnectActivity(config.activity)) {
+        await healthConnectService.requestActivityPermissions();
+        await syncWithings();
         await loadHcStepTotals();
       }
     },
-    [loadManualTrend, loadHcStepTotals],
+    [loadManualTrend, syncWithings, loadHcStepTotals],
   );
 
   const baseTrendDays = useManualWeightTrend ? manualTrendDays : bodyTrendDays;
@@ -582,20 +584,20 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     if (useManualWeightTrend) return baseTrendDays;
 
     let days = baseTrendDays;
-    if (useHcStepsForActivity && heightCm && userGender) {
+    if (useHcActivity && heightCm && userGender) {
       days = baseTrendDays.map((d) => {
+        if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay)) return d;
         const steps = hcStepTotalsByDay.get(d.dayKey) ?? 0;
         const weightKg = d.weightKg ?? effectiveBodyScan?.weightKg ?? manualBodySnap?.weight_kg;
         const activityKcalDay =
           weightKg && steps > 0
             ? stepsToActiveKcal(steps, weightKg, heightCm, userGender)
             : null;
-        return { ...d, activityKcalDay };
+        return activityKcalDay != null ? { ...d, activityKcalDay } : d;
       });
     }
 
-    if (!useHcStepsForActivity && workoutSessions.length === 0) return days;
-    if (useHcStepsForActivity) return days;
+    if (workoutSessions.length === 0) return days;
 
     const workoutByDay = new Map<string, number>();
     for (const w of workoutSessions) {
@@ -610,7 +612,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, [
     baseTrendDays,
     useManualWeightTrend,
-    useHcStepsForActivity,
+    useHcActivity,
     hcStepTotalsByDay,
     heightCm,
     userGender,
@@ -677,7 +679,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const burnKcalByDay = useMemo((): Record<string, number> => {
     const fallbackBmr = effectiveBodyScan?.bmrKcalDay;
 
-    if (useManualWeightTrend || useHcStepsForActivity) {
+    if (useManualWeightTrend || useHcActivity) {
       const result: Record<string, number> = {};
       for (const d of bodyTrendDaysWithActivity) {
         const bmr = d.bmrKcalDay ?? fallbackBmr;
@@ -749,7 +751,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       result[dk] = Math.round(bmr + passiveKcal + wktKcal);
     }
     return result;
-  }, [effectiveBodyScan, bodyTrendDaysWithActivity, withingsCalories, workoutSessions, useManualWeightTrend, useHcStepsForActivity]);
+  }, [effectiveBodyScan, bodyTrendDaysWithActivity, withingsCalories, workoutSessions, useManualWeightTrend, useHcActivity]);
 
   /** Fat% derived from body scan (fatMassKg / weightKg * 100). */
   const fatPct = useMemo((): number | null => {
@@ -1009,9 +1011,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     }
   }, []);
 
-  /** Heart rate chart line — Withings only (never Health Connect). */
-  const mergedHeartRate = withingsHeartRate;
-
   const applyClinicOverlays = useCallback(async () => {
     const rules = await pullClinicOverlays();
     if (rules) {
@@ -1197,6 +1196,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, [workoutSessions]);
 
   useEffect(() => {
+    if (useHcActivity) void loadHcStepTotals();
+  }, [useHcActivity, loadHcStepTotals]);
+
+  useEffect(() => {
     void refreshWithingsLinkState();
   }, [refreshWithingsLinkState]);
 
@@ -1207,10 +1210,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       setSetupToggles(togglesFromSourceConfig(c));
     });
   }, [profileExpanded]);
-
-  useEffect(() => {
-    if (useHcStepsForActivity) void loadHcStepTotals();
-  }, [useHcStepsForActivity, loadHcStepTotals]);
 
   useEffect(() => {
     if (manualBodySnap?.fat_pct_source === 'user') {
@@ -1668,7 +1667,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 {glucoseExpanded ? (
                   <MetabolicChart
                     glucose={glucoseData}
-                    heartRate={mergedHeartRate}
+                    heartRate={withingsHeartRate}
                     activityZones={activityZones}
                     calorieBurns={withingsCalories}
                     workoutSessions={workoutSessions}
@@ -1951,7 +1950,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     onChange={(v) => void persistSetupToggles({ ...setupToggles, withingsWatch: v })}
                   />
                   {!setupToggles.withingsWatch ? (
-                    <HealthConnectStepsGuide onPermissionGranted={() => void loadHcStepTotals()} />
+                    <HealthConnectStepsGuide
+                      onPermissionGranted={() => {
+                        void syncWithings().then(() => loadHcStepTotals());
+                      }}
+                    />
                   ) : null}
                   <SetupToggleRow
                     label="CGM"

@@ -3,6 +3,7 @@
  */
 (function (global) {
   const CGM_KEY = 'healthings:lastMetrics';
+  const METRICS_KEY = 'healthings:metricsStore';
   const WITHINGS_KEY = 'healthings:withingsStore';
   const COACH_KEY = 'coach_message_today';
   const MACRO_KEY = 'daily_macro_target';
@@ -62,8 +63,9 @@
     }
 
     let withings = null;
-    if (store[WITHINGS_KEY]) {
-      try { withings = JSON.parse(store[WITHINGS_KEY]); } catch { /* */ }
+    const metricsRaw = store[METRICS_KEY] ?? store[WITHINGS_KEY];
+    if (metricsRaw) {
+      try { withings = JSON.parse(metricsRaw); } catch { /* */ }
     }
 
     let macroTarget = null;

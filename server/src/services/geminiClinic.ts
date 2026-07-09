@@ -529,7 +529,7 @@ type WithingsSnapshot = {
 };
 
 function parseWithingsStore(store: Record<string, string>): WithingsSnapshot | null {
-  const raw = store['healthings:withingsStore'];
+  const raw = store['healthings:metricsStore'] ?? store['healthings:withingsStore'];
   if (!raw) return null;
   try {
     return JSON.parse(raw) as WithingsSnapshot;

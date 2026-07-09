@@ -33,6 +33,13 @@ const CORE_READ_PERMISSIONS = [
 
 const STEPS_READ_PERMISSION = { accessType: 'read', recordType: 'Steps' } as const;
 
+const ACTIVITY_READ_PERMISSIONS = [
+  STEPS_READ_PERMISSION,
+  { accessType: 'read', recordType: 'ExerciseSession' } as const,
+  { accessType: 'read', recordType: 'ActiveCaloriesBurned' } as const,
+  { accessType: 'read', recordType: 'HeartRate' } as const,
+];
+
 function hasCoreReadAccess(
   granted: Array<{ accessType?: string; recordType?: string }>
 ): boolean {
@@ -126,29 +133,68 @@ class HealthConnectService {
   }
 
   async requestStepsPermission(): Promise<boolean> {
+    return this.requestActivityPermissions();
+  }
+
+  async requestActivityPermissions(): Promise<boolean> {
     try {
       const isInitialized = await initialize();
       if (!isInitialized) return false;
-      const granted = await requestPermission([STEPS_READ_PERMISSION]);
-      return granted.some(
-        (p) => p.accessType === STEPS_READ_PERMISSION.accessType && p.recordType === STEPS_READ_PERMISSION.recordType,
+      const granted = await requestPermission([...ACTIVITY_READ_PERMISSIONS]);
+      return ACTIVITY_READ_PERMISSIONS.every((need) =>
+        granted.some((p) => p.accessType === need.accessType && p.recordType === need.recordType),
       );
     } catch {
       return false;
     }
   }
 
-  async hasStepsReadPermission(): Promise<boolean> {
+  async hasActivityReadPermission(): Promise<boolean> {
     try {
       const isInitialized = await initialize();
       if (!isInitialized) return false;
       const granted = await getGrantedPermissions();
-      return granted.some(
-        (p) => p.accessType === STEPS_READ_PERMISSION.accessType && p.recordType === STEPS_READ_PERMISSION.recordType,
+      return ACTIVITY_READ_PERMISSIONS.every((need) =>
+        granted.some((p) => p.accessType === need.accessType && p.recordType === need.recordType),
       );
     } catch {
       return false;
     }
+  }
+
+  async readAllRecords(
+    recordType: 'Steps' | 'ExerciseSession' | 'ActiveCaloriesBurned' | 'HeartRate',
+    startDate: Date,
+    endDate: Date = new Date(),
+  ): Promise<Array<Record<string, unknown>>> {
+    const records: Array<Record<string, unknown>> = [];
+    try {
+      const isInitialized = await initialize();
+      if (!isInitialized) return records;
+      let pageToken: string | undefined;
+      let pageGuard = 0;
+      do {
+        const page = (await readRecords(recordType as never, {
+          timeRangeFilter: {
+            operator: 'between',
+            startTime: startDate.toISOString(),
+            endTime: endDate.toISOString(),
+          },
+          pageSize: HC_PAGE_SIZE,
+          ...(pageToken ? { pageToken } : {}),
+        } as never)) as { records?: Array<Record<string, unknown>>; pageToken?: string };
+        records.push(...(page.records ?? []));
+        pageToken = page.pageToken || undefined;
+        pageGuard += 1;
+      } while (pageToken && pageGuard < HC_MAX_PAGES);
+    } catch {
+      /* permission or HC unavailable */
+    }
+    return records;
+  }
+
+  async hasStepsReadPermission(): Promise<boolean> {
+    return this.hasActivityReadPermission();
   }
 
   /** Daily step totals (Samsung Health → Health Connect) for activity kcal estimation. */
