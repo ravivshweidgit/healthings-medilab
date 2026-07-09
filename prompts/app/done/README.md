@@ -15,6 +15,7 @@ Active / backlog specs stay in `prompts/app/`:
 
 | prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
 | prompt60.txt | Shipping — optional cloud backup toggle (purge on off); needs API migrate |
+| prompt64.txt | Planned — Health Connect activity (Garmin / no scale): ExerciseSession + active kcal, unified workouts |
 
 **prompt61** — done (2026-07-08). One-tap text meal save; modal stays open for Done review. Phone-tested. See `done/prompt61.txt`.
 
