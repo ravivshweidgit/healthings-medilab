@@ -1,0 +1,219 @@
+## Prompt 65 — iOS TestFlight bootstrap (Withings-first, no HealthKit v1)
+
+**Status: backlog (spec 2026-07-10)**  
+**Trigger:** Apple Developer Program enrolled — TestFlight unblocked.  
+**Builds on:** `done/prompt55.txt` · `done/prompt58.txt` · `prompt47.txt` (Play pattern) · **`prompt56.txt`** (full HealthKit path — **deferred to Phase 2 here**)  
+**Supersedes for v1 scope:** `prompt56.txt` Phases B + glucose/steps HealthKit — not deleted; becomes **iOS Phase 2** after Withings-first alpha ships.
+
+---
+
+### Problem
+
+Android alpha is on Play Internal (1.2.1). iPhone testers cannot install. The app UI is React Native; **native health layer is Android-only today** (Health Connect, `react-native-health-connect`).
+
+**Product question (2026-07-10):** Should iOS v1 avoid Apple **HealthKit** and ship **Withings cloud only** (same OAuth + API path as Android)?
+
+---
+
+### Recommendation (best practice)
+
+**Ship TestFlight in two layers — do not block iOS on HealthKit.**
+
+| Phase | Scope | Goal |
+|-------|--------|------|
+| **65 Phase 1 (this prompt)** | Withings cloud + manual body + food/coach/clinic + CSV CGM import | **Fast, low-risk TestFlight** for Withings-scale/watch iPhone users |
+| **56 Phase 2 (later)** | HealthKit glucose + steps when a real iPhone CGM tester needs live chart | Parity for CareSens/Libre → Apple Health users |
+
+**Why not HealthKit in v1:** entitlements, privacy nutrition labels, native module + Expo dev client, permission UX, and CGM vendor quirks — all **orthogonal** to proving the coaching loop on iPhone.
+
+**Why not Withings-only forever:** on iPhone there is **no Health Connect**. Users without a Withings watch get **no live activity/steps** until HealthKit or manual-only. **CGM-on-iPhone** almost always flows through **Apple Health**, not Withings API.
+
+---
+
+### Challenge the “Withings-only” thesis
+
+| Claim | Verdict |
+|-------|---------|
+| “Withings doesn’t depend on Apple Health Connect” | **True for data path** — app uses **Withings OAuth + cloud API** (`syncWithingsApiIntoStore`), same on iOS and Android. No HC on iOS required for scale/watch/body/workouts/HR. |
+| “So we can skip HealthKit entirely” | **True for v1 alpha** if testers are **Withings scale ± watch** and CGM is optional (CSV import OK). |
+| “Garmin users need iOS” | **No** — Garmin path is **Android Health Connect** (`prompt64`). Colleague testing stays Android. |
+| “iOS = same feature set as Android” | **False without HealthKit** — Android CGM via HC, Android activity via HC/Garmin, Android steps via HC. iOS v1 = **intentional subset**. |
+| “Withings watch writes to Apple Health anyway” | **Irrelevant if cloud is SSOT** — do **not** read the same metrics from HealthKit *and* Withings (double-count risk). Pick one source per metric in `source_config`. |
+| “Faster to market” | **Yes** — reuse `MetricsPersistenceService`, `WithingsApiService`, `useWithingsData`, clinic export unchanged. |
+
+**Bottom line:** Withings-first is the **correct v1 wedge** for your current alpha cohort; document **explicit gaps** for iPhone CGM and non-Withings watch users.
+
+---
+
+### Persistence parity (required — project rule)
+
+**Rule:** `.cursor/rules/persistence-parity.mdc` (`alwaysApply: true`)
+
+iOS v1 must **not** introduce platform-specific user-data keys or parallel metric stores. Reasons:
+
+1. **Clinic integrity** — portal parses one snapshot shape (`healthings:metricsStore`, food logs, rules, …); Android/iPhone blobs must match.
+2. **Free OS migration** — local + cloud backup JSON is platform-agnostic; user restores on the other OS with no conversion.
+
+**iOS implementation checklist:**
+
+- [ ] All sync goes through `syncMetricsStore()` → same `metricsStore` schema as Android
+- [ ] Backup import runs `coalesceMetricsStores()` + `source_config` platform normalize (HC enums → safe iOS defaults)
+- [ ] No new `Platform.OS`-specific AsyncStorage keys for user state
+- [ ] `ShareExportService` / `LocalBackupService` stay aligned on exclusions + canonical metrics injection
+
+Adapters (Withings cloud, future HealthKit) differ; **persisted keys and JSON shapes do not**.
+
+---
+
+### iOS v1 product scope (Phase 1)
+
+| Feature | iOS v1 |
+|---------|--------|
+| OTP login, coach, food log, macros, My Rules | Yes |
+| Withings OAuth (scale + watch) | Yes — cloud API, same store (`healthings:metricsStore`) |
+| Manual weight / body fat / trend | Yes (prompt55 path) |
+| Clinic share / portal | Yes (gzip snapshot — platform-agnostic) |
+| Live CGM chart | **CSV import only** — no HealthKit read |
+| Health Connect / Garmin activity | **Hidden** — `Platform.OS === 'ios'` guards |
+| Quick Start toggles | Scale / watch / CGM — **CGM on iOS** shows copy: “Live CGM via Apple Health — coming soon; use lab CSV or manual log” |
+| `source_config` on iOS | Keep **v1 schema**; platform bootstrap sets safe defaults (see below) |
+
+**Not in v1:** App Store production listing, HealthKit write, widgets, iPad polish.
+
+---
+
+### Platform defaults (iOS bootstrap)
+
+On first `loadSourceConfig()` when `Platform.OS === 'ios'` and no saved config:
+
+```jsonc
+{
+  "version": 1,
+  "glucose": "none",           // until prompt56 — CSV import bypasses source_config
+  "activity": "withings",      // if user says watch Y; else "none" (not health-connect)
+  "bodyComposition": "withings" | "manual",
+  "bmr": "withings" | "manual" | "ai-estimate",
+  "heartRate": "withings" | "none"
+}
+```
+
+**Hard rule:** never set `health-connect` or `samsung-steps` on iOS — those types are Android-only. `sourceConfigFromToggles` must accept `platform: 'ios' | 'android'`.
+
+**Dashboard guards:**
+
+- Hide `HealthConnectStepsGuide`, HC permission banners, “Connect Health Connect” CTAs.
+- Hide glucose strip live-sync UI unless `glucose === 'healthkit'` (future) or show CSV-import path only.
+- `syncHealthConnectIntoStore()` no-op on iOS (already gated by activity source — add `Platform.OS` guard as belt-and-suspenders).
+
+---
+
+### Architecture (unchanged store, fewer adapters)
+
+```
+Shared UI (screens, wizard, clinic)
+        │
+        ▼
+source_config + Platform.OS
+        │
+   ┌────┴────┐
+   ▼         ▼
+Android     iOS v1
+HC +        Withings API + manual + CSV CGM
+Withings    (no HealthKitService yet)
+   │         │
+   └────┬────┘
+        ▼
+healthings:metricsStore  ← same SSOT, clinic export, mentors
+```
+
+**Do not fork** `WithingsPersistenceService` / dashboard hooks — iOS reads the same `useWithingsData()` + `syncMetricsStore()` (Withings branch only).
+
+---
+
+### Implementation phases
+
+**Phase A — iOS binary boots (no new health code)**  
+- `eas.json` + Apple credentials in EAS (enrolled 2026-07-10)  
+- `expo prebuild --platform ios` or EAS Build `development` / `preview` profile  
+- Bundle id `com.healthings.medilab` (already in `app.json`)  
+- Fix Android-only imports that crash iOS (audit `react-native-health-connect`, HC wizard steps)  
+- TestFlight **shell**: login → dashboard → food log → coach  
+
+**Phase B — Withings on iOS**  
+- OAuth redirect / `expo-web-browser` + custom scheme `healthings-medilab` on iOS  
+- `syncWithingsApiIntoStore` smoke test on device  
+- Body scan, HR, workouts, food-log burn — same as Android regression  
+
+**Phase C — Platform guards + copy**  
+- `sourceConfigFromToggles(survey, platform)`  
+- iOS Quick Start step 4: **Withings link** (not Apple Health)  
+- CGM toggle → deferred-live-CGM messaging + CSV import unchanged  
+- **Manual body UX** (watch-only alpha): My Profile → weight + fat **% / kg / muscle kg** (one degree of freedom); live preview fat kg · muscle · BMR; link to `https://healthings.ai/help/manual-body.html`  
+- **Tester help site:** `website/help/` — shared Android + iPhone guides (alpha setup, Withings watch, manual body, devices matrix)  
+
+**Phase D — TestFlight internal**  
+- Bump iOS build number / `app.json` version aligned with Android  
+- Internal testers (Withings iPhone users first)  
+- Privacy policy: optional Withings cloud; **no Apple Health read in v1**  
+
+**Phase 2 (separate ship — `prompt56.txt`):**  
+- `HealthKitService`, `source_config` v2 (`healthkit`, `healthkit-steps`)  
+- Only when an iPhone CGM tester is blocked without live glucose  
+
+---
+
+### New / changed files (Phase 1)
+
+| Area | File |
+|------|------|
+| EAS / iOS build | `eas.json` **NEW**, `app.json` ios config |
+| Platform source defaults | `SourceConfigService.ts` — `platform` param, iOS never HC |
+| HC isolation | `HealthConnectService.ts`, `HealthConnectActivityService.ts` — early return if `Platform.OS !== 'android'` |
+| Wizard | `WelcomeQuickStartWizard.tsx` — iOS branch step 4 (Withings, not HC) |
+| Dashboard | `DashboardScreen.tsx` — hide HC-only sections on iOS; `ManualBodyProfileSection.tsx` |
+| Help (web) | `website/help/*.html` — alpha guides (platform-agnostic UX copy) |
+
+**Explicitly NOT in Phase 1:** `HealthKitService.ts`, HealthKit entitlements, `@kingstinct/react-native-healthkit`.
+
+---
+
+### Build & release
+
+| Item | Notes |
+|------|--------|
+| Apple Developer | Enrolled 2026-07-10 |
+| Mac | Optional — **EAS Build** on Expo cloud (Windows dev OK) |
+| TestFlight | EAS Submit → App Store Connect → Internal testing |
+| Cost | EAS paid tier may apply for iOS builds — budget vs local Mac |
+
+---
+
+### Phone-tested checklist (Withings iPhone)
+
+- [ ] TestFlight install → OTP login  
+- [ ] Quick Start: Withings scale + watch toggles → OAuth completes  
+- [ ] Body scan, trend, energy, metabolic chart (HR + workouts)  
+- [ ] Food log burn updates after walk (Withings cloud)  
+- [ ] Clinic snapshot upload + portal dashboard  
+- [ ] **No** Health Connect UI visible  
+- [ ] CGM: CSV import works; live CGM strip absent or clearly “coming soon”  
+
+---
+
+### Deferred → `prompt56.txt`
+
+- Apple Health glucose (Libre/CareSens via Health)  
+- HealthKit steps when watch = No  
+- `source_config` v2 healthkit enums  
+- App Store **production** public listing  
+
+---
+
+### Related
+
+- **`prompt56.txt`** — full HealthKit alpha (Phase 2 for iOS)  
+- **`.cursor/rules/persistence-parity.mdc`** — cross-platform AsyncStorage contract (clinic + backup)
+- **`prompt64.txt`** — Android HC/Garmin (independent; Android only)  
+- **`done/prompt55.txt`** · **`done/prompt58.txt`** — Quick Start + Your setup toggles  
+- **`prompt47.txt`** — Play internal (mirror release process for TestFlight)  
+- Commit **`dbd08a1`** — unified `metricsStore` + clinic fix (Android 1.2.1); iOS inherits same export path  

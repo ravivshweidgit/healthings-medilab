@@ -7,8 +7,9 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 | Order | Prompt | Topic |
 |-------|--------|--------|
 | **1 — next** | **`prompt54.txt`** | Local-first clinic relay — **Share button shipped**; server relay + revoke purge pending |
-| 2 | **`prompt56.txt`** | **iOS alpha** — shared UI, HealthKit services layer, TestFlight (EAS; no Mac required for builds) |
-| 3 | `prompt52.txt` | My Rules rawText-only save (optional with 54) |
+| 2 | **`prompt65.txt`** | **iOS TestFlight Withings-first** — no HealthKit v1; platform guards + EAS (Apple Dev enrolled) |
+| 3 | **`prompt56.txt`** | **iOS Phase 2** — HealthKit glucose/steps (after 65 alpha) |
+| 4 | `prompt52.txt` | My Rules rawText-only save (optional with 54) |
 
 ## Backlog (`prompts/app/`)
 
@@ -22,7 +23,9 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 | `prompt47.txt` | Play Store internal testing (local-first privacy; AAB + privacy page) |
 | `prompt49.txt` | Link to clinic + share encrypted data + sponsored AI badge |
 | `prompt52.txt` | My Rules rawText-only save — deprecate summarise-on-save |
-| `prompt56.txt` | iOS alpha — HealthKit adapters, `source_config` v2, TestFlight via EAS |
+| `prompt64.txt` | Android HC activity — **Phase 1 shipped** (`10569f2`); Garmin tester validation pending |
+| `prompt65.txt` | iOS TestFlight Withings-first — no HealthKit v1 |
+| `prompt56.txt` | iOS Phase 2 — HealthKit adapters, `source_config` v2 |
 
 ## Done (`prompts/app/done/`)
 

@@ -28,6 +28,43 @@ export function estimateMuscleMassKg(weightKg: number, fatPct: number): number {
   return Math.round((weightKg - fatMass) * 10) / 10;
 }
 
+export function fatKgFromPct(weightKg: number, fatPct: number): number {
+  return Math.round((weightKg * fatPct) / 100 * 10) / 10;
+}
+
+export function fatPctFromKg(weightKg: number, fatKg: number): number | null {
+  if (!(weightKg > 0) || !(fatKg > 0)) return null;
+  const pct = (fatKg / weightKg) * 100;
+  if (pct < 3 || pct > 65) return null;
+  return Math.round(pct * 10) / 10;
+}
+
+export function fatPctFromMuscleKg(weightKg: number, muscleKg: number): number | null {
+  if (!(weightKg > 0) || !(muscleKg > 0) || muscleKg >= weightKg) return null;
+  return fatPctFromKg(weightKg, weightKg - muscleKg);
+}
+
+/** Lean-mass model: fat + muscle should be close to total weight (bone/water not modeled). */
+export function compositionSumRatio(weightKg: number, fatKg: number, muscleKg: number): number {
+  if (!(weightKg > 0)) return 0;
+  return (fatKg + muscleKg) / weightKg;
+}
+
+export type ManualFatInput =
+  | { mode: 'pct'; value: number }
+  | { mode: 'kg'; value: number }
+  | { mode: 'muscle'; value: number };
+
+export function resolveFatPctFromInput(weightKg: number, input: ManualFatInput): number | null {
+  if (input.mode === 'pct') {
+    return input.value >= 3 && input.value <= 65 ? input.value : null;
+  }
+  if (input.mode === 'kg') {
+    return fatPctFromKg(weightKg, input.value);
+  }
+  return fatPctFromMuscleKg(weightKg, input.value);
+}
+
 export function estimateBodyFromProfile(input: {
   gender: Gender;
   weightKg: number;

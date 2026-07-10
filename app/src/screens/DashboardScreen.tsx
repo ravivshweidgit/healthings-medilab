@@ -38,7 +38,8 @@ import { NutritionDirectivesStrip } from '../components/NutritionDirectivesStrip
 import { LabResultsStrip } from '../components/LabResultsStrip';
 import { WelcomeQuickStartWizard } from '../components/WelcomeQuickStartWizard';
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
-import { getManualBody, getManualBodyHistory, logManualWeighIn, saveManualFatPct, manualBodyToDashboardMetrics, countDistinctWeighInDays, type ManualBodySnapshot } from '../services/ManualBodyService';
+import { getManualBody, getManualBodyHistory, manualBodyToDashboardMetrics, countDistinctWeighInDays, type ManualBodySnapshot } from '../services/ManualBodyService';
+import { ManualBodyProfileSection } from '../components/ManualBodyProfileSection';
 import { buildManualTrendDays } from '../services/ManualTrendService';
 import { SetupToggleRow } from '../components/SetupToggleRow';
 import { HealthConnectStepsGuide } from '../components/HealthConnectStepsGuide';
@@ -347,10 +348,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [manualTrendDays, setManualTrendDays] = useState<MetabolicTrend7dDay[]>([]);
   const [manualTrendLoading, setManualTrendLoading] = useState(false);
   const [manualWeighInDayCount, setManualWeighInDayCount] = useState(0);
-  const [weighInInput, setWeighInInput] = useState('');
-  const [weighInSaving, setWeighInSaving] = useState(false);
-  const [fatPctInput, setFatPctInput] = useState('');
-  const [fatPctSaving, setFatPctSaving] = useState(false);
 
   const loadManualTrend = useCallback(async (manualSnap?: ManualBodySnapshot | null) => {
     setManualTrendLoading(true);
@@ -1211,12 +1208,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     });
   }, [profileExpanded]);
 
-  useEffect(() => {
-    if (manualBodySnap?.fat_pct_source === 'user') {
-      setFatPctInput(String(manualBodySnap.fat_pct));
-    }
-  }, [manualBodySnap]);
-
   const handleLinkWithings = useCallback(async () => {
     setLinkError(null);
     setLinkBusy(true);
@@ -1970,99 +1961,17 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               ) : null}
 
               {showManualBodyInProfile ? (
-                <>
-                  <Text style={styles.birthdateSectionTitle}>Body</Text>
-                  <Text style={styles.weighInHint}>
-                    Optional — log weight when you want. Muscle is calculated from weight and fat %.
-                  </Text>
-                  <View style={styles.weighInRow}>
-                    <TextInput
-                      style={styles.weighInInput}
-                      keyboardType="decimal-pad"
-                      placeholder={
-                        effectiveBodyScan?.weightKg != null
-                          ? `Weight · now ${effectiveBodyScan.weightKg.toFixed(1)} kg`
-                          : 'Weight (kg)'
-                      }
-                      placeholderTextColor={WellnessColors.textSecondary}
-                      value={weighInInput}
-                      onChangeText={setWeighInInput}
-                    />
-                    <Pressable
-                      style={[styles.weighInBtn, weighInSaving && styles.weighInBtnDisabled]}
-                      disabled={weighInSaving}
-                      onPress={async () => {
-                        const w = parseFloat(weighInInput.replace(',', '.'));
-                        if (!(w > 0) || w > 400) {
-                          Alert.alert('Weigh-in', 'Enter a valid weight in kg.');
-                          return;
-                        }
-                        const fatOpt = fatPctInput.trim()
-                          ? parseFloat(fatPctInput.replace(',', '.'))
-                          : undefined;
-                        setWeighInSaving(true);
-                        try {
-                          const snap = await logManualWeighIn(w, {
-                            gender: userGender!,
-                            heightCm: heightCm!,
-                            ageYears: userAge!,
-                            fatPct: fatOpt,
-                          });
-                          setManualBodySnap(snap);
-                          setWeighInInput('');
-                          await loadManualTrend(snap);
-                        } finally {
-                          setWeighInSaving(false);
-                        }
-                      }}
-                    >
-                      <Text style={styles.weighInBtnText}>{weighInSaving ? '…' : 'Save'}</Text>
-                    </Pressable>
-                  </View>
-                  <View style={styles.weighInRow}>
-                    <TextInput
-                      style={styles.weighInInput}
-                      keyboardType="decimal-pad"
-                      placeholder={
-                        manualBodySnap?.fat_pct_source === 'user'
-                          ? `Body fat · now ${manualBodySnap.fat_pct.toFixed(1)} %`
-                          : 'Body fat % (optional)'
-                      }
-                      placeholderTextColor={WellnessColors.textSecondary}
-                      value={fatPctInput}
-                      onChangeText={setFatPctInput}
-                    />
-                    <Pressable
-                      style={[styles.weighInBtn, fatPctSaving && styles.weighInBtnDisabled]}
-                      disabled={fatPctSaving}
-                      onPress={async () => {
-                        const fp = parseFloat(fatPctInput.replace(',', '.'));
-                        if (!(fp >= 3 && fp <= 65)) {
-                          Alert.alert('Body fat', 'Enter a value between 3 and 65 %.');
-                          return;
-                        }
-                        setFatPctSaving(true);
-                        try {
-                          const snap = await saveManualFatPct(fp, {
-                            gender: userGender!,
-                            heightCm: heightCm!,
-                            ageYears: userAge!,
-                          });
-                          if (!snap) {
-                            Alert.alert('Body fat', 'Log your weight first.');
-                            return;
-                          }
-                          setManualBodySnap(snap);
-                          await loadManualTrend(snap);
-                        } finally {
-                          setFatPctSaving(false);
-                        }
-                      }}
-                    >
-                      <Text style={styles.weighInBtnText}>{fatPctSaving ? '…' : 'Save'}</Text>
-                    </Pressable>
-                  </View>
-                </>
+                <ManualBodyProfileSection
+                  effectiveWeightKg={effectiveBodyScan?.weightKg ?? null}
+                  manualBodySnap={manualBodySnap}
+                  userGender={userGender!}
+                  heightCm={heightCm!}
+                  userAge={userAge!}
+                  onSaved={async (snap) => {
+                    setManualBodySnap(snap);
+                    await loadManualTrend(snap);
+                  }}
+                />
               ) : null}
 
               <Pressable
@@ -3075,43 +2984,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: WellnessColors.accentBlue,
-  },
-  weighInHint: {
-    fontSize: 12,
-    color: WellnessColors.textSecondary,
-    lineHeight: 17,
-    marginBottom: 8,
-  },
-  weighInRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 16,
-  },
-  weighInInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: WellnessColors.textPrimary,
-    backgroundColor: WellnessColors.surface,
-  },
-  weighInBtn: {
-    backgroundColor: WellnessColors.accentBlue,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  weighInBtnDisabled: {
-    opacity: 0.6,
-  },
-  weighInBtnText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 14,
   },
   setupChipRow: {
     flexDirection: 'row',

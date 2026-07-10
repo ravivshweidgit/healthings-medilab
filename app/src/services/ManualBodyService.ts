@@ -3,7 +3,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { estimateBodyFromProfile } from '../logic/bmrEstimate';
+import { estimateBodyFromProfile, resolveFatPctFromInput, type ManualFatInput } from '../logic/bmrEstimate';
 import type { Gender } from './TargetService';
 import type { WeightMetricsForDashboard } from './WithingsApiService';
 
@@ -81,11 +81,28 @@ export async function saveManualBody(snapshot: ManualBodySnapshot): Promise<void
 
 function resolveFatPctForWeighIn(
   existing: ManualBodySnapshot | null,
-  opts: { gender: Gender; heightCm: number; ageYears: number; fatPct?: number },
+  opts: {
+    gender: Gender;
+    heightCm: number;
+    ageYears: number;
+    fatPct?: number;
+    fatKg?: number;
+    muscleKg?: number;
+  },
   weightKg: number,
 ): { fat_pct: number; muscle_mass_kg: number; bmr_kcal: number; fat_pct_source: FatPctSource } {
+  let resolvedPct: number | undefined = opts.fatPct;
+  if (resolvedPct == null && opts.fatKg != null) {
+    const fromKg = resolveFatPctFromInput(weightKg, { mode: 'kg', value: opts.fatKg });
+    if (fromKg != null) resolvedPct = fromKg;
+  }
+  if (resolvedPct == null && opts.muscleKg != null) {
+    const fromMuscle = resolveFatPctFromInput(weightKg, { mode: 'muscle', value: opts.muscleKg });
+    if (fromMuscle != null) resolvedPct = fromMuscle;
+  }
+
   const userFat =
-    opts.fatPct ??
+    resolvedPct ??
     (existing?.fat_pct_source === 'user' ? existing.fat_pct : undefined);
   const est = estimateBodyFromProfile({
     gender: opts.gender,
@@ -95,14 +112,21 @@ function resolveFatPctForWeighIn(
     fatPct: userFat,
   });
   const fat_pct_source: FatPctSource =
-    opts.fatPct != null || existing?.fat_pct_source === 'user' ? 'user' : 'estimated';
+    resolvedPct != null || existing?.fat_pct_source === 'user' ? 'user' : 'estimated';
   return { ...est, fat_pct_source };
 }
 
 /** Log a new weigh-in; keeps user fat % when set, else AI-estimates from profile. */
 export async function logManualWeighIn(
   weightKg: number,
-  opts: { gender: Gender; heightCm: number; ageYears: number; fatPct?: number },
+  opts: {
+    gender: Gender;
+    heightCm: number;
+    ageYears: number;
+    fatPct?: number;
+    fatKg?: number;
+    muscleKg?: number;
+  },
 ): Promise<ManualBodySnapshot> {
   const existing = await getManualBody();
   const est = resolveFatPctForWeighIn(existing, opts, weightKg);
@@ -117,6 +141,18 @@ export async function logManualWeighIn(
   };
   await saveManualBody(snap);
   return snap;
+}
+
+/** Update body fat on the latest manual snapshot — % or kg or muscle kg (one degree of freedom). */
+export async function saveManualBodyFatInput(
+  input: ManualFatInput,
+  opts: { gender: Gender; heightCm: number; ageYears: number },
+): Promise<ManualBodySnapshot | null> {
+  const existing = await getManualBody();
+  if (!existing?.weight_kg) return null;
+  const fatPct = resolveFatPctFromInput(existing.weight_kg, input);
+  if (fatPct == null) return null;
+  return saveManualFatPct(fatPct, opts);
 }
 
 /** Update body fat % on the latest manual snapshot (optional My Profile field). */

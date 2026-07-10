@@ -1,7 +1,7 @@
 ## Prompt 56 — iOS alpha (shared UI, HealthKit services layer)
 
-**Status: backlog (spec 2026-07-05)**  
-**Priority:** after `prompt54` server relay **or** parallel if iPhone testers blocked on Android-only  
+**Status: backlog (spec 2026-07-05)** — **v1 scope moved to `prompt65.txt` (Withings-first TestFlight).** This prompt = **iOS Phase 2** (HealthKit) after 65 ships.  
+**Priority:** after **`prompt65.txt`** Phase D TestFlight, when iPhone CGM tester needs live glucose  
 **Builds on:** `done/prompt55.txt` (`source_config`, Quick Start, manual body/trend) · `prompt47.txt` (Play pattern → TestFlight)
 
 ---

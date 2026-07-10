@@ -1,0 +1,62 @@
+---
+description: Platform-agnostic AsyncStorage — same keys/schemas for Android, iOS, clinic, backup
+alwaysApply: true
+---
+
+# Persistence parity (Android ↔ iOS)
+
+User data must survive **clinic export**, **local backup**, **cloud backup**, and **phone OS switches** without platform-specific blobs.
+
+## Single source of truth
+
+| Domain | Canonical key | Module |
+|--------|---------------|--------|
+| Body + activity metrics | `healthings:metricsStore` | `MetricsPersistenceService.ts` |
+| CGM | `healthings:lastMetrics` | `healthMetricsCache.ts` / `CgmPersistenceService.ts` |
+| Manual body | `manual_body_v1`, `manual_body_history_v1` | `ManualBodyService.ts` |
+| Device routing | `source_config` | `SourceConfigService.ts` |
+
+**Do not** add parallel stores (`withingsStore`, `hcActivityStore`, platform-prefixed keys). Legacy keys: migrate on load, never write new data there.
+
+## Adapters vs stores
+
+- **Sync adapters** (Withings API, Health Connect, future HealthKit) **merge into** canonical stores only.
+- Screens and hooks read **stores**, not vendor APIs directly (`useWithingsData` → `metricsStore`).
+- Platform may differ in **how data arrives**; persisted **shape and keys must match**.
+
+## Export paths use the same data
+
+Clinic snapshot (`ShareExportService`), local backup (`LocalBackupService`), and cloud backup must:
+
+1. Run migration/coalesce (`loadMetricsStore`, `coalesceMetricsStores`) before export when metrics are involved.
+2. Share the same exclusion list for debug/ephemeral keys — update both if you change one.
+3. Inject `healthings:metricsStore` from the canonical loader, not raw legacy keys.
+
+Clinic portal and server parsers already expect `metricsStore` (fallback `withingsStore` for old blobs only).
+
+## `source_config` on restore
+
+Schema is shared (`version: 1`). Values may differ by platform (`activity: withings` vs `health-connect`).
+
+On load / backup import, **normalize per platform** — e.g. iOS must not keep `health-connect` or `samsung-steps` as active adapters; historical HC rows inside `metricsStore` stay read-only.
+
+## Backup payload contract
+
+```json
+{ "version": 1, "app": "healthings-medilab", "asyncStorage": { ... } }
+```
+
+Restoring an Android backup on iPhone (or reverse) must yield the same meals, rules, targets, and metrics history. Withings OAuth tokens are portable.
+
+## Agent checklist (new persistence or platform work)
+
+- [ ] New user state uses a documented AsyncStorage key — not `Platform.OS` in the key name?
+- [ ] Adapter writes to an existing canonical store?
+- [ ] Export/backup/clinic paths updated if the key or schema changed?
+- [ ] Migration on load for legacy keys?
+- [ ] `source_config` normalized when platform cannot honor a value?
+
+## Related
+
+- `prompt65.txt` — iOS must inherit this contract (Withings-first alpha).
+- `prompt64` / `prompt56` — HC and HealthKit are adapters only; never fork the store.

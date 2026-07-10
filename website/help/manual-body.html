@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manual body logging — Healthings Help</title>
+    <link rel="icon" href="../assets/icon.png" type="image/png" />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <nav class="help-nav">
+        <a href="../index.html">Home</a>
+        <a href="index.html">Help</a>
+        <a href="manual-body.html"><strong>Manual body</strong></a>
+      </nav>
+
+      <section class="hero">
+        <p class="badge">My Profile · Body</p>
+        <h1>Manual weight &amp; body fat</h1>
+        <p class="lead">
+          When you chose <strong>Withings scale → No</strong>, the app estimates BMR from your profile and any weigh-ins you log.
+        </p>
+      </section>
+
+      <section class="card prose">
+        <h2>What to enter</h2>
+        <ul>
+          <li><strong>Weight (kg)</strong> — log whenever you weigh yourself. This updates your trend and BMR.</li>
+          <li><strong>Body fat</strong> — enter as <strong>Fat %</strong>, <strong>Fat kg</strong>, or <strong>Muscle kg</strong> (pick one mode). You only need one number; the app derives the rest.</li>
+        </ul>
+
+        <h2>What is calculated (not typed)</h2>
+        <ul>
+          <li><strong>Muscle mass (kg)</strong> — from weight and fat % (lean-mass model).</li>
+          <li><strong>Fat mass (kg)</strong> — weight × fat %.</li>
+          <li><strong>BMR</strong> — Mifflin–St Jeor from weight, height, age, and sex.</li>
+        </ul>
+        <p class="tip">
+          If you enter muscle kg, the app back-calculates fat %. Fat + muscle should be close to your total weight (a small gap is normal — bone and water are not modeled).
+        </p>
+
+        <h2>If you skip body fat</h2>
+        <p>
+          The app uses a <strong>default estimate</strong> from your profile (shown as “fat % estimated”). For better macro and coach context, enter fat % once from any source you trust.
+        </p>
+
+        <h2>Withings watch still helps</h2>
+        <p>
+          Watch-only users get <strong>activity, heart rate, and workouts</strong> from the watch via Withings cloud. Manual body logging only replaces the <em>scale</em> — not the watch.
+        </p>
+
+        <h2>Food log “kcal burned”</h2>
+        <p>
+          <strong>kcal burned ≈ BMR + activity</strong> for the day. BMR comes from manual body; activity comes from your Withings watch after sync.
+        </p>
+
+        <p><a href="index.html">← All help topics</a></p>
+      </section>
+    </main>
+  </body>
+</html>
