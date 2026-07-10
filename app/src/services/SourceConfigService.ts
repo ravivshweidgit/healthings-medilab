@@ -3,6 +3,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 const SOURCE_CONFIG_KEY = 'source_config';
 
@@ -33,6 +34,12 @@ export type SetupToggles = {
   withingsWatch: boolean;
   cgm: boolean;
 };
+
+export type AppPlatform = 'ios' | 'android';
+
+export function getAppPlatform(): AppPlatform {
+  return Platform.OS === 'ios' ? 'ios' : 'android';
+}
 
 const DEFAULT_CONFIG: SourceConfig = {
   version: 1,
@@ -75,7 +82,20 @@ export function togglesFromSourceConfig(c: SourceConfig): SetupToggles {
   };
 }
 
-export function sourceConfigFromToggles(t: SetupToggles): SourceConfig {
+export function sourceConfigFromToggles(
+  t: SetupToggles,
+  platform: AppPlatform = getAppPlatform(),
+): SourceConfig {
+  if (platform === 'ios') {
+    return {
+      version: 1,
+      glucose: 'none',
+      activity: t.withingsWatch ? 'withings' : 'none',
+      bodyComposition: t.withingsScale ? 'withings' : 'manual',
+      bmr: t.withingsScale ? 'withings' : 'manual',
+      heartRate: t.withingsWatch ? 'withings' : 'none',
+    };
+  }
   return {
     version: 1,
     glucose: t.cgm ? 'health-connect' : 'none',
@@ -86,12 +106,58 @@ export function sourceConfigFromToggles(t: SetupToggles): SourceConfig {
   };
 }
 
-export function sourceConfigFromDevices(survey: DeviceSurvey, usesManualWeight: boolean): SourceConfig {
-  return sourceConfigFromToggles({
-    withingsScale: survey.hasWithingsScale && !usesManualWeight,
-    withingsWatch: survey.hasWithingsWatch,
-    cgm: survey.tracksGlucose,
-  });
+export function sourceConfigFromDevices(
+  survey: DeviceSurvey,
+  usesManualWeight: boolean,
+  platform: AppPlatform = getAppPlatform(),
+): SourceConfig {
+  return sourceConfigFromToggles(
+    {
+      withingsScale: survey.hasWithingsScale && !usesManualWeight,
+      withingsWatch: survey.hasWithingsWatch,
+      cgm: survey.tracksGlucose,
+    },
+    platform,
+  );
+}
+
+/** Strip Android-only Health Connect enums when restoring config on iPhone. */
+export function normalizeSourceConfigForPlatform(
+  config: SourceConfig,
+  platform: AppPlatform = getAppPlatform(),
+): SourceConfig {
+  if (platform !== 'ios') {
+    return {
+      ...config,
+      activity: normalizeActivitySource(config.activity),
+      heartRate: normalizeHeartRateSource(
+        config.heartRate,
+        normalizeActivitySource(config.activity),
+      ),
+    };
+  }
+
+  let activity = config.activity;
+  if (isHealthConnectActivity(activity)) {
+    activity = 'none';
+  }
+
+  let glucose = config.glucose;
+  if (glucose === 'health-connect') {
+    glucose = 'none';
+  }
+
+  let heartRate = config.heartRate;
+  if (heartRate === 'health-connect') {
+    heartRate = activity === 'withings' ? 'withings' : 'none';
+  }
+
+  return {
+    ...config,
+    activity,
+    glucose,
+    heartRate,
+  };
 }
 
 export async function loadSourceConfig(): Promise<SourceConfig> {
@@ -100,11 +166,11 @@ export async function loadSourceConfig(): Promise<SourceConfig> {
   try {
     const parsed = JSON.parse(raw) as SourceConfig;
     if (parsed?.version === 1) {
-      return {
+      return normalizeSourceConfigForPlatform({
         ...parsed,
         activity: normalizeActivitySource(parsed.activity),
         heartRate: normalizeHeartRateSource(parsed.heartRate, normalizeActivitySource(parsed.activity)),
-      };
+      });
     }
   } catch {
     /* ignore */

@@ -1965,7 +1965,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     value={setupToggles.withingsWatch}
                     onChange={(v) => void persistSetupToggles({ ...setupToggles, withingsWatch: v })}
                   />
-                  {!setupToggles.withingsWatch ? (
+                  {!setupToggles.withingsWatch && Platform.OS === 'android' ? (
                     <HealthConnectStepsGuide
                       onPermissionGranted={() => {
                         void syncWithings().then(() => loadHcStepTotals());
@@ -1978,7 +1978,9 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     onChange={(v) => void persistSetupToggles({ ...setupToggles, cgm: v })}
                     hint={
                       setupToggles.cgm
-                        ? 'Allow Blood glucose in Health Connect settings.'
+                        ? Platform.OS === 'ios'
+                          ? 'Live CGM via Apple Health — coming soon. Import CSV from the food log.'
+                          : 'Allow Blood glucose in Health Connect settings.'
                         : undefined
                     }
                   />

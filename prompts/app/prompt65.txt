@@ -1,6 +1,6 @@
 ## Prompt 65 — iOS TestFlight bootstrap (Withings-first, no HealthKit v1)
 
-**Status: backlog (spec 2026-07-10)**  
+**Status: Phase A in progress (2026-07-10)** — EAS config, HC platform stubs, iOS source_config guards; TestFlight build pending EAS credentials.  
 **Trigger:** Apple Developer Program enrolled — TestFlight unblocked.  
 **Builds on:** `done/prompt55.txt` · `done/prompt58.txt` · `prompt47.txt` (Play pattern) · **`prompt56.txt`** (full HealthKit path — **deferred to Phase 2 here**)  
 **Supersedes for v1 scope:** `prompt56.txt` Phases B + glucose/steps HealthKit — not deleted; becomes **iOS Phase 2** after Withings-first alpha ships.

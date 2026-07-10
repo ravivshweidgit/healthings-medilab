@@ -3,6 +3,7 @@
  * Sync adapters (Withings cloud, Health Connect) merge into this store; screens read here only.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { dayKeyStartMs, localDayKeyFromMs, type CompositionSession, type MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
 import { fetchHealthConnectActivity } from './HealthConnectActivityService';
 import {
@@ -431,6 +432,9 @@ export const saveWithingsStore = saveMetricsStore;
 export async function syncHealthConnectIntoStore(
   prev?: MetricsPersistedStore,
 ): Promise<MetricsPersistedStore> {
+  if (Platform.OS !== 'android') {
+    return prev ?? (await loadMetricsStore());
+  }
   const base = prev ?? (await loadMetricsStore());
   const config = await loadSourceConfig();
   if (!isHealthConnectActivity(config.activity)) {

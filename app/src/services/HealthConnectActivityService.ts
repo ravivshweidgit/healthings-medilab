@@ -2,6 +2,7 @@
  * Fetch Health Connect activity + HR (Garmin, Samsung, etc.) — persistence via MetricsPersistenceService.
  */
 
+import { Platform } from 'react-native';
 import {
   dailyActiveKcalFromRecords,
   mapHcExerciseSessions,
@@ -32,6 +33,9 @@ const EMPTY_FETCH: HealthConnectActivityFetch = {
 
 /** Read HC exercise, calories, and optional HR — no AsyncStorage writes. */
 export async function fetchHealthConnectActivity(): Promise<HealthConnectActivityFetch> {
+  if (Platform.OS !== 'android') {
+    return { ...EMPTY_FETCH };
+  }
   const config = await loadSourceConfig();
   if (!isHealthConnectActivity(config.activity)) {
     return { ...EMPTY_FETCH };

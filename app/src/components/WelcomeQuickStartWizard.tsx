@@ -233,6 +233,18 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     setPermNote(null);
     const notes: string[] = [];
     try {
+      if (Platform.OS !== 'android') {
+        if (tracksCgm) {
+          notes.push('Live CGM via Apple Health — coming soon. Import a CSV from the food log.');
+        }
+        if (!hasWatch) {
+          notes.push('On iPhone, link Withings for activity or log workouts manually.');
+        }
+        if (notes.length === 0) {
+          notes.push('Withings cloud sync is available after you link your account.');
+        }
+        return;
+      }
       if (tracksCgm) {
         try {
           await healthConnectService.initializeAndRequestPermissions();
@@ -621,14 +633,30 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
           {step === 4 && (
             <>
-              <Text style={styles.lead}>Allow Health Connect so we can read the data you chose.</Text>
-              <Text style={styles.hint}>
-                Tap Next — Health Connect may open once. There is nothing to edit on this screen; permissions depend on step 2.
-              </Text>
-              {tracksCgm ? (
-                <Text style={styles.hint}>Blood glucose — for CGM charts and meal impact.</Text>
-              ) : null}
-              {!hasWatch ? <HealthConnectStepsGuide /> : null}
+              {Platform.OS === 'ios' ? (
+                <>
+                  <Text style={styles.lead}>Connect Withings for scale and watch data.</Text>
+                  <Text style={styles.hint}>
+                    On iPhone we sync from the Withings cloud — no Apple Health setup in this alpha. Tap Next; you can link Withings from the dashboard after login.
+                  </Text>
+                  {tracksCgm ? (
+                    <Text style={styles.hint}>
+                      Live CGM via Apple Health is coming soon. Import a CSV from the food log if you have one.
+                    </Text>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <Text style={styles.lead}>Allow Health Connect so we can read the data you chose.</Text>
+                  <Text style={styles.hint}>
+                    Tap Next — Health Connect may open once. There is nothing to edit on this screen; permissions depend on step 2.
+                  </Text>
+                  {tracksCgm ? (
+                    <Text style={styles.hint}>Blood glucose — for CGM charts and meal impact.</Text>
+                  ) : null}
+                  {!hasWatch ? <HealthConnectStepsGuide /> : null}
+                </>
+              )}
               {permBusy ? <ActivityIndicator style={{ marginTop: 12 }} /> : null}
               {permNote ? <Text style={styles.hint}>{permNote}</Text> : null}
             </>

@@ -10,9 +10,14 @@ alwaysApply: true
 | Shorthand | Meaning | Agent action |
 |-----------|---------|--------------|
 | **bi** | build + install | `app\build-APK.bat install` |
+| **bi-os** / **bios** | iOS build + TestFlight submit | `app\bi-os.bat` |
 | **build** / compile check | release APK only | `app\build-APK.bat` |
+| **build ios** | iOS EAS build only | `app\build-ios.bat` |
+| **submit ios** | Upload latest iOS build to TestFlight | `app\submit-ios.bat` |
 
 Treat **bi**, **build install**, and **build and install** as equivalent.
+
+Treat **bi-os** and **bios** as equivalent (iOS TestFlight pipeline).
 
 ## Canonical build script — always use this
 
