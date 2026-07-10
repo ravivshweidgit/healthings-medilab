@@ -533,10 +533,35 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     return withingsWeightDays < 2 && manualBodySnap != null;
   }, [sourceConfig, bodyScan, bodyTrendDays, manualBodySnap]);
 
-  const showManualBodyInProfile = useMemo(() => {
-    if (!userGender || !heightCm || !userAge) return false;
-    return sourceConfig?.bodyComposition !== 'withings';
-  }, [userGender, heightCm, userAge, sourceConfig]);
+  /** Scale off in setup toggles (live UI) or persisted source_config — not Withings body. */
+  const manualBodyScaleActive = useMemo(() => {
+    if (setupToggles != null) return !setupToggles.withingsScale;
+    if (sourceConfig != null) return sourceConfig.bodyComposition !== 'withings';
+    return false;
+  }, [setupToggles, sourceConfig]);
+
+  /** Persisted profile plus in-form draft values while My Profile is open. */
+  const manualBodyProfile = useMemo(() => {
+    const gender =
+      userGender ??
+      (genderPicker === 'male' || genderPicker === 'female' ? genderPicker : null);
+    const heightCmEff =
+      heightCm ??
+      (() => {
+        const cm = parseFloat(heightInput.replace(',', '.'));
+        return Number.isFinite(cm) && cm > 0 ? cm : null;
+      })();
+    const ageEff =
+      userAge ??
+      (birthdatePicker ? computeAge(birthdatePicker.toISOString().split('T')[0]) : null);
+    return { gender, heightCm: heightCmEff, age: ageEff };
+  }, [userGender, genderPicker, heightCm, heightInput, userAge, birthdatePicker]);
+
+  const manualBodyProfileReady =
+    manualBodyProfile.gender != null &&
+    manualBodyProfile.heightCm != null &&
+    manualBodyProfile.age != null &&
+    manualBodyProfile.age >= 13;
 
   const displayBodyScan = useMemo(() => {
     const useWithingsBody = sourceConfig?.bodyComposition === 'withings';
@@ -1960,18 +1985,27 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 </>
               ) : null}
 
-              {showManualBodyInProfile ? (
-                <ManualBodyProfileSection
-                  effectiveWeightKg={effectiveBodyScan?.weightKg ?? null}
-                  manualBodySnap={manualBodySnap}
-                  userGender={userGender!}
-                  heightCm={heightCm!}
-                  userAge={userAge!}
-                  onSaved={async (snap) => {
-                    setManualBodySnap(snap);
-                    await loadManualTrend(snap);
-                  }}
-                />
+              {manualBodyScaleActive ? (
+                manualBodyProfileReady ? (
+                  <ManualBodyProfileSection
+                    effectiveWeightKg={effectiveBodyScan?.weightKg ?? null}
+                    manualBodySnap={manualBodySnap}
+                    userGender={manualBodyProfile.gender!}
+                    heightCm={manualBodyProfile.heightCm!}
+                    userAge={manualBodyProfile.age!}
+                    onSaved={async (snap) => {
+                      setManualBodySnap(snap);
+                      await loadManualTrend(snap);
+                    }}
+                  />
+                ) : (
+                  <View style={styles.manualBodyProfileGate}>
+                    <Text style={styles.birthdateSectionTitle}>Body</Text>
+                    <Text style={styles.manualBodyProfileGateHint}>
+                      Set gender, height, and birth date above, then tap Save to log weight and body fat.
+                    </Text>
+                  </View>
+                )
               ) : null}
 
               <Pressable
@@ -2859,6 +2893,15 @@ const styles = StyleSheet.create({
     color: '#000',
     marginTop: 4,
     marginBottom: 8,
+  },
+  manualBodyProfileGate: {
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  manualBodyProfileGateHint: {
+    fontSize: 12,
+    color: WellnessColors.textSecondary,
+    lineHeight: 17,
   },
   genderRow: {
     flexDirection: 'row',
