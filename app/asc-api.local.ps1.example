@@ -1,5 +1,5 @@
 # Copy to asc-api.local.ps1 (gitignored) and fill in values from App Store Connect.
-# Then:  .\asc-api.local.ps1   or   . .\asc-api.local.ps1; .\bi-os.bat
+# bi-os.bat loads this automatically — no need to dot-source manually.
 #
 # NEVER commit asc-api.local.ps1 or the .p8 file.
 
@@ -16,5 +16,5 @@ Remove-Item -Recurse -Force "$env:USERPROFILE\.app-store" -ErrorAction SilentlyC
 $env:EXPO_NO_KEYCHAIN = "1"
 
 Set-Location $PSScriptRoot
-Write-Host "ASC API env set. Run: .\bi-os.bat"
-Write-Host "At 'Log in to your Apple account?' answer: n"
+Write-Host "ASC API env set."
+Write-Host "Run: .\bi-os.bat  (loads this file automatically)"

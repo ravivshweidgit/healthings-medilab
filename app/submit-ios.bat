@@ -1,6 +1,6 @@
 @echo off
 REM submit-ios.bat — upload latest EAS iOS build to App Store Connect (TestFlight).
-REM Use after build-ios.bat if you did not use bi-os.bat (--auto-submit).
+REM Use after build-ios.bat if you did not use bi-os.bat (build + submit in one go).
 REM Not "publish" — that means public App Store release later.
 REM Guide: server\TESTFLIGHT-INTERNAL.md
 

@@ -1,7 +1,7 @@
 @echo off
 REM build-ios.bat — EAS cloud iOS build for TestFlight (Windows; no local Xcode).
 REM   build-ios.bat         production profile (TestFlight IPA) — build only
-REM   bi-os.bat             build + auto-submit (iOS equivalent of Android "bi")
+REM   bi-os.bat             build + submit (scripts\bi-os.ps1 — proven two-step path)
 REM   submit-ios.bat        upload latest EAS build to TestFlight
 REM   build-ios.bat submit  alias for submit-ios.bat
 REM   build-ios.bat dev     development dev-client (simulator)
@@ -38,24 +38,8 @@ if /i "%ACTION%"=="submit" (
 )
 
 if /i "%ACTION%"=="bi-os" (
-  echo.
-  echo === bi-os: iOS build + auto-submit to TestFlight ===
-  echo Same idea as Android "bi", but install is via TestFlight on iPhone ^(no USB^).
-  echo Profile: production
-  echo.
-  eas build --platform ios --profile production --auto-submit
-  set "ERR=%ERRORLEVEL%"
-  if not "%ERR%"=="0" (
-    echo.
-    echo === bi-os FAILED ===
-    echo First time? Run: eas login   then   eas build:configure
-    exit /b %ERR%
-  )
-  echo.
-  echo === bi-os QUEUED ===
-  echo When EAS finishes: App Store Connect - TestFlight - Processing - install on iPhone.
-  echo Guide: server\TESTFLIGHT-INTERNAL.md
-  exit /b 0
+  call "%~dp0bi-os.bat"
+  exit /b %ERRORLEVEL%
 )
 
 echo.

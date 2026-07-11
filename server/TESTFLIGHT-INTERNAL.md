@@ -79,19 +79,34 @@ Remove-Item -Recurse -Force "$env:USERPROFILE\.app-store" -ErrorAction SilentlyC
 
 `EXPO_APPLE_TEAM_TYPE`: use `INDIVIDUAL` only if your developer account is personal, not a company.
 
-### C. Build
+### C. Build + submit (`bi-os` — same flow that shipped build 18)
+
+**Do not** use `eas build --auto-submit` on Windows — it falls back to Apple ID + SMS and fails.
+
+`bi-os.bat` runs the proven two-step path automatically:
+
+1. `eas build --platform ios --profile production` (cloud build)
+2. `eas submit --platform ios --profile production --latest` (ASC API key)
 
 ```powershell
 cd c:\projects\healthings-medilab\app
-. .\asc-api.local.ps1    # if using the script
 .\bi-os.bat
 ```
 
-At **`Do you want to log in to your Apple account?`** → type **`n`**.
+`bi-os` loads `asc-api.local.ps1` if present (copy from `asc-api.local.ps1.example` first).
+
+At **`Do you want to log in to your Apple account?`** during the **build** step → type **`n`**.
 
 EAS should use the API key to create/sign credentials. First run may ask a few certificate questions — accept defaults / let EAS manage.
 
 **Do not** paste `.p8` contents or Key ID into chat or git.
+
+Split steps when needed:
+
+```powershell
+.\build-ios.bat      # build only
+.\submit-ios.bat     # after build shows Finished on expo.dev
+```
 
 ---
 

@@ -10,7 +10,7 @@ alwaysApply: true
 | Shorthand | Meaning | Agent action |
 |-----------|---------|--------------|
 | **bi** | build + install | `app\build-APK.bat install` |
-| **bi-os** / **bios** | iOS build + TestFlight submit | `app\bi-os.bat` |
+| **bi-os** / **bios** | iOS build + TestFlight submit | `app\bi-os.bat` (loads ASC API key; no `--auto-submit`) |
 | **build** / compile check | release APK only | `app\build-APK.bat` |
 | **build ios** | iOS EAS build only | `app\build-ios.bat` |
 | **submit ios** | Upload latest iOS build to TestFlight | `app\submit-ios.bat` |
@@ -132,3 +132,74 @@ Set-Location "c:\projects\healthings-medilab\app\android"
 ```
 
 Avoid `gradlew clean` unless codegen dirs are broken — see prior notes in `build-dev.bat`.
+
+## iOS TestFlight (`bi-os`)
+
+| Shorthand | Meaning | Agent action |
+|-----------|---------|--------------|
+| **bi-os** / **bios** | EAS build + submit to TestFlight | `app\bi-os.bat` |
+| **build ios** | EAS build only | `app\build-ios.bat` |
+| **submit ios** | Upload latest finished build | `app\submit-ios.bat` |
+
+Treat **bi-os** and **bios** as equivalent.
+
+### Canonical iOS script — always use this
+
+**Do not** run `eas build --auto-submit` on Windows (Apple ID / SMS trap).
+
+```
+app\bi-os.bat    REM build on EAS cloud, then submit-ios (ASC API key)
+```
+
+`bi-os.bat` calls `app\scripts\bi-os.ps1`, which:
+
+1. Loads `app\asc-api.local.ps1` if it exists (gitignored; copy from `asc-api.local.ps1.example`)
+2. `eas build --platform ios --profile production` — wait until Finished on [expo.dev](https://expo.dev)
+3. `eas submit --platform ios --profile production --latest`
+
+At **“Do you want to log in to your Apple account?”** during build → answer **`n`** (use API key).
+
+### Before each new TestFlight upload
+
+Bump `ios.buildNumber` in `app/app.config.js` (and keep `version` aligned with Android).
+
+### Split steps
+
+```
+app\build-ios.bat     REM compile-check equivalent — build only
+app\submit-ios.bat    REM after build is Finished on expo.dev
+```
+
+Guide: `server/TESTFLIGHT-INTERNAL.md`
+
+### Agent fallback (PowerShell)
+
+If the batch file cannot be used:
+
+```powershell
+Set-Location "c:\projects\healthings-medilab\app"
+& "c:\projects\healthings-medilab\app\scripts\bi-os.ps1"
+```
+
+Or manually mirror the two steps after dot-sourcing `asc-api.local.ps1`:
+
+```powershell
+eas build --platform ios --profile production
+eas submit --platform ios --profile production --latest
+```
+
+### First-time setup (once per machine)
+
+```powershell
+npm install -g eas-cli
+eas login
+eas build:configure
+```
+
+Copy `asc-api.local.ps1.example` → `asc-api.local.ps1` and point `EXPO_ASC_API_KEY_PATH` at the `.p8` outside the repo.
+
+### Default behaviour after iOS code changes
+
+Run **`bi-os`** only when the user asks for TestFlight / iOS ship — not after every small JS tweak (EAS upload is slow).
+
+Do **not** commit iOS release bumps until the user confirms TestFlight works (same policy as Android phone test).

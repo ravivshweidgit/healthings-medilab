@@ -1,11 +1,13 @@
 @echo off
-REM bi-os.bat — iOS "build + deliver" (full pipeline on Windows).
-REM   Android bi  = build-APK.bat install  (local build + USB install)
-REM   iOS bi-os   = EAS build + auto-submit to TestFlight (no USB; install via TestFlight app)
+REM bi-os.bat — iOS TestFlight pipeline (build on EAS + submit with API key).
+REM   Android bi  = build-APK.bat install  (local APK + USB)
+REM   iOS bi-os   = scripts\bi-os.ps1       (EAS build, then submit-ios — no --auto-submit)
 REM
-REM Split steps if needed:
-REM   build-ios.bat   build only (compile-check equivalent)
-REM   submit-ios.bat  upload an already-finished build
-REM
-REM First time: npm i -g eas-cli  &&  eas login  &&  eas build:configure
-call "%~dp0build-ios.bat" bi-os %*
+REM Requires: eas-cli, eas login, asc-api.local.ps1 (copy from .example)
+REM Guide: server\TESTFLIGHT-INTERNAL.md
+
+setlocal EnableExtensions
+cd /d "%~dp0"
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\bi-os.ps1" %*
+exit /b %ERRORLEVEL%
