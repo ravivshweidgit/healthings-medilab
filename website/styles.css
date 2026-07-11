@@ -100,21 +100,64 @@ h1 {
   text-align: center;
 }
 
-.play-badge-link {
-  display: inline-block;
+.store-badges {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  max-width: 340px;
+  margin: 0 auto;
+  align-items: stretch;
+}
+
+.store-badge-link {
+  display: block;
+  width: 100%;
+  aspect-ratio: 270 / 80;
+  overflow: hidden;
   line-height: 0;
-  border-radius: 8px;
+  border-radius: 6px;
+  position: relative;
   transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
-.play-badge-link:active {
+.store-badge-link:active {
   transform: scale(0.98);
 }
 
-.play-badge {
-  width: min(100%, 240px);
-  height: auto;
+.store-badge {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
   display: block;
+}
+
+#play-link .store-badge {
+  object-fit: contain;
+  transform: scale(1.42);
+  transform-origin: center;
+}
+
+@media (max-width: 360px) {
+  .store-badges {
+    grid-template-columns: 1fr;
+    max-width: 220px;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .cta-note {
@@ -394,7 +437,7 @@ h1 {
   }
 
   .cta-panel {
-    max-width: 400px;
+    max-width: 520px;
     margin: 0 auto;
   }
 

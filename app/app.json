@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Healthings",
-    "slug": "app",
+    "slug": "healthingsai-medilab",
     "scheme": "healthings-medilab",
     "version": "1.2.2",
     "orientation": "portrait",

@@ -1,0 +1,20 @@
+# Copy to asc-api.local.ps1 (gitignored) and fill in values from App Store Connect.
+# Then:  .\asc-api.local.ps1   or   . .\asc-api.local.ps1; .\bi-os.bat
+#
+# NEVER commit asc-api.local.ps1 or the .p8 file.
+
+$ErrorActionPreference = "Stop"
+
+# Folder outside the repo — e.g. C:\secrets\healthings\
+$env:EXPO_ASC_API_KEY_PATH = "C:\secrets\healthings\AuthKey_XXXXXXXXXX.p8"
+$env:EXPO_ASC_KEY_ID       = "XXXXXXXXXX"
+$env:EXPO_ASC_ISSUER_ID    = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+$env:EXPO_APPLE_TEAM_ID    = "5WPC43PY7L"
+$env:EXPO_APPLE_TEAM_TYPE  = "COMPANY_OR_ORGANIZATION"  # or INDIVIDUAL
+
+Remove-Item -Recurse -Force "$env:USERPROFILE\.app-store" -ErrorAction SilentlyContinue
+$env:EXPO_NO_KEYCHAIN = "1"
+
+Set-Location $PSScriptRoot
+Write-Host "ASC API env set. Run: .\bi-os.bat"
+Write-Host "At 'Log in to your Apple account?' answer: n"

@@ -34,6 +34,7 @@ module.exports = {
             CFBundleURLSchemes: ['healthings-medilab'],
           },
         ],
+        ITSAppUsesNonExemptEncryption: false,
       },
     },
     android: {
@@ -42,7 +43,7 @@ module.exports = {
     },
     extra: {
       eas: {
-        projectId: process.env.EAS_PROJECT_ID ?? undefined,
+        projectId: '656a032f-cd57-470c-8caa-5d99a06bc34c',
       },
     },
   },

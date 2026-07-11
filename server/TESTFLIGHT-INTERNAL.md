@@ -27,6 +27,72 @@ When prompted, let EAS create the iOS distribution certificate and provisioning 
 
 Copy the EAS project id into `app.config.js` → `extra.eas.projectId` (or set `EAS_PROJECT_ID` in EAS secrets).
 
+### Apple login blocked (SMS 2FA fails on Windows)
+
+Use an **App Store Connect API key** instead of Apple ID + SMS in EAS. See **§1b** below.
+
+---
+
+## 1b. App Store Connect API key (no SMS 2FA)
+
+Use when EAS shows: *Verification codes can't be sent to this phone number*.
+
+### A. Create the key (browser)
+
+1. Open [App Store Connect](https://appstoreconnect.apple.com) → sign in as **raviv.shweid@healthings.ai**.
+2. **Users and Access** (top menu).
+3. **Integrations** tab → **App Store Connect API**.
+4. Copy **Issuer ID** (top of page) — save it.
+5. **Generate API Key** (+):
+   - Name: `EAS Healthings`
+   - Access: **Admin** or **App Manager**
+6. **Download** the `.p8` file **once** (Apple never shows it again).
+7. Note the **Key ID** (e.g. `AB12CD34EF`).
+
+Store the file **outside git**, e.g.:
+
+`C:\secrets\healthings\AuthKey_AB12CD34EF.p8`
+
+(`*.p8` is gitignored.)
+
+### B. Configure locally (PowerShell)
+
+Copy the template and edit:
+
+```powershell
+Copy-Item c:\projects\healthings-medilab\app\asc-api.local.ps1.example `
+  c:\projects\healthings-medilab\app\asc-api.local.ps1
+notepad c:\projects\healthings-medilab\app\asc-api.local.ps1
+```
+
+Or set env vars manually:
+
+```powershell
+$env:EXPO_ASC_API_KEY_PATH = "C:\secrets\healthings\AuthKey_XXXXXXXXXX.p8"
+$env:EXPO_ASC_KEY_ID       = "YOUR_KEY_ID"
+$env:EXPO_ASC_ISSUER_ID    = "your-issuer-uuid"
+$env:EXPO_APPLE_TEAM_ID    = "5WPC43PY7L"
+$env:EXPO_APPLE_TEAM_TYPE  = "COMPANY_OR_ORGANIZATION"
+$env:EXPO_NO_KEYCHAIN      = "1"
+Remove-Item -Recurse -Force "$env:USERPROFILE\.app-store" -ErrorAction SilentlyContinue
+```
+
+`EXPO_APPLE_TEAM_TYPE`: use `INDIVIDUAL` only if your developer account is personal, not a company.
+
+### C. Build
+
+```powershell
+cd c:\projects\healthings-medilab\app
+. .\asc-api.local.ps1    # if using the script
+.\bi-os.bat
+```
+
+At **`Do you want to log in to your Apple account?`** → type **`n`**.
+
+EAS should use the API key to create/sign credentials. First run may ask a few certificate questions — accept defaults / let EAS manage.
+
+**Do not** paste `.p8` contents or Key ID into chat or git.
+
 ---
 
 ## 2. Build for TestFlight
@@ -86,7 +152,18 @@ Or download the `.ipa` from the [EAS dashboard](https://expo.dev) and upload man
 3. **Internal testing** → add testers (Apple IDs on your team)
 4. Testers install **TestFlight** app → accept invite → install Healthings
 
-### Alpha test script (Withings iPhone)
+### Alpha website link (healthings.ai)
+
+After the build is **Ready to test**, create a **public TestFlight link** for the website:
+
+1. App Store Connect → **TestFlight** → **External Testing** (or Internal group with public link if enabled)
+2. Add build **1.2.2 (18)** to the group → **Public Link** → copy URL (`https://testflight.apple.com/join/…`)
+3. Update `website/index.html` → `#testflight-link` `href`
+4. Deploy: `bash server/scripts/deploy-website.sh` on VPS
+
+Until the link is set, iPhone testers can still install via **email invite** from TestFlight.
+
+---
 
 - [ ] OTP login
 - [ ] Quick Start: scale + watch **Yes** → link Withings on dashboard
