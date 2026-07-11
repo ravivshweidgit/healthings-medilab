@@ -533,7 +533,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     return withingsWeightDays < 2 && manualBodySnap != null;
   }, [sourceConfig, bodyScan, bodyTrendDays, manualBodySnap]);
 
-  /** Scale off in setup toggles (live UI) or persisted source_config — not Withings body. */
+  /** Withings logo / OK / Link on body card — only when user has a Withings scale in setup. */
+  const showWithingsBodyHeader = useMemo(() => {
+    if (setupToggles != null) return setupToggles.withingsScale;
+    if (sourceConfig != null) return sourceConfig.bodyComposition === 'withings';
+    return false;
+  }, [setupToggles, sourceConfig]);
+
+  /** Scale off in setup toggles (live UI) or persisted source_config — manual body path. */
   const manualBodyScaleActive = useMemo(() => {
     if (setupToggles != null) return !setupToggles.withingsScale;
     if (sourceConfig != null) return sourceConfig.bodyComposition !== 'withings';
@@ -1222,6 +1229,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, [useHcActivity, loadHcStepTotals]);
 
   useEffect(() => {
+    void loadSourceConfig().then((c) => {
+      setSourceConfig(c);
+      setSetupToggles(togglesFromSourceConfig(c));
+    });
+  }, []);
+
+  useEffect(() => {
     void refreshWithingsLinkState();
   }, [refreshWithingsLinkState]);
 
@@ -1458,63 +1472,69 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         </Pressable>
 
         <View style={[styles.bodyScanCard, cardShadow]}>
-          <View style={styles.bodyScanHeader}>
-            <View style={styles.withingsLogoWrap}>
-              <Image
-                source={require('../../assets/WithingsLogo.jpeg')}
-                style={styles.withingsHeaderLogo}
-                resizeMode="contain"
-                accessibilityLabel="Withings"
-              />
-            </View>
-            <View style={styles.withingsHeaderMiddle}>
-              <View
-                style={[
-                  styles.withingsStatusBadge,
-                  withingsLinked ? styles.withingsStatusBadgeOn : styles.withingsStatusBadgeOff,
-                ]}
-                accessible
-                accessibilityRole="text"
-                accessibilityLabel={
-                  withingsLinked ? 'Withings connected, signed in' : 'Withings disconnected, signed out'
-                }
-              >
-                <Text
-                  accessible={false}
-                  importantForAccessibility="no"
+          {showWithingsBodyHeader || bodyScanLoading ? (
+          <View style={[styles.bodyScanHeader, !showWithingsBodyHeader && bodyScanLoading && styles.bodyScanHeaderManualOnly]}>
+            {showWithingsBodyHeader ? (
+              <>
+                <View style={styles.withingsLogoWrap}>
+                  <Image
+                    source={require('../../assets/WithingsLogo.jpeg')}
+                    style={styles.withingsHeaderLogo}
+                    resizeMode="contain"
+                    accessibilityLabel="Withings"
+                  />
+                </View>
+                <View style={styles.withingsHeaderMiddle}>
+                  <View
+                    style={[
+                      styles.withingsStatusBadge,
+                      withingsLinked ? styles.withingsStatusBadgeOn : styles.withingsStatusBadgeOff,
+                    ]}
+                    accessible
+                    accessibilityRole="text"
+                    accessibilityLabel={
+                      withingsLinked ? 'Withings connected, signed in' : 'Withings disconnected, signed out'
+                    }
+                  >
+                    <Text
+                      accessible={false}
+                      importantForAccessibility="no"
+                      style={[
+                        styles.withingsStatusLine,
+                        Platform.OS === 'android' && styles.withingsStatusLineAndroid,
+                        withingsLinked ? styles.withingsStatusLineOn : styles.withingsStatusLineOff,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {withingsLinked ? 'OK' : 'X'}
+                    </Text>
+                  </View>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={withingsLinked ? 'Re-link Withings account' : 'Link Withings account'}
                   style={[
-                    styles.withingsStatusLine,
-                    Platform.OS === 'android' && styles.withingsStatusLineAndroid,
-                    withingsLinked ? styles.withingsStatusLineOn : styles.withingsStatusLineOff,
+                    styles.withingsLinkButtonCompact,
+                    (linkBusy || bodyScanLoading) && styles.withingsLinkButtonDisabled,
                   ]}
-                  numberOfLines={1}
+                  onPress={handleLinkWithings}
+                  disabled={linkBusy || bodyScanLoading}
                 >
-                  {withingsLinked ? 'OK' : 'X'}
-                </Text>
-              </View>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={withingsLinked ? 'Re-link Withings account' : 'Link Withings account'}
-              style={[
-                styles.withingsLinkButtonCompact,
-                (linkBusy || bodyScanLoading) && styles.withingsLinkButtonDisabled,
-              ]}
-              onPress={handleLinkWithings}
-              disabled={linkBusy || bodyScanLoading}
-            >
-              {linkBusy ? (
-                <ActivityIndicator color={WellnessColors.accentBlue} size="small" />
-              ) : (
-                <Text style={styles.withingsLinkButtonTextCompact}>
-                  {withingsLinked ? 'Re-link' : 'Link'}
-                </Text>
-              )}
-            </Pressable>
+                  {linkBusy ? (
+                    <ActivityIndicator color={WellnessColors.accentBlue} size="small" />
+                  ) : (
+                    <Text style={styles.withingsLinkButtonTextCompact}>
+                      {withingsLinked ? 'Re-link' : 'Link'}
+                    </Text>
+                  )}
+                </Pressable>
+              </>
+            ) : null}
             {bodyScanLoading ? <ActivityIndicator color={WellnessColors.accentBlue} style={styles.bodyScanHeaderSpinner} /> : null}
           </View>
+          ) : null}
 
-          {linkError ? <Text style={styles.linkErrorText}>{linkError}</Text> : null}
+          {!showWithingsBodyHeader && linkError ? <Text style={styles.linkErrorText}>{linkError}</Text> : null}
 
           {bodyScanError ? <Text style={styles.bodyScanErrorText}>{bodyScanError}</Text> : null}
 
@@ -1964,7 +1984,35 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     label="Withings watch"
                     value={setupToggles.withingsWatch}
                     onChange={(v) => void persistSetupToggles({ ...setupToggles, withingsWatch: v })}
+                    hint={
+                      setupToggles.withingsWatch && !setupToggles.withingsScale && !withingsLinked
+                        ? 'Link Withings below to sync watch activity.'
+                        : undefined
+                    }
                   />
+                  {setupToggles.withingsWatch && !setupToggles.withingsScale ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={withingsLinked ? 'Re-link Withings account' : 'Link Withings account'}
+                      style={[
+                        styles.withingsLinkButtonProfile,
+                        linkBusy && styles.withingsLinkButtonDisabled,
+                      ]}
+                      onPress={handleLinkWithings}
+                      disabled={linkBusy}
+                    >
+                      {linkBusy ? (
+                        <ActivityIndicator color={WellnessColors.accentBlue} size="small" />
+                      ) : (
+                        <Text style={styles.withingsLinkButtonTextCompact}>
+                          {withingsLinked ? 'Re-link Withings' : 'Link Withings'}
+                        </Text>
+                      )}
+                    </Pressable>
+                  ) : null}
+                  {manualBodyScaleActive && setupToggles.withingsWatch && linkError ? (
+                    <Text style={styles.linkErrorText}>{linkError}</Text>
+                  ) : null}
                   {!setupToggles.withingsWatch && Platform.OS === 'android' ? (
                     <HealthConnectStepsGuide
                       onPermissionGranted={() => {
@@ -2050,6 +2098,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             gender={userGender}
             weeklyWeightChange_kg={weeklyWeightChange_kg}
             lang={userLanguage}
+            hideWithingsScalePrompt={manualBodyScaleActive}
           />
 
           <View style={styles.groupDivider} />
@@ -2308,6 +2357,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
+  bodyScanHeaderManualOnly: {
+    justifyContent: 'flex-end',
+    marginBottom: 0,
+  },
   bodyScanHeaderSpinner: {
     marginLeft: 8,
   },
@@ -2377,6 +2430,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 34,
     minWidth: 72,
+  },
+  withingsLinkButtonProfile: {
+    alignSelf: 'flex-start',
+    marginTop: 2,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: WellnessColors.accentBlue,
+    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 36,
   },
   withingsLinkButtonDisabled: {
     opacity: 0.55,

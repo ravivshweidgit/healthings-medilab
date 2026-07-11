@@ -38,6 +38,8 @@ export type BodyTargetProps = {
   weeklyWeightChange_kg?: number | null;
   avgDailyDeficit_kcal?: number | null;
   lang?: UserLanguage | null;
+  /** Hide Withings scale prompt when user logs body manually (no Withings scale). */
+  hideWithingsScalePrompt?: boolean;
 };
 
 type Screen = 'idle' | 'loading' | 'suggestion' | 'editing' | 'active';
@@ -217,6 +219,7 @@ export function WeightTargetStrip({
   weeklyWeightChange_kg,
   avgDailyDeficit_kcal,
   lang,
+  hideWithingsScalePrompt,
 }: BodyTargetProps) {
   const [screen, setScreen] = useState<Screen>('idle');
   const [target, setTarget] = useState<BodyTarget | null>(null);
@@ -548,7 +551,11 @@ export function WeightTargetStrip({
                 Target: {target.targetWeight_kg.toFixed(1)} kg · {target.targetFatPct.toFixed(1)}% fat ·{' '}
                 {target.targetMuscleMass_kg.toFixed(1)} kg muscle
               </Text>
-              <Text style={styles.manualSummarySub}>Link Withings for progress scales</Text>
+              {!hideWithingsScalePrompt ? (
+                <Text style={styles.manualSummarySub}>Link Withings for progress scales</Text>
+              ) : (
+                <Text style={styles.manualSummarySub}>Log weigh-ins in My Profile to track progress</Text>
+              )}
             </View>
           )}
 
