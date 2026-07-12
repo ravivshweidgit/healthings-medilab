@@ -70,6 +70,7 @@ import {
   type CompositionSession,
   type MetabolicTrend7dDay,
 } from '../logic/metabolicTrend7d';
+import { metabolicChartHeader } from '../logic/sourceConfigLabels';
 import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportWithSessions } from '../services/careSensCsv';
 import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getRecentMeals, getDailyMacros, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
@@ -680,6 +681,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     () => latestGlucoseSummary(glucoseData),
     [glucoseData]
   );
+
+  const metabolicHeader = useMemo(() => {
+    const summaryLine = glucoseCompactSummary
+      ? `${glucoseCompactSummary.valueLabel}${
+          glucoseCompactSummary.ago ? ` · ${glucoseCompactSummary.ago}` : ''
+        }`
+      : null;
+    return metabolicChartHeader(sourceConfig, summaryLine);
+  }, [sourceConfig, glucoseCompactSummary]);
 
   const trendCompactSummary = useMemo(
     () => (visibleTrend ? trendWeightSummary(visibleTrend.days) : null),
@@ -1670,7 +1680,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           macroTarget={macroTarget}
         />
 
-        {sourceConfig?.glucose === 'health-connect' ? (
+        {metabolicHeader.show ? (
           <View style={styles.glucoseHistorySection}>
             <View style={styles.chartBleed}>
               <View
@@ -1686,20 +1696,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   accessibilityRole="button"
                   accessibilityState={{ expanded: glucoseExpanded }}
                   accessibilityLabel={
-                    glucoseExpanded ? 'Collapse glucose chart' : 'Expand glucose chart'
+                    glucoseExpanded ? metabolicHeader.a11yCollapse : metabolicHeader.a11yExpand
                   }
                 >
                   <View style={styles.dashCollapseHeaderText}>
-                    <Text style={styles.dashCollapseTitle}>GLUCOSE</Text>
+                    <Text style={styles.dashCollapseTitle}>{metabolicHeader.title}</Text>
                     {!glucoseExpanded ? (
                       <Text style={styles.dashCollapseSub} numberOfLines={1}>
-                        {glucoseCompactSummary
-                          ? `${glucoseCompactSummary.valueLabel}${
-                              glucoseCompactSummary.ago
-                                ? ` · ${glucoseCompactSummary.ago}`
-                                : ''
-                            }`
-                          : 'Tap to open chart'}
+                        {metabolicHeader.compactSub}
                       </Text>
                     ) : null}
                   </View>
@@ -1707,7 +1711,9 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 </Pressable>
                 {glucoseExpanded ? (
                   <MetabolicChart
-                    glucose={glucoseData}
+                    glucose={
+                      sourceConfig?.glucose === 'health-connect' ? glucoseData : []
+                    }
                     heartRate={withingsHeartRate}
                     activityZones={activityZones}
                     calorieBurns={withingsCalories}
