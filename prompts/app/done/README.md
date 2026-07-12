@@ -15,7 +15,7 @@ Active / backlog specs stay in `prompts/app/`:
 
 | prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
 | prompt60.txt | Shipping — optional cloud backup toggle (purge on off); needs API migrate |
-| `prompt64.txt` | **Phase 1 shipped** (2026-07-09, `10569f2`) — HC activity + unified metrics store; Garmin phone test pending |
+| `prompt64.txt` | **Phase 1 shipped** (`10569f2`); **Garmin phone-tested success 2026-07-12** → `done/prompt64.txt` |
 | `prompt65.txt` | **iOS TestFlight Withings-first** — no HealthKit v1; EAS + platform guards (Apple Dev enrolled 2026-07-10) |
 | `prompt56.txt` | iOS Phase 2 — HealthKit glucose/steps (`prompt65` defers this) |
 

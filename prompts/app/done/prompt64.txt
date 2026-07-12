@@ -1,0 +1,62 @@
+## Prompt 64 — Health Connect activity (Garmin watch, no scale)
+
+**Status: done (Phase 1)** — shipped `10569f2` (2026-07-09); **Garmin colleague phone-tested success 2026-07-12**  
+**Builds on:** `done/prompt59.txt` · `done/prompt58.txt` · `done/prompt55.txt` · `done/prompt31.txt`  
+**Primary persona:** Colleague with **Garmin watch only** — no Withings scale. CGM via Health Connect, named workouts + active kcal via HC (same quality path as Withings watch users for chart/coach/clinic).
+
+---
+
+### Problem (resolved for Phase 1)
+
+When Withings watch = No, activity now routes to **`health-connect`** (not steps-only):
+
+- Reads `ExerciseSession` + `ActiveCaloriesBurned` (+ steps fallback)
+- Named workouts land in `metricsStore.workouts` → chart, coach, clinic snapshot
+- No Garmin web API — **Health Connect only** (Garmin, Samsung, Pixel, etc.)
+
+---
+
+### What shipped (Phase 1)
+
+| Area | Deliverable |
+|------|-------------|
+| Adapter / fetch | `HealthConnectActivityAdapter` (+ platform split), `HealthConnectActivityService` |
+| Store | Unified `healthings:metricsStore` — HC workouts merge with Withings shape |
+| Routing | `source_config.activity: health-connect` (migrate `samsung-steps`) |
+| UI | Health Connect activity guide (Garmin + Samsung), Quick Start / Your setup |
+| Dashboard | Sync + burn + MetabolicChart workout bars from HC sessions |
+| Export | Clinic snapshot includes HC workouts |
+
+**Commit:** `10569f2` (and follow-ups for metrics store / iOS platform split).
+
+---
+
+### Phone-tested checklist (Garmin colleague) — 2026-07-12
+
+- [x] Quick Start: scale No, watch No, manual height/weight/birthdate saved
+- [x] Garmin Connect → Health Connect sharing enabled
+- [x] HC permissions granted (Exercise, Active calories, Steps)
+- [x] Walk/workout appears as **named session** on dashboard (time + kcal)
+- [x] Trend & Energy daily burn includes activity (not steps-only when HC calories present)
+- [x] Coach / period review / clinic paths usable with HC workouts (as validated by tester)
+- [x] Mixed sanity: Withings watch users unchanged
+
+User confirmation: **“garmin tests success”** (2026-07-12).
+
+---
+
+### Deferred (Phase 2 / 3)
+
+- HC `HeartRate` during sessions + chart overlay when watch off
+- Intraday passive calorie strip from HC buckets
+- `activityZones` from HC step time series
+- Apple Health exercise parity → `prompt56.txt` / after `prompt65`
+- Garmin Connect Developer Program cloud API — **not planned**
+
+---
+
+### Related
+
+- **`done/prompt59.txt`** — Samsung HC steps guide (extended)
+- **`prompt65.txt`** — iOS Withings-first (HC/Garmin hidden on iOS)
+- **`prompt56.txt`** — iOS HealthKit Phase 2
