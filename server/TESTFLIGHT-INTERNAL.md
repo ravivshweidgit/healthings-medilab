@@ -172,11 +172,12 @@ Or download the `.ipa` from the [EAS dashboard](https://expo.dev) and upload man
 After the build is **Ready to test**, create a **public TestFlight link** for the website:
 
 1. App Store Connect → **TestFlight** → **External Testing** (or Internal group with public link if enabled)
-2. Add build **1.2.2 (18)** to the group → **Public Link** → copy URL (`https://testflight.apple.com/join/…`)
-3. Update `website/index.html` → `#testflight-link` `href`
-4. Deploy: `bash server/scripts/deploy-website.sh` on VPS
+2. Add build **1.2.2 (21)** (or latest Ready to Test) to the group → **Public Link** → copy URL  
+   Current public link: `https://testflight.apple.com/join/cTgDTPGK`  
+3. Update `website/index.html` → `#testflight-link` `href`  
+4. Deploy: `bash server/scripts/deploy-website.sh` on VPS  
 
-Until the link is set, iPhone testers can still install via **email invite** from TestFlight.
+If the join page says **“isn’t accepting any new testers”**: External group must have an active build, Public Link **on**, and tester limit not exhausted — toggle the link off/on or raise the limit in App Store Connect.
 
 ---
 
