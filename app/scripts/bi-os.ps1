@@ -63,26 +63,40 @@ function Get-LatestIosBuildId {
 
 function Get-BuildStatus {
   param([Parameter(Mandatory = $true)][string]$BuildId)
-  $viewPath = Join-Path $env:TEMP ("bi-os-view-{0}.json" -f [guid]::NewGuid().ToString("N"))
+  # Prefer human table (reliable on Windows). JSON path broke when --non-interactive
+  # was passed (unsupported) or when Out-File added a UTF-8 BOM.
   try {
-    # utf8NoBOM: Out-File -Encoding utf8 adds BOM which breaks ConvertFrom-Json on some hosts
-    $rawLines = & eas build:view $BuildId --json 2>$null
-    if (-not $rawLines) { return "poll-error" }
-    $viewRaw = ($rawLines | Out-String)
-    $viewJson = ($viewRaw -split "(?=\r?\n\{)" | Where-Object { $_.Trim().StartsWith("{") } | Select-Object -Last 1)
-    if (-not $viewJson) { $viewJson = $viewRaw.Trim() }
-    # strip UTF-8 BOM if present
-    if ($viewJson.Length -gt 0 -and [int][char]$viewJson[0] -eq 0xFEFF) {
-      $viewJson = $viewJson.Substring(1)
+    $humanPath = Join-Path $env:TEMP ("bi-os-view-h-{0}.txt" -f [guid]::NewGuid().ToString("N"))
+    $jsonPath = Join-Path $env:TEMP ("bi-os-view-j-{0}.txt" -f [guid]::NewGuid().ToString("N"))
+    try {
+      cmd /c "eas build:view $BuildId > `"$humanPath`" 2>nul"
+      if (Test-Path $humanPath) {
+        $human = [System.IO.File]::ReadAllText($humanPath)
+        if ($human -match '(?im)^\s*Status\s+(\S+)') {
+          return [string]$Matches[1]
+        }
+      }
+
+      cmd /c "eas build:view $BuildId --json > `"$jsonPath`" 2>nul"
+      if (Test-Path $jsonPath) {
+        $viewRaw = [System.IO.File]::ReadAllText($jsonPath)
+        if ($viewRaw.Length -gt 0 -and [int][char]$viewRaw[0] -eq 0xFEFF) {
+          $viewRaw = $viewRaw.Substring(1)
+        }
+        $viewJson = ($viewRaw -split "(?=\r?\n\{)" | Where-Object { $_.Trim().StartsWith("{") } | Select-Object -Last 1)
+        if (-not $viewJson) { $viewJson = $viewRaw.Trim() }
+        if ($viewJson) {
+          $viewObj = $viewJson | ConvertFrom-Json
+          if ($viewObj.status) { return [string]$viewObj.status }
+          if ($viewObj.Status) { return [string]$viewObj.Status }
+        }
+      }
+      return "poll-error"
+    } finally {
+      Remove-Item $humanPath, $jsonPath -Force -ErrorAction SilentlyContinue
     }
-    $viewObj = $viewJson | ConvertFrom-Json
-    if ($viewObj.status) { return [string]$viewObj.status }
-    if ($viewObj.Status) { return [string]$viewObj.Status }
-    return "unknown"
   } catch {
     return "poll-error"
-  } finally {
-    Remove-Item $viewPath -Force -ErrorAction SilentlyContinue
   }
 }
 
@@ -136,14 +150,25 @@ if ($buildId) {
   Write-BiosInfo -Message ("Build ID: {0}" -f $buildId)
   Write-BiosInfo -Message ("Logs: {0}" -f $buildUrl)
   Write-BiosInfo -Message "Polling every 30s (typical: 8-15 min). Status changes print in white."
+  Write-BiosInfo -Message "If status stays poll-error, open Logs URL; when Finished: .\submit-ios.bat"
   $pollStart = Get-Date
   $lastStatus = ""
+  $pollErrors = 0
   $terminal = @("finished", "errored", "canceled", "cancelled")
   while ($true) {
     Start-Sleep -Seconds 30
     $status = Get-BuildStatus -BuildId $buildId
     $elapsedMin = [math]::Round(((Get-Date) - $pollStart).TotalMinutes, 1)
     $ts = Get-Date -Format "HH:mm:ss"
+    if ($status -eq "poll-error") {
+      $pollErrors++
+      if ($pollErrors -eq 3 -or ($pollErrors % 10 -eq 0)) {
+        Write-Host ("[{0}]   poll-error x{1} - check {2}" -f $ts, $pollErrors, $buildUrl) -ForegroundColor Yellow
+        Write-Host ("[{0}]   When expo.dev says Finished: Ctrl+C then .\submit-ios.bat" -f $ts) -ForegroundColor Yellow
+      }
+    } else {
+      $pollErrors = 0
+    }
     if ($status -ne $lastStatus) {
       Write-Host ("[{0}]   status: {1}  (elapsed {2} min)" -f $ts, $status, $elapsedMin) -ForegroundColor White
       $lastStatus = $status
