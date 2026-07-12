@@ -27,7 +27,7 @@ module.exports = {
     plugins: pluginsForPlatform(),
     ios: {
       ...appJson.expo.ios,
-      buildNumber: '19',
+      buildNumber: '20',
       infoPlist: {
         CFBundleURLTypes: [
           {
@@ -39,7 +39,7 @@ module.exports = {
     },
     android: {
       ...appJson.expo.android,
-      versionCode: 19,
+      versionCode: 20,
     },
     extra: {
       eas: {

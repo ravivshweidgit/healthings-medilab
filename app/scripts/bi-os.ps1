@@ -20,7 +20,7 @@ if (Test-Path $AscLocal) {
   Set-Location $AppRoot
 } else {
   Write-Host ""
-  Write-Host "WARN: Missing asc-api.local.ps1 — submit may ask for Apple ID (SMS fails on Windows)."
+  Write-Host "WARN: Missing asc-api.local.ps1 - submit may ask for Apple ID (SMS fails on Windows)."
   Write-Host "  Copy asc-api.local.ps1.example -> asc-api.local.ps1 and fill Key ID / Issuer / .p8 path."
   Write-Host "  See server/TESTFLIGHT-INTERNAL.md section 1b."
   Write-Host ""
@@ -28,7 +28,7 @@ if (Test-Path $AscLocal) {
 
 Write-Host ""
 Write-Host "=== bi-os: EAS build + submit-ios (TestFlight) ==="
-Write-Host "Step 1/2: eas build (cloud) — answer n if asked to log in to Apple account."
+Write-Host "Step 1/2: eas build (cloud) - answer n if asked to log in to Apple account."
 Write-Host "Step 2/2: eas submit --latest (API key, no SMS)."
 Write-Host "Bump ios.buildNumber in app.config.js before each new TestFlight upload."
 Write-Host ""
@@ -47,7 +47,7 @@ Write-Host "--- Step 2/2: submit to App Store Connect ---"
 if ($LASTEXITCODE -ne 0) {
   Write-Host ""
   Write-Host "=== bi-os FAILED (submit) ==="
-  Write-Host "Build may still be on expo.dev — retry: .\submit-ios.bat"
+  Write-Host "Build may still be on expo.dev - retry: .\submit-ios.bat"
   exit $LASTEXITCODE
 }
 
