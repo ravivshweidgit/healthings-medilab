@@ -633,10 +633,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       const dk = localDayKeyFromMs(w.startMs);
       workoutByDay.set(dk, (workoutByDay.get(dk) ?? 0) + w.kcal);
     }
+    // Prefer the larger of getactivity vs sum(workouts). getactivity can omit bike kcal;
+    // workouts can report 0 kcal while still being real sessions for the chart.
     return days.map((d) => {
-      if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay)) return d;
       const wkt = workoutByDay.get(d.dayKey);
-      return wkt != null ? { ...d, activityKcalDay: wkt } : d;
+      if (wkt == null) return d;
+      if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay)) {
+        return { ...d, activityKcalDay: Math.max(d.activityKcalDay, wkt) };
+      }
+      return { ...d, activityKcalDay: wkt };
     });
   }, [
     baseTrendDays,

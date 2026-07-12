@@ -3,7 +3,7 @@
  */
 
 import { ExerciseType } from 'react-native-health-connect';
-import type { WorkoutSession } from './WithingsApiService';
+import { isKeepableWorkout, type WorkoutSession } from './WithingsApiService';
 
 const HC_EXERCISE_LABELS: Record<number, string> = {
   [ExerciseType.WALKING]: 'Walk',
@@ -68,7 +68,7 @@ export function mapHcExerciseSessions(
   for (const record of sessions) {
     const startMs = parseInstantMs(record.startTime);
     const endMs = parseInstantMs(record.endTime ?? record.startTime);
-    if (startMs == null || endMs == null || endMs <= startMs) continue;
+    if (startMs == null || endMs == null || !isKeepableWorkout({ startMs, endMs })) continue;
     const exerciseType = Number(record.exerciseType ?? 0);
     const kcal = kcalOverlappingWindow(activeCalories, startMs, endMs);
     mapped.push({

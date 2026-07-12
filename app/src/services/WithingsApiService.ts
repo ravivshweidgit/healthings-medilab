@@ -1076,6 +1076,9 @@ export async function fetchTodayHeartRate(): Promise<WithingsIntradayData> {
   return fetchIntradayToday();
 }
 
+/** Ignore aborted / accidental starts (e.g. 5s bike) before they pollute merge/chart. */
+export const MIN_WORKOUT_DURATION_MS = 2 * 60 * 1000;
+
 /** A single Withings workout session with calorie data. */
 export type WorkoutSession = {
   /** Activity category (Withings numeric: 1=walk, 2=run, 187=bike, etc.). */
@@ -1091,6 +1094,13 @@ export type WorkoutSession = {
   /** Data origin when not from Withings cloud API. */
   source?: 'withings' | 'health-connect';
 };
+
+/** True when the session has a real end time at least MIN_WORKOUT_DURATION_MS long. */
+export function isKeepableWorkout(w: Pick<WorkoutSession, 'startMs' | 'endMs'>): boolean {
+  if (!Number.isFinite(w.startMs) || w.startMs <= 0) return false;
+  if (!Number.isFinite(w.endMs)) return false;
+  return w.endMs - w.startMs >= MIN_WORKOUT_DURATION_MS;
+}
 
 /** Withings activity category → label map (partial; covers common types). */
 const WORKOUT_CATEGORY_LABELS: Record<number, string> = {
@@ -1109,10 +1119,27 @@ type WithingsWorkoutsBody = {
     startdate?: number;
     enddate?: number;
     category?: number;
-    data?: { calories?: number; totalcalories?: number };
+    data?: {
+      calories?: number;
+      totalcalories?: number;
+      manual_calories?: number;
+    };
   }>;
+  more?: boolean | number;
+  offset?: number;
 };
 type WithingsWorkoutsJson = { status: number; body?: WithingsWorkoutsBody; error?: string };
+
+/** Result of getworkouts — keepable sessions plus startMs tombstones for short aborts. */
+export type WithingsWorkoutsFetch = {
+  keepable: WorkoutSession[];
+  /** Positive duration under MIN — remove any cached session at this startMs. */
+  abortStartMs: number[];
+  /** Every startdate seen in the API (including incomplete zero-span rows). */
+  seenStartMs: number[];
+  /** Earliest ms covered by this fetch (local lookback start). */
+  lookbackStartMs: number;
+};
 
 /** Withings measure timestamps are unix seconds; guard ms if API ever returns them. */
 function withingsUnixToMs(value: number): number {
@@ -1124,47 +1151,100 @@ function withingsUnixToMs(value: number): number {
 const WORKOUT_LOOKBACK_DAYS = 128;
 
 /** Generate mock workout sessions (today: bike ride at 9 AM). */
-function mockWorkouts(lookbackDays: number): WorkoutSession[] {
-  const sessions: WorkoutSession[] = [];
+function mockWorkouts(lookbackDays: number): WithingsWorkoutsFetch {
+  const keepable: WorkoutSession[] = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const lookbackStart = new Date(today);
+  lookbackStart.setDate(lookbackStart.getDate() - lookbackDays + 1);
 
   // Today: bike ride 9:03 → 9:25
   if (lookbackDays >= 1) {
     const d = new Date(today);
-    sessions.push({
+    keepable.push({
       category: 187,
       activityLabel: 'Indoor Biking',
       startMs: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 3, 0).getTime(),
       endMs:   new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 25, 10).getTime(),
       kcal: 189,
       totalKcal: 209,
+      source: 'withings',
     });
   }
   // Yesterday: walk 7:30 → 8:00
   if (lookbackDays >= 2) {
     const d = new Date(today);
     d.setDate(d.getDate() - 1);
-    sessions.push({
+    keepable.push({
       category: 1,
       activityLabel: 'Walk',
       startMs: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 7, 30, 0).getTime(),
       endMs:   new Date(d.getFullYear(), d.getMonth(), d.getDate(), 8, 0, 0).getTime(),
       kcal: 120,
       totalKcal: 140,
+      source: 'withings',
     });
   }
-  return sessions;
+  return {
+    keepable,
+    abortStartMs: [],
+    seenStartMs: keepable.map((w) => w.startMs),
+    lookbackStartMs: lookbackStart.getTime(),
+  };
+}
+
+function parseWorkoutSeriesRow(
+  w: NonNullable<WithingsWorkoutsBody['series']>[number],
+): {
+  startMs: number;
+  endMs: number;
+  durationMs: number;
+  session?: WorkoutSession;
+  abort?: boolean;
+} | null {
+  const startMs = withingsUnixToMs(w.startdate ?? 0);
+  const endMs = withingsUnixToMs(w.enddate ?? 0);
+  if (!startMs) return null;
+  const durationMs = endMs - startMs;
+  if (durationMs > 0 && durationMs < MIN_WORKOUT_DURATION_MS) {
+    return { startMs, endMs, durationMs, abort: true };
+  }
+  if (durationMs < MIN_WORKOUT_DURATION_MS) {
+    return { startMs, endMs, durationMs };
+  }
+  const kcal =
+    w.data?.calories ?? w.data?.manual_calories ?? w.data?.totalcalories ?? 0;
+  return {
+    startMs,
+    endMs,
+    durationMs,
+    session: {
+      category: w.category ?? 0,
+      activityLabel: workoutLabel(w.category ?? 0),
+      startMs,
+      endMs,
+      kcal: Number.isFinite(kcal) && kcal > 0 ? kcal : 0,
+      totalKcal: w.data?.totalcalories,
+      source: 'withings',
+    },
+  };
 }
 
 /**
  * Fetches workout session history from Withings `getworkouts`.
  * Workouts (e.g. bike, run) are tracked separately from passive intraday activity.
  * Both endpoints are needed for a complete calorie picture.
+ *
+ * Paginates with `more`/`offset` — a single page is capped (~300); without paging,
+ * recent rides (e.g. today's bike) are often missing when lookback is long.
+ *
+ * Note: Withings often returns calories:0 even for real sessions — do not drop on kcal.
+ * Short positive durations (<2 min) are returned as abortStartMs so the store can purge them.
+ * Zero-span rows (enddate === startdate) are seen but not keepable (retain prior if any).
  */
 export async function fetchWorkoutsHistory(
   lookbackDays: number = WORKOUT_LOOKBACK_DAYS
-): Promise<WorkoutSession[]> {
+): Promise<WithingsWorkoutsFetch> {
   const accessToken = await getValidAccessToken();
   if (!accessToken) {
     return mockWorkouts(lookbackDays);
@@ -1172,61 +1252,90 @@ export async function fetchWorkoutsHistory(
 
   const stored = await loadWithingsTokens();
 
-  // Date range: today back N days (YYYY-MM-DD format Withings expects)
   const endDate = new Date();
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - lookbackDays + 1);
+  startDate.setHours(0, 0, 0, 0);
+  const lookbackStartMs = startDate.getTime();
   const fmt = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-  const form = new URLSearchParams({
-    action: 'getworkouts',
-    access_token: accessToken,
-    startdateymd: fmt(startDate),
-    enddateymd: fmt(endDate),
-    data_fields: 'calories,totalcalories',
-  });
-  if (stored?.userid) {
-    form.set('userid', stored.userid);
-  }
+  const keepableByStart = new Map<number, WorkoutSession>();
+  const abortStartMs = new Set<number>();
+  const seenStartMs = new Set<number>();
 
-  try {
+  let offset: number | undefined;
+  const maxPages = 40; // ~300 rows/page → plenty for 128d history
+  for (let page = 0; page < maxPages; page++) {
+    const form = new URLSearchParams({
+      action: 'getworkouts',
+      access_token: accessToken,
+      startdateymd: fmt(startDate),
+      enddateymd: fmt(endDate),
+      data_fields: 'calories,totalcalories,manual_calories',
+    });
+    if (stored?.userid) form.set('userid', stored.userid);
+    if (offset != null) form.set('offset', String(offset));
+
     const res = await fetch(WITHINGS_MEASURE_V2_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: form.toString(),
     });
     const json = (await res.json()) as WithingsWorkoutsJson;
-    if (json.status !== 0 || !json.body?.series) return [];
-
-    const sessions: WorkoutSession[] = [];
-    for (const w of json.body.series) {
-      const startMs = withingsUnixToMs(w.startdate ?? 0);
-      let endMs = withingsUnixToMs(w.enddate ?? 0);
-      const kcal = w.data?.calories ?? w.data?.totalcalories ?? 0;
-      if (!startMs || kcal <= 0) continue;
-      // Withings sometimes returns enddate === startdate; chart bars need a positive span.
-      if (!endMs || endMs <= startMs) endMs = startMs + 30 * 60 * 1000;
-      sessions.push({
-        category: w.category ?? 0,
-        activityLabel: workoutLabel(w.category ?? 0),
-        startMs,
-        endMs,
-        kcal,
-        totalKcal: w.data?.totalcalories,
-      });
+    if (json.status !== 0) {
+      throw new Error(`Withings getworkouts failed (status ${json.status})`);
     }
 
-    sessions.sort((a, b) => a.startMs - b.startMs);
-
-    if (__DEV__) {
-      console.warn('[WithingsWorkouts]', JSON.stringify({ lookbackDays, sessions: sessions.length }, null, 2));
+    const series = json.body?.series ?? [];
+    for (const w of series) {
+      const parsed = parseWorkoutSeriesRow(w);
+      if (!parsed) continue;
+      seenStartMs.add(parsed.startMs);
+      if (parsed.abort) {
+        abortStartMs.add(parsed.startMs);
+        keepableByStart.delete(parsed.startMs);
+        continue;
+      }
+      if (parsed.session) {
+        const prev = keepableByStart.get(parsed.startMs);
+        if (!prev || parsed.session.endMs - parsed.session.startMs >= prev.endMs - prev.startMs) {
+          keepableByStart.set(parsed.startMs, parsed.session);
+        }
+      }
     }
 
-    return sessions;
-  } catch {
-    return [];
+    const more = json.body?.more === true || json.body?.more === 1;
+    const nextOffset = json.body?.offset;
+    if (!more || nextOffset == null || series.length === 0) break;
+    if (offset != null && nextOffset === offset) break;
+    offset = nextOffset;
   }
+
+  const keepable = [...keepableByStart.values()].sort((a, b) => a.startMs - b.startMs);
+
+  if (__DEV__) {
+    console.warn(
+      '[WithingsWorkouts]',
+      JSON.stringify(
+        {
+          lookbackDays,
+          keepable: keepable.length,
+          aborts: abortStartMs.size,
+          seen: seenStartMs.size,
+        },
+        null,
+        2,
+      ),
+    );
+  }
+
+  return {
+    keepable,
+    abortStartMs: [...abortStartMs],
+    seenStartMs: [...seenStartMs],
+    lookbackStartMs,
+  };
 }
 
 // ─── User height ─────────────────────────────────────────────────────────────

@@ -18,10 +18,12 @@ import {
   fetchWeightMetrics,
   fetchWorkoutsHistory,
   getValidAccessToken,
+  isKeepableWorkout,
   loadWithingsTokens,
   type WeightMetricsForDashboard,
   type WithingsCaloriePoint,
   type WithingsHeartRatePoint,
+  type WithingsWorkoutsFetch,
   type WorkoutSession,
 } from './WithingsApiService';
 import {
@@ -180,10 +182,9 @@ function mergeSessions(prev: CompositionSession[], next: CompositionSession[]): 
   return [...map.values()].sort((a, b) => a.dateMs - b.dateMs);
 }
 
-/** Ensure chart calorie bars can render (re-link API sometimes returns enddate === startdate). */
-function normalizeWorkoutSession(w: WorkoutSession): WorkoutSession {
-  if (w.endMs > w.startMs) return w;
-  return { ...w, endMs: w.startMs + 30 * 60 * 1000 };
+/** Drop aborted / sub-2-minute sessions. Do not invent end times (old 30m pad caused merge wins). */
+function filterKeepableWorkouts(sessions: WorkoutSession[]): WorkoutSession[] {
+  return sessions.filter(isKeepableWorkout);
 }
 
 function mergeWorkouts(prev: WorkoutSession[], next: WorkoutSession[]): WorkoutSession[] {
@@ -197,18 +198,48 @@ function mergeWorkouts(prev: WorkoutSession[], next: WorkoutSession[]): WorkoutS
     if (bDur !== aDur) return bDur > aDur ? b : a;
     return b.kcal >= a.kcal ? b : a;
   };
-  for (const w of prev) map.set(w.startMs, normalizeWorkoutSession(w));
-  for (const w of next) {
+  for (const w of filterKeepableWorkouts(prev)) map.set(w.startMs, w);
+  for (const w of filterKeepableWorkouts(next)) {
     const existing = map.get(w.startMs);
-    const normalized = normalizeWorkoutSession(w);
-    map.set(w.startMs, existing ? prefer(existing, normalized) : normalized);
+    map.set(w.startMs, existing ? prefer(existing, w) : w);
   }
   return [...map.values()].sort((a, b) => a.startMs - b.startMs);
 }
 
+/** HC replace: keep Withings (and other non-HC) rows, swap in fresh HC sessions. */
 function replaceHealthConnectWorkouts(prev: WorkoutSession[], hcWorkouts: WorkoutSession[]): WorkoutSession[] {
   const kept = prev.filter((w) => w.source !== 'health-connect');
   return mergeWorkouts(kept, hcWorkouts);
+}
+
+/**
+ * Apply getworkouts to the store.
+ * - Short aborts tombstone by startMs.
+ * - Incomplete API rows (seen, not keepable): retain prior keepable cache.
+ * - Inside lookback and not seen at all: drop (paginated fetch is authoritative).
+ * - Outside lookback: retain prior keepable.
+ */
+function applyWithingsWorkoutsFetch(
+  prev: WorkoutSession[],
+  fetch: WithingsWorkoutsFetch,
+): WorkoutSession[] {
+  const abort = new Set(fetch.abortStartMs);
+  const apiStarts = new Set(fetch.keepable.map((w) => w.startMs));
+  const seen = new Set(fetch.seenStartMs);
+  const hc = prev.filter((w) => w.source === 'health-connect');
+  const retained = prev.filter((w) => {
+    if (w.source === 'health-connect') return false;
+    if (abort.has(w.startMs)) return false;
+    if (apiStarts.has(w.startMs)) return false;
+    if (!isKeepableWorkout(w)) return false;
+    // API still lists this start but without a usable span — keep our prior copy.
+    if (seen.has(w.startMs)) return true;
+    // Older than this fetch window — keep.
+    if (w.startMs < fetch.lookbackStartMs) return true;
+    // Inside lookback and absent from full paginated result — gone.
+    return false;
+  });
+  return mergeWorkouts([...hc, ...retained], fetch.keepable);
 }
 
 function applyDailyActiveKcalToTrendDays(
@@ -261,7 +292,7 @@ function normalizeStore(raw: unknown): MetricsPersistedStore {
     heartRate: Array.isArray(o.heartRate) ? o.heartRate : [],
     calories: Array.isArray(o.calories) ? o.calories : [],
     workouts: Array.isArray(o.workouts)
-      ? o.workouts.map((w) => normalizeWorkoutSession(w as WorkoutSession))
+      ? filterKeepableWorkouts(o.workouts as WorkoutSession[])
       : [],
   };
 }
@@ -490,7 +521,14 @@ export async function syncWithingsApiIntoStore(
       fetchWeightMetrics(),
       fetchBodyCompositionTrend7d(),
       useWithingsHr ? fetchHeartRateHistory() : Promise.resolve({ heartRate: [], calories: [] }),
-      useWithingsActivity ? fetchWorkoutsHistory() : Promise.resolve([]),
+      useWithingsActivity
+        ? fetchWorkoutsHistory()
+        : Promise.resolve({
+            keepable: [],
+            abortStartMs: [],
+            seenStartMs: [],
+            lookbackStartMs: 0,
+          } satisfies WithingsWorkoutsFetch),
     ]);
 
     const bodyScan =
@@ -503,8 +541,8 @@ export async function syncWithingsApiIntoStore(
       intradayRes.status === 'fulfilled'
         ? intradayRes.value
         : { heartRate: [] as WithingsHeartRatePoint[], calories: [] as WithingsCaloriePoint[] };
-    const workouts =
-      workoutsRes.status === 'fulfilled' ? workoutsRes.value : working.workouts;
+    const workoutsFetch =
+      workoutsRes.status === 'fulfilled' ? workoutsRes.value : null;
 
     const heartRate = useWithingsHr
       ? mergeHeartRateWithFreshToday(working.heartRate, intraday.heartRate, todayHr)
@@ -515,14 +553,17 @@ export async function syncWithingsApiIntoStore(
       todayCal,
     );
 
+    const mergedBase = mergeIntoMetricsStore(working, {
+      lastSyncedAt: new Date().toISOString(),
+      bodyScan: bodyScan ?? undefined,
+      bodyTrendDays: trend.days,
+      bodyTrendSessions: trend.debug.sessions,
+    });
     const merged: MetricsPersistedStore = {
-      ...mergeIntoMetricsStore(working, {
-        lastSyncedAt: new Date().toISOString(),
-        bodyScan: bodyScan ?? undefined,
-        bodyTrendDays: trend.days,
-        bodyTrendSessions: trend.debug.sessions,
-        ...(useWithingsActivity && workouts.length > 0 ? { workouts } : {}),
-      }),
+      ...mergedBase,
+      ...(useWithingsActivity && workoutsFetch != null
+        ? { workouts: applyWithingsWorkoutsFetch(working.workouts, workoutsFetch) }
+        : {}),
       heartRate,
       calories,
     };
