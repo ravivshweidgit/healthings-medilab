@@ -3,7 +3,7 @@
  * Shows today's logged meals with kcal totals and P/C/F bars.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -18,11 +18,16 @@ import { getBurnCorrection, setBurnCorrection } from '../services/BurnCorrection
 import { getDailyMacros, foodLogDayKey, exportFoodLog, importFoodLog, type DailyMacros, type FoodEntry } from '../services/FoodLogService';
 import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
 
-const MS_DAY = 24 * 60 * 60 * 1000;
-
 function startOfLocalDay(ms: number): number {
   const d = new Date(ms);
   d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/** Shift by calendar days (not fixed 24h — avoids DST / grayed › bugs). */
+function addLocalDays(ms: number, delta: number): number {
+  const d = new Date(startOfLocalDay(ms));
+  d.setDate(d.getDate() + delta);
   return d.getTime();
 }
 
@@ -31,11 +36,10 @@ function formatDatePart(ms: number): string {
 }
 
 function formatDayLabel(ms: number): string {
-  const todayMs = startOfLocalDay(Date.now());
-  const dayMs   = startOfLocalDay(ms);
-  const diff    = Math.round((todayMs - dayMs) / MS_DAY);
+  const todayKey = foodLogDayKey(Date.now());
+  const dayKey = foodLogDayKey(ms);
   const datePart = formatDatePart(ms);
-  if (diff === 0) return `Today - ${datePart}`;
+  if (dayKey === todayKey) return `Today - ${datePart}`;
   return datePart;
 }
 
@@ -129,7 +133,6 @@ const barStyles = StyleSheet.create({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, refreshKey, burnKcalByDay, onImported, macroTarget }: Props) {
-  const todayMs = useMemo(() => startOfLocalDay(Date.now()), []);
   const [selectedMs, setSelectedMs] = useState(() => startOfLocalDay(Date.now()));
   const [macros, setMacros] = useState<DailyMacros | null>(null);
   const [burnCorrection, setBurnCorrectionState] = useState(0);
@@ -159,14 +162,16 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
   }, [onImported]);
 
   const activeDayKey = foodLogDayKey(selectedMs);
-  const isToday = selectedMs >= todayMs;
+  const todayKey = foodLogDayKey(Date.now());
+  const isToday = activeDayKey === todayKey;
 
   const shiftDay = useCallback((delta: number) => {
     setSelectedMs((prev) => {
-      const next = prev + delta * MS_DAY;
-      return next > todayMs ? todayMs : next;
+      const next = addLocalDays(prev, delta);
+      const todayStart = startOfLocalDay(Date.now());
+      return next > todayStart ? todayStart : next;
     });
-  }, [todayMs]);
+  }, []);
 
   const load = useCallback(async () => {
     const [data, correction] = await Promise.all([
@@ -207,15 +212,18 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
 
       {/* Date navigator — centred below title */}
       <View style={styles.dateNavRow}>
-        <Pressable style={styles.dateNavBtn} onPress={() => shiftDay(-1)} hitSlop={8}>
+        <Pressable style={styles.dateNavBtn} onPress={() => shiftDay(-1)} hitSlop={8} accessibilityLabel="Previous day">
           <Text style={styles.dateNavArrow}>‹</Text>
         </Pressable>
         <Text style={styles.dateLabel}>{formatDayLabel(selectedMs)}</Text>
         <Pressable
           style={[styles.dateNavBtn, isToday && styles.dateNavBtnDisabled]}
-          onPress={() => shiftDay(1)}
+          onPress={() => {
+            if (!isToday) shiftDay(1);
+          }}
           disabled={isToday}
           hitSlop={8}
+          accessibilityLabel="Next day"
         >
           <Text style={[styles.dateNavArrow, isToday && styles.dateNavArrowDisabled]}>›</Text>
         </Pressable>
@@ -367,6 +375,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     marginBottom: 10,
+    direction: 'ltr',
   },
   footer: {
     flexDirection: 'row',
