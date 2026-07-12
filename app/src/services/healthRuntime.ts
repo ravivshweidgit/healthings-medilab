@@ -2,18 +2,29 @@ import { Platform } from 'react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 
 /** Where glucose/steps metrics come from at runtime. */
-export type HealthDataSource = 'health-connect' | 'demo-expo-go' | 'demo-non-android';
+export type HealthDataSource =
+  | 'health-connect'
+  | 'healthkit'
+  | 'demo-expo-go'
+  | 'demo-non-android';
 
 /**
- * Health Connect native APIs are not available inside the Expo Go store client.
- * Use a dev build (`expo run:android` / EAS) for real Health Connect / CGM data.
+ * Health Connect = Android; HealthKit = iOS release builds.
+ * Expo Go cannot use either native health API.
  */
 export function getHealthDataSource(): HealthDataSource {
-  if (Platform.OS !== 'android') {
-    return 'demo-non-android';
-  }
   if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
-    return 'demo-expo-go';
+    return Platform.OS === 'android' ? 'demo-expo-go' : 'demo-non-android';
   }
-  return 'health-connect';
+  if (Platform.OS === 'ios') {
+    return 'healthkit';
+  }
+  if (Platform.OS === 'android') {
+    return 'health-connect';
+  }
+  return 'demo-non-android';
+}
+
+export function isLiveCgmDataSource(source: HealthDataSource): boolean {
+  return source === 'health-connect' || source === 'healthkit';
 }

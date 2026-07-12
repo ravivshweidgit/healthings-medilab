@@ -1,13 +1,13 @@
 /**
  * CGM persistence — local store is the source of truth for glucose.
- * Health Connect / CSV import are sync adapters that merge into this store.
+ * Health Connect / HealthKit / CSV import are sync adapters that merge into this store.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { CgmSessionStart } from '../logic/cgmWarmupFilter';
 import { calculateMetabolicEfficiency, type ActivityZone } from '../logic/MetabolicLogic';
 import { generateDemoRecentMetrics } from './demoHealthMetrics';
 import type { HealthDataSource } from './healthRuntime';
-import { getHealthDataSource } from './healthRuntime';
+import { getHealthDataSource, isLiveCgmDataSource } from './healthRuntime';
 import {
   HEALTH_METRICS_CACHE_KEY,
   loadCachedHealthMetrics,
@@ -17,6 +17,7 @@ import {
   type CachedHealthMetrics,
 } from './healthMetricsCache';
 import { healthConnectService, type RecentMetrics, type TimePoint } from './HealthConnectService';
+import { healthKitService } from './HealthKitService';
 
 export type CgmStore = CachedHealthMetrics;
 
@@ -81,6 +82,15 @@ function storeFromGlucose(
   };
 }
 
+async function fetchLiveGlucose(dataSource: HealthDataSource): Promise<RecentMetrics> {
+  if (dataSource === 'healthkit') {
+    await healthKitService.initializeAndRequestPermissions();
+    return healthKitService.fetchRecentMetrics();
+  }
+  await healthConnectService.initializeAndRequestPermissions();
+  return healthConnectService.fetchRecentMetrics();
+}
+
 /**
  * Merge imported CSV glucose into the local store (CSV wins on duplicate instants).
  */
@@ -88,13 +98,20 @@ export async function mergeImportedGlucoseIntoStore(
   importedRaw: TimePoint[],
   importedSessionStarts: CgmSessionStart[] | undefined,
   dataSource: HealthDataSource,
-): Promise<CgmSyncResult & { csvCount: number; hcCount: number; mergedRawCount: number; chartCount: number; sessionCount: number }> {
+): Promise<
+  CgmSyncResult & {
+    csvCount: number;
+    hcCount: number;
+    mergedRawCount: number;
+    chartCount: number;
+    sessionCount: number;
+  }
+> {
   const prev = await loadCgmStore();
-  let hcGlucose: TimePoint[] = [];
-  if (dataSource === 'health-connect') {
+  let liveGlucose: TimePoint[] = [];
+  if (isLiveCgmDataSource(dataSource)) {
     try {
-      await healthConnectService.initializeAndRequestPermissions();
-      hcGlucose = (await healthConnectService.fetchRecentMetrics()).glucose;
+      liveGlucose = (await fetchLiveGlucose(dataSource)).glucose;
     } catch {
       // Non-fatal: CSV import still applies from file + cache.
     }
@@ -102,7 +119,7 @@ export async function mergeImportedGlucoseIntoStore(
 
   const mergedRaw = mergeGlucoseTimePoints([
     prev?.glucose ?? [],
-    hcGlucose,
+    liveGlucose,
     importedRaw,
   ]);
   const sessionStarts = mergeCgmSessionStarts(prev?.cgmSessionStarts, importedSessionStarts);
@@ -113,7 +130,7 @@ export async function mergeImportedGlucoseIntoStore(
     store,
     view,
     csvCount: importedRaw.length,
-    hcCount: hcGlucose.length,
+    hcCount: liveGlucose.length,
     mergedRawCount: mergedRaw.length,
     chartCount: view.glucoseData.length,
     sessionCount: view.cgmSessionStarts.length,
@@ -121,14 +138,14 @@ export async function mergeImportedGlucoseIntoStore(
 }
 
 /**
- * Pull from Health Connect (or demo source) and merge into the local CGM store.
+ * Pull from Health Connect / HealthKit (or demo source) and merge into the local CGM store.
  * Returns cached store when sync is unavailable — never wipes existing data.
  */
 export async function syncCgmStore(dataSource?: HealthDataSource): Promise<CgmSyncResult | null> {
   const source = dataSource ?? getHealthDataSource();
   const prev = await loadCgmStore();
 
-  if (source !== 'health-connect') {
+  if (!isLiveCgmDataSource(source)) {
     if (hasCgmData(prev)) {
       return { store: prev!, view: buildViewState(prev!) };
     }
@@ -140,12 +157,11 @@ export async function syncCgmStore(dataSource?: HealthDataSource): Promise<CgmSy
   }
 
   try {
-    await healthConnectService.initializeAndRequestPermissions();
-    const hc = await healthConnectService.fetchRecentMetrics();
-    const mergedRaw = mergeGlucoseTimePoints([prev?.glucose ?? [], hc.glucose]);
+    const live = await fetchLiveGlucose(source);
+    const mergedRaw = mergeGlucoseTimePoints([prev?.glucose ?? [], live.glucose]);
     const store = storeFromGlucose(mergedRaw, prev?.cgmSessionStarts);
     await saveCgmStore(store);
-    const view = buildViewState(store, hc.steps ?? [], hc.heartRate ?? []);
+    const view = buildViewState(store, live.steps ?? [], live.heartRate ?? []);
     return { store, view };
   } catch {
     if (hasCgmData(prev)) {
@@ -177,6 +193,3 @@ export async function loadCgmViewFromStore(appGlucose?: TimePoint[] | null): Pro
     cgmStatSummary: statFilter.summaryLine,
   };
 }
-
-/** @deprecated use loadCgmStore — kept for existing imports */
-export { HEALTH_METRICS_CACHE_KEY };

@@ -40,7 +40,7 @@ export function demoNoticeCopy(source: HealthDataSource): string | null {
     return 'You’re viewing sample wellness data. Install the full app on Android to connect your personal readings.';
   }
   if (source === 'demo-non-android') {
-    return 'Sample data for this screen — Health Connect lives on Android.';
+    return 'Sample data for this screen — install the TestFlight build for live Apple Health CGM.';
   }
   return null;
 }

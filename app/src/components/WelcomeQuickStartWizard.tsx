@@ -27,6 +27,7 @@ import {
 import { formatUserRulesBlock } from '../logic/userRulesContext';
 import { suggestBodyTargets } from '../services/GeminiService';
 import { healthConnectService } from '../services/HealthConnectService';
+import { healthKitService } from '../services/HealthKitService';
 import type { LabReport } from '../services/LabLogService';
 import { getManualBody, saveManualBody, type ManualBodySnapshot } from '../services/ManualBodyService';
 import { loadWithingsStore } from '../services/WithingsPersistenceService';
@@ -233,9 +234,18 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     setPermNote(null);
     const notes: string[] = [];
     try {
-      if (Platform.OS !== 'android') {
+      if (Platform.OS === 'ios') {
         if (tracksCgm) {
-          notes.push('Live CGM via Apple Health — coming soon. Import a CSV from the food log.');
+          try {
+            await healthKitService.initializeAndRequestPermissions();
+            notes.push(
+              'Apple Health: allow Blood Glucose for Healthings. In CareSens Air, share glucose with Apple Health.',
+            );
+          } catch {
+            notes.push(
+              'Apple Health: allow Blood Glucose later in Settings → Health → Data Access → Healthings.',
+            );
+          }
         }
         if (!hasWatch) {
           notes.push('On iPhone, link Withings for activity or log workouts manually.');
@@ -635,13 +645,13 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
             <>
               {Platform.OS === 'ios' ? (
                 <>
-                  <Text style={styles.lead}>Connect Withings for scale and watch data.</Text>
+                  <Text style={styles.lead}>Connect health data on iPhone.</Text>
                   <Text style={styles.hint}>
-                    On iPhone we sync from the Withings cloud — no Apple Health setup in this alpha. Tap Next; you can link Withings from the dashboard after login.
+                    Withings scale/watch sync from the Withings cloud. Tap Next to continue; you can link Withings from the dashboard after login.
                   </Text>
                   {tracksCgm ? (
                     <Text style={styles.hint}>
-                      Live CGM via Apple Health is coming soon. Import a CSV from the food log if you have one.
+                      CGM: CareSens Air → share with Apple Health → allow Healthings to read Blood Glucose when prompted.
                     </Text>
                   ) : null}
                 </>

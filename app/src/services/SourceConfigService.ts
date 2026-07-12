@@ -7,7 +7,7 @@ import { Platform } from 'react-native';
 
 const SOURCE_CONFIG_KEY = 'source_config';
 
-export type GlucoseSource = 'health-connect' | 'none';
+export type GlucoseSource = 'health-connect' | 'healthkit' | 'none';
 export type ActivitySource = 'withings' | 'health-connect' | 'samsung-steps' | 'none';
 export type BodyCompositionSource = 'withings' | 'manual' | 'none';
 export type BmrSource = 'withings' | 'manual' | 'ai-estimate';
@@ -74,11 +74,16 @@ function normalizeHeartRateSource(
   return 'none';
 }
 
+/** Live CGM from phone health bus (HC Android / HealthKit iOS). */
+export function isLiveGlucoseSource(glucose: GlucoseSource): boolean {
+  return glucose === 'health-connect' || glucose === 'healthkit';
+}
+
 export function togglesFromSourceConfig(c: SourceConfig): SetupToggles {
   return {
     withingsScale: c.bodyComposition === 'withings',
     withingsWatch: c.activity === 'withings',
-    cgm: c.glucose === 'health-connect',
+    cgm: isLiveGlucoseSource(c.glucose),
   };
 }
 
@@ -89,7 +94,7 @@ export function sourceConfigFromToggles(
   if (platform === 'ios') {
     return {
       version: 1,
-      glucose: 'none',
+      glucose: t.cgm ? 'healthkit' : 'none',
       activity: t.withingsWatch ? 'withings' : 'none',
       bodyComposition: t.withingsScale ? 'withings' : 'manual',
       bmr: t.withingsScale ? 'withings' : 'manual',
@@ -143,8 +148,9 @@ export function normalizeSourceConfigForPlatform(
   }
 
   let glucose = config.glucose;
+  // Android HC glucose → Apple Health on iPhone restore.
   if (glucose === 'health-connect') {
-    glucose = 'none';
+    glucose = 'healthkit';
   }
 
   let heartRate = config.heartRate;

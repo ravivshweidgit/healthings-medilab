@@ -9,15 +9,31 @@ function isIosNativeBuild() {
   return false;
 }
 
+const HEALTHKIT_PLUGIN = [
+  '@kingstinct/react-native-healthkit',
+  {
+    NSHealthShareUsageDescription:
+      'Healthings reads blood glucose from Apple Health so CareSens Air and other CGM apps can power your chart and coach.',
+    // Apple requires this key if any linked HealthKit API can write (ITMS-90683), even when we only read.
+    NSHealthUpdateUsageDescription:
+      'Healthings only reads blood glucose from Apple Health. It does not save or change your health records.',
+    background: false,
+  },
+];
+
 function pluginsForPlatform() {
-  const base = appJson.expo.plugins ?? [];
+  const base = [...(appJson.expo.plugins ?? [])];
   if (isIosNativeBuild()) {
-    return base.filter((entry) => {
+    const withoutHc = base.filter((entry) => {
       const name = typeof entry === 'string' ? entry : entry[0];
       return name !== 'react-native-health-connect';
     });
+    return [...withoutHc, HEALTHKIT_PLUGIN];
   }
-  return base;
+  return base.filter((entry) => {
+    const name = typeof entry === 'string' ? entry : entry[0];
+    return name !== '@kingstinct/react-native-healthkit';
+  });
 }
 
 module.exports = {
@@ -27,7 +43,7 @@ module.exports = {
     plugins: pluginsForPlatform(),
     ios: {
       ...appJson.expo.ios,
-      buildNumber: '21',
+      buildNumber: '23',
       infoPlist: {
         CFBundleURLTypes: [
           {
@@ -35,11 +51,13 @@ module.exports = {
           },
         ],
         ITSAppUsesNonExemptEncryption: false,
+        NSHealthUpdateUsageDescription:
+          'Healthings only reads blood glucose from Apple Health. It does not save or change your health records.',
       },
     },
     android: {
       ...appJson.expo.android,
-      versionCode: 21,
+      versionCode: 23,
     },
     extra: {
       eas: {

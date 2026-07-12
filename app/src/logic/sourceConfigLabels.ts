@@ -4,6 +4,7 @@
 
 import {
   isHealthConnectActivity,
+  isLiveGlucoseSource,
   type SourceConfig,
 } from '../services/SourceConfigService';
 
@@ -33,6 +34,7 @@ function activityChip(config: SourceConfig): string {
 
 function glucoseChip(config: SourceConfig): string {
   if (config.glucose === 'health-connect') return 'Health Connect';
+  if (config.glucose === 'healthkit') return 'Apple Health';
   return 'Off';
 }
 
@@ -54,7 +56,7 @@ export function metabolicChartHeader(
   config: SourceConfig | null | undefined,
   glucoseSummaryLine: string | null,
 ): MetabolicChartHeader {
-  const glucoseOn = config?.glucose === 'health-connect';
+  const glucoseOn = isLiveGlucoseSource(config?.glucose ?? 'none');
   const activityWithings = config?.activity === 'withings';
   const activityHc = isHealthConnectActivity(config?.activity ?? 'none');
   const activityOn = activityWithings || activityHc;
@@ -76,9 +78,11 @@ export function metabolicChartHeader(
       : activityHc
         ? 'Health Connect activity'
         : null;
+    const glucoseBus =
+      config?.glucose === 'healthkit' ? 'Apple Health' : 'Health Connect';
     const compactSub =
       glucoseSummaryLine ??
-      (activityHint ? `No reading · ${activityHint}` : 'Tap to open chart');
+      (activityHint ? `No reading · ${activityHint}` : `No reading · ${glucoseBus}`);
     return {
       show: true,
       title: 'GLUCOSE',

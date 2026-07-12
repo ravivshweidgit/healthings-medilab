@@ -45,6 +45,7 @@ import { SetupToggleRow } from '../components/SetupToggleRow';
 import { HealthConnectStepsGuide } from '../components/HealthConnectStepsGuide';
 import {
   isHealthConnectActivity,
+  isLiveGlucoseSource,
   loadSourceConfig,
   saveSourceConfig,
   sourceConfigFromToggles,
@@ -52,6 +53,7 @@ import {
   type SetupToggles,
   type SourceConfig,
 } from '../services/SourceConfigService';
+import { isLiveCgmDataSource } from '../services/healthRuntime';
 import { fetchDailyStepTotalsForTrend, stepsToActiveKcal } from '../services/SamsungStepsAdapter';
 import { clearOnboardingCompletedAt, shouldShowQuickStart } from '../services/ProfileCompletenessService';
 import { maybeRunOpportunisticCloudBackup } from '../services/CloudBackupService';
@@ -1299,6 +1301,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             { text: 'Cancel', style: 'cancel' },
           ],
         );
+      } else if (dataSource === 'healthkit') {
+        Alert.alert(
+          'Apple Health',
+          'Allow Healthings to read Blood Glucose in Settings → Health → Data Access & Devices. Also turn on sharing from CareSens Air → Apple Health.',
+        );
       }
       return;
     }
@@ -1712,7 +1719,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 {glucoseExpanded ? (
                   <MetabolicChart
                     glucose={
-                      sourceConfig?.glucose === 'health-connect' ? glucoseData : []
+                      isLiveGlucoseSource(sourceConfig?.glucose ?? 'none') ? glucoseData : []
                     }
                     heartRate={withingsHeartRate}
                     activityZones={activityZones}
@@ -1802,7 +1809,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           </View>
         </View>
 
-        {dataSource === 'health-connect' ? (
+        {isLiveCgmDataSource(dataSource) ? (
           <View style={styles.careSensImportSection}>
             <Pressable
               style={[styles.careSensImportButton, importBusy && styles.careSensImportButtonDisabled]}
@@ -1841,6 +1848,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             <Text style={styles.hcErrorBannerText}>{error}</Text>
             <Text style={styles.hcErrorBannerAction}>Open Health Connect settings →</Text>
           </Pressable>
+        ) : null}
+
+        {dataSource === 'healthkit' && error ? (
+          <View style={styles.hcErrorBanner}>
+            <Text style={styles.hcErrorBannerText}>{error}</Text>
+            <Text style={styles.hcErrorBannerAction}>
+              Settings → Health → Data Access → Healthings → Blood Glucose
+            </Text>
+          </View>
         ) : null}
 
         <Pressable
@@ -2038,7 +2054,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     hint={
                       setupToggles.cgm
                         ? Platform.OS === 'ios'
-                          ? 'Live CGM via Apple Health — coming soon. Import CSV from the food log.'
+                          ? 'CareSens Air → Apple Health sharing on. Then Sync in Healthings.'
                           : 'Allow Blood glucose in Health Connect settings.'
                         : undefined
                     }
