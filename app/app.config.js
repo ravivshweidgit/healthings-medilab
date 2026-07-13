@@ -57,7 +57,7 @@ module.exports = {
     },
     android: {
       ...appJson.expo.android,
-      versionCode: 25,
+      versionCode: 26,
     },
     extra: {
       eas: {
