@@ -1,0 +1,40 @@
+## Prompt 66 — Macro target stability (history + dampened auto-apply)
+
+**Status: implemented (code 2026-07-13)** — phone test pending  
+**Builds on:** `done/prompt35.txt` · `done/prompt42.txt` · `done/prompt44.txt`  
+**Problem:** AI macro targets jump day-to-day (e.g. carbs 75 → 65) because each revise fully regenerates without holding prior targets; food-log bars always use the *current* global target for past days.
+
+### What shipped
+
+| Piece | Behavior |
+|-------|----------|
+| Per-day snapshot | `macro_target_by_day_v1` — on `saveMacroTarget` and first open of day (`ensureMacroTargetDaySnapshot`) |
+| Food log bars | `getMacroTargetForDay(dayKey)` so yesterday’s meals are judged vs yesterday’s targets |
+| Auto-apply dampener | EMA 70/30 toward AI + daily caps (~±5% carbs, ±5g P/F, ±120 kcal) via `dampenMacroSuggestion` |
+| Gemini context | Inject active + recent day targets; instruct hold-steady / small titrations (no longer “do not copy prior”) |
+| Explicit Accept | `/macros` / dashboard Accept still saves full proposal (no dampener) |
+
+### Files
+
+- `app/src/services/TargetService.ts` — snapshot store + `getMacroTargetForDay` / `listRecentMacroTargetSnapshots`
+- `app/src/logic/macroStability.ts` — EMA + caps
+- `app/src/logic/macroAutoAdjust.ts` — context + dampen on weigh-in/lab auto-apply
+- `app/src/components/FoodMacroStrip.tsx` — day-resolved targets
+- `app/src/screens/DashboardScreen.tsx` — ensure today’s snapshot on load
+
+### Phone-tested
+
+- [ ] Weigh-in / lab auto-apply: carbs move by small steps, not 10g+ silent jumps
+- [ ] `/macros` Accept: can still apply a large intentional change
+- [ ] Food log: shift to yesterday — bars use prior snapshot after a target change today
+- [ ] Backup/restore includes `macro_target_by_day_v1` (not excluded)
+
+### Deferred
+
+- Visit-report adherence still uses active target for all days (optional: use per-day snapshots)
+- UI for revision / day-target history
+- Unit tests for `dampenMacroSuggestion`
+
+### Related
+
+- prompt42 carb auto-apply guards still run *before* dampen (large jumps → review card)

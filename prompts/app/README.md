@@ -24,7 +24,8 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 | `prompt49.txt` | Link to clinic + share encrypted data + sponsored AI badge |
 | `prompt52.txt` | My Rules rawText-only save — deprecate summarise-on-save |
 | `prompt65.txt` | iOS TestFlight Withings-first — no HealthKit v1 |
-| `prompt56.txt` | iOS Phase 2 — HealthKit adapters, `source_config` v2 |
+| `prompt56.txt` | **Partial:** HealthKit glucose on TF **1.2.2 (23)**; steps/HR still backlog |
+| `prompt66.txt` | Macro target stability — day snapshots + dampened auto-apply (code in; phone test pending) |
 
 **prompt64** — done (2026-07-12). HC activity Phase 1 + Garmin colleague validation. See `done/prompt64.txt`.
 

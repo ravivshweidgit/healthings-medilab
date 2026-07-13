@@ -92,6 +92,7 @@ import {
   setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors,
   getUserRules, getMacroTarget, getBodyTarget, getCoachMessage, saveCoachMessage,
   getLanguage, setLanguage, getMentorGender, SUPPORTED_LANGUAGES, resetQuickQuestionsForLanguage,
+  ensureMacroTargetDaySnapshot,
   type Gender, type MentorType, type UserRules, type DailyMacroTarget, type BodyTarget, type CoachMessage, type UserLanguage,
 } from '../services/TargetService';
 import { type CoachContext } from '../services/GeminiService';
@@ -470,6 +471,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       getLanguage(),
       getManualBody(),
     ]);
+    await ensureMacroTargetDaySnapshot();
     setManualBodySnap(manual);
     setMentorsState(m);
     if (r) setUserRules(r);

@@ -51,6 +51,7 @@ import {
   getMacroTarget,
   getMentors,
   getUserRules,
+  listRecentMacroTargetSnapshots,
   saveMacroTarget,
   computeAge,
   withFiberTarget,
@@ -73,6 +74,7 @@ import {
   type MacroRevisionTrigger,
 } from './macroRevisionLog';
 import { assessAutoApplyBlock } from './macroRevisionGuard';
+import { dampenMacroSuggestion } from './macroStability';
 
 export type MacroNeedsReviewPayload = {
   proposal: MacroSuggestion;
@@ -783,6 +785,24 @@ export async function buildMacroRevisionBundle(opts: {
       : null,
   });
 
+  const recentSnaps = await listRecentMacroTargetSnapshots(7);
+  const priorTargetsBlock =
+    macroTarget || recentSnaps.length > 0
+      ? [
+          'ACTIVE / RECENT MACRO TARGETS (hold steady unless labs, rules, or clear progress failure require change):',
+          macroTarget
+            ? `  Active now: ${macroTarget.kcal} kcal · P${macroTarget.protein_g} · C${macroTarget.carb_g} · F${macroTarget.fat_g} · Fi${macroTarget.fiber_g ?? '—'} (${macroTarget.diet_label})`
+            : null,
+          ...recentSnaps.map(
+            (s) =>
+              `  ${s.dayKey}: ${s.kcal} kcal · P${s.protein_g} · C${s.carb_g} · F${s.fat_g} · Fi${s.fiber_g}`,
+          ),
+          'Prefer small daily titrations (±5% carbs, few grams P/F). Do not regenerate a new plan from scratch when lifestyle is stable.',
+        ]
+          .filter(Boolean)
+          .join('\n')
+      : null;
+
   const contextText = [
     header,
     formatBodyTarget(bodyTarget),
@@ -796,10 +816,11 @@ export async function buildMacroRevisionBundle(opts: {
     formatGlycemicGuidanceBlock({ glycemic: glycemicLabStatus }),
     formatCarbGuidanceBlock({ avgEatenCarb7d, userRules }),
     formatFiberGuidanceBlock({ userRules, lipidLabStatus }),
+    priorTargetsBlock,
     bodyTrend28,
     labs,
     period7,
-    'Derive daily macro TARGETS from the raw data above (not meal advice). Do not copy prior app targets — conclude P/C/F/kcal from weight goal, burn, food eaten, CGM, labs, and rules.',
+    'Derive daily macro TARGETS from the raw data above (not meal advice). Start from ACTIVE targets above; only change what the data justifies. Large jumps need a clear clinical or adherence reason.',
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -1192,7 +1213,27 @@ export async function applyAutoMacroRevision(opts: {
     return null;
   }
 
-  const target = macroSuggestionToDailyTarget(proposed, userRules, mentors);
+  // Silent auto-apply: dampen toward current so day-to-day P/C/F don't whiplash.
+  const stabilized = dampenMacroSuggestion(saved, proposed);
+  if (!materiallyChanged(saved, stabilized)) {
+    await appendMacroRevisionLog({
+      at: new Date().toISOString(),
+      trigger: opts.trigger,
+      triggerDetail: opts.triggerDetail,
+      source,
+      kcal: proposed.kcal,
+      protein_g: proposed.protein_g,
+      carb_g: proposed.carb_g,
+      fat_g: proposed.fat_g,
+      fiber_g: proposed.fiber_g,
+      applied: false,
+      blockReason: 'stabilized delta below material threshold',
+    });
+    await bumpState();
+    return null;
+  }
+
+  const target = macroSuggestionToDailyTarget(stabilized, userRules, mentors);
   await saveMacroTarget(target);
 
   await saveMacroAutoAdjustState({
@@ -1217,7 +1258,7 @@ export async function applyAutoMacroRevision(opts: {
     applied: true,
   });
 
-  notifyMacroUpdated(opts.trigger, opts.triggerDetail, proposed, lang.code);
+  notifyMacroUpdated(opts.trigger, opts.triggerDetail, stabilized, lang.code);
   opts.onSaved?.(target);
   return target;
 }

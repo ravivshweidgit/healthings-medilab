@@ -17,6 +17,8 @@ import {
 import { getBurnCorrection, setBurnCorrection } from '../services/BurnCorrectionService';
 import { getDailyMacros, foodLogDayKey, exportFoodLog, importFoodLog, type DailyMacros, type FoodEntry } from '../services/FoodLogService';
 import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
+import type { DailyMacroTarget } from '../services/TargetService';
+import { getMacroTargetForDay, resolveFiberTarget_g } from '../services/TargetService';
 
 function startOfLocalDay(ms: number): number {
   const d = new Date(ms);
@@ -42,9 +44,6 @@ function formatDayLabel(ms: number): string {
   if (dayKey === todayKey) return `Today - ${datePart}`;
   return datePart;
 }
-
-import type { DailyMacroTarget } from '../services/TargetService';
-import { resolveFiberTarget_g } from '../services/TargetService';
 
 type Props = {
   /** Initial day key — defaults to today. */
@@ -135,6 +134,7 @@ const barStyles = StyleSheet.create({
 export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, refreshKey, burnKcalByDay, onImported, macroTarget }: Props) {
   const [selectedMs, setSelectedMs] = useState(() => startOfLocalDay(Date.now()));
   const [macros, setMacros] = useState<DailyMacros | null>(null);
+  const [dayMacroTarget, setDayMacroTarget] = useState<DailyMacroTarget | null>(macroTarget ?? null);
   const [burnCorrection, setBurnCorrectionState] = useState(0);
   const [correctionModalVisible, setCorrectionModalVisible] = useState(false);
   const [correctionInput, setCorrectionInput] = useState('');
@@ -164,6 +164,7 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
   const activeDayKey = foodLogDayKey(selectedMs);
   const todayKey = foodLogDayKey(Date.now());
   const isToday = activeDayKey === todayKey;
+  const displayTarget = dayMacroTarget ?? macroTarget ?? null;
 
   const shiftDay = useCallback((delta: number) => {
     setSelectedMs((prev) => {
@@ -174,13 +175,15 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
   }, []);
 
   const load = useCallback(async () => {
-    const [data, correction] = await Promise.all([
+    const [data, correction, dayTarget] = await Promise.all([
       getDailyMacros(activeDayKey),
       getBurnCorrection(activeDayKey),
+      getMacroTargetForDay(activeDayKey),
     ]);
     setMacros(data);
     setBurnCorrectionState(correction);
-  }, [activeDayKey]);
+    setDayMacroTarget(dayTarget ?? macroTarget ?? null);
+  }, [activeDayKey, macroTarget]);
 
   useEffect(() => { load(); }, [load, refreshKey]);
 
@@ -194,10 +197,10 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
 
   const isEmpty = !macros || macros.entries.length === 0;
   // When macro targets are set, bar max = target value; otherwise rolling max of actuals
-  const maxMacro = macroTarget
-    ? Math.max(macroTarget.protein_g, macroTarget.carb_g, macroTarget.fat_g, resolveFiberTarget_g(macroTarget), 1)
+  const maxMacro = displayTarget
+    ? Math.max(displayTarget.protein_g, displayTarget.carb_g, displayTarget.fat_g, resolveFiberTarget_g(displayTarget), 1)
     : macros ? Math.max(macros.protein_g, macros.carb_g, macros.fat_g, macros.fiber_g, 1) : 1;
-  const fiberTarget = macroTarget ? resolveFiberTarget_g(macroTarget) : maxMacro;
+  const fiberTarget = displayTarget ? resolveFiberTarget_g(displayTarget) : maxMacro;
 
   const rawBurn = burnKcalByDay?.[activeDayKey] ?? null;
   const burn    = rawBurn != null ? rawBurn + burnCorrection : null;
@@ -232,11 +235,11 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
       {/* Energy lines — always shown, columns aligned */}
       <View style={styles.energyLines}>
         <View style={styles.energyRow}>
-          {macroTarget ? (
+          {displayTarget ? (
             <Text style={styles.energyLabel}>
               <Text style={styles.energyNumInline}>{eaten > 0 ? eaten.toLocaleString() : '—'}</Text>
               {` kcal eaten `}
-              <Text style={styles.energyTarget}>{`/ ${macroTarget.kcal.toLocaleString()}`}</Text>
+              <Text style={styles.energyTarget}>{`/ ${displayTarget.kcal.toLocaleString()}`}</Text>
             </Text>
           ) : (
             <>
@@ -268,12 +271,12 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
       </View>
 
       {/* Macro bars — show when meals exist OR when targets are set */}
-      {(!isEmpty || macroTarget) && (
+      {(!isEmpty || displayTarget) && (
         <View style={[styles.barsWrap, { marginTop: 10 }]}>
-          <MacroBar label="P" value={macros?.protein_g ?? 0} target={macroTarget ? macroTarget.protein_g : maxMacro} color={COLOR_PROTEIN} showTarget={!!macroTarget} />
-          <MacroBar label="C" value={macros?.carb_g    ?? 0} target={macroTarget ? macroTarget.carb_g    : maxMacro} color={COLOR_CARB}    showTarget={!!macroTarget} />
-          <MacroBar label="F" value={macros?.fat_g     ?? 0} target={macroTarget ? macroTarget.fat_g     : maxMacro} color={COLOR_FAT}     showTarget={!!macroTarget} />
-          <MacroBar label="Fi" value={macros?.fiber_g ?? 0} target={fiberTarget} color={COLOR_FIBER} showTarget={!!macroTarget} />
+          <MacroBar label="P" value={macros?.protein_g ?? 0} target={displayTarget ? displayTarget.protein_g : maxMacro} color={COLOR_PROTEIN} showTarget={!!displayTarget} />
+          <MacroBar label="C" value={macros?.carb_g    ?? 0} target={displayTarget ? displayTarget.carb_g    : maxMacro} color={COLOR_CARB}    showTarget={!!displayTarget} />
+          <MacroBar label="F" value={macros?.fat_g     ?? 0} target={displayTarget ? displayTarget.fat_g     : maxMacro} color={COLOR_FAT}     showTarget={!!displayTarget} />
+          <MacroBar label="Fi" value={macros?.fiber_g ?? 0} target={fiberTarget} color={COLOR_FIBER} showTarget={!!displayTarget} />
         </View>
       )}
 

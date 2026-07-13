@@ -232,6 +232,7 @@ export async function saveMacroTarget(t: DailyMacroTarget, opts?: { userEdited?:
   const fiber_g = deriveFiberTargetFromCarbs(t.carb_g);
   const sanitized = withFiberTarget({ ...t, fiber_g });
   await AsyncStorage.setItem(MACRO_TARGET_KEY, JSON.stringify(sanitized));
+  await snapshotMacroTargetForDay(localDayKeyFromMs(Date.now()), sanitized);
   if (opts?.userEdited) {
     await setMacroManualLock(true);
   }
@@ -239,6 +240,140 @@ export async function saveMacroTarget(t: DailyMacroTarget, opts?: { userEdited?:
 
 export async function clearMacroTarget(): Promise<void> {
   await AsyncStorage.removeItem(MACRO_TARGET_KEY);
+}
+
+// ─── Per-day macro target snapshots (stability / fair food-log bars) ──────────
+
+const MACRO_TARGET_BY_DAY_KEY = 'macro_target_by_day_v1';
+const MACRO_TARGET_BY_DAY_MAX = 90;
+
+export type MacroTargetDaySnapshot = {
+  protein_g: number;
+  fat_g: number;
+  carb_g: number;
+  fiber_g: number;
+  kcal: number;
+  diet_label?: string;
+  /** When the active target was snapshotted for this day. */
+  snapshottedAt: string;
+  /** analyzedAt from the active target at snapshot time. */
+  analyzedAt?: string;
+};
+
+type MacroTargetByDayStore = Record<string, MacroTargetDaySnapshot>;
+
+function localDayKeyFromMs(ms: number): string {
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function toDaySnapshot(t: DailyMacroTarget): MacroTargetDaySnapshot {
+  const fiber_g = resolveFiberTarget_g(t);
+  return {
+    protein_g: t.protein_g,
+    fat_g: t.fat_g,
+    carb_g: t.carb_g,
+    fiber_g,
+    kcal: t.kcal,
+    diet_label: t.diet_label,
+    snapshottedAt: new Date().toISOString(),
+    analyzedAt: t.analyzedAt,
+  };
+}
+
+async function loadMacroTargetByDay(): Promise<MacroTargetByDayStore> {
+  const raw = await AsyncStorage.getItem(MACRO_TARGET_BY_DAY_KEY);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as MacroTargetByDayStore;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+async function saveMacroTargetByDay(store: MacroTargetByDayStore): Promise<void> {
+  const keys = Object.keys(store).sort();
+  if (keys.length > MACRO_TARGET_BY_DAY_MAX) {
+    for (const k of keys.slice(0, keys.length - MACRO_TARGET_BY_DAY_MAX)) {
+      delete store[k];
+    }
+  }
+  await AsyncStorage.setItem(MACRO_TARGET_BY_DAY_KEY, JSON.stringify(store));
+}
+
+async function snapshotMacroTargetForDay(dayKey: string, t: DailyMacroTarget): Promise<void> {
+  const store = await loadMacroTargetByDay();
+  store[dayKey] = toDaySnapshot(t);
+  await saveMacroTargetByDay(store);
+}
+
+/**
+ * Ensure today's date has a snapshot of the active target (first open of the day).
+ * Does not overwrite an existing snapshot for today (keeps morning baseline for food-log fairness
+ * when targets change later the same day — optional: we overwrite on saveMacroTarget instead).
+ */
+export async function ensureMacroTargetDaySnapshot(): Promise<void> {
+  const active = await getMacroTarget();
+  if (!active) return;
+  const today = localDayKeyFromMs(Date.now());
+  const store = await loadMacroTargetByDay();
+  if (store[today]) return;
+  store[today] = toDaySnapshot(active);
+  await saveMacroTargetByDay(store);
+}
+
+/** Target numbers to judge a given calendar day (snapshot, else active). */
+export async function getMacroTargetForDay(dayKey: string): Promise<DailyMacroTarget | null> {
+  const store = await loadMacroTargetByDay();
+  const snap = store[dayKey];
+  const active = await getMacroTarget();
+  if (snap) {
+    if (!active) {
+      return {
+        protein_g: snap.protein_g,
+        fat_g: snap.fat_g,
+        carb_g: snap.carb_g,
+        fiber_g: snap.fiber_g,
+        kcal: snap.kcal,
+        diet_label: snap.diet_label ?? '',
+        reasoning: '',
+        rulesContext: '',
+        mentors: [],
+        aiSuggested: {
+          protein_g: snap.protein_g,
+          fat_g: snap.fat_g,
+          carb_g: snap.carb_g,
+          fiber_g: snap.fiber_g,
+          kcal: snap.kcal,
+        },
+        analyzedAt: snap.analyzedAt ?? snap.snapshottedAt,
+      };
+    }
+    return {
+      ...active,
+      protein_g: snap.protein_g,
+      fat_g: snap.fat_g,
+      carb_g: snap.carb_g,
+      fiber_g: snap.fiber_g,
+      kcal: snap.kcal,
+      diet_label: snap.diet_label ?? active.diet_label,
+    };
+  }
+  return active;
+}
+
+/** Recent day snapshots newest-first for Gemini hold-steady context. */
+export async function listRecentMacroTargetSnapshots(limit = 7): Promise<Array<{ dayKey: string } & MacroTargetDaySnapshot>> {
+  const store = await loadMacroTargetByDay();
+  return Object.keys(store)
+    .sort()
+    .reverse()
+    .slice(0, limit)
+    .map((dayKey) => ({ dayKey, ...store[dayKey]! }));
 }
 
 // ─── Macro auto-adjust state (prompt35) ───────────────────────────────────────
