@@ -108,6 +108,8 @@ UI hint shown: *Remove = photo shows food you did not eat (leftovers)*.
 - Before/after second photo (`afterPhotoUri`, `handleAfterPhoto`, dual-image `analyzeFood` for leftovers)
 - Immediate overwrite of `items` when a photo is analyzed during edit
 
+**2026-07-13 regression fix (phone-tested):** Prompt61 first-photo auto-save had reintroduced `setItems(result.items)` on every photo analyze. Edit → camera then wiped the meal before “+ Add to meal”. Restored prompt20 rule: photo results stay in `photoSession` only until Approve; `setItems` only on successful new-meal auto-save.
+
 ---
 
 ## New meal (idle)

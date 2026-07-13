@@ -589,10 +589,6 @@ export function FoodLogModal({
           userRules,
           historyBlock,
         );
-        setItems(result.items);
-        setConfidence(result.confidence);
-        setDescription(result.description);
-        setSuggestion(result.suggestion);
         setMealHistory(updatedHistory);
         setHadPhotoForSave(true);
 
@@ -600,12 +596,18 @@ export function FoodLogModal({
           hist.length === 0 && !editingId && items.length === 0 && result.items.length > 0;
 
         // First photo on a new meal: same as text — auto-save, stay open, Done (no Use/Approve/Save).
+        // Do NOT setItems for edit / add-photo paths — photo lives in photoSession until
+        // "+ Add to meal" / "Use as meal" → Approve (prompt20). Overwriting items wiped the meal.
         if (isFirstPhotoNewMeal) {
           const saved = await tryAutoSaveNewMeal(result.items, {
             fromPhoto: true,
             historyLen: updatedHistory.length,
           });
           if (saved) {
+            // persistMealItems(stayOpen) already set items from the saved entry.
+            setConfidence(result.confidence);
+            setDescription(result.description);
+            setSuggestion(result.suggestion);
             setPhotoSession(null);
             setMergePreview(null);
             return;
