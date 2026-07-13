@@ -27,6 +27,33 @@ When prompted, let EAS create the iOS distribution certificate and provisioning 
 
 Copy the EAS project id into `app.config.js` → `extra.eas.projectId` (or set `EAS_PROJECT_ID` in EAS secrets).
 
+### 1a. EAS Environment variables (required for Withings + Gemini on TestFlight)
+
+`app/.env` is **gitignored**. Local Android `bi` embeds it; **EAS iOS builds do not** unless you set project env vars.
+
+On [expo.dev](https://expo.dev) → project → **Environment variables** → **production** (and **preview** if used), add as **Sensitive**:
+
+| Name | Notes |
+|------|--------|
+| `WITHINGS_CLIENT_ID` | Same as local `app/.env` (one app client for all users) |
+| `WITHINGS_CLIENT_SECRET` | Same |
+| `WITHINGS_CALLBACK_URL` | `healthings-medilab://oauth` |
+| `GEMINI_API_KEY` | Same as local |
+| `HEALTHINGS_API_URL` | `https://api.healthings.ai` |
+
+Or CLI (from `app/`):
+
+```powershell
+eas env:create --environment production --visibility sensitive --name WITHINGS_CLIENT_ID --value "paste-from-local-env"
+# repeat for CLIENT_SECRET, CALLBACK_URL, GEMINI_API_KEY, HEALTHINGS_API_URL
+```
+
+`eas-build-pre-install` runs `scripts/eas-write-dotenv.js` so Babel/`@env` sees them during the cloud build.
+
+**Auth model:** one Withings **developer app** (client id/secret) for everyone; each person signs into **their** Withings account during Link Withings (user tokens stored on device).
+
+Then rebuild: `bi-os` / `eas build --platform ios --profile production`.
+
 ### Apple login blocked (SMS 2FA fails on Windows)
 
 Use an **App Store Connect API key** instead of Apple ID + SMS in EAS. See **§1b** below.

@@ -123,7 +123,9 @@ function assertWithingsConfigured(): { clientId: string; clientSecret: string } 
   const clientSecret = CONFIG.withingsClientSecret.trim();
   if (!clientId || !clientSecret) {
     throw new Error(
-      'Withings OAuth is not configured. Set WITHINGS_CLIENT_ID and WITHINGS_CLIENT_SECRET in .env.'
+      'Withings is not available in this build (app OAuth keys missing). ' +
+        'This is not your Withings account — the TestFlight/EAS binary needs WITHINGS_CLIENT_ID/SECRET. ' +
+        'Developers: set EAS Environment variables and rebuild.',
     );
   }
   return { clientId, clientSecret };
