@@ -90,7 +90,7 @@ import { activeMentorEmojis } from '../logic/mentorLabels';
 import {
   getBirthdate, setBirthdate, computeAge, getCachedHeightCm,
   setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors,
-  getUserRules, getMacroTarget, getBodyTarget, getCoachMessage, saveCoachMessage,
+  getUserRules, getMacroTarget, getEffectiveMacroTarget, getBodyTarget, getCoachMessage, saveCoachMessage,
   getLanguage, setLanguage, getMentorGender, SUPPORTED_LANGUAGES, resetQuickQuestionsForLanguage,
   ensureMacroTargetDaySnapshot,
   type Gender, type MentorType, type UserRules, type DailyMacroTarget, type BodyTarget, type CoachMessage, type UserLanguage,
@@ -313,6 +313,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [nutritionDirectives, setNutritionDirectives] = useState<NutritionDirective[]>([]);
   const [directiveActiveId, setDirectiveActiveId] = useState<string | null>(null);
   const [macroTarget, setMacroTarget] = useState<DailyMacroTarget | null>(null);
+  const [effectiveMacroTarget, setEffectiveMacroTarget] = useState<DailyMacroTarget | null>(null);
   const [userLanguage, setUserLanguage] = useState<UserLanguage>(SUPPORTED_LANGUAGES[0]);
   // expanded state for each collapsible row in the grouped card
   const [mentorExpanded, setMentorExpanded] = useState(false);
@@ -394,14 +395,16 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, []);
 
   const loadLabReports = useCallback(async (refreshCoach = false) => {
-    const [reports, mt] = await Promise.all([
+    const [reports, mt, effMt] = await Promise.all([
       getAllLabReports(),
       getMacroTarget(),
+      getEffectiveMacroTarget(),
     ]);
     const ctx = buildLabsAiContext(reports, 'all');
     setLabReports(reports);
     setLabsAiContext(ctx);
     if (mt) setMacroTarget(mt);
+    if (effMt) setEffectiveMacroTarget(effMt);
 
     if (coachContextRef.current) {
       coachContextRef.current = { ...coachContextRef.current, labsAiContext: ctx };
@@ -472,10 +475,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       getManualBody(),
     ]);
     await ensureMacroTargetDaySnapshot();
+    const effMt = await getEffectiveMacroTarget();
     setManualBodySnap(manual);
     setMentorsState(m);
     if (r) setUserRules(r);
     if (mt) setMacroTarget(mt);
+    if (effMt) setEffectiveMacroTarget(effMt);
     if (bt) setBodyTargetForMacros(bt);
     setUserLanguage(lang);
 
@@ -960,7 +965,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       todayMealsDetail: mealContext.todayMealsDetail,
       todayMealGlucoseDetail: mealGlucoseContext,
       glucoseHistory: glucoseData,
-      macroTarget,
+      macroTarget: macroTarget ?? effectiveMacroTarget,
       bodyTarget: bodyTargetForMacros,
       userRules,
       labsAiContext,
@@ -970,7 +975,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     return ctx;
   }, [
     mentors, userAge, userGender, userMentorGender, mentorGenderPicker, heightCm, effectiveBodyScan, fatPct, bodyTargetForMacros,
-    todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, mealGlucoseContext, glucoseData, macroTarget, userRules, labsAiContext, nutritionDirectiveContext, userLanguage,
+    todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, mealGlucoseContext, glucoseData, macroTarget, effectiveMacroTarget, userRules, labsAiContext, nutritionDirectiveContext, userLanguage,
   ]);
 
   /** Regenerate coach message using stored language (not stale React state). */
@@ -1184,7 +1189,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       triggerDetail: `${w.toFixed(1)} kg`,
       weightKg: w,
       measuredAt,
-      onSaved: (t) => setMacroTarget(t),
+      onSaved: (t) => { setMacroTarget(t); setEffectiveMacroTarget(t); },
       onNeedsReview: async ({ proposal, source, triggerDetail }) => {
         setMacroExpanded(true);
         const he = userLanguage?.code === 'he';
@@ -2177,7 +2182,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             userRules={userRules}
             mentors={mentors}
             savedTarget={macroTarget}
-            onSaved={(t) => setMacroTarget(t ?? null)}
+            onSaved={(t) => { setMacroTarget(t ?? null); setEffectiveMacroTarget(t ?? null); }}
             weighInSuggestion={macroWeighInSuggestion}
             weighInSuggestionHint={macroWeighInHint}
             onWeighInSuggestionConsumed={() => {
@@ -2318,7 +2323,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             onClose={() => setChatVisible(false)}
             context={coachContext}
             onCoachMessageUpdated={(msg) => setCoachMsg(msg)}
-            onMacroTargetUpdated={(t) => setMacroTarget(t)}
+            onMacroTargetUpdated={(t) => { setMacroTarget(t); setEffectiveMacroTarget(t); }}
             onFoodLogSaved={handleFoodSaved}
           />
         </SafeAreaProvider>

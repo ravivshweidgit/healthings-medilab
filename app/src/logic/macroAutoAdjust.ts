@@ -877,7 +877,9 @@ export function deterministicMacroFallback(
 
   const carbCap = parseCarbCapFromRules(bundle.userRules);
   const carbMin = parseCarbMinFromRules(bundle.userRules);
-  let carb_g = carbMin ?? carbCap ?? 30;
+  // Seed from the current saved target so a transient Gemini failure doesn't whiplash
+  // carbs to the hardcoded 30g default (rules floor/cap still take priority).
+  let carb_g = carbMin ?? carbCap ?? bundle.macroTarget?.carb_g ?? 30;
   if (carbMin != null && carbCap != null) carb_g = Math.min(carbCap, Math.max(carbMin, carb_g));
   const fiberMin = parseFiberMinFromRules(bundle.userRules);
   let fiber_g = deriveFiberTargetFromCarbs(carb_g);

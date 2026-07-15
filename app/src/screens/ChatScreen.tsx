@@ -42,7 +42,7 @@ import {
   saveYesterdaySummary,
   getQuickQuestions,
   saveQuickQuestions,
-  getMacroTarget,
+  getEffectiveMacroTarget,
   getUserRules,
   MENTOR_CHAT_TAB_ORDER,
 } from '../services/TargetService';
@@ -1258,7 +1258,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
   const buildFreshContext = useCallback(async (): Promise<CoachContext> => {
     const [meals, macroTarget, userRules, labsAiContext, nutritionDirectiveContext] = await Promise.all([
       getTodayMeals(),
-      getMacroTarget(),
+      getEffectiveMacroTarget(),
       getUserRules(),
       getLabsAiContextForHeader(),
       getNutritionDirectiveAiContext(),

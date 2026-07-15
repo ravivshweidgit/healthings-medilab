@@ -366,6 +366,40 @@ export async function getMacroTargetForDay(dayKey: string): Promise<DailyMacroTa
   return active;
 }
 
+/**
+ * Robust macro target for AI context — never silently null when ANY target exists.
+ * Active target first; else reconstruct from the most recent day snapshot (the same
+ * numbers the dashboard bars render). Keeps chat/coach context in parity with the
+ * dashboard so the nutritionist can't claim "targets not defined" while bars show them.
+ */
+export async function getEffectiveMacroTarget(): Promise<DailyMacroTarget | null> {
+  const active = await getMacroTarget();
+  if (active) return active;
+  const store = await loadMacroTargetByDay();
+  const latestKey = Object.keys(store).sort().reverse()[0];
+  if (!latestKey) return null;
+  const snap = store[latestKey]!;
+  return {
+    protein_g: snap.protein_g,
+    fat_g: snap.fat_g,
+    carb_g: snap.carb_g,
+    fiber_g: snap.fiber_g,
+    kcal: snap.kcal,
+    diet_label: snap.diet_label ?? '',
+    reasoning: '',
+    rulesContext: '',
+    mentors: [],
+    aiSuggested: {
+      protein_g: snap.protein_g,
+      fat_g: snap.fat_g,
+      carb_g: snap.carb_g,
+      fiber_g: snap.fiber_g,
+      kcal: snap.kcal,
+    },
+    analyzedAt: snap.analyzedAt ?? snap.snapshottedAt,
+  };
+}
+
 /** Recent day snapshots newest-first for Gemini hold-steady context. */
 export async function listRecentMacroTargetSnapshots(limit = 7): Promise<Array<{ dayKey: string } & MacroTargetDaySnapshot>> {
   const store = await loadMacroTargetByDay();
