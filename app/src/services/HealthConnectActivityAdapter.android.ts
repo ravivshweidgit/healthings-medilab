@@ -3,6 +3,7 @@
  */
 
 import { ExerciseType } from 'react-native-health-connect';
+import { localDayKeyFromMs } from '../logic/metabolicTrend7d';
 import { isKeepableWorkout, type WorkoutSession } from './WithingsApiService';
 
 const HC_EXERCISE_LABELS: Record<number, string> = {
@@ -91,9 +92,9 @@ export function dailyActiveKcalFromRecords(
   for (const record of calories) {
     const kcal = parseHcEnergyKcal(record);
     if (kcal <= 0) continue;
-    const end = String(record.endTime ?? record.startTime ?? '');
-    const dk = end.slice(0, 10);
-    if (!dk) continue;
+    const ms = parseInstantMs(record.endTime ?? record.startTime);
+    if (ms == null) continue;
+    const dk = localDayKeyFromMs(ms);
     byDay.set(dk, (byDay.get(dk) ?? 0) + kcal);
   }
   return byDay;

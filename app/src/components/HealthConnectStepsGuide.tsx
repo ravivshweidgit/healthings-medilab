@@ -3,10 +3,15 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { WellnessColors } from '../theme/wellness';
 import { openGarminConnectApp, openSamsungHealthApp } from '../services/healthAppLinks';
 import { healthConnectService, openHealthConnectSettings } from '../services/HealthConnectService';
+import {
+  formatHealthConnectDiagnostics,
+  gatherHealthConnectDiagnostics,
+  persistHealthConnectDiagnostics,
+} from '../services/healthConnectDiagnostics';
 
 type Props = {
   onPermissionGranted?: () => void;
@@ -15,6 +20,7 @@ type Props = {
 export function HealthConnectStepsGuide({ onPermissionGranted }: Props) {
   const [activityAllowed, setActivityAllowed] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
+  const [diagBusy, setDiagBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
   const refreshStatus = useCallback(async () => {
@@ -45,6 +51,21 @@ export function HealthConnectStepsGuide({ onPermissionGranted }: Props) {
       setBusy(false);
     }
   }, [onPermissionGranted]);
+
+  const handleDiagnostics = useCallback(async () => {
+    setDiagBusy(true);
+    try {
+      const diag = await gatherHealthConnectDiagnostics();
+      await persistHealthConnectDiagnostics(diag);
+      Alert.alert('Health Connect diagnostics', formatHealthConnectDiagnostics(diag), [
+        { text: 'Close' },
+      ]);
+    } catch {
+      Alert.alert('Health Connect diagnostics', 'Could not read Health Connect right now.');
+    } finally {
+      setDiagBusy(false);
+    }
+  }, []);
 
   return (
     <View style={styles.card}>
@@ -92,6 +113,23 @@ export function HealthConnectStepsGuide({ onPermissionGranted }: Props) {
         <Text style={styles.warn}>Activity permissions not granted yet</Text>
       ) : null}
       {note ? <Text style={styles.note}>{note}</Text> : null}
+
+      <Text style={styles.step}>Troubleshooting</Text>
+      <Pressable
+        style={[styles.btnSecondary, diagBusy && styles.btnDisabled]}
+        onPress={() => void handleDiagnostics()}
+        disabled={diagBusy}
+      >
+        {diagBusy ? (
+          <ActivityIndicator color={WellnessColors.accentBlue} size="small" />
+        ) : (
+          <Text style={styles.btnSecondaryText}>Run activity diagnostics</Text>
+        )}
+      </Pressable>
+      <Text style={styles.stepHint}>
+        Shows what Healthings reads from Health Connect (permissions, record counts, last 7 days of
+        steps / active calories). Screenshot it for support — it is also saved to your cloud backup.
+      </Text>
     </View>
   );
 }

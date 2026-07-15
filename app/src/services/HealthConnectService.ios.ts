@@ -29,6 +29,10 @@ class HealthConnectService {
     return false;
   }
 
+  async listGrantedPermissions(): Promise<Array<{ accessType?: string; recordType?: string }>> {
+    return [];
+  }
+
   async readAllRecords(): Promise<Array<Record<string, unknown>>> {
     return [];
   }

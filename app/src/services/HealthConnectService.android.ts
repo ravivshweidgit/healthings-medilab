@@ -6,6 +6,7 @@ import {
   requestPermission,
 } from 'react-native-health-connect';
 
+import { localDayKeyFromMs } from '../logic/metabolicTrend7d';
 import type { HealthConnectReadDebug, RecentMetrics } from './healthMetricsTypes';
 import { parseBloodGlucoseMgDl } from './healthMetricsTypes';
 
@@ -147,8 +148,25 @@ class HealthConnectService {
     }
   }
 
+  /** Raw granted read/write permissions — for diagnostics ("what has the user allowed"). */
+  async listGrantedPermissions(): Promise<Array<{ accessType?: string; recordType?: string }>> {
+    try {
+      const isInitialized = await initialize();
+      if (!isInitialized) return [];
+      return (await getGrantedPermissions()) as Array<{ accessType?: string; recordType?: string }>;
+    } catch {
+      return [];
+    }
+  }
+
   async readAllRecords(
-    recordType: 'Steps' | 'ExerciseSession' | 'ActiveCaloriesBurned' | 'HeartRate',
+    recordType:
+      | 'Steps'
+      | 'ExerciseSession'
+      | 'ActiveCaloriesBurned'
+      | 'TotalCaloriesBurned'
+      | 'Distance'
+      | 'HeartRate',
     startDate: Date,
     endDate: Date = new Date(),
   ): Promise<Array<Record<string, unknown>>> {
@@ -182,28 +200,42 @@ class HealthConnectService {
     return this.hasActivityReadPermission();
   }
 
-  /** Daily step totals (Samsung Health → Health Connect) for activity kcal estimation. */
+  /**
+   * Daily step totals (Samsung/Garmin → Health Connect) for activity kcal estimation.
+   * Paginates the full window: Garmin writes ~15-min step epochs (~96/day), so a 128-day
+   * lookback exceeds one 5000-record page — a single page (oldest-first) would truncate the
+   * most recent days and leave today's activity kcal empty. Bucket by LOCAL day so early-morning
+   * steps are not shifted to the previous day for non-UTC users.
+   */
   async fetchDailyStepTotals(startDate: Date, endDate: Date = new Date()): Promise<Map<string, number>> {
     const byDay = new Map<string, number>();
     try {
       const isInitialized = await initialize();
       if (!isInitialized) return byDay;
-      const page = (await readRecords('Steps' as never, {
-        timeRangeFilter: {
-          operator: 'between',
-          startTime: startDate.toISOString(),
-          endTime: endDate.toISOString(),
-        },
-        pageSize: HC_PAGE_SIZE,
-      } as never)) as { records?: Array<Record<string, unknown>> };
-      for (const record of page.records ?? []) {
-        const count = Number(record.count ?? 0);
-        if (!Number.isFinite(count) || count <= 0) continue;
-        const ts = String(record.endTime ?? record.startTime ?? record.time ?? '');
-        const dk = ts.slice(0, 10);
-        if (!dk) continue;
-        byDay.set(dk, (byDay.get(dk) ?? 0) + count);
-      }
+      let pageToken: string | undefined;
+      let pageGuard = 0;
+      do {
+        const page = (await readRecords('Steps' as never, {
+          timeRangeFilter: {
+            operator: 'between',
+            startTime: startDate.toISOString(),
+            endTime: endDate.toISOString(),
+          },
+          pageSize: HC_PAGE_SIZE,
+          ...(pageToken ? { pageToken } : {}),
+        } as never)) as { records?: Array<Record<string, unknown>>; pageToken?: string };
+        for (const record of page.records ?? []) {
+          const count = Number(record.count ?? 0);
+          if (!Number.isFinite(count) || count <= 0) continue;
+          const ts = String(record.endTime ?? record.startTime ?? record.time ?? '');
+          const ms = Date.parse(ts);
+          if (!Number.isFinite(ms)) continue;
+          const dk = localDayKeyFromMs(ms);
+          byDay.set(dk, (byDay.get(dk) ?? 0) + count);
+        }
+        pageToken = page.pageToken || undefined;
+        pageGuard += 1;
+      } while (pageToken && pageGuard < HC_MAX_PAGES);
     } catch {
       /* permission or HC unavailable */
     }

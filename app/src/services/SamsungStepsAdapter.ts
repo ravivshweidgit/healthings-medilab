@@ -2,6 +2,7 @@
  * Convert Health Connect step counts to estimated active kcal (not Samsung-reported kcal).
  */
 
+import { localDayKeyFromMs } from '../logic/metabolicTrend7d';
 import { healthConnectService } from './HealthConnectService';
 
 /** stepLength_m ≈ height_cm × factor / 100; active_kcal ≈ weight_kg × distance_km × 0.8 */
@@ -32,7 +33,7 @@ export async function syncSamsungStepsIfConfigured(
   gender?: string | null,
 ): Promise<{ todaySteps: number; todayActiveKcal: number } | null> {
   const totals = await fetchDailyStepTotalsForTrend(7, weightKg, heightCm, gender);
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = localDayKeyFromMs(Date.now());
   const todaySteps = totals.get(todayKey) ?? 0;
   if (todaySteps <= 0) return null;
   return {
