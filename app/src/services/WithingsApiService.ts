@@ -876,8 +876,12 @@ export type WithingsIntradayTodayFetch = WithingsIntradayData & {
   apiError: string | null;
 };
 
-/** Default lookback for dashboard refresh (days). Align with workout history window. */
-const HEART_RATE_LOOKBACK_DAYS = 60;
+/** Deep history lookback for HR + intraday calories (on-demand / first link). */
+export const WITHINGS_HR_DEEP_LOOKBACK_DAYS = 60;
+/** Routine sync: yesterday + today only — persistence already holds older days. */
+export const WITHINGS_SHALLOW_LOOKBACK_DAYS = 2;
+/** @deprecated use WITHINGS_HR_DEEP_LOOKBACK_DAYS */
+const HEART_RATE_LOOKBACK_DAYS = WITHINGS_HR_DEEP_LOOKBACK_DAYS;
 /** Parallel Withings intraday requests (one calendar day each). */
 const INTRADAY_FETCH_CONCURRENCY = 6;
 
@@ -1149,8 +1153,10 @@ function withingsUnixToMs(value: number): number {
   return value >= 1e12 ? Math.round(value) : Math.round(value * 1000);
 }
 
-/** Default number of days to fetch for workout history. */
-const WORKOUT_LOOKBACK_DAYS = 128;
+/** Deep workout history lookback (on-demand / first link). */
+export const WITHINGS_WORKOUT_DEEP_LOOKBACK_DAYS = 128;
+/** @deprecated use WITHINGS_WORKOUT_DEEP_LOOKBACK_DAYS */
+const WORKOUT_LOOKBACK_DAYS = WITHINGS_WORKOUT_DEEP_LOOKBACK_DAYS;
 
 /** Generate mock workout sessions (today: bike ride at 9 AM). */
 function mockWorkouts(lookbackDays: number): WithingsWorkoutsFetch {

@@ -22,5 +22,7 @@ export {
   syncWithingsApiIntoStore,
   syncWithingsStore,
   type MetricsPersistedStore,
+  type SyncMetricsOptions,
+  type SyncWithingsOptions,
   type WithingsPersistedStore,
 } from './MetricsPersistenceService';

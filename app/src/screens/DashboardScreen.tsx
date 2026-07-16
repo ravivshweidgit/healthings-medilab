@@ -1286,7 +1286,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       if (result.type === 'success' && result.url) {
         await handleOAuthCallback(result.url);
         await refreshWithingsLinkState();
-        await syncWithings();
+        // First link: deep history pull (HR 60d / workouts 128d).
+        await syncWithings({ deep: true });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Withings link failed.';
@@ -1295,6 +1296,48 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       setLinkBusy(false);
     }
   }, [syncWithings, refreshWithingsLinkState]);
+
+  const runWithingsSync = useCallback(
+    async (deep: boolean) => {
+      setLinkBusy(true);
+      try {
+        await syncWithings(deep ? { deep: true } : undefined);
+        await loadHcStepTotals();
+      } finally {
+        setLinkBusy(false);
+      }
+    },
+    [syncWithings, loadHcStepTotals],
+  );
+
+  /** Linked: choose normal (2d) vs deep sync, or OAuth re-link. Unlinked: OAuth link. */
+  const handleWithingsAccountPress = useCallback(() => {
+    if (!withingsLinked) {
+      void handleLinkWithings();
+      return;
+    }
+    Alert.alert('Withings', 'Normal sync refreshes the last 2 days. Deep reloads full history from Withings.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Normal sync',
+        onPress: () => {
+          void runWithingsSync(false);
+        },
+      },
+      {
+        text: 'Deep history',
+        onPress: () => {
+          void runWithingsSync(true);
+        },
+      },
+      {
+        text: 'Re-link account',
+        onPress: () => {
+          void handleLinkWithings();
+        },
+      },
+    ]);
+  }, [withingsLinked, handleLinkWithings, runWithingsSync]);
 
   const handleSync = async () => {
     const [, result] = await Promise.all([syncWithings(), refetch()]);
@@ -1541,12 +1584,16 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 </View>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={withingsLinked ? 'Re-link Withings account' : 'Link Withings account'}
+                  accessibilityLabel={
+                    withingsLinked
+                      ? 'Withings sync options or re-link account'
+                      : 'Link Withings account'
+                  }
                   style={[
                     styles.withingsLinkButtonCompact,
                     (linkBusy || bodyScanLoading) && styles.withingsLinkButtonDisabled,
                   ]}
-                  onPress={handleLinkWithings}
+                  onPress={handleWithingsAccountPress}
                   disabled={linkBusy || bodyScanLoading}
                 >
                   {linkBusy ? (
@@ -2027,12 +2074,16 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   {setupToggles.withingsWatch && !setupToggles.withingsScale ? (
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={withingsLinked ? 'Re-link Withings account' : 'Link Withings account'}
+                      accessibilityLabel={
+                        withingsLinked
+                          ? 'Withings sync options or re-link account'
+                          : 'Link Withings account'
+                      }
                       style={[
                         styles.withingsLinkButtonProfile,
                         linkBusy && styles.withingsLinkButtonDisabled,
                       ]}
-                      onPress={handleLinkWithings}
+                      onPress={handleWithingsAccountPress}
                       disabled={linkBusy}
                     >
                       {linkBusy ? (

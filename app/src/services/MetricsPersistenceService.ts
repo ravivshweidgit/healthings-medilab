@@ -20,6 +20,9 @@ import {
   getValidAccessToken,
   isKeepableWorkout,
   loadWithingsTokens,
+  WITHINGS_HR_DEEP_LOOKBACK_DAYS,
+  WITHINGS_SHALLOW_LOOKBACK_DAYS,
+  WITHINGS_WORKOUT_DEEP_LOOKBACK_DAYS,
   type WeightMetricsForDashboard,
   type WithingsCaloriePoint,
   type WithingsHeartRatePoint,
@@ -481,9 +484,42 @@ export async function syncHealthConnectIntoStore(
 /**
  * Pull from Withings API and merge into the local store.
  * Skips API when not linked — returns cache unchanged.
+ *
+ * Default is **shallow** (yesterday + today) when persistence already has history.
+ * **Deep** (HR 60d / workouts 128d) runs when `options.deep` is set, or automatically
+ * on first link when the relevant store slices are empty.
  */
+export type SyncWithingsOptions = {
+  /** Force full history pull from Withings. */
+  deep?: boolean;
+};
+
+export type SyncMetricsOptions = SyncWithingsOptions;
+
+function wantsDeepWithingsPull(
+  store: MetricsPersistedStore,
+  opts: SyncWithingsOptions | undefined,
+  useWithingsHr: boolean,
+  useWithingsActivity: boolean,
+): boolean {
+  if (opts?.deep) return true;
+  // First link / wiped HR slice — pull full history once; later syncs stay shallow.
+  if (useWithingsHr && store.heartRate.length === 0) return true;
+  // Activity without HR (rare): deep only when the store has no Withings footprint yet.
+  if (
+    !useWithingsHr &&
+    useWithingsActivity &&
+    !store.bodyScan &&
+    !store.workouts.some((w) => w.source !== 'health-connect' && isKeepableWorkout(w))
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export async function syncWithingsApiIntoStore(
   prev?: MetricsPersistedStore,
+  opts?: SyncWithingsOptions,
 ): Promise<MetricsPersistedStore> {
   const base = prev ?? (await loadMetricsStore());
   const config = await loadSourceConfig();
@@ -499,6 +535,12 @@ export async function syncWithingsApiIntoStore(
   if (!accessToken) {
     return base;
   }
+
+  const deep = wantsDeepWithingsPull(base, opts, useWithingsHr, useWithingsActivity);
+  const hrLookback = deep ? WITHINGS_HR_DEEP_LOOKBACK_DAYS : WITHINGS_SHALLOW_LOOKBACK_DAYS;
+  const workoutLookback = deep
+    ? WITHINGS_WORKOUT_DEEP_LOOKBACK_DAYS
+    : WITHINGS_SHALLOW_LOOKBACK_DAYS;
 
   try {
     const todayIntraday = await fetchIntradayToday();
@@ -520,9 +562,11 @@ export async function syncWithingsApiIntoStore(
     const [bodyScanRes, trendRes, intradayRes, workoutsRes] = await Promise.allSettled([
       fetchWeightMetrics(),
       fetchBodyCompositionTrend7d(),
-      useWithingsHr ? fetchHeartRateHistory() : Promise.resolve({ heartRate: [], calories: [] }),
+      useWithingsHr
+        ? fetchHeartRateHistory(hrLookback)
+        : Promise.resolve({ heartRate: [], calories: [] }),
       useWithingsActivity
-        ? fetchWorkoutsHistory()
+        ? fetchWorkoutsHistory(workoutLookback)
         : Promise.resolve({
             keepable: [],
             abortStartMs: [],
@@ -607,10 +651,13 @@ export async function syncWithingsApiIntoStore(
 /**
  * Sync all configured adapters into the metrics store (Withings cloud + Health Connect).
  * UI and mentors should call this — not vendor-specific sync helpers.
+ * Pass `{ deep: true }` to reload full Withings history (HR 60d / workouts 128d).
  */
-export async function syncMetricsStore(): Promise<MetricsPersistedStore> {
+export async function syncMetricsStore(
+  opts?: SyncMetricsOptions,
+): Promise<MetricsPersistedStore> {
   let store = await loadMetricsStore();
-  store = await syncWithingsApiIntoStore(store);
+  store = await syncWithingsApiIntoStore(store, opts);
   store = await syncHealthConnectIntoStore(store);
   return store;
 }

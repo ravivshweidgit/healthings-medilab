@@ -9,6 +9,7 @@ import {
   mergeTodayWithingsIntraday,
   syncMetricsStore,
   type MetricsPersistedStore,
+  type SyncMetricsOptions,
 } from '../services/MetricsPersistenceService';
 import {
   formatHrSyncDiagLine,
@@ -62,9 +63,11 @@ export function useWithingsData() {
     setState(storeToState(store));
   }, []);
 
-  const sync = useCallback(async (): Promise<MetricsPersistedStore> => {
+  const sync = useCallback(async (opts?: SyncMetricsOptions): Promise<MetricsPersistedStore> => {
+    // Coalesce concurrent shallow syncs; deep always runs after any in-flight sync.
     if (syncInFlight.current) {
-      return syncInFlight.current;
+      if (!opts?.deep) return syncInFlight.current;
+      await syncInFlight.current;
     }
 
     const run = (async (): Promise<MetricsPersistedStore> => {
@@ -73,7 +76,7 @@ export function useWithingsData() {
       setBodyScanError(null);
       setTrendError(null);
       try {
-        const store = await syncMetricsStore();
+        const store = await syncMetricsStore(opts);
         applyStore(store);
         await refreshHrDiag();
         return store;
@@ -97,6 +100,11 @@ export function useWithingsData() {
       syncInFlight.current = null;
     }
   }, [applyStore, refreshHrDiag]);
+
+  /** Explicit full Withings history pull (HR 60d / workouts 128d). */
+  const reloadWithingsHistory = useCallback(async () => {
+    return sync({ deep: true });
+  }, [sync]);
 
   const refreshTodayIntraday = useCallback(async () => {
     const tokens = await loadWithingsTokens();
@@ -161,6 +169,7 @@ export function useWithingsData() {
     trendLoading,
     trendError,
     sync,
+    reloadWithingsHistory,
     refreshTodayIntraday,
     hrSyncDiag,
     hrSyncDiagLine: formatHrSyncDiagLine(hrSyncDiag),
