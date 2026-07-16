@@ -1,8 +1,8 @@
-# bi-os.ps1 — iOS TestFlight pipeline (Windows).
+# bi-os.ps1 - iOS TestFlight pipeline (Windows).
 # Three timed stages, ONE eas build only:
-#   1. Upload — eas build --no-wait; status check every 30s
-#   2. Build  — quiet wait 5 min, then poll same build id every 30s
-#   3. Submit — eas submit --latest → exit (Apple emails when TF ready)
+#   1. Upload - eas build --no-wait; status check every 30s
+#   2. Build  - quiet wait 5 min, then poll same build id every 30s
+#   3. Submit - eas submit --latest -> exit (Apple emails when TF ready)
 #
 # Never start a second eas build (that caused duplicate Expo rows).
 # Never use --auto-submit (Apple ID / SMS trap on Windows).
@@ -134,7 +134,7 @@ Write-BiosInfo -Message "Protocol: upload check 30s | build quiet 5 min then pol
 Write-BiosInfo -Message "At Apple account login during build, answer: n"
 Write-Host ""
 
-# --- Stage 1: upload (ONE build) — status check every 30s ---
+# --- Stage 1: upload (ONE build) - status check every 30s ---
 Write-BiosStep -Message "Stage 1/3 - Upload to EAS  (est. ~1-2 min, check every 30s)" -Color "Green"
 Write-BiosInfo -Message "Do not Ctrl+C."
 Write-Host ""
@@ -152,7 +152,7 @@ while (-not $uploadProc.HasExited) {
   Start-Sleep -Seconds 30
   $elapsedMin = [math]::Round(((Get-Date) - $uploadStart).TotalMinutes, 1)
   $ts = Get-Date -Format "HH:mm:ss"
-  Write-Host ("[{0}]   upload check — still running ({1} min)" -f $ts, $elapsedMin) -ForegroundColor DarkGray
+  Write-Host ("[{0}]   upload check - still running ({1} min)" -f $ts, $elapsedMin) -ForegroundColor DarkGray
   foreach ($logFile in @($uploadLog, $uploadErr)) {
     if (Test-Path $logFile) {
       $tail = Get-Content -Path $logFile -Tail 3 -ErrorAction SilentlyContinue
@@ -192,7 +192,7 @@ if ($uploadExit -ne 0) {
 
 $buildId = Get-BuildIdFromText -Text $uploadText
 if (-not $buildId) {
-  Write-BiosInfo -Message "Build id not in upload log — checking eas build:list every 30s…"
+  Write-BiosInfo -Message "Build id not in upload log - checking eas build:list every 30s..."
   for ($i = 1; $i -le 10; $i++) {
     Start-Sleep -Seconds 30
     $buildId = Get-LatestIosBuildId
@@ -201,30 +201,30 @@ if (-not $buildId) {
       Write-Host ("[{0}]   build id resolved on list check #{1}" -f $ts, $i) -ForegroundColor White
       break
     }
-    Write-Host ("[{0}]   upload/list check #{1} — no build id yet" -f $ts, $i) -ForegroundColor DarkGray
+    Write-Host ("[{0}]   upload/list check #{1} - no build id yet" -f $ts, $i) -ForegroundColor DarkGray
   }
 }
 Remove-Item $uploadLog, $uploadErr -Force -ErrorAction SilentlyContinue
 
 if (-not $buildId) {
   Write-BiosStep -Message "=== bi-os FAILED: could not resolve build id after upload ===" -Color "Red"
-  Write-BiosInfo -Message "A build may already be running on expo.dev — do NOT re-run bi-os."
+  Write-BiosInfo -Message "A build may already be running on expo.dev - do NOT re-run bi-os."
   Write-BiosInfo -Message "Open expo.dev, wait until Finished, then: .\submit-ios.bat"
   exit 1
 }
 
 $buildUrl = "https://expo.dev/accounts/ravivshweids-team/projects/healthingsai-medilab/builds/$buildId"
-Write-BiosStep -Message ("Upload done ({0} min) — build id {1}" -f $uploadMin, $buildId) -Color "Green"
+Write-BiosStep -Message ("Upload done ({0} min) - build id {1}" -f $uploadMin, $buildId) -Color "Green"
 Write-BiosInfo -Message $buildUrl
 
 # --- Stage 2: quiet 5 min, then poll every 30s (never eas build again) ---
 Write-BiosStep -Message "Stage 2/3 - Cloud build  (quiet 5 min, then check every 30s)" -Color "Green"
-Write-BiosInfo -Message "Paid EAS typical ~4-5 min — sleeping 5 min before first status check."
+Write-BiosInfo -Message "Paid EAS typical ~4-5 min - sleeping 5 min before first status check."
 $pollStart = Get-Date
 for ($m = 1; $m -le 5; $m++) {
   Start-Sleep -Seconds 60
   $ts = Get-Date -Format "HH:mm:ss"
-  Write-Host ("[{0}]   build quiet wait… {1}/5 min" -f $ts, $m) -ForegroundColor DarkGray
+  Write-Host ("[{0}]   build quiet wait... {1}/5 min" -f $ts, $m) -ForegroundColor DarkGray
 }
 
 $lastStatus = ""
@@ -265,7 +265,7 @@ while ($true) {
 
 # --- Stage 3: submit then exit (Apple emails when TestFlight is ready) ---
 Write-BiosStep -Message "Stage 3/3 - Submit to App Store Connect  (est. ~1-2 min)" -Color "Green"
-Write-BiosInfo -Message "Uses ASC API key - no SMS. Then exit — Apple will email when ready."
+Write-BiosInfo -Message "Uses ASC API key - no SMS. Then exit - Apple will email when ready."
 $submitStart = Get-Date
 & eas submit --platform ios --profile production --latest
 if ($LASTEXITCODE -ne 0) {
@@ -281,6 +281,6 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host (" bi-os DONE  (total {0} min)" -f $totalMin) -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-BiosInfo -Message ("Stages: upload {0} min | build (above) | submit {1} min" -f $uploadMin, $submitMin)
-Write-BiosInfo -Message "Submitted. Apple will email when TestFlight is ready — protocol complete."
+Write-BiosInfo -Message "Submitted. Apple will email when TestFlight is ready - protocol complete."
 Write-BiosInfo -Message "Guide: server/TESTFLIGHT-INTERNAL.md"
 exit 0
