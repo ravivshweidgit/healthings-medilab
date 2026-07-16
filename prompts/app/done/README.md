@@ -52,7 +52,9 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt44** — done (2026-06-22). Macro energy timeline: `targetWeeks` in My Targets drives deficit (~700 kcal cap for ≤2 wk), trimmed 7d TDEE burn, loss direction from current weight, P→C+Fi→F fill, manual target edit. Phone-tested ~707 kcal deficit / ~1913 kcal target.
 
-**prompt45** — done (2026-06-22). Withings HR sync hardening: empty-fetch guard, today merge, foreground/5min refresh, mismatch-only dashboard diag. 2026-06-22 stall was Withings cloud stale (API = store); diag proved not an app drop bug.
+**prompt45** — done (2026-06-22). Withings HR sync hardening: empty-fetch guard, today merge, foreground/5min refresh, mismatch-only dashboard diag. 2026-06-22 stall was Withings cloud stale (API = store); diag proved not an app drop bug. **Chart downsample refined in prompt67** (gap-break + min/max; shallow sync).
+
+**prompt67** — done (2026-07-16). MetabolicChart HR gap-break + min/max downsample; Withings routine sync shallow (2d), deep 60/128 on demand via Re-link sheet. Phone-tested. Commits `2379239`, `05d7f46`. See `done/prompt67.txt`.
 
 **prompt48** — done (2026-06-29). Lipid trend charts (Total/LDL/TG/HDL strips + green safe zones); mentors/coach see **all saved lab draws** in USER DATA. Phone-tested. Commits `308500f`, `fa0d6b1`. Supersedes prompt30 chart deferral + latest-only scope.
 

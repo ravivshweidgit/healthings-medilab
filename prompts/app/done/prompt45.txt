@@ -19,7 +19,7 @@ Builds on **prompt21** (Withings persistence), dashboard metabolic chart.
 | **Today merge** | `mergeHeartRateWithFreshToday` replaces today's slice when API has fresher intraday |
 | **API** | `fetchIntradayToday` with `endAtNow`; status/error on response |
 | **Refresh** | Foreground + 5 min poll in `useWithingsData`; pull-to-refresh calls `refreshTodayIntraday` |
-| **Chart** | `MetabolicChart` downsample keeps last point; cap 1000 points |
+| **Chart** | `MetabolicChart` downsample keeps last point; cap 1000 points. **Superseded for long windows by prompt67** (viewport gap-break + min/max envelope). |
 
 ### Primary files
 
@@ -44,3 +44,4 @@ Builds on **prompt21** (Withings persistence), dashboard metabolic chart.
 ### Related
 
 - **prompt42** — orthogonal (weigh-in macro activation follow-up same day)
+- **prompt67** — chart gap-break + min/max downsample; shallow Withings sync (refines Chart row above)

@@ -1,0 +1,48 @@
+## Prompt 67 — HR chart gap-break + shallow Withings sync
+
+**Status: done (2026-07-16)** — Phone-tested (HR chart + Re-link action sheet).  
+**Commits:** `2379239` (chart), `05d7f46` (shallow/deep sync).  
+**Builds on:** **prompt45** (Withings HR sync hardening), **prompt21** (metrics persistence), MetabolicChart.
+
+### Problem (user-reported)
+
+1. **8D HR looked like a flat ~75 bpm line** from ~Jul 11 through Jul 16 while glucose stayed continuous. **12H** still showed real overnight HR variation (~52–82). Chart was bridging sparse/missing Withings samples into a fake continuous resting line; every-Nth downsample also crushed peaks on long windows.
+2. **Full sync always pulled ~60 days of intraday HR** (and 128d workouts) even when persistence already held history — slow and unnecessary for routine refresh.
+
+### What shipped
+
+| Area | Change |
+|------|--------|
+| **Chart gaps** | Split glucose/HR paths when consecutive samples exceed a **viewport-scaled** gap (HR min **3h**; ~1/12 of window). Multi-day sync holes no longer draw as one flat red line. |
+| **Chart downsample** | Min/max envelope per segment (replaces every-Nth) so overnight peaks survive on 8D/16D. |
+| **Orphan dots** | Isolated HR samples as capped red dots (≤48) so sparse series cannot flood SVG. |
+| **Shallow sync (default)** | When store is warm: merge **yesterday + today** only (`WITHINGS_SHALLOW_LOOKBACK_DAYS = 2`) for HR/intraday + workouts. Older persistence left untouched. |
+| **Deep sync** | HR **60d** / workouts **128d** when: first link (empty HR), explicit user ask, or OAuth link success. |
+| **UX** | Removed standalone **History** button. **Re-link** → action sheet: Normal sync / Deep history / Re-link account. |
+
+### Primary files
+
+- `app/src/components/MetabolicChart.tsx`
+- `app/src/services/MetricsPersistenceService.ts` — `SyncMetricsOptions.deep`, `wantsDeepWithingsPull`
+- `app/src/services/WithingsApiService.ts` — `WITHINGS_SHALLOW_LOOKBACK_DAYS`, `WITHINGS_HR_DEEP_LOOKBACK_DAYS`, `WITHINGS_WORKOUT_DEEP_LOOKBACK_DAYS`
+- `app/src/hooks/useWithingsData.ts` — `sync({ deep })`, `reloadWithingsHistory`
+- `app/src/screens/DashboardScreen.tsx` — Re-link action sheet
+- `app/src/services/WithingsPersistenceService.ts` — re-exports options types
+
+### Phone-tested
+
+- [x] 8D: flat multi-day HR bridge gone; earlier dense HR history still visible
+- [x] First aggressive 30‑min gap break caused HR flash-then-gone — fixed with viewport-scaled gap (min 3h)
+- [x] Re-link shows Normal / Deep / Re-link account (History button removed)
+- [ ] Timed A/B of pull-to-refresh wall-clock vs pre-change (body trend still long; expect partial speedup only)
+
+### Deferred
+
+- [ ] Shallow body-composition trend lookback (still full `MAX_TREND_PERIOD_DAYS` on every sync)
+- [ ] Optional slash/command for deep reload without Re-link sheet
+- [ ] Persist lookback trim aligned to ~16–21 days chart pad (store still keeps up to 60d)
+
+### Related
+
+- **prompt45** — HR sync diag / today merge; chart downsample refined here (gap-break + min/max).
+- Chart fix does **not** invent missing Withings days — only stops lying about gaps.
