@@ -64,6 +64,8 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt71** — done (2026-07-16). H2O meter: glass tiles, timeline chips, edit/delete, bar tap → sheet, backup/export keys. Phone-tested Samsung. See `done/prompt71.txt`.
 
+**prompt72** — done (2026-07-17). Units & measurements per-measure prefs (display/input; SI store). Glucose badge converts; chart stays mg/dL+HR. Compile-check OK; phone test pending. See `done/prompt72.txt`.
+
 **prompt48** — done (2026-06-29). Lipid trend charts (Total/LDL/TG/HDL strips + green safe zones); mentors/coach see **all saved lab draws** in USER DATA. Phone-tested. Commits `308500f`, `fa0d6b1`. Supersedes prompt30 chart deferral + latest-only scope.
 
 **prompt50** — done (2026-06-30). Nutritionist visit report: clinical HTML export (7/14/30/90d), Appendix A charts (lipids/body/energy/CGM), Appendix B raw data. Phone-tested. See `done/prompt50.txt`.

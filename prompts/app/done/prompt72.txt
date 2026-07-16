@@ -1,0 +1,59 @@
+## Prompt 72 — Units & measurements (per-measure prefs)
+
+**Status: done (2026-07-17)** — Phone-tested US market prefs (lb / ft'in" / fl oz / kcal / mg/dL).  
+**Builds on:** language-policy (chrome English); persistence-parity; Food Log / My Macros meters (`done/prompt70`, `done/prompt71`)
+
+### Problem
+
+App hardcoded SI/US-clinical units. Global users need per-measure display/input prefs without forking stores.
+
+### What shipped
+
+| Area | Behavior |
+|------|----------|
+| **Pref** | `units_prefs_v1` — glucose, mass, height, water, energy |
+| **Helpers** | `unitConvert.ts` + `UnitsPreferenceService.ts` |
+| **Settings** | Profile & Settings → **Units & measurements** chip pickers (next to Coach & meals language) |
+| **Body** | Manual weigh-in / fat / muscle / My Targets use kg↔lb |
+| **Height** | cm ↔ ft'in" on profile input + summary |
+| **Glucose** | Latest + scrubber badge convert to mmol/L when chosen; **chart axis + green band stay mg/dL** (shared with HR bpm) |
+| **Water / energy** | Food Log + My Macros bars/chips/sheets in ml↔fl oz and kcal↔kJ |
+| **Coach** | SI numbers in USER DATA + `unitsDisplayHint` line |
+| **Quick Start** | Units & measurements first on step 1; height/weight inputs follow prefs; saves `units_prefs_v1` with profile |
+| **Edit / secondary UI** | Weight/macro suggestion+edit, burn/water modals, Food Log meal card, recipes, chat proposals, trend/BMR charts, visit report narrative |
+| **Store** | Unchanged SI (mg/dL, kg, cm, ml, kcal) |
+
+### Primary files
+
+- `app/src/logic/unitConvert.ts`
+- `app/src/services/UnitsPreferenceService.ts`
+- `app/src/components/UnitsPreferenceSection.tsx`
+- `app/src/components/WelcomeQuickStartWizard.tsx`
+- `app/src/screens/DashboardScreen.tsx`
+- `app/src/components/ManualBodyProfileSection.tsx`
+- `app/src/components/WeightTargetStrip.tsx`
+- `app/src/components/FoodMacroStrip.tsx`
+- `app/src/components/MacroTargetStrip.tsx`
+- `app/src/components/MetabolicChart.tsx`
+- `app/src/services/GeminiService.ts`
+
+### Phone-tested
+
+- [x] US preset: lb / ft'in" / fl oz / kcal / mg/dL — body, targets, Food Log H2O, glucose badge + band
+- [x] My Targets edit fields show full lb values (layout fix for 3-digit lb)
+- [ ] Toggle glucose → badge/summary mmol; chart band unchanged
+- [ ] Energy kJ on Food Log / My Macros; math still kcal
+- [ ] Prefs persist across reinstall / backup restore
+- [ ] Quick Start: pick lb / ft'in" before height → weight step uses same units
+
+### Deferred
+
+- Metric/US/UK one-tap presets
+- Distance miles, temperature
+- Lipid chart threshold conversion
+- Full UI chrome i18n
+
+### Related
+
+- `.cursor/rules/language-policy.mdc`
+- `.cursor/rules/persistence-parity.mdc`

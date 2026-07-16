@@ -16,6 +16,7 @@ import type { ActivityZone } from '../logic/MetabolicLogic';
 import type { WithingsCaloriePoint, WorkoutSession } from '../services/WithingsApiService';
 import type { FoodEntry } from '../services/FoodLogService';
 import { WellnessColors } from '../theme/wellness';
+import { formatEnergy, formatGlucose, kcalToDisplay, type EnergyUnit } from '../logic/unitConvert';
 
 type Point = { timestamp: string; value: number };
 
@@ -462,9 +463,25 @@ type Props = {
   bmrKcalDay?: number | null;
   /** Logged food entries — rendered as meal markers (▼) on the time axis. */
   foodEntries?: FoodEntry[];
+  /**
+   * Scrubber / badge display only. Plot + green band stay mg/dL so HR (bpm) shares the Y scale.
+   */
+  glucoseDisplayUnit?: 'mgdl' | 'mmol';
+  /** Workout / BMR / meal label display only — bar heights stay kcal. */
+  energyDisplayUnit?: EnergyUnit;
 };
 
-export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns, workoutSessions, bmrKcalDay, foodEntries }: Props) {
+export function MetabolicChart({
+  glucose,
+  heartRate,
+  activityZones,
+  calorieBurns,
+  workoutSessions,
+  bmrKcalDay,
+  foodEntries,
+  glucoseDisplayUnit = 'mgdl',
+  energyDisplayUnit = 'kcal',
+}: Props) {
   const { width: windowW } = useWindowDimensions();
   const [viewportPresetIndex, setViewportPresetIndex] = useState(DEFAULT_VIEWPORT_PRESET_INDEX);
   const [nowAnchor, setNowAnchor] = useState(() => Date.now());
@@ -837,11 +854,14 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
       if (w.endMs < mapTMin || w.startMs > mapTMax) continue;
       const midMs = (w.startMs + w.endMs) / 2;
       const x = padL + ((midMs - mapTMin) / spanT) * innerW;
-      workoutLabels.push({ x, label: `${w.activityLabel} ${Math.round(w.kcal)} kcal` });
+      workoutLabels.push({
+        x,
+        label: `${w.activityLabel} ${formatEnergy(w.kcal, energyDisplayUnit)}`,
+      });
     }
 
     return { bars, calStripTop, calStripBottom, calYMax, workoutLabels };
-  }, [prepared, calorieBurns, workoutSessions, bmrKcalDay]);
+  }, [prepared, calorieBurns, workoutSessions, bmrKcalDay, energyDisplayUnit]);
 
   const snapChartScrollToLive = () => {
     if (!prepared) return;
@@ -1199,7 +1219,7 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
       {foodEntries?.map((entry) => {
         const x = timeToX(entry.timestamp, prepared.mapTMin, prepared.spanT, prepared.padL, prepared.innerW);
         if (x < prepared.padL - 4 || x > prepared.padL + prepared.innerW + 4) return null;
-        const kcal = Math.round(entry.totalKcal);
+        const energyLabel = Math.round(kcalToDisplay(entry.totalKcal, energyDisplayUnit));
         return (
           <React.Fragment key={`meal-${entry.id}`}>
             {/* Vertical dashed line from axis up */}
@@ -1215,12 +1235,12 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
             >
               ▼
             </SvgText>
-            {/* kcal label */}
+            {/* energy label */}
             <SvgText
               x={x} y={prepared.axisY - 32}
               fill={MEAL_MARKER_COLOR} fontSize={8} textAnchor="middle"
             >
-              {kcal}
+              {energyLabel}
             </SvgText>
           </React.Fragment>
         );
@@ -1341,7 +1361,9 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
               ]}
             >
               <Text style={styles.scrubBadgeGlucose}>
-                {scrub.glucose != null ? `${Math.round(scrub.glucose)} mg/dL` : '—'}
+                {scrub.glucose != null
+                  ? formatGlucose(scrub.glucose, glucoseDisplayUnit)
+                  : '—'}
               </Text>
               <Text style={styles.scrubBadgeHr}>
                 {scrub.hr != null ? `${Math.round(scrub.hr)} bpm` : '— bpm'}
@@ -1411,7 +1433,7 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
             <Text style={styles.legendBmr}>
               {'BMR'}
               {bmrKcalDay != null && bmrKcalDay > 0
-                ? ` (${Math.round(bmrKcalDay / 48)} kcal)`
+                ? ` (${formatEnergy(bmrKcalDay / 48, energyDisplayUnit)})`
                 : ' (÷48)'}
             </Text>
             <Text style={styles.legendStepsCal}>Steps cal</Text>

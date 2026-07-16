@@ -9,6 +9,9 @@ import { reportDateKey } from '../services/LabLogService';
 import { MENTOR_EMOJI } from './mentorLabels';
 import type { ClinicalSection, ClinicalTable, VisitReportClinicalNote } from './visitReportClinical';
 import type { VisitReportChart } from './visitReportChartSvg';
+import { formatEnergy, formatHeight, formatMass } from './unitConvert';
+import type { UnitsPrefs } from '../services/UnitsPreferenceService';
+import { DEFAULT_UNITS_PREFS } from '../services/UnitsPreferenceService';
 
 export type VisitReportProfile = {
   age: number | null;
@@ -32,6 +35,7 @@ export type VisitReportContent = {
   includeCoach: boolean;
   clinicalNote: VisitReportClinicalNote;
   chartAppendix: { title: string; intro: string; charts: VisitReportChart[] };
+  unitsPrefs?: import('../services/UnitsPreferenceService').UnitsPrefs;
 };
 
 function isRtl(lang?: UserLanguage | null): boolean {
@@ -213,12 +217,16 @@ function formatLabsHtml(reports: LabReport[], flaggedLabel: string, noLabs: stri
     .join('\n');
 }
 
-function formatMacroHtml(target: DailyMacroTarget | null, noMacro: string): string {
+function formatMacroHtml(
+  target: DailyMacroTarget | null,
+  noMacro: string,
+  energyUnit: UnitsPrefs['energy'] = 'kcal',
+): string {
   if (!target) return `<p class="muted">${escapeHtml(noMacro)}</p>`;
   const fiber = target.fiber_g != null ? ` · Fiber ${target.fiber_g}g` : '';
   return `<p><strong>${escapeHtml(target.diet_label || 'Targets')}</strong></p>
 <ul class="kv-list">
-  <li>${target.kcal} kcal · P ${target.protein_g}g · C ${target.carb_g}g · F ${target.fat_g}g${fiber}</li>
+  <li>${formatEnergy(target.kcal, energyUnit)} · P ${target.protein_g}g · C ${target.carb_g}g · F ${target.fat_g}g${fiber}</li>
 </ul>`;
 }
 
@@ -226,6 +234,7 @@ function formatProfileHtml(
   profile: VisitReportProfile,
   labels: ReturnType<typeof ui>,
   lang?: UserLanguage | null,
+  units: UnitsPrefs = DEFAULT_UNITS_PREFS,
 ): string {
   const rows: string[] = [];
   if (profile.age != null) rows.push(`<tr><th>${escapeHtml(labels.ageLabel)}</th><td>${profile.age}</td></tr>`);
@@ -234,14 +243,14 @@ function formatProfileHtml(
   );
   if (profile.heightCm != null) {
     rows.push(
-      `<tr><th>${escapeHtml(labels.heightLabel)}</th><td>${profile.heightCm} cm</td></tr>`,
+      `<tr><th>${escapeHtml(labels.heightLabel)}</th><td>${escapeHtml(formatHeight(profile.heightCm, units.height))}</td></tr>`,
     );
   }
   if (profile.weightKg != null) {
     const measured = formatMeasuredAt(profile.weightMeasuredAt);
     const suffix = measured ? ` <span class="muted">(${escapeHtml(measured)})</span>` : '';
     rows.push(
-      `<tr><th>${escapeHtml(labels.weightLabel)}</th><td>${profile.weightKg.toFixed(1)} kg${suffix}</td></tr>`,
+      `<tr><th>${escapeHtml(labels.weightLabel)}</th><td>${escapeHtml(formatMass(profile.weightKg, units.mass))}${suffix}</td></tr>`,
     );
   }
   if (profile.weightTrendLine) {

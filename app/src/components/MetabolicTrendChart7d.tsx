@@ -17,6 +17,7 @@ import {
   type VisceralWeekTrend,
 } from '../logic/metabolicTrend7d';
 import { WellnessColors } from '../theme/wellness';
+import { kgToDisplay, massUnitLabel, type MassUnit } from '../logic/unitConvert';
 
 const PLOT_PAD_L = 36;
 const PAD_R = 10;
@@ -143,6 +144,7 @@ type Props = {
   weighInDayCount?: number;
   /** When parent already shows a section header (dashboard collapse). */
   hideTitle?: boolean;
+  massUnit?: MassUnit;
 };
 
 function formatIndexCell(value: number | null | undefined): string {
@@ -150,10 +152,15 @@ function formatIndexCell(value: number | null | undefined): string {
   return value.toFixed(1);
 }
 
-function legendLabelWithDelta(name: string, delta: number | null | undefined): string {
-  if (delta == null || !Number.isFinite(delta)) return name;
+function legendLabelWithDelta(
+  name: string,
+  deltaKg: number | null | undefined,
+  massUnit: MassUnit = 'kg',
+): string {
+  if (deltaKg == null || !Number.isFinite(deltaKg)) return name;
+  const delta = kgToDisplay(deltaKg, massUnit);
   const sign = delta > 0 ? '+' : '';
-  return `${name} (${sign}${delta.toFixed(1)} kg)`;
+  return `${name} (${sign}${delta.toFixed(1)} ${massUnitLabel(massUnit)})`;
 }
 
 function legendLabelWithVisceralPercent(name: string, trend: VisceralWeekTrend): string {
@@ -242,6 +249,7 @@ export function MetabolicTrendChart7d({
   weightOnly,
   weighInDayCount,
   hideTitle = false,
+  massUnit = 'kg',
 }: Props) {
   const { width } = useWindowDimensions();
   const chartW = Math.max(280, width - 40);
@@ -254,7 +262,9 @@ export function MetabolicTrendChart7d({
     const innerW = Math.max(1, chartW - plotLeft - PAD_R);
     const plotBottom = stripTop(0) + STRIP_H;
 
-    const wVals = days.map((d) => d.weightKg).filter((v): v is number => v != null && Number.isFinite(v));
+    const wVals = days
+      .map((d) => (d.weightKg != null ? kgToDisplay(d.weightKg, massUnit) : null))
+      .filter((v): v is number => v != null && Number.isFinite(v));
     if (wVals.length === 0) return null;
 
     const wDom = domainPad(wVals, wVals[0] - 1, wVals[0] + 1, 0.08);
@@ -262,9 +272,10 @@ export function MetabolicTrendChart7d({
     const wPts: PixelPoint[] = [];
     days.forEach((d, i) => {
       if (d.weightKg != null && Number.isFinite(d.weightKg)) {
+        const wDisp = kgToDisplay(d.weightKg, massUnit);
         wPts.push({
           x: xAtIndex(i, plotLeft, innerW, n),
-          y: mapY(d.weightKg, wDom.min, wDom.max, stripTop(0), STRIP_H),
+          y: mapY(wDisp, wDom.min, wDom.max, stripTop(0), STRIP_H),
         });
       }
     });
@@ -303,7 +314,7 @@ export function MetabolicTrendChart7d({
       xTicks,
       weightWeekDelta,
     };
-  }, [chartW, days, weightOnly]);
+  }, [chartW, days, weightOnly, massUnit]);
 
   const prepared = useMemo(() => {
     if (weightOnly) return null;
@@ -322,12 +333,14 @@ export function MetabolicTrendChart7d({
 
     const chartVisceral = (i: number) => withingsChartVisceralIndex(days, i);
 
-    const wVals = days.map((d) => d.weightKg).filter((v): v is number => v != null && Number.isFinite(v));
+    const wVals = days
+      .map((d) => (d.weightKg != null ? kgToDisplay(d.weightKg, massUnit) : null))
+      .filter((v): v is number => v != null && Number.isFinite(v));
     const vVals = days
       .map((_, i) => chartVisceral(i))
       .filter((v): v is number => v != null && Number.isFinite(v));
 
-    const wDom = domainPad(wVals, 76, 82, 0.08);
+    const wDom = domainPad(wVals, kgToDisplay(76, massUnit), kgToDisplay(82, massUnit), 0.08);
     const vDom = domainPad(vVals, 3.5, 4.5, 0.12);
 
     const compositionDeltas: number[] = [];
@@ -335,8 +348,8 @@ export function MetabolicTrendChart7d({
       days.forEach((_, i) => {
         const f = deltaKg(chartFatKg(i), fatBaseline);
         const m = deltaKg(chartMuscleKg(i), muscleBaseline);
-        if (f != null) compositionDeltas.push(f);
-        if (m != null) compositionDeltas.push(m);
+        if (f != null) compositionDeltas.push(kgToDisplay(f, massUnit));
+        if (m != null) compositionDeltas.push(kgToDisplay(m, massUnit));
       });
     }
     const deltaDom = deltaDomainFromValues(compositionDeltas);
@@ -365,8 +378,9 @@ export function MetabolicTrendChart7d({
       const pts: PixelPoint[] = [];
       days.forEach((_, i) => {
         if (!compBase || baseline == null) return;
-        const v = deltaKg(getter(i), baseline);
-        if (v == null) return;
+        const vKg = deltaKg(getter(i), baseline);
+        if (vKg == null) return;
+        const v = kgToDisplay(vKg, massUnit);
         pts.push({
           x: xAtIndex(i, plotLeft, innerW, n),
           y: mapY(v, deltaDom.min, deltaDom.max, top, STRIP_H),
@@ -375,7 +389,7 @@ export function MetabolicTrendChart7d({
       return pts;
     };
 
-    const wPts = mkPts((d) => d.weightKg, wDom, 0);
+    const wPts = mkPts((d) => (d.weightKg != null ? kgToDisplay(d.weightKg, massUnit) : null), wDom, 0);
     const fPts = mkDeltaPts(chartFatKg, fatBaseline, 1);
     const mPts = mkDeltaPts(chartMuscleKg, muscleBaseline, 1);
     const vPts = mkPts((_, i) => chartVisceral(i), vDom, 2);
@@ -441,7 +455,7 @@ export function MetabolicTrendChart7d({
       visceralWeekTrend,
       visceralDebug,
     };
-  }, [chartW, days, periodAnchor, weightOnly]);
+  }, [chartW, days, periodAnchor, weightOnly, massUnit]);
 
   const activePrepared = weightOnly ? weightOnlyPrepared : prepared;
 
@@ -582,7 +596,7 @@ export function MetabolicTrendChart7d({
           <View style={styles.legendRow}>
             <LegendItem
               color={WellnessColors.accentBlue}
-              label={legendLabelWithDelta('Weight', p.weightWeekDelta)}
+              label={legendLabelWithDelta('Weight', p.weightWeekDelta, massUnit)}
             />
           </View>
         </View>
@@ -684,11 +698,11 @@ export function MetabolicTrendChart7d({
 
       <View style={styles.legend}>
         <View style={styles.legendRow}>
-          <LegendItem color={WellnessColors.accentBlue} label={legendLabelWithDelta('Weight', prepared.weightWeekDelta)} />
-          <LegendItem color={FAT_MASS_STROKE} label={legendLabelWithDelta('Fat', prepared.fatWeekDelta)} />
+          <LegendItem color={WellnessColors.accentBlue} label={legendLabelWithDelta('Weight', prepared.weightWeekDelta, massUnit)} />
+          <LegendItem color={FAT_MASS_STROKE} label={legendLabelWithDelta('Fat', prepared.fatWeekDelta, massUnit)} />
         </View>
         <View style={styles.legendRow}>
-          <LegendItem color={WellnessColors.accentGreen} label={legendLabelWithDelta('Muscle', prepared.muscleWeekDelta)} />
+          <LegendItem color={WellnessColors.accentGreen} label={legendLabelWithDelta('Muscle', prepared.muscleWeekDelta, massUnit)} />
           <LegendItem color={VISCERAL_STROKE} label={legendLabelWithVisceralPercent('Visceral', prepared.visceralWeekTrend)} />
         </View>
       </View>

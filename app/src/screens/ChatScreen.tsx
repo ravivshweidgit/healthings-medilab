@@ -81,6 +81,7 @@ import type { MentorLines } from '../logic/mentorChatText';
 import { activeMentorEmojis, mentorPossessiveLabel, mentorsCollectiveLabel, MENTOR_EMOJI } from '../logic/mentorLabels';
 import { getTodayMeals, getMealsForDay, buildMealsAiContext, foodLogDayKey } from '../services/FoodLogService';
 import { WellnessColors } from '../theme/wellness';
+import type { EnergyUnit } from '../logic/unitConvert';
 
 type Props = {
   visible: boolean;
@@ -920,6 +921,7 @@ function MessageBubble({
   mentor,
   rtl,
   lang,
+  energyUnit,
   onMacroApplied,
   onMacroDismiss,
   onRecipeOpen,
@@ -930,6 +932,7 @@ function MessageBubble({
   mentor: MentorType;
   rtl?: boolean;
   lang?: UserLanguage | null;
+  energyUnit?: EnergyUnit;
   onMacroApplied?: (target: DailyMacroTarget) => void;
   onMacroDismiss?: () => void;
   onRecipeOpen?: (plan: RecipePlan) => void;
@@ -971,6 +974,7 @@ function MessageBubble({
           <MacroProposalCard
             proposal={msg.macroProposal}
             lang={lang}
+            energyUnit={energyUnit}
             onApplied={onMacroApplied}
             onDismiss={onMacroDismiss}
           />
@@ -979,6 +983,7 @@ function MessageBubble({
           <RecipeCard
             plan={msg.recipePlan}
             lang={lang}
+            energyUnit={energyUnit}
             onOpen={() => onRecipeOpen(msg.recipePlan!)}
             onLogMeal={() => onRecipeLog(msg.recipePlan!)}
             onDismiss={onRecipeDismiss}
@@ -1577,6 +1582,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
                 mentor={activeMentor}
                 rtl={ui.rtl}
                 lang={context.lang}
+                energyUnit={context.unitsPrefs?.energy ?? 'kcal'}
                 onMacroApplied={handleMacroApplied}
                 onMacroDismiss={
                   item.macroProposal && !item.macroDismissed
@@ -1751,6 +1757,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
         visible={recipeViewerPlan != null}
         plan={recipeViewerPlan}
         lang={context.lang}
+        energyUnit={context.unitsPrefs?.energy ?? 'kcal'}
         onClose={() => setRecipeViewerPlan(null)}
         onLogMeal={
           recipeViewerPlan
@@ -1772,6 +1779,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
         prefillItems={foodLogPrefill?.items}
         prefillDescription={foodLogPrefill?.description}
         lang={context.lang}
+        energyUnit={context.unitsPrefs?.energy ?? 'kcal'}
       />
     </SafeAreaView>
   );

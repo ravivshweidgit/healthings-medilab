@@ -38,6 +38,17 @@ import {
   setWaterGoalMl,
 } from '../services/WaterPersistenceService';
 import { foodLogDayKey } from '../services/FoodLogService';
+import type { UnitsPrefs } from '../services/UnitsPreferenceService';
+import { DEFAULT_UNITS_PREFS } from '../services/UnitsPreferenceService';
+import {
+  displayToKcal,
+  displayToMl,
+  energyUnitLabel,
+  kcalToDisplay,
+  mlToDisplay,
+  parseLocaleNumber,
+  waterUnitLabel,
+} from '../logic/unitConvert';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -70,6 +81,7 @@ export type MacroTargetProps = {
   expanded: boolean;
   onToggleExpand: () => void;
   lang?: UserLanguage | null;
+  unitsPrefs?: UnitsPrefs;
 };
 
 type Screen = 'idle' | 'loading' | 'suggestion' | 'editing' | 'active';
@@ -107,17 +119,20 @@ function MacroBar({
   actual: number | null;
   target: number;
   color: string;
-  unit?: 'g' | 'kcal' | 'ml';
+  unit?: 'g' | 'kcal' | 'kj' | 'ml' | 'floz';
   onPress?: () => void;
 }) {
   const pct = actual != null && target > 0 ? Math.min(1, actual / target) : 0;
   const over = actual != null && actual > target * 1.1;
-  const suffix = unit === 'g' ? 'g' : unit === 'ml' ? 'ml' : '';
-  const actualText = actual != null ? String(Math.round(actual)) : '—';
+  const suffix =
+    unit === 'g' ? 'g' : unit === 'ml' ? 'ml' : unit === 'floz' ? 'fl oz' : '';
+  const fmt = (v: number) =>
+    unit === 'floz' ? v.toFixed(1) : String(Math.round(v));
+  const actualText = actual != null ? fmt(actual) : '—';
   const valueText =
-    unit === 'kcal'
+    unit === 'kcal' || unit === 'kj'
       ? `${actualText} / ${Math.round(target)}`
-      : `${actualText} / ${Math.round(target)}${suffix}`;
+      : `${actualText} / ${fmt(target)}${suffix}`;
 
   const row = (
     <View style={barStyles.row}>
@@ -188,7 +203,7 @@ function EditField({
         value={value}
         onChangeText={onChange}
         keyboardType="decimal-pad"
-        maxLength={5}
+        maxLength={8}
         selectTextOnFocus
       />
       <Text style={editStyles.unit}>{unit}</Text>
@@ -205,8 +220,8 @@ const editStyles = StyleSheet.create({
     borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10,
     fontSize: 15, fontWeight: '700', color: WellnessColors.textPrimary, textAlign: 'center',
   },
-  unit: { width: 24, fontSize: 12, color: WellnessColors.textSecondary },
-  ai: { width: 60, fontSize: 11, color: WellnessColors.textSecondary, textAlign: 'right' },
+  unit: { fontSize: 12, color: WellnessColors.textSecondary, flexShrink: 0 },
+  ai: { maxWidth: 72, fontSize: 11, color: WellnessColors.textSecondary, textAlign: 'right', flexShrink: 1 },
 });
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -217,6 +232,7 @@ export function MacroTargetStrip({
   heightCm, age, gender, bodyTarget, userRules, mentors, savedTarget,
   onSaved, weighInSuggestion, weighInSuggestionHint, onWeighInSuggestionConsumed,
   analyzeRequestId, expanded, onToggleExpand, lang,
+  unitsPrefs = DEFAULT_UNITS_PREFS,
 }: MacroTargetProps) {
   const [screen, setScreen] = useState<Screen>('idle');
   const [target, setTarget] = useState<DailyMacroTarget | null>(null);
@@ -352,20 +368,29 @@ export function MacroTargetStrip({
     setScreen('active');
   }, [suggestion, onSaved]);
 
+  const energyLab = energyUnitLabel(unitsPrefs.energy);
+  const waterLab = waterUnitLabel(unitsPrefs.water);
+
   const openEdit = useCallback((src: DailyMacroTarget) => {
     setEditP(String(src.protein_g));
     setEditF(String(src.fat_g));
     setEditC(String(src.carb_g));
     setEditFi(String(resolveFiberTarget_g(src)));
-    setEditK(String(src.kcal));
-    setEditWater(String(waterGoalMl));
+    setEditK(String(Math.round(kcalToDisplay(src.kcal, unitsPrefs.energy))));
+    setEditWater(
+      unitsPrefs.water === 'floz'
+        ? mlToDisplay(waterGoalMl, 'floz').toFixed(1)
+        : String(Math.round(waterGoalMl)),
+    );
     setScreen('editing');
-  }, [waterGoalMl]);
+  }, [waterGoalMl, unitsPrefs.energy, unitsPrefs.water]);
 
   const handleSaveEdit = useCallback(async () => {
     const base = suggestion ?? target;
     if (!base) return;
-    const p = parseFloat(editP), f = parseFloat(editF), c = parseFloat(editC), fi = parseFloat(editFi), k = parseFloat(editK);
+    const p = parseFloat(editP), f = parseFloat(editF), c = parseFloat(editC), fi = parseFloat(editFi);
+    const kRaw = parseLocaleNumber(editK);
+    const k = kRaw != null ? Math.round(displayToKcal(kRaw, unitsPrefs.energy)) : NaN;
     if ([p, f, c, k].some(isNaN)) return;
     const updated: DailyMacroTarget = {
       ...base,
@@ -377,7 +402,8 @@ export function MacroTargetStrip({
       analyzedAt: new Date().toISOString(),
     };
     await saveMacroTarget(updated, { userEdited: true });
-    const w = parseInt(editWater.replace(/\s/g, ''), 10);
+    const wRaw = parseLocaleNumber(editWater);
+    const w = wRaw != null ? Math.round(displayToMl(wRaw, unitsPrefs.water)) : NaN;
     if (!isNaN(w) && w > 0 && w !== waterGoalMl) {
       await setWaterGoalMl(w);
       setWaterGoalMlState(w);
@@ -386,20 +412,27 @@ export function MacroTargetStrip({
     onSaved?.(updated);
     setSuggestion(null);
     setScreen('active');
-  }, [editP, editF, editC, editFi, editK, editWater, waterGoalMl, suggestion, target, onSaved]);
+  }, [editP, editF, editC, editFi, editK, editWater, waterGoalMl, suggestion, target, onSaved, unitsPrefs.energy, unitsPrefs.water]);
 
   const openWaterGoalModal = useCallback(() => {
-    setWaterGoalInput(String(waterGoalMl));
+    setWaterGoalInput(
+      unitsPrefs.water === 'floz'
+        ? mlToDisplay(waterGoalMl, 'floz').toFixed(1)
+        : String(Math.round(waterGoalMl)),
+    );
     setWaterGoalModalVisible(true);
-  }, [waterGoalMl]);
+  }, [waterGoalMl, unitsPrefs.water]);
 
   const handleSaveWaterGoal = useCallback(async () => {
-    const n = parseInt(waterGoalInput.replace(/\s/g, ''), 10);
-    const goal = !isNaN(n) && n > 0 ? n : DEFAULT_WATER_GOAL_ML;
+    const n = parseLocaleNumber(waterGoalInput);
+    const goal =
+      n != null && n > 0
+        ? Math.round(displayToMl(n, unitsPrefs.water))
+        : DEFAULT_WATER_GOAL_ML;
     await setWaterGoalMl(goal);
     setWaterGoalMlState(goal);
     setWaterGoalModalVisible(false);
-  }, [waterGoalInput]);
+  }, [waterGoalInput, unitsPrefs.water]);
 
   return (
     <View style={styles.wrap}>
@@ -473,7 +506,11 @@ export function MacroTargetStrip({
                   { label: 'Fat',     val: suggestion.fat_g,     unit: 'g' },
                   { label: 'Carbs',   val: suggestion.carb_g,    unit: 'g' },
                   { label: 'Fiber',   val: suggestion.fiber_g ?? 30, unit: 'g' },
-                  { label: 'Calories',val: suggestion.kcal,      unit: 'kcal' },
+                  {
+                    label: 'Energy',
+                    val: Math.round(kcalToDisplay(suggestion.kcal, unitsPrefs.energy)),
+                    unit: energyLab,
+                  },
                 ].map(({ label, val, unit }) => (
                   <View key={label} style={styles.suggItem}>
                     <Text style={styles.suggVal}>{Math.round(val)}</Text>
@@ -500,8 +537,26 @@ export function MacroTargetStrip({
               <EditField label="Fat"     value={editF} onChange={setEditF} unit="g"    aiVal={(suggestion ?? target)?.aiSuggested.fat_g ?? 0}     />
               <EditField label="Carbs"   value={editC} onChange={setEditC} unit="g"    aiVal={(suggestion ?? target)?.aiSuggested.carb_g ?? 0}    />
               <EditField label="Fiber"   value={editFi} onChange={setEditFi} unit="g" aiVal={(suggestion ?? target)?.aiSuggested.fiber_g ?? (suggestion ?? target)?.fiber_g ?? 0} />
-              <EditField label="Calories"value={editK} onChange={setEditK} unit="kcal" aiVal={(suggestion ?? target)?.aiSuggested.kcal ?? 0}      />
-              <EditField label="Water"   value={editWater} onChange={setEditWater} unit="ml" hint={`def ${DEFAULT_WATER_GOAL_ML}`} />
+              <EditField
+                label={energyLab}
+                value={editK}
+                onChange={setEditK}
+                unit={energyLab}
+                aiVal={Math.round(
+                  kcalToDisplay((suggestion ?? target)?.aiSuggested.kcal ?? 0, unitsPrefs.energy),
+                )}
+              />
+              <EditField
+                label="Water"
+                value={editWater}
+                onChange={setEditWater}
+                unit={waterLab}
+                hint={`def ${
+                  unitsPrefs.water === 'floz'
+                    ? mlToDisplay(DEFAULT_WATER_GOAL_ML, 'floz').toFixed(1)
+                    : DEFAULT_WATER_GOAL_ML
+                }`}
+              />
               <View style={styles.suggBtns}>
                 <Pressable style={[styles.btn, styles.btnAccept]} onPress={handleSaveEdit}>
                   <Text style={styles.btnTextAccept}>Save</Text>
@@ -527,12 +582,25 @@ export function MacroTargetStrip({
                   compact
                 />
               ) : null}
-              <MacroBar label="kcal" actual={actualKcal} target={target.kcal} color="#5C6BC0" unit="kcal" />
+              <MacroBar
+                label={unitsPrefs.energy === 'kj' ? 'kJ' : 'kcal'}
+                actual={actualKcal != null ? kcalToDisplay(actualKcal, unitsPrefs.energy) : null}
+                target={kcalToDisplay(target.kcal, unitsPrefs.energy)}
+                color="#5C6BC0"
+                unit={unitsPrefs.energy === 'kj' ? 'kj' : 'kcal'}
+              />
               <MacroBar label="P" actual={actualProtein_g} target={target.protein_g} color="#4CAF50" />
               <MacroBar label="C" actual={actualCarb_g}    target={target.carb_g}    color="#FF9800" />
               <MacroBar label="F" actual={actualFat_g}     target={target.fat_g}     color="#2196F3" />
               <MacroBar label="Fi" actual={actualFiber_g} target={resolveFiberTarget_g(target)} color="#66BB6A" />
-              <MacroBar label="H2O" actual={waterMl} target={waterGoalMl} color="#29B6F6" unit="ml" onPress={openWaterGoalModal} />
+              <MacroBar
+                label="H2O"
+                actual={mlToDisplay(waterMl, unitsPrefs.water)}
+                target={mlToDisplay(waterGoalMl, unitsPrefs.water)}
+                color="#29B6F6"
+                unit={unitsPrefs.water === 'floz' ? 'floz' : 'ml'}
+                onPress={openWaterGoalModal}
+              />
               <Text style={styles.h2oHint}>Tap H2O bar to edit water goal</Text>
               <Pressable style={[styles.btn, styles.btnEdit, styles.editTargetsBtn]} onPress={() => openEdit(target)}>
                 <Text style={styles.btnTextEdit}>✎ Edit</Text>
@@ -551,14 +619,22 @@ export function MacroTargetStrip({
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalTitle}>Water goal</Text>
             <Text style={styles.modalSub}>
-              Daily H2O target in ml (default {DEFAULT_WATER_GOAL_ML.toLocaleString()}).
+              Daily H2O target in {waterLab} (default{' '}
+              {unitsPrefs.water === 'floz'
+                ? mlToDisplay(DEFAULT_WATER_GOAL_ML, 'floz').toFixed(1)
+                : DEFAULT_WATER_GOAL_ML.toLocaleString()}
+              ).
             </Text>
             <TextInput
               style={styles.modalInput}
               value={waterGoalInput}
               onChangeText={setWaterGoalInput}
-              keyboardType="number-pad"
-              placeholder={String(DEFAULT_WATER_GOAL_ML)}
+              keyboardType={unitsPrefs.water === 'floz' ? 'decimal-pad' : 'number-pad'}
+              placeholder={
+                unitsPrefs.water === 'floz'
+                  ? mlToDisplay(DEFAULT_WATER_GOAL_ML, 'floz').toFixed(1)
+                  : String(DEFAULT_WATER_GOAL_ML)
+              }
               placeholderTextColor={WellnessColors.textSecondary}
               autoFocus
               selectTextOnFocus

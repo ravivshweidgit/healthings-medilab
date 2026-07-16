@@ -18,6 +18,15 @@ import {
 } from '../services/ManualBodyService';
 import type { Gender } from '../services/TargetService';
 import { WellnessColors } from '../theme/wellness';
+import {
+  displayToKg,
+  formatEnergy,
+  formatMass,
+  massUnitLabel,
+  parseLocaleNumber,
+  type EnergyUnit,
+  type MassUnit,
+} from '../logic/unitConvert';
 
 const HELP_URL = 'https://healthings.ai/help/manual-body.html';
 
@@ -29,12 +38,13 @@ type Props = {
   userGender: Gender;
   heightCm: number;
   userAge: number;
+  massUnit?: MassUnit;
+  energyUnit?: EnergyUnit;
   onSaved: (snap: ManualBodySnapshot) => void | Promise<void>;
 };
 
 function parseNum(raw: string): number | null {
-  const n = parseFloat(raw.replace(',', '.').trim());
-  return Number.isFinite(n) ? n : null;
+  return parseLocaleNumber(raw);
 }
 
 export function ManualBodyProfileSection({
@@ -43,6 +53,8 @@ export function ManualBodyProfileSection({
   userGender,
   heightCm,
   userAge,
+  massUnit = 'kg',
+  energyUnit = 'kcal',
   onSaved,
 }: Props) {
   const [weighInInput, setWeighInInput] = useState('');
@@ -56,8 +68,12 @@ export function ManualBodyProfileSection({
     [userGender, heightCm, userAge],
   );
 
+  const previewWeightDisp = parseNum(weighInInput);
   const previewWeight =
-    parseNum(weighInInput) ?? manualBodySnap?.weight_kg ?? effectiveWeightKg ?? null;
+    (previewWeightDisp != null ? displayToKg(previewWeightDisp, massUnit) : null) ??
+    manualBodySnap?.weight_kg ??
+    effectiveWeightKg ??
+    null;
 
   const previewFatPct = useMemo(() => {
     if (previewWeight == null || previewWeight <= 0) return null;
@@ -85,8 +101,8 @@ export function ManualBodyProfileSection({
   const fatPlaceholder = useMemo(() => {
     if (!manualBodySnap) {
       if (fatMode === 'pct') return 'Body fat % (optional)';
-      if (fatMode === 'kg') return 'Fat mass kg (optional)';
-      return 'Muscle mass kg (optional)';
+      if (fatMode === 'kg') return `Fat mass ${massUnitLabel(massUnit)} (optional)`;
+      return `Muscle mass ${massUnitLabel(massUnit)} (optional)`;
     }
     if (fatMode === 'pct') {
       return manualBodySnap.fat_pct_source === 'user'
@@ -95,15 +111,17 @@ export function ManualBodyProfileSection({
     }
     if (fatMode === 'kg') {
       const kg = fatKgFromPct(manualBodySnap.weight_kg, manualBodySnap.fat_pct);
-      return `Fat mass · now ${kg.toFixed(1)} kg`;
+      return `Fat mass · now ${formatMass(kg, massUnit)}`;
     }
-    return `Muscle · now ${manualBodySnap.muscle_mass_kg.toFixed(1)} kg`;
-  }, [manualBodySnap, fatMode]);
+    return `Muscle · now ${formatMass(manualBodySnap.muscle_mass_kg, massUnit)}`;
+  }, [manualBodySnap, fatMode, massUnit]);
 
   const buildFatInput = (): ManualFatInput | null => {
     const value = parseNum(fatInput);
     if (value == null || value <= 0) return null;
-    return { mode: fatMode, value };
+    if (fatMode === 'pct') return { mode: 'pct', value };
+    // Fat kg / muscle: convert display mass → kg for store
+    return { mode: fatMode, value: displayToKg(value, massUnit) };
   };
 
   const fatOptsForWeighIn = () => {
@@ -114,11 +132,13 @@ export function ManualBodyProfileSection({
     return { muscleKg: input.value };
   };
 
+  const massLabel = massUnitLabel(massUnit);
+
   return (
     <View>
       <Text style={styles.sectionTitle}>Body</Text>
       <Text style={styles.hint}>
-        Log weight when you weigh yourself. Edit body fat as % or kg — muscle is calculated automatically.
+        Log weight when you weigh yourself. Edit body fat as % or {massLabel} — muscle is calculated automatically.
       </Text>
       <Pressable onPress={() => void Linking.openURL(HELP_URL)} hitSlop={8}>
         <Text style={styles.helpLink}>How manual body logging works →</Text>
@@ -130,8 +150,8 @@ export function ManualBodyProfileSection({
           keyboardType="decimal-pad"
           placeholder={
             effectiveWeightKg != null
-              ? `Weight · now ${effectiveWeightKg.toFixed(1)} kg`
-              : 'Weight (kg)'
+              ? `Weight · now ${formatMass(effectiveWeightKg, massUnit)}`
+              : `Weight (${massLabel})`
           }
           placeholderTextColor={WellnessColors.textSecondary}
           value={weighInInput}
@@ -141,14 +161,16 @@ export function ManualBodyProfileSection({
           style={[styles.btn, weighInSaving && styles.btnDisabled]}
           disabled={weighInSaving}
           onPress={async () => {
-            const w = parseNum(weighInInput);
-            if (w == null || !(w > 0) || w > 400) {
-              Alert.alert('Weigh-in', 'Enter a valid weight in kg.');
+            const typed = parseNum(weighInInput);
+            const wKg = typed != null ? displayToKg(typed, massUnit) : null;
+            const maxDisp = massUnit === 'lb' ? 880 : 400;
+            if (typed == null || !(typed > 0) || typed > maxDisp || wKg == null) {
+              Alert.alert('Weigh-in', `Enter a valid weight in ${massLabel}.`);
               return;
             }
             setWeighInSaving(true);
             try {
-              const snap = await logManualWeighIn(w, { ...profileOpts, ...fatOptsForWeighIn() });
+              const snap = await logManualWeighIn(wKg, { ...profileOpts, ...fatOptsForWeighIn() });
               await onSaved(snap);
               setWeighInInput('');
             } finally {
@@ -168,7 +190,7 @@ export function ManualBodyProfileSection({
             onPress={() => setFatMode(mode)}
           >
             <Text style={[styles.modeChipText, fatMode === mode && styles.modeChipTextActive]}>
-              {mode === 'pct' ? 'Fat %' : mode === 'kg' ? 'Fat kg' : 'Muscle kg'}
+              {mode === 'pct' ? 'Fat %' : mode === 'kg' ? `Fat ${massLabel}` : `Muscle ${massLabel}`}
             </Text>
           </Pressable>
         ))}
@@ -217,14 +239,15 @@ export function ManualBodyProfileSection({
 
       {previewMetrics ? (
         <Text style={styles.preview}>
-          Fat {previewMetrics.fatKg.toFixed(1)} kg · Muscle {previewMetrics.muscle_mass_kg.toFixed(1)} kg · BMR{' '}
-          {Math.round(previewMetrics.bmr_kcal)} kcal
+          Fat {formatMass(previewMetrics.fatKg, massUnit)} · Muscle{' '}
+          {formatMass(previewMetrics.muscle_mass_kg, massUnit)} · BMR{' '}
+          {formatEnergy(previewMetrics.bmr_kcal, energyUnit)}
           {manualBodySnap?.fat_pct_source !== 'user' && !fatInput.trim() ? ' · fat % estimated' : ''}
         </Text>
       ) : null}
       {previewMetrics && (previewMetrics.ratio < 0.92 || previewMetrics.ratio > 0.98) ? (
         <Text style={styles.warn}>
-          Fat + muscle should be close to your weight. Adjust fat % or muscle kg.
+          Fat + muscle should be close to your weight. Adjust fat % or muscle {massUnitLabel(massUnit)}.
         </Text>
       ) : null}
     </View>

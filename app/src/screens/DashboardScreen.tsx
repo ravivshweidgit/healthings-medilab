@@ -39,7 +39,24 @@ import { LabResultsStrip } from '../components/LabResultsStrip';
 import { WelcomeQuickStartWizard } from '../components/WelcomeQuickStartWizard';
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
 import { getManualBody, getManualBodyHistory, manualBodyToDashboardMetrics, countDistinctWeighInDays, type ManualBodySnapshot } from '../services/ManualBodyService';
-import { ManualBodyProfileSection } from '../components/ManualBodyProfileSection';
+import { UnitsPreferenceSection } from '../components/UnitsPreferenceSection';
+import {
+  DEFAULT_UNITS_PREFS,
+  formatUnitsDisplayHint,
+  getUnitsPrefs,
+  saveUnitsPrefs,
+  type UnitsPrefs,
+} from '../services/UnitsPreferenceService';
+import {
+  formatGlucose,
+  formatHeight,
+  formatMass,
+  heightCmToInput,
+  kgToDisplay,
+  parseHeightInputToCm,
+  parseLocaleNumber,
+  formatEnergy,
+} from '../logic/unitConvert';
 import { buildManualTrendDays } from '../services/ManualTrendService';
 import { SetupToggleRow } from '../components/SetupToggleRow';
 import { HealthConnectStepsGuide } from '../components/HealthConnectStepsGuide';
@@ -132,7 +149,8 @@ function formatRelativeAgo(iso: string): string {
 }
 
 function latestGlucoseSummary(
-  points: { timestamp: string; value: number }[]
+  points: { timestamp: string; value: number }[],
+  glucoseUnit: 'mgdl' | 'mmol' = 'mgdl',
 ): { valueLabel: string; ago: string } | null {
   let best: { timestamp: string; value: number } | null = null;
   for (const p of points) {
@@ -141,13 +159,14 @@ function latestGlucoseSummary(
   }
   if (!best) return null;
   return {
-    valueLabel: `${Math.round(best.value)} mg/dL`,
+    valueLabel: formatGlucose(best.value, glucoseUnit),
     ago: formatRelativeAgo(best.timestamp),
   };
 }
 
 function trendWeightSummary(
-  days: MetabolicTrend7dDay[]
+  days: MetabolicTrend7dDay[],
+  massUnit: 'kg' | 'lb' = 'kg',
 ): { weightLabel: string; deltaLabel: string | null } | null {
   const weights = days
     .map((d) => d.weightKg)
@@ -156,11 +175,12 @@ function trendWeightSummary(
   const latest = weights[weights.length - 1];
   const first = weights[0];
   const delta = weights.length >= 2 ? latest - first : null;
+  const deltaDisp = delta != null ? kgToDisplay(delta, massUnit) : null;
   return {
-    weightLabel: formatKg(latest),
+    weightLabel: formatMass(latest, massUnit),
     deltaLabel:
-      delta != null && Math.abs(delta) >= 0.05
-        ? `${delta > 0 ? '+' : ''}${delta.toFixed(1)} kg`
+      deltaDisp != null && Math.abs(deltaDisp) >= (massUnit === 'lb' ? 0.1 : 0.05)
+        ? `${deltaDisp > 0 ? '+' : ''}${deltaDisp.toFixed(1)} ${massUnit}`
         : null,
   };
 }
@@ -179,14 +199,8 @@ function computeBrandHeaderHeight(windowWidth: number): number {
   return BRAND_HEADER_HEIGHT_FALLBACK;
 }
 
-function formatKg(value: number | null | undefined, decimals = 1): string {
-  if (value == null || Number.isNaN(value)) return '—';
-  return `${value.toFixed(decimals)} kg`;
-}
-
-function formatKcal(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return '—';
-  return `${Math.round(value)} kcal`;
+function formatKg(value: number | null | undefined, decimals = 1, unit: 'kg' | 'lb' = 'kg'): string {
+  return formatMass(value, unit, decimals);
 }
 
 function formatMeasuredAt(iso: string | null | undefined): string | null {
@@ -316,6 +330,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [macroTarget, setMacroTarget] = useState<DailyMacroTarget | null>(null);
   const [effectiveMacroTarget, setEffectiveMacroTarget] = useState<DailyMacroTarget | null>(null);
   const [userLanguage, setUserLanguage] = useState<UserLanguage>(SUPPORTED_LANGUAGES[0]);
+  const [unitsPrefs, setUnitsPrefs] = useState<UnitsPrefs>(DEFAULT_UNITS_PREFS);
   // expanded state for each collapsible row in the grouped card
   const [mentorExpanded, setMentorExpanded] = useState(false);
   const [rulesExpanded, setRulesExpanded] = useState(false);
@@ -449,10 +464,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, []);
 
   const loadHeightAndBirthdate = useCallback(async () => {
-    const cached = await getCachedHeightCm();
+    const [cached, prefs] = await Promise.all([getCachedHeightCm(), getUnitsPrefs()]);
+    setUnitsPrefs(prefs);
     if (cached) {
       setHeightCm(cached);
-      setHeightInput(String(cached));
+      setHeightInput(heightCmToInput(cached, prefs.height));
     }
 
     // Show modal if gender or birthdate not yet stored.
@@ -564,16 +580,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       userGender ??
       (genderPicker === 'male' || genderPicker === 'female' ? genderPicker : null);
     const heightCmEff =
-      heightCm ??
-      (() => {
-        const cm = parseFloat(heightInput.replace(',', '.'));
-        return Number.isFinite(cm) && cm > 0 ? cm : null;
-      })();
+      heightCm ?? parseHeightInputToCm(heightInput, unitsPrefs.height);
     const ageEff =
       userAge ??
       (birthdatePicker ? computeAge(birthdatePicker.toISOString().split('T')[0]) : null);
     return { gender, heightCm: heightCmEff, age: ageEff };
-  }, [userGender, genderPicker, heightCm, heightInput, userAge, birthdatePicker]);
+  }, [userGender, genderPicker, heightCm, heightInput, userAge, birthdatePicker, unitsPrefs.height]);
 
   const manualBodyProfileReady =
     manualBodyProfile.gender != null &&
@@ -688,8 +700,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   );
 
   const glucoseCompactSummary = useMemo(
-    () => latestGlucoseSummary(glucoseData),
-    [glucoseData]
+    () => latestGlucoseSummary(glucoseData, unitsPrefs.glucose),
+    [glucoseData, unitsPrefs.glucose]
   );
 
   const metabolicHeader = useMemo(() => {
@@ -702,8 +714,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, [sourceConfig, glucoseCompactSummary]);
 
   const trendCompactSummary = useMemo(
-    () => (visibleTrend ? trendWeightSummary(visibleTrend.days) : null),
-    [visibleTrend]
+    () => (visibleTrend ? trendWeightSummary(visibleTrend.days, unitsPrefs.mass) : null),
+    [visibleTrend, unitsPrefs.mass],
   );
 
   const loadEatenHistory = useCallback(async (dayKeys: string[]) => {
@@ -858,11 +870,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const settingsCardSummary = useMemo(() => {
     const parts: string[] = [];
     if (userGender) parts.push(userGender.charAt(0).toUpperCase() + userGender.slice(1));
-    if (heightCm) parts.push(`${heightCm} cm`);
+    if (heightCm) parts.push(formatHeight(heightCm, unitsPrefs.height));
     if (userAge != null) parts.push(`${userAge} y`);
     if (mentors.length > 0) parts.push(`${mentors.length} mentor${mentors.length === 1 ? '' : 's'}`);
     return parts.length > 0 ? parts.join(' · ') : 'Tap to open';
-  }, [userGender, heightCm, userAge, mentors]);
+  }, [userGender, heightCm, userAge, mentors, unitsPrefs.height]);
 
   /** Today's actual macros summed from food entries. */
   const todayActualMacros = useMemo(() => {
@@ -977,12 +989,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       userRules,
       labsAiContext,
       nutritionDirectiveContext,
+      unitsDisplayHint: formatUnitsDisplayHint(unitsPrefs),
+      unitsPrefs,
     };
     coachContextRef.current = ctx;
     return ctx;
   }, [
     mentors, userAge, userGender, userMentorGender, mentorGenderPicker, heightCm, effectiveBodyScan, fatPct, bodyTargetForMacros,
-    todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, mealGlucoseContext, glucoseData, macroTarget, effectiveMacroTarget, userRules, labsAiContext, nutritionDirectiveContext, userLanguage,
+    todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, mealGlucoseContext, glucoseData, macroTarget, effectiveMacroTarget, userRules, labsAiContext, nutritionDirectiveContext, userLanguage, unitsPrefs,
   ]);
 
   /** Regenerate coach message using stored language (not stale React state). */
@@ -1193,7 +1207,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     if (w == null || !Number.isFinite(w) || !measuredAt) return;
     void applyAutoMacroRevision({
       trigger: 'weigh-in',
-      triggerDetail: `${w.toFixed(1)} kg`,
+      triggerDetail: formatMass(w, unitsPrefs.mass),
       weightKg: w,
       measuredAt,
       onSaved: (t) => { setMacroTarget(t); setEffectiveMacroTarget(t); },
@@ -1222,7 +1236,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         }
       },
     });
-  }, [bodyScan?.measuredAt, bodyScan?.weightKg, userLanguage?.code]);
+  }, [bodyScan?.measuredAt, bodyScan?.weightKg, userLanguage?.code, unitsPrefs.mass]);
 
   /** Coach workout trigger when today's workout list grows. */
   useEffect(() => {
@@ -1625,7 +1639,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   style={styles.bodyScanMetricThird}
                   accessible
                   accessibilityRole="text"
-                  accessibilityLabel={`Weight ${formatKg(displayBodyScan.metrics.weightKg)}`}
+                  accessibilityLabel={`Weight ${formatKg(displayBodyScan.metrics.weightKg, 1, unitsPrefs.mass)}`}
                 >
                   <Text style={styles.bodyScanMetricLabelTriple} accessible={false}>
                     Weight
@@ -1637,14 +1651,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     minimumFontScale={0.85}
                     accessible={false}
                   >
-                    {formatKg(displayBodyScan.metrics.weightKg)}
+                    {formatKg(displayBodyScan.metrics.weightKg, 1, unitsPrefs.mass)}
                   </Text>
                 </View>
                 <View
                   style={styles.bodyScanMetricThird}
                   accessible
                   accessibilityRole="text"
-                  accessibilityLabel={`Muscle mass ${formatKg(displayBodyScan.metrics.muscleMassKg)}`}
+                  accessibilityLabel={`Muscle mass ${formatKg(displayBodyScan.metrics.muscleMassKg, 1, unitsPrefs.mass)}`}
                 >
                   <Text style={styles.bodyScanMetricLabelTriple} accessible={false}>
                     Muscle
@@ -1656,14 +1670,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     minimumFontScale={0.85}
                     accessible={false}
                   >
-                    {formatKg(displayBodyScan.metrics.muscleMassKg)}
+                    {formatKg(displayBodyScan.metrics.muscleMassKg, 1, unitsPrefs.mass)}
                   </Text>
                 </View>
                 <View
                   style={styles.bodyScanMetricThird}
                   accessible
                   accessibilityRole="text"
-                  accessibilityLabel={`Fat mass ${formatKg(displayBodyScan.metrics.fatMassKg)}`}
+                  accessibilityLabel={`Fat mass ${formatKg(displayBodyScan.metrics.fatMassKg, 1, unitsPrefs.mass)}`}
                 >
                   <Text style={styles.bodyScanMetricLabelTriple} accessible={false}>
                     Fat{displayBodyScan.provenance === 'manual' && displayBodyScan.fatEstimated ? ' (est.)' : ''}
@@ -1675,7 +1689,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     minimumFontScale={0.85}
                     accessible={false}
                   >
-                    {formatKg(displayBodyScan.metrics.fatMassKg)}
+                    {formatKg(displayBodyScan.metrics.fatMassKg, 1, unitsPrefs.mass)}
                   </Text>
                 </View>
               </View>
@@ -1692,7 +1706,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   style={styles.bodyScanBmrRow}
                   accessible
                   accessibilityRole="text"
-                  accessibilityLabel={`BMR ${formatKcal(displayBodyScan.metrics.bmrKcalDay)} per day${
+                  accessibilityLabel={`BMR ${formatEnergy(displayBodyScan.metrics.bmrKcalDay, unitsPrefs.energy)} per day${
                     formatMeasuredAt(displayBodyScan.metrics.measuredAt)
                       ? `, measured ${formatMeasuredAt(displayBodyScan.metrics.measuredAt)}`
                       : ''
@@ -1703,7 +1717,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                       BMR
                     </Text>
                     <Text style={styles.bodyScanBmrValue} accessible={false}>
-                      {formatKcal(displayBodyScan.metrics.bmrKcalDay)}
+                      {formatEnergy(displayBodyScan.metrics.bmrKcalDay, unitsPrefs.energy)}
                     </Text>
                   </View>
                   {formatMeasuredAt(displayBodyScan.metrics.measuredAt) ? (
@@ -1744,6 +1758,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           burnPartsByDay={burnPartsByDay}
           onImported={() => { setFoodRefreshKey((k) => k + 1); loadTodayFood(); }}
           macroTarget={macroTarget}
+          unitsPrefs={unitsPrefs}
         />
 
         {metabolicHeader.show ? (
@@ -1786,6 +1801,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     workoutSessions={workoutSessions}
                     bmrKcalDay={effectiveBodyScan?.bmrKcalDay}
                     foodEntries={chartMeals}
+                    glucoseDisplayUnit={unitsPrefs.glucose}
+                    energyDisplayUnit={unitsPrefs.energy}
                   />
                 ) : null}
               </View>
@@ -1852,6 +1869,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     weightOnly={useManualWeightTrend}
                     weighInDayCount={manualWeighInDayCount}
                     hideTitle
+                    massUnit={unitsPrefs.mass}
                   />
                 ) : null}
                 {hasEnergyHistory && visibleTrend ? (
@@ -1860,6 +1878,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                       days={visibleTrend.days}
                       loading={trendChartLoading}
                       eatenKcalByDay={eatenKcalByDay}
+                      energyUnit={unitsPrefs.energy}
                     />
                   </View>
                 ) : null}
@@ -1958,7 +1977,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               <Text style={styles.profileRowSub}>
                 {[
                   userGender ? userGender.charAt(0).toUpperCase() + userGender.slice(1) : null,
-                  heightCm ? `${heightCm} cm` : null,
+                  heightCm ? formatHeight(heightCm, unitsPrefs.height) : null,
                   birthdatePicker ? `${userAge} y` : null,
                   userLanguage.code !== 'en' ? userLanguage.label : null,
                 ].filter(Boolean).join(' · ') || 'Tap to set gender, height & birthdate'}
@@ -1992,12 +2011,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   style={styles.heightInput}
                   value={heightInput}
                   onChangeText={setHeightInput}
-                  keyboardType="number-pad"
-                  maxLength={3}
-                  placeholder="e.g. 175"
+                  keyboardType={unitsPrefs.height === 'ftin' ? 'default' : 'number-pad'}
+                  maxLength={unitsPrefs.height === 'ftin' ? 8 : 3}
+                  placeholder={unitsPrefs.height === 'ftin' ? "e.g. 5'9\"" : 'e.g. 175'}
                   placeholderTextColor={WellnessColors.textSecondary}
                 />
-                <Text style={styles.heightUnit}>cm</Text>
+                <Text style={styles.heightUnit}>{unitsPrefs.height === 'ftin' ? "ft'in\"" : 'cm'}</Text>
               </View>
 
               {/* Birth Date */}
@@ -2029,7 +2048,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               )}
 
               {/* Language */}
-              <Text style={styles.birthdateSectionTitle}>Language</Text>
+              <Text style={styles.birthdateSectionTitle}>Coach & meals language</Text>
               <View style={styles.langRow}>
                 {SUPPORTED_LANGUAGES.map((lang) => (
                   <Pressable
@@ -2043,6 +2062,17 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   </Pressable>
                 ))}
               </View>
+
+              <UnitsPreferenceSection
+                prefs={unitsPrefs}
+                onChange={(next) => {
+                  setUnitsPrefs(next);
+                  void saveUnitsPrefs(next);
+                  if (heightCm != null) {
+                    setHeightInput(heightCmToInput(heightCm, next.height));
+                  }
+                }}
+              />
 
               <Pressable
                 style={styles.quickStartAgainBtn}
@@ -2133,6 +2163,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     userGender={manualBodyProfile.gender!}
                     heightCm={manualBodyProfile.heightCm!}
                     userAge={manualBodyProfile.age!}
+                    massUnit={unitsPrefs.mass}
+                    energyUnit={unitsPrefs.energy}
                     onSaved={async (snap) => {
                       setManualBodySnap(snap);
                       await loadManualTrend(snap);
@@ -2152,21 +2184,22 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 style={styles.birthdateSaveBtn}
                 onPress={async () => {
                   const iso = birthdatePicker.toISOString().split('T')[0];
-                  const cm = parseFloat(heightInput);
+                  const cm = parseHeightInputToCm(heightInput, unitsPrefs.height);
                   const prevLang = await getLanguage();
                   const langChanged = prevLang.code !== userLanguage.code;
                   await Promise.all([
                     setBirthdate(iso),
                     setGender(genderPicker),
                     setLanguage(userLanguage),
-                    ...(cm > 0 ? [saveHeightCm(cm)] : []),
+                    saveUnitsPrefs(unitsPrefs),
+                    ...(cm != null && cm > 0 ? [saveHeightCm(cm)] : []),
                   ]);
                   if (langChanged) {
                     await resetQuickQuestionsForLanguage(userLanguage);
                     // Generate-then-replace: forceCoachReview overwrites storage on success only.
                     await refreshCoachForLanguage();
                   }
-                  if (cm > 0) setHeightCm(cm);
+                  if (cm != null && cm > 0) setHeightCm(cm);
                   setUserGender(genderPicker);
                   setProfileExpanded(false);
                 }}
@@ -2189,6 +2222,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             weeklyWeightChange_kg={weeklyWeightChange_kg}
             lang={userLanguage}
             hideWithingsScalePrompt={manualBodyScaleActive}
+            massUnit={unitsPrefs.mass}
           />
 
           <View style={styles.groupDivider} />
@@ -2249,6 +2283,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             expanded={macroExpanded}
             onToggleExpand={() => setMacroExpanded((e) => !e)}
             lang={userLanguage}
+            unitsPrefs={unitsPrefs}
           />
 
           <View style={styles.groupDivider} />
@@ -2349,6 +2384,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         initialTimestamp={foodInitialTimestamp}
         editEntry={foodEditEntry}
         lang={userLanguage}
+        energyUnit={unitsPrefs.energy}
       />
 
       <WelcomeQuickStartWizard

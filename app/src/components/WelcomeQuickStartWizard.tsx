@@ -24,6 +24,16 @@ import {
   macroSuggestionToDailyTarget,
   suggestMacroTargets,
 } from '../logic/macroAutoAdjust';
+import {
+  displayToKg,
+  formatEnergy,
+  formatMass,
+  heightCmToInput,
+  kgToDisplay,
+  massUnitLabel,
+  parseHeightInputToCm,
+  parseLocaleNumber,
+} from '../logic/unitConvert';
 import { formatUserRulesBlock } from '../logic/userRulesContext';
 import { suggestBodyTargets } from '../services/GeminiService';
 import { healthConnectService } from '../services/HealthConnectService';
@@ -65,12 +75,18 @@ import {
   type Gender,
   type UserLanguage,
 } from '../services/TargetService';
+import {
+  DEFAULT_UNITS_PREFS,
+  getUnitsPrefs,
+  saveUnitsPrefs,
+  type UnitsPrefs,
+} from '../services/UnitsPreferenceService';
 import { WellnessColors } from '../theme/wellness';
-
-const TOTAL_STEPS = 7;
-
 import { SetupToggleRow } from './SetupToggleRow';
 import { HealthConnectStepsGuide } from './HealthConnectStepsGuide';
+import { UnitsPreferenceSection } from './UnitsPreferenceSection';
+
+const TOTAL_STEPS = 7;
 
 type Props = {
   visible: boolean;
@@ -86,6 +102,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
   const [birthdate, setBirthdatePick] = useState(new Date(1980, 0, 1));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [language, setLangPick] = useState<UserLanguage>(SUPPORTED_LANGUAGES[0]);
+  const [unitsPrefs, setUnitsPrefs] = useState<UnitsPrefs>({ ...DEFAULT_UNITS_PREFS });
 
   const [hasScale, setHasScale] = useState<boolean | null>(null);
   const [hasWatch, setHasWatch] = useState<boolean | null>(null);
@@ -117,16 +134,18 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
   useEffect(() => {
     if (!visible) return;
     void (async () => {
-      const [lang, gd, ht, bd, mgd] = await Promise.all([
+      const [lang, gd, ht, bd, mgd, prefs] = await Promise.all([
         getLanguage(),
         getGender(),
         getCachedHeightCm(),
         getBirthdate(),
         getMentorGender(),
+        getUnitsPrefs(),
       ]);
       setLangPick(lang);
+      setUnitsPrefs(prefs);
       if (gd) setGenderPick(gd);
-      if (ht) setHeightInput(String(ht));
+      if (ht) setHeightInput(heightCmToInput(ht, prefs.height));
       if (bd) {
         const d = new Date(bd);
         if (!Number.isNaN(d.getTime())) setBirthdatePick(d);
@@ -145,6 +164,24 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     })();
   }, [visible]);
 
+  const onUnitsChange = useCallback(
+    (next: UnitsPrefs) => {
+      if (next.height !== unitsPrefs.height) {
+        const cm = parseHeightInputToCm(heightInput, unitsPrefs.height);
+        if (cm != null) setHeightInput(heightCmToInput(cm, next.height));
+      }
+      if (next.mass !== unitsPrefs.mass) {
+        const n = parseLocaleNumber(weightInput);
+        if (n != null) {
+          const kg = displayToKg(n, unitsPrefs.mass);
+          setWeightInput(String(Number(kgToDisplay(kg, next.mass).toFixed(1))));
+        }
+      }
+      setUnitsPrefs(next);
+    },
+    [unitsPrefs, heightInput, weightInput],
+  );
+
   const age = useMemo(() => {
     const iso = birthdate.toISOString().split('T')[0];
     return computeAge(iso);
@@ -158,9 +195,13 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
   const progressLabel = `Quick Start · ${step} of ${TOTAL_STEPS}`;
 
   const validateStep1 = useCallback((): boolean => {
-    const cm = parseFloat(heightInput);
-    if (!cm || cm < 100 || cm > 250) {
-      setStepError('Enter height between 100 and 250 cm.');
+    const cm = parseHeightInputToCm(heightInput, unitsPrefs.height);
+    if (cm == null || cm < 100 || cm > 250) {
+      setStepError(
+        unitsPrefs.height === 'ftin'
+          ? 'Enter height between about 3\'3" and 8\'2".'
+          : 'Enter height between 100 and 250 cm.',
+      );
       return false;
     }
     if (age < 13) {
@@ -169,7 +210,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     }
     setStepError(null);
     return true;
-  }, [heightInput, age]);
+  }, [heightInput, unitsPrefs.height, age]);
 
   const validateStep2 = useCallback((): boolean => {
     if (hasScale == null || hasWatch == null || tracksCgm == null) {
@@ -185,18 +226,25 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
       setStepError(null);
       return true;
     }
-    const w = parseFloat(weightInput);
-    if (!w || w < 30 || w > 300) {
-      setStepError('Enter a valid weight in kg (30–300).');
+    const raw = parseLocaleNumber(weightInput);
+    const kg = raw != null ? displayToKg(raw, unitsPrefs.mass) : null;
+    if (kg == null || kg < 30 || kg > 300) {
+      const unit = massUnitLabel(unitsPrefs.mass);
+      setStepError(
+        unitsPrefs.mass === 'lb'
+          ? `Enter a valid weight in lb (about 66–660).`
+          : `Enter a valid weight in ${unit} (30–300).`,
+      );
       return false;
     }
     setStepError(null);
     return true;
-  }, [hasScale, linkWithingsLater, weightInput]);
+  }, [hasScale, linkWithingsLater, weightInput, unitsPrefs.mass]);
 
   const saveStep1 = useCallback(async () => {
     const iso = birthdate.toISOString().split('T')[0];
-    const cm = parseFloat(heightInput);
+    const cm = parseHeightInputToCm(heightInput, unitsPrefs.height);
+    if (cm == null) return;
     const prev = await getLanguage();
     await Promise.all([
       setBirthdate(iso),
@@ -204,17 +252,20 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
       setHeightCm(cm),
       setLanguage(language),
       setMentorGender(mentorGender),
+      saveUnitsPrefs(unitsPrefs),
     ]);
     if (prev.code !== language.code) {
       await resetQuickQuestionsForLanguage(language);
     }
-  }, [birthdate, heightInput, gender, language, mentorGender]);
+  }, [birthdate, heightInput, gender, language, mentorGender, unitsPrefs]);
 
   const buildManualBody = useCallback(async (): Promise<ManualBodySnapshot | null> => {
     if (hasScale && linkWithingsLater) return null;
-    const w = parseFloat(weightInput);
-    if (!w || w < 30) return null;
-    const cm = parseFloat(heightInput);
+    const raw = parseLocaleNumber(weightInput);
+    const w = raw != null ? displayToKg(raw, unitsPrefs.mass) : null;
+    if (w == null || w < 30) return null;
+    const cm = parseHeightInputToCm(heightInput, unitsPrefs.height);
+    if (cm == null) return null;
     const est = estimateBodyFromProfile({ gender, weightKg: w, heightCm: cm, ageYears: age });
     const snap: ManualBodySnapshot = {
       weight_kg: w,
@@ -227,7 +278,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     await saveManualBody(snap);
     await setManualBmrKcal(est.bmr_kcal);
     return snap;
-  }, [hasScale, linkWithingsLater, weightInput, heightInput, gender, age]);
+  }, [hasScale, linkWithingsLater, weightInput, heightInput, gender, age, unitsPrefs]);
 
   const runPermissions = useCallback(async () => {
     setPermBusy(true);
@@ -285,7 +336,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     if (storedManual) return storedManual;
     const { bodyScan } = await loadWithingsStore();
     if (bodyScan?.weightKg != null && bodyScan.weightKg > 0) {
-      const cm = parseFloat(heightInput);
+      const cm = parseHeightInputToCm(heightInput, unitsPrefs.height) ?? 170;
       const fatPct =
         bodyScan.fatMassKg != null && bodyScan.weightKg > 0
           ? (bodyScan.fatMassKg / bodyScan.weightKg) * 100
@@ -312,7 +363,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
       };
     }
     if (hasScale && linkWithingsLater) {
-      const cm = parseFloat(heightInput);
+      const cm = parseHeightInputToCm(heightInput, unitsPrefs.height) ?? 170;
       const estWeight = Math.round(24 * (cm / 100) ** 2 * 10) / 10;
       const est = estimateBodyFromProfile({ gender, weightKg: estWeight, heightCm: cm, ageYears: age });
       return {
@@ -325,7 +376,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
       };
     }
     return null;
-  }, [manualBody, buildManualBody, heightInput, age, gender, hasScale, linkWithingsLater]);
+  }, [manualBody, buildManualBody, heightInput, age, gender, hasScale, linkWithingsLater, unitsPrefs.height]);
 
   const runTargetAi = useCallback(async (forceRegenerate = false) => {
     setTargetsBusy(true);
@@ -352,7 +403,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
         setTargetsError('Enter weight, link Withings, or pull refresh before setting targets.');
         return;
       }
-      const cm = parseFloat(heightInput);
+      const cm = parseHeightInputToCm(heightInput, unitsPrefs.height) ?? 170;
       const bmi = body.weight_kg / ((cm / 100) ** 2);
       let proposedBody: BodyTarget;
       if (!forceRegenerate && existingBody) {
@@ -418,7 +469,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     } finally {
       setTargetsBusy(false);
     }
-  }, [resolveBodyForTargets, heightInput, age, gender, language]);
+  }, [resolveBodyForTargets, heightInput, age, gender, language, unitsPrefs.height]);
 
   useEffect(() => {
     if (visible && step === 6 && !bodyTarget && !targetsBusy && !targetsError) {
@@ -430,8 +481,9 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     if (!deviceSurvey) return;
     const usesManual = !hasScale || !linkWithingsLater;
     await saveSourceConfig(sourceConfigFromDevices(deviceSurvey, usesManual));
-    const w = parseFloat(weightInput);
-    const cm = parseFloat(heightInput);
+    const rawW = parseLocaleNumber(weightInput);
+    const w = rawW != null ? displayToKg(rawW, unitsPrefs.mass) : 0;
+    const cm = parseHeightInputToCm(heightInput, unitsPrefs.height) ?? 0;
     if (usesManual && w > 0 && cm > 0) {
       if (!deviceSurvey.withingsWatch) {
         await syncMetricsStore();
@@ -440,7 +492,17 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     }
     await setOnboardingCompletedAt();
     onComplete();
-  }, [deviceSurvey, hasScale, linkWithingsLater, weightInput, heightInput, gender, onComplete]);
+  }, [
+    deviceSurvey,
+    hasScale,
+    linkWithingsLater,
+    weightInput,
+    heightInput,
+    gender,
+    onComplete,
+    unitsPrefs.mass,
+    unitsPrefs.height,
+  ]);
 
   const goNext = useCallback(async () => {
     if (step === 1) {
@@ -519,6 +581,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
               <Text style={styles.lead}>
                 Your data stays on your phone. This is a wellness coach — not medical advice.
               </Text>
+              <UnitsPreferenceSection prefs={unitsPrefs} onChange={onUnitsChange} />
               <Text style={styles.fieldLabel}>Gender</Text>
               <View style={styles.chipRow}>
                 {(['male', 'female', 'other'] as Gender[]).map((g) => (
@@ -533,13 +596,15 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                   </Pressable>
                 ))}
               </View>
-              <Text style={styles.fieldLabel}>Height (cm)</Text>
+              <Text style={styles.fieldLabel}>
+                Height ({unitsPrefs.height === 'ftin' ? "ft'in\"" : 'cm'})
+              </Text>
               <TextInput
                 style={styles.input}
                 value={heightInput}
                 onChangeText={setHeightInput}
-                keyboardType="number-pad"
-                placeholder="e.g. 175"
+                keyboardType={unitsPrefs.height === 'ftin' ? 'default' : 'number-pad'}
+                placeholder={unitsPrefs.height === 'ftin' ? "e.g. 5'9\"" : 'e.g. 175'}
                 placeholderTextColor={WellnessColors.textSecondary}
               />
               <Text style={styles.fieldLabel}>Birth date</Text>
@@ -627,13 +692,15 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
               ) : null}
               {(!hasScale || !linkWithingsLater) && (
                 <>
-                  <Text style={styles.fieldLabel}>Current weight (kg)</Text>
+                  <Text style={styles.fieldLabel}>
+                    Current weight ({massUnitLabel(unitsPrefs.mass)})
+                  </Text>
                   <TextInput
                     style={styles.input}
                     value={weightInput}
                     onChangeText={setWeightInput}
                     keyboardType="decimal-pad"
-                    placeholder="e.g. 78.5"
+                    placeholder={unitsPrefs.mass === 'lb' ? 'e.g. 173' : 'e.g. 78.5'}
                     placeholderTextColor={WellnessColors.textSecondary}
                   />
                 </>
@@ -752,12 +819,13 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                   <View style={styles.targetSummary}>
                     <Text style={styles.optionTitle}>Body target</Text>
                     <Text style={styles.hint}>
-                      {bodyTarget.targetWeight_kg.toFixed(1)} kg · {bodyTarget.targetFatPct.toFixed(0)}% fat ·{' '}
-                      {bodyTarget.reasoning}
+                      {formatMass(bodyTarget.targetWeight_kg, unitsPrefs.mass)} ·{' '}
+                      {bodyTarget.targetFatPct.toFixed(0)}% fat · {bodyTarget.reasoning}
                     </Text>
                     <Text style={[styles.optionTitle, { marginTop: 12 }]}>Daily macros</Text>
                     <Text style={styles.hint}>
-                      {macroTarget.kcal} kcal · P{macroTarget.protein_g} · C{macroTarget.carb_g} · F{macroTarget.fat_g}
+                      {formatEnergy(macroTarget.kcal, unitsPrefs.energy)} · P{macroTarget.protein_g} · C
+                      {macroTarget.carb_g} · F{macroTarget.fat_g}
                       {macroTarget.fiber_g != null ? ` · Fi${macroTarget.fiber_g}` : ''}
                     </Text>
                     {macroTarget.rulesContext ? (

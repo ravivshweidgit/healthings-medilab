@@ -33,6 +33,16 @@ import type {
 import type { MetabolicTrend7dDay, CompositionSession } from './metabolicTrend7d';
 import type { WorkoutSession } from '../services/WithingsApiService';
 import type { VisitReportProfile } from './visitReportExport';
+import type { UnitsPrefs } from '../services/UnitsPreferenceService';
+import {
+  formatEnergy,
+  formatGlucose,
+  formatHeight,
+  formatMass,
+  kgToDisplay,
+  massUnitLabel,
+} from './unitConvert';
+import { DEFAULT_UNITS_PREFS } from '../services/UnitsPreferenceService';
 
 export type ClinicalTable = {
   headers: string[];
@@ -77,6 +87,7 @@ export type BuildClinicalNoteInput = {
   cgmSessionStarts: CgmSessionStart[];
   cgmStatSummary: string | null;
   periodReviewText: string;
+  unitsPrefs?: UnitsPrefs;
 };
 
 function dayKeyDaysAgo(daysAgo: number): string {
@@ -337,26 +348,39 @@ function formatWeightNarrative(
   wEnd: { start: number; end: number },
   weightDelta: number,
   dayCount: number,
+  massUnit: UnitsPrefs['mass'],
 ): string {
-  const d = `${weightDelta >= 0 ? '+' : ''}${weightDelta.toFixed(1)}`;
+  const start = kgToDisplay(wEnd.start, massUnit).toFixed(1);
+  const end = kgToDisplay(wEnd.end, massUnit).toFixed(1);
+  const d = `${weightDelta >= 0 ? '+' : ''}${kgToDisplay(weightDelta, massUnit).toFixed(1)}`;
+  const unit = massUnitLabel(massUnit);
   if (lang?.code === 'he') {
-    return `משקל ${wEnd.start.toFixed(1)} → ${wEnd.end.toFixed(1)} ק"ג (Δ ${d}) במהלך ${dayCount} ימי הדיווח.`;
+    return `משקל ${start} → ${end} ${unit} (Δ ${d}) במהלך ${dayCount} ימי הדיווח.`;
   }
-  return `Weight ${wEnd.start.toFixed(1)} → ${wEnd.end.toFixed(1)} kg (Δ ${d} kg) during the ${dayCount}-day reporting period.`;
+  return `Weight ${start} → ${end} ${unit} (Δ ${d} ${unit}) during the ${dayCount}-day reporting period.`;
 }
 
 function formatBodyCompNarrative(
   lang: UserLanguage | null | undefined,
-  anchor: { start: { dayKey: string; fatMassKg: number; muscleMassKg: number }; end: { dayKey: string; fatMassKg: number; muscleMassKg: number } },
+  anchor: {
+    start: { dayKey: string; fatMassKg: number; muscleMassKg: number };
+    end: { dayKey: string; fatMassKg: number; muscleMassKg: number };
+  },
+  massUnit: UnitsPrefs['mass'],
 ): string {
   const fatD = anchor.end.fatMassKg - anchor.start.fatMassKg;
   const muscleD = anchor.end.muscleMassKg - anchor.start.muscleMassKg;
-  const fd = `${fatD >= 0 ? '+' : ''}${fatD.toFixed(1)}`;
-  const md = `${muscleD >= 0 ? '+' : ''}${muscleD.toFixed(1)}`;
+  const fd = `${fatD >= 0 ? '+' : ''}${kgToDisplay(fatD, massUnit).toFixed(1)}`;
+  const md = `${muscleD >= 0 ? '+' : ''}${kgToDisplay(muscleD, massUnit).toFixed(1)}`;
+  const unit = massUnitLabel(massUnit);
+  const f0 = kgToDisplay(anchor.start.fatMassKg, massUnit).toFixed(1);
+  const f1 = kgToDisplay(anchor.end.fatMassKg, massUnit).toFixed(1);
+  const m0 = kgToDisplay(anchor.start.muscleMassKg, massUnit).toFixed(1);
+  const m1 = kgToDisplay(anchor.end.muscleMassKg, massUnit).toFixed(1);
   if (lang?.code === 'he') {
-    return `הרכב גוף (Withings BIA ${anchor.start.dayKey}→${anchor.end.dayKey}): שומן ${anchor.start.fatMassKg.toFixed(1)}→${anchor.end.fatMassKg.toFixed(1)} ק"ג (Δ ${fd}), שריר ${anchor.start.muscleMassKg.toFixed(1)}→${anchor.end.muscleMassKg.toFixed(1)} ק"ג (Δ ${md}).`;
+    return `הרכב גוף (Withings BIA ${anchor.start.dayKey}→${anchor.end.dayKey}): שומן ${f0}→${f1} ${unit} (Δ ${fd}), שריר ${m0}→${m1} ${unit} (Δ ${md}).`;
   }
-  return `Body composition (Withings BIA ${anchor.start.dayKey}→${anchor.end.dayKey}): fat mass ${anchor.start.fatMassKg.toFixed(1)}→${anchor.end.fatMassKg.toFixed(1)} kg (Δ ${fd}), muscle ${anchor.start.muscleMassKg.toFixed(1)}→${anchor.end.muscleMassKg.toFixed(1)} kg (Δ ${md}).`;
+  return `Body composition (Withings BIA ${anchor.start.dayKey}→${anchor.end.dayKey}): fat mass ${f0}→${f1} ${unit} (Δ ${fd}), muscle ${m0}→${m1} ${unit} (Δ ${md}).`;
 }
 
 function parsePeriodGlucoseAvgs(dayNightLines: string[]): { dayAvg: number | null; nightAvg: number | null } {
@@ -376,14 +400,17 @@ function formatCgmNarrative(
   dayKeys: string[],
   dayNightLines: string[],
   glucoseSection: string | null,
+  glucoseUnit: UnitsPrefs['glucose'] = 'mgdl',
 ): string {
   const { dayAvg, nightAvg } = parsePeriodGlucoseAvgs(dayNightLines);
   const daysMatch = glucoseSection?.match(/Days with CGM: (\d+)\/(\d+)/);
   const cgmDays = daysMatch ? `${daysMatch[1]}/${daysMatch[2]}` : null;
+  const dayDisp = dayAvg != null ? formatGlucose(dayAvg, glucoseUnit) : null;
+  const nightDisp = nightAvg != null ? formatGlucose(nightAvg, glucoseUnit) : null;
   if (lang?.code === 'he') {
     const parts: string[] = [];
-    if (dayAvg != null && nightAvg != null) {
-      parts.push(`ממוצע CGM בתקופה: יום ${dayAvg} mg/dL, לילה ${nightAvg} mg/dL.`);
+    if (dayDisp != null && nightDisp != null) {
+      parts.push(`ממוצע CGM בתקופה: יום ${dayDisp}, לילה ${nightDisp}.`);
     }
     if (cgmDays) parts.push(`${L.cgmCoverage}: ${cgmDays} ימים.`);
     if (dayAvg != null && dayAvg <= 100 && (nightAvg == null || nightAvg <= 100)) {
@@ -396,8 +423,8 @@ function formatCgmNarrative(
     return parts.join(' ');
   }
   const parts: string[] = [];
-  if (dayAvg != null && nightAvg != null) {
-    parts.push(`Period CGM average: daytime ${dayAvg} mg/dL, nighttime ${nightAvg} mg/dL.`);
+  if (dayDisp != null && nightDisp != null) {
+    parts.push(`Period CGM average: daytime ${dayDisp}, nighttime ${nightDisp}.`);
   }
   if (cgmDays) parts.push(`${L.cgmCoverage}: ${cgmDays} days.`);
   if (dayAvg != null && dayAvg <= 100 && (nightAvg == null || nightAvg <= 100)) {
@@ -517,23 +544,28 @@ function buildImpression(input: {
   nightAvg: number | null;
   avgCarbs: number | null;
   workoutSessions: number;
+  massUnit?: UnitsPrefs['mass'];
 }): string[] {
   const parts: string[] = [];
   const { lang, L, dayKeys, mealDays, lipidPoints, weightDelta, dayAvg, nightAvg, avgCarbs, workoutSessions } = input;
   const he = lang?.code === 'he';
+  const massUnit = input.massUnit ?? 'kg';
+  const unit = massUnitLabel(massUnit);
 
   if (weightDelta != null) {
+    const absDisp = kgToDisplay(Math.abs(weightDelta), massUnit).toFixed(1);
+    const deltaDisp = kgToDisplay(weightDelta, massUnit).toFixed(1);
     if (weightDelta <= -0.3) {
       parts.push(
         he
-          ? `מגמת משקל יורדת: ${Math.abs(weightDelta).toFixed(1)} ק"ג ב-${dayKeys.length} ימים.`
-          : `Body weight trended down ${Math.abs(weightDelta).toFixed(1)} kg over ${dayKeys.length} days.`,
+          ? `מגמת משקל יורדת: ${absDisp} ${unit} ב-${dayKeys.length} ימים.`
+          : `Body weight trended down ${absDisp} ${unit} over ${dayKeys.length} days.`,
       );
     } else if (weightDelta >= 0.3) {
       parts.push(
         he
-          ? `מגמת משקל עולה: ${weightDelta.toFixed(1)} ק"ג ב-${dayKeys.length} ימים.`
-          : `Body weight trended up ${weightDelta.toFixed(1)} kg over ${dayKeys.length} days.`,
+          ? `מגמת משקל עולה: ${deltaDisp} ${unit} ב-${dayKeys.length} ימים.`
+          : `Body weight trended up ${deltaDisp} ${unit} over ${dayKeys.length} days.`,
       );
     } else {
       parts.push(
@@ -606,6 +638,7 @@ function buildImpression(input: {
 
 export async function buildClinicalVisitNote(input: BuildClinicalNoteInput): Promise<VisitReportClinicalNote> {
   const L = clinicalLabels(input.lang);
+  const units = input.unitsPrefs ?? DEFAULT_UNITS_PREFS;
   const dayKeys = windowDayKeys(input.dayCount);
   const periodFrom = dayKeys[0];
   const periodTo = dayKeys[dayKeys.length - 1];
@@ -684,9 +717,9 @@ export async function buildClinicalVisitNote(input: BuildClinicalNoteInput): Pro
   const s1Bullets: string[] = [];
   if (input.profile.age != null) s1Bullets.push(`${L.age}: ${input.profile.age}`);
   s1Bullets.push(`${L.sex}: ${genderLabel(input.gender, L)}`);
-  if (input.profile.heightCm != null) s1Bullets.push(`${L.height}: ${input.profile.heightCm} cm`);
+  if (input.profile.heightCm != null) s1Bullets.push(`${L.height}: ${formatHeight(input.profile.heightCm, units.height)}`);
   if (input.profile.weightKg != null) {
-    let w = `${L.weight}: ${input.profile.weightKg.toFixed(1)} kg`;
+    let w = `${L.weight}: ${formatMass(input.profile.weightKg, units.mass)}`;
     if (input.profile.weightMeasuredAt) w += ` (${L.measured} ${fmtDate(input.profile.weightMeasuredAt, input.lang)})`;
     s1Bullets.push(w);
   }
@@ -695,12 +728,12 @@ export async function buildClinicalVisitNote(input: BuildClinicalNoteInput): Pro
   const s2Paragraphs: string[] = [];
   const s2Bullets: string[] = [];
   if (wEnd && weightDelta != null) {
-    s2Paragraphs.push(formatWeightNarrative(input.lang, wEnd, weightDelta, dayKeys.length));
+    s2Paragraphs.push(formatWeightNarrative(input.lang, wEnd, weightDelta, dayKeys.length, units.mass));
   } else if (input.profile.weightTrendLine) {
     s2Bullets.push(input.profile.weightTrendLine);
   }
   if (anchor) {
-    s2Paragraphs.push(formatBodyCompNarrative(input.lang, anchor));
+    s2Paragraphs.push(formatBodyCompNarrative(input.lang, anchor, units.mass));
   }
 
   const s3Paragraphs: string[] = [];
@@ -725,11 +758,11 @@ export async function buildClinicalVisitNote(input: BuildClinicalNoteInput): Pro
     s4Paragraphs.push(L.noData);
   } else {
     s4Paragraphs.push(
-      `${L.avgIntake}: ${Math.round(totalKcal / mealDays)} kcal · P ${Math.round(totalP / mealDays)}g · C ${Math.round(totalC / mealDays)}g · F ${Math.round(totalF / mealDays)}g · Fi ${Math.round(totalFi / mealDays)}g (${L.daysLogged} ${mealDays} ${L.of} ${dayKeys.length}).`,
+      `${L.avgIntake}: ${formatEnergy(totalKcal / mealDays, units.energy)} · P ${Math.round(totalP / mealDays)}g · C ${Math.round(totalC / mealDays)}g · F ${Math.round(totalF / mealDays)}g · Fi ${Math.round(totalFi / mealDays)}g (${L.daysLogged} ${mealDays} ${L.of} ${dayKeys.length}).`,
     );
     if (input.macroTarget) {
       s4Bullets.push(
-        `${L.targets} (${input.macroTarget.diet_label}): ${input.macroTarget.kcal} kcal · P${input.macroTarget.protein_g}g C${input.macroTarget.carb_g}g F${input.macroTarget.fat_g}g`,
+        `${L.targets} (${input.macroTarget.diet_label}): ${formatEnergy(input.macroTarget.kcal, units.energy)} · P${input.macroTarget.protein_g}g C${input.macroTarget.carb_g}g F${input.macroTarget.fat_g}g`,
       );
       s4Bullets.push(`${L.carbOver}: ${daysOverCarb}`);
       s4Bullets.push(`${L.proteinUnder}: ${daysUnderProtein}`);
@@ -740,7 +773,7 @@ export async function buildClinicalVisitNote(input: BuildClinicalNoteInput): Pro
   const s5Paragraphs: string[] = [];
   const s5Bullets: string[] = [];
   if (glucoseSection) {
-    s5Paragraphs.push(formatCgmNarrative(input.lang, L, dayKeys, dayNightLines, glucoseSection));
+    s5Paragraphs.push(formatCgmNarrative(input.lang, L, dayKeys, dayNightLines, glucoseSection, units.glucose));
     if (problemFoods.length > 0) {
       s5Bullets.push(L.problemFoodsHeader + ':');
       s5Bullets.push(...problemFoods.map((f) => `• ${f}`));
@@ -756,7 +789,7 @@ export async function buildClinicalVisitNote(input: BuildClinicalNoteInput): Pro
     const avgBurn = Math.round(totalBurn / energyDays);
     const bal = avgEaten - avgBurn;
     s6Paragraphs.push(
-      `${L.energyBalance}: ${L.eaten} ~${avgEaten} kcal · ${L.burn} ~${avgBurn} kcal · ${bal >= 0 ? L.surplus : L.deficit} ${Math.abs(bal)} kcal/day (${energyDays} days).`,
+      `${L.energyBalance}: ${L.eaten} ~${formatEnergy(avgEaten, units.energy)} · ${L.burn} ~${formatEnergy(avgBurn, units.energy)} · ${bal >= 0 ? L.surplus : L.deficit} ${formatEnergy(Math.abs(bal), units.energy)}/day (${energyDays} days).`,
     );
   }
   if (workoutsInWindow.length > 0) {
@@ -770,7 +803,7 @@ export async function buildClinicalVisitNote(input: BuildClinicalNoteInput): Pro
   if (input.userRules?.constraints?.length) s7Bullets.push(...input.userRules.constraints.map((c) => `• ${c}`));
   if (input.macroTarget) {
     s7Bullets.push(
-      `${L.macroRx}: ${input.macroTarget.diet_label} — ${input.macroTarget.kcal} kcal, P${input.macroTarget.protein_g}/C${input.macroTarget.carb_g}/F${input.macroTarget.fat_g}g`,
+      `${L.macroRx}: ${input.macroTarget.diet_label} — ${formatEnergy(input.macroTarget.kcal, units.energy)}, P${input.macroTarget.protein_g}/C${input.macroTarget.carb_g}/F${input.macroTarget.fat_g}g`,
     );
   }
   if (input.includeCoach && input.coachMsg) {
@@ -792,6 +825,7 @@ export async function buildClinicalVisitNote(input: BuildClinicalNoteInput): Pro
     nightAvg,
     avgCarbs: mealDays > 0 ? totalC / mealDays : null,
     workoutSessions: workoutsInWindow.length,
+    massUnit: units.mass,
   });
 
   return {

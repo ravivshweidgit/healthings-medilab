@@ -10,22 +10,24 @@ import { confirmMacroTargetFromProposal } from '../logic/macroAutoAdjust';
 import { RulesAdviceBanner } from './RulesAdviceBanner';
 import { MacroClinicalProfileBanner } from './MacroClinicalProfileBanner';
 import { WellnessColors } from '../theme/wellness';
+import { formatEnergy, type EnergyUnit } from '../logic/unitConvert';
 
 type Props = {
   proposal: MacroSuggestion;
   lang?: UserLanguage | null;
+  energyUnit?: EnergyUnit;
   onApplied?: (target: DailyMacroTarget) => void;
   onDismiss?: () => void;
 };
 
-export function MacroProposalCard({ proposal, lang, onApplied, onDismiss }: Props) {
+export function MacroProposalCard({ proposal, lang, energyUnit = 'kcal', onApplied, onDismiss }: Props) {
   const [busy, setBusy] = useState(false);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
 
   const title = rtl ? 'עדכון יעדי מאקרו מוצעים' : 'Proposed macro targets';
   const cancelLabel = rtl ? 'ביטול' : 'Cancel';
   const applyLabel = rtl ? 'עדכן יעדים' : 'Update targets';
-  const summary = `${proposal.kcal} kcal · P${proposal.protein_g} · C${proposal.carb_g} · F${proposal.fat_g} · Fi${proposal.fiber_g}`;
+  const summary = `${formatEnergy(proposal.kcal, energyUnit)} · P${proposal.protein_g} · C${proposal.carb_g} · F${proposal.fat_g} · Fi${proposal.fiber_g}`;
 
   const handleApply = useCallback(async () => {
     setBusy(true);

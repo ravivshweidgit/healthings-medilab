@@ -32,6 +32,19 @@ import {
 import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
 import type { DailyMacroTarget } from '../services/TargetService';
 import { getMacroTargetForDay, resolveFiberTarget_g } from '../services/TargetService';
+import type { UnitsPrefs } from '../services/UnitsPreferenceService';
+import { DEFAULT_UNITS_PREFS } from '../services/UnitsPreferenceService';
+import {
+  displayToKcal,
+  displayToMl,
+  energyUnitLabel,
+  formatEnergy,
+  formatWaterMl,
+  kcalToDisplay,
+  mlToDisplay,
+  parseLocaleNumber,
+  waterUnitLabel,
+} from '../logic/unitConvert';
 
 function startOfLocalDay(ms: number): number {
   const d = new Date(ms);
@@ -74,6 +87,8 @@ type Props = {
   onImported?: () => void;
   /** Daily macro targets — when set, bars show actual vs target. */
   macroTarget?: DailyMacroTarget | null;
+  /** Display units (water / energy). Values still stored as ml / kcal. */
+  unitsPrefs?: UnitsPrefs;
 };
 
 const COLOR_PROTEIN = '#42A5F5';
@@ -140,17 +155,18 @@ type WaterQuickTileProps = {
   ml: number;
   label: string;
   onPress: () => void;
+  waterUnit?: 'ml' | 'floz';
 };
 
-function WaterQuickTile({ variant, ml, label, onPress }: WaterQuickTileProps) {
+function WaterQuickTile({ variant, ml, label, onPress, waterUnit = 'ml' }: WaterQuickTileProps) {
   return (
     <Pressable
       style={({ pressed }) => [waterTileStyles.tile, pressed && waterTileStyles.tilePressed]}
       onPress={onPress}
-      accessibilityLabel={`Add ${ml} milliliters, ${label}`}
+      accessibilityLabel={`Add ${formatWaterMl(ml, waterUnit)}, ${label}`}
     >
       <WaterGlassIcon variant={variant} />
-      <Text style={waterTileStyles.ml}>{ml} ml</Text>
+      <Text style={waterTileStyles.ml}>{formatWaterMl(ml, waterUnit)}</Text>
       <Text style={waterTileStyles.label} numberOfLines={1}>
         {label}
       </Text>
@@ -207,22 +223,29 @@ type MacroBarProps = {
   target: number;
   color: string;
   showTarget?: boolean;
-  /** Default grams (`g`). Use `kcal` / `ml` for energy and water meters. */
-  unit?: 'g' | 'kcal' | 'ml';
+  /** Default grams (`g`). Energy/water pass already-converted display values. */
+  unit?: 'g' | 'kcal' | 'kj' | 'ml' | 'floz';
   onPress?: () => void;
 };
 
 function MacroBar({ label, value, target, color, showTarget, unit = 'g', onPress }: MacroBarProps) {
   const ratio = target > 0 ? Math.min(1, value / target) : 0;
   const over = value > target * 1.05;
-  const suffix = unit === 'g' ? 'g' : unit === 'ml' ? 'ml' : '';
+  const suffix =
+    unit === 'g' ? 'g' : unit === 'ml' ? 'ml' : unit === 'floz' ? 'fl oz' : unit === 'kj' ? '' : '';
   const valueText = showTarget
-    ? unit === 'kcal'
-      ? `${Math.round(value)}/${Math.round(target)}`
-      : `${Math.round(value)}/${Math.round(target)}${suffix}`
+    ? unit === 'kcal' || unit === 'kj'
+      ? `${Math.round(value)}/${Math.round(target)}${unit === 'kj' ? '' : ''}`
+      : unit === 'floz'
+        ? `${value.toFixed(1)}/${target.toFixed(1)}${suffix}`
+        : `${Math.round(value)}/${Math.round(target)}${suffix}`
     : unit === 'kcal'
       ? `${Math.round(value)} kcal`
-      : `${Math.round(value)}${suffix}`;
+      : unit === 'kj'
+        ? `${Math.round(value)} kJ`
+        : unit === 'floz'
+          ? `${value.toFixed(1)}${suffix}`
+          : `${Math.round(value)}${suffix}`;
   const row = (
     <View style={barStyles.row}>
       <Text style={barStyles.label} numberOfLines={1}>
@@ -274,7 +297,7 @@ const barStyles = StyleSheet.create({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, refreshKey, burnKcalByDay, burnPartsByDay, onImported, macroTarget }: Props) {
+export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, refreshKey, burnKcalByDay, burnPartsByDay, onImported, macroTarget, unitsPrefs = DEFAULT_UNITS_PREFS }: Props) {
   const [selectedMs, setSelectedMs] = useState(() => startOfLocalDay(Date.now()));
   const [macros, setMacros] = useState<DailyMacros | null>(null);
   const [dayMacroTarget, setDayMacroTarget] = useState<DailyMacroTarget | null>(macroTarget ?? null);
@@ -354,12 +377,12 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
   useEffect(() => { load(); }, [load, refreshKey]);
 
   const handleSaveCorrection = useCallback(async () => {
-    const delta = parseInt(correctionInput.replace(/\s/g, ''), 10);
-    const value = isNaN(delta) ? 0 : delta;
+    const delta = parseLocaleNumber(correctionInput);
+    const value = delta != null ? Math.round(displayToKcal(delta, unitsPrefs.energy)) : 0;
     await setBurnCorrection(activeDayKey, value);
     setBurnCorrectionState(value);
     setCorrectionModalVisible(false);
-  }, [correctionInput, activeDayKey]);
+  }, [correctionInput, activeDayKey, unitsPrefs.energy]);
 
   const openWaterSheet = useCallback(() => {
     setWaterEntryEdit(null);
@@ -368,17 +391,26 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
 
   const openWaterIntakeModal = useCallback(() => {
     setWaterModalMode('intake');
-    setWaterInput(
-      waterEntryEdit ? String(waterEntryEdit.ml) : waterMl > 0 ? String(waterMl) : '',
-    );
+    const raw = waterEntryEdit ? waterEntryEdit.ml : waterMl;
+    const shown =
+      waterEntryEdit || waterMl > 0
+        ? unitsPrefs.water === 'floz'
+          ? mlToDisplay(raw, 'floz').toFixed(1)
+          : String(Math.round(raw))
+        : '';
+    setWaterInput(shown);
     setWaterModalVisible(true);
-  }, [waterMl, waterEntryEdit]);
+  }, [waterMl, waterEntryEdit, unitsPrefs.water]);
 
   const openWaterGoalModal = useCallback(() => {
     setWaterModalMode('goal');
-    setWaterInput(String(waterGoalMl));
+    setWaterInput(
+      unitsPrefs.water === 'floz'
+        ? mlToDisplay(waterGoalMl, 'floz').toFixed(1)
+        : String(Math.round(waterGoalMl)),
+    );
     setWaterModalVisible(true);
-  }, [waterGoalMl]);
+  }, [waterGoalMl, unitsPrefs.water]);
 
   const closeWaterSheet = useCallback(() => {
     setWaterSheetVisible(false);
@@ -399,8 +431,9 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
   );
 
   const handleSaveWaterModal = useCallback(async () => {
-    const n = parseInt(waterInput.replace(/\s/g, ''), 10);
-    const value = isNaN(n) ? 0 : n;
+    const n = parseFloat(waterInput.replace(/,/g, '.').replace(/\s/g, ''));
+    const typed = isNaN(n) ? 0 : n;
+    const value = Math.round(displayToMl(typed, unitsPrefs.water));
     if (waterModalMode === 'goal') {
       const goal = value > 0 ? value : DEFAULT_WATER_GOAL_ML;
       await setWaterGoalMl(goal);
@@ -414,7 +447,7 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
       await reloadWater();
     }
     setWaterModalVisible(false);
-  }, [waterInput, waterModalMode, activeDayKey, reloadWater, waterEntryEdit]);
+  }, [waterInput, waterModalMode, activeDayKey, reloadWater, waterEntryEdit, unitsPrefs.water]);
 
   const handleClearWaterDay = useCallback(async () => {
     if (waterEntryEdit) {
@@ -480,6 +513,13 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
   const eaten   = macros ? Math.round(macros.kcal) : 0;
   const balance = burn != null && eaten > 0 ? eaten - burn : null;
   const isDeficit = balance != null && balance < 0;
+  const energyU = unitsPrefs.energy;
+  const waterU = unitsPrefs.water;
+  const eLab = energyUnitLabel(energyU);
+  const disp = (kcal: number) => Math.round(kcalToDisplay(kcal, energyU));
+  const waterBarUnit = waterU === 'floz' ? 'floz' : 'ml';
+  const energyBarUnit = energyU === 'kj' ? 'kj' : 'kcal';
+  const energyBarLabel = energyU === 'kj' ? 'kJ' : 'kcal';
 
   return (
     <View style={[styles.card, cardShadow]}>
@@ -509,10 +549,10 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
       <View style={styles.energyLines}>
         <View style={styles.energyRow}>
           <Text style={styles.energyNum} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-            {eaten > 0 ? eaten.toLocaleString() : '—'}
+            {eaten > 0 ? disp(eaten).toLocaleString() : '—'}
           </Text>
           <Text style={styles.energyLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-            kcal eaten
+            {eLab} eaten
           </Text>
         </View>
         {burnParts != null && burn != null ? (
@@ -520,19 +560,23 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
             <Pressable
               style={styles.energyRow}
               onPress={() => {
-                setCorrectionInput(burnCorrection !== 0 ? String(burnCorrection) : '');
+                setCorrectionInput(
+                  burnCorrection !== 0
+                    ? String(Math.round(kcalToDisplay(burnCorrection, energyU)))
+                    : '',
+                );
                 setCorrectionModalVisible(true);
               }}
               hitSlop={8}
-              accessibilityLabel={`${activityShown} kilocalories activity, tap to adjust`}
+              accessibilityLabel={`${activityShown} ${eLab} activity, tap to adjust`}
             >
               <Text style={styles.energyNum} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-                {(activityShown ?? 0).toLocaleString()}
+                {disp(activityShown ?? 0).toLocaleString()}
               </Text>
               <Text style={styles.energyLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-                {'kcal activity'}
+                {`${eLab} activity`}
                 {burnCorrection !== 0 ? (
-                  <Text style={styles.energyCorrection}>{` (${burnCorrection > 0 ? '+' : ''}${burnCorrection})`}</Text>
+                  <Text style={styles.energyCorrection}>{` (${burnCorrection > 0 ? '+' : ''}${disp(burnCorrection)})`}</Text>
                 ) : null}
               </Text>
               <Text style={styles.adjustBtn}>✎</Text>
@@ -540,14 +584,14 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
             <View style={styles.energyBurnBlock}>
               <View style={styles.energyBurnRow}>
                 <Text style={[styles.energyNum, styles.energyNumBurn]} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-                  {Math.round(burn).toLocaleString()}
+                  {disp(Math.round(burn)).toLocaleString()}
                 </Text>
                 <View style={styles.energyBurnTextCol}>
                   <Text style={styles.energyLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-                    kcal burned
+                    {eLab} burned
                   </Text>
                   <Text style={styles.energyBurnFormula} numberOfLines={1} maxFontSizeMultiplier={1.15}>
-                    {`BMR ${burnParts.bmr.toLocaleString()} + activity`}
+                    {`BMR ${disp(burnParts.bmr).toLocaleString()} + activity`}
                   </Text>
                 </View>
               </View>
@@ -557,18 +601,22 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
           <Pressable
             style={styles.energyRow}
             onPress={() => {
-              setCorrectionInput(burnCorrection !== 0 ? String(burnCorrection) : '');
+              setCorrectionInput(
+                burnCorrection !== 0
+                  ? String(Math.round(kcalToDisplay(burnCorrection, energyU)))
+                  : '',
+              );
               setCorrectionModalVisible(true);
             }}
             hitSlop={8}
           >
             <Text style={styles.energyNum} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-              {Math.round(burn).toLocaleString()}
+              {disp(Math.round(burn)).toLocaleString()}
             </Text>
             <Text style={styles.energyLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-              {'kcal burned'}
+              {`${eLab} burned`}
               {burnCorrection !== 0 ? (
-                <Text style={styles.energyCorrection}>{` (${burnCorrection > 0 ? '+' : ''}${burnCorrection})`}</Text>
+                <Text style={styles.energyCorrection}>{` (${burnCorrection > 0 ? '+' : ''}${disp(burnCorrection)})`}</Text>
               ) : null}
             </Text>
             <Text style={styles.adjustBtn}>✎</Text>
@@ -581,14 +629,14 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
               numberOfLines={1}
               maxFontSizeMultiplier={1.2}
             >
-              {Math.abs(balance).toLocaleString()}
+              {disp(Math.abs(balance)).toLocaleString()}
             </Text>
             <Text
               style={[styles.energyLabel, { color: isDeficit ? '#2E7D32' : '#C62828' }]}
               numberOfLines={1}
               maxFontSizeMultiplier={1.2}
             >
-              kcal {isDeficit ? 'deficit' : 'surplus'}
+              {eLab} {isDeficit ? 'deficit' : 'surplus'}
             </Text>
           </View>
         ) : null}
@@ -600,12 +648,12 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
           <>
             {displayTarget ? (
               <MacroBar
-                label="kcal"
-                value={eaten}
-                target={displayTarget.kcal}
+                label={energyBarLabel}
+                value={kcalToDisplay(eaten, energyU)}
+                target={kcalToDisplay(displayTarget.kcal, energyU)}
                 color="#5C6BC0"
                 showTarget
-                unit="kcal"
+                unit={energyBarUnit}
               />
             ) : null}
             <MacroBar label="P" value={macros?.protein_g ?? 0} target={displayTarget ? displayTarget.protein_g : maxMacro} color={COLOR_PROTEIN} showTarget={!!displayTarget} />
@@ -616,11 +664,11 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
         ) : null}
         <MacroBar
           label="H2O"
-          value={waterMl}
-          target={waterGoalMl}
+          value={mlToDisplay(waterMl, waterU)}
+          target={mlToDisplay(waterGoalMl, waterU)}
           color={COLOR_WATER}
           showTarget
-          unit="ml"
+          unit={waterBarUnit}
           onPress={openWaterSheet}
         />
       </View>
@@ -660,7 +708,7 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
             >
               <Text style={styles.chipTime}>{formatTime(item.entry.timestamp)}</Text>
               <Text style={styles.chipLabel}>{mealLabel(item.entry)}</Text>
-              <Text style={styles.chipKcal}>{Math.round(item.entry.totalKcal)} kcal</Text>
+              <Text style={styles.chipKcal}>{formatEnergy(item.entry.totalKcal, energyU)}</Text>
               <Text style={styles.chipEdit}>✎ edit</Text>
             </Pressable>
           ) : (
@@ -671,7 +719,7 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
             >
               <Text style={styles.chipTime}>{formatTime(item.entry.timestamp)}</Text>
               <Text style={styles.chipLabelWater}>{item.entry.label ?? 'Water'}</Text>
-              <Text style={styles.chipMl}>{item.entry.ml} ml</Text>
+              <Text style={styles.chipMl}>{formatWaterMl(item.entry.ml, waterU)}</Text>
               <Text style={styles.chipEditWater}>✎ edit</Text>
             </Pressable>
           ),
@@ -693,15 +741,20 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
       <Modal visible={correctionModalVisible} transparent animationType="fade" onRequestClose={() => setCorrectionModalVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setCorrectionModalVisible(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Adjust activity calories</Text>
+            <Text style={styles.modalTitle}>Adjust activity {eLab}</Text>
             <Text style={styles.modalSub}>
-              Enter a correction (e.g. <Text style={styles.modalCode}>-188</Text> to reduce activity by 188 kcal).
+              Enter a correction (e.g. <Text style={styles.modalCode}>-{Math.round(kcalToDisplay(188, energyU))}</Text> to
+              reduce activity by {formatEnergy(188, energyU)}).
               {'\n'}
               Recorded activity:{' '}
-              <Text style={styles.modalBold}>{burnParts?.activity.toLocaleString() ?? '—'} kcal</Text>
+              <Text style={styles.modalBold}>
+                {burnParts != null
+                  ? formatEnergy(burnParts.activity, energyU)
+                  : '—'}
+              </Text>
               {burnParts != null ? (
                 <>
-                  {' · '}BMR <Text style={styles.modalBold}>{burnParts.bmr.toLocaleString()}</Text>
+                  {' · '}BMR <Text style={styles.modalBold}>{formatEnergy(burnParts.bmr, energyU)}</Text>
                 </>
               ) : null}
             </Text>
@@ -710,7 +763,7 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
               value={correctionInput}
               onChangeText={setCorrectionInput}
               keyboardType="numbers-and-punctuation"
-              placeholder="-188"
+              placeholder={`-${Math.round(kcalToDisplay(188, energyU))}`}
               placeholderTextColor={WellnessColors.textSecondary}
               autoFocus
               selectTextOnFocus
@@ -742,13 +795,13 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
                 <>
                   {formatTime(waterEntryEdit.timestamp)}
                   {' · '}
-                  <Text style={styles.modalBold}>{waterEntryEdit.ml.toLocaleString()} ml</Text>
+                  <Text style={styles.modalBold}>{formatWaterMl(waterEntryEdit.ml, waterU)}</Text>
                   {waterEntryEdit.label ? ` · ${waterEntryEdit.label}` : ''}
                 </>
               ) : (
                 <>
-                  Today: <Text style={styles.modalBold}>{waterMl.toLocaleString()} ml</Text>
-                  {' · '}Goal <Text style={styles.modalBold}>{waterGoalMl.toLocaleString()} ml</Text>
+                  Today: <Text style={styles.modalBold}>{formatWaterMl(waterMl, waterU)}</Text>
+                  {' · '}Goal <Text style={styles.modalBold}>{formatWaterMl(waterGoalMl, waterU)}</Text>
                 </>
               )}
             </Text>
@@ -757,18 +810,21 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
                 variant="half"
                 ml={WATER_HALF_ML}
                 label="Half glass"
+                waterUnit={waterU}
                 onPress={() => void handleGlassPress(WATER_HALF_ML, 'Half glass')}
               />
               <WaterQuickTile
                 variant="full"
                 ml={WATER_FULL_ML}
                 label="Full glass"
+                waterUnit={waterU}
                 onPress={() => void handleGlassPress(WATER_FULL_ML, 'Full glass')}
               />
               <WaterQuickTile
                 variant="big"
                 ml={WATER_BIG_ML}
                 label="Big glass"
+                waterUnit={waterU}
                 onPress={() => void handleGlassPress(WATER_BIG_ML, 'Big glass')}
               />
             </View>
@@ -829,16 +885,17 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
             <Text style={styles.modalSub}>
               {waterModalMode === 'goal' ? (
                 <>
-                  Daily H2O target in ml (default {DEFAULT_WATER_GOAL_ML.toLocaleString()}).
+                  Daily H2O target in {waterUnitLabel(waterU)} (default{' '}
+                  {formatWaterMl(DEFAULT_WATER_GOAL_ML, waterU)}).
                 </>
               ) : waterEntryEdit ? (
                 <>
-                  Set ml for this drink ({formatTime(waterEntryEdit.timestamp)}).
+                  Set {waterUnitLabel(waterU)} for this drink ({formatTime(waterEntryEdit.timestamp)}).
                 </>
               ) : (
                 <>
-                  Set today's total in ml. Goal:{' '}
-                  <Text style={styles.modalBold}>{waterGoalMl.toLocaleString()} ml</Text>
+                  Set today's total in {waterUnitLabel(waterU)}. Goal:{' '}
+                  <Text style={styles.modalBold}>{formatWaterMl(waterGoalMl, waterU)}</Text>
                 </>
               )}
             </Text>

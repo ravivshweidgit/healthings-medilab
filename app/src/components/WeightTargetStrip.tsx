@@ -21,6 +21,12 @@ import {
   type UserLanguage,
 } from '../services/TargetService';
 import { WellnessColors } from '../theme/wellness';
+import {
+  displayToKg,
+  formatMass,
+  kgToDisplay,
+  massUnitLabel,
+} from '../logic/unitConvert';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -40,6 +46,7 @@ export type BodyTargetProps = {
   lang?: UserLanguage | null;
   /** Hide Withings scale prompt when user logs body manually (no Withings scale). */
   hideWithingsScalePrompt?: boolean;
+  massUnit?: 'kg' | 'lb';
 };
 
 type Screen = 'idle' | 'loading' | 'suggestion' | 'editing' | 'active';
@@ -176,34 +183,46 @@ function EditField({
           value={value}
           onChangeText={onChange}
           keyboardType="decimal-pad"
-          maxLength={6}
+          maxLength={8}
           selectTextOnFocus
         />
         <Text style={editStyles.unit}>{unit}</Text>
       </View>
-      {hint ? <Text style={editStyles.hint}>{hint}</Text> : null}
+      {hint ? (
+        <Text style={editStyles.hint} numberOfLines={1}>
+          {hint}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
 const editStyles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 8 },
-  label: { width: 64, fontSize: 12, fontWeight: '700', color: WellnessColors.textSecondary },
-  inputWrap: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 },
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 6 },
+  label: { width: 56, fontSize: 12, fontWeight: '700', color: WellnessColors.textSecondary },
+  inputWrap: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1, minWidth: 0 },
   input: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 72,
     borderWidth: 1.5,
     borderColor: WellnessColors.gridLine,
     borderRadius: 10,
     paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     fontSize: 16,
     fontWeight: '700',
     color: WellnessColors.textPrimary,
     textAlign: 'center',
   },
-  unit: { fontSize: 13, fontWeight: '600', color: WellnessColors.textSecondary, width: 28 },
-  hint: { fontSize: 11, color: WellnessColors.textSecondary, width: 72, textAlign: 'right' },
+  unit: { fontSize: 13, fontWeight: '600', color: WellnessColors.textSecondary, flexShrink: 0 },
+  hint: {
+    fontSize: 11,
+    color: WellnessColors.textSecondary,
+    maxWidth: 88,
+    flexShrink: 1,
+    textAlign: 'right',
+  },
 });
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -220,6 +239,7 @@ export function WeightTargetStrip({
   avgDailyDeficit_kcal,
   lang,
   hideWithingsScalePrompt,
+  massUnit = 'kg',
 }: BodyTargetProps) {
   const [screen, setScreen] = useState<Screen>('idle');
   const [target, setTarget] = useState<BodyTarget | null>(null);
@@ -301,28 +321,28 @@ export function WeightTargetStrip({
     (src?: BodyTarget | null) => {
       const s = src ?? target;
       if (s) {
-        setEditWeight(s.targetWeight_kg.toFixed(1));
+        setEditWeight(kgToDisplay(s.targetWeight_kg, massUnit).toFixed(1));
         setEditFat(s.targetFatPct.toFixed(1));
-        setEditMuscle(s.targetMuscleMass_kg.toFixed(1));
+        setEditMuscle(kgToDisplay(s.targetMuscleMass_kg, massUnit).toFixed(1));
         const w = s.targetWeeks ?? s.estimatedWeeks;
         setEditWeeks(w != null && w > 0 ? String(Math.round(w)) : '');
       } else {
-        setEditWeight(weightKg != null ? weightKg.toFixed(1) : '');
+        setEditWeight(weightKg != null ? kgToDisplay(weightKg, massUnit).toFixed(1) : '');
         setEditFat(fatPct != null ? fatPct.toFixed(1) : '');
-        setEditMuscle(muscleMass_kg != null ? muscleMass_kg.toFixed(1) : '');
+        setEditMuscle(muscleMass_kg != null ? kgToDisplay(muscleMass_kg, massUnit).toFixed(1) : '');
         setEditWeeks('');
       }
       setError(null);
       setScreen('editing');
     },
-    [target, weightKg, fatPct, muscleMass_kg],
+    [target, weightKg, fatPct, muscleMass_kg, massUnit],
   );
 
   const handleSaveEdit = useCallback(async () => {
     const base = suggestion ?? target;
-    const w = parseFloat(editWeight);
+    const w = displayToKg(parseFloat(editWeight), massUnit);
     const f = parseFloat(editFat);
-    const m = parseFloat(editMuscle);
+    const m = displayToKg(parseFloat(editMuscle), massUnit);
     const weeks = parseInt(editWeeks, 10);
     if (isNaN(w) || isNaN(f) || isNaN(m) || w <= 0 || f <= 0 || m <= 0) {
       setError('Enter valid weight, fat %, and muscle mass.');
@@ -349,7 +369,7 @@ export function WeightTargetStrip({
     setSuggestion(null);
     setError(null);
     setScreen('active');
-  }, [editWeight, editFat, editMuscle, editWeeks, suggestion, target, weightKg, fatPct, muscleMass_kg]);
+  }, [editWeight, editFat, editMuscle, editWeeks, suggestion, target, weightKg, fatPct, muscleMass_kg, massUnit]);
 
   const handleReset = useCallback(async () => {
     await clearBodyTarget();
@@ -359,8 +379,9 @@ export function WeightTargetStrip({
   }, []);
 
   // ── Summary line shown in collapsed header ────────────────────────────────
+  const massLab = massUnitLabel(massUnit);
   const headerSub = target
-    ? `${target.targetWeight_kg.toFixed(1)} kg · ${target.targetFatPct.toFixed(1)}% fat · ${target.targetMuscleMass_kg.toFixed(1)} kg muscle${
+    ? `${formatMass(target.targetWeight_kg, massUnit)} · ${target.targetFatPct.toFixed(1)}% fat · ${formatMass(target.targetMuscleMass_kg, massUnit)} muscle${
         (target.targetWeeks ?? target.estimatedWeeks)
           ? ` · ${target.targetWeeks ?? target.estimatedWeeks}w`
           : ''
@@ -436,7 +457,9 @@ export function WeightTargetStrip({
           </View>
           <View style={styles.suggestionRow}>
             <View style={styles.suggestionItem}>
-              <Text style={styles.suggestionVal}>{suggestion.aiWeight_kg.toFixed(1)} kg</Text>
+              <Text style={styles.suggestionVal}>
+                {kgToDisplay(suggestion.aiWeight_kg, massUnit).toFixed(1)} {massLab}
+              </Text>
               <Text style={styles.suggestionLabel}>Weight</Text>
             </View>
             <View style={styles.suggestionItem}>
@@ -444,7 +467,9 @@ export function WeightTargetStrip({
               <Text style={styles.suggestionLabel}>Fat</Text>
             </View>
             <View style={styles.suggestionItem}>
-              <Text style={styles.suggestionVal}>{suggestion.aiMuscle_kg.toFixed(1)} kg</Text>
+              <Text style={styles.suggestionVal}>
+                {kgToDisplay(suggestion.aiMuscle_kg, massUnit).toFixed(1)} {massLab}
+              </Text>
               <Text style={styles.suggestionLabel}>Muscle</Text>
             </View>
             {suggestion.estimatedWeeks ? (
@@ -475,8 +500,8 @@ export function WeightTargetStrip({
             label="Weight"
             value={editWeight}
             onChange={setEditWeight}
-            unit="kg"
-            hint={weightKg != null ? `now ${weightKg.toFixed(1)}` : undefined}
+            unit={massLab}
+            hint={weightKg != null ? `now ${kgToDisplay(weightKg, massUnit).toFixed(1)}` : undefined}
           />
           <EditField
             label="Fat %"
@@ -489,15 +514,19 @@ export function WeightTargetStrip({
             label="Muscle"
             value={editMuscle}
             onChange={setEditMuscle}
-            unit="kg"
-            hint={muscleMass_kg != null ? `now ${muscleMass_kg.toFixed(1)}` : undefined}
+            unit={massLab}
+            hint={
+              muscleMass_kg != null
+                ? `now ${kgToDisplay(muscleMass_kg, massUnit).toFixed(1)}`
+                : undefined
+            }
           />
           <EditField
             label="Weeks"
             value={editWeeks}
             onChange={setEditWeeks}
             unit="wks"
-            hint="macro kcal"
+            hint="macro energy"
           />
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           <View style={styles.editBtns}>
@@ -521,10 +550,10 @@ export function WeightTargetStrip({
             <>
               <RangeScale
                 label="Weight"
-                startVal={target.startWeight_kg}
-                currentVal={weightKg}
-                targetVal={target.targetWeight_kg}
-                unit="kg"
+                startVal={kgToDisplay(target.startWeight_kg, massUnit)}
+                currentVal={kgToDisplay(weightKg, massUnit)}
+                targetVal={kgToDisplay(target.targetWeight_kg, massUnit)}
+                unit={massLab}
                 color={WellnessColors.accentBlue}
               />
               <RangeScale
@@ -537,10 +566,10 @@ export function WeightTargetStrip({
               />
               <RangeScale
                 label="Muscle"
-                startVal={target.startMuscle_kg}
-                currentVal={muscleMass_kg}
-                targetVal={target.targetMuscleMass_kg}
-                unit="kg"
+                startVal={kgToDisplay(target.startMuscle_kg, massUnit)}
+                currentVal={kgToDisplay(muscleMass_kg, massUnit)}
+                targetVal={kgToDisplay(target.targetMuscleMass_kg, massUnit)}
+                unit={massLab}
                 color={WellnessColors.accentGreen}
                 higherIsBetter
               />
@@ -548,8 +577,8 @@ export function WeightTargetStrip({
           ) : (
             <View style={styles.manualSummary}>
               <Text style={styles.manualSummaryLine}>
-                Target: {target.targetWeight_kg.toFixed(1)} kg · {target.targetFatPct.toFixed(1)}% fat ·{' '}
-                {target.targetMuscleMass_kg.toFixed(1)} kg muscle
+                Target: {formatMass(target.targetWeight_kg, massUnit)} · {target.targetFatPct.toFixed(1)}% fat ·{' '}
+                {formatMass(target.targetMuscleMass_kg, massUnit)} muscle
               </Text>
               {!hideWithingsScalePrompt ? (
                 <Text style={styles.manualSummarySub}>Link Withings for progress scales</Text>

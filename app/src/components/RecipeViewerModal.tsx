@@ -20,16 +20,18 @@ import {
 } from '../logic/mealPlanTypes';
 import type { UserLanguage } from '../services/TargetService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
+import { formatEnergy, type EnergyUnit } from '../logic/unitConvert';
 
 type Props = {
   visible: boolean;
   plan: RecipePlan | null;
   lang?: UserLanguage | null;
+  energyUnit?: EnergyUnit;
   onClose: () => void;
   onLogMeal?: () => void;
 };
 
-export function RecipeViewerModal({ visible, plan, lang, onClose, onLogMeal }: Props) {
+export function RecipeViewerModal({ visible, plan, lang, energyUnit = 'kcal', onClose, onLogMeal }: Props) {
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
   if (!plan) return null;
 
@@ -53,7 +55,7 @@ export function RecipeViewerModal({ visible, plan, lang, onClose, onLogMeal }: P
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Text style={[styles.summary, rtl && styles.rtl]}>{recipeMacroSummary(plan)}</Text>
+          <Text style={[styles.summary, rtl && styles.rtl]}>{recipeMacroSummary(plan, energyUnit)}</Text>
           {plan.source_note ? (
             <Text style={[styles.source, rtl && styles.rtl]}>{plan.source_note}</Text>
           ) : null}
@@ -73,7 +75,7 @@ export function RecipeViewerModal({ visible, plan, lang, onClose, onLogMeal }: P
                       {ingredientAmountDisplay(item, rtl)}
                     </Text>
                     <Text style={[styles.ingredientMacros, rtl && styles.rtl]}>
-                      {item.kcal} kcal · P{item.protein_g} C{item.carb_g} F{item.fat_g} Fi{item.fiber_g ?? 0}
+                      {formatEnergy(item.kcal, energyUnit)} · P{item.protein_g} C{item.carb_g} F{item.fat_g} Fi{item.fiber_g ?? 0}
                     </Text>
                   </View>
                 </View>

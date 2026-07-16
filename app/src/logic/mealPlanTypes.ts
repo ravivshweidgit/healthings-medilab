@@ -3,6 +3,7 @@
  */
 
 import type { FoodItem } from '../services/GeminiService';
+import { formatEnergy, type EnergyUnit } from './unitConvert';
 
 export type RecipeIngredient = {
   name: string;
@@ -106,8 +107,8 @@ export function recipeDisplayTitle(plan: RecipePlan, rtl?: boolean): string {
   return plan.title;
 }
 
-export function recipeMacroSummary(plan: RecipePlan): string {
-  return `${plan.total_kcal} kcal · P${Math.round(plan.total_protein_g)} · C${Math.round(plan.total_carb_g)} · F${Math.round(plan.total_fat_g)} · Fi${Math.round(plan.total_fiber_g)}`;
+export function recipeMacroSummary(plan: RecipePlan, energyUnit: EnergyUnit = 'kcal'): string {
+  return `${formatEnergy(plan.total_kcal, energyUnit)} · P${Math.round(plan.total_protein_g)} · C${Math.round(plan.total_carb_g)} · F${Math.round(plan.total_fat_g)} · Fi${Math.round(plan.total_fiber_g)}`;
 }
 
 /** UI: show AI-provided local kitchen unit; grams in parentheses for food log. */

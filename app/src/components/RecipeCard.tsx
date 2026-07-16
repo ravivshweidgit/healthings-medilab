@@ -11,19 +11,21 @@ import {
 } from '../logic/mealPlanTypes';
 import type { UserLanguage } from '../services/TargetService';
 import { WellnessColors } from '../theme/wellness';
+import type { EnergyUnit } from '../logic/unitConvert';
 
 type Props = {
   plan: RecipePlan;
   lang?: UserLanguage | null;
+  energyUnit?: EnergyUnit;
   onOpen: () => void;
   onLogMeal: () => void;
   onDismiss?: () => void;
 };
 
-export function RecipeCard({ plan, lang, onOpen, onLogMeal, onDismiss }: Props) {
+export function RecipeCard({ plan, lang, energyUnit = 'kcal', onOpen, onLogMeal, onDismiss }: Props) {
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
   const title = recipeDisplayTitle(plan, rtl);
-  const summary = recipeMacroSummary(plan);
+  const summary = recipeMacroSummary(plan, energyUnit);
   const openLabel = rtl ? 'פתח מתכון' : 'Open recipe';
   const logLabel = rtl ? 'רשום ארוחה' : 'Log meal';
   const dismissLabel = rtl ? 'סגור' : 'Dismiss';

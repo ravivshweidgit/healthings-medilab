@@ -23,6 +23,7 @@ import {
 } from './TargetService';
 import type { ParsedLabPdf, LabPanelType, LabResult, LabResultFlag } from './LabLogService';
 import type { TimePoint } from './HealthConnectService';
+import type { UnitsPrefs } from './UnitsPreferenceService';
 import {
   buildPeriodReviewBlock,
   detectPeriodReviewQuery,
@@ -1824,6 +1825,10 @@ export type CoachContext = {
   labsAiContext: string | null;
   /** Active nutritionist session directive (authoritative over My Rules). */
   nutritionDirectiveContext: string | null;
+  /** Display prefs hint — SI values remain authoritative in USER DATA. */
+  unitsDisplayHint?: string | null;
+  /** App display prefs for UI that shares this context (chat cards, etc.). */
+  unitsPrefs?: UnitsPrefs | null;
 };
 
 type DayPhase = 'early_morning' | 'morning' | 'midday' | 'afternoon' | 'evening' | 'late_evening';
@@ -1912,6 +1917,7 @@ function buildProfileTargetsHeader(ctx: CoachContext, opts?: { omitMacroTarget?:
     formatDayPacingLine(ctx, new Date(), omitMacroTarget),
     formatActiveMentorsLine(ctx.mentors),
     `Profile: sex ${ctx.gender ?? 'unknown'}, age ${n(ctx.age)}, height ${n(ctx.heightCm, ' cm')}, language ${ctx.lang?.label ?? 'English'}`,
+    ...(ctx.unitsDisplayHint ? [ctx.unitsDisplayHint] : []),
     `Goals: target weight ${n(bt?.targetWeight_kg ?? null, ' kg')} | target fat ${n(bt?.targetFatPct ?? null, '%')} | target muscle ${n(bt?.targetMuscleMass_kg ?? null, ' kg')} | start weight ${n(ctx.startWeight_kg, ' kg')} | start muscle ${n(ctx.startMuscle_kg, ' kg')}`,
     ...(!omitMacroTarget
       ? [`Daily macro target: ${n(mt?.kcal ?? null, ' kcal')} | P ${n(mt?.protein_g ?? null, 'g')} | C ${n(mt?.carb_g ?? null, 'g')} | F ${n(mt?.fat_g ?? null, 'g')} | Fi ${n(mt?.fiber_g ?? null, 'g')}`]

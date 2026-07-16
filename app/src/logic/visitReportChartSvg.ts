@@ -7,6 +7,9 @@ import { localDayKeyFromMs, type MetabolicTrend7dDay } from './metabolicTrend7d'
 import type { LipidTrendPoint } from '../services/LabLogService';
 import type { TimePoint } from '../services/HealthConnectService';
 import type { Gender, UserLanguage } from '../services/TargetService';
+import type { UnitsPrefs } from '../services/UnitsPreferenceService';
+import { DEFAULT_UNITS_PREFS } from '../services/UnitsPreferenceService';
+import { glucoseUnitLabel, massUnitLabel } from './unitConvert';
 
 export type VisitReportChart = {
   id: string;
@@ -32,7 +35,9 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function chartLabels(lang?: UserLanguage | null) {
+function chartLabels(lang?: UserLanguage | null, units: UnitsPrefs = DEFAULT_UNITS_PREFS) {
+  const mass = massUnitLabel(units.mass);
+  const glu = glucoseUnitLabel(units.glucose);
   if (lang?.code === 'he') {
     return {
       chartsTitle: 'נספח א — גרפים',
@@ -40,11 +45,11 @@ function chartLabels(lang?: UserLanguage | null) {
       lipids: 'מגמת שומנים בדם (LDL, HDL, כולסטרול, TG)',
       body: 'הרכב גוף Withings (משקל, שומן, שריר)',
       energy: 'אנרגיה יומית — נצרך מול הוצאה',
-      glucose: 'ממוצע CGM יומי (mg/dL)',
+      glucose: `ממוצע CGM יומי (${glu})`,
       noData: 'אין מספיק נתונים לגרף',
-      weight: 'משקל (kg)',
-      fat: 'שומן (kg)',
-      muscle: 'שריר (kg)',
+      weight: `משקל (${mass})`,
+      fat: `שומן (${mass})`,
+      muscle: `שריר (${mass})`,
       eaten: 'נצרך',
       burn: 'הוצאה',
     };
@@ -55,11 +60,11 @@ function chartLabels(lang?: UserLanguage | null) {
     lipids: 'Blood lipid trends (LDL, HDL, total cholesterol, TG)',
     body: 'Withings body composition (weight, fat, muscle)',
     energy: 'Daily energy — intake vs expenditure',
-    glucose: 'Daily CGM average (mg/dL)',
+    glucose: `Daily CGM average (${glu})`,
     noData: 'Insufficient data for chart',
-    weight: 'Weight (kg)',
-    fat: 'Fat (kg)',
-    muscle: 'Muscle (kg)',
+    weight: `Weight (${mass})`,
+    fat: `Fat (${mass})`,
+    muscle: `Muscle (${mass})`,
     eaten: 'Eaten',
     burn: 'Burn',
   };
@@ -517,8 +522,10 @@ export function buildVisitReportCharts(input: {
   burnByDay: Map<string, number>;
   glucose: TimePoint[];
   lang?: UserLanguage | null;
+  unitsPrefs?: UnitsPrefs;
 }): { title: string; intro: string; charts: VisitReportChart[] } {
-  const L = chartLabels(input.lang);
+  const units = input.unitsPrefs ?? DEFAULT_UNITS_PREFS;
+  const L = chartLabels(input.lang, units);
   const windowSet = new Set(input.dayKeys);
   const bodyDays = input.bodyTrendDays.filter((d) => windowSet.has(d.dayKey));
   const charts: VisitReportChart[] = [];

@@ -46,6 +46,7 @@ import {
 import { getMacroTarget, getUserRules, type UserLanguage } from '../services/TargetService';
 import { getNutritionDirectiveAiContext } from '../services/NutritionDirectiveService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
+import { formatEnergy, type EnergyUnit } from '../logic/unitConvert';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,7 @@ type Props = {
   prefillItems?: FoodItem[];
   prefillDescription?: string;
   lang?: UserLanguage | null;
+  energyUnit?: EnergyUnit;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -95,12 +97,12 @@ function confidenceColor(c: 'high' | 'medium' | 'low'): string {
   return '#C62828';
 }
 
-function macroSummary(items: FoodItem[]): string {
+function macroSummary(items: FoodItem[], energyUnit: EnergyUnit = 'kcal'): string {
   const t = computeTotals(items);
-  return `${Math.round(t.totalKcal)} kcal · P ${t.totalProtein_g.toFixed(0)}g · C ${t.totalCarb_g.toFixed(0)}g · F ${t.totalFat_g.toFixed(0)}g · Fi ${t.totalFiber_g.toFixed(0)}g`;
+  return `${formatEnergy(t.totalKcal, energyUnit)} · P ${t.totalProtein_g.toFixed(0)}g · C ${t.totalCarb_g.toFixed(0)}g · F ${t.totalFat_g.toFixed(0)}g · Fi ${t.totalFiber_g.toFixed(0)}g`;
 }
 
-function macroDelta(before: FoodItem[], after: FoodItem[]): string {
+function macroDelta(before: FoodItem[], after: FoodItem[], energyUnit: EnergyUnit = 'kcal'): string {
   const b = computeTotals(before);
   const a = computeTotals(after);
   const dk = Math.round(a.totalKcal - b.totalKcal);
@@ -108,8 +110,8 @@ function macroDelta(before: FoodItem[], after: FoodItem[]): string {
   const dc = (a.totalCarb_g - b.totalCarb_g).toFixed(0);
   const df = (a.totalFat_g - b.totalFat_g).toFixed(0);
   const dfi = (a.totalFiber_g - b.totalFiber_g).toFixed(0);
-  const sign = dk >= 0 ? '+' : '';
-  return `${sign}${dk} kcal · P ${dp}g · C ${dc}g · F ${df}g · Fi ${dfi}g`;
+  const e = formatEnergy(dk, energyUnit);
+  return `${dk > 0 ? '+' : ''}${e} · P ${dp}g · C ${dc}g · F ${df}g · Fi ${dfi}g`;
 }
 
 function capMealTimestamp(ms: number): number {
@@ -168,10 +170,12 @@ function FoodItemsCard({
   items,
   title,
   flaggedIndices,
+  energyUnit = 'kcal',
 }: {
   items: FoodItem[];
   title?: string;
   flaggedIndices?: Set<number>;
+  energyUnit?: EnergyUnit;
 }) {
   if (items.length === 0) {
     return (
@@ -208,7 +212,7 @@ function FoodItemsCard({
             ) : null}
             <Text style={styles.itemGrams}>{item.grams}g</Text>
             <View style={styles.itemMetricsRow}>
-              <Text style={styles.itemKcal}>{item.kcal} kcal</Text>
+              <Text style={styles.itemKcal}>{formatEnergy(item.kcal, energyUnit)}</Text>
               <Text style={styles.itemMacros}>
                 P {item.protein_g}g · C {item.carb_g}g · F {item.fat_g}g · Fi {item.fiber_g ?? 0}g
               </Text>
@@ -217,7 +221,7 @@ function FoodItemsCard({
         );
       })}
       <View style={[styles.itemRow, styles.totalRow]}>
-        <Text style={styles.totalValue}>{macroSummary(items)}</Text>
+        <Text style={styles.totalValue}>{macroSummary(items, energyUnit)}</Text>
       </View>
     </View>
   );
@@ -234,6 +238,7 @@ export function FoodLogModal({
   prefillItems,
   prefillDescription,
   lang,
+  energyUnit = 'kcal',
 }: Props) {
   const [screen, setScreen] = useState<Screen>(() =>
     editEntry || (prefillItems && prefillItems.length > 0) ? 'result' : 'idle',
@@ -901,16 +906,18 @@ export function FoodLogModal({
                     <View style={styles.previewColumns}>
                       <View style={styles.previewCol}>
                         <Text style={styles.previewColTitle}>Current meal</Text>
-                        <FoodItemsCard items={mergePreview.before} />
+                        <FoodItemsCard items={mergePreview.before} energyUnit={energyUnit} />
                       </View>
                       <View style={styles.previewCol}>
                         <Text style={styles.previewColTitle}>After update</Text>
-                        <FoodItemsCard items={mergePreview.after} />
+                        <FoodItemsCard items={mergePreview.after} energyUnit={energyUnit} />
                       </View>
                     </View>
                     <View style={styles.deltaBox}>
                       <Text style={styles.deltaLabel}>Change</Text>
-                      <Text style={styles.deltaValue}>{macroDelta(mergePreview.before, mergePreview.after)}</Text>
+                      <Text style={styles.deltaValue}>
+                        {macroDelta(mergePreview.before, mergePreview.after, energyUnit)}
+                      </Text>
                     </View>
                     <View style={styles.previewActions}>
                       <Pressable style={styles.cancelPreviewBtn} onPress={handleCancelMerge} disabled={screen === 'saving'}>
@@ -929,7 +936,7 @@ export function FoodLogModal({
                     {!photoSession && description && items.length > 0 ? (
                       <Text style={styles.descriptionText}>{description}</Text>
                     ) : null}
-                    <FoodItemsCard items={items} flaggedIndices={flaggedIndices} />
+                    <FoodItemsCard items={items} flaggedIndices={flaggedIndices} energyUnit={energyUnit} />
                   </View>
                 ) : null}
 
@@ -957,7 +964,7 @@ export function FoodLogModal({
                     {photoSession.description ? (
                       <Text style={styles.descriptionText}>{photoSession.description}</Text>
                     ) : null}
-                    <FoodItemsCard items={photoSession.items} title="From photo" />
+                    <FoodItemsCard items={photoSession.items} title="From photo" energyUnit={energyUnit} />
                     {photoSession.suggestion ? (
                       <View style={styles.suggestionBox}>
                         <Text style={styles.suggestionText}>💡 {photoSession.suggestion}</Text>

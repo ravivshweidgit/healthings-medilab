@@ -30,6 +30,8 @@ import {
   type UserLanguage,
 } from './TargetService';
 import { loadMetricsStore, syncMetricsStore } from './MetricsPersistenceService';
+import { getUnitsPrefs, type UnitsPrefs } from './UnitsPreferenceService';
+import { kgToDisplay, massUnitLabel } from '../logic/unitConvert';
 
 export type VisitReportDayCount = 7 | 14 | 30 | 90;
 
@@ -43,14 +45,20 @@ function todayKey(): string {
 function weightTrendLine(
   bodyTrendDays: Array<{ dayKey: string; weightKg?: number | null }>,
   dayCount: number,
+  massUnit: UnitsPrefs['mass'] = 'kg',
 ): string | null {
   const weights = bodyTrendDays.slice(-dayCount).map((d) => d.weightKg ?? null);
   const endpoints = periodEndpointsKg(weights);
   const delta = periodDeltaKg(weights);
   if (!endpoints) return null;
+  const unit = massUnitLabel(massUnit);
+  const start = kgToDisplay(endpoints.start, massUnit).toFixed(1);
+  const end = kgToDisplay(endpoints.end, massUnit).toFixed(1);
   const deltaStr =
-    delta != null ? ` (${delta >= 0 ? '+' : ''}${delta.toFixed(1)} kg)` : '';
-  return `${endpoints.start.toFixed(1)} → ${endpoints.end.toFixed(1)} kg${deltaStr}`;
+    delta != null
+      ? ` (${delta >= 0 ? '+' : ''}${kgToDisplay(delta, massUnit).toFixed(1)} ${unit})`
+      : '';
+  return `${start} → ${end} ${unit}${deltaStr}`;
 }
 
 function reportWindowDayKeys(dayCount: number): string[] {
@@ -80,6 +88,7 @@ export async function buildVisitReportContent(opts: {
     coachMsg,
     mentors,
     labReports,
+    unitsPrefs,
   ] = await Promise.all([
     getBirthdate(),
     getGender(),
@@ -89,6 +98,7 @@ export async function buildVisitReportContent(opts: {
     getCoachMessage(),
     getMentors(),
     getAllLabReports(),
+    getUnitsPrefs(),
   ]);
 
   await Promise.all([syncMetricsStore(), syncCgmStore()]);
@@ -105,7 +115,7 @@ export async function buildVisitReportContent(opts: {
     heightCm,
     weightKg: bodyScan?.weightKg ?? null,
     weightMeasuredAt: bodyScan?.measuredAt ?? null,
-    weightTrendLine: weightTrendLine(metricsStore.bodyTrendDays, dayCount),
+    weightTrendLine: weightTrendLine(metricsStore.bodyTrendDays, dayCount, unitsPrefs.mass),
   });
 
   const periodRequest: PeriodReviewRequest = { mode: 'days', days: dayCount };
@@ -137,6 +147,7 @@ export async function buildVisitReportContent(opts: {
     cgmSessionStarts: cgmView.cgmSessionStarts,
     cgmStatSummary: cgmView.cgmStatSummary,
     periodReviewText,
+    unitsPrefs,
   });
 
   const dayKeys = reportWindowDayKeys(dayCount);
@@ -162,6 +173,7 @@ export async function buildVisitReportContent(opts: {
     burnByDay,
     glucose: cgmView.glucose,
     lang,
+    unitsPrefs,
   });
 
   return {
@@ -177,6 +189,7 @@ export async function buildVisitReportContent(opts: {
     includeCoach: mentors.includes('nutritionist'),
     clinicalNote,
     chartAppendix,
+    unitsPrefs,
   };
 }
 
