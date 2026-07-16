@@ -1,0 +1,42 @@
+## Prompt 68 — Cloud restore JSON parse (pako 3)
+
+**Status: done (2026-07-16)** — Phone-tested restore.  
+**Builds on:** `prompt60.txt` (optional cloud backup).  
+**Commit:** (see git: Fix cloud restore JSON parse for pako 3)
+
+### Problem (user-reported)
+
+Restore from cloud failed with a **JSON parse** error. Caught while trying to restore after an HR chart investigation — cloud blob in Postgres was fine; phone restore path broke.
+
+### Root cause
+
+`restoreCloudBackup` used `pako.inflate(bytes, { to: 'string' })`. **pako@3 always returns a `Uint8Array`** and ignores `{ to: 'string' }`. Passing that view to `JSON.parse` coerces to `"123,34,97,…"` (comma-separated byte values) → `SyntaxError`.
+
+**Write/upload and server download were not the bug** — only client decompress → parse on read.
+
+### What shipped
+
+| Area | Change |
+|------|--------|
+| **Restore** | `inflate` → `TextDecoder('utf-8')` → `JSON.parse` |
+| **Errors** | Distinct messages for decompress vs JSON vs invalid payload shape |
+| **Validate** | Require `version === 1`, `app === 'healthings-medilab'`, `asyncStorage` present |
+
+### Primary files
+
+- `app/src/services/CloudBackupService.ts`
+
+### Phone-tested
+
+- [x] Restore from cloud succeeds (e.g. 138 keys merged)
+- [x] `+0 meals` / `+0 chat` when phone already holds the same meal/chat ids (merge accounting, not a failure)
+
+### Deferred
+
+- [ ] Chunked base64 encode/decode for very large backups (RN `btoa`/`atob` size risk)
+- [ ] Explicit restore of `prev_*` generation (still deferred from prompt60)
+
+### Related
+
+- **prompt60** — cloud backup feature; restore checklist item closed here
+- **prompt67** — HR work that led the user to exercise restore

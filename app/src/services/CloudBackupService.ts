@@ -188,9 +188,34 @@ export async function restoreCloudBackup() {
     throw new Error(await parseError(res));
   }
   const body = (await res.json()) as { payloadGzipBase64: string };
-  const gzip = base64ToBytes(body.payloadGzipBase64);
-  const json = inflate(gzip, { to: 'string' }) as string;
-  const payload = JSON.parse(json) as Parameters<typeof applyLocalBackupPayload>[0];
+  if (!body.payloadGzipBase64 || typeof body.payloadGzipBase64 !== 'string') {
+    throw new Error('Cloud backup response missing payload.');
+  }
+
+  let json: string;
+  try {
+    const compressed = base64ToBytes(body.payloadGzipBase64);
+    // pako@3 always returns Uint8Array — `{ to: 'string' }` is ignored and JSON.parse(bytes)
+    // becomes "123,34,…" (comma-separated) → SyntaxError. Decode UTF-8 explicitly.
+    const inflated = inflate(compressed);
+    json = new TextDecoder('utf-8').decode(inflated);
+  } catch (e: unknown) {
+    const detail = e instanceof Error ? e.message : String(e);
+    throw new Error(`Could not decompress cloud backup (${detail}).`);
+  }
+
+  let payload: Parameters<typeof applyLocalBackupPayload>[0];
+  try {
+    payload = JSON.parse(json) as Parameters<typeof applyLocalBackupPayload>[0];
+  } catch (e: unknown) {
+    const detail = e instanceof Error ? e.message : String(e);
+    throw new Error(`Cloud backup is not valid JSON after decompress (${detail}).`);
+  }
+
+  if (payload?.version !== 1 || payload?.app !== 'healthings-medilab' || !payload.asyncStorage) {
+    throw new Error('Invalid cloud backup format.');
+  }
+
   return applyLocalBackupPayload(payload);
 }
 

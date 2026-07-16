@@ -14,7 +14,7 @@ Active / backlog specs stay in `prompts/app/`:
 **prompt58** — done (2026-07-07). Editable Your setup: 3 toggles (scale/watch/CGM), HC steps when watch off, no OAuth auto-promote. Compile-check OK; phone test pending. See `done/prompt58.txt`.
 
 | prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
-| prompt60.txt | Shipping — optional cloud backup toggle (purge on off); needs API migrate |
+| prompt60.txt | **Shipped** — see `done/prompt68.txt` for restore fix; feature live, remaining checklist in prompt60 |
 | `prompt64.txt` | **Phase 1 shipped** (`10569f2`); **Garmin phone-tested success 2026-07-12** → `done/prompt64.txt` |
 | `prompt65.txt` | **iOS TestFlight Withings-first** — no HealthKit v1; EAS + platform guards (Apple Dev enrolled 2026-07-10) |
 | `prompt56.txt` | **Partial:** HealthKit glucose on TF **1.2.2 (23)**; steps/HR still backlog |
@@ -55,6 +55,8 @@ Active / backlog specs stay in `prompts/app/`:
 **prompt45** — done (2026-06-22). Withings HR sync hardening: empty-fetch guard, today merge, foreground/5min refresh, mismatch-only dashboard diag. 2026-06-22 stall was Withings cloud stale (API = store); diag proved not an app drop bug. **Chart downsample refined in prompt67** (gap-break + min/max; shallow sync).
 
 **prompt67** — done (2026-07-16). MetabolicChart HR gap-break + min/max downsample; Withings routine sync shallow (2d), deep 60/128 on demand via Re-link sheet. Phone-tested. Commits `2379239`, `05d7f46`. See `done/prompt67.txt`.
+
+**prompt68** — done (2026-07-16). Cloud restore: pako@3 inflate returns Uint8Array — decode UTF-8 before JSON.parse. Phone-tested. See `done/prompt68.txt`.
 
 **prompt48** — done (2026-06-29). Lipid trend charts (Total/LDL/TG/HDL strips + green safe zones); mentors/coach see **all saved lab draws** in USER DATA. Phone-tested. Commits `308500f`, `fa0d6b1`. Supersedes prompt30 chart deferral + latest-only scope.
 

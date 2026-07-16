@@ -57,9 +57,9 @@ pm2 restart healthings-api
 
 ### Phone-tested checklist
 
-- [ ] Toggle On → upload → last backup time
-- [ ] Back up now refreshes
-- [ ] Thin phone vs rich cloud → blocked; Force replace works; Restore works
+- [x] Toggle On → upload → last backup time
+- [x] Back up now refreshes
+- [x] Thin phone vs rich cloud → blocked; Force replace works; Restore works (**restore JSON parse fixed in prompt68**, 2026-07-16)
 - [ ] Off → server purged
 - [ ] Second day / reopen app → opportunistic upload (after 24h)
 - [ ] Mentor: no cloud backup UI
@@ -71,6 +71,7 @@ pm2 restart healthings-api
 - E2E encryption (`prompt-be-04`)
 - UI to restore **previous** blob explicitly
 - TTL cleanup for `prev_*` after N days
+- **Restore path:** pako@3 `{ to: 'string' }` was broken — fixed in **`done/prompt68.txt`**
 
 ---
 
@@ -78,3 +79,4 @@ pm2 restart healthings-api
 
 - **`prompt54.txt`** — clinic relay (orthogonal)
 - **`done/prompt29.txt`** — local backup key inventory
+- **`done/prompt68.txt`** — cloud restore decompress/parse fix
