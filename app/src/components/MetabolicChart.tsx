@@ -199,24 +199,134 @@ function mergeTimeBounds(glucose: Point[], heartRate: Point[]): { tMin: number; 
   return { tMin, tMax };
 }
 
-function downsample<T>(arr: T[], max: number): T[] {
-  if (arr.length <= max) return arr;
-  const step = Math.ceil(arr.length / max);
-  const out = arr.filter((_, i) => i % step === 0);
-  const last = arr[arr.length - 1];
-  if (last != null && out[out.length - 1] !== last) out.push(last);
+/**
+ * Break the series when consecutive samples are farther apart than this fraction of the
+ * visible window (floored by a minimum). Fixed 30‑min breaks shattered Withings HR history
+ * (samples are often 10–60+ min apart) into hundreds of orphan dots that flash then vanish.
+ * Multi-day sync holes still break on 8D because viewport*frac ≫ a few hours.
+ */
+const HR_GAP_BREAK_VIEWPORT_FRAC = 1 / 12; // ~2h on 24H, ~16h on 8D
+const HR_GAP_BREAK_MIN_MS = 3 * 60 * 60 * 1000; // never break under 3h
+const GLUCOSE_GAP_BREAK_VIEWPORT_FRAC = 1 / 24;
+const GLUCOSE_GAP_BREAK_MIN_MS = 20 * 60 * 1000;
+/** Cap orphan HR dots so a sparse series cannot flood the SVG. */
+const MAX_HR_ORPHAN_DOTS = 48;
+
+function gapBreakMs(viewportMs: number, frac: number, minMs: number): number {
+  return Math.max(minMs, Math.floor(viewportMs * frac));
+}
+
+/** Split a time series into contiguous segments (no path drawn across gaps). */
+function splitByTimeGap(points: Point[], maxGapMs: number): Point[][] {
+  if (points.length === 0) return [];
+  const segments: Point[][] = [];
+  let cur: Point[] = [points[0]!];
+  for (let i = 1; i < points.length; i++) {
+    const prevMs = Date.parse(points[i - 1]!.timestamp);
+    const nextMs = Date.parse(points[i]!.timestamp);
+    if (
+      !Number.isFinite(prevMs) ||
+      !Number.isFinite(nextMs) ||
+      nextMs - prevMs > maxGapMs
+    ) {
+      segments.push(cur);
+      cur = [points[i]!];
+    } else {
+      cur.push(points[i]!);
+    }
+  }
+  segments.push(cur);
+  return segments;
+}
+
+/**
+ * Min/max envelope downsample — preserves peaks and valleys on long windows
+ * (every-Nth sampling crushed overnight HR variation on 8D).
+ * Emits up to ~maxPoints by taking both min and max per bucket in time order.
+ */
+function downsampleMinMax(points: Point[], maxPoints: number): Point[] {
+  if (points.length <= maxPoints) return points;
+  const bucketCount = Math.max(1, Math.floor(maxPoints / 2));
+  const n = points.length;
+  const out: Point[] = [];
+  const pushUnique = (p: Point) => {
+    const last = out[out.length - 1];
+    if (last && last.timestamp === p.timestamp && last.value === p.value) return;
+    out.push(p);
+  };
+  for (let b = 0; b < bucketCount; b++) {
+    const start = Math.floor((b * n) / bucketCount);
+    const end = Math.floor(((b + 1) * n) / bucketCount);
+    if (start >= end) continue;
+    let minP = points[start]!;
+    let maxP = points[start]!;
+    for (let i = start + 1; i < end; i++) {
+      const p = points[i]!;
+      if (p.value < minP.value) minP = p;
+      if (p.value > maxP.value) maxP = p;
+    }
+    const minMs = Date.parse(minP.timestamp);
+    const maxMs = Date.parse(maxP.timestamp);
+    if (minMs <= maxMs) {
+      pushUnique(minP);
+      if (minP !== maxP) pushUnique(maxP);
+    } else {
+      pushUnique(maxP);
+      if (minP !== maxP) pushUnique(minP);
+    }
+  }
+  const last = points[n - 1]!;
+  pushUnique(last);
   return out;
+}
+
+/** Distribute a point budget across segments proportional to their sizes. */
+function downsampleSegments(segments: Point[][], totalBudget: number): Point[][] {
+  if (segments.length === 0) return [];
+  const totalLen = segments.reduce((s, seg) => s + seg.length, 0);
+  if (totalLen === 0) return segments;
+  return segments.map((seg) => {
+    if (seg.length <= 2) return seg;
+    const share = Math.max(4, Math.floor((totalBudget * seg.length) / totalLen));
+    return downsampleMinMax(seg, share);
+  });
 }
 
 type PixelPoint = { x: number; y: number };
 
+/** d3 monotone curve requires strictly increasing x — nudge ties / drop non-finite. */
+function ensureStrictIncreasingX(points: PixelPoint[]): PixelPoint[] {
+  const out: PixelPoint[] = [];
+  for (const p of points) {
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+    const last = out[out.length - 1];
+    if (last && p.x <= last.x) {
+      out.push({ x: last.x + 0.05, y: p.y });
+    } else {
+      out.push(p);
+    }
+  }
+  return out;
+}
+
 function buildSmoothPath(points: PixelPoint[]): string | null {
-  if (points.length < 2) return null;
+  const pts = ensureStrictIncreasingX(points);
+  if (pts.length < 2) return null;
   const gen = line<PixelPoint>()
     .x((d) => d.x)
     .y((d) => d.y)
     .curve(curveMonotoneX);
-  return gen(points) ?? null;
+  return gen(pts) ?? null;
+}
+
+/** Join contiguous segments into one SVG `d` (each segment starts with its own `M`). */
+function buildSmoothPaths(segments: PixelPoint[][]): string | null {
+  const parts: string[] = [];
+  for (const seg of segments) {
+    const d = buildSmoothPath(seg);
+    if (d) parts.push(d);
+  }
+  return parts.length > 0 ? parts.join('') : null;
 }
 
 function toPixelPoints(
@@ -473,8 +583,13 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
       MAX_SERIES_POINTS_CAP,
       Math.max(MIN_SERIES_POINTS, Math.floor(chartW / 8))
     );
-    const g = downsample(gWin, seriesBudget);
-    const h = downsample(hWin, seriesBudget);
+    // Gap-break first so multi-day sync holes don't draw as a continuous flat line;
+    // threshold scales with viewport so normal Withings spacing (10–60+ min) stays connected.
+    // Then min/max-downsample each segment so overnight peaks survive on 8D.
+    const hrGapMs = gapBreakMs(viewportMs, HR_GAP_BREAK_VIEWPORT_FRAC, HR_GAP_BREAK_MIN_MS);
+    const gluGapMs = gapBreakMs(viewportMs, GLUCOSE_GAP_BREAK_VIEWPORT_FRAC, GLUCOSE_GAP_BREAK_MIN_MS);
+    const gSegs = downsampleSegments(splitByTimeGap(gWin, gluGapMs), seriesBudget);
+    const hSegs = downsampleSegments(splitByTimeGap(hWin, hrGapMs), seriesBudget);
 
     const padL = SVG_PAD_L;
     const padR = SVG_PAD_R;
@@ -491,39 +606,33 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
     // Activity (walk) lane sits between the calorie strip and the glucose/HR area.
     const activityLaneBaseY = calStripTop;
 
-    const gPx = toPixelPoints(
-      g,
-      mapTMin,
-      mapTMax,
-      yMin,
-      yMax,
-      chartW,
-      plotH,
-      padL,
-      padT,
-      padR,
-      padB,
-      chartSlotTop,
-      chartSlotH
-    );
-    const hPx = toPixelPoints(
-      h,
-      mapTMin,
-      mapTMax,
-      yMin,
-      yMax,
-      chartW,
-      plotH,
-      padL,
-      padT,
-      padR,
-      padB,
-      chartSlotTop,
-      chartSlotH
-    );
+    const toPx = (pts: Point[]) =>
+      toPixelPoints(
+        pts,
+        mapTMin,
+        mapTMax,
+        yMin,
+        yMax,
+        chartW,
+        plotH,
+        padL,
+        padT,
+        padR,
+        padB,
+        chartSlotTop,
+        chartSlotH
+      );
 
-    const glucosePath = buildSmoothPath(gPx);
-    const heartRatePath = buildSmoothPath(hPx);
+    const gPxSegs = gSegs.map(toPx);
+    const hPxSegs = hSegs.map(toPx);
+    const glucosePath = buildSmoothPaths(gPxSegs);
+    const heartRatePath = buildSmoothPaths(hPxSegs);
+    // Isolated single samples as dots — capped so a shattered series cannot flood the SVG.
+    const orphanDots = hPxSegs.filter((seg) => seg.length === 1).map((seg) => seg[0]!);
+    const heartRateDots =
+      orphanDots.length <= MAX_HR_ORPHAN_DOTS
+        ? orphanDots
+        : orphanDots.filter((_, i) => i % Math.ceil(orphanDots.length / MAX_HR_ORPHAN_DOTS) === 0).slice(0, MAX_HR_ORPHAN_DOTS);
 
     const innerW = Math.max(1, chartW - padL - padR);
     const spanT = Math.max(1, mapTMax - mapTMin);
@@ -587,6 +696,7 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
     return {
       glucosePath,
       heartRatePath,
+      heartRateDots,
       gridLines,
       activitySegments,
       timeTicks,
@@ -942,6 +1052,16 @@ export function MetabolicChart({ glucose, heartRate, activityZones, calorieBurns
       {prepared.heartRatePath ? (
         <Path d={prepared.heartRatePath} fill="none" stroke={WellnessColors.accentRed} strokeWidth={2} opacity={0.95} />
       ) : null}
+      {(prepared.heartRateDots ?? []).map((dot, i) => (
+        <Circle
+          key={`hr-dot-${i}`}
+          cx={dot.x}
+          cy={dot.y}
+          r={2.5}
+          fill={WellnessColors.accentRed}
+          opacity={0.95}
+        />
+      ))}
       {prepared.glucosePath ? (
         <Path d={prepared.glucosePath} fill="none" stroke={WellnessColors.accentGreen} strokeWidth={2.5} />
       ) : null}
