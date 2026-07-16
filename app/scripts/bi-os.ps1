@@ -167,6 +167,7 @@ while (-not $uploadProc.HasExited) {
 
 $uploadProc.WaitForExit() | Out-Null
 $uploadExit = $uploadProc.ExitCode
+if ($null -eq $uploadExit) { $uploadExit = 0 }
 $uploadMin = [math]::Round(((Get-Date) - $uploadStart).TotalMinutes, 1)
 
 # Merge stderr into log for id parse (EAS often prints URL on stderr)
