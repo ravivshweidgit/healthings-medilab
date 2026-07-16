@@ -142,9 +142,9 @@ Write-Host ""
 $uploadLog = Join-Path $env:TEMP ("bi-os-upload-{0}.log" -f [guid]::NewGuid().ToString("N"))
 $uploadErr = Join-Path $env:TEMP ("bi-os-upload-{0}.err" -f [guid]::NewGuid().ToString("N"))
 $uploadStart = Get-Date
-$easCmd = (Get-Command eas).Source
-$uploadProc = Start-Process -FilePath $easCmd -ArgumentList @(
-  "build", "--platform", "ios", "--profile", "production", "--no-wait"
+# npm's eas.ps1 is not a Win32 app — launch via cmd so Start-Process works on Windows.
+$uploadProc = Start-Process -FilePath "cmd.exe" -ArgumentList @(
+  "/c", "eas", "build", "--platform", "ios", "--profile", "production", "--no-wait"
 ) -WorkingDirectory $AppRoot -NoNewWindow -PassThru `
   -RedirectStandardOutput $uploadLog -RedirectStandardError $uploadErr
 
