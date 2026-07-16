@@ -110,10 +110,11 @@ Remove-Item -Recurse -Force "$env:USERPROFILE\.app-store" -ErrorAction SilentlyC
 
 **Do not** use `eas build --auto-submit` on Windows — it falls back to Apple ID + SMS and fails.
 
-`bi-os.bat` runs the proven two-step path automatically:
+`bi-os.bat` runs **one** EAS build in three timed stages:
 
-1. `eas build --platform ios --profile production` (cloud build)
-2. `eas submit --platform ios --profile production --latest` (ASC API key)
+1. **Upload** (~1–2 min) — `eas build … --no-wait`; status check every **30s** (starts the only cloud build)
+2. **Build** — quiet wait **5 min**, then poll that same build id every **30s** until Finished (never a second build)
+3. **Submit** (~1–2 min) — `eas submit … --latest` → **exit** (Apple emails when TestFlight is ready)
 
 ```powershell
 cd c:\projects\healthings-medilab\app
@@ -190,7 +191,7 @@ Or download the `.ipa` from the [EAS dashboard](https://expo.dev) and upload man
 ## 4. TestFlight internal testing
 
 1. **App Store Connect** → your app → **TestFlight**
-2. Wait for **Processing** (often 10–30 min)
+2. Apple emails when Processing finishes (**Ready to test**) — no need to babysit after `bi-os` submit
 3. **Internal testing** → add testers (Apple IDs on your team)
 4. Testers install **TestFlight** app → accept invite → install Healthings
 
