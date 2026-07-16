@@ -53,8 +53,10 @@ type Props = {
   onEditMeal?: (entry: FoodEntry) => void;
   /** Refresh counter — increment to trigger a reload. */
   refreshKey?: number;
-  /** Total burn per day key (BMR + active). Balance shown for any day present in this map. */
+  /** Total burn per day key (BMR + activity). Balance shown for any day present in this map. */
   burnKcalByDay?: Record<string, number>;
+  /** Split burn for display: BMR line + activity line (edit applies to activity). */
+  burnPartsByDay?: Record<string, { bmr: number; activity: number }>;
   /** Called after a successful import so the parent can refresh state. */
   onImported?: () => void;
   /** Daily macro targets — when set, bars show actual vs target. */
@@ -85,21 +87,31 @@ type MacroBarProps = {
   target: number;
   color: string;
   showTarget?: boolean;
+  /** Default grams (`g`). Use `kcal` for the calorie meter. */
+  unit?: 'g' | 'kcal';
 };
 
-function MacroBar({ label, value, target, color, showTarget }: MacroBarProps) {
+function MacroBar({ label, value, target, color, showTarget, unit = 'g' }: MacroBarProps) {
   const ratio = target > 0 ? Math.min(1, value / target) : 0;
   const over = value > target * 1.05;
+  const suffix = unit === 'kcal' ? '' : 'g';
   const valueText = showTarget
-    ? `${Math.round(value)}/${Math.round(target)}g`
-    : `${Math.round(value)}g`;
+    ? `${Math.round(value)}/${Math.round(target)}${suffix}`
+    : `${Math.round(value)}${suffix || ' kcal'}`;
+  const wideValue = showTarget || unit === 'kcal';
   return (
     <View style={barStyles.row}>
-      <Text style={barStyles.label}>{label}</Text>
+      <Text style={[barStyles.label, unit === 'kcal' && barStyles.labelKcal]} numberOfLines={1}>
+        {label}
+      </Text>
       <View style={barStyles.track}>
         <View style={[barStyles.fill, { width: `${ratio * 100}%`, backgroundColor: over ? '#EF5350' : color }]} />
       </View>
-      <Text style={[barStyles.value, showTarget && barStyles.valueWide, over && barStyles.valueOver]}>
+      <Text
+        style={[barStyles.value, wideValue && barStyles.valueWide, unit === 'kcal' && barStyles.valueKcal, over && barStyles.valueOver]}
+        numberOfLines={1}
+        maxFontSizeMultiplier={1.15}
+      >
         {valueText}
       </Text>
     </View>
@@ -109,6 +121,7 @@ function MacroBar({ label, value, target, color, showTarget }: MacroBarProps) {
 const barStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5 },
   label: { width: 14, fontSize: 11, fontWeight: '700', color: WellnessColors.textSecondary },
+  labelKcal: { width: 28 },
   track: {
     flex: 1,
     height: 6,
@@ -126,12 +139,13 @@ const barStyles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   valueWide: { width: 80 },
+  valueKcal: { width: 92 },
   valueOver: { color: '#EF5350' },
 });
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, refreshKey, burnKcalByDay, onImported, macroTarget }: Props) {
+export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, refreshKey, burnKcalByDay, burnPartsByDay, onImported, macroTarget }: Props) {
   const [selectedMs, setSelectedMs] = useState(() => startOfLocalDay(Date.now()));
   const [macros, setMacros] = useState<DailyMacros | null>(null);
   const [dayMacroTarget, setDayMacroTarget] = useState<DailyMacroTarget | null>(macroTarget ?? null);
@@ -203,7 +217,10 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
   const fiberTarget = displayTarget ? resolveFiberTarget_g(displayTarget) : maxMacro;
 
   const rawBurn = burnKcalByDay?.[activeDayKey] ?? null;
+  const burnParts = burnPartsByDay?.[activeDayKey] ?? null;
   const burn    = rawBurn != null ? rawBurn + burnCorrection : null;
+  const activityShown =
+    burnParts != null ? Math.max(0, Math.round(burnParts.activity + burnCorrection)) : null;
   const eaten   = macros ? Math.round(macros.kcal) : 0;
   const balance = burn != null && eaten > 0 ? eaten - burn : null;
   const isDeficit = balance != null && balance < 0;
@@ -235,35 +252,86 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
       {/* Energy lines — always shown, columns aligned */}
       <View style={styles.energyLines}>
         <View style={styles.energyRow}>
-          {displayTarget ? (
-            <Text style={styles.energyLabel}>
-              <Text style={styles.energyNumInline}>{eaten > 0 ? eaten.toLocaleString() : '—'}</Text>
-              {` kcal eaten `}
-              <Text style={styles.energyTarget}>{`/ ${displayTarget.kcal.toLocaleString()}`}</Text>
-            </Text>
-          ) : (
-            <>
-              <Text style={styles.energyNum}>{eaten > 0 ? eaten.toLocaleString() : '—'}</Text>
-              <Text style={styles.energyLabel}>kcal eaten</Text>
-            </>
-          )}
+          <Text style={styles.energyNum} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+            {eaten > 0 ? eaten.toLocaleString() : '—'}
+          </Text>
+          <Text style={styles.energyLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+            kcal eaten
+          </Text>
         </View>
-        {burn != null ? (
-          <Pressable style={styles.energyRow} onPress={() => { setCorrectionInput(burnCorrection !== 0 ? String(burnCorrection) : ''); setCorrectionModalVisible(true); }} hitSlop={8}>
-            <Text style={styles.energyNum}>{Math.round(burn).toLocaleString()}</Text>
-            <Text style={styles.energyLabel} numberOfLines={1}>
+        {burnParts != null && burn != null ? (
+          <>
+            <Pressable
+              style={styles.energyRow}
+              onPress={() => {
+                setCorrectionInput(burnCorrection !== 0 ? String(burnCorrection) : '');
+                setCorrectionModalVisible(true);
+              }}
+              hitSlop={8}
+              accessibilityLabel={`${activityShown} kilocalories activity, tap to adjust`}
+            >
+              <Text style={styles.energyNum} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+                {(activityShown ?? 0).toLocaleString()}
+              </Text>
+              <Text style={styles.energyLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+                {'kcal activity'}
+                {burnCorrection !== 0 ? (
+                  <Text style={styles.energyCorrection}>{` (${burnCorrection > 0 ? '+' : ''}${burnCorrection})`}</Text>
+                ) : null}
+              </Text>
+              <Text style={styles.adjustBtn}>✎</Text>
+            </Pressable>
+            <View style={styles.energyBurnBlock}>
+              <View style={styles.energyBurnRow}>
+                <Text style={[styles.energyNum, styles.energyNumBurn]} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+                  {Math.round(burn).toLocaleString()}
+                </Text>
+                <View style={styles.energyBurnTextCol}>
+                  <Text style={styles.energyLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+                    kcal burned
+                  </Text>
+                  <Text style={styles.energyBurnFormula} numberOfLines={1} maxFontSizeMultiplier={1.15}>
+                    {`BMR ${burnParts.bmr.toLocaleString()} + activity`}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </>
+        ) : burn != null ? (
+          <Pressable
+            style={styles.energyRow}
+            onPress={() => {
+              setCorrectionInput(burnCorrection !== 0 ? String(burnCorrection) : '');
+              setCorrectionModalVisible(true);
+            }}
+            hitSlop={8}
+          >
+            <Text style={styles.energyNum} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+              {Math.round(burn).toLocaleString()}
+            </Text>
+            <Text style={styles.energyLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
               {'kcal burned'}
-              {burnCorrection !== 0 ? <Text style={styles.energyCorrection}>{` (${burnCorrection > 0 ? '+' : ''}${burnCorrection})`}</Text> : null}
+              {burnCorrection !== 0 ? (
+                <Text style={styles.energyCorrection}>{` (${burnCorrection > 0 ? '+' : ''}${burnCorrection})`}</Text>
+              ) : null}
             </Text>
             <Text style={styles.adjustBtn}>✎</Text>
           </Pressable>
         ) : null}
         {balance != null ? (
           <View style={[styles.energyRow, styles.balanceRow, isDeficit ? styles.balanceDeficitBg : styles.balanceSurplusBg]}>
-            <Text style={[styles.energyNum, { color: isDeficit ? '#2E7D32' : '#C62828' }]}>
+            <Text
+              style={[styles.energyNum, { color: isDeficit ? '#2E7D32' : '#C62828' }]}
+              numberOfLines={1}
+              maxFontSizeMultiplier={1.2}
+            >
               {Math.abs(balance).toLocaleString()}
             </Text>
-            <Text style={[styles.energyLabel, { color: isDeficit ? '#2E7D32' : '#C62828' }]}>
+            <Text
+              style={[styles.energyLabel, { color: isDeficit ? '#2E7D32' : '#C62828' }]}
+              numberOfLines={1}
+              maxFontSizeMultiplier={1.2}
+            >
               kcal {isDeficit ? 'deficit' : 'surplus'}
             </Text>
           </View>
@@ -273,6 +341,16 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
       {/* Macro bars — show when meals exist OR when targets are set */}
       {(!isEmpty || displayTarget) && (
         <View style={[styles.barsWrap, { marginTop: 10 }]}>
+          {displayTarget ? (
+            <MacroBar
+              label="kcal"
+              value={eaten}
+              target={displayTarget.kcal}
+              color="#5C6BC0"
+              showTarget
+              unit="kcal"
+            />
+          ) : null}
           <MacroBar label="P" value={macros?.protein_g ?? 0} target={displayTarget ? displayTarget.protein_g : maxMacro} color={COLOR_PROTEIN} showTarget={!!displayTarget} />
           <MacroBar label="C" value={macros?.carb_g    ?? 0} target={displayTarget ? displayTarget.carb_g    : maxMacro} color={COLOR_CARB}    showTarget={!!displayTarget} />
           <MacroBar label="F" value={macros?.fat_g     ?? 0} target={displayTarget ? displayTarget.fat_g     : maxMacro} color={COLOR_FAT}     showTarget={!!displayTarget} />
@@ -318,10 +396,17 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
       <Modal visible={correctionModalVisible} transparent animationType="fade" onRequestClose={() => setCorrectionModalVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setCorrectionModalVisible(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Adjust burned calories</Text>
+            <Text style={styles.modalTitle}>Adjust activity calories</Text>
             <Text style={styles.modalSub}>
-              Enter a correction (e.g. <Text style={styles.modalCode}>-188</Text> to reduce by 188 kcal).{'\n'}
-              Raw recorded: <Text style={styles.modalBold}>{rawBurn?.toLocaleString() ?? '—'} kcal</Text>
+              Enter a correction (e.g. <Text style={styles.modalCode}>-188</Text> to reduce activity by 188 kcal).
+              {'\n'}
+              Recorded activity:{' '}
+              <Text style={styles.modalBold}>{burnParts?.activity.toLocaleString() ?? '—'} kcal</Text>
+              {burnParts != null ? (
+                <>
+                  {' · '}BMR <Text style={styles.modalBold}>{burnParts.bmr.toLocaleString()}</Text>
+                </>
+              ) : null}
             </Text>
             <TextInput
               style={styles.modalInput}
@@ -488,7 +573,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFEBEE',
   },
   energyNum: {
-    width: 56,
+    minWidth: 72,
+    flexShrink: 0,
     fontSize: 17,
     fontWeight: '700',
     color: WellnessColors.textPrimary,
@@ -506,6 +592,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: WellnessColors.textSecondary,
     flexShrink: 1,
+    flexGrow: 1,
   },
   energyTarget: {
     fontSize: 12,
@@ -516,6 +603,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: WellnessColors.textSecondary,
+  },
+  energyBurnBlock: {
+    alignSelf: 'stretch',
+  },
+  energyBurnRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  energyNumBurn: {
+    marginTop: 1,
+  },
+  energyBurnTextCol: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+  },
+  energyBurnFormula: {
+    marginTop: 1,
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 0.2,
+    color: WellnessColors.textSecondary,
+    opacity: 0.9,
   },
   barsWrap: { marginBottom: 12 },
   chipsRow: {

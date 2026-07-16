@@ -1,0 +1,35 @@
+## Prompt 69 — Withings Android menu + EAS archive size
+
+**Status: done (2026-07-16)** — Phone-tested (Re-link on Samsung).  
+**Builds on:** `done/prompt67.txt` (Re-link action sheet; shallow/deep sync).  
+**Commit:** `37667fa`
+
+### Problem
+
+1. **Android Re-link missing** — `Alert.alert` with 4 buttons drops the 4th on Android, so users only saw Cancel / Normal / Deep. Could not re-link after iPhone OAuth rotated tokens (`401 invalid_token`).
+2. **EAS iOS upload stuck** — `app/.easignore` was ignored (EAS only reads **repo-root** `.easignore`). Local `android/app/build` + `.cxx` packed a **~1.2 GB** archive; upload never finished. Build 28 never reached TestFlight until fixed.
+
+### What shipped
+
+| Area | Change |
+|------|--------|
+| **Withings menu** | Custom modal sheet: **Normal sync** / **Deep sync** / **Re-link account** / **Cancel** (not Android Alert) |
+| **EAS ignore** | Root `.easignore` excludes `node_modules`, `**/.cxx`, `**/build`, monorepo folders; deleted ineffective `app/.easignore` |
+| **iOS** | `ios.buildNumber` → **28**; production IPA submitted to TestFlight |
+
+### Primary files
+
+- `app/src/screens/DashboardScreen.tsx`
+- `.easignore`
+- `app/app.config.js`
+
+### Phone-tested
+
+- [x] Samsung: Withings sheet shows all four actions
+- [x] Re-link completes after `invalid_token`
+- [x] EAS archive ~6 MB; production build 28 Finished + TestFlight upload
+
+### Related
+
+- `done/prompt67.txt` — sync depth behavior
+- `done/prompt70.txt` — Food Log energy / kcal meter (same day)

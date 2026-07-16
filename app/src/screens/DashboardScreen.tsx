@@ -726,33 +726,31 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, [visibleTrend, foodRefreshKey, loadEatenHistory]);
 
   /**
-   * Total calorie burn per day key for all days covered by intraday data.
-   * BMR comes from bodyTrendDays (per-day) with bodyScan as fallback.
-   * Passive calories and workouts are bucketed per day.
+   * BMR + activity kcal per day (activity = passive + workouts, or HC/manual activity).
+   * Totals for deficit/coach still derived via burnKcalByDay.
    */
-  const burnKcalByDay = useMemo((): Record<string, number> => {
+  const burnPartsByDay = useMemo((): Record<string, { bmr: number; activity: number }> => {
     const fallbackBmr = effectiveBodyScan?.bmrKcalDay;
 
     if (useManualWeightTrend || useHcActivity) {
-      const result: Record<string, number> = {};
+      const result: Record<string, { bmr: number; activity: number }> = {};
       for (const d of bodyTrendDaysWithActivity) {
         const bmr = d.bmrKcalDay ?? fallbackBmr;
         if (!bmr || !Number.isFinite(bmr)) continue;
         const activity = d.activityKcalDay ?? 0;
-        result[d.dayKey] = Math.round(bmr + activity);
+        result[d.dayKey] = { bmr: Math.round(bmr), activity: Math.round(activity) };
       }
       const todayKey = localDayKeyFromMs(Date.now());
       if (!result[todayKey] && fallbackBmr && Number.isFinite(fallbackBmr)) {
         const todayActivity =
           bodyTrendDaysWithActivity.find((d) => d.dayKey === todayKey)?.activityKcalDay ?? 0;
-        result[todayKey] = Math.round(fallbackBmr + todayActivity);
+        result[todayKey] = { bmr: Math.round(fallbackBmr), activity: Math.round(todayActivity) };
       }
       return result;
     }
 
     const BUCKET_MS = 30 * 60 * 1000;
 
-    // BMR per day key from trend data
     const bmrByDay = new Map<string, number>();
     for (const d of bodyTrendDaysWithActivity) {
       if (d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay)) {
@@ -760,7 +758,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       }
     }
 
-    // Passive calories bucketed by day key
     const passiveByDay = new Map<string, Map<number, number>>();
     for (const pt of withingsCalories) {
       const t = new Date(pt.timestamp).getTime();
@@ -771,7 +768,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       m.set(bk, (m.get(bk) ?? 0) + pt.kcal);
     }
 
-    // Workout calories + buckets by day key
     const workoutKcalByDay = new Map<string, number>();
     const workoutBucketsByDay = new Map<string, Set<number>>();
     for (const w of workoutSessions) {
@@ -783,7 +779,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       for (let bk = firstBk; bk < w.endMs; bk += BUCKET_MS) bkSet.add(bk);
     }
 
-    // Collect all day keys with any data — always include today so the row shows even before first activity
     const allDayKeys = new Set<string>([
       localDayKeyFromMs(Date.now()),
       ...bmrByDay.keys(),
@@ -791,7 +786,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       ...workoutKcalByDay.keys(),
     ]);
 
-    const result: Record<string, number> = {};
+    const result: Record<string, { bmr: number; activity: number }> = {};
     for (const dk of allDayKeys) {
       const bmr = bmrByDay.get(dk) ?? fallbackBmr;
       if (!bmr || !Number.isFinite(bmr)) continue;
@@ -799,13 +794,24 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       const wktBuckets = workoutBucketsByDay.get(dk) ?? new Set<number>();
       const wktKcal = workoutKcalByDay.get(dk) ?? 0;
       let passiveKcal = 0;
-      for (const [bk, kcal] of (passiveByDay.get(dk) ?? new Map())) {
+      for (const [bk, kcal] of passiveByDay.get(dk) ?? new Map()) {
         if (!wktBuckets.has(bk)) passiveKcal += kcal;
       }
-      result[dk] = Math.round(bmr + passiveKcal + wktKcal);
+      result[dk] = {
+        bmr: Math.round(bmr),
+        activity: Math.round(passiveKcal + wktKcal),
+      };
     }
     return result;
   }, [effectiveBodyScan, bodyTrendDaysWithActivity, withingsCalories, workoutSessions, useManualWeightTrend, useHcActivity]);
+
+  const burnKcalByDay = useMemo((): Record<string, number> => {
+    const result: Record<string, number> = {};
+    for (const [dk, parts] of Object.entries(burnPartsByDay)) {
+      result[dk] = parts.bmr + parts.activity;
+    }
+    return result;
+  }, [burnPartsByDay]);
 
   /** Fat% derived from body scan (fatMassKg / weightKg * 100). */
   const fatPct = useMemo((): number | null => {
@@ -1735,6 +1741,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           onEditMeal={handleEditMeal}
           refreshKey={foodRefreshKey}
           burnKcalByDay={burnKcalByDay}
+          burnPartsByDay={burnPartsByDay}
           onImported={() => { setFoodRefreshKey((k) => k + 1); loadTodayFood(); }}
           macroTarget={macroTarget}
         />

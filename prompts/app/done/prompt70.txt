@@ -1,0 +1,43 @@
+## Prompt 70 — Food Log energy clarity (BMR / activity / kcal meter)
+
+**Status: done (2026-07-16)** — Phone-tested on Samsung.  
+**Builds on:** Food Log UX (`done/prompt62.txt`); energy burn from body/activity trend.  
+**Commit:** `ae857fa`
+
+### Problem
+
+1. At **medium Dynamic Type** (iPhone), fixed `width: 56` on kcal numbers wrapped mid-value (`2,24` / `4`).
+2. Users did not understand that **kcal burned = BMR + activity**, or see activity kcal separately to edit.
+3. Target kcal only appeared as `eaten / 2385` on the energy line — better as a bar with P/C/F/Fi.
+
+### What shipped
+
+| Area | Change |
+|------|--------|
+| **Number layout** | `minWidth: 72`, `flexShrink: 0`, `numberOfLines={1}` on energy nums |
+| **Burn parts** | `burnPartsByDay` `{ bmr, activity }` from Dashboard; total still `bmr + activity` |
+| **Energy lines** | Order: **eaten** → **activity** (✎) → **burned** (caption `BMR N + activity`) → **deficit/surplus** |
+| **Edit** | Correction modal = **Adjust activity calories**; delta applies to activity (and total) |
+| **kcal meter** | Macro bar **kcal** above P (`669/2385`); removed `/ target` from eaten line |
+
+### Primary files
+
+- `app/src/components/FoodMacroStrip.tsx`
+- `app/src/screens/DashboardScreen.tsx` (`burnPartsByDay`)
+
+### Phone-tested
+
+- [x] Activity + total burned order; BMR as caption under burned
+- [x] ✎ on activity opens adjust modal
+- [x] kcal bar above P; eaten line has no `/ target`
+- [x] Numbers do not wrap at larger text (Android; iOS Dynamic Type fix included, TF pending)
+
+### Deferred
+
+- [ ] TestFlight build with this Food Log UI (run `bi-os` when ready)
+- [ ] Optional: show BMR/activity split numbers on ENERGY chart tooltip
+
+### Related
+
+- `done/prompt69.txt` — Withings sheet / EAS (same day)
+- `done/prompt62.txt` — Food Log placement
