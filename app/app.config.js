@@ -43,7 +43,7 @@ module.exports = {
     plugins: pluginsForPlatform(),
     ios: {
       ...appJson.expo.ios,
-      buildNumber: '27',
+      buildNumber: '28',
       infoPlist: {
         CFBundleURLTypes: [
           {

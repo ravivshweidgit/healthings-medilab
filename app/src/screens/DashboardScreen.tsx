@@ -282,6 +282,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [withingsLinked, setWithingsLinked] = useState(false);
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [withingsMenuVisible, setWithingsMenuVisible] = useState(false);
 
   const [foodModalVisible, setFoodModalVisible] = useState(false);
   const [foodEditEntry, setFoodEditEntry] = useState<FoodEntry | undefined>();
@@ -1310,34 +1311,31 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     [syncWithings, loadHcStepTotals],
   );
 
-  /** Linked: choose normal (2d) vs deep sync, or OAuth re-link. Unlinked: OAuth link. */
+  /** Linked: sheet with Normal / Deep / Re-link (Alert is limited to 3 buttons on Android). */
   const handleWithingsAccountPress = useCallback(() => {
     if (!withingsLinked) {
       void handleLinkWithings();
       return;
     }
-    Alert.alert('Withings', 'Normal sync refreshes the last 2 days. Deep reloads full history from Withings.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Normal sync',
-        onPress: () => {
-          void runWithingsSync(false);
-        },
-      },
-      {
-        text: 'Deep history',
-        onPress: () => {
-          void runWithingsSync(true);
-        },
-      },
-      {
-        text: 'Re-link account',
-        onPress: () => {
-          void handleLinkWithings();
-        },
-      },
-    ]);
-  }, [withingsLinked, handleLinkWithings, runWithingsSync]);
+    setWithingsMenuVisible(true);
+  }, [withingsLinked, handleLinkWithings]);
+
+  const closeWithingsMenu = useCallback(() => setWithingsMenuVisible(false), []);
+
+  const onWithingsMenuNormal = useCallback(() => {
+    setWithingsMenuVisible(false);
+    void runWithingsSync(false);
+  }, [runWithingsSync]);
+
+  const onWithingsMenuDeep = useCallback(() => {
+    setWithingsMenuVisible(false);
+    void runWithingsSync(true);
+  }, [runWithingsSync]);
+
+  const onWithingsMenuRelink = useCallback(() => {
+    setWithingsMenuVisible(false);
+    void handleLinkWithings();
+  }, [handleLinkWithings]);
 
   const handleSync = async () => {
     const [, result] = await Promise.all([syncWithings(), refetch()]);
@@ -1534,10 +1532,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           </Text>
           <View style={styles.nudgeStripTextCol}>
             <Text style={styles.nudgeStripTitle}>AI chat</Text>
-            <Text style={styles.nudgeStripSub} numberOfLines={1}>
+            <Text style={styles.nudgeStripSub} numberOfLines={1} ellipsizeMode="tail">
               {coachMsg
-                ? `${coachMsg.actionItems.filter((i) => i.done).length}/${coachMsg.actionItems.length} actions · tap to open`
-                : 'Ask your mentors · tap to open'}
+                ? `${coachMsg.actionItems.filter((i) => i.done).length}/${coachMsg.actionItems.length} actions`
+                : 'Ask your mentors'}
             </Text>
           </View>
           <Text style={styles.nudgeStripChevron}>›</Text>
@@ -2361,6 +2359,53 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         }}
       />
 
+      <Modal
+        visible={withingsMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeWithingsMenu}
+      >
+        <Pressable style={styles.withingsMenuBackdrop} onPress={closeWithingsMenu}>
+          <Pressable style={styles.withingsMenuCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.withingsMenuTitle}>Withings</Text>
+            <Text style={styles.withingsMenuHint}>
+              Normal = last 2 days. Deep = full history. Re-link if sync fails on this phone.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.withingsMenuBtn}
+              onPress={onWithingsMenuNormal}
+              disabled={linkBusy}
+            >
+              <Text style={styles.withingsMenuBtnText}>Normal sync</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.withingsMenuBtn}
+              onPress={onWithingsMenuDeep}
+              disabled={linkBusy}
+            >
+              <Text style={styles.withingsMenuBtnText}>Deep sync</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.withingsMenuBtn}
+              onPress={onWithingsMenuRelink}
+              disabled={linkBusy}
+            >
+              <Text style={styles.withingsMenuBtnText}>Re-link account</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              style={[styles.withingsMenuBtn, styles.withingsMenuBtnCancel]}
+              onPress={closeWithingsMenu}
+            >
+              <Text style={styles.withingsMenuBtnCancelText}>Cancel</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Chat screen modal */}
       <Modal
         visible={chatVisible}
@@ -2845,6 +2890,52 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: WellnessColors.textSecondary,
     marginTop: 1,
+    flexShrink: 1,
+  },
+  withingsMenuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+  },
+  withingsMenuCard: {
+    backgroundColor: WellnessColors.surface,
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 12,
+  },
+  withingsMenuTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+    marginBottom: 6,
+  },
+  withingsMenuHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: WellnessColors.textSecondary,
+    marginBottom: 12,
+  },
+  withingsMenuBtn: {
+    paddingVertical: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: WellnessColors.gridLine,
+  },
+  withingsMenuBtnCancel: {
+    marginTop: 4,
+  },
+  withingsMenuBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: WellnessColors.accentBlue,
+    textAlign: 'center',
+  },
+  withingsMenuBtnCancelText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: WellnessColors.textSecondary,
+    textAlign: 'center',
   },
   nudgeStripChevron: {
     fontSize: 20,

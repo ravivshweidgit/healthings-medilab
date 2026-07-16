@@ -1,0 +1,77 @@
+# EAS packs from the git repo root. This file MUST live here (not app/).
+# When present, .gitignore files are NOT used — keep this complete.
+
+# Dependencies (EAS reinstalls on the builder)
+node_modules/
+**/node_modules/
+
+# Expo / Metro
+.expo/
+**/dist/
+web-build/
+.metro-health-check*
+expo-env.d.ts
+*.tsbuildinfo
+
+# Local Android build outputs (multi-GB — never upload)
+**/.gradle/
+**/.cxx/
+**/build/
+app/android/build/
+app/android/app/build/
+.kotlin/
+
+# Monorepo paths not needed for the mobile EAS build
+/server/
+/website/
+/prompts/
+/docs/
+/investor-pov/
+/facebook/
+/idit-halperin/
+/.cursor/
+/.github/
+/.vscode/
+/scripts/
+
+# Backups / personal data
+app/healthings-backup/
+healthings-backup_*.json
+healthings_visit_*.html
+
+# Secrets & credentials
+.env
+.env.*
+!.env.example
+!**/.env.example
+whithins.txt
+withings.txt
+**/keystore.properties
+*.keystore
+*.jks
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+credentials.json
+**/secrets.json
+asc-api.local.ps1
+**/asc-api.local.ps1
+
+# Build artifacts
+*.apk
+*.aab
+*.ipa
+*.jsbundle
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+*.hprof
+*.orig.*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
