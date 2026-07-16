@@ -44,5 +44,7 @@
 
 ### Related
 
+- Android Re-link sheet refined in **prompt69** (Alert 4-button drop → modal).
+
 - **prompt45** — HR sync diag / today merge; chart downsample refined here (gap-break + min/max).
 - Chart fix does **not** invent missing Withings days — only stops lying about gaps.

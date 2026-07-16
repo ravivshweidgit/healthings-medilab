@@ -2,7 +2,7 @@
 
 **Status: done (2026-07-16)** — Phone-tested on Samsung.  
 **Builds on:** Food Log UX (`done/prompt62.txt`); energy burn from body/activity trend.  
-**Commit:** `ae857fa`
+**Commit:** `61c77b8`
 
 ### Problem
 
