@@ -124,6 +124,7 @@ function detectIncludes(asyncStorage: Record<string, string>): string[] {
   if (asyncStorage.body_target || asyncStorage.macro_target) includes.push('targets');
   if (asyncStorage.user_rules) includes.push('rules');
   if (asyncStorage[NUTRITION_DIRECTIVES_KEY]) includes.push('directives');
+  if (asyncStorage.water_log_v1 || asyncStorage.water_goal_ml_v1) includes.push('water');
   return includes;
 }
 

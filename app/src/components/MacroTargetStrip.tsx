@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -17,7 +18,6 @@ import { buildAndExportMacroPrompt } from '../services/macroPromptExport';
 import { RulesAdviceBanner } from './RulesAdviceBanner';
 import { MacroClinicalProfileBanner } from './MacroClinicalProfileBanner';
 import {
-  clearMacroTarget,
   getMacroTarget,
   getMentors,
   getUserRules,
@@ -31,6 +31,13 @@ import {
   type UserLanguage,
 } from '../services/TargetService';
 import { WellnessColors } from '../theme/wellness';
+import {
+  DEFAULT_WATER_GOAL_ML,
+  getWaterGoalMl,
+  getWaterMl,
+  setWaterGoalMl,
+} from '../services/WaterPersistenceService';
+import { foodLogDayKey } from '../services/FoodLogService';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -94,43 +101,85 @@ function MacroBar({
   target,
   color,
   unit = 'g',
+  onPress,
 }: {
   label: string;
   actual: number | null;
   target: number;
   color: string;
-  unit?: string;
+  unit?: 'g' | 'kcal' | 'ml';
+  onPress?: () => void;
 }) {
   const pct = actual != null && target > 0 ? Math.min(1, actual / target) : 0;
   const over = actual != null && actual > target * 1.1;
+  const suffix = unit === 'g' ? 'g' : unit === 'ml' ? 'ml' : '';
+  const actualText = actual != null ? String(Math.round(actual)) : '—';
+  const valueText =
+    unit === 'kcal'
+      ? `${actualText} / ${Math.round(target)}`
+      : `${actualText} / ${Math.round(target)}${suffix}`;
 
-  return (
+  const row = (
     <View style={barStyles.row}>
-      <Text style={barStyles.label}>{label}</Text>
+      <Text style={barStyles.label} numberOfLines={1}>
+        {label}
+      </Text>
       <View style={barStyles.track}>
         <View style={[barStyles.fill, { width: `${pct * 100}%`, backgroundColor: over ? '#EF5350' : color }]} />
       </View>
-      <Text style={[barStyles.nums, over && barStyles.numsOver]}>
-        {actual != null ? `${Math.round(actual)}` : '—'} / {Math.round(target)}{unit}
+      <Text
+        style={[barStyles.nums, over && barStyles.numsOver]}
+        numberOfLines={1}
+        maxFontSizeMultiplier={1.15}
+      >
+        {valueText}
       </Text>
     </View>
+  );
+
+  if (!onPress) return row;
+  return (
+    <Pressable style={barStyles.rowPressable} onPress={onPress} accessibilityRole="button" hitSlop={4}>
+      {row}
+    </Pressable>
   );
 }
 
 const barStyles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
-  label: { width: 20, fontSize: 12, fontWeight: '700', color: WellnessColors.textSecondary },
-  track: { flex: 1, height: 8, borderRadius: 4, backgroundColor: WellnessColors.gridLine, overflow: 'hidden' },
-  fill: { height: '100%', borderRadius: 4 },
-  nums: { width: 90, fontSize: 12, color: WellnessColors.textSecondary, textAlign: 'right' },
-  numsOver: { color: '#EF5350', fontWeight: '700' },
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8, width: '100%' },
+  rowPressable: { alignSelf: 'stretch' },
+  label: {
+    width: 34,
+    flexShrink: 0,
+    fontSize: 11,
+    fontWeight: '700',
+    color: WellnessColors.textSecondary,
+  },
+  track: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: WellnessColors.progressTrack ?? WellnessColors.gridLine,
+    overflow: 'hidden',
+  },
+  fill: { height: '100%', borderRadius: 3 },
+  nums: {
+    width: 98,
+    flexShrink: 0,
+    fontSize: 11,
+    fontWeight: '600',
+    color: WellnessColors.textPrimary,
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
+  },
+  numsOver: { color: '#EF5350' },
 });
 
 // ─── Edit field ───────────────────────────────────────────────────────────────
 
 function EditField({
-  label, value, onChange, unit, aiVal,
-}: { label: string; value: string; onChange: (v: string) => void; unit: string; aiVal: number }) {
+  label, value, onChange, unit, aiVal, hint,
+}: { label: string; value: string; onChange: (v: string) => void; unit: string; aiVal?: number; hint?: string }) {
   return (
     <View style={editStyles.row}>
       <Text style={editStyles.label}>{label}</Text>
@@ -143,7 +192,7 @@ function EditField({
         selectTextOnFocus
       />
       <Text style={editStyles.unit}>{unit}</Text>
-      <Text style={editStyles.ai}>AI: {Math.round(aiVal)}</Text>
+      <Text style={editStyles.ai}>{hint ?? (aiVal != null ? `AI: ${Math.round(aiVal)}` : '')}</Text>
     </View>
   );
 }
@@ -179,6 +228,11 @@ export function MacroTargetStrip({
   const [editC, setEditC] = useState('');
   const [editFi, setEditFi] = useState('');
   const [editK, setEditK] = useState('');
+  const [editWater, setEditWater] = useState('');
+  const [waterGoalMl, setWaterGoalMlState] = useState(DEFAULT_WATER_GOAL_ML);
+  const [waterMl, setWaterMlState] = useState(0);
+  const [waterGoalModalVisible, setWaterGoalModalVisible] = useState(false);
+  const [waterGoalInput, setWaterGoalInput] = useState('');
   const [exportBusy, setExportBusy] = useState(false);
   const [rulesAdvice, setRulesAdvice] = useState<string | null>(null);
   const lastAnalyzeRequestId = useRef(0);
@@ -194,6 +248,17 @@ export function MacroTargetStrip({
   useEffect(() => {
     getMacroTarget().then((t) => { if (t) { setTarget(withFiberTarget(t)); setScreen('active'); } });
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const [goal, ml] = await Promise.all([getWaterGoalMl(), getWaterMl(foodLogDayKey(Date.now()))]);
+      if (cancelled) return;
+      setWaterGoalMlState(goal);
+      setWaterMlState(ml);
+    })();
+    return () => { cancelled = true; };
+  }, [expanded]);
 
   useEffect(() => {
     if (savedTarget) {
@@ -293,8 +358,9 @@ export function MacroTargetStrip({
     setEditC(String(src.carb_g));
     setEditFi(String(resolveFiberTarget_g(src)));
     setEditK(String(src.kcal));
+    setEditWater(String(waterGoalMl));
     setScreen('editing');
-  }, []);
+  }, [waterGoalMl]);
 
   const handleSaveEdit = useCallback(async () => {
     const base = suggestion ?? target;
@@ -311,20 +377,29 @@ export function MacroTargetStrip({
       analyzedAt: new Date().toISOString(),
     };
     await saveMacroTarget(updated, { userEdited: true });
+    const w = parseInt(editWater.replace(/\s/g, ''), 10);
+    if (!isNaN(w) && w > 0 && w !== waterGoalMl) {
+      await setWaterGoalMl(w);
+      setWaterGoalMlState(w);
+    }
     setTarget(updated);
     onSaved?.(updated);
     setSuggestion(null);
     setScreen('active');
-  }, [editP, editF, editC, editFi, editK, suggestion, target, onSaved]);
+  }, [editP, editF, editC, editFi, editK, editWater, waterGoalMl, suggestion, target, onSaved]);
 
-  const handleReset = useCallback(async () => {
-    await clearMacroTarget();
-    setTarget(null);
-    setSuggestion(null);
-    setRulesAdvice(null);
-    onSaved?.(null as any);
-    setScreen('idle');
-  }, [onSaved]);
+  const openWaterGoalModal = useCallback(() => {
+    setWaterGoalInput(String(waterGoalMl));
+    setWaterGoalModalVisible(true);
+  }, [waterGoalMl]);
+
+  const handleSaveWaterGoal = useCallback(async () => {
+    const n = parseInt(waterGoalInput.replace(/\s/g, ''), 10);
+    const goal = !isNaN(n) && n > 0 ? n : DEFAULT_WATER_GOAL_ML;
+    await setWaterGoalMl(goal);
+    setWaterGoalMlState(goal);
+    setWaterGoalModalVisible(false);
+  }, [waterGoalInput]);
 
   return (
     <View style={styles.wrap}>
@@ -337,16 +412,6 @@ export function MacroTargetStrip({
             <Text style={styles.headerUpdated} numberOfLines={1}>{updatedLabel}</Text>
           ) : null}
         </View>
-        {screen === 'active' && expanded && (
-          <View style={styles.headerActions}>
-            <Pressable onPress={() => openEdit(target!)} hitSlop={8}>
-              <Text style={styles.editLink}>✎</Text>
-            </Pressable>
-            <Pressable onPress={handleReset} hitSlop={8}>
-              <Text style={styles.resetLink}>reset</Text>
-            </Pressable>
-          </View>
-        )}
         <Text style={styles.chevron}>{expanded ? '⌃' : '›'}</Text>
       </Pressable>
 
@@ -436,6 +501,7 @@ export function MacroTargetStrip({
               <EditField label="Carbs"   value={editC} onChange={setEditC} unit="g"    aiVal={(suggestion ?? target)?.aiSuggested.carb_g ?? 0}    />
               <EditField label="Fiber"   value={editFi} onChange={setEditFi} unit="g" aiVal={(suggestion ?? target)?.aiSuggested.fiber_g ?? (suggestion ?? target)?.fiber_g ?? 0} />
               <EditField label="Calories"value={editK} onChange={setEditK} unit="kcal" aiVal={(suggestion ?? target)?.aiSuggested.kcal ?? 0}      />
+              <EditField label="Water"   value={editWater} onChange={setEditWater} unit="ml" hint={`def ${DEFAULT_WATER_GOAL_ML}`} />
               <View style={styles.suggBtns}>
                 <Pressable style={[styles.btn, styles.btnAccept]} onPress={handleSaveEdit}>
                   <Text style={styles.btnTextAccept}>Save</Text>
@@ -461,16 +527,17 @@ export function MacroTargetStrip({
                   compact
                 />
               ) : null}
+              <MacroBar label="kcal" actual={actualKcal} target={target.kcal} color="#5C6BC0" unit="kcal" />
               <MacroBar label="P" actual={actualProtein_g} target={target.protein_g} color="#4CAF50" />
               <MacroBar label="C" actual={actualCarb_g}    target={target.carb_g}    color="#FF9800" />
               <MacroBar label="F" actual={actualFat_g}     target={target.fat_g}     color="#2196F3" />
               <MacroBar label="Fi" actual={actualFiber_g} target={resolveFiberTarget_g(target)} color="#66BB6A" />
-              <View style={styles.kcalRow}>
-                <Text style={styles.kcalText}>
-                  {actualKcal != null ? Math.round(actualKcal) : '—'} / {Math.round(target.kcal)} kcal
-                </Text>
-              </View>
-              <Pressable style={styles.reanalyzeBtn} onPress={() => { setTarget(null); setScreen('idle'); }}>
+              <MacroBar label="H2O" actual={waterMl} target={waterGoalMl} color="#29B6F6" unit="ml" onPress={openWaterGoalModal} />
+              <Text style={styles.h2oHint}>Tap H2O bar to edit water goal</Text>
+              <Pressable style={[styles.btn, styles.btnEdit, styles.editTargetsBtn]} onPress={() => openEdit(target)}>
+                <Text style={styles.btnTextEdit}>✎ Edit</Text>
+              </Pressable>
+              <Pressable style={styles.reanalyzeBtn} onPress={() => void handleAsk()}>
                 <Text style={styles.reanalyzeBtnText}>Re-analyze with AI</Text>
               </Pressable>
               {exportPromptLink}
@@ -478,6 +545,35 @@ export function MacroTargetStrip({
           )}
         </View>
       )}
+
+      <Modal visible={waterGoalModalVisible} transparent animationType="fade" onRequestClose={() => setWaterGoalModalVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setWaterGoalModalVisible(false)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Water goal</Text>
+            <Text style={styles.modalSub}>
+              Daily H2O target in ml (default {DEFAULT_WATER_GOAL_ML.toLocaleString()}).
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={waterGoalInput}
+              onChangeText={setWaterGoalInput}
+              keyboardType="number-pad"
+              placeholder={String(DEFAULT_WATER_GOAL_ML)}
+              placeholderTextColor={WellnessColors.textSecondary}
+              autoFocus
+              selectTextOnFocus
+            />
+            <View style={styles.suggBtns}>
+              <Pressable style={[styles.btn, styles.btnAccept]} onPress={() => void handleSaveWaterGoal()}>
+                <Text style={styles.btnTextAccept}>Save</Text>
+              </Pressable>
+              <Pressable style={[styles.btn, styles.btnEdit]} onPress={() => setWaterGoalModalVisible(false)}>
+                <Text style={styles.btnTextEdit}>Cancel</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -490,12 +586,37 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 14, fontWeight: '700', color: WellnessColors.textPrimary },
   headerSub: { fontSize: 12, color: WellnessColors.textSecondary, marginTop: 2 },
   headerUpdated: { fontSize: 11, color: WellnessColors.accentGreen, marginTop: 2, fontWeight: '600' },
-  headerActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  editLink: { fontSize: 13, color: WellnessColors.accentBlue, fontWeight: '600' },
-  resetLink: { fontSize: 11, color: WellnessColors.textSecondary },
   chevron: { fontSize: 20, color: WellnessColors.textSecondary, fontWeight: '300' },
 
   body: { paddingHorizontal: 16, paddingBottom: 16 },
+  h2oHint: { fontSize: 11, color: WellnessColors.textSecondary, marginTop: -2, marginBottom: 10 },
+  editTargetsBtn: { marginBottom: 10 },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: WellnessColors.surface,
+    borderRadius: 16,
+    padding: 20,
+  },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: WellnessColors.textPrimary, marginBottom: 6 },
+  modalSub: { fontSize: 13, color: WellnessColors.textSecondary, marginBottom: 14, lineHeight: 18 },
+  modalInput: {
+    borderWidth: 1.5,
+    borderColor: WellnessColors.gridLine,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 18,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 14,
+  },
 
   idleWrap: { gap: 10 },
   hintText: { fontSize: 12, color: WellnessColors.textSecondary, fontStyle: 'italic' },
@@ -537,9 +658,7 @@ const styles = StyleSheet.create({
   activeLabelRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 6 },
   dietBadgeSmall: { fontSize: 11, fontWeight: '700', color: '#F57F17', backgroundColor: '#FFF8E1', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   updatedDetail: { fontSize: 11, color: WellnessColors.accentGreen, fontWeight: '600', marginBottom: 8 },
-  kcalRow: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: WellnessColors.gridLine, paddingTop: 8, marginTop: 4, marginBottom: 10 },
-  kcalText: { fontSize: 13, fontWeight: '600', color: WellnessColors.textSecondary, textAlign: 'center' },
-  reanalyzeBtn: { borderWidth: 1, borderColor: WellnessColors.gridLine, borderRadius: 10, paddingVertical: 8, alignItems: 'center' },
+  reanalyzeBtn: { borderWidth: 1, borderColor: WellnessColors.gridLine, borderRadius: 10, paddingVertical: 8, alignItems: 'center', marginTop: 8 },
   reanalyzeBtnText: { fontSize: 12, color: WellnessColors.textSecondary, fontWeight: '600' },
   exportPromptBtn: { marginTop: 10, paddingVertical: 8, alignItems: 'center' },
   exportPromptText: { fontSize: 12, color: WellnessColors.accentBlue, textDecorationLine: 'underline' },

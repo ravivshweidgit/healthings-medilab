@@ -1,0 +1,54 @@
+## Prompt 71 — H2O macro + meters (manual water)
+
+**Status: done (2026-07-16)** — Phone-tested on Samsung.  
+**Builds on:** Food Log meters (`done/prompt70.txt`).  
+**Commit:** `2e51f29`
+
+### Problem
+
+No hydration tracking. Users need a simple daily water meter next to kcal/P/C/F/Fi, with goal editing that does not require coach AI.
+
+### What shipped
+
+| Area | Behavior |
+|------|----------|
+| **Intake** | **3 glass tiles** — half 100 ml / full 200 ml / big 250 ml (icon + label); **Set total** / **Edit goal** on add sheet |
+| **Edit entry** | Tap water chip → same glass sheet; glass picks replace ml+label; **Set amount** numeric; **🗑** delete (meal-style); **Edit goal** hidden in edit mode |
+| **Food Log bar** | H2O bar under Fi (always visible); tap bar → glass sheet; cyan fill; aligned macro grid (label 34px / value 98px) |
+| **My Macros** | H2O progress bar (kcal → P → C → F → Fi → H2O); tap H2O bar → water-goal modal; **✎ Edit** opens manual targets incl. Water (ml) |
+| **Goal** | Local default **2500 ml** in `water_goal_ml_v1` — **not** in coach `DailyMacroTarget`; synced across Food Log + My Macros |
+| **Timeline** | Water chips merged chronologically with meals (time + label + ml) |
+| **Store** | `water_log_v1` v2 (`{ version, days: Record<dayKey, WaterEntry[]> }`), `water_goal_ml_v1` |
+| **Backup** | Keys not excluded — included in local/cloud backup; clinic export `includes: water` |
+
+### Primary files
+
+- `app/src/services/WaterPersistenceService.ts`
+- `app/src/components/FoodMacroStrip.tsx`
+- `app/src/components/MacroTargetStrip.tsx` (H2O bar + edit + water-goal modal)
+- `app/src/services/ShareExportService.ts` (`includes: water`)
+
+### Phone-tested
+
+- [x] Glass tap creates chip in day timeline (time + ml + label)
+- [x] Tap water chip → glass edit sheet + delete
+- [x] Tap H2O bar (Food Log) → glass add sheet
+- [x] Goal edit persists across days (Food Log **Edit goal** + My Macros **✎ Edit** / tap H2O bar)
+- [x] Day navigator shows that day’s intake
+- [x] H2O bar aligns with other macro rows (Food Log + My Macros — no warp)
+- [x] My Macros **✎ Edit** opens manual form (no reset-to-AI)
+- [ ] Backup restore keeps water log + goal
+
+### Deferred
+
+- [ ] Withings / Health Connect hydration sync
+- [ ] Optional `water_ml` on `DailyMacroTarget` for coach `/macros` suggestion
+- [ ] Meal parser / chat “drank water”
+- [ ] Undo snackbar after glass tap
+- [ ] Goal-hit visual cue
+- [ ] iOS TestFlight with H2O UI (`bi-os`)
+
+### Related
+
+- `done/prompt70.txt` — kcal meter + energy lines
+- `persistence-parity.mdc` — canonical AsyncStorage keys

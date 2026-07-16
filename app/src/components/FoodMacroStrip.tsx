@@ -3,7 +3,7 @@
  * Shows today's logged meals with kcal totals and P/C/F bars.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -14,8 +14,21 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getBurnCorrection, setBurnCorrection } from '../services/BurnCorrectionService';
 import { getDailyMacros, foodLogDayKey, exportFoodLog, importFoodLog, type DailyMacros, type FoodEntry } from '../services/FoodLogService';
+import {
+  addWaterMl,
+  DEFAULT_WATER_GOAL_ML,
+  deleteWaterEntry,
+  getWaterEntries,
+  getWaterGoalMl,
+  getWaterMl,
+  setWaterGoalMl,
+  setWaterMl,
+  updateWaterEntry,
+  type WaterEntry,
+} from '../services/WaterPersistenceService';
 import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
 import type { DailyMacroTarget } from '../services/TargetService';
 import { getMacroTargetForDay, resolveFiberTarget_g } from '../services/TargetService';
@@ -67,6 +80,113 @@ const COLOR_PROTEIN = '#42A5F5';
 const COLOR_CARB    = '#FF9800';
 const COLOR_FAT     = '#EF5350';
 const COLOR_FIBER   = '#66BB6A';
+const COLOR_WATER   = '#29B6F6';
+
+const WATER_HALF_ML = 100;
+const WATER_FULL_ML = 200;
+const WATER_BIG_ML = 250;
+
+type WaterGlassVariant = 'half' | 'full' | 'big';
+
+function WaterGlassIcon({ variant }: { variant: WaterGlassVariant }) {
+  const spec =
+    variant === 'half'
+      ? { w: 22, h: 28, fill: 0.4 }
+      : variant === 'full'
+        ? { w: 26, h: 34, fill: 0.72 }
+        : { w: 30, h: 40, fill: 0.88 };
+  const innerH = Math.round(spec.h * 0.84);
+  const fillH = Math.max(4, Math.round(innerH * spec.fill));
+  return (
+    <View style={glassIconStyles.wrap}>
+      <View
+        style={[
+          glassIconStyles.glass,
+          { width: spec.w, height: innerH },
+        ]}
+      >
+        <View style={[glassIconStyles.fill, { height: fillH }]} />
+      </View>
+    </View>
+  );
+}
+
+const glassIconStyles = StyleSheet.create({
+  wrap: {
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginBottom: 4,
+  },
+  glass: {
+    borderWidth: 2,
+    borderColor: '#0288D1',
+    borderRadius: 3,
+    borderTopWidth: 1.5,
+    borderBottomLeftRadius: 6,
+    borderBottomRightRadius: 6,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(41, 182, 246, 0.1)',
+  },
+  fill: {
+    width: '100%',
+    backgroundColor: COLOR_WATER,
+  },
+});
+
+type WaterQuickTileProps = {
+  variant: WaterGlassVariant;
+  ml: number;
+  label: string;
+  onPress: () => void;
+};
+
+function WaterQuickTile({ variant, ml, label, onPress }: WaterQuickTileProps) {
+  return (
+    <Pressable
+      style={({ pressed }) => [waterTileStyles.tile, pressed && waterTileStyles.tilePressed]}
+      onPress={onPress}
+      accessibilityLabel={`Add ${ml} milliliters, ${label}`}
+    >
+      <WaterGlassIcon variant={variant} />
+      <Text style={waterTileStyles.ml}>{ml} ml</Text>
+      <Text style={waterTileStyles.label} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+const waterTileStyles = StyleSheet.create({
+  tile: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderRadius: 14,
+    backgroundColor: 'rgba(41, 182, 246, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(41, 182, 246, 0.28)',
+  },
+  tilePressed: {
+    opacity: 0.75,
+    backgroundColor: 'rgba(41, 182, 246, 0.18)',
+  },
+  ml: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0277BD',
+    fontVariant: ['tabular-nums'],
+  },
+  label: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '600',
+    color: WellnessColors.textSecondary,
+    textAlign: 'center',
+  },
+});
 
 function formatTime(ms: number): string {
   return new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
@@ -87,28 +207,32 @@ type MacroBarProps = {
   target: number;
   color: string;
   showTarget?: boolean;
-  /** Default grams (`g`). Use `kcal` for the calorie meter. */
-  unit?: 'g' | 'kcal';
+  /** Default grams (`g`). Use `kcal` / `ml` for energy and water meters. */
+  unit?: 'g' | 'kcal' | 'ml';
+  onPress?: () => void;
 };
 
-function MacroBar({ label, value, target, color, showTarget, unit = 'g' }: MacroBarProps) {
+function MacroBar({ label, value, target, color, showTarget, unit = 'g', onPress }: MacroBarProps) {
   const ratio = target > 0 ? Math.min(1, value / target) : 0;
   const over = value > target * 1.05;
-  const suffix = unit === 'kcal' ? '' : 'g';
+  const suffix = unit === 'g' ? 'g' : unit === 'ml' ? 'ml' : '';
   const valueText = showTarget
-    ? `${Math.round(value)}/${Math.round(target)}${suffix}`
-    : `${Math.round(value)}${suffix || ' kcal'}`;
-  const wideValue = showTarget || unit === 'kcal';
-  return (
+    ? unit === 'kcal'
+      ? `${Math.round(value)}/${Math.round(target)}`
+      : `${Math.round(value)}/${Math.round(target)}${suffix}`
+    : unit === 'kcal'
+      ? `${Math.round(value)} kcal`
+      : `${Math.round(value)}${suffix}`;
+  const row = (
     <View style={barStyles.row}>
-      <Text style={[barStyles.label, unit === 'kcal' && barStyles.labelKcal]} numberOfLines={1}>
+      <Text style={barStyles.label} numberOfLines={1}>
         {label}
       </Text>
       <View style={barStyles.track}>
         <View style={[barStyles.fill, { width: `${ratio * 100}%`, backgroundColor: over ? '#EF5350' : color }]} />
       </View>
       <Text
-        style={[barStyles.value, wideValue && barStyles.valueWide, unit === 'kcal' && barStyles.valueKcal, over && barStyles.valueOver]}
+        style={[barStyles.value, showTarget && barStyles.valueTarget, over && barStyles.valueOver]}
         numberOfLines={1}
         maxFontSizeMultiplier={1.15}
       >
@@ -116,12 +240,18 @@ function MacroBar({ label, value, target, color, showTarget, unit = 'g' }: Macro
       </Text>
     </View>
   );
+  if (!onPress) return row;
+  return (
+    <Pressable style={barStyles.rowPressable} onPress={onPress} accessibilityRole="button" hitSlop={4}>
+      {row}
+    </Pressable>
+  );
 }
 
 const barStyles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5 },
-  label: { width: 14, fontSize: 11, fontWeight: '700', color: WellnessColors.textSecondary },
-  labelKcal: { width: 28 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5, width: '100%' },
+  rowPressable: { alignSelf: 'stretch' },
+  label: { width: 34, fontSize: 11, fontWeight: '700', color: WellnessColors.textSecondary },
   track: {
     flex: 1,
     height: 6,
@@ -131,15 +261,14 @@ const barStyles = StyleSheet.create({
   },
   fill: { height: '100%', borderRadius: 3 },
   value: {
-    width: 40,
+    width: 44,
     fontSize: 11,
     fontWeight: '600',
     color: WellnessColors.textPrimary,
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
   },
-  valueWide: { width: 80 },
-  valueKcal: { width: 92 },
+  valueTarget: { width: 98 },
   valueOver: { color: '#EF5350' },
 });
 
@@ -152,6 +281,14 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
   const [burnCorrection, setBurnCorrectionState] = useState(0);
   const [correctionModalVisible, setCorrectionModalVisible] = useState(false);
   const [correctionInput, setCorrectionInput] = useState('');
+  const [waterMl, setWaterMlState] = useState(0);
+  const [waterGoalMl, setWaterGoalMlState] = useState(DEFAULT_WATER_GOAL_ML);
+  const [waterModalVisible, setWaterModalVisible] = useState(false);
+  const [waterModalMode, setWaterModalMode] = useState<'intake' | 'goal'>('intake');
+  const [waterInput, setWaterInput] = useState('');
+  const [waterSheetVisible, setWaterSheetVisible] = useState(false);
+  const [waterEntries, setWaterEntries] = useState<WaterEntry[]>([]);
+  const [waterEntryEdit, setWaterEntryEdit] = useState<WaterEntry | null>(null);
 
   const handleExport = useCallback(async () => {
     try {
@@ -180,6 +317,15 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
   const isToday = activeDayKey === todayKey;
   const displayTarget = dayMacroTarget ?? macroTarget ?? null;
 
+  const reloadWater = useCallback(async () => {
+    const [total, entries] = await Promise.all([
+      getWaterMl(activeDayKey),
+      getWaterEntries(activeDayKey),
+    ]);
+    setWaterMlState(total);
+    setWaterEntries(entries);
+  }, [activeDayKey]);
+
   const shiftDay = useCallback((delta: number) => {
     setSelectedMs((prev) => {
       const next = addLocalDays(prev, delta);
@@ -189,14 +335,20 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
   }, []);
 
   const load = useCallback(async () => {
-    const [data, correction, dayTarget] = await Promise.all([
+    const [data, correction, dayTarget, dayWater, entries, goal] = await Promise.all([
       getDailyMacros(activeDayKey),
       getBurnCorrection(activeDayKey),
       getMacroTargetForDay(activeDayKey),
+      getWaterMl(activeDayKey),
+      getWaterEntries(activeDayKey),
+      getWaterGoalMl(),
     ]);
     setMacros(data);
     setBurnCorrectionState(correction);
     setDayMacroTarget(dayTarget ?? macroTarget ?? null);
+    setWaterMlState(dayWater);
+    setWaterEntries(entries);
+    setWaterGoalMlState(goal);
   }, [activeDayKey, macroTarget]);
 
   useEffect(() => { load(); }, [load, refreshKey]);
@@ -208,6 +360,110 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
     setBurnCorrectionState(value);
     setCorrectionModalVisible(false);
   }, [correctionInput, activeDayKey]);
+
+  const openWaterSheet = useCallback(() => {
+    setWaterEntryEdit(null);
+    setWaterSheetVisible(true);
+  }, []);
+
+  const openWaterIntakeModal = useCallback(() => {
+    setWaterModalMode('intake');
+    setWaterInput(
+      waterEntryEdit ? String(waterEntryEdit.ml) : waterMl > 0 ? String(waterMl) : '',
+    );
+    setWaterModalVisible(true);
+  }, [waterMl, waterEntryEdit]);
+
+  const openWaterGoalModal = useCallback(() => {
+    setWaterModalMode('goal');
+    setWaterInput(String(waterGoalMl));
+    setWaterModalVisible(true);
+  }, [waterGoalMl]);
+
+  const closeWaterSheet = useCallback(() => {
+    setWaterSheetVisible(false);
+    setWaterEntryEdit(null);
+  }, []);
+
+  const handleGlassPress = useCallback(
+    async (ml: number, label: string) => {
+      if (waterEntryEdit) {
+        await updateWaterEntry(activeDayKey, waterEntryEdit.id, ml, label);
+      } else {
+        await addWaterMl(activeDayKey, ml, label);
+      }
+      await reloadWater();
+      closeWaterSheet();
+    },
+    [waterEntryEdit, activeDayKey, reloadWater, closeWaterSheet],
+  );
+
+  const handleSaveWaterModal = useCallback(async () => {
+    const n = parseInt(waterInput.replace(/\s/g, ''), 10);
+    const value = isNaN(n) ? 0 : n;
+    if (waterModalMode === 'goal') {
+      const goal = value > 0 ? value : DEFAULT_WATER_GOAL_ML;
+      await setWaterGoalMl(goal);
+      setWaterGoalMlState(goal);
+    } else if (waterEntryEdit) {
+      await updateWaterEntry(activeDayKey, waterEntryEdit.id, value, waterEntryEdit.label);
+      await reloadWater();
+      setWaterEntryEdit(null);
+    } else {
+      await setWaterMl(activeDayKey, value);
+      await reloadWater();
+    }
+    setWaterModalVisible(false);
+  }, [waterInput, waterModalMode, activeDayKey, reloadWater, waterEntryEdit]);
+
+  const handleClearWaterDay = useCallback(async () => {
+    if (waterEntryEdit) {
+      await deleteWaterEntry(activeDayKey, waterEntryEdit.id);
+      setWaterEntryEdit(null);
+    } else {
+      await setWaterMl(activeDayKey, 0);
+    }
+    await reloadWater();
+    setWaterModalVisible(false);
+  }, [activeDayKey, reloadWater, waterEntryEdit]);
+
+  const openWaterEntryEdit = useCallback((entry: WaterEntry) => {
+    setWaterEntryEdit(entry);
+    setWaterSheetVisible(true);
+  }, []);
+
+  const handleDeleteWaterEntry = useCallback(() => {
+    if (!waterEntryEdit) return;
+    Alert.alert('Delete water', 'Remove this drink from your log?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            await deleteWaterEntry(activeDayKey, waterEntryEdit.id);
+            await reloadWater();
+            closeWaterSheet();
+          })();
+        },
+      },
+    ]);
+  }, [waterEntryEdit, activeDayKey, reloadWater, closeWaterSheet]);
+
+  const dayLogItems = useMemo(() => {
+    type Item =
+      | { kind: 'meal'; entry: FoodEntry; timestamp: number }
+      | { kind: 'water'; entry: WaterEntry; timestamp: number };
+    const items: Item[] = [];
+    for (const entry of macros?.entries ?? []) {
+      items.push({ kind: 'meal', entry, timestamp: entry.timestamp });
+    }
+    for (const entry of waterEntries) {
+      items.push({ kind: 'water', entry, timestamp: entry.timestamp });
+    }
+    items.sort((a, b) => a.timestamp - b.timestamp);
+    return items;
+  }, [macros?.entries, waterEntries]);
 
   const isEmpty = !macros || macros.entries.length === 0;
   // When macro targets are set, bar max = target value; otherwise rolling max of actuals
@@ -338,49 +594,90 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
         ) : null}
       </View>
 
-      {/* Macro bars — show when meals exist OR when targets are set */}
-      {(!isEmpty || displayTarget) && (
-        <View style={[styles.barsWrap, { marginTop: 10 }]}>
-          {displayTarget ? (
-            <MacroBar
-              label="kcal"
-              value={eaten}
-              target={displayTarget.kcal}
-              color="#5C6BC0"
-              showTarget
-              unit="kcal"
-            />
-          ) : null}
-          <MacroBar label="P" value={macros?.protein_g ?? 0} target={displayTarget ? displayTarget.protein_g : maxMacro} color={COLOR_PROTEIN} showTarget={!!displayTarget} />
-          <MacroBar label="C" value={macros?.carb_g    ?? 0} target={displayTarget ? displayTarget.carb_g    : maxMacro} color={COLOR_CARB}    showTarget={!!displayTarget} />
-          <MacroBar label="F" value={macros?.fat_g     ?? 0} target={displayTarget ? displayTarget.fat_g     : maxMacro} color={COLOR_FAT}     showTarget={!!displayTarget} />
-          <MacroBar label="Fi" value={macros?.fiber_g ?? 0} target={fiberTarget} color={COLOR_FIBER} showTarget={!!displayTarget} />
-        </View>
-      )}
+      {/* Macro bars — meals/targets + always-on H2O */}
+      <View style={[styles.barsWrap, { marginTop: 10 }]}>
+        {(!isEmpty || displayTarget) ? (
+          <>
+            {displayTarget ? (
+              <MacroBar
+                label="kcal"
+                value={eaten}
+                target={displayTarget.kcal}
+                color="#5C6BC0"
+                showTarget
+                unit="kcal"
+              />
+            ) : null}
+            <MacroBar label="P" value={macros?.protein_g ?? 0} target={displayTarget ? displayTarget.protein_g : maxMacro} color={COLOR_PROTEIN} showTarget={!!displayTarget} />
+            <MacroBar label="C" value={macros?.carb_g    ?? 0} target={displayTarget ? displayTarget.carb_g    : maxMacro} color={COLOR_CARB}    showTarget={!!displayTarget} />
+            <MacroBar label="F" value={macros?.fat_g     ?? 0} target={displayTarget ? displayTarget.fat_g     : maxMacro} color={COLOR_FAT}     showTarget={!!displayTarget} />
+            <MacroBar label="Fi" value={macros?.fiber_g ?? 0} target={fiberTarget} color={COLOR_FIBER} showTarget={!!displayTarget} />
+          </>
+        ) : null}
+        <MacroBar
+          label="H2O"
+          value={waterMl}
+          target={waterGoalMl}
+          color={COLOR_WATER}
+          showTarget
+          unit="ml"
+          onPress={openWaterSheet}
+        />
+      </View>
 
-      {/* Meal chips + Add */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+      {/* Add meal | Add water */}
+      <View style={styles.addActionsRow}>
         <Pressable
-          style={({ pressed }) => [styles.chip, styles.addChip, pressed && styles.chipPressed]}
+          style={({ pressed }) => [styles.addActionBtn, styles.addActionMeal, pressed && styles.addActionPressed]}
           onPress={() => onAddMeal(activeDayKey)}
           accessibilityLabel="Add meal"
         >
-          <Text style={styles.addChipIcon}>＋</Text>
-          <Text style={styles.addChipLabel}>{isToday ? 'Add meal' : 'Add meal here'}</Text>
+          <Text style={styles.addActionIcon} accessibilityElementsHidden>
+            🍴
+          </Text>
+          <Text style={styles.addActionLabel}>{isToday ? 'Meal' : 'Meal here'}</Text>
         </Pressable>
-        {macros?.entries.map((entry) => (
+        <Pressable
+          style={({ pressed }) => [styles.addActionBtn, styles.addActionWater, pressed && styles.addActionPressed]}
+          onPress={openWaterSheet}
+          accessibilityLabel="Add water"
+        >
+          <Text style={styles.addActionIcon} accessibilityElementsHidden>
+            💧
+          </Text>
+          <Text style={[styles.addActionLabel, styles.addActionLabelWater]}>Water</Text>
+        </Pressable>
+      </View>
+      {/* Meal + water event chips (chronological) */}
+      {dayLogItems.length > 0 ? (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+        {dayLogItems.map((item) =>
+          item.kind === 'meal' ? (
             <Pressable
-              key={entry.id}
+              key={`meal-${item.entry.id}`}
               style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
-              onPress={() => onEditMeal?.(entry)}
+              onPress={() => onEditMeal?.(item.entry)}
             >
-              <Text style={styles.chipTime}>{formatTime(entry.timestamp)}</Text>
-              <Text style={styles.chipLabel}>{mealLabel(entry)}</Text>
-              <Text style={styles.chipKcal}>{Math.round(entry.totalKcal)} kcal</Text>
+              <Text style={styles.chipTime}>{formatTime(item.entry.timestamp)}</Text>
+              <Text style={styles.chipLabel}>{mealLabel(item.entry)}</Text>
+              <Text style={styles.chipKcal}>{Math.round(item.entry.totalKcal)} kcal</Text>
               <Text style={styles.chipEdit}>✎ edit</Text>
             </Pressable>
-          ))}
+          ) : (
+            <Pressable
+              key={`water-${item.entry.id}`}
+              style={({ pressed }) => [styles.chip, styles.chipWater, pressed && styles.chipPressed]}
+              onPress={() => openWaterEntryEdit(item.entry)}
+            >
+              <Text style={styles.chipTime}>{formatTime(item.entry.timestamp)}</Text>
+              <Text style={styles.chipLabelWater}>{item.entry.label ?? 'Water'}</Text>
+              <Text style={styles.chipMl}>{item.entry.ml} ml</Text>
+              <Text style={styles.chipEditWater}>✎ edit</Text>
+            </Pressable>
+          ),
+        )}
       </ScrollView>
+      ) : null}
 
       {/* Footer — export / import */}
       <View style={styles.footer}>
@@ -428,6 +725,143 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
                 <Text style={styles.modalBtnCancelText}>Cancel</Text>
               </Pressable>
               <Pressable style={styles.modalBtnSave} onPress={handleSaveCorrection}>
+                <Text style={styles.modalBtnSaveText}>Save</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Water quick sheet */}
+      <Modal visible={waterSheetVisible} transparent animationType="fade" onRequestClose={closeWaterSheet}>
+        <Pressable style={styles.modalOverlay} onPress={closeWaterSheet}>
+          <Pressable style={styles.waterSheetCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>{waterEntryEdit ? 'Edit water' : 'Add water'}</Text>
+            <Text style={styles.modalSub}>
+              {waterEntryEdit ? (
+                <>
+                  {formatTime(waterEntryEdit.timestamp)}
+                  {' · '}
+                  <Text style={styles.modalBold}>{waterEntryEdit.ml.toLocaleString()} ml</Text>
+                  {waterEntryEdit.label ? ` · ${waterEntryEdit.label}` : ''}
+                </>
+              ) : (
+                <>
+                  Today: <Text style={styles.modalBold}>{waterMl.toLocaleString()} ml</Text>
+                  {' · '}Goal <Text style={styles.modalBold}>{waterGoalMl.toLocaleString()} ml</Text>
+                </>
+              )}
+            </Text>
+            <View style={styles.waterGlassRow}>
+              <WaterQuickTile
+                variant="half"
+                ml={WATER_HALF_ML}
+                label="Half glass"
+                onPress={() => void handleGlassPress(WATER_HALF_ML, 'Half glass')}
+              />
+              <WaterQuickTile
+                variant="full"
+                ml={WATER_FULL_ML}
+                label="Full glass"
+                onPress={() => void handleGlassPress(WATER_FULL_ML, 'Full glass')}
+              />
+              <WaterQuickTile
+                variant="big"
+                ml={WATER_BIG_ML}
+                label="Big glass"
+                onPress={() => void handleGlassPress(WATER_BIG_ML, 'Big glass')}
+              />
+            </View>
+            <View style={styles.waterUtilityRow}>
+              <Pressable
+                style={({ pressed }) => [styles.waterUtilityBtn, pressed && styles.waterUtilityBtnPressed]}
+                onPress={() => {
+                  setWaterSheetVisible(false);
+                  openWaterIntakeModal();
+                }}
+                accessibilityLabel={waterEntryEdit ? 'Set amount for this drink' : 'Set water total for today'}
+              >
+                <MaterialCommunityIcons name="numeric" size={20} color="#0288D1" />
+                <Text style={styles.waterUtilityText}>{waterEntryEdit ? 'Set amount' : 'Set total'}</Text>
+              </Pressable>
+              {!waterEntryEdit ? (
+                <Pressable
+                  style={({ pressed }) => [styles.waterUtilityBtn, pressed && styles.waterUtilityBtnPressed]}
+                  onPress={() => {
+                    setWaterSheetVisible(false);
+                    openWaterGoalModal();
+                  }}
+                  accessibilityLabel="Edit daily water goal"
+                >
+                  <MaterialCommunityIcons name="flag-checkered" size={20} color="#0288D1" />
+                  <Text style={styles.waterUtilityText}>Edit goal</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            <View style={styles.waterSheetFooter}>
+              {waterEntryEdit ? (
+                <Pressable
+                  style={styles.waterDeleteBtn}
+                  onPress={handleDeleteWaterEntry}
+                  accessibilityLabel="Delete water entry"
+                >
+                  <Text style={styles.waterDeleteBtnText}>🗑</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                style={[styles.waterSheetCancelBtn, !waterEntryEdit && styles.waterSheetCancelBtnSolo]}
+                onPress={closeWaterSheet}
+              >
+                <Text style={styles.waterSheetBtnCancelText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Water intake / goal modal */}
+      <Modal visible={waterModalVisible} transparent animationType="fade" onRequestClose={() => setWaterModalVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setWaterModalVisible(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>
+              {waterModalMode === 'goal' ? 'Water goal' : waterEntryEdit ? 'Water amount' : 'Water intake'}
+            </Text>
+            <Text style={styles.modalSub}>
+              {waterModalMode === 'goal' ? (
+                <>
+                  Daily H2O target in ml (default {DEFAULT_WATER_GOAL_ML.toLocaleString()}).
+                </>
+              ) : waterEntryEdit ? (
+                <>
+                  Set ml for this drink ({formatTime(waterEntryEdit.timestamp)}).
+                </>
+              ) : (
+                <>
+                  Set today's total in ml. Goal:{' '}
+                  <Text style={styles.modalBold}>{waterGoalMl.toLocaleString()} ml</Text>
+                </>
+              )}
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={waterInput}
+              onChangeText={setWaterInput}
+              keyboardType="number-pad"
+              placeholder={waterModalMode === 'goal' ? String(DEFAULT_WATER_GOAL_ML) : '0'}
+              placeholderTextColor={WellnessColors.textSecondary}
+              autoFocus
+              selectTextOnFocus
+            />
+            <View style={styles.modalBtns}>
+              {waterModalMode === 'intake' && (waterEntryEdit || waterMl > 0) ? (
+                <Pressable style={styles.modalBtnClear} onPress={() => void handleClearWaterDay()}>
+                  <Text style={styles.modalBtnClearText}>Clear</Text>
+                </Pressable>
+              ) : null}
+              <Pressable style={styles.modalBtnCancel} onPress={() => setWaterModalVisible(false)}>
+                <Text style={styles.modalBtnCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.modalBtnSave} onPress={() => void handleSaveWaterModal()}>
                 <Text style={styles.modalBtnSaveText}>Save</Text>
               </Pressable>
             </View>
@@ -532,26 +966,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  addChip: {
-    borderStyle: 'dashed',
-    borderColor: WellnessColors.accentGreen,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 80,
-    paddingVertical: 10,
-  },
-  addChipIcon: {
-    fontSize: 22,
-    color: WellnessColors.accentGreen,
-    fontWeight: '300',
-    lineHeight: 26,
-  },
-  addChipLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: WellnessColors.accentGreen,
-    marginTop: 2,
-  },
   energyLines: {
     marginBottom: 6,
     gap: 3,
@@ -628,6 +1042,122 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   barsWrap: { marginBottom: 12 },
+  addActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  addActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+  },
+  addActionMeal: {
+    borderColor: 'rgba(76, 175, 80, 0.45)',
+    backgroundColor: 'rgba(76, 175, 80, 0.06)',
+  },
+  addActionWater: {
+    borderColor: 'rgba(41, 182, 246, 0.45)',
+    backgroundColor: 'rgba(41, 182, 246, 0.08)',
+  },
+  addActionPressed: {
+    opacity: 0.75,
+  },
+  addActionIcon: {
+    fontSize: 20,
+  },
+  addActionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: WellnessColors.accentGreen,
+  },
+  addActionLabelWater: {
+    color: '#0288D1',
+  },
+  waterSheetCard: {
+    backgroundColor: WellnessColors.surface,
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 12,
+    width: '100%',
+    maxWidth: 360,
+  },
+  waterGlassRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  waterUtilityRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 8,
+  },
+  waterUtilityBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+    backgroundColor: WellnessColors.background,
+  },
+  waterUtilityBtnPressed: {
+    opacity: 0.75,
+  },
+  waterUtilityText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0288D1',
+  },
+  waterSheetFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 4,
+  },
+  waterDeleteBtn: {
+    width: 52,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+    backgroundColor: '#FFEBEE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  waterDeleteBtnText: {
+    fontSize: 18,
+  },
+  waterSheetCancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+    alignItems: 'center',
+  },
+  waterSheetCancelBtnSolo: {
+    flex: 0,
+    alignSelf: 'stretch',
+  },
+  waterSheetBtnCancelText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: WellnessColors.textSecondary,
+    textAlign: 'center',
+  },
   chipsRow: {
     gap: 8,
     paddingBottom: 2,
@@ -644,6 +1174,10 @@ const styles = StyleSheet.create({
   chipPressed: {
     opacity: 0.7,
     borderColor: WellnessColors.accentBlue,
+  },
+  chipWater: {
+    borderColor: 'rgba(41, 182, 246, 0.45)',
+    backgroundColor: 'rgba(41, 182, 246, 0.08)',
   },
   chipEdit: {
     fontSize: 10,
@@ -667,6 +1201,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 2,
     fontVariant: ['tabular-nums'],
+  },
+  chipLabelWater: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0277BD',
+    marginTop: 1,
+  },
+  chipMl: {
+    fontSize: 11,
+    color: '#0288D1',
+    fontWeight: '700',
+    marginTop: 2,
+    fontVariant: ['tabular-nums'],
+  },
+  chipEditWater: {
+    fontSize: 10,
+    color: '#0288D1',
+    marginTop: 2,
   },
   adjustBtn: {
     fontSize: 13,
