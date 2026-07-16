@@ -2,7 +2,7 @@
 
 **Status: done (2026-07-16)** — Phone-tested restore.  
 **Builds on:** `prompt60.txt` (optional cloud backup).  
-**Commit:** (see git: Fix cloud restore JSON parse for pako 3)
+**Commit:** `6d582e4`
 
 ### Problem (user-reported)
 
