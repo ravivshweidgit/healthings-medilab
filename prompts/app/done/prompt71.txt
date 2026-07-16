@@ -2,7 +2,7 @@
 
 **Status: done (2026-07-16)** — Phone-tested on Samsung.  
 **Builds on:** Food Log meters (`done/prompt70.txt`).  
-**Commit:** `2e51f29`
+**Commit:** `c85d6ec`
 
 ### Problem
 
