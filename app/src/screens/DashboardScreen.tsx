@@ -2,7 +2,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as WebBrowser from 'expo-web-browser';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -38,8 +38,10 @@ import { NutritionDirectivesStrip } from '../components/NutritionDirectivesStrip
 import { LabResultsStrip } from '../components/LabResultsStrip';
 import { WelcomeQuickStartWizard } from '../components/WelcomeQuickStartWizard';
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
+import { ManualBodyProfileSection } from '../components/ManualBodyProfileSection';
 import { getManualBody, getManualBodyHistory, manualBodyToDashboardMetrics, countDistinctWeighInDays, type ManualBodySnapshot } from '../services/ManualBodyService';
 import { UnitsPreferenceSection } from '../components/UnitsPreferenceSection';
+import { DebugErrorBoundary } from '../components/DebugErrorBoundary';
 import {
   DEFAULT_UNITS_PREFS,
   formatUnitsDisplayHint,
@@ -52,6 +54,7 @@ import {
   formatHeight,
   formatMass,
   heightCmToInput,
+  coerceHeightInputForUnit,
   kgToDisplay,
   parseHeightInputToCm,
   parseLocaleNumber,
@@ -109,7 +112,7 @@ import {
   setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors,
   getUserRules, getMacroTarget, getEffectiveMacroTarget, getBodyTarget, getCoachMessage, saveCoachMessage,
   getLanguage, setLanguage, getMentorGender, SUPPORTED_LANGUAGES, resetQuickQuestionsForLanguage,
-  ensureMacroTargetDaySnapshot,
+  ensureMacroTargetDaySnapshot, getManualBmrKcal,
   type Gender, type MentorType, type UserRules, type DailyMacroTarget, type BodyTarget, type CoachMessage, type UserLanguage,
 } from '../services/TargetService';
 import { type CoachContext } from '../services/GeminiService';
@@ -373,12 +376,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const loadManualTrend = useCallback(async (manualSnap?: ManualBodySnapshot | null) => {
     setManualTrendLoading(true);
     try {
-      const [config, history, gender, height, bd] = await Promise.all([
+      const [config, history, gender, height, bd, bmrOverride] = await Promise.all([
         loadSourceConfig(),
         getManualBodyHistory(),
         getGender(),
         getCachedHeightCm(),
         getBirthdate(),
+        getManualBmrKcal(),
       ]);
       setSourceConfig(config);
       setSetupToggles(togglesFromSourceConfig(config));
@@ -403,6 +407,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         gender,
         history: history.length > 0 ? history : snap ? [snap] : [],
         stepTotalsByDay: stepMap,
+        bmrOverrideKcal: bmrOverride ?? snap?.bmr_kcal ?? null,
       });
       setManualTrendDays(days);
     } finally {
@@ -560,10 +565,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     return withingsWeightDays < 2 && manualBodySnap != null;
   }, [sourceConfig, bodyScan, bodyTrendDays, manualBodySnap]);
 
-  /** Withings logo / OK / Link on body card — only when user has a Withings scale in setup. */
+  /** Withings logo / OK / Link on body card — scale and/or watch (watch-only still needs Link/Re-link). */
   const showWithingsBodyHeader = useMemo(() => {
-    if (setupToggles != null) return setupToggles.withingsScale;
-    if (sourceConfig != null) return sourceConfig.bodyComposition === 'withings';
+    if (setupToggles != null) return setupToggles.withingsScale || setupToggles.withingsWatch;
+    if (sourceConfig != null) {
+      return (
+        sourceConfig.bodyComposition === 'withings' || sourceConfig.activity === 'withings'
+      );
+    }
     return false;
   }, [setupToggles, sourceConfig]);
 
@@ -573,25 +582,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     if (sourceConfig != null) return sourceConfig.bodyComposition !== 'withings';
     return false;
   }, [setupToggles, sourceConfig]);
-
-  /** Persisted profile plus in-form draft values while My Profile is open. */
-  const manualBodyProfile = useMemo(() => {
-    const gender =
-      userGender ??
-      (genderPicker === 'male' || genderPicker === 'female' ? genderPicker : null);
-    const heightCmEff =
-      heightCm ?? parseHeightInputToCm(heightInput, unitsPrefs.height);
-    const ageEff =
-      userAge ??
-      (birthdatePicker ? computeAge(birthdatePicker.toISOString().split('T')[0]) : null);
-    return { gender, heightCm: heightCmEff, age: ageEff };
-  }, [userGender, genderPicker, heightCm, heightInput, userAge, birthdatePicker, unitsPrefs.height]);
-
-  const manualBodyProfileReady =
-    manualBodyProfile.gender != null &&
-    manualBodyProfile.heightCm != null &&
-    manualBodyProfile.age != null &&
-    manualBodyProfile.age >= 13;
 
   const displayBodyScan = useMemo(() => {
     const useWithingsBody = sourceConfig?.bodyComposition === 'withings';
@@ -629,15 +619,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const baseTrendDays = useManualWeightTrend ? manualTrendDays : bodyTrendDays;
 
   /**
-   * Patch activityKcalDay from workoutSessions for any day the getactivity API left null.
-   * This covers two cases: token missing user.activity scope, or Withings not synced yet.
+   * Patch activityKcalDay from HC steps and/or Withings workouts + passive calories.
+   * Manual weight (no scale) must still pick up Withings watch activity — do not early-return.
    */
   const bodyTrendDaysWithActivity = useMemo((): MetabolicTrend7dDay[] => {
-    if (useManualWeightTrend) return baseTrendDays;
-
     let days = baseTrendDays;
+
     if (useHcActivity && heightCm && userGender) {
-      days = baseTrendDays.map((d) => {
+      days = days.map((d) => {
         if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay)) return d;
         const steps = hcStepTotalsByDay.get(d.dayKey) ?? 0;
         const weightKg = d.weightKg ?? effectiveBodyScan?.weightKg ?? manualBodySnap?.weight_kg;
@@ -646,6 +635,23 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             ? stepsToActiveKcal(steps, weightKg, heightCm, userGender)
             : null;
         return activityKcalDay != null ? { ...d, activityKcalDay } : d;
+      });
+    }
+
+    // Withings intraday / getactivity calories (watch-only + scale paths).
+    if (!useHcActivity && withingsCalories.length > 0) {
+      const passiveByDay = new Map<string, number>();
+      for (const pt of withingsCalories) {
+        const dk = localDayKeyFromMs(new Date(pt.timestamp).getTime());
+        passiveByDay.set(dk, (passiveByDay.get(dk) ?? 0) + pt.kcal);
+      }
+      days = days.map((d) => {
+        const passive = passiveByDay.get(d.dayKey);
+        if (passive == null || !Number.isFinite(passive)) return d;
+        if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay)) {
+          return { ...d, activityKcalDay: Math.max(d.activityKcalDay, passive) };
+        }
+        return { ...d, activityKcalDay: passive };
       });
     }
 
@@ -668,7 +674,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     });
   }, [
     baseTrendDays,
-    useManualWeightTrend,
     useHcActivity,
     hcStepTotalsByDay,
     heightCm,
@@ -676,6 +681,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     effectiveBodyScan,
     manualBodySnap,
     workoutSessions,
+    withingsCalories,
   ]);
 
   const visibleTrend = useMemo(() => {
@@ -743,25 +749,50 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
    */
   const burnPartsByDay = useMemo((): Record<string, { bmr: number; activity: number }> => {
     const fallbackBmr = effectiveBodyScan?.bmrKcalDay;
+    const BUCKET_MS = 30 * 60 * 1000;
+
+    /** Withings watch/intraday burn for a day (same bucket rules as scale path / glucose strip). */
+    const withingsActivityForDay = (dk: string): number => {
+      const wktBuckets = new Set<number>();
+      let wktKcal = 0;
+      for (const w of workoutSessions) {
+        if (localDayKeyFromMs(w.startMs) !== dk) continue;
+        wktKcal += w.kcal;
+        const firstBk = Math.floor(w.startMs / BUCKET_MS) * BUCKET_MS;
+        for (let bk = firstBk; bk < w.endMs; bk += BUCKET_MS) wktBuckets.add(bk);
+      }
+      let passiveKcal = 0;
+      for (const pt of withingsCalories) {
+        const t = new Date(pt.timestamp).getTime();
+        if (localDayKeyFromMs(t) !== dk) continue;
+        const bk = Math.floor(t / BUCKET_MS) * BUCKET_MS;
+        if (!wktBuckets.has(bk)) passiveKcal += pt.kcal;
+      }
+      return passiveKcal + wktKcal;
+    };
 
     if (useManualWeightTrend || useHcActivity) {
       const result: Record<string, { bmr: number; activity: number }> = {};
       for (const d of bodyTrendDaysWithActivity) {
         const bmr = d.bmrKcalDay ?? fallbackBmr;
         if (!bmr || !Number.isFinite(bmr)) continue;
-        const activity = d.activityKcalDay ?? 0;
+        const fromTrend = d.activityKcalDay ?? 0;
+        const fromWithings = !useHcActivity ? withingsActivityForDay(d.dayKey) : 0;
+        const activity = Math.max(fromTrend, fromWithings);
         result[d.dayKey] = { bmr: Math.round(bmr), activity: Math.round(activity) };
       }
       const todayKey = localDayKeyFromMs(Date.now());
       if (!result[todayKey] && fallbackBmr && Number.isFinite(fallbackBmr)) {
-        const todayActivity =
+        const fromTrend =
           bodyTrendDaysWithActivity.find((d) => d.dayKey === todayKey)?.activityKcalDay ?? 0;
-        result[todayKey] = { bmr: Math.round(fallbackBmr), activity: Math.round(todayActivity) };
+        const fromWithings = !useHcActivity ? withingsActivityForDay(todayKey) : 0;
+        result[todayKey] = {
+          bmr: Math.round(fallbackBmr),
+          activity: Math.round(Math.max(fromTrend, fromWithings)),
+        };
       }
       return result;
     }
-
-    const BUCKET_MS = 30 * 60 * 1000;
 
     const bmrByDay = new Map<string, number>();
     for (const d of bodyTrendDaysWithActivity) {
@@ -770,52 +801,35 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       }
     }
 
-    const passiveByDay = new Map<string, Map<number, number>>();
-    for (const pt of withingsCalories) {
-      const t = new Date(pt.timestamp).getTime();
-      const dk = localDayKeyFromMs(t);
-      if (!passiveByDay.has(dk)) passiveByDay.set(dk, new Map());
-      const bk = Math.floor(t / BUCKET_MS) * BUCKET_MS;
-      const m = passiveByDay.get(dk)!;
-      m.set(bk, (m.get(bk) ?? 0) + pt.kcal);
-    }
-
-    const workoutKcalByDay = new Map<string, number>();
-    const workoutBucketsByDay = new Map<string, Set<number>>();
-    for (const w of workoutSessions) {
-      const dk = localDayKeyFromMs(w.startMs);
-      workoutKcalByDay.set(dk, (workoutKcalByDay.get(dk) ?? 0) + w.kcal);
-      if (!workoutBucketsByDay.has(dk)) workoutBucketsByDay.set(dk, new Set());
-      const bkSet = workoutBucketsByDay.get(dk)!;
-      const firstBk = Math.floor(w.startMs / BUCKET_MS) * BUCKET_MS;
-      for (let bk = firstBk; bk < w.endMs; bk += BUCKET_MS) bkSet.add(bk);
-    }
-
     const allDayKeys = new Set<string>([
       localDayKeyFromMs(Date.now()),
       ...bmrByDay.keys(),
-      ...passiveByDay.keys(),
-      ...workoutKcalByDay.keys(),
     ]);
+    for (const pt of withingsCalories) {
+      allDayKeys.add(localDayKeyFromMs(new Date(pt.timestamp).getTime()));
+    }
+    for (const w of workoutSessions) {
+      allDayKeys.add(localDayKeyFromMs(w.startMs));
+    }
 
     const result: Record<string, { bmr: number; activity: number }> = {};
     for (const dk of allDayKeys) {
       const bmr = bmrByDay.get(dk) ?? fallbackBmr;
       if (!bmr || !Number.isFinite(bmr)) continue;
-
-      const wktBuckets = workoutBucketsByDay.get(dk) ?? new Set<number>();
-      const wktKcal = workoutKcalByDay.get(dk) ?? 0;
-      let passiveKcal = 0;
-      for (const [bk, kcal] of passiveByDay.get(dk) ?? new Map()) {
-        if (!wktBuckets.has(bk)) passiveKcal += kcal;
-      }
       result[dk] = {
         bmr: Math.round(bmr),
-        activity: Math.round(passiveKcal + wktKcal),
+        activity: Math.round(withingsActivityForDay(dk)),
       };
     }
     return result;
-  }, [effectiveBodyScan, bodyTrendDaysWithActivity, withingsCalories, workoutSessions, useManualWeightTrend, useHcActivity]);
+  }, [
+    effectiveBodyScan,
+    bodyTrendDaysWithActivity,
+    withingsCalories,
+    workoutSessions,
+    useManualWeightTrend,
+    useHcActivity,
+  ]);
 
   const burnKcalByDay = useMemo((): Record<string, number> => {
     const result: Record<string, number> = {};
@@ -866,6 +880,25 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     const iso = birthdatePicker.toISOString().split('T')[0];
     return computeAge(iso);
   }, [birthdatePicker]);
+
+  /** Persisted profile plus in-form draft values while My Profile is open. */
+  const manualBodyProfile = useMemo(() => {
+    const gender =
+      userGender ??
+      (genderPicker === 'male' || genderPicker === 'female' ? genderPicker : null);
+    const heightCmEff =
+      heightCm ?? parseHeightInputToCm(heightInput, unitsPrefs.height);
+    const ageEff =
+      userAge ??
+      (birthdatePicker ? computeAge(birthdatePicker.toISOString().split('T')[0]) : null);
+    return { gender, heightCm: heightCmEff, age: ageEff };
+  }, [userGender, genderPicker, heightCm, heightInput, userAge, birthdatePicker, unitsPrefs.height]);
+
+  const manualBodyProfileReady =
+    manualBodyProfile.gender != null &&
+    manualBodyProfile.heightCm != null &&
+    manualBodyProfile.age != null &&
+    manualBodyProfile.age >= 13;
 
   const settingsCardSummary = useMemo(() => {
     const parts: string[] = [];
@@ -1285,12 +1318,21 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, [refreshWithingsLinkState]);
 
   useEffect(() => {
-    if (!profileExpanded) return;
+    if (!profileExpanded) {
+      setShowDatePickerDialog(false);
+      return;
+    }
     void loadSourceConfig().then((c) => {
       setSourceConfig(c);
       setSetupToggles(togglesFromSourceConfig(c));
     });
   }, [profileExpanded]);
+
+  // Sync height field before paint whenever prefs/unit and draft disagree (iOS TextInput crash guard).
+  useLayoutEffect(() => {
+    const next = coerceHeightInputForUnit(heightInput, unitsPrefs.height, heightCm);
+    if (next !== heightInput) setHeightInput(next);
+  }, [profileExpanded, unitsPrefs.height, heightCm]);
 
   const handleLinkWithings = useCallback(async () => {
     setLinkError(null);
@@ -1969,7 +2011,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           {/* ── My Profile collapsible row ── */}
           <Pressable
             style={styles.profileRow}
-            onPress={() => setProfileExpanded((e) => !e)}
+            onPress={() => {
+              // Coerce before expand so the height TextInput never mounts with ft'in" under cm prefs (iOS crash).
+              if (!profileExpanded) {
+                setHeightInput(coerceHeightInputForUnit(heightInput, unitsPrefs.height, heightCm));
+              }
+              setProfileExpanded((e) => !e);
+            }}
           >
             <Text style={styles.profileRowIcon}>👤</Text>
             <View style={styles.profileRowInfo}>
@@ -1987,8 +2035,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           </Pressable>
 
           {profileExpanded && (
+            <DebugErrorBoundary label="My Profile">
             <View style={styles.profileBody}>
-              {/* Gender */}
               <Text style={styles.birthdateSectionTitle}>Gender</Text>
               <View style={styles.genderRow}>
                 {(['male', 'female', 'other'] as Gender[]).map((g) => (
@@ -2004,22 +2052,19 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 ))}
               </View>
 
-              {/* Height */}
               <Text style={styles.birthdateSectionTitle}>Height</Text>
               <View style={styles.heightRow}>
                 <TextInput
                   style={styles.heightInput}
-                  value={heightInput}
+                  value={coerceHeightInputForUnit(heightInput, unitsPrefs.height, heightCm)}
                   onChangeText={setHeightInput}
-                  keyboardType={unitsPrefs.height === 'ftin' ? 'default' : 'number-pad'}
-                  maxLength={unitsPrefs.height === 'ftin' ? 8 : 3}
+                  keyboardType="default"
                   placeholder={unitsPrefs.height === 'ftin' ? "e.g. 5'9\"" : 'e.g. 175'}
                   placeholderTextColor={WellnessColors.textSecondary}
                 />
                 <Text style={styles.heightUnit}>{unitsPrefs.height === 'ftin' ? "ft'in\"" : 'cm'}</Text>
               </View>
 
-              {/* Birth Date */}
               <Text style={styles.birthdateSectionTitle}>Birth Date</Text>
               <Pressable
                 style={styles.datePickerBtn}
@@ -2033,21 +2078,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               {userAge != null && (
                 <Text style={styles.birthdateAge}>Age: {userAge} years</Text>
               )}
-              {showDatePickerDialog && (
-                <DateTimePicker
-                  value={birthdatePicker}
-                  mode="date"
-                  display="default"
-                  maximumDate={new Date()}
-                  minimumDate={new Date(1920, 0, 1)}
-                  onChange={(_e, date) => {
-                    setShowDatePickerDialog(false);
-                    if (date) setBirthdatePicker(date);
-                  }}
-                />
-              )}
 
-              {/* Language */}
               <Text style={styles.birthdateSectionTitle}>Coach & meals language</Text>
               <View style={styles.langRow}>
                 {SUPPORTED_LANGUAGES.map((lang) => (
@@ -2066,11 +2097,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               <UnitsPreferenceSection
                 prefs={unitsPrefs}
                 onChange={(next) => {
+                  if (next.height !== unitsPrefs.height) {
+                    setHeightInput(
+                      coerceHeightInputForUnit(heightInput, next.height, heightCm),
+                    );
+                  }
                   setUnitsPrefs(next);
                   void saveUnitsPrefs(next);
-                  if (heightCm != null) {
-                    setHeightInput(heightCmToInput(heightCm, next.height));
-                  }
                 }}
               />
 
@@ -2196,7 +2229,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   ]);
                   if (langChanged) {
                     await resetQuickQuestionsForLanguage(userLanguage);
-                    // Generate-then-replace: forceCoachReview overwrites storage on success only.
                     await refreshCoachForLanguage();
                   }
                   if (cm != null && cm > 0) setHeightCm(cm);
@@ -2207,7 +2239,49 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 <Text style={styles.birthdateSaveBtnText}>Save</Text>
               </Pressable>
             </View>
+            </DebugErrorBoundary>
           )}
+
+          <Modal
+            visible={showDatePickerDialog && Platform.OS === 'ios'}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowDatePickerDialog(false)}
+          >
+            <View style={styles.heightModalBackdrop}>
+              <View style={styles.heightModalCard}>
+                <DateTimePicker
+                  value={birthdatePicker}
+                  mode="date"
+                  display="spinner"
+                  maximumDate={new Date()}
+                  minimumDate={new Date(1920, 0, 1)}
+                  onChange={(_e, date) => {
+                    if (date) setBirthdatePicker(date);
+                  }}
+                />
+                <Pressable
+                  style={styles.birthdateSaveBtn}
+                  onPress={() => setShowDatePickerDialog(false)}
+                >
+                  <Text style={styles.birthdateSaveBtnText}>Done</Text>
+                </Pressable>
+              </View>
+            </View>
+          </Modal>
+          {showDatePickerDialog && Platform.OS === 'android' ? (
+            <DateTimePicker
+              value={birthdatePicker}
+              mode="date"
+              display="default"
+              maximumDate={new Date()}
+              minimumDate={new Date(1920, 0, 1)}
+              onChange={(_e, date) => {
+                setShowDatePickerDialog(false);
+                if (date) setBirthdatePicker(date);
+              }}
+            />
+          ) : null}
 
           <View style={styles.groupDivider} />
 
@@ -3130,6 +3204,17 @@ const styles = StyleSheet.create({
   profileBody: {
     paddingHorizontal: 16,
     paddingBottom: 16,
+  },
+  heightModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  heightModalCard: {
+    backgroundColor: WellnessColors.surface,
+    borderRadius: 16,
+    padding: 16,
   },
   birthdateOverlay: {
     ...StyleSheet.absoluteFillObject,

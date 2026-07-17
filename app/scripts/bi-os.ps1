@@ -2,7 +2,7 @@
 # Three timed stages, ONE eas build only:
 #   1. Upload - eas build --no-wait; status check every 30s
 #   2. Build  - quiet wait 5 min, then poll same build id every 30s
-#   3. Submit - eas submit --latest -> exit (Apple emails when TF ready)
+#   3. Submit - eas submit --no-wait --latest -> exit (Apple emails when TF ready)
 #
 # Never start a second eas build (that caused duplicate Expo rows).
 # Never use --auto-submit (Apple ID / SMS trap on Windows).
@@ -264,11 +264,11 @@ while ($true) {
   Start-Sleep -Seconds 30
 }
 
-# --- Stage 3: submit then exit (Apple emails when TestFlight is ready) ---
+# --- Stage 3: schedule submit then exit (do not wait on ASC processing) ---
 Write-BiosStep -Message "Stage 3/3 - Submit to App Store Connect  (est. ~1-2 min)" -Color "Green"
-Write-BiosInfo -Message "Uses ASC API key - no SMS. Then exit - Apple will email when ready."
+Write-BiosInfo -Message "Uses ASC API key - no SMS. --no-wait so we exit after schedule (Apple emails when TF ready)."
 $submitStart = Get-Date
-& eas submit --platform ios --profile production --latest
+& eas submit --platform ios --profile production --latest --no-wait
 if ($LASTEXITCODE -ne 0) {
   Write-BiosStep -Message "=== bi-os FAILED: submit ===" -Color "Red"
   Write-BiosInfo -Message "Build is on expo.dev - retry: .\submit-ios.bat"
@@ -282,6 +282,6 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host (" bi-os DONE  (total {0} min)" -f $totalMin) -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-BiosInfo -Message ("Stages: upload {0} min | build (above) | submit {1} min" -f $uploadMin, $submitMin)
-Write-BiosInfo -Message "Submitted. Apple will email when TestFlight is ready - protocol complete."
+Write-BiosInfo -Message "Submit scheduled. Apple will email when TestFlight is ready - protocol complete."
 Write-BiosInfo -Message "Guide: server/TESTFLIGHT-INTERNAL.md"
 exit 0

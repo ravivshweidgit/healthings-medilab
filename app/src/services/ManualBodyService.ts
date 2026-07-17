@@ -4,7 +4,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { estimateBodyFromProfile, resolveFatPctFromInput, type ManualFatInput } from '../logic/bmrEstimate';
-import type { Gender } from './TargetService';
+import { getManualBmrKcal, setManualBmrKcal, type Gender } from './TargetService';
 import type { WeightMetricsForDashboard } from './WithingsApiService';
 
 const MANUAL_BODY_KEY = 'manual_body_v1';
@@ -79,7 +79,7 @@ export async function saveManualBody(snapshot: ManualBodySnapshot): Promise<void
   await appendManualBodyHistory(snapshot);
 }
 
-function resolveFatPctForWeighIn(
+function resolveCompositionForWeighIn(
   existing: ManualBodySnapshot | null,
   opts: {
     gender: Gender;
@@ -88,6 +88,7 @@ function resolveFatPctForWeighIn(
     fatPct?: number;
     fatKg?: number;
     muscleKg?: number;
+    musclePct?: number;
   },
   weightKg: number,
 ): { fat_pct: number; muscle_mass_kg: number; bmr_kcal: number; fat_pct_source: FatPctSource } {
@@ -96,27 +97,35 @@ function resolveFatPctForWeighIn(
     const fromKg = resolveFatPctFromInput(weightKg, { mode: 'kg', value: opts.fatKg });
     if (fromKg != null) resolvedPct = fromKg;
   }
-  if (resolvedPct == null && opts.muscleKg != null) {
-    const fromMuscle = resolveFatPctFromInput(weightKg, { mode: 'muscle', value: opts.muscleKg });
-    if (fromMuscle != null) resolvedPct = fromMuscle;
-  }
 
   const userFat =
     resolvedPct ??
     (existing?.fat_pct_source === 'user' ? existing.fat_pct : undefined);
+
+  let muscleOverride: number | undefined;
+  if (opts.muscleKg != null && opts.muscleKg > 0) {
+    muscleOverride = opts.muscleKg;
+  } else if (opts.musclePct != null && opts.musclePct > 0) {
+    muscleOverride = Math.round((weightKg * opts.musclePct) / 100 * 10) / 10;
+  } else if (existing?.muscle_mass_kg != null && existing.muscle_mass_kg > 0) {
+    // Keep prior muscle when user only updates weight or fat.
+    muscleOverride = existing.muscle_mass_kg;
+  }
+
   const est = estimateBodyFromProfile({
     gender: opts.gender,
     weightKg,
     heightCm: opts.heightCm,
     ageYears: opts.ageYears,
     fatPct: userFat,
+    muscleMassKg: muscleOverride,
   });
   const fat_pct_source: FatPctSource =
     resolvedPct != null || existing?.fat_pct_source === 'user' ? 'user' : 'estimated';
   return { ...est, fat_pct_source };
 }
 
-/** Log a new weigh-in; keeps user fat % when set, else AI-estimates from profile. */
+/** Log a new weigh-in; keeps user fat % / muscle when set, else estimates from profile. */
 export async function logManualWeighIn(
   weightKg: number,
   opts: {
@@ -126,15 +135,17 @@ export async function logManualWeighIn(
     fatPct?: number;
     fatKg?: number;
     muscleKg?: number;
+    musclePct?: number;
   },
 ): Promise<ManualBodySnapshot> {
   const existing = await getManualBody();
-  const est = resolveFatPctForWeighIn(existing, opts, weightKg);
+  const est = resolveCompositionForWeighIn(existing, opts, weightKg);
+  const bmrOverride = await getManualBmrKcal();
   const snap: ManualBodySnapshot = {
     weight_kg: weightKg,
     fat_pct: est.fat_pct,
     muscle_mass_kg: est.muscle_mass_kg,
-    bmr_kcal: est.bmr_kcal,
+    bmr_kcal: bmrOverride ?? est.bmr_kcal,
     measuredAt: new Date().toISOString(),
     source: 'user-entered',
     fat_pct_source: est.fat_pct_source,
@@ -170,15 +181,31 @@ export async function saveManualFatPct(
     ageYears: opts.ageYears,
     fatPct,
   });
+  const bmrOverride = await getManualBmrKcal();
   const snap: ManualBodySnapshot = {
     weight_kg: existing.weight_kg,
     fat_pct: est.fat_pct,
     muscle_mass_kg: est.muscle_mass_kg,
-    bmr_kcal: est.bmr_kcal,
+    bmr_kcal: bmrOverride ?? est.bmr_kcal,
     measuredAt: existing.measuredAt,
     source: existing.source,
     fat_pct_source: 'user',
   };
+  await saveManualBody(snap);
+  return snap;
+}
+
+/**
+ * User override for resting BMR when no Withings scale (e.g. value from a prior scale / clinic).
+ * Stored in manual_bmr_kcal and on the current snapshot so Food Log / charts pick it up.
+ */
+export async function saveManualBmrOverride(kcal: number): Promise<ManualBodySnapshot | null> {
+  const rounded = Math.round(kcal);
+  if (!(rounded >= 800 && rounded <= 4500)) return null;
+  await setManualBmrKcal(rounded);
+  const existing = await getManualBody();
+  if (!existing) return null;
+  const snap: ManualBodySnapshot = { ...existing, bmr_kcal: rounded };
   await saveManualBody(snap);
   return snap;
 }

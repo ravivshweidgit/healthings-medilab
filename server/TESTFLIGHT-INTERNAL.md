@@ -114,7 +114,7 @@ Remove-Item -Recurse -Force "$env:USERPROFILE\.app-store" -ErrorAction SilentlyC
 
 1. **Upload** (~1–2 min) — `eas build … --no-wait`; status check every **30s** (starts the only cloud build)
 2. **Build** — quiet wait **5 min**, then poll that same build id every **30s** until Finished (never a second build)
-3. **Submit** (~1–2 min) — `eas submit … --latest` → **exit** (Apple emails when TestFlight is ready)
+3. **Submit** — `eas submit … --latest --no-wait` → **exit immediately** after schedule (never wait for ASC/TF processing; Apple emails when ready)
 
 ```powershell
 cd c:\projects\healthings-medilab\app
@@ -181,8 +181,10 @@ Or:
 Or:
 
 ```powershell
-eas submit --platform ios --profile production --latest
+eas submit --platform ios --profile production --latest --no-wait
 ```
+
+**Never** omit `--no-wait` — do not block on App Store Connect / TestFlight processing.
 
 Or download the `.ipa` from the [EAS dashboard](https://expo.dev) and upload manually in [App Store Connect](https://appstoreconnect.apple.com).
 

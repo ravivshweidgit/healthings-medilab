@@ -29,6 +29,7 @@ import {
   formatEnergy,
   formatMass,
   heightCmToInput,
+  coerceHeightInputForUnit,
   kgToDisplay,
   massUnitLabel,
   parseHeightInputToCm,
@@ -167,8 +168,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
   const onUnitsChange = useCallback(
     (next: UnitsPrefs) => {
       if (next.height !== unitsPrefs.height) {
-        const cm = parseHeightInputToCm(heightInput, unitsPrefs.height);
-        if (cm != null) setHeightInput(heightCmToInput(cm, next.height));
+        setHeightInput(coerceHeightInputForUnit(heightInput, next.height, null));
       }
       if (next.mass !== unitsPrefs.mass) {
         const n = parseLocaleNumber(weightInput);

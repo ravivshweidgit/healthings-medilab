@@ -44,18 +44,24 @@ export function buildManualTrendDays(opts: {
   gender: Gender | null;
   history: ManualBodySnapshot[];
   stepTotalsByDay: Map<string, number>;
+  /** When set (user override), use for every day instead of Mifflin. */
+  bmrOverrideKcal?: number | null;
 }): MetabolicTrend7dDay[] {
-  const { lookbackDays, heightCm, ageYears, gender, history, stepTotalsByDay } = opts;
+  const { lookbackDays, heightCm, ageYears, gender, history, stepTotalsByDay, bmrOverrideKcal } = opts;
   if (history.length === 0 || heightCm <= 0 || ageYears < 13 || !gender) return [];
 
   const keys = dayKeysBack(Math.max(2, lookbackDays));
   return keys.map((dayKey) => {
     const snap = weightForDay(history, dayKey);
     const weightKg = snap?.weight_kg ?? null;
-    const bmr =
+    const mifflin =
       weightKg != null && gender
         ? mifflinStJeorKcal(gender, weightKg, heightCm, ageYears)
-        : snap?.bmr_kcal ?? null;
+        : null;
+    const bmr =
+      bmrOverrideKcal != null && Number.isFinite(bmrOverrideKcal) && bmrOverrideKcal > 0
+        ? Math.round(bmrOverrideKcal)
+        : mifflin ?? snap?.bmr_kcal ?? null;
     const steps = stepTotalsByDay.get(dayKey) ?? 0;
     const activityKcalDay =
       weightKg != null && steps > 0

@@ -155,7 +155,7 @@ app\bi-os.bat    REM build on EAS cloud, then submit-ios (ASC API key)
 
 1. Loads `app\asc-api.local.ps1` if it exists (gitignored; copy from `asc-api.local.ps1.example`)
 2. `eas build --platform ios --profile production` — wait until Finished on [expo.dev](https://expo.dev)
-3. `eas submit --platform ios --profile production --latest`
+3. `eas submit --platform ios --profile production --latest --no-wait` — **never wait** for ASC/TestFlight processing; exit after schedule (Apple emails when ready)
 
 At **“Do you want to log in to your Apple account?”** during build → answer **`n`** (use API key).
 
@@ -185,8 +185,10 @@ Or manually mirror the two steps after dot-sourcing `asc-api.local.ps1`:
 
 ```powershell
 eas build --platform ios --profile production
-eas submit --platform ios --profile production --latest
+eas submit --platform ios --profile production --latest --no-wait
 ```
+
+**Never** omit `--no-wait` on submit — do not block on App Store Connect / TestFlight processing.
 
 ### First-time setup (once per machine)
 

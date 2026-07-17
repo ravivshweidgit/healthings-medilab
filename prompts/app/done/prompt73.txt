@@ -1,0 +1,51 @@
+## Prompt 73 — Manual body UX + watch-only BMR/activity (no-scale)
+
+**Status: done (2026-07-17)** — Phone-tested Android (scale off / watch on). Commit `8f102bc`.  
+**Builds on:** `done/prompt55` (manual body/trend), `done/prompt57`/`58` (Your setup), `done/prompt72` (units), `prompt65` (iOS Withings-first)
+
+### Problem
+
+1. Watch-only users (no scale) needed a clear way to log weight, fat, and muscle, and to override BMR from a prior scale/clinic reading (Mifflin alone understated burn vs Withings BIA).
+2. Food Log / energy showed **0 activity** when manual weight was active — Withings workouts/calories were not merged into the manual trend path.
+3. My Profile crashed on iOS after units work; Android-first debug found JS issues, then iOS debug chrome made Android/iOS UI diverge (“Show body logging”, staged expand).
+4. Composition UI was one field at a time — users could not enter **muscle %** alongside fat.
+
+### What shipped
+
+| Area | Behavior |
+|------|----------|
+| **Body form** | Same on Android + iOS: Weight → **% \| kg/lb** toggle → **Fat** + **Muscle** side-by-side → live alt unit + residual → **BMR** → **Save body** |
+| **Composition** | Fat and muscle are independent; residual (bone/water) is expected; toggle converts both fields |
+| **BMR override** | `saveManualBmrOverride` / `getManualBmrKcal` — kept across weigh-ins; used in `buildManualTrendDays({ bmrOverrideKcal })` |
+| **Activity merge** | Manual-weight path still merges Withings (or HC) activity into `bodyTrendDaysWithActivity` / `burnPartsByDay` for Food Log + energy |
+| **Profile parity** | Removed iOS crash-probe staging / “Show body logging”; inline height on both platforms |
+| **Debug** | `DebugErrorBoundary` around My Profile; rule `crash-debug-android-first.mdc` |
+| **bi-os** | Submit uses `--no-wait` (docs + scripts) |
+
+### Primary files
+
+- `app/src/components/ManualBodyProfileSection.tsx`
+- `app/src/services/ManualBodyService.ts`
+- `app/src/logic/bmrEstimate.ts`
+- `app/src/services/ManualTrendService.ts`
+- `app/src/screens/DashboardScreen.tsx`
+- `app/src/components/DebugErrorBoundary.tsx`
+- `.cursor/rules/crash-debug-android-first.mdc`
+- `app/scripts/bi-os.ps1`, `app/submit-ios.bat`, `server/TESTFLIGHT-INTERNAL.md`
+
+### Phone-tested
+
+- [x] Android: no-scale My Profile — no crash; Body UI Fat/Muscle % and mass; one Save; BMR override
+- [x] Activity shows on Food Log / energy with watch + manual weight
+- [ ] iOS TestFlight same Body UI (build after this ship)
+- [ ] Play internal AAB smoke (version bump with this ship)
+
+### Deferred
+
+- Help page copy refresh for dual Fat/Muscle % mode (`website/help/manual-body.html`)
+- Optional visceral / water fields
+
+### Related
+
+- `prompts/app/prompt65.txt` — manual body UX line updated to dual fields
+- Auto-apply / units: `done/prompt72.txt`

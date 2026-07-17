@@ -95,23 +95,59 @@ export function heightCmToInput(cm: number, unit: HeightUnit): string {
 
 /** Parse height field → cm. Returns null if unparseable. */
 export function parseHeightInputToCm(raw: string, unit: HeightUnit): number | null {
-  if (unit === 'cm') {
-    const n = parseLocaleNumber(raw);
-    return n != null && n > 0 ? n : null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  // If the string still looks like ft'in", parse as imperial even when prefs say cm
+  // (avoids parseFloat("5'9\"") → 5 and mounting a bad height into Manual Body).
+  const looksImperial = /['′"″]|ft/i.test(trimmed) || /^\d+\s+\d+/.test(trimmed);
+  const effective: HeightUnit = looksImperial ? 'ftin' : unit;
+
+  if (effective === 'cm') {
+    const n = parseLocaleNumber(trimmed);
+    if (n == null || !(n > 0)) return null;
+    // Reject absurd cm (often a partial imperial parse).
+    if (n < 90 || n > 272) return null;
+    return n;
   }
   const m =
-    raw.match(/(\d+)\s*['′]\s*(\d+)/) ||
-    raw.match(/(\d+)\s+(\d+)/) ||
-    raw.match(/(\d+)\s*ft\s*(\d+)/i);
+    trimmed.match(/(\d+)\s*['′]\s*(\d+)/) ||
+    trimmed.match(/(\d+)\s+(\d+)/) ||
+    trimmed.match(/(\d+)\s*ft\s*(\d+)/i);
   if (m) {
     const cm = feetInchesToCm(Number(m[1]), Number(m[2]));
     return cm > 0 ? cm : null;
   }
-  const onlyFeet = parseLocaleNumber(raw.replace(/['"′″ftin\s]/gi, ''));
+  const onlyFeet = parseLocaleNumber(trimmed.replace(/['"′″ftin\s]/gi, ''));
   if (onlyFeet != null && onlyFeet > 0 && onlyFeet < 9) {
     return feetInchesToCm(onlyFeet, 0);
   }
   return null;
+}
+
+/**
+ * Height field string safe for the current unit (never leave ft'in" in the box when unit is cm).
+ * Use for TextInput `value` so the first paint cannot mount an illegal combination on iOS.
+ */
+export function coerceHeightInputForUnit(
+  raw: string,
+  unit: HeightUnit,
+  heightCm: number | null | undefined,
+): string {
+  if (unit === 'cm') {
+    if (/^\d{1,3}$/.test(raw.trim())) return raw.trim();
+    const cm =
+      (heightCm != null && heightCm > 0 ? heightCm : null) ??
+      parseHeightInputToCm(raw, 'ftin') ??
+      parseHeightInputToCm(raw, 'cm');
+    return cm != null && cm > 0 ? heightCmToInput(cm, 'cm') : '';
+  }
+  if (/['′]/.test(raw) || /^\d+\s+\d+/.test(raw.trim()) || /\d+\s*ft/i.test(raw)) {
+    return raw;
+  }
+  const cm =
+    (heightCm != null && heightCm > 0 ? heightCm : null) ?? parseHeightInputToCm(raw, 'cm');
+  return cm != null && cm > 0 ? heightCmToInput(cm, 'ftin') : raw;
 }
 
 export function mlToDisplay(ml: number, unit: WaterUnit): number {

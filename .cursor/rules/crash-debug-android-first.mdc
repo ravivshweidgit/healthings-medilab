@@ -1,0 +1,28 @@
+---
+description: Prefer Android APK+USB to reproduce and fix crashes before TestFlight loops
+alwaysApply: true
+---
+
+# Crash debug — Android first
+
+When the user reports an **iOS crash** (especially My Profile / units / manual body / shared RN screens):
+
+## Prefer Android reproduce first
+
+1. **Match the setup** on a phone with USB (same toggles: e.g. scale = No, watch = Yes).
+2. Run **`bi`** (`app\build-APK.bat install`) — fast iterate; JS/ReferenceErrors show up immediately.
+3. Fix and verify on Android before another **`bi-os`** / TestFlight round-trip.
+
+Why: shared React Native code. Missing imports, TDZ/`userAge` order bugs, and most logic crashes fail on both platforms. Android APK + USB found the no-scale My Profile crash in minutes; TestFlight alone burned many builds.
+
+## When Android does *not* crash
+
+Then treat it as **iOS-native** (TextInput/`maxLength`, Modal still mounting children, etc.):
+
+- Keep using crash probes / deferred mount if needed.
+- Still ship the JS fix that Android already validated when relevant.
+
+## Do not
+
+- Jump straight to multi-hour `bi-os` loops for bugs that can be reproduced by toggling the same setup on Android.
+- Assume “iOS only” until Android with the **same source_config / setup toggles** has been tried.

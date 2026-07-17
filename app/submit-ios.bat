@@ -22,7 +22,7 @@ echo === submit-ios: EAS - App Store Connect (TestFlight) ===
 echo Uploads the latest successful production iOS build from expo.dev.
 echo.
 
-eas submit --platform ios --profile production --latest
+eas submit --platform ios --profile production --latest --no-wait
 set "ERR=%ERRORLEVEL%"
 if not "%ERR%"=="0" (
   echo.
@@ -31,7 +31,7 @@ if not "%ERR%"=="0" (
 )
 
 echo.
-echo === SUBMIT STARTED ===
-echo Next: App Store Connect - TestFlight - wait for Processing - install on iPhone.
+echo === SUBMIT SCHEDULED ===
+echo Apple will email when TestFlight processing finishes - no need to wait here.
 echo Guide: server\TESTFLIGHT-INTERNAL.md
 exit /b 0

@@ -44,7 +44,19 @@ export function fatPctFromMuscleKg(weightKg: number, muscleKg: number): number |
   return fatPctFromKg(weightKg, weightKg - muscleKg);
 }
 
-/** Lean-mass model: fat + muscle should be close to total weight (bone/water not modeled). */
+export function muscleKgFromPct(weightKg: number, musclePct: number): number | null {
+  if (!(weightKg > 0) || !(musclePct > 0) || musclePct >= 100) return null;
+  return Math.round((weightKg * musclePct) / 100 * 10) / 10;
+}
+
+export function musclePctFromKg(weightKg: number, muscleKg: number): number | null {
+  if (!(weightKg > 0) || !(muscleKg > 0)) return null;
+  const pct = (muscleKg / weightKg) * 100;
+  if (pct < 5 || pct > 80) return null;
+  return Math.round(pct * 10) / 10;
+}
+
+/** Fat + muscle as a fraction of weight. Residual (bone/water/organs) is normal — often 8–25%. */
 export function compositionSumRatio(weightKg: number, fatKg: number, muscleKg: number): number {
   if (!(weightKg > 0)) return 0;
   return (fatKg + muscleKg) / weightKg;
@@ -71,11 +83,16 @@ export function estimateBodyFromProfile(input: {
   heightCm: number;
   ageYears: number;
   fatPct?: number;
+  /** When set, used as-is (user-entered muscle). Otherwise estimated from fat %. */
+  muscleMassKg?: number;
 }): { fat_pct: number; muscle_mass_kg: number; bmr_kcal: number } {
   const fat_pct = input.fatPct ?? defaultFatPctForGender(input.gender);
   return {
     fat_pct,
-    muscle_mass_kg: estimateMuscleMassKg(input.weightKg, fat_pct),
+    muscle_mass_kg:
+      input.muscleMassKg != null && input.muscleMassKg > 0
+        ? Math.round(input.muscleMassKg * 10) / 10
+        : estimateMuscleMassKg(input.weightKg, fat_pct),
     bmr_kcal: mifflinStJeorKcal(input.gender, input.weightKg, input.heightCm, input.ageYears),
   };
 }

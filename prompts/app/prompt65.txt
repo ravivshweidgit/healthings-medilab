@@ -148,7 +148,7 @@ healthings:metricsStore  ← same SSOT, clinic export, mentors
 - `sourceConfigFromToggles(survey, platform)`  
 - iOS Quick Start step 4: **Withings link** (not Apple Health)  
 - CGM toggle → deferred-live-CGM messaging + CSV import unchanged  
-- **Manual body UX** (watch-only alpha): My Profile → weight + fat **% / kg / muscle kg** (one degree of freedom); live preview fat kg · muscle · BMR; link to `https://healthings.ai/help/manual-body.html`  
+- **Manual body UX** (watch-only alpha): My Profile → weight + **% \| mass** toggle + dedicated **Fat** and **Muscle** fields + BMR + one Save; residual shown; link to `https://healthings.ai/help/manual-body.html` — see `done/prompt73.txt`  
 - **Tester help site:** `website/help/` — shared Android + iPhone guides (alpha setup, Withings watch, manual body, devices matrix)  
 
 **Phase D — TestFlight internal**  
