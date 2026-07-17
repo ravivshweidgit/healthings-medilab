@@ -1,6 +1,6 @@
 ## Prompt 73 — Manual body UX + watch-only BMR/activity (no-scale)
 
-**Status: done (2026-07-17)** — Phone-tested Android (scale off / watch on). Commit `8f102bc`.  
+**Status: done (2026-07-17)** — Phone-tested Android (scale off / watch on). Commit `312eb5b`.  
 **Builds on:** `done/prompt55` (manual body/trend), `done/prompt57`/`58` (Your setup), `done/prompt72` (units), `prompt65` (iOS Withings-first)
 
 ### Problem
