@@ -1,6 +1,6 @@
 ## Prompt 75 — Food Log: Save anyway after camera keeps meal items
 
-**Status: done (2026-07-17)** — Phone-tested Android.  
+**Status: done (2026-07-17)** — Phone-tested Android. Commit `fb0feec`.  
 **Builds on:** `done/prompt61.txt` (one-tap text meal save); `done/prompt20.txt` (photo meal flow)
 
 ### Problem
