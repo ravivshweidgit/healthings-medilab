@@ -1,6 +1,6 @@
 ## Prompt 74 — Snappy Body Save + setup toggles (no-scale)
 
-**Status: done (2026-07-17)** — Phone-tested Android.  
+**Status: done (2026-07-17)** — Phone-tested Android. Commit `fd1f352`.  
 **Builds on:** `done/prompt73.txt` (manual body UX)
 
 ### Problem
