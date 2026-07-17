@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Steps &amp; heart rate (phone health) — Healthings Help</title>
+    <link rel="icon" href="../assets/icon.png" type="image/png" />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <nav class="help-nav">
+        <a href="../index.html">Home</a>
+        <a href="index.html">Help</a>
+        <a href="phone-health-activity.html"><strong>Phone health</strong></a>
+      </nav>
+
+      <section class="hero">
+        <p class="badge">Activity setup</p>
+        <h1>Steps &amp; heart rate without a Withings watch</h1>
+        <p class="lead">
+          In Healthings, <strong>Withings watch = No</strong> means we read steps and heart rate from your
+          phone’s health app — <strong>Health Connect</strong> on Android, <strong>Apple Health</strong> on
+          iPhone. The watch brand does not matter. You get data into that store; Healthings only reads.
+        </p>
+      </section>
+
+      <section class="card prose">
+        <h2>The rule</h2>
+        <ul>
+          <li><strong>Withings watch Yes</strong> — activity and HR from Withings cloud (link in the app).</li>
+          <li><strong>Withings watch No</strong> — activity and HR from Health Connect / Apple Health.</li>
+        </ul>
+        <p>
+          In the app: My Profile → Your setup → turn Withings watch <strong>No</strong> → tap
+          <strong>Allow access</strong>. Everyday sync covers recent days; tap
+          <strong>Deep sync (~31 days)</strong> when you want more history — same idea as Withings
+          Normal / Deep.
+        </p>
+
+        <h2>Do not share Withings into Health Connect / Apple Health</h2>
+        <p>
+          Healthings talks to Withings over the <strong>cloud API</strong> only. We do
+          <strong>not</strong> recommend turning on Withings → Health Connect or Withings → Apple
+          Health sharing. That can double-count steps with Samsung Health, Garmin, or the phone, and
+          confuses Watch Off activity. Prefer: Withings app sharing <strong>off</strong>; phone vendor
+          (Samsung / Garmin / …) sharing <strong>on</strong> into the health store.
+        </p>
+
+        <h2>Android — fill Health Connect</h2>
+        <p>Pick whatever you use. Examples:</p>
+        <ul>
+          <li>
+            <strong>Garmin</strong> — Garmin Connect → Settings → Health Connect → share activities, steps,
+            calories, heart rate.
+          </li>
+          <li>
+            <strong>Samsung / Galaxy Watch</strong> — Samsung Health → Settings → Health Connect → allow
+            steps, workouts, heart rate.
+          </li>
+          <li>
+            <strong>Pixel / Fitbit / others</strong> — open the companion app and enable sharing to Health
+            Connect (wording varies).
+          </li>
+          <li>
+            <strong>Phone only</strong> — many phones write steps into Health Connect with no watch.
+          </li>
+        </ul>
+        <p>
+          Then in Health Connect → App permissions → <strong>Healthings</strong> → allow Steps, Exercise,
+          Active calories, and Heart rate. Pull to refresh in Healthings.
+        </p>
+
+        <h2>iPhone — fill Apple Health</h2>
+        <ul>
+          <li>
+            <strong>Apple Watch</strong> — usually already writes steps and heart rate to Apple Health.
+          </li>
+          <li>
+            <strong>Other watches</strong> — use the maker’s iPhone app and turn on sharing to Apple Health
+            for steps / heart rate / workouts when available.
+          </li>
+          <li>
+            <strong>iPhone only</strong> — Motion &amp; Fitness can contribute steps; confirm in the Health
+            app under Browse → Activity.
+          </li>
+        </ul>
+        <p>
+          Then Settings → Health → Data Access &amp; Devices → <strong>Healthings</strong> → allow
+          <strong>Steps</strong> and <strong>Heart Rate</strong> (and Active Energy if listed). Sync in
+          Healthings.
+        </p>
+
+        <h2>If activity stays at zero</h2>
+        <ol>
+          <li>Confirm the source app shows steps/HR today.</li>
+          <li>Confirm Health Connect / Apple Health shows the same data.</li>
+          <li>Confirm Healthings has Allow access (or Troubleshoot on Android).</li>
+          <li>Pull to refresh the dashboard.</li>
+        </ol>
+
+        <p><a href="devices.html">Devices &amp; platforms</a> · <a href="index.html">← All help topics</a></p>
+      </section>
+    </main>
+  </body>
+</html>

@@ -84,7 +84,7 @@ import {
 } from '../services/UnitsPreferenceService';
 import { WellnessColors } from '../theme/wellness';
 import { SetupToggleRow } from './SetupToggleRow';
-import { HealthConnectStepsGuide } from './HealthConnectStepsGuide';
+import { PhoneHealthActivityStrip } from './PhoneHealthActivityStrip';
 import { UnitsPreferenceSection } from './UnitsPreferenceSection';
 
 const TOTAL_STEPS = 7;
@@ -299,7 +299,18 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
           }
         }
         if (!hasWatch) {
-          notes.push('On iPhone, link Withings for activity or log workouts manually.');
+          try {
+            const ok = await healthKitService.requestActivityPermissions();
+            notes.push(
+              ok
+                ? 'Apple Health: steps and heart rate access granted or already on.'
+                : 'Apple Health: allow Steps and Heart Rate for Healthings (Settings → Health → Data Access).',
+            );
+          } catch {
+            notes.push(
+              'Apple Health: allow Steps and Heart Rate later in Settings → Health → Data Access → Healthings.',
+            );
+          }
         }
         if (notes.length === 0) {
           notes.push('Withings cloud sync is available after you link your account.');
@@ -318,8 +329,8 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
         const ok = await healthConnectService.requestActivityPermissions();
         notes.push(
           ok
-            ? 'Activity access granted (workouts, active calories, steps, heart rate).'
-            : 'Activity: allow Exercise, Active calories, Steps, and Heart rate in Health Connect.',
+            ? 'Health Connect: activity access granted (steps, workouts, heart rate).'
+            : 'Health Connect: allow Steps, Exercise, Active calories, and Heart rate for Healthings.',
         );
       }
     } finally {
@@ -712,13 +723,15 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
             <>
               {Platform.OS === 'ios' ? (
                 <>
-                  <Text style={styles.lead}>Connect health data on iPhone.</Text>
+                  <Text style={styles.lead}>Allow Apple Health so we can read the data you chose.</Text>
                   <Text style={styles.hint}>
-                    Withings scale/watch sync from the Withings cloud. Tap Next to continue; you can link Withings from the dashboard after login.
+                    Tap Next — Apple Health may ask once. Withings scale/watch sync from the Withings cloud
+                    after you link on the dashboard. When Withings watch is off, steps and heart rate come
+                    from Apple Health (any watch or phone that writes there).
                   </Text>
                   {tracksCgm ? (
                     <Text style={styles.hint}>
-                      CGM: CareSens Air → share with Apple Health → allow Healthings to read Blood Glucose when prompted.
+                      CGM: CareSens Air → share with Apple Health → allow Healthings to read Blood Glucose.
                     </Text>
                   ) : null}
                 </>
@@ -726,14 +739,16 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                 <>
                   <Text style={styles.lead}>Allow Health Connect so we can read the data you chose.</Text>
                   <Text style={styles.hint}>
-                    Tap Next — Health Connect may open once. There is nothing to edit on this screen; permissions depend on step 2.
+                    Tap Next — Health Connect may open once. When Withings watch is off, steps and heart
+                    rate come from Health Connect (any watch or phone that writes there). Brand does not
+                    matter.
                   </Text>
                   {tracksCgm ? (
                     <Text style={styles.hint}>Blood glucose — for CGM charts and meal impact.</Text>
                   ) : null}
-                  {!hasWatch ? <HealthConnectStepsGuide /> : null}
                 </>
               )}
+              {!hasWatch ? <PhoneHealthActivityStrip /> : null}
               {permBusy ? <ActivityIndicator style={{ marginTop: 12 }} /> : null}
               {permNote ? <Text style={styles.hint}>{permNote}</Text> : null}
             </>

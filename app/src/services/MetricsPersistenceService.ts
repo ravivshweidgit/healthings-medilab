@@ -5,10 +5,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { dayKeyStartMs, localDayKeyFromMs, type CompositionSession, type MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
-import { fetchHealthConnectActivity } from './HealthConnectActivityService';
+import { fetchHealthConnectActivity, PHONE_HEALTH_DEEP_LOOKBACK_DAYS, PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS } from './HealthConnectActivityService';
+import { getManualBody } from './ManualBodyService';
+import { getCachedHeightCm, getGender } from './TargetService';
+import { healthKitService } from './HealthKitService';
+import { dailyActiveKcalFromStepsMaps } from './SamsungStepsAdapter';
 import {
   isHealthConnectActivity,
-  isHealthConnectHeartRate,
+  isHealthKitActivity,
+  isHealthKitHeartRate,
+  isPhoneHealthActivity,
+  isPhoneHealthHeartRate,
   loadSourceConfig,
 } from './SourceConfigService';
 import {
@@ -321,7 +328,7 @@ function mergeHealthConnectFetchIntoStore(
     fetch.dailyActiveKcalByDay,
     fetch.workouts,
   );
-  const heartRate = isHealthConnectHeartRate(config.heartRate)
+  const heartRate = isPhoneHealthHeartRate(config.heartRate)
     ? trimIntradayHistory(fetch.heartRate)
     : prev.heartRate;
 
@@ -465,6 +472,7 @@ export const saveWithingsStore = saveMetricsStore;
 /** Pull from Health Connect and merge activity + HR into the metrics store. */
 export async function syncHealthConnectIntoStore(
   prev?: MetricsPersistedStore,
+  opts?: { deep?: boolean },
 ): Promise<MetricsPersistedStore> {
   if (Platform.OS !== 'android') {
     return prev ?? (await loadMetricsStore());
@@ -475,10 +483,79 @@ export async function syncHealthConnectIntoStore(
     return base;
   }
 
-  const fetch = await fetchHealthConnectActivity();
+  const deep = wantsDeepPhoneHealthPull(base, opts, config.activity);
+  const lookback = deep ? PHONE_HEALTH_DEEP_LOOKBACK_DAYS : PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS;
+  const manual = await getManualBody();
+  const [heightCm, gender] = await Promise.all([getCachedHeightCm(), getGender()]);
+  const fetch = await fetchHealthConnectActivity(lookback, {
+    weightKg: base.bodyScan?.weightKg ?? manual?.weight_kg ?? 70,
+    heightCm: heightCm && heightCm > 0 ? heightCm : 170,
+    gender,
+  });
   const merged = mergeHealthConnectFetchIntoStore(base, fetch, config);
   await saveMetricsStore(merged);
   return merged;
+}
+
+/** Pull from Apple Health (steps energy + HR) when Withings watch is off. */
+export async function syncHealthKitIntoStore(
+  prev?: MetricsPersistedStore,
+  opts?: { deep?: boolean },
+): Promise<MetricsPersistedStore> {
+  if (Platform.OS !== 'ios') {
+    return prev ?? (await loadMetricsStore());
+  }
+  const base = prev ?? (await loadMetricsStore());
+  const config = await loadSourceConfig();
+  if (!isHealthKitActivity(config.activity) && !isHealthKitHeartRate(config.heartRate)) {
+    return base;
+  }
+
+  const deep = wantsDeepPhoneHealthPull(base, opts, config.activity);
+  const lookback = deep ? PHONE_HEALTH_DEEP_LOOKBACK_DAYS : PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS;
+  const window = await healthKitService.fetchActivityWindow(lookback);
+  let dailyActiveKcalByDay: Record<string, number> = {};
+  if (isHealthKitActivity(config.activity)) {
+    const start = new Date();
+    start.setDate(start.getDate() - Math.max(1, lookback));
+    const [stepsByDay, manual, heightCm, gender] = await Promise.all([
+      healthKitService.fetchDailyStepTotals(start),
+      getManualBody(),
+      getCachedHeightCm(),
+      getGender(),
+    ]);
+    dailyActiveKcalByDay = dailyActiveKcalFromStepsMaps(stepsByDay, {
+      weightKg: base.bodyScan?.weightKg ?? manual?.weight_kg ?? 70,
+      heightCm: heightCm && heightCm > 0 ? heightCm : 170,
+      gender,
+    });
+  }
+  const merged = mergeHealthConnectFetchIntoStore(
+    base,
+    {
+      workouts: [],
+      heartRate: isHealthKitHeartRate(config.heartRate) ? window.heartRate : [],
+      dailyActiveKcalByDay,
+    },
+    config,
+  );
+  await saveMetricsStore(merged);
+  return merged;
+}
+
+function wantsDeepPhoneHealthPull(
+  store: MetricsPersistedStore,
+  opts: { deep?: boolean } | undefined,
+  activity: Awaited<ReturnType<typeof loadSourceConfig>>['activity'],
+): boolean {
+  if (opts?.deep) return true;
+  if (!isPhoneHealthActivity(activity)) return false;
+  // First fill: no HC workouts and no activity kcal on trend → deep once.
+  const hasHcWorkout = store.workouts.some((w) => w.source === 'health-connect');
+  const hasActivityKcal = store.bodyTrendDays.some(
+    (d) => d.activityKcalDay != null && d.activityKcalDay > 0,
+  );
+  return !hasHcWorkout && !hasActivityKcal;
 }
 
 /**
@@ -649,16 +726,18 @@ export async function syncWithingsApiIntoStore(
 }
 
 /**
- * Sync all configured adapters into the metrics store (Withings cloud + Health Connect).
+ * Sync all configured adapters into the metrics store (Withings + phone health).
  * UI and mentors should call this — not vendor-specific sync helpers.
- * Pass `{ deep: true }` to reload full Withings history (HR 60d / workouts 128d).
+ * Pass `{ deep: true }` for full Withings history and phone-health deep lookback (31d).
+ * Default phone-health sync is shallow (2d), same as Withings normal sync.
  */
 export async function syncMetricsStore(
   opts?: SyncMetricsOptions,
 ): Promise<MetricsPersistedStore> {
   let store = await loadMetricsStore();
   store = await syncWithingsApiIntoStore(store, opts);
-  store = await syncHealthConnectIntoStore(store);
+  store = await syncHealthConnectIntoStore(store, opts);
+  store = await syncHealthKitIntoStore(store, opts);
   return store;
 }
 

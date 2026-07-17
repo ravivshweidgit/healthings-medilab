@@ -4,6 +4,7 @@
 
 import {
   isHealthConnectActivity,
+  isHealthKitActivity,
   isLiveGlucoseSource,
   type SourceConfig,
 } from '../services/SourceConfigService';
@@ -26,9 +27,8 @@ function bodyChip(config: SourceConfig): string {
 
 function activityChip(config: SourceConfig): string {
   if (config.activity === 'withings') return 'Withings watch';
-  if (config.activity === 'health-connect' || config.activity === 'samsung-steps') {
-    return 'Health Connect activity';
-  }
+  if (isHealthConnectActivity(config.activity)) return 'Health Connect';
+  if (isHealthKitActivity(config.activity)) return 'Apple Health';
   return 'Off';
 }
 
@@ -49,8 +49,7 @@ export type MetabolicChartHeader = {
 };
 
 /**
- * Dashboard metabolic chart card: show for CGM and/or watch activity (Withings / HC).
- * CGM off + Garmin/HC still gets the chart so workouts/HR/calories are visible.
+ * Dashboard metabolic chart card: show for CGM and/or watch activity (Withings / phone health).
  */
 export function metabolicChartHeader(
   config: SourceConfig | null | undefined,
@@ -59,7 +58,8 @@ export function metabolicChartHeader(
   const glucoseOn = isLiveGlucoseSource(config?.glucose ?? 'none');
   const activityWithings = config?.activity === 'withings';
   const activityHc = isHealthConnectActivity(config?.activity ?? 'none');
-  const activityOn = activityWithings || activityHc;
+  const activityHk = isHealthKitActivity(config?.activity ?? 'none');
+  const activityOn = activityWithings || activityHc || activityHk;
   const show = Boolean(glucoseOn || activityOn);
 
   if (!show) {
@@ -72,11 +72,13 @@ export function metabolicChartHeader(
     };
   }
 
+  const phoneHealthLabel = activityHk ? 'Apple Health' : 'Health Connect';
+
   if (glucoseOn) {
     const activityHint = activityWithings
       ? 'Withings watch'
-      : activityHc
-        ? 'Health Connect activity'
+      : activityHc || activityHk
+        ? phoneHealthLabel
         : null;
     const glucoseBus =
       config?.glucose === 'healthkit' ? 'Apple Health' : 'Health Connect';
@@ -92,8 +94,7 @@ export function metabolicChartHeader(
     };
   }
 
-  // Activity-only (CGM off) — same MetabolicChart, empty glucose series.
-  const activityLabel = activityWithings ? 'Withings watch' : 'Health Connect activity';
+  const activityLabel = activityWithings ? 'Withings watch' : phoneHealthLabel;
   return {
     show: true,
     title: 'ACTIVITY',

@@ -35,7 +35,7 @@ Android alpha is on Play Internal (1.2.1). iPhone testers cannot install. The ap
 | Claim | Verdict |
 |-------|---------|
 | “Withings doesn’t depend on Apple Health Connect” | **True for data path** — app uses **Withings OAuth + cloud API** (`syncWithingsApiIntoStore`), same on iOS and Android. No HC on iOS required for scale/watch/body/workouts/HR. |
-| “So we can skip HealthKit entirely” | **True for v1 alpha** if testers are **Withings scale ± watch** and CGM is optional (CSV import OK). |
+| “So we can skip HealthKit entirely” | **Superseded for activity** — Watch No uses Apple Health steps/HR (`done/prompt76`). CGM still HealthKit when CGM Yes. |
 | “Garmin users need iOS” | **No** — Garmin path is **Android Health Connect** (`prompt64`). Colleague testing stays Android. |
 | “iOS = same feature set as Android” | **False without HealthKit** — Android CGM via HC, Android activity via HC/Garmin, Android steps via HC. iOS v1 = **intentional subset**. |
 | “Withings watch writes to Apple Health anyway” | **Irrelevant if cloud is SSOT** — do **not** read the same metrics from HealthKit *and* Withings (double-count risk). Pick one source per metric in `source_config`. |
@@ -90,7 +90,7 @@ On first `loadSourceConfig()` when `Platform.OS === 'ios'` and no saved config:
 {
   "version": 1,
   "glucose": "none",           // until prompt56 — CSV import bypasses source_config
-  "activity": "withings",      // if user says watch Y; else "none" (not health-connect)
+  "activity": "withings",      // if user says watch Y; else "healthkit" (Apple Health — prompt76)
   "bodyComposition": "withings" | "manual",
   "bmr": "withings" | "manual" | "ai-estimate",
   "heartRate": "withings" | "none"

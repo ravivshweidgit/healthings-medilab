@@ -63,10 +63,10 @@ import {
 } from '../logic/unitConvert';
 import { buildManualTrendDays } from '../services/ManualTrendService';
 import { SetupToggleRow } from '../components/SetupToggleRow';
-import { HealthConnectStepsGuide } from '../components/HealthConnectStepsGuide';
+import { PhoneHealthActivityStrip } from '../components/PhoneHealthActivityStrip';
 import {
-  isHealthConnectActivity,
   isLiveGlucoseSource,
+  isPhoneHealthActivity,
   loadSourceConfig,
   saveSourceConfig,
   sourceConfigFromToggles,
@@ -75,7 +75,12 @@ import {
   type SourceConfig,
 } from '../services/SourceConfigService';
 import { isLiveCgmDataSource } from '../services/healthRuntime';
-import { fetchDailyStepTotalsForTrend, stepsToActiveKcal } from '../services/SamsungStepsAdapter';
+import {
+  fetchDailyStepTotalsForTrend,
+  PHONE_HEALTH_DEEP_LOOKBACK_DAYS,
+  PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS,
+  stepsToActiveKcal,
+} from '../services/SamsungStepsAdapter';
 import { clearOnboardingCompletedAt, shouldShowQuickStart } from '../services/ProfileCompletenessService';
 import { maybeRunOpportunisticCloudBackup } from '../services/CloudBackupService';
 import { applyAutoMacroRevision, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
@@ -277,6 +282,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [sourceConfig, setSourceConfig] = useState<SourceConfig | null>(null);
   const [setupToggles, setSetupToggles] = useState<SetupToggles | null>(null);
   const [hcStepTotalsByDay, setHcStepTotalsByDay] = useState<Map<string, number>>(new Map());
+  const [hcActivityLookbackDays, setHcActivityLookbackDays] = useState(PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS);
   const [manualBodySnap, setManualBodySnap] = useState<ManualBodySnapshot | null>(null);
 
   const effectiveBodyScan = useMemo(() => {
@@ -400,9 +406,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       }
       const latestWeight = snap?.weight_kg ?? history[history.length - 1]?.weight_kg ?? 0;
       const lookback = Math.max(...TREND_PERIOD_DAY_OPTIONS, DEFAULT_TREND_PERIOD_DAYS);
-      // HC step pull is slow on Android (~seconds for long lookback). Skip when activity is Withings.
-      const stepMap = isHealthConnectActivity(config)
-        ? await fetchDailyStepTotalsForTrend(lookback, latestWeight, height, gender)
+      // HC/HK step pull: shallow by default (deep via Allow / Deep sync).
+      const stepMap = isPhoneHealthActivity(config.activity)
+        ? await fetchDailyStepTotalsForTrend(
+            PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS,
+            latestWeight,
+            height,
+            gender,
+          )
         : new Map<string, number>();
       const days = buildManualTrendDays({
         lookbackDays: lookback,
@@ -548,19 +559,24 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     setFoodModalVisible(true);
   }, []);
 
-  const useHcActivity = isHealthConnectActivity(sourceConfig?.activity ?? 'none');
+  const usePhoneHealthActivity = isPhoneHealthActivity(sourceConfig?.activity ?? 'none');
 
-  const loadHcStepTotals = useCallback(async () => {
-    if (!useHcActivity || !heightCm || !userGender) {
+  const loadHcStepTotals = useCallback(async (deep = false) => {
+    if (!usePhoneHealthActivity || !heightCm || !userGender) {
       setHcStepTotalsByDay(new Map());
+      setHcActivityLookbackDays(PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS);
       return;
     }
     const weightKg =
       effectiveBodyScan?.weightKg ?? manualBodySnap?.weight_kg ?? bodyScan?.weightKg ?? 70;
-    const lookback = Math.max(...TREND_PERIOD_DAY_OPTIONS, DEFAULT_TREND_PERIOD_DAYS);
+    const lookback = deep
+      ? PHONE_HEALTH_DEEP_LOOKBACK_DAYS
+      : PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS;
+    setHcActivityLookbackDays(lookback);
     const map = await fetchDailyStepTotalsForTrend(lookback, weightKg, heightCm, userGender);
+    // Shallow must not keep older deep-filled days — those fall back to Withings activity.
     setHcStepTotalsByDay(map);
-  }, [useHcActivity, heightCm, userGender, effectiveBodyScan, manualBodySnap, bodyScan]);
+  }, [usePhoneHealthActivity, heightCm, userGender, effectiveBodyScan, manualBodySnap, bodyScan]);
 
   const useManualWeightTrend = useMemo(() => {
     if (sourceConfig?.bodyComposition === 'manual') return true;
@@ -612,9 +628,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       if (config.bodyComposition === 'manual') {
         void loadManualTrend();
       }
-      if (isHealthConnectActivity(config.activity)) {
+      // Do NOT request HC/HealthKit permissions here — Android only shows the sheet from a
+      // direct tap (Allow access on PhoneHealthActivityStrip). Delayed requestPermission
+      // after a toggle often does nothing and then blocks a later Allow tap.
+      if (isPhoneHealthActivity(config.activity)) {
         void (async () => {
-          await healthConnectService.requestActivityPermissions();
           await syncWithings();
           await loadHcStepTotals();
         })();
@@ -628,33 +646,48 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const baseTrendDays = useManualWeightTrend ? manualTrendDays : bodyTrendDays;
 
   /**
-   * Patch activityKcalDay from HC steps and/or Withings workouts + passive calories.
-   * Manual weight (no scale) must still pick up Withings watch activity — do not early-return.
+   * Patch activityKcalDay from phone steps→kcal and/or Withings workouts + passive calories.
+   * Phone-health shallow: only the lookback window uses steps/distance→kcal; older days keep Withings.
    */
   const bodyTrendDaysWithActivity = useMemo((): MetabolicTrend7dDay[] => {
     let days = baseTrendDays;
+    const phoneLookbackKeys = new Set<string>();
+    if (usePhoneHealthActivity) {
+      for (let i = 0; i < hcActivityLookbackDays; i += 1) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        phoneLookbackKeys.add(localDayKeyFromMs(d.getTime()));
+      }
+    }
+    const phoneOwnsDay = (dk: string) => phoneLookbackKeys.has(dk);
 
-    if (useHcActivity && heightCm && userGender) {
+    if (usePhoneHealthActivity && heightCm && userGender) {
       days = days.map((d) => {
-        if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay)) return d;
+        if (!phoneOwnsDay(d.dayKey)) {
+          return { ...d, activityKcalDay: null };
+        }
         const steps = hcStepTotalsByDay.get(d.dayKey) ?? 0;
         const weightKg = d.weightKg ?? effectiveBodyScan?.weightKg ?? manualBodySnap?.weight_kg;
-        const activityKcalDay =
-          weightKg && steps > 0
-            ? stepsToActiveKcal(steps, weightKg, heightCm, userGender)
-            : null;
-        return activityKcalDay != null ? { ...d, activityKcalDay } : d;
+        if (weightKg && steps > 0) {
+          return {
+            ...d,
+            activityKcalDay: stepsToActiveKcal(steps, weightKg, heightCm, userGender),
+          };
+        }
+        // Phone-owned day with no steps yet — show 0 activity (not blank Food Log lines).
+        return { ...d, activityKcalDay: 0 };
       });
     }
 
-    // Withings intraday / getactivity calories (watch-only + scale paths).
-    if (!useHcActivity && withingsCalories.length > 0) {
+    // Withings intraday / getactivity — Watch On always; Watch Off only for days phone does not own.
+    if (withingsCalories.length > 0) {
       const passiveByDay = new Map<string, number>();
       for (const pt of withingsCalories) {
         const dk = localDayKeyFromMs(new Date(pt.timestamp).getTime());
         passiveByDay.set(dk, (passiveByDay.get(dk) ?? 0) + pt.kcal);
       }
       days = days.map((d) => {
+        if (phoneOwnsDay(d.dayKey)) return d;
         const passive = passiveByDay.get(d.dayKey);
         if (passive == null || !Number.isFinite(passive)) return d;
         if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay)) {
@@ -669,10 +702,16 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     const workoutByDay = new Map<string, number>();
     for (const w of workoutSessions) {
       const dk = localDayKeyFromMs(w.startMs);
+      const isHc = w.source === 'health-connect';
+      if (phoneOwnsDay(dk)) {
+        // Phone days: daily ActiveCalories (store) is authoritative — do not max with
+        // per-workout sums (overlapping sessions double-count the same HC energy).
+        continue;
+      } else if (isHc) {
+        continue;
+      }
       workoutByDay.set(dk, (workoutByDay.get(dk) ?? 0) + w.kcal);
     }
-    // Prefer the larger of getactivity vs sum(workouts). getactivity can omit bike kcal;
-    // workouts can report 0 kcal while still being real sessions for the chart.
     return days.map((d) => {
       const wkt = workoutByDay.get(d.dayKey);
       if (wkt == null) return d;
@@ -683,7 +722,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     });
   }, [
     baseTrendDays,
-    useHcActivity,
+    usePhoneHealthActivity,
+    hcActivityLookbackDays,
     hcStepTotalsByDay,
     heightCm,
     userGender,
@@ -757,7 +797,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
    * Totals for deficit/coach still derived via burnKcalByDay.
    */
   const burnPartsByDay = useMemo((): Record<string, { bmr: number; activity: number }> => {
-    const fallbackBmr = effectiveBodyScan?.bmrKcalDay;
+    const fallbackBmr =
+      effectiveBodyScan?.bmrKcalDay ??
+      manualBodySnap?.bmr_kcal ??
+      bodyTrendDaysWithActivity.find((d) => d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay))
+        ?.bmrKcalDay ??
+      null;
     const BUCKET_MS = 30 * 60 * 1000;
 
     /** Withings watch/intraday burn for a day (same bucket rules as scale path / glucose strip). */
@@ -765,6 +810,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       const wktBuckets = new Set<number>();
       let wktKcal = 0;
       for (const w of workoutSessions) {
+        if (w.source === 'health-connect') continue;
         if (localDayKeyFromMs(w.startMs) !== dk) continue;
         wktKcal += w.kcal;
         const firstBk = Math.floor(w.startMs / BUCKET_MS) * BUCKET_MS;
@@ -780,25 +826,49 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       return passiveKcal + wktKcal;
     };
 
-    if (useManualWeightTrend || useHcActivity) {
+    const ensureDay = (
+      result: Record<string, { bmr: number; activity: number }>,
+      dk: string,
+      activity: number,
+      bmrHint?: number | null,
+    ) => {
+      const bmr = bmrHint ?? result[dk]?.bmr ?? fallbackBmr;
+      if (bmr == null || !Number.isFinite(bmr)) return;
+      const prev = result[dk];
+      result[dk] = {
+        bmr: Math.round(bmr),
+        activity: Math.round(prev != null ? Math.max(prev.activity, activity) : activity),
+      };
+    };
+
+    if (useManualWeightTrend || usePhoneHealthActivity) {
+      const phoneLookbackKeys = new Set<string>();
+      if (usePhoneHealthActivity) {
+        for (let i = 0; i < hcActivityLookbackDays; i += 1) {
+          const day = new Date();
+          day.setDate(day.getDate() - i);
+          phoneLookbackKeys.add(localDayKeyFromMs(day.getTime()));
+        }
+      }
       const result: Record<string, { bmr: number; activity: number }> = {};
       for (const d of bodyTrendDaysWithActivity) {
         const bmr = d.bmrKcalDay ?? fallbackBmr;
         if (!bmr || !Number.isFinite(bmr)) continue;
+        const phoneOwns = phoneLookbackKeys.has(d.dayKey);
         const fromTrend = d.activityKcalDay ?? 0;
-        const fromWithings = !useHcActivity ? withingsActivityForDay(d.dayKey) : 0;
+        const fromWithings = !phoneOwns ? withingsActivityForDay(d.dayKey) : 0;
         const activity = Math.max(fromTrend, fromWithings);
         result[d.dayKey] = { bmr: Math.round(bmr), activity: Math.round(activity) };
       }
       const todayKey = localDayKeyFromMs(Date.now());
-      if (!result[todayKey] && fallbackBmr && Number.isFinite(fallbackBmr)) {
-        const fromTrend =
-          bodyTrendDaysWithActivity.find((d) => d.dayKey === todayKey)?.activityKcalDay ?? 0;
-        const fromWithings = !useHcActivity ? withingsActivityForDay(todayKey) : 0;
-        result[todayKey] = {
-          bmr: Math.round(fallbackBmr),
-          activity: Math.round(Math.max(fromTrend, fromWithings)),
-        };
+      // New calendar day with 0 steps must still show activity 0 + burned (BMR + 0).
+      ensureDay(
+        result,
+        todayKey,
+        phoneLookbackKeys.has(todayKey) ? 0 : withingsActivityForDay(todayKey),
+      );
+      for (const dk of phoneLookbackKeys) {
+        if (!result[dk]) ensureDay(result, dk, 0);
       }
       return result;
     }
@@ -833,11 +903,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     return result;
   }, [
     effectiveBodyScan,
+    manualBodySnap,
     bodyTrendDaysWithActivity,
     withingsCalories,
     workoutSessions,
     useManualWeightTrend,
-    useHcActivity,
+    usePhoneHealthActivity,
+    hcActivityLookbackDays,
   ]);
 
   const burnKcalByDay = useMemo((): Record<string, number> => {
@@ -1312,8 +1384,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, [workoutSessions]);
 
   useEffect(() => {
-    if (useHcActivity) void loadHcStepTotals();
-  }, [useHcActivity, loadHcStepTotals]);
+    if (usePhoneHealthActivity) void loadHcStepTotals();
+  }, [usePhoneHealthActivity, loadHcStepTotals]);
 
   useEffect(() => {
     void loadSourceConfig().then((c) => {
@@ -2145,7 +2217,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     hint={
                       setupToggles.withingsWatch && !setupToggles.withingsScale && !withingsLinked
                         ? 'Link Withings below to sync watch activity.'
-                        : undefined
+                        : !setupToggles.withingsWatch
+                          ? Platform.OS === 'ios'
+                            ? 'Steps & HR from Apple Health — see Allow access below.'
+                            : 'Steps & HR from Health Connect — see Allow access below.'
+                          : undefined
                     }
                   />
                   {setupToggles.withingsWatch && !setupToggles.withingsScale ? (
@@ -2175,10 +2251,16 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   {manualBodyScaleActive && setupToggles.withingsWatch && linkError ? (
                     <Text style={styles.linkErrorText}>{linkError}</Text>
                   ) : null}
-                  {!setupToggles.withingsWatch && Platform.OS === 'android' ? (
-                    <HealthConnectStepsGuide
+                  {!setupToggles.withingsWatch ? (
+                    <PhoneHealthActivityStrip
                       onPermissionGranted={() => {
-                        void syncWithings().then(() => loadHcStepTotals());
+                        // Shallow only (~2 days) — same as routine sync. Deep is the Deep sync button.
+                        void syncWithings().then(() => loadHcStepTotals(false));
+                      }}
+                      onSync={(deep) => {
+                        void syncWithings(deep ? { deep: true } : undefined).then(() =>
+                          loadHcStepTotals(deep),
+                        );
                       }}
                     />
                   ) : null}

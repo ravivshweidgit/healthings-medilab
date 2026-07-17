@@ -1,0 +1,73 @@
+## Prompt 76 — Watch off → phone health (HC / Apple Health)
+
+**Status: done (2026-07-18)** — Android phone-tested; iOS TestFlight after this ship  
+**Builds on:** `done/prompt58` (Your setup), `done/prompt64`/`65` (adapters), `prompt56` (HealthKit), `done/prompt67`/`69` (shallow/deep sync UX)
+
+### Problem
+
+My Profile buried Garmin/Samsung deep links when Withings watch was off. Users thought they needed a specific brand. iOS Watch=No stored `activity: none` — no steps. Allow access on Samsung often did nothing. Activity kcal from HC Active Calories disagreed with Samsung Health. Withings writing into HC double-counted / confused Watch Off.
+
+### Product rule
+
+| Withings watch | Steps / HR / activity |
+|----------------|------------------------|
+| **Yes** | Withings **cloud API only** |
+| **No** | Phone health: **Health Connect** (Android) / **Apple Health** (iOS) |
+
+Brand does not matter. User populates the phone health store; Healthings only reads. Do **not** share Withings → HC / Apple Health (help site + in-app advisory).
+
+### What shipped
+
+| Area | Behavior |
+|------|----------|
+| **UI strip** | `PhoneHealthActivityStrip` — Allow access, Open store, Deep sync, Help, Troubleshoot; granted-reads line; Withings→phone-health write advisory |
+| **Allow access** | User-gesture only (no auto `requestPermission` on Watch toggle). SDK status + Alert if HC missing/update needed. Does **not** auto-run deep sync |
+| **Shallow / deep** | Shallow **3 local days** (default + after Allow); deep **31 days** via Deep sync — parity with Withings shallow/deep idea |
+| **Steps dedupe** | Per `dataOrigin` sum, then **max** across origins; **skip Withings** origin always |
+| **Activity kcal** | From **steps → distance → kcal** only (`WALK_KCAL_PER_KG_PER_KM = 0.55`, stride from height). Never HC ActiveCaloriesBurned / Apple active energy for Food Log activity |
+| **Withings write detect** | Infer likely ON/OFF from Withings-origin Steps today/yesterday (`detectWithingsHcWriteStatus` / `detectWithingsAppleHealthWriteStatus`) — OS does not expose vendor write toggles |
+| **Profile / Quick Start** | Same strip when Watch = No; brand-agnostic copy |
+| **Labels** | Activity chip: Health Connect / Apple Health (not “Garmin”) |
+| **iOS source_config** | Watch No → `activity: healthkit`, `heartRate: healthkit`; legacy `none` → healthkit on load |
+| **HealthKit** | Steps daily totals (max per source, skip Withings) + HR merge into `metricsStore`; permissions on Allow |
+| **Food Log burn map** | Phone-health path: 0 steps → activity **0**; ensure **today** always in `burnPartsByDay` so activity + burned show on a new day |
+| **Help** | `website/help/phone-health-activity.html` + devices/index links; “do not share Withings into HC/Apple Health” |
+
+### Primary files
+
+- `app/src/components/PhoneHealthActivityStrip.tsx`
+- `app/src/components/HealthConnectStepsGuide.tsx` (re-export)
+- `app/src/services/HealthConnectService.android.ts` / `.ios.ts`
+- `app/src/services/HealthConnectActivityService.ts`
+- `app/src/services/HealthConnectActivityAdapter.android.ts`
+- `app/src/services/HealthKitService.ios.ts` / `.android.ts`
+- `app/src/services/SamsungStepsAdapter.ts`
+- `app/src/services/SourceConfigService.ts`
+- `app/src/services/MetricsPersistenceService.ts`
+- `app/src/services/ManualTrendService.ts`
+- `app/src/screens/DashboardScreen.tsx`
+- `app/src/components/WelcomeQuickStartWizard.tsx`
+- `app/src/logic/sourceConfigLabels.ts`
+- `website/help/phone-health-activity.html`
+- `website/help/devices.html`, `website/help/index.html`
+
+### Phone-tested
+
+- [x] Android: Watch No → Allow access opens HC permission sheet (Samsung)
+- [x] Android: steps/kcal near Samsung Health after max-origin + 0.55 factor (~496 vs ~485)
+- [x] Android: Withings→HC advisory when Withings origin present in HC
+- [x] Android: Watch Yes still Withings cloud (shallow window locks older days)
+- [ ] iOS: Watch No → Allow → steps/HR from Apple Health (TestFlight this ship)
+- [ ] iOS: today Food Log shows activity + burned at 0 steps
+- [ ] iOS: Withings→Apple Health advisory when applicable
+
+### Deferred
+
+- Full UI i18n (chrome stays English)
+- Reading vendor “write to HC/HK” toggles (impossible via public APIs)
+
+### Related
+
+- `prompts/app/prompt56.txt` — HealthKit activity marked shipped for steps/HR path
+- `prompts/app/prompt65.txt` — Watch No no longer `none`
+- Persistence parity: adapters merge into `healthings:metricsStore` only

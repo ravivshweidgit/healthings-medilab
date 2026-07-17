@@ -29,6 +29,19 @@ function parseInstantMs(value: unknown): number | null {
   return Number.isFinite(ms) ? ms : null;
 }
 
+/**
+ * Watch Off reads phone/vendor HC data — skip Withings-written rows so watch cloud
+ * and Withings→HC writes do not double-count with Samsung/Garmin.
+ */
+export function isWithingsHcOrigin(record: Record<string, unknown>): boolean {
+  const meta = record.metadata;
+  if (!meta || typeof meta !== 'object') return false;
+  const origin = String(
+    (meta as Record<string, unknown>).dataOrigin ?? '',
+  ).toLowerCase();
+  return origin.includes('withings');
+}
+
 export function parseHcEnergyKcal(record: Record<string, unknown>): number {
   const energy = record.energy;
   if (energy && typeof energy === 'object') {
@@ -52,6 +65,7 @@ function kcalOverlappingWindow(
 ): number {
   let total = 0;
   for (const record of calories) {
+    if (isWithingsHcOrigin(record)) continue;
     const rs = parseInstantMs(record.startTime);
     const re = parseInstantMs(record.endTime ?? record.startTime);
     if (rs == null || re == null) continue;
@@ -67,6 +81,7 @@ export function mapHcExerciseSessions(
 ): WorkoutSession[] {
   const mapped: WorkoutSession[] = [];
   for (const record of sessions) {
+    if (isWithingsHcOrigin(record)) continue;
     const startMs = parseInstantMs(record.startTime);
     const endMs = parseInstantMs(record.endTime ?? record.startTime);
     if (startMs == null || endMs == null || !isKeepableWorkout({ startMs, endMs })) continue;
@@ -90,6 +105,7 @@ export function dailyActiveKcalFromRecords(
 ): Map<string, number> {
   const byDay = new Map<string, number>();
   for (const record of calories) {
+    if (isWithingsHcOrigin(record)) continue;
     const kcal = parseHcEnergyKcal(record);
     if (kcal <= 0) continue;
     const ms = parseInstantMs(record.endTime ?? record.startTime);

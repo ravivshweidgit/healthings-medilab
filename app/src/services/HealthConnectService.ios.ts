@@ -12,6 +12,22 @@ export async function openHealthConnectSettings(): Promise<void> {
   /* no-op on iOS */
 }
 
+export async function openHealthConnectPlayStore(): Promise<void> {
+  /* no-op on iOS */
+}
+
+export type ActivityPermissionDetail = {
+  ok: boolean;
+  message: string;
+  openSettings?: boolean;
+  installOrUpdate?: boolean;
+};
+
+export type WithingsHcWriteStatus = {
+  inferred: 'likely_on' | 'likely_off' | 'unknown';
+  label: string;
+};
+
 class HealthConnectService {
   async initializeAndRequestPermissions(): Promise<unknown[]> {
     throw new Error('Live CGM via Apple Health is not available on iPhone yet. Import a CSV or use Android.');
@@ -19,6 +35,10 @@ class HealthConnectService {
 
   async requestStepsPermission(): Promise<boolean> {
     return false;
+  }
+
+  async requestActivityPermissionsWithDetail(): Promise<ActivityPermissionDetail> {
+    return { ok: false, message: 'Health Connect is Android-only.' };
   }
 
   async requestActivityPermissions(): Promise<boolean> {
@@ -33,6 +53,17 @@ class HealthConnectService {
     return [];
   }
 
+  async detectWithingsHcWriteStatus(): Promise<WithingsHcWriteStatus> {
+    return {
+      inferred: 'unknown',
+      label: 'Withings → Health Connect: n/a on iPhone (use Apple Health path).',
+    };
+  }
+
+  async detectWithingsStepsInHealthConnect(): Promise<boolean> {
+    return false;
+  }
+
   async readAllRecords(): Promise<Array<Record<string, unknown>>> {
     return [];
   }
@@ -42,6 +73,14 @@ class HealthConnectService {
   }
 
   async fetchDailyStepTotals(): Promise<Map<string, number>> {
+    return new Map();
+  }
+
+  async fetchDailyActiveKcalTotals(): Promise<Map<string, number>> {
+    return new Map();
+  }
+
+  async fetchDailyDistanceKmTotals(): Promise<Map<string, number>> {
     return new Map();
   }
 

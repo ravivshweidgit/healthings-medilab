@@ -63,12 +63,15 @@ export function buildManualTrendDays(opts: {
         ? Math.round(bmrOverrideKcal)
         : mifflin ?? snap?.bmr_kcal ?? null;
     const steps = stepTotalsByDay.get(dayKey) ?? 0;
+    // Explicit 0 when no steps — Food Log must still show "0 activity" + burned (BMR + 0).
     const activityKcalDay =
       weightKg != null && steps > 0
         ? stepsToActiveKcal(steps, weightKg, heightCm, gender)
         : steps > 0 && snap
           ? stepsToActiveKcal(steps, snap.weight_kg, heightCm, gender)
-          : null;
+          : weightKg != null || snap
+            ? 0
+            : null;
 
     return {
       dayKey,

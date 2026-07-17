@@ -1,17 +1,57 @@
 import {
   getGrantedPermissions,
+  getSdkStatus,
   initialize,
   openHealthConnectSettings,
   readRecords,
   requestPermission,
 } from 'react-native-health-connect';
+import { Linking } from 'react-native';
 
 import { localDayKeyFromMs } from '../logic/metabolicTrend7d';
 import type { HealthConnectReadDebug, RecentMetrics } from './healthMetricsTypes';
 import { parseBloodGlucoseMgDl } from './healthMetricsTypes';
+import { isWithingsHcOrigin } from './HealthConnectActivityAdapter';
 
 export type { HealthConnectReadDebug, RecentMetrics, TimePoint } from './healthMetricsTypes';
 export { parseBloodGlucoseMgDl, openHealthConnectSettings };
+
+export type WithingsHcWriteStatus = {
+  /**
+   * Inferred from Withings-origin Steps in HC (today/yesterday).
+   * Android does not expose another app’s write-permission switch to us.
+   */
+  inferred: 'likely_on' | 'likely_off' | 'unknown';
+  label: string;
+};
+
+export type ActivityPermissionDetail = {
+  ok: boolean;
+  /** User-facing explanation when ok is false (or partial). */
+  message: string;
+  /** Suggest opening HC app permissions. */
+  openSettings?: boolean;
+  /** Suggest installing / updating Health Connect from Play Store. */
+  installOrUpdate?: boolean;
+};
+
+/** Mirrors react-native-health-connect SdkAvailabilityStatus (not re-exported from package root). */
+const HC_SDK = {
+  UNAVAILABLE: 1,
+  UPDATE_REQUIRED: 2,
+  AVAILABLE: 3,
+} as const;
+
+const HC_PLAY_STORE =
+  'https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata';
+
+export async function openHealthConnectPlayStore(): Promise<void> {
+  try {
+    await Linking.openURL(HC_PLAY_STORE);
+  } catch {
+    /* ignore */
+  }
+}
 
 const HOURS_24_MS = 24 * 60 * 60 * 1000;
 /** How far back to query Health Connect when no explicit start is passed (CGM history). */
@@ -122,17 +162,70 @@ class HealthConnectService {
     return this.requestActivityPermissions();
   }
 
-  async requestActivityPermissions(): Promise<boolean> {
+  /**
+   * Must be called from a direct user tap (Allow access). Android often will not show the
+   * permission sheet if requestPermission runs from a delayed toggle / InteractionManager.
+   */
+  async requestActivityPermissionsWithDetail(): Promise<ActivityPermissionDetail> {
     try {
+      const status = await getSdkStatus();
+      if (status === HC_SDK.UNAVAILABLE) {
+        return {
+          ok: false,
+          message:
+            'Health Connect is not available on this phone. Install or update Health Connect from the Play Store, then tap Allow access again.',
+          installOrUpdate: true,
+        };
+      }
+      if (status === HC_SDK.UPDATE_REQUIRED) {
+        return {
+          ok: false,
+          message:
+            'Health Connect needs an update. Open the Play Store, update Health Connect, then tap Allow access again.',
+          installOrUpdate: true,
+        };
+      }
+
       const isInitialized = await initialize();
-      if (!isInitialized) return false;
+      if (!isInitialized) {
+        return {
+          ok: false,
+          message:
+            'Could not open Health Connect. Install or update Health Connect, then try Allow access again.',
+          installOrUpdate: true,
+        };
+      }
+
       const granted = await requestPermission([...ACTIVITY_READ_PERMISSIONS]);
-      return ACTIVITY_READ_PERMISSIONS.every((need) =>
-        granted.some((p) => p.accessType === need.accessType && p.recordType === need.recordType),
+      const hasSteps = granted.some(
+        (p) => p.accessType === STEPS_READ_PERMISSION.accessType && p.recordType === STEPS_READ_PERMISSION.recordType,
       );
-    } catch {
-      return false;
+      if (hasSteps) {
+        return {
+          ok: true,
+          message: 'Healthings can read steps from Health Connect.',
+        };
+      }
+
+      return {
+        ok: false,
+        message:
+          'Steps were not allowed. Tap Open Health Connect → App permissions → Healthings → turn on Steps (and Heart rate if you want HR).',
+        openSettings: true,
+      };
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : String(e);
+      return {
+        ok: false,
+        message: `Could not request Health Connect access (${raw}). Try Open Health Connect → App permissions → Healthings.`,
+        openSettings: true,
+      };
     }
+  }
+
+  async requestActivityPermissions(): Promise<boolean> {
+    const detail = await this.requestActivityPermissionsWithDetail();
+    return detail.ok;
   }
 
   async hasActivityReadPermission(): Promise<boolean> {
@@ -140,8 +233,9 @@ class HealthConnectService {
       const isInitialized = await initialize();
       if (!isInitialized) return false;
       const granted = await getGrantedPermissions();
-      return ACTIVITY_READ_PERMISSIONS.every((need) =>
-        granted.some((p) => p.accessType === need.accessType && p.recordType === need.recordType),
+      // Steps alone is enough to show activity; HR/exercise are optional extras we still request.
+      return granted.some(
+        (p) => p.accessType === STEPS_READ_PERMISSION.accessType && p.recordType === STEPS_READ_PERMISSION.recordType,
       );
     } catch {
       return false;
@@ -157,6 +251,74 @@ class HealthConnectService {
     } catch {
       return [];
     }
+  }
+
+  /**
+   * Infer whether Withings is still writing Steps into HC.
+   * We cannot read Withings’ HC permission toggle — only whether Withings-origin
+   * Steps exist for today/yesterday.
+   */
+  async detectWithingsHcWriteStatus(): Promise<WithingsHcWriteStatus> {
+    try {
+      const isInitialized = await initialize();
+      if (!isInitialized) {
+        return {
+          inferred: 'unknown',
+          label: 'Withings → Health Connect write: unknown (Health Connect not ready)',
+        };
+      }
+      const end = new Date();
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - 1); // today + yesterday
+      let pageToken: string | undefined;
+      let pageGuard = 0;
+      let sawWithings = false;
+      do {
+        const page = (await readRecords('Steps' as never, {
+          timeRangeFilter: {
+            operator: 'between',
+            startTime: start.toISOString(),
+            endTime: end.toISOString(),
+          },
+          pageSize: 200,
+          ...(pageToken ? { pageToken } : {}),
+        } as never)) as { records?: Array<Record<string, unknown>>; pageToken?: string };
+        for (const record of page.records ?? []) {
+          if (isWithingsHcOrigin(record)) {
+            sawWithings = true;
+            break;
+          }
+        }
+        if (sawWithings) break;
+        pageToken = page.pageToken || undefined;
+        pageGuard += 1;
+      } while (pageToken && pageGuard < 5);
+
+      if (sawWithings) {
+        return {
+          inferred: 'likely_on',
+          label:
+            'Withings → Health Connect write: likely ON (Withings Steps today/yesterday). Turn off in Health Connect → App permissions → Withings.',
+        };
+      }
+      return {
+        inferred: 'likely_off',
+        label:
+          'Withings → Health Connect write: likely OFF (no Withings Steps today/yesterday).',
+      };
+    } catch {
+      return {
+        inferred: 'unknown',
+        label: 'Withings → Health Connect write: unknown (could not read Health Connect)',
+      };
+    }
+  }
+
+  /** @deprecated Prefer detectWithingsHcWriteStatus */
+  async detectWithingsStepsInHealthConnect(): Promise<boolean> {
+    const s = await this.detectWithingsHcWriteStatus();
+    return s.inferred === 'likely_on';
   }
 
   async readAllRecords(
@@ -201,17 +363,24 @@ class HealthConnectService {
   }
 
   /**
-   * Daily step totals (Samsung/Garmin → Health Connect) for activity kcal estimation.
-   * Paginates the full window: Garmin writes ~15-min step epochs (~96/day), so a 128-day
-   * lookback exceeds one 5000-record page — a single page (oldest-first) would truncate the
-   * most recent days and leave today's activity kcal empty. Bucket by LOCAL day so early-morning
-   * steps are not shifted to the previous day for non-UTC users.
+   * Daily step totals for Watch Off.
+   * Multiple apps (Samsung + Withings) often each write a full-day total; HC aggregate then
+   * ~doubles. Strategy: sum within each dataOrigin, then take the MAX origin for the day
+   * (skip Withings). Matches Samsung Health step counts.
    */
   async fetchDailyStepTotals(startDate: Date, endDate: Date = new Date()): Promise<Map<string, number>> {
-    const byDay = new Map<string, number>();
+    const byDayOrigin = new Map<string, Map<string, number>>();
+    const add = (dk: string, origin: string, count: number) => {
+      let origins = byDayOrigin.get(dk);
+      if (!origins) {
+        origins = new Map();
+        byDayOrigin.set(dk, origins);
+      }
+      origins.set(origin, (origins.get(origin) ?? 0) + count);
+    };
     try {
       const isInitialized = await initialize();
-      if (!isInitialized) return byDay;
+      if (!isInitialized) return new Map();
       let pageToken: string | undefined;
       let pageGuard = 0;
       do {
@@ -225,19 +394,105 @@ class HealthConnectService {
           ...(pageToken ? { pageToken } : {}),
         } as never)) as { records?: Array<Record<string, unknown>>; pageToken?: string };
         for (const record of page.records ?? []) {
+          if (isWithingsHcOrigin(record)) continue;
           const count = Number(record.count ?? 0);
           if (!Number.isFinite(count) || count <= 0) continue;
           const ts = String(record.endTime ?? record.startTime ?? record.time ?? '');
           const ms = Date.parse(ts);
           if (!Number.isFinite(ms)) continue;
           const dk = localDayKeyFromMs(ms);
-          byDay.set(dk, (byDay.get(dk) ?? 0) + count);
+          const meta = record.metadata;
+          const origin =
+            meta && typeof meta === 'object'
+              ? String((meta as Record<string, unknown>).dataOrigin ?? 'unknown')
+              : 'unknown';
+          add(dk, origin, count);
         }
         pageToken = page.pageToken || undefined;
         pageGuard += 1;
       } while (pageToken && pageGuard < HC_MAX_PAGES);
     } catch {
-      /* permission or HC unavailable */
+      return new Map();
+    }
+    const byDay = new Map<string, number>();
+    for (const [dk, origins] of byDayOrigin) {
+      let best = 0;
+      for (const n of origins.values()) {
+        if (n > best) best = n;
+      }
+      if (best > 0) byDay.set(dk, Math.round(best));
+    }
+    return byDay;
+  }
+
+  /**
+   * Daily distance (km): max across non-Withings origins (same reason as steps).
+   */
+  async fetchDailyDistanceKmTotals(
+    startDate: Date,
+    endDate: Date = new Date(),
+  ): Promise<Map<string, number>> {
+    const byDayOrigin = new Map<string, Map<string, number>>();
+    const add = (dk: string, origin: string, km: number) => {
+      let origins = byDayOrigin.get(dk);
+      if (!origins) {
+        origins = new Map();
+        byDayOrigin.set(dk, origins);
+      }
+      origins.set(origin, (origins.get(origin) ?? 0) + km);
+    };
+    try {
+      const isInitialized = await initialize();
+      if (!isInitialized) return new Map();
+      let pageToken: string | undefined;
+      let pageGuard = 0;
+      do {
+        const page = (await readRecords('Distance' as never, {
+          timeRangeFilter: {
+            operator: 'between',
+            startTime: startDate.toISOString(),
+            endTime: endDate.toISOString(),
+          },
+          pageSize: HC_PAGE_SIZE,
+          ...(pageToken ? { pageToken } : {}),
+        } as never)) as { records?: Array<Record<string, unknown>>; pageToken?: string };
+        for (const record of page.records ?? []) {
+          if (isWithingsHcOrigin(record)) continue;
+          const distance = record.distance;
+          let km = 0;
+          if (distance && typeof distance === 'object') {
+            const d = distance as Record<string, unknown>;
+            km = Number(d.inKilometers ?? 0);
+            if (!Number.isFinite(km) || km <= 0) {
+              const meters = Number(d.inMeters ?? 0);
+              km = Number.isFinite(meters) && meters > 0 ? meters / 1000 : 0;
+            }
+          }
+          if (km <= 0) continue;
+          const ts = String(record.endTime ?? record.startTime ?? record.time ?? '');
+          const ms = Date.parse(ts);
+          if (!Number.isFinite(ms)) continue;
+          const dk = localDayKeyFromMs(ms);
+          const meta = record.metadata;
+          const origin =
+            meta && typeof meta === 'object'
+              ? String((meta as Record<string, unknown>).dataOrigin ?? 'unknown')
+              : 'unknown';
+          add(dk, origin, km);
+        }
+        pageToken = page.pageToken || undefined;
+        pageGuard += 1;
+      } while (pageToken && pageGuard < HC_MAX_PAGES);
+    } catch {
+      return new Map();
+    }
+    const byDay = new Map<string, number>();
+    for (const [dk, origins] of byDayOrigin) {
+      let best = 0;
+      for (const n of origins.values()) {
+        if (n > best) best = n;
+      }
+      if (best > 0) byDay.set(dk, best);
     }
     return byDay;
   }

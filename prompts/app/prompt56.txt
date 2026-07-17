@@ -1,8 +1,8 @@
 ## Prompt 56 — iOS alpha (shared UI, HealthKit services layer)
 
-**Status: partial (Phase B glucose — 2026-07-12)** — HealthKit blood glucose on TestFlight **1.2.2 (23)** (CareSens Air via Apple Health). Steps/HR via HealthKit still deferred.  
+**Status: partial (Phase B glucose — 2026-07-12; Phase C steps/HR — 2026-07-17 in `done/prompt76`)** — HealthKit blood glucose on TestFlight; steps/HR via Apple Health when Withings watch is off (prompt76).  
 **Priority:** CareSens Air phone verify when sensor arrives  
-**Builds on:** `done/prompt55.txt` · `done/prompt65.txt` Phase A (Withings-first TestFlight) · `prompt47.txt`
+**Builds on:** `done/prompt55.txt` · `done/prompt65.txt` Phase A (Withings-first TestFlight) · `done/prompt76.txt` · `prompt47.txt`
 
 ---
 
@@ -73,10 +73,11 @@ User mental model (correct):
 | Survey answer | Android | iOS |
 |---------------|---------|-----|
 | CGM Y | `glucose: health-connect` | `glucose: healthkit` |
-| Watch N, need steps | `activity: samsung-steps` | `activity: healthkit-steps` |
+| Watch N, need steps | `activity: health-connect` | `activity: healthkit` |
 | Watch Y | `activity: withings` | `activity: withings` |
 | Scale / manual | same | same |
 
+**Shipped in prompt76:** Watch No → phone health on both platforms; thin Allow + Help UI; HealthKit steps/HR + active energy merge.
 **Wizard step 4 copy (iOS):** “Tap Next — Apple Health may open once…” + request HealthKit read types (glucose, steps).
 
 **Runtime:** `getHealthDataSource()` → `'health-connect' | 'healthkit' | 'demo-expo-go'` (remove `'demo-non-android'` for release builds).
