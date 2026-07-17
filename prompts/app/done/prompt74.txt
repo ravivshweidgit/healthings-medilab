@@ -1,0 +1,44 @@
+## Prompt 74 — Snappy Body Save + setup toggles (no-scale)
+
+**Status: done (2026-07-17)** — Phone-tested Android.  
+**Builds on:** `done/prompt73.txt` (manual body UX)
+
+### Problem
+
+1. **Save body** felt slow on Android (seconds) vs instant on iOS — not an AI/BMR call.
+2. **Withings scale Yes/No** felt stuck — chip waited on Body form mount + dashboard trend switch.
+
+### Root cause
+
+| Action | Cost |
+|--------|------|
+| Save | Awaited `loadManualTrend` → up to **128d Health Connect** step fetch on Android; iOS HC stub is empty/instant |
+| Scale toggle | `setSourceConfig` in the same frame mounted/unmounted `ManualBodyProfileSection` and recomputed charts |
+
+BMR is local Mifflin / stored override — no Gemini on Save.
+
+### What shipped
+
+| Area | Behavior |
+|------|----------|
+| **Save** | One `logManualWeighIn` write (optional `bmrKcal` in same call); `onSaved` does not await trend rebuild |
+| **Trend** | Skip HC step pull when activity is Withings (`isHealthConnectActivity`) |
+| **Scale chip** | `setupToggles` updates immediately; `sourceConfig` (Body form / charts) deferred via `requestAnimationFrame` + `InteractionManager` |
+| **manualBodyScaleActive** | Driven by `sourceConfig` so chip can flip without mounting Body in the same frame |
+
+### Primary files
+
+- `app/src/screens/DashboardScreen.tsx`
+- `app/src/components/ManualBodyProfileSection.tsx`
+- `app/src/services/ManualBodyService.ts`
+
+### Phone-tested
+
+- [x] Android: Save body snappy
+- [x] Android: Withings scale Yes/No chip snappy; Body section follows shortly after
+- [ ] iOS TestFlight same feel (ship with this build)
+
+### Related
+
+- `done/prompt73.txt` — Body UI + BMR override
+- Play AAB: bump **native** `android/app/build.gradle` `versionCode` with `app.config.js` (gradle is what Play reads)

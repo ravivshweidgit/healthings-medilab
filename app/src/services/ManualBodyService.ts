@@ -136,10 +136,18 @@ export async function logManualWeighIn(
     fatKg?: number;
     muscleKg?: number;
     musclePct?: number;
+    /** When set, persist as manual BMR override in the same write. */
+    bmrKcal?: number;
   },
 ): Promise<ManualBodySnapshot> {
   const existing = await getManualBody();
   const est = resolveCompositionForWeighIn(existing, opts, weightKg);
+  if (opts.bmrKcal != null) {
+    const rounded = Math.round(opts.bmrKcal);
+    if (rounded >= 800 && rounded <= 4500) {
+      await setManualBmrKcal(rounded);
+    }
+  }
   const bmrOverride = await getManualBmrKcal();
   const snap: ManualBodySnapshot = {
     weight_kg: weightKg,

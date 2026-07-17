@@ -8,6 +8,7 @@ import {
   Alert,
   AppState,
   Image,
+  InteractionManager,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -399,7 +400,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       }
       const latestWeight = snap?.weight_kg ?? history[history.length - 1]?.weight_kg ?? 0;
       const lookback = Math.max(...TREND_PERIOD_DAY_OPTIONS, DEFAULT_TREND_PERIOD_DAYS);
-      const stepMap = await fetchDailyStepTotalsForTrend(lookback, latestWeight, height, gender);
+      // HC step pull is slow on Android (~seconds for long lookback). Skip when activity is Withings.
+      const stepMap = isHealthConnectActivity(config)
+        ? await fetchDailyStepTotalsForTrend(lookback, latestWeight, height, gender)
+        : new Map<string, number>();
       const days = buildManualTrendDays({
         lookbackDays: lookback,
         heightCm: height,
@@ -576,10 +580,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     return false;
   }, [setupToggles, sourceConfig]);
 
-  /** Scale off in setup toggles (live UI) or persisted source_config — manual body path. */
+  /** Scale off in persisted source_config — drives Body form / charts (not the chip, so toggle stays snappy). */
   const manualBodyScaleActive = useMemo(() => {
-    if (setupToggles != null) return !setupToggles.withingsScale;
     if (sourceConfig != null) return sourceConfig.bodyComposition !== 'withings';
+    if (setupToggles != null) return !setupToggles.withingsScale;
     return false;
   }, [setupToggles, sourceConfig]);
 
@@ -598,23 +602,28 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     return null;
   }, [bodyScan, effectiveBodyScan, manualBodySnap, sourceConfig]);
 
-  const persistSetupToggles = useCallback(
-    async (next: SetupToggles) => {
-      const config = sourceConfigFromToggles(next);
-      await saveSourceConfig(config);
+  const persistSetupToggles = useCallback((next: SetupToggles) => {
+    const config = sourceConfigFromToggles(next);
+    // Chip paints in this frame; Body form / chart switch wait until after paint.
+    setSetupToggles(next);
+    const applyHeavy = () => {
       setSourceConfig(config);
-      setSetupToggles(next);
+      void saveSourceConfig(config);
       if (config.bodyComposition === 'manual') {
-        await loadManualTrend();
+        void loadManualTrend();
       }
       if (isHealthConnectActivity(config.activity)) {
-        await healthConnectService.requestActivityPermissions();
-        await syncWithings();
-        await loadHcStepTotals();
+        void (async () => {
+          await healthConnectService.requestActivityPermissions();
+          await syncWithings();
+          await loadHcStepTotals();
+        })();
       }
-    },
-    [loadManualTrend, syncWithings, loadHcStepTotals],
-  );
+    };
+    requestAnimationFrame(() => {
+      InteractionManager.runAfterInteractions(applyHeavy);
+    });
+  }, [loadManualTrend, syncWithings, loadHcStepTotals]);
 
   const baseTrendDays = useManualWeightTrend ? manualTrendDays : bodyTrendDays;
 
@@ -2198,9 +2207,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     userAge={manualBodyProfile.age!}
                     massUnit={unitsPrefs.mass}
                     energyUnit={unitsPrefs.energy}
-                    onSaved={async (snap) => {
+                    onSaved={(snap) => {
                       setManualBodySnap(snap);
-                      await loadManualTrend(snap);
+                      // Don't block Save on trend rebuild (Android HC step fetch is slow).
+                      void loadManualTrend(snap);
                     }}
                   />
                 ) : (

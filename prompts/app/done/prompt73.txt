@@ -37,7 +37,7 @@
 
 - [x] Android: no-scale My Profile — no crash; Body UI Fat/Muscle % and mass; one Save; BMR override
 - [x] Activity shows on Food Log / energy with watch + manual weight
-- [ ] iOS TestFlight same Body UI (build after this ship)
+- [x] iOS TestFlight Body UI first impression OK (1.2.5 / 39); snappy Save/toggle follow-up in prompt74
 - [ ] Play internal AAB smoke (version bump with this ship)
 
 ### Deferred

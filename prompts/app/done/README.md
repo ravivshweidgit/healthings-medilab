@@ -68,6 +68,8 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt73** — done (2026-07-17). Manual body dual Fat/Muscle (%|mass), BMR override, watch activity merge on manual weight, My Profile Android/iOS parity. Phone-tested Android. See `done/prompt73.txt`.
 
+**prompt74** — done (2026-07-17). Snappy Body Save + setup scale toggle (defer HC/trend/Body mount). Phone-tested Android. See `done/prompt74.txt`.
+
 **prompt48** — done (2026-06-29). Lipid trend charts (Total/LDL/TG/HDL strips + green safe zones); mentors/coach see **all saved lab draws** in USER DATA. Phone-tested. Commits `308500f`, `fa0d6b1`. Supersedes prompt30 chart deferral + latest-only scope.
 
 **prompt50** — done (2026-06-30). Nutritionist visit report: clinical HTML export (7/14/30/90d), Appendix A charts (lipids/body/energy/CGM), Appendix B raw data. Phone-tested. See `done/prompt50.txt`.

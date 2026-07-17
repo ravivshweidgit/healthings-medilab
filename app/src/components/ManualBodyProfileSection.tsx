@@ -16,7 +16,6 @@ import {
 } from '../logic/bmrEstimate';
 import {
   logManualWeighIn,
-  saveManualBmrOverride,
   type ManualBodySnapshot,
 } from '../services/ManualBodyService';
 import type { Gender } from '../services/TargetService';
@@ -311,17 +310,12 @@ export function ManualBodyProfileSection({
 
     setSaving(true);
     try {
-      let snap: ManualBodySnapshot | null = manualBodySnap;
       const weightToSave = wKg ?? manualBodySnap!.weight_kg;
-      snap = await logManualWeighIn(weightToSave, { ...profileOpts, ...opts });
-      if (bmrKcal != null) {
-        const withBmr = await saveManualBmrOverride(bmrKcal);
-        if (withBmr) snap = withBmr;
-      }
-      if (!snap) {
-        Alert.alert('Body', 'Nothing to save.');
-        return;
-      }
+      const snap = await logManualWeighIn(weightToSave, {
+        ...profileOpts,
+        ...opts,
+        ...(bmrKcal != null ? { bmrKcal } : {}),
+      });
       await onSaved(snap);
     } finally {
       setSaving(false);
