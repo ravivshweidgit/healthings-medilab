@@ -617,6 +617,16 @@ export function FoodLogModal({
             setMergePreview(null);
             return;
           }
+          // Nutritionist alert path: keep analyzed items in the editor so Save anyway
+          // does not persist an empty meal (text flow already setItems before tryAutoSave).
+          setItems(result.items);
+          setConfidence(result.confidence);
+          setDescription(result.description);
+          setSuggestion(result.suggestion);
+          setPhotoSession(null);
+          setMergePreview(null);
+          setScreen('result');
+          return;
         }
 
         setPhotoSession({
@@ -799,6 +809,12 @@ export function FoodLogModal({
   }, [items, mealTime, editingId, overrideSaveOnce, overrideSnapshotKey, recomputeMealIssues, persistSave]);
 
   const handleSaveAnyway = useCallback(async () => {
+    if (items.length === 0) {
+      setShowIssueModal(false);
+      setError('Nothing to save — meal items are missing. Edit or re-analyze, then save.');
+      setScreen('result');
+      return;
+    }
     const snapshot = mealItemsSnapshotKey(items);
     setOverrideSaveOnce(true);
     setOverrideSnapshotKey(snapshot);

@@ -1,0 +1,32 @@
+## Prompt 75 — Food Log: Save anyway after camera keeps meal items
+
+**Status: done (2026-07-17)** — Phone-tested Android.  
+**Builds on:** `done/prompt61.txt` (one-tap text meal save); `done/prompt20.txt` (photo meal flow)
+
+### Problem
+
+After a **camera** meal, if the Nutritionist alert appeared and the user tapped **Save anyway**, the app saved an **empty meal**. **Edit meal** then save worked.
+
+### Root cause
+
+First-photo auto-save (`tryAutoSaveNewMeal`) showed the issue modal when rules failed, but **did not `setItems`** with the analyzed foods (unlike the text path, which sets items before try-auto-save). **Save anyway** called `persistSave()` with `items === []`.
+
+### What shipped
+
+| Area | Behavior |
+|------|----------|
+| **Camera + alert** | On blocked auto-save, load `result.items` into the editor, clear photoSession, stay on result — Save anyway persists the real meal |
+| **Guard** | Save anyway refuses empty items and shows an error instead of writing a blank entry |
+
+### Primary files
+
+- `app/src/components/FoodLogModal.tsx`
+
+### Phone-tested
+
+- [x] Android: camera → Nutritionist alert → Save anyway → meal has foods/macros
+- [ ] iOS TestFlight same path (ship with this build)
+
+### Related
+
+- `done/prompt61.txt` — text one-tap save (already set items before issue check)
