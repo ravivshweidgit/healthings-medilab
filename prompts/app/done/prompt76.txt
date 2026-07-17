@@ -1,6 +1,6 @@
 ## Prompt 76 — Watch off → phone health (HC / Apple Health)
 
-**Status: done (2026-07-18)** — Android phone-tested; iOS TestFlight after this ship  
+**Status: done (2026-07-18)** — commit `447e5ac`; Android phone-tested; iOS TestFlight after this ship  
 **Builds on:** `done/prompt58` (Your setup), `done/prompt64`/`65` (adapters), `prompt56` (HealthKit), `done/prompt67`/`69` (shallow/deep sync UX)
 
 ### Problem
