@@ -1,6 +1,6 @@
 ## Prompt 76 — Watch off → phone health (HC / Apple Health)
 
-**Status: done (2026-07-18)** — commit `447e5ac`; Android phone-tested; iOS TestFlight after this ship  
+**Status: done (2026-07-18)** — commit `447e5ac`; phone-tested Android (Samsung) + iOS Watch Off (TF 1.2.8 / 42)  
 **Builds on:** `done/prompt58` (Your setup), `done/prompt64`/`65` (adapters), `prompt56` (HealthKit), `done/prompt67`/`69` (shallow/deep sync UX)
 
 ### Problem
@@ -57,9 +57,9 @@ Brand does not matter. User populates the phone health store; Healthings only re
 - [x] Android: steps/kcal near Samsung Health after max-origin + 0.55 factor (~496 vs ~485)
 - [x] Android: Withings→HC advisory when Withings origin present in HC
 - [x] Android: Watch Yes still Withings cloud (shallow window locks older days)
-- [ ] iOS: Watch No → Allow → steps/HR from Apple Health (TestFlight this ship)
-- [ ] iOS: today Food Log shows activity + burned at 0 steps
-- [ ] iOS: Withings→Apple Health advisory when applicable
+- [x] iOS: Watch No → Allow → steps/HR from Apple Health (TestFlight 1.2.8 / 42)
+- [x] iOS: today Food Log shows activity + burned at 0 steps
+- [ ] iOS: Withings→Apple Health advisory when applicable (optional / when share ON)
 
 ### Deferred
 
