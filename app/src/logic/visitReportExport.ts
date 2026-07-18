@@ -57,7 +57,7 @@ function preblock(text: string): string {
 function ui(lang?: UserLanguage | null) {
   if (lang?.code === 'he') {
     return {
-      pageTitle: 'דוח ביקור — Healthings Medilab',
+      pageTitle: 'דוח ביקור — HEALTHINGS.AI',
       title: 'דוח ביקור — Healthings',
       subtitle: 'סיכום wellness לשיתוף עם תזונאית/מטפל — לא ייעוץ רפואי',
       exportedLabel: 'יוצא',
@@ -87,7 +87,7 @@ function ui(lang?: UserLanguage | null) {
   }
   if (lang?.code === 'ar') {
     return {
-      pageTitle: 'تقرير الزيارة — Healthings Medilab',
+      pageTitle: 'تقرير الزيارة — HEALTHINGS.AI',
       title: 'تقرير الزيارة — Healthings',
       subtitle: 'ملخص wellness للمشاركة مع أخصائي التغذية — ليس نصيحة طبية',
       exportedLabel: 'تاريخ التصدير',
@@ -116,7 +116,7 @@ function ui(lang?: UserLanguage | null) {
     };
   }
   return {
-    pageTitle: 'Visit report — Healthings Medilab',
+    pageTitle: 'Visit report — HEALTHINGS.AI',
     title: 'Visit report — Healthings',
     subtitle: 'Wellness summary to share with your nutritionist — not medical advice',
     exportedLabel: 'Exported',

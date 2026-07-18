@@ -133,7 +133,7 @@ export function LoginScreen({ onSignedIn }: Props) {
             source={BRAND_LOGO}
             style={[styles.logo, step === 'code' && styles.logoCompact]}
             resizeMode="contain"
-            accessibilityLabel="Healthings"
+            accessibilityLabel="HEALTHINGS.AI"
           />
 
           <View style={[styles.card, cardShadow]}>

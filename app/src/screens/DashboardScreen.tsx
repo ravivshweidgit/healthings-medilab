@@ -14,7 +14,6 @@ import {
   Platform,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,7 +22,12 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+  initialWindowMetrics,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import { BmrHistoryChart7d } from '../components/BmrHistoryChart7d';
 import { FoodLogModal } from '../components/FoodLogModal';
 import { FoodMacroStrip } from '../components/FoodMacroStrip';
@@ -38,6 +42,7 @@ import { RulesStrip } from '../components/RulesStrip';
 import { NutritionDirectivesStrip } from '../components/NutritionDirectivesStrip';
 import { LabResultsStrip } from '../components/LabResultsStrip';
 import { WelcomeQuickStartWizard } from '../components/WelcomeQuickStartWizard';
+import { WithingsDevicesMark } from '../components/GearIllustrations';
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
 import { ManualBodyProfileSection } from '../components/ManualBodyProfileSection';
 import { getManualBody, getManualBodyHistory, manualBodyToDashboardMetrics, countDistinctWeighInDays, type ManualBodySnapshot } from '../services/ManualBodyService';
@@ -1624,7 +1629,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const demoNotice = demoNoticeCopy(dataSource);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1644,12 +1649,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           />
         }
       >
-        <View style={[styles.brandHeader, { height: brandHeaderHeight }]} accessibilityRole="header">
+        <View
+          style={[styles.brandHeader, { height: brandHeaderHeight, marginTop: 8 }]}
+          accessibilityRole="header"
+        >
           <Image
             source={BRAND_LOGO}
             style={styles.brandLogo}
             resizeMode="contain"
-            accessibilityLabel="Healthings Medilab"
+            accessibilityLabel="HEALTHINGS.AI"
           />
         </View>
 
@@ -1690,11 +1698,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             {showWithingsBodyHeader ? (
               <>
                 <View style={styles.withingsLogoWrap}>
-                  <Image
-                    source={require('../../assets/WithingsLogo.jpeg')}
-                    style={styles.withingsHeaderLogo}
-                    resizeMode="contain"
-                    accessibilityLabel="Withings"
+                  <WithingsDevicesMark
+                    showScale={
+                      setupToggles?.withingsScale === true ||
+                      (setupToggles == null && sourceConfig?.bodyComposition === 'withings')
+                    }
+                    showWatch={
+                      setupToggles?.withingsWatch === true ||
+                      (setupToggles == null && sourceConfig?.activity === 'withings')
+                    }
                   />
                 </View>
                 <View style={styles.withingsHeaderMiddle}>
@@ -2704,15 +2716,12 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   withingsLogoWrap: {
-    width: 52,
+    minWidth: 52,
+    maxWidth: 88,
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
-  },
-  withingsHeaderLogo: {
-    width: '100%',
-    height: '100%',
+    marginRight: 8,
   },
   withingsHeaderMiddle: {
     flex: 1,

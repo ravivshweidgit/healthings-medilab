@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CGM / continuous glucose — Healthings Help</title>
+    <link rel="icon" href="../assets/icon.png" type="image/png" />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../styles.css?v=20260718c" />
+  </head>
+  <body>
+    <main class="wrap">
+      <nav class="help-nav">
+        <a href="../index.html">Home</a>
+        <a href="index.html">Help</a>
+        <a href="cgm.html"><strong>CGM</strong></a>
+      </nav>
+
+      <section class="hero">
+        <div class="help-icon-hero" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" width="140" height="160" viewBox="0 0 120 140" fill="none">
+            <defs>
+              <linearGradient id="dropGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#E85A5A"/>
+                <stop offset="55%" stop-color="#C62828"/>
+                <stop offset="100%" stop-color="#8E1B1B"/>
+              </linearGradient>
+            </defs>
+            <ellipse cx="60" cy="132" rx="28" ry="6" fill="#D4D8DC" opacity="0.55"/>
+            <path d="M60 8 C60 8 22 58 22 82 C22 104 38 122 60 122 C82 122 98 104 98 82 C98 58 60 8 60 8 Z" fill="url(#dropGrad)"/>
+            <path d="M42 55 C38 68 40 88 52 98" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity="0.28" fill="none"/>
+            <rect x="34" y="58" width="52" height="40" rx="8" fill="#fff" opacity="0.95"/>
+            <path d="M42 88 L50 78 L58 82 L68 68 L78 74" stroke="#2E7D5A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <circle cx="78" cy="74" r="3.5" fill="#2E7D5A"/>
+            <path d="M42 92 H78" stroke="#D4D8DC" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <p class="help-cgm-label">CGM</p>
+        </div>
+        <p class="help-icon-caption">Glucose from your phone health app</p>
+        <p class="badge">Glucose</p>
+        <h1>CGM on Android vs iPhone</h1>
+        <p class="lead">
+          A <strong>CGM</strong> (continuous glucose monitor) sends live glucose into your phone’s health app.
+          Healthings only <strong>reads</strong> that data — it does not talk to the sensor over Bluetooth.
+        </p>
+      </section>
+
+      <section class="card prose">
+        <h2>In Quick Start</h2>
+        <p>
+          Answer <strong>Yes</strong> to “Do you track glucose with a CGM?” Then allow the health permissions
+          when the app asks. You can change this later in <strong>My Profile → Your setup</strong>.
+        </p>
+
+        <h2>Android</h2>
+        <ol>
+          <li>Your CGM companion app (or a bridge like <strong>xDrip+</strong>) must write blood glucose to
+            <strong>Health Connect</strong>.</li>
+          <li>In Healthings: CGM = <strong>Yes</strong>.</li>
+          <li>Allow Healthings to read <strong>Blood glucose</strong> in Health Connect.</li>
+          <li>Open the dashboard and pull to refresh — the glucose chart should fill.</li>
+        </ol>
+        <p class="tip">
+          Common path: Libre / CareSens (or similar) → companion or xDrip+ → Health Connect → Healthings.
+        </p>
+
+        <h2>iPhone</h2>
+        <ol>
+          <li>Install your CGM app (for example <strong>CareSens Air</strong>) and turn on sharing to
+            <strong>Apple Health</strong> (Blood Glucose).</li>
+          <li>In Healthings: CGM = <strong>Yes</strong>.</li>
+          <li>Allow Healthings to read <strong>Blood Glucose</strong> when Apple Health asks
+            (or later: Settings → Health → Data Access &amp; Devices → Healthings).</li>
+          <li>Open the dashboard and Sync / pull to refresh.</li>
+        </ol>
+        <p class="tip">
+          If live sharing is not available yet, use <strong>CSV Import</strong> from My Profile as a backup.
+        </p>
+
+        <h2>No CGM?</h2>
+        <p>
+          Answer <strong>No</strong> in Quick Start. You can still import lab PDFs and use the coach without
+          a live glucose chart.
+        </p>
+
+        <h2>Related</h2>
+        <ul>
+          <li><a href="devices.html">What connects where (scale, watch, CGM)</a></li>
+          <li><a href="phone-health-activity.html">Steps &amp; heart rate (no Withings watch)</a></li>
+        </ul>
+
+        <p><a href="index.html">← All help topics</a></p>
+      </section>
+    </main>
+  </body>
+</html>

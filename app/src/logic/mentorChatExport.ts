@@ -27,8 +27,8 @@ function exportUi(
   const collective = mentorsCollectiveLabel(lang, mentorGender);
   if (lang?.code === 'he') {
     return {
-      pageTitle: `${collective} — Healthings Medilab`,
-      title: `Healthings Medilab — ${collective}`,
+      pageTitle: `${collective} — HEALTHINGS.AI`,
+      title: `HEALTHINGS.AI — ${collective}`,
       dateLabel: 'תאריך',
       exportedLabel: 'יוצא',
       youLabel: 'אני',
@@ -44,8 +44,8 @@ function exportUi(
   }
   if (lang?.code === 'ar') {
     return {
-      pageTitle: `${collective} — Healthings Medilab`,
-      title: `Healthings Medilab — ${collective}`,
+      pageTitle: `${collective} — HEALTHINGS.AI`,
+      title: `HEALTHINGS.AI — ${collective}`,
       dateLabel: 'التاريخ',
       exportedLabel: 'تاريخ التصدير',
       youLabel: 'أنا',
@@ -60,8 +60,8 @@ function exportUi(
     };
   }
   return {
-    pageTitle: `${collective} — Healthings Medilab`,
-    title: `Healthings Medilab — ${collective}`,
+    pageTitle: `${collective} — HEALTHINGS.AI`,
+    title: `HEALTHINGS.AI — ${collective}`,
     dateLabel: 'Date',
     exportedLabel: 'Exported',
     youLabel: 'Me',

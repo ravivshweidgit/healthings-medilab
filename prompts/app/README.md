@@ -29,11 +29,15 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 
 **prompt64** — done (2026-07-12). HC activity Phase 1 + Garmin colleague validation. See `done/prompt64.txt`.
 
+**prompt77** — done (2026-07-18). Quick Start one-question UX. See `done/prompt77.txt`.
+
+**prompt78** — done (2026-07-18). HEALTHINGS.AI brand lockup. See `done/prompt78.txt`.
+
 ## Done (`prompts/app/done/`)
 
 See [done/README.md](./done/README.md) for the full index.
 
-Recent: **55** Welcome & Quick Start + manual trend/energy · **53** nutritionist PDF import · **51** My Rules version history.
+Recent: **78** HEALTHINGS.AI brand · **77** Quick Start UX · **76** phone health Watch Off · **55** Welcome wizard.
 
 ## Macros reference dumps
 

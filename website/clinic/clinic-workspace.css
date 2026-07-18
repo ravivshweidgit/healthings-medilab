@@ -3,11 +3,15 @@
 :root {
   --bg: #f0f2f5;
   --surface: #ffffff;
-  --text: #1a1a1a;
+  --text: #1a2b4a;
   --muted: #6b7280;
-  --green: #2e7d5a;
-  --green-light: #e8f5e9;
-  --blue: #2196f3;
+  --navy: #1a2b4a;
+  --accent: #3d9dd6;
+  --accent-light: #e8f4fc;
+  /* Brand actions (was wellness green) */
+  --green: #1a2b4a;
+  --green-light: #e8f4fc;
+  --blue: #3d9dd6;
   --red: #ef5350;
   --orange: #ff9800;
   --grid: #e8eaed;

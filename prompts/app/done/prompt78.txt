@@ -1,0 +1,55 @@
+## Prompt 78 — HEALTHINGS.AI brand lockup
+
+**Status: done (2026-07-18)** — ship commit noted after release  
+**Builds on:** landing site (`prompt-be-07`), dashboard brand header, Play/TestFlight icons
+
+### Problem
+
+App and site still showed the old Medilab heart lockup and “Healthings Medilab” naming. Dashboard logo sat under the Android status bar (RN `SafeAreaView` ignored top inset on edge-to-edge). Tagline and export chrome did not match the metabolic OS positioning.
+
+### Lockup decision
+
+- Wordmark: **HEALTHINGS** [teal ECG] **.AI** — navy text; teal **only** on ECG
+- App icon / mark: geometric heart on glass tile (`HealthingsMark`) — no teal ECG on heart
+- Tagline: **Personalized metabolic OS with your licensed nutritionist**
+- Chrome brand name: **HEALTHINGS.AI** (exports, a11y, clinic/help site)
+
+### What shipped
+
+| Area | Behavior |
+|------|----------|
+| Assets | `brand-logo.png`, `icon.png`, `adaptive-icon.png`, `splash-icon.png`, `favicon.png` regenerated |
+| Scripts | `app/scripts/render-healthings-ai-wordmark.py`, `render-healthings-app-icon.py` |
+| Branding folder | `app/assets/branding/healthings_wordmark.{png,svg}`, `healthings_mark.{png,svg}`, Medilab PNG backup |
+| App UI | Dashboard / Login / Quick Start use new wordmark; Dashboard uses safe-area-context + top margin |
+| Copy | Visit report + mentor chat export titles → HEALTHINGS.AI |
+| Website | `index.html`, `privacy.html`, help/clinic brand text; favicon + `assets/brand-logo.png`; CSS cache-bust |
+| Live site | Deployed to `healthings.ai` (logo cache-bust `?v=20260718e`) |
+
+### Primary files
+
+- `app/assets/brand-logo.png`, `icon.png`, `adaptive-icon.png`, `splash-icon.png`, `favicon.png`
+- `app/assets/branding/*`
+- `app/src/screens/DashboardScreen.tsx`, `LoginScreen.tsx`
+- `app/src/components/WelcomeQuickStartWizard.tsx`
+- `app/src/components/GearIllustrations.tsx` (`HealthingsMark`, `HealthingsWordmarkIllustration`)
+- `app/src/logic/visitReportExport.ts`, `visitReportClinical.ts`, `mentorChatExport.ts`
+- `website/index.html`, `privacy.html`, `styles.css`, `assets/brand-logo.png`, `assets/icon.png`
+- `website/clinic/*`, `website/help/index.html`
+
+### Phone-tested
+
+- [x] Android: new wordmark on dashboard (bi)
+- [x] Android: status bar no longer overlaps logo (safe-area fix + bi)
+- [x] Website: https://healthings.ai shows new logo after redeploy
+- [ ] iOS: splash / home icon on TestFlight (this release)
+
+### Deferred
+
+- Full UI i18n of chrome (stays English)
+- App Store / Play listing creatives refresh beyond icon
+
+### Related
+
+- `done/prompt77.txt` — Quick Start gear + meals art  
+- Old Medilab PNG: `app/assets/branding/brand-logo-medilab-backup.png`  

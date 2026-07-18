@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Devices &amp; platforms — Healthings Help</title>
+    <title>What connects where — Healthings Help</title>
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="../styles.css" />
+    <link rel="stylesheet" href="../styles.css?v=20260718c" />
   </head>
   <body>
     <main class="wrap">
@@ -17,51 +17,42 @@
       </nav>
 
       <section class="hero">
-        <p class="badge">Alpha matrix</p>
-        <h1>Devices &amp; platform notes</h1>
-        <p class="lead">What works where during the alpha. The app UI is the same; data sources differ by phone and toggles.</p>
+        <p class="badge">Setup</p>
+        <h1>What connects where</h1>
+        <p class="lead">
+          The app screens are the same on Android and iPhone. Only <strong>where data comes from</strong> changes —
+          based on your Yes/No answers in Quick Start (or My Profile → Your setup).
+        </p>
       </section>
 
       <section class="card prose">
-        <h2>Recommended alpha combos</h2>
+        <h2>Pick your path</h2>
         <ul>
-          <li><strong>Withings watch only</strong> (Android or iPhone) — best supported path for loaner ScanWatch testers.</li>
-          <li><strong>Withings scale + watch</strong> — full body composition + activity (Android or iPhone).</li>
-          <li><strong>Android + CGM</strong> — live glucose via Health Connect (Libre / CareSens / xDrip).</li>
-          <li><strong>iPhone + CareSens Air</strong> — live glucose via <strong>Apple Health</strong> (CareSens Air → share with Health → Healthings reads Blood Glucose).</li>
-          <li><strong>Android + Garmin watch</strong> — activity via Health Connect (Garmin Connect sync).</li>
-        </ul>
-
-        <h2>CGM (glucose)</h2>
-        <ul>
-          <li><strong>Android:</strong> turn <strong>CGM → Yes</strong> in Your setup; grant Health Connect blood glucose permission; companion app must write to Health Connect (e.g. xDrip+).</li>
-          <li><strong>iPhone:</strong> install <strong>CareSens Air</strong>, enable sharing to <strong>Apple Health</strong>, turn <strong>CGM → Yes</strong> in Healthings, allow Blood Glucose when prompted, then <strong>Sync</strong>. CSV Import remains available as a backup.</li>
-        </ul>
-
-        <h2>Activity &amp; heart rate</h2>
-        <ul>
-          <li><strong>Withings watch Yes</strong> — Withings cloud on Android and iPhone.</li>
           <li>
-            <strong>Withings watch No</strong> — phone health store (Health Connect / Apple Health). Any
-            brand that writes there works — see
-            <a href="phone-health-activity.html">steps &amp; heart rate guide</a>.
+            <strong>Withings scale</strong> — weight and body composition from your Withings account after you
+            <strong>Link Withings</strong>. See <a href="withings-devices.html">which products work</a>.
+          </li>
+          <li>
+            <strong>Withings watch</strong> — activity and heart rate from Withings cloud. See
+            <a href="withings-watch.html">how to link</a>.
+          </li>
+          <li>
+            <strong>No Withings watch</strong> — steps and heart rate from Health Connect (Android) or Apple Health
+            (iPhone). See <a href="phone-health-activity.html">phone health guide</a>.
+          </li>
+          <li>
+            <strong>CGM (glucose)</strong> — live chart from Health Connect or Apple Health. See the focused guide:
+            <a href="cgm.html">CGM on Android vs iPhone</a>.
+          </li>
+          <li>
+            <strong>No scale</strong> — enter weight manually. See <a href="manual-body.html">manual body guide</a>.
           </li>
         </ul>
 
-        <h2>Body weight &amp; fat</h2>
-        <ul>
-          <li><strong>Withings scale:</strong> automatic from Withings cloud.</li>
-          <li><strong>No scale:</strong> manual log in My Profile — see <a href="manual-body.html">manual body guide</a>.</li>
-        </ul>
-
-        <h2>Clinic portal</h2>
+        <h2>Clinic</h2>
         <p>
-          If you linked a nutritionist clinic, they see a <strong>read-only snapshot</strong> of your phone data. Open the app (or pull to refresh) after big changes so they get an updated snapshot.
-        </p>
-
-        <h2>Same help for everyone</h2>
-        <p>
-          Quick Start, food log, coach, and My Rules work the same on Android and iPhone. Only health <em>sources</em> differ — not the screens.
+          If you linked a nutritionist clinic, they see a <strong>read-only snapshot</strong> of your phone data.
+          Open the app (or pull to refresh) after big changes so they get an updated snapshot.
         </p>
 
         <p><a href="index.html">← All help topics</a></p>

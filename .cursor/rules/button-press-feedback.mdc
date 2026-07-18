@@ -1,0 +1,52 @@
+---
+description: Primary/secondary buttons must show clear pressed feedback and busy spinner when work lags.
+globs: app/src/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Button press & busy feedback (UX 2026)
+
+Users must **feel** a tap immediately. Async work often lags — never leave a primary control looking dead.
+
+## Required for tappable primary / secondary actions
+
+Use `Pressable` with a **pressed** style (not only `opacity` on the whole screen):
+
+| State | Visual |
+|-------|--------|
+| Default | Solid fill + visible border matching the fill |
+| Pressed | Darker fill + **contrasting darker/lighter border** + slight `scale: 0.97` |
+| Busy (work > ~140ms) | Small `ActivityIndicator` in the button + short label like `Working…`; disable double-taps |
+
+### Patterns (Healthings palette)
+
+- **Sky Next** (`#5BAFE8`): pressed → deeper blue + navy border
+- **Navy CTA** (`#1A2B4A`): pressed → near-black navy + sky border
+- **Ghost / Back**: pressed → navy border + light navy wash background
+
+```tsx
+<Pressable
+  style={({ pressed }) => [
+    styles.btn,
+    pressed && !busy && styles.btnPressed,
+    busy && styles.btnDisabled,
+  ]}
+  disabled={busy}
+  onPress={() => void onPressAsync()}
+>
+  {showSpinner ? <ActivityIndicator color="#fff" size="small" /> : null}
+  <Text>{showSpinner ? 'Working…' : 'Label'}</Text>
+</Pressable>
+```
+
+Delay the spinner ~120–160ms so fast actions do not flash.
+
+## Do not
+
+- Rely on default Pressable with no pressed style
+- Block the UI with no in-button feedback while `await`ing save/sync/OAuth
+- Use green for new chrome CTAs — navy / sky blue (see Quick Start)
+
+## Reference
+
+`WelcomeQuickStartWizard.tsx` — `btnNext` / `btnNextPressed`, `btnNavy` / `btnNavyPressed`, `btnGhost` / `btnGhostPressed`, `pressNext` / `pressFinish`.

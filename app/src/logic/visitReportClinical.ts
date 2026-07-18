@@ -138,7 +138,7 @@ function clinicalLabels(lang?: UserLanguage | null) {
       days: 'ימים',
       exported: 'תאריך הפקה',
       disclaimer:
-        'מקור: Healthings Medilab — יומן ארוחות, CGM, Withings, בדיקות מעבדה שהועלו. לשיתוף מקצועי בלבד; אינו אבחון רפואי.',
+        'מקור: HEALTHINGS.AI — יומן ארוחות, CGM, Withings, בדיקות מעבדה שהועלו. לשיתוף מקצועי בלבד; אינו אבחון רפואי.',
       s1: '1. נתוני מטופל ותקופה',
       s2: '2. אנתרופומטריה והרכב גוף',
       s3: '3. סקירת מעבדה',
@@ -209,7 +209,7 @@ function clinicalLabels(lang?: UserLanguage | null) {
       days: 'أيام',
       exported: 'تاريخ الإصدار',
       disclaimer:
-        'المصدر: Healthings Medilab — سجل الوجبات، CGM، Withings، نتائج المختبر المرفوعة. للتعاون المهني فقط.',
+        'المصدر: HEALTHINGS.AI — سجل الوجبات، CGM، Withings، نتائج المختبر المرفوعة. للتعاون المهني فقط.',
       s1: '1. بيانات المريض والفترة',
       s2: '2. القياسات وتكوين الجسم',
       s3: '3. مراجعة المختبر',
@@ -279,7 +279,7 @@ function clinicalLabels(lang?: UserLanguage | null) {
     days: 'days',
     exported: 'Generated',
     disclaimer:
-      'Source: Healthings Medilab — food diary, CGM, Withings body composition/activity, uploaded lab PDFs. For professional collaboration only; not a medical diagnosis.',
+      'Source: HEALTHINGS.AI — food diary, CGM, Withings body composition/activity, uploaded lab PDFs. For professional collaboration only; not a medical diagnosis.',
     s1: '1. Client & reporting period',
     s2: '2. Anthropometrics & body composition',
     s3: '3. Laboratory review',

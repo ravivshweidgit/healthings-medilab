@@ -74,6 +74,10 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt76** — done (2026-07-18). Watch off → phone health (HC / Apple Health); Allow/Deep sync; steps max-origin skip Withings; kcal from steps×0.55; write advisory; Food Log today@0. See `done/prompt76.txt`.
 
+**prompt77** — done (2026-07-18). Quick Start one-question UX + in-wizard Link Withings; original gear/meals art; help site pages. See `done/prompt77.txt`.
+
+**prompt78** — done (2026-07-18). HEALTHINGS.AI wordmark + app icon, site/clinic brand, export rename, dashboard safe-area under status bar. See `done/prompt78.txt`.
+
 **prompt48** — done (2026-06-29). Lipid trend charts (Total/LDL/TG/HDL strips + green safe zones); mentors/coach see **all saved lab draws** in USER DATA. Phone-tested. Commits `308500f`, `fa0d6b1`. Supersedes prompt30 chart deferral + latest-only scope.
 
 **prompt50** — done (2026-06-30). Nutritionist visit report: clinical HTML export (7/14/30/90d), Appendix A charts (lipids/body/energy/CGM), Appendix B raw data. Phone-tested. See `done/prompt50.txt`.

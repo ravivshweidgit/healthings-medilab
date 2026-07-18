@@ -358,7 +358,7 @@
     screenEl.innerHTML = `
       <div class="phone-scroll">
         <div class="brand-header">
-          <div class="brand-text">Healthings Medilab</div>
+          <div class="brand-text">HEALTHINGS.AI</div>
         </div>
         <div class="snapshot-banner">
           <strong>Read-only clinic view</strong> — ${escapeHtml(snapshotLine)}.

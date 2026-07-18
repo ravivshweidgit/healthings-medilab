@@ -3,15 +3,16 @@
 :root {
   --bg: #f8f9fb;
   --surface: #ffffff;
-  --text: #1a1a1a;
+  --text: #1a2b4a;
   --muted: #7c7c7c;
-  --green: #4caf50;
-  --blue: #2196f3;
+  --green: #3d9dd6;
+  --blue: #3d9dd6;
   --red: #ff5252;
   --grid: #e8e8e8;
   --track: #f0f0f0;
   --shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
   --phone-w: 390px;
+  --navy: #1a2b4a;
 }
 
 * { box-sizing: border-box; }
@@ -34,13 +35,13 @@ body.clinic-patient {
   justify-content: space-between;
 }
 
-.clinic-toolbar a { color: #2e7d5a; text-decoration: none; font-weight: 600; }
+.clinic-toolbar a { color: #1a2b4a; text-decoration: none; font-weight: 600; }
 .clinic-toolbar .meta { color: var(--muted); font-size: 0.9rem; flex: 1; min-width: 200px; }
 .clinic-toolbar .badge {
   font-size: 0.75rem;
   font-weight: 700;
-  color: #2e7d5a;
-  background: #e8f5e9;
+  color: #1a2b4a;
+  background: #e8f4fc;
   padding: 4px 10px;
   border-radius: 999px;
 }
@@ -97,7 +98,7 @@ body.clinic-patient {
   font-size: 1.35rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: #2e7d5a;
+  color: #1a2b4a;
 }
 
 .snapshot-banner {
@@ -176,8 +177,8 @@ body.clinic-patient {
 .body-card-head .status-ok {
   font-size: 0.7rem;
   font-weight: 800;
-  color: var(--green);
-  background: #e8f5e9;
+  color: var(--navy);
+  background: #e8f4fc;
   padding: 2px 8px;
   border-radius: 6px;
 }

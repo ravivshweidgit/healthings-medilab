@@ -1,0 +1,69 @@
+## Prompt 77 — Quick Start UX (one question per screen)
+
+**Status: done (2026-07-18)** — ship commit noted after release  
+**Builds on:** `done/prompt76` (phone health), `done/prompt58` (Your setup), `done/prompt55` (wizard), Withings OAuth on dashboard
+
+### Problem
+
+Quick Start packed units + profile + three device toggles onto dense screens. Withings OAuth was deferred to the dashboard, so new users finished without linking. Device questions lacked plain-language help and Withings product clarity. Product photos of Withings SKUs were declined (IP + false SKU lock).
+
+### Product rules
+
+- One primary question per screen (not a chat bot).
+- English UI chrome; Learn more → `healthings.ai/help/…`.
+- Withings = **cloud account** (any scale/watch that writes metrics/activity) — not BLE SKU lock.
+- Link Withings **in the wizard** when scale or watch = Yes (Skip still allowed).
+- Gear art = **original illustrations** / meals plate PNG — not Withings product photography.
+
+### Flow
+
+1. Welcome + units  
+2. About you (gender, height, birth date)  
+3. Coach & meals language (+ mentor voice if he/ar)  
+4. Withings scale? Yes/No + help + gear art  
+5. Withings watch? Yes/No + help + gear art  
+6. CGM? Yes/No + help  
+7. **Link Withings** (only if scale or watch Yes)  
+8. Starting weight  
+9. Phone health allow (if watch No or CGM Yes)  
+10. Optional PDFs  
+11. AI targets  
+12. Meal tip (meals plate) → Finish  
+
+### What shipped
+
+| Area | Behavior |
+|------|----------|
+| Wizard | Dynamic step list + progress dots; large Yes/No; Learn more links; press feedback / busy spinner on primary CTAs |
+| OAuth | Same `WebBrowser` + `handleOAuthCallback` as dashboard; deep sync after link |
+| Gear art | `GearIllustrations.tsx` — scale / watch / CGM / meals heroes (SVG + `meals-plate.png`) |
+| Help | Withings devices (account/data-type), scale/watch/link pages, meal-logging, Quick Start topic pages, CGM, targets, etc. |
+| Cursor rule | `.cursor/rules/button-press-feedback.mdc` — pressed + busy patterns |
+
+### Primary files
+
+- `app/src/components/WelcomeQuickStartWizard.tsx`
+- `app/src/components/GearIllustrations.tsx`
+- `app/assets/meals-plate.png`
+- `website/help/withings-devices.html`, `withings-scale.html`, `withings-watch.html`, `withings-link.html`
+- `website/help/meal-logging.html`, `quick-start-*.html`, `cgm.html`, `targets-help.html`, …
+- `website/help/index.html`, `devices.html`, `alpha-setup.html`
+
+### Phone-tested
+
+- [x] Android: APK install of one-question wizard + gear art (bi through day)
+- [x] Android: meals tip plate readable
+- [ ] Android: full new-user path Watch Yes → Link in wizard (fresh profile)
+- [ ] Android: Watch No → phone health strip in wizard
+- [ ] iOS: same paths on TestFlight (this release)
+
+### Deferred (Phase 2)
+
+- Dashboard empty-state chips if link/allow incomplete after Finish  
+- Licensed product photography (only with vendor written OK)
+
+### Related
+
+- `done/prompt78.txt` — HEALTHINGS.AI brand lockup (icons, site, tagline)
+- `done/prompt76.txt` — Watch Off phone health  
+- `done/prompt58.txt` — Your setup toggles  

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 160" role="img" aria-label="HEALTHINGS.AI">
+  <defs>
+    <linearGradient id="hmHeartGrad" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#E53935"/>
+      <stop offset="100%" stop-color="#B71C1C"/>
+    </linearGradient>
+  </defs>
+  <text x="16" y="72"
+        font-family="Montserrat, Arial, Helvetica, sans-serif"
+        font-size="52" font-weight="700" letter-spacing="3.5"
+        fill="#1A2B4A">HEALTHINGS</text>
+  <path d="M368 62 H390 L402 36 L414 88 L430 22 L446 74 L458 62 H480"
+        stroke="#00A8C0" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <text x="492" y="72"
+        font-family="Montserrat, Arial, Helvetica, sans-serif"
+        font-size="52" font-weight="700"
+        fill="#1A2B4A">.AI</text>
+  <!-- Geometric heart  same silhouette as HealthingsMark -->
+  <g transform="translate(8,78) scale(0.95)">
+    <path d="M40 62 C40 62 16 46 16 32 C16 24.5 21.5 19 28.5 19 C33.2 19 37.2 21.6 40 25.5 C42.8 21.6 46.8 19 51.5 19 C58.5 19 64 24.5 64 32 C64 46 40 62 40 62 Z"
+          fill="url(#hmHeartGrad)"/>
+  </g>
+  <text x="96" y="124"
+        font-family="Montserrat, Arial, Helvetica, sans-serif"
+        font-size="18" font-weight="500"
+        fill="#1A2B4A">Personalized metabolic OS with your licensed nutritionist</text>
+</svg>
