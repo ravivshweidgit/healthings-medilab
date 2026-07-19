@@ -15,6 +15,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -136,6 +137,13 @@ import {
 import { type AuthUser } from '../services/AuthApiService';
 import { pullClinicOverlays } from '../services/ClinicOverlayService';
 import { CLINIC_SYNC_POLL_MS, fulfillPendingClinicSyncRequests } from '../services/ClinicSyncService';
+import {
+  SYNC_PERF_ALERT,
+  formatSyncPerfReport,
+  syncPerfEnd,
+  syncPerfStart,
+  syncPerfTrackSibling,
+} from '../services/SyncPerf';
 import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
 import { demoNoticeCopy } from '../utils/wellnessCopy';
 
@@ -1214,20 +1222,31 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
   const handlePullRefresh = useCallback(async () => {
     setPullRefreshing(true);
+    syncPerfStart('pull-refresh');
     try {
       await Promise.all([
-        refetch(),
-        syncWithings(),
-        refreshTodayIntraday(),
-        loadTodayFood(),
-        loadManualTrend(),
-        user.role === 'patient' ? fulfillPendingClinicSyncRequests() : Promise.resolve(),
-        user.role === 'patient' ? applyClinicOverlays() : Promise.resolve(),
+        syncPerfTrackSibling('cgm/refetch', () => refetch()),
+        syncPerfTrackSibling('metrics/syncWithings', () => syncWithings({ quiet: true })),
+        syncPerfTrackSibling('food/loadToday', () => loadTodayFood()),
+        syncPerfTrackSibling('manualTrend/load', () => loadManualTrend()),
       ]);
+      // Clinic already polls on an interval — don't block pull-refresh on it.
+      if (user.role === 'patient') {
+        void fulfillPendingClinicSyncRequests();
+        void applyClinicOverlays();
+      }
     } finally {
       setPullRefreshing(false);
+      const report = syncPerfEnd();
+      if (SYNC_PERF_ALERT && report) {
+        const body = formatSyncPerfReport(report);
+        Alert.alert('Refresh timing (ms)', body, [
+          { text: 'Share / copy', onPress: () => void Share.share({ message: body }) },
+          { text: 'OK' },
+        ]);
+      }
     }
-  }, [refetch, syncWithings, refreshTodayIntraday, loadTodayFood, loadManualTrend, user.role, applyClinicOverlays]);
+  }, [refetch, syncWithings, loadTodayFood, loadManualTrend, user.role, applyClinicOverlays]);
 
   useEffect(() => {
     void loadTodayFood();

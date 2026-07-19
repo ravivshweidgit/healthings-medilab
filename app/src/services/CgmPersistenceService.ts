@@ -18,6 +18,7 @@ import {
 } from './healthMetricsCache';
 import { healthConnectService, type RecentMetrics, type TimePoint } from './HealthConnectService';
 import { healthKitService } from './HealthKitService';
+import { syncPerfTrack } from './SyncPerf';
 
 export type CgmStore = CachedHealthMetrics;
 
@@ -82,13 +83,25 @@ function storeFromGlucose(
   };
 }
 
-async function fetchLiveGlucose(dataSource: HealthDataSource): Promise<RecentMetrics> {
+/** Routine CGM pull — recent days only; full history stays in local store from prior syncs/imports. */
+const CGM_SHALLOW_LOOKBACK_DAYS = 3;
+/** First fill / empty store. */
+const CGM_DEEP_LOOKBACK_DAYS = 120;
+
+async function fetchLiveGlucose(
+  dataSource: HealthDataSource,
+  lookbackDays: number = CGM_SHALLOW_LOOKBACK_DAYS,
+): Promise<RecentMetrics> {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (Math.max(1, lookbackDays) - 1));
+
   if (dataSource === 'healthkit') {
     await healthKitService.initializeAndRequestPermissions();
-    return healthKitService.fetchRecentMetrics();
+    return healthKitService.fetchRecentMetrics(start);
   }
-  await healthConnectService.initializeAndRequestPermissions();
-  return healthConnectService.fetchRecentMetrics();
+  await healthConnectService.ensureGlucoseReadable();
+  return healthConnectService.fetchRecentMetrics(start);
 }
 
 /**
@@ -142,6 +155,7 @@ export async function mergeImportedGlucoseIntoStore(
  * Returns cached store when sync is unavailable — never wipes existing data.
  */
 export async function syncCgmStore(dataSource?: HealthDataSource): Promise<CgmSyncResult | null> {
+  return syncPerfTrack('syncCgmStore', async () => {
   const source = dataSource ?? getHealthDataSource();
   const prev = await loadCgmStore();
 
@@ -157,10 +171,13 @@ export async function syncCgmStore(dataSource?: HealthDataSource): Promise<CgmSy
   }
 
   try {
-    const live = await fetchLiveGlucose(source);
+    const lookback = hasCgmData(prev) ? CGM_SHALLOW_LOOKBACK_DAYS : CGM_DEEP_LOOKBACK_DAYS;
+    const live = await syncPerfTrack(`cgm/fetchLiveGlucose(${lookback}d)`, () =>
+      fetchLiveGlucose(source, lookback),
+    );
     const mergedRaw = mergeGlucoseTimePoints([prev?.glucose ?? [], live.glucose]);
     const store = storeFromGlucose(mergedRaw, prev?.cgmSessionStarts);
-    await saveCgmStore(store);
+    await syncPerfTrack('cgm/saveStore', () => saveCgmStore(store));
     const view = buildViewState(store, live.steps ?? [], live.heartRate ?? []);
     return { store, view };
   } catch {
@@ -169,6 +186,7 @@ export async function syncCgmStore(dataSource?: HealthDataSource): Promise<CgmSy
     }
     return null;
   }
+  });
 }
 
 /** Read persisted CGM for mentor/review blocks (no API). */

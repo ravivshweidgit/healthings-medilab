@@ -1,0 +1,42 @@
+## Prompt 79 — Pull-refresh performance (Withings shallow)
+
+**Status: done (2026-07-19)** — commit noted after ship  
+**Builds on:** `done/prompt67` / `69` (shallow vs deep), `done/prompt76` (phone health skip when watch on)
+
+### Problem
+
+Dashboard pull-to-refresh took ~9s with Withings scale+watch (+ optional CGM). “Normal / 2-day” sync still pulled 128d body trend and 365d weight, duplicated today’s HR, and spent seconds merging large HR history + clinic overlays.
+
+### What shipped
+
+| Change | Effect |
+|--------|--------|
+| Shallow weight **14d**, trend **8d** (merge into cached 128d); deep unchanged | Cuts fat getmeas |
+| Today intraday **in parallel** with weight/trend/workouts | Wall ≈ max, not sum |
+| Skip 2d HR history on shallow when today fetch runs | Less Withings load |
+| Fast `replaceTodayIntraday` (binary search) + skip HR diag on `quiet` pull | Merge ~2s → ~0.2s |
+| Pull: `quiet: true`, no clinic await (still polled) | No spinner re-render stall |
+| CGM routine fetch **3d** (store keeps history); HC `ensureGlucoseReadable` | Less HC work |
+| `SyncPerf.ts` — timings always recorded; **Alert off** (`SYNC_PERF_ALERT=false`) | Re-enable for future probes |
+
+### Measured (Samsung, Withings watch+scale)
+
+~9.1s → ~3.9s pull-refresh wall clock.
+
+### Primary files
+
+- `app/src/services/MetricsPersistenceService.ts`
+- `app/src/services/WithingsApiService.ts`
+- `app/src/services/SyncPerf.ts`
+- `app/src/services/CgmPersistenceService.ts`
+- `app/src/hooks/useWithingsData.ts`
+- `app/src/screens/DashboardScreen.tsx`
+
+### Phone-tested
+
+- [x] Android pull-refresh timing Alert iterations through ~3.9s
+- [ ] iOS (same code path; quiet sync)
+
+### Related
+
+- Flip `SYNC_PERF_ALERT` to `true` in `SyncPerf.ts` to show Shareable timing Alert again.

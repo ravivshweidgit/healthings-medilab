@@ -33,11 +33,13 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 
 **prompt78** — done (2026-07-18). HEALTHINGS.AI brand lockup. See `done/prompt78.txt`.
 
+**prompt79** — done (2026-07-19). Pull-refresh performance (~9s→~4s). See `done/prompt79.txt`.
+
 ## Done (`prompts/app/done/`)
 
 See [done/README.md](./done/README.md) for the full index.
 
-Recent: **78** HEALTHINGS.AI brand · **77** Quick Start UX · **76** phone health Watch Off · **55** Welcome wizard.
+Recent: **79** pull-refresh perf · **78** HEALTHINGS.AI brand · **77** Quick Start UX · **76** phone health Watch Off.
 
 ## Macros reference dumps
 

@@ -122,6 +122,21 @@ class HealthConnectService {
     }
   }
 
+  /**
+   * Fast path for routine CGM sync: initialize + check grants only.
+   * Skips requestPermission UI when this session already confirmed access.
+   */
+  async ensureGlucoseReadable(): Promise<void> {
+    if (this.sessionAccessOk) {
+      const isInitialized = await initialize();
+      if (!isInitialized) {
+        throw new Error('Failed to initialize Health Connect.');
+      }
+      return;
+    }
+    await this.initializeAndRequestPermissions();
+  }
+
   async initializeAndRequestPermissions(): Promise<unknown[]> {
     const isInitialized = await initialize();
     if (!isInitialized) {

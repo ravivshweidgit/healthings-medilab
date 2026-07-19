@@ -29,6 +29,10 @@ export type WithingsHcWriteStatus = {
 };
 
 class HealthConnectService {
+  async ensureGlucoseReadable(): Promise<void> {
+    await this.initializeAndRequestPermissions();
+  }
+
   async initializeAndRequestPermissions(): Promise<unknown[]> {
     throw new Error('Live CGM via Apple Health is not available on iPhone yet. Import a CSV or use Android.');
   }

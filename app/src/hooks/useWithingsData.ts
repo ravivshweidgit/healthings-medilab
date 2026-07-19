@@ -71,14 +71,18 @@ export function useWithingsData() {
     }
 
     const run = (async (): Promise<MetricsPersistedStore> => {
-      setBodyScanLoading(true);
-      setTrendLoading(true);
+      const quiet = !!opts?.quiet;
+      if (!quiet) {
+        setBodyScanLoading(true);
+        setTrendLoading(true);
+      }
       setBodyScanError(null);
       setTrendError(null);
       try {
         const store = await syncMetricsStore(opts);
         applyStore(store);
-        await refreshHrDiag();
+        // Never await diag on the sync path — yielding lets RN flush a heavy dashboard re-render (~1–2s).
+        void refreshHrDiag();
         return store;
       } catch (err) {
         const cached = await loadMetricsStore();
@@ -88,8 +92,10 @@ export function useWithingsData() {
         setTrendError(cached.bodyTrendDays.length > 0 ? null : message);
         return cached;
       } finally {
-        setBodyScanLoading(false);
-        setTrendLoading(false);
+        if (!quiet) {
+          setBodyScanLoading(false);
+          setTrendLoading(false);
+        }
       }
     })();
 

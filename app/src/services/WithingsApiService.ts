@@ -17,7 +17,6 @@ import {
   type CompositionSession,
   type MetabolicTrend7dDay,
 } from '../logic/metabolicTrend7d';
-
 const WITHINGS_AUTHORIZE_URL = 'https://account.withings.com/oauth2_user/authorize2';
 /** Token endpoint: POST, `Content-Type: application/x-www-form-urlencoded`, body includes `action=requesttoken`. */
 const WITHINGS_TOKEN_URL = 'https://wbsapi.withings.net/v2/oauth2';
@@ -417,7 +416,13 @@ export function getMockWeightMetricsForDashboard(): WeightMetricsForDashboard {
  * Fetches the latest weight / composition metrics from Withings (`getmeas`).
  * Returns offline mock data only when there is no valid session (not linked yet or refresh failed).
  */
-export async function fetchWeightMetrics(): Promise<WeightMetricsForDashboard> {
+/** Default full-year lookback (deep / first fill). Shallow sync should pass ~14d. */
+export const WITHINGS_WEIGHT_DEEP_LOOKBACK_DAYS = 365;
+export const WITHINGS_WEIGHT_SHALLOW_LOOKBACK_DAYS = 14;
+
+export async function fetchWeightMetrics(
+  lookbackDays: number = WITHINGS_WEIGHT_DEEP_LOOKBACK_DAYS,
+): Promise<WeightMetricsForDashboard> {
   const accessToken = await getValidAccessToken();
   if (!accessToken) {
     return getMockWeightMetricsForDashboard();
@@ -425,7 +430,8 @@ export async function fetchWeightMetrics(): Promise<WeightMetricsForDashboard> {
 
   const stored = await loadWithingsTokens();
   const end = Math.floor(Date.now() / 1000);
-  const start = end - 365 * 24 * 3600;
+  const days = Math.max(1, Math.floor(lookbackDays));
+  const start = end - days * 24 * 3600;
 
   const form = new URLSearchParams({
     action: 'getmeas',
@@ -751,13 +757,19 @@ function dayKeyStartMsFromDay(dayKey: string): number {
   return d.getTime();
 }
 
+/** Shallow trend pull — merges into cached 128d via mergeTrendDays. */
+export const WITHINGS_TREND_SHALLOW_PERIOD_DAYS = 8;
+
 /**
- * Daily weight, fat mass, muscle mass, and visceral fat index for the last `MAX_TREND_PERIOD_DAYS`
- * local days. Callers slice this to the selected window (8/16/32/64/128 days). Period deltas skip the
- * first in-window BIA day (Withings-style) and compare 2nd day → last day.
+ * Daily weight, fat mass, muscle mass, and visceral fat index for the last `periodDays`
+ * local days (default full `MAX_TREND_PERIOD_DAYS`). Callers slice the store to 8/16/32/64/128.
+ * Period deltas skip the first in-window BIA day (Withings-style) and compare 2nd day → last day.
  */
-export async function fetchBodyCompositionTrend7d(): Promise<BodyCompositionTrendPayload> {
-  const dayKeys = lastNLocalDayKeysOldestFirst(MAX_TREND_PERIOD_DAYS);
+export async function fetchBodyCompositionTrend7d(
+  periodDays: number = MAX_TREND_PERIOD_DAYS,
+): Promise<BodyCompositionTrendPayload> {
+  const n = Math.max(2, Math.min(MAX_TREND_PERIOD_DAYS, Math.floor(periodDays)));
+  const dayKeys = lastNLocalDayKeysOldestFirst(n);
   const accessToken = await getValidAccessToken();
   if (!accessToken) {
     return mockTrendPayload(dayKeys);
@@ -765,7 +777,8 @@ export async function fetchBodyCompositionTrend7d(): Promise<BodyCompositionTren
 
   const stored = await loadWithingsTokens();
   const end = Math.floor(Date.now() / 1000);
-  const start = end - TREND_LOOKBACK_DAYS * 24 * 3600;
+  const apiLookbackDays = n + 7;
+  const start = end - apiLookbackDays * 24 * 3600;
 
   const form = new URLSearchParams({
     action: 'getmeas',

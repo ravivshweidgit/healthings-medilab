@@ -4,7 +4,13 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import { dayKeyStartMs, localDayKeyFromMs, type CompositionSession, type MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
+import {
+  dayKeyStartMs,
+  localDayKeyFromMs,
+  MAX_TREND_PERIOD_DAYS,
+  type CompositionSession,
+  type MetabolicTrend7dDay,
+} from '../logic/metabolicTrend7d';
 import { fetchHealthConnectActivity, PHONE_HEALTH_DEEP_LOOKBACK_DAYS, PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS } from './HealthConnectActivityService';
 import { getManualBody } from './ManualBodyService';
 import { getCachedHeightCm, getGender } from './TargetService';
@@ -29,6 +35,9 @@ import {
   loadWithingsTokens,
   WITHINGS_HR_DEEP_LOOKBACK_DAYS,
   WITHINGS_SHALLOW_LOOKBACK_DAYS,
+  WITHINGS_TREND_SHALLOW_PERIOD_DAYS,
+  WITHINGS_WEIGHT_DEEP_LOOKBACK_DAYS,
+  WITHINGS_WEIGHT_SHALLOW_LOOKBACK_DAYS,
   WITHINGS_WORKOUT_DEEP_LOOKBACK_DAYS,
   type WeightMetricsForDashboard,
   type WithingsCaloriePoint,
@@ -41,6 +50,7 @@ import {
   filterTodayHr,
   saveWithingsHrSyncDiag,
 } from './withingsHrSyncDiag';
+import { syncPerfParallel, syncPerfTrack } from './SyncPerf';
 
 /** Canonical AsyncStorage key for body + activity metrics (Withings + Health Connect). */
 export const METRICS_STORE_KEY = 'healthings:metricsStore';
@@ -116,24 +126,41 @@ function stripToday<T extends { timestamp: string }>(points: T[]): T[] {
   return points.filter((p) => !isTodayTimestamp(p.timestamp));
 }
 
-/** Replace today's intraday slice with a fresh API fetch (Withings is source of truth for today). */
+/** Replace today's slice — O(log n) lower-bound when `prev` is sorted ascending by time. */
 export function replaceTodayIntraday<T extends { timestamp: string }>(
   prev: T[],
   freshToday: T[],
 ): T[] {
   if (freshToday.length === 0) return prev;
   const todayStartMs = localDayStartMs();
-  const older = prev.filter((p) => {
-    const ms = Date.parse(p.timestamp);
-    return !Number.isNaN(ms) && ms < todayStartMs;
-  });
   const today = freshToday
     .filter((p) => {
       const ms = Date.parse(p.timestamp);
       return !Number.isNaN(ms) && ms >= todayStartMs;
     })
     .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
-  return [...older, ...today];
+
+  // Binary search first index >= today (prev is kept sorted by mergeByTimestamp / API).
+  let lo = 0;
+  let hi = prev.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    const ms = Date.parse(prev[mid]!.timestamp);
+    if (Number.isNaN(ms) || ms < todayStartMs) lo = mid + 1;
+    else hi = mid;
+  }
+  // Sanity: if order is broken, fall back to full scan.
+  if (lo > 0) {
+    const prevMs = Date.parse(prev[lo - 1]!.timestamp);
+    if (!Number.isNaN(prevMs) && prevMs >= todayStartMs) {
+      const older = prev.filter((p) => {
+        const ms = Date.parse(p.timestamp);
+        return !Number.isNaN(ms) && ms < todayStartMs;
+      });
+      return [...older, ...today];
+    }
+  }
+  return prev.slice(0, lo).concat(today);
 }
 
 function mergeHeartRateWithFreshToday(
@@ -142,6 +169,10 @@ function mergeHeartRateWithFreshToday(
   todayFresh: WithingsHeartRatePoint[],
 ): WithingsHeartRatePoint[] {
   if (todayFresh.length === 0 && history.length === 0) return prev;
+  // Shallow path: only today changed — avoid mergeByTimestamp over the full 60d store.
+  if (history.length === 0) {
+    return replaceTodayIntraday(prev, todayFresh);
+  }
   const olderMerged = mergeByTimestamp(stripToday(prev), stripToday(history));
   return replaceTodayIntraday(olderMerged, todayFresh);
 }
@@ -152,6 +183,9 @@ function mergeCaloriesWithFreshToday(
   todayFresh: WithingsCaloriePoint[],
 ): WithingsCaloriePoint[] {
   if (todayFresh.length === 0 && history.length === 0) return prev;
+  if (history.length === 0) {
+    return replaceTodayIntraday(prev, todayFresh);
+  }
   const olderMerged = mergeByTimestamp(stripToday(prev), stripToday(history));
   return replaceTodayIntraday(olderMerged, todayFresh);
 }
@@ -480,21 +514,25 @@ export async function syncHealthConnectIntoStore(
   const base = prev ?? (await loadMetricsStore());
   const config = await loadSourceConfig();
   if (!isHealthConnectActivity(config.activity)) {
-    return base;
+    return syncPerfTrack(`syncHealthConnect/skip(${config.activity})`, async () => base);
   }
 
-  const deep = wantsDeepPhoneHealthPull(base, opts, config.activity);
-  const lookback = deep ? PHONE_HEALTH_DEEP_LOOKBACK_DAYS : PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS;
-  const manual = await getManualBody();
-  const [heightCm, gender] = await Promise.all([getCachedHeightCm(), getGender()]);
-  const fetch = await fetchHealthConnectActivity(lookback, {
-    weightKg: base.bodyScan?.weightKg ?? manual?.weight_kg ?? 70,
-    heightCm: heightCm && heightCm > 0 ? heightCm : 170,
-    gender,
+  return syncPerfTrack(`syncHealthConnect/pull(${config.activity})`, async () => {
+    const deep = wantsDeepPhoneHealthPull(base, opts, config.activity);
+    const lookback = deep ? PHONE_HEALTH_DEEP_LOOKBACK_DAYS : PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS;
+    const manual = await getManualBody();
+    const [heightCm, gender] = await Promise.all([getCachedHeightCm(), getGender()]);
+    const fetch = await syncPerfTrack(`hc/activity(${lookback}d)`, () =>
+      fetchHealthConnectActivity(lookback, {
+        weightKg: base.bodyScan?.weightKg ?? manual?.weight_kg ?? 70,
+        heightCm: heightCm && heightCm > 0 ? heightCm : 170,
+        gender,
+      }),
+    );
+    const merged = mergeHealthConnectFetchIntoStore(base, fetch, config);
+    await syncPerfTrack('hc/saveMerged', () => saveMetricsStore(merged));
+    return merged;
   });
-  const merged = mergeHealthConnectFetchIntoStore(base, fetch, config);
-  await saveMetricsStore(merged);
-  return merged;
 }
 
 /** Pull from Apple Health (steps energy + HR) when Withings watch is off. */
@@ -569,6 +607,8 @@ function wantsDeepPhoneHealthPull(
 export type SyncWithingsOptions = {
   /** Force full history pull from Withings. */
   deep?: boolean;
+  /** Pull-refresh: skip loading spinners and don't await HR diag (avoids yield→heavy re-render). */
+  quiet?: boolean;
 };
 
 export type SyncMetricsOptions = SyncWithingsOptions;
@@ -620,30 +660,36 @@ export async function syncWithingsApiIntoStore(
     : WITHINGS_SHALLOW_LOOKBACK_DAYS;
 
   try {
-    const todayIntraday = await fetchIntradayToday();
-    let working: MetricsPersistedStore = base;
-    const todayHr = useWithingsHr ? todayIntraday.heartRate : [];
-    const todayCal = todayIntraday.calories;
-    if (todayHr.length > 0 || todayCal.length > 0) {
-      working = {
-        ...base,
-        lastSyncedAt: new Date().toISOString(),
-        ...(useWithingsHr
-          ? { heartRate: mergeHeartRateWithFreshToday(base.heartRate, [], todayHr) }
-          : {}),
-        calories: mergeCaloriesWithFreshToday(base.calories, [], todayCal),
-      };
-      await saveMetricsStore(working);
-    }
+    const deepLabel = deep ? 'deep' : 'shallow';
+    const hasTrendCache = base.bodyTrendDays.length > 0;
+    const weightLookback = deep || !base.bodyScan
+      ? WITHINGS_WEIGHT_DEEP_LOOKBACK_DAYS
+      : WITHINGS_WEIGHT_SHALLOW_LOOKBACK_DAYS;
+    const trendPeriod =
+      deep || !hasTrendCache ? MAX_TREND_PERIOD_DAYS : WITHINGS_TREND_SHALLOW_PERIOD_DAYS;
+    // Shallow: today's intraday is enough; deep pulls multi-day HR history in parallel.
+    const pullHrHistory = useWithingsHr && deep;
 
-    const [bodyScanRes, trendRes, intradayRes, workoutsRes] = await Promise.allSettled([
-      fetchWeightMetrics(),
-      fetchBodyCompositionTrend7d(),
-      useWithingsHr
-        ? fetchHeartRateHistory(hrLookback)
-        : Promise.resolve({ heartRate: [], calories: [] }),
+    const [todayRes, bodyScanRes, trendRes, intradayRes, workoutsRes] = await Promise.allSettled([
+      syncPerfParallel('withings/intradayToday', () => fetchIntradayToday()),
+      syncPerfParallel(`withings/weightMetrics(${weightLookback}d)`, () =>
+        fetchWeightMetrics(weightLookback),
+      ),
+      syncPerfParallel(`withings/bodyTrend(${trendPeriod}d)`, () =>
+        fetchBodyCompositionTrend7d(trendPeriod),
+      ),
+      pullHrHistory
+        ? syncPerfParallel(`withings/hrHistory(${hrLookback}d,${deepLabel})`, () =>
+            fetchHeartRateHistory(hrLookback),
+          )
+        : Promise.resolve({
+            heartRate: [] as WithingsHeartRatePoint[],
+            calories: [] as WithingsCaloriePoint[],
+          }),
       useWithingsActivity
-        ? fetchWorkoutsHistory(workoutLookback)
+        ? syncPerfParallel(`withings/workouts(${workoutLookback}d,${deepLabel})`, () =>
+            fetchWorkoutsHistory(workoutLookback),
+          )
         : Promise.resolve({
             keepable: [],
             abortStartMs: [],
@@ -652,12 +698,24 @@ export async function syncWithingsApiIntoStore(
           } satisfies WithingsWorkoutsFetch),
     ]);
 
+    const todayIntraday =
+      todayRes.status === 'fulfilled'
+        ? todayRes.value
+        : {
+            heartRate: [] as WithingsHeartRatePoint[],
+            calories: [] as WithingsCaloriePoint[],
+            apiStatus: null as number | null,
+            apiError: 'intraday today failed',
+          };
+    const todayHr = useWithingsHr ? todayIntraday.heartRate : [];
+    const todayCal = todayIntraday.calories;
+
     const bodyScan =
-      bodyScanRes.status === 'fulfilled' ? bodyScanRes.value : working.bodyScan;
+      bodyScanRes.status === 'fulfilled' ? bodyScanRes.value : base.bodyScan;
     const trend =
       trendRes.status === 'fulfilled'
         ? trendRes.value
-        : { days: working.bodyTrendDays, debug: { sessions: working.bodyTrendSessions } };
+        : { days: base.bodyTrendDays, debug: { sessions: base.bodyTrendSessions } };
     const intraday =
       intradayRes.status === 'fulfilled'
         ? intradayRes.value
@@ -665,48 +723,50 @@ export async function syncWithingsApiIntoStore(
     const workoutsFetch =
       workoutsRes.status === 'fulfilled' ? workoutsRes.value : null;
 
-    const heartRate = useWithingsHr
-      ? mergeHeartRateWithFreshToday(working.heartRate, intraday.heartRate, todayHr)
-      : working.heartRate;
-    const calories = mergeCaloriesWithFreshToday(
-      working.calories,
-      intraday.calories,
-      todayCal,
+    const { heartRate, calories, merged, saveError } = await syncPerfTrack(
+      'withings/mergeAndSave',
+      async () => {
+        const hr = useWithingsHr
+          ? mergeHeartRateWithFreshToday(base.heartRate, intraday.heartRate, todayHr)
+          : base.heartRate;
+        const cal = mergeCaloriesWithFreshToday(base.calories, intraday.calories, todayCal);
+        const mergedBase = mergeIntoMetricsStore(base, {
+          lastSyncedAt: new Date().toISOString(),
+          bodyScan: bodyScan ?? undefined,
+          bodyTrendDays: trend.days,
+          bodyTrendSessions: trend.debug.sessions,
+        });
+        const next: MetricsPersistedStore = {
+          ...mergedBase,
+          ...(useWithingsActivity && workoutsFetch != null
+            ? { workouts: applyWithingsWorkoutsFetch(base.workouts, workoutsFetch) }
+            : {}),
+          heartRate: hr,
+          calories: cal,
+        };
+        let err: string | null = null;
+        try {
+          await saveMetricsStore(next);
+        } catch (e) {
+          err = e instanceof Error ? e.message : String(e);
+        }
+        return { heartRate: hr, calories: cal, merged: next, saveError: err };
+      },
     );
 
-    const mergedBase = mergeIntoMetricsStore(working, {
-      lastSyncedAt: new Date().toISOString(),
-      bodyScan: bodyScan ?? undefined,
-      bodyTrendDays: trend.days,
-      bodyTrendSessions: trend.debug.sessions,
-    });
-    const merged: MetricsPersistedStore = {
-      ...mergedBase,
-      ...(useWithingsActivity && workoutsFetch != null
-        ? { workouts: applyWithingsWorkoutsFetch(working.workouts, workoutsFetch) }
-        : {}),
-      heartRate,
-      calories,
-    };
-
-    let saveError: string | null = null;
-    try {
-      await saveMetricsStore(merged);
-    } catch (err) {
-      saveError = err instanceof Error ? err.message : String(err);
+    if (!opts?.quiet) {
+      const diag = buildHrSyncDiag({
+        apiToday: todayHr,
+        api7dToday: useWithingsHr ? filterTodayHr(intraday.heartRate) : [],
+        storeBefore: base.heartRate,
+        storeAfter: heartRate,
+        apiStatus: todayIntraday.apiStatus,
+        apiError: todayIntraday.apiError,
+        saveError,
+        tokenScope: tokens.scope ?? null,
+      });
+      void saveWithingsHrSyncDiag(diag);
     }
-
-    const diag = buildHrSyncDiag({
-      apiToday: todayHr,
-      api7dToday: useWithingsHr ? filterTodayHr(intraday.heartRate) : [],
-      storeBefore: working.heartRate,
-      storeAfter: merged.heartRate,
-      apiStatus: todayIntraday.apiStatus,
-      apiError: todayIntraday.apiError,
-      saveError,
-      tokenScope: tokens.scope ?? null,
-    });
-    await saveWithingsHrSyncDiag(diag);
 
     return merged;
   } catch (err) {
@@ -734,11 +794,14 @@ export async function syncWithingsApiIntoStore(
 export async function syncMetricsStore(
   opts?: SyncMetricsOptions,
 ): Promise<MetricsPersistedStore> {
-  let store = await loadMetricsStore();
-  store = await syncWithingsApiIntoStore(store, opts);
-  store = await syncHealthConnectIntoStore(store, opts);
-  store = await syncHealthKitIntoStore(store, opts);
-  return store;
+  return syncPerfTrack('syncMetricsStore', async () => {
+    let store = await syncPerfTrack('loadMetricsStore', () => loadMetricsStore());
+    store = await syncPerfTrack('syncWithingsApi', () => syncWithingsApiIntoStore(store, opts));
+    // Self-labels skip vs pull(activity)
+    store = await syncHealthConnectIntoStore(store, opts);
+    store = await syncHealthKitIntoStore(store, opts);
+    return store;
+  });
 }
 
 /** @deprecated Use syncMetricsStore */
