@@ -46,7 +46,8 @@ Expect similar Withings/network gains on TestFlight; not re-measured on iPhone y
 ### Phone-tested
 
 - [x] Android pull-refresh timing Alert iterations through ~3.9s
-- [ ] iOS TestFlight (same code path; quiet sync)
+- [x] Android airplane mode: boot from persistence (no endless spinner)
+- [x] iOS TestFlight 1.2.10 / 44 — airplane mode: boot from persistence (no endless spinner)
 
 ### Related
 
