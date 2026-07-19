@@ -30,21 +30,22 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      if (await needsBiometricUnlockOnLaunch()) {
-        const ok = await authenticateWithBiometric();
-        if (!ok) {
-          if (!cancelled) {
-            setUser(null);
-            setBooting(false);
+      try {
+        if (await needsBiometricUnlockOnLaunch()) {
+          const ok = await authenticateWithBiometric();
+          if (!ok) {
+            if (!cancelled) setUser(null);
+            return;
           }
-          return;
         }
-      }
 
-      const restored = await restoreAuthSession();
-      if (!cancelled) {
-        setUser(restored);
-        setBooting(false);
+        const restored = await restoreAuthSession();
+        if (!cancelled) setUser(restored);
+      } catch (err) {
+        if (__DEV__) console.warn('[boot] restore failed', err);
+        if (!cancelled) setUser(null);
+      } finally {
+        if (!cancelled) setBooting(false);
       }
     })();
     return () => {

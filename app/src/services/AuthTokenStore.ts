@@ -1,10 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import type { AuthUser } from './AuthApiService';
 
 /** Android SecureStore keys may only use [a-zA-Z0-9._-]. */
 const ACCESS_KEY = 'healthings_access_token';
 const REFRESH_KEY = 'healthings_refresh_token';
+/** Last successful /me user — offline boot when API unreachable. */
+const CACHED_USER_KEY = 'healthings_auth_user_v1';
 
 async function secureSet(key: string, value: string): Promise<void> {
   if (Platform.OS === 'web') {
@@ -39,5 +42,25 @@ export async function saveAuthTokens(accessToken: string, refreshToken: string):
 }
 
 export async function clearAuthTokens(): Promise<void> {
-  await Promise.all([secureDelete(ACCESS_KEY), secureDelete(REFRESH_KEY)]);
+  await Promise.all([
+    secureDelete(ACCESS_KEY),
+    secureDelete(REFRESH_KEY),
+    AsyncStorage.removeItem(CACHED_USER_KEY),
+  ]);
+}
+
+export async function saveCachedAuthUser(user: AuthUser): Promise<void> {
+  await AsyncStorage.setItem(CACHED_USER_KEY, JSON.stringify(user));
+}
+
+export async function loadCachedAuthUser(): Promise<AuthUser | null> {
+  try {
+    const raw = await AsyncStorage.getItem(CACHED_USER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AuthUser;
+    if (!parsed?.id || !parsed?.email || !parsed?.role) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
 }

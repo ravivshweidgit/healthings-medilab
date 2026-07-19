@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import type { CompositionSession, MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
-import { fetchTodayHeartRate, getValidAccessToken, loadWithingsTokens } from '../services/WithingsApiService';
+import { fetchIntradayToday, getValidAccessToken, loadWithingsTokens } from '../services/WithingsApiService';
 import type { WeightMetricsForDashboard, WithingsCaloriePoint, WithingsHeartRatePoint, WorkoutSession } from '../services/WithingsApiService';
 import {
   hasMetricsData,
@@ -118,7 +118,7 @@ export function useWithingsData() {
     const accessToken = await getValidAccessToken();
     if (!accessToken) return;
     try {
-      const todayFetch = await fetchTodayHeartRate();
+      const todayFetch = await fetchIntradayToday();
       const { heartRate: todayHr, calories: todayCal } = todayFetch;
       if (todayHr.length === 0 && todayCal.length === 0) {
         await refreshHrDiag();
@@ -141,14 +141,16 @@ export function useWithingsData() {
         const cached = await loadMetricsStore();
         if (hasMetricsData(cached)) {
           applyStore(cached);
-          setBodyScanLoading(false);
-          setTrendLoading(false);
         }
         await refreshHrDiag();
       } catch {
         // Non-fatal: cache read failure should not block sync.
+      } finally {
+        // Show cached UI immediately even if network sync hangs (iOS airplane mode).
+        setBodyScanLoading(false);
+        setTrendLoading(false);
       }
-      await sync();
+      void sync({ quiet: true });
     };
     void bootstrap();
   }, [applyStore, refreshHrDiag, sync]);

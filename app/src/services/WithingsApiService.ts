@@ -17,6 +17,13 @@ import {
   type CompositionSession,
   type MetabolicTrend7dDay,
 } from '../logic/metabolicTrend7d';
+import { fetchWithTimeout } from './fetchWithTimeout';
+
+const WITHINGS_FETCH_TIMEOUT_MS = 12_000;
+
+async function withingsFetch(url: string, init: RequestInit): Promise<Response> {
+  return fetchWithTimeout(url, init, WITHINGS_FETCH_TIMEOUT_MS);
+}
 const WITHINGS_AUTHORIZE_URL = 'https://account.withings.com/oauth2_user/authorize2';
 /** Token endpoint: POST, `Content-Type: application/x-www-form-urlencoded`, body includes `action=requesttoken`. */
 const WITHINGS_TOKEN_URL = 'https://wbsapi.withings.net/v2/oauth2';
@@ -155,7 +162,7 @@ async function postRequestToken(
   previousUserid?: string
 ): Promise<WithingsOAuthTokens> {
   const body = new URLSearchParams({ action: 'requesttoken', ...form }).toString();
-  const res = await fetch(WITHINGS_TOKEN_URL, {
+  const res = await withingsFetch(WITHINGS_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
@@ -445,7 +452,7 @@ export async function fetchWeightMetrics(
     form.set('userid', stored.userid);
   }
 
-  const res = await fetch(WITHINGS_MEASURE_URL, {
+  const res = await withingsFetch(WITHINGS_MEASURE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: form.toString(),
@@ -645,7 +652,7 @@ async function fetchActivityKcalByDay(
   if (userid) form.set('userid', userid);
 
   try {
-    const res = await fetch('https://wbsapi.withings.net/v2/measure', {
+    const res = await withingsFetch('https://wbsapi.withings.net/v2/measure', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: form.toString(),
@@ -792,7 +799,7 @@ export async function fetchBodyCompositionTrend7d(
     form.set('userid', stored.userid);
   }
 
-  const res = await fetch(WITHINGS_MEASURE_URL, {
+  const res = await withingsFetch(WITHINGS_MEASURE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: form.toString(),
@@ -970,7 +977,7 @@ async function fetchIntradayOneDay(
   let apiError: string | null = null;
 
   try {
-    const res = await fetch(WITHINGS_MEASURE_V2_URL, {
+    const res = await withingsFetch(WITHINGS_MEASURE_V2_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: form.toString(),
@@ -1298,7 +1305,7 @@ export async function fetchWorkoutsHistory(
     if (stored?.userid) form.set('userid', stored.userid);
     if (offset != null) form.set('offset', String(offset));
 
-    const res = await fetch(WITHINGS_MEASURE_V2_URL, {
+    const res = await withingsFetch(WITHINGS_MEASURE_V2_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: form.toString(),
@@ -1392,7 +1399,7 @@ export async function fetchUserHeight(): Promise<number | null> {
   if (stored?.userid) form.set('userid', stored.userid);
 
   try {
-    const res = await fetch(WITHINGS_MEASURE_URL, {
+    const res = await withingsFetch(WITHINGS_MEASURE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: form.toString(),

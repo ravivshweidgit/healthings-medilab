@@ -1,6 +1,13 @@
 import { CONFIG } from '../config/env';
 import { clearCachedApprovedShares } from './ShareCacheService';
-import { clearAuthTokens, loadAuthTokens, saveAuthTokens } from './AuthTokenStore';
+import {
+  clearAuthTokens,
+  loadAuthTokens,
+  loadCachedAuthUser,
+  saveAuthTokens,
+  saveCachedAuthUser,
+} from './AuthTokenStore';
+import { fetchWithTimeout, isAbortError } from './fetchWithTimeout';
 
 export type UserRole = 'patient' | 'mentor';
 
@@ -31,6 +38,9 @@ class AuthApiError extends Error {
     this.status = status;
   }
 }
+
+/** Keep boot / offline restore snappy — iOS airplane mode can hang fetch forever without this. */
+const AUTH_FETCH_TIMEOUT_MS = 8_000;
 
 function apiBase(): string {
   return CONFIG.healthingsApiUrl.replace(/\/$/, '');
@@ -63,7 +73,7 @@ async function refreshAuthSessionSingleFlight(): Promise<{ accessToken: string; 
 export async function authFetch(
   path: string,
   init: RequestInit = {},
-  opts?: { accessToken?: string | null; retryOn401?: boolean },
+  opts?: { accessToken?: string | null; retryOn401?: boolean; timeoutMs?: number },
 ): Promise<Response> {
   const headers = new Headers(init.headers);
   if (!headers.has('Content-Type') && init.body) {
@@ -74,38 +84,55 @@ export async function authFetch(
     headers.set('Authorization', `Bearer ${accessToken}`);
   }
 
-  const res = await fetch(`${apiBase()}${path}`, { ...init, headers });
+  const res = await fetchWithTimeout(
+    `${apiBase()}${path}`,
+    { ...init, headers },
+    opts?.timeoutMs ?? AUTH_FETCH_TIMEOUT_MS,
+  );
   if (res.status === 401 && opts?.retryOn401 !== false) {
     const refreshed = await refreshAuthSessionSingleFlight();
     if (refreshed) {
-      return authFetch(path, init, { accessToken: refreshed.accessToken, retryOn401: false });
+      return authFetch(path, init, {
+        accessToken: refreshed.accessToken,
+        retryOn401: false,
+        timeoutMs: opts?.timeoutMs,
+      });
     }
   }
   return res;
 }
 
 export async function requestOtp(email: string, role: UserRole = 'patient'): Promise<void> {
-  const res = await fetch(`${apiBase()}/v1/auth/otp/request`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: email.trim().toLowerCase(), role }),
-  });
+  const res = await fetchWithTimeout(
+    `${apiBase()}/v1/auth/otp/request`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim().toLowerCase(), role }),
+    },
+    AUTH_FETCH_TIMEOUT_MS,
+  );
   if (!res.ok) {
     throw new AuthApiError(await parseError(res), res.status);
   }
 }
 
 export async function verifyOtp(email: string, code: string): Promise<AuthUser> {
-  const res = await fetch(`${apiBase()}/v1/auth/otp/verify`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: email.trim().toLowerCase(), code: code.trim() }),
-  });
+  const res = await fetchWithTimeout(
+    `${apiBase()}/v1/auth/otp/verify`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim().toLowerCase(), code: code.trim() }),
+    },
+    AUTH_FETCH_TIMEOUT_MS,
+  );
   if (!res.ok) {
     throw new AuthApiError(await parseError(res), res.status);
   }
   const data = (await res.json()) as VerifyResponse;
   await saveAuthTokens(data.accessToken, data.refreshToken);
+  await saveCachedAuthUser(data.user);
   return data.user;
 }
 
@@ -113,38 +140,94 @@ export async function refreshAuthSession(): Promise<{ accessToken: string; user:
   const { refreshToken } = await loadAuthTokens();
   if (!refreshToken) return null;
 
-  const res = await fetch(`${apiBase()}/v1/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
-  });
-  if (!res.ok) {
-    await clearAuthTokens();
+  try {
+    const res = await fetchWithTimeout(
+      `${apiBase()}/v1/auth/refresh`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      },
+      AUTH_FETCH_TIMEOUT_MS,
+    );
+    if (!res.ok) {
+      // Only clear on auth rejection — keep tokens when offline / 5xx.
+      if (res.status === 401 || res.status === 403) {
+        await clearAuthTokens();
+      }
+      return null;
+    }
+
+    const data = (await res.json()) as RefreshResponse;
+    await saveAuthTokens(data.accessToken, data.refreshToken);
+
+    const meRes = await authFetch('/v1/me', {}, { accessToken: data.accessToken, retryOn401: false });
+    if (!meRes.ok) {
+      if (meRes.status === 401 || meRes.status === 403) {
+        await clearAuthTokens();
+      }
+      return null;
+    }
+    const me = (await meRes.json()) as { user: AuthUser };
+    await saveCachedAuthUser(me.user);
+    return { accessToken: data.accessToken, user: me.user };
+  } catch (err) {
+    // Network / abort — keep tokens for offline use.
+    if (__DEV__) {
+      console.warn('[auth] refresh failed', isAbortError(err) ? 'timeout' : err);
+    }
     return null;
   }
-
-  const data = (await res.json()) as RefreshResponse;
-  await saveAuthTokens(data.accessToken, data.refreshToken);
-
-  const meRes = await authFetch('/v1/me', {}, { accessToken: data.accessToken, retryOn401: false });
-  if (!meRes.ok) {
-    await clearAuthTokens();
-    return null;
-  }
-  const me = (await meRes.json()) as { user: AuthUser };
-  return { accessToken: data.accessToken, user: me.user };
 }
 
 export async function fetchCurrentUser(): Promise<AuthUser | null> {
-  const res = await authFetch('/v1/me');
-  if (!res.ok) {
-    if (res.status === 401) await clearAuthTokens();
+  try {
+    const res = await authFetch('/v1/me');
+    if (!res.ok) {
+      if (res.status === 401) await clearAuthTokens();
+      return null;
+    }
+    const data = (await res.json()) as { user: AuthUser };
+    await saveCachedAuthUser(data.user);
+    return data.user;
+  } catch (err) {
+    if (__DEV__) {
+      console.warn('[auth] /me failed', isAbortError(err) ? 'timeout' : err);
+    }
     return null;
   }
-  const data = (await res.json()) as { user: AuthUser };
-  return data.user;
 }
 
+/**
+ * Decode access JWT claims without verifying (offline boot UI only).
+ * Server tokens include sub / email / role.
+ */
+function userFromAccessToken(accessToken: string | null): AuthUser | null {
+  if (!accessToken) return null;
+  try {
+    const parts = accessToken.split('.');
+    if (parts.length < 2 || !parts[1]) return null;
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
+    const json = globalThis.atob(b64 + pad);
+    const payload = JSON.parse(json) as { sub?: string; email?: string; role?: string };
+    if (!payload.sub || !payload.email) return null;
+    if (payload.role !== 'patient' && payload.role !== 'mentor') return null;
+    return {
+      id: payload.sub,
+      email: payload.email,
+      role: payload.role,
+      createdAt: '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Restore session on launch. Online: /me or refresh.
+ * Offline / hung network: cached user + tokens (iOS airplane mode).
+ */
 export async function restoreAuthSession(): Promise<AuthUser | null> {
   const { accessToken, refreshToken } = await loadAuthTokens();
   if (!accessToken && !refreshToken) return null;
@@ -153,7 +236,15 @@ export async function restoreAuthSession(): Promise<AuthUser | null> {
   if (user) return user;
 
   const refreshed = await refreshAuthSessionSingleFlight();
-  return refreshed?.user ?? null;
+  if (refreshed?.user) return refreshed.user;
+
+  // Offline fallback — do not wipe tokens.
+  if (accessToken || refreshToken) {
+    const cached = await loadCachedAuthUser();
+    if (cached) return cached;
+    return userFromAccessToken(accessToken);
+  }
+  return null;
 }
 
 export async function logoutAuth(): Promise<void> {
@@ -168,7 +259,7 @@ export async function logoutAuth(): Promise<void> {
 
 export async function checkApiHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`${apiBase()}/health`, { method: 'GET' });
+    const res = await fetchWithTimeout(`${apiBase()}/health`, { method: 'GET' }, AUTH_FETCH_TIMEOUT_MS);
     if (!res.ok) return false;
     const data = (await res.json()) as { ok?: boolean };
     return data.ok === true;

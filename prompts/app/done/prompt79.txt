@@ -51,3 +51,4 @@ Expect similar Withings/network gains on TestFlight; not re-measured on iPhone y
 ### Related
 
 - Flip `SYNC_PERF_ALERT` to `true` in `SyncPerf.ts` to show Shareable timing Alert again.
+- **Offline boot (2026-07-20):** iOS airplane mode hung on `restoreAuthSession` (fetch without timeout). Fixed: 8s auth timeout, cached `/me` user + JWT decode fallback, App boot `finally` clears spinner; Withings fetches 12s timeout; metrics bootstrap shows cache without awaiting sync.
