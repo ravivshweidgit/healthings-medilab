@@ -10,6 +10,7 @@ Active / backlog specs stay in `prompts/app/`:
 | prompt32.txt | Spec only — backup import QA + hardening (deferred) |
 | prompt38.txt | Planned — secondary lab findings (liver, iron, uric acid) |
 | prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
+| `prompt80.txt` | **Backlog** — hybrid activity: phone steps + Withings bike; calc-only workout calibration (Withings kcal gap investigation 2026-07-20) |
 
 **prompt58** — done (2026-07-07). Editable Your setup: 3 toggles (scale/watch/CGM), HC steps when watch off, no OAuth auto-promote. Compile-check OK; phone test pending. See `done/prompt58.txt`.
 

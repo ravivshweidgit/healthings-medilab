@@ -1,0 +1,206 @@
+## Prompt 80 — Hybrid activity: phone steps + Withings bike (raw store, calc-only factor)
+
+**Status: backlog (drafted 2026-07-20)** — not shipped  
+**Builds on:** `done/prompt76` (phone health when watch off), `done/prompt70` (Food Log burn), `done/prompt73` (watch activity on manual weight), persistence parity rules
+
+### Problem
+
+Withings **workout kcal** (and Health Mate itself) can disagree ~**27–46%** across phones/accounts for the same rides. Investigation (cloud backups `raviv.shweid@gmail.com` vs `raviv.shweid+withings-ios@gmail.com`, Jul 18–19 2026):
+
+| Finding | Detail |
+|---------|--------|
+| Gap location | `getworkouts` kcal — not Food Log math, not cloud backup |
+| Health Mate | Same ~+27% iOS vs Android on activity kcal (screenshots) |
+| Passive intraday | Close between accounts; workouts drive the delta |
+| Walk sessions | Watch walk workouts also inflate; phone steps felt more trustworthy |
+| Dual-link same Withings user | Risky (OAuth token kick); not required to conclude |
+
+Today **Watch = Yes** uses Withings for **all** activity (prompt76). That inherits Withings estimate noise for walking and bikes.
+
+### Product rule (target)
+
+| Signal | Source when Withings watch is **on** |
+|--------|--------------------------------------|
+| **Steps / walking energy** | **Phone** (HC / Apple Health / Samsung steps path) — always |
+| **Walk workouts from watch** | **Ignore** for Food Log / coach burn (do not add) |
+| **Bike + other non-walk workouts** | **Withings** `getworkouts` (keep raw kcal in store) |
+| **Withings intraday passive cal** | **Do not** use for burn when phone steps are active (no double-count) |
+| **BMR / body / HR** | Unchanged (existing Withings / scale / phone HR rules) |
+| **Calibration** | Optional multiplier on **non-walk workout kcal only** (default `1.0`) — **calculate at burn time only**; never rewrite `metricsStore` |
+
+When Withings watch is **off**, keep prompt76 (phone health only).
+
+### Burn formula (Food Log / coach)
+
+```text
+activity ≈ stepsToKcal(phoneSteps)           // existing 0.55 × kg × km path
+         + Σ (workout.kcal × calibration)    // Withings, category ∉ walk
+totalBurn ≈ BMR + activity
+```
+
+**Double-count guard:** on bike days, phone still logs some steps — acceptable small overlap; do **not** also add Withings passive or walk sessions. Prefer documenting over complex step-window subtraction in v1.
+
+### Calibration (not Platform.OS)
+
+- Store preference e.g. `activityWorkoutCalibration` (float, default `1`) in app settings / backup JSON — **not** an `ios`/`android` clinic column.
+- Do **not** hardcode `0.7` or `Platform.OS === 'ios'`.
+- Clinic / visit report: show **raw** workouts by default; if burn is shown, use same formula + factor from snapshot if present.
+
+### Persistence parity
+
+- Canonical store stays `healthings:metricsStore` — raw Withings workouts + phone step totals as today.
+- Adapters merge in; burn is a **derived** view in Dashboard / Food Log.
+- No platform-prefixed keys.
+
+### Source config / UX (sketch)
+
+Options (pick one in implementation):
+
+1. **Implicit hybrid when Watch = Yes:** always pull phone steps for walking energy + Withings non-walk workouts (simplest for users).  
+2. **Explicit toggle:** “Walking from phone” under Your setup when watch is on.
+
+Prefer **(1)** unless QA finds users without phone-health permissions need a clear Allow strip while watch is on.
+
+Quick Start / My Profile copy: Watch on → “Steps from phone; bike & sports from Withings.”
+
+### Workout category filter
+
+Withings categories (see `workoutLabel` / API): treat **walk** (e.g. category `1` and any labeled Walk) as excluded from burn add-on. Include bike (`6`, `187` Indoor Biking, etc.), run, and other non-walk. Maintain a small allow/deny list in one module; log unknown categories in `__DEV__`.
+
+### Out of scope (deferred)
+
+- Waiting on dedicated iOS scale / 3rd watch experiments (optional validation only).
+- Rewriting historical workout kcal in the store.
+- Clinic DB platform column.
+- Full UI i18n.
+
+### Primary files (expected)
+
+- `app/src/screens/DashboardScreen.tsx` — `burnPartsByDay` / `bodyTrendDaysWithActivity`
+- `app/src/services/SourceConfigService.ts` / `sourceConfigLabels.ts`
+- `app/src/services/MetricsPersistenceService.ts` — may still sync Withings workouts; phone steps while watch on
+- `app/src/services/HealthConnectActivityService.ts` / HealthKit steps path
+- `app/src/components/PhoneHealthActivityStrip.tsx` — possibly visible when watch on (permissions)
+- `app/src/components/FoodMacroStrip.tsx` — display only
+- Settings / TargetService or small prefs module for calibration
+- `website/help/phone-health-activity.html` — update hybrid rule
+- `prompts/app/done/prompt76.txt` — add “superseded for Watch=Yes walking by prompt80” when shipped
+
+### Acceptance / phone-tested (when shipping)
+
+- [ ] Watch Yes + phone steps allowed: Food Log activity tracks phone steps on a walk day (no Withings walk workout add-on)
+- [ ] Bike day: activity ≈ phone steps kcal + Withings bike kcal (raw); calibration `1` matches prior bike add within rounding
+- [ ] Calibration `0.8` reduces only workout portion, not steps portion
+- [ ] Watch No: prompt76 behavior unchanged
+- [ ] Cloud backup / restore: raw workouts unchanged; burn after restore uses same formula
+- [ ] Android + iOS both; chrome English
+
+### Investigation log (2026-07-20) — what we did & how we compared
+
+#### Goal
+
+Explain why iOS appeared ~30% higher on activity kcal than Android for the same person/days. Determine whether the bug was Healthings (Food Log formula, backup, platform parse) or Withings (API / Health Mate).
+
+#### Data sources (VPS Postgres)
+
+| Source | Email | Role |
+|--------|-------|------|
+| `user_cloud_backups` current (+ prev) | `raviv.shweid@gmail.com` | Android production (fingerprint `glucose: health-connect`) |
+| `user_cloud_backups` current | `raviv.shweid+withings-ios@gmail.com` | iOS TestFlight test account (`glucose: healthkit`) |
+| `sync_blobs` (clinic) | main account | Stale for Jul 18–19 (last v82 = 2026-07-17); used only for platform fingerprints |
+
+**Important:** one cloud slot per Healthings user (`current` + one `prev`). Main-account current/prev were both Android when re-checked after an Android backup (22:34Z). True iOS-vs-Android A/B on **one** email was not completed (dual Withings link risks OAuth kick). Compare used **two Healthings users** linked to different Withings sessions/profiles.
+
+Platform guess from `source_config.glucose`: `health-connect` → Android, `healthkit` → iOS.
+
+#### Method
+
+1. Inflate gzip cloud payloads → parse `asyncStorage['healthings:metricsStore']`.
+2. Day keys in **Asia/Jerusalem** (`en-CA` calendar dates).
+3. Replicate Dashboard `withingsActivityForDay` (Food Log path):
+   - Sum Withings workout `kcal` for the day (skip `health-connect` workouts).
+   - Sum intraday `calories[]` points **outside** 30‑minute buckets overlapping any workout window.
+   - `activity = round(passiveKept + workoutKcal)`; `totalBurn = BMR + activity` when BMR present.
+4. Fuzzy-match workouts across backups: same `category`, `|startMs| ≤ 5 min`.
+5. Cross-check Health Mate screenshots (user-supplied) for the same ballpark day.
+
+#### Burn simulation (from cloud metrics)
+
+| Day | Account | Passive all | Passive kept | Workout n / kcal | **Activity** | BMR | Total burn |
+|-----|---------|------------|--------------|------------------|--------------|-----|------------|
+| 2026-07-18 | Android main | 277 | 33.7 | 4 / 422 | **456** | 1824 | 2280 |
+| 2026-07-18 | iOS +withings-ios | 250.1 | 24.6 | 4 / 641 | **665** | — | — |
+| 2026-07-19 | Android main | 180.3 | 28.7 | 5 / 1374 | **1403** | 1827 | 3230 |
+| 2026-07-19 | iOS +withings-ios | 169.1 | 43.1 | 5 / 1746 | **1789** | — | — |
+
+Activity delta iOS vs Android: **Jul 18 +45.8%**, **Jul 19 +27.5%**. Passive intraday close; **workouts dominate**.
+
+#### Fuzzy workout pairs (Jul 19 bikes — category 6)
+
+| Android start (UTC) | Android kcal | iOS start | iOS kcal | Ratio | Δt |
+|---------------------|--------------|-----------|----------|-------|-----|
+| 05:12:52 | 217 | 05:12:40 | 282.48 | 1.30 | 12s |
+| 09:17:27 | 562 | 09:17:16 | 623.99 | 1.11 | 11s |
+| 10:43:54 | 222 | 10:43:42 | 333.81 | 1.50 | 12s |
+| 12:12:41 | 137 | 12:12:48 | 170.48 | 1.24 | 7s |
+
+- Android kcal are **integers**; iOS are **floats** (e.g. `307.16909790039`).
+- `totalKcal` / stored `totalcalories` was **null** on both → parser used `calories` (or `manual_calories`), not the `totalcalories` fallback in `mapWorkout`.
+- Starts are **not identical** `startMs` → not the same API row identity; still same rides by time/category.
+
+Jul 18 walks (category 1) similarly mismatched starts (~1–4 min) with iOS often higher (one pair 139 vs 307).
+
+#### Fingerprints / body profile
+
+| | Android main | iOS +withings-ios |
+|--|--------------|-------------------|
+| `activity` / `heartRate` | withings | withings |
+| `bodyComposition` / `bmr` | withings | **manual** |
+| Body scan | Full (fat/muscle/BMR 1827) | Weight only, **no BMR** in trend |
+| Calorie points / workouts (store size) | ~12k / 250 | ~480 / 11 (shallow history) |
+
+#### Main-account current vs prev (Android re-backup 22:34Z)
+
+After user backed up `raviv.shweid` from Android: both slots `health-connect`. Jul 18 activity **identical 456**; Jul 19 **1403 vs 1409** (−0.4%, one walk 243→236). Confirmed no iOS payload on main yet.
+
+#### Health Mate screenshots (user)
+
+| | Android Health Mate | iOS Health Mate |
+|--|---------------------|-----------------|
+| Label | “Today” | “Yesterday” |
+| Activity kcal | **1420** | **1810** (~+27%) |
+| Steps | 6833 | 6314 |
+| Active min | 187 | 184 |
+| Android BMR | 1827 (matches backup) | (total 3451 shown) |
+
+Healthings Food Log activity tracked Health Mate activity kcal closely → **gap lives in Withings**, not our formula.
+
+#### Technical tooling added on VPS (under `server/scripts/`)
+
+| Script | Purpose |
+|--------|---------|
+| `compare-android-ios-calories.mjs` | Side-by-side main vs +withings-ios days + exact startMs pairs |
+| `fuzzy-workout-compare.mjs` | Category + 5 min window pairs + ratios |
+| `compare-main-current-prev.mjs` | Same user current vs prev + platform guess |
+| `compare-calories-deep.mjs` / `simulate-burn.mjs` | Burn formula sim + trend fields |
+| `compare-calories-platforms.mjs` / `list-platform-fingerprints.mjs` / `inspect-user-access.mjs` | Discovery / blobs / cloud meta |
+
+Run on VPS: `cd /opt/healthings-api/server && node scripts/<name>.mjs` (needs `DATABASE_URL` in `.env`).
+
+App burn reference: `DashboardScreen` `withingsActivityForDay` (30 min bucket exclusion + workout sum); workout parse: `WithingsApiService` `calories ?? manual_calories ?? totalcalories`.
+
+#### What we ruled out
+
+- Cloud backup corruption / Food Log `max` vs add bug as root cause of the 30% gap  
+- Need for clinic `ios`/`android` column for a future calibration factor  
+- Same-account dual-phone Withings re-link as a required proof (Health Mate already disagreed)
+
+#### Conclusion
+
+Withings (Health Mate + `getworkouts`) returns higher activity/workout estimates on the iOS test link than on the Android production link. Healthings correctly mirrors stored/API numbers. Product response: **hybrid activity** (this prompt) — phone steps for walking, Withings for non-walk workouts, raw store, optional calc-only calibration.
+
+### Related
+
+- `done/prompt76.txt` — Watch off → phone health (binary); this prompt extends Watch **on**
+- `done/prompt70.txt` — Food Log activity + burned
+- Persistence parity: `.cursor/rules/persistence-parity.mdc`
