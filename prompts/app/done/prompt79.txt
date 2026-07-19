@@ -1,6 +1,6 @@
 ## Prompt 79 — Pull-refresh performance (Withings shallow)
 
-**Status: done (2026-07-19)** — commit noted after ship  
+**Status: done (2026-07-19)** — commit `f6d05f2`  
 **Builds on:** `done/prompt67` / `69` (shallow vs deep), `done/prompt76` (phone health skip when watch on)
 
 ### Problem
