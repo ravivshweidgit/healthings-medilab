@@ -23,6 +23,17 @@ Dashboard pull-to-refresh took ~9s with Withings scale+watch (+ optional CGM). �
 
 ~9.1s → ~3.9s pull-refresh wall clock.
 
+### iOS relevance
+
+| Piece | iOS |
+|-------|-----|
+| Withings shallow windows, parallel today, quiet pull, fast HR merge, skip clinic await | **Yes** — same JS path (`syncMetricsStore` / `useWithingsData` / Dashboard pull) |
+| CGM 3d lookback | **Yes** if live glucose via Apple Health (`fetchRecentMetrics(start)`) |
+| Health Connect `ensureGlucoseReadable` | **No** — Android-only |
+| HC activity skip when watch=Withings | **N/A** — iOS uses HealthKit skip when watch=Withings (already fast) |
+
+Expect similar Withings/network gains on TestFlight; not re-measured on iPhone yet.
+
 ### Primary files
 
 - `app/src/services/MetricsPersistenceService.ts`
@@ -35,7 +46,7 @@ Dashboard pull-to-refresh took ~9s with Withings scale+watch (+ optional CGM). �
 ### Phone-tested
 
 - [x] Android pull-refresh timing Alert iterations through ~3.9s
-- [ ] iOS (same code path; quiet sync)
+- [ ] iOS TestFlight (same code path; quiet sync)
 
 ### Related
 
