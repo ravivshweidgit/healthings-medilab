@@ -1,0 +1,184 @@
+## Prompt 81 — Multi-language architecture (app + website/help + clinic)
+
+**Status: backlog (updated 2026-07-20)** — Hebrew-first alpha agreed; not shipped  
+**Builds on:** `language-policy.mdc`, `done/prompt77` (Quick Start), `done/prompt72` (units), website help set  
+**Context:** Current alpha users are **all Hebrew**. English-only setup/help is real friction.
+
+### Agreed decisions (2026-07-20)
+
+| Decision | Choice |
+|----------|--------|
+| App languages | **One** `appLocale` — drives Quick Start, app UI (Phase B), coach/chat, meals, exports, and which help URL the app opens |
+| UI vs chat split | **No** separate pickers for alpha; optional Advanced later only if users ask |
+| Website / help | Language switcher **anytime** on the site (independent of app); path prefixes `/en`, `/he` |
+| Quick Start | Fully in `appLocale` |
+| Language timing | Before Welcome; default Hebrew when device `he` / IL |
+| Glossary | Always-English terms (brand, units, devices, slash commands) |
+
+**Terminology:** In this doc, **app UI labels** = native app menus, screen titles, buttons, settings, wizard copy (not Google Chrome). **Content language** = coach chat, meal names, visit reports.
+
+**Supersedes (when Phase A ships):** language step only mid–Quick Start; English-only Quick Start + English-only help links; “Coach & meals language” as the sole framing.
+
+---
+
+### Product decision (locked)
+
+| Surface | Decision |
+|---------|----------|
+| **Language first** | Before Welcome — user picks language (native names). Persist as `appLocale`. |
+| **Default** | If device locale is `he` (or region IL) → **default Hebrew** on picker; always changeable. Else device locale if supported, else English. |
+| **Quick Start** | **Entire wizard in the chosen language** (Welcome, units, body, scale, watch, CGM, targets copy, buttons, hints). |
+| **In-app help links** | Open **website help in the same language** (`/he/help/…` or `/en/help/…`), not English-only URLs. |
+| **Website / help** | Rearrange by language: `/en/…`, `/he/…` (hreflang + switcher). **Hebrew help is Phase A**, not optional. |
+| **Coach / meals / exports** | Same `appLocale` (already mostly true). |
+| **Rest of app UI** (Dashboard, Food Log, My Profile, Account…) | **Phase B — Hebrew next** (Hebrew-first alpha). Until then English labels OK if Phase A setup+help are localized. |
+| **Clinic portal UI** | English for now (clinician tool); patient reports follow patient `appLocale`. Revisit if nutritionists want Hebrew UI. |
+| **Always-English glossary** | Brand, units, acronyms, device names, slash commands — see table below (any language). |
+
+**Why Quick Start + help in user language**
+- First session is the highest drop-off; Hebrew users should not learn the product in English then “switch to Hebrew coach.”
+- “?” links that land on English help break trust after a Hebrew setup step.
+- OS sheets (Withings / Health Connect / Apple Health) may still be device language — acceptable; our wizard and help must still match the user’s choice.
+
+---
+
+### Phased delivery
+
+#### Phase A — Language gate + Quick Start + localized help (ship first)
+
+1. **Pre-Welcome language screen** — title like “App & coach language” / Hebrew equivalent. Persist immediately. Skip if already set.
+2. **Full Quick Start UI strings** in `appLocale` (including RTL for `he` / `ar`).
+3. Remove mid-flow language step **or** shrink to “Confirm language” only.
+4. **Help URL builder:** `https://healthings.ai/{locale}/help/{slug}.html` from wizard and elsewhere; fallback `en` if article missing (log / show notice).
+5. **Website:** `/en/` and `/he/` trees; migrate existing `website/help/*` → at least English kept + **Hebrew translations for all Quick Start–linked articles** (welcome, units, language, scale, watch, CGM, Withings link, phone-health, etc.).
+6. Redirect bare `/help/…` → `/en/help/…` or locale detect.
+7. Document **Always-English glossary**; update `language-policy.mdc` on ship.
+8. My Profile language control: rename to **App & coach language** (localized label); changes `appLocale` for coach + future UI.
+
+#### Phase B — Main app UI labels in Hebrew (and other locales)
+
+1. i18n dictionary (`react-i18next` or equivalent): Dashboard, Food Log, My Profile, Account, common actions.
+2. Respect glossary (do not translate `kcal`, Withings, `CGM`, …).
+3. Other locales (es/fr/de/ar/ru) as content is ready — Hebrew first.
+
+#### Phase C — Clinic UI + more site locales (optional)
+
+1. Clinic portal UI i18n only if clinicians ask.
+2. More marketing locales.
+
+---
+
+### Always-English glossary (any UI language)
+
+Do **not** translate these for “purity”:
+
+| Category | Keep |
+|----------|------|
+| **Brand** | `HEALTHINGS.AI`, Healthings |
+| **Clinical units** | `mg/dL`, `mmol/L`, `kg`, `g`, `cm`, `mmHg`, `bpm`, `kcal`, `%` |
+| **Acronyms** | `CGM`, `BMR`, `BMI`, `HR`, `ECG`, `VO₂` (if shown) |
+| **Devices / OS** | Withings, Health Mate, Health Connect, Apple Health, Samsung Health, Libre, Garmin |
+| **Slash commands** | `/macros`, `/eat`, `/7`, `/recipe`, … |
+| **Technical** | `JSON` (if shown) |
+
+**Localize:** wizard titles, body copy, buttons (e.g. המשך / Continue), help articles, coach, meals, reports, Dashboard labels (Phase B).
+
+**Mixed example (Hebrew):**  
+«שרוף: 2280 kcal · BMR 1824» — Hebrew words, English units/acronyms.
+
+---
+
+### App flow (target)
+
+```text
+[First launch]
+  → Language (default Hebrew when device/he or IL)   [BEFORE Welcome]
+  → Welcome          ⎤
+  → Units            │
+  → Body             │  all copy in appLocale
+  → Scale / Watch / CGM … ⎦
+  → Dashboard
+       Phase A: UI labels may still be English; coach/meals/reports in appLocale
+       Phase B: UI labels in appLocale
+```
+
+Help “?” on any Quick Start step → `/{appLocale}/help/{that-step}.html`.
+
+---
+
+### Website / help IA
+
+```text
+https://healthings.ai/en/
+https://healthings.ai/he/
+https://healthings.ai/en/help/…
+https://healthings.ai/he/help/…
+```
+
+- Primary routing by path prefix (not `?lang=`).
+- Hreflang between equivalents.
+- Phase A minimum: every article linked from Quick Start exists in **en** and **he**.
+
+---
+
+### Clinic
+
+| Layer | Language |
+|-------|----------|
+| Portal UI labels | English (until Phase C) |
+| Patient-authored rules / notes | As stored (patient language) |
+| Visit report HTML | Patient `appLocale` |
+| Abbreviations in clinical UI | English glossary |
+
+Locale lives on the user / backup (`userLanguage` / `appLocale`) — no platform column.
+
+---
+
+### Non-goals
+
+- Translating Apple / Google / Withings system dialogs  
+- Shipping Phase A without Hebrew help for wizard-linked pages  
+- `if (lang === 'he')` scattered in components — use i18n keys + `dir`  
+- Blocking prompt80 / CGM / scale hardware tests on this work (parallel OK)
+
+---
+
+### Primary files (expected)
+
+**Phase A**
+- `app/src/components/WelcomeQuickStartWizard.tsx` — pre-Welcome language; all step strings localized; help URLs locale-aware
+- Locale / `TargetService` — `appLocale` persist; default Hebrew when appropriate
+- `app/App.tsx` (or gate) — language before welcome if unset
+- Help link helper (single module) — builds `/{locale}/help/...`
+- `website/en/…`, `website/he/…` (or equivalent layout) + switcher + redirects
+- `.cursor/rules/language-policy.mdc`
+- `website/help/quick-start-language.html` (and Hebrew twin) — pre-Welcome + glossary
+
+**Phase B**
+- `app/src/i18n/` (or equivalent) + Dashboard / Food Log / Profile strings
+
+---
+
+### Acceptance (Phase A)
+
+- [ ] Fresh install: language **before** Welcome; Hebrew default when device `he` / IL
+- [ ] Entire Quick Start readable in Hebrew when Hebrew selected (RTL OK)
+- [ ] Each Quick Start “?” opens **Hebrew** help page when locale is `he` (English when `en`)
+- [ ] `/he/help/…` articles exist for all wizard-linked slugs
+- [ ] Glossary terms untranslated inside Hebrew copy
+- [ ] Coach / meals / exports follow `appLocale`
+- [ ] Returning user: language screen skipped; Profile can change language
+- [ ] Clinic portal UI still English
+
+### Acceptance (Phase B — follow-up)
+
+- [ ] Dashboard / Food Log / My Profile / Account primary labels in Hebrew when `appLocale=he`
+- [ ] Glossary still English
+
+---
+
+### Related
+
+- `.cursor/rules/language-policy.mdc` — replace “UI chrome English only” with Phase A/B model on ship  
+- `done/prompt77.txt` — Quick Start order / help links  
+- `prompts/app/prompt80.txt` — activity hybrid; parallel backlog  
