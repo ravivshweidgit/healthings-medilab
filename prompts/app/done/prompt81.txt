@@ -1,0 +1,52 @@
+## Prompt 81 — Multi-language Phase A (language gate + Quick Start + help)
+
+**Status: done (2026-07-21)** — Phase A phone-tested on Samsung; user LGTM.  
+**Builds on:** `language-policy.mdc`, `done/prompt77` (Quick Start), `done/prompt72` (units)  
+**Deferred:** Phase B Dashboard / Profile UI Hebrew → `prompt81b.txt`
+
+### Problem
+
+Alpha users are Hebrew-first. English-only Quick Start and help `?` links caused friction and broken trust after choosing Hebrew.
+
+### What shipped
+
+| Area | Detail |
+|------|--------|
+| Language gate | Pre-Welcome, locale-neutral: logo (wordmark crop), intense multilingual **Select language** lines + 7 flag grid (4+3), English default, persist on Next |
+| Quick Start copy | EN + native-tone HE (`quickStartCopy.ts`); RTL for he/ar; mentor voice for he/ar |
+| Units section | Localized row labels (`unitsSectionCopy.ts`); glossary units stay EN |
+| Help URLs | `helpUrl(lang, slug)` → `https://healthings.ai/{lang}/help/{slug}.html` for en/he/es/fr/de/ar/ru |
+| Website help | 7 locale trees under `website/{lang}/help/`; 7-flag switcher; legacy `/help/` → 301 `/en/help/` |
+| Deploy | `deploy-website.sh` nginx rewrite; live on healthings.ai |
+
+### Always-English glossary (unchanged)
+
+Brand, units (`kcal`, `mg/dL`, `kg`), acronyms (`CGM`, `BMR`), devices (Withings…), slash commands, `My Rules` / `My Profile` product names as used in UI.
+
+### Primary files
+
+| Path | Role |
+|------|------|
+| `app/src/components/WelcomeQuickStartWizard.tsx` | Language gate + localized wizard |
+| `app/src/i18n/languageGate.ts` | Gate options / accents / select-language strings |
+| `app/src/i18n/quickStartCopy.ts` | EN/HE wizard copy |
+| `app/src/i18n/unitsSectionCopy.ts` | Units labels |
+| `app/src/i18n/helpUrls.ts` | Canonical `/{lang}/help/` builder |
+| `app/src/components/UnitsPreferenceSection.tsx` | `langCode` + `hideHeader` |
+| `website/scripts/gen-help-locales.mjs` | Generate 7-locale help |
+| `website/scripts/help-locale-content.mjs` | Mother-tongue help content |
+| `website/{en,he,es,fr,de,ar,ru}/help/` | Generated articles |
+| `server/scripts/deploy-website.sh` | `/help/` → `/en/help/` |
+
+### Phone-tested
+
+- [x] Language gate: English default, flags 4+3, no clip, select-language stack
+- [x] Hebrew Quick Start Welcome / units labels feel native enough for alpha
+- [x] `?` opens matching locale help; 7-language switcher on site
+- [x] Legacy `/help/…` redirects to `/en/help/…`
+
+### Related
+
+- Phase B: `prompts/app/prompt81b.txt`
+- Auto-apply / activity: `prompt80.txt` (unrelated backlog)
+- Quick Start UX: `done/prompt77.txt`

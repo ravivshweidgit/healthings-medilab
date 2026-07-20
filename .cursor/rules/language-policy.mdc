@@ -5,28 +5,32 @@ alwaysApply: true
 
 # Language policy
 
-## Default split
+## After prompt81 Phase A (2026-07-21)
 
 | Layer | Language | Examples |
 |-------|----------|----------|
-| **App UI (chrome)** | **English only** | Screen titles, buttons, settings labels, errors, clinic link strip, website portal |
-| **Coach & meals** | **User language** (`userLanguage` in TargetService) | Gemini chat, coach card, meal `name_local`, quick questions, AI rules text |
-| **Exported documents** | **User language** | Visit report HTML body, clinical narrative in exports |
+| **Language gate + Quick Start** | **`appLocale`** (`userLanguage`) | Wizard copy, units row labels, help `?` → `/{lang}/help/` |
+| **Coach & meals & exports** | **`appLocale`** | Gemini chat, meal `name_local`, visit reports |
+| **App UI chrome (Dashboard…)** | **English until Phase B** (`prompt81b`) | Screen titles, settings, Food Log chrome |
+| **Clinic portal UI** | **English** | Clinician tool |
+| **Website help** | **Path locale** | `https://healthings.ai/{en\|he\|es\|fr\|de\|ar\|ru}/help/…` |
 
-Do **not** add `langCode === 'he'` (or other locale) branches to new UI components. Pass `userLanguage` / `lang` only into AI prompts, meal parsing, chat, and export **content** builders.
+## Always-English glossary
+
+Brand, units (`kcal`, `mg/dL`, `kg`), acronyms (`CGM`, `BMR`), device names (Withings…), slash commands, product keys like `My Rules` / `My Profile` when used as proper names in mixed copy.
 
 ## Settings UX
 
-The dashboard language picker controls **coach & meals language**, not full app localization. Prefer copy like “Coach & meals language” over a generic “Language” label when touching that control.
+One language preference drives coach, meals, Quick Start, and help links. Prefer **App & coach language** when renaming the Profile picker (Phase B).
 
 ## RTL
 
-Hebrew/Arabic still need correct text direction in **user-content areas** (chat bubbles, meal lists, exported HTML) even when chrome stays English LTR.
+Hebrew/Arabic: RTL for Quick Start / user-content areas now; full chrome RTL with Phase B.
 
 ## Intent detection
 
-Chat slash commands and natural-language triggers may stay multilingual (`chatIntent.ts`) — that is input parsing, not UI chrome.
+Chat slash commands and natural-language triggers may stay multilingual (`chatIntent.ts`).
 
 ## When to revisit
 
-Full UI i18n (react-i18next or similar) is a later milestone if mass-market users cannot use English settings. Until then, keep chrome English and localize generated content only.
+Phase B (`prompt81b`) — Dashboard / Food Log / Profile label i18n. Until then keep remaining chrome English.

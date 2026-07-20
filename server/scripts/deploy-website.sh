@@ -36,6 +36,11 @@ server {
         try_files $uri $uri/ =404;
     }
 
+    # Legacy English help → canonical /en/help/
+    location ^~ /help/ {
+        rewrite ^/help/(.*)$ /en/help/$1 permanent;
+    }
+
     location ~* \.(css|js)$ {
         add_header Cache-Control "public, max-age=300";
         try_files $uri =404;

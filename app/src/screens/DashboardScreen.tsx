@@ -2208,6 +2208,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
               <UnitsPreferenceSection
                 prefs={unitsPrefs}
+                langCode={userLanguage.code}
                 onChange={(next) => {
                   if (next.height !== unitsPrefs.height) {
                     setHeightInput(

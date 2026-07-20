@@ -11,7 +11,7 @@ Active / backlog specs stay in `prompts/app/`:
 | prompt38.txt | Planned — secondary lab findings (liver, iron, uric acid) |
 | prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
 | `prompt80.txt` | **Backlog** — hybrid activity: phone steps + Withings bike; calc-only workout calibration (Withings kcal gap investigation 2026-07-20) |
-| `prompt81.txt` | **Backlog** — Hebrew-first i18n: language before Welcome, Quick Start + help in locale (`/he`), glossary EN; Dashboard UI Phase B |
+| `prompt81b.txt` | **Backlog** — Phase B: Dashboard / Food Log / Profile UI Hebrew (and other locales); glossary EN |
 
 **prompt58** — done (2026-07-07). Editable Your setup: 3 toggles (scale/watch/CGM), HC steps when watch off, no OAuth auto-promote. Compile-check OK; phone test pending. See `done/prompt58.txt`.
 
@@ -81,6 +81,8 @@ Active / backlog specs stay in `prompts/app/`:
 **prompt78** — done (2026-07-18). HEALTHINGS.AI wordmark + app icon, site/clinic brand, export rename, dashboard safe-area under status bar. See `done/prompt78.txt`.
 
 **prompt79** — done (2026-07-19). Pull-refresh perf: shallow Withings windows, parallel today, fast HR merge, quiet pull; ~9s→~4s. See `done/prompt79.txt`.
+
+**prompt81** — done (2026-07-21). Phase A: language gate, EN/HE Quick Start, units labels, 7-locale help `/{lang}/help/` + switcher, legacy `/help/` → `/en/help/`. Phone-tested Samsung. Phase B → `prompt81b.txt`. See `done/prompt81.txt`.
 
 **prompt48** — done (2026-06-29). Lipid trend charts (Total/LDL/TG/HDL strips + green safe zones); mentors/coach see **all saved lab draws** in USER DATA. Phone-tested. Commits `308500f`, `fa0d6b1`. Supersedes prompt30 chart deferral + latest-only scope.
 

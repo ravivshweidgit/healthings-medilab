@@ -473,6 +473,34 @@ export const SUPPORTED_LANGUAGES: UserLanguage[] = [
 
 export const DEFAULT_LANGUAGE: UserLanguage = SUPPORTED_LANGUAGES[0];
 
+export function languageByCode(code: string): UserLanguage | undefined {
+  const c = code.toLowerCase().slice(0, 2);
+  return SUPPORTED_LANGUAGES.find((l) => l.code === c);
+}
+
+/** True when the user has explicitly saved a language (prompt81). */
+export async function hasLanguagePreference(): Promise<boolean> {
+  const raw = await AsyncStorage.getItem(LANGUAGE_KEY);
+  return raw != null && raw.length > 0;
+}
+
+/**
+ * Suggest default for first-run language picker: Hebrew when device is he / IL, else
+ * matching supported locale, else English.
+ */
+export function suggestDefaultLanguage(
+  localeTag?: string | null,
+  regionCode?: string | null,
+): UserLanguage {
+  const tag = (localeTag ?? '').toLowerCase();
+  const region = (regionCode ?? '').toUpperCase();
+  const primary = tag.split(/[-_]/)[0] ?? '';
+  if (primary === 'he' || region === 'IL') {
+    return languageByCode('he') ?? DEFAULT_LANGUAGE;
+  }
+  return languageByCode(primary) ?? DEFAULT_LANGUAGE;
+}
+
 export async function getLanguage(): Promise<UserLanguage> {
   const raw = await AsyncStorage.getItem(LANGUAGE_KEY);
   if (!raw) return DEFAULT_LANGUAGE;

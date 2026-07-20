@@ -33,7 +33,7 @@ import {
   type MassUnit,
 } from '../logic/unitConvert';
 
-const HELP_URL = 'https://healthings.ai/help/manual-body.html';
+const HELP_URL = 'https://healthings.ai/en/help/manual-body.html';
 
 type CompUnit = 'pct' | 'mass';
 

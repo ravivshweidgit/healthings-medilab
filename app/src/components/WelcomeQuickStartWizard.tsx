@@ -18,6 +18,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Svg, { Circle, Ellipse, Path, Rect, Text as SvgText } from 'react-native-svg';
@@ -94,6 +95,11 @@ import {
   loadWithingsTokens,
 } from '../services/WithingsApiService';
 import { loadWithingsStore } from '../services/WithingsPersistenceService';
+import { helpUrl } from '../i18n/helpUrls';
+import {
+  LANGUAGE_GATE_OPTIONS,
+} from '../i18n/languageGate';
+import { getQuickStartCopy, isRtlLang } from '../i18n/quickStartCopy';
 import {
   CircleHelp,
   UtensilsCrossed,
@@ -103,29 +109,31 @@ import { WellnessColors } from '../theme/wellness';
 import { PhoneHealthActivityStrip } from './PhoneHealthActivityStrip';
 import { UnitsPreferenceSection } from './UnitsPreferenceSection';
 
-const HELP_WELCOME = 'https://healthings.ai/help/quick-start-welcome.html';
-const HELP_UNITS = 'https://healthings.ai/help/quick-start-units.html';
-const HELP_PROFILE = 'https://healthings.ai/help/quick-start-profile.html';
-const HELP_LANGUAGE = 'https://healthings.ai/help/quick-start-language.html';
-const HELP_MENTOR_VOICE = 'https://healthings.ai/help/mentor-voice-gender.html';
-const HELP_SCALE = 'https://healthings.ai/help/withings-scale.html';
-const HELP_WATCH = 'https://healthings.ai/help/quick-start-watch.html';
-const HELP_CGM = 'https://healthings.ai/help/cgm.html';
-const HELP_LINK = 'https://healthings.ai/help/withings-link.html';
-const HELP_WEIGHT = 'https://healthings.ai/help/starting-weight.html';
-const HELP_PHONE_HEALTH = 'https://healthings.ai/help/phone-health-activity.html';
-const HELP_REPORTS = 'https://healthings.ai/help/reports-import.html';
-const HELP_TARGETS = 'https://healthings.ai/help/targets-help.html';
-const HELP_MEALS = 'https://healthings.ai/help/meal-logging.html';
-const HELP_MANUAL_BODY = 'https://healthings.ai/help/manual-body.html';
 const SITE_HOME = 'https://healthings.ai';
 const BRAND_LOGO = require('../../assets/brand-logo.png');
+/** Match DashboardScreen brand lockup sizing. */
+const SCROLL_HORIZONTAL_PADDING = 20;
+const BRAND_HEADER_HEIGHT_FALLBACK = 152;
+
+function computeBrandHeaderHeight(windowWidth: number): number {
+  const contentW = Math.max(1, windowWidth - SCROLL_HORIZONTAL_PADDING * 2);
+  try {
+    const r = Image.resolveAssetSource(BRAND_LOGO);
+    if (r?.width && r?.height && r.width > 0 && r.height > 0) {
+      const raw = (contentW * r.height) / r.width;
+      return Math.round(Math.min(220, Math.max(72, raw)));
+    }
+  } catch {
+    /* ignore */
+  }
+  return BRAND_HEADER_HEIGHT_FALLBACK;
+}
 
 type StepId =
+  | 'language'
   | 'welcome'
   | 'units'
   | 'body'
-  | 'language'
   | 'scale'
   | 'watch'
   | 'cgm'
@@ -147,7 +155,7 @@ function buildStepList(
   hasWatch: boolean | null,
   tracksCgm: boolean | null,
 ): StepId[] {
-  const steps: StepId[] = ['welcome', 'units', 'body', 'language', 'scale', 'watch', 'cgm'];
+  const steps: StepId[] = ['language', 'welcome', 'units', 'body', 'scale', 'watch', 'cgm'];
   if (hasScale === true || hasWatch === true) {
     steps.push('link_withings');
   }
@@ -200,25 +208,146 @@ function PdfFileIcon({ size = 44 }: { size?: number }) {
   );
 }
 
-function WelcomeBrandMark() {
+/**
+ * Language gate (prompt81) — intense multilingual “Select language” + flag tray.
+ */
+function LanguageGateHero({
+  selectedCode,
+  onSelect,
+}: {
+  selectedCode: string;
+  onSelect: (code: string) => void;
+}) {
   return (
-    <View style={styles.brandHero} accessibilityRole="header">
-      <Image
-        source={BRAND_LOGO}
-        style={styles.brandLogo}
-        resizeMode="contain"
-        accessibilityLabel="HEALTHINGS.AI"
-      />
-      <Pressable
-        onPress={() => void Linking.openURL(SITE_HOME)}
-        accessibilityRole="link"
-        accessibilityLabel="Open healthings.ai"
-        hitSlop={8}
-        style={({ pressed }) => [styles.brandSiteRow, pressed && styles.helpPressed]}
-      >
-        <Text style={styles.brandSite}>healthings.ai</Text>
-      </Pressable>
-      <Text style={styles.brandTag}>Personalized metabolic OS with your licensed nutritionist</Text>
+    <View style={styles.gateRoot}>
+      <View style={styles.gateTop} accessibilityRole="header">
+        <View style={styles.gateWelcomeStack}>
+          {LANGUAGE_GATE_OPTIONS.map((opt) => {
+            const on = opt.code === selectedCode;
+            const rtl = opt.code === 'he' || opt.code === 'ar';
+            return (
+              <Pressable
+                key={opt.code}
+                onPress={() => onSelect(opt.code)}
+                hitSlop={4}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={`${opt.selectLanguage}, ${opt.englishLabel}`}
+                style={styles.gateSelectRow}
+              >
+                <Text
+                  style={[
+                    styles.gateCloudWord,
+                    rtl && styles.gateCloudWordRtl,
+                    on && styles.gateCloudWordOn,
+                    {
+                      color: opt.accentColor,
+                      fontSize: on ? 20 : 15,
+                      lineHeight: on ? 24 : 18,
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {opt.selectLanguage}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={styles.gateBottom}>
+        <View style={styles.gateFlagTray}>
+          {[LANGUAGE_GATE_OPTIONS.slice(0, 4), LANGUAGE_GATE_OPTIONS.slice(4)].map((row, rowIndex) => (
+            <View
+              key={rowIndex === 0 ? 'flags-top' : 'flags-bottom'}
+              style={[styles.gateFlagRow, rowIndex === 1 && styles.gateFlagRowSecond]}
+            >
+              {row.map((opt) => {
+                const on = opt.code === selectedCode;
+                return (
+                  <Pressable
+                    key={opt.code}
+                    onPress={() => onSelect(opt.code)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={`${opt.englishLabel}, ${opt.nativeLabel}`}
+                    style={({ pressed }) => [
+                      styles.gateFlagCell,
+                      on && styles.gateFlagCellOn,
+                      on && {
+                        borderColor: opt.accentColor,
+                        backgroundColor: '#FFFFFF',
+                        shadowColor: opt.accentColor,
+                      },
+                      pressed && styles.gateCardPressed,
+                    ]}
+                  >
+                    <Text style={styles.gateFlagEmoji}>{opt.flag}</Text>
+                    <Text
+                      style={[styles.gateFlagNative, on && { color: opt.accentColor }]}
+                      numberOfLines={1}
+                    >
+                      {opt.code.toUpperCase()}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function WelcomeBrandMark({ brandTag, compact }: { brandTag: string; compact?: boolean }) {
+  const { width: windowWidth } = useWindowDimensions();
+  const contentW = Math.max(1, windowWidth - SCROLL_HORIZONTAL_PADDING * 2);
+  const fullH = useMemo(() => {
+    try {
+      const r = Image.resolveAssetSource(BRAND_LOGO);
+      if (r?.width && r?.height && r.width > 0 && r.height > 0) {
+        return (contentW * r.height) / r.width;
+      }
+    } catch {
+      /* ignore */
+    }
+    return BRAND_HEADER_HEIGHT_FALLBACK;
+  }, [contentW]);
+
+  // Crop tagline out of brand-logo.png on the gate (wordmark only).
+  const gateCrop = 0.56;
+  const logoWrapH = compact
+    ? Math.round(Math.min(88, Math.max(60, fullH * gateCrop * 0.9)))
+    : Math.round(Math.min(220, Math.max(72, fullH)));
+  const logoImgH = compact ? Math.round(logoWrapH / gateCrop) : logoWrapH;
+
+  return (
+    <View
+      style={[styles.brandHero, compact && styles.brandHeroGate]}
+      accessibilityRole="header"
+    >
+      <View style={[styles.brandLogoWrap, { height: logoWrapH }, compact && styles.brandLogoWrapCrop]}>
+        <Image
+          source={BRAND_LOGO}
+          style={[styles.brandLogo, { height: compact ? logoImgH : '100%' }]}
+          resizeMode="contain"
+          accessibilityLabel="HEALTHINGS.AI"
+        />
+      </View>
+      {!compact ? (
+        <Pressable
+          onPress={() => void Linking.openURL(SITE_HOME)}
+          accessibilityRole="link"
+          accessibilityLabel="Open healthings.ai"
+          hitSlop={8}
+          style={({ pressed }) => [styles.brandSiteRow, pressed && styles.helpPressed]}
+        >
+          <Text style={styles.brandSite}>healthings.ai</Text>
+        </Pressable>
+      ) : null}
+      {!compact && brandTag ? <Text style={styles.brandTag}>{brandTag}</Text> : null}
     </View>
   );
 }
@@ -226,13 +355,17 @@ function WelcomeBrandMark() {
 function HelpButton({
   href,
   label,
+  defaultLabel = 'Help',
   compact = false,
 }: {
   href: string;
   label?: string;
+  /** Shown when non-compact and `label` omitted. */
+  defaultLabel?: string;
   /** Icon-only (for field labels / title row). */
   compact?: boolean;
 }) {
+  const shown = label ?? defaultLabel;
   return (
     <Pressable
       onPress={() => void Linking.openURL(href)}
@@ -245,8 +378,7 @@ function HelpButton({
       ]}
     >
       <CircleHelp size={compact ? 22 : 18} color={NEXT_BLUE_DEEP} strokeWidth={2.25} />
-      {!compact && label ? <Text style={styles.helpChipText}>{label}</Text> : null}
-      {!compact && !label ? <Text style={styles.helpChipText}>Help</Text> : null}
+      {!compact ? <Text style={styles.helpChipText}>{shown}</Text> : null}
     </Pressable>
   );
 }
@@ -256,14 +388,18 @@ function StepHeading({
   title,
   helpHref,
   helpLabel,
+  textStyle,
+  rtl = false,
 }: {
   title: string;
   helpHref: string;
   helpLabel?: string;
+  textStyle?: object;
+  rtl?: boolean;
 }) {
   return (
-    <View style={styles.stepHeading}>
-      <Text style={styles.question}>{title}</Text>
+    <View style={[styles.stepHeading, rtl && styles.stepHeadingRtl]}>
+      <Text style={[styles.question, textStyle]}>{title}</Text>
       <HelpButton href={helpHref} label={helpLabel} compact />
     </View>
   );
@@ -273,11 +409,17 @@ function QuestionYesNo({
   value,
   onChange,
   highlight = false,
+  yesLabel,
+  noLabel,
+  coachLabel,
 }: {
   value: boolean | null;
   onChange: (v: boolean) => void;
   /** Pulse when Next was tapped without a choice. */
   highlight?: boolean;
+  yesLabel: string;
+  noLabel: string;
+  coachLabel: string;
 }) {
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -326,9 +468,9 @@ function QuestionYesNo({
             onPress={() => onChange(true)}
             accessibilityRole="button"
             accessibilityState={{ selected: value === true }}
-            accessibilityLabel="Yes"
+            accessibilityLabel={yesLabel}
           >
-            <Text style={[styles.yesNoText, value === true && styles.yesNoTextOn]}>Yes</Text>
+            <Text style={[styles.yesNoText, value === true && styles.yesNoTextOn]}>{yesLabel}</Text>
           </Pressable>
         </Animated.View>
         <Animated.View
@@ -342,19 +484,19 @@ function QuestionYesNo({
             onPress={() => onChange(false)}
             accessibilityRole="button"
             accessibilityState={{ selected: value === false }}
-            accessibilityLabel="No"
+            accessibilityLabel={noLabel}
           >
-            <Text style={[styles.yesNoText, value === false && styles.yesNoTextOn]}>No</Text>
+            <Text style={[styles.yesNoText, value === false && styles.yesNoTextOn]}>{noLabel}</Text>
           </Pressable>
         </Animated.View>
       </View>
-      {highlight ? <FingerTapCoach /> : null}
+      {highlight ? <FingerTapCoach label={coachLabel} /> : null}
     </View>
   );
 }
 
 /** Animated pointing hand that taps Yes, then No — coaches an unanswered choice. */
-function FingerTapCoach() {
+function FingerTapCoach({ label }: { label: string }) {
   const x = useRef(new Animated.Value(0)).current;
   const tap = useRef(new Animated.Value(0)).current;
 
@@ -400,7 +542,7 @@ function FingerTapCoach() {
 
   return (
     <View style={styles.fingerCoach} pointerEvents="none" accessibilityElementsHidden>
-      <Text style={styles.fingerCoachLabel}>Tap Yes or No</Text>
+      <Text style={styles.fingerCoachLabel}>{label}</Text>
       <Animated.View style={{ transform: [{ translateX }, { translateY: tipY }, { scale }] }}>
         <Svg width={44} height={52} viewBox="0 0 44 52">
           {/* Soft shadow */}
@@ -426,17 +568,25 @@ function FingerTapCoach() {
   );
 }
 
-function FieldLabelWithHelp({ label, href }: { label: string; href: string }) {
+function FieldLabelWithHelp({
+  label,
+  href,
+  textStyle,
+}: {
+  label: string;
+  href: string;
+  textStyle?: object;
+}) {
   return (
     <View style={styles.fieldLabelRow}>
-      <Text style={[styles.fieldLabel, styles.fieldLabelFlush]}>{label}</Text>
+      <Text style={[styles.fieldLabel, styles.fieldLabelFlush, textStyle]}>{label}</Text>
       <HelpButton href={href} compact />
     </View>
   );
 }
 
 export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: Props) {
-  const [stepId, setStepId] = useState<StepId>('welcome');
+  const [stepId, setStepId] = useState<StepId>('language');
   const [gender, setGenderPick] = useState<Gender>('male');
   const [mentorGender, setMentorGenderPick] = useState<Gender>('female');
   const [heightInput, setHeightInput] = useState('');
@@ -482,6 +632,16 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
   const scrollRef = useRef<ScrollView>(null);
   const yesNoAnchorY = useRef(0);
 
+  const t = useMemo(() => getQuickStartCopy(language.code), [language.code]);
+  const rtl = isRtlLang(language.code);
+  const copyAlign = useMemo(
+    () => ({
+      writingDirection: (rtl ? 'rtl' : 'ltr') as 'rtl' | 'ltr',
+      textAlign: (rtl ? 'right' : 'left') as 'right' | 'left',
+    }),
+    [rtl],
+  );
+
   const stepList = useMemo(
     () => buildStepList(hasScale, hasWatch, tracksCgm),
     [hasScale, hasWatch, tracksCgm],
@@ -489,13 +649,13 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
   const stepIndex = Math.max(0, stepList.indexOf(stepId));
   const totalSteps = stepList.length;
-  const progressLabel = `Quick Start · ${stepIndex + 1} of ${totalSteps}`;
+  const progressLabel = t.progress(stepIndex + 1, totalSteps);
 
   useEffect(() => {
     if (!visible) return;
     void (async () => {
-      const [lang, gd, ht, bd, mgd, prefs, tokens] = await Promise.all([
-        getLanguage(),
+      // Language gate always opens on English (prompt81). Persist only on Next.
+      const [gd, ht, bd, mgd, prefs, tokens] = await Promise.all([
         getGender(),
         getCachedHeightCm(),
         getBirthdate(),
@@ -503,7 +663,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
         getUnitsPrefs(),
         loadWithingsTokens(),
       ]);
-      setLangPick(lang);
+      setLangPick(SUPPORTED_LANGUAGES[0]);
       setUnitsPrefs(prefs);
       if (gd) setGenderPick(gd);
       if (ht) setHeightInput(heightCmToInput(ht, prefs.height));
@@ -519,7 +679,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
       setTracksCgm(null);
       setLinkWithingsLater(false);
       setLinkError(null);
-      setStepId('welcome');
+      setStepId('language');
       setStepError(null);
       setBodyTarget(null);
       setMacroTarget(null);
@@ -534,7 +694,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
   useEffect(() => {
     if (!stepList.includes(stepId)) {
-      setStepId(stepList[Math.min(stepIndex, stepList.length - 1)] ?? 'welcome');
+      setStepId(stepList[Math.min(stepIndex, stepList.length - 1)] ?? 'language');
     }
   }, [stepList, stepId, stepIndex]);
 
@@ -1052,7 +1212,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     }
     if (stepId === 'targets') {
       if (!bodyTarget || !macroTarget) {
-        setStepError('Wait for targets or tap Retry.');
+        setStepError(t.targets.waitOrRetry);
         return;
       }
       await saveBodyTarget(bodyTarget);
@@ -1078,6 +1238,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     macroTarget,
     goToAdjacent,
     nudgeYesNoChoice,
+    t.targets.waitOrRetry,
   ]);
 
   const goBack = useCallback(() => {
@@ -1119,97 +1280,141 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
   );
 
   const showMentorGender = language.code === 'he' || language.code === 'ar';
-  const headerSub = stepId === 'welcome' ? 'Welcome to Healthings' : progressLabel;
+  const isLanguageGate = stepId === 'language';
+  const headerSub = stepId === 'welcome' ? t.welcomeTo : progressLabel;
+  const genderLabel = (g: Gender) =>
+    g === 'male' ? t.genderMale : g === 'female' ? t.genderFemale : t.genderOther;
+  const langCode = language.code;
 
   if (!visible) return null;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
       <SafeAreaView style={styles.safe}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Quick Start</Text>
-          <Text style={styles.headerSub}>{headerSub}</Text>
-          <View style={styles.dots}>
-            {stepList.map((id, i) => (
-              <View key={id} style={[styles.dot, i <= stepIndex && styles.dotOn]} />
-            ))}
+        {!isLanguageGate ? (
+          <View style={styles.header}>
+            <Text style={[styles.headerTitle, copyAlign]}>{t.quickStart}</Text>
+            <Text style={[styles.headerSub, copyAlign]}>{headerSub}</Text>
+            <View style={styles.dots}>
+              {stepList.map((id, i) => (
+                <View key={id} style={[styles.dot, i <= stepIndex && styles.dotOn]} />
+              ))}
+            </View>
           </View>
-        </View>
+        ) : null}
 
         <ScrollView
           ref={scrollRef}
           style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isLanguageGate && styles.languageGateContent,
+          ]}
+          scrollEnabled={!isLanguageGate}
           keyboardShouldPersistTaps="handled"
         >
+          {stepId === 'language' && (
+            <View style={styles.languageGateShell}>
+              <WelcomeBrandMark brandTag="" compact />
+              <LanguageGateHero
+                selectedCode={language.code}
+                onSelect={(code) => {
+                  const lang = SUPPORTED_LANGUAGES.find((l) => l.code === code);
+                  if (!lang) return;
+                  setLangPick(lang);
+                }}
+              />
+            </View>
+          )}
+
           {stepId === 'welcome' && (
             <>
-              <WelcomeBrandMark />
-              <StepHeading title="Welcome" helpHref={HELP_WELCOME} helpLabel="How Healthings works" />
-              <Text style={styles.lead}>
-                Healthings is a wellness app with a high-end method: it learns your body, teaches you
-                in the moment, and feeds clear feedback to your nutritionist — so the path to your
-                targets keeps getting sharper.
-              </Text>
+              <WelcomeBrandMark brandTag={t.brandTag} />
+              <StepHeading
+                title={t.welcome.title}
+                helpHref={helpUrl(langCode, 'quick-start-welcome')}
+                helpLabel={t.welcome.helpLabel}
+                textStyle={copyAlign}
+                rtl={rtl}
+              />
+              <Text style={[styles.lead, copyAlign]}>{t.welcome.lead}</Text>
+              {showMentorGender ? (
+                <View style={styles.mentorBlock}>
+                  <FieldLabelWithHelp
+                    label={t.language.mentorVoice}
+                    href={helpUrl(langCode, 'mentor-voice-gender')}
+                    textStyle={copyAlign}
+                  />
+                  <Text style={[styles.hint, copyAlign]}>{t.language.mentorHint}</Text>
+                  <View style={styles.chipRow}>
+                    {(['male', 'female'] as Gender[]).map((g) => (
+                      <Pressable
+                        key={g}
+                        style={[styles.chip, mentorGender === g && styles.chipOn]}
+                        onPress={() => setMentorGenderPick(g)}
+                      >
+                        <Text style={[styles.chipText, mentorGender === g && styles.chipTextOn]}>
+                          {genderLabel(g)}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
               <View style={styles.welcomeCard}>
-                <Text style={styles.optionTitle}>Learns your body. Teaches you.</Text>
-                <Text style={styles.hint}>
-                  Watch live charts as weight, composition, activity, and glucose (when connected)
-                  update. The model builds a picture of how your body responds, explains what the
-                  numbers mean in plain language, and coaches you under My Rules — so you understand
-                  your progress, not just store it.
-                </Text>
+                <Text style={[styles.optionTitle, copyAlign]}>{t.welcome.card1Title}</Text>
+                <Text style={[styles.hint, copyAlign]}>{t.welcome.card1Body}</Text>
               </View>
               <View style={styles.welcomeCard}>
-                <Text style={styles.optionTitle}>A breakthrough in how care runs</Text>
-                <Text style={styles.hint}>
-                  Most wellness tools stop at tracking. Healthings closes the loop:{'\n'}
-                  {'\n'}
-                  • Your nutritionist sets clinical intent in My Rules{'\n'}
-                  • You live the plan — meals, body, activity, labs{'\n'}
-                  • Healthings executes, learns, and explains as days unfold{'\n'}
-                  • Body feedback reaches your nutritionist when you share{'\n'}
-                  • Together you refine the plan — the optimized path to your targets{'\n'}
-                  {'\n'}
-                  Continuous optimization for you and for your professional’s focus — not another
-                  disconnected food diary.
-                </Text>
+                <Text style={[styles.optionTitle, copyAlign]}>{t.welcome.card2Title}</Text>
+                <Text style={[styles.hint, copyAlign]}>{t.welcome.card2Body}</Text>
               </View>
               <View style={styles.welcomeCard}>
-                <Text style={styles.optionTitle}>Wellness category. Professional standard.</Text>
-                <Text style={styles.hint}>
-                  We sit in wellness on purpose — no diagnosis, no prescribing, no replacing your
-                  clinician. The value is the method: licensed guidance, live body insight, and a
-                  feedback cycle that feels like premium practice.
-                </Text>
+                <Text style={[styles.optionTitle, copyAlign]}>{t.welcome.card3Title}</Text>
+                <Text style={[styles.hint, copyAlign]}>{t.welcome.card3Body}</Text>
               </View>
               <View style={styles.welcomeCard}>
-                <Text style={styles.optionTitle}>Not medical care</Text>
-                <Text style={styles.hint}>
-                  Healthings executes the plan under My Rules. Emergency and medical decisions stay
-                  with licensed professionals. Tap ? for privacy and the full story.
-                </Text>
+                <Text style={[styles.optionTitle, copyAlign]}>{t.welcome.card4Title}</Text>
+                <Text style={[styles.hint, copyAlign]}>{t.welcome.card4Body}</Text>
               </View>
-              <HelpButton href={HELP_WELCOME} label="How it works & privacy" />
+              <HelpButton
+                href={helpUrl(langCode, 'quick-start-welcome')}
+                label={t.welcome.privacyLink}
+                defaultLabel={t.help}
+              />
             </>
           )}
 
           {stepId === 'units' && (
             <>
-              <StepHeading title="Units & measurements" helpHref={HELP_UNITS} helpLabel="Units" />
-              <Text style={styles.lead}>
-                How weight, height, and energy appear in the app. You can change this later in My
-                Profile.
-              </Text>
-              <UnitsPreferenceSection prefs={unitsPrefs} onChange={onUnitsChange} />
+              <StepHeading
+                title={t.units.title}
+                helpHref={helpUrl(langCode, 'quick-start-units')}
+                helpLabel={t.units.helpLabel}
+                textStyle={copyAlign}
+                rtl={rtl}
+              />
+              <Text style={[styles.lead, copyAlign]}>{t.units.lead}</Text>
+              <UnitsPreferenceSection
+                prefs={unitsPrefs}
+                onChange={onUnitsChange}
+                langCode={langCode}
+                hideHeader
+              />
             </>
           )}
 
           {stepId === 'body' && (
             <>
-              <StepHeading title="About you" helpHref={HELP_PROFILE} helpLabel="Why we ask" />
-              <Text style={styles.lead}>Used for BMR, BMI, and energy targets.</Text>
-              <Text style={styles.fieldLabel}>Gender</Text>
+              <StepHeading
+                title={t.body.title}
+                helpHref={helpUrl(langCode, 'quick-start-profile')}
+                helpLabel={t.body.helpLabel}
+                textStyle={copyAlign}
+                rtl={rtl}
+              />
+              <Text style={[styles.lead, copyAlign]}>{t.body.lead}</Text>
+              <Text style={[styles.fieldLabel, copyAlign]}>{t.body.gender}</Text>
               <View style={styles.chipRow}>
                 {(['male', 'female', 'other'] as Gender[]).map((g) => (
                   <Pressable
@@ -1218,13 +1423,13 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                     onPress={() => setGenderPick(g)}
                   >
                     <Text style={[styles.chipText, gender === g && styles.chipTextOn]}>
-                      {g.charAt(0).toUpperCase() + g.slice(1)}
+                      {genderLabel(g)}
                     </Text>
                   </Pressable>
                 ))}
               </View>
-              <Text style={styles.fieldLabel}>
-                Height ({unitsPrefs.height === 'ftin' ? "ft'in\"" : 'cm'})
+              <Text style={[styles.fieldLabel, copyAlign]}>
+                {t.body.height} ({unitsPrefs.height === 'ftin' ? "ft'in\"" : 'cm'})
               </Text>
               <TextInput
                 style={styles.input}
@@ -1234,7 +1439,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                 placeholder={unitsPrefs.height === 'ftin' ? "e.g. 5'9\"" : 'e.g. 175'}
                 placeholderTextColor={WellnessColors.textSecondary}
               />
-              <Text style={styles.fieldLabel}>Birth date</Text>
+              <Text style={[styles.fieldLabel, copyAlign]}>{t.body.birthDate}</Text>
               <Pressable style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
                 <Text style={styles.dateBtnText}>
                   {birthdate.toLocaleDateString(undefined, {
@@ -1257,54 +1462,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                   }}
                 />
               )}
-              {age >= 13 && <Text style={styles.hint}>Age: {age} years</Text>}
-            </>
-          )}
-
-          {stepId === 'language' && (
-            <>
-              <StepHeading
-                title="Coach & meals language"
-                helpHref={HELP_LANGUAGE}
-                helpLabel="Language help"
-              />
-              <Text style={styles.lead}>
-                Chat, meal names, and exported reports use this language. App menus stay in English.
-              </Text>
-              <View style={styles.langWrap}>
-                {SUPPORTED_LANGUAGES.map((lang) => (
-                  <Pressable
-                    key={lang.code}
-                    style={[styles.langChip, language.code === lang.code && styles.chipOn]}
-                    onPress={() => setLangPick(lang)}
-                  >
-                    <Text style={[styles.chipText, language.code === lang.code && styles.chipTextOn]}>
-                      {lang.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-              {showMentorGender && (
-                <View style={styles.mentorBlock}>
-                  <FieldLabelWithHelp label="Mentor voice gender" href={HELP_MENTOR_VOICE} />
-                  <Text style={styles.hint}>
-                    How the coach addresses you in Hebrew or Arabic — not your profile gender.
-                  </Text>
-                  <View style={styles.chipRow}>
-                    {(['male', 'female'] as Gender[]).map((g) => (
-                      <Pressable
-                        key={g}
-                        style={[styles.chip, mentorGender === g && styles.chipOn]}
-                        onPress={() => setMentorGenderPick(g)}
-                      >
-                        <Text style={[styles.chipText, mentorGender === g && styles.chipTextOn]}>
-                          {g.charAt(0).toUpperCase() + g.slice(1)}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-              )}
+              {age >= 13 && <Text style={[styles.hint, copyAlign]}>{t.ageYears(age)}</Text>}
             </>
           )}
 
@@ -1312,20 +1470,26 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
             <>
               <GearHeroCard kind="scale" />
               <StepHeading
-                title="Do you have a Withings body scale?"
-                helpHref={HELP_SCALE}
-                helpLabel="Scale help"
+                title={t.scale.title}
+                helpHref={helpUrl(langCode, 'withings-scale')}
+                helpLabel={t.scale.helpLabel}
+                textStyle={copyAlign}
+                rtl={rtl}
               />
-              <Text style={styles.lead}>
-                Any Withings scale on your Withings account works — Body, Body Scan, and similar.
-                Healthings reads the cloud after you link (not Bluetooth).
-              </Text>
+              <Text style={[styles.lead, copyAlign]}>{t.scale.lead}</Text>
               <View
                 onLayout={(e) => {
                   yesNoAnchorY.current = e.nativeEvent.layout.y;
                 }}
               >
-                <QuestionYesNo value={hasScale} onChange={pickScale} highlight={yesNoCoach} />
+                <QuestionYesNo
+                  value={hasScale}
+                  onChange={pickScale}
+                  highlight={yesNoCoach}
+                  yesLabel={t.yes}
+                  noLabel={t.no}
+                  coachLabel={t.tapYesNo}
+                />
               </View>
             </>
           )}
@@ -1334,20 +1498,26 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
             <>
               <GearHeroCard kind="watch" />
               <StepHeading
-                title="Do you have a Withings watch or activity band?"
-                helpHref={HELP_WATCH}
-                helpLabel="Watch help"
+                title={t.watch.title}
+                helpHref={helpUrl(langCode, 'quick-start-watch')}
+                helpLabel={t.watch.helpLabel}
+                textStyle={copyAlign}
+                rtl={rtl}
               />
-              <Text style={styles.lead}>
-                Yes → activity and heart rate from Withings cloud. No → from Health Connect / Apple
-                Health (Garmin, Apple Watch, Samsung, etc.).
-              </Text>
+              <Text style={[styles.lead, copyAlign]}>{t.watch.lead}</Text>
               <View
                 onLayout={(e) => {
                   yesNoAnchorY.current = e.nativeEvent.layout.y;
                 }}
               >
-                <QuestionYesNo value={hasWatch} onChange={pickWatch} highlight={yesNoCoach} />
+                <QuestionYesNo
+                  value={hasWatch}
+                  onChange={pickWatch}
+                  highlight={yesNoCoach}
+                  yesLabel={t.yes}
+                  noLabel={t.no}
+                  coachLabel={t.tapYesNo}
+                />
               </View>
             </>
           )}
@@ -1356,20 +1526,26 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
             <>
               <GearHeroCard kind="cgm" />
               <StepHeading
-                title="Do you track glucose with a CGM?"
-                helpHref={HELP_CGM}
-                helpLabel="CGM help"
+                title={t.cgm.title}
+                helpHref={helpUrl(langCode, 'cgm')}
+                helpLabel={t.cgm.helpLabel}
+                textStyle={copyAlign}
+                rtl={rtl}
               />
-              <Text style={styles.lead}>
-                Continuous glucose via Health Connect (Android) or Apple Health (iPhone). You can
-                also import lab PDFs later.
-              </Text>
+              <Text style={[styles.lead, copyAlign]}>{t.cgm.lead}</Text>
               <View
                 onLayout={(e) => {
                   yesNoAnchorY.current = e.nativeEvent.layout.y;
                 }}
               >
-                <QuestionYesNo value={tracksCgm} onChange={pickCgm} highlight={yesNoCoach} />
+                <QuestionYesNo
+                  value={tracksCgm}
+                  onChange={pickCgm}
+                  highlight={yesNoCoach}
+                  yesLabel={t.yes}
+                  noLabel={t.no}
+                  coachLabel={t.tapYesNo}
+                />
               </View>
             </>
           )}
@@ -1378,18 +1554,17 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
             <>
               <GearHeroCard kind="link" />
               <StepHeading
-                title="Link your Withings account"
-                helpHref={HELP_LINK}
-                helpLabel="Linking help"
+                title={t.link.title}
+                helpHref={helpUrl(langCode, 'withings-link')}
+                helpLabel={t.link.helpLabel}
+                textStyle={copyAlign}
+                rtl={rtl}
               />
-              <Text style={styles.lead}>
-                Sign in with the same account used in the Withings app. One link covers scale and
-                watch data.
-              </Text>
+              <Text style={[styles.lead, copyAlign]}>{t.link.lead}</Text>
               {withingsLinked ? (
                 <View style={styles.successCard}>
-                  <Text style={styles.successText}>Withings connected</Text>
-                  <Text style={styles.hint}>You can re-link anytime in My Profile.</Text>
+                  <Text style={[styles.successText, copyAlign]}>{t.link.connected}</Text>
+                  <Text style={[styles.hint, copyAlign]}>{t.link.relinkHint}</Text>
                 </View>
               ) : (
                 <>
@@ -1399,14 +1574,11 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                     onPress={() => void handleLinkWithings()}
                   >
                     <Text style={styles.btnPrimaryText}>
-                      {linkBusy ? 'Opening Withings…' : 'Link Withings'}
+                      {linkBusy ? t.link.opening : t.link.linkBtn}
                     </Text>
                   </Pressable>
                   {linkError ? <Text style={styles.errorText}>{linkError}</Text> : null}
-                  <Text style={styles.hint}>
-                    Or tap Next to skip — link later in My Profile. Targets may use a temporary
-                    weight estimate until you link.
-                  </Text>
+                  <Text style={[styles.hint, copyAlign]}>{t.link.skipHint}</Text>
                 </>
               )}
             </>
@@ -1414,13 +1586,16 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
           {stepId === 'weight' && (
             <>
-              <StepHeading title="Starting weight" helpHref={HELP_WEIGHT} helpLabel="Weight help" />
-              <Text style={styles.lead}>Needed for targets and energy balance.</Text>
+              <StepHeading
+                title={t.weight.title}
+                helpHref={helpUrl(langCode, 'starting-weight')}
+                helpLabel={t.weight.helpLabel}
+                textStyle={copyAlign}
+                rtl={rtl}
+              />
+              <Text style={[styles.lead, copyAlign]}>{t.weight.lead}</Text>
               {hasScale && withingsLinked ? (
-                <Text style={styles.hint}>
-                  Linked — enter a weight if the scale has not synced yet, or tap Next to use cloud
-                  data when available.
-                </Text>
+                <Text style={[styles.hint, copyAlign]}>{t.weight.linkedHint}</Text>
               ) : null}
               {hasScale && !withingsLinked ? (
                 <>
@@ -1428,20 +1603,20 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                     style={[styles.optionCard, !linkWithingsLater && styles.optionCardOn]}
                     onPress={() => setLinkWithingsLater(false)}
                   >
-                    <Text style={styles.optionTitle}>Enter weight now</Text>
+                    <Text style={[styles.optionTitle, copyAlign]}>{t.weight.enterNow}</Text>
                   </Pressable>
                   <Pressable
                     style={[styles.optionCard, linkWithingsLater && styles.optionCardOn]}
                     onPress={() => setLinkWithingsLater(true)}
                   >
-                    <Text style={styles.optionTitle}>Skip — I&apos;ll get weight from Withings later</Text>
+                    <Text style={[styles.optionTitle, copyAlign]}>{t.weight.skipWithings}</Text>
                   </Pressable>
                 </>
               ) : null}
               {(!hasScale || !linkWithingsLater || withingsLinked) && (
                 <>
-                  <Text style={styles.fieldLabel}>
-                    Current weight ({massUnitLabel(unitsPrefs.mass)})
+                  <Text style={[styles.fieldLabel, copyAlign]}>
+                    {t.weight.currentWeight} ({massUnitLabel(unitsPrefs.mass)})
                   </Text>
                   <TextInput
                     style={styles.input}
@@ -1452,7 +1627,11 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                     placeholderTextColor={WellnessColors.textSecondary}
                   />
                   {!hasScale ? (
-                    <HelpButton href={HELP_MANUAL_BODY} label="Manual body guide" />
+                    <HelpButton
+                      href={helpUrl(langCode, 'manual-body')}
+                      label={t.weight.manualGuide}
+                      defaultLabel={t.help}
+                    />
                   ) : null}
                 </>
               )}
@@ -1465,65 +1644,59 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
               {Platform.OS === 'ios' ? (
                 <>
                   <StepHeading
-                    title="Allow Apple Health"
-                    helpHref={HELP_PHONE_HEALTH}
-                    helpLabel="Phone health"
+                    title={t.phoneHealth.titleIos}
+                    helpHref={helpUrl(langCode, 'phone-health-activity')}
+                    helpLabel={t.phoneHealth.helpLabel}
+                    textStyle={copyAlign}
+                    rtl={rtl}
                   />
-                  <Text style={styles.lead}>
-                    Tap Next — Apple Health may ask once. Use Allow access below for steps and heart
-                    rate when your Withings watch is off.
-                  </Text>
+                  <Text style={[styles.lead, copyAlign]}>{t.phoneHealth.leadIos}</Text>
                   {tracksCgm ? (
-                    <Text style={styles.hint}>
-                      CGM: CareSens Air → share with Apple Health → allow Blood Glucose.
-                    </Text>
+                    <Text style={[styles.hint, copyAlign]}>{t.phoneHealth.cgmIos}</Text>
                   ) : null}
                 </>
               ) : (
                 <>
                   <StepHeading
-                    title="Allow Health Connect"
-                    helpHref={HELP_PHONE_HEALTH}
-                    helpLabel="Phone health"
+                    title={t.phoneHealth.titleAndroid}
+                    helpHref={helpUrl(langCode, 'phone-health-activity')}
+                    helpLabel={t.phoneHealth.helpLabel}
+                    textStyle={copyAlign}
+                    rtl={rtl}
                   />
-                  <Text style={styles.lead}>
-                    Tap Next — Health Connect may open once. When Withings watch is off, steps and
-                    heart rate come from any brand that writes to Health Connect.
-                  </Text>
+                  <Text style={[styles.lead, copyAlign]}>{t.phoneHealth.leadAndroid}</Text>
                   {tracksCgm ? (
-                    <Text style={styles.hint}>Blood glucose — for CGM charts and meal impact.</Text>
+                    <Text style={[styles.hint, copyAlign]}>{t.phoneHealth.cgmAndroid}</Text>
                   ) : null}
                 </>
               )}
               {!hasWatch ? <PhoneHealthActivityStrip /> : null}
               {permBusy ? <ActivityIndicator style={{ marginTop: 12 }} /> : null}
-              {permNote ? <Text style={styles.hint}>{permNote}</Text> : null}
+              {permNote ? <Text style={[styles.hint, copyAlign]}>{permNote}</Text> : null}
             </>
           )}
 
           {stepId === 'pdfs' && (
             <>
               <StepHeading
-                title="Optional reports"
-                helpHref={HELP_REPORTS}
-                helpLabel="PDF reports"
+                title={t.pdfs.title}
+                helpHref={helpUrl(langCode, 'reports-import')}
+                helpLabel={t.pdfs.helpLabel}
+                textStyle={copyAlign}
+                rtl={rtl}
               />
-              <Text style={styles.lead}>
-                Import PDFs you already have — or tap Continue to do this later in the app.
-              </Text>
+              <Text style={[styles.lead, copyAlign]}>{t.pdfs.lead}</Text>
               <View style={styles.reportCard}>
                 <View style={styles.reportCardHeader}>
                   <View style={styles.pdfIconWrap}>
                     <PdfFileIcon size={46} />
                   </View>
                   <View style={styles.reportCardCopy}>
-                    <Text style={styles.optionTitle}>Lab report</Text>
-                    <Text style={styles.hint}>
-                      Lipids, kidney markers, and more — for smarter macro targets.
-                    </Text>
+                    <Text style={[styles.optionTitle, copyAlign]}>{t.pdfs.labTitle}</Text>
+                    <Text style={[styles.hint, copyAlign]}>{t.pdfs.labHint}</Text>
                   </View>
                 </View>
-                {labDone ? <Text style={styles.doneBadgeNavy}>Imported</Text> : null}
+                {labDone ? <Text style={styles.doneBadgeNavy}>{t.pdfs.imported}</Text> : null}
                 <View style={styles.cardActions}>
                   <Pressable
                     style={styles.btnNavy}
@@ -1533,7 +1706,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                     }}
                   >
                     <PdfFileIcon size={18} />
-                    <Text style={styles.btnNavyText}>Import lab PDF</Text>
+                    <Text style={styles.btnNavyText}>{t.pdfs.importLab}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -1543,11 +1716,11 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                     <PdfFileIcon size={46} />
                   </View>
                   <View style={styles.reportCardCopy}>
-                    <Text style={styles.optionTitle}>Nutritionist session</Text>
-                    <Text style={styles.hint}>Visit summary — coaches follow your plan text.</Text>
+                    <Text style={[styles.optionTitle, copyAlign]}>{t.pdfs.nutritionTitle}</Text>
+                    <Text style={[styles.hint, copyAlign]}>{t.pdfs.nutritionHint}</Text>
                   </View>
                 </View>
-                {nutritionDone ? <Text style={styles.doneBadgeNavy}>Imported</Text> : null}
+                {nutritionDone ? <Text style={styles.doneBadgeNavy}>{t.pdfs.imported}</Text> : null}
                 <View style={styles.cardActions}>
                   <Pressable
                     style={styles.btnNavy}
@@ -1557,7 +1730,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                     }}
                   >
                     <PdfFileIcon size={18} />
-                    <Text style={styles.btnNavyText}>Import session PDF</Text>
+                    <Text style={styles.btnNavyText}>{t.pdfs.importSession}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -1566,10 +1739,16 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
           {stepId === 'targets' && (
             <>
-              <StepHeading title="Your targets" helpHref={HELP_TARGETS} helpLabel="Targets help" />
-              <Text style={styles.lead}>AI suggests body and macro targets from your profile.</Text>
+              <StepHeading
+                title={t.targets.title}
+                helpHref={helpUrl(langCode, 'targets-help')}
+                helpLabel={t.targets.helpLabel}
+                textStyle={copyAlign}
+                rtl={rtl}
+              />
+              <Text style={[styles.lead, copyAlign]}>{t.targets.lead}</Text>
               {rulesPreview ? (
-                <Text style={styles.rulesPreview} numberOfLines={6}>
+                <Text style={[styles.rulesPreview, copyAlign]} numberOfLines={6}>
                   {rulesPreview}
                 </Text>
               ) : null}
@@ -1584,33 +1763,32 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                 <>
                   <Text style={styles.errorText}>{targetsError}</Text>
                   <Pressable style={styles.btnPrimary} onPress={() => void runTargetAi(false)}>
-                    <Text style={styles.btnPrimaryText}>Retry</Text>
+                    <Text style={styles.btnPrimaryText}>{t.targets.retry}</Text>
                   </Pressable>
                 </>
               ) : null}
               {bodyTarget && macroTarget ? (
                 <>
                   {usingSavedTargets ? (
-                    <Text style={styles.hint}>
-                      Using your saved targets — My Rules and prior edits are kept. Tap Regenerate
-                      only if you want fresh AI numbers.
-                    </Text>
+                    <Text style={[styles.hint, copyAlign]}>{t.targets.usingSaved}</Text>
                   ) : null}
                   <View style={styles.targetSummary}>
-                    <Text style={styles.optionTitle}>Body target</Text>
-                    <Text style={styles.hint}>
+                    <Text style={[styles.optionTitle, copyAlign]}>{t.targets.bodyTarget}</Text>
+                    <Text style={[styles.hint, copyAlign]}>
                       {formatMass(bodyTarget.targetWeight_kg, unitsPrefs.mass)} ·{' '}
                       {bodyTarget.targetFatPct.toFixed(0)}% fat · {bodyTarget.reasoning}
                     </Text>
-                    <Text style={[styles.optionTitle, { marginTop: 12 }]}>Daily macros</Text>
-                    <Text style={styles.hint}>
+                    <Text style={[styles.optionTitle, copyAlign, { marginTop: 12 }]}>
+                      {t.targets.dailyMacros}
+                    </Text>
+                    <Text style={[styles.hint, copyAlign]}>
                       {formatEnergy(macroTarget.kcal, unitsPrefs.energy)} · P{macroTarget.protein_g} ·
                       C{macroTarget.carb_g} · F{macroTarget.fat_g}
                       {macroTarget.fiber_g != null ? ` · Fi${macroTarget.fiber_g}` : ''}
                     </Text>
                     {macroTarget.rulesContext ? (
-                      <Text style={[styles.hint, { marginTop: 8 }]}>
-                        Rules applied: {macroTarget.rulesContext}
+                      <Text style={[styles.hint, copyAlign, { marginTop: 8 }]}>
+                        {t.targets.rulesApplied}: {macroTarget.rulesContext}
                       </Text>
                     ) : null}
                   </View>
@@ -1623,7 +1801,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                       void runTargetAi(true);
                     }}
                   >
-                    <Text style={styles.btnGhostText}>Regenerate with AI</Text>
+                    <Text style={styles.btnGhostText}>{t.targets.regenerate}</Text>
                   </Pressable>
                 </>
               ) : null}
@@ -1633,15 +1811,18 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
           {stepId === 'meals' && (
             <>
               <GearHeroCard kind="meals" />
-              <StepHeading title="How to log meals" helpHref={HELP_MEALS} helpLabel="Meal logging" />
-              <Text style={styles.lead}>
-                Log what you eat so Healthings can coach under My Rules and show live impact on your
-                charts.
-              </Text>
-              <Text style={styles.bullet}>1. Tap + on the metabolic chart to open the food log.</Text>
-              <Text style={styles.bullet}>2. Photo — snap your plate; AI lists items; you approve.</Text>
-              <Text style={styles.bullet}>3. Text — describe your meal; AI parses macros.</Text>
-              <Text style={styles.bullet}>4. Coach chat can suggest what to log — save via the food log.</Text>
+              <StepHeading
+                title={t.meals.title}
+                helpHref={helpUrl(langCode, 'meal-logging')}
+                helpLabel={t.meals.helpLabel}
+                textStyle={copyAlign}
+                rtl={rtl}
+              />
+              <Text style={[styles.lead, copyAlign]}>{t.meals.lead}</Text>
+              <Text style={[styles.bullet, copyAlign]}>{t.meals.b1}</Text>
+              <Text style={[styles.bullet, copyAlign]}>{t.meals.b2}</Text>
+              <Text style={[styles.bullet, copyAlign]}>{t.meals.b3}</Text>
+              <Text style={[styles.bullet, copyAlign]}>{t.meals.b4}</Text>
               <Pressable
                 style={({ pressed }) => [
                   styles.btnNavy,
@@ -1660,7 +1841,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                   <UtensilsCrossed size={18} color="#fff" strokeWidth={2.25} />
                 )}
                 <Text style={styles.btnNavyText}>
-                  {finishSpinner ? 'Working…' : 'Log my first meal'}
+                  {finishSpinner ? t.working : t.meals.logFirst}
                 </Text>
               </Pressable>
             </>
@@ -1669,7 +1850,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
           {stepError ? <Text style={styles.errorText}>{stepError}</Text> : null}
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, isLanguageGate && styles.footerGate]}>
           {stepIndex > 0 ? (
             <Pressable
               style={({ pressed }) => [
@@ -1679,9 +1860,9 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
               onPress={goBack}
               disabled={nextBusy || finishBusy}
             >
-              <Text style={styles.btnGhostText}>Back</Text>
+              <Text style={styles.btnGhostText}>{t.back}</Text>
             </Pressable>
-          ) : (
+          ) : isLanguageGate ? null : (
             <View style={styles.footerSpacer} />
           )}
           {stepId === 'meals' ? (
@@ -1698,12 +1879,13 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
               {finishSpinner ? (
                 <ActivityIndicator color="#fff" size="small" style={styles.btnNextSpinner} />
               ) : null}
-              <Text style={styles.btnNextText}>{finishSpinner ? 'Working…' : 'Finish'}</Text>
+              <Text style={styles.btnNextText}>{finishSpinner ? t.working : t.finish}</Text>
             </Pressable>
           ) : (
             <Pressable
               style={({ pressed }) => [
                 styles.btnNext,
+                isLanguageGate && styles.btnNextGate,
                 pressed && !nextBusy && styles.btnNextPressed,
                 (nextBusy || (stepId === 'phone_health' && permBusy) || linkBusy) &&
                   styles.btnDisabled,
@@ -1716,11 +1898,11 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                 <ActivityIndicator color="#fff" size="small" style={styles.btnNextSpinner} />
               ) : null}
               <Text style={styles.btnNextText}>
-                {stepId === 'pdfs'
-                  ? 'Continue'
-                  : nextSpinner || (stepId === 'phone_health' && permBusy)
-                    ? 'Working…'
-                    : 'Next'}
+                {nextSpinner || (stepId === 'phone_health' && permBusy)
+                  ? t.working
+                  : isLanguageGate
+                    ? 'Next'
+                    : t.next}
               </Text>
             </Pressable>
           )}
@@ -1770,6 +1952,115 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 22, fontWeight: '700', color: WellnessColors.textPrimary },
   headerSub: { fontSize: 14, color: WellnessColors.textSecondary, marginTop: 4 },
+  languageGateContent: {
+    flexGrow: 1,
+    paddingTop: 4,
+    paddingBottom: 4,
+    paddingHorizontal: 16,
+  },
+  languageGateShell: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  brandHeroGate: {
+    marginBottom: 0,
+    paddingBottom: 0,
+    borderBottomWidth: 0,
+  },
+  brandLogoWrapCrop: {
+    overflow: 'hidden',
+    alignItems: 'center',
+  },
+  gateRoot: {
+    flex: 1,
+    justifyContent: 'space-between',
+    marginTop: 2,
+  },
+  gateTop: {
+    alignItems: 'center',
+    paddingTop: 4,
+  },
+  gateBottom: {
+    paddingTop: 6,
+    paddingBottom: 2,
+  },
+  gateWelcomeStack: {
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  gateSelectRow: {
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  gateCloudWord: {
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    fontStyle: 'normal',
+    fontWeight: '800',
+  },
+  gateCloudWordOn: {
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  gateCloudWordRtl: {
+    writingDirection: 'rtl',
+  },
+  gateFlagTray: {
+    backgroundColor: '#EEF2F7',
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    gap: 10,
+    alignItems: 'center',
+  },
+  gateFlagRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'stretch',
+    gap: 8,
+    width: '100%',
+  },
+  gateFlagRowSecond: {
+    paddingHorizontal: 32,
+  },
+  gateFlagCell: {
+    flex: 1,
+    maxWidth: 76,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
+  },
+  gateFlagCellOn: {
+    borderWidth: 2,
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+  gateFlagEmoji: {
+    fontSize: 34,
+    lineHeight: 40,
+  },
+  gateFlagNative: {
+    marginTop: 4,
+    fontSize: 11,
+    lineHeight: 13,
+    fontWeight: '700',
+    color: WellnessColors.textSecondary,
+    textAlign: 'center',
+    letterSpacing: 0.4,
+  },
+  gateCardPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.96 }],
+  },
   brandHero: {
     alignItems: 'center',
     marginBottom: 20,
@@ -1777,10 +2068,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: WellnessColors.gridLine,
   },
+  brandLogoWrap: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
   brandLogo: {
     width: '100%',
-    maxWidth: 320,
-    height: 100,
   },
   brandSiteRow: {
     marginTop: 10,
@@ -1826,6 +2119,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 10,
     gap: 4,
+  },
+  stepHeadingRtl: {
+    flexDirection: 'row-reverse',
   },
   fieldLabelRow: {
     flexDirection: 'row',
@@ -1901,14 +2197,6 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: BRAND_NAVY, borderColor: BRAND_NAVY },
   chipText: { fontSize: 14, fontWeight: '600', color: WellnessColors.textSecondary },
   chipTextOn: { color: '#fff' },
-  langWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  langChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
-  },
   dateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2023,6 +2311,10 @@ const styles = StyleSheet.create({
     borderTopColor: WellnessColors.gridLine,
     paddingBottom: Platform.OS === 'android' ? 24 : 16,
   },
+  footerGate: {
+    borderTopWidth: 0,
+    paddingTop: 8,
+  },
   footerSpacer: { flex: 1 },
   btnPrimary: {
     flex: 1,
@@ -2068,6 +2360,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 2,
     borderColor: NEXT_BLUE_DEEP,
+  },
+  btnNextGate: {
+    paddingVertical: 15,
+    borderRadius: 14,
   },
   btnNextPressed: {
     backgroundColor: NEXT_BLUE_DEEP,

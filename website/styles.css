@@ -484,6 +484,58 @@ h1 {
   font-weight: 600;
 }
 
+/* 7-locale switcher — same path, only /{lang}/ changes */
+.help-lang {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 0 0 16px;
+  padding: 10px 8px;
+  border-radius: 14px;
+  background: #f0f3f7;
+}
+
+.help-lang a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #1a2b4a;
+  text-decoration: none;
+  border: 1.5px solid transparent;
+  background: #fff;
+}
+
+.help-lang a:hover {
+  border-color: #5bafe8;
+}
+
+.help-lang a.on {
+  border-color: #1a2b4a;
+  background: #1a2b4a;
+  color: #fff;
+}
+
+.help-glossary {
+  font-size: 0.9rem;
+  color: #5a6570;
+  margin-top: 8px;
+  line-height: 1.45;
+}
+
+.help-back {
+  margin-top: 20px;
+}
+
+body.help-rtl .prose {
+  text-align: right;
+}
+
 /* Product-photo stage — silver/white, not brand green */
 .help-icon-hero {
   width: min(100%, 280px);

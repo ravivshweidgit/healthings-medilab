@@ -1,8 +1,10 @@
 /**
- * Profile & Settings — per-measure unit pickers (English chrome).
+ * Profile, Settings & Quick Start — per-measure unit pickers.
+ * Row labels follow app language; unit symbols stay English (glossary).
  */
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { getUnitsSectionCopy } from '../i18n/unitsSectionCopy';
 import type { UnitsPrefs } from '../services/UnitsPreferenceService';
 import { WellnessColors } from '../theme/wellness';
 
@@ -11,12 +13,13 @@ type ChipProps<T extends string> = {
   value: T;
   options: { id: T; label: string }[];
   onChange: (v: T) => void;
+  rtl?: boolean;
 };
 
-function UnitChipRow<T extends string>({ label, value, options, onChange }: ChipProps<T>) {
+function UnitChipRow<T extends string>({ label, value, options, onChange, rtl }: ChipProps<T>) {
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
+    <View style={[styles.row, rtl && styles.rowRtl]}>
+      <Text style={[styles.rowLabel, rtl && styles.rowLabelRtl]}>{label}</Text>
       <View style={styles.chips}>
         {options.map((opt) => {
           const selected = opt.id === value;
@@ -40,18 +43,29 @@ function UnitChipRow<T extends string>({ label, value, options, onChange }: Chip
 type Props = {
   prefs: UnitsPrefs;
   onChange: (next: UnitsPrefs) => void;
+  /** App locale — drives row labels (default English). */
+  langCode?: string;
+  /** When true, skip title/hint (wizard already has StepHeading). */
+  hideHeader?: boolean;
 };
 
-export function UnitsPreferenceSection({ prefs, onChange }: Props) {
+export function UnitsPreferenceSection({ prefs, onChange, langCode, hideHeader }: Props) {
+  const t = getUnitsSectionCopy(langCode);
+  const rtl = (langCode || '').toLowerCase().startsWith('he') || (langCode || '').toLowerCase().startsWith('ar');
   const patch = (partial: Partial<UnitsPrefs>) => onChange({ ...prefs, version: 1, ...partial });
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>Units & measurements</Text>
-      <Text style={styles.hint}>Display and input only — data stays in standard clinical units.</Text>
+      {!hideHeader ? (
+        <>
+          <Text style={[styles.title, rtl && styles.textRtl]}>{t.title}</Text>
+          <Text style={[styles.hint, rtl && styles.textRtl]}>{t.hint}</Text>
+        </>
+      ) : null}
       <UnitChipRow
-        label="Glucose"
+        label={t.glucose}
         value={prefs.glucose}
+        rtl={rtl}
         options={[
           { id: 'mgdl', label: 'mg/dL' },
           { id: 'mmol', label: 'mmol/L' },
@@ -59,8 +73,9 @@ export function UnitsPreferenceSection({ prefs, onChange }: Props) {
         onChange={(glucose) => patch({ glucose })}
       />
       <UnitChipRow
-        label="Weight"
+        label={t.weight}
         value={prefs.mass}
+        rtl={rtl}
         options={[
           { id: 'kg', label: 'kg' },
           { id: 'lb', label: 'lb' },
@@ -68,8 +83,9 @@ export function UnitsPreferenceSection({ prefs, onChange }: Props) {
         onChange={(mass) => patch({ mass })}
       />
       <UnitChipRow
-        label="Height"
+        label={t.height}
         value={prefs.height}
+        rtl={rtl}
         options={[
           { id: 'cm', label: 'cm' },
           { id: 'ftin', label: "ft'in\"" },
@@ -77,8 +93,9 @@ export function UnitsPreferenceSection({ prefs, onChange }: Props) {
         onChange={(height) => patch({ height })}
       />
       <UnitChipRow
-        label="Water"
+        label={t.water}
         value={prefs.water}
+        rtl={rtl}
         options={[
           { id: 'ml', label: 'ml' },
           { id: 'floz', label: 'fl oz' },
@@ -86,8 +103,9 @@ export function UnitsPreferenceSection({ prefs, onChange }: Props) {
         onChange={(water) => patch({ water })}
       />
       <UnitChipRow
-        label="Energy"
+        label={t.energy}
         value={prefs.energy}
+        rtl={rtl}
         options={[
           { id: 'kcal', label: 'kcal' },
           { id: 'kj', label: 'kJ' },
@@ -112,17 +130,28 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     lineHeight: 15,
   },
+  textRtl: {
+    writingDirection: 'rtl',
+    textAlign: 'right',
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
     gap: 8,
   },
+  rowRtl: {
+    flexDirection: 'row-reverse',
+  },
   rowLabel: {
-    width: 64,
+    width: 72,
     fontSize: 12,
     fontWeight: '600',
     color: WellnessColors.textSecondary,
+  },
+  rowLabelRtl: {
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   chips: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {

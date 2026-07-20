@@ -27,7 +27,7 @@ import {
   persistHealthConnectDiagnostics,
 } from '../services/healthConnectDiagnostics';
 
-const HELP_URL = 'https://healthings.ai/help/phone-health-activity.html';
+const HELP_URL = 'https://healthings.ai/en/help/phone-health-activity.html';
 
 type GrantedLine = {
   steps: boolean;
@@ -175,7 +175,7 @@ export function PhoneHealthActivityStrip({ onPermissionGranted, onSync }: Props)
     if (isIos) {
       Alert.alert(
         'Apple Health',
-        'Use Settings → Health → Data Access & Devices → Healthings to confirm Steps and Heart Rate are on. Help: healthings.ai/help/phone-health-activity.html',
+        'Use Settings → Health → Data Access & Devices → Healthings to confirm Steps and Heart Rate are on. Help: healthings.ai/en/help/phone-health-activity.html',
       );
       return;
     }
