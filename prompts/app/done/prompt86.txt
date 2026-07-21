@@ -1,0 +1,35 @@
+## Prompt 86 — Food Log collapse + dashboard footer reorder
+
+**Status: done (2026-07-22)** — phone-tested Android (Samsung)  
+**Builds on:** `done/prompt62` (Food Log placement), `done/prompt70` (activity/burned lines), `done/prompt85` (Reports strip chrome)
+
+### Problem
+
+1. Food Log card used a green title / green border and stayed always expanded — unlike glucose / trend cards.
+2. CareSens Import and **Refresh my data** sat mid-scroll (above Profile), cluttering the primary reading path.
+
+### What shipped
+
+| Area | Behavior |
+|------|----------|
+| **Food Log chrome** | Grey `gridLine` card border; title matches chart collapse style (`FOOD LOG` / secondary grey letter-spacing) |
+| **Collapsible** | Chevron expand/collapse; preference `dash_food_log_expanded` (default expanded) |
+| **Collapsed summary** | Day label + signed balance only: green `−N kcal` (deficit) / red `+N kcal` (surplus) — no “deficit/surplus” words, no eaten total |
+| **Footer order** | CareSens Import + Refresh my data moved to **end of dashboard** (after Nutrition directives / Lab results) |
+
+### Primary files
+
+- `app/src/components/FoodMacroStrip.tsx`
+- `app/src/screens/DashboardScreen.tsx`
+
+### Phone-tested
+
+- [x] Food Log title/border match other cards
+- [x] Collapse / expand persists
+- [x] Collapsed shows `−` / `+` balance colors
+- [x] CareSens + Refresh at bottom of scroll
+
+### Related
+
+- `done/prompt62.txt` — Food Log moved up; this prompt adds collapse + footer cleanup
+- `done/prompt70.txt` — burn/activity lines used for balance

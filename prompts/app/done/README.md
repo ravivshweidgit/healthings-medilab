@@ -93,6 +93,8 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt85** — done (2026-07-22). My Profile **Reports** collapsible strip (Visit report under Data sharing); plain 90-day label; grey/black chips. Phone-tested Samsung. See `done/prompt85.txt`.
 
+**prompt86** — done (2026-07-22). Food Log collapsible (chart-style title, grey border); collapsed `−`/`+` balance; CareSens + Refresh my data → dashboard footer. Phone-tested Samsung. See `done/prompt86.txt`.
+
 **prompt48** — done (2026-06-29). Lipid trend charts (Total/LDL/TG/HDL strips + green safe zones); mentors/coach see **all saved lab draws** in USER DATA. Phone-tested. Commits `308500f`, `fa0d6b1`. Supersedes prompt30 chart deferral + latest-only scope.
 
 **prompt50** — done (2026-06-30). Nutritionist visit report: clinical HTML export (7/14/30/90d), Appendix A charts (lipids/body/energy/CGM), Appendix B raw data. Phone-tested. See `done/prompt50.txt`. **UI shell → Reports strip in prompt85.**

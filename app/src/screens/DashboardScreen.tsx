@@ -2105,35 +2105,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           </View>
         </View>
 
-        {isLiveCgmDataSource(dataSource) ? (
-          <View style={styles.careSensImportSection}>
-            <Pressable
-              style={[styles.careSensImportButton, importBusy && styles.careSensImportButtonDisabled]}
-              onPress={handleImportCareSensCsv}
-              disabled={importBusy}
-              accessibilityRole="button"
-              accessibilityLabel="Import CareSens Air CSV"
-            >
-              {importBusy ? (
-                <ActivityIndicator color={WellnessColors.accentBlue} />
-              ) : (
-                <View style={styles.careSensImportButtonRow}>
-                  <View style={styles.careSensImportLogoWrap}>
-                    <Image
-                      source={require('../../assets/CareScenseAirLogo.jpeg')}
-                      style={styles.careSensImportButtonLogo}
-                      resizeMode="contain"
-                      accessibilityIgnoresInvertColors
-                    />
-                  </View>
-                  <Text style={styles.careSensImportButtonLabel}>Import</Text>
-                </View>
-              )}
-            </Pressable>
-            {importMessage ? <Text style={styles.importMessageText}>{importMessage}</Text> : null}
-          </View>
-        ) : null}
-
         {dataSource === 'health-connect' && error ? (
           <Pressable
             style={styles.hcErrorBanner}
@@ -2153,22 +2124,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               Settings → Health → Data Access → Healthings → Blood Glucose
             </Text>
           </View>
-        ) : null}
-
-        <Pressable
-          style={[styles.primaryButton, (isLoading || bodyScanLoading || trendLoading) && styles.primaryButtonDisabled]}
-          onPress={handleSync}
-          disabled={isLoading || bodyScanLoading || trendLoading}
-        >
-          {(isLoading || bodyScanLoading || trendLoading) ? (
-            <ActivityIndicator color={WellnessColors.surface} />
-          ) : (
-            <Text style={styles.primaryButtonText}>Refresh my data</Text>
-          )}
-        </Pressable>
-
-        {dataSource !== 'health-connect' && !withingsLinked && !effectiveBodyScan?.weightKg ? (
-          <Text style={styles.previewFoot}>Preview · sample wellness data</Text>
         ) : null}
 
         {/* My Profile + My Targets — single grouped card */}
@@ -2613,6 +2568,51 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           lang={userLanguage}
           gender={userGender}
         />
+
+        {isLiveCgmDataSource(dataSource) ? (
+          <View style={styles.careSensImportSection}>
+            <Pressable
+              style={[styles.careSensImportButton, importBusy && styles.careSensImportButtonDisabled]}
+              onPress={handleImportCareSensCsv}
+              disabled={importBusy}
+              accessibilityRole="button"
+              accessibilityLabel="Import CareSens Air CSV"
+            >
+              {importBusy ? (
+                <ActivityIndicator color={WellnessColors.accentBlue} />
+              ) : (
+                <View style={styles.careSensImportButtonRow}>
+                  <View style={styles.careSensImportLogoWrap}>
+                    <Image
+                      source={require('../../assets/CareScenseAirLogo.jpeg')}
+                      style={styles.careSensImportButtonLogo}
+                      resizeMode="contain"
+                      accessibilityIgnoresInvertColors
+                    />
+                  </View>
+                  <Text style={styles.careSensImportButtonLabel}>Import</Text>
+                </View>
+              )}
+            </Pressable>
+            {importMessage ? <Text style={styles.importMessageText}>{importMessage}</Text> : null}
+          </View>
+        ) : null}
+
+        <Pressable
+          style={[styles.primaryButton, (isLoading || bodyScanLoading || trendLoading) && styles.primaryButtonDisabled]}
+          onPress={handleSync}
+          disabled={isLoading || bodyScanLoading || trendLoading}
+        >
+          {(isLoading || bodyScanLoading || trendLoading) ? (
+            <ActivityIndicator color={WellnessColors.surface} />
+          ) : (
+            <Text style={styles.primaryButtonText}>Refresh my data</Text>
+          )}
+        </Pressable>
+
+        {dataSource !== 'health-connect' && !withingsLinked && !effectiveBodyScan?.weightKg ? (
+          <Text style={styles.previewFoot}>Preview · sample wellness data</Text>
+        ) : null}
       </ScrollView>
       </KeyboardAvoidingView>
 

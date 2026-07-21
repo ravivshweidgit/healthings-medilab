@@ -46,3 +46,4 @@ Users struggle to find the Food Log. Tall glucose and trend charts push it far d
 ### Related
 
 - **`done/prompt61.txt`** — one-tap meal save
+- **`done/prompt86.txt`** — Food Log collapsible + CareSens/Refresh footer (2026-07-22)

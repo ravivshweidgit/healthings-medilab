@@ -14,6 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getBurnCorrection, setBurnCorrection } from '../services/BurnCorrectionService';
 import { getDailyMacros, foodLogDayKey, exportFoodLog, importFoodLog, type DailyMacros, type FoodEntry } from '../services/FoodLogService';
@@ -46,6 +47,9 @@ import {
   parseLocaleNumber,
   waterUnitLabel,
 } from '../logic/unitConvert';
+
+/** Persist Food Log expand so it matches glucose / trend chart prefs. */
+const FOOD_LOG_EXPANDED_KEY = 'dash_food_log_expanded';
 
 function startOfLocalDay(ms: number): number {
   const d = new Date(ms);
@@ -319,6 +323,21 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   },
   ref,
 ) {
+  const [expanded, setExpanded] = useState(true);
+  const [expandPrefsLoaded, setExpandPrefsLoaded] = useState(false);
+
+  useEffect(() => {
+    void AsyncStorage.getItem(FOOD_LOG_EXPANDED_KEY).then((v) => {
+      if (v === 'false') setExpanded(false);
+      if (v === 'true') setExpanded(true);
+      setExpandPrefsLoaded(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!expandPrefsLoaded) return;
+    void AsyncStorage.setItem(FOOD_LOG_EXPANDED_KEY, expanded ? 'true' : 'false');
+  }, [expanded, expandPrefsLoaded]);
   const [selectedMs, setSelectedMs] = useState(() => startOfLocalDay(Date.now()));
   const [macros, setMacros] = useState<DailyMacros | null>(null);
   const [dayMacroTarget, setDayMacroTarget] = useState<DailyMacroTarget | null>(macroTarget ?? null);
@@ -558,10 +577,32 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   const energyBarLabel = energyU === 'kj' ? 'kJ' : 'kcal';
 
   return (
-    <View style={[styles.card, cardShadow]}>
-      {/* Header */}
-      <Text style={styles.sectionTitle}>FOOD LOG</Text>
+    <View style={[styles.card, !expanded && styles.cardCollapsed, cardShadow]}>
+      <Pressable
+        style={styles.collapseHeader}
+        onPress={() => setExpanded((v) => !v)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={expanded ? 'Collapse Food Log' : 'Expand Food Log'}
+      >
+        <View style={styles.collapseHeaderText}>
+          <Text style={styles.collapseTitle}>FOOD LOG</Text>
+          {!expanded ? (
+            <Text style={styles.collapseSub} numberOfLines={1}>
+              {formatDayLabel(selectedMs)}
+              {balance != null ? (
+                <Text style={{ color: isDeficit ? '#2E7D32' : '#C62828' }}>
+                  {` · ${isDeficit ? '−' : '+'}${disp(Math.abs(balance)).toLocaleString()} ${eLab}`}
+                </Text>
+              ) : null}
+            </Text>
+          ) : null}
+        </View>
+        <Text style={styles.collapseChevron}>{expanded ? '⌃' : '›'}</Text>
+      </Pressable>
 
+      {expanded ? (
+      <>
       {/* Date navigator — centred below title */}
       <View style={styles.dateNavRow}>
         <Pressable style={styles.dateNavBtn} onPress={() => shiftDay(-1)} hitSlop={8} accessibilityLabel="Previous day">
@@ -779,6 +820,8 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
           <Text style={styles.footerBtnText}>⬇ Import</Text>
         </Pressable>
       </View>
+      </>
+      ) : null}
 
       {/* Burn correction modal */}
       <Modal visible={correctionModalVisible} transparent animationType="fade" onRequestClose={() => setCorrectionModalVisible(false)}>
@@ -981,21 +1024,45 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     marginBottom: dashCardGap,
     borderWidth: 1.5,
-    borderColor: 'rgba(76, 175, 80, 0.35)',
+    borderColor: WellnessColors.gridLine,
   },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    color: WellnessColors.accentGreen,
-    textAlign: 'center',
-    marginBottom: 8,
+  cardCollapsed: {
+    paddingBottom: 12,
+  },
+  collapseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  collapseHeaderText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  collapseTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    color: WellnessColors.textSecondary,
+  },
+  collapseSub: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: WellnessColors.textPrimary,
+    marginTop: 2,
+  },
+  collapseChevron: {
+    fontSize: 18,
+    color: WellnessColors.textSecondary,
+    paddingHorizontal: 4,
   },
   dateNavRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
+    marginTop: 10,
     marginBottom: 10,
     direction: 'ltr',
   },
