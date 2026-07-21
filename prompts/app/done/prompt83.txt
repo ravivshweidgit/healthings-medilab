@@ -1,6 +1,6 @@
 ## Prompt 83 — Meal save: await food-log refresh before close
 
-**Status: done (2026-07-21)** — Phone-tested on Samsung.  
+**Status: done (2026-07-21)** — Phone-tested on Samsung. Commit `e23d4c9`.  
 **Builds on:** Food log modal / `FoodMacroStrip` / `FoodLogService` JSON days
 
 ### Problem
