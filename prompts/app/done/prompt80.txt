@@ -1,6 +1,6 @@
 ## Prompt 80 — Hybrid activity: Withings distance walks + Withings bike (phone steps only when Watch Off)
 
-**Status: done (2026-07-22)** — phone-tested Android (Samsung); Jul 21 Food Log **884 kcal** activity (was legacy **937**)  
+**Status: done (2026-07-22)** — phone-tested Android (Samsung); Jul 21 Food Log **884 kcal** activity (was legacy **937**). Commit `f62b162`.  
 **Builds on:** `done/prompt76` (phone health when watch off), `done/prompt70` (Food Log burn), `done/prompt73` (watch activity on manual weight), persistence parity rules
 
 ### Problem
