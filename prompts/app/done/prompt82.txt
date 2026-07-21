@@ -1,0 +1,39 @@
+## Prompt 82 — Body card source header (Withings + CGM)
+
+**Status: done (2026-07-21)** — Phone-tested on Samsung (3 Withings setups × CGM).  
+**Builds on:** `done/prompt58` (setup toggles), `done/prompt69` (Re-link sheet), body card devices marks  
+**Store:** Android **1.2.13** (versionCode **40**)
+
+### Problem
+
+Body-card header mixed Withings account actions with CGM visuals: ✓ / Re-link looked CGM-related; icon gaps and title alignment were uneven; single scale/watch + CGM made **WITHINGS** collide with **CGM**.
+
+### What shipped
+
+| Area | Detail |
+|------|--------|
+| Source marks | Left: Withings (scale and/or watch) + CGM when on; equal icon gaps |
+| Account cluster | Right: **WITHINGS** caption centered above ✓/✕ + Link/Re-link in a soft pill (Withings-only; hidden when only CGM) |
+| Title row | Device labels and account caption share one top baseline; icons vertically centered with the pill |
+| Single device | Withings column `minWidth` so one instrument never lets **WITHINGS** overflow into **CGM** |
+| CGM-only | Only CGM mark; no Withings status/Re-link |
+
+### Primary files
+
+| Path | Role |
+|------|------|
+| `app/src/screens/DashboardScreen.tsx` | `showWithingsBodyHeader` / `showCgmBodyMark`; header layout + styles |
+| `app/src/components/GearIllustrations.tsx` | `WithingsDevicesMark`, `CgmDevicesMark` |
+
+### Phone-tested
+
+- [x] Scale + watch + CGM — titles aligned, icons level with ✓ / Re-link
+- [x] Scale-only + CGM — no WITHINGS/CGM title collision
+- [x] Watch-only + CGM — no title collision
+- [x] Withings account pill reads as Withings (not CGM)
+
+### Related
+
+- Setup toggles: `done/prompt58.txt`
+- Withings Re-link sheet: `done/prompt69.txt`
+- UI chrome i18n (later): `prompt81b.txt`

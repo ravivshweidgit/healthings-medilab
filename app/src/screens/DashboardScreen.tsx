@@ -43,7 +43,8 @@ import { RulesStrip } from '../components/RulesStrip';
 import { NutritionDirectivesStrip } from '../components/NutritionDirectivesStrip';
 import { LabResultsStrip } from '../components/LabResultsStrip';
 import { WelcomeQuickStartWizard } from '../components/WelcomeQuickStartWizard';
-import { WithingsDevicesMark } from '../components/GearIllustrations';
+import { Check, X } from 'lucide-react-native';
+import { CgmDevicesMark, WithingsDevicesMark } from '../components/GearIllustrations';
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
 import { ManualBodyProfileSection } from '../components/ManualBodyProfileSection';
 import { getManualBody, getManualBodyHistory, manualBodyToDashboardMetrics, countDistinctWeighInDays, type ManualBodySnapshot } from '../services/ManualBodyService';
@@ -598,7 +599,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     return withingsWeightDays < 2 && manualBodySnap != null;
   }, [sourceConfig, bodyScan, bodyTrendDays, manualBodySnap]);
 
-  /** Withings logo / OK / Link on body card — scale and/or watch (watch-only still needs Link/Re-link). */
+  /** Withings devices on body card — scale and/or watch (Link / ✓✕ only apply here). */
   const showWithingsBodyHeader = useMemo(() => {
     if (setupToggles != null) return setupToggles.withingsScale || setupToggles.withingsWatch;
     if (sourceConfig != null) {
@@ -608,6 +609,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     }
     return false;
   }, [setupToggles, sourceConfig]);
+
+  /** CGM mark on the body card — only when user opted into CGM. */
+  const showCgmBodyMark = useMemo(() => {
+    if (setupToggles != null) return setupToggles.cgm === true;
+    if (sourceConfig != null) return sourceConfig.glucose !== 'none';
+    return false;
+  }, [setupToggles, sourceConfig]);
+
+  const showBodySourcesHeader = showWithingsBodyHeader || showCgmBodyMark;
 
   /** Scale off in persisted source_config — drives Body form / charts (not the chip, so toggle stays snappy). */
   const manualBodyScaleActive = useMemo(() => {
@@ -1712,70 +1722,78 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         </Pressable>
 
         <View style={[styles.bodyScanCard, cardShadow]}>
-          {showWithingsBodyHeader || bodyScanLoading ? (
-          <View style={[styles.bodyScanHeader, !showWithingsBodyHeader && bodyScanLoading && styles.bodyScanHeaderManualOnly]}>
-            {showWithingsBodyHeader ? (
+          {showBodySourcesHeader || bodyScanLoading ? (
+          <View style={[styles.bodyScanHeader, !showBodySourcesHeader && bodyScanLoading && styles.bodyScanHeaderManualOnly]}>
+            {showBodySourcesHeader ? (
               <>
-                <View style={styles.withingsLogoWrap}>
-                  <WithingsDevicesMark
-                    showScale={
-                      setupToggles?.withingsScale === true ||
-                      (setupToggles == null && sourceConfig?.bodyComposition === 'withings')
-                    }
-                    showWatch={
-                      setupToggles?.withingsWatch === true ||
-                      (setupToggles == null && sourceConfig?.activity === 'withings')
-                    }
-                  />
+                <View style={styles.bodySourcesCluster}>
+                  {showWithingsBodyHeader ? (
+                    <WithingsDevicesMark
+                      showScale={
+                        setupToggles?.withingsScale === true ||
+                        (setupToggles == null && sourceConfig?.bodyComposition === 'withings')
+                      }
+                      showWatch={
+                        setupToggles?.withingsWatch === true ||
+                        (setupToggles == null && sourceConfig?.activity === 'withings')
+                      }
+                    />
+                  ) : null}
+                  {showCgmBodyMark ? <CgmDevicesMark /> : null}
                 </View>
-                <View style={styles.withingsHeaderMiddle}>
-                  <View
-                    style={[
-                      styles.withingsStatusBadge,
-                      withingsLinked ? styles.withingsStatusBadgeOn : styles.withingsStatusBadgeOff,
-                    ]}
-                    accessible
-                    accessibilityRole="text"
-                    accessibilityLabel={
-                      withingsLinked ? 'Withings connected, signed in' : 'Withings disconnected, signed out'
-                    }
-                  >
-                    <Text
-                      accessible={false}
-                      importantForAccessibility="no"
-                      style={[
-                        styles.withingsStatusLine,
-                        Platform.OS === 'android' && styles.withingsStatusLineAndroid,
-                        withingsLinked ? styles.withingsStatusLineOn : styles.withingsStatusLineOff,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {withingsLinked ? 'OK' : 'X'}
-                    </Text>
-                  </View>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    withingsLinked
-                      ? 'Withings sync options or re-link account'
-                      : 'Link Withings account'
-                  }
-                  style={[
-                    styles.withingsLinkButtonCompact,
-                    (linkBusy || bodyScanLoading) && styles.withingsLinkButtonDisabled,
-                  ]}
-                  onPress={handleWithingsAccountPress}
-                  disabled={linkBusy || bodyScanLoading}
-                >
-                  {linkBusy ? (
-                    <ActivityIndicator color={WellnessColors.accentBlue} size="small" />
-                  ) : (
-                    <Text style={styles.withingsLinkButtonTextCompact}>
-                      {withingsLinked ? 'Re-link' : 'Link'}
-                    </Text>
-                  )}
-                </Pressable>
+                {showWithingsBodyHeader ? (
+                  <>
+                    <View style={styles.bodyHeaderSpacer} />
+                    <View style={styles.bodyHeaderActions}>
+                      <Text style={styles.withingsActionsLabel} numberOfLines={1}>
+                        Withings
+                      </Text>
+                      <View style={styles.bodyHeaderActionsGroup}>
+                        <View
+                          style={[
+                            styles.withingsStatusBadge,
+                            withingsLinked ? styles.withingsStatusBadgeOn : styles.withingsStatusBadgeOff,
+                          ]}
+                          accessible
+                          accessibilityRole="text"
+                          accessibilityLabel={
+                            withingsLinked
+                              ? 'Withings connected, signed in'
+                              : 'Withings disconnected, signed out'
+                          }
+                        >
+                          {withingsLinked ? (
+                            <Check size={16} color="#2E7D32" strokeWidth={2.75} accessible={false} />
+                          ) : (
+                            <X size={16} color="#C62828" strokeWidth={2.75} accessible={false} />
+                          )}
+                        </View>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={
+                            withingsLinked
+                              ? 'Withings sync options or re-link account'
+                              : 'Link Withings account'
+                          }
+                          style={[
+                            styles.withingsLinkButtonCompact,
+                            (linkBusy || bodyScanLoading) && styles.withingsLinkButtonDisabled,
+                          ]}
+                          onPress={handleWithingsAccountPress}
+                          disabled={linkBusy || bodyScanLoading}
+                        >
+                          {linkBusy ? (
+                            <ActivityIndicator color={WellnessColors.accentBlue} size="small" />
+                          ) : (
+                            <Text style={styles.withingsLinkButtonTextCompact}>
+                              {withingsLinked ? 'Re-link' : 'Link'}
+                            </Text>
+                          )}
+                        </Pressable>
+                      </View>
+                    </View>
+                  </>
+                ) : null}
               </>
             ) : null}
             {bodyScanLoading ? <ActivityIndicator color={WellnessColors.accentBlue} style={styles.bodyScanHeaderSpinner} /> : null}
@@ -2725,7 +2743,7 @@ const styles = StyleSheet.create({
   },
   bodyScanHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 4,
   },
   bodyScanHeaderManualOnly: {
@@ -2735,31 +2753,51 @@ const styles = StyleSheet.create({
   bodyScanHeaderSpinner: {
     marginLeft: 8,
   },
-  withingsLogoWrap: {
-    minWidth: 52,
-    maxWidth: 88,
-    height: 52,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
+  bodySourcesCluster: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flexShrink: 1,
+    gap: 4,
   },
-  withingsHeaderMiddle: {
+  bodyHeaderSpacer: {
     flex: 1,
-    minWidth: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
+    minWidth: 8,
   },
-  withingsStatusBadge: {
+  bodyHeaderActions: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    flexShrink: 0,
+    gap: 2,
+  },
+  withingsActionsLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    color: '#1A2B4A',
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    alignSelf: 'stretch',
+    lineHeight: 10,
+    includeFontPadding: false,
+    height: 12,
+  },
+  bodyHeaderActionsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    borderRadius: 20,
+    backgroundColor: 'rgba(26, 43, 74, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(26, 43, 74, 0.08)',
+  },
+  withingsStatusBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
     justifyContent: 'center',
-    maxWidth: '100%',
-    minWidth: 40,
-    minHeight: 34,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: 999,
   },
   withingsStatusBadgeOn: {
     backgroundColor: WellnessColors.iconTintGreen,
@@ -2770,22 +2808,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFEBEE',
     borderWidth: 1,
     borderColor: 'rgba(255, 82, 82, 0.35)',
-  },
-  withingsStatusLine: {
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 16,
-    fontVariant: ['tabular-nums'],
-    letterSpacing: 0.5,
-  },
-  withingsStatusLineOn: {
-    color: '#2E7D32',
-  },
-  withingsStatusLineOff: {
-    color: '#C62828',
-  },
-  withingsStatusLineAndroid: {
-    includeFontPadding: false,
   },
   withingsLinkButtonCompact: {
     flexShrink: 0,

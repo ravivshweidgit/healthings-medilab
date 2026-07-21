@@ -626,45 +626,88 @@ export function WithingsDevicesMark({
         : 'Withings — watch';
 
   return (
-    <View style={styles.devicesMark} accessibilityLabel={a11y}>
+    <View style={[styles.devicesMark, styles.devicesMarkWithings]} accessibilityLabel={a11y}>
       <Text style={styles.devicesMarkTitle} numberOfLines={1}>
         Withings
       </Text>
-      <View style={styles.devicesMarkRow}>
-        {scale ? (
-          <Svg width={28} height={28} viewBox="0 0 80 80">
+      <View style={styles.devicesMarkBody}>
+        <View style={styles.devicesMarkRow}>
+          {scale ? (
+            <Svg width={28} height={28} viewBox="0 0 80 80">
+              <Defs>
+                <LinearGradient id="dashDeck" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0%" stopColor="#FAF8F6" />
+                  <Stop offset="100%" stopColor="#E5DDE0" />
+                </LinearGradient>
+              </Defs>
+              <Rect x="18" y="4" width="44" height="10" rx="5" fill="#FFFFFF" stroke={Soft.chrome} strokeWidth="1.4" />
+              <Rect x="10" y="18" width="60" height="56" rx="10" fill="url(#dashDeck)" stroke={Soft.chrome} strokeWidth="1.6" />
+              <Rect x="20" y="30" width="18" height="4" rx="1.5" fill={Soft.stripe} />
+              <Rect x="42" y="30" width="18" height="4" rx="1.5" fill={Soft.stripe} />
+              <Rect x="20" y="38" width="18" height="4" rx="1.5" fill={Soft.stripeAlt} />
+              <Rect x="42" y="38" width="18" height="4" rx="1.5" fill={Soft.stripeAlt} />
+              <Rect x="32" y="26" width="16" height="5" rx="2" fill={Soft.led} />
+            </Svg>
+          ) : null}
+          {watch ? (
+            <Svg width={28} height={28} viewBox="0 0 80 80">
+              <Defs>
+                <LinearGradient id="dashCase" x1="0" y1="0" x2="1" y2="1">
+                  <Stop offset="0%" stopColor="#F5F6F8" />
+                  <Stop offset="100%" stopColor="#9AA1AA" />
+                </LinearGradient>
+              </Defs>
+              <Rect x="30" y="2" width="20" height="12" rx="4" fill={Soft.strapQuiet} />
+              <Rect x="30" y="66" width="20" height="12" rx="4" fill={Soft.strapQuiet} />
+              <Circle cx="40" cy="40" r="24" fill="url(#dashCase)" />
+              <Circle cx="40" cy="40" r="18" fill={Soft.dialQuiet} />
+              <Circle cx="40" cy="28" r="4.5" fill="#0A0B0C" />
+              <Path d="M40 40 L40 30" stroke={Soft.handQuiet} strokeWidth="1.8" strokeLinecap="round" />
+              <Path d="M40 40 L48 45" stroke={Soft.handQuiet} strokeWidth="1.4" strokeLinecap="round" />
+            </Svg>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Dashboard body-card CGM mark — compact drop + label (only when CGM is on).
+ * Static (no pulse) so the header stays calm next to Withings devices.
+ */
+export function CgmDevicesMark() {
+  return (
+    <View style={styles.devicesMark} accessibilityLabel="CGM — glucose from phone health">
+      <Text style={styles.devicesMarkTitle} numberOfLines={1}>
+        CGM
+      </Text>
+      <View style={styles.devicesMarkBody}>
+        <View style={styles.devicesMarkRow}>
+          <Svg width={28} height={28} viewBox="0 0 120 140">
             <Defs>
-              <LinearGradient id="dashDeck" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0%" stopColor="#FAF8F6" />
-                <Stop offset="100%" stopColor="#E5DDE0" />
+              <LinearGradient id="dashCgmDrop" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0%" stopColor="#E85A5A" />
+                <Stop offset="55%" stopColor="#C62828" />
+                <Stop offset="100%" stopColor="#8E1B1B" />
               </LinearGradient>
             </Defs>
-            <Rect x="18" y="4" width="44" height="10" rx="5" fill="#FFFFFF" stroke={Soft.chrome} strokeWidth="1.4" />
-            <Rect x="10" y="18" width="60" height="56" rx="10" fill="url(#dashDeck)" stroke={Soft.chrome} strokeWidth="1.6" />
-            <Rect x="20" y="30" width="18" height="4" rx="1.5" fill={Soft.stripe} />
-            <Rect x="42" y="30" width="18" height="4" rx="1.5" fill={Soft.stripe} />
-            <Rect x="20" y="38" width="18" height="4" rx="1.5" fill={Soft.stripeAlt} />
-            <Rect x="42" y="38" width="18" height="4" rx="1.5" fill={Soft.stripeAlt} />
-            <Rect x="32" y="26" width="16" height="5" rx="2" fill={Soft.led} />
+            <Path
+              d="M60 8 C60 8 22 58 22 82 C22 104 38 122 60 122 C82 122 98 104 98 82 C98 58 60 8 60 8 Z"
+              fill="url(#dashCgmDrop)"
+            />
+            <Rect x="34" y="58" width="52" height="40" rx="8" fill="#FFFFFF" opacity={0.95} />
+            <Path
+              d="M42 88 L50 78 L58 82 L68 68 L78 74"
+              stroke="#2E7D5A"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+            />
+            <Circle cx="78" cy="74" r="3.5" fill="#2E7D5A" />
           </Svg>
-        ) : null}
-        {watch ? (
-          <Svg width={28} height={28} viewBox="0 0 80 80">
-            <Defs>
-              <LinearGradient id="dashCase" x1="0" y1="0" x2="1" y2="1">
-                <Stop offset="0%" stopColor="#F5F6F8" />
-                <Stop offset="100%" stopColor="#9AA1AA" />
-              </LinearGradient>
-            </Defs>
-            <Rect x="30" y="2" width="20" height="12" rx="4" fill={Soft.strapQuiet} />
-            <Rect x="30" y="66" width="20" height="12" rx="4" fill={Soft.strapQuiet} />
-            <Circle cx="40" cy="40" r="24" fill="url(#dashCase)" />
-            <Circle cx="40" cy="40" r="18" fill={Soft.dialQuiet} />
-            <Circle cx="40" cy="28" r="4.5" fill="#0A0B0C" />
-            <Path d="M40 40 L40 30" stroke={Soft.handQuiet} strokeWidth="1.8" strokeLinecap="round" />
-            <Path d="M40 40 L48 45" stroke={Soft.handQuiet} strokeWidth="1.4" strokeLinecap="round" />
-          </Svg>
-        ) : null}
+        </View>
       </View>
     </View>
   );
@@ -917,24 +960,39 @@ const styles = StyleSheet.create({
     gap: 4,
     height: 44,
   },
+  /**
+   * Column width = max(title, icons). Withings keeps minWidth so a single
+   * scale/watch never lets "WITHINGS" overflow into CGM.
+   */
   devicesMark: {
     alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 52,
+    overflow: 'visible',
+  },
+  devicesMarkWithings: {
+    minWidth: 56,
   },
   devicesMarkTitle: {
+    height: 12,
     fontSize: 8,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
     color: '#1A2B4A',
     textTransform: 'uppercase',
-    marginBottom: 2,
+    textAlign: 'center',
+    lineHeight: 10,
+    includeFontPadding: false,
+  },
+  devicesMarkBody: {
+    marginTop: 2,
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   devicesMarkRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    gap: 4,
   },
   /** Guidelines: HC product icon on white / very light gray. */
   hcBadge: {
