@@ -1,0 +1,37 @@
+## Prompt 83 — Meal save: await food-log refresh before close
+
+**Status: done (2026-07-21)** — Phone-tested on Samsung.  
+**Builds on:** Food log modal / `FoodMacroStrip` / `FoodLogService` JSON days
+
+### Problem
+
+After Save meal, the editor closed before the dashboard meal chips reloaded from AsyncStorage. Reopening could show the pre-save snapshot (JSON “DB” not yet reflected in UI). A follow-up bug: awaiting coach review inside `onSaved` delayed `reset()` ~2s after close, so a quick reopen looked correct then wiped to a blank new-meal screen.
+
+### What shipped
+
+| Area | Detail |
+|------|--------|
+| Save order | `await saveMeal` → `await` dashboard `loadTodayFood` + `FoodMacroStrip.reload()` → then close editor |
+| Spinner | Full-screen overlay while saving / refreshing (“Saving meal… / Updating your food log”); close blocked |
+| Coach | Fire-and-forget after close so `reset()` is not delayed |
+| Chat path | Same await-then-close for log-from-recipe |
+
+### Primary files
+
+| Path | Role |
+|------|------|
+| `app/src/components/FoodLogModal.tsx` | `await onSaved`; saving overlay |
+| `app/src/components/FoodMacroStrip.tsx` | `FoodMacroStripHandle.reload()` via ref |
+| `app/src/screens/DashboardScreen.tsx` | `handleFoodSaved` refresh-then-close; coach not awaited |
+| `app/src/screens/ChatScreen.tsx` | Await parent refresh before closing chat food modal |
+
+### Phone-tested
+
+- [x] Save waits; spinner visible until list ready
+- [x] Reopen same meal shows committed items (no stale pre-save)
+- [x] Reopen does not wipe to empty/new meal after ~2s
+
+### Related
+
+- One-tap text meal: `done/prompt61.txt`
+- Food Log strip: `done/prompt70.txt`

@@ -3,7 +3,7 @@
  * Shows today's logged meals with kcal totals and P/C/F bars.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -89,6 +89,11 @@ type Props = {
   macroTarget?: DailyMacroTarget | null;
   /** Display units (water / energy). Values still stored as ml / kcal. */
   unitsPrefs?: UnitsPrefs;
+};
+
+/** Parent awaits `reload()` after meal save so chips match AsyncStorage before the editor closes. */
+export type FoodMacroStripHandle = {
+  reload: () => Promise<void>;
 };
 
 const COLOR_PROTEIN = '#42A5F5';
@@ -297,7 +302,20 @@ const barStyles = StyleSheet.create({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, refreshKey, burnKcalByDay, burnPartsByDay, onImported, macroTarget, unitsPrefs = DEFAULT_UNITS_PREFS }: Props) {
+export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function FoodMacroStrip(
+  {
+    dayKey: initialDayKey,
+    onAddMeal,
+    onEditMeal,
+    refreshKey,
+    burnKcalByDay,
+    burnPartsByDay,
+    onImported,
+    macroTarget,
+    unitsPrefs = DEFAULT_UNITS_PREFS,
+  },
+  ref,
+) {
   const [selectedMs, setSelectedMs] = useState(() => startOfLocalDay(Date.now()));
   const [macros, setMacros] = useState<DailyMacros | null>(null);
   const [dayMacroTarget, setDayMacroTarget] = useState<DailyMacroTarget | null>(macroTarget ?? null);
@@ -373,6 +391,8 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
     setWaterEntries(entries);
     setWaterGoalMlState(goal);
   }, [activeDayKey, macroTarget]);
+
+  useImperativeHandle(ref, () => ({ reload: load }), [load]);
 
   useEffect(() => { load(); }, [load, refreshKey]);
 
@@ -927,7 +947,7 @@ export function FoodMacroStrip({ dayKey: initialDayKey, onAddMeal, onEditMeal, r
       </Modal>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

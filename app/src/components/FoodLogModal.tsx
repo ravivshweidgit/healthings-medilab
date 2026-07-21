@@ -65,8 +65,8 @@ type PhotoSession = {
 type Props = {
   visible: boolean;
   onClose: () => void;
-  /** Refresh dashboard; pass `{ close: false }` to keep the modal open (auto-save review). */
-  onSaved: (opts?: { close?: boolean }) => void;
+  /** Refresh dashboard meal chips; await before closing so reopen sees committed JSON. Pass `{ close: false }` to keep the modal open (auto-save review). */
+  onSaved: (opts?: { close?: boolean }) => void | Promise<void>;
   initialTimestamp?: number;
   editEntry?: FoodEntry;
   /** Pre-fill from recipe card (prompt40) — opens on result screen. */
@@ -411,11 +411,11 @@ export function FoodLogModal({
         setMealHistory((h) => (h.length > 0 ? h : []));
         setScreen('result');
         setAutoSavedBanner(true);
-        onSaved({ close: false });
+        await onSaved({ close: false });
         return;
       }
+      await onSaved({ close: true });
       reset();
-      onSaved({ close: true });
     },
     [reset, onSaved],
   );
@@ -518,9 +518,10 @@ export function FoodLogModal({
   }, [items, mealTime, editingId, overrideSnapshotKey, recomputeMealIssues]);
 
   const handleClose = useCallback(() => {
+    if (screen === 'saving') return;
     reset();
     onClose();
-  }, [reset, onClose]);
+  }, [screen, reset, onClose]);
 
   const openMealDateTimePicker = useCallback(() => {
     if (Platform.OS === 'android') {
@@ -768,8 +769,8 @@ export function FoodLogModal({
         onPress: async () => {
           setScreen('saving');
           await deleteMeal(editingId, mealTime);
+          await onSaved();
           reset();
-          onSaved();
         },
       },
     ]);
@@ -849,7 +850,12 @@ export function FoodLogModal({
         <View style={styles.container}>
           <View style={styles.header}>
             <Text style={styles.headerTitle}>{editingId ? 'Edit Meal' : 'Log Meal'}</Text>
-            <Pressable onPress={handleClose} style={styles.closeBtn} hitSlop={12}>
+            <Pressable
+              onPress={handleClose}
+              style={[styles.closeBtn, screen === 'saving' && styles.closeBtnDisabled]}
+              hitSlop={12}
+              disabled={screen === 'saving'}
+            >
               <Text style={styles.closeBtnText}>✕</Text>
             </Pressable>
           </View>
@@ -1177,6 +1183,16 @@ export function FoodLogModal({
               </View>
             </View>
           ) : null}
+
+          {screen === 'saving' ? (
+            <View style={styles.savingOverlay} pointerEvents="auto">
+              <View style={styles.savingCard}>
+                <ActivityIndicator color={WellnessColors.accentBlue} size="large" />
+                <Text style={styles.savingTitle}>Saving meal…</Text>
+                <Text style={styles.savingSub}>Updating your food log</Text>
+              </View>
+            </View>
+          ) : null}
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -1221,9 +1237,39 @@ const styles = StyleSheet.create({
     color: WellnessColors.textPrimary,
   },
   closeBtn: { padding: 4 },
+  closeBtnDisabled: { opacity: 0.35 },
   closeBtnText: { fontSize: 18, color: WellnessColors.textSecondary },
   scroll: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 40 },
+
+  savingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    zIndex: 60,
+  },
+  savingCard: {
+    alignItems: 'center',
+    backgroundColor: WellnessColors.surface,
+    borderRadius: 18,
+    paddingVertical: 28,
+    paddingHorizontal: 32,
+    gap: 10,
+    minWidth: 200,
+    ...cardShadow,
+  },
+  savingTitle: {
+    marginTop: 8,
+    fontSize: 16,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+  },
+  savingSub: {
+    fontSize: 13,
+    color: WellnessColors.textSecondary,
+  },
 
   idleWrap: { alignItems: 'center', paddingTop: 16 },
   photoRow: { flexDirection: 'row', width: '100%', gap: 12 },

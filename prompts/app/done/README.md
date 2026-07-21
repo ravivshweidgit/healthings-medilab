@@ -86,6 +86,8 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt82** — done (2026-07-21). Body-card source header: Withings + CGM marks, WITHINGS-captioned ✓/Re-link pill, title/icon alignment, single-device title collision fix. Phone-tested Samsung. Android **1.2.13** (40). See `done/prompt82.txt`.
 
+**prompt83** — done (2026-07-21). Meal save awaits food-log refresh before close; saving spinner; fix late `reset()` wipe after reopen. Phone-tested Samsung. See `done/prompt83.txt`.
+
 **prompt48** — done (2026-06-29). Lipid trend charts (Total/LDL/TG/HDL strips + green safe zones); mentors/coach see **all saved lab draws** in USER DATA. Phone-tested. Commits `308500f`, `fa0d6b1`. Supersedes prompt30 chart deferral + latest-only scope.
 
 **prompt50** — done (2026-06-30). Nutritionist visit report: clinical HTML export (7/14/30/90d), Appendix A charts (lipids/body/energy/CGM), Appendix B raw data. Phone-tested. See `done/prompt50.txt`.

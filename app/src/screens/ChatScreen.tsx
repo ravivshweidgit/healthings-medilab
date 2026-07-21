@@ -90,7 +90,7 @@ type Props = {
   onCoachMessageUpdated?: (msg: CoachMessage | null) => void;
   onMacroTargetUpdated?: (target: DailyMacroTarget) => void;
   /** Dashboard food list + coach refresh after log-from-recipe in chat. */
-  onFoodLogSaved?: () => void;
+  onFoodLogSaved?: (opts?: { close?: boolean }) => void | Promise<void>;
 };
 
 /** Local calendar day — must match FoodLogService day keys (not UTC toISOString). */
@@ -1473,10 +1473,11 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
     setFoodLogVisible(true);
   }, []);
 
-  const handleFoodLogSaved = useCallback(() => {
+  const handleFoodLogSaved = useCallback(async (opts?: { close?: boolean }) => {
+    await onFoodLogSaved?.(opts);
+    if (opts?.close === false) return;
     setFoodLogVisible(false);
     setFoodLogPrefill(null);
-    onFoodLogSaved?.();
   }, [onFoodLogSaved]);
 
   const handleToggleActionItem = useCallback(

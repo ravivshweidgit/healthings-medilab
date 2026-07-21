@@ -31,7 +31,7 @@ import {
 } from 'react-native-safe-area-context';
 import { BmrHistoryChart7d } from '../components/BmrHistoryChart7d';
 import { FoodLogModal } from '../components/FoodLogModal';
-import { FoodMacroStrip } from '../components/FoodMacroStrip';
+import { FoodMacroStrip, type FoodMacroStripHandle } from '../components/FoodMacroStrip';
 import { MetabolicChart } from '../components/MetabolicChart';
 import { MetabolicTrendChart7d } from '../components/MetabolicTrendChart7d';
 import { WeightTargetStrip } from '../components/WeightTargetStrip';
@@ -339,6 +339,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [chatVisible, setChatVisible] = useState(false);
   // Always holds the latest coachContext to avoid stale closure issues
   const coachContextRef = useRef<CoachContext | null>(null);
+  const foodMacroStripRef = useRef<FoodMacroStripHandle>(null);
 
   // ─── Height + birthdate + gender ─────────────────────────────────────────
   const [heightCm, setHeightCm] = useState<number | null>(null);
@@ -545,27 +546,39 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     }
   }, [loadManualTrend]);
 
-  const handleFoodSaved = useCallback((opts?: { close?: boolean }) => {
+  const handleFoodSaved = useCallback(async (opts?: { close?: boolean }) => {
     const shouldClose = opts?.close !== false;
+    setFoodRefreshKey((k) => k + 1);
+    // Persist already finished in FoodLogModal; refresh list/chips before closing
+    // so reopen cannot show the pre-save JSON snapshot.
+    await Promise.all([
+      loadTodayFood(),
+      foodMacroStripRef.current?.reload() ?? Promise.resolve(),
+    ]);
     if (shouldClose) {
       setFoodModalVisible(false);
       setFoodEditEntry(undefined);
+      setFoodInitialTimestamp(undefined);
     }
-    setFoodRefreshKey((k) => k + 1);
-    loadTodayFood().then(async () => {
-      if (!shouldClose) return;
-      const ctx = coachContextRef.current;
-      if (!ctx) return;
-      const storedLang = await getLanguage();
-      triggerCoachReview('meal', {
-        ...ctx,
-        lang: storedLang,
-        event: 'meal',
-        mealCount: ctx.mealCount + 1,
-      })
-        .then((newMsg) => { if (newMsg) setCoachMsg(newMsg); })
-        .catch(() => {/* non-fatal */});
-    });
+    if (!shouldClose) return;
+    // Do not await coach — FoodLogModal calls reset() after onSaved resolves.
+    // Awaiting here left a ~2s window where reopen looked fine, then reset wiped the meal.
+    const ctx = coachContextRef.current;
+    if (!ctx) return;
+    void (async () => {
+      try {
+        const storedLang = await getLanguage();
+        const newMsg = await triggerCoachReview('meal', {
+          ...ctx,
+          lang: storedLang,
+          event: 'meal',
+          mealCount: ctx.mealCount + 1,
+        });
+        if (newMsg) setCoachMsg(newMsg);
+      } catch {
+        /* non-fatal */
+      }
+    })();
   }, [loadTodayFood]);
 
   const handleEditMeal = useCallback((entry: FoodEntry) => {
@@ -1918,6 +1931,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
         {/* Food log — above charts so users find it without scrolling past glucose/trend */}
         <FoodMacroStrip
+          ref={foodMacroStripRef}
           dayKey={todayDayKey}
           onAddMeal={(dayKey) => {
             setFoodEditEntry(undefined);
