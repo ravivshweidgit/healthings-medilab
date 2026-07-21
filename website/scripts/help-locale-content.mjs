@@ -122,55 +122,55 @@ set(
   'quick-start-welcome',
   'he',
   'ברוכים הבאים ל־Healthings',
-  'אפליקציית wellness בשיטה מקצועית: לומדת את הגוף, מאמנת בזמן אמת, ומעבירה משוב ברור לתזונאי.',
+  'לומדת את הגוף, מסבירה מה קורה עכשיו, ומעבירה משוב ברור לתזונאי — כדי שהדרך ליעדים תתחדד מיום ליום.',
   `<p>גרפים חיים של משקל, הרכב גוף, פעילות וגלוקוז כשמחוברים. המודל מסביר מה זז — לפי <strong>My Rules</strong>.</p>
-<p>רוב הכלים עוצרים במעקב. כאן המעגל נסגר: כוונה → חיים → למידה → שיתוף → חידוד.</p>
+<p>רוב האפליקציות עוצרות במעקב. כאן המעגל נסגר: כוונה → חיים → למידה → שיתוף → חידוד.</p>
 <p><strong>לא טיפול רפואי.</strong> בלי אבחון ובלי מרשמים. חירום — אצל אנשי מקצוע מורשים.</p>`,
 );
 set(
   'quick-start-welcome',
   'es',
-  'Bienvenido a Healthings',
-  'Una app de wellness con método profesional: aprende tu cuerpo, te guía al momento y da feedback claro a tu nutricionista.',
+  'Bienvenido/a a Healthings',
+  'Aprende su cuerpo, explica lo que ocurre ahora y da feedback claro a su nutricionista — para que el camino a sus objetivos se afine cada día.',
   `<p>Gráficos en vivo de peso, composición, actividad y glucosa si está conectada. El modelo explica qué cambió — bajo <strong>My Rules</strong>.</p>
-<p>La mayoría de apps solo miden. Healthings cierra el círculo: intención → vida → aprendizaje → compartir → afinar.</p>
+<p>La mayoría de apps solo miden. Aquí se cierra el círculo: intención → vida → aprendizaje → compartir → afinar.</p>
 <p><strong>No es atención médica.</strong> Sin diagnóstico ni recetas. Urgencias: con profesionales licenciados.</p>`,
 );
 set(
   'quick-start-welcome',
   'fr',
   'Bienvenue sur Healthings',
-  'Une app wellness avec une méthode pro : apprendre votre corps, coacher en direct, feedback clair pour votre nutritionniste.',
-  `<p>Graphiques live : poids, composition, activité, glucose si connecté. Le modèle explique ce qui a bougé — sous <strong>My Rules</strong>.</p>
-<p>La plupart des outils s’arrêtent au suivi. Ici la boucle se ferme : intention → vie → apprentissage → partage → raffinage.</p>
-<p><strong>Pas des soins médicaux.</strong> Pas de diagnostic ni d’ordonnance. Urgences : professionnels habilités.</p>`,
+  'Apprend votre corps, explique ce qui se passe maintenant, et donne un feedback clair à votre nutritionniste — pour que le chemin vers vos objectifs se précise chaque jour.',
+  `<p>Graphiques en direct : poids, composition, activité, glucose si connecté. Le modèle explique ce qui a bougé — sous <strong>My Rules</strong>.</p>
+<p>La plupart des apps s’arrêtent au suivi. Ici la boucle se ferme : intention → vie → apprentissage → partage → raffinage.</p>
+<p><strong>Ce n’est pas un soin médical.</strong> Pas de diagnostic ni d’ordonnance. Urgences : professionnels habilités.</p>`,
 );
 set(
   'quick-start-welcome',
   'de',
   'Willkommen bei Healthings',
-  'Wellness-App mit Profi-Methode: Körper verstehen, live coachen, klares Feedback für Ihre Ernährungsfachkraft.',
-  `<p>Live-Charts zu Gewicht, Zusammensetzung, Aktivität und Glukose — wenn verbunden. Das Modell erklärt, was sich bewegt hat — unter <strong>My Rules</strong>.</p>
-<p>Die meisten Tools stoppen beim Tracken. Healthings schließt den Kreis: Absicht → Alltag → Lernen → Teilen → Nachschärfen.</p>
+  'Lernt Ihren Körper, erklärt, was gerade passiert, und gibt Ihrer Ernährungsfachkraft klares Feedback — damit der Weg zu Ihren Zielen Tag für Tag schärfer wird.',
+  `<p>Live-Charts zu Gewicht, Körperzusammensetzung, Aktivität und Glukose — wenn verbunden. Das Modell erklärt, was sich bewegt hat — unter <strong>My Rules</strong>.</p>
+<p>Die meisten Apps bleiben beim Tracking stehen. Hier schließt sich der Kreis: Absicht → Alltag → Lernen → Teilen → Nachschärfen.</p>
 <p><strong>Keine medizinische Behandlung.</strong> Keine Diagnose, keine Rezepte. Notfälle bleiben bei zugelassenen Fachleuten.</p>`,
 );
 set(
   'quick-start-welcome',
   'ar',
-  'مرحباً بك في Healthings',
-  'تطبيق wellness بمنهج احترافي: يتعلّم جسمك، يدرّبك لحظياً، ويعطي تغذية راجعة واضحة لأخصائي التغذية.',
+  'مرحباً بكم في Healthings',
+  'يتعلّم الجسم، ويشرح ما يحدث الآن، وينقل تغذية راجعة واضحة لأخصائي التغذية — حتى يصبح الطريق إلى أهدافكم أدق يوماً بعد يوم.',
   `<p>رسوم حية للوزن وتركيب الجسم والنشاط والجلوكوز عند الاتصال. النموذج يشرح ما تغيّر — وفق <strong>My Rules</strong>.</p>
-<p>معظم الأدوات تتوقف عند التتبع. هنا تُغلق الحلقة: نيّة → حياة → تعلّم → مشاركة → ضبط.</p>
+<p>معظم التطبيقات تتوقف عند التتبع. هنا تُغلق الحلقة: نيّة → حياة → تعلّم → مشاركة → ضبط.</p>
 <p><strong>ليس رعاية طبية.</strong> بلا تشخيص ولا وصفات. الطوارئ تبقى لدى المهنيين المرخّصين.</p>`,
 );
 set(
   'quick-start-welcome',
   'ru',
   'Добро пожаловать в Healthings',
-  'Wellness‑приложение с профессиональным методом: учится вашему телу, ведёт в моменте, даёт ясный фидбек нутрициологу.',
+  'Учится вашему телу, объясняет, что происходит сейчас, и даёт ясный фидбек нутрициологу — чтобы путь к целям становился точнее с каждым днём.',
   `<p>Живые графики веса, состава тела, активности и глюкозы при подключении. Модель объясняет, что изменилось — по <strong>My Rules</strong>.</p>
-<p>Большинство приложений только трекают. Здесь цикл замыкается: замысел → жизнь → обучение → обмен → уточнение.</p>
-<p><strong>Не медицина.</strong> Без диагнозов и рецептов. Экстренное — у лицензированных специалистов.</p>`,
+<p>Большинство приложений останавливаются на трекинге. Здесь круг замыкается: замысел → жизнь → обучение → обмен → уточнение.</p>
+<p><strong>Это не медицина.</strong> Без диагнозов и рецептов. Экстренное — у лицензированных специалистов.</p>`,
 );
 
 // ── quick-start-units ────────────────────────────────────────────
@@ -186,49 +186,49 @@ set(
   'quick-start-units',
   'he',
   'יחידות מידה',
-  'בחרו איך יוצגו משקל, גובה, אנרגיה, מים וגלוקוז. מאחורי הקלעים נשמרים ביחידות קליניות סטנדרטיות.',
-  `<p>בחרו מה שכבר רגילים בבית או בקליניקה. אפשר לשנות בכל רגע ב־<strong>My Profile</strong>.</p>
+  'איך יוצגו משקל, גובה, אנרגיה, מים וגלוקוז. מאחורי הקלעים נשמרים ביחידות קליניות סטנדרטיות.',
+  `<p>בוחרים מה שכבר רגילים בבית או בקליניקה. אפשר לשנות בכל רגע ב־<strong>My Profile</strong>.</p>
 <p>סימולים כמו <strong>kg</strong>, <strong>kcal</strong> ו־<strong>mg/dL</strong> נשארים באנגלית — זה התקן.</p>`,
 );
 set(
   'quick-start-units',
   'es',
   'Unidades de medida',
-  'Elige cómo se muestran peso, altura, energía, agua y glucosa. Por dentro todo sigue en unidades clínicas estándar.',
-  `<p>Usa lo que ya usas en casa o en la clínica. Se puede cambiar después en <strong>My Profile</strong>.</p>
-<p>Símbolos como <strong>kg</strong>, <strong>kcal</strong> y <strong>mg/dL</strong> se quedan en inglés.</p>`,
+  'Así se muestran peso, altura, energía, agua y glucosa. Se guarda en unidades clínicas estándar.',
+  `<p>Use lo que ya usa en casa o en la clínica. Se puede cambiar en cualquier momento en <strong>My Profile</strong>.</p>
+<p>Símbolos como <strong>kg</strong>, <strong>kcal</strong> y <strong>mg/dL</strong> se quedan en inglés — es el estándar.</p>`,
 );
 set(
   'quick-start-units',
   'fr',
   'Unités de mesure',
-  'Choisissez l’affichage du poids, de la taille, de l’énergie, de l’eau et du glucose. En coulisse, unités cliniques standard.',
-  `<p>Prenez ce que vous utilisez déjà. Modifiable plus tard dans <strong>My Profile</strong>.</p>
-<p>Les symboles <strong>kg</strong>, <strong>kcal</strong>, <strong>mg/dL</strong> restent en anglais.</p>`,
+  'Ainsi s’affichent poids, taille, énergie, eau et glucose. Stockage en unités cliniques standard.',
+  `<p>Prenez ce que vous utilisez déjà. Modifiable à tout moment dans <strong>My Profile</strong>.</p>
+<p>Les symboles <strong>kg</strong>, <strong>kcal</strong> et <strong>mg/dL</strong> restent en anglais — c’est le standard.</p>`,
 );
 set(
   'quick-start-units',
   'de',
   'Maßeinheiten',
-  'So erscheinen Gewicht, Größe, Energie, Wasser und Glukose. Intern bleiben klinische Standard-Einheiten.',
-  `<p>Nehmen Sie, was Sie schon kennen. Später änderbar unter <strong>My Profile</strong>.</p>
-<p>Kürzel wie <strong>kg</strong>, <strong>kcal</strong>, <strong>mg/dL</strong> bleiben Englisch.</p>`,
+  'So erscheinen Gewicht, Größe, Energie, Wasser und Glukose. Gespeichert wird in klinischen Standard-Einheiten.',
+  `<p>Nehmen Sie, was Sie schon kennen. Später jederzeit änderbar unter <strong>My Profile</strong>.</p>
+<p>Kürzel wie <strong>kg</strong>, <strong>kcal</strong> und <strong>mg/dL</strong> bleiben Englisch — das ist der Standard.</p>`,
 );
 set(
   'quick-start-units',
   'ar',
   'وحدات القياس',
-  'اختر كيف يظهر الوزن والطول والطاقة والماء والجلوكوز. التخزين يبقى بوحدات سريرية قياسية.',
-  `<p>اختر ما تستخدمه أصلاً. يمكن التغيير لاحقاً من <strong>My Profile</strong>.</p>
-<p>رموز مثل <strong>kg</strong> و <strong>kcal</strong> و <strong>mg/dL</strong> تبقى بالإنجليزية.</p>`,
+  'كيف يظهر الوزن والطول والطاقة والماء والجلوكوز. التخزين بوحدات سريرية قياسية.',
+  `<p>اختاروا ما تستخدمونه أصلاً. يمكن التغيير في أي وقت من <strong>My Profile</strong>.</p>
+<p>رموز مثل <strong>kg</strong> و <strong>kcal</strong> و <strong>mg/dL</strong> تبقى بالإنجليزية — هذا المعيار.</p>`,
 );
 set(
   'quick-start-units',
   'ru',
   'Единицы измерения',
-  'Как показывать вес, рост, энергию, воду и глюкозу. Внутри — стандартные клинические единицы.',
-  `<p>Берите привычные единицы. Позже можно сменить в <strong>My Profile</strong>.</p>
-<p>Обозначения <strong>kg</strong>, <strong>kcal</strong>, <strong>mg/dL</strong> остаются на английском.</p>`,
+  'Как показывать вес, рост, энергию, воду и глюкозу. Хранение — в стандартных клинических единицах.',
+  `<p>Берите привычные единицы. Позже можно сменить в любой момент в <strong>My Profile</strong>.</p>
+<p>Обозначения <strong>kg</strong>, <strong>kcal</strong> и <strong>mg/dL</strong> остаются на английском — это стандарт.</p>`,
 );
 
 // Helper to bulk-add remaining slugs with compact native copy
@@ -250,7 +250,7 @@ bulk('quick-start-profile', [
 
 bulk('quick-start-language', [
   ['en', 'App & coach language', 'One language for Quick Start, coach chat, meal names, reports, and help links.', `<p>You can change it later in <strong>My Profile</strong>. Help opens in the same language.</p>`],
-  ['he', 'שפת האפליקציה והמאמן', 'שפה אחת להתחלה המהירה, הצ׳אט, שמות הארוחות, הדוחות ודפי העזרה.', `<p>אפשר לשנות אחר כך ב־<strong>My Profile</strong>. העזרה נפתחת באותה שפה.</p>`],
+  ['he', 'שפת האפליקציה והמאמן', 'בשפה הזו עוברים את ההתחלה, מדברים עם המאמן, רואים שמות ארוחות ודוחות. גם דפי העזרה נפתחים בה.', `<p>אפשר לשנות אחר כך ב־<strong>My Profile</strong>.</p>`],
   ['es', 'Idioma de la app y el coach', 'Un idioma para el inicio, el chat, las comidas, los informes y la ayuda.', `<p>Se puede cambiar después en <strong>My Profile</strong>. La ayuda abre en el mismo idioma.</p>`],
   ['fr', 'Langue de l’app et du coach', 'Une langue pour le démarrage, le chat, les repas, les rapports et l’aide.', `<p>Modifiable plus tard dans <strong>My Profile</strong>. L’aide s’ouvre dans la même langue.</p>`],
   ['de', 'App- & Coach-Sprache', 'Eine Sprache für Schnellstart, Chat, Mahlzeiten, Berichte und Hilfe.', `<p>Später änderbar unter <strong>My Profile</strong>. Hilfe öffnet in derselben Sprache.</p>`],
@@ -259,18 +259,18 @@ bulk('quick-start-language', [
 ]);
 
 bulk('mentor-voice-gender', [
-  ['en', 'Mentor voice gender', 'How the coach addresses you in Hebrew or Arabic — not your profile gender.', `<p>Only matters for gendered grammar in those languages.</p>`],
-  ['he', 'פניית המאמן', 'איך המאמן פונה אליכם בעברית או בערבית — לא המגדר שבפרופיל.', `<p>רלוונטי לדקדוק מגדרי בשפות האלה בלבד.</p>`],
-  ['es', 'Voz del mentor', 'Cómo te habla el coach en hebreo o árabe — no es el género del perfil.', `<p>Solo importa la gramática de género en esos idiomas.</p>`],
-  ['fr', 'Voix du mentor', 'Comment le coach vous parle en hébreu ou en arabe — pas le genre du profil.', `<p>Utile seulement pour la grammaire genrée de ces langues.</p>`],
-  ['de', 'Anrede des Mentors', 'Wie der Coach Sie auf Hebräisch oder Arabisch anspricht — nicht Ihr Profil-Geschlecht.', `<p>Nur für die Grammatik dieser Sprachen relevant.</p>`],
-  ['ar', 'صوت المرشد', 'كيف يخاطبك المدرب بالعبرية أو العربية — وليس جنس الملف الشخصي.', `<p>مهم فقط لقواعد الجنس في هاتين اللغتين.</p>`],
-  ['ru', 'Обращение наставника', 'Как коуч обращается к вам на иврите или арабском — не пол в профиле.', `<p>Нужно только для грамматики этих языков.</p>`],
+  ['en', 'App mentor', 'Man or woman — how your AI mentor speaks to you. Not your profile gender.', `<p>Shown only in Hebrew and Arabic, where titles and grammar change by gender. You can change this later under My Mentors.</p>`],
+  ['he', 'המאמן באפליקציה', 'גבר או אישה — כך ידבר אליכם המאמן. לא המגדר שלכם בפרופיל.', `<p>מופיע רק בעברית ובערבית — שם התארים והדקדוק משתנים לפי מגדר. אפשר לשנות גם אחר כך תחת המנטורים.</p>`],
+  ['es', 'Mentor de la app', 'Hombre o mujer — así te habla el mentor AI. No es el género del perfil.', `<p>Solo en hebreo y árabe, donde títulos y gramática cambian por género. Luego puedes cambiarlo en My Mentors.</p>`],
+  ['fr', 'Mentor de l’app', 'Homme ou femme — ainsi vous parle le mentor IA. Pas le genre du profil.', `<p>Affiché seulement en hébreu et en arabe, où titres et grammaire changent selon le genre. Modifiable plus tard sous My Mentors.</p>`],
+  ['de', 'App-Mentor', 'Mann oder Frau — so spricht Ihr KI-Mentor. Nicht Ihr Profil-Geschlecht.', `<p>Nur bei Hebräisch und Arabisch, wo Titel und Grammatik vom Geschlecht abhängen. Später änderbar unter My Mentors.</p>`],
+  ['ar', 'المرشد في التطبيق', 'رجل أو امرأة — هكذا يخاطبكم المرشد. ليس جنس ملفكم الشخصي.', `<p>يظهر فقط بالعبرية والعربية حيث تتغير الألقاب والقواعد حسب الجنس. يمكن التغيير لاحقاً من الموجهين.</p>`],
+  ['ru', 'Наставник в приложении', 'Мужчина или женщина — так говорит ИИ-наставник. Не пол в профиле.', `<p>Только для иврита и арабского, где обращения зависят от пола. Позже можно сменить в My Mentors.</p>`],
 ]);
 
 bulk('withings-scale', [
   ['en', 'Withings body scale', 'Any Withings scale on your account works. Healthings reads the cloud after you link — not Bluetooth.', `<p>Body, Body Scan, and similar models are fine.</p>`],
-  ['he', 'משקל Withings', 'כל משקל Withings בחשבון מתאים. אחרי החיבור קוראים מהענן — לא מ־Bluetooth.', `<p>Body, Body Scan ודומיהם — בסדר.</p>`],
+  ['he', 'משקל Withings', 'כל משקל Withings בחשבון מתאים — Body, Body Scan ודומיהם. אחרי החיבור קוראים מהענן, לא מ־Bluetooth.', `<p>חיבור אחד מכסה גם שעון, אם יש.</p>`],
   ['es', 'Báscula Withings', 'Cualquier báscula Withings de tu cuenta sirve. Tras vincular, se lee la nube — no Bluetooth.', `<p>Body, Body Scan y similares están bien.</p>`],
   ['fr', 'Balance Withings', 'Toute balance Withings du compte convient. Après liaison, lecture cloud — pas Bluetooth.', `<p>Body, Body Scan, etc. sont OK.</p>`],
   ['de', 'Withings-Körperwaage', 'Jede Withings-Waage im Konto passt. Nach dem Link liest die App die Cloud — nicht Bluetooth.', `<p>Body, Body Scan und ähnliche Modelle sind OK.</p>`],
@@ -290,7 +290,7 @@ bulk('quick-start-watch', [
 
 bulk('cgm', [
   ['en', 'CGM glucose', 'Continuous glucose via Health Connect (Android) or Apple Health (iPhone). Lab PDFs can be imported later.', `<p>Share your CGM app with the phone health store, then allow Blood Glucose.</p>`],
-  ['he', 'CGM לגלוקוז', 'גלוקוז רציף דרך Health Connect (Android) או Apple Health (iPhone). אפשר גם לייבא PDF מעבדה אחר כך.', `<p>שתפו את אפליקציית ה־CGM עם חנות הבריאות בטלפון ואשרו Blood Glucose.</p>`],
+  ['he', 'CGM לגלוקוז', 'גלוקוז רציף דרך Health Connect (Android) או Apple Health (iPhone). אפשר גם לייבא PDF מעבדה אחר כך.', `<p>משתפים את אפליקציית ה־CGM עם חנות הבריאות בטלפון ומאשרים Blood Glucose.</p>`],
   ['es', 'Glucosa CGM', 'Glucosa continua vía Health Connect (Android) o Apple Health (iPhone). Luego puedes importar PDFs de lab.', `<p>Comparte la app CGM con la salud del teléfono y permite Blood Glucose.</p>`],
   ['fr', 'Glucose CGM', 'Glucose continu via Health Connect (Android) ou Apple Health (iPhone). PDFs labo plus tard si besoin.', `<p>Partagez l’app CGM avec la santé du téléphone et autorisez Blood Glucose.</p>`],
   ['de', 'CGM-Glukose', 'Kontinuierliche Glukose über Health Connect (Android) oder Apple Health (iPhone). Lab-PDFs später möglich.', `<p>CGM-App mit Telefon-Health teilen und Blood Glucose erlauben.</p>`],
@@ -310,7 +310,7 @@ bulk('withings-link', [
 
 bulk('starting-weight', [
   ['en', 'Starting weight', 'Needed for targets and energy balance. Enter now or wait for Withings cloud sync.', `<p>If linked but not synced yet, type a weight or tap Next.</p>`],
-  ['he', 'משקל התחלתי', 'צריך ליעדים ולמאזן אנרגיה. מזינים עכשיו או מחכים לסנכרון Withings.', `<p>אם מחוברים ועדיין אין סנכרון — מזינים ידנית או ממשיכים.</p>`],
+  ['he', 'משקל התחלתי', 'נחוץ ליעדים ולמאזן אנרגיה. מזינים עכשיו או מחכים לסנכרון Withings.', `<p>מחוברים ועדיין אין סנכרון — מזינים ידנית או ממשיכים.</p>`],
   ['es', 'Peso inicial', 'Hace falta para objetivos y balance de energía. Ahora o cuando sincronice Withings.', `<p>Si ya vinculaste y aún no hay sync, escribe el peso o sigue.</p>`],
   ['fr', 'Poids de départ', 'Nécessaire pour les objectifs et le bilan énergétique. Maintenant ou après sync Withings.', `<p>Si lié mais pas encore synchronisé — saisissez ou continuez.</p>`],
   ['de', 'Startgewicht', 'Für Ziele und Energiebilanz. Jetzt eingeben oder auf Withings-Sync warten.', `<p>Verknüpft, aber noch kein Sync — Gewicht tippen oder weiter.</p>`],
@@ -320,7 +320,7 @@ bulk('starting-weight', [
 
 bulk('phone-health-activity', [
   ['en', 'Phone health', 'Allow Health Connect or Apple Health for steps and heart rate when a Withings watch is off.', `<p>Tap Next — the system may ask once. Use Allow access when shown.</p>`],
-  ['he', 'בריאות מהטלפון', 'אישור Health Connect או Apple Health לצעידים ודופק כששעון Withings לא פעיל.', `<p>לחצו המשך — המערכת עלולה לבקש פעם אחת. Allow access כשמופיע.</p>`],
+  ['he', 'בריאות מהטלפון', 'אישור Health Connect או Apple Health לצעידים ודופק כששעון Withings לא פעיל.', `<p>לוחצים המשך — המערכת עלולה לבקש פעם אחת. Allow access כשמופיע.</p>`],
   ['es', 'Salud del teléfono', 'Permite Health Connect o Apple Health para pasos y pulso si el reloj Withings está apagado.', `<p>Pulsa Next — el sistema puede pedir permiso una vez.</p>`],
   ['fr', 'Santé du téléphone', 'Autorisez Health Connect ou Apple Health pour pas et pouls si la montre Withings est off.', `<p>Appuyez sur Next — une demande système peut apparaître une fois.</p>`],
   ['de', 'Telefon-Gesundheit', 'Health Connect oder Apple Health für Schritte und Puls, wenn die Withings-Uhr aus ist.', `<p>Next tippen — das System fragt ggf. einmal nach.</p>`],
@@ -340,7 +340,7 @@ bulk('reports-import', [
 
 bulk('targets-help', [
   ['en', 'Your targets', 'AI suggests body and macro targets from your profile. Saved targets keep My Rules.', `<p>Regenerate only if you want fresh AI numbers.</p>`],
-  ['he', 'היעדים שלכם', 'ה־AI מציע יעדי גוף ומאקרו לפי הפרופיל. יעדים שמורים שומרים על My Rules.', `<p>יצירה מחדש — רק אם רוצים מספרים חדשים מה־AI.</p>`],
+  ['he', 'היעדים שלכם', 'ה־AI מציע יעדי גוף ומאקרו לפי הפרופיל. יעדים שמורים שומרים על My Rules.', `<p>«יצירה מחדש» — רק אם רוצים מספרים חדשים מה־AI.</p>`],
   ['es', 'Tus objetivos', 'La IA propone cuerpo y macros según tu perfil. Los guardados conservan My Rules.', `<p>Regenera solo si quieres números nuevos de la IA.</p>`],
   ['fr', 'Vos objectifs', 'L’IA propose corps et macros selon le profil. Les objectifs sauvés gardent My Rules.', `<p>Régénérez seulement pour de nouveaux chiffres IA.</p>`],
   ['de', 'Ihre Ziele', 'Die KI schlägt Körper- und Makroziele aus dem Profil vor. Gespeicherte behalten My Rules.', `<p>Neu erzeugen nur, wenn Sie frische KI-Zahlen wollen.</p>`],
@@ -350,7 +350,7 @@ bulk('targets-help', [
 
 bulk('meal-logging', [
   ['en', 'How to log meals', 'Log food so coaching under My Rules can show live impact on charts.', `<ol><li>Tap <strong>+</strong> on the metabolic chart.</li><li><strong>Photo</strong> — snap the plate; approve AI items.</li><li><strong>Text</strong> — describe the meal; AI parses macros.</li><li>Coach chat can suggest logs — save via the food log.</li></ol>`],
-  ['he', 'איך רושמים ארוחה', 'רושמים אוכל — והמאמן לפי My Rules מראה השפעה חיה בגרפים.', `<ol><li>לחצו <strong>+</strong> בגרף המטבולי.</li><li><strong>תמונה</strong> — מצלמים את הצלחת ומאשרים.</li><li><strong>טקסט</strong> — מתארים; ה־AI מפרק למקרו.</li><li>אפשר גם מהצ׳אט — השמירה ביומן האוכל.</li></ol>`],
+  ['he', 'איך רושמים ארוחה', 'רושמים מה אוכלים — והמאמן לפי My Rules מראה השפעה חיה בגרפים.', `<ol><li>לוחצים <strong>+</strong> בגרף המטבולי.</li><li><strong>תמונה</strong> — מצלמים את הצלחת ומאשרים.</li><li><strong>טקסט</strong> — כותבים מה אכלתם; ה־AI מפרק למקרו.</li><li>אפשר גם מהצ׳אט — השמירה ביומן האוכל.</li></ol>`],
   ['es', 'Cómo registrar comidas', 'Registra la comida para que el coach bajo My Rules muestre impacto en vivo.', `<ol><li>Toca <strong>+</strong> en el gráfico metabólico.</li><li><strong>Foto</strong> — captura el plato y aprueba.</li><li><strong>Texto</strong> — describe; la IA calcula macros.</li><li>El chat puede sugerir — se guarda en el food log.</li></ol>`],
   ['fr', 'Comment logger les repas', 'Loggez pour que le coach sous My Rules montre l’impact live sur les graphiques.', `<ol><li>Touchez <strong>+</strong> sur le graphique métabolique.</li><li><strong>Photo</strong> — plate, puis validation.</li><li><strong>Texte</strong> — description ; l’IA sort les macros.</li><li>Le chat peut proposer — sauvegarde via le food log.</li></ol>`],
   ['de', 'Mahlzeiten erfassen', 'Essen loggen, damit Coaching unter My Rules Live-Wirkung in Charts zeigt.', `<ol><li><strong>+</strong> im Stoffwechsel-Chart tippen.</li><li><strong>Foto</strong> — Teller aufnehmen und bestätigen.</li><li><strong>Text</strong> — beschreiben; KI zerlegt Makros.</li><li>Chat kann vorschlagen — Speichern im Food-Log.</li></ol>`],

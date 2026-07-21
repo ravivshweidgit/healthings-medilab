@@ -22,6 +22,7 @@ import {
   mentorPossessiveLabel,
   mentorsStripTitle,
 } from '../logic/mentorLabels';
+import { usesMentorGenderUi } from '../i18n/quickStartCopy';
 import { WellnessColors } from '../theme/wellness';
 
 const MENTOR_TYPES: MentorType[] = ['doctor', 'nutritionist', 'coach'];
@@ -40,25 +41,25 @@ function minGapLabel(hours: number, lang?: UserLanguage | null): string {
 function voiceUi(lang?: UserLanguage | null) {
   if (lang?.code === 'he') {
     return {
-      title: 'קול המנטור',
-      hint: 'הרופא/ה שלי, התזונאי/ת שלי — זכר או נקבה',
-      male: 'זכר',
-      female: 'נקבה',
+      title: 'המאמן באפליקציה',
+      hint: 'גבר או אישה — כך ידבר אליכם המאמן. לא המגדר שלכם בפרופיל.',
+      male: 'גבר',
+      female: 'אישה',
     };
   }
   if (lang?.code === 'ar') {
     return {
-      title: 'صوت المرشد',
-      hint: 'طبيبي / أخصائية التغذية — ذكر أو أنثى',
-      male: 'ذكر',
-      female: 'أنثى',
+      title: 'المرشد في التطبيق',
+      hint: 'رجل أو امرأة — هكذا يخاطبكم المرشد. ليس جنس ملفكم الشخصي.',
+      male: 'رجل',
+      female: 'امرأة',
     };
   }
   return {
-    title: 'Mentor voice',
-    hint: 'My doctor / My nutritionist — male or female titles',
-    male: 'Male',
-    female: 'Female',
+    title: 'App mentor',
+    hint: 'Man or woman — how your AI mentor speaks to you. Not your profile gender.',
+    male: 'Man',
+    female: 'Woman',
   };
 }
 
@@ -157,23 +158,25 @@ export function MentorStrip({
           </View>
           {hint && <Text style={styles.hintText}>{hintRequired}</Text>}
 
-          <View style={styles.voiceSection}>
-            <Text style={styles.freqToggleLabel}>{voice.title}</Text>
-            <Text style={styles.voiceHint}>{voice.hint}</Text>
-            <View style={styles.voiceRow}>
-              {(['male', 'female'] as Gender[]).map((g) => (
-                <Pressable
-                  key={g}
-                  style={[styles.voiceBtn, mentorGender === g && styles.voiceBtnSelected]}
-                  onPress={() => void pickVoice(g)}
-                >
-                  <Text style={[styles.voiceBtnText, mentorGender === g && styles.voiceBtnTextSelected]}>
-                    {g === 'male' ? voice.male : voice.female}
-                  </Text>
-                </Pressable>
-              ))}
+          {usesMentorGenderUi(lang?.code) ? (
+            <View style={styles.voiceSection}>
+              <Text style={styles.freqToggleLabel}>{voice.title}</Text>
+              <Text style={styles.voiceHint}>{voice.hint}</Text>
+              <View style={styles.voiceRow}>
+                {(['male', 'female'] as Gender[]).map((g) => (
+                  <Pressable
+                    key={g}
+                    style={[styles.voiceBtn, mentorGender === g && styles.voiceBtnSelected]}
+                    onPress={() => void pickVoice(g)}
+                  >
+                    <Text style={[styles.voiceBtnText, mentorGender === g && styles.voiceBtnTextSelected]}>
+                      {g === 'male' ? voice.male : voice.female}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
-          </View>
+          ) : null}
 
           <View style={styles.freqSection}>
             <View style={styles.freqToggleRow}>

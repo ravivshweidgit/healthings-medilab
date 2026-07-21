@@ -46,7 +46,7 @@ export async function setGender(gender: Gender): Promise<void> {
   await AsyncStorage.setItem(GENDER_KEY, gender);
 }
 
-// ─── Mentor voice gender (Hebrew/Arabic titles) ─────────────────────────────
+// ─── Mentor gender (Hebrew/Arabic AI mentor titles) ─────────────────────────
 
 const MENTOR_GENDER_KEY = 'mentor_gender';
 

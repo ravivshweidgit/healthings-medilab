@@ -99,7 +99,7 @@ import { helpUrl } from '../i18n/helpUrls';
 import {
   LANGUAGE_GATE_OPTIONS,
 } from '../i18n/languageGate';
-import { getQuickStartCopy, isRtlLang } from '../i18n/quickStartCopy';
+import { getQuickStartCopy, isRtlLang, usesMentorGenderUi } from '../i18n/quickStartCopy';
 import {
   CircleHelp,
   UtensilsCrossed,
@@ -778,7 +778,12 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
   const saveLanguage = useCallback(async () => {
     const prev = await getLanguage();
-    await Promise.all([setLanguage(language), setMentorGender(mentorGender)]);
+    const tasks: Promise<unknown>[] = [setLanguage(language)];
+    // Mentor gender only applies to Hebrew/Arabic coach grammar.
+    if (usesMentorGenderUi(language.code)) {
+      tasks.push(setMentorGender(mentorGender));
+    }
+    await Promise.all(tasks);
     if (prev.code !== language.code) {
       await resetQuickQuestionsForLanguage(language);
     }
@@ -1280,7 +1285,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     [finishBusy, finishWizard, onOpenFoodLog],
   );
 
-  const showMentorGender = language.code === 'he' || language.code === 'ar';
+  const showMentorGender = usesMentorGenderUi(language.code);
   const isLanguageGate = stepId === 'language';
   const headerSub = stepId === 'welcome' ? t.welcomeTo : progressLabel;
   const genderLabel = (g: Gender) =>

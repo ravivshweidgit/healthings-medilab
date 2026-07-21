@@ -39,7 +39,7 @@ function pluginsForPlatform() {
 module.exports = {
   expo: {
     ...appJson.expo,
-    version: '1.2.11',
+    version: '1.2.12',
     plugins: pluginsForPlatform(),
     ios: {
       ...appJson.expo.ios,
@@ -57,7 +57,7 @@ module.exports = {
     },
     android: {
       ...appJson.expo.android,
-      versionCode: 38,
+      versionCode: 39,
     },
     extra: {
       eas: {

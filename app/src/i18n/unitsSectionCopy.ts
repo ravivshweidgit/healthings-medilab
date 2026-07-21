@@ -26,7 +26,7 @@ const EN: UnitsSectionCopy = {
 /** Native Israeli microcopy — not EN→HE. Unit codes stay Latin. */
 const HE: UnitsSectionCopy = {
   title: 'יחידות מידה',
-  hint: 'לתצוגה ולהקלדה בלבד — הנתונים נשמרים ביחידות קליניות סטנדרטיות.',
+  hint: 'לתצוגה ולהקלדה בלבד. מאחורי הקלעים נשמרים ביחידות קליניות סטנדרטיות.',
   glucose: 'גלוקוז',
   weight: 'משקל',
   height: 'גובה',
@@ -34,8 +34,68 @@ const HE: UnitsSectionCopy = {
   energy: 'אנרגיה',
 };
 
+/** Native DACH microcopy — not EN→DE. Unit codes stay Latin. */
+const DE: UnitsSectionCopy = {
+  title: 'Maßeinheiten',
+  hint: 'Nur Anzeige und Eingabe. Gespeichert wird in klinischen Standard-Einheiten.',
+  glucose: 'Glukose',
+  weight: 'Gewicht',
+  height: 'Größe',
+  water: 'Wasser',
+  energy: 'Energie',
+};
+
+/** Native Spanish clinic microcopy — not EN→ES. Unit codes stay Latin. */
+const ES: UnitsSectionCopy = {
+  title: 'Unidades de medida',
+  hint: 'Solo visualización e introducción. Se guarda en unidades clínicas estándar.',
+  glucose: 'Glucosa',
+  weight: 'Peso',
+  height: 'Altura',
+  water: 'Agua',
+  energy: 'Energía',
+};
+
+/** Native French clinic microcopy — not EN→FR. Unit codes stay Latin. */
+const FR: UnitsSectionCopy = {
+  title: 'Unités de mesure',
+  hint: 'Affichage et saisie seulement. Stockage en unités cliniques standard.',
+  glucose: 'Glucose',
+  weight: 'Poids',
+  height: 'Taille',
+  water: 'Eau',
+  energy: 'Énergie',
+};
+
+/** Native Arabic clinic microcopy — not EN→AR. Unit codes stay Latin. */
+const AR: UnitsSectionCopy = {
+  title: 'وحدات القياس',
+  hint: 'للعرض والإدخال فقط. التخزين بوحدات سريرية قياسية.',
+  glucose: 'الجلوكوز',
+  weight: 'الوزن',
+  height: 'الطول',
+  water: 'الماء',
+  energy: 'الطاقة',
+};
+
+/** Native Russian clinic microcopy — not EN→RU. Unit codes stay Latin. */
+const RU: UnitsSectionCopy = {
+  title: 'Единицы измерения',
+  hint: 'Только отображение и ввод. Хранение — в стандартных клинических единицах.',
+  glucose: 'Глюкоза',
+  weight: 'Вес',
+  height: 'Рост',
+  water: 'Вода',
+  energy: 'Энергия',
+};
+
 export function getUnitsSectionCopy(langCode?: string | null): UnitsSectionCopy {
   const c = (langCode || 'en').toLowerCase().slice(0, 2);
   if (c === 'he') return HE;
+  if (c === 'de') return DE;
+  if (c === 'es') return ES;
+  if (c === 'fr') return FR;
+  if (c === 'ar') return AR;
+  if (c === 'ru') return RU;
   return EN;
 }
