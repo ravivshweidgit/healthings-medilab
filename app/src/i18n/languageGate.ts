@@ -1,5 +1,5 @@
 /**
- * First-run language gate (prompt81) — multilingual “Select language” hero + flags.
+ * First-run language gate (prompt81) — multilingual “Select language” + flags.
  * Flags are representative language affordances (not nationality claims).
  */
 
@@ -7,13 +7,11 @@ export type LanguageGateOption = {
   code: string;
   /** Regional indicator / flag emoji — functional, not decorative clutter */
   flag: string;
-  /** “Select language” in this locale — intense rainbow hero line */
+  /** “Select language” in this locale (hero stack — black ink in UI) */
   selectLanguage: string;
-  /** Vivid rainbow accent (full intensity, never muted) */
-  accentColor: string;
-  /** Native endonym */
+  /** Native endonym under the flag */
   nativeLabel: string;
-  /** Always-English gloss */
+  /** Always-English gloss for a11y */
   englishLabel: string;
 };
 
@@ -22,7 +20,6 @@ export const LANGUAGE_GATE_OPTIONS: LanguageGateOption[] = [
     code: 'en',
     flag: '🇬🇧',
     selectLanguage: 'Select language',
-    accentColor: '#FF1744',
     nativeLabel: 'English',
     englishLabel: 'English',
   },
@@ -30,7 +27,6 @@ export const LANGUAGE_GATE_OPTIONS: LanguageGateOption[] = [
     code: 'de',
     flag: '🇩🇪',
     selectLanguage: 'Sprache wählen',
-    accentColor: '#2979FF',
     nativeLabel: 'Deutsch',
     englishLabel: 'German',
   },
@@ -38,7 +34,6 @@ export const LANGUAGE_GATE_OPTIONS: LanguageGateOption[] = [
     code: 'es',
     flag: '🇪🇸',
     selectLanguage: 'Elige idioma',
-    accentColor: '#FFAB00',
     nativeLabel: 'Español',
     englishLabel: 'Spanish',
   },
@@ -46,7 +41,6 @@ export const LANGUAGE_GATE_OPTIONS: LanguageGateOption[] = [
     code: 'fr',
     flag: '🇫🇷',
     selectLanguage: 'Choisir la langue',
-    accentColor: '#00E676',
     nativeLabel: 'Français',
     englishLabel: 'French',
   },
@@ -54,7 +48,6 @@ export const LANGUAGE_GATE_OPTIONS: LanguageGateOption[] = [
     code: 'he',
     flag: '🇮🇱',
     selectLanguage: 'בחרו שפה',
-    accentColor: '#FF6D00',
     nativeLabel: 'עברית',
     englishLabel: 'Hebrew',
   },
@@ -62,7 +55,6 @@ export const LANGUAGE_GATE_OPTIONS: LanguageGateOption[] = [
     code: 'ar',
     flag: '🇸🇦',
     selectLanguage: 'اختر اللغة',
-    accentColor: '#D500F9',
     nativeLabel: 'العربية',
     englishLabel: 'Arabic',
   },
@@ -70,7 +62,6 @@ export const LANGUAGE_GATE_OPTIONS: LanguageGateOption[] = [
     code: 'ru',
     flag: '🇷🇺',
     selectLanguage: 'Выберите язык',
-    accentColor: '#F50057',
     nativeLabel: 'Русский',
     englishLabel: 'Russian',
   },

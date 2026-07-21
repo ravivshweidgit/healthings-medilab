@@ -209,7 +209,7 @@ function PdfFileIcon({ size = 44 }: { size?: number }) {
 }
 
 /**
- * Language gate (prompt81) — intense multilingual “Select language” + flag tray.
+ * Language gate (prompt81) — black “Select language” stack + native names + blue select frame.
  */
 function LanguageGateHero({
   selectedCode,
@@ -241,9 +241,8 @@ function LanguageGateHero({
                     rtl && styles.gateCloudWordRtl,
                     on && styles.gateCloudWordOn,
                     {
-                      color: opt.accentColor,
-                      fontSize: on ? 20 : 15,
-                      lineHeight: on ? 24 : 18,
+                      fontSize: on ? 18 : 14,
+                      lineHeight: on ? 22 : 18,
                     },
                   ]}
                   numberOfLines={1}
@@ -265,6 +264,7 @@ function LanguageGateHero({
             >
               {row.map((opt) => {
                 const on = opt.code === selectedCode;
+                const rtlLabel = opt.code === 'he' || opt.code === 'ar';
                 return (
                   <Pressable
                     key={opt.code}
@@ -275,20 +275,21 @@ function LanguageGateHero({
                     style={({ pressed }) => [
                       styles.gateFlagCell,
                       on && styles.gateFlagCellOn,
-                      on && {
-                        borderColor: opt.accentColor,
-                        backgroundColor: '#FFFFFF',
-                        shadowColor: opt.accentColor,
-                      },
                       pressed && styles.gateCardPressed,
                     ]}
                   >
                     <Text style={styles.gateFlagEmoji}>{opt.flag}</Text>
                     <Text
-                      style={[styles.gateFlagNative, on && { color: opt.accentColor }]}
+                      style={[
+                        styles.gateFlagNative,
+                        rtlLabel && styles.gateFlagNativeRtl,
+                        on && styles.gateFlagNativeOn,
+                      ]}
                       numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.75}
                     >
-                      {opt.code.toUpperCase()}
+                      {opt.nativeLabel}
                     </Text>
                   </Pressable>
                 );
@@ -1996,13 +1997,14 @@ const styles = StyleSheet.create({
   },
   gateCloudWord: {
     textAlign: 'center',
-    letterSpacing: 0.2,
+    letterSpacing: 0.15,
     fontStyle: 'normal',
-    fontWeight: '800',
+    fontWeight: '700',
+    color: BRAND_NAVY,
   },
   gateCloudWordOn: {
-    fontWeight: '900',
-    letterSpacing: 0.3,
+    fontWeight: '800',
+    color: '#0A1628',
   },
   gateCloudWordRtl: {
     writingDirection: 'rtl',
@@ -2023,39 +2025,48 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   gateFlagRowSecond: {
-    paddingHorizontal: 32,
+    paddingHorizontal: 28,
   },
   gateFlagCell: {
     flex: 1,
-    maxWidth: 76,
+    maxWidth: 84,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
     paddingHorizontal: 4,
     borderRadius: 16,
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: 'transparent',
     backgroundColor: 'transparent',
   },
   gateFlagCellOn: {
-    borderWidth: 2,
-    shadowOpacity: 0.18,
+    borderColor: NEXT_BLUE,
+    backgroundColor: '#FFFFFF',
+    shadowColor: NEXT_BLUE_DEEP,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
   gateFlagEmoji: {
-    fontSize: 34,
-    lineHeight: 40,
+    fontSize: 32,
+    lineHeight: 38,
   },
   gateFlagNative: {
     marginTop: 4,
-    fontSize: 11,
-    lineHeight: 13,
-    fontWeight: '700',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '600',
     color: WellnessColors.textSecondary,
     textAlign: 'center',
-    letterSpacing: 0.4,
+    letterSpacing: 0,
+  },
+  gateFlagNativeRtl: {
+    writingDirection: 'rtl',
+  },
+  gateFlagNativeOn: {
+    color: NEXT_BLUE_DEEP,
+    fontWeight: '700',
   },
   gateCardPressed: {
     opacity: 0.9,
