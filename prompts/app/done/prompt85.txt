@@ -1,0 +1,38 @@
+## Prompt 85 — Reports strip (My Profile)
+
+**Status: done (2026-07-22)** — phone-tested Android (Samsung)  
+**Builds on:** `done/prompt50` (visit report export), Clinic/Account strip UX patterns
+
+### Problem
+
+Under My Profile, Visit report sat as an always-open block right under Data sharing — cluttered, no collapse/summary like Account / Mentors / Clinic.
+
+### What shipped
+
+| Area | Behavior |
+|------|----------|
+| **ReportsStrip** | Collapsible strip after Data sharing; chrome **Reports** (English); collapsed subtitle `Visit report · 7 / 14 / 30 / 90 days` |
+| **Visit report** | Same share flow (day chips → HTML share); labels simplified (`90 days`, no “~3 mo”) |
+| **Button style** | Grey border + black text (not green) |
+| **App Backup** | Unchanged — stays its own section below Reports |
+
+### Primary files
+
+- `app/src/components/ReportsStrip.tsx`
+- `app/src/screens/DashboardScreen.tsx` — `reportsExpanded`; removed inline `visitReportSection`
+
+### Phone-tested
+
+- [x] My Profile → Reports collapsed under Data sharing
+- [x] Expand → day chips; **90 days** label plain
+- [x] Grey/black chip style
+- [x] Share still works (prior visit-report path)
+
+### Deferred
+
+- Lab Results / Nutritionist archives into Reports
+- Additional report types
+
+### Related
+
+- `done/prompt50.txt` — visit report content/export (UI shell → this prompt)

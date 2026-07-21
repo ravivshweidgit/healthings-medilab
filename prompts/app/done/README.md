@@ -91,9 +91,11 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt84** — done (2026-07-22). Net-carb target + Ask macros HARD from nutritionist directive (AI extract kcal/net); ENERGY BALANCE skipped when directive kcal set; AI-judgment-not-regex rule. Phone-tested Samsung (~1690 kcal). See `done/prompt84.txt`.
 
+**prompt85** — done (2026-07-22). My Profile **Reports** collapsible strip (Visit report under Data sharing); plain 90-day label; grey/black chips. Phone-tested Samsung. See `done/prompt85.txt`.
+
 **prompt48** — done (2026-06-29). Lipid trend charts (Total/LDL/TG/HDL strips + green safe zones); mentors/coach see **all saved lab draws** in USER DATA. Phone-tested. Commits `308500f`, `fa0d6b1`. Supersedes prompt30 chart deferral + latest-only scope.
 
-**prompt50** — done (2026-06-30). Nutritionist visit report: clinical HTML export (7/14/30/90d), Appendix A charts (lipids/body/energy/CGM), Appendix B raw data. Phone-tested. See `done/prompt50.txt`.
+**prompt50** — done (2026-06-30). Nutritionist visit report: clinical HTML export (7/14/30/90d), Appendix A charts (lipids/body/energy/CGM), Appendix B raw data. Phone-tested. See `done/prompt50.txt`. **UI shell → Reports strip in prompt85.**
 
 **prompt51** — done (2026-07-03). My Rules version history: phone `user_rules_history_v1` (30 cap), clinic `clinic_patient_rules_history`, Rules tab history on portal. Phone-tested. See `done/prompt51.txt`.
 

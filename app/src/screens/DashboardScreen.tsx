@@ -38,6 +38,7 @@ import { WeightTargetStrip } from '../components/WeightTargetStrip';
 import { MentorStrip } from '../components/MentorStrip';
 import { AccountStrip } from '../components/AccountStrip';
 import { ClinicLinkStrip } from '../components/ClinicLinkStrip';
+import { ReportsStrip } from '../components/ReportsStrip';
 import { DashboardCollapseHeader } from '../components/DashboardCollapseHeader';
 import { RulesStrip } from '../components/RulesStrip';
 import { NutritionDirectivesStrip } from '../components/NutritionDirectivesStrip';
@@ -118,7 +119,7 @@ import {
   type NutritionDirective,
 } from '../services/NutritionDirectiveService';
 import { exportLocalBackup, importLocalBackup } from '../services/LocalBackupService';
-import { shareVisitReport, VISIT_REPORT_DAY_OPTIONS, type VisitReportDayCount } from '../services/visitReportService';
+import { shareVisitReport, type VisitReportDayCount } from '../services/visitReportService';
 import { buildGlucoseMentorContext } from '../logic/mealGlucoseAnalysis';
 import { activeMentorEmojis } from '../logic/mentorLabels';
 import {
@@ -315,6 +316,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [visitReportBusy, setVisitReportBusy] = useState(false);
   const [accountExpanded, setAccountExpanded] = useState(false);
   const [clinicExpanded, setClinicExpanded] = useState(false);
+  const [reportsExpanded, setReportsExpanded] = useState(false);
 
   const [trendPeriodDays, setTrendPeriodDays] = useState<number>(DEFAULT_TREND_PERIOD_DAYS);
 
@@ -1096,15 +1098,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
   const visitReportUi = useMemo(() => {
     const dayLabel = (n: VisitReportDayCount): string => {
-      if (userLanguage.code === 'he') {
-        if (n === 90) return '90 ימים (~3 חודשים)';
-        return `${n} ימים`;
-      }
+      if (userLanguage.code === 'he') return `${n} ימים`;
       if (userLanguage.code === 'ar') {
-        if (n === 90) return '90 يوماً (~3 أشهر)';
         return `${n} ${n === 7 || n === 30 ? 'أيام' : 'يوماً'}`;
       }
-      if (n === 90) return '90 days (~3 mo)';
       return `${n} days`;
     };
     if (userLanguage.code === 'he') {
@@ -2569,26 +2566,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           />
 
           <View style={styles.groupDivider} />
-          <View style={styles.visitReportSection}>
-            <Text style={styles.visitReportTitle}>{visitReportUi.title}</Text>
-            <Text style={styles.visitReportSubtitle}>{visitReportUi.subtitle}</Text>
-            <View style={styles.visitReportButtonGrid}>
-              {VISIT_REPORT_DAY_OPTIONS.map((days) => (
-                <Pressable
-                  key={days}
-                  style={[styles.visitReportButton, visitReportBusy && styles.visitReportButtonDisabled]}
-                  onPress={() => void handleShareVisitReport(days)}
-                  disabled={visitReportBusy}
-                >
-                  <Text style={styles.visitReportButtonText}>{visitReportUi.dayLabel(days)}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <Text style={styles.visitReportNote}>{visitReportUi.cgmNote}</Text>
-            {visitReportBusy ? (
-              <ActivityIndicator color={WellnessColors.accentBlue} style={styles.visitReportSpinner} />
-            ) : null}
-          </View>
+          <ReportsStrip
+            expanded={reportsExpanded}
+            onToggleExpand={() => setReportsExpanded((e) => !e)}
+            busy={visitReportBusy}
+            visitReportUi={visitReportUi}
+            onShareVisitReport={(days) => void handleShareVisitReport(days)}
+          />
 
           <View style={styles.groupDivider} />
           <View style={styles.backupSection}>
@@ -3276,54 +3260,6 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: WellnessColors.gridLine,
     marginHorizontal: 16,
-  },
-  visitReportSection: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 8,
-  },
-  visitReportTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: WellnessColors.textPrimary,
-  },
-  visitReportSubtitle: {
-    fontSize: 12,
-    color: WellnessColors.textSecondary,
-    lineHeight: 17,
-  },
-  visitReportButtonGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
-  },
-  visitReportButton: {
-    width: '48%',
-    flexGrow: 1,
-    borderWidth: 1,
-    borderColor: '#2E7D5A',
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: WellnessColors.surface,
-  },
-  visitReportButtonDisabled: {
-    opacity: 0.6,
-  },
-  visitReportButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#2E7D5A',
-  },
-  visitReportSpinner: {
-    marginTop: 4,
-  },
-  visitReportNote: {
-    fontSize: 11,
-    color: WellnessColors.textSecondary,
-    lineHeight: 15,
   },
   backupSection: {
     paddingHorizontal: 16,
