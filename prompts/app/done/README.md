@@ -10,7 +10,6 @@ Active / backlog specs stay in `prompts/app/`:
 | prompt32.txt | Spec only — backup import QA + hardening (deferred) |
 | prompt38.txt | Planned — secondary lab findings (liver, iron, uric acid) |
 | prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
-| `prompt80.txt` | **Backlog** — hybrid activity: phone steps + Withings bike; calc-only workout calibration (Withings kcal gap investigation 2026-07-20) |
 | `prompt81b.txt` | **Backlog** — Phase B: Dashboard / Food Log / Profile UI Hebrew (and other locales); glossary EN |
 
 **prompt58** — done (2026-07-07). Editable Your setup: 3 toggles (scale/watch/CGM), HC steps when watch off, no OAuth auto-promote. Compile-check OK; phone test pending. See `done/prompt58.txt`.
@@ -74,7 +73,9 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt75** — done (2026-07-17). Camera Nutritionist “Save anyway” keeps meal items (no empty meal). Phone-tested Android. See `done/prompt75.txt`.
 
-**prompt76** — done (2026-07-18). Watch off → phone health (HC / Apple Health); Allow/Deep sync; steps max-origin skip Withings; kcal from steps×0.55; write advisory; Food Log today@0. See `done/prompt76.txt`.
+**prompt76** — done (2026-07-18). Watch off → phone health (HC / Apple Health); Allow/Deep sync; steps max-origin skip Withings; kcal from steps×0.55; write advisory; Food Log today@0. See `done/prompt76.txt`. **Watch On walking superseded by prompt80** (distance×weight + bike).
+
+**prompt80** — done (2026-07-22). Hybrid Watch On: Withings distance×weight walks + Withings bike/sports; ignore walk sessions & passive; phone steps only Watch Off. Phone-tested Android Jul 21 → 884 kcal (was 937). See `done/prompt80.txt`.
 
 **prompt77** — done (2026-07-18). Quick Start one-question UX + in-wizard Link Withings; original gear/meals art; help site pages. See `done/prompt77.txt`.
 

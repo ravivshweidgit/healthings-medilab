@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import {
   dayKeyStartMs,
+  lastNLocalDayKeysOldestFirst,
   localDayKeyFromMs,
   MAX_TREND_PERIOD_DAYS,
   type CompositionSession,
@@ -25,6 +26,7 @@ import {
   loadSourceConfig,
 } from './SourceConfigService';
 import {
+  fetchActivityByDay,
   fetchBodyCompositionTrend7d,
   fetchHeartRateHistory,
   fetchIntradayToday,
@@ -33,6 +35,7 @@ import {
   getValidAccessToken,
   isKeepableWorkout,
   loadWithingsTokens,
+  mergeActivityDistanceIntoTrendDays,
   WITHINGS_HR_DEEP_LOOKBACK_DAYS,
   WITHINGS_SHALLOW_LOOKBACK_DAYS,
   WITHINGS_TREND_SHALLOW_PERIOD_DAYS,
@@ -310,6 +313,8 @@ function applyDailyActiveKcalToTrendDays(
       visceralFatIndex: null,
       bmrKcalDay: null,
       activityKcalDay: null,
+      distanceM: null,
+      steps: null,
     };
     const hcDaily = dailyByDay[dk];
     let activityKcalDay = base.activityKcalDay;
@@ -723,6 +728,38 @@ export async function syncWithingsApiIntoStore(
     const workoutsFetch =
       workoutsRes.status === 'fulfilled' ? workoutsRes.value : null;
 
+    // Always refresh getactivity distance when watch activity is on (hybrid burn).
+    // Covers trend-cache misses and manual-weight users who still store bodyTrendDays.
+    let trendDays = trend.days;
+    if (useWithingsActivity && accessToken) {
+      const keys =
+        trendDays.length > 0
+          ? trendDays.map((d) => d.dayKey)
+          : lastNLocalDayKeysOldestFirst(WITHINGS_TREND_SHALLOW_PERIOD_DAYS);
+      const storedTokens = await loadWithingsTokens();
+      const activityByDay = await syncPerfParallel('withings/getactivity(distance)', () =>
+        fetchActivityByDay(keys, accessToken, storedTokens?.userid),
+      );
+      if (activityByDay.size > 0) {
+        trendDays = mergeActivityDistanceIntoTrendDays(
+          trendDays.length > 0
+            ? trendDays
+            : keys.map((dayKey) => ({
+                dayKey,
+                weightKg: null,
+                fatMassKg: null,
+                muscleMassKg: null,
+                visceralFatIndex: null,
+                bmrKcalDay: null,
+                activityKcalDay: null,
+                distanceM: null,
+                steps: null,
+              })),
+          activityByDay,
+        );
+      }
+    }
+
     const { heartRate, calories, merged, saveError } = await syncPerfTrack(
       'withings/mergeAndSave',
       async () => {
@@ -733,7 +770,7 @@ export async function syncWithingsApiIntoStore(
         const mergedBase = mergeIntoMetricsStore(base, {
           lastSyncedAt: new Date().toISOString(),
           bodyScan: bodyScan ?? undefined,
-          bodyTrendDays: trend.days,
+          bodyTrendDays: trendDays,
           bodyTrendSessions: trend.debug.sessions,
         });
         const next: MetricsPersistedStore = {

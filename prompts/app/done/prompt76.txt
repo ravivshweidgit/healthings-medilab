@@ -11,7 +11,7 @@ My Profile buried Garmin/Samsung deep links when Withings watch was off. Users t
 
 | Withings watch | Steps / HR / activity |
 |----------------|------------------------|
-| **Yes** | Withings **cloud API only** |
+| **Yes** | Withings **cloud API** — body/HR unchanged; **activity burn** = distance×weight + non-walk workouts (**prompt80**) |
 | **No** | Phone health: **Health Connect** (Android) / **Apple Health** (iOS) |
 
 Brand does not matter. User populates the phone health store; Healthings only reads. Do **not** share Withings → HC / Apple Health (help site + in-app advisory).
@@ -71,3 +71,4 @@ Brand does not matter. User populates the phone health store; Healthings only re
 - `prompts/app/prompt56.txt` — HealthKit activity marked shipped for steps/HR path
 - `prompts/app/prompt65.txt` — Watch No no longer `none`
 - Persistence parity: adapters merge into `healthings:metricsStore` only
+- **Watch On walking superseded by `done/prompt80.txt`** (Withings distance×weight + bike; this prompt remains Watch Off)

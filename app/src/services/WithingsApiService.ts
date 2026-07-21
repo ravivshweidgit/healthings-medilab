@@ -613,15 +613,52 @@ function mergeBmrIntoTrendDays(
   });
 }
 
+export type WithingsActivityDay = {
+  /** Active-only kcal from getactivity (legacy / display). */
+  activeKcal: number;
+  /** Daily distance in meters (normalized from getactivity). */
+  distanceM: number | null;
+  /** Daily steps from getactivity (fallback when distance missing). */
+  steps: number | null;
+};
+
+/** Merge getactivity distance (+ optional active kcal) onto trend days by dayKey. */
+export function mergeActivityDistanceIntoTrendDays(
+  days: MetabolicTrend7dDay[],
+  activityByDay: Map<string, WithingsActivityDay>,
+): MetabolicTrend7dDay[] {
+  if (activityByDay.size === 0) {
+    return days.map((d) => ({
+      ...d,
+      distanceM: d.distanceM ?? null,
+      steps: d.steps ?? null,
+    }));
+  }
+  return days.map((d) => {
+    const a = activityByDay.get(d.dayKey);
+    if (!a) {
+      return { ...d, distanceM: d.distanceM ?? null, steps: d.steps ?? null };
+    }
+    const nextKcal =
+      d.activityKcalDay != null && Number.isFinite(d.activityKcalDay)
+        ? d.activityKcalDay
+        : a.activeKcal > 0
+          ? a.activeKcal
+          : d.activityKcalDay;
+    return {
+      ...d,
+      activityKcalDay: nextKcal ?? null,
+      distanceM: a.distanceM != null ? a.distanceM : (d.distanceM ?? null),
+      steps: a.steps != null ? a.steps : (d.steps ?? null),
+    };
+  });
+}
+
 function mergeActivityIntoTrendDays(
   days: MetabolicTrend7dDay[],
-  activityByDay: Map<string, number>
+  activityByDay: Map<string, WithingsActivityDay>
 ): MetabolicTrend7dDay[] {
-  return days.map((d) => {
-    if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay)) return d;
-    const a = activityByDay.get(d.dayKey);
-    return a != null ? { ...d, activityKcalDay: a } : d;
-  });
+  return mergeActivityDistanceIntoTrendDays(days, activityByDay);
 }
 
 type WithingsGetActivityJson = {
@@ -631,23 +668,49 @@ type WithingsGetActivityJson = {
 };
 
 /**
- * Fetches daily active calories from Withings getactivity for the given day keys.
- * One API call covers the full date range. Requires user.activity scope.
+ * Normalize Withings getactivity distance to meters.
+ * Docs say meters; some responses look like kilometers (e.g. 8.8 for an 8.8 km day).
+ * Use steps to disambiguate small values.
  */
-async function fetchActivityKcalByDay(
+export function normalizeWithingsDistanceToMeters(
+  raw: number,
+  steps?: number | null,
+): number | null {
+  if (!Number.isFinite(raw) || raw <= 0) return null;
+  // Clearly meters (100 m+ for any real day walk).
+  if (raw >= 100) return raw;
+  // Small number: compare to step-based estimate.
+  if (steps != null && steps > 200) {
+    const approxM = steps * 0.78;
+    const asKm = raw * 1000;
+    if (Math.abs(approxM - asKm) < Math.abs(approxM - raw)) {
+      return asKm;
+    }
+  }
+  // Default per Withings docs: meters (short days can be <100 m).
+  return raw;
+}
+
+/**
+ * Fetches daily active calories + distance from Withings getactivity for the given day keys.
+ * One API call covers the full date range. Requires user.activity scope.
+ * Distance is stored as meters (hybrid walk kcal = km × weight × 0.55).
+ */
+export async function fetchActivityByDay(
   dayKeys: string[],
   accessToken: string,
   userid?: string
-): Promise<Map<string, number>> {
+): Promise<Map<string, WithingsActivityDay>> {
   if (dayKeys.length === 0) return new Map();
 
   const sorted = [...dayKeys].sort();
+  // Official fields only — `active_calories` is not valid and can break the response.
   const form = new URLSearchParams({
     action: 'getactivity',
     access_token: accessToken,
     startdateymd: sorted[0],
     enddateymd: sorted[sorted.length - 1],
-    data_fields: 'active_calories,calories',
+    data_fields: 'steps,distance,calories,totalcalories',
   });
   if (userid) form.set('userid', userid);
 
@@ -659,35 +722,47 @@ async function fetchActivityKcalByDay(
     });
     const json = (await res.json()) as WithingsGetActivityJson;
 
-    if (__DEV__) {
-      console.warn('[WithingsActivity] getactivity response', JSON.stringify({
-        status: json.status,
-        error: json.error,
-        activityCount: json.body?.activities?.length ?? 0,
-        sample: json.body?.activities?.slice(0, 2),
-      }, null, 2));
-    }
+    // Always log a compact sample so release builds can verify distance (logcat).
+    console.warn('[WithingsActivity] getactivity', {
+      status: json.status,
+      error: json.error,
+      activityCount: json.body?.activities?.length ?? 0,
+      sample: (json.body?.activities ?? []).slice(0, 2).map((a) => ({
+        date: a.date,
+        distance: a.distance,
+        steps: a.steps,
+        calories: a.calories,
+      })),
+    });
 
     if (json.status !== 0) return new Map();
 
-    const out = new Map<string, number>();
+    const out = new Map<string, WithingsActivityDay>();
     for (const act of json.body?.activities ?? []) {
       const dateYmd = String(act.date ?? '');
       if (!dateYmd) continue;
       // Withings: 'calories' = active-only burn; 'totalcalories' includes BMR
-      const active = Number(act.active_calories ?? act.calories ?? 0);
-      if (Number.isFinite(active) && active > 0) {
-        out.set(dateYmd, Math.round(active));
-      }
+      const active = Number(act.calories ?? act.active_calories ?? 0);
+      const stepsRaw = Number(act.steps ?? NaN);
+      const steps = Number.isFinite(stepsRaw) && stepsRaw >= 0 ? Math.round(stepsRaw) : null;
+      const hasDistance = act.distance != null && act.distance !== '';
+      const rawDist = hasDistance ? Number(act.distance) : NaN;
+      const distanceM =
+        hasDistance && Number.isFinite(rawDist)
+          ? normalizeWithingsDistanceToMeters(rawDist, steps)
+          : null;
+      const activeKcal = Number.isFinite(active) && active > 0 ? Math.round(active) : 0;
+      out.set(dateYmd, { activeKcal, distanceM, steps });
     }
 
-    if (__DEV__) {
-      console.warn('[WithingsActivity] mapped days', JSON.stringify([...out.entries()], null, 2));
-    }
+    console.warn(
+      '[WithingsActivity] mapped',
+      [...out.entries()].slice(-3).map(([k, v]) => [k, v]),
+    );
 
     return out;
   } catch (err) {
-    if (__DEV__) console.warn('[WithingsActivity] fetch error', err);
+    console.warn('[WithingsActivity] fetch error', err);
     return new Map();
   }
 }
@@ -729,6 +804,7 @@ export function getMockBodyCompositionTrend7d(dayKeys: string[]): MetabolicTrend
       visceralFatIndex: Math.max(3.9, 4.2 - frac * 2 + Math.sin(phase * 2) * 0.08),
       bmrKcalDay: bmr,
       activityKcalDay: Math.round(280 + Math.sin(phase * 1.5) * 120 + Math.cos(phase * 0.8) * 60),
+      distanceM: Math.round(4000 + Math.sin(phase * 1.2) * 1500),
     };
   });
 }
@@ -816,7 +892,7 @@ export async function fetchBodyCompositionTrend7d(
   const weightByDay = extractLatestWeightKgByDay(groups);
   const visceralByDay = extractLatestVisceralByDay(groups);
   const bmrByDay = extractLatestBmrByDay(groups);
-  const activityByDay = await fetchActivityKcalByDay(dayKeys, accessToken, stored?.userid);
+  const activityByDay = await fetchActivityByDay(dayKeys, accessToken, stored?.userid);
   const days = mergeActivityIntoTrendDays(
     mergeBmrIntoTrendDays(
       mergeVisceralIntoTrendDays(

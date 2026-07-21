@@ -26,6 +26,7 @@ import type {
   WithingsCaloriePoint,
   WithingsIntradayData,
 } from './WithingsApiService';
+import { hybridWithingsActivityKcal } from './hybridActivityBurn';
 import { filterGlucoseToDayKeys } from './healthMetricsCache';
 import type { CgmSessionStart } from '../logic/cgmWarmupFilter';
 import { loadCgmViewFromStore, syncCgmStore } from './CgmPersistenceService';
@@ -219,11 +220,24 @@ export function computeBurnKcalByDay(
 ): Map<string, number> {
   const BUCKET_MS = 30 * 60 * 1000;
   const bmrByDay = new Map<string, number>();
+  const weightByDay = new Map<string, number>();
+  const distanceByDay = new Map<string, number>();
   for (const d of bodyDays) {
     if (d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay)) {
       bmrByDay.set(d.dayKey, d.bmrKcalDay);
     }
+    if (d.weightKg != null && Number.isFinite(d.weightKg) && d.weightKg > 0) {
+      weightByDay.set(d.dayKey, d.weightKg);
+    }
+    if (d.distanceM != null && Number.isFinite(d.distanceM) && d.distanceM > 0) {
+      distanceByDay.set(d.dayKey, d.distanceM);
+    }
   }
+
+  const fallbackWeight =
+    [...weightByDay.values()].slice(-1)[0]
+    ?? bodyDays.map((d) => d.weightKg).filter((w): w is number => w != null && w > 0).slice(-1)[0]
+    ?? null;
 
   const passiveByDay = new Map<string, Map<number, number>>();
   for (const pt of caloriePoints) {
@@ -238,6 +252,7 @@ export function computeBurnKcalByDay(
   const workoutKcalByDay = new Map<string, number>();
   const workoutBucketsByDay = new Map<string, Set<number>>();
   for (const w of sessions) {
+    if (w.source === 'health-connect') continue;
     const dk = localDayKeyFromMs(w.startMs);
     workoutKcalByDay.set(dk, (workoutKcalByDay.get(dk) ?? 0) + w.kcal);
     if (!workoutBucketsByDay.has(dk)) workoutBucketsByDay.set(dk, new Set());
@@ -250,12 +265,28 @@ export function computeBurnKcalByDay(
     ...bmrByDay.keys(),
     ...passiveByDay.keys(),
     ...workoutKcalByDay.keys(),
+    ...distanceByDay.keys(),
   ]);
 
   const result = new Map<string, number>();
   for (const dk of allDayKeys) {
     const bmr = bmrByDay.get(dk);
     if (bmr == null || !Number.isFinite(bmr)) continue;
+
+    const dist = distanceByDay.get(dk) ?? null;
+    const weightKg = weightByDay.get(dk) ?? fallbackWeight;
+    if (weightKg != null && weightKg > 0) {
+      const activity = hybridWithingsActivityKcal({
+        dayKey: dk,
+        distanceM: dist,
+        weightKg,
+        workouts: sessions,
+      });
+      result.set(dk, Math.round(bmr + activity));
+      continue;
+    }
+
+    // No weight — legacy fallback.
     const wktBuckets = workoutBucketsByDay.get(dk) ?? new Set<number>();
     const wktKcal = workoutKcalByDay.get(dk) ?? 0;
     let passiveKcal = 0;

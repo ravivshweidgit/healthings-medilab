@@ -81,6 +81,8 @@ export function buildManualTrendDays(opts: {
       visceralFatIndex: null,
       bmrKcalDay: bmr,
       activityKcalDay,
+      distanceM: null,
+      steps: null,
     };
   });
 }

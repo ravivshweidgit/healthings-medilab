@@ -12,6 +12,13 @@ export type MetabolicTrend7dDay = {
   bmrKcalDay: number | null;
   /** Active calories burned that day from Withings getactivity (kcal). */
   activityKcalDay: number | null;
+  /**
+   * Daily distance from Withings getactivity (meters). Used for hybrid walk kcal
+   * (distance × weight × 0.55). Optional for older stored trend rows.
+   */
+  distanceM?: number | null;
+  /** Daily steps from Withings getactivity (fallback when distance missing). */
+  steps?: number | null;
 };
 
 /** One Withings scale session with full BIA (weight + fat + muscle). */
@@ -374,6 +381,8 @@ export function buildDaysFromSessions(dayKeys: string[], sessions: CompositionSe
         visceralFatIndex: null,
         bmrKcalDay: null,
         activityKcalDay: null,
+        distanceM: null,
+        steps: null,
       };
     }
     const latest = daySessions[daySessions.length - 1];
@@ -385,6 +394,8 @@ export function buildDaysFromSessions(dayKeys: string[], sessions: CompositionSe
       visceralFatIndex: latest.visceralFatIndex,
       bmrKcalDay: null,
       activityKcalDay: null,
+      distanceM: null,
+      steps: null,
     };
   });
 }

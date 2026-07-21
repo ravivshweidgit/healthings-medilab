@@ -1,0 +1,88 @@
+## Prompt 80 — Hybrid activity: Withings distance walks + Withings bike (phone steps only when Watch Off)
+
+**Status: done (2026-07-22)** — phone-tested Android (Samsung); Jul 21 Food Log **884 kcal** activity (was legacy **937**)  
+**Builds on:** `done/prompt76` (phone health when watch off), `done/prompt70` (Food Log burn), `done/prompt73` (watch activity on manual weight), persistence parity rules
+
+### Problem
+
+Withings **workout kcal** (and Health Mate itself) disagreed ~**27–46%** across phones/accounts for the same rides. Cloud backups (`raviv.shweid@gmail.com` vs `raviv.shweid+withings-ios@gmail.com`, Jul 18–21 2026): gap was almost entirely **walk session kcal**; bikes were close. Legacy Watch On used passive + **all** workouts → inherited Withings walk noise.
+
+### Product rule (locked + shipped)
+
+| Mode | Signal | Source |
+|------|--------|--------|
+| **Watch On** | Walking / ambulatory energy | Withings **`getactivity` `distance`** × weight × **0.55** |
+| **Watch On** | Walk / run / hike **workouts** | **Ignore** for burn (covered by daily distance) |
+| **Watch On** | Bike + other non-distance sports | Withings **`getworkouts`** raw kcal |
+| **Watch On** | Intraday passive calories | **Not** used for burn |
+| **Watch Off** | Steps / walking energy | **Phone** (HC / Apple Health) — prompt76 |
+| Either | Calibration UI | Deferred (factor `1` wired, no settings yet) |
+
+Phone steps are **only** when Withings watch is absent.
+
+### Burn formula
+
+```text
+# Watch On
+walkKcal  = distanceKmToActiveKcal(distance_m / 1000, weightKg)   // 0.55 × kg × km
+sportsKcal = Σ workout.kcal   // category ∉ {walk, run, hike}
+activity  ≈ walkKcal + sportsKcal
+
+# Watch Off (prompt76)
+activity  ≈ stepsToActiveKcal(phoneSteps, …)
+```
+
+### What shipped
+
+| Area | Behavior |
+|------|----------|
+| **Hybrid module** | `hybridActivityBurn.ts` — distance×weight + non-distance workouts |
+| **getactivity** | Request `steps,distance,calories,totalcalories`; normalize m vs km; store `distanceM` (+ `steps`) on trend days |
+| **Sync** | Explicit distance refresh during Withings sync (not only inside body trend) |
+| **Food Log / Dashboard** | Watch On burn = hybrid; no `Math.max` with legacy totals |
+| **Reviews / visit** | `computeBurnKcalByDay` uses hybrid when weight present |
+| **Help** | EN phone-health page notes Watch On distance + bike rule |
+
+### Primary files
+
+- `app/src/services/hybridActivityBurn.ts`
+- `app/src/services/WithingsApiService.ts`
+- `app/src/services/MetricsPersistenceService.ts`
+- `app/src/logic/metabolicTrend7d.ts` — `distanceM`, `steps`
+- `app/src/screens/DashboardScreen.tsx`
+- `app/src/services/ReviewService.ts`
+- `website/en/help/phone-health-activity.html`
+
+### Phone-tested
+
+- [x] Watch Yes: Jul 21 activity **884** ≈ 8.8 km × weight × 0.55 + bike **508** (legacy was **937**)
+- [x] Walk sessions no longer inflate Food Log (Android)
+- [x] Bike kcal still included
+- [ ] Watch No: prompt76 unchanged (not re-tested this batch)
+- [ ] iOS TestFlight hybrid build (distance path ships in next **bi-os**; DB compare already shows bikes ~531 vs Android 508)
+- [x] Chrome English
+
+### Jul 21 DB workout split (cloud backups)
+
+| | Android | iOS |
+|--|---------|-----|
+| Bike | **508** (236+272) | **531** (231+300) |
+| Walks | 337 (2) | 775 (3) |
+| All workouts | 845 | 1306 |
+| Legacy activity | 937 | 1330 |
+
+### Investigation summary (2026-07-20)
+
+Gap location: `getworkouts` walk kcal (not Food Log math). Jul 18–19 activity +27–46% iOS vs Android; Jul 21 +41.9%. Passive close; bikes close; walks dominate. Scripts: `server/scripts/compare-android-ios-calories.mjs`, `fuzzy-workout-compare.mjs`.
+
+### Deferred
+
+- Calibration settings UI
+- iOS TF verify of hybrid Food Log number after **bi-os**
+- Rewriting stored workout kcal
+
+### Related
+
+- `done/prompt76.txt` — Watch Off unchanged; Watch **On** walking superseded by this prompt
+- `done/prompt70.txt` — Food Log activity + burned
+- Persistence parity: `.cursor/rules/persistence-parity.mdc`
