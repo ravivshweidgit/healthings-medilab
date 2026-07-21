@@ -1,6 +1,6 @@
 ## Prompt 85 — Reports strip (My Profile)
 
-**Status: done (2026-07-22)** — phone-tested Android (Samsung)  
+**Status: done (2026-07-22)** — phone-tested Android (Samsung). Commit `a6126e2`.  
 **Builds on:** `done/prompt50` (visit report export), Clinic/Account strip UX patterns
 
 ### Problem
