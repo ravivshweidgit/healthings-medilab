@@ -1,6 +1,6 @@
 ## Prompt 86 — Food Log collapse + dashboard footer reorder
 
-**Status: done (2026-07-22)** — phone-tested Android (Samsung)  
+**Status: done (2026-07-22)** — phone-tested Android (Samsung). Commit `6bd85ab`.  
 **Builds on:** `done/prompt62` (Food Log placement), `done/prompt70` (activity/burned lines), `done/prompt85` (Reports strip chrome)
 
 ### Problem
