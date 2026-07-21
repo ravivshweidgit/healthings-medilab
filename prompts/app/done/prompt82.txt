@@ -1,6 +1,6 @@
 ## Prompt 82 — Body card source header (Withings + CGM)
 
-**Status: done (2026-07-21)** — Phone-tested on Samsung (3 Withings setups × CGM).  
+**Status: done (2026-07-21)** — Phone-tested on Samsung (3 Withings setups × CGM). Commit `27a2477`.  
 **Builds on:** `done/prompt58` (setup toggles), `done/prompt69` (Re-link sheet), body card devices marks  
 **Store:** Android **1.2.13** (versionCode **40**)
 
