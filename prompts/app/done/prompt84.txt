@@ -1,6 +1,6 @@
 ## Prompt 84 — Net-carb (C−Fi) daily target + directive macro HARD
 
-**Status: done (2026-07-22)** — phone-tested Samsung  
+**Status: done (2026-07-22)** — phone-tested Samsung · commit `e2173f0`  
 **Builds on:** `done/prompt35` (fiber↔carb), Food Log C-Fi meter, My Macros / `DailyMacroTarget`, `done/prompt53` (nutrition directives)
 
 ### Problem
