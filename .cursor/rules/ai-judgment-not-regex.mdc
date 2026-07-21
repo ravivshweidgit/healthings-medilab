@@ -1,0 +1,34 @@
+---
+description: Interpreting My Rules / nutritionist / meal / lab labels uses Gemini judgment only — no regex keyword matching for clinical meaning.
+alwaysApply: true
+---
+
+# AI judgment — not regex (rules & nutrition text)
+
+## Do not
+
+- Parse My Rules, nutritionist directives, meal names, or coach policy with **regex / keyword lists** to decide floors, caps, flags, mentor ownership, or clinical intent (kcal, P/C/Fi/net, dairy fat, keto, cholesterol goals, etc.).
+- Add new `parseXFromRules` helpers that scan rule text with RegExp.
+- Classify lab rows by Hebrew/English **name** keywords — Gemini assigns canonical `code` on PDF import; app matches **exact code sets** only.
+- Infer coach/doctor action-item owner from free text keywords.
+
+## Do
+
+- Put verbatim directive + My Rules into the **Gemini prompt**; state that numbers and constraints are **HARD** via model judgment.
+- Lab PDF parse: require canonical codes (`CREATININE`, `UREA`, `CHOLESTEROL_LDL`, `CHOLESTEROL`, `CHOLESTEROL_HDL`, `TRIGLYCERIDES`, `GLUCOSE`, `HBA1C`, …).
+- Keep **pure math** in code: `net = C − Fi`, `Fi ≤ C`, fat-fill to chosen kcal, kidney protein cap from **lab values × lean mass**, ENERGY BALANCE from burn/scale.
+- Intent detectors for **slash commands / chat routing** (`chatIntent.ts`, `/N` period review) may stay pattern-based — that is input routing, not clinical rule interpretation.
+- Exact string equality (trim/lower) for food-name merge is OK; no fuzzy substring regex.
+
+## Precedent
+
+- Meal fat/cholesterol flagging: `MEAL_FAT_RULE_FLAGGING_GUIDANCE` — Gemini judgment, not keyword matching (prompt20).
+- Macro Ask: directive/My Rules numbers — prompt only.
+- Lab marker scan: code enum sets in `LabLogService` — not name regex.
+
+## Agent checklist
+
+- [ ] New “rule says X g” / “this food is dairy” behavior → prompt + context, not RegExp?
+- [ ] Post-process only math / lab formulas / exact code IDs?
+- [ ] Action items always carry AI `mentor` tag — no keyword backfill?
+- [ ] No new rules-text or lab-name parsers?

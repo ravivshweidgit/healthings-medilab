@@ -22,8 +22,9 @@ import {
   getMentors,
   getUserRules,
   resolveFiberTarget_g,
+  resolveNetCarbTarget_g,
   saveMacroTarget,
-  withFiberTarget,
+  withCarbFiberNetTargets,
   type BodyTarget,
   type DailyMacroTarget,
   type MentorType,
@@ -243,6 +244,7 @@ export function MacroTargetStrip({
   const [editF, setEditF] = useState('');
   const [editC, setEditC] = useState('');
   const [editFi, setEditFi] = useState('');
+  const [editNet, setEditNet] = useState('');
   const [editK, setEditK] = useState('');
   const [editWater, setEditWater] = useState('');
   const [waterGoalMl, setWaterGoalMlState] = useState(DEFAULT_WATER_GOAL_ML);
@@ -255,14 +257,14 @@ export function MacroTargetStrip({
 
   useEffect(() => {
     if (!weighInSuggestion) return;
-    setSuggestion(withFiberTarget(weighInSuggestion));
+    setSuggestion(withCarbFiberNetTargets(weighInSuggestion));
     setSuggestionHint(weighInSuggestionHint ?? null);
     setScreen('suggestion');
     onWeighInSuggestionConsumed?.();
   }, [weighInSuggestion, weighInSuggestionHint, onWeighInSuggestionConsumed]);
 
   useEffect(() => {
-    getMacroTarget().then((t) => { if (t) { setTarget(withFiberTarget(t)); setScreen('active'); } });
+    getMacroTarget().then((t) => { if (t) { setTarget(withCarbFiberNetTargets(t)); setScreen('active'); } });
   }, []);
 
   useEffect(() => {
@@ -278,7 +280,7 @@ export function MacroTargetStrip({
 
   useEffect(() => {
     if (savedTarget) {
-      setTarget(withFiberTarget(savedTarget));
+      setTarget(withCarbFiberNetTargets(savedTarget));
       setScreen((s) => (s === 'loading' || s === 'suggestion' || s === 'editing' ? s : 'active'));
     }
   }, [savedTarget]);
@@ -286,7 +288,7 @@ export function MacroTargetStrip({
   const canAnalyze = !!(weightKg && fatMassKg != null && muscleMass_kg && bmr_kcal && heightCm && age && gender);
 
   const headerSub = target
-    ? `${target.protein_g}P / ${target.fat_g}F / ${target.carb_g}C / ${resolveFiberTarget_g(target)}Fi`
+    ? `${target.protein_g}P / ${target.fat_g}F / ${target.carb_g}C / ${resolveFiberTarget_g(target)}Fi / ${resolveNetCarbTarget_g(target)}Net`
     : 'Tap to set AI macro targets';
 
   const updatedLabel = target ? formatMacroUpdatedAt(target.analyzedAt, lang) : null;
@@ -372,10 +374,12 @@ export function MacroTargetStrip({
   const waterLab = waterUnitLabel(unitsPrefs.water);
 
   const openEdit = useCallback((src: DailyMacroTarget) => {
+    const fi = resolveFiberTarget_g(src);
     setEditP(String(src.protein_g));
     setEditF(String(src.fat_g));
     setEditC(String(src.carb_g));
-    setEditFi(String(resolveFiberTarget_g(src)));
+    setEditFi(String(fi));
+    setEditNet(String(resolveNetCarbTarget_g(src)));
     setEditK(String(Math.round(kcalToDisplay(src.kcal, unitsPrefs.energy))));
     setEditWater(
       unitsPrefs.water === 'floz'
@@ -388,19 +392,32 @@ export function MacroTargetStrip({
   const handleSaveEdit = useCallback(async () => {
     const base = suggestion ?? target;
     if (!base) return;
-    const p = parseFloat(editP), f = parseFloat(editF), c = parseFloat(editC), fi = parseFloat(editFi);
+    const p = parseFloat(editP);
+    const f = parseFloat(editF);
+    let c = parseFloat(editC);
+    let fi = parseFloat(editFi);
+    const net = parseFloat(editNet);
     const kRaw = parseLocaleNumber(editK);
     const k = kRaw != null ? Math.round(displayToKcal(kRaw, unitsPrefs.energy)) : NaN;
-    if ([p, f, c, k].some(isNaN)) return;
-    const updated: DailyMacroTarget = {
+    if ([p, f, k].some(isNaN)) return;
+    // Nutritionist-first: if Net is set, total C = Net + Fi (then sanitize clamps Fi ≤ C).
+    if (!isNaN(net) && net >= 0) {
+      if (isNaN(fi) || fi < 0) fi = resolveFiberTarget_g(base);
+      c = Math.round(net + fi);
+    } else if (isNaN(c)) {
+      return;
+    }
+    if (isNaN(fi) || fi < 0) fi = resolveFiberTarget_g(base);
+    const updated = withCarbFiberNetTargets({
       ...base,
       protein_g: p,
       fat_g: f,
       carb_g: c,
-      fiber_g: isNaN(fi) ? base.fiber_g : fi,
+      fiber_g: fi,
+      net_carb_g: !isNaN(net) ? net : undefined,
       kcal: k,
       analyzedAt: new Date().toISOString(),
-    };
+    });
     await saveMacroTarget(updated, { userEdited: true });
     const wRaw = parseLocaleNumber(editWater);
     const w = wRaw != null ? Math.round(displayToMl(wRaw, unitsPrefs.water)) : NaN;
@@ -412,7 +429,7 @@ export function MacroTargetStrip({
     onSaved?.(updated);
     setSuggestion(null);
     setScreen('active');
-  }, [editP, editF, editC, editFi, editK, editWater, waterGoalMl, suggestion, target, onSaved, unitsPrefs.energy, unitsPrefs.water]);
+  }, [editP, editF, editC, editFi, editNet, editK, editWater, waterGoalMl, suggestion, target, onSaved, unitsPrefs.energy, unitsPrefs.water]);
 
   const openWaterGoalModal = useCallback(() => {
     setWaterGoalInput(
@@ -506,6 +523,7 @@ export function MacroTargetStrip({
                   { label: 'Fat',     val: suggestion.fat_g,     unit: 'g' },
                   { label: 'Carbs',   val: suggestion.carb_g,    unit: 'g' },
                   { label: 'Fiber',   val: suggestion.fiber_g ?? 30, unit: 'g' },
+                  { label: 'Net',     val: resolveNetCarbTarget_g(suggestion), unit: 'g' },
                   {
                     label: 'Energy',
                     val: Math.round(kcalToDisplay(suggestion.kcal, unitsPrefs.energy)),
@@ -537,6 +555,16 @@ export function MacroTargetStrip({
               <EditField label="Fat"     value={editF} onChange={setEditF} unit="g"    aiVal={(suggestion ?? target)?.aiSuggested.fat_g ?? 0}     />
               <EditField label="Carbs"   value={editC} onChange={setEditC} unit="g"    aiVal={(suggestion ?? target)?.aiSuggested.carb_g ?? 0}    />
               <EditField label="Fiber"   value={editFi} onChange={setEditFi} unit="g" aiVal={(suggestion ?? target)?.aiSuggested.fiber_g ?? (suggestion ?? target)?.fiber_g ?? 0} />
+              <EditField
+                label="Net carbs"
+                value={editNet}
+                onChange={setEditNet}
+                unit="g"
+                aiVal={
+                  (suggestion ?? target)?.aiSuggested.net_carb_g ??
+                  (suggestion ?? target ? resolveNetCarbTarget_g((suggestion ?? target)!) : 0)
+                }
+              />
               <EditField
                 label={energyLab}
                 value={editK}
@@ -593,6 +621,16 @@ export function MacroTargetStrip({
               <MacroBar label="C" actual={actualCarb_g}    target={target.carb_g}    color="#FF9800" />
               <MacroBar label="F" actual={actualFat_g}     target={target.fat_g}     color="#2196F3" />
               <MacroBar label="Fi" actual={actualFiber_g} target={resolveFiberTarget_g(target)} color="#66BB6A" />
+              <MacroBar
+                label="Net"
+                actual={
+                  actualCarb_g != null && actualFiber_g != null
+                    ? Math.max(0, Math.round(actualCarb_g - actualFiber_g))
+                    : null
+                }
+                target={resolveNetCarbTarget_g(target)}
+                color="#FB8C00"
+              />
               <MacroBar
                 label="H2O"
                 actual={mlToDisplay(waterMl, unitsPrefs.water)}

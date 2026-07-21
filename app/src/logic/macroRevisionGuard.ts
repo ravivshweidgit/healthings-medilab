@@ -1,10 +1,10 @@
 /**
  * Guards against unstable auto-apply of macro revisions (esp. carb whiplash on weigh-in).
+ * Carb bands use 7d eaten habit + lab lipid flag — not My Rules regex.
  */
 
 import type { DailyMacroTarget, UserRules } from '../services/TargetService';
 import type { MacroSuggestion } from '../services/GeminiService';
-import { parseCarbCapFromRules, parseCarbMinFromRules } from './macroFiberCoupling';
 import {
   medianRecentGeminiCarbs,
   type MacroRevisionLogEntry,
@@ -20,35 +20,12 @@ export type CarbGuidanceBand = {
   label: string;
 };
 
-function isCholesterolPrimaryGoal(rules: UserRules | null): boolean {
-  if (!rules) return false;
-  const blob = [rules.summary, rules.aiContext, ...(rules.constraints ?? []), rules.rawText ?? ''].join(' ');
-  return /כולסטרול|cholesterol|\bldl\b|שומנים רוויים|saturated/i.test(blob);
-}
-
-function hasExplicitLowCarbIntent(rules: UserRules | null): boolean {
-  if (!rules) return false;
-  if (parseCarbCapFromRules(rules) != null) return true;
-  const blob = [rules.summary, rules.aiContext, ...(rules.constraints ?? []), rules.rawText ?? ''].join(' ');
-  return /קטו|קטוגנ|ketogenic|\bketo\b|דל.?פחמימ|low.?carb|פחמימות נמוכ/i.test(blob);
-}
-
-/** Mirrors CARB GUIDANCE block logic in macroAutoAdjust — for post-Gemini sanity checks. */
+/** Habit / lipid-lab band for auto-apply sanity — My Rules numbers are Gemini-only. */
 export function computeCarbGuidanceBand(
   avgEatenCarb7d: number | null,
-  userRules: UserRules | null,
+  _userRules: UserRules | null,
+  opts?: { lipidActionable?: boolean },
 ): CarbGuidanceBand | null {
-  const rulesFloor = parseCarbMinFromRules(userRules);
-  const cap = parseCarbCapFromRules(userRules);
-
-  if (rulesFloor != null) {
-    const max = cap != null ? Math.max(rulesFloor, cap) : rulesFloor + 25;
-    return { min: rulesFloor, max, label: 'rules floor' };
-  }
-
-  if (cap != null) {
-    return { min: Math.max(0, cap - 10), max: cap, label: 'rules cap' };
-  }
   if (avgEatenCarb7d == null) return null;
 
   if (avgEatenCarb7d >= 50) {
@@ -59,7 +36,7 @@ export function computeCarbGuidanceBand(
     };
   }
 
-  if (isCholesterolPrimaryGoal(userRules) && !hasExplicitLowCarbIntent(userRules)) {
+  if (opts?.lipidActionable) {
     return { min: 50, max: 80, label: 'cholesterol fiber band' };
   }
 
@@ -82,6 +59,7 @@ export function assessAutoApplyBlock(opts: {
   avgEatenCarb7d: number | null;
   userRules: UserRules | null;
   recentLog: MacroRevisionLogEntry[];
+  lipidActionable?: boolean;
 }): AutoApplyBlockAssessment {
   const reasons: string[] = [];
 
@@ -102,7 +80,9 @@ export function assessAutoApplyBlock(opts: {
     }
   }
 
-  const band = computeCarbGuidanceBand(opts.avgEatenCarb7d, opts.userRules);
+  const band = computeCarbGuidanceBand(opts.avgEatenCarb7d, opts.userRules, {
+    lipidActionable: opts.lipidActionable,
+  });
   if (band && (proposedC < band.min || proposedC > band.max)) {
     reasons.push(`carb ${proposedC}g outside ${band.label} (${band.min}–${band.max})`);
   }

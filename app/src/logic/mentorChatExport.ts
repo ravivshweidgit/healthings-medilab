@@ -87,22 +87,10 @@ function isStructuredCoach(msg: CoachMessage, mentors: MentorType[] = []): boole
   );
 }
 
-/** Resolve owning mentor for export — uses stored tag or infers from autoCheckType / text. */
+/** Resolve owning mentor for export — AI `mentor` tag or autoCheckType only (no text keywords). */
 function resolveExportMentor(item: CoachActionItem, mentors: MentorType[]): MentorType | undefined {
   if (item.mentor && mentors.includes(item.mentor)) return item.mentor;
   if (item.autoCheckType != null && mentors.includes('nutritionist')) return 'nutritionist';
-  if (
-    mentors.includes('coach') &&
-    /muscle|training|walk|workout|stretch|composition|שריר|אימון|הליכה|מתיחות|כוח/i.test(item.text)
-  ) {
-    return 'coach';
-  }
-  if (
-    mentors.includes('doctor') &&
-    /glucose|hypo|sugar|clinical|סוכר|היפו|רפוא|בדוק|תסמינ/i.test(item.text)
-  ) {
-    return 'doctor';
-  }
   return undefined;
 }
 

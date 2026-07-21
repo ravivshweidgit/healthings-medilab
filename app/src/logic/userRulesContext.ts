@@ -13,7 +13,7 @@ export function formatUserRulesLines(rules: UserRules): string[] {
       : 'My Rules — AI understood:',
   );
   const ctx = rules.aiContext?.trim();
-  if (ctx && !/קטוגנ|ketogenic|\bketo\b/i.test(ctx)) {
+  if (ctx) {
     lines.push(`Goals: ${ctx}`);
   }
   if (rules.constraints.length > 0) {
@@ -49,7 +49,7 @@ export function formatMacroRevisionRulesBlock(rules: UserRules): string {
   parts.push('', '=== AI summary (secondary — do not drop verbatim numbers above) ===');
   if (rules.summary) parts.push(`Summary: ${rules.summary}`);
   const ctx = rules.aiContext?.trim();
-  if (ctx && !/קטוגנ|ketogenic|\bketo\b/i.test(ctx)) {
+  if (ctx) {
     parts.push(`Goals: ${ctx}`);
   }
   for (const c of rules.constraints ?? []) parts.push(`- ${c}`);

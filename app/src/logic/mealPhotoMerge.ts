@@ -1,11 +1,12 @@
 /**
- * Local merge of photo-derived food items into an existing meal (no AI).
+ * Local merge of photo-derived food items into an existing meal.
+ * Name equality only (trim + lower) — no fuzzy/substring regex. Ambiguous cases → AI meal edit.
  */
 
 import type { FoodItem } from '../services/GeminiService';
 
-function normalizeName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9\u0590-\u05ff]/g, '');
+function normLabel(name: string): string {
+  return name.trim().toLowerCase();
 }
 
 function itemNamesMatch(a: FoodItem, b: FoodItem): boolean {
@@ -13,10 +14,9 @@ function itemNamesMatch(a: FoodItem, b: FoodItem): boolean {
   const namesB = [b.name, b.name_local].filter(Boolean) as string[];
   for (const na of namesA) {
     for (const nb of namesB) {
-      const aa = normalizeName(na);
-      const bb = normalizeName(nb);
-      if (!aa || !bb) continue;
-      if (aa === bb || aa.includes(bb) || bb.includes(aa)) return true;
+      const aa = normLabel(na);
+      const bb = normLabel(nb);
+      if (aa && bb && aa === bb) return true;
     }
   }
   return false;
@@ -27,7 +27,7 @@ export function addPhotoItemsToMeal(meal: FoodItem[], photoItems: FoodItem[]): F
   return [...meal, ...photoItems.map((p) => ({ ...p }))];
 }
 
-/** Remove meal lines that match any photo item (photo = food NOT eaten / to subtract). */
+/** Remove meal lines that exactly match any photo item name / name_local. */
 export function removePhotoItemsFromMeal(meal: FoodItem[], photoItems: FoodItem[]): FoodItem[] {
   if (photoItems.length === 0) return [...meal];
   return meal.filter((m) => !photoItems.some((p) => itemNamesMatch(m, p)));
@@ -44,8 +44,7 @@ export function buildMealMergePreview(
   meal: FoodItem[],
   photoItems: FoodItem[],
 ): MealMergePreview {
-  const before = [...meal];
   const after =
     mode === 'add' ? addPhotoItemsToMeal(meal, photoItems) : removePhotoItemsFromMeal(meal, photoItems);
-  return { mode, before, after };
+  return { mode, before: [...meal], after };
 }

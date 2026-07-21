@@ -1,0 +1,53 @@
+## Prompt 84 — Net-carb (C−Fi) daily target + directive macro HARD
+
+**Status: done (2026-07-22)** — phone-tested Samsung  
+**Builds on:** `done/prompt35` (fiber↔carb), Food Log C-Fi meter, My Macros / `DailyMacroTarget`, `done/prompt53` (nutrition directives)
+
+### Problem
+
+Nutritionists prescribe **net-carb** caps (e.g. ≤43 g) and menu summary kcal (e.g. 1690). The app stored only **C** and **Fi**; Ask macros followed ENERGY BALANCE (~2500 kcal) and derived net from C−Fi (~34) without reading the active nutritionist report.
+
+### What shipped
+
+| Area | Detail |
+|------|--------|
+| Model | `DailyMacroTarget.net_carb_g`, `aiSuggested.net_carb_g`, day snapshot field |
+| Sanitize | `ensureCarbFiberNet` / `withCarbFiberNetTargets`; post-process **prefers stated kcal** (fat fills) — does not overwrite kcal from high fat |
+| My Macros | Net in suggestion + edit (edit Net → `C = Net + Fi`); header includes Net |
+| Food Log | C-Fi bar uses `resolveNetCarbTarget_g` |
+| Ask macros | Active directive injected; **AI extracts** HARD macro summary (`extractDirectiveMacroSummary`); when directive kcal present, ENERGY BALANCE omitted and finalize forces extracted kcal/P/Fi/net |
+| AI judgment | No regex parse of My Rules / directive for grams; lab markers match **canonical codes** only; cursor rule `ai-judgment-not-regex.mdc` |
+
+### Net cap semantics
+
+Report **פחמימות נטו: 43** = ceiling (≤43, smaller OK). Working C−Fi under 43 is fine; meter ceiling should track the prescribed net when extract applies.
+
+### Primary files
+
+| Path | Role |
+|------|------|
+| `app/src/logic/macroFiberCoupling.ts` | derive net, post-process fat-fill to kcal |
+| `app/src/logic/macroAutoAdjust.ts` | directive extract block + HARD apply; skip ENERGY BALANCE when directive kcal |
+| `app/src/services/GeminiService.ts` | `extractDirectiveMacroSummary`, macro revision priority |
+| `app/src/services/TargetService.ts` | `net_carb_g`, resolve helpers |
+| `app/src/components/MacroTargetStrip.tsx` | Net UI |
+| `app/src/components/FoodMacroStrip.tsx` | C-Fi vs net target |
+| `app/src/services/LabLogService.ts` | code-set lab marker match |
+| `.cursor/rules/ai-judgment-not-regex.mdc` | project rule |
+
+### Phone-tested (2026-07-22)
+
+- [x] Ask macros with active nutritionist directive → kcal ≈ **1690** (not burn ~2500)
+- [x] Net under 43 accepted as OK for ≤43 cap
+- [x] Weigh-in hold-steady when rules unchanged (expected)
+
+### Deferred
+
+- Wire Food Log C-Fi **meter ceiling** to explicit net cap when working net &lt; cap (optional UX)
+- Re-import old lab PDFs if markers lack canonical codes
+
+### Related
+
+- Fiber↔carb: `done/prompt35.txt`
+- Nutrition directives: `done/prompt53.txt` (macro summary → strip was deferred; **shipped here via AI extract**)
+- Food Log bars: `FoodMacroStrip.tsx`

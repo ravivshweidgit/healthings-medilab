@@ -1,5 +1,7 @@
 /**
  * Fiber ↔ carb coupling — fiber is counted inside total carbs on food labels.
+ * Numeric floors/caps from My Rules / nutritionist text are Gemini judgment only
+ * (see .cursor/rules/ai-judgment-not-regex.mdc) — no regex parse of rules here.
  */
 
 import type { KidneyLabStatus } from '../services/LabLogService';
@@ -18,9 +20,8 @@ export function clampFiberToCarbs(fiber_g: number, carb_g: number): number {
 }
 
 /**
- * Derive daily fiber target from carb target (generic default only).
- * Uses ~55%×carbs, min 30g when carbs ≥ 55g, always ≤ carb_g.
- * My Rules explicit floors win via applyMacroFloorsFromRules (post-process).
+ * Derive daily fiber target from carb target (generic math default only).
+ * Explicit fiber from directive / My Rules is set by Gemini, not code.
  */
 export function deriveFiberTargetFromCarbs(carb_g: number): number {
   const c = Math.max(0, carb_g);
@@ -35,131 +36,41 @@ export function macroKcalFromPcf(protein_g: number, carb_g: number, fat_g: numbe
   return Math.round(4 * protein_g + 4 * carb_g + 9 * fat_g);
 }
 
-function rulesTextBlob(
-  rules: {
-    summary?: string;
-    aiContext?: string;
-    constraints?: string[];
-    rawText?: string;
-  } | null,
-): string {
-  if (!rules) return '';
-  return [
-    rules.summary ?? '',
-    rules.aiContext ?? '',
-    ...(rules.constraints ?? []),
-    rules.rawText ?? '',
-  ].join('\n');
-}
-
-function parseGramMinFromRules(
-  rules: Parameters<typeof rulesTextBlob>[0],
-  nutrientPattern: RegExp,
-): number | null {
-  const blob = rulesTextBlob(rules).toLowerCase();
-  const minWord =
-    /(?:at\s*least|minimum|min(?:imum)?|≥|>=|לפחות|מינימום)/i;
-  const patterns = [
-    new RegExp(`${minWord.source}\\s*(\\d+)\\s*g?(?:r)?\\s*${nutrientPattern.source}`, 'gi'),
-    new RegExp(`${nutrientPattern.source}[^\\d\\n]{0,30}${minWord.source}\\s*(\\d+)`, 'gi'),
-    new RegExp(`(\\d+)\\s*g?(?:r)?\\s*${nutrientPattern.source}[^\\n]{0,30}${minWord.source}`, 'gi'),
-  ];
-  let best: number | null = null;
-  for (const re of patterns) {
-    re.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(blob)) !== null) {
-      const n = parseInt(m[1]!, 10);
-      if (Number.isFinite(n) && n > 0) best = best == null ? n : Math.max(best, n);
-    }
-  }
-  return best;
-}
-
-/** Parse a hard carb floor ("at least 65g carbs", "פחמימות לפחות 65", etc.). */
-export function parseCarbMinFromRules(
-  rules: { summary?: string; aiContext?: string; constraints?: string[]; rawText?: string } | null,
-): number | null {
-  return parseGramMinFromRules(rules, /(?:carb|carbs|carbohydrate|פחמימ)/i);
-}
-
-/** Parse a hard fiber floor ("fiber at least 35g", "סיבים לפחות 35", etc.). */
-export function parseFiberMinFromRules(
-  rules: { summary?: string; aiContext?: string; constraints?: string[]; rawText?: string } | null,
-): number | null {
-  return parseGramMinFromRules(rules, /(?:fiber|fibre|סיב|סיבים)/i);
-}
-
-/** Parse a hard carb cap from My Rules text ("< 50g carbs", "עד 30g פחמימות", etc.). */
-export function parseCarbCapFromRules(
-  rules: { summary?: string; aiContext?: string; constraints?: string[]; rawText?: string } | null,
-): number | null {
-  if (!rules) return null;
-  const blob = rulesTextBlob(rules).toLowerCase();
-
-  const lt = blob.match(/(?:<|under|max|maximum|up to|עד|מקס(?:ימום)?)\s*(\d+)\s*g?\s*(?:carb|carbs|פחמימ)/i);
-  if (lt) {
-    const n = parseInt(lt[1]!, 10);
-    if (Number.isFinite(n) && n > 0) return n;
-  }
-
-  const carbLine = blob.match(/(\d+)\s*g?\s*(?:carb|carbs|פחמימ)/i);
-  if (carbLine && /(?:cap|limit|יעד|מקס)/i.test(blob)) {
-    const n = parseInt(carbLine[1]!, 10);
-    if (Number.isFinite(n) && n > 0) return n;
-  }
-
-  return null;
-}
-
 export type MacroPcf = {
   protein_g: number;
   fat_g: number;
   carb_g: number;
   fiber_g: number;
+  /** Net carbs (C − Fi). Always derived when sanitizing; optional on raw AI output. */
+  net_carb_g?: number;
   kcal: number;
 };
 
-export function clampMacrosToRules<T extends MacroPcf>(
-  macros: T,
-  rules: { summary?: string; aiContext?: string; constraints?: string[]; rawText?: string } | null,
-): T {
-  const cap = parseCarbCapFromRules(rules);
-  if (cap != null && macros.carb_g > cap) {
-    const carb_g = cap;
-    const fiber_g = deriveFiberTargetFromCarbs(carb_g);
-    const kcal = macroKcalFromPcf(macros.protein_g, carb_g, macros.fat_g);
-    return { ...macros, carb_g, fiber_g, kcal };
-  }
-  return macros;
+/** Net carbs on labels: total carb minus fiber (fiber ⊆ carbs). */
+export function deriveNetCarb_g(carb_g: number, fiber_g: number): number {
+  return Math.max(0, Math.round(carb_g - fiber_g));
 }
 
-/** Raise carb_g / fiber_g to explicit My Rules floors; fiber never exceeds carb_g. */
-export function applyMacroFloorsFromRules<T extends MacroPcf>(
-  macros: T,
-  rules: { summary?: string; aiContext?: string; constraints?: string[]; rawText?: string } | null,
-): T {
-  const carbMin = parseCarbMinFromRules(rules);
-  const fiberMin = parseFiberMinFromRules(rules);
-  if (carbMin == null && fiberMin == null) return macros;
+/** Clamp fiber to carbs and set net_carb_g = C − Fi. */
+export function withDerivedNetCarb<T extends MacroPcf>(macros: T): T {
+  const carb_g = Math.max(0, macros.carb_g);
+  const fiber_g = clampFiberToCarbs(macros.fiber_g, carb_g);
+  const net_carb_g = deriveNetCarb_g(carb_g, fiber_g);
+  return { ...macros, carb_g, fiber_g, net_carb_g };
+}
 
-  let carb_g = macros.carb_g;
-  if (carbMin != null && carb_g < carbMin) carb_g = carbMin;
-
-  let fiber_g = deriveFiberTargetFromCarbs(carb_g);
-  if (fiberMin != null && fiber_g < fiberMin) {
-    fiber_g = clampFiberToCarbs(fiberMin, carb_g);
-  }
-
-  const changed = carb_g !== macros.carb_g || fiber_g !== macros.fiber_g;
-  if (!changed) return macros;
-
-  return {
-    ...macros,
-    carb_g,
-    fiber_g,
-    kcal: macroKcalFromPcf(macros.protein_g, carb_g, macros.fat_g),
-  };
+/**
+ * Ensure fiber is present (derive if missing), then net carbs.
+ * Pure math — does not read My Rules text.
+ */
+export function ensureCarbFiberNet<T extends MacroPcf>(macros: T): T {
+  const carb_g = Math.max(0, macros.carb_g);
+  const fiberRaw = macros.fiber_g;
+  const fiber_g =
+    fiberRaw != null && Number.isFinite(fiberRaw)
+      ? clampFiberToCarbs(fiberRaw, carb_g)
+      : deriveFiberTargetFromCarbs(carb_g);
+  return withDerivedNetCarb({ ...macros, carb_g, fiber_g });
 }
 
 export function kidneyProteinCapG(
@@ -175,23 +86,6 @@ export function kidneyProteinCapG(
   return null;
 }
 
-export function rulesMentionKidney(
-  rules: { aiContext?: string; constraints?: string[]; rawText?: string; summary?: string } | null,
-): boolean {
-  if (!rules) return false;
-  const blob = [
-    rules.summary ?? '',
-    rules.aiContext ?? '',
-    ...(rules.constraints ?? []),
-    rules.rawText ?? '',
-  ]
-    .join('\n')
-    .toLowerCase();
-  return /kidney|renal|creatinin|urea|\bbun\b|כליה|קריאאטינין|אוריאה|חלבון.*כליה|protein.*cap/.test(
-    blob,
-  );
-}
-
 function kidneyRulesAdviceText(capG: number, markersSummary: string, langCode: string): string {
   if (langCode === 'he') {
     return `בבדיקות דם: ${markersSummary}. מומלץ להוסיף לכללים שלי: "כשקריאאטינין או אוריאה גבוהים — להגביל חלבון לכ-${capG} ג ליום (עד ${KIDNEY_PROTEIN_G_PER_KG_LEAN} ג/ק"ג מסת רזה)."`;
@@ -199,7 +93,7 @@ function kidneyRulesAdviceText(capG: number, markersSummary: string, langCode: s
   return `Lab results: ${markersSummary}. Consider adding to My Rules: "When creatinine or urea is high, cap daily protein at ~${capG}g (≤${KIDNEY_PROTEIN_G_PER_KG_LEAN} g/kg lean mass)."`;
 }
 
-/** Lower protein when latest labs flag creatinine/urea high; nudge My Rules if silent on kidney. */
+/** Lower protein when latest labs flag creatinine/urea high; nudge My Rules from lab math (not rules regex). */
 export function applyKidneyMacroGuardrail<
   T extends MacroPcf & { reasoning?: string; rules_advice?: string },
 >(
@@ -223,22 +117,30 @@ export function applyKidneyMacroGuardrail<
     m.kcal = macroKcalFromPcf(m.protein_g, m.carb_g, m.fat_g);
   }
 
-  if (!rulesMentionKidney(opts.userRules) && opts.markersSummary) {
+  if (opts.markersSummary) {
     const advice = kidneyRulesAdviceText(cap, opts.markersSummary, opts.langCode ?? 'en');
     m.rules_advice = m.rules_advice ? `${m.rules_advice}\n\n${advice}` : advice;
   }
   return m;
 }
 
+/** Sanitize AI / manual macros: Fi ≤ C, net = C − Fi. Prefer stated `kcal` (fat fills); never overwrite kcal from high fat leftover. */
 export function postProcessMacroSuggestion<T extends MacroPcf & { diet_label?: string; reasoning?: string }>(
   raw: T,
-  rules: { summary?: string; aiContext?: string; constraints?: string[]; rawText?: string } | null,
+  _rules?: { summary?: string; aiContext?: string; constraints?: string[]; rawText?: string } | null,
 ): T {
-  let m = clampMacrosToRules({ ...raw }, rules);
-  m = applyMacroFloorsFromRules(m, rules);
-  const computed = macroKcalFromPcf(m.protein_g, m.carb_g, m.fat_g);
-  if (Math.abs(computed - m.kcal) > 50) {
-    m.kcal = computed;
+  let m = ensureCarbFiberNet({ ...raw });
+  if (m.kcal > 0) {
+    const fat_g = Math.max(
+      40,
+      Math.round((m.kcal - 4 * m.protein_g - 4 * m.carb_g) / 9),
+    );
+    return {
+      ...m,
+      fat_g,
+      kcal: macroKcalFromPcf(m.protein_g, m.carb_g, fat_g),
+    };
   }
+  m.kcal = macroKcalFromPcf(m.protein_g, m.carb_g, m.fat_g);
   return m;
 }

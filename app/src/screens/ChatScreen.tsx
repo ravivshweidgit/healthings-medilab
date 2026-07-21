@@ -48,7 +48,8 @@ import {
 } from '../services/TargetService';
 import { getLabsAiContextForHeader } from '../services/LabLogService';
 import { getNutritionDirectiveAiContext } from '../services/NutritionDirectiveService';
-import { chatWithMentor, summariseChatDay, isYesterdayQuery, type CoachContext, type MacroSuggestion } from '../services/GeminiService';
+import { chatWithMentor, summariseChatDay, type CoachContext, type MacroSuggestion } from '../services/GeminiService';
+import { isYesterdayIntentQuery } from '../logic/chatIntent';
 import {
   isMacroChatRequest,
   isMacroSlashCommand,
@@ -157,7 +158,7 @@ async function withYesterdayFoodContext(
     }),
     { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0 },
   );
-  const includeMealDetail = isYesterdayQuery(message);
+  const includeMealDetail = isYesterdayIntentQuery(message);
   const yMealsCtx = includeMealDetail ? buildMealsAiContext(yMeals) : null;
 
   return {

@@ -67,7 +67,7 @@ Nutritionist session PDFs (e.g. *סיכום מפגש ראשון*) had no import 
 ### Deferred (future prompts)
 
 - **Update My Rules from this report** (merge flow)
-- **Use macro summary as starting point** → macro strip
+- **Use macro summary as starting point** → macro strip — **shipped in prompt84** (AI extract + HARD on Ask macros)
 - Photo/camera import · full-text search
 - **`prompt54`** — local-first clinic relay (NEXT)
 

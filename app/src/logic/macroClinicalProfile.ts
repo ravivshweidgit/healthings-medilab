@@ -9,7 +9,6 @@ import type {
   KidneyLabStatus,
   LipidLabStatus,
 } from '../services/LabLogService';
-import { parseCarbCapFromRules } from './macroFiberCoupling';
 
 export type ClinicalProfileEnergyInput = {
   direction: 'loss' | 'gain' | 'maintain';
@@ -28,19 +27,6 @@ export type ClinicalProfileSummary = {
   primaryLabel: string;
   constraintKeys: Array<'kidney' | 'energy_cautious'>;
 };
-
-function isCholesterolPrimaryGoal(rules: UserRules | null): boolean {
-  if (!rules) return false;
-  const blob = [rules.summary, rules.aiContext, ...(rules.constraints ?? []), rules.rawText ?? ''].join(' ');
-  return /כולסטרול|cholesterol|\bldl\b|שומנים רוויים|saturated/i.test(blob);
-}
-
-function hasExplicitLowCarbIntent(rules: UserRules | null): boolean {
-  if (!rules) return false;
-  if (parseCarbCapFromRules(rules) != null) return true;
-  const blob = [rules.summary, rules.aiContext, ...(rules.constraints ?? []), rules.rawText ?? ''].join(' ');
-  return /קטו|קטוגנ|ketogenic|\bketo\b|דל.?פחמימ|low.?carb|פחמימות נמוכ/i.test(blob);
-}
 
 function isEnergyCautious(plan: ClinicalProfileEnergyInput | null): boolean {
   if (!plan || plan.direction !== 'loss') return false;
@@ -130,18 +116,17 @@ export function computeClinicalProfile(opts: {
   glycemic: GlycemicLabStatus | null;
   energyPlan: ClinicalProfileEnergyInput | null;
 }): ClinicalProfileSummary {
-  const { userRules, kidney, lipid, glycemic, energyPlan } = opts;
+  const { kidney, lipid, glycemic, energyPlan } = opts;
   const hasKidney = Boolean(kidney?.hasHighMarker);
   const constraints: ClinicalProfileSummary['constraintKeys'] = [];
   if (hasKidney) constraints.push('kidney');
   if (isEnergyCautious(energyPlan)) constraints.push('energy_cautious');
 
+  // Labs only — explicit low-carb / cholesterol wording in My Rules is Gemini judgment.
   let primary: ClinicalProfilePrimary = 'weight';
-  if (hasExplicitLowCarbIntent(userRules)) {
-    primary = 'explicit_low_carb';
-  } else if (glycemic?.hasHighMarker) {
+  if (glycemic?.hasHighMarker) {
     primary = 'glycemic';
-  } else if (lipid?.hasActionableMarker || isCholesterolPrimaryGoal(userRules)) {
+  } else if (lipid?.hasActionableMarker) {
     primary = 'lipid';
   }
 

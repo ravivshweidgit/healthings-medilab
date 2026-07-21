@@ -88,6 +88,8 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt83** — done (2026-07-21). Meal save awaits food-log refresh before close; saving spinner; fix late `reset()` wipe after reopen. Phone-tested Samsung. See `done/prompt83.txt`.
 
+**prompt84** — done (2026-07-22). Net-carb target + Ask macros HARD from nutritionist directive (AI extract kcal/net); ENERGY BALANCE skipped when directive kcal set; AI-judgment-not-regex rule. Phone-tested Samsung (~1690 kcal). See `done/prompt84.txt`.
+
 **prompt48** — done (2026-06-29). Lipid trend charts (Total/LDL/TG/HDL strips + green safe zones); mentors/coach see **all saved lab draws** in USER DATA. Phone-tested. Commits `308500f`, `fa0d6b1`. Supersedes prompt30 chart deferral + latest-only scope.
 
 **prompt50** — done (2026-06-30). Nutritionist visit report: clinical HTML export (7/14/30/90d), Appendix A charts (lipids/body/energy/CGM), Appendix B raw data. Phone-tested. See `done/prompt50.txt`.

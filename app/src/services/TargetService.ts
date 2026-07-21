@@ -4,7 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { deriveFiberTargetFromCarbs } from '../logic/macroFiberCoupling';
+import { deriveFiberTargetFromCarbs, deriveNetCarb_g, ensureCarbFiberNet } from '../logic/macroFiberCoupling';
 
 const BIRTHDATE_KEY = 'user_birthdate';   // ISO date string e.g. "1980-03-15"
 const HEIGHT_KEY    = 'user_height_cm';   // shared with WithingsApiService cache
@@ -186,6 +186,8 @@ export type DailyMacroTarget = {
   fat_g: number;
   carb_g: number;
   fiber_g?: number;
+  /** Net carbs (C − Fi). Derived on sanitize; may be set from My Macros Net edit. */
+  net_carb_g?: number;
   kcal: number;
   diet_label: string;
   reasoning: string;
@@ -195,7 +197,14 @@ export type DailyMacroTarget = {
   pcf_priority?: string;
   rulesContext: string;
   mentors: MentorType[];
-  aiSuggested: { protein_g: number; fat_g: number; carb_g: number; fiber_g?: number; kcal: number };
+  aiSuggested: {
+    protein_g: number;
+    fat_g: number;
+    carb_g: number;
+    fiber_g?: number;
+    net_carb_g?: number;
+    kcal: number;
+  };
   analyzedAt: string;
 };
 
@@ -205,13 +214,51 @@ export function resolveFiberTarget_g(target: Pick<DailyMacroTarget, 'fiber_g' | 
   return target.fiber_g ?? target.aiSuggested?.fiber_g ?? DEFAULT_FIBER_TARGET_G;
 }
 
-export function withFiberTarget(t: DailyMacroTarget): DailyMacroTarget {
-  const fiber_g = resolveFiberTarget_g(t);
+export function resolveNetCarbTarget_g(
+  target: Pick<DailyMacroTarget, 'carb_g' | 'fiber_g' | 'net_carb_g' | 'aiSuggested'>,
+): number {
+  if (target.net_carb_g != null && Number.isFinite(target.net_carb_g)) {
+    return Math.max(0, Math.round(target.net_carb_g));
+  }
+  if (target.aiSuggested?.net_carb_g != null && Number.isFinite(target.aiSuggested.net_carb_g)) {
+    return Math.max(0, Math.round(target.aiSuggested.net_carb_g));
+  }
+  return deriveNetCarb_g(target.carb_g, resolveFiberTarget_g(target));
+}
+
+/** Ensure fiber + net carbs are filled and consistent (Fi ≤ C, net = C − Fi). */
+export function withCarbFiberNetTargets(t: DailyMacroTarget): DailyMacroTarget {
+  const ensured = ensureCarbFiberNet({
+    protein_g: t.protein_g,
+    fat_g: t.fat_g,
+    carb_g: t.carb_g,
+    fiber_g: t.fiber_g ?? deriveFiberTargetFromCarbs(t.carb_g),
+    net_carb_g: t.net_carb_g,
+    kcal: t.kcal,
+  });
+  const fiber_g = ensured.fiber_g;
+  const net_carb_g = ensured.net_carb_g ?? deriveNetCarb_g(ensured.carb_g, fiber_g);
+  const aiFiber = t.aiSuggested?.fiber_g ?? fiber_g;
+  const aiCarb = t.aiSuggested?.carb_g ?? ensured.carb_g;
+  const aiNet =
+    t.aiSuggested?.net_carb_g ??
+    deriveNetCarb_g(aiCarb, aiFiber != null ? aiFiber : deriveFiberTargetFromCarbs(aiCarb));
   return {
     ...t,
+    carb_g: ensured.carb_g,
     fiber_g,
-    aiSuggested: { ...t.aiSuggested, fiber_g: t.aiSuggested?.fiber_g ?? fiber_g },
+    net_carb_g,
+    aiSuggested: {
+      ...t.aiSuggested,
+      fiber_g: aiFiber,
+      net_carb_g: aiNet,
+    },
   };
+}
+
+/** @deprecated Prefer withCarbFiberNetTargets — still ensures fiber then net. */
+export function withFiberTarget(t: DailyMacroTarget): DailyMacroTarget {
+  return withCarbFiberNetTargets(t);
 }
 
 export async function getMacroTarget(): Promise<DailyMacroTarget | null> {
@@ -219,8 +266,8 @@ export async function getMacroTarget(): Promise<DailyMacroTarget | null> {
   if (!raw) return null;
   try {
     const t = JSON.parse(raw) as DailyMacroTarget;
-    if (t.fiber_g == null) {
-      const migrated = withFiberTarget(t);
+    if (t.fiber_g == null || t.net_carb_g == null) {
+      const migrated = withCarbFiberNetTargets(t);
       await AsyncStorage.setItem(MACRO_TARGET_KEY, JSON.stringify(migrated));
       return migrated;
     }
@@ -229,8 +276,7 @@ export async function getMacroTarget(): Promise<DailyMacroTarget | null> {
 }
 
 export async function saveMacroTarget(t: DailyMacroTarget, opts?: { userEdited?: boolean }): Promise<void> {
-  const fiber_g = deriveFiberTargetFromCarbs(t.carb_g);
-  const sanitized = withFiberTarget({ ...t, fiber_g });
+  const sanitized = withCarbFiberNetTargets(t);
   await AsyncStorage.setItem(MACRO_TARGET_KEY, JSON.stringify(sanitized));
   await snapshotMacroTargetForDay(localDayKeyFromMs(Date.now()), sanitized);
   if (opts?.userEdited) {
@@ -252,6 +298,7 @@ export type MacroTargetDaySnapshot = {
   fat_g: number;
   carb_g: number;
   fiber_g: number;
+  net_carb_g?: number;
   kcal: number;
   diet_label?: string;
   /** When the active target was snapshotted for this day. */
@@ -272,11 +319,13 @@ function localDayKeyFromMs(ms: number): string {
 
 function toDaySnapshot(t: DailyMacroTarget): MacroTargetDaySnapshot {
   const fiber_g = resolveFiberTarget_g(t);
+  const net_carb_g = resolveNetCarbTarget_g({ ...t, fiber_g });
   return {
     protein_g: t.protein_g,
     fat_g: t.fat_g,
     carb_g: t.carb_g,
     fiber_g,
+    net_carb_g,
     kcal: t.kcal,
     diet_label: t.diet_label,
     snapshottedAt: new Date().toISOString(),
@@ -333,11 +382,12 @@ export async function getMacroTargetForDay(dayKey: string): Promise<DailyMacroTa
   const active = await getMacroTarget();
   if (snap) {
     if (!active) {
-      return {
+      return withCarbFiberNetTargets({
         protein_g: snap.protein_g,
         fat_g: snap.fat_g,
         carb_g: snap.carb_g,
         fiber_g: snap.fiber_g,
+        net_carb_g: snap.net_carb_g,
         kcal: snap.kcal,
         diet_label: snap.diet_label ?? '',
         reasoning: '',
@@ -348,20 +398,22 @@ export async function getMacroTargetForDay(dayKey: string): Promise<DailyMacroTa
           fat_g: snap.fat_g,
           carb_g: snap.carb_g,
           fiber_g: snap.fiber_g,
+          net_carb_g: snap.net_carb_g,
           kcal: snap.kcal,
         },
         analyzedAt: snap.analyzedAt ?? snap.snapshottedAt,
-      };
+      });
     }
-    return {
+    return withCarbFiberNetTargets({
       ...active,
       protein_g: snap.protein_g,
       fat_g: snap.fat_g,
       carb_g: snap.carb_g,
       fiber_g: snap.fiber_g,
+      net_carb_g: snap.net_carb_g ?? active.net_carb_g,
       kcal: snap.kcal,
       diet_label: snap.diet_label ?? active.diet_label,
-    };
+    });
   }
   return active;
 }
@@ -379,11 +431,12 @@ export async function getEffectiveMacroTarget(): Promise<DailyMacroTarget | null
   const latestKey = Object.keys(store).sort().reverse()[0];
   if (!latestKey) return null;
   const snap = store[latestKey]!;
-  return {
+  return withCarbFiberNetTargets({
     protein_g: snap.protein_g,
     fat_g: snap.fat_g,
     carb_g: snap.carb_g,
     fiber_g: snap.fiber_g,
+    net_carb_g: snap.net_carb_g,
     kcal: snap.kcal,
     diet_label: snap.diet_label ?? '',
     reasoning: '',
@@ -394,10 +447,11 @@ export async function getEffectiveMacroTarget(): Promise<DailyMacroTarget | null
       fat_g: snap.fat_g,
       carb_g: snap.carb_g,
       fiber_g: snap.fiber_g,
+      net_carb_g: snap.net_carb_g,
       kcal: snap.kcal,
     },
     analyzedAt: snap.analyzedAt ?? snap.snapshottedAt,
-  };
+  });
 }
 
 /** Recent day snapshots newest-first for Gemini hold-steady context. */

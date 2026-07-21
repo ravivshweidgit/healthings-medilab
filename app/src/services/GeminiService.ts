@@ -187,13 +187,6 @@ function coachJsonExample(ctx: CoachContext): string {
   return `{"summary":"${summary}","wins":${JSON.stringify(winsObj)},"improve":${JSON.stringify(improveObj)},"actionItems":[${actionParts.join(',')}]}`;
 }
 
-function isCoachActionItem(item: CoachActionItem): boolean {
-  if (item.autoCheckType != null) return false;
-  return /muscle|training|walk|workout|stretch|movement|composition|שריר|אימון|הליכה|מתיחות|תנועה|composition|fat loss|ירידה/i.test(
-    item.text,
-  );
-}
-
 function buildCoachActionItem(ctx: CoachContext): CoachActionItem {
   const code = ctx.lang?.code ?? 'en';
   const he = code === 'he';
@@ -295,10 +288,9 @@ function resolveActionItemMentor(raw: unknown, ctx: CoachContext): MentorType | 
   return m && ctx.mentors.includes(m) ? m : undefined;
 }
 
-/** Infer the owning mentor for an untagged item from its autoCheckType / text. */
+/** Mentor from AI tag or autoCheckType only — no keyword scan of item text. */
 function inferActionItemMentor(item: CoachActionItem, ctx: CoachContext): MentorType | undefined {
   if (item.autoCheckType != null && ctx.mentors.includes('nutritionist')) return 'nutritionist';
-  if (ctx.mentors.includes('coach') && isCoachActionItem(item)) return 'coach';
   return undefined;
 }
 
@@ -1356,7 +1348,8 @@ Rules:
 - Extract EVERY numeric test row from the table; do not invent tests not in the PDF.
 - Parse specimen date/time from "תאריך הבדיקה ושעת ביצועה" → ISO 8601 with +03:00 offset.
 - panelType: "chemistry" (metabolic/lipids/liver/renal), "cbc" (blood count/differential), or "other".
-- Normalize codes: CHOLESTEROL-LDL calc → CHOLESTEROL_LDL, NEUT.abs → NEUT_ABS.
+- **Canonical \`code\` values (mandatory when the test is present):** CREATININE, UREA (or BUN), CHOLESTEROL_LDL, CHOLESTEROL, CHOLESTEROL_HDL, TRIGLYCERIDES, GLUCOSE, HBA1C. Map Hebrew/English labels to these codes yourself — the app matches codes only, not names.
+- Other tests: normalize similarly (spaces/hyphens → underscore, UPPERCASE), e.g. NEUT.abs → NEUT_ABS.
 - flag: "high", "low", "normal", or "unknown" (from norm column or footer Hebrew notes).
 - Skip non-numeric QC rows (HEMOLYTIC, LIPEMIC, ICTERIC) — put text in panelNote if needed.
 - Attach footer reference notes to matching tests when present.
@@ -1545,6 +1538,8 @@ export type MacroSuggestion = {
   fat_g: number;
   carb_g: number;
   fiber_g: number;
+  /** Derived C − Fi after post-process; optional on raw model JSON. */
+  net_carb_g?: number;
   kcal: number;
   diet_label: string;
   reasoning: string;
@@ -1562,8 +1557,6 @@ function normalizeRulesAdvice(raw: unknown): string | undefined {
   if (raw == null) return undefined;
   const s = String(raw).trim();
   if (!s) return undefined;
-  if (/^(ok|aligned|no change|none|n\/?a|—|-)$/i.test(s)) return undefined;
-  if (/תואם|אין צורך|ללא שינוי|הכללים מתאימים/i.test(s)) return undefined;
   return s;
 }
 
@@ -1579,16 +1572,21 @@ You are a certified clinical nutritionist revising **daily macro targets** (not 
 
 ${FIBER_CARB_RULE}
 
-## Energy balance (do this FIRST — before P/C/F)
-The data section includes **ENERGY BALANCE (computed)** — a **monitoring-driven** target using:
+## Energy / kcal (do this FIRST — before P/C/F)
+**Explicit daily calories are HARD (Gemini judgment — no keyword/regex parse):**
+1. **NUTRITIONIST DIRECTIVE** (active) — e.g. summary line \`קלוריות: 1,690\` / daily calorie total in the macro summary → set JSON \`kcal\` to that integer (ignore thousands separators).
+2. Else **My Rules** verbatim — same if they state daily kcal / קלוריות.
+3. Else **ENERGY BALANCE (computed)** — monitoring-driven fallback (watch burn, scale trend).
+4. CGM lows (&lt;70 trusted day) may require holding higher than a deep cut — explain in \`reasoning\`.
+
+On conflict: **directive wins over My Rules**; both beat ENERGY BALANCE.
+
+ENERGY BALANCE (when used) is based on:
 - **Smartwatch** 7d avg burn (TDEE anchor — not BMR)
 - **Smart scale** 14d weight trend (adaptive deficit/surplus)
-- **Food log** 7d eaten avg (context only — do not raise kcal above burn on a loss goal)
-- **CGM** lows (&lt;70) may require holding higher
+- **Food log** 7d eaten avg (context only — do not raise kcal above burn on a loss goal when using this fallback)
 
-**Use the computed \`kcal\` for JSON** unless CGM lows require adjustment (explain in \`reasoning\`).
-
-Textbook method (already applied in computed block):
+Textbook method (already applied in computed block when fallback applies):
 - Loss rate targets: **0.3% BW/week** near goal · **0.5%** moderate gap · **0.7%** far (max)
 - Energy: **7700 kcal ≈ 1 kg** body-weight change → daily deficit/surplus
 - **% TDEE caps**: ~5–7% near goal / on-track · up to **12%** mid-gap · **20%** (500 kcal) absolute max
@@ -1596,13 +1594,13 @@ Textbook method (already applied in computed block):
 - Absolute floor: sex/age minimum + never below **75%** of measured burn
 
 Work order:
-1. Set \`kcal\` from **ENERGY BALANCE (computed)**.
+1. Set \`kcal\` from directive / My Rules / ENERGY BALANCE (priority above).
 2. **Clinical profile** — lab synthesis, primary driver + constraints, macro derivation order (section below).
 3. Set \`protein_g\`, \`carb_g\`, \`fiber_g\`, then \`fat_g\` fills remaining kcal per chosen order.
-4. In \`reasoning\`: profile + order → burn, scale trend, deficit % TDEE, target kcal → macros with cited labs/CGM.
+4. In \`reasoning\`: cite whether kcal came from nutritionist summary, My Rules, or ENERGY BALANCE → then P/C/F/Fi.
 
 ## Clinical profile & macro order (after kcal — before grams)
-Before setting P/C/F/Fi, build a short clinical profile from My Rules, full **LAB RESULTS**, CGM 7d block, weight goal, and computed GUIDANCE blocks — use blocks for caps/bands; do not re-derive what they already state.
+Before setting P/C/F/Fi, build a short clinical profile from the **NUTRITIONIST DIRECTIVE** (if present), My Rules, full **LAB RESULTS**, CGM 7d block, weight goal, and computed GUIDANCE blocks — use blocks for caps/bands; do not re-derive what they already state.
 
 ### A — Lab synthesis (textbook)
 - Scan the **latest** chemistry + CBC draw; cite abnormal values in \`reasoning\`.
@@ -1624,10 +1622,13 @@ When multiple apply: primary sets **macro derivation order**; secondaries apply 
 
 ### C — Macro derivation order (after \`kcal\`)
 | Profile | Order for grams |
-| kidney constraint + lipid primary | protein cap (KIDNEY GUIDANCE) → carbs/fiber (CARB + LIPID GUIDANCE) → fat fills remaining kcal |
-| glycemic primary | carbs/fiber (GLYCEMIC + CARB GUIDANCE) → protein → fat fills remaining kcal |
+| **directive / My Rules set net carbs** | **PRIORITY (Gemini):** fiber → **net-carb cap** → \`carb_g = net + fiber\` → protein → fat fills |
+| kidney constraint + lipid primary | protein cap (KIDNEY GUIDANCE) → carbs/fiber → fat fills remaining kcal |
+| glycemic primary | carbs/fiber (GLYCEMIC + habit CARB GUIDANCE) → protein → fat fills remaining kcal |
 | weight-only / balanced | protein → carbs/fiber → fat fills remaining kcal |
-| explicit_low_carb | carb cap per rules → protein → fat fills remaining kcal |
+| explicit_low_carb (only if user/directive clearly says so — Gemini judgment) | carb/net cap per text → protein → fat fills remaining kcal |
+
+When directive/My Rules state net or total carbs, those beat habit CARB GUIDANCE bands.
 
 **Always:** \`fat_g\` = remaining kcal after P/C/Fi (÷9, round). Fat **quality** still governed by My Rules and LIPID GUIDANCE — high \`fat_g\` from math is OK when unsaturated-focused.
 
@@ -1640,20 +1641,19 @@ Describe goals (cholesterol, kidney, weight, IF) — never "keto/ketogenic" unle
 When lipid-primary: center lipids and heart-healthy fats in \`diet_label\` and \`reasoning\` — not carb minimization.
 
 ## Fat (derivation)
-After profile order: \`fat_g\` typically **fills** remaining kcal toward ENERGY BALANCE target.
+After profile order: \`fat_g\` typically **fills** remaining kcal toward the chosen \`kcal\` target (directive / My Rules / ENERGY BALANCE).
 When lipid-primary OR LDL/total cholesterol high in labs:
 - Favor **unsaturated** fats per My Rules (salmon, nuts, seeds, olive oil); respect saturated-fat / cholesterol-food limits in rules.
 - High \`fat_g\` from kcal math is OK if fats are rule-aligned — do **not** slash \`carb_g\` just to lower fat grams when cholesterol (not keto) is the goal.
 - Cite lipid lab values in \`reasoning\` when LAB RESULTS present.
 
 ## Carbs (derivation)
-Use **CARB GUIDANCE (computed)** in the data block when present.
+Read **NUTRITIONIST DIRECTIVE** and **My Rules** first for total carbs / net carbs (Gemini judgment).
+**CARB GUIDANCE** is habit/lab context only when those texts do not set carb or net numbers.
 
-Professional tiers (already applied in computed block when possible):
-- **Explicit gram cap** in My Rules → obey cap.
-- **7d eaten avg ≥ 50g/day** → habit anchor **±10g** (adherence — not a lipid textbook rule).
-- **7d eaten avg &lt; 50g** + **cholesterol/LDL primary** + no explicit low-carb rule → do **not** treat low habit as optimal; suggest **50–80g** soluble-fiber carbs (vegetables, legumes, seeds) — modest step up from habit.
-- **7d eaten avg &lt; 50g** + intentional low-carb or CGM requires lows → may hold near habit; explain tradeoff in \`reasoning\`.
+Professional habit tiers (only when no explicit carb/net in directive/My Rules):
+- **7d eaten avg ≥ 50g/day** → habit anchor **±10g**.
+- **7d eaten avg &lt; 50g** + lipid labs actionable → suggest **50–80g** soluble-fiber carbs unless CGM or user chose low-carb.
 - CGM meal-spike lines may justify **specific** lowering — not blanket carb cuts for cholesterol alone.
 
 ## CGM (7-day block)
@@ -1675,11 +1675,13 @@ Use **LIPID GUIDANCE (computed)** when present — fat quality and fiber, **not*
 Use **GLYCEMIC GUIDANCE (computed)** when present; cross-check **CGM 7-day block** (labs alone are not enough for daily carb targets).
 
 ## Priority rules
-1. **My Rules verbatim text** — explicit gram floors/caps (carb, fiber, protein) are **HARD**; beat generic 55% fiber default, CARB GUIDANCE band, and AI summary alone.
-2. **Energy balance**: \`kcal\` comes from **ENERGY BALANCE (computed)** in the data block — not BMR, not 7d eaten avg as primary formula.
-3. **Lab conflict order**: kidney protein cap → glycemic carb caution → lipid fat quality → CARB GUIDANCE band.
-4. Labs: informational only — not a diagnosis; kidney/lipids/glycemic guide caps and reasoning.
-5. kcal must align with 4×P + 4×C + 9×F within ~50 kcal.
+1. **NUTRITIONIST DIRECTIVE** (when present) — macro summary numbers (kcal, protein, net carbs, fiber, total carbs, saturated fat notes, etc.) are **HARD** via Gemini reading of the text; beat ENERGY BALANCE and habit bands. Wins over My Rules on conflict. **No code/regex parse** — you extract the numbers.
+2. **My Rules verbatim text** — same: explicit kcal / P / C / Fi / net / caps/floors are **HARD** by Gemini judgment only.
+3. **Net carbs** (when stated in directive or My Rules): after kcal, prefer order fiber → net cap → \`carb_g = net + fiber\`; do not exceed the net cap (smaller is OK). Raise fiber to meet a total-carb floor without raising net.
+4. **Energy balance**: \`kcal\` from **ENERGY BALANCE (computed)** only when directive/My Rules do **not** state daily calories.
+5. **Lab conflict order**: kidney protein cap (lab math) → glycemic caution → lipid fat quality → habit CARB GUIDANCE band (skipped when directive/My Rules set carbs/net).
+6. Labs: informational only — not a diagnosis.
+7. kcal must align with 4×P + 4×C + 9×F within ~50 kcal.
 
 ## My Rules integrity
 Compare the My Rules block to labs, CGM, 7d food log, and weight goal.
@@ -1764,6 +1766,91 @@ export async function reviseMacroTargetsWithGemini(
   } catch {
     const hint = finishReason === 'MAX_TOKENS' ? ' (truncated)' : '';
     throw new Error(`Could not parse macro revision${hint}: ${raw.slice(0, 100)}`);
+  }
+}
+
+/** AI-only extract of daily macro numbers from nutritionist report text (no regex). */
+export type DirectiveMacroSummary = {
+  kcal: number | null;
+  protein_g: number | null;
+  carb_g: number | null;
+  fiber_g: number | null;
+  net_carb_g: number | null;
+};
+
+export async function extractDirectiveMacroSummary(
+  fullText: string,
+  lang?: UserLanguage | null,
+): Promise<DirectiveMacroSummary | null> {
+  const text = fullText.trim();
+  if (!text) return null;
+
+  const prompt = `Extract the nutritionist's **daily macro / menu summary targets** from this session report.
+
+Return JSON only:
+{"kcal":integer|null,"protein_g":integer|null,"carb_g":integer|null,"fiber_g":integer|null,"net_carb_g":integer|null}
+
+Rules:
+- Prefer the "סיכום ערכים תזונתיים סופיים" / final nutritional values / macro summary block (e.g. קלוריות: 1,690 → kcal 1690; פחמימות נטו: 43 → net_carb_g 43; סיבים: 37 → fiber_g 37; חלבון: 112 → protein_g 112).
+- Ignore thousands separators (1,690 → 1690).
+- net_carb_g is C−Fi when stated as פחמימות נטו / net carbs.
+- carb_g = total carbs only if stated separately from net; else null (app can derive as net + fiber).
+- Use null when a field is not stated. Do not invent ENERGY BALANCE / TDEE numbers.
+- Judgment only — understand the document; do not invent values absent from the text.${langInstruction(lang)}
+
+REPORT:
+${text}`;
+
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: geminiGenerationConfig({
+      temperature: 0,
+      maxOutputTokens: 512,
+      responseMimeType: 'application/json',
+    }),
+  };
+
+  const response = await fetch(GEMINI_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) return null;
+
+  const json = await response.json();
+  const raw: string = extractGeminiText(json?.candidates?.[0]);
+  if (!raw) return null;
+
+  const stripped = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  const start = stripped.indexOf('{');
+  const end = stripped.lastIndexOf('}');
+  const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+
+  try {
+    const parsed = JSON.parse(cleaned) as Record<string, unknown>;
+    const num = (v: unknown): number | null => {
+      const n = Math.round(Number(v));
+      return Number.isFinite(n) && n > 0 ? n : null;
+    };
+    const out: DirectiveMacroSummary = {
+      kcal: num(parsed.kcal),
+      protein_g: num(parsed.protein_g),
+      carb_g: num(parsed.carb_g),
+      fiber_g: num(parsed.fiber_g),
+      net_carb_g: num(parsed.net_carb_g),
+    };
+    if (
+      out.kcal == null &&
+      out.protein_g == null &&
+      out.carb_g == null &&
+      out.fiber_g == null &&
+      out.net_carb_g == null
+    ) {
+      return null;
+    }
+    return out;
+  } catch {
+    return null;
   }
 }
 
@@ -1952,17 +2039,6 @@ function buildChatDataBlock(ctx: CoachContext, opts?: { omitMacroTarget?: boolea
 const DEFAULT_SNAPSHOT_INSTRUCTION =
   'The block above (titled PERIOD REVIEW) is your COMPLETE data for today and yesterday — body composition incl. visceral and BMR, 24/7 heart rate, energy balance, full food logs, full CGM with meal impact, every workout with HR, AND the full per-sample CGM series ("CGM ALL READINGS", every ~5 min with HH:MM timestamps). It is your source of truth; cite exact numbers from it. You CAN answer "what is my latest glucose reading / its time?" from the CGM ALL READINGS line (and the "Latest reading this day"), and you CAN judge a specific spike/drop by reading the timestamped samples around a meal time. Do NOT dump or list the whole block — answer the user\'s actual question concisely and mention only what is relevant.';
 
-/** Detect meal-review questions in any supported language. */
-export function isMealReviewQuery(text: string): boolean {
-  const t = text.toLowerCase();
-  return /meal|ארוחה|comida|repas|mahlzeit|وجبة|приём|manger|essen|food log|last eat/i.test(t);
-}
-
-/** Detect questions about yesterday / last night. */
-export function isYesterdayQuery(text: string): boolean {
-  return /yesterday|אתמול|אמש|last night|ayer|hier|gestern|вчера|أمس/i.test(text);
-}
-
 export async function generateCoachMessage(ctx: CoachContext): Promise<CoachMessage> {
   const systemPrompt = buildMentorSystemPrompt(ctx.mentors);
   const dataBlock = buildCoachDataBlock(ctx);
@@ -1994,7 +2070,7 @@ Rules:
 - Output keys: "summary", "wins", "improve", "actionItems". Include ONLY active mentors as keys inside wins/improve and as "mentor" tags in actionItems.
 - "summary": 1–2 sentences blending the day's headline across all mentors, with specific numbers, matched to LOCAL TIME NOW. Not a per-mentor paragraph.
 - "wins" and "improve": objects keyed by mentor ("nutritionist", "coach", "doctor"). For EACH active mentor give 0–3 short bullets from that mentor's lens (Nutritionist → food/macros/CGM; Coach → composition/training/recovery; Doctor → safety/clinical). Cite numbers. Empty array is allowed.
-- "actionItems": 1–2 PER ACTIVE mentor, each tagged with "mentor". Max 8 words each, concrete and actionable for THIS time of day, same language as summary.
+- "actionItems": 1–2 PER ACTIVE mentor, each **must** include English "mentor": "nutritionist"|"coach"|"doctor". Max 8 words each, concrete and actionable for THIS time of day, same language as summary. Never omit mentor — the app does not infer mentor from item text.
   - Nutritionist 🥗 items: food/macros/CGM (autoCheckType: carbs_under_target / protein_over_target / calorie_deficit / meal_logged when it fits).
   - Coach 💪 items: movement, muscle, training, or body-composition (autoCheckType null).
   - Doctor 🩺 items: safety / clinical follow-up (autoCheckType null).

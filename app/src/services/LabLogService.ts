@@ -202,16 +202,65 @@ export type KidneyLabStatus = {
   hasHighMarker: boolean;
 };
 
-function resultMatchBlob(r: LabResult): string {
-  return `${r.code} ${r.name} ${r.nameOriginal ?? ''}`.toUpperCase();
+function resultCodeKey(r: LabResult): string {
+  const s = String(r.code ?? '').trim().toUpperCase();
+  let out = '';
+  let sep = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]!;
+    const ok = (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9');
+    if (ok) {
+      out += ch;
+      sep = false;
+    } else if (out.length > 0 && !sep) {
+      out += '_';
+      sep = true;
+    }
+  }
+  if (out.endsWith('_')) out = out.slice(0, -1);
+  return out;
 }
 
+/** Exact AI-assigned lab codes only — no name/Hebrew keyword matching. */
+const CREATININE_CODES = new Set(['CREATININE', 'CREATININ']);
+const UREA_CODES = new Set(['UREA', 'BUN']);
+const LDL_CODES = new Set(['CHOLESTEROL_LDL', 'LDL', 'LDL_CHOL', 'LDL_C']);
+const TOTAL_CHOL_CODES = new Set(['CHOLESTEROL', 'TOTAL_CHOLESTEROL', 'CHOL']);
+const HDL_CODES = new Set(['CHOLESTEROL_HDL', 'HDL', 'HDL_CHOL', 'HDL_C']);
+const TG_CODES = new Set(['TRIGLYCERIDES', 'TRIGLYCERIDE', 'TG']);
+const GLUCOSE_CODES = new Set(['GLUCOSE', 'GLUC']);
+const HBA1C_CODES = new Set(['HBA1C', 'HBA_1C', 'A1C', 'HEMOGLOBIN_A1C']);
+
 function isCreatinineResult(r: LabResult): boolean {
-  return /CREATININ|קריאאטינין/.test(resultMatchBlob(r));
+  return CREATININE_CODES.has(resultCodeKey(r));
 }
 
 function isUreaResult(r: LabResult): boolean {
-  return /\bUREA\b|\bBUN\b|אוריא/.test(resultMatchBlob(r));
+  return UREA_CODES.has(resultCodeKey(r));
+}
+
+function isLdlResult(r: LabResult): boolean {
+  return LDL_CODES.has(resultCodeKey(r));
+}
+
+function isTotalCholResult(r: LabResult): boolean {
+  return TOTAL_CHOL_CODES.has(resultCodeKey(r));
+}
+
+function isHdlResult(r: LabResult): boolean {
+  return HDL_CODES.has(resultCodeKey(r));
+}
+
+function isTriglycerideResult(r: LabResult): boolean {
+  return TG_CODES.has(resultCodeKey(r));
+}
+
+function isGlucoseResult(r: LabResult): boolean {
+  return GLUCOSE_CODES.has(resultCodeKey(r));
+}
+
+function isHba1cResult(r: LabResult): boolean {
+  return HBA1C_CODES.has(resultCodeKey(r));
 }
 
 /** Scan one lab report for creatinine / urea markers and high flags. */
@@ -290,43 +339,6 @@ function pickMarker(r: LabResult): LipidLabMarker {
     unit: r.unit,
     flag: r.flag,
   };
-}
-
-function isNonHdlResult(r: LabResult): boolean {
-  return /NON[_\s-]?HDL/i.test(resultMatchBlob(r));
-}
-
-function isLdlResult(r: LabResult): boolean {
-  if (isNonHdlResult(r)) return false;
-  return /CHOLESTEROL.?LDL|LDL.?CHOL|\bLDL\b/i.test(resultMatchBlob(r));
-}
-
-function isTotalCholResult(r: LabResult): boolean {
-  const b = resultMatchBlob(r);
-  if (/NON.?HDL/i.test(b)) return false;
-  return /\bCHOLESTEROL\b/i.test(b) && !/LDL|HDL|NON/i.test(b);
-}
-
-function isHdlResult(r: LabResult): boolean {
-  if (isNonHdlResult(r)) return false;
-  const b = resultMatchBlob(r);
-  if (/RATIO|\/|יחס/i.test(b)) return false;
-  const code = r.code.toUpperCase();
-  if (code === 'CHOLESTEROL_HDL' || /^CHOLESTEROL[_-]HDL$/i.test(code)) return true;
-  return /CHOLESTEROL.?HDL|\bHDL\b/i.test(b);
-}
-
-function isTriglycerideResult(r: LabResult): boolean {
-  return /TRIGLYCERID|\bTG\b/i.test(resultMatchBlob(r));
-}
-
-function isGlucoseResult(r: LabResult): boolean {
-  const b = resultMatchBlob(r);
-  return /\bGLUCOSE\b|\bGLUC\b|סוכר/i.test(b) && !/HBA1C|A1C|המוגלובין/i.test(b);
-}
-
-function isHba1cResult(r: LabResult): boolean {
-  return /HBA1C|HBA_?1C|HEMOGLOBIN.?A1C|\bA1C\b/i.test(resultMatchBlob(r));
 }
 
 export function scanLipidLabStatus(report: LabReport): LipidLabStatus {

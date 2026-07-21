@@ -7,13 +7,11 @@ import type { MetabolicTrend7dDay } from './metabolicTrend7d';
 import {
   applyKidneyMacroGuardrail,
   deriveFiberTargetFromCarbs,
+  ensureCarbFiberNet,
   FIBER_FLOOR_CARB_THRESHOLD_G,
   FIBER_TO_CARB_RATIO,
   kidneyProteinCapG,
   macroKcalFromPcf,
-  parseCarbCapFromRules,
-  parseCarbMinFromRules,
-  parseFiberMinFromRules,
   postProcessMacroSuggestion,
   STANDARD_FIBER_TARGET_G,
   type MacroPcf,
@@ -40,6 +38,7 @@ import {
   type ClinicalProfileSummary,
 } from './macroClinicalProfile';
 import { formatMacroRevisionRulesBlock } from './userRulesContext';
+import { getNutritionDirectiveAiContext, getActiveNutritionDirective } from '../services/NutritionDirectiveService';
 import { loadMetricsStore, syncMetricsStore } from '../services/MetricsPersistenceService';
 import { getManualBody } from '../services/ManualBodyService';
 import {
@@ -54,7 +53,7 @@ import {
   listRecentMacroTargetSnapshots,
   saveMacroTarget,
   computeAge,
-  withFiberTarget,
+  withCarbFiberNetTargets,
   type BodyTarget,
   type DailyMacroTarget,
   type UserLanguage,
@@ -64,7 +63,12 @@ import {
   saveMacroAutoAdjustState,
   setMacroManualLock,
 } from '../services/TargetService';
-import { reviseMacroTargetsWithGemini, type MacroSuggestion } from '../services/GeminiService';
+import {
+  reviseMacroTargetsWithGemini,
+  extractDirectiveMacroSummary,
+  type MacroSuggestion,
+  type DirectiveMacroSummary,
+} from '../services/GeminiService';
 import { captureMacroGeminiPrompt } from '../services/macroPromptExport';
 import {
   appendMacroRevisionLog,
@@ -131,6 +135,8 @@ export type MacroRevisionBundle = {
   age: number | null;
   gender: Gender | null;
   clinicalProfile: ClinicalProfileSummary;
+  /** AI-extracted HARD macros from active nutritionist directive (null if none / extract failed). */
+  directiveMacros: DirectiveMacroSummary | null;
 };
 
 /** ~7700 kcal per kg body-weight change (textbook energy density). */
@@ -477,7 +483,8 @@ export function formatEnergyBalanceBlock(plan: MacroEnergyPlan): string {
       : `Target kcal: ${plan.targetKcal} (= ${plan.avgBurn7d} burn − ${plan.deficitKcal} deficit)`;
 
   return [
-    '## ENERGY BALANCE (computed — use this for JSON `kcal`)',
+    '## ENERGY BALANCE (computed — FALLBACK for JSON `kcal` only)',
+    '**Do not use** when NUTRITIONIST DIRECTIVE or My Rules state an explicit daily calorie / קלוריות target (those win — Gemini judgment, no code parse).',
     plan.scenario === 'user_timeline'
       ? 'Method: **user timeline** — (kg to goal ÷ target weeks) × 7700 kcal/kg ÷ 7, capped at ~27% TDEE for ≤2 wk deadlines; anchored on **7d wearable burn**. Direction uses **current scale weight** vs goal.'
       : 'Method: textbook % body-weight/week × 7700 kcal/kg, anchored on **7d wearable burn** (not BMR), adapted to **smart-scale 14d trend**. Direction uses **current scale weight** vs goal (not start weight at goal creation).',
@@ -492,18 +499,29 @@ export function formatEnergyBalanceBlock(plan: MacroEnergyPlan): string {
     `Rule applied: ${plan.rule}`,
     `Monitoring: ${plan.monitoringNote}`,
     `Hard limits: max ${plan.maxDeficitKcal} kcal below burn (${Math.round(plan.maxDeficitKcal / plan.avgBurn7d * 100)}% TDEE cap); absolute floor ${plan.absoluteFloorKcal} kcal (sex/age/active).`,
-    'Set JSON `kcal` to the target above unless CGM lows (<70 trusted day) require holding higher — explain any change in `reasoning`.',
+    'If no explicit kcal in directive/My Rules: set JSON `kcal` to the target above unless CGM lows (<70 trusted day) require holding higher — explain any change in `reasoning`.',
   ]
     .filter(Boolean)
     .join('\n');
 }
 
-/** P(cap) → C+Fi (already set) → F fills remainder from energy plan target. */
-function applyMacroEnergyTarget<T extends MacroPcf>(macros: T, plan: MacroEnergyPlan): T {
-  let kcalTarget = plan.targetKcal;
-  if (plan.direction === 'loss' && plan.avgBurn7d > 0) {
-    kcalTarget = Math.min(kcalTarget, plan.avgBurn7d - 50);
+/**
+ * Fat fills remainder toward AI `kcal` when set.
+ * ENERGY BALANCE only if AI omitted kcal — never overwrite a directive/rules kcal the model chose.
+ */
+function applyMacroEnergyTarget<T extends MacroPcf>(
+  macros: T,
+  plan: MacroEnergyPlan | null,
+): T {
+  let kcalTarget = macros.kcal > 0 ? macros.kcal : null;
+  if (kcalTarget == null && plan != null) {
+    kcalTarget = plan.targetKcal;
+    if (plan.direction === 'loss' && plan.avgBurn7d > 0) {
+      kcalTarget = Math.min(kcalTarget, plan.avgBurn7d - 50);
+    }
   }
+  if (kcalTarget == null || !(kcalTarget > 0)) return macros;
+
   const fat_g = Math.max(
     40,
     Math.round((kcalTarget - 4 * macros.protein_g - 4 * macros.carb_g) / 9),
@@ -528,18 +546,23 @@ function finalizeMacroSuggestion(
       ? formatKidneyMarkersSummary(bundle.kidneyLabStatus)
       : undefined,
   });
-  const energyPlan = computeMacroEnergyPlan({
-    avgBurn7d: bundle.avgBurn7d,
-    weightKg: bundle.weightKg,
-    bodyTarget: bundle.bodyTarget,
-    weightDelta14dKg: bundle.weightDelta14dKg,
-    avgEatenKcal7d: bundle.avgEatenKcal7d,
-    age: bundle.age,
-    gender: bundle.gender,
-  });
-  if (energyPlan != null) {
-    processed = applyMacroEnergyTarget(processed, energyPlan);
-  }
+  // HARD: nutritionist report macros beat AI + ENERGY BALANCE when extracted.
+  processed = applyDirectiveMacroSummary(processed, bundle.directiveMacros);
+  processed = postProcessMacroSuggestion(processed, bundle.userRules);
+
+  const hasDirectiveKcal = bundle.directiveMacros?.kcal != null && bundle.directiveMacros.kcal > 0;
+  const energyPlan = hasDirectiveKcal
+    ? null
+    : computeMacroEnergyPlan({
+        avgBurn7d: bundle.avgBurn7d,
+        weightKg: bundle.weightKg,
+        bodyTarget: bundle.bodyTarget,
+        weightDelta14dKg: bundle.weightDelta14dKg,
+        avgEatenKcal7d: bundle.avgEatenKcal7d,
+        age: bundle.age,
+        gender: bundle.gender,
+      });
+  processed = applyMacroEnergyTarget(processed, energyPlan);
   const cp = bundle.clinicalProfile;
   return {
     ...processed,
@@ -566,105 +589,92 @@ function formatBodyTarget(bt: BodyTarget | null): string | null {
     .join('\n');
 }
 
-function isCholesterolPrimaryGoal(rules: UserRules | null): boolean {
-  if (!rules) return false;
-  const blob = [rules.summary, rules.aiContext, ...(rules.constraints ?? []), rules.rawText ?? ''].join(' ');
-  return /כולסטרול|cholesterol|\bldl\b|שומנים רוויים|saturated/i.test(blob);
+function formatDirectiveMacroHardBlock(summary: DirectiveMacroSummary): string {
+  const lines = [
+    '## DIRECTIVE MACRO SUMMARY (AI-extracted — HARD for JSON kcal / grams)',
+    'These numbers come from the active nutritionist report. They **beat ENERGY BALANCE and ACTIVE targets**. Large jumps from current macros are required and OK.',
+  ];
+  if (summary.kcal != null) lines.push(`kcal: ${summary.kcal}`);
+  if (summary.protein_g != null) lines.push(`protein_g: ${summary.protein_g}`);
+  if (summary.fiber_g != null) lines.push(`fiber_g: ${summary.fiber_g}`);
+  if (summary.net_carb_g != null) {
+    lines.push(`net_carb_g (cap): ${summary.net_carb_g} — set carb_g = net_carb_g + fiber_g`);
+  }
+  if (summary.carb_g != null) lines.push(`carb_g (total, if stated): ${summary.carb_g}`);
+  lines.push('Set JSON `kcal` exactly to the kcal line above when present. Fat fills remaining kcal after P/C.');
+  return lines.join('\n');
 }
 
-function hasExplicitLowCarbIntent(rules: UserRules | null): boolean {
-  if (!rules) return false;
-  if (parseCarbCapFromRules(rules) != null) return true;
-  const blob = [rules.summary, rules.aiContext, ...(rules.constraints ?? []), rules.rawText ?? ''].join(' ');
-  return /קטו|קטוגנ|ketogenic|\bketo\b|דל.?פחמימ|low.?carb|פחמימות נמוכ/i.test(blob);
+/** Apply AI-extracted directive macros onto a suggestion (HARD). */
+function applyDirectiveMacroSummary<T extends MacroPcf>(macros: T, summary: DirectiveMacroSummary | null): T {
+  if (!summary) return macros;
+  let m = { ...macros };
+  if (summary.protein_g != null) m.protein_g = summary.protein_g;
+  if (summary.fiber_g != null) m.fiber_g = summary.fiber_g;
+  if (summary.net_carb_g != null && summary.net_carb_g > 0) {
+    const fi = m.fiber_g > 0 ? m.fiber_g : summary.fiber_g ?? 0;
+    m.fiber_g = fi;
+    m.carb_g = summary.net_carb_g + fi;
+  } else if (summary.carb_g != null) {
+    m.carb_g = summary.carb_g;
+  }
+  if (summary.kcal != null) m.kcal = summary.kcal;
+  return ensureCarbFiberNet(m);
 }
-
-/** Tiered carb target — habit anchor only when intake is already moderate (≥50g). */
 export function formatCarbGuidanceBlock(opts: {
   avgEatenCarb7d: number | null;
   userRules: UserRules | null;
+  lipidLabStatus?: LipidLabStatus | null;
 }): string | null {
   const avg = opts.avgEatenCarb7d;
-  const cap = parseCarbCapFromRules(opts.userRules);
-  const floor = parseCarbMinFromRules(opts.userRules);
+  const lipidPrimary = Boolean(opts.lipidLabStatus?.hasActionableMarker);
 
-  if (floor != null) {
-    const lines = [
-      '## CARB GUIDANCE (computed — use for JSON `carb_g`)',
-      `My Rules explicit **floor**: ≥ ${floor}g carbs/day (HARD — overrides habit anchor and cholesterol band).`,
-    ];
-    if (cap != null) lines.push(`My Rules explicit cap: ≤ ${cap}g.`);
-    if (avg != null) lines.push(`7d eaten carb avg: ${avg}g/day — set carb_g ≥ ${floor}g.`);
+  const lines = [
+    '## CARB GUIDANCE (computed — habit/lab context only)',
+    'HARD numbers for carb / net-carb / fiber come from **NUTRITIONIST DIRECTIVE** and **My Rules** (Gemini judgment — do not rely on this block for those).',
+    'When directive/My Rules state net carbs (פחמימות נטו / C−Fi): set fiber → net → `carb_g = net + fiber_g`; net is a cap (smaller OK). Total-carb floors combine by raising fiber, not net.',
+  ];
+
+  if (avg == null) {
     return lines.join('\n');
   }
 
-  if (avg == null) return null;
-
-  if (cap != null) {
-    return [
-      '## CARB GUIDANCE (computed — use for JSON `carb_g`)',
-      `7d eaten carb avg: ${avg}g/day`,
-      `My Rules explicit cap: ${cap}g → set carb_g ≤ ${cap}g (adjust only if CGM meal-spikes require lower).`,
-    ].join('\n');
-  }
+  lines.push(`7d eaten carb avg: ${avg}g/day`);
 
   if (avg >= 50) {
-    return [
-      '## CARB GUIDANCE (computed — use for JSON `carb_g`)',
-      `7d eaten carb avg: ${avg}g/day (moderate intake — habit anchor applies)`,
-      `→ set carb_g within **${avg - 10}–${avg + 10}g** unless CGM meal-spikes justify change.`,
-      'Rationale: at ≥50g/day, staying near logged habit supports adherence (dietitian practice).',
-    ].join('\n');
+    lines.push(
+      `Habit anchor (only if no explicit carb/net in directive/My Rules): **${avg - 10}–${avg + 10}g**.`,
+    );
+  } else if (lipidPrimary) {
+    const suggest = Math.min(80, Math.max(50, Math.round(avg + 17)));
+    lines.push(
+      `Eaten avg <50g + lipid labs actionable → unless directive/My Rules say otherwise, favor **50–80g** soluble-fiber carbs; start near **${suggest}g**.`,
+    );
+  } else {
+    lines.push(
+      `Low-carb habit: may hold **${Math.max(0, avg - 10)}–${avg + 10}g** if directive/My Rules allow; explain in reasoning.`,
+    );
   }
 
-  if (isCholesterolPrimaryGoal(opts.userRules) && !hasExplicitLowCarbIntent(opts.userRules)) {
-    const suggestMin = Math.max(50, floor ?? 50);
-    const suggestMax = Math.max(suggestMin, 80);
-    const suggest = Math.min(suggestMax, Math.max(suggestMin, Math.round(avg + 17)));
-    return [
-      '## CARB GUIDANCE (computed — use for JSON `carb_g`)',
-      `7d eaten carb avg: ${avg}g/day — **below 50g** (low-carb habit, not required for cholesterol/LDL)`,
-      `Primary goal cholesterol → favor **soluble-fiber carbs** (vegetables, legumes, seeds per My Rules) — not carb minimization.`,
-      `→ suggest **${suggestMin}–${suggestMax}g** band; start near **${suggest}g** (modest step up from habit).`,
-      'Do NOT lock to eaten avg ±10g when avg <50g and goal is lipids — professional practice favors adequate fiber carbs unless CGM spikes or user chose low-carb.',
-    ].join('\n');
-  }
-
-  return [
-    '## CARB GUIDANCE (computed — use for JSON `carb_g`)',
-    `7d eaten carb avg: ${avg}g/day (low-carb habit)`,
-    `→ may hold **${Math.max(0, avg - 10)}–${avg + 10}g** if intentional low-carb or CGM stable; explain in reasoning.`,
-  ].join('\n');
+  return lines.join('\n');
 }
 
 function formatFiberGuidanceBlock(opts: {
   userRules: UserRules | null;
   lipidLabStatus: LipidLabStatus | null;
 }): string {
-  const { userRules, lipidLabStatus } = opts;
-  const rulesFloor = parseFiberMinFromRules(userRules);
   const ratioPct = Math.round(FIBER_TO_CARB_RATIO * 100);
-
-  if (rulesFloor != null) {
-    return [
-      '## FIBER GUIDANCE (computed — use for JSON `fiber_g`)',
-      `My Rules explicit **floor**: ≥ ${rulesFloor}g fiber/day (HARD — overrides default ${ratioPct}% ratio).`,
-      'fiber_g must be ≥ that floor and ≤ carb_g (fiber is inside total carbs on labels).',
-    ].join('\n');
-  }
-
-  const lipidPrimary =
-    isCholesterolPrimaryGoal(userRules) || Boolean(lipidLabStatus?.hasActionableMarker);
+  const lipidPrimary = Boolean(opts.lipidLabStatus?.hasActionableMarker);
 
   const lines = [
-    '## FIBER GUIDANCE (computed — use for JSON `fiber_g`)',
-    `Default (no explicit fiber rule in My Rules): fiber_g ≈ round(${ratioPct}% × carb_g), min ${STANDARD_FIBER_TARGET_G}g when carb_g ≥ ${FIBER_FLOOR_CARB_THRESHOLD_G}g.`,
-    'fiber_g must never exceed carb_g. Verbatim My Rules floors override this default.',
+    '## FIBER GUIDANCE (computed — default math only)',
+    'Explicit fiber grams in NUTRITIONIST DIRECTIVE / My Rules are HARD (Gemini judgment).',
+    `Fallback when none stated: fiber_g ≈ round(${ratioPct}% × carb_g), min ${STANDARD_FIBER_TARGET_G}g when carb_g ≥ ${FIBER_FLOOR_CARB_THRESHOLD_G}g; never exceed carb_g.`,
   ];
 
-  if (lipidPrimary && !hasExplicitLowCarbIntent(userRules)) {
+  if (lipidPrimary) {
     lines.push(
-      'LDL/cholesterol primary → soluble-fiber whole foods (avocado ~250g/day, veg, seeds, psyllium); example **66g carbs → ~36g fiber**.',
+      'LDL/cholesterol labs actionable → soluble-fiber whole foods (veg, seeds, psyllium); example **66g carbs → ~36g fiber** unless directive says otherwise.',
     );
   }
 
@@ -718,7 +728,7 @@ export async function buildMacroRevisionBundle(opts: {
   triggerDetail?: string;
 }): Promise<MacroRevisionBundle> {
   await syncMetricsStore();
-  const [macroTarget, bodyTarget, userRules, store, avgBurn7d, avgEatenKcal7d, avgEatenCarb7d, birthdate, heightCm, gender] =
+  const [macroTarget, bodyTarget, userRules, store, avgBurn7d, avgEatenKcal7d, avgEatenCarb7d, birthdate, heightCm, gender, nutritionDirectiveContext] =
     await Promise.all([
       getMacroTarget(),
       getBodyTarget(),
@@ -730,6 +740,7 @@ export async function buildMacroRevisionBundle(opts: {
       getBirthdate(),
       getCachedHeightCm(),
       getGender(),
+      getNutritionDirectiveAiContext(),
     ]);
 
   const scan = store.bodyScan;
@@ -786,10 +797,25 @@ export async function buildMacroRevisionBundle(opts: {
   });
 
   const recentSnaps = await listRecentMacroTargetSnapshots(7);
+
+  const lang = await getLanguage();
+  const activeDirective = await getActiveNutritionDirective();
+  let directiveMacros: DirectiveMacroSummary | null = null;
+  if (activeDirective?.fullText?.trim()) {
+    try {
+      directiveMacros = await extractDirectiveMacroSummary(activeDirective.fullText, lang);
+    } catch (e) {
+      console.warn('[macroAutoAdjust] directive macro extract failed', e);
+    }
+  }
+  const hasDirectiveKcal = directiveMacros?.kcal != null && directiveMacros.kcal > 0;
+
   const priorTargetsBlock =
     macroTarget || recentSnaps.length > 0
       ? [
-          'ACTIVE / RECENT MACRO TARGETS (hold steady unless labs, rules, or clear progress failure require change):',
+          hasDirectiveKcal
+            ? 'ACTIVE / RECENT MACRO TARGETS (context only — DIRECTIVE MACRO SUMMARY wins; large jumps from active targets are required):'
+            : 'ACTIVE / RECENT MACRO TARGETS (hold steady unless labs, rules, directive, or clear progress failure require change):',
           macroTarget
             ? `  Active now: ${macroTarget.kcal} kcal · P${macroTarget.protein_g} · C${macroTarget.carb_g} · F${macroTarget.fat_g} · Fi${macroTarget.fiber_g ?? '—'} (${macroTarget.diet_label})`
             : null,
@@ -797,7 +823,9 @@ export async function buildMacroRevisionBundle(opts: {
             (s) =>
               `  ${s.dayKey}: ${s.kcal} kcal · P${s.protein_g} · C${s.carb_g} · F${s.fat_g} · Fi${s.fiber_g}`,
           ),
-          'Prefer small daily titrations (±5% carbs, few grams P/F). Do not regenerate a new plan from scratch when lifestyle is stable.',
+          hasDirectiveKcal
+            ? 'Do not keep the active kcal when DIRECTIVE MACRO SUMMARY lists a different kcal.'
+            : 'Prefer small daily titrations (±5% carbs, few grams P/F). Do not regenerate a new plan from scratch when lifestyle is stable.',
         ]
           .filter(Boolean)
           .join('\n')
@@ -806,21 +834,26 @@ export async function buildMacroRevisionBundle(opts: {
   const contextText = [
     header,
     formatBodyTarget(bodyTarget),
+    nutritionDirectiveContext,
+    directiveMacros ? formatDirectiveMacroHardBlock(directiveMacros) : null,
     userRules ? formatMacroRevisionRulesBlock(userRules) : null,
     formatProfileBasics({ age, gender, heightCm, weightKg, fatMassKg, bmr_kcal, leanMassKg, avgBurn7d }),
     weightTrend14,
-    energyPlan ? formatEnergyBalanceBlock(energyPlan) : null,
+    // Omit burn-based ENERGY BALANCE when directive sets kcal — it was anchoring ~2500.
+    !hasDirectiveKcal && energyPlan ? formatEnergyBalanceBlock(energyPlan) : null,
     formatClinicalProfileBlock(clinicalProfile),
     formatKidneyGuidanceBlock({ kidney: kidneyLabStatus, leanMassKg, weightKg }),
     formatLipidGuidanceBlock({ lipid: lipidLabStatus, userRules }),
     formatGlycemicGuidanceBlock({ glycemic: glycemicLabStatus }),
-    formatCarbGuidanceBlock({ avgEatenCarb7d, userRules }),
+    formatCarbGuidanceBlock({ avgEatenCarb7d, userRules, lipidLabStatus }),
     formatFiberGuidanceBlock({ userRules, lipidLabStatus }),
     priorTargetsBlock,
     bodyTrend28,
     labs,
     period7,
-    'Derive daily macro TARGETS from the raw data above (not meal advice). Start from ACTIVE targets above; only change what the data justifies. Large jumps need a clear clinical or adherence reason.',
+    hasDirectiveKcal
+      ? 'Derive daily macro TARGETS from DIRECTIVE MACRO SUMMARY first (HARD). Then P/C/Fi/net from directive/My Rules; fat fills remaining kcal.'
+      : 'Derive daily macro TARGETS from the raw data above (not meal advice). Start from ACTIVE targets above; only change what the data justifies. Large jumps need a clear clinical or adherence reason.',
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -844,6 +877,7 @@ export async function buildMacroRevisionBundle(opts: {
     age,
     gender,
     clinicalProfile,
+    directiveMacros,
   };
 }
 
@@ -864,8 +898,13 @@ export function deterministicMacroFallback(
     age: bundle.age,
     gender: bundle.gender,
   });
-  const targetKcal = energyPlan?.targetKcal ?? Math.round(burn);
-  const deficitKcal = energyPlan?.deficitKcal ?? Math.max(0, burn - targetKcal);
+  const directiveKcal = bundle.directiveMacros?.kcal;
+  const targetKcal =
+    directiveKcal != null && directiveKcal > 0
+      ? directiveKcal
+      : (energyPlan?.targetKcal ?? Math.round(burn));
+  const deficitKcal =
+    energyPlan?.deficitKcal ?? Math.max(0, (bundle.avgBurn7d ?? burn) - targetKcal);
 
   const lean = bundle.leanMassKg ?? weightKg * 0.75;
   const kidneyCap =
@@ -875,15 +914,10 @@ export function deterministicMacroFallback(
   let protein_g = Math.round(1.8 * lean);
   if (kidneyCap != null) protein_g = Math.min(protein_g, kidneyCap);
 
-  const carbCap = parseCarbCapFromRules(bundle.userRules);
-  const carbMin = parseCarbMinFromRules(bundle.userRules);
-  // Seed from the current saved target so a transient Gemini failure doesn't whiplash
-  // carbs to the hardcoded 30g default (rules floor/cap still take priority).
-  let carb_g = carbMin ?? carbCap ?? bundle.macroTarget?.carb_g ?? 30;
-  if (carbMin != null && carbCap != null) carb_g = Math.min(carbCap, Math.max(carbMin, carb_g));
-  const fiberMin = parseFiberMinFromRules(bundle.userRules);
-  let fiber_g = deriveFiberTargetFromCarbs(carb_g);
-  if (fiberMin != null && fiber_g < fiberMin) fiber_g = Math.min(fiberMin, carb_g);
+  // Hold saved carbs on Gemini failure — directive/My Rules numbers are AI-only (no regex floors).
+  let carb_g = bundle.macroTarget?.carb_g ?? 30;
+  let fiber_g = bundle.macroTarget?.fiber_g ?? deriveFiberTargetFromCarbs(carb_g);
+  fiber_g = Math.min(fiber_g, carb_g);
   const fat_g = Math.max(
     40,
     Math.round((targetKcal - 4 * protein_g - 4 * carb_g) / 9),
@@ -918,11 +952,12 @@ export function macroSuggestionToDailyTarget(
   mentors: Awaited<ReturnType<typeof getMentors>>,
 ): DailyMacroTarget {
   const now = new Date().toISOString();
-  return withFiberTarget({
+  return withCarbFiberNetTargets({
     protein_g: result.protein_g,
     fat_g: result.fat_g,
     carb_g: result.carb_g,
     fiber_g: result.fiber_g,
+    net_carb_g: result.net_carb_g,
     kcal: result.kcal,
     diet_label: result.diet_label,
     reasoning: result.reasoning,
@@ -938,6 +973,7 @@ export function macroSuggestionToDailyTarget(
       fat_g: result.fat_g,
       carb_g: result.carb_g,
       fiber_g: result.fiber_g,
+      net_carb_g: result.net_carb_g,
       kcal: result.kcal,
     },
     analyzedAt: now,
@@ -1140,11 +1176,12 @@ export async function applyAutoMacroRevision(opts: {
   });
 
   const saved = await getMacroTarget();
-  const [userRules, mentors, recentLog, avgEatenCarb7d] = await Promise.all([
+  const [userRules, mentors, recentLog, avgEatenCarb7d, lipidLabStatus] = await Promise.all([
     getUserRules(),
     getMentors(),
     getMacroRevisionLog(),
     get7DayAverageEatenCarb_g(),
+    getLatestLipidLabStatus(),
   ]);
 
   const block = assessAutoApplyBlock({
@@ -1154,6 +1191,7 @@ export async function applyAutoMacroRevision(opts: {
     avgEatenCarb7d,
     userRules,
     recentLog,
+    lipidActionable: Boolean(lipidLabStatus?.hasActionableMarker),
   });
 
   const bumpState = async () => {

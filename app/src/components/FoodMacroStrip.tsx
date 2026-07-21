@@ -31,7 +31,8 @@ import {
 } from '../services/WaterPersistenceService';
 import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
 import type { DailyMacroTarget } from '../services/TargetService';
-import { getMacroTargetForDay, resolveFiberTarget_g } from '../services/TargetService';
+import { getMacroTargetForDay, resolveFiberTarget_g, resolveNetCarbTarget_g } from '../services/TargetService';
+import { deriveNetCarb_g } from '../logic/macroFiberCoupling';
 import type { UnitsPrefs } from '../services/UnitsPreferenceService';
 import { DEFAULT_UNITS_PREFS } from '../services/UnitsPreferenceService';
 import {
@@ -100,6 +101,8 @@ const COLOR_PROTEIN = '#42A5F5';
 const COLOR_CARB    = '#FF9800';
 const COLOR_FAT     = '#EF5350';
 const COLOR_FIBER   = '#66BB6A';
+/** Net carbs (C − Fi) — between carb orange and fiber green. */
+const COLOR_NET_CARB = '#FB8C00';
 const COLOR_WATER   = '#29B6F6';
 
 const WATER_HALF_ML = 100;
@@ -279,7 +282,7 @@ function MacroBar({ label, value, target, color, showTarget, unit = 'g', onPress
 const barStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5, width: '100%' },
   rowPressable: { alignSelf: 'stretch' },
-  label: { width: 34, fontSize: 11, fontWeight: '700', color: WellnessColors.textSecondary },
+  label: { width: 40, fontSize: 11, fontWeight: '700', color: WellnessColors.textSecondary },
   track: {
     flex: 1,
     height: 6,
@@ -520,10 +523,23 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
 
   const isEmpty = !macros || macros.entries.length === 0;
   // When macro targets are set, bar max = target value; otherwise rolling max of actuals
+  const fiberTarget = displayTarget ? resolveFiberTarget_g(displayTarget) : null;
+  const netCarbEaten = macros ? deriveNetCarb_g(macros.carb_g, macros.fiber_g) : 0;
+  const netCarbTarget = displayTarget ? resolveNetCarbTarget_g(displayTarget) : null;
   const maxMacro = displayTarget
-    ? Math.max(displayTarget.protein_g, displayTarget.carb_g, displayTarget.fat_g, resolveFiberTarget_g(displayTarget), 1)
-    : macros ? Math.max(macros.protein_g, macros.carb_g, macros.fat_g, macros.fiber_g, 1) : 1;
-  const fiberTarget = displayTarget ? resolveFiberTarget_g(displayTarget) : maxMacro;
+    ? Math.max(
+        displayTarget.protein_g,
+        displayTarget.carb_g,
+        displayTarget.fat_g,
+        fiberTarget ?? 0,
+        netCarbTarget ?? 0,
+        1,
+      )
+    : macros
+      ? Math.max(macros.protein_g, macros.carb_g, macros.fat_g, macros.fiber_g, netCarbEaten, 1)
+      : 1;
+  const fiberBarTarget = fiberTarget ?? maxMacro;
+  const netCarbBarTarget = netCarbTarget ?? maxMacro;
 
   const rawBurn = burnKcalByDay?.[activeDayKey] ?? null;
   const burnParts = burnPartsByDay?.[activeDayKey] ?? null;
@@ -679,7 +695,14 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
             <MacroBar label="P" value={macros?.protein_g ?? 0} target={displayTarget ? displayTarget.protein_g : maxMacro} color={COLOR_PROTEIN} showTarget={!!displayTarget} />
             <MacroBar label="C" value={macros?.carb_g    ?? 0} target={displayTarget ? displayTarget.carb_g    : maxMacro} color={COLOR_CARB}    showTarget={!!displayTarget} />
             <MacroBar label="F" value={macros?.fat_g     ?? 0} target={displayTarget ? displayTarget.fat_g     : maxMacro} color={COLOR_FAT}     showTarget={!!displayTarget} />
-            <MacroBar label="Fi" value={macros?.fiber_g ?? 0} target={fiberTarget} color={COLOR_FIBER} showTarget={!!displayTarget} />
+            <MacroBar label="Fi" value={macros?.fiber_g ?? 0} target={fiberBarTarget} color={COLOR_FIBER} showTarget={!!displayTarget} />
+            <MacroBar
+              label="C-Fi"
+              value={netCarbEaten}
+              target={netCarbBarTarget}
+              color={COLOR_NET_CARB}
+              showTarget={!!displayTarget}
+            />
           </>
         ) : null}
         <MacroBar

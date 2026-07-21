@@ -48,35 +48,33 @@ export type PeriodReviewType = 'yesterday' | 'week' | 'month';
 export function detectPeriodReviewQuery(text: string): PeriodReviewRequest | null {
   const t = text.trim();
 
-  const slashExact = t.match(/^\/(\d+)\s*$/);
-  if (slashExact) {
-    const n = parseInt(slashExact[1], 10);
-    if (n >= 1 && n <= MAX_REVIEW_DAYS) {
+  // Slash commands only — natural-language "סיכום שבועי" etc. is Gemini judgment in chat.
+  if (t === '/yesterday' || t.toLowerCase() === '/yesterday') {
+    return { mode: 'yesterday' };
+  }
+
+  if (t.startsWith('/') && t.length > 1) {
+    const rest = t.slice(1).trim();
+    const space = rest.indexOf(' ');
+    const numPart = space === -1 ? rest : rest.slice(0, space);
+    let n = 0;
+    for (let i = 0; i < numPart.length; i++) {
+      const d = numPart.charCodeAt(i) - 48;
+      if (d < 0 || d > 9) {
+        n = 0;
+        break;
+      }
+      n = n * 10 + d;
+    }
+    if (n >= 1 && n <= MAX_REVIEW_DAYS && (space === -1 || rest.slice(space).trim() === '')) {
+      return n === 1 ? { mode: 'yesterday' } : { mode: 'days', days: n };
+    }
+    // Leading /N with trailing words still counts as period review (existing chat behavior).
+    if (n >= 1 && n <= MAX_REVIEW_DAYS && space !== -1) {
       return n === 1 ? { mode: 'yesterday' } : { mode: 'days', days: n };
     }
   }
 
-  if (/^\/yesterday\s*$/i.test(t)) {
-    return { mode: 'yesterday' };
-  }
-
-  const slashLead = t.match(/^\/(\d+)\b/);
-  if (slashLead) {
-    const n = parseInt(slashLead[1], 10);
-    if (n >= 1 && n <= MAX_REVIEW_DAYS) {
-      return n === 1 ? { mode: 'yesterday' } : { mode: 'days', days: n };
-    }
-  }
-
-  if (/סיכום אתמול|summary yesterday|yesterday summary|review yesterday|recap yesterday/i.test(t)) {
-    return { mode: 'yesterday' };
-  }
-  if (/סיכום שבועי|weekly summary|week summary|review my week|recap week|how was my week/i.test(t)) {
-    return { mode: 'days', days: 7 };
-  }
-  if (/סיכום חודשי|monthly summary|month summary|review my month|recap month/i.test(t)) {
-    return { mode: 'days', days: 30 };
-  }
   return null;
 }
 
