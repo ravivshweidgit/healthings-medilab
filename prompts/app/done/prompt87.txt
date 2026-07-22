@@ -1,6 +1,6 @@
 ## Prompt 87 — Dashboard chrome i18n (Phase B)
 
-**Status: done (2026-07-22)** — phone-tested Android (Samsung, iterative bi).  
+**Status: done (2026-07-22)** — phone-tested Android (Samsung, iterative bi). Commit `3858d8b`.  
 **Builds on:** `done/prompt81` (Phase A), backlog `prompt81b` (this ships Phase B)  
 **Refines:** `done/prompt62` (AI chat label), `done/prompt85` (Reports), `done/prompt86` (Food Log collapse)
 
