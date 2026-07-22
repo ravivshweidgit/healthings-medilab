@@ -2,7 +2,7 @@
 
 **Status: done (2026-07-21)** — Phase A phone-tested on Samsung; user LGTM.  
 **Builds on:** `language-policy.mdc`, `done/prompt77` (Quick Start), `done/prompt72` (units)  
-**Deferred:** Phase B Dashboard / Profile UI Hebrew → `prompt81b.txt`
+**Deferred:** Phase B Dashboard / Profile UI Hebrew → **shipped in `done/prompt87.txt`** (was `prompt81b`)
 
 ### Problem
 
@@ -47,6 +47,6 @@ Brand, units (`kcal`, `mg/dL`, `kg`), acronyms (`CGM`, `BMR`), devices (Withings
 
 ### Related
 
-- Phase B: `prompts/app/prompt81b.txt`
+- Phase B: `done/prompt87.txt` (closes `prompt81b`)
 - Auto-apply / activity: `prompt80.txt` (unrelated backlog)
 - Quick Start UX: `done/prompt77.txt`

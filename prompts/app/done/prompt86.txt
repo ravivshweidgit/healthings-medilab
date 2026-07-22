@@ -33,3 +33,4 @@
 
 - `done/prompt62.txt` — Food Log moved up; this prompt adds collapse + footer cleanup
 - `done/prompt70.txt` — burn/activity lines used for balance
+- `done/prompt87.txt` — Food Log title i18n; HE/AR collapsed balance drops `+`/`−` (color only)

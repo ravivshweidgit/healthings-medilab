@@ -5,27 +5,27 @@ alwaysApply: true
 
 # Language policy
 
-## After prompt81 Phase A (2026-07-21)
+## After prompt87 Phase B (2026-07-22)
 
 | Layer | Language | Examples |
 |-------|----------|----------|
 | **Language gate + Quick Start** | **`appLocale`** (`userLanguage`) | Wizard copy, units row labels, help `?` → `/{lang}/help/` |
+| **Dashboard chrome** | **`appLocale`** | Strip titles, Food Log, Profile nested labels, status/ago, dates |
 | **Coach & meals & exports** | **`appLocale`** | Gemini chat, meal `name_local`, visit reports |
-| **App UI chrome (Dashboard…)** | **English until Phase B** (`prompt81b`) | Screen titles, settings, Food Log chrome |
 | **Clinic portal UI** | **English** | Clinician tool |
 | **Website help** | **Path locale** | `https://healthings.ai/{en\|he\|es\|fr\|de\|ar\|ru}/help/…` |
 
 ## Always-English glossary
 
-Brand, units (`kcal`, `mg/dL`, `kg`), acronyms (`CGM`, `BMR`), device names (Withings…), slash commands, product keys like `My Rules` / `My Profile` when used as proper names in mixed copy.
+Brand, units (`kcal`, `mg/dL`, `kg`), acronyms (`CGM`, `BMR`, `AI`), device names (Withings…), slash commands. Profile nested titles use bare nouns (Profile / Targets…), not “My …” product phrases.
 
 ## Settings UX
 
-One language preference drives coach, meals, Quick Start, and help links. Prefer **App & coach language** when renaming the Profile picker (Phase B).
+One language preference drives coach, meals, Quick Start, help links, and dashboard chrome. Prefer **App & coach language** when touching the Profile picker label.
 
 ## RTL
 
-Hebrew/Arabic: RTL for Quick Start / user-content areas now; full chrome RTL with Phase B.
+Hebrew/Arabic: RTL for Quick Start and user-content areas (chat, meals, exports). Dashboard strip structure stays LTR chrome with localized strings; full layout RTL is deferred.
 
 ## Intent detection
 
@@ -33,4 +33,4 @@ Chat slash commands and natural-language triggers may stay multilingual (`chatIn
 
 ## When to revisit
 
-Phase B (`prompt81b`) — Dashboard / Food Log / Profile label i18n. Until then keep remaining chrome English.
+Clinic portal i18n (Phase C) if clinicians need non-English UI. Full chrome RTL if Hebrew/Arabic users need mirrored strip layout.

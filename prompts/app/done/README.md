@@ -10,7 +10,7 @@ Active / backlog specs stay in `prompts/app/`:
 | prompt32.txt | Spec only — backup import QA + hardening (deferred) |
 | prompt38.txt | Planned — secondary lab findings (liver, iron, uric acid) |
 | prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
-| `prompt81b.txt` | **Backlog** — Phase B: Dashboard / Food Log / Profile UI Hebrew (and other locales); glossary EN |
+| `prompt81b.txt` | **Shipped** — Phase B → `done/prompt87.txt` |
 
 **prompt58** — done (2026-07-07). Editable Your setup: 3 toggles (scale/watch/CGM), HC steps when watch off, no OAuth auto-promote. Compile-check OK; phone test pending. See `done/prompt58.txt`.
 
@@ -83,7 +83,7 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt79** — done (2026-07-19). Pull-refresh perf: shallow Withings windows, parallel today, fast HR merge, quiet pull; ~9s→~4s. See `done/prompt79.txt`.
 
-**prompt81** — done (2026-07-21). Phase A: language gate, EN/HE Quick Start, units labels, 7-locale help `/{lang}/help/` + switcher, legacy `/help/` → `/en/help/`. Phone-tested Samsung. Phase B → `prompt81b.txt`. See `done/prompt81.txt`.
+**prompt81** — done (2026-07-21). Phase A: language gate, EN/HE Quick Start, units labels, 7-locale help `/{lang}/help/` + switcher, legacy `/help/` → `/en/help/`. Phone-tested Samsung. Phase B → `done/prompt87.txt`. See `done/prompt81.txt`.
 
 **prompt82** — done (2026-07-21). Body-card source header: Withings + CGM marks, WITHINGS-captioned ✓/Re-link pill, title/icon alignment, single-device title collision fix. Phone-tested Samsung. Android **1.2.13** (40). See `done/prompt82.txt`.
 
@@ -94,6 +94,8 @@ Active / backlog specs stay in `prompts/app/`:
 **prompt85** — done (2026-07-22). My Profile **Reports** collapsible strip (Visit report under Data sharing); plain 90-day label; grey/black chips. Phone-tested Samsung. See `done/prompt85.txt`.
 
 **prompt86** — done (2026-07-22). Food Log collapsible (chart-style title, grey border); collapsed `−`/`+` balance; CareSens + Refresh my data → dashboard footer. Phone-tested Samsung. See `done/prompt86.txt`.
+
+**prompt87** — done (2026-07-22). Phase B dashboard chrome i18n (Food Log, metabolic strips, Profile nested titles, dates, body metrics, AI chat, backup/reports/sharing). Phone-tested Samsung. See `done/prompt87.txt`. Closes `prompt81b`.
 
 **prompt48** — done (2026-06-29). Lipid trend charts (Total/LDL/TG/HDL strips + green safe zones); mentors/coach see **all saved lab draws** in USER DATA. Phone-tested. Commits `308500f`, `fa0d6b1`. Supersedes prompt30 chart deferral + latest-only scope.
 

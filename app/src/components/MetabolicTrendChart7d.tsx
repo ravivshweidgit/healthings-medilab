@@ -16,6 +16,8 @@ import {
   type VisceralTrendDebug,
   type VisceralWeekTrend,
 } from '../logic/metabolicTrend7d';
+import { getBodyMetricsCopy } from '../i18n/bodyMetricsCopy';
+import { formatAxisDayLabel, formatLocalizedDate } from '../i18n/dateLocale';
 import { WellnessColors } from '../theme/wellness';
 import { kgToDisplay, massUnitLabel, type MassUnit } from '../logic/unitConvert';
 
@@ -34,22 +36,17 @@ const VISCERAL_STROKE = '#7B1FA2';
 
 type PixelPoint = { x: number; y: number };
 
-function shortDayLabel(dayKey: string): string {
+function shortDayLabel(dayKey: string, langCode?: string | null): string {
   const parts = dayKey.split('-').map(Number);
   if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return dayKey;
   const [y, mo, da] = parts;
   const d = new Date(y, mo - 1, da);
-  return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
+  return formatLocalizedDate(d, langCode, { weekday: 'short', day: 'numeric' });
 }
 
 /** Axis label: weekday + day for short windows, month + day for longer ones. */
-function axisDayLabel(dayKey: string, n: number): string {
-  const parts = dayKey.split('-').map(Number);
-  if (parts.length !== 3 || parts.some((v) => !Number.isFinite(v))) return dayKey;
-  const [y, mo, da] = parts;
-  const d = new Date(y, mo - 1, da);
-  if (n <= 8) return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+function axisDayLabel(dayKey: string, n: number, langCode?: string | null): string {
+  return formatAxisDayLabel(dayKey, langCode, n);
 }
 
 /** Evenly spaced tick indices (always includes first and last) to avoid crowding wide windows. */
@@ -145,6 +142,8 @@ type Props = {
   /** When parent already shows a section header (dashboard collapse). */
   hideTitle?: boolean;
   massUnit?: MassUnit;
+  /** Coach language — axis date labels. */
+  langCode?: string | null;
 };
 
 function formatIndexCell(value: number | null | undefined): string {
@@ -250,9 +249,11 @@ export function MetabolicTrendChart7d({
   weighInDayCount,
   hideTitle = false,
   massUnit = 'kg',
+  langCode,
 }: Props) {
   const { width } = useWindowDimensions();
   const chartW = Math.max(280, width - 40);
+  const bodyLabels = useMemo(() => getBodyMetricsCopy(langCode), [langCode]);
 
   const weightOnlyPrepared = useMemo(() => {
     if (!weightOnly || !days || days.length < 2) return null;
@@ -293,7 +294,7 @@ export function MetabolicTrendChart7d({
       .filter(({ i }) => tickIdx.has(i))
       .map(({ d, i }) => ({
         x: xAtIndex(i, plotLeft, innerW, n),
-        label: axisDayLabel(d.dayKey, n),
+        label: axisDayLabel(d.dayKey, n, langCode),
         key: d.dayKey,
       }));
 
@@ -314,7 +315,7 @@ export function MetabolicTrendChart7d({
       xTicks,
       weightWeekDelta,
     };
-  }, [chartW, days, weightOnly, massUnit]);
+  }, [chartW, days, langCode, weightOnly, massUnit]);
 
   const prepared = useMemo(() => {
     if (weightOnly) return null;
@@ -420,7 +421,7 @@ export function MetabolicTrendChart7d({
       .filter(({ i }) => tickIdx.has(i))
       .map(({ d, i }) => ({
         x: xAtIndex(i, plotLeft, innerW, n),
-        label: axisDayLabel(d.dayKey, n),
+        label: axisDayLabel(d.dayKey, n, langCode),
         key: d.dayKey,
       }));
 
@@ -455,7 +456,7 @@ export function MetabolicTrendChart7d({
       visceralWeekTrend,
       visceralDebug,
     };
-  }, [chartW, days, periodAnchor, weightOnly, massUnit]);
+  }, [chartW, days, langCode, periodAnchor, weightOnly, massUnit]);
 
   const activePrepared = weightOnly ? weightOnlyPrepared : prepared;
 
@@ -596,7 +597,7 @@ export function MetabolicTrendChart7d({
           <View style={styles.legendRow}>
             <LegendItem
               color={WellnessColors.accentBlue}
-              label={legendLabelWithDelta('Weight', p.weightWeekDelta, massUnit)}
+              label={legendLabelWithDelta(bodyLabels.weight, p.weightWeekDelta, massUnit)}
             />
           </View>
         </View>
@@ -698,17 +699,17 @@ export function MetabolicTrendChart7d({
 
       <View style={styles.legend}>
         <View style={styles.legendRow}>
-          <LegendItem color={WellnessColors.accentBlue} label={legendLabelWithDelta('Weight', prepared.weightWeekDelta, massUnit)} />
-          <LegendItem color={FAT_MASS_STROKE} label={legendLabelWithDelta('Fat', prepared.fatWeekDelta, massUnit)} />
+          <LegendItem color={WellnessColors.accentBlue} label={legendLabelWithDelta(bodyLabels.weight, prepared.weightWeekDelta, massUnit)} />
+          <LegendItem color={FAT_MASS_STROKE} label={legendLabelWithDelta(bodyLabels.fat, prepared.fatWeekDelta, massUnit)} />
         </View>
         <View style={styles.legendRow}>
-          <LegendItem color={WellnessColors.accentGreen} label={legendLabelWithDelta('Muscle', prepared.muscleWeekDelta, massUnit)} />
+          <LegendItem color={WellnessColors.accentGreen} label={legendLabelWithDelta(bodyLabels.muscle, prepared.muscleWeekDelta, massUnit)} />
           <LegendItem color={VISCERAL_STROKE} label={legendLabelWithVisceralPercent('Visceral', prepared.visceralWeekTrend)} />
         </View>
       </View>
 
       {showVisceralDebug && prepared.visceralDebug ? (
-        <VisceralDebugPanel days={days} debug={prepared.visceralDebug} shortDayLabel={shortDayLabel} />
+        <VisceralDebugPanel days={days} debug={prepared.visceralDebug} shortDayLabel={(k) => shortDayLabel(k, langCode)} />
       ) : null}
     </View>
   );

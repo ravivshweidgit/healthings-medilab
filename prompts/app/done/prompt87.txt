@@ -1,0 +1,66 @@
+## Prompt 87 — Dashboard chrome i18n (Phase B)
+
+**Status: done (2026-07-22)** — phone-tested Android (Samsung, iterative bi).  
+**Builds on:** `done/prompt81` (Phase A), backlog `prompt81b` (this ships Phase B)  
+**Refines:** `done/prompt62` (AI chat label), `done/prompt85` (Reports), `done/prompt86` (Food Log collapse)
+
+### Problem
+
+After Phase A (language gate + Quick Start + help), Dashboard / Food Log / Profile chrome stayed English. Hebrew-first alpha users saw mixed UI: coach language in meals/chat, English strip titles and dates.
+
+### What shipped
+
+| Area | Behavior |
+|------|----------|
+| **Food Log title** | 7-locale titles (`יומן ארוחות` HE); HE/AR collapsed balance uses color only (no `+`/`−`) |
+| **Glucose / Activity / Trend** | Titles + status (`No reading`, `no CGM`, ago) via `metabolicStripCopy.ts`; brands stay English |
+| **PROFILE & SETTINGS** | Localized title; collapsed summary (gender, age, mentors); HE/AR bare numbers (no `cm` / age unit) |
+| **Profile nested strips** | Bare nouns (no “My/שלי”): Profile, Targets, Mentors, Rules, Macros, Account, Data sharing, Reports, App Backup |
+| **AI chat** | Keep “AI”; localize “chat” only (`AI שיחה` HE) via `aiChatCopy.ts` |
+| **Body metrics** | Weight / Fat / Muscle labels via `bodyMetricsCopy.ts` (body card, trend, targets, manual body) |
+| **Dates** | Coach-language locale via `dateLocale.ts` (Food Log, charts, labs, birthdate, meal modal) |
+| **Strip header unify** | All dashboard strips use `DashboardCollapseHeader` (shared fonts/styles); Profile sub-rows migrated |
+| **App Backup** | Collapsible `LocalBackupStrip`; Export / Import buttons localized |
+| **Reports collapsed** | Numbers only: `7 / 14 / 30 / 90` |
+| **Data sharing** | Subtitle i18n (whitelisted / empty / waiting / shares with) |
+
+### Always-English glossary (unchanged)
+
+`kcal`, `CGM`, `BMR`, Withings, Health Connect, Apple Health, slash commands, brand.
+
+### Primary files
+
+| Path | Role |
+|------|------|
+| `app/src/i18n/metabolicStripCopy.ts` | Glucose / Activity / Trend / Profile card chrome |
+| `app/src/i18n/profileSettingsStripCopy.ts` | Nested Profile strip titles + backup/sharing copy |
+| `app/src/i18n/bodyMetricsCopy.ts` | Weight / Fat / Muscle |
+| `app/src/i18n/dateLocale.ts` | Coach-language date formatting |
+| `app/src/i18n/aiChatCopy.ts` | AI chat strip label |
+| `app/src/components/DashboardCollapseHeader.tsx` | Shared collapse header + trailing slot |
+| `app/src/components/LocalBackupStrip.tsx` | Collapsible App Backup |
+| `app/src/components/FoodMacroStrip.tsx` | Food Log title + HE/AR balance |
+| `app/src/components/ReportsStrip.tsx` | Reports collapse summary |
+| `app/src/components/ClinicLinkStrip.tsx` | Data sharing subtitle |
+| `app/src/screens/DashboardScreen.tsx` | Wiring + metabolic/profile headers |
+
+### Phone-tested
+
+- [x] Hebrew Food Log title + collapse balance without `+`/`−`
+- [x] Glucose / Activity / Trend titles + ago status in HE
+- [x] PROFILE & SETTINGS + nested strip titles (no שלי)
+- [x] AI שיחה; Weight/Fat/Muscle; dates in coach language
+- [x] App Backup collapse + Export/Import; Reports `7/14/30/90`
+- [x] Shared collapse header fonts match across strips
+
+### Deferred
+
+- Full chrome RTL layout (text direction in titles OK; LTR strip chrome structure remains)
+- Clinic portal UI (stays English — Phase C)
+- Rename Profile language picker label to “App & coach language” (policy note; optional polish)
+
+### Related
+
+- Phase A: `done/prompt81.txt`
+- Spec that this closes: `prompts/app/prompt81b.txt` (pointer → this file)
+- Language policy: `.cursor/rules/language-policy.mdc` (updated for Phase B)

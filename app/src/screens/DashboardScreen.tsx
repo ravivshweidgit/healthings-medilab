@@ -39,6 +39,7 @@ import { MentorStrip } from '../components/MentorStrip';
 import { AccountStrip } from '../components/AccountStrip';
 import { ClinicLinkStrip } from '../components/ClinicLinkStrip';
 import { ReportsStrip } from '../components/ReportsStrip';
+import { LocalBackupStrip } from '../components/LocalBackupStrip';
 import { DashboardCollapseHeader } from '../components/DashboardCollapseHeader';
 import { RulesStrip } from '../components/RulesStrip';
 import { NutritionDirectivesStrip } from '../components/NutritionDirectivesStrip';
@@ -107,6 +108,14 @@ import {
   type CompositionSession,
   type MetabolicTrend7dDay,
 } from '../logic/metabolicTrend7d';
+import { formatLocalizedDate, formatLocalizedDateTime } from '../i18n/dateLocale';
+import { getBodyMetricsCopy } from '../i18n/bodyMetricsCopy';
+import { aiChatOpenLabel, aiChatTitle } from '../i18n/aiChatCopy';
+import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
+import {
+  formatRelativeAgoLocalized,
+  getMetabolicStripCopy,
+} from '../i18n/metabolicStripCopy';
 import { metabolicChartHeader } from '../logic/sourceConfigLabels';
 import { awsDataService } from '../services/AwsDataService';
 import { parseCareSensAirExportWithSessions } from '../services/careSensCsv';
@@ -161,21 +170,10 @@ const DASH_SETTINGS_CARD_EXPANDED_KEY = 'dash_settings_card_expanded';
 const BRAND_LOGO = require('../../assets/brand-logo.png');
 const BRAND_HEADER_HEIGHT_FALLBACK = 152;
 
-function formatRelativeAgo(iso: string): string {
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms)) return '';
-  const mins = Math.max(0, Math.round((Date.now() - ms) / 60_000));
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 36) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  return `${days}d ago`;
-}
-
 function latestGlucoseSummary(
   points: { timestamp: string; value: number }[],
   glucoseUnit: 'mgdl' | 'mmol' = 'mgdl',
+  langCode?: string | null,
 ): { valueLabel: string; ago: string } | null {
   let best: { timestamp: string; value: number } | null = null;
   for (const p of points) {
@@ -185,7 +183,7 @@ function latestGlucoseSummary(
   if (!best) return null;
   return {
     valueLabel: formatGlucose(best.value, glucoseUnit),
-    ago: formatRelativeAgo(best.timestamp),
+    ago: formatRelativeAgoLocalized(best.timestamp, langCode),
   };
 }
 
@@ -228,12 +226,15 @@ function formatKg(value: number | null | undefined, decimals = 1, unit: 'kg' | '
   return formatMass(value, unit, decimals);
 }
 
-function formatMeasuredAt(iso: string | null | undefined): string | null {
+function formatMeasuredAt(
+  iso: string | null | undefined,
+  langCode?: string | null,
+): string | null {
   if (!iso) return null;
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return null;
   try {
-    return new Date(t).toLocaleString(undefined, {
+    return formatLocalizedDateTime(t, langCode, {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
@@ -317,6 +318,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [accountExpanded, setAccountExpanded] = useState(false);
   const [clinicExpanded, setClinicExpanded] = useState(false);
   const [reportsExpanded, setReportsExpanded] = useState(false);
+  const [backupExpanded, setBackupExpanded] = useState(false);
 
   const [trendPeriodDays, setTrendPeriodDays] = useState<number>(DEFAULT_TREND_PERIOD_DAYS);
 
@@ -807,8 +809,23 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   );
 
   const glucoseCompactSummary = useMemo(
-    () => latestGlucoseSummary(glucoseData, unitsPrefs.glucose),
-    [glucoseData, unitsPrefs.glucose]
+    () => latestGlucoseSummary(glucoseData, unitsPrefs.glucose, userLanguage.code),
+    [glucoseData, unitsPrefs.glucose, userLanguage.code],
+  );
+
+  const metabolicStripCopy = useMemo(
+    () => getMetabolicStripCopy(userLanguage.code),
+    [userLanguage.code],
+  );
+
+  const bodyMetricsCopy = useMemo(
+    () => getBodyMetricsCopy(userLanguage.code),
+    [userLanguage.code],
+  );
+
+  const profileStripCopy = useMemo(
+    () => getProfileSettingsStripCopy(userLanguage.code),
+    [userLanguage.code],
   );
 
   const metabolicHeader = useMemo(() => {
@@ -817,8 +834,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           glucoseCompactSummary.ago ? ` · ${glucoseCompactSummary.ago}` : ''
         }`
       : null;
-    return metabolicChartHeader(sourceConfig, summaryLine);
-  }, [sourceConfig, glucoseCompactSummary]);
+    return metabolicChartHeader(sourceConfig, summaryLine, userLanguage.code);
+  }, [sourceConfig, glucoseCompactSummary, userLanguage.code]);
 
   const trendCompactSummary = useMemo(
     () => (visibleTrend ? trendWeightSummary(visibleTrend.days, unitsPrefs.mass) : null),
@@ -1055,13 +1072,30 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     manualBodyProfile.age >= 13;
 
   const settingsCardSummary = useMemo(() => {
+    const t = metabolicStripCopy;
+    const code = userLanguage.code;
+    const bareUnits = code === 'he' || code === 'ar';
+    const genderLabel =
+      userGender === 'male'
+        ? t.genderMale
+        : userGender === 'female'
+          ? t.genderFemale
+          : userGender === 'other'
+            ? t.genderOther
+            : null;
     const parts: string[] = [];
-    if (userGender) parts.push(userGender.charAt(0).toUpperCase() + userGender.slice(1));
-    if (heightCm) parts.push(formatHeight(heightCm, unitsPrefs.height));
-    if (userAge != null) parts.push(`${userAge} y`);
-    if (mentors.length > 0) parts.push(`${mentors.length} mentor${mentors.length === 1 ? '' : 's'}`);
-    return parts.length > 0 ? parts.join(' · ') : 'Tap to open';
-  }, [userGender, heightCm, userAge, mentors, unitsPrefs.height]);
+    if (genderLabel) parts.push(genderLabel);
+    if (heightCm) {
+      parts.push(
+        bareUnits && unitsPrefs.height === 'cm'
+          ? String(Math.round(heightCm))
+          : formatHeight(heightCm, unitsPrefs.height),
+      );
+    }
+    if (userAge != null) parts.push(bareUnits ? String(userAge) : t.ageYears(userAge));
+    if (mentors.length > 0) parts.push(t.mentorsCount(mentors.length));
+    return parts.length > 0 ? parts.join(' · ') : t.tapToOpen;
+  }, [userGender, heightCm, userAge, mentors, unitsPrefs.height, metabolicStripCopy, userLanguage.code]);
 
   /** Today's actual macros summed from food entries. */
   const todayActualMacros = useMemo(() => {
@@ -1748,15 +1782,26 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           accessibilityRole="button"
           accessibilityLabel={
             coachMsg
-              ? `Open AI chat, ${coachMsg.actionItems.filter((i) => i.done).length} of ${coachMsg.actionItems.length} action items`
-              : 'Open AI chat with your mentors'
+              ? aiChatOpenLabel(userLanguage.code, {
+                  actionDone: coachMsg.actionItems.filter((i) => i.done).length,
+                  actionTotal: coachMsg.actionItems.length,
+                })
+              : aiChatOpenLabel(userLanguage.code)
           }
         >
           <Text style={styles.nudgeStripIcons} numberOfLines={1}>
             {activeMentorEmojis(mentors)}
           </Text>
           <View style={styles.nudgeStripTextCol}>
-            <Text style={styles.nudgeStripTitle}>AI chat</Text>
+            <Text
+              style={[
+                styles.nudgeStripTitle,
+                (userLanguage.code === 'he' || userLanguage.code === 'ar') &&
+                  styles.nudgeStripTitleRtl,
+              ]}
+            >
+              {aiChatTitle(userLanguage.code)}
+            </Text>
             <Text style={styles.nudgeStripSub} numberOfLines={1} ellipsizeMode="tail">
               {coachMsg
                 ? `${coachMsg.actionItems.filter((i) => i.done).length}/${coachMsg.actionItems.length} actions`
@@ -1856,10 +1901,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   style={styles.bodyScanMetricThird}
                   accessible
                   accessibilityRole="text"
-                  accessibilityLabel={`Weight ${formatKg(displayBodyScan.metrics.weightKg, 1, unitsPrefs.mass)}`}
+                  accessibilityLabel={bodyMetricsCopy.a11yWeight(
+                    formatKg(displayBodyScan.metrics.weightKg, 1, unitsPrefs.mass),
+                  )}
                 >
                   <Text style={styles.bodyScanMetricLabelTriple} accessible={false}>
-                    Weight
+                    {bodyMetricsCopy.weight}
                   </Text>
                   <Text
                     style={styles.bodyScanMetricValueTriple}
@@ -1875,10 +1922,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   style={styles.bodyScanMetricThird}
                   accessible
                   accessibilityRole="text"
-                  accessibilityLabel={`Muscle mass ${formatKg(displayBodyScan.metrics.muscleMassKg, 1, unitsPrefs.mass)}`}
+                  accessibilityLabel={bodyMetricsCopy.a11yMuscle(
+                    formatKg(displayBodyScan.metrics.muscleMassKg, 1, unitsPrefs.mass),
+                  )}
                 >
                   <Text style={styles.bodyScanMetricLabelTriple} accessible={false}>
-                    Muscle
+                    {bodyMetricsCopy.muscle}
                   </Text>
                   <Text
                     style={styles.bodyScanMetricValueTriple}
@@ -1894,10 +1943,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   style={styles.bodyScanMetricThird}
                   accessible
                   accessibilityRole="text"
-                  accessibilityLabel={`Fat mass ${formatKg(displayBodyScan.metrics.fatMassKg, 1, unitsPrefs.mass)}`}
+                  accessibilityLabel={bodyMetricsCopy.a11yFat(
+                    formatKg(displayBodyScan.metrics.fatMassKg, 1, unitsPrefs.mass),
+                  )}
                 >
                   <Text style={styles.bodyScanMetricLabelTriple} accessible={false}>
-                    Fat{displayBodyScan.provenance === 'manual' && displayBodyScan.fatEstimated ? ' (est.)' : ''}
+                    {bodyMetricsCopy.fat}
+                    {displayBodyScan.provenance === 'manual' && displayBodyScan.fatEstimated
+                      ? ` ${bodyMetricsCopy.fatEst}`
+                      : ''}
                   </Text>
                   <Text
                     style={styles.bodyScanMetricValueTriple}
@@ -1924,8 +1978,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   accessible
                   accessibilityRole="text"
                   accessibilityLabel={`BMR ${formatEnergy(displayBodyScan.metrics.bmrKcalDay, unitsPrefs.energy)} per day${
-                    formatMeasuredAt(displayBodyScan.metrics.measuredAt)
-                      ? `, measured ${formatMeasuredAt(displayBodyScan.metrics.measuredAt)}`
+                    formatMeasuredAt(displayBodyScan.metrics.measuredAt, userLanguage.code)
+                      ? `, measured ${formatMeasuredAt(displayBodyScan.metrics.measuredAt, userLanguage.code)}`
                       : ''
                   }`}
                 >
@@ -1937,15 +1991,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                       {formatEnergy(displayBodyScan.metrics.bmrKcalDay, unitsPrefs.energy)}
                     </Text>
                   </View>
-                  {formatMeasuredAt(displayBodyScan.metrics.measuredAt) ? (
+                  {formatMeasuredAt(displayBodyScan.metrics.measuredAt, userLanguage.code) ? (
                     <Text style={styles.bodyScanBmrDate} accessible={false}>
-                      {formatMeasuredAt(displayBodyScan.metrics.measuredAt)}
+                      {formatMeasuredAt(displayBodyScan.metrics.measuredAt, userLanguage.code)}
                     </Text>
                   ) : null}
                 </View>
-              ) : formatMeasuredAt(displayBodyScan.metrics.measuredAt) ? (
+              ) : formatMeasuredAt(displayBodyScan.metrics.measuredAt, userLanguage.code) ? (
                 <Text style={styles.bodyScanMeasured}>
-                  Last measurement · {formatMeasuredAt(displayBodyScan.metrics.measuredAt)}
+                  Last measurement · {formatMeasuredAt(displayBodyScan.metrics.measuredAt, userLanguage.code)}
                 </Text>
               ) : null}
 
@@ -1977,6 +2031,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           onImported={() => { setFoodRefreshKey((k) => k + 1); loadTodayFood(); }}
           macroTarget={macroTarget}
           unitsPrefs={unitsPrefs}
+          lang={userLanguage}
         />
 
         {metabolicHeader.show ? (
@@ -1989,25 +2044,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   cardShadow,
                 ]}
               >
-                <Pressable
-                  style={styles.dashCollapseHeader}
-                  onPress={() => setGlucoseExpanded((v) => !v)}
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: glucoseExpanded }}
-                  accessibilityLabel={
-                    glucoseExpanded ? metabolicHeader.a11yCollapse : metabolicHeader.a11yExpand
-                  }
-                >
-                  <View style={styles.dashCollapseHeaderText}>
-                    <Text style={styles.dashCollapseTitle}>{metabolicHeader.title}</Text>
-                    {!glucoseExpanded ? (
-                      <Text style={styles.dashCollapseSub} numberOfLines={1}>
-                        {metabolicHeader.compactSub}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Text style={styles.dashCollapseChevron}>{glucoseExpanded ? '⌃' : '›'}</Text>
-                </Pressable>
+                <DashboardCollapseHeader
+                  title={metabolicHeader.title}
+                  subtitle={metabolicHeader.compactSub}
+                  expanded={glucoseExpanded}
+                  onToggle={() => setGlucoseExpanded((v) => !v)}
+                  titleRtl={userLanguage.code === 'he' || userLanguage.code === 'ar'}
+                  collapseLabel={metabolicHeader.a11yCollapse}
+                  expandLabel={metabolicHeader.a11yExpand}
+                />
                 {glucoseExpanded ? (
                   <MetabolicChart
                     glucose={
@@ -2021,6 +2066,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     foodEntries={chartMeals}
                     glucoseDisplayUnit={unitsPrefs.glucose}
                     energyDisplayUnit={unitsPrefs.energy}
+                    langCode={userLanguage.code}
                   />
                 ) : null}
               </View>
@@ -2036,35 +2082,25 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               cardShadow,
             ]}
           >
-            <Pressable
-              style={styles.dashCollapseHeader}
-              onPress={() => setTrendExpanded((v) => !v)}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: trendExpanded }}
-              accessibilityLabel={
-                trendExpanded
-                  ? 'Collapse trend analysis and energy'
-                  : 'Expand trend analysis and energy'
+            <DashboardCollapseHeader
+              title={metabolicStripCopy.trendTitle}
+              subtitle={
+                trendCompactSummary
+                  ? `${trendCompactSummary.weightLabel}${
+                      trendCompactSummary.deltaLabel
+                        ? ` · ${trendCompactSummary.deltaLabel}`
+                        : ''
+                    }`
+                  : trendChartLoading
+                    ? metabolicStripCopy.loading
+                    : metabolicStripCopy.tapToOpenCharts
               }
-            >
-              <View style={styles.dashCollapseHeaderText}>
-                <Text style={styles.dashCollapseTitle}>TREND & ENERGY</Text>
-                {!trendExpanded ? (
-                  <Text style={styles.dashCollapseSub} numberOfLines={1}>
-                    {trendCompactSummary
-                      ? `${trendCompactSummary.weightLabel}${
-                          trendCompactSummary.deltaLabel
-                            ? ` · ${trendCompactSummary.deltaLabel}`
-                            : ''
-                        }`
-                      : trendChartLoading
-                        ? 'Loading…'
-                        : 'Tap to open charts'}
-                  </Text>
-                ) : null}
-              </View>
-              <Text style={styles.dashCollapseChevron}>{trendExpanded ? '⌃' : '›'}</Text>
-            </Pressable>
+              expanded={trendExpanded}
+              onToggle={() => setTrendExpanded((v) => !v)}
+              titleRtl={userLanguage.code === 'he' || userLanguage.code === 'ar'}
+              collapseLabel={metabolicStripCopy.a11yCollapseTrend}
+              expandLabel={metabolicStripCopy.a11yExpandTrend}
+            />
             {trendExpanded ? (
               <>
                 {trendError && !useManualWeightTrend ? (
@@ -2088,6 +2124,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     weighInDayCount={manualWeighInDayCount}
                     hideTitle
                     massUnit={unitsPrefs.mass}
+                    langCode={userLanguage.code}
                   />
                 ) : null}
                 {hasEnergyHistory && visibleTrend ? (
@@ -2097,6 +2134,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                       loading={trendChartLoading}
                       eatenKcalByDay={eatenKcalByDay}
                       energyUnit={unitsPrefs.energy}
+                      langCode={userLanguage.code}
                     />
                   </View>
                 ) : null}
@@ -2129,41 +2167,58 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         {/* My Profile + My Targets — single grouped card */}
         <View style={[styles.groupCard, cardShadow, !settingsCardExpanded && styles.groupCardCollapsed]}>
           <DashboardCollapseHeader
-            title="PROFILE & SETTINGS"
+            title={metabolicStripCopy.profileSettingsTitle}
             subtitle={settingsCardSummary}
             expanded={settingsCardExpanded}
             onToggle={() => setSettingsCardExpanded((v) => !v)}
-            style={styles.groupCardCollapseHeader}
-            collapseLabel="Collapse profile and settings"
-            expandLabel="Expand profile and settings"
+            titleRtl={userLanguage.code === 'he' || userLanguage.code === 'ar'}
+            collapseLabel={metabolicStripCopy.a11yCollapseProfileSettings}
+            expandLabel={metabolicStripCopy.a11yExpandProfileSettings}
+            subtitleNumberOfLines={2}
           />
           {settingsCardExpanded ? (
           <>
-          {/* ── My Profile collapsible row ── */}
-          <Pressable
-            style={styles.profileRow}
-            onPress={() => {
+          <DashboardCollapseHeader
+            title={profileStripCopy.myProfile}
+            subtitle={
+              [
+                userGender === 'male'
+                  ? metabolicStripCopy.genderMale
+                  : userGender === 'female'
+                    ? metabolicStripCopy.genderFemale
+                    : userGender === 'other'
+                      ? metabolicStripCopy.genderOther
+                      : null,
+                heightCm
+                  ? userLanguage.code === 'he' || userLanguage.code === 'ar'
+                    ? unitsPrefs.height === 'cm'
+                      ? String(Math.round(heightCm))
+                      : formatHeight(heightCm, unitsPrefs.height)
+                    : formatHeight(heightCm, unitsPrefs.height)
+                  : null,
+                birthdatePicker != null && userAge != null
+                  ? userLanguage.code === 'he' || userLanguage.code === 'ar'
+                    ? String(userAge)
+                    : metabolicStripCopy.ageYears(userAge)
+                  : null,
+                userLanguage.code !== 'en' ? userLanguage.label : null,
+              ]
+                .filter(Boolean)
+                .join(' · ') || 'Tap to set gender, height & birthdate'
+            }
+            expanded={profileExpanded}
+            onToggle={() => {
               // Coerce before expand so the height TextInput never mounts with ft'in" under cm prefs (iOS crash).
               if (!profileExpanded) {
                 setHeightInput(coerceHeightInputForUnit(heightInput, unitsPrefs.height, heightCm));
               }
               setProfileExpanded((e) => !e);
             }}
-          >
-            <Text style={styles.profileRowIcon}>👤</Text>
-            <View style={styles.profileRowInfo}>
-              <Text style={styles.profileRowTitle}>My Profile</Text>
-              <Text style={styles.profileRowSub}>
-                {[
-                  userGender ? userGender.charAt(0).toUpperCase() + userGender.slice(1) : null,
-                  heightCm ? formatHeight(heightCm, unitsPrefs.height) : null,
-                  birthdatePicker ? `${userAge} y` : null,
-                  userLanguage.code !== 'en' ? userLanguage.label : null,
-                ].filter(Boolean).join(' · ') || 'Tap to set gender, height & birthdate'}
-              </Text>
-            </View>
-            <Text style={styles.profileRowChevron}>{profileExpanded ? '⌃' : '›'}</Text>
-          </Pressable>
+            titleRtl={userLanguage.code === 'he' || userLanguage.code === 'ar'}
+            collapseLabel="Collapse my profile"
+            expandLabel="Expand my profile"
+            subtitleNumberOfLines={2}
+          />
 
           {profileExpanded && (
             <DebugErrorBoundary label="My Profile">
@@ -2202,7 +2257,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 onPress={() => setShowDatePickerDialog(true)}
               >
                 <Text style={styles.datePickerBtnText}>
-                  {birthdatePicker.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                  {formatLocalizedDate(birthdatePicker, userLanguage.code, {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
                 </Text>
                 <Text style={styles.datePickerBtnIcon}>📅</Text>
               </Pressable>
@@ -2340,6 +2399,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     userAge={manualBodyProfile.age!}
                     massUnit={unitsPrefs.mass}
                     energyUnit={unitsPrefs.energy}
+                    langCode={userLanguage.code}
                     onSaved={(snap) => {
                       setManualBodySnap(snap);
                       // Don't block Save on trend rebuild (Android HC step fetch is slow).
@@ -2511,6 +2571,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             onToggleExpand={() => setAccountExpanded((e) => !e)}
             onSignedOut={onSignedOut}
             onDataRestored={refreshAfterBackupRestore}
+            lang={userLanguage}
           />
 
           <View style={styles.groupDivider} />
@@ -2518,6 +2579,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             user={user}
             expanded={clinicExpanded}
             onToggleExpand={() => setClinicExpanded((e) => !e)}
+            lang={userLanguage}
           />
 
           <View style={styles.groupDivider} />
@@ -2527,30 +2589,19 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             busy={visitReportBusy}
             visitReportUi={visitReportUi}
             onShareVisitReport={(days) => void handleShareVisitReport(days)}
+            lang={userLanguage}
           />
 
           <View style={styles.groupDivider} />
-          <View style={styles.backupSection}>
-            <Text style={styles.backupTitle}>App Backup</Text>
-            <View style={styles.backupButtonRow}>
-              <Pressable
-                style={[styles.backupButton, backupBusy && styles.backupButtonDisabled]}
-                onPress={handleExportBackup}
-                disabled={backupBusy}
-              >
-                <Text style={styles.backupButtonText}>Export all data</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.backupButton, backupBusy && styles.backupButtonDisabled]}
-                onPress={handleImportBackup}
-                disabled={backupBusy}
-              >
-                <Text style={styles.backupButtonText}>Import all data</Text>
-              </Pressable>
-            </View>
-            {backupBusy ? <ActivityIndicator color={WellnessColors.accentBlue} style={styles.backupSpinner} /> : null}
-            {backupMessage ? <Text style={styles.backupMessage}>{backupMessage}</Text> : null}
-          </View>
+          <LocalBackupStrip
+            expanded={backupExpanded}
+            onToggleExpand={() => setBackupExpanded((e) => !e)}
+            busy={backupBusy}
+            message={backupMessage}
+            onExport={() => void handleExportBackup()}
+            onImport={() => void handleImportBackup()}
+            lang={userLanguage}
+          />
           </>
           ) : null}
         </View>
@@ -2968,17 +3019,17 @@ const styles = StyleSheet.create({
   chartCardBleed: {
     backgroundColor: WellnessColors.surface,
     borderRadius: 24,
-    paddingHorizontal: 8,
-    paddingTop: 6,
+    paddingHorizontal: 14,
+    paddingTop: 14,
     paddingBottom: 4,
     minHeight: 328,
     overflow: 'visible',
   },
   chartCardBleedCollapsed: {
     minHeight: 0,
-    paddingTop: 10,
-    paddingBottom: 10,
-    paddingHorizontal: 12,
+    paddingTop: 14,
+    paddingBottom: 12,
+    paddingHorizontal: 14,
   },
   trendBleed: {
     marginBottom: dashCardGap,
@@ -2988,16 +3039,16 @@ const styles = StyleSheet.create({
   trendCardBleed: {
     backgroundColor: WellnessColors.surface,
     borderRadius: 24,
-    paddingHorizontal: 12,
-    paddingTop: 16,
+    paddingHorizontal: 14,
+    paddingTop: 14,
     paddingBottom: 16,
     minHeight: 320,
     overflow: 'visible',
   },
   trendCardBleedCollapsed: {
     minHeight: 0,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingTop: 14,
+    paddingBottom: 12,
   },
   bmrCardBleed: {
     minHeight: 160,
@@ -3009,34 +3060,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: WellnessColors.gridLine,
-  },
-  dashCollapseHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 2,
-    paddingHorizontal: 4,
-  },
-  dashCollapseHeaderText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  dashCollapseTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    color: WellnessColors.textSecondary,
-  },
-  dashCollapseSub: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: WellnessColors.textPrimary,
-    marginTop: 2,
-  },
-  dashCollapseChevron: {
-    fontSize: 18,
-    color: WellnessColors.textSecondary,
-    paddingHorizontal: 4,
   },
   trendErrorText: {
     color: WellnessColors.accentRed,
@@ -3178,6 +3201,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: WellnessColors.textPrimary,
   },
+  nudgeStripTitleRtl: {
+    writingDirection: 'rtl',
+  },
   nudgeStripSub: {
     fontSize: 12,
     fontWeight: '500',
@@ -3246,91 +3272,23 @@ const styles = StyleSheet.create({
   },
   groupCard: {
     backgroundColor: WellnessColors.surface,
-    borderRadius: 20,
+    borderRadius: 24,
     marginBottom: dashCardGap,
     overflow: 'hidden',
+    paddingHorizontal: 14,
+    paddingTop: 14,
   },
   groupCardCollapsed: {
-    paddingBottom: 2,
-  },
-  groupCardCollapseHeader: {
-    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
   groupDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: WellnessColors.gridLine,
-    marginHorizontal: 16,
-  },
-  backupSection: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 10,
-  },
-  backupTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: WellnessColors.textPrimary,
-  },
-  backupButtonRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  backupButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: WellnessColors.accentBlue,
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: WellnessColors.surface,
-  },
-  backupButtonDisabled: {
-    opacity: 0.6,
-  },
-  backupButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: WellnessColors.accentBlue,
-  },
-  backupSpinner: {
-    marginTop: 2,
-  },
-  backupMessage: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: WellnessColors.textSecondary,
-  },
-  profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
-  },
-  profileRowIcon: {
-    fontSize: 24,
-  },
-  profileRowInfo: {
-    flex: 1,
-  },
-  profileRowTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: WellnessColors.textPrimary,
-  },
-  profileRowSub: {
-    fontSize: 12,
-    color: WellnessColors.textSecondary,
-    marginTop: 2,
-  },
-  profileRowChevron: {
-    fontSize: 20,
-    color: WellnessColors.textSecondary,
-    fontWeight: '300',
+    marginHorizontal: 4,
+    marginVertical: 2,
   },
   profileBody: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 4,
     paddingBottom: 16,
   },
   heightModalBackdrop: {

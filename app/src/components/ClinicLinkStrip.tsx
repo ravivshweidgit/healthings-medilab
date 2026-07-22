@@ -30,11 +30,15 @@ import {
 import { fetchMyLatestSyncMeta, type PublicSyncBlob } from '../services/SyncApiService';
 import { loadCachedApprovedShares, saveCachedApprovedShares } from '../services/ShareCacheService';
 import { WellnessColors } from '../theme/wellness';
+import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
+import { DashboardCollapseHeader } from './DashboardCollapseHeader';
+import type { UserLanguage } from '../services/TargetService';
 
 type Props = {
   user: AuthUser;
   expanded: boolean;
   onToggleExpand: () => void;
+  lang?: UserLanguage | null;
 };
 
 const L = {
@@ -62,7 +66,8 @@ const L = {
   addAccount: 'Request access for account',
 } as const;
 
-export function ClinicLinkStrip({ user, expanded, onToggleExpand }: Props) {
+export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props) {
+  const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const [busy, setBusy] = useState(false);
   const [mentorEmail, setMentorEmail] = useState('');
   const [pending, setPending] = useState<AccountShare[]>([]);
@@ -122,11 +127,15 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand }: Props) {
 
   const headerSub = useMemo(() => {
     if (approved.length === 0) {
-      return pending.length > 0 ? L.waiting : L.noShares;
+      return pending.length > 0
+        ? profileTitles.waitingApproval
+        : profileTitles.noAccountsWhitelisted;
     }
-    if (approved.length === 1) return `${L.sharesWith} ${clinicDisplayLabel(approved[0])}`;
-    return `${approved.length} accounts whitelisted`;
-  }, [approved, pending.length]);
+    if (approved.length === 1) {
+      return `${profileTitles.sharesWith} ${clinicDisplayLabel(approved[0])}`;
+    }
+    return profileTitles.accountsWhitelisted(approved.length);
+  }, [approved, pending.length, profileTitles]);
 
   if (user.role === 'mentor') {
     return (
@@ -141,16 +150,16 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <Pressable style={styles.headerRow} onPress={onToggleExpand}>
-        <Text style={styles.headerIcon}>🔗</Text>
-        <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>{L.title}</Text>
-          <Text style={styles.headerSub} numberOfLines={2}>
-            {headerSub}
-          </Text>
-        </View>
-        <Text style={styles.chevron}>{expanded ? '⌃' : '›'}</Text>
-      </Pressable>
+      <DashboardCollapseHeader
+        title={profileTitles.dataSharing}
+        subtitle={headerSub}
+        expanded={expanded}
+        onToggle={onToggleExpand}
+        titleRtl={lang?.code === 'he' || lang?.code === 'ar'}
+        collapseLabel="Collapse data sharing"
+        expandLabel="Expand data sharing"
+        subtitleNumberOfLines={2}
+      />
 
       {expanded && (
         <View style={styles.body}>
@@ -304,31 +313,10 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand }: Props) {
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  headerIcon: { fontSize: 22 },
-  headerInfo: { flex: 1 },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: WellnessColors.textPrimary,
-  },
-  headerSub: {
-    fontSize: 13,
-    color: WellnessColors.textSecondary,
-    marginTop: 2,
-  },
-  chevron: {
-    fontSize: 18,
-    color: WellnessColors.textSecondary,
-  },
-  body: { marginTop: 12, gap: 10 },
+  body: { marginTop: 4, gap: 10, paddingHorizontal: 4 },
   hint: { fontSize: 13, color: WellnessColors.textSecondary, lineHeight: 18 },
   sectionLabel: { fontSize: 14, fontWeight: '600', color: WellnessColors.textPrimary, marginTop: 4 },
   input: {

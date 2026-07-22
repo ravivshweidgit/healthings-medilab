@@ -27,6 +27,8 @@ import {
   type UserRulesHistoryEntry,
 } from '../services/UserRulesHistoryService';
 import { WellnessColors } from '../theme/wellness';
+import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
+import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 
 type Props = {
   userRules: UserRules | null;
@@ -38,6 +40,7 @@ type Props = {
 };
 
 export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpand, lang }: Props) {
+  const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(userRules?.rawText ?? '');
   const [loading, setLoading] = useState(false);
@@ -114,14 +117,15 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
 
   return (
     <View style={styles.wrap}>
-      <Pressable style={styles.headerRow} onPress={onToggleExpand}>
-        <Text style={styles.headerIcon}>📋</Text>
-        <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>My Rules</Text>
-          <Text style={styles.headerSub} numberOfLines={1}>{headerSub}</Text>
-        </View>
-        <Text style={styles.chevron}>{expanded ? '⌃' : '›'}</Text>
-      </Pressable>
+      <DashboardCollapseHeader
+        title={profileTitles.myRules}
+        subtitle={headerSub}
+        expanded={expanded}
+        onToggle={onToggleExpand}
+        titleRtl={lang?.code === 'he' || lang?.code === 'ar'}
+        collapseLabel="Collapse my rules"
+        expandLabel="Expand my rules"
+      />
 
       {expanded && (
         <View style={styles.body}>
@@ -244,14 +248,7 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
 
 const styles = StyleSheet.create({
   wrap: {},
-  headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
-  headerIcon: { fontSize: 24 },
-  headerInfo: { flex: 1 },
-  headerTitle: { fontSize: 14, fontWeight: '700', color: WellnessColors.textPrimary },
-  headerSub: { fontSize: 12, color: WellnessColors.textSecondary, marginTop: 2 },
-  chevron: { fontSize: 20, color: WellnessColors.textSecondary, fontWeight: '300' },
-
-  body: { paddingHorizontal: 16, paddingBottom: 16 },
+  body: { paddingHorizontal: 4, paddingBottom: 12, paddingTop: 4 },
   sectionLabel: { fontSize: 12, fontWeight: '700', color: WellnessColors.textSecondary, marginBottom: 6 },
   constraintLine: { fontSize: 13, color: '#2E7D32', marginBottom: 4 },
   originalText: { fontSize: 11, color: WellnessColors.textSecondary, marginTop: 10, fontStyle: 'italic' },

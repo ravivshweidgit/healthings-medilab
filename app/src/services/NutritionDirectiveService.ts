@@ -2,6 +2,7 @@
  * Nutritionist session PDF imports — verbatim plain text on device (unbounded; user deletes).
  */
 
+import { formatShortDate } from '../i18n/dateLocale';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { formatActiveDirectiveBlock } from '../logic/nutritionDirectiveContext';
 
@@ -164,11 +165,11 @@ export async function getNutritionDirectiveAiContext(): Promise<string | null> {
   return formatActiveDirectiveBlock(active);
 }
 
-export function formatDirectiveDate(d: NutritionDirective): string {
+export function formatDirectiveDate(d: NutritionDirective, langCode?: string | null): string {
   const iso = d.sessionDate ?? d.importedAt;
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return iso.slice(0, 10);
-  return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatShortDate(t, langCode);
 }
 
 export function directivePreviewLine(d: NutritionDirective): string | null {

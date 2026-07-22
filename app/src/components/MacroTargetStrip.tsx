@@ -13,10 +13,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { formatLocalizedDate, formatLocalizedTime } from '../i18n/dateLocale';
 import { suggestMacroTargets, confirmSavedMacroTarget, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
 import { buildAndExportMacroPrompt } from '../services/macroPromptExport';
 import { RulesAdviceBanner } from './RulesAdviceBanner';
 import { MacroClinicalProfileBanner } from './MacroClinicalProfileBanner';
+import { DashboardCollapseHeader } from './DashboardCollapseHeader';
+import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import {
   getMacroTarget,
   getMentors,
@@ -92,18 +95,30 @@ function formatMacroUpdatedAt(iso: string | undefined, lang?: UserLanguage | nul
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return null;
   const d = new Date(t);
-  const he = lang?.code === 'he';
+  const code = (lang?.code || 'en').toLowerCase().slice(0, 2);
   const now = new Date();
   const sameDay =
     d.getFullYear() === now.getFullYear() &&
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate();
-  const time = d.toLocaleTimeString(he ? 'he-IL' : undefined, { hour: '2-digit', minute: '2-digit' });
+  const time = formatLocalizedTime(d, code, { hour: '2-digit', minute: '2-digit' });
   if (sameDay) {
-    return he ? `עודכן היום ${time}` : `Updated today ${time}`;
+    if (code === 'he') return `עודכן היום ${time}`;
+    if (code === 'ar') return `حُدّث اليوم ${time}`;
+    if (code === 'es') return `Actualizado hoy ${time}`;
+    if (code === 'fr') return `Mis à jour aujourd'hui ${time}`;
+    if (code === 'de') return `Heute aktualisiert ${time}`;
+    if (code === 'ru') return `Обновлено сегодня ${time}`;
+    return `Updated today ${time}`;
   }
-  const date = d.toLocaleDateString(he ? 'he-IL' : undefined, { day: 'numeric', month: 'short' });
-  return he ? `עודכן ${date} ${time}` : `Updated ${date} ${time}`;
+  const date = formatLocalizedDate(d, code, { day: 'numeric', month: 'short' });
+  if (code === 'he') return `עודכן ${date} ${time}`;
+  if (code === 'ar') return `حُدّث ${date} ${time}`;
+  if (code === 'es') return `Actualizado ${date} ${time}`;
+  if (code === 'fr') return `Mis à jour ${date} ${time}`;
+  if (code === 'de') return `Aktualisiert ${date} ${time}`;
+  if (code === 'ru') return `Обновлено ${date} ${time}`;
+  return `Updated ${date} ${time}`;
 }
 
 // ─── Macro bar ────────────────────────────────────────────────────────────────
@@ -235,6 +250,7 @@ export function MacroTargetStrip({
   analyzeRequestId, expanded, onToggleExpand, lang,
   unitsPrefs = DEFAULT_UNITS_PREFS,
 }: MacroTargetProps) {
+  const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const [screen, setScreen] = useState<Screen>('idle');
   const [target, setTarget] = useState<DailyMacroTarget | null>(null);
   const [suggestion, setSuggestion] = useState<DailyMacroTarget | null>(null);
@@ -453,17 +469,18 @@ export function MacroTargetStrip({
 
   return (
     <View style={styles.wrap}>
-      <Pressable style={styles.headerRow} onPress={onToggleExpand}>
-        <Text style={styles.headerIcon}>🥗</Text>
-        <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>My Macros</Text>
-          <Text style={styles.headerSub} numberOfLines={1}>{headerSub}</Text>
-          {updatedLabel ? (
-            <Text style={styles.headerUpdated} numberOfLines={1}>{updatedLabel}</Text>
-          ) : null}
-        </View>
-        <Text style={styles.chevron}>{expanded ? '⌃' : '›'}</Text>
-      </Pressable>
+      <DashboardCollapseHeader
+        title={profileTitles.myMacros}
+        subtitle={
+          updatedLabel ? `${headerSub} · ${updatedLabel}` : headerSub
+        }
+        expanded={expanded}
+        onToggle={onToggleExpand}
+        titleRtl={lang?.code === 'he' || lang?.code === 'ar'}
+        collapseLabel="Collapse my macros"
+        expandLabel="Expand my macros"
+        subtitleNumberOfLines={2}
+      />
 
       {expanded && (
         <View style={styles.body}>
@@ -694,15 +711,7 @@ export function MacroTargetStrip({
 
 const styles = StyleSheet.create({
   wrap: {},
-  headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
-  headerIcon: { fontSize: 24 },
-  headerInfo: { flex: 1 },
-  headerTitle: { fontSize: 14, fontWeight: '700', color: WellnessColors.textPrimary },
-  headerSub: { fontSize: 12, color: WellnessColors.textSecondary, marginTop: 2 },
-  headerUpdated: { fontSize: 11, color: WellnessColors.accentGreen, marginTop: 2, fontWeight: '600' },
-  chevron: { fontSize: 20, color: WellnessColors.textSecondary, fontWeight: '300' },
-
-  body: { paddingHorizontal: 16, paddingBottom: 16 },
+  body: { paddingHorizontal: 4, paddingBottom: 12, paddingTop: 4 },
   h2oHint: { fontSize: 11, color: WellnessColors.textSecondary, marginTop: -2, marginBottom: 10 },
   editTargetsBtn: { marginBottom: 10 },
 

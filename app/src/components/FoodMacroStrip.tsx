@@ -31,11 +31,15 @@ import {
   type WaterEntry,
 } from '../services/WaterPersistenceService';
 import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
+import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import type { DailyMacroTarget } from '../services/TargetService';
 import { getMacroTargetForDay, resolveFiberTarget_g, resolveNetCarbTarget_g } from '../services/TargetService';
 import { deriveNetCarb_g } from '../logic/macroFiberCoupling';
 import type { UnitsPrefs } from '../services/UnitsPreferenceService';
 import { DEFAULT_UNITS_PREFS } from '../services/UnitsPreferenceService';
+import type { UserLanguage } from '../services/TargetService';
+import { DEFAULT_LANGUAGE } from '../services/TargetService';
+import { formatFoodLogDayLabel } from '../i18n/dateLocale';
 import {
   displayToKcal,
   displayToMl,
@@ -47,6 +51,22 @@ import {
   parseLocaleNumber,
   waterUnitLabel,
 } from '../logic/unitConvert';
+
+/** Food Log strip header — coach/meals language (7 locales). */
+const FOOD_LOG_TITLE: Record<string, string> = {
+  en: 'FOOD LOG',
+  he: 'יומן ארוחות',
+  es: 'DIARIO DE COMIDAS',
+  fr: 'JOURNAL DES REPAS',
+  de: 'ESSENSTAGEBUCH',
+  ar: 'سجل الوجبات',
+  ru: 'ДНЕВНИК ПИТАНИЯ',
+};
+
+function foodLogTitle(lang: UserLanguage | null | undefined): string {
+  const code = lang?.code ?? 'en';
+  return FOOD_LOG_TITLE[code] ?? FOOD_LOG_TITLE.en;
+}
 
 /** Persist Food Log expand so it matches glucose / trend chart prefs. */
 const FOOD_LOG_EXPANDED_KEY = 'dash_food_log_expanded';
@@ -64,16 +84,11 @@ function addLocalDays(ms: number, delta: number): number {
   return d.getTime();
 }
 
-function formatDatePart(ms: number): string {
-  return new Date(ms).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-}
-
-function formatDayLabel(ms: number): string {
-  const todayKey = foodLogDayKey(Date.now());
-  const dayKey = foodLogDayKey(ms);
-  const datePart = formatDatePart(ms);
-  if (dayKey === todayKey) return `Today - ${datePart}`;
-  return datePart;
+function formatDayLabel(ms: number, langCode?: string | null): string {
+  return formatFoodLogDayLabel(ms, langCode, {
+    todayDayKey: foodLogDayKey(Date.now()),
+    dayKey: foodLogDayKey(ms),
+  });
 }
 
 type Props = {
@@ -94,6 +109,8 @@ type Props = {
   macroTarget?: DailyMacroTarget | null;
   /** Display units (water / energy). Values still stored as ml / kcal. */
   unitsPrefs?: UnitsPrefs;
+  /** Coach & meals language — Food Log title. */
+  lang?: UserLanguage | null;
 };
 
 /** Parent awaits `reload()` after meal save so chips match AsyncStorage before the editor closes. */
@@ -320,6 +337,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
     onImported,
     macroTarget,
     unitsPrefs = DEFAULT_UNITS_PREFS,
+    lang = DEFAULT_LANGUAGE,
   },
   ref,
 ) {
@@ -576,30 +594,32 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   const energyBarUnit = energyU === 'kj' ? 'kj' : 'kcal';
   const energyBarLabel = energyU === 'kj' ? 'kJ' : 'kcal';
 
+  const title = foodLogTitle(lang);
+  const titleRtl = lang?.code === 'he' || lang?.code === 'ar';
+  const balanceNoSign = titleRtl;
+  const collapsedSub =
+    !expanded ? (
+      <>
+        {formatDayLabel(selectedMs, lang?.code)}
+        {balance != null ? (
+          <Text style={{ color: isDeficit ? '#2E7D32' : '#C62828' }}>
+            {` · ${balanceNoSign ? '' : isDeficit ? '−' : '+'}${disp(Math.abs(balance)).toLocaleString()} ${eLab}`}
+          </Text>
+        ) : null}
+      </>
+    ) : null;
+
   return (
     <View style={[styles.card, !expanded && styles.cardCollapsed, cardShadow]}>
-      <Pressable
-        style={styles.collapseHeader}
-        onPress={() => setExpanded((v) => !v)}
-        accessibilityRole="button"
-        accessibilityState={{ expanded }}
-        accessibilityLabel={expanded ? 'Collapse Food Log' : 'Expand Food Log'}
-      >
-        <View style={styles.collapseHeaderText}>
-          <Text style={styles.collapseTitle}>FOOD LOG</Text>
-          {!expanded ? (
-            <Text style={styles.collapseSub} numberOfLines={1}>
-              {formatDayLabel(selectedMs)}
-              {balance != null ? (
-                <Text style={{ color: isDeficit ? '#2E7D32' : '#C62828' }}>
-                  {` · ${isDeficit ? '−' : '+'}${disp(Math.abs(balance)).toLocaleString()} ${eLab}`}
-                </Text>
-              ) : null}
-            </Text>
-          ) : null}
-        </View>
-        <Text style={styles.collapseChevron}>{expanded ? '⌃' : '›'}</Text>
-      </Pressable>
+      <DashboardCollapseHeader
+        title={title}
+        subtitle={collapsedSub}
+        expanded={expanded}
+        onToggle={() => setExpanded((v) => !v)}
+        titleRtl={titleRtl}
+        collapseLabel={`Collapse ${title}`}
+        expandLabel={`Expand ${title}`}
+      />
 
       {expanded ? (
       <>
@@ -608,7 +628,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
         <Pressable style={styles.dateNavBtn} onPress={() => shiftDay(-1)} hitSlop={8} accessibilityLabel="Previous day">
           <Text style={styles.dateNavArrow}>‹</Text>
         </Pressable>
-        <Text style={styles.dateLabel}>{formatDayLabel(selectedMs)}</Text>
+        <Text style={styles.dateLabel}>{formatDayLabel(selectedMs, lang?.code)}</Text>
         <Pressable
           style={[styles.dateNavBtn, isToday && styles.dateNavBtnDisabled]}
           onPress={() => {
@@ -1028,34 +1048,6 @@ const styles = StyleSheet.create({
   },
   cardCollapsed: {
     paddingBottom: 12,
-  },
-  collapseHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 2,
-    paddingHorizontal: 4,
-  },
-  collapseHeaderText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  collapseTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    color: WellnessColors.textSecondary,
-  },
-  collapseSub: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: WellnessColors.textPrimary,
-    marginTop: 2,
-  },
-  collapseChevron: {
-    fontSize: 18,
-    color: WellnessColors.textSecondary,
-    paddingHorizontal: 4,
   },
   dateNavRow: {
     flexDirection: 'row',

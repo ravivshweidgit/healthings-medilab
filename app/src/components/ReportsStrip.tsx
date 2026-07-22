@@ -1,6 +1,6 @@
 /**
  * My Profile — collapsible Reports strip (Visit report today; room for more later).
- * Strip chrome is English only (see .cursor/rules/language-policy.mdc).
+ * Strip chrome title follows DashboardCollapseHeader (same as Food Log / glucose).
  */
 
 import React, { useMemo } from 'react';
@@ -16,6 +16,9 @@ import {
   type VisitReportDayCount,
 } from '../services/visitReportService';
 import { WellnessColors } from '../theme/wellness';
+import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
+import { DashboardCollapseHeader } from './DashboardCollapseHeader';
+import type { UserLanguage } from '../services/TargetService';
 
 export type VisitReportUiCopy = {
   title: string;
@@ -34,6 +37,7 @@ type Props = {
   busy: boolean;
   visitReportUi: VisitReportUiCopy;
   onShareVisitReport: (days: VisitReportDayCount) => void;
+  lang?: UserLanguage | null;
 };
 
 export function ReportsStrip({
@@ -42,33 +46,25 @@ export function ReportsStrip({
   busy,
   visitReportUi,
   onShareVisitReport,
+  lang,
 }: Props) {
+  const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const headerSub = useMemo(
-    () =>
-      `Visit report · ${VISIT_REPORT_DAY_OPTIONS.join(' / ')} days`,
+    () => VISIT_REPORT_DAY_OPTIONS.join(' / '),
     [],
   );
 
   return (
     <View style={styles.wrap}>
-      <Pressable
-        style={styles.headerRow}
-        onPress={onToggleExpand}
-        accessibilityRole="button"
-        accessibilityState={{ expanded }}
-        accessibilityLabel={expanded ? 'Collapse Reports' : 'Expand Reports'}
-      >
-        <Text style={styles.headerIcon}>📄</Text>
-        <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>Reports</Text>
-          {!expanded ? (
-            <Text style={styles.headerSub} numberOfLines={2}>
-              {headerSub}
-            </Text>
-          ) : null}
-        </View>
-        <Text style={styles.chevron}>{expanded ? '⌃' : '›'}</Text>
-      </Pressable>
+      <DashboardCollapseHeader
+        title={profileTitles.reports}
+        subtitle={headerSub}
+        expanded={expanded}
+        onToggle={onToggleExpand}
+        titleRtl={lang?.code === 'he' || lang?.code === 'ar'}
+        collapseLabel="Collapse Reports"
+        expandLabel="Expand Reports"
+      />
 
       {expanded ? (
         <View style={styles.body}>
@@ -101,38 +97,13 @@ export function ReportsStrip({
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  headerIcon: {
-    fontSize: 18,
-  },
-  headerInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-  headerTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: WellnessColors.textPrimary,
-  },
-  headerSub: {
-    fontSize: 13,
-    color: WellnessColors.textSecondary,
-    marginTop: 2,
-  },
-  chevron: {
-    fontSize: 18,
-    color: WellnessColors.textSecondary,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
   body: {
-    marginTop: 12,
+    marginTop: 8,
     gap: 8,
+    paddingHorizontal: 4,
   },
   sectionTitle: {
     fontSize: 14,

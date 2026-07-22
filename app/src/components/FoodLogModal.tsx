@@ -31,6 +31,7 @@ import {
   type GeminiTurn,
 } from '../services/GeminiService';
 import { saveMeal, deleteMeal, foodLogDayKey, getDailyMacros, getRecentMeals, type FoodEntry } from '../services/FoodLogService';
+import { formatLocalizedDate, formatLocalizedTime } from '../i18n/dateLocale';
 import { formatFoodLogHistoryForMealAi } from '../logic/foodLogMealHistory';
 import { buildMealMergePreview, type MealMergePreview } from '../logic/mealPhotoMerge';
 import {
@@ -78,16 +79,16 @@ type Props = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function formatTime(ms: number): string {
-  return new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+function formatTime(ms: number, langCode?: string | null): string {
+  return formatLocalizedTime(ms, langCode, { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatMealDateTime(ms: number): string {
+function formatMealDateTime(ms: number, langCode?: string | null): string {
   const mealDay = foodLogDayKey(ms);
   const todayDay = foodLogDayKey(Date.now());
-  const time = formatTime(ms);
+  const time = formatTime(ms, langCode);
   if (mealDay === todayDay) return time;
-  const date = new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const date = formatLocalizedDate(ms, langCode, { month: 'short', day: 'numeric' });
   return `${date}, ${time}`;
 }
 
@@ -1094,7 +1095,7 @@ export function FoodLogModal({
 
                 <Pressable style={styles.timeRow} onPress={openMealDateTimePicker}>
                   <Text style={styles.timeLabel}>🕐 Date & time:</Text>
-                  <Text style={styles.timeValue}>{formatMealDateTime(mealTime)}</Text>
+                  <Text style={styles.timeValue}>{formatMealDateTime(mealTime, lang?.code)}</Text>
                   <Text style={styles.timeEdit}>Edit</Text>
                 </Pressable>
                 {showTimePicker && Platform.OS === 'ios' && (

@@ -96,6 +96,7 @@ import {
 } from '../services/WithingsApiService';
 import { loadWithingsStore } from '../services/WithingsPersistenceService';
 import { helpUrl } from '../i18n/helpUrls';
+import { formatLocalizedDate } from '../i18n/dateLocale';
 import {
   LANGUAGE_GATE_OPTIONS,
 } from '../i18n/languageGate';
@@ -1448,7 +1449,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
               <Text style={[styles.fieldLabel, copyAlign]}>{t.body.birthDate}</Text>
               <Pressable style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
                 <Text style={styles.dateBtnText}>
-                  {birthdate.toLocaleDateString(undefined, {
+                  {formatLocalizedDate(birthdate, language.code, {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',

@@ -1,7 +1,9 @@
 /**
  * English chrome labels for source_config summary (read-only hints).
+ * Metabolic chart strip titles/status follow coach language (prompt87).
  */
 
+import { getMetabolicStripCopy } from '../i18n/metabolicStripCopy';
 import {
   isHealthConnectActivity,
   isHealthKitActivity,
@@ -50,11 +52,14 @@ export type MetabolicChartHeader = {
 
 /**
  * Dashboard metabolic chart card: show for CGM and/or watch activity (Withings / phone health).
+ * Titles + status phrases use coach language; brand names stay English.
  */
 export function metabolicChartHeader(
   config: SourceConfig | null | undefined,
   glucoseSummaryLine: string | null,
+  langCode?: string | null,
 ): MetabolicChartHeader {
+  const t = getMetabolicStripCopy(langCode);
   const glucoseOn = isLiveGlucoseSource(config?.glucose ?? 'none');
   const activityWithings = config?.activity === 'withings';
   const activityHc = isHealthConnectActivity(config?.activity ?? 'none');
@@ -65,10 +70,10 @@ export function metabolicChartHeader(
   if (!show) {
     return {
       show: false,
-      title: 'GLUCOSE',
+      title: t.glucoseTitle,
       compactSub: '',
-      a11yExpand: 'Expand chart',
-      a11yCollapse: 'Collapse chart',
+      a11yExpand: t.a11yExpandGlucose,
+      a11yCollapse: t.a11yCollapseGlucose,
     };
   }
 
@@ -84,22 +89,24 @@ export function metabolicChartHeader(
       config?.glucose === 'healthkit' ? 'Apple Health' : 'Health Connect';
     const compactSub =
       glucoseSummaryLine ??
-      (activityHint ? `No reading · ${activityHint}` : `No reading · ${glucoseBus}`);
+      (activityHint
+        ? `${t.noReading} · ${activityHint}`
+        : `${t.noReading} · ${glucoseBus}`);
     return {
       show: true,
-      title: 'GLUCOSE',
+      title: t.glucoseTitle,
       compactSub,
-      a11yExpand: 'Expand glucose chart',
-      a11yCollapse: 'Collapse glucose chart',
+      a11yExpand: t.a11yExpandGlucose,
+      a11yCollapse: t.a11yCollapseGlucose,
     };
   }
 
   const activityLabel = activityWithings ? 'Withings watch' : phoneHealthLabel;
   return {
     show: true,
-    title: 'ACTIVITY',
-    compactSub: `${activityLabel} · no CGM`,
-    a11yExpand: 'Expand activity chart',
-    a11yCollapse: 'Collapse activity chart',
+    title: t.activityTitle,
+    compactSub: `${activityLabel} · ${t.noCgm}`,
+    a11yExpand: t.a11yExpandActivity,
+    a11yCollapse: t.a11yCollapseActivity,
   };
 }

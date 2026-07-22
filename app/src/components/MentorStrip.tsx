@@ -20,10 +20,11 @@ import {
   formatActiveMentorsHeader,
   mentorCardSubtitle,
   mentorPossessiveLabel,
-  mentorsStripTitle,
 } from '../logic/mentorLabels';
 import { usesMentorGenderUi } from '../i18n/quickStartCopy';
+import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import { WellnessColors } from '../theme/wellness';
+import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 
 const MENTOR_TYPES: MentorType[] = ['doctor', 'nutritionist', 'coach'];
 
@@ -107,7 +108,7 @@ export function MentorStrip({
   };
 
   const headerSub = formatActiveMentorsHeader(mentors, lang, mentorGender, userGender);
-  const stripTitle = mentorsStripTitle(lang);
+  const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const selectHint =
     lang?.code === 'he' ? 'בחר/י יועצים (לפחות אחד)' : 'Select your AI advisors (at least one)';
   const reviewAfterMeal =
@@ -125,14 +126,16 @@ export function MentorStrip({
 
   return (
     <View style={styles.wrap}>
-      <Pressable style={styles.headerRow} onPress={onToggleExpand}>
-        <Text style={styles.headerIcon}>🧑‍⚕️</Text>
-        <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>{stripTitle}</Text>
-          <Text style={styles.headerSub}>{headerSub}</Text>
-        </View>
-        <Text style={styles.chevron}>{expanded ? '⌃' : '›'}</Text>
-      </Pressable>
+      <DashboardCollapseHeader
+        title={profileTitles.myMentors}
+        subtitle={headerSub}
+        expanded={expanded}
+        onToggle={onToggleExpand}
+        titleRtl={lang?.code === 'he' || lang?.code === 'ar'}
+        collapseLabel="Collapse mentors"
+        expandLabel="Expand mentors"
+        subtitleNumberOfLines={2}
+      />
 
       {expanded && (
         <View style={styles.body}>
@@ -213,14 +216,7 @@ export function MentorStrip({
 
 const styles = StyleSheet.create({
   wrap: {},
-  headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
-  headerIcon: { fontSize: 24 },
-  headerInfo: { flex: 1 },
-  headerTitle: { fontSize: 14, fontWeight: '700', color: WellnessColors.textPrimary },
-  headerSub: { fontSize: 12, color: WellnessColors.textSecondary, marginTop: 2 },
-  chevron: { fontSize: 20, color: WellnessColors.textSecondary, fontWeight: '300' },
-
-  body: { paddingHorizontal: 16, paddingBottom: 16 },
+  body: { paddingHorizontal: 4, paddingBottom: 12, paddingTop: 4 },
   bodyHint: { fontSize: 12, color: WellnessColors.textSecondary, marginBottom: 12 },
   cardsRow: { flexDirection: 'row', gap: 8 },
   card: {

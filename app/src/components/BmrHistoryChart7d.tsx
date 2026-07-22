@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { curveMonotoneX, line } from 'd3-shape';
+import { formatAxisDayLabel } from '../i18n/dateLocale';
 import { resolveBmrWeekTrend, withingsChartBmrKcal, type MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
 import { WellnessColors } from '../theme/wellness';
 import { energyUnitLabel, kcalToDisplay, type EnergyUnit } from '../logic/unitConvert';
@@ -39,16 +40,13 @@ type Props = {
   /** Food log kcal eaten keyed by dayKey. */
   eatenKcalByDay?: Record<string, number>;
   energyUnit?: EnergyUnit;
+  /** Coach language — axis date labels. */
+  langCode?: string | null;
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function axisDayLabel(dayKey: string, n: number): string {
-  const parts = dayKey.split('-').map(Number);
-  if (parts.length !== 3 || parts.some((v) => !Number.isFinite(v))) return dayKey;
-  const [y, mo, da] = parts;
-  const d = new Date(y, mo - 1, da);
-  if (n <= 8) return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+function axisDayLabel(dayKey: string, n: number, langCode?: string | null): string {
+  return formatAxisDayLabel(dayKey, langCode, n);
 }
 
 function pickTickIndices(n: number, maxTicks: number): number[] {
@@ -120,7 +118,7 @@ function stripAvgLabel(avg: number | null, energyUnit: EnergyUnit): string {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 'kcal' }: Props) {
+export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 'kcal', langCode }: Props) {
   const { width } = useWindowDimensions();
   const chartW = Math.max(280, width - 40);
 
@@ -271,7 +269,7 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
       .filter(({ i }) => tickIdx.has(i))
       .map(({ d, i }) => ({
         x: xAtIndex(i, plotLeft, innerW, n),
-        label: axisDayLabel(d.dayKey, n),
+        label: axisDayLabel(d.dayKey, n, langCode),
         key: d.dayKey,
       }));
 
@@ -304,7 +302,7 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
       avgBalance,
       eLab,
     };
-  }, [chartW, days, eatenKcalByDay, energyUnit]);
+  }, [chartW, days, eatenKcalByDay, energyUnit, langCode]);
 
   // ── Loading / empty states ───────────────────────────────────────────────
   if (loading) {

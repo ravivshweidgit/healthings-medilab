@@ -19,6 +19,7 @@ import {
   type ManualBodySnapshot,
 } from '../services/ManualBodyService';
 import type { Gender } from '../services/TargetService';
+import { getBodyMetricsCopy } from '../i18n/bodyMetricsCopy';
 import { WellnessColors } from '../theme/wellness';
 import {
   displayToKcal,
@@ -45,6 +46,7 @@ type Props = {
   userAge: number;
   massUnit?: MassUnit;
   energyUnit?: EnergyUnit;
+  langCode?: string | null;
   onSaved: (snap: ManualBodySnapshot) => void | Promise<void>;
 };
 
@@ -64,8 +66,10 @@ export function ManualBodyProfileSection({
   userAge,
   massUnit = 'kg',
   energyUnit = 'kcal',
+  langCode,
   onSaved,
 }: Props) {
+  const bodyLabels = getBodyMetricsCopy(langCode);
   const [weightInput, setWeightInput] = useState('');
   const [compUnit, setCompUnit] = useState<CompUnit>('pct');
   const [fatInput, setFatInput] = useState('');
@@ -346,7 +350,7 @@ export function ManualBodyProfileSection({
         <Text style={styles.helpLink}>How manual body logging works</Text>
       </Pressable>
 
-      <Text style={styles.fieldLabel}>Weight ({massLabel})</Text>
+      <Text style={styles.fieldLabel}>{bodyLabels.weight} ({massLabel})</Text>
       <TextInput
         style={styles.input}
         keyboardType="decimal-pad"
@@ -354,7 +358,7 @@ export function ManualBodyProfileSection({
         onChangeText={setWeightInput}
         placeholder={massUnit === 'lb' ? 'e.g. 173' : 'e.g. 78.4'}
         placeholderTextColor={WellnessColors.textSecondary}
-        accessibilityLabel={`Weight in ${massLabel}`}
+        accessibilityLabel={`${bodyLabels.weight} in ${massLabel}`}
       />
 
       <View style={styles.compHeader}>
@@ -385,7 +389,7 @@ export function ManualBodyProfileSection({
 
       <View style={styles.compRow}>
         <View style={styles.compCol}>
-          <Text style={styles.compColLabel}>Fat</Text>
+          <Text style={styles.compColLabel}>{bodyLabels.fat}</Text>
           <View style={styles.compInputRow}>
             <TextInput
               style={styles.compInput}
@@ -394,14 +398,14 @@ export function ManualBodyProfileSection({
               onChangeText={setFatInput}
               placeholder={compUnit === 'pct' ? '18.5' : massUnit === 'lb' ? '32' : '14.5'}
               placeholderTextColor={WellnessColors.textSecondary}
-              accessibilityLabel={`Body fat in ${compSuffix}`}
+              accessibilityLabel={`${bodyLabels.fat} in ${compSuffix}`}
             />
             <Text style={styles.compUnit}>{compSuffix}</Text>
           </View>
           {fatAlt ? <Text style={styles.compAlt}>{fatAlt}</Text> : null}
         </View>
         <View style={styles.compCol}>
-          <Text style={styles.compColLabel}>Muscle</Text>
+          <Text style={styles.compColLabel}>{bodyLabels.muscle}</Text>
           <View style={styles.compInputRow}>
             <TextInput
               style={styles.compInput}
@@ -410,7 +414,7 @@ export function ManualBodyProfileSection({
               onChangeText={setMuscleInput}
               placeholder={compUnit === 'pct' ? '42' : massUnit === 'lb' ? '73' : '33'}
               placeholderTextColor={WellnessColors.textSecondary}
-              accessibilityLabel={`Muscle in ${compSuffix}`}
+              accessibilityLabel={`${bodyLabels.muscle} in ${compSuffix}`}
             />
             <Text style={styles.compUnit}>{compSuffix}</Text>
           </View>

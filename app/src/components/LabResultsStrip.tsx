@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { formatShortDate } from '../i18n/dateLocale';
 import {
   buildLipidTrendPoints,
   exportLabLog,
@@ -34,10 +35,10 @@ type Props = {
   gender?: Gender | null;
 };
 
-function formatDrawDate(iso: string): string {
+function formatDrawDate(iso: string, langCode?: string | null): string {
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return iso.slice(0, 10);
-  return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatShortDate(t, langCode);
 }
 
 function panelLabel(report: LabReport): string {
@@ -145,8 +146,8 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
   const addLabel = rtl ? 'הוסף דוח' : 'Add report';
   const latestLine = latest
     ? rtl
-      ? `אחרון: ${formatDrawDate(latest.collectedAt)} · ${resultCount(latest)} בדיקות`
-      : `Latest: ${formatDrawDate(latest.collectedAt)} · ${resultCount(latest)} tests`
+      ? `אחרון: ${formatDrawDate(latest.collectedAt, lang?.code)} · ${resultCount(latest)} בדיקות`
+      : `Latest: ${formatDrawDate(latest.collectedAt, lang?.code)} · ${resultCount(latest)} tests`
     : rtl
       ? 'ייבאו PDF מכללית און־ליין'
       : 'Import a Clalit online lab PDF';
@@ -161,6 +162,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
         titleRtl={rtl}
         collapseLabel={rtl ? 'כווץ תוצאות מעבדה' : 'Collapse lab results'}
         expandLabel={rtl ? 'הרחב תוצאות מעבדה' : 'Expand lab results'}
+        subtitleNumberOfLines={2}
       />
 
       {expanded ? (
@@ -182,7 +184,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
               style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
               onPress={() => openReport(r)}
             >
-              <Text style={styles.chipDate}>{formatDrawDate(r.collectedAt)}</Text>
+              <Text style={styles.chipDate}>{formatDrawDate(r.collectedAt, lang?.code)}</Text>
               <Text style={styles.chipLabel}>{panelLabel(r)}</Text>
               <Text style={styles.chipMeta}>
                 {resultCount(r)} {rtl ? 'בדיקות' : 'tests'}
@@ -195,7 +197,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
       </ScrollView>
 
       {lipidTrendPoints.length >= 2 ? (
-        <LipidTrendChart points={lipidTrendPoints} rtl={rtl} gender={gender} />
+        <LipidTrendChart points={lipidTrendPoints} rtl={rtl} gender={gender} langCode={lang?.code} />
       ) : lipidTrendPoints.length === 1 ? (
         <Text style={styles.trendHint}>
           {rtl ? 'ייבאו דוח נוסף כדי לראות מגמת כולסטרול' : 'Import another draw to see cholesterol trends'}
@@ -234,7 +236,7 @@ const styles = StyleSheet.create({
     backgroundColor: WellnessColors.surface,
     borderRadius: 24,
     paddingHorizontal: 18,
-    paddingTop: 6,
+    paddingTop: 14,
     paddingBottom: 16,
     marginBottom: dashCardGap,
   },

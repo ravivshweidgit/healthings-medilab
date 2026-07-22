@@ -29,6 +29,9 @@ import {
   type CloudBackupStatus,
 } from '../services/CloudBackupService';
 import { WellnessColors } from '../theme/wellness';
+import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
+import { DashboardCollapseHeader } from './DashboardCollapseHeader';
+import type { UserLanguage } from '../services/TargetService';
 
 type Props = {
   user: AuthUser;
@@ -36,9 +39,18 @@ type Props = {
   onToggleExpand: () => void;
   onSignedOut: () => void;
   onDataRestored?: () => void | Promise<void>;
+  lang?: UserLanguage | null;
 };
 
-export function AccountStrip({ user, expanded, onToggleExpand, onSignedOut, onDataRestored }: Props) {
+export function AccountStrip({
+  user,
+  expanded,
+  onToggleExpand,
+  onSignedOut,
+  onDataRestored,
+  lang,
+}: Props) {
+  const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
@@ -236,16 +248,15 @@ export function AccountStrip({ user, expanded, onToggleExpand, onSignedOut, onDa
 
   return (
     <View style={styles.wrap}>
-      <Pressable style={styles.headerRow} onPress={onToggleExpand}>
-        <Text style={styles.headerIcon}>👤</Text>
-        <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>Account</Text>
-          <Text style={styles.headerSub} numberOfLines={1}>
-            {user.email}
-          </Text>
-        </View>
-        <Text style={styles.chevron}>{expanded ? '⌃' : '›'}</Text>
-      </Pressable>
+      <DashboardCollapseHeader
+        title={profileTitles.account}
+        subtitle={user.email}
+        expanded={expanded}
+        onToggle={onToggleExpand}
+        titleRtl={lang?.code === 'he' || lang?.code === 'ar'}
+        collapseLabel="Collapse account"
+        expandLabel="Expand account"
+      />
 
       {expanded && (
         <View style={styles.body}>
@@ -338,37 +349,13 @@ export function AccountStrip({ user, expanded, onToggleExpand, onSignedOut, onDa
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  headerIcon: {
-    fontSize: 22,
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: WellnessColors.textPrimary,
-  },
-  headerSub: {
-    fontSize: 13,
-    color: WellnessColors.textSecondary,
-    marginTop: 2,
-  },
-  chevron: {
-    fontSize: 18,
-    color: WellnessColors.textSecondary,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
   body: {
-    marginTop: 12,
+    marginTop: 4,
     gap: 8,
+    paddingHorizontal: 4,
   },
   signedInLine: {
     fontSize: 15,

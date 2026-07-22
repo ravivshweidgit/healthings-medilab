@@ -1,3 +1,7 @@
+/**
+ * Shared collapsible strip header — Food Log, glucose, trend, profile, labs, reports.
+ */
+
 import React from 'react';
 import {
   Pressable,
@@ -11,13 +15,18 @@ import { WellnessColors } from '../theme/wellness';
 
 type Props = {
   title: string;
-  subtitle?: string | null;
+  /** Collapsed subtitle — string or nested Text nodes (e.g. colored kcal). */
+  subtitle?: React.ReactNode;
   expanded: boolean;
   onToggle: () => void;
   titleRtl?: boolean;
   style?: StyleProp<ViewStyle>;
   collapseLabel: string;
   expandLabel: string;
+  /** Default 1 — profile/labs may pass 2. */
+  subtitleNumberOfLines?: number;
+  /** Optional controls before the chevron (e.g. edit / reset). */
+  trailing?: React.ReactNode;
 };
 
 export function DashboardCollapseHeader({
@@ -29,7 +38,11 @@ export function DashboardCollapseHeader({
   style,
   collapseLabel,
   expandLabel,
+  subtitleNumberOfLines = 1,
+  trailing,
 }: Props) {
+  const showSub = !expanded && subtitle != null && subtitle !== '';
+
   return (
     <Pressable
       style={[styles.header, style]}
@@ -42,18 +55,23 @@ export function DashboardCollapseHeader({
         <Text style={[styles.title, titleRtl && styles.titleRtl]} numberOfLines={1}>
           {title}
         </Text>
-        {!expanded && subtitle ? (
-          <Text style={styles.subtitle} numberOfLines={2}>
+        {showSub ? (
+          <Text
+            style={[styles.subtitle, titleRtl && styles.subtitleRtl]}
+            numberOfLines={subtitleNumberOfLines}
+          >
             {subtitle}
           </Text>
         ) : null}
       </View>
+      {trailing}
       <Text style={styles.chevron}>{expanded ? '⌃' : '›'}</Text>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+/** Canonical strip-header tokens — keep in sync if duplicating elsewhere. */
+export const dashStripHeaderStyles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -73,8 +91,7 @@ const styles = StyleSheet.create({
   },
   titleRtl: {
     letterSpacing: 0,
-    fontSize: 13,
-    lineHeight: 18,
+    writingDirection: 'rtl',
   },
   subtitle: {
     fontSize: 13,
@@ -82,9 +99,14 @@ const styles = StyleSheet.create({
     color: WellnessColors.textPrimary,
     marginTop: 2,
   },
+  subtitleRtl: {
+    writingDirection: 'rtl',
+  },
   chevron: {
     fontSize: 18,
     color: WellnessColors.textSecondary,
     paddingHorizontal: 4,
   },
 });
+
+const styles = dashStripHeaderStyles;

@@ -1,27 +1,7 @@
 ## Prompt 81b — Multi-language Phase B (main app UI)
 
-**Status: backlog (2026-07-21)**  
-**Builds on:** `done/prompt81.txt` (Phase A shipped)  
-**Context:** Quick Start + help are localized; Dashboard / Food Log / My Profile chrome still English.
+**Status: shipped (2026-07-22)** — see **`done/prompt87.txt`**.
 
-### Goal
+Original backlog: Dashboard / Food Log / Profile chrome i18n for Hebrew-first alpha (7 locales), Always-English glossary, no clinic portal i18n.
 
-Localize primary app UI labels for Hebrew-first alpha (then other locales), still respecting Always-English glossary.
-
-### Scope
-
-1. i18n dictionary (react-i18next or lightweight key maps): Dashboard, Food Log, My Profile, Account, common actions.
-2. Rename Profile control to **App & coach language** (one `appLocale`).
-3. RTL for chrome where needed (`he` / `ar`).
-4. Do **not** translate glossary: `kcal`, Withings, `CGM`, `BMR`, slash commands, brand.
-5. Clinic portal UI stays English until Phase C.
-
-### Non-goals
-
-- Replacing Phase A help/Quick Start (already shipped).
-- Full marketing site localization beyond help trees.
-
-### Related
-
-- `done/prompt81.txt`
-- `.cursor/rules/language-policy.mdc` (update when Phase B ships)
+**Builds on:** `done/prompt81.txt` (Phase A)

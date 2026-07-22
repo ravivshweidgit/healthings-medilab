@@ -12,6 +12,7 @@ import {
 import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { curveMonotoneX, line } from 'd3-shape';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { formatLocalizedDate, formatLocalizedTime } from '../i18n/dateLocale';
 import type { ActivityZone } from '../logic/MetabolicLogic';
 import type { WithingsCaloriePoint, WorkoutSession } from '../services/WithingsApiService';
 import type { FoodEntry } from '../services/FoodLogService';
@@ -362,22 +363,31 @@ function timeToX(tMs: number, tMin: number, spanT: number, padL: number, innerW:
   return padL + ((tMs - tMin) / Math.max(1, spanT)) * innerW;
 }
 
-function formatViewportDateHeader(tMin: number, tMax: number): string {
+function formatViewportDateHeader(
+  tMin: number,
+  tMax: number,
+  langCode?: string | null,
+): string {
   const d0 = new Date(tMin);
   const d1 = new Date(tMax);
   const sameLocalDay =
     d0.getFullYear() === d1.getFullYear() && d0.getMonth() === d1.getMonth() && d0.getDate() === d1.getDate();
   if (sameLocalDay) {
-    return d0.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+    return formatLocalizedDate(d0, langCode, {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
   }
   const y0 = d0.getFullYear();
   const y1 = d1.getFullYear();
   if (y0 === y1) {
-    const a = d0.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    const b = d1.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const a = formatLocalizedDate(d0, langCode, { month: 'short', day: 'numeric' });
+    const b = formatLocalizedDate(d1, langCode, { month: 'short', day: 'numeric' });
     return `${a} – ${b} · ${y0}`;
   }
-  return `${d0.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} – ${d1.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  return `${formatLocalizedDate(d0, langCode, { month: 'short', day: 'numeric', year: 'numeric' })} – ${formatLocalizedDate(d1, langCode, { month: 'short', day: 'numeric', year: 'numeric' })}`;
 }
 
 function computeTimeTickStepMs(spanMs: number): number {
@@ -396,11 +406,11 @@ function computeTimeTickStepMs(spanMs: number): number {
 }
 
 /** Bottom axis: time only unless tick spacing is a day or more (then compact date). */
-function formatAxisTickLabel(ms: number, stepMs: number): string {
+function formatAxisTickLabel(ms: number, stepMs: number, langCode?: string | null): string {
   if (stepMs >= MS_DAY * 0.9) {
-    return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return formatLocalizedDate(ms, langCode, { month: 'short', day: 'numeric' });
   }
-  return new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  return formatLocalizedTime(ms, langCode, { hour: '2-digit', minute: '2-digit' });
 }
 
 /** Move the right edge of the window by `deltaDays` (local timeline), clamped to data and “now”. */
@@ -424,7 +434,8 @@ function buildTimeTicks(
   tMin: number,
   tMax: number,
   padL: number,
-  innerW: number
+  innerW: number,
+  langCode?: string | null,
 ): { x: number; label: string; key: string }[] {
   const spanT = Math.max(1, tMax - tMin);
   const spanMs = tMax - tMin;
@@ -438,7 +449,7 @@ function buildTimeTicks(
     if (x >= padL - 1 && x <= padL + innerW + 1) {
       ticks.push({
         x,
-        label: formatAxisTickLabel(t, stepMs),
+        label: formatAxisTickLabel(t, stepMs, langCode),
         key: `t-${t}-${i}`,
       });
     }
@@ -447,7 +458,6 @@ function buildTimeTicks(
   }
   return ticks;
 }
-
 
 const MEAL_MARKER_COLOR = '#FF9800';
 
@@ -469,6 +479,8 @@ type Props = {
   glucoseDisplayUnit?: 'mgdl' | 'mmol';
   /** Workout / BMR / meal label display only — bar heights stay kcal. */
   energyDisplayUnit?: EnergyUnit;
+  /** Coach language — axis / viewport date labels. */
+  langCode?: string | null;
 };
 
 export function MetabolicChart({
@@ -481,6 +493,7 @@ export function MetabolicChart({
   foodEntries,
   glucoseDisplayUnit = 'mgdl',
   energyDisplayUnit = 'kcal',
+  langCode,
 }: Props) {
   const { width: windowW } = useWindowDimensions();
   const [viewportPresetIndex, setViewportPresetIndex] = useState(DEFAULT_VIEWPORT_PRESET_INDEX);
@@ -686,8 +699,8 @@ export function MetabolicChart({
       ];
     });
 
-    const timeTicks = buildTimeTicks(mapTMin, mapTMax, padL, innerW);
-    const dateHeaderLabel = formatViewportDateHeader(mapTMin, mapTMax);
+    const timeTicks = buildTimeTicks(mapTMin, mapTMax, padL, innerW, langCode);
+    const dateHeaderLabel = formatViewportDateHeader(mapTMin, mapTMax, langCode);
 
     const targetBandTopY = valueToY(
       Math.min(GLUCOSE_TARGET_MAX, yMax),
@@ -749,7 +762,7 @@ export function MetabolicChart({
       targetBandBottomY,
       targetBandVisible,
     };
-  }, [activityZones, endTimeOverrideMs, glucose, heartRate, nowAnchor, plotH, scrollX, viewportPresetIndex, windowW]);
+  }, [activityZones, endTimeOverrideMs, glucose, heartRate, langCode, nowAnchor, plotH, scrollX, viewportPresetIndex, windowW]);
 
   /** Compute 30-min calorie bars for the currently visible time window. */
   const caloriePrepared = useMemo(() => {

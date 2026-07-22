@@ -12,6 +12,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { formatShortDate } from '../i18n/dateLocale';
+import { getBodyMetricsCopy } from '../i18n/bodyMetricsCopy';
+import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
+import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import { suggestBodyTargets, type BodyTargetInput } from '../services/GeminiService';
 import {
   clearBodyTarget,
@@ -241,6 +245,8 @@ export function WeightTargetStrip({
   hideWithingsScalePrompt,
   massUnit = 'kg',
 }: BodyTargetProps) {
+  const bodyLabels = getBodyMetricsCopy(lang?.code);
+  const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const [screen, setScreen] = useState<Screen>('idle');
   const [target, setTarget] = useState<BodyTarget | null>(null);
   const [suggestion, setSuggestion] = useState<BodyTarget | null>(null);
@@ -381,7 +387,7 @@ export function WeightTargetStrip({
   // ── Summary line shown in collapsed header ────────────────────────────────
   const massLab = massUnitLabel(massUnit);
   const headerSub = target
-    ? `${formatMass(target.targetWeight_kg, massUnit)} · ${target.targetFatPct.toFixed(1)}% fat · ${formatMass(target.targetMuscleMass_kg, massUnit)} muscle${
+    ? `${formatMass(target.targetWeight_kg, massUnit)} · ${target.targetFatPct.toFixed(1)}% ${bodyLabels.fat} · ${formatMass(target.targetMuscleMass_kg, massUnit)} ${bodyLabels.muscle}${
         (target.targetWeeks ?? target.estimatedWeeks)
           ? ` · ${target.targetWeeks ?? target.estimatedWeeks}w`
           : ''
@@ -392,29 +398,44 @@ export function WeightTargetStrip({
 
   return (
     <View style={styles.card}>
-      {/* ── Collapsible header row — same look as My Profile ── */}
-      <Pressable style={styles.headerRow} onPress={() => setExpanded((e) => !e)}>
-        <Text style={styles.headerIcon}>🎯</Text>
-        <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>My Targets</Text>
-          <Text style={styles.headerSub}>{headerSub}</Text>
-        </View>
-        {(screen === 'active' || screen === 'idle') && expanded && (
-          <View style={styles.headerActions}>
-            {screen === 'active' && target ? (
-              <Pressable onPress={() => handleOpenEdit()} hitSlop={8}>
-                <Text style={styles.editLink}>✎</Text>
-              </Pressable>
-            ) : null}
-            {screen === 'active' && target ? (
-              <Pressable onPress={(e) => { e.stopPropagation?.(); handleReset(); }} hitSlop={8}>
-                <Text style={styles.resetLink}>reset</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        )}
-        <Text style={styles.chevron}>{expanded ? '⌃' : '›'}</Text>
-      </Pressable>
+      <DashboardCollapseHeader
+        title={profileTitles.myTargets}
+        subtitle={headerSub}
+        expanded={expanded}
+        onToggle={() => setExpanded((e) => !e)}
+        titleRtl={lang?.code === 'he' || lang?.code === 'ar'}
+        collapseLabel="Collapse my targets"
+        expandLabel="Expand my targets"
+        subtitleNumberOfLines={2}
+        trailing={
+          (screen === 'active' || screen === 'idle') && expanded ? (
+            <View style={styles.headerActions}>
+              {screen === 'active' && target ? (
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    handleOpenEdit();
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={styles.editLink}>✎</Text>
+                </Pressable>
+              ) : null}
+              {screen === 'active' && target ? (
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    handleReset();
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={styles.resetLink}>reset</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null
+        }
+      />
 
       {!expanded ? null : <View style={styles.body}>
 
@@ -460,17 +481,17 @@ export function WeightTargetStrip({
               <Text style={styles.suggestionVal}>
                 {kgToDisplay(suggestion.aiWeight_kg, massUnit).toFixed(1)} {massLab}
               </Text>
-              <Text style={styles.suggestionLabel}>Weight</Text>
+              <Text style={styles.suggestionLabel}>{bodyLabels.weight}</Text>
             </View>
             <View style={styles.suggestionItem}>
               <Text style={styles.suggestionVal}>{suggestion.aiFatPct.toFixed(1)}%</Text>
-              <Text style={styles.suggestionLabel}>Fat</Text>
+              <Text style={styles.suggestionLabel}>{bodyLabels.fat}</Text>
             </View>
             <View style={styles.suggestionItem}>
               <Text style={styles.suggestionVal}>
                 {kgToDisplay(suggestion.aiMuscle_kg, massUnit).toFixed(1)} {massLab}
               </Text>
-              <Text style={styles.suggestionLabel}>Muscle</Text>
+              <Text style={styles.suggestionLabel}>{bodyLabels.muscle}</Text>
             </View>
             {suggestion.estimatedWeeks ? (
               <View style={styles.suggestionItem}>
@@ -497,21 +518,21 @@ export function WeightTargetStrip({
             {target || suggestion ? 'Update your targets' : 'Enter your targets (saved locally)'}
           </Text>
           <EditField
-            label="Weight"
+            label={bodyLabels.weight}
             value={editWeight}
             onChange={setEditWeight}
             unit={massLab}
             hint={weightKg != null ? `now ${kgToDisplay(weightKg, massUnit).toFixed(1)}` : undefined}
           />
           <EditField
-            label="Fat %"
+            label={bodyLabels.fatPct}
             value={editFat}
             onChange={setEditFat}
             unit="%"
             hint={fatPct != null ? `now ${fatPct.toFixed(1)}` : undefined}
           />
           <EditField
-            label="Muscle"
+            label={bodyLabels.muscle}
             value={editMuscle}
             onChange={setEditMuscle}
             unit={massLab}
@@ -549,7 +570,7 @@ export function WeightTargetStrip({
           {weightKg != null && fatPct != null && muscleMass_kg != null ? (
             <>
               <RangeScale
-                label="Weight"
+                label={bodyLabels.weight}
                 startVal={kgToDisplay(target.startWeight_kg, massUnit)}
                 currentVal={kgToDisplay(weightKg, massUnit)}
                 targetVal={kgToDisplay(target.targetWeight_kg, massUnit)}
@@ -557,7 +578,7 @@ export function WeightTargetStrip({
                 color={WellnessColors.accentBlue}
               />
               <RangeScale
-                label="Fat %"
+                label={bodyLabels.fatPct}
                 startVal={target.startFatPct}
                 currentVal={fatPct}
                 targetVal={target.targetFatPct}
@@ -565,7 +586,7 @@ export function WeightTargetStrip({
                 color="#EF5350"
               />
               <RangeScale
-                label="Muscle"
+                label={bodyLabels.muscle}
                 startVal={kgToDisplay(target.startMuscle_kg, massUnit)}
                 currentVal={kgToDisplay(muscleMass_kg, massUnit)}
                 targetVal={kgToDisplay(target.targetMuscleMass_kg, massUnit)}
@@ -577,8 +598,8 @@ export function WeightTargetStrip({
           ) : (
             <View style={styles.manualSummary}>
               <Text style={styles.manualSummaryLine}>
-                Target: {formatMass(target.targetWeight_kg, massUnit)} · {target.targetFatPct.toFixed(1)}% fat ·{' '}
-                {formatMass(target.targetMuscleMass_kg, massUnit)} muscle
+                Target: {formatMass(target.targetWeight_kg, massUnit)} · {target.targetFatPct.toFixed(1)}%{' '}
+                {bodyLabels.fat} · {formatMass(target.targetMuscleMass_kg, massUnit)} {bodyLabels.muscle}
               </Text>
               {!hideWithingsScalePrompt ? (
                 <Text style={styles.manualSummarySub}>Link Withings for progress scales</Text>
@@ -604,12 +625,7 @@ export function WeightTargetStrip({
               <View style={styles.reasoningContent}>
                 <Text style={styles.reasoningText}>{target.reasoning}</Text>
                 <Text style={styles.analyzedAt}>
-                  AI ·{' '}
-                  {new Date(target.analyzedAt).toLocaleDateString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
+                  AI · {formatShortDate(target.analyzedAt, lang?.code)}
                 </Text>
               </View>
             </View>
@@ -635,37 +651,14 @@ export function WeightTargetStrip({
 
 const styles = StyleSheet.create({
   card: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  // ── Header row — mirrors My Profile row ──
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerIcon: { fontSize: 24 },
-  headerInfo: { flex: 1 },
-  headerTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: WellnessColors.textPrimary,
-  },
-  headerSub: {
-    fontSize: 12,
-    color: WellnessColors.textSecondary,
-    marginTop: 2,
-  },
-  chevron: {
-    fontSize: 20,
-    color: WellnessColors.textSecondary,
-    fontWeight: '300',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
   headerActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   editLink: { fontSize: 13, color: WellnessColors.accentBlue, fontWeight: '600' },
   resetLink: { fontSize: 11, color: WellnessColors.textSecondary },
   // ── Expanded body ──
-  body: { marginTop: 16 },
+  body: { marginTop: 8, paddingHorizontal: 4 },
 
   // idle
   idleWrap: { alignItems: 'stretch', paddingVertical: 8, gap: 10 },

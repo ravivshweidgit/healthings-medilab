@@ -3,6 +3,7 @@
  */
 
 import type { Gender, MentorType, UserLanguage } from '../services/TargetService';
+import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 
 export const MENTOR_EMOJI: Record<MentorType, string> = {
   doctor: '🩺',
@@ -150,12 +151,5 @@ export function mentorCardSubtitle(type: MentorType, lang?: UserLanguage | null)
 }
 
 export function mentorsStripTitle(lang?: UserLanguage | null): string {
-  const code = langCode(lang);
-  if (code === 'he') return 'המנטורים שלי';
-  if (code === 'ar') return 'مرشدوني';
-  if (code === 'es') return 'Mis mentores';
-  if (code === 'fr') return 'Mes mentors';
-  if (code === 'de') return 'Meine Mentoren';
-  if (code === 'ru') return 'Мои наставники';
-  return 'My Mentors';
+  return getProfileSettingsStripCopy(lang?.code).myMentors;
 }

@@ -118,8 +118,8 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
   const addLabel = rtl ? 'הוסף דוח' : 'Add report';
   const summaryLine = active
     ? rtl
-      ? `פעיל: ${active.title} · ${formatDirectiveDate(active)}`
-      : `Active: ${active.title} · ${formatDirectiveDate(active)}`
+      ? `פעיל: ${active.title} · ${formatDirectiveDate(active, lang?.code)}`
+      : `Active: ${active.title} · ${formatDirectiveDate(active, lang?.code)}`
     : rtl
       ? 'ייבאו סיכום מפגש PDF מהדיאטנ/ית'
       : 'Import a nutritionist session summary PDF';
@@ -134,6 +134,7 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
         titleRtl={rtl}
         collapseLabel={rtl ? 'כווץ דוחות תזונה' : 'Collapse nutrition reports'}
         expandLabel={rtl ? 'הרחב דוחות תזונה' : 'Expand nutrition reports'}
+        subtitleNumberOfLines={2}
       />
 
       {expanded ? (
@@ -160,7 +161,7 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
               ]}
               onPress={() => setDetailEntry(entry)}
             >
-              <Text style={styles.chipDate}>{formatDirectiveDate(entry)}</Text>
+              <Text style={styles.chipDate}>{formatDirectiveDate(entry, lang?.code)}</Text>
               <Text style={styles.chipLabel} numberOfLines={2}>{entry.title}</Text>
               {isActive ? (
                 <Text style={styles.chipActiveBadge}>{rtl ? 'פעיל' : 'Active'}</Text>
@@ -188,7 +189,7 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
             {detailEntry && (
               <>
                 <Text style={styles.modalTitle}>{detailEntry.title}</Text>
-                <Text style={styles.modalMeta}>{formatDirectiveDate(detailEntry)}</Text>
+                <Text style={styles.modalMeta}>{formatDirectiveDate(detailEntry, lang?.code)}</Text>
                 <ScrollView style={styles.modalScroll}>
                   <Text style={[styles.reportBody, rtl && styles.reportBodyRtl]}>
                     {detailEntry.fullText}
@@ -227,7 +228,7 @@ const styles = StyleSheet.create({
     backgroundColor: WellnessColors.surface,
     borderRadius: 24,
     paddingHorizontal: 18,
-    paddingTop: 6,
+    paddingTop: 14,
     paddingBottom: 16,
     marginBottom: dashCardGap,
   },

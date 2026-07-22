@@ -8,6 +8,7 @@ import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg
 import { curveMonotoneX, line } from 'd3-shape';
 import type { LipidTrendPoint } from '../services/LabLogService';
 import type { Gender } from '../services/TargetService';
+import { formatShortDate } from '../i18n/dateLocale';
 import { WellnessColors } from '../theme/wellness';
 
 const PLOT_PAD_L = 36;
@@ -66,6 +67,7 @@ type Props = {
   points: LipidTrendPoint[];
   rtl?: boolean;
   gender?: Gender | null;
+  langCode?: string | null;
 };
 
 function hdlSafeThreshold(gender?: Gender | null): number {
@@ -114,15 +116,11 @@ function buildStripDefs(gender?: Gender | null): StripDef[] {
   ];
 }
 
-function axisDateLabel(dateKey: string): string {
+function axisDateLabel(dateKey: string, langCode?: string | null): string {
   const parts = dateKey.split('-').map(Number);
   if (parts.length !== 3 || parts.some((v) => !Number.isFinite(v))) return dateKey;
   const [y, mo, da] = parts;
-  return new Date(y, mo - 1, da).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatShortDate(new Date(y, mo - 1, da), langCode);
 }
 
 function pickTickIndices(n: number, maxTicks: number): number[] {
@@ -211,7 +209,7 @@ function safeBandRect(
   return h > 1 ? { y, h } : null;
 }
 
-export function LipidTrendChart({ points, rtl, gender }: Props) {
+export function LipidTrendChart({ points, rtl, gender, langCode }: Props) {
   const { width } = useWindowDimensions();
   /** Scroll (20×2) + lab card padding (18×2) — chart uses full card inner width. */
   const chartW = Math.max(248, width - 76);
@@ -278,7 +276,7 @@ export function LipidTrendChart({ points, rtl, gender }: Props) {
       .filter(({ i }) => tickIdx.has(i))
       .map(({ p, i }) => ({
         x: xAtIndex(i, plotLeft, innerW, n),
-        label: axisDateLabel(p.dateKey),
+        label: axisDateLabel(p.dateKey, langCode),
         key: p.dateKey,
       }));
 
@@ -286,7 +284,7 @@ export function LipidTrendChart({ points, rtl, gender }: Props) {
     const xAxisY = PAD_TOP + visible.length * STRIP_UNIT + 14;
 
     return { chartW, svgH, plotLeft, chartRight, visible, xTicks, xAxisY };
-  }, [chartW, gender, points]);
+  }, [chartW, gender, langCode, points]);
 
   if (!prepared) return null;
 
