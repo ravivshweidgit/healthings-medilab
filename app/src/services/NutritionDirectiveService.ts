@@ -179,7 +179,7 @@ export function directivePreviewLine(d: NutritionDirective): string | null {
 }
 
 export function directiveSubtitle(d: NutritionDirective | null, count: number): string {
-  if (!d && count === 0) return 'Import nutritionist report (PDF)';
+  if (!d && count === 0) return 'Import nutritionist session (PDF)';
   if (d) return `${d.title} · ${formatDirectiveDate(d)}`;
-  return `${count} reports — tap to view`;
+  return `${count} sessions — tap to view`;
 }

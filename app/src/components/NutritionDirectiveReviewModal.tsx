@@ -25,6 +25,7 @@ import {
   type ParsedNutritionDirectiveDraft,
 } from '../services/NutritionDirectiveService';
 import type { UserLanguage } from '../services/TargetService';
+import { getNutritionSessionsStripCopy } from '../i18n/nutritionSessionsStripCopy';
 import { WellnessColors } from '../theme/wellness';
 
 type Props = {
@@ -64,6 +65,7 @@ export function NutritionDirectiveReviewModal({
   const [sourceFileName, setSourceFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const autoPickStartedRef = useRef(false);
+  const copy = getNutritionSessionsStripCopy(lang?.code);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
 
   const reset = useCallback(() => {
@@ -143,7 +145,7 @@ export function NutritionDirectiveReviewModal({
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
           <Text style={styles.title}>
-            {rtl ? 'ייבוא דוח תזונה' : 'Import nutritionist report'}
+            {copy.importTitle}
           </Text>
           <Pressable onPress={onClose} hitSlop={12}>
             <Text style={styles.close}>✕</Text>

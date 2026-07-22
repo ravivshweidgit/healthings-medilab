@@ -21,6 +21,7 @@ import {
   type NutritionDirective,
 } from '../services/NutritionDirectiveService';
 import type { UserLanguage } from '../services/TargetService';
+import { getNutritionSessionsStripCopy } from '../i18n/nutritionSessionsStripCopy';
 import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import { NutritionDirectiveReviewModal } from './NutritionDirectiveReviewModal';
@@ -44,6 +45,7 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
   const [detailEntry, setDetailEntry] = useState<NutritionDirective | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const copy = getNutritionSessionsStripCopy(lang?.code);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
 
   const effectiveActiveId = activeId ?? directives[0]?.id ?? null;
@@ -81,11 +83,8 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
   const handleSaved = useCallback(() => {
     onChanged();
     closeImport();
-    Alert.alert(
-      rtl ? 'נשמר' : 'Saved',
-      rtl ? 'הדוח הפעיל עודכן — המנטורים יראו את התוכנית' : 'Report saved and set as active — mentors will use this plan',
-    );
-  }, [closeImport, onChanged, rtl]);
+    Alert.alert(copy.savedTitle, copy.savedBody);
+  }, [closeImport, onChanged, copy.savedTitle, copy.savedBody]);
 
   const handleSetActive = useCallback(async (id: string) => {
     await setActiveNutritionDirective(id);
@@ -94,46 +93,36 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
   }, [onChanged]);
 
   const handleDelete = useCallback((entry: NutritionDirective) => {
-    Alert.alert(
-      rtl ? 'מחיקת דוח?' : 'Delete report?',
-      entry.title,
-      [
-        { text: rtl ? 'ביטול' : 'Cancel', style: 'cancel' },
-        {
-          text: rtl ? 'מחק' : 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              await deleteNutritionDirective(entry.id);
-              onChanged();
-              setDetailEntry(null);
-            })();
-          },
+    Alert.alert(copy.deleteTitle, entry.title, [
+      { text: copy.cancel, style: 'cancel' },
+      {
+        text: copy.delete,
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            await deleteNutritionDirective(entry.id);
+            onChanged();
+            setDetailEntry(null);
+          })();
         },
-      ],
-    );
-  }, [onChanged, rtl]);
+      },
+    ]);
+  }, [onChanged, copy.cancel, copy.delete, copy.deleteTitle]);
 
-  const sectionTitle = rtl ? 'דוחות תזונה' : 'NUTRITION REPORTS';
-  const addLabel = rtl ? 'הוסף דוח' : 'Add report';
   const summaryLine = active
-    ? rtl
-      ? `פעיל: ${active.title} · ${formatDirectiveDate(active, lang?.code)}`
-      : `Active: ${active.title} · ${formatDirectiveDate(active, lang?.code)}`
-    : rtl
-      ? 'ייבאו סיכום מפגש PDF מהדיאטנ/ית'
-      : 'Import a nutritionist session summary PDF';
+    ? `${copy.activePrefix}: ${active.title} · ${formatDirectiveDate(active, lang?.code)}`
+    : copy.emptyHint;
 
   return (
     <View style={[styles.card, cardShadow, !expanded && styles.cardCollapsed]}>
       <DashboardCollapseHeader
-        title={sectionTitle}
+        title={copy.title}
         subtitle={summaryLine}
         expanded={expanded}
         onToggle={() => setExpanded((v) => !v)}
         titleRtl={rtl}
-        collapseLabel={rtl ? 'כווץ דוחות תזונה' : 'Collapse nutrition reports'}
-        expandLabel={rtl ? 'הרחב דוחות תזונה' : 'Expand nutrition reports'}
+        collapseLabel={copy.collapseA11y}
+        expandLabel={copy.expandA11y}
         subtitleNumberOfLines={2}
       />
 
@@ -143,10 +132,10 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
         <Pressable
           style={({ pressed }) => [styles.chip, styles.addChip, pressed && styles.chipPressed]}
           onPress={openImport}
-          accessibilityLabel={addLabel}
+          accessibilityLabel={copy.addSession}
         >
           <Text style={styles.addChipIcon}>＋</Text>
-          <Text style={styles.addChipLabel}>{addLabel}</Text>
+          <Text style={styles.addChipLabel}>{copy.addSession}</Text>
         </Pressable>
         {directives.map((entry) => {
           const isActive = entry.id === effectiveActiveId;
@@ -164,10 +153,10 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
               <Text style={styles.chipDate}>{formatDirectiveDate(entry, lang?.code)}</Text>
               <Text style={styles.chipLabel} numberOfLines={2}>{entry.title}</Text>
               {isActive ? (
-                <Text style={styles.chipActiveBadge}>{rtl ? 'פעיל' : 'Active'}</Text>
+                <Text style={styles.chipActiveBadge}>{copy.activeBadge}</Text>
               ) : null}
               {preview ? <Text style={styles.chipHi} numberOfLines={2}>{preview}</Text> : null}
-              <Text style={styles.chipEdit}>✎ {rtl ? 'צפייה' : 'view'}</Text>
+              <Text style={styles.chipEdit}>✎ {copy.view}</Text>
             </Pressable>
           );
         })}
@@ -201,17 +190,17 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
                       style={styles.modalPrimaryBtn}
                       onPress={() => void handleSetActive(detailEntry.id)}
                     >
-                      <Text style={styles.modalPrimaryText}>{rtl ? 'הגדר כפעיל' : 'Set active'}</Text>
+                      <Text style={styles.modalPrimaryText}>{copy.setActive}</Text>
                     </Pressable>
                   )}
                   <Pressable
                     style={styles.modalDangerBtn}
                     onPress={() => handleDelete(detailEntry)}
                   >
-                    <Text style={styles.modalDangerText}>{rtl ? 'מחק' : 'Delete'}</Text>
+                    <Text style={styles.modalDangerText}>{copy.delete}</Text>
                   </Pressable>
                   <Pressable style={styles.modalCloseBtn} onPress={() => setDetailEntry(null)}>
-                    <Text style={styles.modalCloseText}>{rtl ? 'סגור' : 'Close'}</Text>
+                    <Text style={styles.modalCloseText}>{copy.close}</Text>
                   </Pressable>
                 </View>
               </>
