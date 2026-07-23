@@ -42,6 +42,26 @@ export type FoodLogUiCopy = {
   gallery: string;
   orDescribeIt: string;
   orDivider: string;
+  /** Water sheet / Food Log water actions */
+  addWater: string;
+  editWater: string;
+  halfGlass: string;
+  fullGlass: string;
+  bigGlass: string;
+  setAmount: string;
+  setTotal: string;
+  editGoal: string;
+  today: string;
+  goal: string;
+  waterGoal: string;
+  waterAmount: string;
+  waterIntake: string;
+  clear: string;
+  deleteWaterTitle: string;
+  deleteWaterMessage: string;
+  waterGoalHint: (unit: string, defaultAmt: string) => string;
+  waterAmountHint: (unit: string, time: string) => string;
+  waterIntakeHint: (unit: string) => string;
 };
 
 const EN: FoodLogUiCopy = {
@@ -83,6 +103,25 @@ const EN: FoodLogUiCopy = {
   gallery: 'Gallery',
   orDescribeIt: '— or describe it —',
   orDivider: '— or —',
+  addWater: 'Add water',
+  editWater: 'Edit water',
+  halfGlass: 'Half glass',
+  fullGlass: 'Full glass',
+  bigGlass: 'Big glass',
+  setAmount: 'Set amount',
+  setTotal: 'Set total',
+  editGoal: 'Edit goal',
+  today: 'Today',
+  goal: 'Goal',
+  waterGoal: 'Water goal',
+  waterAmount: 'Water amount',
+  waterIntake: 'Water intake',
+  clear: 'Clear',
+  deleteWaterTitle: 'Delete water?',
+  deleteWaterMessage: 'Remove this drink from your log?',
+  waterGoalHint: (unit, defaultAmt) => `Daily H2O target in ${unit} (default ${defaultAmt}).`,
+  waterAmountHint: (unit, time) => `Set ${unit} for this drink (${time}).`,
+  waterIntakeHint: (unit) => `Set today's total in ${unit}. Goal:`,
 };
 
 const HE: FoodLogUiCopy = {
@@ -124,6 +163,25 @@ const HE: FoodLogUiCopy = {
   gallery: 'גלריה',
   orDescribeIt: '— או תארו במילים —',
   orDivider: '— או —',
+  addWater: 'הוסף מים',
+  editWater: 'עריכת מים',
+  halfGlass: 'חצי כוס',
+  fullGlass: 'כוס מלאה',
+  bigGlass: 'כוס גדולה',
+  setAmount: 'הגדר כמות',
+  setTotal: 'הגדר סה״כ',
+  editGoal: 'ערוך יעד',
+  today: 'היום',
+  goal: 'יעד',
+  waterGoal: 'יעד מים',
+  waterAmount: 'כמות מים',
+  waterIntake: 'צריכת מים',
+  clear: 'נקה',
+  deleteWaterTitle: 'למחוק מים?',
+  deleteWaterMessage: 'להסיר את השתייה מהיומן?',
+  waterGoalHint: (unit, defaultAmt) => `יעד H2O יומי ב־${unit} (ברירת מחדל ${defaultAmt}).`,
+  waterAmountHint: (unit, time) => `הגדר ${unit} לשתייה זו (${time}).`,
+  waterIntakeHint: (unit) => `הגדר סה״כ להיום ב־${unit}. יעד:`,
 };
 
 const ES: FoodLogUiCopy = {
@@ -165,6 +223,25 @@ const ES: FoodLogUiCopy = {
   gallery: 'Galería',
   orDescribeIt: '— o descríbela —',
   orDivider: '— o —',
+  addWater: 'Añadir agua',
+  editWater: 'Editar agua',
+  halfGlass: 'Medio vaso',
+  fullGlass: 'Vaso lleno',
+  bigGlass: 'Vaso grande',
+  setAmount: 'Definir cantidad',
+  setTotal: 'Definir total',
+  editGoal: 'Editar meta',
+  today: 'Hoy',
+  goal: 'Meta',
+  waterGoal: 'Meta de agua',
+  waterAmount: 'Cantidad de agua',
+  waterIntake: 'Ingesta de agua',
+  clear: 'Borrar',
+  deleteWaterTitle: '¿Eliminar agua?',
+  deleteWaterMessage: '¿Quitar esta bebida del registro?',
+  waterGoalHint: (unit, defaultAmt) => `Meta diaria de H2O en ${unit} (por defecto ${defaultAmt}).`,
+  waterAmountHint: (unit, time) => `Define ${unit} para esta bebida (${time}).`,
+  waterIntakeHint: (unit) => `Define el total de hoy en ${unit}. Meta:`,
 };
 
 const FR: FoodLogUiCopy = {
@@ -206,6 +283,25 @@ const FR: FoodLogUiCopy = {
   gallery: 'Galerie',
   orDescribeIt: '— ou décrivez-le —',
   orDivider: '— ou —',
+  addWater: 'Ajouter de l’eau',
+  editWater: 'Modifier l’eau',
+  halfGlass: 'Demi-verre',
+  fullGlass: 'Verre plein',
+  bigGlass: 'Grand verre',
+  setAmount: 'Définir la quantité',
+  setTotal: 'Définir le total',
+  editGoal: 'Modifier l’objectif',
+  today: 'Aujourd’hui',
+  goal: 'Objectif',
+  waterGoal: 'Objectif eau',
+  waterAmount: 'Quantité d’eau',
+  waterIntake: 'Apport en eau',
+  clear: 'Effacer',
+  deleteWaterTitle: 'Supprimer l’eau ?',
+  deleteWaterMessage: 'Retirer cette boisson du journal ?',
+  waterGoalHint: (unit, defaultAmt) => `Objectif H2O quotidien en ${unit} (défaut ${defaultAmt}).`,
+  waterAmountHint: (unit, time) => `Définir ${unit} pour cette boisson (${time}).`,
+  waterIntakeHint: (unit) => `Définir le total du jour en ${unit}. Objectif :`,
 };
 
 const DE: FoodLogUiCopy = {
@@ -247,6 +343,25 @@ const DE: FoodLogUiCopy = {
   gallery: 'Galerie',
   orDescribeIt: '— oder beschreiben —',
   orDivider: '— oder —',
+  addWater: 'Wasser hinzufügen',
+  editWater: 'Wasser bearbeiten',
+  halfGlass: 'Halbes Glas',
+  fullGlass: 'Volles Glas',
+  bigGlass: 'Großes Glas',
+  setAmount: 'Menge festlegen',
+  setTotal: 'Gesamt festlegen',
+  editGoal: 'Ziel bearbeiten',
+  today: 'Heute',
+  goal: 'Ziel',
+  waterGoal: 'Wasserziel',
+  waterAmount: 'Wassermenge',
+  waterIntake: 'Wasseraufnahme',
+  clear: 'Löschen',
+  deleteWaterTitle: 'Wasser löschen?',
+  deleteWaterMessage: 'Diesen Drink aus dem Log entfernen?',
+  waterGoalHint: (unit, defaultAmt) => `Tägliches H2O-Ziel in ${unit} (Standard ${defaultAmt}).`,
+  waterAmountHint: (unit, time) => `${unit} für diesen Drink festlegen (${time}).`,
+  waterIntakeHint: (unit) => `Heutige Gesamtsumme in ${unit} festlegen. Ziel:`,
 };
 
 const AR: FoodLogUiCopy = {
@@ -288,6 +403,25 @@ const AR: FoodLogUiCopy = {
   gallery: 'المعرض',
   orDescribeIt: '— أو صفها —',
   orDivider: '— أو —',
+  addWater: 'إضافة ماء',
+  editWater: 'تعديل الماء',
+  halfGlass: 'نصف كوب',
+  fullGlass: 'كوب ممتلئ',
+  bigGlass: 'كوب كبير',
+  setAmount: 'تعيين الكمية',
+  setTotal: 'تعيين الإجمالي',
+  editGoal: 'تعديل الهدف',
+  today: 'اليوم',
+  goal: 'الهدف',
+  waterGoal: 'هدف الماء',
+  waterAmount: 'كمية الماء',
+  waterIntake: 'كمية الشرب',
+  clear: 'مسح',
+  deleteWaterTitle: 'حذف الماء؟',
+  deleteWaterMessage: 'إزالة هذا المشروب من السجل؟',
+  waterGoalHint: (unit, defaultAmt) => `هدف H2O اليومي بـ ${unit} (الافتراضي ${defaultAmt}).`,
+  waterAmountHint: (unit, time) => `عيّن ${unit} لهذا المشروب (${time}).`,
+  waterIntakeHint: (unit) => `عيّن إجمالي اليوم بـ ${unit}. الهدف:`,
 };
 
 const RU: FoodLogUiCopy = {
@@ -329,6 +463,25 @@ const RU: FoodLogUiCopy = {
   gallery: 'Галерея',
   orDescribeIt: '— или опишите —',
   orDivider: '— или —',
+  addWater: 'Добавить воду',
+  editWater: 'Изменить воду',
+  halfGlass: 'Полстакана',
+  fullGlass: 'Полный стакан',
+  bigGlass: 'Большой стакан',
+  setAmount: 'Задать объём',
+  setTotal: 'Задать итог',
+  editGoal: 'Изменить цель',
+  today: 'Сегодня',
+  goal: 'Цель',
+  waterGoal: 'Цель по воде',
+  waterAmount: 'Объём воды',
+  waterIntake: 'Потребление воды',
+  clear: 'Очистить',
+  deleteWaterTitle: 'Удалить воду?',
+  deleteWaterMessage: 'Убрать этот напиток из журнала?',
+  waterGoalHint: (unit, defaultAmt) => `Дневная цель H2O в ${unit} (по умолчанию ${defaultAmt}).`,
+  waterAmountHint: (unit, time) => `Задайте ${unit} для этого напитка (${time}).`,
+  waterIntakeHint: (unit) => `Задайте итог за сегодня в ${unit}. Цель:`,
 };
 
 const BY_CODE: Record<string, FoodLogUiCopy> = {

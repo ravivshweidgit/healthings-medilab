@@ -357,6 +357,11 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
     if (!expandPrefsLoaded) return;
     void AsyncStorage.setItem(FOOD_LOG_EXPANDED_KEY, expanded ? 'true' : 'false');
   }, [expanded, expandPrefsLoaded]);
+
+  const ui = useMemo(() => getFoodLogUiCopy(lang?.code), [lang?.code]);
+  const title = foodLogTitle(lang);
+  const titleRtl = lang?.code === 'he' || lang?.code === 'ar';
+  const balanceNoSign = titleRtl;
   const [selectedMs, setSelectedMs] = useState(() => startOfLocalDay(Date.now()));
   const [macros, setMacros] = useState<DailyMacros | null>(null);
   const [dayMacroTarget, setDayMacroTarget] = useState<DailyMacroTarget | null>(macroTarget ?? null);
@@ -528,10 +533,10 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
 
   const handleDeleteWaterEntry = useCallback(() => {
     if (!waterEntryEdit) return;
-    Alert.alert('Delete water', 'Remove this drink from your log?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(ui.deleteWaterTitle, ui.deleteWaterMessage, [
+      { text: ui.cancel, style: 'cancel' },
       {
-        text: 'Delete',
+        text: ui.deleteItem,
         style: 'destructive',
         onPress: () => {
           void (async () => {
@@ -542,7 +547,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
         },
       },
     ]);
-  }, [waterEntryEdit, activeDayKey, reloadWater, closeWaterSheet]);
+  }, [waterEntryEdit, activeDayKey, reloadWater, closeWaterSheet, ui]);
 
   const dayLogItems = useMemo(() => {
     type Item =
@@ -595,10 +600,6 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   const energyBarUnit = energyU === 'kj' ? 'kj' : 'kcal';
   const energyBarLabel = energyU === 'kj' ? 'kJ' : 'kcal';
 
-  const ui = useMemo(() => getFoodLogUiCopy(lang?.code), [lang?.code]);
-  const title = foodLogTitle(lang);
-  const titleRtl = lang?.code === 'he' || lang?.code === 'ar';
-  const balanceNoSign = titleRtl;
   const collapsedSub =
     !expanded ? (
       <>
@@ -794,12 +795,12 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
         <Pressable
           style={({ pressed }) => [styles.addActionBtn, styles.addActionWater, pressed && styles.addActionPressed]}
           onPress={openWaterSheet}
-          accessibilityLabel="Add water"
+          accessibilityLabel={ui.addWater}
         >
           <Text style={styles.addActionIcon} accessibilityElementsHidden>
             💧
           </Text>
-          <Text style={[styles.addActionLabel, styles.addActionLabelWater]}>{ui.water}</Text>
+          <Text style={[styles.addActionLabel, styles.addActionLabelWater]}>{ui.addWater}</Text>
         </Pressable>
       </View>
       {/* Meal + water event chips (chronological) */}
@@ -815,7 +816,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               <Text style={styles.chipTime}>{formatTime(item.entry.timestamp)}</Text>
               <Text style={styles.chipLabel}>{mealLabel(item.entry, ui)}</Text>
               <Text style={styles.chipKcal}>{formatEnergy(item.entry.totalKcal, energyU)}</Text>
-              <Text style={styles.chipEdit}>✎ edit</Text>
+              <Text style={styles.chipEdit}>✎ {ui.editItem}</Text>
             </Pressable>
           ) : (
             <Pressable
@@ -826,7 +827,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               <Text style={styles.chipTime}>{formatTime(item.entry.timestamp)}</Text>
               <Text style={styles.chipLabelWater}>{item.entry.label ?? ui.water}</Text>
               <Text style={styles.chipMl}>{formatWaterMl(item.entry.ml, waterU)}</Text>
-              <Text style={styles.chipEditWater}>✎ edit</Text>
+              <Text style={styles.chipEditWater}>✎ {ui.editItem}</Text>
             </Pressable>
           ),
         )}
@@ -897,7 +898,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
       <Modal visible={waterSheetVisible} transparent animationType="fade" onRequestClose={closeWaterSheet}>
         <Pressable style={styles.modalOverlay} onPress={closeWaterSheet}>
           <Pressable style={styles.waterSheetCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>{waterEntryEdit ? 'Edit water' : 'Add water'}</Text>
+            <Text style={styles.modalTitle}>{waterEntryEdit ? ui.editWater : ui.addWater}</Text>
             <Text style={styles.modalSub}>
               {waterEntryEdit ? (
                 <>
@@ -908,8 +909,9 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                 </>
               ) : (
                 <>
-                  Today: <Text style={styles.modalBold}>{formatWaterMl(waterMl, waterU)}</Text>
-                  {' · '}Goal <Text style={styles.modalBold}>{formatWaterMl(waterGoalMl, waterU)}</Text>
+                  {ui.today}: <Text style={styles.modalBold}>{formatWaterMl(waterMl, waterU)}</Text>
+                  {' · '}
+                  {ui.goal} <Text style={styles.modalBold}>{formatWaterMl(waterGoalMl, waterU)}</Text>
                 </>
               )}
             </Text>
@@ -917,23 +919,23 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               <WaterQuickTile
                 variant="half"
                 ml={WATER_HALF_ML}
-                label="Half glass"
+                label={ui.halfGlass}
                 waterUnit={waterU}
-                onPress={() => void handleGlassPress(WATER_HALF_ML, 'Half glass')}
+                onPress={() => void handleGlassPress(WATER_HALF_ML, ui.halfGlass)}
               />
               <WaterQuickTile
                 variant="full"
                 ml={WATER_FULL_ML}
-                label="Full glass"
+                label={ui.fullGlass}
                 waterUnit={waterU}
-                onPress={() => void handleGlassPress(WATER_FULL_ML, 'Full glass')}
+                onPress={() => void handleGlassPress(WATER_FULL_ML, ui.fullGlass)}
               />
               <WaterQuickTile
                 variant="big"
                 ml={WATER_BIG_ML}
-                label="Big glass"
+                label={ui.bigGlass}
                 waterUnit={waterU}
-                onPress={() => void handleGlassPress(WATER_BIG_ML, 'Big glass')}
+                onPress={() => void handleGlassPress(WATER_BIG_ML, ui.bigGlass)}
               />
             </View>
             <View style={styles.waterUtilityRow}>
@@ -943,10 +945,10 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                   setWaterSheetVisible(false);
                   openWaterIntakeModal();
                 }}
-                accessibilityLabel={waterEntryEdit ? 'Set amount for this drink' : 'Set water total for today'}
+                accessibilityLabel={waterEntryEdit ? ui.setAmount : ui.setTotal}
               >
                 <MaterialCommunityIcons name="numeric" size={20} color="#0288D1" />
-                <Text style={styles.waterUtilityText}>{waterEntryEdit ? 'Set amount' : 'Set total'}</Text>
+                <Text style={styles.waterUtilityText}>{waterEntryEdit ? ui.setAmount : ui.setTotal}</Text>
               </Pressable>
               {!waterEntryEdit ? (
                 <Pressable
@@ -955,10 +957,10 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                     setWaterSheetVisible(false);
                     openWaterGoalModal();
                   }}
-                  accessibilityLabel="Edit daily water goal"
+                  accessibilityLabel={ui.editGoal}
                 >
                   <MaterialCommunityIcons name="flag-checkered" size={20} color="#0288D1" />
-                  <Text style={styles.waterUtilityText}>Edit goal</Text>
+                  <Text style={styles.waterUtilityText}>{ui.editGoal}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -967,7 +969,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                 <Pressable
                   style={styles.waterDeleteBtn}
                   onPress={handleDeleteWaterEntry}
-                  accessibilityLabel="Delete water entry"
+                  accessibilityLabel={ui.deleteItem}
                 >
                   <Text style={styles.waterDeleteBtnText}>🗑</Text>
                 </Pressable>
@@ -976,7 +978,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                 style={[styles.waterSheetCancelBtn, !waterEntryEdit && styles.waterSheetCancelBtnSolo]}
                 onPress={closeWaterSheet}
               >
-                <Text style={styles.waterSheetBtnCancelText}>Cancel</Text>
+                <Text style={styles.waterSheetBtnCancelText}>{ui.cancel}</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -988,21 +990,30 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
         <Pressable style={styles.modalOverlay} onPress={() => setWaterModalVisible(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
             <Text style={styles.modalTitle}>
-              {waterModalMode === 'goal' ? 'Water goal' : waterEntryEdit ? 'Water amount' : 'Water intake'}
+              {waterModalMode === 'goal'
+                ? ui.waterGoal
+                : waterEntryEdit
+                  ? ui.waterAmount
+                  : ui.waterIntake}
             </Text>
             <Text style={styles.modalSub}>
               {waterModalMode === 'goal' ? (
                 <>
-                  Daily H2O target in {waterUnitLabel(waterU)} (default{' '}
-                  {formatWaterMl(DEFAULT_WATER_GOAL_ML, waterU)}).
+                  {ui.waterGoalHint(
+                    waterUnitLabel(waterU),
+                    formatWaterMl(DEFAULT_WATER_GOAL_ML, waterU),
+                  )}
                 </>
               ) : waterEntryEdit ? (
                 <>
-                  Set {waterUnitLabel(waterU)} for this drink ({formatTime(waterEntryEdit.timestamp)}).
+                  {ui.waterAmountHint(
+                    waterUnitLabel(waterU),
+                    formatTime(waterEntryEdit.timestamp),
+                  )}
                 </>
               ) : (
                 <>
-                  Set today's total in {waterUnitLabel(waterU)}. Goal:{' '}
+                  {ui.waterIntakeHint(waterUnitLabel(waterU))}{' '}
                   <Text style={styles.modalBold}>{formatWaterMl(waterGoalMl, waterU)}</Text>
                 </>
               )}
@@ -1020,14 +1031,14 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
             <View style={styles.modalBtns}>
               {waterModalMode === 'intake' && (waterEntryEdit || waterMl > 0) ? (
                 <Pressable style={styles.modalBtnClear} onPress={() => void handleClearWaterDay()}>
-                  <Text style={styles.modalBtnClearText}>Clear</Text>
+                  <Text style={styles.modalBtnClearText}>{ui.clear}</Text>
                 </Pressable>
               ) : null}
               <Pressable style={styles.modalBtnCancel} onPress={() => setWaterModalVisible(false)}>
-                <Text style={styles.modalBtnCancelText}>Cancel</Text>
+                <Text style={styles.modalBtnCancelText}>{ui.cancel}</Text>
               </Pressable>
               <Pressable style={styles.modalBtnSave} onPress={() => void handleSaveWaterModal()}>
-                <Text style={styles.modalBtnSaveText}>Save</Text>
+                <Text style={styles.modalBtnSaveText}>{ui.saveItem}</Text>
               </Pressable>
             </View>
           </Pressable>

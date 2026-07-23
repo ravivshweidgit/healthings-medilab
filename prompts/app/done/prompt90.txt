@@ -33,6 +33,11 @@ Meal items could only be fixed via chat/photo; no direct Edit/Delete. Reusing a 
 - [x] From past meal → pick day → copy → new meal (not edit source)
 - [x] Past rows show item name preview
 - [x] Idle Camera/Gallery/titles localized; Save meal blue + localized
+- [x] Add water button + sheet localized (glasses, Set amount/total, Edit goal, Cancel/Save)
+
+### Follow-up (2026-07-24) — Add water i18n
+
+Food Log water chrome (`addWater`, glass tiles, sheet, intake/goal modals) via `foodLogUiCopy.ts` + `FoodMacroStrip.tsx`. Phone-tested.
 
 ### Deferred
 
