@@ -28,6 +28,11 @@ export type MetabolicStripCopy = {
   a11yCollapseTrend: string;
   a11yExpandProfileSettings: string;
   a11yCollapseProfileSettings: string;
+  /** Chart legend labels (sentence case). */
+  legendGlucose: string;
+  legendHeartRate: string;
+  legendSteps: string;
+  legendWorkout: string;
   /** Compact relative time: minutes / hours / days. */
   minsAgo: (n: number) => string;
   hoursAgo: (n: number) => string;
@@ -58,6 +63,10 @@ const EN: MetabolicStripCopy = {
   a11yCollapseTrend: 'Collapse trend analysis and energy',
   a11yExpandProfileSettings: 'Expand profile and settings',
   a11yCollapseProfileSettings: 'Collapse profile and settings',
+  legendGlucose: 'Glucose',
+  legendHeartRate: 'Heart rate',
+  legendSteps: 'Steps',
+  legendWorkout: 'Workout',
   minsAgo: (n) => `${n}m ago`,
   hoursAgo: (n) => `${n}h ago`,
   daysAgo: (n) => `${n}d ago`,
@@ -87,6 +96,10 @@ const HE: MetabolicStripCopy = {
   a11yCollapseTrend: 'כווץ מגמה ואנרגיה',
   a11yExpandProfileSettings: 'הרחב פרופיל והגדרות',
   a11yCollapseProfileSettings: 'כווץ פרופיל והגדרות',
+  legendGlucose: 'גלוקוז',
+  legendHeartRate: 'דופק',
+  legendSteps: 'צעדים',
+  legendWorkout: 'אימון',
   minsAgo: (n) => `לפני ${n}ד׳`,
   hoursAgo: (n) => `לפני ${n}ש׳`,
   daysAgo: (n) => `לפני ${n}י׳`,
@@ -116,6 +129,10 @@ const ES: MetabolicStripCopy = {
   a11yCollapseTrend: 'Contraer tendencia y energía',
   a11yExpandProfileSettings: 'Expandir perfil y ajustes',
   a11yCollapseProfileSettings: 'Contraer perfil y ajustes',
+  legendGlucose: 'Glucosa',
+  legendHeartRate: 'Frecuencia cardíaca',
+  legendSteps: 'Pasos',
+  legendWorkout: 'Entrenamiento',
   minsAgo: (n) => `hace ${n}m`,
   hoursAgo: (n) => `hace ${n}h`,
   daysAgo: (n) => `hace ${n}d`,
@@ -145,6 +162,10 @@ const FR: MetabolicStripCopy = {
   a11yCollapseTrend: 'Réduire tendance et énergie',
   a11yExpandProfileSettings: 'Développer profil et réglages',
   a11yCollapseProfileSettings: 'Réduire profil et réglages',
+  legendGlucose: 'Glycémie',
+  legendHeartRate: 'Fréquence cardiaque',
+  legendSteps: 'Pas',
+  legendWorkout: 'Séance',
   minsAgo: (n) => `il y a ${n}m`,
   hoursAgo: (n) => `il y a ${n}h`,
   daysAgo: (n) => `il y a ${n}j`,
@@ -174,6 +195,10 @@ const DE: MetabolicStripCopy = {
   a11yCollapseTrend: 'Trend und Energie einklappen',
   a11yExpandProfileSettings: 'Profil und Einstellungen erweitern',
   a11yCollapseProfileSettings: 'Profil und Einstellungen einklappen',
+  legendGlucose: 'Glukose',
+  legendHeartRate: 'Herzfrequenz',
+  legendSteps: 'Schritte',
+  legendWorkout: 'Training',
   minsAgo: (n) => `vor ${n}m`,
   hoursAgo: (n) => `vor ${n}h`,
   daysAgo: (n) => `vor ${n}T`,
@@ -203,6 +228,10 @@ const AR: MetabolicStripCopy = {
   a11yCollapseTrend: 'طي الاتجاه والطاقة',
   a11yExpandProfileSettings: 'توسيع الملف والإعدادات',
   a11yCollapseProfileSettings: 'طي الملف والإعدادات',
+  legendGlucose: 'الجلوكوز',
+  legendHeartRate: 'معدل القلب',
+  legendSteps: 'خطوات',
+  legendWorkout: 'تمرين',
   minsAgo: (n) => `منذ ${n}د`,
   hoursAgo: (n) => `منذ ${n}س`,
   daysAgo: (n) => `منذ ${n}ي`,
@@ -232,6 +261,10 @@ const RU: MetabolicStripCopy = {
   a11yCollapseTrend: 'Свернуть тренд и энергию',
   a11yExpandProfileSettings: 'Развернуть профиль и настройки',
   a11yCollapseProfileSettings: 'Свернуть профиль и настройки',
+  legendGlucose: 'Глюкоза',
+  legendHeartRate: 'Пульс',
+  legendSteps: 'Шаги',
+  legendWorkout: 'Тренировка',
   minsAgo: (n) => `${n}м назад`,
   hoursAgo: (n) => `${n}ч назад`,
   daysAgo: (n) => `${n}д назад`,

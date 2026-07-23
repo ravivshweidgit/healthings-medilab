@@ -112,6 +112,7 @@ import { formatLocalizedDate, formatLocalizedDateTime } from '../i18n/dateLocale
 import { getBodyMetricsCopy } from '../i18n/bodyMetricsCopy';
 import { aiChatOpenLabel, aiChatTitle } from '../i18n/aiChatCopy';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
+import { getYourSetupCopy } from '../i18n/yourSetupCopy';
 import {
   formatRelativeAgoLocalized,
   getMetabolicStripCopy,
@@ -825,6 +826,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
   const profileStripCopy = useMemo(
     () => getProfileSettingsStripCopy(userLanguage.code),
+    [userLanguage.code],
+  );
+  const yourSetupCopy = useMemo(
+    () => getYourSetupCopy(userLanguage.code),
     [userLanguage.code],
   );
 
@@ -2223,7 +2228,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           {profileExpanded && (
             <DebugErrorBoundary label="My Profile">
             <View style={styles.profileBody}>
-              <Text style={styles.birthdateSectionTitle}>Gender</Text>
+              <Text style={styles.birthdateSectionTitle}>{yourSetupCopy.gender}</Text>
               <View style={styles.genderRow}>
                 {(['male', 'female', 'other'] as Gender[]).map((g) => (
                   <Pressable
@@ -2232,13 +2237,17 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     onPress={() => setGenderPicker(g)}
                   >
                     <Text style={[styles.genderBtnText, genderPicker === g && styles.genderBtnTextSelected]}>
-                      {g.charAt(0).toUpperCase() + g.slice(1)}
+                      {g === 'male'
+                        ? yourSetupCopy.male
+                        : g === 'female'
+                          ? yourSetupCopy.female
+                          : yourSetupCopy.other}
                     </Text>
                   </Pressable>
                 ))}
               </View>
 
-              <Text style={styles.birthdateSectionTitle}>Height</Text>
+              <Text style={styles.birthdateSectionTitle}>{yourSetupCopy.height}</Text>
               <View style={styles.heightRow}>
                 <TextInput
                   style={styles.heightInput}
@@ -2251,7 +2260,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 <Text style={styles.heightUnit}>{unitsPrefs.height === 'ftin' ? "ft'in\"" : 'cm'}</Text>
               </View>
 
-              <Text style={styles.birthdateSectionTitle}>Birth Date</Text>
+              <Text style={styles.birthdateSectionTitle}>{yourSetupCopy.birthDate}</Text>
               <Pressable
                 style={styles.datePickerBtn}
                 onPress={() => setShowDatePickerDialog(true)}
@@ -2266,7 +2275,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 <Text style={styles.datePickerBtnIcon}>📅</Text>
               </Pressable>
               {userAge != null && (
-                <Text style={styles.birthdateAge}>Age: {userAge} years</Text>
+                <Text style={styles.birthdateAge}>{yourSetupCopy.ageYears(userAge)}</Text>
               )}
 
               <Text style={styles.birthdateSectionTitle}>Coach & meals language</Text>
@@ -2307,30 +2316,34 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 <Text style={styles.quickStartAgainText}>Quick Start again</Text>
               </Pressable>
 
-              <Text style={styles.birthdateSectionTitle}>Your setup</Text>
+              <Text style={styles.birthdateSectionTitle}>{yourSetupCopy.title}</Text>
               {setupToggles ? (
                 <>
                   <SetupToggleRow
-                    label="Withings scale"
+                    label={yourSetupCopy.withingsScale}
                     value={setupToggles.withingsScale}
+                    yesLabel={yourSetupCopy.yes}
+                    noLabel={yourSetupCopy.no}
                     onChange={(v) => void persistSetupToggles({ ...setupToggles, withingsScale: v })}
                     hint={
                       setupToggles.withingsScale && !withingsLinked
-                        ? 'Link Withings on the dashboard to sync scale data.'
+                        ? yourSetupCopy.hintScaleLink
                         : undefined
                     }
                   />
                   <SetupToggleRow
-                    label="Withings watch"
+                    label={yourSetupCopy.withingsWatch}
                     value={setupToggles.withingsWatch}
+                    yesLabel={yourSetupCopy.yes}
+                    noLabel={yourSetupCopy.no}
                     onChange={(v) => void persistSetupToggles({ ...setupToggles, withingsWatch: v })}
                     hint={
                       setupToggles.withingsWatch && !setupToggles.withingsScale && !withingsLinked
-                        ? 'Link Withings below to sync watch activity.'
+                        ? yourSetupCopy.hintWatchLink
                         : !setupToggles.withingsWatch
                           ? Platform.OS === 'ios'
-                            ? 'Steps & HR from Apple Health — see Allow access below.'
-                            : 'Steps & HR from Health Connect — see Allow access below.'
+                            ? yourSetupCopy.hintWatchOffIos
+                            : yourSetupCopy.hintWatchOffAndroid
                           : undefined
                     }
                   />
@@ -2353,7 +2366,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                         <ActivityIndicator color={WellnessColors.accentBlue} size="small" />
                       ) : (
                         <Text style={styles.withingsLinkButtonTextCompact}>
-                          {withingsLinked ? 'Re-link Withings' : 'Link Withings'}
+                          {withingsLinked ? yourSetupCopy.relinkWithings : yourSetupCopy.linkWithings}
                         </Text>
                       )}
                     </Pressable>
@@ -2375,14 +2388,16 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     />
                   ) : null}
                   <SetupToggleRow
-                    label="CGM"
+                    label={yourSetupCopy.cgm}
                     value={setupToggles.cgm}
+                    yesLabel={yourSetupCopy.yes}
+                    noLabel={yourSetupCopy.no}
                     onChange={(v) => void persistSetupToggles({ ...setupToggles, cgm: v })}
                     hint={
                       setupToggles.cgm
                         ? Platform.OS === 'ios'
-                          ? 'CareSens Air → Apple Health sharing on. Then Sync in Healthings.'
-                          : 'Allow Blood glucose in Health Connect settings.'
+                          ? yourSetupCopy.hintCgmIos
+                          : yourSetupCopy.hintCgmAndroid
                         : undefined
                     }
                   />
@@ -2439,7 +2454,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   setProfileExpanded(false);
                 }}
               >
-                <Text style={styles.birthdateSaveBtnText}>Save</Text>
+                <Text style={styles.birthdateSaveBtnText}>{yourSetupCopy.save}</Text>
               </Pressable>
             </View>
             </DebugErrorBoundary>
@@ -3377,8 +3392,8 @@ const styles = StyleSheet.create({
     backgroundColor: WellnessColors.background,
   },
   genderBtnSelected: {
-    borderColor: WellnessColors.accentGreen,
-    backgroundColor: WellnessColors.accentGreen + '18',
+    borderColor: WellnessColors.accentBlue,
+    backgroundColor: WellnessColors.accentBlue + '15',
   },
   genderBtnText: {
     fontSize: 13,
@@ -3386,7 +3401,7 @@ const styles = StyleSheet.create({
     color: WellnessColors.textSecondary,
   },
   genderBtnTextSelected: {
-    color: WellnessColors.accentGreen,
+    color: WellnessColors.accentBlue,
   },
   langRow: {
     flexDirection: 'row',
@@ -3521,7 +3536,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   birthdateSaveBtn: {
-    backgroundColor: WellnessColors.accentGreen,
+    backgroundColor: WellnessColors.accentBlue,
     borderRadius: 999,
     paddingHorizontal: 40,
     paddingVertical: 12,

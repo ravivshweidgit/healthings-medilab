@@ -1,0 +1,65 @@
+## Prompt 88 — Dashboard chrome i18n follow-up (Profile, Food Log, labs, chart legend)
+
+**Status: done (2026-07-24)** — phone-tested Android (iterative bi).  
+**Builds on:** `done/prompt87` (Phase B dashboard chrome)  
+**Refines:** `done/prompt58` (Your setup labels), `done/prompt70` (Food Log energy lines), `done/prompt39` (lab results strip)
+
+### Problem
+
+Phase B localized strip titles, but many Profile / Food Log / chart chrome strings stayed English: Gender/Height/Birth Date, Food Log energy lines and meal slots, Lab Results, Your setup, and chart legend (Glucose / Heart rate / Steps cal / Workout). Long RTL/Cyrillic legend labels also overflowed or failed to stack into two rows.
+
+### What shipped
+
+| Area | Behavior |
+|------|----------|
+| **Lab Results** | 7-locale strip + modal titles via `labResultsStripCopy.ts` (RU: РЕЗУЛЬТАТЫ АНАЛИЗОВ) |
+| **Your setup** | Title, Yes/No, Save, scale/watch/CGM labels + hints via `yourSetupCopy.ts`; CGM brand stays English |
+| **Profile form** | Gender / Male / Female / Other / Height / Birth Date / Age via `yourSetupCopy` |
+| **Food Log chrome** | eaten / activity / burned / deficit·surplus, Meal, Water, Breakfast–Dinner (+ Snack) via `foodLogUiCopy.ts` |
+| **Meal button** | Always **Meal** (removed “Meal here” for past days) |
+| **Macros collapsed** | Subtitle keeps `P/F/C/Fi/Net` only (no update time) |
+| **Chart legend** | Localized Glucose, Heart rate, Steps (not “Steps cal”), Workout; BMR stays glossary |
+| **Legend layout** | Two rows: Glucose·HR above; BMR·Steps·Workout below; wrap + padding so AR/RU stay inside card |
+| **Blue unify** | Yes/No toggles, gender chips, Profile Save → `WellnessColors.accentBlue` |
+
+### Always-English glossary (unchanged)
+
+`kcal`, `CGM`, `BMR`, Withings, Health Connect, Apple Health, unit symbols, slash commands.
+
+### Primary files
+
+| Path | Role |
+|------|------|
+| `app/src/i18n/labResultsStripCopy.ts` | Lab Results strip / modal |
+| `app/src/i18n/yourSetupCopy.ts` | Your setup + profile form labels |
+| `app/src/i18n/foodLogUiCopy.ts` | Food Log energy / meal / water chrome |
+| `app/src/i18n/metabolicStripCopy.ts` | Chart legend strings |
+| `app/src/components/FoodMacroStrip.tsx` | Food Log chrome wiring; Meal button |
+| `app/src/components/MetabolicChart.tsx` | Legend copy + two-row layout |
+| `app/src/components/LabResultsStrip.tsx` | Lab strip i18n |
+| `app/src/components/LabReportModal.tsx` | Lab modal title i18n |
+| `app/src/components/SetupToggleRow.tsx` | Yes/No labels + blue selected state |
+| `app/src/components/MacroTargetStrip.tsx` | Collapsed macros subtitle trim |
+| `app/src/screens/DashboardScreen.tsx` | Profile form + Your setup wiring |
+
+### Phone-tested
+
+- [x] Profile Gender / Height / Birth / Age in coach language
+- [x] Food Log energy lines + Meal / Water + meal-slot chips
+- [x] Meal button always “Meal” (today and past days)
+- [x] Chart legend Glucose / Heart rate / Steps / Workout localized
+- [x] HE: Glucose·HR on row above BMR·Steps·Workout
+- [x] AR/RU: legend stays inside card borders
+- [x] Lab Results + Your setup Yes/No localized; blue Yes/No/Save
+
+### Deferred
+
+- Full chrome RTL (chart plot stays LTR)
+- Clinic portal UI (English)
+- Remaining English chrome (e.g. “Walk / activity”, chip “edit”, Coach & meals language picker label polish)
+
+### Related
+
+- Phase B base: `done/prompt87.txt`
+- Nutritionist sessions rename (prior): commit `87b4699`
+- Language policy: `.cursor/rules/language-policy.mdc`

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { formatShortDate } from '../i18n/dateLocale';
+import { getLabResultsStripCopy } from '../i18n/labResultsStripCopy';
 import {
   buildLipidTrendPoints,
   exportLabLog,
@@ -66,6 +67,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const copy = getLabResultsStripCopy(lang?.code);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
 
   const latest = reports[0] ?? null;
@@ -108,60 +110,48 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
   const handleSaved = useCallback(() => {
     onReportsChanged();
     closeModal();
-    Alert.alert(
-      rtl ? 'נשמר' : 'Saved',
-      rtl ? 'המנטורים יכולים לראות את התוצאות' : 'Mentors can now see these results',
-    );
-  }, [closeModal, onReportsChanged, rtl]);
+    Alert.alert(copy.savedTitle, copy.savedBody);
+  }, [closeModal, onReportsChanged, copy.savedTitle, copy.savedBody]);
 
   const handleExport = useCallback(async () => {
     try {
       await exportLabLog();
     } catch (e: unknown) {
-      Alert.alert(rtl ? 'ייצוא נכשל' : 'Export failed', e instanceof Error ? e.message : String(e));
+      Alert.alert(copy.exportFailed, e instanceof Error ? e.message : String(e));
     }
-  }, [rtl]);
+  }, [copy.exportFailed]);
 
   const handleImport = useCallback(async () => {
     setBusy(true);
     try {
       const count = await importLabLog();
       if (count === 0) {
-        Alert.alert(rtl ? 'ייבוא' : 'Import', rtl ? 'לא נמצאו דוחות חדשים' : 'No new reports in file');
+        Alert.alert(copy.importTitle, copy.importNone);
       } else {
-        Alert.alert(
-          rtl ? 'ייבוא הושלם' : 'Import complete',
-          rtl ? `${count} דוחות יובאו` : `${count} report${count === 1 ? '' : 's'} imported`,
-        );
+        Alert.alert(copy.importComplete, copy.importCount(count));
         onReportsChanged();
       }
     } catch (e: unknown) {
-      Alert.alert(rtl ? 'ייבוא נכשל' : 'Import failed', e instanceof Error ? e.message : String(e));
+      Alert.alert(copy.importFailed, e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
-  }, [onReportsChanged, rtl]);
+  }, [onReportsChanged, copy]);
 
-  const sectionTitle = rtl ? 'תוצאות מעבדה' : 'LAB RESULTS';
-  const addLabel = rtl ? 'הוסף דוח' : 'Add report';
   const latestLine = latest
-    ? rtl
-      ? `אחרון: ${formatDrawDate(latest.collectedAt, lang?.code)} · ${resultCount(latest)} בדיקות`
-      : `Latest: ${formatDrawDate(latest.collectedAt, lang?.code)} · ${resultCount(latest)} tests`
-    : rtl
-      ? 'ייבאו PDF מכללית און־ליין'
-      : 'Import a Clalit online lab PDF';
+    ? `${copy.latestPrefix}: ${formatDrawDate(latest.collectedAt, lang?.code)} · ${copy.testsCount(resultCount(latest))}`
+    : copy.emptyHint;
 
   return (
     <View style={[styles.card, cardShadow, !expanded && styles.cardCollapsed]}>
       <DashboardCollapseHeader
-        title={sectionTitle}
+        title={copy.title}
         subtitle={latestLine}
         expanded={expanded}
         onToggle={() => setExpanded((v) => !v)}
         titleRtl={rtl}
-        collapseLabel={rtl ? 'כווץ תוצאות מעבדה' : 'Collapse lab results'}
-        expandLabel={rtl ? 'הרחב תוצאות מעבדה' : 'Expand lab results'}
+        collapseLabel={copy.collapseA11y}
+        expandLabel={copy.expandA11y}
         subtitleNumberOfLines={2}
       />
 
@@ -171,10 +161,10 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
         <Pressable
           style={({ pressed }) => [styles.chip, styles.addChip, pressed && styles.chipPressed]}
           onPress={openImport}
-          accessibilityLabel={addLabel}
+          accessibilityLabel={copy.addReport}
         >
           <Text style={styles.addChipIcon}>＋</Text>
-          <Text style={styles.addChipLabel}>{addLabel}</Text>
+          <Text style={styles.addChipLabel}>{copy.addReport}</Text>
         </Pressable>
         {reports.map((r) => {
           const hi = highlightResult(r);
@@ -187,10 +177,10 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
               <Text style={styles.chipDate}>{formatDrawDate(r.collectedAt, lang?.code)}</Text>
               <Text style={styles.chipLabel}>{panelLabel(r)}</Text>
               <Text style={styles.chipMeta}>
-                {resultCount(r)} {rtl ? 'בדיקות' : 'tests'}
+                {copy.testsCount(resultCount(r))}
               </Text>
               {hi ? <Text style={styles.chipHi}>{hi}</Text> : null}
-              <Text style={styles.chipEdit}>✎ {rtl ? 'צפייה' : 'view'}</Text>
+              <Text style={styles.chipEdit}>✎ {copy.view}</Text>
             </Pressable>
           );
         })}
@@ -199,20 +189,18 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
       {lipidTrendPoints.length >= 2 ? (
         <LipidTrendChart points={lipidTrendPoints} rtl={rtl} gender={gender} langCode={lang?.code} />
       ) : lipidTrendPoints.length === 1 ? (
-        <Text style={styles.trendHint}>
-          {rtl ? 'ייבאו דוח נוסף כדי לראות מגמת כולסטרול' : 'Import another draw to see cholesterol trends'}
-        </Text>
+        <Text style={styles.trendHint}>{copy.trendHint}</Text>
       ) : null}
 
       <View style={styles.footer}>
-        <Pressable style={styles.footerBtn} onPress={() => void handleExport()} accessibilityLabel="Export lab log">
-          <Text style={styles.footerBtnText}>⬆ {rtl ? 'ייצוא' : 'Export'}</Text>
+        <Pressable style={styles.footerBtn} onPress={() => void handleExport()} accessibilityLabel={copy.exportLabel}>
+          <Text style={styles.footerBtnText}>⬆ {copy.exportLabel}</Text>
         </Pressable>
-        <Pressable style={styles.footerBtn} onPress={() => void handleImport()} disabled={busy} accessibilityLabel="Import lab log">
+        <Pressable style={styles.footerBtn} onPress={() => void handleImport()} disabled={busy} accessibilityLabel={copy.importLabel}>
           {busy ? (
             <ActivityIndicator size="small" color={WellnessColors.textSecondary} />
           ) : (
-            <Text style={styles.footerBtnText}>⬇ {rtl ? 'ייבוא' : 'Import'}</Text>
+            <Text style={styles.footerBtnText}>⬇ {copy.importLabel}</Text>
           )}
         </Pressable>
       </View>

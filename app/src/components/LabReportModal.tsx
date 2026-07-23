@@ -28,6 +28,7 @@ import {
   type ParsedLabPdf,
 } from '../services/LabLogService';
 import { applyAutoMacroRevision } from '../logic/macroAutoAdjust';
+import { getLabResultsStripCopy } from '../i18n/labResultsStripCopy';
 import type { UserLanguage } from '../services/TargetService';
 import { WellnessColors } from '../theme/wellness';
 
@@ -63,6 +64,7 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
   const [error, setError] = useState<string | null>(null);
   const autoPickStartedRef = useRef(false);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
+  const copy = getLabResultsStripCopy(lang?.code);
   const loading = loadingPhase != null;
 
   const reset = useCallback(() => {
@@ -185,18 +187,10 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
     }
   }, [editingReport, onSaved]);
 
-  const title = rtl ? 'תוצאות מעבדה' : 'Lab results';
-  const saveLabel = rtl ? 'שמור' : 'Save';
-  const pickLabel = rtl ? 'בחר PDF' : 'Choose PDF';
-  const loadingLabel =
-    loadingPhase === 'save'
-      ? rtl
-        ? 'שומר…'
-        : 'Saving…'
-      : rtl
-        ? 'קורא את הדוח…'
-        : 'Reading lab report…';
-
+  const title = copy.modalTitle;
+  const saveLabel = copy.save;
+  const pickLabel = copy.choosePdf;
+  const loadingLabel = loadingPhase === 'save' ? copy.saving : copy.reading;
   const renderResultRow = (
     r: LabResult,
     key: string,

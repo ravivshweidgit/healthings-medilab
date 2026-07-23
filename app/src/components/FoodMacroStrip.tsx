@@ -40,6 +40,7 @@ import { DEFAULT_UNITS_PREFS } from '../services/UnitsPreferenceService';
 import type { UserLanguage } from '../services/TargetService';
 import { DEFAULT_LANGUAGE } from '../services/TargetService';
 import { formatFoodLogDayLabel } from '../i18n/dateLocale';
+import { getFoodLogUiCopy, type FoodLogUiCopy } from '../i18n/foodLogUiCopy';
 import {
   displayToKcal,
   displayToMl,
@@ -237,13 +238,13 @@ function formatTime(ms: number): string {
   return new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
-function mealLabel(entry: FoodEntry): string {
+function mealLabel(entry: FoodEntry, copy: FoodLogUiCopy): string {
   if (entry.note) return entry.note;
   const h = new Date(entry.timestamp).getHours();
-  if (h < 10) return 'Breakfast';
-  if (h < 14) return 'Lunch';
-  if (h < 17) return 'Snack';
-  return 'Dinner';
+  if (h < 10) return copy.breakfast;
+  if (h < 14) return copy.lunch;
+  if (h < 17) return copy.snack;
+  return copy.dinner;
 }
 
 type MacroBarProps = {
@@ -594,6 +595,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   const energyBarUnit = energyU === 'kj' ? 'kj' : 'kcal';
   const energyBarLabel = energyU === 'kj' ? 'kJ' : 'kcal';
 
+  const ui = useMemo(() => getFoodLogUiCopy(lang?.code), [lang?.code]);
   const title = foodLogTitle(lang);
   const titleRtl = lang?.code === 'he' || lang?.code === 'ar';
   const balanceNoSign = titleRtl;
@@ -649,7 +651,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
             {eaten > 0 ? disp(eaten).toLocaleString() : '—'}
           </Text>
           <Text style={styles.energyLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-            {eLab} eaten
+            {eLab} {ui.eaten}
           </Text>
         </View>
         {burnParts != null && burn != null ? (
@@ -665,13 +667,13 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                 setCorrectionModalVisible(true);
               }}
               hitSlop={8}
-              accessibilityLabel={`${activityShown} ${eLab} activity, tap to adjust`}
+              accessibilityLabel={`${activityShown} ${eLab} ${ui.activity}, tap to adjust`}
             >
               <Text style={styles.energyNum} numberOfLines={1} maxFontSizeMultiplier={1.2}>
                 {disp(activityShown ?? 0).toLocaleString()}
               </Text>
               <Text style={styles.energyLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-                {`${eLab} activity`}
+                {`${eLab} ${ui.activity}`}
                 {burnCorrection !== 0 ? (
                   <Text style={styles.energyCorrection}>{` (${burnCorrection > 0 ? '+' : ''}${disp(burnCorrection)})`}</Text>
                 ) : null}
@@ -685,10 +687,10 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                 </Text>
                 <View style={styles.energyBurnTextCol}>
                   <Text style={styles.energyLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-                    {eLab} burned
+                    {eLab} {ui.burned}
                   </Text>
                   <Text style={styles.energyBurnFormula} numberOfLines={1} maxFontSizeMultiplier={1.15}>
-                    {`BMR ${disp(burnParts.bmr).toLocaleString()} + activity`}
+                    {`BMR ${disp(burnParts.bmr).toLocaleString()} + ${ui.activity}`}
                   </Text>
                 </View>
               </View>
@@ -711,7 +713,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               {disp(Math.round(burn)).toLocaleString()}
             </Text>
             <Text style={styles.energyLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-              {`${eLab} burned`}
+              {`${eLab} ${ui.burned}`}
               {burnCorrection !== 0 ? (
                 <Text style={styles.energyCorrection}>{` (${burnCorrection > 0 ? '+' : ''}${disp(burnCorrection)})`}</Text>
               ) : null}
@@ -733,7 +735,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               numberOfLines={1}
               maxFontSizeMultiplier={1.2}
             >
-              {eLab} {isDeficit ? 'deficit' : 'surplus'}
+              {eLab} {isDeficit ? ui.deficit : ui.surplus}
             </Text>
           </View>
         ) : null}
@@ -787,7 +789,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
           <Text style={styles.addActionIcon} accessibilityElementsHidden>
             🍴
           </Text>
-          <Text style={styles.addActionLabel}>{isToday ? 'Meal' : 'Meal here'}</Text>
+          <Text style={styles.addActionLabel}>{ui.meal}</Text>
         </Pressable>
         <Pressable
           style={({ pressed }) => [styles.addActionBtn, styles.addActionWater, pressed && styles.addActionPressed]}
@@ -797,7 +799,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
           <Text style={styles.addActionIcon} accessibilityElementsHidden>
             💧
           </Text>
-          <Text style={[styles.addActionLabel, styles.addActionLabelWater]}>Water</Text>
+          <Text style={[styles.addActionLabel, styles.addActionLabelWater]}>{ui.water}</Text>
         </Pressable>
       </View>
       {/* Meal + water event chips (chronological) */}
@@ -811,7 +813,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               onPress={() => onEditMeal?.(item.entry)}
             >
               <Text style={styles.chipTime}>{formatTime(item.entry.timestamp)}</Text>
-              <Text style={styles.chipLabel}>{mealLabel(item.entry)}</Text>
+              <Text style={styles.chipLabel}>{mealLabel(item.entry, ui)}</Text>
               <Text style={styles.chipKcal}>{formatEnergy(item.entry.totalKcal, energyU)}</Text>
               <Text style={styles.chipEdit}>✎ edit</Text>
             </Pressable>
@@ -822,7 +824,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               onPress={() => openWaterEntryEdit(item.entry)}
             >
               <Text style={styles.chipTime}>{formatTime(item.entry.timestamp)}</Text>
-              <Text style={styles.chipLabelWater}>{item.entry.label ?? 'Water'}</Text>
+              <Text style={styles.chipLabelWater}>{item.entry.label ?? ui.water}</Text>
               <Text style={styles.chipMl}>{formatWaterMl(item.entry.ml, waterU)}</Text>
               <Text style={styles.chipEditWater}>✎ edit</Text>
             </Pressable>

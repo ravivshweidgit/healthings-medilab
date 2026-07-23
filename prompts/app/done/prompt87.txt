@@ -59,8 +59,13 @@ After Phase A (language gate + Quick Start + help), Dashboard / Food Log / Profi
 - Clinic portal UI (stays English — Phase C)
 - Rename Profile language picker label to “App & coach language” (policy note; optional polish)
 
+### Follow-up
+
+**Profile / Food Log / legend / labs i18n** → `done/prompt88.txt` (2026-07-24).
+
 ### Related
 
 - Phase A: `done/prompt81.txt`
 - Spec that this closes: `prompts/app/prompt81b.txt` (pointer → this file)
 - Language policy: `.cursor/rules/language-policy.mdc` (updated for Phase B)
+- Follow-up chrome: `done/prompt88.txt`

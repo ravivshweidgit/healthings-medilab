@@ -11,9 +11,18 @@ type Props = {
   value: boolean | null;
   onChange: (v: boolean) => void;
   hint?: string;
+  yesLabel?: string;
+  noLabel?: string;
 };
 
-export function SetupToggleRow({ label, value, onChange, hint }: Props) {
+export function SetupToggleRow({
+  label,
+  value,
+  onChange,
+  hint,
+  yesLabel = 'Yes',
+  noLabel = 'No',
+}: Props) {
   return (
     <View style={styles.block}>
       <Text style={styles.label}>{label}</Text>
@@ -22,13 +31,13 @@ export function SetupToggleRow({ label, value, onChange, hint }: Props) {
           style={[styles.btn, value === true && styles.btnOn]}
           onPress={() => onChange(true)}
         >
-          <Text style={[styles.text, value === true && styles.textOn]}>Yes</Text>
+          <Text style={[styles.text, value === true && styles.textOn]}>{yesLabel}</Text>
         </Pressable>
         <Pressable
           style={[styles.btn, value === false && styles.btnOn]}
           onPress={() => onChange(false)}
         >
-          <Text style={[styles.text, value === false && styles.textOn]}>No</Text>
+          <Text style={[styles.text, value === false && styles.textOn]}>{noLabel}</Text>
         </Pressable>
       </View>
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
@@ -48,7 +57,10 @@ const styles = StyleSheet.create({
     borderColor: WellnessColors.gridLine,
     alignItems: 'center',
   },
-  btnOn: { backgroundColor: '#2E7D5A', borderColor: '#2E7D5A' },
+  btnOn: {
+    backgroundColor: WellnessColors.accentBlue,
+    borderColor: WellnessColors.accentBlue,
+  },
   text: { fontWeight: '700', color: WellnessColors.textSecondary },
   textOn: { color: '#fff' },
   hint: {

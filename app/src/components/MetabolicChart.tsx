@@ -13,6 +13,7 @@ import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg
 import { curveMonotoneX, line } from 'd3-shape';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { formatLocalizedDate, formatLocalizedTime } from '../i18n/dateLocale';
+import { getMetabolicStripCopy } from '../i18n/metabolicStripCopy';
 import type { ActivityZone } from '../logic/MetabolicLogic';
 import type { WithingsCaloriePoint, WorkoutSession } from '../services/WithingsApiService';
 import type { FoodEntry } from '../services/FoodLogService';
@@ -495,6 +496,7 @@ export function MetabolicChart({
   energyDisplayUnit = 'kcal',
   langCode,
 }: Props) {
+  const stripCopy = useMemo(() => getMetabolicStripCopy(langCode), [langCode]);
   const { width: windowW } = useWindowDimensions();
   const [viewportPresetIndex, setViewportPresetIndex] = useState(DEFAULT_VIEWPORT_PRESET_INDEX);
   const [nowAnchor, setNowAnchor] = useState(() => Date.now());
@@ -1439,8 +1441,10 @@ export function MetabolicChart({
       </View>
 
       <View style={styles.legend}>
-        <Text style={styles.legendGlucose}>Glucose</Text>
-        <Text style={styles.legendHeartRate}>Heart rate</Text>
+        <View style={styles.legendPrimaryRow}>
+          <Text style={styles.legendGlucose}>{stripCopy.legendGlucose}</Text>
+          <Text style={styles.legendHeartRate}>{stripCopy.legendHeartRate}</Text>
+        </View>
         {caloriePrepared ? (
           <View style={styles.legendCalorieGroup}>
             <Text style={styles.legendBmr}>
@@ -1449,8 +1453,8 @@ export function MetabolicChart({
                 ? ` (${formatEnergy(bmrKcalDay / 48, energyDisplayUnit)})`
                 : ' (÷48)'}
             </Text>
-            <Text style={styles.legendStepsCal}>Steps cal</Text>
-            <Text style={styles.legendWorkout}>Workout</Text>
+            <Text style={styles.legendStepsCal}>{stripCopy.legendSteps}</Text>
+            <Text style={styles.legendWorkout}>{stripCopy.legendWorkout}</Text>
           </View>
         ) : (
           <Text style={styles.legendActivity}>Walk / activity</Text>
@@ -1652,47 +1656,65 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   legend: {
+    width: '100%',
+    alignSelf: 'stretch',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+    paddingHorizontal: 10,
+  },
+  legendPrimaryRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
+    alignItems: 'center',
     gap: 16,
-    marginTop: 4,
-    rowGap: 8,
+    maxWidth: '100%',
   },
   legendGlucose: {
     color: WellnessColors.accentGreen,
     fontSize: 12,
     fontWeight: '500',
+    flexShrink: 1,
   },
   legendHeartRate: {
     color: WellnessColors.accentRed,
     fontSize: 12,
     fontWeight: '500',
+    flexShrink: 1,
   },
   legendActivity: {
     color: WellnessColors.accentBlue,
     fontSize: 12,
     fontWeight: '500',
+    textAlign: 'center',
   },
   legendCalorieGroup: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    maxWidth: '100%',
   },
   legendBmr: {
     color: CALORIE_BMR_COLOR,
     fontSize: 12,
     fontWeight: '600',
+    flexShrink: 1,
   },
   legendStepsCal: {
     color: CALORIE_ACTIVE_COLOR,
     fontSize: 12,
     fontWeight: '600',
+    flexShrink: 1,
   },
   legendWorkout: {
     color: CALORIE_WORKOUT_COLOR,
     fontSize: 12,
     fontWeight: '600',
+    flexShrink: 1,
   },
   legendWithingsBlock: {
     marginTop: 2,

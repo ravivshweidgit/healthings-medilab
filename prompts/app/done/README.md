@@ -97,6 +97,8 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt87** — done (2026-07-22). Phase B dashboard chrome i18n (Food Log, metabolic strips, Profile nested titles, dates, body metrics, AI chat, backup/reports/sharing). Phone-tested Samsung. See `done/prompt87.txt`. Closes `prompt81b`.
 
+**prompt88** — done (2026-07-24). Phase B follow-up: Lab Results, Your setup, Profile form, Food Log chrome, chart legend (Glucose/HR/Steps/Workout) + two-row legend layout. Phone-tested Android. See `done/prompt88.txt`.
+
 **prompt48** — done (2026-06-29). Lipid trend charts (Total/LDL/TG/HDL strips + green safe zones); mentors/coach see **all saved lab draws** in USER DATA. Phone-tested. Commits `308500f`, `fa0d6b1`. Supersedes prompt30 chart deferral + latest-only scope.
 
 **prompt50** — done (2026-06-30). Nutritionist visit report: clinical HTML export (7/14/30/90d), Appendix A charts (lipids/body/energy/CGM), Appendix B raw data. Phone-tested. See `done/prompt50.txt`. **UI shell → Reports strip in prompt85.**

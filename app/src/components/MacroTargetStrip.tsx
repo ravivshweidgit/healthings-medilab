@@ -471,9 +471,7 @@ export function MacroTargetStrip({
     <View style={styles.wrap}>
       <DashboardCollapseHeader
         title={profileTitles.myMacros}
-        subtitle={
-          updatedLabel ? `${headerSub} · ${updatedLabel}` : headerSub
-        }
+        subtitle={headerSub}
         expanded={expanded}
         onToggle={onToggleExpand}
         titleRtl={lang?.code === 'he' || lang?.code === 'ar'}
