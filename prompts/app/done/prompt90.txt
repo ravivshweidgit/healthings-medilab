@@ -1,0 +1,46 @@
+## Prompt 90 — Food Log meal window: per-item edit/delete + copy from past
+
+**Status: done (2026-07-24)** — phone-tested Android.  
+**Builds on:** `done/prompt20` (FoodLogModal) · `done/prompt39` (history for AI) · `done/prompt61` (auto-save review) · `done/prompt88` (foodLogUiCopy)
+
+### Problem
+
+Meal items could only be fixed via chat/photo; no direct Edit/Delete. Reusing a past meal required natural-language prompts. Idle chrome and Save meal stayed English; Save was green vs other primary blues.
+
+### What shipped
+
+| Area | Behavior |
+|------|----------|
+| **Per-item Edit / Delete** | On “Your meal” list; Delete confirms; Edit opens top ~90% sheet (name, grams, kcal, P/C/F row, fiber) |
+| **P · C · F row** | One line with localized Protein / Carbs / Fat labels |
+| **From past meal** | Idle → day picker (‹ › like Food Log) → day’s meals → **copy** as new meal (source unchanged) |
+| **Past row preview** | Slot + first 1–2 item names + kcal |
+| **No frequent list** | Explicitly out of scope (no 14-day frequent strip) |
+| **i18n** | Idle: Log/Edit Meal, Camera, Gallery, or-describe / or; Save meal / Done / Cancel; past-meal chrome — 7 locales via `foodLogUiCopy.ts` |
+| **Save meal** | Localized; button **accentBlue** (was green) |
+
+### Primary files
+
+| Path | Role |
+|------|------|
+| `app/src/components/FoodLogModal.tsx` | Item edit/delete, past picker, save chrome |
+| `app/src/i18n/foodLogUiCopy.ts` | Meal window + past-meal strings |
+
+### Phone-tested
+
+- [x] Edit item → change macros → Save item → Save meal
+- [x] Delete item with confirm
+- [x] From past meal → pick day → copy → new meal (not edit source)
+- [x] Past rows show item name preview
+- [x] Idle Camera/Gallery/titles localized; Save meal blue + localized
+
+### Deferred
+
+- Confirm dialog before Use as new meal
+- Icon-only Edit/Delete on dense rows
+- Localize merge-preview / delete-whole-meal alerts
+- Grams + kcal on one row in Edit item
+
+### Related
+
+- AI history phrases remain: `done/prompt39.txt`

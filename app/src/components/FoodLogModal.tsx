@@ -6,7 +6,7 @@
 
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -30,8 +30,9 @@ import {
   type GeminiAnalysisResult,
   type GeminiTurn,
 } from '../services/GeminiService';
-import { saveMeal, deleteMeal, foodLogDayKey, getDailyMacros, getRecentMeals, type FoodEntry } from '../services/FoodLogService';
-import { formatLocalizedDate, formatLocalizedTime } from '../i18n/dateLocale';
+import { saveMeal, deleteMeal, foodLogDayKey, getDailyMacros, getRecentMeals, getMealsForDay, type FoodEntry } from '../services/FoodLogService';
+import { formatLocalizedDate, formatLocalizedTime, formatFoodLogDayLabel } from '../i18n/dateLocale';
+import { getFoodLogUiCopy } from '../i18n/foodLogUiCopy';
 import { formatFoodLogHistoryForMealAi } from '../logic/foodLogMealHistory';
 import { buildMealMergePreview, type MealMergePreview } from '../logic/mealPhotoMerge';
 import {
@@ -48,10 +49,11 @@ import { getMacroTarget, getUserRules, type UserLanguage } from '../services/Tar
 import { getNutritionDirectiveAiContext } from '../services/NutritionDirectiveService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
 import { formatEnergy, type EnergyUnit } from '../logic/unitConvert';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Screen = 'idle' | 'analyzing' | 'result' | 'saving';
+type Screen = 'idle' | 'pickPast' | 'analyzing' | 'result' | 'saving';
 
 type PhotoSession = {
   uri: string;
@@ -81,6 +83,53 @@ type Props = {
 
 function formatTime(ms: number, langCode?: string | null): string {
   return formatLocalizedTime(ms, langCode, { hour: '2-digit', minute: '2-digit' });
+}
+
+function startOfLocalDay(ms: number): number {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function addLocalDays(ms: number, delta: number): number {
+  const d = new Date(startOfLocalDay(ms));
+  d.setDate(d.getDate() + delta);
+  return d.getTime();
+}
+
+function formatBrowseDayLabel(ms: number, langCode?: string | null): string {
+  return formatFoodLogDayLabel(ms, langCode, {
+    todayDayKey: foodLogDayKey(Date.now()),
+    dayKey: foodLogDayKey(ms),
+  });
+}
+
+function mealSlotLabel(entry: FoodEntry, copy: ReturnType<typeof getFoodLogUiCopy>): string {
+  if (entry.note) return entry.note;
+  const h = new Date(entry.timestamp).getHours();
+  if (h < 10) return copy.breakfast;
+  if (h < 14) return copy.lunch;
+  if (h < 17) return copy.snack;
+  return copy.dinner;
+}
+
+/** First 1–2 item display names for past-meal picker rows. */
+function pastMealItemsPreview(entry: FoodEntry, max = 2): string {
+  const names = (entry.items ?? [])
+    .map((it) => (it.name_local ?? it.name)?.trim())
+    .filter((n): n is string => !!n);
+  if (names.length === 0) return '';
+  const shown = names.slice(0, max);
+  const more = names.length > max ? '…' : '';
+  return `${shown.join(' · ')}${more}`;
+}
+
+function cloneFoodItems(src: FoodItem[]): FoodItem[] {
+  return src.map((it) => ({
+    ...it,
+    rule_conflict: false,
+    rule_message: '',
+  }));
 }
 
 function formatMealDateTime(ms: number, langCode?: string | null): string {
@@ -167,16 +216,31 @@ function applyAnalysisResult(
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
+function parseNum(raw: string): number {
+  const n = Number(String(raw).replace(',', '.').trim());
+  return Number.isFinite(n) ? n : 0;
+}
+
 function FoodItemsCard({
   items,
   title,
   flaggedIndices,
   energyUnit = 'kcal',
+  editable = false,
+  editLabel = 'Edit',
+  deleteLabel = 'Delete',
+  onEditItem,
+  onDeleteItem,
 }: {
   items: FoodItem[];
   title?: string;
   flaggedIndices?: Set<number>;
   energyUnit?: EnergyUnit;
+  editable?: boolean;
+  editLabel?: string;
+  deleteLabel?: string;
+  onEditItem?: (index: number) => void;
+  onDeleteItem?: (index: number) => void;
 }) {
   if (items.length === 0) {
     return (
@@ -200,13 +264,37 @@ function FoodItemsCard({
               flagged && styles.itemRowFlagged,
             ]}
           >
-            <View style={styles.itemNameRow}>
-              {flagged ? <Text style={styles.itemWarningDot}>⚠</Text> : null}
-              <Text
-                style={[styles.itemName, flagged && styles.itemNameFlagged]}
-              >
-                {item.name_local ?? item.name}
-              </Text>
+            <View style={styles.itemTopRow}>
+              <View style={styles.itemNameRow}>
+                {flagged ? <Text style={styles.itemWarningDot}>⚠</Text> : null}
+                <Text
+                  style={[styles.itemName, flagged && styles.itemNameFlagged]}
+                >
+                  {item.name_local ?? item.name}
+                </Text>
+              </View>
+              {editable ? (
+                <View style={styles.itemActions}>
+                  <Pressable
+                    style={styles.itemEditBtn}
+                    onPress={() => onEditItem?.(i)}
+                    accessibilityRole="button"
+                    accessibilityLabel={editLabel}
+                    hitSlop={6}
+                  >
+                    <Text style={styles.itemEditBtnText}>{editLabel}</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.itemDeleteBtn}
+                    onPress={() => onDeleteItem?.(i)}
+                    accessibilityRole="button"
+                    accessibilityLabel={deleteLabel}
+                    hitSlop={6}
+                  >
+                    <Text style={styles.itemDeleteBtnText}>{deleteLabel}</Text>
+                  </Pressable>
+                </View>
+              ) : null}
             </View>
             {flagged && item.rule_message ? (
               <Text style={styles.itemRuleMessage}>{item.rule_message}</Text>
@@ -241,6 +329,9 @@ export function FoodLogModal({
   lang,
   energyUnit = 'kcal',
 }: Props) {
+  const insets = useSafeAreaInsets();
+  const ui = getFoodLogUiCopy(lang?.code);
+  const rtl = lang?.code === 'he' || lang?.code === 'ar';
   const [screen, setScreen] = useState<Screen>(() =>
     editEntry || (prefillItems && prefillItems.length > 0) ? 'result' : 'idle',
   );
@@ -269,6 +360,19 @@ export function FoodLogModal({
   const [overrideSnapshotKey, setOverrideSnapshotKey] = useState<string | null>(null);
   const [foodLogHistoryContext, setFoodLogHistoryContext] = useState<string | null>(null);
   const [autoSavedBanner, setAutoSavedBanner] = useState(false);
+  const [editItemIndex, setEditItemIndex] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState({
+    name: '',
+    grams: '',
+    kcal: '',
+    protein_g: '',
+    carb_g: '',
+    fat_g: '',
+    fiber_g: '',
+  });
+  const [browseDayMs, setBrowseDayMs] = useState(() => startOfLocalDay(Date.now()));
+  const [pastDayMeals, setPastDayMeals] = useState<FoodEntry[]>([]);
+  const [pastDayLoading, setPastDayLoading] = useState(false);
   const chatInputRef = useRef<TextInput>(null);
   const mealCompositionKey = mealItemsCompositionKey(items);
 
@@ -288,6 +392,61 @@ export function FoodLogModal({
     if (!visible) return;
     void loadFoodLogHistory(editingId);
   }, [visible, editingId, loadFoodLogHistory]);
+
+  useEffect(() => {
+    if (!visible || screen !== 'pickPast') return;
+    let cancelled = false;
+    const dk = foodLogDayKey(browseDayMs);
+    setPastDayLoading(true);
+    void getMealsForDay(dk).then((meals) => {
+      if (cancelled) return;
+      const sorted = [...meals].sort((a, b) => a.timestamp - b.timestamp);
+      setPastDayMeals(sorted);
+      setPastDayLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, screen, browseDayMs]);
+
+  const shiftBrowseDay = useCallback((delta: number) => {
+    setBrowseDayMs((prev) => {
+      const next = addLocalDays(prev, delta);
+      const todayStart = startOfLocalDay(Date.now());
+      return next > todayStart ? todayStart : next;
+    });
+  }, []);
+
+  const openPastMealPicker = useCallback(() => {
+    setBrowseDayMs(startOfLocalDay(Date.now()));
+    setPastDayMeals([]);
+    setError(null);
+    setScreen('pickPast');
+  }, []);
+
+  const applyPastMealAsNew = useCallback(
+    (entry: FoodEntry) => {
+      if (!entry.items?.length) return;
+      setItems(cloneFoodItems(entry.items));
+      setEditingId(undefined);
+      setMealHistory([]);
+      setPhotoSession(null);
+      setMergePreview(null);
+      setChatText('');
+      setError(null);
+      setHadPhotoForSave(false);
+      setConfidence('high');
+      setSuggestion(undefined);
+      setDescription(ui.fromPastMeal);
+      setMealIssues([]);
+      setOverrideSaveOnce(false);
+      setOverrideSnapshotKey(null);
+      setAutoSavedBanner(false);
+      setMealTime(initialTimestamp ?? Date.now());
+      setScreen('result');
+    },
+    [ui.fromPastMeal, initialTimestamp],
+  );
 
   React.useEffect(() => {
     if (!visible || editEntry) return;
@@ -350,6 +509,10 @@ export function FoodLogModal({
     setOverrideSnapshotKey(null);
     setFoodLogHistoryContext(null);
     setAutoSavedBanner(false);
+    setEditItemIndex(null);
+    setBrowseDayMs(startOfLocalDay(Date.now()));
+    setPastDayMeals([]);
+    setPastDayLoading(false);
   }, [initialTimestamp]);
 
   const recomputeMealIssues = useCallback(async (
@@ -760,6 +923,78 @@ export function FoodLogModal({
     setMergePreview(null);
   }, []);
 
+  const openEditItem = useCallback(
+    (index: number) => {
+      const item = items[index];
+      if (!item || screen !== 'result') return;
+      setEditDraft({
+        name: item.name_local ?? item.name,
+        grams: String(item.grams),
+        kcal: String(item.kcal),
+        protein_g: String(item.protein_g),
+        carb_g: String(item.carb_g),
+        fat_g: String(item.fat_g),
+        fiber_g: String(item.fiber_g ?? 0),
+      });
+      setEditItemIndex(index);
+    },
+    [items, screen],
+  );
+
+  const closeEditItem = useCallback(() => {
+    setEditItemIndex(null);
+  }, []);
+
+  const saveEditItem = useCallback(() => {
+    if (editItemIndex == null) return;
+    const name = editDraft.name.trim();
+    if (!name) return;
+    setItems((prev) => {
+      const next = [...prev];
+      const cur = next[editItemIndex];
+      if (!cur) return prev;
+      next[editItemIndex] = {
+        ...cur,
+        name: cur.name || name,
+        name_local: name,
+        grams: Math.max(0, Math.round(parseNum(editDraft.grams))),
+        kcal: Math.max(0, Math.round(parseNum(editDraft.kcal))),
+        protein_g: Math.round(parseNum(editDraft.protein_g) * 10) / 10,
+        carb_g: Math.round(parseNum(editDraft.carb_g) * 10) / 10,
+        fat_g: Math.round(parseNum(editDraft.fat_g) * 10) / 10,
+        fiber_g: Math.round(parseNum(editDraft.fiber_g) * 10) / 10,
+        rule_conflict: false,
+        rule_message: '',
+      };
+      return next;
+    });
+    setOverrideSaveOnce(false);
+    setOverrideSnapshotKey(null);
+    setEditItemIndex(null);
+  }, [editItemIndex, editDraft]);
+
+  const handleDeleteItem = useCallback(
+    (index: number) => {
+      if (screen !== 'result') return;
+      const item = items[index];
+      if (!item) return;
+      const label = item.name_local ?? item.name;
+      Alert.alert(ui.deleteItemTitle, ui.deleteItemMessage(label), [
+        { text: ui.cancel, style: 'cancel' },
+        {
+          text: ui.deleteItem,
+          style: 'destructive',
+          onPress: () => {
+            setItems((prev) => prev.filter((_, i) => i !== index));
+            setOverrideSaveOnce(false);
+            setOverrideSnapshotKey(null);
+          },
+        },
+      ]);
+    },
+    [screen, items, ui],
+  );
+
   const handleDelete = useCallback(async () => {
     if (!editingId) return;
     Alert.alert('Delete meal', 'Remove this meal from your log?', [
@@ -833,7 +1068,6 @@ export function FoodLogModal({
   const flaggedIndices = flaggedItemIndices(items, mealIssues);
 
   const showMealSection = items.length > 0 || editingId != null;
-  const rtl = lang?.code === 'he' || lang?.code === 'ar';
   const describePlaceholder = rtl
     ? 'למשל "שייק חלבון" או "הוסף את השייק מאתמול בערב"'
     : 'e.g. "protein shake" or "add last evening\'s shake"';
@@ -850,14 +1084,20 @@ export function FoodLogModal({
       <KeyboardAvoidingView style={styles.kav} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>{editingId ? 'Edit Meal' : 'Log Meal'}</Text>
+            <Text style={styles.headerTitle}>
+              {screen === 'pickPast'
+                ? ui.fromPastTitle
+                : editingId
+                  ? ui.editMeal
+                  : ui.logMeal}
+            </Text>
             <Pressable
-              onPress={handleClose}
+              onPress={screen === 'pickPast' ? () => setScreen('idle') : handleClose}
               style={[styles.closeBtn, screen === 'saving' && styles.closeBtnDisabled]}
               hitSlop={12}
               disabled={screen === 'saving'}
             >
-              <Text style={styles.closeBtnText}>✕</Text>
+              <Text style={styles.closeBtnText}>{screen === 'pickPast' ? '←' : '✕'}</Text>
             </Pressable>
           </View>
 
@@ -867,15 +1107,15 @@ export function FoodLogModal({
                 <View style={styles.photoRow}>
                   <Pressable style={styles.cameraBtn} onPress={handleCamera}>
                     <Text style={styles.cameraBtnIcon}>📷</Text>
-                    <Text style={styles.cameraBtnLabel}>Camera</Text>
+                    <Text style={styles.cameraBtnLabel}>{ui.camera}</Text>
                   </Pressable>
                   <Pressable style={[styles.cameraBtn, styles.galleryBtn]} onPress={handleGallery}>
                     <Text style={styles.cameraBtnIcon}>🖼</Text>
-                    <Text style={styles.cameraBtnLabel}>Gallery</Text>
+                    <Text style={styles.cameraBtnLabel}>{ui.gallery}</Text>
                   </Pressable>
                 </View>
 
-                <Text style={styles.orDivider}>— or describe it —</Text>
+                <Text style={styles.orDivider}>{ui.orDescribeIt}</Text>
 
                 <View style={styles.textInputRow}>
                   <TextInput
@@ -897,7 +1137,96 @@ export function FoodLogModal({
                   </Pressable>
                 </View>
 
+                {!editEntry ? (
+                  <>
+                    <Text style={styles.orDivider}>{ui.orDivider}</Text>
+                    <Pressable style={styles.fromPastBtn} onPress={openPastMealPicker}>
+                      <Text style={styles.fromPastBtnText}>{ui.fromPastMeal}</Text>
+                    </Pressable>
+                  </>
+                ) : null}
+
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
+              </View>
+            )}
+
+            {screen === 'pickPast' && (
+              <View style={styles.pickPastWrap}>
+                <View style={styles.browseDayNav}>
+                  <Pressable
+                    style={styles.browseDayBtn}
+                    onPress={() => shiftBrowseDay(-1)}
+                    hitSlop={8}
+                    accessibilityLabel="Previous day"
+                  >
+                    <Text style={styles.browseDayBtnText}>‹</Text>
+                  </Pressable>
+                  <Text style={styles.browseDayLabel}>
+                    {formatBrowseDayLabel(browseDayMs, lang?.code)}
+                  </Text>
+                  <Pressable
+                    style={[
+                      styles.browseDayBtn,
+                      foodLogDayKey(browseDayMs) === foodLogDayKey(Date.now()) &&
+                        styles.browseDayBtnDisabled,
+                    ]}
+                    onPress={() => shiftBrowseDay(1)}
+                    disabled={foodLogDayKey(browseDayMs) === foodLogDayKey(Date.now())}
+                    hitSlop={8}
+                    accessibilityLabel="Next day"
+                  >
+                    <Text style={styles.browseDayBtnText}>›</Text>
+                  </Pressable>
+                </View>
+
+                {pastDayLoading ? (
+                  <ActivityIndicator color={WellnessColors.accentBlue} style={{ marginTop: 24 }} />
+                ) : pastDayMeals.length === 0 ? (
+                  <Text style={[styles.emptyPastText, rtl && styles.textRtl]}>{ui.noMealsThatDay}</Text>
+                ) : (
+                  <View style={styles.pastMealList}>
+                    {pastDayMeals.map((entry) => {
+                      const itemsPreview = pastMealItemsPreview(entry);
+                      return (
+                      <Pressable
+                        key={entry.id}
+                        style={({ pressed }) => [
+                          styles.pastMealRow,
+                          pressed && styles.pastMealRowPressed,
+                        ]}
+                        onPress={() => applyPastMealAsNew(entry)}
+                        accessibilityRole="button"
+                        accessibilityLabel={ui.useAsNewMeal}
+                      >
+                        <View style={styles.pastMealMain}>
+                          <Text style={styles.pastMealTime}>
+                            {formatTime(entry.timestamp, lang?.code)}
+                          </Text>
+                          <Text style={[styles.pastMealLabel, rtl && styles.textRtl]} numberOfLines={1}>
+                            {mealSlotLabel(entry, ui)}
+                          </Text>
+                          {itemsPreview ? (
+                            <Text
+                              style={[styles.pastMealItems, rtl && styles.textRtl]}
+                              numberOfLines={2}
+                            >
+                              {itemsPreview}
+                            </Text>
+                          ) : null}
+                          <Text style={styles.pastMealKcal}>
+                            {formatEnergy(entry.totalKcal, energyUnit)}
+                          </Text>
+                        </View>
+                        <Text style={styles.pastMealCta}>{ui.useAsNewMeal}</Text>
+                      </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+
+                <Pressable style={styles.pastBackBtn} onPress={() => setScreen('idle')}>
+                  <Text style={styles.pastBackBtnText}>{ui.back}</Text>
+                </Pressable>
               </View>
             )}
 
@@ -959,7 +1288,16 @@ export function FoodLogModal({
                     {!photoSession && description && items.length > 0 ? (
                       <Text style={styles.descriptionText}>{description}</Text>
                     ) : null}
-                    <FoodItemsCard items={items} flaggedIndices={flaggedIndices} energyUnit={energyUnit} />
+                    <FoodItemsCard
+                      items={items}
+                      flaggedIndices={flaggedIndices}
+                      energyUnit={energyUnit}
+                      editable={screen === 'result'}
+                      editLabel={ui.editItem}
+                      deleteLabel={ui.deleteItem}
+                      onEditItem={openEditItem}
+                      onDeleteItem={handleDeleteItem}
+                    />
                   </View>
                 ) : null}
 
@@ -1124,7 +1462,7 @@ export function FoodLogModal({
                 </Pressable>
               ) : (
                 <Pressable style={styles.cancelBtn} onPress={handleClose}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{ui.cancel}</Text>
                 </Pressable>
               )}
               {autoSavedBanner && editingId ? (
@@ -1136,7 +1474,7 @@ export function FoodLogModal({
                   {screen === 'saving' ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.saveBtnText}>Done</Text>
+                    <Text style={styles.saveBtnText}>{ui.done}</Text>
                   )}
                 </Pressable>
               ) : (
@@ -1148,13 +1486,13 @@ export function FoodLogModal({
                   {screen === 'saving' ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.saveBtnText}>✓ Save meal</Text>
+                    <Text style={styles.saveBtnText}>{ui.saveMeal}</Text>
                   )}
                 </Pressable>
               )}
               {editingId && !autoSavedBanner ? (
                 <Pressable style={styles.cancelBtn} onPress={handleClose}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{ui.cancel}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -1196,6 +1534,96 @@ export function FoodLogModal({
           ) : null}
         </View>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={editItemIndex != null}
+        animationType="slide"
+        transparent
+        onRequestClose={closeEditItem}
+      >
+        <View style={styles.editItemBackdrop}>
+          <View
+            style={[
+              styles.editItemCard,
+              {
+                paddingTop: Math.max(insets.top, 16),
+                paddingBottom: Math.max(insets.bottom, 16),
+              },
+            ]}
+          >
+            <Text style={[styles.editItemTitle, rtl && styles.textRtl]}>{ui.editItemTitle}</Text>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.editItemForm}
+            >
+              {(
+                [
+                  ['name', ui.fieldName],
+                  ['grams', ui.fieldGrams],
+                  ['kcal', ui.fieldKcal],
+                ] as const
+              ).map(([key, label]) => (
+                <View key={key} style={styles.editField}>
+                  <Text style={[styles.editFieldLabel, rtl && styles.textRtl]}>{label}</Text>
+                  <TextInput
+                    style={[styles.editFieldInput, rtl && styles.textRtl]}
+                    value={editDraft[key]}
+                    onChangeText={(v) => setEditDraft((d) => ({ ...d, [key]: v }))}
+                    keyboardType={key === 'name' ? 'default' : 'decimal-pad'}
+                    autoCapitalize={key === 'name' ? 'sentences' : 'none'}
+                  />
+                </View>
+              ))}
+              <View style={[styles.editMacroRow, rtl && styles.editMacroRowRtl]}>
+                {(
+                  [
+                    ['protein_g', ui.fieldProtein],
+                    ['carb_g', ui.fieldCarb],
+                    ['fat_g', ui.fieldFat],
+                  ] as const
+                ).map(([key, label]) => (
+                  <View key={key} style={styles.editMacroField}>
+                    <Text
+                      style={[styles.editFieldLabel, styles.editMacroLabel, rtl && styles.textRtl]}
+                      numberOfLines={2}
+                    >
+                      {label}
+                    </Text>
+                    <TextInput
+                      style={[styles.editFieldInput, styles.editMacroInput, rtl && styles.textRtl]}
+                      value={editDraft[key]}
+                      onChangeText={(v) => setEditDraft((d) => ({ ...d, [key]: v }))}
+                      keyboardType="decimal-pad"
+                      accessibilityLabel={label}
+                    />
+                  </View>
+                ))}
+              </View>
+              <View style={styles.editField}>
+                <Text style={[styles.editFieldLabel, rtl && styles.textRtl]}>{ui.fieldFiber}</Text>
+                <TextInput
+                  style={[styles.editFieldInput, rtl && styles.textRtl]}
+                  value={editDraft.fiber_g}
+                  onChangeText={(v) => setEditDraft((d) => ({ ...d, fiber_g: v }))}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </ScrollView>
+            <View style={styles.editItemActions}>
+              <Pressable
+                style={[styles.editItemSaveBtn, !editDraft.name.trim() && styles.saveBtnDisabled]}
+                onPress={saveEditItem}
+                disabled={!editDraft.name.trim()}
+              >
+                <Text style={styles.editItemSaveText}>{ui.saveItem}</Text>
+              </Pressable>
+              <Pressable style={styles.editItemCancelBtn} onPress={closeEditItem}>
+                <Text style={styles.editItemCancelText}>{ui.cancel}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 }
@@ -1287,6 +1715,109 @@ const styles = StyleSheet.create({
   cameraBtnIcon: { fontSize: 36 },
   cameraBtnLabel: { color: '#fff', fontSize: 16, fontWeight: '700' },
   orDivider: { color: WellnessColors.textSecondary, fontSize: 13, marginVertical: 20 },
+  fromPastBtn: {
+    alignSelf: 'stretch',
+    borderWidth: 1.5,
+    borderColor: WellnessColors.accentBlue,
+    backgroundColor: WellnessColors.accentBlue + '12',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  fromPastBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: WellnessColors.accentBlue,
+  },
+  pickPastWrap: { gap: 14, paddingTop: 4 },
+  browseDayNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  browseDayBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: WellnessColors.surface,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+  },
+  browseDayBtnDisabled: { opacity: 0.35 },
+  browseDayBtnText: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: WellnessColors.textPrimary,
+    lineHeight: 26,
+  },
+  browseDayLabel: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+    paddingHorizontal: 8,
+  },
+  emptyPastText: {
+    marginTop: 20,
+    fontSize: 14,
+    color: WellnessColors.textSecondary,
+    textAlign: 'center',
+  },
+  pastMealList: { gap: 10 },
+  pastMealRow: {
+    backgroundColor: WellnessColors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 8,
+    ...cardShadow,
+  },
+  pastMealRowPressed: { opacity: 0.85 },
+  pastMealMain: { gap: 2 },
+  pastMealTime: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: WellnessColors.textSecondary,
+  },
+  pastMealLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+  },
+  pastMealItems: {
+    fontSize: 13,
+    color: WellnessColors.textSecondary,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  pastMealKcal: {
+    fontSize: 13,
+    color: WellnessColors.textSecondary,
+    marginTop: 2,
+  },
+  pastMealCta: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: WellnessColors.accentBlue,
+  },
+  pastBackBtn: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    marginTop: 4,
+  },
+  pastBackBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: WellnessColors.textSecondary,
+  },
   textInputRow: { flexDirection: 'row', width: '100%', gap: 8 },
   describeInput: {
     flex: 1,
@@ -1359,7 +1890,13 @@ const styles = StyleSheet.create({
     borderLeftColor: '#C62828',
     backgroundColor: '#FFEBEE',
   },
-  itemNameRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, width: '100%' },
+  itemTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    width: '100%',
+  },
+  itemNameRow: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 6, minWidth: 0 },
   itemWarningDot: { fontSize: 11, color: '#C62828', marginTop: 1 },
   itemName: {
     flex: 1,
@@ -1371,6 +1908,38 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   itemNameFlagged: { color: '#B71C1C' },
+  itemActions: {
+    flexDirection: 'row',
+    flexShrink: 0,
+    gap: 6,
+    alignItems: 'center',
+  },
+  itemEditBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: WellnessColors.accentBlue,
+    backgroundColor: WellnessColors.accentBlue + '12',
+  },
+  itemEditBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: WellnessColors.accentBlue,
+  },
+  itemDeleteBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: WellnessColors.accentRed + '80',
+    backgroundColor: '#FFEBEE',
+  },
+  itemDeleteBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: WellnessColors.accentRed,
+  },
   itemRuleMessage: { fontSize: 11, color: '#C62828', lineHeight: 15 },
   itemGrams: { fontSize: 12, color: WellnessColors.textSecondary },
   itemMetricsRow: {
@@ -1388,6 +1957,83 @@ const styles = StyleSheet.create({
     backgroundColor: WellnessColors.iconTintBlue,
   },
   totalValue: { fontSize: 13, fontWeight: '700', color: WellnessColors.accentBlue },
+  textRtl: { textAlign: 'right', writingDirection: 'rtl' },
+  editItemBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-start',
+  },
+  editItemCard: {
+    backgroundColor: WellnessColors.background,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    height: '90%',
+    paddingHorizontal: 20,
+  },
+  editItemTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+    marginBottom: 12,
+  },
+  editItemForm: { gap: 12, paddingBottom: 16 },
+  editField: { gap: 4 },
+  editFieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: WellnessColors.textSecondary,
+  },
+  editFieldInput: {
+    borderWidth: 1.5,
+    borderColor: WellnessColors.gridLine,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: WellnessColors.textPrimary,
+    backgroundColor: WellnessColors.surface,
+  },
+  editMacroRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'flex-start',
+  },
+  editMacroRowRtl: {
+    flexDirection: 'row-reverse',
+  },
+  editMacroField: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  editMacroLabel: {
+    textAlign: 'center',
+    fontSize: 11,
+    lineHeight: 14,
+    minHeight: 28,
+  },
+  editMacroInput: {
+    paddingHorizontal: 8,
+    textAlign: 'center',
+  },
+  editItemActions: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  editItemSaveBtn: {
+    flex: 1,
+    backgroundColor: WellnessColors.accentBlue,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  editItemSaveText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  editItemCancelBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: WellnessColors.gridLine,
+    alignItems: 'center',
+  },
+  editItemCancelText: { fontSize: 14, color: WellnessColors.textSecondary },
   suggestionBox: {
     backgroundColor: WellnessColors.noticeSoftBg,
     borderWidth: 1,
@@ -1526,7 +2172,7 @@ const styles = StyleSheet.create({
     flex: 2,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: WellnessColors.accentGreen,
+    backgroundColor: WellnessColors.accentBlue,
     alignItems: 'center',
   },
   saveBtnDisabled: { opacity: 0.6 },
