@@ -1,6 +1,6 @@
 ## Prompt 90 — Food Log meal window: per-item edit/delete + copy from past
 
-**Status: done (2026-07-24)** — phone-tested Android.  
+**Status: done (2026-07-24)** — phone-tested Android. Commit `f053544`.  
 **Builds on:** `done/prompt20` (FoodLogModal) · `done/prompt39` (history for AI) · `done/prompt61` (auto-save review) · `done/prompt88` (foodLogUiCopy)
 
 ### Problem
