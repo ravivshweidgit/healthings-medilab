@@ -1,6 +1,6 @@
 ## Prompt 88 — Dashboard chrome i18n follow-up (Profile, Food Log, labs, chart legend)
 
-**Status: done (2026-07-24)** — phone-tested Android (iterative bi).  
+**Status: done (2026-07-24)** — phone-tested Android (iterative bi). Commit `ec1572e`.  
 **Builds on:** `done/prompt87` (Phase B dashboard chrome)  
 **Refines:** `done/prompt58` (Your setup labels), `done/prompt70` (Food Log energy lines), `done/prompt39` (lab results strip)
 
