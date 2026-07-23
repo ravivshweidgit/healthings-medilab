@@ -1,6 +1,6 @@
 ## Prompt 89 — PROFILE & SETTINGS strip reorg + CareSens in Gear
 
-**Status: done (2026-07-24)** — phone-tested Android.  
+**Status: done (2026-07-24)** — phone-tested Android. Commit `77b2f72`.  
 **Builds on:** `done/prompt58` (Your setup toggles) · `done/prompt72` (units) · `done/prompt86` (CareSens footer) · `done/prompt88` (Your setup i18n)
 
 ### Problem

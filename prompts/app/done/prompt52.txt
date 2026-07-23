@@ -1,6 +1,6 @@
 ## Prompt 52 — My Rules: rawText-only save + edit UX
 
-**Status: done (2026-07-24)** — phone-tested Android.  
+**Status: done (2026-07-24)** — phone-tested Android. Commit `77b2f72`.  
 **Builds on:** `done/prompt20.txt` (My Rules) · `done/prompt51.txt` (rules history)  
 **Supersedes:** summarise-on-save for phone Rules strip.
 
