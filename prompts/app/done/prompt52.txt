@@ -1,0 +1,48 @@
+## Prompt 52 — My Rules: rawText-only save + edit UX
+
+**Status: done (2026-07-24)** — phone-tested Android.  
+**Builds on:** `done/prompt20.txt` (My Rules) · `done/prompt51.txt` (rules history)  
+**Supersedes:** summarise-on-save for phone Rules strip.
+
+### Problem
+
+Every My Rules save required Gemini (`summariseUserRules`). Offline/API failures blocked save; “AI understood” bullets were lossy vs verbatim clinical text. Edit lived inline and fought the dashboard layout; Save/Cancel collided with Samsung nav on the old bottom sheet.
+
+### What shipped (phone)
+
+| Area | Behavior |
+|------|----------|
+| **Save** | Instant — `rawText` only; `summary`/`constraints`/`aiContext` cleared on new saves. Button **Save** (no summarise). |
+| **UI** | Expanded strip shows full `rawText` (Show more/less when long). No “AI understood” section. |
+| **Edit / Add** | Top-row button opens modal; title + multiline editor + Save/Cancel. |
+| **Modal layout** | Top-anchored, **90%** height; safe-area top/bottom padding (clears Samsung nav). |
+| **Past versions** | Nested collapse (default collapsed); history modal = `rawText` + restore. |
+| **i18n** | `rulesStripCopy.ts` — 7 locales for strip chrome / edit / history. |
+| **AI injection** | `userRulesContext.ts` + Gemini coach prompts quote **verbatim rawText** only. |
+
+### Primary files
+
+| Path | Role |
+|------|------|
+| `app/src/components/RulesStrip.tsx` | rawText save, edit/history modals, collapse UX |
+| `app/src/i18n/rulesStripCopy.ts` | Rules strip + modal copy |
+| `app/src/logic/userRulesContext.ts` | Verbatim injection helpers |
+| `app/src/services/GeminiService.ts` | Coach prompts: quote My Rules verbatim |
+
+### Phone-tested
+
+- [x] Save without Gemini / offline-safe path
+- [x] Edit rules modal from top, ~90% height, buttons clear system nav
+- [x] Show more/less on long rules
+- [x] Past versions collapsed by default; restore works
+- [x] Localized Edit / Save / Cancel chrome
+
+### Deferred
+
+- **Clinic portal** summarise-on-save removal (`summariseRulesForClinic`) — out of scope this ship
+- Optional non-blocking “Summarise for display” v2
+
+### Related
+
+- History storage: `done/prompt51.txt`
+- Profile strip order + Gear CareSens: `done/prompt89.txt`

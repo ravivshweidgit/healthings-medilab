@@ -1,0 +1,49 @@
+## Prompt 89 — PROFILE & SETTINGS strip reorg + CareSens in Gear
+
+**Status: done (2026-07-24)** — phone-tested Android.  
+**Builds on:** `done/prompt58` (Your setup toggles) · `done/prompt72` (units) · `done/prompt86` (CareSens footer) · `done/prompt88` (Your setup i18n)
+
+### Problem
+
+Profile, language, units, and device gear were mixed or buried; CareSens Import lived in the dashboard footer next to Refresh. Users expect gear/import with CGM, and a clearer PROFILE → LANGUAGE → UNITS → GEAR order.
+
+### What shipped
+
+| Strip | Role |
+|-------|------|
+| **PROFILE** | Gender / height / birth; manual body when scale off; Save = identity only (+ save hint) |
+| **LANGUAGE** | Coach & meals chips; persist immediately on tap (`LanguageStrip.tsx`) |
+| **UNITS** | Title **UNITS** only — no “Units & measurements” subtitle (`UnitsStrip.tsx`) |
+| **GEAR** | Scale / Watch / CGM toggles; Quick Start again at bottom; CareSens Import when **CGM = Yes** (`GearSetupStrip.tsx`) |
+
+Also:
+
+- Parent card subtitle shows coach language when ≠ EN
+- CareSens pill removed from dashboard footer (footer = **Refresh my data** only)
+- Localized Scale/Watch shorts + `careSensImport` label (7 locales) in `yourSetupCopy.ts`
+- Nested strip titles LANGUAGE / UNITS / GEAR in `profileSettingsStripCopy.ts`
+
+### Primary files
+
+| Path | Role |
+|------|------|
+| `app/src/components/LanguageStrip.tsx` | Language chips strip |
+| `app/src/components/UnitsStrip.tsx` | Units prefs strip |
+| `app/src/components/GearSetupStrip.tsx` | Device toggles + CareSens + Quick Start |
+| `app/src/screens/DashboardScreen.tsx` | Strip order; CareSens wiring into Gear |
+| `app/src/i18n/profileSettingsStripCopy.ts` | LANGUAGE / UNITS / GEAR titles |
+| `app/src/i18n/yourSetupCopy.ts` | Gear labels + CareSens Import |
+
+### Phone-tested
+
+- [x] Order: Profile → Language → Units → Gear → Targets…
+- [x] Language tap persists immediately
+- [x] UNITS title-only (no long subtitle)
+- [x] CGM Yes → CareSens Import in Gear; CGM No → hidden
+- [x] Footer has Refresh only (no CareSens)
+- [x] Quick Start again at bottom of Gear
+
+### Related
+
+- Rules rawText + edit modal: `done/prompt52.txt`
+- Prior CareSens footer move: `done/prompt86.txt` (superseded for CareSens placement)

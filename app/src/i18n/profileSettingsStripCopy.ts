@@ -5,6 +5,9 @@
 
 export type ProfileSettingsStripCopy = {
   myProfile: string;
+  language: string;
+  units: string;
+  gear: string;
   myTargets: string;
   myMentors: string;
   myRules: string;
@@ -24,6 +27,9 @@ export type ProfileSettingsStripCopy = {
 
 const EN: ProfileSettingsStripCopy = {
   myProfile: 'PROFILE',
+  language: 'LANGUAGE',
+  units: 'UNITS',
+  gear: 'GEAR',
   myTargets: 'TARGETS',
   myMentors: 'MENTORS',
   myRules: 'RULES',
@@ -43,6 +49,9 @@ const EN: ProfileSettingsStripCopy = {
 
 const HE: ProfileSettingsStripCopy = {
   myProfile: 'פרופיל',
+  language: 'שפה',
+  units: 'יחידות',
+  gear: 'ציוד',
   myTargets: 'יעדים',
   myMentors: 'מנטורים',
   myRules: 'כללים',
@@ -62,6 +71,9 @@ const HE: ProfileSettingsStripCopy = {
 
 const ES: ProfileSettingsStripCopy = {
   myProfile: 'PERFIL',
+  language: 'IDIOMA',
+  units: 'UNIDADES',
+  gear: 'EQUIPO',
   myTargets: 'OBJETIVOS',
   myMentors: 'MENTORES',
   myRules: 'REGLAS',
@@ -81,6 +93,9 @@ const ES: ProfileSettingsStripCopy = {
 
 const FR: ProfileSettingsStripCopy = {
   myProfile: 'PROFIL',
+  language: 'LANGUE',
+  units: 'UNITÉS',
+  gear: 'MATÉRIEL',
   myTargets: 'OBJECTIFS',
   myMentors: 'MENTORS',
   myRules: 'RÈGLES',
@@ -100,6 +115,9 @@ const FR: ProfileSettingsStripCopy = {
 
 const DE: ProfileSettingsStripCopy = {
   myProfile: 'PROFIL',
+  language: 'SPRACHE',
+  units: 'EINHEITEN',
+  gear: 'GERÄTE',
   myTargets: 'ZIELE',
   myMentors: 'MENTOREN',
   myRules: 'REGELN',
@@ -119,6 +137,9 @@ const DE: ProfileSettingsStripCopy = {
 
 const AR: ProfileSettingsStripCopy = {
   myProfile: 'الملف',
+  language: 'اللغة',
+  units: 'الوحدات',
+  gear: 'الأجهزة',
   myTargets: 'الأهداف',
   myMentors: 'المرشدون',
   myRules: 'القواعد',
@@ -138,6 +159,9 @@ const AR: ProfileSettingsStripCopy = {
 
 const RU: ProfileSettingsStripCopy = {
   myProfile: 'ПРОФИЛЬ',
+  language: 'ЯЗЫК',
+  units: 'ЕДИНИЦЫ',
+  gear: 'УСТРОЙСТВА',
   myTargets: 'ЦЕЛИ',
   myMentors: 'НАСТАВНИКИ',
   myRules: 'ПРАВИЛА',

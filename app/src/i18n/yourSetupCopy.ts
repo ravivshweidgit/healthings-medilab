@@ -16,8 +16,13 @@ export type YourSetupCopy = {
   birthDate: string;
   /** e.g. "Age: 42 years" */
   ageYears: (n: number) => string;
+  /** Under Profile Save — what this button persists. */
+  saveHint: string;
   withingsScale: string;
   withingsWatch: string;
+  /** Collapsed gear subtitle — bare noun (no Withings). */
+  scaleShort: string;
+  watchShort: string;
   cgm: string;
   hintScaleLink: string;
   hintWatchLink: string;
@@ -27,6 +32,9 @@ export type YourSetupCopy = {
   hintCgmAndroid: string;
   linkWithings: string;
   relinkWithings: string;
+  quickStartAgain: string;
+  /** CareSens CSV import button label. */
+  careSensImport: string;
 };
 
 const EN: YourSetupCopy = {
@@ -41,8 +49,11 @@ const EN: YourSetupCopy = {
   height: 'Height',
   birthDate: 'Birth Date',
   ageYears: (n) => `Age: ${n} years`,
+  saveHint: 'Gender, height & birth date',
   withingsScale: 'Withings scale',
   withingsWatch: 'Withings watch',
+  scaleShort: 'Scale',
+  watchShort: 'Watch',
   cgm: 'CGM',
   hintScaleLink: 'Link Withings on the dashboard to sync scale data.',
   hintWatchLink: 'Link Withings below to sync watch activity.',
@@ -52,6 +63,8 @@ const EN: YourSetupCopy = {
   hintCgmAndroid: 'Allow Blood glucose in Health Connect settings.',
   linkWithings: 'Link Withings',
   relinkWithings: 'Re-link Withings',
+  quickStartAgain: 'Quick Start again',
+  careSensImport: 'Import',
 };
 
 const HE: YourSetupCopy = {
@@ -66,8 +79,11 @@ const HE: YourSetupCopy = {
   height: 'גובה',
   birthDate: 'תאריך לידה',
   ageYears: (n) => `גיל: ${n}`,
+  saveHint: 'מין, גובה ותאריך לידה',
   withingsScale: 'משקל Withings',
   withingsWatch: 'שעון Withings',
+  scaleShort: 'משקל',
+  watchShort: 'שעון',
   cgm: 'CGM',
   hintScaleLink: 'קשרו Withings במסך הראשי כדי לסנכרן את המשקל.',
   hintWatchLink: 'קשרו Withings למטה כדי לסנכרן פעילות מהשעון.',
@@ -77,6 +93,8 @@ const HE: YourSetupCopy = {
   hintCgmAndroid: 'אפשרו Blood glucose בהגדרות Health Connect.',
   linkWithings: 'קשר Withings',
   relinkWithings: 'קשר מחדש Withings',
+  quickStartAgain: 'התחלה מהירה מחדש',
+  careSensImport: 'ייבוא',
 };
 
 const ES: YourSetupCopy = {
@@ -91,8 +109,11 @@ const ES: YourSetupCopy = {
   height: 'Altura',
   birthDate: 'Fecha de nacimiento',
   ageYears: (n) => `Edad: ${n} años`,
+  saveHint: 'Sexo, altura y fecha de nacimiento',
   withingsScale: 'Báscula Withings',
   withingsWatch: 'Reloj Withings',
+  scaleShort: 'Báscula',
+  watchShort: 'Reloj',
   cgm: 'CGM',
   hintScaleLink: 'Vincula Withings en el panel para sincronizar la báscula.',
   hintWatchLink: 'Vincula Withings abajo para sincronizar la actividad del reloj.',
@@ -102,6 +123,8 @@ const ES: YourSetupCopy = {
   hintCgmAndroid: 'Permite Blood glucose en Ajustes de Health Connect.',
   linkWithings: 'Vincular Withings',
   relinkWithings: 'Re-vincular Withings',
+  quickStartAgain: 'Inicio rápido de nuevo',
+  careSensImport: 'Importar',
 };
 
 const FR: YourSetupCopy = {
@@ -116,8 +139,11 @@ const FR: YourSetupCopy = {
   height: 'Taille',
   birthDate: 'Date de naissance',
   ageYears: (n) => `Âge : ${n} ans`,
+  saveHint: 'Sexe, taille et date de naissance',
   withingsScale: 'Balance Withings',
   withingsWatch: 'Montre Withings',
+  scaleShort: 'Balance',
+  watchShort: 'Montre',
   cgm: 'CGM',
   hintScaleLink: 'Liez Withings sur le tableau de bord pour synchroniser la balance.',
   hintWatchLink: 'Liez Withings ci-dessous pour synchroniser l’activité de la montre.',
@@ -127,6 +153,8 @@ const FR: YourSetupCopy = {
   hintCgmAndroid: 'Autorisez Blood glucose dans les réglages Health Connect.',
   linkWithings: 'Lier Withings',
   relinkWithings: 'Re-lier Withings',
+  quickStartAgain: 'Recommencer le démarrage rapide',
+  careSensImport: 'Importer',
 };
 
 const DE: YourSetupCopy = {
@@ -141,8 +169,11 @@ const DE: YourSetupCopy = {
   height: 'Größe',
   birthDate: 'Geburtsdatum',
   ageYears: (n) => `Alter: ${n} Jahre`,
+  saveHint: 'Geschlecht, Größe & Geburtsdatum',
   withingsScale: 'Withings-Waage',
   withingsWatch: 'Withings-Uhr',
+  scaleShort: 'Waage',
+  watchShort: 'Uhr',
   cgm: 'CGM',
   hintScaleLink: 'Withings auf dem Dashboard verknüpfen, um die Waage zu synchronisieren.',
   hintWatchLink: 'Withings unten verknüpfen, um die Uhrenaktivität zu synchronisieren.',
@@ -152,6 +183,8 @@ const DE: YourSetupCopy = {
   hintCgmAndroid: 'Blood glucose in den Health-Connect-Einstellungen erlauben.',
   linkWithings: 'Withings verknüpfen',
   relinkWithings: 'Withings erneut verknüpfen',
+  quickStartAgain: 'Schnellstart erneut',
+  careSensImport: 'Importieren',
 };
 
 const AR: YourSetupCopy = {
@@ -166,8 +199,11 @@ const AR: YourSetupCopy = {
   height: 'الطول',
   birthDate: 'تاريخ الميلاد',
   ageYears: (n) => `العمر: ${n}`,
+  saveHint: 'الجنس والطول وتاريخ الميلاد',
   withingsScale: 'ميزان Withings',
   withingsWatch: 'ساعة Withings',
+  scaleShort: 'ميزان',
+  watchShort: 'ساعة',
   cgm: 'CGM',
   hintScaleLink: 'اربط Withings في لوحة التحكم لمزامنة الميزان.',
   hintWatchLink: 'اربط Withings أدناه لمزامنة نشاط الساعة.',
@@ -177,6 +213,8 @@ const AR: YourSetupCopy = {
   hintCgmAndroid: 'اسمح بـ Blood glucose في إعدادات Health Connect.',
   linkWithings: 'ربط Withings',
   relinkWithings: 'إعادة ربط Withings',
+  quickStartAgain: 'بداية سريعة مرة أخرى',
+  careSensImport: 'استيراد',
 };
 
 const RU: YourSetupCopy = {
@@ -191,8 +229,11 @@ const RU: YourSetupCopy = {
   height: 'Рост',
   birthDate: 'Дата рождения',
   ageYears: (n) => `Возраст: ${n} лет`,
+  saveHint: 'Пол, рост и дата рождения',
   withingsScale: 'Весы Withings',
   withingsWatch: 'Часы Withings',
+  scaleShort: 'Весы',
+  watchShort: 'Часы',
   cgm: 'CGM',
   hintScaleLink: 'Привяжите Withings на панели, чтобы синхронизировать весы.',
   hintWatchLink: 'Привяжите Withings ниже, чтобы синхронизировать активность часов.',
@@ -202,6 +243,8 @@ const RU: YourSetupCopy = {
   hintCgmAndroid: 'Разрешите Blood glucose в настройках Health Connect.',
   linkWithings: 'Привязать Withings',
   relinkWithings: 'Привязать Withings заново',
+  quickStartAgain: 'Быстрый старт снова',
+  careSensImport: 'Импорт',
 };
 
 const BY_CODE: Record<string, YourSetupCopy> = {

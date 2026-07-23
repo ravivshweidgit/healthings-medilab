@@ -1,8 +1,8 @@
 /**
- * My Rules — free-text dietary/lifestyle rules, summarised by AI.
+ * My Rules — free-text dietary/lifestyle rules (rawText-only save, prompt52).
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,7 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { summariseUserRules } from '../services/GeminiService';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type MentorType, type UserRules, type UserLanguage } from '../services/TargetService';
 import {
   formatHistoryDate,
@@ -28,7 +28,10 @@ import {
 } from '../services/UserRulesHistoryService';
 import { WellnessColors } from '../theme/wellness';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
+import { getRulesStripCopy, rulesSubtitleFromRaw } from '../i18n/rulesStripCopy';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
+
+const RULES_PREVIEW_CHARS = 200;
 
 type Props = {
   userRules: UserRules | null;
@@ -39,18 +42,34 @@ type Props = {
   lang?: UserLanguage | null;
 };
 
-export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpand, lang }: Props) {
+export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, onToggleExpand, lang }: Props) {
+  const insets = useSafeAreaInsets();
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
-  const [editing, setEditing] = useState(false);
+  const t = getRulesStripCopy(lang?.code);
+  const rtl = lang?.code === 'he' || lang?.code === 'ar';
+  const modalPadTop = Math.max(insets.top, 12);
+  const modalPadBottom = Math.max(insets.bottom, 16);
+
+  const [editOpen, setEditOpen] = useState(false);
   const [text, setText] = useState(userRules?.rawText ?? '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<UserRulesHistoryEntry[]>([]);
   const [historyEntry, setHistoryEntry] = useState<UserRulesHistoryEntry | null>(null);
   const [restoring, setRestoring] = useState(false);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [rulesExpanded, setRulesExpanded] = useState(false);
 
-  const headerSub = userRules?.summary ?? 'Tap to add your dietary rules';
+  const raw = userRules?.rawText?.trim() ?? '';
+  const headerSub = rulesSubtitleFromRaw(raw, t.emptySubtitle);
   const canRestoreEntry = historyEntry != null && !historyEntryMatchesActive(historyEntry, userRules);
+  const rulesNeedCollapse = raw.length > RULES_PREVIEW_CHARS || raw.split(/\r?\n/).length > 4;
+  const rulesPreview = useMemo(() => {
+    if (!raw) return '';
+    if (!rulesNeedCollapse || rulesExpanded) return raw;
+    const clipped = raw.slice(0, RULES_PREVIEW_CHARS);
+    return clipped.length < raw.length ? `${clipped.trimEnd()}…` : clipped;
+  }, [raw, rulesNeedCollapse, rulesExpanded]);
 
   const refreshHistory = useCallback(async () => {
     setHistory(await getUserRulesHistory());
@@ -60,60 +79,86 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
     if (expanded) void refreshHistory();
   }, [expanded, refreshHistory]);
 
+  useEffect(() => {
+    if (!editOpen) setText(userRules?.rawText ?? '');
+  }, [userRules?.rawText, editOpen]);
+
+  const openEdit = useCallback(() => {
+    setText(userRules?.rawText ?? '');
+    setError(null);
+    setEditOpen(true);
+  }, [userRules?.rawText]);
+
+  const closeEdit = useCallback(() => {
+    const dirty = text.trim() !== (userRules?.rawText ?? '').trim();
+    if (!dirty) {
+      setEditOpen(false);
+      setError(null);
+      return;
+    }
+    Alert.alert(t.discardTitle, t.discardMessage, [
+      { text: t.cancel, style: 'cancel' },
+      {
+        text: t.discardConfirm,
+        style: 'destructive',
+        onPress: () => {
+          setEditOpen(false);
+          setError(null);
+          setText(userRules?.rawText ?? '');
+        },
+      },
+    ]);
+  }, [text, userRules?.rawText, t]);
+
   const handleSave = useCallback(async () => {
     if (!text.trim()) return;
     setError(null);
     setLoading(true);
     try {
-      const result = await summariseUserRules(text.trim(), mentors, lang);
       const rules: UserRules = {
         rawText: text.trim(),
-        summary: result.summary,
-        constraints: result.constraints,
-        aiContext: (result.context ?? '').trim(),
+        summary: '',
+        constraints: [],
+        aiContext: '',
         analyzedAt: new Date().toISOString(),
       };
       await saveUserRulesWithHistory(rules, { source: 'patient' });
       onSaved(rules);
       await refreshHistory();
-      setEditing(false);
-    } catch (e: any) {
-      setError(e?.message ?? 'Failed to summarise rules');
+      setEditOpen(false);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed to save rules';
+      setError(msg);
     } finally {
       setLoading(false);
     }
-  }, [text, mentors, lang, onSaved, refreshHistory]);
+  }, [text, onSaved, refreshHistory]);
 
   const handleRestore = useCallback(() => {
     if (!historyEntry || !canRestoreEntry) return;
-    Alert.alert(
-      'Restore this version?',
-      'Your current rules will be saved to history and this version will become active.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Restore',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              setRestoring(true);
-              try {
-                const restored = await restoreUserRulesFromHistory(historyEntry.id);
-                if (!restored) return;
-                onSaved(restored);
-                setText(restored.rawText);
-                setEditing(false);
-                await refreshHistory();
-                setHistoryEntry(null);
-              } finally {
-                setRestoring(false);
-              }
-            })();
-          },
+    Alert.alert(t.restoreTitle, t.restoreMessage, [
+      { text: t.cancel, style: 'cancel' },
+      {
+        text: t.restoreConfirm,
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            setRestoring(true);
+            try {
+              const restored = await restoreUserRulesFromHistory(historyEntry.id);
+              if (!restored) return;
+              onSaved(restored);
+              setText(restored.rawText);
+              await refreshHistory();
+              setHistoryEntry(null);
+            } finally {
+              setRestoring(false);
+            }
+          })();
         },
-      ],
-    );
-  }, [historyEntry, canRestoreEntry, onSaved, refreshHistory]);
+      },
+    ]);
+  }, [historyEntry, canRestoreEntry, onSaved, refreshHistory, t]);
 
   return (
     <View style={styles.wrap}>
@@ -122,105 +167,135 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
         subtitle={headerSub}
         expanded={expanded}
         onToggle={onToggleExpand}
-        titleRtl={lang?.code === 'he' || lang?.code === 'ar'}
-        collapseLabel="Collapse my rules"
-        expandLabel="Expand my rules"
+        titleRtl={rtl}
+        collapseLabel={`Collapse ${profileTitles.myRules}`}
+        expandLabel={`Expand ${profileTitles.myRules}`}
+        subtitleNumberOfLines={2}
       />
 
-      {expanded && (
+      {expanded ? (
         <View style={styles.body}>
-            {userRules && !editing && !loading && (
-              <View>
-                <Text style={styles.sectionLabel}>AI understood:</Text>
-                {userRules.constraints.map((c, i) => (
-                  <Text key={i} style={styles.constraintLine}>✓ {c}</Text>
-                ))}
-                <Text style={styles.originalText}>{userRules.rawText}</Text>
-                <Pressable style={styles.editBtn} onPress={() => { setText(userRules.rawText); setEditing(true); }}>
-                  <Text style={styles.editBtnText}>✎ Edit rules</Text>
+          <View style={styles.topRow}>
+            <Pressable style={styles.editTopBtn} onPress={openEdit}>
+              <Text style={styles.editTopBtnText}>{raw ? t.editRules : t.addRules}</Text>
+            </Pressable>
+          </View>
+
+          {raw ? (
+            <View style={styles.rulesBlock}>
+              <Text style={[styles.sectionLabel, rtl && styles.textRtl]}>{t.yourRules}</Text>
+              <Text style={[styles.rulesText, rtl && styles.textRtl]}>{rulesPreview}</Text>
+              {rulesNeedCollapse ? (
+                <Pressable onPress={() => setRulesExpanded((v) => !v)} hitSlop={8}>
+                  <Text style={styles.showMore}>{rulesExpanded ? t.showLess : t.showMore}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : (
+            <Text style={[styles.emptyBody, rtl && styles.textRtl]}>{t.emptyBody}</Text>
+          )}
+
+          {!loading && history.length > 0 ? (
+            <View style={styles.historySection}>
+              <Pressable
+                style={styles.historyHeader}
+                onPress={() => setHistoryExpanded((v) => !v)}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.sectionLabel, styles.historyHeaderLabel, rtl && styles.textRtl]}>
+                  {t.pastVersions(history.length)}
+                </Text>
+                <Text style={styles.historyChevron}>{historyExpanded ? '▾' : '▸'}</Text>
+              </Pressable>
+              {historyExpanded
+                ? history.map((entry) => (
+                    <Pressable
+                      key={entry.id}
+                      style={styles.historyRow}
+                      onPress={() => setHistoryEntry(entry)}
+                    >
+                      <Text style={styles.historyRowTitle} numberOfLines={1}>
+                        {formatHistoryDate(entry.savedAt)} · {formatHistorySource(entry)}
+                      </Text>
+                      <Text style={styles.historyRowSub} numberOfLines={2}>
+                        {historyRowPreview(entry)}
+                      </Text>
+                    </Pressable>
+                  ))
+                : null}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      <Modal visible={editOpen} animationType="slide" transparent onRequestClose={closeEdit}>
+        <View style={styles.modalBackdrop}>
+          <View
+            style={[
+              styles.modalCard,
+              { paddingTop: modalPadTop, paddingBottom: modalPadBottom },
+            ]}
+          >
+            <Text style={[styles.modalTitle, rtl && styles.textRtl]}>{t.editTitle}</Text>
+            <TextInput
+              style={[styles.textInput, styles.textInputFlex, rtl && styles.textRtl]}
+              value={text}
+              onChangeText={setText}
+              placeholder={t.placeholder}
+              placeholderTextColor={WellnessColors.textSecondary}
+              multiline
+              textAlignVertical="top"
+              editable={!loading}
+            />
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {loading ? (
+              <View style={styles.loadingWrap}>
+                <ActivityIndicator color={WellnessColors.accentBlue} />
+                <Text style={styles.loadingText}>{t.saving}</Text>
+              </View>
+            ) : (
+              <View style={styles.btnsRow}>
+                <Pressable
+                  style={[styles.saveBtn, !text.trim() && styles.saveBtnDisabled]}
+                  onPress={() => void handleSave()}
+                  disabled={!text.trim()}
+                >
+                  <Text style={styles.saveBtnText}>{t.save}</Text>
+                </Pressable>
+                <Pressable style={styles.cancelBtn} onPress={closeEdit}>
+                  <Text style={styles.cancelBtnText}>{t.cancel}</Text>
                 </Pressable>
               </View>
             )}
-
-            {(!userRules || editing) && !loading && (
-              <View>
-                <TextInput
-                  style={styles.textInput}
-                  value={text}
-                  onChangeText={setText}
-                  placeholder="e.g. high cholesterol, IF 16:8, avoid red meat, kidney protein limit"
-                  placeholderTextColor={WellnessColors.textSecondary}
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                />
-                {error && <Text style={styles.errorText}>{error}</Text>}
-                <View style={styles.btnsRow}>
-                  <Pressable
-                    style={[styles.saveBtn, !text.trim() && styles.saveBtnDisabled]}
-                    onPress={handleSave}
-                    disabled={!text.trim()}
-                  >
-                    <Text style={styles.saveBtnText}>✨ Save & Summarise</Text>
-                  </Pressable>
-                  {editing && (
-                    <Pressable style={styles.cancelBtn} onPress={() => setEditing(false)}>
-                      <Text style={styles.cancelBtnText}>Cancel</Text>
-                    </Pressable>
-                  )}
-                </View>
-              </View>
-            )}
-
-            {loading && (
-              <View style={styles.loadingWrap}>
-                <ActivityIndicator color={WellnessColors.accentGreen} />
-                <Text style={styles.loadingText}>Understanding your rules…</Text>
-              </View>
-            )}
-
-            {!loading && history.length > 0 && (
-              <View style={styles.historySection}>
-                <Text style={styles.sectionLabel}>Past versions ({history.length})</Text>
-                {history.map((entry) => (
-                  <Pressable
-                    key={entry.id}
-                    style={styles.historyRow}
-                    onPress={() => setHistoryEntry(entry)}
-                  >
-                    <Text style={styles.historyRowTitle} numberOfLines={1}>
-                      {formatHistoryDate(entry.savedAt)} · {formatHistorySource(entry)}
-                    </Text>
-                    <Text style={styles.historyRowSub} numberOfLines={2}>
-                      {historyRowPreview(entry)}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
+          </View>
         </View>
-      )}
+      </Modal>
 
-      <Modal visible={historyEntry != null} animationType="slide" transparent onRequestClose={() => setHistoryEntry(null)}>
+      <Modal
+        visible={historyEntry != null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setHistoryEntry(null)}
+      >
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            {historyEntry && (
+          <View
+            style={[
+              styles.modalCard,
+              { paddingTop: modalPadTop, paddingBottom: modalPadBottom },
+            ]}
+          >
+            {historyEntry ? (
               <>
                 <Text style={styles.modalTitle}>
                   {formatHistoryDate(historyEntry.savedAt)} · {formatHistorySource(historyEntry)}
                 </Text>
-                <ScrollView style={styles.modalScroll}>
-                  {historyEntry.rules.constraints.length > 0 && (
-                    <View style={styles.modalConstraints}>
-                      {historyEntry.rules.constraints.map((c, i) => (
-                        <Text key={i} style={styles.constraintLine}>✓ {c}</Text>
-                      ))}
-                    </View>
-                  )}
-                  <Text style={styles.modalRaw}>{historyEntry.rules.rawText}</Text>
+                <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent}>
+                  <Text style={[styles.modalRaw, rtl && styles.textRtl]}>
+                    {historyEntry.rules.rawText}
+                  </Text>
                 </ScrollView>
                 <View style={styles.modalActions}>
-                  {canRestoreEntry && (
+                  {canRestoreEntry ? (
                     <Pressable
                       style={[styles.modalRestoreBtn, restoring && styles.modalRestoreBtnDisabled]}
                       onPress={handleRestore}
@@ -229,16 +304,16 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
                       {restoring ? (
                         <ActivityIndicator color="#fff" size="small" />
                       ) : (
-                        <Text style={styles.modalRestoreText}>↩ Restore as active rules</Text>
+                        <Text style={styles.modalRestoreText}>{t.restoreAsActive}</Text>
                       )}
                     </Pressable>
-                  )}
+                  ) : null}
                   <Pressable style={styles.modalCloseBtn} onPress={() => setHistoryEntry(null)}>
-                    <Text style={styles.modalCloseText}>Close</Text>
+                    <Text style={styles.modalCloseText}>{t.close}</Text>
                   </Pressable>
                 </View>
               </>
-            )}
+            ) : null}
           </View>
         </View>
       </Modal>
@@ -249,11 +324,49 @@ export function RulesStrip({ userRules, mentors, onSaved, expanded, onToggleExpa
 const styles = StyleSheet.create({
   wrap: {},
   body: { paddingHorizontal: 4, paddingBottom: 12, paddingTop: 4 },
-  sectionLabel: { fontSize: 12, fontWeight: '700', color: WellnessColors.textSecondary, marginBottom: 6 },
-  constraintLine: { fontSize: 13, color: '#2E7D32', marginBottom: 4 },
-  originalText: { fontSize: 11, color: WellnessColors.textSecondary, marginTop: 10, fontStyle: 'italic' },
-  editBtn: { marginTop: 12, alignSelf: 'flex-start' },
-  editBtnText: { fontSize: 13, color: WellnessColors.accentBlue, fontWeight: '600' },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 8,
+  },
+  editTopBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: WellnessColors.accentBlue,
+    backgroundColor: WellnessColors.accentBlue + '12',
+  },
+  editTopBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: WellnessColors.accentBlue,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WellnessColors.textSecondary,
+    marginBottom: 6,
+  },
+  rulesBlock: { marginBottom: 4 },
+  rulesText: {
+    fontSize: 14,
+    color: WellnessColors.textPrimary,
+    lineHeight: 21,
+  },
+  showMore: {
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: '600',
+    color: WellnessColors.accentBlue,
+  },
+  emptyBody: {
+    fontSize: 13,
+    color: WellnessColors.textSecondary,
+    lineHeight: 19,
+    marginBottom: 4,
+  },
+  textRtl: { textAlign: 'right', writingDirection: 'rtl' },
 
   textInput: {
     borderWidth: 1.5,
@@ -262,14 +375,18 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 14,
     color: WellnessColors.textPrimary,
-    minHeight: 90,
-    backgroundColor: WellnessColors.background,
+    minHeight: 140,
+    backgroundColor: WellnessColors.surface,
+  },
+  textInputFlex: {
+    flex: 1,
+    minHeight: 0,
   },
   errorText: { fontSize: 12, color: '#E53935', marginTop: 6 },
-  btnsRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  btnsRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
   saveBtn: {
     flex: 1,
-    backgroundColor: WellnessColors.accentGreen,
+    backgroundColor: WellnessColors.accentBlue,
     borderRadius: 10,
     paddingVertical: 11,
     alignItems: 'center',
@@ -289,7 +406,24 @@ const styles = StyleSheet.create({
   loadingWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
   loadingText: { fontSize: 13, color: WellnessColors.textSecondary },
 
-  historySection: { marginTop: 20, borderTopWidth: 1, borderTopColor: WellnessColors.gridLine, paddingTop: 14 },
+  historySection: {
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: WellnessColors.gridLine,
+    paddingTop: 10,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  historyHeaderLabel: { marginBottom: 0, flex: 1 },
+  historyChevron: {
+    fontSize: 14,
+    color: WellnessColors.textSecondary,
+    paddingHorizontal: 4,
+  },
   historyRow: {
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -301,22 +435,28 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
   },
   modalCard: {
     backgroundColor: WellnessColors.background,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    maxHeight: '78%',
-    padding: 20,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    height: '90%',
+    paddingHorizontal: 20,
+    flexDirection: 'column',
   },
-  modalTitle: { fontSize: 15, fontWeight: '700', color: WellnessColors.textPrimary, marginBottom: 12 },
-  modalScroll: { maxHeight: 360 },
-  modalConstraints: { marginBottom: 10 },
+  modalTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
+    marginBottom: 12,
+  },
+  modalScroll: { flex: 1, minHeight: 0 },
+  modalScrollContent: { paddingBottom: 8 },
   modalRaw: { fontSize: 14, color: WellnessColors.textPrimary, lineHeight: 21 },
   modalActions: { marginTop: 16, gap: 10 },
   modalRestoreBtn: {
-    backgroundColor: WellnessColors.accentGreen,
+    backgroundColor: WellnessColors.accentBlue,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',

@@ -50,7 +50,9 @@ import { CgmDevicesMark, WithingsDevicesMark } from '../components/GearIllustrat
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
 import { ManualBodyProfileSection } from '../components/ManualBodyProfileSection';
 import { getManualBody, getManualBodyHistory, manualBodyToDashboardMetrics, countDistinctWeighInDays, type ManualBodySnapshot } from '../services/ManualBodyService';
-import { UnitsPreferenceSection } from '../components/UnitsPreferenceSection';
+import { LanguageStrip } from '../components/LanguageStrip';
+import { UnitsStrip } from '../components/UnitsStrip';
+import { GearSetupStrip } from '../components/GearSetupStrip';
 import { DebugErrorBoundary } from '../components/DebugErrorBoundary';
 import {
   DEFAULT_UNITS_PREFS,
@@ -71,8 +73,6 @@ import {
   formatEnergy,
 } from '../logic/unitConvert';
 import { buildManualTrendDays } from '../services/ManualTrendService';
-import { SetupToggleRow } from '../components/SetupToggleRow';
-import { PhoneHealthActivityStrip } from '../components/PhoneHealthActivityStrip';
 import {
   isLiveGlucoseSource,
   isPhoneHealthActivity,
@@ -83,7 +83,6 @@ import {
   type SetupToggles,
   type SourceConfig,
 } from '../services/SourceConfigService';
-import { isLiveCgmDataSource } from '../services/healthRuntime';
 import {
   fetchDailyStepTotalsForTrend,
   PHONE_HEALTH_DEEP_LOOKBACK_DAYS,
@@ -136,7 +135,7 @@ import {
   getBirthdate, setBirthdate, computeAge, getCachedHeightCm,
   setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors,
   getUserRules, getMacroTarget, getEffectiveMacroTarget, getBodyTarget, getCoachMessage, saveCoachMessage,
-  getLanguage, setLanguage, getMentorGender, SUPPORTED_LANGUAGES, resetQuickQuestionsForLanguage,
+  getLanguage, getMentorGender, SUPPORTED_LANGUAGES,
   ensureMacroTargetDaySnapshot, getManualBmrKcal,
   type Gender, type MentorType, type UserRules, type DailyMacroTarget, type BodyTarget, type CoachMessage, type UserLanguage,
 } from '../services/TargetService';
@@ -168,6 +167,9 @@ const CHART_MEAL_LOOKBACK_DAYS = 31;
 const DASH_GLUCOSE_EXPANDED_KEY = 'dash_glucose_chart_expanded';
 const DASH_TREND_EXPANDED_KEY = 'dash_trend_chart_expanded';
 const DASH_SETTINGS_CARD_EXPANDED_KEY = 'dash_settings_card_expanded';
+const DASH_LANGUAGE_EXPANDED_KEY = 'dash_language_expanded';
+const DASH_UNITS_EXPANDED_KEY = 'dash_units_expanded';
+const DASH_GEAR_EXPANDED_KEY = 'dash_gear_expanded';
 const BRAND_LOGO = require('../../assets/brand-logo.png');
 const BRAND_HEADER_HEIGHT_FALLBACK = 152;
 
@@ -396,6 +398,9 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, []);
 
   const [profileExpanded, setProfileExpanded] = useState(false);
+  const [languageExpanded, setLanguageExpanded] = useState(false);
+  const [unitsExpanded, setUnitsExpanded] = useState(false);
+  const [gearExpanded, setGearExpanded] = useState(false);
   const [quickStartVisible, setQuickStartVisible] = useState(false);
   const [manualTrendDays, setManualTrendDays] = useState<MetabolicTrend7dDay[]>([]);
   const [manualTrendLoading, setManualTrendLoading] = useState(false);
@@ -1098,9 +1103,19 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       );
     }
     if (userAge != null) parts.push(bareUnits ? String(userAge) : t.ageYears(userAge));
+    if (code !== 'en') parts.push(userLanguage.label);
     if (mentors.length > 0) parts.push(t.mentorsCount(mentors.length));
     return parts.length > 0 ? parts.join(' · ') : t.tapToOpen;
-  }, [userGender, heightCm, userAge, mentors, unitsPrefs.height, metabolicStripCopy, userLanguage.code]);
+  }, [
+    userGender,
+    heightCm,
+    userAge,
+    mentors,
+    unitsPrefs.height,
+    metabolicStripCopy,
+    userLanguage.code,
+    userLanguage.label,
+  ]);
 
   /** Today's actual macros summed from food entries. */
   const todayActualMacros = useMemo(() => {
@@ -1349,14 +1364,20 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   useEffect(() => {
     void (async () => {
       try {
-        const [g, t, s] = await AsyncStorage.multiGet([
+        const [g, t, s, langEx, unitsEx, gearEx] = await AsyncStorage.multiGet([
           DASH_GLUCOSE_EXPANDED_KEY,
           DASH_TREND_EXPANDED_KEY,
           DASH_SETTINGS_CARD_EXPANDED_KEY,
+          DASH_LANGUAGE_EXPANDED_KEY,
+          DASH_UNITS_EXPANDED_KEY,
+          DASH_GEAR_EXPANDED_KEY,
         ]);
         if (g[1] === 'true') setGlucoseExpanded(true);
         if (t[1] === 'true') setTrendExpanded(true);
         if (s[1] === 'true') setSettingsCardExpanded(true);
+        if (langEx[1] === 'true') setLanguageExpanded(true);
+        if (unitsEx[1] === 'true') setUnitsExpanded(true);
+        if (gearEx[1] === 'true') setGearExpanded(true);
       } finally {
         setDashExpandPrefsLoaded(true);
       }
@@ -1377,6 +1398,21 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     if (!dashExpandPrefsLoaded) return;
     void AsyncStorage.setItem(DASH_SETTINGS_CARD_EXPANDED_KEY, settingsCardExpanded ? 'true' : 'false');
   }, [settingsCardExpanded, dashExpandPrefsLoaded]);
+
+  useEffect(() => {
+    if (!dashExpandPrefsLoaded) return;
+    void AsyncStorage.setItem(DASH_LANGUAGE_EXPANDED_KEY, languageExpanded ? 'true' : 'false');
+  }, [languageExpanded, dashExpandPrefsLoaded]);
+
+  useEffect(() => {
+    if (!dashExpandPrefsLoaded) return;
+    void AsyncStorage.setItem(DASH_UNITS_EXPANDED_KEY, unitsExpanded ? 'true' : 'false');
+  }, [unitsExpanded, dashExpandPrefsLoaded]);
+
+  useEffect(() => {
+    if (!dashExpandPrefsLoaded) return;
+    void AsyncStorage.setItem(DASH_GEAR_EXPANDED_KEY, gearExpanded ? 'true' : 'false');
+  }, [gearExpanded, dashExpandPrefsLoaded]);
 
   useEffect(() => {
     void (async () => {
@@ -2206,7 +2242,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     ? String(userAge)
                     : metabolicStripCopy.ageYears(userAge)
                   : null,
-                userLanguage.code !== 'en' ? userLanguage.label : null,
               ]
                 .filter(Boolean)
                 .join(' · ') || 'Tap to set gender, height & birthdate'
@@ -2278,132 +2313,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 <Text style={styles.birthdateAge}>{yourSetupCopy.ageYears(userAge)}</Text>
               )}
 
-              <Text style={styles.birthdateSectionTitle}>Coach & meals language</Text>
-              <View style={styles.langRow}>
-                {SUPPORTED_LANGUAGES.map((lang) => (
-                  <Pressable
-                    key={lang.code}
-                    style={[styles.langBtn, userLanguage.code === lang.code && styles.langBtnSelected]}
-                    onPress={() => setUserLanguage(lang)}
-                  >
-                    <Text style={[styles.langBtnText, userLanguage.code === lang.code && styles.langBtnTextSelected]}>
-                      {lang.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              <UnitsPreferenceSection
-                prefs={unitsPrefs}
-                langCode={userLanguage.code}
-                onChange={(next) => {
-                  if (next.height !== unitsPrefs.height) {
-                    setHeightInput(
-                      coerceHeightInputForUnit(heightInput, next.height, heightCm),
-                    );
-                  }
-                  setUnitsPrefs(next);
-                  void saveUnitsPrefs(next);
-                }}
-              />
-
-              <Pressable
-                style={styles.quickStartAgainBtn}
-                onPress={() => {
-                  void clearOnboardingCompletedAt().then(() => setQuickStartVisible(true));
-                }}
-              >
-                <Text style={styles.quickStartAgainText}>Quick Start again</Text>
-              </Pressable>
-
-              <Text style={styles.birthdateSectionTitle}>{yourSetupCopy.title}</Text>
-              {setupToggles ? (
-                <>
-                  <SetupToggleRow
-                    label={yourSetupCopy.withingsScale}
-                    value={setupToggles.withingsScale}
-                    yesLabel={yourSetupCopy.yes}
-                    noLabel={yourSetupCopy.no}
-                    onChange={(v) => void persistSetupToggles({ ...setupToggles, withingsScale: v })}
-                    hint={
-                      setupToggles.withingsScale && !withingsLinked
-                        ? yourSetupCopy.hintScaleLink
-                        : undefined
-                    }
-                  />
-                  <SetupToggleRow
-                    label={yourSetupCopy.withingsWatch}
-                    value={setupToggles.withingsWatch}
-                    yesLabel={yourSetupCopy.yes}
-                    noLabel={yourSetupCopy.no}
-                    onChange={(v) => void persistSetupToggles({ ...setupToggles, withingsWatch: v })}
-                    hint={
-                      setupToggles.withingsWatch && !setupToggles.withingsScale && !withingsLinked
-                        ? yourSetupCopy.hintWatchLink
-                        : !setupToggles.withingsWatch
-                          ? Platform.OS === 'ios'
-                            ? yourSetupCopy.hintWatchOffIos
-                            : yourSetupCopy.hintWatchOffAndroid
-                          : undefined
-                    }
-                  />
-                  {setupToggles.withingsWatch && !setupToggles.withingsScale ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={
-                        withingsLinked
-                          ? 'Withings sync options or re-link account'
-                          : 'Link Withings account'
-                      }
-                      style={[
-                        styles.withingsLinkButtonProfile,
-                        linkBusy && styles.withingsLinkButtonDisabled,
-                      ]}
-                      onPress={handleWithingsAccountPress}
-                      disabled={linkBusy}
-                    >
-                      {linkBusy ? (
-                        <ActivityIndicator color={WellnessColors.accentBlue} size="small" />
-                      ) : (
-                        <Text style={styles.withingsLinkButtonTextCompact}>
-                          {withingsLinked ? yourSetupCopy.relinkWithings : yourSetupCopy.linkWithings}
-                        </Text>
-                      )}
-                    </Pressable>
-                  ) : null}
-                  {manualBodyScaleActive && setupToggles.withingsWatch && linkError ? (
-                    <Text style={styles.linkErrorText}>{linkError}</Text>
-                  ) : null}
-                  {!setupToggles.withingsWatch ? (
-                    <PhoneHealthActivityStrip
-                      onPermissionGranted={() => {
-                        // Shallow only (~2 days) — same as routine sync. Deep is the Deep sync button.
-                        void syncWithings().then(() => loadHcStepTotals(false));
-                      }}
-                      onSync={(deep) => {
-                        void syncWithings(deep ? { deep: true } : undefined).then(() =>
-                          loadHcStepTotals(deep),
-                        );
-                      }}
-                    />
-                  ) : null}
-                  <SetupToggleRow
-                    label={yourSetupCopy.cgm}
-                    value={setupToggles.cgm}
-                    yesLabel={yourSetupCopy.yes}
-                    noLabel={yourSetupCopy.no}
-                    onChange={(v) => void persistSetupToggles({ ...setupToggles, cgm: v })}
-                    hint={
-                      setupToggles.cgm
-                        ? Platform.OS === 'ios'
-                          ? yourSetupCopy.hintCgmIos
-                          : yourSetupCopy.hintCgmAndroid
-                        : undefined
-                    }
-                  />
-                </>
-              ) : null}
-
               {manualBodyScaleActive ? (
                 manualBodyProfileReady ? (
                   <ManualBodyProfileSection
@@ -2431,24 +2340,17 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 )
               ) : null}
 
+              <Text style={styles.birthdateSaveHint}>{yourSetupCopy.saveHint}</Text>
               <Pressable
                 style={styles.birthdateSaveBtn}
                 onPress={async () => {
                   const iso = birthdatePicker.toISOString().split('T')[0];
                   const cm = parseHeightInputToCm(heightInput, unitsPrefs.height);
-                  const prevLang = await getLanguage();
-                  const langChanged = prevLang.code !== userLanguage.code;
                   await Promise.all([
                     setBirthdate(iso),
                     setGender(genderPicker),
-                    setLanguage(userLanguage),
-                    saveUnitsPrefs(unitsPrefs),
                     ...(cm != null && cm > 0 ? [saveHeightCm(cm)] : []),
                   ]);
-                  if (langChanged) {
-                    await resetQuickQuestionsForLanguage(userLanguage);
-                    await refreshCoachForLanguage();
-                  }
                   if (cm != null && cm > 0) setHeightCm(cm);
                   setUserGender(genderPicker);
                   setProfileExpanded(false);
@@ -2500,6 +2402,65 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               }}
             />
           ) : null}
+
+          <View style={styles.groupDivider} />
+
+          <LanguageStrip
+            expanded={languageExpanded}
+            onToggleExpand={() => setLanguageExpanded((e) => !e)}
+            language={userLanguage}
+            onLanguageChanged={setUserLanguage}
+            onAfterLanguagePersist={async () => {
+              await refreshCoachForLanguage();
+            }}
+          />
+
+          <View style={styles.groupDivider} />
+
+          <UnitsStrip
+            expanded={unitsExpanded}
+            onToggleExpand={() => setUnitsExpanded((e) => !e)}
+            prefs={unitsPrefs}
+            lang={userLanguage}
+            onChange={(next) => {
+              if (next.height !== unitsPrefs.height) {
+                setHeightInput(
+                  coerceHeightInputForUnit(heightInput, next.height, heightCm),
+                );
+              }
+              setUnitsPrefs(next);
+              void saveUnitsPrefs(next);
+            }}
+          />
+
+          <View style={styles.groupDivider} />
+
+          <GearSetupStrip
+            expanded={gearExpanded}
+            onToggleExpand={() => setGearExpanded((e) => !e)}
+            lang={userLanguage}
+            setupToggles={setupToggles}
+            onPersistToggles={(next) => void persistSetupToggles(next)}
+            withingsLinked={withingsLinked}
+            linkBusy={linkBusy}
+            linkError={linkError}
+            showLinkError={manualBodyScaleActive && !!setupToggles?.withingsWatch}
+            onWithingsAccountPress={handleWithingsAccountPress}
+            onPhoneHealthPermissionGranted={() => {
+              void syncWithings().then(() => loadHcStepTotals(false));
+            }}
+            onPhoneHealthSync={(deep) => {
+              void syncWithings(deep ? { deep: true } : undefined).then(() =>
+                loadHcStepTotals(deep),
+              );
+            }}
+            onQuickStartAgain={() => {
+              void clearOnboardingCompletedAt().then(() => setQuickStartVisible(true));
+            }}
+            careSensImportBusy={importBusy}
+            careSensImportMessage={importMessage}
+            onCareSensImport={() => void handleImportCareSensCsv()}
+          />
 
           <View style={styles.groupDivider} />
 
@@ -2634,35 +2595,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           lang={userLanguage}
           gender={userGender}
         />
-
-        {isLiveCgmDataSource(dataSource) ? (
-          <View style={styles.careSensImportSection}>
-            <Pressable
-              style={[styles.careSensImportButton, importBusy && styles.careSensImportButtonDisabled]}
-              onPress={handleImportCareSensCsv}
-              disabled={importBusy}
-              accessibilityRole="button"
-              accessibilityLabel="Import CareSens Air CSV"
-            >
-              {importBusy ? (
-                <ActivityIndicator color={WellnessColors.accentBlue} />
-              ) : (
-                <View style={styles.careSensImportButtonRow}>
-                  <View style={styles.careSensImportLogoWrap}>
-                    <Image
-                      source={require('../../assets/CareScenseAirLogo.jpeg')}
-                      style={styles.careSensImportButtonLogo}
-                      resizeMode="contain"
-                      accessibilityIgnoresInvertColors
-                    />
-                  </View>
-                  <Text style={styles.careSensImportButtonLabel}>Import</Text>
-                </View>
-              )}
-            </Pressable>
-            {importMessage ? <Text style={styles.importMessageText}>{importMessage}</Text> : null}
-          </View>
-        ) : null}
 
         <Pressable
           style={[styles.primaryButton, (isLoading || bodyScanLoading || trendLoading) && styles.primaryButtonDisabled]}
@@ -3094,50 +3026,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: WellnessColors.textSecondary,
   },
-  careSensImportButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: WellnessColors.accentBlue,
-    borderRadius: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    backgroundColor: WellnessColors.surface,
-    minHeight: 56,
-  },
-  careSensImportButtonDisabled: {
-    opacity: 0.65,
-  },
-  careSensImportButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    paddingHorizontal: 4,
-  },
-  careSensImportLogoWrap: {
-    flex: 1,
-    height: 40,
-    minWidth: 0,
-    marginRight: 12,
-    justifyContent: 'center',
-  },
-  careSensImportButtonLogo: {
-    width: '100%',
-    height: '100%',
-  },
-  careSensImportButtonLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: WellnessColors.accentBlue,
-    letterSpacing: 0.3,
-  },
   glucoseHistorySection: {
-    marginBottom: dashCardGap,
-  },
-  careSensImportSection: {
-    gap: 6,
     marginBottom: dashCardGap,
   },
   primaryButton: {
@@ -3154,13 +3043,6 @@ const styles = StyleSheet.create({
     color: WellnessColors.surface,
     fontSize: 16,
     fontWeight: '600',
-  },
-  importMessageText: {
-    fontSize: 14,
-    color: WellnessColors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 8,
-    lineHeight: 20,
   },
   errorText: {
     color: WellnessColors.accentRed,
@@ -3534,6 +3416,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 4,
     paddingHorizontal: 4,
+  },
+  birthdateSaveHint: {
+    fontSize: 12,
+    color: WellnessColors.textSecondary,
+    alignSelf: 'center',
+    textAlign: 'center',
+    marginBottom: 8,
+    marginTop: 4,
   },
   birthdateSaveBtn: {
     backgroundColor: WellnessColors.accentBlue,

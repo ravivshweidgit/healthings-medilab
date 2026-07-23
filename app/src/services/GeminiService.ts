@@ -1980,7 +1980,7 @@ function formatDayPacingLine(ctx: CoachContext, now = new Date(), omitTargets = 
   return `${base}${guide}${rule}`;
 }
 
-/** My Rules AI summary — injected into coach panel and chat USER DATA (matches RulesStrip UI). */
+/** My Rules — injected into coach panel and chat USER DATA (rawText; matches RulesStrip). */
 function formatUserRulesForContext(rules: UserRules): string[] {
   return formatUserRulesLines(rules);
 }
@@ -2077,7 +2077,7 @@ Rules:
 - autoCheckType keys are always English: "carbs_under_target", "protein_over_target", "calorie_deficit", "meal_logged", or null.
 - carbs_under_target MUST cite carb target ${carbTarget != null ? `${Math.round(carbTarget)}g` : 'from the Daily macro target line'} — never use generic 20g keto defaults
 - protein_over_target MUST cite protein target ${proteinTarget != null ? `${Math.round(proteinTarget)}g` : 'from the Daily macro target line'}
-- Dietary rules in USER DATA (My Rules — AI understood bullets) override any generic diet assumptions; when asked what the user's rules are, quote those bullets — do NOT paraphrase vaguely or invent rules
+- Dietary rules in USER DATA (My Rules) override any generic diet assumptions; when asked what the user's rules are, quote the My Rules text verbatim — do NOT paraphrase vaguely or invent rules
 - When LAB RESULTS is in USER DATA, never claim labs are missing; cite exact values for cholesterol, CBC, kidney, liver, glucose when relevant; informational only — not a diagnosis
 - If event is meal: focus on remaining macros for the day. If weigh-in: trend vs target, muscle vs start. If workout: calorie budget + HR during session vs resting baseline from the WORKOUTS lines in the PERIOD REVIEW.
 - Do NOT repeat data the user already sees on the dashboard
@@ -2472,7 +2472,7 @@ OUTPUT FORMAT (mandatory): respond with a single JSON object and nothing else �
 Inside "response" write plain prose only — no **bold**, no markdown headers, no nested JSON. 2–4 sentences; use specific numbers for macros/food/workouts — but CGM defaults to qualitative (stable/elevated) unless DEEP DIVE. Period reviews /7 /30 with explicit number requests may be longer. Use \n for line breaks inside the string.
 JSON STRING SAFETY (mandatory): never put ASCII double-quote (") inside the response text — it breaks JSON. For Hebrew abbreviations use single quotes instead: ק'ג not ק"ג, מ'ג/ד'ל not מ"ג/ד"ל, ק'ק'ל not קק"ל. If you must use a double-quote in the text, escape it as \\".
 All of today's and yesterday's data — body, visceral, BMR, energy, 24/7 HR, meals, CGM, workouts — is in the data block above. Use exact numbers for food/macros/workouts when asked; for glucose use qualitative verdict by default (see CGM rules below).
-When the user asks about their dietary rules, restrictions, or what is written in My Rules: quote the bullet list under My Rules — AI understood in PROFILE / GOALS / SETTINGS (same structured summary as the app) — do NOT paraphrase vaguely or repeat raw free-text.
+When the user asks about their dietary rules, restrictions, or what is written in My Rules: quote the My Rules block in USER DATA / PROFILE verbatim — do NOT paraphrase vaguely.
 When the user asks about blood tests, labs, cholesterol, or בדיקות דם: quote exact values from LAB RESULTS in USER DATA; for trends across older draws use the LAB HISTORY block when /N loaded — never invent values.
 GENERAL FOOD KNOWLEDGE (mandatory): Meal logs list calories, protein, carbs, fat, fiber — NOT fatty acids, vitamins, or minerals per item. When the user asks about those (omega-3/6, nutrients, daily averages, food quality): ALWAYS answer — estimate from logged food names + grams using USDA-style reference tables. Give rough grams and ratios when asked (e.g. daily ω-3 ~3–5g, ω3:ω6 ~1:1–1:3). Lead with the estimate; do NOT open with "data not in the app" or refuse. One brief "estimated from food tables" caveat at the end is enough. Distinguish exact USER DATA (logged P/C/F/Fi) from estimated micronutrients.
 CGM DEFAULT: qualitative one-liner (stable / in range / elevated / low-side). DEEP DIVE (user asked for numbers, avg, analysis, or /7+/30 with glucose stats): cite avg/min/max, day/night, meal spikes from the block. On food/hunger/recipe/nutrient questions without glucose ask: answer that topic — at most one qualitative glucose phrase; NO glucose opener on omega/vitamin/nutrient threads.

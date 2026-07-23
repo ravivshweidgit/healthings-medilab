@@ -99,6 +99,10 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt88** — done (2026-07-24). Phase B follow-up: Lab Results, Your setup, Profile form, Food Log chrome, chart legend (Glucose/HR/Steps/Workout) + two-row legend layout. Phone-tested Android. See `done/prompt88.txt`.
 
+**prompt89** — done (2026-07-24). PROFILE & SETTINGS order: Profile → Language → Units → Gear; CareSens Import in Gear when CGM Yes; footer Refresh only. Phone-tested Android. See `done/prompt89.txt`.
+
+**prompt52** — done (2026-07-24). My Rules rawText-only save (no Gemini on save); Edit/Add modal (90% top, safe nav); Past versions collapse; coach quotes verbatim. Phone-tested Android. Clinic summarise path deferred. See `done/prompt52.txt`.
+
 **prompt48** — done (2026-06-29). Lipid trend charts (Total/LDL/TG/HDL strips + green safe zones); mentors/coach see **all saved lab draws** in USER DATA. Phone-tested. Commits `308500f`, `fa0d6b1`. Supersedes prompt30 chart deferral + latest-only scope.
 
 **prompt50** — done (2026-06-30). Nutritionist visit report: clinical HTML export (7/14/30/90d), Appendix A charts (lipids/body/energy/CGM), Appendix B raw data. Phone-tested. See `done/prompt50.txt`. **UI shell → Reports strip in prompt85.**
