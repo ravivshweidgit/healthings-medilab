@@ -1,6 +1,6 @@
 # prompt95 — Data-viz + chat + content/web/RTL (UI/UX audit Batches D+E)
 
-**Status:** Partial — Batch D (D1+D2+D3) phone-approved (2026-07-24); Batch E pending.
+**Status:** Done — Batch D (D1–D3) + Batch E (E1–E4) shipped (2026-07-24).
 Derived from `prompt92.txt` review output (Opus 4.8). Covers Batches D+E after
 prompt93 (A+B) and prompt94 (C). Presentation/UX only — **no** changes to stored data,
 units, clinical numbers, AsyncStorage keys, or rule interpretation.
@@ -17,7 +17,7 @@ prompt92 (audit). Honors language-policy, persistence-parity, ai-judgment rules.
 | **F9** | P1 | Dashboard sync | "Refresh my data" only at very bottom. → **Shipped:** compact refresh icon in the top brand header (same sync); pull-to-refresh retained. |
 | **F13** | P2 | Rules / Targets / session summaries | Detected-RTL (Hebrew/Arabic) user content shows left-aligned in EN chrome. → **Shipped:** shared `contentAlignStyle` (`logic/textDirection.ts`) aligns by detected script in My Rules, nutrition sessions, and macro reasoning. |
 | **F15** | P2 | Edit Meal | Two delete concepts: per-item "Delete" + footer pink trash. → **Shipped:** footer now trash + "Delete meal" label; confirm says whole meal + all items (localized). |
-| **F19** | P2 | Website | Sparse desktop help (narrow column, big margins); landing H1 "A full metabolic OS" is jargon. → Widen/format help; patient-value H1. |
+| **F19** | P2 | Website | Sparse desktop help (narrow column, big margins); landing H1 "A full metabolic OS" is jargon. → **Shipped:** help index → tappable cards (2-col on desktop) + larger desktop prose; landing H1 "Understand your body, hit your targets" + de-jargoned lead. |
 | **F20** | P2 | CGM blood-drop illustration | Reads alarming/heavy. → **Shipped:** lighter red gradient (no near-black base) + softer ground shadow, both hero and body-card mark. |
 
 ## Hard constraints (do not fight)
@@ -47,12 +47,10 @@ prompt92 (audit). Honors language-policy, persistence-parity, ai-judgment rules.
 |-------|---------|------|--------|
 | **E1** | F13 | `logic/textDirection.ts` (`isRtlText` / `contentAlignStyle`) → detected-script align in My Rules, nutrition sessions, macro reasoning | `9593e06` |
 | **E2** | F15 | Edit Meal footer: single-word Delete/Save/Cancel, centered; confirm "Delete whole meal? …entire meal and all items" (10 langs) | `46dae1e`, `0b8b2a2` |
-| **E3** | F20 | Soften CGM drop (hero + body-card mark): rich red top, no near-black base (`#FF7A70→#F0554F→#D93F3A`); lighter ground shadow | (this commit) |
+| **E3** | F20 | Soften CGM drop (hero + body-card mark): rich red top, no near-black base (`#FF7A70→#F0554F→#D93F3A`); lighter ground shadow | `4c3e8ea` |
+| **E4** | F19 | Website: help index → tappable cards (2-col on desktop) + bigger desktop prose (`.help-index`, styles.css); landing H1 "Understand your body, hit your targets" + de-jargoned lead; CSS cache-buster `v=20260724e4` across 160 pages | (this commit) |
 
-## Remaining slices (each own `bi`/site check + commit)
-7. **Slice E4 · Website (F19)** — help layout width/formatting + landing H1 copy.
-
-Stop after each slice for confirmation (app slices need phone `bi`; E4 is web).
+All slices shipped — prompt95 complete.
 
 ## Primary files (to confirm during impl)
 
@@ -77,8 +75,8 @@ Stop after each slice for confirmation (app slices need phone `bi`; E4 is web).
 - [x] Hebrew/Arabic rules/targets/session text right-aligns in EN chrome; LTR unaffected (E1)
 - [x] Edit Meal: clear that footer trash deletes the whole meal (E2)
 - [x] CGM illustration softer, not alarming (E3)
-- [ ] Website help readable full-width on desktop; landing H1 patient-friendly
-- [ ] No changed AsyncStorage keys; refresh/collapse semantics intact
+- [x] Website help index cards + 2-col on desktop; landing H1 patient-friendly (E4, verified locally)
+- [x] No changed AsyncStorage keys; refresh/collapse semantics intact
 
 ## Related
 - `prompt92.txt` — audit source (F3, F8, F9, F13, F15, F19, F20).
