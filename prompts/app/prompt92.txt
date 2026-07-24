@@ -1,0 +1,263 @@
+# prompt92 — Whole-project UI/UX review brief (Opus 4.8)
+
+**Status:** Backlog — reusable reviewer brief (not shipped code). Use to drive a UI/UX
+audit session with Opus 4.8 (thinking, high). Output = a prioritized design brief;
+implementation happens in a separate Agent session.
+
+**Builds on:** prompt81 / prompt87 / prompt88 (chrome i18n), prompt91 (10 locales),
+language-policy + persistence-parity + ai-judgment rules.
+
+## How to use
+
+1. Start an Opus 4.8 (thinking) session.
+2. Paste the PROMPT block below.
+3. Provide on-device screenshots per pass (light mode, dense/real data, one RTL locale)
+   + rendered `website/` landing and a help page.
+4. Keep it a review — capture the brief, then implement in a fresh Agent session and
+   file follow-up prompt specs (prompt93+) per the prompts workflow.
+
+## Constraints the reviewer must honor
+
+- Brand-first, clinical-but-warm, no card-soup / generic AI-dashboard look.
+- Glossary stays English (kcal, mg/dL, kg, CGM, BMR, BMI, Withings, device names, slash commands).
+- App chrome + coach = app language (10 locales: en, he, es, fr, de, ar, ru, pt, it, tr);
+  clinic portal English; help site per-locale under `website/{lang}/help/`.
+- RTL (he/ar) for user-content areas only; dashboard strip structure stays LTR chrome with
+  localized strings — full mirrored layout deferred.
+- Layout changes must survive text expansion (de/ru/tr longest strings) + RTL.
+- Units / clinical numbers / data shapes fixed — restyle presentation, not stored data.
+- Dark mode deferred (do not propose as near-term).
+
+## Review passes (in order)
+
+1. First-run: language gate + Quick Start wizard
+2. Dashboard chrome: strip hierarchy, density, collapse affordances, empty vs data-rich,
+   primary "Refresh my data" action
+3. Food Log modal: photo/text logging, edit/delete, from-past-meal, water
+4. Coach/AI chat entry + mentor presentation
+5. Website: landing (hero, value prop, CTA, trust) + help pages (readability, nav, locale switcher)
+6. Cross-cutting: type scale, spacing rhythm, color/contrast (AA), icons, touch targets, consistency
+
+## Key files (for reviewer reference)
+
+- App chrome: `app/src/components/*Strip.tsx`, `WelcomeQuickStartWizard.tsx`, `FoodLogModal.tsx`
+- Dashboard: `app/src/screens/DashboardScreen.tsx`
+- i18n copy: `app/src/i18n/*Copy.ts`, `quickStartCopy.ts`, `languageGate.ts`
+- Website: `website/index.html`, `website/styles.css`, `website/{lang}/help/`
+
+---
+
+## PROMPT (paste into Opus 4.8)
+
+# Role
+You are a senior product designer + UX reviewer doing a full UI/UX audit of Healthings Medilab — an Expo React Native health app (dashboard of collapsible "strips": glucose, activity, trend & energy, profile & settings, food log, rules, labs) plus a static marketing/help website (`website/`). Personal metabolic coaching with an AI mentor, built around Withings + CGM data, aimed at patients working with a nutritionist.
+
+Your job is to REVIEW and PROPOSE, not to write code. Produce a prioritized design brief I can hand to an implementation session.
+
+# Why screenshots (not code alone)
+Code shows structure, not the composed result. Spacing rhythm, visual weight, hierarchy,
+contrast, truncation, RTL mirroring, and text expansion across 10 locales only appear in the
+render. Judge from the images; ask for code only to confirm a token or locate the file to change.
+
+# What I will provide — screenshot checklist
+On-device, light mode, real data unless noted. Ask for any missing shot before reviewing a pass.
+
+**Pass 1 — First-run (language gate + Quick Start)**
+- Language gate — full screen (all 10 flags + "Select language" table)
+- Language gate — one RTL locale selected (Hebrew or Arabic)
+- Quick Start — each step: Welcome, About you, Language, Scale, Watch, CGM, Withings link,
+  Starting weight, Phone health, Reports import, Targets
+- Quick Start — same wizard in a long-text locale (German or Russian) to expose overflow
+- Quick Start — mentor gender step (Hebrew/Arabic only, if shown)
+
+**Pass 2 — Dashboard chrome**
+- Full dashboard top→bottom, all strips collapsed (stitch 2–3 shots)
+- Each strip expanded (one each): Glucose, Activity, Trend & energy (8-day AND 32-day),
+  Profile & settings, Food Log, Rules, Labs
+- Empty / no-data dashboard (fresh user, scale off)
+- Data-rich dashboard (Withings + CGM connected)
+- "Refresh my data" button — idle and loading
+- One dashboard in RTL + one in a long-text locale
+
+**Pass 3 — Food Log modal**
+- Idle modal (Log Meal / camera / gallery / describe)
+- Photo flow — AI suggestion / confirm
+- Text-describe flow
+- Meal window with items — per-item Edit + Delete visible
+- Edit meal sheet (P/C/F row, Save meal)
+- "From past meal" — day picker + meal list
+- Add water sheet
+- Same modal in RTL
+
+**Pass 4 — Coach / AI chat**
+- AI chat entry on dashboard (mentor icons + action count)
+- Chat open — real conversation with mentor replies
+- Quick-question chips
+- Mentor selection / My Mentors view
+
+**Pass 5 — Website (live healthings.ai)**
+- Landing hero (above the fold)
+- Landing full page (features, CTA, footer)
+- Landing at mobile width AND desktop width
+- Help index (/en/help/)
+- One help article (e.g. /en/help/quick-start-welcome.html)
+- Help locale switcher visible
+- One help page in RTL (/he/ or /ar/help/)
+- One help page in a new locale (/pt|it|tr/help/)
+
+**Pass 6 — Cross-cutting** — no new shots; reuse the above for type/spacing/contrast/touch-target/consistency judgment.
+
+**Minimal core set** (if not capturing everything up front): language gate, Quick Start (welcome +
+profile + one device step), dashboard collapsed, trend & energy expanded, Food Log idle, chat open,
+website hero + one help page. Add the rest per pass as you ask.
+
+Also available on request: code for layout/copy.
+
+If you lack a render for something, say so and mark that finding "needs render" instead of guessing.
+
+# Hard constraints (do not fight these)
+- Brand-first, calm/clinical-but-warm. No "card soup", no generic AI-dashboard look. Motion only with purpose.
+- Glossary stays English everywhere: kcal, mg/dL, kg, CGM, BMR, BMI, Withings, device names, slash commands.
+- Language: app chrome + coach follow the user's app language (10 locales: en, he, es, fr, de, ar, ru, pt, it, tr). Clinic portal stays English. Help site is per-locale under `website/{lang}/help/`.
+- RTL applies to Hebrew/Arabic for user-content areas; dashboard strip structure stays LTR chrome with localized strings (full mirrored layout is deferred — don't propose a full RTL rebuild).
+- Any layout change MUST survive text expansion — check longest strings (German/Russian/Turkish) and RTL. Flag overflow risks explicitly.
+- Units, clinical numbers, and data shapes are fixed; you may restyle how they're shown, not what's stored.
+- Don't propose dark mode as a near-term item (deferred by product).
+
+# Scope — review in these passes, in order
+1. First-run: language gate + Quick Start wizard (flow, clarity, progress, effort to complete)
+2. Dashboard chrome: strip hierarchy, density, collapse/expand affordances, empty vs data-rich states, the primary "Refresh my data" action
+3. Food Log modal: logging flow (photo/text), meal edit/delete, "from past meal", water
+4. Coach/AI chat entry + mentor presentation
+5. Website: landing page (hero, value prop, CTA, trust) + help pages (readability, nav, cross-locale switcher)
+6. Cross-cutting system: type scale, spacing rhythm, color/contrast (accessibility AA), iconography, touch targets, consistency across strips
+
+# For every finding, use this format
+- **ID + title**
+- **Severity**: P0 (broken/confusing/inaccessible) · P1 (weak, hurts trust/conversion) · P2 (polish)
+- **Where**: screen/section (+ file if known)
+- **Problem**: what a real user feels, and why it's wrong
+- **Recommendation**: concrete change (layout/spacing/copy/interaction)
+- **Risk/constraint check**: text-expansion, RTL, clinical-accuracy, effort (S/M/L)
+
+# Deliverables
+1. Top-level verdict: 3–5 sentence read on the product's current UX maturity and biggest levers.
+2. Prioritized findings table (P0 → P2).
+3. A short "design system" section: recommended type scale, spacing tokens, color/contrast fixes, and 3–5 reusable component rules that would remove inconsistency.
+4. A suggested implementation sequence (what to fix first for max perceived-quality gain), grouped so each group is a safe, shippable batch.
+
+Start by asking me which pass to begin with and which screenshots you need for it. Do not propose code yet.
+
+---
+
+## REVIEW OUTPUT — 2026-07-24 (Opus 4.8, thinking)
+
+**Inputs:** 40 on-device Android screens (light mode, real data, mixed EN chrome + HE user
+content) across passes 1–4, saved under `UI-snapshots/pass1-first-run…pass4-coach-chat/`,
+plus 9 live-site captures under `UI-snapshots/pass5-website/`. RTL judged from HE rules,
+session titles, meal names, and coach replies. No dark-mode shots (deferred, per constraints).
+
+### Top-level verdict
+
+Healthings is **functionally ahead of its visual craft**. The data work is genuinely strong —
+Lab Results cholesterol trends, glucose-vs-heart-rate with workout annotations, and the
+energy-balance panels build real clinical trust. The strip IA is sound.
+
+The biggest lever is **perceived quality + hierarchy**, not features. Three drags: (1)
+**emoji-as-iconography** everywhere (mentors, water, PDF, pointing finger) fights
+"clinical-but-warm" and reads prototype-y; (2) the dashboard drifts into **card-soup** —
+a dozen equal-weight white cards where nothing signals priority; (3) **first-run friction**
+— progress denominator that grows as you answer and Yes/No hidden below the fold. Fixing hierarchy + a real icon set + tightening
+Quick Start moves it from "capable alpha" to "premium health product" with **no change to
+stored data, units, or clinical numbers** — all presentation.
+
+### Findings (P0 → P2)
+
+Format: ID · severity · where · problem · recommendation · risk/effort.
+
+**P0 — broken / confusing / inaccessible**
+
+- ~~F1 · "Refreshing SIM data" toast~~ — **WITHDRAWN 2026-07-24**: this is the phone's eSIM
+  status message, not the app. Not an app issue.
+- **F2 · QS progress denominator changes mid-flow** — header "X of N"; N grows 11→12→13 as
+  user answers Yes. Destroys the progress bar's job; looks like a glitch. → Stable total (max
+  possible) or drop numeric "of N", keep dot bar. Logic-only. **M**
+- **F3 · Trend chart y-axis labels collide** — 4 differently-scaled series on one plot; left
+  axis numbers overlap ("77.0/42.7", "-4.1/3.9"). Unreadable, looks broken. → Per-series mini
+  panels (copy the ENERGY sparkline stack) or index to % change with one axis. Values
+  unchanged. **M/L**
+
+**P1 — weak, hurts trust / conversion**
+
+- **F4 · Yes/No hidden below the fold (QS scale/watch/CGM)** — hero + heading + body push the
+  decision off-screen; the "Tap Yes or No 👆" hint is the tell users got stuck. → Shrink hero
+  on decision steps; pin Yes/No above the sticky footer; drop the finger hint. RTL/long-text
+  safe as fixed row. **M**
+- **F5 · Language gate: two disconnected language controls** — a 2-col text list of "Select
+  language" translations up top (looks tappable, isn't) + the real flag tray at the bottom,
+  big dead gap between. → One control: grid cells = flag + native name; one localized header.
+  Fit 10 cells + RTL names (2×5). **M**
+- **F6 · Dashboard card-soup / flat hierarchy** (`DashboardScreen.tsx`) — ~10 equal-weight
+  white cards, differentiated only by low-contrast gray labels; no triage. → Weight tiers:
+  metrics + AI chat + Food Log primary; Glucose/Trend/Profile/Labs secondary compact rows;
+  per-strip icon so scanning is by shape. Structural, no data change. **L**
+- **F7 · Emoji as the icon system** — mentors 🩺🥗💪, water, PDF, finger, Gallery 🖼️. OS-variant,
+  inconsistent, undercuts credibility; biggest perceived-quality drag. → One line-icon set
+  (Lucide/Phosphor) + small custom mentor avatars; emoji only inside chat content. **L**, high payoff
+- **F8 · Chat input has too many cryptic buttons** — Camera, ↑, ↓, Clear, ↗, Send; the
+  arrows are unlabeled/unguessable. → Keep Camera + text + Send; collapse scroll/expand/clear
+  into overflow or remove. **M**
+- **F9 · "Refresh my data" only at very bottom** — main sync action below a long scroll. → Add
+  pull-to-refresh and/or a compact header refresh. **M**
+- **F10 · Off-brand purple Gallery tile** (Log Meal) — purple exists nowhere else; arbitrary
+  color-coding. → Brand-consistent tiles differentiated by icon, not hue. **S**
+- **F11 · Low-contrast strip labels & secondary text** — light-gray small-caps on white likely
+  fail AA (needs 4.5:1); these are the primary wayfinding labels. → Darken to pass AA
+  (~#5b6470 or darker). Token change. **S**
+
+**P2 — polish**
+
+- **F12 · Header redundancy** — "Quick Start" title + "Quick Start · 3 of 11" subtitle repeats;
+  step 1 shows step name, later steps drop it. → Subtitle = step name + count, consistently. **S**
+- **F13 · Mixed-direction HE user content in EN chrome** — Rules/Targets/session summaries show
+  Hebrew left-aligned; bidi punctuation looks off. → Right-align detected-RTL directive/rule
+  text even when chrome is English (matches language-policy). Edit-item Name already does this
+  right. **M**
+- **F14 · Dashed borders on primary actions** — Meal / Add water use dashed (a "placeholder/add"
+  convention), making primary actions feel secondary. → Solid for active; dashed only for empty
+  "Add". **S**
+- **F15 · Two delete concepts in Edit Meal** — per-item "Delete" + footer pink trash. → Clarify
+  footer = delete whole meal. **S**
+- **F16 · Expand/collapse affordance inconsistent** — collapsed ">" vs expanded top "^". → Unify. **S**
+- **F17 · "0/4 actions" unexplained** (AI-chat badge). → Label ("0 of 4 coach tips"). **S**
+- **F18 · Brand wordmark eats top-of-fold** on every dashboard load. → Slim to compact header. **S**
+- **F19 · Website: sparse desktop help + jargon H1** — help is a narrow centered column with big
+  empty desktop margins; landing H1 "A full metabolic OS" is jargon for patients. → Widen/format
+  help; lead with patient value prop. **M**
+- **F20 · CGM blood-drop illustration** reads alarming/heavy. → Soften. **S**
+
+### Design-system recommendations
+
+- **Type scale (codify existing):** Display 28/34 · H1 22/28 · H2 18/24 · Body 16/24 · Label
+  13/16 caps · Caption 12/16. Cap hero headings at 2 lines.
+- **Spacing tokens:** 4/8/12/16/24/32. Card pad 16, inter-card gap 12, section gap 24. One rhythm.
+- **Color/contrast:** Lock to navy + teal + one blue accent + semantic (green/red/amber); retire
+  purple. Darken labels/secondary to AA. Fixed documented chart color map
+  (weight/fat/muscle/visceral/glucose/HR) reused everywhere.
+- **5 component rules:** (1) Strip = icon + label + summary + one chevron affordance. (2) Primary
+  = solid, secondary = outline, add/empty = dashed — never mix. (3) One line-icon set; emoji only
+  in chat. (4) Decision steps keep Yes/No above the fold, fixed row above sticky footer. (5) RTL
+  user content auto-aligns by detected script regardless of chrome language.
+
+### Suggested implementation sequence (shippable batches)
+
+- **Batch A — quick trust wins (all S):** F11, F10, F14, F12, F16, F17. Low risk, immediate lift.
+- **Batch B — first-run polish:** F2, F4, F5.
+- **Batch C — hierarchy + identity:** F7 (icon set) → F6 (dashboard tiers) → F18. Biggest leap;
+  icon set first (F6 depends on it).
+- **Batch D — data-viz + chat:** F3, F8, F9.
+- **Batch E — content/web/RTL:** F13, F19, F15, F20.
+
+Proposed follow-up specs: **prompt93 = Batch A+B (first-impression)**, **prompt94 = Batch C
+(design system + hierarchy)**, **prompt95 = Batch D/E**. Implementation happens in fresh Agent
+sessions; this file stays the review of record.
