@@ -1,9 +1,9 @@
 # prompt95 — Data-viz + chat + content/web/RTL (UI/UX audit Batches D+E)
 
-**Status:** Backlog — implementation spec. Derived from `prompt92.txt` review output
-(2026-07-24, Opus 4.8). Covers the last two audit batches after prompt93 (A+B) and
-prompt94 (C). Presentation/UX only — **no** changes to stored data, units, clinical
-numbers, AsyncStorage keys, or rule interpretation.
+**Status:** Partial — D1+D2 phone-approved (2026-07-24). Derived from `prompt92.txt`
+review output (Opus 4.8). Covers Batches D+E after prompt93 (A+B) and prompt94 (C).
+Presentation/UX only — **no** changes to stored data, units, clinical numbers,
+AsyncStorage keys, or rule interpretation.
 
 **Builds on:** prompt94 (icon registry `theme/icons.tsx`, primary-tier accent), prompt93,
 prompt92 (audit). Honors language-policy, persistence-parity, ai-judgment rules.
@@ -13,7 +13,7 @@ prompt92 (audit). Honors language-policy, persistence-parity, ai-judgment rules.
 | ID | Sev | Where | Problem → fix |
 |----|-----|-------|---------------|
 | **F3** | P0 | Trend & energy chart | 4 differently-scaled series on one plot; left-axis numbers overlap/unreadable. → Per-series mini panels (reuse ENERGY sparkline stack) **or** index to % change with one axis. Values unchanged. |
-| **F8** | P1 | Chat input toolbar | Too many cryptic buttons (Camera, ↑, ↓, Clear, ↗, Send); unlabeled arrows. → Keep Camera + text + Send; move scroll/expand/clear to overflow or drop. |
+| **F8** | P1 | Chat input toolbar | Too many cryptic buttons (Camera, ↑, ↓, Clear, ↗, Send). → **Shipped (compromise):** Camera · ↑ · ↓ · ⋯ · Send; Clear + Export in overflow menu (scroll arrows kept per phone test). |
 | **F9** | P1 | Dashboard sync | "Refresh my data" only at very bottom. → Pull-to-refresh (verify existing `RefreshControl` is discoverable) and/or compact header refresh. |
 | **F13** | P2 | Rules / Targets / session summaries | Detected-RTL (Hebrew/Arabic) user content shows left-aligned in EN chrome; bidi punctuation off. → Right-align by **detected script**, regardless of chrome language (Edit-item Name already does this). |
 | **F15** | P2 | Edit Meal | Two delete concepts: per-item "Delete" + footer pink trash. → Clarify footer = delete whole meal (label/confirm copy). |
@@ -33,11 +33,15 @@ prompt92 (audit). Honors language-policy, persistence-parity, ai-judgment rules.
 - Chat message **bodies/exports keep emoji**; only toolbar chrome changes (F8).
 - Website: help path locale stays `/{lang}/help/…` (language-policy); clinic portal untouched.
 
-## Suggested slices (each own `bi`/site check + commit)
+## Shipped slices
 
-1. **Slice D1 · Trend chart (F3)** — highest value, highest risk. Prototype per-series mini
-   panels vs %-indexed single axis; pick the readable one. Isolated to the trend chart.
-2. **Slice D2 · Chat input (F8)** — simplify toolbar to Camera + input + Send; overflow the rest.
+| Slice | Finding | What | Commit |
+|-------|---------|------|--------|
+| **D1** | F3 | Trend chart titled mini-panels (WEIGHT / FAT·MUSCLE / VISCERAL) — axis labels no longer collide | `8c8e119` |
+| **D2** | F8 | Chat toolbar: Camera · ↑ · ↓ · ⋯ · Send; Clear + Export in overflow (`ActionIcons.overflow/share/clear`) | (this commit) |
+
+## Remaining slices (each own `bi`/site check + commit)
+
 3. **Slice D3 · Refresh (F9)** — surface pull-to-refresh + compact header refresh affordance.
 4. **Slice E1 · RTL user content (F13)** — shared detected-script align helper across Rules/
    Targets/session summaries.
@@ -64,8 +68,8 @@ Stop after each slice for confirmation (app slices need phone `bi`; E4 is web).
 `ReviewService.ts`, `mealGlucoseAnalysis.ts`, clinic portal. Chart values/formulas.
 
 ## Phone/site-tested checklist
-- [ ] Trend chart legible on small screen; no overlapping axis labels; same values
-- [ ] Chat input: Camera + text + Send obvious; extras discoverable, not cluttering
+- [x] Trend chart legible on small screen; no overlapping axis labels; same values (D1)
+- [x] Chat input: Camera · ↑ · ↓ · ⋯ · Send; Clear/Export in overflow (D2, scroll kept)
 - [ ] Refresh reachable without scrolling to bottom; existing bottom action still works
 - [ ] Hebrew/Arabic rules/targets/session text right-aligns in EN chrome; LTR unaffected
 - [ ] Edit Meal: clear that footer trash deletes the whole meal

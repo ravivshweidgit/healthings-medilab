@@ -18,9 +18,12 @@ import {
   FlaskConical,
   Image as ImageIcon,
   ListChecks,
+  MoreHorizontal,
   Salad,
   Settings,
+  Share2,
   Stethoscope,
+  Trash2,
   TrendingUp,
   Utensils,
   UtensilsCrossed,
@@ -52,6 +55,9 @@ export const ActionIcons = {
   water: Droplet,
   camera: Camera,
   gallery: ImageIcon,
+  overflow: MoreHorizontal,
+  share: Share2,
+  clear: Trash2,
 } as const;
 
 /** Mentor marks for UI chrome only — chat bodies/exports keep MENTOR_EMOJI. */

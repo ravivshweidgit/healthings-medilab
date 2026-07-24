@@ -82,7 +82,7 @@ import type { MentorLines } from '../logic/mentorChatText';
 import { mentorPossessiveLabel, mentorsCollectiveLabel } from '../logic/mentorLabels';
 import { ActionIcons, ActiveMentorIcons, DashIcon, MentorIcon } from '../theme/icons';
 import { getTodayMeals, getMealsForDay, buildMealsAiContext, foodLogDayKey } from '../services/FoodLogService';
-import { WellnessColors } from '../theme/wellness';
+import { WellnessColors, cardShadow } from '../theme/wellness';
 import type { EnergyUnit } from '../logic/unitConvert';
 
 type Props = {
@@ -221,6 +221,7 @@ function chatUiStrings(context: CoachContext) {
       exportDoneMessage: 'קובץ HTML נשמר בתיקייה שבחרת — פתח/י בדפדפן לעברית נכונה.',
       scrollTop: 'גלול למעלה',
       scrollBottom: 'גלול למטה',
+      moreActions: 'עוד פעולות',
       rtl,
     };
   }
@@ -260,6 +261,7 @@ function chatUiStrings(context: CoachContext) {
       exportDoneMessage: 'تم حفظ HTML — افتح في المتصفح.',
       scrollTop: 'الانتقال للأعلى',
       scrollBottom: 'الانتقال للأسفل',
+      moreActions: 'إجراءات أخرى',
       rtl: true,
     };
   }
@@ -298,6 +300,7 @@ function chatUiStrings(context: CoachContext) {
     exportDoneMessage: 'HTML file saved — open in a browser for proper layout.',
     scrollTop: 'Scroll to top',
     scrollBottom: 'Scroll to bottom',
+    moreActions: 'More actions',
     rtl,
   };
 }
@@ -1022,6 +1025,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
   const [pendingImage, setPendingImage] = useState<PendingChatImage | null>(null);
   const [sending, setSending] = useState(false);
   const [faqVisible, setFaqVisible] = useState(false);
+  const [toolbarMenuOpen, setToolbarMenuOpen] = useState(false);
   const [coachExpanded, setCoachExpanded] = useState(false);
   const [refreshingCoach, setRefreshingCoach] = useState(false);
   const [anyChatHistory, setAnyChatHistory] = useState(false);
@@ -1717,26 +1721,59 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
                   >
                     <Text style={styles.scrollBtnText}>↓</Text>
                   </Pressable>
-                  <Pressable
-                    style={[styles.clearBtn, !canClearChat && styles.toolbarBtnDisabled]}
-                    onPress={handleClearChat}
-                    disabled={!canClearChat}
-                    hitSlop={6}
-                    accessibilityRole="button"
-                    accessibilityLabel={ui.clearChat}
-                  >
-                    <Text style={[styles.clearBtnText, ui.rtl && styles.rtlText]}>{ui.clearChat}</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.exportBtn, !canExportChat && styles.toolbarBtnDisabled]}
-                    onPress={() => void handleExportChat()}
-                    disabled={!canExportChat}
-                    hitSlop={6}
-                    accessibilityRole="button"
-                    accessibilityLabel={ui.exportChat}
-                  >
-                    <Text style={styles.exportBtnIcon}>↗</Text>
-                  </Pressable>
+                  {canClearChat || canExportChat ? (
+                    <View>
+                      <Pressable
+                        style={styles.overflowBtn}
+                        onPress={() => setToolbarMenuOpen((v) => !v)}
+                        hitSlop={6}
+                        accessibilityRole="button"
+                        accessibilityLabel={ui.moreActions}
+                      >
+                        <DashIcon icon={ActionIcons.overflow} size={20} color={WellnessColors.textSecondary} />
+                      </Pressable>
+                      {toolbarMenuOpen ? (
+                        <>
+                          <Pressable
+                            style={styles.toolbarMenuBackdrop}
+                            onPress={() => setToolbarMenuOpen(false)}
+                          />
+                          <View style={[styles.toolbarMenu, ui.rtl && styles.toolbarMenuRtl]}>
+                            {canExportChat ? (
+                              <Pressable
+                                style={styles.toolbarMenuItem}
+                                onPress={() => {
+                                  setToolbarMenuOpen(false);
+                                  void handleExportChat();
+                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel={ui.exportChat}
+                              >
+                                <DashIcon icon={ActionIcons.share} size={16} color={WellnessColors.textPrimary} />
+                                <Text style={[styles.toolbarMenuText, ui.rtl && styles.rtlText]}>{ui.exportChat}</Text>
+                              </Pressable>
+                            ) : null}
+                            {canClearChat ? (
+                              <Pressable
+                                style={styles.toolbarMenuItem}
+                                onPress={() => {
+                                  setToolbarMenuOpen(false);
+                                  handleClearChat();
+                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel={ui.clearChat}
+                              >
+                                <DashIcon icon={ActionIcons.clear} size={16} color={WellnessColors.accentRed} />
+                                <Text style={[styles.toolbarMenuText, styles.toolbarMenuTextDanger, ui.rtl && styles.rtlText]}>
+                                  {ui.clearChat}
+                                </Text>
+                              </Pressable>
+                            ) : null}
+                          </View>
+                        </>
+                      ) : null}
+                    </View>
+                  ) : null}
                 </View>
                 <Pressable
                   style={[
@@ -2329,38 +2366,53 @@ const styles = StyleSheet.create({
     color: WellnessColors.accentBlue,
     lineHeight: 22,
   },
-  clearBtn: {
-    height: 40,
-    paddingHorizontal: 8,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#EF9A9A',
-    backgroundColor: '#FCEEF0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  clearBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WellnessColors.accentRed,
-  },
-  exportBtn: {
+  overflowBtn: {
     width: 36,
     height: 40,
     borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#42A5F5',
-    backgroundColor: '#E3F2FD',
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+    backgroundColor: WellnessColors.background,
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
   },
-  exportBtnIcon: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: WellnessColors.accentBlue,
-    lineHeight: 20,
+  toolbarMenuBackdrop: {
+    position: 'absolute',
+    top: -1000,
+    left: -1000,
+    right: -1000,
+    bottom: -1000,
+  },
+  toolbarMenu: {
+    position: 'absolute',
+    bottom: 46,
+    left: 0,
+    minWidth: 160,
+    backgroundColor: WellnessColors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: WellnessColors.gridLine,
+    paddingVertical: 4,
+    ...cardShadow,
+  },
+  toolbarMenuRtl: {
+    left: undefined,
+    right: 0,
+  },
+  toolbarMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  toolbarMenuText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: WellnessColors.textPrimary,
+  },
+  toolbarMenuTextDanger: {
+    color: WellnessColors.accentRed,
   },
   sendBtn: {
     backgroundColor: WellnessColors.accentBlue,
