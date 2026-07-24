@@ -1,15 +1,16 @@
-# prompt92 — Whole-project UI/UX review brief (Opus 4.8)
+# prompt92 — Whole-project UI/UX review brief (Opus 5)
 
 **Status:** Backlog — reusable reviewer brief (not shipped code). Use to drive a UI/UX
-audit session with Opus 4.8 (thinking, high). Output = a prioritized design brief;
-implementation happens in a separate Agent session.
+audit session with the current top thinking model — **Opus 5 (thinking, high)**; the
+2026-07-24 output below came from Opus 4.8, its predecessor. Output = a prioritized
+design brief; implementation happens in a separate Agent session.
 
 **Builds on:** prompt81 / prompt87 / prompt88 (chrome i18n), prompt91 (10 locales),
 language-policy + persistence-parity + ai-judgment rules.
 
 ## How to use
 
-1. Start an Opus 4.8 (thinking) session.
+1. Start an Opus 5 (thinking) session.
 2. Paste the PROMPT block below.
 3. Provide on-device screenshots per pass (light mode, dense/real data, one RTL locale)
    + rendered `website/` landing and a help page.
@@ -26,7 +27,8 @@ language-policy + persistence-parity + ai-judgment rules.
   localized strings — full mirrored layout deferred.
 - Layout changes must survive text expansion (de/ru/tr longest strings) + RTL.
 - Units / clinical numbers / data shapes fixed — restyle presentation, not stored data.
-- Dark mode deferred (do not propose as near-term).
+- Dark mode is now in progress (`prompt96`): theme tokens + provider shipped, light
+  unchanged. Review light mode as the default; dark-specific findings belong in prompt96.
 
 ## Review passes (in order)
 
@@ -47,7 +49,7 @@ language-policy + persistence-parity + ai-judgment rules.
 
 ---
 
-## PROMPT (paste into Opus 4.8)
+## PROMPT (paste into Opus 5)
 
 # Role
 You are a senior product designer + UX reviewer doing a full UI/UX audit of Healthings Medilab — an Expo React Native health app (dashboard of collapsible "strips": glucose, activity, trend & energy, profile & settings, food log, rules, labs) plus a static marketing/help website (`website/`). Personal metabolic coaching with an AI mentor, built around Withings + CGM data, aimed at patients working with a nutritionist.

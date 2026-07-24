@@ -1,6 +1,6 @@
 #!/bin/bash
 # Configure Healthings API OTP email via Porkbun (otp@healthings.ai).
-# Run on Hetzner VPS as root â€” prompts for mailbox password (not stored in shell history).
+# Run on Hetzner VPS as root — prompts for mailbox password (not stored in shell history).
 set -euo pipefail
 
 ENV_FILE="${ENV_FILE:-/opt/healthings-api/server/.env}"
@@ -18,7 +18,7 @@ echo ""
 read -r -s -p "Enter mailbox password for $SMTP_USER: " SMTP_PASS
 echo ""
 if [ -z "$SMTP_PASS" ]; then
-  echo "Empty password â€” aborted."
+  echo "Empty password — aborted."
   exit 1
 fi
 
@@ -45,9 +45,9 @@ systemctl restart healthings-api
 sleep 1
 
 if systemctl is-active --quiet healthings-api; then
-  echo "OK â€” API restarted with Porkbun SMTP."
-  echo "Test: Send code in the app â†’ check inbox."
+  echo "OK — API restarted with Porkbun SMTP."
+  echo "Test: Send code in the app → check inbox."
 else
-  echo "ERROR â€” service not running. Check: journalctl -u healthings-api -n 30"
+  echo "ERROR — service not running. Check: journalctl -u healthings-api -n 30"
   exit 1
 fi
