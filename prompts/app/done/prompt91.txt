@@ -1,6 +1,6 @@
 # prompt91 — Portuguese, Italian, Turkish (coach & meals language)
 
-**Status:** Done (2026-07-24). Phone-tested Android. Website help trees included (deploy with site).
+**Status:** Done (2026-07-24). Phone-tested Android. Commit `46187f8`. Website help deployed.
 
 **Builds on:** prompt81 (language gate + chrome i18n), prompt87 / locale expansion to 7 langs.
 
