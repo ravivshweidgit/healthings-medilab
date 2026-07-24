@@ -53,6 +53,7 @@ import { ManualBodyProfileSection } from '../components/ManualBodyProfileSection
 import { getManualBody, getManualBodyHistory, manualBodyToDashboardMetrics, countDistinctWeighInDays, type ManualBodySnapshot } from '../services/ManualBodyService';
 import { LanguageStrip } from '../components/LanguageStrip';
 import { UnitsStrip } from '../components/UnitsStrip';
+import { AppearanceStrip } from '../components/AppearanceStrip';
 import { GearSetupStrip } from '../components/GearSetupStrip';
 import { DebugErrorBoundary } from '../components/DebugErrorBoundary';
 import {
@@ -171,8 +172,12 @@ const DASH_TREND_EXPANDED_KEY = 'dash_trend_chart_expanded';
 const DASH_SETTINGS_CARD_EXPANDED_KEY = 'dash_settings_card_expanded';
 const DASH_LANGUAGE_EXPANDED_KEY = 'dash_language_expanded';
 const DASH_UNITS_EXPANDED_KEY = 'dash_units_expanded';
+const DASH_APPEARANCE_EXPANDED_KEY = 'dash_appearance_expanded';
 const DASH_GEAR_EXPANDED_KEY = 'dash_gear_expanded';
 const BRAND_LOGO = require('../../assets/brand-logo.png');
+// Same geometry as the light lockup (so header height is unchanged), light ink on a
+// transparent background instead of the white plate.
+const BRAND_LOGO_DARK = require('../../assets/brand-logo-dark.png');
 const BRAND_HEADER_HEIGHT_FALLBACK = 96;
 
 // Primary-tier anchor (audit F6) — navy left edge groups the top "today" cards
@@ -270,8 +275,8 @@ type DashboardScreenProps = {
 };
 
 export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const brandHeaderHeight = useMemo(() => computeBrandHeaderHeight(windowWidth), [windowWidth]);
@@ -410,6 +415,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [profileExpanded, setProfileExpanded] = useState(false);
   const [languageExpanded, setLanguageExpanded] = useState(false);
   const [unitsExpanded, setUnitsExpanded] = useState(false);
+  const [appearanceExpanded, setAppearanceExpanded] = useState(false);
   const [gearExpanded, setGearExpanded] = useState(false);
   const [quickStartVisible, setQuickStartVisible] = useState(false);
   const [manualTrendDays, setManualTrendDays] = useState<MetabolicTrend7dDay[]>([]);
@@ -1374,12 +1380,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   useEffect(() => {
     void (async () => {
       try {
-        const [g, t, s, langEx, unitsEx, gearEx] = await AsyncStorage.multiGet([
+        const [g, t, s, langEx, unitsEx, appearanceEx, gearEx] = await AsyncStorage.multiGet([
           DASH_GLUCOSE_EXPANDED_KEY,
           DASH_TREND_EXPANDED_KEY,
           DASH_SETTINGS_CARD_EXPANDED_KEY,
           DASH_LANGUAGE_EXPANDED_KEY,
           DASH_UNITS_EXPANDED_KEY,
+          DASH_APPEARANCE_EXPANDED_KEY,
           DASH_GEAR_EXPANDED_KEY,
         ]);
         if (g[1] === 'true') setGlucoseExpanded(true);
@@ -1387,6 +1394,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         if (s[1] === 'true') setSettingsCardExpanded(true);
         if (langEx[1] === 'true') setLanguageExpanded(true);
         if (unitsEx[1] === 'true') setUnitsExpanded(true);
+        if (appearanceEx[1] === 'true') setAppearanceExpanded(true);
         if (gearEx[1] === 'true') setGearExpanded(true);
       } finally {
         setDashExpandPrefsLoaded(true);
@@ -1418,6 +1426,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     if (!dashExpandPrefsLoaded) return;
     void AsyncStorage.setItem(DASH_UNITS_EXPANDED_KEY, unitsExpanded ? 'true' : 'false');
   }, [unitsExpanded, dashExpandPrefsLoaded]);
+
+  useEffect(() => {
+    if (!dashExpandPrefsLoaded) return;
+    void AsyncStorage.setItem(DASH_APPEARANCE_EXPANDED_KEY, appearanceExpanded ? 'true' : 'false');
+  }, [appearanceExpanded, dashExpandPrefsLoaded]);
 
   useEffect(() => {
     if (!dashExpandPrefsLoaded) return;
@@ -1813,7 +1826,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           accessibilityRole="header"
         >
           <Image
-            source={BRAND_LOGO}
+            source={isDark ? BRAND_LOGO_DARK : BRAND_LOGO}
             style={styles.brandLogo}
             resizeMode="contain"
             accessibilityLabel="HEALTHINGS.AI"
@@ -1854,7 +1867,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               : aiChatOpenLabel(userLanguage.code)
           }
         >
-          <ActiveMentorIcons mentors={mentors} size={20} style={styles.nudgeStripIcons} />
+          <ActiveMentorIcons
+            mentors={mentors}
+            size={20}
+            color={colors.chromeIcon}
+            style={styles.nudgeStripIcons}
+          />
           <View style={styles.nudgeStripTextCol}>
             <Text
               style={[
@@ -1920,9 +1938,19 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                           }
                         >
                           {withingsLinked ? (
-                            <Check size={16} color="#2E7D32" strokeWidth={2.75} accessible={false} />
+                            <Check
+                              size={16}
+                              color={isDark ? colors.accentGreen : '#2E7D32'}
+                              strokeWidth={2.75}
+                              accessible={false}
+                            />
                           ) : (
-                            <X size={16} color="#C62828" strokeWidth={2.75} accessible={false} />
+                            <X
+                              size={16}
+                              color={isDark ? colors.accentRed : '#C62828'}
+                              strokeWidth={2.75}
+                              accessible={false}
+                            />
                           )}
                         </View>
                         <Pressable
@@ -2464,6 +2492,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
           <View style={styles.groupDivider} />
 
+          <AppearanceStrip
+            expanded={appearanceExpanded}
+            onToggleExpand={() => setAppearanceExpanded((e) => !e)}
+            lang={userLanguage}
+          />
+
+          <View style={styles.groupDivider} />
+
           <GearSetupStrip
             expanded={gearExpanded}
             onToggleExpand={() => setGearExpanded((e) => !e)}
@@ -2631,7 +2667,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           disabled={isLoading || bodyScanLoading || trendLoading}
         >
           {(isLoading || bodyScanLoading || trendLoading) ? (
-            <ActivityIndicator color={colors.surface} />
+            <ActivityIndicator color={isDark ? colors.textPrimary : colors.surface} />
           ) : (
             <Text style={styles.primaryButtonText}>{metabolicStripCopy.refreshMyData}</Text>
           )}
@@ -2749,8 +2785,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   );
 };
 
-const makeStyles = (c: ThemeColors) =>
-  StyleSheet.create({
+const makeStyles = (c: ThemeColors, isDark: boolean) => {
+  // Pre-token hexes kept verbatim for light; dark swaps in tokens so the tinted
+  // surfaces and navy accents stay visible against the near-black background.
+  const tierAccent = isDark ? c.primaryTier : PRIMARY_TIER_ACCENT;
+  const chatStripBg = isDark ? c.metabolicPairBg : '#EAF4FB';
+  const chatStripBorder = isDark ? c.metabolicPairBorder : '#B3D9F0';
+  return StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: c.background,
@@ -2810,7 +2851,7 @@ const makeStyles = (c: ThemeColors) =>
     backgroundColor: c.surface,
     borderRadius: 24,
     borderLeftWidth: 3,
-    borderLeftColor: PRIMARY_TIER_ACCENT,
+    borderLeftColor: tierAccent,
     paddingTop: 10,
     paddingBottom: 16,
     paddingHorizontal: 18,
@@ -2848,7 +2889,7 @@ const makeStyles = (c: ThemeColors) =>
     fontSize: 8,
     fontWeight: '800',
     letterSpacing: 0.5,
-    color: '#1A2B4A',
+    color: isDark ? c.textPrimary : '#1A2B4A',
     textTransform: 'uppercase',
     textAlign: 'center',
     alignSelf: 'stretch',
@@ -2863,9 +2904,9 @@ const makeStyles = (c: ThemeColors) =>
     paddingVertical: 2,
     paddingHorizontal: 4,
     borderRadius: 20,
-    backgroundColor: 'rgba(26, 43, 74, 0.04)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(26, 43, 74, 0.04)',
     borderWidth: 1,
-    borderColor: 'rgba(26, 43, 74, 0.08)',
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(26, 43, 74, 0.08)',
   },
   withingsStatusBadge: {
     width: 32,
@@ -2880,7 +2921,7 @@ const makeStyles = (c: ThemeColors) =>
     borderColor: 'rgba(76, 175, 80, 0.35)',
   },
   withingsStatusBadgeOff: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: isDark ? c.chart.surplusZone : '#FFEBEE',
     borderWidth: 1,
     borderColor: 'rgba(255, 82, 82, 0.35)',
   },
@@ -2888,6 +2929,8 @@ const makeStyles = (c: ThemeColors) =>
     flexShrink: 0,
     borderWidth: 1,
     borderColor: c.accentBlue,
+    // Outlined buttons sit on canvas black in dark, punched out of the card.
+    backgroundColor: isDark ? c.background : undefined,
     borderRadius: 14,
     paddingVertical: 7,
     paddingHorizontal: 15,
@@ -3073,18 +3116,22 @@ const makeStyles = (c: ThemeColors) =>
   glucoseHistorySection: {
     marginBottom: dashCardGap,
   },
+  // Dark: black pill with light border (matches outlined action pattern); light keeps
+  // the solid blue CTA.
   primaryButton: {
-    backgroundColor: c.accentBlue,
+    backgroundColor: isDark ? c.background : c.accentBlue,
     borderRadius: 24,
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: dashCardGap,
+    borderWidth: isDark ? 1.5 : 0,
+    borderColor: isDark ? c.gridLine : undefined,
   },
   primaryButtonDisabled: {
     opacity: 0.7,
   },
   primaryButtonText: {
-    color: c.surface,
+    color: isDark ? c.textPrimary : c.surface,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -3119,12 +3166,12 @@ const makeStyles = (c: ThemeColors) =>
   nudgeStrip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EAF4FB',
+    backgroundColor: chatStripBg,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#B3D9F0',
+    borderColor: chatStripBorder,
     borderLeftWidth: 3,
-    borderLeftColor: PRIMARY_TIER_ACCENT,
+    borderLeftColor: tierAccent,
     paddingVertical: 10,
     paddingHorizontal: 14,
     marginBottom: dashCardGap,
@@ -3385,7 +3432,7 @@ const makeStyles = (c: ThemeColors) =>
   },
   heightHint: {
     fontSize: 11,
-    color: '#E65100',
+    color: isDark ? c.chart.eaten : '#E65100',
     alignSelf: 'flex-start',
     marginBottom: 8,
   },
@@ -3482,4 +3529,5 @@ const makeStyles = (c: ThemeColors) =>
     fontSize: 16,
     fontWeight: '700',
   },
-});
+  });
+};

@@ -3,11 +3,10 @@
  *
  * Resolves the effective color scheme from the stored user preference
  * (`system|light|dark`) combined with the OS scheme (`useColorScheme()`), and exposes
- * the active `ThemeColors`. Components migrate to `useTheme().colors` in Phase 2.
+ * the active `ThemeColors`.
  *
- * Phase-1 safety: while `DARK_ENABLED` is `false`, `isDark` is forced `false` and
- * `colors` is always `lightColors`, so nothing renders dark even if the phone or the
- * saved preference says dark. Flip `DARK_ENABLED` (tokens.ts) in Phase 3.
+ * `DARK_ENABLED` (tokens.ts) remains a kill switch: setting it `false` forces `isDark`
+ * false and `colors` to `lightColors` regardless of phone or saved preference.
  */
 import React, {
   createContext,

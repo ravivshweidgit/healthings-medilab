@@ -132,6 +132,8 @@ const COLOR_FIBER   = '#66BB6A';
 /** Net carbs (C − Fi) — between carb orange and fiber green. */
 const COLOR_NET_CARB = '#FB8C00';
 const COLOR_WATER   = '#29B6F6';
+/** Add-water tile ink on dark — #0288D1 only reaches 3.67:1 on a dark card. */
+const WATER_INK_DARK = '#4FC3F7';
 
 const WATER_HALF_ML = 100;
 const WATER_FULL_ML = 200;
@@ -195,8 +197,8 @@ type WaterQuickTileProps = {
 };
 
 function WaterQuickTile({ variant, ml, label, onPress, waterUnit = 'ml' }: WaterQuickTileProps) {
-  const { colors } = useTheme();
-  const waterTileStyles = useMemo(() => makeWaterTileStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const waterTileStyles = useMemo(() => makeWaterTileStyles(colors, isDark), [colors, isDark]);
   return (
     <Pressable
       style={({ pressed }) => [waterTileStyles.tile, pressed && waterTileStyles.tilePressed]}
@@ -212,26 +214,28 @@ function WaterQuickTile({ variant, ml, label, onPress, waterUnit = 'ml' }: Water
   );
 }
 
-const makeWaterTileStyles = (c: ThemeColors) =>
+const makeWaterTileStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
+  // On dark the fill drops to the canvas black so the tile reads as a pressable pill
+  // punched out of the card (reference pattern), with the blue carried by border + ink.
   tile: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 4,
     borderRadius: 14,
-    backgroundColor: 'rgba(41, 182, 246, 0.1)',
+    backgroundColor: isDark ? c.background : 'rgba(41, 182, 246, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(41, 182, 246, 0.28)',
+    borderColor: isDark ? 'rgba(79, 195, 247, 0.45)' : 'rgba(41, 182, 246, 0.28)',
   },
   tilePressed: {
     opacity: 0.75,
-    backgroundColor: 'rgba(41, 182, 246, 0.18)',
+    backgroundColor: isDark ? 'rgba(79, 195, 247, 0.16)' : 'rgba(41, 182, 246, 0.18)',
   },
   ml: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0277BD',
+    color: isDark ? WATER_INK_DARK : '#0277BD',
     fontVariant: ['tabular-nums'],
   },
   label: {
@@ -354,8 +358,8 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   },
   ref,
 ) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const [expanded, setExpanded] = useState(true);
   const [expandPrefsLoaded, setExpandPrefsLoaded] = useState(false);
 
@@ -802,7 +806,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
           onPress={() => onAddMeal(activeDayKey)}
           accessibilityLabel="Add meal"
         >
-          <DashIcon icon={ActionIcons.meal} size={20} color="#1F3D5C" />
+          <DashIcon icon={ActionIcons.meal} size={20} color={isDark ? colors.accentBlue : '#1F3D5C'} />
           <Text style={styles.addActionLabel}>{ui.meal}</Text>
         </Pressable>
         <Pressable
@@ -810,7 +814,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
           onPress={openWaterSheet}
           accessibilityLabel={ui.addWater}
         >
-          <DashIcon icon={ActionIcons.water} size={20} color="#0288D1" />
+          <DashIcon icon={ActionIcons.water} size={20} color={isDark ? WATER_INK_DARK : '#0288D1'} />
           <Text style={[styles.addActionLabel, styles.addActionLabelWater]}>{ui.addWater}</Text>
         </Pressable>
       </View>
@@ -1059,7 +1063,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   );
 });
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   card: {
     backgroundColor: c.surface,
@@ -1070,9 +1074,9 @@ const makeStyles = (c: ThemeColors) =>
     marginBottom: dashCardGap,
     borderWidth: 1.5,
     borderColor: c.gridLine,
-    // Primary-tier anchor (audit F6) — navy left edge matches AI chat + body cards.
+    // Primary-tier anchor (audit F6) — left edge matches AI chat + body cards.
     borderLeftWidth: 3,
-    borderLeftColor: '#1F3D5C',
+    borderLeftColor: isDark ? c.primaryTier : '#1F3D5C',
   },
   cardCollapsed: {
     paddingBottom: 12,
@@ -1247,13 +1251,16 @@ const makeStyles = (c: ThemeColors) =>
     // Solid (was dashed) — these are primary log actions, not empty "Add" placeholders.
     borderStyle: 'solid',
   },
+  // Both add-actions are black pills punched out of the card on dark. Meal takes the
+  // interactive accent blue rather than the tier purple: these are actions, and the tier
+  // ink belongs to the card's left edge. Its light navy was 1.27:1 on a dark card.
   addActionMeal: {
-    borderColor: 'rgba(31, 61, 92, 0.85)',
-    backgroundColor: 'rgba(31, 61, 92, 0.08)',
+    borderColor: isDark ? 'rgba(142, 155, 255, 0.9)' : 'rgba(31, 61, 92, 0.85)',
+    backgroundColor: isDark ? c.background : 'rgba(31, 61, 92, 0.08)',
   },
   addActionWater: {
-    borderColor: 'rgba(41, 182, 246, 0.9)',
-    backgroundColor: 'rgba(41, 182, 246, 0.12)',
+    borderColor: isDark ? 'rgba(79, 195, 247, 0.9)' : 'rgba(41, 182, 246, 0.9)',
+    backgroundColor: isDark ? c.background : 'rgba(41, 182, 246, 0.12)',
   },
   addActionPressed: {
     opacity: 0.75,
@@ -1261,10 +1268,10 @@ const makeStyles = (c: ThemeColors) =>
   addActionLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1F3D5C',
+    color: isDark ? c.accentBlue : '#1F3D5C',
   },
   addActionLabelWater: {
-    color: '#0288D1',
+    color: isDark ? WATER_INK_DARK : '#0288D1',
   },
   waterSheetCard: {
     backgroundColor: c.surface,

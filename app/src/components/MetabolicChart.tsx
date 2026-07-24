@@ -492,8 +492,8 @@ export function MetabolicChart({
   energyDisplayUnit = 'kcal',
   langCode,
 }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const stripCopy = useMemo(() => getMetabolicStripCopy(langCode), [langCode]);
   const { width: windowW } = useWindowDimensions();
   const [viewportPresetIndex, setViewportPresetIndex] = useState(DEFAULT_VIEWPORT_PRESET_INDEX);
@@ -1463,7 +1463,7 @@ export function MetabolicChart({
   );
 }
 
-const makeStyles = (colors: ThemeColors) =>
+const makeStyles = (colors: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   wrap: {
     width: '100%',
@@ -1482,12 +1482,12 @@ const makeStyles = (colors: ThemeColors) =>
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 999,
-    backgroundColor: colors.progressTrack,
+    backgroundColor: isDark ? colors.background : colors.progressTrack,
     borderWidth: 1,
     borderColor: colors.gridLine,
   },
   viewportChipSelected: {
-    backgroundColor: colors.iconTintBlue,
+    backgroundColor: isDark ? colors.background : colors.iconTintBlue,
     borderColor: colors.accentBlue,
   },
   viewportChipText: {
@@ -1555,7 +1555,7 @@ const makeStyles = (colors: ThemeColors) =>
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.progressTrack,
+    backgroundColor: isDark ? colors.background : colors.progressTrack,
     borderWidth: 1,
     borderColor: colors.gridLine,
     overflow: 'hidden',
@@ -1594,9 +1594,9 @@ const makeStyles = (colors: ThemeColors) =>
     paddingVertical: 1,
     paddingHorizontal: 3,
     borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.42)',
+    backgroundColor: isDark ? 'rgba(15,15,15,0.72)' : 'rgba(255,255,255,0.42)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(76, 175, 80, 0.16)',
+    borderColor: isDark ? colors.gridLine : 'rgba(76, 175, 80, 0.16)',
   },
   scrubBadgeGlucose: {
     fontSize: 10,
@@ -1631,16 +1631,17 @@ const makeStyles = (colors: ThemeColors) =>
     fontVariant: ['tabular-nums'],
     color: colors.textSecondary,
   },
+  // Dark: plot sits on canvas black so series pop against the grey strip card.
   graphCanvas: {
-    backgroundColor: colors.surface,
-    borderRadius: 0,
+    backgroundColor: isDark ? colors.background : colors.surface,
+    borderRadius: isDark ? 12 : 0,
     overflow: 'hidden',
   },
   empty: {
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 24,
-    backgroundColor: colors.surface,
+    backgroundColor: isDark ? colors.background : colors.surface,
     padding: 24,
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },

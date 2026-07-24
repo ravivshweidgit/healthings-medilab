@@ -124,8 +124,8 @@ function stripAvgLabel(avg: number | null, energyUnit: EnergyUnit): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 'kcal', langCode }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const {
     bmr: COLOR_BMR,
     activity: COLOR_ACTIVITY,
@@ -381,6 +381,7 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
     <View style={styles.wrap}>
       <Text style={styles.title}>ENERGY</Text>
 
+      <View style={styles.chartCanvas}>
       <Svg width={prepared.chartW} height={SVG_H} style={styles.svg}>
 
         {/* ── Strip 0: BMR ──────────────────────────────────────────────── */}
@@ -534,7 +535,7 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
             cy={dot.y}
             r={4}
             fill={dot.value < 0 ? COLOR_DEFICIT_DOT : dot.value > 0 ? COLOR_SURPLUS_DOT : COLOR_BALANCE_LINE}
-            stroke={colors.surface}
+            stroke={isDark ? colors.background : colors.surface}
             strokeWidth={1.5}
           />
         ))}
@@ -563,17 +564,24 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
           </SvgText>
         ))}
       </Svg>
+      </View>
 
     </View>
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
     wrap:  { width: '100%', alignSelf: 'stretch' },
     title: {
       fontSize: 11, fontWeight: '600', color: c.textSecondary,
       letterSpacing: 1, marginBottom: 10, textTransform: 'uppercase', textAlign: 'center',
+    },
+    chartCanvas: {
+      backgroundColor: isDark ? c.background : undefined,
+      borderRadius: isDark ? 12 : 0,
+      overflow: 'hidden',
+      paddingVertical: isDark ? 4 : 0,
     },
     svg: { flex: 1, minWidth: 0 },
     loadingBox:   { minHeight: 120, alignItems: 'center', justifyContent: 'center', padding: 16 },

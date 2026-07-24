@@ -58,7 +58,7 @@ export function DashboardCollapseHeader({
       accessibilityState={{ expanded }}
       accessibilityLabel={expanded ? collapseLabel : expandLabel}
     >
-      {icon ? <DashIcon icon={icon} color={colors.textSecondary} /> : null}
+      {icon ? <DashIcon icon={icon} color={colors.chromeIcon} /> : null}
       <View style={styles.headerText}>
         <Text style={[styles.title, titleRtl && styles.titleRtl]} numberOfLines={1}>
           {title}
@@ -96,7 +96,7 @@ const makeStyles = (c: ThemeColors) =>
       fontSize: 11,
       fontWeight: '700',
       letterSpacing: 1,
-      color: c.textSecondary,
+      color: c.stripTitle,
     },
     titleRtl: {
       letterSpacing: 0,

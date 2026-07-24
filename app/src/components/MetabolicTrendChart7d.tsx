@@ -193,8 +193,8 @@ function VisceralDebugPanel({
   debug: VisceralTrendDebug;
   shortDayLabel: (dayKey: string) => string;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const vIdx = visceralDayIndices(days);
   const legendLine =
     debug.legendDeltaIndex != null
@@ -236,8 +236,8 @@ function VisceralDebugPanel({
 }
 
 function LegendItem({ color, label }: { color: string; label: string }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   return (
     <View style={styles.legendItem}>
       <View style={[styles.legendSwatch, { backgroundColor: color }]} />
@@ -263,8 +263,8 @@ export function MetabolicTrendChart7d({
   massUnit = 'kg',
   langCode,
 }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const { width } = useWindowDimensions();
   const chartW = Math.max(280, width - 40);
   const bodyLabels = useMemo(() => getBodyMetricsCopy(langCode), [langCode]);
@@ -563,7 +563,7 @@ export function MetabolicTrendChart7d({
             One weigh-in logged — line is flat until you log again.
           </Text>
         ) : null}
-        <View style={styles.chartRow}>
+        <View style={[styles.chartRow, styles.chartCanvas]}>
           <Svg width={p.chartW} height={p.svgH} style={styles.svg}>
             <Line
               x1={p.plotLeft}
@@ -644,7 +644,7 @@ export function MetabolicTrendChart7d({
       {hideTitle ? null : <Text style={styles.title}>TREND ANALYSIS</Text>}
       {selector}
 
-      <View style={styles.chartRow}>
+      <View style={[styles.chartRow, styles.chartCanvas]}>
         <Svg width={prepared.chartW} height={prepared.svgH} style={styles.svg}>
           {[
             { i: 0, label: bodyLabels.weight.toUpperCase(), color: colors.accentBlue },
@@ -773,7 +773,7 @@ export function MetabolicTrendChart7d({
   );
 }
 
-const makeStyles = (colors: ThemeColors) =>
+const makeStyles = (colors: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   wrap: {
     width: '100%',
@@ -801,12 +801,12 @@ const makeStyles = (colors: ThemeColors) =>
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 999,
-    backgroundColor: colors.progressTrack,
+    backgroundColor: isDark ? colors.background : colors.progressTrack,
     borderWidth: 1,
     borderColor: colors.gridLine,
   },
   periodChipSelected: {
-    backgroundColor: colors.iconTintBlue,
+    backgroundColor: isDark ? colors.background : colors.iconTintBlue,
     borderColor: colors.accentBlue,
   },
   periodChipDisabled: {
@@ -825,6 +825,12 @@ const makeStyles = (colors: ThemeColors) =>
     flexDirection: 'row',
     alignItems: 'flex-start',
     width: '100%',
+  },
+  chartCanvas: {
+    backgroundColor: isDark ? colors.background : undefined,
+    borderRadius: isDark ? 12 : 0,
+    overflow: 'hidden',
+    paddingVertical: isDark ? 4 : 0,
   },
   svg: {
     flex: 1,
@@ -862,7 +868,7 @@ const makeStyles = (colors: ThemeColors) =>
     marginTop: 10,
     padding: 10,
     borderRadius: 10,
-    backgroundColor: colors.progressTrack,
+    backgroundColor: isDark ? colors.background : colors.progressTrack,
     borderWidth: 1,
     borderColor: colors.gridLine,
   },

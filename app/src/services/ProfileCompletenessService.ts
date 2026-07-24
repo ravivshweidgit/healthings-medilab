@@ -5,7 +5,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getBirthdate, getCachedHeightCm, getGender } from './TargetService';
 
-const ONBOARDING_COMPLETE_KEY = 'onboarding_complete_v1';
+export const ONBOARDING_COMPLETE_KEY = 'onboarding_complete_v1';
 
 export async function getOnboardingCompletedAt(): Promise<string | null> {
   return AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY);

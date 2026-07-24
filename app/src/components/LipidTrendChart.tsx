@@ -206,8 +206,8 @@ function safeBandRect(
 }
 
 export function LipidTrendChart({ points, rtl, gender, langCode }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const { width } = useWindowDimensions();
   /** Scroll (20×2) + lab card padding (18×2) — chart uses full card inner width. */
   const chartW = Math.max(248, width - 76);
@@ -374,7 +374,7 @@ export function LipidTrendChart({ points, rtl, gender, langCode }: Props) {
                     width={w}
                     height={13}
                     rx={3}
-                    fill={colors.surface}
+                    fill={isDark ? colors.background : colors.surface}
                     stroke={strip.def.color}
                     strokeWidth={0.75}
                   />
@@ -413,7 +413,7 @@ export function LipidTrendChart({ points, rtl, gender, langCode }: Props) {
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
     wrap: {
       marginTop: 12,
@@ -434,6 +434,9 @@ const makeStyles = (c: ThemeColors) =>
       alignItems: 'center',
       overflow: 'hidden',
       marginHorizontal: -4,
+      backgroundColor: isDark ? c.background : undefined,
+      borderRadius: isDark ? 12 : 0,
+      paddingVertical: isDark ? 6 : 0,
     },
     refNote: {
       fontSize: 9,

@@ -1,6 +1,15 @@
-"""Render HEALTHINGS.AI brand wordmark (2026 lockup)."""
+"""Render HEALTHINGS.AI brand wordmark (2026 lockup) — light and dark variants.
+
+    python render-healthings-ai-wordmark.py          # both
+    python render-healthings-ai-wordmark.py dark     # dark only
+
+The dark variant (prompt96) keeps the exact same geometry so the Quick Start
+wordmark crop stays valid; only the palette changes and the background is
+transparent so it sits on any dark surface.
+"""
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -10,6 +19,14 @@ TEAL = (0, 168, 192)
 HEART_TOP = (229, 57, 53)  # #E53935
 HEART_BOT = (183, 28, 28)  # #B71C1C
 BG = (255, 255, 255)
+
+# Dark palette: wordmark at textPrimary, a brighter cyan and heart so neither
+# muddies on near-black, tagline one step down so the lockup keeps its hierarchy.
+DARK_INK = (242, 243, 245)  # #F2F3F5
+DARK_TAGLINE = (201, 206, 214)  # #C9CED6
+DARK_TEAL = (38, 198, 218)  # #26C6DA
+DARK_HEART_TOP = (255, 107, 107)  # #FF6B6B
+DARK_HEART_BOT = (211, 47, 47)  # #D32F2F
 
 BOLD = r"C:\Windows\Fonts\arialbd.ttf"
 REG = r"C:\Windows\Fonts\arial.ttf"
@@ -65,7 +82,14 @@ def sample_mark_heart(ox: float, oy: float, scale: float, steps: int = 28) -> li
     return pts
 
 
-def paint_heart(img: Image.Image, ox: float, oy: float, scale: float) -> None:
+def paint_heart(
+    img: Image.Image,
+    ox: float,
+    oy: float,
+    scale: float,
+    top: tuple[int, int, int],
+    bot: tuple[int, int, int],
+) -> Image.Image:
     poly = sample_mark_heart(ox, oy, scale)
     mask = Image.new("L", img.size, 0)
     ImageDraw.Draw(mask).polygon(poly, fill=255)
@@ -76,20 +100,25 @@ def paint_heart(img: Image.Image, ox: float, oy: float, scale: float) -> None:
     h = max(1, int(y1 - y0))
     for i in range(h + 1):
         t = i / h
-        r = int(HEART_TOP[0] * (1 - t) + HEART_BOT[0] * t)
-        g = int(HEART_TOP[1] * (1 - t) + HEART_BOT[1] * t)
-        b = int(HEART_TOP[2] * (1 - t) + HEART_BOT[2] * t)
+        r = int(top[0] * (1 - t) + bot[0] * t)
+        g = int(top[1] * (1 - t) + bot[1] * t)
+        b = int(top[2] * (1 - t) + bot[2] * t)
         y = int(y0 + i)
         gd.line([(0, y), (img.width, y)], fill=(r, g, b, 255))
     heart = Image.new("RGBA", img.size, (0, 0, 0, 0))
     heart.paste(grad, mask=mask)
-    out = Image.alpha_composite(img.convert("RGBA"), heart)
-    img.paste(out.convert("RGB"))
+    return Image.alpha_composite(img, heart)
 
 
-def main() -> None:
+def render(dark: bool) -> Image.Image:
     W, H = 1400, 420
-    img = Image.new("RGB", (W, H), BG)
+    ink = DARK_INK if dark else NAVY
+    tagline_ink = DARK_TAGLINE if dark else NAVY
+    teal = DARK_TEAL if dark else TEAL
+    heart_top = DARK_HEART_TOP if dark else HEART_TOP
+    heart_bot = DARK_HEART_BOT if dark else HEART_BOT
+
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0) if dark else (*BG, 255))
     draw = ImageDraw.Draw(img)
 
     title_font = ImageFont.truetype(BOLD, 92)
@@ -104,7 +133,7 @@ def main() -> None:
         health_w += (bbox[2] - bbox[0]) + tracking
     health_w -= tracking
 
-    draw_text_tracked(draw, "HEALTHINGS", (x0, y0), title_font, NAVY, tracking)
+    draw_text_tracked(draw, "HEALTHINGS", (x0, y0), title_font, ink, tracking)
 
     ecg_x = x0 + health_w + 28
     baseline = y0 + 58
@@ -118,27 +147,29 @@ def main() -> None:
         (ecg_x + 106, baseline),
         (ecg_x + 128, baseline),
     ]
-    draw.line(pts, fill=TEAL, width=9, joint="curve")
+    draw.line(pts, fill=teal, width=9, joint="curve")
     r = 4
-    for px, py in (pts[0], pts[-1]):
-        draw.ellipse((px - r, py - r, px + r, py + r), fill=TEAL)
+    for px_, py in (pts[0], pts[-1]):
+        draw.ellipse((px_ - r, py - r, px_ + r, py + r), fill=teal)
 
     ai_x = ecg_x + 128 + 20
-    draw.text((ai_x, y0), ".AI", font=ai_font, fill=NAVY)
+    draw.text((ai_x, y0), ".AI", font=ai_font, fill=ink)
 
     heart_scale = 1.45
     hx = x0 - 8
     hy = 205
-    paint_heart(img, hx, hy, heart_scale)
+    img = paint_heart(img, hx, hy, heart_scale, heart_top, heart_bot)
     draw = ImageDraw.Draw(img)
 
     tag = "Personalized metabolic OS with your licensed nutritionist"
-    draw.text((hx + 118, hy + 32), tag, font=tag_font, fill=NAVY)
+    draw.text((hx + 118, hy + 32), tag, font=tag_font, fill=tagline_ink)
 
     px = img.load()
     l, t, r2, b = W, H, 0, 0
 
-    def is_bg(c: tuple[int, int, int]) -> bool:
+    def is_bg(c: tuple[int, int, int, int]) -> bool:
+        if dark:
+            return c[3] == 0
         return abs(c[0] - BG[0]) < 8 and abs(c[1] - BG[1]) < 8 and abs(c[2] - BG[2]) < 8
 
     for y in range(H):
@@ -150,15 +181,35 @@ def main() -> None:
                 b = max(b, y)
     pad = 36
     crop = img.crop((max(0, l - pad), max(0, t - pad), min(W, r2 + 1 + pad), min(H, b + 1 + pad)))
+    # The light lockup ships opaque, as it always has; dark keeps its alpha so it
+    # can sit on the page background or a card.
+    return crop if dark else crop.convert("RGB")
 
-    outs = [
-        Path(r"c:\projects\healthings-medilab\app\assets\branding\healthings_wordmark.png"),
-        Path(r"c:\projects\healthings-medilab\app\assets\brand-logo.png"),
-        Path(r"c:\projects\healthings-medilab\website\help\healthings-wordmark.png"),
-    ]
-    for o in outs:
-        crop.save(o, format="PNG")
-        print("wrote", o, crop.size)
+
+LIGHT_OUTS = [
+    Path(r"c:\projects\healthings-medilab\app\assets\branding\healthings_wordmark.png"),
+    Path(r"c:\projects\healthings-medilab\app\assets\brand-logo.png"),
+    Path(r"c:\projects\healthings-medilab\website\help\healthings-wordmark.png"),
+]
+
+DARK_OUTS = [
+    Path(r"c:\projects\healthings-medilab\app\assets\branding\healthings_wordmark_dark.png"),
+    Path(r"c:\projects\healthings-medilab\app\assets\brand-logo-dark.png"),
+]
+
+
+def main() -> None:
+    which = (sys.argv[1] if len(sys.argv) > 1 else "both").lower()
+    jobs = []
+    if which in ("both", "light"):
+        jobs.append((False, LIGHT_OUTS))
+    if which in ("both", "dark"):
+        jobs.append((True, DARK_OUTS))
+    for dark, outs in jobs:
+        crop = render(dark)
+        for o in outs:
+            crop.save(o, format="PNG")
+            print("wrote", o, crop.size)
 
 
 if __name__ == "__main__":

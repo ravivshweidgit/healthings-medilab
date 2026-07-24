@@ -24,8 +24,8 @@ export function SetupToggleRow({
   yesLabel = 'Yes',
   noLabel = 'No',
 }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   return (
     <View style={styles.block}>
       <Text style={styles.label}>{label}</Text>
@@ -48,25 +48,28 @@ export function SetupToggleRow({
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
     block: { marginBottom: 14 },
     label: { fontSize: 13, fontWeight: '600', color: c.textPrimary, marginBottom: 8 },
     row: { flexDirection: 'row', gap: 10 },
+    // Dark: both Yes/No sit on canvas black; only the blue border + label mark the choice
+    // (same outlined-pill pattern as units / appearance chips).
     btn: {
       flex: 1,
       paddingVertical: 10,
       borderRadius: 10,
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: c.gridLine,
+      backgroundColor: isDark ? c.background : c.surface,
       alignItems: 'center',
     },
     btnOn: {
-      backgroundColor: c.accentBlue,
       borderColor: c.accentBlue,
+      backgroundColor: isDark ? c.background : c.accentBlue,
     },
     text: { fontWeight: '700', color: c.textSecondary },
-    textOn: { color: '#fff' },
+    textOn: { color: isDark ? c.accentBlue : '#fff' },
     hint: {
       fontSize: 11,
       color: c.textSecondary,

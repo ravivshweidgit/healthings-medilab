@@ -213,7 +213,22 @@ export function parseChatMentorReply(raw: string, activeMentors: MentorType[]): 
 // consistent when doctor/nutritionist/coach bubbles interleave.
 const MENTOR_BUBBLE_BG = '#F4F6F8';
 
-export function mentorBubbleColors(mentor: MentorType | null): { backgroundColor: string; borderColor: string } {
+// Dark counterpart (prompt96): a raised grey surface that stays readable against the
+// near-black chat background, with the same faint persona hue in the border. Tracks the
+// `surface` token so bubbles sit at the same elevation as cards elsewhere.
+const MENTOR_BUBBLE_BG_DARK = '#2C2B27';
+
+export function mentorBubbleColors(
+  mentor: MentorType | null,
+  isDark = false,
+): { backgroundColor: string; borderColor: string } {
+  if (isDark) {
+    const backgroundColor = MENTOR_BUBBLE_BG_DARK;
+    if (mentor === 'nutritionist') return { backgroundColor, borderColor: '#455C4B' };
+    if (mentor === 'coach') return { backgroundColor, borderColor: '#3F5978' };
+    if (mentor === 'doctor') return { backgroundColor, borderColor: '#5F464B' };
+    return { backgroundColor, borderColor: '#464540' };
+  }
   if (mentor === 'nutritionist') return { backgroundColor: MENTOR_BUBBLE_BG, borderColor: '#C7D2CB' };
   if (mentor === 'coach') return { backgroundColor: MENTOR_BUBBLE_BG, borderColor: '#BBD3EC' };
   if (mentor === 'doctor') return { backgroundColor: MENTOR_BUBBLE_BG, borderColor: '#E0C2C6' };

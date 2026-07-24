@@ -6,10 +6,9 @@
  * (see `wellness.ts`) is a zero-visual-change refactor. `darkColors` is a DRAFT
  * (finalized in Phase 3 against `UI-snapshots/dark-theme-reference/`).
  *
- * IMPORTANT: dark is NOT wired to components yet. Components still read the static
- * `WellnessColors` alias (= light). `DARK_ENABLED` stays `false` until Phase 3 so the
- * app renders light everywhere regardless of OS/user preference. Do not flip it on
- * before component migration (Phase 2) is complete, or screens will be half-dark.
+ * Components read these through `useTheme()`. `WellnessColors` remains an alias of
+ * `lightColors` for the few places that intentionally stay fixed (see
+ * `DebugErrorBoundary`, illustration bodies in `GearIllustrations`).
  */
 
 export type ThemeMode = 'light' | 'dark';
@@ -64,6 +63,10 @@ export type ThemeColors = {
   noticeSoftBorder: string;
   metabolicPairBg: string;
   metabolicPairBorder: string;
+  /** Collapsible strip header label (uppercase). */
+  stripTitle: string;
+  /** Leading chrome icon on a strip header. */
+  chromeIcon: string;
   /** Steel navy — primary-tier strip accent. */
   primaryTier: string;
   /** Deeper brand navy — filled CTAs, brand wordmark. */
@@ -90,6 +93,9 @@ export const lightColors: ThemeColors = {
   noticeSoftBorder: '#FFE082',
   metabolicPairBg: '#EDF4FF',
   metabolicPairBorder: '#D6E8FC',
+  // Light keeps strip chrome on secondary grey — the warm gold pair is dark-only.
+  stripTitle: '#5B6470',
+  chromeIcon: '#5B6470',
   primaryTier: '#1F3D5C',
   brandNavy: '#1A2B4A',
   shadow: '#000000',
@@ -118,30 +124,58 @@ export const lightColors: ThemeColors = {
  * periwinkle data-viz, semantic accents kept (green = success only). Tints are darkened
  * so they don't glow on dark surfaces.
  *
- * Measured against `surface` (#1C1F24): textPrimary 14.9:1, textSecondary 6.4:1,
- * accentGreen 8.4:1, accentBlue 6.5:1, accentRed 6.0:1, primaryTier 4.9:1 — all clear
- * WCAG AA for body text. Every `chart.*` series clears the 3:1 graphical floor
- * (dimmest is `bmr` at 3.7:1).
+ * Card elevation is measured against the reference, not guessed: Withings cards sit at
+ * 1.35:1 over their canvas, so `surface` reads as raised rather than as a slightly
+ * different black. The first draft (#1C1F24) managed only 1.16:1 and the strips looked
+ * flat on device. Everything that stacks on a card (borders, tracks, tints) moved up
+ * with it, otherwise those layers disappear into the lighter surface.
+ *
+ * The greys are **warm graphite**, not blue-grey: `surface` is the reference card value
+ * verbatim (#2C2B27, R−B = +5). Our first pass was cool (R−B = −10), which read as a
+ * blue cast across every strip. Cool belongs in the accents — their sparkline blue
+ * (#849DED) is within a hair of our `accentBlue` — so the hue lives there and the
+ * surfaces stay grey. Layers stacked on the card carry the same slight warmth,
+ * luminance-matched to the cool values they replace, so contrast figures below hold.
+ *
+ * Secondary text is deliberately bright. The reference runs its secondary ink at 9.5:1
+ * on card (#D4D3CF) — not the mid-grey dark themes usually reach for — keeping primary
+ * only ~1.5x above it. Our first pass at 5.4:1 made every strip subtitle, timestamp and
+ * chrome icon look switched off, so it moved up to match that ratio.
+ *
+ * Measured against `surface` (#2B2B2B): textPrimary 13.0:1, textSecondary 8.5:1,
+ * accentGreen 7.2:1, accentBlue 5.6:1, accentRed 5.1:1, primaryTier 5.0:1 — all clear
+ * WCAG AA for body text. Every `chart.*` series clears the 3:1 graphical floor.
  */
 export const darkColors: ThemeColors = {
-  background: '#0E0F11',
-  surface: '#1C1F24',
-  textPrimary: '#F2F3F5',
-  textSecondary: '#9BA1AA',
+  background: '#0F0F0F',
+  surface: '#2C2B27',
+  textPrimary: '#F5F5F4',
+  textSecondary: '#C9C8C4',
   accentGreen: '#5FD068',
   accentBlue: '#8E9BFF',
   accentRed: '#FF6B6B',
-  progressTrack: '#262A30',
-  gridLine: '#2A2E35',
-  iconTintBlue: '#1B2740',
-  iconTintGreen: '#17301E',
-  noticeSoftBg: '#2A2410',
-  noticeSoftBorder: '#4A3F16',
-  metabolicPairBg: '#16233A',
-  metabolicPairBorder: '#24405F',
-  // primaryTier doubles as small text (4.91:1 on surface); brandNavy stays a FILL for
+  progressTrack: '#403F3A',
+  gridLine: '#42413C',
+  iconTintBlue: '#233252',
+  iconTintGreen: '#1F3F29',
+  noticeSoftBg: '#332B15',
+  noticeSoftBorder: '#57491D',
+  // AI chat strip + coach panel. Light tints these blue; on dark a blue fill competed
+  // with the cards for attention, so it is a warm grey one step *above* `surface` —
+  // raised enough to read as tappable, quiet enough to let the purple tier edge lead.
+  metabolicPairBg: '#32312C',
+  metabolicPairBorder: '#46453E',
+  // Warm strip chrome, echoing the reference's focused-tab pairing (gold glyph + cream
+  // label). Gold is otherwise unused in our semantic map, so it marks chrome without
+  // colliding with green = success or red = alert. 7.8:1 and 12.3:1 on card.
+  stripTitle: '#FFEEC0',
+  chromeIcon: '#E6BC2A',
+  // Focus ink for the primary-tier cards, lifted from the reference's own metric purple
+  // (#9585C4, which lands at 4.34:1 here — just under AA — so it opens up slightly).
+  // Purple rather than another steel blue: it separates "this is the focus tier" from
+  // accentBlue links/CTAs, and leaves green free for success. brandNavy stays a FILL for
   // CTAs, where white text on it clears AA (5.28:1) — a lighter navy would break that.
-  primaryTier: '#5A8FCC',
+  primaryTier: '#A08FD4',
   brandNavy: '#3E6EA5',
   shadow: '#000000',
   chart: {
@@ -152,8 +186,8 @@ export const darkColors: ThemeColors = {
     workout: '#A9B6FF',
     total: '#5FD068',
     eaten: '#FFB74D',
-    balanceLine: '#9BA1AA',
-    surplusZone: '#3A1F22',
+    balanceLine: '#A1A09B',
+    surplusZone: '#452930',
     deficitDot: '#5FD068',
     surplusDot: '#FF6B6B',
     ldl: '#FF6B6B',
@@ -161,16 +195,16 @@ export const darkColors: ThemeColors = {
     hdl: '#5FD068',
     visceral: '#C88BE0',
     mealMarker: '#FFB74D',
-    glucoseBand: '#1B2740',
+    glucoseBand: '#233252',
   },
 };
 
 /**
- * Master switch for dark rendering. Stays `false` through Phases 1–2 (foundation +
- * component migration) so the app is guaranteed to render light. Flip to `true` in
- * Phase 3 once dark palettes/charts are ready.
+ * Master switch for dark rendering. Held `false` through Phases 1–3 (foundation,
+ * component migration, palette + charts) so the app was guaranteed to render light
+ * while the groundwork landed. Enabled in Phase 4 alongside the Appearance picker.
  */
-export const DARK_ENABLED = false;
+export const DARK_ENABLED = true;
 
 export function colorsFor(mode: ThemeMode): ThemeColors {
   return mode === 'dark' ? darkColors : lightColors;

@@ -30,6 +30,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 
 const BRAND_LOGO = require('../../assets/brand-logo.png');
+const BRAND_LOGO_DARK = require('../../assets/brand-logo-dark.png');
 const OTP_PENDING_KEY = 'healthings_otp_pending';
 
 type Props = {
@@ -39,7 +40,7 @@ type Props = {
 type Step = 'email' | 'code';
 
 export function LoginScreen({ onSignedIn }: Props) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
@@ -134,7 +135,7 @@ export function LoginScreen({ onSignedIn }: Props) {
           showsVerticalScrollIndicator={false}
         >
           <Image
-            source={BRAND_LOGO}
+            source={isDark ? BRAND_LOGO_DARK : BRAND_LOGO}
             style={[styles.logo, step === 'code' && styles.logoCompact]}
             resizeMode="contain"
             accessibilityLabel="HEALTHINGS.AI"

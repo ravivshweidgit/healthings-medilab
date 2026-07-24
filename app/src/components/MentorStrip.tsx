@@ -86,8 +86,8 @@ export function MentorStrip({
   onMentorGenderChange,
   userGender,
 }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const [hint, setHint] = useState(false);
   const [freq, setFreq] = useState<MentorFrequency>({ afterEachMeal: true, minGapHours: 4 });
 
@@ -223,12 +223,14 @@ export function MentorStrip({
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   wrap: {},
   body: { paddingHorizontal: 4, paddingBottom: 12, paddingTop: 4 },
   bodyHint: { fontSize: 12, color: c.textSecondary, marginBottom: 12 },
   cardsRow: { flexDirection: 'row', gap: 8 },
+  // Dark: cards and voice buttons are black pills on the card, and selection is carried
+  // by the blue border + label rather than a fill.
   card: {
     flex: 1,
     alignItems: 'center',
@@ -237,11 +239,12 @@ const makeStyles = (c: ThemeColors) =>
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: c.gridLine,
+    backgroundColor: isDark ? c.background : undefined,
     gap: 4,
   },
   cardSelected: {
     borderColor: c.accentBlue,
-    backgroundColor: '#EAF4FB',
+    backgroundColor: isDark ? c.background : '#EAF4FB',
   },
   cardLabel: {
     fontSize: 12,
@@ -257,8 +260,13 @@ const makeStyles = (c: ThemeColors) =>
     textAlign: 'center',
     alignSelf: 'stretch',
   },
-  cardSubSelected: { color: '#1565A0' },
-  hintText: { fontSize: 11, color: '#E53935', textAlign: 'center', marginTop: 8 },
+  cardSubSelected: { color: isDark ? c.accentBlue : '#1565A0' },
+  hintText: {
+    fontSize: 11,
+    color: isDark ? c.accentRed : '#E53935',
+    textAlign: 'center',
+    marginTop: 8,
+  },
 
   voiceSection: {
     marginTop: 16,
@@ -275,11 +283,12 @@ const makeStyles = (c: ThemeColors) =>
     borderRadius: 10,
     borderWidth: 1.5,
     borderColor: c.gridLine,
+    backgroundColor: isDark ? c.background : undefined,
     alignItems: 'center',
   },
   voiceBtnSelected: {
     borderColor: c.accentBlue,
-    backgroundColor: '#EAF4FB',
+    backgroundColor: isDark ? c.background : '#EAF4FB',
   },
   voiceBtnText: { fontSize: 13, fontWeight: '600', color: c.textSecondary },
   voiceBtnTextSelected: { color: c.accentBlue },

@@ -640,6 +640,7 @@ export function WithingsDevicesMark({
   showScale: boolean;
   showWatch: boolean;
 }) {
+  const { colors, isDark } = useTheme();
   const scale = showScale;
   const watch = showWatch;
   if (!scale && !watch) return null;
@@ -653,7 +654,10 @@ export function WithingsDevicesMark({
 
   return (
     <View style={[styles.devicesMark, styles.devicesMarkWithings]} accessibilityLabel={a11y}>
-      <Text style={styles.devicesMarkTitle} numberOfLines={1}>
+      <Text
+        style={[styles.devicesMarkTitle, isDark && { color: colors.textPrimary }]}
+        numberOfLines={1}
+      >
         Withings
       </Text>
       <View style={styles.devicesMarkBody}>
@@ -703,9 +707,13 @@ export function WithingsDevicesMark({
  * Static (no pulse) so the header stays calm next to Withings devices.
  */
 export function CgmDevicesMark() {
+  const { colors, isDark } = useTheme();
   return (
     <View style={styles.devicesMark} accessibilityLabel="CGM — glucose from phone health">
-      <Text style={styles.devicesMarkTitle} numberOfLines={1}>
+      <Text
+        style={[styles.devicesMarkTitle, isDark && { color: colors.textPrimary }]}
+        numberOfLines={1}
+      >
         CGM
       </Text>
       <View style={styles.devicesMarkBody}>

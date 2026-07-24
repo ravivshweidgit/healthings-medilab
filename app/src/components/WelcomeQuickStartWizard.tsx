@@ -114,6 +114,7 @@ import { UnitsPreferenceSection } from './UnitsPreferenceSection';
 
 const SITE_HOME = 'https://healthings.ai';
 const BRAND_LOGO = require('../../assets/brand-logo.png');
+const BRAND_LOGO_DARK = require('../../assets/brand-logo-dark.png');
 /** Match DashboardScreen brand lockup sizing. */
 const SCROLL_HORIZONTAL_PADDING = 20;
 const BRAND_HEADER_HEIGHT_FALLBACK = 152;
@@ -298,7 +299,7 @@ function LanguageGateHero({
 }
 
 function WelcomeBrandMark({ brandTag, compact }: { brandTag: string; compact?: boolean }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width: windowWidth } = useWindowDimensions();
   const contentW = Math.max(1, windowWidth - SCROLL_HORIZONTAL_PADDING * 2);
@@ -328,7 +329,7 @@ function WelcomeBrandMark({ brandTag, compact }: { brandTag: string; compact?: b
     >
       <View style={[styles.brandLogoWrap, { height: logoWrapH }, compact && styles.brandLogoWrapCrop]}>
         <Image
-          source={BRAND_LOGO}
+          source={isDark ? BRAND_LOGO_DARK : BRAND_LOGO}
           style={[styles.brandLogo, { height: compact ? logoImgH : '100%' }]}
           resizeMode="contain"
           accessibilityLabel="HEALTHINGS.AI"

@@ -44,8 +44,8 @@ function chipPreview(entry: NutritionDirective): string | null {
 }
 
 export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const [importVisible, setImportVisible] = useState(false);
   const [autoPick, setAutoPick] = useState(false);
   const [detailEntry, setDetailEntry] = useState<NutritionDirective | null>(null);
@@ -219,7 +219,7 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   card: {
     backgroundColor: c.surface,
@@ -243,9 +243,14 @@ const makeStyles = (c: ThemeColors) =>
     minWidth: 100,
     maxWidth: 160,
   },
+  /**
+   * On dark, any tinted fill outweighs the neighbouring Lab Results cards, so the
+   * active session keeps the plain card surface and only the green badge marks it.
+   * Light keeps its original shipped hexes.
+   */
   chipActive: {
-    borderColor: '#2E7D32',
-    backgroundColor: '#F1F8E9',
+    borderColor: isDark ? c.gridLine : '#2E7D32',
+    backgroundColor: isDark ? c.background : '#F1F8E9',
   },
   chipPressed: {
     opacity: 0.7,
@@ -285,7 +290,7 @@ const makeStyles = (c: ThemeColors) =>
   chipActiveBadge: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: isDark ? c.accentGreen : '#2E7D32',
     marginTop: 2,
   },
   chipHi: {

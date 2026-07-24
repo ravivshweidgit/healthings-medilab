@@ -389,8 +389,8 @@ function CoachMentorSection({
   ui: ReturnType<typeof chatUiStrings>;
   onToggleItem: (itemId: string) => void;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const hasWins = (wins?.length ?? 0) > 0;
   const hasImprove = (improve?.length ?? 0) > 0;
   if (!hasWins && !hasImprove && items.length === 0) return null;
@@ -398,7 +398,7 @@ function CoachMentorSection({
   return (
     <View style={styles.coachMentorSection}>
       <View style={[styles.coachMentorHeaderRow, ui.rtl && styles.coachMentorHeaderRowRtl]}>
-        <MentorIcon mentor={mentor} size={16} color="#2E7D5A" />
+        <MentorIcon mentor={mentor} size={16} color={isDark ? colors.accentGreen : '#2E7D5A'} />
         <Text style={[styles.coachMentorHeader, ui.rtl && styles.rtlText]}>
           {mentorPossessiveLabel(mentor, lang, mentorGender, userGender)}
         </Text>
@@ -467,8 +467,8 @@ function CollapsibleCoachPanel({
   onToggleItem: (itemId: string) => void;
   onRefreshCoach: () => void;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const doneCount = msg.actionItems.filter((i) => i.done).length;
   const total = msg.actionItems.length;
   const structured = isStructuredCoach(msg);
@@ -605,8 +605,8 @@ function MentorTabBar({
   userGender?: Gender | null;
   rtl?: boolean;
 }) {
-  const { colors: themeColors } = useTheme();
-  const styles = useMemo(() => makeStyles(themeColors), [themeColors]);
+  const { colors: themeColors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(themeColors, isDark), [themeColors, isDark]);
   const tabs = orderedActiveMentors(mentors);
   if (tabs.length === 0) return null;
 
@@ -614,7 +614,7 @@ function MentorTabBar({
     <View style={styles.tabBarPinned}>
       {tabs.map((m, index) => {
         const selected = m === active;
-        const colors = mentorBubbleColors(m);
+        const colors = mentorBubbleColors(m, isDark);
         return (
           <Pressable
             key={m}
@@ -664,8 +664,8 @@ function QuickQuestionBar({
   onPick: (label: string) => void;
   onEdit: () => void;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   return (
     <View style={styles.quickBar}>
       <ScrollView
@@ -719,8 +719,8 @@ function FaqModal({
   onSave: (qs: QuickQuestion[]) => void;
   onPick: (label: string) => void;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   // Rows hold the structure (ids); live text lives in a ref so re-renders never revert
   // what the user types. Inputs are uncontrolled (defaultValue) keyed by id.
   const [rows, setRows] = useState<QuickQuestion[]>(questions);
@@ -897,8 +897,8 @@ function MentorVoiceSegments({
   rtl?: boolean;
   variant: 'chat' | 'coach';
 }) {
-  const { colors: themeColors } = useTheme();
-  const styles = useMemo(() => makeStyles(themeColors), [themeColors]);
+  const { colors: themeColors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(themeColors, isDark), [themeColors, isDark]);
   const segments = buildMentorDisplaySegments(text, mentorLines, activeMentors);
   const multiVoice = hasSeparateMentorVoices(text, mentorLines, activeMentors);
   const textStyle = variant === 'chat' ? styles.msgTextAI : styles.coachBubbleText;
@@ -915,7 +915,7 @@ function MentorVoiceSegments({
   return (
     <View style={variant === 'chat' ? styles.mentorVoiceStack : undefined}>
       {segments.map((seg, i) => {
-        const colors = mentorBubbleColors(seg.mentor);
+        const colors = mentorBubbleColors(seg.mentor, isDark);
         const cardStyle = variant === 'chat' ? styles.msgBubble : styles.coachSegmentCard;
         return (
           <View
@@ -968,10 +968,10 @@ function MessageBubble({
   onRecipeLog?: (plan: RecipePlan) => void;
   onRecipeDismiss?: () => void;
 }) {
-  const { colors: themeColors } = useTheme();
-  const styles = useMemo(() => makeStyles(themeColors), [themeColors]);
+  const { colors: themeColors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(themeColors, isDark), [themeColors, isDark]);
   const isUser = msg.role === 'user';
-  const colors = mentorBubbleColors(mentor);
+  const colors = mentorBubbleColors(mentor, isDark);
 
   const time = formatBubbleTime(msg.sentAt);
 
@@ -1031,8 +1031,8 @@ function MessageBubble({
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, onMacroTargetUpdated, onFoodLogSaved }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const insets = useSafeAreaInsets();
   const mentorTabs = useMemo(() => orderedActiveMentors(context.mentors), [context.mentors]);
   const [activeMentor, setActiveMentor] = useState<MentorType>(mentorTabs[0] ?? 'coach');
@@ -1582,7 +1582,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
           <Text style={styles.backBtnText}>←</Text>
         </Pressable>
         <View style={[styles.headerTitleRow, ui.rtl && styles.headerTitleRowRtl]}>
-          <ActiveMentorIcons mentors={context.mentors} size={16} />
+          <ActiveMentorIcons mentors={context.mentors} size={16} color={colors.chromeIcon} />
           <Text style={[styles.headerTitle, ui.rtl && styles.rtlText]} numberOfLines={1}>
             {ui.header}
           </Text>
@@ -1856,8 +1856,14 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
-  StyleSheet.create({
+const makeStyles = (c: ThemeColors, isDark: boolean) => {
+  // Coach-panel chrome and the mentor-name green predate the theme tokens; light keeps
+  // its exact shipped hexes, dark borrows the soft-blue pair tokens so the panel reads
+  // as a raised surface instead of a bright card.
+  const coachPanelBg = isDark ? c.metabolicPairBg : '#EAF4FB';
+  const coachHairline = isDark ? c.metabolicPairBorder : '#B3D9F0';
+  const mentorGreen = isDark ? c.accentGreen : '#2E7D5A';
+  return StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: c.background,
@@ -1915,9 +1921,9 @@ const makeStyles = (c: ThemeColors) =>
 
   // Coach panel (scrolls with chat via FlatList header)
   coachPanel: {
-    backgroundColor: '#EAF4FB',
+    backgroundColor: coachPanelBg,
     borderBottomWidth: 1,
-    borderBottomColor: '#B3D9F0',
+    borderBottomColor: coachHairline,
     paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: 8,
@@ -1944,7 +1950,7 @@ const makeStyles = (c: ThemeColors) =>
     backgroundColor: c.surface,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#B3D9F0',
+    borderColor: coachHairline,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
@@ -1963,7 +1969,7 @@ const makeStyles = (c: ThemeColors) =>
   coachMentorSection: {
     marginTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#B3D9F0',
+    borderTopColor: coachHairline,
     paddingTop: 10,
     gap: 6,
   },
@@ -1976,7 +1982,7 @@ const makeStyles = (c: ThemeColors) =>
   coachMentorHeader: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#2E7D5A',
+    color: mentorGreen,
   },
   coachSubBlock: { gap: 3 },
   coachSubLabel: {
@@ -1991,7 +1997,7 @@ const makeStyles = (c: ThemeColors) =>
     gap: 6,
   },
   coachBulletRowRtl: { flexDirection: 'row-reverse' },
-  coachBulletWin: { fontSize: 13, lineHeight: 21, color: '#2E7D5A', fontWeight: '700' },
+  coachBulletWin: { fontSize: 13, lineHeight: 21, color: mentorGreen, fontWeight: '700' },
   coachBulletImprove: { fontSize: 13, lineHeight: 21, color: c.accentBlue, fontWeight: '700' },
   coachBulletText: { flex: 1, fontSize: 13, lineHeight: 20, color: c.textPrimary },
   coachPanelBody: {
@@ -2017,13 +2023,13 @@ const makeStyles = (c: ThemeColors) =>
   mentorSegmentLabelCoach: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2E7D5A',
+    color: mentorGreen,
     marginBottom: 4,
   },
   actionItemsWrap: {
     marginTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#B3D9F0',
+    borderTopColor: coachHairline,
     paddingTop: 10,
     gap: 8,
   },
@@ -2050,7 +2056,7 @@ const makeStyles = (c: ThemeColors) =>
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#B3D9F0',
+    borderTopColor: coachHairline,
     gap: 4,
   },
   coachBubbleActionFlex: {
@@ -2478,4 +2484,5 @@ const makeStyles = (c: ThemeColors) =>
     fontWeight: '700',
     color: c.accentBlue,
   },
-});
+  });
+};

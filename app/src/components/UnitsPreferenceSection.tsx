@@ -18,8 +18,8 @@ type ChipProps<T extends string> = {
 };
 
 function UnitChipRow<T extends string>({ label, value, options, onChange, rtl }: ChipProps<T>) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   return (
     <View style={[styles.row, rtl && styles.rowRtl]}>
       <Text style={[styles.rowLabel, rtl && styles.rowLabelRtl]}>{label}</Text>
@@ -53,8 +53,8 @@ type Props = {
 };
 
 export function UnitsPreferenceSection({ prefs, onChange, langCode, hideHeader }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const t = getUnitsSectionCopy(langCode);
   const rtl = (langCode || '').toLowerCase().startsWith('he') || (langCode || '').toLowerCase().startsWith('ar');
   const patch = (partial: Partial<UnitsPrefs>) => onChange({ ...prefs, version: 1, ...partial });
@@ -121,7 +121,7 @@ export function UnitsPreferenceSection({ prefs, onChange, langCode, hideHeader }
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
     wrap: { marginTop: 8, marginBottom: 4 },
     title: {
@@ -160,17 +160,19 @@ const makeStyles = (c: ThemeColors) =>
       writingDirection: 'rtl',
     },
     chips: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    // Dark: both states sit on canvas black and the border alone carries selection, so
+    // the row reads as a set of outlined pills instead of one filled tinted chip.
     chip: {
       paddingHorizontal: 10,
       paddingVertical: 6,
       borderRadius: 999,
       borderWidth: 1,
       borderColor: c.gridLine,
-      backgroundColor: c.surface,
+      backgroundColor: isDark ? c.background : c.surface,
     },
     chipSelected: {
       borderColor: c.accentBlue,
-      backgroundColor: c.iconTintBlue,
+      backgroundColor: isDark ? c.background : c.iconTintBlue,
     },
     chipText: { fontSize: 12, fontWeight: '600', color: c.textSecondary },
     chipTextSelected: { color: c.accentBlue },
