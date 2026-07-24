@@ -9,7 +9,8 @@ import { curveMonotoneX, line } from 'd3-shape';
 import type { LipidTrendPoint } from '../services/LabLogService';
 import type { Gender } from '../services/TargetService';
 import { formatShortDate } from '../i18n/dateLocale';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 
 const PLOT_PAD_L = 36;
 const PAD_R = 12;
@@ -25,11 +26,6 @@ const PLOT_H = STRIP_H - LABEL_RESERVE;
 const AXIS_BOTTOM = 22;
 
 const SAFE_FILL = 'rgba(76, 175, 80, 0.16)';
-
-const COLOR_TOTAL = WellnessColors.accentBlue;
-const COLOR_LDL = '#C62828';
-const COLOR_TG = '#FF9800';
-const COLOR_HDL = '#2E7D32';
 
 const SAFE_TOTAL = 200;
 const SAFE_LDL = 100;
@@ -74,14 +70,14 @@ function hdlSafeThreshold(gender?: Gender | null): number {
   return gender === 'female' ? SAFE_HDL_FEMALE : SAFE_HDL_MALE;
 }
 
-function buildStripDefs(gender?: Gender | null): StripDef[] {
+function buildStripDefs(c: ThemeColors, gender?: Gender | null): StripDef[] {
   const hdlT = hdlSafeThreshold(gender);
   return [
     {
       key: 'totalCholesterol',
       label: 'TOTAL',
       labelHe: 'כולסטרול כולל',
-      color: COLOR_TOTAL,
+      color: c.accentBlue,
       mode: 'below',
       threshold: SAFE_TOTAL,
       thresholdLabel: `<${SAFE_TOTAL}`,
@@ -90,7 +86,7 @@ function buildStripDefs(gender?: Gender | null): StripDef[] {
       key: 'ldl',
       label: 'LDL',
       labelHe: 'LDL',
-      color: COLOR_LDL,
+      color: c.chart.ldl,
       mode: 'below',
       threshold: SAFE_LDL,
       thresholdLabel: `<${SAFE_LDL}`,
@@ -99,7 +95,7 @@ function buildStripDefs(gender?: Gender | null): StripDef[] {
       key: 'triglycerides',
       label: 'TG',
       labelHe: 'TG',
-      color: COLOR_TG,
+      color: c.chart.tg,
       mode: 'below',
       threshold: SAFE_TG,
       thresholdLabel: `<${SAFE_TG}`,
@@ -108,7 +104,7 @@ function buildStripDefs(gender?: Gender | null): StripDef[] {
       key: 'hdl',
       label: 'HDL',
       labelHe: 'HDL',
-      color: COLOR_HDL,
+      color: c.chart.hdl,
       mode: 'above',
       threshold: hdlT,
       thresholdLabel: `≥${hdlT}`,
@@ -210,6 +206,8 @@ function safeBandRect(
 }
 
 export function LipidTrendChart({ points, rtl, gender, langCode }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width } = useWindowDimensions();
   /** Scroll (20×2) + lab card padding (18×2) — chart uses full card inner width. */
   const chartW = Math.max(248, width - 76);
@@ -217,7 +215,7 @@ export function LipidTrendChart({ points, rtl, gender, langCode }: Props) {
   const prepared = useMemo(() => {
     if (points.length < 2) return null;
 
-    const stripDefs = buildStripDefs(gender);
+    const stripDefs = buildStripDefs(colors, gender);
     const n = points.length;
     const plotLeft = PLOT_PAD_L;
     const innerW = Math.max(1, chartW - plotLeft - PAD_R);
@@ -284,7 +282,7 @@ export function LipidTrendChart({ points, rtl, gender, langCode }: Props) {
     const xAxisY = PAD_TOP + visible.length * STRIP_UNIT + 14;
 
     return { chartW, svgH, plotLeft, chartRight, visible, xTicks, xAxisY };
-  }, [chartW, gender, langCode, points]);
+  }, [chartW, colors, gender, langCode, points]);
 
   if (!prepared) return null;
 
@@ -306,7 +304,7 @@ export function LipidTrendChart({ points, rtl, gender, langCode }: Props) {
                 x2={prepared.chartW - PAD_R}
                 y1={PAD_TOP + strip.stripIdx * STRIP_UNIT}
                 y2={PAD_TOP + strip.stripIdx * STRIP_UNIT}
-                stroke={WellnessColors.gridLine}
+                stroke={colors.gridLine}
                 strokeWidth={1}
                 opacity={0.6}
               />
@@ -339,7 +337,7 @@ export function LipidTrendChart({ points, rtl, gender, langCode }: Props) {
                   x2={prepared.chartW - PAD_R}
                   y1={g.y}
                   y2={g.y}
-                  stroke={WellnessColors.gridLine}
+                  stroke={colors.gridLine}
                   strokeWidth={1}
                   opacity={0.5}
                 />
@@ -347,7 +345,7 @@ export function LipidTrendChart({ points, rtl, gender, langCode }: Props) {
                   x={prepared.plotLeft - 4}
                   y={g.y + 3}
                   fontSize={8}
-                  fill={WellnessColors.textSecondary}
+                  fill={colors.textSecondary}
                   textAnchor="end"
                 >
                   {g.label}
@@ -376,7 +374,7 @@ export function LipidTrendChart({ points, rtl, gender, langCode }: Props) {
                     width={w}
                     height={13}
                     rx={3}
-                    fill={WellnessColors.surface}
+                    fill={colors.surface}
                     stroke={strip.def.color}
                     strokeWidth={0.75}
                   />
@@ -402,7 +400,7 @@ export function LipidTrendChart({ points, rtl, gender, langCode }: Props) {
             x={t.x}
             y={prepared.xAxisY}
             fontSize={9}
-            fill={WellnessColors.textSecondary}
+            fill={colors.textSecondary}
             textAnchor="middle"
           >
             {t.label}
@@ -415,31 +413,32 @@ export function LipidTrendChart({ points, rtl, gender, langCode }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: WellnessColors.gridLine,
-  },
-  title: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    color: WellnessColors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  chartBox: {
-    width: '100%',
-    alignItems: 'center',
-    overflow: 'hidden',
-    marginHorizontal: -4,
-  },
-  refNote: {
-    fontSize: 9,
-    color: WellnessColors.textSecondary,
-    textAlign: 'center',
-    marginTop: 6,
-  },
-});
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    wrap: {
+      marginTop: 12,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: c.gridLine,
+    },
+    title: {
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+      color: c.textSecondary,
+      textAlign: 'center',
+      marginBottom: 6,
+    },
+    chartBox: {
+      width: '100%',
+      alignItems: 'center',
+      overflow: 'hidden',
+      marginHorizontal: -4,
+    },
+    refNote: {
+      fontSize: 9,
+      color: c.textSecondary,
+      textAlign: 'center',
+      marginTop: 6,
+    },
+  });

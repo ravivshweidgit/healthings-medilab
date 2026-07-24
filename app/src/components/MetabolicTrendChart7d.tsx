@@ -18,7 +18,8 @@ import {
 } from '../logic/metabolicTrend7d';
 import { getBodyMetricsCopy } from '../i18n/bodyMetricsCopy';
 import { formatAxisDayLabel, formatLocalizedDate } from '../i18n/dateLocale';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import { kgToDisplay, massUnitLabel, type MassUnit } from '../logic/unitConvert';
 
 const PLOT_PAD_L = 36;
@@ -34,8 +35,6 @@ const AXIS_BOTTOM = 24;
 /** Minimum half-span (kg) when all fat/muscle deltas are flat. */
 const DELTA_FALLBACK_HALF_SPAN_KG = 0.5;
 
-const FAT_MASS_STROKE = WellnessColors.accentRed;
-const VISCERAL_STROKE = '#7B1FA2';
 
 type PixelPoint = { x: number; y: number };
 
@@ -194,6 +193,8 @@ function VisceralDebugPanel({
   debug: VisceralTrendDebug;
   shortDayLabel: (dayKey: string) => string;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const vIdx = visceralDayIndices(days);
   const legendLine =
     debug.legendDeltaIndex != null
@@ -235,6 +236,8 @@ function VisceralDebugPanel({
 }
 
 function LegendItem({ color, label }: { color: string; label: string }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.legendItem}>
       <View style={[styles.legendSwatch, { backgroundColor: color }]} />
@@ -260,6 +263,8 @@ export function MetabolicTrendChart7d({
   massUnit = 'kg',
   langCode,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width } = useWindowDimensions();
   const chartW = Math.max(280, width - 40);
   const bodyLabels = useMemo(() => getBodyMetricsCopy(langCode), [langCode]);
@@ -504,7 +509,7 @@ export function MetabolicTrendChart7d({
   if (loading) {
     return (
       <View style={styles.loadingBox}>
-        <ActivityIndicator color={WellnessColors.accentBlue} />
+        <ActivityIndicator color={colors.accentBlue} />
         <Text style={styles.loadingText}>Loading trend…</Text>
       </View>
     );
@@ -565,14 +570,14 @@ export function MetabolicTrendChart7d({
               y1={stripBandTop(0)}
               x2={p.chartW - p.padR}
               y2={stripBandTop(0)}
-              stroke={WellnessColors.gridLine}
+              stroke={colors.gridLine}
               strokeWidth={1}
               opacity={0.6}
             />
             <SvgText
               x={p.plotLeft + 2}
               y={stripBandTop(0) + 11}
-              fill={WellnessColors.accentBlue}
+              fill={colors.accentBlue}
               fontSize={9}
               fontWeight="700"
             >
@@ -585,25 +590,25 @@ export function MetabolicTrendChart7d({
                 y1={g.y}
                 x2={p.chartW - p.padR}
                 y2={g.y}
-                stroke={WellnessColors.gridLine}
+                stroke={colors.gridLine}
                 strokeWidth={1}
                 opacity={0.88}
               />
             ))}
             {p.gridW.map((g) => (
-              <SvgText key={`lw-${g.key}`} x={4} y={g.y + 3} fill={WellnessColors.accentBlue} fontSize={8} fontWeight="600">
+              <SvgText key={`lw-${g.key}`} x={4} y={g.y + 3} fill={colors.accentBlue} fontSize={8} fontWeight="600">
                 {g.label}
               </SvgText>
             ))}
             {p.weightPath ? (
-              <Path d={p.weightPath} fill="none" stroke={WellnessColors.accentBlue} strokeWidth={2.2} />
+              <Path d={p.weightPath} fill="none" stroke={colors.accentBlue} strokeWidth={2.2} />
             ) : null}
             <Line
               x1={p.plotLeft}
               y1={p.plotBottom}
               x2={p.chartW - p.padR}
               y2={p.plotBottom}
-              stroke={WellnessColors.gridLine}
+              stroke={colors.gridLine}
               strokeWidth={1}
             />
             {p.xTicks.map((tk) => (
@@ -611,7 +616,7 @@ export function MetabolicTrendChart7d({
                 key={tk.key}
                 x={tk.x}
                 y={p.svgH - 8}
-                fill={WellnessColors.textSecondary}
+                fill={colors.textSecondary}
                 fontSize={9}
                 textAnchor="middle"
               >
@@ -623,7 +628,7 @@ export function MetabolicTrendChart7d({
         <View style={styles.legend}>
           <View style={styles.legendRow}>
             <LegendItem
-              color={WellnessColors.accentBlue}
+              color={colors.accentBlue}
               label={legendLabelWithDelta(bodyLabels.weight, p.weightWeekDelta, massUnit)}
             />
           </View>
@@ -642,9 +647,9 @@ export function MetabolicTrendChart7d({
       <View style={styles.chartRow}>
         <Svg width={prepared.chartW} height={prepared.svgH} style={styles.svg}>
           {[
-            { i: 0, label: bodyLabels.weight.toUpperCase(), color: WellnessColors.accentBlue },
-            { i: 1, label: `${bodyLabels.fat} / ${bodyLabels.muscle} (Δ)`.toUpperCase(), color: WellnessColors.textSecondary },
-            { i: 2, label: 'VISCERAL', color: VISCERAL_STROKE },
+            { i: 0, label: bodyLabels.weight.toUpperCase(), color: colors.accentBlue },
+            { i: 1, label: `${bodyLabels.fat} / ${bodyLabels.muscle} (Δ)`.toUpperCase(), color: colors.textSecondary },
+            { i: 2, label: 'VISCERAL', color: colors.chart.visceral },
           ].map((s) => (
             <React.Fragment key={`strip-hd-${s.i}`}>
               <Line
@@ -652,7 +657,7 @@ export function MetabolicTrendChart7d({
                 y1={stripBandTop(s.i)}
                 x2={prepared.chartW - prepared.padR}
                 y2={stripBandTop(s.i)}
-                stroke={WellnessColors.gridLine}
+                stroke={colors.gridLine}
                 strokeWidth={1}
                 opacity={0.6}
               />
@@ -675,7 +680,7 @@ export function MetabolicTrendChart7d({
                 y1={g.y}
                 x2={prepared.chartW - prepared.padR}
                 y2={g.y}
-                stroke={WellnessColors.gridLine}
+                stroke={colors.gridLine}
                 strokeWidth={1}
                 opacity={stripIdx === 0 ? 0.88 : 0.5}
               />
@@ -687,41 +692,41 @@ export function MetabolicTrendChart7d({
             y1={prepared.zeroLineY}
             x2={prepared.chartW - prepared.padR}
             y2={prepared.zeroLineY}
-            stroke={WellnessColors.textSecondary}
+            stroke={colors.textSecondary}
             strokeWidth={1}
             opacity={0.35}
           />
 
           {prepared.gridW.map((g) => (
-            <SvgText key={`lw-${g.key}`} x={4} y={g.y + 3} fill={WellnessColors.accentBlue} fontSize={8} fontWeight="600">
+            <SvgText key={`lw-${g.key}`} x={4} y={g.y + 3} fill={colors.accentBlue} fontSize={8} fontWeight="600">
               {g.label}
             </SvgText>
           ))}
           {prepared.gridFM.map((g) => (
-            <SvgText key={`lfm-${g.key}`} x={4} y={g.y + 3} fill={WellnessColors.textSecondary} fontSize={8} fontWeight="600">
+            <SvgText key={`lfm-${g.key}`} x={4} y={g.y + 3} fill={colors.textSecondary} fontSize={8} fontWeight="600">
               {g.label}
             </SvgText>
           ))}
           {prepared.gridV.map((g) => (
-            <SvgText key={`lv-${g.key}`} x={4} y={g.y + 3} fill={VISCERAL_STROKE} fontSize={8} fontWeight="600">
+            <SvgText key={`lv-${g.key}`} x={4} y={g.y + 3} fill={colors.chart.visceral} fontSize={8} fontWeight="600">
               {g.label}
             </SvgText>
           ))}
 
           {prepared.weightPath ? (
-            <Path d={prepared.weightPath} fill="none" stroke={WellnessColors.accentBlue} strokeWidth={2.2} />
+            <Path d={prepared.weightPath} fill="none" stroke={colors.accentBlue} strokeWidth={2.2} />
           ) : null}
           {prepared.fatPath ? (
-            <Path d={prepared.fatPath} fill="none" stroke={FAT_MASS_STROKE} strokeWidth={2.1} />
+            <Path d={prepared.fatPath} fill="none" stroke={colors.accentRed} strokeWidth={2.1} />
           ) : null}
           {prepared.musclePath ? (
-            <Path d={prepared.musclePath} fill="none" stroke={WellnessColors.accentGreen} strokeWidth={2.1} />
+            <Path d={prepared.musclePath} fill="none" stroke={colors.accentGreen} strokeWidth={2.1} />
           ) : null}
           {prepared.visceralPath ? (
             <Path
               d={prepared.visceralPath}
               fill="none"
-              stroke={VISCERAL_STROKE}
+              stroke={colors.chart.visceral}
               strokeWidth={2}
               strokeDasharray="6 4"
             />
@@ -732,7 +737,7 @@ export function MetabolicTrendChart7d({
             y1={prepared.plotBottom}
             x2={prepared.chartW - prepared.padR}
             y2={prepared.plotBottom}
-            stroke={WellnessColors.gridLine}
+            stroke={colors.gridLine}
             strokeWidth={1}
           />
           {prepared.xTicks.map((tk) => (
@@ -740,7 +745,7 @@ export function MetabolicTrendChart7d({
               key={tk.key}
               x={tk.x}
               y={prepared.svgH - 8}
-              fill={WellnessColors.textSecondary}
+              fill={colors.textSecondary}
               fontSize={9}
               textAnchor="middle"
             >
@@ -752,12 +757,12 @@ export function MetabolicTrendChart7d({
 
       <View style={styles.legend}>
         <View style={styles.legendRow}>
-          <LegendItem color={WellnessColors.accentBlue} label={legendLabelWithDelta(bodyLabels.weight, prepared.weightWeekDelta, massUnit)} />
-          <LegendItem color={FAT_MASS_STROKE} label={legendLabelWithDelta(bodyLabels.fat, prepared.fatWeekDelta, massUnit)} />
+          <LegendItem color={colors.accentBlue} label={legendLabelWithDelta(bodyLabels.weight, prepared.weightWeekDelta, massUnit)} />
+          <LegendItem color={colors.accentRed} label={legendLabelWithDelta(bodyLabels.fat, prepared.fatWeekDelta, massUnit)} />
         </View>
         <View style={styles.legendRow}>
-          <LegendItem color={WellnessColors.accentGreen} label={legendLabelWithDelta(bodyLabels.muscle, prepared.muscleWeekDelta, massUnit)} />
-          <LegendItem color={VISCERAL_STROKE} label={legendLabelWithVisceralPercent('Visceral', prepared.visceralWeekTrend)} />
+          <LegendItem color={colors.accentGreen} label={legendLabelWithDelta(bodyLabels.muscle, prepared.muscleWeekDelta, massUnit)} />
+          <LegendItem color={colors.chart.visceral} label={legendLabelWithVisceralPercent('Visceral', prepared.visceralWeekTrend)} />
         </View>
       </View>
 
@@ -768,7 +773,8 @@ export function MetabolicTrendChart7d({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   wrap: {
     width: '100%',
     alignSelf: 'stretch',
@@ -776,7 +782,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 11,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: colors.textSecondary,
     letterSpacing: 1,
     marginBottom: 10,
     textTransform: 'uppercase',
@@ -795,13 +801,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 999,
-    backgroundColor: WellnessColors.progressTrack,
+    backgroundColor: colors.progressTrack,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: colors.gridLine,
   },
   periodChipSelected: {
-    backgroundColor: WellnessColors.iconTintBlue,
-    borderColor: WellnessColors.accentBlue,
+    backgroundColor: colors.iconTintBlue,
+    borderColor: colors.accentBlue,
   },
   periodChipDisabled: {
     opacity: 0.35,
@@ -809,11 +815,11 @@ const styles = StyleSheet.create({
   periodChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: colors.textSecondary,
     fontVariant: ['tabular-nums'],
   },
   periodChipTextSelected: {
-    color: WellnessColors.accentBlue,
+    color: colors.accentBlue,
   },
   chartRow: {
     flexDirection: 'row',
@@ -850,27 +856,27 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 9.35,
     fontWeight: '500',
-    color: WellnessColors.textSecondary,
+    color: colors.textSecondary,
   },
   debugBox: {
     marginTop: 10,
     padding: 10,
     borderRadius: 10,
-    backgroundColor: WellnessColors.progressTrack,
+    backgroundColor: colors.progressTrack,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: colors.gridLine,
   },
   debugTitle: {
     fontSize: 10,
     fontWeight: '700',
-    color: WellnessColors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   debugLine: {
     fontSize: 10,
-    color: WellnessColors.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 14,
     marginBottom: 4,
   },
@@ -880,7 +886,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     paddingBottom: 4,
     borderBottomWidth: 1,
-    borderBottomColor: WellnessColors.gridLine,
+    borderBottomColor: colors.gridLine,
   },
   debugTableRow: {
     flexDirection: 'row',
@@ -889,7 +895,7 @@ const styles = StyleSheet.create({
   debugCell: {
     fontSize: 10,
     fontVariant: ['tabular-nums'],
-    color: WellnessColors.textPrimary,
+    color: colors.textPrimary,
   },
   debugCellDay: {
     flex: 1.2,
@@ -897,7 +903,7 @@ const styles = StyleSheet.create({
   },
   debugCellVisceral: {
     flex: 1,
-    color: VISCERAL_STROKE,
+    color: colors.chart.visceral,
     textAlign: 'right',
   },
   loadingBox: {
@@ -909,16 +915,16 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 13,
-    color: WellnessColors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 19,
   },
   weightOnlyHint: {
     fontSize: 12,
-    color: WellnessColors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 8,
     lineHeight: 17,
     paddingHorizontal: 8,
   },
-});
+  });

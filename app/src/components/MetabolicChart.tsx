@@ -17,7 +17,8 @@ import { getMetabolicStripCopy } from '../i18n/metabolicStripCopy';
 import type { ActivityZone } from '../logic/MetabolicLogic';
 import type { WithingsCaloriePoint, WorkoutSession } from '../services/WithingsApiService';
 import type { FoodEntry } from '../services/FoodLogService';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import { formatEnergy, formatGlucose, kcalToDisplay, type EnergyUnit } from '../logic/unitConvert';
 
 type Point = { timestamp: string; value: number };
@@ -55,9 +56,6 @@ const CHART_PLOT_HEIGHT = 273;
 const CALORIE_STRIP_INNER = 42;
 /** Y-max for the calorie scale (kcal/30-min slot). BMR/48 ≈ 39; brisk walk ≈ 80-120. */
 const CALORIE_Y_MAX_FIXED = 150;
-const CALORIE_BMR_COLOR     = '#90CAF9'; // light blue  — BMR resting baseline bars
-const CALORIE_ACTIVE_COLOR  = '#42A5F5'; // medium blue — steps / passive activity calories
-const CALORIE_WORKOUT_COLOR = '#1565C0'; // dark blue   — explicit workout session calories
 const BUCKET_MS = 30 * 60 * 1000;
 
 const SVG_TOTAL_HEIGHT = CHART_PLOT_HEIGHT + AXIS_HEIGHT;
@@ -460,8 +458,6 @@ function buildTimeTicks(
   return ticks;
 }
 
-const MEAL_MARKER_COLOR = '#FF9800';
-
 type Props = {
   glucose: Point[];
   heartRate: Point[];
@@ -496,6 +492,8 @@ export function MetabolicChart({
   energyDisplayUnit = 'kcal',
   langCode,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const stripCopy = useMemo(() => getMetabolicStripCopy(langCode), [langCode]);
   const { width: windowW } = useWindowDimensions();
   const [viewportPresetIndex, setViewportPresetIndex] = useState(DEFAULT_VIEWPORT_PRESET_INDEX);
@@ -1079,13 +1077,13 @@ export function MetabolicChart({
           y1={gl.y}
           x2={prepared.chartW - SVG_PAD_R}
           y2={gl.y}
-          stroke={WellnessColors.gridLine}
+          stroke={colors.gridLine}
           strokeWidth={1}
           opacity={gl.showAxisLabel ? 0.95 : 0.62}
         />
       ))}
       {prepared.heartRatePath ? (
-        <Path d={prepared.heartRatePath} fill="none" stroke={WellnessColors.accentRed} strokeWidth={2} opacity={0.95} />
+        <Path d={prepared.heartRatePath} fill="none" stroke={colors.accentRed} strokeWidth={2} opacity={0.95} />
       ) : null}
       {(prepared.heartRateDots ?? []).map((dot, i) => (
         <Circle
@@ -1093,12 +1091,12 @@ export function MetabolicChart({
           cx={dot.x}
           cy={dot.y}
           r={2.5}
-          fill={WellnessColors.accentRed}
+          fill={colors.accentRed}
           opacity={0.95}
         />
       ))}
       {prepared.glucosePath ? (
-        <Path d={prepared.glucosePath} fill="none" stroke={WellnessColors.accentGreen} strokeWidth={2.5} />
+        <Path d={prepared.glucosePath} fill="none" stroke={colors.accentGreen} strokeWidth={2.5} />
       ) : null}
 
       {scrub ? (
@@ -1108,7 +1106,7 @@ export function MetabolicChart({
             y1={scrub.dataTopY}
             x2={scrub.xPx}
             y2={scrub.dataBottomY}
-            stroke={WellnessColors.textSecondary}
+            stroke={colors.textSecondary}
             strokeWidth={1}
             strokeDasharray="4,3"
             opacity={0.85}
@@ -1118,7 +1116,7 @@ export function MetabolicChart({
               cx={scrub.xPx}
               cy={scrub.glucoseYPx}
               r={5}
-              fill={WellnessColors.accentGreen}
+              fill={colors.accentGreen}
               stroke="#fff"
               strokeWidth={1.5}
             />
@@ -1128,7 +1126,7 @@ export function MetabolicChart({
               cx={scrub.xPx}
               cy={scrub.hrYPx}
               r={4.5}
-              fill={WellnessColors.accentRed}
+              fill={colors.accentRed}
               stroke="#fff"
               strokeWidth={1.5}
             />
@@ -1143,7 +1141,7 @@ export function MetabolicChart({
           y1={seg.y}
           x2={seg.x2}
           y2={seg.y}
-          stroke={WellnessColors.accentBlue}
+          stroke={colors.accentBlue}
           strokeWidth={3}
           strokeLinecap="round"
           opacity={0.95}
@@ -1155,7 +1153,7 @@ export function MetabolicChart({
         y1={prepared.axisY}
         x2={prepared.chartW - SVG_PAD_R}
         y2={prepared.axisY}
-        stroke={WellnessColors.gridLine}
+        stroke={colors.gridLine}
         strokeWidth={1}
         opacity={0.8}
       />
@@ -1167,20 +1165,20 @@ export function MetabolicChart({
             x={prepared.padL} y={caloriePrepared.calStripTop}
             width={prepared.chartW - prepared.padL - SVG_PAD_R}
             height={caloriePrepared.calStripBottom - caloriePrepared.calStripTop}
-            fill="#E3F2FD" opacity={0.70}
+            fill={colors.chart.glucoseBand} opacity={0.70}
           />
           {/* Divider line between glucose/HR zone and calorie strip */}
           <Line
             x1={prepared.padL} y1={caloriePrepared.calStripTop}
             x2={prepared.chartW - SVG_PAD_R} y2={caloriePrepared.calStripTop}
-            stroke={WellnessColors.gridLine} strokeWidth={1} opacity={0.8}
+            stroke={colors.gridLine} strokeWidth={1} opacity={0.8}
           />
           {/* BMR baseline bars */}
           {caloriePrepared.bars.map((bar, idx) =>
             bar.bmrH > 0 ? (
               <Rect key={`cbmr-${idx}`} x={bar.x} y={bar.bmrY}
                 width={bar.w} height={bar.bmrH}
-                fill={CALORIE_BMR_COLOR} opacity={0.72} rx={1} />
+                fill={colors.chart.bmr} opacity={0.72} rx={1} />
             ) : null
           )}
           {/* Steps/passive calories stacked above BMR */}
@@ -1188,7 +1186,7 @@ export function MetabolicChart({
             bar.actH > 0 ? (
               <Rect key={`cact-${idx}`} x={bar.x} y={bar.actY}
                 width={bar.w} height={bar.actH}
-                fill={CALORIE_ACTIVE_COLOR} opacity={0.9} rx={1} />
+                fill={colors.chart.active} opacity={0.9} rx={1} />
             ) : null
           )}
           {/* Workout session calories stacked on top (red) */}
@@ -1196,7 +1194,7 @@ export function MetabolicChart({
             bar.wktH > 0 ? (
               <Rect key={`cwkt-${idx}`} x={bar.x} y={bar.wktY}
                 width={bar.w} height={bar.wktH}
-                fill={CALORIE_WORKOUT_COLOR} opacity={0.88} rx={1} />
+                fill={colors.chart.workout} opacity={0.88} rx={1} />
             ) : null
           )}
           {/* Workout labels pinned at the middle of each session */}
@@ -1204,7 +1202,7 @@ export function MetabolicChart({
             <SvgText
               key={`wlbl-${idx}`}
               x={lbl.x} y={caloriePrepared.calStripTop + 10}
-              fill={WellnessColors.textPrimary} fontSize={8} fontWeight="700" textAnchor="middle"
+              fill={colors.textPrimary} fontSize={8} fontWeight="700" textAnchor="middle"
             >
               {lbl.label}
             </SvgText>
@@ -1220,11 +1218,11 @@ export function MetabolicChart({
             y1={prepared.axisY - 5}
             x2={tk.x}
             y2={prepared.axisY + 4}
-            stroke={WellnessColors.textSecondary}
+            stroke={colors.textSecondary}
             strokeWidth={1}
             opacity={0.7}
           />
-          <SvgText x={tk.x} y={prepared.svgH - 6} fill={WellnessColors.textSecondary} fontSize={9} textAnchor="middle">
+          <SvgText x={tk.x} y={prepared.svgH - 6} fill={colors.textSecondary} fontSize={9} textAnchor="middle">
             {tk.label}
           </SvgText>
         </React.Fragment>
@@ -1241,19 +1239,19 @@ export function MetabolicChart({
             <Line
               x1={x} y1={prepared.axisY - 20}
               x2={x} y2={prepared.axisY - 4}
-              stroke={MEAL_MARKER_COLOR} strokeWidth={1.5} strokeDasharray="3,2" opacity={0.8}
+              stroke={colors.chart.mealMarker} strokeWidth={1.5} strokeDasharray="3,2" opacity={0.8}
             />
             {/* Downward triangle marker */}
             <SvgText
               x={x} y={prepared.axisY - 22}
-              fill={MEAL_MARKER_COLOR} fontSize={10} textAnchor="middle" fontWeight="700"
+              fill={colors.chart.mealMarker} fontSize={10} textAnchor="middle" fontWeight="700"
             >
               ▼
             </SvgText>
             {/* energy label */}
             <SvgText
               x={x} y={prepared.axisY - 32}
-              fill={MEAL_MARKER_COLOR} fontSize={8} textAnchor="middle"
+              fill={colors.chart.mealMarker} fontSize={8} textAnchor="middle"
             >
               {energyLabel}
             </SvgText>
@@ -1315,7 +1313,7 @@ export function MetabolicChart({
                 >
                   <ChevronLeft
                     size={DAY_NAV_CHEVRON_PX}
-                    color={WellnessColors.textSecondary}
+                    color={colors.textSecondary}
                     strokeWidth={2.25}
                   />
                 </Pressable>
@@ -1352,7 +1350,7 @@ export function MetabolicChart({
                 >
                   <ChevronRight
                     size={DAY_NAV_CHEVRON_PX}
-                    color={WellnessColors.textSecondary}
+                    color={colors.textSecondary}
                     strokeWidth={2.25}
                   />
                 </Pressable>
@@ -1465,7 +1463,8 @@ export function MetabolicChart({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   wrap: {
     width: '100%',
     alignSelf: 'stretch',
@@ -1483,22 +1482,22 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 999,
-    backgroundColor: WellnessColors.progressTrack,
+    backgroundColor: colors.progressTrack,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: colors.gridLine,
   },
   viewportChipSelected: {
-    backgroundColor: WellnessColors.iconTintBlue,
-    borderColor: WellnessColors.accentBlue,
+    backgroundColor: colors.iconTintBlue,
+    borderColor: colors.accentBlue,
   },
   viewportChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: colors.textSecondary,
     fontVariant: ['tabular-nums'],
   },
   viewportChipTextSelected: {
-    color: WellnessColors.accentBlue,
+    color: colors.accentBlue,
   },
   chartRow: {
     flexDirection: 'row',
@@ -1537,7 +1536,7 @@ const styles = StyleSheet.create({
   chartDateHeaderText: {
     fontSize: 12,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   chartDateHeaderTextFlex: {
@@ -1556,9 +1555,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: WellnessColors.progressTrack,
+    backgroundColor: colors.progressTrack,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: colors.gridLine,
     overflow: 'hidden',
   },
   chartDayNavBtnPressed: {
@@ -1603,21 +1602,21 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 12,
     fontWeight: '700',
-    color: WellnessColors.accentGreen,
+    color: colors.accentGreen,
     fontVariant: ['tabular-nums'],
   },
   scrubBadgeHr: {
     fontSize: 10,
     lineHeight: 12,
     fontWeight: '700',
-    color: WellnessColors.accentRed,
+    color: colors.accentRed,
     fontVariant: ['tabular-nums'],
   },
   scrubBadgeTime: {
     fontSize: 9,
     lineHeight: 11,
     fontWeight: '500',
-    color: WellnessColors.textSecondary,
+    color: colors.textSecondary,
     fontVariant: ['tabular-nums'],
   },
   yAxis: {
@@ -1630,10 +1629,10 @@ const styles = StyleSheet.create({
     right: 2,
     fontSize: 10,
     fontVariant: ['tabular-nums'],
-    color: WellnessColors.textSecondary,
+    color: colors.textSecondary,
   },
   graphCanvas: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: colors.surface,
     borderRadius: 0,
     overflow: 'hidden',
   },
@@ -1641,16 +1640,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     padding: 24,
-    shadowColor: '#000000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
     elevation: 2,
   },
   emptyText: {
-    color: WellnessColors.textSecondary,
+    color: colors.textSecondary,
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
@@ -1673,19 +1672,19 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   legendGlucose: {
-    color: WellnessColors.accentGreen,
+    color: colors.accentGreen,
     fontSize: 12,
     fontWeight: '500',
     flexShrink: 1,
   },
   legendHeartRate: {
-    color: WellnessColors.accentRed,
+    color: colors.accentRed,
     fontSize: 12,
     fontWeight: '500',
     flexShrink: 1,
   },
   legendActivity: {
-    color: WellnessColors.accentBlue,
+    color: colors.accentBlue,
     fontSize: 12,
     fontWeight: '500',
     textAlign: 'center',
@@ -1699,19 +1698,19 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   legendBmr: {
-    color: CALORIE_BMR_COLOR,
+    color: colors.chart.bmr,
     fontSize: 12,
     fontWeight: '600',
     flexShrink: 1,
   },
   legendStepsCal: {
-    color: CALORIE_ACTIVE_COLOR,
+    color: colors.chart.active,
     fontSize: 12,
     fontWeight: '600',
     flexShrink: 1,
   },
   legendWorkout: {
-    color: CALORIE_WORKOUT_COLOR,
+    color: colors.chart.workout,
     fontSize: 12,
     fontWeight: '600',
     flexShrink: 1,
@@ -1725,7 +1724,7 @@ const styles = StyleSheet.create({
   legendWithingsLine: {
     width: '100%',
     fontSize: 9,
-    color: WellnessColors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 12,
     fontVariant: ['tabular-nums'],
@@ -1733,6 +1732,6 @@ const styles = StyleSheet.create({
   legendWithingsValue: {
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
-    color: WellnessColors.textSecondary,
+    color: colors.textSecondary,
   },
-});
+  });

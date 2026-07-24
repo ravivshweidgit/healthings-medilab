@@ -4,7 +4,8 @@ import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg
 import { curveMonotoneX, line } from 'd3-shape';
 import { formatAxisDayLabel } from '../i18n/dateLocale';
 import { resolveBmrWeekTrend, withingsChartBmrKcal, type MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import { energyUnitLabel, kcalToDisplay, type EnergyUnit } from '../logic/unitConvert';
 
 // ── Layout constants ────────────────────────────────────────────────────────
@@ -18,16 +19,20 @@ const AXIS_BOTTOM = 24;  // X-axis label zone
 const NUM_STRIPS  = 5;
 const SVG_H = PAD_TOP + NUM_STRIPS * STRIP_UNIT + AXIS_BOTTOM;
 
-// ── Colours ─────────────────────────────────────────────────────────────────
-const COLOR_BMR      = WellnessColors.textPrimary;  // black / near-black
-const COLOR_ACTIVITY = '#42A5F5';  // medium blue
-const COLOR_TOTAL    = '#4CAF50';  // green
-const COLOR_EATEN        = '#FF9800';  // orange
-const COLOR_BALANCE_LINE = '#37474F';  // neutral line across zones
-const COLOR_DEFICIT_ZONE = WellnessColors.iconTintGreen; // light green — negative balance (deficit)
-const COLOR_SURPLUS_ZONE = '#FFEBEE';  // light red — positive balance (surplus)
-const COLOR_DEFICIT_DOT  = '#2E7D32';
-const COLOR_SURPLUS_DOT  = '#C62828';
+/** Series colours resolved from the active theme (light/dark aware). */
+function chartColors(c: ThemeColors) {
+  return {
+    bmr: c.textPrimary,             // near-black on light, near-white on dark
+    activity: c.chart.active,
+    total: c.chart.total,
+    eaten: c.chart.eaten,
+    balanceLine: c.chart.balanceLine,
+    deficitZone: c.iconTintGreen,   // tinted deficit band
+    surplusZone: c.chart.surplusZone,
+    deficitDot: c.chart.deficitDot,
+    surplusDot: c.chart.surplusDot,
+  };
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type PixelPoint = { x: number; y: number };
@@ -119,6 +124,19 @@ function stripAvgLabel(avg: number | null, energyUnit: EnergyUnit): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 'kcal', langCode }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const {
+    bmr: COLOR_BMR,
+    activity: COLOR_ACTIVITY,
+    total: COLOR_TOTAL,
+    eaten: COLOR_EATEN,
+    balanceLine: COLOR_BALANCE_LINE,
+    deficitZone: COLOR_DEFICIT_ZONE,
+    surplusZone: COLOR_SURPLUS_ZONE,
+    deficitDot: COLOR_DEFICIT_DOT,
+    surplusDot: COLOR_SURPLUS_DOT,
+  } = useMemo(() => chartColors(colors), [colors]);
   const { width } = useWindowDimensions();
   const chartW = Math.max(280, width - 40);
 
@@ -333,7 +351,7 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
       key={`div-${idx}`}
       x1={prepared.plotLeft} y1={PAD_TOP + idx * STRIP_UNIT}
       x2={prepared.chartW - PAD_R} y2={PAD_TOP + idx * STRIP_UNIT}
-      stroke={WellnessColors.gridLine} strokeWidth={1} opacity={0.6}
+      stroke={colors.gridLine} strokeWidth={1} opacity={0.6}
     />
   );
 
@@ -345,9 +363,9 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
         <Line
           x1={prepared.plotLeft} y1={g.y}
           x2={prepared.chartW - PAD_R} y2={g.y}
-          stroke={WellnessColors.gridLine} strokeWidth={1} opacity={0.5}
+          stroke={colors.gridLine} strokeWidth={1} opacity={0.5}
         />
-        <SvgText x={3} y={g.y + 3} fill={WellnessColors.textSecondary} fontSize={8} textAnchor="start">
+        <SvgText x={3} y={g.y + 3} fill={colors.textSecondary} fontSize={8} textAnchor="start">
           {g.label}
         </SvgText>
       </React.Fragment>
@@ -396,7 +414,7 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
           <SvgText
             x={prepared.plotLeft + prepared.innerW / 2}
             y={PAD_TOP + STRIP_UNIT + TITLE_H + STRIP_H / 2 + 4}
-            fill={WellnessColors.textSecondary} fontSize={10} textAnchor="middle"
+            fill={colors.textSecondary} fontSize={10} textAnchor="middle"
           >
             No activity data yet
           </SvgText>
@@ -418,7 +436,7 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
           <SvgText
             x={prepared.plotLeft + prepared.innerW / 2}
             y={PAD_TOP + 2 * STRIP_UNIT + TITLE_H + STRIP_H / 2 + 4}
-            fill={WellnessColors.textSecondary} fontSize={10} textAnchor="middle"
+            fill={colors.textSecondary} fontSize={10} textAnchor="middle"
           >
             Needs BMR + activity data
           </SvgText>
@@ -439,7 +457,7 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
           <SvgText
             x={prepared.plotLeft + prepared.innerW / 2}
             y={PAD_TOP + 3 * STRIP_UNIT + TITLE_H + STRIP_H / 2 + 4}
-            fill={WellnessColors.textSecondary} fontSize={10} textAnchor="middle"
+            fill={colors.textSecondary} fontSize={10} textAnchor="middle"
           >
             Log meals to see eaten
           </SvgText>
@@ -516,7 +534,7 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
             cy={dot.y}
             r={4}
             fill={dot.value < 0 ? COLOR_DEFICIT_DOT : dot.value > 0 ? COLOR_SURPLUS_DOT : COLOR_BALANCE_LINE}
-            stroke={WellnessColors.surface}
+            stroke={colors.surface}
             strokeWidth={1.5}
           />
         ))}
@@ -524,7 +542,7 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
           <SvgText
             x={prepared.plotLeft + prepared.innerW / 2}
             y={PAD_TOP + 4 * STRIP_UNIT + TITLE_H + STRIP_H / 2 + 4}
-            fill={WellnessColors.textSecondary} fontSize={10} textAnchor="middle"
+            fill={colors.textSecondary} fontSize={10} textAnchor="middle"
           >
             Needs burn + meals
           </SvgText>
@@ -534,12 +552,12 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
         <Line
           x1={prepared.plotLeft} y1={prepared.xAxisY}
           x2={prepared.chartW - PAD_R} y2={prepared.xAxisY}
-          stroke={WellnessColors.gridLine} strokeWidth={1} opacity={0.8}
+          stroke={colors.gridLine} strokeWidth={1} opacity={0.8}
         />
         {prepared.xTicks.map((tk) => (
           <SvgText
             key={tk.key} x={tk.x} y={SVG_H - 6}
-            fill={WellnessColors.textSecondary} fontSize={9} textAnchor="middle"
+            fill={colors.textSecondary} fontSize={9} textAnchor="middle"
           >
             {tk.label}
           </SvgText>
@@ -550,13 +568,14 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
   );
 }
 
-const styles = StyleSheet.create({
-  wrap:  { width: '100%', alignSelf: 'stretch' },
-  title: {
-    fontSize: 11, fontWeight: '600', color: WellnessColors.textSecondary,
-    letterSpacing: 1, marginBottom: 10, textTransform: 'uppercase', textAlign: 'center',
-  },
-  svg: { flex: 1, minWidth: 0 },
-  loadingBox:   { minHeight: 120, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  loadingText:  { marginTop: 8, fontSize: 13, color: WellnessColors.textSecondary, textAlign: 'center', lineHeight: 19 },
-});
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    wrap:  { width: '100%', alignSelf: 'stretch' },
+    title: {
+      fontSize: 11, fontWeight: '600', color: c.textSecondary,
+      letterSpacing: 1, marginBottom: 10, textTransform: 'uppercase', textAlign: 'center',
+    },
+    svg: { flex: 1, minWidth: 0 },
+    loadingBox:   { minHeight: 120, alignItems: 'center', justifyContent: 'center', padding: 16 },
+    loadingText:  { marginTop: 8, fontSize: 13, color: c.textSecondary, textAlign: 'center', lineHeight: 19 },
+  });
