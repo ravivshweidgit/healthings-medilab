@@ -16,7 +16,7 @@ text expansion (de/ru/tr) and RTL (he/ar).
 
 ## Batch A — quick trust wins (all small, ship together)
 
-**Shipped 2026-07-24** (phone-tested). Commit hash TBD after push.
+**Shipped 2026-07-24** (phone-tested). Commit `64e6378`.
 
 | Item | What landed |
 |------|-------------|
