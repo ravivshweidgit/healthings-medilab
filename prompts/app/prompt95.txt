@@ -15,7 +15,7 @@ prompt92 (audit). Honors language-policy, persistence-parity, ai-judgment rules.
 | **F3** | P0 | Trend & energy chart | 4 differently-scaled series on one plot; left-axis numbers overlap/unreadable. → Per-series mini panels (reuse ENERGY sparkline stack) **or** index to % change with one axis. Values unchanged. |
 | **F8** | P1 | Chat input toolbar | Too many cryptic buttons (Camera, ↑, ↓, Clear, ↗, Send). → **Shipped (compromise):** Camera · ↑ · ↓ · ⋯ · Send; Clear + Export in overflow menu (scroll arrows kept per phone test). |
 | **F9** | P1 | Dashboard sync | "Refresh my data" only at very bottom. → **Shipped:** compact refresh icon in the top brand header (same sync); pull-to-refresh retained. |
-| **F13** | P2 | Rules / Targets / session summaries | Detected-RTL (Hebrew/Arabic) user content shows left-aligned in EN chrome; bidi punctuation off. → Right-align by **detected script**, regardless of chrome language (Edit-item Name already does this). |
+| **F13** | P2 | Rules / Targets / session summaries | Detected-RTL (Hebrew/Arabic) user content shows left-aligned in EN chrome. → **Shipped:** shared `contentAlignStyle` (`logic/textDirection.ts`) aligns by detected script in My Rules, nutrition sessions, and macro reasoning. |
 | **F15** | P2 | Edit Meal | Two delete concepts: per-item "Delete" + footer pink trash. → Clarify footer = delete whole meal (label/confirm copy). |
 | **F19** | P2 | Website | Sparse desktop help (narrow column, big margins); landing H1 "A full metabolic OS" is jargon. → Widen/format help; patient-value H1. |
 | **F20** | P2 | CGM blood-drop illustration | Reads alarming/heavy. → Soften (lighter fill / smaller drop / friendlier mark). |
@@ -41,9 +41,13 @@ prompt92 (audit). Honors language-policy, persistence-parity, ai-judgment rules.
 | **D2** | F8 | Chat toolbar: Camera · ↑ · ↓ · ⋯ · Send; Clear + Export in overflow (`ActionIcons.overflow/share/clear`) | `4cf29dd` |
 | **D3** | F9 | Compact refresh icon in the top brand header (`ActionIcons.refresh`) → same sync as bottom button; spinner while busy | (this commit) |
 
+## Shipped slices (Batch E)
+
+| Slice | Finding | What | Commit |
+|-------|---------|------|--------|
+| **E1** | F13 | `logic/textDirection.ts` (`isRtlText` / `contentAlignStyle`) → detected-script align in My Rules, nutrition sessions, macro reasoning | (this commit) |
+
 ## Remaining slices (each own `bi`/site check + commit)
-4. **Slice E1 · RTL user content (F13)** — shared detected-script align helper across Rules/
-   Targets/session summaries.
 5. **Slice E2 · Edit Meal delete clarity (F15)** — footer copy/confirm = whole meal.
 6. **Slice E3 · CGM illustration (F20)** — soften the drop mark.
 7. **Slice E4 · Website (F19)** — help layout width/formatting + landing H1 copy.
@@ -70,7 +74,7 @@ Stop after each slice for confirmation (app slices need phone `bi`; E4 is web).
 - [x] Trend chart legible on small screen; no overlapping axis labels; same values (D1)
 - [x] Chat input: Camera · ↑ · ↓ · ⋯ · Send; Clear/Export in overflow (D2, scroll kept)
 - [x] Refresh reachable without scrolling to bottom; existing bottom action still works (D3)
-- [ ] Hebrew/Arabic rules/targets/session text right-aligns in EN chrome; LTR unaffected
+- [x] Hebrew/Arabic rules/targets/session text right-aligns in EN chrome; LTR unaffected (E1)
 - [ ] Edit Meal: clear that footer trash deletes the whole meal
 - [ ] CGM illustration softer, not alarming
 - [ ] Website help readable full-width on desktop; landing H1 patient-friendly

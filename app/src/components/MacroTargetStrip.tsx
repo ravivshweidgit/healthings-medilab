@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { formatLocalizedDate, formatLocalizedTime } from '../i18n/dateLocale';
 import { suggestMacroTargets, confirmSavedMacroTarget, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
+import { contentAlignStyle } from '../logic/textDirection';
 import { buildAndExportMacroPrompt } from '../services/macroPromptExport';
 import { RulesAdviceBanner } from './RulesAdviceBanner';
 import { MacroClinicalProfileBanner } from './MacroClinicalProfileBanner';
@@ -536,7 +537,7 @@ export function MacroTargetStrip({
                 />
               ) : null}
               <View style={styles.reasoningBox}>
-                <Text style={styles.reasoningText}>{suggestion.reasoning}</Text>
+                <Text style={[styles.reasoningText, contentAlignStyle(suggestion.reasoning)]}>{suggestion.reasoning}</Text>
               </View>
               <View style={styles.suggestionRow}>
                 {[

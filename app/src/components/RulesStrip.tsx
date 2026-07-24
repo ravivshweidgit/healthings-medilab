@@ -30,6 +30,7 @@ import { WellnessColors } from '../theme/wellness';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import { getRulesStripCopy, rulesSubtitleFromRaw } from '../i18n/rulesStripCopy';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
+import { contentAlignStyle } from '../logic/textDirection';
 
 const RULES_PREVIEW_CHARS = 200;
 
@@ -184,7 +185,7 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
           {raw ? (
             <View style={styles.rulesBlock}>
               <Text style={[styles.sectionLabel, rtl && styles.textRtl]}>{t.yourRules}</Text>
-              <Text style={[styles.rulesText, rtl && styles.textRtl]}>{rulesPreview}</Text>
+              <Text style={[styles.rulesText, contentAlignStyle(raw)]}>{rulesPreview}</Text>
               {rulesNeedCollapse ? (
                 <Pressable onPress={() => setRulesExpanded((v) => !v)} hitSlop={8}>
                   <Text style={styles.showMore}>{rulesExpanded ? t.showLess : t.showMore}</Text>
@@ -217,7 +218,7 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
                       <Text style={styles.historyRowTitle} numberOfLines={1}>
                         {formatHistoryDate(entry.savedAt)} · {formatHistorySource(entry)}
                       </Text>
-                      <Text style={styles.historyRowSub} numberOfLines={2}>
+                      <Text style={[styles.historyRowSub, contentAlignStyle(historyRowPreview(entry))]} numberOfLines={2}>
                         {historyRowPreview(entry)}
                       </Text>
                     </Pressable>
@@ -238,7 +239,7 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
           >
             <Text style={[styles.modalTitle, rtl && styles.textRtl]}>{t.editTitle}</Text>
             <TextInput
-              style={[styles.textInput, styles.textInputFlex, rtl && styles.textRtl]}
+              style={[styles.textInput, styles.textInputFlex, contentAlignStyle(text)]}
               value={text}
               onChangeText={setText}
               placeholder={t.placeholder}
@@ -290,7 +291,7 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
                   {formatHistoryDate(historyEntry.savedAt)} · {formatHistorySource(historyEntry)}
                 </Text>
                 <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent}>
-                  <Text style={[styles.modalRaw, rtl && styles.textRtl]}>
+                  <Text style={[styles.modalRaw, contentAlignStyle(historyEntry.rules.rawText)]}>
                     {historyEntry.rules.rawText}
                   </Text>
                 </ScrollView>

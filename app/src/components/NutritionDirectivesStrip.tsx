@@ -26,6 +26,7 @@ import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import { StripIcons } from '../theme/icons';
 import { NutritionDirectiveReviewModal } from './NutritionDirectiveReviewModal';
+import { contentAlignStyle } from '../logic/textDirection';
 
 const EXPANDED_KEY = 'dash_nutrition_reports_expanded';
 
@@ -153,11 +154,11 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
               onPress={() => setDetailEntry(entry)}
             >
               <Text style={styles.chipDate}>{formatDirectiveDate(entry, lang?.code)}</Text>
-              <Text style={styles.chipLabel} numberOfLines={2}>{entry.title}</Text>
+              <Text style={[styles.chipLabel, contentAlignStyle(entry.title)]} numberOfLines={2}>{entry.title}</Text>
               {isActive ? (
                 <Text style={styles.chipActiveBadge}>{copy.activeBadge}</Text>
               ) : null}
-              {preview ? <Text style={styles.chipHi} numberOfLines={2}>{preview}</Text> : null}
+              {preview ? <Text style={[styles.chipHi, contentAlignStyle(preview)]} numberOfLines={2}>{preview}</Text> : null}
               <Text style={styles.chipEdit}>✎ {copy.view}</Text>
             </Pressable>
           );
@@ -179,10 +180,10 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
           <View style={styles.modalCard}>
             {detailEntry && (
               <>
-                <Text style={styles.modalTitle}>{detailEntry.title}</Text>
+                <Text style={[styles.modalTitle, contentAlignStyle(detailEntry.title)]}>{detailEntry.title}</Text>
                 <Text style={styles.modalMeta}>{formatDirectiveDate(detailEntry, lang?.code)}</Text>
                 <ScrollView style={styles.modalScroll}>
-                  <Text style={[styles.reportBody, rtl && styles.reportBodyRtl]}>
+                  <Text style={[styles.reportBody, contentAlignStyle(detailEntry.fullText)]}>
                     {detailEntry.fullText}
                   </Text>
                 </ScrollView>
