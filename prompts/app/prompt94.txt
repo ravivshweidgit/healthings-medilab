@@ -1,8 +1,8 @@
 # prompt94 — Icon system + dashboard hierarchy (UI/UX audit Batch C)
 
-**Status:** Partial — Slices 1+2 phone-tested 2026-07-24. Derived from `prompt92.txt`
+**Status:** Partial — Slices 1–3 phone-tested 2026-07-24. Derived from `prompt92.txt`
 review output (2026-07-24, Opus 4.8), findings **F7** (emoji-as-iconography) and **F6**
-(dashboard card-soup / flat hierarchy). Slices 3–4 still backlog. No data/units/clinical-
+(dashboard card-soup / flat hierarchy). Slice 4 still backlog. No data/units/clinical-
 number changes — presentation only.
 
 **Builds on:** prompt93 (first-impression polish), prompt92 (audit), prompt62 (collapsible
@@ -17,10 +17,10 @@ strips), language-policy + persistence-parity + ai-judgment rules.
 |-------|------|-------|
 | **1** | Central Lucide registry + leading icons on Food Log / Glucose / Trend / Profile / Labs / Sessions | `theme/icons.tsx` (new), `DashboardCollapseHeader` `icon` prop, strip + `DashboardScreen` wiring |
 | **2** | Mentor chrome → Lucide (`Stethoscope` / `Salad` / `Dumbbell`); collapsed Mentors subtitle labels-only; **AI doctor / AI nutritionist / AI coach** (not "My …") in all 10 langs — `MENTOR_EMOJI` kept for chat/export/Gemini; selected cards + "Review after each meal" use blue (not semantic green); card titles/subs centered | `icons.tsx` `MentorIcon`/`ActiveMentorIcons`, `MentorStrip`, `ChatScreen`, `DashboardScreen` AI entry, `mentorLabels.ts` |
+| **3** | Slim brand header (max ~104px, was ~220); primary-tier navy left accent on AI chat + body metrics + Food Log; secondary strips unchanged | `DashboardScreen.tsx`, `FoodMacroStrip.tsx` |
 
 ## Still backlog
 
-3. **Slice 3:** dashboard tiers + slim brand header (P2.2 + P2.3).
 4. **Slice 4:** remaining chrome glyphs (P1.3 — water droplet, optional camera/gallery).
 
 Stop after each slice for `bi` + user confirmation before the next.
@@ -125,8 +125,8 @@ as higher-risk).
 
 ## Phone-tested checklist
 - [x] Every strip has a distinct leading icon; labels still readable + AA (Slice 1)
-- [ ] Primary vs secondary strips visually distinguishable at a glance (Slice 3)
-- [ ] Brand header slimmer; metrics/chat/Food Log higher on first load (Slice 3)
+- [x] Primary vs secondary strips visually distinguishable at a glance (Slice 3)
+- [x] Brand header slimmer; metrics/chat/Food Log higher on first load (Slice 3)
 - [x] Mentor chrome shows icons; chat bodies + exports still show 🩺🥗💪 (Slice 2)
 - [x] Mentor labels read "AI doctor / …" (not "My …") — phone OK 2026-07-24
 - [x] No changed AsyncStorage keys; collapse state persists as before

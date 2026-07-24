@@ -12,7 +12,7 @@ Active / backlog specs stay in `prompts/app/`:
 | prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
 | `prompt81b.txt` | **Shipped** — Phase B → `done/prompt87.txt` |
 | `prompt92.txt` | UI/UX review brief + **review output (2026-07-24, Opus 4.8)** — 19 findings F2–F20 (F1 withdrawn), batches A–E; feeds prompt93+ |
-| `prompt94.txt` | **Partial** — Slices 1+2 phone-tested (Lucide strip icons + mentor chrome + "AI doctor/…" labels); Slices 3–4 (tiers/brand header + remaining glyphs) backlog |
+| `prompt94.txt` | **Partial** — Slices 1–3 phone-tested (Lucide strip icons + mentor chrome + "AI doctor/…" + slim brand + primary-tier accent); Slice 4 (remaining glyphs) backlog |
 
 **prompt93** — done (2026-07-24). First-impression UI polish from audit batches A+B: AA secondary text, unified chevron, navy Gallery, solid Meal/water, QS Step N of M, coach tips badge, stable QS progress, compact Yes/No heroes, unified language gate. Phone-tested. See `done/prompt93.txt`. Next: prompt94 (Batch C — icons + dashboard hierarchy).
 

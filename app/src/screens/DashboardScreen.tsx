@@ -171,7 +171,11 @@ const DASH_LANGUAGE_EXPANDED_KEY = 'dash_language_expanded';
 const DASH_UNITS_EXPANDED_KEY = 'dash_units_expanded';
 const DASH_GEAR_EXPANDED_KEY = 'dash_gear_expanded';
 const BRAND_LOGO = require('../../assets/brand-logo.png');
-const BRAND_HEADER_HEIGHT_FALLBACK = 152;
+const BRAND_HEADER_HEIGHT_FALLBACK = 96;
+
+// Primary-tier anchor (audit F6) — navy left edge groups the top "today" cards
+// (AI chat, body metrics, Food Log) so secondary strips below read as lighter.
+const PRIMARY_TIER_ACCENT = '#1F3D5C';
 
 function latestGlucoseSummary(
   points: { timestamp: string; value: number }[],
@@ -217,7 +221,9 @@ function computeBrandHeaderHeight(windowWidth: number): number {
     const r = Image.resolveAssetSource(BRAND_LOGO);
     if (r?.width && r?.height && r.width > 0 && r.height > 0) {
       const raw = (contentW * r.height) / r.width;
-      return Math.round(Math.min(220, Math.max(72, raw)));
+      // Slim brand lockup (audit F18) — cap tighter so metrics/chat/Food Log
+      // rise above the fold on first load. resizeMode=contain keeps it centered.
+      return Math.round(Math.min(104, Math.max(60, raw)));
     }
   } catch {
     /* ignore */
@@ -2772,6 +2778,8 @@ const styles = StyleSheet.create({
   bodyScanCard: {
     backgroundColor: WellnessColors.surface,
     borderRadius: 24,
+    borderLeftWidth: 3,
+    borderLeftColor: PRIMARY_TIER_ACCENT,
     paddingTop: 10,
     paddingBottom: 16,
     paddingHorizontal: 18,
@@ -3084,6 +3092,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#B3D9F0',
+    borderLeftWidth: 3,
+    borderLeftColor: PRIMARY_TIER_ACCENT,
     paddingVertical: 10,
     paddingHorizontal: 14,
     marginBottom: dashCardGap,

@@ -1063,6 +1063,9 @@ const styles = StyleSheet.create({
     marginBottom: dashCardGap,
     borderWidth: 1.5,
     borderColor: WellnessColors.gridLine,
+    // Primary-tier anchor (audit F6) — navy left edge matches AI chat + body cards.
+    borderLeftWidth: 3,
+    borderLeftColor: '#1F3D5C',
   },
   cardCollapsed: {
     paddingBottom: 12,
