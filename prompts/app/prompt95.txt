@@ -1,0 +1,78 @@
+# prompt95 — Data-viz + chat + content/web/RTL (UI/UX audit Batches D+E)
+
+**Status:** Backlog — implementation spec. Derived from `prompt92.txt` review output
+(2026-07-24, Opus 4.8). Covers the last two audit batches after prompt93 (A+B) and
+prompt94 (C). Presentation/UX only — **no** changes to stored data, units, clinical
+numbers, AsyncStorage keys, or rule interpretation.
+
+**Builds on:** prompt94 (icon registry `theme/icons.tsx`, primary-tier accent), prompt93,
+prompt92 (audit). Honors language-policy, persistence-parity, ai-judgment rules.
+
+## Findings in scope
+
+| ID | Sev | Where | Problem → fix |
+|----|-----|-------|---------------|
+| **F3** | P0 | Trend & energy chart | 4 differently-scaled series on one plot; left-axis numbers overlap/unreadable. → Per-series mini panels (reuse ENERGY sparkline stack) **or** index to % change with one axis. Values unchanged. |
+| **F8** | P1 | Chat input toolbar | Too many cryptic buttons (Camera, ↑, ↓, Clear, ↗, Send); unlabeled arrows. → Keep Camera + text + Send; move scroll/expand/clear to overflow or drop. |
+| **F9** | P1 | Dashboard sync | "Refresh my data" only at very bottom. → Pull-to-refresh (verify existing `RefreshControl` is discoverable) and/or compact header refresh. |
+| **F13** | P2 | Rules / Targets / session summaries | Detected-RTL (Hebrew/Arabic) user content shows left-aligned in EN chrome; bidi punctuation off. → Right-align by **detected script**, regardless of chrome language (Edit-item Name already does this). |
+| **F15** | P2 | Edit Meal | Two delete concepts: per-item "Delete" + footer pink trash. → Clarify footer = delete whole meal (label/confirm copy). |
+| **F19** | P2 | Website | Sparse desktop help (narrow column, big margins); landing H1 "A full metabolic OS" is jargon. → Widen/format help; patient-value H1. |
+| **F20** | P2 | CGM blood-drop illustration | Reads alarming/heavy. → Soften (lighter fill / smaller drop / friendlier mark). |
+
+## Hard constraints (do not fight)
+
+- **No clinical-number or data changes.** F3 re-presents the *same* values — no recompute,
+  no unit change. Keep the documented chart color map (weight/fat/muscle/visceral/
+  glucose/HR) consistent everywhere.
+- **RTL alignment by detected script only** (F13) — presentation. Do **not** parse rule/
+  directive *meaning*; detect script (existing Hebrew/Arabic detection) and set
+  `textAlign`/`writingDirection`. No new rules-text regex (ai-judgment rule).
+- **No new AsyncStorage keys / no changed collapse or refresh semantics** (persistence-parity).
+- Icons come from `theme/icons.tsx` (add to registry, don't scatter Lucide imports).
+- Chat message **bodies/exports keep emoji**; only toolbar chrome changes (F8).
+- Website: help path locale stays `/{lang}/help/…` (language-policy); clinic portal untouched.
+
+## Suggested slices (each own `bi`/site check + commit)
+
+1. **Slice D1 · Trend chart (F3)** — highest value, highest risk. Prototype per-series mini
+   panels vs %-indexed single axis; pick the readable one. Isolated to the trend chart.
+2. **Slice D2 · Chat input (F8)** — simplify toolbar to Camera + input + Send; overflow the rest.
+3. **Slice D3 · Refresh (F9)** — surface pull-to-refresh + compact header refresh affordance.
+4. **Slice E1 · RTL user content (F13)** — shared detected-script align helper across Rules/
+   Targets/session summaries.
+5. **Slice E2 · Edit Meal delete clarity (F15)** — footer copy/confirm = whole meal.
+6. **Slice E3 · CGM illustration (F20)** — soften the drop mark.
+7. **Slice E4 · Website (F19)** — help layout width/formatting + landing H1 copy.
+
+Stop after each slice for confirmation (app slices need phone `bi`; E4 is web).
+
+## Primary files (to confirm during impl)
+
+| Concern | Likely file(s) |
+|---------|----------------|
+| Trend chart (F3) | `app/src/components/MetabolicChart.tsx` + trend section in `DashboardScreen.tsx`; ENERGY sparkline stack as pattern |
+| Chat toolbar (F8) | `app/src/screens/ChatScreen.tsx` (`inputToolbar`, `attachBtn`, `scrollBtn`, clear/expand) |
+| Refresh (F9) | `app/src/screens/DashboardScreen.tsx` (`RefreshControl handlePullRefresh`, "Refresh my data" action) |
+| RTL user content (F13) | `RulesStrip.tsx`, `NutritionDirectivesStrip.tsx`, targets display, shared align helper |
+| Edit Meal delete (F15) | `app/src/components/FoodLogModal.tsx` |
+| CGM illustration (F20) | `app/src/components/GearIllustrations.tsx` / CGM mark component |
+| Website (F19) | `website/` help pages + landing |
+
+## Do NOT touch (content, not chrome)
+`GeminiService.ts`, `mentorChatText.ts`, `mentorChatExport.ts`, `chatIntent.ts`,
+`ReviewService.ts`, `mealGlucoseAnalysis.ts`, clinic portal. Chart values/formulas.
+
+## Phone/site-tested checklist
+- [ ] Trend chart legible on small screen; no overlapping axis labels; same values
+- [ ] Chat input: Camera + text + Send obvious; extras discoverable, not cluttering
+- [ ] Refresh reachable without scrolling to bottom; existing bottom action still works
+- [ ] Hebrew/Arabic rules/targets/session text right-aligns in EN chrome; LTR unaffected
+- [ ] Edit Meal: clear that footer trash deletes the whole meal
+- [ ] CGM illustration softer, not alarming
+- [ ] Website help readable full-width on desktop; landing H1 patient-friendly
+- [ ] No changed AsyncStorage keys; refresh/collapse semantics intact
+
+## Related
+- `prompt92.txt` — audit source (F3, F8, F9, F13, F15, F19, F20).
+- `prompt93.txt`, `prompt94.txt` (done) — batches A–C.

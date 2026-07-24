@@ -12,6 +12,7 @@ Active / backlog specs stay in `prompts/app/`:
 | prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
 | `prompt81b.txt` | **Shipped** — Phase B → `done/prompt87.txt` |
 | `prompt92.txt` | UI/UX review brief + **review output (2026-07-24, Opus 4.8)** — 19 findings F2–F20 (F1 withdrawn), batches A–E; feeds prompt93+ |
+| `prompt95.txt` | Planned — Batches D+E: trend chart (F3), chat input (F8), refresh (F9), RTL user content (F13), Edit Meal delete (F15), CGM illustration (F20), website (F19); 7 slices |
 
 **prompt94** — done (2026-07-24). Batch C: Lucide icon registry + strip icons, mentor chrome + "AI doctor/…" labels, slim brand header + primary-tier navy accent, chrome glyphs (Meal navy / Water blue / Camera / Gallery). Phone-tested. See `done/prompt94.txt`. Next: prompt95 (Batches D+E).
 
