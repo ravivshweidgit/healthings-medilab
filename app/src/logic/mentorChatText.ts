@@ -207,9 +207,15 @@ export function parseChatMentorReply(raw: string, activeMentors: MentorType[]): 
   return normalizeMentorChatText(trimmed);
 }
 
+// Calm neutral-grey reading surface for every mentor bubble (audit follow-up) —
+// persona identity now comes from the soft colored border + the mentor icon in the
+// header, not a full-fill tint. Keeps green free for semantic success and stays
+// consistent when doctor/nutritionist/coach bubbles interleave.
+const MENTOR_BUBBLE_BG = '#F4F6F8';
+
 export function mentorBubbleColors(mentor: MentorType | null): { backgroundColor: string; borderColor: string } {
-  if (mentor === 'nutritionist') return { backgroundColor: '#EEF7EE', borderColor: '#A5D6A7' };
-  if (mentor === 'coach') return { backgroundColor: '#EEF4FC', borderColor: '#90CAF9' };
-  if (mentor === 'doctor') return { backgroundColor: '#FCEEF0', borderColor: '#EF9A9A' };
-  return { backgroundColor: '#F3F6F9', borderColor: '#DDE3EA' };
+  if (mentor === 'nutritionist') return { backgroundColor: MENTOR_BUBBLE_BG, borderColor: '#C7D2CB' };
+  if (mentor === 'coach') return { backgroundColor: MENTOR_BUBBLE_BG, borderColor: '#BBD3EC' };
+  if (mentor === 'doctor') return { backgroundColor: MENTOR_BUBBLE_BG, borderColor: '#E0C2C6' };
+  return { backgroundColor: MENTOR_BUBBLE_BG, borderColor: '#DDE3EA' };
 }
