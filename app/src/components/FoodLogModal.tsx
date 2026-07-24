@@ -48,6 +48,7 @@ import {
 import { getMacroTarget, getUserRules, type UserLanguage } from '../services/TargetService';
 import { getNutritionDirectiveAiContext } from '../services/NutritionDirectiveService';
 import { WellnessColors, cardShadow } from '../theme/wellness';
+import { ActionIcons, DashIcon } from '../theme/icons';
 import { formatEnergy, type EnergyUnit } from '../logic/unitConvert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -1106,11 +1107,11 @@ export function FoodLogModal({
               <View style={styles.idleWrap}>
                 <View style={styles.photoRow}>
                   <Pressable style={styles.cameraBtn} onPress={handleCamera}>
-                    <Text style={styles.cameraBtnIcon}>📷</Text>
+                    <DashIcon icon={ActionIcons.camera} size={34} color="#fff" />
                     <Text style={styles.cameraBtnLabel}>{ui.camera}</Text>
                   </Pressable>
                   <Pressable style={[styles.cameraBtn, styles.galleryBtn]} onPress={handleGallery}>
-                    <Text style={styles.cameraBtnIcon}>🖼</Text>
+                    <DashIcon icon={ActionIcons.gallery} size={34} color="#fff" />
                     <Text style={styles.cameraBtnLabel}>{ui.gallery}</Text>
                   </Pressable>
                 </View>
@@ -1333,11 +1334,13 @@ export function FoodLogModal({
                     ) : null}
 
                     <View style={styles.photoRow}>
-                      <Pressable style={styles.afterPhotoBtn} onPress={() => handleAddPhoto('camera')}>
-                        <Text style={styles.afterPhotoBtnText}>📷 New photo</Text>
+                      <Pressable style={[styles.afterPhotoBtn, styles.afterPhotoBtnRow]} onPress={() => handleAddPhoto('camera')}>
+                        <DashIcon icon={ActionIcons.camera} size={15} color={WellnessColors.textPrimary} />
+                        <Text style={styles.afterPhotoBtnText}>New photo</Text>
                       </Pressable>
-                      <Pressable style={styles.afterPhotoBtn} onPress={() => handleAddPhoto('gallery')}>
-                        <Text style={styles.afterPhotoBtnText}>🖼 Gallery</Text>
+                      <Pressable style={[styles.afterPhotoBtn, styles.afterPhotoBtnRow]} onPress={() => handleAddPhoto('gallery')}>
+                        <DashIcon icon={ActionIcons.gallery} size={15} color={WellnessColors.textPrimary} />
+                        <Text style={styles.afterPhotoBtnText}>Gallery</Text>
                       </Pressable>
                     </View>
 
@@ -1398,11 +1401,13 @@ export function FoodLogModal({
                       <View style={styles.addPhotoRow}>
                         <Text style={styles.addPhotoLabel}>Update with a photo:</Text>
                         <View style={styles.photoRow}>
-                          <Pressable style={styles.afterPhotoBtn} onPress={() => handleAddPhoto('camera')}>
-                            <Text style={styles.afterPhotoBtnText}>📷 Camera</Text>
+                          <Pressable style={[styles.afterPhotoBtn, styles.afterPhotoBtnRow]} onPress={() => handleAddPhoto('camera')}>
+                            <DashIcon icon={ActionIcons.camera} size={15} color={WellnessColors.textPrimary} />
+                            <Text style={styles.afterPhotoBtnText}>Camera</Text>
                           </Pressable>
-                          <Pressable style={styles.afterPhotoBtn} onPress={() => handleAddPhoto('gallery')}>
-                            <Text style={styles.afterPhotoBtnText}>🖼 Gallery</Text>
+                          <Pressable style={[styles.afterPhotoBtn, styles.afterPhotoBtnRow]} onPress={() => handleAddPhoto('gallery')}>
+                            <DashIcon icon={ActionIcons.gallery} size={15} color={WellnessColors.textPrimary} />
+                            <Text style={styles.afterPhotoBtnText}>Gallery</Text>
                           </Pressable>
                         </View>
                       </View>
@@ -2119,6 +2124,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: WellnessColors.progressTrack,
   },
+  afterPhotoBtnRow: { flexDirection: 'row', gap: 6 },
   afterPhotoBtnText: { fontSize: 13, fontWeight: '600', color: WellnessColors.textPrimary },
 
   chatRow: { flexDirection: 'row', gap: 8 },

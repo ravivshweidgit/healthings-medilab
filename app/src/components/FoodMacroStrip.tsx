@@ -32,7 +32,7 @@ import {
 } from '../services/WaterPersistenceService';
 import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
-import { StripIcons } from '../theme/icons';
+import { ActionIcons, DashIcon, StripIcons } from '../theme/icons';
 import type { DailyMacroTarget } from '../services/TargetService';
 import { getMacroTargetForDay, resolveFiberTarget_g, resolveNetCarbTarget_g } from '../services/TargetService';
 import { deriveNetCarb_g } from '../logic/macroFiberCoupling';
@@ -792,9 +792,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
           onPress={() => onAddMeal(activeDayKey)}
           accessibilityLabel="Add meal"
         >
-          <Text style={styles.addActionIcon} accessibilityElementsHidden>
-            🍴
-          </Text>
+          <DashIcon icon={ActionIcons.meal} size={20} color="#1F3D5C" />
           <Text style={styles.addActionLabel}>{ui.meal}</Text>
         </Pressable>
         <Pressable
@@ -802,9 +800,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
           onPress={openWaterSheet}
           accessibilityLabel={ui.addWater}
         >
-          <Text style={styles.addActionIcon} accessibilityElementsHidden>
-            💧
-          </Text>
+          <DashIcon icon={ActionIcons.water} size={20} color="#0288D1" />
           <Text style={[styles.addActionLabel, styles.addActionLabelWater]}>{ui.addWater}</Text>
         </Pressable>
       </View>
@@ -1241,8 +1237,8 @@ const styles = StyleSheet.create({
     borderStyle: 'solid',
   },
   addActionMeal: {
-    borderColor: 'rgba(76, 175, 80, 0.9)',
-    backgroundColor: 'rgba(76, 175, 80, 0.10)',
+    borderColor: 'rgba(31, 61, 92, 0.85)',
+    backgroundColor: 'rgba(31, 61, 92, 0.08)',
   },
   addActionWater: {
     borderColor: 'rgba(41, 182, 246, 0.9)',
@@ -1251,13 +1247,10 @@ const styles = StyleSheet.create({
   addActionPressed: {
     opacity: 0.75,
   },
-  addActionIcon: {
-    fontSize: 20,
-  },
   addActionLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: WellnessColors.accentGreen,
+    color: '#1F3D5C',
   },
   addActionLabelWater: {
     color: '#0288D1',

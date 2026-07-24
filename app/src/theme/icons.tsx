@@ -12,14 +12,17 @@ import { View, type StyleProp, type ViewStyle } from 'react-native';
 import {
   Activity,
   CalendarClock,
+  Camera,
   Droplet,
   Dumbbell,
   FlaskConical,
+  Image as ImageIcon,
   ListChecks,
   Salad,
   Settings,
   Stethoscope,
   TrendingUp,
+  Utensils,
   UtensilsCrossed,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -41,6 +44,14 @@ export const StripIcons = {
   sessions: CalendarClock,
   rules: ListChecks,
   water: Droplet,
+} as const;
+
+/** Action-button glyphs (chrome) — replaces emoji on tiles/toolbars. */
+export const ActionIcons = {
+  meal: Utensils,
+  water: Droplet,
+  camera: Camera,
+  gallery: ImageIcon,
 } as const;
 
 /** Mentor marks for UI chrome only — chat bodies/exports keep MENTOR_EMOJI. */

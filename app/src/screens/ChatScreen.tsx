@@ -80,7 +80,7 @@ import { exportMentorChat } from '../services/mentorChatExport';
 import { normalizeMentorChatText, buildMentorDisplaySegments, mentorBubbleColors, hasSeparateMentorVoices } from '../logic/mentorChatText';
 import type { MentorLines } from '../logic/mentorChatText';
 import { mentorPossessiveLabel, mentorsCollectiveLabel } from '../logic/mentorLabels';
-import { ActiveMentorIcons, MentorIcon } from '../theme/icons';
+import { ActionIcons, ActiveMentorIcons, DashIcon, MentorIcon } from '../theme/icons';
 import { getTodayMeals, getMealsForDay, buildMealsAiContext, foodLogDayKey } from '../services/FoodLogService';
 import { WellnessColors } from '../theme/wellness';
 import type { EnergyUnit } from '../logic/unitConvert';
@@ -1695,7 +1695,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
                     accessibilityRole="button"
                     accessibilityLabel={ui.attachTitle}
                   >
-                    <Text style={styles.attachBtnIcon}>📷</Text>
+                    <DashIcon icon={ActionIcons.camera} size={20} color={WellnessColors.accentBlue} />
                   </Pressable>
                   <Pressable
                     style={[styles.scrollBtn, !canScrollChat && styles.toolbarBtnDisabled]}

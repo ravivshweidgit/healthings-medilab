@@ -1,0 +1,43 @@
+# prompt94 — Icon system + dashboard hierarchy (UI/UX audit Batch C)
+
+**Status:** Shipped 2026-07-24 (Slices 1–4 phone-tested). Derived from `prompt92.txt`
+review output (Opus 4.8), findings **F7** (emoji-as-iconography), **F6** (dashboard
+card-soup), **F18** (slim brand header). Presentation only — no data/units/clinical-number
+or AsyncStorage key changes.
+
+**Builds on:** prompt93 (first-impression polish), prompt92 (audit), prompt62 (collapsible
+strips), language-policy + persistence-parity + ai-judgment rules.
+
+## What shipped
+
+| Slice | What | Key files |
+|-------|------|-----------|
+| **1** | Central Lucide registry + leading icons on Food Log / Glucose / Trend / Profile / Labs / Sessions | `theme/icons.tsx`, `DashboardCollapseHeader` `icon` prop, strip + `DashboardScreen` wiring |
+| **2** | Mentor chrome → Lucide (`Stethoscope` / `Salad` / `Dumbbell`); collapsed Mentors subtitle labels-only; **AI doctor / AI nutritionist / AI coach** (not "My …") in all 10 langs — `MENTOR_EMOJI` kept for chat/export/Gemini; selected cards + meal-review toggle use blue (not semantic green); card titles/subs centered | `icons.tsx`, `MentorStrip`, `ChatScreen`, `DashboardScreen` AI entry, `mentorLabels.ts` |
+| **3** | Slim brand header (max ~104px, was ~220); primary-tier navy left accent on AI chat + body metrics + Food Log; secondary strips unchanged | `DashboardScreen.tsx`, `FoodMacroStrip.tsx` |
+| **4** | Chrome glyphs: Meal `Utensils` (navy), Water `Droplet` (blue), chat attach + Log Meal camera/gallery → Lucide; PDF custom SVG left alone; chat/export emoji untouched | `icons.tsx` `ActionIcons`, `FoodMacroStrip`, `FoodLogModal`, `ChatScreen` |
+
+## Hard constraints honored
+
+- Icons augment labels; glossary English units unchanged.
+- Content emoji (Gemini, chat bodies, exports) untouched — `MENTOR_EMOJI` remains text source of truth.
+- No new storage keys; collapse/expand semantics unchanged.
+- Green reserved for semantic success; selection/chrome uses navy/blue.
+
+## Phone-tested checklist
+- [x] Every strip has a distinct leading icon; labels still readable + AA
+- [x] Primary vs secondary strips visually distinguishable at a glance
+- [x] Brand header slimmer; metrics/chat/Food Log higher on first load
+- [x] Mentor chrome shows icons; chat bodies + exports still show 🩺🥗💪
+- [x] Mentor labels read "AI doctor / …" (not "My …")
+- [x] Mentors selected state + meal-review toggle blue; Meal tile navy / Water blue
+- [x] No changed AsyncStorage keys; collapse state persists as before
+- [x] Slice 4 chrome glyphs (water / camera / gallery / meal)
+- [ ] RTL (he/ar) spot-check — icons lead correctly, no overlap (deferred)
+- [ ] de/ru/tr labels + icons no clipping (deferred)
+
+## Related
+- `prompt92.txt` — audit source (F6, F7, F18).
+- `prompt93.txt` (done) — batches A+B.
+- Next backlog: prompt95 = Batch D (F3 trend axis, F8 chat input, F9 refresh) + Batch E
+  (F13 RTL, F19 website, F15 delete clarity, F20 CGM illustration).
