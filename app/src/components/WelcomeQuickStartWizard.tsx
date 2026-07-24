@@ -107,7 +107,8 @@ import {
   UtensilsCrossed,
 } from 'lucide-react-native';
 import { GearHeroCard } from './GearIllustrations';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import { PhoneHealthActivityStrip } from './PhoneHealthActivityStrip';
 import { UnitsPreferenceSection } from './UnitsPreferenceSection';
 
@@ -235,6 +236,8 @@ function LanguageGateHero({
   selectedCode: string;
   onSelect: (code: string) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const selected = languageGateOption(selectedCode);
   const selectedRtl = selectedCode === 'he' || selectedCode === 'ar';
   return (
@@ -295,6 +298,8 @@ function LanguageGateHero({
 }
 
 function WelcomeBrandMark({ brandTag, compact }: { brandTag: string; compact?: boolean }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width: windowWidth } = useWindowDimensions();
   const contentW = Math.max(1, windowWidth - SCROLL_HORIZONTAL_PADDING * 2);
   const fullH = useMemo(() => {
@@ -358,6 +363,8 @@ function HelpButton({
   /** Icon-only (for field labels / title row). */
   compact?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const shown = label ?? defaultLabel;
   return (
     <Pressable
@@ -390,6 +397,8 @@ function StepHeading({
   textStyle?: object;
   rtl?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={[styles.stepHeading, rtl && styles.stepHeadingRtl]}>
       <Text style={[styles.question, textStyle]}>{title}</Text>
@@ -414,6 +423,8 @@ function QuestionYesNo({
   noLabel: string;
   coachLabel: string;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!highlight) {
@@ -442,7 +453,7 @@ function QuestionYesNo({
 
   const coachBorder = pulse.interpolate({
     inputRange: [0, 1],
-    outputRange: [WellnessColors.gridLine, NEXT_BLUE_DEEP],
+    outputRange: [colors.gridLine, NEXT_BLUE_DEEP],
   });
 
   const selected = { backgroundColor: BRAND_NAVY, borderColor: BRAND_NAVY };
@@ -497,6 +508,8 @@ function FieldLabelWithHelp({
   href: string;
   textStyle?: object;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.fieldLabelRow}>
       <Text style={[styles.fieldLabel, styles.fieldLabelFlush, textStyle]}>{label}</Text>
@@ -506,6 +519,8 @@ function FieldLabelWithHelp({
 }
 
 export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [stepId, setStepId] = useState<StepId>('language');
   const [gender, setGenderPick] = useState<Gender>('male');
   const [mentorGender, setMentorGenderPick] = useState<Gender>('female');
@@ -1361,7 +1376,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                 onChangeText={setHeightInput}
                 keyboardType={unitsPrefs.height === 'ftin' ? 'default' : 'number-pad'}
                 placeholder={unitsPrefs.height === 'ftin' ? "e.g. 5'9\"" : 'e.g. 175'}
-                placeholderTextColor={WellnessColors.textSecondary}
+                placeholderTextColor={colors.textSecondary}
               />
               <Text style={[styles.fieldLabel, copyAlign]}>{t.body.birthDate}</Text>
               <Pressable style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
@@ -1548,7 +1563,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                     onChangeText={setWeightInput}
                     keyboardType="decimal-pad"
                     placeholder={unitsPrefs.mass === 'lb' ? 'e.g. 173' : 'e.g. 78.5'}
-                    placeholderTextColor={WellnessColors.textSecondary}
+                    placeholderTextColor={colors.textSecondary}
                   />
                   {!hasScale ? (
                     <HelpButton
@@ -1679,7 +1694,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
               {targetsBusy ? (
                 <ActivityIndicator
                   size="large"
-                  color={WellnessColors.accentGreen}
+                  color={colors.accentGreen}
                   style={{ marginVertical: 24 }}
                 />
               ) : null}
@@ -1865,17 +1880,18 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: WellnessColors.background },
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.background },
   header: {
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: WellnessColors.gridLine,
+    borderBottomColor: c.gridLine,
   },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: WellnessColors.textPrimary },
-  headerSub: { fontSize: 14, color: WellnessColors.textSecondary, marginTop: 4 },
+  headerTitle: { fontSize: 22, fontWeight: '700', color: c.textPrimary },
+  headerSub: { fontSize: 14, color: c.textSecondary, marginTop: 4 },
   languageGateContent: {
     flexGrow: 1,
     paddingTop: 4,
@@ -1929,7 +1945,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     backgroundColor: '#FFFFFF',
   },
   gateGridCellOn: {
@@ -1949,7 +1965,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 15,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     textAlign: 'center',
   },
   gateFlagNativeRtl: {
@@ -1968,7 +1984,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: WellnessColors.gridLine,
+    borderBottomColor: c.gridLine,
   },
   brandLogoWrap: {
     width: '100%',
@@ -2003,7 +2019,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: WellnessColors.gridLine,
+    backgroundColor: c.gridLine,
   },
   dotOn: { backgroundColor: BRAND_NAVY },
   scroll: { flex: 1 },
@@ -2012,7 +2028,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 22,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     lineHeight: 28,
     paddingRight: 8,
   },
@@ -2036,7 +2052,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: WellnessColors.gridLine,
+    borderTopColor: c.gridLine,
   },
   helpIconBtn: {
     width: 44,
@@ -2065,11 +2081,11 @@ const styles = StyleSheet.create({
     color: NEXT_BLUE_DEEP,
   },
   helpPressed: { opacity: 0.7 },
-  lead: { fontSize: 15, lineHeight: 22, color: WellnessColors.textPrimary, marginBottom: 16 },
+  lead: { fontSize: 15, lineHeight: 22, color: c.textPrimary, marginBottom: 16 },
   fieldLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginTop: 12,
     marginBottom: 8,
   },
@@ -2080,13 +2096,13 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
-    color: WellnessColors.textPrimary,
-    backgroundColor: WellnessColors.surface,
+    color: c.textPrimary,
+    backgroundColor: c.surface,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
@@ -2094,22 +2110,22 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
   },
   chipOn: { backgroundColor: BRAND_NAVY, borderColor: BRAND_NAVY },
-  chipText: { fontSize: 14, fontWeight: '600', color: WellnessColors.textSecondary },
+  chipText: { fontSize: 14, fontWeight: '600', color: c.textSecondary },
   chipTextOn: { color: '#fff' },
   dateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 10,
     padding: 12,
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
   },
-  dateBtnText: { fontSize: 15, color: WellnessColors.textPrimary },
-  hint: { fontSize: 13, lineHeight: 19, color: WellnessColors.textSecondary, marginTop: 6 },
+  dateBtnText: { fontSize: 15, color: c.textPrimary },
+  hint: { fontSize: 13, lineHeight: 19, color: c.textSecondary, marginTop: 6 },
   yesNoBlock: { marginTop: 8, marginBottom: 8 },
   yesNoRow: { flexDirection: 'row', gap: 12 },
   yesNoBtnOuter: {
@@ -2121,10 +2137,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
-    backgroundColor: WellnessColors.surface,
+    borderColor: c.gridLine,
+    backgroundColor: c.surface,
   },
-  yesNoText: { fontSize: 18, fontWeight: '700', color: WellnessColors.textSecondary },
+  yesNoText: { fontSize: 18, fontWeight: '700', color: c.textSecondary },
   yesNoTextOn: { color: '#fff' },
   yesNoCoachHint: {
     textAlign: 'center',
@@ -2138,46 +2154,46 @@ const styles = StyleSheet.create({
     borderColor: '#2E7D5A',
     borderRadius: 12,
     padding: 14,
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     marginBottom: 8,
   },
   successText: { fontSize: 16, fontWeight: '700', color: '#2E7D5A' },
   rulesPreview: {
     fontSize: 11,
     lineHeight: 16,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginTop: 8,
     marginBottom: 4,
     padding: 10,
     borderRadius: 8,
-    backgroundColor: WellnessColors.progressTrack,
+    backgroundColor: c.progressTrack,
   },
-  bullet: { fontSize: 14, lineHeight: 22, color: WellnessColors.textPrimary, marginBottom: 8 },
+  bullet: { fontSize: 14, lineHeight: 22, color: c.textPrimary, marginBottom: 8 },
   optionCard: {
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 12,
     padding: 14,
     marginBottom: 10,
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
   },
   optionCardOn: { borderColor: '#2E7D5A', borderWidth: 2 },
-  optionTitle: { fontSize: 15, fontWeight: '700', color: WellnessColors.textPrimary },
+  optionTitle: { fontSize: 15, fontWeight: '700', color: c.textPrimary },
   welcomeCard: {
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 12,
     padding: 14,
     marginBottom: 8,
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
   },
   reportCard: {
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 12,
     padding: 14,
     marginBottom: 14,
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
   },
   reportCardHeader: {
     flexDirection: 'row',
@@ -2196,17 +2212,17 @@ const styles = StyleSheet.create({
   doneBadgeNavy: { fontSize: 12, fontWeight: '700', color: BRAND_NAVY, marginTop: 8 },
   targetSummary: {
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 12,
     padding: 14,
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
   },
   footer: {
     flexDirection: 'row',
     gap: 10,
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: WellnessColors.gridLine,
+    borderTopColor: c.gridLine,
     paddingBottom: Platform.OS === 'android' ? 24 : 16,
   },
   footerGate: {
@@ -2277,16 +2293,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     borderWidth: 2,
-    borderColor: WellnessColors.textSecondary,
+    borderColor: c.textSecondary,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
   },
   btnGhostPressed: {
     borderColor: BRAND_NAVY,
     backgroundColor: 'rgba(26, 43, 74, 0.06)',
     transform: [{ scale: 0.97 }],
   },
-  btnGhostText: { color: WellnessColors.textSecondary, fontWeight: '600', fontSize: 15 },
+  btnGhostText: { color: c.textSecondary, fontWeight: '600', fontSize: 15 },
   errorText: { fontSize: 13, color: '#c0392b', marginTop: 10 },
-});
+  });

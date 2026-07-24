@@ -12,7 +12,7 @@ type Props = {
 export function RulesAdviceBanner({ advice, rtl, title }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const heading = title ?? (rtl ? '×”×›×œ×œ×™× ×©×œ×™ â€” ×ž×•×ž×œ×¥ ×œ×¢×“×›×Ÿ' : 'My Rules â€” suggested update');
+  const heading = title ?? (rtl ? 'הכללים שלי — מומלץ לעדכן' : 'My Rules — suggested update');
   return (
     <View style={styles.wrap}>
       <Text style={[styles.title, rtl && styles.rtl]}>{heading}</Text>

@@ -1,5 +1,5 @@
 /**
- * Food Log Modal â€” camera / text â†’ Gemini AI â†’ correction chat â†’ save.
+ * Food Log Modal — camera / text → Gemini AI → correction chat → save.
  * New meal: text or first photo auto-saves and stays open for Done review.
  * Photo add/remove merge on existing meals still uses approve preview.
  */
@@ -54,7 +54,7 @@ import { ActionIcons, DashIcon } from '../theme/icons';
 import { formatEnergy, type EnergyUnit } from '../logic/unitConvert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 type Screen = 'idle' | 'pickPast' | 'analyzing' | 'result' | 'saving';
 
@@ -75,14 +75,14 @@ type Props = {
   onSaved: (opts?: { close?: boolean }) => void | Promise<void>;
   initialTimestamp?: number;
   editEntry?: FoodEntry;
-  /** Pre-fill from recipe card (prompt40) â€” opens on result screen. */
+  /** Pre-fill from recipe card (prompt40) — opens on result screen. */
   prefillItems?: FoodItem[];
   prefillDescription?: string;
   lang?: UserLanguage | null;
   energyUnit?: EnergyUnit;
 };
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatTime(ms: number, langCode?: string | null): string {
   return formatLocalizedTime(ms, langCode, { hour: '2-digit', minute: '2-digit' });
@@ -116,15 +116,15 @@ function mealSlotLabel(entry: FoodEntry, copy: ReturnType<typeof getFoodLogUiCop
   return copy.dinner;
 }
 
-/** First 1â€“2 item display names for past-meal picker rows. */
+/** First 1–2 item display names for past-meal picker rows. */
 function pastMealItemsPreview(entry: FoodEntry, max = 2): string {
   const names = (entry.items ?? [])
     .map((it) => (it.name_local ?? it.name)?.trim())
     .filter((n): n is string => !!n);
   if (names.length === 0) return '';
   const shown = names.slice(0, max);
-  const more = names.length > max ? 'â€¦' : '';
-  return `${shown.join(' Â· ')}${more}`;
+  const more = names.length > max ? '…' : '';
+  return `${shown.join(' · ')}${more}`;
 }
 
 function cloneFoodItems(src: FoodItem[]): FoodItem[] {
@@ -152,7 +152,7 @@ function confidenceColor(c: 'high' | 'medium' | 'low'): string {
 
 function macroSummary(items: FoodItem[], energyUnit: EnergyUnit = 'kcal'): string {
   const t = computeTotals(items);
-  return `${formatEnergy(t.totalKcal, energyUnit)} Â· P ${t.totalProtein_g.toFixed(0)}g Â· C ${t.totalCarb_g.toFixed(0)}g Â· F ${t.totalFat_g.toFixed(0)}g Â· Fi ${t.totalFiber_g.toFixed(0)}g`;
+  return `${formatEnergy(t.totalKcal, energyUnit)} · P ${t.totalProtein_g.toFixed(0)}g · C ${t.totalCarb_g.toFixed(0)}g · F ${t.totalFat_g.toFixed(0)}g · Fi ${t.totalFiber_g.toFixed(0)}g`;
 }
 
 function macroDelta(before: FoodItem[], after: FoodItem[], energyUnit: EnergyUnit = 'kcal'): string {
@@ -164,7 +164,7 @@ function macroDelta(before: FoodItem[], after: FoodItem[], energyUnit: EnergyUni
   const df = (a.totalFat_g - b.totalFat_g).toFixed(0);
   const dfi = (a.totalFiber_g - b.totalFiber_g).toFixed(0);
   const e = formatEnergy(dk, energyUnit);
-  return `${dk > 0 ? '+' : ''}${e} Â· P ${dp}g Â· C ${dc}g Â· F ${df}g Â· Fi ${dfi}g`;
+  return `${dk > 0 ? '+' : ''}${e} · P ${dp}g · C ${dc}g · F ${df}g · Fi ${dfi}g`;
 }
 
 function capMealTimestamp(ms: number): number {
@@ -217,7 +217,7 @@ function applyAnalysisResult(
   };
 }
 
-// â”€â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Sub-components ──────────────────────────────────────────────────────────
 
 function parseNum(raw: string): number {
   const n = Number(String(raw).replace(',', '.').trim());
@@ -271,7 +271,7 @@ function FoodItemsCard({
           >
             <View style={styles.itemTopRow}>
               <View style={styles.itemNameRow}>
-                {flagged ? <Text style={styles.itemWarningDot}>âš </Text> : null}
+                {flagged ? <Text style={styles.itemWarningDot}>⚠</Text> : null}
                 <Text
                   style={[styles.itemName, flagged && styles.itemNameFlagged]}
                 >
@@ -308,7 +308,7 @@ function FoodItemsCard({
             <View style={styles.itemMetricsRow}>
               <Text style={styles.itemKcal}>{formatEnergy(item.kcal, energyUnit)}</Text>
               <Text style={styles.itemMacros}>
-                P {item.protein_g}g Â· C {item.carb_g}g Â· F {item.fat_g}g Â· Fi {item.fiber_g ?? 0}g
+                P {item.protein_g}g · C {item.carb_g}g · F {item.fat_g}g · Fi {item.fiber_g ?? 0}g
               </Text>
             </View>
           </View>
@@ -321,7 +321,7 @@ function FoodItemsCard({
   );
 }
 
-// â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export function FoodLogModal({
   visible,
@@ -477,7 +477,7 @@ export function FoodLogModal({
       setScreen('result');
       setItems(editEntry.items);
       setMealTime(editEntry.timestamp);
-      setDescription('Editing saved meal â€” add a photo or use chat to correct');
+      setDescription('Editing saved meal — add a photo or use chat to correct');
       setEditingId(editEntry.id);
       setMealHistory(seedMealHistory(editEntry, lang));
       setPhotoSession(null);
@@ -592,7 +592,7 @@ export function FoodLogModal({
   );
 
   /**
-   * New meal (text or first photo): analyze â†’ save when clean, stay open to review time/items.
+   * New meal (text or first photo): analyze → save when clean, stay open to review time/items.
    * Photo +/- merge on existing items / edits stay multi-step.
    */
   const tryAutoSaveNewMeal = useCallback(
@@ -627,7 +627,7 @@ export function FoodLogModal({
     [editingId, mealTime, recomputeMealIssues, persistMealItems],
   );
 
-  // Recipe "Log meal" â€” same one-tap save when clean.
+  // Recipe "Log meal" — same one-tap save when clean.
   React.useEffect(() => {
     if (!visible || editEntry) return;
     if (!prefillItems || prefillItems.length === 0) return;
@@ -653,7 +653,7 @@ export function FoodLogModal({
         if (cancelled) return;
         setItems((prev) => syncFoodItemRuleFlags(prev, geminiIssues));
       } catch {
-        // Offline â€” keep items; macro checks still run.
+        // Offline — keep items; macro checks still run.
       }
     })();
 
@@ -725,7 +725,7 @@ export function FoodLogModal({
         setSuggestion(result.suggestion);
         setMealHistory(updatedHistory);
 
-        // First parse (text): describe + send â†’ auto-save when clean.
+        // First parse (text): describe + send → auto-save when clean.
         if (hist.length === 0 && !editingId && result.items.length > 0) {
           const saved = await tryAutoSaveNewMeal(result.items, {
             fromPhoto: false,
@@ -772,9 +772,9 @@ export function FoodLogModal({
         const isFirstPhotoNewMeal =
           hist.length === 0 && !editingId && items.length === 0 && result.items.length > 0;
 
-        // First photo on a new meal: same as text â€” auto-save, stay open, Done (no Use/Approve/Save).
-        // Do NOT setItems for edit / add-photo paths â€” photo lives in photoSession until
-        // "+ Add to meal" / "Use as meal" â†’ Approve (prompt20). Overwriting items wiped the meal.
+        // First photo on a new meal: same as text — auto-save, stay open, Done (no Use/Approve/Save).
+        // Do NOT setItems for edit / add-photo paths — photo lives in photoSession until
+        // "+ Add to meal" / "Use as meal" → Approve (prompt20). Overwriting items wiped the meal.
         if (isFirstPhotoNewMeal) {
           const saved = await tryAutoSaveNewMeal(result.items, {
             fromPhoto: true,
@@ -1055,7 +1055,7 @@ export function FoodLogModal({
   const handleSaveAnyway = useCallback(async () => {
     if (items.length === 0) {
       setShowIssueModal(false);
-      setError('Nothing to save â€” meal items are missing. Edit or re-analyze, then save.');
+      setError('Nothing to save — meal items are missing. Edit or re-analyze, then save.');
       setScreen('result');
       return;
     }
@@ -1076,15 +1076,15 @@ export function FoodLogModal({
 
   const showMealSection = items.length > 0 || editingId != null;
   const describePlaceholder = rtl
-    ? '×œ×ž×©×œ "×©×™×™×§ ×—×œ×‘×•×Ÿ" ××• "×”×•×¡×£ ××ª ×”×©×™×™×§ ×ž××ª×ž×•×œ ×‘×¢×¨×‘"'
+    ? 'למשל "שייק חלבון" או "הוסף את השייק מאתמול בערב"'
     : 'e.g. "protein shake" or "add last evening\'s shake"';
   const chatPlaceholder = photoSession
     ? rtl
-      ? '×ª×™×§×•×Ÿ ×ž×”×ª×ž×•× ×”: "×—×¦×™ ×¤×™×ª×”", "×”×•×¡×£ ×§×¤×”"â€¦'
-      : 'Correct photo list: "only half the pita", "add coffee"â€¦'
+      ? 'תיקון מהתמונה: "חצי פיתה", "הוסף קפה"…'
+      : 'Correct photo list: "only half the pita", "add coffee"…'
     : rtl
-      ? '×ª×™×§×•×Ÿ ××• ×ž×”×¢×‘×¨: "××•×ª×” ××¨×•×—×ª ×¢×•×£", "×”×©×™×™×§ ×”×¨×’×™×œ ×©×œ×™"â€¦'
-      : 'Correct or from history: "same chicken meal", "my usual shake"â€¦';
+      ? 'תיקון או מהעבר: "אותה ארוחת עוף", "השייק הרגיל שלי"…'
+      : 'Correct or from history: "same chicken meal", "my usual shake"…';
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
@@ -1104,7 +1104,7 @@ export function FoodLogModal({
               hitSlop={12}
               disabled={screen === 'saving'}
             >
-              <Text style={styles.closeBtnText}>{screen === 'pickPast' ? 'â†' : 'âœ•'}</Text>
+              <Text style={styles.closeBtnText}>{screen === 'pickPast' ? '←' : '✕'}</Text>
             </Pressable>
           </View>
 
@@ -1140,7 +1140,7 @@ export function FoodLogModal({
                     onPress={handleTextSubmit}
                     disabled={!textPrompt.trim()}
                   >
-                    <Text style={styles.sendBtnText}>â†’</Text>
+                    <Text style={styles.sendBtnText}>→</Text>
                   </Pressable>
                 </View>
 
@@ -1166,7 +1166,7 @@ export function FoodLogModal({
                     hitSlop={8}
                     accessibilityLabel="Previous day"
                   >
-                    <Text style={styles.browseDayBtnText}>â€¹</Text>
+                    <Text style={styles.browseDayBtnText}>‹</Text>
                   </Pressable>
                   <Text style={styles.browseDayLabel}>
                     {formatBrowseDayLabel(browseDayMs, lang?.code)}
@@ -1182,7 +1182,7 @@ export function FoodLogModal({
                     hitSlop={8}
                     accessibilityLabel="Next day"
                   >
-                    <Text style={styles.browseDayBtnText}>â€º</Text>
+                    <Text style={styles.browseDayBtnText}>›</Text>
                   </Pressable>
                 </View>
 
@@ -1243,7 +1243,7 @@ export function FoodLogModal({
                   <Image source={{ uri: analyzingPhotoUri }} style={styles.photoThumb} resizeMode="cover" />
                 ) : null}
                 <ActivityIndicator color={colors.accentBlue} size="large" style={{ marginTop: 24 }} />
-                <Text style={styles.analyzingLabel}>Analyzingâ€¦</Text>
+                <Text style={styles.analyzingLabel}>Analyzing…</Text>
               </View>
             )}
 
@@ -1252,7 +1252,7 @@ export function FoodLogModal({
                 {autoSavedBanner ? (
                   <View style={styles.autoSavedBanner}>
                     <Text style={styles.autoSavedBannerText}>
-                      Saved â€” check time and items, then tap Done. Use chat to correct if needed.
+                      Saved — check time and items, then tap Done. Use chat to correct if needed.
                     </Text>
                   </View>
                 ) : null}
@@ -1283,7 +1283,7 @@ export function FoodLogModal({
                         <Text style={styles.cancelPreviewBtnText}>Cancel</Text>
                       </Pressable>
                       <Pressable style={styles.approveBtn} onPress={handleApproveMerge} disabled={screen === 'saving'}>
-                        <Text style={styles.approveBtnText}>âœ“ Approve update</Text>
+                        <Text style={styles.approveBtnText}>✓ Approve update</Text>
                       </Pressable>
                     </View>
                   </View>
@@ -1323,10 +1323,10 @@ export function FoodLogModal({
                     >
                       <Text style={[styles.confidenceText, { color: confidenceColor(photoSession.confidence) }]}>
                         {photoSession.confidence === 'high'
-                          ? 'âœ“ High confidence'
+                          ? '✓ High confidence'
                           : photoSession.confidence === 'medium'
-                            ? 'âš  Medium confidence'
-                            : 'âš  Low confidence'}
+                            ? '⚠ Medium confidence'
+                            : '⚠ Low confidence'}
                       </Text>
                     </View>
                     {photoSession.description ? (
@@ -1335,7 +1335,7 @@ export function FoodLogModal({
                     <FoodItemsCard items={photoSession.items} title="From photo" energyUnit={energyUnit} />
                     {photoSession.suggestion ? (
                       <View style={styles.suggestionBox}>
-                        <Text style={styles.suggestionText}>ðŸ’¡ {photoSession.suggestion}</Text>
+                        <Text style={styles.suggestionText}>💡 {photoSession.suggestion}</Text>
                       </View>
                     ) : null}
 
@@ -1362,7 +1362,7 @@ export function FoodLogModal({
                               <Text style={styles.addBtnText}>+ Add to meal</Text>
                             </Pressable>
                             <Pressable style={styles.removeBtn} onPress={() => handleStartMerge('remove')}>
-                              <Text style={styles.removeBtnText}>âˆ’ Remove from meal</Text>
+                              <Text style={styles.removeBtnText}>− Remove from meal</Text>
                             </Pressable>
                           </>
                         )}
@@ -1387,15 +1387,15 @@ export function FoodLogModal({
                     >
                       <Text style={[styles.confidenceText, { color: confidenceColor(confidence) }]}>
                         {confidence === 'high'
-                          ? 'âœ“ High confidence'
+                          ? '✓ High confidence'
                           : confidence === 'medium'
-                            ? 'âš  Medium confidence'
-                            : 'âš  Low confidence'}
+                            ? '⚠ Medium confidence'
+                            : '⚠ Low confidence'}
                       </Text>
                     </View>
                     {suggestion ? (
                       <View style={styles.suggestionBox}>
-                        <Text style={styles.suggestionText}>ðŸ’¡ {suggestion}</Text>
+                        <Text style={styles.suggestionText}>💡 {suggestion}</Text>
                       </View>
                     ) : null}
                   </>
@@ -1436,14 +1436,14 @@ export function FoodLogModal({
                         onPress={handleCorrection}
                         disabled={!chatText.trim() || screen !== 'result'}
                       >
-                        <Text style={styles.sendBtnText}>â†’</Text>
+                        <Text style={styles.sendBtnText}>→</Text>
                       </Pressable>
                     </View>
                   </>
                 ) : null}
 
                 <Pressable style={styles.timeRow} onPress={openMealDateTimePicker}>
-                  <Text style={styles.timeLabel}>ðŸ• Date & time:</Text>
+                  <Text style={styles.timeLabel}>🕐 Date & time:</Text>
                   <Text style={styles.timeValue}>{formatMealDateTime(mealTime, lang?.code)}</Text>
                   <Text style={styles.timeEdit}>Edit</Text>
                 </Pressable>
@@ -1545,7 +1545,7 @@ export function FoodLogModal({
             <View style={styles.savingOverlay} pointerEvents="auto">
               <View style={styles.savingCard}>
                 <ActivityIndicator color={colors.accentBlue} size="large" />
-                <Text style={styles.savingTitle}>Saving mealâ€¦</Text>
+                <Text style={styles.savingTitle}>Saving meal…</Text>
                 <Text style={styles.savingSub}>Updating your food log</Text>
               </View>
             </View>
@@ -1646,7 +1646,7 @@ export function FoodLogModal({
   );
 }
 
-// â”€â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
@@ -1730,7 +1730,7 @@ const makeStyles = (c: ThemeColors) =>
     gap: 8,
     ...cardShadow,
   },
-  // On-brand navy (was off-brand purple #7B1FA2) â€” same blue family as the camera
+  // On-brand navy (was off-brand purple #7B1FA2) — same blue family as the camera
   // tile, distinguished by icon rather than a foreign hue.
   galleryBtn: { backgroundColor: '#1F3D5C' },
   cameraBtnIcon: { fontSize: 36 },

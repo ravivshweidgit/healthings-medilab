@@ -105,7 +105,7 @@ export function NutritionDirectiveReviewModal({
       const msg = e instanceof Error ? e.message : 'Could not read PDF';
       setError(msg);
       if (autoPickPdf) {
-        Alert.alert(rtl ? '×©×’×™××”' : 'Error', msg);
+        Alert.alert(rtl ? 'שגיאה' : 'Error', msg);
         onClose();
       }
     } finally {
@@ -133,7 +133,7 @@ export function NutritionDirectiveReviewModal({
       onClose();
     } catch (e: unknown) {
       Alert.alert(
-        rtl ? '×©×’×™××”' : 'Error',
+        rtl ? 'שגיאה' : 'Error',
         e instanceof Error ? e.message : 'Save failed',
       );
     } finally {
@@ -151,14 +151,14 @@ export function NutritionDirectiveReviewModal({
             {copy.importTitle}
           </Text>
           <Pressable onPress={onClose} hitSlop={12}>
-            <Text style={styles.close}>âœ•</Text>
+            <Text style={styles.close}>✕</Text>
           </Pressable>
         </View>
 
         {loading && (
           <View style={styles.center}>
             <ActivityIndicator color={colors.accentGreen} size="large" />
-            <Text style={styles.hint}>{rtl ? '×ž×—×œ×¥ ×˜×§×¡×˜ ×ž×”-PDFâ€¦' : 'Extracting text from PDFâ€¦'}</Text>
+            <Text style={styles.hint}>{rtl ? 'מחלץ טקסט מה-PDF…' : 'Extracting text from PDF…'}</Text>
           </View>
         )}
 
@@ -166,7 +166,7 @@ export function NutritionDirectiveReviewModal({
           <View style={styles.center}>
             {error ? <Text style={styles.error}>{error}</Text> : null}
             <Pressable style={styles.pickBtn} onPress={() => void pickAndParse()}>
-              <Text style={styles.pickBtnText}>{rtl ? '×‘×—×¨ PDF' : 'Choose PDF'}</Text>
+              <Text style={styles.pickBtnText}>{rtl ? 'בחר PDF' : 'Choose PDF'}</Text>
             </Pressable>
           </View>
         )}
@@ -176,12 +176,12 @@ export function NutritionDirectiveReviewModal({
             <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
               <Text style={styles.note}>
                 {rtl
-                  ? '×”×˜×§×¡×˜ × ×©×ž×¨ ×›×¤×™ ×©×”×•×¤×™×¢ ×‘×“×•×— â€” × ×™×ª×Ÿ ×œ×¢×¨×•×š ×œ×¤× ×™ ×©×ž×™×¨×”.'
-                  : 'Text is saved as written in the report â€” edit before saving if needed.'}
+                  ? 'הטקסט נשמר כפי שהופיע בדוח — ניתן לערוך לפני שמירה.'
+                  : 'Text is saved as written in the report — edit before saving if needed.'}
               </Text>
               <View style={styles.metaRow}>
                 <View style={styles.metaField}>
-                  <Text style={styles.fieldLabel}>{rtl ? '×›×•×ª×¨×ª' : 'Title'}</Text>
+                  <Text style={styles.fieldLabel}>{rtl ? 'כותרת' : 'Title'}</Text>
                   <TextInput
                     style={styles.metaInput}
                     value={draft.title}
@@ -189,7 +189,7 @@ export function NutritionDirectiveReviewModal({
                   />
                 </View>
                 <View style={styles.metaField}>
-                  <Text style={styles.fieldLabel}>{rtl ? '×ª××¨×™×š ×ž×¤×’×©' : 'Session date'}</Text>
+                  <Text style={styles.fieldLabel}>{rtl ? 'תאריך מפגש' : 'Session date'}</Text>
                   <TextInput
                     style={styles.metaInput}
                     value={draft.sessionDate ?? ''}
@@ -200,7 +200,7 @@ export function NutritionDirectiveReviewModal({
                   />
                 </View>
               </View>
-              <Text style={styles.fieldLabel}>{rtl ? '×˜×§×¡×˜ ×”×“×•×—' : 'Report text'}</Text>
+              <Text style={styles.fieldLabel}>{rtl ? 'טקסט הדוח' : 'Report text'}</Text>
               <TextInput
                 style={[styles.bodyInput, rtl && styles.bodyRtl]}
                 value={draft.fullText}
@@ -219,7 +219,7 @@ export function NutritionDirectiveReviewModal({
                 {saving ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.saveBtnText}>{rtl ? '×©×ž×•×¨ ×“×•×—' : 'Save report'}</Text>
+                  <Text style={styles.saveBtnText}>{rtl ? 'שמור דוח' : 'Save report'}</Text>
                 )}
               </Pressable>
             </View>

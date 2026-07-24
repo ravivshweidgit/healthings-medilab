@@ -1,5 +1,5 @@
 /**
- * Nutritionist session reports â€” dashboard card (same pattern as LabResultsStrip).
+ * Nutritionist session reports — dashboard card (same pattern as LabResultsStrip).
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -116,7 +116,7 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
   }, [onChanged, copy.cancel, copy.delete, copy.deleteTitle]);
 
   const summaryLine = active
-    ? `${copy.activePrefix}: ${active.title} Â· ${formatDirectiveDate(active, lang?.code)}`
+    ? `${copy.activePrefix}: ${active.title} · ${formatDirectiveDate(active, lang?.code)}`
     : copy.emptyHint;
 
   return (
@@ -141,7 +141,7 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
           onPress={openImport}
           accessibilityLabel={copy.addSession}
         >
-          <Text style={styles.addChipIcon}>ï¼‹</Text>
+          <Text style={styles.addChipIcon}>＋</Text>
           <Text style={styles.addChipLabel}>{copy.addSession}</Text>
         </Pressable>
         {directives.map((entry) => {
@@ -163,7 +163,7 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
                 <Text style={styles.chipActiveBadge}>{copy.activeBadge}</Text>
               ) : null}
               {preview ? <Text style={[styles.chipHi, contentAlignStyle(preview)]} numberOfLines={2}>{preview}</Text> : null}
-              <Text style={styles.chipEdit}>âœŽ {copy.view}</Text>
+              <Text style={styles.chipEdit}>✎ {copy.view}</Text>
             </Pressable>
           );
         })}

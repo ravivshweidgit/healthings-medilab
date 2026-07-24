@@ -1,5 +1,5 @@
 /**
- * My Mentors â€” multi-select toggle for AI mentor personas.
+ * My Mentors — multi-select toggle for AI mentor personas.
  * At least one must always be selected.
  */
 
@@ -31,11 +31,11 @@ const MENTOR_TYPES: MentorType[] = ['doctor', 'nutritionist', 'coach'];
 
 function minGapLabel(hours: number, lang?: UserLanguage | null): string {
   if (lang?.code === 'he') {
-    if (hours === 0) return '×œ×œ× ×ž×¨×•×•×— ×ž×™× ×™×ž×œ×™ â€” ×¨×¢× ×•×Ÿ ×‘×›×œ ×¢×ª';
-    if (hours === 1) return '×©×¢×” ×ž×™× ×™×ž×•× ×‘×™×Ÿ ×¡×§×™×¨×•×ª';
-    return `${hours} ×©×¢×•×ª ×ž×™× ×™×ž×•× ×‘×™×Ÿ ×¡×§×™×¨×•×ª`;
+    if (hours === 0) return 'ללא מרווח מינימלי — רענון בכל עת';
+    if (hours === 1) return 'שעה מינימום בין סקירות';
+    return `${hours} שעות מינימום בין סקירות`;
   }
-  if (hours === 0) return 'No minimum gap â€” refresh anytime';
+  if (hours === 0) return 'No minimum gap — refresh anytime';
   if (hours === 1) return '1 hour minimum between reviews';
   return `${hours} hours minimum between reviews`;
 }
@@ -43,23 +43,23 @@ function minGapLabel(hours: number, lang?: UserLanguage | null): string {
 function voiceUi(lang?: UserLanguage | null) {
   if (lang?.code === 'he') {
     return {
-      title: '×”×ž××ž×Ÿ ×‘××¤×œ×™×§×¦×™×”',
-      hint: '×’×‘×¨ ××• ××™×©×” â€” ×›×š ×™×“×‘×¨ ××œ×™×›× ×”×ž××ž×Ÿ. ×œ× ×”×ž×’×“×¨ ×©×œ×›× ×‘×¤×¨×•×¤×™×œ.',
-      male: '×’×‘×¨',
-      female: '××™×©×”',
+      title: 'המאמן באפליקציה',
+      hint: 'גבר או אישה — כך ידבר אליכם המאמן. לא המגדר שלכם בפרופיל.',
+      male: 'גבר',
+      female: 'אישה',
     };
   }
   if (lang?.code === 'ar') {
     return {
-      title: 'Ø§Ù„Ù…Ø±Ø´Ø¯ ÙÙŠ Ø§Ù„ØªØ·Ø¨ÙŠÙ‚',
-      hint: 'Ø±Ø¬Ù„ Ø£Ùˆ Ø§Ù…Ø±Ø£Ø© â€” Ù‡ÙƒØ°Ø§ ÙŠØ®Ø§Ø·Ø¨ÙƒÙ… Ø§Ù„Ù…Ø±Ø´Ø¯. Ù„ÙŠØ³ Ø¬Ù†Ø³ Ù…Ù„ÙÙƒÙ… Ø§Ù„Ø´Ø®ØµÙŠ.',
-      male: 'Ø±Ø¬Ù„',
-      female: 'Ø§Ù…Ø±Ø£Ø©',
+      title: 'المرشد في التطبيق',
+      hint: 'رجل أو امرأة — هكذا يخاطبكم المرشد. ليس جنس ملفكم الشخصي.',
+      male: 'رجل',
+      female: 'امرأة',
     };
   }
   return {
     title: 'App mentor',
-    hint: 'Man or woman â€” how your AI mentor speaks to you. Not your profile gender.',
+    hint: 'Man or woman — how your AI mentor speaks to you. Not your profile gender.',
     male: 'Man',
     female: 'Woman',
   };
@@ -113,13 +113,13 @@ export function MentorStrip({
   const headerSub = formatActiveMentorsHeader(mentors, lang, mentorGender, userGender);
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const selectHint =
-    lang?.code === 'he' ? '×‘×—×¨/×™ ×™×•×¢×¦×™× (×œ×¤×—×•×ª ××—×“)' : 'Select your AI advisors (at least one)';
+    lang?.code === 'he' ? 'בחר/י יועצים (לפחות אחד)' : 'Select your AI advisors (at least one)';
   const reviewAfterMeal =
-    lang?.code === 'he' ? '×¡×§×™×¨×” ××—×¨×™ ×›×œ ××¨×•×—×”' : 'Review after each meal';
+    lang?.code === 'he' ? 'סקירה אחרי כל ארוחה' : 'Review after each meal';
   const gapSliderLabel =
-    lang?.code === 'he' ? '×ž×¨×•×•×— ×ž×™× ×™×ž×•× ×‘×™×Ÿ ×¡×§×™×¨×•×ª (0â€“6 ×©×¢×•×ª)' : 'Minimum gap between reviews (0â€“6h)';
+    lang?.code === 'he' ? 'מרווח מינימום בין סקירות (0–6 שעות)' : 'Minimum gap between reviews (0–6h)';
   const hintRequired =
-    lang?.code === 'he' ? '× ×“×¨×© ×œ×¤×—×•×ª ×ž× ×˜×•×¨ ××—×“' : 'At least one mentor is required';
+    lang?.code === 'he' ? 'נדרש לפחות מנטור אחד' : 'At least one mentor is required';
   const voice = voiceUi(lang);
 
   const pickVoice = async (g: Gender) => {

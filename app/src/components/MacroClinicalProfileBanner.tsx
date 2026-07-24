@@ -1,5 +1,5 @@
 /**
- * Clinical profile feedback â€” professional medical English. Always LTR.
+ * Clinical profile feedback — professional medical English. Always LTR.
  */
 
 import React, { useMemo } from 'react';
@@ -34,7 +34,7 @@ export function MacroClinicalProfileBanner({
       <Text style={styles.profile}>{clinicalProfile}</Text>
       {pcfShort ? (
         <View style={styles.pcfRow}>
-          <Text style={styles.pcfLabel}>Macro priority (P â†’ C â†’ F)</Text>
+          <Text style={styles.pcfLabel}>Macro priority (P → C → F)</Text>
           <Text style={styles.pcfShort}>{pcfShort}</Text>
           {pcfExpanded ? (
             <Text style={styles.pcfDetail} numberOfLines={compact ? 2 : undefined}>

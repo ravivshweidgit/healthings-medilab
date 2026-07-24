@@ -2,7 +2,7 @@
  * Required sign-in — email OTP before dashboard.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -25,7 +25,9 @@ import {
   type AuthUser,
   type UserRole,
 } from '../services/AuthApiService';
-import { WellnessColors, cardShadow } from '../theme/wellness';
+import { cardShadow } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 
 const BRAND_LOGO = require('../../assets/brand-logo.png');
 const OTP_PENDING_KEY = 'healthings_otp_pending';
@@ -37,6 +39,8 @@ type Props = {
 type Step = 'email' | 'code';
 
 export function LoginScreen({ onSignedIn }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const [step, setStep] = useState<Step>('email');
@@ -156,7 +160,7 @@ export function LoginScreen({ onSignedIn }: Props) {
                   onChangeText={setEmail}
                   onFocus={scrollToInputs}
                   placeholder="you@example.com"
-                  placeholderTextColor={WellnessColors.textSecondary}
+                  placeholderTextColor={colors.textSecondary}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -206,7 +210,7 @@ export function LoginScreen({ onSignedIn }: Props) {
                   onChangeText={setCode}
                   onFocus={scrollToInputs}
                   placeholder="123456"
-                  placeholderTextColor={WellnessColors.textSecondary}
+                  placeholderTextColor={colors.textSecondary}
                   keyboardType="number-pad"
                   maxLength={6}
                   editable={!busy}
@@ -245,10 +249,11 @@ export function LoginScreen({ onSignedIn }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
   },
   flex: {
     flex: 1,
@@ -276,11 +281,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
   },
   subtitle: {
     fontSize: 14,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     lineHeight: 20,
     marginBottom: 4,
   },
@@ -290,18 +295,18 @@ const styles = StyleSheet.create({
   },
   roleLabel: {
     fontSize: 13,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginTop: 4,
   },
   input: {
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
-    color: WellnessColors.textPrimary,
-    backgroundColor: WellnessColors.background,
+    color: c.textPrimary,
+    backgroundColor: c.background,
   },
   roleRow: {
     flexDirection: 'row',
@@ -313,15 +318,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
   },
   roleChipOn: {
-    backgroundColor: WellnessColors.accentGreen,
-    borderColor: WellnessColors.accentGreen,
+    backgroundColor: c.accentGreen,
+    borderColor: c.accentGreen,
   },
   roleChipText: {
     fontSize: 14,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   roleChipTextOn: {
     color: '#fff',
@@ -329,11 +334,11 @@ const styles = StyleSheet.create({
   },
   codeHint: {
     fontSize: 14,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     lineHeight: 20,
   },
   primaryBtn: {
-    backgroundColor: WellnessColors.accentGreen,
+    backgroundColor: c.accentGreen,
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
@@ -349,7 +354,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryBtnText: {
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     fontSize: 15,
     fontWeight: '500',
   },

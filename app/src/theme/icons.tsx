@@ -30,7 +30,7 @@ import {
   UtensilsCrossed,
   type LucideIcon,
 } from 'lucide-react-native';
-import { WellnessColors } from './wellness';
+import { useTheme } from './ThemeProvider';
 
 export type { LucideIcon };
 
@@ -73,20 +73,21 @@ export const MentorIcons = {
 export function DashIcon({
   icon: Icon,
   size = 18,
-  color = WellnessColors.textSecondary,
+  color,
 }: {
   icon: LucideIcon;
   size?: number;
   color?: string;
 }) {
-  return <Icon size={size} color={color} strokeWidth={2} />;
+  const { colors } = useTheme();
+  return <Icon size={size} color={color ?? colors.textSecondary} strokeWidth={2} />;
 }
 
 /** Single mentor mark for chrome (tabs, chips, AI entry) — not chat/export text. */
 export function MentorIcon({
   mentor,
   size = 18,
-  color = WellnessColors.textSecondary,
+  color,
 }: {
   mentor: MentorIconKey;
   size?: number;
@@ -99,7 +100,7 @@ export function MentorIcon({
 export function ActiveMentorIcons({
   mentors,
   size = 18,
-  color = WellnessColors.textSecondary,
+  color,
   gap = 4,
   style,
 }: {

@@ -1,5 +1,5 @@
 /**
- * My Macros â€” AI-suggested daily macro targets with progress bars.
+ * My Macros — AI-suggested daily macro targets with progress bars.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -56,7 +56,7 @@ import {
   waterUnitLabel,
 } from '../logic/unitConvert';
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 export type MacroTargetProps = {
   actualProtein_g: number | null;
@@ -75,10 +75,10 @@ export type MacroTargetProps = {
   bodyTarget: BodyTarget | null;
   userRules: UserRules | null;
   mentors: MentorType[];
-  /** Parent-held target â€” refreshes strip after weigh-in/lab auto-revision. */
+  /** Parent-held target — refreshes strip after weigh-in/lab auto-revision. */
   savedTarget?: DailyMacroTarget | null;
   onSaved?: (t: DailyMacroTarget) => void;
-  /** Weigh-in blocked auto-save â€” parent injects Gemini proposal for one-tap Accept. */
+  /** Weigh-in blocked auto-save — parent injects Gemini proposal for one-tap Accept. */
   weighInSuggestion?: DailyMacroTarget | null;
   weighInSuggestionHint?: string | null;
   onWeighInSuggestionConsumed?: () => void;
@@ -105,31 +105,31 @@ function formatMacroUpdatedAt(iso: string | undefined, lang?: UserLanguage | nul
     d.getDate() === now.getDate();
   const time = formatLocalizedTime(d, code, { hour: '2-digit', minute: '2-digit' });
   if (sameDay) {
-    if (code === 'he') return `×¢×•×“×›×Ÿ ×”×™×•× ${time}`;
-    if (code === 'ar') return `Ø­ÙØ¯Ù‘Ø« Ø§Ù„ÙŠÙˆÙ… ${time}`;
+    if (code === 'he') return `עודכן היום ${time}`;
+    if (code === 'ar') return `حُدّث اليوم ${time}`;
     if (code === 'es') return `Actualizado hoy ${time}`;
-    if (code === 'fr') return `Mis Ã  jour aujourd'hui ${time}`;
+    if (code === 'fr') return `Mis à jour aujourd'hui ${time}`;
     if (code === 'de') return `Heute aktualisiert ${time}`;
-    if (code === 'ru') return `ÐžÐ±Ð½Ð¾Ð²Ð»ÐµÐ½Ð¾ ÑÐµÐ³Ð¾Ð´Ð½Ñ ${time}`;
+    if (code === 'ru') return `Обновлено сегодня ${time}`;
     if (code === 'pt') return `Atualizado hoje ${time}`;
     if (code === 'it') return `Aggiornato oggi ${time}`;
-    if (code === 'tr') return `BugÃ¼n gÃ¼ncellendi ${time}`;
+    if (code === 'tr') return `Bugün güncellendi ${time}`;
     return `Updated today ${time}`;
   }
   const date = formatLocalizedDate(d, code, { day: 'numeric', month: 'short' });
-  if (code === 'he') return `×¢×•×“×›×Ÿ ${date} ${time}`;
-  if (code === 'ar') return `Ø­ÙØ¯Ù‘Ø« ${date} ${time}`;
+  if (code === 'he') return `עודכן ${date} ${time}`;
+  if (code === 'ar') return `حُدّث ${date} ${time}`;
   if (code === 'es') return `Actualizado ${date} ${time}`;
-  if (code === 'fr') return `Mis Ã  jour ${date} ${time}`;
+  if (code === 'fr') return `Mis à jour ${date} ${time}`;
   if (code === 'de') return `Aktualisiert ${date} ${time}`;
-  if (code === 'ru') return `ÐžÐ±Ð½Ð¾Ð²Ð»ÐµÐ½Ð¾ ${date} ${time}`;
+  if (code === 'ru') return `Обновлено ${date} ${time}`;
   if (code === 'pt') return `Atualizado ${date} ${time}`;
   if (code === 'it') return `Aggiornato ${date} ${time}`;
-  if (code === 'tr') return `GÃ¼ncellendi ${date} ${time}`;
+  if (code === 'tr') return `Güncellendi ${date} ${time}`;
   return `Updated ${date} ${time}`;
 }
 
-// â”€â”€â”€ Macro bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Macro bar ────────────────────────────────────────────────────────────────
 
 function MacroBar({
   label,
@@ -154,7 +154,7 @@ function MacroBar({
     unit === 'g' ? 'g' : unit === 'ml' ? 'ml' : unit === 'floz' ? 'fl oz' : '';
   const fmt = (v: number) =>
     unit === 'floz' ? v.toFixed(1) : String(Math.round(v));
-  const actualText = actual != null ? fmt(actual) : 'â€”';
+  const actualText = actual != null ? fmt(actual) : '—';
   const valueText =
     unit === 'kcal' || unit === 'kj'
       ? `${actualText} / ${Math.round(target)}`
@@ -217,7 +217,7 @@ const makeBarStyles = (c: ThemeColors) =>
   numsOver: { color: '#EF5350' },
 });
 
-// â”€â”€â”€ Edit field â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Edit field ───────────────────────────────────────────────────────────────
 
 function EditField({
   label, value, onChange, unit, aiVal, hint,
@@ -254,7 +254,7 @@ const makeEditStyles = (c: ThemeColors) =>
   ai: { maxWidth: 72, fontSize: 11, color: c.textSecondary, textAlign: 'right', flexShrink: 1 },
 });
 
-// â”€â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export function MacroTargetStrip({
   actualProtein_g, actualFat_g, actualCarb_g, actualFiber_g, actualKcal,
@@ -360,14 +360,14 @@ export function MacroTargetStrip({
     try {
       const result = await buildAndExportMacroPrompt({ trigger: 'dashboard-suggest', lang });
       if (!result.ok) {
-        Alert.alert(lang?.code === 'he' ? '×‘×•×˜×œ' : 'Cancelled', lang?.code === 'he' ? '×œ× × ×‘×—×¨ ×ª×™×§×™×™×”' : 'No folder selected');
+        Alert.alert(lang?.code === 'he' ? 'בוטל' : 'Cancelled', lang?.code === 'he' ? 'לא נבחר תיקייה' : 'No folder selected');
         return;
       }
       Alert.alert(
-        lang?.code === 'he' ? '×¤×¨×•×ž×¤×˜ ×™×•×¦×' : 'Prompt exported',
+        lang?.code === 'he' ? 'פרומפט יוצא' : 'Prompt exported',
         lang?.code === 'he'
-          ? `${result.charCount.toLocaleString()} ×ª×•×•×™× Â· macro-gemini-prompt_${new Date().toISOString().slice(0, 10)}.txt`
-          : `${result.charCount.toLocaleString()} chars Â· macro-gemini-prompt_${new Date().toISOString().slice(0, 10)}.txt`,
+          ? `${result.charCount.toLocaleString()} תווים · macro-gemini-prompt_${new Date().toISOString().slice(0, 10)}.txt`
+          : `${result.charCount.toLocaleString()} chars · macro-gemini-prompt_${new Date().toISOString().slice(0, 10)}.txt`,
       );
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Export failed';
@@ -387,7 +387,7 @@ export function MacroTargetStrip({
         <ActivityIndicator size="small" color={colors.accentBlue} />
       ) : (
         <Text style={styles.exportPromptText}>
-          {lang?.code === 'he' ? '×™×™×¦×•× ×¤×¨×•×ž×¤×˜ Gemini (×œ×œ× ×§×¨×™××ª AI)' : 'Export Gemini prompt (no AI call)'}
+          {lang?.code === 'he' ? 'ייצוא פרומפט Gemini (ללא קריאת AI)' : 'Export Gemini prompt (no AI call)'}
         </Text>
       )}
     </Pressable>
@@ -432,7 +432,7 @@ export function MacroTargetStrip({
     const kRaw = parseLocaleNumber(editK);
     const k = kRaw != null ? Math.round(displayToKcal(kRaw, unitsPrefs.energy)) : NaN;
     if ([p, f, k].some(isNaN)) return;
-    // Nutritionist-first: if Net is set, total C = Net + Fi (then sanitize clamps Fi â‰¤ C).
+    // Nutritionist-first: if Net is set, total C = Net + Fi (then sanitize clamps Fi ≤ C).
     if (!isNaN(net) && net >= 0) {
       if (isNaN(fi) || fi < 0) fi = resolveFiberTarget_g(base);
       c = Math.round(net + fi);
@@ -510,7 +510,7 @@ export function MacroTargetStrip({
                 onPress={handleAsk}
                 disabled={!canAnalyze}
               >
-                <Text style={styles.aiBtnText}>âœ¨ Ask AI to set my macros</Text>
+                <Text style={styles.aiBtnText}>✨ Ask AI to set my macros</Text>
               </Pressable>
               {exportPromptLink}
             </View>
@@ -520,7 +520,7 @@ export function MacroTargetStrip({
           {screen === 'loading' && (
             <View style={styles.loadingWrap}>
               <ActivityIndicator color={colors.accentGreen} />
-              <Text style={styles.loadingText}>Calculating your macrosâ€¦</Text>
+              <Text style={styles.loadingText}>Calculating your macros…</Text>
             </View>
           )}
 
@@ -570,10 +570,10 @@ export function MacroTargetStrip({
               </View>
               <View style={styles.suggBtns}>
                 <Pressable style={[styles.btn, styles.btnAccept]} onPress={handleAccept}>
-                  <Text style={styles.btnTextAccept}>âœ“ Accept</Text>
+                  <Text style={styles.btnTextAccept}>✓ Accept</Text>
                 </Pressable>
                 <Pressable style={[styles.btn, styles.btnEdit]} onPress={() => openEdit(suggestion)}>
-                  <Text style={styles.btnTextEdit}>âœŽ Edit</Text>
+                  <Text style={styles.btnTextEdit}>✎ Edit</Text>
                 </Pressable>
               </View>
             </View>
@@ -672,7 +672,7 @@ export function MacroTargetStrip({
               />
               <Text style={styles.h2oHint}>Tap H2O bar to edit water goal</Text>
               <Pressable style={[styles.btn, styles.btnEdit, styles.editTargetsBtn]} onPress={() => openEdit(target)}>
-                <Text style={styles.btnTextEdit}>âœŽ Edit</Text>
+                <Text style={styles.btnTextEdit}>✎ Edit</Text>
               </Pressable>
               <Pressable style={styles.reanalyzeBtn} onPress={() => void handleAsk()}>
                 <Text style={styles.reanalyzeBtnText}>Re-analyze with AI</Text>

@@ -1,5 +1,5 @@
 /**
- * Inline chat card â€” nutritionist recipe / meal plan (prompt40).
+ * Inline chat card — nutritionist recipe / meal plan (prompt40).
  */
 
 import React, { useMemo } from 'react';
@@ -29,16 +29,16 @@ export function RecipeCard({ plan, lang, energyUnit = 'kcal', onOpen, onLogMeal,
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
   const title = recipeDisplayTitle(plan, rtl);
   const summary = recipeMacroSummary(plan, energyUnit);
-  const openLabel = rtl ? '×¤×ª×— ×ž×ª×›×•×Ÿ' : 'Open recipe';
-  const logLabel = rtl ? '×¨×©×•× ××¨×•×—×”' : 'Log meal';
-  const dismissLabel = rtl ? '×¡×’×•×¨' : 'Dismiss';
+  const openLabel = rtl ? 'פתח מתכון' : 'Open recipe';
+  const logLabel = rtl ? 'רשום ארוחה' : 'Log meal';
+  const dismissLabel = rtl ? 'סגור' : 'Dismiss';
   const servingsLabel = rtl
-    ? `${plan.servings} ×ž× ×•×ª`
+    ? `${plan.servings} מנות`
     : `${plan.servings} serving${plan.servings === 1 ? '' : 's'}`;
 
   return (
     <View style={styles.card}>
-      <Text style={[styles.emoji]}>ðŸ¥¤</Text>
+      <Text style={[styles.emoji]}>🥤</Text>
       <Text style={[styles.title, rtl && styles.rtl]}>{title}</Text>
       <Text style={[styles.meta, rtl && styles.rtl]}>{servingsLabel}</Text>
       <Text style={[styles.summary, rtl && styles.rtl]}>{summary}</Text>

@@ -1,5 +1,5 @@
 /**
- * Lab results â€” dashboard card (same pattern as FoodMacroStrip).
+ * Lab results — dashboard card (same pattern as FoodMacroStrip).
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -144,7 +144,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
   }, [onReportsChanged, copy]);
 
   const latestLine = latest
-    ? `${copy.latestPrefix}: ${formatDrawDate(latest.collectedAt, lang?.code)} Â· ${copy.testsCount(resultCount(latest))}`
+    ? `${copy.latestPrefix}: ${formatDrawDate(latest.collectedAt, lang?.code)} · ${copy.testsCount(resultCount(latest))}`
     : copy.emptyHint;
 
   return (
@@ -169,7 +169,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
           onPress={openImport}
           accessibilityLabel={copy.addReport}
         >
-          <Text style={styles.addChipIcon}>ï¼‹</Text>
+          <Text style={styles.addChipIcon}>＋</Text>
           <Text style={styles.addChipLabel}>{copy.addReport}</Text>
         </Pressable>
         {reports.map((r) => {
@@ -186,7 +186,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
                 {copy.testsCount(resultCount(r))}
               </Text>
               {hi ? <Text style={styles.chipHi}>{hi}</Text> : null}
-              <Text style={styles.chipEdit}>âœŽ {copy.view}</Text>
+              <Text style={styles.chipEdit}>✎ {copy.view}</Text>
             </Pressable>
           );
         })}
@@ -200,13 +200,13 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
 
       <View style={styles.footer}>
         <Pressable style={styles.footerBtn} onPress={() => void handleExport()} accessibilityLabel={copy.exportLabel}>
-          <Text style={styles.footerBtnText}>â¬† {copy.exportLabel}</Text>
+          <Text style={styles.footerBtnText}>⬆ {copy.exportLabel}</Text>
         </Pressable>
         <Pressable style={styles.footerBtn} onPress={() => void handleImport()} disabled={busy} accessibilityLabel={copy.importLabel}>
           {busy ? (
             <ActivityIndicator size="small" color={colors.textSecondary} />
           ) : (
-            <Text style={styles.footerBtnText}>â¬‡ {copy.importLabel}</Text>
+            <Text style={styles.footerBtnText}>⬇ {copy.importLabel}</Text>
           )}
         </Pressable>
       </View>

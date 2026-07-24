@@ -82,7 +82,9 @@ import type { MentorLines } from '../logic/mentorChatText';
 import { mentorPossessiveLabel, mentorsCollectiveLabel } from '../logic/mentorLabels';
 import { ActionIcons, ActiveMentorIcons, DashIcon, MentorIcon } from '../theme/icons';
 import { getTodayMeals, getMealsForDay, buildMealsAiContext, foodLogDayKey } from '../services/FoodLogService';
-import { WellnessColors, cardShadow } from '../theme/wellness';
+import { cardShadow } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import type { EnergyUnit } from '../logic/unitConvert';
 
 type Props = {
@@ -387,6 +389,8 @@ function CoachMentorSection({
   ui: ReturnType<typeof chatUiStrings>;
   onToggleItem: (itemId: string) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const hasWins = (wins?.length ?? 0) > 0;
   const hasImprove = (improve?.length ?? 0) > 0;
   if (!hasWins && !hasImprove && items.length === 0) return null;
@@ -463,6 +467,8 @@ function CollapsibleCoachPanel({
   onToggleItem: (itemId: string) => void;
   onRefreshCoach: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const doneCount = msg.actionItems.filter((i) => i.done).length;
   const total = msg.actionItems.length;
   const structured = isStructuredCoach(msg);
@@ -569,7 +575,7 @@ function CollapsibleCoachPanel({
           disabled={refreshing}
         >
           {refreshing ? (
-            <ActivityIndicator size="small" color={WellnessColors.accentBlue} />
+            <ActivityIndicator size="small" color={colors.accentBlue} />
           ) : (
             <Text style={styles.coachBubbleActionText}>{ui.refresh}</Text>
           )}
@@ -599,6 +605,8 @@ function MentorTabBar({
   userGender?: Gender | null;
   rtl?: boolean;
 }) {
+  const { colors: themeColors } = useTheme();
+  const styles = useMemo(() => makeStyles(themeColors), [themeColors]);
   const tabs = orderedActiveMentors(mentors);
   if (tabs.length === 0) return null;
 
@@ -625,7 +633,7 @@ function MentorTabBar({
               <MentorIcon
                 mentor={m}
                 size={15}
-                color={selected ? WellnessColors.textPrimary : WellnessColors.textSecondary}
+                color={selected ? themeColors.textPrimary : themeColors.textSecondary}
               />
               <Text
                 style={[styles.tabBtnText, selected && styles.tabBtnTextActive, rtl && styles.rtlText]}
@@ -656,6 +664,8 @@ function QuickQuestionBar({
   onPick: (label: string) => void;
   onEdit: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.quickBar}>
       <ScrollView
@@ -709,6 +719,8 @@ function FaqModal({
   onSave: (qs: QuickQuestion[]) => void;
   onPick: (label: string) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   // Rows hold the structure (ids); live text lives in a ref so re-renders never revert
   // what the user types. Inputs are uncontrolled (defaultValue) keyed by id.
   const [rows, setRows] = useState<QuickQuestion[]>(questions);
@@ -822,7 +834,7 @@ function FaqModal({
                   defaultValue={q.label}
                   onChangeText={(text) => setText(q.id, text)}
                   placeholder={ui.faqAdd}
-                  placeholderTextColor={WellnessColors.textSecondary}
+                  placeholderTextColor={colors.textSecondary}
                   multiline
                   textAlign={ui.rtl ? 'right' : 'left'}
                 />
@@ -885,6 +897,8 @@ function MentorVoiceSegments({
   rtl?: boolean;
   variant: 'chat' | 'coach';
 }) {
+  const { colors: themeColors } = useTheme();
+  const styles = useMemo(() => makeStyles(themeColors), [themeColors]);
   const segments = buildMentorDisplaySegments(text, mentorLines, activeMentors);
   const multiVoice = hasSeparateMentorVoices(text, mentorLines, activeMentors);
   const textStyle = variant === 'chat' ? styles.msgTextAI : styles.coachBubbleText;
@@ -954,6 +968,8 @@ function MessageBubble({
   onRecipeLog?: (plan: RecipePlan) => void;
   onRecipeDismiss?: () => void;
 }) {
+  const { colors: themeColors } = useTheme();
+  const styles = useMemo(() => makeStyles(themeColors), [themeColors]);
   const isUser = msg.role === 'user';
   const colors = mentorBubbleColors(mentor);
 
@@ -1015,6 +1031,8 @@ function MessageBubble({
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, onMacroTargetUpdated, onFoodLogSaved }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const mentorTabs = useMemo(() => orderedActiveMentors(context.mentors), [context.mentors]);
   const [activeMentor, setActiveMentor] = useState<MentorType>(mentorTabs[0] ?? 'coach');
@@ -1636,7 +1654,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
           >
             {sending ? (
               <View style={styles.sendingRow}>
-                <ActivityIndicator size="small" color={WellnessColors.accentBlue} />
+                <ActivityIndicator size="small" color={colors.accentBlue} />
                 <Text style={styles.sendingText}>{tabUi.thinking}</Text>
               </View>
             ) : null}
@@ -1678,7 +1696,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
                 value={inputText}
                 onChangeText={setInputText}
                 placeholder={tabUi.placeholder}
-                placeholderTextColor={WellnessColors.textSecondary}
+                placeholderTextColor={colors.textSecondary}
                 multiline
                 maxLength={500}
                 returnKeyType="default"
@@ -1699,7 +1717,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
                     accessibilityRole="button"
                     accessibilityLabel={ui.attachTitle}
                   >
-                    <DashIcon icon={ActionIcons.camera} size={20} color={WellnessColors.accentBlue} />
+                    <DashIcon icon={ActionIcons.camera} size={20} color={colors.accentBlue} />
                   </Pressable>
                   <Pressable
                     style={[styles.scrollBtn, !canScrollChat && styles.toolbarBtnDisabled]}
@@ -1730,7 +1748,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
                         accessibilityRole="button"
                         accessibilityLabel={ui.moreActions}
                       >
-                        <DashIcon icon={ActionIcons.overflow} size={20} color={WellnessColors.textSecondary} />
+                        <DashIcon icon={ActionIcons.overflow} size={20} color={colors.textSecondary} />
                       </Pressable>
                       {toolbarMenuOpen ? (
                         <>
@@ -1749,7 +1767,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
                                 accessibilityRole="button"
                                 accessibilityLabel={ui.exportChat}
                               >
-                                <DashIcon icon={ActionIcons.share} size={16} color={WellnessColors.textPrimary} />
+                                <DashIcon icon={ActionIcons.share} size={16} color={colors.textPrimary} />
                                 <Text style={[styles.toolbarMenuText, ui.rtl && styles.rtlText]}>{ui.exportChat}</Text>
                               </Pressable>
                             ) : null}
@@ -1763,7 +1781,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
                                 accessibilityRole="button"
                                 accessibilityLabel={ui.clearChat}
                               >
-                                <DashIcon icon={ActionIcons.clear} size={16} color={WellnessColors.accentRed} />
+                                <DashIcon icon={ActionIcons.clear} size={16} color={colors.accentRed} />
                                 <Text style={[styles.toolbarMenuText, styles.toolbarMenuTextDanger, ui.rtl && styles.rtlText]}>
                                   {ui.clearChat}
                                 </Text>
@@ -1838,10 +1856,11 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
   },
   flex: { flex: 1 },
   minHeight0: { minHeight: 0 },
@@ -1853,11 +1872,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: WellnessColors.gridLine,
-    backgroundColor: WellnessColors.surface,
+    borderBottomColor: c.gridLine,
+    backgroundColor: c.surface,
   },
   backBtn: { width: 40 },
-  backBtnText: { fontSize: 22, color: WellnessColors.accentBlue },
+  backBtnText: { fontSize: 22, color: c.accentBlue },
   headerTitleRow: {
     flex: 1,
     flexDirection: 'row',
@@ -1872,7 +1891,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 15,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
   },
 
   // Message list
@@ -1884,7 +1903,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   emptyText: {
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     fontSize: 14,
     textAlign: 'center',
     marginTop: 40,
@@ -1912,17 +1931,17 @@ const styles = StyleSheet.create({
   },
   coachPanelChevron: {
     fontSize: 12,
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     fontWeight: '700',
   },
   coachPanelSummary: {
     flex: 1,
     fontSize: 13,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
   },
   coachPanelCountBadge: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#B3D9F0',
@@ -1932,13 +1951,13 @@ const styles = StyleSheet.create({
   coachPanelCountText: {
     fontSize: 12,
     fontWeight: '800',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
   },
   coachSummaryText: {
     fontSize: 14,
     lineHeight: 21,
     fontWeight: '600',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     marginBottom: 6,
   },
   coachMentorSection: {
@@ -1963,7 +1982,7 @@ const styles = StyleSheet.create({
   coachSubLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     letterSpacing: 0.3,
   },
   coachBulletRow: {
@@ -1973,8 +1992,8 @@ const styles = StyleSheet.create({
   },
   coachBulletRowRtl: { flexDirection: 'row-reverse' },
   coachBulletWin: { fontSize: 13, lineHeight: 21, color: '#2E7D5A', fontWeight: '700' },
-  coachBulletImprove: { fontSize: 13, lineHeight: 21, color: WellnessColors.accentBlue, fontWeight: '700' },
-  coachBulletText: { flex: 1, fontSize: 13, lineHeight: 20, color: WellnessColors.textPrimary },
+  coachBulletImprove: { fontSize: 13, lineHeight: 21, color: c.accentBlue, fontWeight: '700' },
+  coachBulletText: { flex: 1, fontSize: 13, lineHeight: 20, color: c.textPrimary },
   coachPanelBody: {
     paddingTop: 6,
     paddingBottom: 4,
@@ -1985,14 +2004,14 @@ const styles = StyleSheet.create({
   coachBubbleText: {
     fontSize: 14,
     lineHeight: 21,
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     fontWeight: '500',
   },
   mentorSegmentGap: { marginTop: 10 },
   mentorSegmentLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     marginBottom: 4,
   },
   mentorSegmentLabelCoach: {
@@ -2011,7 +2030,7 @@ const styles = StyleSheet.create({
   actionItemsHeader: {
     fontSize: 11,
     fontWeight: '700',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     letterSpacing: 0.5,
     marginBottom: 4,
   },
@@ -2021,8 +2040,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionItemCheck: { fontSize: 18, lineHeight: 22 },
-  actionItemText: { flex: 1, fontSize: 14, lineHeight: 21, color: WellnessColors.textPrimary },
-  actionItemTextDone: { color: WellnessColors.textSecondary, textDecorationLine: 'line-through' },
+  actionItemText: { flex: 1, fontSize: 14, lineHeight: 21, color: c.textPrimary },
+  actionItemTextDone: { color: c.textSecondary, textDecorationLine: 'line-through' },
 
   coachBubbleFooter: {
     flexDirection: 'row',
@@ -2043,17 +2062,17 @@ const styles = StyleSheet.create({
   coachBubbleActionText: {
     fontSize: 13,
     fontWeight: '700',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
   },
   coachBubbleClearText: {
     fontSize: 13,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
 
   tabBarPinned: {
     flexDirection: 'row',
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     paddingHorizontal: 10,
     paddingTop: 8,
     paddingBottom: 6,
@@ -2064,8 +2083,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: WellnessColors.gridLine,
-    backgroundColor: WellnessColors.background,
+    borderColor: c.gridLine,
+    backgroundColor: c.background,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 46,
@@ -2084,11 +2103,11 @@ const styles = StyleSheet.create({
   tabBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     flexShrink: 1,
   },
   tabBtnTextActive: {
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     fontWeight: '700',
   },
 
@@ -2100,8 +2119,8 @@ const styles = StyleSheet.create({
   mentorVoiceStack: { gap: 6, width: '100%' },
   coachSegmentCard: { borderRadius: 10, padding: 10, marginBottom: 6 },
   msgBubble: { maxWidth: '80%', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
-  msgBubbleUser: { backgroundColor: WellnessColors.accentBlue, borderBottomRightRadius: 4 },
-  msgBubbleAI: { backgroundColor: WellnessColors.surface, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: WellnessColors.gridLine },
+  msgBubbleUser: { backgroundColor: c.accentBlue, borderBottomRightRadius: 4 },
+  msgBubbleAI: { backgroundColor: c.surface, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: c.gridLine },
   msgText: { fontSize: 14, lineHeight: 21 },
   msgTextUser: { color: '#fff' },
   msgAttachedImage: {
@@ -2111,7 +2130,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
-  msgTextAI: { color: WellnessColors.textPrimary },
+  msgTextAI: { color: c.textPrimary },
   attachPreviewRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2125,30 +2144,30 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
   },
   attachPreviewClear: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     alignItems: 'center',
     justifyContent: 'center',
   },
   attachPreviewClearText: {
     fontSize: 14,
     fontWeight: '700',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   attachBtn: {
     width: 36,
     height: 40,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
-    backgroundColor: WellnessColors.background,
+    borderColor: c.gridLine,
+    backgroundColor: c.background,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -2156,7 +2175,7 @@ const styles = StyleSheet.create({
   attachBtnIcon: { fontSize: 18, lineHeight: 22 },
   msgTime: { fontSize: 10, marginTop: 4 },
   msgTimeUser: { color: 'rgba(255,255,255,0.7)', textAlign: 'right' },
-  msgTimeAI: { color: WellnessColors.textSecondary, textAlign: 'right' },
+  msgTimeAI: { color: c.textSecondary, textAlign: 'right' },
 
   // Sending indicator
   sendingRow: {
@@ -2166,13 +2185,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 4,
   },
-  sendingText: { fontSize: 12, color: WellnessColors.textSecondary },
+  sendingText: { fontSize: 12, color: c.textSecondary },
 
   bottomChrome: {
     flexShrink: 0,
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: WellnessColors.gridLine,
+    borderTopColor: c.gridLine,
     elevation: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
@@ -2183,7 +2202,7 @@ const styles = StyleSheet.create({
 
   // Input area
   inputArea: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     paddingTop: 6,
   },
 
@@ -2200,7 +2219,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   faqCard: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 20,
     padding: 20,
     maxHeight: '80%',
@@ -2216,10 +2235,10 @@ const styles = StyleSheet.create({
   faqTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
   },
   faqCountBadge: {
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -2227,11 +2246,11 @@ const styles = StyleSheet.create({
   faqCountText: {
     fontSize: 12,
     fontWeight: '700',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   faqHint: {
     fontSize: 12.5,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     lineHeight: 18,
     marginBottom: 14,
   },
@@ -2247,7 +2266,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2255,20 +2274,20 @@ const styles = StyleSheet.create({
   faqInput: {
     flex: 1,
     minHeight: 44,
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 15,
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
   },
   faqSendBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2279,7 +2298,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  faqDeleteBtnText: { fontSize: 17, color: WellnessColors.accentRed, fontWeight: '700' },
+  faqDeleteBtnText: { fontSize: 17, color: c.accentRed, fontWeight: '700' },
   faqAddBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2289,11 +2308,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: WellnessColors.accentBlue,
+    borderColor: c.accentBlue,
     borderStyle: 'dashed',
   },
-  faqAddPlus: { fontSize: 16, fontWeight: '800', color: WellnessColors.accentBlue },
-  faqAddBtnText: { fontSize: 14, fontWeight: '700', color: WellnessColors.accentBlue },
+  faqAddPlus: { fontSize: 16, fontWeight: '800', color: c.accentBlue },
+  faqAddBtnText: { fontSize: 14, fontWeight: '700', color: c.accentBlue },
   faqFooter: {
     flexDirection: 'row',
     gap: 10,
@@ -2301,15 +2320,15 @@ const styles = StyleSheet.create({
   },
   faqCancelBtn: {
     flex: 1,
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
     borderRadius: 14,
     paddingVertical: 13,
     alignItems: 'center',
   },
-  faqCancelBtnText: { fontSize: 15, fontWeight: '700', color: WellnessColors.textSecondary },
+  faqCancelBtnText: { fontSize: 15, fontWeight: '700', color: c.textSecondary },
   faqSaveBtn: {
     flex: 2,
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
     borderRadius: 14,
     paddingVertical: 13,
     alignItems: 'center',
@@ -2322,14 +2341,14 @@ const styles = StyleSheet.create({
     maxHeight: 100,
     marginHorizontal: 12,
     marginBottom: 8,
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 14,
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
   },
   inputToolbar: {
     flexDirection: 'row',
@@ -2354,8 +2373,8 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
-    backgroundColor: WellnessColors.background,
+    borderColor: c.gridLine,
+    backgroundColor: c.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2363,7 +2382,7 @@ const styles = StyleSheet.create({
   scrollBtnText: {
     fontSize: 18,
     fontWeight: '700',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     lineHeight: 22,
   },
   overflowBtn: {
@@ -2371,8 +2390,8 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
-    backgroundColor: WellnessColors.background,
+    borderColor: c.gridLine,
+    backgroundColor: c.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2388,10 +2407,10 @@ const styles = StyleSheet.create({
     bottom: 46,
     left: 0,
     minWidth: 160,
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     paddingVertical: 4,
     ...cardShadow,
   },
@@ -2409,13 +2428,13 @@ const styles = StyleSheet.create({
   toolbarMenuText: {
     fontSize: 14,
     fontWeight: '600',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
   },
   toolbarMenuTextDanger: {
-    color: WellnessColors.accentRed,
+    color: c.accentRed,
   },
   sendBtn: {
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -2438,25 +2457,25 @@ const styles = StyleSheet.create({
   quickBarScroll: { flexDirection: 'row', gap: 6, paddingRight: 4 },
   quickChip: {
     maxWidth: 168,
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     paddingVertical: 7,
     paddingHorizontal: 12,
   },
-  quickChipText: { fontSize: 12, color: WellnessColors.textPrimary, fontWeight: '500' },
+  quickChipText: { fontSize: 12, color: c.textPrimary, fontWeight: '500' },
   quickEditBtn: {
     paddingVertical: 7,
     paddingHorizontal: 10,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: WellnessColors.accentBlue,
-    backgroundColor: WellnessColors.surface,
+    borderColor: c.accentBlue,
+    backgroundColor: c.surface,
   },
   quickEditBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
   },
 });

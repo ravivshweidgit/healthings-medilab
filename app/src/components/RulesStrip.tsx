@@ -1,5 +1,5 @@
 /**
- * My Rules â€” free-text dietary/lifestyle rules (rawText-only save, prompt52).
+ * My Rules — free-text dietary/lifestyle rules (rawText-only save, prompt52).
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -72,7 +72,7 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
     if (!raw) return '';
     if (!rulesNeedCollapse || rulesExpanded) return raw;
     const clipped = raw.slice(0, RULES_PREVIEW_CHARS);
-    return clipped.length < raw.length ? `${clipped.trimEnd()}â€¦` : clipped;
+    return clipped.length < raw.length ? `${clipped.trimEnd()}…` : clipped;
   }, [raw, rulesNeedCollapse, rulesExpanded]);
 
   const refreshHistory = useCallback(async () => {
@@ -209,7 +209,7 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
                 <Text style={[styles.sectionLabel, styles.historyHeaderLabel, rtl && styles.textRtl]}>
                   {t.pastVersions(history.length)}
                 </Text>
-                <Text style={styles.historyChevron}>{historyExpanded ? 'â–¾' : 'â–¸'}</Text>
+                <Text style={styles.historyChevron}>{historyExpanded ? '▾' : '▸'}</Text>
               </Pressable>
               {historyExpanded
                 ? history.map((entry) => (
@@ -219,7 +219,7 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
                       onPress={() => setHistoryEntry(entry)}
                     >
                       <Text style={styles.historyRowTitle} numberOfLines={1}>
-                        {formatHistoryDate(entry.savedAt)} Â· {formatHistorySource(entry)}
+                        {formatHistoryDate(entry.savedAt)} · {formatHistorySource(entry)}
                       </Text>
                       <Text style={[styles.historyRowSub, contentAlignStyle(historyRowPreview(entry))]} numberOfLines={2}>
                         {historyRowPreview(entry)}
@@ -291,7 +291,7 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
             {historyEntry ? (
               <>
                 <Text style={styles.modalTitle}>
-                  {formatHistoryDate(historyEntry.savedAt)} Â· {formatHistorySource(historyEntry)}
+                  {formatHistoryDate(historyEntry.savedAt)} · {formatHistorySource(historyEntry)}
                 </Text>
                 <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent}>
                   <Text style={[styles.modalRaw, contentAlignStyle(historyEntry.rules.rawText)]}>

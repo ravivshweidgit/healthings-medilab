@@ -1,6 +1,6 @@
 /**
  * Manual weigh-in + body composition + optional BMR (no Withings scale).
- * Same UI on Android and iOS â€” weight, %/mass toggle, Fat + Muscle fields, BMR, one Save.
+ * Same UI on Android and iOS — weight, %/mass toggle, Fat + Muscle fields, BMR, one Save.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -206,7 +206,7 @@ export function ManualBodyProfileSection({
     const fatN = parseNum(fatInput);
     const musN = parseNum(muscleInput);
     if (next === 'mass') {
-      // % â†’ mass
+      // % → mass
       if (fatN != null && fatN > 0) {
         setFatInput(fmt1(kgToDisplay(fatKgFromPct(draftWeightKg, fatN), massUnit)));
       }
@@ -215,7 +215,7 @@ export function ManualBodyProfileSection({
         if (kg != null) setMuscleInput(fmt1(kgToDisplay(kg, massUnit)));
       }
     } else {
-      // mass â†’ %
+      // mass → %
       if (fatN != null && fatN > 0) {
         const pct = fatPctFromKg(draftWeightKg, displayToKg(fatN, massUnit));
         if (pct != null) setFatInput(fmt1(pct));
@@ -332,21 +332,21 @@ export function ManualBodyProfileSection({
   const fatAlt =
     draftComp && draftWeightKg
       ? compUnit === 'pct'
-        ? `â‰ˆ ${formatMass(draftComp.fatKg, massUnit)}`
-        : `â‰ˆ ${fmt1(draftComp.fatPct)}%`
+        ? `≈ ${formatMass(draftComp.fatKg, massUnit)}`
+        : `≈ ${fmt1(draftComp.fatPct)}%`
       : null;
   const muscleAlt =
     draftComp && draftComp.musclePct != null
       ? compUnit === 'pct'
-        ? `â‰ˆ ${formatMass(draftComp.muscleKg, massUnit)}`
-        : `â‰ˆ ${fmt1(draftComp.musclePct)}%`
+        ? `≈ ${formatMass(draftComp.muscleKg, massUnit)}`
+        : `≈ ${fmt1(draftComp.musclePct)}%`
       : null;
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.sectionTitle}>Body</Text>
       <Text style={styles.hint}>
-        Log weight and composition from your scale or DEXA. Fat and muscle are independent â€” residual
+        Log weight and composition from your scale or DEXA. Fat and muscle are independent — residual
         (bone, water) is normal.
       </Text>
       <Pressable onPress={() => void Linking.openURL(HELP_URL)} hitSlop={8}>
@@ -427,14 +427,14 @@ export function ManualBodyProfileSection({
 
       {draftComp ? (
         <Text style={styles.preview}>
-          Residual â‰ˆ {formatMass(draftComp.residualKg, massUnit)}
+          Residual ≈ {formatMass(draftComp.residualKg, massUnit)}
           {!draftComp.fatTyped && manualBodySnap?.fat_pct_source !== 'user'
-            ? ' Â· fat estimated until you enter it'
+            ? ' · fat estimated until you enter it'
             : ''}
         </Text>
       ) : null}
       {draftComp && draftComp.ratio > 1.001 ? (
-        <Text style={styles.warn}>Fat + muscle exceeds weight â€” check the numbers.</Text>
+        <Text style={styles.warn}>Fat + muscle exceeds weight — check the numbers.</Text>
       ) : null}
 
       <Text style={styles.fieldLabel}>BMR ({energyLab}/day)</Text>
@@ -445,7 +445,7 @@ export function ManualBodyProfileSection({
         onChangeText={setBmrInput}
         placeholder={
           draftComp
-            ? `Formula ~${Math.round(kcalToDisplay(draftComp.formulaBmr, energyUnit))} â€” or scale value`
+            ? `Formula ~${Math.round(kcalToDisplay(draftComp.formulaBmr, energyUnit))} — or scale value`
             : 'e.g. 1854'
         }
         placeholderTextColor={colors.textSecondary}
@@ -465,7 +465,7 @@ export function ManualBodyProfileSection({
         accessibilityRole="button"
         accessibilityLabel="Save body"
       >
-        <Text style={styles.saveBtnText}>{saving ? 'Savingâ€¦' : 'Save body'}</Text>
+        <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save body'}</Text>
       </Pressable>
     </View>
   );

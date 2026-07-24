@@ -1,5 +1,5 @@
 /**
- * Section 5 â€” Daily food macro summary strip.
+ * Section 5 — Daily food macro summary strip.
  * Shows today's logged meals with kcal totals and P/C/F bars.
  */
 
@@ -56,18 +56,18 @@ import {
   waterUnitLabel,
 } from '../logic/unitConvert';
 
-/** Food Log strip header â€” coach/meals language. */
+/** Food Log strip header — coach/meals language. */
 const FOOD_LOG_TITLE: Record<string, string> = {
   en: 'FOOD LOG',
-  he: '×™×•×ž×Ÿ ××¨×•×—×•×ª',
+  he: 'יומן ארוחות',
   es: 'DIARIO DE COMIDAS',
   fr: 'JOURNAL DES REPAS',
   de: 'ESSENSTAGEBUCH',
-  ar: 'Ø³Ø¬Ù„ Ø§Ù„ÙˆØ¬Ø¨Ø§Øª',
-  ru: 'Ð”ÐÐ•Ð’ÐÐ˜Ðš ÐŸÐ˜Ð¢ÐÐÐ˜Ð¯',
-  pt: 'DIÃRIO ALIMENTAR',
+  ar: 'سجل الوجبات',
+  ru: 'ДНЕВНИК ПИТАНИЯ',
+  pt: 'DIÁRIO ALIMENTAR',
   it: 'DIARIO PASTI',
-  tr: 'YEMEK GÃœNLÃœÄžÃœ',
+  tr: 'YEMEK GÜNLÜĞÜ',
 };
 
 function foodLogTitle(lang: UserLanguage | null | undefined): string {
@@ -84,7 +84,7 @@ function startOfLocalDay(ms: number): number {
   return d.getTime();
 }
 
-/** Shift by calendar days (not fixed 24h â€” avoids DST / grayed â€º bugs). */
+/** Shift by calendar days (not fixed 24h — avoids DST / grayed › bugs). */
 function addLocalDays(ms: number, delta: number): number {
   const d = new Date(startOfLocalDay(ms));
   d.setDate(d.getDate() + delta);
@@ -99,12 +99,12 @@ function formatDayLabel(ms: number, langCode?: string | null): string {
 }
 
 type Props = {
-  /** Initial day key â€” defaults to today. */
+  /** Initial day key — defaults to today. */
   dayKey?: string;
   /** Called with the day key currently shown in the date navigator. */
   onAddMeal: (dayKey: string) => void;
   onEditMeal?: (entry: FoodEntry) => void;
-  /** Refresh counter â€” increment to trigger a reload. */
+  /** Refresh counter — increment to trigger a reload. */
   refreshKey?: number;
   /** Total burn per day key (BMR + activity). Balance shown for any day present in this map. */
   burnKcalByDay?: Record<string, number>;
@@ -112,11 +112,11 @@ type Props = {
   burnPartsByDay?: Record<string, { bmr: number; activity: number }>;
   /** Called after a successful import so the parent can refresh state. */
   onImported?: () => void;
-  /** Daily macro targets â€” when set, bars show actual vs target. */
+  /** Daily macro targets — when set, bars show actual vs target. */
   macroTarget?: DailyMacroTarget | null;
   /** Display units (water / energy). Values still stored as ml / kcal. */
   unitsPrefs?: UnitsPrefs;
-  /** Coach & meals language â€” Food Log title. */
+  /** Coach & meals language — Food Log title. */
   lang?: UserLanguage | null;
 };
 
@@ -129,7 +129,7 @@ const COLOR_PROTEIN = '#42A5F5';
 const COLOR_CARB    = '#FF9800';
 const COLOR_FAT     = '#EF5350';
 const COLOR_FIBER   = '#66BB6A';
-/** Net carbs (C âˆ’ Fi) â€” between carb orange and fiber green. */
+/** Net carbs (C − Fi) — between carb orange and fiber green. */
 const COLOR_NET_CARB = '#FB8C00';
 const COLOR_WATER   = '#29B6F6';
 
@@ -337,7 +337,7 @@ const makeBarStyles = (c: ThemeColors) =>
   valueOver: { color: '#EF5350' },
 });
 
-// â”€â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function FoodMacroStrip(
   {
@@ -620,7 +620,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
         {formatDayLabel(selectedMs, lang?.code)}
         {balance != null ? (
           <Text style={{ color: isDeficit ? '#2E7D32' : '#C62828' }}>
-            {` Â· ${balanceNoSign ? '' : isDeficit ? 'âˆ’' : '+'}${disp(Math.abs(balance)).toLocaleString()} ${eLab}`}
+            {` · ${balanceNoSign ? '' : isDeficit ? '−' : '+'}${disp(Math.abs(balance)).toLocaleString()} ${eLab}`}
           </Text>
         ) : null}
       </>
@@ -641,10 +641,10 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
 
       {expanded ? (
       <>
-      {/* Date navigator â€” centred below title */}
+      {/* Date navigator — centred below title */}
       <View style={styles.dateNavRow}>
         <Pressable style={styles.dateNavBtn} onPress={() => shiftDay(-1)} hitSlop={8} accessibilityLabel="Previous day">
-          <Text style={styles.dateNavArrow}>â€¹</Text>
+          <Text style={styles.dateNavArrow}>‹</Text>
         </Pressable>
         <Text style={styles.dateLabel}>{formatDayLabel(selectedMs, lang?.code)}</Text>
         <Pressable
@@ -656,15 +656,15 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
           hitSlop={8}
           accessibilityLabel="Next day"
         >
-          <Text style={[styles.dateNavArrow, isToday && styles.dateNavArrowDisabled]}>â€º</Text>
+          <Text style={[styles.dateNavArrow, isToday && styles.dateNavArrowDisabled]}>›</Text>
         </Pressable>
       </View>
 
-      {/* Energy lines â€” always shown, columns aligned */}
+      {/* Energy lines — always shown, columns aligned */}
       <View style={styles.energyLines}>
         <View style={styles.energyRow}>
           <Text style={styles.energyNum} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-            {eaten > 0 ? disp(eaten).toLocaleString() : 'â€”'}
+            {eaten > 0 ? disp(eaten).toLocaleString() : '—'}
           </Text>
           <Text style={styles.energyLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
             {eLab} {ui.eaten}
@@ -694,7 +694,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                   <Text style={styles.energyCorrection}>{` (${burnCorrection > 0 ? '+' : ''}${disp(burnCorrection)})`}</Text>
                 ) : null}
               </Text>
-              <Text style={styles.adjustBtn}>âœŽ</Text>
+              <Text style={styles.adjustBtn}>✎</Text>
             </Pressable>
             <View style={styles.energyBurnBlock}>
               <View style={styles.energyBurnRow}>
@@ -734,7 +734,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                 <Text style={styles.energyCorrection}>{` (${burnCorrection > 0 ? '+' : ''}${disp(burnCorrection)})`}</Text>
               ) : null}
             </Text>
-            <Text style={styles.adjustBtn}>âœŽ</Text>
+            <Text style={styles.adjustBtn}>✎</Text>
           </Pressable>
         ) : null}
         {balance != null ? (
@@ -757,7 +757,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
         ) : null}
       </View>
 
-      {/* Macro bars â€” meals/targets + always-on H2O */}
+      {/* Macro bars — meals/targets + always-on H2O */}
       <View style={[styles.barsWrap, { marginTop: 10 }]}>
         {(!isEmpty || displayTarget) ? (
           <>
@@ -827,7 +827,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               <Text style={styles.chipTime}>{formatTime(item.entry.timestamp)}</Text>
               <Text style={styles.chipLabel}>{mealLabel(item.entry, ui)}</Text>
               <Text style={styles.chipKcal}>{formatEnergy(item.entry.totalKcal, energyU)}</Text>
-              <Text style={styles.chipEdit}>âœŽ {ui.editItem}</Text>
+              <Text style={styles.chipEdit}>✎ {ui.editItem}</Text>
             </Pressable>
           ) : (
             <Pressable
@@ -838,20 +838,20 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               <Text style={styles.chipTime}>{formatTime(item.entry.timestamp)}</Text>
               <Text style={styles.chipLabelWater}>{item.entry.label ?? ui.water}</Text>
               <Text style={styles.chipMl}>{formatWaterMl(item.entry.ml, waterU)}</Text>
-              <Text style={styles.chipEditWater}>âœŽ {ui.editItem}</Text>
+              <Text style={styles.chipEditWater}>✎ {ui.editItem}</Text>
             </Pressable>
           ),
         )}
       </ScrollView>
       ) : null}
 
-      {/* Footer â€” export / import */}
+      {/* Footer — export / import */}
       <View style={styles.footer}>
         <Pressable style={styles.footerBtn} onPress={handleExport} accessibilityLabel="Export food log">
-          <Text style={styles.footerBtnText}>â¬† Export</Text>
+          <Text style={styles.footerBtnText}>⬆ Export</Text>
         </Pressable>
         <Pressable style={styles.footerBtn} onPress={handleImport} accessibilityLabel="Import food log">
-          <Text style={styles.footerBtnText}>â¬‡ Import</Text>
+          <Text style={styles.footerBtnText}>⬇ Import</Text>
         </Pressable>
       </View>
       </>
@@ -870,11 +870,11 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               <Text style={styles.modalBold}>
                 {burnParts != null
                   ? formatEnergy(burnParts.activity, energyU)
-                  : 'â€”'}
+                  : '—'}
               </Text>
               {burnParts != null ? (
                 <>
-                  {' Â· '}BMR <Text style={styles.modalBold}>{formatEnergy(burnParts.bmr, energyU)}</Text>
+                  {' · '}BMR <Text style={styles.modalBold}>{formatEnergy(burnParts.bmr, energyU)}</Text>
                 </>
               ) : null}
             </Text>
@@ -914,14 +914,14 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               {waterEntryEdit ? (
                 <>
                   {formatTime(waterEntryEdit.timestamp)}
-                  {' Â· '}
+                  {' · '}
                   <Text style={styles.modalBold}>{formatWaterMl(waterEntryEdit.ml, waterU)}</Text>
-                  {waterEntryEdit.label ? ` Â· ${waterEntryEdit.label}` : ''}
+                  {waterEntryEdit.label ? ` · ${waterEntryEdit.label}` : ''}
                 </>
               ) : (
                 <>
                   {ui.today}: <Text style={styles.modalBold}>{formatWaterMl(waterMl, waterU)}</Text>
-                  {' Â· '}
+                  {' · '}
                   {ui.goal} <Text style={styles.modalBold}>{formatWaterMl(waterGoalMl, waterU)}</Text>
                 </>
               )}
@@ -982,7 +982,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                   onPress={handleDeleteWaterEntry}
                   accessibilityLabel={ui.deleteItem}
                 >
-                  <Text style={styles.waterDeleteBtnText}>ðŸ—‘</Text>
+                  <Text style={styles.waterDeleteBtnText}>🗑</Text>
                 </Pressable>
               ) : null}
               <Pressable
@@ -1070,7 +1070,7 @@ const makeStyles = (c: ThemeColors) =>
     marginBottom: dashCardGap,
     borderWidth: 1.5,
     borderColor: c.gridLine,
-    // Primary-tier anchor (audit F6) â€” navy left edge matches AI chat + body cards.
+    // Primary-tier anchor (audit F6) — navy left edge matches AI chat + body cards.
     borderLeftWidth: 3,
     borderLeftColor: '#1F3D5C',
   },
@@ -1244,7 +1244,7 @@ const makeStyles = (c: ThemeColors) =>
     paddingHorizontal: 10,
     borderRadius: 14,
     borderWidth: 1.5,
-    // Solid (was dashed) â€” these are primary log actions, not empty "Add" placeholders.
+    // Solid (was dashed) — these are primary log actions, not empty "Add" placeholders.
     borderStyle: 'solid',
   },
   addActionMeal: {

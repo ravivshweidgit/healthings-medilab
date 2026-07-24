@@ -1,5 +1,5 @@
 /**
- * Inline chat card â€” confirm nutritionist macro proposal before save.
+ * Inline chat card — confirm nutritionist macro proposal before save.
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
@@ -27,10 +27,10 @@ export function MacroProposalCard({ proposal, lang, energyUnit = 'kcal', onAppli
   const [busy, setBusy] = useState(false);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
 
-  const title = rtl ? '×¢×“×›×•×Ÿ ×™×¢×“×™ ×ž××§×¨×• ×ž×•×¦×¢×™×' : 'Proposed macro targets';
-  const cancelLabel = rtl ? '×‘×™×˜×•×œ' : 'Cancel';
-  const applyLabel = rtl ? '×¢×“×›×Ÿ ×™×¢×“×™×' : 'Update targets';
-  const summary = `${formatEnergy(proposal.kcal, energyUnit)} Â· P${proposal.protein_g} Â· C${proposal.carb_g} Â· F${proposal.fat_g} Â· Fi${proposal.fiber_g}`;
+  const title = rtl ? 'עדכון יעדי מאקרו מוצעים' : 'Proposed macro targets';
+  const cancelLabel = rtl ? 'ביטול' : 'Cancel';
+  const applyLabel = rtl ? 'עדכן יעדים' : 'Update targets';
+  const summary = `${formatEnergy(proposal.kcal, energyUnit)} · P${proposal.protein_g} · C${proposal.carb_g} · F${proposal.fat_g} · Fi${proposal.fiber_g}`;
 
   const handleApply = useCallback(async () => {
     setBusy(true);

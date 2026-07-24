@@ -1,5 +1,5 @@
 /**
- * Lab report import modal â€” PDF pick, AI parse, review, save; view saved reports.
+ * Lab report import modal — PDF pick, AI parse, review, save; view saved reports.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -109,7 +109,7 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
       const msg = e instanceof Error ? e.message : 'Could not read PDF';
       setError(msg);
       if (autoPickPdf) {
-        Alert.alert(rtl ? '×©×’×™××”' : 'Error', msg);
+        Alert.alert(rtl ? 'שגיאה' : 'Error', msg);
         onClose();
       }
     } finally {
@@ -164,7 +164,7 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
     try {
       const saved = await saveParsedLabPanel(draft);
       onSaved(saved);
-      // Macro revision uses Gemini separately â€” run after modal closes so we don't re-show "reading PDF".
+      // Macro revision uses Gemini separately — run after modal closes so we don't re-show "reading PDF".
       void applyAutoMacroRevision({
         trigger: 'lab-import',
         triggerDetail: saved.collectedAt.slice(0, 10),
@@ -222,7 +222,7 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
       </View>
       {onDelete ? (
         <Pressable onPress={onDelete} hitSlop={8}>
-          <Text style={styles.deleteBtn}>ðŸ—‘</Text>
+          <Text style={styles.deleteBtn}>🗑</Text>
         </Pressable>
       ) : null}
     </View>
@@ -234,7 +234,7 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
         <View style={styles.header}>
           <Text style={styles.title}>{title}</Text>
           <Pressable onPress={onClose} hitSlop={12}>
-            <Text style={styles.closeBtn}>âœ•</Text>
+            <Text style={styles.closeBtn}>✕</Text>
           </Pressable>
         </View>
 
@@ -248,11 +248,11 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
         {!loading && !draft && !editingReport && (
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyText}>
-              {rtl ? '×™×™×‘××• ×ª×“×¤×™×¡ PDF ×ž×›×œ×œ×™×ª ××•×ŸÖ¾×œ×™×™×Ÿ' : 'Import a Clalit online lab PDF'}
+              {rtl ? 'ייבאו תדפיס PDF מכללית און־ליין' : 'Import a Clalit online lab PDF'}
             </Text>
             {error && <Text style={styles.errorText}>{error}</Text>}
             <Pressable style={styles.primaryBtn} onPress={() => void pickAndParse()}>
-              <Text style={styles.primaryBtnText}>ðŸ“„ {pickLabel}</Text>
+              <Text style={styles.primaryBtnText}>📄 {pickLabel}</Text>
             </Pressable>
           </View>
         )}
@@ -260,8 +260,8 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
         {!loading && draft && (
           <>
             <Text style={styles.meta}>
-              {draft.panelType.toUpperCase()} Â· {draft.collectedAt.slice(0, 10)}
-              {draft.patientName ? ` Â· ${draft.patientName}` : ''}
+              {draft.panelType.toUpperCase()} · {draft.collectedAt.slice(0, 10)}
+              {draft.patientName ? ` · ${draft.patientName}` : ''}
             </Text>
             <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
               {draft.results.map((r, i) =>
@@ -277,7 +277,7 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
             {error && <Text style={styles.errorText}>{error}</Text>}
             <View style={[styles.footer, { paddingBottom: 16 + footerPadBottom }]}>
               <Pressable style={styles.primaryBtn} onPress={() => void handleSaveImport()}>
-                <Text style={styles.primaryBtnText}>âœ“ {saveLabel}</Text>
+                <Text style={styles.primaryBtnText}>✓ {saveLabel}</Text>
               </Pressable>
             </View>
           </>
@@ -287,8 +287,8 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
           <>
             <Text style={styles.meta}>
               {editingReport.collectedAt.slice(0, 10)}
-              {editingReport.patientName ? ` Â· ${editingReport.patientName}` : ''}
-              {' Â· '}
+              {editingReport.patientName ? ` · ${editingReport.patientName}` : ''}
+              {' · '}
               {editingReport.panels.map((p: LabPanel) => p.panelType).join(' + ')}
             </Text>
             <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
@@ -309,7 +309,7 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
             {error && <Text style={styles.errorText}>{error}</Text>}
             <View style={[styles.footer, { paddingBottom: 16 + footerPadBottom }]}>
               <Pressable style={styles.primaryBtn} onPress={() => void handleSaveView()}>
-                <Text style={styles.primaryBtnText}>âœ“ {saveLabel}</Text>
+                <Text style={styles.primaryBtnText}>✓ {saveLabel}</Text>
               </Pressable>
             </View>
           </>

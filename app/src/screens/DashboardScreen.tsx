@@ -156,7 +156,9 @@ import {
   syncPerfStart,
   syncPerfTrackSibling,
 } from '../services/SyncPerf';
-import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
+import { cardShadow, dashCardGap } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import { demoNoticeCopy } from '../utils/wellnessCopy';
 
 /** Must match `styles.scroll.paddingHorizontal`. */
@@ -268,6 +270,8 @@ type DashboardScreenProps = {
 };
 
 export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const brandHeaderHeight = useMemo(() => computeBrandHeaderHeight(windowWidth), [windowWidth]);
@@ -1823,9 +1827,9 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             accessibilityLabel={metabolicStripCopy.refreshMyData}
           >
             {pullRefreshing ? (
-              <ActivityIndicator size="small" color={WellnessColors.textSecondary} />
+              <ActivityIndicator size="small" color={colors.textSecondary} />
             ) : (
-              <DashIcon icon={ActionIcons.refresh} size={20} color={WellnessColors.textSecondary} />
+              <DashIcon icon={ActionIcons.refresh} size={20} color={colors.textSecondary} />
             )}
           </Pressable>
         </View>
@@ -1936,7 +1940,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                           disabled={linkBusy || bodyScanLoading}
                         >
                           {linkBusy ? (
-                            <ActivityIndicator color={WellnessColors.accentBlue} size="small" />
+                            <ActivityIndicator color={colors.accentBlue} size="small" />
                           ) : (
                             <Text style={styles.withingsLinkButtonTextCompact}>
                               {withingsLinked ? 'Re-link' : 'Link'}
@@ -1949,7 +1953,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 ) : null}
               </>
             ) : null}
-            {bodyScanLoading ? <ActivityIndicator color={WellnessColors.accentBlue} style={styles.bodyScanHeaderSpinner} /> : null}
+            {bodyScanLoading ? <ActivityIndicator color={colors.accentBlue} style={styles.bodyScanHeaderSpinner} /> : null}
           </View>
           ) : null}
 
@@ -2173,7 +2177,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 ) : null}
                 {trendChartLoading && !visibleTrend ? (
                   <View style={styles.trendLoadingOnly}>
-                    <ActivityIndicator color={WellnessColors.accentBlue} />
+                    <ActivityIndicator color={colors.accentBlue} />
                     <Text style={styles.trendLoadingLabel}>Loading trend analysis…</Text>
                   </View>
                 ) : null}
@@ -2315,7 +2319,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   onChangeText={setHeightInput}
                   keyboardType="default"
                   placeholder={unitsPrefs.height === 'ftin' ? "e.g. 5'9\"" : 'e.g. 175'}
-                  placeholderTextColor={WellnessColors.textSecondary}
+                  placeholderTextColor={colors.textSecondary}
                 />
                 <Text style={styles.heightUnit}>{unitsPrefs.height === 'ftin' ? "ft'in\"" : 'cm'}</Text>
               </View>
@@ -2627,7 +2631,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           disabled={isLoading || bodyScanLoading || trendLoading}
         >
           {(isLoading || bodyScanLoading || trendLoading) ? (
-            <ActivityIndicator color={WellnessColors.surface} />
+            <ActivityIndicator color={colors.surface} />
           ) : (
             <Text style={styles.primaryButtonText}>{metabolicStripCopy.refreshMyData}</Text>
           )}
@@ -2745,10 +2749,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
   },
   keyboardAvoid: {
     flex: 1,
@@ -2787,22 +2792,22 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   notice: {
-    backgroundColor: WellnessColors.noticeSoftBg,
+    backgroundColor: c.noticeSoftBg,
     borderWidth: 1,
-    borderColor: WellnessColors.noticeSoftBorder,
+    borderColor: c.noticeSoftBorder,
     borderRadius: 16,
     paddingVertical: 10,
     paddingHorizontal: 14,
     marginBottom: dashCardGap,
   },
   noticeText: {
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     fontSize: 13,
     lineHeight: 19,
     fontWeight: '400',
   },
   bodyScanCard: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 24,
     borderLeftWidth: 3,
     borderLeftColor: PRIMARY_TIER_ACCENT,
@@ -2870,7 +2875,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   withingsStatusBadgeOn: {
-    backgroundColor: WellnessColors.iconTintGreen,
+    backgroundColor: c.iconTintGreen,
     borderWidth: 1,
     borderColor: 'rgba(76, 175, 80, 0.35)',
   },
@@ -2882,7 +2887,7 @@ const styles = StyleSheet.create({
   withingsLinkButtonCompact: {
     flexShrink: 0,
     borderWidth: 1,
-    borderColor: WellnessColors.accentBlue,
+    borderColor: c.accentBlue,
     borderRadius: 14,
     paddingVertical: 7,
     paddingHorizontal: 15,
@@ -2896,7 +2901,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: WellnessColors.accentBlue,
+    borderColor: c.accentBlue,
     borderRadius: 14,
     paddingVertical: 8,
     paddingHorizontal: 16,
@@ -2910,16 +2915,16 @@ const styles = StyleSheet.create({
   withingsLinkButtonTextCompact: {
     fontSize: 12,
     fontWeight: '600',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
   },
   linkErrorText: {
-    color: WellnessColors.accentRed,
+    color: c.accentRed,
     fontSize: 12,
     lineHeight: 17,
     marginBottom: 8,
   },
   bodyScanErrorText: {
-    color: WellnessColors.accentRed,
+    color: c.accentRed,
     fontSize: 13,
     lineHeight: 19,
     marginBottom: 8,
@@ -2927,14 +2932,14 @@ const styles = StyleSheet.create({
   bodyScanMeasured: {
     fontSize: 10,
     lineHeight: 14,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginTop: 4,
     marginBottom: 12,
   },
   hrSyncDiagText: {
     fontSize: 10,
     lineHeight: 14,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginTop: 2,
     marginBottom: 10,
   },
@@ -2953,14 +2958,14 @@ const styles = StyleSheet.create({
   bodyScanMetricLabelTriple: {
     fontSize: 10,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     letterSpacing: 0.4,
     marginBottom: 4,
   },
   bodyScanMetricValueTriple: {
     fontSize: 16,
     fontWeight: '500',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     fontVariant: ['tabular-nums'],
   },
   bodyScanBmrRow: {
@@ -2981,19 +2986,19 @@ const styles = StyleSheet.create({
   bodyScanBmrValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     fontVariant: ['tabular-nums'],
   },
   bodyScanBmrDate: {
     fontSize: 10,
     lineHeight: 14,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     textAlign: 'right',
     flexShrink: 0,
   },
   bodyScanEmpty: {
     fontSize: 14,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginTop: 4,
   },
   /** Same horizontal gutter as surface cards (scroll padding + card inner padding). */
@@ -3003,7 +3008,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   chartCardBleed: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 24,
     paddingHorizontal: 14,
     paddingTop: 14,
@@ -3023,7 +3028,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   trendCardBleed: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 24,
     paddingHorizontal: 14,
     paddingTop: 14,
@@ -3045,10 +3050,10 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: WellnessColors.gridLine,
+    borderTopColor: c.gridLine,
   },
   trendErrorText: {
-    color: WellnessColors.accentRed,
+    color: c.accentRed,
     fontSize: 13,
     textAlign: 'center',
     marginBottom: 10,
@@ -3063,13 +3068,13 @@ const styles = StyleSheet.create({
   trendLoadingLabel: {
     marginTop: 10,
     fontSize: 13,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   glucoseHistorySection: {
     marginBottom: dashCardGap,
   },
   primaryButton: {
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
     borderRadius: 24,
     paddingVertical: 16,
     alignItems: 'center',
@@ -3079,36 +3084,36 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   primaryButtonText: {
-    color: WellnessColors.surface,
+    color: c.surface,
     fontSize: 16,
     fontWeight: '600',
   },
   errorText: {
-    color: WellnessColors.accentRed,
+    color: c.accentRed,
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 8,
     lineHeight: 20,
   },
   hcErrorBanner: {
-    backgroundColor: WellnessColors.noticeSoftBg,
+    backgroundColor: c.noticeSoftBg,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: WellnessColors.noticeSoftBorder,
+    borderColor: c.noticeSoftBorder,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: dashCardGap,
   },
   hcErrorBannerText: {
     fontSize: 14,
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     lineHeight: 20,
     marginBottom: 6,
   },
   hcErrorBannerAction: {
     fontSize: 14,
     fontWeight: '600',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
   },
   // AI chat entry strip
   nudgeStrip: {
@@ -3135,7 +3140,7 @@ const styles = StyleSheet.create({
   nudgeStripTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
   },
   nudgeStripTitleRtl: {
     writingDirection: 'rtl',
@@ -3143,7 +3148,7 @@ const styles = StyleSheet.create({
   nudgeStripSub: {
     fontSize: 12,
     fontWeight: '500',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginTop: 1,
     flexShrink: 1,
   },
@@ -3154,7 +3159,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
   },
   withingsMenuCard: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 16,
     paddingHorizontal: 18,
     paddingTop: 18,
@@ -3163,19 +3168,19 @@ const styles = StyleSheet.create({
   withingsMenuTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     marginBottom: 6,
   },
   withingsMenuHint: {
     fontSize: 13,
     lineHeight: 18,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginBottom: 12,
   },
   withingsMenuBtn: {
     paddingVertical: 14,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: WellnessColors.gridLine,
+    borderTopColor: c.gridLine,
   },
   withingsMenuBtnCancel: {
     marginTop: 4,
@@ -3183,18 +3188,18 @@ const styles = StyleSheet.create({
   withingsMenuBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     textAlign: 'center',
   },
   withingsMenuBtnCancelText: {
     fontSize: 16,
     fontWeight: '500',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
   },
   nudgeStripChevron: {
     fontSize: 20,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     fontWeight: '300',
     flexShrink: 0,
   },
@@ -3202,12 +3207,12 @@ const styles = StyleSheet.create({
   },
   previewFoot: {
     fontSize: 11,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     letterSpacing: 0.3,
   },
   groupCard: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 24,
     marginBottom: dashCardGap,
     overflow: 'hidden',
@@ -3219,7 +3224,7 @@ const styles = StyleSheet.create({
   },
   groupDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: WellnessColors.gridLine,
+    backgroundColor: c.gridLine,
     marginHorizontal: 4,
     marginVertical: 2,
   },
@@ -3234,7 +3239,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   heightModalCard: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 16,
     padding: 16,
   },
@@ -3246,7 +3251,7 @@ const styles = StyleSheet.create({
     zIndex: 30,
   },
   birthdateCard: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 24,
     paddingHorizontal: 24,
     paddingVertical: 8,
@@ -3261,13 +3266,13 @@ const styles = StyleSheet.create({
   birthdateTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     marginBottom: 8,
     textAlign: 'center',
   },
   birthdateSubtitle: {
     fontSize: 13,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: 16,
     lineHeight: 18,
@@ -3277,7 +3282,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginBottom: 8,
   },
   birthdateSectionTitle: {
@@ -3294,7 +3299,7 @@ const styles = StyleSheet.create({
   },
   manualBodyProfileGateHint: {
     fontSize: 12,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     lineHeight: 17,
   },
   genderRow: {
@@ -3308,21 +3313,21 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     alignItems: 'center',
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
   },
   genderBtnSelected: {
-    borderColor: WellnessColors.accentBlue,
-    backgroundColor: WellnessColors.accentBlue + '15',
+    borderColor: c.accentBlue,
+    backgroundColor: c.accentBlue + '15',
   },
   genderBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   genderBtnTextSelected: {
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
   },
   langRow: {
     flexDirection: 'row',
@@ -3336,21 +3341,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     alignItems: 'center',
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
   },
   langBtnSelected: {
-    borderColor: WellnessColors.accentBlue,
-    backgroundColor: WellnessColors.accentBlue + '15',
+    borderColor: c.accentBlue,
+    backgroundColor: c.accentBlue + '15',
   },
   langBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   langBtnTextSelected: {
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
   },
   heightRow: {
     flexDirection: 'row',
@@ -3365,17 +3370,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: WellnessColors.gridLine,
-    backgroundColor: WellnessColors.background,
+    borderColor: c.gridLine,
+    backgroundColor: c.background,
     fontSize: 18,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     textAlign: 'center',
   },
   heightUnit: {
     fontSize: 16,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     width: 32,
   },
   heightHint: {
@@ -3393,14 +3398,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: WellnessColors.gridLine,
-    backgroundColor: WellnessColors.background,
+    borderColor: c.gridLine,
+    backgroundColor: c.background,
     marginBottom: 8,
   },
   datePickerBtnText: {
     fontSize: 15,
     fontWeight: '600',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
   },
   datePickerBtnIcon: {
     fontSize: 18,
@@ -3408,7 +3413,7 @@ const styles = StyleSheet.create({
   birthdateAge: {
     fontSize: 14,
     fontWeight: '600',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     marginTop: 4,
     marginBottom: 16,
   },
@@ -3420,7 +3425,7 @@ const styles = StyleSheet.create({
   quickStartAgainText: {
     fontSize: 14,
     fontWeight: '600',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
   },
   setupChipRow: {
     flexDirection: 'row',
@@ -3429,7 +3434,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   setupChip: {
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -3439,33 +3444,33 @@ const styles = StyleSheet.create({
   setupChipLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
   setupChipValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     marginTop: 2,
   },
   bodyScanProvenance: {
     fontSize: 11,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginTop: 4,
     marginBottom: 4,
     paddingHorizontal: 4,
   },
   birthdateSaveHint: {
     fontSize: 12,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     alignSelf: 'center',
     textAlign: 'center',
     marginBottom: 8,
     marginTop: 4,
   },
   birthdateSaveBtn: {
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
     borderRadius: 999,
     paddingHorizontal: 40,
     paddingVertical: 12,

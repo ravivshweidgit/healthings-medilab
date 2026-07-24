@@ -1,5 +1,5 @@
 /**
- * Full-screen recipe viewer â€” kitchen units + grams (prompt40).
+ * Full-screen recipe viewer — kitchen units + grams (prompt40).
  */
 
 import React, { useMemo } from 'react';
@@ -40,10 +40,10 @@ export function RecipeViewerModal({ visible, plan, lang, energyUnit = 'kcal', on
   if (!plan) return null;
 
   const title = recipeDisplayTitle(plan, rtl);
-  const closeLabel = rtl ? '×¡×’×•×¨' : 'Close';
-  const logLabel = rtl ? '×¨×©×•× ×›××¨×•×—×”' : 'Log as meal';
-  const ingredientsLabel = rtl ? '×ž×¨×›×™×‘×™×' : 'Ingredients';
-  const stepsLabel = rtl ? '×”×›× ×”' : 'Steps';
+  const closeLabel = rtl ? 'סגור' : 'Close';
+  const logLabel = rtl ? 'רשום כארוחה' : 'Log as meal';
+  const ingredientsLabel = rtl ? 'מרכיבים' : 'Ingredients';
+  const stepsLabel = rtl ? 'הכנה' : 'Steps';
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -79,7 +79,7 @@ export function RecipeViewerModal({ visible, plan, lang, energyUnit = 'kcal', on
                       {ingredientAmountDisplay(item, rtl)}
                     </Text>
                     <Text style={[styles.ingredientMacros, rtl && styles.rtl]}>
-                      {formatEnergy(item.kcal, energyUnit)} Â· P{item.protein_g} C{item.carb_g} F{item.fat_g} Fi{item.fiber_g ?? 0}
+                      {formatEnergy(item.kcal, energyUnit)} · P{item.protein_g} C{item.carb_g} F{item.fat_g} Fi{item.fiber_g ?? 0}
                     </Text>
                   </View>
                 </View>

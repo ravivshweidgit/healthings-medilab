@@ -1,6 +1,6 @@
 /**
- * Section â€” Body composition targets.
- * States: idle â†’ loading â†’ suggestion â†’ editing â†’ active
+ * Section — Body composition targets.
+ * States: idle → loading → suggestion → editing → active
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -33,7 +33,7 @@ import {
   massUnitLabel,
 } from '../logic/unitConvert';
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 export type BodyTargetProps = {
   /** Current body metrics from Withings */
@@ -56,7 +56,7 @@ export type BodyTargetProps = {
 
 type Screen = 'idle' | 'loading' | 'suggestion' | 'editing' | 'active';
 
-// â”€â”€â”€ Range scale â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Range scale ─────────────────────────────────────────────────────────────
 
 function RangeScale({
   label,
@@ -102,7 +102,7 @@ function RangeScale({
       <View style={scaleStyles.headerRow}>
         <Text style={scaleStyles.label}>{label}</Text>
         <Text style={[scaleStyles.diffText, atTarget && scaleStyles.diffDone]}>
-          {atTarget ? 'âœ“ Goal reached' : `${diffText} ${unit} to go`}
+          {atTarget ? '✓ Goal reached' : `${diffText} ${unit} to go`}
         </Text>
       </View>
 
@@ -167,7 +167,7 @@ const makeScaleStyles = (c: ThemeColors) =>
   },
 });
 
-// â”€â”€â”€ Edit field â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Edit field ───────────────────────────────────────────────────────────────
 
 function EditField({
   label,
@@ -236,7 +236,7 @@ const makeEditStyles = (c: ThemeColors) =>
   },
 });
 
-// â”€â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export function WeightTargetStrip({
   weightKg,
@@ -393,17 +393,17 @@ export function WeightTargetStrip({
     setScreen('idle');
   }, []);
 
-  // â”€â”€ Summary line shown in collapsed header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Summary line shown in collapsed header ────────────────────────────────
   const massLab = massUnitLabel(massUnit);
   const headerSub = target
-    ? `${formatMass(target.targetWeight_kg, massUnit)} Â· ${target.targetFatPct.toFixed(1)}% ${bodyLabels.fat} Â· ${formatMass(target.targetMuscleMass_kg, massUnit)} ${bodyLabels.muscle}${
+    ? `${formatMass(target.targetWeight_kg, massUnit)} · ${target.targetFatPct.toFixed(1)}% ${bodyLabels.fat} · ${formatMass(target.targetMuscleMass_kg, massUnit)} ${bodyLabels.muscle}${
         (target.targetWeeks ?? target.estimatedWeeks)
-          ? ` Â· ${target.targetWeeks ?? target.estimatedWeeks}w`
+          ? ` · ${target.targetWeeks ?? target.estimatedWeeks}w`
           : ''
       }`
     : 'Tap to set your body goals';
 
-  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <View style={styles.card}>
@@ -427,7 +427,7 @@ export function WeightTargetStrip({
                   }}
                   hitSlop={8}
                 >
-                  <Text style={styles.editLink}>âœŽ</Text>
+                  <Text style={styles.editLink}>✎</Text>
                 </Pressable>
               ) : null}
               {screen === 'active' && target ? (
@@ -448,15 +448,15 @@ export function WeightTargetStrip({
 
       {!expanded ? null : <View style={styles.body}>
 
-      {/* â”€â”€ idle â”€â”€ */}
+      {/* ── idle ── */}
       {screen === 'idle' && (
         <View style={styles.idleWrap}>
           <Text style={styles.idleText}>
-            Set weight, body comp, and weeks to goal â€” edit anytime without AI.
+            Set weight, body comp, and weeks to goal — edit anytime without AI.
           </Text>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           <Pressable style={styles.manualBtn} onPress={() => handleOpenEdit()}>
-            <Text style={styles.manualBtnText}>âœŽ Set / edit targets</Text>
+            <Text style={styles.manualBtnText}>✎ Set / edit targets</Text>
           </Pressable>
           <Pressable
             style={[styles.aiBtnOutline, !canAnalyze && styles.aiBtnDisabled]}
@@ -464,25 +464,25 @@ export function WeightTargetStrip({
             disabled={!canAnalyze}
           >
             <Text style={[styles.aiBtnOutlineText, !canAnalyze && styles.aiBtnOutlineTextDisabled]}>
-              âœ¨ Suggest with AI {canAnalyze ? '' : '(needs Withings + profile)'}
+              ✨ Suggest with AI {canAnalyze ? '' : '(needs Withings + profile)'}
             </Text>
           </Pressable>
         </View>
       )}
 
-      {/* â”€â”€ loading â”€â”€ */}
+      {/* ── loading ── */}
       {screen === 'loading' && (
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={colors.accentGreen} />
-          <Text style={styles.loadingText}>Analysing your body compositionâ€¦</Text>
+          <Text style={styles.loadingText}>Analysing your body composition…</Text>
         </View>
       )}
 
-      {/* â”€â”€ suggestion â”€â”€ */}
+      {/* ── suggestion ── */}
       {screen === 'suggestion' && suggestion && (
         <View>
           <View style={styles.reasoningBox}>
-            <Text style={styles.reasoningIcon}>ðŸ’¡</Text>
+            <Text style={styles.reasoningIcon}>💡</Text>
             <Text style={styles.reasoningText}>{suggestion.reasoning}</Text>
           </View>
           <View style={styles.suggestionRow}>
@@ -511,16 +511,16 @@ export function WeightTargetStrip({
           </View>
           <View style={styles.suggestionBtns}>
             <Pressable style={[styles.suggestionBtn, styles.suggestionBtnAccept]} onPress={handleAccept}>
-              <Text style={styles.suggestionBtnTextAccept}>âœ“ Accept</Text>
+              <Text style={styles.suggestionBtnTextAccept}>✓ Accept</Text>
             </Pressable>
             <Pressable style={[styles.suggestionBtn, styles.suggestionBtnEdit]} onPress={() => handleOpenEdit(suggestion)}>
-              <Text style={styles.suggestionBtnTextEdit}>âœŽ Edit</Text>
+              <Text style={styles.suggestionBtnTextEdit}>✎ Edit</Text>
             </Pressable>
           </View>
         </View>
       )}
 
-      {/* â”€â”€ editing â”€â”€ */}
+      {/* ── editing ── */}
       {screen === 'editing' && (
         <View>
           <Text style={styles.editHint}>
@@ -573,7 +573,7 @@ export function WeightTargetStrip({
         </View>
       )}
 
-      {/* â”€â”€ active â”€â”€ */}
+      {/* ── active ── */}
       {screen === 'active' && target && (
         <View style={styles.activeWrap}>
           {weightKg != null && fatPct != null && muscleMass_kg != null ? (
@@ -607,8 +607,8 @@ export function WeightTargetStrip({
           ) : (
             <View style={styles.manualSummary}>
               <Text style={styles.manualSummaryLine}>
-                Target: {formatMass(target.targetWeight_kg, massUnit)} Â· {target.targetFatPct.toFixed(1)}%{' '}
-                {bodyLabels.fat} Â· {formatMass(target.targetMuscleMass_kg, massUnit)} {bodyLabels.muscle}
+                Target: {formatMass(target.targetWeight_kg, massUnit)} · {target.targetFatPct.toFixed(1)}%{' '}
+                {bodyLabels.fat} · {formatMass(target.targetMuscleMass_kg, massUnit)} {bodyLabels.muscle}
               </Text>
               {!hideWithingsScalePrompt ? (
                 <Text style={styles.manualSummarySub}>Link Withings for progress scales</Text>
@@ -622,26 +622,26 @@ export function WeightTargetStrip({
             <Text style={styles.paceText}>
               {target.targetWeeks
                 ? `Target: ${target.targetWeeks} weeks to reach goal (drives macro kcal)`
-                : `~${target.estimatedWeeks} weeks estimated â€” tap âœŽ to set your timeline`}
+                : `~${target.estimatedWeeks} weeks estimated — tap ✎ to set your timeline`}
             </Text>
           ) : (
-            <Text style={styles.paceText}>Tap âœŽ to set weeks to goal (drives macro kcal)</Text>
+            <Text style={styles.paceText}>Tap ✎ to set weeks to goal (drives macro kcal)</Text>
           )}
 
           {target.reasoning && target.reasoning !== 'Manual target' ? (
             <View style={styles.reasoningBox}>
-              <Text style={styles.reasoningIcon}>ðŸ’¡</Text>
+              <Text style={styles.reasoningIcon}>💡</Text>
               <View style={styles.reasoningContent}>
                 <Text style={styles.reasoningText}>{target.reasoning}</Text>
                 <Text style={styles.analyzedAt}>
-                  AI Â· {formatShortDate(target.analyzedAt, lang?.code)}
+                  AI · {formatShortDate(target.analyzedAt, lang?.code)}
                 </Text>
               </View>
             </View>
           ) : null}
 
           <Pressable style={styles.editTargetsBtn} onPress={() => handleOpenEdit()}>
-            <Text style={styles.editTargetsBtnText}>âœŽ Edit targets</Text>
+            <Text style={styles.editTargetsBtnText}>✎ Edit targets</Text>
           </Pressable>
 
           {canAnalyze ? (
@@ -656,7 +656,7 @@ export function WeightTargetStrip({
   );
 }
 
-// â”€â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
@@ -667,7 +667,7 @@ const makeStyles = (c: ThemeColors) =>
   headerActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   editLink: { fontSize: 13, color: c.accentBlue, fontWeight: '600' },
   resetLink: { fontSize: 11, color: c.textSecondary },
-  // â”€â”€ Expanded body â”€â”€
+  // ── Expanded body ──
   body: { marginTop: 8, paddingHorizontal: 4 },
 
   // idle
