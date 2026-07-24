@@ -14,6 +14,8 @@ export type MetabolicStripCopy = {
   loading: string;
   tapToOpenCharts: string;
   tapToOpen: string;
+  /** Primary dashboard sync button */
+  refreshMyData: string;
   genderMale: string;
   genderFemale: string;
   genderOther: string;
@@ -50,6 +52,7 @@ const EN: MetabolicStripCopy = {
   loading: 'Loading…',
   tapToOpenCharts: 'Tap to open charts',
   tapToOpen: 'Tap to open',
+  refreshMyData: 'Refresh my data',
   genderMale: 'Male',
   genderFemale: 'Female',
   genderOther: 'Other',
@@ -83,6 +86,7 @@ const HE: MetabolicStripCopy = {
   loading: 'טוען…',
   tapToOpenCharts: 'הקש לפתיחת הגרפים',
   tapToOpen: 'הקש לפתיחה',
+  refreshMyData: 'רענון הנתונים שלי',
   genderMale: 'זכר',
   genderFemale: 'נקבה',
   genderOther: 'אחר',
@@ -116,6 +120,7 @@ const ES: MetabolicStripCopy = {
   loading: 'Cargando…',
   tapToOpenCharts: 'Toca para abrir gráficos',
   tapToOpen: 'Toca para abrir',
+  refreshMyData: 'Actualizar mis datos',
   genderMale: 'Hombre',
   genderFemale: 'Mujer',
   genderOther: 'Otro',
@@ -149,6 +154,7 @@ const FR: MetabolicStripCopy = {
   loading: 'Chargement…',
   tapToOpenCharts: 'Appuyer pour ouvrir les graphiques',
   tapToOpen: 'Appuyer pour ouvrir',
+  refreshMyData: 'Actualiser mes données',
   genderMale: 'Homme',
   genderFemale: 'Femme',
   genderOther: 'Autre',
@@ -182,6 +188,7 @@ const DE: MetabolicStripCopy = {
   loading: 'Laden…',
   tapToOpenCharts: 'Tippen für Diagramme',
   tapToOpen: 'Tippen zum Öffnen',
+  refreshMyData: 'Meine Daten aktualisieren',
   genderMale: 'Männlich',
   genderFemale: 'Weiblich',
   genderOther: 'Divers',
@@ -215,6 +222,7 @@ const AR: MetabolicStripCopy = {
   loading: 'جارٍ التحميل…',
   tapToOpenCharts: 'اضغط لفتح الرسوم',
   tapToOpen: 'اضغط للفتح',
+  refreshMyData: 'تحديث بياناتي',
   genderMale: 'ذكر',
   genderFemale: 'أنثى',
   genderOther: 'آخر',
@@ -248,6 +256,7 @@ const RU: MetabolicStripCopy = {
   loading: 'Загрузка…',
   tapToOpenCharts: 'Нажмите, чтобы открыть графики',
   tapToOpen: 'Нажмите, чтобы открыть',
+  refreshMyData: 'Обновить мои данные',
   genderMale: 'Мужской',
   genderFemale: 'Женский',
   genderOther: 'Другой',
@@ -270,6 +279,108 @@ const RU: MetabolicStripCopy = {
   daysAgo: (n) => `${n}д назад`,
 };
 
+const PT: MetabolicStripCopy = {
+  glucoseTitle: 'GLICOSE',
+  activityTitle: 'ATIVIDADE',
+  trendTitle: 'TENDÊNCIA E ENERGIA',
+  profileSettingsTitle: 'PERFIL E CONFIGURAÇÕES',
+  noReading: 'Sem leitura',
+  noCgm: 'sem CGM',
+  justNow: 'agora',
+  loading: 'Carregando…',
+  tapToOpenCharts: 'Toque para abrir gráficos',
+  tapToOpen: 'Toque para abrir',
+  refreshMyData: 'Atualizar meus dados',
+  genderMale: 'Masculino',
+  genderFemale: 'Feminino',
+  genderOther: 'Outro',
+  ageYears: (n) => `${n} a`,
+  mentorsCount: (n) => `${n} mentor${n === 1 ? '' : 'es'}`,
+  a11yExpandGlucose: 'Expandir gráfico de glicose',
+  a11yCollapseGlucose: 'Recolher gráfico de glicose',
+  a11yExpandActivity: 'Expandir gráfico de atividade',
+  a11yCollapseActivity: 'Recolher gráfico de atividade',
+  a11yExpandTrend: 'Expandir tendência e energia',
+  a11yCollapseTrend: 'Recolher tendência e energia',
+  a11yExpandProfileSettings: 'Expandir perfil e configurações',
+  a11yCollapseProfileSettings: 'Recolher perfil e configurações',
+  legendGlucose: 'Glicose',
+  legendHeartRate: 'Frequência cardíaca',
+  legendSteps: 'Passos',
+  legendWorkout: 'Treino',
+  minsAgo: (n) => `há ${n}m`,
+  hoursAgo: (n) => `há ${n}h`,
+  daysAgo: (n) => `há ${n}d`,
+};
+
+const IT: MetabolicStripCopy = {
+  glucoseTitle: 'GLUCOSIO',
+  activityTitle: 'ATTIVITÀ',
+  trendTitle: 'TENDENZA ED ENERGIA',
+  profileSettingsTitle: 'PROFILO E IMPOSTAZIONI',
+  noReading: 'Nessuna lettura',
+  noCgm: 'senza CGM',
+  justNow: 'adesso',
+  loading: 'Caricamento…',
+  tapToOpenCharts: 'Tocca per aprire i grafici',
+  tapToOpen: 'Tocca per aprire',
+  refreshMyData: 'Aggiorna i miei dati',
+  genderMale: 'Uomo',
+  genderFemale: 'Donna',
+  genderOther: 'Altro',
+  ageYears: (n) => `${n} a`,
+  mentorsCount: (n) => `${n} mentor`,
+  a11yExpandGlucose: 'Espandi grafico glucosio',
+  a11yCollapseGlucose: 'Comprimi grafico glucosio',
+  a11yExpandActivity: 'Espandi grafico attività',
+  a11yCollapseActivity: 'Comprimi grafico attività',
+  a11yExpandTrend: 'Espandi tendenza ed energia',
+  a11yCollapseTrend: 'Comprimi tendenza ed energia',
+  a11yExpandProfileSettings: 'Espandi profilo e impostazioni',
+  a11yCollapseProfileSettings: 'Comprimi profilo e impostazioni',
+  legendGlucose: 'Glucosio',
+  legendHeartRate: 'Frequenza cardiaca',
+  legendSteps: 'Passi',
+  legendWorkout: 'Allenamento',
+  minsAgo: (n) => `${n}m fa`,
+  hoursAgo: (n) => `${n}h fa`,
+  daysAgo: (n) => `${n}g fa`,
+};
+
+const TR: MetabolicStripCopy = {
+  glucoseTitle: 'GLİKOZ',
+  activityTitle: 'AKTİVİTE',
+  trendTitle: 'EĞİLİM VE ENERJİ',
+  profileSettingsTitle: 'PROFİL VE AYARLAR',
+  noReading: 'Okuma yok',
+  noCgm: 'CGM yok',
+  justNow: 'az önce',
+  loading: 'Yükleniyor…',
+  tapToOpenCharts: 'Grafikleri açmak için dokunun',
+  tapToOpen: 'Açmak için dokunun',
+  refreshMyData: 'Verilerimi yenile',
+  genderMale: 'Erkek',
+  genderFemale: 'Kadın',
+  genderOther: 'Diğer',
+  ageYears: (n) => `${n} y`,
+  mentorsCount: (n) => `${n} mentor`,
+  a11yExpandGlucose: 'Glukoz grafiğini genişlet',
+  a11yCollapseGlucose: 'Glukoz grafiğini daralt',
+  a11yExpandActivity: 'Aktivite grafiğini genişlet',
+  a11yCollapseActivity: 'Aktivite grafiğini daralt',
+  a11yExpandTrend: 'Eğilim ve enerjiyi genişlet',
+  a11yCollapseTrend: 'Eğilim ve enerjiyi daralt',
+  a11yExpandProfileSettings: 'Profil ve ayarları genişlet',
+  a11yCollapseProfileSettings: 'Profil ve ayarları daralt',
+  legendGlucose: 'Glukoz',
+  legendHeartRate: 'Nabız',
+  legendSteps: 'Adım',
+  legendWorkout: 'Antrenman',
+  minsAgo: (n) => `${n}dk önce`,
+  hoursAgo: (n) => `${n}s önce`,
+  daysAgo: (n) => `${n}g önce`,
+};
+
 export function getMetabolicStripCopy(langCode?: string | null): MetabolicStripCopy {
   const c = (langCode || 'en').toLowerCase().slice(0, 2);
   if (c === 'he') return HE;
@@ -278,6 +389,9 @@ export function getMetabolicStripCopy(langCode?: string | null): MetabolicStripC
   if (c === 'de') return DE;
   if (c === 'ar') return AR;
   if (c === 'ru') return RU;
+  if (c === 'pt') return PT;
+  if (c === 'it') return IT;
+  if (c === 'tr') return TR;
   return EN;
 }
 

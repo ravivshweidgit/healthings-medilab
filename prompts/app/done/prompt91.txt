@@ -1,0 +1,52 @@
+# prompt91 — Portuguese, Italian, Turkish (coach & meals language)
+
+**Status:** Done (2026-07-24). Phone-tested Android. Website help trees included (deploy with site).
+
+**Builds on:** prompt81 (language gate + chrome i18n), prompt87 / locale expansion to 7 langs.
+
+## Problem
+
+Users who prefer Portuguese, Italian, or Turkish had no coach/meals locale — wizard and LANGUAGE strip stopped at EN/HE/ES/FR/DE/AR/RU.
+
+## What shipped
+
+| Area | Change |
+|------|--------|
+| Registry | `SUPPORTED_LANGUAGES` + `DEFAULT_QUICK_QUESTIONS_BY_LANG` — `pt`, `it`, `tr` |
+| Language gate | 10 options; **2-column** “Select language” text table; flags in 2×5 grid |
+| Dates | `dateLocale.ts` — `pt-BR`, `it-IT`, `tr-TR` + Today labels |
+| Chrome copy | All `app/src/i18n/*Copy.ts` packs |
+| Titles / mentors | `FoodMacroStrip` FOOD LOG; `mentorLabels`; macros “Updated today…” |
+| Gemini | Mild grammatical-gender note includes `tr` (with `pt`/`it`) |
+| Dashboard | Localized **Refresh my data** (`metabolicStripCopy.refreshMyData`) |
+| Help site | `website/{pt,it,tr}/help/*` + `HELP_LOCALES` in app |
+
+## Primary files
+
+| Path | Role |
+|------|------|
+| `app/src/services/TargetService.ts` | Language list + quick questions |
+| `app/src/i18n/languageGate.ts` | Gate options |
+| `app/src/i18n/*Copy.ts` | Chrome packs |
+| `app/src/i18n/quickStartCopy.ts` | Wizard |
+| `app/src/i18n/helpUrls.ts` | Help locale routing |
+| `app/src/components/WelcomeQuickStartWizard.tsx` | Gate layout |
+| `website/scripts/help-locale-content.mjs` | Help content |
+| `website/scripts/gen-help-locales.mjs` | HTML generator |
+
+## Phone-tested
+
+- [x] Language gate: 2-col select text + flags visible
+- [x] Quick Start chrome in PT / IT / TR
+- [x] Dashboard strips + Refresh my data localized
+- [ ] Help pages live on healthings.ai (after website deploy)
+
+## Explicitly not in this batch
+
+- Mentor gender UI (`usesMentorGenderUi` — he/ar only)
+- RTL
+- Full UI i18n of every Alert / MentorStrip English leftovers
+
+## Related
+
+- Dark mode deferred (product note)

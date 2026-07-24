@@ -33,6 +33,9 @@ const POSSESSIVE: Record<
     fr: { male: 'Mon médecin', female: 'Ma médecin' },
     de: { male: 'Mein Arzt', female: 'Meine Ärztin' },
     ru: { male: 'Мой врач', female: 'Моя врач' },
+    pt: { male: 'Meu médico', female: 'Minha médica' },
+    it: { male: 'Il mio medico', female: 'La mia medica' },
+    tr: { male: 'Doktorum', female: 'Doktorum' },
   },
   nutritionist: {
     en: { male: 'My nutritionist', female: 'My nutritionist' },
@@ -42,6 +45,9 @@ const POSSESSIVE: Record<
     fr: { male: 'Mon nutritionniste', female: 'Ma nutritionniste' },
     de: { male: 'Mein Ernährungsberater', female: 'Meine Ernährungsberaterin' },
     ru: { male: 'Мой диетолог', female: 'Моя диетолог' },
+    pt: { male: 'Meu nutricionista', female: 'Minha nutricionista' },
+    it: { male: 'Il mio nutrizionista', female: 'La mia nutrizionista' },
+    tr: { male: 'Diyetisyenim', female: 'Diyetisyenim' },
   },
   coach: {
     en: { male: 'My coach', female: 'My coach' },
@@ -51,6 +57,9 @@ const POSSESSIVE: Record<
     fr: { male: 'Mon coach', female: 'Ma coach' },
     de: { male: 'Mein Coach', female: 'Meine Coach' },
     ru: { male: 'Мой тренер', female: 'Моя тренер' },
+    pt: { male: 'Meu coach', female: 'Minha coach' },
+    it: { male: 'Il mio coach', female: 'La mia coach' },
+    tr: { male: 'Antrenörüm', female: 'Antrenörüm' },
   },
 };
 
@@ -62,6 +71,9 @@ const COLLECTIVE: Record<string, { male: string; female: string }> = {
   fr: { male: 'Mes mentors', female: 'Mes mentors' },
   de: { male: 'Meine Mentoren', female: 'Meine Mentorinnen' },
   ru: { male: 'Мои наставники', female: 'Мои наставницы' },
+  pt: { male: 'Meus mentores', female: 'Minhas mentoras' },
+  it: { male: 'I miei mentori', female: 'Le mie mentori' },
+  tr: { male: 'Mentorlarım', female: 'Mentorlarım' },
 };
 
 const CARD_SUB: Record<MentorType, Record<string, string>> = {
@@ -69,16 +81,37 @@ const CARD_SUB: Record<MentorType, Record<string, string>> = {
     en: 'health & safety',
     he: 'בריאות ובטיחות',
     ar: 'الصحة والسلامة',
+    es: 'salud y seguridad',
+    fr: 'santé et sécurité',
+    de: 'Gesundheit & Sicherheit',
+    ru: 'здоровье и безопасность',
+    pt: 'saúde e segurança',
+    it: 'salute e sicurezza',
+    tr: 'sağlık ve güvenlik',
   },
   nutritionist: {
     en: 'food quality',
     he: 'איכות תזונה',
     ar: 'جودة الغذاء',
+    es: 'calidad de la comida',
+    fr: 'qualité alimentaire',
+    de: 'Nahrungsqualität',
+    ru: 'качество питания',
+    pt: 'qualidade da comida',
+    it: 'qualità del cibo',
+    tr: 'yiyecek kalitesi',
   },
   coach: {
     en: 'body composition',
     he: 'הרכב גוף',
     ar: 'تركيب الجسم',
+    es: 'composición corporal',
+    fr: 'composition corporelle',
+    de: 'Körperzusammensetzung',
+    ru: 'состав тела',
+    pt: 'composição corporal',
+    it: 'composizione corporea',
+    tr: 'vücut kompozisyonu',
   },
 };
 

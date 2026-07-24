@@ -511,7 +511,7 @@ export async function setMacroManualLock(locked: boolean): Promise<void> {
 const LANGUAGE_KEY = 'user_language';
 
 export type UserLanguage = {
-  code: string;   // BCP-47 e.g. 'en', 'he', 'es', 'fr', 'de', 'ar', 'ru'
+  code: string;   // BCP-47 e.g. 'en', 'he', 'es', 'fr', 'de', 'ar', 'ru', 'pt', 'it', 'tr'
   label: string;  // display name e.g. 'English'
 };
 
@@ -523,6 +523,9 @@ export const SUPPORTED_LANGUAGES: UserLanguage[] = [
   { code: 'de', label: 'Deutsch' },
   { code: 'ar', label: 'العربية' },
   { code: 'ru', label: 'Русский' },
+  { code: 'pt', label: 'Português' },
+  { code: 'it', label: 'Italiano' },
+  { code: 'tr', label: 'Türkçe' },
 ];
 
 export const DEFAULT_LANGUAGE: UserLanguage = SUPPORTED_LANGUAGES[0];
@@ -808,6 +811,24 @@ const DEFAULT_QUICK_QUESTIONS_BY_LANG: Record<string, QuickQuestion[]> = {
     { id: 'qq-default-1', label: 'Проверь мой статус' },
     { id: 'qq-default-2', label: 'Разбор последнего приёма пищи' },
     { id: 'qq-default-3', label: 'Как у меня дела сегодня?' },
+  ],
+  pt: [
+    { id: 'qq-default-1', label: 'Resumo de ontem' },
+    { id: 'qq-default-2', label: 'Resumo semanal' },
+    { id: 'qq-default-3', label: 'Resumo mensal' },
+    { id: 'qq-macros', label: '/macros' },
+  ],
+  it: [
+    { id: 'qq-default-1', label: 'Riepilogo di ieri' },
+    { id: 'qq-default-2', label: 'Riepilogo settimanale' },
+    { id: 'qq-default-3', label: 'Riepilogo mensile' },
+    { id: 'qq-macros', label: '/macros' },
+  ],
+  tr: [
+    { id: 'qq-default-1', label: 'Dünkü özet' },
+    { id: 'qq-default-2', label: 'Haftalık özet' },
+    { id: 'qq-default-3', label: 'Aylık özet' },
+    { id: 'qq-macros', label: '/macros' },
   ],
 };
 

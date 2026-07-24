@@ -23,7 +23,7 @@ export type HelpSlug =
   | 'meal-logging'
   | 'manual-body';
 
-export const HELP_LOCALES = ['en', 'he', 'es', 'fr', 'de', 'ar', 'ru'] as const;
+export const HELP_LOCALES = ['en', 'he', 'es', 'fr', 'de', 'ar', 'ru', 'pt', 'it', 'tr'] as const;
 export type HelpLocale = (typeof HELP_LOCALES)[number];
 
 const HELP_LOCALE_SET = new Set<string>(HELP_LOCALES);

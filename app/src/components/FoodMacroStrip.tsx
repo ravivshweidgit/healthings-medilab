@@ -53,7 +53,7 @@ import {
   waterUnitLabel,
 } from '../logic/unitConvert';
 
-/** Food Log strip header — coach/meals language (7 locales). */
+/** Food Log strip header — coach/meals language. */
 const FOOD_LOG_TITLE: Record<string, string> = {
   en: 'FOOD LOG',
   he: 'יומן ארוחות',
@@ -62,6 +62,9 @@ const FOOD_LOG_TITLE: Record<string, string> = {
   de: 'ESSENSTAGEBUCH',
   ar: 'سجل الوجبات',
   ru: 'ДНЕВНИК ПИТАНИЯ',
+  pt: 'DIÁRIO ALIMENTAR',
+  it: 'DIARIO PASTI',
+  tr: 'YEMEK GÜNLÜĞÜ',
 };
 
 function foodLogTitle(lang: UserLanguage | null | undefined): string {

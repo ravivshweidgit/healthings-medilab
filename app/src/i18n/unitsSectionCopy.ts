@@ -89,6 +89,39 @@ const RU: UnitsSectionCopy = {
   energy: 'Энергия',
 };
 
+/** Native Brazilian Portuguese microcopy — not EN→PT. Unit codes stay Latin. */
+const PT: UnitsSectionCopy = {
+  title: 'Unidades de medida',
+  hint: 'Só para exibição e entrada. Os dados ficam em unidades clínicas padrão.',
+  glucose: 'Glicose',
+  weight: 'Peso',
+  height: 'Altura',
+  water: 'Água',
+  energy: 'Energia',
+};
+
+/** Native Italian clinic microcopy — not EN→IT. Unit codes stay Latin. */
+const IT: UnitsSectionCopy = {
+  title: 'Unità di misura',
+  hint: 'Solo visualizzazione e inserimento. I dati restano in unità cliniche standard.',
+  glucose: 'Glucosio',
+  weight: 'Peso',
+  height: 'Altezza',
+  water: 'Acqua',
+  energy: 'Energia',
+};
+
+/** Native Turkish clinic microcopy — not EN→TR. Unit codes stay Latin. */
+const TR: UnitsSectionCopy = {
+  title: 'Ölçü birimleri',
+  hint: 'Yalnızca görüntüleme ve giriş. Veriler standart klinik birimlerde saklanır.',
+  glucose: 'Glukoz',
+  weight: 'Kilo',
+  height: 'Boy',
+  water: 'Su',
+  energy: 'Enerji',
+};
+
 export function getUnitsSectionCopy(langCode?: string | null): UnitsSectionCopy {
   const c = (langCode || 'en').toLowerCase().slice(0, 2);
   if (c === 'he') return HE;
@@ -97,5 +130,8 @@ export function getUnitsSectionCopy(langCode?: string | null): UnitsSectionCopy 
   if (c === 'fr') return FR;
   if (c === 'ar') return AR;
   if (c === 'ru') return RU;
+  if (c === 'pt') return PT;
+  if (c === 'it') return IT;
+  if (c === 'tr') return TR;
   return EN;
 }

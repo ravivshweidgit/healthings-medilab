@@ -1,5 +1,5 @@
 /**
- * RULES strip chrome — coach language, 7 locales.
+ * RULES strip chrome — coach language locales.
  */
 
 export type RulesStripCopy = {
@@ -194,6 +194,78 @@ const RU: RulesStripCopy = {
   saving: 'Сохранение…',
 };
 
+const PT: RulesStripCopy = {
+  emptySubtitle: 'Toque para adicionar regras',
+  emptyBody: 'Escreva regras alimentares ou de estilo de vida que os mentores devem seguir.',
+  addRules: 'Adicionar regras',
+  editRules: 'Editar',
+  yourRules: 'Suas regras',
+  showMore: 'Ver mais',
+  showLess: 'Ver menos',
+  pastVersions: (n) => `Versões anteriores (${n})`,
+  save: 'Salvar',
+  cancel: 'Cancelar',
+  editTitle: 'Editar regras',
+  placeholder: 'ex.: colesterol alto, jejum 16:8, evitar carne vermelha',
+  discardTitle: 'Descartar alterações?',
+  discardMessage: 'Suas edições serão perdidas.',
+  discardConfirm: 'Descartar',
+  restoreTitle: 'Restaurar esta versão?',
+  restoreMessage: 'As regras atuais serão salvas no histórico e esta versão ficará ativa.',
+  restoreConfirm: 'Restaurar',
+  restoreAsActive: 'Restaurar como regras ativas',
+  close: 'Fechar',
+  saving: 'Salvando…',
+};
+
+const IT: RulesStripCopy = {
+  emptySubtitle: 'Tocca per aggiungere regole',
+  emptyBody: 'Scrivi regole alimentari o di stile di vita che i mentor devono seguire.',
+  addRules: 'Aggiungi regole',
+  editRules: 'Modifica',
+  yourRules: 'Le tue regole',
+  showMore: 'Mostra di più',
+  showLess: 'Mostra meno',
+  pastVersions: (n) => `Versioni precedenti (${n})`,
+  save: 'Salva',
+  cancel: 'Annulla',
+  editTitle: 'Modifica regole',
+  placeholder: 'es. colesterolo alto, digiuno 16:8, evitare carne rossa',
+  discardTitle: 'Annullare le modifiche?',
+  discardMessage: 'Le modifiche andranno perse.',
+  discardConfirm: 'Annulla',
+  restoreTitle: 'Ripristinare questa versione?',
+  restoreMessage: 'Le regole attuali saranno archiviate e questa versione diventerà attiva.',
+  restoreConfirm: 'Ripristina',
+  restoreAsActive: 'Ripristina come regole attive',
+  close: 'Chiudi',
+  saving: 'Salvataggio…',
+};
+
+const TR: RulesStripCopy = {
+  emptySubtitle: 'Kural eklemek için dokunun',
+  emptyBody: 'Mentorların uyması gereken beslenme veya yaşam tarzı kurallarını yazın.',
+  addRules: 'Kural ekle',
+  editRules: 'Düzenle',
+  yourRules: 'Kurallarınız',
+  showMore: 'Daha fazla',
+  showLess: 'Daha az',
+  pastVersions: (n) => `Önceki sürümler (${n})`,
+  save: 'Kaydet',
+  cancel: 'İptal',
+  editTitle: 'Kuralları düzenle',
+  placeholder: 'örn. yüksek kolesterol, 16:8 oruç, kırmızı etten kaçınma',
+  discardTitle: 'Değişiklikler iptal edilsin mi?',
+  discardMessage: 'Düzenlemeleriniz kaybolacak.',
+  discardConfirm: 'İptal et',
+  restoreTitle: 'Bu sürüm geri yüklensin mi?',
+  restoreMessage: 'Mevcut kurallar geçmişe kaydedilir ve bu sürüm aktif olur.',
+  restoreConfirm: 'Geri yükle',
+  restoreAsActive: 'Aktif kurallar olarak geri yükle',
+  close: 'Kapat',
+  saving: 'Kaydediliyor…',
+};
+
 const BY_CODE: Record<string, RulesStripCopy> = {
   en: EN,
   he: HE,
@@ -202,6 +274,9 @@ const BY_CODE: Record<string, RulesStripCopy> = {
   de: DE,
   ar: AR,
   ru: RU,
+  pt: PT,
+  it: IT,
+  tr: TR,
 };
 
 export function getRulesStripCopy(langCode?: string | null): RulesStripCopy {

@@ -109,6 +109,9 @@ function formatMacroUpdatedAt(iso: string | undefined, lang?: UserLanguage | nul
     if (code === 'fr') return `Mis à jour aujourd'hui ${time}`;
     if (code === 'de') return `Heute aktualisiert ${time}`;
     if (code === 'ru') return `Обновлено сегодня ${time}`;
+    if (code === 'pt') return `Atualizado hoje ${time}`;
+    if (code === 'it') return `Aggiornato oggi ${time}`;
+    if (code === 'tr') return `Bugün güncellendi ${time}`;
     return `Updated today ${time}`;
   }
   const date = formatLocalizedDate(d, code, { day: 'numeric', month: 'short' });
@@ -118,6 +121,9 @@ function formatMacroUpdatedAt(iso: string | undefined, lang?: UserLanguage | nul
   if (code === 'fr') return `Mis à jour ${date} ${time}`;
   if (code === 'de') return `Aktualisiert ${date} ${time}`;
   if (code === 'ru') return `Обновлено ${date} ${time}`;
+  if (code === 'pt') return `Atualizado ${date} ${time}`;
+  if (code === 'it') return `Aggiornato ${date} ${time}`;
+  if (code === 'tr') return `Güncellendi ${date} ${time}`;
   return `Updated ${date} ${time}`;
 }
 

@@ -65,6 +65,27 @@ export const LANGUAGE_GATE_OPTIONS: LanguageGateOption[] = [
     nativeLabel: 'Русский',
     englishLabel: 'Russian',
   },
+  {
+    code: 'pt',
+    flag: '🇧🇷',
+    selectLanguage: 'Selecionar idioma',
+    nativeLabel: 'Português',
+    englishLabel: 'Portuguese',
+  },
+  {
+    code: 'it',
+    flag: '🇮🇹',
+    selectLanguage: 'Seleziona lingua',
+    nativeLabel: 'Italiano',
+    englishLabel: 'Italian',
+  },
+  {
+    code: 'tr',
+    flag: '🇹🇷',
+    selectLanguage: 'Dil seçin',
+    nativeLabel: 'Türkçe',
+    englishLabel: 'Turkish',
+  },
 ];
 
 export function languageGateOption(code: string): LanguageGateOption {

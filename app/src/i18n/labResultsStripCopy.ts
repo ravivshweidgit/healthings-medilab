@@ -1,5 +1,5 @@
 /**
- * Lab results strip chrome — coach language (7 locales).
+ * Lab results strip chrome — coach language locales.
  * Panel codes / analyte codes stay English (glossary).
  */
 
@@ -239,6 +239,90 @@ const RU: LabResultsStripCopy = {
   reading: 'Чтение отчёта…',
 };
 
+const PT: LabResultsStripCopy = {
+  title: 'RESULTADOS DE LABORATÓRIO',
+  addReport: 'Adicionar laudo',
+  emptyHint: 'Importe um PDF de laboratório (ex.: Clalit online)',
+  latestPrefix: 'Mais recente',
+  tests: 'exames',
+  testsCount: (n) => `${n} exame${n === 1 ? '' : 's'}`,
+  view: 'ver',
+  exportLabel: 'Exportar',
+  importLabel: 'Importar',
+  collapseA11y: 'Recolher resultados de laboratório',
+  expandA11y: 'Expandir resultados de laboratório',
+  savedTitle: 'Salvo',
+  savedBody: 'Os mentores já podem ver estes resultados',
+  exportFailed: 'Falha na exportação',
+  importTitle: 'Importar',
+  importNone: 'Nenhum laudo novo no arquivo',
+  importComplete: 'Importação concluída',
+  importCount: (n) => `${n} laudo${n === 1 ? '' : 's'} importado${n === 1 ? '' : 's'}`,
+  importFailed: 'Falha na importação',
+  trendHint: 'Importe outro exame para ver a tendência do colesterol',
+  modalTitle: 'Resultados de laboratório',
+  save: 'Salvar',
+  choosePdf: 'Escolher PDF',
+  saving: 'Salvando…',
+  reading: 'Lendo o laudo…',
+};
+
+const IT: LabResultsStripCopy = {
+  title: 'REFERTI DI LABORATORIO',
+  addReport: 'Aggiungi referto',
+  emptyHint: 'Importa un PDF di laboratorio (es. Clalit online)',
+  latestPrefix: 'Ultimo',
+  tests: 'esami',
+  testsCount: (n) => `${n} esame${n === 1 ? '' : 'i'}`,
+  view: 'vedi',
+  exportLabel: 'Esporta',
+  importLabel: 'Importa',
+  collapseA11y: 'Comprimi referti di laboratorio',
+  expandA11y: 'Espandi referti di laboratorio',
+  savedTitle: 'Salvato',
+  savedBody: 'I mentor possono ora vedere questi risultati',
+  exportFailed: 'Esportazione non riuscita',
+  importTitle: 'Importa',
+  importNone: 'Nessun referto nuovo nel file',
+  importComplete: 'Importazione completata',
+  importCount: (n) => `${n} referto${n === 1 ? '' : 'i'} importato${n === 1 ? '' : 'i'}`,
+  importFailed: 'Importazione non riuscita',
+  trendHint: 'Importa un altro esame per vedere l’andamento del colesterolo',
+  modalTitle: 'Referti di laboratorio',
+  save: 'Salva',
+  choosePdf: 'Scegli PDF',
+  saving: 'Salvataggio…',
+  reading: 'Lettura del referto…',
+};
+
+const TR: LabResultsStripCopy = {
+  title: 'LABORATUVAR SONUÇLARI',
+  addReport: 'Rapor ekle',
+  emptyHint: 'Bir laboratuvar PDF’si içe aktarın (örn. Clalit online)',
+  latestPrefix: 'En son',
+  tests: 'test',
+  testsCount: (n) => `${n} test`,
+  view: 'görüntüle',
+  exportLabel: 'Dışa aktar',
+  importLabel: 'İçe aktar',
+  collapseA11y: 'Laboratuvar sonuçlarını daralt',
+  expandA11y: 'Laboratuvar sonuçlarını genişlet',
+  savedTitle: 'Kaydedildi',
+  savedBody: 'Mentorlar artık bu sonuçları görebilir',
+  exportFailed: 'Dışa aktarma başarısız',
+  importTitle: 'İçe aktar',
+  importNone: 'Dosyada yeni rapor yok',
+  importComplete: 'İçe aktarma tamamlandı',
+  importCount: (n) => `${n} rapor içe aktarıldı`,
+  importFailed: 'İçe aktarma başarısız',
+  trendHint: 'Kolesterol eğilimini görmek için başka bir tahlil içe aktarın',
+  modalTitle: 'Laboratuvar sonuçları',
+  save: 'Kaydet',
+  choosePdf: 'PDF seç',
+  saving: 'Kaydediliyor…',
+  reading: 'Rapor okunuyor…',
+};
+
 const BY_CODE: Record<string, LabResultsStripCopy> = {
   en: EN,
   he: HE,
@@ -247,6 +331,9 @@ const BY_CODE: Record<string, LabResultsStripCopy> = {
   de: DE,
   ar: AR,
   ru: RU,
+  pt: PT,
+  it: IT,
+  tr: TR,
 };
 
 export function getLabResultsStripCopy(langCode?: string | null): LabResultsStripCopy {

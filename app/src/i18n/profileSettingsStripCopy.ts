@@ -179,6 +179,72 @@ const RU: ProfileSettingsStripCopy = {
     n === 1 ? '1 аккаунт в списке' : `${n} аккаунтов в списке`,
 };
 
+const PT: ProfileSettingsStripCopy = {
+  myProfile: 'PERFIL',
+  language: 'IDIOMA',
+  units: 'UNIDADES',
+  gear: 'EQUIPAMENTO',
+  myTargets: 'METAS',
+  myMentors: 'MENTORES',
+  myRules: 'REGRAS',
+  myMacros: 'MACROS',
+  account: 'CONTA',
+  dataSharing: 'COMPARTILHAMENTO',
+  reports: 'RELATÓRIOS',
+  appBackup: 'BACKUP DO APP',
+  exportBackup: 'Exportar',
+  importBackup: 'Importar',
+  noAccountsWhitelisted: 'Nenhuma conta autorizada — o app funciona sem compartilhar',
+  waitingApproval: 'Aguardando aprovação',
+  sharesWith: 'Compartilha dados com',
+  accountsWhitelisted: (n) =>
+    n === 1 ? '1 conta autorizada' : `${n} contas autorizadas`,
+};
+
+const IT: ProfileSettingsStripCopy = {
+  myProfile: 'PROFILO',
+  language: 'LINGUA',
+  units: 'UNITÀ',
+  gear: 'DISPOSITIVI',
+  myTargets: 'OBIETTIVI',
+  myMentors: 'MENTOR',
+  myRules: 'REGOLE',
+  myMacros: 'MACRO',
+  account: 'ACCOUNT',
+  dataSharing: 'CONDIVISIONE DATI',
+  reports: 'REPORT',
+  appBackup: 'BACKUP APP',
+  exportBackup: 'Esporta',
+  importBackup: 'Importa',
+  noAccountsWhitelisted: 'Nessun account autorizzato — l’app funziona senza condivisione',
+  waitingApproval: 'In attesa di approvazione',
+  sharesWith: 'Condivide i dati con',
+  accountsWhitelisted: (n) =>
+    n === 1 ? '1 account autorizzato' : `${n} account autorizzati`,
+};
+
+const TR: ProfileSettingsStripCopy = {
+  myProfile: 'PROFİL',
+  language: 'DİL',
+  units: 'BİRİMLER',
+  gear: 'CİHAZLAR',
+  myTargets: 'HEDEFLER',
+  myMentors: 'MENTORLAR',
+  myRules: 'KURALLAR',
+  myMacros: 'MAKROLAR',
+  account: 'HESAP',
+  dataSharing: 'VERİ PAYLAŞIMI',
+  reports: 'RAPORLAR',
+  appBackup: 'UYGULAMA YEDEĞİ',
+  exportBackup: 'Dışa aktar',
+  importBackup: 'İçe aktar',
+  noAccountsWhitelisted: 'Yetkili hesap yok — uygulama paylaşım olmadan tam çalışır',
+  waitingApproval: 'Onay bekleniyor',
+  sharesWith: 'Verileri paylaşıyor:',
+  accountsWhitelisted: (n) =>
+    n === 1 ? '1 yetkili hesap' : `${n} yetkili hesap`,
+};
+
 export function getProfileSettingsStripCopy(
   langCode?: string | null,
 ): ProfileSettingsStripCopy {
@@ -189,5 +255,8 @@ export function getProfileSettingsStripCopy(
   if (c === 'de') return DE;
   if (c === 'ar') return AR;
   if (c === 'ru') return RU;
+  if (c === 'pt') return PT;
+  if (c === 'it') return IT;
+  if (c === 'tr') return TR;
   return EN;
 }

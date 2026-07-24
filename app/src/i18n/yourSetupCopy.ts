@@ -1,5 +1,5 @@
 /**
- * My Profile — Your setup toggles (Yes / No / Save) — coach language, 7 locales.
+ * My Profile — Your setup toggles (Yes / No / Save) — coach language locales.
  * Device brand names (Withings, Health Connect, Apple Health, CGM, CareSens) stay English.
  */
 
@@ -247,6 +247,96 @@ const RU: YourSetupCopy = {
   careSensImport: 'Импорт',
 };
 
+const PT: YourSetupCopy = {
+  title: 'Sua configuração',
+  yes: 'Sim',
+  no: 'Não',
+  save: 'Salvar',
+  gender: 'Sexo',
+  male: 'Masculino',
+  female: 'Feminino',
+  other: 'Outro',
+  height: 'Altura',
+  birthDate: 'Data de nascimento',
+  ageYears: (n) => `Idade: ${n} anos`,
+  saveHint: 'Sexo, altura e data de nascimento',
+  withingsScale: 'Balança Withings',
+  withingsWatch: 'Relógio Withings',
+  scaleShort: 'Balança',
+  watchShort: 'Relógio',
+  cgm: 'CGM',
+  hintScaleLink: 'Vincule o Withings no painel para sincronizar a balança.',
+  hintWatchLink: 'Vincule o Withings abaixo para sincronizar a atividade do relógio.',
+  hintWatchOffIos: 'Passos e FC pelo Apple Health — veja Allow access abaixo.',
+  hintWatchOffAndroid: 'Passos e FC pelo Health Connect — veja Allow access abaixo.',
+  hintCgmIos: 'CareSens Air → compartilhar no Apple Health. Depois Sync no Healthings.',
+  hintCgmAndroid: 'Permita Blood glucose nas configurações do Health Connect.',
+  linkWithings: 'Vincular Withings',
+  relinkWithings: 'Revincular Withings',
+  quickStartAgain: 'Início rápido de novo',
+  careSensImport: 'Importar',
+};
+
+const IT: YourSetupCopy = {
+  title: 'La tua configurazione',
+  yes: 'Sì',
+  no: 'No',
+  save: 'Salva',
+  gender: 'Sesso',
+  male: 'Uomo',
+  female: 'Donna',
+  other: 'Altro',
+  height: 'Altezza',
+  birthDate: 'Data di nascita',
+  ageYears: (n) => `Età: ${n} anni`,
+  saveHint: 'Sesso, altezza e data di nascita',
+  withingsScale: 'Bilancia Withings',
+  withingsWatch: 'Orologio Withings',
+  scaleShort: 'Bilancia',
+  watchShort: 'Orologio',
+  cgm: 'CGM',
+  hintScaleLink: 'Collega Withings nella dashboard per sincronizzare la bilancia.',
+  hintWatchLink: 'Collega Withings sotto per sincronizzare l’attività dell’orologio.',
+  hintWatchOffIos: 'Passi e FC da Apple Health — vedi Allow access sotto.',
+  hintWatchOffAndroid: 'Passi e FC da Health Connect — vedi Allow access sotto.',
+  hintCgmIos: 'CareSens Air → condivisione su Apple Health. Poi Sync in Healthings.',
+  hintCgmAndroid: 'Consenti Blood glucose nelle impostazioni di Health Connect.',
+  linkWithings: 'Collega Withings',
+  relinkWithings: 'Ricollega Withings',
+  quickStartAgain: 'Avvio rapido di nuovo',
+  careSensImport: 'Importa',
+};
+
+const TR: YourSetupCopy = {
+  title: 'Kurulumunuz',
+  yes: 'Evet',
+  no: 'Hayır',
+  save: 'Kaydet',
+  gender: 'Cinsiyet',
+  male: 'Erkek',
+  female: 'Kadın',
+  other: 'Diğer',
+  height: 'Boy',
+  birthDate: 'Doğum tarihi',
+  ageYears: (n) => `Yaş: ${n}`,
+  saveHint: 'Cinsiyet, boy ve doğum tarihi',
+  withingsScale: 'Withings tartı',
+  withingsWatch: 'Withings saat',
+  scaleShort: 'Tartı',
+  watchShort: 'Saat',
+  cgm: 'CGM',
+  hintScaleLink: 'Tartıyı senkronize etmek için panoda Withings’i bağlayın.',
+  hintWatchLink: 'Saat aktivitesini senkronize etmek için aşağıda Withings’i bağlayın.',
+  hintWatchOffIos: 'Adımlar ve nabız Apple Health’ten — aşağıda Allow access.',
+  hintWatchOffAndroid: 'Adımlar ve nabız Health Connect’ten — aşağıda Allow access.',
+  hintCgmIos: 'CareSens Air → Apple Health paylaşımı. Sonra Healthings’te Sync.',
+  hintCgmAndroid: 'Health Connect ayarlarında Blood glucose’a izin verin.',
+  linkWithings: 'Withings bağla',
+  relinkWithings: 'Withings’i yeniden bağla',
+  quickStartAgain: 'Hızlı başlangıç tekrar',
+  careSensImport: 'İçe aktar',
+};
+
 const BY_CODE: Record<string, YourSetupCopy> = {
   en: EN,
   he: HE,
@@ -255,6 +345,9 @@ const BY_CODE: Record<string, YourSetupCopy> = {
   de: DE,
   ar: AR,
   ru: RU,
+  pt: PT,
+  it: IT,
+  tr: TR,
 };
 
 export function getYourSetupCopy(langCode?: string | null): YourSetupCopy {

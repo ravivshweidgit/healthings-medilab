@@ -11,6 +11,9 @@ const LOCALE_BY_CODE: Record<string, string> = {
   de: 'de-DE',
   ar: 'ar',
   ru: 'ru-RU',
+  pt: 'pt-BR',
+  it: 'it-IT',
+  tr: 'tr-TR',
 };
 
 const TODAY_LABEL: Record<string, string> = {
@@ -21,6 +24,9 @@ const TODAY_LABEL: Record<string, string> = {
   de: 'Heute',
   ar: 'اليوم',
   ru: 'Сегодня',
+  pt: 'Hoje',
+  it: 'Oggi',
+  tr: 'Bugün',
 };
 
 export function dateLocaleTag(langCode?: string | null): string {

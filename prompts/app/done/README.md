@@ -103,6 +103,8 @@ Active / backlog specs stay in `prompts/app/`:
 
 **prompt90** — done (2026-07-24). Meal window: per-item Edit/Delete; From past meal day picker (copy, not edit); idle + Save meal i18n; blue Save. Phone-tested Android. See `done/prompt90.txt`.
 
+**prompt91** — done (2026-07-24). Coach languages **pt / it / tr** (10 total); Quick Start + chrome + website help; gate 2-col select text; Refresh my data i18n. Phone-tested Android. See `done/prompt91.txt`.
+
 **prompt52** — done (2026-07-24). My Rules rawText-only save (no Gemini on save); Edit/Add modal (90% top, safe nav); Past versions collapse; coach quotes verbatim. Phone-tested Android. Clinic summarise path deferred. See `done/prompt52.txt`.
 
 **prompt48** — done (2026-06-29). Lipid trend charts (Total/LDL/TG/HDL strips + green safe zones); mentors/coach see **all saved lab draws** in USER DATA. Phone-tested. Commits `308500f`, `fa0d6b1`. Supersedes prompt30 chart deferral + latest-only scope.

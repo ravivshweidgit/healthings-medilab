@@ -212,6 +212,14 @@ function PdfFileIcon({ size = 44 }: { size?: number }) {
 /**
  * Language gate (prompt81) — black “Select language” stack + native names + blue select frame.
  */
+function chunkPairs<T>(items: T[]): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += 2) {
+    rows.push(items.slice(i, i + 2));
+  }
+  return rows;
+}
+
 function LanguageGateHero({
   selectedCode,
   onSelect,
@@ -223,46 +231,53 @@ function LanguageGateHero({
     <View style={styles.gateRoot}>
       <View style={styles.gateTop} accessibilityRole="header">
         <View style={styles.gateWelcomeStack}>
-          {LANGUAGE_GATE_OPTIONS.map((opt) => {
-            const on = opt.code === selectedCode;
-            const rtl = opt.code === 'he' || opt.code === 'ar';
-            return (
-              <Pressable
-                key={opt.code}
-                onPress={() => onSelect(opt.code)}
-                hitSlop={4}
-                accessibilityRole="button"
-                accessibilityState={{ selected: on }}
-                accessibilityLabel={`${opt.selectLanguage}, ${opt.englishLabel}`}
-                style={styles.gateSelectRow}
-              >
-                <Text
-                  style={[
-                    styles.gateCloudWord,
-                    rtl && styles.gateCloudWordRtl,
-                    on && styles.gateCloudWordOn,
-                    {
-                      fontSize: on ? 18 : 14,
-                      lineHeight: on ? 22 : 18,
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {opt.selectLanguage}
-                </Text>
-              </Pressable>
-            );
-          })}
+          {chunkPairs(LANGUAGE_GATE_OPTIONS).map((pair, rowIndex) => (
+            <View key={`select-row-${rowIndex}`} style={styles.gateSelectTableRow}>
+              {pair.map((opt) => {
+                const on = opt.code === selectedCode;
+                const rtl = opt.code === 'he' || opt.code === 'ar';
+                return (
+                  <Pressable
+                    key={opt.code}
+                    onPress={() => onSelect(opt.code)}
+                    hitSlop={4}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={`${opt.selectLanguage}, ${opt.englishLabel}`}
+                    style={styles.gateSelectCell}
+                  >
+                    <Text
+                      style={[
+                        styles.gateCloudWord,
+                        rtl && styles.gateCloudWordRtl,
+                        on && styles.gateCloudWordOn,
+                        {
+                          fontSize: on ? 16 : 13,
+                          lineHeight: on ? 20 : 17,
+                        },
+                      ]}
+                      numberOfLines={2}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.8}
+                    >
+                      {opt.selectLanguage}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              {pair.length === 1 ? <View style={styles.gateSelectCell} /> : null}
+            </View>
+          ))}
         </View>
       </View>
 
       <View style={styles.gateBottom}>
         <View style={styles.gateFlagTray}>
-          {[LANGUAGE_GATE_OPTIONS.slice(0, 4), LANGUAGE_GATE_OPTIONS.slice(4)].map((row, rowIndex) => (
-            <View
-              key={rowIndex === 0 ? 'flags-top' : 'flags-bottom'}
-              style={[styles.gateFlagRow, rowIndex === 1 && styles.gateFlagRowSecond]}
-            >
+          {[
+            LANGUAGE_GATE_OPTIONS.slice(0, 5),
+            LANGUAGE_GATE_OPTIONS.slice(5),
+          ].map((row, rowIndex) => (
+            <View key={`flags-row-${rowIndex}`} style={styles.gateFlagRow}>
               {row.map((opt) => {
                 const on = opt.code === selectedCode;
                 const rtlLabel = opt.code === 'he' || opt.code === 'ar';
@@ -288,7 +303,7 @@ function LanguageGateHero({
                       ]}
                       numberOfLines={1}
                       adjustsFontSizeToFit
-                      minimumFontScale={0.75}
+                      minimumFontScale={0.7}
                     >
                       {opt.nativeLabel}
                     </Text>
@@ -1992,14 +2007,25 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   gateWelcomeStack: {
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 8,
+    alignItems: 'stretch',
+    gap: 6,
+    paddingHorizontal: 4,
     paddingVertical: 4,
+    width: '100%',
   },
-  gateSelectRow: {
+  gateSelectTableRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    width: '100%',
+  },
+  gateSelectCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 2,
+    paddingHorizontal: 4,
+    minHeight: 22,
   },
   gateCloudWord: {
     textAlign: 'center',
@@ -2019,7 +2045,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF2F7',
     borderRadius: 20,
     paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     gap: 10,
     alignItems: 'center',
   },
@@ -2027,20 +2053,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'stretch',
-    gap: 8,
+    gap: 4,
     width: '100%',
-  },
-  gateFlagRowSecond: {
-    paddingHorizontal: 28,
   },
   gateFlagCell: {
     flex: 1,
-    maxWidth: 84,
+    maxWidth: 72,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+    borderRadius: 14,
     borderWidth: 2,
     borderColor: 'transparent',
     backgroundColor: 'transparent',
@@ -2055,13 +2078,13 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   gateFlagEmoji: {
-    fontSize: 32,
-    lineHeight: 38,
+    fontSize: 28,
+    lineHeight: 34,
   },
   gateFlagNative: {
-    marginTop: 4,
-    fontSize: 10,
-    lineHeight: 12,
+    marginTop: 3,
+    fontSize: 9,
+    lineHeight: 11,
     fontWeight: '600',
     color: WellnessColors.textSecondary,
     textAlign: 'center',

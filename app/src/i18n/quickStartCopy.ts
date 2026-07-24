@@ -1,5 +1,5 @@
 /**
- * Quick Start copy — EN + HE + DE + ES + FR + AR + RU (prompt81).
+ * Quick Start copy — coach language locales.
  * Glossary (kcal, Withings, CGM, BMR, My Rules, AI…) stays English.
  *
  * Hebrew voice (native Israeli microcopy — not EN→HE):
@@ -1181,6 +1181,444 @@ const RU: QuickStartCopy = {
   },
 };
 
+const PT: QuickStartCopy = {
+  quickStart: 'Início rápido',
+  progress: (n, total) => `Início rápido · ${n} de ${total}`,
+  welcomeTo: 'Bem-vindo(a) ao Healthings',
+  back: 'Voltar',
+  next: 'Continuar',
+  finish: 'Concluir',
+  working: 'Aguarde…',
+  help: 'Ajuda',
+  yes: 'Sim',
+  no: 'Não',
+  tapYesNo: 'Toque Sim ou Não',
+  genderMale: 'Masculino',
+  genderFemale: 'Feminino',
+  genderOther: 'Outro',
+  ageYears: (n) => `Idade: ${n} anos`,
+  brandTag: 'Sistema metabólico personalizado — com seu nutricionista',
+  language: {
+    title: 'Idioma do app e do coach',
+    helpLabel: 'Ajuda — idioma',
+    lead:
+      'Neste idioma funcionam o início rápido, o chat com o coach, nomes das refeições e relatórios. A ajuda também abre nele.',
+    mentorVoice: 'Mentor do app',
+    mentorHint: 'Homem ou mulher — como o mentor de IA fala com você. Não é o gênero do seu perfil.',
+  },
+  welcome: {
+    title: 'Bem-vindo(a)',
+    helpLabel: 'Como o Healthings funciona',
+    lead:
+      'O Healthings aprende seu corpo, explica o que acontece agora e envia feedback claro ao nutricionista — para que o caminho até suas metas fique mais preciso a cada dia.',
+    card1Title: 'Aprende seu corpo. Ensina você.',
+    card1Body:
+      'Gráficos ao vivo de peso, composição corporal, atividade e glicose (quando conectado). O modelo entende como seu corpo responde, explica os números com clareza e orienta conforme My Rules — para entender o progresso, não só guardá-lo.',
+    card2Title: 'Do rastreamento ao ciclo completo',
+    card2Body:
+      'A maioria dos apps para no rastreamento. Aqui o ciclo se fecha:\n\n• Seu nutricionista define a intenção em My Rules\n• Você vive o plano — refeições, corpo, atividade, exames\n• O Healthings executa, aprende e explica\n• Ao compartilhar, seu nutricionista vê o que acontece no corpo\n• Juntos refinam o plano\n\nNão é mais um diário alimentar desconectado da clínica.',
+    card3Title: 'Wellness — com padrão profissional',
+    card3Body:
+      'Sem diagnóstico, sem prescrição, sem substituir seu médico. O valor está no método: acompanhamento licenciado, visão viva do corpo e feedback digno de uma boa consulta.',
+    card4Title: 'Não é atendimento médico',
+    card4Body:
+      'O Healthings executa o plano conforme My Rules. Emergências e decisões médicas ficam com profissionais licenciados. Detalhes e privacidade: ?',
+    privacyLink: 'Como funciona · Privacidade',
+  },
+  units: {
+    title: 'Unidades de medida',
+    helpLabel: 'Unidades',
+    lead: 'Como peso, altura e energia aparecem no app. Você pode mudar depois em My Profile.',
+  },
+  body: {
+    title: 'Sobre você',
+    helpLabel: 'Por que perguntamos',
+    lead: 'Usado para BMR, BMI e metas de energia.',
+    gender: 'Sexo',
+    height: 'Altura',
+    birthDate: 'Data de nascimento',
+  },
+  scale: {
+    title: 'Você tem uma balança Withings?',
+    helpLabel: 'Ajuda — balança',
+    lead:
+      'Qualquer balança Withings da sua conta serve — Body, Body Scan e similares. Depois de vincular, o Healthings lê da nuvem, não do Bluetooth.',
+  },
+  watch: {
+    title: 'Você tem um relógio ou pulseira Withings?',
+    helpLabel: 'Ajuda — relógio',
+    lead:
+      'Sim → atividade e FC pela nuvem Withings.\nNão → pelo Health Connect / Apple Health (Garmin, Apple Watch, Samsung…).',
+  },
+  cgm: {
+    title: 'Você monitora glicose com um CGM?',
+    helpLabel: 'Ajuda — CGM',
+    lead:
+      'Glicose contínua via Health Connect (Android) ou Apple Health (iPhone). PDFs de laboratório podem ser importados depois.',
+  },
+  link: {
+    title: 'Vincular sua conta Withings',
+    helpLabel: 'Ajuda — vinculação',
+    lead: 'A mesma conta do app Withings. Um vínculo — para balança e relógio.',
+    connected: 'Withings conectado',
+    relinkHint: 'Você pode revincular a qualquer momento em My Profile.',
+    linkBtn: 'Vincular Withings',
+    opening: 'Abrindo Withings…',
+    skipHint:
+      'Ou toque Continuar para pular — vincule depois em My Profile. Até lá, as metas podem usar uma estimativa de peso.',
+  },
+  weight: {
+    title: 'Peso inicial',
+    helpLabel: 'Ajuda — peso',
+    lead: 'Necessário para metas e balanço energético.',
+    linkedHint:
+      'Vinculado — informe o peso se a balança ainda não sincronizou, ou toque Continuar e aguarde a nuvem.',
+    enterNow: 'Informar peso agora',
+    skipWithings: 'Pular — peso virá do Withings',
+    currentWeight: 'Peso atual',
+    manualGuide: 'Como informar manualmente',
+  },
+  phoneHealth: {
+    titleIos: 'Permitir Apple Health',
+    titleAndroid: 'Permitir Health Connect',
+    helpLabel: 'Saúde do celular',
+    leadIos:
+      'Toque Continuar — o Apple Health pode pedir permissão uma vez. Allow access: passos e FC quando o relógio Withings estiver desligado.',
+    leadAndroid:
+      'Toque Continuar — o Health Connect pode abrir uma vez. Sem relógio Withings: passos e FC de qualquer marca que escreva no Health Connect.',
+    cgmIos: 'CGM: CareSens Air → compartilhar com Apple Health → permitir Blood Glucose.',
+    cgmAndroid: 'Glicose no sangue — para gráficos CGM e impacto das refeições.',
+  },
+  pdfs: {
+    title: 'Relatórios — opcionais',
+    helpLabel: 'Relatórios PDF',
+    lead: 'Já tem um PDF? Importe agora. Se não — continue e faça depois no app.',
+    labTitle: 'Laudo de laboratório',
+    labHint: 'Lipídios, função renal e mais — para metas de macro mais precisas.',
+    imported: 'Importado',
+    importLab: 'Importar PDF de laboratório',
+    nutritionTitle: 'Sessão com nutricionista',
+    nutritionHint: 'Resumo da consulta — os coaches seguem o texto do plano.',
+    importSession: 'Importar PDF da sessão',
+  },
+  targets: {
+    title: 'Suas metas',
+    helpLabel: 'Ajuda — metas',
+    lead: 'A IA sugere metas corporais e de macro a partir do seu perfil.',
+    waitOrRetry: 'Aguardando metas… ou toque em Tentar de novo.',
+    retry: 'Tentar de novo',
+    usingSaved:
+      'Usando metas salvas — My Rules e edições anteriores são mantidas. Regenerar só se quiser números novos da IA.',
+    bodyTarget: 'Meta corporal',
+    dailyMacros: 'Macros diários',
+    rulesApplied: 'Regras aplicadas',
+    regenerate: 'Regenerar com AI',
+  },
+  meals: {
+    title: 'Como registrar refeições',
+    helpLabel: 'Registro de refeições',
+    lead:
+      'Registre o que come — o coach trabalha conforme My Rules e mostra o impacto ao vivo nos gráficos.',
+    b1: '1. Toque + no gráfico metabólico → diário alimentar.',
+    b2: '2. Foto — fotografe o prato; a IA lista itens; você aprova.',
+    b3: '3. Texto — descreva a refeição; a IA calcula os macros.',
+    b4: '4. O chat do coach também pode sugerir o que registrar — salve pelo diário.',
+    logFirst: 'Registrar minha primeira refeição',
+  },
+};
+
+const IT: QuickStartCopy = {
+  quickStart: 'Avvio rapido',
+  progress: (n, total) => `Avvio rapido · ${n} di ${total}`,
+  welcomeTo: 'Benvenuto/a in Healthings',
+  back: 'Indietro',
+  next: 'Continua',
+  finish: 'Fine',
+  working: 'Un attimo…',
+  help: 'Aiuto',
+  yes: 'Sì',
+  no: 'No',
+  tapYesNo: 'Tocca Sì o No',
+  genderMale: 'Uomo',
+  genderFemale: 'Donna',
+  genderOther: 'Altro',
+  ageYears: (n) => `Età: ${n} anni`,
+  brandTag: 'Sistema metabolico personalizzato — con il tuo nutrizionista',
+  language: {
+    title: 'Lingua app e coach',
+    helpLabel: 'Aiuto — lingua',
+    lead:
+      'In questa lingua funzionano avvio rapido, chat con il coach, nomi dei pasti e report. Anche l’aiuto si apre in essa.',
+    mentorVoice: 'Mentor dell’app',
+    mentorHint: 'Uomo o donna — come parla il mentor IA. Non è il genere del profilo.',
+  },
+  welcome: {
+    title: 'Benvenuto/a',
+    helpLabel: 'Come funziona Healthings',
+    lead:
+      'Healthings impara il tuo corpo, spiega cosa succede ora e invia feedback chiaro al nutrizionista — così il percorso verso gli obiettivi diventa più preciso ogni giorno.',
+    card1Title: 'Impara il corpo. Insegna a te.',
+    card1Body:
+      'Grafici live di peso, composizione corporea, attività e glucosio (se connesso). Il modello capisce come reagisce il corpo, spiega i numeri in modo semplice e guida secondo My Rules — per capire i progressi, non solo archiviarli.',
+    card2Title: 'Dal tracking al ciclo completo',
+    card2Body:
+      'La maggior parte delle app si ferma al tracking. Qui il ciclo si chiude:\n\n• Il nutrizionista definisce l’intento in My Rules\n• Tu vivi il piano — pasti, corpo, attività, analisi\n• Healthings esegue, impara e spiega\n• Condividendo, il nutrizionista vede cosa succede nel corpo\n• Insieme affinate il piano\n\nNon un altro diario alimentare scollegato dalla clinica.',
+    card3Title: 'Wellness — standard professionale',
+    card3Body:
+      'Niente diagnosi, niente prescrizioni, niente sostituzione del medico. Il valore è nel metodo: accompagnamento autorizzato, immagine viva del corpo e feedback degno di una buona visita.',
+    card4Title: 'Non è assistenza medica',
+    card4Body:
+      'Healthings esegue il piano secondo My Rules. Emergenze e decisioni mediche restano ai professionisti autorizzati. Dettagli e privacy: ?',
+    privacyLink: 'Come funziona · Privacy',
+  },
+  units: {
+    title: 'Unità di misura',
+    helpLabel: 'Unità',
+    lead: 'Come compaiono peso, altezza ed energia. Modificabile in qualsiasi momento in My Profile.',
+  },
+  body: {
+    title: 'Su di te',
+    helpLabel: 'Perché chiediamo',
+    lead: 'Per calcolare BMR, BMI e obiettivi energetici.',
+    gender: 'Sesso',
+    height: 'Altezza',
+    birthDate: 'Data di nascita',
+  },
+  scale: {
+    title: 'Hai una bilancia Withings?',
+    helpLabel: 'Aiuto — bilancia',
+    lead:
+      'Qualsiasi bilancia Withings del tuo account va bene — Body, Body Scan e simili. Dopo il collegamento, Healthings legge dal cloud, non dal Bluetooth.',
+  },
+  watch: {
+    title: 'Hai un orologio o bracciale Withings?',
+    helpLabel: 'Aiuto — orologio',
+    lead:
+      'Sì → attività e FC dal cloud Withings.\nNo → da Health Connect / Apple Health (Garmin, Apple Watch, Samsung…).',
+  },
+  cgm: {
+    title: 'Monitori il glucosio con un CGM?',
+    helpLabel: 'Aiuto — CGM',
+    lead:
+      'Glucosio continuo via Health Connect (Android) o Apple Health (iPhone). I PDF di laboratorio si possono importare dopo.',
+  },
+  link: {
+    title: 'Collega il tuo account Withings',
+    helpLabel: 'Aiuto — collegamento',
+    lead: 'Lo stesso account dell’app Withings. Un collegamento — per bilancia e orologio.',
+    connected: 'Withings collegato',
+    relinkHint: 'Puoi ricollegare in qualsiasi momento da My Profile.',
+    linkBtn: 'Collega Withings',
+    opening: 'Apertura Withings…',
+    skipHint:
+      'O tocca Continua per saltare — collega dopo in My Profile. Fino ad allora, gli obiettivi possono basarsi su una stima del peso.',
+  },
+  weight: {
+    title: 'Peso iniziale',
+    helpLabel: 'Aiuto — peso',
+    lead: 'Necessario per obiettivi e bilancio energetico.',
+    linkedHint:
+      'Collegato — inserisci il peso se la bilancia non ha ancora sincronizzato, oppure continua e attendi il cloud.',
+    enterNow: 'Inserisci peso ora',
+    skipWithings: 'Salta — peso da Withings',
+    currentWeight: 'Peso attuale',
+    manualGuide: 'Come inserire manualmente',
+  },
+  phoneHealth: {
+    titleIos: 'Consenti Apple Health',
+    titleAndroid: 'Consenti Health Connect',
+    helpLabel: 'Salute del telefono',
+    leadIos:
+      'Tocca Continua — Apple Health può chiedere permesso una volta. Allow access: passi e FC quando l’orologio Withings è spento.',
+    leadAndroid:
+      'Tocca Continua — Health Connect può aprirsi una volta. Senza orologio Withings: passi e FC da qualsiasi marca che scrive su Health Connect.',
+    cgmIos: 'CGM: CareSens Air → condividi con Apple Health → consenti Blood Glucose.',
+    cgmAndroid: 'Glicemia — per grafici CGM e impatto dei pasti.',
+  },
+  pdfs: {
+    title: 'Report — opzionali',
+    helpLabel: 'Report PDF',
+    lead: 'Hai già un PDF? Importalo ora. Altrimenti — continua e fallo dopo nell’app.',
+    labTitle: 'Referto di laboratorio',
+    labHint: 'Lipidi, reni e altro — per obiettivi macro più precisi.',
+    imported: 'Importato',
+    importLab: 'Importa PDF di laboratorio',
+    nutritionTitle: 'Sessione con nutrizionista',
+    nutritionHint: 'Riepilogo visita — i coach seguono il testo del piano.',
+    importSession: 'Importa PDF sessione',
+  },
+  targets: {
+    title: 'I tuoi obiettivi',
+    helpLabel: 'Aiuto — obiettivi',
+    lead: 'L’IA propone obiettivi corporei e macro dal tuo profilo.',
+    waitOrRetry: 'In attesa degli obiettivi… o tocca Riprova.',
+    retry: 'Riprova',
+    usingSaved:
+      'Si usano gli obiettivi salvati — My Rules e modifiche precedenti restano. Rigenera solo se vuoi nuovi numeri dall’IA.',
+    bodyTarget: 'Obiettivo corporeo',
+    dailyMacros: 'Macro giornalieri',
+    rulesApplied: 'Regole applicate',
+    regenerate: 'Rigenera con AI',
+  },
+  meals: {
+    title: 'Come registrare i pasti',
+    helpLabel: 'Registro pasti',
+    lead:
+      'Registra cosa mangi — il coach lavora secondo My Rules e mostra l’impatto live sui grafici.',
+    b1: '1. Tocca + sul grafico metabolico → diario alimentare.',
+    b2: '2. Foto — scatta il piatto; l’IA elenca le voci; tu approvi.',
+    b3: '3. Testo — descrivi il pasto; l’IA calcola i macro.',
+    b4: '4. Anche dalla chat del coach — salva dal diario alimentare.',
+    logFirst: 'Registra il mio primo pasto',
+  },
+};
+
+const TR: QuickStartCopy = {
+  quickStart: 'Hızlı başlangıç',
+  progress: (n, total) => `Hızlı başlangıç · ${n}/${total}`,
+  welcomeTo: 'Healthings’e hoş geldiniz',
+  back: 'Geri',
+  next: 'Devam',
+  finish: 'Bitir',
+  working: 'Bir dakika…',
+  help: 'Yardım',
+  yes: 'Evet',
+  no: 'Hayır',
+  tapYesNo: 'Evet veya Hayır’a dokunun',
+  genderMale: 'Erkek',
+  genderFemale: 'Kadın',
+  genderOther: 'Diğer',
+  ageYears: (n) => `Yaş: ${n}`,
+  brandTag: 'Kişisel metabolik sistem — diyetisyeninizle birlikte',
+  language: {
+    title: 'Uygulama ve koç dili',
+    helpLabel: 'Yardım — dil',
+    lead:
+      'Hızlı başlangıç, koç sohbeti, öğün adları ve raporlar bu dilde çalışır. Yardım sayfaları da aynı dilde açılır.',
+    mentorVoice: 'Uygulama mentoru',
+    mentorHint: 'Erkek veya kadın — yapay zekâ mentorunuzun konuşma biçimi. Profil cinsiyetiniz değil.',
+  },
+  welcome: {
+    title: 'Hoş geldiniz',
+    helpLabel: 'Healthings nasıl çalışır',
+    lead:
+      'Healthings vücudunuzu öğrenir, o anda ne olduğunu açıklar ve diyetisyeninize net geri bildirim verir — hedeflerinize giden yol her gün biraz daha keskinleşir.',
+    card1Title: 'Vücudunuzu öğrenir. Size anlatır.',
+    card1Body:
+      'Kilo, vücut bileşimi, aktivite ve glukoz (bağlıysa) canlı grafikler. Model vücudunuzun nasıl yanıt verdiğini anlar, sayıları sade bir dille açıklar ve My Rules altında koçluk yapar — ilerlemeyi anlamak için, sadece kaydetmek değil.',
+    card2Title: 'Takipten tam döngüye',
+    card2Body:
+      'Çoğu uygulama takipte kalır. Burada döngü kapanır:\n\n• Diyetisyeniniz My Rules’ta klinik niyeti belirler\n• Siz planı yaşarsınız — öğünler, vücut, aktivite, tahliller\n• Healthings uygular, öğrenir ve açıklar\n• Paylaştığınızda diyetisyeniniz vücutta ne olduğunu görür\n• Birlikte planı netleştirirsiniz\n\nKlinikten kopuk bir başka yemek günlüğü değil.',
+    card3Title: 'Wellness — profesyonel standart',
+    card3Body:
+      'Tanı yok, reçete yok, doktorunuzun yerini almaz. Değer yöntemdedir: lisanslı rehberlik, canlı vücut görüntüsü ve iyi bir muayene hissi veren geri bildirim.',
+    card4Title: 'Tıbbi bakım değildir',
+    card4Body:
+      'Healthings My Rules altında planı uygular. Acil durum ve tıbbi kararlar lisanslı profesyonellere aittir. Ayrıntılar ve gizlilik: ?',
+    privacyLink: 'Nasıl çalışır · Gizlilik',
+  },
+  units: {
+    title: 'Ölçü birimleri',
+    helpLabel: 'Birimler',
+    lead: 'Kilo, boy ve enerji uygulamada nasıl görünür. My Profile’da istediğiniz zaman değiştirebilirsiniz.',
+  },
+  body: {
+    title: 'Sizin hakkınızda',
+    helpLabel: 'Neden soruyoruz',
+    lead: 'BMR, BMI ve enerji hedefleri için.',
+    gender: 'Cinsiyet',
+    height: 'Boy',
+    birthDate: 'Doğum tarihi',
+  },
+  scale: {
+    title: 'Withings vücut tartınız var mı?',
+    helpLabel: 'Yardım — tartı',
+    lead:
+      'Hesabınızdaki her Withings tartı uygundur — Body, Body Scan ve benzerleri. Bağlandıktan sonra Healthings buluttan okur, Bluetooth’tan değil.',
+  },
+  watch: {
+    title: 'Withings saat veya bileklik var mı?',
+    helpLabel: 'Yardım — saat',
+    lead:
+      'Evet → aktivite ve nabız Withings bulutundan.\nHayır → Health Connect / Apple Health’ten (Garmin, Apple Watch, Samsung…).',
+  },
+  cgm: {
+    title: 'Glukozu CGM ile takip ediyor musunuz?',
+    helpLabel: 'Yardım — CGM',
+    lead:
+      'Sürekli glukoz Health Connect (Android) veya Apple Health (iPhone) üzerinden. Laboratuvar PDF’lerini sonra içe aktarabilirsiniz.',
+  },
+  link: {
+    title: 'Withings hesabınızı bağlayın',
+    helpLabel: 'Yardım — bağlama',
+    lead: 'Withings uygulamasındaki aynı hesap. Tek bağlantı — tartı ve saat için.',
+    connected: 'Withings bağlı',
+    relinkHint: 'My Profile’dan istediğiniz zaman yeniden bağlayabilirsiniz.',
+    linkBtn: 'Withings bağla',
+    opening: 'Withings açılıyor…',
+    skipHint:
+      'Veya Devam’a dokunarak atlayın — My Profile’da sonra bağlayın. O zamana kadar hedefler geçici kilo tahminine dayanabilir.',
+  },
+  weight: {
+    title: 'Başlangıç kilosu',
+    helpLabel: 'Yardım — kilo',
+    lead: 'Hedefler ve enerji dengesi için gerekli.',
+    linkedHint:
+      'Bağlı — tartı henüz senkronize olmadıysa kilo girin veya Devam deyip bulutu bekleyin.',
+    enterNow: 'Kiloyu şimdi gir',
+    skipWithings: 'Atla — kilo Withings’ten gelecek',
+    currentWeight: 'Güncel kilo',
+    manualGuide: 'Manuel giriş rehberi',
+  },
+  phoneHealth: {
+    titleIos: 'Apple Health’e izin ver',
+    titleAndroid: 'Health Connect’e izin ver',
+    helpLabel: 'Telefon sağlığı',
+    leadIos:
+      'Devam’a dokunun — Apple Health bir kez izin isteyebilir. Allow access: Withings saati kapalıyken adım ve nabız.',
+    leadAndroid:
+      'Devam’a dokunun — Health Connect bir kez açılabilir. Withings saati yoksa: Health Connect’e yazan her markadan adım ve nabız.',
+    cgmIos: 'CGM: CareSens Air → Apple Health ile paylaş → Blood Glucose’a izin ver.',
+    cgmAndroid: 'Kan glukozu — CGM grafikleri ve öğün etkisi için.',
+  },
+  pdfs: {
+    title: 'Raporlar — isteğe bağlı',
+    helpLabel: 'PDF raporlar',
+    lead: 'Hazır PDF’niz var mı? Şimdi içe aktarın. Yoksa — devam edin, uygulamada sonra yapın.',
+    labTitle: 'Laboratuvar raporu',
+    labHint: 'Lipidler, böbrek ve daha fazlası — daha doğru makro hedefleri için.',
+    imported: 'İçe aktarıldı',
+    importLab: 'Laboratuvar PDF içe aktar',
+    nutritionTitle: 'Diyetisyen seansı',
+    nutritionHint: 'Ziyaret özeti — koçlar plan metnini takip eder.',
+    importSession: 'Seans PDF içe aktar',
+  },
+  targets: {
+    title: 'Hedefleriniz',
+    helpLabel: 'Yardım — hedefler',
+    lead: 'Yapay zekâ profilinizden vücut ve makro hedefleri önerir.',
+    waitOrRetry: 'Hedefler bekleniyor… veya Yeniden dene.',
+    retry: 'Yeniden dene',
+    usingSaved:
+      'Kayıtlı hedefler kullanılıyor — My Rules ve önceki düzenlemeler korunur. Yalnızca yeni yapay zekâ sayıları istiyorsanız Yeniden oluştur.',
+    bodyTarget: 'Vücut hedefi',
+    dailyMacros: 'Günlük makrolar',
+    rulesApplied: 'Uygulanan kurallar',
+    regenerate: 'AI ile yeniden oluştur',
+  },
+  meals: {
+    title: 'Öğün nasıl kaydedilir',
+    helpLabel: 'Öğün kaydı',
+    lead:
+      'Ne yediğinizi kaydedin — koç My Rules altında çalışır ve etkiyi grafiklerde canlı gösterir.',
+    b1: '1. Metabolik grafikte + → yemek günlüğü.',
+    b2: '2. Fotoğraf — tabağı çekin; yapay zekâ kalemleri listeler; onaylayın.',
+    b3: '3. Metin — öğünü tarif edin; yapay zekâ makrolara ayırır.',
+    b4: '4. Koç sohbetinden de öneri alabilirsiniz — kayıt yemek günlüğünden.',
+    logFirst: 'İlk öğünümü kaydet',
+  },
+};
+
 export function isRtlLang(code: string): boolean {
   const c = (code || '').toLowerCase().slice(0, 2);
   return c === 'he' || c === 'ar';
@@ -1200,5 +1638,8 @@ export function getQuickStartCopy(langCode: string): QuickStartCopy {
   if (c === 'fr') return FR;
   if (c === 'ar') return AR;
   if (c === 'ru') return RU;
+  if (c === 'pt') return PT;
+  if (c === 'it') return IT;
+  if (c === 'tr') return TR;
   return EN;
 }

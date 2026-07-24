@@ -1,5 +1,5 @@
 /**
- * Nutritionist sessions strip chrome — coach language (7 locales).
+ * Nutritionist sessions strip chrome — coach language locales.
  * These are RD visit summaries, not generic “nutrition reports”.
  */
 
@@ -155,6 +155,63 @@ const RU: NutritionSessionsStripCopy = {
   importTitle: 'Импорт сеанса нутрициолога',
 };
 
+const PT: NutritionSessionsStripCopy = {
+  title: 'SESSÕES COM NUTRICIONISTA',
+  addSession: 'Adicionar sessão',
+  emptyHint: 'Importe o PDF do resumo da sessão com o nutricionista',
+  activePrefix: 'Ativa',
+  collapseA11y: 'Recolher sessões com nutricionista',
+  expandA11y: 'Expandir sessões com nutricionista',
+  savedTitle: 'Salvo',
+  savedBody: 'Sessão salva e ativada — os mentores usarão este plano',
+  deleteTitle: 'Excluir sessão?',
+  cancel: 'Cancelar',
+  delete: 'Excluir',
+  activeBadge: 'Ativa',
+  view: 'ver',
+  setActive: 'Ativar',
+  close: 'Fechar',
+  importTitle: 'Importar sessão com nutricionista',
+};
+
+const IT: NutritionSessionsStripCopy = {
+  title: 'SESSIONI CON NUTRIZIONISTA',
+  addSession: 'Aggiungi sessione',
+  emptyHint: 'Importa il PDF del riepilogo della sessione con il nutrizionista',
+  activePrefix: 'Attiva',
+  collapseA11y: 'Comprimi sessioni con nutrizionista',
+  expandA11y: 'Espandi sessioni con nutrizionista',
+  savedTitle: 'Salvato',
+  savedBody: 'Sessione salvata e attivata — i mentor useranno questo piano',
+  deleteTitle: 'Eliminare la sessione?',
+  cancel: 'Annulla',
+  delete: 'Elimina',
+  activeBadge: 'Attiva',
+  view: 'vedi',
+  setActive: 'Imposta attiva',
+  close: 'Chiudi',
+  importTitle: 'Importa sessione con nutrizionista',
+};
+
+const TR: NutritionSessionsStripCopy = {
+  title: 'DİYETİSYEN SEANSLARI',
+  addSession: 'Seans ekle',
+  emptyHint: 'Diyetisyen seans özet PDF’sini içe aktarın',
+  activePrefix: 'Aktif',
+  collapseA11y: 'Diyetisyen seanslarını daralt',
+  expandA11y: 'Diyetisyen seanslarını genişlet',
+  savedTitle: 'Kaydedildi',
+  savedBody: 'Seans kaydedildi ve etkinleştirildi — mentorlar bu planı kullanacak',
+  deleteTitle: 'Seans silinsin mi?',
+  cancel: 'İptal',
+  delete: 'Sil',
+  activeBadge: 'Aktif',
+  view: 'görüntüle',
+  setActive: 'Aktif yap',
+  close: 'Kapat',
+  importTitle: 'Diyetisyen seansını içe aktar',
+};
+
 const BY_CODE: Record<string, NutritionSessionsStripCopy> = {
   en: EN,
   he: HE,
@@ -163,6 +220,9 @@ const BY_CODE: Record<string, NutritionSessionsStripCopy> = {
   de: DE,
   ar: AR,
   ru: RU,
+  pt: PT,
+  it: IT,
+  tr: TR,
 };
 
 export function getNutritionSessionsStripCopy(

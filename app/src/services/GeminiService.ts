@@ -64,7 +64,14 @@ function genderInstruction(ctx: CoachContext): string {
 - When you refer to yourself, use your MENTOR VOICE gender (female: אני ממליצה, שמחה לעזור | male: אני ממליץ, שמח לעזור) — this is independent of USER SEX.
 - Use USER SEX for clinical/nutrition interpretation (healthy fat% range, BMR, glucose context).`;
   }
-  const gendered = code === 'es' || code === 'fr' || code === 'ru' || code === 'de' || code === 'pt' || code === 'it';
+  const gendered =
+    code === 'es' ||
+    code === 'fr' ||
+    code === 'ru' ||
+    code === 'de' ||
+    code === 'pt' ||
+    code === 'it' ||
+    code === 'tr';
   if (gendered) {
     return `${facts}
 - If your reply language uses grammatical gender, address the user matching USER SEX and refer to yourself matching MENTOR VOICE — consistently within the thread.

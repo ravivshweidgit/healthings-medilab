@@ -92,6 +92,39 @@ const RU: BodyMetricsCopy = {
   a11yFat: (v) => `Жировая масса ${v}`,
 };
 
+const PT: BodyMetricsCopy = {
+  weight: 'Peso',
+  fat: 'Gordura',
+  fatPct: 'Gordura %',
+  muscle: 'Músculo',
+  fatEst: '(est.)',
+  a11yWeight: (v) => `Peso ${v}`,
+  a11yMuscle: (v) => `Massa muscular ${v}`,
+  a11yFat: (v) => `Massa gorda ${v}`,
+};
+
+const IT: BodyMetricsCopy = {
+  weight: 'Peso',
+  fat: 'Grasso',
+  fatPct: 'Grasso %',
+  muscle: 'Muscolo',
+  fatEst: '(stim.)',
+  a11yWeight: (v) => `Peso ${v}`,
+  a11yMuscle: (v) => `Massa muscolare ${v}`,
+  a11yFat: (v) => `Massa grassa ${v}`,
+};
+
+const TR: BodyMetricsCopy = {
+  weight: 'Kilo',
+  fat: 'Yağ',
+  fatPct: 'Yağ %',
+  muscle: 'Kas',
+  fatEst: '(tah.)',
+  a11yWeight: (v) => `Kilo ${v}`,
+  a11yMuscle: (v) => `Kas kütlesi ${v}`,
+  a11yFat: (v) => `Yağ kütlesi ${v}`,
+};
+
 export function getBodyMetricsCopy(langCode?: string | null): BodyMetricsCopy {
   const c = (langCode || 'en').toLowerCase().slice(0, 2);
   if (c === 'he') return HE;
@@ -100,5 +133,8 @@ export function getBodyMetricsCopy(langCode?: string | null): BodyMetricsCopy {
   if (c === 'de') return DE;
   if (c === 'ar') return AR;
   if (c === 'ru') return RU;
+  if (c === 'pt') return PT;
+  if (c === 'it') return IT;
+  if (c === 'tr') return TR;
   return EN;
 }

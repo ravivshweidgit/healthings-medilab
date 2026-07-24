@@ -2604,7 +2604,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           {(isLoading || bodyScanLoading || trendLoading) ? (
             <ActivityIndicator color={WellnessColors.surface} />
           ) : (
-            <Text style={styles.primaryButtonText}>Refresh my data</Text>
+            <Text style={styles.primaryButtonText}>{metabolicStripCopy.refreshMyData}</Text>
           )}
         </Pressable>
 

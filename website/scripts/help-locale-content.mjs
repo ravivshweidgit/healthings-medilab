@@ -10,6 +10,9 @@ export const HELP_LOCALES = [
   { code: 'de', dir: 'ltr', label: 'DE', name: 'Deutsch', flag: '🇩🇪' },
   { code: 'ar', dir: 'rtl', label: 'AR', name: 'العربية', flag: '🇸🇦' },
   { code: 'ru', dir: 'ltr', label: 'RU', name: 'Русский', flag: '🇷🇺' },
+  { code: 'pt', dir: 'ltr', label: 'PT', name: 'Português', flag: '🇧🇷' },
+  { code: 'it', dir: 'ltr', label: 'IT', name: 'Italiano', flag: '🇮🇹' },
+  { code: 'tr', dir: 'ltr', label: 'TR', name: 'Türkçe', flag: '🇹🇷' },
 ];
 
 /** Wizard-linked slugs (must match app HelpSlug). */
@@ -95,6 +98,33 @@ export const UI = {
     glossary:
       'Термины вроде <strong>kcal</strong>, <strong>BMR</strong>, <strong>CGM</strong> и бренды вроде <strong>Withings</strong> остаются на английском.',
   },
+  pt: {
+    home: 'Início',
+    help: 'Ajuda',
+    allTopics: 'Todos os tópicos',
+    badge: 'Início rápido',
+    know: 'O essencial',
+    glossary:
+      'Termos como <strong>kcal</strong>, <strong>BMR</strong>, <strong>CGM</strong> e marcas como <strong>Withings</strong> ficam em inglês.',
+  },
+  it: {
+    home: 'Home',
+    help: 'Aiuto',
+    allTopics: 'Tutti gli argomenti',
+    badge: 'Avvio rapido',
+    know: 'Da sapere',
+    glossary:
+      'Termini come <strong>kcal</strong>, <strong>BMR</strong>, <strong>CGM</strong> e marchi come <strong>Withings</strong> restano in inglese.',
+  },
+  tr: {
+    home: 'Ana sayfa',
+    help: 'Yardım',
+    allTopics: 'Tüm konular',
+    badge: 'Hızlı başlangıç',
+    know: 'Bilmeniz gerekenler',
+    glossary:
+      '<strong>kcal</strong>, <strong>BMR</strong>, <strong>CGM</strong> gibi terimler ve <strong>Withings</strong> gibi markalar İngilizce kalır.',
+  },
 };
 
 /**
@@ -172,6 +202,33 @@ set(
 <p>Большинство приложений останавливаются на трекинге. Здесь круг замыкается: замысел → жизнь → обучение → обмен → уточнение.</p>
 <p><strong>Это не медицина.</strong> Без диагнозов и рецептов. Экстренное — у лицензированных специалистов.</p>`,
 );
+set(
+  'quick-start-welcome',
+  'pt',
+  'Bem-vindo(a) ao Healthings',
+  'Aprende o seu corpo, explica o que acontece agora e dá feedback claro ao nutricionista — para o caminho aos objetivos ficar mais preciso a cada dia.',
+  `<p>Gráficos ao vivo de peso, composição, atividade e glicose quando ligado. O modelo explica o que mudou — sob <strong>My Rules</strong>.</p>
+<p>A maioria das apps para no tracking. Aqui o ciclo fecha: intenção → vida → aprender → partilhar → afinar.</p>
+<p><strong>Não é cuidados médicos.</strong> Sem diagnóstico nem receitas. Emergências ficam com profissionais licenciados.</p>`,
+);
+set(
+  'quick-start-welcome',
+  'it',
+  'Benvenuto/a in Healthings',
+  'Impara il tuo corpo, spiega cosa succede ora e dà un feedback chiaro al nutrizionista — così il percorso verso gli obiettivi si affina ogni giorno.',
+  `<p>Grafici live di peso, composizione, attività e glucosio se collegati. Il modello spiega cosa è cambiato — sotto <strong>My Rules</strong>.</p>
+<p>La maggior parte delle app si ferma al tracking. Qui il cerchio si chiude: intento → vita → apprendimento → condivisione → raffinamento.</p>
+<p><strong>Non è assistenza medica.</strong> Nessuna diagnosi né ricette. Le emergenze restano ai professionisti abilitati.</p>`,
+);
+set(
+  'quick-start-welcome',
+  'tr',
+  'Healthings’e hoş geldiniz',
+  'Bedeninizi öğrenir, şu an ne olduğunu açıklar ve diyetisyeninize net geri bildirim verir — böylece hedeflere giden yol her gün netleşir.',
+  `<p>Bağlıysa kilo, kompozisyon, aktivite ve glikoz için canlı grafikler. Model ne değiştiğini açıklar — <strong>My Rules</strong> altında.</p>
+<p>Çoğu uygulama yalnızca takipte kalır. Burada döngü kapanır: niyet → yaşam → öğrenme → paylaşma → iyileştirme.</p>
+<p><strong>Tıbbi bakım değildir.</strong> Teşhis veya reçete yok. Aciller lisanslı klinisyenlerde kalır.</p>`,
+);
 
 // ── quick-start-units ────────────────────────────────────────────
 set(
@@ -230,6 +287,30 @@ set(
   `<p>Берите привычные единицы. Позже можно сменить в любой момент в <strong>My Profile</strong>.</p>
 <p>Обозначения <strong>kg</strong>, <strong>kcal</strong> и <strong>mg/dL</strong> остаются на английском — это стандарт.</p>`,
 );
+set(
+  'quick-start-units',
+  'pt',
+  'Unidades e medidas',
+  'Como peso, altura, energia, água e glicose aparecem. O armazenamento fica em unidades clínicas padrão.',
+  `<p>Escolha o que já usa em casa ou na clínica. Pode mudar a qualquer momento em <strong>My Profile</strong>.</p>
+<p>Símbolos como <strong>kg</strong>, <strong>kcal</strong> e <strong>mg/dL</strong> ficam em inglês — é o padrão.</p>`,
+);
+set(
+  'quick-start-units',
+  'it',
+  'Unità di misura',
+  'Come appaiono peso, altezza, energia, acqua e glucosio. Lo storage resta in unità cliniche standard.',
+  `<p>Scegli ciò che già usi a casa o in clinica. Modificabile in qualsiasi momento in <strong>My Profile</strong>.</p>
+<p>Simboli come <strong>kg</strong>, <strong>kcal</strong> e <strong>mg/dL</strong> restano in inglese — è lo standard.</p>`,
+);
+set(
+  'quick-start-units',
+  'tr',
+  'Birimler ve ölçüler',
+  'Kilo, boy, enerji, su ve glikozun nasıl göründüğü. Depolama standart klinik birimlerde kalır.',
+  `<p>Evde veya klinikte zaten kullandığınızı seçin. İstediğiniz zaman <strong>My Profile</strong> içinden değiştirebilirsiniz.</p>
+<p><strong>kg</strong>, <strong>kcal</strong> ve <strong>mg/dL</strong> gibi semboller İngilizce kalır — bu standarttır.</p>`,
+);
 
 // Helper to bulk-add remaining slugs with compact native copy
 function bulk(slug, rows) {
@@ -246,6 +327,9 @@ bulk('quick-start-profile', [
   ['de', 'Über Sie', 'Geschlecht, Größe und Geburtsdatum für BMR, BMI und Energieziele.', `<p>Einmal hier ausfüllen — später im Profil änderbar.</p>`],
   ['ar', 'عنك', 'الجنس والطول وتاريخ الميلاد لحساب BMR و BMI وأهداف الطاقة.', `<p>مرة واحدة هنا — يمكن التعديل لاحقاً في الملف.</p>`],
   ['ru', 'О вас', 'Пол, рост и дата рождения для BMR, BMI и целей по энергии.', `<p>Один раз здесь — потом можно уточнить в профиле.</p>`],
+  ['pt', 'Sobre você', 'Género, altura e data de nascimento alimentam BMR, BMI e metas de energia.', `<p>Responda uma vez aqui — pode afinar depois no perfil.</p>`],
+  ['it', 'Su di te', 'Genere, altezza e data di nascita alimentano BMR, BMI e obiettivi energetici.', `<p>Rispondi una volta qui — puoi rifinire dopo nel profilo.</p>`],
+  ['tr', 'Hakkınızda', 'Cinsiyet, boy ve doğum tarihi BMR, BMI ve enerji hedeflerini besler.', `<p>Burada bir kez yanıtlayın — sonra profilde düzeltebilirsiniz.</p>`],
 ]);
 
 bulk('quick-start-language', [
@@ -256,6 +340,9 @@ bulk('quick-start-language', [
   ['de', 'App- & Coach-Sprache', 'Eine Sprache für Schnellstart, Chat, Mahlzeiten, Berichte und Hilfe.', `<p>Später änderbar unter <strong>My Profile</strong>. Hilfe öffnet in derselben Sprache.</p>`],
   ['ar', 'لغة التطبيق والمدرب', 'لغة واحدة للبداية والدردشة وأسماء الوجبات والتقارير وصفحات المساعدة.', `<p>يمكن التغيير لاحقاً من <strong>My Profile</strong>. المساعدة تُفتح بنفس اللغة.</p>`],
   ['ru', 'Язык приложения и коуча', 'Один язык для старта, чата, названий еды, отчётов и справки.', `<p>Позже можно сменить в <strong>My Profile</strong>. Справка открывается на том же языке.</p>`],
+  ['pt', 'Idioma da app e do coach', 'Um idioma para o início rápido, chat, nomes das refeições, relatórios e ajuda.', `<p>Pode mudar depois em <strong>My Profile</strong>. A ajuda abre no mesmo idioma.</p>`],
+  ['it', 'Lingua app e coach', 'Una lingua per avvio rapido, chat, nomi pasti, report e aiuto.', `<p>Puoi cambiarla dopo in <strong>My Profile</strong>. L’aiuto si apre nella stessa lingua.</p>`],
+  ['tr', 'Uygulama ve koç dili', 'Hızlı başlangıç, sohbet, yemek adları, raporlar ve yardım için tek dil.', `<p>Sonra <strong>My Profile</strong> içinden değiştirebilirsiniz. Yardım aynı dilde açılır.</p>`],
 ]);
 
 bulk('mentor-voice-gender', [
@@ -266,6 +353,9 @@ bulk('mentor-voice-gender', [
   ['de', 'App-Mentor', 'Mann oder Frau — so spricht Ihr KI-Mentor. Nicht Ihr Profil-Geschlecht.', `<p>Nur bei Hebräisch und Arabisch, wo Titel und Grammatik vom Geschlecht abhängen. Später änderbar unter My Mentors.</p>`],
   ['ar', 'المرشد في التطبيق', 'رجل أو امرأة — هكذا يخاطبكم المرشد. ليس جنس ملفكم الشخصي.', `<p>يظهر فقط بالعبرية والعربية حيث تتغير الألقاب والقواعد حسب الجنس. يمكن التغيير لاحقاً من الموجهين.</p>`],
   ['ru', 'Наставник в приложении', 'Мужчина или женщина — так говорит ИИ-наставник. Не пол в профиле.', `<p>Только для иврита и арабского, где обращения зависят от пола. Позже можно сменить в My Mentors.</p>`],
+  ['pt', 'Mentor da app', 'Homem ou mulher — como o mentor de IA fala consigo. Não é o género do perfil.', `<p>Só em hebraico e árabe, onde títulos e gramática mudam por género. Pode mudar depois em My Mentors.</p>`],
+  ['it', 'Mentor dell’app', 'Uomo o donna — come ti parla il mentor IA. Non è il genere del profilo.', `<p>Solo in ebraico e arabo, dove titoli e grammatica cambiano per genere. Modificabile dopo in My Mentors.</p>`],
+  ['tr', 'Uygulama mentoru', 'Erkek veya kadın — yapay zeka mentorunun size nasıl hitap ettiği. Profil cinsiyetiniz değil.', `<p>Yalnızca unvan ve dilbilgisinin cinsiyete göre değiştiği İbranice ve Arapçada gösterilir. Sonra My Mentors altında değiştirebilirsiniz.</p>`],
 ]);
 
 bulk('withings-scale', [
@@ -276,6 +366,9 @@ bulk('withings-scale', [
   ['de', 'Withings-Körperwaage', 'Jede Withings-Waage im Konto passt. Nach dem Link liest die App die Cloud — nicht Bluetooth.', `<p>Body, Body Scan und ähnliche Modelle sind OK.</p>`],
   ['ar', 'ميزان Withings', 'أي ميزان Withings في حسابك يناسب. بعد الربط نقرأ من السحابة — وليس Bluetooth.', `<p>Body و Body Scan وما شابه مناسب.</p>`],
   ['ru', 'Весы Withings', 'Подойдут любые весы Withings в аккаунте. После связи данные из облака — не Bluetooth.', `<p>Body, Body Scan и похожие модели — ок.</p>`],
+  ['pt', 'Balança Withings', 'Qualquer balança Withings na conta serve. Após ligar, lê-se a nuvem — não Bluetooth.', `<p>Body, Body Scan e modelos semelhantes estão ok.</p>`],
+  ['it', 'Bilancia Withings', 'Qualsiasi bilancia Withings sull’account va bene. Dopo il link legge il cloud — non Bluetooth.', `<p>Body, Body Scan e modelli simili vanno bene.</p>`],
+  ['tr', 'Withings tartı', 'Hesabınızdaki herhangi bir Withings tartı çalışır. Bağladıktan sonra buluttan okur — Bluetooth değil.', `<p>Body, Body Scan ve benzer modeller uygundur.</p>`],
 ]);
 
 bulk('quick-start-watch', [
@@ -286,6 +379,9 @@ bulk('quick-start-watch', [
   ['de', 'Withings-Uhr oder Band', 'Ja → Aktivität und Puls aus der Withings-Cloud. Nein → Health Connect / Apple Health.', `<p>Garmin, Apple Watch, Samsung u. a. können in den Telefon-Health-Store schreiben.</p>`],
   ['ar', 'ساعة أو سوار Withings', 'نعم → نشاط ونبض من سحابة Withings. لا → من Health Connect / Apple Health.', `<p>Garmin و Apple Watch و Samsung وغيرها يمكنها الكتابة إلى صحة الهاتف.</p>`],
   ['ru', 'Часы или браслет Withings', 'Да → активность и пульс из облака Withings. Нет → Health Connect / Apple Health.', `<p>Garmin, Apple Watch, Samsung и другие могут писать в здоровье телефона.</p>`],
+  ['pt', 'Relógio ou pulseira Withings', 'Sim → atividade e pulso da nuvem Withings. Não → Health Connect / Apple Health.', `<p>Garmin, Apple Watch, Samsung e outros podem escrever na saúde do telemóvel.</p>`],
+  ['it', 'Orologio o cinturino Withings', 'Sì → attività e battito dal cloud Withings. No → Health Connect / Apple Health.', `<p>Garmin, Apple Watch, Samsung e altri possono scrivere nella salute del telefono.</p>`],
+  ['tr', 'Withings saat veya bileklik', 'Evet → aktivite ve nabız Withings bulutundan. Hayır → Health Connect / Apple Health.', `<p>Garmin, Apple Watch, Samsung ve diğerleri telefon sağlık deposuna yazabilir.</p>`],
 ]);
 
 bulk('cgm', [
@@ -296,6 +392,9 @@ bulk('cgm', [
   ['de', 'CGM-Glukose', 'Kontinuierliche Glukose über Health Connect (Android) oder Apple Health (iPhone). Lab-PDFs später möglich.', `<p>CGM-App mit Telefon-Health teilen und Blood Glucose erlauben.</p>`],
   ['ar', 'جلوكوز CGM', 'جلوكوز مستمر عبر Health Connect (Android) أو Apple Health (iPhone). يمكن استيراد PDF مختبر لاحقاً.', `<p>شارك تطبيق CGM مع صحة الهاتف واسمح بـ Blood Glucose.</p>`],
   ['ru', 'Глюкоза CGM', 'Непрерывная глюкоза через Health Connect (Android) или Apple Health (iPhone). PDF анализов — позже.', `<p>Дайте CGM-приложению доступ к здоровью телефона и Blood Glucose.</p>`],
+  ['pt', 'Glicose CGM', 'Glicose contínua via Health Connect (Android) ou Apple Health (iPhone). PDFs de lab depois.', `<p>Partilhe a app CGM com a saúde do telemóvel e permita Blood Glucose.</p>`],
+  ['it', 'Glucosio CGM', 'Glucosio continuo via Health Connect (Android) o Apple Health (iPhone). PDF lab più tardi.', `<p>Condividi l’app CGM con la salute del telefono e consenti Blood Glucose.</p>`],
+  ['tr', 'CGM glikoz', 'Sürekli glikoz Health Connect (Android) veya Apple Health (iPhone) üzerinden. Lab PDF’leri sonra.', `<p>CGM uygulamasını telefon sağlığıyla paylaşın, sonra Blood Glucose’a izin verin.</p>`],
 ]);
 
 bulk('withings-link', [
@@ -306,6 +405,9 @@ bulk('withings-link', [
   ['de', 'Withings verbinden', 'Dasselbe Konto wie in der Withings-App. Ein Link für Waage und Uhr.', `<p>Sie können überspringen und später unter <strong>My Profile</strong> verbinden.</p>`],
   ['ar', 'ربط Withings', 'نفس حساب تطبيق Withings. ربط واحد للميزان والساعة.', `<p>يمكن التخطي والربط لاحقاً من <strong>My Profile</strong>.</p>`],
   ['ru', 'Связь Withings', 'Тот же аккаунт, что в приложении Withings. Одна связь — весы и часы.', `<p>Можно пропустить и связать позже в <strong>My Profile</strong>.</p>`],
+  ['pt', 'Ligar Withings', 'A mesma conta da app Withings. Uma ligação cobre balança e relógio.', `<p>Pode saltar e ligar depois em <strong>My Profile</strong>.</p>`],
+  ['it', 'Collega Withings', 'Lo stesso account dell’app Withings. Un link copre bilancia e orologio.', `<p>Puoi saltare e collegare dopo in <strong>My Profile</strong>.</p>`],
+  ['tr', 'Withings bağla', 'Withings uygulamasıyla aynı hesap. Tek bağlantı tartı ve saati kapsar.', `<p>Atlayıp sonra <strong>My Profile</strong> içinden bağlayabilirsiniz.</p>`],
 ]);
 
 bulk('starting-weight', [
@@ -316,6 +418,9 @@ bulk('starting-weight', [
   ['de', 'Startgewicht', 'Für Ziele und Energiebilanz. Jetzt eingeben oder auf Withings-Sync warten.', `<p>Verknüpft, aber noch kein Sync — Gewicht tippen oder weiter.</p>`],
   ['ar', 'الوزن الابتدائي', 'مطلوب للأهداف وتوازن الطاقة. أدخله الآن أو انتظر مزامنة Withings.', `<p>إن رُبط دون مزامنة بعد — أدخل الوزن أو تابع.</p>`],
   ['ru', 'Стартовый вес', 'Нужен для целей и энергобаланса. Сейчас или после синхронизации Withings.', `<p>Если связь есть, а синка ещё нет — введите вес или идите дальше.</p>`],
+  ['pt', 'Peso inicial', 'Preciso para metas e balanço energético. Agora ou após sync Withings.', `<p>Se ligado mas ainda sem sync — escreva o peso ou continue.</p>`],
+  ['it', 'Peso iniziale', 'Serve per obiettivi e bilancio energetico. Ora o dopo sync Withings.', `<p>Se collegato ma non ancora sincronizzato — digita il peso o continua.</p>`],
+  ['tr', 'Başlangıç kilosu', 'Hedefler ve enerji dengesi için gerekir. Şimdi girin veya Withings senkronunu bekleyin.', `<p>Bağlı ama henüz senkron yoksa — kilo yazın veya devam edin.</p>`],
 ]);
 
 bulk('phone-health-activity', [
@@ -326,6 +431,9 @@ bulk('phone-health-activity', [
   ['de', 'Telefon-Gesundheit', 'Health Connect oder Apple Health für Schritte und Puls, wenn die Withings-Uhr aus ist.', `<p>Next tippen — das System fragt ggf. einmal nach.</p>`],
   ['ar', 'صحة الهاتف', 'اسمح لـ Health Connect أو Apple Health بالخطوات والنبض عند إيقاف ساعة Withings.', `<p>اضغط Next — قد يطلب النظام الإذن مرة واحدة.</p>`],
   ['ru', 'Здоровье телефона', 'Разрешите Health Connect или Apple Health для шагов и пульса, если часы Withings выключены.', `<p>Нажмите Next — система может спросить один раз.</p>`],
+  ['pt', 'Saúde do telemóvel', 'Permita Health Connect ou Apple Health para passos e pulso se o relógio Withings estiver off.', `<p>Toque Next — o sistema pode pedir permissão uma vez.</p>`],
+  ['it', 'Salute del telefono', 'Consenti Health Connect o Apple Health per passi e battito se l’orologio Withings è off.', `<p>Tocca Next — il sistema può chiedere il permesso una volta.</p>`],
+  ['tr', 'Telefon sağlığı', 'Withings saat kapalıyken adım ve nabız için Health Connect veya Apple Health’e izin verin.', `<p>Next’e dokunun — sistem bir kez izin isteyebilir.</p>`],
 ]);
 
 bulk('reports-import', [
@@ -336,6 +444,9 @@ bulk('reports-import', [
   ['de', 'Optionale Berichte', 'Lab-PDF oder Ernährungs-Zusammenfassung importieren — oder später in der App.', `<p>Lab hilft bei Makros. Besuchstext stützt die Coaches unter My Rules.</p>`],
   ['ar', 'تقارير اختيارية', 'استورد PDF مختبر أو ملخص جلسة تغذية — أو افعل ذلك لاحقاً في التطبيق.', `<p>المختبر يساعد أهداف الماكرو. ملخص الزيارة يغذي المدربين وفق My Rules.</p>`],
   ['ru', 'Отчёты по желанию', 'Импорт PDF анализов или саммари с нутрициологом — или позже в приложении.', `<p>Анализы помогают макросам. Текст визита кормит коучей по My Rules.</p>`],
+  ['pt', 'Relatórios opcionais', 'Importe um PDF de lab ou um resumo com o nutricionista — ou faça depois na app.', `<p>O lab ajuda macros. O texto da sessão alimenta os coaches sob My Rules.</p>`],
+  ['it', 'Report opzionali', 'Importa un PDF lab o un riepilogo con il nutrizionista — o fallo dopo nell’app.', `<p>Il lab aiuta i macro. Il testo della sessione alimenta i coach sotto My Rules.</p>`],
+  ['tr', 'İsteğe bağlı raporlar', 'Lab PDF’si veya diyetisyen oturum özeti içe aktarın — veya sonra uygulamada yapın.', `<p>Lab makrolara yardımcı olur. Oturum metni My Rules altındaki koçları besler.</p>`],
 ]);
 
 bulk('targets-help', [
@@ -346,6 +457,9 @@ bulk('targets-help', [
   ['de', 'Ihre Ziele', 'Die KI schlägt Körper- und Makroziele aus dem Profil vor. Gespeicherte behalten My Rules.', `<p>Neu erzeugen nur, wenn Sie frische KI-Zahlen wollen.</p>`],
   ['ar', 'أهدافك', 'يقترح الذكاء أهداف الجسم والماكرو من ملفك. المحفوظة تبقي My Rules.', `<p>أعد التوليد فقط إذا أردت أرقاماً جديدة من الذكاء.</p>`],
   ['ru', 'Ваши цели', 'ИИ предлагает цели по телу и макросам из профиля. Сохранённые держат My Rules.', `<p>Пересчёт — только если нужны новые цифры от ИИ.</p>`],
+  ['pt', 'As suas metas', 'A IA sugere corpo e macros a partir do perfil. Metas guardadas mantêm My Rules.', `<p>Regenere só se quiser números novos da IA.</p>`],
+  ['it', 'I tuoi obiettivi', 'L’IA suggerisce corpo e macro dal profilo. Gli obiettivi salvati tengono My Rules.', `<p>Rigenera solo se vuoi numeri freschi dall’IA.</p>`],
+  ['tr', 'Hedefleriniz', 'YZ profilinizden beden ve makro hedefleri önerir. Kayıtlı hedefler My Rules’u korur.', `<p>Yalnızca yeni YZ sayıları istiyorsanız yeniden oluşturun.</p>`],
 ]);
 
 bulk('meal-logging', [
@@ -356,6 +470,9 @@ bulk('meal-logging', [
   ['de', 'Mahlzeiten erfassen', 'Essen loggen, damit Coaching unter My Rules Live-Wirkung in Charts zeigt.', `<ol><li><strong>+</strong> im Stoffwechsel-Chart tippen.</li><li><strong>Foto</strong> — Teller aufnehmen und bestätigen.</li><li><strong>Text</strong> — beschreiben; KI zerlegt Makros.</li><li>Chat kann vorschlagen — Speichern im Food-Log.</li></ol>`],
   ['ar', 'كيف تسجّل الوجبات', 'سجّل الطعام ليرى المدرب وفق My Rules أثراً حياً على الرسوم.', `<ol><li>اضغط <strong>+</strong> على الرسم الأيضي.</li><li><strong>صورة</strong> — صوّر الطبق ووافق.</li><li><strong>نص</strong> — صف الوجبة؛ الذكاء يفك الماكرو.</li><li>الدردشة قد تقترح — الحفظ عبر سجل الطعام.</li></ol>`],
   ['ru', 'Как логировать еду', 'Логируйте еду, чтобы коучинг по My Rules показывал живое влияние на графиках.', `<ol><li>Нажмите <strong>+</strong> на метаболическом графике.</li><li><strong>Фото</strong> — снимите тарелку и подтвердите.</li><li><strong>Текст</strong> — опишите; ИИ разберёт макросы.</li><li>Чат может предложить — сохранение в food log.</li></ol>`],
+  ['pt', 'Como registar refeições', 'Registe a comida para o coach sob My Rules mostrar impacto ao vivo nos gráficos.', `<ol><li>Toque <strong>+</strong> no gráfico metabólico.</li><li><strong>Foto</strong> — tire a foto do prato e aprove.</li><li><strong>Texto</strong> — descreva; a IA calcula macros.</li><li>O chat pode sugerir — grava no food log.</li></ol>`],
+  ['it', 'Come registrare i pasti', 'Registra il cibo così il coach sotto My Rules mostra l’impatto live sui grafici.', `<ol><li>Tocca <strong>+</strong> sul grafico metabolico.</li><li><strong>Foto</strong> — scatta il piatto e approva.</li><li><strong>Testo</strong> — descrivi; l’IA calcola i macro.</li><li>La chat può suggerire — salvataggio nel food log.</li></ol>`],
+  ['tr', 'Öğün nasıl kaydedilir', 'Yemeği kaydedin ki My Rules altındaki koçluk grafiklerde canlı etki göstersin.', `<ol><li>Metabolik grafikte <strong>+</strong> dokunun.</li><li><strong>Fotoğraf</strong> — tabağı çekin ve onaylayın.</li><li><strong>Metin</strong> — tarif edin; YZ makroları çıkarır.</li><li>Sohbet önerebilir — kayıt food log üzerinden.</li></ol>`],
 ]);
 
 bulk('manual-body', [
@@ -366,6 +483,9 @@ bulk('manual-body', [
   ['de', 'Körper manuell', 'Gewicht (und optional Zusammensetzung) eingeben, wenn die Waage noch nicht synced.', `<p>Schätzwerte füllen die Lücke bis Withings oder der nächste Wiegevorgang.</p>`],
   ['ar', 'إدخال الجسم يدوياً', 'أدخل الوزن (والتركيب إن وُجد) إن لم يزامن الميزان بعد.', `<p>تقدير يمكنه سد الفجوة حتى Withings أو الوزن التالي.</p>`],
   ['ru', 'Ручной ввод тела', 'Введите вес (и состав, если есть), если весы ещё не синхронизировались.', `<p>Оценка закрывает пробел до Withings или следующего взвешивания.</p>`],
+  ['pt', 'Corpo manual', 'Introduza o peso (e composição se tiver) se a balança ainda não sincronizou.', `<p>Uma estimativa preenche o intervalo até Withings ou a próxima pesagem.</p>`],
+  ['it', 'Corpo manuale', 'Inserisci il peso (e la composizione se ce l’hai) se la bilancia non ha ancora sincronizzato.', `<p>Una stima copre il vuoto fino a Withings o alla prossima pesata.</p>`],
+  ['tr', 'Manuel beden girişi', 'Tartı henüz senkron olmadıysa kilo (ve varsa kompozisyon) girin.', `<p>Tahminler Withings veya bir sonraki tartıma kadar boşluğu doldurabilir.</p>`],
 ]);
 
 export const INDEX = {
@@ -396,5 +516,17 @@ export const INDEX = {
   ru: {
     title: 'Справка',
     lead: 'Темы быстрого старта. Клинические сокращения на английском.',
+  },
+  pt: {
+    title: 'Ajuda',
+    lead: 'Tópicos do início rápido. Abreviaturas clínicas ficam em inglês.',
+  },
+  it: {
+    title: 'Aiuto',
+    lead: 'Argomenti dell’avvio rapido. Abbreviazioni cliniche restano in inglese.',
+  },
+  tr: {
+    title: 'Yardım',
+    lead: 'Hızlı başlangıç konuları. Klinik kısaltmalar İngilizce kalır.',
   },
 };
