@@ -120,7 +120,12 @@ import {
 } from '../i18n/metabolicStripCopy';
 import { metabolicChartHeader } from '../logic/sourceConfigLabels';
 import { awsDataService } from '../services/AwsDataService';
-import { parseCareSensAirExportWithSessions } from '../services/careSensCsv';
+import {
+  assertCareSensCsvMatchesExportName,
+  formatCareSensImportRange,
+  parseCareSensAirExportWithSessions,
+  readCareSensCsvText,
+} from '../services/careSensCsv';
 import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getRecentMeals, getDailyMacros, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
 import { buildLabsAiContext, getAllLabReports, type LabReport } from '../services/LabLogService';
 import {
@@ -1697,16 +1702,42 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         copyToCacheDirectory: true,
       });
       if (pick.canceled) return;
-      const uri = pick.assets?.[0]?.uri;
+      const asset = pick.assets?.[0];
+      const uri = asset?.uri;
       if (!uri) {
         setImportMessage('No file was selected.');
         return;
       }
-      const text = await FileSystem.readAsStringAsync(uri);
-      const { points, sessionStarts } = parseCareSensAirExportWithSessions(text);
+      const expectedBytes =
+        typeof asset.size === 'number' && asset.size > 0 ? asset.size : null;
+      const read = await readCareSensCsvText(
+        uri,
+        (u, opts) => FileSystem.readAsStringAsync(u, opts),
+        async (u) => {
+          const info = await FileSystem.getInfoAsync(u);
+          return {
+            exists: info.exists,
+            size: info.exists && 'size' in info ? info.size : undefined,
+          };
+        },
+        expectedBytes,
+        async (u) => {
+          const res = await fetch(u);
+          return res.text();
+        },
+      );
+      if (read.truncated) {
+        throw new Error(
+          `CSV read was truncated (${read.bytesRead} of ~${read.expectedBytes} bytes). Re-copy the full CareSens export to the phone and import again.`,
+        );
+      }
+      const { points, sessionStarts, firstTimestamp, lastTimestamp } =
+        parseCareSensAirExportWithSessions(read.text);
+      assertCareSensCsvMatchesExportName(asset.name, lastTimestamp, read.bytesRead);
       const importResult = await applyImportedGlucose(points, sessionStarts);
+      const range = formatCareSensImportRange(firstTimestamp, lastTimestamp);
       setImportMessage(
-        `Imported ${importResult.csvCount} CSV + ${importResult.hcCount} HC readings → ${importResult.chartCount} on chart (${importResult.sessionCount} sensor session${importResult.sessionCount === 1 ? '' : 's'}).`,
+        `Imported ${importResult.csvCount} CSV (+${importResult.newPointsAdded} new) + ${importResult.hcCount} HC → ${importResult.chartCount} on chart (${importResult.sessionCount} sensor session${importResult.sessionCount === 1 ? '' : 's'}; ${range}).`,
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not import CSV.';

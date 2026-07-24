@@ -96,8 +96,13 @@ const VIEWPORT_PRESETS = [
 
 const DEFAULT_VIEWPORT_PRESET_INDEX = 3; // 12H
 
+/**
+ * Plot width must fit the strip card's inner box, or the fixed-width canvas is cut off
+ * on the right by `chartPlot`'s overflow:hidden. Budget: 40 scroll padding + 28 card
+ * padding + 2 y-axis margin, on top of the y-axis column itself.
+ */
 function viewportWidthPx(windowW: number): number {
-  return Math.max(180, windowW - Y_AXIS_WIDTH - 44);
+  return Math.max(180, windowW - Y_AXIS_WIDTH - 70);
 }
 
 function filterPointsByTime(points: Point[], t0: number, t1: number): Point[] {

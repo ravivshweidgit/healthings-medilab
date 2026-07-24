@@ -26,6 +26,7 @@ export type GlucoseImportResult = {
   mergedRawCount: number;
   chartCount: number;
   sessionCount: number;
+  newPointsAdded: number;
 };
 
 type HealthDataState = CgmViewState;
@@ -82,6 +83,7 @@ export const useHealthData = () => {
           mergedRawCount: result.mergedRawCount,
           chartCount: result.chartCount,
           sessionCount: result.sessionCount,
+          newPointsAdded: result.newPointsAdded,
         };
       });
     },

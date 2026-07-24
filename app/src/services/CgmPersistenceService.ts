@@ -118,9 +118,16 @@ export async function mergeImportedGlucoseIntoStore(
     mergedRawCount: number;
     chartCount: number;
     sessionCount: number;
+    /** How many CSV timestamps were not already in the local store. */
+    newPointsAdded: number;
   }
 > {
   const prev = await loadCgmStore();
+  const prevMs = new Set(
+    (prev?.glucose ?? [])
+      .map((p) => new Date(p.timestamp).getTime())
+      .filter((ms) => !Number.isNaN(ms)),
+  );
   let liveGlucose: TimePoint[] = [];
   if (isLiveCgmDataSource(dataSource)) {
     try {
@@ -128,6 +135,12 @@ export async function mergeImportedGlucoseIntoStore(
     } catch {
       // Non-fatal: CSV import still applies from file + cache.
     }
+  }
+
+  let newPointsAdded = 0;
+  for (const p of importedRaw) {
+    const ms = new Date(p.timestamp).getTime();
+    if (!Number.isNaN(ms) && p.value > 0 && !prevMs.has(ms)) newPointsAdded += 1;
   }
 
   const mergedRaw = mergeGlucoseTimePoints([
@@ -147,6 +160,7 @@ export async function mergeImportedGlucoseIntoStore(
     mergedRawCount: mergedRaw.length,
     chartCount: view.glucoseData.length,
     sessionCount: view.cgmSessionStarts.length,
+    newPointsAdded,
   };
 }
 
