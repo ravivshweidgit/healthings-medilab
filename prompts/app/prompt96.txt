@@ -1,0 +1,122 @@
+# prompt96 — Dark theme (System / Light / Dark)
+
+**Status:** Planned (2026-07-24). Phased; each phase its own `bi` + confirmation.
+**Builds on:** prompt92 audit, prompt93/94/95 (chrome + icon system `theme/icons.tsx`,
+`theme/wellness.ts` palette). Honors persistence-parity, language-policy,
+ai-judgment, build-workflow rules.
+
+## Problem / goal
+
+App is light-only. Users want a dark option (health app checked at night; OLED;
+light-sensitivity). Add **System / Light / Dark**:
+- Default = **System** (follow OS via `useColorScheme()`) → correct theme with zero taps.
+- Manual override in **Profile & Settings**.
+- Optional **Quick Start step** after language (user-requested) — added **last**, once
+  dark actually looks polished, with a live preview so it feels delightful, not a chore.
+
+**Visual north star:** `UI-snapshots/dark-theme-reference/` (Withings, approved
+2026-07-24) — near-black canvas, dark-grey elevated cards, white/muted text, cool
+periwinkle data-viz, semantic accents (green connected, gold badge) preserved.
+
+## Why it's a real project (not a toggle)
+
+- ~**800** `WellnessColors.X` refs + ~**350** hardcoded hex literals, most inside
+  `StyleSheet.create(...)` which runs **once at module load** → static, not reactive.
+  Dark requires a theme layer (`useTheme()` + per-render styles), not a second const.
+- SVG **charts/illustrations** carry baked colors/gradients → need dark variants + AA
+  re-tuning (`GearIllustrations`, `MetabolicTrendChart7d`, `BmrHistoryChart7d`,
+  `LipidTrendChart`, `MetabolicChart`, progress rings).
+- **Exports must stay light** (clinic/printable) — must not inherit theme.
+
+## Approach (phased — light stays pixel-identical until Phase 3)
+
+### Phase 1 · Theme foundation (zero visual change)
+- `app/src/theme/tokens.ts` — `lightTokens` (values **identical** to today's
+  `WellnessColors`) + `darkTokens` (draft, refined in P3). Shared token type.
+- `app/src/theme/ThemeProvider.tsx` + `useTheme()` — resolves effective scheme from
+  stored pref (`system|light|dark`) + `useColorScheme()`; exposes `{ mode, colors, isDark }`.
+- `app/src/services/ThemePreferenceService.ts` — persist `healthings:themePref`
+  (`system|light|dark`), mirror `UnitsPreferenceService` pattern; default `system`.
+- Wrap `App.tsx` in `ThemeProvider`; make `StatusBar` style dynamic (`isDark ? 'light' : 'dark'`);
+  boot/background colors from tokens.
+- Keep `WellnessColors` exported as an alias of `lightTokens` so nothing breaks yet.
+- **Ship + bi:** app looks **identical** (still light). De-risk gate.
+
+### Phase 2 · Migrate components to `useTheme()`
+- Convert static `StyleSheet.create(...)` to themed factory:
+  `const styles = useMemo(() => makeStyles(c), [c])` where `c = useTheme().colors`.
+- Migrate in slices (each own `bi`, light unchanged): (a) Dashboard shell + strips,
+  (b) modals (FoodLog, LabReport, review), (c) chat, (d) charts/illustrations wrappers,
+  (e) Quick Start.
+- Replace hardcoded hexes with tokens as each file is touched (extend token set as needed:
+  e.g. `iconTintBlue`, `noticeSoftBg`, delete-danger bg, primary-tier steel).
+
+### Phase 3 · Dark palette + data-viz (dark becomes real)
+- Finalize `darkTokens` from the reference (draft below). AA check text on `surface`.
+- Dark variants for charts (gridlines/axis/series lightened), progress rings,
+  `GearIllustrations` gradients (incl. softened CGM drop staying warm on dark).
+- Preserve semantic map: **green = success only**, red = alert, steel/navy = primary tier.
+
+### Phase 4 · Choice UI + persistence
+- **Quick Start step** after language: 3 cards **System (pre-selected) · Light · Dark**
+  (unified-gate card style), **live mini dashboard preview** that recolors on tap.
+  Copy in `appLocale`, RTL-aware. "System" = "Match my phone".
+- **Settings toggle** in Profile (near Units/Language). Same three options.
+- Persistence-parity: `healthings:themePref` included in **backup/restore**
+  (NOT on export-exclusion list), works Android↔iOS; both platforms honor all 3 values.
+
+### Phase 5 · Exports + QA
+- Guard exports light: `visitReportExport`, `mentorChatExport`, `visitReportChartSvg`
+  render fixed light tokens regardless of app theme.
+- QA every screen in **2 themes × 10 languages** (+ RTL).
+
+## Draft dark tokens (finalize P3 — see reference README)
+
+| Token | Light (today) | Dark (draft) |
+|-------|---------------|--------------|
+| `background` | `#F8F9FB` | `#0E0F11` |
+| `surface` | `#FFFFFF` | `#1C1F24` |
+| `surfaceRaised` (new) | `#FFFFFF` | `#262A30` |
+| `textPrimary` | `#1A1A1A` | `#F2F3F5` |
+| `textSecondary` | `#5B6470` | `#9BA1AA` |
+| `gridLine` | `#E8E8E8` | `#2A2E35` |
+| `accentBlue` | `#2196F3` | `#8E9BFF` |
+| `accentGreen` | `#4CAF50` | `#5FD068` |
+| `accentRed` | `#FF5252` | `#FF6B6B` |
+| primary-tier accent | `#1F3D5C` | `#3E6EA5` |
+| card shadow | soft black | lower opacity / border-lift |
+
+## Primary files (confirm during impl)
+
+| Concern | File(s) |
+|---------|---------|
+| Tokens / provider / hook | `theme/tokens.ts`, `theme/ThemeProvider.tsx`, `theme/wellness.ts` (alias) |
+| Persistence | `services/ThemePreferenceService.ts`; backup include list (`LocalBackupService`, `ShareExportService`) |
+| Root wiring | `App.tsx` (provider + StatusBar) |
+| Quick Start step | `components/WelcomeQuickStartWizard.tsx` (+ new theme step), `i18n/quickStartCopy.ts` |
+| Settings toggle | Profile section near `UnitsPreferenceSection` / `LanguageStrip` |
+| Charts/illustrations | `MetabolicTrendChart7d`, `BmrHistoryChart7d`, `LipidTrendChart`, `MetabolicChart`, `GearIllustrations` |
+| Exports (pin light) | `logic/visitReportExport.ts`, `logic/mentorChatExport.ts`, `logic/visitReportChartSvg.ts` |
+
+## Hard constraints (do not fight)
+
+- **Exports stay light** — never inherit dark tokens.
+- **Persistence-parity:** one canonical key `healthings:themePref`; no `Platform.OS`
+  in the key; survives backup/restore; platform-normalized on load.
+- No clinical-number/data/unit changes — presentation only.
+- Semantic color meanings preserved in dark (green = success only).
+- Tokens live in the theme layer; stop scattering raw hexes.
+- Onboarding: adding the step must NOT regress prompt93 first-run gains
+  (System pre-selected = one-tap continue).
+
+## Checklist
+- [ ] P1: ThemeProvider + tokens + pref service; app identical in light (bi)
+- [ ] P2: components read `useTheme()`; hexes → tokens; light unchanged per slice
+- [ ] P3: dark palette + charts/illustrations AA-tuned to reference
+- [ ] P4: Quick Start theme step (live preview) + Settings toggle + backup/restore
+- [ ] P5: exports pinned light; QA 2 themes × 10 langs + RTL
+- [ ] No new/renamed AsyncStorage keys beyond `healthings:themePref`
+
+## Related
+- `UI-snapshots/dark-theme-reference/` — approved Withings reference + palette README.
+- `prompt92.txt` (audit), `prompt93/94/95` (done) — chrome + icon system this builds on.

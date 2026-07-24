@@ -12,6 +12,7 @@ Active / backlog specs stay in `prompts/app/`:
 | prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
 | `prompt81b.txt` | **Shipped** — Phase B → `done/prompt87.txt` |
 | `prompt92.txt` | UI/UX review brief + **review output (2026-07-24, Opus 4.8)** — 19 findings F2–F20 (F1 withdrawn), batches A–E; feeds prompt93+ |
+| `prompt96.txt` | Planned — Dark theme (System/Light/Dark), 5 phases; ref `UI-snapshots/dark-theme-reference/` |
 
 **prompt95** — done (2026-07-24). Audit batches D+E: trend chart mini-panels (F3), chat toolbar overflow menu (F8), top-header refresh icon (F9), detected-script RTL alignment for user content (F13), Edit Meal delete-whole-meal clarity (F15), softer CGM drop (F20), website help cards + patient-friendly landing H1 (F19). Phone-tested (app slices) + local site verify (E4). See `done/prompt95.txt`.
 
