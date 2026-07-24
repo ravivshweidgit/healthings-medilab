@@ -1,25 +1,14 @@
-/** PROMPT 05 — Soft-Health palette & elevation */
+/**
+ * PROMPT 05 — Soft-Health palette & elevation.
+ *
+ * prompt96 (Phase 1): the palette now lives in `theme/tokens.ts` as `lightColors`.
+ * `WellnessColors` is a stable alias of the LIGHT tokens (byte-for-byte identical to
+ * the historical values), so existing `WellnessColors.X` usages keep working unchanged.
+ * Components migrate to `useTheme().colors` (light/dark aware) in Phase 2.
+ */
+import { lightColors } from './tokens';
 
-export const WellnessColors = {
-  background: '#F8F9FB',
-  surface: '#FFFFFF',
-  textPrimary: '#1A1A1A',
-  // Darkened from #7C7C7C (~4.0:1, failed AA) to ~5.9:1 on white so small strip
-  // labels and secondary UI text meet WCAG AA. Shared token — don't fork per strip.
-  textSecondary: '#5B6470',
-  accentGreen: '#4CAF50',
-  accentBlue: '#2196F3',
-  accentRed: '#FF5252',
-  progressTrack: '#F0F0F0',
-  gridLine: '#E8E8E8',
-  iconTintBlue: '#E3F2FD',
-  iconTintGreen: '#E8F5E9',
-  noticeSoftBg: '#FFF8E1',
-  noticeSoftBorder: '#FFE082',
-  /** Soft band for metabolic “pair” (e.g. visceral fat + glucose). */
-  metabolicPairBg: '#EDF4FF',
-  metabolicPairBorder: '#D6E8FC',
-} as const;
+export const WellnessColors = lightColors;
 
 export const cardShadow = {
   shadowColor: '#000000',

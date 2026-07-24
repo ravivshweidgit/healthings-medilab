@@ -19,11 +19,22 @@ import {
 } from './src/services/ClinicSyncService';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
-import { WellnessColors } from './src/theme/wellness';
+import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AppInner />
+      </ThemeProvider>
+    </SafeAreaProvider>
+  );
+}
+
+function AppInner() {
+  const { colors, isDark } = useTheme();
   const [booting, setBooting] = useState(true);
   const [user, setUser] = useState<AuthUser | null>(null);
 
@@ -108,18 +119,18 @@ export default function App() {
   }, [user]);
 
   return (
-    <SafeAreaProvider>
+    <>
       {booting ? (
-        <View style={styles.boot}>
-          <ActivityIndicator size="large" color={WellnessColors.accentGreen} />
+        <View style={[styles.boot, { backgroundColor: colors.background }]}>
+          <ActivityIndicator size="large" color={colors.accentGreen} />
         </View>
       ) : user ? (
         <DashboardScreen user={user} onSignedOut={handleSignedOut} />
       ) : (
         <LoginScreen onSignedIn={handleSignedIn} />
       )}
-      <StatusBar style="dark" />
-    </SafeAreaProvider>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+    </>
   );
 }
 
@@ -128,6 +139,5 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: WellnessColors.background,
   },
 });
