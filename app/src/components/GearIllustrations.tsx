@@ -429,13 +429,13 @@ export function CgmIllustration({ size = 160 }: { size?: number }) {
         <Svg width={size * 0.72} height={size * 0.72} viewBox="0 0 120 140">
           <Defs>
             <LinearGradient id="dropGrad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0%" stopColor="#E85A5A" />
-              <Stop offset="55%" stopColor="#C62828" />
-              <Stop offset="100%" stopColor="#8E1B1B" />
+              <Stop offset="0%" stopColor="#FF7A70" />
+              <Stop offset="55%" stopColor="#F0554F" />
+              <Stop offset="100%" stopColor="#D93F3A" />
             </LinearGradient>
           </Defs>
           {/* Soft ground shadow */}
-          <Ellipse cx="60" cy="132" rx="28" ry="6" fill={Soft.glow} opacity={0.55} />
+          <Ellipse cx="60" cy="132" rx="26" ry="5" fill={Soft.glow} opacity={0.4} />
           {/* Blood drop */}
           <Path
             d="M60 8 C60 8 22 58 22 82 C22 104 38 122 60 122 C82 122 98 104 98 82 C98 58 60 8 60 8 Z"
@@ -707,9 +707,9 @@ export function CgmDevicesMark() {
           <Svg width={28} height={28} viewBox="0 0 120 140">
             <Defs>
               <LinearGradient id="dashCgmDrop" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0%" stopColor="#E85A5A" />
-                <Stop offset="55%" stopColor="#C62828" />
-                <Stop offset="100%" stopColor="#8E1B1B" />
+                <Stop offset="0%" stopColor="#FF7A70" />
+                <Stop offset="55%" stopColor="#F0554F" />
+                <Stop offset="100%" stopColor="#D93F3A" />
               </LinearGradient>
             </Defs>
             <Path
