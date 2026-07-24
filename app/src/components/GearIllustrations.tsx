@@ -534,6 +534,8 @@ export function GearHeroCard({
  * Scale + watch nest inside the Withings frame (account owns the devices).
  */
 export function WithingsLinkIllustration({ size = 160 }: { size?: number }) {
+  const { colors, isDark } = useTheme();
+  const linkChrome = useMemo(() => makeLinkChromeStyles(colors, isDark), [colors, isDark]);
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(
@@ -562,8 +564,8 @@ export function WithingsLinkIllustration({ size = 160 }: { size?: number }) {
   return (
     <View style={styles.linkStageInner}>
       <View style={styles.linkRow}>
-        <View style={styles.healthingsHub} accessibilityLabel="Healthings">
-          <Text style={styles.frameTitle} numberOfLines={1}>
+        <View style={linkChrome.healthingsHub} accessibilityLabel="Healthings">
+          <Text style={linkChrome.frameTitle} numberOfLines={1}>
             Healthings
           </Text>
           <View style={styles.peerContent}>
@@ -580,8 +582,8 @@ export function WithingsLinkIllustration({ size = 160 }: { size?: number }) {
           </Svg>
         </Animated.View>
 
-        <View style={styles.withingsFrame} accessibilityLabel="Withings account — scale and watch">
-          <Text style={styles.frameTitle} numberOfLines={1}>
+        <View style={linkChrome.withingsFrame} accessibilityLabel="Withings account — scale and watch">
+          <Text style={linkChrome.frameTitle} numberOfLines={1}>
             Withings
           </Text>
           <View style={styles.peerContent}>
@@ -751,8 +753,10 @@ export function CgmDevicesMark() {
  * Meal logging hero — polished place-setting artwork.
  */
 const mealsPlateArt = require('../../assets/meals-plate.png');
+const mealsPlateArtDark = require('../../assets/meals-plate-dark.png');
 
 export function MealsIllustration({ size = 160 }: { size?: number }) {
+  const { isDark } = useTheme();
   const breathe = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(
@@ -782,7 +786,7 @@ export function MealsIllustration({ size = 160 }: { size?: number }) {
   return (
     <Animated.View style={{ transform: [{ scale }], alignItems: 'center', width: '100%' }}>
       <Image
-        source={mealsPlateArt}
+        source={isDark ? mealsPlateArtDark : mealsPlateArt}
         style={{ width: size, height, maxWidth: '100%' }}
         resizeMode="contain"
         accessibilityIgnoresInvertColors
@@ -1023,9 +1027,7 @@ const styles = StyleSheet.create({
 
 /**
  * Only the chrome *around* an illustration follows the theme — the device bodies above
- * stay fixed on purpose. A white scale should still read as a white scale on dark (the
- * Withings reference keeps product imagery light too), and the peer "account card"
- * frames in the link diagram stay white, so `frameTitle` must keep its dark navy.
+ * stay fixed on purpose (a white scale should still read as a white scale on dark).
  *
  * Light branches reuse the original illustration hexes rather than the global palette
  * (Soft.caption #5C6B7A is not textSecondary #5B6470), so light stays byte-identical.
@@ -1046,10 +1048,10 @@ const makeChromeStyles = (c: ThemeColors, isDark: boolean) =>
       paddingHorizontal: 14,
       overflow: 'hidden',
       shadowColor: '#1A2B3C',
-      shadowOpacity: 0.08,
+      shadowOpacity: isDark ? 0 : 0.08,
       shadowRadius: 16,
       shadowOffset: { width: 0, height: 6 },
-      elevation: 3,
+      elevation: isDark ? 0 : 3,
     },
     caption: {
       marginTop: 12,
@@ -1067,5 +1069,54 @@ const makeChromeStyles = (c: ThemeColors, isDark: boolean) =>
       letterSpacing: 2.5,
       color: isDark ? c.textSecondary : '#6B7280',
       textAlign: 'center',
+    },
+  });
+
+/** Peer account cards in the Withings link diagram — dark uses outlined black hubs. */
+const makeLinkChromeStyles = (c: ThemeColors, isDark: boolean) =>
+  StyleSheet.create({
+    frameTitle: {
+      fontSize: 9,
+      fontWeight: '800',
+      letterSpacing: 0.6,
+      color: isDark ? c.stripTitle : '#1A2B4A',
+      marginBottom: 6,
+      textTransform: 'uppercase',
+      textAlign: 'center',
+    },
+    healthingsHub: {
+      flexShrink: 0,
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      paddingTop: 6,
+      paddingBottom: 8,
+      paddingHorizontal: 8,
+      borderRadius: 14,
+      backgroundColor: isDark ? c.background : '#FFFFFF',
+      borderWidth: 1.75,
+      borderColor: isDark ? c.gridLine : 'rgba(26, 43, 74, 0.22)',
+      shadowColor: '#1A2B3C',
+      shadowOpacity: isDark ? 0 : 0.05,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: isDark ? 0 : 2,
+      minHeight: 86,
+    },
+    withingsFrame: {
+      flexShrink: 1,
+      paddingTop: 6,
+      paddingBottom: 8,
+      paddingHorizontal: 8,
+      borderRadius: 14,
+      backgroundColor: isDark ? c.background : '#FFFFFF',
+      borderWidth: 1.75,
+      borderColor: isDark ? c.gridLine : 'rgba(26, 43, 74, 0.22)',
+      alignItems: 'center',
+      shadowColor: '#1A2B3C',
+      shadowOpacity: isDark ? 0 : 0.05,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: isDark ? 0 : 2,
+      minHeight: 86,
     },
   });

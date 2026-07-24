@@ -101,14 +101,19 @@ import {
   LANGUAGE_GATE_OPTIONS,
   languageGateOption,
 } from '../i18n/languageGate';
+import { getAppearanceCopy } from '../i18n/appearanceCopy';
 import { getQuickStartCopy, isRtlLang, usesMentorGenderUi } from '../i18n/quickStartCopy';
 import {
   CircleHelp,
+  Moon,
+  Smartphone,
+  Sun,
   UtensilsCrossed,
 } from 'lucide-react-native';
 import { GearHeroCard } from './GearIllustrations';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
+import type { ThemePref } from '../services/ThemePreferenceService';
 import { PhoneHealthActivityStrip } from './PhoneHealthActivityStrip';
 import { UnitsPreferenceSection } from './UnitsPreferenceSection';
 
@@ -135,6 +140,7 @@ function computeBrandHeaderHeight(windowWidth: number): number {
 
 type StepId =
   | 'language'
+  | 'appearance'
   | 'welcome'
   | 'units'
   | 'body'
@@ -159,7 +165,8 @@ function buildStepList(
   hasWatch: boolean | null,
   tracksCgm: boolean | null,
 ): StepId[] {
-  const steps: StepId[] = ['language', 'welcome', 'units', 'body', 'scale', 'watch', 'cgm'];
+  // Theme right after language so the rest of Quick Start previews the choice live.
+  const steps: StepId[] = ['language', 'appearance', 'welcome', 'units', 'body', 'scale', 'watch', 'cgm'];
   if (hasScale === true || hasWatch === true) {
     steps.push('link_withings');
   }
@@ -230,6 +237,92 @@ function chunkPairs<T>(items: T[]): T[][] {
   return rows;
 }
 
+/**
+ * Appearance step (prompt96 P4b) — System pre-selected; tap Light/Dark for live preview
+ * (ThemeProvider applies immediately to the whole wizard shell).
+ */
+function AppearanceStepHero({
+  pref,
+  onSelect,
+  rtl,
+  systemLabel,
+  lightLabel,
+  darkLabel,
+  hint,
+}: {
+  pref: ThemePref;
+  onSelect: (p: ThemePref) => void;
+  rtl: boolean;
+  systemLabel: string;
+  lightLabel: string;
+  darkLabel: string;
+  hint: string;
+}) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const options: { id: ThemePref; label: string; Icon: typeof Sun }[] = [
+    { id: 'system', label: systemLabel, Icon: Smartphone },
+    { id: 'light', label: lightLabel, Icon: Sun },
+    { id: 'dark', label: darkLabel, Icon: Moon },
+  ];
+  const iconColor = (on: boolean) =>
+    on ? (isDark ? colors.accentBlue : NEXT_BLUE_DEEP) : colors.textSecondary;
+
+  return (
+    <View style={styles.appearRoot}>
+      <View style={styles.appearOptions}>
+        {options.map(({ id, label, Icon }) => {
+          const on = pref === id;
+          return (
+            <Pressable
+              key={id}
+              onPress={() => onSelect(id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={label}
+              style={({ pressed }) => [
+                styles.appearCard,
+                on && styles.appearCardOn,
+                pressed && styles.gateCardPressed,
+              ]}
+            >
+              <Icon size={22} color={iconColor(on)} strokeWidth={2.25} />
+              <Text
+                style={[
+                  styles.appearCardLabel,
+                  rtl && styles.gateCloudWordRtl,
+                  on && styles.appearCardLabelOn,
+                ]}
+                numberOfLines={1}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Live mini preview — recolors with the active theme on each tap. */}
+      <View style={styles.appearPreview} accessibilityLabel="Theme preview">
+        <View style={styles.appearPreviewStrip}>
+          <Text style={styles.appearPreviewStripTitle} numberOfLines={1}>
+            HEALTHINGS
+          </Text>
+        </View>
+        <View style={styles.appearPreviewCard}>
+          <View style={styles.appearPreviewBar} />
+          <Text style={styles.appearPreviewPrimary} numberOfLines={1}>
+            {lightLabel} · {darkLabel}
+          </Text>
+          <Text style={styles.appearPreviewSecondary} numberOfLines={2}>
+            {hint}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 function LanguageGateHero({
   selectedCode,
   onSelect,
@@ -237,8 +330,8 @@ function LanguageGateHero({
   selectedCode: string;
   onSelect: (code: string) => void;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const selected = languageGateOption(selectedCode);
   const selectedRtl = selectedCode === 'he' || selectedCode === 'ar';
   return (
@@ -300,7 +393,7 @@ function LanguageGateHero({
 
 function WelcomeBrandMark({ brandTag, compact }: { brandTag: string; compact?: boolean }) {
   const { colors, isDark } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const { width: windowWidth } = useWindowDimensions();
   const contentW = Math.max(1, windowWidth - SCROLL_HORIZONTAL_PADDING * 2);
   const fullH = useMemo(() => {
@@ -364,8 +457,8 @@ function HelpButton({
   /** Icon-only (for field labels / title row). */
   compact?: boolean;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const shown = label ?? defaultLabel;
   return (
     <Pressable
@@ -398,8 +491,8 @@ function StepHeading({
   textStyle?: object;
   rtl?: boolean;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   return (
     <View style={[styles.stepHeading, rtl && styles.stepHeadingRtl]}>
       <Text style={[styles.question, textStyle]}>{title}</Text>
@@ -424,8 +517,8 @@ function QuestionYesNo({
   noLabel: string;
   coachLabel: string;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!highlight) {
@@ -509,8 +602,8 @@ function FieldLabelWithHelp({
   href: string;
   textStyle?: object;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   return (
     <View style={styles.fieldLabelRow}>
       <Text style={[styles.fieldLabel, styles.fieldLabelFlush, textStyle]}>{label}</Text>
@@ -520,8 +613,8 @@ function FieldLabelWithHelp({
 }
 
 export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark, pref: themePref, setThemePref } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const [stepId, setStepId] = useState<StepId>('language');
   const [gender, setGenderPick] = useState<Gender>('male');
   const [mentorGender, setMentorGenderPick] = useState<Gender>('female');
@@ -530,6 +623,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [language, setLangPick] = useState<UserLanguage>(SUPPORTED_LANGUAGES[0]);
   const [unitsPrefs, setUnitsPrefs] = useState<UnitsPrefs>({ ...DEFAULT_UNITS_PREFS });
+  const appearanceLabels = useMemo(() => getAppearanceCopy(language.code), [language.code]);
 
   const [hasScale, setHasScale] = useState<boolean | null>(null);
   const [hasWatch, setHasWatch] = useState<boolean | null>(null);
@@ -1104,6 +1198,11 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
       goToAdjacent(1);
       return;
     }
+    if (stepId === 'appearance') {
+      // Pref already persisted on tap via setThemePref (live preview).
+      goToAdjacent(1);
+      return;
+    }
     if (stepId === 'scale') {
       if (hasScale == null) {
         nudgeYesNoChoice();
@@ -1265,6 +1364,28 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                 }}
               />
             </View>
+          )}
+
+          {stepId === 'appearance' && (
+            <>
+              <StepHeading
+                title={t.appearance.title}
+                helpHref={helpUrl(langCode, 'quick-start-welcome')}
+                helpLabel={t.appearance.helpLabel}
+                textStyle={copyAlign}
+                rtl={rtl}
+              />
+              <Text style={[styles.lead, copyAlign]}>{t.appearance.lead}</Text>
+              <AppearanceStepHero
+                pref={themePref}
+                onSelect={setThemePref}
+                rtl={rtl}
+                systemLabel={appearanceLabels.system}
+                lightLabel={appearanceLabels.light}
+                darkLabel={appearanceLabels.dark}
+                hint={appearanceLabels.hint}
+              />
+            </>
           )}
 
           {stepId === 'welcome' && (
@@ -1881,7 +2002,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.background },
   header: {
@@ -1921,7 +2042,8 @@ const makeStyles = (c: ThemeColors) =>
     fontSize: 22,
     lineHeight: 28,
     fontWeight: '800',
-    color: BRAND_NAVY,
+    // Light keeps brand navy; dark needs cream/white — navy on black was invisible.
+    color: isDark ? c.stripTitle : BRAND_NAVY,
     marginBottom: 18,
     paddingHorizontal: 8,
   },
@@ -1947,16 +2069,17 @@ const makeStyles = (c: ThemeColors) =>
     borderRadius: 14,
     borderWidth: 2,
     borderColor: c.gridLine,
-    backgroundColor: '#FFFFFF',
+    // Dark: outlined black pills (same pattern as Profile units); light keeps white cards.
+    backgroundColor: isDark ? c.background : '#FFFFFF',
   },
   gateGridCellOn: {
-    borderColor: NEXT_BLUE,
-    backgroundColor: '#F2F9FE',
-    shadowColor: NEXT_BLUE_DEEP,
-    shadowOpacity: 0.2,
+    borderColor: isDark ? c.accentBlue : NEXT_BLUE,
+    backgroundColor: isDark ? c.background : '#F2F9FE',
+    shadowColor: isDark ? c.shadow : NEXT_BLUE_DEEP,
+    shadowOpacity: isDark ? 0 : 0.2,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    elevation: isDark ? 0 : 3,
   },
   gateGridFlag: {
     fontSize: 26,
@@ -1973,12 +2096,88 @@ const makeStyles = (c: ThemeColors) =>
     writingDirection: 'rtl',
   },
   gateFlagNativeOn: {
-    color: NEXT_BLUE_DEEP,
+    color: isDark ? c.accentBlue : NEXT_BLUE_DEEP,
     fontWeight: '700',
   },
   gateCardPressed: {
     opacity: 0.9,
     transform: [{ scale: 0.96 }],
+  },
+  appearRoot: {
+    marginTop: 4,
+    gap: 16,
+  },
+  appearOptions: {
+    gap: 10,
+  },
+  appearCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: c.gridLine,
+    backgroundColor: isDark ? c.background : '#FFFFFF',
+  },
+  appearCardOn: {
+    borderColor: isDark ? c.accentBlue : NEXT_BLUE,
+    backgroundColor: isDark ? c.background : '#F2F9FE',
+  },
+  appearCardLabel: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '700',
+    color: c.textPrimary,
+  },
+  appearCardLabelOn: {
+    color: isDark ? c.accentBlue : NEXT_BLUE_DEEP,
+  },
+  appearPreview: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: c.gridLine,
+    backgroundColor: c.surface,
+    overflow: 'hidden',
+  },
+  appearPreviewStrip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: c.gridLine,
+    backgroundColor: isDark ? c.background : c.surface,
+  },
+  appearPreviewStripTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: isDark ? c.stripTitle : BRAND_NAVY,
+  },
+  appearPreviewCard: {
+    margin: 12,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: isDark ? c.background : '#FFFFFF',
+    borderWidth: 1,
+    borderColor: c.gridLine,
+    gap: 8,
+  },
+  appearPreviewBar: {
+    height: 6,
+    borderRadius: 3,
+    width: '42%',
+    backgroundColor: isDark ? c.accentBlue : NEXT_BLUE,
+  },
+  appearPreviewPrimary: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: c.textPrimary,
+  },
+  appearPreviewSecondary: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: c.textSecondary,
   },
   brandHero: {
     alignItems: 'center',
@@ -2010,8 +2209,8 @@ const makeStyles = (c: ThemeColors) =>
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
-    color: BRAND_NAVY,
-    opacity: 0.72,
+    color: isDark ? c.textSecondary : BRAND_NAVY,
+    opacity: isDark ? 1 : 0.72,
     textAlign: 'center',
     paddingHorizontal: 12,
   },
@@ -2022,7 +2221,7 @@ const makeStyles = (c: ThemeColors) =>
     borderRadius: 3,
     backgroundColor: c.gridLine,
   },
-  dotOn: { backgroundColor: BRAND_NAVY },
+  dotOn: { backgroundColor: isDark ? c.accentBlue : BRAND_NAVY },
   scroll: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 48 },
   question: {
@@ -2152,13 +2351,13 @@ const makeStyles = (c: ThemeColors) =>
   },
   successCard: {
     borderWidth: 1,
-    borderColor: '#2E7D5A',
+    borderColor: isDark ? c.gridLine : '#2E7D5A',
     borderRadius: 12,
     padding: 14,
-    backgroundColor: c.surface,
+    backgroundColor: isDark ? c.background : c.surface,
     marginBottom: 8,
   },
-  successText: { fontSize: 16, fontWeight: '700', color: '#2E7D5A' },
+  successText: { fontSize: 16, fontWeight: '700', color: isDark ? c.accentGreen : '#2E7D5A' },
   rulesPreview: {
     fontSize: 11,
     lineHeight: 16,

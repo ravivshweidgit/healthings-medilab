@@ -60,6 +60,12 @@ export type QuickStartCopy = {
     mentorVoice: string;
     mentorHint: string;
   };
+  /** Theme step after language (prompt96 Phase 4b). Chip labels come from appearanceCopy. */
+  appearance: {
+    title: string;
+    helpLabel: string;
+    lead: string;
+  };
   welcome: {
     title: string;
     helpLabel: string;
@@ -191,6 +197,11 @@ const EN: QuickStartCopy = {
       'Quick Start, coach chat, meal names, and reports use this language. Help links open in the same language.',
     mentorVoice: 'App mentor',
     mentorHint: 'Man or woman — how your AI mentor speaks to you. Not your profile gender.',
+  },
+  appearance: {
+    title: 'Light or dark?',
+    helpLabel: 'Appearance',
+    lead: 'Choose how the app looks. “System” matches your phone. Change anytime in Profile.',
   },
   welcome: {
     title: 'Welcome',
@@ -337,6 +348,11 @@ const HE: QuickStartCopy = {
     mentorVoice: 'המאמן באפליקציה',
     mentorHint: 'גבר או אישה — כך ידבר אליכם המאמן. לא המגדר שלכם בפרופיל.',
   },
+  appearance: {
+    title: 'בהיר או כהה?',
+    helpLabel: 'מראה',
+    lead: 'איך האפליקציה תיראה. ״מערכת״ עוקב אחרי הטלפון. אפשר לשנות אחר כך בפרופיל.',
+  },
   welcome: {
     title: 'ברוכים הבאים',
     helpLabel: 'איך Healthings עובד',
@@ -481,6 +497,11 @@ const DE: QuickStartCopy = {
       'In dieser Sprache laufen Schnellstart, Coach-Chat, Mahlzeiten und Berichte. Die Hilfe öffnet sich ebenfalls darin.',
     mentorVoice: 'App-Mentor',
     mentorHint: 'Mann oder Frau — so spricht Ihr KI-Mentor. Nicht Ihr Profil-Geschlecht.',
+  },
+  appearance: {
+    title: 'Hell oder dunkel?',
+    helpLabel: 'Darstellung',
+    lead: 'So sieht die App aus. „System“ folgt dem Telefon. Später jederzeit im Profil änderbar.',
   },
   welcome: {
     title: 'Willkommen',
@@ -627,6 +648,11 @@ const ES: QuickStartCopy = {
     mentorVoice: 'Mentor de la app',
     mentorHint: 'Hombre o mujer — así le habla el mentor de IA. No es el género de su perfil.',
   },
+  appearance: {
+    title: '¿Claro u oscuro?',
+    helpLabel: 'Apariencia',
+    lead: 'Cómo se ve la app. «Sistema» sigue el teléfono. Puede cambiarlo luego en Perfil.',
+  },
   welcome: {
     title: 'Bienvenido/a',
     helpLabel: 'Cómo funciona Healthings',
@@ -772,6 +798,11 @@ const FR: QuickStartCopy = {
     mentorVoice: 'Mentor de l’app',
     mentorHint: 'Homme ou femme — ainsi vous parle le mentor IA. Pas le genre de votre profil.',
   },
+  appearance: {
+    title: 'Clair ou sombre ?',
+    helpLabel: 'Apparence',
+    lead: 'Aspect de l’app. « Système » suit le téléphone. Modifiable plus tard dans Profil.',
+  },
   welcome: {
     title: 'Bienvenue',
     helpLabel: 'Comment fonctionne Healthings',
@@ -915,6 +946,11 @@ const AR: QuickStartCopy = {
     lead: 'بهذه اللغة تتم البداية، والدردشة مع المدرب، وأسماء الوجبات والتقارير. وصفحات المساعدة تُفتح بها أيضاً.',
     mentorVoice: 'المرشد في التطبيق',
     mentorHint: 'رجل أو امرأة — هكذا يخاطبكم المرشد. ليس جنس ملفكم الشخصي.',
+  },
+  appearance: {
+    title: 'فاتح أم داكن؟',
+    helpLabel: 'المظهر',
+    lead: 'شكل التطبيق. «النظام» يتبع الهاتف. يمكن تغييره لاحقاً من الملف الشخصي.',
   },
   welcome: {
     title: 'مرحباً بكم',
@@ -1061,6 +1097,11 @@ const RU: QuickStartCopy = {
     mentorVoice: 'Наставник в приложении',
     mentorHint: 'Мужчина или женщина — так говорит ИИ-наставник. Не пол в профиле.',
   },
+  appearance: {
+    title: 'Светлая или тёмная?',
+    helpLabel: 'Оформление',
+    lead: 'Как выглядит приложение. «Система» следует телефону. Можно сменить позже в профиле.',
+  },
   welcome: {
     title: 'Добро пожаловать',
     helpLabel: 'Как работает Healthings',
@@ -1205,6 +1246,11 @@ const PT: QuickStartCopy = {
       'Neste idioma funcionam o início rápido, o chat com o coach, nomes das refeições e relatórios. A ajuda também abre nele.',
     mentorVoice: 'Mentor do app',
     mentorHint: 'Homem ou mulher — como o mentor de IA fala com você. Não é o gênero do seu perfil.',
+  },
+  appearance: {
+    title: 'Claro ou escuro?',
+    helpLabel: 'Aparência',
+    lead: 'Como o app aparece. «Sistema» segue o telefone. Pode mudar depois no Perfil.',
   },
   welcome: {
     title: 'Bem-vindo(a)',
@@ -1352,6 +1398,11 @@ const IT: QuickStartCopy = {
     mentorVoice: 'Mentor dell’app',
     mentorHint: 'Uomo o donna — come parla il mentor IA. Non è il genere del profilo.',
   },
+  appearance: {
+    title: 'Chiaro o scuro?',
+    helpLabel: 'Aspetto',
+    lead: 'Come appare l’app. «Sistema» segue il telefono. Si può cambiare dopo in Profilo.',
+  },
   welcome: {
     title: 'Benvenuto/a',
     helpLabel: 'Come funziona Healthings',
@@ -1497,6 +1548,11 @@ const TR: QuickStartCopy = {
       'Hızlı başlangıç, koç sohbeti, öğün adları ve raporlar bu dilde çalışır. Yardım sayfaları da aynı dilde açılır.',
     mentorVoice: 'Uygulama mentoru',
     mentorHint: 'Erkek veya kadın — yapay zekâ mentorunuzun konuşma biçimi. Profil cinsiyetiniz değil.',
+  },
+  appearance: {
+    title: 'Açık mı koyu mu?',
+    helpLabel: 'Görünüm',
+    lead: 'Uygulama nasıl görünsün. “Sistem” telefonu izler. Sonra Profil’den değiştirebilirsiniz.',
   },
   welcome: {
     title: 'Hoş geldiniz',

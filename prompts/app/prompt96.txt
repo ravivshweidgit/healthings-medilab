@@ -1,6 +1,6 @@
 # prompt96 — Dark theme (System / Light / Dark)
 
-**Status:** Planned (2026-07-24). Phased; each phase its own `bi` + confirmation.
+**Status:** In progress (2026-07-25). P1–P4a shipped; P4b Quick Start theme step added.
 **Builds on:** prompt92 audit, prompt93/94/95 (chrome + icon system `theme/icons.tsx`,
 `theme/wellness.ts` palette). Honors persistence-parity, language-policy,
 ai-judgment, build-workflow rules.
@@ -110,12 +110,24 @@ periwinkle data-viz, semantic accents (green connected, gold badge) preserved.
   (System pre-selected = one-tap continue).
 
 ## Checklist
-- [ ] P1: ThemeProvider + tokens + pref service; app identical in light (bi)
-- [ ] P2: components read `useTheme()`; hexes → tokens; light unchanged per slice
-- [ ] P3: dark palette + charts/illustrations AA-tuned to reference
-- [ ] P4: Quick Start theme step (live preview) + Settings toggle + backup/restore
+- [x] P1: ThemeProvider + tokens + pref service; app identical in light (bi)
+- [x] P2: components read `useTheme()`; hexes → tokens; light unchanged per slice
+- [x] P3: dark palette + charts/illustrations AA-tuned to reference
+- [x] P4: Quick Start theme step (live preview) + Settings toggle + backup/restore
 - [ ] P5: exports pinned light; QA 2 themes × 10 langs + RTL
-- [ ] No new/renamed AsyncStorage keys beyond `healthings:themePref`
+- [x] No new/renamed AsyncStorage keys beyond `healthings:themePref`
+
+## Shipped notes (2026-07-25)
+
+- **P4a** — Profile `AppearanceStrip` (System/Light/Dark); existing users default
+  `light` (`ThemePreferenceService.defaultForInstall`), new installs `system`.
+- **P4b** — Quick Start `appearance` step directly after `language`, so every later
+  step previews the pick. Pref persists on tap (live preview), Next just advances.
+  Copy: `quickStartCopy.appearance` (10 locales) + chip labels from `appearanceCopy`.
+- Quick Start dark polish: language chips + theme cards are outlined black pills,
+  gate header uses `stripTitle`, Withings link hubs themed (`makeLinkChromeStyles`),
+  meal art uses `assets/meals-plate-dark.png` (white background flood-filled to
+  transparent) so the step has no white panel on dark.
 
 ## Related
 - `UI-snapshots/dark-theme-reference/` — approved Withings reference + palette README.
