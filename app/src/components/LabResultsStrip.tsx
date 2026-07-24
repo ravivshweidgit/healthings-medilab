@@ -1,5 +1,5 @@
 /**
- * Lab results — dashboard card (same pattern as FoodMacroStrip).
+ * Lab results â€” dashboard card (same pattern as FoodMacroStrip).
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -22,7 +22,9 @@ import {
   type LabReport,
 } from '../services/LabLogService';
 import type { Gender, UserLanguage } from '../services/TargetService';
-import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
+import { cardShadow, dashCardGap } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import { StripIcons } from '../theme/icons';
 import { LabReportModal } from './LabReportModal';
@@ -62,6 +64,8 @@ function highlightResult(report: LabReport): string | null {
 }
 
 export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [modalVisible, setModalVisible] = useState(false);
   const [autoPick, setAutoPick] = useState(false);
   const [viewReport, setViewReport] = useState<LabReport | null>(null);
@@ -140,7 +144,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
   }, [onReportsChanged, copy]);
 
   const latestLine = latest
-    ? `${copy.latestPrefix}: ${formatDrawDate(latest.collectedAt, lang?.code)} · ${copy.testsCount(resultCount(latest))}`
+    ? `${copy.latestPrefix}: ${formatDrawDate(latest.collectedAt, lang?.code)} Â· ${copy.testsCount(resultCount(latest))}`
     : copy.emptyHint;
 
   return (
@@ -165,7 +169,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
           onPress={openImport}
           accessibilityLabel={copy.addReport}
         >
-          <Text style={styles.addChipIcon}>＋</Text>
+          <Text style={styles.addChipIcon}>ï¼‹</Text>
           <Text style={styles.addChipLabel}>{copy.addReport}</Text>
         </Pressable>
         {reports.map((r) => {
@@ -182,7 +186,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
                 {copy.testsCount(resultCount(r))}
               </Text>
               {hi ? <Text style={styles.chipHi}>{hi}</Text> : null}
-              <Text style={styles.chipEdit}>✎ {copy.view}</Text>
+              <Text style={styles.chipEdit}>âœŽ {copy.view}</Text>
             </Pressable>
           );
         })}
@@ -196,13 +200,13 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
 
       <View style={styles.footer}>
         <Pressable style={styles.footerBtn} onPress={() => void handleExport()} accessibilityLabel={copy.exportLabel}>
-          <Text style={styles.footerBtnText}>⬆ {copy.exportLabel}</Text>
+          <Text style={styles.footerBtnText}>â¬† {copy.exportLabel}</Text>
         </Pressable>
         <Pressable style={styles.footerBtn} onPress={() => void handleImport()} disabled={busy} accessibilityLabel={copy.importLabel}>
           {busy ? (
-            <ActivityIndicator size="small" color={WellnessColors.textSecondary} />
+            <ActivityIndicator size="small" color={colors.textSecondary} />
           ) : (
-            <Text style={styles.footerBtnText}>⬇ {copy.importLabel}</Text>
+            <Text style={styles.footerBtnText}>â¬‡ {copy.importLabel}</Text>
           )}
         </Pressable>
       </View>
@@ -221,9 +225,10 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   card: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 24,
     paddingHorizontal: 18,
     paddingTop: 14,
@@ -235,21 +240,21 @@ const styles = StyleSheet.create({
   },
   chipsRow: { gap: 8, paddingBottom: 2, paddingTop: 4 },
   chip: {
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     minWidth: 100,
   },
   chipPressed: {
     opacity: 0.7,
-    borderColor: WellnessColors.accentBlue,
+    borderColor: c.accentBlue,
   },
   addChip: {
     borderStyle: 'dashed',
-    borderColor: WellnessColors.accentBlue,
+    borderColor: c.accentBlue,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 88,
@@ -257,53 +262,53 @@ const styles = StyleSheet.create({
   },
   addChipIcon: {
     fontSize: 22,
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     fontWeight: '300',
     lineHeight: 26,
   },
   addChipLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     marginTop: 2,
   },
   chipDate: {
     fontSize: 10,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     fontVariant: ['tabular-nums'],
   },
   chipLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     marginTop: 1,
     textTransform: 'capitalize',
   },
   chipMeta: {
     fontSize: 11,
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     fontWeight: '600',
     marginTop: 2,
   },
   chipHi: {
     fontSize: 10,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginTop: 2,
     fontVariant: ['tabular-nums'],
   },
   chipEdit: {
     fontSize: 10,
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     marginTop: 2,
   },
   trendHint: {
     fontSize: 11,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: WellnessColors.gridLine,
+    borderTopColor: c.gridLine,
   },
   footer: {
     flexDirection: 'row',
@@ -311,20 +316,20 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: WellnessColors.gridLine,
+    borderTopColor: c.gridLine,
   },
   footerBtn: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: WellnessColors.progressTrack,
+    backgroundColor: c.progressTrack,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
   },
   footerBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
 });

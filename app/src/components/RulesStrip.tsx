@@ -1,5 +1,5 @@
 /**
- * My Rules — free-text dietary/lifestyle rules (rawText-only save, prompt52).
+ * My Rules â€” free-text dietary/lifestyle rules (rawText-only save, prompt52).
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -26,7 +26,8 @@ import {
   saveUserRulesWithHistory,
   type UserRulesHistoryEntry,
 } from '../services/UserRulesHistoryService';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import { getRulesStripCopy, rulesSubtitleFromRaw } from '../i18n/rulesStripCopy';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
@@ -44,6 +45,8 @@ type Props = {
 };
 
 export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, onToggleExpand, lang }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const t = getRulesStripCopy(lang?.code);
@@ -69,7 +72,7 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
     if (!raw) return '';
     if (!rulesNeedCollapse || rulesExpanded) return raw;
     const clipped = raw.slice(0, RULES_PREVIEW_CHARS);
-    return clipped.length < raw.length ? `${clipped.trimEnd()}…` : clipped;
+    return clipped.length < raw.length ? `${clipped.trimEnd()}â€¦` : clipped;
   }, [raw, rulesNeedCollapse, rulesExpanded]);
 
   const refreshHistory = useCallback(async () => {
@@ -206,7 +209,7 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
                 <Text style={[styles.sectionLabel, styles.historyHeaderLabel, rtl && styles.textRtl]}>
                   {t.pastVersions(history.length)}
                 </Text>
-                <Text style={styles.historyChevron}>{historyExpanded ? '▾' : '▸'}</Text>
+                <Text style={styles.historyChevron}>{historyExpanded ? 'â–¾' : 'â–¸'}</Text>
               </Pressable>
               {historyExpanded
                 ? history.map((entry) => (
@@ -216,7 +219,7 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
                       onPress={() => setHistoryEntry(entry)}
                     >
                       <Text style={styles.historyRowTitle} numberOfLines={1}>
-                        {formatHistoryDate(entry.savedAt)} · {formatHistorySource(entry)}
+                        {formatHistoryDate(entry.savedAt)} Â· {formatHistorySource(entry)}
                       </Text>
                       <Text style={[styles.historyRowSub, contentAlignStyle(historyRowPreview(entry))]} numberOfLines={2}>
                         {historyRowPreview(entry)}
@@ -243,7 +246,7 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
               value={text}
               onChangeText={setText}
               placeholder={t.placeholder}
-              placeholderTextColor={WellnessColors.textSecondary}
+              placeholderTextColor={colors.textSecondary}
               multiline
               textAlignVertical="top"
               editable={!loading}
@@ -251,7 +254,7 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
             {loading ? (
               <View style={styles.loadingWrap}>
-                <ActivityIndicator color={WellnessColors.accentBlue} />
+                <ActivityIndicator color={colors.accentBlue} />
                 <Text style={styles.loadingText}>{t.saving}</Text>
               </View>
             ) : (
@@ -288,7 +291,7 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
             {historyEntry ? (
               <>
                 <Text style={styles.modalTitle}>
-                  {formatHistoryDate(historyEntry.savedAt)} · {formatHistorySource(historyEntry)}
+                  {formatHistoryDate(historyEntry.savedAt)} Â· {formatHistorySource(historyEntry)}
                 </Text>
                 <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent}>
                   <Text style={[styles.modalRaw, contentAlignStyle(historyEntry.rules.rawText)]}>
@@ -322,7 +325,8 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   wrap: {},
   body: { paddingHorizontal: 4, paddingBottom: 12, paddingTop: 4 },
   topRow: {
@@ -335,35 +339,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: WellnessColors.accentBlue,
-    backgroundColor: WellnessColors.accentBlue + '12',
+    borderColor: c.accentBlue,
+    backgroundColor: c.accentBlue + '12',
   },
   editTopBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
   },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginBottom: 6,
   },
   rulesBlock: { marginBottom: 4 },
   rulesText: {
     fontSize: 14,
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     lineHeight: 21,
   },
   showMore: {
     marginTop: 8,
     fontSize: 13,
     fontWeight: '600',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
   },
   emptyBody: {
     fontSize: 13,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     lineHeight: 19,
     marginBottom: 4,
   },
@@ -371,13 +375,13 @@ const styles = StyleSheet.create({
 
   textInput: {
     borderWidth: 1.5,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 12,
     padding: 12,
     fontSize: 14,
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     minHeight: 140,
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
   },
   textInputFlex: {
     flex: 1,
@@ -387,30 +391,30 @@ const styles = StyleSheet.create({
   btnsRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
   saveBtn: {
     flex: 1,
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
     borderRadius: 10,
     paddingVertical: 11,
     alignItems: 'center',
   },
-  saveBtnDisabled: { backgroundColor: WellnessColors.gridLine },
+  saveBtnDisabled: { backgroundColor: c.gridLine },
   saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   cancelBtn: {
     paddingVertical: 11,
     paddingHorizontal: 16,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     alignItems: 'center',
   },
-  cancelBtnText: { fontSize: 14, color: WellnessColors.textSecondary },
+  cancelBtnText: { fontSize: 14, color: c.textSecondary },
 
   loadingWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
-  loadingText: { fontSize: 13, color: WellnessColors.textSecondary },
+  loadingText: { fontSize: 13, color: c.textSecondary },
 
   historySection: {
     marginTop: 16,
     borderTopWidth: 1,
-    borderTopColor: WellnessColors.gridLine,
+    borderTopColor: c.gridLine,
     paddingTop: 10,
   },
   historyHeader: {
@@ -422,16 +426,16 @@ const styles = StyleSheet.create({
   historyHeaderLabel: { marginBottom: 0, flex: 1 },
   historyChevron: {
     fontSize: 14,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     paddingHorizontal: 4,
   },
   historyRow: {
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: WellnessColors.gridLine,
+    borderBottomColor: c.gridLine,
   },
-  historyRowTitle: { fontSize: 13, fontWeight: '600', color: WellnessColors.textPrimary },
-  historyRowSub: { fontSize: 12, color: WellnessColors.textSecondary, marginTop: 3 },
+  historyRowTitle: { fontSize: 13, fontWeight: '600', color: c.textPrimary },
+  historyRowSub: { fontSize: 12, color: c.textSecondary, marginTop: 3 },
 
   modalBackdrop: {
     flex: 1,
@@ -439,7 +443,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   modalCard: {
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
     height: '90%',
@@ -449,15 +453,15 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     marginBottom: 12,
   },
   modalScroll: { flex: 1, minHeight: 0 },
   modalScrollContent: { paddingBottom: 8 },
-  modalRaw: { fontSize: 14, color: WellnessColors.textPrimary, lineHeight: 21 },
+  modalRaw: { fontSize: 14, color: c.textPrimary, lineHeight: 21 },
   modalActions: { marginTop: 16, gap: 10 },
   modalRestoreBtn: {
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
@@ -469,5 +473,5 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 24,
   },
-  modalCloseText: { fontSize: 15, fontWeight: '600', color: WellnessColors.accentBlue },
+  modalCloseText: { fontSize: 15, fontWeight: '600', color: c.accentBlue },
 });

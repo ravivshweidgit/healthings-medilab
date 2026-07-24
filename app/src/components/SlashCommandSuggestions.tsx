@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { SlashCommandOption } from '../logic/chatSlashCommands';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 
 type Option = SlashCommandOption & { hint: string };
 
@@ -12,6 +13,8 @@ type Props = {
 };
 
 export function SlashCommandSuggestions({ options, onSelect, rtl }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   if (options.length === 0) return null;
 
   return (
@@ -41,11 +44,12 @@ export function SlashCommandSuggestions({ options, onSelect, rtl }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   wrap: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: WellnessColors.gridLine,
-    backgroundColor: WellnessColors.surface,
+    borderTopColor: c.gridLine,
+    backgroundColor: c.surface,
     maxHeight: 200,
   },
   scroll: {
@@ -66,24 +70,24 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 10,
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
   },
   chipPressed: {
     opacity: 0.75,
-    backgroundColor: WellnessColors.noticeSoftBg,
+    backgroundColor: c.noticeSoftBg,
   },
   cmd: {
     fontSize: 14,
     fontWeight: '700',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     minWidth: 72,
   },
   hint: {
     flex: 1,
     fontSize: 13,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   rtlText: {
     textAlign: 'right',

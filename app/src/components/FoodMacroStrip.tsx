@@ -1,5 +1,5 @@
 /**
- * Section 5 — Daily food macro summary strip.
+ * Section 5 â€” Daily food macro summary strip.
  * Shows today's logged meals with kcal totals and P/C/F bars.
  */
 
@@ -30,7 +30,9 @@ import {
   updateWaterEntry,
   type WaterEntry,
 } from '../services/WaterPersistenceService';
-import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
+import { cardShadow, dashCardGap } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import { ActionIcons, DashIcon, StripIcons } from '../theme/icons';
 import type { DailyMacroTarget } from '../services/TargetService';
@@ -54,18 +56,18 @@ import {
   waterUnitLabel,
 } from '../logic/unitConvert';
 
-/** Food Log strip header — coach/meals language. */
+/** Food Log strip header â€” coach/meals language. */
 const FOOD_LOG_TITLE: Record<string, string> = {
   en: 'FOOD LOG',
-  he: 'יומן ארוחות',
+  he: '×™×•×ž×Ÿ ××¨×•×—×•×ª',
   es: 'DIARIO DE COMIDAS',
   fr: 'JOURNAL DES REPAS',
   de: 'ESSENSTAGEBUCH',
-  ar: 'سجل الوجبات',
-  ru: 'ДНЕВНИК ПИТАНИЯ',
-  pt: 'DIÁRIO ALIMENTAR',
+  ar: 'Ø³Ø¬Ù„ Ø§Ù„ÙˆØ¬Ø¨Ø§Øª',
+  ru: 'Ð”ÐÐ•Ð’ÐÐ˜Ðš ÐŸÐ˜Ð¢ÐÐÐ˜Ð¯',
+  pt: 'DIÃRIO ALIMENTAR',
   it: 'DIARIO PASTI',
-  tr: 'YEMEK GÜNLÜĞÜ',
+  tr: 'YEMEK GÃœNLÃœÄžÃœ',
 };
 
 function foodLogTitle(lang: UserLanguage | null | undefined): string {
@@ -82,7 +84,7 @@ function startOfLocalDay(ms: number): number {
   return d.getTime();
 }
 
-/** Shift by calendar days (not fixed 24h — avoids DST / grayed › bugs). */
+/** Shift by calendar days (not fixed 24h â€” avoids DST / grayed â€º bugs). */
 function addLocalDays(ms: number, delta: number): number {
   const d = new Date(startOfLocalDay(ms));
   d.setDate(d.getDate() + delta);
@@ -97,12 +99,12 @@ function formatDayLabel(ms: number, langCode?: string | null): string {
 }
 
 type Props = {
-  /** Initial day key — defaults to today. */
+  /** Initial day key â€” defaults to today. */
   dayKey?: string;
   /** Called with the day key currently shown in the date navigator. */
   onAddMeal: (dayKey: string) => void;
   onEditMeal?: (entry: FoodEntry) => void;
-  /** Refresh counter — increment to trigger a reload. */
+  /** Refresh counter â€” increment to trigger a reload. */
   refreshKey?: number;
   /** Total burn per day key (BMR + activity). Balance shown for any day present in this map. */
   burnKcalByDay?: Record<string, number>;
@@ -110,11 +112,11 @@ type Props = {
   burnPartsByDay?: Record<string, { bmr: number; activity: number }>;
   /** Called after a successful import so the parent can refresh state. */
   onImported?: () => void;
-  /** Daily macro targets — when set, bars show actual vs target. */
+  /** Daily macro targets â€” when set, bars show actual vs target. */
   macroTarget?: DailyMacroTarget | null;
   /** Display units (water / energy). Values still stored as ml / kcal. */
   unitsPrefs?: UnitsPrefs;
-  /** Coach & meals language — Food Log title. */
+  /** Coach & meals language â€” Food Log title. */
   lang?: UserLanguage | null;
 };
 
@@ -127,7 +129,7 @@ const COLOR_PROTEIN = '#42A5F5';
 const COLOR_CARB    = '#FF9800';
 const COLOR_FAT     = '#EF5350';
 const COLOR_FIBER   = '#66BB6A';
-/** Net carbs (C − Fi) — between carb orange and fiber green. */
+/** Net carbs (C âˆ’ Fi) â€” between carb orange and fiber green. */
 const COLOR_NET_CARB = '#FB8C00';
 const COLOR_WATER   = '#29B6F6';
 
@@ -193,6 +195,8 @@ type WaterQuickTileProps = {
 };
 
 function WaterQuickTile({ variant, ml, label, onPress, waterUnit = 'ml' }: WaterQuickTileProps) {
+  const { colors } = useTheme();
+  const waterTileStyles = useMemo(() => makeWaterTileStyles(colors), [colors]);
   return (
     <Pressable
       style={({ pressed }) => [waterTileStyles.tile, pressed && waterTileStyles.tilePressed]}
@@ -208,7 +212,8 @@ function WaterQuickTile({ variant, ml, label, onPress, waterUnit = 'ml' }: Water
   );
 }
 
-const waterTileStyles = StyleSheet.create({
+const makeWaterTileStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   tile: {
     flex: 1,
     alignItems: 'center',
@@ -233,7 +238,7 @@ const waterTileStyles = StyleSheet.create({
     marginTop: 2,
     fontSize: 11,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
   },
 });
@@ -263,6 +268,8 @@ type MacroBarProps = {
 };
 
 function MacroBar({ label, value, target, color, showTarget, unit = 'g', onPress }: MacroBarProps) {
+  const { colors } = useTheme();
+  const barStyles = useMemo(() => makeBarStyles(colors), [colors]);
   const ratio = target > 0 ? Math.min(1, value / target) : 0;
   const over = value > target * 1.05;
   const suffix =
@@ -305,15 +312,16 @@ function MacroBar({ label, value, target, color, showTarget, unit = 'g', onPress
   );
 }
 
-const barStyles = StyleSheet.create({
+const makeBarStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5, width: '100%' },
   rowPressable: { alignSelf: 'stretch' },
-  label: { width: 40, fontSize: 11, fontWeight: '700', color: WellnessColors.textSecondary },
+  label: { width: 40, fontSize: 11, fontWeight: '700', color: c.textSecondary },
   track: {
     flex: 1,
     height: 6,
     borderRadius: 3,
-    backgroundColor: WellnessColors.progressTrack,
+    backgroundColor: c.progressTrack,
     overflow: 'hidden',
   },
   fill: { height: '100%', borderRadius: 3 },
@@ -321,7 +329,7 @@ const barStyles = StyleSheet.create({
     width: 44,
     fontSize: 11,
     fontWeight: '600',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
   },
@@ -329,7 +337,7 @@ const barStyles = StyleSheet.create({
   valueOver: { color: '#EF5350' },
 });
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function FoodMacroStrip(
   {
@@ -346,6 +354,8 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   },
   ref,
 ) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [expanded, setExpanded] = useState(true);
   const [expandPrefsLoaded, setExpandPrefsLoaded] = useState(false);
 
@@ -610,7 +620,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
         {formatDayLabel(selectedMs, lang?.code)}
         {balance != null ? (
           <Text style={{ color: isDeficit ? '#2E7D32' : '#C62828' }}>
-            {` · ${balanceNoSign ? '' : isDeficit ? '−' : '+'}${disp(Math.abs(balance)).toLocaleString()} ${eLab}`}
+            {` Â· ${balanceNoSign ? '' : isDeficit ? 'âˆ’' : '+'}${disp(Math.abs(balance)).toLocaleString()} ${eLab}`}
           </Text>
         ) : null}
       </>
@@ -631,10 +641,10 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
 
       {expanded ? (
       <>
-      {/* Date navigator — centred below title */}
+      {/* Date navigator â€” centred below title */}
       <View style={styles.dateNavRow}>
         <Pressable style={styles.dateNavBtn} onPress={() => shiftDay(-1)} hitSlop={8} accessibilityLabel="Previous day">
-          <Text style={styles.dateNavArrow}>‹</Text>
+          <Text style={styles.dateNavArrow}>â€¹</Text>
         </Pressable>
         <Text style={styles.dateLabel}>{formatDayLabel(selectedMs, lang?.code)}</Text>
         <Pressable
@@ -646,15 +656,15 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
           hitSlop={8}
           accessibilityLabel="Next day"
         >
-          <Text style={[styles.dateNavArrow, isToday && styles.dateNavArrowDisabled]}>›</Text>
+          <Text style={[styles.dateNavArrow, isToday && styles.dateNavArrowDisabled]}>â€º</Text>
         </Pressable>
       </View>
 
-      {/* Energy lines — always shown, columns aligned */}
+      {/* Energy lines â€” always shown, columns aligned */}
       <View style={styles.energyLines}>
         <View style={styles.energyRow}>
           <Text style={styles.energyNum} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-            {eaten > 0 ? disp(eaten).toLocaleString() : '—'}
+            {eaten > 0 ? disp(eaten).toLocaleString() : 'â€”'}
           </Text>
           <Text style={styles.energyLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
             {eLab} {ui.eaten}
@@ -684,7 +694,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                   <Text style={styles.energyCorrection}>{` (${burnCorrection > 0 ? '+' : ''}${disp(burnCorrection)})`}</Text>
                 ) : null}
               </Text>
-              <Text style={styles.adjustBtn}>✎</Text>
+              <Text style={styles.adjustBtn}>âœŽ</Text>
             </Pressable>
             <View style={styles.energyBurnBlock}>
               <View style={styles.energyBurnRow}>
@@ -724,7 +734,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                 <Text style={styles.energyCorrection}>{` (${burnCorrection > 0 ? '+' : ''}${disp(burnCorrection)})`}</Text>
               ) : null}
             </Text>
-            <Text style={styles.adjustBtn}>✎</Text>
+            <Text style={styles.adjustBtn}>âœŽ</Text>
           </Pressable>
         ) : null}
         {balance != null ? (
@@ -747,7 +757,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
         ) : null}
       </View>
 
-      {/* Macro bars — meals/targets + always-on H2O */}
+      {/* Macro bars â€” meals/targets + always-on H2O */}
       <View style={[styles.barsWrap, { marginTop: 10 }]}>
         {(!isEmpty || displayTarget) ? (
           <>
@@ -817,7 +827,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               <Text style={styles.chipTime}>{formatTime(item.entry.timestamp)}</Text>
               <Text style={styles.chipLabel}>{mealLabel(item.entry, ui)}</Text>
               <Text style={styles.chipKcal}>{formatEnergy(item.entry.totalKcal, energyU)}</Text>
-              <Text style={styles.chipEdit}>✎ {ui.editItem}</Text>
+              <Text style={styles.chipEdit}>âœŽ {ui.editItem}</Text>
             </Pressable>
           ) : (
             <Pressable
@@ -828,20 +838,20 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               <Text style={styles.chipTime}>{formatTime(item.entry.timestamp)}</Text>
               <Text style={styles.chipLabelWater}>{item.entry.label ?? ui.water}</Text>
               <Text style={styles.chipMl}>{formatWaterMl(item.entry.ml, waterU)}</Text>
-              <Text style={styles.chipEditWater}>✎ {ui.editItem}</Text>
+              <Text style={styles.chipEditWater}>âœŽ {ui.editItem}</Text>
             </Pressable>
           ),
         )}
       </ScrollView>
       ) : null}
 
-      {/* Footer — export / import */}
+      {/* Footer â€” export / import */}
       <View style={styles.footer}>
         <Pressable style={styles.footerBtn} onPress={handleExport} accessibilityLabel="Export food log">
-          <Text style={styles.footerBtnText}>⬆ Export</Text>
+          <Text style={styles.footerBtnText}>â¬† Export</Text>
         </Pressable>
         <Pressable style={styles.footerBtn} onPress={handleImport} accessibilityLabel="Import food log">
-          <Text style={styles.footerBtnText}>⬇ Import</Text>
+          <Text style={styles.footerBtnText}>â¬‡ Import</Text>
         </Pressable>
       </View>
       </>
@@ -860,11 +870,11 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               <Text style={styles.modalBold}>
                 {burnParts != null
                   ? formatEnergy(burnParts.activity, energyU)
-                  : '—'}
+                  : 'â€”'}
               </Text>
               {burnParts != null ? (
                 <>
-                  {' · '}BMR <Text style={styles.modalBold}>{formatEnergy(burnParts.bmr, energyU)}</Text>
+                  {' Â· '}BMR <Text style={styles.modalBold}>{formatEnergy(burnParts.bmr, energyU)}</Text>
                 </>
               ) : null}
             </Text>
@@ -874,7 +884,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               onChangeText={setCorrectionInput}
               keyboardType="numbers-and-punctuation"
               placeholder={`-${Math.round(kcalToDisplay(188, energyU))}`}
-              placeholderTextColor={WellnessColors.textSecondary}
+              placeholderTextColor={colors.textSecondary}
               autoFocus
               selectTextOnFocus
             />
@@ -904,14 +914,14 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               {waterEntryEdit ? (
                 <>
                   {formatTime(waterEntryEdit.timestamp)}
-                  {' · '}
+                  {' Â· '}
                   <Text style={styles.modalBold}>{formatWaterMl(waterEntryEdit.ml, waterU)}</Text>
-                  {waterEntryEdit.label ? ` · ${waterEntryEdit.label}` : ''}
+                  {waterEntryEdit.label ? ` Â· ${waterEntryEdit.label}` : ''}
                 </>
               ) : (
                 <>
                   {ui.today}: <Text style={styles.modalBold}>{formatWaterMl(waterMl, waterU)}</Text>
-                  {' · '}
+                  {' Â· '}
                   {ui.goal} <Text style={styles.modalBold}>{formatWaterMl(waterGoalMl, waterU)}</Text>
                 </>
               )}
@@ -972,7 +982,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                   onPress={handleDeleteWaterEntry}
                   accessibilityLabel={ui.deleteItem}
                 >
-                  <Text style={styles.waterDeleteBtnText}>🗑</Text>
+                  <Text style={styles.waterDeleteBtnText}>ðŸ—‘</Text>
                 </Pressable>
               ) : null}
               <Pressable
@@ -1025,7 +1035,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               onChangeText={setWaterInput}
               keyboardType="number-pad"
               placeholder={waterModalMode === 'goal' ? String(DEFAULT_WATER_GOAL_ML) : '0'}
-              placeholderTextColor={WellnessColors.textSecondary}
+              placeholderTextColor={colors.textSecondary}
               autoFocus
               selectTextOnFocus
             />
@@ -1049,17 +1059,18 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   );
 });
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   card: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 24,
     paddingHorizontal: 18,
     paddingTop: 14,
     paddingBottom: 16,
     marginBottom: dashCardGap,
     borderWidth: 1.5,
-    borderColor: WellnessColors.gridLine,
-    // Primary-tier anchor (audit F6) — navy left edge matches AI chat + body cards.
+    borderColor: c.gridLine,
+    // Primary-tier anchor (audit F6) â€” navy left edge matches AI chat + body cards.
     borderLeftWidth: 3,
     borderLeftColor: '#1F3D5C',
   },
@@ -1081,21 +1092,21 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: WellnessColors.gridLine,
+    borderTopColor: c.gridLine,
   },
   footerBtn: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: WellnessColors.progressTrack,
+    backgroundColor: c.progressTrack,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
   },
   footerBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   dateNav: {
     flexDirection: 'row',
@@ -1106,9 +1117,9 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: WellnessColors.progressTrack,
+    backgroundColor: c.progressTrack,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1118,21 +1129,21 @@ const styles = StyleSheet.create({
   dateNavArrow: {
     fontSize: 20,
     lineHeight: 24,
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     fontWeight: '300',
   },
   dateNavArrowDisabled: {
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   dateLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     minWidth: 72,
     textAlign: 'center',
   },
   addBtn: {
-    backgroundColor: WellnessColors.accentGreen,
+    backgroundColor: c.accentGreen,
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -1167,7 +1178,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     fontSize: 17,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
     marginRight: 8,
@@ -1175,24 +1186,24 @@ const styles = StyleSheet.create({
   energyNumInline: {
     fontSize: 17,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
   },
   energyLabel: {
     fontSize: 15,
     fontWeight: '400',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     flexShrink: 1,
     flexGrow: 1,
   },
   energyTarget: {
     fontSize: 12,
     fontWeight: '400',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   energyCorrection: {
     fontSize: 13,
     fontWeight: '500',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   energyBurnBlock: {
     alignSelf: 'stretch',
@@ -1214,7 +1225,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
     letterSpacing: 0.2,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     opacity: 0.9,
   },
   barsWrap: { marginBottom: 12 },
@@ -1233,7 +1244,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 14,
     borderWidth: 1.5,
-    // Solid (was dashed) — these are primary log actions, not empty "Add" placeholders.
+    // Solid (was dashed) â€” these are primary log actions, not empty "Add" placeholders.
     borderStyle: 'solid',
   },
   addActionMeal: {
@@ -1256,7 +1267,7 @@ const styles = StyleSheet.create({
     color: '#0288D1',
   },
   waterSheetCard: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 16,
     paddingHorizontal: 18,
     paddingTop: 18,
@@ -1284,8 +1295,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
-    backgroundColor: WellnessColors.background,
+    borderColor: c.gridLine,
+    backgroundColor: c.background,
   },
   waterUtilityBtnPressed: {
     opacity: 0.75,
@@ -1319,7 +1330,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     alignItems: 'center',
   },
   waterSheetCancelBtnSolo: {
@@ -1329,7 +1340,7 @@ const styles = StyleSheet.create({
   waterSheetBtnCancelText: {
     fontSize: 16,
     fontWeight: '500',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
   },
   chipsRow: {
@@ -1337,17 +1348,17 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   chip: {
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     minWidth: 90,
   },
   chipPressed: {
     opacity: 0.7,
-    borderColor: WellnessColors.accentBlue,
+    borderColor: c.accentBlue,
   },
   chipWater: {
     borderColor: 'rgba(41, 182, 246, 0.45)',
@@ -1355,23 +1366,23 @@ const styles = StyleSheet.create({
   },
   chipEdit: {
     fontSize: 10,
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     marginTop: 2,
   },
   chipTime: {
     fontSize: 10,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     fontVariant: ['tabular-nums'],
   },
   chipLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     marginTop: 1,
   },
   chipKcal: {
     fontSize: 11,
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     fontWeight: '600',
     marginTop: 2,
     fontVariant: ['tabular-nums'],
@@ -1396,7 +1407,7 @@ const styles = StyleSheet.create({
   },
   adjustBtn: {
     fontSize: 13,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginLeft: 6,
   },
   modalOverlay: {
@@ -1407,7 +1418,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalCard: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 20,
     padding: 22,
     width: '100%',
@@ -1416,32 +1427,32 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     marginBottom: 8,
   },
   modalSub: {
     fontSize: 13,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginBottom: 14,
     lineHeight: 19,
   },
   modalCode: {
     fontFamily: 'monospace',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
   },
   modalBold: {
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
   },
   modalInput: {
     borderWidth: 1.5,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 14,
     fontSize: 20,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -1464,15 +1475,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     alignItems: 'center',
   },
-  modalBtnCancelText: { fontSize: 14, color: WellnessColors.textSecondary },
+  modalBtnCancelText: { fontSize: 14, color: c.textSecondary },
   modalBtnSave: {
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 10,
-    backgroundColor: WellnessColors.accentGreen,
+    backgroundColor: c.accentGreen,
     alignItems: 'center',
   },
   modalBtnSaveText: { fontSize: 14, color: '#fff', fontWeight: '700' },

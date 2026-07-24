@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 
 type Props = {
   advice: string;
@@ -9,7 +10,9 @@ type Props = {
 };
 
 export function RulesAdviceBanner({ advice, rtl, title }: Props) {
-  const heading = title ?? (rtl ? 'הכללים שלי — מומלץ לעדכן' : 'My Rules — suggested update');
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const heading = title ?? (rtl ? '×”×›×œ×œ×™× ×©×œ×™ â€” ×ž×•×ž×œ×¥ ×œ×¢×“×›×Ÿ' : 'My Rules â€” suggested update');
   return (
     <View style={styles.wrap}>
       <Text style={[styles.title, rtl && styles.rtl]}>{heading}</Text>
@@ -18,7 +21,8 @@ export function RulesAdviceBanner({ advice, rtl, title }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   wrap: {
     marginBottom: 10,
     padding: 10,
@@ -28,6 +32,6 @@ const styles = StyleSheet.create({
     borderColor: '#FFE082',
   },
   title: { fontSize: 12, fontWeight: '700', color: '#E65100', marginBottom: 4 },
-  body: { fontSize: 13, lineHeight: 18, color: WellnessColors.textPrimary },
+  body: { fontSize: 13, lineHeight: 18, color: c.textPrimary },
   rtl: { textAlign: 'right', writingDirection: 'rtl' },
 });

@@ -1,8 +1,8 @@
 /**
- * My Macros — AI-suggested daily macro targets with progress bars.
+ * My Macros â€” AI-suggested daily macro targets with progress bars.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -35,7 +35,8 @@ import {
   type UserRules,
   type UserLanguage,
 } from '../services/TargetService';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import {
   DEFAULT_WATER_GOAL_ML,
   getWaterGoalMl,
@@ -55,7 +56,7 @@ import {
   waterUnitLabel,
 } from '../logic/unitConvert';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type MacroTargetProps = {
   actualProtein_g: number | null;
@@ -74,10 +75,10 @@ export type MacroTargetProps = {
   bodyTarget: BodyTarget | null;
   userRules: UserRules | null;
   mentors: MentorType[];
-  /** Parent-held target — refreshes strip after weigh-in/lab auto-revision. */
+  /** Parent-held target â€” refreshes strip after weigh-in/lab auto-revision. */
   savedTarget?: DailyMacroTarget | null;
   onSaved?: (t: DailyMacroTarget) => void;
-  /** Weigh-in blocked auto-save — parent injects Gemini proposal for one-tap Accept. */
+  /** Weigh-in blocked auto-save â€” parent injects Gemini proposal for one-tap Accept. */
   weighInSuggestion?: DailyMacroTarget | null;
   weighInSuggestionHint?: string | null;
   onWeighInSuggestionConsumed?: () => void;
@@ -104,31 +105,31 @@ function formatMacroUpdatedAt(iso: string | undefined, lang?: UserLanguage | nul
     d.getDate() === now.getDate();
   const time = formatLocalizedTime(d, code, { hour: '2-digit', minute: '2-digit' });
   if (sameDay) {
-    if (code === 'he') return `עודכן היום ${time}`;
-    if (code === 'ar') return `حُدّث اليوم ${time}`;
+    if (code === 'he') return `×¢×•×“×›×Ÿ ×”×™×•× ${time}`;
+    if (code === 'ar') return `Ø­ÙØ¯Ù‘Ø« Ø§Ù„ÙŠÙˆÙ… ${time}`;
     if (code === 'es') return `Actualizado hoy ${time}`;
-    if (code === 'fr') return `Mis à jour aujourd'hui ${time}`;
+    if (code === 'fr') return `Mis Ã  jour aujourd'hui ${time}`;
     if (code === 'de') return `Heute aktualisiert ${time}`;
-    if (code === 'ru') return `Обновлено сегодня ${time}`;
+    if (code === 'ru') return `ÐžÐ±Ð½Ð¾Ð²Ð»ÐµÐ½Ð¾ ÑÐµÐ³Ð¾Ð´Ð½Ñ ${time}`;
     if (code === 'pt') return `Atualizado hoje ${time}`;
     if (code === 'it') return `Aggiornato oggi ${time}`;
-    if (code === 'tr') return `Bugün güncellendi ${time}`;
+    if (code === 'tr') return `BugÃ¼n gÃ¼ncellendi ${time}`;
     return `Updated today ${time}`;
   }
   const date = formatLocalizedDate(d, code, { day: 'numeric', month: 'short' });
-  if (code === 'he') return `עודכן ${date} ${time}`;
-  if (code === 'ar') return `حُدّث ${date} ${time}`;
+  if (code === 'he') return `×¢×•×“×›×Ÿ ${date} ${time}`;
+  if (code === 'ar') return `Ø­ÙØ¯Ù‘Ø« ${date} ${time}`;
   if (code === 'es') return `Actualizado ${date} ${time}`;
-  if (code === 'fr') return `Mis à jour ${date} ${time}`;
+  if (code === 'fr') return `Mis Ã  jour ${date} ${time}`;
   if (code === 'de') return `Aktualisiert ${date} ${time}`;
-  if (code === 'ru') return `Обновлено ${date} ${time}`;
+  if (code === 'ru') return `ÐžÐ±Ð½Ð¾Ð²Ð»ÐµÐ½Ð¾ ${date} ${time}`;
   if (code === 'pt') return `Atualizado ${date} ${time}`;
   if (code === 'it') return `Aggiornato ${date} ${time}`;
-  if (code === 'tr') return `Güncellendi ${date} ${time}`;
+  if (code === 'tr') return `GÃ¼ncellendi ${date} ${time}`;
   return `Updated ${date} ${time}`;
 }
 
-// ─── Macro bar ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Macro bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function MacroBar({
   label,
@@ -145,13 +146,15 @@ function MacroBar({
   unit?: 'g' | 'kcal' | 'kj' | 'ml' | 'floz';
   onPress?: () => void;
 }) {
+  const { colors } = useTheme();
+  const barStyles = useMemo(() => makeBarStyles(colors), [colors]);
   const pct = actual != null && target > 0 ? Math.min(1, actual / target) : 0;
   const over = actual != null && actual > target * 1.1;
   const suffix =
     unit === 'g' ? 'g' : unit === 'ml' ? 'ml' : unit === 'floz' ? 'fl oz' : '';
   const fmt = (v: number) =>
     unit === 'floz' ? v.toFixed(1) : String(Math.round(v));
-  const actualText = actual != null ? fmt(actual) : '—';
+  const actualText = actual != null ? fmt(actual) : 'â€”';
   const valueText =
     unit === 'kcal' || unit === 'kj'
       ? `${actualText} / ${Math.round(target)}`
@@ -183,7 +186,8 @@ function MacroBar({
   );
 }
 
-const barStyles = StyleSheet.create({
+const makeBarStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8, width: '100%' },
   rowPressable: { alignSelf: 'stretch' },
   label: {
@@ -191,13 +195,13 @@ const barStyles = StyleSheet.create({
     flexShrink: 0,
     fontSize: 11,
     fontWeight: '700',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   track: {
     flex: 1,
     height: 6,
     borderRadius: 3,
-    backgroundColor: WellnessColors.progressTrack ?? WellnessColors.gridLine,
+    backgroundColor: c.progressTrack ?? c.gridLine,
     overflow: 'hidden',
   },
   fill: { height: '100%', borderRadius: 3 },
@@ -206,18 +210,20 @@ const barStyles = StyleSheet.create({
     flexShrink: 0,
     fontSize: 11,
     fontWeight: '600',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
   },
   numsOver: { color: '#EF5350' },
 });
 
-// ─── Edit field ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ Edit field â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function EditField({
   label, value, onChange, unit, aiVal, hint,
 }: { label: string; value: string; onChange: (v: string) => void; unit: string; aiVal?: number; hint?: string }) {
+  const { colors } = useTheme();
+  const editStyles = useMemo(() => makeEditStyles(colors), [colors]);
   return (
     <View style={editStyles.row}>
       <Text style={editStyles.label}>{label}</Text>
@@ -235,19 +241,20 @@ function EditField({
   );
 }
 
-const editStyles = StyleSheet.create({
+const makeEditStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
-  label: { width: 70, fontSize: 12, fontWeight: '700', color: WellnessColors.textSecondary },
+  label: { width: 70, fontSize: 12, fontWeight: '700', color: c.textSecondary },
   input: {
-    flex: 1, borderWidth: 1.5, borderColor: WellnessColors.gridLine,
+    flex: 1, borderWidth: 1.5, borderColor: c.gridLine,
     borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10,
-    fontSize: 15, fontWeight: '700', color: WellnessColors.textPrimary, textAlign: 'center',
+    fontSize: 15, fontWeight: '700', color: c.textPrimary, textAlign: 'center',
   },
-  unit: { fontSize: 12, color: WellnessColors.textSecondary, flexShrink: 0 },
-  ai: { maxWidth: 72, fontSize: 11, color: WellnessColors.textSecondary, textAlign: 'right', flexShrink: 1 },
+  unit: { fontSize: 12, color: c.textSecondary, flexShrink: 0 },
+  ai: { maxWidth: 72, fontSize: 11, color: c.textSecondary, textAlign: 'right', flexShrink: 1 },
 });
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function MacroTargetStrip({
   actualProtein_g, actualFat_g, actualCarb_g, actualFiber_g, actualKcal,
@@ -257,6 +264,8 @@ export function MacroTargetStrip({
   analyzeRequestId, expanded, onToggleExpand, lang,
   unitsPrefs = DEFAULT_UNITS_PREFS,
 }: MacroTargetProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const [screen, setScreen] = useState<Screen>('idle');
   const [target, setTarget] = useState<DailyMacroTarget | null>(null);
@@ -351,14 +360,14 @@ export function MacroTargetStrip({
     try {
       const result = await buildAndExportMacroPrompt({ trigger: 'dashboard-suggest', lang });
       if (!result.ok) {
-        Alert.alert(lang?.code === 'he' ? 'בוטל' : 'Cancelled', lang?.code === 'he' ? 'לא נבחר תיקייה' : 'No folder selected');
+        Alert.alert(lang?.code === 'he' ? '×‘×•×˜×œ' : 'Cancelled', lang?.code === 'he' ? '×œ× × ×‘×—×¨ ×ª×™×§×™×™×”' : 'No folder selected');
         return;
       }
       Alert.alert(
-        lang?.code === 'he' ? 'פרומפט יוצא' : 'Prompt exported',
+        lang?.code === 'he' ? '×¤×¨×•×ž×¤×˜ ×™×•×¦×' : 'Prompt exported',
         lang?.code === 'he'
-          ? `${result.charCount.toLocaleString()} תווים · macro-gemini-prompt_${new Date().toISOString().slice(0, 10)}.txt`
-          : `${result.charCount.toLocaleString()} chars · macro-gemini-prompt_${new Date().toISOString().slice(0, 10)}.txt`,
+          ? `${result.charCount.toLocaleString()} ×ª×•×•×™× Â· macro-gemini-prompt_${new Date().toISOString().slice(0, 10)}.txt`
+          : `${result.charCount.toLocaleString()} chars Â· macro-gemini-prompt_${new Date().toISOString().slice(0, 10)}.txt`,
       );
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Export failed';
@@ -375,10 +384,10 @@ export function MacroTargetStrip({
       disabled={exportBusy}
     >
       {exportBusy ? (
-        <ActivityIndicator size="small" color={WellnessColors.accentBlue} />
+        <ActivityIndicator size="small" color={colors.accentBlue} />
       ) : (
         <Text style={styles.exportPromptText}>
-          {lang?.code === 'he' ? 'ייצוא פרומפט Gemini (ללא קריאת AI)' : 'Export Gemini prompt (no AI call)'}
+          {lang?.code === 'he' ? '×™×™×¦×•× ×¤×¨×•×ž×¤×˜ Gemini (×œ×œ× ×§×¨×™××ª AI)' : 'Export Gemini prompt (no AI call)'}
         </Text>
       )}
     </Pressable>
@@ -423,7 +432,7 @@ export function MacroTargetStrip({
     const kRaw = parseLocaleNumber(editK);
     const k = kRaw != null ? Math.round(displayToKcal(kRaw, unitsPrefs.energy)) : NaN;
     if ([p, f, k].some(isNaN)) return;
-    // Nutritionist-first: if Net is set, total C = Net + Fi (then sanitize clamps Fi ≤ C).
+    // Nutritionist-first: if Net is set, total C = Net + Fi (then sanitize clamps Fi â‰¤ C).
     if (!isNaN(net) && net >= 0) {
       if (isNaN(fi) || fi < 0) fi = resolveFiberTarget_g(base);
       c = Math.round(net + fi);
@@ -501,7 +510,7 @@ export function MacroTargetStrip({
                 onPress={handleAsk}
                 disabled={!canAnalyze}
               >
-                <Text style={styles.aiBtnText}>✨ Ask AI to set my macros</Text>
+                <Text style={styles.aiBtnText}>âœ¨ Ask AI to set my macros</Text>
               </Pressable>
               {exportPromptLink}
             </View>
@@ -510,8 +519,8 @@ export function MacroTargetStrip({
           {/* loading */}
           {screen === 'loading' && (
             <View style={styles.loadingWrap}>
-              <ActivityIndicator color={WellnessColors.accentGreen} />
-              <Text style={styles.loadingText}>Calculating your macros…</Text>
+              <ActivityIndicator color={colors.accentGreen} />
+              <Text style={styles.loadingText}>Calculating your macrosâ€¦</Text>
             </View>
           )}
 
@@ -561,10 +570,10 @@ export function MacroTargetStrip({
               </View>
               <View style={styles.suggBtns}>
                 <Pressable style={[styles.btn, styles.btnAccept]} onPress={handleAccept}>
-                  <Text style={styles.btnTextAccept}>✓ Accept</Text>
+                  <Text style={styles.btnTextAccept}>âœ“ Accept</Text>
                 </Pressable>
                 <Pressable style={[styles.btn, styles.btnEdit]} onPress={() => openEdit(suggestion)}>
-                  <Text style={styles.btnTextEdit}>✎ Edit</Text>
+                  <Text style={styles.btnTextEdit}>âœŽ Edit</Text>
                 </Pressable>
               </View>
             </View>
@@ -663,7 +672,7 @@ export function MacroTargetStrip({
               />
               <Text style={styles.h2oHint}>Tap H2O bar to edit water goal</Text>
               <Pressable style={[styles.btn, styles.btnEdit, styles.editTargetsBtn]} onPress={() => openEdit(target)}>
-                <Text style={styles.btnTextEdit}>✎ Edit</Text>
+                <Text style={styles.btnTextEdit}>âœŽ Edit</Text>
               </Pressable>
               <Pressable style={styles.reanalyzeBtn} onPress={() => void handleAsk()}>
                 <Text style={styles.reanalyzeBtnText}>Re-analyze with AI</Text>
@@ -695,7 +704,7 @@ export function MacroTargetStrip({
                   ? mlToDisplay(DEFAULT_WATER_GOAL_ML, 'floz').toFixed(1)
                   : String(DEFAULT_WATER_GOAL_ML)
               }
-              placeholderTextColor={WellnessColors.textSecondary}
+              placeholderTextColor={colors.textSecondary}
               autoFocus
               selectTextOnFocus
             />
@@ -714,10 +723,11 @@ export function MacroTargetStrip({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   wrap: {},
   body: { paddingHorizontal: 4, paddingBottom: 12, paddingTop: 4 },
-  h2oHint: { fontSize: 11, color: WellnessColors.textSecondary, marginTop: -2, marginBottom: 10 },
+  h2oHint: { fontSize: 11, color: c.textSecondary, marginTop: -2, marginBottom: 10 },
   editTargetsBtn: { marginBottom: 10 },
 
   modalOverlay: {
@@ -727,34 +737,34 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalCard: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 16,
     padding: 20,
   },
-  modalTitle: { fontSize: 17, fontWeight: '700', color: WellnessColors.textPrimary, marginBottom: 6 },
-  modalSub: { fontSize: 13, color: WellnessColors.textSecondary, marginBottom: 14, lineHeight: 18 },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary, marginBottom: 6 },
+  modalSub: { fontSize: 13, color: c.textSecondary, marginBottom: 14, lineHeight: 18 },
   modalInput: {
     borderWidth: 1.5,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
     fontSize: 18,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     textAlign: 'center',
     marginBottom: 14,
   },
 
   idleWrap: { gap: 10 },
-  hintText: { fontSize: 12, color: WellnessColors.textSecondary, fontStyle: 'italic' },
+  hintText: { fontSize: 12, color: c.textSecondary, fontStyle: 'italic' },
   errorText: { fontSize: 12, color: '#E53935' },
-  aiBtn: { backgroundColor: WellnessColors.accentGreen, borderRadius: 999, paddingVertical: 12, alignItems: 'center' },
-  aiBtnDisabled: { backgroundColor: WellnessColors.gridLine },
+  aiBtn: { backgroundColor: c.accentGreen, borderRadius: 999, paddingVertical: 12, alignItems: 'center' },
+  aiBtnDisabled: { backgroundColor: c.gridLine },
   aiBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
   loadingWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
-  loadingText: { fontSize: 13, color: WellnessColors.textSecondary },
+  loadingText: { fontSize: 13, color: c.textSecondary },
 
   reasoningBox: { backgroundColor: '#FFF8E1', borderRadius: 10, padding: 10, marginBottom: 12 },
   weighInHint: {
@@ -772,22 +782,22 @@ const styles = StyleSheet.create({
 
   suggestionRow: { flexDirection: 'row', justifyContent: 'space-evenly', marginBottom: 14 },
   suggItem: { alignItems: 'center', minWidth: 60 },
-  suggVal: { fontSize: 18, fontWeight: '700', color: WellnessColors.textPrimary },
-  suggUnit: { fontSize: 10, color: WellnessColors.textSecondary },
-  suggLabel: { fontSize: 11, color: WellnessColors.textSecondary },
+  suggVal: { fontSize: 18, fontWeight: '700', color: c.textPrimary },
+  suggUnit: { fontSize: 10, color: c.textSecondary },
+  suggLabel: { fontSize: 11, color: c.textSecondary },
 
   suggBtns: { flexDirection: 'row', gap: 10 },
   btn: { flex: 1, paddingVertical: 11, borderRadius: 12, alignItems: 'center' },
-  btnAccept: { backgroundColor: WellnessColors.accentGreen },
-  btnEdit: { borderWidth: 1.5, borderColor: WellnessColors.gridLine },
+  btnAccept: { backgroundColor: c.accentGreen },
+  btnEdit: { borderWidth: 1.5, borderColor: c.gridLine },
   btnTextAccept: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  btnTextEdit: { color: WellnessColors.textPrimary, fontWeight: '600', fontSize: 14 },
+  btnTextEdit: { color: c.textPrimary, fontWeight: '600', fontSize: 14 },
 
   activeLabelRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 6 },
   dietBadgeSmall: { fontSize: 11, fontWeight: '700', color: '#F57F17', backgroundColor: '#FFF8E1', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  updatedDetail: { fontSize: 11, color: WellnessColors.accentGreen, fontWeight: '600', marginBottom: 8 },
-  reanalyzeBtn: { borderWidth: 1, borderColor: WellnessColors.gridLine, borderRadius: 10, paddingVertical: 8, alignItems: 'center', marginTop: 8 },
-  reanalyzeBtnText: { fontSize: 12, color: WellnessColors.textSecondary, fontWeight: '600' },
+  updatedDetail: { fontSize: 11, color: c.accentGreen, fontWeight: '600', marginBottom: 8 },
+  reanalyzeBtn: { borderWidth: 1, borderColor: c.gridLine, borderRadius: 10, paddingVertical: 8, alignItems: 'center', marginTop: 8 },
+  reanalyzeBtnText: { fontSize: 12, color: c.textSecondary, fontWeight: '600' },
   exportPromptBtn: { marginTop: 10, paddingVertical: 8, alignItems: 'center' },
-  exportPromptText: { fontSize: 12, color: WellnessColors.accentBlue, textDecorationLine: 'underline' },
+  exportPromptText: { fontSize: 12, color: c.accentBlue, textDecorationLine: 'underline' },
 });

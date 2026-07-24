@@ -1,5 +1,5 @@
 /**
- * Nutritionist session reports — dashboard card (same pattern as LabResultsStrip).
+ * Nutritionist session reports â€” dashboard card (same pattern as LabResultsStrip).
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -22,7 +22,9 @@ import {
 } from '../services/NutritionDirectiveService';
 import type { UserLanguage } from '../services/TargetService';
 import { getNutritionSessionsStripCopy } from '../i18n/nutritionSessionsStripCopy';
-import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
+import { cardShadow, dashCardGap } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import { StripIcons } from '../theme/icons';
 import { NutritionDirectiveReviewModal } from './NutritionDirectiveReviewModal';
@@ -42,6 +44,8 @@ function chipPreview(entry: NutritionDirective): string | null {
 }
 
 export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [importVisible, setImportVisible] = useState(false);
   const [autoPick, setAutoPick] = useState(false);
   const [detailEntry, setDetailEntry] = useState<NutritionDirective | null>(null);
@@ -112,7 +116,7 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
   }, [onChanged, copy.cancel, copy.delete, copy.deleteTitle]);
 
   const summaryLine = active
-    ? `${copy.activePrefix}: ${active.title} · ${formatDirectiveDate(active, lang?.code)}`
+    ? `${copy.activePrefix}: ${active.title} Â· ${formatDirectiveDate(active, lang?.code)}`
     : copy.emptyHint;
 
   return (
@@ -137,7 +141,7 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
           onPress={openImport}
           accessibilityLabel={copy.addSession}
         >
-          <Text style={styles.addChipIcon}>＋</Text>
+          <Text style={styles.addChipIcon}>ï¼‹</Text>
           <Text style={styles.addChipLabel}>{copy.addSession}</Text>
         </Pressable>
         {directives.map((entry) => {
@@ -159,7 +163,7 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
                 <Text style={styles.chipActiveBadge}>{copy.activeBadge}</Text>
               ) : null}
               {preview ? <Text style={[styles.chipHi, contentAlignStyle(preview)]} numberOfLines={2}>{preview}</Text> : null}
-              <Text style={styles.chipEdit}>✎ {copy.view}</Text>
+              <Text style={styles.chipEdit}>âœŽ {copy.view}</Text>
             </Pressable>
           );
         })}
@@ -215,9 +219,10 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   card: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 24,
     paddingHorizontal: 18,
     paddingTop: 14,
@@ -229,12 +234,12 @@ const styles = StyleSheet.create({
   },
   chipsRow: { gap: 8, paddingBottom: 2, paddingTop: 4 },
   chip: {
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     minWidth: 100,
     maxWidth: 160,
   },
@@ -244,11 +249,11 @@ const styles = StyleSheet.create({
   },
   chipPressed: {
     opacity: 0.7,
-    borderColor: WellnessColors.accentBlue,
+    borderColor: c.accentBlue,
   },
   addChip: {
     borderStyle: 'dashed',
-    borderColor: WellnessColors.accentBlue,
+    borderColor: c.accentBlue,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 88,
@@ -256,25 +261,25 @@ const styles = StyleSheet.create({
   },
   addChipIcon: {
     fontSize: 22,
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     fontWeight: '300',
     lineHeight: 26,
   },
   addChipLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     marginTop: 2,
   },
   chipDate: {
     fontSize: 10,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     fontVariant: ['tabular-nums'],
   },
   chipLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     marginTop: 1,
   },
   chipActiveBadge: {
@@ -285,34 +290,34 @@ const styles = StyleSheet.create({
   },
   chipHi: {
     fontSize: 10,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginTop: 2,
   },
   chipEdit: {
     fontSize: 10,
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     marginTop: 2,
   },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   modalCard: {
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     maxHeight: '85%',
     padding: 20,
   },
-  modalTitle: { fontSize: 17, fontWeight: '700', color: WellnessColors.textPrimary },
-  modalMeta: { fontSize: 13, color: WellnessColors.textSecondary, marginTop: 4, marginBottom: 12 },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary },
+  modalMeta: { fontSize: 13, color: c.textSecondary, marginTop: 4, marginBottom: 12 },
   modalScroll: { maxHeight: 400 },
   reportBody: {
     fontSize: 14,
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     lineHeight: 22,
   },
   reportBodyRtl: { writingDirection: 'rtl', textAlign: 'right' },
   modalActions: { marginTop: 16, gap: 10 },
   modalPrimaryBtn: {
-    backgroundColor: WellnessColors.accentGreen,
+    backgroundColor: c.accentGreen,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
@@ -327,5 +332,5 @@ const styles = StyleSheet.create({
   },
   modalDangerText: { color: '#E53935', fontWeight: '600', fontSize: 15 },
   modalCloseBtn: { alignSelf: 'center', paddingVertical: 8 },
-  modalCloseText: { fontSize: 15, color: WellnessColors.accentBlue, fontWeight: '600' },
+  modalCloseText: { fontSize: 15, color: c.accentBlue, fontWeight: '600' },
 });

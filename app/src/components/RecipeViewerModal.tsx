@@ -1,8 +1,8 @@
 /**
- * Full-screen recipe viewer — kitchen units + grams (prompt40).
+ * Full-screen recipe viewer â€” kitchen units + grams (prompt40).
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   Pressable,
@@ -19,7 +19,9 @@ import {
   type RecipePlan,
 } from '../logic/mealPlanTypes';
 import type { UserLanguage } from '../services/TargetService';
-import { WellnessColors, cardShadow } from '../theme/wellness';
+import { cardShadow } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import { formatEnergy, type EnergyUnit } from '../logic/unitConvert';
 
 type Props = {
@@ -32,14 +34,16 @@ type Props = {
 };
 
 export function RecipeViewerModal({ visible, plan, lang, energyUnit = 'kcal', onClose, onLogMeal }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
   if (!plan) return null;
 
   const title = recipeDisplayTitle(plan, rtl);
-  const closeLabel = rtl ? 'סגור' : 'Close';
-  const logLabel = rtl ? 'רשום כארוחה' : 'Log as meal';
-  const ingredientsLabel = rtl ? 'מרכיבים' : 'Ingredients';
-  const stepsLabel = rtl ? 'הכנה' : 'Steps';
+  const closeLabel = rtl ? '×¡×’×•×¨' : 'Close';
+  const logLabel = rtl ? '×¨×©×•× ×›××¨×•×—×”' : 'Log as meal';
+  const ingredientsLabel = rtl ? '×ž×¨×›×™×‘×™×' : 'Ingredients';
+  const stepsLabel = rtl ? '×”×›× ×”' : 'Steps';
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -75,7 +79,7 @@ export function RecipeViewerModal({ visible, plan, lang, energyUnit = 'kcal', on
                       {ingredientAmountDisplay(item, rtl)}
                     </Text>
                     <Text style={[styles.ingredientMacros, rtl && styles.rtl]}>
-                      {formatEnergy(item.kcal, energyUnit)} · P{item.protein_g} C{item.carb_g} F{item.fat_g} Fi{item.fiber_g ?? 0}
+                      {formatEnergy(item.kcal, energyUnit)} Â· P{item.protein_g} C{item.carb_g} F{item.fat_g} Fi{item.fiber_g ?? 0}
                     </Text>
                   </View>
                 </View>
@@ -107,8 +111,9 @@ export function RecipeViewerModal({ visible, plan, lang, energyUnit = 'kcal', on
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: WellnessColors.background },
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -118,22 +123,22 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E8ECF0',
   },
   headerRtl: { flexDirection: 'row-reverse' },
-  closeBtn: { fontSize: 16, color: WellnessColors.accentBlue, minWidth: 48 },
+  closeBtn: { fontSize: 16, color: c.accentBlue, minWidth: 48 },
   headerTitle: {
     flex: 1,
     fontSize: 17,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     textAlign: 'center',
   },
   headerSpacer: { minWidth: 48 },
   scroll: { padding: 20, paddingBottom: 32 },
   summary: { fontSize: 16, fontWeight: '600', color: '#2E7D32', marginBottom: 4 },
-  source: { fontSize: 13, color: WellnessColors.textSecondary, marginBottom: 16, fontStyle: 'italic' },
+  source: { fontSize: 13, color: c.textSecondary, marginBottom: 16, fontStyle: 'italic' },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
@@ -155,7 +160,7 @@ const styles = StyleSheet.create({
   ingredientName: {
     fontSize: 13,
     fontWeight: '600',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     lineHeight: 18,
   },
   ingredientMetricsRow: {
@@ -167,8 +172,8 @@ const styles = StyleSheet.create({
   },
   ingredientMetricsRowRtl: { flexDirection: 'row-reverse' },
   amount: { fontSize: 14, fontWeight: '700', color: '#2E7D32' },
-  ingredientMacros: { fontSize: 11, color: WellnessColors.textSecondary, flexShrink: 1 },
-  step: { fontSize: 14, color: WellnessColors.textPrimary, marginBottom: 8, lineHeight: 20 },
+  ingredientMacros: { fontSize: 11, color: c.textSecondary, flexShrink: 1 },
+  step: { fontSize: 14, color: c.textPrimary, marginBottom: 8, lineHeight: 20 },
   rtl: { textAlign: 'right', writingDirection: 'rtl' },
   footer: {
     paddingHorizontal: 20,
