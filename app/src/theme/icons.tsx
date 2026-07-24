@@ -19,6 +19,7 @@ import {
   Image as ImageIcon,
   ListChecks,
   MoreHorizontal,
+  RefreshCw,
   Salad,
   Settings,
   Share2,
@@ -58,6 +59,7 @@ export const ActionIcons = {
   overflow: MoreHorizontal,
   share: Share2,
   clear: Trash2,
+  refresh: RefreshCw,
 } as const;
 
 /** Mentor marks for UI chrome only — chat bodies/exports keep MENTOR_EMOJI. */

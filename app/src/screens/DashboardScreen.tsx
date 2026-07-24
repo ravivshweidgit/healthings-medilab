@@ -41,7 +41,7 @@ import { ClinicLinkStrip } from '../components/ClinicLinkStrip';
 import { ReportsStrip } from '../components/ReportsStrip';
 import { LocalBackupStrip } from '../components/LocalBackupStrip';
 import { DashboardCollapseHeader } from '../components/DashboardCollapseHeader';
-import { ActiveMentorIcons, StripIcons } from '../theme/icons';
+import { ActionIcons, ActiveMentorIcons, DashIcon, StripIcons } from '../theme/icons';
 import { RulesStrip } from '../components/RulesStrip';
 import { NutritionDirectivesStrip } from '../components/NutritionDirectivesStrip';
 import { LabResultsStrip } from '../components/LabResultsStrip';
@@ -1814,6 +1814,20 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             resizeMode="contain"
             accessibilityLabel="HEALTHINGS.AI"
           />
+          <Pressable
+            style={styles.headerRefreshBtn}
+            onPress={() => void handlePullRefresh()}
+            disabled={pullRefreshing}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={metabolicStripCopy.refreshMyData}
+          >
+            {pullRefreshing ? (
+              <ActivityIndicator size="small" color={WellnessColors.textSecondary} />
+            ) : (
+              <DashIcon icon={ActionIcons.refresh} size={20} color={WellnessColors.textSecondary} />
+            )}
+          </Pressable>
         </View>
 
         {demoNotice ? (
@@ -2755,6 +2769,18 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     width: '100%',
     alignSelf: 'stretch',
+    justifyContent: 'center',
+  },
+  // Compact top refresh affordance (audit F9) — reachable without scrolling to the
+  // bottom "Refresh my data" button; both call the same sync.
+  headerRefreshBtn: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   brandLogo: {
     width: '100%',
