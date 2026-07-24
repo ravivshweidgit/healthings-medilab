@@ -1,5 +1,9 @@
 /**
- * User-facing mentor titles — possessive ("My doctor") with gendered Hebrew/Arabic.
+ * User-facing mentor titles — "AI doctor / AI nutritionist / AI coach" with
+ * gendered nouns for Hebrew/Arabic/etc. "AI" (not "My") makes the non-clinical,
+ * non-human nature explicit; "AI" stays literal in every language per the
+ * always-English glossary (not IA/KI/ИИ). Placement follows each language's
+ * natural order (prefix for en/de/ru/tr, suffix for he/ar/es/fr/pt/it).
  */
 
 import type { Gender, MentorType, UserLanguage } from '../services/TargetService';
@@ -26,54 +30,54 @@ const POSSESSIVE: Record<
   Record<string, { male: string; female: string }>
 > = {
   doctor: {
-    en: { male: 'My doctor', female: 'My doctor' },
-    he: { male: 'הרופא שלי', female: 'הרופאה שלי' },
-    ar: { male: 'طبيبي', female: 'طبيبتي' },
-    es: { male: 'Mi médico', female: 'Mi médica' },
-    fr: { male: 'Mon médecin', female: 'Ma médecin' },
-    de: { male: 'Mein Arzt', female: 'Meine Ärztin' },
-    ru: { male: 'Мой врач', female: 'Моя врач' },
-    pt: { male: 'Meu médico', female: 'Minha médica' },
-    it: { male: 'Il mio medico', female: 'La mia medica' },
-    tr: { male: 'Doktorum', female: 'Doktorum' },
+    en: { male: 'AI doctor', female: 'AI doctor' },
+    he: { male: 'רופא AI', female: 'רופאה AI' },
+    ar: { male: 'طبيب AI', female: 'طبيبة AI' },
+    es: { male: 'Médico AI', female: 'Médica AI' },
+    fr: { male: 'Médecin AI', female: 'Médecin AI' },
+    de: { male: 'AI-Arzt', female: 'AI-Ärztin' },
+    ru: { male: 'AI-врач', female: 'AI-врач' },
+    pt: { male: 'Médico AI', female: 'Médica AI' },
+    it: { male: 'Medico AI', female: 'Medica AI' },
+    tr: { male: 'AI doktor', female: 'AI doktor' },
   },
   nutritionist: {
-    en: { male: 'My nutritionist', female: 'My nutritionist' },
-    he: { male: 'התזונאי שלי', female: 'התזונאית שלי' },
-    ar: { male: 'أخصائي التغذية', female: 'أخصائية التغذية' },
-    es: { male: 'Mi nutricionista', female: 'Mi nutricionista' },
-    fr: { male: 'Mon nutritionniste', female: 'Ma nutritionniste' },
-    de: { male: 'Mein Ernährungsberater', female: 'Meine Ernährungsberaterin' },
-    ru: { male: 'Мой диетолог', female: 'Моя диетолог' },
-    pt: { male: 'Meu nutricionista', female: 'Minha nutricionista' },
-    it: { male: 'Il mio nutrizionista', female: 'La mia nutrizionista' },
-    tr: { male: 'Diyetisyenim', female: 'Diyetisyenim' },
+    en: { male: 'AI nutritionist', female: 'AI nutritionist' },
+    he: { male: 'תזונאי AI', female: 'תזונאית AI' },
+    ar: { male: 'أخصائي تغذية AI', female: 'أخصائية تغذية AI' },
+    es: { male: 'Nutricionista AI', female: 'Nutricionista AI' },
+    fr: { male: 'Nutritionniste AI', female: 'Nutritionniste AI' },
+    de: { male: 'AI-Ernährungsberater', female: 'AI-Ernährungsberaterin' },
+    ru: { male: 'AI-диетолог', female: 'AI-диетолог' },
+    pt: { male: 'Nutricionista AI', female: 'Nutricionista AI' },
+    it: { male: 'Nutrizionista AI', female: 'Nutrizionista AI' },
+    tr: { male: 'AI diyetisyen', female: 'AI diyetisyen' },
   },
   coach: {
-    en: { male: 'My coach', female: 'My coach' },
-    he: { male: 'המאמן שלי', female: 'המאמנת שלי' },
-    ar: { male: 'مدربي', female: 'مدربتي' },
-    es: { male: 'Mi entrenador', female: 'Mi entrenadora' },
-    fr: { male: 'Mon coach', female: 'Ma coach' },
-    de: { male: 'Mein Coach', female: 'Meine Coach' },
-    ru: { male: 'Мой тренер', female: 'Моя тренер' },
-    pt: { male: 'Meu coach', female: 'Minha coach' },
-    it: { male: 'Il mio coach', female: 'La mia coach' },
-    tr: { male: 'Antrenörüm', female: 'Antrenörüm' },
+    en: { male: 'AI coach', female: 'AI coach' },
+    he: { male: 'מאמן AI', female: 'מאמנת AI' },
+    ar: { male: 'مدرب AI', female: 'مدربة AI' },
+    es: { male: 'Entrenador AI', female: 'Entrenadora AI' },
+    fr: { male: 'Coach AI', female: 'Coach AI' },
+    de: { male: 'AI-Coach', female: 'AI-Coach' },
+    ru: { male: 'AI-тренер', female: 'AI-тренер' },
+    pt: { male: 'Coach AI', female: 'Coach AI' },
+    it: { male: 'Coach AI', female: 'Coach AI' },
+    tr: { male: 'AI antrenör', female: 'AI antrenör' },
   },
 };
 
 const COLLECTIVE: Record<string, { male: string; female: string }> = {
-  en: { male: 'My mentors', female: 'My mentors' },
-  he: { male: 'המנטורים שלי', female: 'המנטוריות שלי' },
-  ar: { male: 'مرشدوني', female: 'مرشداتي' },
-  es: { male: 'Mis mentores', female: 'Mis mentoras' },
-  fr: { male: 'Mes mentors', female: 'Mes mentors' },
-  de: { male: 'Meine Mentoren', female: 'Meine Mentorinnen' },
-  ru: { male: 'Мои наставники', female: 'Мои наставницы' },
-  pt: { male: 'Meus mentores', female: 'Minhas mentoras' },
-  it: { male: 'I miei mentori', female: 'Le mie mentori' },
-  tr: { male: 'Mentorlarım', female: 'Mentorlarım' },
+  en: { male: 'AI mentors', female: 'AI mentors' },
+  he: { male: 'מנטורים AI', female: 'מנטוריות AI' },
+  ar: { male: 'مرشدون AI', female: 'مرشدات AI' },
+  es: { male: 'Mentores AI', female: 'Mentoras AI' },
+  fr: { male: 'Mentors AI', female: 'Mentors AI' },
+  de: { male: 'AI-Mentoren', female: 'AI-Mentorinnen' },
+  ru: { male: 'AI-наставники', female: 'AI-наставницы' },
+  pt: { male: 'Mentores AI', female: 'Mentoras AI' },
+  it: { male: 'Mentori AI', female: 'Mentori AI' },
+  tr: { male: 'AI mentorlar', female: 'AI mentorlar' },
 };
 
 const CARD_SUB: Record<MentorType, Record<string, string>> = {
@@ -169,12 +173,10 @@ export function formatActiveMentorsHeader(
   mentorGender?: Gender | null,
   userGender?: Gender | null,
 ): string {
+  // Chrome subtitle (collapsed Mentors strip) — labels only. Emoji now lives in
+  // Lucide chrome marks (prompt94); MENTOR_EMOJI stays for chat/export text.
   return mentors
-    .map((m) => {
-      const emoji = MENTOR_EMOJI[m];
-      const label = mentorPossessiveLabel(m, lang, mentorGender, userGender);
-      return `${emoji} ${label}`;
-    })
+    .map((m) => mentorPossessiveLabel(m, lang, mentorGender, userGender))
     .join(' · ');
 }
 

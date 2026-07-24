@@ -16,13 +16,13 @@ import {
   setMentorGender,
 } from '../services/TargetService';
 import {
-  MENTOR_EMOJI,
   formatActiveMentorsHeader,
   mentorCardSubtitle,
   mentorPossessiveLabel,
 } from '../logic/mentorLabels';
 import { usesMentorGenderUi } from '../i18n/quickStartCopy';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
+import { MentorIcon } from '../theme/icons';
 import { WellnessColors } from '../theme/wellness';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 
@@ -143,7 +143,6 @@ export function MentorStrip({
           <View style={styles.cardsRow}>
             {MENTOR_TYPES.map((type) => {
               const selected = mentors.includes(type);
-              const emoji = MENTOR_EMOJI[type];
               const label = mentorPossessiveLabel(type, lang, mentorGender, userGender);
               const sub = mentorCardSubtitle(type, lang);
               return (
@@ -151,8 +150,15 @@ export function MentorStrip({
                   key={type}
                   style={[styles.card, selected && styles.cardSelected]}
                   onPress={() => toggle(type)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={label}
                 >
-                  <Text style={styles.cardEmoji}>{emoji}</Text>
+                  <MentorIcon
+                    mentor={type}
+                    size={22}
+                    color={selected ? WellnessColors.accentGreen : WellnessColors.textSecondary}
+                  />
                   <Text style={[styles.cardLabel, selected && styles.cardLabelSelected]}>{label}</Text>
                   <Text style={[styles.cardSub, selected && styles.cardSubSelected]}>{sub}</Text>
                 </Pressable>
@@ -232,7 +238,6 @@ const styles = StyleSheet.create({
     borderColor: WellnessColors.accentGreen,
     backgroundColor: '#F0FAF0',
   },
-  cardEmoji: { fontSize: 22 },
   cardLabel: { fontSize: 12, fontWeight: '700', color: WellnessColors.textSecondary },
   cardLabelSelected: { color: WellnessColors.accentGreen },
   cardSub: { fontSize: 10, color: WellnessColors.textSecondary, textAlign: 'center' },

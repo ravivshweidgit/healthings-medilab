@@ -41,6 +41,7 @@ import { ClinicLinkStrip } from '../components/ClinicLinkStrip';
 import { ReportsStrip } from '../components/ReportsStrip';
 import { LocalBackupStrip } from '../components/LocalBackupStrip';
 import { DashboardCollapseHeader } from '../components/DashboardCollapseHeader';
+import { ActiveMentorIcons, StripIcons } from '../theme/icons';
 import { RulesStrip } from '../components/RulesStrip';
 import { NutritionDirectivesStrip } from '../components/NutritionDirectivesStrip';
 import { LabResultsStrip } from '../components/LabResultsStrip';
@@ -130,7 +131,6 @@ import {
 import { exportLocalBackup, importLocalBackup } from '../services/LocalBackupService';
 import { shareVisitReport, type VisitReportDayCount } from '../services/visitReportService';
 import { buildGlucoseMentorContext } from '../logic/mealGlucoseAnalysis';
-import { activeMentorEmojis } from '../logic/mentorLabels';
 import {
   getBirthdate, setBirthdate, computeAge, getCachedHeightCm,
   setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors,
@@ -1830,9 +1830,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               : aiChatOpenLabel(userLanguage.code)
           }
         >
-          <Text style={styles.nudgeStripIcons} numberOfLines={1}>
-            {activeMentorEmojis(mentors)}
-          </Text>
+          <ActiveMentorIcons mentors={mentors} size={20} style={styles.nudgeStripIcons} />
           <View style={styles.nudgeStripTextCol}>
             <Text
               style={[
@@ -2097,6 +2095,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   titleRtl={userLanguage.code === 'he' || userLanguage.code === 'ar'}
                   collapseLabel={metabolicHeader.a11yCollapse}
                   expandLabel={metabolicHeader.a11yExpand}
+                  icon={StripIcons.glucose}
                 />
                 {glucoseExpanded ? (
                   <MetabolicChart
@@ -2145,6 +2144,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               titleRtl={userLanguage.code === 'he' || userLanguage.code === 'ar'}
               collapseLabel={metabolicStripCopy.a11yCollapseTrend}
               expandLabel={metabolicStripCopy.a11yExpandTrend}
+              icon={StripIcons.trend}
             />
             {trendExpanded ? (
               <>
@@ -2220,6 +2220,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             collapseLabel={metabolicStripCopy.a11yCollapseProfileSettings}
             expandLabel={metabolicStripCopy.a11yExpandProfileSettings}
             subtitleNumberOfLines={2}
+            icon={StripIcons.profile}
           />
           {settingsCardExpanded ? (
           <>
@@ -3089,8 +3090,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   nudgeStripIcons: {
-    fontSize: 20,
-    letterSpacing: 1,
     flexShrink: 0,
   },
   nudgeStripTextCol: {

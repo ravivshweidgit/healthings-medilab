@@ -24,6 +24,7 @@ import {
 import type { Gender, UserLanguage } from '../services/TargetService';
 import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
+import { StripIcons } from '../theme/icons';
 import { LabReportModal } from './LabReportModal';
 import { LipidTrendChart } from './LipidTrendChart';
 
@@ -153,6 +154,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
         collapseLabel={copy.collapseA11y}
         expandLabel={copy.expandA11y}
         subtitleNumberOfLines={2}
+        icon={StripIcons.labs}
       />
 
       {expanded ? (

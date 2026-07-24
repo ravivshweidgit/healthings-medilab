@@ -24,6 +24,7 @@ import type { UserLanguage } from '../services/TargetService';
 import { getNutritionSessionsStripCopy } from '../i18n/nutritionSessionsStripCopy';
 import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
+import { StripIcons } from '../theme/icons';
 import { NutritionDirectiveReviewModal } from './NutritionDirectiveReviewModal';
 
 const EXPANDED_KEY = 'dash_nutrition_reports_expanded';
@@ -124,6 +125,7 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
         collapseLabel={copy.collapseA11y}
         expandLabel={copy.expandA11y}
         subtitleNumberOfLines={2}
+        icon={StripIcons.sessions}
       />
 
       {expanded ? (

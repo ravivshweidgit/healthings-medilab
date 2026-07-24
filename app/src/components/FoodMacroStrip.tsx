@@ -32,6 +32,7 @@ import {
 } from '../services/WaterPersistenceService';
 import { WellnessColors, cardShadow, dashCardGap } from '../theme/wellness';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
+import { StripIcons } from '../theme/icons';
 import type { DailyMacroTarget } from '../services/TargetService';
 import { getMacroTargetForDay, resolveFiberTarget_g, resolveNetCarbTarget_g } from '../services/TargetService';
 import { deriveNetCarb_g } from '../logic/macroFiberCoupling';
@@ -625,6 +626,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
         titleRtl={titleRtl}
         collapseLabel={`Collapse ${title}`}
         expandLabel={`Expand ${title}`}
+        icon={StripIcons.foodLog}
       />
 
       {expanded ? (

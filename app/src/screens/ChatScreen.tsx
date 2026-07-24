@@ -79,7 +79,8 @@ import { runAutoChecksAndPersist, refreshCoachReview, forceCoachReview } from '.
 import { exportMentorChat } from '../services/mentorChatExport';
 import { normalizeMentorChatText, buildMentorDisplaySegments, mentorBubbleColors, hasSeparateMentorVoices } from '../logic/mentorChatText';
 import type { MentorLines } from '../logic/mentorChatText';
-import { activeMentorEmojis, mentorPossessiveLabel, mentorsCollectiveLabel, MENTOR_EMOJI } from '../logic/mentorLabels';
+import { mentorPossessiveLabel, mentorsCollectiveLabel } from '../logic/mentorLabels';
+import { ActiveMentorIcons, MentorIcon } from '../theme/icons';
 import { getTodayMeals, getMealsForDay, buildMealsAiContext, foodLogDayKey } from '../services/FoodLogService';
 import { WellnessColors } from '../theme/wellness';
 import type { EnergyUnit } from '../logic/unitConvert';
@@ -389,9 +390,12 @@ function CoachMentorSection({
 
   return (
     <View style={styles.coachMentorSection}>
-      <Text style={[styles.coachMentorHeader, ui.rtl && styles.rtlText]}>
-        {`${MENTOR_EMOJI[mentor]} ${mentorPossessiveLabel(mentor, lang, mentorGender, userGender)}`}
-      </Text>
+      <View style={[styles.coachMentorHeaderRow, ui.rtl && styles.coachMentorHeaderRowRtl]}>
+        <MentorIcon mentor={mentor} size={16} color="#2E7D5A" />
+        <Text style={[styles.coachMentorHeader, ui.rtl && styles.rtlText]}>
+          {mentorPossessiveLabel(mentor, lang, mentorGender, userGender)}
+        </Text>
+      </View>
 
       {hasWins ? (
         <View style={styles.coachSubBlock}>
@@ -614,14 +618,21 @@ function MentorTabBar({
             onPress={() => onSelect(m)}
             disabled={tabs.length === 1}
           >
-            <Text
-              style={[styles.tabBtnText, selected && styles.tabBtnTextActive, rtl && styles.rtlText]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.75}
-            >
-              {`${MENTOR_EMOJI[m]} ${mentorPossessiveLabel(m, lang, mentorGender, userGender)}`}
-            </Text>
+            <View style={[styles.tabBtnInner, rtl && styles.tabBtnInnerRtl]}>
+              <MentorIcon
+                mentor={m}
+                size={15}
+                color={selected ? WellnessColors.textPrimary : WellnessColors.textSecondary}
+              />
+              <Text
+                style={[styles.tabBtnText, selected && styles.tabBtnTextActive, rtl && styles.rtlText]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
+                {mentorPossessiveLabel(m, lang, mentorGender, userGender)}
+              </Text>
+            </View>
           </Pressable>
         );
       })}
@@ -1548,9 +1559,12 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
         <Pressable onPress={onClose} style={styles.backBtn} hitSlop={8}>
           <Text style={styles.backBtnText}>←</Text>
         </Pressable>
-        <Text style={[styles.headerTitle, ui.rtl && styles.rtlText]} numberOfLines={1}>
-          {`${activeMentorEmojis(context.mentors)} ${ui.header}`}
-        </Text>
+        <View style={[styles.headerTitleRow, ui.rtl && styles.headerTitleRowRtl]}>
+          <ActiveMentorIcons mentors={context.mentors} size={16} />
+          <Text style={[styles.headerTitle, ui.rtl && styles.rtlText]} numberOfLines={1}>
+            {ui.header}
+          </Text>
+        </View>
         <View style={styles.backBtn} />
       </View>
 
@@ -1807,8 +1821,17 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 40 },
   backBtnText: { fontSize: 22, color: WellnessColors.accentBlue },
-  headerTitle: {
+  headerTitleRow: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minWidth: 0,
+  },
+  headerTitleRowRtl: { flexDirection: 'row-reverse' },
+  headerTitle: {
+    flexShrink: 1,
     textAlign: 'center',
     fontSize: 15,
     fontWeight: '700',
@@ -1888,6 +1911,12 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     gap: 6,
   },
+  coachMentorHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  coachMentorHeaderRowRtl: { flexDirection: 'row-reverse' },
   coachMentorHeader: {
     fontSize: 13,
     fontWeight: '800',
@@ -2007,10 +2036,19 @@ const styles = StyleSheet.create({
   tabBtnPinnedGap: {
     marginLeft: 8,
   },
+  tabBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    maxWidth: '100%',
+  },
+  tabBtnInnerRtl: { flexDirection: 'row-reverse' },
   tabBtnText: {
     fontSize: 13,
     fontWeight: '600',
     color: WellnessColors.textSecondary,
+    flexShrink: 1,
   },
   tabBtnTextActive: {
     color: WellnessColors.textPrimary,

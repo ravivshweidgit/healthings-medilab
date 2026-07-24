@@ -12,6 +12,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { WellnessColors } from '../theme/wellness';
+import { DashIcon, type LucideIcon } from '../theme/icons';
 
 type Props = {
   title: string;
@@ -27,6 +28,8 @@ type Props = {
   subtitleNumberOfLines?: number;
   /** Optional controls before the chevron (e.g. edit / reset). */
   trailing?: React.ReactNode;
+  /** Optional leading chrome icon (Lucide) — audit F7 / prompt94. */
+  icon?: LucideIcon;
 };
 
 export function DashboardCollapseHeader({
@@ -40,6 +43,7 @@ export function DashboardCollapseHeader({
   expandLabel,
   subtitleNumberOfLines = 1,
   trailing,
+  icon,
 }: Props) {
   const showSub = !expanded && subtitle != null && subtitle !== '';
 
@@ -51,6 +55,7 @@ export function DashboardCollapseHeader({
       accessibilityState={{ expanded }}
       accessibilityLabel={expanded ? collapseLabel : expandLabel}
     >
+      {icon ? <DashIcon icon={icon} /> : null}
       <View style={styles.headerText}>
         <Text style={[styles.title, titleRtl && styles.titleRtl]} numberOfLines={1}>
           {title}
