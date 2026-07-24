@@ -16,7 +16,7 @@ strips), language-policy + persistence-parity + ai-judgment rules.
 | Slice | What | Files |
 |-------|------|-------|
 | **1** | Central Lucide registry + leading icons on Food Log / Glucose / Trend / Profile / Labs / Sessions | `theme/icons.tsx` (new), `DashboardCollapseHeader` `icon` prop, strip + `DashboardScreen` wiring |
-| **2** | Mentor chrome → Lucide (`Stethoscope` / `Salad` / `Dumbbell`); collapsed Mentors subtitle labels-only; **AI doctor / AI nutritionist / AI coach** (not "My …") in all 10 langs — `MENTOR_EMOJI` kept for chat/export/Gemini | `icons.tsx` `MentorIcon`/`ActiveMentorIcons`, `MentorStrip`, `ChatScreen`, `DashboardScreen` AI entry, `mentorLabels.ts` |
+| **2** | Mentor chrome → Lucide (`Stethoscope` / `Salad` / `Dumbbell`); collapsed Mentors subtitle labels-only; **AI doctor / AI nutritionist / AI coach** (not "My …") in all 10 langs — `MENTOR_EMOJI` kept for chat/export/Gemini; selected cards + "Review after each meal" use blue (not semantic green); card titles/subs centered | `icons.tsx` `MentorIcon`/`ActiveMentorIcons`, `MentorStrip`, `ChatScreen`, `DashboardScreen` AI entry, `mentorLabels.ts` |
 
 ## Still backlog
 

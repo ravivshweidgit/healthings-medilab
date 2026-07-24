@@ -157,7 +157,7 @@ export function MentorStrip({
                   <MentorIcon
                     mentor={type}
                     size={22}
-                    color={selected ? WellnessColors.accentGreen : WellnessColors.textSecondary}
+                    color={selected ? WellnessColors.accentBlue : WellnessColors.textSecondary}
                   />
                   <Text style={[styles.cardLabel, selected && styles.cardLabelSelected]}>{label}</Text>
                   <Text style={[styles.cardSub, selected && styles.cardSubSelected]}>{sub}</Text>
@@ -195,7 +195,7 @@ export function MentorStrip({
               <Switch
                 value={freq.afterEachMeal}
                 onValueChange={(v) => updateFreq({ afterEachMeal: v })}
-                trackColor={{ false: WellnessColors.gridLine, true: WellnessColors.accentGreen }}
+                trackColor={{ false: WellnessColors.gridLine, true: WellnessColors.accentBlue }}
                 thumbColor={freq.afterEachMeal ? '#fff' : '#f4f3f4'}
               />
             </View>
@@ -229,19 +229,31 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 6,
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: WellnessColors.gridLine,
     gap: 4,
   },
   cardSelected: {
-    borderColor: WellnessColors.accentGreen,
-    backgroundColor: '#F0FAF0',
+    borderColor: WellnessColors.accentBlue,
+    backgroundColor: '#EAF4FB',
   },
-  cardLabel: { fontSize: 12, fontWeight: '700', color: WellnessColors.textSecondary },
-  cardLabelSelected: { color: WellnessColors.accentGreen },
-  cardSub: { fontSize: 10, color: WellnessColors.textSecondary, textAlign: 'center' },
-  cardSubSelected: { color: '#388E3C' },
+  cardLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: WellnessColors.textSecondary,
+    textAlign: 'center',
+    alignSelf: 'stretch',
+  },
+  cardLabelSelected: { color: WellnessColors.accentBlue },
+  cardSub: {
+    fontSize: 10,
+    color: WellnessColors.textSecondary,
+    textAlign: 'center',
+    alignSelf: 'stretch',
+  },
+  cardSubSelected: { color: '#1565A0' },
   hintText: { fontSize: 11, color: '#E53935', textAlign: 'center', marginTop: 8 },
 
   voiceSection: {
