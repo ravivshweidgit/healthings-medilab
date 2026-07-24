@@ -3,7 +3,7 @@
  * Palette: glass white / silver chrome / graphite — matches premium device photos.
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, Image, Platform, StyleSheet, Text, View } from 'react-native';
 import Svg, {
   Circle,
@@ -16,6 +16,8 @@ import Svg, {
   Stop,
   Text as SvgText,
 } from 'react-native-svg';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 
 const Soft = {
   glass: '#F4F2F0',
@@ -398,6 +400,8 @@ export function HybridWatchIllustration({
 
 /** CGM — red blood drop + green trend + bold grey label (reads instantly). */
 export function CgmIllustration({ size = 160 }: { size?: number }) {
+  const { colors, isDark } = useTheme();
+  const chrome = useMemo(() => makeChromeStyles(colors, isDark), [colors, isDark]);
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(
@@ -465,7 +469,7 @@ export function CgmIllustration({ size = 160 }: { size?: number }) {
           {/* Baseline ticks */}
           <Path d="M42 92 H78" stroke="#D4D8DC" strokeWidth="1.5" strokeLinecap="round" />
         </Svg>
-        <Animated.Text style={[styles.cgmLabel, { opacity: chartOp }]}>CGM</Animated.Text>
+        <Animated.Text style={[chrome.cgmLabel, { opacity: chartOp }]}>CGM</Animated.Text>
       </Animated.View>
     </View>
   );
@@ -496,6 +500,8 @@ export function GearHeroCard({
   /** Shorter hero for Yes/No decision steps so the choice stays above the fold. */
   compact?: boolean;
 }) {
+  const { colors, isDark } = useTheme();
+  const chrome = useMemo(() => makeChromeStyles(colors, isDark), [colors, isDark]);
   const label = caption ?? CAPTIONS[kind];
   const s = compact ? 124 : 168;
   return (
@@ -506,7 +512,7 @@ export function GearHeroCard({
     >
       <View
         style={[
-          styles.stage,
+          chrome.stage,
           compact && styles.stageCompact,
           kind === 'meals' && styles.stageMeals,
         ]}
@@ -518,7 +524,7 @@ export function GearHeroCard({
         {kind === 'link' ? <WithingsLinkIllustration size={168} /> : null}
         {kind === 'phone' ? <PhoneHealthBrandMark /> : null}
       </View>
-      <Text style={styles.caption}>{label}</Text>
+      <Text style={chrome.caption}>{label}</Text>
     </View>
   );
 }
@@ -837,25 +843,6 @@ const styles = StyleSheet.create({
     minHeight: 132,
     paddingVertical: 8,
   },
-  stage: {
-    width: '100%',
-    maxWidth: 280,
-    minHeight: 188,
-    borderRadius: 20,
-    backgroundColor: Soft.card,
-    borderWidth: 1,
-    borderColor: Soft.glow,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    overflow: 'hidden',
-    shadowColor: '#1A2B3C',
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
-  },
   stageMeals: {
     paddingVertical: 6,
     paddingHorizontal: 4,
@@ -865,23 +852,6 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  caption: {
-    marginTop: 12,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '500',
-    color: Soft.caption,
-    textAlign: 'center',
-    paddingHorizontal: 16,
-  },
-  cgmLabel: {
-    marginTop: 6,
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: 2.5,
-    color: '#6B7280',
-    textAlign: 'center',
   },
   badge: {
     width: 96,
@@ -1042,3 +1012,52 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E3A5F',
   },
 });
+
+/**
+ * Only the chrome *around* an illustration follows the theme — the device bodies above
+ * stay fixed on purpose. A white scale should still read as a white scale on dark (the
+ * Withings reference keeps product imagery light too), and the peer "account card"
+ * frames in the link diagram stay white, so `frameTitle` must keep its dark navy.
+ *
+ * Light branches reuse the original illustration hexes rather than the global palette
+ * (Soft.caption #5C6B7A is not textSecondary #5B6470), so light stays byte-identical.
+ */
+const makeChromeStyles = (c: ThemeColors, isDark: boolean) =>
+  StyleSheet.create({
+    stage: {
+      width: '100%',
+      maxWidth: 280,
+      minHeight: 188,
+      borderRadius: 20,
+      backgroundColor: isDark ? c.surface : Soft.card,
+      borderWidth: 1,
+      borderColor: isDark ? c.gridLine : Soft.glow,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 14,
+      overflow: 'hidden',
+      shadowColor: '#1A2B3C',
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 3,
+    },
+    caption: {
+      marginTop: 12,
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: '500',
+      color: isDark ? c.textSecondary : Soft.caption,
+      textAlign: 'center',
+      paddingHorizontal: 16,
+    },
+    cgmLabel: {
+      marginTop: 6,
+      fontSize: 22,
+      fontWeight: '800',
+      letterSpacing: 2.5,
+      color: isDark ? c.textSecondary : '#6B7280',
+      textAlign: 'center',
+    },
+  });
