@@ -1,8 +1,8 @@
 /**
- * Lab report import modal — PDF pick, AI parse, review, save; view saved reports.
+ * Lab report import modal â€” PDF pick, AI parse, review, save; view saved reports.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -30,7 +30,8 @@ import {
 import { applyAutoMacroRevision } from '../logic/macroAutoAdjust';
 import { getLabResultsStripCopy } from '../i18n/labResultsStripCopy';
 import type { UserLanguage } from '../services/TargetService';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 
 type Props = {
   visible: boolean;
@@ -41,11 +42,11 @@ type Props = {
   viewReport?: LabReport | null;
 };
 
-function flagColor(flag: LabResult['flag']): string {
+function flagColor(flag: LabResult['flag'], fallback: string): string {
   if (flag === 'high') return '#E65100';
   if (flag === 'low') return '#1565C0';
   if (flag === 'normal') return '#2E7D32';
-  return WellnessColors.textSecondary;
+  return fallback;
 }
 
 type LoadingPhase = 'parse' | 'save' | null;
@@ -56,6 +57,8 @@ function bottomInset(insetsBottom: number): number {
 }
 
 export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, viewReport }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const footerPadBottom = bottomInset(insets.bottom);
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>(null);
@@ -106,7 +109,7 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
       const msg = e instanceof Error ? e.message : 'Could not read PDF';
       setError(msg);
       if (autoPickPdf) {
-        Alert.alert(rtl ? 'שגיאה' : 'Error', msg);
+        Alert.alert(rtl ? '×©×’×™××”' : 'Error', msg);
         onClose();
       }
     } finally {
@@ -161,7 +164,7 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
     try {
       const saved = await saveParsedLabPanel(draft);
       onSaved(saved);
-      // Macro revision uses Gemini separately — run after modal closes so we don't re-show "reading PDF".
+      // Macro revision uses Gemini separately â€” run after modal closes so we don't re-show "reading PDF".
       void applyAutoMacroRevision({
         trigger: 'lab-import',
         triggerDetail: saved.collectedAt.slice(0, 10),
@@ -215,11 +218,11 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
           <TextInput style={styles.unitInput} value={r.unit} onChangeText={onUnit} />
         </View>
         {r.referenceText ? <Text style={styles.refText}>{r.referenceText}</Text> : null}
-        <Text style={[styles.flag, { color: flagColor(r.flag) }]}>{r.flag}</Text>
+        <Text style={[styles.flag, { color: flagColor(r.flag, colors.textSecondary) }]}>{r.flag}</Text>
       </View>
       {onDelete ? (
         <Pressable onPress={onDelete} hitSlop={8}>
-          <Text style={styles.deleteBtn}>🗑</Text>
+          <Text style={styles.deleteBtn}>ðŸ—‘</Text>
         </Pressable>
       ) : null}
     </View>
@@ -231,13 +234,13 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
         <View style={styles.header}>
           <Text style={styles.title}>{title}</Text>
           <Pressable onPress={onClose} hitSlop={12}>
-            <Text style={styles.closeBtn}>✕</Text>
+            <Text style={styles.closeBtn}>âœ•</Text>
           </Pressable>
         </View>
 
         {loading && (
           <View style={styles.loadingWrap}>
-            <ActivityIndicator color={WellnessColors.accentBlue} />
+            <ActivityIndicator color={colors.accentBlue} />
             <Text style={styles.loadingText}>{loadingLabel}</Text>
           </View>
         )}
@@ -245,11 +248,11 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
         {!loading && !draft && !editingReport && (
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyText}>
-              {rtl ? 'ייבאו תדפיס PDF מכללית און־ליין' : 'Import a Clalit online lab PDF'}
+              {rtl ? '×™×™×‘××• ×ª×“×¤×™×¡ PDF ×ž×›×œ×œ×™×ª ××•×ŸÖ¾×œ×™×™×Ÿ' : 'Import a Clalit online lab PDF'}
             </Text>
             {error && <Text style={styles.errorText}>{error}</Text>}
             <Pressable style={styles.primaryBtn} onPress={() => void pickAndParse()}>
-              <Text style={styles.primaryBtnText}>📄 {pickLabel}</Text>
+              <Text style={styles.primaryBtnText}>ðŸ“„ {pickLabel}</Text>
             </Pressable>
           </View>
         )}
@@ -257,8 +260,8 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
         {!loading && draft && (
           <>
             <Text style={styles.meta}>
-              {draft.panelType.toUpperCase()} · {draft.collectedAt.slice(0, 10)}
-              {draft.patientName ? ` · ${draft.patientName}` : ''}
+              {draft.panelType.toUpperCase()} Â· {draft.collectedAt.slice(0, 10)}
+              {draft.patientName ? ` Â· ${draft.patientName}` : ''}
             </Text>
             <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
               {draft.results.map((r, i) =>
@@ -274,7 +277,7 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
             {error && <Text style={styles.errorText}>{error}</Text>}
             <View style={[styles.footer, { paddingBottom: 16 + footerPadBottom }]}>
               <Pressable style={styles.primaryBtn} onPress={() => void handleSaveImport()}>
-                <Text style={styles.primaryBtnText}>✓ {saveLabel}</Text>
+                <Text style={styles.primaryBtnText}>âœ“ {saveLabel}</Text>
               </Pressable>
             </View>
           </>
@@ -284,8 +287,8 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
           <>
             <Text style={styles.meta}>
               {editingReport.collectedAt.slice(0, 10)}
-              {editingReport.patientName ? ` · ${editingReport.patientName}` : ''}
-              {' · '}
+              {editingReport.patientName ? ` Â· ${editingReport.patientName}` : ''}
+              {' Â· '}
               {editingReport.panels.map((p: LabPanel) => p.panelType).join(' + ')}
             </Text>
             <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
@@ -306,7 +309,7 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
             {error && <Text style={styles.errorText}>{error}</Text>}
             <View style={[styles.footer, { paddingBottom: 16 + footerPadBottom }]}>
               <Pressable style={styles.primaryBtn} onPress={() => void handleSaveView()}>
-                <Text style={styles.primaryBtnText}>✓ {saveLabel}</Text>
+                <Text style={styles.primaryBtnText}>âœ“ {saveLabel}</Text>
               </Pressable>
             </View>
           </>
@@ -316,8 +319,9 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: WellnessColors.background },
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -325,18 +329,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
-  title: { fontSize: 18, fontWeight: '700', color: WellnessColors.textPrimary },
-  closeBtn: { fontSize: 22, color: WellnessColors.textSecondary },
+  title: { fontSize: 18, fontWeight: '700', color: c.textPrimary },
+  closeBtn: { fontSize: 22, color: c.textSecondary },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingText: { fontSize: 14, color: WellnessColors.textSecondary },
+  loadingText: { fontSize: 14, color: c.textSecondary },
   emptyWrap: { flex: 1, padding: 24, justifyContent: 'center', gap: 16 },
-  emptyText: { fontSize: 15, color: WellnessColors.textSecondary, textAlign: 'center' },
-  meta: { fontSize: 12, color: WellnessColors.textSecondary, paddingHorizontal: 20, marginBottom: 8 },
+  emptyText: { fontSize: 15, color: c.textSecondary, textAlign: 'center' },
+  meta: { fontSize: 12, color: c.textSecondary, paddingHorizontal: 20, marginBottom: 8 },
   panelTitle: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginTop: 8,
     marginBottom: 4,
     paddingHorizontal: 4,
@@ -347,39 +351,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     borderBottomWidth: 1,
-    borderBottomColor: WellnessColors.gridLine,
+    borderBottomColor: c.gridLine,
     paddingVertical: 10,
     gap: 8,
   },
   rowMain: { flex: 1 },
-  code: { fontSize: 13, fontWeight: '700', color: WellnessColors.textPrimary },
+  code: { fontSize: 13, fontWeight: '700', color: c.textPrimary },
   valueRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
   valueInput: {
     minWidth: 72,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
     fontSize: 15,
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
   },
   unitInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
     fontSize: 13,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
-  refText: { fontSize: 11, color: WellnessColors.textSecondary, marginTop: 4, fontStyle: 'italic' },
+  refText: { fontSize: 11, color: c.textSecondary, marginTop: 4, fontStyle: 'italic' },
   flag: { fontSize: 11, marginTop: 2, textTransform: 'uppercase' },
   deleteBtn: { fontSize: 18, paddingTop: 4 },
-  footer: { padding: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: WellnessColors.gridLine },
+  footer: { padding: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: c.gridLine },
   primaryBtn: {
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

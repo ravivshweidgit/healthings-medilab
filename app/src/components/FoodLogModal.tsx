@@ -1,12 +1,12 @@
 /**
- * Food Log Modal — camera / text → Gemini AI → correction chat → save.
+ * Food Log Modal â€” camera / text â†’ Gemini AI â†’ correction chat â†’ save.
  * New meal: text or first photo auto-saves and stays open for Done review.
  * Photo add/remove merge on existing meals still uses approve preview.
  */
 
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -47,12 +47,14 @@ import {
 } from '../logic/mealIssueAnalysis';
 import { getMacroTarget, getUserRules, type UserLanguage } from '../services/TargetService';
 import { getNutritionDirectiveAiContext } from '../services/NutritionDirectiveService';
-import { WellnessColors, cardShadow } from '../theme/wellness';
+import { cardShadow } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import { ActionIcons, DashIcon } from '../theme/icons';
 import { formatEnergy, type EnergyUnit } from '../logic/unitConvert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type Screen = 'idle' | 'pickPast' | 'analyzing' | 'result' | 'saving';
 
@@ -73,14 +75,14 @@ type Props = {
   onSaved: (opts?: { close?: boolean }) => void | Promise<void>;
   initialTimestamp?: number;
   editEntry?: FoodEntry;
-  /** Pre-fill from recipe card (prompt40) — opens on result screen. */
+  /** Pre-fill from recipe card (prompt40) â€” opens on result screen. */
   prefillItems?: FoodItem[];
   prefillDescription?: string;
   lang?: UserLanguage | null;
   energyUnit?: EnergyUnit;
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function formatTime(ms: number, langCode?: string | null): string {
   return formatLocalizedTime(ms, langCode, { hour: '2-digit', minute: '2-digit' });
@@ -114,15 +116,15 @@ function mealSlotLabel(entry: FoodEntry, copy: ReturnType<typeof getFoodLogUiCop
   return copy.dinner;
 }
 
-/** First 1–2 item display names for past-meal picker rows. */
+/** First 1â€“2 item display names for past-meal picker rows. */
 function pastMealItemsPreview(entry: FoodEntry, max = 2): string {
   const names = (entry.items ?? [])
     .map((it) => (it.name_local ?? it.name)?.trim())
     .filter((n): n is string => !!n);
   if (names.length === 0) return '';
   const shown = names.slice(0, max);
-  const more = names.length > max ? '…' : '';
-  return `${shown.join(' · ')}${more}`;
+  const more = names.length > max ? 'â€¦' : '';
+  return `${shown.join(' Â· ')}${more}`;
 }
 
 function cloneFoodItems(src: FoodItem[]): FoodItem[] {
@@ -150,7 +152,7 @@ function confidenceColor(c: 'high' | 'medium' | 'low'): string {
 
 function macroSummary(items: FoodItem[], energyUnit: EnergyUnit = 'kcal'): string {
   const t = computeTotals(items);
-  return `${formatEnergy(t.totalKcal, energyUnit)} · P ${t.totalProtein_g.toFixed(0)}g · C ${t.totalCarb_g.toFixed(0)}g · F ${t.totalFat_g.toFixed(0)}g · Fi ${t.totalFiber_g.toFixed(0)}g`;
+  return `${formatEnergy(t.totalKcal, energyUnit)} Â· P ${t.totalProtein_g.toFixed(0)}g Â· C ${t.totalCarb_g.toFixed(0)}g Â· F ${t.totalFat_g.toFixed(0)}g Â· Fi ${t.totalFiber_g.toFixed(0)}g`;
 }
 
 function macroDelta(before: FoodItem[], after: FoodItem[], energyUnit: EnergyUnit = 'kcal'): string {
@@ -162,7 +164,7 @@ function macroDelta(before: FoodItem[], after: FoodItem[], energyUnit: EnergyUni
   const df = (a.totalFat_g - b.totalFat_g).toFixed(0);
   const dfi = (a.totalFiber_g - b.totalFiber_g).toFixed(0);
   const e = formatEnergy(dk, energyUnit);
-  return `${dk > 0 ? '+' : ''}${e} · P ${dp}g · C ${dc}g · F ${df}g · Fi ${dfi}g`;
+  return `${dk > 0 ? '+' : ''}${e} Â· P ${dp}g Â· C ${dc}g Â· F ${df}g Â· Fi ${dfi}g`;
 }
 
 function capMealTimestamp(ms: number): number {
@@ -215,7 +217,7 @@ function applyAnalysisResult(
   };
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function parseNum(raw: string): number {
   const n = Number(String(raw).replace(',', '.').trim());
@@ -243,6 +245,8 @@ function FoodItemsCard({
   onEditItem?: (index: number) => void;
   onDeleteItem?: (index: number) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   if (items.length === 0) {
     return (
       <View style={[styles.itemsCard, cardShadow]}>
@@ -267,7 +271,7 @@ function FoodItemsCard({
           >
             <View style={styles.itemTopRow}>
               <View style={styles.itemNameRow}>
-                {flagged ? <Text style={styles.itemWarningDot}>⚠</Text> : null}
+                {flagged ? <Text style={styles.itemWarningDot}>âš </Text> : null}
                 <Text
                   style={[styles.itemName, flagged && styles.itemNameFlagged]}
                 >
@@ -304,7 +308,7 @@ function FoodItemsCard({
             <View style={styles.itemMetricsRow}>
               <Text style={styles.itemKcal}>{formatEnergy(item.kcal, energyUnit)}</Text>
               <Text style={styles.itemMacros}>
-                P {item.protein_g}g · C {item.carb_g}g · F {item.fat_g}g · Fi {item.fiber_g ?? 0}g
+                P {item.protein_g}g Â· C {item.carb_g}g Â· F {item.fat_g}g Â· Fi {item.fiber_g ?? 0}g
               </Text>
             </View>
           </View>
@@ -317,7 +321,7 @@ function FoodItemsCard({
   );
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function FoodLogModal({
   visible,
@@ -330,6 +334,8 @@ export function FoodLogModal({
   lang,
   energyUnit = 'kcal',
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const ui = getFoodLogUiCopy(lang?.code);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
@@ -471,7 +477,7 @@ export function FoodLogModal({
       setScreen('result');
       setItems(editEntry.items);
       setMealTime(editEntry.timestamp);
-      setDescription('Editing saved meal — add a photo or use chat to correct');
+      setDescription('Editing saved meal â€” add a photo or use chat to correct');
       setEditingId(editEntry.id);
       setMealHistory(seedMealHistory(editEntry, lang));
       setPhotoSession(null);
@@ -586,7 +592,7 @@ export function FoodLogModal({
   );
 
   /**
-   * New meal (text or first photo): analyze → save when clean, stay open to review time/items.
+   * New meal (text or first photo): analyze â†’ save when clean, stay open to review time/items.
    * Photo +/- merge on existing items / edits stay multi-step.
    */
   const tryAutoSaveNewMeal = useCallback(
@@ -621,7 +627,7 @@ export function FoodLogModal({
     [editingId, mealTime, recomputeMealIssues, persistMealItems],
   );
 
-  // Recipe "Log meal" — same one-tap save when clean.
+  // Recipe "Log meal" â€” same one-tap save when clean.
   React.useEffect(() => {
     if (!visible || editEntry) return;
     if (!prefillItems || prefillItems.length === 0) return;
@@ -647,7 +653,7 @@ export function FoodLogModal({
         if (cancelled) return;
         setItems((prev) => syncFoodItemRuleFlags(prev, geminiIssues));
       } catch {
-        // Offline — keep items; macro checks still run.
+        // Offline â€” keep items; macro checks still run.
       }
     })();
 
@@ -719,7 +725,7 @@ export function FoodLogModal({
         setSuggestion(result.suggestion);
         setMealHistory(updatedHistory);
 
-        // First parse (text): describe + send → auto-save when clean.
+        // First parse (text): describe + send â†’ auto-save when clean.
         if (hist.length === 0 && !editingId && result.items.length > 0) {
           const saved = await tryAutoSaveNewMeal(result.items, {
             fromPhoto: false,
@@ -766,9 +772,9 @@ export function FoodLogModal({
         const isFirstPhotoNewMeal =
           hist.length === 0 && !editingId && items.length === 0 && result.items.length > 0;
 
-        // First photo on a new meal: same as text — auto-save, stay open, Done (no Use/Approve/Save).
-        // Do NOT setItems for edit / add-photo paths — photo lives in photoSession until
-        // "+ Add to meal" / "Use as meal" → Approve (prompt20). Overwriting items wiped the meal.
+        // First photo on a new meal: same as text â€” auto-save, stay open, Done (no Use/Approve/Save).
+        // Do NOT setItems for edit / add-photo paths â€” photo lives in photoSession until
+        // "+ Add to meal" / "Use as meal" â†’ Approve (prompt20). Overwriting items wiped the meal.
         if (isFirstPhotoNewMeal) {
           const saved = await tryAutoSaveNewMeal(result.items, {
             fromPhoto: true,
@@ -1049,7 +1055,7 @@ export function FoodLogModal({
   const handleSaveAnyway = useCallback(async () => {
     if (items.length === 0) {
       setShowIssueModal(false);
-      setError('Nothing to save — meal items are missing. Edit or re-analyze, then save.');
+      setError('Nothing to save â€” meal items are missing. Edit or re-analyze, then save.');
       setScreen('result');
       return;
     }
@@ -1070,15 +1076,15 @@ export function FoodLogModal({
 
   const showMealSection = items.length > 0 || editingId != null;
   const describePlaceholder = rtl
-    ? 'למשל "שייק חלבון" או "הוסף את השייק מאתמול בערב"'
+    ? '×œ×ž×©×œ "×©×™×™×§ ×—×œ×‘×•×Ÿ" ××• "×”×•×¡×£ ××ª ×”×©×™×™×§ ×ž××ª×ž×•×œ ×‘×¢×¨×‘"'
     : 'e.g. "protein shake" or "add last evening\'s shake"';
   const chatPlaceholder = photoSession
     ? rtl
-      ? 'תיקון מהתמונה: "חצי פיתה", "הוסף קפה"…'
-      : 'Correct photo list: "only half the pita", "add coffee"…'
+      ? '×ª×™×§×•×Ÿ ×ž×”×ª×ž×•× ×”: "×—×¦×™ ×¤×™×ª×”", "×”×•×¡×£ ×§×¤×”"â€¦'
+      : 'Correct photo list: "only half the pita", "add coffee"â€¦'
     : rtl
-      ? 'תיקון או מהעבר: "אותה ארוחת עוף", "השייק הרגיל שלי"…'
-      : 'Correct or from history: "same chicken meal", "my usual shake"…';
+      ? '×ª×™×§×•×Ÿ ××• ×ž×”×¢×‘×¨: "××•×ª×” ××¨×•×—×ª ×¢×•×£", "×”×©×™×™×§ ×”×¨×’×™×œ ×©×œ×™"â€¦'
+      : 'Correct or from history: "same chicken meal", "my usual shake"â€¦';
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
@@ -1098,7 +1104,7 @@ export function FoodLogModal({
               hitSlop={12}
               disabled={screen === 'saving'}
             >
-              <Text style={styles.closeBtnText}>{screen === 'pickPast' ? '←' : '✕'}</Text>
+              <Text style={styles.closeBtnText}>{screen === 'pickPast' ? 'â†' : 'âœ•'}</Text>
             </Pressable>
           </View>
 
@@ -1122,7 +1128,7 @@ export function FoodLogModal({
                   <TextInput
                     style={styles.describeInput}
                     placeholder={describePlaceholder}
-                    placeholderTextColor={WellnessColors.textSecondary}
+                    placeholderTextColor={colors.textSecondary}
                     value={textPrompt}
                     onChangeText={setTextPrompt}
                     onSubmitEditing={handleTextSubmit}
@@ -1134,7 +1140,7 @@ export function FoodLogModal({
                     onPress={handleTextSubmit}
                     disabled={!textPrompt.trim()}
                   >
-                    <Text style={styles.sendBtnText}>→</Text>
+                    <Text style={styles.sendBtnText}>â†’</Text>
                   </Pressable>
                 </View>
 
@@ -1160,7 +1166,7 @@ export function FoodLogModal({
                     hitSlop={8}
                     accessibilityLabel="Previous day"
                   >
-                    <Text style={styles.browseDayBtnText}>‹</Text>
+                    <Text style={styles.browseDayBtnText}>â€¹</Text>
                   </Pressable>
                   <Text style={styles.browseDayLabel}>
                     {formatBrowseDayLabel(browseDayMs, lang?.code)}
@@ -1176,12 +1182,12 @@ export function FoodLogModal({
                     hitSlop={8}
                     accessibilityLabel="Next day"
                   >
-                    <Text style={styles.browseDayBtnText}>›</Text>
+                    <Text style={styles.browseDayBtnText}>â€º</Text>
                   </Pressable>
                 </View>
 
                 {pastDayLoading ? (
-                  <ActivityIndicator color={WellnessColors.accentBlue} style={{ marginTop: 24 }} />
+                  <ActivityIndicator color={colors.accentBlue} style={{ marginTop: 24 }} />
                 ) : pastDayMeals.length === 0 ? (
                   <Text style={[styles.emptyPastText, rtl && styles.textRtl]}>{ui.noMealsThatDay}</Text>
                 ) : (
@@ -1236,8 +1242,8 @@ export function FoodLogModal({
                 {analyzingPhotoUri ? (
                   <Image source={{ uri: analyzingPhotoUri }} style={styles.photoThumb} resizeMode="cover" />
                 ) : null}
-                <ActivityIndicator color={WellnessColors.accentBlue} size="large" style={{ marginTop: 24 }} />
-                <Text style={styles.analyzingLabel}>Analyzing…</Text>
+                <ActivityIndicator color={colors.accentBlue} size="large" style={{ marginTop: 24 }} />
+                <Text style={styles.analyzingLabel}>Analyzingâ€¦</Text>
               </View>
             )}
 
@@ -1246,7 +1252,7 @@ export function FoodLogModal({
                 {autoSavedBanner ? (
                   <View style={styles.autoSavedBanner}>
                     <Text style={styles.autoSavedBannerText}>
-                      Saved — check time and items, then tap Done. Use chat to correct if needed.
+                      Saved â€” check time and items, then tap Done. Use chat to correct if needed.
                     </Text>
                   </View>
                 ) : null}
@@ -1277,7 +1283,7 @@ export function FoodLogModal({
                         <Text style={styles.cancelPreviewBtnText}>Cancel</Text>
                       </Pressable>
                       <Pressable style={styles.approveBtn} onPress={handleApproveMerge} disabled={screen === 'saving'}>
-                        <Text style={styles.approveBtnText}>✓ Approve update</Text>
+                        <Text style={styles.approveBtnText}>âœ“ Approve update</Text>
                       </Pressable>
                     </View>
                   </View>
@@ -1317,10 +1323,10 @@ export function FoodLogModal({
                     >
                       <Text style={[styles.confidenceText, { color: confidenceColor(photoSession.confidence) }]}>
                         {photoSession.confidence === 'high'
-                          ? '✓ High confidence'
+                          ? 'âœ“ High confidence'
                           : photoSession.confidence === 'medium'
-                            ? '⚠ Medium confidence'
-                            : '⚠ Low confidence'}
+                            ? 'âš  Medium confidence'
+                            : 'âš  Low confidence'}
                       </Text>
                     </View>
                     {photoSession.description ? (
@@ -1329,17 +1335,17 @@ export function FoodLogModal({
                     <FoodItemsCard items={photoSession.items} title="From photo" energyUnit={energyUnit} />
                     {photoSession.suggestion ? (
                       <View style={styles.suggestionBox}>
-                        <Text style={styles.suggestionText}>💡 {photoSession.suggestion}</Text>
+                        <Text style={styles.suggestionText}>ðŸ’¡ {photoSession.suggestion}</Text>
                       </View>
                     ) : null}
 
                     <View style={styles.photoRow}>
                       <Pressable style={[styles.afterPhotoBtn, styles.afterPhotoBtnRow]} onPress={() => handleAddPhoto('camera')}>
-                        <DashIcon icon={ActionIcons.camera} size={15} color={WellnessColors.textPrimary} />
+                        <DashIcon icon={ActionIcons.camera} size={15} color={colors.textPrimary} />
                         <Text style={styles.afterPhotoBtnText}>New photo</Text>
                       </Pressable>
                       <Pressable style={[styles.afterPhotoBtn, styles.afterPhotoBtnRow]} onPress={() => handleAddPhoto('gallery')}>
-                        <DashIcon icon={ActionIcons.gallery} size={15} color={WellnessColors.textPrimary} />
+                        <DashIcon icon={ActionIcons.gallery} size={15} color={colors.textPrimary} />
                         <Text style={styles.afterPhotoBtnText}>Gallery</Text>
                       </Pressable>
                     </View>
@@ -1356,7 +1362,7 @@ export function FoodLogModal({
                               <Text style={styles.addBtnText}>+ Add to meal</Text>
                             </Pressable>
                             <Pressable style={styles.removeBtn} onPress={() => handleStartMerge('remove')}>
-                              <Text style={styles.removeBtnText}>− Remove from meal</Text>
+                              <Text style={styles.removeBtnText}>âˆ’ Remove from meal</Text>
                             </Pressable>
                           </>
                         )}
@@ -1381,15 +1387,15 @@ export function FoodLogModal({
                     >
                       <Text style={[styles.confidenceText, { color: confidenceColor(confidence) }]}>
                         {confidence === 'high'
-                          ? '✓ High confidence'
+                          ? 'âœ“ High confidence'
                           : confidence === 'medium'
-                            ? '⚠ Medium confidence'
-                            : '⚠ Low confidence'}
+                            ? 'âš  Medium confidence'
+                            : 'âš  Low confidence'}
                       </Text>
                     </View>
                     {suggestion ? (
                       <View style={styles.suggestionBox}>
-                        <Text style={styles.suggestionText}>💡 {suggestion}</Text>
+                        <Text style={styles.suggestionText}>ðŸ’¡ {suggestion}</Text>
                       </View>
                     ) : null}
                   </>
@@ -1402,11 +1408,11 @@ export function FoodLogModal({
                         <Text style={styles.addPhotoLabel}>Update with a photo:</Text>
                         <View style={styles.photoRow}>
                           <Pressable style={[styles.afterPhotoBtn, styles.afterPhotoBtnRow]} onPress={() => handleAddPhoto('camera')}>
-                            <DashIcon icon={ActionIcons.camera} size={15} color={WellnessColors.textPrimary} />
+                            <DashIcon icon={ActionIcons.camera} size={15} color={colors.textPrimary} />
                             <Text style={styles.afterPhotoBtnText}>Camera</Text>
                           </Pressable>
                           <Pressable style={[styles.afterPhotoBtn, styles.afterPhotoBtnRow]} onPress={() => handleAddPhoto('gallery')}>
-                            <DashIcon icon={ActionIcons.gallery} size={15} color={WellnessColors.textPrimary} />
+                            <DashIcon icon={ActionIcons.gallery} size={15} color={colors.textPrimary} />
                             <Text style={styles.afterPhotoBtnText}>Gallery</Text>
                           </Pressable>
                         </View>
@@ -1418,7 +1424,7 @@ export function FoodLogModal({
                         ref={chatInputRef}
                         style={styles.chatInput}
                         placeholder={chatPlaceholder}
-                        placeholderTextColor={WellnessColors.textSecondary}
+                        placeholderTextColor={colors.textSecondary}
                         value={chatText}
                         onChangeText={setChatText}
                         onSubmitEditing={handleCorrection}
@@ -1430,14 +1436,14 @@ export function FoodLogModal({
                         onPress={handleCorrection}
                         disabled={!chatText.trim() || screen !== 'result'}
                       >
-                        <Text style={styles.sendBtnText}>→</Text>
+                        <Text style={styles.sendBtnText}>â†’</Text>
                       </Pressable>
                     </View>
                   </>
                 ) : null}
 
                 <Pressable style={styles.timeRow} onPress={openMealDateTimePicker}>
-                  <Text style={styles.timeLabel}>🕐 Date & time:</Text>
+                  <Text style={styles.timeLabel}>ðŸ• Date & time:</Text>
                   <Text style={styles.timeValue}>{formatMealDateTime(mealTime, lang?.code)}</Text>
                   <Text style={styles.timeEdit}>Edit</Text>
                 </Pressable>
@@ -1469,7 +1475,7 @@ export function FoodLogModal({
                   accessibilityRole="button"
                   accessibilityLabel={ui.deleteMeal}
                 >
-                  <DashIcon icon={ActionIcons.clear} size={16} color={WellnessColors.accentRed} />
+                  <DashIcon icon={ActionIcons.clear} size={16} color={colors.accentRed} />
                   <Text style={styles.deleteBtnText} numberOfLines={1}>{ui.deleteItem}</Text>
                 </Pressable>
               ) : (
@@ -1538,8 +1544,8 @@ export function FoodLogModal({
           {screen === 'saving' ? (
             <View style={styles.savingOverlay} pointerEvents="auto">
               <View style={styles.savingCard}>
-                <ActivityIndicator color={WellnessColors.accentBlue} size="large" />
-                <Text style={styles.savingTitle}>Saving meal…</Text>
+                <ActivityIndicator color={colors.accentBlue} size="large" />
+                <Text style={styles.savingTitle}>Saving mealâ€¦</Text>
                 <Text style={styles.savingSub}>Updating your food log</Text>
               </View>
             </View>
@@ -1640,12 +1646,13 @@ export function FoodLogModal({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   kav: { flex: 1 },
   autoSavedBanner: {
-    backgroundColor: WellnessColors.iconTintGreen,
+    backgroundColor: c.iconTintGreen,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -1654,12 +1661,12 @@ const styles = StyleSheet.create({
   autoSavedBannerText: {
     fontSize: 13,
     lineHeight: 18,
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     fontWeight: '600',
   },
   container: {
     flex: 1,
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
   },
   header: {
     flexDirection: 'row',
@@ -1669,17 +1676,17 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: WellnessColors.gridLine,
-    backgroundColor: WellnessColors.surface,
+    borderBottomColor: c.gridLine,
+    backgroundColor: c.surface,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
   },
   closeBtn: { padding: 4 },
   closeBtnDisabled: { opacity: 0.35 },
-  closeBtnText: { fontSize: 18, color: WellnessColors.textSecondary },
+  closeBtnText: { fontSize: 18, color: c.textSecondary },
   scroll: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 40 },
 
@@ -1693,7 +1700,7 @@ const styles = StyleSheet.create({
   },
   savingCard: {
     alignItems: 'center',
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 18,
     paddingVertical: 28,
     paddingHorizontal: 32,
@@ -1705,35 +1712,35 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 16,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
   },
   savingSub: {
     fontSize: 13,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
 
   idleWrap: { alignItems: 'center', paddingTop: 16 },
   photoRow: { flexDirection: 'row', width: '100%', gap: 12 },
   cameraBtn: {
     flex: 1,
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
     borderRadius: 16,
     paddingVertical: 20,
     alignItems: 'center',
     gap: 8,
     ...cardShadow,
   },
-  // On-brand navy (was off-brand purple #7B1FA2) — same blue family as the camera
+  // On-brand navy (was off-brand purple #7B1FA2) â€” same blue family as the camera
   // tile, distinguished by icon rather than a foreign hue.
   galleryBtn: { backgroundColor: '#1F3D5C' },
   cameraBtnIcon: { fontSize: 36 },
   cameraBtnLabel: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  orDivider: { color: WellnessColors.textSecondary, fontSize: 13, marginVertical: 20 },
+  orDivider: { color: c.textSecondary, fontSize: 13, marginVertical: 20 },
   fromPastBtn: {
     alignSelf: 'stretch',
     borderWidth: 1.5,
-    borderColor: WellnessColors.accentBlue,
-    backgroundColor: WellnessColors.accentBlue + '12',
+    borderColor: c.accentBlue,
+    backgroundColor: c.accentBlue + '12',
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -1742,7 +1749,7 @@ const styles = StyleSheet.create({
   fromPastBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
   },
   pickPastWrap: { gap: 14, paddingTop: 4 },
   browseDayNav: {
@@ -1757,15 +1764,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
   },
   browseDayBtnDisabled: { opacity: 0.35 },
   browseDayBtnText: {
     fontSize: 22,
     fontWeight: '600',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     lineHeight: 26,
   },
   browseDayLabel: {
@@ -1773,21 +1780,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 15,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     paddingHorizontal: 8,
   },
   emptyPastText: {
     marginTop: 20,
     fontSize: 14,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
   },
   pastMealList: { gap: 10 },
   pastMealRow: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 8,
@@ -1798,28 +1805,28 @@ const styles = StyleSheet.create({
   pastMealTime: {
     fontSize: 12,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   pastMealLabel: {
     fontSize: 15,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
   },
   pastMealItems: {
     fontSize: 13,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     lineHeight: 18,
     marginTop: 2,
   },
   pastMealKcal: {
     fontSize: 13,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginTop: 2,
   },
   pastMealCta: {
     fontSize: 13,
     fontWeight: '700',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
   },
   pastBackBtn: {
     alignSelf: 'center',
@@ -1830,25 +1837,25 @@ const styles = StyleSheet.create({
   pastBackBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   textInputRow: { flexDirection: 'row', width: '100%', gap: 8 },
   describeInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,
-    backgroundColor: WellnessColors.surface,
-    color: WellnessColors.textPrimary,
+    backgroundColor: c.surface,
+    color: c.textPrimary,
   },
   sendBtn: {
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1857,10 +1864,10 @@ const styles = StyleSheet.create({
 
   analyzingWrap: { alignItems: 'center', paddingTop: 24 },
   photoThumb: { width: '100%', height: 200, borderRadius: 16 },
-  analyzingLabel: { marginTop: 16, color: WellnessColors.textSecondary, fontSize: 14 },
+  analyzingLabel: { marginTop: 16, color: c.textSecondary, fontSize: 14 },
 
   resultWrap: { gap: 12 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: WellnessColors.textPrimary },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: c.textPrimary },
   mealSection: { gap: 8 },
   photoSection: { gap: 8, marginTop: 4 },
   photoThumbSmall: { width: 88, height: 88, borderRadius: 12 },
@@ -1872,23 +1879,23 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   confidenceText: { fontSize: 12, fontWeight: '600' },
-  descriptionText: { color: WellnessColors.textSecondary, fontSize: 13, lineHeight: 18 },
+  descriptionText: { color: c.textSecondary, fontSize: 13, lineHeight: 18 },
   itemsCard: {
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 16,
     overflow: 'hidden',
   },
   itemsCardTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     paddingHorizontal: 16,
     paddingTop: 10,
   },
   emptyItemsText: {
     padding: 16,
     fontSize: 13,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     fontStyle: 'italic',
   },
   itemRow: {
@@ -1898,7 +1905,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 4,
   },
-  itemRowBorder: { borderTopWidth: 1, borderTopColor: WellnessColors.gridLine },
+  itemRowBorder: { borderTopWidth: 1, borderTopColor: c.gridLine },
   itemRowFlagged: {
     borderLeftWidth: 4,
     borderLeftColor: '#C62828',
@@ -1918,7 +1925,7 @@ const styles = StyleSheet.create({
     flexBasis: 0,
     fontSize: 12,
     fontWeight: '600',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     lineHeight: 17,
   },
   itemNameFlagged: { color: '#B71C1C' },
@@ -1933,29 +1940,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: WellnessColors.accentBlue,
-    backgroundColor: WellnessColors.accentBlue + '12',
+    borderColor: c.accentBlue,
+    backgroundColor: c.accentBlue + '12',
   },
   itemEditBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
   },
   itemDeleteBtn: {
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: WellnessColors.accentRed + '80',
+    borderColor: c.accentRed + '80',
     backgroundColor: '#FFEBEE',
   },
   itemDeleteBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: WellnessColors.accentRed,
+    color: c.accentRed,
   },
   itemRuleMessage: { fontSize: 11, color: '#C62828', lineHeight: 15 },
-  itemGrams: { fontSize: 12, color: WellnessColors.textSecondary },
+  itemGrams: { fontSize: 12, color: c.textSecondary },
   itemMetricsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1963,14 +1970,14 @@ const styles = StyleSheet.create({
     columnGap: 10,
     rowGap: 2,
   },
-  itemKcal: { fontSize: 14, fontWeight: '700', color: WellnessColors.textPrimary },
-  itemMacros: { fontSize: 11, color: WellnessColors.textSecondary, flexShrink: 1 },
+  itemKcal: { fontSize: 14, fontWeight: '700', color: c.textPrimary },
+  itemMacros: { fontSize: 11, color: c.textSecondary, flexShrink: 1 },
   totalRow: {
     borderTopWidth: 2,
-    borderTopColor: WellnessColors.accentBlue + '40',
-    backgroundColor: WellnessColors.iconTintBlue,
+    borderTopColor: c.accentBlue + '40',
+    backgroundColor: c.iconTintBlue,
   },
-  totalValue: { fontSize: 13, fontWeight: '700', color: WellnessColors.accentBlue },
+  totalValue: { fontSize: 13, fontWeight: '700', color: c.accentBlue },
   textRtl: { textAlign: 'right', writingDirection: 'rtl' },
   editItemBackdrop: {
     flex: 1,
@@ -1978,7 +1985,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   editItemCard: {
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
     height: '90%',
@@ -1987,7 +1994,7 @@ const styles = StyleSheet.create({
   editItemTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     marginBottom: 12,
   },
   editItemForm: { gap: 12, paddingBottom: 16 },
@@ -1995,17 +2002,17 @@ const styles = StyleSheet.create({
   editFieldLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   editFieldInput: {
     borderWidth: 1.5,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    color: WellnessColors.textPrimary,
-    backgroundColor: WellnessColors.surface,
+    color: c.textPrimary,
+    backgroundColor: c.surface,
   },
   editMacroRow: {
     flexDirection: 'row',
@@ -2033,7 +2040,7 @@ const styles = StyleSheet.create({
   editItemActions: { flexDirection: 'row', gap: 10, marginTop: 8 },
   editItemSaveBtn: {
     flex: 1,
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
@@ -2044,14 +2051,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     alignItems: 'center',
   },
-  editItemCancelText: { fontSize: 14, color: WellnessColors.textSecondary },
+  editItemCancelText: { fontSize: 14, color: c.textSecondary },
   suggestionBox: {
-    backgroundColor: WellnessColors.noticeSoftBg,
+    backgroundColor: c.noticeSoftBg,
     borderWidth: 1,
-    borderColor: WellnessColors.noticeSoftBorder,
+    borderColor: c.noticeSoftBorder,
     borderRadius: 12,
     padding: 12,
   },
@@ -2060,7 +2067,7 @@ const styles = StyleSheet.create({
   intentRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
   useMealBtn: {
     flex: 1,
-    backgroundColor: WellnessColors.accentGreen,
+    backgroundColor: c.accentGreen,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
@@ -2068,7 +2075,7 @@ const styles = StyleSheet.create({
   useMealBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   addBtn: {
     flex: 1,
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
@@ -2077,81 +2084,81 @@ const styles = StyleSheet.create({
   removeBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: WellnessColors.accentRed + '60',
+    borderColor: c.accentRed + '60',
     backgroundColor: '#FFEBEE',
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
   },
-  removeBtnText: { color: WellnessColors.accentRed, fontSize: 14, fontWeight: '700' },
-  removeHint: { fontSize: 11, color: WellnessColors.textSecondary, fontStyle: 'italic' },
+  removeBtnText: { color: c.accentRed, fontSize: 14, fontWeight: '700' },
+  removeHint: { fontSize: 11, color: c.textSecondary, fontStyle: 'italic' },
 
   previewSection: { gap: 10 },
-  previewModeLabel: { fontSize: 13, color: WellnessColors.textSecondary },
+  previewModeLabel: { fontSize: 13, color: c.textSecondary },
   previewColumns: { gap: 16 },
   previewCol: { gap: 6 },
-  previewColTitle: { fontSize: 12, fontWeight: '600', color: WellnessColors.textSecondary },
+  previewColTitle: { fontSize: 12, fontWeight: '600', color: c.textSecondary },
   deltaBox: {
-    backgroundColor: WellnessColors.iconTintBlue,
+    backgroundColor: c.iconTintBlue,
     borderRadius: 12,
     padding: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  deltaLabel: { fontSize: 13, fontWeight: '600', color: WellnessColors.textPrimary },
-  deltaValue: { fontSize: 13, fontWeight: '700', color: WellnessColors.accentBlue },
+  deltaLabel: { fontSize: 13, fontWeight: '600', color: c.textPrimary },
+  deltaValue: { fontSize: 13, fontWeight: '700', color: c.accentBlue },
   previewActions: { flexDirection: 'row', gap: 10 },
   cancelPreviewBtn: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     alignItems: 'center',
   },
-  cancelPreviewBtnText: { fontSize: 14, fontWeight: '600', color: WellnessColors.textSecondary },
+  cancelPreviewBtnText: { fontSize: 14, fontWeight: '600', color: c.textSecondary },
   approveBtn: {
     flex: 2,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: WellnessColors.accentGreen,
+    backgroundColor: c.accentGreen,
     alignItems: 'center',
   },
   approveBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 
   addPhotoRow: { gap: 6 },
-  addPhotoLabel: { fontSize: 12, color: WellnessColors.textSecondary },
+  addPhotoLabel: { fontSize: 12, color: c.textSecondary },
   afterPhotoBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 8,
     paddingVertical: 7,
     alignItems: 'center',
-    backgroundColor: WellnessColors.progressTrack,
+    backgroundColor: c.progressTrack,
   },
   afterPhotoBtnRow: { flexDirection: 'row', gap: 6 },
-  afterPhotoBtnText: { fontSize: 13, fontWeight: '600', color: WellnessColors.textPrimary },
+  afterPhotoBtnText: { fontSize: 13, fontWeight: '600', color: c.textPrimary },
 
   chatRow: { flexDirection: 'row', gap: 8 },
   chatInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 13,
-    backgroundColor: WellnessColors.surface,
-    color: WellnessColors.textPrimary,
+    backgroundColor: c.surface,
+    color: c.textPrimary,
   },
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 },
-  timeLabel: { fontSize: 13, color: WellnessColors.textSecondary },
-  timeValue: { fontSize: 13, fontWeight: '600', color: WellnessColors.textPrimary },
-  timeEdit: { fontSize: 12, color: WellnessColors.accentBlue, marginLeft: 4 },
+  timeLabel: { fontSize: 13, color: c.textSecondary },
+  timeValue: { fontSize: 13, fontWeight: '600', color: c.textPrimary },
+  timeEdit: { fontSize: 12, color: c.accentBlue, marginLeft: 4 },
 
-  errorText: { color: WellnessColors.accentRed, fontSize: 13, marginTop: 8, textAlign: 'center' },
+  errorText: { color: c.accentRed, fontSize: 13, marginTop: 8, textAlign: 'center' },
 
   actions: {
     flexDirection: 'row',
@@ -2160,8 +2167,8 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 48,
     borderTopWidth: 1,
-    borderTopColor: WellnessColors.gridLine,
-    backgroundColor: WellnessColors.surface,
+    borderTopColor: c.gridLine,
+    backgroundColor: c.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -2170,11 +2177,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelBtnText: { fontSize: 15, fontWeight: '600', color: WellnessColors.textSecondary },
+  cancelBtnText: { fontSize: 15, fontWeight: '600', color: c.textSecondary },
   deleteBtn: {
     flexDirection: 'row',
     gap: 6,
@@ -2187,12 +2194,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deleteBtnText: { fontSize: 14, fontWeight: '700', color: WellnessColors.accentRed },
+  deleteBtnText: { fontSize: 14, fontWeight: '700', color: c.accentRed },
   saveBtn: {
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 14,
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2210,7 +2217,7 @@ const styles = StyleSheet.create({
   issueModalCard: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
     borderRadius: 18,
     padding: 20,
     gap: 14,
@@ -2225,14 +2232,14 @@ const styles = StyleSheet.create({
   issueModalBody: {
     fontSize: 14,
     lineHeight: 21,
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     textAlign: 'center',
   },
   issueModalActions: { gap: 10, marginTop: 4 },
   issueEditBtn: {
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
     alignItems: 'center',
   },
   issueEditText: { fontSize: 15, fontWeight: '700', color: '#fff' },
@@ -2240,8 +2247,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     alignItems: 'center',
   },
-  issueSaveAnywayText: { fontSize: 14, fontWeight: '600', color: WellnessColors.textSecondary },
+  issueSaveAnywayText: { fontSize: 14, fontWeight: '600', color: c.textSecondary },
 });

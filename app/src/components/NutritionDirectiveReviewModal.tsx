@@ -2,7 +2,7 @@
  * Review + save nutritionist session PDF as verbatim plain text.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -26,7 +26,8 @@ import {
 } from '../services/NutritionDirectiveService';
 import type { UserLanguage } from '../services/TargetService';
 import { getNutritionSessionsStripCopy } from '../i18n/nutritionSessionsStripCopy';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 
 type Props = {
   visible: boolean;
@@ -57,6 +58,8 @@ export function NutritionDirectiveReviewModal({
   lang,
   autoPickPdf,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const footerPad = bottomInset(insets.bottom);
   const [loading, setLoading] = useState(false);
@@ -102,7 +105,7 @@ export function NutritionDirectiveReviewModal({
       const msg = e instanceof Error ? e.message : 'Could not read PDF';
       setError(msg);
       if (autoPickPdf) {
-        Alert.alert(rtl ? 'שגיאה' : 'Error', msg);
+        Alert.alert(rtl ? '×©×’×™××”' : 'Error', msg);
         onClose();
       }
     } finally {
@@ -130,7 +133,7 @@ export function NutritionDirectiveReviewModal({
       onClose();
     } catch (e: unknown) {
       Alert.alert(
-        rtl ? 'שגיאה' : 'Error',
+        rtl ? '×©×’×™××”' : 'Error',
         e instanceof Error ? e.message : 'Save failed',
       );
     } finally {
@@ -148,14 +151,14 @@ export function NutritionDirectiveReviewModal({
             {copy.importTitle}
           </Text>
           <Pressable onPress={onClose} hitSlop={12}>
-            <Text style={styles.close}>✕</Text>
+            <Text style={styles.close}>âœ•</Text>
           </Pressable>
         </View>
 
         {loading && (
           <View style={styles.center}>
-            <ActivityIndicator color={WellnessColors.accentGreen} size="large" />
-            <Text style={styles.hint}>{rtl ? 'מחלץ טקסט מה-PDF…' : 'Extracting text from PDF…'}</Text>
+            <ActivityIndicator color={colors.accentGreen} size="large" />
+            <Text style={styles.hint}>{rtl ? '×ž×—×œ×¥ ×˜×§×¡×˜ ×ž×”-PDFâ€¦' : 'Extracting text from PDFâ€¦'}</Text>
           </View>
         )}
 
@@ -163,7 +166,7 @@ export function NutritionDirectiveReviewModal({
           <View style={styles.center}>
             {error ? <Text style={styles.error}>{error}</Text> : null}
             <Pressable style={styles.pickBtn} onPress={() => void pickAndParse()}>
-              <Text style={styles.pickBtnText}>{rtl ? 'בחר PDF' : 'Choose PDF'}</Text>
+              <Text style={styles.pickBtnText}>{rtl ? '×‘×—×¨ PDF' : 'Choose PDF'}</Text>
             </Pressable>
           </View>
         )}
@@ -173,12 +176,12 @@ export function NutritionDirectiveReviewModal({
             <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
               <Text style={styles.note}>
                 {rtl
-                  ? 'הטקסט נשמר כפי שהופיע בדוח — ניתן לערוך לפני שמירה.'
-                  : 'Text is saved as written in the report — edit before saving if needed.'}
+                  ? '×”×˜×§×¡×˜ × ×©×ž×¨ ×›×¤×™ ×©×”×•×¤×™×¢ ×‘×“×•×— â€” × ×™×ª×Ÿ ×œ×¢×¨×•×š ×œ×¤× ×™ ×©×ž×™×¨×”.'
+                  : 'Text is saved as written in the report â€” edit before saving if needed.'}
               </Text>
               <View style={styles.metaRow}>
                 <View style={styles.metaField}>
-                  <Text style={styles.fieldLabel}>{rtl ? 'כותרת' : 'Title'}</Text>
+                  <Text style={styles.fieldLabel}>{rtl ? '×›×•×ª×¨×ª' : 'Title'}</Text>
                   <TextInput
                     style={styles.metaInput}
                     value={draft.title}
@@ -186,7 +189,7 @@ export function NutritionDirectiveReviewModal({
                   />
                 </View>
                 <View style={styles.metaField}>
-                  <Text style={styles.fieldLabel}>{rtl ? 'תאריך מפגש' : 'Session date'}</Text>
+                  <Text style={styles.fieldLabel}>{rtl ? '×ª××¨×™×š ×ž×¤×’×©' : 'Session date'}</Text>
                   <TextInput
                     style={styles.metaInput}
                     value={draft.sessionDate ?? ''}
@@ -197,7 +200,7 @@ export function NutritionDirectiveReviewModal({
                   />
                 </View>
               </View>
-              <Text style={styles.fieldLabel}>{rtl ? 'טקסט הדוח' : 'Report text'}</Text>
+              <Text style={styles.fieldLabel}>{rtl ? '×˜×§×¡×˜ ×”×“×•×—' : 'Report text'}</Text>
               <TextInput
                 style={[styles.bodyInput, rtl && styles.bodyRtl]}
                 value={draft.fullText}
@@ -216,7 +219,7 @@ export function NutritionDirectiveReviewModal({
                 {saving ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.saveBtnText}>{rtl ? 'שמור דוח' : 'Save report'}</Text>
+                  <Text style={styles.saveBtnText}>{rtl ? '×©×ž×•×¨ ×“×•×—' : 'Save report'}</Text>
                 )}
               </Pressable>
             </View>
@@ -227,8 +230,9 @@ export function NutritionDirectiveReviewModal({
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: WellnessColors.background },
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -236,15 +240,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: WellnessColors.gridLine,
+    borderBottomColor: c.gridLine,
   },
-  title: { fontSize: 17, fontWeight: '700', color: WellnessColors.textPrimary },
-  close: { fontSize: 22, color: WellnessColors.textSecondary },
+  title: { fontSize: 17, fontWeight: '700', color: c.textPrimary },
+  close: { fontSize: 22, color: c.textSecondary },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 },
-  hint: { fontSize: 14, color: WellnessColors.textSecondary },
+  hint: { fontSize: 14, color: c.textSecondary },
   error: { fontSize: 13, color: '#E53935', textAlign: 'center' },
   pickBtn: {
-    backgroundColor: WellnessColors.accentGreen,
+    backgroundColor: c.accentGreen,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 10,
@@ -254,31 +258,31 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 16, paddingBottom: 24 },
   note: {
     fontSize: 13,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginBottom: 14,
     lineHeight: 19,
   },
   metaRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   metaField: { flex: 1, gap: 6 },
-  fieldLabel: { fontSize: 12, fontWeight: '700', color: WellnessColors.textSecondary },
+  fieldLabel: { fontSize: 12, fontWeight: '700', color: c.textSecondary },
   metaInput: {
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 10,
     padding: 10,
     fontSize: 14,
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     backgroundColor: '#fff',
   },
   bodyInput: {
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 10,
     padding: 12,
     fontSize: 14,
     lineHeight: 22,
     minHeight: 320,
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     backgroundColor: '#fff',
     marginTop: 6,
   },
@@ -287,10 +291,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: WellnessColors.gridLine,
+    borderTopColor: c.gridLine,
   },
   saveBtn: {
-    backgroundColor: WellnessColors.accentGreen,
+    backgroundColor: c.accentGreen,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
