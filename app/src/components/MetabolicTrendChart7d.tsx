@@ -23,10 +23,13 @@ import { kgToDisplay, massUnitLabel, type MassUnit } from '../logic/unitConvert'
 
 const PLOT_PAD_L = 36;
 const PAD_R = 10;
-const PAD_TOP = 4;
+const PAD_TOP = 6;
+// Titled mini-panels (audit F3) — each strip gets a label band above its data area
+// so adjacent y-axis min/max labels never collide (mirrors the ENERGY chart layout).
+const TITLE_H = 15;
 const STRIP_H = 46;
-const STRIP_GAP = 5;
-const AXIS_BOTTOM = 22;
+const STRIP_UNIT = TITLE_H + STRIP_H;
+const AXIS_BOTTOM = 24;
 
 /** Minimum half-span (kg) when all fat/muscle deltas are flat. */
 const DELTA_FALLBACK_HALF_SPAN_KG = 0.5;
@@ -93,8 +96,14 @@ function buildSmoothPath(points: PixelPoint[]): string | null {
   return gen(points) ?? null;
 }
 
+/** Data-area top for a strip (below its title band). */
 function stripTop(index: number): number {
-  return PAD_TOP + index * (STRIP_H + STRIP_GAP);
+  return PAD_TOP + index * STRIP_UNIT + TITLE_H;
+}
+
+/** Top of a strip's title band (where the divider + caption sit). */
+function stripBandTop(index: number): number {
+  return PAD_TOP + index * STRIP_UNIT;
 }
 
 function deltaKg(value: number | null, baseline: number | null): number | null {
@@ -551,6 +560,24 @@ export function MetabolicTrendChart7d({
         ) : null}
         <View style={styles.chartRow}>
           <Svg width={p.chartW} height={p.svgH} style={styles.svg}>
+            <Line
+              x1={p.plotLeft}
+              y1={stripBandTop(0)}
+              x2={p.chartW - p.padR}
+              y2={stripBandTop(0)}
+              stroke={WellnessColors.gridLine}
+              strokeWidth={1}
+              opacity={0.6}
+            />
+            <SvgText
+              x={p.plotLeft + 2}
+              y={stripBandTop(0) + 11}
+              fill={WellnessColors.accentBlue}
+              fontSize={9}
+              fontWeight="700"
+            >
+              {bodyLabels.weight.toUpperCase()}
+            </SvgText>
             {p.gridW.map((g) => (
               <Line
                 key={g.key}
@@ -614,6 +641,32 @@ export function MetabolicTrendChart7d({
 
       <View style={styles.chartRow}>
         <Svg width={prepared.chartW} height={prepared.svgH} style={styles.svg}>
+          {[
+            { i: 0, label: bodyLabels.weight.toUpperCase(), color: WellnessColors.accentBlue },
+            { i: 1, label: `${bodyLabels.fat} / ${bodyLabels.muscle} (Δ)`.toUpperCase(), color: WellnessColors.textSecondary },
+            { i: 2, label: 'VISCERAL', color: VISCERAL_STROKE },
+          ].map((s) => (
+            <React.Fragment key={`strip-hd-${s.i}`}>
+              <Line
+                x1={prepared.plotLeft}
+                y1={stripBandTop(s.i)}
+                x2={prepared.chartW - prepared.padR}
+                y2={stripBandTop(s.i)}
+                stroke={WellnessColors.gridLine}
+                strokeWidth={1}
+                opacity={0.6}
+              />
+              <SvgText
+                x={prepared.plotLeft + 2}
+                y={stripBandTop(s.i) + 11}
+                fill={s.color}
+                fontSize={9}
+                fontWeight="700"
+              >
+                {s.label}
+              </SvgText>
+            </React.Fragment>
+          ))}
           {[prepared.gridW, prepared.gridFM, prepared.gridV].flatMap((grid, stripIdx) =>
             grid.map((g) => (
               <Line
