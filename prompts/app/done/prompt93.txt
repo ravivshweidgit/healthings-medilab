@@ -4,7 +4,7 @@
 review output (Opus 4.8). First-impression slice: quick trust wins + first-run polish.
 No data/units/clinical-number changes — presentation only.
 
-**Commits:** Batch A `64e6378`; Batch B TBD (this ship).
+**Commits:** Batch A `64e6378`; Batch B `95b01cc`.
 
 **Builds on:** prompt92 (audit), prompt91 (10 locales), prompt87/88/81 (chrome i18n),
 language-policy + persistence-parity + ai-judgment rules.
