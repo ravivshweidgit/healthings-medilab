@@ -21,7 +21,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import Svg, { Circle, Ellipse, Path, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Path, Text as SvgText } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LabReportModal } from './LabReportModal';
 import { NutritionDirectiveReviewModal } from './NutritionDirectiveReviewModal';
@@ -99,6 +99,7 @@ import { helpUrl } from '../i18n/helpUrls';
 import { formatLocalizedDate } from '../i18n/dateLocale';
 import {
   LANGUAGE_GATE_OPTIONS,
+  languageGateOption,
 } from '../i18n/languageGate';
 import { getQuickStartCopy, isRtlLang, usesMentorGenderUi } from '../i18n/quickStartCopy';
 import {
@@ -168,6 +169,13 @@ function buildStepList(
   return steps;
 }
 
+/**
+ * Fixed progress denominator. Device answers (scale/watch/cgm) insert optional
+ * steps, so the raw list length grows 11→13 mid-flow — a moving goalpost. Using
+ * the maximum possible length keeps "Step N of M" and the dot count stable.
+ */
+const MAX_QUICK_START_STEPS = buildStepList(true, true, true).length;
+
 /** Soft sky blue — Next buttons + help ? links (distinct from brand green). */
 const NEXT_BLUE = '#5BAFE8';
 const NEXT_BLUE_DEEP = '#3D9DD6';
@@ -227,92 +235,60 @@ function LanguageGateHero({
   selectedCode: string;
   onSelect: (code: string) => void;
 }) {
+  const selected = languageGateOption(selectedCode);
+  const selectedRtl = selectedCode === 'he' || selectedCode === 'ar';
   return (
     <View style={styles.gateRoot}>
-      <View style={styles.gateTop} accessibilityRole="header">
-        <View style={styles.gateWelcomeStack}>
-          {chunkPairs(LANGUAGE_GATE_OPTIONS).map((pair, rowIndex) => (
-            <View key={`select-row-${rowIndex}`} style={styles.gateSelectTableRow}>
-              {pair.map((opt) => {
-                const on = opt.code === selectedCode;
-                const rtl = opt.code === 'he' || opt.code === 'ar';
-                return (
-                  <Pressable
-                    key={opt.code}
-                    onPress={() => onSelect(opt.code)}
-                    hitSlop={4}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: on }}
-                    accessibilityLabel={`${opt.selectLanguage}, ${opt.englishLabel}`}
-                    style={styles.gateSelectCell}
-                  >
-                    <Text
-                      style={[
-                        styles.gateCloudWord,
-                        rtl && styles.gateCloudWordRtl,
-                        on && styles.gateCloudWordOn,
-                        {
-                          fontSize: on ? 16 : 13,
-                          lineHeight: on ? 20 : 17,
-                        },
-                      ]}
-                      numberOfLines={2}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.8}
-                    >
-                      {opt.selectLanguage}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-              {pair.length === 1 ? <View style={styles.gateSelectCell} /> : null}
-            </View>
-          ))}
-        </View>
-      </View>
+      {/* One localized "Select language" header that follows the current pick — */}
+      {/* the tappable flag + native-name grid below is the single selector. */}
+      <Text
+        style={[styles.gateHeader, selectedRtl && styles.gateCloudWordRtl]}
+        numberOfLines={2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+        accessibilityRole="header"
+      >
+        {selected.selectLanguage}
+      </Text>
 
-      <View style={styles.gateBottom}>
-        <View style={styles.gateFlagTray}>
-          {[
-            LANGUAGE_GATE_OPTIONS.slice(0, 5),
-            LANGUAGE_GATE_OPTIONS.slice(5),
-          ].map((row, rowIndex) => (
-            <View key={`flags-row-${rowIndex}`} style={styles.gateFlagRow}>
-              {row.map((opt) => {
-                const on = opt.code === selectedCode;
-                const rtlLabel = opt.code === 'he' || opt.code === 'ar';
-                return (
-                  <Pressable
-                    key={opt.code}
-                    onPress={() => onSelect(opt.code)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: on }}
-                    accessibilityLabel={`${opt.englishLabel}, ${opt.nativeLabel}`}
-                    style={({ pressed }) => [
-                      styles.gateFlagCell,
-                      on && styles.gateFlagCellOn,
-                      pressed && styles.gateCardPressed,
+      <View style={styles.gateGrid}>
+        {chunkPairs(LANGUAGE_GATE_OPTIONS).map((pair, rowIndex) => (
+          <View key={`lang-row-${rowIndex}`} style={styles.gateGridRow}>
+            {pair.map((opt) => {
+              const on = opt.code === selectedCode;
+              const rtlLabel = opt.code === 'he' || opt.code === 'ar';
+              return (
+                <Pressable
+                  key={opt.code}
+                  onPress={() => onSelect(opt.code)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={`${opt.englishLabel}, ${opt.nativeLabel}`}
+                  style={({ pressed }) => [
+                    styles.gateGridCell,
+                    on && styles.gateGridCellOn,
+                    pressed && styles.gateCardPressed,
+                  ]}
+                >
+                  <Text style={styles.gateGridFlag}>{opt.flag}</Text>
+                  <Text
+                    style={[
+                      styles.gateGridNative,
+                      rtlLabel && styles.gateFlagNativeRtl,
+                      on && styles.gateFlagNativeOn,
                     ]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
                   >
-                    <Text style={styles.gateFlagEmoji}>{opt.flag}</Text>
-                    <Text
-                      style={[
-                        styles.gateFlagNative,
-                        rtlLabel && styles.gateFlagNativeRtl,
-                        on && styles.gateFlagNativeOn,
-                      ]}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.7}
-                    >
-                      {opt.nativeLabel}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ))}
-        </View>
+                    {opt.nativeLabel}
+                  </Text>
+                </Pressable>
+              );
+            })}
+            {pair.length === 1 ? <View style={styles.gateGridCell} /> : null}
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -507,80 +483,7 @@ function QuestionYesNo({
           </Pressable>
         </Animated.View>
       </View>
-      {highlight ? <FingerTapCoach label={coachLabel} /> : null}
-    </View>
-  );
-}
-
-/** Animated pointing hand that taps Yes, then No — coaches an unanswered choice. */
-function FingerTapCoach({ label }: { label: string }) {
-  const x = useRef(new Animated.Value(0)).current;
-  const tap = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(x, {
-          toValue: 0,
-          duration: 280,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(tap, { toValue: 1, duration: 180, useNativeDriver: true }),
-        Animated.timing(tap, { toValue: 0, duration: 220, useNativeDriver: true }),
-        Animated.delay(320),
-        Animated.timing(x, {
-          toValue: 1,
-          duration: 420,
-          easing: Easing.inOut(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(tap, { toValue: 1, duration: 180, useNativeDriver: true }),
-        Animated.timing(tap, { toValue: 0, duration: 220, useNativeDriver: true }),
-        Animated.delay(480),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [x, tap]);
-
-  const translateX = x.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-52, 52],
-  });
-  const scale = tap.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.86],
-  });
-  const tipY = tap.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 10],
-  });
-
-  return (
-    <View style={styles.fingerCoach} pointerEvents="none" accessibilityElementsHidden>
-      <Text style={styles.fingerCoachLabel}>{label}</Text>
-      <Animated.View style={{ transform: [{ translateX }, { translateY: tipY }, { scale }] }}>
-        <Svg width={44} height={52} viewBox="0 0 44 52">
-          {/* Soft shadow */}
-          <Ellipse cx="22" cy="48" rx="12" ry="3" fill="rgba(26,43,60,0.18)" />
-          {/* Hand — index finger pointing down */}
-          <Path
-            d="M18 6c0-2.2 1.8-4 4-4s4 1.8 4 4v16.5c0 .8.7 1.5 1.5 1.5h.2c1.5 0 2.8 1.2 2.8 2.8V38c0 4.4-3.6 8-8 8h-1.5c-3.6 0-6.5-2.4-7.4-5.7L11 28.5c-.6-1.8.3-3.7 2-4.4.4-.2.8-.3 1.2-.3H18V6z"
-            fill="#F5D0B0"
-            stroke="#C9956C"
-            strokeWidth="1"
-          />
-          <Path
-            d="M18 22.5h6.5V6c0-1.4-1.1-2.5-2.5-2.5h-1.5C19.1 3.5 18 4.6 18 6v16.5z"
-            fill="#F8DEC4"
-          />
-          {/* Knuckle crease */}
-          <Path d="M20 10h4" stroke="#C9956C" strokeWidth="0.8" strokeLinecap="round" opacity={0.5} />
-          {/* Tap ripple */}
-          <Circle cx="22" cy="4" r="3" fill={NEXT_BLUE} opacity={0.35} />
-        </Svg>
-      </Animated.View>
+      {highlight ? <Text style={styles.yesNoCoachHint}>{coachLabel}</Text> : null}
     </View>
   );
 }
@@ -665,8 +568,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
   );
 
   const stepIndex = Math.max(0, stepList.indexOf(stepId));
-  const totalSteps = stepList.length;
-  const progressLabel = t.progress(stepIndex + 1, totalSteps);
+  const progressLabel = t.progress(stepIndex + 1, MAX_QUICK_START_STEPS);
 
   useEffect(() => {
     if (!visible) return;
@@ -1318,8 +1220,8 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
             <Text style={[styles.headerTitle, copyAlign]}>{t.quickStart}</Text>
             <Text style={[styles.headerSub, copyAlign]}>{headerSub}</Text>
             <View style={styles.dots}>
-              {stepList.map((id, i) => (
-                <View key={id} style={[styles.dot, i <= stepIndex && styles.dotOn]} />
+              {Array.from({ length: MAX_QUICK_START_STEPS }).map((_, i) => (
+                <View key={i} style={[styles.dot, i <= stepIndex && styles.dotOn]} />
               ))}
             </View>
           </View>
@@ -1490,7 +1392,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
           {stepId === 'scale' && (
             <>
-              <GearHeroCard kind="scale" />
+              <GearHeroCard kind="scale" compact />
               <StepHeading
                 title={t.scale.title}
                 helpHref={helpUrl(langCode, 'withings-scale')}
@@ -1518,7 +1420,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
           {stepId === 'watch' && (
             <>
-              <GearHeroCard kind="watch" />
+              <GearHeroCard kind="watch" compact />
               <StepHeading
                 title={t.watch.title}
                 helpHref={helpUrl(langCode, 'quick-start-watch')}
@@ -1546,7 +1448,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
           {stepId === 'cgm' && (
             <>
-              <GearHeroCard kind="cgm" />
+              <GearHeroCard kind="cgm" compact />
               <StepHeading
                 title={t.cgm.title}
                 helpHref={helpUrl(langCode, 'cgm')}
@@ -1995,100 +1897,60 @@ const styles = StyleSheet.create({
   },
   gateRoot: {
     flex: 1,
-    justifyContent: 'space-between',
-    marginTop: 2,
+    marginTop: 4,
   },
-  gateTop: {
-    alignItems: 'center',
-    paddingTop: 4,
-  },
-  gateBottom: {
-    paddingTop: 6,
-    paddingBottom: 2,
-  },
-  gateWelcomeStack: {
-    alignItems: 'stretch',
-    gap: 6,
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-    width: '100%',
-  },
-  gateSelectTableRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    width: '100%',
-  },
-  gateSelectCell: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 4,
-    minHeight: 22,
-  },
-  gateCloudWord: {
+  gateHeader: {
     textAlign: 'center',
-    letterSpacing: 0.15,
-    fontStyle: 'normal',
-    fontWeight: '700',
-    color: BRAND_NAVY,
-  },
-  gateCloudWordOn: {
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: '800',
-    color: '#0A1628',
+    color: BRAND_NAVY,
+    marginBottom: 18,
+    paddingHorizontal: 8,
   },
   gateCloudWordRtl: {
     writingDirection: 'rtl',
   },
-  gateFlagTray: {
-    backgroundColor: '#EEF2F7',
-    borderRadius: 20,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+  gateGrid: {
     gap: 10,
-    alignItems: 'center',
-  },
-  gateFlagRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'stretch',
-    gap: 4,
-    width: '100%',
-  },
-  gateFlagCell: {
-    flex: 1,
-    maxWidth: 72,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
     paddingHorizontal: 2,
+  },
+  gateGridRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  gateGridCell: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: 'transparent',
-    backgroundColor: 'transparent',
-  },
-  gateFlagCellOn: {
-    borderColor: NEXT_BLUE,
+    borderColor: WellnessColors.gridLine,
     backgroundColor: '#FFFFFF',
+  },
+  gateGridCellOn: {
+    borderColor: NEXT_BLUE,
+    backgroundColor: '#F2F9FE',
     shadowColor: NEXT_BLUE_DEEP,
     shadowOpacity: 0.2,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  gateFlagEmoji: {
-    fontSize: 28,
-    lineHeight: 34,
+  gateGridFlag: {
+    fontSize: 26,
+    lineHeight: 32,
   },
-  gateFlagNative: {
-    marginTop: 3,
-    fontSize: 9,
-    lineHeight: 11,
-    fontWeight: '600',
-    color: WellnessColors.textSecondary,
+  gateGridNative: {
+    flexShrink: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: WellnessColors.textPrimary,
     textAlign: 'center',
-    letterSpacing: 0,
   },
   gateFlagNativeRtl: {
     writingDirection: 'rtl',
@@ -2264,16 +2126,12 @@ const styles = StyleSheet.create({
   },
   yesNoText: { fontSize: 18, fontWeight: '700', color: WellnessColors.textSecondary },
   yesNoTextOn: { color: '#fff' },
-  fingerCoach: {
-    alignItems: 'center',
-    marginTop: 14,
-    minHeight: 78,
-  },
-  fingerCoachLabel: {
+  yesNoCoachHint: {
+    textAlign: 'center',
+    marginTop: 12,
     fontSize: 13,
     fontWeight: '600',
     color: NEXT_BLUE_DEEP,
-    marginBottom: 6,
   },
   successCard: {
     borderWidth: 1,

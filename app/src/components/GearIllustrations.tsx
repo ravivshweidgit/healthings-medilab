@@ -486,14 +486,34 @@ const CAPTIONS: Record<GearKind, string> = {
 };
 
 /** Premium device card — neutral silver/graphite, not brand green. */
-export function GearHeroCard({ kind, caption }: { kind: GearKind; caption?: string }) {
+export function GearHeroCard({
+  kind,
+  caption,
+  compact = false,
+}: {
+  kind: GearKind;
+  caption?: string;
+  /** Shorter hero for Yes/No decision steps so the choice stays above the fold. */
+  compact?: boolean;
+}) {
   const label = caption ?? CAPTIONS[kind];
+  const s = compact ? 124 : 168;
   return (
-    <View style={styles.card} accessibilityRole="image" accessibilityLabel={label}>
-      <View style={[styles.stage, kind === 'meals' && styles.stageMeals]}>
-        {kind === 'scale' ? <BodyScaleIllustration size={168} /> : null}
-        {kind === 'watch' ? <HybridWatchIllustration size={168} /> : null}
-        {kind === 'cgm' ? <CgmIllustration size={168} /> : null}
+    <View
+      style={[styles.card, compact && styles.cardCompact]}
+      accessibilityRole="image"
+      accessibilityLabel={label}
+    >
+      <View
+        style={[
+          styles.stage,
+          compact && styles.stageCompact,
+          kind === 'meals' && styles.stageMeals,
+        ]}
+      >
+        {kind === 'scale' ? <BodyScaleIllustration size={s} /> : null}
+        {kind === 'watch' ? <HybridWatchIllustration size={s} /> : null}
+        {kind === 'cgm' ? <CgmIllustration size={s} /> : null}
         {kind === 'meals' ? <MealsIllustration size={268} /> : null}
         {kind === 'link' ? <WithingsLinkIllustration size={168} /> : null}
         {kind === 'phone' ? <PhoneHealthBrandMark /> : null}
@@ -808,6 +828,14 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     paddingTop: 8,
     paddingBottom: 4,
+  },
+  cardCompact: {
+    marginBottom: 10,
+    paddingTop: 2,
+  },
+  stageCompact: {
+    minHeight: 132,
+    paddingVertical: 8,
   },
   stage: {
     width: '100%',
