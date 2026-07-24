@@ -35,10 +35,29 @@ import { resolveMentorGender } from '../logic/mentorLabels';
 import { formatUserRulesLines, formatUserRulesBlock, formatMacroRevisionRulesBlock, MEAL_FAT_RULE_FLAGGING_GUIDANCE } from '../logic/userRulesContext';
 import { formatDirectiveAndRulesForChecks } from '../logic/nutritionDirectiveContext';
 
+/**
+ * Unit symbols stay English in every language (language-policy glossary).
+ * Prevents Hebrew unit leak into EN replies when JSON-safety examples taught קק"ל / מ"ג/ד"ל.
+ */
+function unitsGlossaryInstruction(): string {
+  return (
+    '\nUNITS / GLOSSARY (mandatory, every language): Write unit symbols in English only — ' +
+    'kcal, kJ, mg/dL, mmol/L, g, kg, lb, cm, ml, floz. Never localize units ' +
+    '(no קק"ל / קק\'ל, מ"ג/ד"ל / מ\'ג/ד\'ל, ק"ג / ק\'ג, etc.). ' +
+    'Brand and acronyms stay English too (CGM, BMR, AI, Withings).'
+  );
+}
+
 /** Returns a language instruction line to append to any AI prompt. */
 function langInstruction(lang?: UserLanguage | null): string {
-  if (!lang || lang.code === 'en') return '';
-  return `\nRespond entirely in ${lang.label} (${lang.code}). All text in the response must be in ${lang.label}.`;
+  const units = unitsGlossaryInstruction();
+  if (!lang || lang.code === 'en') {
+    return `\nRespond entirely in English. All prose in the response must be English.${units}`;
+  }
+  return (
+    `\nRespond entirely in ${lang.label} (${lang.code}). All prose in the response must be in ${lang.label}.` +
+    ` Keep unit symbols English (see UNITS / GLOSSARY).${units}`
+  );
 }
 
 /**
@@ -83,8 +102,13 @@ function genderInstruction(ctx: CoachContext): string {
 
 /** Stronger instruction for JSON coach responses — action item text often copied from English examples. */
 function coachJsonLangInstruction(lang?: UserLanguage | null): string {
-  if (!lang || lang.code === 'en') return '';
-  return `\nLANGUAGE (mandatory): Write "summary", every wins[]/improve[] bullet, AND every actionItems[].text in ${lang.label} (${lang.code}) only. Keep mentor tags and autoCheckType values exactly as English keys (nutritionist/coach/doctor, carbs_under_target, etc.). Do NOT use English for user-visible strings.`;
+  if (!lang || lang.code === 'en') return unitsGlossaryInstruction();
+  return (
+    `\nLANGUAGE (mandatory): Write "summary", every wins[]/improve[] bullet, AND every actionItems[].text in ${lang.label} (${lang.code}) only. ` +
+    `Keep mentor tags and autoCheckType values exactly as English keys (nutritionist/coach/doctor, carbs_under_target, etc.). ` +
+    `Do NOT use English for user-visible prose — but unit symbols stay English (kcal, mg/dL, kg, g).` +
+    unitsGlossaryInstruction()
+  );
 }
 
 /** Mandatory language for meal JSON — name_local is the display name shown in the app. */
@@ -319,7 +343,8 @@ function actionItemTextForCheck(
   }
   if (type === 'calorie_deficit' && kcal != null) {
     const k = Math.round(kcal);
-    return code === 'he' ? `לצרוך לפחות ${k} קק״ל` : `Eat at least ${k} kcal`;
+    // Unit symbol stays English (kcal) in every language — glossary.
+    return code === 'he' ? `לצרוך לפחות ${k} kcal` : `Eat at least ${k} kcal`;
   }
   if (type === 'meal_logged') {
     return code === 'he' ? 'לרשום את הארוחה הבאה' : 'Log your next meal';
@@ -2466,7 +2491,7 @@ CONVERSATION (mandatory):
 - Each user message is prefixed with the time it was sent, e.g. "[13:25] ...". Use it to relate the question to timestamped CGM/meal data and time of day; do NOT repeat the "[HH:MM]" prefix back in your reply.
 - Answer the user's LATEST question first — do not re-open with a full daily summary unless they asked for status/overview${isFirstTurn ? ' (first turn: short qualitative glucose headline if relevant — no mg/dL unless DEEP DIVE)' : ''}.
 - Do NOT repeat stats, warnings, or CGM summaries you already gave in this tab today unless (a) the user asks again about glucose/status, or (b) new meals/workouts/sync materially changed the numbers.
-- Reference earlier thread naturally when relevant ("כמו שציינתי…", "בהמשך לשאלה על השומן…").
+- Reference earlier thread naturally when relevant ("as I mentioned…", "following up on…").
 - Keep replies 2–4 sentences unless the user asked for a period review (/7, /30) or a detailed meal breakdown.
 
 PROFILE / GOALS / SETTINGS:
@@ -2477,7 +2502,7 @@ You are responding in a free chat. Be concise, specific, and supportive.
 Match your tone to LOCAL TIME NOW and TIME-AWARE COACHING above — early morning means gentle, not alarmist.
 OUTPUT FORMAT (mandatory): respond with a single JSON object and nothing else — {"response":"<your reply to the user>"}. Put your entire user-facing reply inside the "response" string. Never write THOUGHT, planning, reasoning, or any text outside this JSON object.
 Inside "response" write plain prose only — no **bold**, no markdown headers, no nested JSON. 2–4 sentences; use specific numbers for macros/food/workouts — but CGM defaults to qualitative (stable/elevated) unless DEEP DIVE. Period reviews /7 /30 with explicit number requests may be longer. Use \n for line breaks inside the string.
-JSON STRING SAFETY (mandatory): never put ASCII double-quote (") inside the response text — it breaks JSON. For Hebrew abbreviations use single quotes instead: ק'ג not ק"ג, מ'ג/ד'ל not מ"ג/ד"ל, ק'ק'ל not קק"ל. If you must use a double-quote in the text, escape it as \\".
+JSON STRING SAFETY (mandatory): never put ASCII double-quote (") inside the response text — it breaks JSON. Prefer English unit symbols (kcal, mg/dL, kg, g) which need no quotes. Do NOT write Hebrew unit abbreviations (קק"ל, מ"ג/ד"ל, ק"ג) — use kcal / mg/dL / kg instead. If Hebrew/Arabic prose needs an apostrophe abbreviation for a non-unit word, use ' not ". If you must use a double-quote, escape it as \\".
 All of today's and yesterday's data — body, visceral, BMR, energy, 24/7 HR, meals, CGM, workouts — is in the data block above. Use exact numbers for food/macros/workouts when asked; for glucose use qualitative verdict by default (see CGM rules below).
 When the user asks about their dietary rules, restrictions, or what is written in My Rules: quote the My Rules block in USER DATA / PROFILE verbatim — do NOT paraphrase vaguely.
 When the user asks about blood tests, labs, cholesterol, or בדיקות דם: quote exact values from LAB RESULTS in USER DATA; for trends across older draws use the LAB HISTORY block when /N loaded — never invent values.
