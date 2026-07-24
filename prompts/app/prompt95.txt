@@ -16,7 +16,7 @@ prompt92 (audit). Honors language-policy, persistence-parity, ai-judgment rules.
 | **F8** | P1 | Chat input toolbar | Too many cryptic buttons (Camera, ↑, ↓, Clear, ↗, Send). → **Shipped (compromise):** Camera · ↑ · ↓ · ⋯ · Send; Clear + Export in overflow menu (scroll arrows kept per phone test). |
 | **F9** | P1 | Dashboard sync | "Refresh my data" only at very bottom. → **Shipped:** compact refresh icon in the top brand header (same sync); pull-to-refresh retained. |
 | **F13** | P2 | Rules / Targets / session summaries | Detected-RTL (Hebrew/Arabic) user content shows left-aligned in EN chrome. → **Shipped:** shared `contentAlignStyle` (`logic/textDirection.ts`) aligns by detected script in My Rules, nutrition sessions, and macro reasoning. |
-| **F15** | P2 | Edit Meal | Two delete concepts: per-item "Delete" + footer pink trash. → Clarify footer = delete whole meal (label/confirm copy). |
+| **F15** | P2 | Edit Meal | Two delete concepts: per-item "Delete" + footer pink trash. → **Shipped:** footer now trash + "Delete meal" label; confirm says whole meal + all items (localized). |
 | **F19** | P2 | Website | Sparse desktop help (narrow column, big margins); landing H1 "A full metabolic OS" is jargon. → Widen/format help; patient-value H1. |
 | **F20** | P2 | CGM blood-drop illustration | Reads alarming/heavy. → Soften (lighter fill / smaller drop / friendlier mark). |
 
@@ -45,10 +45,10 @@ prompt92 (audit). Honors language-policy, persistence-parity, ai-judgment rules.
 
 | Slice | Finding | What | Commit |
 |-------|---------|------|--------|
-| **E1** | F13 | `logic/textDirection.ts` (`isRtlText` / `contentAlignStyle`) → detected-script align in My Rules, nutrition sessions, macro reasoning | (this commit) |
+| **E1** | F13 | `logic/textDirection.ts` (`isRtlText` / `contentAlignStyle`) → detected-script align in My Rules, nutrition sessions, macro reasoning | `9593e06` |
+| **E2** | F15 | Edit Meal footer: trash icon + localized "Delete meal" label; confirm now "Delete whole meal? …entire meal and all items" (10 langs) | (this commit) |
 
 ## Remaining slices (each own `bi`/site check + commit)
-5. **Slice E2 · Edit Meal delete clarity (F15)** — footer copy/confirm = whole meal.
 6. **Slice E3 · CGM illustration (F20)** — soften the drop mark.
 7. **Slice E4 · Website (F19)** — help layout width/formatting + landing H1 copy.
 
@@ -75,7 +75,7 @@ Stop after each slice for confirmation (app slices need phone `bi`; E4 is web).
 - [x] Chat input: Camera · ↑ · ↓ · ⋯ · Send; Clear/Export in overflow (D2, scroll kept)
 - [x] Refresh reachable without scrolling to bottom; existing bottom action still works (D3)
 - [x] Hebrew/Arabic rules/targets/session text right-aligns in EN chrome; LTR unaffected (E1)
-- [ ] Edit Meal: clear that footer trash deletes the whole meal
+- [x] Edit Meal: clear that footer trash deletes the whole meal (E2)
 - [ ] CGM illustration softer, not alarming
 - [ ] Website help readable full-width on desktop; landing H1 patient-friendly
 - [ ] No changed AsyncStorage keys; refresh/collapse semantics intact

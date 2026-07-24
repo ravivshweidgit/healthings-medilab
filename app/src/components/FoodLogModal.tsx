@@ -998,10 +998,10 @@ export function FoodLogModal({
 
   const handleDelete = useCallback(async () => {
     if (!editingId) return;
-    Alert.alert('Delete meal', 'Remove this meal from your log?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(ui.deleteMealTitle, ui.deleteMealMessage, [
+      { text: ui.cancel, style: 'cancel' },
       {
-        text: 'Delete',
+        text: ui.deleteMeal,
         style: 'destructive',
         onPress: async () => {
           setScreen('saving');
@@ -1011,7 +1011,7 @@ export function FoodLogModal({
         },
       },
     ]);
-  }, [editingId, mealTime, reset, onSaved]);
+  }, [editingId, mealTime, reset, onSaved, ui]);
 
   const persistSave = useCallback(async () => {
     await persistMealItems({
@@ -1462,8 +1462,15 @@ export function FoodLogModal({
           {(screen === 'result' || screen === 'saving') && !mergePreview ? (
             <View style={styles.actions}>
               {editingId ? (
-                <Pressable style={styles.deleteBtn} onPress={handleDelete} disabled={screen === 'saving'}>
-                  <Text style={styles.deleteBtnText}>🗑</Text>
+                <Pressable
+                  style={styles.deleteBtn}
+                  onPress={handleDelete}
+                  disabled={screen === 'saving'}
+                  accessibilityRole="button"
+                  accessibilityLabel={ui.deleteMeal}
+                >
+                  <DashIcon icon={ActionIcons.clear} size={16} color={WellnessColors.accentRed} />
+                  <Text style={styles.deleteBtnText}>{ui.deleteMeal}</Text>
                 </Pressable>
               ) : (
                 <Pressable style={styles.cancelBtn} onPress={handleClose}>
@@ -2166,8 +2173,10 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: { fontSize: 15, fontWeight: '600', color: WellnessColors.textSecondary },
   deleteBtn: {
-    width: 52,
+    flexDirection: 'row',
+    gap: 6,
     paddingVertical: 14,
+    paddingHorizontal: 16,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#FFCDD2',
@@ -2175,7 +2184,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deleteBtnText: { fontSize: 18 },
+  deleteBtnText: { fontSize: 14, fontWeight: '700', color: WellnessColors.accentRed },
   saveBtn: {
     flex: 2,
     paddingVertical: 14,
