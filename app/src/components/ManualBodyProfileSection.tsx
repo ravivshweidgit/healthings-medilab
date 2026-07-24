@@ -1,6 +1,6 @@
 /**
  * Manual weigh-in + body composition + optional BMR (no Withings scale).
- * Same UI on Android and iOS — weight, %/mass toggle, Fat + Muscle fields, BMR, one Save.
+ * Same UI on Android and iOS â€” weight, %/mass toggle, Fat + Muscle fields, BMR, one Save.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -20,7 +20,8 @@ import {
 } from '../services/ManualBodyService';
 import type { Gender } from '../services/TargetService';
 import { getBodyMetricsCopy } from '../i18n/bodyMetricsCopy';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import {
   displayToKcal,
   displayToKg,
@@ -69,6 +70,8 @@ export function ManualBodyProfileSection({
   langCode,
   onSaved,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const bodyLabels = getBodyMetricsCopy(langCode);
   const [weightInput, setWeightInput] = useState('');
   const [compUnit, setCompUnit] = useState<CompUnit>('pct');
@@ -203,7 +206,7 @@ export function ManualBodyProfileSection({
     const fatN = parseNum(fatInput);
     const musN = parseNum(muscleInput);
     if (next === 'mass') {
-      // % → mass
+      // % â†’ mass
       if (fatN != null && fatN > 0) {
         setFatInput(fmt1(kgToDisplay(fatKgFromPct(draftWeightKg, fatN), massUnit)));
       }
@@ -212,7 +215,7 @@ export function ManualBodyProfileSection({
         if (kg != null) setMuscleInput(fmt1(kgToDisplay(kg, massUnit)));
       }
     } else {
-      // mass → %
+      // mass â†’ %
       if (fatN != null && fatN > 0) {
         const pct = fatPctFromKg(draftWeightKg, displayToKg(fatN, massUnit));
         if (pct != null) setFatInput(fmt1(pct));
@@ -329,21 +332,21 @@ export function ManualBodyProfileSection({
   const fatAlt =
     draftComp && draftWeightKg
       ? compUnit === 'pct'
-        ? `≈ ${formatMass(draftComp.fatKg, massUnit)}`
-        : `≈ ${fmt1(draftComp.fatPct)}%`
+        ? `â‰ˆ ${formatMass(draftComp.fatKg, massUnit)}`
+        : `â‰ˆ ${fmt1(draftComp.fatPct)}%`
       : null;
   const muscleAlt =
     draftComp && draftComp.musclePct != null
       ? compUnit === 'pct'
-        ? `≈ ${formatMass(draftComp.muscleKg, massUnit)}`
-        : `≈ ${fmt1(draftComp.musclePct)}%`
+        ? `â‰ˆ ${formatMass(draftComp.muscleKg, massUnit)}`
+        : `â‰ˆ ${fmt1(draftComp.musclePct)}%`
       : null;
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.sectionTitle}>Body</Text>
       <Text style={styles.hint}>
-        Log weight and composition from your scale or DEXA. Fat and muscle are independent — residual
+        Log weight and composition from your scale or DEXA. Fat and muscle are independent â€” residual
         (bone, water) is normal.
       </Text>
       <Pressable onPress={() => void Linking.openURL(HELP_URL)} hitSlop={8}>
@@ -357,7 +360,7 @@ export function ManualBodyProfileSection({
         value={weightInput}
         onChangeText={setWeightInput}
         placeholder={massUnit === 'lb' ? 'e.g. 173' : 'e.g. 78.4'}
-        placeholderTextColor={WellnessColors.textSecondary}
+        placeholderTextColor={colors.textSecondary}
         accessibilityLabel={`${bodyLabels.weight} in ${massLabel}`}
       />
 
@@ -397,7 +400,7 @@ export function ManualBodyProfileSection({
               value={fatInput}
               onChangeText={setFatInput}
               placeholder={compUnit === 'pct' ? '18.5' : massUnit === 'lb' ? '32' : '14.5'}
-              placeholderTextColor={WellnessColors.textSecondary}
+              placeholderTextColor={colors.textSecondary}
               accessibilityLabel={`${bodyLabels.fat} in ${compSuffix}`}
             />
             <Text style={styles.compUnit}>{compSuffix}</Text>
@@ -413,7 +416,7 @@ export function ManualBodyProfileSection({
               value={muscleInput}
               onChangeText={setMuscleInput}
               placeholder={compUnit === 'pct' ? '42' : massUnit === 'lb' ? '73' : '33'}
-              placeholderTextColor={WellnessColors.textSecondary}
+              placeholderTextColor={colors.textSecondary}
               accessibilityLabel={`${bodyLabels.muscle} in ${compSuffix}`}
             />
             <Text style={styles.compUnit}>{compSuffix}</Text>
@@ -424,14 +427,14 @@ export function ManualBodyProfileSection({
 
       {draftComp ? (
         <Text style={styles.preview}>
-          Residual ≈ {formatMass(draftComp.residualKg, massUnit)}
+          Residual â‰ˆ {formatMass(draftComp.residualKg, massUnit)}
           {!draftComp.fatTyped && manualBodySnap?.fat_pct_source !== 'user'
-            ? ' · fat estimated until you enter it'
+            ? ' Â· fat estimated until you enter it'
             : ''}
         </Text>
       ) : null}
       {draftComp && draftComp.ratio > 1.001 ? (
-        <Text style={styles.warn}>Fat + muscle exceeds weight — check the numbers.</Text>
+        <Text style={styles.warn}>Fat + muscle exceeds weight â€” check the numbers.</Text>
       ) : null}
 
       <Text style={styles.fieldLabel}>BMR ({energyLab}/day)</Text>
@@ -442,10 +445,10 @@ export function ManualBodyProfileSection({
         onChangeText={setBmrInput}
         placeholder={
           draftComp
-            ? `Formula ~${Math.round(kcalToDisplay(draftComp.formulaBmr, energyUnit))} — or scale value`
+            ? `Formula ~${Math.round(kcalToDisplay(draftComp.formulaBmr, energyUnit))} â€” or scale value`
             : 'e.g. 1854'
         }
-        placeholderTextColor={WellnessColors.textSecondary}
+        placeholderTextColor={colors.textSecondary}
         accessibilityLabel={`BMR in ${energyLab} per day`}
       />
       {draftComp ? (
@@ -462,53 +465,54 @@ export function ManualBodyProfileSection({
         accessibilityRole="button"
         accessibilityLabel="Save body"
       >
-        <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save body'}</Text>
+        <Text style={styles.saveBtnText}>{saving ? 'Savingâ€¦' : 'Save body'}</Text>
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   wrap: { marginTop: 4, marginBottom: 8 },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     marginBottom: 6,
   },
   hint: {
     fontSize: 12,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     lineHeight: 17,
     marginBottom: 4,
   },
   helpLink: {
     fontSize: 12,
     fontWeight: '600',
-    color: WellnessColors.accentBlue,
+    color: c.accentBlue,
     marginBottom: 12,
   },
   fieldLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     marginBottom: 6,
     marginTop: 4,
   },
   fieldLabelInline: {
     fontSize: 12,
     fontWeight: '700',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   input: {
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 11,
     fontSize: 16,
-    color: WellnessColors.textPrimary,
-    backgroundColor: WellnessColors.surface,
+    color: c.textPrimary,
+    backgroundColor: c.surface,
     marginBottom: 10,
   },
   compHeader: {
@@ -522,9 +526,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     overflow: 'hidden',
-    backgroundColor: WellnessColors.background,
+    backgroundColor: c.background,
   },
   unitChip: {
     paddingHorizontal: 14,
@@ -533,12 +537,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   unitChipActive: {
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
   },
   unitChipText: {
     fontSize: 13,
     fontWeight: '700',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   unitChipTextActive: { color: '#fff' },
   compRow: {
@@ -549,15 +553,15 @@ const styles = StyleSheet.create({
   compCol: {
     flex: 1,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 12,
     padding: 10,
-    backgroundColor: WellnessColors.surface,
+    backgroundColor: c.surface,
   },
   compColLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
+    color: c.textPrimary,
     marginBottom: 6,
   },
   compInputRow: {
@@ -567,30 +571,30 @@ const styles = StyleSheet.create({
   compInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
+    borderColor: c.gridLine,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 10,
     fontSize: 17,
     fontWeight: '700',
-    color: WellnessColors.textPrimary,
-    backgroundColor: WellnessColors.background,
+    color: c.textPrimary,
+    backgroundColor: c.background,
   },
   compUnit: {
     marginLeft: 8,
     fontSize: 14,
     fontWeight: '600',
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     minWidth: 28,
   },
   compAlt: {
     marginTop: 6,
     fontSize: 11,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
   },
   preview: {
     fontSize: 12,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     lineHeight: 17,
     marginBottom: 8,
   },
@@ -602,13 +606,13 @@ const styles = StyleSheet.create({
   },
   bmrHint: {
     fontSize: 11,
-    color: WellnessColors.textSecondary,
+    color: c.textSecondary,
     lineHeight: 15,
     marginTop: -4,
     marginBottom: 12,
   },
   saveBtn: {
-    backgroundColor: WellnessColors.accentBlue,
+    backgroundColor: c.accentBlue,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',

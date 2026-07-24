@@ -16,7 +16,8 @@ import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import { getYourSetupCopy } from '../i18n/yourSetupCopy';
 import type { SetupToggles } from '../services/SourceConfigService';
 import type { UserLanguage } from '../services/TargetService';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import { PhoneHealthActivityStrip } from './PhoneHealthActivityStrip';
 import { SetupToggleRow } from './SetupToggleRow';
@@ -60,6 +61,8 @@ export function GearSetupStrip({
   careSensImportMessage = null,
   onCareSensImport,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const titles = getProfileSettingsStripCopy(lang?.code);
   const setup = getYourSetupCopy(lang?.code);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
@@ -128,7 +131,7 @@ export function GearSetupStrip({
                   disabled={linkBusy}
                 >
                   {linkBusy ? (
-                    <ActivityIndicator color={WellnessColors.accentBlue} size="small" />
+                    <ActivityIndicator color={colors.accentBlue} size="small" />
                   ) : (
                     <Text style={styles.withingsLinkButtonText}>
                       {withingsLinked ? setup.relinkWithings : setup.linkWithings}
@@ -172,7 +175,7 @@ export function GearSetupStrip({
                     accessibilityLabel="Import CareSens Air CSV"
                   >
                     {careSensImportBusy ? (
-                      <ActivityIndicator color={WellnessColors.accentBlue} />
+                      <ActivityIndicator color={colors.accentBlue} />
                     ) : (
                       <View style={styles.careSensImportButtonRow}>
                         <View style={styles.careSensImportLogoWrap}>
@@ -204,101 +207,102 @@ export function GearSetupStrip({
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-  },
-  body: {
-    marginTop: 8,
-    gap: 4,
-    paddingHorizontal: 4,
-    paddingBottom: 4,
-  },
-  quickStartAgainBtn: {
-    marginTop: 12,
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  quickStartAgainText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: WellnessColors.accentBlue,
-  },
-  withingsLinkButton: {
-    alignSelf: 'stretch',
-    marginBottom: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: WellnessColors.accentBlue,
-    backgroundColor: WellnessColors.accentBlue + '12',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 42,
-  },
-  withingsLinkButtonDisabled: {
-    opacity: 0.6,
-  },
-  withingsLinkButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: WellnessColors.accentBlue,
-  },
-  linkErrorText: {
-    fontSize: 12,
-    color: WellnessColors.accentRed,
-    marginBottom: 8,
-  },
-  careSensImportSection: {
-    gap: 6,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  careSensImportButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: WellnessColors.accentBlue,
-    borderRadius: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    backgroundColor: WellnessColors.surface,
-    minHeight: 56,
-  },
-  careSensImportButtonDisabled: {
-    opacity: 0.65,
-  },
-  careSensImportButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    paddingHorizontal: 4,
-  },
-  careSensImportLogoWrap: {
-    flex: 1,
-    height: 40,
-    minWidth: 0,
-    marginRight: 12,
-    justifyContent: 'center',
-  },
-  careSensImportButtonLogo: {
-    width: '100%',
-    height: '100%',
-  },
-  careSensImportButtonLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: WellnessColors.accentBlue,
-    letterSpacing: 0.3,
-  },
-  importMessageText: {
-    fontSize: 14,
-    color: WellnessColors.textPrimary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-});
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    wrap: {
+      paddingHorizontal: 0,
+      paddingVertical: 0,
+    },
+    body: {
+      marginTop: 8,
+      gap: 4,
+      paddingHorizontal: 4,
+      paddingBottom: 4,
+    },
+    quickStartAgainBtn: {
+      marginTop: 12,
+      paddingVertical: 8,
+      alignItems: 'center',
+    },
+    quickStartAgainText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: c.accentBlue,
+    },
+    withingsLinkButton: {
+      alignSelf: 'stretch',
+      marginBottom: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: c.accentBlue,
+      backgroundColor: c.accentBlue + '12',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 42,
+    },
+    withingsLinkButtonDisabled: {
+      opacity: 0.6,
+    },
+    withingsLinkButtonText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: c.accentBlue,
+    },
+    linkErrorText: {
+      fontSize: 12,
+      color: c.accentRed,
+      marginBottom: 8,
+    },
+    careSensImportSection: {
+      gap: 6,
+      marginTop: 8,
+      marginBottom: 4,
+    },
+    careSensImportButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: c.accentBlue,
+      borderRadius: 24,
+      paddingVertical: 12,
+      paddingHorizontal: 18,
+      backgroundColor: c.surface,
+      minHeight: 56,
+    },
+    careSensImportButtonDisabled: {
+      opacity: 0.65,
+    },
+    careSensImportButtonRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      width: '100%',
+      paddingHorizontal: 4,
+    },
+    careSensImportLogoWrap: {
+      flex: 1,
+      height: 40,
+      minWidth: 0,
+      marginRight: 12,
+      justifyContent: 'center',
+    },
+    careSensImportButtonLogo: {
+      width: '100%',
+      height: '100%',
+    },
+    careSensImportButtonLabel: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: c.accentBlue,
+      letterSpacing: 0.3,
+    },
+    importMessageText: {
+      fontSize: 14,
+      color: c.textPrimary,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+  });

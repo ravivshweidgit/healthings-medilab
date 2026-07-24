@@ -3,7 +3,7 @@
  * Brand recipes (Garmin, Samsung, …) live on the help site — not in-app.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,7 +14,8 @@ import {
   Text,
   View,
 } from 'react-native';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import {
   healthConnectService,
   openHealthConnectPlayStore,
@@ -49,6 +50,8 @@ function tick(ok: boolean): string {
 }
 
 export function PhoneHealthActivityStrip({ onPermissionGranted, onSync }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const isIos = Platform.OS === 'ios';
   const storeName = isIos ? 'Apple Health' : 'Health Connect';
   const [granted, setGranted] = useState<GrantedLine | null>(null);
@@ -251,7 +254,7 @@ export function PhoneHealthActivityStrip({ onPermissionGranted, onSync }: Props)
         accessibilityLabel={`Deep sync activity from ${storeName}`}
       >
         {syncBusy ? (
-          <ActivityIndicator color={WellnessColors.accentBlue} size="small" />
+          <ActivityIndicator color={colors.accentBlue} size="small" />
         ) : (
           <Text style={styles.btnSecondaryText}>Deep sync (~31 days)</Text>
         )}
@@ -268,7 +271,7 @@ export function PhoneHealthActivityStrip({ onPermissionGranted, onSync }: Props)
         hitSlop={8}
       >
         {diagBusy ? (
-          <ActivityIndicator color={WellnessColors.textSecondary} size="small" />
+          <ActivityIndicator color={colors.textSecondary} size="small" />
         ) : (
           <Text style={styles.troubleText}>Troubleshoot (full permission + data check)</Text>
         )}
@@ -280,84 +283,85 @@ export function PhoneHealthActivityStrip({ onPermissionGranted, onSync }: Props)
 /** @deprecated Use PhoneHealthActivityStrip */
 export const HealthConnectStepsGuide = PhoneHealthActivityStrip;
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: WellnessColors.noticeSoftBg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: WellnessColors.noticeSoftBorder,
-    padding: 14,
-    marginBottom: 14,
-  },
-  title: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: WellnessColors.textPrimary,
-    marginBottom: 6,
-  },
-  lead: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: WellnessColors.textSecondary,
-    marginBottom: 8,
-  },
-  advisory: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: WellnessColors.textSecondary,
-    marginBottom: 8,
-  },
-  warnStrong: {
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '600',
-    color: '#8A5A00',
-    backgroundColor: '#FFF6E0',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 10,
-  },
-  statusOk: {
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '600',
-    color: '#2E7D5A',
-    marginBottom: 10,
-  },
-  permLine: {
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '600',
-    color: WellnessColors.textPrimary,
-    marginBottom: 10,
-  },
-  btn: {
-    backgroundColor: '#2E7D5A',
-    borderRadius: 10,
-    paddingVertical: 11,
-    alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 6,
-  },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  btnSecondary: {
-    borderRadius: 10,
-    paddingVertical: 11,
-    alignItems: 'center',
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: WellnessColors.accentBlue,
-    backgroundColor: WellnessColors.surface,
-  },
-  btnSecondaryText: { color: WellnessColors.accentBlue, fontWeight: '700', fontSize: 14 },
-  linkBtn: { paddingVertical: 6, marginBottom: 4 },
-  linkText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: WellnessColors.accentBlue,
-    textAlign: 'center',
-  },
-  troubleBtn: { alignSelf: 'flex-start', marginTop: 10, paddingVertical: 4 },
-  troubleText: { fontSize: 11, color: WellnessColors.textSecondary, fontWeight: '600' },
-});
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: c.noticeSoftBg,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: c.noticeSoftBorder,
+      padding: 14,
+      marginBottom: 14,
+    },
+    title: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: c.textPrimary,
+      marginBottom: 6,
+    },
+    lead: {
+      fontSize: 12,
+      lineHeight: 18,
+      color: c.textSecondary,
+      marginBottom: 8,
+    },
+    advisory: {
+      fontSize: 12,
+      lineHeight: 17,
+      color: c.textSecondary,
+      marginBottom: 8,
+    },
+    warnStrong: {
+      fontSize: 12,
+      lineHeight: 17,
+      fontWeight: '600',
+      color: '#8A5A00',
+      backgroundColor: '#FFF6E0',
+      borderRadius: 8,
+      padding: 10,
+      marginBottom: 10,
+    },
+    statusOk: {
+      fontSize: 12,
+      lineHeight: 17,
+      fontWeight: '600',
+      color: '#2E7D5A',
+      marginBottom: 10,
+    },
+    permLine: {
+      fontSize: 12,
+      lineHeight: 18,
+      fontWeight: '600',
+      color: c.textPrimary,
+      marginBottom: 10,
+    },
+    btn: {
+      backgroundColor: '#2E7D5A',
+      borderRadius: 10,
+      paddingVertical: 11,
+      alignItems: 'center',
+      marginTop: 4,
+      marginBottom: 6,
+    },
+    btnDisabled: { opacity: 0.6 },
+    btnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    btnSecondary: {
+      borderRadius: 10,
+      paddingVertical: 11,
+      alignItems: 'center',
+      marginBottom: 6,
+      borderWidth: 1,
+      borderColor: c.accentBlue,
+      backgroundColor: c.surface,
+    },
+    btnSecondaryText: { color: c.accentBlue, fontWeight: '700', fontSize: 14 },
+    linkBtn: { paddingVertical: 6, marginBottom: 4 },
+    linkText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: c.accentBlue,
+      textAlign: 'center',
+    },
+    troubleBtn: { alignSelf: 'flex-start', marginTop: 10, paddingVertical: 4 },
+    troubleText: { fontSize: 11, color: c.textSecondary, fontWeight: '600' },
+  });

@@ -2,11 +2,12 @@
  * Profile, Settings & Quick Start — per-measure unit pickers.
  * Row labels follow app language; unit symbols stay English (glossary).
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { getUnitsSectionCopy } from '../i18n/unitsSectionCopy';
 import type { UnitsPrefs } from '../services/UnitsPreferenceService';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 
 type ChipProps<T extends string> = {
   label: string;
@@ -17,6 +18,8 @@ type ChipProps<T extends string> = {
 };
 
 function UnitChipRow<T extends string>({ label, value, options, onChange, rtl }: ChipProps<T>) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={[styles.row, rtl && styles.rowRtl]}>
       <Text style={[styles.rowLabel, rtl && styles.rowLabelRtl]}>{label}</Text>
@@ -50,6 +53,8 @@ type Props = {
 };
 
 export function UnitsPreferenceSection({ prefs, onChange, langCode, hideHeader }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const t = getUnitsSectionCopy(langCode);
   const rtl = (langCode || '').toLowerCase().startsWith('he') || (langCode || '').toLowerCase().startsWith('ar');
   const patch = (partial: Partial<UnitsPrefs>) => onChange({ ...prefs, version: 1, ...partial });
@@ -116,56 +121,57 @@ export function UnitsPreferenceSection({ prefs, onChange, langCode, hideHeader }
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { marginTop: 8, marginBottom: 4 },
-  title: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: WellnessColors.textPrimary,
-    marginBottom: 4,
-  },
-  hint: {
-    fontSize: 11,
-    color: WellnessColors.textSecondary,
-    marginBottom: 10,
-    lineHeight: 15,
-  },
-  textRtl: {
-    writingDirection: 'rtl',
-    textAlign: 'right',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-  },
-  rowRtl: {
-    flexDirection: 'row-reverse',
-  },
-  rowLabel: {
-    width: 72,
-    fontSize: 12,
-    fontWeight: '600',
-    color: WellnessColors.textSecondary,
-  },
-  rowLabelRtl: {
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  chips: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
-    backgroundColor: WellnessColors.surface,
-  },
-  chipSelected: {
-    borderColor: WellnessColors.accentBlue,
-    backgroundColor: WellnessColors.iconTintBlue,
-  },
-  chipText: { fontSize: 12, fontWeight: '600', color: WellnessColors.textSecondary },
-  chipTextSelected: { color: WellnessColors.accentBlue },
-});
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    wrap: { marginTop: 8, marginBottom: 4 },
+    title: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: c.textPrimary,
+      marginBottom: 4,
+    },
+    hint: {
+      fontSize: 11,
+      color: c.textSecondary,
+      marginBottom: 10,
+      lineHeight: 15,
+    },
+    textRtl: {
+      writingDirection: 'rtl',
+      textAlign: 'right',
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 8,
+      gap: 8,
+    },
+    rowRtl: {
+      flexDirection: 'row-reverse',
+    },
+    rowLabel: {
+      width: 72,
+      fontSize: 12,
+      fontWeight: '600',
+      color: c.textSecondary,
+    },
+    rowLabelRtl: {
+      textAlign: 'right',
+      writingDirection: 'rtl',
+    },
+    chips: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    chip: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: c.gridLine,
+      backgroundColor: c.surface,
+    },
+    chipSelected: {
+      borderColor: c.accentBlue,
+      backgroundColor: c.iconTintBlue,
+    },
+    chipText: { fontSize: 12, fontWeight: '600', color: c.textSecondary },
+    chipTextSelected: { color: c.accentBlue },
+  });

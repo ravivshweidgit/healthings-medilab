@@ -2,7 +2,7 @@
  * Signed-in account — email, role, biometric unlock, sign out.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -28,7 +28,8 @@ import {
   uploadCloudBackup,
   type CloudBackupStatus,
 } from '../services/CloudBackupService';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import type { UserLanguage } from '../services/TargetService';
@@ -50,6 +51,8 @@ export function AccountStrip({
   onDataRestored,
   lang,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -274,7 +277,7 @@ export function AccountStrip({
               <Switch
                 value={biometricEnabled}
                 onValueChange={(next) => void handleBiometricToggle(next)}
-                trackColor={{ false: WellnessColors.gridLine, true: WellnessColors.accentGreen }}
+                trackColor={{ false: colors.gridLine, true: colors.accentGreen }}
                 thumbColor="#fff"
               />
             </View>
@@ -293,7 +296,7 @@ export function AccountStrip({
                   value={cloudStatus?.enabled ?? false}
                   onValueChange={(next) => void handleCloudToggle(next)}
                   disabled={cloudBusy}
-                  trackColor={{ false: WellnessColors.gridLine, true: WellnessColors.accentGreen }}
+                  trackColor={{ false: colors.gridLine, true: colors.accentGreen }}
                   thumbColor="#fff"
                 />
               </View>
@@ -324,7 +327,7 @@ export function AccountStrip({
                   <Text style={styles.cloudBtnOutlineText}>Restore from cloud</Text>
                 </Pressable>
               ) : null}
-              {cloudBusy ? <ActivityIndicator color={WellnessColors.accentBlue} /> : null}
+              {cloudBusy ? <ActivityIndicator color={colors.accentBlue} /> : null}
               {cloudMessage ? <Text style={styles.cloudMessage}>{cloudMessage}</Text> : null}
             </View>
           ) : null}
@@ -347,103 +350,104 @@ export function AccountStrip({
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-  },
-  body: {
-    marginTop: 4,
-    gap: 8,
-    paddingHorizontal: 4,
-  },
-  signedInLine: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: WellnessColors.textPrimary,
-  },
-  roleLine: {
-    fontSize: 13,
-    color: WellnessColors.textSecondary,
-    marginBottom: 4,
-  },
-  biometricRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingVertical: 8,
-    marginBottom: 4,
-  },
-  biometricText: {
-    flex: 1,
-  },
-  biometricTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: WellnessColors.textPrimary,
-  },
-  biometricHint: {
-    fontSize: 12,
-    color: WellnessColors.textSecondary,
-    marginTop: 2,
-  },
-  logoutBtn: {
-    alignSelf: 'flex-start',
-    backgroundColor: WellnessColors.textSecondary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  logoutBtnText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  btnDisabled: {
-    opacity: 0.5,
-  },
-  errorText: {
-    fontSize: 13,
-    color: '#c0392b',
-  },
-  cloudBlock: {
-    marginTop: 4,
-    marginBottom: 8,
-    gap: 8,
-  },
-  cloudMeta: {
-    fontSize: 12,
-    color: WellnessColors.textSecondary,
-  },
-  cloudBtn: {
-    alignSelf: 'flex-start',
-    backgroundColor: WellnessColors.accentBlue,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  cloudBtnText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  cloudBtnOutline: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: WellnessColors.accentBlue,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  cloudBtnOutlineText: {
-    color: WellnessColors.accentBlue,
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  cloudMessage: {
-    fontSize: 12,
-    color: WellnessColors.textSecondary,
-    lineHeight: 17,
-  },
-});
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    wrap: {
+      paddingHorizontal: 0,
+      paddingVertical: 0,
+    },
+    body: {
+      marginTop: 4,
+      gap: 8,
+      paddingHorizontal: 4,
+    },
+    signedInLine: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: c.textPrimary,
+    },
+    roleLine: {
+      fontSize: 13,
+      color: c.textSecondary,
+      marginBottom: 4,
+    },
+    biometricRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      paddingVertical: 8,
+      marginBottom: 4,
+    },
+    biometricText: {
+      flex: 1,
+    },
+    biometricTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: c.textPrimary,
+    },
+    biometricHint: {
+      fontSize: 12,
+      color: c.textSecondary,
+      marginTop: 2,
+    },
+    logoutBtn: {
+      alignSelf: 'flex-start',
+      backgroundColor: c.textSecondary,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    logoutBtnText: {
+      color: '#fff',
+      fontWeight: '600',
+      fontSize: 14,
+    },
+    btnDisabled: {
+      opacity: 0.5,
+    },
+    errorText: {
+      fontSize: 13,
+      color: '#c0392b',
+    },
+    cloudBlock: {
+      marginTop: 4,
+      marginBottom: 8,
+      gap: 8,
+    },
+    cloudMeta: {
+      fontSize: 12,
+      color: c.textSecondary,
+    },
+    cloudBtn: {
+      alignSelf: 'flex-start',
+      backgroundColor: c.accentBlue,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    cloudBtnText: {
+      color: '#fff',
+      fontWeight: '600',
+      fontSize: 13,
+    },
+    cloudBtnOutline: {
+      alignSelf: 'flex-start',
+      borderWidth: 1,
+      borderColor: c.accentBlue,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    cloudBtnOutlineText: {
+      color: c.accentBlue,
+      fontWeight: '600',
+      fontSize: 13,
+    },
+    cloudMessage: {
+      fontSize: 12,
+      color: c.textSecondary,
+      lineHeight: 17,
+    },
+  });
