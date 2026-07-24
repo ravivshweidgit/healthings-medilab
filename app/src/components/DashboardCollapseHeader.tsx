@@ -2,7 +2,7 @@
  * Shared collapsible strip header — Food Log, glucose, trend, profile, labs, reports.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -11,7 +11,8 @@ import {
   type StyleProp,
   ViewStyle,
 } from 'react-native';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import { DashIcon, type LucideIcon } from '../theme/icons';
 
 type Props = {
@@ -45,6 +46,8 @@ export function DashboardCollapseHeader({
   trailing,
   icon,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const showSub = !expanded && subtitle != null && subtitle !== '';
 
   return (
@@ -55,7 +58,7 @@ export function DashboardCollapseHeader({
       accessibilityState={{ expanded }}
       accessibilityLabel={expanded ? collapseLabel : expandLabel}
     >
-      {icon ? <DashIcon icon={icon} /> : null}
+      {icon ? <DashIcon icon={icon} color={colors.textSecondary} /> : null}
       <View style={styles.headerText}>
         <Text style={[styles.title, titleRtl && styles.titleRtl]} numberOfLines={1}>
           {title}
@@ -75,48 +78,47 @@ export function DashboardCollapseHeader({
   );
 }
 
-/** Canonical strip-header tokens — keep in sync if duplicating elsewhere. */
-export const dashStripHeaderStyles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-  },
-  headerText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  title: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    color: WellnessColors.textSecondary,
-  },
-  titleRtl: {
-    letterSpacing: 0,
-    writingDirection: 'rtl',
-  },
-  subtitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: WellnessColors.textPrimary,
-    marginTop: 2,
-  },
-  subtitleRtl: {
-    writingDirection: 'rtl',
-  },
-  chevron: {
-    fontSize: 18,
-    color: WellnessColors.textSecondary,
-    paddingHorizontal: 4,
-  },
-  // Single chevron affordance: rotate the collapsed ▾ to point up when expanded,
-  // so expand/collapse reads as one control everywhere (no mixed › / ⌃ glyphs).
-  chevronExpanded: {
-    transform: [{ rotate: '180deg' }],
-  },
-});
-
-const styles = dashStripHeaderStyles;
+/** Canonical strip-header tokens — themed factory (prompt96 Phase 2). */
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 4,
+    },
+    headerText: {
+      flex: 1,
+      minWidth: 0,
+    },
+    title: {
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 1,
+      color: c.textSecondary,
+    },
+    titleRtl: {
+      letterSpacing: 0,
+      writingDirection: 'rtl',
+    },
+    subtitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.textPrimary,
+      marginTop: 2,
+    },
+    subtitleRtl: {
+      writingDirection: 'rtl',
+    },
+    chevron: {
+      fontSize: 18,
+      color: c.textSecondary,
+      paddingHorizontal: 4,
+    },
+    // Single chevron affordance: rotate the collapsed ▾ to point up when expanded,
+    // so expand/collapse reads as one control everywhere (no mixed › / ⌃ glyphs).
+    chevronExpanded: {
+      transform: [{ rotate: '180deg' }],
+    },
+  });

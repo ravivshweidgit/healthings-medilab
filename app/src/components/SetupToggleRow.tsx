@@ -2,9 +2,10 @@
  * Yes / No toggle row — Quick Start step 2 and My Profile Your setup.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 
 type Props = {
   label: string;
@@ -23,6 +24,8 @@ export function SetupToggleRow({
   yesLabel = 'Yes',
   noLabel = 'No',
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.block}>
       <Text style={styles.label}>{label}</Text>
@@ -45,28 +48,29 @@ export function SetupToggleRow({
   );
 }
 
-const styles = StyleSheet.create({
-  block: { marginBottom: 14 },
-  label: { fontSize: 13, fontWeight: '600', color: WellnessColors.textPrimary, marginBottom: 8 },
-  row: { flexDirection: 'row', gap: 10 },
-  btn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: WellnessColors.gridLine,
-    alignItems: 'center',
-  },
-  btnOn: {
-    backgroundColor: WellnessColors.accentBlue,
-    borderColor: WellnessColors.accentBlue,
-  },
-  text: { fontWeight: '700', color: WellnessColors.textSecondary },
-  textOn: { color: '#fff' },
-  hint: {
-    fontSize: 11,
-    color: WellnessColors.textSecondary,
-    marginTop: 6,
-    lineHeight: 16,
-  },
-});
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    block: { marginBottom: 14 },
+    label: { fontSize: 13, fontWeight: '600', color: c.textPrimary, marginBottom: 8 },
+    row: { flexDirection: 'row', gap: 10 },
+    btn: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: c.gridLine,
+      alignItems: 'center',
+    },
+    btnOn: {
+      backgroundColor: c.accentBlue,
+      borderColor: c.accentBlue,
+    },
+    text: { fontWeight: '700', color: c.textSecondary },
+    textOn: { color: '#fff' },
+    hint: {
+      fontSize: 11,
+      color: c.textSecondary,
+      marginTop: 6,
+      lineHeight: 16,
+    },
+  });

@@ -15,7 +15,8 @@ import {
   VISIT_REPORT_DAY_OPTIONS,
   type VisitReportDayCount,
 } from '../services/visitReportService';
-import { WellnessColors } from '../theme/wellness';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../theme/tokens';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import type { UserLanguage } from '../services/TargetService';
@@ -48,6 +49,8 @@ export function ReportsStrip({
   onShareVisitReport,
   lang,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const headerSub = useMemo(
     () => VISIT_REPORT_DAY_OPTIONS.join(' / '),
@@ -85,7 +88,7 @@ export function ReportsStrip({
           <Text style={styles.note}>{visitReportUi.cgmNote}</Text>
           {busy ? (
             <View style={styles.busyRow}>
-              <ActivityIndicator color={WellnessColors.accentBlue} />
+              <ActivityIndicator color={colors.accentBlue} />
               <Text style={styles.busyText}>{visitReportUi.busy}</Text>
             </View>
           ) : null}
@@ -95,64 +98,65 @@ export function ReportsStrip({
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-  },
-  body: {
-    marginTop: 8,
-    gap: 8,
-    paddingHorizontal: 4,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: WellnessColors.textPrimary,
-  },
-  sectionSubtitle: {
-    fontSize: 12,
-    color: WellnessColors.textSecondary,
-    lineHeight: 17,
-  },
-  buttonGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
-  },
-  dayButton: {
-    width: '48%',
-    flexGrow: 1,
-    borderWidth: 1,
-    borderColor: WellnessColors.textSecondary,
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: WellnessColors.surface,
-  },
-  dayButtonDisabled: {
-    opacity: 0.6,
-  },
-  dayButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: WellnessColors.textPrimary,
-  },
-  note: {
-    fontSize: 11,
-    color: WellnessColors.textSecondary,
-    lineHeight: 15,
-  },
-  busyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
-  },
-  busyText: {
-    fontSize: 13,
-    color: WellnessColors.textSecondary,
-  },
-});
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    wrap: {
+      paddingHorizontal: 0,
+      paddingVertical: 0,
+    },
+    body: {
+      marginTop: 8,
+      gap: 8,
+      paddingHorizontal: 4,
+    },
+    sectionTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: c.textPrimary,
+    },
+    sectionSubtitle: {
+      fontSize: 12,
+      color: c.textSecondary,
+      lineHeight: 17,
+    },
+    buttonGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginTop: 4,
+    },
+    dayButton: {
+      width: '48%',
+      flexGrow: 1,
+      borderWidth: 1,
+      borderColor: c.textSecondary,
+      borderRadius: 12,
+      paddingVertical: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.surface,
+    },
+    dayButtonDisabled: {
+      opacity: 0.6,
+    },
+    dayButtonText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: c.textPrimary,
+    },
+    note: {
+      fontSize: 11,
+      color: c.textSecondary,
+      lineHeight: 15,
+    },
+    busyRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 4,
+    },
+    busyText: {
+      fontSize: 13,
+      color: c.textSecondary,
+    },
+  });
