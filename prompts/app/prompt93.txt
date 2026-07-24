@@ -1,0 +1,144 @@
+# prompt93 — First-impression batch (UI/UX audit batches A + B)
+
+**Status:** Partial — **Batch A shipped + phone-tested 2026-07-24**. Batch B still backlog.
+Derived from `prompt92.txt` review output (2026-07-24, Opus 4.8). First-impression slice:
+low-risk "quick trust wins" (Batch A) + first-run polish (Batch B). No data/units/clinical-number
+changes — presentation only.
+
+**Builds on:** prompt92 (audit), prompt91 (10 locales), prompt87/88/81 (chrome i18n),
+language-policy + persistence-parity + ai-judgment rules.
+
+**Goal:** Raise perceived quality on the two surfaces a new user hits first — the Quick Start
+wizard and the dashboard chrome — without restructuring the app. Every change must survive
+text expansion (de/ru/tr) and RTL (he/ar).
+
+---
+
+## Batch A — quick trust wins (all small, ship together)
+
+**Shipped 2026-07-24** (phone-tested). Commit hash TBD after push.
+
+| Item | What landed |
+|------|-------------|
+| A1/F11 | `WellnessColors.textSecondary` `#7C7C7C` → `#5B6470` (~AA on white) |
+| A2/F10 | Gallery tile `#7B1FA2` → `#1F3D5C` navy |
+| A3/F14 | Meal / Add water `borderStyle: 'solid'` + stronger brand tints |
+| A4/F12 | QS `progress` → localized "Step N of M" (no duplicate Quick Start) in all 10 locales |
+| A5/F16 | Shared header: one `▾` + `rotate(180deg)` when expanded |
+| A6/F17 | `aiChatActionSummary` / `aiChatAskPrompt` — "coach tips" + localized ask prompt |
+
+### Phone-tested (Batch A)
+- [x] Strip labels darker / readable
+- [x] Gallery tile on-brand (navy)
+- [x] Meal / Add water solid
+- [x] QS subtitle Step N of M
+- [x] One collapse chevron
+- [x] Coach tips / Ask mentors badge
+
+### A1 · F11 — Strip label + secondary-text contrast (AA)
+- **Where:** `app/src/components/DashboardCollapseHeader.tsx` (shared strip header) + any
+  local uppercase labels in `*Strip.tsx`; secondary/placeholder grays app-wide.
+- **Do:** Darken the small-caps strip labels ("FOOD LOG", "GLUCOSE", …) and secondary text so
+  small text hits WCAG AA 4.5:1 on white. Target ~`#5b6470` or darker; verify with a contrast
+  check. Introduce a single `colors.textSecondary` / `colors.label` token if not present and
+  point the header at it.
+- **Guard:** Do not change primary body text (already fine). One token, reused — don't fork
+  per-strip grays.
+
+### A2 · F10 — Off-brand purple Gallery tile
+- **Where:** `app/src/components/FoodLogModal.tsx` (Log Meal idle: Camera vs Gallery tiles).
+- **Do:** Retire the purple. Both tiles brand-consistent (brand blue + a neutral/teal),
+  differentiated by icon, not by a foreign hue. Keep labels localized.
+
+### A3 · F14 — Dashed borders on primary actions
+- **Where:** Food Log "Meal" and "Add water" actions (`FoodLogModal.tsx` /
+  `FoodMacroStrip.tsx`).
+- **Do:** Active primary actions = solid (filled or solid-outline brand). Reserve **dashed**
+  borders only for empty "Add …" placeholders (e.g. Add session / Add report already use
+  dashed correctly — keep those).
+
+### A4 · F12 — Quick Start header redundancy
+- **Where:** `app/src/components/WelcomeQuickStartWizard.tsx` header; copy in
+  `app/src/i18n/quickStartCopy.ts`.
+- **Do:** Title stays "Quick Start"; subtitle = **step name + count** consistently
+  (e.g. "Units & measurements · 3 of 11"), not "Quick Start · 3 of 11". Step 1 already shows a
+  step name — make every step match.
+
+### A5 · F16 — Unify expand/collapse affordance
+- **Where:** `DashboardCollapseHeader.tsx` + collapsed strip summary rows.
+- **Do:** One affordance for expand/collapse everywhere (a single chevron that rotates), not
+  ">" when collapsed and top-right "^" when expanded. Keep tap target ≥44px.
+
+### A6 · F17 — "0/4 actions" is unlabeled
+- **Where:** AI-chat entry card on the dashboard (`app/src/screens/DashboardScreen.tsx`);
+  copy in `app/src/i18n/aiChatCopy.ts`.
+- **Do:** Make the badge self-explanatory — e.g. "0 of 4 coach tips" (localized, 10 locales).
+  Keep it compact; verify de/ru/tr length + RTL.
+
+## Batch B — first-run polish
+
+### B1 · F2 — Quick Start progress denominator changes mid-flow (P0)
+- **Where:** `WelcomeQuickStartWizard.tsx` step model.
+- **Problem:** Answering Yes to scale/watch/CGM inserts sync steps, so "X of N" grows
+  11 → 12 → 13 mid-flow — the progress bar moves its own goalposts.
+- **Do:** Pick one:
+  - (a) Compute a **stable total** = max possible steps; skip inserted steps silently so N
+    never shrinks/grows; or
+  - (b) Drop the numeric "of N" and keep only the dot bar (dots can still grow, but no number
+    to contradict).
+  Prefer (a) if feasible. Logic-only; no copy risk beyond removing the number.
+
+### B2 · F4 — Yes/No hidden below the fold (P1)
+- **Where:** Quick Start decision steps (scale / watch / CGM) in `WelcomeQuickStartWizard.tsx`.
+- **Problem:** Hero illustration + heading + body push the Yes/No buttons off-screen on first
+  render; the "Tap Yes or No 👆" finger hint exists because users got stuck.
+- **Do:** Reduce hero image height on decision steps and/or pin the Yes/No row so both options
+  are visible above the sticky Back/Next footer without scrolling. Once visible by default,
+  **remove the finger-emoji hint**. Keep the selected-state (navy fill) pattern.
+- **Guard:** Fixed 2-button row must survive long labels + RTL (Yes/No are short, safe).
+
+### B3 · F5 — Language gate: two disconnected language controls (P1)
+- **Where:** First screen — `app/src/i18n/languageGate.ts` +
+  `WelcomeQuickStartWizard.tsx` (gate layout).
+- **Problem:** A 2-column text list of "Select language" translations sits up top (looks
+  tappable, isn't); the real selector (flag tray) sits at the bottom with a big dead gap.
+- **Do:** Collapse to **one control** — a grid of tappable cells, each = flag + native name
+  (🇩🇪 Deutsch, 🇮🇱 עברית, …), single selected state. Keep one localized "Select language"
+  header (may rotate through locales or follow current selection). Remove the separate text
+  list and the dead space.
+- **Guard:** Must fit **10 cells** + RTL names cleanly (2 cols × 5 rows works on small screens);
+  native names include long ones (Português, Türkçe) — verify no clipping.
+
+---
+
+## Out of scope (later specs)
+- Icon-set migration (F7) + dashboard hierarchy/tiers (F6) → **prompt94** (Batch C).
+- Trend-axis fix (F3), chat input cleanup (F8), pull-to-refresh (F9) → **prompt95** (Batch D).
+- RTL user-content alignment (F13), website help/landing (F19), Edit-Meal delete clarity (F15),
+  CGM illustration (F20) → **prompt95/Batch E**.
+
+## Primary files
+| Concern | File |
+|----|----|
+| Shared strip header (contrast, collapse affordance) | `app/src/components/DashboardCollapseHeader.tsx` |
+| Quick Start wizard (header, progress, Yes/No, gate layout) | `app/src/components/WelcomeQuickStartWizard.tsx` |
+| Language gate options | `app/src/i18n/languageGate.ts` |
+| Quick Start copy | `app/src/i18n/quickStartCopy.ts` |
+| Food Log modal (Gallery tile, dashed actions) | `app/src/components/FoodLogModal.tsx` |
+| Food macro strip (Meal / Add water) | `app/src/components/FoodMacroStrip.tsx` |
+| AI-chat entry badge copy | `app/src/i18n/aiChatCopy.ts`, `app/src/screens/DashboardScreen.tsx` |
+
+## Phone-tested checklist
+- [ ] Strip labels readable / pass AA on device (light mode)
+- [ ] Gallery tile on-brand; no purple
+- [ ] Meal / Add water read as primary (solid), Add-session/report still dashed
+- [ ] QS subtitle shows step name + count on every step
+- [ ] One collapse chevron everywhere
+- [ ] "coach tips" badge localized, no clipping (de/ru/tr)
+- [ ] QS "of N" no longer changes when answering Yes/No
+- [ ] Yes/No visible without scrolling on scale/watch/CGM; finger hint gone
+- [ ] Language gate = single grid; all 10 locales + RTL names fit
+- [ ] RTL (he/ar) spot-check of gate + wizard
+
+## Related
+- `prompt92.txt` — audit source (findings F2, F4, F5, F10, F11, F12, F14, F16, F17).

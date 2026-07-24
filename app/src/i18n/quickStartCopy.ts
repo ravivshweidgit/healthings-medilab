@@ -169,7 +169,7 @@ export type QuickStartCopy = {
 
 const EN: QuickStartCopy = {
   quickStart: 'Quick Start',
-  progress: (n, total) => `Quick Start · ${n} of ${total}`,
+  progress: (n, total) => `Step ${n} of ${total}`,
   welcomeTo: 'Welcome to Healthings',
   back: 'Back',
   next: 'Next',
@@ -315,7 +315,7 @@ const EN: QuickStartCopy = {
 
 const HE: QuickStartCopy = {
   quickStart: 'התחלה מהירה',
-  progress: (n, total) => `התחלה מהירה · ${n} מתוך ${total}`,
+  progress: (n, total) => `שלב ${n} מתוך ${total}`,
   welcomeTo: 'ברוכים הבאים ל־Healthings',
   back: 'חזרה',
   next: 'המשך',
@@ -459,7 +459,7 @@ const HE: QuickStartCopy = {
 
 const DE: QuickStartCopy = {
   quickStart: 'Schnellstart',
-  progress: (n, total) => `Schnellstart · ${n} von ${total}`,
+  progress: (n, total) => `Schritt ${n} von ${total}`,
   welcomeTo: 'Willkommen bei Healthings',
   back: 'Zurück',
   next: 'Weiter',
@@ -604,7 +604,7 @@ const DE: QuickStartCopy = {
 
 const ES: QuickStartCopy = {
   quickStart: 'Inicio rápido',
-  progress: (n, total) => `Inicio rápido · ${n} de ${total}`,
+  progress: (n, total) => `Paso ${n} de ${total}`,
   welcomeTo: 'Bienvenido/a a Healthings',
   back: 'Atrás',
   next: 'Continuar',
@@ -749,7 +749,7 @@ const ES: QuickStartCopy = {
 
 const FR: QuickStartCopy = {
   quickStart: 'Démarrage rapide',
-  progress: (n, total) => `Démarrage rapide · ${n} sur ${total}`,
+  progress: (n, total) => `Étape ${n} sur ${total}`,
   welcomeTo: 'Bienvenue sur Healthings',
   back: 'Retour',
   next: 'Continuer',
@@ -894,7 +894,7 @@ const FR: QuickStartCopy = {
 
 const AR: QuickStartCopy = {
   quickStart: 'بداية سريعة',
-  progress: (n, total) => `بداية سريعة · ${n} من ${total}`,
+  progress: (n, total) => `الخطوة ${n} من ${total}`,
   welcomeTo: 'مرحباً بكم في Healthings',
   back: 'رجوع',
   next: 'متابعة',
@@ -1038,7 +1038,7 @@ const AR: QuickStartCopy = {
 
 const RU: QuickStartCopy = {
   quickStart: 'Быстрый старт',
-  progress: (n, total) => `Быстрый старт · ${n} из ${total}`,
+  progress: (n, total) => `Шаг ${n} из ${total}`,
   welcomeTo: 'Добро пожаловать в Healthings',
   back: 'Назад',
   next: 'Далее',
@@ -1183,7 +1183,7 @@ const RU: QuickStartCopy = {
 
 const PT: QuickStartCopy = {
   quickStart: 'Início rápido',
-  progress: (n, total) => `Início rápido · ${n} de ${total}`,
+  progress: (n, total) => `Passo ${n} de ${total}`,
   welcomeTo: 'Bem-vindo(a) ao Healthings',
   back: 'Voltar',
   next: 'Continuar',
@@ -1329,7 +1329,7 @@ const PT: QuickStartCopy = {
 
 const IT: QuickStartCopy = {
   quickStart: 'Avvio rapido',
-  progress: (n, total) => `Avvio rapido · ${n} di ${total}`,
+  progress: (n, total) => `Passaggio ${n} di ${total}`,
   welcomeTo: 'Benvenuto/a in Healthings',
   back: 'Indietro',
   next: 'Continua',
@@ -1475,7 +1475,7 @@ const IT: QuickStartCopy = {
 
 const TR: QuickStartCopy = {
   quickStart: 'Hızlı başlangıç',
-  progress: (n, total) => `Hızlı başlangıç · ${n}/${total}`,
+  progress: (n, total) => `Adım ${n}/${total}`,
   welcomeTo: 'Healthings’e hoş geldiniz',
   back: 'Geri',
   next: 'Devam',

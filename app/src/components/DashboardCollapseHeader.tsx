@@ -65,7 +65,7 @@ export function DashboardCollapseHeader({
         ) : null}
       </View>
       {trailing}
-      <Text style={styles.chevron}>{expanded ? '⌃' : '›'}</Text>
+      <Text style={[styles.chevron, expanded && styles.chevronExpanded]}>▾</Text>
     </Pressable>
   );
 }
@@ -106,6 +106,11 @@ export const dashStripHeaderStyles = StyleSheet.create({
     fontSize: 18,
     color: WellnessColors.textSecondary,
     paddingHorizontal: 4,
+  },
+  // Single chevron affordance: rotate the collapsed ▾ to point up when expanded,
+  // so expand/collapse reads as one control everywhere (no mixed › / ⌃ glyphs).
+  chevronExpanded: {
+    transform: [{ rotate: '180deg' }],
   },
 });
 

@@ -109,7 +109,7 @@ import {
 } from '../logic/metabolicTrend7d';
 import { formatLocalizedDate, formatLocalizedDateTime } from '../i18n/dateLocale';
 import { getBodyMetricsCopy } from '../i18n/bodyMetricsCopy';
-import { aiChatOpenLabel, aiChatTitle } from '../i18n/aiChatCopy';
+import { aiChatActionSummary, aiChatAskPrompt, aiChatOpenLabel, aiChatTitle } from '../i18n/aiChatCopy';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import { getYourSetupCopy } from '../i18n/yourSetupCopy';
 import {
@@ -1845,8 +1845,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             </Text>
             <Text style={styles.nudgeStripSub} numberOfLines={1} ellipsizeMode="tail">
               {coachMsg
-                ? `${coachMsg.actionItems.filter((i) => i.done).length}/${coachMsg.actionItems.length} actions`
-                : 'Ask your mentors'}
+                ? aiChatActionSummary(
+                    userLanguage.code,
+                    coachMsg.actionItems.filter((i) => i.done).length,
+                    coachMsg.actionItems.length,
+                  )
+                : aiChatAskPrompt(userLanguage.code)}
             </Text>
           </View>
           <Text style={styles.nudgeStripChevron}>›</Text>

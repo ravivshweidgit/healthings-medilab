@@ -11,7 +11,8 @@ Active / backlog specs stay in `prompts/app/`:
 | prompt38.txt | Planned — secondary lab findings (liver, iron, uric acid) |
 | prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
 | `prompt81b.txt` | **Shipped** — Phase B → `done/prompt87.txt` |
-| `prompt92.txt` | UI/UX review brief + **review output (2026-07-24, Opus 4.8)** — 20 findings F1–F20, batches A–E; feeds prompt93+ |
+| `prompt92.txt` | UI/UX review brief + **review output (2026-07-24, Opus 4.8)** — 19 findings F2–F20 (F1 withdrawn), batches A–E; feeds prompt93+ |
+| `prompt93.txt` | Partial — **Batch A shipped** (contrast/AA, navy Gallery, solid Meal/water, QS Step N, chevron, coach tips); Batch B (progress/Yes-No/gate) still backlog |
 
 **prompt58** — done (2026-07-07). Editable Your setup: 3 toggles (scale/watch/CGM), HC steps when watch off, no OAuth auto-promote. Compile-check OK; phone test pending. See `done/prompt58.txt`.
 

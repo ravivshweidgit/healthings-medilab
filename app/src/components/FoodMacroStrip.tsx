@@ -1232,15 +1232,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderStyle: 'dashed',
+    // Solid (was dashed) — these are primary log actions, not empty "Add" placeholders.
+    borderStyle: 'solid',
   },
   addActionMeal: {
-    borderColor: 'rgba(76, 175, 80, 0.45)',
-    backgroundColor: 'rgba(76, 175, 80, 0.06)',
+    borderColor: 'rgba(76, 175, 80, 0.9)',
+    backgroundColor: 'rgba(76, 175, 80, 0.10)',
   },
   addActionWater: {
-    borderColor: 'rgba(41, 182, 246, 0.45)',
-    backgroundColor: 'rgba(41, 182, 246, 0.08)',
+    borderColor: 'rgba(41, 182, 246, 0.9)',
+    backgroundColor: 'rgba(41, 182, 246, 0.12)',
   },
   addActionPressed: {
     opacity: 0.75,

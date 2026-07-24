@@ -55,3 +55,37 @@ export function aiChatOpenLabel(
   if (c === 'tr') return `${title} mentorlarınızla açın`;
   return `Open ${title} with your mentors`;
 }
+
+/** Visible sub-label: "{done} of {total} coach tips" — clearer than bare "actions". */
+export function aiChatActionSummary(
+  langCode: string | null | undefined,
+  done: number,
+  total: number,
+): string {
+  const c = (langCode || 'en').toLowerCase().slice(0, 2);
+  if (c === 'he') return `${done} מתוך ${total} טיפים מהמאמן`;
+  if (c === 'ar') return `${done} من ${total} نصائح من المدرب`;
+  if (c === 'es') return `${done} de ${total} consejos del coach`;
+  if (c === 'fr') return `${done} sur ${total} conseils du coach`;
+  if (c === 'de') return `${done} von ${total} Coach-Tipps`;
+  if (c === 'ru') return `${done} из ${total} советов коуча`;
+  if (c === 'pt') return `${done} de ${total} dicas do coach`;
+  if (c === 'it') return `${done} di ${total} consigli del coach`;
+  if (c === 'tr') return `${done}/${total} koç ipucu`;
+  return `${done} of ${total} coach tips`;
+}
+
+/** Visible sub-label when there is no coach message yet. */
+export function aiChatAskPrompt(langCode: string | null | undefined): string {
+  const c = (langCode || 'en').toLowerCase().slice(0, 2);
+  if (c === 'he') return 'שאל את המנטורים שלך';
+  if (c === 'ar') return 'اسأل مرشديك';
+  if (c === 'es') return 'Pregunta a tus mentores';
+  if (c === 'fr') return 'Demandez à vos mentors';
+  if (c === 'de') return 'Frag deine Mentoren';
+  if (c === 'ru') return 'Спросите менторов';
+  if (c === 'pt') return 'Pergunte aos seus mentores';
+  if (c === 'it') return 'Chiedi ai tuoi mentor';
+  if (c === 'tr') return 'Mentorlarınıza sorun';
+  return 'Ask your mentors';
+}

@@ -4,7 +4,9 @@ export const WellnessColors = {
   background: '#F8F9FB',
   surface: '#FFFFFF',
   textPrimary: '#1A1A1A',
-  textSecondary: '#7C7C7C',
+  // Darkened from #7C7C7C (~4.0:1, failed AA) to ~5.9:1 on white so small strip
+  // labels and secondary UI text meet WCAG AA. Shared token — don't fork per strip.
+  textSecondary: '#5B6470',
   accentGreen: '#4CAF50',
   accentBlue: '#2196F3',
   accentRed: '#FF5252',

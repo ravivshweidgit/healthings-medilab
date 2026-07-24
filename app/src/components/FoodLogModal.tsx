@@ -1711,7 +1711,9 @@ const styles = StyleSheet.create({
     gap: 8,
     ...cardShadow,
   },
-  galleryBtn: { backgroundColor: '#7B1FA2' },
+  // On-brand navy (was off-brand purple #7B1FA2) — same blue family as the camera
+  // tile, distinguished by icon rather than a foreign hue.
+  galleryBtn: { backgroundColor: '#1F3D5C' },
   cameraBtnIcon: { fontSize: 36 },
   cameraBtnLabel: { color: '#fff', fontSize: 16, fontWeight: '700' },
   orDivider: { color: WellnessColors.textSecondary, fontSize: 13, marginVertical: 20 },
