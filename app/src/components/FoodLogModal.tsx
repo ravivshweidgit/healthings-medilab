@@ -1470,11 +1470,11 @@ export function FoodLogModal({
                   accessibilityLabel={ui.deleteMeal}
                 >
                   <DashIcon icon={ActionIcons.clear} size={16} color={WellnessColors.accentRed} />
-                  <Text style={styles.deleteBtnText}>{ui.deleteMeal}</Text>
+                  <Text style={styles.deleteBtnText} numberOfLines={1}>{ui.deleteItem}</Text>
                 </Pressable>
               ) : (
                 <Pressable style={styles.cancelBtn} onPress={handleClose}>
-                  <Text style={styles.cancelBtnText}>{ui.cancel}</Text>
+                  <Text style={styles.cancelBtnText} numberOfLines={1}>{ui.cancel}</Text>
                 </Pressable>
               )}
               {autoSavedBanner && editingId ? (
@@ -1486,7 +1486,7 @@ export function FoodLogModal({
                   {screen === 'saving' ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.saveBtnText}>{ui.done}</Text>
+                    <Text style={styles.saveBtnText} numberOfLines={1}>{ui.done}</Text>
                   )}
                 </Pressable>
               ) : (
@@ -1498,13 +1498,13 @@ export function FoodLogModal({
                   {screen === 'saving' ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.saveBtnText}>{ui.saveMeal}</Text>
+                    <Text style={styles.saveBtnText} numberOfLines={1}>{ui.saveItem}</Text>
                   )}
                 </Pressable>
               )}
               {editingId && !autoSavedBanner ? (
                 <Pressable style={styles.cancelBtn} onPress={handleClose}>
-                  <Text style={styles.cancelBtnText}>{ui.cancel}</Text>
+                  <Text style={styles.cancelBtnText} numberOfLines={1}>{ui.cancel}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -2155,21 +2155,24 @@ const styles = StyleSheet.create({
 
   actions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 48,
     borderTopWidth: 1,
     borderTopColor: WellnessColors.gridLine,
     backgroundColor: WellnessColors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   cancelBtn: {
-    flex: 1,
     paddingVertical: 14,
+    paddingHorizontal: 18,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: WellnessColors.gridLine,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelBtnText: { fontSize: 15, fontWeight: '600', color: WellnessColors.textSecondary },
   deleteBtn: {
@@ -2186,11 +2189,12 @@ const styles = StyleSheet.create({
   },
   deleteBtnText: { fontSize: 14, fontWeight: '700', color: WellnessColors.accentRed },
   saveBtn: {
-    flex: 2,
     paddingVertical: 14,
+    paddingHorizontal: 24,
     borderRadius: 14,
     backgroundColor: WellnessColors.accentBlue,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
