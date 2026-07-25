@@ -272,8 +272,8 @@ type MacroBarProps = {
 };
 
 function MacroBar({ label, value, target, color, showTarget, unit = 'g', onPress }: MacroBarProps) {
-  const { colors } = useTheme();
-  const barStyles = useMemo(() => makeBarStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const barStyles = useMemo(() => makeBarStyles(colors, isDark), [colors, isDark]);
   const ratio = target > 0 ? Math.min(1, value / target) : 0;
   const over = value > target * 1.05;
   const suffix =
@@ -316,7 +316,7 @@ function MacroBar({ label, value, target, color, showTarget, unit = 'g', onPress
   );
 }
 
-const makeBarStyles = (c: ThemeColors) =>
+const makeBarStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5, width: '100%' },
   rowPressable: { alignSelf: 'stretch' },
@@ -325,7 +325,8 @@ const makeBarStyles = (c: ThemeColors) =>
     flex: 1,
     height: 6,
     borderRadius: 3,
-    backgroundColor: c.progressTrack,
+    // Dark: unfilled remainder reads as canvas, matching the chips and balance pill.
+    backgroundColor: isDark ? c.background : c.progressTrack,
     overflow: 'hidden',
   },
   fill: { height: '100%', borderRadius: 3 },
