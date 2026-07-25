@@ -643,6 +643,7 @@ export function WithingsDevicesMark({
   showWatch: boolean;
 }) {
   const { colors, isDark } = useTheme();
+  const markChrome = useMemo(() => makeMarkStyles(colors, isDark), [colors, isDark]);
   const scale = showScale;
   const watch = showWatch;
   if (!scale && !watch) return null;
@@ -662,7 +663,7 @@ export function WithingsDevicesMark({
       >
         Withings
       </Text>
-      <View style={styles.devicesMarkBody}>
+      <View style={[styles.devicesMarkBody, markChrome.stage]}>
         <View style={styles.devicesMarkRow}>
           {scale ? (
             <Svg width={28} height={28} viewBox="0 0 80 80">
@@ -710,6 +711,7 @@ export function WithingsDevicesMark({
  */
 export function CgmDevicesMark() {
   const { colors, isDark } = useTheme();
+  const markChrome = useMemo(() => makeMarkStyles(colors, isDark), [colors, isDark]);
   return (
     <View style={styles.devicesMark} accessibilityLabel="CGM — glucose from phone health">
       <Text
@@ -718,7 +720,7 @@ export function CgmDevicesMark() {
       >
         CGM
       </Text>
-      <View style={styles.devicesMarkBody}>
+      <View style={[styles.devicesMarkBody, markChrome.stage]}>
         <View style={styles.devicesMarkRow}>
           <Svg width={28} height={28} viewBox="0 0 120 140">
             <Defs>
@@ -1070,6 +1072,25 @@ const makeChromeStyles = (c: ThemeColors, isDark: boolean) =>
       color: isDark ? c.textSecondary : '#6B7280',
       textAlign: 'center',
     },
+  });
+
+/**
+ * Dashboard device marks — dark seats the artwork on a black tile with a hairline
+ * frame, the same inset treatment as the status badge and Link button beside them,
+ * so a white scale still reads as a white product instead of floating on the card.
+ */
+const makeMarkStyles = (c: ThemeColors, isDark: boolean) =>
+  StyleSheet.create({
+    stage: isDark
+      ? {
+          backgroundColor: c.background,
+          borderRadius: 10,
+          borderWidth: 1,
+          borderColor: c.gridLine,
+          paddingHorizontal: 6,
+          paddingVertical: 3,
+        }
+      : {},
   });
 
 /** Peer account cards in the Withings link diagram — dark uses outlined black hubs. */
