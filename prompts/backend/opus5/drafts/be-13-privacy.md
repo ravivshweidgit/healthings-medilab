@@ -98,6 +98,25 @@ Verify that copy matches the promises here.
 - Localization — see "Needs a decision"
 - Cookie banner (the site sets no cookies; do not add one)
 
+## Review by Opus 5 (after Auto marks done)
+
+**Evidence to capture**
+
+- Screenshots at 1280 and 390
+- A deep-link test: `privacy.html#clinic-sharing` landing on the right section
+- The localized summary rendered in Hebrew and in Arabic
+
+**Judgment calls to check**
+
+- Does the TOC help, or does it **push the summary down**? The summary is the most valuable content
+  on the page; navigation must not outrank it, especially at 390.
+- Is the "full policy follows in English" signposting clear enough that a Hebrew reader knows what
+  they have and have not been given?
+- Does the page still read as **honest and plain**? The restructure must not make it feel legalistic.
+  If it now reads colder, say so — the tone is the page's main asset.
+- Does the localized summary make any promise the English body contradicts? Compare them line by
+  line; this is a consent document.
+
 ## Agent checklist
 
 - [ ] Status → in_progress

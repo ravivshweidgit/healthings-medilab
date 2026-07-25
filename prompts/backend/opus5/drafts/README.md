@@ -66,8 +66,27 @@ The site is stale — the VPS has not pulled since `61e76a2` (2026-07-24). Deplo
 |--------|---------|
 | `ready` | Auto may implement |
 | `in_progress` | Auto working |
-| `done` | Shipped + smoke-tested; move or leave as record |
+| `needs-review` | Acceptance criteria pass; waiting on the Opus design review |
+| `done` | Reviewed and accepted; leave as record |
 | `blocked` | Needs human decision |
+
+## Review loop (Opus ↔ Auto)
+
+Every draft ends with a **Review by Opus 5** section. Those items are judgment calls that a checkbox
+cannot settle — whether the logo reads as intentional, whether a consent toggle carries the right
+weight, whether a fix hit its own failure mode.
+
+```
+Opus writes draft → Auto implements → Auto sets needs-review + attaches evidence
+   → Opus reviews → accepted (done) or a follow-up draft
+```
+
+**Auto must not mark a batch `done` on its own.** Set `needs-review`, attach the evidence the draft
+asks for, and stop. If the review finds something, it becomes a new numbered draft rather than an
+edit to the finished one, so the record of what shipped stays accurate.
+
+Screenshots go wherever is convenient and get referenced by path in the review handoff — they are
+throwaway evidence, not repo assets.
 
 ## Auto kickoff (paste)
 
@@ -79,8 +98,9 @@ before you continue.
 Rules:
 - Follow each file's paths, design rules, and acceptance criteria exactly.
 - Do not redesign beyond the draft, and do not touch files it lists as off-limits.
-- Mark Status: in_progress when you start a batch and done when its acceptance
-  criteria pass; update the table in this README.
+- Mark Status: in_progress when you start. When the acceptance criteria pass, set
+  Status: needs-review, attach the evidence its "Review by Opus 5" section asks
+  for, and stop. Do not mark anything done yourself.
 - Never hand-edit generated help HTML — change the generator and regenerate.
 - Do not commit or deploy. Both are human-owned.
 ```

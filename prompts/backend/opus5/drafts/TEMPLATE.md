@@ -43,6 +43,20 @@
 
 - …
 
+## Review by Opus 5 (after Auto marks done)
+
+<Judgment calls Auto cannot self-certify. Every draft must have this section.>
+
+**Evidence to capture**
+
+- Screenshots at 1280 and 390 of <pages>
+- <measurements, diffs, logs>
+
+**Judgment calls to check**
+
+- <Does it read as intentional, not merely compliant?>
+- <What is the failure mode of this fix, and did we hit it?>
+
 ## Agent checklist
 
 - [ ] Status → in_progress
@@ -50,4 +64,5 @@
 - [ ] Smoke criteria above
 - [ ] Status → done
 - [ ] Update `drafts/README.md` table
+- [ ] Status → `needs-review` and evidence attached for Opus
 ```

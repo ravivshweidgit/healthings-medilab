@@ -107,6 +107,30 @@ neutral `rgba(0,0,0,.08)` reads grayer and colder; drop it.
 - Per-page layout work — be-11 (landing), be-12 (help), be-13 (privacy), be-14 (workspace)
 - Dark mode on web (the app has it; the website does not, and this batch does not add it)
 
+## Review by Opus 5 (after Auto marks done)
+
+The acceptance criteria above are mechanical. These are judgment calls — hand back with the evidence
+listed, do not self-certify them.
+
+**Evidence to capture**
+
+- Screenshots at 1280 and 390 of all five surfaces: landing, `/en/help/`, `/privacy.html`,
+  `/clinic/`, `/clinic/patient.html?patientId=…`
+- The full diff of `styles.css`, `clinic-portal.css`, `clinic-workspace.css`
+- Computed contrast of `--muted` on `--bg-page` and on `--surface`
+
+**Judgment calls to check**
+
+- Did retiring `--green*` change any control's **meaning**? A button that was accent blue and is now
+  navy (or the reverse) is a semantic regression, not a color tweak — list every button whose color
+  changed and why.
+- Is the two-font split applied **by role** (display for headings, text for body) rather than by
+  file? Check a page where both appear in one card.
+- Did `--measure` make short prose look stranded in a wide card, or is `margin-inline: auto` doing
+  its job?
+- Are the app surfaces still legibly **dense**? Unifying tokens must not inflate the clinic workspace
+  to marketing-page spacing — a clinician needs more data per screen, not less.
+
 ## Agent checklist
 
 - [ ] Status → in_progress

@@ -150,6 +150,28 @@ The page shows *"Snapshot from {date} · open the app to refresh"*. Revisit if u
 - Localizing `/account/` — English first, matching the clinic portal per the language policy
 - Stripe / paid plans on the patient side
 
+## Review by Opus 5 (after Auto marks done)
+
+**Evidence to capture**
+
+- All four consent states at 1280 and 390: web view off, web view on, invite deep-link, post-deletion
+- The app's web-view toggle beside the existing clinic sharing control, in one screenshot
+- The invite email as received
+- Server logs or query output proving the purge ran in each of the four consumer combinations
+
+**Judgment calls to check**
+
+- Does the web-view toggle read as the **same gesture** as clinic sharing — same weight, same
+  language, same sense of consequence? The whole design rests on the two feeling identical.
+- Is the purge consequence unmistakable **before** the user acts, without being alarming? "Turning
+  this off deletes the server copy immediately" is a promise, not a warning.
+- Does the read-only snapshot feel like *"this is what my clinic sees"*, or like a **crippled app**?
+  If it reads as crippled, the framing copy is wrong, not the feature.
+- Is the delete-account friction **proportionate**? Light enough that a user can genuinely exercise
+  the right, heavy enough not to happen by accident, and not so ceremonial it reads as a dark pattern.
+- Does the invited-patient-with-no-app path feel welcoming, or like a dead end with a download link?
+- Cross-check against the privacy page: does the live behavior match every promise be-13 makes?
+
 ## Agent checklist
 
 - [ ] Status → in_progress

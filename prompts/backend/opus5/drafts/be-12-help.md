@@ -123,6 +123,27 @@ delivered instead by the index card grid and the "Next topic" links in this batc
 - Single-page consolidation — see "Needs a decision"
 - Adding new locales (Swahili is a separate discussion)
 
+## Review by Opus 5 (after Auto marks done)
+
+**Evidence to capture**
+
+- Screenshots at 1280 and 390 of: `/en/help/`, one EN article, one HE article, one AR article
+- The first five focusable elements in tab order on an article page
+- One generated `<head>` from EN and the matching HE file
+
+**Judgment calls to check**
+
+- Is the index card grid actually **better** than the bullet list, or only different? Fifteen cards
+  can be worse than fifteen bullets if the cards are mostly padding.
+- Has the `<select>` language control become **invisible**? It was far too loud before; the failure
+  mode now is a multilingual user who cannot find their language at all. Check it at 390.
+- With `What to know` removed, does a 94-character article read as complete or as **truncated**? If
+  truncated, the answer is better content, not restoring the boilerplate heading.
+- Are the HE and AR pages genuinely **mirrored**, or merely right-aligned? Look at list bullets, the
+  back-link arrow, and the nav row.
+- Does the "Next topic" sequence follow a logical Quick Start order, or does `HELP_SLUGS` order
+  produce odd jumps (e.g. CGM before Link Withings)?
+
 ## Agent checklist
 
 - [ ] Status → in_progress

@@ -125,6 +125,27 @@ single "Internal testing" note. Expected result: the first value card moves abov
 - Screenshots or product imagery — worth doing later, but not in this batch
 - Localizing the landing page
 
+## Review by Opus 5 (after Auto marks done)
+
+**Evidence to capture**
+
+- Full-page screenshots at 1280 and 390
+- A close crop of the logo sitting on the sky gradient, at 2x
+- Network panel confirming zero requests to `play.google.com`
+- The y-coordinate of the first value card at 390 width
+
+**Judgment calls to check**
+
+- Does the logo now read as **intentional** — correct optical weight next to the alpha badge, not
+  just "no longer boxed"?
+- Do the two store badges read as **peers**? Equal visual weight, neither cropped, neither
+  dominating. This is the pair a visitor chooses between.
+- Does the new header behave as chrome, or does it compete with the hero for first attention?
+- With the install steps moved out, does the CTA panel still feel **complete**, or does it now look
+  thin and unfinished? If thin, the fix is spacing, not putting the instructions back.
+- Do the ragged card bottoms read as deliberate, or as a broken grid? Report honestly — if they look
+  broken, equal heights with better-balanced content is the fallback.
+
 ## Agent checklist
 
 - [ ] Status → in_progress

@@ -109,6 +109,28 @@ card dimensions, replaced on load. Keep "Loading snapshot…" in the meta line a
 - Chart redesign
 - Read-only mode — that is be-15, which reuses this file behind a flag
 
+## Review by Opus 5 (after Auto marks done)
+
+**Evidence to capture**
+
+- Screenshots with a **real snapshot loaded** at 1440, 820 and 390
+- Two patients open in two browser tabs, showing the browser tab titles
+- A screenshot scrolled to the bottom of the food log, showing whether tabs are still reachable
+- The tab strip at 390 with tab 8 (`Labs`) as the target
+
+**Judgment calls to check**
+
+- Is patient identity **unmissable at a glance**? This is the safety fix; if a clinician has to look
+  for it, it has not worked. Also judge the reverse risk: is a full email in persistent chrome too
+  shoulder-surfable in a consulting room, and would a name plus partial email be better?
+- Do the horizontally scrolling tabs **afford** scrolling? Without a visible cue, tabs 6–8 become
+  invisible rather than merely off-screen — which is worse than wrapping was.
+- Does the skeleton reduce perceived wait, or just add a flicker before content? If the fetch is
+  consistently fast, the skeleton may be noise.
+- At 820, is the workspace genuinely **usable for clinical work**, or only "not broken"? Judge
+  whether a clinician could write rules on a tablet, not whether the CSS survives.
+- Confirm the empty-state copy is byte-identical to before. It was the best thing in the file.
+
 ## Agent checklist
 
 - [ ] Status → in_progress
