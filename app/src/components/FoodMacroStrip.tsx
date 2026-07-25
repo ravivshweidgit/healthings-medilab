@@ -380,9 +380,9 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   const ui = useMemo(() => getFoodLogUiCopy(lang?.code), [lang?.code]);
   const title = foodLogTitle(lang);
   const titleRtl = lang?.code === 'he' || lang?.code === 'ar';
-  const balanceNoSign = titleRtl;
   const [selectedMs, setSelectedMs] = useState(() => startOfLocalDay(Date.now()));
   const [macros, setMacros] = useState<DailyMacros | null>(null);
+  const [todayEnergy, setTodayEnergy] = useState<{ eaten: number; correction: number } | null>(null);
   const [dayMacroTarget, setDayMacroTarget] = useState<DailyMacroTarget | null>(macroTarget ?? null);
   const [burnCorrection, setBurnCorrectionState] = useState(0);
   const [correctionModalVisible, setCorrectionModalVisible] = useState(false);
@@ -460,6 +460,25 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   useImperativeHandle(ref, () => ({ reload: load }), [load]);
 
   useEffect(() => { load(); }, [load, refreshKey]);
+
+  // Collapsed header always summarizes today, even while the log browses a past day.
+  useEffect(() => {
+    if (isToday) {
+      setTodayEnergy(null);
+      return;
+    }
+    let alive = true;
+    void (async () => {
+      const [data, correction] = await Promise.all([
+        getDailyMacros(todayKey),
+        getBurnCorrection(todayKey),
+      ]);
+      if (alive) setTodayEnergy({ eaten: data ? Math.round(data.kcal) : 0, correction });
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [isToday, todayKey, refreshKey]);
 
   const handleSaveCorrection = useCallback(async () => {
     const delta = parseLocaleNumber(correctionInput);
@@ -611,9 +630,9 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   const eaten   = macros ? Math.round(macros.kcal) : 0;
   const balance = burn != null && eaten > 0 ? eaten - burn : null;
   const isDeficit = balance != null && balance < 0;
-  const balanceInk = isDeficit
-    ? (isDark ? colors.accentGreen : '#2E7D32')
-    : (isDark ? colors.accentRed : '#C62828');
+  const balanceInkFor = (deficit: boolean) =>
+    deficit ? (isDark ? colors.accentGreen : '#2E7D32') : (isDark ? colors.accentRed : '#C62828');
+  const balanceInk = balanceInkFor(isDeficit);
   const energyU = unitsPrefs.energy;
   const waterU = unitsPrefs.water;
   const eLab = energyUnitLabel(energyU);
@@ -622,16 +641,20 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   const energyBarUnit = energyU === 'kj' ? 'kj' : 'kcal';
   const energyBarLabel = energyU === 'kj' ? 'kJ' : 'kcal';
 
+  const todayEaten = isToday ? eaten : todayEnergy?.eaten ?? 0;
+  const todayBurnRaw = burnKcalByDay?.[todayKey] ?? null;
+  const todayBurn =
+    todayBurnRaw != null
+      ? todayBurnRaw + (isToday ? burnCorrection : todayEnergy?.correction ?? 0)
+      : null;
+  const todayBalance = todayBurn != null && todayEaten > 0 ? todayEaten - todayBurn : null;
+  const todayIsDeficit = todayBalance != null && todayBalance < 0;
+
   const collapsedSub =
-    !expanded ? (
-      <>
-        {formatDayLabel(selectedMs, lang?.code)}
-        {balance != null ? (
-          <Text style={{ color: isDeficit ? '#2E7D32' : '#C62828' }}>
-            {` · ${balanceNoSign ? '' : isDeficit ? '−' : '+'}${disp(Math.abs(balance)).toLocaleString()} ${eLab}`}
-          </Text>
-        ) : null}
-      </>
+    !expanded && todayBalance != null ? (
+      <Text style={{ color: balanceInkFor(todayIsDeficit) }}>
+        {`${eLab} ${todayIsDeficit ? '−' : '+'}${disp(Math.abs(todayBalance)).toLocaleString()}`}
+      </Text>
     ) : null;
 
   return (
