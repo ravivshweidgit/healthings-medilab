@@ -18,7 +18,6 @@ import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import { suggestBodyTargets, type BodyTargetInput } from '../services/GeminiService';
 import {
-  clearBodyTarget,
   getBodyTarget,
   saveBodyTarget,
   type BodyTarget,
@@ -75,8 +74,8 @@ function RangeScale({
   color: string;
   higherIsBetter?: boolean;
 }) {
-  const { colors } = useTheme();
-  const scaleStyles = useMemo(() => makeScaleStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const scaleStyles = useMemo(() => makeScaleStyles(colors, isDark), [colors, isDark]);
   const [trackWidth, setTrackWidth] = useState(0);
 
   // If current has slipped past the original start, use current as the left anchor
@@ -127,7 +126,7 @@ function RangeScale({
   );
 }
 
-const makeScaleStyles = (c: ThemeColors) =>
+const makeScaleStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   wrap: { marginBottom: 20 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
@@ -140,7 +139,8 @@ const makeScaleStyles = (c: ThemeColors) =>
     flex: 1,
     height: 8,
     borderRadius: 4,
-    backgroundColor: c.gridLine,
+    // Dark: remaining distance reads as canvas, like the macro meters.
+    backgroundColor: isDark ? c.background : c.gridLine,
     overflow: 'visible',
     position: 'relative',
   },
@@ -252,8 +252,8 @@ export function WeightTargetStrip({
   hideWithingsScalePrompt,
   massUnit = 'kg',
 }: BodyTargetProps) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const bodyLabels = getBodyMetricsCopy(lang?.code);
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const [screen, setScreen] = useState<Screen>('idle');
@@ -386,13 +386,6 @@ export function WeightTargetStrip({
     setScreen('active');
   }, [editWeight, editFat, editMuscle, editWeeks, suggestion, target, weightKg, fatPct, muscleMass_kg, massUnit]);
 
-  const handleReset = useCallback(async () => {
-    await clearBodyTarget();
-    setTarget(null);
-    setSuggestion(null);
-    setScreen('idle');
-  }, []);
-
   // ── Summary line shown in collapsed header ────────────────────────────────
   const massLab = massUnitLabel(massUnit);
   const headerSub = target
@@ -416,34 +409,6 @@ export function WeightTargetStrip({
         collapseLabel="Collapse my targets"
         expandLabel="Expand my targets"
         subtitleNumberOfLines={2}
-        trailing={
-          (screen === 'active' || screen === 'idle') && expanded ? (
-            <View style={styles.headerActions}>
-              {screen === 'active' && target ? (
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation?.();
-                    handleOpenEdit();
-                  }}
-                  hitSlop={8}
-                >
-                  <Text style={styles.editLink}>✎</Text>
-                </Pressable>
-              ) : null}
-              {screen === 'active' && target ? (
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation?.();
-                    handleReset();
-                  }}
-                  hitSlop={8}
-                >
-                  <Text style={styles.resetLink}>reset</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ) : null
-        }
       />
 
       {!expanded ? null : <View style={styles.body}>
@@ -658,15 +623,12 @@ export function WeightTargetStrip({
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   card: {
     paddingHorizontal: 0,
     paddingVertical: 0,
   },
-  headerActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  editLink: { fontSize: 13, color: c.accentBlue, fontWeight: '600' },
-  resetLink: { fontSize: 11, color: c.textSecondary },
   // ── Expanded body ──
   body: { marginTop: 8, paddingHorizontal: 4 },
 
@@ -718,9 +680,17 @@ const makeStyles = (c: ThemeColors) =>
   suggestionLabel: { fontSize: 11, color: c.textSecondary },
   suggestionBtns: { flexDirection: 'row', gap: 10 },
   suggestionBtn: { flex: 1, paddingVertical: 11, borderRadius: 12, alignItems: 'center' },
-  suggestionBtnAccept: { backgroundColor: c.accentGreen },
-  suggestionBtnEdit: { borderWidth: 1.5, borderColor: c.gridLine },
-  suggestionBtnTextAccept: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  suggestionBtnAccept: {
+    backgroundColor: isDark ? c.background : c.accentGreen,
+    borderWidth: isDark ? 1.5 : 0,
+    borderColor: isDark ? c.accentGreen : 'transparent',
+  },
+  suggestionBtnEdit: {
+    borderWidth: 1.5,
+    borderColor: c.gridLine,
+    backgroundColor: isDark ? c.background : undefined,
+  },
+  suggestionBtnTextAccept: { color: isDark ? c.accentGreen : '#fff', fontWeight: '700', fontSize: 14 },
   suggestionBtnTextEdit: { color: c.textPrimary, fontWeight: '600', fontSize: 14 },
 
   // editing
@@ -730,7 +700,9 @@ const makeStyles = (c: ThemeColors) =>
   reasoningBox: {
     flexDirection: 'row',
     gap: 8,
-    backgroundColor: '#FFF8E1',
+    backgroundColor: isDark ? c.background : '#FFF8E1',
+    borderWidth: isDark ? 1 : 0,
+    borderColor: isDark ? c.noticeSoftBorder : 'transparent',
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
@@ -738,13 +710,15 @@ const makeStyles = (c: ThemeColors) =>
   },
   reasoningIcon: { fontSize: 16 },
   reasoningContent: { flex: 1 },
-  reasoningText: { fontSize: 13, color: '#5D4037', lineHeight: 18, flex: 1 },
+  reasoningText: { fontSize: 13, color: isDark ? c.textPrimary : '#5D4037', lineHeight: 18, flex: 1 },
   analyzedAt: { fontSize: 10, color: c.textSecondary, marginTop: 4 },
 
   // active
   activeWrap: {},
   manualSummary: {
-    backgroundColor: c.gridLine,
+    backgroundColor: isDark ? c.background : c.gridLine,
+    borderWidth: isDark ? 1 : 0,
+    borderColor: isDark ? c.gridLine : 'transparent',
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
@@ -752,13 +726,15 @@ const makeStyles = (c: ThemeColors) =>
   manualSummaryLine: { fontSize: 13, fontWeight: '600', color: c.textPrimary },
   manualSummarySub: { fontSize: 11, color: c.textSecondary, marginTop: 4 },
   editTargetsBtn: {
-    backgroundColor: c.accentBlue,
+    backgroundColor: isDark ? c.background : c.accentBlue,
+    borderWidth: isDark ? 1 : 0,
+    borderColor: isDark ? c.accentBlue : 'transparent',
     borderRadius: 10,
     paddingVertical: 11,
     alignItems: 'center',
     marginBottom: 8,
   },
-  editTargetsBtnText: { fontSize: 14, color: '#fff', fontWeight: '700' },
+  editTargetsBtnText: { fontSize: 14, color: isDark ? c.accentBlue : '#fff', fontWeight: '700' },
   paceText: {
     fontSize: 12,
     color: c.textSecondary,
@@ -769,6 +745,7 @@ const makeStyles = (c: ThemeColors) =>
   reanalyzeBtn: {
     borderWidth: 1,
     borderColor: c.gridLine,
+    backgroundColor: isDark ? c.background : undefined,
     borderRadius: 10,
     paddingVertical: 8,
     alignItems: 'center',
