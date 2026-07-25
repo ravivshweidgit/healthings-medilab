@@ -49,8 +49,8 @@ export function ReportsStrip({
   onShareVisitReport,
   lang,
 }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const headerSub = useMemo(
     () => VISIT_REPORT_DAY_OPTIONS.join(' / '),
@@ -98,7 +98,7 @@ export function ReportsStrip({
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
     wrap: {
       paddingHorizontal: 0,
@@ -129,12 +129,12 @@ const makeStyles = (c: ThemeColors) =>
       width: '48%',
       flexGrow: 1,
       borderWidth: 1,
-      borderColor: c.textSecondary,
+      borderColor: isDark ? c.gridLine : c.textSecondary,
       borderRadius: 12,
       paddingVertical: 10,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: c.surface,
+      backgroundColor: isDark ? c.background : c.surface,
     },
     dayButtonDisabled: {
       opacity: 0.6,
