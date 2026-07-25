@@ -1,6 +1,6 @@
 # be-12 — Help site (10 locales)
 
-**Status:** ready
+**Status:** done — reviewed by Opus 5 on 2026-07-26, two fixes applied during review
 **Model to implement:** Auto / Composer
 **Authored by:** Opus 5 (website UX pack)
 **Findings:** W9 (index regression), W10 (chrome outweighs content), W11 (language switcher), W12 (meta/SEO), W13 (RTL), W14 (orphaned CSS)
@@ -106,15 +106,15 @@ delivered instead by the index card grid and the "Next topic" links in this batc
 
 ## Acceptance criteria
 
-- [ ] Help index renders as the styled card grid in all 10 locales, not disc bullets
-- [ ] One language control, one tab stop, endonyms, no flag emoji
-- [ ] H1 is the first heading a screen reader reaches after the nav row
-- [ ] Every generated page has a unique `meta description` and a `canonical`
-- [ ] Index pages carry `hreflang` alternates including `x-default`
-- [ ] Hebrew and Arabic articles: list bullets sit on the right, text aligns right
-- [ ] Article prose measures ≤68ch on desktop (inherited from be-10)
-- [ ] `rg 'help-icon-hero|help-card-list|help-cgm-label'` returns nothing
-- [ ] All 160 pages regenerate cleanly and the diff contains no hand edits
+- [x] Help index renders as the styled card grid in all 10 locales, not disc bullets
+- [x] One language control, one tab stop, endonyms, no flag emoji
+- [x] H1 is the first heading a screen reader reaches after the nav row
+- [x] Every generated page has a unique `meta description` and a `canonical`
+- [x] Index pages carry `hreflang` alternates including `x-default`
+- [x] Hebrew and Arabic articles: list bullets sit on the right, text aligns right
+- [x] Article prose measures ≤68ch on desktop (inherited from be-10)
+- [x] `rg 'help-icon-hero|help-card-list|help-cgm-label'` returns nothing
+- [x] All 160 pages regenerate cleanly and the diff contains no hand edits
 
 ## Out of scope
 
@@ -144,11 +144,74 @@ delivered instead by the index card grid and the "Next topic" links in this batc
 - Does the "Next topic" sequence follow a logical Quick Start order, or does `HELP_SLUGS` order
   produce odd jumps (e.g. CGM before Link Withings)?
 
+## Opus 5 review outcome (2026-07-26)
+
+**Accepted.** The cleanest batch of the pack. Scope was disciplined — two generator files,
+`styles.css`, and 160 regenerated pages, with no hand-edited HTML. `CSS_VER` and the site-wide
+`--accent-ink` default were correctly left alone as already shipped in `be-11`.
+
+Verified rather than taken on trust:
+
+| Check | Result |
+|---|---|
+| `hreflang` set + `x-default` | 11 `alternate` links on articles **and** indexes |
+| `canonical` | absolute, self-referential per locale |
+| RTL (`he`, `ar`) | `dir="rtl"`, `body.help-rtl`, list `padding-right: 20px / padding-left: 0`, prose and back/next right-aligned |
+| RTL arrow direction | next `←`, back `→` — correctly inverted, since forward is leftward in RTL |
+| Dead CSS (`help-icon-hero`, `help-card-list`, `help-cgm-label`, `help-icon-caption`) | zero references anywhere in `website/` — safe to have removed |
+| Last slug (`manual-body`) | no dangling "Next topic" |
+| Prose measure @1280 | 62–64ch, `.prose` block 587px |
+| Switcher controls | select and submit both 44px tall |
+| `<noscript>` fallback | plain localized links for all 10 locales |
+
+Two fixes applied.
+
+**1. The language switcher was the only unlocalized string on the site.** Label hardcoded
+`Language / שפה` and button `Go` on **all ten locales**, so the German page offered English plus
+Hebrew and the Turkish page did the same. Everything else in `UI` — nav, badge, glossary, next
+topic — was already per-locale; these two keys were simply missing. Added `langLabel` / `langGo`
+to all ten entries in `help-locale-content.mjs`: Sprache/Wechseln, Dil/Git, اللغة/انتقل,
+Язык/Перейти, שפה/עבור, and so on. This is the language-policy rule for the website — help UI
+follows the path locale.
+
+**2. `onchange` on the select made the switcher keyboard-hostile.** Navigating on `change` means
+an arrow key press moves the page immediately, so a keyboard user could never reach any option
+beyond the adjacent one — a WCAG 3.2.2 (On Input) failure. The submit button existed precisely
+to avoid this, so keeping both defeated it. `onchange` removed; navigation now happens on submit
+only, which is also what the `<noscript>` links already implied.
+
+Also dropped the empty `class=""` that LTR pages carried.
+
+**Windows encoding trap — worth knowing before touching this generator again.** During review I
+edited `gen-help-locales.mjs` with a PowerShell `Get-Content -Raw | Set-Content` round trip, which
+reads a BOM-less UTF-8 file as ANSI. Every `—`, `→`, `←`, and `·` in the generator became mojibake
+(`â€"`, `â†'`), which then propagated into all 160 pages: Hebrew titles rendered as
+`… ארוחה â€" Healthings Help`. Repaired by inverting the codec, and all 180 files regenerated
+clean — zero `â`/`Â`/`€`/`†` anywhere in `website/**/*.html`. **Use a UTF-8-aware editor or Python
+for this file; never a PowerShell text round trip.** Inverting it needs a hybrid codec, since
+cp1252 cannot encode `\x90` and latin-1 cannot encode `€`.
+
+**Follow-ups, not blocking**
+
+- **Bare `&` in generated markup.** Article titles containing `&` ("Units & measurements",
+  "App & coach language") emit an unescaped ampersand in `<title>`, `<h1>`, index links, and
+  next-topic text. Browsers recover, but it is invalid and a validator run would flag it. The fix
+  is escaping the plain-text `title` field only — the `glossary` and `lead` fields legitimately
+  contain `<strong>`, so a blanket escape would be wrong.
+- **The glossary line is a tautology on `/en/`.** "Clinical terms like kcal, BMR, CGM … stay in
+  English" says nothing on an English page. Worth emptying `UI.en.glossary` and having the
+  generator skip the paragraph when blank. Left alone because it is a copy judgment, not a defect.
+- **Articles are still one to four sentences** wrapped in a full nav, switcher, and footer
+  apparatus. The open question from the start of this pack — collapse the 15 topics into one
+  anchored page per locale — is now the biggest remaining question about the help site, and this
+  batch made the chrome-to-content ratio more visible, not less.
+
 ## Agent checklist
 
-- [ ] Status → in_progress
-- [ ] Changes made in the generator, not in generated HTML
-- [ ] Regenerated all 160 pages
-- [ ] Smoke criteria above
-- [ ] Status → done
-- [ ] Update `drafts/README.md` table
+- [x] Status → in_progress
+- [x] Changes made in the generator, not in generated HTML
+- [x] Regenerated all 160 pages
+- [x] Smoke criteria above
+- [x] Status → needs-review (evidence in `tmp/be-12-review/`) — **do not mark done**
+- [x] Update `drafts/README.md` table
+- [x] Left `CSS_VER` / site-wide `a` color alone (be-11)

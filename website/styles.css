@@ -554,48 +554,69 @@ h1 {
   font-weight: 600;
 }
 
-/* 7-locale switcher — same path, only /{lang}/ changes */
+/* Quiet language control — one select, endonyms, after help-nav */
 .help-lang {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  margin: 0 0 16px;
-  padding: 10px 8px;
-  border-radius: 14px;
-  background: #f0f3f7;
-}
-
-.help-lang a {
-  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: #1a2b4a;
-  text-decoration: none;
-  border: 1.5px solid transparent;
-  background: #fff;
+  justify-content: center;
+  gap: 8px 10px;
+  margin: 0 0 20px;
+  padding: 0;
+  background: none;
+  border: none;
 }
 
-.help-lang a:hover {
-  border-color: #5bafe8;
+.help-lang label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
 }
 
-.help-lang a.on {
-  border-color: #1a2b4a;
-  background: #1a2b4a;
-  color: #fff;
+.help-lang select {
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  min-height: var(--tap-min);
+  max-width: 100%;
+}
+
+.help-lang-go {
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 8px 14px;
+  min-height: var(--tap-min);
+  cursor: pointer;
+}
+
+.help-lang-noscript {
+  display: block;
+  text-align: center;
+  font-size: 0.82rem;
+  margin: 0 0 16px;
+  color: var(--muted);
 }
 
 .help-glossary {
   font-size: 0.9rem;
-  color: #5a6570;
+  color: var(--muted);
   margin-top: 8px;
   line-height: 1.45;
+}
+
+.help-next {
+  margin: 1.25rem 0 0;
+  font-size: 0.92rem;
+  font-weight: 600;
 }
 
 .help-back {
@@ -606,71 +627,20 @@ body.help-rtl .prose {
   text-align: right;
 }
 
-/* Product-photo stage — silver/white, not brand green */
-.help-icon-hero {
-  width: min(100%, 280px);
-  min-height: 188px;
-  margin: 0 auto 12px;
-  border-radius: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
-  border: 1px solid #d4d8dc;
-  box-shadow: 0 6px 16px rgba(26, 43, 60, 0.08);
-  color: #7a828c;
-  padding: 14px 12px;
+body.help-rtl .prose ul,
+body.help-rtl .prose ol {
+  padding-right: 1.25rem;
+  padding-left: 0;
 }
 
-.help-icon-hero svg {
-  display: block;
-  max-width: 100%;
-  height: auto;
+body.help-rtl .help-nav,
+body.help-rtl .help-back,
+body.help-rtl .help-next {
+  text-align: right;
 }
 
-.help-icon-caption {
-  margin: 0 0 16px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--muted);
-  text-align: center;
-}
-
-.help-brand {
-  text-align: center;
-  margin: 0 auto 1.25rem;
-  max-width: 320px;
-}
-
-.help-brand img {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
-.help-brand-site {
-  margin: 0.65rem 0 0;
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.help-brand-site a {
-  color: var(--accent-ink);
-  text-decoration: none;
-}
-
-.help-brand-site a:hover {
-  text-decoration: underline;
-}
-
-.help-cgm-label {
-  margin: 0.35rem 0 0;
-  font-size: 1.35rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  color: #6b7280;
-  text-align: center;
+body.help-rtl .help-lang {
+  flex-direction: row-reverse;
 }
 
 .prose {
@@ -720,42 +690,7 @@ body.help-rtl .prose {
   color: var(--text);
 }
 
-.help-card-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.help-card-list li {
-  margin-bottom: 12px;
-}
-
-.help-card-list a {
-  display: block;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
-  font-weight: 600;
-  color: var(--text);
-  box-shadow: var(--shadow-sm);
-}
-
-.help-card-list a:hover {
-  text-decoration: none;
-  border-color: var(--accent);
-  box-shadow: 0 4px 14px rgba(61, 157, 214, 0.15);
-}
-
-.help-card-list span {
-  display: block;
-  font-weight: 400;
-  font-size: 0.85rem;
-  color: var(--muted);
-  margin-top: 4px;
-}
-
-/* ── Help index as tappable cards (audit F19) — fills desktop width, less sparse ── */
+/* ── Help index as tappable cards ── */
 .help-index ul {
   list-style: none;
   padding: 0;

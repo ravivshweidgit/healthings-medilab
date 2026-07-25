@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Autorisez Health Connect ou Apple Health pour pas et pouls si la montre Withings est off." />
     <title>Santé du téléphone — Healthings Help</title>
+    <link rel="canonical" href="https://healthings.ai/fr/help/phone-health-activity.html" />
     <link rel="icon" href="../../assets/icon.png" type="image/png" />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../../tokens.css?v=20260726be11" />
@@ -18,23 +20,31 @@
     <link rel="alternate" hreflang="pt" href="https://healthings.ai/pt/help/phone-health-activity.html" />
     <link rel="alternate" hreflang="it" href="https://healthings.ai/it/help/phone-health-activity.html" />
     <link rel="alternate" hreflang="tr" href="https://healthings.ai/tr/help/phone-health-activity.html" />
+    <link rel="alternate" hreflang="x-default" href="https://healthings.ai/en/help/phone-health-activity.html" />
   </head>
-  <body class="">
+  <body>
     <main class="wrap">
-      <nav class="help-lang" aria-label="Language"><a href="/en/help/phone-health-activity.html" hreflang="en" title="English">🇬🇧 EN</a>
-          <a href="/he/help/phone-health-activity.html" hreflang="he" title="עברית">🇮🇱 HE</a>
-          <a href="/es/help/phone-health-activity.html" hreflang="es" title="Español">🇪🇸 ES</a>
-          <a href="/fr/help/phone-health-activity.html" class="on" hreflang="fr" title="Français">🇫🇷 FR</a>
-          <a href="/de/help/phone-health-activity.html" hreflang="de" title="Deutsch">🇩🇪 DE</a>
-          <a href="/ar/help/phone-health-activity.html" hreflang="ar" title="العربية">🇸🇦 AR</a>
-          <a href="/ru/help/phone-health-activity.html" hreflang="ru" title="Русский">🇷🇺 RU</a>
-          <a href="/pt/help/phone-health-activity.html" hreflang="pt" title="Português">🇧🇷 PT</a>
-          <a href="/it/help/phone-health-activity.html" hreflang="it" title="Italiano">🇮🇹 IT</a>
-          <a href="/tr/help/phone-health-activity.html" hreflang="tr" title="Türkçe">🇹🇷 TR</a></nav>
       <nav class="help-nav">
-        <a href="../../index.html">Accueil</a>
         <a href="index.html">Aide</a>
+        <a href="../../index.html">Accueil</a>
       </nav>
+      <form class="help-lang" action="#" method="get" onsubmit="var s=this.elements.namedItem('lang'); if(s&amp;&amp;s.value){location.href=s.value;} return false;">
+        <label for="help-lang-select">Langue</label>
+        <select id="help-lang-select" name="lang">
+          <option value="/en/help/phone-health-activity.html" lang="en">English</option>
+          <option value="/he/help/phone-health-activity.html" lang="he">עברית</option>
+          <option value="/es/help/phone-health-activity.html" lang="es">Español</option>
+          <option value="/fr/help/phone-health-activity.html" lang="fr" selected>Français</option>
+          <option value="/de/help/phone-health-activity.html" lang="de">Deutsch</option>
+          <option value="/ar/help/phone-health-activity.html" lang="ar">العربية</option>
+          <option value="/ru/help/phone-health-activity.html" lang="ru">Русский</option>
+          <option value="/pt/help/phone-health-activity.html" lang="pt">Português</option>
+          <option value="/it/help/phone-health-activity.html" lang="it">Italiano</option>
+          <option value="/tr/help/phone-health-activity.html" lang="tr">Türkçe</option>
+        </select>
+        <button type="submit" class="help-lang-go">Aller</button>
+      </form>
+      <noscript class="help-lang-noscript"><p><a href="/en/help/phone-health-activity.html" hreflang="en">English</a> · <a href="/he/help/phone-health-activity.html" hreflang="he">עברית</a> · <a href="/es/help/phone-health-activity.html" hreflang="es">Español</a> · <a href="/fr/help/phone-health-activity.html" hreflang="fr">Français</a> · <a href="/de/help/phone-health-activity.html" hreflang="de">Deutsch</a> · <a href="/ar/help/phone-health-activity.html" hreflang="ar">العربية</a> · <a href="/ru/help/phone-health-activity.html" hreflang="ru">Русский</a> · <a href="/pt/help/phone-health-activity.html" hreflang="pt">Português</a> · <a href="/it/help/phone-health-activity.html" hreflang="it">Italiano</a> · <a href="/tr/help/phone-health-activity.html" hreflang="tr">Türkçe</a></p></noscript>
       <section class="hero">
         <p class="badge">Démarrage rapide</p>
         <h1>Santé du téléphone</h1>
@@ -42,8 +52,8 @@
         <p class="help-glossary">Les termes <strong>kcal</strong>, <strong>BMR</strong>, <strong>CGM</strong> et les marques comme <strong>Withings</strong> restent en anglais.</p>
       </section>
       <section class="card prose">
-        <h2>À retenir</h2>
         <p>Appuyez sur Next — une demande système peut apparaître une fois.</p>
+        <p class="help-next"><a href="reports-import.html">Sujet suivant: Rapports optionnels →</a></p>
         <p class="help-back"><a href="index.html">← Tous les sujets</a></p>
       </section>
     </main>

@@ -2,7 +2,7 @@
  * Generate /{lang}/help/*.html for all HELP_LOCALES (prompt81).
  * Run from repo root: node website/scripts/gen-help-locales.mjs
  */
-import { mkdirSync, writeFileSync, readdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -15,46 +15,109 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB = join(__dirname, '..');
+/** Keep in sync with hand-written pages (be-11). Do not invent a parallel token. */
 const CSS_VER = '20260726be11';
 
-function langSwitcher(currentLang, slug) {
-  const links = HELP_LOCALES.map((l) => {
+function escAttr(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
+}
+
+function metaDescription(lead) {
+  const plain = String(lead)
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (plain.length <= 155) return plain;
+  return `${plain.slice(0, 152).trimEnd()}…`;
+}
+
+function pageUrl(langCode, slug) {
+  return slug === 'index'
+    ? `https://healthings.ai/${langCode}/help/index.html`
+    : `https://healthings.ai/${langCode}/help/${slug}.html`;
+}
+
+function hreflangLinks(slug) {
+  const lines = HELP_LOCALES.map(
+    (l) =>
+      `<link rel="alternate" hreflang="${l.code}" href="${pageUrl(l.code, slug)}" />`,
+  );
+  lines.push(
+    `<link rel="alternate" hreflang="x-default" href="${pageUrl('en', slug)}" />`,
+  );
+  return lines.join('\n    ');
+}
+
+function langSwitcher(currentLang, slug, ui) {
+  const options = HELP_LOCALES.map((l) => {
     const href =
       slug === 'index'
         ? `/${l.code}/help/index.html`
         : `/${l.code}/help/${slug}.html`;
-    const on = l.code === currentLang ? ' class="on"' : '';
-    return `<a href="${href}"${on} hreflang="${l.code}" title="${l.name}">${l.flag} ${l.label}</a>`;
+    const selected = l.code === currentLang ? ' selected' : '';
+    return `<option value="${href}" lang="${l.code}"${selected}>${l.name}</option>`;
   }).join('\n          ');
-  return `<nav class="help-lang" aria-label="Language">${links}</nav>`;
+
+  const noscriptLinks = HELP_LOCALES.map((l) => {
+    const href =
+      slug === 'index'
+        ? `/${l.code}/help/index.html`
+        : `/${l.code}/help/${slug}.html`;
+    return `<a href="${href}" hreflang="${l.code}">${l.name}</a>`;
+  }).join(' · ');
+
+  // Navigation happens on submit only. An onchange handler would move the page as soon as
+  // a keyboard user pressed an arrow key, putting every distant option out of reach.
+  return `<form class="help-lang" action="#" method="get" onsubmit="var s=this.elements.namedItem('lang'); if(s&amp;&amp;s.value){location.href=s.value;} return false;">
+        <label for="help-lang-select">${ui.langLabel}</label>
+        <select id="help-lang-select" name="lang">
+          ${options}
+        </select>
+        <button type="submit" class="help-lang-go">${ui.langGo}</button>
+      </form>
+      <noscript class="help-lang-noscript"><p>${noscriptLinks}</p></noscript>`;
+}
+
+function nextTopicHtml(langMeta, slug, ui) {
+  const i = HELP_SLUGS.indexOf(slug);
+  if (i < 0 || i >= HELP_SLUGS.length - 1) return '';
+  const nextSlug = HELP_SLUGS[i + 1];
+  const next = ARTICLES[nextSlug]?.[langMeta.code];
+  if (!next) return '';
+  const arrow = langMeta.dir === 'rtl' ? '←' : '→';
+  return `<p class="help-next"><a href="${nextSlug}.html">${ui.nextTopic}: ${next.title} ${arrow}</a></p>`;
 }
 
 function pageHtml(langMeta, slug, article) {
   const ui = UI[langMeta.code];
   const rtl = langMeta.dir === 'rtl';
   const title = article.title;
+  const canonical = pageUrl(langMeta.code, slug);
+  const desc = escAttr(metaDescription(article.lead));
   return `<!DOCTYPE html>
 <html lang="${langMeta.code}" dir="${langMeta.dir}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="${desc}" />
     <title>${title} — Healthings Help</title>
+    <link rel="canonical" href="${canonical}" />
     <link rel="icon" href="../../assets/icon.png" type="image/png" />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../../tokens.css?v=${CSS_VER}" />
     <link rel="stylesheet" href="../../styles.css?v=${CSS_VER}" />
-    ${HELP_LOCALES.map(
-      (l) =>
-        `<link rel="alternate" hreflang="${l.code}" href="https://healthings.ai/${l.code}/help/${slug}.html" />`,
-    ).join('\n    ')}
+    ${hreflangLinks(slug)}
   </head>
-  <body class="${rtl ? 'help-rtl' : ''}">
+  <body${rtl ? ' class="help-rtl"' : ''}>
     <main class="wrap">
-      ${langSwitcher(langMeta.code, slug)}
       <nav class="help-nav">
-        <a href="../../index.html">${ui.home}</a>
         <a href="index.html">${ui.help}</a>
+        <a href="../../index.html">${ui.home}</a>
       </nav>
+      ${langSwitcher(langMeta.code, slug, ui)}
       <section class="hero">
         <p class="badge">${ui.badge}</p>
         <h1>${title}</h1>
@@ -62,8 +125,8 @@ function pageHtml(langMeta, slug, article) {
         <p class="help-glossary">${ui.glossary}</p>
       </section>
       <section class="card prose">
-        <h2>${ui.know}</h2>
         ${article.body}
+        ${nextTopicHtml(langMeta, slug, ui)}
         <p class="help-back"><a href="index.html">${rtl ? '→' : '←'} ${ui.allTopics}</a></p>
       </section>
     </main>
@@ -76,6 +139,8 @@ function indexHtml(langMeta) {
   const ui = UI[langMeta.code];
   const idx = INDEX[langMeta.code];
   const rtl = langMeta.dir === 'rtl';
+  const canonical = pageUrl(langMeta.code, 'index');
+  const desc = escAttr(metaDescription(idx.lead));
   const items = HELP_SLUGS.map((slug) => {
     const a = ARTICLES[slug]?.[langMeta.code];
     if (!a) return '';
@@ -87,24 +152,27 @@ function indexHtml(langMeta) {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="${desc}" />
     <title>${idx.title} — Healthings</title>
+    <link rel="canonical" href="${canonical}" />
     <link rel="icon" href="../../assets/icon.png" type="image/png" />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../../tokens.css?v=${CSS_VER}" />
     <link rel="stylesheet" href="../../styles.css?v=${CSS_VER}" />
+    ${hreflangLinks('index')}
   </head>
-  <body class="${rtl ? 'help-rtl' : ''}">
+  <body${rtl ? ' class="help-rtl"' : ''}>
     <main class="wrap">
-      ${langSwitcher(langMeta.code, 'index')}
       <nav class="help-nav">
-        <a href="../../index.html">${ui.home}</a>
         <a href="index.html"><strong>${ui.help}</strong></a>
+        <a href="../../index.html">${ui.home}</a>
       </nav>
+      ${langSwitcher(langMeta.code, 'index', ui)}
       <section class="hero">
         <h1>${idx.title}</h1>
         <p class="lead">${idx.lead}</p>
       </section>
-      <section class="card prose">
+      <section class="card prose help-index">
         <ul>
 ${items.join('\n')}
         </ul>

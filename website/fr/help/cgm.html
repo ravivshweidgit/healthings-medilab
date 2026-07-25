@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Glucose continu via Health Connect (Android) ou Apple Health (iPhone). PDFs labo plus tard si besoin." />
     <title>Glucose CGM — Healthings Help</title>
+    <link rel="canonical" href="https://healthings.ai/fr/help/cgm.html" />
     <link rel="icon" href="../../assets/icon.png" type="image/png" />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../../tokens.css?v=20260726be11" />
@@ -18,23 +20,31 @@
     <link rel="alternate" hreflang="pt" href="https://healthings.ai/pt/help/cgm.html" />
     <link rel="alternate" hreflang="it" href="https://healthings.ai/it/help/cgm.html" />
     <link rel="alternate" hreflang="tr" href="https://healthings.ai/tr/help/cgm.html" />
+    <link rel="alternate" hreflang="x-default" href="https://healthings.ai/en/help/cgm.html" />
   </head>
-  <body class="">
+  <body>
     <main class="wrap">
-      <nav class="help-lang" aria-label="Language"><a href="/en/help/cgm.html" hreflang="en" title="English">🇬🇧 EN</a>
-          <a href="/he/help/cgm.html" hreflang="he" title="עברית">🇮🇱 HE</a>
-          <a href="/es/help/cgm.html" hreflang="es" title="Español">🇪🇸 ES</a>
-          <a href="/fr/help/cgm.html" class="on" hreflang="fr" title="Français">🇫🇷 FR</a>
-          <a href="/de/help/cgm.html" hreflang="de" title="Deutsch">🇩🇪 DE</a>
-          <a href="/ar/help/cgm.html" hreflang="ar" title="العربية">🇸🇦 AR</a>
-          <a href="/ru/help/cgm.html" hreflang="ru" title="Русский">🇷🇺 RU</a>
-          <a href="/pt/help/cgm.html" hreflang="pt" title="Português">🇧🇷 PT</a>
-          <a href="/it/help/cgm.html" hreflang="it" title="Italiano">🇮🇹 IT</a>
-          <a href="/tr/help/cgm.html" hreflang="tr" title="Türkçe">🇹🇷 TR</a></nav>
       <nav class="help-nav">
-        <a href="../../index.html">Accueil</a>
         <a href="index.html">Aide</a>
+        <a href="../../index.html">Accueil</a>
       </nav>
+      <form class="help-lang" action="#" method="get" onsubmit="var s=this.elements.namedItem('lang'); if(s&amp;&amp;s.value){location.href=s.value;} return false;">
+        <label for="help-lang-select">Langue</label>
+        <select id="help-lang-select" name="lang">
+          <option value="/en/help/cgm.html" lang="en">English</option>
+          <option value="/he/help/cgm.html" lang="he">עברית</option>
+          <option value="/es/help/cgm.html" lang="es">Español</option>
+          <option value="/fr/help/cgm.html" lang="fr" selected>Français</option>
+          <option value="/de/help/cgm.html" lang="de">Deutsch</option>
+          <option value="/ar/help/cgm.html" lang="ar">العربية</option>
+          <option value="/ru/help/cgm.html" lang="ru">Русский</option>
+          <option value="/pt/help/cgm.html" lang="pt">Português</option>
+          <option value="/it/help/cgm.html" lang="it">Italiano</option>
+          <option value="/tr/help/cgm.html" lang="tr">Türkçe</option>
+        </select>
+        <button type="submit" class="help-lang-go">Aller</button>
+      </form>
+      <noscript class="help-lang-noscript"><p><a href="/en/help/cgm.html" hreflang="en">English</a> · <a href="/he/help/cgm.html" hreflang="he">עברית</a> · <a href="/es/help/cgm.html" hreflang="es">Español</a> · <a href="/fr/help/cgm.html" hreflang="fr">Français</a> · <a href="/de/help/cgm.html" hreflang="de">Deutsch</a> · <a href="/ar/help/cgm.html" hreflang="ar">العربية</a> · <a href="/ru/help/cgm.html" hreflang="ru">Русский</a> · <a href="/pt/help/cgm.html" hreflang="pt">Português</a> · <a href="/it/help/cgm.html" hreflang="it">Italiano</a> · <a href="/tr/help/cgm.html" hreflang="tr">Türkçe</a></p></noscript>
       <section class="hero">
         <p class="badge">Démarrage rapide</p>
         <h1>Glucose CGM</h1>
@@ -42,8 +52,8 @@
         <p class="help-glossary">Les termes <strong>kcal</strong>, <strong>BMR</strong>, <strong>CGM</strong> et les marques comme <strong>Withings</strong> restent en anglais.</p>
       </section>
       <section class="card prose">
-        <h2>À retenir</h2>
         <p>Partagez l’app CGM avec la santé du téléphone et autorisez Blood Glucose.</p>
+        <p class="help-next"><a href="withings-link.html">Sujet suivant: Lier Withings →</a></p>
         <p class="help-back"><a href="index.html">← Tous les sujets</a></p>
       </section>
     </main>

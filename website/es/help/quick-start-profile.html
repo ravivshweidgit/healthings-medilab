@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Género, altura y fecha de nacimiento para BMR, BMI y objetivos de energía." />
     <title>Sobre ti — Healthings Help</title>
+    <link rel="canonical" href="https://healthings.ai/es/help/quick-start-profile.html" />
     <link rel="icon" href="../../assets/icon.png" type="image/png" />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../../tokens.css?v=20260726be11" />
@@ -18,23 +20,31 @@
     <link rel="alternate" hreflang="pt" href="https://healthings.ai/pt/help/quick-start-profile.html" />
     <link rel="alternate" hreflang="it" href="https://healthings.ai/it/help/quick-start-profile.html" />
     <link rel="alternate" hreflang="tr" href="https://healthings.ai/tr/help/quick-start-profile.html" />
+    <link rel="alternate" hreflang="x-default" href="https://healthings.ai/en/help/quick-start-profile.html" />
   </head>
-  <body class="">
+  <body>
     <main class="wrap">
-      <nav class="help-lang" aria-label="Language"><a href="/en/help/quick-start-profile.html" hreflang="en" title="English">🇬🇧 EN</a>
-          <a href="/he/help/quick-start-profile.html" hreflang="he" title="עברית">🇮🇱 HE</a>
-          <a href="/es/help/quick-start-profile.html" class="on" hreflang="es" title="Español">🇪🇸 ES</a>
-          <a href="/fr/help/quick-start-profile.html" hreflang="fr" title="Français">🇫🇷 FR</a>
-          <a href="/de/help/quick-start-profile.html" hreflang="de" title="Deutsch">🇩🇪 DE</a>
-          <a href="/ar/help/quick-start-profile.html" hreflang="ar" title="العربية">🇸🇦 AR</a>
-          <a href="/ru/help/quick-start-profile.html" hreflang="ru" title="Русский">🇷🇺 RU</a>
-          <a href="/pt/help/quick-start-profile.html" hreflang="pt" title="Português">🇧🇷 PT</a>
-          <a href="/it/help/quick-start-profile.html" hreflang="it" title="Italiano">🇮🇹 IT</a>
-          <a href="/tr/help/quick-start-profile.html" hreflang="tr" title="Türkçe">🇹🇷 TR</a></nav>
       <nav class="help-nav">
-        <a href="../../index.html">Inicio</a>
         <a href="index.html">Ayuda</a>
+        <a href="../../index.html">Inicio</a>
       </nav>
+      <form class="help-lang" action="#" method="get" onsubmit="var s=this.elements.namedItem('lang'); if(s&amp;&amp;s.value){location.href=s.value;} return false;">
+        <label for="help-lang-select">Idioma</label>
+        <select id="help-lang-select" name="lang">
+          <option value="/en/help/quick-start-profile.html" lang="en">English</option>
+          <option value="/he/help/quick-start-profile.html" lang="he">עברית</option>
+          <option value="/es/help/quick-start-profile.html" lang="es" selected>Español</option>
+          <option value="/fr/help/quick-start-profile.html" lang="fr">Français</option>
+          <option value="/de/help/quick-start-profile.html" lang="de">Deutsch</option>
+          <option value="/ar/help/quick-start-profile.html" lang="ar">العربية</option>
+          <option value="/ru/help/quick-start-profile.html" lang="ru">Русский</option>
+          <option value="/pt/help/quick-start-profile.html" lang="pt">Português</option>
+          <option value="/it/help/quick-start-profile.html" lang="it">Italiano</option>
+          <option value="/tr/help/quick-start-profile.html" lang="tr">Türkçe</option>
+        </select>
+        <button type="submit" class="help-lang-go">Ir</button>
+      </form>
+      <noscript class="help-lang-noscript"><p><a href="/en/help/quick-start-profile.html" hreflang="en">English</a> · <a href="/he/help/quick-start-profile.html" hreflang="he">עברית</a> · <a href="/es/help/quick-start-profile.html" hreflang="es">Español</a> · <a href="/fr/help/quick-start-profile.html" hreflang="fr">Français</a> · <a href="/de/help/quick-start-profile.html" hreflang="de">Deutsch</a> · <a href="/ar/help/quick-start-profile.html" hreflang="ar">العربية</a> · <a href="/ru/help/quick-start-profile.html" hreflang="ru">Русский</a> · <a href="/pt/help/quick-start-profile.html" hreflang="pt">Português</a> · <a href="/it/help/quick-start-profile.html" hreflang="it">Italiano</a> · <a href="/tr/help/quick-start-profile.html" hreflang="tr">Türkçe</a></p></noscript>
       <section class="hero">
         <p class="badge">Inicio rápido</p>
         <h1>Sobre ti</h1>
@@ -42,8 +52,8 @@
         <p class="help-glossary">Términos como <strong>kcal</strong>, <strong>BMR</strong>, <strong>CGM</strong> y marcas como <strong>Withings</strong> se quedan en inglés.</p>
       </section>
       <section class="card prose">
-        <h2>Lo esencial</h2>
         <p>Una vez aquí; se puede ajustar después en el perfil.</p>
+        <p class="help-next"><a href="quick-start-language.html">Siguiente tema: Idioma de la app y el coach →</a></p>
         <p class="help-back"><a href="index.html">← Todos los temas</a></p>
       </section>
     </main>
