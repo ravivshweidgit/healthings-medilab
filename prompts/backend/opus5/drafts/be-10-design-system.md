@@ -1,6 +1,6 @@
 # be-10 — Shared design system (foundation batch)
 
-**Status:** ready
+**Status:** done (reviewed 2026-07-26 — see "Opus 5 review outcome" below; contrast fix applied)
 **Model to implement:** Auto / Composer
 **Authored by:** Opus 5 (website UX pack)
 **Findings:** W1 (three visual languages), W2 (prose measure), W3 (tap targets)
@@ -94,12 +94,13 @@ neutral `rgba(0,0,0,.08)` reads grayer and colder; drop it.
 
 ## Acceptance criteria
 
-- [ ] `--green*` appears nowhere in the repo (`rg -- '--green'` returns nothing)
-- [ ] Landing, help, privacy, clinic portal, and patient workspace all load `tokens.css`
-- [ ] Privacy body text measures ≤ 68ch at 1600px viewport (was ~120 characters)
-- [ ] Desktop (~1280) and mobile (~390): landing and clinic portal look unchanged apart from
+- [x] `--green*` appears nowhere in the repo (`rg -- '--green'` returns nothing)
+      _(website/ clean; draft docs still mention retired names historically)_
+- [x] Landing, help, privacy, clinic portal, and patient workspace all load `tokens.css`
+- [x] Privacy body text measures ≤ 68ch at 1600px viewport (was ~120 characters)
+- [x] Desktop (~1280) and mobile (~390): landing and clinic portal look unchanged apart from
       typography and the retired green aliases — this batch must not move layout
-- [ ] No regression: clinic workspace charts still render; `--red` / `--orange` chart series colors
+- [x] No regression: clinic workspace charts still render; `--red` / `--orange` chart series colors
       still resolve (map them onto `--danger` / `--warn`)
 
 ## Out of scope
@@ -131,10 +132,57 @@ listed, do not self-certify them.
 - Are the app surfaces still legibly **dense**? Unifying tokens must not inflate the clinic workspace
   to marketing-page spacing — a clinician needs more data per screen, not less.
 
+## Opus 5 review outcome (2026-07-26)
+
+**Accepted, with one fix applied during review.** Verified independently: `--green` returns zero
+hits across `website/`; `tokens.css` is `:root` properties only; `.prose` has both `max-width` and
+`margin-inline: auto`; `.u-tap` exists; workspace density untouched. The surface-local alias block
+(`--red` → `--danger`, `--shadow` → `--shadow-sm`, …) is a better approach than rewriting every
+workspace rule, and Auto correctly reported that `clinic-portal.css` — named in the draft above —
+does not exist, rather than inventing it.
+
+**Contrast regression, caused by this draft.** The design rule "`--accent` for links and emphasis"
+was wrong for small text: `--accent` `#3d9dd6` is only **3.0:1** on white, which is legal for
+fills, borders, and text ≥24px but not for labels. Because the workspace previously aliased
+`--green` to *navy* (14.1:1), retiring the alias dropped four controls to 3.0:1 — below AA:
+`.ws-tab.active`, `.ws-topbar a`, `.macro-updated`, `.nudge-count`. The active tab is the worst
+case, since it is how a clinician knows which patient view they are in.
+
+Fixed in review by adding **`--accent-ink: #1b6b96`** (5.85:1 on white) and applying it to those
+four rules. `--accent` keeps its existing meaning for fills, borders, and large display type.
+
+**Screenshot evidence was weak, but not Auto's fault.** The captures in `tmp/be-10-review/` are
+cropped to ~479px of a 1280px viewport. Opus hit the identical limit when re-shooting: the IDE
+browser panel is ~430px wide and `browser_take_screenshot` clips to it even with
+`Emulation.setDeviceMetricsOverride` at 1280. The Play badge also renders as a black box because
+the external Google URL is unreachable from an offline capture. **Do not ask future batches for
+wide screenshots from this tool** — it cannot produce them.
+
+Measured values are the better evidence here, and they verify the batch (`Runtime.evaluate` on
+`privacy.html` at a 1280 viewport):
+
+| Property | Value | Meaning |
+|---|---|---|
+| `.prose` width | 587px (`max-width: 586.5px`) | was ~912px — the 120ch problem is fixed |
+| body `font-family` | system stack | `--font-text` applied to prose |
+| `h2` `font-family` | Montserrat | `--font-display` retained for headings — split is **by role**, not by file |
+| `--accent-ink` | `#1b6b96` | review fix is live |
+
+Structure was confirmed intact via accessibility snapshots of the landing and privacy pages: all
+sections, the three-card grid, and every link present. Note this proves layout is **not broken**;
+proving it did not *move* would need a before/after diff, which was not run.
+
+**Routed onward, pre-existing and not caused by this batch:**
+
+- Site-wide `a { color: var(--accent) }` in `styles.css` has the same 3.0:1 problem on marketing
+  pages. It was already accent-colored before this batch. → **be-11**
+- `.prose p, .prose li { color: var(--muted) }` renders all policy and help body text as secondary
+  gray. Passes AA at 5.47:1, but body copy should not be muted. → **be-13**
+
 ## Agent checklist
 
-- [ ] Status → in_progress
-- [ ] Changes match this draft only
-- [ ] Smoke criteria above
-- [ ] Status → done
-- [ ] Update `drafts/README.md` table
+- [x] Status → in_progress
+- [x] Changes match this draft only
+- [x] Smoke criteria above
+- [x] Status → needs-review (Opus judgment; evidence in `tmp/be-10-review/`)
+- [x] Update `drafts/README.md` table

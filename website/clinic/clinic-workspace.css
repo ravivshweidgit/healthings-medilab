@@ -1,23 +1,15 @@
-/* Full-width clinic patient workspace — desktop-first */
+/* Full-width clinic patient workspace — consumes website/tokens.css */
 
 :root {
-  --bg: #f0f2f5;
-  --surface: #ffffff;
-  --text: #1a2b4a;
-  --muted: #6b7280;
-  --navy: #1a2b4a;
-  --accent: #3d9dd6;
-  --accent-light: #e8f4fc;
-  /* Brand actions (was wellness green) */
-  --green: #1a2b4a;
-  --green-light: #e8f4fc;
-  --blue: #3d9dd6;
-  --red: #ef5350;
-  --orange: #ff9800;
+  /* Surface-local aliases on shared tokens */
+  --bg: var(--bg-page);
+  --blue: var(--accent);
+  --red: var(--danger);
+  --orange: var(--warn);
+  --shadow: var(--shadow-sm);
+  --radius: var(--radius-md);
   --grid: #e8eaed;
   --track: #f0f0f0;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --radius: 12px;
   --max-w: 1440px;
 }
 
@@ -25,12 +17,21 @@
 
 body.clinic-workspace {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-text);
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+h1,
+h2,
+h3,
+.ws-btn,
+.ws-tab,
+.badge {
+  font-family: var(--font-display);
 }
 
 .ws-topbar {
@@ -46,16 +47,16 @@ body.clinic-workspace {
   z-index: 20;
 }
 
-.ws-topbar a { color: var(--green); font-weight: 600; text-decoration: none; }
+.ws-topbar a { color: var(--accent-ink); font-weight: 600; text-decoration: none; }
 .ws-topbar h1 { margin: 0; font-size: 1.15rem; font-weight: 700; }
 .ws-topbar .meta { color: var(--muted); font-size: 0.88rem; flex: 1; min-width: 200px; }
 .ws-topbar .badge {
   font-size: 0.72rem;
   font-weight: 700;
-  background: var(--green-light);
-  color: var(--green);
+  background: var(--accent-light);
+  color: var(--navy);
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 .ws-btn {
   border: 1px solid var(--grid);
@@ -66,9 +67,9 @@ body.clinic-workspace {
   cursor: pointer;
   font-size: 0.88rem;
 }
-.ws-btn.primary { background: var(--green); color: #fff; border-color: var(--green); }
+.ws-btn.primary { background: var(--navy); color: #fff; border-color: var(--navy); }
 .ws-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.sync-status-hint { color: #c0392b; font-weight: 600; }
+.sync-status-hint { color: var(--danger); font-weight: 600; }
 
 .ws-tabs {
   max-width: var(--max-w);
@@ -90,7 +91,7 @@ body.clinic-workspace {
 }
 .ws-tab.active {
   background: var(--surface);
-  color: var(--green);
+  color: var(--accent-ink);
   box-shadow: var(--shadow);
 }
 
@@ -353,7 +354,7 @@ body.clinic-workspace {
   cursor: pointer;
   font-weight: 600;
 }
-.mentor-nav button.active { border-color: var(--green); background: var(--green-light); color: var(--green); }
+.mentor-nav button.active { border-color: var(--navy); background: var(--accent-light); color: var(--navy); }
 
 .chat-thread {
   display: flex;
@@ -690,7 +691,7 @@ body.clinic-workspace {
   margin-bottom: 16px;
   font-size: 0.88rem;
 }
-.nudge-count { font-weight: 800; color: var(--green); }
+.nudge-count { font-weight: 800; color: var(--accent-ink); }
 .nudge-text { flex: 1; color: #5d4037; }
 
 .dash-card {
@@ -1017,7 +1018,7 @@ body.clinic-workspace {
   background: #f8f9fa;
 }
 .mentor-pill.active { border-color: #42A5F5; background: rgba(66, 165, 245, 0.1); }
-.macro-updated { display: block; font-size: 0.75rem; color: var(--green); margin-top: 4px; font-weight: 600; }
+.macro-updated { display: block; font-size: 0.75rem; color: var(--accent-ink); margin-top: 4px; font-weight: 600; }
 .profile-macros { margin: 0 0 10px; }
 .profile-macros .macro-row {
   display: grid;

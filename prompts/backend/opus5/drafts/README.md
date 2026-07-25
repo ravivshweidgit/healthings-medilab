@@ -13,6 +13,7 @@ Run strictly in this order. The reason for each position is the dependency, not 
 |---|---|
 | **be-08 Batch A** (`prompts/backend/prompt-be-08-clinic-portal-ux.md`) | Prerequisite, not part of this pack. Already coded locally and uncommitted. Correctness before cosmetics, and it touches `clinic/index.html` which be-10 also edits — land it first to avoid conflicts |
 | **be-10** design system | Every later batch consumes these tokens. Doing it later means re-touching every file |
+| **be-09** copy and proof | **Runs after be-10, despite the number.** Added 2026-07-26, once be-10 was already in flight; it sorts before be-10 because it has no dependency on tokens. Must land before be-11 and be-16 so both are built around final wording |
 | **be-11** landing | Pure presentation on top of tokens. Highest visible payoff (logo, badges, nav) |
 | **be-12** help | Regenerates 160 files — run alone so the diff is reviewable |
 | **be-13** privacy | Must precede be-15, which rewrites the `#deletion` section |
@@ -40,7 +41,8 @@ why the live H1 still reads "A full metabolic OS". Deploy is `git pull --ff-only
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-10-design-system.md` | Shared design system (tokens) | in_progress | **Foundation — do first.** Retires `--green*`, adds prose measure + tap-target tokens |
+| `be-10-design-system.md` | Shared design system (tokens) | done | Reviewed 2026-07-26. Tokens live, `--green*` gone. Review added `--accent-ink` (5.85:1) — `--accent` is 3.0:1 and had dropped four workspace controls below AA. Link contrast → be-11, muted prose → be-13 |
+| `be-09-copy-and-proof.md` | Landing copy and proof | ready | **Run next.** Headline, one product name (`MediLab` still on the page), tester logistics out of the hero, a real proof section, and an unsupported efficacy claim removed |
 | `be-11-landing.md` | Landing page | ready | Logo transparency, store badges, header nav, card stretch |
 | `be-12-help.md` | Help site (10 locales) | ready | Index regression, language switcher, meta/SEO, RTL. Generator only — never hand-edit generated HTML |
 | `be-13-privacy.md` | Privacy policy page | ready | Anchors + TOC + terminology. Coordinate with be-15 on the deletion section |
@@ -49,6 +51,10 @@ why the live H1 still reads "A full metabolic OS". Deploy is `git pull --ff-only
 | `be-16-landing-visual-direction.md` | Landing visual direction (2026 level) | ready | Product imagery, section rhythm, type scale, dark mode, motion. Judgment-heavy — review matters more than the checkboxes. **Screenshots supplied** in `website/images/app/` (7 shots, WebP + PNG, 640x1422) — use as-is |
 
 ## Floor vs ceiling
+
+**be-09 and be-16 are the only two batches that change how the site lands on a stranger** — one the
+words, the other the look. The rest fix what is broken. If the pack ships without them, the site will
+be correct, accessible, responsive, and still read as an internal tool.
 
 be-10 through be-15 fix what is **wrong**: a boxed logo, cropped badges, 120-character lines, 15px
 tap targets, a desktop-only workspace, a missing patient account. Necessary, and none of it makes the

@@ -1,0 +1,35 @@
+/**
+ * Healthings shared design tokens — single source of truth.
+ * Import before page stylesheets. :root custom properties only.
+ */
+:root {
+  --bg-page: #f0f4f8;
+  --bg-sky: #b8daf0;
+  --bg-accent: #d6ebf8;
+  --surface: #ffffff;
+  --line: #e2e8f0;
+  --text: #1a2b4a;
+  --muted: #5c6b7a;
+  --navy: #1a2b4a;
+  --accent: #3d9dd6;
+  /* --accent is 3.0:1 on white: fills, borders, and text ≥24px only.
+     Use --accent-ink (5.85:1) for accent-colored text below that. */
+  --accent-ink: #1b6b96;
+  --accent-light: #e8f4fc;
+  --danger: #c0392b;
+  --warn: #ff9800;
+  --ok: #2e7d32;
+
+  --font-display: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
+  --font-text: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --radius-lg: 20px;
+  --radius-md: 12px;
+  --radius-pill: 999px;
+
+  --shadow-lg: 0 8px 32px rgba(26, 43, 74, 0.08);
+  --shadow-sm: 0 2px 12px rgba(26, 43, 74, 0.06);
+
+  --measure: 68ch;
+  --tap-min: 44px;
+}

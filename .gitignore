@@ -25,6 +25,9 @@ assets-staging/
 # --- Build / tooling artifacts ---
 __pycache__/
 
+# Throwaway review evidence (screenshots, fixtures) — referenced by path, never committed
+tmp/
+
 # --- OS / editor ---
 .DS_Store
 Thumbs.db

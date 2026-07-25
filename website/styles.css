@@ -1,28 +1,7 @@
 /**
- * Healthings public site — aligned with app Quick Start palette (2026).
- * Navy #1A2B4A · accent blue #3D9DD6 · clear sky header (not wellness green).
+ * Healthings public site — consumes website/tokens.css.
+ * Navy #1A2B4A · accent blue #3D9DD6 · clear sky header.
  */
-:root {
-  --bg: #f0f4f8;
-  --bg-accent: #d6ebf8;
-  --bg-sky: #b8daf0;
-  --surface: #ffffff;
-  --text: #1a2b4a;
-  --muted: #5c6b7a;
-  --navy: #1a2b4a;
-  --accent: #3d9dd6;
-  --accent-light: #e8f4fc;
-  --accent-mid: #5bafe8;
-  --line: #e2e8f0;
-  --radius: 20px;
-  --radius-sm: 12px;
-  --shadow: 0 8px 32px rgba(26, 43, 74, 0.08);
-  --shadow-sm: 0 2px 12px rgba(26, 43, 74, 0.06);
-  /* Legacy aliases — keep old class refs working */
-  --green: var(--accent);
-  --green-light: var(--accent-light);
-  --green-mid: var(--accent-mid);
-}
 
 *,
 *::before,
@@ -36,18 +15,32 @@ html {
 
 body {
   margin: 0;
-  font-family: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--font-text);
   color: var(--text);
   /* Unmistakable cool sky → gray (reads blue, not green) */
   background: linear-gradient(
     180deg,
     var(--bg-sky) 0%,
     var(--bg-accent) 110px,
-    var(--bg) 280px,
-    var(--bg) 100%
+    var(--bg-page) 280px,
+    var(--bg-page) 100%
   );
   line-height: 1.55;
   min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+.badge,
+button {
+  font-family: var(--font-display);
+}
+
+.u-tap {
+  min-height: var(--tap-min);
+  display: inline-flex;
+  align-items: center;
 }
 
 a {
@@ -87,7 +80,7 @@ a:hover {
   color: var(--navy);
   background: var(--accent-light);
   border: 1px solid rgba(61, 157, 214, 0.35);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 5px 12px;
   margin-bottom: 16px;
 }
@@ -111,9 +104,9 @@ h1 {
 /* ── CTA panel ── */
 .cta-panel {
   background: var(--surface);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   padding: 24px 20px;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-lg);
   text-align: center;
 }
 
@@ -243,7 +236,7 @@ h1 {
 
 .card {
   background: var(--surface);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   padding: 22px 18px;
   box-shadow: var(--shadow-sm);
   margin-bottom: 14px;
@@ -293,13 +286,13 @@ h1 {
 
 .compare-before {
   background: #f8f9fa;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: 14px;
 }
 
 .compare-after {
   background: var(--accent-light);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: 14px;
 }
 
@@ -603,14 +596,21 @@ body.help-rtl .prose {
   text-align: center;
 }
 
+.prose {
+  max-width: var(--measure);
+  margin-inline: auto;
+}
+
 .prose h2 {
   font-size: 1.1rem;
   margin: 1.25rem 0 0.5rem;
+  font-family: var(--font-display);
 }
 
 .prose h3 {
   font-size: 1rem;
   margin: 1rem 0 0.4rem;
+  font-family: var(--font-display);
 }
 
 .prose p,
@@ -636,7 +636,7 @@ body.help-rtl .prose {
 .prose .tip {
   background: var(--accent-light);
   border: 1px solid rgba(61, 157, 214, 0.28);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: 12px 14px;
   margin: 12px 0;
   font-size: 0.88rem;
@@ -657,7 +657,7 @@ body.help-rtl .prose {
   display: block;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: 14px 16px;
   font-weight: 600;
   color: var(--text);
@@ -696,7 +696,7 @@ body.help-rtl .prose {
   display: block;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: 14px 16px;
   font-weight: 600;
   color: var(--text);

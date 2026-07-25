@@ -15,7 +15,7 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB = join(__dirname, '..');
-const CSS_VER = '20260724lang10';
+const CSS_VER = '20260726be10';
 
 function langSwitcher(currentLang, slug) {
   const links = HELP_LOCALES.map((l) => {
@@ -41,6 +41,7 @@ function pageHtml(langMeta, slug, article) {
     <title>${title} — Healthings Help</title>
     <link rel="icon" href="../../assets/icon.png" type="image/png" />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../../tokens.css?v=${CSS_VER}" />
     <link rel="stylesheet" href="../../styles.css?v=${CSS_VER}" />
     ${HELP_LOCALES.map(
       (l) =>
@@ -89,6 +90,7 @@ function indexHtml(langMeta) {
     <title>${idx.title} — Healthings</title>
     <link rel="icon" href="../../assets/icon.png" type="image/png" />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../../tokens.css?v=${CSS_VER}" />
     <link rel="stylesheet" href="../../styles.css?v=${CSS_VER}" />
   </head>
   <body class="${rtl ? 'help-rtl' : ''}">
