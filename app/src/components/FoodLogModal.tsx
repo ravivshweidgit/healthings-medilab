@@ -425,10 +425,22 @@ export function FoodLogModal({
   }, []);
 
   const openPastMealPicker = useCallback(() => {
-    setBrowseDayMs(startOfLocalDay(Date.now()));
     setPastDayMeals([]);
     setError(null);
-    setScreen('pickPast');
+    setPastDayLoading(true);
+    void (async () => {
+      const todayStart = startOfLocalDay(Date.now());
+      let day = todayStart;
+      try {
+        const todayMeals = await getMealsForDay(foodLogDayKey(todayStart));
+        // Empty morning log: land on yesterday so the picker has meals ready.
+        if (todayMeals.length === 0) day = addLocalDays(todayStart, -1);
+      } catch {
+        // Keep today; empty-state copy still works.
+      }
+      setBrowseDayMs(day);
+      setScreen('pickPast');
+    })();
   }, []);
 
   const applyPastMealAsNew = useCallback(
