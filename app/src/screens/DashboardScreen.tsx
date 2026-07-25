@@ -2946,15 +2946,16 @@ const makeStyles = (c: ThemeColors, isDark: boolean) => {
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Dark: canvas black like the Link button beside it, state carried by the ring.
   withingsStatusBadgeOn: {
-    backgroundColor: c.iconTintGreen,
+    backgroundColor: isDark ? c.background : c.iconTintGreen,
     borderWidth: 1,
-    borderColor: 'rgba(76, 175, 80, 0.35)',
+    borderColor: isDark ? c.accentGreen : 'rgba(76, 175, 80, 0.35)',
   },
   withingsStatusBadgeOff: {
-    backgroundColor: isDark ? c.chart.surplusZone : '#FFEBEE',
+    backgroundColor: isDark ? c.background : '#FFEBEE',
     borderWidth: 1,
-    borderColor: 'rgba(255, 82, 82, 0.35)',
+    borderColor: isDark ? c.accentRed : 'rgba(255, 82, 82, 0.35)',
   },
   withingsLinkButtonCompact: {
     flexShrink: 0,
