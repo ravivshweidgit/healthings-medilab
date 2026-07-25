@@ -191,6 +191,27 @@ clean — zero `â`/`Â`/`€`/`†` anywhere in `website/**/*.html`. **Use a UT
 for this file; never a PowerShell text round trip.** Inverting it needs a hybrid codec, since
 cp1252 cannot encode `\x90` and latin-1 cannot encode `€`.
 
+**Post-commit fix — the meal-logging article described an app that does not exist.** The owner
+read `/he/help/meal-logging/` and rejected two claims, both wrong in all ten locales because they
+come from one source row in `help-locale-content.mjs`:
+
+| Claim | Reality in the app |
+|---|---|
+| "Tap **+** on the metabolic chart" | There is no add affordance on the chart. `MetabolicChart.tsx` has no `onAddMeal`; the entry point is the **Meal** button in the Food Log action row (`FoodMacroStrip.tsx`, next to Water). |
+| "so coaching under My Rules can show live impact on charts" | Logging a meal runs `analyzeMacroMealIssues`, which flags `carb_over`, `kcal_over`, `protein_low`, and `rule_conflict` — it *surfaces conflicts with My Rules and the daily targets*, it does not animate a chart. |
+
+Both fixed against source, not guessed: step 1 now names the real control in each locale's own UI
+string (`FOOD LOG` / `יומן ארוחות` / `ESSENSTAGEBUCH` / `ДНЕВНИК ПИТАНИЯ` …, from `FOOD_LOG_TITLE`,
+and `Meal` / `ארוחה` / `Mahlzeit` / `Öğün` …, from `foodLogUiCopy.ts`), so the help text matches the
+words on the screen in the reader's language. The lead now states the conflict check. Ten pages
+regenerated; no other files touched, and no encoding regression.
+
+**The lesson is about provenance, not translation.** The owner flagged Hebrew, but Hebrew was a
+faithful translation of a wrong English source — nine other locales carried the same error
+silently. Help copy that names a control or describes a behavior has to be traced to the component
+that renders it. Worth a sweep of the other 14 articles for the same class of drift before the help
+site is treated as trustworthy.
+
 **Follow-ups, not blocking**
 
 - **Bare `&` in generated markup.** Article titles containing `&` ("Units & measurements",
