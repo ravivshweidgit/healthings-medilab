@@ -44,19 +44,49 @@ const ACTIVITY_STRIP_PX = 6;
 
 const Y_AXIS_WIDTH = 36;
 const AXIS_HEIGHT = 30;
+/** Clear lane above the bars for workout names, so the text never sits on a bar. */
+const WORKOUT_LABEL_LANE_PX = 12;
 /** Glucose/HR plot height — ~30% taller than original 210px for finer Y resolution. */
-const CHART_PLOT_HEIGHT = 273;
+const CHART_PLOT_HEIGHT = 273 + WORKOUT_LABEL_LANE_PX;
 
 /**
  * Calorie bar strip sits INSIDE the chart area, above the X axis.
  * Glucose/HR data occupies the remaining upper portion of CHART_PLOT_HEIGHT.
  * Layout (bottom-up from axisY):
- *   padB (8) → calorie bars (CALORIE_STRIP_INNER) → activity lane (ACTIVITY_STRIP_PX) → glucose/HR data
+ *   padB (8) → calorie bars (CALORIE_STRIP_INNER) → activity lane (ACTIVITY_STRIP_PX)
+ *   → workout label lane (WORKOUT_LABEL_LANE_PX) → glucose/HR data
  */
 const CALORIE_STRIP_INNER = 42;
 /** Y-max for the calorie scale (kcal/30-min slot). BMR/48 ≈ 39; brisk walk ≈ 80-120. */
 const CALORIE_Y_MAX_FIXED = 150;
 const BUCKET_MS = 30 * 60 * 1000;
+/** Approx glyph width per point of font size, used for label overlap tests. */
+const LABEL_CHAR_W_PER_PT = 0.55;
+/** Half-width of a rendered label in SVG units, including a small breathing gap. */
+const labelHalfWidth = (text: string, fontSize: number) =>
+  (text.length * fontSize * LABEL_CHAR_W_PER_PT) / 2 + 2;
+/** Workout names and meal kcal numbers on the calorie strip. */
+const STRIP_LABEL_FONT_SIZE = 8;
+
+/**
+ * Keep the labels that fit on one baseline, biggest kcal first, and drop any that
+ * would overprint a label already placed. Returns them back in left-to-right order.
+ */
+function placeLabelsInLane<T extends { x: number; label: string; kcal: number }>(candidates: T[]): T[] {
+  const claimed: { min: number; max: number }[] = [];
+  const kept: T[] = [];
+  for (const c of candidates.slice().sort((a, b) => b.kcal - a.kcal)) {
+    const halfW = labelHalfWidth(c.label, STRIP_LABEL_FONT_SIZE);
+    const min = c.x - halfW;
+    const max = c.x + halfW;
+    if (claimed.some((o) => min < o.max && max > o.min)) continue;
+    claimed.push({ min, max });
+    kept.push(c);
+  }
+  return kept.sort((a, b) => a.x - b.x);
+}
+/** Time-of-day labels under the x axis. */
+const AXIS_LABEL_FONT_SIZE = 9;
 
 const SVG_TOTAL_HEIGHT = CHART_PLOT_HEIGHT + AXIS_HEIGHT;
 
@@ -440,12 +470,12 @@ function buildTimeTicks(
   padL: number,
   innerW: number,
   langCode?: string | null,
-): { x: number; label: string; key: string }[] {
+): { x: number; label: string; key: string; labelVisible: boolean }[] {
   const spanT = Math.max(1, tMax - tMin);
   const spanMs = tMax - tMin;
   const stepMs = computeTimeTickStepMs(spanMs);
 
-  const ticks: { x: number; label: string; key: string }[] = [];
+  const ticks: { x: number; label: string; key: string; labelVisible: boolean }[] = [];
   let t = Math.ceil(tMin / stepMs) * stepMs;
   let i = 0;
   while (t <= tMax + stepMs * 0.01 && i < 24) {
@@ -455,11 +485,26 @@ function buildTimeTicks(
         x,
         label: formatAxisTickLabel(t, stepMs, langCode),
         key: `t-${t}-${i}`,
+        labelVisible: true,
       });
     }
     t += stepMs;
     i += 1;
   }
+
+  // On narrow windows the hourly labels are wider than the gap between ticks
+  // ("9:00 PM10:00 PM"). Thin the text left to right; the tick marks all stay,
+  // so the dropped ones still read as minor gridlines.
+  let lastMax = -Infinity;
+  for (const tick of ticks) {
+    const halfW = labelHalfWidth(tick.label, AXIS_LABEL_FONT_SIZE);
+    if (tick.x - halfW < lastMax) {
+      tick.labelVisible = false;
+      continue;
+    }
+    lastMax = tick.x + halfW;
+  }
+
   return ticks;
 }
 
@@ -633,13 +678,16 @@ export function MetabolicChart({
 
     const chartSlotTop = 0;
     // Glucose/HR data area is the top portion; calorie bars + activity lane sit just above the X axis.
-    const chartSlotH = plotH - padT - padB - ACTIVITY_STRIP_PX - CALORIE_STRIP_INNER;
+    const chartSlotH = plotH - padT - padB - ACTIVITY_STRIP_PX - CALORIE_STRIP_INNER - WORKOUT_LABEL_LANE_PX;
     const axisY = plotH - padB;
     // Calorie bar strip: from top of the strip to the X axis line.
     const calStripBottom = axisY;
     const calStripTop = calStripBottom - CALORIE_STRIP_INNER;
     // Activity (walk) lane sits between the calorie strip and the glucose/HR area.
     const activityLaneBaseY = calStripTop;
+    // Workout names get their own baseline above the bars, on the card background,
+    // where dark bold text actually reads. 3px of descender room below the glyphs.
+    const workoutLabelY = calStripTop - ACTIVITY_STRIP_PX - 3;
 
     const toPx = (pts: Point[]) =>
       toPixelPoints(
@@ -739,6 +787,7 @@ export function MetabolicChart({
       axisY,
       calStripTop,
       calStripBottom,
+      workoutLabelY,
       chartW,
       plotH,
       svgH,
@@ -866,20 +915,51 @@ export function MetabolicChart({
       });
     }
 
-    // Workout label overlays (shown on the strip for named sessions in the window)
-    const workoutLabels: { x: number; label: string }[] = [];
+    // Workout label overlays for named sessions in the window.
+    // Placement happens later in stripLabels, once the x positions are known.
+    const workoutLabelCandidates: { x: number; label: string; kcal: number }[] = [];
     for (const w of (workoutSessions ?? [])) {
       if (w.endMs < mapTMin || w.startMs > mapTMax) continue;
       const midMs = (w.startMs + w.endMs) / 2;
       const x = padL + ((midMs - mapTMin) / spanT) * innerW;
-      workoutLabels.push({
+      workoutLabelCandidates.push({
         x,
         label: `${w.activityLabel} ${formatEnergy(w.kcal, energyDisplayUnit)}`,
+        kcal: w.kcal,
       });
     }
 
-    return { bars, calStripTop, calStripBottom, calYMax, workoutLabels };
+    return { bars, calStripTop, calStripBottom, calYMax, workoutLabelCandidates };
   }, [prepared, calorieBurns, workoutSessions, bmrKcalDay, energyDisplayUnit]);
+
+  // Workout names and meal numbers each own a baseline, so they can never collide
+  // with each other and each family gets the full width to itself. Within a lane,
+  // wide windows (12H/24H) still squeeze labels together, so each lane is placed
+  // largest-kcal-first and a label that would overprint a bigger neighbour is
+  // dropped. Dropped labels lose only text: the workout bar and the meal ▼ stay
+  // drawn, and zooming in frees the room to bring the text back.
+  const stripLabels = useMemo(() => {
+    const empty = { workoutLabels: [] as { x: number; label: string }[], mealLabelIds: new Set<string>() };
+    if (!prepared) return empty;
+    const { mapTMin, spanT, padL, innerW } = prepared;
+
+    const mealCandidates: { x: number; label: string; kcal: number; mealId: string }[] = [];
+    for (const entry of (foodEntries ?? [])) {
+      const x = timeToX(entry.timestamp, mapTMin, spanT, padL, innerW);
+      if (x < padL - 4 || x > padL + innerW + 4) continue;
+      mealCandidates.push({
+        x,
+        label: String(Math.round(kcalToDisplay(entry.totalKcal, energyDisplayUnit))),
+        kcal: entry.totalKcal,
+        mealId: entry.id,
+      });
+    }
+
+    return {
+      workoutLabels: placeLabelsInLane(caloriePrepared?.workoutLabelCandidates ?? []),
+      mealLabelIds: new Set(placeLabelsInLane(mealCandidates).map((m) => m.mealId)),
+    };
+  }, [prepared, caloriePrepared, foodEntries, energyDisplayUnit]);
 
   const snapChartScrollToLive = () => {
     if (!prepared) return;
@@ -1202,12 +1282,12 @@ export function MetabolicChart({
                 fill={colors.chart.workout} opacity={0.88} rx={1} />
             ) : null
           )}
-          {/* Workout labels pinned at the middle of each session */}
-          {caloriePrepared.workoutLabels.map((lbl, idx) => (
+          {/* Workout labels pinned at the middle of each session, on the clear lane above the bars */}
+          {stripLabels.workoutLabels.map((lbl, idx) => (
             <SvgText
               key={`wlbl-${idx}`}
-              x={lbl.x} y={caloriePrepared.calStripTop + 10}
-              fill={colors.textPrimary} fontSize={8} fontWeight="700" textAnchor="middle"
+              x={lbl.x} y={prepared.workoutLabelY}
+              fill={colors.textPrimary} fontSize={STRIP_LABEL_FONT_SIZE} fontWeight="700" textAnchor="middle"
             >
               {lbl.label}
             </SvgText>
@@ -1227,9 +1307,14 @@ export function MetabolicChart({
             strokeWidth={1}
             opacity={0.7}
           />
-          <SvgText x={tk.x} y={prepared.svgH - 6} fill={colors.textSecondary} fontSize={9} textAnchor="middle">
-            {tk.label}
-          </SvgText>
+          {tk.labelVisible && (
+            <SvgText
+              x={tk.x} y={prepared.svgH - 6}
+              fill={colors.textSecondary} fontSize={AXIS_LABEL_FONT_SIZE} textAnchor="middle"
+            >
+              {tk.label}
+            </SvgText>
+          )}
         </React.Fragment>
       ))}
 
@@ -1253,13 +1338,15 @@ export function MetabolicChart({
             >
               ▼
             </SvgText>
-            {/* energy label */}
-            <SvgText
-              x={x} y={prepared.axisY - 32}
-              fill={colors.chart.mealMarker} fontSize={8} textAnchor="middle"
-            >
-              {energyLabel}
-            </SvgText>
+            {/* energy label — hidden when it would overprint a neighbour */}
+            {stripLabels.mealLabelIds.has(entry.id) && (
+              <SvgText
+                x={x} y={prepared.axisY - 32}
+                fill={colors.chart.mealMarker} fontSize={STRIP_LABEL_FONT_SIZE} textAnchor="middle"
+              >
+                {energyLabel}
+              </SvgText>
+            )}
           </React.Fragment>
         );
       })}

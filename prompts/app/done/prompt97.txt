@@ -1,0 +1,106 @@
+# prompt97 — Metabolic chart label collision (two lanes + axis thinning)
+
+**Status:** Done (2026-07-25). Phone-tested on Android at 3H/6H/12H/24H.
+**Builds on:** prompt62 (collapsible glucose strip), prompt96 (`MetabolicChart` on
+`useTheme()`). Honors build-workflow (phone test before commit) and
+ai-judgment-not-regex (pure geometry in code, no text parsing).
+
+## Problem
+
+On the dashboard glucose chart, labels overprinted each other in the default 12H
+view and at 24H — the first thing a new user or a screenshot reader sees.
+
+Three separate defects, all the same root cause (labels drawn unconditionally at a
+fixed baseline, no width measurement):
+
+1. **Workout names collided with each other** — `Walk 118 kcal` over `Walk 291 kcal`
+   when two sessions fell close together in time.
+2. **Workout names collided with meal kcal numbers** — both families drew at exactly
+   `axisY - 32`, producing strings like `303 Walk 118 kcal248`.
+3. **Time axis labels collided** — `9:00 PM10:00 PM11:00 PM` at 6H.
+
+Bonus finding: the collision was *hiding data*, not just uglifying it. At 12H the
+largest meal of the day (548 kcal) was being drawn underneath a neighbour and was
+effectively invisible.
+
+Zooming to 3H/6H spread the labels enough to look fine, which is why this survived
+so long — but 12H is the default window.
+
+## What shipped
+
+### Two label lanes (not one shared baseline)
+
+The first attempt merged both families into one band ordered by kcal. It removed the
+overprinting but was strictly worse than it needed to be: long workout labels ate the
+width, so at 12H every meal number was suppressed, and the bold dark workout text still
+sat on top of dark blue calorie bars where it was hard to read.
+
+Final design gives each family its own baseline:
+
+| Lane | Content | Baseline | Background |
+|------|---------|----------|------------|
+| Upper (new) | Workout names | `calStripTop - ACTIVITY_STRIP_PX - 3` | card surface — clear |
+| Strip | Meal kcal numbers | `axisY - 32` (unchanged) | calorie strip |
+
+`CHART_PLOT_HEIGHT` grew by `WORKOUT_LABEL_LANE_PX` (12px, 273 → 285) so the new lane
+is *added* height, not height taken from the glucose/HR plot. The two families can no
+longer collide with each other at all, and each gets the full chart width for its own
+placement pass.
+
+Result at 12H on real data: 6 labels (2 workouts + 4 meal numbers) where the merged
+band showed 3, and the workout text reads against the card instead of a blue bar.
+
+### Placement rule (per lane)
+
+`placeLabelsInLane()` — greedy, largest kcal first, drop any label whose measured box
+overlaps one already placed, then return left-to-right for stable render order.
+
+Priority is **kcal magnitude**, so the biggest events of the window keep their text.
+A dropped label loses only text: the workout bar and the meal ▼ still draw, and zooming
+in frees room to bring it back. Degradation is graceful rather than lossy.
+
+### Axis label thinning
+
+`buildTimeTicks` now measures each label and sets `labelVisible`. Tick **marks** all
+stay, so thinned positions still read as minor gridlines. 6H drops to every other hour;
+3H keeps all three; 12H/24H unaffected.
+
+### Shared measurement helper
+
+`labelHalfWidth(text, fontSize)` from `LABEL_CHAR_W_PER_PT = 0.55`, plus named
+`STRIP_LABEL_FONT_SIZE` / `AXIS_LABEL_FONT_SIZE` constants replacing inline `fontSize={8}`
+/ `{9}` literals, so a font-size change can't silently desync the overlap math.
+
+## Primary files
+
+| Concern | File |
+|---------|------|
+| Lane geometry, placement, axis thinning | `app/src/components/MetabolicChart.tsx` |
+
+Single-file change. No new AsyncStorage keys, no data/unit/clinical changes — pure
+presentation geometry.
+
+## Phone-tested (Android, real data, 2026-07-25)
+
+- [x] 12H — both walks on the clear lane, 4 meal numbers, no overlap
+- [x] 24H — densest window, `Walk 291 kcal` + 3 meal numbers, no overlap
+- [x] 6H — no regression; axis reads every other hour
+- [x] 3H — all hourly axis labels kept (no over-thinning)
+- [x] 548 kcal meal (largest of day) now visible at 12H
+
+## Known / deferred
+
+- **Leftmost axis label can clip** against the card edge when a tick lands very close
+  to `padL` (`6:00 PM` losing its first glyph). Pre-existing, unchanged by this work.
+  Fix would clamp `textAnchor` to `start` near the left edge.
+- **Meal numbers still sit on the strip**, so an orange number can fall over a tall dark
+  blue bar. Less severe than the workout case (short, and usually over light steps bars).
+  If it bothers anyone, the same lane treatment applies — extend the meal's dashed line
+  upward so the number keeps its association with the ▼.
+- Dark mode not separately re-verified for the new lane; it uses `colors.textPrimary` on
+  `surface`, the same pair prompt96 already tuned.
+
+## Related
+
+- `prompt62.txt` — collapsible glucose strip this chart lives in.
+- `prompt96.txt` — theme tokens the labels read from.
