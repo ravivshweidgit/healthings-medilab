@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="HEALTHINGS.AI — Personalized metabolic OS with your licensed nutritionist. Lab reports, meals, body trends, and daily targets."
+      content="Healthings turns lab reports and your nutritionist’s plan into today’s targets. Log meals and body trends; confirm changes before they apply."
     />
     <title>HEALTHINGS.AI — Metabolic OS</title>
     <link rel="icon" href="assets/icon.png" type="image/png" />
@@ -16,7 +16,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="tokens.css?v=20260726be10" />
-    <link rel="stylesheet" href="styles.css?v=20260726be10" />
+    <link rel="stylesheet" href="styles.css?v=20260726be09" />
   </head>
   <body>
     <main class="wrap">
@@ -29,10 +29,16 @@
           alt="HEALTHINGS.AI"
         />
         <p class="badge">Android &amp; iOS alpha</p>
-        <h1>Understand your body, hit your targets</h1>
+        <!--
+          H1 candidates (owner may swap):
+          1. From lab report and nutritionist plan to today's targets
+          2. Labs and your nutritionist's plan become today's targets
+          3. Import labs and your plan. Get today's targets.
+        -->
+        <h1>From lab report and nutritionist plan to today’s targets</h1>
         <p class="lead">
-          Import your lab reports and your nutritionist’s plan, then log meals and body trends.
-          Healthings learns your body and turns it into today’s targets and simple meal decisions.
+          Log meals and body trends. Healthings turns that loop into daily numbers and meal
+          decisions you confirm before they apply.
         </p>
 
         <div class="cta-panel">
@@ -70,37 +76,13 @@
           </div>
           <p class="cta-note">Internal testing — Android (Google Play) · iPhone (TestFlight)</p>
           <p class="cta-note"><a href="help/">Alpha tester guides</a> — setup, Withings watch, manual body</p>
-
-          <div class="install-steps">
-            <p class="install-title">How to install</p>
-            <ol>
-              <li>
-                <span class="step-num">1</span>
-                <span>
-                  <strong>Android:</strong> Play link above or tester invite.
-                  <strong>iPhone:</strong> TestFlight link above (install TestFlight app first).
-                </span>
-              </li>
-              <li>
-                <span class="step-num">2</span>
-                <span>
-                  <strong>Android:</strong> Tap <strong>Become a tester</strong>, then <strong>Download</strong>.
-                  <strong>iPhone:</strong> Tap <strong>Accept</strong> in TestFlight, then <strong>Install</strong>.
-                </span>
-              </li>
-              <li>
-                <span class="step-num">3</span>
-                <span>Sign in with email — one-time code, no password.</span>
-              </li>
-            </ol>
-          </div>
         </div>
       </section>
 
       <div class="cards-grid">
       <section class="card">
         <h2>One system, not four apps</h2>
-        <p class="card-intro">Charts tell you what happened. MediLab tells you what to do next.</p>
+        <p class="card-intro">Charts tell you what happened. Healthings tells you what to do next.</p>
         <div class="compare-stack">
           <div class="compare-col compare-before">
             <h3>What people use today</h3>
@@ -137,7 +119,7 @@
           <li>
             <span class="timeline-num">2</span>
             <div>
-              <strong>Log</strong> meals and weigh in — OS learns your body
+              <strong>Log</strong> meals and weigh in — Healthings learns your body
             </div>
           </li>
           <li>
@@ -161,8 +143,77 @@
         </ul>
         <p class="card-foot">
           With a licensed nutritionist: full metabolic brief between visits, not screenshots.
-          Solo: same OS — many reach similar targets.
+          Solo: same loop without a linked clinic.
         </p>
+      </section>
+
+      <section class="card">
+        <h2>Why trust it with your labs</h2>
+        <p class="card-intro">
+          Health data stays on your phone by default. It leaves only when you share with a
+          linked clinic or ask the AI coach. <a href="privacy.html">Privacy policy</a>.
+        </p>
+        <figure class="proof-figure">
+          <picture>
+            <source srcset="images/app/proof-trend-dark.webp" type="image/webp" />
+            <img
+              src="images/app/proof-trend-dark.png"
+              width="640"
+              height="622"
+              loading="lazy"
+              decoding="async"
+              alt="Body trend chart over 32 days: weight and fat lines falling, muscle rising"
+            />
+          </picture>
+          <figcaption>
+            Founder’s own Healthings data — 32 days: −2.5&nbsp;kg with +1.1&nbsp;kg muscle.
+            Not a customer testimonial.
+          </figcaption>
+        </figure>
+        <p class="card-foot">
+          I’m Raviv Shweid, and I built Healthings for myself first. I was diagnosed with high
+          cholesterol, and the private program meant to fix it quoted me $3,000 — too much for a
+          plan I would read once and file away. So I built the version that runs every day
+          instead: home devices measure the body, my labs and my nutritionist’s plan set the
+          limits, and one number each day says what to eat.
+        </p>
+        <p class="card-foot">
+          My own labs, 13 days apart: total cholesterol 225.6 → 173.1&nbsp;mg/dL, LDL 170 →
+          118.5. Total is inside the general adult target of 200; LDL is not at 100 yet. No
+          medication changed in that window — only what I ate. One person’s result, not a
+          clinical study, and not medical advice.
+        </p>
+      </section>
+
+      <section class="card" id="get-alpha">
+        <h2>Get the alpha</h2>
+        <p class="card-intro">
+          Use the store badges above, then follow the steps. Guides:
+          <a href="help/">Alpha tester setup</a>.
+        </p>
+        <div class="install-steps">
+          <p class="install-title">How to install</p>
+          <ol>
+            <li>
+              <span class="step-num">1</span>
+              <span>
+                <strong>Android:</strong> Play link above or tester invite.
+                <strong>iPhone:</strong> TestFlight link above (install TestFlight app first).
+              </span>
+            </li>
+            <li>
+              <span class="step-num">2</span>
+              <span>
+                <strong>Android:</strong> Tap <strong>Become a tester</strong>, then <strong>Download</strong>.
+                <strong>iPhone:</strong> Tap <strong>Accept</strong> in TestFlight, then <strong>Install</strong>.
+              </span>
+            </li>
+            <li>
+              <span class="step-num">3</span>
+              <span>Sign in with email — one-time code, no password.</span>
+            </li>
+          </ol>
+        </div>
       </section>
 
       <section class="card">

@@ -177,9 +177,9 @@ h1 {
 }
 
 .install-steps {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid var(--line);
+  margin-top: 4px;
+  padding-top: 0;
+  border-top: none;
   text-align: left;
 }
 
@@ -270,12 +270,42 @@ h1 {
   line-height: 1.5;
 }
 
+/* Consecutive footnotes read as one block — only the first draws the divider. */
+.card-foot + .card-foot {
+  margin-top: 10px;
+  padding-top: 0;
+  border-top: none;
+}
+
 .card h3 {
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin: 0 0 10px;
+}
+
+/* Proof figure (be-09) — existing asset, caption stays muted prose */
+.proof-figure {
+  margin: 0;
+}
+
+.proof-figure img {
+  display: block;
+  width: min(100%, 360px);
+  height: auto;
+  margin: 0 auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+.proof-figure figcaption {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: var(--measure);
 }
 
 /* ── Compare ── */
@@ -451,15 +481,23 @@ h1 {
     margin: 0 auto;
   }
 
+  /* Six tracks so the last row can split into halves. Five cards would otherwise
+     leave an empty third cell. */
   .cards-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 16px;
   }
 
   .cards-grid .card {
     margin-bottom: 0;
     height: 100%;
+    grid-column: span 2;
+  }
+
+  .cards-grid .card:nth-last-child(2),
+  .cards-grid .card:last-child {
+    grid-column: span 3;
   }
 }
 

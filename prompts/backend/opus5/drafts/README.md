@@ -42,8 +42,8 @@ why the live H1 still reads "A full metabolic OS". Deploy is `git pull --ff-only
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
 | `be-10-design-system.md` | Shared design system (tokens) | done | Reviewed 2026-07-26. Tokens live, `--green*` gone. Review added `--accent-ink` (5.85:1) — `--accent` is 3.0:1 and had dropped four workspace controls below AA. Link contrast → be-11, muted prose → be-13 |
-| `be-09-copy-and-proof.md` | Landing copy and proof | ready | **Run next.** Headline, one product name (`MediLab` still on the page), tester logistics out of the hero, a real proof section, and an unsupported efficacy claim removed |
-| `be-11-landing.md` | Landing page | ready | Logo transparency, store badges, header nav, card stretch |
+| `be-09-copy-and-proof.md` | Landing copy and proof | done | Reviewed 2026-07-26. Strong copy; H1 passes the competitor test. Review fixed a privacy one-liner that contradicted `privacy.html` (omitted the Gemini path), cropped the proof screenshot (a 640×1422 phone shot had stretched row 1 to 800 px and left an orphan grid cell), and added `<picture>` + lazy. Founder note now live (Raviv Shweid, $3,000 private program). Held back: the "13 days to normal cholesterol" result, pending lab values and a no-medication confirmation — see review section |
+| `be-11-landing.md` | Landing page | **run next** | Logo transparency, store badges, header nav, card stretch. Inherits from be-09: unify the `styles.css?v=` token across all pages, decide on 44 px inline links, and replace the five-card grid with real structure |
 | `be-12-help.md` | Help site (10 locales) | ready | Index regression, language switcher, meta/SEO, RTL. Generator only — never hand-edit generated HTML |
 | `be-13-privacy.md` | Privacy policy page | ready | Anchors + TOC + terminology. Coordinate with be-15 on the deletion section |
 | `be-14-patient-workspace.md` | Clinic patient workspace | ready | Patient identity (safety), responsive, sticky tabs |
