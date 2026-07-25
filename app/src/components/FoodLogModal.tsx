@@ -245,8 +245,8 @@ function FoodItemsCard({
   onEditItem?: (index: number) => void;
   onDeleteItem?: (index: number) => void;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   if (items.length === 0) {
     return (
       <View style={[styles.itemsCard, cardShadow]}>
@@ -334,8 +334,8 @@ export function FoodLogModal({
   lang,
   energyUnit = 'kcal',
 }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const insets = useSafeAreaInsets();
   const ui = getFoodLogUiCopy(lang?.code);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
@@ -1660,7 +1660,7 @@ export function FoodLogModal({
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   kav: { flex: 1 },
   autoSavedBanner: {
@@ -1953,7 +1953,7 @@ const makeStyles = (c: ThemeColors) =>
     borderRadius: 8,
     borderWidth: 1,
     borderColor: c.accentBlue,
-    backgroundColor: c.accentBlue + '12',
+    backgroundColor: isDark ? c.background : c.accentBlue + '12',
   },
   itemEditBtnText: {
     fontSize: 11,
@@ -1966,7 +1966,7 @@ const makeStyles = (c: ThemeColors) =>
     borderRadius: 8,
     borderWidth: 1,
     borderColor: c.accentRed + '80',
-    backgroundColor: '#FFEBEE',
+    backgroundColor: isDark ? c.background : '#FFEBEE',
   },
   itemDeleteBtnText: {
     fontSize: 11,
@@ -2074,7 +2074,7 @@ const makeStyles = (c: ThemeColors) =>
     borderRadius: 12,
     padding: 12,
   },
-  suggestionText: { fontSize: 13, color: '#5D4037', lineHeight: 18 },
+  suggestionText: { fontSize: 13, color: c.textPrimary, lineHeight: 18 },
 
   intentRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
   useMealBtn: {
@@ -2201,8 +2201,8 @@ const makeStyles = (c: ThemeColors) =>
     paddingHorizontal: 16,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#FFCDD2',
-    backgroundColor: '#FFEBEE',
+    borderColor: isDark ? c.accentRed + '80' : '#FFCDD2',
+    backgroundColor: isDark ? c.background : '#FFEBEE',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2211,12 +2211,14 @@ const makeStyles = (c: ThemeColors) =>
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 14,
-    backgroundColor: c.accentBlue,
+    borderWidth: isDark ? 1 : 0,
+    borderColor: isDark ? c.accentBlue : 'transparent',
+    backgroundColor: isDark ? c.background : c.accentBlue,
     alignItems: 'center',
     justifyContent: 'center',
   },
   saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  saveBtnText: { fontSize: 15, fontWeight: '700', color: isDark ? c.accentBlue : '#fff' },
 
   issueOverlay: {
     ...StyleSheet.absoluteFillObject,
