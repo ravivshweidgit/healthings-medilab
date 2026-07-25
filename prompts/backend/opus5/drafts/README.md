@@ -40,13 +40,13 @@ why the live H1 still reads "A full metabolic OS". Deploy is `git pull --ff-only
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-10-design-system.md` | Shared design system (tokens) | ready | **Foundation — do first.** Retires `--green*`, adds prose measure + tap-target tokens |
+| `be-10-design-system.md` | Shared design system (tokens) | in_progress | **Foundation — do first.** Retires `--green*`, adds prose measure + tap-target tokens |
 | `be-11-landing.md` | Landing page | ready | Logo transparency, store badges, header nav, card stretch |
 | `be-12-help.md` | Help site (10 locales) | ready | Index regression, language switcher, meta/SEO, RTL. Generator only — never hand-edit generated HTML |
 | `be-13-privacy.md` | Privacy policy page | ready | Anchors + TOC + terminology. Coordinate with be-15 on the deletion section |
 | `be-14-patient-workspace.md` | Clinic patient workspace | ready | Patient identity (safety), responsive, sticky tabs |
 | `be-15-patient-web-account.md` | Patient web account (read-only, consent-gated) | ready | Cross-cutting: server + website + app. Ship Part 1 → 2 → 3. Reuses be-14's renderer |
-| `be-16-landing-visual-direction.md` | Landing visual direction (2026 level) | ready | Product imagery, section rhythm, type scale, dark mode, motion. Judgment-heavy — review matters more than the checkboxes |
+| `be-16-landing-visual-direction.md` | Landing visual direction (2026 level) | ready | Product imagery, section rhythm, type scale, dark mode, motion. Judgment-heavy — review matters more than the checkboxes. **Screenshots supplied** in `website/images/app/` (7 shots, WebP + PNG, 640x1422) — use as-is |
 
 ## Floor vs ceiling
 

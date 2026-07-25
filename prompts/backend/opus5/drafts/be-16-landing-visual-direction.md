@@ -38,7 +38,8 @@ clinical — not growth-hacked — while clearly being contemporary.
 - `website/index.html`
 - `website/styles.css`
 - `website/tokens.css` (extend with dark-scheme values and scale tokens)
-- `website/images/` (new: app screenshots, responsive sizes)
+- `website/images/app/` — **already populated, see "Available screenshots" below.** Use these; do
+  not re-export, re-crop, or re-compress them
 - Do **not** touch: help generator, privacy page, clinic pages
 - Do **not** add a framework, bundler, or build step. This is a static site on nginx and stays one.
 
@@ -64,9 +65,33 @@ phone first. The site already has phone-frame CSS — `.phone-frame`, `.phone-no
 in `clinic-dashboard.css`, currently used only by the clinic mirror. **Lift those rules into
 `styles.css`** rather than writing new ones, so the phone chrome is identical in both places.
 
-The screenshot should be the dashboard with the metabolic chart and today's targets visible — the
-thing that makes the product legible in one glance. Export at 2x, ship as WebP with a PNG fallback,
-`width`/`height` set to avoid layout shift, `loading="eager"` for this one only.
+Use `app-coach` for the hero — see "Available screenshots". Ship WebP with the PNG as fallback via
+`<picture>`, set `width="640" height="1422"` to avoid layout shift, and `loading="eager"` for this
+one image only. Every other screenshot on the page is `loading="lazy"`.
+
+## Available screenshots (captured 2026-07-25, Android release build)
+
+In `website/images/app/`, every file `640x1422` (2x for a ~320px phone frame), each as `.webp`
+plus a same-size `.png` fallback. Real data from a real account — no seeded or invented values.
+
+| Base name | Screen | Use |
+|---|---|---|
+| `app-coach` | AI mentors, coach tip in English | **Hero.** The only frame showing the product reasoning rather than displaying |
+| `app-trend-dark` | 32-day weight / fat / muscle / visceral + energy panels | Second feature. Shows outcome: −2.5 kg with +1.1 kg muscle |
+| `app-chart` | Glucose + heart rate, 12H, meal and workout markers | The CGM claim |
+| `app-dashboard` | Top of dashboard: brand, coach strip, body metrics, food log | Overview / "what you open to" |
+| `app-foodlog` | Eaten / activity / burned with kcal deficit | The energy-balance claim |
+| `app-chart-dark`, `app-dashboard-dark` | Dark variants of the above | Use when the section is on a dark surface, and for the dark-mode pass |
+
+**Why `app-coach` is the hero rather than a dashboard shot:** the draft originally asked for chart
+plus today's targets in one frame. That frame does not exist yet — the dashboard is taller than one
+screen, so the chart and the targets strip cannot both be captured together without a scroll
+composite, which would be an invented UI. The coach tip is the honest alternative and arguably the
+stronger one: it is legible at 390px (large text, short paragraph), where a chart screenshot at that
+width is decoration. Put `app-chart` in the first feature section instead, where it can be shown
+larger.
+
+Do **not** compose, mock up, or stitch screenshots to manufacture the missing frame.
 
 **2. Type scale with real contrast.**
 
@@ -165,7 +190,7 @@ page can satisfy every checkbox above and still look mediocre.
 ## Agent checklist
 
 - [ ] Status → in_progress
-- [ ] Real screenshots exported from the current app build
+- [ ] Used the supplied `website/images/app/` screenshots as-is — none re-exported or composed
 - [ ] Phone-frame CSS lifted from `clinic-dashboard.css`, not rewritten
 - [ ] Banned-pattern list re-read before finishing
 - [ ] Acceptance criteria above
