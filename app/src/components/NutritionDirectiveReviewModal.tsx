@@ -58,8 +58,8 @@ export function NutritionDirectiveReviewModal({
   lang,
   autoPickPdf,
 }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const insets = useSafeAreaInsets();
   const footerPad = bottomInset(insets.bottom);
   const [loading, setLoading] = useState(false);
@@ -230,7 +230,7 @@ export function NutritionDirectiveReviewModal({
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.background },
   header: {
@@ -253,7 +253,7 @@ const makeStyles = (c: ThemeColors) =>
     paddingHorizontal: 24,
     borderRadius: 10,
   },
-  pickBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  pickBtnText: { color: isDark ? c.background : '#fff', fontWeight: '700', fontSize: 15 },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 24 },
   note: {
@@ -272,7 +272,7 @@ const makeStyles = (c: ThemeColors) =>
     padding: 10,
     fontSize: 14,
     color: c.textPrimary,
-    backgroundColor: '#fff',
+    backgroundColor: isDark ? c.background : '#fff',
   },
   bodyInput: {
     borderWidth: 1,
@@ -283,7 +283,7 @@ const makeStyles = (c: ThemeColors) =>
     lineHeight: 22,
     minHeight: 320,
     color: c.textPrimary,
-    backgroundColor: '#fff',
+    backgroundColor: isDark ? c.background : '#fff',
     marginTop: 6,
   },
   bodyRtl: { writingDirection: 'rtl', textAlign: 'right' },
@@ -300,5 +300,5 @@ const makeStyles = (c: ThemeColors) =>
     alignItems: 'center',
   },
   saveBtnDisabled: { opacity: 0.7 },
-  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  saveBtnText: { color: isDark ? c.background : '#fff', fontWeight: '700', fontSize: 16 },
 });

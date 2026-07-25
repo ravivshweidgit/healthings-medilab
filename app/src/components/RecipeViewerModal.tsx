@@ -34,8 +34,8 @@ type Props = {
 };
 
 export function RecipeViewerModal({ visible, plan, lang, energyUnit = 'kcal', onClose, onLogMeal }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
   if (!plan) return null;
 
@@ -111,7 +111,7 @@ export function RecipeViewerModal({ visible, plan, lang, energyUnit = 'kcal', on
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.background },
   header: {
@@ -120,7 +120,7 @@ const makeStyles = (c: ThemeColors) =>
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E8ECF0',
+    borderBottomColor: isDark ? c.gridLine : '#E8ECF0',
   },
   headerRtl: { flexDirection: 'row-reverse' },
   closeBtn: { fontSize: 16, color: c.accentBlue, minWidth: 48 },
@@ -133,7 +133,7 @@ const makeStyles = (c: ThemeColors) =>
   },
   headerSpacer: { minWidth: 48 },
   scroll: { padding: 20, paddingBottom: 32 },
-  summary: { fontSize: 16, fontWeight: '600', color: '#2E7D32', marginBottom: 4 },
+  summary: { fontSize: 16, fontWeight: '600', color: isDark ? c.accentGreen : '#2E7D32', marginBottom: 4 },
   source: { fontSize: 13, color: c.textSecondary, marginBottom: 16, fontStyle: 'italic' },
   sectionTitle: {
     fontSize: 13,
@@ -145,10 +145,12 @@ const makeStyles = (c: ThemeColors) =>
     marginTop: 8,
   },
   ingredientCard: {
-    backgroundColor: '#fff',
+    backgroundColor: isDark ? c.background : '#fff',
     borderRadius: 12,
     paddingHorizontal: 14,
     marginBottom: 16,
+    borderWidth: isDark ? 1 : 0,
+    borderColor: c.gridLine,
   },
   ingredientRow: {
     flexDirection: 'column',
@@ -156,7 +158,7 @@ const makeStyles = (c: ThemeColors) =>
     paddingVertical: 12,
     gap: 4,
   },
-  ingredientBorder: { borderTopWidth: 1, borderTopColor: '#EEF1F4' },
+  ingredientBorder: { borderTopWidth: 1, borderTopColor: isDark ? c.gridLine : '#EEF1F4' },
   ingredientName: {
     fontSize: 13,
     fontWeight: '600',
@@ -171,7 +173,7 @@ const makeStyles = (c: ThemeColors) =>
     rowGap: 2,
   },
   ingredientMetricsRowRtl: { flexDirection: 'row-reverse' },
-  amount: { fontSize: 14, fontWeight: '700', color: '#2E7D32' },
+  amount: { fontSize: 14, fontWeight: '700', color: isDark ? c.accentGreen : '#2E7D32' },
   ingredientMacros: { fontSize: 11, color: c.textSecondary, flexShrink: 1 },
   step: { fontSize: 14, color: c.textPrimary, marginBottom: 8, lineHeight: 20 },
   rtl: { textAlign: 'right', writingDirection: 'rtl' },
@@ -179,13 +181,15 @@ const makeStyles = (c: ThemeColors) =>
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E8ECF0',
+    borderTopColor: isDark ? c.gridLine : '#E8ECF0',
   },
   logBtn: {
-    backgroundColor: '#43A047',
+    backgroundColor: isDark ? c.background : '#43A047',
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
+    borderWidth: isDark ? 1.5 : 0,
+    borderColor: c.accentGreen,
   },
-  logBtnText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+  logBtnText: { fontSize: 16, fontWeight: '600', color: isDark ? c.accentGreen : '#fff' },
 });

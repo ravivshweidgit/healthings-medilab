@@ -23,7 +23,6 @@ import {
   requestOtp,
   verifyOtp,
   type AuthUser,
-  type UserRole,
 } from '../services/AuthApiService';
 import { cardShadow } from '../theme/wellness';
 import { useTheme } from '../theme/ThemeProvider';
@@ -41,13 +40,12 @@ type Step = 'email' | 'code';
 
 export function LoginScreen({ onSignedIn }: Props) {
   const { colors, isDark } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
-  const [role, setRole] = useState<UserRole>('patient');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apiOk, setApiOk] = useState<boolean | null>(null);
@@ -89,7 +87,7 @@ export function LoginScreen({ onSignedIn }: Props) {
     setError(null);
     setBusy(true);
     try {
-      await requestOtp(trimmed, role);
+      await requestOtp(trimmed);
       await AsyncStorage.setItem(OTP_PENDING_KEY, trimmed);
       setStep('code');
       setCode('');
@@ -98,7 +96,7 @@ export function LoginScreen({ onSignedIn }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [email, role]);
+  }, [email]);
 
   const handleVerify = useCallback(async () => {
     const trimmedEmail = email.trim();
@@ -167,25 +165,6 @@ export function LoginScreen({ onSignedIn }: Props) {
                   autoCorrect={false}
                   editable={!busy}
                 />
-                <Text style={styles.roleLabel}>I am a</Text>
-                <View style={styles.roleRow}>
-                  <Pressable
-                    style={[styles.roleChip, role === 'patient' && styles.roleChipOn]}
-                    onPress={() => setRole('patient')}
-                  >
-                    <Text style={[styles.roleChipText, role === 'patient' && styles.roleChipTextOn]}>
-                      Patient
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.roleChip, role === 'mentor' && styles.roleChipOn]}
-                    onPress={() => setRole('mentor')}
-                  >
-                    <Text style={[styles.roleChipText, role === 'mentor' && styles.roleChipTextOn]}>
-                      Mentor / clinic
-                    </Text>
-                  </Pressable>
-                </View>
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
                 <Pressable
                   style={[styles.primaryBtn, (!email.trim() || busy) && styles.btnDisabled]}
@@ -193,7 +172,7 @@ export function LoginScreen({ onSignedIn }: Props) {
                   disabled={!email.trim() || busy}
                 >
                   {busy ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color={isDark ? colors.background : '#fff'} />
                   ) : (
                     <Text style={styles.primaryBtnText}>Send code</Text>
                   )}
@@ -224,7 +203,7 @@ export function LoginScreen({ onSignedIn }: Props) {
                   disabled={code.length !== 6 || busy}
                 >
                   {busy ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color={isDark ? colors.background : '#fff'} />
                   ) : (
                     <Text style={styles.primaryBtnText}>Verify & continue</Text>
                   )}
@@ -250,7 +229,7 @@ export function LoginScreen({ onSignedIn }: Props) {
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   safe: {
     flex: 1,
@@ -274,10 +253,12 @@ const makeStyles = (c: ThemeColors) =>
     marginBottom: 16,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: c.surface,
     borderRadius: 16,
     padding: 20,
     gap: 12,
+    borderWidth: isDark ? 1 : 0,
+    borderColor: c.gridLine,
   },
   title: {
     fontSize: 22,
@@ -292,12 +273,7 @@ const makeStyles = (c: ThemeColors) =>
   },
   warnText: {
     fontSize: 13,
-    color: '#b45309',
-  },
-  roleLabel: {
-    fontSize: 13,
-    color: c.textSecondary,
-    marginTop: 4,
+    color: isDark ? c.warningAmber : '#b45309',
   },
   input: {
     borderWidth: 1,
@@ -308,30 +284,6 @@ const makeStyles = (c: ThemeColors) =>
     fontSize: 16,
     color: c.textPrimary,
     backgroundColor: c.background,
-  },
-  roleRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  roleChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: c.gridLine,
-  },
-  roleChipOn: {
-    backgroundColor: c.accentGreen,
-    borderColor: c.accentGreen,
-  },
-  roleChipText: {
-    fontSize: 14,
-    color: c.textSecondary,
-  },
-  roleChipTextOn: {
-    color: '#fff',
-    fontWeight: '600',
   },
   codeHint: {
     fontSize: 14,
@@ -346,7 +298,7 @@ const makeStyles = (c: ThemeColors) =>
     marginTop: 4,
   },
   primaryBtnText: {
-    color: '#fff',
+    color: isDark ? c.background : '#fff',
     fontWeight: '600',
     fontSize: 16,
   },
@@ -364,6 +316,6 @@ const makeStyles = (c: ThemeColors) =>
   },
   errorText: {
     fontSize: 13,
-    color: '#c0392b',
+    color: isDark ? c.accentRed : '#c0392b',
   },
 });
