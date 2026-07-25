@@ -18,6 +18,7 @@ Run strictly in this order. The reason for each position is the dependency, not 
 | **be-13** privacy | Must precede be-15, which rewrites the `#deletion` section |
 | **be-14** patient workspace | Must precede be-15, which reuses this renderer read-only. Fixing responsive + identity here means be-15 inherits a clean renderer |
 | **be-15** patient web account | Largest and cross-cutting (server + website + app). Depends on be-13 and be-14 |
+| **be-16** landing visual direction | The only batch that raises the ceiling rather than the floor. Needs be-10's tokens and be-11's fixes underneath it |
 
 be-11, be-12 and be-13 do not depend on each other and may be reordered or parallelized. be-08,
 be-10, be-14 and be-15 are strictly ordered.
@@ -45,6 +46,17 @@ why the live H1 still reads "A full metabolic OS". Deploy is `git pull --ff-only
 | `be-13-privacy.md` | Privacy policy page | ready | Anchors + TOC + terminology. Coordinate with be-15 on the deletion section |
 | `be-14-patient-workspace.md` | Clinic patient workspace | ready | Patient identity (safety), responsive, sticky tabs |
 | `be-15-patient-web-account.md` | Patient web account (read-only, consent-gated) | ready | Cross-cutting: server + website + app. Ship Part 1 → 2 → 3. Reuses be-14's renderer |
+| `be-16-landing-visual-direction.md` | Landing visual direction (2026 level) | ready | Product imagery, section rhythm, type scale, dark mode, motion. Judgment-heavy — review matters more than the checkboxes |
+
+## Floor vs ceiling
+
+be-10 through be-15 fix what is **wrong**: a boxed logo, cropped badges, 120-character lines, 15px
+tap targets, a desktop-only workspace, a missing patient account. Necessary, and none of it makes the
+site look like a 2026 product.
+
+**be-16 is the only batch that changes how the site looks.** It adds the product imagery, type scale,
+section rhythm, dark mode, and motion that are simply absent today. Expect the visible transformation
+there — and expect the earlier batches to make it far cheaper to build.
 
 ## Decisions (settled 2026-07-25 — no open questions for Auto)
 
