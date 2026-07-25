@@ -146,8 +146,8 @@ function MacroBar({
   unit?: 'g' | 'kcal' | 'kj' | 'ml' | 'floz';
   onPress?: () => void;
 }) {
-  const { colors } = useTheme();
-  const barStyles = useMemo(() => makeBarStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const barStyles = useMemo(() => makeBarStyles(colors, isDark), [colors, isDark]);
   const pct = actual != null && target > 0 ? Math.min(1, actual / target) : 0;
   const over = actual != null && actual > target * 1.1;
   const suffix =
@@ -186,7 +186,7 @@ function MacroBar({
   );
 }
 
-const makeBarStyles = (c: ThemeColors) =>
+const makeBarStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8, width: '100%' },
   rowPressable: { alignSelf: 'stretch' },
@@ -201,7 +201,8 @@ const makeBarStyles = (c: ThemeColors) =>
     flex: 1,
     height: 6,
     borderRadius: 3,
-    backgroundColor: c.progressTrack ?? c.gridLine,
+    // Dark: unfilled remainder reads as canvas, like the Food log meters.
+    backgroundColor: isDark ? c.background : (c.progressTrack ?? c.gridLine),
     overflow: 'hidden',
   },
   fill: { height: '100%', borderRadius: 3 },
@@ -264,8 +265,8 @@ export function MacroTargetStrip({
   analyzeRequestId, expanded, onToggleExpand, lang,
   unitsPrefs = DEFAULT_UNITS_PREFS,
 }: MacroTargetProps) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const [screen, setScreen] = useState<Screen>('idle');
   const [target, setTarget] = useState<DailyMacroTarget | null>(null);
@@ -723,7 +724,7 @@ export function MacroTargetStrip({
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   wrap: {},
   body: { paddingHorizontal: 4, paddingBottom: 12, paddingTop: 4 },
@@ -759,26 +760,42 @@ const makeStyles = (c: ThemeColors) =>
   idleWrap: { gap: 10 },
   hintText: { fontSize: 12, color: c.textSecondary, fontStyle: 'italic' },
   errorText: { fontSize: 12, color: '#E53935' },
-  aiBtn: { backgroundColor: c.accentGreen, borderRadius: 999, paddingVertical: 12, alignItems: 'center' },
-  aiBtnDisabled: { backgroundColor: c.gridLine },
-  aiBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  aiBtn: {
+    backgroundColor: isDark ? c.background : c.accentGreen,
+    borderWidth: isDark ? 1.5 : 0,
+    borderColor: isDark ? c.accentGreen : 'transparent',
+    borderRadius: 999,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  aiBtnDisabled: { backgroundColor: isDark ? c.background : c.gridLine, opacity: isDark ? 0.55 : 1 },
+  aiBtnText: { color: isDark ? c.accentGreen : '#fff', fontWeight: '700', fontSize: 14 },
 
   loadingWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
   loadingText: { fontSize: 13, color: c.textSecondary },
 
-  reasoningBox: { backgroundColor: '#FFF8E1', borderRadius: 10, padding: 10, marginBottom: 12 },
+  reasoningBox: {
+    backgroundColor: isDark ? c.background : '#FFF8E1',
+    borderWidth: isDark ? 1 : 0,
+    borderColor: isDark ? c.noticeSoftBorder : 'transparent',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+  },
   weighInHint: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2E7D32',
-    backgroundColor: '#E8F5E9',
+    color: isDark ? c.accentGreen : '#2E7D32',
+    backgroundColor: isDark ? c.background : '#E8F5E9',
+    borderWidth: isDark ? 1 : 0,
+    borderColor: isDark ? c.accentGreen : 'transparent',
     borderRadius: 10,
     padding: 10,
     marginBottom: 10,
   },
   rtl: { textAlign: 'right', writingDirection: 'rtl' },
   dietBadge: { fontSize: 12, fontWeight: '700', color: '#F57F17', marginBottom: 4 },
-  reasoningText: { fontSize: 13, color: '#5D4037', lineHeight: 18 },
+  reasoningText: { fontSize: 13, color: isDark ? c.textPrimary : '#5D4037', lineHeight: 18 },
 
   suggestionRow: { flexDirection: 'row', justifyContent: 'space-evenly', marginBottom: 14 },
   suggItem: { alignItems: 'center', minWidth: 60 },
@@ -788,15 +805,37 @@ const makeStyles = (c: ThemeColors) =>
 
   suggBtns: { flexDirection: 'row', gap: 10 },
   btn: { flex: 1, paddingVertical: 11, borderRadius: 12, alignItems: 'center' },
-  btnAccept: { backgroundColor: c.accentGreen },
-  btnEdit: { borderWidth: 1.5, borderColor: c.gridLine },
-  btnTextAccept: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  btnAccept: {
+    backgroundColor: isDark ? c.background : c.accentGreen,
+    borderWidth: isDark ? 1.5 : 0,
+    borderColor: isDark ? c.accentGreen : 'transparent',
+  },
+  btnEdit: { borderWidth: 1.5, borderColor: c.gridLine, backgroundColor: isDark ? c.background : undefined },
+  btnTextAccept: { color: isDark ? c.accentGreen : '#fff', fontWeight: '700', fontSize: 14 },
   btnTextEdit: { color: c.textPrimary, fontWeight: '600', fontSize: 14 },
 
   activeLabelRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 6 },
-  dietBadgeSmall: { fontSize: 11, fontWeight: '700', color: '#F57F17', backgroundColor: '#FFF8E1', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  dietBadgeSmall: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F57F17',
+    backgroundColor: isDark ? c.background : '#FFF8E1',
+    borderWidth: isDark ? 1 : 0,
+    borderColor: isDark ? c.noticeSoftBorder : 'transparent',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
   updatedDetail: { fontSize: 11, color: c.accentGreen, fontWeight: '600', marginBottom: 8 },
-  reanalyzeBtn: { borderWidth: 1, borderColor: c.gridLine, borderRadius: 10, paddingVertical: 8, alignItems: 'center', marginTop: 8 },
+  reanalyzeBtn: {
+    borderWidth: 1,
+    borderColor: c.gridLine,
+    backgroundColor: isDark ? c.background : undefined,
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
   reanalyzeBtnText: { fontSize: 12, color: c.textSecondary, fontWeight: '600' },
   exportPromptBtn: { marginTop: 10, paddingVertical: 8, alignItems: 'center' },
   exportPromptText: { fontSize: 12, color: c.accentBlue, textDecorationLine: 'underline' },

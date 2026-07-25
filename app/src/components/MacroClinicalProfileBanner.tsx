@@ -21,8 +21,8 @@ export function MacroClinicalProfileBanner({
   macroOrder,
   compact,
 }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   if (!clinicalProfile.trim()) return null;
 
   const pcfShort = pcfPriority?.trim() || null;
@@ -52,26 +52,32 @@ export function MacroClinicalProfileBanner({
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   box: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: isDark ? c.background : '#E8F5E9',
     borderRadius: 10,
     padding: 10,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#A5D6A7',
+    borderColor: isDark ? c.accentGreen : '#A5D6A7',
   },
   boxCompact: { marginBottom: 8, padding: 8 },
-  title: { fontSize: 11, fontWeight: '700', color: '#2E7D32', marginBottom: 4, textTransform: 'uppercase' },
+  title: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: isDark ? c.accentGreen : '#2E7D32',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
   profile: { fontSize: 14, fontWeight: '600', color: c.textPrimary, marginBottom: 6 },
   pcfRow: {
     marginBottom: 4,
     paddingTop: 4,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#A5D6A7',
+    borderTopColor: isDark ? c.gridLine : '#A5D6A7',
   },
-  pcfLabel: { fontSize: 11, fontWeight: '700', color: '#388E3C', marginBottom: 2 },
+  pcfLabel: { fontSize: 11, fontWeight: '700', color: isDark ? c.accentGreen : '#388E3C', marginBottom: 2 },
   pcfShort: { fontSize: 13, fontWeight: '700', color: c.textPrimary, marginBottom: 2 },
   pcfDetail: { fontSize: 12, color: c.textSecondary, lineHeight: 16, fontStyle: 'italic' },
   order: { fontSize: 11, color: c.textSecondary, lineHeight: 15, marginTop: 2 },
