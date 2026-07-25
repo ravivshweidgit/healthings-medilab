@@ -610,6 +610,9 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   const eaten   = macros ? Math.round(macros.kcal) : 0;
   const balance = burn != null && eaten > 0 ? eaten - burn : null;
   const isDeficit = balance != null && balance < 0;
+  const balanceInk = isDeficit
+    ? (isDark ? colors.accentGreen : '#2E7D32')
+    : (isDark ? colors.accentRed : '#C62828');
   const energyU = unitsPrefs.energy;
   const waterU = unitsPrefs.water;
   const eLab = energyUnitLabel(energyU);
@@ -744,14 +747,14 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
         {balance != null ? (
           <View style={[styles.energyRow, styles.balanceRow, isDeficit ? styles.balanceDeficitBg : styles.balanceSurplusBg]}>
             <Text
-              style={[styles.energyNum, { color: isDeficit ? '#2E7D32' : '#C62828' }]}
+              style={[styles.energyNum, { color: balanceInk }]}
               numberOfLines={1}
               maxFontSizeMultiplier={1.2}
             >
               {disp(Math.abs(balance)).toLocaleString()}
             </Text>
             <Text
-              style={[styles.energyLabel, { color: isDeficit ? '#2E7D32' : '#C62828' }]}
+              style={[styles.energyLabel, { color: balanceInk }]}
               numberOfLines={1}
               maxFontSizeMultiplier={1.2}
             >
@@ -1170,12 +1173,16 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     paddingVertical: 5,
     paddingHorizontal: 6,
     marginTop: 2,
+    // Dark keeps the canvas black and carries deficit/surplus on the border instead.
+    borderWidth: isDark ? 1 : 0,
   },
   balanceDeficitBg: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: isDark ? c.background : '#E8F5E9',
+    borderColor: isDark ? c.accentGreen : 'transparent',
   },
   balanceSurplusBg: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: isDark ? c.background : '#FFEBEE',
+    borderColor: isDark ? c.accentRed : 'transparent',
   },
   energyNum: {
     minWidth: 72,
