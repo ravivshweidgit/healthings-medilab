@@ -1125,13 +1125,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     }
     if (userAge != null) parts.push(bareUnits ? String(userAge) : t.ageYears(userAge));
     if (code !== 'en') parts.push(userLanguage.label);
-    if (mentors.length > 0) parts.push(t.mentorsCount(mentors.length));
     return parts.length > 0 ? parts.join(' · ') : t.tapToOpen;
   }, [
     userGender,
     heightCm,
     userAge,
-    mentors,
     unitsPrefs.height,
     metabolicStripCopy,
     userLanguage.code,
