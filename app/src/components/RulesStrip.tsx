@@ -45,8 +45,8 @@ type Props = {
 };
 
 export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, onToggleExpand, lang }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const insets = useSafeAreaInsets();
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const t = getRulesStripCopy(lang?.code);
@@ -325,7 +325,7 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   wrap: {},
   body: { paddingHorizontal: 4, paddingBottom: 12, paddingTop: 4 },
@@ -340,7 +340,7 @@ const makeStyles = (c: ThemeColors) =>
     borderRadius: 10,
     borderWidth: 1.5,
     borderColor: c.accentBlue,
-    backgroundColor: c.accentBlue + '12',
+    backgroundColor: isDark ? c.background : c.accentBlue + '12',
   },
   editTopBtnText: {
     fontSize: 13,
@@ -353,7 +353,18 @@ const makeStyles = (c: ThemeColors) =>
     color: c.textSecondary,
     marginBottom: 6,
   },
-  rulesBlock: { marginBottom: 4 },
+  rulesBlock: {
+    marginBottom: 4,
+    ...(isDark
+      ? {
+          backgroundColor: c.background,
+          borderWidth: 1,
+          borderColor: c.gridLine,
+          borderRadius: 12,
+          padding: 12,
+        }
+      : {}),
+  },
   rulesText: {
     fontSize: 14,
     color: c.textPrimary,
@@ -370,6 +381,15 @@ const makeStyles = (c: ThemeColors) =>
     color: c.textSecondary,
     lineHeight: 19,
     marginBottom: 4,
+    ...(isDark
+      ? {
+          backgroundColor: c.background,
+          borderWidth: 1,
+          borderColor: c.gridLine,
+          borderRadius: 12,
+          padding: 12,
+        }
+      : {}),
   },
   textRtl: { textAlign: 'right', writingDirection: 'rtl' },
 
@@ -381,7 +401,7 @@ const makeStyles = (c: ThemeColors) =>
     fontSize: 14,
     color: c.textPrimary,
     minHeight: 140,
-    backgroundColor: c.surface,
+    backgroundColor: isDark ? c.background : c.surface,
   },
   textInputFlex: {
     flex: 1,
@@ -391,19 +411,22 @@ const makeStyles = (c: ThemeColors) =>
   btnsRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
   saveBtn: {
     flex: 1,
-    backgroundColor: c.accentBlue,
+    backgroundColor: isDark ? c.background : c.accentBlue,
+    borderWidth: isDark ? 1.5 : 0,
+    borderColor: isDark ? c.accentBlue : 'transparent',
     borderRadius: 10,
     paddingVertical: 11,
     alignItems: 'center',
   },
-  saveBtnDisabled: { backgroundColor: c.gridLine },
-  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  saveBtnDisabled: { backgroundColor: isDark ? c.background : c.gridLine, opacity: isDark ? 0.55 : 1 },
+  saveBtnText: { color: isDark ? c.accentBlue : '#fff', fontWeight: '700', fontSize: 14 },
   cancelBtn: {
     paddingVertical: 11,
     paddingHorizontal: 16,
     borderRadius: 10,
     borderWidth: 1.5,
     borderColor: c.gridLine,
+    backgroundColor: isDark ? c.background : undefined,
     alignItems: 'center',
   },
   cancelBtnText: { fontSize: 14, color: c.textSecondary },
@@ -461,13 +484,15 @@ const makeStyles = (c: ThemeColors) =>
   modalRaw: { fontSize: 14, color: c.textPrimary, lineHeight: 21 },
   modalActions: { marginTop: 16, gap: 10 },
   modalRestoreBtn: {
-    backgroundColor: c.accentBlue,
+    backgroundColor: isDark ? c.background : c.accentBlue,
+    borderWidth: isDark ? 1.5 : 0,
+    borderColor: isDark ? c.accentBlue : 'transparent',
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
   },
   modalRestoreBtnDisabled: { opacity: 0.7 },
-  modalRestoreText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  modalRestoreText: { color: isDark ? c.accentBlue : '#fff', fontWeight: '700', fontSize: 15 },
   modalCloseBtn: {
     alignSelf: 'center',
     paddingVertical: 10,
