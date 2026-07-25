@@ -996,7 +996,9 @@ const styles = StyleSheet.create({
   },
   devicesMarkBody: {
     marginTop: 2,
-    minHeight: 36,
+    // 40 = height of the Withings actions group beside it (34 control + 4 padding
+    // + 2 border), so the device tiles and the status/Re-link pill share a centre line.
+    minHeight: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
