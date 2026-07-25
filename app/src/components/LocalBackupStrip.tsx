@@ -35,8 +35,8 @@ export function LocalBackupStrip({
   onImport,
   lang,
 }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const t = getProfileSettingsStripCopy(lang?.code);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
   const headerSub = `${t.exportBackup} · ${t.importBackup}`;
@@ -81,7 +81,7 @@ export function LocalBackupStrip({
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
     wrap: {
       paddingHorizontal: 0,
@@ -104,7 +104,7 @@ const makeStyles = (c: ThemeColors) =>
       borderColor: c.accentBlue,
       paddingVertical: 12,
       alignItems: 'center',
-      backgroundColor: c.surface,
+      backgroundColor: isDark ? c.background : c.surface,
     },
     buttonDisabled: {
       opacity: 0.55,
