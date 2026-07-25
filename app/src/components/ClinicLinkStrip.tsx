@@ -68,8 +68,8 @@ const L = {
 } as const;
 
 export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const [busy, setBusy] = useState(false);
   const [mentorEmail, setMentorEmail] = useState('');
@@ -250,7 +250,7 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
                   disabled={busy}
                 >
                   {busy ? (
-                    <ActivityIndicator color="#fff" size="small" />
+                    <ActivityIndicator color={isDark ? colors.accentGreen : '#fff'} size="small" />
                   ) : (
                     <Text style={styles.btnPrimaryText}>{L.share}</Text>
                   )}
@@ -301,7 +301,7 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
             disabled={!mentorEmail.trim() || busy}
           >
             {busy ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={isDark ? colors.accentGreen : '#fff'} />
             ) : (
               <Text style={styles.btnPrimaryText}>{L.send}</Text>
             )}
@@ -314,7 +314,7 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
     wrap: {
       paddingHorizontal: 0,
@@ -331,10 +331,10 @@ const makeStyles = (c: ThemeColors) =>
       paddingVertical: 10,
       fontSize: 15,
       color: c.textPrimary,
-      backgroundColor: c.surface,
+      backgroundColor: isDark ? c.background : c.surface,
     },
     card: {
-      backgroundColor: c.surface,
+      backgroundColor: isDark ? c.background : c.surface,
       borderRadius: 10,
       borderWidth: 1,
       borderColor: c.gridLine,
@@ -344,17 +344,20 @@ const makeStyles = (c: ThemeColors) =>
     cardText: { fontSize: 14, color: c.textPrimary },
     row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
     btnPrimary: {
-      backgroundColor: '#2E7D5A',
+      backgroundColor: isDark ? c.background : '#2E7D5A',
+      borderWidth: isDark ? 1 : 0,
+      borderColor: isDark ? c.accentGreen : 'transparent',
       paddingHorizontal: 14,
       paddingVertical: 8,
       borderRadius: 8,
       alignItems: 'center',
       minWidth: 88,
     },
-    btnPrimaryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    btnPrimaryText: { color: isDark ? c.accentGreen : '#fff', fontWeight: '700', fontSize: 14 },
     btnGhost: {
       borderWidth: 1,
       borderColor: c.textSecondary,
+      backgroundColor: isDark ? c.background : undefined,
       paddingHorizontal: 14,
       paddingVertical: 8,
       borderRadius: 8,
@@ -370,7 +373,7 @@ const makeStyles = (c: ThemeColors) =>
     sponsorBadge: {
       fontSize: 13,
       fontWeight: '700',
-      color: '#2E7D5A',
+      color: isDark ? c.accentGreen : '#2E7D5A',
       lineHeight: 18,
     },
     expiredBadge: {
