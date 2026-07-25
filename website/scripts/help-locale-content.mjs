@@ -256,7 +256,7 @@ set(
   'en',
   'Units & measurements',
   'Choose how weight, height, energy, water, and glucose appear. Storage stays in standard clinical units.',
-  `<p>Pick what you already use at home or with your clinic. Change anytime in <strong>My Profile</strong>.</p>
+  `<p>Pick what you already use at home or with your clinic. Change anytime in <strong>Profile</strong>.</p>
 <p>Symbols like <strong>kg</strong>, <strong>kcal</strong>, and <strong>mg/dL</strong> stay as international abbreviations.</p>`,
 );
 set(
@@ -264,7 +264,7 @@ set(
   'he',
   'יחידות מידה',
   'איך יוצגו משקל, גובה, אנרגיה, מים וגלוקוז. מאחורי הקלעים נשמרים ביחידות קליניות סטנדרטיות.',
-  `<p>בוחרים מה שכבר רגילים בבית או בקליניקה. אפשר לשנות בכל רגע ב־<strong>My Profile</strong>.</p>
+  `<p>בוחרים מה שכבר רגילים בבית או בקליניקה. אפשר לשנות בכל רגע ב־<strong>פרופיל</strong>.</p>
 <p>סימולים כמו <strong>kg</strong>, <strong>kcal</strong> ו־<strong>mg/dL</strong> נשארים באנגלית — זה התקן.</p>`,
 );
 set(
@@ -272,7 +272,7 @@ set(
   'es',
   'Unidades de medida',
   'Así se muestran peso, altura, energía, agua y glucosa. Se guarda en unidades clínicas estándar.',
-  `<p>Use lo que ya usa en casa o en la clínica. Se puede cambiar en cualquier momento en <strong>My Profile</strong>.</p>
+  `<p>Use lo que ya usa en casa o en la clínica. Se puede cambiar en cualquier momento en <strong>Perfil</strong>.</p>
 <p>Símbolos como <strong>kg</strong>, <strong>kcal</strong> y <strong>mg/dL</strong> se quedan en inglés — es el estándar.</p>`,
 );
 set(
@@ -280,7 +280,7 @@ set(
   'fr',
   'Unités de mesure',
   'Ainsi s’affichent poids, taille, énergie, eau et glucose. Stockage en unités cliniques standard.',
-  `<p>Prenez ce que vous utilisez déjà. Modifiable à tout moment dans <strong>My Profile</strong>.</p>
+  `<p>Prenez ce que vous utilisez déjà. Modifiable à tout moment dans <strong>Profil</strong>.</p>
 <p>Les symboles <strong>kg</strong>, <strong>kcal</strong> et <strong>mg/dL</strong> restent en anglais — c’est le standard.</p>`,
 );
 set(
@@ -288,7 +288,7 @@ set(
   'de',
   'Maßeinheiten',
   'So erscheinen Gewicht, Größe, Energie, Wasser und Glukose. Gespeichert wird in klinischen Standard-Einheiten.',
-  `<p>Nehmen Sie, was Sie schon kennen. Später jederzeit änderbar unter <strong>My Profile</strong>.</p>
+  `<p>Nehmen Sie, was Sie schon kennen. Später jederzeit änderbar unter <strong>Profil</strong>.</p>
 <p>Kürzel wie <strong>kg</strong>, <strong>kcal</strong> und <strong>mg/dL</strong> bleiben Englisch — das ist der Standard.</p>`,
 );
 set(
@@ -296,7 +296,7 @@ set(
   'ar',
   'وحدات القياس',
   'كيف يظهر الوزن والطول والطاقة والماء والجلوكوز. التخزين بوحدات سريرية قياسية.',
-  `<p>اختاروا ما تستخدمونه أصلاً. يمكن التغيير في أي وقت من <strong>My Profile</strong>.</p>
+  `<p>اختاروا ما تستخدمونه أصلاً. يمكن التغيير في أي وقت من <strong>الملف</strong>.</p>
 <p>رموز مثل <strong>kg</strong> و <strong>kcal</strong> و <strong>mg/dL</strong> تبقى بالإنجليزية — هذا المعيار.</p>`,
 );
 set(
@@ -304,7 +304,7 @@ set(
   'ru',
   'Единицы измерения',
   'Как показывать вес, рост, энергию, воду и глюкозу. Хранение — в стандартных клинических единицах.',
-  `<p>Берите привычные единицы. Позже можно сменить в любой момент в <strong>My Profile</strong>.</p>
+  `<p>Берите привычные единицы. Позже можно сменить в любой момент в разделе <strong>Профиль</strong>.</p>
 <p>Обозначения <strong>kg</strong>, <strong>kcal</strong> и <strong>mg/dL</strong> остаются на английском — это стандарт.</p>`,
 );
 set(
@@ -312,7 +312,7 @@ set(
   'pt',
   'Unidades e medidas',
   'Como peso, altura, energia, água e glicose aparecem. O armazenamento fica em unidades clínicas padrão.',
-  `<p>Escolha o que já usa em casa ou na clínica. Pode mudar a qualquer momento em <strong>My Profile</strong>.</p>
+  `<p>Escolha o que já usa em casa ou na clínica. Pode mudar a qualquer momento em <strong>Perfil</strong>.</p>
 <p>Símbolos como <strong>kg</strong>, <strong>kcal</strong> e <strong>mg/dL</strong> ficam em inglês — é o padrão.</p>`,
 );
 set(
@@ -320,7 +320,7 @@ set(
   'it',
   'Unità di misura',
   'Come appaiono peso, altezza, energia, acqua e glucosio. Lo storage resta in unità cliniche standard.',
-  `<p>Scegli ciò che già usi a casa o in clinica. Modificabile in qualsiasi momento in <strong>My Profile</strong>.</p>
+  `<p>Scegli ciò che già usi a casa o in clinica. Modificabile in qualsiasi momento in <strong>Profilo</strong>.</p>
 <p>Simboli come <strong>kg</strong>, <strong>kcal</strong> e <strong>mg/dL</strong> restano in inglese — è lo standard.</p>`,
 );
 set(
@@ -328,7 +328,7 @@ set(
   'tr',
   'Birimler ve ölçüler',
   'Kilo, boy, enerji, su ve glikozun nasıl göründüğü. Depolama standart klinik birimlerde kalır.',
-  `<p>Evde veya klinikte zaten kullandığınızı seçin. İstediğiniz zaman <strong>My Profile</strong> içinden değiştirebilirsiniz.</p>
+  `<p>Evde veya klinikte zaten kullandığınızı seçin. İstediğiniz zaman <strong>Profil</strong> içinden değiştirebilirsiniz.</p>
 <p><strong>kg</strong>, <strong>kcal</strong> ve <strong>mg/dL</strong> gibi semboller İngilizce kalır — bu standarttır.</p>`,
 );
 
@@ -353,29 +353,29 @@ bulk('quick-start-profile', [
 ]);
 
 bulk('quick-start-language', [
-  ['en', 'App & coach language', 'One language for Quick Start, coach chat, meal names, reports, and help links.', `<p>You can change it later in <strong>My Profile</strong>. Help opens in the same language.</p>`],
-  ['he', 'שפת האפליקציה והמאמן', 'בשפה הזו עוברים את ההתחלה, מדברים עם המאמן, רואים שמות ארוחות ודוחות. גם דפי העזרה נפתחים בה.', `<p>אפשר לשנות אחר כך ב־<strong>My Profile</strong>.</p>`],
-  ['es', 'Idioma de la app y el coach', 'Un idioma para el inicio, el chat, las comidas, los informes y la ayuda.', `<p>Se puede cambiar después en <strong>My Profile</strong>. La ayuda abre en el mismo idioma.</p>`],
-  ['fr', 'Langue de l’app et du coach', 'Une langue pour le démarrage, le chat, les repas, les rapports et l’aide.', `<p>Modifiable plus tard dans <strong>My Profile</strong>. L’aide s’ouvre dans la même langue.</p>`],
-  ['de', 'App- & Coach-Sprache', 'Eine Sprache für Schnellstart, Chat, Mahlzeiten, Berichte und Hilfe.', `<p>Später änderbar unter <strong>My Profile</strong>. Hilfe öffnet in derselben Sprache.</p>`],
-  ['ar', 'لغة التطبيق والمدرب', 'لغة واحدة للبداية والدردشة وأسماء الوجبات والتقارير وصفحات المساعدة.', `<p>يمكن التغيير لاحقاً من <strong>My Profile</strong>. المساعدة تُفتح بنفس اللغة.</p>`],
-  ['ru', 'Язык приложения и коуча', 'Один язык для старта, чата, названий еды, отчётов и справки.', `<p>Позже можно сменить в <strong>My Profile</strong>. Справка открывается на том же языке.</p>`],
-  ['pt', 'Idioma da app e do coach', 'Um idioma para o início rápido, chat, nomes das refeições, relatórios e ajuda.', `<p>Pode mudar depois em <strong>My Profile</strong>. A ajuda abre no mesmo idioma.</p>`],
-  ['it', 'Lingua app e coach', 'Una lingua per avvio rapido, chat, nomi pasti, report e aiuto.', `<p>Puoi cambiarla dopo in <strong>My Profile</strong>. L’aiuto si apre nella stessa lingua.</p>`],
-  ['tr', 'Uygulama ve koç dili', 'Hızlı başlangıç, sohbet, yemek adları, raporlar ve yardım için tek dil.', `<p>Sonra <strong>My Profile</strong> içinden değiştirebilirsiniz. Yardım aynı dilde açılır.</p>`],
+  ['en', 'App & coach language', 'One language for Quick Start, coach chat, meal names, reports, and help links.', `<p>You can change it later in <strong>Profile</strong>. Help opens in the same language.</p>`],
+  ['he', 'שפת האפליקציה והמאמן', 'בשפה הזו עוברים את ההתחלה, מדברים עם המאמן, רואים שמות ארוחות ודוחות. גם דפי העזרה נפתחים בה.', `<p>אפשר לשנות אחר כך ב־<strong>פרופיל</strong>.</p>`],
+  ['es', 'Idioma de la app y el coach', 'Un idioma para el inicio, el chat, las comidas, los informes y la ayuda.', `<p>Se puede cambiar después en <strong>Perfil</strong>. La ayuda abre en el mismo idioma.</p>`],
+  ['fr', 'Langue de l’app et du coach', 'Une langue pour le démarrage, le chat, les repas, les rapports et l’aide.', `<p>Modifiable plus tard dans <strong>Profil</strong>. L’aide s’ouvre dans la même langue.</p>`],
+  ['de', 'App- & Coach-Sprache', 'Eine Sprache für Schnellstart, Chat, Mahlzeiten, Berichte und Hilfe.', `<p>Später änderbar unter <strong>Profil</strong>. Hilfe öffnet in derselben Sprache.</p>`],
+  ['ar', 'لغة التطبيق والمدرب', 'لغة واحدة للبداية والدردشة وأسماء الوجبات والتقارير وصفحات المساعدة.', `<p>يمكن التغيير لاحقاً من <strong>الملف</strong>. المساعدة تُفتح بنفس اللغة.</p>`],
+  ['ru', 'Язык приложения и коуча', 'Один язык для старта, чата, названий еды, отчётов и справки.', `<p>Позже можно сменить в разделе <strong>Профиль</strong>. Справка открывается на том же языке.</p>`],
+  ['pt', 'Idioma da app e do coach', 'Um idioma para o início rápido, chat, nomes das refeições, relatórios e ajuda.', `<p>Pode mudar depois em <strong>Perfil</strong>. A ajuda abre no mesmo idioma.</p>`],
+  ['it', 'Lingua app e coach', 'Una lingua per avvio rapido, chat, nomi pasti, report e aiuto.', `<p>Puoi cambiarla dopo in <strong>Profilo</strong>. L’aiuto si apre nella stessa lingua.</p>`],
+  ['tr', 'Uygulama ve koç dili', 'Hızlı başlangıç, sohbet, yemek adları, raporlar ve yardım için tek dil.', `<p>Sonra <strong>Profil</strong> içinden değiştirebilirsiniz. Yardım aynı dilde açılır.</p>`],
 ]);
 
 bulk('mentor-voice-gender', [
-  ['en', 'App mentor', 'Man or woman — how your AI mentor speaks to you. Not your profile gender.', `<p>Shown only in Hebrew and Arabic, where titles and grammar change by gender. You can change this later under My Mentors.</p>`],
+  ['en', 'App mentor', 'Man or woman — how your AI mentor speaks to you. Not your profile gender.', `<p>Shown only in Hebrew and Arabic, where titles and grammar change by gender. You can change this later under Mentors.</p>`],
   ['he', 'המאמן באפליקציה', 'גבר או אישה — כך ידבר אליכם המאמן. לא המגדר שלכם בפרופיל.', `<p>מופיע רק בעברית ובערבית — שם התארים והדקדוק משתנים לפי מגדר. אפשר לשנות גם אחר כך תחת המנטורים.</p>`],
-  ['es', 'Mentor de la app', 'Hombre o mujer — así te habla el mentor AI. No es el género del perfil.', `<p>Solo en hebreo y árabe, donde títulos y gramática cambian por género. Luego puedes cambiarlo en My Mentors.</p>`],
-  ['fr', 'Mentor de l’app', 'Homme ou femme — ainsi vous parle le mentor IA. Pas le genre du profil.', `<p>Affiché seulement en hébreu et en arabe, où titres et grammaire changent selon le genre. Modifiable plus tard sous My Mentors.</p>`],
-  ['de', 'App-Mentor', 'Mann oder Frau — so spricht Ihr KI-Mentor. Nicht Ihr Profil-Geschlecht.', `<p>Nur bei Hebräisch und Arabisch, wo Titel und Grammatik vom Geschlecht abhängen. Später änderbar unter My Mentors.</p>`],
-  ['ar', 'المرشد في التطبيق', 'رجل أو امرأة — هكذا يخاطبكم المرشد. ليس جنس ملفكم الشخصي.', `<p>يظهر فقط بالعبرية والعربية حيث تتغير الألقاب والقواعد حسب الجنس. يمكن التغيير لاحقاً من الموجهين.</p>`],
-  ['ru', 'Наставник в приложении', 'Мужчина или женщина — так говорит ИИ-наставник. Не пол в профиле.', `<p>Только для иврита и арабского, где обращения зависят от пола. Позже можно сменить в My Mentors.</p>`],
-  ['pt', 'Mentor da app', 'Homem ou mulher — como o mentor de IA fala consigo. Não é o género do perfil.', `<p>Só em hebraico e árabe, onde títulos e gramática mudam por género. Pode mudar depois em My Mentors.</p>`],
-  ['it', 'Mentor dell’app', 'Uomo o donna — come ti parla il mentor IA. Non è il genere del profilo.', `<p>Solo in ebraico e arabo, dove titoli e grammatica cambiano per genere. Modificabile dopo in My Mentors.</p>`],
-  ['tr', 'Uygulama mentoru', 'Erkek veya kadın — yapay zeka mentorunun size nasıl hitap ettiği. Profil cinsiyetiniz değil.', `<p>Yalnızca unvan ve dilbilgisinin cinsiyete göre değiştiği İbranice ve Arapçada gösterilir. Sonra My Mentors altında değiştirebilirsiniz.</p>`],
+  ['es', 'Mentor de la app', 'Hombre o mujer — así te habla el mentor AI. No es el género del perfil.', `<p>Solo en hebreo y árabe, donde títulos y gramática cambian por género. Luego puedes cambiarlo en Mentores.</p>`],
+  ['fr', 'Mentor de l’app', 'Homme ou femme — ainsi vous parle le mentor IA. Pas le genre du profil.', `<p>Affiché seulement en hébreu et en arabe, où titres et grammaire changent selon le genre. Modifiable plus tard sous Mentors.</p>`],
+  ['de', 'App-Mentor', 'Mann oder Frau — so spricht Ihr KI-Mentor. Nicht Ihr Profil-Geschlecht.', `<p>Nur bei Hebräisch und Arabisch, wo Titel und Grammatik vom Geschlecht abhängen. Später änderbar unter Mentoren.</p>`],
+  ['ar', 'المرشد في التطبيق', 'رجل أو امرأة — هكذا يخاطبكم المرشد. ليس جنس ملفكم الشخصي.', `<p>يظهر فقط بالعبرية والعربية حيث تتغير الألقاب والقواعد حسب الجنس. يمكن التغيير لاحقاً من <strong>المرشدين</strong>.</p>`],
+  ['ru', 'Наставник в приложении', 'Мужчина или женщина — так говорит ИИ-наставник. Не пол в профиле.', `<p>Только для иврита и арабского, где обращения зависят от пола. Позже можно сменить в разделе «Наставники».</p>`],
+  ['pt', 'Mentor da app', 'Homem ou mulher — como o mentor de IA fala consigo. Não é o género do perfil.', `<p>Só em hebraico e árabe, onde títulos e gramática mudam por género. Pode mudar depois em Mentores.</p>`],
+  ['it', 'Mentor dell’app', 'Uomo o donna — come ti parla il mentor IA. Non è il genere del profilo.', `<p>Solo in ebraico e arabo, dove titoli e grammatica cambiano per genere. Modificabile dopo in Mentor.</p>`],
+  ['tr', 'Uygulama mentoru', 'Erkek veya kadın — yapay zeka mentorunun size nasıl hitap ettiği. Profil cinsiyetiniz değil.', `<p>Yalnızca unvan ve dilbilgisinin cinsiyete göre değiştiği İbranice ve Arapçada gösterilir. Sonra Mentorlar altında değiştirebilirsiniz.</p>`],
 ]);
 
 bulk('withings-scale', [
@@ -418,16 +418,16 @@ bulk('cgm', [
 ]);
 
 bulk('withings-link', [
-  ['en', 'Link Withings', 'Sign in with the same account as the Withings app. One link covers scale and watch.', `<p>You can skip and link later in <strong>My Profile</strong>.</p>`],
-  ['he', 'חיבור Withings', 'אותו חשבון כמו באפליקציית Withings. חיבור אחד — למשקל ולשעון.', `<p>אפשר לדלג ולחבר אחר כך ב־<strong>My Profile</strong>.</p>`],
-  ['es', 'Vincular Withings', 'La misma cuenta que en la app Withings. Un vínculo cubre báscula y reloj.', `<p>Puedes saltarlo y vincular después en <strong>My Profile</strong>.</p>`],
-  ['fr', 'Lier Withings', 'Le même compte que l’app Withings. Une liaison pour balance et montre.', `<p>Vous pouvez passer et lier plus tard dans <strong>My Profile</strong>.</p>`],
-  ['de', 'Withings verbinden', 'Dasselbe Konto wie in der Withings-App. Ein Link für Waage und Uhr.', `<p>Sie können überspringen und später unter <strong>My Profile</strong> verbinden.</p>`],
-  ['ar', 'ربط Withings', 'نفس حساب تطبيق Withings. ربط واحد للميزان والساعة.', `<p>يمكن التخطي والربط لاحقاً من <strong>My Profile</strong>.</p>`],
-  ['ru', 'Связь Withings', 'Тот же аккаунт, что в приложении Withings. Одна связь — весы и часы.', `<p>Можно пропустить и связать позже в <strong>My Profile</strong>.</p>`],
-  ['pt', 'Ligar Withings', 'A mesma conta da app Withings. Uma ligação cobre balança e relógio.', `<p>Pode saltar e ligar depois em <strong>My Profile</strong>.</p>`],
-  ['it', 'Collega Withings', 'Lo stesso account dell’app Withings. Un link copre bilancia e orologio.', `<p>Puoi saltare e collegare dopo in <strong>My Profile</strong>.</p>`],
-  ['tr', 'Withings bağla', 'Withings uygulamasıyla aynı hesap. Tek bağlantı tartı ve saati kapsar.', `<p>Atlayıp sonra <strong>My Profile</strong> içinden bağlayabilirsiniz.</p>`],
+  ['en', 'Link Withings', 'Sign in with the same account as the Withings app. One link covers scale and watch.', `<p>You can skip and link later in <strong>Profile</strong>.</p>`],
+  ['he', 'חיבור Withings', 'אותו חשבון כמו באפליקציית Withings. חיבור אחד — למשקל ולשעון.', `<p>אפשר לדלג ולחבר אחר כך ב־<strong>פרופיל</strong>.</p>`],
+  ['es', 'Vincular Withings', 'La misma cuenta que en la app Withings. Un vínculo cubre báscula y reloj.', `<p>Puedes saltarlo y vincular después en <strong>Perfil</strong>.</p>`],
+  ['fr', 'Lier Withings', 'Le même compte que l’app Withings. Une liaison pour balance et montre.', `<p>Vous pouvez passer et lier plus tard dans <strong>Profil</strong>.</p>`],
+  ['de', 'Withings verbinden', 'Dasselbe Konto wie in der Withings-App. Ein Link für Waage und Uhr.', `<p>Sie können überspringen und später unter <strong>Profil</strong> verbinden.</p>`],
+  ['ar', 'ربط Withings', 'نفس حساب تطبيق Withings. ربط واحد للميزان والساعة.', `<p>يمكن التخطي والربط لاحقاً من <strong>الملف</strong>.</p>`],
+  ['ru', 'Связь Withings', 'Тот же аккаунт, что в приложении Withings. Одна связь — весы и часы.', `<p>Можно пропустить и связать позже в разделе <strong>Профиль</strong>.</p>`],
+  ['pt', 'Ligar Withings', 'A mesma conta da app Withings. Uma ligação cobre balança e relógio.', `<p>Pode saltar e ligar depois em <strong>Perfil</strong>.</p>`],
+  ['it', 'Collega Withings', 'Lo stesso account dell’app Withings. Un link copre bilancia e orologio.', `<p>Puoi saltare e collegare dopo in <strong>Profilo</strong>.</p>`],
+  ['tr', 'Withings bağla', 'Withings uygulamasıyla aynı hesap. Tek bağlantı tartı ve saati kapsar.', `<p>Atlayıp sonra <strong>Profil</strong> içinden bağlayabilirsiniz.</p>`],
 ]);
 
 bulk('starting-weight', [
@@ -446,14 +446,14 @@ bulk('starting-weight', [
 bulk('phone-health-activity', [
   ['en', 'Phone health', 'Allow Health Connect or Apple Health for steps and heart rate when a Withings watch is off.', `<p>Tap Next — the system may ask once. Use Allow access when shown.</p>`],
   ['he', 'בריאות מהטלפון', 'אישור Health Connect או Apple Health לצעידים ודופק כששעון Withings לא פעיל.', `<p>לוחצים המשך — המערכת עלולה לבקש פעם אחת. Allow access כשמופיע.</p>`],
-  ['es', 'Salud del teléfono', 'Permite Health Connect o Apple Health para pasos y pulso si el reloj Withings está apagado.', `<p>Pulsa Next — el sistema puede pedir permiso una vez.</p>`],
-  ['fr', 'Santé du téléphone', 'Autorisez Health Connect ou Apple Health pour pas et pouls si la montre Withings est off.', `<p>Appuyez sur Next — une demande système peut apparaître une fois.</p>`],
-  ['de', 'Telefon-Gesundheit', 'Health Connect oder Apple Health für Schritte und Puls, wenn die Withings-Uhr aus ist.', `<p>Next tippen — das System fragt ggf. einmal nach.</p>`],
-  ['ar', 'صحة الهاتف', 'اسمح لـ Health Connect أو Apple Health بالخطوات والنبض عند إيقاف ساعة Withings.', `<p>اضغط Next — قد يطلب النظام الإذن مرة واحدة.</p>`],
-  ['ru', 'Здоровье телефона', 'Разрешите Health Connect или Apple Health для шагов и пульса, если часы Withings выключены.', `<p>Нажмите Next — система может спросить один раз.</p>`],
-  ['pt', 'Saúde do telemóvel', 'Permita Health Connect ou Apple Health para passos e pulso se o relógio Withings estiver off.', `<p>Toque Next — o sistema pode pedir permissão uma vez.</p>`],
-  ['it', 'Salute del telefono', 'Consenti Health Connect o Apple Health per passi e battito se l’orologio Withings è off.', `<p>Tocca Next — il sistema può chiedere il permesso una volta.</p>`],
-  ['tr', 'Telefon sağlığı', 'Withings saat kapalıyken adım ve nabız için Health Connect veya Apple Health’e izin verin.', `<p>Next’e dokunun — sistem bir kez izin isteyebilir.</p>`],
+  ['es', 'Salud del teléfono', 'Permite Health Connect o Apple Health para pasos y pulso si el reloj Withings está apagado.', `<p>Pulsa Continuar — el sistema puede pedir permiso una vez.</p>`],
+  ['fr', 'Santé du téléphone', 'Autorisez Health Connect ou Apple Health pour pas et pouls si la montre Withings est off.', `<p>Appuyez sur Continuer — une demande système peut apparaître une fois.</p>`],
+  ['de', 'Telefon-Gesundheit', 'Health Connect oder Apple Health für Schritte und Puls, wenn die Withings-Uhr aus ist.', `<p>Weiter tippen — das System fragt ggf. einmal nach.</p>`],
+  ['ar', 'صحة الهاتف', 'اسمح لـ Health Connect أو Apple Health بالخطوات والنبض عند إيقاف ساعة Withings.', `<p>اضغط متابعة — قد يطلب النظام الإذن مرة واحدة.</p>`],
+  ['ru', 'Здоровье телефона', 'Разрешите Health Connect или Apple Health для шагов и пульса, если часы Withings выключены.', `<p>Нажмите Далее — система может спросить один раз.</p>`],
+  ['pt', 'Saúde do telemóvel', 'Permita Health Connect ou Apple Health para passos e pulso se o relógio Withings estiver off.', `<p>Toque Continuar — o sistema pode pedir permissão uma vez.</p>`],
+  ['it', 'Salute del telefono', 'Consenti Health Connect o Apple Health per passi e battito se l’orologio Withings è off.', `<p>Tocca Continua — il sistema può chiedere il permesso una volta.</p>`],
+  ['tr', 'Telefon sağlığı', 'Withings saat kapalıyken adım ve nabız için Health Connect veya Apple Health’e izin verin.', `<p>Devam’a dokunun — sistem bir kez izin isteyebilir.</p>`],
 ]);
 
 bulk('reports-import', [

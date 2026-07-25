@@ -209,8 +209,43 @@ regenerated; no other files touched, and no encoding regression.
 **The lesson is about provenance, not translation.** The owner flagged Hebrew, but Hebrew was a
 faithful translation of a wrong English source — nine other locales carried the same error
 silently. Help copy that names a control or describes a behavior has to be traced to the component
-that renders it. Worth a sweep of the other 14 articles for the same class of drift before the help
-site is treated as trustworthy.
+that renders it.
+
+**Full audit of the remaining 14 articles.** Every factual claim checked against the component
+that implements it. Nothing else was invented the way the chart `+` was, but three defects came
+out, one of them in the app rather than the website.
+
+*1. Eight locales named a button that does not exist.* `phone-health-activity` said to tap
+**Next**, but `quickStartCopy.ts` localizes that label: `Continuar` (es, pt), `Continuer` (fr),
+`Weiter` (de), `متابعة` (ar), `Далее` (ru), `Continua` (it), `Devam` (tr). Only `en` and `he`
+(`המשך`) were right — the Hebrew reviewer could not have caught this one. Fixed to the app's
+verbatim labels. `starting-weight` gives the same instruction but its translations say "or
+continue" without naming the button, so it needed nothing.
+
+*2. The app undersells its own units step; the help was the accurate side.* `UnitsPreferenceSection`
+renders five pickers and `UnitsPrefs` stores five fields (glucose, mass, height, water, energy),
+but `units.lead` promised three in all ten languages. Fixed in the app.
+
+*3. `My Profile` / `My Mentors` no longer exist as labels.* Per the language-policy rule the strips
+are bare localized nouns now (`profileSettingsStripCopy.ts`: `PROFILE`/`MENTORS`, `פרופיל`/`מנטורים`,
+`ПРОФИЛЬ`/`НАСТАВНИКИ`, …), but help *and* the app's own wizard prose still sent readers to an
+English "My Profile" in every locale. Fixed on both sides — 30 help occurrences, 30 app occurrences,
+plus two hardcoded dashboard strings.
+
+Replacements were scripted with per-locale pairs, not a token sweep, because the right string
+depends on grammar: Russian needs `в разделе «Профиль»` since a bare noun after `в` is
+ungrammatical, Hebrew wants the clitic fused (`בפרופיל`, `מהפרופיל`) rather than a maqaf before a
+bare noun, Italian needs `dal Profilo`, and Turkish needs vowel-harmonised suffixes (`Profil’de`,
+`Profil’den`). Each replacement asserted its expected hit count so a silent miss fails the run.
+
+*Verified correct, no action:* birth date/gender/height do feed BMR via Mifflin–St Jeor
+(`bmrEstimate.ts`); mentor voice really is Hebrew and Arabic only (`usesMentorGenderUi`); CGM really
+is Health Connect or HealthKit (`GlucoseSource`); Withings really is cloud OAuth, not Bluetooth; the
+targets screen really has a Regenerate button (`Regenerate with AI`).
+
+**Standing rule this produces:** a help article may not name a control or state a behavior unless
+the string was read out of the component that renders it. Both defects that reached users came from
+copy written next to a feature description instead of next to the feature.
 
 **Follow-ups, not blocking**
 
