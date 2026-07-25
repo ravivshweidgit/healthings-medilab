@@ -61,8 +61,8 @@ export function GearSetupStrip({
   careSensImportMessage = null,
   onCareSensImport,
 }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const titles = getProfileSettingsStripCopy(lang?.code);
   const setup = getYourSetupCopy(lang?.code);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
@@ -207,7 +207,7 @@ export function GearSetupStrip({
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
     wrap: {
       paddingHorizontal: 0,
@@ -269,7 +269,7 @@ const makeStyles = (c: ThemeColors) =>
       borderRadius: 24,
       paddingVertical: 12,
       paddingHorizontal: 18,
-      backgroundColor: c.surface,
+      backgroundColor: isDark ? c.background : c.surface,
       minHeight: 56,
     },
     careSensImportButtonDisabled: {
@@ -288,6 +288,12 @@ const makeStyles = (c: ThemeColors) =>
       minWidth: 0,
       marginRight: 12,
       justifyContent: 'center',
+      // Brand asset is an opaque JPEG — on black it becomes a rounded white plate
+      // instead of a raw white rectangle.
+      backgroundColor: isDark ? '#FFFFFF' : undefined,
+      borderRadius: isDark ? 10 : 0,
+      paddingHorizontal: isDark ? 6 : 0,
+      overflow: 'hidden',
     },
     careSensImportButtonLogo: {
       width: '100%',
