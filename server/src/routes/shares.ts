@@ -5,6 +5,7 @@ import { findUserById } from '../services/users.js';
 import {
   ShareError,
   approveShare,
+  cancelShare,
   invitePatient,
   listPendingForMe,
   listShares,
@@ -84,6 +85,21 @@ export async function registerShareRoutes(app: FastifyInstance) {
     if (!user) return reply.code(404).send({ error: 'User not found' });
     try {
       const share = await rejectShare(user, params.id);
+      return { share };
+    } catch (err) {
+      if (err instanceof ShareError) {
+        return reply.code(err.status).send({ error: err.message });
+      }
+      throw err;
+    }
+  });
+
+  app.post('/v1/shares/:id/cancel', { preHandler: authenticate }, async (request, reply) => {
+    const params = z.object({ id: z.string().uuid() }).parse(request.params);
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    try {
+      const share = await cancelShare(user, params.id);
       return { share };
     } catch (err) {
       if (err instanceof ShareError) {

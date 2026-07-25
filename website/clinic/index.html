@@ -38,15 +38,16 @@
         <h1>Clinic portal</h1>
         <p class="muted">Sign in with your mentor / clinic account (email OTP).</p>
         <div id="login-step-email">
-          <input id="email" class="portal-input" type="email" placeholder="clinic@example.com" />
+          <input id="email" class="portal-input" type="email" placeholder="clinic@example.com" autocomplete="email" />
           <button id="send-code" class="portal-btn" type="button">Send code</button>
         </div>
         <div id="login-step-code" hidden>
           <p class="muted">Code sent to <span id="email-display"></span></p>
-          <input id="code" class="portal-input" type="text" inputmode="numeric" maxlength="6" placeholder="123456" />
+          <input id="code" class="portal-input" type="text" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code" />
           <button id="verify-code" class="portal-btn" type="button">Sign in</button>
+          <button id="change-email" class="portal-btn secondary" type="button">Change email</button>
         </div>
-        <p id="login-error" class="error" hidden></p>
+        <p id="login-error" class="error" role="alert" hidden></p>
       </section>
 
       <section id="app-view">
@@ -83,7 +84,14 @@
 
         <div class="card portal-card">
           <h2>Pending requests</h2>
+          <p class="muted">Patients who asked to share with you.</p>
           <div id="pending-list"></div>
+        </div>
+
+        <div class="card portal-card">
+          <h2>Outgoing invites</h2>
+          <p class="muted">Waiting for the patient to approve in the app.</p>
+          <div id="outgoing-list"></div>
         </div>
 
         <div class="card portal-card">
@@ -91,21 +99,20 @@
           <div id="approved-list"></div>
         </div>
 
-        <p id="app-error" class="error" hidden></p>
+        <p id="app-error" class="error" role="alert" hidden></p>
       </section>
     </div>
 
     <script src="clinic-api.js?v=20260702e"></script>
     <script>
       const { api, loadTokens, saveTokens, clearTokens } = ClinicApi;
+      const OTP_PENDING_KEY = 'healthings_clinic_otp_pending';
+      const loginErrorEl = () => document.getElementById('login-error');
+      const appErrorEl = () => document.getElementById('app-error');
 
       function showError(el, msg) {
         el.textContent = msg || '';
         el.hidden = !msg;
-      }
-
-      function shareLabel(s) {
-        return s.mentorDisplayName || s.mentorEmail;
       }
 
       function formatExpiry(iso) {
@@ -116,49 +123,82 @@
         }
       }
 
+      function appendShareLabel(row, email, sub) {
+        const label = document.createElement('div');
+        const strong = document.createElement('strong');
+        strong.textContent = email || '—';
+        const muted = document.createElement('span');
+        muted.className = 'muted';
+        muted.textContent = sub;
+        label.append(strong, document.createElement('br'), muted);
+        row.appendChild(label);
+      }
+
       function renderShareActions(container, share, onAction, sponsorByPatient) {
         const row = document.createElement('div');
         row.className = 'share-row';
-        const label = document.createElement('div');
         let sub = share.status;
         const sp = share.patientId ? sponsorByPatient.get(share.patientId) : null;
+        if (share.status === 'pending' && share.initiatedBy === 'mentor') {
+          sub = 'waiting for patient approval';
+        } else if (share.status === 'pending' && share.initiatedBy === 'patient') {
+          sub = 'patient requested access';
+        }
         if (sp) {
           sub += sp.active
             ? ' · AI sponsor until ' + formatExpiry(sp.expiresAt)
             : ' · AI sponsorship expired ' + formatExpiry(sp.expiresAt);
         }
-        label.innerHTML = '<strong>' + share.patientEmail + '</strong><br><span class="muted">' + sub + '</span>';
-        row.appendChild(label);
+        appendShareLabel(row, share.patientEmail, sub);
         const actions = document.createElement('div');
+
         if (share.status === 'pending' && share.initiatedBy === 'patient') {
           const ok = document.createElement('button');
           ok.className = 'portal-btn';
+          ok.type = 'button';
           ok.textContent = 'Approve';
-          ok.onclick = () => onAction('approve', share.id);
+          ok.onclick = () => void onAction('approve', share.id, { email: share.patientEmail });
           const no = document.createElement('button');
           no.className = 'portal-btn secondary';
+          no.type = 'button';
           no.textContent = 'Reject';
-          no.onclick = () => onAction('reject', share.id);
+          no.onclick = () => void onAction('reject', share.id, { email: share.patientEmail });
           actions.append(ok, no);
         }
+
+        if (share.status === 'pending' && share.initiatedBy === 'mentor') {
+          const cancel = document.createElement('button');
+          cancel.className = 'portal-btn secondary';
+          cancel.type = 'button';
+          cancel.textContent = 'Cancel invite';
+          cancel.onclick = () => void onAction('cancel', share.id, { email: share.patientEmail });
+          actions.append(cancel);
+        }
+
         if (share.status === 'approved') {
-          const view = document.createElement('a');
-          view.className = 'portal-btn';
-          view.textContent = 'Open workspace';
-          view.href = share.patientId ? 'patient.html?patientId=' + encodeURIComponent(share.patientId) : '#';
-          if (!share.patientId) view.style.opacity = '0.5';
-          actions.append(view);
+          if (share.patientId) {
+            const view = document.createElement('a');
+            view.className = 'portal-btn';
+            view.textContent = 'Open workspace';
+            view.href = 'patient.html?patientId=' + encodeURIComponent(share.patientId);
+            actions.append(view);
+          }
           const rev = document.createElement('button');
           rev.className = 'portal-btn danger';
+          rev.type = 'button';
           rev.textContent = 'Revoke access';
-          rev.onclick = () => onAction('revoke', share.id);
+          rev.onclick = () => void onAction('revoke', share.id, { email: share.patientEmail });
           actions.append(rev);
           if (share.patientId) {
             const active = sp && sp.active;
             const spBtn = document.createElement('button');
             spBtn.className = 'portal-btn secondary';
+            spBtn.type = 'button';
             spBtn.textContent = active ? 'Stop AI sponsorship' : 'Sponsor AI';
-            spBtn.onclick = () => onAction(active ? 'sponsor-off' : 'sponsor-on', share.patientId);
+            spBtn.onclick = () =>
+              void onAction(active ? 'sponsor-off' : 'sponsor-on', share.patientId, {
+                email: share.patientEmail,
+              });
             actions.append(spBtn);
           }
         }
@@ -167,97 +207,218 @@
       }
 
       function renderUsageSummary(el, data) {
+        el.replaceChildren();
         if (!data || !data.byPatient || data.byPatient.length === 0) {
-          el.innerHTML = '<p class="muted">No AI usage recorded yet.</p>';
+          const p = document.createElement('p');
+          p.className = 'muted';
+          p.textContent = 'No AI usage recorded yet.';
+          el.appendChild(p);
           return;
         }
-        let html = '<p><strong>Total tokens (all patients):</strong> ' + data.totalTokens + '</p>';
+        const total = document.createElement('p');
+        const totalStrong = document.createElement('strong');
+        totalStrong.textContent = 'Total tokens (all patients): ';
+        total.append(totalStrong, document.createTextNode(String(data.totalTokens)));
+        el.appendChild(total);
         data.byPatient.forEach((row) => {
-          html += '<div class="share-row"><div><strong>' + row.patientEmail + '</strong><br><span class="muted">' +
-            row.totalTokens + ' tokens · ' + row.eventCount + ' events</span></div></div>';
+          const wrap = document.createElement('div');
+          wrap.className = 'share-row';
+          appendShareLabel(
+            wrap,
+            row.patientEmail,
+            row.totalTokens + ' tokens · ' + row.eventCount + ' events',
+          );
+          el.appendChild(wrap);
         });
-        el.innerHTML = html;
+      }
+
+      function setListEmpty(el, emptyText) {
+        el.replaceChildren();
+        const p = document.createElement('p');
+        p.className = 'muted';
+        p.textContent = emptyText;
+        el.appendChild(p);
       }
 
       async function refreshDashboard() {
         const meRes = await api('/v1/me');
-        if (!meRes.ok) throw new Error('Session expired');
+        if (!meRes.ok) {
+          const err = new Error(meRes.status === 401 ? 'Session expired' : 'Could not load account');
+          err.status = meRes.status;
+          throw err;
+        }
         const { user } = await meRes.json();
-        if (user.role !== 'mentor') throw new Error('This portal is for clinic / mentor accounts only');
+        if (user.role !== 'mentor') {
+          const err = new Error('This portal is for clinic / mentor accounts only');
+          err.code = 'wrong_role';
+          throw err;
+        }
         document.getElementById('user-email').textContent = user.email;
         document.getElementById('display-name').value = user.displayName || '';
 
-        const [pendingRes, approvedRes, sponsorRes, usageRes, walletRes] = await Promise.all([
-          api('/v1/shares/pending-for-me'),
-          api('/v1/shares?status=approved'),
-          api('/v1/sponsorships/mine'),
-          api('/v1/usage/summary'),
-          api('/v1/wallet'),
-        ]);
+        const [pendingRes, outgoingRes, approvedRes, sponsorRes, usageRes, walletRes] =
+          await Promise.all([
+            api('/v1/shares/pending-for-me'),
+            api('/v1/shares?status=pending'),
+            api('/v1/shares?status=approved'),
+            api('/v1/sponsorships/mine'),
+            api('/v1/usage/summary'),
+            api('/v1/wallet'),
+          ]);
+        if (!pendingRes.ok || !outgoingRes.ok || !approvedRes.ok) {
+          throw new Error('Could not load patient shares');
+        }
         const pending = (await pendingRes.json()).shares || [];
+        const allPending = (await outgoingRes.json()).shares || [];
+        const outgoing = allPending.filter((s) => s.initiatedBy === 'mentor');
         const approved = (await approvedRes.json()).shares || [];
-        const sponsored = (await sponsorRes.json()).sponsorships || [];
+        const sponsored = sponsorRes.ok ? (await sponsorRes.json()).sponsorships || [] : [];
         const usage = usageRes.ok ? await usageRes.json() : null;
         const wallet = walletRes.ok ? (await walletRes.json()).wallet : null;
         document.getElementById('wallet-balance').textContent =
           wallet ? String(wallet.balanceTokens) : '—';
         document.getElementById('wallet-pm').textContent = wallet
-          ? (wallet.paymentMethodOnFile ? 'Payment method: card on file' : 'Payment method: none (auto-reload simulated in alpha)')
+          ? wallet.paymentMethodOnFile
+            ? 'Payment method: card on file'
+            : 'Payment method: none (auto-reload simulated in alpha)'
           : 'Payment method: —';
         const sponsorByPatient = new Map(sponsored.map((s) => [s.patientId, s]));
 
         const pendingEl = document.getElementById('pending-list');
+        const outgoingEl = document.getElementById('outgoing-list');
         const approvedEl = document.getElementById('approved-list');
         const usageEl = document.getElementById('usage-summary');
-        pendingEl.innerHTML = pending.length ? '' : '<p class="muted">No pending requests.</p>';
-        approvedEl.innerHTML = approved.length ? '' : '<p class="muted">No linked patients yet.</p>';
+        if (pending.length) pendingEl.replaceChildren();
+        else setListEmpty(pendingEl, 'No pending requests.');
+        if (outgoing.length) outgoingEl.replaceChildren();
+        else setListEmpty(outgoingEl, 'No outgoing invites.');
+        if (approved.length) approvedEl.replaceChildren();
+        else setListEmpty(approvedEl, 'No linked patients yet.');
         renderUsageSummary(usageEl, usage);
 
-        async function act(action, id) {
-          if (action === 'sponsor-on') {
-            const days = window.prompt('Sponsor AI for how many days? (default 90)', '90');
-            if (days === null) return;
-            const n = parseInt(days, 10) || 90;
-            const exp = new Date();
-            exp.setUTCDate(exp.getUTCDate() + n);
-            const res = await api('/v1/sponsorships/enable', {
-              method: 'POST',
-              body: JSON.stringify({ patientId: id, expiresAt: exp.toISOString() }),
-            });
-            if (!res.ok) throw new Error((await res.json()).error || 'Could not enable sponsorship');
-          } else if (action === 'sponsor-off') {
-            const res = await api('/v1/sponsorships/disable', {
-              method: 'POST',
-              body: JSON.stringify({ patientId: id }),
-            });
-            if (!res.ok) throw new Error((await res.json()).error || 'Could not disable sponsorship');
-          } else {
-            const res = await api('/v1/shares/' + id + '/' + action, { method: 'POST' });
-            if (!res.ok) throw new Error((await res.json()).error || 'Action failed');
+        async function act(action, id, meta) {
+          showError(appErrorEl(), '');
+          try {
+            if (action === 'revoke') {
+              const email = meta?.email || 'this patient';
+              if (
+                !window.confirm(
+                  'Revoke access for ' + email + '? They will need to re-approve to share again.',
+                )
+              ) {
+                return;
+              }
+            }
+            if (action === 'cancel') {
+              const email = meta?.email || 'this patient';
+              if (!window.confirm('Cancel invite to ' + email + '?')) return;
+            }
+            if (action === 'sponsor-on') {
+              const days = window.prompt('Sponsor AI for how many days? (default 90)', '90');
+              if (days === null) return;
+              const n = parseInt(days, 10) || 90;
+              const exp = new Date();
+              exp.setUTCDate(exp.getUTCDate() + n);
+              const res = await api('/v1/sponsorships/enable', {
+                method: 'POST',
+                body: JSON.stringify({ patientId: id, expiresAt: exp.toISOString() }),
+              });
+              if (!res.ok) {
+                throw new Error((await res.json().catch(() => ({}))).error || 'Could not enable sponsorship');
+              }
+            } else if (action === 'sponsor-off') {
+              const res = await api('/v1/sponsorships/disable', {
+                method: 'POST',
+                body: JSON.stringify({ patientId: id }),
+              });
+              if (!res.ok) {
+                throw new Error((await res.json().catch(() => ({}))).error || 'Could not disable sponsorship');
+              }
+            } else {
+              const res = await api('/v1/shares/' + id + '/' + action, { method: 'POST' });
+              if (!res.ok) {
+                throw new Error((await res.json().catch(() => ({}))).error || 'Action failed');
+              }
+            }
+            await refreshDashboard();
+          } catch (e) {
+            showError(appErrorEl(), e instanceof Error ? e.message : 'Action failed');
           }
-          await refreshDashboard();
         }
 
         pending.forEach((s) => renderShareActions(pendingEl, s, act, sponsorByPatient));
+        outgoing.forEach((s) => renderShareActions(outgoingEl, s, act, sponsorByPatient));
         approved.forEach((s) => renderShareActions(approvedEl, s, act, sponsorByPatient));
+      }
+
+      function showLoginView() {
+        document.getElementById('login-view').hidden = false;
+        document.getElementById('app-view').style.display = 'none';
+      }
+
+      function showAppView() {
+        document.getElementById('login-view').hidden = true;
+        document.getElementById('app-view').style.display = 'block';
+      }
+
+      function showCodeStep(email) {
+        loginEmail = email;
+        document.getElementById('email').value = email;
+        document.getElementById('login-step-email').hidden = true;
+        document.getElementById('login-step-code').hidden = false;
+        document.getElementById('email-display').textContent = email;
+      }
+
+      function showEmailStep() {
+        try {
+          localStorage.removeItem(OTP_PENDING_KEY);
+        } catch {
+          /* ignore */
+        }
+        loginEmail = '';
+        document.getElementById('code').value = '';
+        document.getElementById('login-step-email').hidden = false;
+        document.getElementById('login-step-code').hidden = true;
+      }
+
+      function restoreOtpPending() {
+        try {
+          const pending = localStorage.getItem(OTP_PENDING_KEY);
+          if (pending) showCodeStep(pending);
+        } catch {
+          /* ignore */
+        }
       }
 
       async function boot() {
         const tokens = loadTokens();
-        if (!tokens?.access) return;
+        if (!tokens?.access) {
+          restoreOtpPending();
+          return;
+        }
         try {
           await refreshDashboard();
-          document.getElementById('login-view').hidden = true;
-          document.getElementById('app-view').style.display = 'block';
-        } catch {
-          clearTokens();
+          showAppView();
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'Could not load clinic portal';
+          const status = e && typeof e === 'object' ? e.status : undefined;
+          const wrongRole = e && typeof e === 'object' && e.code === 'wrong_role';
+          if (status === 401 || msg === 'Session expired' || wrongRole) {
+            clearTokens();
+            showLoginView();
+            showError(loginErrorEl(), msg);
+            return;
+          }
+          // Keep session on transient/API errors — clinician can retry without re-OTP.
+          showAppView();
+          showError(appErrorEl(), msg);
         }
       }
 
       let loginEmail = '';
 
       document.getElementById('send-code').onclick = async () => {
-        showError(document.getElementById('login-error'), '');
+        showError(loginErrorEl(), '');
         loginEmail = document.getElementById('email').value.trim().toLowerCase();
         if (!loginEmail) return;
         try {
@@ -267,21 +428,30 @@
           });
           if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            showError(document.getElementById('login-error'), err.error || 'Could not send code');
+            showError(loginErrorEl(), err.error || 'Could not send code');
             return;
           }
         } catch {
-          showError(document.getElementById('login-error'), 'Could not reach server — try again');
+          showError(loginErrorEl(), 'Could not reach server — try again');
           return;
         }
-        document.getElementById('login-step-email').hidden = true;
-        document.getElementById('login-step-code').hidden = false;
-        document.getElementById('email-display').textContent = loginEmail;
+        try {
+          localStorage.setItem(OTP_PENDING_KEY, loginEmail);
+        } catch {
+          /* ignore */
+        }
+        showCodeStep(loginEmail);
+      };
+
+      document.getElementById('change-email').onclick = () => {
+        showError(loginErrorEl(), '');
+        showEmailStep();
       };
 
       document.getElementById('verify-code').onclick = async () => {
-        showError(document.getElementById('login-error'), '');
+        showError(loginErrorEl(), '');
         const code = document.getElementById('code').value.trim();
+        if (!loginEmail || code.length !== 6) return;
         try {
           const res = await api('/v1/auth/otp/verify', {
             method: 'POST',
@@ -289,72 +459,103 @@
           });
           if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            showError(document.getElementById('login-error'), err.error || 'Invalid code');
+            showError(loginErrorEl(), err.error || 'Invalid code');
             return;
           }
           const data = await res.json();
           saveTokens(data.accessToken, data.refreshToken);
-          document.getElementById('login-view').hidden = true;
-          document.getElementById('app-view').style.display = 'block';
+          try {
+            localStorage.removeItem(OTP_PENDING_KEY);
+          } catch {
+            /* ignore */
+          }
+          showAppView();
           try {
             await refreshDashboard();
           } catch (e) {
-            showError(document.getElementById('app-error'), e.message);
+            const msg = e instanceof Error ? e.message : 'Could not load clinic portal';
+            const wrongRole = e && typeof e === 'object' && e.code === 'wrong_role';
+            if (wrongRole) {
+              clearTokens();
+              showLoginView();
+              showError(loginErrorEl(), msg);
+            } else {
+              showError(appErrorEl(), msg);
+            }
           }
         } catch {
-          showError(document.getElementById('login-error'), 'Could not reach server — try again');
+          showError(loginErrorEl(), 'Could not reach server — try again');
         }
       };
 
       document.getElementById('logout').onclick = () => {
         clearTokens();
+        try {
+          localStorage.removeItem(OTP_PENDING_KEY);
+        } catch {
+          /* ignore */
+        }
         location.reload();
       };
 
       document.getElementById('save-name').onclick = async () => {
-        showError(document.getElementById('app-error'), '');
+        showError(appErrorEl(), '');
         const displayName = document.getElementById('display-name').value.trim();
         const res = await api('/v1/me', {
           method: 'PATCH',
           body: JSON.stringify({ displayName }),
         });
-        if (!res.ok) showError(document.getElementById('app-error'), (await res.json()).error || 'Save failed');
+        if (!res.ok) {
+          showError(appErrorEl(), (await res.json().catch(() => ({}))).error || 'Save failed');
+        }
       };
 
       document.getElementById('invite-btn').onclick = async () => {
-        showError(document.getElementById('app-error'), '');
+        showError(appErrorEl(), '');
         const patientEmail = document.getElementById('patient-email').value.trim().toLowerCase();
         if (!patientEmail) return;
-        const res = await api('/v1/shares/invite', {
-          method: 'POST',
-          body: JSON.stringify({ patientEmail }),
-        });
-        if (!res.ok) {
-          showError(document.getElementById('app-error'), (await res.json()).error || 'Invite failed');
-          return;
+        try {
+          const res = await api('/v1/shares/invite', {
+            method: 'POST',
+            body: JSON.stringify({ patientEmail }),
+          });
+          if (!res.ok) {
+            showError(appErrorEl(), (await res.json().catch(() => ({}))).error || 'Invite failed');
+            return;
+          }
+          document.getElementById('patient-email').value = '';
+          await refreshDashboard();
+        } catch (e) {
+          showError(appErrorEl(), e instanceof Error ? e.message : 'Invite failed');
         }
-        document.getElementById('patient-email').value = '';
-        await refreshDashboard();
       };
 
       document.getElementById('simulate-card-btn').onclick = async () => {
-        showError(document.getElementById('app-error'), '');
-        const res = await api('/v1/wallet/payment-method/simulate', { method: 'POST', body: '{}' });
-        if (!res.ok) {
-          showError(document.getElementById('app-error'), (await res.json()).error || 'Failed');
-          return;
+        showError(appErrorEl(), '');
+        try {
+          const res = await api('/v1/wallet/payment-method/simulate', { method: 'POST', body: '{}' });
+          if (!res.ok) {
+            showError(appErrorEl(), (await res.json().catch(() => ({}))).error || 'Failed');
+            return;
+          }
+          await refreshDashboard();
+        } catch (e) {
+          showError(appErrorEl(), e instanceof Error ? e.message : 'Failed');
         }
-        await refreshDashboard();
       };
 
       document.getElementById('load-pack-btn').onclick = async () => {
-        showError(document.getElementById('app-error'), '');
-        const res = await api('/v1/wallet/add-pack', { method: 'POST', body: '{}' });
-        if (!res.ok) {
-          showError(document.getElementById('app-error'), (await res.json()).error || 'Load pack failed');
-          return;
+        showError(appErrorEl(), '');
+        try {
+          const res = await api('/v1/wallet/add-pack', { method: 'POST', body: '{}' });
+          if (!res.ok) {
+            showError(appErrorEl(), (await res.json().catch(() => ({}))).error || 'Load pack failed');
+            return;
+          }
+          await refreshDashboard();
+        } catch (e) {
+          showError(appErrorEl(), e instanceof Error ? e.message : 'Load pack failed');
         }
-        await refreshDashboard();
       };
 
       boot();

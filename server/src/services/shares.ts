@@ -305,6 +305,29 @@ export async function rejectShare(user: PublicUser, shareId: string): Promise<Pu
   return toPublicShare(updated);
 }
 
+/** Initiator withdraws a pending invite/request (either party). */
+export async function cancelShare(user: PublicUser, shareId: string): Promise<PublicShare> {
+  const row = await getShareRow(shareId);
+  if (!row || !isShareParty(user, row)) {
+    throw new ShareError('Share not found', 404);
+  }
+  if (row.status !== 'pending') {
+    throw new ShareError('Share is not pending', 422);
+  }
+  if (isCounterparty(user, row)) {
+    throw new ShareError('Use reject instead of cancel', 403);
+  }
+
+  await query(
+    `UPDATE account_shares SET status = 'rejected', updated_at = NOW() WHERE id = $1`,
+    [shareId],
+  );
+
+  const updated = await getShareRow(shareId);
+  if (!updated) throw new ShareError('Share not found', 404);
+  return toPublicShare(updated);
+}
+
 export async function revokeShare(user: PublicUser, shareId: string): Promise<PublicShare> {
   const row = await getShareRow(shareId);
   if (!row || !isShareParty(user, row)) {
