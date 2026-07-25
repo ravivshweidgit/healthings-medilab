@@ -1,6 +1,6 @@
 # prompt97 — Metabolic chart label collision (two lanes + axis thinning)
 
-**Status:** Done (2026-07-25). Phone-tested on Android at 3H/6H/12H/24H.
+**Status:** Done (2026-07-25). Phone-tested on Android at 3H/6H/12H/24H. Commit `032e099`.
 **Builds on:** prompt62 (collapsible glucose strip), prompt96 (`MetabolicChart` on
 `useTheme()`). Honors build-workflow (phone test before commit) and
 ai-judgment-not-regex (pure geometry in code, no text parsing).
