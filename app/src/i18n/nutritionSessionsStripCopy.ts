@@ -7,7 +7,6 @@ export type NutritionSessionsStripCopy = {
   title: string;
   addSession: string;
   emptyHint: string;
-  activePrefix: string;
   collapseA11y: string;
   expandA11y: string;
   savedTitle: string;
@@ -26,7 +25,6 @@ const EN: NutritionSessionsStripCopy = {
   title: 'NUTRITIONIST SESSIONS',
   addSession: 'Add session',
   emptyHint: 'Import a nutritionist session summary PDF',
-  activePrefix: 'Active',
   collapseA11y: 'Collapse nutritionist sessions',
   expandA11y: 'Expand nutritionist sessions',
   savedTitle: 'Saved',
@@ -45,7 +43,6 @@ const HE: NutritionSessionsStripCopy = {
   title: 'פגישות תזונאית',
   addSession: 'הוסף פגישה',
   emptyHint: 'ייבאו סיכום מפגש PDF מהתזונאית',
-  activePrefix: 'פעיל',
   collapseA11y: 'כווץ פגישות תזונאית',
   expandA11y: 'הרחב פגישות תזונאית',
   savedTitle: 'נשמר',
@@ -64,7 +61,6 @@ const ES: NutritionSessionsStripCopy = {
   title: 'SESIONES CON NUTRICIONISTA',
   addSession: 'Añadir sesión',
   emptyHint: 'Importa el PDF del resumen de sesión con el nutricionista',
-  activePrefix: 'Activa',
   collapseA11y: 'Contraer sesiones con nutricionista',
   expandA11y: 'Expandir sesiones con nutricionista',
   savedTitle: 'Guardado',
@@ -83,7 +79,6 @@ const FR: NutritionSessionsStripCopy = {
   title: 'SÉANCES NUTRITIONNISTE',
   addSession: 'Ajouter une séance',
   emptyHint: 'Importer le PDF du compte-rendu de séance nutritionniste',
-  activePrefix: 'Active',
   collapseA11y: 'Réduire les séances nutritionniste',
   expandA11y: 'Développer les séances nutritionniste',
   savedTitle: 'Enregistré',
@@ -102,7 +97,6 @@ const DE: NutritionSessionsStripCopy = {
   title: 'ERNÄHRUNGSSITZUNGEN',
   addSession: 'Sitzung hinzufügen',
   emptyHint: 'PDF-Zusammenfassung der Ernährungssitzung importieren',
-  activePrefix: 'Aktiv',
   collapseA11y: 'Ernährungssitzungen einklappen',
   expandA11y: 'Ernährungssitzungen ausklappen',
   savedTitle: 'Gespeichert',
@@ -121,7 +115,6 @@ const AR: NutritionSessionsStripCopy = {
   title: 'جلسات أخصائي التغذية',
   addSession: 'إضافة جلسة',
   emptyHint: 'استورد ملخص جلسة PDF من أخصائي التغذية',
-  activePrefix: 'نشط',
   collapseA11y: 'طي جلسات أخصائي التغذية',
   expandA11y: 'توسيع جلسات أخصائي التغذية',
   savedTitle: 'تم الحفظ',
@@ -140,7 +133,6 @@ const RU: NutritionSessionsStripCopy = {
   title: 'СЕАНСЫ НУТРИЦИОЛОГА',
   addSession: 'Добавить сеанс',
   emptyHint: 'Импортируйте PDF-саммари сеанса с нутрициологом',
-  activePrefix: 'Активен',
   collapseA11y: 'Свернуть сеансы нутрициолога',
   expandA11y: 'Развернуть сеансы нутрициолога',
   savedTitle: 'Сохранено',
@@ -159,7 +151,6 @@ const PT: NutritionSessionsStripCopy = {
   title: 'SESSÕES COM NUTRICIONISTA',
   addSession: 'Adicionar sessão',
   emptyHint: 'Importe o PDF do resumo da sessão com o nutricionista',
-  activePrefix: 'Ativa',
   collapseA11y: 'Recolher sessões com nutricionista',
   expandA11y: 'Expandir sessões com nutricionista',
   savedTitle: 'Salvo',
@@ -178,7 +169,6 @@ const IT: NutritionSessionsStripCopy = {
   title: 'SESSIONI CON NUTRIZIONISTA',
   addSession: 'Aggiungi sessione',
   emptyHint: 'Importa il PDF del riepilogo della sessione con il nutrizionista',
-  activePrefix: 'Attiva',
   collapseA11y: 'Comprimi sessioni con nutrizionista',
   expandA11y: 'Espandi sessioni con nutrizionista',
   savedTitle: 'Salvato',
@@ -197,7 +187,6 @@ const TR: NutritionSessionsStripCopy = {
   title: 'DİYETİSYEN SEANSLARI',
   addSession: 'Seans ekle',
   emptyHint: 'Diyetisyen seans özet PDF’sini içe aktarın',
-  activePrefix: 'Aktif',
   collapseA11y: 'Diyetisyen seanslarını daralt',
   expandA11y: 'Diyetisyen seanslarını genişlet',
   savedTitle: 'Kaydedildi',

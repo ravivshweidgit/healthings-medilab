@@ -7,7 +7,6 @@ export type LabResultsStripCopy = {
   title: string;
   addReport: string;
   emptyHint: string;
-  latestPrefix: string;
   tests: string;
   testsCount: (n: number) => string;
   view: string;
@@ -35,7 +34,6 @@ const EN: LabResultsStripCopy = {
   title: 'LAB RESULTS',
   addReport: 'Add report',
   emptyHint: 'Import a Clalit online lab PDF',
-  latestPrefix: 'Latest',
   tests: 'tests',
   testsCount: (n) => `${n} test${n === 1 ? '' : 's'}`,
   view: 'view',
@@ -63,7 +61,6 @@ const HE: LabResultsStripCopy = {
   title: 'תוצאות מעבדה',
   addReport: 'הוסף דוח',
   emptyHint: 'ייבאו PDF מכללית און־ליין',
-  latestPrefix: 'אחרון',
   tests: 'בדיקות',
   testsCount: (n) => `${n} בדיקות`,
   view: 'צפייה',
@@ -91,7 +88,6 @@ const ES: LabResultsStripCopy = {
   title: 'RESULTADOS DE LABORATORIO',
   addReport: 'Añadir informe',
   emptyHint: 'Importa un PDF de laboratorio (p. ej. Clalit online)',
-  latestPrefix: 'Último',
   tests: 'pruebas',
   testsCount: (n) => `${n} prueba${n === 1 ? '' : 's'}`,
   view: 'ver',
@@ -119,7 +115,6 @@ const FR: LabResultsStripCopy = {
   title: "RÉSULTATS D'ANALYSES",
   addReport: 'Ajouter un rapport',
   emptyHint: 'Importer un PDF de laboratoire (ex. Clalit en ligne)',
-  latestPrefix: 'Dernier',
   tests: 'analyses',
   testsCount: (n) => `${n} analyse${n === 1 ? '' : 's'}`,
   view: 'voir',
@@ -147,7 +142,6 @@ const DE: LabResultsStripCopy = {
   title: 'LABORERGEBNISSE',
   addReport: 'Bericht hinzufügen',
   emptyHint: 'Labor-PDF importieren (z. B. Clalit online)',
-  latestPrefix: 'Zuletzt',
   tests: 'Werte',
   testsCount: (n) => `${n} Wert${n === 1 ? '' : 'e'}`,
   view: 'anzeigen',
@@ -175,7 +169,6 @@ const AR: LabResultsStripCopy = {
   title: 'نتائج المختبر',
   addReport: 'إضافة تقرير',
   emptyHint: 'استورد ملف PDF من مختبر (مثل Clalit عبر الإنترنت)',
-  latestPrefix: 'الأحدث',
   tests: 'فحوصات',
   testsCount: (n) => `${n} فحوصات`,
   view: 'عرض',
@@ -203,7 +196,6 @@ const RU: LabResultsStripCopy = {
   title: 'РЕЗУЛЬТАТЫ АНАЛИЗОВ',
   addReport: 'Добавить отчёт',
   emptyHint: 'Импортируйте PDF лабораторных анализов (например Clalit online)',
-  latestPrefix: 'Последний',
   tests: 'показателей',
   testsCount: (n) => {
     const mod10 = n % 10;
@@ -243,7 +235,6 @@ const PT: LabResultsStripCopy = {
   title: 'RESULTADOS DE LABORATÓRIO',
   addReport: 'Adicionar laudo',
   emptyHint: 'Importe um PDF de laboratório (ex.: Clalit online)',
-  latestPrefix: 'Mais recente',
   tests: 'exames',
   testsCount: (n) => `${n} exame${n === 1 ? '' : 's'}`,
   view: 'ver',
@@ -271,7 +262,6 @@ const IT: LabResultsStripCopy = {
   title: 'REFERTI DI LABORATORIO',
   addReport: 'Aggiungi referto',
   emptyHint: 'Importa un PDF di laboratorio (es. Clalit online)',
-  latestPrefix: 'Ultimo',
   tests: 'esami',
   testsCount: (n) => `${n} esame${n === 1 ? '' : 'i'}`,
   view: 'vedi',
@@ -299,7 +289,6 @@ const TR: LabResultsStripCopy = {
   title: 'LABORATUVAR SONUÇLARI',
   addReport: 'Rapor ekle',
   emptyHint: 'Bir laboratuvar PDF’si içe aktarın (örn. Clalit online)',
-  latestPrefix: 'En son',
   tests: 'test',
   testsCount: (n) => `${n} test`,
   view: 'görüntüle',

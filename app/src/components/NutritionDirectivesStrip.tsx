@@ -116,7 +116,7 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
   }, [onChanged, copy.cancel, copy.delete, copy.deleteTitle]);
 
   const summaryLine = active
-    ? `${copy.activePrefix}: ${active.title} · ${formatDirectiveDate(active, lang?.code)}`
+    ? formatDirectiveDate(active, lang?.code)
     : copy.emptyHint;
 
   return (
@@ -129,7 +129,7 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
         titleRtl={rtl}
         collapseLabel={copy.collapseA11y}
         expandLabel={copy.expandA11y}
-        subtitleNumberOfLines={2}
+        subtitleNumberOfLines={1}
         icon={StripIcons.sessions}
       />
 

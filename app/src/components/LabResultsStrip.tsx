@@ -144,7 +144,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
   }, [onReportsChanged, copy]);
 
   const latestLine = latest
-    ? `${copy.latestPrefix}: ${formatDrawDate(latest.collectedAt, lang?.code)} · ${copy.testsCount(resultCount(latest))}`
+    ? `${formatDrawDate(latest.collectedAt, lang?.code)} · ${copy.testsCount(resultCount(latest))}`
     : copy.emptyHint;
 
   return (
@@ -157,7 +157,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
         titleRtl={rtl}
         collapseLabel={copy.collapseA11y}
         expandLabel={copy.expandA11y}
-        subtitleNumberOfLines={2}
+        subtitleNumberOfLines={1}
         icon={StripIcons.labs}
       />
 
