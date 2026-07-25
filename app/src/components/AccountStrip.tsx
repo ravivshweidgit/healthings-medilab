@@ -51,8 +51,8 @@ export function AccountStrip({
   onDataRestored,
   lang,
 }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -339,7 +339,7 @@ export function AccountStrip({
             disabled={busy}
           >
             {busy ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color={isDark ? colors.textSecondary : '#fff'} size="small" />
             ) : (
               <Text style={styles.logoutBtnText}>Sign out</Text>
             )}
@@ -350,7 +350,7 @@ export function AccountStrip({
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
     wrap: {
       paddingHorizontal: 0,
@@ -394,13 +394,15 @@ const makeStyles = (c: ThemeColors) =>
     },
     logoutBtn: {
       alignSelf: 'flex-start',
-      backgroundColor: c.textSecondary,
+      backgroundColor: isDark ? c.background : c.textSecondary,
+      borderWidth: isDark ? 1 : 0,
+      borderColor: isDark ? c.gridLine : 'transparent',
       paddingHorizontal: 14,
       paddingVertical: 8,
       borderRadius: 8,
     },
     logoutBtnText: {
-      color: '#fff',
+      color: isDark ? c.textSecondary : '#fff',
       fontWeight: '600',
       fontSize: 14,
     },
@@ -422,13 +424,15 @@ const makeStyles = (c: ThemeColors) =>
     },
     cloudBtn: {
       alignSelf: 'flex-start',
-      backgroundColor: c.accentBlue,
+      backgroundColor: isDark ? c.background : c.accentBlue,
+      borderWidth: isDark ? 1 : 0,
+      borderColor: isDark ? c.accentBlue : 'transparent',
       paddingHorizontal: 14,
       paddingVertical: 8,
       borderRadius: 8,
     },
     cloudBtnText: {
-      color: '#fff',
+      color: isDark ? c.accentBlue : '#fff',
       fontWeight: '600',
       fontSize: 13,
     },
@@ -436,6 +440,7 @@ const makeStyles = (c: ThemeColors) =>
       alignSelf: 'flex-start',
       borderWidth: 1,
       borderColor: c.accentBlue,
+      backgroundColor: isDark ? c.background : undefined,
       paddingHorizontal: 14,
       paddingVertical: 8,
       borderRadius: 8,
