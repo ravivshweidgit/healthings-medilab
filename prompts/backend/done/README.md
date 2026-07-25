@@ -17,4 +17,7 @@ Shipped backend specs live here. Active / backlog specs stay in `prompts/backend
 | File | Topic |
 |------|--------|
 | `prompt-be-03-account-shares.md` | Patient ↔ mentor link, sponsor billing (spec draft) |
+| `prompt-be-08-clinic-portal-ux.md` | Clinic portal UI/UX (C1–C21); Batch A local — deploy pending |
+| `prompt-be-09-website-ux-review.md` | Pointer → `opus5/` pack |
+| **`opus5/`** | Opus 5 website UX passes + `drafts/` for Auto |
 | be-04+ | See backlog table in [`README.md`](../README.md) |

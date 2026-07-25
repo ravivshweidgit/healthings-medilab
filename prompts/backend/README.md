@@ -24,8 +24,11 @@ patient ↔ dietitian data sharing (relay).
 | `prompt-be-04-encrypted-sync.md` | Encrypted blob upload; zero-knowledge relay |
 | `prompt-be-05-clinic-dashboard.md` | Clinic web portal — signup, patients, view shared data |
 | `prompt-be-06-token-wallet.md` | Token wallet + clinic-sponsored AI billing |
+| `prompt-be-08-clinic-portal-ux.md` | Clinic portal UI/UX review (C1–C21); Batch A local 2026-07-25 — commit + deploy pending |
+| `prompt-be-09-website-ux-review.md` | Pointer → **`opus5/`** pack (Opus investigates; Auto implements `opus5/drafts/`) |
+| **`opus5/`** | Ordered Opus 5 website UX passes (`00`–`06`) + `drafts/` for Auto |
 
-**Build order:** be-03 → be-06 (stub) → be-04 → be-05 · App **`prompt49.txt`** in parallel with be-03/04
+**Build order:** be-03 → be-06 (stub) → be-04 → be-05 · App **`prompt49.txt`** in parallel with be-03/04 · **be-08** after be-05 live · **opus5/** (Opus) then Auto on `opus5/drafts/`
 
 ## Done (`prompts/backend/done/`)
 
