@@ -14,6 +14,8 @@ Active / backlog specs stay in `prompts/app/`:
 | `prompt92.txt` | UI/UX review brief + **review output (2026-07-24, Opus 4.8)** — 19 findings F2–F20 (F1 withdrawn), batches A–E; feeds prompt93+ |
 | `prompt96.txt` | Planned — Dark theme (System/Light/Dark), 5 phases; ref `UI-snapshots/dark-theme-reference/` |
 
+**prompt66** — done (code 2026-07-13, closed 2026-07-25). Macro target stability: `macro_target_by_day_v1` day snapshots, food-log bars judged vs that day's target, EMA 70/30 + daily caps on silent auto-apply (`dampenMacroSuggestion`), active + 7-day targets in the Gemini context with hold-steady wording; explicit Accept still applies the full proposal. Soak-tested in daily use through 1.2.16. Commits `e6356c1`, `ccaa228`. See `done/prompt66.txt`.
+
 **prompt95** — done (2026-07-24). Audit batches D+E: trend chart mini-panels (F3), chat toolbar overflow menu (F8), top-header refresh icon (F9), detected-script RTL alignment for user content (F13), Edit Meal delete-whole-meal clarity (F15), softer CGM drop (F20), website help cards + patient-friendly landing H1 (F19). Phone-tested (app slices) + local site verify (E4). See `done/prompt95.txt`.
 
 **prompt94** — done (2026-07-24). Batch C: Lucide icon registry + strip icons, mentor chrome + "AI doctor/…" labels, slim brand header + primary-tier navy accent, chrome glyphs (Meal navy / Water blue / Camera / Gallery). Phone-tested. See `done/prompt94.txt`. Next: prompt95 (Batches D+E).
@@ -27,7 +29,6 @@ Active / backlog specs stay in `prompts/app/`:
 | `prompt64.txt` | **Phase 1 shipped** (`10569f2`); **Garmin phone-tested success 2026-07-12** → `done/prompt64.txt` |
 | `prompt65.txt` | **iOS TestFlight Withings-first** — no HealthKit v1; EAS + platform guards (Apple Dev enrolled 2026-07-10) |
 | `prompt56.txt` | **Partial:** HealthKit glucose on TF **1.2.2 (23)**; steps/HR still backlog |
-| `prompt66.txt` | Macro target stability — day snapshots + dampened auto-apply |
 
 **prompt61** — done (2026-07-08). One-tap text meal save; modal stays open for Done review. Phone-tested. See `done/prompt61.txt`.
 

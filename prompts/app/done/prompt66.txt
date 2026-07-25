@@ -1,6 +1,6 @@
 ## Prompt 66 — Macro target stability (history + dampened auto-apply)
 
-**Status: implemented (code 2026-07-13)** — phone test pending  
+**Status: done (code 2026-07-13; closed 2026-07-25)** — shipped in `e6356c1`, context follow-up in `ccaa228`.
 **Builds on:** `done/prompt35.txt` · `done/prompt42.txt` · `done/prompt44.txt`  
 **Problem:** AI macro targets jump day-to-day (e.g. carbs 75 → 65) because each revise fully regenerates without holding prior targets; food-log bars always use the *current* global target for past days.
 
@@ -10,9 +10,10 @@
 |-------|----------|
 | Per-day snapshot | `macro_target_by_day_v1` — on `saveMacroTarget` and first open of day (`ensureMacroTargetDaySnapshot`) |
 | Food log bars | `getMacroTargetForDay(dayKey)` so yesterday’s meals are judged vs yesterday’s targets |
-| Auto-apply dampener | EMA 70/30 toward AI + daily caps (~±5% carbs, ±5g P/F, ±120 kcal) via `dampenMacroSuggestion` |
-| Gemini context | Inject active + recent day targets; instruct hold-steady / small titrations (no longer “do not copy prior”) |
+| Auto-apply dampener | EMA 70/30 toward AI + daily caps (~±5% carbs clamped 3–8 g, ±5 g P/F, ±120 kcal) via `dampenMacroSuggestion` |
+| Gemini context | Inject active + last 7 day targets; instruct hold-steady / small titrations (no longer “do not copy prior”) |
 | Explicit Accept | `/macros` / dashboard Accept still saves full proposal (no dampener) |
+| Directive override (follow-up `ccaa228`) | When a nutritionist directive carries kcal, the prior-targets block flips to “large jumps from active targets are required” — directive wins over stability |
 
 ### Files
 
@@ -24,10 +25,13 @@
 
 ### Phone-tested
 
-- [ ] Weigh-in / lab auto-apply: carbs move by small steps, not 10g+ silent jumps
-- [ ] `/macros` Accept: can still apply a large intentional change
-- [ ] Food log: shift to yesterday — bars use prior snapshot after a target change today
-- [ ] Backup/restore includes `macro_target_by_day_v1` (not excluded)
+Soak-tested in daily use since 2026-07-13 (shipped in every release through 1.2.16);
+user confirmed working 2026-07-25. Code audit same day re-verified each path.
+
+- [x] Weigh-in / lab auto-apply: carbs move by small steps, not 10g+ silent jumps
+- [x] `/macros` Accept: can still apply a large intentional change
+- [x] Food log: shift to yesterday — bars use prior snapshot after a target change today
+- [x] Backup/restore includes `macro_target_by_day_v1` — both `LocalBackupService` and `ShareExportService` use allow-all-except-`EXCLUDED_ASYNC_KEYS`, and the key is not excluded
 
 ### Deferred
 
@@ -38,3 +42,4 @@
 ### Related
 
 - prompt42 carb auto-apply guards still run *before* dampen (large jumps → review card)
+- Sub-threshold stabilized deltas are logged as `stabilized delta below material threshold` and skip the write (no target churn)
