@@ -280,6 +280,8 @@ export function MacroTargetStrip({
   const [editNet, setEditNet] = useState('');
   const [editK, setEditK] = useState('');
   const [editWater, setEditWater] = useState('');
+  /** Values when the edit form opened — used so Save knows whether C or Net drove the change. */
+  const [editBaseline, setEditBaseline] = useState<{ c: number; net: number } | null>(null);
   const [waterGoalMl, setWaterGoalMlState] = useState(DEFAULT_WATER_GOAL_ML);
   const [waterMl, setWaterMlState] = useState(0);
   const [waterGoalModalVisible, setWaterGoalModalVisible] = useState(false);
@@ -408,11 +410,13 @@ export function MacroTargetStrip({
 
   const openEdit = useCallback((src: DailyMacroTarget) => {
     const fi = resolveFiberTarget_g(src);
+    const net = resolveNetCarbTarget_g(src);
     setEditP(String(src.protein_g));
     setEditF(String(src.fat_g));
     setEditC(String(src.carb_g));
     setEditFi(String(fi));
-    setEditNet(String(resolveNetCarbTarget_g(src)));
+    setEditNet(String(net));
+    setEditBaseline({ c: src.carb_g, net });
     setEditK(String(Math.round(kcalToDisplay(src.kcal, unitsPrefs.energy))));
     setEditWater(
       unitsPrefs.water === 'floz'
@@ -433,21 +437,32 @@ export function MacroTargetStrip({
     const kRaw = parseLocaleNumber(editK);
     const k = kRaw != null ? Math.round(displayToKcal(kRaw, unitsPrefs.energy)) : NaN;
     if ([p, f, k].some(isNaN)) return;
-    // Nutritionist-first: if Net is set, total C = Net + Fi (then sanitize clamps Fi ≤ C).
-    if (!isNaN(net) && net >= 0) {
-      if (isNaN(fi) || fi < 0) fi = resolveFiberTarget_g(base);
+    if (isNaN(fi) || fi < 0) fi = resolveFiberTarget_g(base);
+
+    // Net is always prefilled, so "Net set → C = Net + Fi" used to wipe a Carbs-only edit.
+    // Prefer whichever of C / Net the user actually changed; Carbs wins if both changed.
+    const cChanged =
+      !isNaN(c) && editBaseline != null && Math.round(c) !== Math.round(editBaseline.c);
+    const netChanged =
+      !isNaN(net) && editBaseline != null && Math.round(net) !== Math.round(editBaseline.net);
+
+    if (netChanged && !cChanged) {
       c = Math.round(net + fi);
     } else if (isNaN(c)) {
-      return;
+      if (!isNaN(net) && net >= 0) c = Math.round(net + fi);
+      else return;
+    } else {
+      c = Math.round(c);
     }
-    if (isNaN(fi) || fi < 0) fi = resolveFiberTarget_g(base);
+
     const updated = withCarbFiberNetTargets({
       ...base,
       protein_g: p,
       fat_g: f,
       carb_g: c,
       fiber_g: fi,
-      net_carb_g: !isNaN(net) ? net : undefined,
+      // When C drove the save, drop stale Net so sanitize derives net = C − Fi.
+      net_carb_g: netChanged && !cChanged && !isNaN(net) ? Math.round(net) : undefined,
       kcal: k,
       analyzedAt: new Date().toISOString(),
     });
@@ -461,8 +476,9 @@ export function MacroTargetStrip({
     setTarget(updated);
     onSaved?.(updated);
     setSuggestion(null);
+    setEditBaseline(null);
     setScreen('active');
-  }, [editP, editF, editC, editFi, editNet, editK, editWater, waterGoalMl, suggestion, target, onSaved, unitsPrefs.energy, unitsPrefs.water]);
+  }, [editP, editF, editC, editFi, editNet, editK, editWater, editBaseline, waterGoalMl, suggestion, target, onSaved, unitsPrefs.energy, unitsPrefs.water]);
 
   const openWaterGoalModal = useCallback(() => {
     setWaterGoalInput(
