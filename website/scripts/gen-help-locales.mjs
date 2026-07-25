@@ -15,7 +15,7 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB = join(__dirname, '..');
-const CSS_VER = '20260726be10';
+const CSS_VER = '20260726be11';
 
 function langSwitcher(currentLang, slug) {
   const links = HELP_LOCALES.map((l) => {

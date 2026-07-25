@@ -1,6 +1,6 @@
 # be-11 — Landing page
 
-**Status:** ready
+**Status:** done — reviewed by Opus 5 on 2026-07-26, three fixes applied during review
 **Model to implement:** Auto / Composer
 **Authored by:** Opus 5 (website UX pack)
 **Findings:** W4 (logo), W5 (store badges), W6 (no navigation), W7 (stretched cards), W3 (tap targets), W8 (install steps outrank the pitch)
@@ -111,13 +111,14 @@ single "Internal testing" note. Expected result: the first value card moves abov
 
 ## Acceptance criteria
 
-- [ ] Logo has no white box on the gradient at both breakpoints
-- [ ] Neither store badge is cropped or scaled; no request to `play.google.com` on load
-- [ ] Header present with Help and Clinic sign in, both ≥44px tall on mobile
-- [ ] Desktop (~1280): the three cards have natural, unequal heights and no large empty regions
-- [ ] Mobile (~390): the first value card begins above y=844
-- [ ] Every footer link is ≥44px tall and rendered in `--accent`
-- [ ] No regression: store links still open the correct Play / TestFlight URLs
+- [x] Logo has no white box on the gradient at both breakpoints
+- [x] Neither store badge is cropped or scaled; no request to `play.google.com` on load
+- [x] Header present with Help and Clinic sign in, both ≥44px tall on mobile
+- [x] Desktop (~1280): the three cards have natural, unequal heights and no large empty regions
+- [x] Mobile (~390): the first value card begins above y=844
+- [x] Every footer link is ≥44px tall and rendered in `--accent`
+      _(implemented as `--accent-ink` for AA text contrast — see be-10 deferral)_
+- [x] No regression: store links still open the correct Play / TestFlight URLs
 
 ## Out of scope
 
@@ -146,10 +147,85 @@ single "Internal testing" note. Expected result: the first value card moves abov
 - Do the ragged card bottoms read as deliberate, or as a broken grid? Report honestly — if they look
   broken, equal heights with better-balanced content is the fallback.
 
+## Opus 5 review outcome (2026-07-26)
+
+**Accepted.** The hero finally reads as chrome plus a product rather than a bare page: the logo
+sits on the gradient with no white box, the two store badges render at an identical 166×49 and
+read as genuine peers, the nav is quiet at 44 px, and killing the card grid was the right call —
+sections now have natural heights (495 / 390 / 786 / 190 / 302 at 1280) with no equal-height
+stretch and no orphan cell. The `help/` → `/en/help/` change is safe: `website/help/index.html`
+was only ever a meta-refresh to `/en/help/`, so the links now skip a hop and the old directory
+still catches external inbound links.
+
+Three fixes applied during review.
+
+**1. Removing the grid pushed every line of running text to 115–119 characters.** Measured at
+1280: all 18 prose blocks, against `--measure: 68ch` which `tokens.css` defines for exactly this.
+Cards went from 293 px wide to 912 px and nothing capped the text, so the founder note and lab
+result — the most important prose on the site — ran nearly double a comfortable measure. Auto's
+evidence table reported card heights and `object-fit` but never checked line length, even though
+`be-09` shipped with "prose ≤ 68ch" as an acceptance criterion.
+
+Fixed by capping `.card-intro`, `.card-foot`, `.timeline li`, `.features li`, and
+`.install-steps li` at `var(--measure)`. All 18 blocks now measure exactly 68ch at 1280 and are
+untouched at 390 (42–44ch, already below the cap). Cards grew slightly as text rewrapped.
+
+**2. The inherited link-contrast item was only half done.** Footer, site-nav, and `cta-note` got
+`--accent-ink` (5.85:1), but links inside card prose did not — "Privacy policy" in the proof card
+and "Alpha tester setup" in the install card both still computed to `rgb(61,157,214)`, which is
+`--accent` at 3.0:1 and fails AA for 14 px text. Rather than add two more per-component
+overrides, the global default was wrong and is now fixed: `a { color: var(--accent-ink) }`, plus
+`.help-brand-site a` which had its own `--accent`. Zero links on the page still compute to
+`--accent`. Decorative `::before` bullets keep `--accent`, which is fine for non-text.
+
+**3. The transparent logo was made with an edge flood fill, which cannot work.** A flood fill
+from the border never reaches an enclosed counter, so the holes inside `A`, `G`, and every
+lowercase `o`, `e`, `a`, `b`, `d` in the tagline stayed opaque white — 1851 stray near-white
+pixels — and the hard threshold left **0 % partial alpha**, destroying anti-aliasing. On today's
+pale sky background this is nearly invisible, which is why it passed; on any darker hero, which
+is precisely what `be-16` may introduce, it would read as white blobs inside the letters.
+
+Rebuilt by inverting the compositing instead of filling regions. The art is flat RGB over white,
+so `a = 1 − min(r,g,b)/255` recovers coverage and the source colour follows from it. Counters
+empty out because they are white, and edge pixels keep fractional alpha:
+
+| | Flood fill | Inverse composite |
+|---|---|---|
+| Stray opaque near-white px | 1851 | **0** |
+| Partial alpha (anti-aliasing) | 0.0 % | **11.0 %** |
+| Fully clear | 87.6 % | 88.0 % |
+
+Script committed at `website/scripts/make-logo-transparent.py` — this one transforms a tracked
+asset with no PII, so unlike the screenshot tooling it belongs in the repo. Re-runnable from the
+pre-conversion original.
+
+**Verified after fixes:** no horizontal overflow at 390 or 1280; badges 166×49 each with
+`object-fit: contain` and no `play.google.com` request; nav and every link ≥44 px tall; logo
+serves the new PNG at 260×75 on mobile.
+
+**Two honest notes on the "above the fold" claim.** The first value card starts at y=672 in an
+844-tall viewport, so 172 px of it — about a fifth — is visible. `EVIDENCE.md` says "entering the
+fold", which is accurate; the summary's "above fold" oversells it. Not worth more hero surgery
+now, but `be-16` owns hero height and should treat 672 as the number to beat.
+
+**Left for `be-16`**
+
+- **The tagline is baked into the logo PNG.** At 260 px wide, "Personalized metabolic OS with your
+  licensed nutritionist" renders around 6 px tall and is unreadable. It should be HTML text below
+  the wordmark, which also makes it localisable and lets the logo asset crop to the mark itself.
+- **`HEALTHINGS.AI` appears twice on the first screen** — nav brand and logo. One of them should
+  go, almost certainly the nav brand once the logo is properly scaled.
+- **The Play badge is narrower than TestFlight** (127 px of mark inside a 166 px box) because
+  Google's asset carries its own padding while Apple's does not. Equal heights make them read as
+  peers, so this is acceptable, but a trimmed Play asset would make them exact.
+- **Prose at 68ch leaves the right ~40 % of each 912 px card empty.** Correct for reading, but it
+  is now a visible layout decision. Either centre the text column or give the sections a real
+  two-column treatment — a judgment call that belongs with the visual direction.
+
 ## Agent checklist
 
-- [ ] Status → in_progress
-- [ ] Changes match this draft only
-- [ ] Smoke criteria above
-- [ ] Status → done
-- [ ] Update `drafts/README.md` table
+- [x] Status → in_progress
+- [x] Changes match this draft only (+ be-09 inherited: cache unify, 44px taps, drop card grid)
+- [x] Smoke criteria above
+- [x] Status → needs-review (evidence in `tmp/be-11-review/`) — **do not mark done**
+- [x] Update `drafts/README.md` table

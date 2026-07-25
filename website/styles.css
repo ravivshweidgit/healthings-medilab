@@ -43,8 +43,9 @@ button {
   align-items: center;
 }
 
+/* --accent is 3.0:1 on white — fills and borders only. Link text needs --accent-ink. */
 a {
-  color: var(--accent);
+  color: var(--accent-ink);
   text-decoration: none;
 }
 
@@ -56,6 +57,42 @@ a:hover {
   max-width: 480px;
   margin: 0 auto;
   padding: 20px 16px 40px;
+}
+
+/* ── Site chrome (quiet header) ── */
+.site-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+}
+
+.site-nav-brand {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--navy);
+  text-decoration: none;
+}
+
+.site-nav-brand:hover {
+  text-decoration: none;
+  color: var(--accent-ink);
+}
+
+.site-nav nav {
+  display: flex;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.site-nav nav a {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--accent-ink);
+  padding: 0 4px;
 }
 
 /* ── Hero ── */
@@ -117,17 +154,16 @@ h1 {
   width: 100%;
   max-width: 340px;
   margin: 0 auto;
-  align-items: stretch;
+  align-items: center;
 }
 
 .store-badge-link {
   display: block;
   width: 100%;
   aspect-ratio: 270 / 80;
-  overflow: hidden;
+  overflow: visible;
   line-height: 0;
   border-radius: 6px;
-  position: relative;
   transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
@@ -136,19 +172,11 @@ h1 {
 }
 
 .store-badge {
-  position: absolute;
-  inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
   display: block;
-}
-
-#play-link .store-badge {
-  object-fit: contain;
-  transform: scale(1.42);
-  transform-origin: center;
 }
 
 @media (max-width: 360px) {
@@ -174,6 +202,14 @@ h1 {
   font-size: 0.8rem;
   color: var(--muted);
   margin: 10px 0 0;
+}
+
+.cta-note a {
+  color: var(--accent-ink);
+}
+
+.cta-note a.u-tap {
+  vertical-align: middle;
 }
 
 .install-steps {
@@ -228,10 +264,12 @@ h1 {
   justify-content: center;
 }
 
-/* ── Cards ── */
-.cards-grid {
-  display: grid;
+/* ── Landing sections (stacked narrative — not equal-height cards) ── */
+.landing-sections {
+  display: flex;
+  flex-direction: column;
   gap: 14px;
+  align-items: stretch;
 }
 
 .card {
@@ -240,9 +278,10 @@ h1 {
   padding: 22px 18px;
   box-shadow: var(--shadow-sm);
   margin-bottom: 14px;
+  height: auto;
 }
 
-.cards-grid .card {
+.landing-sections .card {
   margin-bottom: 0;
 }
 
@@ -259,6 +298,16 @@ h1 {
   color: var(--muted);
   font-size: 0.88rem;
   line-height: 1.5;
+}
+
+/* Sections span the page now that the card grid is gone, so cap the running text.
+   No effect on narrow screens, where the card is already below the measure. */
+.card-intro,
+.card-foot,
+.timeline li,
+.features li,
+.install-steps li {
+  max-width: var(--measure);
 }
 
 .card-foot {
@@ -453,7 +502,12 @@ h1 {
 }
 
 .footer a {
-  color: var(--muted);
+  color: var(--accent-ink);
+}
+
+.footer a.u-tap {
+  vertical-align: middle;
+  margin: 0 2px;
 }
 
 /* ── Desktop enhancement ── */
@@ -481,23 +535,8 @@ h1 {
     margin: 0 auto;
   }
 
-  /* Six tracks so the last row can split into halves. Five cards would otherwise
-     leave an empty third cell. */
-  .cards-grid {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
+  .landing-sections {
     gap: 16px;
-  }
-
-  .cards-grid .card {
-    margin-bottom: 0;
-    height: 100%;
-    grid-column: span 2;
-  }
-
-  .cards-grid .card:nth-last-child(2),
-  .cards-grid .card:last-child {
-    grid-column: span 3;
   }
 }
 
@@ -617,7 +656,7 @@ body.help-rtl .prose {
 }
 
 .help-brand-site a {
-  color: var(--accent);
+  color: var(--accent-ink);
   text-decoration: none;
 }
 
