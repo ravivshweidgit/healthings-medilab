@@ -1287,6 +1287,11 @@ export function MetabolicChart({
 
       <View style={[styles.chartRow, styles.chartRowLtr, { minHeight: DATE_HEADER_HEIGHT + svgH }]}>
         <View style={[styles.yAxis, { height: DATE_HEADER_HEIGHT + prepared.svgH }]}>
+          {/* Canvas colour continues behind the scale so labels sit on the plot background. */}
+          <View
+            pointerEvents="none"
+            style={[styles.yAxisBackdrop, { top: DATE_HEADER_HEIGHT, height: prepared.svgH }]}
+          />
           {/* Glucose / HR scale labels (BPM / mg·dL) */}
           {prepared.gridLines
             .filter((gl) => gl.showAxisLabel)
@@ -1629,6 +1634,15 @@ const makeStyles = (colors: ThemeColors, isDark: boolean) =>
     marginRight: 2,
     position: 'relative',
   },
+  yAxisBackdrop: {
+    position: 'absolute',
+    left: 0,
+    // Bridge the 2px `yAxis` gutter so the canvas reads as one surface.
+    right: -2,
+    backgroundColor: isDark ? colors.background : colors.surface,
+    borderTopLeftRadius: isDark ? 12 : 0,
+    borderBottomLeftRadius: isDark ? 12 : 0,
+  },
   yAxisLabel: {
     position: 'absolute',
     right: 2,
@@ -1637,9 +1651,12 @@ const makeStyles = (colors: ThemeColors, isDark: boolean) =>
     color: colors.textSecondary,
   },
   // Dark: plot sits on canvas black so series pop against the grey strip card.
+  // Left corners stay square — `yAxisBackdrop` supplies the rounded outer edge,
+  // otherwise the two panels meet with a notch at top and bottom.
   graphCanvas: {
     backgroundColor: isDark ? colors.background : colors.surface,
-    borderRadius: isDark ? 12 : 0,
+    borderTopRightRadius: isDark ? 12 : 0,
+    borderBottomRightRadius: isDark ? 12 : 0,
     overflow: 'hidden',
   },
   empty: {
