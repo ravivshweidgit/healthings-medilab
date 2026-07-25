@@ -578,7 +578,7 @@ export function WeightTargetStrip({
               {!hideWithingsScalePrompt ? (
                 <Text style={styles.manualSummarySub}>Link Withings for progress scales</Text>
               ) : (
-                <Text style={styles.manualSummarySub}>Log weigh-ins in My Profile to track progress</Text>
+                <Text style={styles.manualSummarySub}>Log weigh-ins in Profile to track progress</Text>
               )}
             </View>
           )}

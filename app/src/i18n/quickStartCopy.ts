@@ -225,7 +225,7 @@ const EN: QuickStartCopy = {
   units: {
     title: 'Units & measurements',
     helpLabel: 'Units',
-    lead: 'How weight, height, and energy appear in the app. You can change this later in My Profile.',
+    lead: 'How weight, height, energy, water, and glucose appear in the app. You can change this later in Profile.',
   },
   body: {
     title: 'About you',
@@ -258,11 +258,11 @@ const EN: QuickStartCopy = {
     helpLabel: 'Linking help',
     lead: 'Sign in with the same account used in the Withings app. One link covers scale and watch data.',
     connected: 'Withings connected',
-    relinkHint: 'You can re-link anytime in My Profile.',
+    relinkHint: 'You can re-link anytime in Profile.',
     linkBtn: 'Link Withings',
     opening: 'Opening Withings…',
     skipHint:
-      'Or tap Next to skip — link later in My Profile. Targets may use a temporary weight estimate until you link.',
+      'Or tap Next to skip — link later in Profile. Targets may use a temporary weight estimate until you link.',
   },
   weight: {
     title: 'Starting weight',
@@ -375,7 +375,7 @@ const HE: QuickStartCopy = {
   units: {
     title: 'יחידות מידה',
     helpLabel: 'יחידות',
-    lead: 'איך יוצגו משקל, גובה ואנרגיה. אפשר לשנות בכל רגע ב־My Profile.',
+    lead: 'איך יוצגו משקל, גובה, אנרגיה, מים וגלוקוז. אפשר לשנות בכל רגע בפרופיל.',
   },
   body: {
     title: 'קצת עליכם',
@@ -408,11 +408,11 @@ const HE: QuickStartCopy = {
     helpLabel: 'עזרה — חיבור',
     lead: 'אותו חשבון כמו באפליקציית Withings. חיבור אחד — למשקל ולשעון.',
     connected: 'Withings מחובר',
-    relinkHint: 'אפשר לחבר שוב מ־My Profile.',
+    relinkHint: 'אפשר לחבר שוב מהפרופיל.',
     linkBtn: 'לחיבור Withings',
     opening: 'פותח את Withings…',
     skipHint:
-      'אפשר לדלג ולהמשיך — מחברים אחר כך ב־My Profile. עד אז היעדים עלולים להתבסס על אומדן משקל.',
+      'אפשר לדלג ולהמשיך — מחברים אחר כך בפרופיל. עד אז היעדים עלולים להתבסס על אומדן משקל.',
   },
   weight: {
     title: 'משקל התחלתי',
@@ -525,7 +525,7 @@ const DE: QuickStartCopy = {
   units: {
     title: 'Maßeinheiten',
     helpLabel: 'Einheiten',
-    lead: 'So erscheinen Gewicht, Größe und Energie. Später jederzeit änderbar unter My Profile.',
+    lead: 'So erscheinen Gewicht, Größe, Energie, Wasser und Glukose. Später jederzeit änderbar unter Profil.',
   },
   body: {
     title: 'Kurz zu Ihnen',
@@ -558,11 +558,11 @@ const DE: QuickStartCopy = {
     helpLabel: 'Hilfe — Verbinden',
     lead: 'Derselbe Account wie in der Withings-App. Eine Verbindung — für Waage und Uhr.',
     connected: 'Withings verbunden',
-    relinkHint: 'Erneut verbinden geht jederzeit unter My Profile.',
+    relinkHint: 'Erneut verbinden geht jederzeit unter Profil.',
     linkBtn: 'Withings verbinden',
     opening: 'Withings wird geöffnet…',
     skipHint:
-      'Sie können überspringen und später unter My Profile verbinden. Bis dahin können Ziele auf einer Gewichtsschätzung basieren.',
+      'Sie können überspringen und später unter Profil verbinden. Bis dahin können Ziele auf einer Gewichtsschätzung basieren.',
   },
   weight: {
     title: 'Startgewicht',
@@ -675,7 +675,7 @@ const ES: QuickStartCopy = {
   units: {
     title: 'Unidades de medida',
     helpLabel: 'Unidades',
-    lead: 'Así se muestran peso, altura y energía. Se puede cambiar en cualquier momento en My Profile.',
+    lead: 'Así se muestran peso, altura, energía, agua y glucosa. Se puede cambiar en cualquier momento en Perfil.',
   },
   body: {
     title: 'Un poco sobre usted',
@@ -708,11 +708,11 @@ const ES: QuickStartCopy = {
     helpLabel: 'Ayuda — vinculación',
     lead: 'La misma cuenta que en la app Withings. Un vínculo — para báscula y reloj.',
     connected: 'Withings vinculado',
-    relinkHint: 'Puede volver a vincular desde My Profile.',
+    relinkHint: 'Puede volver a vincular desde Perfil.',
     linkBtn: 'Vincular Withings',
     opening: 'Abriendo Withings…',
     skipHint:
-      'Puede omitir y vincular después en My Profile. Hasta entonces, los objetivos pueden basarse en un peso estimado.',
+      'Puede omitir y vincular después en Perfil. Hasta entonces, los objetivos pueden basarse en un peso estimado.',
   },
   weight: {
     title: 'Peso inicial',
@@ -825,7 +825,7 @@ const FR: QuickStartCopy = {
   units: {
     title: 'Unités de mesure',
     helpLabel: 'Unités',
-    lead: 'Ainsi s’affichent poids, taille et énergie. Modifiable à tout moment dans My Profile.',
+    lead: 'Ainsi s’affichent poids, taille, énergie, eau et glucose. Modifiable à tout moment dans Profil.',
   },
   body: {
     title: 'Un peu sur vous',
@@ -858,11 +858,11 @@ const FR: QuickStartCopy = {
     helpLabel: 'Aide — liaison',
     lead: 'Le même compte que dans l’app Withings. Une liaison — pour la balance et la montre.',
     connected: 'Withings relié',
-    relinkHint: 'Vous pouvez relier à nouveau depuis My Profile.',
+    relinkHint: 'Vous pouvez relier à nouveau depuis Profil.',
     linkBtn: 'Relier Withings',
     opening: 'Ouverture de Withings…',
     skipHint:
-      'Vous pouvez passer et relier plus tard dans My Profile. D’ici là, les objectifs peuvent s’appuyer sur un poids estimé.',
+      'Vous pouvez passer et relier plus tard dans Profil. D’ici là, les objectifs peuvent s’appuyer sur un poids estimé.',
   },
   weight: {
     title: 'Poids de départ',
@@ -974,7 +974,7 @@ const AR: QuickStartCopy = {
   units: {
     title: 'وحدات القياس',
     helpLabel: 'الوحدات',
-    lead: 'كيف يظهر الوزن والطول والطاقة. يمكن التغيير في أي وقت من My Profile.',
+    lead: 'كيف يظهر الوزن والطول والطاقة والماء والجلوكوز. يمكن التغيير في أي وقت من الملف.',
   },
   body: {
     title: 'نبذة عنكم',
@@ -1007,11 +1007,11 @@ const AR: QuickStartCopy = {
     helpLabel: 'مساعدة — الربط',
     lead: 'نفس حساب تطبيق Withings. ربط واحد — للميزان والساعة.',
     connected: 'Withings مربوط',
-    relinkHint: 'يمكن الربط مجدداً من My Profile.',
+    relinkHint: 'يمكن الربط مجدداً من الملف.',
     linkBtn: 'ربط Withings',
     opening: 'جارٍ فتح Withings…',
     skipHint:
-      'يمكن التخطي والمتابعة — الربط لاحقاً من My Profile. حتى ذلك الحين قد تعتمد الأهداف على تقدير للوزن.',
+      'يمكن التخطي والمتابعة — الربط لاحقاً من الملف. حتى ذلك الحين قد تعتمد الأهداف على تقدير للوزن.',
   },
   weight: {
     title: 'الوزن الابتدائي',
@@ -1124,7 +1124,7 @@ const RU: QuickStartCopy = {
   units: {
     title: 'Единицы измерения',
     helpLabel: 'Единицы',
-    lead: 'Как показывать вес, рост и энергию. Позже можно сменить в My Profile.',
+    lead: 'Как показывать вес, рост, энергию, воду и глюкозу. Позже можно сменить в разделе «Профиль».',
   },
   body: {
     title: 'Немного о вас',
@@ -1157,11 +1157,11 @@ const RU: QuickStartCopy = {
     helpLabel: 'Справка — связь',
     lead: 'Тот же аккаунт, что в приложении Withings. Одна связь — для весов и часов.',
     connected: 'Withings связан',
-    relinkHint: 'Связать снова можно в My Profile.',
+    relinkHint: 'Связать снова можно в разделе «Профиль».',
     linkBtn: 'Связать Withings',
     opening: 'Открываем Withings…',
     skipHint:
-      'Можно пропустить и связать позже в My Profile. До этого цели могут опираться на оценку веса.',
+      'Можно пропустить и связать позже в разделе «Профиль». До этого цели могут опираться на оценку веса.',
   },
   weight: {
     title: 'Стартовый вес',
@@ -1274,7 +1274,7 @@ const PT: QuickStartCopy = {
   units: {
     title: 'Unidades de medida',
     helpLabel: 'Unidades',
-    lead: 'Como peso, altura e energia aparecem no app. Você pode mudar depois em My Profile.',
+    lead: 'Como peso, altura, energia, água e glicose aparecem no app. Você pode mudar depois em Perfil.',
   },
   body: {
     title: 'Sobre você',
@@ -1307,11 +1307,11 @@ const PT: QuickStartCopy = {
     helpLabel: 'Ajuda — vinculação',
     lead: 'A mesma conta do app Withings. Um vínculo — para balança e relógio.',
     connected: 'Withings conectado',
-    relinkHint: 'Você pode revincular a qualquer momento em My Profile.',
+    relinkHint: 'Você pode revincular a qualquer momento em Perfil.',
     linkBtn: 'Vincular Withings',
     opening: 'Abrindo Withings…',
     skipHint:
-      'Ou toque Continuar para pular — vincule depois em My Profile. Até lá, as metas podem usar uma estimativa de peso.',
+      'Ou toque Continuar para pular — vincule depois em Perfil. Até lá, as metas podem usar uma estimativa de peso.',
   },
   weight: {
     title: 'Peso inicial',
@@ -1425,7 +1425,7 @@ const IT: QuickStartCopy = {
   units: {
     title: 'Unità di misura',
     helpLabel: 'Unità',
-    lead: 'Come compaiono peso, altezza ed energia. Modificabile in qualsiasi momento in My Profile.',
+    lead: 'Come compaiono peso, altezza, energia, acqua e glucosio. Modificabile in qualsiasi momento in Profilo.',
   },
   body: {
     title: 'Su di te',
@@ -1458,11 +1458,11 @@ const IT: QuickStartCopy = {
     helpLabel: 'Aiuto — collegamento',
     lead: 'Lo stesso account dell’app Withings. Un collegamento — per bilancia e orologio.',
     connected: 'Withings collegato',
-    relinkHint: 'Puoi ricollegare in qualsiasi momento da My Profile.',
+    relinkHint: 'Puoi ricollegare in qualsiasi momento dal Profilo.',
     linkBtn: 'Collega Withings',
     opening: 'Apertura Withings…',
     skipHint:
-      'O tocca Continua per saltare — collega dopo in My Profile. Fino ad allora, gli obiettivi possono basarsi su una stima del peso.',
+      'O tocca Continua per saltare — collega dopo in Profilo. Fino ad allora, gli obiettivi possono basarsi su una stima del peso.',
   },
   weight: {
     title: 'Peso iniziale',
@@ -1576,7 +1576,7 @@ const TR: QuickStartCopy = {
   units: {
     title: 'Ölçü birimleri',
     helpLabel: 'Birimler',
-    lead: 'Kilo, boy ve enerji uygulamada nasıl görünür. My Profile’da istediğiniz zaman değiştirebilirsiniz.',
+    lead: 'Kilo, boy, enerji, su ve glikoz uygulamada nasıl görünür. Profil’de istediğiniz zaman değiştirebilirsiniz.',
   },
   body: {
     title: 'Sizin hakkınızda',
@@ -1609,11 +1609,11 @@ const TR: QuickStartCopy = {
     helpLabel: 'Yardım — bağlama',
     lead: 'Withings uygulamasındaki aynı hesap. Tek bağlantı — tartı ve saat için.',
     connected: 'Withings bağlı',
-    relinkHint: 'My Profile’dan istediğiniz zaman yeniden bağlayabilirsiniz.',
+    relinkHint: 'Profil’den istediğiniz zaman yeniden bağlayabilirsiniz.',
     linkBtn: 'Withings bağla',
     opening: 'Withings açılıyor…',
     skipHint:
-      'Veya Devam’a dokunarak atlayın — My Profile’da sonra bağlayın. O zamana kadar hedefler geçici kilo tahminine dayanabilir.',
+      'Veya Devam’a dokunarak atlayın — Profil’de sonra bağlayın. O zamana kadar hedefler geçici kilo tahminine dayanabilir.',
   },
   weight: {
     title: 'Başlangıç kilosu',

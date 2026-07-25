@@ -516,7 +516,7 @@ export function MetabolicTrendChart7d({
   }
 
   const emptyCopy = weightOnly
-    ? 'Log weigh-ins in My Profile to see your weight trend. Fat and muscle need a Withings scale.'
+    ? 'Log weigh-ins in Profile to see your weight trend. Fat and muscle need a Withings scale.'
     : 'Trend data will appear after refresh.';
 
   if (!activePrepared) {
