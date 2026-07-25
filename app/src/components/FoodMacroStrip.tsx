@@ -1368,8 +1368,9 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     borderColor: c.accentBlue,
   },
   chipWater: {
-    borderColor: 'rgba(41, 182, 246, 0.45)',
-    backgroundColor: 'rgba(41, 182, 246, 0.08)',
+    // Dark: same black canvas as meal chips; light keeps a soft water tint.
+    borderColor: isDark ? c.gridLine : 'rgba(41, 182, 246, 0.45)',
+    backgroundColor: isDark ? c.background : 'rgba(41, 182, 246, 0.08)',
   },
   chipEdit: {
     fontSize: 10,
@@ -1397,19 +1398,19 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   chipLabelWater: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#0277BD',
+    color: isDark ? WATER_INK_DARK : '#0277BD',
     marginTop: 1,
   },
   chipMl: {
     fontSize: 11,
-    color: '#0288D1',
+    color: isDark ? WATER_INK_DARK : '#0288D1',
     fontWeight: '700',
     marginTop: 2,
     fontVariant: ['tabular-nums'],
   },
   chipEditWater: {
     fontSize: 10,
-    color: '#0288D1',
+    color: isDark ? WATER_INK_DARK : '#0288D1',
     marginTop: 2,
   },
   adjustBtn: {
