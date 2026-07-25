@@ -12,7 +12,8 @@ Active / backlog specs stay in `prompts/app/`:
 | prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
 | `prompt81b.txt` | **Shipped** — Phase B → `done/prompt87.txt` |
 | `prompt92.txt` | UI/UX review brief + **review output (2026-07-24, Opus 4.8)** — 19 findings F2–F20 (F1 withdrawn), batches A–E; feeds prompt93+ |
-| `prompt96.txt` | Planned — Dark theme (System/Light/Dark), 5 phases; ref `UI-snapshots/dark-theme-reference/` |
+
+**prompt96** — done (2026-07-25). Dark theme System/Light/Dark: token layer + `ThemeProvider`, every component on `useTheme()`, dark palette tuned to the Withings reference, Profile `AppearanceStrip` + Quick Start theme step, `healthings:themePref` in backup/restore. P5 found exports already light-pinned by construction (`WellnessColors` = static `lightColors`; export charts use the pure SVG builder, not the themed components) — verified on device by sharing a 7-day visit report from a dark, Hebrew app and getting a white page. Closed with the meal-editor leftovers (AI tip on black, rule-warning reds, new `warningAmber` token). See `done/prompt96.txt`.
 
 **prompt66** — done (code 2026-07-13, closed 2026-07-25). Macro target stability: `macro_target_by_day_v1` day snapshots, food-log bars judged vs that day's target, EMA 70/30 + daily caps on silent auto-apply (`dampenMacroSuggestion`), active + 7-day targets in the Gemini context with hold-steady wording; explicit Accept still applies the full proposal. Soak-tested in daily use through 1.2.16. Commits `e6356c1`, `ccaa228`. See `done/prompt66.txt`.
 

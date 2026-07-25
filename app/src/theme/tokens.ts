@@ -61,6 +61,8 @@ export type ThemeColors = {
   iconTintGreen: string;
   noticeSoftBg: string;
   noticeSoftBorder: string;
+  /** Caution amber — medium-confidence and soft warnings, never alert red. */
+  warningAmber: string;
   metabolicPairBg: string;
   metabolicPairBorder: string;
   /** Collapsible strip header label (uppercase). */
@@ -91,6 +93,7 @@ export const lightColors: ThemeColors = {
   iconTintGreen: '#E8F5E9',
   noticeSoftBg: '#FFF8E1',
   noticeSoftBorder: '#FFE082',
+  warningAmber: '#E65100',
   metabolicPairBg: '#EDF4FF',
   metabolicPairBorder: '#D6E8FC',
   // Light keeps strip chrome on secondary grey — the warm gold pair is dark-only.
@@ -160,6 +163,9 @@ export const darkColors: ThemeColors = {
   iconTintGreen: '#1F3F29',
   noticeSoftBg: '#332B15',
   noticeSoftBorder: '#57491D',
+  // Light's #E65100 drops to 2.4:1 on card; this opens up to 7.6:1 while staying orange,
+  // so caution reads apart from both alert red and the gold chrome pair.
+  warningAmber: '#FFB74D',
   // AI chat strip + coach panel. Light tints these blue; on dark a blue fill competed
   // with the cards for attention, so it is a warm grey one step *above* `surface` —
   // raised enough to read as tappable, quiet enough to let the purple tier edge lead.

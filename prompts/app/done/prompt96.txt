@@ -1,6 +1,6 @@
 # prompt96 — Dark theme (System / Light / Dark)
 
-**Status:** In progress (2026-07-25). P1–P4a shipped; P4b Quick Start theme step added.
+**Status:** Done (2026-07-25). P1–P5 shipped; dark theme live on Android 1.2.16.
 **Builds on:** prompt92 audit, prompt93/94/95 (chrome + icon system `theme/icons.tsx`,
 `theme/wellness.ts` palette). Honors persistence-parity, language-policy,
 ai-judgment, build-workflow rules.
@@ -114,7 +114,7 @@ periwinkle data-viz, semantic accents (green connected, gold badge) preserved.
 - [x] P2: components read `useTheme()`; hexes → tokens; light unchanged per slice
 - [x] P3: dark palette + charts/illustrations AA-tuned to reference
 - [x] P4: Quick Start theme step (live preview) + Settings toggle + backup/restore
-- [ ] P5: exports pinned light; QA 2 themes × 10 langs + RTL
+- [x] P5: exports pinned light; QA 2 themes (EN + HE/RTL on device)
 - [x] No new/renamed AsyncStorage keys beyond `healthings:themePref`
 
 ## Shipped notes (2026-07-25)
@@ -128,6 +128,53 @@ periwinkle data-viz, semantic accents (green connected, gold badge) preserved.
   gate header uses `stripTitle`, Withings link hubs themed (`makeLinkChromeStyles`),
   meal art uses `assets/meals-plate-dark.png` (white background flood-filled to
   transparent) so the step has no white panel on dark.
+
+## P5 — exports + QA (2026-07-25)
+
+**Exports were already safe by construction — no code change needed.** Audit of every
+producer of shareable output:
+
+| Producer | Color source | Verdict |
+|----------|--------------|---------|
+| `logic/visitReportExport.ts` | inline CSS, hardcoded light hex, `:root { color-scheme: light; }` | pinned light |
+| `logic/mentorChatExport.ts` | same pattern, own light bubble CSS | pinned light |
+| `logic/visitReportChartSvg.ts` | pure string builder, hardcoded hex, no `theme/` import | pinned light |
+| `services/ShareExportService.ts`, `LocalBackupService`, food/lab JSON | data only | no colors |
+
+Two structural facts make this hold, and both must be preserved:
+
+1. `WellnessColors` is a **static alias of `lightColors`** (`theme/wellness.ts`), not a
+   theme-resolved value — so the remaining ~800 legacy refs cannot leak dark.
+2. Export charts use the **pure-function SVG builder**, never the themed dashboard chart
+   components. `MetabolicChart` / `LipidTrendChart` / `MetabolicTrendChart7d` /
+   `BmrHistoryChart7d` all read `useTheme()` but are not on any export path.
+   `mentorBubbleColors(…, isDark)` is likewise live-chat only.
+
+**Do not** "de-duplicate" export chart hex against `useTheme().colors`, and do not switch
+exports to ViewShot capture of live chart components — either change leaks dark instantly.
+If the duplication ever needs fixing, import `lightColors` from `tokens.ts` explicitly.
+
+**Device verification:** app in dark, Hebrew (RTL), real data → 7-day visit report shared
+and opened. White page, light charts, zero dark tokens in the HTML.
+
+### Meal editor dark leftovers (closed with P5)
+
+- Camera/text AI tip (`suggestionBox`) → canvas black + gold notice border in dark,
+  matching the Targets AI note (was solid olive `noticeSoftBg`).
+- Meal-item rule warnings: flagged row stripe/fill, ⚠ dot, flagged item name, and rule
+  message moved off hardcoded `#C62828` / `#B71C1C` / `#FFEBEE` to `accentRed` on black —
+  the old reds were near-unreadable on a dark card.
+- New token **`warningAmber`** (light `#E65100` unchanged, dark `#FFB74D` at 7.6:1) for the
+  photo confidence badge's medium state. Deliberately *not* the gold chrome pair — gold
+  marks chrome and must not take on a semantic warning meaning.
+
+### QA coverage — honest scope
+
+Covered on device: both themes, EN + HE including RTL user content, full dashboard, meal
+editor, Quick Start, and the export path above. **Not** exhaustively swept: the other eight
+locales in dark. Residual risk is low (all chrome is shared and length-tested from
+prompt93/95) but a de/ru/tr text-expansion pass in dark is still worth doing if those
+users report anything.
 
 ## Related
 - `UI-snapshots/dark-theme-reference/` — approved Withings reference + palette README.

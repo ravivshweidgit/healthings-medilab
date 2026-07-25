@@ -144,10 +144,14 @@ function formatMealDateTime(ms: number, langCode?: string | null): string {
   return `${date}, ${time}`;
 }
 
-function confidenceColor(c: 'high' | 'medium' | 'low'): string {
-  if (c === 'high') return '#2E7D32';
-  if (c === 'medium') return '#E65100';
-  return '#C62828';
+function confidenceColor(
+  level: 'high' | 'medium' | 'low',
+  c: ThemeColors,
+  isDark: boolean,
+): string {
+  if (level === 'high') return isDark ? c.accentGreen : '#2E7D32';
+  if (level === 'medium') return c.warningAmber;
+  return isDark ? c.accentRed : '#C62828';
 }
 
 function macroSummary(items: FoodItem[], energyUnit: EnergyUnit = 'kcal'): string {
@@ -1328,12 +1332,21 @@ export function FoodLogModal({
                       style={[
                         styles.confidenceBadge,
                         {
-                          backgroundColor: confidenceColor(photoSession.confidence) + '20',
-                          borderColor: confidenceColor(photoSession.confidence) + '60',
+                          backgroundColor: isDark
+                            ? colors.background
+                            : confidenceColor(photoSession.confidence, colors, isDark) + '20',
+                          borderColor:
+                            confidenceColor(photoSession.confidence, colors, isDark) +
+                            (isDark ? '' : '60'),
                         },
                       ]}
                     >
-                      <Text style={[styles.confidenceText, { color: confidenceColor(photoSession.confidence) }]}>
+                      <Text
+                        style={[
+                          styles.confidenceText,
+                          { color: confidenceColor(photoSession.confidence, colors, isDark) },
+                        ]}
+                      >
                         {photoSession.confidence === 'high'
                           ? '✓ High confidence'
                           : photoSession.confidence === 'medium'
@@ -1392,12 +1405,20 @@ export function FoodLogModal({
                       style={[
                         styles.confidenceBadge,
                         {
-                          backgroundColor: confidenceColor(confidence) + '20',
-                          borderColor: confidenceColor(confidence) + '60',
+                          backgroundColor: isDark
+                            ? colors.background
+                            : confidenceColor(confidence, colors, isDark) + '20',
+                          borderColor:
+                            confidenceColor(confidence, colors, isDark) + (isDark ? '' : '60'),
                         },
                       ]}
                     >
-                      <Text style={[styles.confidenceText, { color: confidenceColor(confidence) }]}>
+                      <Text
+                        style={[
+                          styles.confidenceText,
+                          { color: confidenceColor(confidence, colors, isDark) },
+                        ]}
+                      >
                         {confidence === 'high'
                           ? '✓ High confidence'
                           : confidence === 'medium'
@@ -1920,8 +1941,8 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   itemRowBorder: { borderTopWidth: 1, borderTopColor: c.gridLine },
   itemRowFlagged: {
     borderLeftWidth: 4,
-    borderLeftColor: '#C62828',
-    backgroundColor: '#FFEBEE',
+    borderLeftColor: isDark ? c.accentRed : '#C62828',
+    backgroundColor: isDark ? c.background : '#FFEBEE',
   },
   itemTopRow: {
     flexDirection: 'row',
@@ -1930,7 +1951,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     width: '100%',
   },
   itemNameRow: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 6, minWidth: 0 },
-  itemWarningDot: { fontSize: 11, color: '#C62828', marginTop: 1 },
+  itemWarningDot: { fontSize: 11, color: isDark ? c.accentRed : '#C62828', marginTop: 1 },
   itemName: {
     flex: 1,
     flexShrink: 1,
@@ -1940,7 +1961,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     color: c.textPrimary,
     lineHeight: 17,
   },
-  itemNameFlagged: { color: '#B71C1C' },
+  itemNameFlagged: { color: isDark ? c.accentRed : '#B71C1C' },
   itemActions: {
     flexDirection: 'row',
     flexShrink: 0,
@@ -1973,7 +1994,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     fontWeight: '700',
     color: c.accentRed,
   },
-  itemRuleMessage: { fontSize: 11, color: '#C62828', lineHeight: 15 },
+  itemRuleMessage: { fontSize: 11, color: isDark ? c.accentRed : '#C62828', lineHeight: 15 },
   itemGrams: { fontSize: 12, color: c.textSecondary },
   itemMetricsRow: {
     flexDirection: 'row',
@@ -2068,7 +2089,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   },
   editItemCancelText: { fontSize: 14, color: c.textSecondary },
   suggestionBox: {
-    backgroundColor: c.noticeSoftBg,
+    backgroundColor: isDark ? c.background : c.noticeSoftBg,
     borderWidth: 1,
     borderColor: c.noticeSoftBorder,
     borderRadius: 12,
