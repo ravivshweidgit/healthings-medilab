@@ -41,8 +41,9 @@ Six problems, in descending order of how much they cost the product:
 - `website/clinic/index.html` — the whole batch.
 - New `website/clinic/clinic-portal.css` if the inline `<style>` exceeds roughly 200 lines after
   migration. Extracting is preferred, because `patient.html` should eventually share it.
-- **Off-limits:** `clinic-workspace.js`, `clinic-api.js`, anything under `server/`. No endpoint
-  changes — every number this page needs is already on a response.
+- **Off-limits:** `clinic-workspace.js`, `clinic-api.js`. One additive server field only — see the
+  "credits" reversal below; `/v1/wallet` must expose the pack price so the page can show money without
+  hardcoding a rate. No schema change, no new query, no other server edit.
 - **`patient.html` is out of scope.** It still has 59 hardcoded hex values of its own; opting it into
   dark is a follow-up, and mixing it in here makes the diff unreviewable.
 
@@ -51,9 +52,46 @@ Six problems, in descending order of how much they cost the product:
 | Question | Decision | Why |
 |---|---|---|
 | Alpha billing controls | **Hide behind a dev flag.** Show the balance only | Owner's call, 2026-07-26. The controls are real and still needed for alpha testing — deleting them costs a workflow, hiding them costs nothing |
-| Clinician-facing unit | **"credits", not "tokens"** | The section is already titled "AI credits". Presentation only — `/v1/wallet` keeps `balanceTokens` and `/v1/usage/summary` keeps `totalTokens`. Reversible in one place if the owner disagrees |
+| Clinician-facing unit | **Keep "tokens". Show money as the headline instead** | Reversed 2026-07-26 after reading `config.ts`. See below — "credit" is already taken, and the real defect is a missing denominator, not the word |
 | `window.confirm` for revoke | **Keep** | be-21's reasoning stands: destructive, accessible by default, unambiguous. A custom dialog is cost without benefit here |
 | Clinic portal i18n | **Out of scope** — English | `language-policy.mdc`: the clinic portal is a clinician tool and stays English |
+| Portal spacing | **Inherit colour / type / radius / shadow tokens; define a portal-local spacing scale** | Standard design-system practice — tokens are brand primitives and must be consistent; density is a per-surface decision. A marketing page optimizes a first impression, an operational tool optimizes scanning and repeat use. `--tap-min: 44px` is an accessibility floor and outranks density |
+
+### Why not "credits" (reversal, with the evidence)
+
+The first draft said to rename the clinician-facing unit to "credits". That was wrong, and `config.ts`
+says why:
+
+```
+/** Starter AI credit per account ($ pack mapped to tokens - see TOKEN_PACK_SIZE). */
+TOKEN_PACK_SIZE: 100
+TOKEN_PACK_PRICE_CENTS: 500
+STRIPE_CURRENCY: 'usd'
+```
+
+**"Credit" is already taken, and it means money.** A credit is the $5 pack; a token is the metered
+unit; the rate is 100 tokens per 500 cents, so **1 token = $0.05**. Renaming tokens to credits would
+make the section title "AI credits" ambiguous between dollars and consumption, and would put the UI
+into a second vocabulary for a number the ledger, the debit rows (`wallet_ledger`), and the eventual
+Stripe invoice quantity all record as tokens. Cosmetic gain, reconciliation trap.
+
+The actual defect in "Balance: 120 tokens" is not the noun — it is that **there is no denominator**.
+120 of what, lasting how long? Two honest denominators already exist in the data:
+
+1. **Money, as the headline.** 120 × $0.05 = **$6.00**. A clinic budgets in currency, not in units of
+   inference. Render `$6.00` large with `120 tokens` as the precise secondary figure. Format with
+   `Intl.NumberFormat(undefined, { style: 'currency', currency })` — never hand-built `'$' + n`.
+2. **Work, in the usage section.** `/v1/usage/summary` returns `totalTokens` **and** `eventCount` per
+   patient, so tokens-per-conversation is computable — "≈ 12 coach conversations at your recent
+   average". That belongs where reconciliation happens, not in the chrome.
+
+Word the money as worth at the current pack rate, not as a charge: the clinic is not billed $6.00, it
+holds $6.00 of unused capacity. Do not imply a refund.
+
+**This needs one additive server change**, which overrides the "no endpoint changes" line in Scope:
+`getWalletForUser` already returns `tokenPackSize`, but not price. Add `tokenPackPriceCents` and
+`currency` from `config` to the `WalletView` — read-only, no new query, no schema change. Do not
+hardcode $0.05 in the page; the rate is configuration and will move.
 
 ## What to build
 
@@ -157,7 +195,10 @@ Extend the probe with dark-mode assertions: computed `background-color` of `.car
 - [ ] `Open workspace` is the only filled control on an approved row
 - [ ] Skeleton clears on success **and** on both error paths
 - [ ] Filter appears at ≥ 8 patients, absent below
-- [ ] "tokens" does not appear in clinician-facing copy; the API fields are unchanged
+- [ ] Balance leads with currency from `tokenPackPriceCents`, with the token count as secondary; no
+      hardcoded rate, formatted via `Intl.NumberFormat`
+- [ ] Usage section states tokens per conversation from `totalTokens / eventCount`, and does not
+      divide by zero when `eventCount` is 0
 - [ ] `probe-portal.mjs` still 57/57, plus the new dark assertions
 - [ ] Lighthouse mobile accessibility 100
 
@@ -165,11 +206,10 @@ Extend the probe with dark-mode assertions: computed `background-color` of `.car
 
 Checkboxes cannot settle these:
 
-- **Does it read as a clinical tool or a consumer app?** be-16's direction was built to sell to a
-  patient. A clinician wants density and scanability, not hero rhythm. Borrowing tokens is right;
-  borrowing the landing page's spacing may not be.
-- **Is "credits" honest?** It is friendlier, and it is also one step further from what is actually
-  metered. If a clinician ever needs to reconcile a bill, "tokens" is the truthful word.
+- **Does showing money make the alpha look more finished than it is?** The clearer the balance reads,
+  the more it implies billing works. Stripe is not wired — `TOKEN_PACK_PRICE_CENTS` is a configured
+  rate, not a charge that has ever happened. If `$6.00` reads as a real account balance, it may need a
+  qualifier the owner is comfortable with.
 - **Does the sidebar bury the invite form?** Inviting is how a clinic starts. If it moves to a sidebar
   and adoption drops, the layout is wrong.
 - **Is a quiet Revoke too quiet?** It is a consent action with a real consequence — be-17's purge.
