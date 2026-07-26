@@ -93,6 +93,7 @@ a:hover {
   font-weight: 600;
   color: var(--accent-ink);
   padding: 0 4px;
+  white-space: nowrap;
 }
 
 /* ── Hero ── */
