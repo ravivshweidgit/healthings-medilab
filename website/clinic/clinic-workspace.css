@@ -264,6 +264,9 @@ h3,
 .macro-fill-c { background: var(--orange); }
 .macro-fill-f { background: var(--ws-chart-hr); }
 .macro-fill-fi { background: var(--ws-chart-glucose); }
+.macro-fill-kcal { background: var(--ws-chart-workout); }
+.macro-fill-net { background: var(--orange); }
+.macro-fill-h2o { background: var(--ws-chart-bmr); }
 .macro-fill-over { background: var(--red); }
 
 .ws-tabs {

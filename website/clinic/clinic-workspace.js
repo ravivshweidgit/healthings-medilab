@@ -10,6 +10,9 @@
   const RULES_KEY = 'user_rules';
   const MENTOR_KEY = 'user_mentors';
   const NUTRITION_DIRECTIVES_KEY = 'nutrition_directives_v1';
+  const WATER_LOG_KEY = 'water_log_v1';
+  const WATER_GOAL_KEY = 'water_goal_ml_v1';
+  const DEFAULT_WATER_GOAL_ML = 2500;
 
   const MENTORS = [
     { id: 'doctor', label: 'Doctor', emoji: '🩺' },
@@ -156,6 +159,7 @@
       eatenByDay[dk] = (eatenByDay[dk] || 0) + (m.totalKcal || 0);
     }
     const burnByDay = withings && global.ClinicCharts ? global.ClinicCharts.computeBurnByDay(withings) : {};
+    const water = parseWater(store);
 
     return {
       meals,
@@ -173,7 +177,62 @@
       mentors: Array.isArray(mentors) ? mentors : ['nutritionist'],
       labs: parseLabs(store),
       nutritionDirectives: parseNutritionDirectives(store),
+      waterByDay: water.byDay,
+      waterGoalMl: water.goalMl,
     };
+  }
+
+  /** Snapshot already carries water_log_v1 / water_goal_ml_v1 (ShareExportService). */
+  function parseWater(store) {
+    let goalMl = DEFAULT_WATER_GOAL_ML;
+    try {
+      const raw = store[WATER_GOAL_KEY];
+      if (raw != null && raw !== '') {
+        const n = parseInt(String(raw).replace(/^"|"$/g, ''), 10);
+        if (Number.isFinite(n) && n > 0) goalMl = n;
+      }
+    } catch { /* */ }
+
+    const byDay = {};
+    try {
+      const raw = store[WATER_LOG_KEY];
+      if (!raw) return { goalMl, byDay };
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (parsed && parsed.version === 2 && parsed.days && typeof parsed.days === 'object') {
+        for (const [dk, entries] of Object.entries(parsed.days)) {
+          if (!Array.isArray(entries)) continue;
+          const ml = entries.reduce((s, e) => s + (Number(e?.ml) || 0), 0);
+          if (ml > 0) byDay[dk] = Math.round(ml);
+        }
+        return { goalMl, byDay };
+      }
+      if (parsed && typeof parsed === 'object' && !('version' in parsed)) {
+        for (const [dk, val] of Object.entries(parsed)) {
+          if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+            byDay[dk] = Math.round(val);
+          } else if (Array.isArray(val)) {
+            const ml = val.reduce((s, e) => s + (Number(e?.ml) || 0), 0);
+            if (ml > 0) byDay[dk] = Math.round(ml);
+          }
+        }
+      }
+    } catch { /* */ }
+    return { goalMl, byDay };
+  }
+
+  /** Activity kcal for a day = burn − BMR when both known (matches phone food strip). */
+  function burnPartsForDay(withings, dk, totalBurn) {
+    const trend = withings?.bodyTrendDays || [];
+    const day = trend.find((d) => d.dayKey === dk);
+    const bmrRaw = day?.bmrKcalDay ?? withings?.bodyScan?.bmrKcalDay ?? null;
+    const bmr = bmrRaw != null && Number.isFinite(bmrRaw) ? Math.round(bmrRaw) : null;
+    let activity = null;
+    if (day?.activityKcalDay != null && Number.isFinite(day.activityKcalDay)) {
+      activity = Math.round(day.activityKcalDay);
+    } else if (totalBurn != null && bmr != null) {
+      activity = Math.max(0, Math.round(totalBurn) - bmr);
+    }
+    return { bmr, activity, total: totalBurn != null ? Math.round(totalBurn) : null };
   }
 
   function parseNutritionDirectives(store) {
@@ -250,7 +309,7 @@
         protein_g: a.protein_g + (e.totalProtein_g || 0),
         carb_g: a.carb_g + (e.totalCarb_g || 0),
         fat_g: a.fat_g + (e.totalFat_g || 0),
-        fiber_g: a.fiber_g + (e.totalFiber_g || 0),
+        fiber_g: a.fiber_g + entryFiber(e),
       }),
       { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0, fiber_g: 0 },
     );
@@ -280,10 +339,14 @@
     return next > todayKey() ? todayKey() : next;
   }
 
-  function macroBar(label, val, tgt, tone) {
+  /** unit: 'g' | 'ml' | '' (kcal bar has no unit suffix — label carries it). */
+  function macroBar(label, val, tgt, tone, unit) {
+    const u = unit === undefined ? 'g' : unit;
     const ratio = tgt > 0 ? Math.min(1, val / tgt) : 0;
     const over = tgt > 0 && val > tgt * 1.05;
-    const text = tgt ? `${Math.round(val)}/${Math.round(tgt)}g` : `${Math.round(val)}g`;
+    const text = tgt
+      ? `${Math.round(val).toLocaleString()}/${Math.round(tgt).toLocaleString()}${u}`
+      : `${Math.round(val).toLocaleString()}${u}`;
     const fillClass = over ? 'macro-fill-over' : 'macro-fill-' + tone;
     return `<div class="macro-row"><span>${label}</span><div class="track"><div class="fill ${fillClass}" style="width:${ratio * 100}%"></div></div><span class="${over ? 'macro-over' : ''}">${text}</span></div>`;
   }
@@ -385,10 +448,16 @@
     const target = ctx.parsed.macroTarget;
     const eaten = Math.round(macros.kcal);
     const burn = ctx.parsed.burnByDay[dk] ?? null;
+    const parts = burnPartsForDay(ctx.parsed.withings, dk, burn);
     const balance = burn != null && eaten > 0 ? eaten - burn : null;
     const isToday = dk >= todayKey();
-    const fiberT = target?.fiber_g ?? 30;
+    const fiberT = fiberTarget_g(target);
+    const netEaten = Math.max(0, Math.round((macros.carb_g || 0) - (macros.fiber_g || 0)));
+    const netT = netCarbTarget_g(target);
+    const waterMl = ctx.parsed.waterByDay?.[dk] || 0;
+    const waterGoal = ctx.parsed.waterGoalMl || DEFAULT_WATER_GOAL_ML;
     const isDeficit = balance != null && balance < 0;
+    const showBars = meals.length || target || waterMl > 0;
 
     host.innerHTML = `
       <div class="food-log-card food-log-grid">
@@ -401,19 +470,34 @@
           </div>
           <div class="energy-lines">
             <div class="energy-row">
-              ${target
-                ? `<span class="energy-num">${eaten > 0 ? eaten.toLocaleString() : '—'}</span><span class="energy-label">kcal eaten <span class="energy-target">/ ${target.kcal.toLocaleString()}</span></span>`
-                : `<span class="energy-num">${eaten > 0 ? eaten.toLocaleString() : '—'}</span><span class="energy-label">kcal eaten</span>`}
+              <span class="energy-num">${eaten > 0 ? eaten.toLocaleString() : '—'}</span>
+              <span class="energy-label">kcal eaten</span>
             </div>
-            ${burn != null ? `<div class="energy-row"><span class="energy-num">${Math.round(burn).toLocaleString()}</span><span class="energy-label">kcal burned</span></div>` : ''}
-            ${balance != null ? `<div class="balance-pill ${isDeficit ? 'deficit' : 'surplus'}"><span class="energy-num">${Math.abs(balance).toLocaleString()}</span><span class="energy-label">kcal ${isDeficit ? 'deficit' : 'surplus'}</span></div>` : ''}
+            ${parts.activity != null ? `
+            <div class="energy-row">
+              <span class="energy-num">${parts.activity.toLocaleString()}</span>
+              <span class="energy-label">kcal activity</span>
+            </div>` : ''}
+            ${parts.total != null ? `
+            <div class="energy-row">
+              <span class="energy-num">${parts.total.toLocaleString()}</span>
+              <span class="energy-label">kcal burned${parts.bmr != null
+                ? ` <span class="energy-target">BMR ${parts.bmr.toLocaleString()}${parts.activity != null ? ' + activity' : ''}</span>`
+                : ''}</span>
+            </div>` : ''}
+            ${balance != null ? `<div class="balance-pill ${isDeficit ? 'deficit' : 'surplus'}"><span class="energy-num">${Math.abs(Math.round(balance)).toLocaleString()}</span><span class="energy-label">kcal ${isDeficit ? 'deficit' : 'surplus'}</span></div>` : ''}
           </div>
-          ${(meals.length || target) ? `
+          ${showBars ? `
           <div class="macro-bars">
+            ${target ? macroBar('kcal', eaten, target.kcal, 'kcal', '') : ''}
+            ${(meals.length || target) ? `
             ${macroBar('P', macros.protein_g, target?.protein_g, 'p')}
             ${macroBar('C', macros.carb_g, target?.carb_g, 'c')}
             ${macroBar('F', macros.fat_g, target?.fat_g, 'f')}
-            ${macroBar('Fi', macros.fiber_g || 0, fiberT, 'fi')}
+            ${macroBar('Fi', macros.fiber_g || 0, target ? fiberT : null, 'fi')}
+            ${macroBar('C-Fi', netEaten, netT, 'net')}
+            ` : ''}
+            ${macroBar('H2O', waterMl, waterGoal, 'h2o', 'ml')}
           </div>` : ''}
         </div>
         <div class="meal-chips-row">
@@ -422,7 +506,7 @@
               <span class="chip-time">${new Date(m.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
               <span class="chip-label">${esc(mealLabel(m))}</span>
               <span class="chip-kcal">${Math.round(m.totalKcal || 0)} kcal</span>
-              <span class="chip-view">✎ view</span>
+              <span class="chip-view">view</span>
             </button>`).join('') : '<p class="empty meal-chips-empty">No meals this day</p>'}
         </div>
       </div>`;
@@ -473,6 +557,19 @@
   function fiberTarget_g(mt) {
     if (!mt) return 30;
     return mt.fiber_g ?? mt.aiSuggested?.fiber_g ?? 30;
+  }
+
+  /** Pure math: net = C − Fi (ai-judgment-not-regex). Prefer stored net_carb_g when present. */
+  function netCarbTarget_g(mt) {
+    if (!mt) return null;
+    if (mt.net_carb_g != null && Number.isFinite(mt.net_carb_g)) {
+      return Math.max(0, Math.round(mt.net_carb_g));
+    }
+    if (mt.aiSuggested?.net_carb_g != null && Number.isFinite(mt.aiSuggested.net_carb_g)) {
+      return Math.max(0, Math.round(mt.aiSuggested.net_carb_g));
+    }
+    if (mt.carb_g == null) return null;
+    return Math.max(0, Math.round(mt.carb_g - fiberTarget_g(mt)));
   }
 
   function expandPcfPriority(pcfPriority) {

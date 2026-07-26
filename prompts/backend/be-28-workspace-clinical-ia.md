@@ -207,11 +207,25 @@ window (activity 754 vs 696 kcal, total burn 2,599 vs 2,542, balance −923 vs �
 likely the snapshot lags the live app by a partial day, but a clinician quoting a different
 average than the patient sees is a credibility problem. Confirm before closing this batch.
 
+### P16 — Food log read-parity with the phone strip
+
+Clinic Food log was thinner than `FoodMacroStrip` on the same day. Ship clinician
+read-parity; keep write actions (Add meal / Add water / Export / Import) off the portal.
+
+1. **kcal bar** — `eaten / target` as a bar, not only an energy line.
+2. **Activity + BMR** — show `kcal activity` and burned as `BMR N + activity` (burn − BMR
+   when `activityKcalDay` is absent).
+3. **C−Fi** — net carbs bar; pure math `max(0, C − Fi)`, prefer stored `net_carb_g` for
+   the target (`ai-judgment-not-regex`).
+4. **H2O** — snapshot already includes `water_log_v1` / `water_goal_ml_v1`; parse and show
+   `ml / goal ml` (default goal 2500).
+5. **Meal chip** — `view` without the pencil icon (read-only; pencil implied edit).
+
 ## Files to touch
 
 - `website/clinic/patient.html` — header, banner mount, meta copy
-- `website/clinic/clinic-workspace.js` — labels, tab list, grid markup, inline styles
-- `website/clinic/clinic-workspace.css` — remove per-tab caps + dead rules, add grid + banner
+- `website/clinic/clinic-workspace.js` — labels, tab list, grid markup, food-log parity, water parse
+- `website/clinic/clinic-workspace.css` — remove per-tab caps + dead rules, add grid + banner + macro tones
 - `website/clinic/clinic-charts.js` — range chip set, axis ticks, strip captions, label lanes
 - **Delete** `website/clinic/clinic-dashboard.js`, `website/clinic/clinic-dashboard.css`
 - Bump `?v=` on every asset touched, both `patient.html` and `index.html` if shared
@@ -246,6 +260,7 @@ too — check it, do not break it.
 - [x] 6H/12H/24H axes read as times; 2D and up read as dates
 - [x] Trend chart shows WEIGHT / FAT / MUSCLE (Δ) / VISCERAL captions at unchanged total height
 - [x] Workout bars carry their activity name and kcal; meal kcal sits beside its ▼
+- [x] Food log: kcal + C−Fi + H2O bars; activity/BMR energy lines; meal chip says `view`
 - [ ] Portal 32D energy averages reconciled against the app — **owner smoke**
 - [ ] No regression: rules save + sync, chat send, snapshot refresh, meal modal — **owner smoke**
 - [ ] `/account/` self-view renders every touched tab — **owner smoke**
