@@ -268,6 +268,8 @@ too — check it, do not break it.
 - [x] Trend chart shows WEIGHT / FAT / MUSCLE (Δ) / VISCERAL captions at unchanged total height
 - [x] Workout bars carry their activity name and kcal; meal kcal sits beside its ▼
 - [x] Food log: kcal + C−Fi + H2O bars; activity/BMR energy lines; meal chip says `view`
+- [x] Profile row icons are Lucide chrome (no emoji on collapse headers)
+- [x] Clinic mentor chat context includes Profile height/gender/age (no false “height missing”)
 - [ ] Portal 32D energy averages reconciled against the app — **owner smoke**
 - [ ] No regression: rules save + sync, chat send, snapshot refresh, meal modal — **owner smoke**
 - [ ] `/account/` self-view renders every touched tab — **owner smoke**

@@ -632,12 +632,54 @@ function formatWorkoutsBlock(
   return lines.length > 1 ? lines.join('\n') : null;
 }
 
+/** Strip AsyncStorage JSON string quotes: `"180"` → `180`. */
+function storeScalar(raw: string | undefined): string | null {
+  if (raw == null || raw === '') return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  try {
+    const parsed = JSON.parse(s);
+    if (typeof parsed === 'string' || typeof parsed === 'number') return String(parsed);
+  } catch { /* raw string */ }
+  return s.replace(/^"|"$/g, '') || null;
+}
+
+function ageYearsFromBirthdate(iso: string): number | null {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return null;
+  const age = Math.floor((Date.now() - t) / (365.25 * 86400000));
+  return age >= 0 && age < 130 ? age : null;
+}
+
+/**
+ * Demographics from phone keys (same as clinic Profile tab).
+ * Without this, mentor chat invents "height missing" while the portal shows 180 cm.
+ */
+function formatProfileBlock(store: Record<string, string>): string | null {
+  const gender = storeScalar(store.user_gender);
+  const heightRaw = storeScalar(store.user_height_cm);
+  const heightCm = heightRaw != null ? parseInt(heightRaw, 10) : NaN;
+  const birthdate = storeScalar(store.user_birthdate);
+  const age = birthdate ? ageYearsFromBirthdate(birthdate) : null;
+
+  const parts: string[] = [];
+  if (gender) parts.push(`gender ${gender}`);
+  if (Number.isFinite(heightCm) && heightCm > 0) parts.push(`height ${heightCm} cm`);
+  if (birthdate) parts.push(`birthdate ${birthdate}`);
+  if (age != null) parts.push(`age ${age} y`);
+  if (!parts.length) return null;
+  return `Profile: ${parts.join(', ')}`;
+}
+
 function buildPatientContextBlock(exportData: SnapshotExport | null): string {
   if (!exportData?.asyncStorage) return 'No patient snapshot uploaded yet.';
 
   const store = exportData.asyncStorage;
   const lines: string[] = [];
   const utcOffsetMinutes = inferPatientUtcOffsetMinutes(store);
+
+  const profileBlock = formatProfileBlock(store);
+  if (profileBlock) lines.push(profileBlock);
 
   const labsBlock = formatLabReports(store);
   if (labsBlock) lines.push(`Lab reports (newest first):\n${labsBlock}`);
@@ -720,6 +762,7 @@ export async function mentorChatReply(
   const prompt = `You are the ${MENTOR_LABEL[mentorType]} AI mentor in a clinical nutrition app.
 The clinic staff is chatting on behalf of reviewing this patient's data. Answer in clear, practical prose.
 Use the patient data below. Do not invent labs or meals not listed.
+When Profile lists height (cm), gender, birthdate, or age — those values ARE known. Use them for BMI and similar. Never say height (or other Profile fields) is missing when it appears in the Profile line.
 When CGM glucose lists a date with avg/min/max or HH:MM readings, that date HAS glucose data — cite it and correlate with Food log meals. Never say glucose/CGM is missing for a date that appears in the CGM block.
 When Workouts & activity lists timed sessions for a date/time, that exercise IS logged — cite start/end, duration, and kcal. Correlate walks/workouts with CGM trends after meals. Never say exercise is missing for a date that appears in the Workouts block.
 
