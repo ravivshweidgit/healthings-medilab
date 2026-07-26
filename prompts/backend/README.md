@@ -26,13 +26,12 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-26-clinic-portal-i18n.md` | Clinic portal i18n: fill the 10 locales | **needs-review** | All 143 keys × 9 locales filled; `pluralDays` for ru/ar/he; glossary keeps `tokens` / brand. Owner eye-check after deploy |
+| `be-22-clinic-portal-visual.md` | Clinic portal visual rebuild | **ready, rescoped** | be-25 absorbed 5 of its 6 problems. What's left: `patient.html` + `clinic-workspace.css` tokens/dark (the last light-only surface), skeletons, and the money-led balance with `tokenPackPriceCents`. Also owns the two English strings left in the hidden alpha billing rows (`Payment method`, `Total tokens`) |
 | `be-08-clinic-portal-ux.md` | Clinic portal UI/UX catalog (C1–C21) | **partial** | A–D all ticked except **C11** (contrast re-measure) and **C21** (localStorage session note). Move to done/ once those two close |
-| `be-22-clinic-portal-visual.md` | Clinic portal visual rebuild | **ready, rescoped** | be-25 absorbed 5 of its 6 problems. What's left: `patient.html` + `clinic-workspace.css` tokens/dark (the last light-only surface), skeletons, and the money-led balance with `tokenPackPriceCents` |
 
 ## Done
 
-See [`done/README.md`](./done/README.md) — be-01 through be-25.
+See [`done/README.md`](./done/README.md) — be-01 through be-26.
 
 ## Status values
 
@@ -93,25 +92,23 @@ trusting the script's exit code.
 
 ## Auto kickoff (paste)
 
-be-25 is built and awaiting owner review. Next batch:
+be-26 is accepted and deployed. Next batch:
 
 ```
-Implement prompts/backend/be-26-clinic-portal-i18n.md
-(ignore done/ — those are shipped records). Stop after be-26.
+Implement prompts/backend/be-22-clinic-portal-visual.md
+(ignore done/ — those are shipped records). Stop after be-22.
 
 Rules:
-- Fill COPY.he … COPY.tr in website/clinic/clinic-i18n.js. Nothing else,
-  except a missed key or an RTL layout fix.
-- Clinical professional register, not consumer-app friendly. Translate with
-  judgment — do not word-substitute "sponsor", "revoke", or "snapshot".
-- Glossary stays English: brand, kcal, mg/dL, kg, CGM, BMR, AI, tokens,
-  device names.
-- Patient content is never translated. Emails keep dir="ltr" — do not
-  "fix" them to dir="auto".
-- Check he + ar RTL with real strings, and de + ru for overflow at 1280/390.
-- Plurals must read right at n = 1, 2, 5, 21 in ru and ar.
-- No server, app, or clinic-workspace.js diff.
-- Mark needs-review with a screenshot per locale; do not self-accept.
+- patient.html + clinic-workspace.css are the last light-only surface.
+  Tokenize against website/tokens.css and support dark via .theme-auto —
+  same approach clinic-portal.css already uses.
+- Any new chrome string goes through ClinicI18n.t() with a key in all 10
+  locales. No inline English. That includes the two alpha billing rows
+  (Payment method, Total tokens) if you unhide or touch them.
+- Patient-authored content keeps its own dir: prose auto, emails ltr.
+- Money-led balance uses tokenPackPriceCents; do not invent a price.
+- No server, schema, or app diff.
+- Mark needs-review with light + dark evidence; do not self-accept.
 - Do not commit or deploy unless asked.
 ```
 

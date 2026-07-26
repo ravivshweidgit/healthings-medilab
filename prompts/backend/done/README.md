@@ -56,13 +56,18 @@ Most C items shipped via be-21 / be-25; **C11** and **C21** remain.
 | `be-20-mentor-invite-email.md` | Mentor invite email | 2026-07-26 |
 | `be-21-portal-action-feedback.md` | Portal action feedback + sponsorship days | 2026-07-26 |
 
-## be-23 … be-25 — clinic isolation, chat privacy, worklist
+## be-23 … be-26 — clinic isolation, chat privacy, worklist, i18n
 
 | File | Title | Shipped |
 |------|-------|---------|
 | `be-23-clinic-isolation-and-audit.md` | Org-scoped overlays + access audit | 2026-07-26 — owner: "looks good"; migrate fix `4a11a51` |
 | `be-24-coach-chat-not-shared.md` | Patient coach chat never shared with clinic | 2026-07-26 — owner: "looks good" |
 | `be-25-clinic-panel.md` | Patients-first worklist + tokens/dark + i18n plumbing | 2026-07-26 — owner: "looks good"; `c61ea99` |
+| `be-26-clinic-portal-i18n.md` | Clinic portal translated into all 10 locales | 2026-07-26 — owner: "looks good"; `db98700` |
+
+be-25 and be-26 are one decision split in two: the owner reversed the English-only portal policy
+mid-be-25, so be-25 kept the plumbing (catalog, `t()`, `dir`, picker) and be-26 filled the nine
+remaining locales. Read them together.
 
 ## Retired IDs
 

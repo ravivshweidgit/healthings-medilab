@@ -1,6 +1,6 @@
 # be-26 — Clinic portal i18n: fill the 10 locales
 
-**Status:** needs-review
+**Status:** done — owner accepted 2026-07-26, deployed (`db98700`)
 **Model to implement:** Auto
 **Authored by:** Auto
 **Built by:** Auto
@@ -103,7 +103,7 @@ Verified 2026-07-26 (node key-coverage harness + CDP on stubbed worklist):
 - [x] Plural forms: ru 1/2/5/21/22 and ar 1/2/5/11 correct via `ClinicI18n.pluralDays`
 - [x] he/de worklist screenshots — chrome fully translated (כיסוי עלות AI / AI-Kosten übernehmen)
 - [x] No server or app diff
-- [ ] Owner eye-check on production after deploy (register / long DE compounds)
+- [x] Owner eye-check on production after deploy (register / long DE compounds)
 - [ ] Overflow at 390px for `de` / `ru` filter chips — optional owner glance
 
 ## Review evidence
@@ -112,6 +112,18 @@ Verified 2026-07-26 (node key-coverage harness + CDP on stubbed worklist):
 - Plurals: `1 день | 2 дня | 5 дней | 21 день`; Arabic dual/plural; Hebrew יום אחד / יומיים
 - CDP: he chip `מקושרים (30)`, de `Verknüpft (30)`, revoke/cover translated, tokens untranslated
 - Screenshots: `be26-he-worklist.png`, German worklist via locale switch
+
+### Production verification (post-deploy)
+
+- `clinic-i18n.js?v=20260726i` served 200; all 9 non-English tables present in the live bundle
+- `de`: header, chips, sort options, action buttons, `inviteNote` all German — no English leakage in
+  visible chrome
+- `he`: `<html lang=he dir=rtl>`, body `direction: rtl`, patient email renders `dir="ltr"` as
+  `דנה.לוי@example.co.il` with `local@domain` intact
+- Locale persists to `localStorage['healthings_clinic_locale']`
+- Two strings stay English (`Payment method: card on file`, `Total tokens (all patients)`) — both are
+  inside the alpha billing sections, confirmed `display: none` without `?dev=1`. Left for be-22,
+  which owns the money surfaces.
 
 ## Out of scope
 
@@ -137,6 +149,7 @@ Verified 2026-07-26 (node key-coverage harness + CDP on stubbed worklist):
 - [x] Acceptance criteria checked with coverage script + CDP
 - [x] Status → needs-review; do not self-accept
 - [x] Do not commit or deploy unless asked
+- [x] Owner accepted → moved to `done/`
 
 ## Related
 
