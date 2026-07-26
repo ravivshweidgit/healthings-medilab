@@ -57,7 +57,7 @@ Full record: `be-08-clinic-portal-ux.md`.
 | `be-20-mentor-invite-email.md` | Mentor invite email | 2026-07-26 |
 | `be-21-portal-action-feedback.md` | Portal action feedback + sponsorship days | 2026-07-26 |
 
-## be-22 … be-26 — clinic panel visuals, isolation, chat privacy, worklist, i18n
+## be-22 … be-27 — clinic panel visuals, isolation, chat privacy, worklist, i18n, names
 
 | File | Title | Shipped |
 |------|-------|---------|
@@ -66,6 +66,7 @@ Full record: `be-08-clinic-portal-ux.md`.
 | `be-24-coach-chat-not-shared.md` | Patient coach chat never shared with clinic | 2026-07-26 — owner: "looks good" |
 | `be-25-clinic-panel.md` | Patients-first worklist + tokens/dark + i18n plumbing | 2026-07-26 — owner: "looks good"; `c61ea99` |
 | `be-26-clinic-portal-i18n.md` | Clinic portal translated into all 10 locales | 2026-07-26 — owner: "looks good"; `db98700` |
+| `be-27-patient-names.md` | Patient first/last name for clinic findability | 2026-07-27 — owner: "looks good now"; `2cdbadd`…`6156c30` |
 
 be-22 was written first, then mostly absorbed by be-25 on the home page; what shipped under be-22 is the
 patient workspace half plus money-led balance. be-25 and be-26 are one decision split in two: the owner

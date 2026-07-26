@@ -1,6 +1,8 @@
 # be-27 — Patient first & last name for clinic findability
 
-**Status:** needs-review  
+**Status:** done  
+**Accepted:** 2026-07-27 (owner: "looks good now")  
+**Shipped:** `2cdbadd` … `6156c30`  
 **Model to implement:** Auto  
 **Date:** 2026-07-27  
 **Depends on:** be-25 (worklist), be-14 (email-only title gap)  

@@ -26,11 +26,11 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-27-patient-names.md` | Patient first & last name for clinic findability | **needs-review** | `users.first_name`/`last_name`; Profile collect; worklist search/sort by name |
+| — | *(empty)* | — | Next candidate from be-23 deferrals: clinic↔patient messaging (not drafted) |
 
 ## Done
 
-See [`done/README.md`](./done/README.md) — be-01 through be-26 (incl. be-08, be-22).
+See [`done/README.md`](./done/README.md) — be-01 through be-27 (incl. be-08, be-22).
 
 ## Status values
 
@@ -67,6 +67,7 @@ File numbers are chronological discovery order, not the only run order. What act
 | **be-24** straight after be-23 | A live undisclosed exposure of patient coach chat, found by the owner asking why the workspace has a chat tab at all. Small, and every day it ships later is another day of transcripts on clinicians' screens |
 | **be-25** before be-22 | Panel IA first; painting the old card column is wasted work |
 | **be-26** after be-25 | The English-only portal policy was reversed while be-25 was mid-flight ("we are global, global for clinics"). Splitting plumbing from translation kept be-25 reviewable: be-25 guarantees no new inline English, be-26 fills 9 locales |
+| **be-27** after be-25/26 | Clinics find people by name; email-only worklists were not clinic practice |
 
 ## Decisions (locked 2026-06-22, hosting updated 2026-06-29)
 
@@ -91,11 +92,11 @@ trusting the script's exit code.
 
 ## Auto kickoff (paste)
 
-**be-27 is `needs-review`** — wait for owner acceptance before the next batch.
+**Open table empty** after be-27 acceptance. Do not invent be-28 without an owner brief.
 
 ```
-(Open table empty or next ready batch only.)
-Do not re-implement be-27 unless owner sends it back.
+No ready backend batch. Ask the owner what to draft next
+(deferred candidate from be-23/be-27: clinic↔patient messaging).
 ```
 
 ## Code
