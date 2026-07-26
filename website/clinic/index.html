@@ -7,7 +7,7 @@
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="../styles.css?v=20260726g" />
-    <link rel="stylesheet" href="clinic-portal.css?v=20260727f" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260727g" />
   </head>
   <body>
     <div class="portal-wrap">
@@ -650,16 +650,20 @@
 
         if (share.status !== 'approved') return;
 
+        // Three equal slots so Workspace / Cover·Stop AI / Revoke line up
+        // across every linked row (content-sized flex was shifting columns).
+        actions.classList.add('row-actions--trio');
+
         if (share.patientId) {
           const view = document.createElement('a');
-          view.className = 'portal-btn';
+          view.className = 'portal-btn act-workspace';
           labelWithTip(view, 'openWorkspace', 'tipOpenWorkspace');
           view.href = 'patient.html?patientId=' + encodeURIComponent(share.patientId);
           actions.append(view);
 
           const active = sp && sp.active && daysUntil(sp.expiresAt) >= 0;
           const spBtn = document.createElement('button');
-          spBtn.className = 'portal-btn secondary';
+          spBtn.className = 'portal-btn secondary act-sponsor';
           spBtn.type = 'button';
           if (active) {
             labelWithTip(spBtn, 'stopSponsorship', 'tipStopSponsorship');
@@ -725,7 +729,7 @@
         }
 
         const rev = document.createElement('button');
-        rev.className = 'portal-btn danger';
+        rev.className = 'portal-btn danger act-revoke';
         rev.type = 'button';
         labelWithTip(rev, 'revokeAccess', 'tipRevokeAccess');
         rev.onclick = () => void onAction('revoke', share.id, { email: share.patientEmail, btn: rev });

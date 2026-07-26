@@ -152,6 +152,25 @@ summary:focus-visible {
   white-space: nowrap;
   line-height: 1.2;
 }
+/* Linked rows: three equal columns so Cover AI / Stop AI don't shift Revoke. */
+.worklist-table .row-actions--trio {
+  display: grid;
+  grid-template-columns: 5.6rem 5.6rem 5.2rem;
+  gap: 5px;
+  width: max-content;
+  margin-inline-start: auto;
+  justify-content: stretch;
+  align-items: stretch;
+}
+.worklist-table .row-actions--trio .portal-btn {
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: center;
+  padding-left: 4px;
+  padding-right: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .worklist-table td.actions-cell {
   white-space: nowrap;
   text-align: end;
