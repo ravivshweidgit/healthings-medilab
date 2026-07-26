@@ -92,31 +92,15 @@ trusting the script's exit code.
 ## Auto kickoff (paste)
 
 ```
-Implement prompts/backend/be-24-coach-chat-not-shared.md
-(ignore done/ — those are shipped records). Stop after be-24 so I can
-verify before you continue.
+Next open work after be-23/be-24: either draft the clinic panel batch
+(worklist + cross-patient table — see open-batches table), or fold the
+remaining be-08 items (C6/C8/C12 + login busy states) into that draft.
+Do not start be-22 until the panel IA is settled.
 
 Rules:
-- Follow the batch's paths, design, and acceptance criteria exactly. Do not
-  redesign beyond it, and do not touch files it lists as off-limits.
-- All four layers or none: app export, portal render, server-side strip, policy.
-  The app fix alone protects only patients who update, which is why the server
-  strip exists.
-- DO NOT unify the three isChatKey predicates. Clinic export, local backup and
-  cloud backup share a regex and nothing else — backups MUST keep carrying chat,
-  or a patient loses their coach history on a phone switch. That "cleanup" is the
-  one regression this batch can cause.
-- Strip before payload_hash is computed, and store the original buffer untouched
-  when nothing matched. Cap the inflated size and reject oversized payloads
-  rather than storing them unstripped.
-- Gate: `cd server && npm install && npm run verify` (be-17 11/11, be-19 33/33,
-  plus the new be-24 harness) and `npm run typecheck`. The harnesses copy the
-  logic under test from source and assert it is still there — update the copy,
-  never weaken an assertion to go green.
-- Mark Status: in_progress when you start. When the acceptance criteria pass, set
-  Status: needs-review, attach the evidence its review section asks for, and stop.
-  Do not mark anything done yourself — wait for owner sign-off, then move to done/.
-- Do not commit or deploy. Both are human-owned.
+- Follow the batch's paths, design, and acceptance criteria exactly.
+- Do not mark anything done yourself — wait for owner sign-off.
+- Do not commit or deploy unless asked.
 ```
 
 ## Code
