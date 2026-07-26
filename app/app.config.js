@@ -58,6 +58,17 @@ module.exports = {
     android: {
       ...appJson.expo.android,
       versionCode: 45,
+      /**
+       * expo-dev-client pulls in SYSTEM_ALERT_WINDOW for its dev-menu overlay, and the
+       * plugin ships in every build. Nothing in the app draws over other apps, and Play
+       * treats it as sensitive — so keep it out of release. The debug and debugOptimized
+       * source sets declare it themselves, so the dev client is unaffected.
+       *
+       * This entry only takes effect when the native project is regenerated; the
+       * committed main/AndroidManifest.xml is what the current build reads. Both are
+       * needed so `expo prebuild` cannot silently put it back.
+       */
+      blockedPermissions: ['android.permission.SYSTEM_ALERT_WINDOW'],
     },
     extra: {
       eas: {

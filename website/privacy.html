@@ -63,6 +63,7 @@
             <li><a href="#third-parties">Third-party services</a></li>
             <li><a href="#permissions">Permissions</a></li>
             <li><a href="#children">Children</a></li>
+            <li><a href="#retention">How long we keep it</a></li>
             <li><a href="#deletion">Account deletion</a></li>
             <li><a href="#changes">Changes</a></li>
             <li><a href="#contact">Contact</a></li>
@@ -249,6 +250,45 @@
 
         <h2 id="children">Children</h2>
         <p>Healthings is not directed at children under 13. We do not knowingly collect data from children.</p>
+
+        <h2 id="retention">How long we keep it</h2>
+        <p>
+          We do not run a deletion timer. What we hold on the server is kept
+          <strong>for as long as your account exists</strong>, because each piece of it is doing a job
+          while you use the product — your clinic can only read a snapshot that is still there. When
+          you delete your account, it goes; see <a href="#deletion">Account deletion</a>.
+        </p>
+        <p>Some things are shorter-lived than the account, and a few are capped by design:</p>
+        <ul>
+          <li>
+            <strong>Sign-in codes</strong> expire <strong>10 minutes</strong> after we email them, and
+            are single-use.
+          </li>
+          <li>
+            <strong>Sessions.</strong> The token your app or browser holds lasts
+            <strong>15 minutes</strong> and is renewed silently; the renewal itself expires after
+            <strong>30 days</strong> of not being used, and signing out revokes it.
+          </li>
+          <li>
+            <strong>Clinic snapshot — one copy, not a history.</strong> We keep exactly the
+            <em>current</em> snapshot. Each upload from your app deletes the one before it, so there is
+            no archive of earlier versions on the server.
+          </li>
+          <li>
+            <strong>Cloud backup — current plus one.</strong> If you turn backup on, we keep the latest
+            copy and the one before it, so a bad export cannot cost you your data. Older copies are
+            not kept.
+          </li>
+          <li>
+            <strong>AI usage records</strong> (how many tokens a coach reply used, and who paid) are
+            kept while the account exists, because they are what a sponsoring clinic's balance is
+            calculated from. They contain no message text.
+          </li>
+        </ul>
+        <p>
+          Anything still on your phone follows your phone, not this policy. We cannot delete it and we
+          cannot see it.
+        </p>
 
         <h2 id="deletion">Account deletion</h2>
         <p>
