@@ -56,6 +56,13 @@ Batch A (correctness) shipped; some Batch B items remain.
 | `be-20-mentor-invite-email.md` | Mentor invite email | 2026-07-26 |
 | `be-21-portal-action-feedback.md` | Portal action feedback + sponsorship days | 2026-07-26 |
 
+## be-23 … be-24 — clinic isolation and chat privacy
+
+| File | Title | Shipped |
+|------|-------|---------|
+| `be-23-clinic-isolation-and-audit.md` | Org-scoped overlays + access audit | 2026-07-26 — owner: "looks good"; migrate fix `4a11a51` |
+| `be-24-coach-chat-not-shared.md` | Patient coach chat never shared with clinic | 2026-07-26 — owner: "looks good" |
+
 ## Retired IDs
 
 **be-09 (the other one)** — `prompt-be-09-website-ux-review.md` was never a batch; it was a router

@@ -1,6 +1,6 @@
 # be-24 — The patient's coach chat is not the clinic's to read
 
-**Status:** needs-review  
+**Status:** done — owner-accepted 2026-07-26 (`looks good`). Shipped `d0280cc`, live on VPS.  
 **Model to implement:** Auto  
 **Authored by:** Opus 5  
 **Built by:** Auto  

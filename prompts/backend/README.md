@@ -26,15 +26,13 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-23-clinic-isolation-and-audit.md` | Clinic isolation + access audit | **reviewed, awaiting sign-off** | Built by Auto and reviewed 2026-07-26. Orgs + split overlays (`clinic_org_overlays` / `clinic_clinician_chats`) + `patient_access_log` (no patient FK). Access via org membership; one `assertMentorPatientAccess`. Review found and fixed a deleted clinician's email surviving in `organizations.name`, reverted an unauthorised per-link delete of rules history, and restored the residue count canary. Gate now be-17 **11/11**, be-19 **33/33**, typecheck clean. **Uncommitted** — schema migration, needs owner sign-off then a VPS migrate |
-| `be-24-coach-chat-not-shared.md` | Coach chat is not the clinic's to read | **needs-review** | Built by Auto 2026-07-26. App excludes `chat_history_*` from clinic export; portal drops `chatFromSnapshot`/`mergeChat`, tab renamed **Clinic chat**; server strips on upload (old builds); `privacy.html` discloses. Gate: be-17 **11/11**, be-19 **33/33**, be-24 **7/7**, typecheck clean. Backups untouched. **Uncommitted** |
 | `be-08-clinic-portal-ux.md` | Clinic portal UI/UX catalog (C1–C21) | **partial** | Batch A correctness shipped and live. Genuinely open: C6 forms/Enter submit, C8 visible labels on email + code, C12 `:focus-visible`, and busy states on the **login** buttons. Fold these into the next portal batch rather than a standalone pass. C14/C15/C19 handed to be-22 |
-| *(panel batch — not yet drafted)* | Clinic panel: worklist + cross-patient table | — | The scalable table: same component at 20 or 200 patients; pagination, saved filters and assignment are additive. Replaces the eight-card column where the patient list comes last. Needs be-23's org resolution first |
+| *(panel batch — not yet drafted)* | Clinic panel: worklist + cross-patient table | — | The scalable table: same component at 20 or 200 patients; pagination, saved filters and assignment are additive. Replaces the eight-card column where the patient list comes last. Needs be-23's org resolution first — **be-23 shipped** |
 | `be-22-clinic-portal-visual.md` | Clinic portal visual rebuild (2026 level) | **ready, demoted** | **Last.** Was next until 2026-07-26, when the owner asked whether the card-column layout is right for a clinic. It is not, and repainting an information architecture we are about to replace is the wasted work — so this runs after be-23 and the panel, with its token migration folded into whatever layout wins. Content still stands: gate alpha billing behind `?dev=1`, lead the balance with money from the configured pack rate, keep tokens as the metered unit, and treat be-21's 57/57 probe as a non-regression gate |
 
 ## Done
 
-See [`done/README.md`](./done/README.md) — be-01 through be-21.
+See [`done/README.md`](./done/README.md) — be-01 through be-24.
 
 ## Status values
 

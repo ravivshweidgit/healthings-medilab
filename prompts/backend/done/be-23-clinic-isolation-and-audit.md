@@ -1,6 +1,6 @@
 # be-23 — Clinic isolation and access audit (the one-way doors)
 
-**Status:** reviewed — accepted with three fixes applied 2026-07-26. Not committed, not deployed.
+**Status:** done — owner-accepted 2026-07-26 (`looks good`). Shipped `d0280cc` + migrate fix `4a11a51`.
 **Authored by:** Opus 5
 **Built by:** Auto
 **Reviewed by:** Opus 5 (see *Review findings* at the end)
