@@ -128,6 +128,11 @@ export async function uploadSyncBlob(
     [user.id, version, payloadGzip.length, payloadHash, summary, payloadGzip],
   );
 
+  // Every consumer reads ORDER BY version DESC LIMIT 1, so superseded rows are
+  // dead weight at up to 15 MB each, and privacy.html describes "a current
+  // snapshot" in the singular. Keep exactly that.
+  await query(`DELETE FROM sync_blobs WHERE patient_id = $1 AND version < $2`, [user.id, version]);
+
   await clearSyncUpdateRequestsForPatient(user.id);
 
   try {

@@ -1,6 +1,6 @@
 # be-15 — Patient web account (read-only, consent-gated)
 
-**Status:** ready
+**Status:** blocked on be-17
 **Model to implement:** Auto / Composer
 **Authored by:** Opus 5 (website UX pack)
 **Findings:** raised during pass 04 (clinic portal) — no patient surface exists on the web
@@ -8,6 +8,84 @@
 
 > Cross-cutting: this draft touches **server + website + app**, unlike the CSS-only batches in this
 > folder. Implement in the Part 1 → 2 → 3 order below; each part is independently shippable.
+
+## Re-validated against the code 2026-07-26 — read this before the Implementation parts
+
+Every factual claim below was re-checked against current `server/src` and `website/`. Most hold. The
+ones that do not are listed here, and **one of them blocks the batch**.
+
+### Blocking — the purge this draft builds on does not exist
+
+The "Consent and purge rules" section says *"Today `revokeShare` purges unconditionally — that would
+silently break a patient who is using the web view."* That is wrong in the direction that matters:
+**nothing purges at all.** There is no `DELETE FROM sync_blobs` anywhere in `server/src`. `revokeShare`
+(`shares.ts:331`) sets `status = 'revoked'`, removes the sponsorship, and stops. Every snapshot a
+patient has ever uploaded is still on the server, at every version, because `nextVersion()` increments
+and the insert is never followed by a prune.
+
+So the risk this draft was written to avoid — a consumer-blind purge breaking the web view — is not
+the real problem. The real problem is that `website/privacy.html` already promises this purge to
+users, in production. That is now **be-17**, which must ship first. Once it does, the hook this draft
+needs (`purgeSnapshotIfNoConsumers`) exists, and be-15's job shrinks to widening "consumer" to
+include the web view in exactly one function.
+
+Do not implement be-15's purge bullets. They belong to be-17 and are written correctly there.
+
+### Stale — fixed by batches that shipped after this draft was written
+
+| Draft says | Now |
+|---|---|
+| Problem 2: privacy page tells users to email `otp@healthings.ai` | It says `support@healthings.ai` (shipped 2026-07-26). The Play Store point stands: an email address still does not satisfy the account-deletion **URL** requirement |
+| Part 2: "Landing gets a header … it has no navigation at all today" | be-16 shipped a `site-nav` with **Help** and **Clinic sign in**. The work is now *adding a patient Sign in entry to an existing nav*, not building one |
+| Acceptance: "will need the responsive work from be-14 before the snapshot tab is mobile-clean" | be-14 shipped. `clinic-workspace.css` has a 720px breakpoint, horizontal tab scroll and `charts-row { height: auto }`. Precondition satisfied |
+| Part 2 lists `#deletion` work loosely | be-13 gave `privacy.html` real anchors. Link to `privacy.html#deletion`, and note be-17 explicitly leaves that section to this batch |
+
+### Confirmed — safe to rely on
+
+- `email.ts` exports only `sendOtpEmail`; no invite mail exists
+- New users default to `role: 'patient'` (`auth.ts:21-24` on request, `otp.ts:91` on verify)
+- `approveShare` / `rejectShare` / `cancelShare` / `revokeShare` all exist in `shares.ts`
+- `uploadSyncBlob` hard-fails `422 "Link a clinic account before sharing data"` at `sync.ts:109-112` — exactly as described
+- `GET /v1/sync/mine` exists and is metadata-only; `toPublicBlob` (`sync.ts:71`) strips the payload
+- `getLatestSyncForMentor(mentor, patientId)` at `sync.ts:142` is the right template to mirror
+- `accountBackup.ts` provides backup status / upload / download / delete
+- `sync_update_requests` really is `mentor_id NOT NULL` + `UNIQUE (patient_id, mentor_id)` (`schema.sql:173`), so omitting self-refresh remains the right call
+- No `web_view_enabled` column and no `DELETE /v1/account` exist — both are genuinely new work
+- `PublicShare` carries `patientId` and `patientEmail`
+
+### The `readOnly` flag is more tractable than the draft assumes
+
+`clinic-workspace.js` is 1247 lines but makes **no network calls of its own**. Everything goes through
+`ctx.api`, and only in three places, all `/v1/clinic/patients/…`:
+
+| Method | Path | Tab |
+|---|---|---|
+| `POST` | `/chat` | Mentors & chat |
+| `GET` | `/rules/history` | Rules (live) |
+| `PUT` | `/rules` | Rules (live) |
+
+Two of the four surfaces the draft names are **not in the file at all**: Sponsor AI lives in
+`clinic/index.html`, and the refresh button is markup in `clinic/patient.html`. They are page-shell
+concerns, so the account page simply never renders them.
+
+That means every mutating path is confined to two of the eight tabs. Omitting `chat` and `rules` from
+the `initTabs` array when `readOnly` is set removes all three endpoints at once, and the remaining six
+tabs need no changes for safety. The draft also missed a fourth mutating surface: **restore from rules
+history** (`clinic-workspace.js:886`) re-issues the same `PUT` — it disappears with the rules tab.
+
+Two things still need attention, neither structural:
+
+- **Third-person clinic copy** renders verbatim for a patient. `"Chat with the patient's AI mentors…"`
+  (`:737`), `"Read-only snapshot · patient phone data · v{N}"` (`:714`), and the lipids/nutrition empty
+  states that say *"Use **Refresh snapshot** on the portal header"* (`:1092`, `:1107`) all address a
+  clinician. On `/account/` that reads as someone else's chart — which directly undercuts the *"this
+  is what your clinic sees"* framing. Note that `:714` is one of the strings be-14 was told to leave
+  byte-identical; parameterise it, do not edit it in place.
+- **`ctx` is required, not optional.** Callers must supply `patientId`, `parsed`, `blob`, `overlay`,
+  `api`, `tab`, `activeMentor`. For read-only the account page can pass `api: null` and `overlay: null`
+  as a second line of defence behind the tab filter.
+- Tab persistence uses the global `__clinicTab`, which is fine but is a clinic-named global on a
+  patient page.
 
 ## Problem
 

@@ -2,6 +2,7 @@ import { query } from '../db/pool.js';
 import type { PublicUser, UserRole } from './jwt.js';
 import { findUserByEmail } from './users.js';
 import { removeSponsorshipForMentor } from './sponsorships.js';
+import { purgeClinicDataIfNoConsumers, purgeClinicLinkData } from './consent.js';
 
 export type ShareStatus = 'pending' | 'approved' | 'rejected' | 'revoked';
 export type ShareInitiator = 'patient' | 'mentor';
@@ -344,6 +345,10 @@ export async function revokeShare(user: PublicUser, shareId: string): Promise<Pu
 
   if (row.patient_id) {
     await removeSponsorshipForMentor(row.patient_id, row.mentor_id);
+    // Runs after the status update above, so the revoked link no longer counts
+    // as a consumer. privacy.html promises this deletion — see consent.ts.
+    await purgeClinicLinkData(row.patient_id, row.mentor_id);
+    await purgeClinicDataIfNoConsumers(row.patient_id);
   }
 
   const updated = await getShareRow(shareId);
