@@ -1,7 +1,7 @@
 # be-16 — Landing visual direction (2026 level)
 
-**Status:** ready
-**Model to implement:** Auto / Composer
+**Status:** needs-review — implemented 2026-07-26, awaiting owner sign-off in a real browser
+**Model to implement:** Opus 5 (built it directly; see "What shipped")
 **Authored by:** Opus 5 (website UX pack)
 **Findings:** W23 (no product imagery), W24 (card monotony), W25 (timid type scale), W26 (differentiator buried), W27 (no dark mode on web), W28 (no motion)
 **Depends on:** be-10 (tokens), be-11 (landing corrective fixes). Run **after** both — this is the
@@ -186,6 +186,83 @@ page can satisfy every checkbox above and still look mediocre.
 - Dark mode: does it look designed, or like light mode with inverted colors?
 - Is the motion invisible in the right way — felt, not noticed? If you can see it working, it is
   too much.
+
+## What shipped (2026-07-26)
+
+Built by Opus 5 rather than handed to Auto: the draft's own review section says the checkboxes
+matter least here, and the judgment calls below are exactly the ones a checklist cannot settle.
+Evidence in `tmp/be-16-review/` — full-page captures at 390 / 820 / 1280 / 1600 in light and dark,
+per-section crops at 1280, a Lighthouse report, and the contrast table.
+
+**Files:** `website/index.html`, `website/styles.css`, `website/tokens.css`. Nothing else. No
+framework, no build step, no new third-party request.
+
+### Section rhythm as built
+
+| Section | Treatment |
+|---|---|
+| Hero | Gradient, no container, two columns ≥1024 with `app-coach` in a phone frame |
+| Your health data never leaves your phone | Full-bleed inverted band + inline-SVG diagram |
+| One system, not four apps | Full-bleed tinted band |
+| How it works | Plain background, timeline beside `app-chart` |
+| Why trust it with your labs | Surface card, proof chart beside the founder note |
+| Who it's for | Plain background |
+| Installing the alpha | Surface card |
+
+No two adjacent sections share a treatment.
+
+### Deviations from the draft
+
+- **`--step-hero` capped at 3.5rem, not 4.25rem.** At 68px the 56-character H1 broke into four
+  ragged lines at 1280 and dominated the phone beside it. 40px floor is unchanged, so the mobile
+  criterion still holds. `text-wrap: pretty`, not `balance` — balance produced a two-word first line.
+- **The hero wordmark is gone.** `brand-logo.png` has a tagline baked into the artwork, so it cannot
+  shrink into the nav, and at 300px in the hero it put the wordmark on screen twice and pushed the
+  H1 down a phone screen. The nav keeps the text wordmark. This resolves be-11's "duplicate
+  wordmark" hand-off, and it is one line to reverse if the owner wants the mark back.
+- **Dark mode is opt-in via `<html class="theme-auto">`, not `:root`.** `tokens.css` is also loaded
+  by `clinic/index.html` and `clinic/patient.html`, whose stylesheets still carry hardcoded light
+  surfaces. Flipping tokens globally would have darkened a clinician tool nobody has checked. Help
+  and privacy can opt in the moment someone verifies them; the mechanism is already there.
+- **`app-chart` sits in a phone frame**, not shown "larger" as a bare image. It is a 640×1422
+  portrait shot; unframed at half a 1120px row it would have been 1100px tall.
+- **Store badges are repeated in the install card.** "Use the store badges above" is a scroll back
+  to the hero once that card is the thing on screen.
+
+### Problems found and fixed during the build
+
+- **The tinted band erased the comparison.** `.compare-after` is filled with `--accent-light`, which
+  is also the band — the recommended column lost its panel while the status quo kept one. Inverted:
+  the recommended column is now the elevated surface, the status quo a quiet outline.
+- **The proof figure floated in an empty card.** A 360px image centered in a 1120px card with the
+  founder note stacked below left most of the card blank. Now a two-column split.
+- **Entrance motion could have blanked the page.** `.reveal` starts at `opacity: 0`, so any script
+  failure would have hidden everything below the hero. Now gated on a `.js` class set before first
+  paint, and the observer also reveals sections already scrolled past — otherwise deep-linking to
+  `#get-alpha` left everything above it permanently invisible.
+- **Dark badge treatment.** A white plate turned two black badges into white buttons; replaced with
+  an inset hairline. Deliberately `box-shadow`, not `outline`, which would have swallowed the focus
+  ring.
+- **Nav wordmark was a 24px tap target.** Given `.u-tap`.
+
+### Measured
+
+| Check | Result |
+|---|---|
+| Lighthouse mobile | performance **98**, accessibility **100**, best-practices **100**, SEO **100** |
+| CLS | 0.044 — from the Google Fonts swap, not the screenshots; all images carry width/height |
+| Contrast, 16 pairs, both schemes | all ≥ 4.95:1, AA (`tmp/be-16-review/contrast.py`) |
+| `prefers-reduced-motion: reduce` | 6/6 sections opaque, transition-duration 0s |
+| Horizontal overflow at 390 | none — `scrollWidth === clientWidth` |
+| Help, help article, privacy, clinic sign-in | unchanged; landing CSS is scoped to `.landing` |
+
+### Note for whoever captures evidence next
+
+`chrome --headless=new --screenshot` is not trustworthy on Windows. It opens a real window, the OS
+clamps it to about 500px wide and to the screen height, so narrow breakpoints lay out at the wrong
+width and every lazy image below the clamped viewport renders blank. Two review rounds were spent on
+screenshots that were lying. Use `tmp/be-16-review/shoot.mjs`, which drives CDP directly
+(`node shoot.mjs <url> <outDir> [widths] [schemes] [prefix]`) and has neither limit.
 
 ## Agent checklist
 

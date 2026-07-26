@@ -264,14 +264,6 @@ h1 {
   justify-content: center;
 }
 
-/* ── Landing sections (stacked narrative — not equal-height cards) ── */
-.landing-sections {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  align-items: stretch;
-}
-
 .card {
   background: var(--surface);
   border-radius: var(--radius-lg);
@@ -281,7 +273,7 @@ h1 {
   height: auto;
 }
 
-.landing-sections .card {
+.landing .card {
   margin-bottom: 0;
 }
 
@@ -364,7 +356,7 @@ h1 {
 }
 
 .compare-before {
-  background: #f8f9fa;
+  background: var(--surface-2);
   border-radius: var(--radius-md);
   padding: 14px;
 }
@@ -453,8 +445,8 @@ h1 {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--navy);
-  color: #fff;
+  background: var(--num-bg);
+  color: var(--num-fg);
   font-size: 0.78rem;
   font-weight: 700;
   display: flex;
@@ -534,9 +526,315 @@ h1 {
     max-width: 520px;
     margin: 0 auto;
   }
+}
 
-  .landing-sections {
+/* ══ Landing visual direction (be-16) ══════════════════════════════════════
+   Everything here is scoped to .landing. help, privacy and the clinic sign-in
+   page share this stylesheet and must keep their current type scale, flat
+   background, and 960px shell. */
+
+/* Sections own the vertical rhythm and may break the width constraint, so
+   .wrap stops being the page shell and becomes a per-section inner container. */
+.landing .wrap {
+  padding-block: 0;
+}
+
+.landing .wrap-wide {
+  max-width: var(--wrap-wide);
+}
+
+/* The hero no longer repeats the wordmark: brand-logo.png has a tagline baked
+   into the artwork, so it cannot shrink into the nav, and at 300px in the hero
+   it put the wordmark on screen twice and pushed the H1 down a phone screen.
+   The nav keeps the text wordmark; the H1 carries the hero. */
+.landing .site-nav-brand {
+  font-size: 0.95rem;
+}
+
+.landing-section {
+  padding: 52px 0;
+}
+
+/* Two classes deep so it outranks `.card h2` where a section sits in a card. */
+.landing .section-title {
+  font-size: var(--step-h2);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--navy);
+  margin: 0 0 12px;
+}
+
+.section-intro {
+  font-size: 1rem;
+  color: var(--muted);
+  max-width: var(--measure);
+  margin: 0 0 24px;
+  line-height: 1.6;
+}
+
+/* ── Hero: gradient, no container — content floats on the background ── */
+.landing .hero {
+  padding: 8px 0 40px;
+}
+
+.hero-grid {
+  display: grid;
+  gap: 32px;
+  justify-items: center;
+  text-align: center;
+}
+
+.landing .hero h1 {
+  font-size: var(--step-hero);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  margin: 0 0 16px;
+  text-wrap: pretty;
+}
+
+.landing .hero .lead {
+  font-size: var(--step-lead);
+  max-width: 34rem;
+  margin: 0 auto 24px;
+}
+
+/* Hero CTA floats on the gradient — the white panel is what made this read as
+   a 2019 boxed layout. Cards resume below the fold. */
+.landing .hero .cta-panel {
+  background: none;
+  box-shadow: none;
+  padding: 0;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+/* ── Phone frame ──
+   Lifted verbatim from clinic/clinic-dashboard.css so the chrome is identical
+   in the clinic mirror and here. --phone-w is local; the clinic sets its own. */
+.app-shot {
+  --phone-w: 288px;
+  width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.app-shot-figure figcaption {
+  margin-top: 14px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  max-width: 34ch;
+  text-align: center;
+}
+
+.phone-frame {
+  width: var(--phone-w);
+  max-width: 100%;
+  border-radius: 36px;
+  padding: 12px;
+  background: linear-gradient(145deg, #2a2a2a, #111);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.22);
+}
+
+.phone-notch {
+  width: 120px;
+  height: 26px;
+  background: #111;
+  border-radius: 0 0 16px 16px;
+  margin: 0 auto 8px;
+}
+
+.phone-screen {
+  background: var(--surface);
+  border-radius: 28px;
+  overflow: hidden;
+}
+
+.phone-screen img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ── Inverted band: the local-first claim, second-loudest thing on the page ── */
+.band-invert {
+  background: var(--invert-bg);
+  color: var(--invert-text);
+}
+
+.band-invert .section-title {
+  color: var(--invert-text);
+  max-width: 20ch;
+}
+
+.band-invert p {
+  color: var(--invert-muted);
+  max-width: var(--measure);
+  line-height: 1.6;
+}
+
+.band-invert a {
+  color: #9ed3f5;
+}
+
+.privacy-grid {
+  display: grid;
+  gap: 28px;
+  align-items: center;
+}
+
+.privacy-diagram {
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  justify-self: center;
+}
+
+.privacy-honesty {
+  margin: 24px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--invert-line);
+  font-size: 0.9rem;
+}
+
+/* ── Tinted band: full-bleed, content constrained ── */
+.band-tint {
+  background: var(--accent-light);
+}
+
+/* The band is --accent-light, which is also .compare-after's fill — inside it the
+   two columns would read as one panel and one bare list. Invert the emphasis:
+   the recommended column becomes the elevated surface, the status quo recedes. */
+.band-tint .compare-before {
+  background: none;
+  border: 1px solid rgba(26, 43, 74, 0.12);
+}
+
+.band-tint .compare-after {
+  background: var(--surface);
+  border: 1px solid rgba(61, 157, 214, 0.4);
+  box-shadow: var(--shadow-sm);
+}
+
+.split {
+  display: grid;
+  gap: 28px;
+  align-items: center;
+}
+
+.split-tight {
+  align-items: start;
+  gap: 24px;
+}
+
+/* Alongside the proof chart the founder note is body copy, not a footnote —
+   the divider .card-foot draws would cut the column in half. */
+.founder-note {
+  margin: 0 0 12px;
+  font-size: 0.92rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.split .app-shot {
+  --phone-w: 256px;
+}
+
+.split .proof-figure img {
+  width: 100%;
+  max-width: none;
+}
+
+/* The badges are repeated here because "use the badges above" is a scroll back
+   to the hero once this card is the thing on screen. */
+.store-badges-inline {
+  margin: 0 0 22px;
+}
+
+/* ── Entrance motion ── */
+/* Gated on .js: the observer is what removes this, so without scripting — or if
+   the inline script ever throws — the page must not be a blank column. */
+@media (prefers-reduced-motion: no-preference) {
+  .js .reveal {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 240ms ease-out, transform 240ms ease-out;
+  }
+
+  .js .reveal.is-in {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Landing desktop ── */
+@media (min-width: 720px) {
+  .landing-section {
+    padding: 72px 0;
+  }
+
+  .compare-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
+  }
+
+  /* One step up, not a global inflation: 14px body under a 56px H1 read as an
+     unfinished draft. Card and hero sizes are unchanged. */
+  .landing .timeline li,
+  .landing .features li,
+  .landing .compare-col ul,
+  .landing .card-intro,
+  .landing .card-foot,
+  .landing .founder-note {
+    font-size: 0.95rem;
+  }
+
+  .landing .compare-col h3 {
+    font-size: 0.78rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-grid {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 56px;
+    align-items: center;
+    text-align: left;
+    justify-items: stretch;
+  }
+
+  .hero-copy .lead,
+  .landing .hero .cta-panel {
+    margin-inline: 0;
+  }
+
+  .hero .app-shot {
+    --phone-w: 320px;
+    align-items: flex-end;
+  }
+
+  .privacy-grid,
+  .split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 48px;
+  }
+}
+
+/* Store badges sit on a dark gradient in dark mode; the TestFlight mark is dark
+   ink on transparent, so it needs a plate to stay legible. */
+@media (prefers-color-scheme: dark) {
+  /* Both badges are black artwork, so on a dark page they lose their edge. A
+     hairline restores it; a white plate turned them into white buttons. */
+  /* inset shadow, not outline — an outline here would swallow the focus ring. */
+  .theme-auto .store-badge-link {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+    border-radius: 8px;
+  }
+
+  .theme-auto .band-tint .compare-before {
+    border-color: rgba(255, 255, 255, 0.14);
   }
 }
 

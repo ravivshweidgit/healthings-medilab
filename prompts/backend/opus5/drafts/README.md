@@ -19,7 +19,7 @@ Run strictly in this order. The reason for each position is the dependency, not 
 | **be-13** privacy | Must precede be-15, which rewrites the `#deletion` section |
 | **be-14** patient workspace | Must precede be-15, which reuses this renderer read-only. Fixing responsive + identity here means be-15 inherits a clean renderer |
 | **be-15** patient web account | Largest and cross-cutting (server + website + app). Depends on be-13 and be-14 |
-| **be-16** landing visual direction | The only batch that raises the ceiling rather than the floor. Needs be-10's tokens and be-11's fixes underneath it |
+| **be-16** landing visual direction | The only batch that raises the ceiling rather than the floor. Needs be-10's tokens and be-11's fixes underneath it. **Pulled forward and built on 2026-07-26**, ahead of be-13 to be-15: its dependencies (be-10, be-11) were already done, and the site's look was the owner's standing complaint. be-13 to be-15 are unaffected — it touches only `index.html`, `styles.css` and `tokens.css` |
 
 be-11, be-12 and be-13 do not depend on each other and may be reordered or parallelized. be-08,
 be-10, be-14 and be-15 are strictly ordered.
@@ -48,7 +48,7 @@ why the live H1 still reads "A full metabolic OS". Deploy is `git pull --ff-only
 | `be-13-privacy.md` | Privacy policy page | **run next** | Anchors + TOC + terminology. Coordinate with be-15 on the deletion section |
 | `be-14-patient-workspace.md` | Clinic patient workspace | ready | Patient identity (safety), responsive, sticky tabs |
 | `be-15-patient-web-account.md` | Patient web account (read-only, consent-gated) | ready | Cross-cutting: server + website + app. Ship Part 1 → 2 → 3. Reuses be-14's renderer |
-| `be-16-landing-visual-direction.md` | Landing visual direction (2026 level) | ready | Product imagery, section rhythm, type scale, dark mode, motion. Judgment-heavy — review matters more than the checkboxes. **Screenshots supplied** in `website/images/app/` (7 shots, WebP + PNG, 640x1422) — use as-is |
+| `be-16-landing-visual-direction.md` | Landing visual direction (2026 level) | **needs-review** | Built by Opus directly on 2026-07-26, out of queue order — it is the batch that answers "does not look like a 2026 product", and its own review section says the judgment matters more than the checkboxes. Two-column hero with a real phone, inverted local-first band with an SVG diagram, four section treatments, opt-in dark mode, `IntersectionObserver` entrance. Lighthouse mobile 98 / 100 / 100 / 100. Evidence in `tmp/be-16-review/`. Awaiting owner sign-off in a browser |
 
 ## Floor vs ceiling
 

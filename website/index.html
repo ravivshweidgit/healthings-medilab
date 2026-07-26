@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="theme-auto">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -15,84 +15,167 @@
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="tokens.css?v=20260726be11" />
-    <link rel="stylesheet" href="styles.css?v=20260726be11" />
+    <link rel="stylesheet" href="tokens.css?v=20260726be16" />
+    <link rel="stylesheet" href="styles.css?v=20260726be16" />
+    <script>
+      // Marks scripting as live before first paint, so the entrance-motion rules
+      // only ever hide content that something is guaranteed to reveal.
+      document.documentElement.classList.add('js');
+    </script>
   </head>
-  <body>
-    <main class="wrap">
+  <body class="landing">
+    <div class="wrap wrap-wide">
       <header class="site-nav">
-        <a class="site-nav-brand" href="/">HEALTHINGS.AI</a>
+        <a class="site-nav-brand u-tap" href="/">HEALTHINGS.AI</a>
         <nav aria-label="Site">
           <a class="u-tap" href="/en/help/">Help</a>
           <a class="u-tap" href="/clinic/">Clinic sign in</a>
         </nav>
       </header>
+    </div>
 
-      <section class="hero">
-        <img
-          class="logo"
-          src="assets/brand-logo.png?v=20260726be11"
-          width="640"
-          height="184"
-          alt="HEALTHINGS.AI"
-        />
-        <p class="badge">Android &amp; iOS alpha</p>
-        <!--
-          H1 candidates (owner may swap):
-          1. From lab report and nutritionist plan to today's targets
-          2. Labs and your nutritionist's plan become today's targets
-          3. Import labs and your plan. Get today's targets.
-        -->
-        <h1>From lab report and nutritionist plan to today’s targets</h1>
-        <p class="lead">
-          Log meals and body trends. Healthings turns that loop into daily numbers and meal
-          decisions you confirm before they apply.
-        </p>
+    <main>
+      <section class="hero landing-section">
+        <div class="wrap wrap-wide hero-grid">
+          <div class="hero-copy">
+            <p class="badge">Android &amp; iOS alpha</p>
+            <h1>From lab report and nutritionist plan to today’s targets</h1>
+            <p class="lead">
+              Log meals and body trends. Healthings turns that loop into daily numbers and meal
+              decisions you confirm before they apply.
+            </p>
 
-        <div class="cta-panel">
-          <div class="store-badges">
-            <a
-              id="play-link"
-              class="store-badge-link"
-              href="https://play.google.com/apps/internaltest/4701238109724209688"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <img
-                class="store-badge"
-                src="images/google-play-badge.png"
-                width="646"
-                height="250"
-                alt="Get it on Google Play — Android"
-              />
-            </a>
-            <a
-              id="testflight-link"
-              class="store-badge-link"
-              href="https://testflight.apple.com/join/Qt5spFMt"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <img
-                class="store-badge"
-                src="images/testflight-ios-badge.svg"
-                width="270"
-                height="80"
-                alt="Install on iPhone via TestFlight"
-              />
-            </a>
+            <div class="cta-panel">
+              <div class="store-badges">
+                <a
+                  id="play-link"
+                  class="store-badge-link"
+                  href="https://play.google.com/apps/internaltest/4701238109724209688"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <img
+                    class="store-badge"
+                    src="images/google-play-badge.png"
+                    width="646"
+                    height="250"
+                    alt="Get it on Google Play — Android"
+                  />
+                </a>
+                <a
+                  id="testflight-link"
+                  class="store-badge-link"
+                  href="https://testflight.apple.com/join/Qt5spFMt"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <img
+                    class="store-badge"
+                    src="images/testflight-ios-badge.svg"
+                    width="270"
+                    height="80"
+                    alt="Install on iPhone via TestFlight"
+                  />
+                </a>
+              </div>
+              <p class="cta-note">Internal testing — Android (Google Play) · iPhone (TestFlight)</p>
+              <p class="cta-note">
+                <a class="u-tap" href="/en/help/">Alpha tester guides</a> — setup, Withings watch, manual body
+              </p>
+            </div>
           </div>
-          <p class="cta-note">Internal testing — Android (Google Play) · iPhone (TestFlight)</p>
-          <p class="cta-note">
-            <a class="u-tap" href="/en/help/">Alpha tester guides</a> — setup, Withings watch, manual body
-          </p>
+
+          <div class="app-shot">
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <picture>
+                  <source srcset="images/app/app-coach.webp" type="image/webp" />
+                  <img
+                    src="images/app/app-coach.png"
+                    width="640"
+                    height="1422"
+                    loading="eager"
+                    decoding="async"
+                    fetchpriority="high"
+                    alt="The Healthings app showing an AI mentor tip about today’s protein and carb targets"
+                  />
+                </picture>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <div class="landing-sections">
-        <section class="card">
-          <h2>One system, not four apps</h2>
-          <p class="card-intro">Charts tell you what happened. Healthings tells you what to do next.</p>
+      <section class="landing-section band-invert reveal" id="local-first">
+        <div class="wrap privacy-grid">
+          <div>
+            <h2 class="section-title">Your health data never leaves your phone</h2>
+            <p>
+              Labs, meals, weight and glucose are stored on your device. Our server holds your
+              email address so you can sign in — nothing else. Send a snapshot to a linked clinic
+              when you choose to, and revoke it whenever you want.
+              <a href="privacy.html">Read the privacy policy</a>.
+            </p>
+            <p class="privacy-honesty">
+              Healthings is a wellness app in alpha. It is not a medical device, it does not
+              diagnose, and it does not replace your clinician.
+            </p>
+          </div>
+
+          <svg
+            class="privacy-diagram"
+            viewBox="0 0 440 200"
+            role="img"
+            aria-labelledby="dgm-t dgm-d"
+            fill="none"
+          >
+            <title id="dgm-t">Where your data lives</title>
+            <desc id="dgm-d">
+              Labs, meals and trends stay on the phone. The connection to the Healthings server is
+              broken, and the server holds only an email address.
+            </desc>
+
+            <!-- Phone: holds the health data -->
+            <rect x="14" y="20" width="104" height="160" rx="16" stroke="#9ed3f5" stroke-width="2" />
+            <rect x="24" y="34" width="84" height="118" rx="8" fill="#9ed3f5" fill-opacity="0.12" />
+            <rect x="36" y="52" width="60" height="7" rx="3.5" fill="#9ed3f5" />
+            <rect x="36" y="70" width="44" height="7" rx="3.5" fill="#9ed3f5" fill-opacity="0.75" />
+            <rect x="36" y="88" width="52" height="7" rx="3.5" fill="#9ed3f5" fill-opacity="0.75" />
+            <rect x="36" y="106" width="36" height="7" rx="3.5" fill="#9ed3f5" fill-opacity="0.5" />
+            <circle cx="66" cy="166" r="5" fill="#9ed3f5" fill-opacity="0.6" />
+            <text x="66" y="196" fill="#eef4fb" font-size="13" font-weight="600" text-anchor="middle">
+              Your phone
+            </text>
+
+            <!-- Broken link -->
+            <path d="M126 100 H196" stroke="#a9bed6" stroke-width="2" stroke-dasharray="6 6" />
+            <path d="M244 100 H314" stroke="#a9bed6" stroke-width="2" stroke-dasharray="6 6" />
+            <path d="M206 82 L226 118" stroke="#f3a3a3" stroke-width="2.5" stroke-linecap="round" />
+            <path d="M226 82 L206 118" stroke="#f3a3a3" stroke-width="2.5" stroke-linecap="round" />
+            <text x="216" y="146" fill="#a9bed6" font-size="12" text-anchor="middle">no sync</text>
+
+            <!-- Server: email address only -->
+            <rect x="322" y="66" width="104" height="68" rx="10" stroke="#a9bed6" stroke-width="2" />
+            <path d="M322 100 H426" stroke="#a9bed6" stroke-width="1.5" stroke-opacity="0.6" />
+            <circle cx="338" cy="83" r="3.5" fill="#a9bed6" />
+            <circle cx="338" cy="117" r="3.5" fill="#a9bed6" />
+            <text x="374" y="196" fill="#eef4fb" font-size="13" font-weight="600" text-anchor="middle">
+              Sign-in only
+            </text>
+            <text x="374" y="176" fill="#a9bed6" font-size="12" text-anchor="middle">
+              email address
+            </text>
+          </svg>
+        </div>
+      </section>
+
+      <section class="landing-section band-tint reveal">
+        <div class="wrap">
+          <h2 class="section-title">One system, not four apps</h2>
+          <p class="section-intro">
+            Charts tell you what happened. Healthings tells you what to do next.
+          </p>
           <div class="compare-stack">
             <div class="compare-col compare-before">
               <h3>What people use today</h3>
@@ -115,135 +198,224 @@
               </ul>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section class="card">
-          <h2>How it works</h2>
-          <ul class="timeline">
-            <li>
-              <span class="timeline-num">1</span>
-              <div>
-                <strong>Import</strong> blood labs and nutritionist plan (PDF)
-              </div>
-            </li>
-            <li>
-              <span class="timeline-num">2</span>
-              <div>
-                <strong>Log</strong> meals and weigh in — Healthings learns your body
-              </div>
-            </li>
-            <li>
-              <span class="timeline-num">3</span>
-              <div>
-                <strong>Review</strong> daily targets — confirm before update
-              </div>
-            </li>
-            <li>
-              <span class="timeline-num">4</span>
-              <div>
-                <strong>Ask</strong> AI mentors between visits — on your plan
-              </div>
-            </li>
-            <li>
-              <span class="timeline-num">5</span>
-              <div>
-                <strong>Share</strong> weekly brief with your nutritionist
-              </div>
-            </li>
-          </ul>
-          <p class="card-foot">
-            With a licensed nutritionist: full metabolic brief between visits, not screenshots.
-            Solo: same loop without a linked clinic.
-          </p>
-        </section>
+      <section class="landing-section reveal">
+        <div class="wrap split">
+          <div>
+            <h2 class="section-title">How it works</h2>
+            <ul class="timeline">
+              <li>
+                <span class="timeline-num">1</span>
+                <div><strong>Import</strong> blood labs and nutritionist plan (PDF)</div>
+              </li>
+              <li>
+                <span class="timeline-num">2</span>
+                <div><strong>Log</strong> meals and weigh in — Healthings learns your body</div>
+              </li>
+              <li>
+                <span class="timeline-num">3</span>
+                <div><strong>Review</strong> daily targets — confirm before update</div>
+              </li>
+              <li>
+                <span class="timeline-num">4</span>
+                <div><strong>Ask</strong> AI mentors between visits — on your plan</div>
+              </li>
+              <li>
+                <span class="timeline-num">5</span>
+                <div><strong>Share</strong> weekly brief with your nutritionist</div>
+              </li>
+            </ul>
+            <p class="card-foot">
+              With a licensed nutritionist: full metabolic brief between visits, not screenshots.
+              Solo: same loop without a linked clinic.
+            </p>
+          </div>
 
-        <section class="card">
-          <h2>Why trust it with your labs</h2>
-          <p class="card-intro">
-            Health data stays on your phone by default. It leaves only when you share with a
-            linked clinic or ask the AI coach.
-            <a class="u-tap" href="privacy.html">Privacy policy</a>.
-          </p>
-          <figure class="proof-figure">
-            <picture>
-              <source srcset="images/app/proof-trend-dark.webp" type="image/webp" />
-              <img
-                src="images/app/proof-trend-dark.png"
-                width="640"
-                height="622"
-                loading="lazy"
-                decoding="async"
-                alt="Body trend chart over 32 days: weight and fat lines falling, muscle rising"
-              />
-            </picture>
-            <figcaption>
-              Founder’s own Healthings data — 32 days: −2.5&nbsp;kg with +1.1&nbsp;kg muscle.
-              Not a customer testimonial.
-            </figcaption>
+          <figure class="app-shot app-shot-figure">
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <picture>
+                  <source srcset="images/app/app-chart.webp" type="image/webp" />
+                  <img
+                    src="images/app/app-chart.png"
+                    width="640"
+                    height="1422"
+                    loading="lazy"
+                    decoding="async"
+                    alt="Glucose and heart rate over 12 hours with meal and workout markers"
+                  />
+                </picture>
+              </div>
+            </div>
+            <figcaption>Glucose and heart rate with meal and workout markers, if you use a CGM.</figcaption>
           </figure>
-          <p class="card-foot">
-            I’m Raviv Shweid, and I built Healthings for myself first. I was diagnosed with high
-            cholesterol, and the private program meant to fix it quoted me $3,000 — too much for a
-            plan I would read once and file away. So I built the version that runs every day
-            instead: home devices measure the body, my labs and my nutritionist’s plan set the
-            limits, and one number each day says what to eat.
-          </p>
-          <p class="card-foot">
-            My own labs, 13 days apart: total cholesterol 225.6 → 173.1&nbsp;mg/dL, LDL 170 →
-            118.5. Total is inside the general adult target of 200; LDL is not at 100 yet. No
-            medication changed in that window — only what I ate. One person’s result, not a
-            clinical study, and not medical advice.
-          </p>
-        </section>
+        </div>
+      </section>
 
-        <section class="card">
-          <h2>Who it’s for</h2>
+      <section class="landing-section reveal">
+        <div class="wrap">
+          <div class="card">
+            <h2 class="section-title">Why trust it with your labs</h2>
+            <div class="split split-tight">
+              <figure class="proof-figure">
+                <picture>
+                  <source srcset="images/app/proof-trend-dark.webp" type="image/webp" />
+                  <img
+                    src="images/app/proof-trend-dark.png"
+                    width="640"
+                    height="622"
+                    loading="lazy"
+                    decoding="async"
+                    alt="Body trend chart over 32 days: weight and fat lines falling, muscle rising"
+                  />
+                </picture>
+                <figcaption>
+                  Founder’s own Healthings data — 32 days: −2.5&nbsp;kg with +1.1&nbsp;kg muscle.
+                  Not a customer testimonial.
+                </figcaption>
+              </figure>
+              <div>
+                <p class="founder-note">
+                  I’m Raviv Shweid, and I built Healthings for myself first. I was diagnosed with
+                  high cholesterol, and the private program meant to fix it quoted me $3,000 — too
+                  much for a plan I would read once and file away. So I built the version that runs
+                  every day instead: home devices measure the body, my labs and my nutritionist’s
+                  plan set the limits, and one number each day says what to eat.
+                </p>
+                <p class="card-foot">
+                  My own labs, 13 days apart: total cholesterol 225.6 → 173.1&nbsp;mg/dL, LDL 170 →
+                  118.5. Total is inside the general adult target of 200; LDL is not at 100 yet. No
+                  medication changed in that window — only what I ate. One person’s result, not a
+                  clinical study, and not medical advice.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="landing-section reveal">
+        <div class="wrap">
+          <h2 class="section-title">Who it’s for</h2>
           <ul class="features">
             <li>Weight, lipids, glucose, or body composition — you track between visits</li>
             <li>Labs and nutritionist reports drive what you eat</li>
             <li>You want daily decisions, not another dashboard</li>
             <li>Nutritionists who want one place for client progress</li>
           </ul>
-        </section>
+        </div>
+      </section>
 
-        <section class="card" id="get-alpha">
-          <h2>Installing the alpha</h2>
-          <p class="card-intro">
-            Use the store badges above, then follow the steps. Guides:
-            <a class="u-tap" href="/en/help/">Alpha tester setup</a>.
-          </p>
-          <div class="install-steps">
-            <p class="install-title">How to install</p>
-            <ol>
-              <li>
-                <span class="step-num">1</span>
-                <span>
-                  <strong>Android:</strong> Play link above or tester invite.
-                  <strong>iPhone:</strong> TestFlight link above (install TestFlight app first).
-                </span>
-              </li>
-              <li>
-                <span class="step-num">2</span>
-                <span>
-                  <strong>Android:</strong> Tap <strong>Become a tester</strong>, then <strong>Download</strong>.
-                  <strong>iPhone:</strong> Tap <strong>Accept</strong> in TestFlight, then <strong>Install</strong>.
-                </span>
-              </li>
-              <li>
-                <span class="step-num">3</span>
-                <span>Sign in with email — one-time code, no password.</span>
-              </li>
-            </ol>
+      <section class="landing-section reveal" id="get-alpha">
+        <div class="wrap">
+          <div class="card">
+            <h2 class="section-title">Installing the alpha</h2>
+            <p class="card-intro">
+              Pick your platform, then follow the steps. Guides:
+              <a class="u-tap" href="/en/help/">Alpha tester setup</a>.
+            </p>
+            <div class="store-badges store-badges-inline">
+              <a
+                class="store-badge-link"
+                href="https://play.google.com/apps/internaltest/4701238109724209688"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <img
+                  class="store-badge"
+                  src="images/google-play-badge.png"
+                  width="646"
+                  height="250"
+                  loading="lazy"
+                  alt="Get it on Google Play — Android"
+                />
+              </a>
+              <a
+                class="store-badge-link"
+                href="https://testflight.apple.com/join/Qt5spFMt"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <img
+                  class="store-badge"
+                  src="images/testflight-ios-badge.svg"
+                  width="270"
+                  height="80"
+                  loading="lazy"
+                  alt="Install on iPhone via TestFlight"
+                />
+              </a>
+            </div>
+            <div class="install-steps">
+              <p class="install-title">How to install</p>
+              <ol>
+                <li>
+                  <span class="step-num">1</span>
+                  <span>
+                    <strong>Android:</strong> Play link above or tester invite.
+                    <strong>iPhone:</strong> TestFlight link above (install TestFlight app first).
+                  </span>
+                </li>
+                <li>
+                  <span class="step-num">2</span>
+                  <span>
+                    <strong>Android:</strong> Tap <strong>Become a tester</strong>, then <strong>Download</strong>.
+                    <strong>iPhone:</strong> Tap <strong>Accept</strong> in TestFlight, then <strong>Install</strong>.
+                  </span>
+                </li>
+                <li>
+                  <span class="step-num">3</span>
+                  <span>Sign in with email — one-time code, no password.</span>
+                </li>
+              </ol>
+            </div>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
+    </main>
 
+    <div class="wrap wrap-wide">
       <p class="footer">
-        Questions? <a class="u-tap" href="mailto:otp@healthings.ai">otp@healthings.ai</a><br />
+        Questions? <a class="u-tap" href="mailto:support@healthings.ai">support@healthings.ai</a><br />
         <a class="u-tap" href="/en/help/">Help &amp; setup guides</a> ·
         <a class="u-tap" href="privacy.html">Privacy policy</a> ·
         <a class="u-tap" href="/clinic/">Clinic login</a>
       </p>
-    </main>
+    </div>
+
+    <script>
+      // Entrance reveal. Guarded twice: no observer support and reduced-motion both
+      // fall through to the final state, which is also what the CSS does when the
+      // .reveal opacity rule is media-queried out.
+      (function () {
+        var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var nodes = document.querySelectorAll('.reveal');
+        if (reduce || !('IntersectionObserver' in window)) {
+          for (var i = 0; i < nodes.length; i++) nodes[i].classList.add('is-in');
+          return;
+        }
+        var seen = 0;
+        var io = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              // Also reveal anything already scrolled past: landing mid-page or
+              // jumping to an anchor otherwise leaves those sections invisible.
+              var passed = entry.boundingClientRect.bottom < 0;
+              if (!entry.isIntersecting && !passed) return;
+              var delay = Math.min(seen++, 3) * 60;
+              setTimeout(function () {
+                entry.target.classList.add('is-in');
+              }, delay);
+              io.unobserve(entry.target);
+            });
+          },
+          { rootMargin: '0px 0px -12% 0px' }
+        );
+        for (var j = 0; j < nodes.length; j++) io.observe(nodes[j]);
+      })();
+    </script>
   </body>
 </html>

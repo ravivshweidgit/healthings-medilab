@@ -7,6 +7,8 @@
   --bg-sky: #b8daf0;
   --bg-accent: #d6ebf8;
   --surface: #ffffff;
+  /* Recessed fill inside a surface — compare columns, quiet panels. */
+  --surface-2: #f8f9fa;
   --line: #e2e8f0;
   --text: #1a2b4a;
   --muted: #5c6b7a;
@@ -20,6 +22,18 @@
   --warn: #ff9800;
   --ok: #2e7d32;
 
+  /* Numbered markers invert against their own fill, so they cannot ride on
+     --navy: that token flips light in dark mode and would take the text with it. */
+  --num-bg: #1a2b4a;
+  --num-fg: #ffffff;
+
+  /* Inverted band — the local-first claim. Fixed, not theme-flipped: it is the
+     one section that reads dark in both schemes. */
+  --invert-bg: #14243c;
+  --invert-text: #eef4fb;
+  --invert-muted: #a9bed6;
+  --invert-line: rgba(255, 255, 255, 0.14);
+
   --font-display: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
   --font-text: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
@@ -30,6 +44,46 @@
   --shadow-lg: 0 8px 32px rgba(26, 43, 74, 0.08);
   --shadow-sm: 0 2px 12px rgba(26, 43, 74, 0.06);
 
+  /* Fluid scale. The contrast lives in the hero — body sizes stay put, so
+     nothing below the fold inflates. */
+  --step-hero: clamp(2.5rem, 4.6vw, 3.5rem);
+  --step-h2: clamp(1.5rem, 3vw, 2.25rem);
+  --step-lead: clamp(1.05rem, 1.6vw, 1.3rem);
+
   --measure: 68ch;
+  --wrap: 960px;
+  --wrap-wide: 1120px;
   --tap-min: 44px;
+}
+
+/**
+ * Dark scheme, opt-in via `<html class="theme-auto">`.
+ *
+ * Deliberately not applied to :root. tokens.css is loaded by the clinic portal and
+ * the patient workspace, whose stylesheets still carry hardcoded light surfaces —
+ * flipping tokens globally would darken a clinician tool that nobody has checked.
+ * Pages opt in once they have been verified in dark.
+ */
+@media (prefers-color-scheme: dark) {
+  .theme-auto {
+    --bg-page: #0d1117;
+    --bg-sky: #16243a;
+    --bg-accent: #101a28;
+    --surface: #161c26;
+    --surface-2: #1c232f;
+    --line: #2a3444;
+    --text: #e7eef7;
+    --muted: #9db0c6;
+    /* --navy is "heading colour", not literally navy. It has to invert with the text. */
+    --navy: #f2f7fc;
+    --accent: #4aa8e0;
+    --accent-ink: #7cc6ef;
+    --accent-light: #15293c;
+
+    --num-bg: #4aa8e0;
+    --num-fg: #0d1117;
+
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.4);
+  }
 }
