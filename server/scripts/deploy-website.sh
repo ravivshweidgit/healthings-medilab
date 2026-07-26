@@ -32,6 +32,12 @@ server {
     root /var/www/healthings;
     index index.html;
 
+    # HTML must revalidate on every request. Without this nginx sends only an
+    # ETag, browsers apply heuristic freshness, and a returning visitor can sit
+    # on a deployed-over landing page for hours. Revalidation is cheap — the
+    # ETag still yields a 304. Query-versioned CSS overrides this below.
+    add_header Cache-Control "no-cache" always;
+
     location / {
         try_files $uri $uri/ =404;
     }
