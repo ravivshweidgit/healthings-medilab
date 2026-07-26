@@ -50,6 +50,41 @@ const MENTOR_LABEL: Record<MentorType, string> = {
   coach: 'Coach',
 };
 
+/** Same 10 codes as app SUPPORTED_LANGUAGES / clinic-i18n CLINIC_LOCALES. */
+export const CLINIC_CHAT_LOCALES = [
+  'en',
+  'he',
+  'es',
+  'fr',
+  'de',
+  'ar',
+  'ru',
+  'pt',
+  'it',
+  'tr',
+] as const;
+export type ClinicChatLocale = (typeof CLINIC_CHAT_LOCALES)[number];
+
+const CLINIC_LOCALE_NAME: Record<ClinicChatLocale, string> = {
+  en: 'English',
+  he: 'Hebrew',
+  es: 'Spanish',
+  fr: 'French',
+  de: 'German',
+  ar: 'Arabic',
+  ru: 'Russian',
+  pt: 'Portuguese',
+  it: 'Italian',
+  tr: 'Turkish',
+};
+
+export function normalizeClinicChatLocale(raw: string | undefined | null): ClinicChatLocale {
+  const code = String(raw || 'en').trim().toLowerCase().slice(0, 8);
+  return (CLINIC_CHAT_LOCALES as readonly string[]).includes(code)
+    ? (code as ClinicChatLocale)
+    : 'en';
+}
+
 function geminiEndpoint(): string | null {
   if (!config.GEMINI_API_KEY) return null;
   return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${config.GEMINI_API_KEY}`;
@@ -730,7 +765,10 @@ export async function mentorChatReply(
   history: ClinicChatMessage[],
   patientId: string,
   clinicRules: ClinicUserRules | null,
+  clinicLocaleRaw?: string | null,
 ): Promise<string> {
+  const clinicLocale = normalizeClinicChatLocale(clinicLocaleRaw);
+  const replyLanguage = CLINIC_LOCALE_NAME[clinicLocale];
   const snapshot = await loadLatestSnapshotExport(patientId);
   const dataBlock = buildPatientContextBlock(snapshot);
 
@@ -766,6 +804,10 @@ When Profile lists height (cm), gender, birthdate, or age — those values ARE k
 When CGM glucose lists a date with avg/min/max or HH:MM readings, that date HAS glucose data — cite it and correlate with Food log meals. Never say glucose/CGM is missing for a date that appears in the CGM block.
 When Workouts & activity lists timed sessions for a date/time, that exercise IS logged — cite start/end, duration, and kcal. Correlate walks/workouts with CGM trends after meals. Never say exercise is missing for a date that appears in the Workouts block.
 
+REPLY LANGUAGE (HARD): Write your entire reply in ${replyLanguage} (clinic portal locale: ${clinicLocale}).
+A patient may have rules, meal names, or notes in another language — quote those snippets as written when needed, but your explanation, greeting, and recommendations MUST be in ${replyLanguage}.
+Do NOT mirror the patient's app language. Do NOT switch to Hebrew/Arabic/etc. just because patient-authored text is in that language.
+
 PATIENT DATA:
 ${dataBlock}
 
@@ -777,7 +819,7 @@ ${historyText || '(none)'}
 Clinic staff message:
 ${message}
 
-Reply as the ${MENTOR_LABEL[mentorType]} mentor (plain text, no JSON).`;
+Reply as the ${MENTOR_LABEL[mentorType]} mentor in ${replyLanguage} (plain text, no JSON).`;
 
   try {
     return await geminiText(prompt, {

@@ -270,6 +270,7 @@ too — check it, do not break it.
 - [x] Food log: kcal + C−Fi + H2O bars; activity/BMR energy lines; meal chip says `view`
 - [x] Profile row icons are Lucide chrome (no emoji on collapse headers)
 - [x] Clinic mentor chat context includes Profile height/gender/age (no false “height missing”)
+- [x] Clinic mentor chat replies in portal `clinicLocale`, not patient app language
 - [ ] Portal 32D energy averages reconciled against the app — **owner smoke**
 - [ ] No regression: rules save + sync, chat send, snapshot refresh, meal modal — **owner smoke**
 - [ ] `/account/` self-view renders every touched tab — **owner smoke**

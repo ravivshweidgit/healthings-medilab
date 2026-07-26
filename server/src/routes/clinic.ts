@@ -12,7 +12,7 @@ import {
   saveRulesForPatient,
   type ClinicUserRules,
 } from '../services/clinicOverlay.js';
-import { mentorChatReply } from '../services/geminiClinic.js';
+import { CLINIC_CHAT_LOCALES, mentorChatReply } from '../services/geminiClinic.js';
 import {
   SyncRequestError,
   getPatientSyncStatusForMentor,
@@ -87,6 +87,8 @@ export async function registerClinicRoutes(app: FastifyInstance) {
     const body = z.object({
       mentorType: z.enum(['doctor', 'nutritionist', 'coach']),
       message: z.string().min(1).max(4000),
+      /** Portal clinicLocale — independent of patient app language (language-policy). */
+      locale: z.enum(CLINIC_CHAT_LOCALES).optional().default('en'),
     }).parse(request.body);
     const user = await findUserById(request.userId!);
     if (!user) return reply.code(404).send({ error: 'User not found' });
@@ -103,6 +105,7 @@ export async function registerClinicRoutes(app: FastifyInstance) {
         prior,
         params.patientId,
         overlay.rules,
+        body.locale,
       );
       const assistantMsg = {
         role: 'assistant' as const,

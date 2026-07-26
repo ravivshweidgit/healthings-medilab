@@ -918,10 +918,28 @@
     });
   }
 
+  /** Portal language — localStorage (be-26); patient.html may not load clinic-i18n.js. */
+  function clinicPortalLocale() {
+    if (typeof global.ClinicI18n?.getLocale === 'function') {
+      return global.ClinicI18n.getLocale() || 'en';
+    }
+    try {
+      const code = String(localStorage.getItem('healthings_clinic_locale') || 'en')
+        .trim()
+        .toLowerCase()
+        .slice(0, 8);
+      const ok = ['en', 'he', 'es', 'fr', 'de', 'ar', 'ru', 'pt', 'it', 'tr'];
+      return ok.includes(code) ? code : 'en';
+    } catch {
+      return 'en';
+    }
+  }
+
   function bubbleHtml(m) {
     const cls = m.role === 'user' ? 'user' : 'assistant';
     const who = m.role === 'user' ? 'Clinic' : 'Mentor';
-    return `<div class="bubble ${cls}"><div>${esc(m.text)}</div><div class="time">${who} · ${new Date(m.sentAt).toLocaleString()}</div></div>`;
+    // Clinic replies follow clinicLocale; patient quotes inside may still be RTL — dir=auto.
+    return `<div class="bubble ${cls}"><div dir="auto">${esc(m.text)}</div><div class="time">${who} · ${new Date(m.sentAt).toLocaleString()}</div></div>`;
   }
 
   function thinkingBubbleHtml() {
@@ -957,7 +975,11 @@
     try {
       const res = await ctx.api(`/v1/clinic/patients/${ctx.patientId}/chat`, {
         method: 'POST',
-        body: JSON.stringify({ mentorType: ctx.activeMentor || 'nutritionist', message: text }),
+        body: JSON.stringify({
+          mentorType: ctx.activeMentor || 'nutritionist',
+          message: text,
+          locale: clinicPortalLocale(),
+        }),
       });
       if (!res.ok) throw new Error((await res.json()).error || 'Chat failed');
       const data = await res.json();
