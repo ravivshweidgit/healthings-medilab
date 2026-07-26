@@ -7,7 +7,7 @@
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="../styles.css?v=20260726g" />
-    <link rel="stylesheet" href="clinic-portal.css?v=20260726k" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260727a" />
   </head>
   <body>
     <div class="portal-wrap">
@@ -131,13 +131,6 @@
               <span data-i18n="filterAll">All</span> <span class="n" id="count-all">(0)</span>
             </button>
           </div>
-          <input
-            id="worklist-search"
-            class="portal-input worklist-search"
-            type="search"
-            data-i18n-placeholder="searchPlaceholder"
-            autocomplete="off"
-          />
           <select id="worklist-sort" class="portal-select worklist-sort" data-i18n-aria="sortLabel">
             <option value="name" data-i18n="sortName">Name A–Z</option>
             <option value="email" data-i18n="sortEmail">Email A–Z</option>
@@ -150,18 +143,64 @@
           <table class="worklist-table">
             <thead>
               <tr>
-                <th scope="col" data-i18n="colPatient">Patient</th>
+                <th scope="col" class="col-name">
+                  <span class="col-head-label" data-i18n="colName">Name</span>
+                  <div class="ux-filter">
+                    <input
+                      id="filter-name"
+                      class="ux-filter-input"
+                      type="search"
+                      data-i18n-placeholder="filterNamePlaceholder"
+                      autocomplete="off"
+                      spellcheck="false"
+                    />
+                    <button
+                      type="button"
+                      class="ux-filter-clear"
+                      id="filter-name-clear"
+                      data-i18n-aria="clearNameFilter"
+                      aria-label="Clear name filter"
+                      hidden
+                    >
+                      ×
+                    </button>
+                  </div>
+                </th>
+                <th scope="col" class="col-email">
+                  <span class="col-head-label" data-i18n="colEmail">Email</span>
+                  <div class="ux-filter">
+                    <input
+                      id="filter-email"
+                      class="ux-filter-input"
+                      type="search"
+                      dir="ltr"
+                      data-i18n-placeholder="filterEmailPlaceholder"
+                      autocomplete="off"
+                      spellcheck="false"
+                    />
+                    <button
+                      type="button"
+                      class="ux-filter-clear"
+                      id="filter-email-clear"
+                      data-i18n-aria="clearEmailFilter"
+                      aria-label="Clear email filter"
+                      hidden
+                    >
+                      ×
+                    </button>
+                  </div>
+                </th>
                 <th scope="col" data-i18n="colSync">Sync</th>
                 <th scope="col" data-i18n="colSponsor">Sponsor</th>
                 <th scope="col" data-i18n="colActions">Actions</th>
               </tr>
             </thead>
             <tbody id="worklist-skeleton" class="worklist-skeleton" aria-busy="true" hidden>
-              <tr aria-hidden="true"><td colspan="4"><div class="worklist-skel-block"></div></td></tr>
-              <tr aria-hidden="true"><td colspan="4"><div class="worklist-skel-block"></div></td></tr>
-              <tr aria-hidden="true"><td colspan="4"><div class="worklist-skel-block"></div></td></tr>
-              <tr aria-hidden="true"><td colspan="4"><div class="worklist-skel-block"></div></td></tr>
-              <tr aria-hidden="true"><td colspan="4"><div class="worklist-skel-block"></div></td></tr>
+              <tr aria-hidden="true"><td colspan="5"><div class="worklist-skel-block"></div></td></tr>
+              <tr aria-hidden="true"><td colspan="5"><div class="worklist-skel-block"></div></td></tr>
+              <tr aria-hidden="true"><td colspan="5"><div class="worklist-skel-block"></div></td></tr>
+              <tr aria-hidden="true"><td colspan="5"><div class="worklist-skel-block"></div></td></tr>
+              <tr aria-hidden="true"><td colspan="5"><div class="worklist-skel-block"></div></td></tr>
             </tbody>
             <tbody id="worklist-body"></tbody>
           </table>
@@ -220,7 +259,7 @@
       </section>
     </div>
 
-    <script src="clinic-i18n.js?v=20260727a"></script>
+    <script src="clinic-i18n.js?v=20260727b"></script>
     <script src="clinic-api.js?v=20260726k"></script>
     <script>
       const { api, loadTokens, saveTokens, clearTokens } = ClinicApi;
@@ -236,7 +275,8 @@
       let loginEmail = '';
       const worklistState = {
         filter: 'linked',
-        search: '',
+        searchName: '',
+        searchEmail: '',
         sort: 'name',
         page: 0,
         pending: [],
@@ -488,7 +528,8 @@
       }
 
       function filteredShares() {
-        const { filter, search, sort, pending, outgoing, approved, sponsorByPatient } = worklistState;
+        const { filter, searchName, searchEmail, sort, pending, outgoing, approved, sponsorByPatient } =
+          worklistState;
         let list =
           filter === 'linked'
             ? approved.slice()
@@ -498,14 +539,23 @@
                 ? outgoing.slice()
                 : approved.concat(pending, outgoing);
 
-        const q = search.trim().toLowerCase();
-        if (q) {
+        const qName = searchName.trim().toLowerCase();
+        const qEmail = searchEmail.trim().toLowerCase();
+        if (qName || qEmail) {
           list = list.filter((s) => {
-            const email = (s.patientEmail || '').toLowerCase();
-            const first = (s.patientFirstName || '').toLowerCase();
-            const last = (s.patientLastName || '').toLowerCase();
-            const full = (first + ' ' + last).trim();
-            return email.includes(q) || first.includes(q) || last.includes(q) || full.includes(q);
+            if (qName) {
+              const first = (s.patientFirstName || '').toLowerCase();
+              const last = (s.patientLastName || '').toLowerCase();
+              const full = (first + ' ' + last).trim();
+              if (!first.includes(qName) && !last.includes(qName) && !full.includes(qName)) {
+                return false;
+              }
+            }
+            if (qEmail) {
+              const email = (s.patientEmail || '').toLowerCase();
+              if (!email.includes(qEmail)) return false;
+            }
+            return true;
           });
         }
 
@@ -656,7 +706,9 @@
       }
 
       function emptyMessage() {
-        if (worklistState.search.trim()) return t('emptySearch');
+        if (worklistState.searchName.trim() || worklistState.searchEmail.trim()) {
+          return t('emptySearch');
+        }
         return {
           pending: t('emptyPending'),
           outgoing: t('emptyOutgoing'),
@@ -691,34 +743,32 @@
           const tr = document.createElement('tr');
           const sp = share.patientId ? worklistState.sponsorByPatient.get(share.patientId) : null;
 
+          const displayName = patientDisplayName(share);
+
+          const tdName = document.createElement('td');
+          tdName.className = 'name-cell';
+          tdName.dataset.label = t('colName');
+          const nameLine = document.createElement('div');
+          nameLine.className = 'name-primary';
+          if (displayName) {
+            nameLine.dir = 'auto';
+            nameLine.textContent = displayName;
+          } else {
+            nameLine.textContent = '—';
+          }
+          const statusLine = document.createElement('div');
+          statusLine.className = 'muted';
+          statusLine.textContent = statusSub(share);
+          tdName.append(nameLine, statusLine);
+
           const tdEmail = document.createElement('td');
           tdEmail.className = 'email-cell';
-          tdEmail.dataset.label = t('colPatient');
-          const displayName = patientDisplayName(share);
-          const primary = document.createElement('div');
-          if (displayName) {
-            primary.dir = 'auto';
-            primary.textContent = displayName;
-          } else {
-            // ltr, not auto: an address is LTR syntax (local@domain). dir="auto" reads
-            // a Hebrew local part as an RTL string and puts the domain on the left,
-            // which looks like corruption. Hebrew glyphs still shape RTL inside the run.
-            primary.dir = 'ltr';
-            primary.textContent = share.patientEmail || '—';
-          }
-          const sub = document.createElement('div');
-          sub.className = 'muted';
-          if (displayName && share.patientEmail) {
-            const emailLine = document.createElement('div');
-            emailLine.dir = 'ltr';
-            emailLine.textContent = share.patientEmail;
-            const statusLine = document.createElement('div');
-            statusLine.textContent = statusSub(share);
-            sub.append(emailLine, statusLine);
-          } else {
-            sub.textContent = statusSub(share);
-          }
-          tdEmail.append(primary, sub);
+          tdEmail.dataset.label = t('colEmail');
+          // ltr, not auto: an address is LTR syntax (local@domain). dir="auto" reads
+          // a Hebrew local part as an RTL string and puts the domain on the left,
+          // which looks like corruption. Hebrew glyphs still shape RTL inside the run.
+          tdEmail.dir = 'ltr';
+          tdEmail.textContent = share.patientEmail || '—';
 
           const tdSync = document.createElement('td');
           tdSync.dataset.label = t('colSync');
@@ -737,7 +787,7 @@
           fillActions(actions, share, worklistState.act, worklistState.sponsorByPatient);
           tdAct.appendChild(actions);
 
-          tr.append(tdEmail, tdSync, tdSp, tdAct);
+          tr.append(tdName, tdEmail, tdSync, tdSp, tdAct);
           body.appendChild(tr);
         });
 
@@ -1143,16 +1193,35 @@
         });
       });
 
-      let searchTimer = null;
-      document.getElementById('worklist-search').addEventListener('input', (e) => {
-        const value = e.target.value;
-        clearTimeout(searchTimer);
-        searchTimer = setTimeout(() => {
-          worklistState.search = value;
+      function bindColumnFilter(inputId, clearId, stateKey) {
+        const input = document.getElementById(inputId);
+        const clearBtn = document.getElementById(clearId);
+        if (!input || !clearBtn) return;
+        let timer = null;
+        const syncClear = () => {
+          clearBtn.hidden = !input.value;
+        };
+        const apply = () => {
+          worklistState[stateKey] = input.value;
           worklistState.page = 0;
           renderWorklist();
-        }, 150);
-      });
+        };
+        input.addEventListener('input', () => {
+          syncClear();
+          clearTimeout(timer);
+          timer = setTimeout(apply, 0);
+        });
+        clearBtn.addEventListener('click', () => {
+          input.value = '';
+          syncClear();
+          clearTimeout(timer);
+          apply();
+          input.focus();
+        });
+        syncClear();
+      }
+      bindColumnFilter('filter-name', 'filter-name-clear', 'searchName');
+      bindColumnFilter('filter-email', 'filter-email-clear', 'searchEmail');
 
       document.getElementById('worklist-sort').addEventListener('change', (e) => {
         worklistState.sort = e.target.value;
