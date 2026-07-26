@@ -179,10 +179,6 @@ h3,
   border: 1px solid var(--grid);
   border-radius: 10px;
 }
-.ws-banner-fresh {
-  align-self: center;
-  margin-inline-end: 6px;
-}
 .ws-stat {
   display: flex;
   flex-direction: column;
@@ -192,7 +188,6 @@ h3,
   border-inline-start: 1px solid var(--grid);
 }
 .ws-stat:first-of-type { border-inline-start: none; }
-.ws-banner-fresh + .ws-stat { border-inline-start: 1px solid var(--grid); }
 .ws-stat-lbl {
   font-size: 0.65rem;
   font-weight: 700;

@@ -73,18 +73,6 @@
     return ['v' + blob.version, when, kb].filter(Boolean).join(' · ');
   }
 
-  function bodyScanFreshness(body) {
-    const iso = body?.measuredAt;
-    const t = Date.parse(iso);
-    if (!Number.isFinite(t)) {
-      return { label: 'No date', tone: 'off', title: '' };
-    }
-    const days = Math.floor((Date.now() - t) / 86400000);
-    const title = new Date(t).toLocaleString();
-    if (days <= 7) return { label: 'OK', tone: 'ok', title };
-    return { label: `Stale · ${days}d`, tone: 'soon', title };
-  }
-
   function fatPctFromBody(body) {
     if (!body) return null;
     if (body.fatPct != null && Number.isFinite(body.fatPct)) return body.fatPct;
@@ -1407,8 +1395,9 @@
       p.heightCm ? `${p.heightCm} cm` : null,
     ].filter(Boolean).join(' · ') || 'Profile incomplete';
     const fatPct = fatPctFromBody(body);
-    const freshness = bodyScanFreshness(body);
-    const freshClass = freshness.tone === 'ok' ? 'ok' : freshness.tone === 'soon' ? 'soon' : 'off';
+    const scanTitle = body?.measuredAt
+      ? `Measured ${new Date(body.measuredAt).toLocaleString()}`
+      : 'Body scan';
     const clinicRules = Boolean(ctx.overlay?.rules) && !ctx.selfView;
     const rulesLabel = n
       ? clinicRules
@@ -1448,8 +1437,7 @@
             <span class="ws-banner-sync" title="${esc(supportMetaTitle(ctx.blob))}">${esc(syncLabel)}</span>
           </div>
         </div>
-        <div class="ws-banner-stats" title="${esc(freshness.title || 'Body scan')}">
-          <span class="chip ${freshClass} ws-banner-fresh">${esc(body ? freshness.label : '—')}</span>
+        <div class="ws-banner-stats" title="${esc(scanTitle)}">
           ${stats}
         </div>
       </div>`;
