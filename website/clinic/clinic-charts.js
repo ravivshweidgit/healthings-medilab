@@ -37,6 +37,45 @@
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
+  /** Vendor-supplied text (workout names) is interpolated into SVG markup. */
+  function escapeXml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  /** Half a rendered label's width in SVG units, including a breathing gap. */
+  function labelHalfWidth(text, fontSize) {
+    return (String(text).length * fontSize * 0.55) / 2 + 3;
+  }
+
+  /**
+   * Keep the labels that fit on one baseline, biggest kcal first, and drop any that
+   * would overprint a label already placed. Returns them in left-to-right order.
+   * Dropped labels lose only text — the bar or ▼ they annotate stays drawn, and
+   * zooming in frees the room to bring them back.
+   */
+  function placeLabelsInLane(candidates, fontSize) {
+    const placed = [];
+    for (const c of [...candidates].sort((a, b) => b.kcal - a.kcal)) {
+      const halfW = labelHalfWidth(c.label, fontSize);
+      const clashes = placed.some(
+        (p) => Math.abs(p.x - c.x) < halfW + labelHalfWidth(p.label, fontSize),
+      );
+      if (!clashes) placed.push(c);
+    }
+    return placed.sort((a, b) => a.x - b.x);
+  }
+
+  /** Round tick step (1H → 6H → 12H → whole days) targeting ~7 ticks across the window. */
+  function computeTimeTickStepMs(spanMs) {
+    const H = 3600000;
+    const step = spanMs / 7;
+    if (step <= H) return H;
+    if (step <= 6 * H) return 6 * H;
+    if (step <= 12 * H) return 12 * H;
+    if (step <= MS_DAY) return MS_DAY;
+    return Math.ceil(step / MS_DAY) * MS_DAY;
+  }
+
   function computeBurnByDay(withings) {
     const fallbackBmr = withings?.bodyScan?.bmrKcalDay;
     const trend = withings?.bodyTrendDays || [];
@@ -276,11 +315,15 @@
     return v;
   }
 
-  function formatMetabolicAxisLabel(ms, spanMs) {
-    if (spanMs >= MS_DAY * 0.9) {
+  /**
+   * Time only unless the tick *step* is a day or more. Testing the whole window span
+   * instead printed "26 Jul" on every tick of a 24H view.
+   */
+  function formatMetabolicAxisLabel(ms, stepMs) {
+    if (stepMs >= MS_DAY * 0.9) {
       return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     }
-    return new Date(ms).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   }
 
   function drawMetabolicChart(host, data, ctx, onChange) {
@@ -309,7 +352,9 @@
     const bmrPerSlot = bmrDay > 0 ? bmrDay / 48 : null;
 
     const W = Math.max(320, host.clientWidth || 900);
-    const plotH = 273;
+    // Desktop has vertical room the phone does not; a 273px plot squeezed the whole
+    // 40–180 mg/dL range into a letterbox and flattened every excursion.
+    const plotH = 340;
     const axisH = 30;
     const H = plotH + axisH;
     const padL = 36;
@@ -317,7 +362,12 @@
     const padT = 12;
     const padB = 8;
     const calH = 42;
-    const dataH = plotH - padT - padB - calH;
+    // Workout names and meal kcal each own a baseline just above the calorie strip,
+    // so neither collides with the other and both sit next to what they annotate.
+    const workoutLaneH = 12;
+    const mealLaneH = 22;
+    const labelLaneH = workoutLaneH + mealLaneH;
+    const dataH = plotH - padT - padB - calH - labelLaneH;
     const innerW = W - padL - padR;
 
     let yMin = 50;
@@ -332,8 +382,11 @@
 
     const xOf = (t) => padL + ((t - t0) / (t1 - t0)) * innerW;
     const yOf = (v) => padT + dataH - ((v - yMin) / (yMax - yMin)) * dataH;
-    const calStripTop = padT + dataH;
+    const calStripTop = padT + dataH + labelLaneH;
     const calStripBottom = calStripTop + calH;
+    const mealTriangleY = calStripTop - 4;
+    const mealLabelY = calStripTop - 14;
+    const workoutLabelY = calStripTop - mealLaneH - 4;
 
     const passiveMap = new Map();
     for (const c of calories) {
@@ -402,18 +455,48 @@
     if (hPts.length > 1) svg += `<path d="${smoothPath(hPts)}" fill="none" stroke="${HR_RED}" stroke-width="2" opacity="0.95"/>`;
     if (gPts.length > 1) svg += `<path d="${smoothPath(gPts)}" fill="none" stroke="${GLUCOSE_GREEN}" stroke-width="2.2"/>`;
 
+    const mealLabels = placeLabelsInLane(
+      chartMeals
+        .filter((m) => m.totalKcal)
+        .map((m) => ({ x: xOf(m.timestamp), label: String(Math.round(m.totalKcal)), kcal: m.totalKcal })),
+      9,
+    );
     for (const m of chartMeals) {
       const x = xOf(m.timestamp);
-      svg += `<line x1="${x}" y1="${calStripTop - 18}" x2="${x}" y2="${calStripTop - 4}" stroke="${MEAL_ORANGE}" stroke-width="1.5" stroke-dasharray="3,2"/>`;
-      svg += `<text x="${x}" y="${calStripTop - 20}" fill="${MEAL_ORANGE}" font-size="10" text-anchor="middle">▼</text>`;
-      if (m.totalKcal) svg += `<text x="${x}" y="${padT + 8}" fill="${MEAL_ORANGE}" font-size="8" text-anchor="middle">${Math.round(m.totalKcal)}</text>`;
+      svg += `<text x="${x}" y="${mealTriangleY}" fill="${MEAL_ORANGE}" font-size="9" text-anchor="middle">▼</text>`;
+    }
+    for (const lbl of mealLabels) {
+      svg += `<text x="${lbl.x}" y="${mealLabelY}" fill="${MEAL_ORANGE}" font-size="9" text-anchor="middle">${escapeXml(lbl.label)}</text>`;
     }
 
-    for (let i = 0; i <= 4; i++) {
-      const t = t0 + (i / 4) * (t1 - t0);
+    const workoutLabels = placeLabelsInLane(
+      workouts
+        .filter((w) => w.kcal > 0)
+        .map((w) => {
+          const label = `${w.activityLabel || 'Workout'} ${Math.round(w.kcal)} kcal`;
+          const halfW = labelHalfWidth(label, 8);
+          const mid = xOf((Math.max(w.startMs, t0) + Math.min(w.endMs, t1)) / 2);
+          // A session at either edge would otherwise run its name off the canvas.
+          const x = Math.min(Math.max(mid, padL + halfW), W - padR - halfW);
+          return { x, label, kcal: w.kcal };
+        }),
+      8,
+    );
+    for (const lbl of workoutLabels) {
+      svg += `<text x="${lbl.x}" y="${workoutLabelY}" fill="${CAL_WORKOUT}" font-size="8" font-weight="600" text-anchor="middle">${escapeXml(lbl.label)}</text>`;
+    }
+
+    const tickStepMs = computeTimeTickStepMs(preset.ms);
+    let labelRightEdge = -Infinity;
+    for (let t = Math.ceil(t0 / tickStepMs) * tickStepMs, i = 0; t <= t1 && i < 32; t += tickStepMs, i += 1) {
       const x = xOf(t);
-      const lbl = formatMetabolicAxisLabel(t, preset.ms);
+      if (x < padL - 1 || x > W - padR + 1) continue;
       svg += `<line x1="${x}" y1="${plotH - 8}" x2="${x}" y2="${plotH - 2}" stroke="#999" stroke-width="1"/>`;
+      const lbl = formatMetabolicAxisLabel(t, tickStepMs);
+      const halfW = labelHalfWidth(lbl, 9);
+      // Tick marks all stay; only the text thins out, so dropped ones read as minor gridlines.
+      if (x - halfW < labelRightEdge) continue;
+      labelRightEdge = x + halfW;
       svg += `<text x="${x}" y="${H - 6}" font-size="9" fill="#7c7c7c" text-anchor="middle">${lbl}</text>`;
     }
     svg += '</svg>';
@@ -473,6 +556,8 @@
   const TREND_PAD_TOP = 4;
   const TREND_STRIP_H = 46;
   const TREND_STRIP_GAP = 5;
+  /** Caption band above each strip (WEIGHT / FAT-MUSCLE / VISCERAL). */
+  const TREND_TITLE_H = 11;
   const TREND_AXIS_BOTTOM = 22;
   const DELTA_FALLBACK_HALF_SPAN_KG = 0.5;
 
@@ -732,9 +817,10 @@
   function drawTrendAnalysis(host, allDays, sessions, periodDays, availableDays, onPeriodChange, opts) {
     const fill = opts?.fillHeight !== false;
     const stripH = fill
-      ? resolveStripHeight(3, TREND_STRIP_H, 175)
+      ? resolveStripHeight(3, TREND_STRIP_H, 175 + 3 * TREND_TITLE_H)
       : TREND_STRIP_H * (opts?.tall ? 2 : 1);
-    const stripTopAt = (index) => TREND_PAD_TOP + index * (stripH + TREND_STRIP_GAP);
+    const stripTopAt = (index) =>
+      TREND_PAD_TOP + TREND_TITLE_H + index * (stripH + TREND_STRIP_GAP + TREND_TITLE_H);
     const period = periodDays || DEFAULT_TREND_PERIOD;
     const avail = availableDays ?? (allDays || []).length;
     const slice = trendWindowSlice(allDays, period);
@@ -836,6 +922,17 @@
     const visceralWeekTrend = resolveVisceralWeekTrend(slice);
 
     let svg = `<svg class="trend-svg" viewBox="0 0 ${W} ${svgH}" width="100%" height="${svgH}">`;
+    // Three unrelated scales share one 36px gutter. Without a caption per band the
+    // numbers read as a single collapsing column and no one can tell kg from Δkg.
+    for (const s of [
+      { i: 0, label: 'WEIGHT', color: TREND_BLUE },
+      { i: 1, label: 'FAT / MUSCLE (Δ)', color: TREND_MUTED },
+      { i: 2, label: 'VISCERAL', color: TREND_VISCERAL },
+    ]) {
+      const bandTop = stripTopAt(s.i) - TREND_TITLE_H;
+      svg += `<line x1="${plotLeft}" y1="${bandTop}" x2="${W - TREND_PAD_R}" y2="${bandTop}" stroke="${TREND_GRID}" stroke-width="1" opacity="0.6"/>`;
+      svg += `<text x="${plotLeft + 2}" y="${bandTop + 9}" font-size="8" font-weight="700" fill="${s.color}">${s.label}</text>`;
+    }
     for (const g of [...gridW, ...gridFM, ...gridV]) {
       svg += `<line x1="${plotLeft}" y1="${g.y}" x2="${W - TREND_PAD_R}" y2="${g.y}" stroke="${TREND_GRID}" stroke-width="1" opacity="${g.opacity}"/>`;
     }

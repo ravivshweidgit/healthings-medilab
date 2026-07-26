@@ -172,12 +172,47 @@ ladder and **drop only the sub-6H chips**, defaulting to **24H**. A clinician zo
 2H is doing something the phone is better at; a clinician comparing 16D to 32D is doing
 the job. Same reasoning leaves the trend chips (8D…128D) alone.
 
+### P15 — chart legibility parity with the app (added after owner screenshot review)
+
+Four defects found by diffing a live 24H portal view against the same window on the phone.
+All four are portal-only; the app already does the right thing, so **copy its behaviour**
+rather than inventing one.
+
+1. **The x-axis printed dates where it owed times.** `formatMetabolicAxisLabel` switched to
+   a date label at `spanMs >= MS_DAY * 0.9`, and the caller passed `preset.ms` — the *whole
+   window*. At 24H that is exactly one day, so all five ticks rendered "26 Jul". The app
+   applies the same threshold to the per-tick **step** (`MetabolicChart.tsx:443-448`). Fix
+   the argument, and while there adopt the app's round-step ladder
+   (`computeTimeTickStepMs`, 1H → 6H → 12H → whole days) instead of five ticks at
+   `t0 + i/4 × span`, which landed labels on arbitrary minutes.
+2. **The trend chart had no strip captions.** Three unrelated scales (kg, Δkg, index) wrote
+   into one 36 px gutter, so `80.9 / 78.9 / 76.9`, `+2.5 / −1.1 / −4.7` and `3.8 / 3.4 / 3.0`
+   collapsed into an unreadable column. The app reserves a caption band per strip —
+   WEIGHT, FAT / MUSCLE (Δ), VISCERAL (`MetabolicTrendChart7d.tsx:649-672`). Add the band
+   and charge it to the chrome budget in `resolveStripHeight` so total height is unchanged.
+3. **Workout bars were unlabelled.** The app names them ("Indoor Biking 303 kcal"); the
+   portal drew bare blue bars, so the two tallest spikes in the calorie strip had no
+   explanation. `metricsStore.workouts` already carries `activityLabel` — it is vendor text,
+   so escape it before it reaches SVG markup.
+4. **Meal kcal was pinned to the plot ceiling** while its ▼ marker sat ~250 px below at the
+   calorie strip, leaving bare numbers floating at the top. Give meals and workouts one
+   baseline each just above the strip, and thin each lane largest-kcal-first so a label
+   never overprints a bigger neighbour (`placeLabelsInLane`, mirrors `MetabolicChart.tsx:75`).
+
+Also raise the metabolic plot from 273 px to 340 px. That height came from the phone; on
+desktop it squeezed 40–180 mg/dL into a letterbox and flattened every excursion.
+
+**Open, not fixed here:** portal 32D energy averages disagree with the app on the same
+window (activity 754 vs 696 kcal, total burn 2,599 vs 2,542, balance −923 vs −865). Most
+likely the snapshot lags the live app by a partial day, but a clinician quoting a different
+average than the patient sees is a credibility problem. Confirm before closing this batch.
+
 ## Files to touch
 
 - `website/clinic/patient.html` — header, banner mount, meta copy
 - `website/clinic/clinic-workspace.js` — labels, tab list, grid markup, inline styles
 - `website/clinic/clinic-workspace.css` — remove per-tab caps + dead rules, add grid + banner
-- `website/clinic/clinic-charts.js` — range chip set only
+- `website/clinic/clinic-charts.js` — range chip set, axis ticks, strip captions, label lanes
 - **Delete** `website/clinic/clinic-dashboard.js`, `website/clinic/clinic-dashboard.css`
 - Bump `?v=` on every asset touched, both `patient.html` and `index.html` if shared
 
@@ -208,6 +243,10 @@ too — check it, do not break it.
 - [x] `clinic-dashboard.{js,css}` deleted and the landing phone frame still renders
 - [x] Withings badge reflects measurement age; no unconditional green
 - [x] Chat and rules failures show inline, keep the typed text, and offer retry
+- [x] 6H/12H/24H axes read as times; 2D and up read as dates
+- [x] Trend chart shows WEIGHT / FAT / MUSCLE (Δ) / VISCERAL captions at unchanged total height
+- [x] Workout bars carry their activity name and kcal; meal kcal sits beside its ▼
+- [ ] Portal 32D energy averages reconciled against the app — **owner smoke**
 - [ ] No regression: rules save + sync, chat send, snapshot refresh, meal modal — **owner smoke**
 - [ ] `/account/` self-view renders every touched tab — **owner smoke**
 
