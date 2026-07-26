@@ -1,8 +1,28 @@
 # be-22 — Clinic portal visual rebuild (2026 level)
 
-Status: ready
+Status: **ready, rescoped 2026-07-26** — be-25 absorbed most of this batch. What is left: **money-led balance**, **skeletons**, and **`patient.html` + `clinic-workspace.css` tokens/dark**. Do not re-do the home page.
 Date: 2026-07-26
-Builds on: be-10 (tokens), be-16 (visual direction), be-14 (workspace chrome + skeleton), be-21 (action feedback — must not regress)
+Builds on: be-10 (tokens), be-16 (visual direction), be-14 (workspace chrome + skeleton), be-21 (action feedback — must not regress), **be-25 (panel IA, home-page tokens, dark, i18n plumbing)**
+
+## What be-25 already did (do not repeat)
+
+be-25 rewrote `website/clinic/index.html` and created `clinic-portal.css` from scratch. Because it was
+authoring the CSS anyway, tokenizing it there was free, so five of this batch's six problems are
+closed:
+
+| Was in be-22 | Status |
+|---|---|
+| 1. Alpha billing scaffolding on screen | **Done** — behind `?dev=1` (`sessionStorage` keeps it across reload) |
+| 2. Zero tokens, no dark mode (home page) | **Done** — `var(--…)` only, `<html class="theme-auto">`, verified dark by CDP screenshot |
+| 3. Eight cards in a 720px column | **Done** — worklist table first, My clinic collapsed, shell widened to `--wrap-wide` |
+| 4. Revoke is the loudest control | **Done** — `Open workspace` is the only filled control; revoke is outline + `--portal-err-ink` |
+| 6. No patient search | **Done** — search + status chips + three sorts + 25/page |
+| 5. **No skeleton** | **Still open** — this batch |
+| 6b. **Raw token counts as the unit** | **Still open** — this batch, and it is the interesting part |
+
+Also settled by be-25, against this batch's earlier assumption: the portal is **localized**, and
+`--danger` cannot be used for text on dark because `tokens.css` does not flip it (use
+`--portal-err-ink`).
 
 ## Problem
 
@@ -13,8 +33,8 @@ deployed. What remains is that **the portal never received the design system.** 
 | File | `var(--…)` uses | Hardcoded hex | Opts into dark |
 |---|---|---|---|
 | `website/index.html` + `styles.css` | many | — | yes (`class="theme-auto"`) |
-| `website/clinic/clinic-workspace.css` | 135 | 59 | no |
-| **`website/clinic/index.html`** | **0** | **36** | **no** |
+| `website/clinic/clinic-workspace.css` | 135 | 59 | no ← **this batch** |
+| `website/clinic/index.html` + `clinic-portal.css` | tokens only | status tints only, commented | yes (be-25) |
 
 `tokens.css` says why, in its own comment: dark mode is opt-in *because* "the clinic portal and the
 patient workspace … still carry hardcoded light surfaces — flipping tokens globally would darken a
@@ -36,25 +56,27 @@ Six problems, in descending order of how much they cost the product:
    until every one of six requests resolves. There is no way to find a patient in a long list.
 6. **Raw token counts as the clinician-facing unit.** "Balance: 120 tokens", "480 tokens · 12 events".
 
-## Scope
+## Scope (rescoped)
 
-- `website/clinic/index.html` — the whole batch.
-- New `website/clinic/clinic-portal.css` if the inline `<style>` exceeds roughly 200 lines after
-  migration. Extracting is preferred, because `patient.html` should eventually share it.
-- **Off-limits:** `clinic-workspace.js`, `clinic-api.js`. One additive server field only — see the
-  "credits" reversal below; `/v1/wallet` must expose the pack price so the page can show money without
-  hardcoding a rate. No schema change, no new query, no other server edit.
-- **`patient.html` is out of scope.** It still has 59 hardcoded hex values of its own; opting it into
-  dark is a follow-up, and mixing it in here makes the diff unreviewable.
+- `website/clinic/patient.html` + `clinic-workspace.css` — migrate 59 hex values to tokens, then opt
+  into `theme-auto`. This is now the **main** job: it is the last light-only surface.
+- `website/clinic/index.html` — **balance display only** (money-led headline). Do not restructure it
+  again; be-25's IA is accepted.
+- `website/clinic/clinic-portal.css` — reuse it for `patient.html`; that was always the intent behind
+  extracting it.
+- Skeleton loading states (be-14 reuse) on both pages.
+- **Off-limits:** `clinic-workspace.js` behaviour, `clinic-api.js`, `clinic-i18n.js` locale tables
+  (be-26). One additive server field only — see the "credits" reversal below; `/v1/wallet` must expose
+  the pack price so the page can show money without hardcoding a rate. No schema change, no new query.
 
 ## Decisions (settled — do not reopen)
 
 | Question | Decision | Why |
 |---|---|---|
-| Alpha billing controls | **Hide behind a dev flag.** Show the balance only | Owner's call, 2026-07-26. The controls are real and still needed for alpha testing — deleting them costs a workflow, hiding them costs nothing |
+| Alpha billing controls | **Hide behind a dev flag.** Show the balance only | Owner's call, 2026-07-26. The controls are real and still needed for alpha testing — deleting them costs a workflow, hiding them costs nothing. **Shipped in be-25** |
 | Clinician-facing unit | **Keep "tokens". Show money as the headline instead** | Reversed 2026-07-26 after reading `config.ts`. See below — "credit" is already taken, and the real defect is a missing denominator, not the word |
 | `window.confirm` for revoke | **Keep** | be-21's reasoning stands: destructive, accessible by default, unambiguous. A custom dialog is cost without benefit here |
-| Clinic portal i18n | **Out of scope** — English | `language-policy.mdc`: the clinic portal is a clinician tool and stays English |
+| Clinic portal i18n | **Reversed 2026-07-26 — the portal is localized** | Owner: "we are global, global for clinics." Plumbing in be-25, locales in be-26. Any string this batch adds must go through `t()`, never inline English |
 | Portal spacing | **Inherit colour / type / radius / shadow tokens; define a portal-local spacing scale** | Standard design-system practice — tokens are brand primitives and must be consistent; density is a per-surface decision. A marketing page optimizes a first impression, an operational tool optimizes scanning and repeat use. `--tap-min: 44px` is an accessibility floor and outranks density |
 
 ### Why not "credits" (reversal, with the evidence)
@@ -95,7 +117,11 @@ hardcode $0.05 in the page; the rate is configuration and will move.
 
 ## What to build
 
-### 1. Gate the alpha controls
+> Sections 1, 2 (home page), 3, 4 and 6 below **shipped in be-25**. They are kept for their reasoning
+> and for the `patient.html` migration, which still needs the same token mapping and the same
+> chip-in-dark care. Read them as reference, not as a task list.
+
+### 1. Gate the alpha controls — DONE (be-25)
 
 ```js
 // Alpha billing controls are real and still needed for testing, but a clinician
@@ -114,64 +140,71 @@ const DEV_TOOLS =
 - `?dev=1` must survive a reload, hence the `localStorage` arm. Set it when the query param is present.
 - be-21's flash confirmations for these two buttons stay exactly as they are.
 
-### 2. Migrate to tokens, then opt into dark
+### 2. Migrate to tokens, then opt into dark — home page DONE (be-25); apply this mapping to `patient.html`
 
-Replace all 36 hex values with the `tokens.css` equivalents. The mapping is not guesswork:
+Replace the 59 hex values in `clinic-workspace.css` with `tokens.css` equivalents. The mapping is not
+guesswork, and be-25 already validated it on the home page:
 
 | Current | Token | Note |
 |---|---|---|
 | `#1a2b4a` | `var(--navy)` on headings, `var(--text)` on body | These diverge in dark — get it right per use |
 | `#dde3ea`, `#eef2f6` | `var(--line)` | |
 | `#666` | `var(--muted)` | |
-| `#c62828`, `#c0392b` | `var(--danger)` | |
+| `#c62828`, `#c0392b` | `var(--danger)` for **fills**; a flipping ink token for **text** | be-25's finding: `--danger` does not flip in `tokens.css`, so as text on a dark surface it lands near 3:1. Reuse `--portal-err-ink` from `clinic-portal.css` |
 | `#fff` on surfaces | `var(--surface)` | Inputs and selects too |
 | `#f8f9fa` | `var(--surface-2)` | |
 | `#3d9dd6` link text | `var(--accent-ink)` | be-10's review: `--accent` is 3.0:1 and fails AA as text |
 
 be-21's status chips (`.chip.ok/.soon/.off/.gone`) are the one place to be careful — they are tinted
-fills with matching ink, and the light tints (`#ecfdf3`, `#fffbeb`) go muddy on a dark surface. Give
-them dark-scheme values inside the `.theme-auto` block rather than mapping them to existing tokens.
+fills with matching ink, and the light tints (`#ecfdf3`, `#fffbeb`) go muddy on a dark surface. be-25
+solved this with portal-local `--portal-{ok,warn,err,neutral}-{bg,line,ink}` triples redeclared under
+`.theme-auto`. **Reuse those variables** rather than inventing a second set for the workspace.
 
 Add `class="theme-auto"` to `<html>` **only after** verifying every state in dark: all four chip
 states, all three `.portal-status` kinds, the inline sponsor picker, focus rings, and both `<input>`
-and `<select>`. A control that stays white in dark is worse than no dark mode.
+and `<select>`. A control that stays white in dark is worse than no dark mode. Emulate with
+`Emulation.setEmulatedMedia` `prefers-color-scheme: dark` rather than switching the OS.
 
-### 3. Layout
+### 3. Layout — superseded by be-25
 
-Two columns at ≥ 900px, single column below:
+This batch proposed two columns with patients in the main column and invite in a sidebar. **be-25 went
+further and better:** one worklist table, invite as a strip above it, clinic identity collapsed. The
+sidebar concern below ("does the sidebar bury the invite form?") is moot — there is no sidebar.
 
-- **Main:** Linked patients, Pending requests, Outgoing invites — in that order. Patients first.
-- **Sidebar:** clinic identity, invite form, AI credits, AI usage.
-
-Give the page a real heading and the be-16 site nav rather than the lone `← Patient download` link.
-Section counts from be-21 stay.
-
-### 4. Row hierarchy
+### 4. Row hierarchy — DONE (be-25)
 
 `Open workspace` is the primary action and should be the only filled control on the row. `Revoke
 access` becomes quiet — outline or text, `var(--danger)` ink, no red fill. Keep the danger colour;
 drop the visual weight. Sponsorship controls stay secondary.
 
-Keep be-21's `.share-row` column layout. It exists because `space-between` + `flex-wrap` made the
-action group start at a different x for every patient — do not revert it while reorganizing.
+be-21's `.share-row` column layout is gone — be-25 replaced it with a table, which solves the same
+problem (a shared column grid) structurally. The underlying rule still holds for the workspace: an
+action group must start at the same x on every row.
 
-### 5. Skeleton and empty states
+### 5. Skeleton and empty states — **still open, this batch**
 
 Reuse be-14's skeleton, including the lesson its review paid for: **hide the skeleton on every error
 path**, not just on success. A clinician with no patients yet must not see an empty list over an
 endless shimmer with a stale `aria-busy`. Honour `prefers-reduced-motion`.
 
-Empty states get a next action, not bare muted text — "No linked patients yet. Invite one above."
+Empty states get a next action, not bare muted text — be-25 already does this per filter
+("No linked patients yet — invite someone above.").
 
-### 6. Patient search
+The gap be-25 left: the worklist renders **nothing** until all six requests resolve. A skeleton of ~5
+table rows belongs there, and one on the workspace.
 
-A filter input above Linked patients, shown only at ≥ 8 rows, matching on email, client-side. Clear on
-Escape. It must not fight the be-21 flash region for focus.
+### 6. Patient search — DONE (be-25)
+
+Shipped as always-visible search plus status chips and sorts, rather than appearing at ≥ 8 rows.
+Conditional visibility was dropped deliberately: a control that appears at row 8 teaches the clinician
+it does not exist when they have 7 patients.
 
 ## Must not regress
 
-be-21 shipped hours before this and is verified live. Re-run `tmp/be-21-review/probe-portal.mjs`
-unchanged — **57/57 is a gate on this batch, not a historical record.** Specifically preserve:
+be-21's behaviours survived be-25's rewrite and must survive this one. The original probe lived in
+`tmp/be-21-review/probe-portal.mjs` and is **not in the repo** — be-25 verified equivalently by CDP
+against a stubbed API, which is the pattern to follow (see be-25's Review section for the
+`Page.addScriptToEvaluateOnNewDocument` + `Page.enable` gotcha). Specifically preserve:
 
 - `sponsorChip()` text in all four states, and `daysUntil()`'s local-midnight comparison
 - `withBusy()`: label, `aria-busy`, whole-group disable, and that a second click sends zero requests
@@ -187,19 +220,19 @@ Extend the probe with dark-mode assertions: computed `background-color` of `.car
 
 ## Acceptance criteria
 
-- [ ] No occurrence of "alpha", "Stripe", "simulate" or "test card" in what a clinician sees without `?dev=1`
-- [ ] `?dev=1` restores both controls and survives a reload
-- [ ] Zero hardcoded hex in the file (chip dark values excepted, and commented as to why)
-- [ ] `class="theme-auto"` present, and every state above verified in both schemes by screenshot
-- [ ] Two-column at 1280px, single column at 390px, no horizontal overflow at 390px
-- [ ] `Open workspace` is the only filled control on an approved row
-- [ ] Skeleton clears on success **and** on both error paths
-- [ ] Filter appears at ≥ 8 patients, absent below
+- [x] No occurrence of "alpha", "Stripe", "simulate" or "test card" without `?dev=1` — be-25
+- [x] `?dev=1` restores both controls and survives a reload — be-25
+- [x] Home page: zero hardcoded hex, `class="theme-auto"`, dark verified by screenshot — be-25
+- [x] `Open workspace` is the only filled control on an approved row — be-25
+- [ ] **`patient.html` / `clinic-workspace.css`:** zero hardcoded hex (status tints excepted and
+      commented), `theme-auto` on, every state screenshotted in both schemes
+- [ ] No horizontal overflow at 390px on the workspace
+- [ ] Skeleton clears on success **and** on both error paths, on worklist and workspace
 - [ ] Balance leads with currency from `tokenPackPriceCents`, with the token count as secondary; no
-      hardcoded rate, formatted via `Intl.NumberFormat`
+      hardcoded rate, formatted via `Intl.NumberFormat` **with the portal locale** (be-25 ships one)
 - [ ] Usage section states tokens per conversation from `totalTokens / eventCount`, and does not
       divide by zero when `eventCount` is 0
-- [ ] `probe-portal.mjs` still 57/57, plus the new dark assertions
+- [ ] Any new string goes through `t()` with a key added to `clinic-i18n.js` — no inline English
 - [ ] Lighthouse mobile accessibility 100
 
 ## Review by Opus 5
@@ -210,16 +243,20 @@ Checkboxes cannot settle these:
   the more it implies billing works. Stripe is not wired — `TOKEN_PACK_PRICE_CENTS` is a configured
   rate, not a charge that has ever happened. If `$6.00` reads as a real account balance, it may need a
   qualifier the owner is comfortable with.
-- **Does the sidebar bury the invite form?** Inviting is how a clinic starts. If it moves to a sidebar
-  and adoption drops, the layout is wrong.
 - **Is a quiet Revoke too quiet?** It is a consent action with a real consequence — be-17's purge.
   Confirm it still reads as consequential, and that the confirm dialog carries the weight the button
-  gave up.
+  gave up. be-25 made it outline-only, so this question is now live rather than hypothetical.
+- **Does a dark clinician tool help or hurt in a clinic?** Exam rooms are bright and many clinicians
+  work off a shared machine whose OS theme they did not choose. `theme-auto` follows the OS with no
+  override. If clinicians want to pin light, that is a small addition to the be-25 picker row.
 
 ## Related
 
 - be-21 — action feedback and sponsorship chips; this batch must preserve all of it
+- be-25 — took over the home page: IA, tokens, dark, alpha gating, search, i18n plumbing
+- be-26 — locale tables; keep new strings keyed so they are translatable
 - be-14 — workspace chrome, skeleton, and the error-path lesson
 - be-16 — the visual direction being adopted; also the source of the site nav
 - be-17 — the purge that revoke confirms
-- `tokens.css` — its dark-mode comment names this page as the reason dark is opt-in
+- `tokens.css` — its dark-mode comment named the portal home as the reason dark is opt-in; that half
+  is now verified, `patient.html` is the remaining half

@@ -12,7 +12,7 @@ alwaysApply: true
 | **Language gate + Quick Start** | **`appLocale`** (`userLanguage`) | Wizard copy, units row labels, help `?` → `/{lang}/help/` |
 | **Dashboard chrome** | **`appLocale`** | Strip titles, Food Log, Profile nested labels, status/ago, dates |
 | **Coach & meals & exports** | **`appLocale`** | Gemini chat, meal `name_local`, visit reports |
-| **Clinic portal UI** | **English** | Clinician tool |
+| **Clinic portal UI** | **`clinicLocale`** (10 languages, be-26) | Global clinics — reversed 2026-07-26 |
 | **Website help** | **Path locale** | `https://healthings.ai/{en\|he\|es\|fr\|de\|ar\|ru}/help/…` |
 
 ## Always-English glossary
@@ -31,6 +31,52 @@ Hebrew/Arabic: RTL for Quick Start and user-content areas (chat, meals, exports)
 
 Chat slash commands and natural-language triggers may stay multilingual (`chatIntent.ts`).
 
+## Clinic portal (Phase C — triggered 2026-07-26)
+
+Owner decision: **Healthings is global, and so is the clinic product.** English-only was a
+clinician-tool assumption; a clinic in Madrid or Tel Aviv is exactly the customer. The portal ships
+the **same 10 languages as the app** (`en he es fr de ar ru pt it tr` — `SUPPORTED_LANGUAGES`), not
+the 8 the help site carries.
+
+### Locale is per account, never per link
+
+**A patient reading Hebrew may be treated by a clinic reading English.** `appLocale` and
+`clinicLocale` are independent; neither side's choice changes the other's UI. Do not derive one from
+the other, and do not store a language on `account_shares`.
+
+| Layer | Language |
+|----|----|
+| Portal chrome (login, worklist, actions, flash) | `clinicLocale` |
+| Clinical vocabulary in the workspace | `clinicLocale`; keep the always-English glossary |
+| Patient-authored content (meal names, rules text, chat) | **Unchanged** — shown as the patient wrote it |
+
+Because the two mix on one screen, patient-authored text needs an explicit `dir`, and **which one
+depends on the field**:
+
+| Content | `dir` | Why |
+|----|----|----|
+| Free-form prose — meal names, patient rules, chat | `auto` | Let the first strong character pick the base direction |
+| **Email addresses**, URLs, IDs, numbers+units | **`ltr`** | The syntax is LTR |
+
+`dir="auto"` on `דנה.לוי@example.co.il` resolves the whole string to RTL and paints the domain to the
+*left* of the local part — it reads as corrupted data, not as Hebrew. `dir="ltr"` keeps `local@domain`
+in order while the Hebrew run still shapes right-to-left inside it. Verified in the be-25 RTL probe.
+
+### Portal RTL and copy storage
+
+Hebrew/Arabic get `dir="rtl"` on the portal, which is new: the app defers full chrome RTL, the portal
+does not, because a table flips cleanly where the dashboard strip does not.
+
+Copy lives in a catalog keyed by locale — same shape as `app/src/i18n/*Copy.ts` and
+`HELP_LOCALES` — never inline strings in the page.
+
+### Clinic-written text reaching a patient in another language — open
+
+An English clinic's `rules_json` reaches a Hebrew patient verbatim through `pullClinicOverlays`.
+A string catalog cannot fix this: translating a clinical directive is **Gemini judgment**
+(`ai-judgment-not-regex.mdc`), not a lookup. Needs an owner decision — original, translation, or
+both — and its own batch. Do not silently machine-translate a dietary instruction.
+
 ## When to revisit
 
-Clinic portal i18n (Phase C) if clinicians need non-English UI. Full chrome RTL if Hebrew/Arabic users need mirrored strip layout.
+Full app chrome RTL if Hebrew/Arabic users need mirrored strip layout.

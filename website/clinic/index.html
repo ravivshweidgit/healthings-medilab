@@ -1,166 +1,297 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="theme-auto">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Healthings — Clinic portal</title>
     <link rel="icon" href="../assets/icon.png" type="image/png" />
-    <link rel="stylesheet" href="../tokens.css?v=20260726e" />
-    <link rel="stylesheet" href="../styles.css?v=20260726e" />
-    <style>
-      .portal-wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
-      .portal-card { margin-bottom: 16px; }
-      .portal-input {
-        width: 100%; box-sizing: border-box; padding: 10px 12px; margin: 8px 0;
-        border: 1px solid #dde3ea; border-radius: 8px; font-size: 15px;
-      }
-      .portal-btn {
-        display: inline-block; margin-top: 8px; padding: 10px 16px; border-radius: 8px;
-        background: #1a2b4a; color: #fff; font-weight: 700; border: none; cursor: pointer;
-        min-height: 44px;
-      }
-      .portal-btn:disabled { opacity: 0.55; cursor: wait; }
-      .portal-btn.secondary { background: #fff; color: #444; border: 1px solid #dde3ea; margin-left: 8px; }
-      .portal-btn.danger { background: #c62828; }
-      .invite-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
-      .invite-actions .portal-btn { margin-top: 0; }
-      .portal-select {
-        padding: 9px 10px; border: 1px solid #dde3ea; border-radius: 8px;
-        font-size: 14px; min-height: 44px; background: #fff;
-      }
-      /* Sticky so a confirmation is visible even when the button was far down. */
-      #app-flash { position: sticky; top: 8px; z-index: 5; margin: 0 0 16px; }
-      .row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-      .row-actions .portal-btn { margin-top: 0; margin-left: 0; }
-      .sponsor-form {
-        display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
-        padding: 8px; border: 1px dashed #cfd8e3; border-radius: 8px;
-      }
-      .count-badge { color: #666; font-weight: 400; font-size: 0.9rem; }
-      .chip {
-        display: inline-block; padding: 2px 8px; border-radius: 999px;
-        font-size: 0.78rem; font-weight: 700; border: 1px solid transparent;
-        white-space: nowrap;
-      }
-      .chip.ok { color: #14532d; background: #ecfdf3; border-color: #bbf7d0; }
-      .chip.soon { color: #854d0e; background: #fffbeb; border-color: #fde68a; }
-      .chip.off { color: #6b7280; background: #f3f4f6; border-color: #e5e7eb; }
-      .chip.gone { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
-      .portal-status {
-        margin: 10px 0 0; padding: 10px 12px; border-radius: 8px; font-size: 0.9rem;
-        line-height: 1.45; border: 1px solid transparent;
-      }
-      .portal-status[hidden] { display: none !important; }
-      .portal-status.ok {
-        color: #14532d; background: #ecfdf3; border-color: #bbf7d0;
-      }
-      .portal-status.warn {
-        color: #854d0e; background: #fffbeb; border-color: #fde68a;
-      }
-      .portal-status.err {
-        color: #991b1b; background: #fef2f2; border-color: #fecaca;
-      }
-      /* Stacked rather than label-left / actions-right: with three buttons per
-         patient, space-between wrapped unpredictably and left the action rows
-         ragged from one patient to the next. */
-      .share-row {
-        border: 1px solid #eef2f6; border-radius: 8px; padding: 12px; margin-top: 10px;
-        display: flex; flex-direction: column; gap: 10px; align-items: stretch;
-      }
-      .muted { color: #666; font-size: 0.9rem; }
-      .error { color: #c0392b; font-size: 0.9rem; margin-top: 8px; }
-      .top-links { margin-bottom: 16px; font-size: 0.9rem; }
-      .top-links a { color: #3d9dd6; }
-      #app-view { display: none; }
-    </style>
+    <link rel="stylesheet" href="../tokens.css?v=20260726g" />
+    <link rel="stylesheet" href="../styles.css?v=20260726g" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260726g" />
   </head>
   <body>
     <div class="portal-wrap">
-      <p class="top-links"><a href="../index.html">← Patient download</a></p>
+      <section id="login-view" class="card login-card">
+        <a class="panel-brand" href="../index.html" style="margin-bottom: 16px">
+          <img src="../assets/icon.png" alt="" width="36" height="36" />
+          <span>
+            <span class="panel-brand-text" data-i18n="brand">Healthings</span><br />
+            <span class="panel-brand-sub" data-i18n="brandSub">Clinic</span>
+          </span>
+        </a>
+        <h1 data-i18n="loginTitle">Clinic portal</h1>
+        <p class="muted" data-i18n="loginLead">Sign in with your clinic account (email code).</p>
 
-      <section id="login-view" class="card portal-card">
-        <h1>Clinic portal</h1>
-        <p class="muted">Sign in with your mentor / clinic account (email OTP).</p>
-        <div id="login-step-email">
-          <input id="email" class="portal-input" type="email" placeholder="clinic@example.com" autocomplete="email" />
-          <button id="send-code" class="portal-btn" type="button">Send code</button>
-        </div>
-        <div id="login-step-code" hidden>
-          <p class="muted">Code sent to <span id="email-display"></span></p>
-          <input id="code" class="portal-input" type="text" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code" />
-          <button id="verify-code" class="portal-btn" type="button">Sign in</button>
-          <button id="change-email" class="portal-btn secondary" type="button">Change email</button>
-        </div>
+        <form id="login-form-email">
+          <label class="field-label" for="email" data-i18n="emailLabel">Email</label>
+          <input
+            id="email"
+            class="portal-input"
+            type="email"
+            name="email"
+            dir="ltr"
+            autocomplete="email"
+            required
+          />
+          <button id="send-code" class="portal-btn" type="submit" data-i18n="sendCode">Send code</button>
+        </form>
+
+        <form id="login-form-code" hidden>
+          <p class="muted">
+            <span data-i18n="codeSentTo">Code sent to</span> <span id="email-display" dir="ltr"></span>
+          </p>
+          <label class="field-label" for="code" data-i18n="codeLabel">One-time code</label>
+          <input
+            id="code"
+            class="portal-input"
+            type="text"
+            name="code"
+            dir="ltr"
+            inputmode="numeric"
+            maxlength="6"
+            autocomplete="one-time-code"
+            required
+          />
+          <button id="verify-code" class="portal-btn" type="submit" data-i18n="signIn">Sign in</button>
+          <button id="change-email" class="portal-btn secondary" type="button" data-i18n="changeEmail">
+            Change email
+          </button>
+        </form>
+
         <p id="login-error" class="error" role="alert" hidden></p>
+
+        <label class="field-label" for="locale-login" data-i18n="languageLabel">Portal language</label>
+        <select id="locale-login" class="portal-select" data-locale-picker></select>
       </section>
 
-      <section id="app-view">
+      <section id="app-view" hidden>
+        <header class="panel-header">
+          <a class="panel-brand" href="../index.html">
+            <img src="../assets/icon.png" alt="" width="36" height="36" />
+            <span>
+              <span class="panel-brand-text" data-i18n="brand">Healthings</span><br />
+              <span class="panel-brand-sub" data-i18n="brandSub">Clinic</span>
+            </span>
+          </a>
+          <div class="panel-header-meta">
+            <span class="muted" id="header-email" dir="ltr"></span>
+            <span class="balance-chip" id="balance-chip">—</span>
+            <select
+              id="locale-app"
+              class="portal-select"
+              data-locale-picker
+              data-i18n-aria="languageLabel"
+            ></select>
+            <button id="logout" class="portal-btn secondary" type="button" data-i18n="signOut">
+              Sign out
+            </button>
+          </div>
+        </header>
+
         <p id="app-flash" class="portal-status" role="status" aria-live="polite" hidden></p>
 
-        <div class="card portal-card">
-          <h2>My clinic</h2>
-          <p class="muted">Signed in as <strong id="user-email"></strong></p>
-          <label class="muted" for="display-name">Clinic display name (shown to patients)</label>
-          <input id="display-name" class="portal-input" type="text" placeholder="Dr. Cohen Nutrition" />
-          <button id="save-name" class="portal-btn secondary" type="button">Save name</button>
-          <button id="logout" class="portal-btn secondary" type="button">Sign out</button>
-          <p id="name-status" class="portal-status" role="status" aria-live="polite" hidden></p>
-        </div>
-
-        <div class="card portal-card">
-          <h2>Invite patient (data access)</h2>
-          <p class="muted">They get an email and must approve in the app before anything is shared. Use &ldquo;Sponsor AI&rdquo; on a linked patient to pay for their coach.</p>
-          <label class="muted" for="patient-email">Patient email</label>
-          <input id="patient-email" class="portal-input" type="email" placeholder="patient@example.com" autocomplete="email" />
-          <div class="invite-actions">
-            <button id="invite-btn" class="portal-btn" type="button">Send invite</button>
+        <div class="invite-strip">
+          <div class="invite-field">
+            <label class="field-label" for="patient-email" data-i18n="inviteLabel">Invite patient</label>
+            <input
+              id="patient-email"
+              class="portal-input"
+              type="email"
+              dir="ltr"
+              data-i18n-placeholder="invitePlaceholder"
+              autocomplete="email"
+            />
           </div>
-          <p id="invite-status" class="portal-status" role="status" aria-live="polite" hidden></p>
+          <button id="invite-btn" class="portal-btn" type="button" data-i18n="sendInvite">Send invite</button>
+          <p
+            id="invite-status"
+            class="portal-status"
+            role="status"
+            aria-live="polite"
+            hidden
+            style="flex: 1 1 100%"
+          ></p>
+        </div>
+        <p class="muted invite-note" data-i18n="inviteNote"></p>
+
+        <div class="worklist-toolbar">
+          <!-- aria-pressed, not role=tab: these filter a table in place, they do not
+               switch tabpanels, and role=tab without a panel misleads a screen reader. -->
+          <div class="filter-chips" role="group" data-i18n-aria="filterLabel">
+            <button type="button" class="chip-btn active" data-filter="linked" aria-pressed="true">
+              <span data-i18n="filterLinked">Linked</span> <span class="n" id="count-linked">(0)</span>
+            </button>
+            <button type="button" class="chip-btn" data-filter="pending" aria-pressed="false">
+              <span data-i18n="filterPending">Pending</span> <span class="n" id="count-pending">(0)</span>
+            </button>
+            <button type="button" class="chip-btn" data-filter="outgoing" aria-pressed="false">
+              <span data-i18n="filterOutgoing">Outgoing</span> <span class="n" id="count-outgoing">(0)</span>
+            </button>
+            <button type="button" class="chip-btn" data-filter="all" aria-pressed="false">
+              <span data-i18n="filterAll">All</span> <span class="n" id="count-all">(0)</span>
+            </button>
+          </div>
+          <input
+            id="worklist-search"
+            class="portal-input worklist-search"
+            type="search"
+            data-i18n-placeholder="searchPlaceholder"
+            autocomplete="off"
+          />
+          <select id="worklist-sort" class="portal-select worklist-sort" data-i18n-aria="sortLabel">
+            <option value="email" data-i18n="sortEmail">Email A–Z</option>
+            <option value="sync" data-i18n="sortSync">Last sync</option>
+            <option value="sponsor" data-i18n="sortSponsor">Sponsorship</option>
+          </select>
         </div>
 
-        <div class="card portal-card">
-          <h2>AI credits</h2>
-          <p class="muted">When balance runs low, your saved card is charged automatically and tokens reload. AI is never blocked.</p>
-          <p><strong>Balance:</strong> <span id="wallet-balance">—</span> tokens</p>
-          <p class="muted" id="wallet-pm">Payment method: —</p>
-          <button id="simulate-card-btn" class="portal-btn secondary" type="button">Attach test card (alpha)</button>
-          <button id="load-pack-btn" class="portal-btn" type="button">Manual token pack</button>
+        <div class="worklist-panel">
+          <table class="worklist-table">
+            <thead>
+              <tr>
+                <th scope="col" data-i18n="colPatient">Patient</th>
+                <th scope="col" data-i18n="colSync">Sync</th>
+                <th scope="col" data-i18n="colSponsor">Sponsor</th>
+                <th scope="col" data-i18n="colActions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="worklist-body"></tbody>
+          </table>
+          <div id="worklist-empty" class="worklist-empty muted" hidden></div>
+          <div class="worklist-pager" id="worklist-pager" hidden>
+            <span id="pager-label" class="muted"></span>
+            <div class="row-actions">
+              <button type="button" class="portal-btn secondary" id="pager-prev" data-i18n="previous">
+                Previous
+              </button>
+              <button type="button" class="portal-btn secondary" id="pager-next" data-i18n="next">Next</button>
+            </div>
+          </div>
         </div>
 
-        <div class="card portal-card">
-          <h2>AI usage</h2>
-          <p class="muted">Usage debits payer credits (Stripe later).</p>
+        <details class="secondary-panel">
+          <summary>
+            <strong data-i18n="myClinicSummary">My clinic</strong> —
+            <span class="muted" data-i18n="myClinicHint">display name shown to patients</span>
+          </summary>
+          <label class="field-label" for="display-name" data-i18n="displayNameLabel">Clinic display name</label>
+          <input
+            id="display-name"
+            class="portal-input"
+            type="text"
+            data-i18n-placeholder="displayNamePlaceholder"
+          />
+          <button id="save-name" class="portal-btn secondary" type="button" data-i18n="saveName">Save name</button>
+          <p id="name-status" class="portal-status" role="status" aria-live="polite" hidden></p>
+        </details>
+
+        <div class="secondary-panel dev-only" id="dev-wallet" hidden>
+          <h2 data-i18n="creditsTitle">AI credits (alpha)</h2>
+          <p class="muted" data-i18n="creditsLead"></p>
+          <p><strong data-i18n="balance">Balance:</strong> <span id="wallet-balance">—</span> tokens</p>
+          <p class="muted" id="wallet-pm"></p>
+          <button id="simulate-card-btn" class="portal-btn secondary" type="button" data-i18n="attachCard">
+            Attach test card (alpha)
+          </button>
+          <button id="load-pack-btn" class="portal-btn" type="button" data-i18n="manualPack">
+            Manual token pack
+          </button>
+        </div>
+
+        <div class="secondary-panel dev-only" id="dev-usage" hidden>
+          <h2 data-i18n="usageTitle">AI usage (alpha)</h2>
+          <p class="muted" data-i18n="usageLead"></p>
           <div id="usage-summary"></div>
-        </div>
-
-        <div class="card portal-card">
-          <h2>Pending requests <span id="pending-count" class="count-badge"></span></h2>
-          <p class="muted">Patients who asked to share with you.</p>
-          <div id="pending-list"></div>
-        </div>
-
-        <div class="card portal-card">
-          <h2>Outgoing invites <span id="outgoing-count" class="count-badge"></span></h2>
-          <p class="muted">Waiting for the patient to approve in the app.</p>
-          <div id="outgoing-list"></div>
-        </div>
-
-        <div class="card portal-card">
-          <h2>Linked patients <span id="approved-count" class="count-badge"></span></h2>
-          <p class="muted">AI sponsorship shows how long you are paying for that patient’s coach.</p>
-          <div id="approved-list"></div>
         </div>
 
         <p id="app-error" class="error" role="alert" hidden></p>
       </section>
     </div>
 
-    <script src="clinic-api.js?v=20260726f"></script>
+    <script src="clinic-i18n.js?v=20260726g"></script>
+    <script src="clinic-api.js?v=20260726g"></script>
     <script>
       const { api, loadTokens, saveTokens, clearTokens } = ClinicApi;
+      const { t, CLINIC_LOCALES } = ClinicI18n;
       const OTP_PENDING_KEY = 'healthings_clinic_otp_pending';
+      const DEV_KEY = 'healthings_clinic_dev';
+      const PAGE_SIZE = 25;
+      const SPONSOR_DAY_CHOICES = [30, 60, 90, 180, 365];
+
       const loginErrorEl = () => document.getElementById('login-error');
       const appErrorEl = () => document.getElementById('app-error');
+
+      let loginEmail = '';
+      const worklistState = {
+        filter: 'linked',
+        search: '',
+        sort: 'email',
+        page: 0,
+        pending: [],
+        outgoing: [],
+        approved: [],
+        sponsorByPatient: new Map(),
+        act: null,
+      };
+
+      /* ── i18n plumbing ─────────────────────────────────────────────────── */
+
+      function hydrateStaticCopy() {
+        document.querySelectorAll('[data-i18n]').forEach((el) => {
+          el.textContent = t(el.getAttribute('data-i18n'));
+        });
+        document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+          el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+        });
+        document.querySelectorAll('[data-i18n-aria]').forEach((el) => {
+          el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria')));
+        });
+      }
+
+      function buildLocalePickers() {
+        document.querySelectorAll('[data-locale-picker]').forEach((sel) => {
+          sel.replaceChildren();
+          CLINIC_LOCALES.forEach((l) => {
+            const opt = document.createElement('option');
+            opt.value = l.code;
+            opt.textContent = l.flag + ' ' + l.name;
+            if (l.code === ClinicI18n.getLocale()) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          sel.onchange = () => {
+            ClinicI18n.setLocale(sel.value);
+            applyLocale();
+          };
+        });
+      }
+
+      function applyLocale() {
+        ClinicI18n.applyDocumentLocale();
+        hydrateStaticCopy();
+        buildLocalePickers();
+        renderWorklist();
+      }
+
+      /* ── helpers ───────────────────────────────────────────────────────── */
+
+      function isDevMode() {
+        try {
+          if (new URLSearchParams(location.search).get('dev') === '1') {
+            sessionStorage.setItem(DEV_KEY, '1');
+            return true;
+          }
+          return sessionStorage.getItem(DEV_KEY) === '1';
+        } catch {
+          return new URLSearchParams(location.search).get('dev') === '1';
+        }
+      }
+
+      function applyDevMode() {
+        const on = isDevMode();
+        document.querySelectorAll('.dev-only').forEach((el) => {
+          el.hidden = !on;
+        });
+      }
 
       function showError(el, msg) {
         el.textContent = msg || '';
@@ -172,64 +303,6 @@
         el.className = 'portal-status' + (kind ? ' ' + kind : '');
         el.textContent = msg || '';
         el.hidden = !msg;
-      }
-
-      function formatExpiry(iso) {
-        try {
-          return new Date(iso).toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          });
-        } catch {
-          return iso;
-        }
-      }
-
-      /**
-       * Whole days from now until `iso`. Compared at local midnight so "expires
-       * tomorrow" does not flip to "today" merely because of the clock time the
-       * sponsorship happened to be created at.
-       */
-      function daysUntil(iso) {
-        const target = new Date(iso);
-        if (Number.isNaN(target.getTime())) return null;
-        const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-        const ms = startOfDay(target) - startOfDay(new Date());
-        return Math.round(ms / 86400000);
-      }
-
-      function pluralDays(n) {
-        return Math.abs(n) === 1 ? '1 day' : Math.abs(n) + ' days';
-      }
-
-      /** The sponsorship chip: how long is left, not just when it ends. */
-      function sponsorChip(sp) {
-        const chip = document.createElement('span');
-        chip.className = 'chip';
-        if (!sp) {
-          chip.classList.add('off');
-          chip.textContent = 'AI not sponsored';
-          return chip;
-        }
-        const left = daysUntil(sp.expiresAt);
-        const on = sp.active && left !== null && left >= 0;
-        if (!on) {
-          chip.classList.add('gone');
-          chip.textContent =
-            left === null
-              ? 'AI sponsorship expired'
-              : 'AI sponsorship ended ' + pluralDays(left) + ' ago';
-          chip.title = 'Ended ' + formatExpiry(sp.expiresAt);
-          return chip;
-        }
-        chip.classList.add(left <= 7 ? 'soon' : 'ok');
-        chip.textContent =
-          left === 0
-            ? 'AI sponsored · ends today'
-            : 'AI sponsored · ' + pluralDays(left) + ' left';
-        chip.title = 'Until ' + formatExpiry(sp.expiresAt);
-        return chip;
       }
 
       function setFlash(kind, msg) {
@@ -246,11 +319,71 @@
         el.hidden = !msg;
       }
 
-      /**
-       * Runs an async action with visible state: the pressed button says what it is
-       * doing, and every control in its group is disabled so a second click cannot
-       * fire a duplicate request.
-       */
+      function formatExpiry(iso) {
+        try {
+          return new Date(iso).toLocaleDateString(ClinicI18n.getLocale(), {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          });
+        } catch {
+          return iso;
+        }
+      }
+
+      function daysUntil(iso) {
+        const target = new Date(iso);
+        if (Number.isNaN(target.getTime())) return null;
+        const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const ms = startOfDay(target) - startOfDay(new Date());
+        return Math.round(ms / 86400000);
+      }
+
+      function pluralDays(n) {
+        return Math.abs(n) === 1 ? t('oneDay') : t('nDays', { n: Math.abs(n) });
+      }
+
+      function relativeSync(iso) {
+        if (!iso) return t('syncNever');
+        const ms = new Date(iso).getTime();
+        if (Number.isNaN(ms)) return t('syncNever');
+        const sec = Math.round((Date.now() - ms) / 1000);
+        if (sec < 60) return t('syncJustNow');
+        const min = Math.round(sec / 60);
+        if (min < 60) return t('syncMinutesAgo', { n: min });
+        const hr = Math.round(min / 60);
+        if (hr < 48) return t('syncHoursAgo', { n: hr });
+        const days = Math.round(hr / 24);
+        if (days < 14) return t('syncDaysAgo', { n: days });
+        return formatExpiry(iso);
+      }
+
+      function sponsorChip(sp) {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        if (!sp) {
+          chip.classList.add('off');
+          chip.textContent = t('notSponsored');
+          return chip;
+        }
+        const left = daysUntil(sp.expiresAt);
+        const on = sp.active && left !== null && left >= 0;
+        if (!on) {
+          chip.classList.add('gone');
+          chip.textContent =
+            left === null
+              ? t('sponsorshipExpired')
+              : t('sponsorshipEndedAgo', { days: pluralDays(left) });
+          chip.title = t('endedOn', { date: formatExpiry(sp.expiresAt) });
+          return chip;
+        }
+        chip.classList.add(left <= 7 ? 'soon' : 'ok');
+        chip.textContent =
+          left === 0 ? t('sponsoredEndsToday') : t('sponsoredDaysLeft', { days: pluralDays(left) });
+        chip.title = t('untilDate', { date: formatExpiry(sp.expiresAt) });
+        return chip;
+      }
+
       async function withBusy(btn, busyLabel, fn) {
         const group = btn.closest('.row-actions') || btn.parentElement;
         const controls = group ? [...group.querySelectorAll('button, select, a.portal-btn')] : [btn];
@@ -265,8 +398,6 @@
         try {
           return await fn();
         } finally {
-          // The list is usually re-rendered on success, which throws these nodes
-          // away — restoring matters for the failure path, where they survive.
           btn.textContent = idle;
           btn.removeAttribute('aria-busy');
           restore.forEach(([c, wasDisabled, ariaWas]) => {
@@ -277,151 +408,264 @@
         }
       }
 
-      function appendShareLabel(row, email, sub, chip) {
-        const label = document.createElement('div');
-        const strong = document.createElement('strong');
-        strong.textContent = email || '—';
-        const muted = document.createElement('span');
-        muted.className = 'muted';
-        muted.textContent = sub;
-        label.append(strong, document.createElement('br'), muted);
-        if (chip) {
-          label.append(document.createElement('br'), chip);
+      /* ── worklist ──────────────────────────────────────────────────────── */
+
+      function statusSub(share) {
+        if (share.status === 'pending' && share.initiatedBy === 'mentor') {
+          return t('statusWaitingApproval');
         }
-        row.appendChild(label);
+        if (share.status === 'pending' && share.initiatedBy === 'patient') {
+          return t('statusPatientRequested');
+        }
+        return (
+          {
+            approved: t('statusApproved'),
+            rejected: t('statusRejected'),
+            revoked: t('statusRevoked'),
+          }[share.status] || share.status
+        );
       }
 
-      /** Days offered when starting a sponsorship. Replaces a window.prompt. */
-      const SPONSOR_DAY_CHOICES = [30, 60, 90, 180, 365];
+      function filteredShares() {
+        const { filter, search, sort, pending, outgoing, approved, sponsorByPatient } = worklistState;
+        let list =
+          filter === 'linked'
+            ? approved.slice()
+            : filter === 'pending'
+              ? pending.slice()
+              : filter === 'outgoing'
+                ? outgoing.slice()
+                : approved.concat(pending, outgoing);
 
-      function renderShareActions(container, share, onAction, sponsorByPatient) {
-        const row = document.createElement('div');
-        row.className = 'share-row';
-        let sub = share.status;
+        const q = search.trim().toLowerCase();
+        if (q) list = list.filter((s) => (s.patientEmail || '').toLowerCase().includes(q));
+
+        list.sort((a, b) => {
+          if (sort === 'sync') {
+            const ta = a.lastSyncAt ? new Date(a.lastSyncAt).getTime() : 0;
+            const tb = b.lastSyncAt ? new Date(b.lastSyncAt).getTime() : 0;
+            return tb - ta;
+          }
+          if (sort === 'sponsor') {
+            const sa = a.patientId ? sponsorByPatient.get(a.patientId) : null;
+            const sb = b.patientId ? sponsorByPatient.get(b.patientId) : null;
+            const da = sa && sa.active ? (daysUntil(sa.expiresAt) ?? 99999) : 99999;
+            const db = sb && sb.active ? (daysUntil(sb.expiresAt) ?? 99999) : 99999;
+            return da - db;
+          }
+          return (a.patientEmail || '').localeCompare(b.patientEmail || '', ClinicI18n.getLocale(), {
+            sensitivity: 'base',
+          });
+        });
+        return list;
+      }
+
+      function fillActions(actions, share, onAction, sponsorByPatient) {
+        actions.replaceChildren();
         const sp = share.patientId ? sponsorByPatient.get(share.patientId) : null;
-        if (share.status === 'pending' && share.initiatedBy === 'mentor') {
-          sub = 'waiting for patient approval';
-        } else if (share.status === 'pending' && share.initiatedBy === 'patient') {
-          sub = 'patient requested access';
-        }
-        // Sponsorship is only meaningful for a linked patient, and the chip carries
-        // the remaining days rather than a date the reader has to subtract from.
-        const chip = share.status === 'approved' && share.patientId ? sponsorChip(sp) : null;
-        appendShareLabel(row, share.patientEmail, sub, chip);
-        const actions = document.createElement('div');
-        actions.className = 'row-actions';
 
         if (share.status === 'pending' && share.initiatedBy === 'patient') {
           const ok = document.createElement('button');
           ok.className = 'portal-btn';
           ok.type = 'button';
-          ok.textContent = 'Approve';
-          ok.onclick = () =>
-            void onAction('approve', share.id, { email: share.patientEmail, btn: ok });
+          ok.textContent = t('approve');
+          ok.onclick = () => void onAction('approve', share.id, { email: share.patientEmail, btn: ok });
           const no = document.createElement('button');
           no.className = 'portal-btn secondary';
           no.type = 'button';
-          no.textContent = 'Reject';
-          no.onclick = () =>
-            void onAction('reject', share.id, { email: share.patientEmail, btn: no });
+          no.textContent = t('reject');
+          no.onclick = () => void onAction('reject', share.id, { email: share.patientEmail, btn: no });
           actions.append(ok, no);
+          return;
         }
 
         if (share.status === 'pending' && share.initiatedBy === 'mentor') {
           const cancel = document.createElement('button');
           cancel.className = 'portal-btn secondary';
           cancel.type = 'button';
-          cancel.textContent = 'Cancel invite';
+          cancel.textContent = t('cancelInvite');
           cancel.onclick = () =>
             void onAction('cancel', share.id, { email: share.patientEmail, btn: cancel });
           actions.append(cancel);
+          return;
         }
 
-        if (share.status === 'approved') {
-          if (share.patientId) {
-            const view = document.createElement('a');
-            view.className = 'portal-btn';
-            view.textContent = 'Open workspace';
-            view.href = 'patient.html?patientId=' + encodeURIComponent(share.patientId);
-            actions.append(view);
-          }
-          const rev = document.createElement('button');
-          rev.className = 'portal-btn danger';
-          rev.type = 'button';
-          rev.textContent = 'Revoke access';
-          rev.onclick = () =>
-            void onAction('revoke', share.id, { email: share.patientEmail, btn: rev });
-          actions.append(rev);
+        if (share.status !== 'approved') return;
 
-          if (share.patientId) {
-            const active = sp && sp.active && daysUntil(sp.expiresAt) >= 0;
-            const spBtn = document.createElement('button');
-            spBtn.className = 'portal-btn secondary';
-            spBtn.type = 'button';
-            spBtn.textContent = active ? 'Stop AI sponsorship' : sp ? 'Renew AI sponsorship' : 'Sponsor AI';
+        if (share.patientId) {
+          const view = document.createElement('a');
+          view.className = 'portal-btn';
+          view.textContent = t('openWorkspace');
+          view.href = 'patient.html?patientId=' + encodeURIComponent(share.patientId);
+          actions.append(view);
 
-            if (active) {
-              spBtn.onclick = () =>
-                void onAction('sponsor-off', share.patientId, {
-                  email: share.patientEmail,
-                  btn: spBtn,
-                });
-            } else {
-              // Inline duration picker instead of window.prompt: the choice stays in
-              // the page, is keyboard reachable, and shows the resulting end date.
-              spBtn.onclick = () => {
-                const form = document.createElement('div');
-                form.className = 'sponsor-form row-actions';
+          const active = sp && sp.active && daysUntil(sp.expiresAt) >= 0;
+          const spBtn = document.createElement('button');
+          spBtn.className = 'portal-btn secondary';
+          spBtn.type = 'button';
+          spBtn.textContent = active
+            ? t('stopSponsorship')
+            : sp
+              ? t('renewSponsorship')
+              : t('sponsorAi');
 
-                const label = document.createElement('label');
-                label.className = 'muted';
-                label.textContent = 'Sponsor for';
-                const select = document.createElement('select');
-                select.className = 'portal-select';
-                SPONSOR_DAY_CHOICES.forEach((d) => {
-                  const opt = document.createElement('option');
-                  opt.value = String(d);
-                  opt.textContent = d + ' days';
-                  if (d === 90) opt.selected = true;
-                  select.appendChild(opt);
-                });
-                const until = document.createElement('span');
-                until.className = 'muted';
-                const showUntil = () => {
-                  const end = new Date();
-                  end.setDate(end.getDate() + parseInt(select.value, 10));
-                  until.textContent = '· until ' + formatExpiry(end.toISOString());
-                };
-                select.onchange = showUntil;
-                showUntil();
-
-                const go = document.createElement('button');
-                go.className = 'portal-btn';
-                go.type = 'button';
-                go.textContent = 'Start sponsorship';
-                go.onclick = () =>
-                  void onAction('sponsor-on', share.patientId, {
-                    email: share.patientEmail,
-                    btn: go,
-                    days: parseInt(select.value, 10),
-                  });
-
-                const back = document.createElement('button');
-                back.className = 'portal-btn secondary';
-                back.type = 'button';
-                back.textContent = 'Cancel';
-                back.onclick = () => form.replaceWith(actions);
-
-                form.append(label, select, until, go, back);
-                actions.replaceWith(form);
-                select.focus();
+          if (active) {
+            spBtn.onclick = () =>
+              void onAction('sponsor-off', share.patientId, {
+                email: share.patientEmail,
+                btn: spBtn,
+              });
+          } else {
+            // Inline duration picker instead of window.prompt (be-21): the choice
+            // stays in the page, is keyboard reachable, and shows the end date.
+            spBtn.onclick = () => {
+              const form = document.createElement('div');
+              form.className = 'sponsor-form row-actions';
+              const label = document.createElement('label');
+              label.className = 'muted';
+              label.textContent = t('sponsorFor');
+              const select = document.createElement('select');
+              select.className = 'portal-select';
+              SPONSOR_DAY_CHOICES.forEach((d) => {
+                const opt = document.createElement('option');
+                opt.value = String(d);
+                opt.textContent = t('daysOption', { n: d });
+                if (d === 90) opt.selected = true;
+                select.appendChild(opt);
+              });
+              const until = document.createElement('span');
+              until.className = 'muted';
+              const showUntil = () => {
+                const end = new Date();
+                end.setDate(end.getDate() + parseInt(select.value, 10));
+                until.textContent = t('until', { date: formatExpiry(end.toISOString()) });
               };
-            }
-            actions.append(spBtn);
+              select.onchange = showUntil;
+              showUntil();
+              const go = document.createElement('button');
+              go.className = 'portal-btn';
+              go.type = 'button';
+              go.textContent = t('startSponsorship');
+              go.onclick = () =>
+                void onAction('sponsor-on', share.patientId, {
+                  email: share.patientEmail,
+                  btn: go,
+                  days: parseInt(select.value, 10),
+                });
+              const back = document.createElement('button');
+              back.className = 'portal-btn secondary';
+              back.type = 'button';
+              back.textContent = t('cancel');
+              back.onclick = () => form.replaceWith(actions);
+              form.append(label, select, until, go, back);
+              actions.replaceWith(form);
+              select.focus();
+            };
           }
+          actions.append(spBtn);
         }
-        row.appendChild(actions);
-        container.appendChild(row);
+
+        const rev = document.createElement('button');
+        rev.className = 'portal-btn danger';
+        rev.type = 'button';
+        rev.textContent = t('revokeAccess');
+        rev.onclick = () => void onAction('revoke', share.id, { email: share.patientEmail, btn: rev });
+        actions.append(rev);
+      }
+
+      function emptyMessage() {
+        if (worklistState.search.trim()) return t('emptySearch');
+        return {
+          pending: t('emptyPending'),
+          outgoing: t('emptyOutgoing'),
+          all: t('emptyAll'),
+        }[worklistState.filter] || t('emptyLinked');
+      }
+
+      function renderWorklist() {
+        const body = document.getElementById('worklist-body');
+        const empty = document.getElementById('worklist-empty');
+        const pager = document.getElementById('worklist-pager');
+        if (!body) return;
+
+        const list = filteredShares();
+        const total = list.length;
+        const maxPage = Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
+        if (worklistState.page > maxPage) worklistState.page = maxPage;
+        const start = worklistState.page * PAGE_SIZE;
+        const pageItems = list.slice(start, start + PAGE_SIZE);
+
+        body.replaceChildren();
+        if (!pageItems.length) {
+          empty.hidden = false;
+          empty.textContent = emptyMessage();
+          pager.hidden = true;
+          return;
+        }
+        empty.hidden = true;
+
+        pageItems.forEach((share) => {
+          const tr = document.createElement('tr');
+          const sp = share.patientId ? worklistState.sponsorByPatient.get(share.patientId) : null;
+
+          const tdEmail = document.createElement('td');
+          tdEmail.className = 'email-cell';
+          tdEmail.dataset.label = t('colPatient');
+          const emailLine = document.createElement('div');
+          // ltr, not auto: an address is LTR syntax (local@domain). dir="auto" reads
+          // a Hebrew local part as an RTL string and puts the domain on the left,
+          // which looks like corruption. Hebrew glyphs still shape RTL inside the run.
+          emailLine.dir = 'ltr';
+          emailLine.textContent = share.patientEmail || '—';
+          const sub = document.createElement('div');
+          sub.className = 'muted';
+          sub.textContent = statusSub(share);
+          tdEmail.append(emailLine, sub);
+
+          const tdSync = document.createElement('td');
+          tdSync.dataset.label = t('colSync');
+          tdSync.textContent = share.status === 'approved' ? relativeSync(share.lastSyncAt) : '—';
+          if (share.lastSyncAt) tdSync.title = formatExpiry(share.lastSyncAt);
+
+          const tdSp = document.createElement('td');
+          tdSp.dataset.label = t('colSponsor');
+          if (share.status === 'approved' && share.patientId) tdSp.appendChild(sponsorChip(sp));
+          else tdSp.textContent = '—';
+
+          const tdAct = document.createElement('td');
+          tdAct.dataset.label = t('colActions');
+          const actions = document.createElement('div');
+          actions.className = 'row-actions';
+          fillActions(actions, share, worklistState.act, worklistState.sponsorByPatient);
+          tdAct.appendChild(actions);
+
+          tr.append(tdEmail, tdSync, tdSp, tdAct);
+          body.appendChild(tr);
+        });
+
+        if (total > PAGE_SIZE) {
+          pager.hidden = false;
+          document.getElementById('pager-label').textContent = t('showingRange', {
+            from: start + 1,
+            to: Math.min(start + PAGE_SIZE, total),
+            total,
+          });
+          document.getElementById('pager-prev').disabled = worklistState.page <= 0;
+          document.getElementById('pager-next').disabled = worklistState.page >= maxPage;
+        } else {
+          pager.hidden = true;
+        }
+      }
+
+      function setCounts() {
+        const { pending, outgoing, approved } = worklistState;
+        const set = (id, n) => {
+          document.getElementById(id).textContent = '(' + n + ')';
+        };
+        set('count-linked', approved.length);
+        set('count-pending', pending.length);
+        set('count-outgoing', outgoing.length);
+        set('count-all', approved.length + pending.length + outgoing.length);
       }
 
       function renderUsageSummary(el, data) {
@@ -429,49 +673,46 @@
         if (!data || !data.byPatient || data.byPatient.length === 0) {
           const p = document.createElement('p');
           p.className = 'muted';
-          p.textContent = 'No AI usage recorded yet.';
+          p.textContent = t('noUsage');
           el.appendChild(p);
           return;
         }
         const total = document.createElement('p');
-        const totalStrong = document.createElement('strong');
-        totalStrong.textContent = 'Total tokens (all patients): ';
-        total.append(totalStrong, document.createTextNode(String(data.totalTokens)));
+        const strong = document.createElement('strong');
+        strong.textContent = t('usageTotal');
+        total.append(strong, document.createTextNode(String(data.totalTokens)));
         el.appendChild(total);
         data.byPatient.forEach((row) => {
           const wrap = document.createElement('div');
-          wrap.className = 'share-row';
-          appendShareLabel(
-            wrap,
-            row.patientEmail,
-            row.totalTokens + ' tokens · ' + row.eventCount + ' events',
-          );
+          wrap.style.marginTop = '8px';
+          const who = document.createElement('strong');
+          who.dir = 'ltr';
+          who.textContent = row.patientEmail;
+          const detail = document.createElement('span');
+          detail.className = 'muted';
+          detail.textContent =
+            ' — ' + t('usageRow', { tokens: row.totalTokens, events: row.eventCount });
+          wrap.append(who, detail);
           el.appendChild(wrap);
         });
       }
 
-      function setListEmpty(el, emptyText) {
-        el.replaceChildren();
-        const p = document.createElement('p');
-        p.className = 'muted';
-        p.textContent = emptyText;
-        el.appendChild(p);
-      }
+      /* ── data ──────────────────────────────────────────────────────────── */
 
       async function refreshDashboard() {
         const meRes = await api('/v1/me');
         if (!meRes.ok) {
-          const err = new Error(meRes.status === 401 ? 'Session expired' : 'Could not load account');
+          const err = new Error(meRes.status === 401 ? t('sessionExpired') : t('couldNotLoadAccount'));
           err.status = meRes.status;
           throw err;
         }
         const { user } = await meRes.json();
         if (user.role !== 'mentor') {
-          const err = new Error('This portal is for clinic / mentor accounts only');
+          const err = new Error(t('mentorOnly'));
           err.code = 'wrong_role';
           throw err;
         }
-        document.getElementById('user-email').textContent = user.email;
+        document.getElementById('header-email').textContent = user.email;
         document.getElementById('display-name').value = user.displayName || '';
 
         const [pendingRes, outgoingRes, approvedRes, sponsorRes, usageRes, walletRes] =
@@ -484,7 +725,7 @@
             api('/v1/wallet'),
           ]);
         if (!pendingRes.ok || !outgoingRes.ok || !approvedRes.ok) {
-          throw new Error('Could not load patient shares');
+          throw new Error(t('couldNotLoadShares'));
         }
         const pending = (await pendingRes.json()).shares || [];
         const allPending = (await outgoingRes.json()).shares || [];
@@ -493,60 +734,42 @@
         const sponsored = sponsorRes.ok ? (await sponsorRes.json()).sponsorships || [] : [];
         const usage = usageRes.ok ? await usageRes.json() : null;
         const wallet = walletRes.ok ? (await walletRes.json()).wallet : null;
-        document.getElementById('wallet-balance').textContent =
-          wallet ? String(wallet.balanceTokens) : '—';
-        document.getElementById('wallet-pm').textContent = wallet
-          ? wallet.paymentMethodOnFile
-            ? 'Payment method: card on file'
-            : 'Payment method: none (auto-reload simulated in alpha)'
-          : 'Payment method: —';
-        const sponsorByPatient = new Map(sponsored.map((s) => [s.patientId, s]));
 
-        const pendingEl = document.getElementById('pending-list');
-        const outgoingEl = document.getElementById('outgoing-list');
-        const approvedEl = document.getElementById('approved-list');
-        const usageEl = document.getElementById('usage-summary');
-        const showCount = (id, n) => {
-          document.getElementById(id).textContent = n ? '(' + n + ')' : '';
-        };
-        showCount('pending-count', pending.length);
-        showCount('outgoing-count', outgoing.length);
-        showCount('approved-count', approved.length);
+        document.getElementById('wallet-balance').textContent = wallet
+          ? String(wallet.balanceTokens)
+          : '—';
+        document.getElementById('balance-chip').textContent = wallet
+          ? wallet.balanceTokens + ' ' + t('tokensUnit')
+          : '— ' + t('tokensUnit');
+        document.getElementById('wallet-pm').textContent = t('paymentMethod', {
+          value: wallet
+            ? wallet.paymentMethodOnFile
+              ? t('pmCard')
+              : t('pmNone')
+            : t('pmUnknown'),
+        });
 
-        if (pending.length) pendingEl.replaceChildren();
-        else setListEmpty(pendingEl, 'No pending requests.');
-        if (outgoing.length) outgoingEl.replaceChildren();
-        else setListEmpty(outgoingEl, 'No outgoing invites.');
-        if (approved.length) approvedEl.replaceChildren();
-        else setListEmpty(approvedEl, 'No linked patients yet.');
-        renderUsageSummary(usageEl, usage);
+        renderUsageSummary(document.getElementById('usage-summary'), usage);
 
         const BUSY_LABEL = {
-          approve: 'Approving…',
-          reject: 'Rejecting…',
-          cancel: 'Cancelling…',
-          revoke: 'Revoking…',
-          'sponsor-on': 'Starting…',
-          'sponsor-off': 'Stopping…',
+          approve: 'approving',
+          reject: 'rejecting',
+          cancel: 'cancelling',
+          revoke: 'revoking',
+          'sponsor-on': 'starting',
+          'sponsor-off': 'stopping',
         };
 
         async function act(action, id, meta) {
           showError(appErrorEl(), '');
-          const email = meta?.email || 'this patient';
+          const email = meta?.email || '';
           const btn = meta?.btn;
 
-          // Destructive and irreversible-ish: confirm before the request, never after.
           if (action === 'revoke') {
-            if (
-              !window.confirm(
-                'Revoke access for ' + email + '? They will need to re-approve to share again.',
-              )
-            ) {
-              return;
-            }
+            if (!window.confirm(t('confirmRevoke', { email }))) return;
           }
           if (action === 'cancel') {
-            if (!window.confirm('Cancel invite to ' + email + '?')) return;
+            if (!window.confirm(t('confirmCancel', { email }))) return;
           }
 
           const run = async () => {
@@ -560,13 +783,14 @@
               });
               if (!res.ok) {
                 throw new Error(
-                  (await res.json().catch(() => ({}))).error || 'Could not start sponsorship',
+                  (await res.json().catch(() => ({}))).error || t('couldNotStartSponsorship'),
                 );
               }
-              return (
-                'Sponsoring AI for ' + email + ' for ' + pluralDays(days) +
-                ' — until ' + formatExpiry(exp.toISOString()) + '.'
-              );
+              return t('resultSponsorOn', {
+                email,
+                days: pluralDays(days),
+                date: formatExpiry(exp.toISOString()),
+              });
             }
             if (action === 'sponsor-off') {
               const res = await api('/v1/sponsorships/disable', {
@@ -575,56 +799,68 @@
               });
               if (!res.ok) {
                 throw new Error(
-                  (await res.json().catch(() => ({}))).error || 'Could not stop sponsorship',
+                  (await res.json().catch(() => ({}))).error || t('couldNotStopSponsorship'),
                 );
               }
-              return 'AI sponsorship stopped for ' + email + '. Their coach now bills to their own credits.';
+              return t('resultSponsorOff', { email });
             }
             const res = await api('/v1/shares/' + id + '/' + action, { method: 'POST' });
             if (!res.ok) {
-              throw new Error((await res.json().catch(() => ({}))).error || 'Action failed');
+              throw new Error((await res.json().catch(() => ({}))).error || t('actionFailed'));
             }
-            return {
-              approve: 'Approved ' + email + '. Their data is now available in your workspace.',
-              reject: 'Rejected the request from ' + email + '.',
-              cancel: 'Invite to ' + email + ' cancelled.',
-              revoke: 'Access revoked for ' + email + '. Their snapshot is deleted unless another clinic still reads it.',
-            }[action] || 'Done.';
+            return (
+              {
+                approve: t('resultApproved', { email }),
+                reject: t('resultRejected', { email }),
+                cancel: t('resultCancelled', { email }),
+                revoke: t('resultRevoked', { email }),
+              }[action] || t('done')
+            );
           };
 
           try {
             const message = btn
-              ? await withBusy(btn, BUSY_LABEL[action] || 'Working…', run)
+              ? await withBusy(btn, t(BUSY_LABEL[action] || 'working'), run)
               : await run();
             await refreshDashboard();
-            // After refreshDashboard, because it re-renders the lists — the flash
-            // element sits outside them so the confirmation survives.
+            // After refreshDashboard, which re-renders the rows — the flash sits
+            // outside them so the confirmation survives.
             setFlash('ok', message);
           } catch (e) {
-            setFlash('err', e instanceof Error ? e.message : 'Action failed');
+            setFlash('err', e instanceof Error ? e.message : t('actionFailed'));
           }
         }
 
-        pending.forEach((s) => renderShareActions(pendingEl, s, act, sponsorByPatient));
-        outgoing.forEach((s) => renderShareActions(outgoingEl, s, act, sponsorByPatient));
-        approved.forEach((s) => renderShareActions(approvedEl, s, act, sponsorByPatient));
+        worklistState.pending = pending;
+        worklistState.outgoing = outgoing;
+        worklistState.approved = approved;
+        worklistState.sponsorByPatient = new Map(sponsored.map((s) => [s.patientId, s]));
+        worklistState.act = act;
+        setCounts();
+        renderWorklist();
+        applyDevMode();
       }
 
+      /* ── views ─────────────────────────────────────────────────────────── */
+
       function showLoginView() {
+        document.body.classList.remove('portal-app');
         document.getElementById('login-view').hidden = false;
-        document.getElementById('app-view').style.display = 'none';
+        document.getElementById('app-view').hidden = true;
       }
 
       function showAppView() {
+        document.body.classList.add('portal-app');
         document.getElementById('login-view').hidden = true;
-        document.getElementById('app-view').style.display = 'block';
+        document.getElementById('app-view').hidden = false;
+        applyDevMode();
       }
 
       function showCodeStep(email) {
         loginEmail = email;
         document.getElementById('email').value = email;
-        document.getElementById('login-step-email').hidden = true;
-        document.getElementById('login-step-code').hidden = false;
+        document.getElementById('login-form-email').hidden = true;
+        document.getElementById('login-form-code').hidden = false;
         document.getElementById('email-display').textContent = email;
       }
 
@@ -636,8 +872,8 @@
         }
         loginEmail = '';
         document.getElementById('code').value = '';
-        document.getElementById('login-step-email').hidden = false;
-        document.getElementById('login-step-code').hidden = true;
+        document.getElementById('login-form-email').hidden = false;
+        document.getElementById('login-form-code').hidden = true;
       }
 
       function restoreOtpPending() {
@@ -650,6 +886,8 @@
       }
 
       async function boot() {
+        applyLocale();
+        applyDevMode();
         const tokens = loadTokens();
         if (!tokens?.access) {
           restoreOtpPending();
@@ -659,10 +897,10 @@
           await refreshDashboard();
           showAppView();
         } catch (e) {
-          const msg = e instanceof Error ? e.message : 'Could not load clinic portal';
+          const msg = e instanceof Error ? e.message : t('couldNotLoadPortal');
           const status = e && typeof e === 'object' ? e.status : undefined;
           const wrongRole = e && typeof e === 'object' && e.code === 'wrong_role';
-          if (status === 401 || msg === 'Session expired' || wrongRole) {
+          if (status === 401 || msg === t('sessionExpired') || wrongRole) {
             clearTokens();
             showLoginView();
             showError(loginErrorEl(), msg);
@@ -674,78 +912,99 @@
         }
       }
 
-      let loginEmail = '';
+      /* ── events ────────────────────────────────────────────────────────── */
 
-      document.getElementById('send-code').onclick = async () => {
+      document.getElementById('login-form-email').addEventListener('submit', async (e) => {
+        e.preventDefault();
         showError(loginErrorEl(), '');
+        const btn = document.getElementById('send-code');
         loginEmail = document.getElementById('email').value.trim().toLowerCase();
-        if (!loginEmail) return;
-        try {
-          const res = await api('/v1/auth/otp/request', {
-            method: 'POST',
-            body: JSON.stringify({ email: loginEmail, role: 'mentor' }),
-          });
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            showError(loginErrorEl(), err.error || 'Could not send code');
-            return;
-          }
-        } catch {
-          showError(loginErrorEl(), 'Could not reach server — try again');
+        if (!loginEmail) {
+          showError(loginErrorEl(), t('enterEmail'));
+          document.getElementById('email').focus();
           return;
         }
-        try {
-          localStorage.setItem(OTP_PENDING_KEY, loginEmail);
-        } catch {
-          /* ignore */
-        }
-        showCodeStep(loginEmail);
-      };
+        await withBusy(btn, t('sendingCode'), async () => {
+          try {
+            const res = await api('/v1/auth/otp/request', {
+              method: 'POST',
+              body: JSON.stringify({ email: loginEmail, role: 'mentor' }),
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              showError(loginErrorEl(), err.error || t('couldNotSendCode'));
+              return;
+            }
+          } catch {
+            showError(loginErrorEl(), t('unreachable'));
+            return;
+          }
+          try {
+            localStorage.setItem(OTP_PENDING_KEY, loginEmail);
+          } catch {
+            /* ignore */
+          }
+          showCodeStep(loginEmail);
+        });
+      });
 
       document.getElementById('change-email').onclick = () => {
         showError(loginErrorEl(), '');
         showEmailStep();
       };
 
-      document.getElementById('verify-code').onclick = async () => {
+      document.getElementById('login-form-code').addEventListener('submit', async (e) => {
+        e.preventDefault();
         showError(loginErrorEl(), '');
+        const btn = document.getElementById('verify-code');
         const code = document.getElementById('code').value.trim();
-        if (!loginEmail || code.length !== 6) return;
-        try {
-          const res = await api('/v1/auth/otp/verify', {
-            method: 'POST',
-            body: JSON.stringify({ email: loginEmail, code }),
-          });
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            showError(loginErrorEl(), err.error || 'Invalid code');
-            return;
-          }
-          const data = await res.json();
-          saveTokens(data.accessToken, data.refreshToken);
-          try {
-            localStorage.removeItem(OTP_PENDING_KEY);
-          } catch {
-            /* ignore */
-          }
-          showAppView();
-          try {
-            await refreshDashboard();
-          } catch (e) {
-            const msg = e instanceof Error ? e.message : 'Could not load clinic portal';
-            const wrongRole = e && typeof e === 'object' && e.code === 'wrong_role';
-            if (wrongRole) {
-              clearTokens();
-              showLoginView();
-              showError(loginErrorEl(), msg);
-            } else {
-              showError(appErrorEl(), msg);
-            }
-          }
-        } catch {
-          showError(loginErrorEl(), 'Could not reach server — try again');
+        if (!loginEmail) {
+          showError(loginErrorEl(), t('enterEmailFirst'));
+          showEmailStep();
+          return;
         }
-      };
+        if (code.length !== 6) {
+          showError(loginErrorEl(), t('enterCode'));
+          document.getElementById('code').focus();
+          return;
+        }
+        await withBusy(btn, t('signingIn'), async () => {
+          try {
+            const res = await api('/v1/auth/otp/verify', {
+              method: 'POST',
+              body: JSON.stringify({ email: loginEmail, code }),
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              showError(loginErrorEl(), err.error || t('invalidCode'));
+              return;
+            }
+            const data = await res.json();
+            saveTokens(data.accessToken, data.refreshToken);
+            try {
+              localStorage.removeItem(OTP_PENDING_KEY);
+            } catch {
+              /* ignore */
+            }
+            showAppView();
+            try {
+              await refreshDashboard();
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : t('couldNotLoadPortal');
+              const wrongRole = err && typeof err === 'object' && err.code === 'wrong_role';
+              if (wrongRole) {
+                clearTokens();
+                showLoginView();
+                showError(loginErrorEl(), msg);
+              } else {
+                showError(appErrorEl(), msg);
+              }
+            }
+          } catch {
+            showError(loginErrorEl(), t('unreachable'));
+          }
+        });
+      });
 
       document.getElementById('logout').onclick = () => {
         clearTokens();
@@ -757,12 +1016,53 @@
         location.reload();
       };
 
+      document.querySelectorAll('.chip-btn[data-filter]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          worklistState.filter = btn.getAttribute('data-filter');
+          worklistState.page = 0;
+          document.querySelectorAll('.chip-btn[data-filter]').forEach((b) => {
+            const on = b === btn;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+          });
+          renderWorklist();
+        });
+      });
+
+      let searchTimer = null;
+      document.getElementById('worklist-search').addEventListener('input', (e) => {
+        const value = e.target.value;
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+          worklistState.search = value;
+          worklistState.page = 0;
+          renderWorklist();
+        }, 150);
+      });
+
+      document.getElementById('worklist-sort').addEventListener('change', (e) => {
+        worklistState.sort = e.target.value;
+        worklistState.page = 0;
+        renderWorklist();
+      });
+
+      document.getElementById('pager-prev').onclick = () => {
+        if (worklistState.page > 0) {
+          worklistState.page -= 1;
+          renderWorklist();
+        }
+      };
+      document.getElementById('pager-next').onclick = () => {
+        worklistState.page += 1;
+        renderWorklist();
+      };
+
       document.getElementById('save-name').onclick = async () => {
         showError(appErrorEl(), '');
         const btn = document.getElementById('save-name');
         const displayName = document.getElementById('display-name').value.trim();
         setStatus('name-status', '', '');
-        await withBusy(btn, 'Saving…', async () => {
+        await withBusy(btn, t('saving'), async () => {
           try {
             const res = await api('/v1/me', {
               method: 'PATCH',
@@ -772,19 +1072,17 @@
               setStatus(
                 'name-status',
                 'err',
-                (await res.json().catch(() => ({}))).error || 'Could not save the name.',
+                (await res.json().catch(() => ({}))).error || t('couldNotSaveName'),
               );
               return;
             }
             setStatus(
               'name-status',
               'ok',
-              displayName
-                ? 'Saved. Patients will see “' + displayName + '” on invites and in the app.'
-                : 'Display name cleared. Patients will see your email address instead.',
+              displayName ? t('nameSaved', { name: displayName }) : t('nameCleared'),
             );
-          } catch (e) {
-            setStatus('name-status', 'err', e instanceof Error ? e.message : 'Could not save the name.');
+          } catch (err) {
+            setStatus('name-status', 'err', err instanceof Error ? err.message : t('couldNotSaveName'));
           }
         });
       };
@@ -795,59 +1093,51 @@
         const input = document.getElementById('patient-email');
         const patientEmail = input.value.trim().toLowerCase();
         if (!patientEmail) {
-          setInviteStatus('err', 'Enter the patient email address.');
+          setInviteStatus('err', t('inviteNeedsEmail'));
           input.focus();
           return;
         }
         if (!patientEmail.includes('@')) {
-          setInviteStatus('err', 'That does not look like an email address.');
+          setInviteStatus('err', t('inviteNotEmail'));
           input.focus();
           return;
         }
 
-        const idleLabel = btn.textContent;
-        btn.disabled = true;
-        btn.setAttribute('aria-busy', 'true');
-        btn.textContent = 'Sending…';
-        setInviteStatus('', '');
-        input.disabled = true;
-
-        try {
-          const res = await api('/v1/shares/invite', {
-            method: 'POST',
-            body: JSON.stringify({ patientEmail }),
-          });
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            setInviteStatus('err', err.error || 'Invite failed — try again.');
-            return;
-          }
-          const data = await res.json().catch(() => ({}));
-          input.value = '';
-          await refreshDashboard();
-          if (data && data.emailSent === false) {
+        await withBusy(btn, t('sendingInvite'), async () => {
+          input.disabled = true;
+          setInviteStatus('', '');
+          try {
+            const res = await api('/v1/shares/invite', {
+              method: 'POST',
+              body: JSON.stringify({ patientEmail }),
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              setInviteStatus('err', err.error || t('inviteFailed'));
+              return;
+            }
+            const data = await res.json().catch(() => ({}));
+            input.value = '';
+            await refreshDashboard();
             setInviteStatus(
-              'warn',
-              'Invite saved for ' + patientEmail + ', but the email could not be sent. Ask them to open the Healthings app and check pending clinic invites, or try again later.',
+              data && data.emailSent === false ? 'warn' : 'ok',
+              data && data.emailSent === false
+                ? t('inviteSavedNoEmail', { email: patientEmail })
+                : t('inviteSent', { email: patientEmail }),
             );
-          } else {
-            setInviteStatus(
-              'ok',
-              'Invite sent to ' + patientEmail + '. They will get an email — nothing is shared until they approve in the app. It also appears under Outgoing invites below.',
-            );
+          } catch (err) {
+            setInviteStatus('err', err instanceof Error ? err.message : t('inviteFailedNetwork'));
+          } finally {
+            input.disabled = false;
           }
-        } catch (e) {
-          setInviteStatus('err', e instanceof Error ? e.message : 'Invite failed — check your connection.');
-        } finally {
-          btn.disabled = false;
-          btn.removeAttribute('aria-busy');
-          btn.textContent = idleLabel;
-          input.disabled = false;
-        }
+        });
       };
 
       document.getElementById('patient-email').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') document.getElementById('invite-btn').click();
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          document.getElementById('invite-btn').click();
+        }
       });
       document.getElementById('patient-email').addEventListener('input', () => {
         const el = document.getElementById('invite-status');
@@ -858,17 +1148,20 @@
         showError(appErrorEl(), '');
         const btn = document.getElementById('simulate-card-btn');
         setFlash('', '');
-        await withBusy(btn, 'Attaching…', async () => {
+        await withBusy(btn, t('attaching'), async () => {
           try {
-            const res = await api('/v1/wallet/payment-method/simulate', { method: 'POST', body: '{}' });
+            const res = await api('/v1/wallet/payment-method/simulate', {
+              method: 'POST',
+              body: '{}',
+            });
             if (!res.ok) {
-              setFlash('err', (await res.json().catch(() => ({}))).error || 'Could not attach the card.');
+              setFlash('err', (await res.json().catch(() => ({}))).error || t('couldNotAttachCard'));
               return;
             }
             await refreshDashboard();
-            setFlash('ok', 'Test card attached. Credits reload automatically when the balance runs low.');
-          } catch (e) {
-            setFlash('err', e instanceof Error ? e.message : 'Could not attach the card.');
+            setFlash('ok', t('cardAttached'));
+          } catch (err) {
+            setFlash('err', err instanceof Error ? err.message : t('couldNotAttachCard'));
           }
         });
       };
@@ -877,18 +1170,17 @@
         showError(appErrorEl(), '');
         const btn = document.getElementById('load-pack-btn');
         setFlash('', '');
-        await withBusy(btn, 'Adding…', async () => {
+        await withBusy(btn, t('adding'), async () => {
           try {
             const res = await api('/v1/wallet/add-pack', { method: 'POST', body: '{}' });
             if (!res.ok) {
-              setFlash('err', (await res.json().catch(() => ({}))).error || 'Could not add credits.');
+              setFlash('err', (await res.json().catch(() => ({}))).error || t('couldNotAddCredits'));
               return;
             }
             await refreshDashboard();
-            const balance = document.getElementById('wallet-balance').textContent;
-            setFlash('ok', 'Credits added. Balance is now ' + balance + ' tokens.');
-          } catch (e) {
-            setFlash('err', e instanceof Error ? e.message : 'Could not add credits.');
+            setFlash('ok', t('creditsAdded', { balance: document.getElementById('wallet-balance').textContent }));
+          } catch (err) {
+            setFlash('err', err instanceof Error ? err.message : t('couldNotAddCredits'));
           }
         });
       };

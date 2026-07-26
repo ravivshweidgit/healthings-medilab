@@ -23,6 +23,8 @@ export type PublicShare = {
   createdAt: string;
   updatedAt: string;
   approvedAt: string | null;
+  /** Latest sync_blobs.created_at for this patient, if any. */
+  lastSyncAt: string | null;
 };
 
 type ShareRow = {
@@ -37,6 +39,7 @@ type ShareRow = {
   approved_at: Date | null;
   mentor_email: string;
   mentor_display_name: string | null;
+  last_sync_at: Date | null;
 };
 
 export class ShareError extends Error {
@@ -66,15 +69,24 @@ function toPublicShare(row: ShareRow): PublicShare {
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
     approvedAt: row.approved_at?.toISOString() ?? null,
+    lastSyncAt: row.last_sync_at?.toISOString() ?? null,
   };
 }
 
 const shareSelect = `
   SELECT s.*,
          m.email AS mentor_email,
-         m.display_name AS mentor_display_name
+         m.display_name AS mentor_display_name,
+         snap.created_at AS last_sync_at
   FROM account_shares s
   JOIN users m ON m.id = s.mentor_id
+  LEFT JOIN LATERAL (
+    SELECT b.created_at
+    FROM sync_blobs b
+    WHERE b.patient_id = s.patient_id
+    ORDER BY b.version DESC
+    LIMIT 1
+  ) snap ON s.patient_id IS NOT NULL
 `;
 
 async function getShareRow(id: string): Promise<ShareRow | null> {

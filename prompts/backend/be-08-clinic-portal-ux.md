@@ -6,8 +6,8 @@ Reconciled 2026-07-26.
 | Batch | State |
 |-------|-------|
 | **A** — correctness | **Done, committed, deployed.** `cancelShare` + `POST /v1/shares/:id/cancel` are in `server/src/services/shares.ts` / `routes/shares.ts`; the portal has the outgoing-invites list, confirm-before-revoke and `healthings_clinic_otp_pending` |
-| **B** — forms & a11y | **Partial.** C10 (dashboard actions) and C13 done via `be-21`; C6, C8, C12 still open |
-| **C** — IA / daily tool | **Partial.** C17 and C18 done via `be-21`; C14, C15, C19 moved to `../be-22-clinic-portal-visual.md` |
+| **B** — forms & a11y | **Done pending review.** C10/C13 via `be-21`; C6, C8, C12 and the login half of C10 via `be-25`. Only C11 contrast re-measure left |
+| **C** — IA / daily tool | **Done pending review.** C17/C18 via `be-21`; C14, C15, C19 via `be-25` (not be-22 — the IA moved batches) |
 | **D** — hardening | C20 addressed in the rows `be-21` rewrote; C21 still documentation-only |
 
 **Do not re-review this portal from scratch.** This catalog already named the problems that `be-21`
@@ -143,23 +143,29 @@ Shipped in working tree (not committed / not on VPS yet):
 
 ### Batch B — Forms & a11y
 
-- [ ] C6 forms / Enter submit — **still open.** Zero `<form>` elements in `index.html`
-- [ ] C8 visible labels — **still open** for email + code (display name has one)
-- [x] C10 busy states — **done for dashboard actions and Invite** (`withBusy`, `be-20` / `be-21`).
-      **Login half still open:** `send-code` and `verify-code` have no busy state, and both bail
-      silently (`if (!loginEmail) return`) on empty input
+- [x] C6 forms / Enter submit — done in `be-25`: `#login-form-email` and `#login-form-code` are real
+      `<form>`s with `type="submit"` handlers; invite input submits on Enter
+- [x] C8 visible labels — done in `be-25`: `<label for="email">` / `<label for="code">`
+- [x] C10 busy states — dashboard + Invite via `be-20` / `be-21`; **login half done in `be-25`**
+      (`withBusy` on Send code / Sign in, and empty input now shows an error instead of returning
+      silently)
 - [ ] C11 44px targets + link contrast — **partial**; `be-21`'s probe asserted visible buttons clear
-      40px, contrast not re-measured
-- [ ] C12 `:focus-visible` — **still open.** No `focus-visible` rule in the portal
+      40px, contrast not re-measured. `be-25` sets `min-height: var(--tap-min)` on portal buttons and
+      selects, so re-measure once, then close
+- [x] C12 `:focus-visible` — done in `be-25`: shared outline rule on buttons, inputs, selects, chips,
+      and `summary`
 - [x] C13 save-name success feedback — done via `#name-status` (`be-21`)
 
 ### Batch C — IA / daily tool
 
-- [ ] C14 card reorder → **moved to `be-22`** (patients-first layout)
-- [ ] C15 patient filter → **moved to `be-22`** (search / sort / pagination)
+- [x] C14 card reorder → done in `be-25`: the worklist is the first thing under the header; My clinic
+      is a collapsed disclosure and alpha billing moved behind `?dev=1`
+- [x] C15 patient filter → done in `be-25`: search, status chips with counts, three sorts, 25/page
 - [x] C17 sponsorship UI (replace `prompt`) — done via `SPONSOR_DAY_CHOICES` inline picker (`be-21`)
-- [x] C18 mobile row layout — done; `.share-row` stacks actions (`be-21`)
-- [ ] C19 light brand header → **moved to `be-22`**
+- [x] C18 mobile row layout — `be-21` stacked `.share-row`; `be-25` replaced it with a table that
+      collapses to one block per patient under 720px via `td::before` labels
+- [x] C19 light brand header → done in `be-25`: logo + Healthings / Clinic, email, balance chip,
+      language picker, Sign out
 
 ### Batch D — Hardening (defer idle lock)
 
@@ -171,7 +177,8 @@ Shipped in working tree (not committed / not on VPS yet):
 
 ## Out of scope (this prompt)
 
-- Clinic portal i18n (language-policy Phase C)
+- Clinic portal i18n — was "Phase C, deferred"; policy reversed 2026-07-26. Plumbing shipped in
+  `be-25`, locales in `be-26`
 - Full redesign of patient workspace tabs (`patient.html` / `clinic-workspace.js`) — review noted them as worth keeping
 - Stripe / real payments UI polish beyond alpha copy
 - App locales / Swahili (app prompts only)
@@ -193,6 +200,8 @@ Shipped in working tree (not committed / not on VPS yet):
 
 - [x] Batch A committed + API + website deployed
 - [x] Smoke checklist green on production
-- [ ] Remaining B items (C6 forms, C8 labels, C12 focus-visible, C10 login busy state) — fold into
-      the next portal batch rather than a standalone pass
-- [ ] Move to `prompts/backend/done/` once the leftover B items ship; C items now belong to `be-22`
+- [x] Remaining B items (C6 forms, C8 labels, C12 focus-visible, C10 login busy state) — shipped in
+      **be-25**
+- [ ] Move to `prompts/backend/done/` once **be-25 is accepted** and the last two stragglers are
+      closed: **C11** link/text contrast re-measure, **C21** localStorage session-risk note. Everything
+      else in A–D is ticked

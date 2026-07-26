@@ -26,9 +26,10 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-08-clinic-portal-ux.md` | Clinic portal UI/UX catalog (C1–C21) | **partial** | Batch A correctness shipped and live. Genuinely open: C6 forms/Enter submit, C8 visible labels on email + code, C12 `:focus-visible`, and busy states on the **login** buttons. Fold these into the next portal batch rather than a standalone pass. C14/C15/C19 handed to be-22 |
-| *(panel batch — not yet drafted)* | Clinic panel: worklist + cross-patient table | — | The scalable table: same component at 20 or 200 patients; pagination, saved filters and assignment are additive. Replaces the eight-card column where the patient list comes last. Needs be-23's org resolution first — **be-23 shipped** |
-| `be-22-clinic-portal-visual.md` | Clinic portal visual rebuild (2026 level) | **ready, demoted** | **Last.** Was next until 2026-07-26, when the owner asked whether the card-column layout is right for a clinic. It is not, and repainting an information architecture we are about to replace is the wasted work — so this runs after be-23 and the panel, with its token migration folded into whatever layout wins. Content still stands: gate alpha billing behind `?dev=1`, lead the balance with money from the configured pack rate, keep tokens as the metered unit, and treat be-21's 57/57 probe as a non-regression gate |
+| `be-25-clinic-panel.md` | Clinic panel: patients-first worklist | **needs-review** | Built. Worklist table + search/filter/sort/pagination + `lastSyncAt` + brand header; be-08 C6/C8/C12/C14/C15/C19 + login busy; alpha billing behind `?dev=1`. Grew two owner-approved items mid-batch: **design tokens + dark mode** on the home page, and **i18n plumbing** after the English-only reversal. Verified by CDP probe against a stubbed API; live mutations still unsmoked |
+| `be-26-clinic-portal-i18n.md` | Clinic portal i18n: fill the 10 locales | **ready** | After be-25 is accepted. `COPY.he`…`COPY.tr` are empty; clinicians see mirrored, dark, English. Locale tables only — no server, no app |
+| `be-08-clinic-portal-ux.md` | Clinic portal UI/UX catalog (C1–C21) | **partial** | A–D all ticked except **C11** (contrast re-measure) and **C21** (localStorage session note). Move to done/ once those two close and be-25 is accepted |
+| `be-22-clinic-portal-visual.md` | Clinic portal visual rebuild | **ready, rescoped** | be-25 absorbed 5 of its 6 problems. What's left: `patient.html` + `clinic-workspace.css` tokens/dark (the last light-only surface), skeletons, and the money-led balance with `tokenPackPriceCents` |
 
 ## Done
 
@@ -64,9 +65,11 @@ File numbers are chronological discovery order, not the only run order. What act
 | **be-09** after be-10 despite the number | Added mid-flight; copy must land before be-11 / be-16 |
 | **be-17 / be-18** before be-15 | Policy and purge promises had to be true before the patient account page |
 | **be-16** pulled forward | Owner's standing "does not look 2026" complaint; only needed be-10 + be-11 |
-| **be-22** last | Repaints the portal be-21 just rewired; correctness before cosmetics — then demoted again behind be-23 and the panel, because the layout itself is what's wrong |
+| **be-22** last, then rescoped | Repaints the portal be-21 just rewired; correctness before cosmetics — demoted behind be-23 and the panel because the layout itself was what's wrong. be-25 then rewrote that page's CSS from scratch, so tokenizing it there was free and be-22 lost most of its scope to the batch it was waiting on. When a paint batch queues behind a structural one, expect the structural one to absorb it |
 | **be-23** ahead of everything | One-way doors. Schema, consent and audit are brutal to retrofit once real patients exist; UI is changeable any week |
 | **be-24** straight after be-23 | A live undisclosed exposure of patient coach chat, found by the owner asking why the workspace has a chat tab at all. Small, and every day it ships later is another day of transcripts on clinicians' screens |
+| **be-25** before be-22 | Panel IA first; painting the old card column is wasted work |
+| **be-26** after be-25 | The English-only portal policy was reversed while be-25 was mid-flight ("we are global, global for clinics"). Splitting plumbing from translation kept be-25 reviewable: be-25 guarantees no new inline English, be-26 fills 9 locales |
 
 ## Decisions (locked 2026-06-22, hosting updated 2026-06-29)
 
@@ -91,15 +94,25 @@ trusting the script's exit code.
 
 ## Auto kickoff (paste)
 
+be-25 is built and awaiting owner review. Next batch:
+
 ```
-Next open work after be-23/be-24: either draft the clinic panel batch
-(worklist + cross-patient table — see open-batches table), or fold the
-remaining be-08 items (C6/C8/C12 + login busy states) into that draft.
-Do not start be-22 until the panel IA is settled.
+Implement prompts/backend/be-26-clinic-portal-i18n.md
+(ignore done/ — those are shipped records). Stop after be-26.
 
 Rules:
-- Follow the batch's paths, design, and acceptance criteria exactly.
-- Do not mark anything done yourself — wait for owner sign-off.
+- Fill COPY.he … COPY.tr in website/clinic/clinic-i18n.js. Nothing else,
+  except a missed key or an RTL layout fix.
+- Clinical professional register, not consumer-app friendly. Translate with
+  judgment — do not word-substitute "sponsor", "revoke", or "snapshot".
+- Glossary stays English: brand, kcal, mg/dL, kg, CGM, BMR, AI, tokens,
+  device names.
+- Patient content is never translated. Emails keep dir="ltr" — do not
+  "fix" them to dir="auto".
+- Check he + ar RTL with real strings, and de + ru for overflow at 1280/390.
+- Plurals must read right at n = 1, 2, 5, 21 in ru and ar.
+- No server, app, or clinic-workspace.js diff.
+- Mark needs-review with a screenshot per locale; do not self-accept.
 - Do not commit or deploy unless asked.
 ```
 

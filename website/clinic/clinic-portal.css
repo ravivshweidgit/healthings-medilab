@@ -1,0 +1,478 @@
+/**
+ * Clinic portal panel (be-25).
+ *
+ * Tokens only — no hardcoded surface/text/line colours. The portal opts into
+ * `<html class="theme-auto">`, so it darkens with the OS like the landing page.
+ * Status tints are portal-local because tokens.css carries only the solid
+ * --ok / --warn / --danger inks, not the pale fills a banner needs.
+ */
+:root {
+  --portal-ok-bg: #ecfdf3;
+  --portal-ok-line: #bbf7d0;
+  --portal-ok-ink: #14532d;
+  --portal-warn-bg: #fffbeb;
+  --portal-warn-line: #fde68a;
+  --portal-warn-ink: #854d0e;
+  --portal-err-bg: #fef2f2;
+  --portal-err-line: #fecaca;
+  --portal-err-ink: #991b1b;
+  --portal-neutral-bg: #f3f4f6;
+  --portal-neutral-line: var(--line);
+  --portal-neutral-ink: var(--muted);
+}
+
+@media (prefers-color-scheme: dark) {
+  .theme-auto {
+    --portal-ok-bg: #10251a;
+    --portal-ok-line: #1f5133;
+    --portal-ok-ink: #86efac;
+    --portal-warn-bg: #2a2110;
+    --portal-warn-line: #5c4715;
+    --portal-warn-ink: #fcd34d;
+    --portal-err-bg: #2a1416;
+    --portal-err-line: #5f2226;
+    --portal-err-ink: #fca5a5;
+    --portal-neutral-bg: var(--surface-2);
+  }
+}
+
+.portal-wrap {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+body.portal-app .portal-wrap {
+  max-width: var(--wrap-wide);
+}
+
+.portal-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  margin: 6px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+}
+.portal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--navy);
+  /* Not --surface: the fill is --navy, which inverts in dark, so the ink has to
+     invert with it rather than staying white. */
+  color: var(--bg-page);
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  min-height: var(--tap-min);
+  text-decoration: none;
+  font-size: 14px;
+  font-family: inherit;
+}
+.portal-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.portal-btn.secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+/* --danger does not flip in tokens.css, so #c0392b would sit at ~3:1 on a dark
+   surface. The portal's own err ink inverts and stays legible in both schemes. */
+.portal-btn.danger {
+  background: transparent;
+  color: var(--portal-err-ink);
+  border: 1px solid var(--portal-err-line);
+  font-weight: 600;
+}
+.portal-btn.danger:hover {
+  background: var(--portal-err-bg);
+}
+.portal-btn:focus-visible,
+.portal-input:focus-visible,
+.portal-select:focus-visible,
+.chip-btn:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+}
+.invite-actions .portal-btn {
+  margin-top: 0;
+}
+.portal-select {
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 14px;
+  min-height: var(--tap-min);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+}
+
+#app-flash {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  margin: 0 0 16px;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.row-actions .portal-btn {
+  margin-top: 0;
+  margin-left: 0;
+}
+.sponsor-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+
+.chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.chip.ok {
+  color: var(--portal-ok-ink);
+  background: var(--portal-ok-bg);
+  border-color: var(--portal-ok-line);
+}
+.chip.soon {
+  color: var(--portal-warn-ink);
+  background: var(--portal-warn-bg);
+  border-color: var(--portal-warn-line);
+}
+.chip.off {
+  color: var(--portal-neutral-ink);
+  background: var(--portal-neutral-bg);
+  border-color: var(--portal-neutral-line);
+}
+.chip.gone {
+  color: var(--portal-err-ink);
+  background: var(--portal-err-bg);
+  border-color: var(--portal-err-line);
+}
+
+.portal-status {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  border: 1px solid transparent;
+}
+.portal-status[hidden] {
+  display: none !important;
+}
+.portal-status.ok {
+  color: var(--portal-ok-ink);
+  background: var(--portal-ok-bg);
+  border-color: var(--portal-ok-line);
+}
+.portal-status.warn {
+  color: var(--portal-warn-ink);
+  background: var(--portal-warn-bg);
+  border-color: var(--portal-warn-line);
+}
+.portal-status.err {
+  color: var(--portal-err-ink);
+  background: var(--portal-err-bg);
+  border-color: var(--portal-err-line);
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.error {
+  color: var(--portal-err-ink);
+  font-size: 0.9rem;
+  margin-top: 8px;
+}
+.field-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 8px;
+}
+
+/* Login */
+.login-card {
+  margin-top: 24px;
+}
+.login-card h1 {
+  margin: 0 0 8px;
+  font-size: 1.5rem;
+  color: var(--navy);
+}
+
+/* App header */
+.panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.panel-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+.panel-brand img {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+}
+.panel-brand-text {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+  color: var(--navy);
+}
+.panel-brand-sub {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.panel-header-meta {
+  margin-inline-start: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.balance-chip {
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+.panel-header .portal-btn {
+  margin-top: 0;
+}
+
+/* Invite strip */
+.invite-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.invite-strip .invite-field {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.invite-strip .portal-input {
+  margin: 4px 0 0;
+}
+.invite-strip .portal-btn {
+  margin-top: 0;
+}
+.invite-note {
+  margin: -8px 0 16px;
+}
+
+/* Filters */
+.worklist-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip-btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-pill);
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 36px;
+}
+.chip-btn.active {
+  background: var(--navy);
+  color: var(--bg-page);
+  border-color: var(--navy);
+}
+.chip-btn .n {
+  opacity: 0.75;
+  font-weight: 500;
+}
+.worklist-search {
+  flex: 1 1 180px;
+  margin: 0 !important;
+}
+.worklist-sort {
+  min-width: 140px;
+}
+
+/* Table */
+.worklist-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface);
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.worklist-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.worklist-table th {
+  text-align: start;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  font-weight: 700;
+}
+.worklist-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+  font-size: 0.95rem;
+}
+.worklist-table tr:last-child td {
+  border-bottom: none;
+}
+.worklist-table .email-cell {
+  font-weight: 600;
+  word-break: break-word;
+}
+.worklist-empty {
+  padding: 28px 16px;
+  text-align: center;
+}
+.worklist-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: 0.9rem;
+}
+.worklist-pager .portal-btn {
+  margin-top: 0;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+
+/* Secondary */
+.secondary-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: var(--surface);
+}
+.secondary-panel h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  color: var(--navy);
+}
+.secondary-panel summary {
+  cursor: pointer;
+  color: var(--text);
+}
+.dev-only[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 720px) {
+  .worklist-table thead {
+    display: none;
+  }
+  .worklist-table,
+  .worklist-table tbody,
+  .worklist-table tr,
+  .worklist-table td {
+    display: block;
+    width: 100%;
+  }
+  .worklist-table tr {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .worklist-table td {
+    padding: 4px 0;
+    border: none;
+  }
+  .worklist-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .worklist-table td.email-cell::before {
+    display: none;
+  }
+  .panel-header-meta {
+    margin-inline-start: 0;
+    width: 100%;
+  }
+}
