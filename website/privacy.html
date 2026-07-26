@@ -33,8 +33,9 @@
         <p class="doc-date">Last updated 26 July 2026</p>
         <p class="lead" data-i18n="lead">
           HEALTHINGS.AI is <strong>local-first</strong>: your health data stays on your phone.
-          <strong>We do not upload your health data</strong> unless you choose to share with a linked
-          clinic — and you can <strong>revoke</strong> that at any time. You are always in control.
+          <strong>Nothing reaches our server unless you choose it</strong> — by sharing with a linked
+          clinic, or by turning on cloud backup — and you can <strong>end either at any time</strong>.
+          You are always in control.
         </p>
       </section>
 
@@ -44,9 +45,10 @@
           Healthings is an alpha wellness app — a personal metabolic coach for meals, glucose,
           and progress. It is <strong>not a medical device</strong> and does not diagnose or
           treat conditions. Do not use it for emergency medical decisions.
-          <strong>Your health data stays on your device by default.</strong> Uploading to our
-          server happens only when <strong>you</strong> approve clinic sharing and choose to
-          share — never automatically without your link and your action.
+          <strong>Your health data stays on your device by default.</strong> It reaches our server
+          only through choices <strong>you</strong> make: approving a clinic and sharing with it, or
+          turning on cloud backup. Neither is on unless you switch it on, and you can end either at
+          any time.
         </p>
         <p class="policy-lang-note" data-i18n="note" hidden></p>
 
@@ -56,6 +58,7 @@
             <li><a href="#summary">Summary</a></li>
             <li><a href="#on-device">What stays on your device</a></li>
             <li><a href="#clinic-sharing">Optional clinic sharing</a></li>
+            <li><a href="#cloud-backup">Optional cloud backup</a></li>
             <li><a href="#server-data">What we collect on our server</a></li>
             <li><a href="#third-parties">Third-party services</a></li>
             <li><a href="#permissions">Permissions</a></li>
@@ -67,18 +70,26 @@
         </nav>
 
         <h2 id="on-device">What stays on your device</h2>
-        <p>During the alpha, the following are stored locally on your phone only:</p>
+        <p>By default, all of the following live only on your phone:</p>
         <ul>
-          <li>CGM / blood glucose readings (via Health Connect, when you grant permission)</li>
-          <li>Meals, macros, and food log</li>
-          <li>Lab results you import</li>
+          <li>CGM / blood glucose readings (from Health Connect or Apple Health, when you grant permission)</li>
+          <li>Steps, workouts, heart rate, and active calories</li>
+          <li>Meals, macros, and food log, including any meal photos you take</li>
+          <li>Lab results and nutritionist directives you import</li>
           <li>Personal rules, targets, and coach preferences</li>
-          <li>Backups you create in the app</li>
-          <li>Withings tokens and synced weight data (if you connect Withings)</li>
+          <li>Weight and body composition synced from Withings</li>
         </ul>
         <p>
-          We do <strong>not</strong> upload this health data to our server. You control exports
-          and deletion through in-app backup tools.
+          There are exactly <strong>two</strong> ways this data reaches our server, and you start
+          both of them: <a href="#clinic-sharing">clinic sharing</a> and
+          <a href="#cloud-backup">cloud backup</a>. Neither is on by default, and you can end either
+          one at any time. Everything else — exporting a backup to a file, importing a PDF, taking a
+          meal photo — happens on the phone.
+        </p>
+        <p>
+          Your <strong>Withings login tokens</strong> are held in your phone's secure keystore and
+          are never uploaded, even when you share or back up. The weight and activity
+          <em>values</em> synced from Withings are ordinary health data and travel with the rest.
         </p>
 
         <h2 id="clinic-sharing">Optional clinic sharing (your choice)</h2>
@@ -114,40 +125,121 @@
           the app instead.
         </p>
 
+        <h2 id="cloud-backup">Optional cloud backup (your choice)</h2>
+        <p>
+          Cloud backup is <strong>off unless you turn it on</strong>. When you do, the app uploads a
+          copy of your app data so you can restore it on a new phone. We keep the current backup and
+          the one before it, so a bad overwrite does not cost you your history. Once it is on, the
+          app refreshes that copy in the background — that is the point of a backup — so treat
+          turning it on as ongoing consent rather than a one-time upload.
+        </p>
+        <p>
+          Turning cloud backup off <strong>deletes both copies from our server</strong>. Your clinic
+          snapshot, if you have one, is separate and unaffected — and the reverse is also true.
+        </p>
+
         <h2 id="server-data">What we collect on our server</h2>
+        <p>Always, because the account cannot work without it:</p>
         <ul>
           <li><strong>Email address</strong> — for sign-in with a one-time code (no password)</li>
-          <li><strong>Account metadata</strong> — login timestamps needed to operate auth</li>
           <li>
-            <strong>Optional clinic link</strong> — if you approve sharing, which clinic accounts may
-            access your snapshot (whitelist only; no health export without your action)
+            <strong>Sign-in records</strong> — hashed one-time codes and hashed session tokens, with
+            the times they were issued and revoked
+          </li>
+          <li><strong>Display name</strong> and whether the account is a patient or a clinic</li>
+        </ul>
+        <p>Only if you use the feature:</p>
+        <ul>
+          <li>
+            <strong>Clinic links</strong> — which clinic accounts you approved, and the request,
+            approval and revocation times
+          </li>
+          <li>
+            <strong>Clinic snapshot</strong> — see <a href="#clinic-sharing">clinic sharing</a> above
+          </li>
+          <li>
+            <strong>Clinic workspace</strong> — rules your clinic writes for you, their edit history,
+            and clinic-side AI chat about your case. This is written by your clinic, not copied from
+            your phone, and it is deleted when your last clinic link ends
+          </li>
+          <li>
+            <strong>Cloud backup</strong> — see <a href="#cloud-backup">cloud backup</a> above
+          </li>
+          <li>
+            <strong>AI usage records</strong> — one row per AI request, recording which account it was
+            for, what kind of request it was (meal, chat, labs, coaching), and what it cost in tokens.
+            The content of the request is not stored here
+          </li>
+          <li>
+            <strong>Token balance and billing history</strong> — your AI token balance and the
+            credits and debits behind it, plus which clinic is sponsoring your AI if one is
+          </li>
+          <li>
+            <strong>Payment details</strong> — if you add a card, we store your payment processor's
+            customer and payment-method identifiers along with the card brand and last four digits.
+            <strong>We never see or store your full card number.</strong> Card payments are simulated
+            during the alpha
           </li>
         </ul>
+        <p>
+          <strong>Retention.</strong> During the alpha we do not run automatic clean-up. Sign-in
+          records, AI usage records and billing history are kept until you ask us to delete your
+          account. Snapshots and clinic workspace data are deleted as described above. We will add
+          scheduled expiry as the product leaves alpha and will say so here.
+        </p>
         <p>API host: <a href="https://api.healthings.ai/health">api.healthings.ai</a> (HTTPS).</p>
 
         <h2 id="third-parties">Third-party services you choose to use</h2>
         <ul>
           <li>
-            <strong>Google Gemini</strong> — when you use AI coach or mentor chat, meal and health
-            context from your device is sent to Google’s API to generate responses. See
+            <strong>Google Gemini</strong> — health context is sent to Google’s API to generate
+            responses, on two separate paths. When <strong>you</strong> use the AI coach or mentor
+            chat, it is sent from your phone. When a <strong>clinic you have linked</strong> uses
+            their chat about your case, it is sent from our server, drawn from the snapshot you
+            shared — so this can happen as a result of your clinician’s action rather than your own.
+            Either way it can include labs, glucose, meals, workouts, body measurements, and your
+            rules and targets. See
             <a href="https://policies.google.com/privacy">Google’s privacy policy</a>.
           </li>
           <li>
-            <strong>Withings</strong> — optional OAuth to sync weight; data is stored in the app on
-            your device. See <a href="https://www.withings.com/legal/privacy-policy">Withings privacy</a>.
+            <strong>Withings</strong> — optional OAuth to sync weight and body composition. Your
+            Withings login tokens stay in your phone’s secure keystore and are never uploaded to us.
+            The synced values are health data like any other and travel in a clinic snapshot or cloud
+            backup if you use those. See
+            <a href="https://www.withings.com/legal/privacy-policy">Withings privacy</a>.
           </li>
           <li>
-            <strong>Health Connect</strong> — optional read access to blood glucose for on-device
-            charts only.
+            <strong>Health Connect</strong> (Android) and <strong>Apple Health</strong> (iPhone) —
+            optional read access to blood glucose, steps, workouts, heart rate and active calories.
+            Reading is one-way: we never write anything back to your health records. This data is
+            used for your charts and coaching on the phone, and travels onward only through clinic
+            sharing or cloud backup.
           </li>
         </ul>
 
         <h2 id="permissions">Permissions</h2>
         <ul>
-          <li>Health Connect — read blood glucose (wellness tracking, on-device)</li>
-          <li>Biometric unlock — optional fingerprint after first sign-in</li>
-          <li>Internet — sign-in, AI coach, optional Withings sync</li>
+          <li>
+            <strong>Health Connect / Apple Health</strong> — read blood glucose, steps, workouts,
+            heart rate and active calories, so your charts and coaching reflect what you actually did
+          </li>
+          <li>
+            <strong>Camera and photos</strong> — optional, to photograph a meal for the AI to
+            analyse or to attach an image in coach chat
+          </li>
+          <li>
+            <strong>Files</strong> — optional, to import lab PDFs, nutritionist directives and CGM
+            exports, and to save backups where you choose. We can only read the files you pick
+          </li>
+          <li><strong>Biometric unlock</strong> — optional fingerprint or Face ID after first sign-in</li>
+          <li><strong>Internet and network state</strong> — sign-in, AI coach, optional Withings sync</li>
+          <li><strong>Vibration</strong> — feedback on taps and alerts</li>
         </ul>
+        <p>
+          Android also lists a <strong>microphone</strong> permission. It comes bundled with the
+          photo-picker component and the app never records audio; we are removing it in a coming
+          build. The app does not use location, and sends no notifications.
+        </p>
 
         <h2 id="children">Children</h2>
         <p>Healthings is not directed at children under 13. We do not knowingly collect data from children.</p>
@@ -174,7 +266,7 @@
     </main>
 
     <!-- BEGIN generated: privacy summary translations (gen-privacy-summary.mjs) -->
-        <script type="application/json" id="privacy-i18n">{"he":{"heading":"תקציר","lead":"HEALTHINGS.AI היא \u003cstrong>מקומית תחילה\u003c/strong>: נתוני הבריאות שלך נשארים בטלפון. \u003cstrong>איננו מעלים את נתוני הבריאות שלך\u003c/strong> אלא אם בחרת לשתף עם מרפאה מקושרת — ואפשר \u003cstrong>לבטל\u003c/strong> את השיתוף בכל רגע. השליטה תמיד אצלך.","summary":"Healthings היא אפליקציית בריאות בגרסת אלפא — מאמן מטבולי אישי לארוחות, לגלוקוז ולהתקדמות. היא \u003cstrong>אינה מכשיר רפואי\u003c/strong> ואינה מאבחנת או מטפלת במצבים רפואיים. אין להשתמש בה להחלטות רפואיות דחופות. \u003cstrong>נתוני הבריאות שלך נשארים במכשיר כברירת מחדל.\u003c/strong> העלאה לשרת שלנו מתרחשת רק כאשר \u003cstrong>את/ה\u003c/strong> מאשר/ת שיתוף עם מרפאה ובוחר/ת לשתף — לעולם לא אוטומטית, בלי הקישור שלך ובלי הפעולה שלך.","note":"המדיניות המלאה מופיעה באנגלית מטה.","rtl":true},"es":{"heading":"Resumen","lead":"HEALTHINGS.AI es \u003cstrong>local primero\u003c/strong>: tus datos de salud se quedan en tu teléfono. \u003cstrong>No subimos tus datos de salud\u003c/strong> salvo que elijas compartirlos con una clínica vinculada, y puedes \u003cstrong>revocarlo\u003c/strong> en cualquier momento. Siempre tienes el control.","summary":"Healthings es una app de bienestar en alfa: un entrenador metabólico personal para comidas, glucosa y progreso. \u003cstrong>No es un producto sanitario\u003c/strong> y no diagnostica ni trata enfermedades. No la uses para decisiones médicas de urgencia. \u003cstrong>Tus datos de salud permanecen en tu dispositivo de forma predeterminada.\u003c/strong> La subida a nuestro servidor ocurre solo cuando \u003cstrong>tú\u003c/strong> apruebas compartir con una clínica y eliges compartir, nunca de forma automática sin tu vínculo y tu acción.","note":"La política completa está disponible en inglés más abajo."},"fr":{"heading":"Résumé","lead":"HEALTHINGS.AI est \u003cstrong>local d’abord\u003c/strong> : vos données de santé restent sur votre téléphone. \u003cstrong>Nous ne téléversons pas vos données de santé\u003c/strong>, sauf si vous choisissez de les partager avec une clinique liée — et vous pouvez \u003cstrong>révoquer\u003c/strong> ce partage à tout moment. Vous gardez toujours le contrôle.","summary":"Healthings est une application de bien-être en alpha : un coach métabolique personnel pour les repas, la glycémie et les progrès. Ce \u003cstrong>n’est pas un dispositif médical\u003c/strong> ; elle ne diagnostique ni ne traite aucune affection. Ne l’utilisez pas pour des décisions médicales urgentes. \u003cstrong>Vos données de santé restent sur votre appareil par défaut.\u003c/strong> Le téléversement vers notre serveur n’a lieu que lorsque \u003cstrong>vous\u003c/strong> approuvez le partage avec une clinique et choisissez de partager — jamais automatiquement, sans votre lien et sans votre action.","note":"La politique complète est disponible en anglais ci-dessous."},"de":{"heading":"Zusammenfassung","lead":"HEALTHINGS.AI ist \u003cstrong>local-first\u003c/strong>: Ihre Gesundheitsdaten bleiben auf Ihrem Telefon. \u003cstrong>Wir laden Ihre Gesundheitsdaten nicht hoch\u003c/strong>, außer Sie entscheiden sich, mit einer verknüpften Klinik zu teilen — und Sie können das jederzeit \u003cstrong>widerrufen\u003c/strong>. Sie behalten stets die Kontrolle.","summary":"Healthings ist eine Wellness-App in der Alpha: ein persönlicher Stoffwechsel-Coach für Mahlzeiten, Glukose und Fortschritt. Sie ist \u003cstrong>kein Medizinprodukt\u003c/strong>, stellt keine Diagnosen und behandelt keine Erkrankungen. Nutzen Sie sie nicht für medizinische Notfallentscheidungen. \u003cstrong>Ihre Gesundheitsdaten bleiben standardmäßig auf Ihrem Gerät.\u003c/strong> Ein Upload auf unseren Server erfolgt nur, wenn \u003cstrong>Sie\u003c/strong> die Klinikfreigabe genehmigen und das Teilen auswählen — niemals automatisch, ohne Ihre Verknüpfung und Ihre Aktion.","note":"Die vollständige Richtlinie finden Sie unten auf Englisch."},"ar":{"heading":"ملخص","lead":"يعمل HEALTHINGS.AI \u003cstrong>محليًا أولًا\u003c/strong>: بياناتك الصحية تبقى على هاتفك. \u003cstrong>لا نرفع بياناتك الصحية\u003c/strong> إلا إذا اخترت مشاركتها مع عيادة مرتبطة — ويمكنك \u003cstrong>إلغاء\u003c/strong> ذلك في أي وقت. التحكم دائمًا بيدك.","summary":"Healthings تطبيق عافية في مرحلة ألفا: مدرّب أيضي شخصي للوجبات والغلوكوز والتقدّم. وهو \u003cstrong>ليس جهازًا طبيًا\u003c/strong> ولا يشخّص الحالات ولا يعالجها. لا تستخدمه في القرارات الطبية الطارئة. \u003cstrong>بياناتك الصحية تبقى على جهازك افتراضيًا.\u003c/strong> لا يتم الرفع إلى خادمنا إلا عندما \u003cstrong>توافق\u003c/strong> على المشاركة مع عيادة وتختار المشاركة — ولا يحدث ذلك تلقائيًا أبدًا، دون ربطك ودون إجرائك.","note":"السياسة الكاملة متاحة بالإنجليزية أدناه.","rtl":true},"ru":{"heading":"Кратко","lead":"HEALTHINGS.AI работает \u003cstrong>локально в первую очередь\u003c/strong>: ваши данные о здоровье остаются на телефоне. \u003cstrong>Мы не загружаем ваши данные о здоровье\u003c/strong>, если вы сами не решите поделиться ими с привязанной клиникой, — и вы можете \u003cstrong>отозвать\u003c/strong> доступ в любой момент. Контроль всегда за вами.","summary":"Healthings — велнес-приложение в альфа-версии: персональный метаболический коуч для питания, глюкозы и прогресса. Это \u003cstrong>не медицинское изделие\u003c/strong>, оно не ставит диагнозы и не лечит. Не используйте его для экстренных медицинских решений. \u003cstrong>По умолчанию данные о здоровье остаются на вашем устройстве.\u003c/strong> Загрузка на наш сервер происходит только тогда, когда \u003cstrong>вы\u003c/strong> одобряете передачу клинике и выбираете поделиться, — никогда автоматически, без вашей привязки и вашего действия.","note":"Полная политика приведена ниже на английском языке."},"pt":{"heading":"Resumo","lead":"O HEALTHINGS.AI é \u003cstrong>local-first\u003c/strong>: seus dados de saúde ficam no seu celular. \u003cstrong>Não enviamos seus dados de saúde\u003c/strong> a menos que você escolha compartilhar com uma clínica vinculada — e você pode \u003cstrong>revogar\u003c/strong> isso a qualquer momento. Você está sempre no controle.","summary":"O Healthings é um app de bem-estar em alfa: um coach metabólico pessoal para refeições, glicose e progresso. \u003cstrong>Não é um dispositivo médico\u003c/strong> e não diagnostica nem trata condições. Não o use para decisões médicas de emergência. \u003cstrong>Seus dados de saúde ficam no seu dispositivo por padrão.\u003c/strong> O envio para o nosso servidor acontece apenas quando \u003cstrong>você\u003c/strong> aprova o compartilhamento com uma clínica e escolhe compartilhar — nunca automaticamente, sem o seu vínculo e a sua ação.","note":"A política completa está disponível em inglês abaixo."},"it":{"heading":"Riepilogo","lead":"HEALTHINGS.AI è \u003cstrong>local-first\u003c/strong>: i tuoi dati sanitari restano sul telefono. \u003cstrong>Non carichiamo i tuoi dati sanitari\u003c/strong> a meno che tu non scelga di condividerli con una clinica collegata — e puoi \u003cstrong>revocare\u003c/strong> la condivisione in qualsiasi momento. Il controllo è sempre tuo.","summary":"Healthings è un’app di benessere in alfa: un coach metabolico personale per pasti, glucosio e progressi. \u003cstrong>Non è un dispositivo medico\u003c/strong> e non diagnostica né cura patologie. Non usarla per decisioni mediche d’emergenza. \u003cstrong>Per impostazione predefinita i tuoi dati sanitari restano sul tuo dispositivo.\u003c/strong> Il caricamento sul nostro server avviene solo quando \u003cstrong>tu\u003c/strong> approvi la condivisione con una clinica e scegli di condividere — mai automaticamente, senza il tuo collegamento e la tua azione.","note":"L’informativa completa è disponibile in inglese qui sotto."},"tr":{"heading":"Özet","lead":"HEALTHINGS.AI \u003cstrong>önce yerel\u003c/strong> çalışır: sağlık verileriniz telefonunuzda kalır. Bağlı bir kliniğe paylaşmayı siz seçmediğiniz sürece \u003cstrong>sağlık verilerinizi yüklemeyiz\u003c/strong> — ve bunu istediğiniz zaman \u003cstrong>geri alabilirsiniz\u003c/strong>. Kontrol her zaman sizde.","summary":"Healthings, alfa aşamasındaki bir sağlıklı yaşam uygulamasıdır: öğünler, glukoz ve ilerleme için kişisel bir metabolik koç. \u003cstrong>Tıbbi cihaz değildir\u003c/strong>; teşhis koymaz, tedavi etmez. Acil tıbbi kararlar için kullanmayın. \u003cstrong>Sağlık verileriniz varsayılan olarak cihazınızda kalır.\u003c/strong> Sunucumuza yükleme yalnızca \u003cstrong>siz\u003c/strong> klinik paylaşımını onayladığınızda ve paylaşmayı seçtiğinizde gerçekleşir — bağlantınız ve eyleminiz olmadan asla otomatik olarak yapılmaz.","note":"Politikanın tamamı aşağıda İngilizce olarak yer almaktadır."}}</script>
+        <script type="application/json" id="privacy-i18n">{"he":{"heading":"תקציר","lead":"HEALTHINGS.AI היא \u003cstrong>מקומית תחילה\u003c/strong>: נתוני הבריאות שלך נשארים בטלפון. \u003cstrong>שום דבר לא מגיע לשרת שלנו אלא אם בחרת בכך\u003c/strong> — בשיתוף עם מרפאה מקושרת או בהפעלת גיבוי בענן — ואפשר \u003cstrong>להפסיק כל אחד מהם בכל רגע\u003c/strong>. השליטה תמיד אצלך.","summary":"Healthings היא אפליקציית בריאות בגרסת אלפא — מאמן מטבולי אישי לארוחות, לגלוקוז ולהתקדמות. היא \u003cstrong>אינה מכשיר רפואי\u003c/strong> ואינה מאבחנת או מטפלת במצבים רפואיים. אין להשתמש בה להחלטות רפואיות דחופות. \u003cstrong>נתוני הבריאות שלך נשארים במכשיר כברירת מחדל.\u003c/strong> הם מגיעים לשרת שלנו רק דרך בחירות ש\u003cstrong>את/ה\u003c/strong> עושה: אישור מרפאה ושיתוף איתה, או הפעלת גיבוי בענן. אף אחד מהם אינו פעיל אלא אם הפעלת אותו, ואפשר להפסיק כל אחד מהם בכל רגע.","note":"המדיניות המלאה מופיעה באנגלית מטה.","rtl":true},"es":{"heading":"Resumen","lead":"HEALTHINGS.AI es \u003cstrong>local primero\u003c/strong>: tus datos de salud se quedan en tu teléfono. \u003cstrong>Nada llega a nuestro servidor salvo que tú lo elijas\u003c/strong>: al compartir con una clínica vinculada o al activar la copia de seguridad en la nube. Puedes \u003cstrong>detener cualquiera de las dos en cualquier momento\u003c/strong>. Siempre tienes el control.","summary":"Healthings es una app de bienestar en alfa: un entrenador metabólico personal para comidas, glucosa y progreso. \u003cstrong>No es un producto sanitario\u003c/strong> y no diagnostica ni trata enfermedades. No la uses para decisiones médicas de urgencia. \u003cstrong>Tus datos de salud permanecen en tu dispositivo de forma predeterminada.\u003c/strong> Llegan a nuestro servidor solo por decisiones que tomas \u003cstrong>tú\u003c/strong>: aprobar una clínica y compartir con ella, o activar la copia de seguridad en la nube. Ninguna de las dos está activa salvo que tú la actives, y puedes detener cualquiera de ellas en cualquier momento.","note":"La política completa está disponible en inglés más abajo."},"fr":{"heading":"Résumé","lead":"HEALTHINGS.AI est \u003cstrong>local d’abord\u003c/strong> : vos données de santé restent sur votre téléphone. \u003cstrong>Rien n’arrive sur notre serveur sans que vous le choisissiez\u003c/strong> — en partageant avec une clinique liée ou en activant la sauvegarde dans le cloud — et vous pouvez \u003cstrong>arrêter l’une ou l’autre à tout moment\u003c/strong>. Vous gardez toujours le contrôle.","summary":"Healthings est une application de bien-être en alpha : un coach métabolique personnel pour les repas, la glycémie et les progrès. Ce \u003cstrong>n’est pas un dispositif médical\u003c/strong> ; elle ne diagnostique ni ne traite aucune affection. Ne l’utilisez pas pour des décisions médicales urgentes. \u003cstrong>Vos données de santé restent sur votre appareil par défaut.\u003c/strong> Elles n’arrivent sur notre serveur qu’à la suite de choix que \u003cstrong>vous\u003c/strong> faites : approuver une clinique et partager avec elle, ou activer la sauvegarde dans le cloud. Aucune des deux n’est active tant que vous ne l’activez pas, et vous pouvez arrêter l’une ou l’autre à tout moment.","note":"La politique complète est disponible en anglais ci-dessous."},"de":{"heading":"Zusammenfassung","lead":"HEALTHINGS.AI ist \u003cstrong>local-first\u003c/strong>: Ihre Gesundheitsdaten bleiben auf Ihrem Telefon. \u003cstrong>Nichts gelangt auf unseren Server, sofern Sie es nicht selbst wählen\u003c/strong> — durch das Teilen mit einer verknüpften Klinik oder durch das Aktivieren der Cloud-Sicherung — und Sie können \u003cstrong>beides jederzeit beenden\u003c/strong>. Sie behalten stets die Kontrolle.","summary":"Healthings ist eine Wellness-App in der Alpha: ein persönlicher Stoffwechsel-Coach für Mahlzeiten, Glukose und Fortschritt. Sie ist \u003cstrong>kein Medizinprodukt\u003c/strong>, stellt keine Diagnosen und behandelt keine Erkrankungen. Nutzen Sie sie nicht für medizinische Notfallentscheidungen. \u003cstrong>Ihre Gesundheitsdaten bleiben standardmäßig auf Ihrem Gerät.\u003c/strong> Sie gelangen nur durch Entscheidungen auf unseren Server, die \u003cstrong>Sie\u003c/strong> treffen: eine Klinik genehmigen und mit ihr teilen oder die Cloud-Sicherung aktivieren. Beides ist nur aktiv, wenn Sie es einschalten, und Sie können beides jederzeit beenden.","note":"Die vollständige Richtlinie finden Sie unten auf Englisch."},"ar":{"heading":"ملخص","lead":"يعمل HEALTHINGS.AI \u003cstrong>محليًا أولًا\u003c/strong>: بياناتك الصحية تبقى على هاتفك. \u003cstrong>لا يصل أي شيء إلى خادمنا إلا إذا اخترت ذلك\u003c/strong> — بالمشاركة مع عيادة مرتبطة أو بتفعيل النسخ الاحتياطي السحابي — ويمكنك \u003cstrong>إيقاف أيٍّ منهما في أي وقت\u003c/strong>. التحكم دائمًا بيدك.","summary":"Healthings تطبيق عافية في مرحلة ألفا: مدرّب أيضي شخصي للوجبات والغلوكوز والتقدّم. وهو \u003cstrong>ليس جهازًا طبيًا\u003c/strong> ولا يشخّص الحالات ولا يعالجها. لا تستخدمه في القرارات الطبية الطارئة. \u003cstrong>بياناتك الصحية تبقى على جهازك افتراضيًا.\u003c/strong> ولا تصل إلى خادمنا إلا عبر خيارات \u003cstrong>تتخذها أنت\u003c/strong>: الموافقة على عيادة والمشاركة معها، أو تفعيل النسخ الاحتياطي السحابي. ولا يكون أيٌّ منهما مفعّلًا ما لم تفعّله بنفسك، ويمكنك إيقاف أيٍّ منهما في أي وقت.","note":"السياسة الكاملة متاحة بالإنجليزية أدناه.","rtl":true},"ru":{"heading":"Кратко","lead":"HEALTHINGS.AI работает \u003cstrong>локально в первую очередь\u003c/strong>: ваши данные о здоровье остаются на телефоне. \u003cstrong>Ничего не попадает на наш сервер, если вы сами этого не выберете\u003c/strong> — поделившись с привязанной клиникой или включив облачную резервную копию, — и вы можете \u003cstrong>прекратить любое из этого в любой момент\u003c/strong>. Контроль всегда за вами.","summary":"Healthings — велнес-приложение в альфа-версии: персональный метаболический коуч для питания, глюкозы и прогресса. Это \u003cstrong>не медицинское изделие\u003c/strong>, оно не ставит диагнозы и не лечит. Не используйте его для экстренных медицинских решений. \u003cstrong>По умолчанию данные о здоровье остаются на вашем устройстве.\u003c/strong> Они попадают на наш сервер только в результате решений, которые принимаете \u003cstrong>вы\u003c/strong>: одобрить клинику и поделиться с ней или включить облачную резервную копию. Ни то ни другое не работает, пока вы это не включите, и вы можете прекратить любое из этого в любой момент.","note":"Полная политика приведена ниже на английском языке."},"pt":{"heading":"Resumo","lead":"O HEALTHINGS.AI é \u003cstrong>local-first\u003c/strong>: seus dados de saúde ficam no seu celular. \u003cstrong>Nada chega ao nosso servidor a menos que você escolha\u003c/strong> — ao compartilhar com uma clínica vinculada ou ao ativar o backup na nuvem — e você pode \u003cstrong>encerrar qualquer um dos dois a qualquer momento\u003c/strong>. Você está sempre no controle.","summary":"O Healthings é um app de bem-estar em alfa: um coach metabólico pessoal para refeições, glicose e progresso. \u003cstrong>Não é um dispositivo médico\u003c/strong> e não diagnostica nem trata condições. Não o use para decisões médicas de emergência. \u003cstrong>Seus dados de saúde ficam no seu dispositivo por padrão.\u003c/strong> Eles chegam ao nosso servidor apenas por escolhas que \u003cstrong>você\u003c/strong> faz: aprovar uma clínica e compartilhar com ela, ou ativar o backup na nuvem. Nenhum dos dois fica ativo a menos que você ative, e você pode encerrar qualquer um deles a qualquer momento.","note":"A política completa está disponível em inglês abaixo."},"it":{"heading":"Riepilogo","lead":"HEALTHINGS.AI è \u003cstrong>local-first\u003c/strong>: i tuoi dati sanitari restano sul telefono. \u003cstrong>Nulla raggiunge il nostro server se non lo scegli tu\u003c/strong> — condividendo con una clinica collegata o attivando il backup nel cloud — e puoi \u003cstrong>interrompere l’uno o l’altro in qualsiasi momento\u003c/strong>. Il controllo è sempre tuo.","summary":"Healthings è un’app di benessere in alfa: un coach metabolico personale per pasti, glucosio e progressi. \u003cstrong>Non è un dispositivo medico\u003c/strong> e non diagnostica né cura patologie. Non usarla per decisioni mediche d’emergenza. \u003cstrong>Per impostazione predefinita i tuoi dati sanitari restano sul tuo dispositivo.\u003c/strong> Raggiungono il nostro server solo per scelte che fai \u003cstrong>tu\u003c/strong>: approvare una clinica e condividere con essa, oppure attivare il backup nel cloud. Nessuno dei due è attivo se non lo attivi tu, e puoi interrompere l’uno o l’altro in qualsiasi momento.","note":"L’informativa completa è disponibile in inglese qui sotto."},"tr":{"heading":"Özet","lead":"HEALTHINGS.AI \u003cstrong>önce yerel\u003c/strong> çalışır: sağlık verileriniz telefonunuzda kalır. \u003cstrong>Siz seçmediğiniz sürece hiçbir şey sunucumuza ulaşmaz\u003c/strong> — bağlı bir klinikle paylaşarak ya da bulut yedeklemesini açarak — ve \u003cstrong>ikisini de istediğiniz zaman durdurabilirsiniz\u003c/strong>. Kontrol her zaman sizde.","summary":"Healthings, alfa aşamasındaki bir sağlıklı yaşam uygulamasıdır: öğünler, glukoz ve ilerleme için kişisel bir metabolik koç. \u003cstrong>Tıbbi cihaz değildir\u003c/strong>; teşhis koymaz, tedavi etmez. Acil tıbbi kararlar için kullanmayın. \u003cstrong>Sağlık verileriniz varsayılan olarak cihazınızda kalır.\u003c/strong> Sunucumuza yalnızca \u003cstrong>sizin\u003c/strong> verdiğiniz kararlarla ulaşır: bir kliniği onaylayıp onunla paylaşmak ya da bulut yedeklemesini açmak. İkisi de siz açmadıkça etkin değildir ve ikisini de istediğiniz zaman durdurabilirsiniz.","note":"Politikanın tamamı aşağıda İngilizce olarak yer almaktadır."}}</script>
         <!-- END generated: privacy summary translations -->
 
     <script>
