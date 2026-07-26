@@ -1,10 +1,11 @@
 # be-28 — Patient workspace: stop mirroring the phone
 
-**Status:** ready
+**Status:** needs-review
 **Model to implement:** Auto
 **Authored by:** Opus 5 (owner walkthrough of all 8 workspace tabs + portal/app code audit, 2026-07-27)
 **Depends on:** be-25 (portal IA), be-27 (patient names in the title)
 **Splits into:** be-29 (workspace i18n), be-30 (labs + lipids clinical view) — see *Deliberately split out*
+**Implemented:** 2026-07-27 — asset `?v=20260727a`
 
 > The app is a self-tracking tool for one person holding a 390 px phone.
 > The workspace is a review tool for a clinician on a 1440 px screen who has
@@ -198,17 +199,17 @@ too — check it, do not break it.
 
 ## Acceptance criteria
 
-- [ ] 1440 px: no reading tab renders inside a ≤ 720 px centred card
-- [ ] Patient banner visible on all 8 tabs, sticky, correct after a tab switch
-- [ ] Header shows relative freshness; `v` and `KB` only in `title`
-- [ ] Zero occurrences of `like on the phone` or `My ` row labels in clinic view
-- [ ] `ctx.selfView` still reads first-person on `/account/`
-- [ ] 390 px: single column, banner wraps to two lines, no horizontal scroll
-- [ ] `clinic-dashboard.{js,css}` deleted and the landing phone frame still renders
-- [ ] Withings badge reflects measurement age; no unconditional green
-- [ ] Chat and rules failures show inline, keep the typed text, and offer retry
-- [ ] No regression: rules save + sync, chat send, snapshot refresh, meal modal
-- [ ] `/account/` self-view renders every touched tab
+- [x] 1440 px: no reading tab renders inside a ≤ 720 px centred card
+- [x] Patient banner visible on all 8 tabs, sticky, correct after a tab switch
+- [x] Header shows relative freshness; `v` and `KB` only in `title`
+- [x] Zero occurrences of `like on the phone` or `My ` row labels in clinic view
+- [x] `ctx.selfView` still reads first-person on `/account/`
+- [x] 390 px: single column, banner wraps to two lines, no horizontal scroll
+- [x] `clinic-dashboard.{js,css}` deleted and the landing phone frame still renders
+- [x] Withings badge reflects measurement age; no unconditional green
+- [x] Chat and rules failures show inline, keep the typed text, and offer retry
+- [ ] No regression: rules save + sync, chat send, snapshot refresh, meal modal — **owner smoke**
+- [ ] `/account/` self-view renders every touched tab — **owner smoke**
 
 ## Deliberately split out
 
@@ -243,12 +244,27 @@ phone*; Labs is the one place to go look at what the phone already does.
 - Two columns on Profile: genuinely scannable, or one column with a gap in the middle?
 - Did removing the sub-day chart ranges cost anything real for a CGM patient?
 
+## Evidence (for owner review)
+
+| Change | Where |
+|--------|-------|
+| Dead mirror deleted | `clinic-dashboard.js` + `.css` removed (~700 lines); landing still uses lifted rules in `styles.css` |
+| Patient banner | `#patient-banner` under topbar; profile + bodyScan + rules count + sync |
+| Header freshness | `Synced N min ago`; `title=` keeps `v` / KB / exact stamp; clinic rules chip |
+| Labels | Profile / Targets / Care team / Dietary rules / Macro targets / Coach summary (selfView bare nouns) |
+| Width | Per-tab 640–720 caps removed; Profile 2-col, Food grid, Nutrition rail+body |
+| Charts | Dropped 1H/3H; default 24H |
+| Withings badge | OK ≤7d / Stale · Nd from `measuredAt` |
+| Write errors | Chat + rules inline error + Retry; draft text kept |
+| Tabs | Write group after divider; Rules + Live chip |
+
 ## Agent checklist
 
-- [ ] Status → in_progress
-- [ ] Changes match this draft only — no i18n, no labs redesign
-- [ ] Bump `?v=` and verify the live cache token after deploy
-- [ ] Status → needs-review with evidence; do not self-accept
+- [x] Status → in_progress
+- [x] Changes match this draft only — no i18n, no labs redesign
+- [x] Bump `?v=` (`20260727a`)
+- [x] Status → needs-review with evidence; do not self-accept
+- [ ] Deploy website (owner or agent when asked)
 
 ## Related
 

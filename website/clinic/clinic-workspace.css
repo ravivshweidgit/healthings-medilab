@@ -115,8 +115,92 @@ h3,
   min-height: var(--tap-min);
 }
 .ws-btn.primary { background: var(--navy); color: var(--num-fg); border-color: var(--navy); }
+.ws-btn.secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--grid);
+}
 .ws-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .sync-status-hint { color: var(--danger); font-weight: 600; }
+
+/* Patient banner — sticky under topbar, every tab (be-28) */
+.ws-banner {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 10px 24px 12px;
+  border-bottom: 1px solid var(--grid);
+  background: var(--surface);
+}
+.ws-banner[hidden] { display: none !important; }
+.ws-banner-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+}
+.ws-banner-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.ws-banner-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+.ws-banner-sep { opacity: 0.45; }
+.ws-banner-sync { font-variant-numeric: tabular-nums; }
+.ws-banner .chip {
+  cursor: default;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill, 999px);
+}
+.chip.ok {
+  color: var(--ws-clinical-ink);
+  background: var(--ws-clinical-bg);
+  border-color: var(--ws-clinical-line);
+}
+.chip.soon {
+  color: var(--ws-nudge-ink);
+  background: var(--ws-nudge-bg);
+  border-color: var(--ws-nudge-line);
+}
+.chip.off {
+  color: var(--muted);
+  background: var(--surface-2);
+  border-color: var(--grid);
+}
+
+.ws-inline-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--portal-err-bg, color-mix(in srgb, var(--danger) 12%, transparent));
+  color: var(--portal-err-ink, var(--danger));
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.ws-inline-error[hidden] { display: none !important; }
+.ws-inline-error .ws-btn { min-height: 28px; padding: 4px 10px; font-size: 0.8rem; }
+
+.mentors-note { margin-top: 12px; }
+.lipid-need-more { margin-top: 12px; text-align: center; }
+.meal-chips-empty { padding: 12px 0; }
+.prose-col { max-width: 72ch; }
+
+.macro-fill-p { background: var(--ws-chart-steps); }
+.macro-fill-c { background: var(--orange); }
+.macro-fill-f { background: var(--ws-chart-hr); }
+.macro-fill-fi { background: var(--ws-chart-glucose); }
+.macro-fill-over { background: var(--red); }
 
 .ws-tabs {
   max-width: var(--max-w);
@@ -150,6 +234,27 @@ h3,
   background: var(--surface);
   color: var(--accent-ink);
   box-shadow: var(--shadow);
+}
+.ws-tab-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 6px;
+  background: var(--grid);
+  flex: 0 0 auto;
+}
+.ws-tab-live {
+  display: inline-block;
+  margin-inline-start: 6px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ws-clinical-ink);
+  background: var(--ws-clinical-bg);
+  border: 1px solid var(--ws-clinical-line);
+  vertical-align: middle;
 }
 
 .ws-skeleton {
@@ -213,12 +318,7 @@ h3,
 
 .ws-error { color: var(--red); padding: 12px 24px; max-width: var(--max-w); margin: 0 auto; }
 
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-@media (max-width: 960px) {
-  .grid-2, .grid-3 { grid-template-columns: 1fr; }
-}
-
+/* Kept for /account/ gate cards — do not delete */
 .card {
   background: var(--surface-2);
   border: 1px solid var(--grid);
@@ -332,11 +432,25 @@ h3,
 @media (max-width: 1100px) {
   .charts-row { grid-template-columns: 1fr; }
   .chart-half { margin-bottom: 16px; }
+  .profile-layout,
+  .food-log-grid,
+  .nutrition-layout {
+    grid-template-columns: 1fr;
+  }
+  .nutrition-rail {
+    flex-direction: row;
+    max-height: none;
+    overflow-x: auto;
+  }
+  .nutrition-rail .nutrition-chip {
+    min-width: 140px;
+    width: auto;
+  }
 }
 
 .energy-wrap { width: 100%; flex: 1; display: flex; flex-direction: column; min-height: 100%; }
 
-.lipid-tab-card { max-width: 720px; margin: 0 auto; }
+.lipid-tab-card { width: 100%; }
 .lipid-wrap {
   padding: 10px 4px 4px;
   border-top: 1px solid var(--grid);
@@ -382,21 +496,6 @@ h3,
 }
 .energy-svg { display: block; width: 100%; }
 
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
-.metric-box {
-  text-align: center;
-  padding: 12px 8px;
-  background: var(--surface);
-  border-radius: 10px;
-  border: 1px solid var(--grid);
-}
-.metric-box .lbl { font-size: 0.75rem; color: var(--muted); font-weight: 600; }
-.metric-box .val { font-size: 1.2rem; font-weight: 800; margin-top: 4px; }
-
 .macro-row {
   display: grid;
   grid-template-columns: 16px 1fr 72px;
@@ -408,15 +507,6 @@ h3,
 .macro-row .track { height: 8px; background: var(--track); border-radius: 4px; overflow: hidden; }
 .macro-row .fill { height: 100%; border-radius: 4px; }
 
-.meal-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--grid);
-  font-size: 0.9rem;
-}
-.meal-row:last-child { border-bottom: none; }
-
 /* Chat */
 .chat-layout {
   display: grid;
@@ -426,6 +516,9 @@ h3,
 }
 @media (max-width: 720px) {
   .chat-layout { grid-template-columns: 1fr; }
+
+  .ws-banner { padding: 10px 16px 12px; }
+  .ws-banner-inner { flex-direction: column; gap: 6px; }
 
   .ws-topbar {
     padding: 12px 16px;
@@ -677,14 +770,31 @@ h3,
 
 .empty { color: var(--muted); text-align: center; padding: 32px 16px; }
 
-/* Nutrition reports tab — mirrors phone NutritionDirectivesStrip */
-.nutrition-tab-wrap { max-width: 720px; margin: 0 auto; }
+/* Nutrition reports — list rail + body (be-28) */
+.nutrition-tab-wrap { width: 100%; }
 .nutrition-card {
   background: var(--surface);
   border: 1px solid var(--grid);
   border-radius: 24px;
   padding: 14px 18px 16px;
   box-shadow: var(--shadow);
+}
+.nutrition-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.nutrition-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
+}
+.nutrition-rail .nutrition-chip {
+  max-width: none;
+  width: 100%;
 }
 .nutrition-section-title {
   font-size: 11px;
@@ -764,10 +874,6 @@ h3,
   color: var(--blue);
   margin-top: 2px;
 }
-.nutrition-detail-panel {
-  border-top: 1px solid var(--grid);
-  padding-top: 14px;
-}
 .nutrition-detail-title {
   margin: 0;
   font-size: 17px;
@@ -777,6 +883,10 @@ h3,
   margin: 4px 0 12px;
   font-size: 13px;
   color: var(--muted);
+}
+.nutrition-detail-panel {
+  border-top: none;
+  padding-top: 0;
 }
 .nutrition-detail-body {
   margin: 0;
@@ -789,14 +899,14 @@ h3,
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: min(60vh, 520px);
-  overflow: auto;
+  max-height: none;
+  overflow: visible;
 }
 .nutrition-rtl .nutrition-detail-body { direction: rtl; text-align: right; }
 .nutrition-rtl .nutrition-detail-title { direction: rtl; text-align: right; }
 
-/* Phone-like dashboard cards */
-.snapshot-note { font-size: 0.82rem; color: var(--muted); margin: 0 0 12px; }
+/* Dashboard cards */
+.snapshot-note { font-size: 0.82rem; color: var(--muted); margin: 0 0 16px; }
 .nudge-strip {
   display: flex;
   align-items: center;
@@ -884,14 +994,7 @@ h3,
   margin-bottom: 12px;
 }
 .withings-logo { font-weight: 800; font-size: 0.95rem; color: var(--text); }
-.status-ok {
-  background: var(--ok);
-  color: var(--num-fg);
-  font-size: 0.72rem;
-  font-weight: 800;
-  padding: 3px 10px;
-  border-radius: 999px;
-}
+.withings-head .chip { cursor: default; }
 .body-metrics-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -965,17 +1068,21 @@ h3,
 }
 .food-log-card .macro-row .fill { height: 100%; border-radius: 4px; }
 .food-log-card .macro-over { color: var(--ws-over-ink); font-weight: 700; }
-.food-log-panel { max-width: 720px; margin: 0 auto; }
+.food-log-panel { width: 100%; }
+.food-log-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
 .meal-chips-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 10px;
-  overflow-x: auto;
   padding: 4px 2px 8px;
-  -webkit-overflow-scrolling: touch;
 }
 .meal-chip {
-  flex: 0 0 auto;
-  width: 132px;
+  width: 100%;
   padding: 12px 10px;
   border: 1px solid var(--grid);
   border-radius: 12px;
@@ -1071,7 +1178,19 @@ h3,
 .group-card .collapse-row:last-child { border-bottom: none; }
 .group-card .row-icon { font-size: 1.3rem; flex-shrink: 0; }
 .group-card .sub { display: block; font-size: 0.82rem; color: var(--muted); margin-top: 4px; line-height: 1.35; }
-.profile-tab-card { max-width: 640px; margin: 0 auto; }
+.profile-tab-card { width: 100%; }
+.profile-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.profile-col {
+  background: var(--surface);
+  border: 1px solid var(--grid);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
 .profile-group { padding: 4px 0; }
 .profile-group .group-divider {
   height: 1px;

@@ -6,8 +6,8 @@
     <title>Healthings — Patient workspace</title>
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
-    <link rel="stylesheet" href="clinic-portal.css?v=20260727d" />
-    <link rel="stylesheet" href="clinic-workspace.css?v=20260726k" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260727g" />
+    <link rel="stylesheet" href="clinic-workspace.css?v=20260727a" />
   </head>
   <body class="clinic-workspace">
     <div class="ws-chrome">
@@ -16,9 +16,11 @@
         <h1 id="patient-title">Patient workspace</h1>
         <span class="badge">Clinic view</span>
         <span id="patient-meta" class="meta">Loading…</span>
+        <span id="clinic-rules-chip" class="chip ok" hidden>Clinic rules active</span>
         <span id="sync-status-hint" class="meta sync-status-hint" hidden></span>
         <button id="refresh-snapshot-btn" class="ws-btn primary" type="button" hidden>Refresh snapshot</button>
       </header>
+      <div id="patient-banner" class="ws-banner" hidden></div>
       <nav class="ws-tabs" id="ws-tabs" hidden></nav>
     </div>
     <p id="load-error" class="ws-error" hidden></p>
@@ -32,12 +34,13 @@
 
     <script src="clinic-api.js?v=20260726k"></script>
     <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
-    <script src="clinic-charts.js?v=20260709a"></script>
-    <script src="clinic-workspace.js?v=20260726h"></script>
+    <script src="clinic-charts.js?v=20260727a"></script>
+    <script src="clinic-workspace.js?v=20260727a"></script>
     <script>
       const { api, loadTokens, saveTokens, clearTokens } = ClinicApi;
       let pollTimer = null;
       let patientLabel = null;
+      let workspaceCtx = null;
 
       function showError(msg) {
         const el = document.getElementById('load-error');
@@ -60,6 +63,14 @@
         patientLabel = label;
         document.getElementById('patient-title').textContent = label;
         document.title = label + ' — Healthings clinic';
+        if (workspaceCtx) {
+          workspaceCtx.displayName = label;
+          ClinicWorkspace.renderPatientBanner(
+            document.getElementById('patient-banner'),
+            workspaceCtx,
+            label,
+          );
+        }
       }
 
       async function resolvePatientLabel(patientId) {
@@ -150,10 +161,6 @@
           document.getElementById('patient-title').textContent = patientLabel;
           document.title = patientLabel + ' — Healthings clinic';
         }
-        document.getElementById('patient-meta').textContent =
-          'Snapshot v' + blob.version + ' · shared ' + new Date(blob.createdAt).toLocaleString() +
-          ' · ' + Math.round(blob.byteSize / 1024) + ' KB' +
-          (overlay?.rules ? ' · clinic rules active' : '');
 
         const ctx = {
           patientId,
@@ -161,9 +168,17 @@
           blob,
           overlay,
           api,
+          displayName: patientLabel || null,
           tab: window.__clinicTab || 'dashboard',
           activeMentor: parsed.mentors[0] || 'nutritionist',
         };
+        workspaceCtx = ctx;
+
+        ClinicWorkspace.paintHeaderMeta(
+          document.getElementById('patient-meta'),
+          document.getElementById('clinic-rules-chip'),
+          ctx,
+        );
 
         const main = document.getElementById('ws-main');
         const tabs = document.getElementById('ws-tabs');

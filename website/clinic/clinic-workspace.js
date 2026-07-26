@@ -21,6 +21,54 @@
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
+  /** Relative freshness for clinicians; exact stamp stays in title= for support. */
+  function formatRelativeSync(iso) {
+    const t = Date.parse(iso);
+    if (!Number.isFinite(t)) return 'Synced —';
+    const mins = Math.round((Date.now() - t) / 60000);
+    if (mins < 1) return 'Synced just now';
+    if (mins < 60) return `Synced ${mins} min ago`;
+    const hours = Math.round(mins / 60);
+    if (hours < 48) return `Synced ${hours}h ago`;
+    const days = Math.round(hours / 24);
+    return `Synced ${days}d ago`;
+  }
+
+  function supportMetaTitle(blob) {
+    if (!blob) return '';
+    const when = blob.createdAt ? new Date(blob.createdAt).toLocaleString() : '';
+    const kb = blob.byteSize != null ? Math.round(blob.byteSize / 1024) + ' KB' : '';
+    return ['v' + blob.version, when, kb].filter(Boolean).join(' · ');
+  }
+
+  function bodyScanFreshness(body) {
+    const iso = body?.measuredAt;
+    const t = Date.parse(iso);
+    if (!Number.isFinite(t)) {
+      return { label: 'No date', tone: 'off', title: '' };
+    }
+    const days = Math.floor((Date.now() - t) / 86400000);
+    const title = new Date(t).toLocaleString();
+    if (days <= 7) return { label: 'OK', tone: 'ok', title };
+    return { label: `Stale · ${days}d`, tone: 'soon', title };
+  }
+
+  function fatPctFromBody(body) {
+    if (!body) return null;
+    if (body.fatPct != null && Number.isFinite(body.fatPct)) return body.fatPct;
+    if (body.weightKg > 0 && body.fatMassKg != null) {
+      return (body.fatMassKg / body.weightKg) * 100;
+    }
+    return null;
+  }
+
+  function rulesActiveCount(rules) {
+    if (!rules) return 0;
+    if (Array.isArray(rules.constraints) && rules.constraints.length) return rules.constraints.length;
+    if (rules.rawText && String(rules.rawText).trim()) return 1;
+    return 0;
+  }
+
   function todayKey() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -231,12 +279,12 @@
     return next > todayKey() ? todayKey() : next;
   }
 
-  function macroBar(label, val, tgt, color) {
+  function macroBar(label, val, tgt, tone) {
     const ratio = tgt > 0 ? Math.min(1, val / tgt) : 0;
     const over = tgt > 0 && val > tgt * 1.05;
     const text = tgt ? `${Math.round(val)}/${Math.round(tgt)}g` : `${Math.round(val)}g`;
-    const fillColor = over ? '#EF5350' : color;
-    return `<div class="macro-row"><span>${label}</span><div class="track"><div class="fill" style="width:${ratio * 100}%;background:${fillColor}"></div></div><span class="${over ? 'macro-over' : ''}">${text}</span></div>`;
+    const fillClass = over ? 'macro-fill-over' : 'macro-fill-' + tone;
+    return `<div class="macro-row"><span>${label}</span><div class="track"><div class="fill ${fillClass}" style="width:${ratio * 100}%"></div></div><span class="${over ? 'macro-over' : ''}">${text}</span></div>`;
   }
 
   function entryFiber(meal) {
@@ -342,29 +390,31 @@
     const isDeficit = balance != null && balance < 0;
 
     host.innerHTML = `
-      <div class="food-log-card">
-        <div class="food-log-title">FOOD LOG</div>
-        <div class="date-nav food-date-nav">
-          <button type="button" class="nav-arrow" data-food-shift="-1" aria-label="Previous day">‹</button>
-          <span class="date-label">${formatDayLabel(dk)}</span>
-          <button type="button" class="nav-arrow" data-food-shift="1" ${isToday ? 'disabled' : ''} aria-label="Next day">›</button>
-        </div>
-        <div class="energy-lines">
-          <div class="energy-row">
-            ${target
-              ? `<span class="energy-num">${eaten > 0 ? eaten.toLocaleString() : '—'}</span><span class="energy-label">kcal eaten <span class="energy-target">/ ${target.kcal.toLocaleString()}</span></span>`
-              : `<span class="energy-num">${eaten > 0 ? eaten.toLocaleString() : '—'}</span><span class="energy-label">kcal eaten</span>`}
+      <div class="food-log-card food-log-grid">
+        <div class="food-log-summary">
+          <div class="food-log-title">FOOD LOG</div>
+          <div class="date-nav food-date-nav">
+            <button type="button" class="nav-arrow" data-food-shift="-1" aria-label="Previous day">‹</button>
+            <span class="date-label">${formatDayLabel(dk)}</span>
+            <button type="button" class="nav-arrow" data-food-shift="1" ${isToday ? 'disabled' : ''} aria-label="Next day">›</button>
           </div>
-          ${burn != null ? `<div class="energy-row"><span class="energy-num">${Math.round(burn).toLocaleString()}</span><span class="energy-label">kcal burned</span></div>` : ''}
-          ${balance != null ? `<div class="balance-pill ${isDeficit ? 'deficit' : 'surplus'}"><span class="energy-num">${Math.abs(balance).toLocaleString()}</span><span class="energy-label">kcal ${isDeficit ? 'deficit' : 'surplus'}</span></div>` : ''}
+          <div class="energy-lines">
+            <div class="energy-row">
+              ${target
+                ? `<span class="energy-num">${eaten > 0 ? eaten.toLocaleString() : '—'}</span><span class="energy-label">kcal eaten <span class="energy-target">/ ${target.kcal.toLocaleString()}</span></span>`
+                : `<span class="energy-num">${eaten > 0 ? eaten.toLocaleString() : '—'}</span><span class="energy-label">kcal eaten</span>`}
+            </div>
+            ${burn != null ? `<div class="energy-row"><span class="energy-num">${Math.round(burn).toLocaleString()}</span><span class="energy-label">kcal burned</span></div>` : ''}
+            ${balance != null ? `<div class="balance-pill ${isDeficit ? 'deficit' : 'surplus'}"><span class="energy-num">${Math.abs(balance).toLocaleString()}</span><span class="energy-label">kcal ${isDeficit ? 'deficit' : 'surplus'}</span></div>` : ''}
+          </div>
+          ${(meals.length || target) ? `
+          <div class="macro-bars">
+            ${macroBar('P', macros.protein_g, target?.protein_g, 'p')}
+            ${macroBar('C', macros.carb_g, target?.carb_g, 'c')}
+            ${macroBar('F', macros.fat_g, target?.fat_g, 'f')}
+            ${macroBar('Fi', macros.fiber_g || 0, fiberT, 'fi')}
+          </div>` : ''}
         </div>
-        ${(meals.length || target) ? `
-        <div class="macro-bars">
-          ${macroBar('P', macros.protein_g, target?.protein_g, '#42A5F5')}
-          ${macroBar('C', macros.carb_g, target?.carb_g, '#FF9800')}
-          ${macroBar('F', macros.fat_g, target?.fat_g, '#EF5350')}
-          ${macroBar('Fi', macros.fiber_g || 0, fiberT, '#66BB6A')}
-        </div>` : ''}
         <div class="meal-chips-row">
           ${meals.length ? meals.map((m, i) => `
             <button type="button" class="meal-chip" data-meal-idx="${i}">
@@ -372,7 +422,7 @@
               <span class="chip-label">${esc(mealLabel(m))}</span>
               <span class="chip-kcal">${Math.round(m.totalKcal || 0)} kcal</span>
               <span class="chip-view">✎ view</span>
-            </button>`).join('') : '<p class="empty" style="padding:12px 0">No meals this day</p>'}
+            </button>`).join('') : '<p class="empty meal-chips-empty">No meals this day</p>'}
         </div>
       </div>`;
 
@@ -399,7 +449,7 @@
 
   function renderFoodLogTab(panel, ctx) {
     panel.innerHTML = `
-      <p class="sub snapshot-note" style="margin:0 0 16px">${ctx.selfView ? 'Your' : 'Patient'} food log from snapshot — read-only. Click a meal card to see items like on the phone.</p>
+      <p class="sub snapshot-note">${ctx.selfView ? 'Your food log from your last snapshot — read-only.' : 'Patient food log from snapshot — read-only. Click a meal for item detail.'}</p>
       <div class="food-log-page">
         <div class="dash-card food-log-panel"><div id="food-log-host"></div></div>
         <div id="meal-modal-root" hidden></div>
@@ -460,13 +510,13 @@
       </div>`;
   }
 
-  function macroBarWithActual(label, actual, tgt, color) {
+  function macroBarWithActual(label, actual, tgt, tone) {
     const hasActual = actual > 0;
     const ratio = tgt > 0 && hasActual ? Math.min(1, actual / tgt) : 0;
     const over = tgt > 0 && hasActual && actual > tgt * 1.05;
     const text = tgt ? `${hasActual ? Math.round(actual) : '—'} / ${Math.round(tgt)}g` : `${hasActual ? Math.round(actual) : '—'}g`;
-    const fillColor = over ? '#EF5350' : color;
-    return `<div class="macro-row"><span>${label}</span><div class="track"><div class="fill" style="width:${ratio * 100}%;background:${fillColor}"></div></div><span class="${over ? 'macro-over' : ''}">${text}</span></div>`;
+    const fillClass = over ? 'macro-fill-over' : 'macro-fill-' + tone;
+    return `<div class="macro-row"><span>${label}</span><div class="track"><div class="fill ${fillClass}" style="width:${ratio * 100}%"></div></div><span class="${over ? 'macro-over' : ''}">${text}</span></div>`;
   }
 
   function renderMacroTargetsBody(mt, ctx) {
@@ -475,10 +525,10 @@
     return `
       ${renderClinicalProfileBanner(mt)}
       <div class="macro-bars profile-macros">
-        ${macroBarWithActual('P', today.protein_g, mt.protein_g, '#4CAF50')}
-        ${macroBarWithActual('C', today.carb_g, mt.carb_g, '#FF9800')}
-        ${macroBarWithActual('F', today.fat_g, mt.fat_g, '#2196F3')}
-        ${macroBarWithActual('Fi', today.fiber_g, fiberTarget_g(mt), '#66BB6A')}
+        ${macroBarWithActual('P', today.protein_g, mt.protein_g, 'p')}
+        ${macroBarWithActual('C', today.carb_g, mt.carb_g, 'c')}
+        ${macroBarWithActual('F', today.fat_g, mt.fat_g, 'f')}
+        ${macroBarWithActual('Fi', today.fiber_g, fiberTarget_g(mt), 'fi')}
       </div>
       <div class="macro-kcal-row">${eaten != null ? eaten.toLocaleString() : '—'} / ${Math.round(mt.kcal).toLocaleString()} kcal</div>
       ${mt.diet_label ? `<p class="macro-diet-label">${esc(mt.diet_label)}</p>` : ''}
@@ -591,7 +641,7 @@
         const x = mentorMeta(m);
         return `<span class="mentor-pill active">${x.emoji} ${esc(x.label)}</span>`;
       }).join('')}</div>
-      <p class="sub" style="margin-top:12px">Active mentors from ${ctx.selfView ? 'your' : 'patient'} app snapshot (read-only).</p>`;
+      <p class="sub mentors-note">Active mentors from ${ctx.selfView ? 'your' : 'patient'} app snapshot (read-only).</p>`;
 
     const rulesBody = rules ? `
       ${rules.summary ? `<p class="rules-summary">${esc(rules.summary)}</p>` : ''}
@@ -606,20 +656,30 @@
     const coachSub = coach?.summary || coach?.text?.slice(0, 120) || 'No coach message';
     const coachIcons = mentors.map((m) => mentorMeta(m).emoji).join(' ');
 
+    const leftTitle = ctx.selfView ? 'Profile' : 'Profile';
+    const targetsTitle = 'Targets';
+    const mentorsTitle = ctx.selfView ? 'Mentors' : 'Care team';
+    const rulesTitle = ctx.selfView ? 'Rules' : 'Dietary rules';
+    const macrosTitle = ctx.selfView ? 'Macros' : 'Macro targets';
+    const coachTitle = ctx.selfView ? 'Coach' : 'Coach summary';
+
     host.innerHTML = `
-      <div class="group-card profile-group">
-        ${collapseSection('profile', '👤', 'My Profile', esc(profileSub), profileBody, !!ex.profile)}
-        <div class="group-divider"></div>
-        ${collapseSection('targets', '🎯', 'My Targets', esc(targetsHeaderSub(bt)), targetsBody, !!ex.targets)}
-        <div class="group-divider"></div>
-        ${collapseSection('mentors', '🧑‍⚕️', 'My Mentors', esc(mentorsHeaderSub(mentors)), mentorsBody, !!ex.mentors)}
-        <div class="group-divider"></div>
-        ${collapseSection('rules', '📋', 'My Rules', esc(rules?.summary || 'No dietary rules'), rulesBody, !!ex.rules)}
-        <div class="group-divider"></div>
-        ${collapseSection('macros', '🥗', 'My Macros', macrosSub, macrosBody, !!ex.macros)}
-        ${coach ? `
-        <div class="group-divider"></div>
-        ${collapseSection('coach', coachIcons || '💬', 'Coach', esc(coachSub), renderCoachBody(coach, mentors), !!ex.coach)}` : ''}
+      <div class="profile-layout">
+        <div class="group-card profile-group profile-col">
+          ${collapseSection('profile', '👤', leftTitle, esc(profileSub), profileBody, !!ex.profile)}
+          <div class="group-divider"></div>
+          ${collapseSection('targets', '🎯', targetsTitle, esc(targetsHeaderSub(bt)), targetsBody, !!ex.targets)}
+        </div>
+        <div class="group-card profile-group profile-col">
+          ${collapseSection('mentors', '🧑‍⚕️', mentorsTitle, esc(mentorsHeaderSub(mentors)), mentorsBody, !!ex.mentors)}
+          <div class="group-divider"></div>
+          ${collapseSection('rules', '📋', rulesTitle, esc(rules?.summary || 'No dietary rules'), rulesBody, !!ex.rules)}
+          <div class="group-divider"></div>
+          ${collapseSection('macros', '🥗', macrosTitle, macrosSub, macrosBody, !!ex.macros)}
+          ${coach ? `
+          <div class="group-divider"></div>
+          ${collapseSection('coach', coachIcons || '💬', coachTitle, esc(coachSub), renderCoachBody(coach, mentors), !!ex.coach)}` : ''}
+        </div>
       </div>`;
 
     host.querySelectorAll('[data-collapse]').forEach((btn) => {
@@ -634,8 +694,8 @@
 
   function renderProfileTab(panel, ctx) {
     panel.innerHTML = `
-      <p class="sub snapshot-note" style="margin:0 0 16px">${ctx.selfView ? 'Your' : 'Patient'} profile, targets, and mentor context from snapshot — read-only. Tap a row to expand like on the phone.</p>
-      <div class="dash-card profile-tab-card"><div id="profile-group-host"></div></div>`;
+      <p class="sub snapshot-note">${ctx.selfView ? 'Your profile, targets, and mentor context from your last snapshot — read-only.' : "From the patient's last snapshot — read-only."}</p>
+      <div class="profile-tab-card"><div id="profile-group-host"></div></div>`;
     const host = panel.querySelector('#profile-group-host');
     if (host) renderProfileGroup(host, ctx);
   }
@@ -645,7 +705,7 @@
     if (!charts) return;
     const metabolicHost = panel.querySelector('#metabolic-host');
     if (metabolicHost) {
-      if (ctx.chartVp == null) ctx.chartVp = 3;
+      if (ctx.chartVp == null) ctx.chartVp = 2;
       if (ctx.chartEndMs == null) ctx.chartEndMs = Date.now();
       charts.drawMetabolicChart(metabolicHost, ctx.parsed, ctx, () => paintDashboardCharts(panel, ctx));
     }
@@ -678,12 +738,17 @@
     const body = ctx.parsed.withings?.bodyScan;
     const coach = ctx.parsed.coachMsg;
     const mentors = ctx.parsed.mentors.map((m) => MENTORS.find((x) => x.id === m)?.emoji || '').join('');
+    const freshness = bodyScanFreshness(body);
+    const badgeClass = freshness.tone === 'ok' ? 'chip ok' : freshness.tone === 'soon' ? 'chip soon' : 'chip off';
     panel.innerHTML = `
-      <p class="snapshot-note">Read-only snapshot · ${ctx.selfView ? 'your phone' : 'patient phone data'} · v${ctx.blob.version}</p>
+      <p class="snapshot-note">Read-only snapshot · ${ctx.selfView ? 'your phone' : 'patient phone data'}</p>
       ${coach ? `<div class="nudge-strip"><span>${mentors}</span><span class="nudge-count">${(coach.actionItems || []).filter((i) => i.done).length}/${(coach.actionItems || []).length}</span><span class="nudge-text">${esc(coach.summary || '')}</span></div>` : ''}
       <div class="dash-card metabolic-card"><div id="metabolic-host"></div></div>
       <div class="dash-card withings-card">
-        <div class="withings-head"><span class="withings-logo">Withings</span><span class="status-ok">OK</span><span class="muted">snapshot</span></div>
+        <div class="withings-head">
+          <span class="withings-logo">Withings</span>
+          <span class="${badgeClass}" title="${esc(freshness.title)}">${esc(freshness.label)}</span>
+        </div>
         ${body ? `<div class="body-metrics-row">
           <div><div class="lbl">Weight</div><div class="val">${body.weightKg != null ? body.weightKg.toFixed(1) + ' kg' : '—'}</div></div>
           <div><div class="lbl">Muscle</div><div class="val">${body.muscleMassKg != null ? body.muscleMassKg.toFixed(1) + ' kg' : '—'}</div></div>
@@ -700,9 +765,10 @@
   function renderChat(panel, ctx) {
     const activeMentor = ctx.activeMentor || 'nutritionist';
     const thread = (ctx.overlay?.chat || {})[activeMentor] || [];
+    const draft = ctx._chatDraft || '';
 
     panel.innerHTML = `
-      <p class="sub" style="margin:0 0 16px">Your private chat about this case, using the shared snapshot. The patient's own coach conversations are not shared with the clinic.</p>
+      <p class="sub snapshot-note">Your private chat about this case, using the shared snapshot. The patient's own coach conversations are not shared with the clinic.</p>
       <div class="chat-layout">
         <div class="mentor-nav">
           ${MENTORS.map((m) => `
@@ -715,15 +781,17 @@
             ${thread.length ? thread.map((m) => bubbleHtml(m)).join('') : '<p class="empty">No messages yet — ask about meals, glucose, or goals.</p>'}
           </div>
           <div class="chat-compose">
-            <textarea id="chat-input" placeholder="Message ${MENTORS.find((m) => m.id === activeMentor)?.label}…" rows="2"></textarea>
+            <textarea id="chat-input" placeholder="Message ${MENTORS.find((m) => m.id === activeMentor)?.label}…" rows="2">${esc(draft)}</textarea>
             <button type="button" class="ws-btn primary" id="chat-send">Send</button>
           </div>
+          <div id="chat-error" class="ws-inline-error" hidden role="alert"></div>
         </div>
       </div>`;
 
     panel.querySelectorAll('.mentor-pick').forEach((btn) => {
       btn.addEventListener('click', () => {
         ctx.activeMentor = btn.getAttribute('data-mentor');
+        ctx._chatDraft = panel.querySelector('#chat-input')?.value || '';
         renderChat(panel, ctx);
       });
     });
@@ -742,6 +810,18 @@
     if (msgs) msgs.scrollTop = msgs.scrollHeight;
   }
 
+  function showChatError(panel, ctx, message, retryText) {
+    const err = panel.querySelector('#chat-error');
+    if (!err) return;
+    err.hidden = false;
+    err.innerHTML = `<span>${esc(message)}</span> <button type="button" class="ws-btn secondary" id="chat-retry">Retry</button>`;
+    err.querySelector('#chat-retry')?.addEventListener('click', () => {
+      const input = panel.querySelector('#chat-input');
+      if (input && retryText) input.value = retryText;
+      void sendChat(ctx, input, panel);
+    });
+  }
+
   function bubbleHtml(m) {
     const cls = m.role === 'user' ? 'user' : 'assistant';
     const who = m.role === 'user' ? 'Clinic' : 'Mentor';
@@ -757,10 +837,13 @@
     if (!text || !ctx.api) return;
     const btn = panel.querySelector('#chat-send');
     const msgs = panel.querySelector('#chat-msgs');
+    const err = panel.querySelector('#chat-error');
+    if (err) { err.hidden = true; err.innerHTML = ''; }
     if (btn) btn.disabled = true;
     if (input) input.disabled = true;
 
     const userSentAt = new Date().toISOString();
+    let optimisticEl = null;
     if (msgs) {
       const empty = msgs.querySelector('.empty');
       if (empty) empty.remove();
@@ -768,10 +851,12 @@
         'beforeend',
         bubbleHtml({ role: 'user', text, sentAt: userSentAt, fromClinic: true }),
       );
+      optimisticEl = msgs.lastElementChild;
       msgs.insertAdjacentHTML('beforeend', thinkingBubbleHtml());
       msgs.scrollTop = msgs.scrollHeight;
     }
     if (input) input.value = '';
+    ctx._chatDraft = '';
 
     try {
       const res = await ctx.api(`/v1/clinic/patients/${ctx.patientId}/chat`, {
@@ -785,7 +870,10 @@
       renderChat(panel, ctx);
     } catch (e) {
       panel.querySelector('#chat-thinking')?.remove();
-      alert(e instanceof Error ? e.message : 'Chat failed');
+      optimisticEl?.remove();
+      if (input) input.value = text;
+      ctx._chatDraft = text;
+      showChatError(panel, ctx, e instanceof Error ? e.message : 'Chat failed', text);
     } finally {
       if (btn) btn.disabled = false;
       if (input) input.disabled = false;
@@ -988,6 +1076,7 @@
               <button type="button" class="ws-btn primary" id="rules-save">Save &amp; analyse with AI</button>
               <span id="rules-status" class="sub"></span>
             </div>
+            <div id="rules-error" class="ws-inline-error" hidden role="alert"></div>
             ${rules?.constraints?.length ? `
             <div class="rules-constraints">
               <strong>AI understood:</strong>
@@ -1019,6 +1108,8 @@
     if (!raw) return;
     const status = panel.querySelector('#rules-status');
     const btn = panel.querySelector('#rules-save');
+    const err = panel.querySelector('#rules-error');
+    if (err) { err.hidden = true; err.innerHTML = ''; }
     if (btn) btn.disabled = true;
     if (status) status.textContent = 'Saving…';
     try {
@@ -1038,11 +1129,15 @@
     } catch (e) {
       if (status) status.textContent = '';
       const msg = e instanceof Error ? e.message : 'Save failed';
-      alert(
+      const shown =
         msg === 'Failed to fetch'
           ? 'Could not reach the server. Hard-refresh the page (Ctrl+Shift+R) and try again.'
-          : msg,
-      );
+          : msg;
+      if (err) {
+        err.hidden = false;
+        err.innerHTML = `<span>${esc(shown)}</span> <button type="button" class="ws-btn secondary" id="rules-retry">Retry</button>`;
+        err.querySelector('#rules-retry')?.addEventListener('click', () => void saveRules(ctx, panel));
+      }
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -1057,9 +1152,9 @@
     const charts = global.ClinicCharts;
     const pts = charts?.buildLipidPoints(ctx.parsed.labs) || [];
     panel.innerHTML = `
-      <p class="sub snapshot-note" style="margin:0 0 16px">Lipid trends from lab reports in snapshot${pts.length ? ` — ${pts.length} draw${pts.length === 1 ? '' : 's'}` : ''}. ${ctx.selfView ? 'Import a new lab PDF in the app to update this.' : 'Use <strong>Refresh snapshot</strong> on the portal header to load the latest patient upload.'}</p>
+      <p class="sub snapshot-note">Lipid trends from lab reports in snapshot${pts.length ? ` — ${pts.length} draw${pts.length === 1 ? '' : 's'}` : ''}. ${ctx.selfView ? 'Import a new lab PDF in the app to update this.' : 'Use <strong>Refresh snapshot</strong> on the portal header to load the latest patient upload.'}</p>
       <div class="dash-card lipid-tab-card"><div id="lipid-trend-host"></div></div>
-      ${pts.length >= 2 ? '' : '<p class="sub" style="margin-top:12px;text-align:center">Need at least 2 lipid lab draws in the snapshot to show trend charts.</p>'}`;
+      ${pts.length >= 2 ? '' : '<p class="sub lipid-need-more">Need at least 2 lipid lab draws in the snapshot to show trend charts.</p>'}`;
     const host = panel.querySelector('#lipid-trend-host');
     if (host && charts) {
       charts.drawLipidChart(host, ctx.parsed.labs, {
@@ -1072,10 +1167,9 @@
   function renderNutritionReports(panel, ctx) {
     const store = ctx.parsed.nutritionDirectives || { activeId: null, entries: [] };
     const entries = store.entries || [];
-    // The self view has no Refresh snapshot button, so it gets the action it can act on.
     const intro = ctx.selfView
-      ? `<p class="sub snapshot-note" style="margin:0 0 16px">Nutritionist session reports from your snapshot — read-only. The <strong>Active</strong> report is what mentors use on the phone (overrides My Rules on conflict). Open the app after importing a new PDF to send an updated snapshot.</p>`
-      : `<p class="sub snapshot-note" style="margin:0 0 16px">Nutritionist session reports from the patient snapshot — read-only. The <strong>Active</strong> report is what mentors use on the phone (overrides My Rules on conflict). Use <strong>Refresh snapshot</strong> after the patient imports a new PDF.</p>`;
+      ? `<p class="sub snapshot-note">Nutritionist session reports from your snapshot — read-only. The <strong>Active</strong> report is what mentors use (overrides dietary rules on conflict). Open the app after importing a new PDF to send an updated snapshot.</p>`
+      : `<p class="sub snapshot-note">Nutritionist session reports from the patient snapshot — read-only. The <strong>Active</strong> report is what mentors use (overrides dietary rules on conflict). Use <strong>Refresh snapshot</strong> after the patient imports a new PDF.</p>`;
 
     if (!entries.length) {
       panel.innerHTML = `
@@ -1096,7 +1190,7 @@
     const selected = entries.find((e) => e.id === selectedId) || active;
     const rtl = directiveRtl(selected, ctx.parsed.profile);
 
-    const chipsHtml = entries.map((entry) => {
+    const railHtml = entries.map((entry) => {
       const isActive = entry.id === effectiveActiveId;
       const isSelected = entry.id === selectedId;
       const preview = directivePreviewLine(entry);
@@ -1106,7 +1200,6 @@
           <span class="nutrition-chip-label">${esc(entry.title)}</span>
           ${isActive ? '<span class="nutrition-chip-badge">Active</span>' : ''}
           ${preview ? `<span class="nutrition-chip-preview">${esc(preview)}</span>` : ''}
-          <span class="nutrition-chip-view">✎ view</span>
         </button>`;
     }).join('');
 
@@ -1120,11 +1213,13 @@
         <div class="nutrition-card">
           <p class="nutrition-section-title">NUTRITION REPORTS</p>
           <p class="nutrition-summary-line">Active: ${esc(active.title)} · ${esc(formatDirectiveDate(active))}</p>
-          <div class="nutrition-chip-row">${chipsHtml}</div>
-          <div class="nutrition-detail-panel${rtl ? ' nutrition-rtl' : ''}">
-            <h3 class="nutrition-detail-title">${esc(selected.title)}</h3>
-            <p class="nutrition-detail-meta">${esc(formatDirectiveDate(selected))}${selected.sourceFileName ? ` · ${esc(selected.sourceFileName)}` : ''}${activeBadge}</p>
-            <pre class="nutrition-detail-body">${esc(selected.fullText)}</pre>
+          <div class="nutrition-layout">
+            <div class="nutrition-rail" role="list">${railHtml}</div>
+            <div class="nutrition-detail-panel${rtl ? ' nutrition-rtl' : ''}">
+              <h3 class="nutrition-detail-title">${esc(selected.title)}</h3>
+              <p class="nutrition-detail-meta">${esc(formatDirectiveDate(selected))}${selected.sourceFileName ? ` · ${esc(selected.sourceFileName)}` : ''}${activeBadge}</p>
+              <pre class="nutrition-detail-body prose-col">${esc(selected.fullText)}</pre>
+            </div>
           </div>
         </div>
       </div>`;
@@ -1173,14 +1268,14 @@
   }
 
   const ALL_TABS = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'profile', label: 'Profile' },
-    { id: 'lipids', label: 'Lipids' },
-    { id: 'foodlog', label: 'Food log' },
-    { id: 'nutrition', label: 'Nutrition reports' },
-    { id: 'chat', label: 'Clinic chat' },
-    { id: 'rules', label: 'Rules (live)' },
-    { id: 'labs', label: 'Labs' },
+    { id: 'dashboard', label: 'Dashboard', group: 'read' },
+    { id: 'profile', label: 'Profile', group: 'read' },
+    { id: 'lipids', label: 'Lipids', group: 'read' },
+    { id: 'foodlog', label: 'Food log', group: 'read' },
+    { id: 'nutrition', label: 'Nutrition reports', group: 'read' },
+    { id: 'labs', label: 'Labs', group: 'read' },
+    { id: 'chat', label: 'Clinic chat', group: 'write' },
+    { id: 'rules', label: 'Rules', group: 'write', live: true },
   ];
 
   /**
@@ -1193,6 +1288,64 @@
     if (!Array.isArray(ctx.tabIds)) return ALL_TABS;
     const allowed = ALL_TABS.filter((t) => ctx.tabIds.includes(t.id));
     return allowed.length ? allowed : ALL_TABS;
+  }
+
+  function tabButtonHtml(t, activeId) {
+    const live = t.live ? ' <span class="ws-tab-live">Live</span>' : '';
+    return `<button type="button" class="ws-tab${activeId === t.id ? ' active' : ''}" data-tab="${t.id}">${t.label}${live}</button>`;
+  }
+
+  function renderPatientBanner(el, ctx, displayName) {
+    if (!el) return;
+    const p = ctx.parsed?.profile || {};
+    const body = ctx.parsed?.withings?.bodyScan;
+    const rules = effectiveRules(ctx.parsed, ctx.overlay);
+    const n = rulesActiveCount(rules);
+    const gender = p.gender ? String(p.gender).charAt(0).toUpperCase() + String(p.gender).slice(1) : null;
+    const identity = [
+      p.age != null ? `${p.age} y` : null,
+      gender,
+      p.heightCm ? `${p.heightCm} cm` : null,
+    ].filter(Boolean).join(' · ') || 'Profile incomplete';
+    const fat = fatPctFromBody(body);
+    const weight = body?.weightKg != null ? `${body.weightKg.toFixed(1)} kg` : null;
+    const fatLabel = fat != null ? `${fat.toFixed(1)} % fat` : null;
+    const metrics = [weight, fatLabel].filter(Boolean).join(' · ') || 'No body scan';
+    const clinicRules = Boolean(ctx.overlay?.rules) && !ctx.selfView;
+    const rulesLabel = n
+      ? clinicRules
+        ? `${n} clinic rule${n === 1 ? '' : 's'}`
+        : `${n} rule${n === 1 ? '' : 's'} active`
+      : 'No rules';
+    const syncLabel = formatRelativeSync(ctx.blob?.createdAt);
+    const name = displayName || (ctx.selfView ? 'You' : 'Patient');
+
+    el.hidden = false;
+    el.innerHTML = `
+      <div class="ws-banner-inner">
+        <div class="ws-banner-name" dir="auto">${esc(name)}</div>
+        <div class="ws-banner-meta">
+          <span>${esc(identity)}</span>
+          <span class="ws-banner-sep" aria-hidden="true">·</span>
+          <span>${esc(metrics)}</span>
+          <span class="ws-banner-sep" aria-hidden="true">·</span>
+          <span class="chip ${clinicRules ? 'ok' : 'off'}">${esc(rulesLabel)}</span>
+          <span class="ws-banner-sep" aria-hidden="true">·</span>
+          <span class="ws-banner-sync" title="${esc(supportMetaTitle(ctx.blob))}">${esc(syncLabel)}</span>
+        </div>
+      </div>`;
+  }
+
+  function paintHeaderMeta(metaEl, rulesChipEl, ctx) {
+    if (metaEl) {
+      metaEl.textContent = formatRelativeSync(ctx.blob?.createdAt);
+      metaEl.title = supportMetaTitle(ctx.blob);
+    }
+    if (rulesChipEl) {
+      const show = Boolean(ctx.overlay?.rules) && !ctx.selfView;
+      rulesChipEl.hidden = !show;
+      if (show) rulesChipEl.textContent = 'Clinic rules active';
+    }
   }
 
   function renderWorkspace(root, ctx) {
@@ -1213,6 +1366,9 @@
     else if (tab === 'chat') renderChat(body, ctx);
     else if (tab === 'rules') renderRules(body, ctx);
     else if (tab === 'labs') renderLabs(body, ctx);
+
+    const banner = document.getElementById('patient-banner');
+    if (banner) renderPatientBanner(banner, ctx, ctx.displayName || null);
   }
 
   function initTabs(tabsEl, ctx, mainEl) {
@@ -1220,9 +1376,14 @@
     const tabs = allowedTabs(ctx);
     if (!tabs.some((t) => t.id === ctx.tab)) ctx.tab = tabs[0].id;
     function paint() {
-      tabsEl.innerHTML = tabs.map((t) =>
-        `<button type="button" class="ws-tab${ctx.tab === t.id ? ' active' : ''}" data-tab="${t.id}">${t.label}</button>`,
-      ).join('');
+      const read = tabs.filter((t) => t.group !== 'write');
+      const write = tabs.filter((t) => t.group === 'write');
+      let html = read.map((t) => tabButtonHtml(t, ctx.tab)).join('');
+      if (write.length) {
+        html += '<span class="ws-tab-divider" aria-hidden="true"></span>';
+        html += write.map((t) => tabButtonHtml(t, ctx.tab)).join('');
+      }
+      tabsEl.innerHTML = html;
       tabsEl.querySelectorAll('.ws-tab').forEach((btn) => {
         btn.addEventListener('click', () => {
           ctx.tab = btn.getAttribute('data-tab');
@@ -1240,5 +1401,9 @@
     initTabs,
     renderWorkspace,
     effectiveRules,
+    renderPatientBanner,
+    paintHeaderMeta,
+    formatRelativeSync,
+    supportMetaTitle,
   };
 })(window);

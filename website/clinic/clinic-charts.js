@@ -10,9 +10,8 @@
   const CAL_WORKOUT = '#1565C0';
   const MEAL_ORANGE = '#FF9800';
   const MS_DAY = 86400000;
+  // Sub-6H chips are phone CGM-watching; clinic case review starts at 6H (be-28).
   const VIEWPORT_PRESETS = [
-    { label: '1H', ms: 3600000 },
-    { label: '3H', ms: 3 * 3600000 },
     { label: '6H', ms: 6 * 3600000 },
     { label: '12H', ms: 12 * 3600000 },
     { label: '24H', ms: MS_DAY },
@@ -22,7 +21,7 @@
     { label: '16D', ms: 16 * MS_DAY },
     { label: '32D', ms: 32 * MS_DAY },
   ];
-  const DEFAULT_VIEWPORT_INDEX = 3; // 12H
+  const DEFAULT_VIEWPORT_INDEX = 2; // 24H
   const CHARTS_ROW_HEIGHT = 520;
   const MAX_ACTIVITY_KCAL_DAY = 5000;
 

@@ -26,7 +26,7 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-28-workspace-clinical-ia.md` | Patient workspace: stop mirroring the phone | **ready** | Banner, width, clinician-voice labels, header freshness; deletes 700 lines of dead mirror |
+| `be-28-workspace-clinical-ia.md` | Patient workspace: stop mirroring the phone | **needs-review** | Banner, width, clinician-voice labels, header freshness; dead mirror deleted |
 | — | be-29 workspace i18n | not drafted | 10 locales for ~3,200 lines; after be-28 so strings are extracted once |
 | — | be-30 labs + lipids clinical view | not drafted | Needs owner clinical judgment (reference ranges); not an Auto batch |
 
@@ -94,12 +94,11 @@ trusting the script's exit code.
 
 ## Auto kickoff (paste)
 
-**be-28 is `ready`.**
+**be-28 is `needs-review`.** Deploy website, hard-refresh patient workspace, smoke chat/rules/account.
 
 ```
-Implement prompts/backend/be-28-workspace-clinical-ia.md.
-Presentation only — do not touch parseSnapshot fields, the sync blob, or server/.
-Do not fold in be-29 (i18n) or be-30 (labs); they are split out on purpose.
+Do not re-implement be-28 unless owner sends it back.
+Next drafts when owner asks: be-29 workspace i18n, be-30 labs clinical view.
 ```
 
 ## Code
