@@ -763,10 +763,14 @@
           } else {
             nameLine.textContent = '—';
           }
-          const statusLine = document.createElement('div');
-          statusLine.className = 'muted';
-          statusLine.textContent = statusSub(share);
-          tdName.append(nameLine, statusLine);
+          tdName.append(nameLine);
+          // Linked = approved only — status line is redundant there.
+          if (worklistState.filter !== 'linked') {
+            const statusLine = document.createElement('div');
+            statusLine.className = 'muted';
+            statusLine.textContent = statusSub(share);
+            tdName.append(statusLine);
+          }
 
           const tdEmail = document.createElement('td');
           tdEmail.className = 'email-cell';
