@@ -221,6 +221,13 @@ read-parity; keep write actions (Add meal / Add water / Export / Import) off the
    `ml / goal ml` (default goal 2500).
 5. **Meal chip** — `view` without the pencil icon (read-only; pencil implied edit).
 
+### P17 — Profile chrome icons match app Lucide (prompt94)
+
+Portal Profile rows still used emoji (`👤 🎯 📋 🥗` / mentor emoji). App chrome is Lucide
+(`theme/icons.tsx`). Replace profile collapse icons + mentor chrome marks with inline Lucide
+SVGs (User, Target, ListChecks, Salad, Stethoscope, Dumbbell). Keep `MENTORS[].emoji` for any
+content paths; collapsed Care team subtitle is labels-only like the phone.
+
 ## Files to touch
 
 - `website/clinic/patient.html` — header, banner mount, meta copy

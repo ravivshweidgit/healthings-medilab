@@ -20,6 +20,35 @@
     { id: 'coach', label: 'Coach', emoji: '💪' },
   ];
 
+  /**
+   * Lucide chrome icons — mirrors app/src/theme/icons.tsx (prompt94).
+   * Emoji stays on MENTORS for chat/export content only; profile chrome uses these.
+   */
+  function lucideSvg(inner) {
+    return `<svg class="ws-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+  }
+  const ChromeIcons = {
+    profile: lucideSvg('<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'),
+    targets: lucideSvg('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>'),
+    rules: lucideSvg('<path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>'),
+    macros: lucideSvg('<path d="M7 21h10"/><path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z"/><path d="M11.38 12a2.4 2.4 0 0 1-.4-4.77 2.4 2.4 0 0 1 3.2-2.77 2.4 2.4 0 0 1 3.47-.63 2.4 2.4 0 0 1 3.37 3.37 2.4 2.4 0 0 1-1.1 3.7 2.51 2.51 0 0 1 .03 1.1"/><path d="m13 12 4-4"/><path d="M12 12v1"/>'),
+    doctor: lucideSvg('<path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/>'),
+    nutritionist: lucideSvg('<path d="M7 21h10"/><path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z"/><path d="M11.38 12a2.4 2.4 0 0 1-.4-4.77 2.4 2.4 0 0 1 3.2-2.77 2.4 2.4 0 0 1 3.47-.63 2.4 2.4 0 0 1 3.37 3.37 2.4 2.4 0 0 1-1.1 3.7 2.51 2.51 0 0 1 .03 1.1"/><path d="m13 12 4-4"/><path d="M12 12v1"/>'),
+    coach: lucideSvg('<path d="M17.596 12.768a2 2 0 1 0 2.829-2.829l-1.768-1.767a2 2 0 0 0 2.828-2.829l-2.828-2.828a2 2 0 0 0-2.829 2.828l-1.767-1.768a2 2 0 1 0-2.829 2.829z"/><path d="m2.5 21.5 1.4-1.4"/><path d="m20.1 3.9 1.4-1.4"/><path d="M5.343 21.485a2 2 0 1 0 2.829-2.828l1.767 1.768a2 2 0 1 0 2.829-2.829l-6.364-6.364a2 2 0 1 0-2.829 2.829l1.768 1.767a2 2 0 0 0-2.828 2.829z"/><path d="m9.6 14.4 4.8-4.8"/>'),
+  };
+  const MENTOR_ICON_ORDER = ['doctor', 'nutritionist', 'coach'];
+
+  function mentorChromeIcon(id) {
+    return ChromeIcons[id] || ChromeIcons.profile;
+  }
+
+  /** Ordered row of active mentor marks — app ActiveMentorIcons. */
+  function activeMentorIconsHtml(mentors) {
+    const active = MENTOR_ICON_ORDER.filter((m) => (mentors || []).includes(m));
+    if (!active.length) return ChromeIcons.doctor;
+    return `<span class="ws-icon-row">${active.map((m) => mentorChromeIcon(m)).join('')}</span>`;
+  }
+
   function esc(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
@@ -548,10 +577,8 @@
   }
 
   function mentorsHeaderSub(mentors) {
-    return mentors.map((m) => {
-      const x = mentorMeta(m);
-      return `${x.emoji} ${x.label}`;
-    }).join(' · ') || 'No mentors selected';
+    // App collapsed Mentors subtitle is labels-only (prompt94) — no emoji.
+    return mentors.map((m) => mentorMeta(m).label).join(' · ') || 'No mentors selected';
   }
 
   function fiberTarget_g(mt) {
@@ -684,7 +711,7 @@
       if (!wins.length && !improve.length && !items.length && !coach.mentorLines?.[m]) return '';
       return `
         <div class="coach-mentor-block">
-          <div class="coach-mentor-title">${meta.emoji} ${esc(meta.label)}</div>
+          <div class="coach-mentor-title">${mentorChromeIcon(m)} ${esc(meta.label)}</div>
           ${coach.mentorLines?.[m] ? `<p class="coach-line">${esc(coach.mentorLines[m])}</p>` : ''}
           ${wins.length ? `<div class="coach-list-label">Wins</div><ul>${wins.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
           ${improve.length ? `<div class="coach-list-label">Improve</div><ul>${improve.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
@@ -737,7 +764,7 @@
     const mentorsBody = `
       <div class="mentor-pills">${mentors.map((m) => {
         const x = mentorMeta(m);
-        return `<span class="mentor-pill active">${x.emoji} ${esc(x.label)}</span>`;
+        return `<span class="mentor-pill active">${mentorChromeIcon(m)} ${esc(x.label)}</span>`;
       }).join('')}</div>
       <p class="sub mentors-note">Active mentors from ${ctx.selfView ? 'your' : 'patient'} app snapshot (read-only).</p>`;
 
@@ -752,7 +779,6 @@
     const macrosBody = mt ? renderMacroTargetsBody(mt, ctx) : '<p class="empty">No macro targets in snapshot</p>';
 
     const coachSub = coach?.summary || coach?.text?.slice(0, 120) || 'No coach message';
-    const coachIcons = mentors.map((m) => mentorMeta(m).emoji).join(' ');
 
     const leftTitle = ctx.selfView ? 'Profile' : 'Profile';
     const targetsTitle = 'Targets';
@@ -764,19 +790,19 @@
     host.innerHTML = `
       <div class="profile-layout">
         <div class="group-card profile-group profile-col">
-          ${collapseSection('profile', '👤', leftTitle, esc(profileSub), profileBody, !!ex.profile)}
+          ${collapseSection('profile', ChromeIcons.profile, leftTitle, esc(profileSub), profileBody, !!ex.profile)}
           <div class="group-divider"></div>
-          ${collapseSection('targets', '🎯', targetsTitle, esc(targetsHeaderSub(bt)), targetsBody, !!ex.targets)}
+          ${collapseSection('targets', ChromeIcons.targets, targetsTitle, esc(targetsHeaderSub(bt)), targetsBody, !!ex.targets)}
         </div>
         <div class="group-card profile-group profile-col">
-          ${collapseSection('mentors', '🧑‍⚕️', mentorsTitle, esc(mentorsHeaderSub(mentors)), mentorsBody, !!ex.mentors)}
+          ${collapseSection('mentors', activeMentorIconsHtml(mentors), mentorsTitle, esc(mentorsHeaderSub(mentors)), mentorsBody, !!ex.mentors)}
           <div class="group-divider"></div>
-          ${collapseSection('rules', '📋', rulesTitle, esc(rulesTextPreview(rules?.rawText || '')), rulesBody, !!ex.rules)}
+          ${collapseSection('rules', ChromeIcons.rules, rulesTitle, esc(rulesTextPreview(rules?.rawText || '')), rulesBody, !!ex.rules)}
           <div class="group-divider"></div>
-          ${collapseSection('macros', '🥗', macrosTitle, macrosSub, macrosBody, !!ex.macros)}
+          ${collapseSection('macros', ChromeIcons.macros, macrosTitle, macrosSub, macrosBody, !!ex.macros)}
           ${coach ? `
           <div class="group-divider"></div>
-          ${collapseSection('coach', coachIcons || '💬', coachTitle, esc(coachSub), renderCoachBody(coach, mentors), !!ex.coach)}` : ''}
+          ${collapseSection('coach', activeMentorIconsHtml(mentors), coachTitle, esc(coachSub), renderCoachBody(coach, mentors), !!ex.coach)}` : ''}
         </div>
       </div>`;
 
@@ -855,7 +881,7 @@
         <div class="mentor-nav">
           ${MENTORS.map((m) => `
             <button type="button" class="mentor-pick${m.id === activeMentor ? ' active' : ''}" data-mentor="${m.id}">
-              ${m.emoji} ${m.label}
+              ${mentorChromeIcon(m.id)} ${m.label}
             </button>`).join('')}
         </div>
         <div class="chat-thread">
