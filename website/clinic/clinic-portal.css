@@ -400,42 +400,73 @@ summary:focus-visible {
   background: var(--surface-2);
   border-bottom: 1px solid var(--line);
   font-weight: 700;
-  vertical-align: bottom;
+  /* Top, not bottom: every column label then shares one baseline and the two
+     filter inputs hang below them instead of shoving their labels upward. */
+  vertical-align: top;
+  padding-bottom: 10px;
 }
 .worklist-table th .col-head-label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
+  line-height: 1.4;
 }
 .worklist-table th.col-name {
-  width: 15%;
+  width: 17%;
 }
 .worklist-table th.col-email {
-  width: 28%;
+  width: 27%;
 }
 .worklist-table th.col-sync {
-  width: 7%;
+  width: 8%;
 }
 .worklist-table th.col-sponsor {
-  width: 18%;
+  width: 17%;
 }
 .worklist-table th.col-actions {
-  width: 32%;
+  width: 31%;
   text-align: end;
 }
 .worklist-table td {
-  padding: 10px;
+  padding: 12px 10px;
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
   font-size: 0.9rem;
 }
+.worklist-table tbody tr {
+  transition: background-color 120ms ease;
+}
+.worklist-table tbody tr:hover {
+  background: var(--surface-2);
+}
+.worklist-table tbody tr:focus-within {
+  background: var(--surface-2);
+}
 .worklist-table tr:last-child td {
   border-bottom: none;
+}
+/* One alignment per column: the name text itself carries dir="auto", so a
+   Hebrew row shapes RTL without jumping to the far edge of the column. */
+.worklist-table .name-cell {
+  text-align: start;
 }
 .worklist-table .name-cell .name-primary {
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.worklist-table .name-cell .name-empty {
+  color: var(--muted);
+  font-weight: 500;
+}
+.worklist-table .name-cell .status-line {
+  margin-top: 4px;
+}
+.chip.status-chip {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 1px 7px;
 }
 .worklist-table .email-cell {
   font-weight: 500;
@@ -451,6 +482,7 @@ summary:focus-visible {
   color: var(--muted);
   white-space: nowrap;
   line-height: 1.25;
+  font-variant-numeric: tabular-nums;
 }
 html[lang]:not([lang='en']) .worklist-table .sync-cell {
   font-size: 0.72rem;
@@ -550,6 +582,11 @@ html[dir='rtl'] .ux-filter-input {
   border-top: 1px solid var(--line);
   background: var(--surface-2);
   font-size: 0.9rem;
+}
+/* Author `display: flex` outranks the UA `[hidden]` rule, so a single-page
+   worklist kept rendering Previous/Next. */
+.worklist-pager[hidden] {
+  display: none !important;
 }
 .worklist-pager .portal-btn {
   margin-top: 0;

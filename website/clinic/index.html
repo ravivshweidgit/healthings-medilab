@@ -527,6 +527,20 @@
         );
       }
 
+      /** Approved is the baseline state, so it stays neutral — only exceptions get colour. */
+      function statusChip(share) {
+        const el = document.createElement('span');
+        const tone =
+          share.status === 'pending'
+            ? 'soon'
+            : share.status === 'rejected' || share.status === 'revoked'
+              ? 'gone'
+              : 'off';
+        el.className = 'chip status-chip ' + tone;
+        el.textContent = statusSub(share);
+        return el;
+      }
+
       function filteredShares() {
         const { filter, searchName, searchEmail, sort, pending, outgoing, approved, sponsorByPatient } =
           worklistState;
@@ -758,18 +772,23 @@
           const nameLine = document.createElement('div');
           nameLine.className = 'name-primary';
           if (displayName) {
-            nameLine.dir = 'auto';
-            nameLine.textContent = displayName;
+            // dir="auto" on an inline span, not the block: the run shapes RTL for
+            // Hebrew/Arabic while the column keeps one alignment for every row.
+            const nameText = document.createElement('span');
+            nameText.dir = 'auto';
+            nameText.textContent = displayName;
+            nameLine.appendChild(nameText);
             nameLine.title = displayName;
           } else {
+            nameLine.classList.add('name-empty');
             nameLine.textContent = '—';
           }
           tdName.append(nameLine);
-          // Linked = approved only — status line is redundant there.
+          // Linked = approved only — status is redundant there.
           if (worklistState.filter !== 'linked') {
             const statusLine = document.createElement('div');
-            statusLine.className = 'muted';
-            statusLine.textContent = statusSub(share);
+            statusLine.className = 'status-line';
+            statusLine.appendChild(statusChip(share));
             tdName.append(statusLine);
           }
 
