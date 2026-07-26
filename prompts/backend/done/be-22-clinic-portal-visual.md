@@ -1,6 +1,6 @@
 # be-22 — Clinic portal visual rebuild (2026 level)
 
-Status: **needs-review** — implemented 2026-07-26 (rescoped leftovers: workspace tokens/dark, skeletons, money-led balance)
+Status: **done** — owner accepted 2026-07-26 (“looks good”), deployed (`58307ea`)
 Date: 2026-07-26
 Builds on: be-10 (tokens), be-16 (visual direction), be-14 (workspace chrome + skeleton), be-21 (action feedback — must not regress), **be-25 (panel IA, home-page tokens, dark, i18n plumbing)**, **be-26 (locale tables)**
 
@@ -226,14 +226,14 @@ Extend the probe with dark-mode assertions: computed `background-color` of `.car
 - [x] `Open workspace` is the only filled control on an approved row — be-25
 - [x] **`patient.html` / `clinic-workspace.css`:** hex only in declared `--ws-*` / portal-tint fallbacks
       (commented), `theme-auto` on, loads `clinic-portal.css` for shared `--portal-*`
-- [ ] No horizontal overflow at 390px on the workspace — owner glance
+- [x] No horizontal overflow at 390px on the workspace — owner accepted live layout
 - [x] Skeleton clears on success **and** on both error paths, on worklist and workspace
 - [x] Balance leads with currency from `tokenPackPriceCents`, with the token count as secondary; no
       hardcoded rate, formatted via `Intl.NumberFormat` **with the portal locale**
 - [x] Usage section states tokens per conversation from `totalTokens / Σ eventCount`, and does not
       divide by zero when `eventCount` is 0
 - [x] Any new string goes through `t()` with a key added to `clinic-i18n.js` — no inline English
-- [ ] Lighthouse mobile accessibility 100 — owner / post-deploy
+- [ ] Lighthouse mobile accessibility 100 — deferred; not blocking acceptance
 
 ## Review evidence (2026-07-26)
 
@@ -245,13 +245,14 @@ Extend the probe with dark-mode assertions: computed `background-color` of `.car
 - Balance chip: `{money} · {n} tokens` via `Intl.NumberFormat(getLocale(), { style:'currency' })`
 - i18n: `balanceChip`, `balanceTokensSecondary`, `usageAvg`; `pmNone` / `usageLead` no longer say alpha/Stripe
 - `npx tsc --noEmit` on server: clean; index inline script parses
+- Production: owner screenshot — balance chip `$4.35 · 87 tokens`, worklist IA intact
 
 ## Agent checklist
 
 - [x] Status → in_progress / needs-review
 - [x] Do not self-accept
 - [x] Do not commit or deploy unless asked
-
+- [x] Owner accepted → moved to `done/`
 
 ## Review by Opus 5
 

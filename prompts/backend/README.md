@@ -26,12 +26,11 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-22-clinic-portal-visual.md` | Clinic portal visual rebuild | **needs-review** | Workspace tokens/dark, worklist+workspace skeletons, money-led balance via `tokenPackPriceCents`. Owner eye-check light/dark + 390px |
 | `be-08-clinic-portal-ux.md` | Clinic portal UI/UX catalog (C1–C21) | **partial** | A–D all ticked except **C11** (contrast re-measure) and **C21** (localStorage session note). Move to done/ once those two close |
 
 ## Done
 
-See [`done/README.md`](./done/README.md) — be-01 through be-26.
+See [`done/README.md`](./done/README.md) — be-01 through be-26 (incl. be-22).
 
 ## Status values
 
@@ -92,11 +91,11 @@ trusting the script's exit code.
 
 ## Auto kickoff (paste)
 
-be-22 is built and awaiting owner review. After acceptance, remaining open work is be-08 C11 + C21.
+be-22 is accepted and deployed. Remaining open work is be-08 C11 + C21 (small cleanup), or a new batch.
 
 ```
-Owner is reviewing prompts/backend/be-22-clinic-portal-visual.md.
-Do not start a new batch until be-22 is accepted or redirected.
+Owner accepted be-22. Next: either close be-08 C11/C21, or wait for a new batch.
+Do not invent scope — ask if unclear.
 ```
 
 ## Code
