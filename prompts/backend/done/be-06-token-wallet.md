@@ -4,8 +4,8 @@
 Live artifacts: `wallets`, `wallet_ledger`, `payment_methods` in `server/src/db/schema.sql`,
 `server/src/routes/wallet.ts`, `server/src/services/sponsor.ts` (`resolveAiPayer`). Charging stays
 off in alpha (`BILLING_ENFORCE=false`). The tokens-vs-currency display problem this spec created is
-tracked in `opus5/drafts/be-22-clinic-portal-visual.md`.  
-**Builds on:** `prompt-be-03-account-shares.md` (`resolveAiPayer`) · `done/prompt-be-01-vision.md` § pricing.
+tracked in `../be-22-clinic-portal-visual.md`.  
+**Builds on:** `be-03-account-shares.md` (`resolveAiPayer`) · `be-01-vision.md` § pricing.
 
 ---
 
@@ -127,7 +127,7 @@ AI_TOKENS_PER_CHAT_TURN=1
 
 ## Related
 
-- **`prompt-be-03-account-shares.md`** — `sponsor_ai`, `resolveAiPayer`
-- **`prompt-be-05-clinic-dashboard.md`** — clinic balance UI
+- **`be-03-account-shares.md`** — `sponsor_ai`, `resolveAiPayer`
+- **`be-05-clinic-dashboard.md`** — clinic balance UI
 - **`prompt49.txt`** — sponsored badge in app
-- **`done/prompt-be-01-vision.md`** — pricing principles
+- **`be-01-vision.md`** — pricing principles

@@ -2,7 +2,7 @@
 
 Production API: **`https://api.healthings.ai`** (Hetzner VPS, Ubuntu 22.04+).
 
-Phase 1: email OTP auth only. Spec: `prompts/backend/done/prompt-be-02-accounts-auth.md`.
+Phase 1: email OTP auth only. Spec: `prompts/backend/done/be-02-accounts-auth.md`.
 
 ---
 

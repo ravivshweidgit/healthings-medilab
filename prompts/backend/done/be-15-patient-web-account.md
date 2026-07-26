@@ -431,4 +431,4 @@ The page shows *"Snapshot from {date} · open the app to refresh"*. Revisit if u
 - [ ] Purge rules verified against all four consumer combinations
 - [ ] Acceptance criteria smoke-tested
 - [ ] Status → done
-- [ ] Update `drafts/README.md` table
+- [ ] Update `prompts/backend/README.md` table

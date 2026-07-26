@@ -38,8 +38,8 @@ If missing, ask once, then proceed with what you have and mark gaps `needs rende
 2. Findings **W…** using the format from `00-start-here.md`.
 3. A **preferred hero sketch** in words or ASCII (brand / headline / support / CTAs /
    optional visual) — concrete enough for Auto later.
-4. Note which findings should become a **landing-only** draft vs shared design-system draft.
+4. Note which findings should become a **landing-only** batch vs a shared design-system batch.
 
-**Do not** write the `drafts/` files yet — that is pass `06`.
+**Do not** write the `be-NN` batch files yet — that is pass `06`.
 
 **Next:** `02-help.md`

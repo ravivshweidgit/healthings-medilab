@@ -63,6 +63,6 @@
 - [ ] Changes match this draft only
 - [ ] Smoke criteria above
 - [ ] Status → done
-- [ ] Update `drafts/README.md` table
+- [ ] Update `prompts/backend/README.md` table
 - [ ] Status → `needs-review` and evidence attached for Opus
 ```

@@ -1,7 +1,7 @@
 # Prompt 46 — Medical rules import + My Rules (medical overrides)
 
 **Status: backlog (spec draft 2026-06-29)**  
-Builds on **prompt20** (My Rules, meal rule checks) · **prompt39** (lab PDF import pattern) · **prompt-be-03** (optional clinic mentor link — orthogonal).
+Builds on **prompt20** (My Rules, meal rule checks) · **prompt39** (lab PDF import pattern) · **be-03** (optional clinic mentor link — orthogonal).
 
 ---
 
@@ -249,7 +249,7 @@ Reuse patterns from:
 - Parsed rule JSON on server (PDF relay only — parse on phone)
 - Validating RD license (trust user import)
 - Blocking save of personal rules on conflict
-- Clinic editing rule text in browser (upload PDF only — **`prompt-be-05-clinic-dashboard.md`**)
+- Clinic editing rule text in browser (upload PDF only — **`be-05-clinic-dashboard.md`**)
 
 ---
 
@@ -279,8 +279,8 @@ Reuse patterns from:
 
 - **prompt20** — meal nutritionist alert; effective rules
 - **prompt39** — lab PDF import pattern
-- **`prompts/backend/prompt-be-03-account-shares.md`** — clinic mentor link (billing separate in `be-06`)
-- **`prompts/backend/done/prompt-be-01-vision.md`** — solo vs clinic paths; many clinics as mentors
+- **`prompts/backend/be-03-account-shares.md`** — clinic mentor link (billing separate in `be-06`)
+- **`prompts/backend/done/be-01-vision.md`** — solo vs clinic paths; many clinics as mentors
 
 ---
 
@@ -288,7 +288,7 @@ Reuse patterns from:
 
 1. Ship **storage + effective merge** first (can paste medical into import review manually for test)
 2. Then **PDF import** (patient pick file — flow A)
-3. Then **clinic plan relay** (download PDF from API — flow D; shares **`prompt-be-03`** + **`prompt49`**)
+3. Then **clinic plan relay** (download PDF from API — flow D; shares **`be-03`** + **`prompt49`**)
 4. Then **photo import**
 5. Then **conflict check** on personal save
 

@@ -292,4 +292,4 @@ limitation hit during the `be-10` review. Layout claims above come from measured
 - [x] Every claim verified or marked `TODO(owner)` — nothing invented
 - [x] Acceptance criteria above
 - [x] Status → `needs-review` with evidence attached — **do not mark done**
-- [x] Update `drafts/README.md` table
+- [x] Update `prompts/backend/README.md` table

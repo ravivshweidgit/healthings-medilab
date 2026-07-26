@@ -1,7 +1,7 @@
 ## Prompt 78 — HEALTHINGS.AI brand lockup
 
 **Status: done (2026-07-18)** — commit `df6f9a9`  
-**Builds on:** landing site (`prompt-be-07`), dashboard brand header, Play/TestFlight icons
+**Builds on:** landing site (`be-07`), dashboard brand header, Play/TestFlight icons
 
 ### Problem
 

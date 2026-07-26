@@ -1,7 +1,7 @@
 # 06 — Design system + Auto handoff (Opus 5)
 
-**Action:** Synthesize all passes → write **implementation drafts** under `drafts/`.  
-**Stop** when drafts are ready. Do not implement code.
+**Action:** Synthesize all passes → write **implementation batches** into `prompts/backend/`.  
+**Stop** when the batches are ready. Do not implement code.
 
 ---
 
@@ -18,15 +18,15 @@
 
 ---
 
-## Write files under `drafts/`
+## Write batch files under `prompts/backend/`
 
-For **each** batch, create one markdown file using `drafts/TEMPLATE.md`.
+For **each** batch, create one markdown file using `briefs/TEMPLATE.md`.
 
-Naming:
+Naming — open batches sit at the top level of `prompts/backend/`; `done/` is shipped records only:
 
 ```
-drafts/be-10-short-slug.md
-drafts/be-11-short-slug.md
+prompts/backend/be-10-short-slug.md
+prompts/backend/be-11-short-slug.md
 …
 ```
 
@@ -39,27 +39,27 @@ Rules:
 - Out of scope explicit.
 - Reference finding IDs (W3, W7…).
 - Do **not** duplicate be-08 Batch A correctness unless live still broken — then point at
-  `prompt-be-08` instead of rewriting.
+  `be-08` instead of rewriting.
 
-Also update `drafts/README.md` table: filename | title | status | depends on.
+Also update the open-batches table in `prompts/backend/README.md`: filename | title | status | notes.
 
 ---
 
 ## Final message to human (exact shape)
 
 ```
-Opus pack complete.
+Investigation pack complete.
 Verdict: <one line>
-Drafts ready for Auto:
-- prompts/backend/opus5/drafts/be-10-….md
+Batches ready for Auto:
+- prompts/backend/be-10-….md
 - …
-Next: switch to Auto and say: implement ready drafts in prompts/backend/opus5/drafts/
+Next: switch to Auto and say: implement the ready batches in prompts/backend/
 ```
 
 ---
 
 ## Do not
 
-- Implement CSS/HTML in the repo in this Opus session.
-- Create drafts outside `prompts/backend/opus5/drafts/`.
+- Implement CSS/HTML in the repo in this investigation session.
+- Create batch files anywhere but the top level of `prompts/backend/`.
 - Ask Auto to “make the site look better” without these files.

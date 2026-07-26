@@ -96,7 +96,7 @@ Revoke share     ──► relay.delete(patientId) immediately — nothing in DB
 | App UI | `app/src/components/ClinicLinkStrip.tsx` — **Share** + Revoke per approved clinic |
 | Clinic web | `website/clinic/clinic-workspace.js` — in-memory chat; drop server history |
 | Privacy | `website/privacy.html` |
-| Spec cross-links | `prompt49.txt`, `prompt-be-04`, `prompt-be-05`, `done/prompt51.txt` (amend) |
+| Spec cross-links | `prompt49.txt`, `be-04`, `be-05`, `done/prompt51.txt` (amend) |
 
 ---
 
@@ -117,4 +117,4 @@ Revoke share     ──► relay.delete(patientId) immediately — nothing in DB
 
 - **`done/prompt53.txt`** — nutritionist directives (shipped)
 - **`prompt52.txt`** — rawText-only My Rules (can ship with 53 or 54)
-- **`prompt-be-04-encrypted-sync.md`** — true E2E ciphertext deferred; alpha uses relay per this prompt
+- **`be-04-encrypted-sync.md`** — true E2E ciphertext deferred; alpha uses relay per this prompt

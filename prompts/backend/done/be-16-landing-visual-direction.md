@@ -272,4 +272,4 @@ screenshots that were lying. Use `tmp/be-16-review/shoot.mjs`, which drives CDP 
 - [ ] Banned-pattern list re-read before finishing
 - [ ] Acceptance criteria above
 - [ ] Status → `needs-review` with evidence attached — **do not mark done**
-- [ ] Update `drafts/README.md` table
+- [ ] Update `prompts/backend/README.md` table

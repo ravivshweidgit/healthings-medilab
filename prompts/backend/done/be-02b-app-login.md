@@ -1,7 +1,7 @@
 # Backend Phase 1b — App login (email OTP + biometric unlock)
 
 **Status: shipped (2026-06-29)** — phone-tested  
-Builds on **prompt-be-02-accounts-auth.md**.
+Builds on **be-02-accounts-auth.md**.
 
 ---
 
@@ -69,11 +69,11 @@ Production (2026-06-29): Let's Encrypt HTTPS on `api.healthings.ai`; Porkbun `ot
 - [x] Account toggle enables/disables fingerprint
 - [x] Login keyboard does not hide code input
 
-## Deferred → prompt-be-03
+## Deferred → be-03
 
-→ **`../prompt-be-03-account-shares.md`** — optional clinic link; mentor pays AI when approved.
+→ **`../be-03-account-shares.md`** — optional clinic link; mentor pays AI when approved.
 
 ## Related
 
-- **prompt-be-02** — server auth endpoints
-- **prompt-be-01** — vision + roadmap
+- **be-02** — server auth endpoints
+- **be-01** — vision + roadmap

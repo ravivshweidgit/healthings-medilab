@@ -40,6 +40,6 @@ rewrite of clinical renderers unless P0.
 
 1. Workspace verdict.
 2. Findings **W…**
-3. What belongs in a small “workspace chrome” draft vs leave alone.
+3. What belongs in a small “workspace chrome” batch vs leave alone.
 
-**Next:** `06-design-system-and-handoff.md` — you will write `drafts/` there.
+**Next:** `06-design-system-and-handoff.md` — you will write the batch files there.

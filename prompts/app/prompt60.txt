@@ -2,7 +2,7 @@
 
 **Status: shipping 2026-07-08** · phone test pending · **requires API deploy + `npm run migrate`**
 
-**Builds on:** `LocalBackupService` · `prompt-be-04` (alpha: HTTPS + ACL, not E2E yet)
+**Builds on:** `LocalBackupService` · `be-04` (alpha: HTTPS + ACL, not E2E yet)
 
 ---
 
@@ -68,7 +68,7 @@ pm2 restart healthings-api
 
 ### Deferred
 
-- E2E encryption (`prompt-be-04`)
+- E2E encryption (`be-04`)
 - UI to restore **previous** blob explicitly
 - TTL cleanup for `prev_*` after N days
 - **Restore path:** pako@3 `{ to: 'string' }` was broken — fixed in **`done/prompt68.txt`**

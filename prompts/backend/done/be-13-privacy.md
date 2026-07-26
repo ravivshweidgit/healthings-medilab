@@ -349,7 +349,7 @@ full policy is ever translated.
 - [x] Regenerated help pages if `CSS_VER` moved (`20260726be13`)
 - [x] Smoke criteria above
 - [x] Status → needs-review (evidence in `tmp/be-13-review/`) — **do not mark done**
-- [x] Update `drafts/README.md` table
+- [x] Update `prompts/backend/README.md` table
 
 ## Do not deploy
 

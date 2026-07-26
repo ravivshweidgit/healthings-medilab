@@ -2,7 +2,7 @@
 
 **Model:** Opus 5 (thinking, high)  
 **Action:** Read this file fully, then open `01-landing.md`. Do not skip ahead.
-**Do not:** Write production CSS/HTML/JS. That is Auto’s job after `drafts/`.
+**Do not:** Write production CSS/HTML/JS. That is Auto’s job, after the batch files exist.
 
 ---
 
@@ -19,7 +19,7 @@ Your job in this pack:
 
 1. **Investigate** each pass (screenshots + live URLs).
 2. **Design** concrete recommendations (layout, type, color, IA, copy).
-3. **Draft** Auto-ready implementation prompts under `drafts/` (pass `06`).
+3. **Write** Auto-ready implementation batches into `prompts/backend/` (pass `06`).
 
 ---
 
@@ -46,7 +46,7 @@ Repo roots: `website/`, `website/clinic/`, help generator `website/scripts/help-
 - Keep **HEALTHINGS.AI** wordmark recognizable (`website/assets/brand-logo.png`).
 - Clinic portal UI = **English only**. Help = path locale. Glossary English (kcal, CGM, …).
 - Alpha CTAs (Play internal / TestFlight) are intentional — clarify, don’t fake public GA.
-- Clinic correctness bugs C1–C5 are owned by `prompt-be-08`. **Batch A is committed and live as of
+- Clinic correctness bugs C1–C5 are owned by `be-08`. **Batch A is committed and live as of
   2026-07-26** — do not re-report C1–C5 unless still broken on the **live** URL. Focus visual/IA.
 - Help string changes need `help-locale-content.mjs` + regen; CSS/template changes usually
   don’t. Say which in every recommendation.
@@ -63,7 +63,7 @@ Repo roots: `website/`, `website/clinic/`, help generator `website/scripts/help-
 - Problem: what the user feels
 - Recommendation: concrete change
 - Effort: S | M | L
-- Draft owner: e.g. drafts/be-10-landing-hero.md (assign in pass 06 if unsure)
+- Batch owner: e.g. be-10-landing-hero.md (assign in pass 06 if unsure)
 ```
 
 Use IDs **W1, W2…** site-wide. Only use **C…** if extending the be-08 clinic catalog.
@@ -82,7 +82,7 @@ Use IDs **W1, W2…** site-wide. Only use **C…** if extending the be-08 clinic
 
 1. Complete one pass file at a time (`01` then `02` …).
 2. At the end of each pass, list findings for that surface (table OK).
-3. After `05`, go to `06` — design system + write all `drafts/*.md`.
-4. Final message: “Opus pack complete — N drafts ready for Auto in prompts/backend/opus5/drafts/.”
+3. After `05`, go to `06` — design system + write all the `be-NN` batch files.
+4. Final message: “Pack complete — N batches ready for Auto in prompts/backend/.”
 
 **Next:** open `01-landing.md`.

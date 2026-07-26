@@ -185,4 +185,4 @@ proving it did not *move* would need a before/after diff, which was not run.
 - [x] Changes match this draft only
 - [x] Smoke criteria above
 - [x] Status → needs-review (Opus judgment; evidence in `tmp/be-10-review/`)
-- [x] Update `drafts/README.md` table
+- [x] Update `prompts/backend/README.md` table

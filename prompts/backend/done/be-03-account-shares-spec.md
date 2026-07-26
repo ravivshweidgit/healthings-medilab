@@ -2,19 +2,19 @@
 
 **Status: done (shipped 2026-06-30)** — header corrected 2026-07-26. This is the **full original
 spec**; the condensed shipped record with the endpoint table and phone-test checklist is
-`done/prompt-be-03-account-shares.md`. Both are kept: the summary is the record of what landed, this
+`be-03-account-shares.md`. Both are kept: the summary is the record of what landed, this
 file is the design rationale behind it.  
-Builds on **`done/prompt-be-02-accounts-auth.md`** · **`done/prompt-be-02b-app-login.md`**.
+Builds on **`be-02-accounts-auth.md`** · **`be-02b-app-login.md`**.
 
 ### Decisions (locked 2026-06-29)
 
 - **Clinic = mentor account** — one `role: mentor` user per clinic (not a separate “alpha site”)
 - **Link is optional** — solo patients use the app without a mentor; they import a nutritionist report locally (app prompt, not this spec)
 - **Personal plan per patient** — licensed nutritionist instructions → app **My Rules** (local import); server only stores the **relationship**, not the plan text
-- **Mentor pays AI** for **approved** linked patients — sponsored debit from mentor wallet (**prompt-be-06**); no patient card required while sponsored
+- **Mentor pays AI** for **approved** linked patients — sponsored debit from mentor wallet (**be-06**); no patient card required while sponsored
 - **Many clinics** — same API for every mentor; no per-clinic deploy
 - Bidirectional onboarding — mentor invites patient **or** patient requests mentor; other party approves
-- **One active sponsor mentor per patient** (MVP) — ~~superseded~~ **decoupled in shipped code:** many shares; optional `ai_sponsorships` with split % (see `done/prompt-be-03-account-shares.md`)
+- **One active sponsor mentor per patient** (MVP) — ~~superseded~~ **decoupled in shipped code:** many shares; optional `ai_sponsorships` with split % (see `be-03-account-shares.md`)
 
 ---
 
@@ -183,7 +183,7 @@ Full UI spec: **`prompts/app/prompt49.txt`**. Summary:
 | **On login** | Fetch `/v1/shares/pending-for-me`; badge if action needed |
 | **Sponsored UI** | “AI sponsored by &lt;clinic display name&gt;” when approved sponsor exists |
 
-Nutritionist **report import → My Rules** — app **`prompt46.txt`** (medical + personal; medical wins). **Clinic PDF upload** — § Medical plan relay below + **`prompt-be-05-clinic-dashboard.md`**.
+Nutritionist **report import → My Rules** — app **`prompt46.txt`** (medical + personal; medical wins). **Clinic PDF upload** — § Medical plan relay below + **`be-05-clinic-dashboard.md`**.
 
 ---
 
@@ -304,9 +304,9 @@ curl https://api.healthings.ai/v1/shares?status=approved \
 
 | Item | Prompt |
 |------|--------|
-| Mentor wallet + AI debit | **`prompt-be-06-token-wallet.md`** |
-| Encrypted blob sync | **`prompt-be-04-encrypted-sync.md`** |
-| Clinic web portal + patient charts | **`prompt-be-05-clinic-dashboard.md`** |
+| Mentor wallet + AI debit | **`be-06-token-wallet.md`** |
+| Encrypted blob sync | **`be-04-encrypted-sync.md`** |
+| Clinic web portal + patient charts | **`be-05-clinic-dashboard.md`** |
 | App link + share UI | **`prompt49.txt`** |
 | Token transfer between wallets | **Not MVP** — mentor is billed directly, not pre-transfer |
 | Multiple simultaneous sponsors | Post-MVP |
@@ -316,13 +316,13 @@ curl https://api.healthings.ai/v1/shares?status=approved \
 
 ## Related
 
-- **`done/prompt-be-01-vision.md`** — vision (updated GTM: many clinics, no alpha site)
-- **`done/prompt-be-02-accounts-auth.md`** — auth + roles
-- **`done/prompt-be-02b-app-login.md`** — app login (evolve to required sign-in + link UI)
-- **prompt-be-06** — `resolveAiPayer()` consumer
+- **`be-01-vision.md`** — vision (updated GTM: many clinics, no alpha site)
+- **`be-02-accounts-auth.md`** — auth + roles
+- **`be-02b-app-login.md`** — app login (evolve to required sign-in + link UI)
+- **be-06** — `resolveAiPayer()` consumer
 - App (planned) — nutritionist report import → My Rules
 
 ## Supersedes / notes
 
-- **prompt-be-01** § mentor **token transfer** — superseded for MVP by **mentor billed / sponsored debit** (mentor wallet in `be-06`).
+- **be-01** § mentor **token transfer** — superseded for MVP by **mentor billed / sponsored debit** (mentor wallet in `be-06`).
 - **investor-pov/key-rule.md** — “formal alpha site” channel deprecated; each clinic is a mentor account.

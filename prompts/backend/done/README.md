@@ -1,36 +1,69 @@
 # Done backend prompts
 
-Shipped backend specs live here. Active / backlog specs stay in `prompts/backend/`.
+Shipped and accepted batches — **record only**. Auto must not implement anything in this folder.
 
-## Summaries
+Open batches live one level up in [`prompts/backend/`](../README.md).
 
-**prompt-be-01** — done. Vision: local-first, Hetzner hosting, email OTP auth, phased roadmap (sync, mentor shares, billing).
+Numbering is a single `be-NN` series in chronological discovery order. Before 2026-07-26 these were
+split across two folders with two competing prefixes (`prompt-be-NN` here, `be-NN` under
+`opus5/drafts/done/`), which produced two different files numbered be-09. One series now, one place.
 
-**prompt-be-02** — done (2026-06-28). Server accounts + auth: Fastify, PostgreSQL, OTP/JWT, `/v1/auth/*`, Hetzner deploy. App login → be-02b.
+## be-01 … be-08 — server and portal foundations
 
-**prompt-be-02b** — done (2026-06-29). App login: LoginScreen, SecureStore tokens, biometric unlock, HTTPS `api.healthings.ai`, Porkbun SMTP OTP. Phone-tested.
+**be-01** — done. Vision: local-first, Hetzner hosting, email OTP auth, phased roadmap (sync, mentor
+shares, billing).
 
-**prompt-be-03** — done (2026-06-30). Account shares + AI sponsorship, decoupled: many approved data
-shares per patient, one sponsor. `shares.ts`, `sponsorships.ts`, `usage.ts`, `sponsor.ts`. Two files:
-the condensed record and `-spec.md`, the full original design.
+**be-02** — done (2026-06-28). Server accounts + auth: Fastify, PostgreSQL, OTP/JWT, `/v1/auth/*`,
+Hetzner deploy. App login → be-02b.
 
-**prompt-be-04** — done. Encrypted patient sync (zero-knowledge relay): `sync_blobs`,
-`server/src/routes/sync.ts`. The snapshot path that `be-15` clinician AI and `be-17` purge-on-unshare
-were later built on.
+**be-02b** — done (2026-06-29). App login: LoginScreen, SecureStore tokens, biometric unlock, HTTPS
+`api.healthings.ai`, Porkbun SMTP OTP. Phone-tested.
 
-**prompt-be-05** — done. Clinic web portal MVP: `website/clinic/index.html` +
-`patient.html`. UI/UX debt → `prompt-be-08`; multi-clinic data-model defects → `opus5/drafts/be-23`.
+**be-03** — done (2026-06-30). Account shares + AI sponsorship, decoupled: many approved data shares
+per patient, one sponsor. `shares.ts`, `sponsorships.ts`, `usage.ts`, `sponsor.ts`. Two files: this
+condensed record and `be-03-account-shares-spec.md`, the full original design.
 
-**prompt-be-06** — done. Token wallet + clinic-sponsored AI: `wallets`, `wallet_ledger`,
-`payment_methods`, `routes/wallet.ts`, `resolveAiPayer`. Charging off in alpha
-(`BILLING_ENFORCE=false`).
+**be-04** — done. Encrypted patient sync (zero-knowledge relay): `sync_blobs`,
+`server/src/routes/sync.ts`. The snapshot path that be-15 and be-17 were later built on.
 
-**prompt-be-07** — done (2026-06-29). Landing site https://healthings.ai, APK download, nginx + Certbot, publish/deploy scripts. Play internal → app `prompt47.txt`.
+**be-05** — done. Clinic web portal MVP: `website/clinic/index.html` + `patient.html`. UI/UX debt →
+be-08; multi-clinic data-model defects → be-23.
 
-## Still active (`prompts/backend/`)
+**be-06** — done. Token wallet + clinic-sponsored AI: `wallets`, `wallet_ledger`, `payment_methods`,
+`routes/wallet.ts`, `resolveAiPayer`. Charging off in alpha (`BILLING_ENFORCE=false`).
 
-| File | Topic |
-|------|--------|
-| `prompt-be-08-clinic-portal-ux.md` | Clinic portal UI/UX catalog (C1–C21) — partial; Batch A live |
-| `prompt-be-09-website-ux-review.md` | Pointer → `opus5/` pack |
-| **`opus5/drafts/`** | Where all current backend batches live |
+**be-07** — done (2026-06-29). Landing site https://healthings.ai, APK download, nginx + Certbot,
+publish/deploy scripts. Play internal → app `prompt47.txt`.
+
+**be-08** — **still open**, see [`../be-08-clinic-portal-ux.md`](../be-08-clinic-portal-ux.md).
+Batch A (correctness) shipped; some Batch B items remain.
+
+## be-09 … be-21 — website and portal batches
+
+| File | Title | Shipped |
+|------|-------|---------|
+| `be-09-copy-and-proof.md` | Landing copy and proof | 2026-07-26 |
+| `be-10-design-system.md` | Shared design system (tokens) | 2026-07-26 |
+| `be-11-landing.md` | Landing page | 2026-07-26 |
+| `be-12-help.md` | Help site (10 locales) | 2026-07-26 |
+| `be-13-privacy.md` | Privacy policy page | 2026-07-26 |
+| `be-14-patient-workspace.md` | Clinic patient workspace | 2026-07-26 |
+| `be-15-patient-web-account.md` | Patient web account | 2026-07-26 |
+| `be-16-landing-visual-direction.md` | Landing visual direction | 2026-07-26 — owner: "looks ok" |
+| `be-17-snapshot-purge.md` | Snapshot purge on revoke | 2026-07-26 |
+| `be-18-privacy-claims-audit.md` | Privacy claims audit + Part B | 2026-07-26 |
+| `be-19-account-deletion.md` | Account deletion | 2026-07-26 |
+| `be-20-mentor-invite-email.md` | Mentor invite email | 2026-07-26 |
+| `be-21-portal-action-feedback.md` | Portal action feedback + sponsorship days | 2026-07-26 |
+
+## Retired IDs
+
+**be-09 (the other one)** — `prompt-be-09-website-ux-review.md` was never a batch; it was a router
+telling Opus how to run the investigation pack and Auto how to pick up the output. Its content now
+lives in [`../briefs/README.md`](../briefs/README.md), which is where a reader looks for it. The ID
+is retired so `be-09` means exactly one thing.
+
+## Adding to this folder
+
+When the owner accepts a batch (`Status: done`), move the file here and add a row or paragraph above.
+Auto does not do this on its own — see the review loop in [`../README.md`](../README.md).

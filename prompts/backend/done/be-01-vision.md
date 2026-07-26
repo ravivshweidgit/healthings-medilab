@@ -1,7 +1,7 @@
 # Backend Phase — Vision & Roadmap (Healthings.ai)
 
 > North-star doc for the backend phase: accounts, sharing, sync, and the mentor dashboard.
-> Everything below is the agreed direction; backend prompts (`prompt-be-02+`) derive from it.
+> Everything below is the agreed direction; backend prompts (`be-02+`) derive from it.
 
 ---
 

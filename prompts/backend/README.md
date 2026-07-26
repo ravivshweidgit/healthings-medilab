@@ -1,12 +1,72 @@
 # Backend prompts — Healthings.ai
 
-Spec/working prompts for the **backend phase**: user accounts, authentication, and
-patient ↔ dietitian data sharing (relay).
+Server, clinic portal and website work. App-side prompts live in [`../app/`](../app/).
 
-- App-side prompts live in `../app/`.
-- **Done** specs: [`done/`](./done/README.md)
-- **Active** specs: [`opus5/drafts/`](./opus5/drafts/README.md) — new backend batches go there
-- This folder holds only the be-08 UX catalog and the be-09 pointer
+## Layout — one rule
+
+**A file here is open. A file in `done/` is shipped.** There is no third state and no nesting.
+
+```
+prompts/backend/
+  README.md          ← this file: the index
+  be-NN-….md         ← open batches (ready / in_progress / needs-review / blocked)
+  done/              ← shipped + owner-accepted (record only; Auto never implements from here)
+  briefs/            ← reusable investigation packs and the batch TEMPLATE
+```
+
+Numbering is a single `be-NN` series in chronological discovery order, matching how
+[`../app/`](../app/) already works (`promptNN.txt` + `done/`). Restructured 2026-07-26: batches used
+to be split between this folder and `opus5/drafts/`, with two `done/` folders and two files numbered
+be-09. If you are looking for `opus5/` — the investigation briefs are now `briefs/`, and every batch
+it produced is in `done/`.
+
+## Open batches
+
+Run in this order. The reason is the dependency, not preference.
+
+| File | Title | Status | Notes |
+|------|-------|--------|-------|
+| `be-23-clinic-isolation-and-audit.md` | Clinic isolation + access audit | **needs-review** | Built 2026-07-26. Orgs + split overlays (`clinic_org_overlays` / `clinic_clinician_chats`) + `patient_access_log` (no patient FK). Access via org membership; one `assertMentorPatientAccess`. be-17 **10/10** (two-org isolation), be-19 **31/31** (audit excluded from residue). Evidence in `tmp/be-23-review/`. Awaiting owner sign-off before `done/` |
+| `be-08-clinic-portal-ux.md` | Clinic portal UI/UX catalog (C1–C21) | **partial** | Batch A correctness shipped and live. Genuinely open: C6 forms/Enter submit, C8 visible labels on email + code, C12 `:focus-visible`, and busy states on the **login** buttons. Fold these into the next portal batch rather than a standalone pass. C14/C15/C19 handed to be-22 |
+| *(panel batch — not yet drafted)* | Clinic panel: worklist + cross-patient table | — | The scalable table: same component at 20 or 200 patients; pagination, saved filters and assignment are additive. Replaces the eight-card column where the patient list comes last. Needs be-23's org resolution first |
+| `be-22-clinic-portal-visual.md` | Clinic portal visual rebuild (2026 level) | **ready, demoted** | **Last.** Was next until 2026-07-26, when the owner asked whether the card-column layout is right for a clinic. It is not, and repainting an information architecture we are about to replace is the wasted work — so this runs after be-23 and the panel, with its token migration folded into whatever layout wins. Content still stands: gate alpha billing behind `?dev=1`, lead the balance with money from the configured pack rate, keep tokens as the metered unit, and treat be-21's 57/57 probe as a non-regression gate |
+
+## Done
+
+See [`done/README.md`](./done/README.md) — be-01 through be-21.
+
+## Status values
+
+| Status | Meaning | Location |
+|--------|---------|----------|
+| `ready` | Auto may implement | this folder |
+| `in_progress` | Auto working | this folder |
+| `needs-review` | Waiting on owner / design review | this folder |
+| `blocked` | Needs a human decision | this folder |
+| `done` | Accepted; record only | `done/` |
+
+## Review loop
+
+```
+draft written → Auto implements → Auto sets needs-review + attaches evidence
+   → owner reviews → accepted (move to done/) or a follow-up batch
+```
+
+**Auto must not mark a batch `done` on its own.** Set `needs-review`, attach the evidence the batch
+asks for, and stop. Owner acceptance ("looks ok", "lgtm", "works") is what moves it to `done/`.
+
+## Execution history (why the numbers are scrambled)
+
+File numbers are chronological discovery order, not the only run order. What actually mattered:
+
+| Batch | Why it sat where it did |
+|---|---|
+| **be-10** before cosmetics | Tokens consumed by everything later |
+| **be-09** after be-10 despite the number | Added mid-flight; copy must land before be-11 / be-16 |
+| **be-17 / be-18** before be-15 | Policy and purge promises had to be true before the patient account page |
+| **be-16** pulled forward | Owner's standing "does not look 2026" complaint; only needed be-10 + be-11 |
+| **be-22** last | Repaints the portal be-21 just rewired; correctness before cosmetics — then demoted again behind be-23 and the panel, because the layout itself is what's wrong |
+| **be-23** ahead of everything | One-way doors. Schema, consent and audit are brutal to retrofit once real patients exist; UI is changeable any week |
 
 ## Decisions (locked 2026-06-22, hosting updated 2026-06-29)
 
@@ -17,37 +77,43 @@ patient ↔ dietitian data sharing (relay).
 | Repo | Monorepo `/server` |
 | Auth MVP | Email OTP + JWT |
 
-## Active (`prompts/backend/`)
-
-Reconciled 2026-07-26: be-03, be-04, be-05 and be-06 all shipped weeks ago but were still labelled
-"backlog (spec draft)". They are now in `done/` with corrected headers. Only two files remain here,
-and neither is a plain backlog batch.
-
-| File | Topic | State |
-|------|--------|-------|
-| `prompt-be-08-clinic-portal-ux.md` | Clinic portal UI/UX catalog (C1–C21) | **Partial** — Batch A live; C6/C8/C12 + login busy state open; C14/C15/C19 moved to `opus5/drafts/be-22` |
-| `prompt-be-09-website-ux-review.md` | Pointer → **`opus5/`** pack | Router, not a batch — stays here while the pack is active |
-| **`opus5/`** | Ordered Opus 5 website UX passes (`00`–`06`) + `drafts/` for Auto | Active — see [`opus5/drafts/README.md`](./opus5/drafts/README.md) |
-
-**Where new backend work goes:** `opus5/drafts/`, not this folder. The `prompt-be-NN` numbering
-stopped at be-09; everything since is a `be-NN` batch inside the opus5 pack.
-
-**Historical build order:** be-03 → be-06 (stub) → be-04 → be-05 · App **`prompt49.txt`** in
-parallel with be-03/04 · **be-08** after be-05 live · **opus5/** (Opus) then Auto on `opus5/drafts/`
-
-## Done (`prompts/backend/done/`)
-
-See [done/README.md](./done/README.md) for summaries.
-
-Recent: **be-06** token wallet · **be-05** clinic portal MVP · **be-04** encrypted sync · **be-03**
-account shares · **be-07** healthings.ai landing · **be-02b** app login · **be-02** server auth ·
-**be-01** vision
-
 ## Principles
 
-- **Local-first**: phone stays source of truth; server syncs/relays.
-- **Privacy by default**: E2E encrypted blobs (phase 3+); server never reads health JSON.
+- **Local-first**: phone stays source of truth; server syncs and relays.
+- **Privacy by default**: encrypted blobs; server never reads health JSON.
 - Small, tested, committed steps — same workflow as the app phase.
+
+## Deploy
+
+Human-owned. `git pull --ff-only` then `bash server/scripts/deploy-website.sh` on the VPS — see
+`server/DEPLOY-WEBSITE.md`. Verify a deploy by checking the cache token on a live page rather than
+trusting the script's exit code.
+
+## Auto kickoff (paste)
+
+```
+Implement prompts/backend/be-23-clinic-isolation-and-audit.md
+(ignore done/ — those are shipped records). Stop after be-23 so I can
+verify before you continue.
+
+Rules:
+- Follow the batch's paths, design, and acceptance criteria exactly. Do not
+  redesign beyond it, and do not touch files it lists as off-limits.
+- This batch migrates consent rows. Before writing any migration, read
+  server/src/db/schema.sql end to end — do not assume "everything cascades".
+- Gate: `cd server && npm install && npm run verify` must pass, plus the new
+  two-org isolation case. Those harnesses copy the SQL under test from the
+  source and assert it is still there, so renaming the overlay tables WILL
+  fail them. Update the copied SQL; never weaken an assertion to go green.
+- The migration's ambiguity ladder ends in "fail loudly, delete nothing".
+  Never drop a patient's clinical rules to make a migration succeed.
+- patient_access_log deliberately has no FK on patient_id, and must be added to
+  be-19's residue exclusion list — otherwise its own test will report it as a leak.
+- Mark Status: in_progress when you start. When the acceptance criteria pass, set
+  Status: needs-review, attach the evidence its review section asks for, and stop.
+  Do not mark anything done yourself — wait for owner sign-off, then move to done/.
+- Do not commit or deploy. Both are human-owned.
+```
 
 ## Code
 

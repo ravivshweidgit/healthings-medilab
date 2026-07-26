@@ -1,11 +1,11 @@
 ## Prompt 49 — Link to clinic + share data with sponsor
 
 **Status: backlog (49a partial — `ClinicLinkStrip.tsx` + `ShareApiService.ts` in local WIP; 49b not started)**  
-**Builds on:** `done/prompt-be-02b-app-login.md` · `prompts/backend/prompt-be-03-account-shares.md` · `prompt-be-04` · `prompt-be-06`.
+**Builds on:** `done/be-02b-app-login.md` · `prompts/backend/be-03-account-shares.md` · `be-04` · `be-06`.
 
 ---
 
-### Product decisions (locked 2026-07 — align with `prompt-be-04`)
+### Product decisions (locked 2026-07 — align with `be-04`)
 
 | Decision | Rule |
 |----------|------|
@@ -56,7 +56,7 @@ On login: `GET /v1/shares/pending-for-me` — show badge if action needed.
 
 #### 49b — Share with clinic (encrypted upload)
 
-**Service:** `ShareExportService.ts` (see `prompt-be-04`)
+**Service:** `ShareExportService.ts` (see `be-04`)
 
 1. **Confirm dialog** — patient picks window:
    - **90 days (recommended)** — default; ~280 KB upload
@@ -132,8 +132,8 @@ On app open + after login: poll pending plans if linked to clinic.
 
 ### Related
 
-- **`prompts/backend/prompt-be-03-account-shares.md`** — link API
-- **`prompts/backend/prompt-be-04-encrypted-sync.md`** — upload
-- **`prompts/backend/prompt-be-05-clinic-dashboard.md`** — clinic web UI
-- **`prompts/backend/prompt-be-06-token-wallet.md`** — sponsored AI billing
+- **`prompts/backend/be-03-account-shares.md`** — link API
+- **`prompts/backend/be-04-encrypted-sync.md`** — upload
+- **`prompts/backend/be-05-clinic-dashboard.md`** — clinic web UI
+- **`prompts/backend/be-06-token-wallet.md`** — sponsored AI billing
 - **`prompt46.txt`** — parse + apply medical rules (patient import + clinic PDF apply)

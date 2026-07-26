@@ -2,7 +2,7 @@
 
 **URL:** https://healthings.ai/clinic/  
 **Files:** `website/clinic/index.html`, `website/clinic/clinic-api.js`, shared `website/styles.css`  
-**Prior correctness catalog:** `../prompt-be-08-clinic-portal-ux.md` (C1–C21)  
+**Prior correctness catalog:** `../be-08-clinic-portal-ux.md` (C1–C21)  
 **After this:** `05-patient-workspace.md`
 
 ---
@@ -41,8 +41,8 @@ Focus here:
 
 1. Clinic-home verdict (3–5 sentences) as a **daily clinician tool**.
 2. Findings **W…** for visual/IA; reference **C…** only when extending be-08.
-3. Explicit list: “already in be-08 Batch B/C — do not duplicate into new drafts” vs
-   “new design work for drafts/”.
+3. Explicit list: “already in be-08 Batch B/C — do not duplicate into a new batch” vs
+   “new design work that needs its own batch file”.
 4. Wireframe-in-words for signed-in home (section order + what each section shows).
 
 **Next:** `05-patient-workspace.md`

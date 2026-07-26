@@ -323,5 +323,5 @@ looks — two strings — but it belongs to the dashboard-chrome sweep, not here
 - [x] Regenerated all 160 pages
 - [x] Smoke criteria above
 - [x] Status → needs-review (evidence in `tmp/be-12-review/`) — **do not mark done**
-- [x] Update `drafts/README.md` table
+- [x] Update `prompts/backend/README.md` table
 - [x] Left `CSS_VER` / site-wide `a` color alone (be-11)

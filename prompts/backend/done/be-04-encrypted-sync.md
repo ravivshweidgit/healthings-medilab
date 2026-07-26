@@ -4,7 +4,7 @@
 Live artifacts: `sync_blobs` in `server/src/db/schema.sql`, `server/src/routes/sync.ts`,
 `server/src/services/sync.ts`. The clinic snapshot path this spec describes is what `be-15`
 (clinician AI) and `be-17` (snapshot purge on unshare) were later built on top of.  
-**Builds on:** `prompt-be-03-account-shares.md` (approved link required) · `done/prompt-be-01-vision.md` § sharing approach.
+**Builds on:** `be-03-account-shares.md` (approved link required) · `be-01-vision.md` § sharing approach.
 
 ---
 
@@ -173,7 +173,7 @@ buildClinicExport({ lookbackMode: '90d' | 'full' })  // default '90d'
 
 ## Related
 
-- **`prompt-be-03-account-shares.md`** — link gate
-- **`prompt-be-05-clinic-dashboard.md`** — mentor decrypt + charts UI
+- **`be-03-account-shares.md`** — link gate
+- **`be-05-clinic-dashboard.md`** — mentor decrypt + charts UI
 - **`prompt49.txt`** — app share UX + upload
-- **`done/prompt-be-01-vision.md`** — store-and-forward rationale
+- **`be-01-vision.md`** — store-and-forward rationale

@@ -1,7 +1,7 @@
 # Backend — Landing website (healthings.ai)
 
 **Status: shipped (2026-06-29)** — live at https://healthings.ai  
-Builds on **prompt-be-01-vision.md** § distribution.
+Builds on **be-01-vision.md** § distribution.
 
 ---
 
@@ -39,12 +39,12 @@ Mentors and users need a single URL to discover and **download** the app (`healt
 
 - Play Store internal testing → **`prompt47.txt`** (app)
 - Play Store public link when listed
-- Clinic web portal → **`prompt-be-05-clinic-dashboard.md`** (replaces “mentor sign-up” waitlist)
+- Clinic web portal → **`be-05-clinic-dashboard.md`** (replaces “mentor sign-up” waitlist)
 - iOS TestFlight
 - GitHub Releases as alternate APK host
 - Remove optional `*.healthings.ai` → `pixie.porkbun.com` wildcard in Porkbun
 
 ## Related
 
-- **prompt-be-01** — `healthings.ai` landing vision
-- **prompt-be-02b** — app login (phone-tested)
+- **be-01** — `healthings.ai` landing vision
+- **be-02b** — app login (phone-tested)

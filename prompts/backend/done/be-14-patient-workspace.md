@@ -178,7 +178,7 @@ card dimensions, replaced on load. Keep "Loading snapshot…" in the meta line a
 - [x] Changes match this draft only — identity via `/v1/shares` (no email in URL); no display-name branch; tabs painted in JS unchanged; charts/dashboard untouched
 - [x] Smoke criteria above
 - [x] Status → needs-review (evidence in `tmp/be-14-review/`) — **do not mark done**
-- [x] Update `drafts/README.md` table
+- [x] Update `prompts/backend/README.md` table
 - [x] CSS token bumped `20260726d` → `20260726e` + help regen
 
 ## Opus 5 review outcome (2026-07-26) — accepted with fixes

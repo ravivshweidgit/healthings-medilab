@@ -1,20 +1,42 @@
 ---
-description: Keep prompts/app specs in sync with shipped code — done vs backlog
+description: Keep prompts/app and prompts/backend specs in sync with shipped code — done vs open
 alwaysApply: true
 ---
 
 # Prompts directory workflow
 
-## Layout
+## Layout — one rule, both halves
+
+**A file at the top level is open. A file in `done/` is shipped.** No third state, no nesting.
 
 ```
 prompts/app/
-  promptNN.txt      ← backlog / planned (not yet done)
+  promptNN.txt      ← open / planned (not yet done)
   done/
     promptNN.txt    ← shipped or explicitly closed
-    README.md       ← index of done + active backlog table
+    README.md       ← index of done + open table
   macros/           ← exported Gemini prompt dumps (reference, not ship specs)
+
+prompts/backend/
+  README.md         ← the index: open batches table, status values, review loop
+  be-NN-….md        ← open batches (ready / in_progress / needs-review / blocked)
+  done/
+    be-NN-….md      ← shipped + owner-accepted (record only)
+    README.md       ← index of done
+  briefs/           ← reusable investigation packs + batch TEMPLATE (no code ships from here)
 ```
+
+## Do not invent a third axis
+
+Restructured 2026-07-26 because backend had grown a second system: batches split between
+`prompts/backend/` and `prompts/backend/opus5/drafts/`, two `done/` folders, and **two different
+files numbered be-09**. Four shipped specs sat labelled "backlog (spec draft)" for a month, and be-21
+re-derived two findings that be-08 had already catalogued.
+
+Never name a prompt folder after **who or what did the work** — not a model (`opus5/`), not an
+executor (`auto/`), not a tool. Executors change per batch and the label goes stale immediately;
+`done/` in particular belongs to no executor. Organize by **state** (open vs done) and find work by
+**topic + number**. A batch's model or agent belongs in its Status line, not its path.
 
 ## When to update prompts
 
@@ -28,13 +50,22 @@ prompts/app/
 
 **Do not** leave shipped behavior documented only in chat — code and prompts must match.
 
-## Done vs backlog rules
+## Done vs open rules
 
 | State | Location | README |
 |-------|----------|--------|
-| Shipped + tested | `done/promptNN.txt` | Listed under done summaries |
-| Planned / partial | `prompts/app/promptNN.txt` | Listed in backlog table with reason |
-| Closed without ship | `done/promptNN.txt` | Note “closed without ship” + why |
+| Shipped + tested | `done/` | Listed under done summaries |
+| Planned / partial | top level | Listed in the open table with reason |
+| Closed without ship | `done/` | Note “closed without ship” + why |
+
+**Backend only:** Auto must not move a batch to `done/` itself. It sets `Status: needs-review` with
+evidence and stops; owner acceptance (“looks ok”, “lgtm”, “works”) is what promotes it.
+
+## Before writing a new backend batch
+
+Search `prompts/backend/` **and** `done/` for the surface you are about to review. A catalog may
+already exist — `be-08-clinic-portal-ux.md` covers the clinic portal C1–C21. Extend it and tick its
+items; do not start a fresh review and rediscover them.
 
 ## Spec content (done files)
 
@@ -50,13 +81,18 @@ Each done prompt should include:
 
 ## Code ↔ prompt alignment
 
-- Primary files table in spec must match real paths under `app/src/`.
+- **A "backlog" header on shipped code is a bug.** Before trusting any status line, check whether the
+  feature exists — four backend specs claimed backlog while their tables and routes were in
+  production. When you notice the drift, fix the header and name the live artifact that proves it.
+- Primary files table in spec must match real paths under `app/src/` or `server/src/`.
 - Slash commands, thresholds, and behavior in spec must match `chatIntent.ts`, services, etc.
 - When behavior **supersedes** an older prompt (e.g. 42 refines 35 auto-apply), add a line in the older done spec: *“Auto-apply refined in prompt42.”*
 
 ## Agent checklist (before commit / when user says “ship it”)
 
 - [ ] Done spec written or updated?
-- [ ] `done/README.md` updated?
-- [ ] Backlog prompt trimmed if scope moved to done?
-- [ ] No orphaned claims in backlog that are already shipped?
+- [ ] `done/README.md` updated (and `prompts/backend/README.md` open table for backend)?
+- [ ] Open prompt trimmed if scope moved to done?
+- [ ] No orphaned claims in an open prompt that are already shipped?
+- [ ] Checkboxes actually ticked for work that landed — not left `[ ]` under a `done` header?
+- [ ] No new folder named after a model, agent, or executor?

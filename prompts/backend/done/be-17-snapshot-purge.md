@@ -177,4 +177,4 @@ each one appears verbatim in the source file, so the test cannot silently drift 
 - [ ] `WHERE` clauses reviewed before running anything destructive
 - [ ] All four purge/keep combinations verified against a real database, not reasoned about
 - [ ] Status → needs-review — **do not mark done**, and do not deploy
-- [ ] Update `drafts/README.md` table
+- [ ] Update `prompts/backend/README.md` table

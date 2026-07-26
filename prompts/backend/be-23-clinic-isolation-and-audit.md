@@ -1,6 +1,6 @@
 # be-23 — Clinic isolation and access audit (the one-way doors)
 
-**Status:** ready
+**Status:** needs-review
 **Authored by:** Opus 5
 **Date:** 2026-07-26
 **Depends on:** be-17 (purge), be-19 (account deletion) — both shipped; this batch changes tables they delete from
@@ -212,14 +212,19 @@ false alarm. Update the copied SQL, do not weaken the assertion.
 
 ## Acceptance criteria
 
-- [ ] Two orgs linked to one patient: each reads only its own rules; neither can read the other's chat
-- [ ] Migration assigns every existing overlay, or fails loudly without deleting anything
-- [ ] One consolidated access helper; the three per-service copies are gone
-- [ ] Every data-serving path writes one `patient_access_log` row with the right `action`
-- [ ] No update or delete path exists for `patient_access_log`
-- [ ] be-17 harness green, including a new two-org isolation case
-- [ ] be-19 harness green, with the new tables in `findResidue` and the audit log excluded
-- [ ] A single-clinic patient sees no behaviour change in the app
+- [x] Two orgs linked to one patient: each reads only its own rules; neither can read the other's chat
+- [x] Migration assigns every existing overlay, or fails loudly without deleting anything
+- [x] One consolidated access helper; the three per-service copies are gone
+- [x] Every data-serving path writes one `patient_access_log` row with the right `action`
+- [x] No update or delete path exists for `patient_access_log`
+- [x] be-17 harness green, including a new two-org isolation case
+- [x] be-19 harness green, with the new tables in `findResidue` and the audit log excluded
+- [x] A single-clinic patient sees no behaviour change in the app
+
+## Evidence
+
+`tmp/be-23-review/` — `verify-output.txt` (be-17 **10/10**, be-19 **31/31**), `NOTES.md`.
+`npm run typecheck` clean. Not committed / not deployed.
 
 ## Review by Opus 5
 

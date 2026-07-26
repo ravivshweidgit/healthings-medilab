@@ -228,4 +228,4 @@ now, but `be-16` owns hero height and should treat 672 as the number to beat.
 - [x] Changes match this draft only (+ be-09 inherited: cache unify, 44px taps, drop card grid)
 - [x] Smoke criteria above
 - [x] Status → needs-review (evidence in `tmp/be-11-review/`) — **do not mark done**
-- [x] Update `drafts/README.md` table
+- [x] Update `prompts/backend/README.md` table

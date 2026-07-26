@@ -282,4 +282,4 @@ own inaccuracy and would advertise a `noindex`, unlinked page.
 
 - [ ] Part A shipped and deployed with the server unchanged
 - [ ] Part B raised separately; do not bundle an app build into a policy fix
-- [ ] Update `drafts/README.md`
+- [ ] Update `prompts/backend/README.md`

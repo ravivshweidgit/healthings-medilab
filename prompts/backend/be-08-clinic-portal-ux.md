@@ -7,7 +7,7 @@ Reconciled 2026-07-26.
 |-------|-------|
 | **A** — correctness | **Done, committed, deployed.** `cancelShare` + `POST /v1/shares/:id/cancel` are in `server/src/services/shares.ts` / `routes/shares.ts`; the portal has the outgoing-invites list, confirm-before-revoke and `healthings_clinic_otp_pending` |
 | **B** — forms & a11y | **Partial.** C10 (dashboard actions) and C13 done via `be-21`; C6, C8, C12 still open |
-| **C** — IA / daily tool | **Partial.** C17 and C18 done via `be-21`; C14, C15, C19 moved to `opus5/drafts/be-22-clinic-portal-visual.md` |
+| **C** — IA / daily tool | **Partial.** C17 and C18 done via `be-21`; C14, C15, C19 moved to `../be-22-clinic-portal-visual.md` |
 | **D** — hardening | C20 addressed in the rows `be-21` rewrote; C21 still documentation-only |
 
 **Do not re-review this portal from scratch.** This catalog already named the problems that `be-21`
@@ -17,8 +17,8 @@ portal batch.
 Canvas source of the original review (Cursor-only, not in git):
 `~/.cursor/projects/c-projects-healthings-medilab/canvases/clinic-portal-ux-review.canvas.tsx`
 
-**ID:** `prompt-be-08`  
-**Builds on:** `prompt-be-05-clinic-dashboard.md` (portal MVP), `prompt-be-03` shares,
+**ID:** `be-08`  
+**Builds on:** `be-05-clinic-dashboard.md` (portal MVP), `be-03` shares,
 app prompt49 / prompt63 (clinic Refresh), language policy (clinic portal UI stays **English**),
 secrets-workflow (no tokens in git).
 
@@ -181,8 +181,8 @@ Shipped in working tree (not committed / not on VPS yet):
 ## Related
 
 - Canvas (Cursor IDE only): `clinic-portal-ux-review.canvas.tsx`
-- Prior portal MVP spec: `prompt-be-05-clinic-dashboard.md`
-- Landing site ship: `done/prompt-be-07-landing-website.md`
+- Prior portal MVP spec: `be-05-clinic-dashboard.md`
+- Landing site ship: `done/be-07-landing-website.md`
 - App mentor role picker removed 2026-07-25 — clinicians register only on this portal
   (`LoginScreen.tsx`); do not reintroduce mentor OTP role in the app
 - Deploy docs: `server/DEPLOY-WEBSITE.md`, `server/scripts/deploy-website.sh`
