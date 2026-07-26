@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex" />
-    <title>Healthings — My data</title>
+    <title>Healthings — Account</title>
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726f" />
     <!--
@@ -63,9 +63,11 @@
     <!-- Signed out, or signed in without the web view turned on. -->
     <div class="acct-wrap" id="acct-gate">
       <section class="card" id="signin-view" hidden>
-        <h1>My data</h1>
+        <h1>Your account</h1>
         <p class="acct-note">
-          Sign in to read your own Healthings data in this browser. Same email you use in the app.
+          Sign in with the same email you use in the app. From here you can
+          <strong>read your data</strong> (if My web view is on) or
+          <strong>delete your account</strong>.
         </p>
         <div id="signin-step-email">
           <label class="acct-note" for="email">Email</label>
@@ -88,19 +90,23 @@
       </section>
 
       <section class="card" id="offline-view" hidden>
-        <h1>Nothing here yet</h1>
+        <h1>Your account</h1>
         <p class="acct-note">
-          Your data lives on your phone. Nothing is on our server for this page to show until
-          <strong>you</strong> turn on your web view in the app.
+          You are signed in. Your health data still lives on your phone — nothing is here for this
+          page to show until you turn on <strong>My web view</strong> in the app.
         </p>
         <ol class="acct-steps">
           <li>Open the Healthings app</li>
-          <li>Go to <strong>Profile</strong></li>
+          <li>Go to <strong>Profile</strong> → <strong>Account</strong></li>
           <li>Turn on <strong>My web view</strong></li>
         </ol>
         <p class="acct-note">
           Your phone then sends the same snapshot a linked clinic would see. Turn it off any time,
           in the app or here, and we delete the copy.
+        </p>
+        <p class="acct-note">
+          To leave Healthings entirely, use <strong>Delete my account</strong> below — that does not
+          need the web view.
         </p>
         <div class="acct-actions">
           <button id="offline-recheck" class="ws-btn primary" type="button">Check again</button>

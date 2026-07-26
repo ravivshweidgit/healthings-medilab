@@ -113,6 +113,6 @@ into while they still carry hardcoded light surfaces.
   browser opens `/account/`, Delete my account link visible.
 - **`/account/` is still `noindex`**, now linked from `privacy.html` and the app. Reviewers follow
   links, so the URL requirement is met without advertising the web view before a build carries it.
-- **A deletion visitor lands on "Nothing here yet"**, which is about the web view. The entry link is
-  there and the policy names it, but the page's headline is answering a different question. Worth
-  revisiting once the app build ships and that state becomes rare.
+- ~~**A deletion visitor lands on "Nothing here yet".**~~ Gate copy rewritten: sign-in and
+  offline views are titled **Your account**, name both reading data and deleting, and say
+  deletion does not need the web view.
