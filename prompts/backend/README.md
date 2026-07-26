@@ -26,7 +26,9 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| — | *(empty)* | — | Next candidate from be-23 deferrals: clinic↔patient messaging (not drafted) |
+| `be-28-workspace-clinical-ia.md` | Patient workspace: stop mirroring the phone | **ready** | Banner, width, clinician-voice labels, header freshness |
+| — | be-29 workspace i18n | not drafted | 10 locales for ~3,200 lines; after be-28 so strings are extracted once |
+| — | be-30 labs + lipids clinical view | not drafted | Needs owner clinical judgment (reference ranges); not an Auto batch |
 
 ## Done
 
@@ -92,11 +94,12 @@ trusting the script's exit code.
 
 ## Auto kickoff (paste)
 
-**Open table empty** after be-27 acceptance. Do not invent be-28 without an owner brief.
+**be-28 is `ready`.**
 
 ```
-No ready backend batch. Ask the owner what to draft next
-(deferred candidate from be-23/be-27: clinic↔patient messaging).
+Implement prompts/backend/be-28-workspace-clinical-ia.md.
+Presentation only — do not touch parseSnapshot fields, the sync blob, or server/.
+Do not fold in be-29 (i18n) or be-30 (labs); they are split out on purpose.
 ```
 
 ## Code
