@@ -176,14 +176,27 @@
         location.reload();
       }
 
-      // gzip without a third-party script: this page renders health data, so it
-      // loads nothing from a CDN that a pako bundle would have brought with it.
-      async function gunzipToText(bytes) {
+      // Decompress without a third-party script: this page renders health data,
+      // so it loads nothing from a CDN that a pako bundle would have brought.
+      //
+      // Despite the field name, the app compresses with pako.deflate, which
+      // emits zlib, not gzip. The clinic portal never noticed because pako's
+      // inflate sniffs the header. Try both, the way the server's
+      // decompressSyncPayload does.
+      async function inflateToText(bytes) {
         if (typeof DecompressionStream !== 'function') {
           throw new Error('This browser is too old to open your snapshot. Try a current Chrome, Safari or Firefox.');
         }
-        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-        return new Response(stream).text();
+        const read = async (format) => {
+          const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream(format));
+          return new Response(stream).text();
+        };
+        const looksGzip = bytes[0] === 0x1f && bytes[1] === 0x8b;
+        try {
+          return await read(looksGzip ? 'gzip' : 'deflate');
+        } catch {
+          return read(looksGzip ? 'deflate' : 'gzip');
+        }
       }
 
       // --- sign in ---------------------------------------------------------
@@ -315,7 +328,7 @@
 
         const data = await res.json();
         const bytes = Uint8Array.from(atob(data.payloadGzipBase64), (c) => c.charCodeAt(0));
-        const payload = JSON.parse(await gunzipToText(bytes));
+        const payload = JSON.parse(await inflateToText(bytes));
         const parsed = ClinicWorkspace.parseSnapshot(payload);
         if (typeof ClinicCharts !== 'undefined' && parsed.withings) {
           parsed.burnByDay = ClinicCharts.computeBurnByDay(parsed.withings);
