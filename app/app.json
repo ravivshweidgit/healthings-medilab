@@ -48,7 +48,15 @@
         }
       ],
       "expo-web-browser",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow Healthings to use the camera so you can photograph a meal and have it analysed.",
+          "photosPermission": "Allow Healthings to access your photos so you can attach a meal or a chat image.",
+          "microphonePermission": false
+        }
+      ]
     ]
   }
 }

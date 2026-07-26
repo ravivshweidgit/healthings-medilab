@@ -167,7 +167,16 @@ exist while not describing the ones that do.
 
 ### Part B — app and server (needs a build and a phone test)
 
-- [ ] Drop `RECORD_AUDIO` by configuring `expo-image-picker` with `microphonePermission: false`
+- [x] **Done 2026-07-26.** Dropped `RECORD_AUDIO`. Two places, because the platforms build
+      differently: deleted the line from the committed `app/android/app/src/main/AndroidManifest.xml`
+      (Gradle builds from it, so the plugin config alone would not have reached Android), and added
+      an explicit `expo-image-picker` block to `app.json` for iOS, which has no committed project and
+      prebuilds on EAS. Verified on the merged release manifest **and** on the installed package via
+      `dumpsys` — 14 permissions down to 13, camera and the five health reads untouched. Apple's
+      placeholder usage strings ("Allow $(PRODUCT_NAME) to access your camera") were replaced with
+      real ones in the same block. Committed without a phone test at the owner's call; the picker is
+      the only plausible regression surface, and reverting the `app.json` block alone would restore
+      old behaviour without putting the Android permission back.
 - [ ] Establish whether `SYSTEM_ALERT_WINDOW` belongs in a release build; remove if it is a dev artifact
 - [x] ~~Health Connect `Distance`~~ — **closed, do not touch.** Owner instruction: stay out of the
       calorie path. Not a defect to fix; see the section above before reopening this
