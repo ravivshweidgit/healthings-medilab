@@ -35,8 +35,9 @@ be-08; multi-clinic data-model defects → be-23.
 **be-07** — done (2026-06-29). Landing site https://healthings.ai, APK download, nginx + Certbot,
 publish/deploy scripts. Play internal → app `prompt47.txt`.
 
-**be-08** — **still open**, see [`../be-08-clinic-portal-ux.md`](../be-08-clinic-portal-ux.md).
-Most C items shipped via be-21 / be-25; **C11** and **C21** remain.
+**be-08** — done (2026-07-26). Clinic portal UI/UX catalog C1–C21. Correctness and IA shipped via
+Batch A / be-21 / be-25; C11 tap targets + C21 localStorage session docs closed in `4581a37`.
+Full record: `be-08-clinic-portal-ux.md`.
 
 ## be-09 … be-21 — website and portal batches
 

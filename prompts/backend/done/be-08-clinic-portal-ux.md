@@ -1,7 +1,7 @@
 # Backend — Clinic portal UI/UX (healthings.ai/clinic)
 
-**Status:** needs-review — C11 fixed + C21 documented 2026-07-26; waiting owner eye-check then move to `done/`
-Reconciled 2026-07-26; catalog complete pending acceptance.
+**Status:** done — owner accepted 2026-07-26 (“looks good”), deployed (`4581a37`)
+Reconciled 2026-07-26; catalog complete.
 
 | Batch | State |
 |-------|-------|
@@ -141,4 +141,4 @@ Idle timeout remains a future hardening batch if clinics ask for it.
 - [x] Smoke checklist green on production
 - [x] C6–C13 closed (C11 re-measured and fixed 2026-07-26)
 - [x] C14–C21 closed (C21 docs only)
-- [ ] Moved to `done/` after owner acceptance
+- [x] Moved to `done/` after owner acceptance

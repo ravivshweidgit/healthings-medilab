@@ -26,11 +26,11 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-08-clinic-portal-ux.md` | Clinic portal UI/UX catalog (C1–C21) | **needs-review** | C11 tap targets bumped to 44px; C21 localStorage session risk documented in `clinic-api.js` + privacy. Owner glance then → `done/` |
+| — | — | **empty** | Clinic portal catalog (be-08) and visual batches through be-26 are in `done/`. Ask before inventing a new batch. |
 
 ## Done
 
-See [`done/README.md`](./done/README.md) — be-01 through be-26 (incl. be-22).
+See [`done/README.md`](./done/README.md) — be-01 through be-26 (incl. be-08, be-22).
 
 ## Status values
 
@@ -91,11 +91,10 @@ trusting the script's exit code.
 
 ## Auto kickoff (paste)
 
-be-08 close-out is awaiting owner review (C11 + C21). After acceptance, backend open table is empty.
+Backend open table is empty. Wait for the owner to name the next batch.
 
 ```
-Owner is reviewing prompts/backend/be-08-clinic-portal-ux.md (C11/C21 close-out).
-Do not invent a new batch unless asked.
+No open backend batch. Do not invent scope — ask the owner what is next.
 ```
 
 ## Code
