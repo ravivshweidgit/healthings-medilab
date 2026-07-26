@@ -177,7 +177,20 @@ is not a test target for a migration that moves consent rows.
 
 ## Must not regress
 
-be-17 and be-19 both delete from the table this batch splits. Re-run both harnesses; they are the gate.
+be-17 and be-19 both delete from the table this batch splits. **Both harnesses are tracked in the repo**
+and are the gate:
+
+```bash
+cd server && npm install && npm run verify
+```
+
+`server/verify/be-17-snapshot-purge.mjs` and `server/verify/be-19-account-deletion.mjs` — real Postgres 16
+via PGlite loaded with `src/db/schema.sql`, currently **8/8** and **28/28**. They were promoted out of
+`tmp/` on 2026-07-26 precisely for this batch, and their absolute paths were made relative; see
+`server/verify/README.md`. Each copies the SQL under test from the source and calls `assertInSource()`,
+so **changing a service without updating the harness fails the run** rather than passing against a stale
+copy. Expect that to fire the moment the overlay tables are renamed — that is the harness working, not a
+false alarm. Update the copied SQL, do not weaken the assertion.
 
 - **be-17 purge:** revoking one clinic link must delete that clinic's overlay and **nothing** belonging
   to another clinic — a test the old schema literally could not express. Add the two-org case.

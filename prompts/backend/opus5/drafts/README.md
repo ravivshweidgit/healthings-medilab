@@ -66,15 +66,26 @@ Human-owned. `git pull --ff-only` then `bash server/scripts/deploy-website.sh` o
 ## Auto kickoff (paste)
 
 ```
-Implement ready drafts in prompts/backend/opus5/drafts/ (not drafts/done/).
-Start with be-22.
+Implement prompts/backend/opus5/drafts/be-23-clinic-isolation-and-audit.md
+(ignore drafts/done/ — those are shipped records). Stop after be-23 so I can
+verify before you continue.
 
 Rules:
-- Follow each file's paths, design rules, and acceptance criteria exactly.
-- Do not redesign beyond the draft, and do not touch files it lists as off-limits.
+- Follow the draft's paths, design, and acceptance criteria exactly. Do not
+  redesign beyond it, and do not touch files it lists as off-limits.
+- This batch migrates consent rows. Before writing any migration, read
+  server/src/db/schema.sql end to end — do not assume "everything cascades".
+- Gate: `cd server && npm install && npm run verify` must pass
+  (be-17 8/8, be-19 28/28) plus the new two-org isolation case. Those harnesses
+  copy the SQL under test from the source and assert it is still there, so
+  renaming the overlay tables WILL fail them. Update the copied SQL; never
+  weaken an assertion to go green.
+- The migration's ambiguity ladder ends in "fail loudly, delete nothing".
+  Never drop a patient's clinical rules to make a migration succeed.
+- patient_access_log deliberately has no FK on patient_id, and must be added to
+  be-19's residue exclusion list — otherwise its own test will report it as a leak.
 - Mark Status: in_progress when you start. When the acceptance criteria pass, set
   Status: needs-review, attach the evidence its review section asks for, and stop.
   Do not mark anything done yourself — wait for owner sign-off, then move to done/.
-- Never hand-edit generated help HTML — change the generator and regenerate.
-- Do not commit or deploy unless asked.
+- Do not commit or deploy. Both are human-owned.
 ```

@@ -11,7 +11,10 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "migrate": "tsx src/db/migrate.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify:be-17": "node verify/be-17-snapshot-purge.mjs",
+    "verify:be-19": "node verify/be-19-account-deletion.mjs",
+    "verify": "npm run verify:be-17 && npm run verify:be-19"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",
@@ -24,6 +27,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.4",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.0.13",
     "@types/nodemailer": "^6.4.17",
