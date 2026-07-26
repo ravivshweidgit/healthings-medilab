@@ -26,6 +26,11 @@ below is presentation and reachability, not tone.
 4. **Terminology drift.** The page says "mentor" (e.g. "Clinic mentor chat", "optional mentor sync")
    while the app has removed the mentor role from sign-in and the product now says *clinic*.
 5. **Deletion is email-only** — being fixed by be-15; make sure the two batches do not collide.
+6. ~~**The contact address is the OTP robot.**~~ **Fixed 2026-07-26 — no longer this batch's work.**
+   All three email links pointed at `otp@healthings.ai`, the mailbox the API authenticates as to send
+   login codes, and the page had to apologize for it in prose. The owner created
+   `support@healthings.ai`; all four site occurrences were swapped the same night. Kept here only so
+   the anchor work below is not written against stale copy.
 
 ## Goal
 
@@ -58,6 +63,30 @@ product now calls things.
 - Coordinate with be-15: that batch replaces the `#deletion` body with a link to `/account/` and
   adds the patient web view as a second, opt-in upload reason. If be-15 has already shipped, leave
   that section alone here.
+
+### Contact address — done 2026-07-26, do not re-litigate
+
+`support@healthings.ai` is live and receives. Swapped in four places:
+
+| File | Where |
+|---|---|
+| `website/privacy.html` | health-data warning, `#deletion`, `#contact` |
+| `website/index.html` | footer |
+| `server/PLAY-CONSOLE-INTERNAL.md` | data-safety deletion row, store-listing contact email |
+
+The health-data warning no longer has to explain the address; it now names what not to send and
+points at clinic sharing instead.
+
+`MAIL_FROM` and `SMTP_USER` stay `otp@healthings.ai` and must not be changed. The SMTP password in
+`server/.env` belongs to that mailbox, so sending as anything else would need send-as permissions
+for no benefit. The split is deliberate: `otp@` sends to machines, `support@` receives from humans.
+
+Still open, owner-side and not blocking this batch:
+
+- The **Play Console** listing and data-safety form still show `otp@` in Google's UI. The repo doc is
+  updated; the console is not. Public on the store page.
+- `privacy@healthings.ai` as a second alias to the same inbox. Free, conventional for a health
+  product, and keeps a GDPR-style request from depending on a support queue.
 
 ## Decided: localize the summary only, keep the full policy in English
 
@@ -121,6 +150,7 @@ Verify that copy matches the promises here.
 
 - [ ] Status → in_progress
 - [ ] Checked whether be-15 already rewrote `#deletion`
+- [ ] Left the email addresses alone — the `support@` swap already shipped on 2026-07-26
 - [ ] Changes match this draft only
 - [ ] Smoke criteria above
 - [ ] Status → done

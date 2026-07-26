@@ -78,7 +78,7 @@ Complete all items in **Policy and programs** / **App content** before release:
 | Health data collected by developer? | **No** — stored on device only (alpha) |
 | Email | Collected, required for account, not shared with third parties |
 | Data encrypted in transit | **Yes** (HTTPS) |
-| Request data deletion | **Yes** — email otp@healthings.ai |
+| Request data deletion | **Yes** — email support@healthings.ai |
 | Health Connect glucose | Declared under **Health apps** / permissions — on-device charts only |
 
 Do **not** claim E2E encrypted cloud sync until be-04 ships.
@@ -102,7 +102,7 @@ Internal testing still needs a basic listing:
 | Feature graphic | Optional for internal; required for production |
 | Screenshots | 2+ phone screenshots from dashboard |
 | Category | Health & Fitness |
-| Contact email | otp@healthings.ai |
+| Contact email | support@healthings.ai |
 | Website | https://healthings.ai |
 
 Tone: **wellness / coaching**, not diagnosis.
