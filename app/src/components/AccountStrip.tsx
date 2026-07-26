@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Pressable,
   StyleSheet,
   Switch,
@@ -44,6 +45,9 @@ import type { ThemeColors } from '../theme/tokens';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import type { UserLanguage } from '../services/TargetService';
+
+/** Same page as privacy.html#deletion — OTP step-up lives there, not in the app. */
+const ACCOUNT_DELETE_URL = 'https://healthings.ai/account/';
 
 type Props = {
   user: AuthUser;
@@ -341,6 +345,28 @@ export function AccountStrip({
     }
   }, [onSignedOut]);
 
+  // Deletion is on the web (OTP to the account email). Opening the browser is the
+  // whole app side — embedding a second flow here would drift from privacy.html
+  // and from /account/. Offered to both roles: clinics have accounts too.
+  const handleOpenDeleteAccount = useCallback(() => {
+    Alert.alert(
+      'Delete account?',
+      'Opens healthings.ai/account in your browser. Sign in with this email, then choose Delete my account — we email a confirmation code first. Your phone data stays until you uninstall.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open website',
+          style: 'destructive',
+          onPress: () => {
+            void Linking.openURL(ACCOUNT_DELETE_URL).catch(() => {
+              Alert.alert('Could not open', 'Open healthings.ai/account in a browser and sign in.');
+            });
+          },
+        },
+      ],
+    );
+  }, []);
+
   return (
     <View style={styles.wrap}>
       <DashboardCollapseHeader
@@ -474,6 +500,15 @@ export function AccountStrip({
               <Text style={styles.logoutBtnText}>Sign out</Text>
             )}
           </Pressable>
+          <Pressable
+            style={styles.deleteLink}
+            onPress={handleOpenDeleteAccount}
+            accessibilityRole="link"
+            accessibilityLabel="Delete account on the website"
+            hitSlop={8}
+          >
+            <Text style={styles.deleteLinkText}>Delete account</Text>
+          </Pressable>
         </View>
       )}
     </View>
@@ -535,6 +570,17 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
       color: isDark ? c.textSecondary : '#fff',
       fontWeight: '600',
       fontSize: 14,
+    },
+    deleteLink: {
+      alignSelf: 'flex-start',
+      paddingVertical: 8,
+      minHeight: 44,
+      justifyContent: 'center',
+    },
+    deleteLinkText: {
+      fontSize: 13,
+      color: '#c0392b',
+      textDecorationLine: 'underline',
     },
     btnDisabled: {
       opacity: 0.5,

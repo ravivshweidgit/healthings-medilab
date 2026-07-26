@@ -107,11 +107,12 @@ into while they still carry hardcoded light surfaces.
 
 ## Open
 
-- **In-app entry point.** Play prefers deletion reachable inside the app. Needs a Profile row that
-  opens `healthings.ai/account`, plus a build and a phone test — deliberately not bundled with a
-  server change that can ship today.
-- **`/account/` is still `noindex`**, now linked from `privacy.html`. Reviewers follow links, so the
-  URL requirement is met without advertising the web view before a build carries it.
+- ~~**In-app entry point.**~~ Shipped in `AccountStrip` (Profile → Account): **Delete account**
+  opens `https://healthings.ai/account/` after a confirm. Both roles. OTP stays on the web so
+  the app does not grow a second deletion path. **Phone-tested 2026-07-26** — confirm dialog,
+  browser opens `/account/`, Delete my account link visible.
+- **`/account/` is still `noindex`**, now linked from `privacy.html` and the app. Reviewers follow
+  links, so the URL requirement is met without advertising the web view before a build carries it.
 - **A deletion visitor lands on "Nothing here yet"**, which is about the web view. The entry link is
   there and the policy names it, but the page's headline is answering a different question. Worth
   revisiting once the app build ships and that state becomes rare.
