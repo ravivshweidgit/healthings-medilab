@@ -45,3 +45,5 @@ flow that page does not have.
 
 - Optional: email the clinic when a patient requests a link (`requestMentor`)
 - Optional: resend invite from the outgoing list
+- Portal invite UX: busy **Sending…**, inline success/warn/error under the button (not the
+  silent bottom `app-error` dump) — shipped with this batch after owner feedback

@@ -17,9 +17,27 @@
       .portal-btn {
         display: inline-block; margin-top: 8px; padding: 10px 16px; border-radius: 8px;
         background: #1a2b4a; color: #fff; font-weight: 700; border: none; cursor: pointer;
+        min-height: 44px;
       }
+      .portal-btn:disabled { opacity: 0.55; cursor: wait; }
       .portal-btn.secondary { background: #fff; color: #444; border: 1px solid #dde3ea; margin-left: 8px; }
       .portal-btn.danger { background: #c62828; }
+      .invite-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
+      .invite-actions .portal-btn { margin-top: 0; }
+      .portal-status {
+        margin: 10px 0 0; padding: 10px 12px; border-radius: 8px; font-size: 0.9rem;
+        line-height: 1.45; border: 1px solid transparent;
+      }
+      .portal-status[hidden] { display: none !important; }
+      .portal-status.ok {
+        color: #14532d; background: #ecfdf3; border-color: #bbf7d0;
+      }
+      .portal-status.warn {
+        color: #854d0e; background: #fffbeb; border-color: #fde68a;
+      }
+      .portal-status.err {
+        color: #991b1b; background: #fef2f2; border-color: #fecaca;
+      }
       .share-row {
         border: 1px solid #eef2f6; border-radius: 8px; padding: 12px; margin-top: 10px;
         display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between;
@@ -63,9 +81,13 @@
 
         <div class="card portal-card">
           <h2>Invite patient (data access)</h2>
-          <p class="muted">Optional whitelist for encrypted sync later. Use &ldquo;Sponsor AI&rdquo; on a linked patient to pay for their coach.</p>
-          <input id="patient-email" class="portal-input" type="email" placeholder="patient@example.com" />
-          <button id="invite-btn" class="portal-btn" type="button">Send invite</button>
+          <p class="muted">They get an email and must approve in the app before anything is shared. Use &ldquo;Sponsor AI&rdquo; on a linked patient to pay for their coach.</p>
+          <label class="muted" for="patient-email">Patient email</label>
+          <input id="patient-email" class="portal-input" type="email" placeholder="patient@example.com" autocomplete="email" />
+          <div class="invite-actions">
+            <button id="invite-btn" class="portal-btn" type="button">Send invite</button>
+          </div>
+          <p id="invite-status" class="portal-status" role="status" aria-live="polite" hidden></p>
         </div>
 
         <div class="card portal-card">
@@ -112,6 +134,13 @@
       const appErrorEl = () => document.getElementById('app-error');
 
       function showError(el, msg) {
+        el.textContent = msg || '';
+        el.hidden = !msg;
+      }
+
+      function setInviteStatus(kind, msg) {
+        const el = document.getElementById('invite-status');
+        el.className = 'portal-status' + (kind ? ' ' + kind : '');
         el.textContent = msg || '';
         el.hidden = !msg;
       }
@@ -513,30 +542,68 @@
 
       document.getElementById('invite-btn').onclick = async () => {
         showError(appErrorEl(), '');
-        const patientEmail = document.getElementById('patient-email').value.trim().toLowerCase();
-        if (!patientEmail) return;
+        const btn = document.getElementById('invite-btn');
+        const input = document.getElementById('patient-email');
+        const patientEmail = input.value.trim().toLowerCase();
+        if (!patientEmail) {
+          setInviteStatus('err', 'Enter the patient email address.');
+          input.focus();
+          return;
+        }
+        if (!patientEmail.includes('@')) {
+          setInviteStatus('err', 'That does not look like an email address.');
+          input.focus();
+          return;
+        }
+
+        const idleLabel = btn.textContent;
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+        btn.textContent = 'Sending…';
+        setInviteStatus('', '');
+        input.disabled = true;
+
         try {
           const res = await api('/v1/shares/invite', {
             method: 'POST',
             body: JSON.stringify({ patientEmail }),
           });
           if (!res.ok) {
-            showError(appErrorEl(), (await res.json().catch(() => ({}))).error || 'Invite failed');
+            const err = await res.json().catch(() => ({}));
+            setInviteStatus('err', err.error || 'Invite failed — try again.');
             return;
           }
           const data = await res.json().catch(() => ({}));
-          document.getElementById('patient-email').value = '';
+          input.value = '';
           await refreshDashboard();
           if (data && data.emailSent === false) {
-            showError(
-              appErrorEl(),
-              'Invite saved, but the email could not be sent. Ask the patient to sign in to the app and check pending clinic invites, or try again later.',
+            setInviteStatus(
+              'warn',
+              'Invite saved for ' + patientEmail + ', but the email could not be sent. Ask them to open the Healthings app and check pending clinic invites, or try again later.',
+            );
+          } else {
+            setInviteStatus(
+              'ok',
+              'Invite sent to ' + patientEmail + '. They will get an email — nothing is shared until they approve in the app. It also appears under Outgoing invites below.',
             );
           }
         } catch (e) {
-          showError(appErrorEl(), e instanceof Error ? e.message : 'Invite failed');
+          setInviteStatus('err', e instanceof Error ? e.message : 'Invite failed — check your connection.');
+        } finally {
+          btn.disabled = false;
+          btn.removeAttribute('aria-busy');
+          btn.textContent = idleLabel;
+          input.disabled = false;
         }
       };
+
+      document.getElementById('patient-email').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('invite-btn').click();
+      });
+      document.getElementById('patient-email').addEventListener('input', () => {
+        const el = document.getElementById('invite-status');
+        if (!el.hidden && el.classList.contains('err')) setInviteStatus('', '');
+      });
 
       document.getElementById('simulate-card-btn').onclick = async () => {
         showError(appErrorEl(), '');
