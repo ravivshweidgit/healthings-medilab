@@ -24,6 +24,28 @@
       .portal-btn.danger { background: #c62828; }
       .invite-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
       .invite-actions .portal-btn { margin-top: 0; }
+      .portal-select {
+        padding: 9px 10px; border: 1px solid #dde3ea; border-radius: 8px;
+        font-size: 14px; min-height: 44px; background: #fff;
+      }
+      /* Sticky so a confirmation is visible even when the button was far down. */
+      #app-flash { position: sticky; top: 8px; z-index: 5; margin: 0 0 16px; }
+      .row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+      .row-actions .portal-btn { margin-top: 0; margin-left: 0; }
+      .sponsor-form {
+        display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+        padding: 8px; border: 1px dashed #cfd8e3; border-radius: 8px;
+      }
+      .count-badge { color: #666; font-weight: 400; font-size: 0.9rem; }
+      .chip {
+        display: inline-block; padding: 2px 8px; border-radius: 999px;
+        font-size: 0.78rem; font-weight: 700; border: 1px solid transparent;
+        white-space: nowrap;
+      }
+      .chip.ok { color: #14532d; background: #ecfdf3; border-color: #bbf7d0; }
+      .chip.soon { color: #854d0e; background: #fffbeb; border-color: #fde68a; }
+      .chip.off { color: #6b7280; background: #f3f4f6; border-color: #e5e7eb; }
+      .chip.gone { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
       .portal-status {
         margin: 10px 0 0; padding: 10px 12px; border-radius: 8px; font-size: 0.9rem;
         line-height: 1.45; border: 1px solid transparent;
@@ -38,9 +60,12 @@
       .portal-status.err {
         color: #991b1b; background: #fef2f2; border-color: #fecaca;
       }
+      /* Stacked rather than label-left / actions-right: with three buttons per
+         patient, space-between wrapped unpredictably and left the action rows
+         ragged from one patient to the next. */
       .share-row {
         border: 1px solid #eef2f6; border-radius: 8px; padding: 12px; margin-top: 10px;
-        display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between;
+        display: flex; flex-direction: column; gap: 10px; align-items: stretch;
       }
       .muted { color: #666; font-size: 0.9rem; }
       .error { color: #c0392b; font-size: 0.9rem; margin-top: 8px; }
@@ -70,6 +95,8 @@
       </section>
 
       <section id="app-view">
+        <p id="app-flash" class="portal-status" role="status" aria-live="polite" hidden></p>
+
         <div class="card portal-card">
           <h2>My clinic</h2>
           <p class="muted">Signed in as <strong id="user-email"></strong></p>
@@ -77,6 +104,7 @@
           <input id="display-name" class="portal-input" type="text" placeholder="Dr. Cohen Nutrition" />
           <button id="save-name" class="portal-btn secondary" type="button">Save name</button>
           <button id="logout" class="portal-btn secondary" type="button">Sign out</button>
+          <p id="name-status" class="portal-status" role="status" aria-live="polite" hidden></p>
         </div>
 
         <div class="card portal-card">
@@ -106,19 +134,20 @@
         </div>
 
         <div class="card portal-card">
-          <h2>Pending requests</h2>
+          <h2>Pending requests <span id="pending-count" class="count-badge"></span></h2>
           <p class="muted">Patients who asked to share with you.</p>
           <div id="pending-list"></div>
         </div>
 
         <div class="card portal-card">
-          <h2>Outgoing invites</h2>
+          <h2>Outgoing invites <span id="outgoing-count" class="count-badge"></span></h2>
           <p class="muted">Waiting for the patient to approve in the app.</p>
           <div id="outgoing-list"></div>
         </div>
 
         <div class="card portal-card">
-          <h2>Linked patients</h2>
+          <h2>Linked patients <span id="approved-count" class="count-badge"></span></h2>
+          <p class="muted">AI sponsorship shows how long you are paying for that patient’s coach.</p>
           <div id="approved-list"></div>
         </div>
 
@@ -147,13 +176,108 @@
 
       function formatExpiry(iso) {
         try {
-          return new Date(iso).toLocaleDateString();
+          return new Date(iso).toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          });
         } catch {
           return iso;
         }
       }
 
-      function appendShareLabel(row, email, sub) {
+      /**
+       * Whole days from now until `iso`. Compared at local midnight so "expires
+       * tomorrow" does not flip to "today" merely because of the clock time the
+       * sponsorship happened to be created at.
+       */
+      function daysUntil(iso) {
+        const target = new Date(iso);
+        if (Number.isNaN(target.getTime())) return null;
+        const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const ms = startOfDay(target) - startOfDay(new Date());
+        return Math.round(ms / 86400000);
+      }
+
+      function pluralDays(n) {
+        return Math.abs(n) === 1 ? '1 day' : Math.abs(n) + ' days';
+      }
+
+      /** The sponsorship chip: how long is left, not just when it ends. */
+      function sponsorChip(sp) {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        if (!sp) {
+          chip.classList.add('off');
+          chip.textContent = 'AI not sponsored';
+          return chip;
+        }
+        const left = daysUntil(sp.expiresAt);
+        const on = sp.active && left !== null && left >= 0;
+        if (!on) {
+          chip.classList.add('gone');
+          chip.textContent =
+            left === null
+              ? 'AI sponsorship expired'
+              : 'AI sponsorship ended ' + pluralDays(left) + ' ago';
+          chip.title = 'Ended ' + formatExpiry(sp.expiresAt);
+          return chip;
+        }
+        chip.classList.add(left <= 7 ? 'soon' : 'ok');
+        chip.textContent =
+          left === 0
+            ? 'AI sponsored · ends today'
+            : 'AI sponsored · ' + pluralDays(left) + ' left';
+        chip.title = 'Until ' + formatExpiry(sp.expiresAt);
+        return chip;
+      }
+
+      function setFlash(kind, msg) {
+        const el = document.getElementById('app-flash');
+        el.className = 'portal-status' + (kind ? ' ' + kind : '');
+        el.textContent = msg || '';
+        el.hidden = !msg;
+      }
+
+      function setStatus(id, kind, msg) {
+        const el = document.getElementById(id);
+        el.className = 'portal-status' + (kind ? ' ' + kind : '');
+        el.textContent = msg || '';
+        el.hidden = !msg;
+      }
+
+      /**
+       * Runs an async action with visible state: the pressed button says what it is
+       * doing, and every control in its group is disabled so a second click cannot
+       * fire a duplicate request.
+       */
+      async function withBusy(btn, busyLabel, fn) {
+        const group = btn.closest('.row-actions') || btn.parentElement;
+        const controls = group ? [...group.querySelectorAll('button, select, a.portal-btn')] : [btn];
+        const idle = btn.textContent;
+        const restore = controls.map((c) => [c, c.disabled, c.getAttribute('aria-disabled')]);
+        controls.forEach((c) => {
+          if ('disabled' in c) c.disabled = true;
+          c.setAttribute('aria-disabled', 'true');
+        });
+        btn.textContent = busyLabel;
+        btn.setAttribute('aria-busy', 'true');
+        try {
+          return await fn();
+        } finally {
+          // The list is usually re-rendered on success, which throws these nodes
+          // away — restoring matters for the failure path, where they survive.
+          btn.textContent = idle;
+          btn.removeAttribute('aria-busy');
+          restore.forEach(([c, wasDisabled, ariaWas]) => {
+            if ('disabled' in c) c.disabled = wasDisabled;
+            if (ariaWas === null) c.removeAttribute('aria-disabled');
+            else c.setAttribute('aria-disabled', ariaWas);
+          });
+        }
+      }
+
+      function appendShareLabel(row, email, sub, chip) {
         const label = document.createElement('div');
         const strong = document.createElement('strong');
         strong.textContent = email || '—';
@@ -161,8 +285,14 @@
         muted.className = 'muted';
         muted.textContent = sub;
         label.append(strong, document.createElement('br'), muted);
+        if (chip) {
+          label.append(document.createElement('br'), chip);
+        }
         row.appendChild(label);
       }
+
+      /** Days offered when starting a sponsorship. Replaces a window.prompt. */
+      const SPONSOR_DAY_CHOICES = [30, 60, 90, 180, 365];
 
       function renderShareActions(container, share, onAction, sponsorByPatient) {
         const row = document.createElement('div');
@@ -174,25 +304,26 @@
         } else if (share.status === 'pending' && share.initiatedBy === 'patient') {
           sub = 'patient requested access';
         }
-        if (sp) {
-          sub += sp.active
-            ? ' · AI sponsor until ' + formatExpiry(sp.expiresAt)
-            : ' · AI sponsorship expired ' + formatExpiry(sp.expiresAt);
-        }
-        appendShareLabel(row, share.patientEmail, sub);
+        // Sponsorship is only meaningful for a linked patient, and the chip carries
+        // the remaining days rather than a date the reader has to subtract from.
+        const chip = share.status === 'approved' && share.patientId ? sponsorChip(sp) : null;
+        appendShareLabel(row, share.patientEmail, sub, chip);
         const actions = document.createElement('div');
+        actions.className = 'row-actions';
 
         if (share.status === 'pending' && share.initiatedBy === 'patient') {
           const ok = document.createElement('button');
           ok.className = 'portal-btn';
           ok.type = 'button';
           ok.textContent = 'Approve';
-          ok.onclick = () => void onAction('approve', share.id, { email: share.patientEmail });
+          ok.onclick = () =>
+            void onAction('approve', share.id, { email: share.patientEmail, btn: ok });
           const no = document.createElement('button');
           no.className = 'portal-btn secondary';
           no.type = 'button';
           no.textContent = 'Reject';
-          no.onclick = () => void onAction('reject', share.id, { email: share.patientEmail });
+          no.onclick = () =>
+            void onAction('reject', share.id, { email: share.patientEmail, btn: no });
           actions.append(ok, no);
         }
 
@@ -201,7 +332,8 @@
           cancel.className = 'portal-btn secondary';
           cancel.type = 'button';
           cancel.textContent = 'Cancel invite';
-          cancel.onclick = () => void onAction('cancel', share.id, { email: share.patientEmail });
+          cancel.onclick = () =>
+            void onAction('cancel', share.id, { email: share.patientEmail, btn: cancel });
           actions.append(cancel);
         }
 
@@ -217,18 +349,74 @@
           rev.className = 'portal-btn danger';
           rev.type = 'button';
           rev.textContent = 'Revoke access';
-          rev.onclick = () => void onAction('revoke', share.id, { email: share.patientEmail });
+          rev.onclick = () =>
+            void onAction('revoke', share.id, { email: share.patientEmail, btn: rev });
           actions.append(rev);
+
           if (share.patientId) {
-            const active = sp && sp.active;
+            const active = sp && sp.active && daysUntil(sp.expiresAt) >= 0;
             const spBtn = document.createElement('button');
             spBtn.className = 'portal-btn secondary';
             spBtn.type = 'button';
-            spBtn.textContent = active ? 'Stop AI sponsorship' : 'Sponsor AI';
-            spBtn.onclick = () =>
-              void onAction(active ? 'sponsor-off' : 'sponsor-on', share.patientId, {
-                email: share.patientEmail,
-              });
+            spBtn.textContent = active ? 'Stop AI sponsorship' : sp ? 'Renew AI sponsorship' : 'Sponsor AI';
+
+            if (active) {
+              spBtn.onclick = () =>
+                void onAction('sponsor-off', share.patientId, {
+                  email: share.patientEmail,
+                  btn: spBtn,
+                });
+            } else {
+              // Inline duration picker instead of window.prompt: the choice stays in
+              // the page, is keyboard reachable, and shows the resulting end date.
+              spBtn.onclick = () => {
+                const form = document.createElement('div');
+                form.className = 'sponsor-form row-actions';
+
+                const label = document.createElement('label');
+                label.className = 'muted';
+                label.textContent = 'Sponsor for';
+                const select = document.createElement('select');
+                select.className = 'portal-select';
+                SPONSOR_DAY_CHOICES.forEach((d) => {
+                  const opt = document.createElement('option');
+                  opt.value = String(d);
+                  opt.textContent = d + ' days';
+                  if (d === 90) opt.selected = true;
+                  select.appendChild(opt);
+                });
+                const until = document.createElement('span');
+                until.className = 'muted';
+                const showUntil = () => {
+                  const end = new Date();
+                  end.setDate(end.getDate() + parseInt(select.value, 10));
+                  until.textContent = '· until ' + formatExpiry(end.toISOString());
+                };
+                select.onchange = showUntil;
+                showUntil();
+
+                const go = document.createElement('button');
+                go.className = 'portal-btn';
+                go.type = 'button';
+                go.textContent = 'Start sponsorship';
+                go.onclick = () =>
+                  void onAction('sponsor-on', share.patientId, {
+                    email: share.patientEmail,
+                    btn: go,
+                    days: parseInt(select.value, 10),
+                  });
+
+                const back = document.createElement('button');
+                back.className = 'portal-btn secondary';
+                back.type = 'button';
+                back.textContent = 'Cancel';
+                back.onclick = () => form.replaceWith(actions);
+
+                form.append(label, select, until, go, back);
+                actions.replaceWith(form);
+                select.focus();
+              };
+            }
             actions.append(spBtn);
           }
         }
@@ -318,6 +506,13 @@
         const outgoingEl = document.getElementById('outgoing-list');
         const approvedEl = document.getElementById('approved-list');
         const usageEl = document.getElementById('usage-summary');
+        const showCount = (id, n) => {
+          document.getElementById(id).textContent = n ? '(' + n + ')' : '';
+        };
+        showCount('pending-count', pending.length);
+        showCount('outgoing-count', outgoing.length);
+        showCount('approved-count', approved.length);
+
         if (pending.length) pendingEl.replaceChildren();
         else setListEmpty(pendingEl, 'No pending requests.');
         if (outgoing.length) outgoingEl.replaceChildren();
@@ -326,53 +521,87 @@
         else setListEmpty(approvedEl, 'No linked patients yet.');
         renderUsageSummary(usageEl, usage);
 
+        const BUSY_LABEL = {
+          approve: 'Approving…',
+          reject: 'Rejecting…',
+          cancel: 'Cancelling…',
+          revoke: 'Revoking…',
+          'sponsor-on': 'Starting…',
+          'sponsor-off': 'Stopping…',
+        };
+
         async function act(action, id, meta) {
           showError(appErrorEl(), '');
-          try {
-            if (action === 'revoke') {
-              const email = meta?.email || 'this patient';
-              if (
-                !window.confirm(
-                  'Revoke access for ' + email + '? They will need to re-approve to share again.',
-                )
-              ) {
-                return;
-              }
+          const email = meta?.email || 'this patient';
+          const btn = meta?.btn;
+
+          // Destructive and irreversible-ish: confirm before the request, never after.
+          if (action === 'revoke') {
+            if (
+              !window.confirm(
+                'Revoke access for ' + email + '? They will need to re-approve to share again.',
+              )
+            ) {
+              return;
             }
-            if (action === 'cancel') {
-              const email = meta?.email || 'this patient';
-              if (!window.confirm('Cancel invite to ' + email + '?')) return;
-            }
+          }
+          if (action === 'cancel') {
+            if (!window.confirm('Cancel invite to ' + email + '?')) return;
+          }
+
+          const run = async () => {
             if (action === 'sponsor-on') {
-              const days = window.prompt('Sponsor AI for how many days? (default 90)', '90');
-              if (days === null) return;
-              const n = parseInt(days, 10) || 90;
+              const days = meta?.days || 90;
               const exp = new Date();
-              exp.setUTCDate(exp.getUTCDate() + n);
+              exp.setUTCDate(exp.getUTCDate() + days);
               const res = await api('/v1/sponsorships/enable', {
                 method: 'POST',
                 body: JSON.stringify({ patientId: id, expiresAt: exp.toISOString() }),
               });
               if (!res.ok) {
-                throw new Error((await res.json().catch(() => ({}))).error || 'Could not enable sponsorship');
+                throw new Error(
+                  (await res.json().catch(() => ({}))).error || 'Could not start sponsorship',
+                );
               }
-            } else if (action === 'sponsor-off') {
+              return (
+                'Sponsoring AI for ' + email + ' for ' + pluralDays(days) +
+                ' — until ' + formatExpiry(exp.toISOString()) + '.'
+              );
+            }
+            if (action === 'sponsor-off') {
               const res = await api('/v1/sponsorships/disable', {
                 method: 'POST',
                 body: JSON.stringify({ patientId: id }),
               });
               if (!res.ok) {
-                throw new Error((await res.json().catch(() => ({}))).error || 'Could not disable sponsorship');
+                throw new Error(
+                  (await res.json().catch(() => ({}))).error || 'Could not stop sponsorship',
+                );
               }
-            } else {
-              const res = await api('/v1/shares/' + id + '/' + action, { method: 'POST' });
-              if (!res.ok) {
-                throw new Error((await res.json().catch(() => ({}))).error || 'Action failed');
-              }
+              return 'AI sponsorship stopped for ' + email + '. Their coach now bills to their own credits.';
             }
+            const res = await api('/v1/shares/' + id + '/' + action, { method: 'POST' });
+            if (!res.ok) {
+              throw new Error((await res.json().catch(() => ({}))).error || 'Action failed');
+            }
+            return {
+              approve: 'Approved ' + email + '. Their data is now available in your workspace.',
+              reject: 'Rejected the request from ' + email + '.',
+              cancel: 'Invite to ' + email + ' cancelled.',
+              revoke: 'Access revoked for ' + email + '. Their snapshot is deleted unless another clinic still reads it.',
+            }[action] || 'Done.';
+          };
+
+          try {
+            const message = btn
+              ? await withBusy(btn, BUSY_LABEL[action] || 'Working…', run)
+              : await run();
             await refreshDashboard();
+            // After refreshDashboard, because it re-renders the lists — the flash
+            // element sits outside them so the confirmation survives.
+            setFlash('ok', message);
           } catch (e) {
-            showError(appErrorEl(), e instanceof Error ? e.message : 'Action failed');
+            setFlash('err', e instanceof Error ? e.message : 'Action failed');
           }
         }
 
@@ -530,14 +759,34 @@
 
       document.getElementById('save-name').onclick = async () => {
         showError(appErrorEl(), '');
+        const btn = document.getElementById('save-name');
         const displayName = document.getElementById('display-name').value.trim();
-        const res = await api('/v1/me', {
-          method: 'PATCH',
-          body: JSON.stringify({ displayName }),
+        setStatus('name-status', '', '');
+        await withBusy(btn, 'Saving…', async () => {
+          try {
+            const res = await api('/v1/me', {
+              method: 'PATCH',
+              body: JSON.stringify({ displayName }),
+            });
+            if (!res.ok) {
+              setStatus(
+                'name-status',
+                'err',
+                (await res.json().catch(() => ({}))).error || 'Could not save the name.',
+              );
+              return;
+            }
+            setStatus(
+              'name-status',
+              'ok',
+              displayName
+                ? 'Saved. Patients will see “' + displayName + '” on invites and in the app.'
+                : 'Display name cleared. Patients will see your email address instead.',
+            );
+          } catch (e) {
+            setStatus('name-status', 'err', e instanceof Error ? e.message : 'Could not save the name.');
+          }
         });
-        if (!res.ok) {
-          showError(appErrorEl(), (await res.json().catch(() => ({}))).error || 'Save failed');
-        }
       };
 
       document.getElementById('invite-btn').onclick = async () => {
@@ -607,30 +856,41 @@
 
       document.getElementById('simulate-card-btn').onclick = async () => {
         showError(appErrorEl(), '');
-        try {
-          const res = await api('/v1/wallet/payment-method/simulate', { method: 'POST', body: '{}' });
-          if (!res.ok) {
-            showError(appErrorEl(), (await res.json().catch(() => ({}))).error || 'Failed');
-            return;
+        const btn = document.getElementById('simulate-card-btn');
+        setFlash('', '');
+        await withBusy(btn, 'Attaching…', async () => {
+          try {
+            const res = await api('/v1/wallet/payment-method/simulate', { method: 'POST', body: '{}' });
+            if (!res.ok) {
+              setFlash('err', (await res.json().catch(() => ({}))).error || 'Could not attach the card.');
+              return;
+            }
+            await refreshDashboard();
+            setFlash('ok', 'Test card attached. Credits reload automatically when the balance runs low.');
+          } catch (e) {
+            setFlash('err', e instanceof Error ? e.message : 'Could not attach the card.');
           }
-          await refreshDashboard();
-        } catch (e) {
-          showError(appErrorEl(), e instanceof Error ? e.message : 'Failed');
-        }
+        });
       };
 
       document.getElementById('load-pack-btn').onclick = async () => {
         showError(appErrorEl(), '');
-        try {
-          const res = await api('/v1/wallet/add-pack', { method: 'POST', body: '{}' });
-          if (!res.ok) {
-            showError(appErrorEl(), (await res.json().catch(() => ({}))).error || 'Load pack failed');
-            return;
+        const btn = document.getElementById('load-pack-btn');
+        setFlash('', '');
+        await withBusy(btn, 'Adding…', async () => {
+          try {
+            const res = await api('/v1/wallet/add-pack', { method: 'POST', body: '{}' });
+            if (!res.ok) {
+              setFlash('err', (await res.json().catch(() => ({}))).error || 'Could not add credits.');
+              return;
+            }
+            await refreshDashboard();
+            const balance = document.getElementById('wallet-balance').textContent;
+            setFlash('ok', 'Credits added. Balance is now ' + balance + ' tokens.');
+          } catch (e) {
+            setFlash('err', e instanceof Error ? e.message : 'Could not add credits.');
           }
-          await refreshDashboard();
-        } catch (e) {
-          showError(appErrorEl(), e instanceof Error ? e.message : 'Load pack failed');
-        }
+        });
       };
 
       boot();
