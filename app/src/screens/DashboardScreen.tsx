@@ -154,7 +154,11 @@ import {
 } from '../services/WithingsApiService';
 import { type AuthUser } from '../services/AuthApiService';
 import { pullClinicOverlays } from '../services/ClinicOverlayService';
-import { CLINIC_SYNC_POLL_MS, fulfillPendingClinicSyncRequests } from '../services/ClinicSyncService';
+import {
+  CLINIC_SYNC_POLL_MS,
+  fulfillPendingClinicSyncRequests,
+  pushSnapshotForWebView,
+} from '../services/ClinicSyncService';
 import {
   SYNC_PERF_ALERT,
   formatSyncPerfReport,
@@ -1453,10 +1457,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     if (user.role !== 'patient') return;
     void applyClinicOverlays();
     void maybeRunOpportunisticCloudBackup();
+    // The patient's own web page cannot request a refresh the way a clinic can,
+    // so the app pushes for it. Self-throttled; a no-op when the view is off.
+    void pushSnapshotForWebView();
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         void applyClinicOverlays();
         void maybeRunOpportunisticCloudBackup();
+        void pushSnapshotForWebView();
       }
     });
     const poll = setInterval(() => {

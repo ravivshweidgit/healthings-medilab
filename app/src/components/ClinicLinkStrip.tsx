@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import type { AuthUser } from '../services/AuthApiService';
-import { shareClinicSnapshotNow, shareInitialClinicSnapshotIfLinked } from '../services/ClinicSyncService';
+import { shareSnapshotIfAnyConsumer, shareSnapshotNow } from '../services/ClinicSyncService';
 import {
   approveShare,
   clinicDisplayLabel,
@@ -207,7 +207,7 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
                   onPress={() =>
                     void run(async () => {
                       await approveShare(share.id);
-                      await shareInitialClinicSnapshotIfLinked();
+                      await shareSnapshotIfAnyConsumer();
                     })
                   }
                   disabled={busy}
@@ -243,7 +243,7 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
                   style={[styles.btnPrimary, busy && styles.btnDisabled]}
                   onPress={() =>
                     void run(async () => {
-                      await shareClinicSnapshotNow();
+                      await shareSnapshotNow();
                       Alert.alert(L.share, L.shareOk);
                     })
                   }

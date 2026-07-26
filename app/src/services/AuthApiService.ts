@@ -15,6 +15,8 @@ export type AuthUser = {
   id: string;
   email: string;
   role: UserRole;
+  /** Patient's own read-only view at healthings.ai/account. Absent on users cached before it existed. */
+  webViewEnabled?: boolean;
   createdAt: string;
 };
 
@@ -196,6 +198,26 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
     }
     return null;
   }
+}
+
+/**
+ * Turn the patient's own read-only web view on or off.
+ *
+ * Off also deletes the server copy when no clinic still reads it — the server
+ * runs the purge, so this is the whole client side of withdrawing.
+ */
+export async function setWebViewEnabled(enabled: boolean): Promise<AuthUser> {
+  const res = await authFetch('/v1/account/web-view', {
+    method: 'PUT',
+    body: JSON.stringify({ enabled }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error || 'Could not update your web view');
+  }
+  const data = (await res.json()) as { user: AuthUser };
+  await saveCachedAuthUser(data.user);
+  return data.user;
 }
 
 /**
