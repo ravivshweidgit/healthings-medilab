@@ -3,15 +3,48 @@ import { config } from '../config.js';
 
 export class OtpEmailSendError extends Error {
   constructor(cause?: unknown) {
-    super('Could not send the sign-in code');
+    super('Could not send the code');
     this.name = 'OtpEmailSendError';
     this.cause = cause;
   }
 }
 
-export async function sendOtpEmail(email: string, code: string): Promise<void> {
-  const subject = 'Your Healthings sign-in code';
-  const text = `Your sign-in code is ${code}. It expires in 10 minutes.\n\nIf you did not request this, ignore this email.`;
+/**
+ * What the code authorizes. A deletion code must never arrive worded as a
+ * sign-in code: this email is the only out-of-band channel the real owner has,
+ * so if somebody else is holding their session it is the one chance they get to
+ * notice — and "ignore this email" would be exactly the wrong advice.
+ */
+export type OtpPurpose = 'sign-in' | 'account-deletion';
+
+const OTP_COPY: Record<OtpPurpose, { subject: string; body: (code: string) => string }> = {
+  'sign-in': {
+    subject: 'Your Healthings sign-in code',
+    body: (code) =>
+      `Your sign-in code is ${code}. It expires in 10 minutes.\n\n` +
+      `If you did not request this, ignore this email.`,
+  },
+  'account-deletion': {
+    subject: 'Confirm deleting your Healthings account',
+    body: (code) =>
+      `Your account deletion code is ${code}. It expires in 10 minutes.\n\n` +
+      `Entering it permanently deletes your Healthings account and everything we ` +
+      `hold on the server: any snapshot shared with a clinic, your cloud backup, ` +
+      `and your clinic links. This cannot be undone. Data on your phone is not ` +
+      `touched.\n\n` +
+      `If you did not ask to delete your account, do NOT enter this code — ` +
+      `someone may have access to your signed-in session. Reply to this email ` +
+      `and we will help you secure the account.`,
+  },
+};
+
+export async function sendOtpEmail(
+  email: string,
+  code: string,
+  purpose: OtpPurpose = 'sign-in',
+): Promise<void> {
+  const { subject, body } = OTP_COPY[purpose];
+  const text = body(code);
 
   if (config.SMTP_MODE === 'console') {
     console.log(`[OTP] ${email} → ${code}`);

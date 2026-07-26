@@ -21,11 +21,42 @@
         border: 1px solid var(--line); border-radius: 8px; font-size: 15px;
       }
       .acct-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+      /* Anchors used as buttons inherit the link underline from the UA. */
+      a.ws-btn { text-decoration: none; display: inline-flex; align-items: center; }
       .acct-note { color: var(--muted); font-size: 0.9rem; line-height: 1.55; }
       .acct-note strong { color: var(--ink); }
       .acct-steps { color: var(--muted); font-size: 0.9rem; line-height: 1.6; padding-inline-start: 1.2em; }
-      .acct-error { color: #c0392b; font-size: 0.9rem; margin-top: 8px; }
+      .acct-error { color: var(--danger); font-size: 0.9rem; margin-top: 8px; }
       [hidden] { display: none !important; }
+
+      /* Deletion. The only destructive action on the page, and the only one
+         styled as such — turning the web view off reduces exposure, this does
+         not. */
+      .acct-danger {
+        background: var(--danger);
+        border-color: var(--danger);
+        color: #fff;
+      }
+      .acct-footer { text-align: center; margin: 24px 0 0; }
+      .acct-link {
+        background: none;
+        border: 0;
+        padding: 8px 12px;
+        min-height: var(--tap-min);
+        color: var(--muted);
+        font: inherit;
+        font-size: 0.9rem;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+      .acct-link:hover { color: var(--danger); }
+      .acct-losing { color: var(--muted); font-size: 0.9rem; line-height: 1.6; padding-inline-start: 1.2em; }
+      .acct-losing strong { color: var(--ink); }
+      .acct-keep {
+        border-inline-start: 3px solid var(--line);
+        padding-inline-start: 12px;
+        margin: 16px 0;
+      }
     </style>
   </head>
   <body class="clinic-workspace">
@@ -108,6 +139,74 @@
           <button id="fatal-signout" class="ws-btn" type="button">Sign out</button>
         </div>
       </section>
+
+      <section class="card" id="delete-view" hidden>
+        <h1>Delete your account</h1>
+        <p class="acct-note">
+          This permanently deletes your Healthings account and everything we hold on our server.
+          <strong>It cannot be undone.</strong>
+        </p>
+        <ul class="acct-losing">
+          <li>Any <strong>snapshot</strong> you shared with a clinic</li>
+          <li>Your <strong>cloud backup</strong>, if you turned it on</li>
+          <li>Your <strong>clinic links</strong> — clinics lose access immediately</li>
+          <li>Your <strong>email address</strong> and sign-in history</li>
+        </ul>
+        <div class="acct-keep">
+          <p class="acct-note">
+            <strong>Your phone is not touched.</strong> Labs, meals, weight and glucose stay in the
+            app. To remove those too, uninstall the app afterwards — and export a backup first if
+            you want to keep them.
+          </p>
+        </div>
+
+        <div id="delete-step-start">
+          <p class="acct-note">
+            We will email <strong id="delete-email"></strong> a confirmation code first, so nobody
+            using this browser can delete your account without access to your email.
+          </p>
+          <div class="acct-actions">
+            <button id="delete-send" class="ws-btn primary" type="button">Email me a code</button>
+            <button id="delete-cancel-1" class="ws-btn" type="button">Cancel</button>
+          </div>
+        </div>
+
+        <div id="delete-step-code" hidden>
+          <p class="acct-note">Code sent to <strong id="delete-email-2"></strong></p>
+          <label class="acct-note" for="delete-code">6-digit code</label>
+          <input id="delete-code" class="acct-input" type="text" inputmode="numeric" maxlength="6"
+                 placeholder="123456" autocomplete="one-time-code" />
+          <div class="acct-actions">
+            <button id="delete-confirm" class="ws-btn acct-danger" type="button">
+              Permanently delete my account
+            </button>
+            <button id="delete-cancel-2" class="ws-btn" type="button">Cancel</button>
+          </div>
+        </div>
+
+        <p id="delete-error" class="acct-error" role="alert" hidden></p>
+      </section>
+
+      <section class="card" id="deleted-view" hidden>
+        <h1>Account deleted</h1>
+        <p class="acct-note">
+          Your account and everything on our server are gone. Nothing here can be recovered, by you
+          or by us.
+        </p>
+        <p class="acct-note">
+          The app on your phone still holds your own data. Uninstall it to remove that too.
+        </p>
+        <div class="acct-actions">
+          <a class="ws-btn primary" href="../index.html">Back to healthings.ai</a>
+        </div>
+      </section>
+
+      <!-- One entry point for every signed-in gate state, so deletion stays
+           reachable for someone who never turned the web view on — which is most
+           people, and the case Play cares about. -->
+      <p class="acct-footer" id="delete-entry" hidden>
+        <button id="delete-open" class="acct-link" type="button">Delete my account</button>
+      </p>
     </div>
 
     <!-- Signed in with the web view on: the same workspace a clinic sees, minus the writes. -->
@@ -121,6 +220,7 @@
                reduces exposure. The confirm dialog carries the explanation. -->
           <button id="turn-off" class="ws-btn" type="button">Turn off web view</button>
           <button id="app-signout" class="ws-btn" type="button">Sign out</button>
+          <button id="delete-open-app" class="acct-link" type="button">Delete account</button>
         </header>
         <nav class="ws-tabs" id="ws-tabs" hidden></nav>
       </div>
@@ -147,7 +247,14 @@
       // straight from the snapshot, so this list is what makes the page read-only.
       const READ_ONLY_TABS = ['dashboard', 'profile', 'lipids', 'foodlog', 'nutrition', 'labs'];
 
-      const VIEWS = ['signin-view', 'offline-view', 'empty-view', 'wrong-role-view', 'fatal-view'];
+      const VIEWS = [
+        'signin-view', 'offline-view', 'empty-view', 'wrong-role-view', 'fatal-view',
+        'delete-view', 'deleted-view',
+      ];
+
+      // Where offering "Delete my account" would be wrong: signed out, already
+      // inside the flow, or already deleted.
+      const NO_DELETE_ENTRY = ['signin-view', 'delete-view', 'deleted-view'];
 
       function showGate(id) {
         document.getElementById('acct-app').hidden = true;
@@ -159,6 +266,7 @@
         VIEWS.forEach((v) => {
           document.getElementById(v).hidden = v !== id;
         });
+        document.getElementById('delete-entry').hidden = NO_DELETE_ENTRY.includes(id);
       }
 
       function showApp() {
@@ -263,6 +371,89 @@
       });
       document.getElementById('email').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') document.getElementById('send-code').click();
+      });
+
+      // --- deleting the account ---------------------------------------------
+      // Two steps on purpose. A valid session is not enough authority to destroy
+      // an account: the code proves the person still reads the email, and the
+      // email itself is the warning to the real owner if somebody else is using
+      // their signed-in browser.
+      let signedInEmail = '';
+
+      function deleteError(message) {
+        const el = document.getElementById('delete-error');
+        el.textContent = message || '';
+        el.hidden = !message;
+      }
+
+      function openDelete() {
+        deleteError('');
+        document.getElementById('delete-step-code').hidden = true;
+        document.getElementById('delete-step-start').hidden = false;
+        document.getElementById('delete-code').value = '';
+        document.getElementById('delete-email').textContent = signedInEmail;
+        document.getElementById('delete-email-2').textContent = signedInEmail;
+        showGate('delete-view');
+      }
+
+      document.getElementById('delete-open').onclick = openDelete;
+      document.getElementById('delete-open-app').onclick = openDelete;
+      // Cancel re-boots rather than restoring the previous view: showGate has
+      // already dropped the workspace DOM, and re-deriving state is cheaper to
+      // reason about than remembering where the user came from.
+      document.getElementById('delete-cancel-1').onclick = () => void boot();
+      document.getElementById('delete-cancel-2').onclick = () => void boot();
+
+      document.getElementById('delete-send').onclick = async () => {
+        deleteError('');
+        const btn = document.getElementById('delete-send');
+        btn.disabled = true;
+        try {
+          const res = await api('/v1/account/delete/code', { method: 'POST' });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            return deleteError(err.error || 'Could not send the code');
+          }
+          document.getElementById('delete-step-start').hidden = true;
+          document.getElementById('delete-step-code').hidden = false;
+          document.getElementById('delete-code').focus();
+        } catch {
+          deleteError('Could not reach the server — try again');
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      document.getElementById('delete-confirm').onclick = async () => {
+        deleteError('');
+        const code = document.getElementById('delete-code').value.trim();
+        if (code.length !== 6) return deleteError('Enter the 6-digit code');
+        // The typed code is the confirmation. A second "are you sure?" on top of
+        // it trains people to click through both.
+        const btn = document.getElementById('delete-confirm');
+        btn.disabled = true;
+        try {
+          const res = await api('/v1/account', {
+            method: 'DELETE',
+            body: JSON.stringify({ code }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            return deleteError(err.error || 'Could not delete the account');
+          }
+          // The account is gone, so the tokens now authenticate nothing. Clear
+          // them before rendering, or a reload would sit on a 401 loop.
+          clearTokens();
+          showGate('deleted-view');
+        } catch {
+          deleteError('Could not reach the server — try again');
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      document.getElementById('delete-code').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('delete-confirm').click();
       });
 
       // --- turning the view off --------------------------------------------
@@ -380,6 +571,12 @@
           return showFatal('Could not reach the server. Check your connection and try again.');
         }
 
+        // Shown in the deletion flow so it is unmistakable which account is
+        // about to go, on a page a clinician and a patient may both use.
+        signedInEmail = user.email || '';
+
+        // Deliberately before the role check: a clinician signed in here cannot
+        // read this page, but they must still be able to delete their account.
         if (user.role !== 'patient') return showGate('wrong-role-view');
         if (!user.webViewEnabled) return showGate('offline-view');
 

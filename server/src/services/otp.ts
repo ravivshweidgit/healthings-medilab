@@ -6,7 +6,7 @@ import {
   verifySecret,
 } from '../lib/crypto.js';
 import { query } from '../db/pool.js';
-import { sendOtpEmail } from './email.js';
+import { sendOtpEmail, type OtpPurpose } from './email.js';
 import type { UserRole } from './jwt.js';
 
 export async function countRecentOtpRequests(email: string): Promise<number> {
@@ -21,6 +21,7 @@ export async function countRecentOtpRequests(email: string): Promise<number> {
 export async function createOtpRequest(
   email: string,
   role: UserRole,
+  purpose: OtpPurpose = 'sign-in',
 ): Promise<void> {
   const normalized = normalizeEmail(email);
   const recent = await countRecentOtpRequests(normalized);
@@ -38,7 +39,7 @@ export async function createOtpRequest(
     [normalized, codeHash, role, expiresAt.toISOString()],
   );
 
-  await sendOtpEmail(normalized, code);
+  await sendOtpEmail(normalized, code, purpose);
 }
 
 export class OtpRateLimitError extends Error {
