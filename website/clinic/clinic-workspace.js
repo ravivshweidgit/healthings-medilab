@@ -1447,24 +1447,19 @@
       : `<div class="ws-stat ws-stat-empty"><span class="ws-stat-lbl">Body</span><span class="ws-stat-val">No scan</span></div>`;
 
     el.hidden = false;
+    // One horizontal strip — name + demographics + rules + stats + sync.
+    // Topbar used to repeat name/sync/rules; that also drifted two “Synced … ago” clocks.
     el.innerHTML = `
-      <div class="ws-banner-inner">
-        <div class="ws-banner-id">
-          <div class="ws-banner-name" dir="auto">${esc(name)}</div>
-          <div class="ws-banner-meta">
-            <span>${esc(identity)}</span>
-            <span class="ws-banner-sep" aria-hidden="true">·</span>
-            <span class="chip ${clinicRules ? 'ok' : 'off'}">${esc(rulesLabel)}</span>
-            <span class="ws-banner-sep" aria-hidden="true">·</span>
-            <span class="ws-banner-sync" title="${esc(supportMetaTitle(ctx.blob))}">${esc(syncLabel)}</span>
-          </div>
-        </div>
-        <div class="ws-banner-stats" title="${esc(scanTitle)}">
-          ${stats}
-        </div>
+      <div class="ws-case-header-inner">
+        <h1 class="ws-banner-name" dir="auto">${esc(name)}</h1>
+        <span class="ws-banner-identity">${esc(identity)}</span>
+        <span class="chip ${clinicRules ? 'ok' : 'off'}">${esc(rulesLabel)}</span>
+        <div class="ws-banner-stats" title="${esc(scanTitle)}">${stats}</div>
+        <span class="ws-banner-sync" title="${esc(supportMetaTitle(ctx.blob))}">${esc(syncLabel)}</span>
       </div>`;
   }
 
+  /** Account self-view still uses a thin topbar meta slot; clinic case header owns sync. */
   function paintHeaderMeta(metaEl, rulesChipEl, ctx) {
     if (metaEl) {
       metaEl.textContent = formatRelativeSync(ctx.blob?.createdAt);

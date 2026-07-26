@@ -85,7 +85,8 @@ h3,
   gap: 16px;
 }
 
-.ws-topbar a {
+.ws-topbar a,
+.ws-topbar .ws-back {
   color: var(--accent-ink);
   font-weight: 600;
   text-decoration: none;
@@ -93,6 +94,7 @@ h3,
   align-items: center;
   min-height: var(--tap-min);
   padding: 4px 2px;
+  flex-shrink: 0;
 }
 .ws-topbar h1 { margin: 0; font-size: 1.15rem; font-weight: 700; }
 .ws-topbar .meta { color: var(--muted); font-size: 0.88rem; flex: 1; min-width: 200px; }
@@ -103,6 +105,70 @@ h3,
   color: var(--navy);
   padding: 4px 10px;
   border-radius: var(--radius-pill);
+}
+
+/* Clinic case: back + one identity/stats strip + refresh — no second banner row. */
+.ws-topbar--case {
+  gap: 10px 14px;
+  padding: 10px 20px;
+  flex-wrap: nowrap;
+}
+.ws-topbar--case .ws-case-header {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  max-width: none;
+}
+.ws-topbar--case .ws-case-header[hidden] { display: none !important; }
+.ws-case-header-inner {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
+}
+.ws-topbar--case .ws-banner-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 14rem;
+}
+.ws-banner-identity {
+  color: var(--muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ws-topbar--case .chip {
+  cursor: default;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill, 999px);
+  flex-shrink: 0;
+}
+.ws-topbar--case .ws-banner-stats {
+  margin-inline-start: 0;
+  flex-shrink: 1;
+  min-width: 0;
+}
+.ws-topbar--case .ws-banner-sync {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  margin-inline-start: auto;
+  flex-shrink: 0;
+}
+.ws-topbar--case #refresh-snapshot-btn,
+.ws-topbar--case .sync-status-hint {
+  flex-shrink: 0;
+  margin-inline-start: 0;
 }
 .ws-btn {
   border: 1px solid var(--grid);
@@ -124,6 +190,17 @@ h3,
 .sync-status-hint { color: var(--danger); font-weight: 600; }
 
 /* Patient banner — sticky under topbar, every tab (be-28) */
+/* Account self-view: second-row banner with the same case-header markup. */
+.ws-banner .ws-case-header-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+}
+.ws-banner .ws-banner-identity { color: var(--muted); font-size: 0.82rem; }
+.ws-banner .ws-banner-sync { color: var(--muted); font-size: 0.82rem; }
+/* Account self-view still uses a second-row banner; clinic case uses .ws-case-header. */
 .ws-banner {
   max-width: var(--max-w);
   margin: 0 auto;
@@ -580,7 +657,8 @@ h3,
   .chat-layout { grid-template-columns: 1fr; }
 
   .ws-banner { padding: 10px 16px 12px; }
-  .ws-banner-inner {
+  .ws-banner-inner,
+  .ws-banner .ws-case-header-inner {
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
@@ -599,6 +677,28 @@ h3,
   .ws-topbar {
     padding: 12px 16px;
     gap: 10px 12px;
+  }
+  .ws-topbar--case {
+    flex-wrap: wrap;
+    padding: 10px 16px;
+  }
+  .ws-topbar--case .ws-case-header {
+    flex: 1 1 100%;
+    order: 2;
+  }
+  .ws-topbar--case .ws-case-header-inner {
+    flex-wrap: wrap;
+  }
+  .ws-topbar--case .ws-banner-name {
+    max-width: none;
+  }
+  .ws-topbar--case .ws-banner-stats {
+    flex: 1 1 100%;
+    width: 100%;
+    justify-content: space-between;
+  }
+  .ws-topbar--case .ws-banner-sync {
+    margin-inline-start: 0;
   }
   .ws-topbar h1 {
     flex: 1 1 100%;
