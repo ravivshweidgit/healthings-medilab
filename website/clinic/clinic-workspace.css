@@ -135,29 +135,93 @@ h3,
 .ws-banner-inner {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+}
+.ws-banner-id {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 .ws-banner-name {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.05rem;
+  line-height: 1.2;
 }
 .ws-banner-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 8px;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   color: var(--muted);
 }
 .ws-banner-sep { opacity: 0.45; }
 .ws-banner-sync { font-variant-numeric: tabular-nums; }
 .ws-banner .chip {
   cursor: default;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   padding: 2px 8px;
   border-radius: var(--radius-pill, 999px);
+}
+/* Compact body stats — replaces the full-width Withings card on Dashboard */
+.ws-banner-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 2px 0;
+  margin-inline-start: auto;
+  padding: 4px 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--grid);
+  border-radius: 10px;
+}
+.ws-banner-fresh {
+  align-self: center;
+  margin-inline-end: 6px;
+}
+.ws-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 4.5rem;
+  padding: 2px 12px;
+  border-inline-start: 1px solid var(--grid);
+}
+.ws-stat:first-of-type { border-inline-start: none; }
+.ws-banner-fresh + .ws-stat { border-inline-start: 1px solid var(--grid); }
+.ws-stat-lbl {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  line-height: 1.2;
+}
+.ws-stat-val {
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.ws-stat-val small {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.ws-stat-pct {
+  margin-inline-start: 2px;
+  color: var(--accent-ink) !important;
+}
+.ws-stat-empty .ws-stat-val {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
 }
 .chip.ok {
   color: var(--ws-clinical-ink);
@@ -518,7 +582,21 @@ h3,
   .chat-layout { grid-template-columns: 1fr; }
 
   .ws-banner { padding: 10px 16px 12px; }
-  .ws-banner-inner { flex-direction: column; gap: 6px; }
+  .ws-banner-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .ws-banner-stats {
+    margin-inline-start: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+  .ws-stat {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 2px 8px;
+  }
 
   .ws-topbar {
     padding: 12px 16px;

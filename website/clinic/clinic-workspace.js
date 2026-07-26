@@ -736,26 +736,12 @@
   }
 
   function renderDashboard(panel, ctx) {
-    const body = ctx.parsed.withings?.bodyScan;
     const coach = ctx.parsed.coachMsg;
     const mentors = ctx.parsed.mentors.map((m) => MENTORS.find((x) => x.id === m)?.emoji || '').join('');
-    const freshness = bodyScanFreshness(body);
-    const badgeClass = freshness.tone === 'ok' ? 'chip ok' : freshness.tone === 'soon' ? 'chip soon' : 'chip off';
+    // Body metrics live in the sticky patient banner (be-28) — no duplicate Withings card.
     panel.innerHTML = `
-      <p class="snapshot-note">Read-only snapshot · ${ctx.selfView ? 'your phone' : 'patient phone data'}</p>
       ${coach ? `<div class="nudge-strip"><span>${mentors}</span><span class="nudge-count">${(coach.actionItems || []).filter((i) => i.done).length}/${(coach.actionItems || []).length}</span><span class="nudge-text">${esc(coach.summary || '')}</span></div>` : ''}
       <div class="dash-card metabolic-card"><div id="metabolic-host"></div></div>
-      <div class="dash-card withings-card">
-        <div class="withings-head">
-          <span class="withings-logo">Withings</span>
-          <span class="${badgeClass}" title="${esc(freshness.title)}">${esc(freshness.label)}</span>
-        </div>
-        ${body ? `<div class="body-metrics-row">
-          <div><div class="lbl">Weight</div><div class="val">${body.weightKg != null ? body.weightKg.toFixed(1) + ' kg' : '—'}</div></div>
-          <div><div class="lbl">Muscle</div><div class="val">${body.muscleMassKg != null ? body.muscleMassKg.toFixed(1) + ' kg' : '—'}</div></div>
-          <div><div class="lbl">Fat</div><div class="val">${body.fatMassKg != null ? body.fatMassKg.toFixed(1) + ' kg' : '—'}</div></div>
-        </div>${body.bmrKcalDay ? `<div class="bmr-row">BMR <strong>${Math.round(body.bmrKcalDay)} kcal</strong></div>` : ''}` : '<p class="empty">No body scan</p>'}
-      </div>
       <div class="charts-row">
         <div class="dash-card chart-half"><div id="trend-host"></div></div>
         <div class="dash-card chart-half"><div id="energy-host"></div></div>
@@ -1299,10 +1285,9 @@
       gender,
       p.heightCm ? `${p.heightCm} cm` : null,
     ].filter(Boolean).join(' · ') || 'Profile incomplete';
-    const fat = fatPctFromBody(body);
-    const weight = body?.weightKg != null ? `${body.weightKg.toFixed(1)} kg` : null;
-    const fatLabel = fat != null ? `${fat.toFixed(1)} % fat` : null;
-    const metrics = [weight, fatLabel].filter(Boolean).join(' · ') || 'No body scan';
+    const fatPct = fatPctFromBody(body);
+    const freshness = bodyScanFreshness(body);
+    const freshClass = freshness.tone === 'ok' ? 'ok' : freshness.tone === 'soon' ? 'soon' : 'off';
     const clinicRules = Boolean(ctx.overlay?.rules) && !ctx.selfView;
     const rulesLabel = n
       ? clinicRules
@@ -1312,18 +1297,39 @@
     const syncLabel = formatRelativeSync(ctx.blob?.createdAt);
     const name = displayName || (ctx.selfView ? 'You' : 'Patient');
 
+    const stats = body
+      ? [
+          body.weightKg != null
+            ? `<div class="ws-stat"><span class="ws-stat-lbl">Weight</span><span class="ws-stat-val">${body.weightKg.toFixed(1)} <small>kg</small></span></div>`
+            : '',
+          body.muscleMassKg != null
+            ? `<div class="ws-stat"><span class="ws-stat-lbl">Muscle</span><span class="ws-stat-val">${body.muscleMassKg.toFixed(1)} <small>kg</small></span></div>`
+            : '',
+          body.fatMassKg != null
+            ? `<div class="ws-stat"><span class="ws-stat-lbl">Fat</span><span class="ws-stat-val">${body.fatMassKg.toFixed(1)} <small>kg</small>${fatPct != null ? ` <small class="ws-stat-pct">${fatPct.toFixed(1)}%</small>` : ''}</span></div>`
+            : '',
+          body.bmrKcalDay != null
+            ? `<div class="ws-stat"><span class="ws-stat-lbl">BMR</span><span class="ws-stat-val">${Math.round(body.bmrKcalDay)} <small>kcal</small></span></div>`
+            : '',
+        ].filter(Boolean).join('')
+      : `<div class="ws-stat ws-stat-empty"><span class="ws-stat-lbl">Body</span><span class="ws-stat-val">No scan</span></div>`;
+
     el.hidden = false;
     el.innerHTML = `
       <div class="ws-banner-inner">
-        <div class="ws-banner-name" dir="auto">${esc(name)}</div>
-        <div class="ws-banner-meta">
-          <span>${esc(identity)}</span>
-          <span class="ws-banner-sep" aria-hidden="true">·</span>
-          <span>${esc(metrics)}</span>
-          <span class="ws-banner-sep" aria-hidden="true">·</span>
-          <span class="chip ${clinicRules ? 'ok' : 'off'}">${esc(rulesLabel)}</span>
-          <span class="ws-banner-sep" aria-hidden="true">·</span>
-          <span class="ws-banner-sync" title="${esc(supportMetaTitle(ctx.blob))}">${esc(syncLabel)}</span>
+        <div class="ws-banner-id">
+          <div class="ws-banner-name" dir="auto">${esc(name)}</div>
+          <div class="ws-banner-meta">
+            <span>${esc(identity)}</span>
+            <span class="ws-banner-sep" aria-hidden="true">·</span>
+            <span class="chip ${clinicRules ? 'ok' : 'off'}">${esc(rulesLabel)}</span>
+            <span class="ws-banner-sep" aria-hidden="true">·</span>
+            <span class="ws-banner-sync" title="${esc(supportMetaTitle(ctx.blob))}">${esc(syncLabel)}</span>
+          </div>
+        </div>
+        <div class="ws-banner-stats" title="${esc(freshness.title || 'Body scan')}">
+          <span class="chip ${freshClass} ws-banner-fresh">${esc(body ? freshness.label : '—')}</span>
+          ${stats}
         </div>
       </div>`;
   }
