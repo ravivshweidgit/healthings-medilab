@@ -1,6 +1,9 @@
 # be-15 — Patient web account (read-only, consent-gated)
 
-**Status:** in_progress — Parts 1 and 2 shipped; Part 3 (app) built, awaiting phone test. Opus 5, 2026-07-26
+**Status:** done — server, website and app shipped and verified live with real data. Opus 5, 2026-07-26
+
+Remaining follow-ups are tracked elsewhere: the privacy policy sentences (below), account
+deletion, and the mentor invite email. `/account/` is still `noindex` and unlinked.
 
 ## What shipped in Parts 1 and 2
 
@@ -73,6 +76,37 @@ and its approved-share check guards a link revoked after asking.
 
 The toggle lives beside **Cloud backup** in the Account strip, the existing precedent for a switch
 that starts a server upload.
+
+### What the first real snapshot found (2026-07-26, verified live)
+
+Phone-tested against `raviv.shweid@gmail.com`: toggling **My web view** on uploaded v91,
+reopening the app pushed v92, and both rendered at `healthings.ai/account`. Four defects
+surfaced that 41 green fixture checks had not.
+
+| Defect | Why the fixture missed it |
+|---|---|
+| Snapshot would not decompress — bare `Failed to fetch` | The harness built its fixture with `gzipSync`; the app uses `pako.deflate`, which emits **zlib** despite the field being called `payloadGzipBase64` |
+| Lipids told the patient to press **Refresh snapshot** on the portal header | The wording scan truncated lines at 130 chars, hiding the sentence's tail |
+| Profile said "Active mentors from patient app snapshot" | Lives in `renderProfileGroup`, a helper absent from the hand-picked function list |
+| Labs printed `2026-07-01T00:00:00+03:00` and a Flag column of `unknown` | Fixture has no lab draws, so the panel never rendered |
+
+The compression one is the instructive failure. The server tries `inflateSync` then
+`gunzipSync`, and the clinic portal's pako sniffs the header, so **every existing reader
+already tolerated both formats** — the field name was the only thing asserting gzip, and it
+was wrong. Writing a fixture from the field name instead of from the producer built a test
+that could only ever pass. `inflateToText` now tries both, matching `decompressSyncPayload`.
+
+Two process fixes, so the class of bug cannot recur silently:
+
+- The harness fixture defaults to `deflateSync`, with a `gzipSync` case for the fallback.
+- The leak check matches the words `patient|clinic|portal|Refresh snapshot` rather than a
+  list of hand-written phrases, and the source scan greps the whole file instead of a
+  chosen function list. Both then ran against the **live page with real data**, which is
+  the only reason the Lipids and Labs paths were exercised at all.
+
+The two Labs defects were never `be-15` bugs: they affect the clinic portal identically and
+have since it shipped. The patient's own page is just where a clinician's tolerance for a
+raw ISO string stopped being acceptable.
 
 ### Not done yet
 
