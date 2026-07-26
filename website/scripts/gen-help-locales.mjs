@@ -15,8 +15,16 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB = join(__dirname, '..');
-/** Keep in sync with hand-written pages (be-11). Do not invent a parallel token. */
-const CSS_VER = '20260726be11';
+/**
+ * Keep in sync with hand-written pages (be-13). Do not invent a parallel token.
+ *
+ * Never re-emit a token that has already been deployed. `20260726be11` and
+ * `20260726be16` are burned: browsers hold different stylesheet states under
+ * those two keys, so reusing either would serve stale CSS. Batch names also do
+ * not sort — be-16 shipped before be-13 — so prefer a date plus a letter for
+ * the next one rather than another batch number.
+ */
+const CSS_VER = '20260726be13';
 
 function escAttr(s) {
   return String(s)

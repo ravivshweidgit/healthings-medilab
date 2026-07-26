@@ -15,8 +15,8 @@
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="tokens.css?v=20260726be11" />
-    <link rel="stylesheet" href="styles.css?v=20260726be11" />
+    <link rel="stylesheet" href="tokens.css?v=20260726be13" />
+    <link rel="stylesheet" href="styles.css?v=20260726be13" />
   </head>
   <body>
     <main class="wrap">
@@ -30,16 +30,16 @@
         />
         <p class="badge">Privacy</p>
         <h1>Privacy Policy</h1>
+        <p class="doc-date">Last updated 3 July 2026</p>
         <p class="lead">
           HEALTHINGS.AI is <strong>local-first</strong>: your health data stays on your phone.
           <strong>We do not upload your health data</strong> unless you choose to share with a linked
           clinic — and you can <strong>revoke</strong> that at any time. You are always in control.
-          Last updated: July 3, 2026.
         </p>
       </section>
 
       <section class="card prose">
-        <h2>Summary</h2>
+        <h2 id="summary">Summary</h2>
         <p>
           Healthings is an alpha wellness app — a personal metabolic coach for meals, glucose,
           and progress. It is <strong>not a medical device</strong> and does not diagnose or
@@ -49,7 +49,23 @@
           share — never automatically without your link and your action.
         </p>
 
-        <h2>What stays on your device</h2>
+        <nav class="doc-toc" aria-label="On this page">
+          <p class="doc-toc-title">On this page</p>
+          <ol>
+            <li><a href="#summary">Summary</a></li>
+            <li><a href="#on-device">What stays on your device</a></li>
+            <li><a href="#clinic-sharing">Optional clinic sharing</a></li>
+            <li><a href="#server-data">What we collect on our server</a></li>
+            <li><a href="#third-parties">Third-party services</a></li>
+            <li><a href="#permissions">Permissions</a></li>
+            <li><a href="#children">Children</a></li>
+            <li><a href="#deletion">Account deletion</a></li>
+            <li><a href="#changes">Changes</a></li>
+            <li><a href="#contact">Contact</a></li>
+          </ol>
+        </nav>
+
+        <h2 id="on-device">What stays on your device</h2>
         <p>During the alpha, the following are stored locally on your phone only:</p>
         <ul>
           <li>CGM / blood glucose readings (via Health Connect, when you grant permission)</li>
@@ -64,7 +80,7 @@
           and deletion through in-app backup tools.
         </p>
 
-        <h2>Optional clinic sharing (your choice)</h2>
+        <h2 id="clinic-sharing">Optional clinic sharing (your choice)</h2>
         <p>
           Sharing with a clinic is <strong>entirely optional</strong>. Nothing is uploaded until
           you <strong>approve</strong> a clinic in <strong>Data sharing</strong> and tap
@@ -81,7 +97,7 @@
           link.
         </p>
         <p>
-          Clinic mentor chat and rule suggestions (when enabled) apply only while you keep a
+          Clinic chat and rule suggestions (when enabled) apply only while you keep a
           clinic linked. They are workspace aids for your care team — not a copy of your full
           history on our servers.
         </p>
@@ -97,7 +113,7 @@
           the app instead.
         </p>
 
-        <h2>What we collect on our server</h2>
+        <h2 id="server-data">What we collect on our server</h2>
         <ul>
           <li><strong>Email address</strong> — for sign-in with a one-time code (no password)</li>
           <li><strong>Account metadata</strong> — login timestamps needed to operate auth</li>
@@ -108,7 +124,7 @@
         </ul>
         <p>API host: <a href="https://api.healthings.ai/health">api.healthings.ai</a> (HTTPS).</p>
 
-        <h2>Third-party services you choose to use</h2>
+        <h2 id="third-parties">Third-party services you choose to use</h2>
         <ul>
           <li>
             <strong>Google Gemini</strong> — when you use AI coach or mentor chat, meal and health
@@ -125,30 +141,30 @@
           </li>
         </ul>
 
-        <h2>Permissions</h2>
+        <h2 id="permissions">Permissions</h2>
         <ul>
           <li>Health Connect — read blood glucose (wellness tracking, on-device)</li>
           <li>Biometric unlock — optional fingerprint after first sign-in</li>
           <li>Internet — sign-in, AI coach, optional Withings sync</li>
         </ul>
 
-        <h2>Children</h2>
+        <h2 id="children">Children</h2>
         <p>Healthings is not directed at children under 13. We do not knowingly collect data from children.</p>
 
-        <h2>Account deletion</h2>
+        <h2 id="deletion">Account deletion</h2>
         <p>
           Alpha users can request account deletion by emailing
           <a href="mailto:support@healthings.ai">support@healthings.ai</a>. Uninstalling the app removes
           local data from your device; server-side email records are removed on request.
         </p>
 
-        <h2>Changes</h2>
+        <h2 id="changes">Changes</h2>
         <p>
-          We may update this policy as features evolve (e.g. optional mentor sync). Material changes
+          We may update this policy as features evolve (e.g. optional clinic sync). Material changes
           will be reflected on this page with an updated date.
         </p>
 
-        <h2>Contact</h2>
+        <h2 id="contact">Contact</h2>
         <p>
           <a href="mailto:support@healthings.ai">support@healthings.ai</a><br />
           <a href="index.html">Back to download page</a>
