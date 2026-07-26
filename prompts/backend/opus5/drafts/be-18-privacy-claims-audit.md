@@ -180,8 +180,27 @@ exist while not describing the ones that do.
 - [ ] Establish whether `SYSTEM_ALERT_WINDOW` belongs in a release build; remove if it is a dev artifact
 - [x] ~~Health Connect `Distance`~~ — **closed, do not touch.** Owner instruction: stay out of the
       calorie path. Not a defect to fix; see the section above before reopening this
-- [ ] Decide on retention for `otp_requests`, `refresh_tokens`, `ai_usage_events`, `wallet_ledger`
-- [ ] Confirm the VPS is not running `SMTP_MODE=console`
+- [x] **Decided 2026-07-26: no retention policy during the alpha.** Owner's call — everything stays
+      in the database, no scheduled expiry, no cleanup job. This needs no code change and no policy
+      change: `privacy.html` already states plainly that we do not run automatic clean-up and that
+      sign-in records, AI usage records and billing history are kept until account deletion. The
+      document is accurate *because* it was written after the audit rather than before it. Revisit
+      when the product leaves alpha; the policy commits to saying so on the page when that happens.
+- [x] **Done 2026-07-26.** VPS is on `SMTP_MODE=smtp`, so codes are not routinely logged. But the
+      journal held **one** `[OTP] <address> → <code>` line from 28 June: the SMTP *failure* path
+      logged the credential and then **swallowed the error**, so the route still answered
+      `{ sent: true }` and the user was told to check an inbox that never received anything.
+      Fixed: the failure now logs the address without the code and throws a typed
+      `OtpEmailSendError`, which `auth.ts` turns into a 502 with a retry message. The
+      `SMTP_MODE=console` dev path still prints codes by design and is now marked in
+      `.env.example` as never-for-a-server, since that template is what seeds new deploys.
+      Deliberately **not** changed: the `otp_requests` row is inserted before the send, so a failed
+      send still consumes rate-limit quota. Fixing that means `RETURNING id` plus a compensating
+      delete, which is more surgery than an auth path deserves without a reason.
+      Verified by `tmp/be-18-otp-verify/verify.mjs`: drives the **compiled** `email.js` with SMTP
+      pointed at a refused port, so nothing is mocked, and asserts the throw, the typed error, the
+      absence of the code in captured output, and the 502 mapping — 11/11. The success branch was
+      not touched, so a working SMTP path behaves exactly as before.
 - [ ] Web Withings token fallback key should join both exclusion lists before any web build ships
 
 Part A makes the document true of the product as it ships today. Part B shrinks what has to be

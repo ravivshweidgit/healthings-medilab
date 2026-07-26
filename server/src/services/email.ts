@@ -1,6 +1,14 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config.js';
 
+export class OtpEmailSendError extends Error {
+  constructor(cause?: unknown) {
+    super('Could not send the sign-in code');
+    this.name = 'OtpEmailSendError';
+    this.cause = cause;
+  }
+}
+
 export async function sendOtpEmail(email: string, code: string): Promise<void> {
   const subject = 'Your Healthings sign-in code';
   const text = `Your sign-in code is ${code}. It expires in 10 minutes.\n\nIf you did not request this, ignore this email.`;
@@ -36,7 +44,8 @@ export async function sendOtpEmail(email: string, code: string): Promise<void> {
       text,
     });
   } catch (err) {
-    console.error('[OTP email failed]', err);
-    console.log(`[OTP] ${email} → ${code}`);
+    // Never log `code` here. It is a live credential and the journal outlives it.
+    console.error('[OTP email failed]', { email, err });
+    throw new OtpEmailSendError(err);
   }
 }

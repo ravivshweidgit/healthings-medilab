@@ -13,6 +13,7 @@ import {
   createOtpRequest,
   verifyOtpAndGetEmail,
 } from '../services/otp.js';
+import { OtpEmailSendError } from '../services/email.js';
 import { attachPendingShares } from '../services/shares.js';
 import { findOrCreateUser, findUserById, updateUserDisplayName } from '../services/users.js';
 
@@ -45,6 +46,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     } catch (err) {
       if (err instanceof OtpRateLimitError) {
         return reply.code(429).send({ error: err.message });
+      }
+      if (err instanceof OtpEmailSendError) {
+        return reply
+          .code(502)
+          .send({ error: 'Could not send the sign-in code. Please try again.' });
       }
       throw err;
     }
