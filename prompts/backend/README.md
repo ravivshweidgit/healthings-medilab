@@ -26,7 +26,7 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-26-clinic-portal-i18n.md` | Clinic portal i18n: fill the 10 locales | **ready** | Next. `COPY.he`…`COPY.tr` are empty; clinicians see mirrored, dark, English. Locale tables only — no server, no app |
+| `be-26-clinic-portal-i18n.md` | Clinic portal i18n: fill the 10 locales | **needs-review** | All 143 keys × 9 locales filled; `pluralDays` for ru/ar/he; glossary keeps `tokens` / brand. Owner eye-check after deploy |
 | `be-08-clinic-portal-ux.md` | Clinic portal UI/UX catalog (C1–C21) | **partial** | A–D all ticked except **C11** (contrast re-measure) and **C21** (localStorage session note). Move to done/ once those two close |
 | `be-22-clinic-portal-visual.md` | Clinic portal visual rebuild | **ready, rescoped** | be-25 absorbed 5 of its 6 problems. What's left: `patient.html` + `clinic-workspace.css` tokens/dark (the last light-only surface), skeletons, and the money-led balance with `tokenPackPriceCents` |
 

@@ -208,11 +208,11 @@
       </section>
     </div>
 
-    <script src="clinic-i18n.js?v=20260726g"></script>
+    <script src="clinic-i18n.js?v=20260726i"></script>
     <script src="clinic-api.js?v=20260726g"></script>
     <script>
       const { api, loadTokens, saveTokens, clearTokens } = ClinicApi;
-      const { t, CLINIC_LOCALES } = ClinicI18n;
+      const { t, CLINIC_LOCALES, pluralDays } = ClinicI18n;
       const OTP_PENDING_KEY = 'healthings_clinic_otp_pending';
       const DEV_KEY = 'healthings_clinic_dev';
       const PAGE_SIZE = 25;
@@ -339,9 +339,7 @@
         return Math.round(ms / 86400000);
       }
 
-      function pluralDays(n) {
-        return Math.abs(n) === 1 ? t('oneDay') : t('nDays', { n: Math.abs(n) });
-      }
+
 
       function relativeSync(iso) {
         if (!iso) return t('syncNever');
