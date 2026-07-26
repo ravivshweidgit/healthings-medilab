@@ -328,7 +328,7 @@ BEGIN
   SELECT o.patient_id, sole.org_id, o.rules_json, o.updated_at, o.updated_by
   FROM clinic_patient_overlays o
   JOIN LATERAL (
-    SELECT MIN(sh.org_id) AS org_id
+    SELECT (array_agg(sh.org_id ORDER BY sh.org_id::text))[1] AS org_id
     FROM account_shares sh
     WHERE sh.patient_id = o.patient_id
       AND sh.status = 'approved'
