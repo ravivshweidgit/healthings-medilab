@@ -27,8 +27,7 @@ import {
   gatherHealthConnectDiagnostics,
   persistHealthConnectDiagnostics,
 } from '../services/healthConnectDiagnostics';
-
-const HELP_URL = 'https://healthings.ai/en/help/phone-health-activity.html';
+import { helpUrl } from '../i18n/helpUrls';
 
 type GrantedLine = {
   steps: boolean;
@@ -43,15 +42,18 @@ type Props = {
   onPermissionGranted?: () => void;
   /** Normal (false) or deep (true) phone-health sync — same idea as Withings. */
   onSync?: (deep: boolean) => void;
+  /** App locale, so the help link lands on the reader's language. */
+  langCode?: string;
 };
 
 function tick(ok: boolean): string {
   return ok ? '✓' : '✗';
 }
 
-export function PhoneHealthActivityStrip({ onPermissionGranted, onSync }: Props) {
+export function PhoneHealthActivityStrip({ onPermissionGranted, onSync, langCode }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const helpHref = helpUrl(langCode ?? 'en', 'phone-health-activity');
   const isIos = Platform.OS === 'ios';
   const storeName = isIos ? 'Apple Health' : 'Health Connect';
   const [granted, setGranted] = useState<GrantedLine | null>(null);
@@ -178,7 +180,7 @@ export function PhoneHealthActivityStrip({ onPermissionGranted, onSync }: Props)
     if (isIos) {
       Alert.alert(
         'Apple Health',
-        'Use Settings → Health → Data Access & Devices → Healthings to confirm Steps and Heart Rate are on. Help: healthings.ai/en/help/phone-health-activity.html',
+        `Use Settings → Health → Data Access & Devices → Healthings to confirm Steps and Heart Rate are on. Help: ${helpHref.replace(/^https:\/\//, '')}`,
       );
       return;
     }
@@ -195,7 +197,7 @@ export function PhoneHealthActivityStrip({ onPermissionGranted, onSync }: Props)
     } finally {
       setDiagBusy(false);
     }
-  }, [isIos, refreshStatus]);
+  }, [isIos, refreshStatus, helpHref]);
 
   return (
     <View style={styles.card}>
@@ -260,7 +262,7 @@ export function PhoneHealthActivityStrip({ onPermissionGranted, onSync }: Props)
         )}
       </Pressable>
 
-      <Pressable style={styles.linkBtn} onPress={() => void Linking.openURL(HELP_URL)} hitSlop={8}>
+      <Pressable style={styles.linkBtn} onPress={() => void Linking.openURL(helpHref)} hitSlop={8}>
         <Text style={styles.linkText}>How to get steps &amp; heart rate into {storeName}</Text>
       </Pressable>
 

@@ -262,6 +262,60 @@ copy written next to a feature description instead of next to the feature.
   anchored page per locale — is now the biggest remaining question about the help site, and this
   batch made the chrome-to-content ratio more visible, not less.
 
+## Post-deploy verification on the live domain (2026-07-26, ~03:20)
+
+The whole batch was verified on localhost. This was the first look at `healthings.ai` itself, done
+because shipped app builds deep-link into these pages — a broken locale is hit by a real alpha
+tester, not by us.
+
+Website side is clean:
+
+| Check | Result |
+|---|---|
+| 30 pages (10 locales x index, cgm, meal-logging) | all `200` |
+| `/help/cgm.html`, `/help/` legacy paths | `301` → `/en/...` |
+| `/{lang}/help/` directory form (what the app opens) | `200` for en, he, ar |
+| `he` / `ar` documents | `lang` + `dir="rtl"` + `body class="help-rtl"` |
+| hreflang | 10 locales + `x-default`, absolute URLs, plus a `<noscript>` link list |
+| canonical | self-referential, absolute |
+| `Cache-Control` | `no-cache` — the be-16 nginx fix covers help too |
+
+The Hebrew `meal-logging` rewrite the owner rejected is live and correct: lead now describes the
+coach checking the meal against My Rules, step 1 says **ביומן ארוחות לוחצים ארוחה**. Arabic index
+renders RTL with the card grid. Evidence in `tmp/help-live-check/`.
+
+### Defect found — app-side, not website
+
+**Two dashboard help links were hardcoded to `/en/`.** be-12 localized 160 pages and prompt81 built
+`helpUrl(langCode, slug)` for exactly this, but two components predated it and never adopted it:
+
+| File | Was | Now |
+|---|---|---|
+| `ManualBodyProfileSection.tsx` | `const HELP_URL = '.../en/help/manual-body.html'` | `helpUrl(langCode, 'manual-body')` |
+| `PhoneHealthActivityStrip.tsx` | `const HELP_URL = '.../en/help/phone-health-activity.html'` | `helpUrl(langCode, 'phone-health-activity')` |
+
+Effect: a Hebrew user got Hebrew help inside Quick Start (the wizard uses `helpUrl` at all 15 call
+sites) and then English help from the dashboard. Both slugs already existed in `HelpSlug`, and both
+locales already existed on the site — the localized pages were simply never reachable from those
+two buttons.
+
+`ManualBodyProfileSection` already received `langCode`. `PhoneHealthActivityStrip` did not, so it
+gained an optional `langCode?: string`, threaded from `GearSetupStrip` (`lang?.code`) and from
+`WelcomeQuickStartWizard` (`langCode`). The iOS Apple Health diagnostics alert also quoted the
+`/en/` URL in its body text and now quotes the localized one.
+
+Violated the language-policy rule ("help `?` → `/{lang}/help/`"). Grep for
+`healthings.ai/en/help` under `app/` now returns nothing — worth keeping as a regression check.
+
+Not built or phone-tested; lints clean on all four files. Needs a `bi` before commit.
+
+### Still worth deciding
+
+Both link labels are still hardcoded English prose ("How manual body logging works", "How to get
+steps & heart rate into Health Connect") on a dashboard that the language policy says should follow
+`appLocale`. The destination is now localized but the label pointing at it is not. Smaller than it
+looks — two strings — but it belongs to the dashboard-chrome sweep, not here.
+
 ## Agent checklist
 
 - [x] Status → in_progress

@@ -34,8 +34,7 @@ import {
   type EnergyUnit,
   type MassUnit,
 } from '../logic/unitConvert';
-
-const HELP_URL = 'https://healthings.ai/en/help/manual-body.html';
+import { helpUrl } from '../i18n/helpUrls';
 
 type CompUnit = 'pct' | 'mass';
 
@@ -73,6 +72,7 @@ export function ManualBodyProfileSection({
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const bodyLabels = getBodyMetricsCopy(langCode);
+  const helpHref = helpUrl(langCode ?? 'en', 'manual-body');
   const [weightInput, setWeightInput] = useState('');
   const [compUnit, setCompUnit] = useState<CompUnit>('pct');
   const [fatInput, setFatInput] = useState('');
@@ -349,7 +349,7 @@ export function ManualBodyProfileSection({
         Log weight and composition from your scale or DEXA. Fat and muscle are independent — residual
         (bone, water) is normal.
       </Text>
-      <Pressable onPress={() => void Linking.openURL(HELP_URL)} hitSlop={8}>
+      <Pressable onPress={() => void Linking.openURL(helpHref)} hitSlop={8}>
         <Text style={styles.helpLink}>How manual body logging works</Text>
       </Pressable>
 

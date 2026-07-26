@@ -146,6 +146,7 @@ export function GearSetupStrip({
                 <PhoneHealthActivityStrip
                   onPermissionGranted={onPhoneHealthPermissionGranted}
                   onSync={onPhoneHealthSync}
+                  langCode={lang?.code}
                 />
               ) : null}
               <SetupToggleRow

@@ -55,6 +55,9 @@ product now calls things.
 - Add a slug `id` to each `<h2>`: `#summary`, `#on-device`, `#clinic-sharing`, `#server-data`,
   `#third-parties`, `#permissions`, `#children`, `#deletion`, `#changes`, `#contact`. These become a
   public contract — the app will link to them, so do not rename them later.
+- Once `#clinic-sharing` exists, upgrade the landing page's local-first band to point at it.
+  `website/index.html` currently links to bare `privacy.html` because the anchor did not exist when
+  be-16 shipped, and that band is the one place a reader asks "what exactly leaves my phone".
 - Add a short "On this page" list of those 10 links directly beneath the summary paragraph.
 - Pull the effective date out of the summary into its own line under the H1:
   `<p class="doc-date">Last updated 3 July 2026</p>`.

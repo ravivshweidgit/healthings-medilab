@@ -1731,7 +1731,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                   ) : null}
                 </>
               )}
-              {!hasWatch ? <PhoneHealthActivityStrip /> : null}
+              {!hasWatch ? <PhoneHealthActivityStrip langCode={langCode} /> : null}
               {permBusy ? <ActivityIndicator style={{ marginTop: 12 }} /> : null}
               {permNote ? <Text style={[styles.hint, copyAlign]}>{permNote}</Text> : null}
             </>
