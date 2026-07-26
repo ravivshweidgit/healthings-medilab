@@ -7,7 +7,7 @@
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="../styles.css?v=20260726g" />
-    <link rel="stylesheet" href="clinic-portal.css?v=20260727e" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260727f" />
   </head>
   <body>
     <div class="portal-wrap">
@@ -590,6 +590,12 @@
           const cmp = (x, y) =>
             (x || '').localeCompare(y || '', loc, { sensitivity: 'base' });
           if (sort === 'name') {
+            // A named patient always outranks a blank one. Empty strings sort
+            // before every letter, so "Name A–Z" otherwise opens on the rows
+            // that have no name yet.
+            const hasA = Boolean(patientDisplayName(a));
+            const hasB = Boolean(patientDisplayName(b));
+            if (hasA !== hasB) return hasA ? -1 : 1;
             const byLast = cmp(a.patientLastName, b.patientLastName);
             if (byLast) return byLast;
             const byFirst = cmp(a.patientFirstName, b.patientFirstName);
