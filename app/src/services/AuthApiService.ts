@@ -231,12 +231,27 @@ export async function updatePatientNames(
   firstName: string,
   lastName: string,
 ): Promise<AuthUser> {
+  const payload = { firstName, lastName };
   const res = await authFetch('/v1/me', {
     method: 'PATCH',
-    body: JSON.stringify({ firstName, lastName }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      details?: { fieldErrors?: Record<string, string[] | undefined> };
+    };
+    // Pre-be-27 API required displayName only — Zod returns "Invalid request".
+    const fieldErrors = body.details?.fieldErrors ?? {};
+    const looksLikeOldApi =
+      body.error === 'Invalid request' &&
+      (Object.prototype.hasOwnProperty.call(fieldErrors, 'displayName') ||
+        !Object.keys(fieldErrors).length);
+    if (looksLikeOldApi) {
+      throw new Error(
+        'Server is still on the old API — deploy be-27 (git pull, build, migrate, restart) then try again.',
+      );
+    }
     throw new Error(body.error || 'Could not save your name');
   }
   const data = (await res.json()) as { user: AuthUser };
