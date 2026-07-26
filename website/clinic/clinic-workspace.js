@@ -623,7 +623,7 @@
         const x = mentorMeta(m);
         return `<span class="mentor-pill active">${x.emoji} ${esc(x.label)}</span>`;
       }).join('')}</div>
-      <p class="sub" style="margin-top:12px">Active mentors from patient app snapshot (read-only).</p>`;
+      <p class="sub" style="margin-top:12px">Active mentors from ${ctx.selfView ? 'your' : 'patient'} app snapshot (read-only).</p>`;
 
     const rulesBody = rules ? `
       ${rules.summary ? `<p class="rules-summary">${esc(rules.summary)}</p>` : ''}
@@ -1089,7 +1089,7 @@
     const charts = global.ClinicCharts;
     const pts = charts?.buildLipidPoints(ctx.parsed.labs) || [];
     panel.innerHTML = `
-      <p class="sub snapshot-note" style="margin:0 0 16px">Lipid trends from lab reports in snapshot${pts.length ? ` — ${pts.length} draw${pts.length === 1 ? '' : 's'}` : ''}. Use <strong>Refresh snapshot</strong> on the portal header to load the latest patient upload.</p>
+      <p class="sub snapshot-note" style="margin:0 0 16px">Lipid trends from lab reports in snapshot${pts.length ? ` — ${pts.length} draw${pts.length === 1 ? '' : 's'}` : ''}. ${ctx.selfView ? 'Import a new lab PDF in the app to update this.' : 'Use <strong>Refresh snapshot</strong> on the portal header to load the latest patient upload.'}</p>
       <div class="dash-card lipid-tab-card"><div id="lipid-trend-host"></div></div>
       ${pts.length >= 2 ? '' : '<p class="sub" style="margin-top:12px;text-align:center">Need at least 2 lipid lab draws in the snapshot to show trend charts.</p>'}`;
     const host = panel.querySelector('#lipid-trend-host');
