@@ -417,6 +417,17 @@ summary:focus-visible {
   word-break: break-word;
   font-variant-ligatures: none;
 }
+.worklist-table .sync-cell {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+  line-height: 1.25;
+}
+html[lang]:not([lang='en']) .worklist-table .sync-cell {
+  font-size: 0.72rem;
+  letter-spacing: -0.01em;
+}
 
 /* Modern column filters — compact search + clear × */
 .ux-filter {

@@ -7,7 +7,7 @@
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="../styles.css?v=20260726g" />
-    <link rel="stylesheet" href="clinic-portal.css?v=20260727b" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260727c" />
   </head>
   <body>
     <div class="portal-wrap">
@@ -259,7 +259,7 @@
       </section>
     </div>
 
-    <script src="clinic-i18n.js?v=20260727c"></script>
+    <script src="clinic-i18n.js?v=20260727d"></script>
     <script src="clinic-api.js?v=20260726k"></script>
     <script>
       const { api, loadTokens, saveTokens, clearTokens } = ClinicApi;
@@ -778,6 +778,7 @@
           tdEmail.textContent = share.patientEmail || '—';
 
           const tdSync = document.createElement('td');
+          tdSync.className = 'sync-cell';
           tdSync.dataset.label = t('colSync');
           tdSync.textContent = share.status === 'approved' ? relativeSync(share.lastSyncAt) : '—';
           if (share.lastSyncAt) tdSync.title = formatExpiry(share.lastSyncAt);
