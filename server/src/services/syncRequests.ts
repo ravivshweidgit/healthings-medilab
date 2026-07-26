@@ -1,6 +1,10 @@
 import { query } from '../db/pool.js';
 import type { PublicUser } from './jwt.js';
-import { hasApprovedShare } from './shares.js';
+import {
+  assertMentorPatientAccess,
+  getMentorOrgId,
+  recordPatientAccess,
+} from './clinicAccess.js';
 import type { PublicSyncBlob, SyncSummary } from './sync.js';
 
 export type SyncUpdateRequest = {
@@ -48,18 +52,8 @@ function toPublicRequest(row: RequestRow): SyncUpdateRequest {
   };
 }
 
-async function assertMentorPatientAccess(mentor: PublicUser, patientId: string): Promise<void> {
-  if (mentor.role !== 'mentor') {
-    throw new SyncRequestError('Requires mentor role', 403);
-  }
-  const ok = await hasApprovedShare(patientId, mentor.id);
-  if (!ok) {
-    throw new SyncRequestError('No approved share with this patient', 403);
-  }
-}
-
 export async function requestPatientSyncUpdate(mentor: PublicUser, patientId: string): Promise<SyncUpdateRequest> {
-  await assertMentorPatientAccess(mentor, patientId);
+  await assertMentorPatientAccess(mentor, patientId, SyncRequestError);
 
   const { rows } = await query<RequestRow>(
     `WITH upsert AS (
@@ -75,6 +69,14 @@ export async function requestPatientSyncUpdate(mentor: PublicUser, patientId: st
      JOIN users m ON m.id = u.mentor_id`,
     [patientId, mentor.id],
   );
+
+  const orgId = await getMentorOrgId(mentor.id);
+  await recordPatientAccess({
+    patientId,
+    actorUserId: mentor.id,
+    orgId,
+    action: 'refresh.request',
+  });
 
   return toPublicRequest(rows[0]!);
 }
@@ -114,7 +116,7 @@ export async function getPatientSyncStatusForMentor(
   mentor: PublicUser,
   patientId: string,
 ): Promise<PatientSyncStatus> {
-  await assertMentorPatientAccess(mentor, patientId);
+  await assertMentorPatientAccess(mentor, patientId, SyncRequestError);
 
   const { rows } = await query<{ requested_at: Date }>(
     `SELECT requested_at FROM sync_update_requests

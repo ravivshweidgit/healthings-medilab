@@ -104,7 +104,10 @@
         <p>
           While a link is approved and you have shared, a copy of your current snapshot is
           <strong>stored on our server for that clinic to read</strong> — only the latest one,
-          replaced each time you share, and never a permanent medical record.
+          replaced each time you share, and never a permanent medical record. That snapshot
+          carries meals, glucose, labs, body metrics, targets, rules and directives.
+          <strong>Conversations with the AI coach are not included</strong> — they stay on your
+          phone (and in your optional cloud backup) and are never shared with a clinic.
           <strong>Revoking removes that clinic's access immediately</strong>, and when your last
           clinic link ends we <strong>delete the snapshot</strong> along with the clinic's
           workspace data and rule history. The app works fully without any clinic link.
@@ -167,7 +170,16 @@
           <li>
             <strong>Clinic workspace</strong> — rules your clinic writes for you, their edit history,
             and clinic-side AI chat about your case. This is written by your clinic, not copied from
-            your phone, and it is deleted when your last clinic link ends
+            your phone. If you link more than one clinic, each clinic sees only the rules it wrote,
+            and AI chat stays private to the individual clinician who wrote it. A clinic's rules are
+            deleted when you end your link with <em>that</em> clinic; the edit history ends with your
+            last link
+          </li>
+          <li>
+            <strong>Access log</strong> — when a clinician opens your record, we record who, which
+            clinic, what they opened and when. It holds no health data. This exists so the question
+            "who has looked at my data?" has an answer, and it is the one thing we keep after an
+            account is deleted — see <a href="#deletion">Account deletion</a>
           </li>
           <li>
             <strong>Cloud backup</strong> — see <a href="#cloud-backup">cloud backup</a> above
@@ -284,6 +296,12 @@
             kept while the account exists, because they are what a sponsoring clinic's balance is
             calculated from. They contain no message text.
           </li>
+          <li>
+            <strong>The access log outlives the account.</strong> Every entry above is deleted with
+            your account; this one is not. Who opened a record, and when, has to remain answerable
+            after the fact, so the entries stay with the identifiers stripped of any meaning — see
+            <a href="#deletion">Account deletion</a>.
+          </li>
         </ul>
         <p>
           Anything still on your phone follows your phone, not this policy. We cannot delete it and we
@@ -314,11 +332,18 @@
           backup first if you want to keep them.
         </p>
         <p>
-          Two things deliberately survive. If a clinician deletes their account, notes and rules they
-          wrote for a patient stay with <em>that patient</em>, with the clinician's identity removed —
-          your clinic history should not disappear because your clinician left. And billing and
-          payment records are kept as required for accounting, also with the identity removed. Neither
-          can be traced back to a deleted account.
+          Three things deliberately survive, and none of them can be traced back to a deleted
+          account. If a clinician deletes their account, notes and rules they wrote for a patient stay
+          with <em>that patient</em>, with the clinician's identity removed — your clinic history
+          should not disappear because your clinician left. Billing and payment records are kept as
+          required for accounting, also with the identity removed.
+        </p>
+        <p>
+          The third is the <strong>access log</strong>. We record when a clinician opens a patient's
+          record, and those entries are kept even after the patient's account is deleted. An access
+          log that erases itself is not a record of anything, and a patient asking "who saw my data?"
+          deserves an answer that survives. What is left is a timestamp, an action, and identifiers
+          that no longer resolve to a person — no name, no email, no health data.
         </p>
         <p>
           If you cannot sign in, email <a href="mailto:support@healthings.ai">support@healthings.ai</a>

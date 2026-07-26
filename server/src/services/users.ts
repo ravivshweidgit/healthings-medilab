@@ -1,5 +1,6 @@
 import { query } from '../db/pool.js';
 import { purgeClinicDataIfNoConsumers } from './consent.js';
+import { ensureMentorOrg } from './clinicAccess.js';
 import type { PublicUser, UserRole } from './jwt.js';
 
 type UserRow = {
@@ -44,7 +45,11 @@ export async function findOrCreateUser(
      RETURNING *`,
     [email, role],
   );
-  return toPublicUser(rows[0]);
+  const user = toPublicUser(rows[0]);
+  if (role === 'mentor') {
+    await ensureMentorOrg(user.id, user.displayName, user.email);
+  }
+  return user;
 }
 
 /**

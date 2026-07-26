@@ -4,6 +4,9 @@ import { findUserByEmail } from './users.js';
 import { removeSponsorshipForMentor } from './sponsorships.js';
 import { purgeClinicDataIfNoConsumers, purgeClinicLinkData } from './consent.js';
 import { sendClinicInviteEmail } from './email.js';
+import { ensureMentorOrg, hasApprovedShare } from './clinicAccess.js';
+
+export { hasApprovedShare };
 
 export type ShareStatus = 'pending' | 'approved' | 'rejected' | 'revoked';
 export type ShareInitiator = 'patient' | 'mentor';
@@ -150,12 +153,14 @@ export async function invitePatient(
     throw new ShareError('A pending invite already exists for this patient', 409);
   }
 
+  const orgId = await ensureMentorOrg(mentor.id, mentor.displayName, mentor.email);
+
   const { rows } = await query<{ id: string }>(
     `INSERT INTO account_shares (
-       patient_id, patient_email, mentor_id, status, initiated_by
-     ) VALUES ($1, $2, $3, 'pending', 'mentor')
+       patient_id, patient_email, mentor_id, org_id, status, initiated_by
+     ) VALUES ($1, $2, $3, $4, 'pending', 'mentor')
      RETURNING id`,
-    [patient?.id ?? null, patientEmail, mentor.id],
+    [patient?.id ?? null, patientEmail, mentor.id, orgId],
   );
 
   const inserted = await getShareRow(rows[0].id);
@@ -202,12 +207,14 @@ export async function requestMentor(patient: PublicUser, mentorEmailRaw: string)
     throw new ShareError('A pending request already exists for this clinic', 409);
   }
 
+  const orgId = await ensureMentorOrg(mentor.id, mentor.displayName, mentor.email);
+
   const { rows } = await query<{ id: string }>(
     `INSERT INTO account_shares (
-       patient_id, patient_email, mentor_id, status, initiated_by
-     ) VALUES ($1, $2, $3, 'pending', 'patient')
+       patient_id, patient_email, mentor_id, org_id, status, initiated_by
+     ) VALUES ($1, $2, $3, $4, 'pending', 'patient')
      RETURNING id`,
-    [patient.id, normalizeEmail(patient.email), mentor.id],
+    [patient.id, normalizeEmail(patient.email), mentor.id, orgId],
   );
 
   const inserted = await getShareRow(rows[0].id);
@@ -260,16 +267,6 @@ export async function listPendingForMe(user: PublicUser): Promise<PublicShare[]>
     [user.id],
   );
   return rows.map(toPublicShare);
-}
-
-export async function hasApprovedShare(patientId: string, mentorId: string): Promise<boolean> {
-  const { rows } = await query<{ id: string }>(
-    `SELECT id FROM account_shares
-     WHERE patient_id = $1 AND mentor_id = $2 AND status = 'approved'
-     LIMIT 1`,
-    [patientId, mentorId],
-  );
-  return rows.length > 0;
 }
 
 export async function approveShare(user: PublicUser, shareId: string): Promise<PublicShare> {

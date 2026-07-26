@@ -3,9 +3,10 @@
 ```bash
 cd server
 npm install
-npm run verify          # both
+npm run verify          # all three
 npm run verify:be-17    # snapshot purge on revoke
 npm run verify:be-19    # account deletion
+npm run verify:be-24    # coach chat strip on upload
 ```
 
 ## Why these exist as repo files
@@ -34,5 +35,6 @@ date.
 
 | Harness | Asserts |
 |---|---|
-| `be-17-snapshot-purge.mjs` | Revoking one clinic link deletes that link's data and **nothing** belonging to another clinic; revoking the last link purges; uploads keep exactly one snapshot row at the newest version |
-| `be-19-account-deletion.mjs` | Cascades plus the two rows no cascade reaches (`otp_requests` keyed by email, `account_shares` with a null `patient_id`); departing-mentor purge; rollback safety; deletion scoped to one account so a bystander keeps every row |
+| `be-17-snapshot-purge.mjs` | Revoking one clinic link deletes **that org's** workspace and **nothing** belonging to another clinic (be-23 isolation); revoking the last link purges; uploads keep exactly one snapshot row at the newest version |
+| `be-19-account-deletion.mjs` | Cascades plus the two rows no cascade reaches; departing-mentor purge (org-scoped); `patient_access_log` excluded from residue and survives deletion; rollback safety; bystander untouched |
+| `be-24-chat-strip.mjs` | Upload strip removes `chat_history_*` before hash/store; no-chat payloads stay byte-identical; inflate-bomb rejected; portal no longer parses/merges patient coach chat |

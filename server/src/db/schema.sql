@@ -186,13 +186,77 @@ CREATE TABLE IF NOT EXISTS sync_update_requests (
 CREATE INDEX IF NOT EXISTS idx_sync_update_requests_patient
   ON sync_update_requests (patient_id, requested_at DESC);
 
--- Mentor/clinic edits that overlay the patient snapshot (rules, clinic-side chat).
-CREATE TABLE IF NOT EXISTS clinic_patient_overlays (
-  patient_id UUID PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+-- ─── be-23: organizations, clinic-scoped overlays, access audit ───────────────
+-- Consent is to the clinic (org). Rules are shared inside one org. AI chat is
+-- private to the individual clinician. patient_access_log deliberately has no
+-- FK on patient_id so the trail survives account deletion (be-19 exception).
+
+CREATE TABLE IF NOT EXISTS organizations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS org_members (
+  org_id UUID NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('owner', 'clinician')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (org_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_org_members_user
+  ON org_members (user_id);
+
+-- One org per existing mentor (one-person clinic). Idempotent: skips mentors
+-- who already have a membership.
+DO $$
+DECLARE
+  r RECORD;
+  new_org UUID;
+BEGIN
+  FOR r IN
+    SELECT u.id,
+           COALESCE(NULLIF(TRIM(u.display_name), ''), u.email::text) AS org_name
+    FROM users u
+    WHERE u.role = 'mentor'
+      AND NOT EXISTS (SELECT 1 FROM org_members m WHERE m.user_id = u.id)
+  LOOP
+    INSERT INTO organizations (name) VALUES (r.org_name) RETURNING id INTO new_org;
+    INSERT INTO org_members (org_id, user_id, role) VALUES (new_org, r.id, 'owner');
+  END LOOP;
+END $$;
+
+ALTER TABLE account_shares
+  ADD COLUMN IF NOT EXISTS org_id UUID REFERENCES organizations (id) ON DELETE CASCADE;
+
+UPDATE account_shares s
+SET org_id = m.org_id
+FROM org_members m
+WHERE m.user_id = s.mentor_id
+  AND s.org_id IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_shares_org_patient_status
+  ON account_shares (org_id, patient_id, status)
+  WHERE patient_id IS NOT NULL AND org_id IS NOT NULL;
+
+-- Clinical direction: shared inside one clinic, invisible to any other clinic.
+CREATE TABLE IF NOT EXISTS clinic_org_overlays (
+  patient_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  org_id UUID NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
   rules_json JSONB,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by UUID REFERENCES users (id) ON DELETE SET NULL,
+  PRIMARY KEY (patient_id, org_id)
+);
+
+-- AI chat: private to the individual clinician.
+CREATE TABLE IF NOT EXISTS clinic_clinician_chats (
+  patient_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  clinician_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   chat_json JSONB NOT NULL DEFAULT '{}'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_by UUID REFERENCES users (id) ON DELETE SET NULL
+  PRIMARY KEY (patient_id, clinician_id)
 );
 
 -- Prior clinic overlay rules snapshots (archived before each rawText change).
@@ -200,13 +264,123 @@ CREATE TABLE IF NOT EXISTS clinic_patient_rules_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   patient_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   mentor_id UUID REFERENCES users (id) ON DELETE SET NULL,
+  org_id UUID REFERENCES organizations (id) ON DELETE SET NULL,
   rules_json JSONB NOT NULL,
   saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   superseded_by TEXT NOT NULL DEFAULT 'clinic'
 );
 
+ALTER TABLE clinic_patient_rules_history
+  ADD COLUMN IF NOT EXISTS org_id UUID REFERENCES organizations (id) ON DELETE SET NULL;
+
 CREATE INDEX IF NOT EXISTS idx_rules_history_patient
   ON clinic_patient_rules_history (patient_id, saved_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_rules_history_org
+  ON clinic_patient_rules_history (patient_id, org_id, saved_at DESC)
+  WHERE org_id IS NOT NULL;
+
+-- Append-only access audit. No FK on patient_id: deleting the subject must not
+-- erase the fact that someone opened their record. be-19 findResidue must
+-- exclude this table.
+CREATE TABLE IF NOT EXISTS patient_access_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id UUID NOT NULL,
+  actor_user_id UUID,
+  org_id UUID,
+  action TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_access_log_patient
+  ON patient_access_log (patient_id, created_at DESC);
+
+-- Migrate legacy clinic_patient_overlays → org overlays + clinician chats.
+-- Ambiguity ladder (fail loudly, delete nothing if still unresolvable):
+--   1. updated_by's org
+--   2. sole approved share's org
+--   3. most recent rules_history mentor's org
+DO $$
+DECLARE
+  leftover INT;
+BEGIN
+  IF to_regclass('public.clinic_patient_overlays') IS NULL THEN
+    RETURN;
+  END IF;
+
+  -- 1. updated_by's org
+  INSERT INTO clinic_org_overlays (patient_id, org_id, rules_json, updated_at, updated_by)
+  SELECT o.patient_id, m.org_id, o.rules_json, o.updated_at, o.updated_by
+  FROM clinic_patient_overlays o
+  JOIN org_members m ON m.user_id = o.updated_by
+  ON CONFLICT (patient_id, org_id) DO NOTHING;
+
+  INSERT INTO clinic_clinician_chats (patient_id, clinician_id, chat_json, updated_at)
+  SELECT o.patient_id, o.updated_by, o.chat_json, o.updated_at
+  FROM clinic_patient_overlays o
+  WHERE o.updated_by IS NOT NULL
+    AND o.chat_json IS NOT NULL
+    AND o.chat_json <> '{}'::jsonb
+  ON CONFLICT (patient_id, clinician_id) DO NOTHING;
+
+  -- 2. sole approved share's org
+  INSERT INTO clinic_org_overlays (patient_id, org_id, rules_json, updated_at, updated_by)
+  SELECT o.patient_id, sole.org_id, o.rules_json, o.updated_at, o.updated_by
+  FROM clinic_patient_overlays o
+  JOIN LATERAL (
+    SELECT MIN(sh.org_id) AS org_id
+    FROM account_shares sh
+    WHERE sh.patient_id = o.patient_id
+      AND sh.status = 'approved'
+      AND sh.org_id IS NOT NULL
+    HAVING COUNT(DISTINCT sh.org_id) = 1
+  ) sole ON sole.org_id IS NOT NULL
+  WHERE NOT EXISTS (
+    SELECT 1 FROM clinic_org_overlays x WHERE x.patient_id = o.patient_id
+  )
+  ON CONFLICT (patient_id, org_id) DO NOTHING;
+
+  -- 3. most recent rules_history mentor's org
+  INSERT INTO clinic_org_overlays (patient_id, org_id, rules_json, updated_at, updated_by)
+  SELECT o.patient_id, m.org_id, o.rules_json, o.updated_at, o.updated_by
+  FROM clinic_patient_overlays o
+  JOIN LATERAL (
+    SELECT h.mentor_id
+    FROM clinic_patient_rules_history h
+    WHERE h.patient_id = o.patient_id
+      AND h.mentor_id IS NOT NULL
+    ORDER BY h.saved_at DESC
+    LIMIT 1
+  ) hist ON TRUE
+  JOIN org_members m ON m.user_id = hist.mentor_id
+  WHERE NOT EXISTS (
+    SELECT 1 FROM clinic_org_overlays x WHERE x.patient_id = o.patient_id
+  )
+  ON CONFLICT (patient_id, org_id) DO NOTHING;
+
+  UPDATE clinic_patient_rules_history h
+  SET org_id = m.org_id
+  FROM org_members m
+  WHERE h.mentor_id = m.user_id
+    AND h.org_id IS NULL;
+
+  SELECT COUNT(*)::int INTO leftover
+  FROM clinic_patient_overlays o
+  WHERE NOT EXISTS (
+    SELECT 1 FROM clinic_org_overlays x WHERE x.patient_id = o.patient_id
+  );
+
+  IF leftover > 0 THEN
+    RAISE EXCEPTION
+      'be-23 migration: % clinic_patient_overlays row(s) unresolvable — left in place, deleted nothing',
+      leftover;
+  END IF;
+
+  -- Unattributable chat (updated_by IS NULL): leave recorded in a notice, move nowhere.
+  -- Alpha volumes; lost chat is recoverable in a way lost dietary rules are not.
+
+  DROP TABLE clinic_patient_overlays;
+END $$;
 
 -- Optional patient cloud backup (one row per user; deleted when user turns off).
 -- Previous blob retained for recovery if a bad overwrite slips through.

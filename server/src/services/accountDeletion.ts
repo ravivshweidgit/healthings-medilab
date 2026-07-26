@@ -18,7 +18,10 @@
  */
 
 import { query, withTransaction } from '../db/pool.js';
-import { purgeClinicDataIfNoConsumers } from './consent.js';
+import {
+  purgeClinicDataIfNoConsumers,
+  purgeClinicOrgWorkspaceIfOrphaned,
+} from './consent.js';
 import type { PublicUser, UserRole } from './jwt.js';
 import { verifyOtpAndGetEmail } from './otp.js';
 
@@ -45,14 +48,37 @@ async function deleteAccountUnchecked(user: PublicUser): Promise<DeletionOutcome
     async (q) => {
       // Read before the delete: once the user row is gone the shares have
       // cascaded and there is no way left to learn who was affected.
-      const { rows: affected } = await q<{ patient_id: string }>(
-        `SELECT DISTINCT patient_id FROM account_shares
+      const { rows: affected } = await q<{ patient_id: string; org_id: string | null }>(
+        `SELECT DISTINCT patient_id, org_id FROM account_shares
          WHERE mentor_id = $1 AND status = 'approved' AND patient_id IS NOT NULL`,
         [user.id],
       );
 
-      // Cascades cover the twelve tables keyed by user id.
+      // Same reason: org_members cascades with the user row, so the orgs this
+      // person belonged to have to be identified before the delete.
+      const { rows: orgs } = await q<{ org_id: string }>(
+        `SELECT org_id FROM org_members WHERE user_id = $1`,
+        [user.id],
+      );
+
+      // Cascades cover the tables keyed by user id.
       await q(`DELETE FROM users WHERE id = $1`, [user.id]);
+
+      // `organizations` has no FK to users, so nothing above reaches it — and a
+      // one-person org created at signup is named from `display_name || email`,
+      // which for an OTP signup is the email. Blanking the name rather than
+      // deleting the row follows the same choice as `ai_usage_events.sponsor_id`
+      // and `wallet_ledger.payer_user_id`: drop the identity, keep the skeleton,
+      // so `patient_access_log.org_id` still resolves and no overlay cascades
+      // out from under `purgeClinicOrgWorkspaceIfOrphaned` below.
+      for (const { org_id } of orgs) {
+        await q(
+          `UPDATE organizations SET name = NULL
+           WHERE id = $1
+             AND NOT EXISTS (SELECT 1 FROM org_members m WHERE m.org_id = $1)`,
+          [org_id],
+        );
+      }
 
       // Deliberately not relying on verifyOtpAndGetEmail having cleared these.
       // That function deletes by email as a side effect of a successful verify;
@@ -69,7 +95,10 @@ async function deleteAccountUnchecked(user: PublicUser): Promise<DeletionOutcome
       );
 
       return {
-        patientsToReview: affected.map((r) => r.patient_id),
+        patientsToReview: affected.map((r) => ({
+          patientId: r.patient_id,
+          orgId: r.org_id,
+        })),
         orphanedInvitesRemoved: invites.rowCount ?? 0,
         otpRequestsRemoved: otp.rowCount ?? 0,
       };
@@ -81,8 +110,11 @@ async function deleteAccountUnchecked(user: PublicUser): Promise<DeletionOutcome
   // derives everything from current state, not from what the caller just did —
   // if one fails, any later revoke or toggle re-runs it.
   let patientsPurged = 0;
-  for (const patientId of patientsToReview) {
+  for (const { patientId, orgId } of patientsToReview) {
     try {
+      if (orgId) {
+        await purgeClinicOrgWorkspaceIfOrphaned(patientId, orgId);
+      }
       const outcome = await purgeClinicDataIfNoConsumers(patientId);
       if (outcome.clinicWorkspace || outcome.snapshot) patientsPurged++;
     } catch (err) {
@@ -137,10 +169,20 @@ export async function findResidue(email: string, userId: string): Promise<string
     ['wallets', `SELECT 1 FROM wallets WHERE user_id = $1`, [userId]],
     ['payment_methods', `SELECT 1 FROM payment_methods WHERE user_id = $1`, [userId]],
     [
-      'clinic_patient_overlays',
-      `SELECT 1 FROM clinic_patient_overlays WHERE patient_id = $1`,
+      'clinic_org_overlays',
+      `SELECT 1 FROM clinic_org_overlays WHERE patient_id = $1`,
       [userId],
     ],
+    [
+      'clinic_clinician_chats',
+      `SELECT 1 FROM clinic_clinician_chats WHERE patient_id = $1 OR clinician_id = $1`,
+      [userId],
+    ],
+    ['org_members', `SELECT 1 FROM org_members WHERE user_id = $1`, [userId]],
+    // Keyed by name, not by id: a one-person org is named from the mentor's
+    // display name or, for an OTP signup, their email address.
+    ['organizations', `SELECT 1 FROM organizations WHERE name = $1`, [email]],
+    // patient_access_log deliberately excluded — audit rows survive deletion (be-23).
   ];
 
   const found: string[] = [];

@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "verify:be-17": "node verify/be-17-snapshot-purge.mjs",
     "verify:be-19": "node verify/be-19-account-deletion.mjs",
-    "verify": "npm run verify:be-17 && npm run verify:be-19"
+    "verify:be-24": "node verify/be-24-chat-strip.mjs",
+    "verify": "npm run verify:be-17 && npm run verify:be-19 && npm run verify:be-24"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",

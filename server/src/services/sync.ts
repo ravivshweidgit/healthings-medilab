@@ -1,11 +1,31 @@
 import { createHash } from 'node:crypto';
-import { gunzipSync, inflateSync } from 'node:zlib';
+import { deflateSync, gunzipSync, inflateSync } from 'node:zlib';
 import { query } from '../db/pool.js';
 import { hasAnySnapshotConsumer } from './consent.js';
 import type { PublicUser } from './jwt.js';
-import { hasApprovedShare } from './shares.js';
+import {
+  assertMentorPatientAccess,
+  getMentorOrgId,
+  recordPatientAccess,
+} from './clinicAccess.js';
 import { clearSyncUpdateRequestsForPatient } from './syncRequests.js';
 import { reconcileOverlayRulesFromPatientSnapshot, type ClinicUserRules } from './clinicOverlay.js';
+
+/** Cap inflated snapshot size so a hostile deflate cannot OOM the write path. */
+const MAX_INFLATED_BYTES = 64 * 1024 * 1024;
+
+const CHAT_HISTORY_KEY =
+  /^chat_history_\d{4}-\d{2}-\d{2}(?:_(doctor|nutritionist|coach))?$/;
+
+export class SyncError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'SyncError';
+    this.status = status;
+  }
+}
 
 function decompressSyncPayload(buf: Buffer): string {
   try {
@@ -13,6 +33,45 @@ function decompressSyncPayload(buf: Buffer): string {
   } catch {
     return gunzipSync(buf).toString('utf8');
   }
+}
+
+/**
+ * be-24: strip patient coach chat from clinic snapshots on upload.
+ * Old app builds keep shipping chat_history_*; without this strip those
+ * transcripts sit at rest even after the portal stops rendering them.
+ * Returns the original buffer when nothing matched (hash unchanged).
+ */
+export function stripChatHistoryFromSyncPayload(payloadGzip: Buffer): Buffer {
+  let json: string;
+  try {
+    json = decompressSyncPayload(payloadGzip);
+  } catch {
+    throw new SyncError('Invalid sync payload', 400);
+  }
+  if (Buffer.byteLength(json, 'utf8') > MAX_INFLATED_BYTES) {
+    throw new SyncError('Payload too large when decompressed', 413);
+  }
+
+  let parsed: { asyncStorage?: Record<string, string>; [k: string]: unknown };
+  try {
+    parsed = JSON.parse(json) as { asyncStorage?: Record<string, string> };
+  } catch {
+    throw new SyncError('Invalid sync payload', 400);
+  }
+
+  const store = parsed.asyncStorage;
+  if (!store || typeof store !== 'object') return payloadGzip;
+
+  let removed = 0;
+  for (const key of Object.keys(store)) {
+    if (CHAT_HISTORY_KEY.test(key)) {
+      delete store[key];
+      removed++;
+    }
+  }
+  if (removed === 0) return payloadGzip;
+
+  return deflateSync(Buffer.from(JSON.stringify(parsed), 'utf8'));
 }
 
 function patientRulesFromSyncPayload(payloadGzip: Buffer): ClinicUserRules | null {
@@ -59,16 +118,6 @@ type SyncRow = {
   created_at: Date;
 };
 
-export class SyncError extends Error {
-  status: number;
-
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = 'SyncError';
-    this.status = status;
-  }
-}
-
 function toPublicBlob(row: SyncRow): PublicSyncBlob {
   return {
     id: row.id,
@@ -109,14 +158,17 @@ export async function uploadSyncBlob(
     throw new SyncError('Payload too large (max 15 MB)', 413);
   }
 
+  // Strip before hash/store so old app builds cannot leave coach chat at rest.
+  const stored = stripChatHistoryFromSyncPayload(payloadGzip);
+
   const version = await nextVersion(user.id);
-  const payloadHash = createHash('sha256').update(payloadGzip).digest('hex');
+  const payloadHash = createHash('sha256').update(stored).digest('hex');
 
   const { rows } = await query<SyncRow>(
     `INSERT INTO sync_blobs (patient_id, version, byte_size, payload_hash, summary, payload_gzip)
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING *`,
-    [user.id, version, payloadGzip.length, payloadHash, summary, payloadGzip],
+    [user.id, version, stored.length, payloadHash, summary, stored],
   );
 
   // Every consumer reads ORDER BY version DESC LIMIT 1, so superseded rows are
@@ -127,7 +179,7 @@ export async function uploadSyncBlob(
   await clearSyncUpdateRequestsForPatient(user.id);
 
   try {
-    await reconcileOverlayRulesFromPatientSnapshot(user.id, patientRulesFromSyncPayload(payloadGzip));
+    await reconcileOverlayRulesFromPatientSnapshot(user.id, patientRulesFromSyncPayload(stored));
   } catch {
     // Non-fatal: snapshot still uploaded; portal can still prefer newer snapshot text.
   }
@@ -139,14 +191,7 @@ export async function getLatestSyncForMentor(
   mentor: PublicUser,
   patientId: string,
 ): Promise<{ blob: PublicSyncBlob; payloadGzipBase64: string } | null> {
-  if (mentor.role !== 'mentor') {
-    throw new SyncError('Only mentors can download patient sync data', 403);
-  }
-
-  const allowed = await hasApprovedShare(patientId, mentor.id);
-  if (!allowed) {
-    throw new SyncError('No approved share with this patient', 403);
-  }
+  await assertMentorPatientAccess(mentor, patientId, SyncError);
 
   const { rows } = await query<SyncRow>(
     `SELECT * FROM sync_blobs
@@ -158,6 +203,14 @@ export async function getLatestSyncForMentor(
 
   const row = rows[0];
   if (!row) return null;
+
+  const orgId = await getMentorOrgId(mentor.id);
+  await recordPatientAccess({
+    patientId,
+    actorUserId: mentor.id,
+    orgId,
+    action: 'snapshot.read',
+  });
 
   return {
     blob: toPublicBlob(row),

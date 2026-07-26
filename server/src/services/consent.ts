@@ -11,11 +11,12 @@
  * as plain SQL in a leaf module lets it live inside `revokeShare`, where it
  * cannot be forgotten by a future caller.
  *
- * Two scopes, and the difference matters. `clinic_patient_overlays` is keyed by
- * `patient_id` alone and `clinic_patient_rules_history.mentor_id` is nullable, so
- * both are effectively shared by every clinic linked to that patient. Deleting
- * them when one of two links is revoked would corrupt the surviving clinic's
- * workspace. Only `sync_update_requests` is genuinely per-link.
+ * be-23: clinic workspace is scoped per org. Revoking one clinic deletes that
+ * org's overlay and its clinicians' chats for the patient, and leaves every other
+ * clinic's workspace alone. Rules history is kept — it holds versions the patient
+ * superseded too, and its `org_id` already hides it from other clinics. The
+ * snapshot still dies only when no approved share (any org) and no patient web
+ * view remain; history dies with the last link.
  */
 import { query } from '../db/pool.js';
 
@@ -24,6 +25,15 @@ async function countApprovedShares(patientId: string): Promise<number> {
     `SELECT COUNT(*)::text AS n FROM account_shares
      WHERE patient_id = $1 AND status = 'approved'`,
     [patientId],
+  );
+  return parseInt(rows[0]?.n ?? '0', 10);
+}
+
+async function countApprovedSharesForOrg(patientId: string, orgId: string): Promise<number> {
+  const { rows } = await query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM account_shares
+     WHERE patient_id = $1 AND org_id = $2 AND status = 'approved'`,
+    [patientId, orgId],
   );
   return parseInt(rows[0]?.n ?? '0', 10);
 }
@@ -48,8 +58,9 @@ export async function hasAnySnapshotConsumer(patientId: string): Promise<boolean
 }
 
 /**
- * Per-link cleanup, safe to run while other clinics are still linked: drops any
- * refresh this clinic had pending against the patient.
+ * Per-link cleanup. Drops this clinic's pending refresh request, and — when the
+ * clinic org has no remaining approved share with the patient — deletes that
+ * org's workspace only.
  */
 export async function purgeClinicLinkData(patientId: string, mentorId: string): Promise<void> {
   if (!patientId || !mentorId) return;
@@ -57,10 +68,51 @@ export async function purgeClinicLinkData(patientId: string, mentorId: string): 
     patientId,
     mentorId,
   ]);
+
+  const { rows: orgRows } = await query<{ org_id: string }>(
+    `SELECT org_id FROM org_members WHERE user_id = $1 LIMIT 1`,
+    [mentorId],
+  );
+  const orgId = orgRows[0]?.org_id;
+  if (!orgId) return;
+
+  await purgeClinicOrgWorkspaceIfOrphaned(patientId, orgId);
+}
+
+/**
+ * Deletes one clinic's workspace for a patient when that org no longer holds an
+ * approved share. Safe while other clinics remain linked.
+ *
+ * Scope is the org's overlay and its clinicians' private chats. Rules history
+ * survives — see the note inside.
+ */
+export async function purgeClinicOrgWorkspaceIfOrphaned(
+  patientId: string,
+  orgId: string,
+): Promise<boolean> {
+  if (!patientId || !orgId) return false;
+  if ((await countApprovedSharesForOrg(patientId, orgId)) > 0) return false;
+
+  await query(`DELETE FROM clinic_org_overlays WHERE patient_id = $1 AND org_id = $2`, [
+    patientId,
+    orgId,
+  ]);
+  // Rules history is deliberately *not* deleted per link. It is an archive of
+  // prior My Rules text, including versions the patient themselves superseded
+  // (`superseded_by = 'patient'`), so it is not purely clinic workspace. It keeps
+  // its `org_id`, which is what hides it from every other clinic, and it dies
+  // with the last link in purgeClinicDataIfNoConsumers below.
+  await query(
+    `DELETE FROM clinic_clinician_chats
+     WHERE patient_id = $1
+       AND clinician_id IN (SELECT user_id FROM org_members WHERE org_id = $2)`,
+    [patientId, orgId],
+  );
+  return true;
 }
 
 export type PurgeOutcome = {
-  /** Overlay + rules history dropped (no clinic left to read them). */
+  /** Overlay + rules history + chats dropped (no clinic left to read them). */
   clinicWorkspace: boolean;
   /** Snapshot dropped (no clinic *and* no patient web view left to read it). */
   snapshot: boolean;
@@ -74,9 +126,9 @@ export type PurgeOutcome = {
  *
  * The two scopes have different readers, which is why this is not one condition:
  *
- * - **Clinic workspace** (overlay, rules history) is clinic-authored, and the
- *   patient's own read-only view never renders it. It dies with the last clinic
- *   link whether or not the web view is on.
+ * - **Clinic workspace** (org overlays, clinician chats, rules history) is
+ *   clinic-authored, and the patient's own read-only view never renders it. It
+ *   dies with the last clinic link whether or not the web view is on.
  * - **The snapshot** has two possible readers. A patient using the web view with
  *   no clinic linked must keep it, or their own page breaks the moment they
  *   discharge from a clinic.
@@ -90,7 +142,8 @@ export async function purgeClinicDataIfNoConsumers(patientId: string): Promise<P
 
   if ((await countApprovedShares(patientId)) > 0) return outcome;
 
-  await query(`DELETE FROM clinic_patient_overlays WHERE patient_id = $1`, [patientId]);
+  await query(`DELETE FROM clinic_org_overlays WHERE patient_id = $1`, [patientId]);
+  await query(`DELETE FROM clinic_clinician_chats WHERE patient_id = $1`, [patientId]);
   await query(`DELETE FROM clinic_patient_rules_history WHERE patient_id = $1`, [patientId]);
   outcome.clinicWorkspace = true;
 

@@ -1,8 +1,11 @@
 # be-23 — Clinic isolation and access audit (the one-way doors)
 
-**Status:** needs-review
+**Status:** reviewed — accepted with three fixes applied 2026-07-26. Not committed, not deployed.
 **Authored by:** Opus 5
+**Built by:** Auto
+**Reviewed by:** Opus 5 (see *Review findings* at the end)
 **Date:** 2026-07-26
+**Gate:** be-17 **11/11**, be-19 **33/33**, `npm run typecheck` clean
 **Depends on:** be-17 (purge), be-19 (account deletion) — both shipped; this batch changes tables they delete from
 **Blocks:** the clinic panel batch and be-22. Both are two-way doors; this one is not.
 
@@ -185,7 +188,8 @@ cd server && npm install && npm run verify
 ```
 
 `server/verify/be-17-snapshot-purge.mjs` and `server/verify/be-19-account-deletion.mjs` — real Postgres 16
-via PGlite loaded with `src/db/schema.sql`, currently **8/8** and **28/28**. They were promoted out of
+via PGlite loaded with `src/db/schema.sql`, **8/8** and **28/28** when this batch was written (now
+**11/11** and **33/33**). They were promoted out of
 `tmp/` on 2026-07-26 precisely for this batch, and their absolute paths were made relative; see
 `server/verify/README.md`. Each copies the SQL under test from the source and calls `assertInSource()`,
 so **changing a service without updating the harness fails the run** rather than passing against a stale
@@ -223,8 +227,66 @@ false alarm. Update the copied SQL, do not weaken the assertion.
 
 ## Evidence
 
-`tmp/be-23-review/` — `verify-output.txt` (be-17 **10/10**, be-19 **31/31**), `NOTES.md`.
-`npm run typecheck` clean. Not committed / not deployed.
+`tmp/be-23-review/` — Auto's `verify-output.txt` (be-17 10/10, be-19 31/31), `NOTES.md`.
+After review fixes: be-17 **11/11**, be-19 **33/33**, `npm run typecheck` clean.
+Not committed / not deployed.
+
+## Review findings (2026-07-26)
+
+The build met all eight acceptance criteria and avoided every trap this batch named: logging sits at
+the data-serving sites rather than inside `hasApprovedShare`, there is no update or delete path for
+`patient_access_log`, the three duplicated access helpers really are one, and the migration's
+`RAISE EXCEPTION` precedes its `DROP TABLE` inside one `DO` block, so an unresolvable row rolls
+everything back and deletes nothing. Three things needed fixing.
+
+### 1. A deleted clinician's email survived in `organizations.name` — fixed
+
+`ensureMentorOrg` names a one-person org `display_name || email`, and an OTP signup has no display
+name, so the org was named with the email. `organizations` has no FK to `users`, so nothing cascaded
+into it and `findResidue` never looked. Proven with a PGlite probe before fixing
+(`tmp/be-23-probe/org-orphan.mjs`): `rows still holding the deleted address: 1`, now `0`.
+
+**Fix:** `deleteAccountUnchecked` reads the user's orgs before the delete, then blanks the name of any
+org left with no members. Anonymise rather than delete, matching `ai_usage_events.sponsor_id` and
+`wallet_ledger.payer_user_id` — deleting the row would cascade `clinic_org_overlays` out from under
+`purgeClinicOrgWorkspaceIfOrphaned` and push history rows into the `org_id IS NULL` bucket that every
+clinic can read. `org_members` and `organizations` are now in `findResidue`, and be-19 asserts the
+name is gone.
+
+### 2. Rules history was being deleted per link — reverted
+
+The build deleted `clinic_patient_rules_history` inside `purgeClinicOrgWorkspaceIfOrphaned` and
+replaced be-19's `'rules history kept, mentor anonymised'` check with one asserting it was purged.
+This batch never authorised that; it only added `org_id` for attribution. The table also holds
+versions the patient superseded (`superseded_by = 'patient'`), so it is not purely clinic workspace.
+
+**Fix:** history is kept on a per-link revoke, still carrying `org_id`, which is what hides it from
+other clinics. It dies with the last link in `purgeClinicDataIfNoConsumers`, as before. Both harnesses
+now pin this with `assertNotInSource`, so re-adding the delete fails the run.
+
+### 3. The residue count canary was dropped — restored
+
+`'no residue in any of the 14 tables'` had become `'no residue in clinical tables'`. Losing the count
+is how the `organizations` gap stayed invisible. Restored as `RESIDUE_TABLE_COUNT = 17`.
+
+### Still open, deliberately
+
+- **`getRulesHistoryForMentor` matches `h.org_id = $2 OR h.org_id IS NULL`.** Unattributed rows are
+  readable by every org. Only reachable where `mentor_id` was already null; confirm the count is zero
+  after the real migration, then drop the `OR`.
+- **Multi-org resolution is arbitrary.** `getMentorOrgId`, `purgeClinicLinkData` and the
+  `account_shares` backfill all pick a membership with `LIMIT 1` or an unqualified join. Unreachable
+  today because nothing creates a second membership — but a clinician working at two practices is the
+  case this batch exists for. **Must close before any org-invite UI.**
+- **`getOverlayForMentor` writes two audit rows per open** (`rules.read` + `chat.read`). Correct, but
+  it doubles log volume; revisit if the table grows.
+
+### Policy
+
+`privacy.html` now discloses the access log in `#server-data`, `#retention` and `#deletion` — the
+batch's own review said the audit exception had to be stated beside the existing anonymised-survivor
+cases. The clinic-workspace bullet also now says each clinic sees only its own rules and that chat is
+private to the individual clinician, which is what the code does after this batch.
 
 ## Review by Opus 5
 
@@ -242,3 +304,7 @@ false alarm. Update the copied SQL, do not weaken the assertion.
 - be-17 — the purge whose scope comment first noticed this key shape
 - be-19 — the cascade rules this batch takes one deliberate exception to
 - be-22 — the repaint; explicitly after this, and after the panel
+- **be-24** — this batch made clinic chat private *in the store*, but the workspace still merges the
+  patient's own coach transcripts into that thread at render time. be-24 makes the view match the
+  store. Read together: the "chat stays private to the individual clinician" claim is only half true
+  until be-24 ships

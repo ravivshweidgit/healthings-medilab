@@ -26,7 +26,8 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-23-clinic-isolation-and-audit.md` | Clinic isolation + access audit | **needs-review** | Built 2026-07-26. Orgs + split overlays (`clinic_org_overlays` / `clinic_clinician_chats`) + `patient_access_log` (no patient FK). Access via org membership; one `assertMentorPatientAccess`. be-17 **10/10** (two-org isolation), be-19 **31/31** (audit excluded from residue). Evidence in `tmp/be-23-review/`. Awaiting owner sign-off before `done/` |
+| `be-23-clinic-isolation-and-audit.md` | Clinic isolation + access audit | **reviewed, awaiting sign-off** | Built by Auto and reviewed 2026-07-26. Orgs + split overlays (`clinic_org_overlays` / `clinic_clinician_chats`) + `patient_access_log` (no patient FK). Access via org membership; one `assertMentorPatientAccess`. Review found and fixed a deleted clinician's email surviving in `organizations.name`, reverted an unauthorised per-link delete of rules history, and restored the residue count canary. Gate now be-17 **11/11**, be-19 **33/33**, typecheck clean. **Uncommitted** — schema migration, needs owner sign-off then a VPS migrate |
+| `be-24-coach-chat-not-shared.md` | Coach chat is not the clinic's to read | **needs-review** | Built by Auto 2026-07-26. App excludes `chat_history_*` from clinic export; portal drops `chatFromSnapshot`/`mergeChat`, tab renamed **Clinic chat**; server strips on upload (old builds); `privacy.html` discloses. Gate: be-17 **11/11**, be-19 **33/33**, be-24 **7/7**, typecheck clean. Backups untouched. **Uncommitted** |
 | `be-08-clinic-portal-ux.md` | Clinic portal UI/UX catalog (C1–C21) | **partial** | Batch A correctness shipped and live. Genuinely open: C6 forms/Enter submit, C8 visible labels on email + code, C12 `:focus-visible`, and busy states on the **login** buttons. Fold these into the next portal batch rather than a standalone pass. C14/C15/C19 handed to be-22 |
 | *(panel batch — not yet drafted)* | Clinic panel: worklist + cross-patient table | — | The scalable table: same component at 20 or 200 patients; pagination, saved filters and assignment are additive. Replaces the eight-card column where the patient list comes last. Needs be-23's org resolution first |
 | `be-22-clinic-portal-visual.md` | Clinic portal visual rebuild (2026 level) | **ready, demoted** | **Last.** Was next until 2026-07-26, when the owner asked whether the card-column layout is right for a clinic. It is not, and repainting an information architecture we are about to replace is the wasted work — so this runs after be-23 and the panel, with its token migration folded into whatever layout wins. Content still stands: gate alpha billing behind `?dev=1`, lead the balance with money from the configured pack rate, keep tokens as the metered unit, and treat be-21's 57/57 probe as a non-regression gate |
@@ -67,6 +68,7 @@ File numbers are chronological discovery order, not the only run order. What act
 | **be-16** pulled forward | Owner's standing "does not look 2026" complaint; only needed be-10 + be-11 |
 | **be-22** last | Repaints the portal be-21 just rewired; correctness before cosmetics — then demoted again behind be-23 and the panel, because the layout itself is what's wrong |
 | **be-23** ahead of everything | One-way doors. Schema, consent and audit are brutal to retrofit once real patients exist; UI is changeable any week |
+| **be-24** straight after be-23 | A live undisclosed exposure of patient coach chat, found by the owner asking why the workspace has a chat tab at all. Small, and every day it ships later is another day of transcripts on clinicians' screens |
 
 ## Decisions (locked 2026-06-22, hosting updated 2026-06-29)
 
@@ -92,23 +94,27 @@ trusting the script's exit code.
 ## Auto kickoff (paste)
 
 ```
-Implement prompts/backend/be-23-clinic-isolation-and-audit.md
-(ignore done/ — those are shipped records). Stop after be-23 so I can
+Implement prompts/backend/be-24-coach-chat-not-shared.md
+(ignore done/ — those are shipped records). Stop after be-24 so I can
 verify before you continue.
 
 Rules:
 - Follow the batch's paths, design, and acceptance criteria exactly. Do not
   redesign beyond it, and do not touch files it lists as off-limits.
-- This batch migrates consent rows. Before writing any migration, read
-  server/src/db/schema.sql end to end — do not assume "everything cascades".
-- Gate: `cd server && npm install && npm run verify` must pass, plus the new
-  two-org isolation case. Those harnesses copy the SQL under test from the
-  source and assert it is still there, so renaming the overlay tables WILL
-  fail them. Update the copied SQL; never weaken an assertion to go green.
-- The migration's ambiguity ladder ends in "fail loudly, delete nothing".
-  Never drop a patient's clinical rules to make a migration succeed.
-- patient_access_log deliberately has no FK on patient_id, and must be added to
-  be-19's residue exclusion list — otherwise its own test will report it as a leak.
+- All four layers or none: app export, portal render, server-side strip, policy.
+  The app fix alone protects only patients who update, which is why the server
+  strip exists.
+- DO NOT unify the three isChatKey predicates. Clinic export, local backup and
+  cloud backup share a regex and nothing else — backups MUST keep carrying chat,
+  or a patient loses their coach history on a phone switch. That "cleanup" is the
+  one regression this batch can cause.
+- Strip before payload_hash is computed, and store the original buffer untouched
+  when nothing matched. Cap the inflated size and reject oversized payloads
+  rather than storing them unstripped.
+- Gate: `cd server && npm install && npm run verify` (be-17 11/11, be-19 33/33,
+  plus the new be-24 harness) and `npm run typecheck`. The harnesses copy the
+  logic under test from source and assert it is still there — update the copy,
+  never weaken an assertion to go green.
 - Mark Status: in_progress when you start. When the acceptance criteria pass, set
   Status: needs-review, attach the evidence its review section asks for, and stop.
   Do not mark anything done yourself — wait for owner sign-off, then move to done/.

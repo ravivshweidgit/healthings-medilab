@@ -34,30 +34,12 @@
   function parseSnapshot(payload) {
     const store = payload.asyncStorage || {};
     const meals = [];
-    const chatFromSnapshot = {};
 
     for (const [key, raw] of Object.entries(store)) {
       const fm = key.match(/^food_log_(\d{4}-\d{2}-\d{2})$/);
       if (fm) {
         try {
           for (const meal of JSON.parse(raw)) meals.push({ day: fm[1], ...meal });
-        } catch { /* */ }
-        continue;
-      }
-      const cm = key.match(/^chat_history_(\d{4}-\d{2}-\d{2})(?:_(doctor|nutritionist|coach))?$/);
-      if (cm) {
-        const mentor = cm[2] || 'nutritionist';
-        try {
-          const rows = JSON.parse(raw);
-          if (!chatFromSnapshot[mentor]) chatFromSnapshot[mentor] = [];
-          for (const m of rows) {
-            chatFromSnapshot[mentor].push({
-              role: m.role === 'user' ? 'user' : 'assistant',
-              text: m.text,
-              sentAt: m.sentAt,
-              fromSnapshot: true,
-            });
-          }
         } catch { /* */ }
       }
     }
@@ -132,7 +114,6 @@
       todayMeals,
       eatenByDay,
       burnByDay,
-      chatFromSnapshot,
       glucose: cgm?.glucose || [],
       withings,
       macroTarget,
@@ -233,19 +214,6 @@
     if (h < 14) return 'Lunch';
     if (h < 17) return 'Snack';
     return 'Dinner';
-  }
-
-  function mergeChat(snapshotChat, overlayChat, mentorId) {
-    const a = snapshotChat[mentorId] || [];
-    const b = overlayChat[mentorId] || [];
-    const all = [...a, ...b].sort((x, y) => x.sentAt.localeCompare(y.sentAt));
-    const seen = new Set();
-    return all.filter((m) => {
-      const k = `${m.sentAt}|${m.role}|${m.text}`;
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
   }
 
   function formatDayLabel(dayKey) {
@@ -731,10 +699,10 @@
 
   function renderChat(panel, ctx) {
     const activeMentor = ctx.activeMentor || 'nutritionist';
-    const thread = mergeChat(ctx.parsed.chatFromSnapshot, ctx.overlay?.chat || {}, activeMentor);
+    const thread = (ctx.overlay?.chat || {})[activeMentor] || [];
 
     panel.innerHTML = `
-      <p class="sub" style="margin:0 0 16px">Chat with the patient's AI mentors using snapshot data. Messages are saved for the clinic and synced to the patient's rules context.</p>
+      <p class="sub" style="margin:0 0 16px">Your private chat about this case, using the shared snapshot. The patient's own coach conversations are not shared with the clinic.</p>
       <div class="chat-layout">
         <div class="mentor-nav">
           ${MENTORS.map((m) => `
@@ -776,7 +744,7 @@
 
   function bubbleHtml(m) {
     const cls = m.role === 'user' ? 'user' : 'assistant';
-    const who = m.role === 'user' ? (m.fromClinic ? 'Clinic' : 'Patient') : 'Mentor';
+    const who = m.role === 'user' ? 'Clinic' : 'Mentor';
     return `<div class="bubble ${cls}"><div>${esc(m.text)}</div><div class="time">${who} · ${new Date(m.sentAt).toLocaleString()}</div></div>`;
   }
 
@@ -1210,7 +1178,7 @@
     { id: 'lipids', label: 'Lipids' },
     { id: 'foodlog', label: 'Food log' },
     { id: 'nutrition', label: 'Nutrition reports' },
-    { id: 'chat', label: 'Mentors & chat' },
+    { id: 'chat', label: 'Clinic chat' },
     { id: 'rules', label: 'Rules (live)' },
     { id: 'labs', label: 'Labs' },
   ];
@@ -1271,7 +1239,6 @@
     parseSnapshot,
     initTabs,
     renderWorkspace,
-    mergeChat,
     effectiveRules,
   };
 })(window);
