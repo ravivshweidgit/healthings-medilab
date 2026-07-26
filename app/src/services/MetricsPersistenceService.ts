@@ -116,6 +116,28 @@ function trimIntradayHistory<T extends { timestamp: string }>(points: T[]): T[] 
   });
 }
 
+/**
+ * Local HR that only covers ~a shallow window looks like a wipe or a failed deep fill.
+ * Re-pull deep until coverage reaches this many days (or the vendor simply has no older data).
+ */
+const HR_THIN_COVERAGE_DAYS = 7;
+
+/** True when the store has no HR, or earliest sample is newer than `thinCoverageDays` ago. */
+export function heartRateNeedsDeepPull(
+  heartRate: WithingsHeartRatePoint[],
+  thinCoverageDays: number = HR_THIN_COVERAGE_DAYS,
+): boolean {
+  if (heartRate.length === 0) return true;
+  let earliestMs = Infinity;
+  for (const p of heartRate) {
+    const ms = Date.parse(p.timestamp);
+    if (!Number.isNaN(ms) && ms < earliestMs) earliestMs = ms;
+  }
+  if (!Number.isFinite(earliestMs)) return true;
+  const ageDays = (Date.now() - earliestMs) / (24 * 60 * 60 * 1000);
+  return ageDays < thinCoverageDays;
+}
+
 function localDayStartMs(): number {
   return dayKeyStartMs(localDayKeyFromMs(Date.now()));
 }
@@ -367,8 +389,9 @@ function mergeHealthConnectFetchIntoStore(
     fetch.dailyActiveKcalByDay,
     fetch.workouts,
   );
+  // Merge — never replace. Shallow HC/HK fetches are only a few days; replace wiped long history.
   const heartRate = isPhoneHealthHeartRate(config.heartRate)
-    ? trimIntradayHistory(fetch.heartRate)
+    ? mergeByTimestamp(prev.heartRate, fetch.heartRate)
     : prev.heartRate;
 
   return {
@@ -523,7 +546,7 @@ export async function syncHealthConnectIntoStore(
   }
 
   return syncPerfTrack(`syncHealthConnect/pull(${config.activity})`, async () => {
-    const deep = wantsDeepPhoneHealthPull(base, opts, config.activity);
+    const deep = wantsDeepPhoneHealthPull(base, opts, config);
     const lookback = deep ? PHONE_HEALTH_DEEP_LOOKBACK_DAYS : PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS;
     const manual = await getManualBody();
     const [heightCm, gender] = await Promise.all([getCachedHeightCm(), getGender()]);
@@ -554,7 +577,7 @@ export async function syncHealthKitIntoStore(
     return base;
   }
 
-  const deep = wantsDeepPhoneHealthPull(base, opts, config.activity);
+  const deep = wantsDeepPhoneHealthPull(base, opts, config);
   const lookback = deep ? PHONE_HEALTH_DEEP_LOOKBACK_DAYS : PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS;
   const window = await healthKitService.fetchActivityWindow(lookback);
   let dailyActiveKcalByDay: Record<string, number> = {};
@@ -589,10 +612,15 @@ export async function syncHealthKitIntoStore(
 function wantsDeepPhoneHealthPull(
   store: MetricsPersistedStore,
   opts: { deep?: boolean } | undefined,
-  activity: Awaited<ReturnType<typeof loadSourceConfig>>['activity'],
+  config: Awaited<ReturnType<typeof loadSourceConfig>>,
 ): boolean {
   if (opts?.deep) return true;
-  if (!isPhoneHealthActivity(activity)) return false;
+  const phoneActivity = isPhoneHealthActivity(config.activity);
+  const phoneHr = isPhoneHealthHeartRate(config.heartRate);
+  if (!phoneActivity && !phoneHr) return false;
+  // Wiped / stuck-shallow HR — same rule as Withings.
+  if (phoneHr && heartRateNeedsDeepPull(store.heartRate)) return true;
+  if (!phoneActivity) return false;
   // First fill: no HC workouts and no activity kcal on trend → deep once.
   const hasHcWorkout = store.workouts.some((w) => w.source === 'health-connect');
   const hasActivityKcal = store.bodyTrendDays.some(
@@ -607,7 +635,7 @@ function wantsDeepPhoneHealthPull(
  *
  * Default is **shallow** (yesterday + today) when persistence already has history.
  * **Deep** (HR 128d / workouts 128d) runs when `options.deep` is set, or automatically
- * on first link when the relevant store slices are empty.
+ * on first link / when local HR coverage is still thinner than ~7 days (wiped or stuck shallow).
  */
 export type SyncWithingsOptions = {
   /** Force full history pull from Withings. */
@@ -625,8 +653,8 @@ function wantsDeepWithingsPull(
   useWithingsActivity: boolean,
 ): boolean {
   if (opts?.deep) return true;
-  // First link / wiped HR slice — pull full history once; later syncs stay shallow.
-  if (useWithingsHr && store.heartRate.length === 0) return true;
+  // First link / wiped or stuck-shallow HR — pull full history until coverage is past the thin window.
+  if (useWithingsHr && heartRateNeedsDeepPull(store.heartRate)) return true;
   // Activity without HR (rare): deep only when the store has no Withings footprint yet.
   if (
     !useWithingsHr &&
