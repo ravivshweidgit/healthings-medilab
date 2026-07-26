@@ -137,12 +137,24 @@ summary:focus-visible {
 .row-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
+  max-width: 14.5rem;
 }
 .row-actions .portal-btn {
   margin-top: 0;
   margin-left: 0;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 600;
+  min-height: 32px;
+  border-radius: 6px;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.worklist-table td.actions-cell {
+  width: 1%;
+  white-space: nowrap;
 }
 .sponsor-form {
   display: flex;

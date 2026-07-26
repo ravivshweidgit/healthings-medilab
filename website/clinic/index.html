@@ -7,7 +7,7 @@
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="../styles.css?v=20260726g" />
-    <link rel="stylesheet" href="clinic-portal.css?v=20260727a" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260727b" />
   </head>
   <body>
     <div class="portal-wrap">
@@ -259,7 +259,7 @@
       </section>
     </div>
 
-    <script src="clinic-i18n.js?v=20260727b"></script>
+    <script src="clinic-i18n.js?v=20260727c"></script>
     <script src="clinic-api.js?v=20260726k"></script>
     <script>
       const { api, loadTokens, saveTokens, clearTokens } = ClinicApi;
@@ -592,6 +592,12 @@
         return [first, last].filter(Boolean).join(' ');
       }
 
+      function labelWithTip(el, labelKey, tipKey) {
+        el.textContent = t(labelKey);
+        el.title = t(tipKey);
+        el.setAttribute('aria-label', t(tipKey));
+      }
+
       function fillActions(actions, share, onAction, sponsorByPatient) {
         actions.replaceChildren();
         const sp = share.patientId ? sponsorByPatient.get(share.patientId) : null;
@@ -600,12 +606,12 @@
           const ok = document.createElement('button');
           ok.className = 'portal-btn';
           ok.type = 'button';
-          ok.textContent = t('approve');
+          labelWithTip(ok, 'approve', 'tipApprove');
           ok.onclick = () => void onAction('approve', share.id, { email: share.patientEmail, btn: ok });
           const no = document.createElement('button');
           no.className = 'portal-btn secondary';
           no.type = 'button';
-          no.textContent = t('reject');
+          labelWithTip(no, 'reject', 'tipReject');
           no.onclick = () => void onAction('reject', share.id, { email: share.patientEmail, btn: no });
           actions.append(ok, no);
           return;
@@ -615,7 +621,7 @@
           const cancel = document.createElement('button');
           cancel.className = 'portal-btn secondary';
           cancel.type = 'button';
-          cancel.textContent = t('cancelInvite');
+          labelWithTip(cancel, 'cancelInvite', 'tipCancelInvite');
           cancel.onclick = () =>
             void onAction('cancel', share.id, { email: share.patientEmail, btn: cancel });
           actions.append(cancel);
@@ -627,7 +633,7 @@
         if (share.patientId) {
           const view = document.createElement('a');
           view.className = 'portal-btn';
-          view.textContent = t('openWorkspace');
+          labelWithTip(view, 'openWorkspace', 'tipOpenWorkspace');
           view.href = 'patient.html?patientId=' + encodeURIComponent(share.patientId);
           actions.append(view);
 
@@ -635,19 +641,19 @@
           const spBtn = document.createElement('button');
           spBtn.className = 'portal-btn secondary';
           spBtn.type = 'button';
-          spBtn.textContent = active
-            ? t('stopSponsorship')
-            : sp
-              ? t('renewSponsorship')
-              : t('sponsorAi');
-
           if (active) {
+            labelWithTip(spBtn, 'stopSponsorship', 'tipStopSponsorship');
             spBtn.onclick = () =>
               void onAction('sponsor-off', share.patientId, {
                 email: share.patientEmail,
                 btn: spBtn,
               });
           } else {
+            labelWithTip(
+              spBtn,
+              sp ? 'renewSponsorship' : 'sponsorAi',
+              sp ? 'tipRenewSponsorship' : 'tipSponsorAi',
+            );
             // Inline duration picker instead of window.prompt (be-21): the choice
             // stays in the page, is keyboard reachable, and shows the end date.
             spBtn.onclick = () => {
@@ -677,7 +683,7 @@
               const go = document.createElement('button');
               go.className = 'portal-btn';
               go.type = 'button';
-              go.textContent = t('startSponsorship');
+              labelWithTip(go, 'startSponsorship', 'tipStartSponsorship');
               go.onclick = () =>
                 void onAction('sponsor-on', share.patientId, {
                   email: share.patientEmail,
@@ -688,6 +694,7 @@
               back.className = 'portal-btn secondary';
               back.type = 'button';
               back.textContent = t('cancel');
+              back.title = t('cancel');
               back.onclick = () => form.replaceWith(actions);
               form.append(label, select, until, go, back);
               actions.replaceWith(form);
@@ -700,7 +707,7 @@
         const rev = document.createElement('button');
         rev.className = 'portal-btn danger';
         rev.type = 'button';
-        rev.textContent = t('revokeAccess');
+        labelWithTip(rev, 'revokeAccess', 'tipRevokeAccess');
         rev.onclick = () => void onAction('revoke', share.id, { email: share.patientEmail, btn: rev });
         actions.append(rev);
       }
@@ -781,6 +788,7 @@
           else tdSp.textContent = '—';
 
           const tdAct = document.createElement('td');
+          tdAct.className = 'actions-cell';
           tdAct.dataset.label = t('colActions');
           const actions = document.createElement('div');
           actions.className = 'row-actions';
