@@ -227,6 +227,42 @@ Two things worth recording:
 Verification: `tmp/verify-be18.py` (33 checks, all passing) and screenshots in `tmp/be-18-review/`
 at 390 and 1280, English and Hebrew RTL.
 
+## Part C — the landing page repeated the same denial (2026-07-26)
+
+Found only because the owner asked why `/account/` was not linked from `index.html`. The audit had
+scoped itself to `privacy.html` and never looked at the page far more people read.
+
+`#local-first` was worse than the policy had been, because it was a headline:
+
+| Before | Why it was false |
+|---|---|
+| `<h2>` "Your health data **never leaves your phone**" | It leaves on clinic share and on cloud backup |
+| "our server holds your email address so you can sign in — **nothing else**" | Then the next sentence describes sending a snapshot to a clinic — self-contradictory in one paragraph |
+| Diagram: red X across the link, "no sync" | Asserts sync is impossible, not off-by-default |
+| Diagram: server labelled "Sign-in only / email address" | Omits the snapshot and the full cloud backup |
+| Cloud backup | Absent from the page entirely |
+
+Now mirrors the `#lead` wording of the policy almost verbatim, so the two can be diffed by eye:
+data lives on the device, nothing reaches the server unless you choose it, named paths are clinic
+sharing and cloud backup, neither on by default, ending either deletes what we hold.
+
+**The diagram became a switch in the off position** rather than a severed line. That is the honest
+shape of the claim: the connection exists and is off until the user turns it on. The `<desc>` moved
+with it, so the accessible description does not contradict the picture.
+
+Checked the rest of the repo for the same sentence — help articles, app copy, clinic pages — and it
+appeared nowhere else. The two remaining hits are historical references inside `be-16`'s own draft.
+
+Evidence: `tmp/landing-claim/` at 390 and 1280, light and dark.
+
+### Standing item, both documents
+
+When the app build carrying **My web view** reaches testers, the web view becomes a **third** path
+and both `privacy.html` (`#lead`, `#summary`) and `index.html` (`#local-first`) must name it, plus
+the exception that the snapshot survives losing the last clinic link while the view is on. Left out
+for now deliberately: no distributed build has the toggle, so describing a third path would be its
+own inaccuracy and would advertise a `noindex`, unlinked page.
+
 ## Out of scope
 
 - `#deletion` — be-15 replaces it with a real URL, which is what Play requires

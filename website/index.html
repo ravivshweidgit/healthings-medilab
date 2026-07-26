@@ -110,12 +110,13 @@
       <section class="landing-section band-invert reveal" id="local-first">
         <div class="wrap privacy-grid">
           <div>
-            <h2 class="section-title">Your health data never leaves your phone</h2>
+            <h2 class="section-title">Your health data stays on your phone</h2>
             <p>
-              Labs, meals, weight and glucose are stored on your device. Our server holds your
-              email address so you can sign in — nothing else. Send a snapshot to a linked clinic
-              when you choose to, and revoke it whenever you want.
-              <a href="privacy.html#clinic-sharing">Read the privacy policy</a>.
+              Labs, meals, weight and glucose live on your device. Nothing reaches our server
+              unless you choose it — sharing with a linked clinic, or turning on cloud backup.
+              Neither is on until you switch it on, and you can end either at any time, which
+              deletes what we hold.
+              <a href="privacy.html">Read the privacy policy</a>.
             </p>
             <p class="privacy-honesty">
               Healthings is a wellness app in alpha. It is not a medical device, it does not
@@ -132,8 +133,9 @@
           >
             <title id="dgm-t">Where your data lives</title>
             <desc id="dgm-d">
-              Labs, meals and trends stay on the phone. The connection to the Healthings server is
-              broken, and the server holds only an email address.
+              Labs, meals and trends stay on the phone. Nothing syncs to the Healthings server
+              until you switch it on; the server holds your email address, plus whatever you
+              choose to send.
             </desc>
 
             <!-- Phone: holds the health data -->
@@ -148,23 +150,34 @@
               Your phone
             </text>
 
-            <!-- Broken link -->
-            <path d="M126 100 H196" stroke="#a9bed6" stroke-width="2" stroke-dasharray="6 6" />
-            <path d="M244 100 H314" stroke="#a9bed6" stroke-width="2" stroke-dasharray="6 6" />
-            <path d="M206 82 L226 118" stroke="#f3a3a3" stroke-width="2.5" stroke-linecap="round" />
-            <path d="M226 82 L206 118" stroke="#f3a3a3" stroke-width="2.5" stroke-linecap="round" />
-            <text x="216" y="146" fill="#a9bed6" font-size="12" text-anchor="middle">no sync</text>
+            <!--
+              A switch in the off position, not a severed line. The old red X claimed no sync
+              was possible; the truth is that it is off until the user turns it on.
+            -->
+            <path d="M126 100 H190" stroke="#a9bed6" stroke-width="2" stroke-dasharray="6 6" />
+            <path d="M250 100 H314" stroke="#a9bed6" stroke-width="2" stroke-dasharray="6 6" />
+            <rect x="196" y="88" width="48" height="24" rx="12" stroke="#a9bed6" stroke-width="2" />
+            <circle cx="208" cy="100" r="6" fill="#a9bed6" />
+            <text x="220" y="140" fill="#a9bed6" font-size="12" text-anchor="middle">
+              off until you
+            </text>
+            <text x="220" y="156" fill="#a9bed6" font-size="12" text-anchor="middle">
+              turn it on
+            </text>
 
-            <!-- Server: email address only -->
+            <!-- Server: email address, plus anything the user has chosen to send -->
             <rect x="322" y="66" width="104" height="68" rx="10" stroke="#a9bed6" stroke-width="2" />
             <path d="M322 100 H426" stroke="#a9bed6" stroke-width="1.5" stroke-opacity="0.6" />
             <circle cx="338" cy="83" r="3.5" fill="#a9bed6" />
             <circle cx="338" cy="117" r="3.5" fill="#a9bed6" />
-            <text x="374" y="196" fill="#eef4fb" font-size="13" font-weight="600" text-anchor="middle">
-              Sign-in only
+            <text x="374" y="158" fill="#a9bed6" font-size="12" text-anchor="middle">
+              email address
             </text>
             <text x="374" y="176" fill="#a9bed6" font-size="12" text-anchor="middle">
-              email address
+              + what you send
+            </text>
+            <text x="374" y="196" fill="#eef4fb" font-size="13" font-weight="600" text-anchor="middle">
+              Healthings server
             </text>
           </svg>
         </div>
