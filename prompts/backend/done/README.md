@@ -36,7 +36,7 @@ be-08; multi-clinic data-model defects → be-23.
 publish/deploy scripts. Play internal → app `prompt47.txt`.
 
 **be-08** — **still open**, see [`../be-08-clinic-portal-ux.md`](../be-08-clinic-portal-ux.md).
-Batch A (correctness) shipped; some Batch B items remain.
+Most C items shipped via be-21 / be-25; **C11** and **C21** remain.
 
 ## be-09 … be-21 — website and portal batches
 
@@ -56,12 +56,13 @@ Batch A (correctness) shipped; some Batch B items remain.
 | `be-20-mentor-invite-email.md` | Mentor invite email | 2026-07-26 |
 | `be-21-portal-action-feedback.md` | Portal action feedback + sponsorship days | 2026-07-26 |
 
-## be-23 … be-24 — clinic isolation and chat privacy
+## be-23 … be-25 — clinic isolation, chat privacy, worklist
 
 | File | Title | Shipped |
 |------|-------|---------|
 | `be-23-clinic-isolation-and-audit.md` | Org-scoped overlays + access audit | 2026-07-26 — owner: "looks good"; migrate fix `4a11a51` |
 | `be-24-coach-chat-not-shared.md` | Patient coach chat never shared with clinic | 2026-07-26 — owner: "looks good" |
+| `be-25-clinic-panel.md` | Patients-first worklist + tokens/dark + i18n plumbing | 2026-07-26 — owner: "looks good"; `c61ea99` |
 
 ## Retired IDs
 

@@ -202,6 +202,5 @@ Shipped in working tree (not committed / not on VPS yet):
 - [x] Smoke checklist green on production
 - [x] Remaining B items (C6 forms, C8 labels, C12 focus-visible, C10 login busy state) — shipped in
       **be-25**
-- [ ] Move to `prompts/backend/done/` once **be-25 is accepted** and the last two stragglers are
-      closed: **C11** link/text contrast re-measure, **C21** localStorage session-risk note. Everything
-      else in A–D is ticked
+- [x] Move be-25 leftovers note: C14/C15/C19 shipped; catalog stays open for **C11** + **C21** only
+      (be-25 accepted 2026-07-26)

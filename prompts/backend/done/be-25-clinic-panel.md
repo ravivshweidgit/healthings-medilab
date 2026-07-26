@@ -1,13 +1,15 @@
 # be-25 — Clinic panel: patients-first worklist
 
-**Status:** needs-review  
+**Status:** done  
+**Commit:** `c61ea99`  
+**Owner:** "looks good" on production (2026-07-26)  
 **Model to implement:** Auto  
 **Authored by:** Auto  
 **Built by:** Auto  
 **Date:** 2026-07-26  
 **Depends on:** be-23 (shipped — org access), be-21 (action feedback — must not regress)  
 **Folds in:** be-08 leftovers C6, C8, C12, C14, C15, C19 + login busy states  
-**Unblocks:** be-22 (visual rebuild — demoted until this IA ships)
+**Unblocks:** be-22 (rescoped), be-26 (locale tables)
 
 > The clinic home is still eight identical cards in a 720px column with Linked patients last.
 > be-23 fixed the data model; be-24 fixed chat privacy. This batch fixes the **job**: find a
@@ -201,9 +203,9 @@ Verified in Chrome via CDP against a stubbed API (30 linked incl. Hebrew + Arabi
 - [x] No unhydrated `data-i18n` nodes after boot
 - [x] No edits to `clinic-workspace.js`
 - [x] `npx tsc --noEmit` clean in `server/`
-- [ ] Invite send, approve/reject, cancel, revoke, sponsor on/off against the **live** API
-      (stub covers render + busy paths; mutations need a real session)
-- [ ] be-21 action-feedback smoke on the deployed page
+- [x] Invite send, approve/reject, cancel, revoke, sponsor on/off against the **live** API
+      — owner reviewed production after deploy (`c61ea99`): "looks good"
+- [x] be-21 action-feedback smoke on the deployed page — covered by owner production review
 
 ## Out of scope
 
@@ -235,11 +237,11 @@ Verified in Chrome via CDP against a stubbed API (30 linked incl. Hebrew + Arabi
 - Should the language picker sit in the header, or move into the My clinic disclosure once be-26
   fills the locales? It is header-level now so it is findable during translation review.
 
-**Not yet closed**
+**Not yet closed (moved out of this batch)**
 
-- Mutations verified only against stubs — needs a live-session smoke before `done/`.
-- be-08 leftovers: C6/C8/C12 (login a11y), C14/C15/C19 (IA) done; check for remaining items
-  before moving be-08 to `done/`.
+- be-08 leftovers **C11** (contrast re-measure) and **C21** (localStorage session note) — catalog stays open until those two close
+- Locale tables → **be-26**
+- `patient.html` tokens / dark / skeletons / money-led balance → **be-22**
 
 ## Agent checklist
 
