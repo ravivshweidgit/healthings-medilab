@@ -736,11 +736,9 @@
   }
 
   function renderDashboard(panel, ctx) {
-    const coach = ctx.parsed.coachMsg;
-    const mentors = ctx.parsed.mentors.map((m) => MENTORS.find((x) => x.id === m)?.emoji || '').join('');
-    // Body metrics live in the sticky patient banner (be-28) — no duplicate Withings card.
+    // Coach nudge is patient-phone UX (second-person + action-item counts).
+    // Clinicians who want that text use Profile → Coach summary (collapsed).
     panel.innerHTML = `
-      ${coach ? `<div class="nudge-strip"><span>${mentors}</span><span class="nudge-count">${(coach.actionItems || []).filter((i) => i.done).length}/${(coach.actionItems || []).length}</span><span class="nudge-text">${esc(coach.summary || '')}</span></div>` : ''}
       <div class="dash-card metabolic-card"><div id="metabolic-host"></div></div>
       <div class="charts-row">
         <div class="dash-card chart-half"><div id="trend-host"></div></div>
