@@ -1169,6 +1169,18 @@
     });
   }
 
+  /**
+   * A draw is a date, not a moment: these ISO strings carry local midnight, so
+   * formatIsoShort would print a meaningless "12:00 AM" and drop the year that
+   * actually distinguishes one report from another.
+   */
+  function formatLabDate(iso) {
+    if (!iso) return 'Lab report';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
   function renderLabs(panel, ctx) {
     const labs = ctx.parsed.labs;
     if (!labs.length) {
@@ -1177,7 +1189,7 @@
     }
     panel.innerHTML = labs.map((report) => `
       <div class="lab-panel">
-        <h3>${esc(report.collectedAt || 'Lab report')}</h3>
+        <h3>${esc(formatLabDate(report.collectedAt))}</h3>
         <table class="data-table">
           <thead><tr><th>Test</th><th>Value</th><th>Flag</th></tr></thead>
           <tbody>
@@ -1185,7 +1197,7 @@
               <tr>
                 <td>${esc(r.name || r.code)}</td>
                 <td>${r.value} ${esc(r.unit || '')}</td>
-                <td>${r.flag && r.flag !== 'normal' ? esc(r.flag) : ''}</td>
+                <td>${r.flag && r.flag !== 'normal' && r.flag !== 'unknown' ? esc(r.flag) : ''}</td>
               </tr>`)).join('')}
           </tbody>
         </table>
