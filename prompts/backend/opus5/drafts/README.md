@@ -1,138 +1,75 @@
 # Implementation drafts (Opus → Auto)
 
 Opus 5 writes shippable batch prompts here after pass `06`.  
-**Auto** implements only files with `Status: ready`.
+**Auto** implements only files in **this folder** with `Status: ready`.
 
-## Execution order
+```
+drafts/
+  TEMPLATE.md          ← new draft shape
+  be-NN-….md           ← ready / in_progress / blocked (active)
+  done/                ← shipped + accepted (record only)
+  README.md            ← this file
+```
 
-Run strictly in this order. The reason for each position is the dependency, not preference.
+When a batch is accepted, move it to `done/` and add a one-line entry in `done/README.md`.
 
-**File numbers are the execution order.** Run them ascending.
-
-| Batch | Why here |
-|---|---|
-| **be-08 Batch A** (`prompts/backend/prompt-be-08-clinic-portal-ux.md`) | Prerequisite, not part of this pack. Already coded locally and uncommitted. Correctness before cosmetics, and it touches `clinic/index.html` which be-10 also edits — land it first to avoid conflicts |
-| **be-10** design system | Every later batch consumes these tokens. Doing it later means re-touching every file |
-| **be-09** copy and proof | **Runs after be-10, despite the number.** Added 2026-07-26, once be-10 was already in flight; it sorts before be-10 because it has no dependency on tokens. Must land before be-11 and be-16 so both are built around final wording |
-| **be-11** landing | Pure presentation on top of tokens. Highest visible payoff (logo, badges, nav) |
-| **be-12** help | Regenerates 160 files — run alone so the diff is reviewable |
-| **be-13** privacy | Must precede be-15, which rewrites the `#deletion` section |
-| **be-14** patient workspace | Must precede be-15, which reuses this renderer read-only. Fixing responsive + identity here means be-15 inherits a clean renderer |
-| **be-17** snapshot purge | **Jumps the queue — run before be-15.** Not a feature: `privacy.html` promises that revoking a clinic link purges the snapshot, and no such deletion exists anywhere in the server. Found 2026-07-26 while re-validating be-15, whose consent rules assume the purge is already there |
-| **be-18** privacy claims audit | **Also jumps the queue.** be-17 fixed one false paragraph; this is the systematic pass that should have preceded it. Nine more claims were wrong, two of them affirmative denials of things the product does. Part A (policy text) must land before be-15 rewrites `#deletion` |
-| **be-15** patient web account | Largest and cross-cutting (server + website + app). Depends on be-13, be-14, **be-17** and **be-18 Part A** |
-| **be-19** account deletion | **Runs after be-15**, which is what makes a real deletion URL possible — the patient is already signed in at `/account/`. Also after be-18, whose standard is that the policy may not claim more than the code does: `#deletion` promised deletion by email and no endpoint existed |
-| **be-20** mentor invite email | **Runs after be-19.** Pending invites hold an email address; without mail the patient never hears about it. Server-only + portal toast + privacy line |
-| **be-21** portal action feedback | **Runs after be-20**, whose invite button established the busy / success / warning pattern this generalizes to every action on the page. Website-only |
-| **be-22** portal visual rebuild | **Last.** Correctness before cosmetics: it repaints the page be-21 just rewired, and be-21's 57/57 probe is the gate that proves the repaint kept the behaviour. Needs be-10's tokens and be-16's direction underneath it |
-| **be-16** landing visual direction | The only batch that raises the ceiling rather than the floor. Needs be-10's tokens and be-11's fixes underneath it. **Pulled forward and built on 2026-07-26**, ahead of be-13 to be-15: its dependencies (be-10, be-11) were already done, and the site's look was the owner's standing complaint. be-13 to be-15 are unaffected — it touches only `index.html`, `styles.css` and `tokens.css` |
-
-be-11, be-12 and be-13 do not depend on each other and may be reordered or parallelized. be-08,
-be-10, be-14, be-17 and be-15 are strictly ordered.
-
-### Two notes that will otherwise cause confusion
-
-- **Help regeneration happens once.** be-10 must add `tokens.css` to the generator template and bump
-  `CSS_VER`, but should **defer running the generator** to be-12, so there is one 160-file diff
-  instead of two. If be-12 is not running in the same session, regenerate at the end of be-10.
-- **Checkpoint after be-10.** It is a global refactor with the widest blast radius in the pack.
-  Verify landing, help, privacy, clinic portal and workspace all still render before starting be-11.
-  Layout must not move — only typography and the retired `--green*` aliases should change.
-
-### Deploy
-
-Human-owned. Deploy is `git pull --ff-only` then `bash server/scripts/deploy-website.sh` on the VPS —
-see `server/DEPLOY-WEBSITE.md`. Current as of `9091ed6` (be-14, 2026-07-26): the earlier drift, where
-the VPS had not pulled since `61e76a2` and the live H1 still read "A full metabolic OS", is resolved.
-Verify a deploy by checking the cache token on a live page rather than trusting the script's exit
-code — 165 of be-14's 168 files were token-only, so a stale page serves old CSS silently.
+## Active backlog
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-10-design-system.md` | Shared design system (tokens) | done | Reviewed 2026-07-26. Tokens live, `--green*` gone. Review added `--accent-ink` (5.85:1) — `--accent` is 3.0:1 and had dropped four workspace controls below AA. Link contrast → be-11, muted prose → be-13 |
-| `be-09-copy-and-proof.md` | Landing copy and proof | done | Reviewed 2026-07-26. Strong copy; H1 passes the competitor test. Review fixed a privacy one-liner that contradicted `privacy.html` (omitted the Gemini path), cropped the proof screenshot (a 640×1422 phone shot had stretched row 1 to 800 px and left an orphan grid cell), and added `<picture>` + lazy. Founder note now live (Raviv Shweid, $3,000 private program). Held back: the "13 days to normal cholesterol" result, pending lab values and a no-medication confirmation — see review section |
-| `be-11-landing.md` | Landing page | done | Reviewed 2026-07-26. Logo unboxed, badges are true peers at 166×49, card grid gone. Review capped prose at `--measure` (stacked sections had pushed every line to 115–119ch), finished the inherited link-contrast fix globally (`a` was still `--accent` inside cards), and rebuilt the logo alpha — the flood fill had left white inside enclosed letter counters and 0 % anti-aliasing. Tagline-in-PNG and duplicate wordmark → be-16 |
-| `be-12-help.md` | Help site (10 locales) | done | Reviewed 2026-07-26. Cleanest batch — generator-only scope; hreflang, canonical, RTL and dead-CSS removal all verified. Review localized the language switcher (label and button were `Language / שפה` + `Go` on all ten locales) and dropped the `onchange` that put distant options out of keyboard reach. **Never edit `gen-help-locales.mjs` through a PowerShell text round trip** — it turns the em dash and arrows into mojibake across all 160 pages; see review section. Open: collapse the 15 tiny articles? |
-| `be-13-privacy.md` | Privacy policy page | **done** | Phase B shipped 2026-07-26: summary localized into 9 languages via a JSON island and a single swap, so English stays the only summary in the markup and no-JS / unknown-locale / corrupt-payload all fall back to the policy of record. Website-only — the app never links to `privacy.html` (the wizard's privacy link goes to the `quick-start-welcome` help article), so `navigator.language` covers the real entry point, which is the Play Store listing. Cache tokens moved to forward-only `20260726d`. Phase A, reviewed and accepted the same day: anchors, TOC, doc-date, two terminology fixes, unified `?v=20260726be13` + help regen, landing → `#clinic-sharing`. Review added `scroll-margin-top` — every anchor landed its heading flush at `top: 0` with ascenders clipped, which matters because the app opens `#clinic-sharing` at the moment of consent — and made the TOC padding logical. Cache tokens now need a rule: the token moved *backwards* (be16 → be13), so `be11` and `be16` are burned; see the `CSS_VER` comment in the generator. `privacy-390.png` in the evidence folder is a clamped-window crop and falsely shows overflow — measured 0px at every width, use `opus-privacy-390.png`. Coordinate with be-15 on `#deletion` |
-| `be-14-patient-workspace.md` | Clinic patient workspace | **done** | Reviewed 2026-07-26. Identity from `/v1/shares` matched on `patientId` (never in the URL) + `Patient · {short id}` fallback + per-tab `document.title`; sticky `.ws-chrome` wrapping topbar **and** tabs, so no guessed `top` offset; horizontal tab scroll; 720px responsive; loading skeleton. `clinic-workspace.js` untouched, so empty-state copy is byte-identical by construction. Review found the skeleton stayed on screen forever on **both** error paths — a patient who has not opened the app showed "No snapshot yet" over an endless shimmer with `aria-busy` and a stale "Loading snapshot…", which is the most common state in an alpha; the old code hid `#ws-main` there, so the skeleton introduced it. Also added the missing `prefers-reduced-motion` guard (1.2s infinite animation, no guards anywhere in that file), un-serialised identity vs snapshot (two round trips deep for no reason; identity now survives a snapshot 404), and tokenised hardcoded skeleton colours. Cache `20260726e` needed no bump — built but never served. be-15 reuses this renderer |
-| `be-17-snapshot-purge.md` | Make the snapshot purge real | **done** | Shipped and deployed 2026-07-26 (`e4c131a`), server and website together, verified live. Written **and built** by Opus 5 the same day, out of a be-15 re-validation. `privacy.html` tells users that revoking a clinic link "immediately purges" the snapshot, that it sits in "temporary server memory only" and is "not saved in our database". All three are false: the payload is a `BYTEA` column in `sync_blobs`, there is no `DELETE FROM sync_blobs` anywhere in `server/src`, and `nextVersion()` means every version a patient ever uploaded is still there (15 MB cap each, nothing reads below the newest). `revokeShare` sets a status and removes the sponsorship, nothing more. Fix the code rather than the promise, plus one sentence that is false either way. Two of the draft's own instructions were wrong and were corrected while building: `clinic_patient_overlays` is keyed by `patient_id` alone with no `mentor_id`, so it is shared by every linked clinic and must not be deleted per link, and `shares.ts` sits below `sync.ts` in the import graph, so the purge lives in a new leaf module `consent.ts` to keep it inside `revokeShare` without a cycle. Verified against real Postgres 16 via PGlite loaded with `schema.sql` (no local Postgres or Docker here, and production is not a test target for destructive SQL); the harness asserts its statements appear verbatim in the source so it cannot drift. 8/8, including the two-clinic case where revoking one must delete nothing. **Not deployed** — code and reworded page ship together |
-| `be-15-patient-web-account.md` | Patient web account (read-only, consent-gated) | **done** | Shipped 2026-07-26 in three parts (server `web_view_enabled` + `GET /v1/sync/mine/payload`, `/account/` reusing the be-14 renderer read-only, app **My web view** toggle), and verified live with a real snapshot — v91 on enabling, v92 on the next app launch. **Real data found four defects that 41 green fixture checks had not**, and the compression one is the lesson: the harness gzipped its fixture because the field is called `payloadGzipBase64`, but the app uses `pako.deflate`, which emits zlib. The server tries `inflateSync` then `gunzipSync` and pako sniffs the header, so every existing reader already tolerated both and nothing had ever forced the name to be true; a fixture written from the field name instead of from the producer could only ever pass. The page failed on the first real snapshot with a bare `Failed to fetch`. The other three — Lipids telling a patient to press **Refresh snapshot** on the portal header, Profile saying "from patient app snapshot", Labs printing a raw ISO timestamp and a Flag column of `unknown` — all sit in paths the fixture never rendered, and two of them were pre-existing clinic-portal bugs that only became unacceptable on the patient's own page. Both scans were then rewritten to be word-level and whole-file and re-run against the live page. Chose self-sharing over reusing cloud backup: `sync_blobs` is one row per patient, so a patient with a clinic pays nothing extra, and the purge already counts consumers. Purge is split by reader — clinic overlay dies with the last clinic link, the snapshot survives while either reader exists. Enabling is app-only (the app can enable and upload in one gesture); disabling works anywhere because it only reduces exposure. No pako on `/account/`: native `DecompressionStream`, zero off-origin requests verified live. Open: the two privacy policy sentences below, account deletion, invite email. Original plan: ship Part 1 → 2 → 3. Re-validated 2026-07-26: its purge bullets are built on a purge that does not exist, so they moved to be-17; afterwards be-15 only widens "consumer" in one function. Three claims went stale under later batches (privacy contact is now `support@`, be-16 already shipped a site nav, be-14's responsive work is done). The `readOnly` flag is easier than the draft assumed — `clinic-workspace.js` makes no calls of its own, and all three clinic endpoints sit in just two of the eight tabs, so dropping `chat` and `rules` from `initTabs` removes them at once; Sponsor AI and Refresh are page-shell, not renderer. Remaining real work: third-person clinic copy that reads wrong on a patient's own page |
-| `be-18-privacy-claims-audit.md` | Privacy policy claims audit | **Part A done** | Written and built by Opus 5 on 2026-07-26, immediately after be-17 deployed. be-17 fixed the one false paragraph it happened to be pointed at; nobody had ever diffed the whole document against the code. Nine more claims were wrong. Two are affirmative denials: the policy says "we do **not** upload this health data to our server" while `user_cloud_backups` holds the full opt-in backup **plus** the previous copy, and the word "cloud" appears nowhere on the page; and Gemini is described as receiving context "from your device" while `geminiClinic.ts` posts a `PATIENT DATA:` block built from the stored snapshot whenever a *clinician* opens chat — the patient's data reaches Google through someone else's action. "What we collect on our server" listed 3 things against 14 tables, omitting Stripe identifiers and card last4, wallet ledger, and a per-patient AI usage log kept indefinitely. Permissions listed 3 of ~15; Health Connect reads five record types, not one; Apple Health was absent entirely. Part A (policy text, all ten languages) is built and **not deployed**. Part B is app and server work needing a build and phone test: drop the unused `RECORD_AUDIO` that `expo-image-picker` adds, decide whether `SYSTEM_ALERT_WINDOW` belongs in a release manifest, and set a retention policy. **The Health Connect `Distance` read is closed and off-limits** — owner has phone-tested the steps-only kcal path and confirmed it; the calorie code is not to be touched, not even for a behaviour-neutral cleanup. Part B shrinks what Part A has to disclose, so expect a second smaller policy edit after it |
-| `be-19-account-deletion.md` | Account deletion | **done** | Written and built by Opus 5 on 2026-07-26, out of a be-15 follow-up. `privacy.html` promised deletion by emailing support, and no `DELETE /v1/account` existed anywhere in `server/src` — the promise was the owner, by hand. Play also wants a URL, not a mailto, which be-15 made possible by putting the patient on a signed-in page. Reading `schema.sql` end to end rather than trusting "everything cascades" found two rows no cascade reaches: `otp_requests` has **no foreign key at all** and is keyed by email, and `account_shares.patient_id` is nullable, so a clinic invitation created before signup keeps the address and stays approvable against a deleted account. The bug that mattered more is a departing **mentor**: the cascade drops the share row but cannot run be-17's purge, so every patient whose last clinic link was that mentor would keep an overlay and a snapshot with no reader — the rule lives in application code, not in the schema. Affected patients are therefore collected before the delete and purged after the commit, and be-15's split still holds (web view on ⇒ overlay dies, snapshot survives). The probe caught a live bug: an invalid code returned 401, and `clinic-api.js` reads any 401 as an expired token, tries a refresh and clears the session — so a typo signed the user out. Now 422, matching `sync.ts`'s use for a failed precondition. The deletion email got its own copy, because "if you did not request this, ignore this email" is exactly the wrong advice when someone else is deleting your account. Four `SET NULL` columns are deliberately left alone and the policy now discloses them: each keeps *someone else's* record (a patient's clinic rules, a billing ledger) with the departing identity removed. 28 PGlite checks + 21 source assertions + 77 browser checks. App: Profile → Account → **Delete account** opens `/account/` (OTP on the web); phone-tested 2026-07-26. Gate copy: sign-in/offline titled **Your account**, deletion named without requiring web view |
-| `be-20-mentor-invite-email.md` | Mentor invite email | **done** | Clinic invite wrote a share row and sent nothing — OTP was the only mail in `email.ts`. Now `invitePatient` emails after insert (soft-fail SMTP, `emailSent` on the response), portal warns if mail failed, privacy discloses invitation mail. No deep link; accept stays in the app. 10 source assertions |
-| `be-21-portal-action-feedback.md` | Clinic portal action feedback + sponsorship time left | **done** | Two owner reports on the live portal, 2026-07-26. Sponsorship showed an end date and never the time remaining — `approved · AI sponsor until 10/24/2026`, a US-format number the clinician had to subtract from today; `expiresAt` and `active` were already on the response and unused. And **no action button reported anything**: `act()` awaited, called `refreshDashboard()`, and the row silently changed — no busy state, no success message ever, and errors rendered in `#app-error` at the page bottom, off-screen from the button that failed. Sponsorship days came from a `window.prompt` where a typo silently became 90. Now a chip carrying `45 days left` / `3 days left` (amber ≤ 7) / `ended 5 days ago` / `AI not sponsored` with the date in the `title`, `daysUntil()` compared at local midnight so "tomorrow" cannot read as "today", an expired row offering **Renew** rather than a fresh start, and the chip suppressed on pending rows where sponsorship is meaningless. Feedback is `withBusy()` (present-tense label, `aria-busy`, whole group disabled — the probe asserts a second click during flight sends **zero** extra requests) plus one sticky `aria-live` `#app-flash` placed **outside** the three lists, which is what lets a confirmation survive the re-render; set after the refresh for the same reason. Confirmations state consequences the row cannot show afterwards — revoke names be-17's purge, sponsor-off names who pays next. `window.prompt` replaced by an inline 30/60/90/180/365 picker with a live end date; `window.confirm` deliberately kept for the two destructive actions. `.share-row` went to `column` — `space-between` + `flex-wrap` had made the action group start at a different x for every patient. 57/57 in headless Chrome against the real page. Two probe lessons: the tap-target check first failed on **hidden** login buttons at 0px, so the assertion was wrong rather than the page; and the ragged rows were caught in a screenshot, not by any assertion. **The page still has not received be-10 or be-16** — hardcoded hex, no dark mode, eight identical cards in one column, "Attach test card (alpha)" and raw token counts in front of clinicians, and `Revoke access` as the loudest control on the row. That is a visual rebuild draft, not feedback wiring; new CSS here follows the file's existing hardcoded convention rather than half-migrating it |
-| `be-22-clinic-portal-visual.md` | Clinic portal visual rebuild (2026 level) | **ready** | Written 2026-07-26 straight after be-21 deployed, answering the owner's "does this look professional for a clinic product 2026" with no. be-21 proved it is not a feedback problem; the measurement is that the portal **never received the design system** — `clinic/index.html` has **0** `var(--…)` and **36** hardcoded hex, against 135/59 in `clinic-workspace.css` and full adoption on the landing page. `tokens.css` already says why in its own comment: dark is opt-in *because* the portal "still carr[ies] hardcoded light surfaces — flipping tokens globally would darken a clinician tool that nobody has checked". This batch is that check. Worst offender first and cheapest to fix: **alpha billing scaffolding is on screen for clinicians** — "Attach test card (alpha)", "Manual token pack", "Usage debits payer credits (Stripe later)" next to a payment control. Owner chose to gate them behind a dev flag rather than delete (they are still needed for alpha testing) and show the balance only. Then tokens + `theme-auto`, two-column layout with **patients first** instead of eight equal cards ending on the actual job, a quiet Revoke (solid red currently outweighs `Open workspace`, the all-day action), be-14's skeleton with its error-path lesson, empty states that name a next action, and a filter at ≥ 8 patients. The unit-copy decision was **reversed the same day on evidence**: the first draft said rename "tokens" to "credits", until `config.ts` showed **"credit" is already taken and means money** — `TOKEN_PACK_SIZE: 100` for `TOKEN_PACK_PRICE_CENTS: 500`, with the config's own comment reading "Starter AI credit per account ($ pack mapped to tokens)". A credit is the $5 pack, a token is the metered unit, and conflating them would make the section title ambiguous between dollars and consumption while putting the UI into a second vocabulary for what `wallet_ledger` and the eventual Stripe invoice quantity both record as tokens. The real defect in "Balance: 120 tokens" was never the noun — it is the **missing denominator**. So: keep tokens, lead with money (1 token = $0.05, so `$6.00` headline, token count secondary, `Intl.NumberFormat`, worded as capacity held rather than a charge), and put work-per-token in the usage section where `totalTokens / eventCount` makes "≈ 12 coach conversations" computable. Costs one additive `WalletView` field (`tokenPackPriceCents` + `currency`) because the rate is configuration and must not be hardcoded in the page — which overrides the draft's own "no endpoint changes" line. Spacing settled on principle: **inherit colour/type/radius/shadow tokens, define a portal-local spacing scale** — tokens are brand primitives and must be consistent, density is a per-surface decision, and `--tap-min: 44px` is an accessibility floor that outranks it. Explicit **must-not-regress** list with be-21's `probe-portal.mjs` as a **gate at 57/57, not a historical record**: the trap is that `#app-flash` works only because it sits *outside* the three lists and is set *after* `refreshDashboard()`, so a layout reorganization can silently kill every confirmation. `patient.html` deliberately excluded — 59 hex of its own, and mixing it in makes the diff unreviewable. Review questions: whether landing-page spacing suits a tool that wants density, whether "credits" is honest if a clinician ever reconciles a bill, whether a sidebar buries the invite form that is how a clinic starts, and whether a quiet Revoke still reads as consequential given be-17's purge |
-| `be-16-landing-visual-direction.md` | Landing visual direction (2026 level) | **needs-review** | Built by Opus directly on 2026-07-26, out of queue order — it is the batch that answers "does not look like a 2026 product", and its own review section says the judgment matters more than the checkboxes. Two-column hero with a real phone, inverted local-first band with an SVG diagram, four section treatments, opt-in dark mode, `IntersectionObserver` entrance. Lighthouse mobile 98 / 100 / 100 / 100. Evidence in `tmp/be-16-review/`. Awaiting owner sign-off in a browser |
+| `be-22-clinic-portal-visual.md` | Clinic portal visual rebuild (2026 level) | **ready** | Last open batch. Depends on be-10 tokens + be-16 direction (both done). be-21's 57/57 probe is the non-regression gate. Gate alpha billing behind `?dev=1`; lead balance with money from pack rate; keep tokens as the metered unit |
 
-## Floor vs ceiling
+## Done
 
-**be-09 and be-16 are the only two batches that change how the site lands on a stranger** — one the
-words, the other the look. The rest fix what is broken. If the pack ships without them, the site will
-be correct, accessible, responsive, and still read as an internal tool.
+See [`done/README.md`](done/README.md) — be-09 through be-21.
 
-be-10 through be-15 fix what is **wrong**: a boxed logo, cropped badges, 120-character lines, 15px
-tap targets, a desktop-only workspace, a missing patient account. Necessary, and none of it makes the
-site look like a 2026 product.
+## Execution history (why the numbers are scrambled)
 
-**be-16 is the only batch that changes how the site looks.** It adds the product imagery, type scale,
-section rhythm, dark mode, and motion that are simply absent today. Expect the visible transformation
-there — and expect the earlier batches to make it far cheaper to build.
+File numbers are chronological discovery order, not the only run order. What actually mattered:
 
-## Decisions (settled 2026-07-25 — no open questions for Auto)
-
-| Question | Decision | Where |
-|---|---|---|
-| Landing copy: repo or live? | **Repo.** Live is one deploy behind `61e76a2`; deploying applies the intended H1 | `be-11` |
-| Consolidate 15 help articles into one page per locale? | **No.** Saves nothing on translation, breaks deep links from shipped app builds | `be-12` |
-| Localize the privacy policy? | **Summary only**, full policy stays English | `be-13` |
-
-## Deploy note
-
-The site is stale — the VPS has not pulled since `61e76a2` (2026-07-24). Deploy is
-`git pull --ff-only` then `bash server/scripts/deploy-website.sh` on the VPS
-(`server/DEPLOY-WEBSITE.md`). Deploy is human-owned.
+| Batch | Why it sat where it did |
+|---|---|
+| **be-10** before cosmetics | Tokens consumed by everything later |
+| **be-09** after be-10 despite the number | Added mid-flight; copy must land before be-11 / be-16 |
+| **be-17 / be-18** before be-15 | Policy and purge promises had to be true before the patient account page |
+| **be-16** pulled forward | Owner's standing “does not look 2026” complaint; only needed be-10 + be-11 |
+| **be-22** last | Repaints the portal be-21 just rewired; correctness before cosmetics |
 
 ## Status values
 
-| Status | Meaning |
-|--------|---------|
-| `ready` | Auto may implement |
-| `in_progress` | Auto working |
-| `needs-review` | Acceptance criteria pass; waiting on the Opus design review |
-| `done` | Reviewed and accepted; leave as record |
-| `blocked` | Needs human decision |
+| Status | Meaning | Location |
+|--------|---------|----------|
+| `ready` | Auto may implement | this folder |
+| `in_progress` | Auto working | this folder |
+| `needs-review` | Waiting on design / owner review | this folder |
+| `blocked` | Needs human decision | this folder |
+| `done` | Accepted; record only | `done/` |
 
 ## Review loop (Opus ↔ Auto)
 
-Every draft ends with a **Review by Opus 5** section. Those items are judgment calls that a checkbox
-cannot settle — whether the logo reads as intentional, whether a consent toggle carries the right
-weight, whether a fix hit its own failure mode.
-
 ```
 Opus writes draft → Auto implements → Auto sets needs-review + attaches evidence
-   → Opus reviews → accepted (done) or a follow-up draft
+   → Opus / owner reviews → accepted (move to done/) or a follow-up draft
 ```
 
-**Auto must not mark a batch `done` on its own.** Set `needs-review`, attach the evidence the draft
-asks for, and stop. If the review finds something, it becomes a new numbered draft rather than an
-edit to the finished one, so the record of what shipped stays accurate.
+**Auto must not mark a batch `done` on its own.** Set `needs-review`, attach the evidence the draft asks for, and stop. Owner acceptance (e.g. “looks ok”, “lgtm”, “works”) is what moves it to `done/`.
 
-Screenshots go wherever is convenient and get referenced by path in the review handoff — they are
-throwaway evidence, not repo assets.
+## Deploy
+
+Human-owned. `git pull --ff-only` then `bash server/scripts/deploy-website.sh` on the VPS — see `server/DEPLOY-WEBSITE.md`. Verify a deploy by checking the cache token on a live page rather than trusting the script's exit code.
 
 ## Auto kickoff (paste)
 
 ```
-Implement the drafts in prompts/backend/opus5/drafts/ following the Execution order
-table in that folder's README. Start with be-10 and stop after it so I can verify
-before you continue.
+Implement ready drafts in prompts/backend/opus5/drafts/ (not drafts/done/).
+Start with be-22.
 
 Rules:
 - Follow each file's paths, design rules, and acceptance criteria exactly.
 - Do not redesign beyond the draft, and do not touch files it lists as off-limits.
 - Mark Status: in_progress when you start. When the acceptance criteria pass, set
-  Status: needs-review, attach the evidence its "Review by Opus 5" section asks
-  for, and stop. Do not mark anything done yourself.
+  Status: needs-review, attach the evidence its review section asks for, and stop.
+  Do not mark anything done yourself — wait for owner sign-off, then move to done/.
 - Never hand-edit generated help HTML — change the generator and regenerate.
-- Do not commit or deploy. Both are human-owned.
+- Do not commit or deploy unless asked.
 ```

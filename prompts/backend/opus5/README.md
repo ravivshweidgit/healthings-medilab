@@ -5,8 +5,8 @@
 
 This pack is the ordered briefing for a full Healthings.ai website UI/UX review.
 Opus follows the numbered files in order, writes findings, then drops **implementation
-prompts** into `drafts/`. You then switch to Auto and say: *implement the drafts in
-`prompts/backend/opus5/drafts/`*.
+prompts** into `drafts/`. Accepted batches move to `drafts/done/`. You then switch to Auto
+and say: *implement the ready drafts in `prompts/backend/opus5/drafts/`* (not `done/`).
 
 | Step | Model | What |
 |------|-------|------|
@@ -37,9 +37,9 @@ Stop when 06 is complete and drafts are ready for Auto.
 ## Tell Auto later (paste this)
 
 ```
-Implement the approved drafts in prompts/backend/opus5/drafts/ (status: ready).
+Implement the approved drafts in prompts/backend/opus5/drafts/ (status: ready; ignore drafts/done/).
 Follow each draft’s files + acceptance criteria. Do not redesign beyond the draft.
-When a draft ships, mark its status done in the draft file header.
+When the owner accepts a shipped draft, move it to drafts/done/ and add a line in done/README.md.
 ```
 
 ---

@@ -1,6 +1,6 @@
 # be-16 — Landing visual direction (2026 level)
 
-**Status:** needs-review — implemented 2026-07-26, awaiting owner sign-off in a real browser
+**Status:** done — owner signed off 2026-07-26 (“it looks ok”)
 **Model to implement:** Opus 5 (built it directly; see "What shipped")
 **Authored by:** Opus 5 (website UX pack)
 **Findings:** W23 (no product imagery), W24 (card monotony), W25 (timid type scale), W26 (differentiator buried), W27 (no dark mode on web), W28 (no motion)

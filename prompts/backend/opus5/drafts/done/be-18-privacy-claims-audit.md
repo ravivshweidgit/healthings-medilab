@@ -1,6 +1,6 @@
 # be-18 — Privacy policy claims audit: make every sentence true
 
-**Status:** Part A done (website only, not deployed) · Part B open
+**Status:** done — Part A (policy claims) + Part B (drop unused `SYSTEM_ALERT_WINDOW`, retention section on `privacy.html`). Phone-tested and deployed 2026-07-26 (`578146c`). Storage permissions left alone (minSdk 26 still needs them for meal photos).
 **Authored by:** Opus 5
 **Findings:** 2026-07-26, after be-17 showed the policy had never been diffed against the code
 **Depends on:** be-17 (shipped). **Blocks be-15**, which rewrites `#deletion` and adds a patient data page.
