@@ -7,7 +7,7 @@
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="../styles.css?v=20260726g" />
-    <link rel="stylesheet" href="clinic-portal.css?v=20260727c" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260727d" />
   </head>
   <body>
     <div class="portal-wrap">
@@ -190,9 +190,9 @@
                     </button>
                   </div>
                 </th>
-                <th scope="col" data-i18n="colSync">Sync</th>
-                <th scope="col" data-i18n="colSponsor">Sponsor</th>
-                <th scope="col" data-i18n="colActions">Actions</th>
+                <th scope="col" class="col-sync" data-i18n="colSync">Sync</th>
+                <th scope="col" class="col-sponsor" data-i18n="colSponsor">Sponsor</th>
+                <th scope="col" class="col-actions" data-i18n="colActions">Actions</th>
               </tr>
             </thead>
             <tbody id="worklist-skeleton" class="worklist-skeleton" aria-busy="true" hidden>
@@ -760,6 +760,7 @@
           if (displayName) {
             nameLine.dir = 'auto';
             nameLine.textContent = displayName;
+            nameLine.title = displayName;
           } else {
             nameLine.textContent = '—';
           }
@@ -780,6 +781,7 @@
           // which looks like corruption. Hebrew glyphs still shape RTL inside the run.
           tdEmail.dir = 'ltr';
           tdEmail.textContent = share.patientEmail || '—';
+          if (share.patientEmail) tdEmail.title = share.patientEmail;
 
           const tdSync = document.createElement('td');
           tdSync.className = 'sync-cell';
@@ -788,6 +790,7 @@
           if (share.lastSyncAt) tdSync.title = formatExpiry(share.lastSyncAt);
 
           const tdSp = document.createElement('td');
+          tdSp.className = 'sponsor-cell';
           tdSp.dataset.label = t('colSponsor');
           if (share.status === 'approved' && share.patientId) tdSp.appendChild(sponsorChip(sp));
           else tdSp.textContent = '—';

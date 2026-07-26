@@ -136,25 +136,30 @@ summary:focus-visible {
 
 .row-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-wrap: nowrap;
+  gap: 5px;
   align-items: center;
-  max-width: 14.5rem;
+  justify-content: flex-end;
 }
 .row-actions .portal-btn {
   margin-top: 0;
   margin-left: 0;
-  padding: 5px 9px;
-  font-size: 12px;
+  padding: 4px 8px;
+  font-size: 11px;
   font-weight: 600;
-  min-height: 32px;
+  min-height: 30px;
   border-radius: 6px;
   white-space: nowrap;
   line-height: 1.2;
 }
 .worklist-table td.actions-cell {
-  width: 1%;
   white-space: nowrap;
+  text-align: end;
+}
+.sponsor-form.row-actions {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  max-width: none;
 }
 .sponsor-form {
   display: flex;
@@ -370,18 +375,20 @@ summary:focus-visible {
   margin-inline-start: auto;
 }
 
-/* Table */
+/* Table — fixed layout so Name stays compact; Email + Actions take the rest */
 .worklist-panel {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow-x: auto;
   background: var(--surface);
   margin-bottom: 20px;
   box-shadow: var(--shadow-sm);
 }
 .worklist-table {
   width: 100%;
+  min-width: 720px;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 .worklist-table th {
   text-align: start;
@@ -389,7 +396,7 @@ summary:focus-visible {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);
-  padding: 10px 14px;
+  padding: 8px 10px;
   background: var(--surface-2);
   border-bottom: 1px solid var(--line);
   font-weight: 700;
@@ -397,25 +404,46 @@ summary:focus-visible {
 }
 .worklist-table th .col-head-label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
+}
+.worklist-table th.col-name {
+  width: 15%;
+}
+.worklist-table th.col-email {
+  width: 28%;
+}
+.worklist-table th.col-sync {
+  width: 7%;
+}
+.worklist-table th.col-sponsor {
+  width: 18%;
+}
+.worklist-table th.col-actions {
+  width: 32%;
+  text-align: end;
 }
 .worklist-table td {
-  padding: 12px 14px;
+  padding: 10px;
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 .worklist-table tr:last-child td {
   border-bottom: none;
 }
 .worklist-table .name-cell .name-primary {
   font-weight: 600;
-  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .worklist-table .email-cell {
   font-weight: 500;
-  word-break: break-word;
+  font-size: 0.84rem;
   font-variant-ligatures: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .worklist-table .sync-cell {
   font-size: 0.78rem;
@@ -427,6 +455,11 @@ summary:focus-visible {
 html[lang]:not([lang='en']) .worklist-table .sync-cell {
   font-size: 0.72rem;
   letter-spacing: -0.01em;
+}
+.worklist-table .sponsor-cell .chip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Modern column filters — compact search + clear × */
@@ -441,18 +474,21 @@ html[lang]:not([lang='en']) .worklist-table .sync-cell {
 }
 .ux-filter-input {
   width: 100%;
-  min-width: 9rem;
+  min-width: 0;
   box-sizing: border-box;
   margin: 0;
-  padding: 7px 30px 7px 10px;
+  padding: 6px 28px 6px 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   line-height: 1.3;
-  min-height: 34px;
+  min-height: 32px;
+}
+.worklist-table th.col-name .ux-filter-input {
+  max-width: 100%;
 }
 .ux-filter-input::placeholder {
   color: var(--muted);
@@ -628,8 +664,25 @@ html[dir='rtl'] .ux-filter-input {
     font-weight: 700;
     margin-bottom: 2px;
   }
+  .worklist-table {
+    min-width: 0;
+    table-layout: auto;
+  }
   .worklist-table .ux-filter-input {
     min-width: 0;
+  }
+  .worklist-table td.actions-cell {
+    text-align: start;
+  }
+  .row-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  .worklist-table .name-cell .name-primary,
+  .worklist-table .email-cell {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
   }
   .panel-header-meta {
     margin-inline-start: 0;
