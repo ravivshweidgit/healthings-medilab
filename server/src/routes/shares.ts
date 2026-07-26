@@ -24,8 +24,8 @@ export async function registerShareRoutes(app: FastifyInstance) {
     const user = await findUserById(request.userId!);
     if (!user) return reply.code(404).send({ error: 'User not found' });
     try {
-      const share = await invitePatient(user, body.patientEmail);
-      return { share };
+      const { share, emailSent } = await invitePatient(user, body.patientEmail);
+      return { share, emailSent };
     } catch (err) {
       if (err instanceof ShareError) {
         return reply.code(err.status).send({ error: err.message });

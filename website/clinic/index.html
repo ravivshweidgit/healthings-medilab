@@ -524,8 +524,15 @@
             showError(appErrorEl(), (await res.json().catch(() => ({}))).error || 'Invite failed');
             return;
           }
+          const data = await res.json().catch(() => ({}));
           document.getElementById('patient-email').value = '';
           await refreshDashboard();
+          if (data && data.emailSent === false) {
+            showError(
+              appErrorEl(),
+              'Invite saved, but the email could not be sent. Ask the patient to sign in to the app and check pending clinic invites, or try again later.',
+            );
+          }
         } catch (e) {
           showError(appErrorEl(), e instanceof Error ? e.message : 'Invite failed');
         }

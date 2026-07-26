@@ -3,6 +3,7 @@ import type { PublicUser, UserRole } from './jwt.js';
 import { findUserByEmail } from './users.js';
 import { removeSponsorshipForMentor } from './sponsorships.js';
 import { purgeClinicDataIfNoConsumers, purgeClinicLinkData } from './consent.js';
+import { sendClinicInviteEmail } from './email.js';
 
 export type ShareStatus = 'pending' | 'approved' | 'rejected' | 'revoked';
 export type ShareInitiator = 'patient' | 'mentor';
@@ -130,7 +131,10 @@ export async function attachPendingShares(patientEmail: string, patientId: strin
   return rowCount ?? 0;
 }
 
-export async function invitePatient(mentor: PublicUser, patientEmailRaw: string): Promise<PublicShare> {
+export async function invitePatient(
+  mentor: PublicUser,
+  patientEmailRaw: string,
+): Promise<{ share: PublicShare; emailSent: boolean }> {
   assertRole(mentor, 'mentor');
   const patientEmail = normalizeEmail(patientEmailRaw);
   if (normalizeEmail(mentor.email) === patientEmail) {
@@ -156,7 +160,27 @@ export async function invitePatient(mentor: PublicUser, patientEmailRaw: string)
 
   const inserted = await getShareRow(rows[0].id);
   if (!inserted) throw new ShareError('Failed to create share', 500);
-  return toPublicShare(inserted);
+  const share = toPublicShare(inserted);
+
+  // Invite is already on the server. Email is a courtesy — SMTP must not undo it,
+  // or a brief mail outage would leave the clinic thinking the invite failed while
+  // a pending row (and orphaned email address) already exists.
+  let emailSent = false;
+  try {
+    await sendClinicInviteEmail(patientEmail, {
+      clinicLabel: mentor.displayName?.trim() || mentor.email,
+      clinicEmail: mentor.email,
+    });
+    emailSent = true;
+  } catch (err) {
+    console.error('[shares] invite email failed after insert', {
+      shareId: share.id,
+      patientEmail,
+      err,
+    });
+  }
+
+  return { share, emailSent };
 }
 
 export async function requestMentor(patient: PublicUser, mentorEmailRaw: string): Promise<PublicShare> {

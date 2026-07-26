@@ -9,6 +9,14 @@ export class OtpEmailSendError extends Error {
   }
 }
 
+export class InviteEmailSendError extends Error {
+  constructor(cause?: unknown) {
+    super('Could not send the invite email');
+    this.name = 'InviteEmailSendError';
+    this.cause = cause;
+  }
+}
+
 /**
  * What the code authorizes. A deletion code must never arrive worded as a
  * sign-in code: this email is the only out-of-band channel the real owner has,
@@ -38,16 +46,11 @@ const OTP_COPY: Record<OtpPurpose, { subject: string; body: (code: string) => st
   },
 };
 
-export async function sendOtpEmail(
-  email: string,
-  code: string,
-  purpose: OtpPurpose = 'sign-in',
-): Promise<void> {
-  const { subject, body } = OTP_COPY[purpose];
-  const text = body(code);
+type MailPayload = { to: string; subject: string; text: string; logTag: string };
 
+async function deliverMail(payload: MailPayload): Promise<void> {
   if (config.SMTP_MODE === 'console') {
-    console.log(`[OTP] ${email} → ${code}`);
+    console.log(`[${payload.logTag}] ${payload.to} → ${payload.subject}\n${payload.text}`);
     return;
   }
 
@@ -69,16 +72,64 @@ export async function sendOtpEmail(
     socketTimeout: 15_000,
   });
 
+  await transport.sendMail({
+    from: config.MAIL_FROM,
+    to: payload.to,
+    subject: payload.subject,
+    text: payload.text,
+  });
+}
+
+export async function sendOtpEmail(
+  email: string,
+  code: string,
+  purpose: OtpPurpose = 'sign-in',
+): Promise<void> {
+  const { subject, body } = OTP_COPY[purpose];
   try {
-    await transport.sendMail({
-      from: config.MAIL_FROM,
+    await deliverMail({
       to: email,
       subject,
-      text,
+      text: body(code),
+      logTag: purpose === 'account-deletion' ? 'OTP-delete' : 'OTP',
     });
   } catch (err) {
     // Never log `code` here. It is a live credential and the journal outlives it.
     console.error('[OTP email failed]', { email, err });
     throw new OtpEmailSendError(err);
+  }
+}
+
+export type ClinicInviteMail = {
+  /** Clinic label shown to the patient — display name, else their email. */
+  clinicLabel: string;
+  clinicEmail: string;
+};
+
+/**
+ * Notifies the patient that a clinic invited them. Does not carry secrets —
+ * accepting happens in the app after they sign in with this address.
+ */
+export async function sendClinicInviteEmail(
+  patientEmail: string,
+  invite: ClinicInviteMail,
+): Promise<void> {
+  const subject = `${invite.clinicLabel} invited you on Healthings`;
+  const text =
+    `${invite.clinicLabel} (${invite.clinicEmail}) invited you to share your Healthings ` +
+    `data with their clinic.\n\n` +
+    `Nothing is shared until you approve in the app:\n` +
+    `1. Install Healthings from https://healthings.ai if you do not have it yet\n` +
+    `2. Sign in with this email address (${patientEmail})\n` +
+    `3. Open Profile → Clinic link and approve the invite\n\n` +
+    `If you do not want to share, ignore this email or open the app and decline. ` +
+    `No health data leaves your phone until you approve.\n\n` +
+    `— Healthings`;
+
+  try {
+    await deliverMail({ to: patientEmail, subject, text, logTag: 'invite' });
+  } catch (err) {
+    console.error('[invite email failed]', { email: patientEmail, err });
+    throw new InviteEmailSendError(err);
   }
 }
