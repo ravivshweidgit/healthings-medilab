@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
 import { query } from '../db/pool.js';
 import type { PublicUser } from './jwt.js';
+import { inflateSync } from 'node:zlib';
 import {
   canOverwriteCloudBackup,
+  fingerprintFromBackupPayload,
   type BackupFingerprint,
 } from '../logic/backupFingerprint.js';
 
@@ -48,9 +50,34 @@ function parseFingerprint(raw: unknown): BackupFingerprint | null {
     latestDay: f.latestDay ?? null,
     mealDays: f.mealDays,
     glucosePoints: f.glucosePoints ?? 0,
+    heartRatePoints: typeof f.heartRatePoints === 'number' ? f.heartRatePoints : 0,
+    hrEarliestDay: f.hrEarliestDay ?? null,
     keyCount: f.keyCount ?? 0,
     byteSize: f.byteSize,
   };
+}
+
+/** Prefer recomputing from payload so legacy fingerprints missing HR still protect it. */
+function cloudFingerprintForGuard(row: BackupRow): BackupFingerprint {
+  try {
+    const payload = JSON.parse(inflateSync(row.payload_gzip).toString('utf8')) as {
+      asyncStorage?: Record<string, string>;
+    };
+    return fingerprintFromBackupPayload(payload, row.byte_size);
+  } catch {
+    return (
+      parseFingerprint(row.fingerprint) ?? {
+        earliestDay: null,
+        latestDay: null,
+        mealDays: 0,
+        glucosePoints: 0,
+        heartRatePoints: 0,
+        hrEarliestDay: null,
+        keyCount: 0,
+        byteSize: row.byte_size,
+      }
+    );
+  }
 }
 
 export async function getCloudBackupStatus(user: PublicUser): Promise<CloudBackupStatus> {
@@ -101,7 +128,13 @@ export async function upsertCloudBackup(
   }
 
   const fp: BackupFingerprint = {
-    ...fingerprint,
+    earliestDay: fingerprint.earliestDay ?? null,
+    latestDay: fingerprint.latestDay ?? null,
+    mealDays: fingerprint.mealDays,
+    glucosePoints: fingerprint.glucosePoints ?? 0,
+    heartRatePoints: fingerprint.heartRatePoints ?? 0,
+    hrEarliestDay: fingerprint.hrEarliestDay ?? null,
+    keyCount: fingerprint.keyCount ?? 0,
     byteSize: payloadGzip.length,
   };
 
@@ -116,14 +149,7 @@ export async function upsertCloudBackup(
   );
   const current = existing[0];
   if (current && !force) {
-    const cloudFp = parseFingerprint(current.fingerprint) ?? {
-      earliestDay: null,
-      latestDay: null,
-      mealDays: 0,
-      glucosePoints: 0,
-      keyCount: 0,
-      byteSize: current.byte_size,
-    };
+    const cloudFp = cloudFingerprintForGuard(current);
     const decision = canOverwriteCloudBackup(fp, cloudFp);
     if (!decision.ok) {
       throw new CloudBackupError(decision.reason, 409);

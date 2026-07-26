@@ -1623,7 +1623,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       if (result.type === 'success' && result.url) {
         await handleOAuthCallback(result.url);
         await refreshWithingsLinkState();
-        // First link: deep history pull (HR 60d / workouts 128d).
+        // First link: deep history pull (HR 128d / workouts 128d).
         await syncWithings({ deep: true });
       }
     } catch (err) {

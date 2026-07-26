@@ -7,6 +7,10 @@ export type BackupFingerprint = {
   latestDay: string | null;
   mealDays: number;
   glucosePoints: number;
+  /** Intraday HR samples in metricsStore (Withings / phone health). */
+  heartRatePoints: number;
+  /** Earliest local calendar day that has an HR sample, if any. */
+  hrEarliestDay: string | null;
   keyCount: number;
   byteSize: number;
 };
@@ -45,6 +49,26 @@ function daysFromWithingsStore(raw: string | undefined, days: string[]) {
     pushDay(days, store.bodyScan?.measuredAt?.slice(0, 10));
   } catch {
     /* ignore */
+  }
+}
+
+function heartRateFromMetricsStore(raw: string | undefined): {
+  heartRatePoints: number;
+  hrEarliestDay: string | null;
+} {
+  if (!raw) return { heartRatePoints: 0, hrEarliestDay: null };
+  try {
+    const store = JSON.parse(raw) as { heartRate?: Array<{ timestamp?: string }> };
+    const hr = store.heartRate ?? [];
+    const hrDays: string[] = [];
+    for (const p of hr) pushDay(hrDays, p.timestamp?.slice(0, 10));
+    hrDays.sort();
+    return {
+      heartRatePoints: hr.length,
+      hrEarliestDay: hrDays[0] ?? null,
+    };
+  } catch {
+    return { heartRatePoints: 0, hrEarliestDay: null };
   }
 }
 
@@ -92,10 +116,10 @@ export function fingerprintFromBackupPayload(
     if (chat) pushDay(days, chat[1]);
   }
 
-  daysFromWithingsStore(
-    asyncStorage['healthings:metricsStore'] ?? asyncStorage['healthings:withingsStore'],
-    days,
-  );
+  const metricsRaw =
+    asyncStorage['healthings:metricsStore'] ?? asyncStorage['healthings:withingsStore'];
+  daysFromWithingsStore(metricsRaw, days);
+  const { heartRatePoints, hrEarliestDay } = heartRateFromMetricsStore(metricsRaw);
   const glucosePoints = daysFromCgm(asyncStorage['healthings:lastMetrics'], days);
   daysFromManualBody(asyncStorage['manual_body_history_v1'], days);
   pushDay(days, measuredAtDay(asyncStorage['manual_body_v1']));
@@ -106,6 +130,8 @@ export function fingerprintFromBackupPayload(
     latestDay: days.length ? days[days.length - 1]! : null,
     mealDays,
     glucosePoints,
+    heartRatePoints,
+    hrEarliestDay,
     keyCount: Object.keys(asyncStorage).length,
     byteSize,
   };
@@ -158,6 +184,27 @@ export function canOverwriteCloudBackup(
     return {
       ok: false,
       reason: `Cloud has ${cloud.mealDays} meal days; this phone has ${phone.mealDays}. Never overwrite with fewer meals — restore or force replace if intentional.`,
+    };
+  }
+
+  if (phone.heartRatePoints < cloud.heartRatePoints) {
+    return {
+      ok: false,
+      reason: `Cloud has ${cloud.heartRatePoints} heart-rate samples; this phone has ${phone.heartRatePoints}. Never overwrite with less HR — restore or force replace if intentional.`,
+    };
+  }
+
+  if (cloud.hrEarliestDay && phone.hrEarliestDay) {
+    if (phone.hrEarliestDay > cloud.hrEarliestDay) {
+      return {
+        ok: false,
+        reason: `Cloud heart-rate history starts ${cloud.hrEarliestDay}; this phone starts ${phone.hrEarliestDay}. Restore or force replace if intentional.`,
+      };
+    }
+  } else if (cloud.hrEarliestDay && !phone.hrEarliestDay && cloud.heartRatePoints > 0) {
+    return {
+      ok: false,
+      reason: 'Cloud has heart-rate history; this phone has none. Restore or force replace if intentional.',
     };
   }
 

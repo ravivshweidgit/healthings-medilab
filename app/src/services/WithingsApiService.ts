@@ -972,8 +972,8 @@ export type WithingsIntradayTodayFetch = WithingsIntradayData & {
   apiError: string | null;
 };
 
-/** Deep history lookback for HR + intraday calories (on-demand / first link). */
-export const WITHINGS_HR_DEEP_LOOKBACK_DAYS = 60;
+/** Deep history pull for HR + intraday calories (first link / explicit deep). Matches workout depth. */
+export const WITHINGS_HR_DEEP_LOOKBACK_DAYS = 128;
 /** Routine sync: yesterday + today only — persistence already holds older days. */
 export const WITHINGS_SHALLOW_LOOKBACK_DAYS = 2;
 /** @deprecated use WITHINGS_HR_DEEP_LOOKBACK_DAYS */

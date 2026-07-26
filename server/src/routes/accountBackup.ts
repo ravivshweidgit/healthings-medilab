@@ -15,6 +15,9 @@ const fingerprintSchema = z.object({
   latestDay: z.string().nullable(),
   mealDays: z.number().int().nonnegative(),
   glucosePoints: z.number().int().nonnegative(),
+  /** Optional for older app builds; server recomputes cloud HR from payload for the guard. */
+  heartRatePoints: z.number().int().nonnegative().optional().default(0),
+  hrEarliestDay: z.string().nullable().optional().default(null),
   keyCount: z.number().int().nonnegative(),
   byteSize: z.number().int().nonnegative(),
 });

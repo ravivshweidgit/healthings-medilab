@@ -67,8 +67,8 @@ export const LEGACY_HC_ACTIVITY_STORE_KEY = 'healthings:hcActivityStore';
 /** @deprecated Use METRICS_STORE_KEY */
 export const WITHINGS_STORE_KEY = METRICS_STORE_KEY;
 
-/** Keep this many days of intraday HR/calories in AsyncStorage (chart pan is ≤16D). */
-const MAX_INTRADAY_STORE_DAYS = 60;
+/** Keep this many days of intraday HR/calories — must be ≥ WITHINGS_HR_DEEP_LOOKBACK_DAYS. */
+const MAX_INTRADAY_STORE_DAYS = 128;
 
 export type MetricsPersistedStore = {
   version: 1;
@@ -172,7 +172,7 @@ function mergeHeartRateWithFreshToday(
   todayFresh: WithingsHeartRatePoint[],
 ): WithingsHeartRatePoint[] {
   if (todayFresh.length === 0 && history.length === 0) return prev;
-  // Shallow path: only today changed — avoid mergeByTimestamp over the full 60d store.
+  // Shallow path: only today changed — avoid mergeByTimestamp over the full deep store.
   if (history.length === 0) {
     return replaceTodayIntraday(prev, todayFresh);
   }
@@ -606,7 +606,7 @@ function wantsDeepPhoneHealthPull(
  * Skips API when not linked — returns cache unchanged.
  *
  * Default is **shallow** (yesterday + today) when persistence already has history.
- * **Deep** (HR 60d / workouts 128d) runs when `options.deep` is set, or automatically
+ * **Deep** (HR 128d / workouts 128d) runs when `options.deep` is set, or automatically
  * on first link when the relevant store slices are empty.
  */
 export type SyncWithingsOptions = {

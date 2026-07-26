@@ -15,7 +15,8 @@
     "verify:be-17": "node verify/be-17-snapshot-purge.mjs",
     "verify:be-19": "node verify/be-19-account-deletion.mjs",
     "verify:be-24": "node verify/be-24-chat-strip.mjs",
-    "verify": "npm run verify:be-17 && npm run verify:be-19 && npm run verify:be-24"
+    "verify:fingerprint-hr": "node verify/backup-fingerprint-hr.mjs",
+    "verify": "npm run verify:be-17 && npm run verify:be-19 && npm run verify:be-24 && npm run verify:fingerprint-hr"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",
