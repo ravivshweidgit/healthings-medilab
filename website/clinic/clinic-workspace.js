@@ -62,11 +62,12 @@
     return null;
   }
 
+  /** Count from verbatim rawText only — app no longer ships AI constraint bullets (prompt52). */
   function rulesActiveCount(rules) {
-    if (!rules) return 0;
-    if (Array.isArray(rules.constraints) && rules.constraints.length) return rules.constraints.length;
-    if (rules.rawText && String(rules.rawText).trim()) return 1;
-    return 0;
+    const raw = String(rules?.rawText || '').trim();
+    if (!raw) return 0;
+    const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    return lines.length || 1;
   }
 
   function todayKey() {
@@ -643,11 +644,11 @@
       }).join('')}</div>
       <p class="sub mentors-note">Active mentors from ${ctx.selfView ? 'your' : 'patient'} app snapshot (read-only).</p>`;
 
-    const rulesBody = rules ? `
-      ${rules.summary ? `<p class="rules-summary">${esc(rules.summary)}</p>` : ''}
-      ${(rules.constraints || []).length ? `<div class="coach-list-label">AI understood</div><ul class="rules-list">${rules.constraints.map((c) => `<li>✓ ${esc(c)}</li>`).join('')}</ul>` : ''}
-      ${rules.rawText ? `<p class="rules-raw">${esc(rules.rawText)}</p>` : ''}
-      ${rules.analyzedAt ? `<p class="coach-meta">Updated ${esc(formatIsoShort(rules.analyzedAt))}</p>` : ''}` : '<p class="empty">No dietary rules in snapshot</p>';
+    const rulesBody = rules?.rawText
+      ? `
+      <p class="rules-raw" dir="auto">${esc(rules.rawText)}</p>
+      ${rules.analyzedAt ? `<p class="coach-meta">Updated ${esc(formatIsoShort(rules.analyzedAt))}</p>` : ''}`
+      : '<p class="empty">No dietary rules in snapshot</p>';
 
     const macrosSub = `${esc(macrosHeaderSub(mt))}${mt?.analyzedAt ? `<span class="macro-updated">Updated ${esc(formatIsoShort(mt.analyzedAt))}</span>` : ''}`;
 
@@ -673,7 +674,7 @@
         <div class="group-card profile-group profile-col">
           ${collapseSection('mentors', '🧑‍⚕️', mentorsTitle, esc(mentorsHeaderSub(mentors)), mentorsBody, !!ex.mentors)}
           <div class="group-divider"></div>
-          ${collapseSection('rules', '📋', rulesTitle, esc(rules?.summary || 'No dietary rules'), rulesBody, !!ex.rules)}
+          ${collapseSection('rules', '📋', rulesTitle, esc(rulesTextPreview(rules?.rawText || '')), rulesBody, !!ex.rules)}
           <div class="group-divider"></div>
           ${collapseSection('macros', '🥗', macrosTitle, macrosSub, macrosBody, !!ex.macros)}
           ${coach ? `
@@ -918,10 +919,8 @@
   }
 
   function rulesHistoryPreview(rules) {
-    const summary = rules?.summary?.trim();
-    if (summary) return summary;
-    const line = (rules?.rawText || '').trim().split('\n')[0] || '';
-    return line.length > 80 ? `${line.slice(0, 77)}…` : line;
+    const line = (rules?.rawText || '').trim().split('\n').find(Boolean) || '';
+    return line.length > 80 ? `${line.slice(0, 77)}…` : line || 'Empty rules';
   }
 
   async function fetchRulesHistory(ctx) {
@@ -1014,8 +1013,7 @@
               <span class="rules-history-preview">${esc(rulesHistoryPreview(h.rules))}</span>
             </button>
             <div class="rules-history-detail hidden" id="history-detail-${esc(h.id)}">
-              ${h.rules?.constraints?.length ? `<ul class="rules-constraints">${h.rules.constraints.map((c) => `<li>✓ ${esc(c)}</li>`).join('')}</ul>` : ''}
-              <pre class="rules-raw">${esc(h.rules?.rawText || '')}</pre>
+              <pre class="rules-raw" dir="auto">${esc(h.rules?.rawText || '')}</pre>
               ${!rulesRawEqual(h.rules, liveRules) ? `<button type="button" class="ws-btn secondary rules-restore-btn" data-restore-id="${esc(h.id)}">Restore as live rules</button>` : ''}
             </div>
           </li>`).join('')}
@@ -1073,16 +1071,10 @@
           <div class="rules-fold-body">
             <textarea id="rules-raw"${rtl ? ' dir="rtl"' : ''} placeholder="e.g. Low cholesterol, carbs at least 130g, avoid red meat…">${esc(raw)}</textarea>
             <div class="rules-actions">
-              <button type="button" class="ws-btn primary" id="rules-save">Save &amp; analyse with AI</button>
+              <button type="button" class="ws-btn primary" id="rules-save">Save</button>
               <span id="rules-status" class="sub"></span>
             </div>
             <div id="rules-error" class="ws-inline-error" hidden role="alert"></div>
-            ${rules?.constraints?.length ? `
-            <div class="rules-constraints">
-              <strong>AI understood:</strong>
-              <ul>${rules.constraints.map((c) => `<li>✓ ${esc(c)}</li>`).join('')}</ul>
-              ${rules.summary ? `<p class="sub">Summary: ${esc(rules.summary)}</p>` : ''}
-            </div>` : ''}
             <p class="rules-hint">${esc(sourceHint)}</p>
           </div>
         </div>

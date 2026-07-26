@@ -12,7 +12,7 @@ import {
   saveRulesForPatient,
   type ClinicUserRules,
 } from '../services/clinicOverlay.js';
-import { mentorChatReply, summariseRulesForClinic } from '../services/geminiClinic.js';
+import { mentorChatReply } from '../services/geminiClinic.js';
 import {
   SyncRequestError,
   getPatientSyncStatusForMentor,
@@ -65,19 +65,14 @@ export async function registerClinicRoutes(app: FastifyInstance) {
     if (!user) return reply.code(404).send({ error: 'User not found' });
     try {
       const rawText = body.rawText.trim();
+      // Match app prompt52: rawText-only save — no "AI understood" constraints UI.
       const stubRules: ClinicUserRules = {
         rawText,
-        summary: rawText.slice(0, 48),
+        summary: '',
         constraints: [],
         analyzedAt: new Date().toISOString(),
       };
       const overlay = await saveRulesForPatient(user, params.patientId, stubRules);
-
-      void summariseRulesForClinic(rawText)
-        .then((rules) => saveRulesForPatient(user, params.patientId, rules))
-        .catch((err) => {
-          request.log.warn({ err }, 'Clinic rules AI summarise failed; kept raw save');
-        });
 
       return { overlay, rules: stubRules };
     } catch (err) {
