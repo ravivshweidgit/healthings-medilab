@@ -1,6 +1,6 @@
 # be-14 — Clinic patient workspace
 
-**Status:** ready
+**Status:** needs-review
 **Model to implement:** Auto / Composer
 **Authored by:** Opus 5 (website UX pack)
 **Findings:** W19 (no patient identity — safety), W20 (desktop-only), W21 (tabs wrap, not sticky), W22 (no loading state)
@@ -62,15 +62,55 @@ switch tabs from anywhere on the page.
 - Tabs on narrow screens **scroll horizontally**; they never wrap. Wrapping changes the height of
   the chrome, which moves content unpredictably.
 
+## Re-validated against the code 2026-07-26 — read this before the notes below
+
+Every CSS and layout claim in this draft still holds: `.ws-tabs` has `flex-wrap: wrap`
+(`clinic-workspace.css:80`), the topbar is `position: sticky` (`:45`), the three media queries are
+at 960 / 1100 / 720, `.charts-row` is pinned to `height: 520px; max-height: 520px` (`:209`), and
+`--tap-min: 44px` exists from be-10 so the snippet below compiles. Line numbers in the Problem
+section have drifted by one (`patient.html` 13 → 14, 79 → 80); the content is unchanged.
+
+Two things in the original Implementation notes were wrong, both about identity.
+
+**1. The email is not "already there to pass through."** The portal list does hold it —
+`share.patientEmail`, from `/v1/shares?status=approved` — but the Open workspace link is:
+
+```js
+view.href = 'patient.html?patientId=' + encodeURIComponent(share.patientId);
+```
+
+Only the opaque id crosses. `patient.html` never learns who the patient is.
+
+The tempting one-line reading of "pass it through" is to append `&email=`. **Do not.** That puts a
+patient's email in the address bar, in browser history, in any copied link, and in the referrer of
+every outbound click — in the same tool this draft says should avoid shoulder-surfing risk.
+
+Close it on the workspace side instead. `patient.html` already authenticates through `ClinicApi`
+and already calls two authorized endpoints; add a third call to `/v1/shares?status=approved` and
+match on `patientId`. The server already returns `patientEmail` in `PublicShare`
+(`server/src/.../shares.ts:12`, `:55`), so **no server change is needed** and the email never
+appears in a URL.
+
+**2. There is no patient name anywhere.** The snapshot has none — the `name` fields in
+`clinic-workspace.js` are meal items and lab rows. So "display name if the snapshot has one" is a
+branch that can never be taken. Build email, with `Patient · {short id}` as the fallback when the
+shares lookup fails, and drop the name path.
+
+Also worth knowing: the eight tabs are **not** markup. `patient.html` ships
+`<nav class="ws-tabs" id="ws-tabs" hidden></nav>` and `initTabs` paints them
+(`clinic-workspace.js:1213`). Scroll and sticky are pure CSS so that does not change, but anything
+touching tab structure lands in the JS, and the loading skeleton has to account for the strip
+starting `hidden`.
+
 ## Implementation notes
 
-**Identity.** The portal list already holds the patient's email; pass it through and render it:
+**Identity.** Fetch it; do not put it in the URL — see the re-validation above:
 
-- `#patient-title` → the patient's display name if the snapshot has one, else their email
+- `#patient-title` → the patient's email, resolved from `/v1/shares?status=approved`
 - `#patient-meta` keeps snapshot version, share time, and size — that is provenance, and it stays
 - `document.title` → `{patient email} — Healthings clinic` so browser tabs are distinguishable
-- Delete the line that re-sets the title back to `Patient workspace` on load (`patient.html` line 79)
-- If identity is unavailable, fall back to `Patient · {short id}` — never a generic string shared by
+- Delete the line that re-sets the title back to `Patient workspace` on load (`patient.html` line 80)
+- If the lookup fails, fall back to `Patient · {short id}` — never a generic string shared by
   every patient
 
 **Tabs.**
@@ -93,15 +133,15 @@ card dimensions, replaced on load. Keep "Loading snapshot…" in the meta line a
 
 ## Acceptance criteria
 
-- [ ] Patient email or name visible in the topbar at all times, including while scrolled
-- [ ] Browser tab title identifies the patient; two patients in two tabs are distinguishable
-- [ ] No code path renders the bare string "Patient workspace" as the title of a loaded patient
-- [ ] Tabs scroll horizontally in one row at 720px and 390px; never wrap
-- [ ] Tab strip stays reachable when scrolled to the bottom of the food log
-- [ ] Every tab is ≥44px tall
-- [ ] Tablet (~820px) and mobile (~390px): no horizontal page scroll, no clipped charts
-- [ ] Skeleton appears during fetch; no blank-then-pop
-- [ ] No regression: all 8 tabs render, charts draw, empty-state copy unchanged, rules save works
+- [x] Patient email or name visible in the topbar at all times, including while scrolled
+- [x] Browser tab title identifies the patient; two patients in two tabs are distinguishable
+- [x] No code path renders the bare string "Patient workspace" as the title of a loaded patient
+- [x] Tabs scroll horizontally in one row at 720px and 390px; never wrap
+- [x] Tab strip stays reachable when scrolled to the bottom of the food log
+- [x] Every tab is ≥44px tall
+- [x] Tablet (~820px) and mobile (~390px): no horizontal page scroll, no clipped charts
+- [x] Skeleton appears during fetch; no blank-then-pop
+- [x] No regression: all 8 tabs render, charts draw, empty-state copy unchanged, rules save works
 
 ## Out of scope
 
@@ -133,9 +173,84 @@ card dimensions, replaced on load. Keep "Loading snapshot…" in the meta line a
 
 ## Agent checklist
 
-- [ ] Status → in_progress
-- [ ] Empty-state copy left untouched
-- [ ] Changes match this draft only
-- [ ] Smoke criteria above
-- [ ] Status → done
-- [ ] Update `drafts/README.md` table
+- [x] Status → in_progress
+- [x] Empty-state copy left untouched
+- [x] Changes match this draft only — identity via `/v1/shares` (no email in URL); no display-name branch; tabs painted in JS unchanged; charts/dashboard untouched
+- [x] Smoke criteria above
+- [x] Status → needs-review (evidence in `tmp/be-14-review/`) — **do not mark done**
+- [x] Update `drafts/README.md` table
+- [x] CSS token bumped `20260726d` → `20260726e` + help regen
+
+## Opus 5 review outcome (2026-07-26) — accepted with fixes
+
+**Status: done.** The safety fix is right and the way it was built is right. Identity comes from
+`/v1/shares?status=approved` matched on `patientId`, so the email never enters the URL, history or
+referrer; `Patient · {short id}` covers the unmatched case; `document.title` disambiguates two open
+tabs. Sticky was applied to a new `.ws-chrome` wrapper rather than to the topbar and the tab strip
+separately, which avoids guessing a `top` offset that would have broken the moment the topbar
+wrapped. `.ws-tabs[hidden] { display: none !important }` is a real catch — `display: flex` beats the
+`hidden` attribute, and without it the empty nav would have shown as a stray border during load.
+
+`clinic-workspace.js`, `clinic-charts.js` and `clinic-dashboard.*` are untouched in the diff, so the
+empty-state copy is byte-identical by construction rather than by inspection. Cache token is
+`20260726e` across all 328 references with `CSS_VER` in step.
+
+### Fixed during review — the skeleton lied on every error path
+
+`capture.mjs` only ever exercises the happy path. Both failure paths left the skeleton on screen
+permanently:
+
+| Path | Before | After |
+|---|---|---|
+| `404` no snapshot yet | Error text **plus** three shimmering blocks, `aria-busy="true"`, infinite animation, and `patient-meta` still reading "Loading snapshot…" | `clearWorkspace()`, meta cleared |
+| `!ok` (500) | Same, on top of any stale content | `clearSkeleton()`; meta cleared only if nothing had rendered, so a stale panel keeps its provenance line |
+
+This matters most in the single most common state in an alpha: a patient who has been approved but
+has not opened the app yet. The clinician saw "No snapshot yet. Tap Refresh snapshot" and, directly
+underneath, a loading animation that never stopped — the page said *nothing here* and *still coming*
+at the same time, and the topbar agreed with the second one. The old code hid `#ws-main` on 404, so
+this was introduced by the skeleton, not inherited.
+
+Two smaller fixes in the same pass:
+
+- **No `prefers-reduced-motion` guard.** A 1.2s infinite shimmer with no escape hatch, in a file that
+  had no motion guards at all. Now `animation: none` with a flat `var(--bg)` fill — still a visible
+  placeholder, not an invisible one. Verified with `emulateMediaFeatures`.
+- **Identity and snapshot were serialised.** `applyPatientLabel(await resolvePatientLabel(...))` ran
+  to completion before the snapshot fetch started, so time-to-content was two round trips deep for
+  no reason. Now both are in flight together; `renderWorkspaceFromSync` re-applies the label if it
+  lands first, so either resolution order converges. A side benefit is that identity no longer
+  depends on the snapshot succeeding — the error screenshots show the email resolved while the
+  snapshot 404s.
+- Skeleton colours were hardcoded `#eef1f4` / `#f7f8fa`; moved to `--bg` / `--surface`. Small, but
+  it is the exact class of thing be-10 existed to remove.
+
+The CSS change did not need a token bump: `20260726e` was built but never deployed, so nothing has
+ever been served under it. The forward-only rule applies to *deployed* tokens.
+
+### Judgment calls from the review section
+
+- **Identity at a glance** — yes. At every width the email is the largest thing after the back link,
+  and at 390 it is on its own line above the fold. The shoulder-surfing counter-risk raised in the
+  draft is real but not actionable yet: there is no patient name in the snapshot to fall back to,
+  and a partial email in a consulting room is worse than useless for confirming you have the right
+  chart open. Revisit if be-15 ever gives patients a display name.
+- **Do the tabs afford scrolling?** Partially. At 390 the eighth tab is clipped mid-word, which is
+  the honest cue, and `scrollbar-width: thin` helps on desktop. It is better than the old wrap.
+- **Does the skeleton earn its place?** On the happy path, yes. On the error paths it was actively
+  harmful, which is now fixed.
+- **Is 820 usable for clinical work?** Yes — 820 is above the 720 breakpoint so it keeps the desktop
+  layout, and the charts row still fits. Below 720 the charts unstack to `height: auto`.
+
+### Not fixed — noted for later
+
+The 404 screen is one line of red text above roughly 600px of empty page. It is honest now, but a
+centred empty-state card would read better. Left alone deliberately: the draft ring-fenced
+empty-state copy, and this is presentation polish that overlaps be-15.
+
+Evidence added: `probe-empty.mjs` / `probe-empty.json` (404, 500, and 404 under reduced motion),
+`probe-motion.mjs` / `probe-motion.json` (guard verified with the skeleton actually on screen),
+`probe-no-snapshot.png`. Auto's nine checks in `checks.json` were re-run after the fixes and all
+still pass.
+
+**Not deployed.**

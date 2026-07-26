@@ -5,21 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Healthings — Patient workspace</title>
     <link rel="icon" href="../assets/icon.png" type="image/png" />
-    <link rel="stylesheet" href="../tokens.css?v=20260726d" />
-    <link rel="stylesheet" href="clinic-workspace.css?v=20260726d" />
+    <link rel="stylesheet" href="../tokens.css?v=20260726e" />
+    <link rel="stylesheet" href="clinic-workspace.css?v=20260726e" />
   </head>
   <body class="clinic-workspace">
-    <header class="ws-topbar">
-      <a href="index.html">← Clinic portal</a>
-      <h1 id="patient-title">Patient workspace</h1>
-      <span class="badge">Clinic view</span>
-      <span id="patient-meta" class="meta">Loading…</span>
-      <span id="sync-status-hint" class="meta sync-status-hint" hidden></span>
-      <button id="refresh-snapshot-btn" class="ws-btn primary" type="button" hidden>Refresh snapshot</button>
-    </header>
+    <div class="ws-chrome">
+      <header class="ws-topbar">
+        <a href="index.html">← Clinic portal</a>
+        <h1 id="patient-title">Patient workspace</h1>
+        <span class="badge">Clinic view</span>
+        <span id="patient-meta" class="meta">Loading…</span>
+        <span id="sync-status-hint" class="meta sync-status-hint" hidden></span>
+        <button id="refresh-snapshot-btn" class="ws-btn primary" type="button" hidden>Refresh snapshot</button>
+      </header>
+      <nav class="ws-tabs" id="ws-tabs" hidden></nav>
+    </div>
     <p id="load-error" class="ws-error" hidden></p>
-    <nav class="ws-tabs" id="ws-tabs" hidden></nav>
-    <main class="ws-main" id="ws-main" hidden></main>
+    <main class="ws-main" id="ws-main">
+      <div id="ws-skeleton" class="ws-panel ws-skeleton" aria-busy="true" aria-live="polite">
+        <div class="ws-skel-block"></div>
+        <div class="ws-skel-block"></div>
+        <div class="ws-skel-block"></div>
+      </div>
+    </main>
 
     <script src="clinic-api.js?v=20260702e"></script>
     <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
@@ -28,6 +36,7 @@
     <script>
       const { api, loadTokens, saveTokens, clearTokens } = ClinicApi;
       let pollTimer = null;
+      let patientLabel = null;
 
       function showError(msg) {
         const el = document.getElementById('load-error');
@@ -41,6 +50,55 @@
         hint.hidden = !show;
       }
 
+      function shortPatientId(patientId) {
+        const id = String(patientId || '');
+        return id.length > 8 ? id.slice(0, 8) : id || 'unknown';
+      }
+
+      function applyPatientLabel(label) {
+        patientLabel = label;
+        document.getElementById('patient-title').textContent = label;
+        document.title = label + ' — Healthings clinic';
+      }
+
+      async function resolvePatientLabel(patientId) {
+        const fallback = 'Patient · ' + shortPatientId(patientId);
+        try {
+          const res = await api('/v1/shares?status=approved');
+          if (!res.ok) return fallback;
+          const data = await res.json();
+          const shares = data.shares || [];
+          const match = shares.find((s) => s.patientId === patientId);
+          const email = match && typeof match.patientEmail === 'string' ? match.patientEmail.trim() : '';
+          return email || fallback;
+        } catch {
+          return fallback;
+        }
+      }
+
+      function showSkeleton() {
+        const main = document.getElementById('ws-main');
+        document.getElementById('ws-tabs').hidden = true;
+        main.innerHTML =
+          '<div id="ws-skeleton" class="ws-panel ws-skeleton" aria-busy="true" aria-live="polite">' +
+          '<div class="ws-skel-block"></div>' +
+          '<div class="ws-skel-block"></div>' +
+          '<div class="ws-skel-block"></div>' +
+          '</div>';
+      }
+
+      /** Returns true when a skeleton was actually showing, i.e. nothing had rendered yet. */
+      function clearSkeleton() {
+        const skel = document.getElementById('ws-skeleton');
+        if (!skel) return false;
+        skel.remove();
+        return true;
+      }
+
+      function clearWorkspace() {
+        document.getElementById('ws-main').innerHTML = '';
+      }
+
       async function fetchSyncStatus(patientId) {
         const res = await api('/v1/clinic/patients/' + encodeURIComponent(patientId) + '/sync-status');
         if (!res.ok) return null;
@@ -52,11 +110,13 @@
         if (syncRes.status === 404) {
           showError('No snapshot yet. Tap Refresh snapshot — patient phone uploads when they open the app.');
           document.getElementById('ws-tabs').hidden = true;
-          document.getElementById('ws-main').hidden = true;
+          clearWorkspace();
+          document.getElementById('patient-meta').textContent = '';
           return false;
         }
         if (!syncRes.ok) {
           showError((await syncRes.json().catch(() => ({}))).error || 'Could not load snapshot');
+          if (clearSkeleton()) document.getElementById('patient-meta').textContent = '';
           return false;
         }
 
@@ -77,7 +137,10 @@
           overlay = ovData.overlay;
         }
 
-        document.getElementById('patient-title').textContent = 'Patient workspace';
+        if (patientLabel) {
+          document.getElementById('patient-title').textContent = patientLabel;
+          document.title = patientLabel + ' — Healthings clinic';
+        }
         document.getElementById('patient-meta').textContent =
           'Snapshot v' + blob.version + ' · shared ' + new Date(blob.createdAt).toLocaleString() +
           ' · ' + Math.round(blob.byteSize / 1024) + ' KB' +
@@ -96,7 +159,6 @@
         const main = document.getElementById('ws-main');
         const tabs = document.getElementById('ws-tabs');
         tabs.hidden = false;
-        main.hidden = false;
         ClinicWorkspace.initTabs(tabs, ctx, main);
         ClinicWorkspace.renderWorkspace(main, ctx);
         return true;
@@ -116,7 +178,19 @@
         document.getElementById('refresh-snapshot-btn').hidden = false;
         document.getElementById('patient-meta').textContent = 'Loading snapshot…';
         setSyncHint('', false);
-        await renderWorkspaceFromSync(patientId);
+        showSkeleton();
+
+        // Identity and snapshot are independent calls; serialising them doubles
+        // time-to-content. renderWorkspaceFromSync re-applies the label if it
+        // lands first, so either resolution order ends up correct.
+        const labelPromise = resolvePatientLabel(patientId);
+        const renderPromise = renderWorkspaceFromSync(patientId).catch(() => {
+          showError('Could not load snapshot');
+          if (clearSkeleton()) document.getElementById('patient-meta').textContent = '';
+          return false;
+        });
+        applyPatientLabel(await labelPromise);
+        await renderPromise;
       }
 
       function stopPolling() {

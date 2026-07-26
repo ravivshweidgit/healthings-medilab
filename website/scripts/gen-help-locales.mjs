@@ -24,7 +24,7 @@ const WEB = join(__dirname, '..');
  * `20260726be16` have all been served with different stylesheets behind them;
  * re-emitting any of the three would hand someone a stale CSS file.
  */
-const CSS_VER = '20260726d';
+const CSS_VER = '20260726e';
 
 function escAttr(s) {
   return String(s)
