@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { gunzipSync, inflateSync } from 'node:zlib';
 import { query } from '../db/pool.js';
+import { hasAnySnapshotConsumer } from './consent.js';
 import type { PublicUser } from './jwt.js';
 import { hasApprovedShare } from './shares.js';
 import { clearSyncUpdateRequestsForPatient } from './syncRequests.js';
@@ -80,15 +81,6 @@ function toPublicBlob(row: SyncRow): PublicSyncBlob {
   };
 }
 
-async function countApprovedShares(patientId: string): Promise<number> {
-  const { rows } = await query<{ n: string }>(
-    `SELECT COUNT(*)::text AS n FROM account_shares
-     WHERE patient_id = $1 AND status = 'approved'`,
-    [patientId],
-  );
-  return parseInt(rows[0]?.n ?? '0', 10);
-}
-
 async function nextVersion(patientId: string): Promise<number> {
   const { rows } = await query<{ max: number | null }>(
     `SELECT MAX(version) AS max FROM sync_blobs WHERE patient_id = $1`,
@@ -106,9 +98,8 @@ export async function uploadSyncBlob(
     throw new SyncError('Only patients can upload sync data', 403);
   }
 
-  const approved = await countApprovedShares(user.id);
-  if (approved === 0) {
-    throw new SyncError('Link a clinic account before sharing data', 422);
+  if (!(await hasAnySnapshotConsumer(user.id))) {
+    throw new SyncError('Link a clinic account or turn on your web view before sharing data', 422);
   }
 
   if (payloadGzip.length === 0) {
@@ -163,6 +154,46 @@ export async function getLatestSyncForMentor(
      ORDER BY version DESC
      LIMIT 1`,
     [patientId],
+  );
+
+  const row = rows[0];
+  if (!row) return null;
+
+  return {
+    blob: toPublicBlob(row),
+    payloadGzipBase64: row.payload_gzip.toString('base64'),
+  };
+}
+
+/**
+ * The patient's own snapshot, payload included — the same bytes a linked clinic
+ * reads, which is the point: /account/ shows exactly what a clinic would see.
+ *
+ * Gated on the live column rather than on `user.webViewEnabled` from the access
+ * token, so turning the view off revokes reads immediately instead of when the
+ * 15-minute token expires.
+ */
+export async function getLatestSyncPayloadForPatient(
+  user: PublicUser,
+): Promise<{ blob: PublicSyncBlob; payloadGzipBase64: string } | null> {
+  if (user.role !== 'patient') {
+    throw new SyncError('Only patients can read their own snapshot', 403);
+  }
+
+  const { rows: flag } = await query<{ on: boolean }>(
+    `SELECT web_view_enabled AS on FROM users WHERE id = $1`,
+    [user.id],
+  );
+  if (flag[0]?.on !== true) {
+    throw new SyncError('Turn on your web view to read your snapshot here', 403);
+  }
+
+  const { rows } = await query<SyncRow>(
+    `SELECT * FROM sync_blobs
+     WHERE patient_id = $1
+     ORDER BY version DESC
+     LIMIT 1`,
+    [user.id],
   );
 
   const row = rows[0];

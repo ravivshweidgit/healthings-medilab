@@ -294,7 +294,7 @@
     return `${Math.round(meal.totalKcal || 0)} kcal · P ${Math.round(meal.totalProtein_g || 0)}g · C ${Math.round(meal.totalCarb_g || 0)}g · F ${Math.round(meal.totalFat_g || 0)}g · Fi ${Math.round(entryFiber(meal))}g`;
   }
 
-  function showMealModal(panel, meal) {
+  function showMealModal(panel, meal, selfView) {
     const modalRoot = panel.querySelector('#meal-modal-root');
     if (!modalRoot) return;
     const items = meal.items || [];
@@ -344,7 +344,7 @@
               <span class="meal-item-kcal">${macroSummaryMeal(meal)}</span>
             </div>
           </div>
-          <p class="meal-modal-readonly">Read-only snapshot from patient app</p>
+          <p class="meal-modal-readonly">Read-only snapshot from ${selfView ? 'your app' : 'patient app'}</p>
         </div>
       </div>`;
 
@@ -424,14 +424,14 @@
       chip.addEventListener('click', () => {
         const idx = parseInt(chip.getAttribute('data-meal-idx'), 10);
         const meal = meals[idx];
-        if (meal && panel) showMealModal(panel, meal);
+        if (meal && panel) showMealModal(panel, meal, !!ctx.selfView);
       });
     });
   }
 
   function renderFoodLogTab(panel, ctx) {
     panel.innerHTML = `
-      <p class="sub snapshot-note" style="margin:0 0 16px">Patient food log from snapshot — read-only. Click a meal card to see items like on the phone.</p>
+      <p class="sub snapshot-note" style="margin:0 0 16px">${ctx.selfView ? 'Your' : 'Patient'} food log from snapshot — read-only. Click a meal card to see items like on the phone.</p>
       <div class="food-log-page">
         <div class="dash-card food-log-panel"><div id="food-log-host"></div></div>
         <div id="meal-modal-root" hidden></div>
@@ -666,7 +666,7 @@
 
   function renderProfileTab(panel, ctx) {
     panel.innerHTML = `
-      <p class="sub snapshot-note" style="margin:0 0 16px">Patient profile, targets, and mentor context from snapshot — read-only. Tap a row to expand like on the phone.</p>
+      <p class="sub snapshot-note" style="margin:0 0 16px">${ctx.selfView ? 'Your' : 'Patient'} profile, targets, and mentor context from snapshot — read-only. Tap a row to expand like on the phone.</p>
       <div class="dash-card profile-tab-card"><div id="profile-group-host"></div></div>`;
     const host = panel.querySelector('#profile-group-host');
     if (host) renderProfileGroup(host, ctx);
@@ -711,7 +711,7 @@
     const coach = ctx.parsed.coachMsg;
     const mentors = ctx.parsed.mentors.map((m) => MENTORS.find((x) => x.id === m)?.emoji || '').join('');
     panel.innerHTML = `
-      <p class="snapshot-note">Read-only snapshot · patient phone data · v${ctx.blob.version}</p>
+      <p class="snapshot-note">Read-only snapshot · ${ctx.selfView ? 'your phone' : 'patient phone data'} · v${ctx.blob.version}</p>
       ${coach ? `<div class="nudge-strip"><span>${mentors}</span><span class="nudge-count">${(coach.actionItems || []).filter((i) => i.done).length}/${(coach.actionItems || []).length}</span><span class="nudge-text">${esc(coach.summary || '')}</span></div>` : ''}
       <div class="dash-card metabolic-card"><div id="metabolic-host"></div></div>
       <div class="dash-card withings-card">
@@ -1104,7 +1104,10 @@
   function renderNutritionReports(panel, ctx) {
     const store = ctx.parsed.nutritionDirectives || { activeId: null, entries: [] };
     const entries = store.entries || [];
-    const intro = `<p class="sub snapshot-note" style="margin:0 0 16px">Nutritionist session reports from the patient snapshot — read-only. The <strong>Active</strong> report is what mentors use on the phone (overrides My Rules on conflict). Use <strong>Refresh snapshot</strong> after the patient imports a new PDF.</p>`;
+    // The self view has no Refresh snapshot button, so it gets the action it can act on.
+    const intro = ctx.selfView
+      ? `<p class="sub snapshot-note" style="margin:0 0 16px">Nutritionist session reports from your snapshot — read-only. The <strong>Active</strong> report is what mentors use on the phone (overrides My Rules on conflict). Open the app after importing a new PDF to send an updated snapshot.</p>`
+      : `<p class="sub snapshot-note" style="margin:0 0 16px">Nutritionist session reports from the patient snapshot — read-only. The <strong>Active</strong> report is what mentors use on the phone (overrides My Rules on conflict). Use <strong>Refresh snapshot</strong> after the patient imports a new PDF.</p>`;
 
     if (!entries.length) {
       panel.innerHTML = `
@@ -1189,8 +1192,32 @@
       </div>`).join('');
   }
 
+  const ALL_TABS = [
+    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'profile', label: 'Profile' },
+    { id: 'lipids', label: 'Lipids' },
+    { id: 'foodlog', label: 'Food log' },
+    { id: 'nutrition', label: 'Nutrition reports' },
+    { id: 'chat', label: 'Mentors & chat' },
+    { id: 'rules', label: 'Rules (live)' },
+    { id: 'labs', label: 'Labs' },
+  ];
+
+  /**
+   * Chat and Rules are the only tabs that write, and the only ones that read
+   * `ctx.overlay`. A caller passing `ctx.tabIds` without them — the patient's own
+   * view at /account/ — gets a read-only workspace with no render function
+   * changed and no clinic data required.
+   */
+  function allowedTabs(ctx) {
+    if (!Array.isArray(ctx.tabIds)) return ALL_TABS;
+    const allowed = ALL_TABS.filter((t) => ctx.tabIds.includes(t.id));
+    return allowed.length ? allowed : ALL_TABS;
+  }
+
   function renderWorkspace(root, ctx) {
-    const tab = ctx.tab || 'dashboard';
+    const permitted = allowedTabs(ctx);
+    const tab = permitted.some((t) => t.id === ctx.tab) ? ctx.tab : permitted[0].id;
     const fillHeight = tab === 'rules';
     root.innerHTML = `
       <div class="ws-panel${fillHeight ? ' ws-panel-fill' : ''}">
@@ -1210,16 +1237,8 @@
 
   function initTabs(tabsEl, ctx, mainEl) {
     if (global.__clinicTab) ctx.tab = global.__clinicTab;
-    const tabs = [
-      { id: 'dashboard', label: 'Dashboard' },
-      { id: 'profile', label: 'Profile' },
-      { id: 'lipids', label: 'Lipids' },
-      { id: 'foodlog', label: 'Food log' },
-      { id: 'nutrition', label: 'Nutrition reports' },
-      { id: 'chat', label: 'Mentors & chat' },
-      { id: 'rules', label: 'Rules (live)' },
-      { id: 'labs', label: 'Labs' },
-    ];
+    const tabs = allowedTabs(ctx);
+    if (!tabs.some((t) => t.id === ctx.tab)) ctx.tab = tabs[0].id;
     function paint() {
       tabsEl.innerHTML = tabs.map((t) =>
         `<button type="button" class="ws-tab${ctx.tab === t.id ? ' active' : ''}" data-tab="${t.id}">${t.label}</button>`,

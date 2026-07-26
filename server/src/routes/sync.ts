@@ -6,6 +6,7 @@ import {
   SyncError,
   getLatestSyncForMentor,
   getLatestSyncMetaForPatient,
+  getLatestSyncPayloadForPatient,
   uploadSyncBlob,
   type SyncSummary,
 } from '../services/sync.js';
@@ -78,6 +79,22 @@ export async function registerSyncRoutes(app: FastifyInstance) {
     try {
       const blob = await getLatestSyncMetaForPatient(user);
       return { blob };
+    } catch (err) {
+      if (err instanceof SyncError) {
+        return reply.code(err.status).send({ error: err.message });
+      }
+      throw err;
+    }
+  });
+
+  app.get('/v1/sync/mine/payload', { preHandler: authenticate }, async (request, reply) => {
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+
+    try {
+      const result = await getLatestSyncPayloadForPatient(user);
+      if (!result) return reply.code(404).send({ error: 'No snapshot yet' });
+      return result;
     } catch (err) {
       if (err instanceof SyncError) {
         return reply.code(err.status).send({ error: err.message });

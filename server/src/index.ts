@@ -10,6 +10,7 @@ import { registerSponsorshipRoutes } from './routes/sponsorships.js';
 import { registerUsageRoutes } from './routes/usage.js';
 import { registerWalletRoutes } from './routes/wallet.js';
 import { registerSyncRoutes } from './routes/sync.js';
+import { registerAccountRoutes } from './routes/account.js';
 import { registerAccountBackupRoutes } from './routes/accountBackup.js';
 import { registerClinicRoutes } from './routes/clinic.js';
 
@@ -52,6 +53,7 @@ async function main() {
   await registerUsageRoutes(app);
   await registerWalletRoutes(app);
   await registerSyncRoutes(app);
+  await registerAccountRoutes(app);
   await registerAccountBackupRoutes(app);
   await registerClinicRoutes(app);
 

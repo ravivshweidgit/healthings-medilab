@@ -11,6 +11,11 @@ CREATE TABLE IF NOT EXISTS users (
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT;
 
+-- Patient's own read-only web view at /account/. A second consumer of the same
+-- snapshot a clinic reads, authorized by the same explicit, revocable gesture.
+-- Off by default: nothing reaches the server without the patient turning it on.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS web_view_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+
 CREATE TABLE IF NOT EXISTS otp_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email CITEXT NOT NULL,

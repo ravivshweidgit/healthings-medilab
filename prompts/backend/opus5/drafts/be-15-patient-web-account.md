@@ -1,6 +1,83 @@
 # be-15 — Patient web account (read-only, consent-gated)
 
-**Status:** blocked on be-17
+**Status:** in_progress — Parts 1 and 2 shipped; Part 3 (app) built, awaiting phone test. Opus 5, 2026-07-26
+
+## What shipped in Parts 1 and 2
+
+### Part 1 — server (verified: `tmp/be-15-verify/verify.mjs`, 25 checks on PGlite)
+
+| Change | File |
+|---|---|
+| `web_view_enabled BOOLEAN NOT NULL DEFAULT FALSE` on `users` | `db/schema.sql` |
+| `webViewEnabled` on `PublicUser`, so `GET /v1/me` carries it | `services/jwt.ts`, `services/users.ts` |
+| `hasAnySnapshotConsumer()` — clinic share **or** web view | `services/consent.ts` |
+| Purge split by reader: clinic workspace vs snapshot, returning `PurgeOutcome` | `services/consent.ts` |
+| Upload gate now `hasAnySnapshotConsumer` instead of counting shares | `services/sync.ts` |
+| `getLatestSyncPayloadForPatient()` + `GET /v1/sync/mine/payload` | `services/sync.ts`, `routes/sync.ts` |
+| `PUT /v1/account/web-view`; disabling purges via `setWebViewEnabled` | `routes/account.ts`, `services/users.ts` |
+
+The purge split is the load-bearing decision. Clinic overlay and rules history are clinic-authored
+and the self view never renders them, so they die with the last clinic link either way; the snapshot
+has two possible readers and must survive. One combined condition would have been wrong in both
+directions.
+
+### Part 2 — `/account/` (verified: `tmp/be-15-review/probe-account.mjs`, 41 checks in Chrome)
+
+`website/account/index.html`, plus three small changes to shared clinic code:
+
+- `clinic-api.js` became a `createClient(tokenKey)` factory. `ClinicApi` is unchanged for the portal;
+  the account page uses `healthings_account_tokens` so a clinician and a patient sharing a browser
+  do not sign each other out.
+- `clinic-workspace.js` accepts `ctx.tabIds`. Chat and Rules are the only tabs that write *and* the
+  only ones that read `ctx.overlay`, so omitting them yields a read-only workspace with no render
+  function changed.
+- `ctx.selfView` swaps five clinic-facing strings to second person ("patient phone data" → "your
+  phone"). Found by scanning the six reachable render functions, not by eye.
+
+Decisions worth keeping:
+
+- **Enabling is app-only.** The page offers *off*, never *on*. Enabling from the web would leave the
+  page promising data no phone had uploaded yet; the app can enable and upload in one gesture.
+  Disabling from anywhere is safe because it only ever reduces exposure — which is also why the
+  button is not styled as destructive.
+- **No pako.** The portal pulls pako from jsDelivr; this page uses native `DecompressionStream`
+  instead, so a page rendering health data loads nothing third-party. Verified by asserting zero
+  off-origin requests.
+- Cache tokens on `clinic-api.js` and `clinic-workspace.js` bumped to `20260726f` in
+  `clinic/index.html` and `clinic/patient.html`, since both files changed under the portal.
+- A regression probe re-renders `clinic/patient.html` and asserts eight tabs, Chat, Rules and the
+  original wording all survive.
+
+### Part 3 — app (built 2026-07-26, phone test pending)
+
+| Change | File |
+|---|---|
+| `webViewEnabled?: boolean` on `AuthUser`; `setWebViewEnabled()` | `services/AuthApiService.ts` |
+| Upload gate widened to `hasSnapshotConsumer()` — clinic **or** web view | `services/ClinicSyncService.ts` |
+| `pushSnapshotForWebView()` on launch and foreground, 10-minute throttle | `services/ClinicSyncService.ts` |
+| "My web view" switch, last-sent line, Send snapshot now | `components/AccountStrip.tsx` |
+| Renames follow the widened meaning | `components/ClinicLinkStrip.tsx` |
+
+Two things that were nearly missed:
+
+- Every app upload path gated on `listShares('approved').length > 0`, so the server would have
+  accepted an upload the app never attempted. The web view would have been permanently empty with
+  no error anywhere.
+- A clinic can press **Refresh snapshot**; the patient's own page cannot. Without a push the page
+  would show whatever was uploaded when the view was first switched on, so the app pushes on launch
+  and foreground. Enabling resets the throttle and uploads at once, so the page is not left on
+  "waiting for your phone".
+
+`fulfillPendingClinicSyncRequests` stays clinic-only deliberately: only a clinic creates a request,
+and its approved-share check guards a link revoked after asking.
+
+The toggle lives beside **Cloud backup** in the Account strip, the existing precedent for a switch
+that starts a server upload.
+
+### Not done yet
+
+Account deletion, the mentor invite email, and the two privacy policy sentences. `/account/` stays
+`noindex` and unlinked until the app build ships.
 **Model to implement:** Auto / Composer
 **Authored by:** Opus 5 (website UX pack)
 **Findings:** raised during pass 04 (clinic portal) — no patient surface exists on the web
@@ -14,7 +91,68 @@
 Every factual claim below was re-checked against current `server/src` and `website/`. Most hold. The
 ones that do not are listed here, and **one of them blocks the batch**.
 
-### Blocking — the purge this draft builds on does not exist
+## Second re-validation, 2026-07-26 morning — after be-17 and be-18 shipped
+
+### Unblocked
+
+be-17 shipped. `server/src/services/consent.ts` now exports `purgeClinicDataIfNoConsumers(patientId)`
+and `purgeClinicLinkData(patientId, mentorId)`, and `revokeShare` calls both. The hook this draft
+needed exists; be-15's job is to widen "consumer" so the count includes the web view. Note the name
+is *Clinic*Data, not `purgeSnapshotIfNoConsumers` as this draft predicted — it also drops the overlay
+and rules history, which is correct and should not be narrowed.
+
+### Design settled: self-sharing, not cloud-backup reuse
+
+be-18 revealed something this draft was written without knowing: `user_cloud_backups` already holds a
+full opt-in copy of the patient's data on the server. Since `parseSnapshot` in `clinic-workspace.js`
+reads only `payload.asyncStorage`, and the backup payload has exactly that key, the backup is
+directly renderable — so "skip the new upload path and render the backup" looked attractive.
+
+**Rejected, on the owner's original instinct.** Backup and web view are different intents, and the
+backup is the *heavier* commitment: full and untrimmed at 25 MB, kept alongside a previous copy, and
+refreshed opportunistically once enabled. Routing the web view through it would force a patient who
+wants a read-only view into the largest server-side footprint the product has — backwards for a
+local-first app. The decider: `sync_blobs` holds **one row per patient**, not one per consumer
+(be-17 prunes to the latest), so self-sharing costs *zero* extra storage when a clinic link already
+exists, and one small trimmed blob when it does not. Self-sharing is the smaller footprint in every
+case, and it slots into the consumer count that already exists instead of sitting beside it as a
+special case.
+
+Keep the cheap half of the idea: the renderer needs no changes for either payload shape.
+
+### be-18 changed a sentence this batch must revisit
+
+`privacy.html` now says, in `#on-device`: *"There are exactly **two** ways this data reaches our
+server, and you start both of them: clinic sharing and cloud backup."* A web view makes that
+**three**. Part 2 must update that sentence, the `#server-data` list, and add the web view alongside
+`#clinic-sharing` and `#cloud-backup` — with the same "off unless you turn it on" framing those two
+already use. Do not leave the count wrong; be-18 exists because nobody was checking.
+
+A **second** sentence breaks, found while building Part 1. be-17 wrote into `#clinic-sharing`: *"when
+your last clinic link ends we delete the snapshot along with the clinic's workspace data and rule
+history."* With the web view on, the snapshot deliberately survives that moment — it has another
+reader. The clinic's workspace data and rule history are still deleted, so only the snapshot clause
+needs the exception. Part 1 already behaves this way and it is verified; the policy is what is now
+behind.
+
+### Account deletion is smaller than this draft assumes — but has two escapes
+
+Every table referencing `users (id)` cascades, so `DELETE FROM users WHERE id = $1` clears
+`refresh_tokens`, `account_shares`, `ai_sponsorships`, `ai_usage_events`, `wallets`, `wallet_ledger`,
+`payment_methods`, `sync_blobs`, `sync_update_requests`, `clinic_patient_overlays`,
+`clinic_patient_rules_history` and `user_cloud_backups` in one statement. No hand-written cascade
+list is needed.
+
+Two rows do **not** cascade and must be deleted by email:
+
+- `otp_requests` is keyed by `email` with no foreign key — every abandoned sign-in attempt survives
+  the account, holding an address and a code hash
+- `account_shares.patient_id` is nullable, so a **pending invite to an address that never
+  registered** keeps `patient_email` after the user row goes
+
+So a correct delete is three statements, not one.
+
+### Superseded — the old blocking note, kept for the record
 
 The "Consent and purge rules" section says *"Today `revokeShare` purges unconditionally — that would
 silently break a patient who is using the web view."* That is wrong in the direction that matters:
@@ -156,8 +294,10 @@ view. Every purge decision must be consumer-aware.
 
 - Upload allowed when **≥ 1 consumer** exists (approved share **or** web view on).
 - Turning web view **off** purges `sync_blobs` **only if** no approved clinic share remains.
-- Revoking the **last** clinic share purges **only if** web view is off. Today `revokeShare` purges
-  unconditionally — that would silently break a patient who is using the web view.
+- Revoking the **last** clinic share purges **only if** web view is off. be-17's
+  `purgeClinicDataIfNoConsumers` counts approved shares only, so as written it *would* delete the
+  snapshot out from under a patient using the web view. Widening that count is the single change
+  that prevents it.
 - Deleting the account purges everything.
 
 ## Part 1 — Server

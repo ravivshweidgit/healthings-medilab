@@ -10,6 +10,7 @@ export type PublicUser = {
   email: string;
   role: UserRole;
   displayName: string | null;
+  webViewEnabled: boolean;
   createdAt: string;
 };
 

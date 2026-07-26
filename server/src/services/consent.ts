@@ -19,14 +19,32 @@
  */
 import { query } from '../db/pool.js';
 
-/** A snapshot may be held for an approved clinic share. be-15 adds the patient's own web view here. */
-async function countConsumers(patientId: string): Promise<number> {
+async function countApprovedShares(patientId: string): Promise<number> {
   const { rows } = await query<{ n: string }>(
     `SELECT COUNT(*)::text AS n FROM account_shares
      WHERE patient_id = $1 AND status = 'approved'`,
     [patientId],
   );
   return parseInt(rows[0]?.n ?? '0', 10);
+}
+
+async function webViewEnabled(patientId: string): Promise<boolean> {
+  const { rows } = await query<{ on: boolean }>(
+    `SELECT web_view_enabled AS on FROM users WHERE id = $1`,
+    [patientId],
+  );
+  return rows[0]?.on === true;
+}
+
+/**
+ * Anything that may still read the snapshot: an approved clinic, or the patient
+ * reading their own data at /account/. The upload gate and the purge must agree
+ * on this definition or one of them is wrong.
+ */
+export async function hasAnySnapshotConsumer(patientId: string): Promise<boolean> {
+  if (!patientId) return false;
+  if (await webViewEnabled(patientId)) return true;
+  return (await countApprovedShares(patientId)) > 0;
 }
 
 /**
@@ -41,19 +59,44 @@ export async function purgeClinicLinkData(patientId: string, mentorId: string): 
   ]);
 }
 
-/**
- * Deletes everything the server holds about a patient's clinic sharing once
- * nothing is left to read it: the snapshot, the workspace overlay and the rules
- * history. A patient linked to two clinics who revokes one keeps all of it for
- * the other. Does not touch `user_cloud_backups`, which is the patient's own
- * backup and not clinic data. Returns whether a purge ran.
- */
-export async function purgeClinicDataIfNoConsumers(patientId: string): Promise<boolean> {
-  if (!patientId) return false;
-  if ((await countConsumers(patientId)) > 0) return false;
+export type PurgeOutcome = {
+  /** Overlay + rules history dropped (no clinic left to read them). */
+  clinicWorkspace: boolean;
+  /** Snapshot dropped (no clinic *and* no patient web view left to read it). */
+  snapshot: boolean;
+};
 
-  await query(`DELETE FROM sync_blobs WHERE patient_id = $1`, [patientId]);
+/**
+ * Deletes whatever no longer has a reader. Derives everything from current state
+ * rather than from what the caller just did, so it is idempotent and safe to run
+ * from any path that can remove a consumer — revoking a share, or the patient
+ * turning their web view off.
+ *
+ * The two scopes have different readers, which is why this is not one condition:
+ *
+ * - **Clinic workspace** (overlay, rules history) is clinic-authored, and the
+ *   patient's own read-only view never renders it. It dies with the last clinic
+ *   link whether or not the web view is on.
+ * - **The snapshot** has two possible readers. A patient using the web view with
+ *   no clinic linked must keep it, or their own page breaks the moment they
+ *   discharge from a clinic.
+ *
+ * Does not touch `user_cloud_backups` — that is the patient's own backup, kept or
+ * dropped by its own toggle, and never clinic data.
+ */
+export async function purgeClinicDataIfNoConsumers(patientId: string): Promise<PurgeOutcome> {
+  const outcome: PurgeOutcome = { clinicWorkspace: false, snapshot: false };
+  if (!patientId) return outcome;
+
+  if ((await countApprovedShares(patientId)) > 0) return outcome;
+
   await query(`DELETE FROM clinic_patient_overlays WHERE patient_id = $1`, [patientId]);
   await query(`DELETE FROM clinic_patient_rules_history WHERE patient_id = $1`, [patientId]);
-  return true;
+  outcome.clinicWorkspace = true;
+
+  if (await webViewEnabled(patientId)) return outcome;
+
+  await query(`DELETE FROM sync_blobs WHERE patient_id = $1`, [patientId]);
+  outcome.snapshot = true;
+  return outcome;
 }
