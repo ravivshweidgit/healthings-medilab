@@ -26,7 +26,7 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-28-workspace-clinical-ia.md` | Patient workspace: stop mirroring the phone | **ready** | Banner, width, clinician-voice labels, header freshness |
+| `be-28-workspace-clinical-ia.md` | Patient workspace: stop mirroring the phone | **ready** | Banner, width, clinician-voice labels, header freshness; deletes 700 lines of dead mirror |
 | — | be-29 workspace i18n | not drafted | 10 locales for ~3,200 lines; after be-28 so strings are extracted once |
 | — | be-30 labs + lipids clinical view | not drafted | Needs owner clinical judgment (reference ranges); not an Auto batch |
 
