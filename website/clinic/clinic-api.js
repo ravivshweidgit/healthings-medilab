@@ -4,6 +4,14 @@
  * Two apps use this: the clinic portal, and the patient's own read-only view at
  * /account/. They keep their own token keys so a clinician and a patient sharing
  * a browser do not sign each other out.
+ *
+ * Session storage (be-08 C21): access + refresh JWTs live in localStorage under
+ * each app's token key (e.g. healthings_clinic_tokens). That means any XSS on
+ * this origin can read them, and there is no idle lock yet — a shared clinic
+ * workstation stays signed in until Sign out, the refresh token expires (30
+ * days unused), or the tab clears storage. Idle timeout is a deliberate later
+ * hardening step, not an alpha blocker. Prefer httpOnly cookies when the
+ * portal moves off a static same-origin shell.
  */
 (function (global) {
   'use strict';

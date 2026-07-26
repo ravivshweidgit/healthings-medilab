@@ -26,7 +26,7 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-08-clinic-portal-ux.md` | Clinic portal UI/UX catalog (C1–C21) | **partial** | A–D all ticked except **C11** (contrast re-measure) and **C21** (localStorage session note). Move to done/ once those two close |
+| `be-08-clinic-portal-ux.md` | Clinic portal UI/UX catalog (C1–C21) | **needs-review** | C11 tap targets bumped to 44px; C21 localStorage session risk documented in `clinic-api.js` + privacy. Owner glance then → `done/` |
 
 ## Done
 
@@ -91,11 +91,11 @@ trusting the script's exit code.
 
 ## Auto kickoff (paste)
 
-be-22 is accepted and deployed. Remaining open work is be-08 C11 + C21 (small cleanup), or a new batch.
+be-08 close-out is awaiting owner review (C11 + C21). After acceptance, backend open table is empty.
 
 ```
-Owner accepted be-22. Next: either close be-08 C11/C21, or wait for a new batch.
-Do not invent scope — ask if unclear.
+Owner is reviewing prompts/backend/be-08-clinic-portal-ux.md (C11/C21 close-out).
+Do not invent a new batch unless asked.
 ```
 
 ## Code

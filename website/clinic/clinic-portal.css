@@ -56,6 +56,7 @@ body.portal-app .portal-wrap {
   font-family: inherit;
   background: var(--surface);
   color: var(--text);
+  min-height: var(--tap-min);
 }
 .portal-btn {
   display: inline-flex;
@@ -341,7 +342,7 @@ summary:focus-visible {
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  min-height: 36px;
+  min-height: var(--tap-min);
 }
 .chip-btn.active {
   background: var(--navy);
@@ -414,7 +415,7 @@ summary:focus-visible {
 }
 .worklist-pager .portal-btn {
   margin-top: 0;
-  min-height: 40px;
+  min-height: var(--tap-min);
   padding: 8px 12px;
 }
 
@@ -434,6 +435,10 @@ summary:focus-visible {
 .secondary-panel summary {
   cursor: pointer;
   color: var(--text);
+  display: flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  padding: 4px 0;
 }
 .dev-only[hidden] {
   display: none !important;

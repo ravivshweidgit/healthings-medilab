@@ -279,7 +279,11 @@
           <li>
             <strong>Sessions.</strong> The token your app or browser holds lasts
             <strong>15 minutes</strong> and is renewed silently; the renewal itself expires after
-            <strong>30 days</strong> of not being used, and signing out revokes it.
+            <strong>30 days</strong> of not being used, and signing out revokes it. On the
+            <a href="/clinic/">clinic portal</a> (and the patient web account page) that token is
+            stored in the browser’s <code>localStorage</code> for the site — convenient on a
+            clinician workstation, but readable by any script that can run on healthings.ai, and
+            there is not yet an idle auto-lock. Use Sign out on a shared computer.
           </li>
           <li>
             <strong>Clinic snapshot — one copy, not a history.</strong> We keep exactly the
