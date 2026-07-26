@@ -1,6 +1,9 @@
 # Backend Phase 3 — Encrypted patient data sync (zero-knowledge relay)
 
-**Status: backlog (spec draft 2026-06-29; product decisions locked 2026-07)**  
+**Status: done** — shipped; header corrected 2026-07-26 (the "backlog" label was stale for weeks).
+Live artifacts: `sync_blobs` in `server/src/db/schema.sql`, `server/src/routes/sync.ts`,
+`server/src/services/sync.ts`. The clinic snapshot path this spec describes is what `be-15`
+(clinician AI) and `be-17` (snapshot purge on unshare) were later built on top of.  
 **Builds on:** `prompt-be-03-account-shares.md` (approved link required) · `done/prompt-be-01-vision.md` § sharing approach.
 
 ---

@@ -20,7 +20,10 @@
 
 ## Investigate (design / IA — not re-doing Batch A)
 
-**Correctness (C1–C5)** is owned by be-08. Only note if **live** still broken after deploy.
+**Correctness (C1–C5)** is owned by be-08 and **shipped 2026-07-26**. Only note if **live** still
+broken. Also already shipped by `be-21`: C13 save-name feedback, C17 sponsor duration picker, C18
+stacked rows, busy states on dashboard actions. **Still open** from be-08: C6 forms/Enter, C8 visible
+labels on email + code, C12 `:focus-visible`, and busy states on the **login** Send code / Sign in.
 
 Focus here:
 

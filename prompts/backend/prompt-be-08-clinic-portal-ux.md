@@ -1,7 +1,20 @@
 # Backend — Clinic portal UI/UX (healthings.ai/clinic)
 
-**Status:** Backlog / partial — review complete 2026-07-25; **Batch A coded locally** (not yet
-committed / not deployed). Canvas source of the review (Cursor-only, not in git):
+**Status:** Partial — **Batch A shipped and live**; B/C/D partly absorbed by later batches.
+Reconciled 2026-07-26.
+
+| Batch | State |
+|-------|-------|
+| **A** — correctness | **Done, committed, deployed.** `cancelShare` + `POST /v1/shares/:id/cancel` are in `server/src/services/shares.ts` / `routes/shares.ts`; the portal has the outgoing-invites list, confirm-before-revoke and `healthings_clinic_otp_pending` |
+| **B** — forms & a11y | **Partial.** C10 (dashboard actions) and C13 done via `be-21`; C6, C8, C12 still open |
+| **C** — IA / daily tool | **Partial.** C17 and C18 done via `be-21`; C14, C15, C19 moved to `opus5/drafts/be-22-clinic-portal-visual.md` |
+| **D** — hardening | C20 addressed in the rows `be-21` rewrote; C21 still documentation-only |
+
+**Do not re-review this portal from scratch.** This catalog already named the problems that `be-21`
+later rediscovered independently (C17 `window.prompt`, C18 ragged rows). Read it before opening a new
+portal batch.
+
+Canvas source of the original review (Cursor-only, not in git):
 `~/.cursor/projects/c-projects-healthings-medilab/canvases/clinic-portal-ux-review.canvas.tsx`
 
 **ID:** `prompt-be-08`  
@@ -130,24 +143,28 @@ Shipped in working tree (not committed / not on VPS yet):
 
 ### Batch B — Forms & a11y
 
-- [ ] C6 forms / Enter submit
-- [ ] C8 visible labels
-- [ ] C10 busy states on Send code / Verify / Invite
-- [ ] C11 44px targets + link contrast
-- [ ] C12 `:focus-visible`
-- [ ] C13 save-name success feedback
+- [ ] C6 forms / Enter submit — **still open.** Zero `<form>` elements in `index.html`
+- [ ] C8 visible labels — **still open** for email + code (display name has one)
+- [x] C10 busy states — **done for dashboard actions and Invite** (`withBusy`, `be-20` / `be-21`).
+      **Login half still open:** `send-code` and `verify-code` have no busy state, and both bail
+      silently (`if (!loginEmail) return`) on empty input
+- [ ] C11 44px targets + link contrast — **partial**; `be-21`'s probe asserted visible buttons clear
+      40px, contrast not re-measured
+- [ ] C12 `:focus-visible` — **still open.** No `focus-visible` rule in the portal
+- [x] C13 save-name success feedback — done via `#name-status` (`be-21`)
 
 ### Batch C — IA / daily tool
 
-- [ ] C14 card reorder
-- [ ] C15 patient filter
-- [ ] C17 sponsorship UI (replace `prompt`)
-- [ ] C18 mobile row layout
-- [ ] C19 light brand header
+- [ ] C14 card reorder → **moved to `be-22`** (patients-first layout)
+- [ ] C15 patient filter → **moved to `be-22`** (search / sort / pagination)
+- [x] C17 sponsorship UI (replace `prompt`) — done via `SPONSOR_DAY_CHOICES` inline picker (`be-21`)
+- [x] C18 mobile row layout — done; `.share-row` stacks actions (`be-21`)
+- [ ] C19 light brand header → **moved to `be-22`**
 
 ### Batch D — Hardening (defer idle lock)
 
-- [ ] C20 audit remaining `innerHTML` in portal login page if any
+- [x] C20 — share and usage rows are built with DOM `textContent`; `be-21` kept that when it
+      rewrote the row actions. No patient email reaches `innerHTML`
 - [ ] C21 document localStorage session risk; idle timeout = later
 
 ---
@@ -174,7 +191,8 @@ Shipped in working tree (not committed / not on VPS yet):
 
 ## Agent checklist
 
-- [ ] Batch A committed + API + website deployed?
-- [ ] Smoke checklist above green on production?
-- [ ] Batch B then C when user asks?
-- [ ] Move to `prompts/backend/done/prompt-be-08-clinic-portal-ux.md` + update backend READMEs when Batches A–C ship (or split A as done)?
+- [x] Batch A committed + API + website deployed
+- [x] Smoke checklist green on production
+- [ ] Remaining B items (C6 forms, C8 labels, C12 focus-visible, C10 login busy state) — fold into
+      the next portal batch rather than a standalone pass
+- [ ] Move to `prompts/backend/done/` once the leftover B items ship; C items now belong to `be-22`

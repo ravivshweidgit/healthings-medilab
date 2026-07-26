@@ -1,6 +1,10 @@
 # Backend Phase 5 — Token wallet & clinic-sponsored AI
 
-**Status: backlog (spec draft 2026-06-29)**  
+**Status: done** — shipped; header corrected 2026-07-26 (the "backlog" label was stale for weeks).
+Live artifacts: `wallets`, `wallet_ledger`, `payment_methods` in `server/src/db/schema.sql`,
+`server/src/routes/wallet.ts`, `server/src/services/sponsor.ts` (`resolveAiPayer`). Charging stays
+off in alpha (`BILLING_ENFORCE=false`). The tokens-vs-currency display problem this spec created is
+tracked in `opus5/drafts/be-22-clinic-portal-visual.md`.  
 **Builds on:** `prompt-be-03-account-shares.md` (`resolveAiPayer`) · `done/prompt-be-01-vision.md` § pricing.
 
 ---

@@ -2,7 +2,10 @@
 
 **Status: done (2026-06-30)** — Code shipped; VPS migrate + phone test pending.
 
-**Builds on:** `done/prompt-be-02b-app-login.md`
+**Builds on:** `prompt-be-02b-app-login.md`
+
+**Full original spec:** `prompt-be-03-account-shares-spec.md` (design rationale; this file is the
+condensed record of what landed).
 
 ---
 

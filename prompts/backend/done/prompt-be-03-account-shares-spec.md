@@ -1,6 +1,9 @@
 # Backend Phase 2 — Account shares (patient ↔ mentor / clinic)
 
-**Status: backlog (spec draft 2026-06-29)**  
+**Status: done (shipped 2026-06-30)** — header corrected 2026-07-26. This is the **full original
+spec**; the condensed shipped record with the endpoint table and phone-test checklist is
+`done/prompt-be-03-account-shares.md`. Both are kept: the summary is the record of what landed, this
+file is the design rationale behind it.  
 Builds on **`done/prompt-be-02-accounts-auth.md`** · **`done/prompt-be-02b-app-login.md`**.
 
 ### Decisions (locked 2026-06-29)

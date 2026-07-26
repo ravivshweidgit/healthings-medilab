@@ -46,8 +46,8 @@ Repo roots: `website/`, `website/clinic/`, help generator `website/scripts/help-
 - Keep **HEALTHINGS.AI** wordmark recognizable (`website/assets/brand-logo.png`).
 - Clinic portal UI = **English only**. Help = path locale. Glossary English (kcal, CGM, …).
 - Alpha CTAs (Play internal / TestFlight) are intentional — clarify, don’t fake public GA.
-- Clinic correctness bugs C1–C5 are owned by `prompt-be-08` (Batch A may already be coded
-  locally). Focus visual/IA; mention correctness only if still broken on the **live** URL.
+- Clinic correctness bugs C1–C5 are owned by `prompt-be-08`. **Batch A is committed and live as of
+  2026-07-26** — do not re-report C1–C5 unless still broken on the **live** URL. Focus visual/IA.
 - Help string changes need `help-locale-content.mjs` + regen; CSS/template changes usually
   don’t. Say which in every recommendation.
 - Every finding needs **effort S/M/L** and which future draft file will own it.

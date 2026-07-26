@@ -149,21 +149,26 @@ exist while not describing the ones that do.
 
 ### Part A — policy text (website only, no build)
 
-- [ ] Lead and Summary: "we do not upload your health data unless you share with a clinic" must
+**All shipped and deployed 2026-07-26** (`578146c`). Sections now live on `website/privacy.html`:
+`#on-device`, `#cloud-backup`, `#server-data`, `#third-parties`, `#permissions`, `#retention`,
+`#deletion`.
+
+- [x] Lead and Summary: "we do not upload your health data unless you share with a clinic" must
       acknowledge the opt-in cloud backup as a second path
-- [ ] `#on-device`: remove backups from the "phone only" list; state plainly that HC and Withings
+- [x] `#on-device`: remove backups from the "phone only" list; state plainly that HC and Withings
       data travel in the clinic snapshot when you share
-- [ ] New subsection for **cloud backup**: opt-in, full backup plus one previous copy, deleted when
+- [x] New subsection for **cloud backup**: opt-in, full backup plus one previous copy, deleted when
       you turn it off
-- [ ] `#server-data`: add payments, wallet and ledger, AI usage metering, sponsorships, clinic
+- [x] `#server-data`: add payments, wallet and ledger, AI usage metering, sponsorships, clinic
       overlay and rules history, cloud backup, sync requests
-- [ ] `#third-parties`: Gemini gains the server-side clinician path; Withings distinguishes tokens
+- [x] `#third-parties`: Gemini gains the server-side clinician path; Withings distinguishes tokens
       (stay on device) from synced values (travel in the snapshot); Health Connect lists all five
       record types; add Apple Health
-- [ ] `#permissions`: rewrite against the real manifest, grouped by what the user gets for each
-- [ ] Retention: say what is kept indefinitely rather than implying it is not
-- [ ] Fix the login-timestamp sentence
-- [ ] Bump "Last updated"
+- [x] `#permissions`: rewrite against the real manifest, grouped by what the user gets for each
+- [x] Retention: say what is kept indefinitely rather than implying it is not — shipped as the
+      `#retention` section ("How long we keep it"). No expiry job; see the decision in Part B
+- [x] Fix the login-timestamp sentence
+- [x] Bump "Last updated" → 26 July 2026
 
 ### Part B — app and server (needs a build and a phone test)
 
@@ -177,7 +182,12 @@ exist while not describing the ones that do.
       real ones in the same block. Committed without a phone test at the owner's call; the picker is
       the only plausible regression surface, and reverting the `app.json` block alone would restore
       old behaviour without putting the Android permission back.
-- [ ] Establish whether `SYSTEM_ALERT_WINDOW` belongs in a release build; remove if it is a dev artifact
+- [x] **Done 2026-07-26.** `SYSTEM_ALERT_WINDOW` was a dev artifact — nothing in the app requests
+      overlay permission; it arrives with the Expo dev-client tooling. Removed from the committed
+      `app/android/app/src/main/AndroidManifest.xml` **and** added to `android.blockedPermissions` in
+      `app.config.js`, so a future `expo prebuild` cannot put it back. Verified on the merged release
+      manifest and on the release AAB; the debug dev client still builds and runs. Storage
+      permissions were left alone deliberately: `minSdk 26` still needs them for meal photos.
 - [x] ~~Health Connect `Distance`~~ — **closed, do not touch.** Owner instruction: stay out of the
       calorie path. Not a defect to fix; see the section above before reopening this
 - [x] **Decided 2026-07-26: no retention policy during the alpha.** Owner's call — everything stays

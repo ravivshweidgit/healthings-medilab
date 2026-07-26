@@ -1,6 +1,10 @@
 # Backend Phase 4 — Clinic web portal (mentor dashboard)
 
-**Status: backlog (spec draft 2026-06-29; product decisions locked 2026-07)**  
+**Status: done** — shipped; header corrected 2026-07-26 (the "backlog" label was stale for weeks).
+Live artifacts: `website/clinic/index.html` (dashboard) and `website/clinic/patient.html`
+(workspace). **UI/UX debt from this build is tracked separately** in
+`prompt-be-08-clinic-portal-ux.md`, and the multi-clinic data-model defects it left behind are
+`opus5/drafts/be-23-clinic-isolation-and-audit.md`.  
 **Builds on:** `done/prompt-be-02b-app-login.md` · `prompt-be-03-account-shares.md` · `prompt-be-04-encrypted-sync.md`.
 
 ---
