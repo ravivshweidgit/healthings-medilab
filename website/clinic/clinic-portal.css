@@ -439,6 +439,40 @@ summary:focus-visible {
   display: none !important;
 }
 
+/* Worklist loading skeleton (be-22) */
+.worklist-skeleton .worklist-skel-block {
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 0%,
+    var(--surface) 45%,
+    var(--surface-2) 90%
+  );
+  background-size: 200% 100%;
+  animation: portal-skel-pulse 1.2s ease-in-out infinite;
+  margin: 6px 0;
+}
+@keyframes portal-skel-pulse {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .worklist-skeleton .worklist-skel-block {
+    animation: none;
+    background: var(--surface-2);
+  }
+}
+.balance-chip .muted,
+#wallet-balance.muted {
+  font-weight: 600;
+  color: var(--muted);
+}
+
 @media (max-width: 720px) {
   .worklist-table thead {
     display: none;

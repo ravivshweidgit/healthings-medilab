@@ -14,6 +14,10 @@ export type WalletView = {
   autoReload: boolean;
   paymentMethodOnFile: boolean;
   tokenPackSize: number;
+  /** Pack list price in minor units — for money-led balance UI (be-22). */
+  tokenPackPriceCents: number;
+  /** ISO 4217 lower-case, from STRIPE_CURRENCY. */
+  currency: string;
 };
 
 export async function getBalance(userId: string): Promise<number> {
@@ -47,6 +51,8 @@ export async function ensureWallet(userId: string): Promise<number> {
 export async function getWalletForUser(userId: string, role: 'patient' | 'mentor'): Promise<WalletView> {
   const ownBalance = await ensureWallet(userId);
   const tokenPackSize = config.TOKEN_PACK_SIZE;
+  const tokenPackPriceCents = config.TOKEN_PACK_PRICE_CENTS;
+  const currency = config.STRIPE_CURRENCY;
   const ownPm = await getPaymentMethod(userId);
 
   if (role === 'mentor') {
@@ -60,6 +66,8 @@ export async function getWalletForUser(userId: string, role: 'patient' | 'mentor
       autoReload: true,
       paymentMethodOnFile: ownPm.onFile,
       tokenPackSize,
+      tokenPackPriceCents,
+      currency,
     };
   }
 
@@ -79,6 +87,8 @@ export async function getWalletForUser(userId: string, role: 'patient' | 'mentor
     autoReload: true,
     paymentMethodOnFile: payerPm.onFile,
     tokenPackSize,
+    tokenPackPriceCents,
+    currency,
   };
 }
 

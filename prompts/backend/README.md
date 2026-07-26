@@ -26,7 +26,7 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-22-clinic-portal-visual.md` | Clinic portal visual rebuild | **ready, rescoped** | be-25 absorbed 5 of its 6 problems. What's left: `patient.html` + `clinic-workspace.css` tokens/dark (the last light-only surface), skeletons, and the money-led balance with `tokenPackPriceCents`. Also owns the two English strings left in the hidden alpha billing rows (`Payment method`, `Total tokens`) |
+| `be-22-clinic-portal-visual.md` | Clinic portal visual rebuild | **needs-review** | Workspace tokens/dark, worklist+workspace skeletons, money-led balance via `tokenPackPriceCents`. Owner eye-check light/dark + 390px |
 | `be-08-clinic-portal-ux.md` | Clinic portal UI/UX catalog (C1–C21) | **partial** | A–D all ticked except **C11** (contrast re-measure) and **C21** (localStorage session note). Move to done/ once those two close |
 
 ## Done
@@ -92,24 +92,11 @@ trusting the script's exit code.
 
 ## Auto kickoff (paste)
 
-be-26 is accepted and deployed. Next batch:
+be-22 is built and awaiting owner review. After acceptance, remaining open work is be-08 C11 + C21.
 
 ```
-Implement prompts/backend/be-22-clinic-portal-visual.md
-(ignore done/ — those are shipped records). Stop after be-22.
-
-Rules:
-- patient.html + clinic-workspace.css are the last light-only surface.
-  Tokenize against website/tokens.css and support dark via .theme-auto —
-  same approach clinic-portal.css already uses.
-- Any new chrome string goes through ClinicI18n.t() with a key in all 10
-  locales. No inline English. That includes the two alpha billing rows
-  (Payment method, Total tokens) if you unhide or touch them.
-- Patient-authored content keeps its own dir: prose auto, emails ltr.
-- Money-led balance uses tokenPackPriceCents; do not invent a price.
-- No server, schema, or app diff.
-- Mark needs-review with light + dark evidence; do not self-accept.
-- Do not commit or deploy unless asked.
+Owner is reviewing prompts/backend/be-22-clinic-portal-visual.md.
+Do not start a new batch until be-22 is accepted or redirected.
 ```
 
 ## Code

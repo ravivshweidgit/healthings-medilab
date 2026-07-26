@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Healthings — Clinic portal</title>
     <link rel="icon" href="../assets/icon.png" type="image/png" />
-    <link rel="stylesheet" href="../tokens.css?v=20260726g" />
+    <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="../styles.css?v=20260726g" />
-    <link rel="stylesheet" href="clinic-portal.css?v=20260726g" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260726j" />
   </head>
   <body>
     <div class="portal-wrap">
@@ -155,6 +155,13 @@
                 <th scope="col" data-i18n="colActions">Actions</th>
               </tr>
             </thead>
+            <tbody id="worklist-skeleton" class="worklist-skeleton" aria-busy="true" hidden>
+              <tr aria-hidden="true"><td colspan="4"><div class="worklist-skel-block"></div></td></tr>
+              <tr aria-hidden="true"><td colspan="4"><div class="worklist-skel-block"></div></td></tr>
+              <tr aria-hidden="true"><td colspan="4"><div class="worklist-skel-block"></div></td></tr>
+              <tr aria-hidden="true"><td colspan="4"><div class="worklist-skel-block"></div></td></tr>
+              <tr aria-hidden="true"><td colspan="4"><div class="worklist-skel-block"></div></td></tr>
+            </tbody>
             <tbody id="worklist-body"></tbody>
           </table>
           <div id="worklist-empty" class="worklist-empty muted" hidden></div>
@@ -188,7 +195,11 @@
         <div class="secondary-panel dev-only" id="dev-wallet" hidden>
           <h2 data-i18n="creditsTitle">AI credits (alpha)</h2>
           <p class="muted" data-i18n="creditsLead"></p>
-          <p><strong data-i18n="balance">Balance:</strong> <span id="wallet-balance">—</span> tokens</p>
+          <p>
+            <strong data-i18n="balance">Balance:</strong>
+            <span id="wallet-balance-money">—</span>
+            <span class="muted" id="wallet-balance">—</span>
+          </p>
           <p class="muted" id="wallet-pm"></p>
           <button id="simulate-card-btn" class="portal-btn secondary" type="button" data-i18n="attachCard">
             Attach test card (alpha)
@@ -208,11 +219,11 @@
       </section>
     </div>
 
-    <script src="clinic-i18n.js?v=20260726i"></script>
+    <script src="clinic-i18n.js?v=20260726j"></script>
     <script src="clinic-api.js?v=20260726g"></script>
     <script>
       const { api, loadTokens, saveTokens, clearTokens } = ClinicApi;
-      const { t, CLINIC_LOCALES, pluralDays } = ClinicI18n;
+      const { t, CLINIC_LOCALES, pluralDays, getLocale } = ClinicI18n;
       const OTP_PENDING_KEY = 'healthings_clinic_otp_pending';
       const DEV_KEY = 'healthings_clinic_dev';
       const PAGE_SIZE = 25;
@@ -233,6 +244,57 @@
         sponsorByPatient: new Map(),
         act: null,
       };
+
+      function formatWalletMoney(wallet) {
+        if (!wallet || !wallet.tokenPackSize || wallet.tokenPackPriceCents == null) return null;
+        const centsPerToken = wallet.tokenPackPriceCents / wallet.tokenPackSize;
+        const value = (wallet.balanceTokens * centsPerToken) / 100;
+        const currency = String(wallet.currency || 'usd').toUpperCase();
+        try {
+          return new Intl.NumberFormat(getLocale(), { style: 'currency', currency }).format(value);
+        } catch {
+          return new Intl.NumberFormat('en', { style: 'currency', currency: 'USD' }).format(value);
+        }
+      }
+
+      function paintWalletBalance(wallet) {
+        const money = formatWalletMoney(wallet);
+        const tokens = wallet ? wallet.balanceTokens : null;
+        const chip = document.getElementById('balance-chip');
+        const moneyEl = document.getElementById('wallet-balance-money');
+        const tokensEl = document.getElementById('wallet-balance');
+        if (money != null && tokens != null) {
+          chip.textContent = t('balanceChip', { money, n: tokens });
+          if (moneyEl) moneyEl.textContent = money;
+          if (tokensEl) tokensEl.textContent = t('balanceTokensSecondary', { n: tokens });
+        } else {
+          chip.textContent = '—';
+          if (moneyEl) moneyEl.textContent = '—';
+          if (tokensEl) tokensEl.textContent = '';
+        }
+      }
+
+      function setWorklistLoading(on) {
+        const skel = document.getElementById('worklist-skeleton');
+        const body = document.getElementById('worklist-body');
+        const empty = document.getElementById('worklist-empty');
+        const pager = document.getElementById('worklist-pager');
+        if (skel) {
+          skel.hidden = !on;
+          if (on) skel.setAttribute('aria-busy', 'true');
+          else skel.removeAttribute('aria-busy');
+        }
+        if (on) {
+          if (body) {
+            body.replaceChildren();
+            body.setAttribute('aria-busy', 'true');
+          }
+          if (empty) empty.hidden = true;
+          if (pager) pager.hidden = true;
+        } else if (body) {
+          body.removeAttribute('aria-busy');
+        }
+      }
 
       /* ── i18n plumbing ─────────────────────────────────────────────────── */
 
@@ -581,6 +643,7 @@
       }
 
       function renderWorklist() {
+        setWorklistLoading(false);
         const body = document.getElementById('worklist-body');
         const empty = document.getElementById('worklist-empty');
         const pager = document.getElementById('worklist-pager');
@@ -677,9 +740,22 @@
         }
         const total = document.createElement('p');
         const strong = document.createElement('strong');
-        strong.textContent = t('usageTotal');
-        total.append(strong, document.createTextNode(String(data.totalTokens)));
+        strong.textContent = t('usageTotal', { n: data.totalTokens });
+        total.appendChild(strong);
         el.appendChild(total);
+
+        const events = (data.byPatient || []).reduce(
+          (sum, row) => sum + (Number(row.eventCount) || 0),
+          0,
+        );
+        if (events > 0 && data.totalTokens != null) {
+          const avg = Math.round(data.totalTokens / events);
+          const avgP = document.createElement('p');
+          avgP.className = 'muted';
+          avgP.textContent = t('usageAvg', { avg });
+          el.appendChild(avgP);
+        }
+
         data.byPatient.forEach((row) => {
           const wrap = document.createElement('div');
           wrap.style.marginTop = '8px';
@@ -698,56 +774,53 @@
       /* ── data ──────────────────────────────────────────────────────────── */
 
       async function refreshDashboard() {
-        const meRes = await api('/v1/me');
-        if (!meRes.ok) {
-          const err = new Error(meRes.status === 401 ? t('sessionExpired') : t('couldNotLoadAccount'));
-          err.status = meRes.status;
-          throw err;
-        }
-        const { user } = await meRes.json();
-        if (user.role !== 'mentor') {
-          const err = new Error(t('mentorOnly'));
-          err.code = 'wrong_role';
-          throw err;
-        }
-        document.getElementById('header-email').textContent = user.email;
-        document.getElementById('display-name').value = user.displayName || '';
+        setWorklistLoading(true);
+        try {
+          const meRes = await api('/v1/me');
+          if (!meRes.ok) {
+            const err = new Error(meRes.status === 401 ? t('sessionExpired') : t('couldNotLoadAccount'));
+            err.status = meRes.status;
+            throw err;
+          }
+          const { user } = await meRes.json();
+          if (user.role !== 'mentor') {
+            const err = new Error(t('mentorOnly'));
+            err.code = 'wrong_role';
+            throw err;
+          }
+          document.getElementById('header-email').textContent = user.email;
+          document.getElementById('display-name').value = user.displayName || '';
 
-        const [pendingRes, outgoingRes, approvedRes, sponsorRes, usageRes, walletRes] =
-          await Promise.all([
-            api('/v1/shares/pending-for-me'),
-            api('/v1/shares?status=pending'),
-            api('/v1/shares?status=approved'),
-            api('/v1/sponsorships/mine'),
-            api('/v1/usage/summary'),
-            api('/v1/wallet'),
-          ]);
-        if (!pendingRes.ok || !outgoingRes.ok || !approvedRes.ok) {
-          throw new Error(t('couldNotLoadShares'));
-        }
-        const pending = (await pendingRes.json()).shares || [];
-        const allPending = (await outgoingRes.json()).shares || [];
-        const outgoing = allPending.filter((s) => s.initiatedBy === 'mentor');
-        const approved = (await approvedRes.json()).shares || [];
-        const sponsored = sponsorRes.ok ? (await sponsorRes.json()).sponsorships || [] : [];
-        const usage = usageRes.ok ? await usageRes.json() : null;
-        const wallet = walletRes.ok ? (await walletRes.json()).wallet : null;
+          const [pendingRes, outgoingRes, approvedRes, sponsorRes, usageRes, walletRes] =
+            await Promise.all([
+              api('/v1/shares/pending-for-me'),
+              api('/v1/shares?status=pending'),
+              api('/v1/shares?status=approved'),
+              api('/v1/sponsorships/mine'),
+              api('/v1/usage/summary'),
+              api('/v1/wallet'),
+            ]);
+          if (!pendingRes.ok || !outgoingRes.ok || !approvedRes.ok) {
+            throw new Error(t('couldNotLoadShares'));
+          }
+          const pending = (await pendingRes.json()).shares || [];
+          const allPending = (await outgoingRes.json()).shares || [];
+          const outgoing = allPending.filter((s) => s.initiatedBy === 'mentor');
+          const approved = (await approvedRes.json()).shares || [];
+          const sponsored = sponsorRes.ok ? (await sponsorRes.json()).sponsorships || [] : [];
+          const usage = usageRes.ok ? await usageRes.json() : null;
+          const wallet = walletRes.ok ? (await walletRes.json()).wallet : null;
 
-        document.getElementById('wallet-balance').textContent = wallet
-          ? String(wallet.balanceTokens)
-          : '—';
-        document.getElementById('balance-chip').textContent = wallet
-          ? wallet.balanceTokens + ' ' + t('tokensUnit')
-          : '— ' + t('tokensUnit');
-        document.getElementById('wallet-pm').textContent = t('paymentMethod', {
-          value: wallet
-            ? wallet.paymentMethodOnFile
-              ? t('pmCard')
-              : t('pmNone')
-            : t('pmUnknown'),
-        });
+          paintWalletBalance(wallet);
+          document.getElementById('wallet-pm').textContent = t('paymentMethod', {
+            value: wallet
+              ? wallet.paymentMethodOnFile
+                ? t('pmCard')
+                : t('pmNone')
+              : t('pmUnknown'),
+          });
 
-        renderUsageSummary(document.getElementById('usage-summary'), usage);
+          renderUsageSummary(document.getElementById('usage-summary'), usage);
 
         const BUSY_LABEL = {
           approve: 'approving',
@@ -837,6 +910,10 @@
         setCounts();
         renderWorklist();
         applyDevMode();
+        } catch (e) {
+          setWorklistLoading(false);
+          throw e;
+        }
       }
 
       /* ── views ─────────────────────────────────────────────────────────── */
@@ -892,8 +969,8 @@
           return;
         }
         try {
-          await refreshDashboard();
           showAppView();
+          await refreshDashboard();
         } catch (e) {
           const msg = e instanceof Error ? e.message : t('couldNotLoadPortal');
           const status = e && typeof e === 'object' ? e.status : undefined;
@@ -906,6 +983,7 @@
           }
           // Keep session on transient/API errors — clinician can retry without re-OTP.
           showAppView();
+          setWorklistLoading(false);
           showError(appErrorEl(), msg);
         }
       }
@@ -988,6 +1066,7 @@
             try {
               await refreshDashboard();
             } catch (err) {
+              setWorklistLoading(false);
               const msg = err instanceof Error ? err.message : t('couldNotLoadPortal');
               const wrongRole = err && typeof err === 'object' && err.code === 'wrong_role';
               if (wrongRole) {

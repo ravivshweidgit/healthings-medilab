@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="theme-auto">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Healthings — Patient workspace</title>
     <link rel="icon" href="../assets/icon.png" type="image/png" />
-    <link rel="stylesheet" href="../tokens.css?v=20260726e" />
-    <link rel="stylesheet" href="clinic-workspace.css?v=20260726e" />
+    <link rel="stylesheet" href="../tokens.css?v=20260726j" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260726j" />
+    <link rel="stylesheet" href="clinic-workspace.css?v=20260726j" />
   </head>
   <body class="clinic-workspace">
     <div class="ws-chrome">
@@ -110,13 +111,16 @@
         if (syncRes.status === 404) {
           showError('No snapshot yet. Tap Refresh snapshot — patient phone uploads when they open the app.');
           document.getElementById('ws-tabs').hidden = true;
+          clearSkeleton();
           clearWorkspace();
           document.getElementById('patient-meta').textContent = '';
           return false;
         }
         if (!syncRes.ok) {
           showError((await syncRes.json().catch(() => ({}))).error || 'Could not load snapshot');
-          if (clearSkeleton()) document.getElementById('patient-meta').textContent = '';
+          clearSkeleton();
+          clearWorkspace();
+          document.getElementById('patient-meta').textContent = '';
           return false;
         }
 
@@ -186,7 +190,9 @@
         const labelPromise = resolvePatientLabel(patientId);
         const renderPromise = renderWorkspaceFromSync(patientId).catch(() => {
           showError('Could not load snapshot');
-          if (clearSkeleton()) document.getElementById('patient-meta').textContent = '';
+          clearSkeleton();
+          clearWorkspace();
+          document.getElementById('patient-meta').textContent = '';
           return false;
         });
         applyPatientLabel(await labelPromise);

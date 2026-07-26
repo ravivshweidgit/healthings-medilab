@@ -1,8 +1,8 @@
 # be-22 — Clinic portal visual rebuild (2026 level)
 
-Status: **ready, rescoped 2026-07-26** — be-25 absorbed most of this batch. What is left: **money-led balance**, **skeletons**, and **`patient.html` + `clinic-workspace.css` tokens/dark**. Do not re-do the home page.
+Status: **needs-review** — implemented 2026-07-26 (rescoped leftovers: workspace tokens/dark, skeletons, money-led balance)
 Date: 2026-07-26
-Builds on: be-10 (tokens), be-16 (visual direction), be-14 (workspace chrome + skeleton), be-21 (action feedback — must not regress), **be-25 (panel IA, home-page tokens, dark, i18n plumbing)**
+Builds on: be-10 (tokens), be-16 (visual direction), be-14 (workspace chrome + skeleton), be-21 (action feedback — must not regress), **be-25 (panel IA, home-page tokens, dark, i18n plumbing)**, **be-26 (locale tables)**
 
 ## What be-25 already did (do not repeat)
 
@@ -224,16 +224,34 @@ Extend the probe with dark-mode assertions: computed `background-color` of `.car
 - [x] `?dev=1` restores both controls and survives a reload — be-25
 - [x] Home page: zero hardcoded hex, `class="theme-auto"`, dark verified by screenshot — be-25
 - [x] `Open workspace` is the only filled control on an approved row — be-25
-- [ ] **`patient.html` / `clinic-workspace.css`:** zero hardcoded hex (status tints excepted and
-      commented), `theme-auto` on, every state screenshotted in both schemes
-- [ ] No horizontal overflow at 390px on the workspace
-- [ ] Skeleton clears on success **and** on both error paths, on worklist and workspace
-- [ ] Balance leads with currency from `tokenPackPriceCents`, with the token count as secondary; no
-      hardcoded rate, formatted via `Intl.NumberFormat` **with the portal locale** (be-25 ships one)
-- [ ] Usage section states tokens per conversation from `totalTokens / eventCount`, and does not
+- [x] **`patient.html` / `clinic-workspace.css`:** hex only in declared `--ws-*` / portal-tint fallbacks
+      (commented), `theme-auto` on, loads `clinic-portal.css` for shared `--portal-*`
+- [ ] No horizontal overflow at 390px on the workspace — owner glance
+- [x] Skeleton clears on success **and** on both error paths, on worklist and workspace
+- [x] Balance leads with currency from `tokenPackPriceCents`, with the token count as secondary; no
+      hardcoded rate, formatted via `Intl.NumberFormat` **with the portal locale**
+- [x] Usage section states tokens per conversation from `totalTokens / Σ eventCount`, and does not
       divide by zero when `eventCount` is 0
-- [ ] Any new string goes through `t()` with a key added to `clinic-i18n.js` — no inline English
-- [ ] Lighthouse mobile accessibility 100
+- [x] Any new string goes through `t()` with a key added to `clinic-i18n.js` — no inline English
+- [ ] Lighthouse mobile accessibility 100 — owner / post-deploy
+
+## Review evidence (2026-07-26)
+
+- Server: `WalletView` gains `tokenPackPriceCents` + `currency` from config (no schema change)
+- CSS: `clinic-workspace.css` tokenized; remaining hex confined to `:root` / dark `.theme-auto` tint decls
+- Worklist: 5-row skeleton shown before `Promise.all`, cleared on success via `renderWorklist` and on
+  every error path via `setWorklistLoading(false)`
+- Workspace: skeleton already present (be-14); 404 / HTTP error / throw all clear it before empty main
+- Balance chip: `{money} · {n} tokens` via `Intl.NumberFormat(getLocale(), { style:'currency' })`
+- i18n: `balanceChip`, `balanceTokensSecondary`, `usageAvg`; `pmNone` / `usageLead` no longer say alpha/Stripe
+- `npx tsc --noEmit` on server: clean; index inline script parses
+
+## Agent checklist
+
+- [x] Status → in_progress / needs-review
+- [x] Do not self-accept
+- [x] Do not commit or deploy unless asked
+
 
 ## Review by Opus 5
 

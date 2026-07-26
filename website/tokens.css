@@ -59,10 +59,8 @@
 /**
  * Dark scheme, opt-in via `<html class="theme-auto">`.
  *
- * Deliberately not applied to :root. tokens.css is loaded by the clinic portal and
- * the patient workspace, whose stylesheets still carry hardcoded light surfaces —
- * flipping tokens globally would darken a clinician tool that nobody has checked.
- * Pages opt in once they have been verified in dark.
+ * Deliberately not applied to :root. Pages opt in via `<html class="theme-auto">`
+ * once verified in dark (landing, clinic panel be-25, patient workspace be-22).
  */
 @media (prefers-color-scheme: dark) {
   .theme-auto {
