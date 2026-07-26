@@ -52,6 +52,8 @@ import { getManualBody, saveManualBody, type ManualBodySnapshot } from '../servi
 import { syncMetricsStore } from '../services/MetricsPersistenceService';
 import type { NutritionDirective } from '../services/NutritionDirectiveService';
 import { setOnboardingCompletedAt } from '../services/ProfileCompletenessService';
+import { fetchCurrentUser, updatePatientNames } from '../services/AuthApiService';
+import { loadCachedAuthUser } from '../services/AuthTokenStore';
 import { syncSamsungStepsIfConfigured } from '../services/SamsungStepsAdapter';
 import {
   saveSourceConfig,
@@ -141,6 +143,7 @@ function computeBrandHeaderHeight(windowWidth: number): number {
 type StepId =
   | 'language'
   | 'appearance'
+  | 'names'
   | 'welcome'
   | 'units'
   | 'body'
@@ -165,8 +168,18 @@ function buildStepList(
   hasWatch: boolean | null,
   tracksCgm: boolean | null,
 ): StepId[] {
-  // Theme right after language so the rest of Quick Start previews the choice live.
-  const steps: StepId[] = ['language', 'appearance', 'welcome', 'units', 'body', 'scale', 'watch', 'cgm'];
+  // Theme + name right after language so clinic findability and live theme preview early.
+  const steps: StepId[] = [
+    'language',
+    'appearance',
+    'names',
+    'welcome',
+    'units',
+    'body',
+    'scale',
+    'watch',
+    'cgm',
+  ];
   if (hasScale === true || hasWatch === true) {
     steps.push('link_withings');
   }
@@ -623,6 +636,8 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [language, setLangPick] = useState<UserLanguage>(SUPPORTED_LANGUAGES[0]);
   const [unitsPrefs, setUnitsPrefs] = useState<UnitsPrefs>({ ...DEFAULT_UNITS_PREFS });
+  const [firstNameInput, setFirstNameInput] = useState('');
+  const [lastNameInput, setLastNameInput] = useState('');
   const appearanceLabels = useMemo(() => getAppearanceCopy(language.code), [language.code]);
 
   const [hasScale, setHasScale] = useState<boolean | null>(null);
@@ -718,6 +733,14 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
       setUsingSavedTargets(false);
       setRulesPreview(null);
       setPermNote(null);
+      const cached = await loadCachedAuthUser();
+      setFirstNameInput(cached?.firstName?.trim() || '');
+      setLastNameInput(cached?.lastName?.trim() || '');
+      void fetchCurrentUser().then((me) => {
+        if (!me) return;
+        setFirstNameInput(me.firstName?.trim() || '');
+        setLastNameInput(me.lastName?.trim() || '');
+      });
     })();
   }, [visible]);
 
@@ -1176,6 +1199,19 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     setStepError(null);
   }, []);
 
+  const validateNames = useCallback((): boolean => {
+    if (!firstNameInput.trim() || !lastNameInput.trim()) {
+      setStepError(t.names.required);
+      return false;
+    }
+    setStepError(null);
+    return true;
+  }, [firstNameInput, lastNameInput, t.names.required]);
+
+  const savePatientNames = useCallback(async () => {
+    await updatePatientNames(firstNameInput.trim(), lastNameInput.trim());
+  }, [firstNameInput, lastNameInput]);
+
   const goNext = useCallback(async () => {
     setStepError(null);
     if (stepId === 'welcome') {
@@ -1200,6 +1236,17 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     }
     if (stepId === 'appearance') {
       // Pref already persisted on tap via setThemePref (live preview).
+      goToAdjacent(1);
+      return;
+    }
+    if (stepId === 'names') {
+      if (!validateNames()) return;
+      try {
+        await savePatientNames();
+      } catch (e) {
+        setStepError(e instanceof Error ? e.message : t.names.saveFailed);
+        return;
+      }
       goToAdjacent(1);
       return;
     }
@@ -1264,6 +1311,8 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     validateBody,
     saveProfileBasics,
     saveLanguage,
+    validateNames,
+    savePatientNames,
     hasScale,
     hasWatch,
     tracksCgm,
@@ -1278,6 +1327,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     goToAdjacent,
     nudgeYesNoChoice,
     t.targets.waitOrRetry,
+    t.names.saveFailed,
   ]);
 
   const goBack = useCallback(() => {
@@ -1384,6 +1434,37 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                 lightLabel={appearanceLabels.light}
                 darkLabel={appearanceLabels.dark}
                 hint={appearanceLabels.hint}
+              />
+            </>
+          )}
+
+          {stepId === 'names' && (
+            <>
+              <StepHeading
+                title={t.names.title}
+                helpHref={helpUrl(langCode, 'quick-start-profile')}
+                helpLabel={t.names.helpLabel}
+                textStyle={copyAlign}
+                rtl={rtl}
+              />
+              <Text style={[styles.lead, copyAlign]}>{t.names.lead}</Text>
+              <Text style={[styles.fieldLabel, copyAlign]}>{t.names.firstName}</Text>
+              <TextInput
+                style={styles.input}
+                value={firstNameInput}
+                onChangeText={setFirstNameInput}
+                autoCapitalize="words"
+                autoCorrect={false}
+                placeholderTextColor={colors.textSecondary}
+              />
+              <Text style={[styles.fieldLabel, copyAlign]}>{t.names.lastName}</Text>
+              <TextInput
+                style={styles.input}
+                value={lastNameInput}
+                onChangeText={setLastNameInput}
+                autoCapitalize="words"
+                autoCorrect={false}
+                placeholderTextColor={colors.textSecondary}
               />
             </>
           )}

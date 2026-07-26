@@ -15,6 +15,12 @@ export type AuthUser = {
   id: string;
   email: string;
   role: UserRole;
+  /** Mentor/clinic label — patients do not set this. */
+  displayName?: string | null;
+  /** Patient first name for clinic findability (be-27). */
+  firstName?: string | null;
+  /** Patient last name for clinic findability (be-27). */
+  lastName?: string | null;
   /** Patient's own read-only view at healthings.ai/account. Absent on users cached before it existed. */
   webViewEnabled?: boolean;
   createdAt: string;
@@ -214,6 +220,24 @@ export async function setWebViewEnabled(enabled: boolean): Promise<AuthUser> {
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error || 'Could not update your web view');
+  }
+  const data = (await res.json()) as { user: AuthUser };
+  await saveCachedAuthUser(data.user);
+  return data.user;
+}
+
+/** Persist patient first/last name (be-27). Empty string clears that field. */
+export async function updatePatientNames(
+  firstName: string,
+  lastName: string,
+): Promise<AuthUser> {
+  const res = await authFetch('/v1/me', {
+    method: 'PATCH',
+    body: JSON.stringify({ firstName, lastName }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error || 'Could not save your name');
   }
   const data = (await res.json()) as { user: AuthUser };
   await saveCachedAuthUser(data.user);

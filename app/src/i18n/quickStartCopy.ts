@@ -66,6 +66,16 @@ export type QuickStartCopy = {
     helpLabel: string;
     lead: string;
   };
+  /** Patient name for clinic findability (be-27) — after appearance. */
+  names: {
+    title: string;
+    helpLabel: string;
+    lead: string;
+    firstName: string;
+    lastName: string;
+    required: string;
+    saveFailed: string;
+  };
   welcome: {
     title: string;
     helpLabel: string;
@@ -202,6 +212,15 @@ const EN: QuickStartCopy = {
     title: 'Light or dark?',
     helpLabel: 'Appearance',
     lead: 'Choose how the app looks. “System” matches your phone. Change anytime in Profile.',
+  },
+  names: {
+    title: 'Your name',
+    helpLabel: 'Why we ask',
+    lead: 'So your clinic can find you on their patient list. You can edit this later in Profile.',
+    firstName: 'First name',
+    lastName: 'Last name',
+    required: 'Enter your first and last name.',
+    saveFailed: 'Could not save your name — check the network and try again.',
   },
   welcome: {
     title: 'Welcome',
@@ -353,6 +372,15 @@ const HE: QuickStartCopy = {
     helpLabel: 'מראה',
     lead: 'איך האפליקציה תיראה. ״מערכת״ עוקב אחרי הטלפון. אפשר לשנות אחר כך בפרופיל.',
   },
+  names: {
+    title: 'השם שלך',
+    helpLabel: 'למה שואלים',
+    lead: 'כדי שהמרפאה תוכל למצוא אותך ברשימת המטופלים. אפשר לערוך אחר כך בפרופיל.',
+    firstName: 'שם פרטי',
+    lastName: 'שם משפחה',
+    required: 'נא להזין שם פרטי ושם משפחה.',
+    saveFailed: 'לא ניתן לשמור את השם — בדקו את הרשת ונסו שוב.',
+  },
   welcome: {
     title: 'ברוכים הבאים',
     helpLabel: 'איך Healthings עובד',
@@ -502,6 +530,15 @@ const DE: QuickStartCopy = {
     title: 'Hell oder dunkel?',
     helpLabel: 'Darstellung',
     lead: 'So sieht die App aus. „System“ folgt dem Telefon. Später jederzeit im Profil änderbar.',
+  },
+  names: {
+    title: 'Ihr Name',
+    helpLabel: 'Warum wir fragen',
+    lead: 'Damit Ihre Praxis Sie in der Patientenliste finden kann. Später im Profil änderbar.',
+    firstName: 'Vorname',
+    lastName: 'Nachname',
+    required: 'Bitte Vor- und Nachname eingeben.',
+    saveFailed: 'Name konnte nicht gespeichert werden — Netzwerk prüfen und erneut versuchen.',
   },
   welcome: {
     title: 'Willkommen',
@@ -653,6 +690,15 @@ const ES: QuickStartCopy = {
     helpLabel: 'Apariencia',
     lead: 'Cómo se ve la app. «Sistema» sigue el teléfono. Puede cambiarlo luego en Perfil.',
   },
+  names: {
+    title: 'Su nombre',
+    helpLabel: 'Por qué lo pedimos',
+    lead: 'Para que su clínica pueda encontrarle en la lista de pacientes. Editable después en Perfil.',
+    firstName: 'Nombre',
+    lastName: 'Apellidos',
+    required: 'Introduzca nombre y apellidos.',
+    saveFailed: 'No se pudo guardar el nombre — compruebe la red e inténtelo de nuevo.',
+  },
   welcome: {
     title: 'Bienvenido/a',
     helpLabel: 'Cómo funciona Healthings',
@@ -803,6 +849,15 @@ const FR: QuickStartCopy = {
     helpLabel: 'Apparence',
     lead: 'Aspect de l’app. « Système » suit le téléphone. Modifiable plus tard dans Profil.',
   },
+  names: {
+    title: 'Votre nom',
+    helpLabel: 'Pourquoi on demande',
+    lead: 'Pour que votre clinique puisse vous trouver dans la liste des patients. Modifiable plus tard dans Profil.',
+    firstName: 'Prénom',
+    lastName: 'Nom',
+    required: 'Saisissez votre prénom et votre nom.',
+    saveFailed: 'Impossible d’enregistrer le nom — vérifiez le réseau et réessayez.',
+  },
   welcome: {
     title: 'Bienvenue',
     helpLabel: 'Comment fonctionne Healthings',
@@ -951,6 +1006,15 @@ const AR: QuickStartCopy = {
     title: 'فاتح أم داكن؟',
     helpLabel: 'المظهر',
     lead: 'شكل التطبيق. «النظام» يتبع الهاتف. يمكن تغييره لاحقاً من الملف الشخصي.',
+  },
+  names: {
+    title: 'اسمك',
+    helpLabel: 'لماذا نسأل',
+    lead: 'حتى تتمكن العيادة من إيجادك في قائمة المرضى. يمكن تعديله لاحقاً من الملف الشخصي.',
+    firstName: 'الاسم الأول',
+    lastName: 'اسم العائلة',
+    required: 'أدخل الاسم الأول واسم العائلة.',
+    saveFailed: 'تعذر حفظ الاسم — تحقق من الشبكة وحاول مرة أخرى.',
   },
   welcome: {
     title: 'مرحباً بكم',
@@ -1102,6 +1166,15 @@ const RU: QuickStartCopy = {
     helpLabel: 'Оформление',
     lead: 'Как выглядит приложение. «Система» следует телефону. Можно сменить позже в профиле.',
   },
+  names: {
+    title: 'Ваше имя',
+    helpLabel: 'Зачем спрашиваем',
+    lead: 'Чтобы клиника могла найти вас в списке пациентов. Можно изменить позже в профиле.',
+    firstName: 'Имя',
+    lastName: 'Фамилия',
+    required: 'Введите имя и фамилию.',
+    saveFailed: 'Не удалось сохранить имя — проверьте сеть и попробуйте снова.',
+  },
   welcome: {
     title: 'Добро пожаловать',
     helpLabel: 'Как работает Healthings',
@@ -1251,6 +1324,15 @@ const PT: QuickStartCopy = {
     title: 'Claro ou escuro?',
     helpLabel: 'Aparência',
     lead: 'Como o app aparece. «Sistema» segue o telefone. Pode mudar depois no Perfil.',
+  },
+  names: {
+    title: 'Seu nome',
+    helpLabel: 'Por que pedimos',
+    lead: 'Para a clínica encontrar você na lista de pacientes. Pode editar depois no Perfil.',
+    firstName: 'Nome',
+    lastName: 'Sobrenome',
+    required: 'Digite nome e sobrenome.',
+    saveFailed: 'Não foi possível salvar o nome — verifique a rede e tente de novo.',
   },
   welcome: {
     title: 'Bem-vindo(a)',
@@ -1403,6 +1485,15 @@ const IT: QuickStartCopy = {
     helpLabel: 'Aspetto',
     lead: 'Come appare l’app. «Sistema» segue il telefono. Si può cambiare dopo in Profilo.',
   },
+  names: {
+    title: 'Il tuo nome',
+    helpLabel: 'Perché lo chiediamo',
+    lead: 'Così la clinica può trovarti nell’elenco pazienti. Modificabile dopo in Profilo.',
+    firstName: 'Nome',
+    lastName: 'Cognome',
+    required: 'Inserisci nome e cognome.',
+    saveFailed: 'Impossibile salvare il nome — controlla la rete e riprova.',
+  },
   welcome: {
     title: 'Benvenuto/a',
     helpLabel: 'Come funziona Healthings',
@@ -1553,6 +1644,15 @@ const TR: QuickStartCopy = {
     title: 'Açık mı koyu mu?',
     helpLabel: 'Görünüm',
     lead: 'Uygulama nasıl görünsün. “Sistem” telefonu izler. Sonra Profil’den değiştirebilirsiniz.',
+  },
+  names: {
+    title: 'Adınız',
+    helpLabel: 'Neden soruyoruz',
+    lead: 'Kliniğin sizi hasta listesinde bulabilmesi için. Sonra Profil’den düzenleyebilirsiniz.',
+    firstName: 'Ad',
+    lastName: 'Soyad',
+    required: 'Ad ve soyad girin.',
+    saveFailed: 'Ad kaydedilemedi — ağı kontrol edip tekrar deneyin.',
   },
   welcome: {
     title: 'Hoş geldiniz',

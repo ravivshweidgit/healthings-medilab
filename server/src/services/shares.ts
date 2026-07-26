@@ -15,6 +15,8 @@ export type PublicShare = {
   id: string;
   patientId: string | null;
   patientEmail: string;
+  patientFirstName: string | null;
+  patientLastName: string | null;
   mentorId: string;
   mentorEmail: string;
   mentorDisplayName: string | null;
@@ -39,6 +41,8 @@ type ShareRow = {
   approved_at: Date | null;
   mentor_email: string;
   mentor_display_name: string | null;
+  patient_first_name: string | null;
+  patient_last_name: string | null;
   last_sync_at: Date | null;
 };
 
@@ -61,6 +65,8 @@ function toPublicShare(row: ShareRow): PublicShare {
     id: row.id,
     patientId: row.patient_id,
     patientEmail: row.patient_email,
+    patientFirstName: row.patient_first_name,
+    patientLastName: row.patient_last_name,
     mentorId: row.mentor_id,
     mentorEmail: row.mentor_email,
     mentorDisplayName: row.mentor_display_name,
@@ -77,9 +83,12 @@ const shareSelect = `
   SELECT s.*,
          m.email AS mentor_email,
          m.display_name AS mentor_display_name,
+         p.first_name AS patient_first_name,
+         p.last_name AS patient_last_name,
          snap.created_at AS last_sync_at
   FROM account_shares s
   JOIN users m ON m.id = s.mentor_id
+  LEFT JOIN users p ON p.id = s.patient_id
   LEFT JOIN LATERAL (
     SELECT b.created_at
     FROM sync_blobs b

@@ -10,6 +10,10 @@ export type PublicUser = {
   email: string;
   role: UserRole;
   displayName: string | null;
+  /** Patient first name for clinic findability (be-27). Null for mentors. */
+  firstName: string | null;
+  /** Patient last name for clinic findability (be-27). Null for mentors. */
+  lastName: string | null;
   webViewEnabled: boolean;
   createdAt: string;
 };

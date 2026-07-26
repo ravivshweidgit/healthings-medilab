@@ -15,7 +15,7 @@ import {
 } from '../services/otp.js';
 import { OtpEmailSendError } from '../services/email.js';
 import { attachPendingShares } from '../services/shares.js';
-import { findOrCreateUser, findUserById, updateUserDisplayName } from '../services/users.js';
+import { findOrCreateUser, findUserById, updateUserDisplayName, updateUserNames } from '../services/users.js';
 
 const roleSchema = z.enum(['patient', 'mentor']);
 
@@ -33,9 +33,16 @@ const refreshBody = z.object({
   refreshToken: z.string().min(20),
 });
 
-const patchMeBody = z.object({
-  displayName: z.string().min(1).max(120),
-});
+const patchMeBody = z
+  .object({
+    displayName: z.string().min(1).max(120).optional(),
+    firstName: z.string().max(80).nullable().optional(),
+    lastName: z.string().max(80).nullable().optional(),
+  })
+  .refine(
+    (b) => b.displayName !== undefined || b.firstName !== undefined || b.lastName !== undefined,
+    { message: 'Provide displayName and/or firstName/lastName' },
+  );
 
 export async function registerAuthRoutes(app: FastifyInstance) {
   app.post('/v1/auth/otp/request', async (request, reply) => {
@@ -106,9 +113,33 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
   app.patch('/v1/me', { preHandler: authenticate }, async (request, reply) => {
     const body = patchMeBody.parse(request.body);
-    const user = await updateUserDisplayName(request.userId!, body.displayName);
-    if (!user) {
+    const current = await findUserById(request.userId!);
+    if (!current) {
       return reply.code(404).send({ error: 'User not found' });
+    }
+
+    const wantsDisplay = body.displayName !== undefined;
+    const wantsNames = body.firstName !== undefined || body.lastName !== undefined;
+
+    if (current.role === 'patient' && wantsDisplay) {
+      return reply.code(422).send({ error: 'Patients cannot set displayName' });
+    }
+    if (current.role === 'mentor' && wantsNames) {
+      return reply.code(422).send({ error: 'Mentors cannot set firstName/lastName' });
+    }
+
+    let user: typeof current | null = current;
+    if (wantsDisplay) {
+      user = await updateUserDisplayName(request.userId!, body.displayName!);
+      if (!user) {
+        return reply.code(404).send({ error: 'User not found' });
+      }
+    }
+    if (wantsNames) {
+      user = await updateUserNames(request.userId!, body.firstName, body.lastName);
+      if (!user) {
+        return reply.code(404).send({ error: 'User not found' });
+      }
     }
     return { user };
   });

@@ -70,7 +70,12 @@
           const data = await res.json();
           const shares = data.shares || [];
           const match = shares.find((s) => s.patientId === patientId);
-          const email = match && typeof match.patientEmail === 'string' ? match.patientEmail.trim() : '';
+          if (!match) return fallback;
+          const first = typeof match.patientFirstName === 'string' ? match.patientFirstName.trim() : '';
+          const last = typeof match.patientLastName === 'string' ? match.patientLastName.trim() : '';
+          const name = [first, last].filter(Boolean).join(' ');
+          if (name) return name;
+          const email = typeof match.patientEmail === 'string' ? match.patientEmail.trim() : '';
           return email || fallback;
         } catch {
           return fallback;

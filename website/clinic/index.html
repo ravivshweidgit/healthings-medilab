@@ -139,6 +139,7 @@
             autocomplete="off"
           />
           <select id="worklist-sort" class="portal-select worklist-sort" data-i18n-aria="sortLabel">
+            <option value="name" data-i18n="sortName">Name A–Z</option>
             <option value="email" data-i18n="sortEmail">Email A–Z</option>
             <option value="sync" data-i18n="sortSync">Last sync</option>
             <option value="sponsor" data-i18n="sortSponsor">Sponsorship</option>
@@ -219,7 +220,7 @@
       </section>
     </div>
 
-    <script src="clinic-i18n.js?v=20260726j"></script>
+    <script src="clinic-i18n.js?v=20260727a"></script>
     <script src="clinic-api.js?v=20260726k"></script>
     <script>
       const { api, loadTokens, saveTokens, clearTokens } = ClinicApi;
@@ -236,7 +237,7 @@
       const worklistState = {
         filter: 'linked',
         search: '',
-        sort: 'email',
+        sort: 'name',
         page: 0,
         pending: [],
         outgoing: [],
@@ -498,7 +499,15 @@
                 : approved.concat(pending, outgoing);
 
         const q = search.trim().toLowerCase();
-        if (q) list = list.filter((s) => (s.patientEmail || '').toLowerCase().includes(q));
+        if (q) {
+          list = list.filter((s) => {
+            const email = (s.patientEmail || '').toLowerCase();
+            const first = (s.patientFirstName || '').toLowerCase();
+            const last = (s.patientLastName || '').toLowerCase();
+            const full = (first + ' ' + last).trim();
+            return email.includes(q) || first.includes(q) || last.includes(q) || full.includes(q);
+          });
+        }
 
         list.sort((a, b) => {
           if (sort === 'sync') {
@@ -513,11 +522,24 @@
             const db = sb && sb.active ? (daysUntil(sb.expiresAt) ?? 99999) : 99999;
             return da - db;
           }
-          return (a.patientEmail || '').localeCompare(b.patientEmail || '', ClinicI18n.getLocale(), {
-            sensitivity: 'base',
-          });
+          const loc = ClinicI18n.getLocale();
+          const cmp = (x, y) =>
+            (x || '').localeCompare(y || '', loc, { sensitivity: 'base' });
+          if (sort === 'name') {
+            const byLast = cmp(a.patientLastName, b.patientLastName);
+            if (byLast) return byLast;
+            const byFirst = cmp(a.patientFirstName, b.patientFirstName);
+            if (byFirst) return byFirst;
+          }
+          return cmp(a.patientEmail, b.patientEmail);
         });
         return list;
+      }
+
+      function patientDisplayName(share) {
+        const first = (share.patientFirstName || '').trim();
+        const last = (share.patientLastName || '').trim();
+        return [first, last].filter(Boolean).join(' ');
       }
 
       function fillActions(actions, share, onAction, sponsorByPatient) {
@@ -672,16 +694,31 @@
           const tdEmail = document.createElement('td');
           tdEmail.className = 'email-cell';
           tdEmail.dataset.label = t('colPatient');
-          const emailLine = document.createElement('div');
-          // ltr, not auto: an address is LTR syntax (local@domain). dir="auto" reads
-          // a Hebrew local part as an RTL string and puts the domain on the left,
-          // which looks like corruption. Hebrew glyphs still shape RTL inside the run.
-          emailLine.dir = 'ltr';
-          emailLine.textContent = share.patientEmail || '—';
+          const displayName = patientDisplayName(share);
+          const primary = document.createElement('div');
+          if (displayName) {
+            primary.dir = 'auto';
+            primary.textContent = displayName;
+          } else {
+            // ltr, not auto: an address is LTR syntax (local@domain). dir="auto" reads
+            // a Hebrew local part as an RTL string and puts the domain on the left,
+            // which looks like corruption. Hebrew glyphs still shape RTL inside the run.
+            primary.dir = 'ltr';
+            primary.textContent = share.patientEmail || '—';
+          }
           const sub = document.createElement('div');
           sub.className = 'muted';
-          sub.textContent = statusSub(share);
-          tdEmail.append(emailLine, sub);
+          if (displayName && share.patientEmail) {
+            const emailLine = document.createElement('div');
+            emailLine.dir = 'ltr';
+            emailLine.textContent = share.patientEmail;
+            const statusLine = document.createElement('div');
+            statusLine.textContent = statusSub(share);
+            sub.append(emailLine, statusLine);
+          } else {
+            sub.textContent = statusSub(share);
+          }
+          tdEmail.append(primary, sub);
 
           const tdSync = document.createElement('td');
           tdSync.dataset.label = t('colSync');

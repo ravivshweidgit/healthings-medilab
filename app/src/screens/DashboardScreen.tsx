@@ -152,7 +152,7 @@ import {
   handleOAuthCallback,
   loadWithingsTokens,
 } from '../services/WithingsApiService';
-import { type AuthUser } from '../services/AuthApiService';
+import { type AuthUser, fetchCurrentUser, updatePatientNames } from '../services/AuthApiService';
 import { pullClinicOverlays } from '../services/ClinicOverlayService';
 import {
   CLINIC_SYNC_POLL_MS,
@@ -406,6 +406,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [userMentorGender, setUserMentorGender] = useState<Gender | null>(null);
   const [showDatePickerDialog, setShowDatePickerDialog] = useState(false);
   const [heightInput, setHeightInput] = useState('');
+  const [firstNameInput, setFirstNameInput] = useState('');
+  const [lastNameInput, setLastNameInput] = useState('');
+  const [profileNameLabel, setProfileNameLabel] = useState(() =>
+    [user.firstName, user.lastName].filter(Boolean).join(' ').trim(),
+  );
 
   const refreshWithingsLinkState = useCallback(async () => {
     const t = await loadWithingsTokens();
@@ -2317,6 +2322,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             title={profileStripCopy.myProfile}
             subtitle={
               [
+                profileNameLabel || null,
                 userGender === 'male'
                   ? metabolicStripCopy.genderMale
                   : userGender === 'female'
@@ -2336,15 +2342,28 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     ? String(userAge)
                     : metabolicStripCopy.ageYears(userAge)
                   : null,
+                !profileNameLabel
+                  ? `${yourSetupCopy.firstName} · ${yourSetupCopy.lastName}`
+                  : null,
               ]
                 .filter(Boolean)
-                .join(' · ') || 'Tap to set gender, height & birthdate'
+                .join(' · ') || 'Tap to set name, gender, height & birthdate'
             }
             expanded={profileExpanded}
             onToggle={() => {
               // Coerce before expand so the height TextInput never mounts with ft'in" under cm prefs (iOS crash).
               if (!profileExpanded) {
                 setHeightInput(coerceHeightInputForUnit(heightInput, unitsPrefs.height, heightCm));
+                setFirstNameInput(user.firstName?.trim() || '');
+                setLastNameInput(user.lastName?.trim() || '');
+                void fetchCurrentUser().then((me) => {
+                  if (!me) return;
+                  setFirstNameInput(me.firstName?.trim() || '');
+                  setLastNameInput(me.lastName?.trim() || '');
+                  setProfileNameLabel(
+                    [me.firstName, me.lastName].filter(Boolean).join(' ').trim(),
+                  );
+                });
               }
               setProfileExpanded((e) => !e);
             }}
@@ -2357,6 +2376,25 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           {profileExpanded && (
             <DebugErrorBoundary label="My Profile">
             <View style={styles.profileBody}>
+              <Text style={styles.birthdateSectionTitle}>{yourSetupCopy.firstName}</Text>
+              <TextInput
+                style={styles.heightInput}
+                value={firstNameInput}
+                onChangeText={setFirstNameInput}
+                autoCapitalize="words"
+                autoCorrect={false}
+                placeholderTextColor={colors.textSecondary}
+              />
+              <Text style={styles.birthdateSectionTitle}>{yourSetupCopy.lastName}</Text>
+              <TextInput
+                style={styles.heightInput}
+                value={lastNameInput}
+                onChangeText={setLastNameInput}
+                autoCapitalize="words"
+                autoCorrect={false}
+                placeholderTextColor={colors.textSecondary}
+              />
+
               <Text style={styles.birthdateSectionTitle}>{yourSetupCopy.gender}</Text>
               <View style={styles.genderRow}>
                 {(['male', 'female', 'other'] as Gender[]).map((g) => (
@@ -2440,6 +2478,18 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 onPress={async () => {
                   const iso = birthdatePicker.toISOString().split('T')[0];
                   const cm = parseHeightInputToCm(heightInput, unitsPrefs.height);
+                  try {
+                    const saved = await updatePatientNames(firstNameInput, lastNameInput);
+                    setProfileNameLabel(
+                      [saved.firstName, saved.lastName].filter(Boolean).join(' ').trim(),
+                    );
+                  } catch (err) {
+                    Alert.alert(
+                      'Name',
+                      err instanceof Error ? err.message : 'Could not save your name',
+                    );
+                    return;
+                  }
                   await Promise.all([
                     setBirthdate(iso),
                     setGender(genderPicker),

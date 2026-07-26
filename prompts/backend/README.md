@@ -26,7 +26,7 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| — | — | **empty** | Clinic portal catalog (be-08) and visual batches through be-26 are in `done/`. Ask before inventing a new batch. |
+| `be-27-patient-names.md` | Patient first & last name for clinic findability | **needs-review** | `users.first_name`/`last_name`; Profile collect; worklist search/sort by name |
 
 ## Done
 
@@ -91,10 +91,11 @@ trusting the script's exit code.
 
 ## Auto kickoff (paste)
 
-Backend open table is empty. Wait for the owner to name the next batch.
+**be-27 is `needs-review`** — wait for owner acceptance before the next batch.
 
 ```
-No open backend batch. Do not invent scope — ask the owner what is next.
+(Open table empty or next ready batch only.)
+Do not re-implement be-27 unless owner sends it back.
 ```
 
 ## Code

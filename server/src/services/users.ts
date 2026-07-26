@@ -8,9 +8,20 @@ type UserRow = {
   email: string;
   role: UserRole;
   display_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
   web_view_enabled: boolean;
   created_at: Date;
 };
+
+const NAME_MAX = 80;
+
+function normalizeName(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, NAME_MAX);
+}
 
 function toPublicUser(row: UserRow): PublicUser {
   return {
@@ -18,6 +29,8 @@ function toPublicUser(row: UserRow): PublicUser {
     email: row.email,
     role: row.role,
     displayName: row.display_name,
+    firstName: row.first_name,
+    lastName: row.last_name,
     webViewEnabled: row.web_view_enabled ?? false,
     createdAt: row.created_at.toISOString(),
   };
@@ -86,6 +99,37 @@ export async function updateUserDisplayName(
   const { rows } = await query<UserRow>(
     `UPDATE users SET display_name = $2, updated_at = NOW() WHERE id = $1 RETURNING *`,
     [userId, trimmed],
+  );
+  return rows[0] ? toPublicUser(rows[0]) : null;
+}
+
+/** Patient first/last name (be-27). Empty strings clear to null. */
+export async function updateUserNames(
+  userId: string,
+  firstName: string | null | undefined,
+  lastName: string | null | undefined,
+): Promise<PublicUser | null> {
+  const first = firstName === undefined ? undefined : normalizeName(firstName);
+  const last = lastName === undefined ? undefined : normalizeName(lastName);
+
+  if (first === undefined && last === undefined) {
+    return findUserById(userId);
+  }
+
+  const { rows } = await query<UserRow>(
+    `UPDATE users SET
+       first_name = CASE WHEN $2::boolean THEN $3 ELSE first_name END,
+       last_name = CASE WHEN $4::boolean THEN $5 ELSE last_name END,
+       updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [
+      userId,
+      first !== undefined,
+      first ?? null,
+      last !== undefined,
+      last ?? null,
+    ],
   );
   return rows[0] ? toPublicUser(rows[0]) : null;
 }
