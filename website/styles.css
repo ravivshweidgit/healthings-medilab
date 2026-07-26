@@ -992,6 +992,15 @@ body.help-rtl .help-lang {
   font-weight: 500;
 }
 
+/* Shown only when the summary above it has been swapped out of English, so the
+   reader knows the nine sections below are not translated. */
+.policy-lang-note {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .prose {
   max-width: var(--measure);
   margin-inline: auto;

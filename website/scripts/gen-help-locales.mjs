@@ -16,15 +16,15 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB = join(__dirname, '..');
 /**
- * Keep in sync with hand-written pages (be-13). Do not invent a parallel token.
+ * Keep in sync with hand-written pages. Do not invent a parallel token.
  *
- * Never re-emit a token that has already been deployed. `20260726be11` and
- * `20260726be16` are burned: browsers hold different stylesheet states under
- * those two keys, so reusing either would serve stale CSS. Batch names also do
- * not sort — be-16 shipped before be-13 — so prefer a date plus a letter for
- * the next one rather than another batch number.
+ * Date plus a letter, and it only ever moves forward. Batch names were the old
+ * scheme and they do not sort — be-16 shipped before be-13, so the token went
+ * backwards and burned two keys. `20260726be11`, `20260726be13` and
+ * `20260726be16` have all been served with different stylesheets behind them;
+ * re-emitting any of the three would hand someone a stale CSS file.
  */
-const CSS_VER = '20260726be13';
+const CSS_VER = '20260726d';
 
 function escAttr(s) {
   return String(s)

@@ -550,3 +550,83 @@ export const INDEX = {
     lead: 'Hızlı başlangıç konuları. Klinik kısaltmalar İngilizce kalır.',
   },
 };
+
+/**
+ * Privacy policy summary, localized (be-13 Phase B).
+ *
+ * Only the summary is translated. The nine sections below it stay in English
+ * because a privacy policy is legally operative and no lawyer is reviewing ten
+ * machine translations — but the substance a person consents to (local-first,
+ * nothing uploaded without approval, revoke any time) lives entirely here.
+ *
+ * `lead` and `summary` are the exact counterparts of the English copy in
+ * privacy.html. Keep them literal. If the English changes, change these too, or
+ * the page promises different things in different languages.
+ *
+ * Consumed by gen-privacy-summary.mjs, which injects it as a JSON island.
+ */
+export const PRIVACY_SUMMARY = {
+  he: {
+    heading: 'תקציר',
+    lead: 'HEALTHINGS.AI היא <strong>מקומית תחילה</strong>: נתוני הבריאות שלך נשארים בטלפון. <strong>איננו מעלים את נתוני הבריאות שלך</strong> אלא אם בחרת לשתף עם מרפאה מקושרת — ואפשר <strong>לבטל</strong> את השיתוף בכל רגע. השליטה תמיד אצלך.',
+    summary:
+      'Healthings היא אפליקציית בריאות בגרסת אלפא — מאמן מטבולי אישי לארוחות, לגלוקוז ולהתקדמות. היא <strong>אינה מכשיר רפואי</strong> ואינה מאבחנת או מטפלת במצבים רפואיים. אין להשתמש בה להחלטות רפואיות דחופות. <strong>נתוני הבריאות שלך נשארים במכשיר כברירת מחדל.</strong> העלאה לשרת שלנו מתרחשת רק כאשר <strong>את/ה</strong> מאשר/ת שיתוף עם מרפאה ובוחר/ת לשתף — לעולם לא אוטומטית, בלי הקישור שלך ובלי הפעולה שלך.',
+    note: 'המדיניות המלאה מופיעה באנגלית מטה.',
+  },
+  es: {
+    heading: 'Resumen',
+    lead: 'HEALTHINGS.AI es <strong>local primero</strong>: tus datos de salud se quedan en tu teléfono. <strong>No subimos tus datos de salud</strong> salvo que elijas compartirlos con una clínica vinculada, y puedes <strong>revocarlo</strong> en cualquier momento. Siempre tienes el control.',
+    summary:
+      'Healthings es una app de bienestar en alfa: un entrenador metabólico personal para comidas, glucosa y progreso. <strong>No es un producto sanitario</strong> y no diagnostica ni trata enfermedades. No la uses para decisiones médicas de urgencia. <strong>Tus datos de salud permanecen en tu dispositivo de forma predeterminada.</strong> La subida a nuestro servidor ocurre solo cuando <strong>tú</strong> apruebas compartir con una clínica y eliges compartir, nunca de forma automática sin tu vínculo y tu acción.',
+    note: 'La política completa está disponible en inglés más abajo.',
+  },
+  fr: {
+    heading: 'Résumé',
+    lead: 'HEALTHINGS.AI est <strong>local d’abord</strong> : vos données de santé restent sur votre téléphone. <strong>Nous ne téléversons pas vos données de santé</strong>, sauf si vous choisissez de les partager avec une clinique liée — et vous pouvez <strong>révoquer</strong> ce partage à tout moment. Vous gardez toujours le contrôle.',
+    summary:
+      'Healthings est une application de bien-être en alpha : un coach métabolique personnel pour les repas, la glycémie et les progrès. Ce <strong>n’est pas un dispositif médical</strong> ; elle ne diagnostique ni ne traite aucune affection. Ne l’utilisez pas pour des décisions médicales urgentes. <strong>Vos données de santé restent sur votre appareil par défaut.</strong> Le téléversement vers notre serveur n’a lieu que lorsque <strong>vous</strong> approuvez le partage avec une clinique et choisissez de partager — jamais automatiquement, sans votre lien et sans votre action.',
+    note: 'La politique complète est disponible en anglais ci-dessous.',
+  },
+  de: {
+    heading: 'Zusammenfassung',
+    lead: 'HEALTHINGS.AI ist <strong>local-first</strong>: Ihre Gesundheitsdaten bleiben auf Ihrem Telefon. <strong>Wir laden Ihre Gesundheitsdaten nicht hoch</strong>, außer Sie entscheiden sich, mit einer verknüpften Klinik zu teilen — und Sie können das jederzeit <strong>widerrufen</strong>. Sie behalten stets die Kontrolle.',
+    summary:
+      'Healthings ist eine Wellness-App in der Alpha: ein persönlicher Stoffwechsel-Coach für Mahlzeiten, Glukose und Fortschritt. Sie ist <strong>kein Medizinprodukt</strong>, stellt keine Diagnosen und behandelt keine Erkrankungen. Nutzen Sie sie nicht für medizinische Notfallentscheidungen. <strong>Ihre Gesundheitsdaten bleiben standardmäßig auf Ihrem Gerät.</strong> Ein Upload auf unseren Server erfolgt nur, wenn <strong>Sie</strong> die Klinikfreigabe genehmigen und das Teilen auswählen — niemals automatisch, ohne Ihre Verknüpfung und Ihre Aktion.',
+    note: 'Die vollständige Richtlinie finden Sie unten auf Englisch.',
+  },
+  ar: {
+    heading: 'ملخص',
+    lead: 'يعمل HEALTHINGS.AI <strong>محليًا أولًا</strong>: بياناتك الصحية تبقى على هاتفك. <strong>لا نرفع بياناتك الصحية</strong> إلا إذا اخترت مشاركتها مع عيادة مرتبطة — ويمكنك <strong>إلغاء</strong> ذلك في أي وقت. التحكم دائمًا بيدك.',
+    summary:
+      'Healthings تطبيق عافية في مرحلة ألفا: مدرّب أيضي شخصي للوجبات والغلوكوز والتقدّم. وهو <strong>ليس جهازًا طبيًا</strong> ولا يشخّص الحالات ولا يعالجها. لا تستخدمه في القرارات الطبية الطارئة. <strong>بياناتك الصحية تبقى على جهازك افتراضيًا.</strong> لا يتم الرفع إلى خادمنا إلا عندما <strong>توافق</strong> على المشاركة مع عيادة وتختار المشاركة — ولا يحدث ذلك تلقائيًا أبدًا، دون ربطك ودون إجرائك.',
+    note: 'السياسة الكاملة متاحة بالإنجليزية أدناه.',
+  },
+  ru: {
+    heading: 'Кратко',
+    lead: 'HEALTHINGS.AI работает <strong>локально в первую очередь</strong>: ваши данные о здоровье остаются на телефоне. <strong>Мы не загружаем ваши данные о здоровье</strong>, если вы сами не решите поделиться ими с привязанной клиникой, — и вы можете <strong>отозвать</strong> доступ в любой момент. Контроль всегда за вами.',
+    summary:
+      'Healthings — велнес-приложение в альфа-версии: персональный метаболический коуч для питания, глюкозы и прогресса. Это <strong>не медицинское изделие</strong>, оно не ставит диагнозы и не лечит. Не используйте его для экстренных медицинских решений. <strong>По умолчанию данные о здоровье остаются на вашем устройстве.</strong> Загрузка на наш сервер происходит только тогда, когда <strong>вы</strong> одобряете передачу клинике и выбираете поделиться, — никогда автоматически, без вашей привязки и вашего действия.',
+    note: 'Полная политика приведена ниже на английском языке.',
+  },
+  pt: {
+    heading: 'Resumo',
+    lead: 'O HEALTHINGS.AI é <strong>local-first</strong>: seus dados de saúde ficam no seu celular. <strong>Não enviamos seus dados de saúde</strong> a menos que você escolha compartilhar com uma clínica vinculada — e você pode <strong>revogar</strong> isso a qualquer momento. Você está sempre no controle.',
+    summary:
+      'O Healthings é um app de bem-estar em alfa: um coach metabólico pessoal para refeições, glicose e progresso. <strong>Não é um dispositivo médico</strong> e não diagnostica nem trata condições. Não o use para decisões médicas de emergência. <strong>Seus dados de saúde ficam no seu dispositivo por padrão.</strong> O envio para o nosso servidor acontece apenas quando <strong>você</strong> aprova o compartilhamento com uma clínica e escolhe compartilhar — nunca automaticamente, sem o seu vínculo e a sua ação.',
+    note: 'A política completa está disponível em inglês abaixo.',
+  },
+  it: {
+    heading: 'Riepilogo',
+    lead: 'HEALTHINGS.AI è <strong>local-first</strong>: i tuoi dati sanitari restano sul telefono. <strong>Non carichiamo i tuoi dati sanitari</strong> a meno che tu non scelga di condividerli con una clinica collegata — e puoi <strong>revocare</strong> la condivisione in qualsiasi momento. Il controllo è sempre tuo.',
+    summary:
+      'Healthings è un’app di benessere in alfa: un coach metabolico personale per pasti, glucosio e progressi. <strong>Non è un dispositivo medico</strong> e non diagnostica né cura patologie. Non usarla per decisioni mediche d’emergenza. <strong>Per impostazione predefinita i tuoi dati sanitari restano sul tuo dispositivo.</strong> Il caricamento sul nostro server avviene solo quando <strong>tu</strong> approvi la condivisione con una clinica e scegli di condividere — mai automaticamente, senza il tuo collegamento e la tua azione.',
+    note: 'L’informativa completa è disponibile in inglese qui sotto.',
+  },
+  tr: {
+    heading: 'Özet',
+    lead: 'HEALTHINGS.AI <strong>önce yerel</strong> çalışır: sağlık verileriniz telefonunuzda kalır. Bağlı bir kliniğe paylaşmayı siz seçmediğiniz sürece <strong>sağlık verilerinizi yüklemeyiz</strong> — ve bunu istediğiniz zaman <strong>geri alabilirsiniz</strong>. Kontrol her zaman sizde.',
+    summary:
+      'Healthings, alfa aşamasındaki bir sağlıklı yaşam uygulamasıdır: öğünler, glukoz ve ilerleme için kişisel bir metabolik koç. <strong>Tıbbi cihaz değildir</strong>; teşhis koymaz, tedavi etmez. Acil tıbbi kararlar için kullanmayın. <strong>Sağlık verileriniz varsayılan olarak cihazınızda kalır.</strong> Sunucumuza yükleme yalnızca <strong>siz</strong> klinik paylaşımını onayladığınızda ve paylaşmayı seçtiğinizde gerçekleşir — bağlantınız ve eyleminiz olmadan asla otomatik olarak yapılmaz.',
+    note: 'Politikanın tamamı aşağıda İngilizce olarak yer almaktadır.',
+  },
+};

@@ -1,6 +1,6 @@
 # be-13 — Privacy policy page
 
-**Status:** Phase A done (reviewed 2026-07-26) · Phase B not started
+**Status:** done — Phase A and Phase B both shipped 2026-07-26
 **Model to implement:** Auto / Composer
 **Authored by:** Opus 5 (website UX pack)
 **Findings:** W15 (no anchors), W16 (last-updated buried), W17 (English-only), W18 (terminology drift)
@@ -277,6 +277,67 @@ shots are trustworthy. Whatever produced the 390 was not the same path.
 Nothing in Phase A constrains it. The one thing worth deciding before it starts: the app must
 append `?lang={locale}` when opening this page, or the localized summary is unreachable for the
 users it exists for. That is an app change, not a website change, and it belongs in the same batch.
+
+## Phase B outcome (2026-07-26, built by Opus)
+
+Shipped. **Website-only — the app change this draft demanded is not needed**, and the reason is
+worth recording because it was asserted twice before anyone checked.
+
+**The app never opens `privacy.html`.** The wizard's `privacyLink` string reads "How it works &
+privacy" in ten languages, but its `href` is `helpUrl(langCode, 'quick-start-welcome')` — the help
+article, not the policy. Grepping `app/` for `privacy.html` returns nothing. So there is no link to
+append `?lang=` to.
+
+The real entry points are the two on the landing page and, far more importantly, the **Play Store
+listing**, where the privacy policy URL is a required field. Someone browsing Play in Hebrew taps
+"Privacy Policy" and lands here — and `navigator.language` already handles them with no app
+involvement at all. `?lang=` survives as an override and a test handle. No APK, no phone test.
+
+### Mechanism — a JSON island, not ten hidden blocks
+
+The draft said to emit all ten summaries as sibling blocks and un-hide one. Built it as a single
+swap instead:
+
+- `PRIVACY_SUMMARY` in `help-locale-content.mjs` — one translation surface, next to the help copy.
+- `gen-privacy-summary.mjs` injects it into `privacy.html` between markers as
+  `<script type="application/json">`, and refuses to run if a locale is missing a field.
+- Four elements carry `data-i18n`; an inline script rewrites them and sets `lang`/`dir`.
+
+Why this rather than hidden siblings: the policy of record is the English text, and this way that
+is the *only* summary in the markup. Nothing is hidden, so nothing can fail to un-hide, and a
+crawler cannot mistake a machine translation for the policy. Ten `hidden` blocks would have meant
+ten copies of a consent document in the source, one keystroke away from all being visible.
+
+### Verified — negatives matter more than positives here
+
+| Case | Result |
+|---|---|
+| `?lang=` for all 9 locales | correct heading, lead, summary, note |
+| `navigator.language: de-DE`, no query | German, no query string needed |
+| `he` / `ar` | `dir="rtl"`, right-aligned, no overflow |
+| **no JavaScript** | English, note hidden, page identical to authored |
+| **unknown `?lang=zz`** | English |
+| **empty `?lang=`** | English |
+| **corrupt JSON island** | English — parse failure returns early |
+| Overflow at 390 | 0px in every locale |
+| `#summary` anchor | present in every case |
+| `?lang=he#clinic-sharing` | lands at `top: 24`, scroll-margin intact |
+
+Evidence: `tmp/be-13-review/phaseb-*.{mjs,json,png}`.
+
+### Cache token scheme changed
+
+`20260726d`, and it only moves forward. Batch-name tokens are retired — they do not sort, which is
+how be-16 shipped before be-13 and drove the token backwards. `be11`, `be13` and `be16` have all
+been served with different stylesheets behind them and must never be re-emitted; noted at the
+`CSS_VER` declaration.
+
+### Known seam, left alone deliberately
+
+In a localized render the summary heading is translated but the "On this page" list below it stays
+English. That is correct rather than sloppy — the list navigates nine English sections, and
+translating only its first entry would promise more than the page delivers. Revisit only if the
+full policy is ever translated.
 
 ## Agent checklist
 
