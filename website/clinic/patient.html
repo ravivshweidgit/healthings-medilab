@@ -8,7 +8,7 @@
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="clinic-portal.css?v=20260727h" />
-    <link rel="stylesheet" href="clinic-workspace.css?v=20260727m" />
+    <link rel="stylesheet" href="clinic-workspace.css?v=20260727n" />
     <link rel="stylesheet" href="clinic-theme.css?v=20260727c" />
   </head>
   <body class="clinic-workspace">
@@ -18,14 +18,16 @@
         <!-- Single case strip: name · demographics · rules · body stats · sync (no second row). -->
         <div id="patient-banner" class="ws-case-header" hidden></div>
         <span id="sync-status-hint" class="meta sync-status-hint" hidden></span>
-        <select
-          id="theme-workspace"
-          class="portal-select theme-pref-select"
-          data-theme-picker
-          data-i18n-aria="appearanceLabel"
-          aria-label="Appearance"
-        ></select>
-        <button id="refresh-snapshot-btn" class="ws-btn primary" type="button" hidden data-i18n="wsRefreshSnapshot">Refresh snapshot</button>
+        <div class="ws-case-actions">
+          <select
+            id="theme-workspace"
+            class="portal-select theme-pref-select"
+            data-theme-picker
+            data-i18n-aria="appearanceLabel"
+            aria-label="Appearance"
+          ></select>
+          <button id="refresh-snapshot-btn" class="ws-btn primary" type="button" hidden data-i18n="wsRefreshSnapshot">Refresh snapshot</button>
+        </div>
       </header>
       <nav class="ws-tabs" id="ws-tabs" hidden></nav>
     </div>
@@ -43,8 +45,8 @@
     <script src="clinic-i18n.js?v=20260727g"></script>
     <script src="clinic-workspace-i18n.js?v=20260727b"></script>
     <script src="clinic-theme.js?v=20260727c"></script>
-    <script src="clinic-charts.js?v=20260727m"></script>
-    <script src="clinic-workspace.js?v=20260727m"></script>
+    <script src="clinic-charts.js?v=20260727o"></script>
+    <script src="clinic-workspace.js?v=20260727o"></script>
     <script>
       const { t } = ClinicI18n;
       function hydrateStaticCopy() {

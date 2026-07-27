@@ -1452,6 +1452,8 @@
     const scanTitle = body?.measuredAt
       ? t('wsBannerMeasured', { when: new Date(body.measuredAt).toLocaleString() })
       : t('wsBannerBodyScan');
+    // Same chip chrome on clinic + account; only the noun differs when the
+    // source is a clinic overlay (“clinic rules”) vs phone/self (“rules”).
     const clinicRules = Boolean(ctx.overlay?.rules) && !ctx.selfView;
     const rulesLabel = n
       ? clinicRules

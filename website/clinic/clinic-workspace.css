@@ -193,7 +193,7 @@ h3,
 }
 .ws-topbar--case .ws-case-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px;
   margin-inline-start: auto;
@@ -201,6 +201,55 @@ h3,
 }
 .ws-topbar--case .ws-case-actions .portal-select {
   min-height: var(--tap-min);
+}
+
+/* Account-only overflow — keeps the case strip as dense as clinic (theme + Refresh). */
+.ws-account-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+.ws-account-menu > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+.ws-account-menu > summary::-webkit-details-marker { display: none; }
+.ws-account-menu-panel {
+  position: absolute;
+  inset-inline-end: 0;
+  top: calc(100% + 6px);
+  min-width: 13rem;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--grid);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  z-index: 40;
+}
+.ws-account-menu-item {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: start;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  min-height: var(--tap-min);
+}
+.ws-account-menu-item:hover {
+  background: var(--surface-2, var(--bg));
+}
+.ws-account-menu-danger {
+  color: var(--danger);
 }
 .ws-btn {
   border: 1px solid var(--grid);

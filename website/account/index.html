@@ -13,7 +13,7 @@
       styles.css alongside it would give two competing definitions.
     -->
     <link rel="stylesheet" href="../clinic/clinic-portal.css?v=20260727h" />
-    <link rel="stylesheet" href="../clinic/clinic-workspace.css?v=20260727m" />
+    <link rel="stylesheet" href="../clinic/clinic-workspace.css?v=20260727n" />
     <link rel="stylesheet" href="../clinic/clinic-theme.css?v=20260727c" />
     <style>
       .acct-wrap { max-width: 560px; margin: 0 auto; padding: 32px 16px 48px; }
@@ -229,9 +229,12 @@
     <div id="acct-app" hidden>
       <div class="ws-chrome">
         <header class="ws-topbar ws-topbar--case">
+          <!-- Brand + readonly chip stand in for clinic’s ← back link (role-specific). -->
           <span class="ws-case-brand">My data</span>
           <span class="chip soon ws-case-readonly">Read-only</span>
           <div id="patient-banner" class="ws-case-header" hidden></div>
+          <!-- Same right cluster as clinic: Appearance + Refresh. Account-only
+               actions live in the overflow so the strip density matches. -->
           <div class="ws-case-actions">
             <select
               id="theme-app"
@@ -239,12 +242,16 @@
               data-theme-picker
               aria-label="Appearance"
             ></select>
-            <button id="refresh-snapshot-btn" class="ws-btn primary" type="button">Refresh</button>
-            <!-- Deliberately not styled as destructive: switching the view off
-                 reduces exposure. The confirm dialog carries the explanation. -->
-            <button id="turn-off" class="ws-btn" type="button">Turn off web view</button>
-            <button id="app-signout" class="ws-btn" type="button">Sign out</button>
-            <button id="delete-open-app" class="ws-btn" type="button">Delete account</button>
+            <button id="refresh-snapshot-btn" class="ws-btn primary" type="button" data-i18n="wsRefreshSnapshot">Refresh snapshot</button>
+            <details class="ws-account-menu">
+              <summary class="ws-btn" aria-label="Account">Account</summary>
+              <div class="ws-account-menu-panel" role="menu">
+                <!-- Off is not destructive (reduces exposure); confirm dialog explains. -->
+                <button id="turn-off" class="ws-account-menu-item" type="button" role="menuitem">Turn off web view</button>
+                <button id="app-signout" class="ws-account-menu-item" type="button" role="menuitem">Sign out</button>
+                <button id="delete-open-app" class="ws-account-menu-item ws-account-menu-danger" type="button" role="menuitem">Delete account</button>
+              </div>
+            </details>
           </div>
         </header>
         <nav class="ws-tabs" id="ws-tabs" hidden></nav>
@@ -263,8 +270,8 @@
     <script src="../clinic/clinic-i18n.js?v=20260727g"></script>
     <script src="../clinic/clinic-workspace-i18n.js?v=20260727b"></script>
     <script src="../clinic/clinic-theme.js?v=20260727c"></script>
-    <script src="../clinic/clinic-charts.js?v=20260727n"></script>
-    <script src="../clinic/clinic-workspace.js?v=20260727n"></script>
+    <script src="../clinic/clinic-charts.js?v=20260727o"></script>
+    <script src="../clinic/clinic-workspace.js?v=20260727o"></script>
     <script>
       ClinicI18n.applyDocumentLocale();
       ClinicTheme.applyThemePref();
@@ -431,7 +438,10 @@
       }
 
       document.getElementById('delete-open').onclick = openDelete;
-      document.getElementById('delete-open-app').onclick = openDelete;
+      document.getElementById('delete-open-app').onclick = () => {
+        document.querySelector('.ws-account-menu')?.removeAttribute('open');
+        openDelete();
+      };
       // Cancel re-boots rather than restoring the previous view: showGate has
       // already dropped the workspace DOM, and re-deriving state is cheaper to
       // reason about than remembering where the user came from.
@@ -495,6 +505,7 @@
       // upload a snapshot in the same gesture; enabling it here would leave the
       // page promising data that no phone had sent yet.
       document.getElementById('turn-off').onclick = async () => {
+        document.querySelector('.ws-account-menu')?.removeAttribute('open');
         const ok = confirm(
           'Turn off your web view?\n\nWe delete the copy of your data from the server. Your phone keeps everything.',
         );
@@ -519,7 +530,10 @@
 
       ['offline-signout', 'empty-signout', 'role-signout', 'fatal-signout', 'app-signout'].forEach(
         (id) => {
-          document.getElementById(id).onclick = signOut;
+          document.getElementById(id).onclick = () => {
+            document.querySelector('.ws-account-menu')?.removeAttribute('open');
+            signOut();
+          };
         },
       );
       document.getElementById('offline-recheck').onclick = () => void boot();
