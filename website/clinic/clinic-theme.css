@@ -72,6 +72,7 @@ html.theme-pref-dark {
   --ws-overlay: rgba(0, 0, 0, 0.65);
   --ws-strip-title: #ffeec0;
   --ws-chrome-icon: #e6bc2a;
+  --ws-chart-plot-bg: #000000;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -143,6 +144,7 @@ html.theme-pref-dark {
     --ws-overlay: rgba(0, 0, 0, 0.65);
     --ws-strip-title: #ffeec0;
     --ws-chrome-icon: #e6bc2a;
+    --ws-chart-plot-bg: #000000;
   }
 }
 
@@ -170,6 +172,15 @@ html.theme-pref-dark .chip.active {
   background: #000000;
   color: var(--accent-ink);
   border-color: var(--ws-chip-active-line);
+}
+
+/* Plot + axis region only — card chrome (title/chips/legend) stays surface. */
+.theme-pref-dark .chart-wrap,
+.theme-pref-dark .lipid-chart-box,
+html.theme-pref-dark .chart-wrap,
+html.theme-pref-dark .lipid-chart-box {
+  background: #000000;
+  border-radius: 8px;
 }
 
 @media (prefers-color-scheme: dark) {
