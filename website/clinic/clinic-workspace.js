@@ -1489,6 +1489,124 @@
       </div>`).join('');
   }
 
+  /* ── usage tab (/account/ self-view — be-06 two-layer billing) ────────── */
+
+  function usageWhen(iso) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso || '—';
+    return d.toLocaleString(clinicPortalLocale(), {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+  }
+
+  function invoiceMoney(cents, currency) {
+    try {
+      return new Intl.NumberFormat(clinicPortalLocale(), {
+        style: 'currency',
+        currency: String(currency || 'usd').toUpperCase(),
+      }).format(cents / 100);
+    } catch {
+      return (cents / 100).toFixed(2) + ' ' + String(currency || 'usd').toUpperCase();
+    }
+  }
+
+  function invoiceStatusLabel(status) {
+    return t({
+      comped_alpha: 'invStatusComped',
+      paid: 'invStatusPaid',
+      failed: 'invStatusFailed',
+      pending: 'invStatusPending',
+    }[status] || 'invStatusPending');
+  }
+
+  /** Live fetch, not snapshot: usage and invoices happen server-side, the phone never sees them. */
+  async function renderUsage(panel, ctx) {
+    panel.innerHTML = `<p class="empty">${esc(t('wsUsageLoading'))}</p>`;
+    if (typeof ctx.api !== 'function') {
+      panel.innerHTML = `<p class="empty">${esc(t('wsUsageError'))}</p>`;
+      return;
+    }
+    let wallet = null;
+    let events = [];
+    let invoices = [];
+    let billingLive = false;
+    try {
+      const [wRes, eRes, iRes] = await Promise.all([
+        ctx.api('/v1/wallet'),
+        ctx.api('/v1/usage/events?limit=50'),
+        ctx.api('/v1/billing/invoices'),
+      ]);
+      if (!eRes.ok) throw new Error('usage_http_' + eRes.status);
+      events = (await eRes.json()).events || [];
+      if (wRes.ok) wallet = (await wRes.json()).wallet || null;
+      if (iRes.ok) {
+        const inv = await iRes.json();
+        invoices = inv.invoices || [];
+        billingLive = Boolean(inv.billingLive);
+      }
+    } catch {
+      panel.innerHTML = `<p class="empty">${esc(t('wsUsageError'))}</p>`;
+      return;
+    }
+
+    const balance = wallet
+      ? `<p class="usage-balance"><strong>${esc(t('wsUsageBalance', { n: wallet.balanceTokens }))}</strong></p>`
+      : '';
+    const eventsHtml = !events.length
+      ? `<p class="empty">${esc(t('wsUsageEmpty'))}</p>`
+      : `
+        <table class="data-table">
+          <thead><tr>
+            <th>${esc(t('usageColWhen'))}</th>
+            <th>${esc(t('usageColType'))}</th>
+            <th>${esc(t('usageColModel'))}</th>
+            <th>${esc(t('usageColGemini'))}</th>
+            <th>${esc(t('usageColCredits'))}</th>
+          </tr></thead>
+          <tbody>
+            ${events.map((e) => `
+              <tr>
+                <td>${esc(usageWhen(e.createdAt))}</td>
+                <td dir="ltr">${esc(e.reason)}</td>
+                <td dir="ltr">${esc(e.geminiModel || '—')}</td>
+                <td dir="ltr">${e.geminiTotalTokens != null ? esc(Number(e.geminiTotalTokens).toLocaleString()) : '—'}</td>
+                <td dir="ltr">${esc(e.tokens)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    const invoicesHtml = !invoices.length
+      ? `<p class="empty">${esc(t('noInvoices'))}</p>`
+      : `
+        <table class="data-table">
+          <thead><tr>
+            <th>${esc(t('invColNumber'))}</th>
+            <th>${esc(t('invColDate'))}</th>
+            <th>${esc(t('invColAmount'))}</th>
+            <th>${esc(t('invColCharged'))}</th>
+            <th>${esc(t('invColStatus'))}</th>
+          </tr></thead>
+          <tbody>
+            ${invoices.map((inv) => `
+              <tr>
+                <td dir="ltr">${esc(inv.number)}</td>
+                <td>${esc(usageWhen(inv.createdAt))}</td>
+                <td dir="ltr">${esc(invoiceMoney(inv.amountCents, inv.currency))}</td>
+                <td dir="ltr">${esc(invoiceMoney(inv.chargedCents, inv.currency))}</td>
+                <td>${esc(invoiceStatusLabel(inv.status))}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    panel.innerHTML = `
+      <div class="lab-panel">
+        ${balance}
+        <p class="meta">${esc(t('wsUsageLead'))}</p>
+        ${eventsHtml}
+        <h3 style="margin-top:20px">${esc(t('billingTitle'))}</h3>
+        ${billingLive ? '' : `<p class="meta">${esc(t('billingAlphaNote'))}</p>`}
+        ${invoicesHtml}
+      </div>`;
+  }
+
   const ALL_TABS = [
     { id: 'dashboard', labelKey: 'wsTabDashboard', group: 'read' },
     { id: 'profile', labelKey: 'wsTabProfile', group: 'read' },
@@ -1498,6 +1616,9 @@
     { id: 'labs', labelKey: 'wsTabLabs', group: 'read' },
     { id: 'chat', labelKey: 'wsTabChat', labelKeySelf: 'wsTabChatSelf', group: 'write' },
     { id: 'rules', labelKey: 'wsTabRules', group: 'write', live: true },
+    // selfOnly: /v1/usage/events is payer-scoped — on the clinic patient page it
+    // would show the mentor's whole-clinic ledger, not this patient's usage.
+    { id: 'usage', labelKey: 'wsTabUsage', group: 'read', selfOnly: true },
   ];
 
   /**
@@ -1505,9 +1626,10 @@
    * AI chat is read-only from the phone snapshot (be-15 / be-24 account exception).
    */
   function allowedTabs(ctx) {
-    if (!Array.isArray(ctx.tabIds)) return ALL_TABS;
-    const allowed = ALL_TABS.filter((tab) => ctx.tabIds.includes(tab.id));
-    return allowed.length ? allowed : ALL_TABS;
+    const base = ALL_TABS.filter((tab) => !tab.selfOnly || ctx.selfView);
+    if (!Array.isArray(ctx.tabIds)) return base;
+    const allowed = base.filter((tab) => ctx.tabIds.includes(tab.id));
+    return allowed.length ? allowed : base;
   }
 
   function tabButtonHtml(tab, activeId, selfView) {
@@ -1609,6 +1731,7 @@
     else if (tab === 'chat') renderChat(body, ctx);
     else if (tab === 'rules') renderRules(body, ctx);
     else if (tab === 'labs') renderLabs(body, ctx);
+    else if (tab === 'usage') void renderUsage(body, ctx);
 
     const banner = document.getElementById('patient-banner');
     if (banner) renderPatientBanner(banner, ctx, ctx.displayName || null);

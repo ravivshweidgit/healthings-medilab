@@ -173,6 +173,40 @@ html.theme-pref-dark .chip.active {
   color: var(--accent-ink);
   border-color: var(--ws-chip-active-line);
 }
+.theme-pref-dark .chip.ok,
+html.theme-pref-dark .chip.ok {
+  color: var(--portal-ok-ink);
+}
+.theme-pref-dark .chip.soon,
+html.theme-pref-dark .chip.soon {
+  color: var(--portal-warn-ink);
+}
+.theme-pref-dark .chip.gone,
+html.theme-pref-dark .chip.gone {
+  color: var(--portal-err-ink);
+}
+.theme-pref-dark .chip.off,
+html.theme-pref-dark .chip.off {
+  color: var(--portal-neutral-ink);
+}
+
+/* Worklist Name / Email cells (headers stay surface-2) */
+.theme-pref-dark .worklist-table td.name-cell,
+.theme-pref-dark .worklist-table td.email-cell,
+html.theme-pref-dark .worklist-table td.name-cell,
+html.theme-pref-dark .worklist-table td.email-cell {
+  background: #000000;
+}
+.theme-pref-dark .worklist-table tbody tr:hover td.name-cell,
+.theme-pref-dark .worklist-table tbody tr:hover td.email-cell,
+.theme-pref-dark .worklist-table tbody tr:focus-within td.name-cell,
+.theme-pref-dark .worklist-table tbody tr:focus-within td.email-cell,
+html.theme-pref-dark .worklist-table tbody tr:hover td.name-cell,
+html.theme-pref-dark .worklist-table tbody tr:hover td.email-cell,
+html.theme-pref-dark .worklist-table tbody tr:focus-within td.name-cell,
+html.theme-pref-dark .worklist-table tbody tr:focus-within td.email-cell {
+  background: #0a0a0a;
+}
 
 /* Plot + axis region only — card chrome (title/chips/legend) stays surface. */
 .theme-pref-dark .chart-wrap,
@@ -293,6 +327,42 @@ html.theme-pref-dark .reasoning-block {
   padding: 12px;
 }
 
+/* Worklist column filters */
+.theme-pref-dark .ux-filter-input,
+html.theme-pref-dark .ux-filter-input {
+  background: #000000;
+  border-color: #2a2a2a;
+  color: var(--text);
+}
+.theme-pref-dark .ux-filter-clear:hover,
+html.theme-pref-dark .ux-filter-clear:hover {
+  background: #1a1a1a;
+}
+
+/* Worklist action buttons (Workspace / Cover AI / Revoke) */
+.theme-pref-dark .row-actions .portal-btn,
+html.theme-pref-dark .row-actions .portal-btn {
+  background: #000000;
+  border: 1px solid #2a2a2a;
+  color: var(--text);
+}
+.theme-pref-dark .row-actions .portal-btn.secondary,
+html.theme-pref-dark .row-actions .portal-btn.secondary {
+  background: #000000;
+  border-color: #2a2a2a;
+  color: var(--text);
+}
+.theme-pref-dark .row-actions .portal-btn.danger,
+html.theme-pref-dark .row-actions .portal-btn.danger {
+  background: #000000;
+  border-color: var(--portal-err-line);
+  color: var(--portal-err-ink);
+}
+.theme-pref-dark .row-actions .portal-btn.danger:hover,
+html.theme-pref-dark .row-actions .portal-btn.danger:hover {
+  background: #1a1a1a;
+}
+
 @media (prefers-color-scheme: dark) {
   .theme-pref-system .ws-banner-stats,
   html.theme-pref-system .ws-banner-stats {
@@ -311,6 +381,39 @@ html.theme-pref-dark .reasoning-block {
     background: #000000;
     color: var(--accent-ink);
     border-color: var(--ws-chip-active-line);
+  }
+  .theme-pref-system .chip.ok,
+  html.theme-pref-system .chip.ok {
+    color: var(--portal-ok-ink);
+  }
+  .theme-pref-system .chip.soon,
+  html.theme-pref-system .chip.soon {
+    color: var(--portal-warn-ink);
+  }
+  .theme-pref-system .chip.gone,
+  html.theme-pref-system .chip.gone {
+    color: var(--portal-err-ink);
+  }
+  .theme-pref-system .chip.off,
+  html.theme-pref-system .chip.off {
+    color: var(--portal-neutral-ink);
+  }
+
+  .theme-pref-system .worklist-table td.name-cell,
+  .theme-pref-system .worklist-table td.email-cell,
+  html.theme-pref-system .worklist-table td.name-cell,
+  html.theme-pref-system .worklist-table td.email-cell {
+    background: #000000;
+  }
+  .theme-pref-system .worklist-table tbody tr:hover td.name-cell,
+  .theme-pref-system .worklist-table tbody tr:hover td.email-cell,
+  .theme-pref-system .worklist-table tbody tr:focus-within td.name-cell,
+  .theme-pref-system .worklist-table tbody tr:focus-within td.email-cell,
+  html.theme-pref-system .worklist-table tbody tr:hover td.name-cell,
+  html.theme-pref-system .worklist-table tbody tr:hover td.email-cell,
+  html.theme-pref-system .worklist-table tbody tr:focus-within td.name-cell,
+  html.theme-pref-system .worklist-table tbody tr:focus-within td.email-cell {
+    background: #0a0a0a;
   }
 
   .theme-pref-system .chart-wrap,
@@ -421,6 +524,40 @@ html.theme-pref-dark .reasoning-block {
     border: 1px solid #2a2a2a;
     border-radius: 10px;
     padding: 12px;
+  }
+
+  .theme-pref-system .ux-filter-input,
+  html.theme-pref-system .ux-filter-input {
+    background: #000000;
+    border-color: #2a2a2a;
+    color: var(--text);
+  }
+  .theme-pref-system .ux-filter-clear:hover,
+  html.theme-pref-system .ux-filter-clear:hover {
+    background: #1a1a1a;
+  }
+
+  .theme-pref-system .row-actions .portal-btn,
+  html.theme-pref-system .row-actions .portal-btn {
+    background: #000000;
+    border: 1px solid #2a2a2a;
+    color: var(--text);
+  }
+  .theme-pref-system .row-actions .portal-btn.secondary,
+  html.theme-pref-system .row-actions .portal-btn.secondary {
+    background: #000000;
+    border-color: #2a2a2a;
+    color: var(--text);
+  }
+  .theme-pref-system .row-actions .portal-btn.danger,
+  html.theme-pref-system .row-actions .portal-btn.danger {
+    background: #000000;
+    border-color: var(--portal-err-line);
+    color: var(--portal-err-ink);
+  }
+  .theme-pref-system .row-actions .portal-btn.danger:hover,
+  html.theme-pref-system .row-actions .portal-btn.danger:hover {
+    background: #1a1a1a;
   }
 }
 

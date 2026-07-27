@@ -37,6 +37,10 @@ MVP alpha may run with **`PAYMENTS_ENABLED=false`** — log usage + balances in 
 
 > **Web chat (2026-07-27):** Clinic portal chat always debits the **acting mentor** (`meterClinicChat`). `/account/` AI chat always debits the **patient** (`meterPatientSelfChat`) and ignores sponsorship — deliberate exception vs phone `resolveAiPayer`. See be-15.
 
+> **Two-layer usage (2026-07-27):** `ai_usage_events.tokens` stays the **Healthings prepaid credit** charged (wallet math). New `gemini_prompt_tokens / gemini_candidates_tokens / gemini_thoughts_tokens / gemini_total_tokens / gemini_model` columns record **real Google usageMetadata** per event — COGS/margin analytics only, never wallet debits. Server chat fills them from `geminiTextWithUsage`; the phone sends them on `POST /v1/usage/ai` (`gemini` body field, optional). Monthly totals are indexed `SUM`s over events — no rollup table.
+
+> **Zero-charge invoices + BILLING_LIVE (2026-07-27):** `invoices` table + `invoice_number_seq` (`HT-YYYY-000001`). Every token pack — auto-reload or manual — issues a production-shaped invoice with `amount_cents` (list) vs `charged_cents` (actual). Master env switch **`BILLING_LIVE`** (default `false`): off = full flow runs, PSP never contacted, invoices land as `charged_cents=0 / status='comped_alpha'`; on = same flow charges the saved card via Stripe (`status 'paid'/'failed'`, failed charge grants **no** tokens). Flipping the flag needs no schema or flow change — only the PSP integration. Surfaced at `GET /v1/billing/invoices` (returns `billingLive`), `GET /v1/usage/events` (payer-scoped per-event list), clinic portal “AI usage” + “Billing & invoices” panels, and the `/account/` **Usage & billing** tab (account-only `usage` tab, `selfOnly` in `ALL_TABS`).
+
 ---
 
 ## What ships

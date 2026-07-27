@@ -8,8 +8,8 @@
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="../styles.css?v=20260726g" />
-    <link rel="stylesheet" href="clinic-portal.css?v=20260727h" />
-    <link rel="stylesheet" href="clinic-theme.css?v=20260727q" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260727i" />
+    <link rel="stylesheet" href="clinic-theme.css?v=20260728e" />
   </head>
   <body>
     <div class="portal-wrap">
@@ -247,34 +247,44 @@
           <p id="name-status" class="portal-status" role="status" aria-live="polite" hidden></p>
         </details>
 
-        <div class="secondary-panel dev-only" id="dev-wallet" hidden>
-          <h2 data-i18n="creditsTitle">AI credits (alpha)</h2>
-          <p class="muted" data-i18n="creditsLead"></p>
+        <details class="secondary-panel" id="usage-panel">
+          <summary>
+            <strong data-i18n="usagePanelTitle">AI usage</strong> —
+            <span class="muted" data-i18n="usageLead"></span>
+          </summary>
+          <div id="usage-summary"></div>
+          <div id="usage-events"></div>
+        </details>
+
+        <details class="secondary-panel" id="billing-panel">
+          <summary>
+            <strong data-i18n="billingTitle">Billing &amp; invoices</strong> —
+            <span class="muted" id="billing-summary-balance">—</span>
+          </summary>
+          <p class="muted" data-i18n="billingLead"></p>
           <p>
             <strong data-i18n="balance">Balance:</strong>
             <span id="wallet-balance-money">—</span>
             <span class="muted" id="wallet-balance">—</span>
           </p>
           <p class="muted" id="wallet-pm"></p>
-          <button id="simulate-card-btn" class="portal-btn secondary" type="button" data-i18n="attachCard">
-            Attach test card (alpha)
-          </button>
-          <button id="load-pack-btn" class="portal-btn" type="button" data-i18n="manualPack">
-            Manual token pack
-          </button>
-        </div>
-
-        <div class="secondary-panel dev-only" id="dev-usage" hidden>
-          <h2 data-i18n="usageTitle">AI usage (alpha)</h2>
-          <p class="muted" data-i18n="usageLead"></p>
-          <div id="usage-summary"></div>
-        </div>
+          <p class="muted" id="billing-alpha-note" data-i18n="billingAlphaNote" hidden></p>
+          <div id="invoice-list"></div>
+          <div class="row-actions dev-only" hidden>
+            <button id="simulate-card-btn" class="portal-btn secondary" type="button" data-i18n="attachCard">
+              Attach test card (alpha)
+            </button>
+            <button id="load-pack-btn" class="portal-btn" type="button" data-i18n="manualPack">
+              Manual token pack
+            </button>
+          </div>
+        </details>
 
         <p id="app-error" class="error" role="alert" hidden></p>
       </section>
     </div>
 
-    <script src="clinic-i18n.js?v=20260727g"></script>
+    <script src="clinic-i18n.js?v=20260728b"></script>
     <script src="clinic-theme.js?v=20260727c"></script>
     <script src="clinic-api.js?v=20260726k"></script>
     <script>
@@ -301,6 +311,13 @@
         sponsorByPatient: new Map(),
         act: null,
       };
+      /** Cached so language switch re-paints usage/billing without a refetch. */
+      const billingState = {
+        usage: null,
+        events: [],
+        invoices: null,
+        wallet: null,
+      };
 
       function formatWalletMoney(wallet) {
         if (!wallet || !wallet.tokenPackSize || wallet.tokenPackPriceCents == null) return null;
@@ -320,12 +337,16 @@
         const chip = document.getElementById('balance-chip');
         const moneyEl = document.getElementById('wallet-balance-money');
         const tokensEl = document.getElementById('wallet-balance');
+        const summaryBal = document.getElementById('billing-summary-balance');
         if (money != null && tokens != null) {
-          chip.textContent = t('balanceChip', { money, n: tokens });
+          const chipText = t('balanceChip', { money, n: tokens });
+          chip.textContent = chipText;
+          if (summaryBal) summaryBal.textContent = chipText;
           if (moneyEl) moneyEl.textContent = money;
           if (tokensEl) tokensEl.textContent = t('balanceTokensSecondary', { n: tokens });
         } else {
           chip.textContent = '—';
+          if (summaryBal) summaryBal.textContent = '—';
           if (moneyEl) moneyEl.textContent = '—';
           if (tokensEl) tokensEl.textContent = '';
         }
@@ -390,6 +411,19 @@
         buildLocalePickers();
         ClinicTheme.bindThemePickers();
         renderWorklist();
+        paintBillingPanels();
+      }
+
+      function paintBillingPanels() {
+        if (billingState.wallet) {
+          paintWalletBalance(billingState.wallet);
+          document.getElementById('wallet-pm').textContent = t('paymentMethod', {
+            value: billingState.wallet.paymentMethodOnFile ? t('pmCard') : t('pmNone'),
+          });
+        }
+        renderUsageSummary(document.getElementById('usage-summary'), billingState.usage);
+        renderUsageEvents(document.getElementById('usage-events'), billingState.events);
+        renderInvoices(billingState.invoices);
       }
 
       /* ── helpers ───────────────────────────────────────────────────────── */
@@ -922,6 +956,100 @@
         });
       }
 
+      function escHtml(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+
+      function usageWhen(iso) {
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return iso || '—';
+        return d.toLocaleString(getLocale(), {
+          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+        });
+      }
+
+      function invoiceMoney(cents, currency) {
+        try {
+          return new Intl.NumberFormat(getLocale(), {
+            style: 'currency',
+            currency: String(currency || 'usd').toUpperCase(),
+          }).format(cents / 100);
+        } catch {
+          return (cents / 100).toFixed(2) + ' ' + String(currency || 'usd').toUpperCase();
+        }
+      }
+
+      function renderUsageEvents(el, events) {
+        if (!el) return;
+        if (!events || !events.length) {
+          el.innerHTML = '';
+          return;
+        }
+        el.innerHTML = `
+          <table class="usage-table">
+            <thead><tr>
+              <th>${escHtml(t('usageColWhen'))}</th>
+              <th>${escHtml(t('usageColPatient'))}</th>
+              <th>${escHtml(t('usageColType'))}</th>
+              <th>${escHtml(t('usageColModel'))}</th>
+              <th>${escHtml(t('usageColGemini'))}</th>
+              <th>${escHtml(t('usageColCredits'))}</th>
+            </tr></thead>
+            <tbody>
+              ${events.map((e) => `
+                <tr>
+                  <td>${escHtml(usageWhen(e.createdAt))}</td>
+                  <td dir="ltr">${escHtml(e.patientEmail || '—')}</td>
+                  <td dir="ltr">${escHtml(e.reason)}</td>
+                  <td dir="ltr">${escHtml(e.geminiModel || '—')}</td>
+                  <td dir="ltr">${e.geminiTotalTokens != null ? escHtml(Number(e.geminiTotalTokens).toLocaleString()) : '—'}</td>
+                  <td dir="ltr">${escHtml(e.tokens)}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>`;
+      }
+
+      function renderInvoices(data) {
+        const el = document.getElementById('invoice-list');
+        const note = document.getElementById('billing-alpha-note');
+        if (!el) return;
+        if (note) note.hidden = Boolean(data && data.billingLive);
+        const invoices = (data && data.invoices) || [];
+        if (!invoices.length) {
+          el.innerHTML = `<p class="muted">${escHtml(t('noInvoices'))}</p>`;
+          return;
+        }
+        const statusLabel = (status) =>
+          t({
+            comped_alpha: 'invStatusComped',
+            paid: 'invStatusPaid',
+            failed: 'invStatusFailed',
+            pending: 'invStatusPending',
+          }[status] || 'invStatusPending');
+        el.innerHTML = `
+          <table class="usage-table">
+            <thead><tr>
+              <th>${escHtml(t('invColNumber'))}</th>
+              <th>${escHtml(t('invColDate'))}</th>
+              <th>${escHtml(t('invColDesc'))}</th>
+              <th>${escHtml(t('invColAmount'))}</th>
+              <th>${escHtml(t('invColCharged'))}</th>
+              <th>${escHtml(t('invColStatus'))}</th>
+            </tr></thead>
+            <tbody>
+              ${invoices.map((inv) => `
+                <tr>
+                  <td dir="ltr">${escHtml(inv.number)}</td>
+                  <td>${escHtml(usageWhen(inv.createdAt))}</td>
+                  <td dir="ltr">${escHtml(inv.description)}</td>
+                  <td dir="ltr">${escHtml(invoiceMoney(inv.amountCents, inv.currency))}</td>
+                  <td dir="ltr">${escHtml(invoiceMoney(inv.chargedCents, inv.currency))}</td>
+                  <td>${escHtml(statusLabel(inv.status))}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>`;
+      }
+
       /* ── data ──────────────────────────────────────────────────────────── */
 
       async function refreshDashboard() {
@@ -942,7 +1070,7 @@
           document.getElementById('header-email').textContent = user.email;
           document.getElementById('display-name').value = user.displayName || '';
 
-          const [pendingRes, outgoingRes, approvedRes, sponsorRes, usageRes, walletRes] =
+          const [pendingRes, outgoingRes, approvedRes, sponsorRes, usageRes, walletRes, eventsRes, invoicesRes] =
             await Promise.all([
               api('/v1/shares/pending-for-me'),
               api('/v1/shares?status=pending'),
@@ -950,6 +1078,8 @@
               api('/v1/sponsorships/mine'),
               api('/v1/usage/summary'),
               api('/v1/wallet'),
+              api('/v1/usage/events?limit=25'),
+              api('/v1/billing/invoices'),
             ]);
           if (!pendingRes.ok || !outgoingRes.ok || !approvedRes.ok) {
             throw new Error(t('couldNotLoadShares'));
@@ -961,17 +1091,14 @@
           const sponsored = sponsorRes.ok ? (await sponsorRes.json()).sponsorships || [] : [];
           const usage = usageRes.ok ? await usageRes.json() : null;
           const wallet = walletRes.ok ? (await walletRes.json()).wallet : null;
+          const usageEvents = eventsRes.ok ? (await eventsRes.json()).events || [] : [];
+          const invoiceData = invoicesRes.ok ? await invoicesRes.json() : null;
 
-          paintWalletBalance(wallet);
-          document.getElementById('wallet-pm').textContent = t('paymentMethod', {
-            value: wallet
-              ? wallet.paymentMethodOnFile
-                ? t('pmCard')
-                : t('pmNone')
-              : t('pmUnknown'),
-          });
-
-          renderUsageSummary(document.getElementById('usage-summary'), usage);
+          billingState.usage = usage;
+          billingState.events = usageEvents;
+          billingState.invoices = invoiceData;
+          billingState.wallet = wallet;
+          paintBillingPanels();
 
         const BUSY_LABEL = {
           approve: 'approving',

@@ -1,5 +1,5 @@
 import { GEMINI_API_KEY } from '@env';
-import { reportAiUsage } from './UsageApiService';
+import { geminiUsageFromResponse, reportAiUsage, type GeminiUsageReport } from './UsageApiService';
 import {
   combineMentorLines,
   extractMentorLinesFromParsed,
@@ -878,7 +878,7 @@ export async function analyzeFood(
   }
 
   const result = parseGeminiJson(rawText, finishReason);
-  reportAiUsage('ai_meal');
+  reportAiUsage('ai_meal', undefined, geminiUsageFromResponse(json, GEMINI_MODEL));
 
   const newUserTurn: GeminiTurn = { role: 'user', text: userText, imageBase64: imageBase64 ?? undefined };
   const modelTurn: GeminiTurn = { role: 'model', text: rawText };
@@ -2173,7 +2173,7 @@ Rules:
     mentorLines = resolved.mentorLines;
   }
 
-  reportAiUsage('ai_coach');
+  reportAiUsage('ai_coach', undefined, geminiUsageFromResponse(json, GEMINI_MODEL));
 
   return {
     id: `coach-${Date.now()}`,
@@ -2261,6 +2261,9 @@ type GeminiChatPart =
   | { text: string }
   | { inline_data: { mime_type: string; data: string } };
 
+/** Usage from the most recent fetchGeminiChat call — read right after the awaited chain (analytics only). */
+let lastChatGeminiUsage: GeminiUsageReport | null = null;
+
 async function fetchGeminiChat(contents: Array<{ role: string; parts: GeminiChatPart[] }>): Promise<string> {
   const body = {
     contents,
@@ -2288,6 +2291,7 @@ async function fetchGeminiChat(contents: Array<{ role: string; parts: GeminiChat
   }
 
   const json = await response.json();
+  lastChatGeminiUsage = geminiUsageFromResponse(json, GEMINI_MODEL);
   return parseChatEnvelope(extractGeminiText(json?.candidates?.[0]));
 }
 
@@ -2606,7 +2610,8 @@ export async function chatWithMentor(
     imageMimeType,
   );
   if (!text.trim()) return chatErrorMessage(ctx.lang);
-  reportAiUsage('ai_chat');
+  reportAiUsage('ai_chat', undefined, lastChatGeminiUsage);
+  lastChatGeminiUsage = null;
   return text;
 }
 

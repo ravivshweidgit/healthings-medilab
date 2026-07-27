@@ -30,7 +30,7 @@ export async function sendPatientAppChat(
 
   const { priorThread, replyLocale } = await loadPatientAppChatThread(user, mentorType, dayKey);
 
-  const replyText = await mentorChatReplyForPatient(
+  const { text: replyText, usage: geminiUsage } = await mentorChatReplyForPatient(
     mentorType,
     text,
     priorThread,
@@ -39,7 +39,7 @@ export async function sendPatientAppChat(
   );
 
   // /account/ AI chat → patient wallet only (ignore clinic sponsorship).
-  await meterPatientSelfChat(user.id);
+  await meterPatientSelfChat(user.id, geminiUsage);
 
   const userMsg: AppChatMessage = {
     role: 'user',

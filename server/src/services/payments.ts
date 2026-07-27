@@ -1,5 +1,6 @@
 import { query } from '../db/pool.js';
 import { config } from '../config.js';
+import { createInvoice } from './invoices.js';
 
 export type PaymentMethodView = {
   onFile: boolean;
@@ -75,42 +76,73 @@ export type AutoReloadResult = {
 
 /**
  * Charge payer's saved card and grant a token pack when balance is low.
- * Never blocks AI — alpha simulates charge when Stripe is not configured.
+ *
+ * BILLING_LIVE off (alpha): the same production flow runs — pack, ledger entry,
+ * invoice — but the PSP is never contacted and the invoice is issued with
+ * charged_cents=0 / status 'comped_alpha'.
+ * BILLING_LIVE on: real PSP charge; a failed charge does NOT grant tokens.
  */
 export async function autoReloadTokenPack(payerUserId: string): Promise<AutoReloadResult> {
   const pm = await getPaymentMethod(payerUserId);
   const packTokens = config.TOKEN_PACK_SIZE;
+  const amountCents = config.TOKEN_PACK_PRICE_CENTS;
+  const description = `AI token pack (${packTokens} tokens) — auto-reload`;
 
-  if (config.STRIPE_SECRET_KEY && pm.onFile && pm.cardLast4) {
-    const charged = await chargeStripePack(payerUserId, pm);
-    if (charged) {
-      const balanceAfter = await creditTokens(payerUserId, packTokens, 'stripe_auto_reload');
-      return { reloaded: true, tokensAdded: packTokens, method: 'stripe', balanceAfter };
+  if (config.BILLING_LIVE) {
+    if (config.STRIPE_SECRET_KEY && pm.onFile && pm.cardLast4) {
+      const charge = await chargeStripePack(payerUserId, pm);
+      await createInvoice({
+        userId: payerUserId,
+        description,
+        tokens: charge.ok ? packTokens : 0,
+        amountCents,
+        chargedCents: charge.ok ? amountCents : 0,
+        currency: config.STRIPE_CURRENCY,
+        status: charge.ok ? 'paid' : 'failed',
+        provider: 'stripe',
+        providerRef: charge.intentId,
+      });
+      if (charge.ok) {
+        const balanceAfter = await creditTokens(payerUserId, packTokens, 'stripe_auto_reload');
+        return { reloaded: true, tokensAdded: packTokens, method: 'stripe', balanceAfter };
+      }
     }
+    return {
+      reloaded: false,
+      tokensAdded: 0,
+      method: 'none',
+      balanceAfter: await getBalanceQuick(payerUserId),
+    };
   }
 
   if (config.AUTO_RELOAD_SIMULATE) {
+    await createInvoice({
+      userId: payerUserId,
+      description,
+      tokens: packTokens,
+      amountCents,
+      chargedCents: 0,
+      currency: config.STRIPE_CURRENCY,
+      status: 'comped_alpha',
+      provider: pm.onFile ? 'simulated' : 'none',
+    });
     const balanceAfter = await creditTokens(payerUserId, packTokens, 'auto_reload_simulated');
     return { reloaded: true, tokensAdded: packTokens, method: 'simulated', balanceAfter };
   }
 
-  const { rows } = await query<{ balance_tokens: number }>(
-    `SELECT balance_tokens FROM wallets WHERE user_id = $1`,
-    [payerUserId],
-  );
   return {
     reloaded: false,
     tokensAdded: 0,
     method: 'none',
-    balanceAfter: rows[0]?.balance_tokens ?? 0,
+    balanceAfter: await getBalanceQuick(payerUserId),
   };
 }
 
 async function chargeStripePack(
   payerUserId: string,
   _pm: PaymentMethodView,
-): Promise<boolean> {
-  if (!config.STRIPE_SECRET_KEY) return false;
+): Promise<{ ok: boolean; intentId: string | null }> {
+  if (!config.STRIPE_SECRET_KEY) return { ok: false, intentId: null };
 
   const params = new URLSearchParams({
     amount: String(config.TOKEN_PACK_PRICE_CENTS),
@@ -139,11 +171,11 @@ async function chargeStripePack(
       },
       body: params.toString(),
     });
-    if (!res.ok) return false;
-    const json = (await res.json()) as { status?: string };
-    return json.status === 'succeeded';
+    if (!res.ok) return { ok: false, intentId: null };
+    const json = (await res.json()) as { status?: string; id?: string };
+    return { ok: json.status === 'succeeded', intentId: json.id ?? null };
   } catch {
-    return false;
+    return { ok: false, intentId: null };
   }
 }
 

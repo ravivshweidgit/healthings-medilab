@@ -96,6 +96,8 @@ CREATE INDEX IF NOT EXISTS idx_ai_sponsorships_expires
   ON ai_sponsorships (expires_at);
 
 -- Meter AI usage (always log; wallet debit optional via BILLING_ENFORCE).
+-- tokens = Healthings prepaid credits charged. gemini_* = real Google usage
+-- from usageMetadata (COGS/margin analytics only — never wallet math).
 CREATE TABLE IF NOT EXISTS ai_usage_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   patient_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -104,6 +106,11 @@ CREATE TABLE IF NOT EXISTS ai_usage_events (
   sponsored BOOLEAN NOT NULL DEFAULT FALSE,
   tokens INT NOT NULL DEFAULT 1,
   reason TEXT NOT NULL,
+  gemini_prompt_tokens INT,
+  gemini_candidates_tokens INT,
+  gemini_thoughts_tokens INT,
+  gemini_total_tokens INT,
+  gemini_model TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -134,6 +141,13 @@ ALTER TABLE ai_sponsorships DROP CONSTRAINT IF EXISTS ai_sponsorships_patient_id
 ALTER TABLE ai_sponsorships ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
 UPDATE ai_sponsorships SET expires_at = NOW() + INTERVAL '90 days' WHERE expires_at IS NULL;
 
+-- Real Gemini usage on pre-existing installs (2026-07: COGS analytics).
+ALTER TABLE ai_usage_events ADD COLUMN IF NOT EXISTS gemini_prompt_tokens INT;
+ALTER TABLE ai_usage_events ADD COLUMN IF NOT EXISTS gemini_candidates_tokens INT;
+ALTER TABLE ai_usage_events ADD COLUMN IF NOT EXISTS gemini_thoughts_tokens INT;
+ALTER TABLE ai_usage_events ADD COLUMN IF NOT EXISTS gemini_total_tokens INT;
+ALTER TABLE ai_usage_events ADD COLUMN IF NOT EXISTS gemini_model TEXT;
+
 CREATE TABLE IF NOT EXISTS wallets (
   user_id UUID PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
   balance_tokens INT NOT NULL DEFAULT 0,
@@ -162,6 +176,31 @@ CREATE TABLE IF NOT EXISTS payment_methods (
   card_brand TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Invoices — production-shaped billing records from day one.
+-- Alpha (BILLING_LIVE=false): every pack issues an invoice with charged_cents=0
+-- and status 'comped_alpha'. Flipping BILLING_LIVE on switches the same flow to
+-- real PSP charges (status 'paid'/'failed') without any schema change.
+CREATE SEQUENCE IF NOT EXISTS invoice_number_seq;
+
+CREATE TABLE IF NOT EXISTS invoices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  number TEXT UNIQUE NOT NULL,
+  description TEXT NOT NULL,
+  tokens INT NOT NULL,
+  -- List price vs actually charged: they differ exactly while alpha comps.
+  amount_cents INT NOT NULL,
+  charged_cents INT NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('comped_alpha', 'paid', 'failed', 'pending')),
+  provider TEXT NOT NULL CHECK (provider IN ('none', 'simulated', 'stripe', 'manual')),
+  provider_ref TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_invoices_user_created
+  ON invoices (user_id, created_at DESC);
 
 -- Encrypted patient snapshots (alpha: gzip payload + access control; E2E wrap later).
 CREATE TABLE IF NOT EXISTS sync_blobs (

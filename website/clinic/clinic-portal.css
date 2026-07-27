@@ -622,6 +622,29 @@ html[dir='rtl'] .ux-filter-input {
   display: none !important;
 }
 
+/* Usage events + invoice history (be-06 two-layer billing, alpha zero-charge) */
+.usage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-top: 10px;
+}
+.usage-table th,
+.usage-table td {
+  text-align: start;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.usage-table td[dir='ltr'] {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.usage-table th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
 /* Worklist loading skeleton (be-22) */
 .worklist-skeleton .worklist-skel-block {
   height: 44px;

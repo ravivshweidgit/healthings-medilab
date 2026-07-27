@@ -35,6 +35,15 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((v) => v !== 'false'),
+  /**
+   * Master card-billing switch. Off (alpha): the full billing pipeline runs —
+   * packs, ledger, invoices — but every invoice is issued at 0 charged and no
+   * PSP is contacted. On: same flow charges the saved card via the PSP.
+   */
+  BILLING_LIVE: z
+    .string()
+    .optional()
+    .transform((v) => v === 'true'),
 });
 
 const parsed = envSchema.safeParse(process.env);

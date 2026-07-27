@@ -10,6 +10,15 @@ export type MentorType = 'doctor' | 'nutritionist' | 'coach';
 
 type GeminiPart = { text?: string; thought?: boolean };
 
+/** Real Google token usage from usageMetadata — analytics only, not wallet math. */
+export type GeminiUsage = {
+  promptTokens: number;
+  candidatesTokens: number;
+  thoughtsTokens: number;
+  totalTokens: number;
+  model: string;
+};
+
 type GeminiGenOptions = {
   temperature: number;
   maxOutputTokens: number;
@@ -90,10 +99,10 @@ function geminiEndpoint(): string | null {
   return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${config.GEMINI_API_KEY}`;
 }
 
-async function geminiText(
+async function geminiTextWithUsage(
   prompt: string,
   options: { temperature?: number; maxOutputTokens?: number; thinkingBudget?: number } = {},
-): Promise<string> {
+): Promise<{ text: string; usage: GeminiUsage | null }> {
   const url = geminiEndpoint();
   if (!url) throw new Error('GEMINI_API_KEY not configured on server');
 
@@ -121,14 +130,41 @@ async function geminiText(
       content?: { parts?: GeminiPart[] };
       finishReason?: string;
     }>;
+    usageMetadata?: {
+      promptTokenCount?: number;
+      candidatesTokenCount?: number;
+      thoughtsTokenCount?: number;
+      totalTokenCount?: number;
+    };
   };
+  const um = json.usageMetadata;
+  const usage: GeminiUsage | null = um
+    ? {
+        promptTokens: um.promptTokenCount ?? 0,
+        candidatesTokens: um.candidatesTokenCount ?? 0,
+        thoughtsTokens: um.thoughtsTokenCount ?? 0,
+        totalTokens: um.totalTokenCount ?? 0,
+        model: GEMINI_MODEL,
+      }
+    : null;
   const candidate = json.candidates?.[0];
   const text = extractGeminiText(candidate);
   if (!text.trim()) throw new Error('Empty Gemini response');
   if (candidate?.finishReason === 'MAX_TOKENS') {
-    return `${text.trim()}\n\n[Response truncated — ask a shorter follow-up or split your question.]`;
+    return {
+      text: `${text.trim()}\n\n[Response truncated — ask a shorter follow-up or split your question.]`,
+      usage,
+    };
   }
-  return text.trim();
+  return { text: text.trim(), usage };
+}
+
+async function geminiText(
+  prompt: string,
+  options: { temperature?: number; maxOutputTokens?: number; thinkingBudget?: number } = {},
+): Promise<string> {
+  const { text } = await geminiTextWithUsage(prompt, options);
+  return text;
 }
 
 function extractJsonObject(raw: string): Record<string, unknown> {
@@ -766,7 +802,7 @@ export async function mentorChatReply(
   patientId: string,
   clinicRules: ClinicUserRules | null,
   clinicLocaleRaw?: string | null,
-): Promise<string> {
+): Promise<{ text: string; usage: GeminiUsage | null }> {
   const clinicLocale = normalizeClinicChatLocale(clinicLocaleRaw);
   const replyLanguage = CLINIC_LOCALE_NAME[clinicLocale];
   const snapshot = await loadLatestSnapshotExport(patientId);
@@ -822,13 +858,13 @@ ${message}
 Reply as the ${MENTOR_LABEL[mentorType]} mentor in ${replyLanguage} (plain text, no JSON).`;
 
   try {
-    return await geminiText(prompt, {
+    return await geminiTextWithUsage(prompt, {
       temperature: 0.4,
       maxOutputTokens: 8192,
       thinkingBudget: 4096,
     });
   } catch (e) {
-    return e instanceof Error ? e.message : 'AI chat unavailable';
+    return { text: e instanceof Error ? e.message : 'AI chat unavailable', usage: null };
   }
 }
 
@@ -842,7 +878,7 @@ export async function mentorChatReplyForPatient(
   history: ClinicChatMessage[],
   patientId: string,
   localeRaw?: string | null,
-): Promise<string> {
+): Promise<{ text: string; usage: GeminiUsage | null }> {
   const locale = normalizeClinicChatLocale(localeRaw);
   const replyLanguage = CLINIC_LOCALE_NAME[locale];
   const snapshot = await loadLatestSnapshotExport(patientId);
@@ -890,12 +926,12 @@ ${message}
 Reply as the ${MENTOR_LABEL[mentorType]} mentor in ${replyLanguage} (plain text, no JSON).`;
 
   try {
-    return await geminiText(prompt, {
+    return await geminiTextWithUsage(prompt, {
       temperature: 0.4,
       maxOutputTokens: 8192,
       thinkingBudget: 4096,
     });
   } catch (e) {
-    return e instanceof Error ? e.message : 'AI chat unavailable';
+    return { text: e instanceof Error ? e.message : 'AI chat unavailable', usage: null };
   }
 }

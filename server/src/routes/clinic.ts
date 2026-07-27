@@ -120,7 +120,7 @@ export async function registerClinicRoutes(app: FastifyInstance) {
       const prior = overlay.chat[body.mentorType] ?? [];
       const sentAt = new Date().toISOString();
       const userMsg = { role: 'user' as const, text: body.message.trim(), sentAt, fromClinic: true };
-      const replyText = await mentorChatReply(
+      const { text: replyText, usage: geminiUsage } = await mentorChatReply(
         body.mentorType,
         body.message,
         prior,
@@ -129,7 +129,7 @@ export async function registerClinicRoutes(app: FastifyInstance) {
         body.locale,
       );
       // Clinic portal chat → acting mentor's wallet (before persist).
-      await meterClinicChat(user.id, params.patientId);
+      await meterClinicChat(user.id, params.patientId, geminiUsage);
       const assistantMsg = {
         role: 'assistant' as const,
         text: replyText,
