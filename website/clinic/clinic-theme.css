@@ -212,6 +212,19 @@ html.theme-pref-dark .nutrition-detail-body {
   border-color: #2a2a2a;
 }
 
+/* Labs table rows */
+.theme-pref-dark .lab-panel .data-table th,
+.theme-pref-dark .lab-panel .data-table td,
+html.theme-pref-dark .lab-panel .data-table th,
+html.theme-pref-dark .lab-panel .data-table td {
+  background: #000000;
+  border-bottom-color: #2a2a2a;
+}
+.theme-pref-dark .lab-panel,
+html.theme-pref-dark .lab-panel {
+  border-bottom-color: #2a2a2a;
+}
+
 @media (prefers-color-scheme: dark) {
   .theme-pref-system .ws-banner-stats,
   html.theme-pref-system .ws-banner-stats {
@@ -263,6 +276,18 @@ html.theme-pref-dark .nutrition-detail-body {
   html.theme-pref-system .nutrition-detail-body {
     background: #000000;
     border-color: #2a2a2a;
+  }
+
+  .theme-pref-system .lab-panel .data-table th,
+  .theme-pref-system .lab-panel .data-table td,
+  html.theme-pref-system .lab-panel .data-table th,
+  html.theme-pref-system .lab-panel .data-table td {
+    background: #000000;
+    border-bottom-color: #2a2a2a;
+  }
+  .theme-pref-system .lab-panel,
+  html.theme-pref-system .lab-panel {
+    border-bottom-color: #2a2a2a;
   }
 }
 
