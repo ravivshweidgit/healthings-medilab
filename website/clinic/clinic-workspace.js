@@ -14,10 +14,15 @@
   const WATER_GOAL_KEY = 'water_goal_ml_v1';
   const DEFAULT_WATER_GOAL_ML = 2500;
 
+  function t(key, vars) {
+    if (global.ClinicI18n?.t) return global.ClinicI18n.t(key, vars);
+    return key;
+  }
+
   const MENTORS = [
-    { id: 'doctor', label: 'Doctor', emoji: '🩺' },
-    { id: 'nutritionist', label: 'Nutritionist', emoji: '🥗' },
-    { id: 'coach', label: 'Coach', emoji: '💪' },
+    { id: 'doctor', labelKey: 'wsMentorDoctor', emoji: '🩺' },
+    { id: 'nutritionist', labelKey: 'wsMentorNutritionist', emoji: '🥗' },
+    { id: 'coach', labelKey: 'wsMentorCoach', emoji: '💪' },
   ];
 
   /**
@@ -57,15 +62,23 @@
 
   /** Relative freshness for clinicians; exact stamp stays in title= for support. */
   function formatRelativeSync(iso) {
-    const t = Date.parse(iso);
-    if (!Number.isFinite(t)) return 'Synced —';
-    const mins = Math.round((Date.now() - t) / 60000);
-    if (mins < 1) return 'Synced just now';
-    if (mins < 60) return `Synced ${mins} min ago`;
+    const ms = Date.parse(iso);
+    if (!Number.isFinite(ms)) return t('wsSyncedUnknown');
+    const mins = Math.round((Date.now() - ms) / 60000);
+    if (mins < 1) return t('wsSyncedJustNow');
+    if (mins < 60) return t('wsSyncedMinutesAgo', { n: mins });
     const hours = Math.round(mins / 60);
-    if (hours < 48) return `Synced ${hours}h ago`;
+    if (hours < 48) return t('wsSyncedHoursAgo', { n: hours });
     const days = Math.round(hours / 24);
-    return `Synced ${days}d ago`;
+    return t('wsSyncedDaysAgo', { n: days });
+  }
+
+  function formatGender(g) {
+    if (!g) return null;
+    const s = String(g).toLowerCase();
+    if (s === 'male') return t('wsGenderMale');
+    if (s === 'female') return t('wsGenderFemale');
+    return t('wsGenderOther');
   }
 
   function supportMetaTitle(blob) {
@@ -146,9 +159,9 @@
     try {
       if (store.user_birthdate) {
         profile.birthdate = store.user_birthdate.replace(/^"|"$/g, '');
-        const t = Date.parse(profile.birthdate);
-        if (!Number.isNaN(t)) {
-          const age = Math.floor((Date.now() - t) / (365.25 * 86400000));
+        const ms = Date.parse(profile.birthdate);
+        if (!Number.isNaN(ms)) {
+          const age = Math.floor((Date.now() - ms) / (365.25 * 86400000));
           profile.age = age;
         }
       }
@@ -282,7 +295,7 @@
       if (raw.sampleMenu) blocks.push('', String(raw.sampleMenu));
       fullText = blocks.join('\n').trim();
     }
-    const title = String(raw.title ?? '').trim() || 'Nutritionist report';
+    const title = String(raw.title ?? '').trim() || t('wsNutritionistReportFallback');
     return {
       id: String(raw.id ?? ''),
       importedAt: String(raw.importedAt ?? ''),
@@ -296,9 +309,9 @@
 
   function formatDirectiveDate(entry) {
     const iso = entry.sessionDate || entry.importedAt;
-    const t = Date.parse(iso);
-    if (Number.isNaN(t)) return String(iso).slice(0, 10);
-    return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    const ms = Date.parse(iso);
+    if (Number.isNaN(ms)) return String(iso).slice(0, 10);
+    return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
   function directivePreviewLine(entry) {
@@ -337,22 +350,22 @@
   function mealLabel(entry) {
     if (entry.note) return entry.note;
     const h = new Date(entry.timestamp).getHours();
-    if (h < 10) return 'Breakfast';
-    if (h < 14) return 'Lunch';
-    if (h < 17) return 'Snack';
-    return 'Dinner';
+    if (h < 10) return t('wsMealBreakfast');
+    if (h < 14) return t('wsMealLunch');
+    if (h < 17) return t('wsMealSnack');
+    return t('wsMealDinner');
   }
 
   function formatDayLabel(dayKey) {
-    const t = Date.parse(dayKey + 'T12:00:00');
-    const d = Number.isNaN(t) ? new Date() : new Date(t);
+    const ms = Date.parse(dayKey + 'T12:00:00');
+    const d = Number.isNaN(ms) ? new Date() : new Date(ms);
     const datePart = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-    return dayKey === todayKey() ? `Today - ${datePart}` : datePart;
+    return dayKey === todayKey() ? t('wsTodayDate', { date: datePart }) : datePart;
   }
 
   function shiftDayKey(dayKey, delta) {
-    const t = Date.parse(dayKey + 'T12:00:00');
-    const d = new Date(t);
+    const ms = Date.parse(dayKey + 'T12:00:00');
+    const d = new Date(ms);
     d.setDate(d.getDate() + delta);
     const next = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     return next > todayKey() ? todayKey() : next;
@@ -378,7 +391,7 @@
   function macroSummaryMeal(meal) {
     const items = meal.items || [];
     if (items.length) {
-      const t = items.reduce(
+      const tot = items.reduce(
         (a, i) => ({
           kcal: a.kcal + (i.kcal || 0),
           p: a.p + (i.protein_g || 0),
@@ -388,7 +401,7 @@
         }),
         { kcal: 0, p: 0, c: 0, f: 0, fi: 0 },
       );
-      return `${Math.round(t.kcal)} kcal · P ${t.p.toFixed(0)}g · C ${t.c.toFixed(0)}g · F ${t.f.toFixed(0)}g · Fi ${t.fi.toFixed(0)}g`;
+      return `${Math.round(tot.kcal)} kcal · P ${tot.p.toFixed(0)}g · C ${tot.c.toFixed(0)}g · F ${tot.f.toFixed(0)}g · Fi ${tot.fi.toFixed(0)}g`;
     }
     return `${Math.round(meal.totalKcal || 0)} kcal · P ${Math.round(meal.totalProtein_g || 0)}g · C ${Math.round(meal.totalCarb_g || 0)}g · F ${Math.round(meal.totalFat_g || 0)}g · Fi ${Math.round(entryFiber(meal))}g`;
   }
@@ -408,7 +421,7 @@
     const itemsHtml = items.length
       ? items.map((item, i) => {
         const flagged = item.rule_conflict;
-        const name = esc(item.name_local || item.name || 'Item');
+        const name = esc(item.name_local || item.name || t('wsMealItemFallback'));
         return `
           <div class="meal-item-row${flagged ? ' flagged' : ''}">
             <div class="meal-item-name">${flagged ? '⚠ ' : ''}${name}</div>
@@ -420,7 +433,7 @@
             </div>
           </div>`;
       }).join('')
-      : `<p class="empty" style="padding:16px">No item breakdown in snapshot (totals only).</p>
+      : `<p class="empty" style="padding:16px">${esc(t('wsNoItemBreakdown'))}</p>
          <div class="meal-totals-only">
            <strong>${Math.round(meal.totalKcal || 0)} kcal</strong>
            · P ${Math.round(meal.totalProtein_g || 0)}g · C ${Math.round(meal.totalCarb_g || 0)}g · F ${Math.round(meal.totalFat_g || 0)}g
@@ -429,13 +442,13 @@
     modalRoot.hidden = false;
     modalRoot.innerHTML = `
       <div class="meal-modal-overlay" data-close-meal>
-        <div class="meal-modal-card" role="dialog" aria-label="Meal details">
+        <div class="meal-modal-card" role="dialog" aria-label="${esc(t('wsMealDetailsAria'))}">
           <div class="meal-modal-head">
             <div>
               <div class="meal-modal-title">${esc(title)}</div>
               <div class="meal-modal-time">${esc(time)}</div>
             </div>
-            <button type="button" class="meal-modal-close" data-close-meal aria-label="Close">✕</button>
+            <button type="button" class="meal-modal-close" data-close-meal aria-label="${esc(t('wsCloseAria'))}">✕</button>
           </div>
           ${meal.note ? `<p class="meal-modal-note">${esc(meal.note)}</p>` : ''}
           <div class="meal-items-card">${itemsHtml}
@@ -443,7 +456,7 @@
               <span class="meal-item-kcal">${macroSummaryMeal(meal)}</span>
             </div>
           </div>
-          <p class="meal-modal-readonly">Read-only snapshot from ${selfView ? 'your app' : 'patient app'}</p>
+          <p class="meal-modal-readonly">${esc(selfView ? t('wsMealReadonlySelf') : t('wsMealReadonlyClinic'))}</p>
         </div>
       </div>`;
 
@@ -481,30 +494,32 @@
     host.innerHTML = `
       <div class="food-log-card food-log-grid">
         <div class="food-log-summary">
-          <div class="food-log-title">FOOD LOG</div>
+          <div class="food-log-title">${esc(t('wsFoodLogTitle'))}</div>
           <div class="date-nav food-date-nav">
-            <button type="button" class="nav-arrow" data-food-shift="-1" aria-label="Previous day">‹</button>
+            <button type="button" class="nav-arrow" data-food-shift="-1" aria-label="${esc(t('wsPrevDayAria'))}">‹</button>
             <span class="date-label">${formatDayLabel(dk)}</span>
-            <button type="button" class="nav-arrow" data-food-shift="1" ${isToday ? 'disabled' : ''} aria-label="Next day">›</button>
+            <button type="button" class="nav-arrow" data-food-shift="1" ${isToday ? 'disabled' : ''} aria-label="${esc(t('wsNextDayAria'))}">›</button>
           </div>
           <div class="energy-lines">
             <div class="energy-row">
               <span class="energy-num">${eaten > 0 ? eaten.toLocaleString() : '—'}</span>
-              <span class="energy-label">kcal eaten</span>
+              <span class="energy-label">${esc(t('wsKcalEaten'))}</span>
             </div>
             ${parts.activity != null ? `
             <div class="energy-row">
               <span class="energy-num">${parts.activity.toLocaleString()}</span>
-              <span class="energy-label">kcal activity</span>
+              <span class="energy-label">${esc(t('wsKcalActivity'))}</span>
             </div>` : ''}
             ${parts.total != null ? `
             <div class="energy-row">
               <span class="energy-num">${parts.total.toLocaleString()}</span>
-              <span class="energy-label">kcal burned${parts.bmr != null
-                ? ` <span class="energy-target">BMR ${parts.bmr.toLocaleString()}${parts.activity != null ? ' + activity' : ''}</span>`
+              <span class="energy-label">${esc(t('wsKcalBurned'))}${parts.bmr != null
+                ? ` <span class="energy-target">${parts.activity != null
+                  ? esc(t('wsEnergyBmrPlusActivity', { n: parts.bmr.toLocaleString() }))
+                  : esc(t('wsEnergyBmrDetail', { n: parts.bmr.toLocaleString() }))}</span>`
                 : ''}</span>
             </div>` : ''}
-            ${balance != null ? `<div class="balance-pill ${isDeficit ? 'deficit' : 'surplus'}"><span class="energy-num">${Math.abs(Math.round(balance)).toLocaleString()}</span><span class="energy-label">kcal ${isDeficit ? 'deficit' : 'surplus'}</span></div>` : ''}
+            ${balance != null ? `<div class="balance-pill ${isDeficit ? 'deficit' : 'surplus'}"><span class="energy-num">${Math.abs(Math.round(balance)).toLocaleString()}</span><span class="energy-label">kcal ${isDeficit ? esc(t('wsKcalDeficit')) : esc(t('wsKcalSurplus'))}</span></div>` : ''}
           </div>
           ${showBars ? `
           <div class="macro-bars">
@@ -525,8 +540,8 @@
               <span class="chip-time">${new Date(m.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
               <span class="chip-label">${esc(mealLabel(m))}</span>
               <span class="chip-kcal">${Math.round(m.totalKcal || 0)} kcal</span>
-              <span class="chip-view">view</span>
-            </button>`).join('') : '<p class="empty meal-chips-empty">No meals this day</p>'}
+              <span class="chip-view">${esc(t('wsMealView'))}</span>
+            </button>`).join('') : `<p class="empty meal-chips-empty">${esc(t('wsNoMealsThisDay'))}</p>`}
         </div>
       </div>`;
 
@@ -553,7 +568,7 @@
 
   function renderFoodLogTab(panel, ctx) {
     panel.innerHTML = `
-      <p class="sub snapshot-note">${ctx.selfView ? 'Your food log from your last snapshot — read-only.' : 'Patient food log from snapshot — read-only. Click a meal for item detail.'}</p>
+      <p class="sub snapshot-note">${esc(ctx.selfView ? t('wsFoodNoteSelf') : t('wsFoodNoteClinic'))}</p>
       <div class="food-log-page">
         <div class="dash-card food-log-panel"><div id="food-log-host"></div></div>
         <div id="meal-modal-root" hidden></div>
@@ -563,12 +578,14 @@
   }
 
   function mentorMeta(id) {
-    return MENTORS.find((x) => x.id === id) || { id, label: id, emoji: '•' };
+    const m = MENTORS.find((x) => x.id === id);
+    if (!m) return { id, label: id, emoji: '•' };
+    return { id: m.id, label: t(m.labelKey), emoji: m.emoji };
   }
 
   function mentorsHeaderSub(mentors) {
     // App collapsed Mentors subtitle is labels-only (prompt94) — no emoji.
-    return mentors.map((m) => mentorMeta(m).label).join(' · ') || 'No mentors selected';
+    return mentors.map((m) => mentorMeta(m).label).join(' · ') || t('wsNoMentorsSelected');
   }
 
   function fiberTarget_g(mt) {
@@ -613,15 +630,15 @@
     const pcfExpanded = pcfShort ? expandPcfPriority(pcfShort) : null;
     return `
       <div class="clinical-profile-banner">
-        <div class="clinical-profile-title">Clinical profile</div>
+        <div class="clinical-profile-title">${esc(t('wsClinicalProfile'))}</div>
         <div class="clinical-profile-text">${esc(mt.clinical_profile.trim())}</div>
         ${pcfShort ? `
           <div class="clinical-pcf-row">
-            <div class="clinical-pcf-label">Macro priority (P → C → F)</div>
+            <div class="clinical-pcf-label">${esc(t('wsMacroPriority'))}</div>
             <div class="clinical-pcf-short">${esc(pcfShort)}</div>
             ${pcfExpanded && pcfExpanded !== pcfShort ? `<div class="clinical-pcf-detail">${esc(pcfExpanded)}</div>` : ''}
           </div>` : ''}
-        ${mt.macro_order ? `<div class="clinical-order">Full sequence: ${esc(mt.macro_order)}</div>` : ''}
+        ${mt.macro_order ? `<div class="clinical-order">${esc(t('wsFullSequence', { order: mt.macro_order }))}</div>` : ''}
       </div>`;
   }
 
@@ -651,13 +668,13 @@
   }
 
   function targetsHeaderSub(bt) {
-    if (!bt) return 'No body targets in snapshot';
+    if (!bt) return t('wsNoBodyTargets');
     const weeks = bt.targetWeeks ?? bt.estimatedWeeks;
     return `${Number(bt.targetWeight_kg).toFixed(1)} kg · ${Number(bt.targetFatPct).toFixed(1)}% fat · ${Number(bt.targetMuscleMass_kg).toFixed(1)} kg muscle${weeks ? ` · ${weeks}w` : ''}`;
   }
 
   function macrosHeaderSub(mt) {
-    if (!mt) return 'No macro targets in snapshot';
+    if (!mt) return t('wsNoMacroTargets');
     return `${mt.protein_g}P / ${mt.fat_g}F / ${mt.carb_g}C / ${fiberTarget_g(mt)}Fi`;
   }
 
@@ -672,7 +689,7 @@
 
   function detailList(rows) {
     const items = rows.filter((r) => r[1] != null && r[1] !== '');
-    if (!items.length) return '<p class="empty">Not set in snapshot</p>';
+    if (!items.length) return `<p class="empty">${esc(t('wsNotSetInSnapshot'))}</p>`;
     return `<dl class="profile-dl">${items.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(String(v))}</dd>`).join('')}</dl>`;
   }
 
@@ -690,7 +707,7 @@
   }
 
   function renderCoachBody(coach, mentors) {
-    if (!coach) return '<p class="empty">No coach message in snapshot</p>';
+    if (!coach) return `<p class="empty">${esc(t('wsNoCoachMessage'))}</p>`;
     const done = (coach.actionItems || []).filter((i) => i.done).length;
     const total = (coach.actionItems || []).length;
     const mentorBlocks = mentors.map((m) => {
@@ -703,8 +720,8 @@
         <div class="coach-mentor-block">
           <div class="coach-mentor-title">${mentorChromeIcon(m)} ${esc(meta.label)}</div>
           ${coach.mentorLines?.[m] ? `<p class="coach-line">${esc(coach.mentorLines[m])}</p>` : ''}
-          ${wins.length ? `<div class="coach-list-label">Wins</div><ul>${wins.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
-          ${improve.length ? `<div class="coach-list-label">Improve</div><ul>${improve.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
+          ${wins.length ? `<div class="coach-list-label">${esc(t('wsWins'))}</div><ul>${wins.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
+          ${improve.length ? `<div class="coach-list-label">${esc(t('wsImprove'))}</div><ul>${improve.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
           ${items.length ? `<ul class="action-items">${items.map((i) => `<li class="${i.done ? 'done' : ''}">${i.done ? '☑' : '☐'} ${esc(i.text)}</li>`).join('')}</ul>` : ''}
         </div>`;
     }).join('');
@@ -712,10 +729,10 @@
     return `
       ${coach.summary ? `<p class="coach-summary">${esc(coach.summary)}</p>` : ''}
       ${coach.text && !coach.summary ? `<p class="coach-summary">${esc(coach.text)}</p>` : ''}
-      ${total ? `<p class="coach-progress">${done}/${total} action items done</p>` : ''}
+      ${total ? `<p class="coach-progress">${esc(t('wsActionItemsDone', { done, total }))}</p>` : ''}
       ${mentorBlocks}
       ${untagged.length ? `<ul class="action-items">${untagged.map((i) => `<li class="${i.done ? 'done' : ''}">${i.done ? '☑' : '☐'} ${esc(i.text)}</li>`).join('')}</ul>` : ''}
-      ${coach.generatedAt ? `<p class="coach-meta">Generated ${esc(formatIsoShort(coach.generatedAt))}${coach.triggerEvent ? ` · ${esc(coach.triggerEvent)}` : ''}</p>` : ''}`;
+      ${coach.generatedAt ? `<p class="coach-meta">${esc(t('wsGenerated', { when: formatIsoShort(coach.generatedAt) }))}${coach.triggerEvent ? ` · ${esc(coach.triggerEvent)}` : ''}</p>` : ''}`;
   }
 
   function renderProfileGroup(host, ctx) {
@@ -727,56 +744,56 @@
     const rules = ctx.parsed.userRules;
     const coach = ctx.parsed.coachMsg;
     const mentors = ctx.parsed.mentors || [];
-    const gender = p.gender ? String(p.gender).charAt(0).toUpperCase() + String(p.gender).slice(1) : null;
-    const profileSub = [gender, p.heightCm ? `${p.heightCm} cm` : null, p.age != null ? `${p.age} y` : null, p.language].filter(Boolean).join(' · ') || 'Not set in snapshot';
+    const gender = formatGender(p.gender);
+    const profileSub = [gender, p.heightCm ? `${p.heightCm} cm` : null, p.age != null ? t('wsBannerAgeY', { n: p.age }) : null, p.language].filter(Boolean).join(' · ') || t('wsNotSetInSnapshot');
 
     const profileBody = detailList([
-      ['Gender', gender],
-      ['Height', p.heightCm ? `${p.heightCm} cm` : null],
-      ['Birth date', p.birthdate],
-      ['Age', p.age != null ? `${p.age} years` : null],
-      ['Language', p.language],
+      [t('wsDlGender'), gender],
+      [t('wsDlHeight'), p.heightCm ? `${p.heightCm} cm` : null],
+      [t('wsDlBirthDate'), p.birthdate],
+      [t('wsDlAge'), p.age != null ? t('wsAgeYears', { n: p.age }) : null],
+      [t('wsDlLanguage'), p.language],
     ]);
 
     const targetsBody = bt ? `
       ${detailList([
-        ['Target weight', `${Number(bt.targetWeight_kg).toFixed(1)} kg`],
-        ['Target fat', `${Number(bt.targetFatPct).toFixed(1)}%`],
-        ['Target muscle', `${Number(bt.targetMuscleMass_kg).toFixed(1)} kg`],
-        ['Timeline', bt.targetWeeks ?? bt.estimatedWeeks ? `${bt.targetWeeks ?? bt.estimatedWeeks} weeks` : null],
-        ['Start weight', bt.startWeight_kg != null ? `${Number(bt.startWeight_kg).toFixed(1)} kg` : null],
-        ['Start fat', bt.startFatPct != null ? `${Number(bt.startFatPct).toFixed(1)}%` : null],
-        ['Start muscle', bt.startMuscle_kg != null ? `${Number(bt.startMuscle_kg).toFixed(1)} kg` : null],
-        ['Set', formatIsoShort(bt.analyzedAt)],
+        [t('wsDlTargetWeight'), `${Number(bt.targetWeight_kg).toFixed(1)} kg`],
+        [t('wsDlTargetFat'), `${Number(bt.targetFatPct).toFixed(1)}%`],
+        [t('wsDlTargetMuscle'), `${Number(bt.targetMuscleMass_kg).toFixed(1)} kg`],
+        [t('wsDlTimeline'), bt.targetWeeks ?? bt.estimatedWeeks ? t('wsWeeks', { n: bt.targetWeeks ?? bt.estimatedWeeks }) : null],
+        [t('wsDlStartWeight'), bt.startWeight_kg != null ? `${Number(bt.startWeight_kg).toFixed(1)} kg` : null],
+        [t('wsDlStartFat'), bt.startFatPct != null ? `${Number(bt.startFatPct).toFixed(1)}%` : null],
+        [t('wsDlStartMuscle'), bt.startMuscle_kg != null ? `${Number(bt.startMuscle_kg).toFixed(1)} kg` : null],
+        [t('wsDlSet'), formatIsoShort(bt.analyzedAt)],
       ])}
-      ${bt.reasoning ? `<p class="reasoning-block">${esc(bt.reasoning)}</p>` : ''}` : '<p class="empty">No body targets in snapshot</p>';
+      ${bt.reasoning ? `<p class="reasoning-block">${esc(bt.reasoning)}</p>` : ''}` : `<p class="empty">${esc(t('wsNoBodyTargets'))}</p>`;
 
     const mentorsBody = mentors.length
       ? `<div class="mentor-pills">${mentors.map((m) => {
           const x = mentorMeta(m);
           return `<span class="mentor-pill active">${mentorChromeIcon(m)} ${esc(x.label)}</span>`;
         }).join('')}</div>
-        <p class="sub mentors-note">From ${ctx.selfView ? 'your' : 'patient'} snapshot — read-only.</p>`
-      : '<p class="empty">No mentors in snapshot</p>';
+        <p class="sub mentors-note">${esc(ctx.selfView ? t('wsMentorsNoteSelf') : t('wsMentorsNoteClinic'))}</p>`
+      : `<p class="empty">${esc(t('wsNoMentors'))}</p>`;
 
     const rulesBody = rules?.rawText
       ? `
       <p class="rules-raw" dir="auto">${esc(rules.rawText)}</p>
-      ${rules.analyzedAt ? `<p class="coach-meta">Updated ${esc(formatIsoShort(rules.analyzedAt))}</p>` : ''}`
-      : '<p class="empty">No dietary rules in snapshot</p>';
+      ${rules.analyzedAt ? `<p class="coach-meta">${esc(t('wsUpdated', { when: formatIsoShort(rules.analyzedAt) }))}</p>` : ''}`
+      : `<p class="empty">${esc(t('wsNoDietaryRules'))}</p>`;
 
-    const macrosSub = `${esc(macrosHeaderSub(mt))}${mt?.analyzedAt ? `<span class="macro-updated">Updated ${esc(formatIsoShort(mt.analyzedAt))}</span>` : ''}`;
+    const macrosSub = `${esc(macrosHeaderSub(mt))}${mt?.analyzedAt ? `<span class="macro-updated">${esc(t('wsUpdated', { when: formatIsoShort(mt.analyzedAt) }))}</span>` : ''}`;
 
-    const macrosBody = mt ? renderMacroTargetsBody(mt, ctx) : '<p class="empty">No macro targets in snapshot</p>';
+    const macrosBody = mt ? renderMacroTargetsBody(mt, ctx) : `<p class="empty">${esc(t('wsNoMacroTargets'))}</p>`;
 
-    const coachSub = coach?.summary || coach?.text?.slice(0, 120) || 'No coach message';
+    const coachSub = coach?.summary || coach?.text?.slice(0, 120) || t('wsNoCoachMessageShort');
 
-    const leftTitle = ctx.selfView ? 'Profile' : 'Profile';
-    const targetsTitle = 'Targets';
-    const mentorsTitle = ctx.selfView ? 'Mentors' : 'Care team';
-    const rulesTitle = ctx.selfView ? 'Rules' : 'Dietary rules';
-    const macrosTitle = ctx.selfView ? 'Macros' : 'Macro targets';
-    const coachTitle = ctx.selfView ? 'Coach' : 'Coach summary';
+    const leftTitle = t('wsProfileSection');
+    const targetsTitle = t('wsTargetsSection');
+    const mentorsTitle = ctx.selfView ? t('wsMentorsSectionSelf') : t('wsCareTeamSectionClinic');
+    const rulesTitle = ctx.selfView ? t('wsRulesSectionSelf') : t('wsDietaryRulesClinic');
+    const macrosTitle = ctx.selfView ? t('wsMacrosSectionSelf') : t('wsMacroTargetsClinic');
+    const coachTitle = ctx.selfView ? t('wsCoachSectionSelf') : t('wsCoachSummaryClinic');
 
     host.innerHTML = `
       <div class="profile-layout">
@@ -817,7 +834,7 @@
 
   function renderProfileTab(panel, ctx) {
     panel.innerHTML = `
-      <p class="sub snapshot-note">${ctx.selfView ? 'Your profile, targets, and mentor context from your last snapshot — read-only.' : "From the patient's last snapshot — read-only."}</p>
+      <p class="sub snapshot-note">${esc(ctx.selfView ? t('wsProfileNoteSelf') : t('wsProfileNoteClinic'))}</p>
       <div class="profile-tab-card"><div id="profile-group-host"></div></div>`;
     const host = panel.querySelector('#profile-group-host');
     if (host) renderProfileGroup(host, ctx);
@@ -875,21 +892,21 @@
     const draft = ctx._chatDraft || '';
 
     panel.innerHTML = `
-      <p class="sub snapshot-note">Your private chat about this case, using the shared snapshot. The patient's own coach conversations are not shared with the clinic.</p>
+      <p class="sub snapshot-note">${esc(t('wsChatPrivacyNote'))}</p>
       <div class="chat-layout">
         <div class="mentor-nav">
           ${MENTORS.map((m) => `
             <button type="button" class="mentor-pick${m.id === activeMentor ? ' active' : ''}" data-mentor="${m.id}">
-              ${mentorChromeIcon(m.id)} ${m.label}
+              ${mentorChromeIcon(m.id)} ${esc(t(m.labelKey))}
             </button>`).join('')}
         </div>
         <div class="chat-thread">
           <div class="chat-messages" id="chat-msgs">
-            ${thread.length ? thread.map((m) => bubbleHtml(m)).join('') : '<p class="empty">No messages yet — ask about meals, glucose, or goals.</p>'}
+            ${thread.length ? thread.map((m) => bubbleHtml(m)).join('') : `<p class="empty">${esc(t('wsChatEmpty'))}</p>`}
           </div>
           <div class="chat-compose">
-            <textarea id="chat-input" placeholder="Message ${MENTORS.find((m) => m.id === activeMentor)?.label}…" rows="2">${esc(draft)}</textarea>
-            <button type="button" class="ws-btn primary" id="chat-send">Send</button>
+            <textarea id="chat-input" placeholder="${esc(t('wsChatPlaceholder', { mentor: mentorMeta(activeMentor).label }))}" rows="2">${esc(draft)}</textarea>
+            <button type="button" class="ws-btn primary" id="chat-send">${esc(t('wsChatSend'))}</button>
           </div>
           <div id="chat-error" class="ws-inline-error" hidden role="alert"></div>
         </div>
@@ -921,7 +938,7 @@
     const err = panel.querySelector('#chat-error');
     if (!err) return;
     err.hidden = false;
-    err.innerHTML = `<span>${esc(message)}</span> <button type="button" class="ws-btn secondary" id="chat-retry">Retry</button>`;
+    err.innerHTML = `<span>${esc(message)}</span> <button type="button" class="ws-btn secondary" id="chat-retry">${esc(t('wsChatRetry'))}</button>`;
     err.querySelector('#chat-retry')?.addEventListener('click', () => {
       const input = panel.querySelector('#chat-input');
       if (input && retryText) input.value = retryText;
@@ -948,13 +965,13 @@
 
   function bubbleHtml(m) {
     const cls = m.role === 'user' ? 'user' : 'assistant';
-    const who = m.role === 'user' ? 'Clinic' : 'Mentor';
+    const who = m.role === 'user' ? t('wsBubbleClinic') : t('wsBubbleMentor');
     // Clinic replies follow clinicLocale; patient quotes inside may still be RTL — dir=auto.
     return `<div class="bubble ${cls}"><div dir="auto">${esc(m.text)}</div><div class="time">${who} · ${new Date(m.sentAt).toLocaleString()}</div></div>`;
   }
 
   function thinkingBubbleHtml() {
-    return `<div class="bubble assistant thinking" id="chat-thinking" aria-live="polite"><div class="chat-thinking-row"><span class="chat-spinner" aria-hidden="true"></span><span>Mentor thinking…</span></div></div>`;
+    return `<div class="bubble assistant thinking" id="chat-thinking" aria-live="polite"><div class="chat-thinking-row"><span class="chat-spinner" aria-hidden="true"></span><span>${esc(t('wsMentorThinking'))}</span></div></div>`;
   }
 
   async function sendChat(ctx, input, panel) {
@@ -992,7 +1009,7 @@
           locale: clinicPortalLocale(),
         }),
       });
-      if (!res.ok) throw new Error((await res.json()).error || 'Chat failed');
+      if (!res.ok) throw new Error((await res.json()).error || t('wsChatFailed'));
       const data = await res.json();
       if (!ctx.overlay) ctx.overlay = { chat: {} };
       ctx.overlay.chat[ctx.activeMentor || 'nutritionist'] = data.thread;
@@ -1002,7 +1019,7 @@
       optimisticEl?.remove();
       if (input) input.value = text;
       ctx._chatDraft = text;
-      showChatError(panel, ctx, e instanceof Error ? e.message : 'Chat failed', text);
+      showChatError(panel, ctx, e instanceof Error ? e.message : t('wsChatFailed'), text);
     } finally {
       if (btn) btn.disabled = false;
       if (input) input.disabled = false;
@@ -1013,8 +1030,8 @@
   /** Prefer patient snapshot rules when they are newer than a clinic overlay (Refresh must surface phone edits). */
   function rulesAnalyzedMs(rules) {
     if (!rules?.analyzedAt) return 0;
-    const t = Date.parse(rules.analyzedAt);
-    return Number.isFinite(t) ? t : 0;
+    const ms = Date.parse(rules.analyzedAt);
+    return Number.isFinite(ms) ? ms : 0;
   }
 
   function effectiveRules(parsed, overlay) {
@@ -1029,15 +1046,15 @@
   function rulesSourceHint(parsed, overlay) {
     const fromSnap = parsed?.userRules || null;
     const fromOverlay = overlay?.rules || null;
-    if (!fromOverlay) return 'Showing rules from the patient snapshot. Save to push clinic edits to their phone.';
-    if (!fromSnap) return 'Showing clinic rules (no rules in this snapshot). Save syncs to the patient phone.';
+    if (!fromOverlay) return t('wsRulesHintSnapshotOnly');
+    if (!fromSnap) return t('wsRulesHintClinicOnly');
     if (rulesRawEqual(fromSnap, fromOverlay)) {
-      return 'Clinic and snapshot rules match. Save updates the patient phone.';
+      return t('wsRulesHintMatch');
     }
     if (rulesAnalyzedMs(fromSnap) > rulesAnalyzedMs(fromOverlay)) {
-      return 'Showing newer rules from the patient phone (snapshot). Save to adopt/edit as clinic rules.';
+      return t('wsRulesHintPhoneNewer');
     }
-    return 'Showing clinic rules (newer than the phone snapshot). Snapshot rules are overridden until the patient edits again.';
+    return t('wsRulesHintClinicNewer');
   }
 
   function formatRulesHistoryDate(iso) {
@@ -1048,7 +1065,7 @@
 
   function rulesHistoryPreview(rules) {
     const line = (rules?.rawText || '').trim().split('\n').find(Boolean) || '';
-    return line.length > 80 ? `${line.slice(0, 77)}…` : line || 'Empty rules';
+    return line.length > 80 ? `${line.slice(0, 77)}…` : line || t('wsRulesEmptyPreview');
   }
 
   async function fetchRulesHistory(ctx) {
@@ -1069,14 +1086,14 @@
   async function restoreRulesFromHistory(ctx, panel, historyEntry) {
     const raw = historyEntry?.rules?.rawText?.trim();
     if (!raw) return;
-    if (!window.confirm('Restore this version as the patient\'s live rules? Current rules will be archived to history.')) return;
+    if (!window.confirm(t('wsRulesRestoreConfirm'))) return;
     const textarea = panel.querySelector('#rules-raw');
     if (textarea) textarea.value = raw;
     await saveRules(ctx, panel);
   }
 
   function rulesTextPreview(raw) {
-    const line = String(raw || '').trim().split('\n').find(Boolean) || 'No rules yet';
+    const line = String(raw || '').trim().split('\n').find(Boolean) || t('wsBannerNoRules');
     return line.length > 96 ? `${line.slice(0, 93)}…` : line;
   }
 
@@ -1128,7 +1145,7 @@
   function renderRulesHistoryHost(host, history, ctx, panel) {
     if (!host) return;
     if (!history.length) {
-      host.innerHTML = '<p class="sub rules-hint" style="margin-top:20px">No prior versions yet — history appears after a second save with different text.</p>';
+      host.innerHTML = `<p class="sub rules-hint" style="margin-top:20px">${esc(t('wsRulesNoPriorVersionsHint'))}</p>`;
       return;
     }
     const liveRules = effectiveRules(ctx.parsed, ctx.overlay);
@@ -1137,12 +1154,12 @@
         ${history.map((h) => `
           <li class="rules-history-item">
             <button type="button" class="rules-history-btn" data-history-id="${esc(h.id)}">
-              <span class="rules-history-meta">${esc(formatRulesHistoryDate(h.savedAt))} · ${esc(h.mentorLabel || 'Clinic')}</span>
+              <span class="rules-history-meta">${esc(formatRulesHistoryDate(h.savedAt))} · ${esc(h.mentorLabel || t('wsRulesHistoryClinic'))}</span>
               <span class="rules-history-preview">${esc(rulesHistoryPreview(h.rules))}</span>
             </button>
             <div class="rules-history-detail hidden" id="history-detail-${esc(h.id)}">
               <pre class="rules-raw" dir="auto">${esc(h.rules?.rawText || '')}</pre>
-              ${!rulesRawEqual(h.rules, liveRules) ? `<button type="button" class="ws-btn secondary rules-restore-btn" data-restore-id="${esc(h.id)}">Restore as live rules</button>` : ''}
+              ${!rulesRawEqual(h.rules, liveRules) ? `<button type="button" class="ws-btn secondary rules-restore-btn" data-restore-id="${esc(h.id)}">${esc(t('wsRulesRestore'))}</button>` : ''}
             </div>
           </li>`).join('')}
       </ul>`;
@@ -1173,8 +1190,8 @@
     const meta = panel.querySelector('.rules-history-section .rules-fold-meta');
     if (meta) {
       meta.textContent = history.length
-        ? `${history.length} version${history.length === 1 ? '' : 's'}`
-        : 'No prior versions';
+        ? t(history.length === 1 ? 'wsRulesVersionOne' : 'wsRulesVersionMany', { n: history.length })
+        : t('wsRulesNoPriorVersions');
     }
     renderRulesHistoryHost(host, history, ctx, panel);
   }
@@ -1188,18 +1205,18 @@
     const sourceHint = rulesSourceHint(ctx.parsed, ctx.overlay);
 
     panel.innerHTML = `
-      <p class="sub rules-intro"><strong>Live rules</strong> — edits save to the server and sync to the patient's phone when they open the app.</p>
+      <p class="sub rules-intro">${esc(t('wsRulesIntro'))}</p>
       <div class="rules-layout">
         <div class="rules-fold rules-editor-section${editorOpen ? ' is-open' : ''}">
           <button type="button" class="rules-fold-toggle" id="rules-editor-toggle" aria-expanded="${editorOpen ? 'true' : 'false'}">
-            <span class="rules-fold-title">Patient dietary rules</span>
+            <span class="rules-fold-title">${esc(t('wsRulesEditorTitle'))}</span>
             <span class="rules-fold-preview">${esc(rulesTextPreview(raw))}</span>
             <span class="rules-fold-chevron">${editorOpen ? '⌃' : '›'}</span>
           </button>
           <div class="rules-fold-body">
-            <textarea id="rules-raw"${rtl ? ' dir="rtl"' : ''} placeholder="e.g. Low cholesterol, carbs at least 130g, avoid red meat…">${esc(raw)}</textarea>
+            <textarea id="rules-raw"${rtl ? ' dir="rtl"' : ''} placeholder="${esc(t('wsRulesPlaceholder'))}">${esc(raw)}</textarea>
             <div class="rules-actions">
-              <button type="button" class="ws-btn primary" id="rules-save">Save</button>
+              <button type="button" class="ws-btn primary" id="rules-save">${esc(t('wsRulesSave'))}</button>
               <span id="rules-status" class="sub"></span>
             </div>
             <div id="rules-error" class="ws-inline-error" hidden role="alert"></div>
@@ -1208,12 +1225,12 @@
         </div>
         <div class="rules-fold rules-history-section${historyOpen ? ' is-open' : ''}">
           <button type="button" class="rules-fold-toggle" id="rules-history-toggle" aria-expanded="${historyOpen ? 'true' : 'false'}">
-            <span class="rules-fold-title">Version history</span>
-            <span class="rules-fold-meta">Tap to expand</span>
+            <span class="rules-fold-title">${esc(t('wsRulesHistoryTitle'))}</span>
+            <span class="rules-fold-meta">${esc(t('wsRulesTapToExpand'))}</span>
             <span class="rules-fold-chevron">${historyOpen ? '⌃' : '›'}</span>
           </button>
           <div class="rules-fold-body">
-            <div id="rules-history-host" class="rules-history-panel"><p class="sub rules-hint">Loading version history…</p></div>
+            <div id="rules-history-host" class="rules-history-panel"><p class="sub rules-hint">${esc(t('wsRulesLoadingHistory'))}</p></div>
           </div>
         </div>
       </div>`;
@@ -1231,7 +1248,7 @@
     const err = panel.querySelector('#rules-error');
     if (err) { err.hidden = true; err.innerHTML = ''; }
     if (btn) btn.disabled = true;
-    if (status) status.textContent = 'Saving…';
+    if (status) status.textContent = t('wsRulesSaving');
     try {
       const res = await ctx.api(`/v1/clinic/patients/${ctx.patientId}/rules`, {
         method: 'PUT',
@@ -1239,23 +1256,23 @@
       });
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.error || `Save failed (${res.status})`);
+        throw new Error(errBody.error || t('wsRulesSaveFailedStatus', { n: res.status }));
       }
       const data = await res.json();
       ctx.overlay = data.overlay;
-      if (status) status.textContent = 'Saved — patient will receive on next app open';
+      if (status) status.textContent = t('wsRulesSaved');
       renderRules(panel, ctx);
       void loadRulesHistory(panel, ctx);
     } catch (e) {
       if (status) status.textContent = '';
-      const msg = e instanceof Error ? e.message : 'Save failed';
+      const msg = e instanceof Error ? e.message : t('wsRulesSaveFailed');
       const shown =
         msg === 'Failed to fetch'
-          ? 'Could not reach the server. Hard-refresh the page (Ctrl+Shift+R) and try again.'
+          ? t('wsRulesUnreachable')
           : msg;
       if (err) {
         err.hidden = false;
-        err.innerHTML = `<span>${esc(shown)}</span> <button type="button" class="ws-btn secondary" id="rules-retry">Retry</button>`;
+        err.innerHTML = `<span>${esc(shown)}</span> <button type="button" class="ws-btn secondary" id="rules-retry">${esc(t('wsRulesRetry'))}</button>`;
         err.querySelector('#rules-retry')?.addEventListener('click', () => void saveRules(ctx, panel));
       }
     } finally {
@@ -1271,10 +1288,14 @@
   function renderLipidsTab(panel, ctx) {
     const charts = global.ClinicCharts;
     const pts = charts?.buildLipidPoints(ctx.parsed.labs) || [];
+    const drawsFrag = pts.length
+      ? t(pts.length === 1 ? 'wsLipidsDrawsOne' : 'wsLipidsDrawsMany', { n: pts.length })
+      : '';
+    const noteKey = ctx.selfView ? 'wsLipidsNoteSelf' : 'wsLipidsNoteClinic';
     panel.innerHTML = `
-      <p class="sub snapshot-note">Lipid trends from lab reports in snapshot${pts.length ? ` — ${pts.length} draw${pts.length === 1 ? '' : 's'}` : ''}. ${ctx.selfView ? 'Import a new lab PDF in the app to update this.' : 'Use <strong>Refresh snapshot</strong> on the portal header to load the latest patient upload.'}</p>
+      <p class="sub snapshot-note">${esc(t(noteKey, { draws: drawsFrag }))}</p>
       <div class="dash-card lipid-tab-card"><div id="lipid-trend-host"></div></div>
-      ${pts.length >= 2 ? '' : '<p class="sub lipid-need-more">Need at least 2 lipid lab draws in the snapshot to show trend charts.</p>'}`;
+      ${pts.length >= 2 ? '' : `<p class="sub lipid-need-more">${esc(t('wsLipidNeedMore'))}</p>`}`;
     const host = panel.querySelector('#lipid-trend-host');
     if (host && charts) {
       charts.drawLipidChart(host, ctx.parsed.labs, {
@@ -1288,16 +1309,16 @@
     const store = ctx.parsed.nutritionDirectives || { activeId: null, entries: [] };
     const entries = store.entries || [];
     const intro = ctx.selfView
-      ? `<p class="sub snapshot-note">Nutritionist session reports from your snapshot — read-only. The <strong>Active</strong> report is what mentors use (overrides dietary rules on conflict). Open the app after importing a new PDF to send an updated snapshot.</p>`
-      : `<p class="sub snapshot-note">Nutritionist session reports from the patient snapshot — read-only. The <strong>Active</strong> report is what mentors use (overrides dietary rules on conflict). Use <strong>Refresh snapshot</strong> after the patient imports a new PDF.</p>`;
+      ? `<p class="sub snapshot-note">${esc(t('wsNutritionNoteSelf'))}</p>`
+      : `<p class="sub snapshot-note">${esc(t('wsNutritionNoteClinic'))}</p>`;
 
     if (!entries.length) {
       panel.innerHTML = `
         ${intro}
         <div class="nutrition-tab-wrap">
           <div class="nutrition-card">
-            <p class="nutrition-section-title">NUTRITION REPORTS</p>
-            <p class="nutrition-summary-line">No nutrition reports in this snapshot.</p>
+            <p class="nutrition-section-title">${esc(t('wsNutritionReportsTitle'))}</p>
+            <p class="nutrition-summary-line">${esc(t('wsNutritionEmpty'))}</p>
           </div>
         </div>`;
       return;
@@ -1318,21 +1339,21 @@
         <button type="button" class="nutrition-chip${isActive ? ' nutrition-chip-active' : ''}${isSelected ? ' nutrition-chip-selected' : ''}" data-id="${esc(entry.id)}">
           <span class="nutrition-chip-date">${esc(formatDirectiveDate(entry))}</span>
           <span class="nutrition-chip-label">${esc(entry.title)}</span>
-          ${isActive ? '<span class="nutrition-chip-badge">Active</span>' : ''}
+          ${isActive ? `<span class="nutrition-chip-badge">${esc(t('wsNutritionActive'))}</span>` : ''}
           ${preview ? `<span class="nutrition-chip-preview">${esc(preview)}</span>` : ''}
         </button>`;
     }).join('');
 
     const activeBadge = selected.id === effectiveActiveId
-      ? ' · <span class="nutrition-chip-badge">Active</span>'
+      ? ` · <span class="nutrition-chip-badge">${esc(t('wsNutritionActive'))}</span>`
       : '';
 
     panel.innerHTML = `
       ${intro}
       <div class="nutrition-tab-wrap">
         <div class="nutrition-card">
-          <p class="nutrition-section-title">NUTRITION REPORTS</p>
-          <p class="nutrition-summary-line">Active: ${esc(active.title)} · ${esc(formatDirectiveDate(active))}</p>
+          <p class="nutrition-section-title">${esc(t('wsNutritionReportsTitle'))}</p>
+          <p class="nutrition-summary-line">${esc(t('wsNutritionActiveSummary', { title: active.title, date: formatDirectiveDate(active) }))}</p>
           <div class="nutrition-layout">
             <div class="nutrition-rail" role="list">${railHtml}</div>
             <div class="nutrition-detail-panel${rtl ? ' nutrition-rtl' : ''}">
@@ -1358,7 +1379,7 @@
    * actually distinguishes one report from another.
    */
   function formatLabDate(iso) {
-    if (!iso) return 'Lab report';
+    if (!iso) return t('wsLabReportFallback');
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return iso;
     return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
@@ -1367,14 +1388,14 @@
   function renderLabs(panel, ctx) {
     const labs = ctx.parsed.labs;
     if (!labs.length) {
-      panel.innerHTML = '<p class="empty">No lab reports in this snapshot.</p>';
+      panel.innerHTML = `<p class="empty">${esc(t('wsLabsEmpty'))}</p>`;
       return;
     }
     panel.innerHTML = labs.map((report) => `
       <div class="lab-panel">
         <h3>${esc(formatLabDate(report.collectedAt))}</h3>
         <table class="data-table">
-          <thead><tr><th>Test</th><th>Value</th><th>Flag</th></tr></thead>
+          <thead><tr><th>${esc(t('wsLabsTest'))}</th><th>${esc(t('wsLabsValue'))}</th><th>${esc(t('wsLabsFlag'))}</th></tr></thead>
           <tbody>
             ${(report.panels || []).flatMap((p) => (p.results || []).map((r) => `
               <tr>
@@ -1388,14 +1409,14 @@
   }
 
   const ALL_TABS = [
-    { id: 'dashboard', label: 'Dashboard', group: 'read' },
-    { id: 'profile', label: 'Profile', group: 'read' },
-    { id: 'lipids', label: 'Lipids', group: 'read' },
-    { id: 'foodlog', label: 'Food log', group: 'read' },
-    { id: 'nutrition', label: 'Nutrition reports', group: 'read' },
-    { id: 'labs', label: 'Labs', group: 'read' },
-    { id: 'chat', label: 'Clinic chat', group: 'write' },
-    { id: 'rules', label: 'Rules', group: 'write', live: true },
+    { id: 'dashboard', labelKey: 'wsTabDashboard', group: 'read' },
+    { id: 'profile', labelKey: 'wsTabProfile', group: 'read' },
+    { id: 'lipids', labelKey: 'wsTabLipids', group: 'read' },
+    { id: 'foodlog', labelKey: 'wsTabFoodLog', group: 'read' },
+    { id: 'nutrition', labelKey: 'wsTabNutrition', group: 'read' },
+    { id: 'labs', labelKey: 'wsTabLabs', group: 'read' },
+    { id: 'chat', labelKey: 'wsTabChat', group: 'write' },
+    { id: 'rules', labelKey: 'wsTabRules', group: 'write', live: true },
   ];
 
   /**
@@ -1406,13 +1427,13 @@
    */
   function allowedTabs(ctx) {
     if (!Array.isArray(ctx.tabIds)) return ALL_TABS;
-    const allowed = ALL_TABS.filter((t) => ctx.tabIds.includes(t.id));
+    const allowed = ALL_TABS.filter((tab) => ctx.tabIds.includes(tab.id));
     return allowed.length ? allowed : ALL_TABS;
   }
 
-  function tabButtonHtml(t, activeId) {
-    const live = t.live ? ' <span class="ws-tab-live">Live</span>' : '';
-    return `<button type="button" class="ws-tab${activeId === t.id ? ' active' : ''}" data-tab="${t.id}">${t.label}${live}</button>`;
+  function tabButtonHtml(tab, activeId) {
+    const live = tab.live ? ` <span class="ws-tab-live">${esc(t('wsTabLive'))}</span>` : '';
+    return `<button type="button" class="ws-tab${activeId === tab.id ? ' active' : ''}" data-tab="${tab.id}">${esc(t(tab.labelKey))}${live}</button>`;
   }
 
   function renderPatientBanner(el, ctx, displayName) {
@@ -1421,41 +1442,41 @@
     const body = ctx.parsed?.withings?.bodyScan;
     const rules = effectiveRules(ctx.parsed, ctx.overlay);
     const n = rulesActiveCount(rules);
-    const gender = p.gender ? String(p.gender).charAt(0).toUpperCase() + String(p.gender).slice(1) : null;
+    const gender = formatGender(p.gender);
     const identity = [
-      p.age != null ? `${p.age} y` : null,
+      p.age != null ? t('wsBannerAgeY', { n: p.age }) : null,
       gender,
       p.heightCm ? `${p.heightCm} cm` : null,
-    ].filter(Boolean).join(' · ') || 'Profile incomplete';
+    ].filter(Boolean).join(' · ') || t('wsBannerProfileIncomplete');
     const fatPct = fatPctFromBody(body);
     const scanTitle = body?.measuredAt
-      ? `Measured ${new Date(body.measuredAt).toLocaleString()}`
-      : 'Body scan';
+      ? t('wsBannerMeasured', { when: new Date(body.measuredAt).toLocaleString() })
+      : t('wsBannerBodyScan');
     const clinicRules = Boolean(ctx.overlay?.rules) && !ctx.selfView;
     const rulesLabel = n
       ? clinicRules
-        ? `${n} clinic rule${n === 1 ? '' : 's'}`
-        : `${n} rule${n === 1 ? '' : 's'} active`
-      : 'No rules';
+        ? t(n === 1 ? 'wsBannerClinicRule' : 'wsBannerClinicRules', { n })
+        : t(n === 1 ? 'wsBannerRuleActive' : 'wsBannerRulesActive', { n })
+      : t('wsBannerNoRules');
     const syncLabel = formatRelativeSync(ctx.blob?.createdAt);
-    const name = displayName || (ctx.selfView ? 'You' : 'Patient');
+    const name = displayName || (ctx.selfView ? t('wsBannerYou') : t('wsBannerPatient'));
 
     const stats = body
       ? [
           body.weightKg != null
-            ? `<div class="ws-stat"><span class="ws-stat-lbl">Weight</span><span class="ws-stat-val">${body.weightKg.toFixed(1)} <small>kg</small></span></div>`
+            ? `<div class="ws-stat"><span class="ws-stat-lbl">${esc(t('wsBannerWeight'))}</span><span class="ws-stat-val">${body.weightKg.toFixed(1)} <small>kg</small></span></div>`
             : '',
           body.muscleMassKg != null
-            ? `<div class="ws-stat"><span class="ws-stat-lbl">Muscle</span><span class="ws-stat-val">${body.muscleMassKg.toFixed(1)} <small>kg</small></span></div>`
+            ? `<div class="ws-stat"><span class="ws-stat-lbl">${esc(t('wsBannerMuscle'))}</span><span class="ws-stat-val">${body.muscleMassKg.toFixed(1)} <small>kg</small></span></div>`
             : '',
           body.fatMassKg != null
-            ? `<div class="ws-stat"><span class="ws-stat-lbl">Fat</span><span class="ws-stat-val">${body.fatMassKg.toFixed(1)} <small>kg</small>${fatPct != null ? ` <small class="ws-stat-pct">${fatPct.toFixed(1)}%</small>` : ''}</span></div>`
+            ? `<div class="ws-stat"><span class="ws-stat-lbl">${esc(t('wsBannerFat'))}</span><span class="ws-stat-val">${body.fatMassKg.toFixed(1)} <small>kg</small>${fatPct != null ? ` <small class="ws-stat-pct">${fatPct.toFixed(1)}%</small>` : ''}</span></div>`
             : '',
           body.bmrKcalDay != null
-            ? `<div class="ws-stat"><span class="ws-stat-lbl">BMR</span><span class="ws-stat-val">${Math.round(body.bmrKcalDay)} <small>kcal</small></span></div>`
+            ? `<div class="ws-stat"><span class="ws-stat-lbl">${esc(t('wsBannerBmr'))}</span><span class="ws-stat-val">${Math.round(body.bmrKcalDay)} <small>kcal</small></span></div>`
             : '',
         ].filter(Boolean).join('')
-      : `<div class="ws-stat ws-stat-empty"><span class="ws-stat-lbl">Body</span><span class="ws-stat-val">No scan</span></div>`;
+      : `<div class="ws-stat ws-stat-empty"><span class="ws-stat-lbl">${esc(t('wsBannerBody'))}</span><span class="ws-stat-val">${esc(t('wsBannerNoScan'))}</span></div>`;
 
     el.hidden = false;
     // One horizontal strip — name + demographics + rules + stats + sync.
@@ -1479,13 +1500,13 @@
     if (rulesChipEl) {
       const show = Boolean(ctx.overlay?.rules) && !ctx.selfView;
       rulesChipEl.hidden = !show;
-      if (show) rulesChipEl.textContent = 'Clinic rules active';
+      if (show) rulesChipEl.textContent = t('wsClinicRulesActive');
     }
   }
 
   function renderWorkspace(root, ctx) {
     const permitted = allowedTabs(ctx);
-    const tab = permitted.some((t) => t.id === ctx.tab) ? ctx.tab : permitted[0].id;
+    const tab = permitted.some((tabDef) => tabDef.id === ctx.tab) ? ctx.tab : permitted[0].id;
     const fillHeight = tab === 'rules';
     root.innerHTML = `
       <div class="ws-panel${fillHeight ? ' ws-panel-fill' : ''}">
@@ -1509,14 +1530,14 @@
   function initTabs(tabsEl, ctx, mainEl) {
     if (global.__clinicTab) ctx.tab = global.__clinicTab;
     const tabs = allowedTabs(ctx);
-    if (!tabs.some((t) => t.id === ctx.tab)) ctx.tab = tabs[0].id;
+    if (!tabs.some((tabDef) => tabDef.id === ctx.tab)) ctx.tab = tabs[0].id;
     function paint() {
-      const read = tabs.filter((t) => t.group !== 'write');
-      const write = tabs.filter((t) => t.group === 'write');
-      let html = read.map((t) => tabButtonHtml(t, ctx.tab)).join('');
+      const read = tabs.filter((tabDef) => tabDef.group !== 'write');
+      const write = tabs.filter((tabDef) => tabDef.group === 'write');
+      let html = read.map((tabDef) => tabButtonHtml(tabDef, ctx.tab)).join('');
       if (write.length) {
         html += '<span class="ws-tab-divider" aria-hidden="true"></span>';
-        html += write.map((t) => tabButtonHtml(t, ctx.tab)).join('');
+        html += write.map((tabDef) => tabButtonHtml(tabDef, ctx.tab)).join('');
       }
       tabsEl.innerHTML = html;
       tabsEl.querySelectorAll('.ws-tab').forEach((btn) => {

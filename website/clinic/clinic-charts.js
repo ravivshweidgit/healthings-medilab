@@ -25,6 +25,11 @@
   const CHARTS_ROW_HEIGHT = 520;
   const MAX_ACTIVITY_KCAL_DAY = 5000;
 
+  function t(key, vars) {
+    if (global.ClinicI18n?.t) return global.ClinicI18n.t(key, vars);
+    return key;
+  }
+
   function smoothPath(points) {
     if (points.length < 2) return '';
     let d = `M ${points[0].x} ${points[0].y}`;
@@ -88,8 +93,8 @@
     }
     const passiveByDay = new Map();
     for (const pt of calories) {
-      const t = Date.parse(pt.timestamp);
-      const dk = dayKeyFromMs(t);
+      const ms = Date.parse(pt.timestamp);
+      const dk = dayKeyFromMs(ms);
       if (!passiveByDay.has(dk)) passiveByDay.set(dk, new Map());
       const bk = Math.floor(t / BUCKET_MS) * BUCKET_MS;
       const m = passiveByDay.get(dk);
@@ -211,10 +216,10 @@
   function buildLipidStripDefs(gender) {
     const hdlT = hdlSafeThreshold(gender);
     return [
-      { key: 'totalCholesterol', label: 'TOTAL', labelHe: 'כולסטרול כולל', color: '#1565C0', mode: 'below', threshold: 200, thresholdLabel: '<200' },
-      { key: 'ldl', label: 'LDL', labelHe: 'LDL', color: '#C62828', mode: 'below', threshold: 100, thresholdLabel: '<100' },
-      { key: 'triglycerides', label: 'TG', labelHe: 'TG', color: '#FF9800', mode: 'below', threshold: 150, thresholdLabel: '<150' },
-      { key: 'hdl', label: 'HDL', labelHe: 'HDL', color: '#2E7D32', mode: 'above', threshold: hdlT, thresholdLabel: `≥${hdlT}` },
+      { key: 'totalCholesterol', label: 'TOTAL', color: '#1565C0', mode: 'below', threshold: 200, thresholdLabel: '<200' },
+      { key: 'ldl', label: 'LDL', color: '#C62828', mode: 'below', threshold: 100, thresholdLabel: '<100' },
+      { key: 'triglycerides', label: 'TG', color: '#FF9800', mode: 'below', threshold: 150, thresholdLabel: '<150' },
+      { key: 'hdl', label: 'HDL', color: '#2E7D32', mode: 'above', threshold: hdlT, thresholdLabel: `≥${hdlT}` },
     ];
   }
 
@@ -334,17 +339,17 @@
     const t0 = t1 - preset.ms;
 
     const glucose = (data.glucose || []).filter((p) => {
-      const t = Date.parse(p.timestamp);
-      return t >= t0 && t <= t1;
+      const ms = Date.parse(p.timestamp);
+      return ms >= t0 && ms <= t1;
     });
     const heartRate = (data.withings?.heartRate || []).filter((p) => {
-      const t = Date.parse(p.timestamp);
-      return t >= t0 && t <= t1;
+      const ms = Date.parse(p.timestamp);
+      return ms >= t0 && ms <= t1;
     }).map((p) => ({ timestamp: p.timestamp, value: p.bpm || p.value || 0 }));
 
     const calories = (data.withings?.calories || []).filter((p) => {
-      const t = Date.parse(p.timestamp);
-      return t >= t0 && t <= t1;
+      const ms = Date.parse(p.timestamp);
+      return ms >= t0 && ms <= t1;
     });
     const workouts = (data.withings?.workouts || []).filter((w) => w.endMs >= t0 && w.startMs <= t1);
     const chartMeals = (data.meals || []).filter((m) => m.timestamp >= t0 && m.timestamp <= t1);
@@ -390,8 +395,8 @@
 
     const passiveMap = new Map();
     for (const c of calories) {
-      const t = Date.parse(c.timestamp);
-      const bk = Math.floor(t / BUCKET_MS) * BUCKET_MS;
+      const ms = Date.parse(c.timestamp);
+      const bk = Math.floor(ms / BUCKET_MS) * BUCKET_MS;
       passiveMap.set(bk, (passiveMap.get(bk) || 0) + (c.kcal || 0));
     }
     const workoutMap = new Map();
@@ -473,7 +478,9 @@
       workouts
         .filter((w) => w.kcal > 0)
         .map((w) => {
-          const label = `${w.activityLabel || 'Workout'} ${Math.round(w.kcal)} kcal`;
+          const label = w.activityLabel
+            ? t('wsWorkoutLabelKcal', { name: w.activityLabel, n: Math.round(w.kcal) })
+            : `${t('wsWorkoutFallback')} ${Math.round(w.kcal)} kcal`;
           const halfW = labelHalfWidth(label, 8);
           const mid = xOf((Math.max(w.startMs, t0) + Math.min(w.endMs, t1)) / 2);
           // A session at either edge would otherwise run its name off the canvas.
@@ -507,24 +514,24 @@
     const chips = VIEWPORT_PRESETS.map((p, i) =>
       `<button type="button" class="chip${i === vpIdx ? ' active' : ''}" data-vp="${i}">${p.label}</button>`,
     ).join('');
-    const bmrLbl = bmrDay ? ` (${Math.round(bmrDay / 48)} kcal)` : '';
+    const bmrLbl = bmrDay ? ` (${t('wsLegendBmrWithSlot', { n: Math.round(bmrDay / 48) })})` : '';
 
     host.innerHTML = `
       <div class="chart-toolbar">
         <div class="chip-row metabolic-chips">${chips}</div>
         <div class="date-nav">
-          <button type="button" class="nav-arrow" data-shift="-1" aria-label="Earlier">‹</button>
+          <button type="button" class="nav-arrow" data-shift="-1" aria-label="${escapeXml(t('wsChartEarlierAria'))}">‹</button>
           <span class="date-label">${dateLabel}</span>
-          <button type="button" class="nav-arrow" data-shift="1" aria-label="Later">›</button>
+          <button type="button" class="nav-arrow" data-shift="1" aria-label="${escapeXml(t('wsChartLaterAria'))}">›</button>
         </div>
       </div>
       <div class="chart-wrap">${svg}</div>
       <div class="chart-legend">
-        <span class="leg glucose">Glucose</span>
-        <span class="leg hr">Heart rate</span>
-        <span class="leg bmr">BMR${bmrLbl}</span>
-        <span class="leg steps">Steps cal</span>
-        <span class="leg workout">Workout</span>
+        <span class="leg glucose">${escapeXml(t('wsLegendGlucose'))}</span>
+        <span class="leg hr">${escapeXml(t('wsLegendHeartRate'))}</span>
+        <span class="leg bmr">${escapeXml(t('wsLegendBmr'))}${bmrLbl}</span>
+        <span class="leg steps">${escapeXml(t('wsLegendStepsCal'))}</span>
+        <span class="leg workout">${escapeXml(t('wsLegendWorkout'))}</span>
       </div>`;
 
     host.querySelectorAll('.chip').forEach((btn) => {
@@ -827,8 +834,8 @@
     if (slice.length < 2) {
       host.innerHTML = `
         <div class="trend-wrap">
-          <div class="trend-title">TREND ANALYSIS</div>
-          <p class="empty">Need more body trend days in snapshot</p>
+          <div class="trend-title">${escapeXml(t('wsTrendTitle'))}</div>
+          <p class="empty">${escapeXml(t('wsTrendEmpty'))}</p>
         </div>`;
       return;
     }
@@ -925,9 +932,9 @@
     // Three unrelated scales share one 36px gutter. Without a caption per band the
     // numbers read as a single collapsing column and no one can tell kg from Δkg.
     for (const s of [
-      { i: 0, label: 'WEIGHT', color: TREND_BLUE },
-      { i: 1, label: 'FAT / MUSCLE (Δ)', color: TREND_MUTED },
-      { i: 2, label: 'VISCERAL', color: TREND_VISCERAL },
+      { i: 0, label: t('wsTrendStripWeight'), color: TREND_BLUE },
+      { i: 1, label: t('wsTrendStripFatMuscle'), color: TREND_MUTED },
+      { i: 2, label: t('wsTrendStripVisceral'), color: TREND_VISCERAL },
     ]) {
       const bandTop = stripTopAt(s.i) - TREND_TITLE_H;
       svg += `<line x1="${plotLeft}" y1="${bandTop}" x2="${W - TREND_PAD_R}" y2="${bandTop}" stroke="${TREND_GRID}" stroke-width="1" opacity="0.6"/>`;
@@ -966,17 +973,17 @@
 
     host.innerHTML = `
       <div class="trend-wrap">
-        <div class="trend-title">TREND ANALYSIS</div>
+        <div class="trend-title">${escapeXml(t('wsTrendTitle'))}</div>
         <div class="chip-row trend-chips">${periodChips}</div>
         <div class="chart-wrap">${svg}</div>
         <div class="trend-legend">
           <div class="trend-legend-row">
-            <span class="trend-leg"><i style="background:${TREND_BLUE}"></i>${legendDeltaKg('Weight', weightWeekDelta)}</span>
-            <span class="trend-leg"><i style="background:${TREND_FAT}"></i>${legendDeltaKg('Fat', anchorDeltas?.fatKg)}</span>
+            <span class="trend-leg"><i style="background:${TREND_BLUE}"></i>${legendDeltaKg(t('wsLegendWeight'), weightWeekDelta)}</span>
+            <span class="trend-leg"><i style="background:${TREND_FAT}"></i>${legendDeltaKg(t('wsLegendFat'), anchorDeltas?.fatKg)}</span>
           </div>
           <div class="trend-legend-row">
-            <span class="trend-leg"><i style="background:${TREND_GREEN}"></i>${legendDeltaKg('Muscle', anchorDeltas?.muscleKg)}</span>
-            <span class="trend-leg"><i style="background:${TREND_VISCERAL}"></i>${legendVisceral('Visceral', visceralWeekTrend)}</span>
+            <span class="trend-leg"><i style="background:${TREND_GREEN}"></i>${legendDeltaKg(t('wsLegendMuscle'), anchorDeltas?.muscleKg)}</span>
+            <span class="trend-leg"><i style="background:${TREND_VISCERAL}"></i>${legendVisceral(t('wsLegendVisceral'), visceralWeekTrend)}</span>
           </div>
         </div>
       </div>`;
@@ -1018,8 +1025,8 @@
     if (slice.length < 2) {
       host.innerHTML = `
         <div class="energy-wrap">
-          <div class="energy-title">ENERGY</div>
-          <p class="empty">No energy history in snapshot</p>
+          <div class="energy-title">${escapeXml(t('wsEnergyTitle'))}</div>
+          <p class="empty">${escapeXml(t('wsEnergyEmpty'))}</p>
         </div>`;
       return;
     }
@@ -1155,23 +1162,23 @@
       svg += `<line x1="${plotLeft}" y1="${y}" x2="${W - ENERGY_PAD_R}" y2="${y}" stroke="${COLOR_GRID}" stroke-width="1" opacity="0.6"/>`;
     }
 
-    svg += `<text x="${plotLeft + 4}" y="${ENERGY_PAD_TOP + 11}" font-size="9" font-weight="700" fill="${COLOR_BMR}">BMR${stripAvgLabel(avgBmr)}${weekDelta != null ? ` · Δ${weekDelta >= 0 ? '+' : ''}${Math.round(weekDelta)} kcal` : ''}</text>`;
+    svg += `<text x="${plotLeft + 4}" y="${ENERGY_PAD_TOP + 11}" font-size="9" font-weight="700" fill="${COLOR_BMR}">${escapeXml(t('wsEnergyStripBmr'))}${stripAvgLabel(avgBmr)}${weekDelta != null ? ` · Δ${weekDelta >= 0 ? '+' : ''}${Math.round(weekDelta)} kcal` : ''}</text>`;
     svg += renderStripGrid(bmrDom, 0);
     if (bmrPts.length > 1) svg += `<path d="${smoothPath(bmrPts)}" fill="none" stroke="${COLOR_BMR}" stroke-width="2.2"/>`;
 
-    svg += `<text x="${plotLeft + 4}" y="${ENERGY_PAD_TOP + ENERGY_STRIP_UNIT + 11}" font-size="9" font-weight="700" fill="${COLOR_ACTIVITY}">ACTIVITY KCAL${stripAvgLabel(avgActivity)}</text>`;
+    svg += `<text x="${plotLeft + 4}" y="${ENERGY_PAD_TOP + ENERGY_STRIP_UNIT + 11}" font-size="9" font-weight="700" fill="${COLOR_ACTIVITY}">${escapeXml(t('wsEnergyStripActivity'))}${stripAvgLabel(avgActivity)}</text>`;
     svg += renderStripGrid(actDom, 1);
     if (actPts.length > 1) svg += `<path d="${smoothPath(actPts)}" fill="none" stroke="${COLOR_ACTIVITY}" stroke-width="2.2"/>`;
 
-    svg += `<text x="${plotLeft + 4}" y="${ENERGY_PAD_TOP + 2 * ENERGY_STRIP_UNIT + 11}" font-size="9" font-weight="700" fill="${COLOR_TOTAL}">TOTAL BURN${stripAvgLabel(avgTotalBurn)}</text>`;
+    svg += `<text x="${plotLeft + 4}" y="${ENERGY_PAD_TOP + 2 * ENERGY_STRIP_UNIT + 11}" font-size="9" font-weight="700" fill="${COLOR_TOTAL}">${escapeXml(t('wsEnergyStripTotalBurn'))}${stripAvgLabel(avgTotalBurn)}</text>`;
     svg += renderStripGrid(totDom, 2);
     if (totalPts.length > 1) svg += `<path d="${smoothPath(totalPts)}" fill="none" stroke="${COLOR_TOTAL}" stroke-width="2.2"/>`;
 
-    svg += `<text x="${plotLeft + 4}" y="${ENERGY_PAD_TOP + 3 * ENERGY_STRIP_UNIT + 11}" font-size="9" font-weight="700" fill="${COLOR_EATEN}">EATEN${stripAvgLabel(avgEaten)}</text>`;
+    svg += `<text x="${plotLeft + 4}" y="${ENERGY_PAD_TOP + 3 * ENERGY_STRIP_UNIT + 11}" font-size="9" font-weight="700" fill="${COLOR_EATEN}">${escapeXml(t('wsEnergyStripEaten'))}${stripAvgLabel(avgEaten)}</text>`;
     svg += renderStripGrid(eatenDom, 3);
     if (eatenPts.length > 1) svg += `<path d="${smoothPath(eatenPts)}" fill="none" stroke="${COLOR_EATEN}" stroke-width="2.2"/>`;
 
-    svg += `<text x="${plotLeft + 4}" y="${ENERGY_PAD_TOP + 4 * ENERGY_STRIP_UNIT + 11}" font-size="9" font-weight="700" fill="${COLOR_BALANCE_LINE}">BALANCE (eaten − burn)${avgBalance != null ? ` (avg ${avgBalance >= 0 ? '+' : ''}${avgBalance.toLocaleString()} kcal)` : ''}</text>`;
+    svg += `<text x="${plotLeft + 4}" y="${ENERGY_PAD_TOP + 4 * ENERGY_STRIP_UNIT + 11}" font-size="9" font-weight="700" fill="${COLOR_BALANCE_LINE}">${escapeXml(t('wsEnergyStripBalance'))}${avgBalance != null ? ` (avg ${avgBalance >= 0 ? '+' : ''}${avgBalance.toLocaleString()} kcal)` : ''}</text>`;
     if (surplusZoneH > 12) {
       svg += `<rect x="${plotLeft}" y="${balanceStripTop}" width="${innerW}" height="${surplusZoneH}" fill="${COLOR_SURPLUS_ZONE}" opacity="0.95"/>`;
     }
@@ -1194,8 +1201,8 @@
 
     host.innerHTML = `
       <div class="energy-wrap">
-        <div class="energy-title">ENERGY</div>
-        ${opts?.periodDays ? `<div class="energy-subtitle">${opts.periodDays}D · same window as trend</div>` : ''}
+        <div class="energy-title">${escapeXml(t('wsEnergyTitle'))}</div>
+        ${opts?.periodDays ? `<div class="energy-subtitle">${escapeXml(t('wsEnergySubtitle', { n: opts.periodDays }))}</div>` : ''}
         <div class="chart-wrap">${svg}</div>
       </div>`;
   }
@@ -1205,7 +1212,7 @@
     const rtl = !!opts?.rtl;
     const pts = buildLipidPoints(labs);
     if (pts.length < 2) {
-      host.innerHTML = '<p class="empty">Need at least 2 lipid lab draws in snapshot to show trends</p>';
+      host.innerHTML = `<p class="empty">${escapeXml(t('wsLipidEmptyNeedTwo'))}</p>`;
       return;
     }
 
@@ -1258,7 +1265,7 @@
     }
 
     if (!visible.length) {
-      host.innerHTML = '<p class="empty">No lipid series with 2+ values in snapshot</p>';
+      host.innerHTML = `<p class="empty">${escapeXml(t('wsLipidEmptyNoSeries'))}</p>`;
       return;
     }
 
@@ -1274,17 +1281,15 @@
 
     const svgH = LIPID_PAD_TOP + visible.length * LIPID_STRIP_UNIT + LIPID_AXIS_BOTTOM;
     const xAxisY = LIPID_PAD_TOP + visible.length * LIPID_STRIP_UNIT + 14;
-    const title = rtl ? 'מגמת כולסטרול' : 'Cholesterol trends';
-    const disclaimer = rtl
-      ? 'טווחי יעד למבוגרים — לא ייעוץ רפואי'
-      : 'General adult targets — not medical advice';
+    const title = t('wsLipidTitle');
+    const disclaimer = t('wsLipidDisclaimer');
 
     let svg = '';
     for (const strip of visible) {
       if (strip.stripIdx > 0) {
         svg += `<line x1="${plotLeft}" y1="${LIPID_PAD_TOP + strip.stripIdx * LIPID_STRIP_UNIT}" x2="${chartRight}" y2="${LIPID_PAD_TOP + strip.stripIdx * LIPID_STRIP_UNIT}" stroke="${LIPID_GRID}" stroke-width="1" opacity="0.6"/>`;
       }
-      const label = rtl ? strip.def.labelHe : strip.def.label;
+      const label = strip.def.label;
       svg += `<text x="${plotLeft + 4}" y="${LIPID_PAD_TOP + strip.stripIdx * LIPID_STRIP_UNIT + 11}" fill="${strip.def.color}" font-size="9" font-weight="700">${label} · ${strip.def.thresholdLabel} mg/dL</text>`;
       if (strip.safeRect) {
         svg += `<rect x="${plotLeft}" y="${strip.safeRect.y}" width="${chartRight - plotLeft}" height="${strip.safeRect.h}" fill="${LIPID_SAFE_FILL}"/>`;
@@ -1304,19 +1309,19 @@
         svg += `<text x="${lx}" y="${ly}" font-size="9" font-weight="600" fill="${strip.def.color}" text-anchor="middle">${lab}</text>`;
       }
     }
-    for (const t of xTicks) {
-      svg += `<text x="${t.x}" y="${xAxisY}" font-size="9" fill="${LIPID_MUTED}" text-anchor="middle">${t.label}</text>`;
+    for (const tick of xTicks) {
+      svg += `<text x="${tick.x}" y="${xAxisY}" font-size="9" fill="${LIPID_MUTED}" text-anchor="middle">${tick.label}</text>`;
     }
 
     host.innerHTML = `
       <div class="lipid-wrap${rtl ? ' rtl' : ''}">
-        <div class="lipid-title">${title}</div>
+        <div class="lipid-title">${escapeXml(title)}</div>
         <div class="lipid-chart-box">
           <svg viewBox="0 0 ${chartW} ${svgH}" width="100%" height="${svgH}" role="img" aria-label="${title}">
             ${svg}
           </svg>
         </div>
-        <div class="lipid-disclaimer">${disclaimer}</div>
+        <div class="lipid-disclaimer">${escapeXml(disclaimer)}</div>
       </div>`;
   }
 

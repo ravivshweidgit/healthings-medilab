@@ -26,7 +26,7 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-29-workspace-i18n.md` | Patient workspace i18n (`clinicLocale`) | **ready** | ~150–180 chrome keys × 10 locales; tabs, banner, charts, rules/chat |
+| `be-29-workspace-i18n.md` | Patient workspace i18n (`clinicLocale`) | **needs-review** | 203 `ws*` keys wired; owner smoke he/en + RTL |
 | — | be-30 labs + lipids clinical view | not drafted | Needs owner clinical judgment (reference ranges); not an Auto batch |
 
 ## Done

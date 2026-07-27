@@ -12,11 +12,11 @@
   <body class="clinic-workspace">
     <div class="ws-chrome">
       <header class="ws-topbar ws-topbar--case">
-        <a class="ws-back" href="index.html">← Clinic portal</a>
+        <a class="ws-back" href="index.html" data-i18n="wsBackToPortal">← Clinic portal</a>
         <!-- Single case strip: name · demographics · rules · body stats · sync (no second row). -->
         <div id="patient-banner" class="ws-case-header" hidden></div>
         <span id="sync-status-hint" class="meta sync-status-hint" hidden></span>
-        <button id="refresh-snapshot-btn" class="ws-btn primary" type="button" hidden>Refresh snapshot</button>
+        <button id="refresh-snapshot-btn" class="ws-btn primary" type="button" hidden data-i18n="wsRefreshSnapshot">Refresh snapshot</button>
       </header>
       <nav class="ws-tabs" id="ws-tabs" hidden></nav>
     </div>
@@ -31,9 +31,20 @@
 
     <script src="clinic-api.js?v=20260726k"></script>
     <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
-    <script src="clinic-charts.js?v=20260727b"></script>
-    <script src="clinic-workspace.js?v=20260727j"></script>
+    <script src="clinic-i18n.js?v=20260727a"></script>
+    <script src="clinic-workspace-i18n.js?v=20260727b"></script>
+    <script src="clinic-charts.js?v=20260727k"></script>
+    <script src="clinic-workspace.js?v=20260727k"></script>
     <script>
+      const { t } = ClinicI18n;
+      function hydrateStaticCopy() {
+        document.querySelectorAll('[data-i18n]').forEach((el) => {
+          el.textContent = t(el.getAttribute('data-i18n'));
+        });
+      }
+      ClinicI18n.applyDocumentLocale();
+      hydrateStaticCopy();
+
       const { api, loadTokens, saveTokens, clearTokens } = ClinicApi;
       let pollTimer = null;
       let patientLabel = null;
@@ -70,7 +81,7 @@
       }
 
       async function resolvePatientLabel(patientId) {
-        const fallback = 'Patient · ' + shortPatientId(patientId);
+        const fallback = t('wsPatientFallbackId', { id: shortPatientId(patientId) });
         try {
           const res = await api('/v1/shares?status=approved');
           if (!res.ok) return fallback;
@@ -121,7 +132,7 @@
       async function renderWorkspaceFromSync(patientId) {
         const syncRes = await api('/v1/sync/latest?patientId=' + encodeURIComponent(patientId));
         if (syncRes.status === 404) {
-          showError('No snapshot yet. Tap Refresh snapshot — patient phone uploads when they open the app.');
+          showError(t('wsErrNoSnapshot'));
           document.getElementById('ws-tabs').hidden = true;
           clearSkeleton();
           clearWorkspace();
@@ -129,7 +140,7 @@
           return false;
         }
         if (!syncRes.ok) {
-          showError((await syncRes.json().catch(() => ({}))).error || 'Could not load snapshot');
+          showError((await syncRes.json().catch(() => ({}))).error || t('wsErrCouldNotLoad'));
           clearSkeleton();
           clearWorkspace();
           setSyncHint('', false);
@@ -187,7 +198,7 @@
       async function loadWorkspace() {
         const patientId = new URLSearchParams(location.search).get('patientId');
         if (!patientId) {
-          showError('Missing patientId in URL.');
+          showError(t('wsErrMissingPatientId'));
           return;
         }
         if (!loadTokens()?.access) {
@@ -196,7 +207,7 @@
         }
 
         document.getElementById('refresh-snapshot-btn').hidden = false;
-        setSyncHint('Loading snapshot…', true);
+        setSyncHint(t('wsLoadingSnapshot'), true);
         showSkeleton();
 
         // Identity and snapshot are independent calls; serialising them doubles
@@ -204,7 +215,7 @@
         // lands first, so either resolution order ends up correct.
         const labelPromise = resolvePatientLabel(patientId);
         const renderPromise = renderWorkspaceFromSync(patientId).catch(() => {
-          showError('Could not load snapshot');
+          showError(t('wsErrCouldNotLoad'));
           clearSkeleton();
           clearWorkspace();
           setSyncHint('', false);
@@ -228,7 +239,7 @@
         const btn = document.getElementById('refresh-snapshot-btn');
         btn.disabled = true;
         const prevLabel = btn.textContent;
-        btn.textContent = 'Refreshing…';
+        btn.textContent = t('wsRefreshing');
         stopPolling();
 
         try {
@@ -238,7 +249,7 @@
           });
           if (!reqRes.ok) {
             const err = await reqRes.json().catch(() => ({}));
-            alert(err.error || 'Could not refresh snapshot');
+            alert(err.error || t('wsErrCouldNotRefresh'));
             return;
           }
 
@@ -250,7 +261,7 @@
             return;
           }
 
-          setSyncHint('Waiting for patient app to upload snapshot… checking every few seconds', true);
+          setSyncHint(t('wsWaitingForUpload'), true);
 
           let attempts = 0;
           pollTimer = setInterval(async () => {
@@ -258,14 +269,14 @@
             status = await fetchSyncStatus(patientId);
             if (!status?.waitingOnPatient) {
               stopPolling();
-              setSyncHint('New snapshot received', true);
+              setSyncHint(t('wsNewSnapshotReceived'), true);
               await renderWorkspaceFromSync(patientId);
               setTimeout(() => setSyncHint('', false), 4000);
               return;
             }
             if (attempts >= 20) {
               stopPolling();
-              setSyncHint('Still waiting — ensure the patient app is open (or pull down to refresh on the phone), then tap Refresh snapshot again', true);
+              setSyncHint(t('wsStillWaiting'), true);
             }
           }, 3000);
         } finally {

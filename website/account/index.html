@@ -242,9 +242,12 @@
     </div>
 
     <script src="../clinic/clinic-api.js?v=20260726f"></script>
-    <script src="../clinic/clinic-charts.js?v=20260727b"></script>
-    <script src="../clinic/clinic-workspace.js?v=20260727j"></script>
+    <script src="../clinic/clinic-i18n.js?v=20260727a"></script>
+    <script src="../clinic/clinic-workspace-i18n.js?v=20260727b"></script>
+    <script src="../clinic/clinic-charts.js?v=20260727k"></script>
+    <script src="../clinic/clinic-workspace.js?v=20260727k"></script>
     <script>
+      ClinicI18n.applyDocumentLocale();
       // Its own token key: a clinician and a patient sharing a browser must not
       // sign each other out.
       const { api, loadTokens, saveTokens, clearTokens } =
@@ -544,7 +547,7 @@
           // Swaps the renderer's clinic-facing wording ("patient phone data")
           // for second person on the patient's own page.
           selfView: true,
-          displayName: 'You',
+          displayName: null,
           tabIds: READ_ONLY_TABS,
           tab: window.__clinicTab || 'dashboard',
           activeMentor: parsed.mentors[0] || 'nutritionist',
