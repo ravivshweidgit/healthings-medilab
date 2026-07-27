@@ -1,9 +1,9 @@
 # be-15 — Patient web account (read-only, consent-gated)
 
-**Status:** done — server, website and app shipped and verified live with real data. Opus 5, 2026-07-26
+**Status:** done — server, website and app shipped and verified live with real data. Opus 5, 2026-07-26  
+**Refined 2026-07-27 (owner: looks good):** Rules edit on `/account/`; Refresh snapshot parity; AI chat tab (today-only app→account, compose on web, no account→app chat pull); LIVE badge; clinic privacy strip unchanged (be-24).
 
-Remaining follow-ups are tracked elsewhere: the privacy policy sentences (below), account
-deletion, and the mentor invite email. `/account/` is still `noindex` and unlinked.
+Remaining follow-ups are tracked elsewhere: the privacy policy sentences (below), mentor invite email, landing Sign-in routing, account chrome i18n. `/account/` is still `noindex` and unlinked.
 
 ## What shipped in Parts 1 and 2
 
@@ -392,17 +392,19 @@ web view is on (`fulfillPendingClinicSyncRequests`).
 - [ ] Web view off again → blob is gone; clinic snapshot unaffected when a clinic link also exists
 - [ ] Revoking the last clinic share while web view is on does **not** purge the snapshot
 - [ ] Delete account requires a fresh code, then removes all rows; a later sign-in creates a clean account
-- [ ] ~~Read-only: no rules save~~ **Superseded 2026-07-27:** patients may edit Rules on `/account/` via the same `PUT /v1/clinic/patients/:id/rules` + `saveDietaryRules` as clinic (patient patches sync blob; mentor writes org overlay). Phone pulls via `GET /v1/account/rules`. Chat compose and sponsor control remain unreachable from `/account/`.
+- [x] ~~Read-only: no rules save~~ **Superseded 2026-07-27:** patients may edit Rules on `/account/` via the same `PUT /v1/clinic/patients/:id/rules` + `saveDietaryRules` as clinic. Patient path patches the sync blob **and** mirrors into org overlays (`publishPatientWebRulesToOverlays`) so the phone’s existing `pullClinicOverlays` receives the edit. Also: keep newer web `user_rules` on phone upload (`mergeNewerServerUserRules`); `GET /v1/account/rules` remains a belt-and-suspenders pull. Owner-confirmed 2026-07-27.
+- [x] ~~Chat compose unreachable~~ **Superseded 2026-07-27:** `/account/` **AI chat** (not Clinic chat) — read/write today’s `chat_history_*` on the sync blob; Gemini patient reply; App→account today-only; **no** account→app chat pull; clinic mentor downloads still strip chat (be-24). Owner: looks good 2026-07-27. Sponsor control remains unreachable from `/account/`.
 - [ ] Desktop (~1280) and mobile (~390): both usable; the clinic workspace CSS is desktop-first and
       will need the responsive work from be-14 before the snapshot tab is mobile-clean
 - [ ] No regression: clinic portal and clinic patient workspace behave exactly as before
 
 ## Out of scope
 
-- ~~Any patient **editing** on web — read-only, always~~ — **Rules edit allowed** (2026-07-27); chat compose still out of scope
+- ~~Any patient **editing** on web — read-only, always~~ — **Rules edit + AI chat compose** allowed (2026-07-27); sponsor control still out of scope
 - Real-time sync beyond request-sync poll (account + clinic already poll after Refresh)
 - Localizing `/account/` — English first, matching the clinic portal per the language policy
 - Stripe / paid plans on the patient side
+- Account → app coach-chat pull (explicitly declined 2026-07-27)
 
 ## Review by Opus 5 (after Auto marks done)
 
