@@ -269,6 +269,12 @@
           </p>
           <p class="muted" id="wallet-pm"></p>
           <p class="muted" id="billing-alpha-note" data-i18n="billingAlphaNote" hidden></p>
+          <p id="billing-delinquent" class="portal-status err" hidden role="status"></p>
+          <div class="row-actions" id="billing-card-actions">
+            <button id="add-card-btn" class="portal-btn" type="button" data-i18n="addCard">
+              Add card
+            </button>
+          </div>
           <div id="invoice-list"></div>
           <div class="row-actions dev-only" hidden>
             <button id="simulate-card-btn" class="portal-btn secondary" type="button" data-i18n="attachCard">
@@ -284,7 +290,7 @@
       </section>
     </div>
 
-    <script src="clinic-i18n.js?v=20260728b"></script>
+    <script src="clinic-i18n.js?v=20260728c"></script>
     <script src="clinic-theme.js?v=20260727c"></script>
     <script src="clinic-api.js?v=20260726k"></script>
     <script>
@@ -414,12 +420,45 @@
         paintBillingPanels();
       }
 
+      function paintDelinquency(wallet) {
+        const el = document.getElementById('billing-delinquent');
+        if (!el) return;
+        if (!wallet || (!wallet.delinquentSince && !wallet.coveragePaused)) {
+          el.hidden = true;
+          el.textContent = '';
+          return;
+        }
+        const parts = [];
+        if (wallet.coveragePaused) parts.push(t('billingCoveragePaused'));
+        else parts.push(t('billingDelinquent'));
+        if (wallet.nextRetryAt) {
+          try {
+            parts.push(
+              t('billingRetryOn', {
+                date: new Date(wallet.nextRetryAt).toLocaleDateString(getLocale()),
+              }),
+            );
+          } catch {
+            parts.push(t('billingRetryOn', { date: String(wallet.nextRetryAt).slice(0, 10) }));
+          }
+        }
+        el.textContent = parts.join(' ');
+        el.hidden = false;
+      }
+
       function paintBillingPanels() {
         if (billingState.wallet) {
           paintWalletBalance(billingState.wallet);
           document.getElementById('wallet-pm').textContent = t('paymentMethod', {
             value: billingState.wallet.paymentMethodOnFile ? t('pmCard') : t('pmNone'),
           });
+          paintDelinquency(billingState.wallet);
+          const addBtn = document.getElementById('add-card-btn');
+          if (addBtn) {
+            addBtn.textContent = billingState.wallet.paymentMethodOnFile
+              ? t('updateCard')
+              : t('addCard');
+          }
         }
         renderUsageSummary(document.getElementById('usage-summary'), billingState.usage);
         renderUsageEvents(document.getElementById('usage-events'), billingState.events);
@@ -1517,6 +1556,51 @@
         const el = document.getElementById('invite-status');
         if (!el.hidden && el.classList.contains('err')) setInviteStatus('', '');
       });
+
+      document.getElementById('add-card-btn').onclick = async () => {
+        showError(appErrorEl(), '');
+        const btn = document.getElementById('add-card-btn');
+        setFlash('', '');
+        await withBusy(btn, t('addingCard'), async () => {
+          try {
+            const res = await api('/v1/billing/checkout-session', {
+              method: 'POST',
+              body: '{}',
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setFlash(
+                'err',
+                body.error || (res.status === 503 ? t('cardCheckoutUnavailable') : t('couldNotStartCheckout')),
+              );
+              return;
+            }
+            if (body.url) {
+              window.location.href = body.url;
+              return;
+            }
+            setFlash('err', t('couldNotStartCheckout'));
+          } catch (err) {
+            setFlash('err', err instanceof Error ? err.message : t('couldNotStartCheckout'));
+          }
+        });
+      };
+
+      (function flashBillingReturn() {
+        try {
+          const q = new URLSearchParams(window.location.search);
+          const billing = q.get('billing');
+          if (billing === 'card_ok') setFlash('ok', t('cardSavedOk'));
+          else if (billing === 'card_cancel') setFlash('err', t('cardCheckoutCancelled'));
+          if (billing) {
+            q.delete('billing');
+            const next = `${window.location.pathname}${q.toString() ? `?${q}` : ''}${window.location.hash}`;
+            window.history.replaceState({}, '', next);
+          }
+        } catch {
+          /* ignore */
+        }
+      })();
 
       document.getElementById('simulate-card-btn').onclick = async () => {
         showError(appErrorEl(), '');

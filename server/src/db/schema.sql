@@ -165,6 +165,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_usage_client_event
 CREATE TABLE IF NOT EXISTS wallets (
   user_id UUID PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
   balance_tokens INT NOT NULL DEFAULT 0,
+  -- be-34 dunning: card failure degrades payment routing, never clinical state.
+  delinquent_since TIMESTAMPTZ,
+  charge_attempts INT NOT NULL DEFAULT 0,
+  coverage_paused BOOLEAN NOT NULL DEFAULT FALSE,
+  next_retry_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -215,6 +220,16 @@ CREATE TABLE IF NOT EXISTS invoices (
 
 CREATE INDEX IF NOT EXISTS idx_invoices_user_created
   ON invoices (user_id, created_at DESC);
+
+-- be-34 dunning columns on pre-existing wallets.
+ALTER TABLE wallets ADD COLUMN IF NOT EXISTS delinquent_since TIMESTAMPTZ;
+ALTER TABLE wallets ADD COLUMN IF NOT EXISTS charge_attempts INT NOT NULL DEFAULT 0;
+ALTER TABLE wallets ADD COLUMN IF NOT EXISTS coverage_paused BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE wallets ADD COLUMN IF NOT EXISTS next_retry_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_wallets_delinquent_retry
+  ON wallets (next_retry_at)
+  WHERE delinquent_since IS NOT NULL;
 
 -- Encrypted patient snapshots (alpha: gzip payload + access control; E2E wrap later).
 CREATE TABLE IF NOT EXISTS sync_blobs (

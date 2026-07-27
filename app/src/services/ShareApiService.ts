@@ -36,6 +36,12 @@ export type WalletView = {
   autoReload: boolean;
   paymentMethodOnFile: boolean;
   tokenPackSize: number;
+  /** Present after be-34 — optional for older API responses. */
+  billingLive?: boolean;
+  delinquentSince?: string | null;
+  chargeAttempts?: number;
+  coveragePaused?: boolean;
+  nextRetryAt?: string | null;
 };
 
 class ShareApiError extends Error {

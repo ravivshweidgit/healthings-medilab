@@ -9,12 +9,15 @@ import { registerShareRoutes } from './routes/shares.js';
 import { registerSponsorshipRoutes } from './routes/sponsorships.js';
 import { registerUsageRoutes } from './routes/usage.js';
 import { registerWalletRoutes } from './routes/wallet.js';
+import { registerBillingRoutes } from './routes/billing.js';
 import { registerSyncRoutes } from './routes/sync.js';
 import { registerAccountRoutes } from './routes/account.js';
 import { registerAccountBackupRoutes } from './routes/accountBackup.js';
 import { registerClinicRoutes } from './routes/clinic.js';
+import { processDelinquentRetries } from './services/payments.js';
 
 const VERSION = '0.1.0';
+const BILLING_RETRY_SWEEP_MS = 60 * 60 * 1000;
 
 async function main() {
   const app = Fastify({
@@ -31,9 +34,11 @@ async function main() {
   });
 
   // Allow GET requests that mistakenly send Content-Type: application/json with no body.
+  // Keep the raw string on the request for Stripe webhook HMAC verify (be-34).
   app.removeContentTypeParser('application/json');
-  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
     const text = typeof body === 'string' ? body : body.toString('utf8');
+    (req as { rawBody?: string }).rawBody = text;
     if (!text || text.length === 0) {
       done(null, undefined);
       return;
@@ -52,10 +57,19 @@ async function main() {
   await registerSponsorshipRoutes(app);
   await registerUsageRoutes(app);
   await registerWalletRoutes(app);
+  await registerBillingRoutes(app);
   await registerSyncRoutes(app);
   await registerAccountRoutes(app);
   await registerAccountBackupRoutes(app);
   await registerClinicRoutes(app);
+
+  // be-34: retry delinquent cards on an hourly sweep (no-op while BILLING_LIVE=false).
+  const retryTimer = setInterval(() => {
+    void processDelinquentRetries().catch((err) => {
+      app.log.error({ err }, 'billing retry sweep failed');
+    });
+  }, BILLING_RETRY_SWEEP_MS);
+  retryTimer.unref?.();
 
   app.setErrorHandler((err, _request, reply) => {
     if (err instanceof ZodError) {

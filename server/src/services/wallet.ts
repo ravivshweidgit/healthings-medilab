@@ -2,7 +2,12 @@ import { query } from '../db/pool.js';
 import { config } from '../config.js';
 import { getSponsorDisplayName, resolveAiPayer } from './sponsor.js';
 import { getSponsorshipViewForPatient } from './sponsorships.js';
-import { ensurePayerBalance, getPaymentMethod } from './payments.js';
+import {
+  ensurePayerBalance,
+  enforceGraceFloor,
+  getPaymentMethod,
+  getWalletBillingState,
+} from './payments.js';
 
 export type WalletView = {
   balanceTokens: number;
@@ -18,6 +23,11 @@ export type WalletView = {
   tokenPackPriceCents: number;
   /** ISO 4217 lower-case, from STRIPE_CURRENCY. */
   currency: string;
+  billingLive: boolean;
+  delinquentSince: string | null;
+  chargeAttempts: number;
+  coveragePaused: boolean;
+  nextRetryAt: string | null;
 };
 
 export async function getBalance(userId: string): Promise<number> {
@@ -54,6 +64,7 @@ export async function getWalletForUser(userId: string, role: 'patient' | 'mentor
   const tokenPackPriceCents = config.TOKEN_PACK_PRICE_CENTS;
   const currency = config.STRIPE_CURRENCY;
   const ownPm = await getPaymentMethod(userId);
+  const ownBilling = await getWalletBillingState(userId);
 
   if (role === 'mentor') {
     return {
@@ -68,6 +79,11 @@ export async function getWalletForUser(userId: string, role: 'patient' | 'mentor
       tokenPackSize,
       tokenPackPriceCents,
       currency,
+      billingLive: config.BILLING_LIVE,
+      delinquentSince: ownBilling.delinquentSince,
+      chargeAttempts: ownBilling.chargeAttempts,
+      coveragePaused: ownBilling.coveragePaused,
+      nextRetryAt: ownBilling.nextRetryAt,
     };
   }
 
@@ -76,6 +92,8 @@ export async function getWalletForUser(userId: string, role: 'patient' | 'mentor
   const sponsorship = await getSponsorshipViewForPatient(userId);
   const sponsoredBy = payer.sponsored ? await getSponsorDisplayName(userId) : null;
   const payerPm = payer.payerUserId === userId ? ownPm : await getPaymentMethod(payer.payerUserId);
+  const payerBilling =
+    payer.payerUserId === userId ? ownBilling : await getWalletBillingState(payer.payerUserId);
 
   return {
     balanceTokens: payerBalance,
@@ -89,6 +107,11 @@ export async function getWalletForUser(userId: string, role: 'patient' | 'mentor
     tokenPackSize,
     tokenPackPriceCents,
     currency,
+    billingLive: config.BILLING_LIVE,
+    delinquentSince: payerBilling.delinquentSince,
+    chargeAttempts: payerBilling.chargeAttempts,
+    coveragePaused: payerBilling.coveragePaused,
+    nextRetryAt: payerBilling.nextRetryAt,
   };
 }
 
@@ -129,6 +152,8 @@ export async function debitAiUsage(
      VALUES ($1, $2, $3, 'patient', $4, $5)`,
     [payerUserId, -tokens, reason, patientId, payerUserId],
   );
+
+  await enforceGraceFloor(payerUserId);
 }
 
 export async function debitAiUsageForPatient(

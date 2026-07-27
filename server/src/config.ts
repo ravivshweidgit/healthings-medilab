@@ -29,6 +29,20 @@ const envSchema = z.object({
   TOKEN_PACK_PRICE_CENTS: z.coerce.number().default(500),
   STRIPE_CURRENCY: z.string().default('usd'),
   STRIPE_SECRET_KEY: z.string().optional(),
+  /** Stripe webhook signing secret (`whsec_…`). Required for live webhook verify. */
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  /**
+   * Public website origin for Stripe Checkout return URLs
+   * (e.g. https://healthings.ai → /clinic/?billing=…).
+   */
+  PUBLIC_WEB_BASE_URL: z.string().default('https://healthings.ai'),
+  /**
+   * Max negative balance (tokens) while card is failing — ~1 pack.
+   * Empty/unset → TOKEN_PACK_SIZE.
+   */
+  BILLING_GRACE_TOKENS: z.coerce.number().int().positive().optional(),
+  /** Comma-separated day offsets from first failure for card retries (be-34). */
+  BILLING_RETRY_SCHEDULE_DAYS: z.string().default('1,3,5'),
   GEMINI_API_KEY: z.string().optional(),
   /** When true and Stripe absent: simulate card charge + grant pack on auto-reload. */
   AUTO_RELOAD_SIMULATE: z
@@ -52,10 +66,16 @@ if (!parsed.success) {
   process.exit(1);
 }
 
+const retryScheduleDays = parsed.data.BILLING_RETRY_SCHEDULE_DAYS.split(',')
+  .map((s) => Number(s.trim()))
+  .filter((n) => Number.isFinite(n) && n >= 0);
+
 export const config = {
   ...parsed.data,
   corsOrigins: parsed.data.CORS_ORIGINS.split(',').map((s) => s.trim()),
   isDev: parsed.data.NODE_ENV === 'development',
+  BILLING_GRACE_TOKENS: parsed.data.BILLING_GRACE_TOKENS ?? parsed.data.TOKEN_PACK_SIZE,
+  BILLING_RETRY_SCHEDULE_DAYS: retryScheduleDays.length ? retryScheduleDays : [1, 3, 5],
 };
 
 export const OTP = {

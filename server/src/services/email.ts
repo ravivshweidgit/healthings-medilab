@@ -110,6 +110,59 @@ export type ClinicInviteMail = {
  * Notifies the patient that a clinic invited them. Does not carry secrets —
  * accepting happens in the app after they sign in with this address.
  */
+export type BillingDunningMail = {
+  amountCents: number;
+  currency: string;
+  nextRetryAt: Date | null;
+  coveragePaused: boolean;
+  updateCardUrl: string;
+};
+
+/** Card failed / grace — factual dunning (be-34). Never marketing tone. */
+export async function sendBillingDunningEmail(
+  email: string,
+  info: BillingDunningMail,
+): Promise<void> {
+  const amount = (info.amountCents / 100).toFixed(2);
+  const currency = info.currency.toUpperCase();
+  const retryLine = info.nextRetryAt
+    ? `We will retry the card on ${info.nextRetryAt.toISOString().slice(0, 10)} (UTC).\n`
+    : '';
+  const pausedLine = info.coveragePaused
+    ? `AI coverage for sponsored patients is paused until payment succeeds. ` +
+      `Sponsorship links and clinical data access are unchanged.\n`
+    : `AI continues during a short grace period while we retry.\n`;
+
+  const subject = info.coveragePaused
+    ? 'Healthings: payment needed — AI coverage paused'
+    : 'Healthings: payment failed — please update your card';
+  const text =
+    `We could not charge your saved card for a Healthings AI token pack ` +
+    `(${currency} ${amount}).\n\n` +
+    pausedLine +
+    retryLine +
+    `\nUpdate your card: ${info.updateCardUrl}\n\n` +
+    `— Healthings`;
+
+  try {
+    await deliverMail({ to: email, subject, text, logTag: 'billing-dunning' });
+  } catch (err) {
+    console.error('[billing dunning email failed]', { email, err });
+  }
+}
+
+export async function sendBillingRecoveredEmail(email: string): Promise<void> {
+  const subject = 'Healthings: payment recovered';
+  const text =
+    `Your card payment succeeded and AI coverage is active again.\n\n` +
+    `— Healthings`;
+  try {
+    await deliverMail({ to: email, subject, text, logTag: 'billing-recovered' });
+  } catch (err) {
+    console.error('[billing recovered email failed]', { email, err });
+  }
+}
+
 export async function sendClinicInviteEmail(
   patientEmail: string,
   invite: ClinicInviteMail,
