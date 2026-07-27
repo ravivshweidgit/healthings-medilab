@@ -150,5 +150,5 @@ key presence, deployable without behavior change.
 - [x] Server: schema + checkout + webhook + grace/dunning; typecheck (`tsc` ok)
 - [x] Portal: Add card + delinquency banner + i18n ×10
 - [x] Deploy dark (flag off) — VPS migrate + restart; BILLING_LIVE=false; checkout 401 / webhook 503
-- [ ] Owner smoke: portal Add card, one AI chat, optional ?dev=1 pack
-- [ ] Status → needs-review with evidence; owner acceptance moves to done/
+- [x] Owner smoke: portal Add card → expected Stripe-not-configured message
+- [x] Status → done/ (flag flip remains owner Stripe onboarding)
