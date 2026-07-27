@@ -9,7 +9,11 @@ import {
   recordPatientAccess,
 } from './clinicAccess.js';
 import { clearSyncUpdateRequestsForPatient } from './syncRequests.js';
-import { reconcileOverlayRulesFromPatientSnapshot, type ClinicUserRules } from './clinicOverlay.js';
+import {
+  publishPatientWebRulesToOverlays,
+  reconcileOverlayRulesFromPatientSnapshot,
+  type ClinicUserRules,
+} from './clinicOverlay.js';
 
 /** Cap inflated snapshot size so a hostile deflate cannot OOM the write path. */
 const MAX_INFLATED_BYTES = 64 * 1024 * 1024;
@@ -431,10 +435,12 @@ export async function updatePatientRulesInLatestBlob(
   );
   await query(`DELETE FROM sync_blobs WHERE patient_id = $1 AND version < $2`, [user.id, version]);
 
+  // Publish to org overlays (do not clear them). Phone pulls clinic overlays;
+  // clearing here made account Save look broken while clinic Save worked.
   try {
-    await reconcileOverlayRulesFromPatientSnapshot(user.id, rules);
+    await publishPatientWebRulesToOverlays(user.id, rules, user.id);
   } catch {
-    // Non-fatal: rules still saved in the blob.
+    // Non-fatal: rules still saved in the blob; phone can use GET /v1/account/rules.
   }
 
   return rules;

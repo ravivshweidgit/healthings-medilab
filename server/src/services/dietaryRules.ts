@@ -1,6 +1,7 @@
 /**
  * Single entry for dietary-rules saves from clinic portal and patient /account/.
- * Mentors write the org overlay; patients patch their own sync blob.
+ * Mentors write the org overlay; patients patch their sync blob and mirror to overlays
+ * so the phone's existing clinic-overlay pull receives the edit.
  */
 import type { PublicUser } from './jwt.js';
 import {

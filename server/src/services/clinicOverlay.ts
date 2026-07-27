@@ -255,6 +255,54 @@ export async function saveRulesForPatient(
 }
 
 /**
+ * Account web My Rules save: mirror into every linked org overlay so the phone
+ * can pull via GET /v1/clinic/overlays (same path as clinic portal edits).
+ * Without this, save only patched the sync blob and cleared overlays — clinic
+ * Save reached the phone; account Save did not.
+ */
+export async function publishPatientWebRulesToOverlays(
+  patientId: string,
+  rules: ClinicUserRules,
+  actorId: string,
+): Promise<void> {
+  if (!rules.rawText?.trim()) return;
+
+  const { rows: orgRows } = await query<{ org_id: string }>(
+    `SELECT org_id FROM clinic_org_overlays WHERE patient_id = $1
+     UNION
+     SELECT org_id FROM account_shares
+     WHERE patient_id = $1 AND status = 'approved' AND org_id IS NOT NULL`,
+    [patientId],
+  );
+  if (orgRows.length === 0) return;
+
+  const payload: ClinicUserRules = { ...rules, updatedByClinic: true };
+
+  for (const { org_id: orgId } of orgRows) {
+    const { rows: existingRows } = await query<OrgOverlayRow>(
+      `SELECT * FROM clinic_org_overlays WHERE patient_id = $1 AND org_id = $2`,
+      [patientId, orgId],
+    );
+    const existingRules = existingRows[0]?.rules_json ?? null;
+    if (
+      existingRules?.rawText?.trim() &&
+      existingRules.rawText.trim() !== rules.rawText.trim()
+    ) {
+      await archiveRulesHistory(patientId, actorId, orgId, existingRules, 'patient');
+    }
+    await query(
+      `INSERT INTO clinic_org_overlays (patient_id, org_id, rules_json, updated_at, updated_by)
+       VALUES ($1, $2, $3, NOW(), $4)
+       ON CONFLICT (patient_id, org_id) DO UPDATE
+         SET rules_json = EXCLUDED.rules_json,
+             updated_at = NOW(),
+             updated_by = EXCLUDED.updated_by`,
+      [patientId, orgId, payload, actorId],
+    );
+  }
+}
+
+/**
  * When a patient sync blob carries newer My Rules than a clinic overlay,
  * clear that org's overlay rules (archive first) so Refresh / portal show the
  * phone text. Clinician chats are left untouched.
