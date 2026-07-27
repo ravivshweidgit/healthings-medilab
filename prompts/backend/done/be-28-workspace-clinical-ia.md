@@ -1,11 +1,12 @@
 # be-28 — Patient workspace: stop mirroring the phone
 
-**Status:** needs-review
-**Model to implement:** Auto
-**Authored by:** Opus 5 (owner walkthrough of all 8 workspace tabs + portal/app code audit, 2026-07-27)
-**Depends on:** be-25 (portal IA), be-27 (patient names in the title)
+**Status:** done  
+**Accepted:** 2026-07-27 (owner — “Accept be-28”)  
+**Shipped:** `fb6a9dd`…`510afc3` (core IA `ffdc814`; follow-ups through Care team cleanup)  
+**Model to implement:** Auto  
+**Authored by:** Opus 5 (owner walkthrough of all 8 workspace tabs + portal/app code audit, 2026-07-27)  
+**Depends on:** be-25 (portal IA), be-27 (patient names in the title)  
 **Splits into:** be-29 (workspace i18n), be-30 (labs + lipids clinical view) — see *Deliberately split out*
-**Implemented:** 2026-07-27 — asset `?v=20260727a`
 
 > The app is a self-tracking tool for one person holding a 390 px phone.
 > The workspace is a review tool for a clinician on a 1440 px screen who has
@@ -262,7 +263,7 @@ too — check it, do not break it.
 - [x] `ctx.selfView` still reads first-person on `/account/`
 - [x] 390 px: single column, banner wraps to two lines, no horizontal scroll
 - [x] `clinic-dashboard.{js,css}` deleted and the landing phone frame still renders
-- [x] Withings badge reflects measurement age; no unconditional green
+- [x] Withings OK chip removed from banner (owner); measured-at stays on stats tooltip
 - [x] Chat and rules failures show inline, keep the typed text, and offer retry
 - [x] 6H/12H/24H axes read as times; 2D and up read as dates
 - [x] Trend chart shows WEIGHT / FAT / MUSCLE (Δ) / VISCERAL captions at unchanged total height
@@ -271,17 +272,16 @@ too — check it, do not break it.
 - [x] Profile row icons are Lucide chrome (no emoji on collapse headers)
 - [x] Clinic mentor chat context includes Profile height/gender/age (no false “height missing”)
 - [x] Clinic mentor chat replies in portal `clinicLocale`, not patient app language
-- [ ] Portal 32D energy averages reconciled against the app — **owner smoke**
-- [ ] No regression: rules save + sync, chat send, snapshot refresh, meal modal — **owner smoke**
-- [ ] `/account/` self-view renders every touched tab — **owner smoke**
+- [x] Unified case header (one strip; Refresh beside stats); Care team header cleaned up
+- [ ] Portal 32D energy averages vs app — **deferred** (snapshot lag vs live; not blocking)
+- [x] Owner accepted after live clinic walkthrough (rules/chat/refresh/header/profile)
 
 ## Deliberately split out
 
-**be-29 — workspace i18n (P4).** ~3,200 lines of hardcoded English across
-`patient.html`, `clinic-workspace.js`, `clinic-dashboard.js`, `clinic-charts.js`. be-26
-translated the worklist into 10 locales, so a Hebrew clinic today navigates a translated
-list and lands in an English workspace. Mechanical and large; do it *after* this batch so
-strings are extracted once, in their final wording, not twice.
+**be-29 — workspace i18n (P4).** Drafted: `be-29-workspace-i18n.md`. ~150–180 chrome
+keys (not 3,200 unique strings) across `patient.html`, `clinic-workspace.js`,
+`clinic-charts.js`. be-26 translated the worklist; workspace still English-only until
+be-29. Mentor chat locale already wired as a be-28 follow-up.
 
 **be-30 — labs + lipids as a clinical view (P8, P9).** Grouping by panel, reference
 ranges, abnormal-only filter, and whether Lipids survives as its own tab or becomes a
@@ -328,7 +328,8 @@ phone*; Labs is the one place to go look at what the phone already does.
 - [x] Changes match this draft only — no i18n, no labs redesign
 - [x] Bump `?v=` (`20260727a`)
 - [x] Status → needs-review with evidence; do not self-accept
-- [ ] Deploy website (owner or agent when asked)
+- [x] Deploy website + API as follow-ups landed
+- [x] Owner accepted → moved to `done/`
 
 ## Related
 

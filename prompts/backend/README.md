@@ -26,13 +26,12 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
-| `be-28-workspace-clinical-ia.md` | Patient workspace: stop mirroring the phone | **needs-review** | Banner, width, clinician-voice labels, header freshness; dead mirror deleted |
-| — | be-29 workspace i18n | not drafted | 10 locales for ~3,200 lines; after be-28 so strings are extracted once |
+| `be-29-workspace-i18n.md` | Patient workspace i18n (`clinicLocale`) | **ready** | ~150–180 chrome keys × 10 locales; tabs, banner, charts, rules/chat |
 | — | be-30 labs + lipids clinical view | not drafted | Needs owner clinical judgment (reference ranges); not an Auto batch |
 
 ## Done
 
-See [`done/README.md`](./done/README.md) — be-01 through be-27 (incl. be-08, be-22).
+See [`done/README.md`](./done/README.md) — be-01 through be-28 (incl. be-08, be-22).
 
 ## Status values
 
@@ -94,11 +93,11 @@ trusting the script's exit code.
 
 ## Auto kickoff (paste)
 
-**be-28 is `needs-review`.** Deploy website, hard-refresh patient workspace, smoke chat/rules/account.
+**be-28 is `done`.** **be-29 is `ready`** (workspace `clinicLocale`).
 
 ```
-Do not re-implement be-28 unless owner sends it back.
-Next drafts when owner asks: be-29 workspace i18n, be-30 labs clinical view.
+To implement workspace i18n: open be-29-workspace-i18n.md and ship.
+be-30 labs clinical view still needs owner judgment before drafting.
 ```
 
 ## Code
