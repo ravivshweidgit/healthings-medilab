@@ -225,6 +225,39 @@ html.theme-pref-dark .lab-panel {
   border-bottom-color: #2a2a2a;
 }
 
+/* Chat mentor picker + profile mentor pills */
+.theme-pref-dark .mentor-nav button,
+html.theme-pref-dark .mentor-nav button {
+  background: #000000;
+  border-color: #2a2a2a;
+  color: var(--text);
+}
+.theme-pref-dark .mentor-nav button.active,
+html.theme-pref-dark .mentor-nav button.active {
+  background: #000000;
+  color: var(--accent-ink);
+  border-color: var(--ws-chip-active-line);
+}
+.theme-pref-dark .mentor-pill,
+html.theme-pref-dark .mentor-pill {
+  background: #000000;
+  border-color: #2a2a2a;
+  color: var(--text);
+}
+.theme-pref-dark .mentor-pill.active,
+html.theme-pref-dark .mentor-pill.active {
+  background: #000000;
+  border-color: var(--ws-chip-active-line);
+  color: var(--accent-ink);
+}
+
+/* AI chat assistant bubbles */
+.theme-pref-dark .bubble.assistant,
+html.theme-pref-dark .bubble.assistant {
+  background: #000000;
+  border-color: #2a2a2a;
+}
+
 @media (prefers-color-scheme: dark) {
   .theme-pref-system .ws-banner-stats,
   html.theme-pref-system .ws-banner-stats {
@@ -288,6 +321,37 @@ html.theme-pref-dark .lab-panel {
   .theme-pref-system .lab-panel,
   html.theme-pref-system .lab-panel {
     border-bottom-color: #2a2a2a;
+  }
+
+  .theme-pref-system .mentor-nav button,
+  html.theme-pref-system .mentor-nav button {
+    background: #000000;
+    border-color: #2a2a2a;
+    color: var(--text);
+  }
+  .theme-pref-system .mentor-nav button.active,
+  html.theme-pref-system .mentor-nav button.active {
+    background: #000000;
+    color: var(--accent-ink);
+    border-color: var(--ws-chip-active-line);
+  }
+  .theme-pref-system .mentor-pill,
+  html.theme-pref-system .mentor-pill {
+    background: #000000;
+    border-color: #2a2a2a;
+    color: var(--text);
+  }
+  .theme-pref-system .mentor-pill.active,
+  html.theme-pref-system .mentor-pill.active {
+    background: #000000;
+    border-color: var(--ws-chip-active-line);
+    color: var(--accent-ink);
+  }
+
+  .theme-pref-system .bubble.assistant,
+  html.theme-pref-system .bubble.assistant {
+    background: #000000;
+    border-color: #2a2a2a;
   }
 }
 
