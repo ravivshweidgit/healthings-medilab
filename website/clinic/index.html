@@ -676,6 +676,8 @@
           view.className = 'portal-btn act-workspace';
           labelWithTip(view, 'openWorkspace', 'tipOpenWorkspace');
           view.href = 'patient.html?patientId=' + encodeURIComponent(share.patientId);
+          const nm = patientDisplayName(share);
+          if (nm) view.href += '&name=' + encodeURIComponent(nm);
           actions.append(view);
 
           const active = sp && sp.active && daysUntil(sp.expiresAt) >= 0;

@@ -8,7 +8,7 @@
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="clinic-portal.css?v=20260727h" />
-    <link rel="stylesheet" href="clinic-workspace.css?v=20260727o" />
+    <link rel="stylesheet" href="clinic-workspace.css?v=20260727p" />
     <link rel="stylesheet" href="clinic-theme.css?v=20260727c" />
   </head>
   <body class="clinic-workspace">
@@ -43,10 +43,10 @@
     <script src="clinic-api.js?v=20260726k"></script>
     <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
     <script src="clinic-i18n.js?v=20260727g"></script>
-    <script src="clinic-workspace-i18n.js?v=20260727b"></script>
+    <script src="clinic-workspace-i18n.js?v=20260727c"></script>
     <script src="clinic-theme.js?v=20260727c"></script>
     <script src="clinic-charts.js?v=20260727o"></script>
-    <script src="clinic-workspace.js?v=20260727o"></script>
+    <script src="clinic-workspace.js?v=20260727p"></script>
     <script>
       const { t } = ClinicI18n;
       function hydrateStaticCopy() {
@@ -86,34 +86,36 @@
 
       function applyPatientLabel(label) {
         patientLabel = label;
+        const tip = shortPatientId(new URLSearchParams(location.search).get('patientId'));
         document.title = label + ' — Healthings clinic';
         if (workspaceCtx) {
           workspaceCtx.displayName = label;
-          ClinicWorkspace.renderPatientBanner(
-            document.getElementById('patient-banner'),
-            workspaceCtx,
-            label,
-          );
+          const banner = document.getElementById('patient-banner');
+          ClinicWorkspace.renderPatientBanner(banner, workspaceCtx, label);
+          const nameEl = banner?.querySelector('.ws-banner-name');
+          if (nameEl && tip) nameEl.title = tip;
         }
       }
 
       async function resolvePatientLabel(patientId) {
-        const fallback = t('wsPatientFallbackId', { id: shortPatientId(patientId) });
+        // Soft fallback only — never “Patient · 39f11753” in the case strip.
+        const soft = t('wsBannerPatient');
         try {
           const res = await api('/v1/shares?status=approved');
-          if (!res.ok) return fallback;
+          if (!res.ok) return soft;
           const data = await res.json();
           const shares = data.shares || [];
-          const match = shares.find((s) => s.patientId === patientId);
-          if (!match) return fallback;
+          const id = String(patientId || '').toLowerCase();
+          const match = shares.find((s) => String(s.patientId || '').toLowerCase() === id);
+          if (!match) return soft;
           const first = typeof match.patientFirstName === 'string' ? match.patientFirstName.trim() : '';
           const last = typeof match.patientLastName === 'string' ? match.patientLastName.trim() : '';
           const name = [first, last].filter(Boolean).join(' ');
           if (name) return name;
           const email = typeof match.patientEmail === 'string' ? match.patientEmail.trim() : '';
-          return email || fallback;
+          return email || soft;
         } catch {
-          return fallback;
+          return soft;
         }
       }
 
@@ -213,7 +215,8 @@
       }
 
       async function loadWorkspace() {
-        const patientId = new URLSearchParams(location.search).get('patientId');
+        const params = new URLSearchParams(location.search);
+        const patientId = params.get('patientId');
         if (!patientId) {
           showError(t('wsErrMissingPatientId'));
           return;
@@ -222,6 +225,11 @@
           location.href = 'index.html';
           return;
         }
+
+        // Worklist can hand us the display name so the strip never flashes the
+        // id stub while /v1/shares resolves.
+        const fromQuery = (params.get('name') || '').trim();
+        if (fromQuery) applyPatientLabel(fromQuery);
 
         document.getElementById('refresh-snapshot-btn').hidden = false;
         setSyncHint(t('wsLoadingSnapshot'), true);
@@ -238,7 +246,13 @@
           setSyncHint('', false);
           return false;
         });
-        applyPatientLabel(await labelPromise);
+        const resolved = await labelPromise;
+        // Prefer a real resolved name; keep the query hint if shares only gave soft “Patient”.
+        if (resolved && resolved !== t('wsBannerPatient')) {
+          applyPatientLabel(resolved);
+        } else if (!patientLabel) {
+          applyPatientLabel(resolved);
+        }
         await renderPromise;
       }
 

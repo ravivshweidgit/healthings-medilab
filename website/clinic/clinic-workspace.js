@@ -1462,6 +1462,10 @@
       : t('wsBannerNoRules');
     const syncLabel = formatRelativeSync(ctx.blob?.createdAt);
     const name = displayName || (ctx.selfView ? t('wsBannerYou') : t('wsBannerPatient'));
+    // Account only: muted chip after Synced (not before the name — that competed with identity).
+    const readonlyChip = ctx.selfView
+      ? `<span class="chip off ws-case-readonly" title="${esc(t('wsMealReadonlySelf'))}">${esc(t('wsBannerReadonly'))}</span>`
+      : '';
 
     const stats = body
       ? [
@@ -1481,7 +1485,7 @@
       : `<div class="ws-stat ws-stat-empty"><span class="ws-stat-lbl">${esc(t('wsBannerBody'))}</span><span class="ws-stat-val">${esc(t('wsBannerNoScan'))}</span></div>`;
 
     el.hidden = false;
-    // One horizontal strip — name + demographics + rules + stats + sync.
+    // One horizontal strip — name + demographics + rules + stats + sync (+ readonly on account).
     // Topbar used to repeat name/sync/rules; that also drifted two “Synced … ago” clocks.
     // Rules chip: green when any rules are active (clinic overlay or self) — same chrome language.
     el.innerHTML = `
@@ -1491,6 +1495,7 @@
         <span class="chip ${n > 0 ? 'ok' : 'off'}">${esc(rulesLabel)}</span>
         <div class="ws-banner-stats" title="${esc(scanTitle)}">${stats}</div>
         <span class="ws-banner-sync" title="${esc(supportMetaTitle(ctx.blob))}">${esc(syncLabel)}</span>
+        ${readonlyChip}
       </div>`;
   }
 
