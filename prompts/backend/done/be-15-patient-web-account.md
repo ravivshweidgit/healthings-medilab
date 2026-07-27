@@ -376,11 +376,13 @@ Files: `website/account/index.html` (new), `website/account/account.js` (new),
 - [ ] Upload path already runs on clinic request — extend it to also upload when web view is on
 - [ ] Off-state copy matches the website wording
 
-## Refresh — deliberately omitted
+## Refresh — account matches clinic (2026-07-27)
 
-No self-refresh request in alpha. `sync_update_requests.mentor_id` is `NOT NULL` with a
-`UNIQUE (patient_id, mentor_id)` constraint, so a self-request means schema churn for little gain.
-The page shows *"Snapshot from {date} · open the app to refresh"*. Revisit if users ask.
+Account **Refresh snapshot** uses the same `POST …/request-sync` + poll
+`…/sync-status` path as clinic (`requestSyncUpdate` / `getSyncStatusForActor`).
+Patient self-requests store `mentor_id = patient_id` in `sync_update_requests`.
+The app fulfills any pending request when a clinic share is approved **or** My
+web view is on (`fulfillPendingClinicSyncRequests`).
 
 ## Acceptance criteria
 
@@ -398,7 +400,7 @@ The page shows *"Snapshot from {date} · open the app to refresh"*. Revisit if u
 ## Out of scope
 
 - ~~Any patient **editing** on web — read-only, always~~ — **Rules edit allowed** (2026-07-27); chat compose still out of scope
-- Real-time sync or web-initiated refresh
+- Real-time sync beyond request-sync poll (account + clinic already poll after Refresh)
 - Localizing `/account/` — English first, matching the clinic portal per the language policy
 - Stripe / paid plans on the patient side
 

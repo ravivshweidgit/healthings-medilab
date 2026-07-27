@@ -15,8 +15,8 @@ import { saveDietaryRules } from '../services/dietaryRules.js';
 import { CLINIC_CHAT_LOCALES, mentorChatReply } from '../services/geminiClinic.js';
 import {
   SyncRequestError,
-  getPatientSyncStatusForMentor,
-  requestPatientSyncUpdate,
+  getSyncStatusForActor,
+  requestSyncUpdate,
 } from '../services/syncRequests.js';
 
 export async function registerClinicRoutes(app: FastifyInstance) {
@@ -125,8 +125,7 @@ export async function registerClinicRoutes(app: FastifyInstance) {
     const user = await findUserById(request.userId!);
     if (!user) return reply.code(404).send({ error: 'User not found' });
     try {
-      const status = await getPatientSyncStatusForMentor(user, params.patientId);
-      return status;
+      return await getSyncStatusForActor(user, params.patientId);
     } catch (err) {
       if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
       if (err instanceof SyncRequestError) return reply.code(err.status).send({ error: err.message });
@@ -139,8 +138,9 @@ export async function registerClinicRoutes(app: FastifyInstance) {
     const user = await findUserById(request.userId!);
     if (!user) return reply.code(404).send({ error: 'User not found' });
     try {
-      const requestRow = await requestPatientSyncUpdate(user, params.patientId);
-      const status = await getPatientSyncStatusForMentor(user, params.patientId);
+      // Mentor or patient self — same service (requestSyncUpdate).
+      const requestRow = await requestSyncUpdate(user, params.patientId);
+      const status = await getSyncStatusForActor(user, params.patientId);
       return { request: requestRow, status };
     } catch (err) {
       if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });

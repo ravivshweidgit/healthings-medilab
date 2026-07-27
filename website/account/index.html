@@ -232,6 +232,7 @@
           <!-- Brand stands in for clinic’s ← back link. Read-only sits after Synced in the banner. -->
           <span class="ws-case-brand ws-case-lead">My data</span>
           <div id="patient-banner" class="ws-case-header" hidden></div>
+          <span id="sync-status-hint" class="meta sync-status-hint" hidden></span>
           <!-- Same right cluster as clinic: Appearance + Refresh. Account-only
                actions live in the overflow so the strip density matches. -->
           <div class="ws-case-actions">
@@ -270,7 +271,7 @@
     <script src="../clinic/clinic-workspace-i18n.js?v=20260727g"></script>
     <script src="../clinic/clinic-theme.js?v=20260727c"></script>
     <script src="../clinic/clinic-charts.js?v=20260727o"></script>
-    <script src="../clinic/clinic-workspace.js?v=20260727u"></script>
+    <script src="../clinic/clinic-workspace.js?v=20260727v"></script>
     <script>
       ClinicI18n.applyDocumentLocale();
       ClinicTheme.applyThemePref();
@@ -544,6 +545,24 @@
       document.getElementById('fatal-retry').onclick = () => void boot();
 
       // --- snapshot --------------------------------------------------------
+      const { t } = ClinicI18n;
+      let pollTimer = null;
+      let workspacePatientId = null;
+
+      function setSyncHint(text, show) {
+        const hint = document.getElementById('sync-status-hint');
+        if (!hint) return;
+        hint.textContent = text || '';
+        hint.hidden = !show;
+      }
+
+      function stopPolling() {
+        if (pollTimer) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+      }
+
       function showSkeleton() {
         document.getElementById('ws-tabs').hidden = true;
         document.getElementById('ws-main').innerHTML =
@@ -556,6 +575,12 @@
         const first = typeof user?.firstName === 'string' ? user.firstName.trim() : '';
         const last = typeof user?.lastName === 'string' ? user.lastName.trim() : '';
         return [first, last].filter(Boolean).join(' ');
+      }
+
+      async function fetchSyncStatus(patientId) {
+        const res = await api('/v1/clinic/patients/' + encodeURIComponent(patientId) + '/sync-status');
+        if (!res.ok) return null;
+        return res.json();
       }
 
       async function renderSnapshot() {
@@ -582,6 +607,7 @@
         }
 
         const blob = data.blob;
+        workspacePatientId = blob.patientId;
         const ctx = {
           patientId: blob.patientId,
           parsed,
@@ -607,13 +633,64 @@
         ClinicWorkspace.renderWorkspace(main, ctx);
       }
 
-      document.getElementById('refresh-snapshot-btn').onclick = () => {
+      /** Same path as clinic: request-sync → phone upload → poll → reload. */
+      async function refreshSnapshot() {
+        const patientId = workspacePatientId;
+        if (!patientId) {
+          await renderSnapshot();
+          return;
+        }
+
         const btn = document.getElementById('refresh-snapshot-btn');
         btn.disabled = true;
-        void renderSnapshot().finally(() => {
+        const prevLabel = btn.textContent;
+        btn.textContent = t('wsRefreshing');
+        stopPolling();
+
+        try {
+          const reqRes = await api(
+            '/v1/clinic/patients/' + encodeURIComponent(patientId) + '/request-sync',
+            { method: 'POST', body: '{}' },
+          );
+          if (!reqRes.ok) {
+            const err = await reqRes.json().catch(() => ({}));
+            alert(err.error || t('wsErrCouldNotRefresh'));
+            return;
+          }
+
+          await renderSnapshot();
+
+          let status = await fetchSyncStatus(patientId);
+          if (!status?.waitingOnPatient) {
+            setSyncHint('', false);
+            return;
+          }
+
+          setSyncHint(t('wsWaitingForUpload'), true);
+
+          let attempts = 0;
+          pollTimer = setInterval(async () => {
+            attempts += 1;
+            status = await fetchSyncStatus(patientId);
+            if (!status?.waitingOnPatient) {
+              stopPolling();
+              setSyncHint(t('wsNewSnapshotReceived'), true);
+              await renderSnapshot();
+              setTimeout(() => setSyncHint('', false), 4000);
+              return;
+            }
+            if (attempts >= 20) {
+              stopPolling();
+              setSyncHint(t('wsStillWaiting'), true);
+            }
+          }, 3000);
+        } finally {
           btn.disabled = false;
-        });
-      };
+          btn.textContent = prevLabel;
+        }
+      }
+
+      document.getElementById('refresh-snapshot-btn').onclick = () => void refreshSnapshot();
 
       // --- boot ------------------------------------------------------------
       async function boot() {

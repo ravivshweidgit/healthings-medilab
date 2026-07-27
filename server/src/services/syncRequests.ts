@@ -81,6 +81,46 @@ export async function requestPatientSyncUpdate(mentor: PublicUser, patientId: st
   return toPublicRequest(rows[0]!);
 }
 
+/**
+ * Clinic mentor or patient self — same table/row shape.
+ * Self-request uses mentor_id = patient_id (allowed; UNIQUE is per pair).
+ */
+export async function requestSyncUpdate(
+  actor: PublicUser,
+  patientId: string,
+): Promise<SyncUpdateRequest> {
+  if (actor.role === 'patient') {
+    if (actor.id !== patientId) {
+      throw new SyncRequestError('Patients can only refresh their own snapshot', 403);
+    }
+    const { rows: flag } = await query<{ on: boolean }>(
+      `SELECT web_view_enabled AS on FROM users WHERE id = $1`,
+      [actor.id],
+    );
+    if (flag[0]?.on !== true) {
+      throw new SyncRequestError('Turn on your web view to refresh your snapshot', 403);
+    }
+
+    const { rows } = await query<RequestRow>(
+      `WITH upsert AS (
+         INSERT INTO sync_update_requests (patient_id, mentor_id)
+         VALUES ($1, $2)
+         ON CONFLICT (patient_id, mentor_id)
+         DO UPDATE SET requested_at = NOW()
+         RETURNING id, patient_id, mentor_id, requested_at
+       )
+       SELECT u.id, u.patient_id, u.mentor_id, u.requested_at,
+              m.email AS mentor_email, m.display_name AS mentor_display_name
+       FROM upsert u
+       JOIN users m ON m.id = u.mentor_id`,
+      [patientId, patientId],
+    );
+    return toPublicRequest(rows[0]!);
+  }
+
+  return requestPatientSyncUpdate(actor, patientId);
+}
+
 export async function listSyncUpdateRequestsForPatient(patient: PublicUser): Promise<SyncUpdateRequest[]> {
   if (patient.role !== 'patient') {
     throw new SyncRequestError('Only patients can list sync requests', 403);
@@ -117,11 +157,28 @@ export async function getPatientSyncStatusForMentor(
   patientId: string,
 ): Promise<PatientSyncStatus> {
   await assertMentorPatientAccess(mentor, patientId, SyncRequestError);
+  return loadSyncStatus(patientId, mentor.id);
+}
 
+/** Clinic mentor or patient self — same waitingOnPatient semantics. */
+export async function getSyncStatusForActor(
+  actor: PublicUser,
+  patientId: string,
+): Promise<PatientSyncStatus> {
+  if (actor.role === 'patient') {
+    if (actor.id !== patientId) {
+      throw new SyncRequestError('Patients can only read their own sync status', 403);
+    }
+    return loadSyncStatus(patientId, patientId);
+  }
+  return getPatientSyncStatusForMentor(actor, patientId);
+}
+
+async function loadSyncStatus(patientId: string, requesterId: string): Promise<PatientSyncStatus> {
   const { rows } = await query<{ requested_at: Date }>(
     `SELECT requested_at FROM sync_update_requests
      WHERE patient_id = $1 AND mentor_id = $2`,
-    [patientId, mentor.id],
+    [patientId, requesterId],
   );
 
   const { rows: fullRows } = await query<{

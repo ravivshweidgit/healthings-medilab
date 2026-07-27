@@ -16,9 +16,9 @@ import { shareClinicExport, type ShareExportResult } from './ShareExportService'
 export const CLINIC_SYNC_POLL_MS = 10_000;
 
 /**
- * The clinic can press Refresh snapshot; the patient's own page has no such
- * button, so the app pushes on launch and on foreground instead. Throttled so
- * that switching apps repeatedly does not re-upload each time.
+ * The clinic can press Refresh snapshot; the patient's /account/ page uses the
+ * same request-sync path. App polls while dashboard is mounted so either works
+ * if the app was already open.
  */
 const WEB_VIEW_PUSH_MIN_INTERVAL_MS = 10 * 60_000;
 
@@ -40,17 +40,16 @@ async function hasSnapshotConsumer(): Promise<boolean> {
 }
 
 /**
- * Upload latest snapshot if any clinic has a pending sync request.
- *
- * Stays clinic-only on purpose: only a clinic can create a request, and the
- * approved-share check guards the case where the link was revoked after asking.
+ * Upload latest snapshot if any pending sync request exists.
+ * Clinic refresh and account Refresh snapshot both create requests;
+ * upload when a clinic share is approved and/or My web view is on.
  */
 export async function fulfillPendingClinicSyncRequests(): Promise<boolean> {
   if (inFlight) return inFlight;
 
   inFlight = (async () => {
     try {
-      const [requests, approved] = await Promise.all([
+      const [requests, approved, webView] = await Promise.all([
         fetchSyncUpdateRequests().catch((err) => {
           console.warn('[ClinicSync] fetch requests failed:', err);
           return [];
@@ -59,8 +58,10 @@ export async function fulfillPendingClinicSyncRequests(): Promise<boolean> {
           console.warn('[ClinicSync] list shares failed:', err);
           return [];
         }),
+        webViewIsOn(),
       ]);
-      if (requests.length === 0 || approved.length === 0) return false;
+      if (requests.length === 0) return false;
+      if (approved.length === 0 && !webView) return false;
       await shareClinicExport('90d');
       return true;
     } catch (err) {
