@@ -1,11 +1,12 @@
 # be-29 — Patient workspace i18n (`clinicLocale`)
 
-**Status:** needs-review  
+**Status:** done — owner accepted 2026-07-27 (“ok for first iteration… 95% looks ok”; minor polish deferred)  
 **Model to implement:** Auto  
 **Authored by:** Opus 5 (clinic locale revise)  
 **Depends on:** be-28 (wording freeze — extract once), be-26 (catalog + picker), language-policy.mdc  
 **Splits from:** be-28 P4  
-**Implemented:** 2026-07-27 (Auto)
+**Implemented:** 2026-07-27 (Auto) — commit `07a839d`  
+**Deployed:** healthings.ai clinic workspace
 
 ## Problem
 
@@ -43,14 +44,19 @@ translating patient-authored content or the always-English glossary.
 - [x] `patient.html` loads `clinic-i18n.js` and applies `lang` / `dir` from
       `healthings_clinic_locale`
 - [x] All 8 tab labels + banner metric labels + chart titles use `t()` (catalog verified he/en)
-- [ ] Hebrew clinic: worklist → patient workspace stays Hebrew chrome; patient meal/rules
-      text unchanged — **owner smoke**
-- [ ] English clinic + Hebrew patient: chrome English; mentor chat still English (be-28) — **owner smoke**
+- [x] Hebrew clinic: worklist → patient workspace stays Hebrew chrome; patient meal/rules
+      text unchanged — owner accepted (first iteration)
+- [x] English clinic + Hebrew patient: chrome English; mentor chat still English (be-28) — owner accepted
 - [x] RTL (he/ar): `html[dir=rtl]` via `applyDocumentLocale`; patient prose still `dir="auto"`
 - [x] Every new `ws*` key present in all 10 locales (no blank labels) — node parity check 203 keys
 - [x] Glossary tokens still English in catalog (kcal, BMR, LDL, viewport chips, …)
 - [x] `/account/` selfView notes use `ws*Self` keys; loads same catalog
 - [x] `?v=` bumped
+
+## Deferred / polish
+
+Owner: minor issues remain (~5%); not blocking. Capture in a follow-up when listed —
+do not invent a second i18n batch until the owner names the leaks.
 
 ## Out of scope
 
@@ -61,23 +67,6 @@ translating patient-authored content or the always-English glossary.
 - Re-opening be-28 IA / layout
 - Workspace locale picker in topbar (nice-to-have; worklist picker is enough)
 
-## Review by Opus 5 / owner
-
-**Evidence to capture**
-
-- Hard-refresh patient workspace after setting portal locale `he` on worklist
-- Tabs + banner (Weight/Muscle/…) + FOOD LOG / TREND / ENERGY titles in Hebrew
-- Open Food log meal: meal name / rules prose still patient-authored; chrome localized
-- Locale `en` with Hebrew patient snapshot: chrome English; chat still English
-- RTL: banner strip + tabs + chat compose
-
-**Judgment calls to check**
-
-- Do uppercase strip titles (`TREND ANALYSIS` → localized) feel right, or should some
-  stay English like the phone?
-- Is a workspace locale picker needed, or is “set on worklist” enough?
-- Any chrome string still leaking English on a secondary tab?
-
 ## Agent checklist
 
 - [x] Status → `in_progress`
@@ -85,4 +74,4 @@ translating patient-authored content or the always-English glossary.
 - [x] Wire `t()` + load i18n on `patient.html`
 - [x] Grep pass for leftover chrome English
 - [x] Status → `needs-review` + evidence; update `prompts/backend/README.md`
-- [ ] Do **not** move to `done/` without owner acceptance
+- [x] Owner accepted → moved to `done/`
