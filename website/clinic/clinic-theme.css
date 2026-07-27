@@ -190,6 +190,21 @@ html.theme-pref-dark .meal-chip {
   border-color: #2a2a2a;
 }
 
+/* Energy balance pill */
+.theme-pref-dark .food-log-card .balance-pill.deficit,
+.theme-pref-dark .food-log-card .balance-pill.surplus,
+html.theme-pref-dark .food-log-card .balance-pill.deficit,
+html.theme-pref-dark .food-log-card .balance-pill.surplus {
+  background: #000000;
+  border: 1px solid #2a2a2a;
+}
+
+/* Macro meter tracks */
+.theme-pref-dark .macro-row .track,
+html.theme-pref-dark .macro-row .track {
+  background: #000000;
+}
+
 @media (prefers-color-scheme: dark) {
   .theme-pref-system .ws-banner-stats,
   html.theme-pref-system .ws-banner-stats {
@@ -222,6 +237,19 @@ html.theme-pref-dark .meal-chip {
   html.theme-pref-system .meal-chip {
     background: #000000;
     border-color: #2a2a2a;
+  }
+
+  .theme-pref-system .food-log-card .balance-pill.deficit,
+  .theme-pref-system .food-log-card .balance-pill.surplus,
+  html.theme-pref-system .food-log-card .balance-pill.deficit,
+  html.theme-pref-system .food-log-card .balance-pill.surplus {
+    background: #000000;
+    border: 1px solid #2a2a2a;
+  }
+
+  .theme-pref-system .macro-row .track,
+  html.theme-pref-system .macro-row .track {
+    background: #000000;
   }
 }
 

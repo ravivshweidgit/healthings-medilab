@@ -551,7 +551,7 @@
                   : esc(t('wsEnergyBmrDetail', { n: parts.bmr.toLocaleString() }))}</span>`
                 : ''}</span>
             </div>` : ''}
-            ${balance != null ? `<div class="balance-pill ${isDeficit ? 'deficit' : 'surplus'}"><span class="energy-num">${Math.abs(Math.round(balance)).toLocaleString()}</span><span class="energy-label">kcal ${isDeficit ? esc(t('wsKcalDeficit')) : esc(t('wsKcalSurplus'))}</span></div>` : ''}
+            ${balance != null ? `<div class="balance-pill ${isDeficit ? 'deficit' : 'surplus'}"><span class="energy-num">${Math.abs(Math.round(balance)).toLocaleString()}</span><span class="energy-label">${isDeficit ? esc(t('wsKcalDeficit')) : esc(t('wsKcalSurplus'))}</span></div>` : ''}
           </div>
           ${showBars ? `
           <div class="macro-bars">
