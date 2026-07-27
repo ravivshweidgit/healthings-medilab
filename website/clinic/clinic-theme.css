@@ -258,6 +258,41 @@ html.theme-pref-dark .bubble.assistant {
   border-color: #2a2a2a;
 }
 
+/* Rules editor + clinical text blocks */
+.theme-pref-dark .rules-fold,
+html.theme-pref-dark .rules-fold {
+  background: #000000;
+  border-color: #2a2a2a;
+}
+.theme-pref-dark .rules-fold-toggle,
+html.theme-pref-dark .rules-fold-toggle {
+  background: #000000;
+}
+.theme-pref-dark .rules-editor-section textarea,
+.theme-pref-dark .rules-editor-section #rules-raw,
+html.theme-pref-dark .rules-editor-section textarea,
+html.theme-pref-dark .rules-editor-section #rules-raw {
+  background: #000000;
+  border-color: #2a2a2a;
+  color: var(--text);
+}
+.theme-pref-dark .rules-history-detail,
+html.theme-pref-dark .rules-history-detail {
+  background: #000000;
+  border: 1px solid #2a2a2a;
+}
+.theme-pref-dark .rules-raw,
+.theme-pref-dark .coach-summary,
+.theme-pref-dark .reasoning-block,
+html.theme-pref-dark .rules-raw,
+html.theme-pref-dark .coach-summary,
+html.theme-pref-dark .reasoning-block {
+  background: #000000;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  padding: 12px;
+}
+
 @media (prefers-color-scheme: dark) {
   .theme-pref-system .ws-banner-stats,
   html.theme-pref-system .ws-banner-stats {
@@ -352,6 +387,40 @@ html.theme-pref-dark .bubble.assistant {
   html.theme-pref-system .bubble.assistant {
     background: #000000;
     border-color: #2a2a2a;
+  }
+
+  .theme-pref-system .rules-fold,
+  html.theme-pref-system .rules-fold {
+    background: #000000;
+    border-color: #2a2a2a;
+  }
+  .theme-pref-system .rules-fold-toggle,
+  html.theme-pref-system .rules-fold-toggle {
+    background: #000000;
+  }
+  .theme-pref-system .rules-editor-section textarea,
+  .theme-pref-system .rules-editor-section #rules-raw,
+  html.theme-pref-system .rules-editor-section textarea,
+  html.theme-pref-system .rules-editor-section #rules-raw {
+    background: #000000;
+    border-color: #2a2a2a;
+    color: var(--text);
+  }
+  .theme-pref-system .rules-history-detail,
+  html.theme-pref-system .rules-history-detail {
+    background: #000000;
+    border: 1px solid #2a2a2a;
+  }
+  .theme-pref-system .rules-raw,
+  .theme-pref-system .coach-summary,
+  .theme-pref-system .reasoning-block,
+  html.theme-pref-system .rules-raw,
+  html.theme-pref-system .coach-summary,
+  html.theme-pref-system .reasoning-block {
+    background: #000000;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 12px;
   }
 }
 
