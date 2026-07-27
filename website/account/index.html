@@ -13,7 +13,7 @@
       styles.css alongside it would give two competing definitions.
     -->
     <link rel="stylesheet" href="../clinic/clinic-portal.css?v=20260727h" />
-    <link rel="stylesheet" href="../clinic/clinic-workspace.css?v=20260727n" />
+    <link rel="stylesheet" href="../clinic/clinic-workspace.css?v=20260727o" />
     <link rel="stylesheet" href="../clinic/clinic-theme.css?v=20260727c" />
     <style>
       .acct-wrap { max-width: 560px; margin: 0 auto; padding: 32px 16px 48px; }
@@ -231,7 +231,8 @@
         <header class="ws-topbar ws-topbar--case">
           <!-- Brand + readonly chip stand in for clinic’s ← back link (role-specific). -->
           <span class="ws-case-brand">My data</span>
-          <span class="chip soon ws-case-readonly">Read-only</span>
+          <!-- Muted, not amber: read-only is what this page always is, not a warning. -->
+          <span class="chip off ws-case-readonly" title="This page shows a read-only snapshot from your phone.">Read-only</span>
           <div id="patient-banner" class="ws-case-header" hidden></div>
           <!-- Same right cluster as clinic: Appearance + Refresh. Account-only
                actions live in the overflow so the strip density matches. -->
