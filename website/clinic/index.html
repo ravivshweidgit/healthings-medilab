@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="en" class="theme-pref-system">
+<html lang="en" class="theme-clinic">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Healthings — Clinic portal</title>
-    <script src="clinic-theme-boot.js?v=20260727a"></script>
+    <script src="clinic-theme-boot.js?v=20260727b"></script>
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="../styles.css?v=20260726g" />
     <link rel="stylesheet" href="clinic-portal.css?v=20260727h" />
-    <link rel="stylesheet" href="clinic-theme.css?v=20260727a" />
+    <link rel="stylesheet" href="clinic-theme.css?v=20260727b" />
   </head>
   <body>
     <div class="portal-wrap">
@@ -64,8 +64,6 @@
 
         <label class="field-label" for="locale-login" data-i18n="languageLabel">Portal language</label>
         <select id="locale-login" class="portal-select" data-locale-picker></select>
-        <label class="field-label" for="theme-login" data-i18n="appearanceLabel">Appearance</label>
-        <select id="theme-login" class="portal-select theme-pref-select" data-theme-picker data-i18n-aria="appearanceLabel"></select>
       </section>
 
       <section id="app-view" hidden>
@@ -85,12 +83,6 @@
               class="portal-select"
               data-locale-picker
               data-i18n-aria="languageLabel"
-            ></select>
-            <select
-              id="theme-app"
-              class="portal-select theme-pref-select"
-              data-theme-picker
-              data-i18n-aria="appearanceLabel"
             ></select>
             <button id="logout" class="portal-btn secondary" type="button" data-i18n="signOut">
               Sign out
@@ -270,7 +262,7 @@
     </div>
 
     <script src="clinic-i18n.js?v=20260727f"></script>
-    <script src="clinic-theme.js?v=20260727a"></script>
+    <script src="clinic-theme.js?v=20260727b"></script>
     <script src="clinic-api.js?v=20260726k"></script>
     <script>
       const { api, loadTokens, saveTokens, clearTokens } = ClinicApi;
@@ -383,7 +375,6 @@
         ClinicI18n.applyDocumentLocale();
         hydrateStaticCopy();
         buildLocalePickers();
-        ClinicTheme.bindThemePickers();
         renderWorklist();
       }
 

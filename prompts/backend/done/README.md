@@ -69,6 +69,7 @@ Full record: `be-08-clinic-portal-ux.md`.
 | `be-27-patient-names.md` | Patient first/last name for clinic findability | 2026-07-27 — owner: "looks good now"; `2cdbadd`…`6156c30` |
 | `be-28-workspace-clinical-ia.md` | Patient workspace: stop mirroring the phone | 2026-07-27 — owner: "Accept be-28"; `ffdc814`…`510afc3` |
 | `be-29-workspace-i18n.md` | Patient workspace i18n (`clinicLocale`) | 2026-07-27 — owner: first iteration ok (~95%); `07a839d`; minor polish deferred |
+| `be-31-clinic-dark-theme.md` | Clinic + account dark theme (app tokens, OS only) | 2026-07-27 — owner: “ok dark mode is working”; no Appearance picker |
 
 be-22 was written first, then mostly absorbed by be-25 on the home page; what shipped under be-22 is the
 patient workspace half plus money-led balance. be-25 and be-26 are one decision split in two: the owner
