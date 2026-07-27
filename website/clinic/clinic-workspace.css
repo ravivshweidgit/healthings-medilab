@@ -114,7 +114,8 @@ h3,
   flex-wrap: nowrap;
 }
 .ws-topbar--case .ws-case-header {
-  flex: 1 1 auto;
+  /* Do not grow — keeps Sync + Refresh tight against the body stats. */
+  flex: 0 1 auto;
   min-width: 0;
   margin: 0;
   padding: 0;
@@ -162,7 +163,7 @@ h3,
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  margin-inline-start: auto;
+  margin-inline-start: 0;
   flex-shrink: 0;
 }
 .ws-topbar--case #refresh-snapshot-btn,
