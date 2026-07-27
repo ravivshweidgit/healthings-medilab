@@ -27,7 +27,7 @@ export async function sendPatientAppChat(
     throw new SyncError('Invalid dayKey', 400);
   }
 
-  const { priorThread, replyLocale } = await loadPatientAppChatThread(user, mentorType);
+  const { priorThread, replyLocale } = await loadPatientAppChatThread(user, mentorType, dayKey);
 
   const replyText = await mentorChatReplyForPatient(
     mentorType,

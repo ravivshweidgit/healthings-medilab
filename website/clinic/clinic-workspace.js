@@ -116,14 +116,15 @@
   }
 
   /**
-   * Patient app coach threads (chat_history_*). Used on /account/ only —
-   * clinic renderChat never reads this (be-24).
+   * Patient app coach threads for /account/ — today only (no history pile-up).
+   * Clinic renderChat never reads this (be-24).
    */
   function parseAppChatFromStore(store) {
+    const today = todayKey();
     const byMentor = { doctor: [], nutritionist: [], coach: [] };
     for (const [key, raw] of Object.entries(store || {})) {
       const m = key.match(/^chat_history_(\d{4}-\d{2}-\d{2})(?:_(doctor|nutritionist|coach))?$/);
-      if (!m) continue;
+      if (!m || m[1] !== today) continue;
       const mentor = m[2] || 'nutritionist';
       try {
         const msgs = JSON.parse(raw);

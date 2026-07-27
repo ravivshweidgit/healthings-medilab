@@ -494,11 +494,13 @@ function lastChatSentAt(msgs: AppChatMessage[]): number {
 function collectMentorThread(
   store: Record<string, string>,
   mentorType: string,
+  dayKey?: string,
 ): AppChatMessage[] {
   const out: AppChatMessage[] = [];
   for (const [key, raw] of Object.entries(store)) {
     const m = key.match(/^chat_history_(\d{4}-\d{2}-\d{2})(?:_(doctor|nutritionist|coach))?$/);
     if (!m) continue;
+    if (dayKey && m[1] !== dayKey) continue;
     const mentor = m[2] || 'nutritionist';
     if (mentor !== mentorType) continue;
     out.push(...parseAppChatMessages(raw));
@@ -521,50 +523,85 @@ function localeFromSnapshotStore(store: Record<string, string>): string | null {
 }
 
 /**
- * Prefer web-appended coach threads when the phone uploads an older copy.
+ * App → account chat is today-only (no history pile-up).
+ * Keep web messages for that day when they are newer than the phone copy;
+ * drop every other chat_history_* day from the stored blob.
  */
 function mergeNewerServerAppChat(
   incomingGzip: Buffer,
   existingGzip: Buffer | null,
 ): Buffer {
-  if (!existingGzip) return incomingGzip;
-
-  let serverJson: string;
   let phoneJson: string;
   try {
-    serverJson = decompressSyncPayload(existingGzip);
     phoneJson = decompressSyncPayload(incomingGzip);
   } catch {
     return incomingGzip;
   }
 
-  let serverParsed: { asyncStorage?: Record<string, string>; [k: string]: unknown };
   let phoneParsed: { asyncStorage?: Record<string, string>; [k: string]: unknown };
   try {
-    serverParsed = JSON.parse(serverJson) as { asyncStorage?: Record<string, string> };
     phoneParsed = JSON.parse(phoneJson) as { asyncStorage?: Record<string, string> };
   } catch {
     return incomingGzip;
   }
-
-  const serverStore = serverParsed.asyncStorage;
-  if (!serverStore || typeof serverStore !== 'object') return incomingGzip;
   if (!phoneParsed.asyncStorage || typeof phoneParsed.asyncStorage !== 'object') {
     phoneParsed.asyncStorage = {};
   }
   const phoneStore = phoneParsed.asyncStorage;
 
+  let serverStore: Record<string, string> = {};
+  if (existingGzip) {
+    try {
+      const serverParsed = JSON.parse(decompressSyncPayload(existingGzip)) as {
+        asyncStorage?: Record<string, string>;
+      };
+      if (serverParsed.asyncStorage && typeof serverParsed.asyncStorage === 'object') {
+        serverStore = serverParsed.asyncStorage;
+      }
+    } catch {
+      serverStore = {};
+    }
+  }
+
+  const phoneDays = Object.keys(phoneStore)
+    .map((k) => {
+      const m = k.match(/^chat_history_(\d{4}-\d{2}-\d{2})/);
+      return m?.[1] ?? null;
+    })
+    .filter((d): d is string => !!d)
+    .sort();
+  const keepDay = phoneDays.length > 0 ? phoneDays[phoneDays.length - 1]! : new Date().toISOString().slice(0, 10);
+
+  const mentors = ['doctor', 'nutritionist', 'coach'] as const;
+  const nextChat: Record<string, string> = {};
+  for (const mentor of mentors) {
+    const key = `chat_history_${keepDay}_${mentor}`;
+    const legacyKey = `chat_history_${keepDay}`;
+    const serverMsgs = [
+      ...parseAppChatMessages(serverStore[key]),
+      ...(mentor === 'nutritionist' ? parseAppChatMessages(serverStore[legacyKey]) : []),
+    ];
+    const phoneMsgs = [
+      ...parseAppChatMessages(phoneStore[key]),
+      ...(mentor === 'nutritionist' ? parseAppChatMessages(phoneStore[legacyKey]) : []),
+    ];
+    let chosen = phoneMsgs;
+    if (serverMsgs.length && (!phoneMsgs.length || lastChatSentAt(serverMsgs) > lastChatSentAt(phoneMsgs))) {
+      chosen = serverMsgs;
+    }
+    if (chosen.length) nextChat[key] = JSON.stringify(chosen);
+  }
+
   let changed = false;
-  const keys = new Set([
-    ...Object.keys(serverStore).filter((k) => CHAT_HISTORY_KEY.test(k)),
-    ...Object.keys(phoneStore).filter((k) => CHAT_HISTORY_KEY.test(k)),
-  ]);
-  for (const key of keys) {
-    const serverMsgs = parseAppChatMessages(serverStore[key]);
-    const phoneMsgs = parseAppChatMessages(phoneStore[key]);
-    if (!serverMsgs.length) continue;
-    if (!phoneMsgs.length || lastChatSentAt(serverMsgs) > lastChatSentAt(phoneMsgs)) {
-      phoneStore[key] = JSON.stringify(serverMsgs);
+  for (const key of Object.keys(phoneStore)) {
+    if (CHAT_HISTORY_KEY.test(key)) {
+      delete phoneStore[key];
+      changed = true;
+    }
+  }
+  for (const [key, raw] of Object.entries(nextChat)) {
+    if (phoneStore[key] !== raw) {
+      phoneStore[key] = raw;
       changed = true;
     }
   }
@@ -575,6 +612,7 @@ function mergeNewerServerAppChat(
 export async function loadPatientAppChatThread(
   user: PublicUser,
   mentorType: string,
+  dayKey?: string,
 ): Promise<{ priorThread: AppChatMessage[]; replyLocale: string | null }> {
   await assertPatientWebViewOn(user);
 
@@ -599,8 +637,9 @@ export async function loadPatientAppChatThread(
     throw new SyncError('Invalid sync payload', 400);
   }
   const store = parsed.asyncStorage || {};
+  const day = dayKey || new Date().toISOString().slice(0, 10);
   return {
-    priorThread: collectMentorThread(store, mentorType),
+    priorThread: collectMentorThread(store, mentorType, day),
     replyLocale: localeFromSnapshotStore(store),
   };
 }
@@ -649,6 +688,12 @@ export async function appendPatientAppChatMessages(
   const key = `chat_history_${dayKey}_${mentorType}`;
   const dayMsgs = parseAppChatMessages(parsed.asyncStorage[key]);
   dayMsgs.push(userMsg, assistantMsg);
+  // Today-only: drop other days so account chat does not pile history.
+  for (const k of Object.keys(parsed.asyncStorage)) {
+    if (CHAT_HISTORY_KEY.test(k) && k !== key) {
+      delete parsed.asyncStorage[k];
+    }
+  }
   parsed.asyncStorage[key] = JSON.stringify(dayMsgs.slice(-APP_CHAT_MAX_MESSAGES));
 
   const stored = deflateSync(Buffer.from(JSON.stringify(parsed), 'utf8'));
@@ -662,5 +707,5 @@ export async function appendPatientAppChatMessages(
   );
   await query(`DELETE FROM sync_blobs WHERE patient_id = $1 AND version < $2`, [user.id, version]);
 
-  return collectMentorThread(parsed.asyncStorage, mentorType);
+  return collectMentorThread(parsed.asyncStorage, mentorType, dayKey);
 }

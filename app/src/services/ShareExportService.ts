@@ -148,9 +148,15 @@ export async function buildClinicExport(
   const cutoffDay = lookbackMode === 'full' ? '1970-01-01' : cutoffDayKey(lookbackDays);
 
   const allKeys = await AsyncStorage.getAllKeys();
-  // Chat is included for patient /account/ (web view). Clinic mentor downloads
-  // strip chat_history_* server-side (be-24) — never show coach chat to clinicians.
-  const exportKeys = allKeys.filter((k) => !EXCLUDED_ASYNC_KEYS.has(k));
+  // Chat: today only for /account/ (no long history). Clinic mentor downloads
+  // strip all chat_history_* (be-24).
+  const today = todayKey();
+  const exportKeys = allKeys.filter((k) => {
+    if (EXCLUDED_ASYNC_KEYS.has(k)) return false;
+    const cd = chatDayFromKey(k);
+    if (cd != null && cd !== today) return false;
+    return true;
+  });
   const pairs = await AsyncStorage.multiGet(exportKeys);
 
   const asyncStorage: Record<string, string> = {};
@@ -167,8 +173,6 @@ export async function buildClinicExport(
     if (lookbackMode !== 'full') {
       const fd = foodDayFromKey(key);
       if (fd && fd < cutoffDay) continue;
-      const cd = chatDayFromKey(key);
-      if (cd && cd < cutoffDay) continue;
       if (key === HEALTH_METRICS_CACHE_KEY) {
         asyncStorage[key] = trimCgm(value, cutoffDay);
         continue;
