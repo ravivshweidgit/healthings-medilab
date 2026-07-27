@@ -1262,32 +1262,23 @@
     if (btn) btn.disabled = true;
     if (status) status.textContent = t('wsRulesSaving');
     try {
-      const res = ctx.selfView
-        ? await ctx.api('/v1/account/rules', {
-            method: 'PUT',
-            body: JSON.stringify({ rawText: raw }),
-          })
-        : await ctx.api(`/v1/clinic/patients/${ctx.patientId}/rules`, {
-            method: 'PUT',
-            body: JSON.stringify({ rawText: raw }),
-          });
+      // One route for clinic + account — server saveDietaryRules branches by role.
+      const res = await ctx.api(`/v1/clinic/patients/${ctx.patientId}/rules`, {
+        method: 'PUT',
+        body: JSON.stringify({ rawText: raw }),
+      });
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
         throw new Error(errBody.error || t('wsRulesSaveFailedStatus', { n: res.status }));
       }
       const data = await res.json();
-      if (ctx.selfView) {
-        ctx.parsed.userRules = data.rules;
-        if (status) status.textContent = t('wsRulesSavedSelf');
-        renderRules(panel, ctx);
-        const banner = document.getElementById('patient-banner');
-        if (banner) renderPatientBanner(banner, ctx, ctx.displayName || null);
-      } else {
-        ctx.overlay = data.overlay;
-        if (status) status.textContent = t('wsRulesSaved');
-        renderRules(panel, ctx);
-        void loadRulesHistory(panel, ctx);
-      }
+      if (data.rules) ctx.parsed.userRules = data.rules;
+      if (data.overlay) ctx.overlay = data.overlay;
+      if (status) status.textContent = ctx.selfView ? t('wsRulesSavedSelf') : t('wsRulesSaved');
+      renderRules(panel, ctx);
+      const banner = document.getElementById('patient-banner');
+      if (banner) renderPatientBanner(banner, ctx, ctx.displayName || null);
+      if (!ctx.selfView) void loadRulesHistory(panel, ctx);
     } catch (e) {
       if (status) status.textContent = '';
       const msg = e instanceof Error ? e.message : t('wsRulesSaveFailed');

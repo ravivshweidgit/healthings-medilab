@@ -9,9 +9,9 @@ import {
   getOverlayForMentor,
   getOverlayForPatient,
   getRulesHistoryForMentor,
-  saveRulesForPatient,
   type ClinicUserRules,
 } from '../services/clinicOverlay.js';
+import { saveDietaryRules } from '../services/dietaryRules.js';
 import { CLINIC_CHAT_LOCALES, mentorChatReply } from '../services/geminiClinic.js';
 import {
   SyncRequestError,
@@ -72,9 +72,9 @@ export async function registerClinicRoutes(app: FastifyInstance) {
         constraints: [],
         analyzedAt: new Date().toISOString(),
       };
-      const overlay = await saveRulesForPatient(user, params.patientId, stubRules);
-
-      return { overlay, rules: stubRules };
+      // Same service for mentor (org overlay) and patient self (sync blob).
+      const { overlay, rules } = await saveDietaryRules(user, params.patientId, stubRules);
+      return { overlay, rules };
     } catch (err) {
       if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
       request.log.error(err);

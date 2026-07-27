@@ -7,13 +7,11 @@ import { OtpInvalidError, OtpRateLimitError, createOtpRequest } from '../service
 import {
   SyncError,
   getPatientRulesFromLatestBlob,
-  updatePatientRulesInLatestBlob,
 } from '../services/sync.js';
 import { findUserById, setWebViewEnabled } from '../services/users.js';
 
 const webViewBody = z.object({ enabled: z.boolean() });
 const deleteBody = z.object({ code: z.string().min(4).max(12) });
-const rulesBody = z.object({ rawText: z.string().min(1) });
 
 export async function registerAccountRoutes(app: FastifyInstance) {
   // Reading the current value needs no endpoint: GET /v1/me already carries
@@ -31,7 +29,10 @@ export async function registerAccountRoutes(app: FastifyInstance) {
     return { user: updated };
   });
 
-  /** My Rules from the web-view snapshot — phone pulls this so web edits survive. */
+  /**
+   * Phone pull of My Rules after a web edit.
+   * Writes go through PUT /v1/clinic/patients/:id/rules (saveDietaryRules) — same as clinic.
+   */
   app.get('/v1/account/rules', { preHandler: authenticate }, async (request, reply) => {
     const user = await findUserById(request.userId!);
     if (!user) return reply.code(404).send({ error: 'User not found' });
@@ -41,21 +42,6 @@ export async function registerAccountRoutes(app: FastifyInstance) {
     } catch (err) {
       if (err instanceof SyncError) return reply.code(err.status).send({ error: err.message });
       throw err;
-    }
-  });
-
-  /** Patient edits dietary rules on /account/ — patches the sync blob, not clinic overlay. */
-  app.put('/v1/account/rules', { preHandler: authenticate }, async (request, reply) => {
-    const user = await findUserById(request.userId!);
-    if (!user) return reply.code(404).send({ error: 'User not found' });
-    const body = rulesBody.parse(request.body);
-    try {
-      const rules = await updatePatientRulesInLatestBlob(user, body.rawText);
-      return { rules };
-    } catch (err) {
-      if (err instanceof SyncError) return reply.code(err.status).send({ error: err.message });
-      request.log.error(err);
-      return reply.code(500).send({ error: 'Failed to save rules' });
     }
   });
 
