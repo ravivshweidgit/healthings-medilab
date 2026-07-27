@@ -16,6 +16,7 @@ import {
 import type { AuthUser } from '../services/AuthApiService';
 import { shareSnapshotIfAnyConsumer, shareSnapshotNow } from '../services/ClinicSyncService';
 import {
+  addTokenPack,
   approveShare,
   clinicDisplayLabel,
   fetchWallet,
@@ -27,6 +28,7 @@ import {
   type AccountShare,
   type WalletView,
 } from '../services/ShareApiService';
+import { adoptWalletCredits } from '../services/UsageQueueService';
 import { fetchMyLatestSyncMeta, type PublicSyncBlob } from '../services/SyncApiService';
 import { loadCachedApprovedShares, saveCachedApprovedShares } from '../services/ShareCacheService';
 import { useTheme } from '../theme/ThemeProvider';
@@ -65,6 +67,8 @@ const L = {
   sponsoredUntil: 'until',
   sponsorshipExpired: 'AI sponsorship expired',
   addAccount: 'Request access for account',
+  addPack: 'Add AI token pack',
+  addPackOk: 'Token pack added.',
 } as const;
 
 export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props) {
@@ -92,6 +96,7 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
       setApproved(approvedRows);
       await saveCachedApprovedShares(approvedRows);
       setWallet(walletView);
+      await adoptWalletCredits(walletView);
       setLastSync(syncMeta);
       setError(null);
     } catch (e: unknown) {
@@ -167,11 +172,27 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
       {expanded && (
         <View style={styles.body}>
           {wallet ? (
-            <Text style={styles.creditLine}>
-              AI credits: {wallet.balanceTokens}
-              {wallet.sponsored ? ' (clinic payer)' : ''}
-              {wallet.autoReload ? ' · auto-reload on' : ''}
-            </Text>
+            <View style={styles.creditBlock}>
+              <Text style={styles.creditLine}>
+                AI credits: {wallet.balanceTokens}
+                {wallet.sponsored ? ' (clinic payer)' : ''}
+                {wallet.autoReload ? ' · auto-reload on' : ''}
+              </Text>
+              {!wallet.sponsored ? (
+                <Pressable
+                  style={[styles.secondaryBtn, busy && styles.btnDisabled]}
+                  disabled={busy}
+                  onPress={() =>
+                    void run(async () => {
+                      const result = await addTokenPack();
+                      Alert.alert(L.addPackOk, `+${result.added} credits · balance ${result.balanceTokens}`);
+                    })
+                  }
+                >
+                  <Text style={styles.secondaryBtnText}>{L.addPack}</Text>
+                </Pressable>
+              ) : null}
+            </View>
           ) : null}
 
           {wallet?.sponsored && wallet.sponsoredBy ? (
@@ -365,10 +386,25 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     },
     btnGhostText: { color: c.textSecondary, fontWeight: '600', fontSize: 14 },
     btnDisabled: { opacity: 0.5 },
+    creditBlock: { gap: 8 },
     creditLine: {
       fontSize: 13,
       color: c.textSecondary,
       lineHeight: 18,
+    },
+    secondaryBtn: {
+      borderWidth: 1,
+      borderColor: isDark ? c.accentGreen : '#2E7D5A',
+      backgroundColor: isDark ? c.background : c.surface,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 8,
+      alignSelf: 'flex-start',
+    },
+    secondaryBtnText: {
+      color: isDark ? c.accentGreen : '#2E7D5A',
+      fontWeight: '600',
+      fontSize: 14,
     },
     sponsorBadge: {
       fontSize: 13,

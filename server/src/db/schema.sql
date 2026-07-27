@@ -111,6 +111,9 @@ CREATE TABLE IF NOT EXISTS ai_usage_events (
   gemini_thoughts_tokens INT,
   gemini_total_tokens INT,
   gemini_model TEXT,
+  -- Phone prepaid bucket (be-33): client id for exactly-once flush; occurred_at = phone time.
+  client_event_id UUID,
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -147,6 +150,17 @@ ALTER TABLE ai_usage_events ADD COLUMN IF NOT EXISTS gemini_candidates_tokens IN
 ALTER TABLE ai_usage_events ADD COLUMN IF NOT EXISTS gemini_thoughts_tokens INT;
 ALTER TABLE ai_usage_events ADD COLUMN IF NOT EXISTS gemini_total_tokens INT;
 ALTER TABLE ai_usage_events ADD COLUMN IF NOT EXISTS gemini_model TEXT;
+
+-- Phone batch flush idempotency (be-33).
+ALTER TABLE ai_usage_events ADD COLUMN IF NOT EXISTS client_event_id UUID;
+ALTER TABLE ai_usage_events ADD COLUMN IF NOT EXISTS occurred_at TIMESTAMPTZ;
+UPDATE ai_usage_events SET occurred_at = created_at WHERE occurred_at IS NULL;
+ALTER TABLE ai_usage_events ALTER COLUMN occurred_at SET DEFAULT NOW();
+ALTER TABLE ai_usage_events ALTER COLUMN occurred_at SET NOT NULL;
+
+-- UNIQUE allows multiple NULLs in Postgres — legacy single-event rows stay NULL.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_usage_client_event
+  ON ai_usage_events (client_event_id);
 
 CREATE TABLE IF NOT EXISTS wallets (
   user_id UUID PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,

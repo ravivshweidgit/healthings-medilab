@@ -16,6 +16,11 @@ const EXCLUDED_ASYNC_KEYS = new Set<string>([
   'last_day_close_date',
   'coach_last_weigh_in_at',
   'coach_last_workout_start_ms',
+  // Billing telemetry (be-33) — not health data; server is source of truth.
+  'usage_queue_v1',
+  'usage_credits_left_v1',
+  'usage_sponsored_v1',
+  'usage_last_flush_at_v1',
 ]);
 
 type LocalBackupPayload = {

@@ -310,6 +310,13 @@ export async function restoreAuthSession(): Promise<AuthUser | null> {
 
 export async function logoutAuth(): Promise<void> {
   try {
+    // Settle prepaid usage while access token is still valid (be-33).
+    const { flushOnLogout } = await import('./UsageQueueService');
+    await flushOnLogout();
+  } catch {
+    /* non-fatal */
+  }
+  try {
     await authFetch('/v1/auth/logout', { method: 'POST' }, { retryOn401: false });
   } catch {
     /* offline logout still clears local tokens */

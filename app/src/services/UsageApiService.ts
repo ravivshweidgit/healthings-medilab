@@ -1,5 +1,4 @@
-import { authFetch } from './AuthApiService';
-import { loadAuthTokens } from './AuthTokenStore';
+import { enqueueUsageEvent } from './UsageQueueService';
 
 export type AiUsageReason =
   | 'ai_meal'
@@ -32,22 +31,16 @@ export function geminiUsageFromResponse(json: unknown, model: string): GeminiUsa
   };
 }
 
-/** After successful Gemini — debit payer; server auto-reloads card if balance low. */
+/**
+ * After successful Gemini — enqueue locally (be-33 prepaid bucket).
+ * No per-call POST; flush happens at 10 events / 24 h / buy-pack / logout.
+ */
 export function reportAiUsage(
   reason: AiUsageReason,
   tokens?: number,
   gemini?: GeminiUsageReport | null,
 ): void {
-  void (async () => {
-    try {
-      const t = await loadAuthTokens();
-      if (!t?.accessToken) return;
-      await authFetch('/v1/usage/ai', {
-        method: 'POST',
-        body: JSON.stringify({ reason, tokens, gemini: gemini ?? undefined }),
-      });
-    } catch {
-      /* non-fatal */
-    }
-  })();
+  void enqueueUsageEvent(reason, tokens, gemini).catch(() => {
+    /* non-fatal */
+  });
 }

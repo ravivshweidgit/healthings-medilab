@@ -27,6 +27,16 @@ export type UsageSummaryRow = {
 
 export { type AiUsageReason };
 
+export type MeterAiUsageOpts = {
+  clientEventId?: string | null;
+  occurredAt?: string | null;
+};
+
+export type MeterAiUsageResult = {
+  event: AiUsageEvent | null;
+  duplicate: boolean;
+};
+
 async function recordAiUsageEvent(
   patientId: string,
   payerUserId: string,
@@ -35,29 +45,61 @@ async function recordAiUsageEvent(
   sponsored: boolean,
   sponsorId: string | null,
   geminiUsage?: GeminiUsage | null,
-): Promise<AiUsageEvent> {
+  opts?: MeterAiUsageOpts,
+): Promise<AiUsageEvent | null> {
+  const occurredAt = opts?.occurredAt ? new Date(opts.occurredAt) : new Date();
+  const clientEventId = opts?.clientEventId ?? null;
+
   const { rows } = await query<{ id: string; created_at: Date }>(
-    `INSERT INTO ai_usage_events (
-       patient_id, payer_user_id, sponsor_id, sponsored, tokens, reason,
-       gemini_prompt_tokens, gemini_candidates_tokens, gemini_thoughts_tokens,
-       gemini_total_tokens, gemini_model
-     )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-     RETURNING id, created_at`,
-    [
-      patientId,
-      payerUserId,
-      sponsorId,
-      sponsored,
-      tokens,
-      reason,
-      geminiUsage?.promptTokens ?? null,
-      geminiUsage?.candidatesTokens ?? null,
-      geminiUsage?.thoughtsTokens ?? null,
-      geminiUsage?.totalTokens ?? null,
-      geminiUsage?.model ?? null,
-    ],
+    clientEventId
+      ? `INSERT INTO ai_usage_events (
+           patient_id, payer_user_id, sponsor_id, sponsored, tokens, reason,
+           gemini_prompt_tokens, gemini_candidates_tokens, gemini_thoughts_tokens,
+           gemini_total_tokens, gemini_model, client_event_id, occurred_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         ON CONFLICT (client_event_id) DO NOTHING
+         RETURNING id, created_at`
+      : `INSERT INTO ai_usage_events (
+           patient_id, payer_user_id, sponsor_id, sponsored, tokens, reason,
+           gemini_prompt_tokens, gemini_candidates_tokens, gemini_thoughts_tokens,
+           gemini_total_tokens, gemini_model, occurred_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         RETURNING id, created_at`,
+    clientEventId
+      ? [
+          patientId,
+          payerUserId,
+          sponsorId,
+          sponsored,
+          tokens,
+          reason,
+          geminiUsage?.promptTokens ?? null,
+          geminiUsage?.candidatesTokens ?? null,
+          geminiUsage?.thoughtsTokens ?? null,
+          geminiUsage?.totalTokens ?? null,
+          geminiUsage?.model ?? null,
+          clientEventId,
+          occurredAt.toISOString(),
+        ]
+      : [
+          patientId,
+          payerUserId,
+          sponsorId,
+          sponsored,
+          tokens,
+          reason,
+          geminiUsage?.promptTokens ?? null,
+          geminiUsage?.candidatesTokens ?? null,
+          geminiUsage?.thoughtsTokens ?? null,
+          geminiUsage?.totalTokens ?? null,
+          geminiUsage?.model ?? null,
+          occurredAt.toISOString(),
+        ],
   );
+
+  if (!rows[0]) return null;
 
   const { rows: balRows } = await query<{ balance_tokens: number }>(
     `SELECT balance_tokens FROM wallets WHERE user_id = $1`,
@@ -91,7 +133,17 @@ export async function meterAiUsageForPayer(
 ): Promise<AiUsageEvent> {
   const tokens = tokensForReason(reason, tokensOverride);
   await debitAiUsage(payerUserId, patientId, tokens, reason);
-  return recordAiUsageEvent(patientId, payerUserId, tokens, reason, false, null, geminiUsage);
+  const event = await recordAiUsageEvent(
+    patientId,
+    payerUserId,
+    tokens,
+    reason,
+    false,
+    null,
+    geminiUsage,
+  );
+  if (!event) throw new Error('Failed to record AI usage event');
+  return event;
 }
 
 /** Clinic portal mentor chat — always the acting mentor's wallet. */
@@ -114,20 +166,47 @@ export async function meterPatientSelfChat(
   return meterAiUsageForPayer(patientId, patientId, 'ai_chat', undefined, geminiUsage);
 }
 
-/** Log usage and debit payer via sponsorship (phone app AI). Auto-reloads card when balance low. */
-export async function meterAiUsage(
+/**
+ * Phone AI — insert-first when clientEventId is set (exactly-once on flush retry),
+ * then debit payer via sponsorship. Without clientEventId: legacy debit-then-insert.
+ */
+export async function meterAiUsageResult(
   patientId: string,
   reason: AiUsageReason,
   tokensOverride?: number,
   geminiUsage?: GeminiUsage | null,
-): Promise<AiUsageEvent> {
+  opts?: MeterAiUsageOpts,
+): Promise<MeterAiUsageResult> {
   const tokens = tokensForReason(reason, tokensOverride);
   const payer = await resolveAiPayer(patientId);
   const sponsorId = payer.sponsored ? payer.payerUserId : null;
 
-  await debitAiUsageForPatient(patientId, tokens, reason);
+  if (opts?.clientEventId) {
+    // Insert first so a retried flush cannot double-debit.
+    const event = await recordAiUsageEvent(
+      patientId,
+      payer.payerUserId,
+      tokens,
+      reason,
+      payer.sponsored,
+      sponsorId,
+      geminiUsage,
+      opts,
+    );
+    if (!event) return { event: null, duplicate: true };
+    await debitAiUsageForPatient(patientId, tokens, reason);
+    const { rows: balRows } = await query<{ balance_tokens: number }>(
+      `SELECT balance_tokens FROM wallets WHERE user_id = $1`,
+      [payer.payerUserId],
+    );
+    return {
+      event: { ...event, balanceAfter: balRows[0]?.balance_tokens ?? event.balanceAfter },
+      duplicate: false,
+    };
+  }
 
-  return recordAiUsageEvent(
+  await debitAiUsageForPatient(patientId, tokens, reason);
+  const event = await recordAiUsageEvent(
     patientId,
     payer.payerUserId,
     tokens,
@@ -135,7 +214,31 @@ export async function meterAiUsage(
     payer.sponsored,
     sponsorId,
     geminiUsage,
+    opts,
   );
+  if (!event) throw new Error('Failed to record AI usage event');
+  return { event, duplicate: false };
+}
+
+/** Log usage and debit payer via sponsorship (phone app AI). Auto-reloads card when balance low. */
+export async function meterAiUsage(
+  patientId: string,
+  reason: AiUsageReason,
+  tokensOverride?: number,
+  geminiUsage?: GeminiUsage | null,
+  opts?: MeterAiUsageOpts,
+): Promise<AiUsageEvent> {
+  const { event, duplicate } = await meterAiUsageResult(
+    patientId,
+    reason,
+    tokensOverride,
+    geminiUsage,
+    opts,
+  );
+  if (duplicate || !event) {
+    throw new Error('Duplicate client_event_id');
+  }
+  return event;
 }
 
 export type UsageEventRow = {

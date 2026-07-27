@@ -1,5 +1,8 @@
 import { GEMINI_API_KEY } from '@env';
 import { geminiUsageFromResponse, reportAiUsage, type GeminiUsageReport } from './UsageApiService';
+import { assertCanSpendCredits, OutOfCreditsError } from './UsageQueueService';
+
+export { OutOfCreditsError };
 import {
   combineMentorLines,
   extractMentorLinesFromParsed,
@@ -769,6 +772,8 @@ export async function analyzeFood(
     const modelTurn: GeminiTurn = { role: 'model', text: JSON.stringify(MOCK_RESULT) };
     return { result: MOCK_RESULT, updatedHistory: [...history, newTurn, modelTurn] };
   }
+
+  await assertCanSpendCredits('ai_meal');
 
   const systemPromptWithLang = buildFoodSystemPrompt(lang, userRules, foodLogHistory);
 
@@ -2072,6 +2077,8 @@ const DEFAULT_SNAPSHOT_INSTRUCTION =
   'The block above (titled PERIOD REVIEW) is your COMPLETE data for today and yesterday — body composition incl. visceral and BMR, 24/7 heart rate, energy balance, full food logs, full CGM with meal impact, every workout with HR, AND the full per-sample CGM series ("CGM ALL READINGS", every ~5 min with HH:MM timestamps). It is your source of truth; cite exact numbers from it. You CAN answer "what is my latest glucose reading / its time?" from the CGM ALL READINGS line (and the "Latest reading this day"), and you CAN judge a specific spike/drop by reading the timestamped samples around a meal time. Do NOT dump or list the whole block — answer the user\'s actual question concisely and mention only what is relevant.';
 
 export async function generateCoachMessage(ctx: CoachContext): Promise<CoachMessage> {
+  await assertCanSpendCredits('ai_coach');
+
   const systemPrompt = buildMentorSystemPrompt(ctx.mentors);
   const dataBlock = buildCoachDataBlock(ctx);
   // Same full today+yesterday snapshot the chat mentors get — so action items are derived from
@@ -2599,6 +2606,8 @@ export async function chatWithMentor(
   imageBase64?: string | null,
   imageMimeType?: string,
 ): Promise<string> {
+  await assertCanSpendCredits('ai_chat');
+
   const scopedCtx: CoachContext = { ...ctx, mentors: [mentor] };
   const text = await chatWithSingleMentor(
     mentor,

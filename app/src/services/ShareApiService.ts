@@ -121,6 +121,25 @@ export async function fetchWallet(): Promise<WalletView> {
   return data.wallet;
 }
 
+/** Alpha / manual pack grant (zero-charge invoice on server). Flush local usage first. */
+export async function addTokenPack(tokens?: number): Promise<{ balanceTokens: number; added: number }> {
+  const { flushBeforeBuyPack, adoptWalletCredits } = await import('./UsageQueueService');
+  await flushBeforeBuyPack();
+  const res = await authFetch('/v1/wallet/add-pack', {
+    method: 'POST',
+    body: JSON.stringify(tokens != null ? { tokens } : {}),
+  });
+  const data = await parseJson<{ balanceTokens: number; added: number }>(res);
+  // Re-read payer-aware wallet (sponsorship) after grant.
+  try {
+    const wallet = await fetchWallet();
+    await adoptWalletCredits(wallet);
+  } catch {
+    await adoptWalletCredits({ balanceTokens: data.balanceTokens, sponsored: false });
+  }
+  return data;
+}
+
 export function clinicDisplayLabel(share: Pick<AccountShare, 'mentorDisplayName' | 'mentorEmail'>): string {
   return share.mentorDisplayName?.trim() || share.mentorEmail;
 }

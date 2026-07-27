@@ -2,11 +2,13 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authenticate } from '../middleware/authenticate.js';
 import { findUserById } from '../services/users.js';
+import { getWalletForUser } from '../services/wallet.js';
 import {
   getMentorUsageSummary,
   getPatientUsageTotal,
   getUsageEventsForPayer,
   meterAiUsage,
+  meterAiUsageResult,
   type AiUsageReason,
 } from '../services/usage.js';
 
@@ -20,22 +22,25 @@ const usageReasonSchema = z.enum([
   'ai_other',
 ]);
 
+const geminiSchema = z
+  .object({
+    promptTokens: z.number().int().nonnegative(),
+    candidatesTokens: z.number().int().nonnegative(),
+    thoughtsTokens: z.number().int().nonnegative().default(0),
+    totalTokens: z.number().int().nonnegative(),
+    model: z.string().max(64),
+  })
+  .optional();
+
 export async function registerUsageRoutes(app: FastifyInstance) {
+  /** Legacy per-call report — kept for older app builds. Prefer /v1/usage/ai/batch. */
   app.post('/v1/usage/ai', { preHandler: authenticate }, async (request, reply) => {
     const body = z
       .object({
         reason: usageReasonSchema,
         tokens: z.number().int().positive().optional(),
         /** Real Gemini usageMetadata from the phone call — analytics only. */
-        gemini: z
-          .object({
-            promptTokens: z.number().int().nonnegative(),
-            candidatesTokens: z.number().int().nonnegative(),
-            thoughtsTokens: z.number().int().nonnegative().default(0),
-            totalTokens: z.number().int().nonnegative(),
-            model: z.string().max(64),
-          })
-          .optional(),
+        gemini: geminiSchema,
       })
       .parse(request.body);
 
@@ -47,6 +52,53 @@ export async function registerUsageRoutes(app: FastifyInstance) {
 
     const event = await meterAiUsage(user.id, body.reason as AiUsageReason, body.tokens, body.gemini ?? null);
     return { event };
+  });
+
+  /**
+   * Phone prepaid-bucket flush (be-33). At-least-once client delivery;
+   * `clientEventId` makes settlement exactly-once. Returns payer-aware wallet
+   * so the phone adopts authoritative `balanceTokens` as creditsLeft.
+   */
+  app.post('/v1/usage/ai/batch', { preHandler: authenticate }, async (request, reply) => {
+    const body = z
+      .object({
+        events: z
+          .array(
+            z.object({
+              clientEventId: z.string().uuid(),
+              reason: usageReasonSchema,
+              tokens: z.number().int().positive().optional(),
+              gemini: geminiSchema,
+              occurredAt: z.string().datetime().optional(),
+            }),
+          )
+          .min(1)
+          .max(200),
+      })
+      .parse(request.body);
+
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    if (user.role !== 'patient') {
+      return reply.code(403).send({ error: 'Requires patient role' });
+    }
+
+    let recorded = 0;
+    let duplicates = 0;
+    for (const ev of body.events) {
+      const result = await meterAiUsageResult(
+        user.id,
+        ev.reason as AiUsageReason,
+        ev.tokens,
+        ev.gemini ?? null,
+        { clientEventId: ev.clientEventId, occurredAt: ev.occurredAt ?? null },
+      );
+      if (result.duplicate) duplicates += 1;
+      else recorded += 1;
+    }
+
+    const wallet = await getWalletForUser(user.id, 'patient');
+    return { recorded, duplicates, wallet };
   });
 
   /** Recent per-event AI usage paid by the caller (mentor or patient). */

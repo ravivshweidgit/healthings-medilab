@@ -17,6 +17,7 @@ import {
   CLINIC_SYNC_POLL_MS,
   fulfillPendingClinicSyncRequests,
 } from './src/services/ClinicSyncService';
+import { flushUsageQueueIfDue } from './src/services/UsageQueueService';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
@@ -103,9 +104,13 @@ function AppInner() {
     if (!user || user.role !== 'patient') return;
 
     void fulfillPendingClinicSyncRequests();
+    void flushUsageQueueIfDue();
 
     const onActive = (state: string) => {
-      if (state === 'active') void fulfillPendingClinicSyncRequests();
+      if (state === 'active') {
+        void fulfillPendingClinicSyncRequests();
+        void flushUsageQueueIfDue();
+      }
     };
     const appStateSub = AppState.addEventListener('change', onActive);
     const pollTimer = setInterval(() => {
