@@ -13,6 +13,8 @@ import {
 } from '../services/clinicOverlay.js';
 import { saveDietaryRules } from '../services/dietaryRules.js';
 import { CLINIC_CHAT_LOCALES, mentorChatReply } from '../services/geminiClinic.js';
+import { sendPatientAppChat } from '../services/patientChat.js';
+import { SyncError } from '../services/sync.js';
 import {
   SyncRequestError,
   getSyncStatusForActor,
@@ -89,12 +91,30 @@ export async function registerClinicRoutes(app: FastifyInstance) {
       message: z.string().min(1).max(4000),
       /** Portal clinicLocale — independent of patient app language (language-policy). */
       locale: z.enum(CLINIC_CHAT_LOCALES).optional().default('en'),
+      /** Patient /account/ local calendar day for chat_history_* key. */
+      dayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     }).parse(request.body);
     const user = await findUserById(request.userId!);
     if (!user) return reply.code(404).send({ error: 'User not found' });
 
     try {
       assertMentorType(body.mentorType);
+
+      if (user.role === 'patient') {
+        if (user.id !== params.patientId) {
+          return reply.code(403).send({ error: 'Patients can only use their own AI chat' });
+        }
+        const dayKey = body.dayKey || new Date().toISOString().slice(0, 10);
+        const { reply: replyText, thread } = await sendPatientAppChat(
+          user,
+          body.mentorType,
+          body.message,
+          dayKey,
+          body.locale,
+        );
+        return { reply: replyText, thread };
+      }
+
       const overlay = await getOverlayForMentor(user, params.patientId);
       const prior = overlay.chat[body.mentorType] ?? [];
       const sentAt = new Date().toISOString();
@@ -116,6 +136,7 @@ export async function registerClinicRoutes(app: FastifyInstance) {
       return { reply: replyText, thread };
     } catch (err) {
       if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
+      if (err instanceof SyncError) return reply.code(err.status).send({ error: err.message });
       throw err;
     }
   });

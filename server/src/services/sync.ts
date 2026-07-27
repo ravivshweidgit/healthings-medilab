@@ -230,6 +230,7 @@ export async function uploadSyncBlob(
     [user.id],
   );
   stored = mergeNewerServerUserRules(stored, prevRows[0]?.payload_gzip ?? null);
+  stored = mergeNewerServerAppChat(stored, prevRows[0]?.payload_gzip ?? null);
 
   const version = await nextVersion(user.id);
   const payloadHash = createHash('sha256').update(stored).digest('hex');
@@ -454,4 +455,212 @@ export async function updatePatientRulesInLatestBlob(
   }
 
   return rules;
+}
+
+export type AppChatMessage = {
+  role: 'user' | 'assistant';
+  text: string;
+  sentAt: string;
+};
+
+const APP_CHAT_MAX_MESSAGES = 1000;
+
+function parseAppChatMessages(raw: string | undefined): AppChatMessage[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as AppChatMessage[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (m) =>
+        m &&
+        (m.role === 'user' || m.role === 'assistant') &&
+        typeof m.text === 'string' &&
+        m.text.trim(),
+    );
+  } catch {
+    return [];
+  }
+}
+
+function lastChatSentAt(msgs: AppChatMessage[]): number {
+  let max = 0;
+  for (const m of msgs) {
+    const t = Date.parse(m.sentAt || '');
+    if (Number.isFinite(t) && t > max) max = t;
+  }
+  return max;
+}
+
+function collectMentorThread(
+  store: Record<string, string>,
+  mentorType: string,
+): AppChatMessage[] {
+  const out: AppChatMessage[] = [];
+  for (const [key, raw] of Object.entries(store)) {
+    const m = key.match(/^chat_history_(\d{4}-\d{2}-\d{2})(?:_(doctor|nutritionist|coach))?$/);
+    if (!m) continue;
+    const mentor = m[2] || 'nutritionist';
+    if (mentor !== mentorType) continue;
+    out.push(...parseAppChatMessages(raw));
+  }
+  out.sort((a, b) => (Date.parse(a.sentAt) || 0) - (Date.parse(b.sentAt) || 0));
+  return out;
+}
+
+function localeFromSnapshotStore(store: Record<string, string>): string | null {
+  const raw = store.user_language;
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { code?: string; label?: string };
+    if (parsed?.code) return String(parsed.code).slice(0, 8).toLowerCase();
+  } catch {
+    const s = raw.replace(/^"|"$/g, '').trim().toLowerCase();
+    if (s.length >= 2 && s.length <= 8) return s.slice(0, 8);
+  }
+  return null;
+}
+
+/**
+ * Prefer web-appended coach threads when the phone uploads an older copy.
+ */
+function mergeNewerServerAppChat(
+  incomingGzip: Buffer,
+  existingGzip: Buffer | null,
+): Buffer {
+  if (!existingGzip) return incomingGzip;
+
+  let serverJson: string;
+  let phoneJson: string;
+  try {
+    serverJson = decompressSyncPayload(existingGzip);
+    phoneJson = decompressSyncPayload(incomingGzip);
+  } catch {
+    return incomingGzip;
+  }
+
+  let serverParsed: { asyncStorage?: Record<string, string>; [k: string]: unknown };
+  let phoneParsed: { asyncStorage?: Record<string, string>; [k: string]: unknown };
+  try {
+    serverParsed = JSON.parse(serverJson) as { asyncStorage?: Record<string, string> };
+    phoneParsed = JSON.parse(phoneJson) as { asyncStorage?: Record<string, string> };
+  } catch {
+    return incomingGzip;
+  }
+
+  const serverStore = serverParsed.asyncStorage;
+  if (!serverStore || typeof serverStore !== 'object') return incomingGzip;
+  if (!phoneParsed.asyncStorage || typeof phoneParsed.asyncStorage !== 'object') {
+    phoneParsed.asyncStorage = {};
+  }
+  const phoneStore = phoneParsed.asyncStorage;
+
+  let changed = false;
+  const keys = new Set([
+    ...Object.keys(serverStore).filter((k) => CHAT_HISTORY_KEY.test(k)),
+    ...Object.keys(phoneStore).filter((k) => CHAT_HISTORY_KEY.test(k)),
+  ]);
+  for (const key of keys) {
+    const serverMsgs = parseAppChatMessages(serverStore[key]);
+    const phoneMsgs = parseAppChatMessages(phoneStore[key]);
+    if (!serverMsgs.length) continue;
+    if (!phoneMsgs.length || lastChatSentAt(serverMsgs) > lastChatSentAt(phoneMsgs)) {
+      phoneStore[key] = JSON.stringify(serverMsgs);
+      changed = true;
+    }
+  }
+  if (!changed) return incomingGzip;
+  return deflateSync(Buffer.from(JSON.stringify(phoneParsed), 'utf8'));
+}
+
+export async function loadPatientAppChatThread(
+  user: PublicUser,
+  mentorType: string,
+): Promise<{ priorThread: AppChatMessage[]; replyLocale: string | null }> {
+  await assertPatientWebViewOn(user);
+
+  const { rows } = await query<SyncRow>(
+    `SELECT * FROM sync_blobs
+     WHERE patient_id = $1
+     ORDER BY version DESC
+     LIMIT 1`,
+    [user.id],
+  );
+  const row = rows[0];
+  if (!row) {
+    throw new SyncError('No snapshot yet — open the app once with web view on', 404);
+  }
+
+  let parsed: { asyncStorage?: Record<string, string> };
+  try {
+    parsed = JSON.parse(decompressSyncPayload(row.payload_gzip)) as {
+      asyncStorage?: Record<string, string>;
+    };
+  } catch {
+    throw new SyncError('Invalid sync payload', 400);
+  }
+  const store = parsed.asyncStorage || {};
+  return {
+    priorThread: collectMentorThread(store, mentorType),
+    replyLocale: localeFromSnapshotStore(store),
+  };
+}
+
+export async function appendPatientAppChatMessages(
+  user: PublicUser,
+  mentorType: string,
+  dayKey: string,
+  userMsg: AppChatMessage,
+  assistantMsg: AppChatMessage,
+): Promise<AppChatMessage[]> {
+  await assertPatientWebViewOn(user);
+
+  const { rows } = await query<SyncRow>(
+    `SELECT * FROM sync_blobs
+     WHERE patient_id = $1
+     ORDER BY version DESC
+     LIMIT 1`,
+    [user.id],
+  );
+  const row = rows[0];
+  if (!row) {
+    throw new SyncError('No snapshot yet — open the app once with web view on', 404);
+  }
+
+  let json: string;
+  try {
+    json = decompressSyncPayload(row.payload_gzip);
+  } catch {
+    throw new SyncError('Invalid sync payload', 400);
+  }
+  if (Buffer.byteLength(json, 'utf8') > MAX_INFLATED_BYTES) {
+    throw new SyncError('Payload too large when decompressed', 413);
+  }
+
+  let parsed: { asyncStorage?: Record<string, string>; [k: string]: unknown };
+  try {
+    parsed = JSON.parse(json) as { asyncStorage?: Record<string, string> };
+  } catch {
+    throw new SyncError('Invalid sync payload', 400);
+  }
+  if (!parsed.asyncStorage || typeof parsed.asyncStorage !== 'object') {
+    parsed.asyncStorage = {};
+  }
+
+  const key = `chat_history_${dayKey}_${mentorType}`;
+  const dayMsgs = parseAppChatMessages(parsed.asyncStorage[key]);
+  dayMsgs.push(userMsg, assistantMsg);
+  parsed.asyncStorage[key] = JSON.stringify(dayMsgs.slice(-APP_CHAT_MAX_MESSAGES));
+
+  const stored = deflateSync(Buffer.from(JSON.stringify(parsed), 'utf8'));
+  const version = await nextVersion(user.id);
+  const payloadHash = createHash('sha256').update(stored).digest('hex');
+
+  await query(
+    `INSERT INTO sync_blobs (patient_id, version, byte_size, payload_hash, summary, payload_gzip)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [user.id, version, stored.length, payloadHash, row.summary, stored],
+  );
+  await query(`DELETE FROM sync_blobs WHERE patient_id = $1 AND version < $2`, [user.id, version]);
+
+  return collectMentorThread(parsed.asyncStorage, mentorType);
 }

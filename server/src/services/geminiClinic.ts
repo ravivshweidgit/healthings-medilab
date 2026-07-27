@@ -6,7 +6,7 @@ import type { ClinicChatMessage, ClinicUserRules } from './clinicOverlay.js';
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_TIMEOUT_MS = 60_000;
 
-type MentorType = 'doctor' | 'nutritionist' | 'coach';
+export type MentorType = 'doctor' | 'nutritionist' | 'coach';
 
 type GeminiPart = { text?: string; thought?: boolean };
 
@@ -817,6 +817,74 @@ RECENT CHAT:
 ${historyText || '(none)'}
 
 Clinic staff message:
+${message}
+
+Reply as the ${MENTOR_LABEL[mentorType]} mentor in ${replyLanguage} (plain text, no JSON).`;
+
+  try {
+    return await geminiText(prompt, {
+      temperature: 0.4,
+      maxOutputTokens: 8192,
+      thinkingBudget: 4096,
+    });
+  } catch (e) {
+    return e instanceof Error ? e.message : 'AI chat unavailable';
+  }
+}
+
+/**
+ * Patient chatting as themselves on /account/ (not clinic staff).
+ * Reply language follows appLocale (passed as locale), not clinicLocale.
+ */
+export async function mentorChatReplyForPatient(
+  mentorType: MentorType,
+  message: string,
+  history: ClinicChatMessage[],
+  patientId: string,
+  localeRaw?: string | null,
+): Promise<string> {
+  const locale = normalizeClinicChatLocale(localeRaw);
+  const replyLanguage = CLINIC_LOCALE_NAME[locale];
+  const snapshot = await loadLatestSnapshotExport(patientId);
+  const dataBlock = buildPatientContextBlock(snapshot);
+
+  let snapRules: ClinicUserRules | null = null;
+  const rulesRaw = snapshot?.asyncStorage?.user_rules;
+  if (rulesRaw) {
+    try {
+      const parsed = JSON.parse(rulesRaw) as ClinicUserRules;
+      if (parsed?.rawText?.trim()) snapRules = parsed;
+    } catch { /* */ }
+  }
+
+  const rulesBlock = snapRules
+    ? `YOUR RULES:\n${snapRules.rawText}\n${(snapRules.constraints ?? []).map((c) => `- ${c}`).join('\n')}`
+    : '';
+
+  const historyText = history
+    .slice(-12)
+    .map((m) => `${m.role === 'user' ? 'Patient' : MENTOR_LABEL[mentorType]}: ${m.text}`)
+    .join('\n');
+
+  const prompt = `You are the ${MENTOR_LABEL[mentorType]} AI mentor in a clinical nutrition app.
+The patient is chatting with you about their own health data. Answer in clear, practical prose in second person ("you").
+Use the patient data below. Do not invent labs or meals not listed.
+When Profile lists height (cm), gender, birthdate, or age — those values ARE known. Use them for BMI and similar. Never say height (or other Profile fields) is missing when it appears in the Profile line.
+When CGM glucose lists a date with avg/min/max or HH:MM readings, that date HAS glucose data — cite it and correlate with Food log meals. Never say glucose/CGM is missing for a date that appears in the CGM block.
+When Workouts & activity lists timed sessions for a date/time, that exercise IS logged — cite start/end, duration, and kcal. Correlate walks/workouts with CGM trends after meals. Never say exercise is missing for a date that appears in the Workouts block.
+
+REPLY LANGUAGE (HARD): Write your entire reply in ${replyLanguage} (patient app language: ${locale}).
+Quote patient-authored snippets as written when needed, but your explanation and recommendations MUST be in ${replyLanguage}.
+
+PATIENT DATA:
+${dataBlock}
+
+${rulesBlock}
+
+RECENT CHAT:
+${historyText || '(none)'}
+
+Patient message:
 ${message}
 
 Reply as the ${MENTOR_LABEL[mentorType]} mentor in ${replyLanguage} (plain text, no JSON).`;

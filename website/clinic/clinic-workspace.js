@@ -919,15 +919,15 @@
 
   function renderChat(panel, ctx) {
     const activeMentor = ctx.activeMentor || 'nutritionist';
-    const readonly = !!ctx.selfView;
+    const selfView = !!ctx.selfView;
     // Account: patient's own app AI chat from the snapshot. Clinic: clinician overlay only.
-    const thread = readonly
+    const thread = selfView
       ? ((ctx.parsed.appChat || {})[activeMentor] || [])
       : ((ctx.overlay?.chat || {})[activeMentor] || []);
     const draft = ctx._chatDraft || '';
 
     panel.innerHTML = `
-      <p class="sub snapshot-note">${esc(t(readonly ? 'wsChatPrivacyNoteSelf' : 'wsChatPrivacyNote'))}</p>
+      <p class="sub snapshot-note">${esc(t(selfView ? 'wsChatPrivacyNoteSelf' : 'wsChatPrivacyNote'))}</p>
       <div class="chat-layout">
         <div class="mentor-nav">
           ${MENTORS.map((m) => `
@@ -938,31 +938,24 @@
         <div class="chat-thread">
           <div class="chat-messages" id="chat-msgs">
             ${thread.length
-              ? thread.map((m) => bubbleHtml(m, readonly)).join('')
-              : `<p class="empty">${esc(t(readonly ? 'wsChatEmptySelf' : 'wsChatEmpty'))}</p>`}
+              ? thread.map((m) => bubbleHtml(m, selfView)).join('')
+              : `<p class="empty">${esc(t(selfView ? 'wsChatEmptySelf' : 'wsChatEmpty'))}</p>`}
           </div>
-          ${readonly ? '' : `
           <div class="chat-compose">
             <textarea id="chat-input" placeholder="${esc(t('wsChatPlaceholder', { mentor: mentorMeta(activeMentor).label }))}" rows="2">${esc(draft)}</textarea>
             <button type="button" class="ws-btn primary" id="chat-send">${esc(t('wsChatSend'))}</button>
           </div>
-          <div id="chat-error" class="ws-inline-error" hidden role="alert"></div>`}
+          <div id="chat-error" class="ws-inline-error" hidden role="alert"></div>
         </div>
       </div>`;
 
     panel.querySelectorAll('.mentor-pick').forEach((btn) => {
       btn.addEventListener('click', () => {
         ctx.activeMentor = btn.getAttribute('data-mentor');
-        if (!readonly) ctx._chatDraft = panel.querySelector('#chat-input')?.value || '';
+        ctx._chatDraft = panel.querySelector('#chat-input')?.value || '';
         renderChat(panel, ctx);
       });
     });
-
-    if (readonly) {
-      const msgs = panel.querySelector('#chat-msgs');
-      if (msgs) msgs.scrollTop = msgs.scrollHeight;
-      return;
-    }
 
     const send = panel.querySelector('#chat-send');
     const input = panel.querySelector('#chat-input');
@@ -1021,9 +1014,10 @@
   }
 
   async function sendChat(ctx, input, panel) {
-    if (ctx.selfView) return;
     const text = input?.value?.trim();
     if (!text || !ctx.api) return;
+    const selfView = !!ctx.selfView;
+    const mentor = ctx.activeMentor || 'nutritionist';
     const btn = panel.querySelector('#chat-send');
     const msgs = panel.querySelector('#chat-msgs');
     const err = panel.querySelector('#chat-error');
@@ -1038,7 +1032,7 @@
       if (empty) empty.remove();
       msgs.insertAdjacentHTML(
         'beforeend',
-        bubbleHtml({ role: 'user', text, sentAt: userSentAt, fromClinic: true }),
+        bubbleHtml({ role: 'user', text, sentAt: userSentAt }, selfView),
       );
       optimisticEl = msgs.lastElementChild;
       msgs.insertAdjacentHTML('beforeend', thinkingBubbleHtml());
@@ -1051,15 +1045,21 @@
       const res = await ctx.api(`/v1/clinic/patients/${ctx.patientId}/chat`, {
         method: 'POST',
         body: JSON.stringify({
-          mentorType: ctx.activeMentor || 'nutritionist',
+          mentorType: mentor,
           message: text,
-          locale: clinicPortalLocale(),
+          locale: selfView ? patientAppLocale(ctx) : clinicPortalLocale(),
+          ...(selfView ? { dayKey: todayKey() } : {}),
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error || t('wsChatFailed'));
       const data = await res.json();
-      if (!ctx.overlay) ctx.overlay = { chat: {} };
-      ctx.overlay.chat[ctx.activeMentor || 'nutritionist'] = data.thread;
+      if (selfView) {
+        if (!ctx.parsed.appChat) ctx.parsed.appChat = {};
+        ctx.parsed.appChat[mentor] = data.thread || [];
+      } else {
+        if (!ctx.overlay) ctx.overlay = { chat: {} };
+        ctx.overlay.chat[mentor] = data.thread;
+      }
       renderChat(panel, ctx);
     } catch (e) {
       panel.querySelector('#chat-thinking')?.remove();
@@ -1072,6 +1072,26 @@
       if (input) input.disabled = false;
       input?.focus();
     }
+  }
+
+  /** Account AI chat: prefer profile language from the snapshot (appLocale). */
+  function patientAppLocale(ctx) {
+    const lang = String(ctx.parsed?.profile?.language || '').toLowerCase();
+    const map = [
+      ['עבר', 'he'], ['hebrew', 'he'], ['he', 'he'],
+      ['العرب', 'ar'], ['arabic', 'ar'], ['ar', 'ar'],
+      ['español', 'es'], ['spanish', 'es'], ['es', 'es'],
+      ['français', 'fr'], ['french', 'fr'], ['fr', 'fr'],
+      ['deutsch', 'de'], ['german', 'de'], ['de', 'de'],
+      ['рус', 'ru'], ['russian', 'ru'], ['ru', 'ru'],
+      ['portug', 'pt'], ['pt', 'pt'],
+      ['italian', 'it'], ['it', 'it'],
+      ['türk', 'tr'], ['turkish', 'tr'], ['tr', 'tr'],
+    ];
+    for (const [needle, code] of map) {
+      if (lang === code || lang.startsWith(code) || lang.includes(needle)) return code;
+    }
+    return clinicPortalLocale();
   }
 
   /** Prefer patient snapshot rules when they are newer than a clinic overlay (Refresh must surface phone edits). */
