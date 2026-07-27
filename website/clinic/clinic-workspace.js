@@ -1452,13 +1452,9 @@
     const scanTitle = body?.measuredAt
       ? t('wsBannerMeasured', { when: new Date(body.measuredAt).toLocaleString() })
       : t('wsBannerBodyScan');
-    // Same chip chrome on clinic + account; only the noun differs when the
-    // source is a clinic overlay (“clinic rules”) vs phone/self (“rules”).
-    const clinicRules = Boolean(ctx.overlay?.rules) && !ctx.selfView;
+    // Same chip wording on clinic + account (“N rules”); source still decides green vs off.
     const rulesLabel = n
-      ? clinicRules
-        ? t(n === 1 ? 'wsBannerClinicRule' : 'wsBannerClinicRules', { n })
-        : t(n === 1 ? 'wsBannerRuleActive' : 'wsBannerRulesActive', { n })
+      ? t(n === 1 ? 'wsBannerRuleActive' : 'wsBannerRulesActive', { n })
       : t('wsBannerNoRules');
     const syncLabel = formatRelativeSync(ctx.blob?.createdAt);
     const name = displayName || (ctx.selfView ? t('wsBannerYou') : t('wsBannerPatient'));
