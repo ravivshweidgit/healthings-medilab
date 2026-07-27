@@ -205,6 +205,13 @@ html.theme-pref-dark .macro-row .track {
   background: #000000;
 }
 
+/* Nutrition report body */
+.theme-pref-dark .nutrition-detail-body,
+html.theme-pref-dark .nutrition-detail-body {
+  background: #000000;
+  border-color: #2a2a2a;
+}
+
 @media (prefers-color-scheme: dark) {
   .theme-pref-system .ws-banner-stats,
   html.theme-pref-system .ws-banner-stats {
@@ -250,6 +257,12 @@ html.theme-pref-dark .macro-row .track {
   .theme-pref-system .macro-row .track,
   html.theme-pref-system .macro-row .track {
     background: #000000;
+  }
+
+  .theme-pref-system .nutrition-detail-body,
+  html.theme-pref-system .nutrition-detail-body {
+    background: #000000;
+    border-color: #2a2a2a;
   }
 }
 
