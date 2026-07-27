@@ -1,8 +1,8 @@
 /**
- * be-24 — coach chat must not land in sync_blobs.
+ * be-24 refined — coach chat never reaches clinicians.
  *
- * Copies the strip logic from sync.ts and pins the portal so a later
- * reintroduction of chatFromSnapshot / mergeChat fails the run.
+ * Chat may rest in sync_blobs for patient /account/. Mentor payload downloads
+ * must strip chat_history_*. Clinic UI must not parse/merge phone chat.
  */
 import { createHash } from 'node:crypto';
 import { deflateSync, inflateSync } from 'node:zlib';
@@ -33,13 +33,24 @@ function assertNotInSource(label, needle, src) {
 }
 
 assertInSource('strip helper exported', 'export function stripChatHistoryFromSyncPayload', syncSrc);
-assertInSource('strip before store', 'const stored = stripChatHistoryFromSyncPayload(payloadGzip)', syncSrc);
+assertInSource(
+  'mentor download strips chat',
+  'payloadGzipBase64: stripChatHistoryFromSyncPayload(row.payload_gzip).toString',
+  syncSrc,
+);
+assertNotInSource(
+  'upload no longer strips before store',
+  'let stored = stripChatHistoryFromSyncPayload(payloadGzip)',
+  syncSrc,
+);
 assertInSource('hash stored bytes', "createHash('sha256').update(stored)", syncSrc);
 assertInSource('inflate cap', 'MAX_INFLATED_BYTES = 64 * 1024 * 1024', syncSrc);
-assertNotInSource('portal no chatFromSnapshot', 'chatFromSnapshot', portalSrc);
 assertNotInSource('portal no mergeChat', 'function mergeChat', portalSrc);
-assertNotInSource('portal no snapshot chat parse', 'fromSnapshot: true', portalSrc);
-assertInSource('tab renamed', "label: 'Clinic chat'", portalSrc);
+assertNotInSource('portal no fromSnapshot flag', 'fromSnapshot: true', portalSrc);
+assertInSource('account parses app chat', 'function parseAppChatFromStore', portalSrc);
+assertInSource('account uses appChat when selfView', 'ctx.parsed.appChat', portalSrc);
+assertInSource('clinic tab still Clinic chat key', "labelKey: 'wsTabChat'", portalSrc);
+assertInSource('account tab AI chat key', "labelKeySelf: 'wsTabChatSelf'", portalSrc);
 
 if (drift) {
   console.error(`\n${drift} statement(s) drifted from source`);
@@ -95,7 +106,7 @@ function check(label, ok) {
   }
 }
 
-console.log('Strip behaviour');
+console.log('Strip behaviour (mentor download)');
 
 {
   const incoming = pack({
@@ -128,8 +139,7 @@ console.log('Strip behaviour');
   );
   const hashStored = createHash('sha256').update(stored).digest('hex');
   const hashIncoming = createHash('sha256').update(incoming).digest('hex');
-  check('payload_hash is of stored bytes (differs from received)', hashStored !== hashIncoming);
-  check('byte_size is stored length, not received', stored.length !== incoming.length);
+  check('stripped bytes differ from received when chat present', hashStored !== hashIncoming);
 }
 
 {
@@ -138,12 +148,10 @@ console.log('Strip behaviour');
     user_rules: '{"rawText":"ok"}',
   });
   const stored = stripChatHistoryFromSyncPayload(incoming);
-  check('no-chat payload stored byte-identical', Buffer.compare(incoming, stored) === 0);
+  check('no-chat payload byte-identical after strip', Buffer.compare(incoming, stored) === 0);
 }
 
 {
-  // Inflate-bomb: tiny deflate of a huge string of zeros is hard; instead assert
-  // the source still has the cap and a hand-crafted oversize string is rejected.
   const huge = 'x'.repeat(MAX_INFLATED_BYTES + 1);
   const bomb = deflateSync(Buffer.from(huge, 'utf8'));
   let rejected = false;

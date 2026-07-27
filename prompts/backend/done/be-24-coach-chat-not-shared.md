@@ -1,6 +1,7 @@
 # be-24 — The patient's coach chat is not the clinic's to read
 
 **Status:** done — owner-accepted 2026-07-26 (`looks good`). Shipped `d0280cc`, live on VPS.  
+**Refined 2026-07-27:** chat may rest in the sync blob so **/account/** can show the patient's own AI threads (`AI chat` tab). Clinic mentor payload downloads still **strip** `chat_history_*`; clinic UI never merges phone chat. App includes chat in export again; phone build required for account to fill.  
 **Model to implement:** Auto  
 **Authored by:** Opus 5  
 **Built by:** Auto  

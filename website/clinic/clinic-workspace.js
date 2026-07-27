@@ -115,6 +115,34 @@
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
+  /**
+   * Patient app coach threads (chat_history_*). Used on /account/ only —
+   * clinic renderChat never reads this (be-24).
+   */
+  function parseAppChatFromStore(store) {
+    const byMentor = { doctor: [], nutritionist: [], coach: [] };
+    for (const [key, raw] of Object.entries(store || {})) {
+      const m = key.match(/^chat_history_(\d{4}-\d{2}-\d{2})(?:_(doctor|nutritionist|coach))?$/);
+      if (!m) continue;
+      const mentor = m[2] || 'nutritionist';
+      try {
+        const msgs = JSON.parse(raw);
+        if (!Array.isArray(msgs)) continue;
+        for (const msg of msgs) {
+          if (!msg || (msg.role !== 'user' && msg.role !== 'assistant')) continue;
+          if (!String(msg.text || '').trim()) continue;
+          byMentor[mentor].push(msg);
+        }
+      } catch { /* */ }
+    }
+    for (const mentor of Object.keys(byMentor)) {
+      byMentor[mentor].sort(
+        (a, b) => (Date.parse(a.sentAt) || 0) - (Date.parse(b.sentAt) || 0),
+      );
+    }
+    return byMentor;
+  }
+
   function parseSnapshot(payload) {
     const store = payload.asyncStorage || {};
     const meals = [];
@@ -146,6 +174,8 @@
     try { if (store[RULES_KEY]) userRules = JSON.parse(store[RULES_KEY]); } catch { /* */ }
     try { if (store[COACH_KEY]) coachMsg = JSON.parse(store[COACH_KEY]); } catch { /* */ }
     try { if (store[MENTOR_KEY]) mentors = JSON.parse(store[MENTOR_KEY]); } catch { /* */ }
+
+    const appChat = parseAppChatFromStore(store);
 
     let profile = { gender: null, heightCm: null, birthdate: null, age: null, language: null };
     try {
@@ -205,6 +235,7 @@
       bodyTarget,
       userRules,
       coachMsg,
+      appChat,
       profile,
       mentors: Array.isArray(mentors) ? mentors : ['nutritionist'],
       labs: parseLabs(store),
@@ -888,9 +919,12 @@
 
   function renderChat(panel, ctx) {
     const activeMentor = ctx.activeMentor || 'nutritionist';
-    const thread = (ctx.overlay?.chat || {})[activeMentor] || [];
-    const draft = ctx._chatDraft || '';
     const readonly = !!ctx.selfView;
+    // Account: patient's own app AI chat from the snapshot. Clinic: clinician overlay only.
+    const thread = readonly
+      ? ((ctx.parsed.appChat || {})[activeMentor] || [])
+      : ((ctx.overlay?.chat || {})[activeMentor] || []);
+    const draft = ctx._chatDraft || '';
 
     panel.innerHTML = `
       <p class="sub snapshot-note">${esc(t(readonly ? 'wsChatPrivacyNoteSelf' : 'wsChatPrivacyNote'))}</p>
@@ -904,7 +938,7 @@
         <div class="chat-thread">
           <div class="chat-messages" id="chat-msgs">
             ${thread.length
-              ? thread.map((m) => bubbleHtml(m)).join('')
+              ? thread.map((m) => bubbleHtml(m, readonly)).join('')
               : `<p class="empty">${esc(t(readonly ? 'wsChatEmptySelf' : 'wsChatEmpty'))}</p>`}
           </div>
           ${readonly ? '' : `
@@ -924,7 +958,11 @@
       });
     });
 
-    if (readonly) return;
+    if (readonly) {
+      const msgs = panel.querySelector('#chat-msgs');
+      if (msgs) msgs.scrollTop = msgs.scrollHeight;
+      return;
+    }
 
     const send = panel.querySelector('#chat-send');
     const input = panel.querySelector('#chat-input');
@@ -969,9 +1007,11 @@
     }
   }
 
-  function bubbleHtml(m) {
+  function bubbleHtml(m, selfView) {
     const cls = m.role === 'user' ? 'user' : 'assistant';
-    const who = m.role === 'user' ? t('wsBubbleClinic') : t('wsBubbleMentor');
+    const who = m.role === 'user'
+      ? t(selfView ? 'wsBubbleYou' : 'wsBubbleClinic')
+      : t('wsBubbleMentor');
     // Clinic replies follow clinicLocale; patient quotes inside may still be RTL — dir=auto.
     return `<div class="bubble ${cls}"><div dir="auto">${esc(m.text)}</div><div class="time">${who} · ${new Date(m.sentAt).toLocaleString()}</div></div>`;
   }
@@ -1435,13 +1475,13 @@
     { id: 'foodlog', labelKey: 'wsTabFoodLog', group: 'read' },
     { id: 'nutrition', labelKey: 'wsTabNutrition', group: 'read' },
     { id: 'labs', labelKey: 'wsTabLabs', group: 'read' },
-    { id: 'chat', labelKey: 'wsTabChat', group: 'write' },
+    { id: 'chat', labelKey: 'wsTabChat', labelKeySelf: 'wsTabChatSelf', group: 'write' },
     { id: 'rules', labelKey: 'wsTabRules', group: 'write', live: true },
   ];
 
   /**
-   * Chat and Rules write on clinic (overlay APIs). On /account/ they still appear
-   * for IA parity, but render read-only from the phone snapshot (be-15).
+   * Chat and Rules write on clinic (overlay APIs). On /account/ Rules is editable;
+   * AI chat is read-only from the phone snapshot (be-15 / be-24 account exception).
    */
   function allowedTabs(ctx) {
     if (!Array.isArray(ctx.tabIds)) return ALL_TABS;
@@ -1449,10 +1489,11 @@
     return allowed.length ? allowed : ALL_TABS;
   }
 
-  function tabButtonHtml(tab, activeId) {
+  function tabButtonHtml(tab, activeId, selfView) {
     // Rules is live on clinic and account (both can edit / save).
     const live = tab.live ? ` <span class="ws-tab-live">${esc(t('wsTabLive'))}</span>` : '';
-    return `<button type="button" class="ws-tab${activeId === tab.id ? ' active' : ''}" data-tab="${tab.id}">${esc(t(tab.labelKey))}${live}</button>`;
+    const labelKey = selfView && tab.labelKeySelf ? tab.labelKeySelf : tab.labelKey;
+    return `<button type="button" class="ws-tab${activeId === tab.id ? ' active' : ''}" data-tab="${tab.id}">${esc(t(labelKey))}${live}</button>`;
   }
 
   function renderPatientBanner(el, ctx, displayName) {
@@ -1568,10 +1609,10 @@
     function paint() {
       const read = tabs.filter((tabDef) => tabDef.group !== 'write');
       const write = tabs.filter((tabDef) => tabDef.group === 'write');
-      let html = read.map((tabDef) => tabButtonHtml(tabDef, ctx.tab)).join('');
+      let html = read.map((tabDef) => tabButtonHtml(tabDef, ctx.tab, ctx.selfView)).join('');
       if (write.length) {
         html += '<span class="ws-tab-divider" aria-hidden="true"></span>';
-        html += write.map((tabDef) => tabButtonHtml(tabDef, ctx.tab)).join('');
+        html += write.map((tabDef) => tabButtonHtml(tabDef, ctx.tab, ctx.selfView)).join('');
       }
       tabsEl.innerHTML = html;
       tabsEl.querySelectorAll('.ws-tab').forEach((btn) => {

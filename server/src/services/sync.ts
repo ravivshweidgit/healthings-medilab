@@ -40,10 +40,9 @@ function decompressSyncPayload(buf: Buffer): string {
 }
 
 /**
- * be-24: strip patient coach chat from clinic snapshots on upload.
- * Old app builds keep shipping chat_history_*; without this strip those
- * transcripts sit at rest even after the portal stops rendering them.
- * Returns the original buffer when nothing matched (hash unchanged).
+ * be-24 refined 2026-07-27: patient coach chat may rest in the snapshot so
+ * /account/ can show it. Strip before any clinic mentor download — never return
+ * chat_history_* to clinicians. Old app builds that omit chat are unchanged.
  */
 export function stripChatHistoryFromSyncPayload(payloadGzip: Buffer): Buffer {
   let json: string;
@@ -208,8 +207,18 @@ export async function uploadSyncBlob(
     throw new SyncError('Payload too large (max 15 MB)', 413);
   }
 
-  // Strip before hash/store so old app builds cannot leave coach chat at rest.
-  let stored = stripChatHistoryFromSyncPayload(payloadGzip);
+  // Validate inflate size; keep chat_history_* for patient /account/ (stripped for mentors on read).
+  try {
+    const json = decompressSyncPayload(payloadGzip);
+    if (Buffer.byteLength(json, 'utf8') > MAX_INFLATED_BYTES) {
+      throw new SyncError('Payload too large when decompressed', 413);
+    }
+  } catch (err) {
+    if (err instanceof SyncError) throw err;
+    throw new SyncError('Invalid sync payload', 400);
+  }
+
+  let stored = payloadGzip;
 
   // Prefer newer My Rules already on the server (account web edit) over an
   // older phone copy uploaded before the app pulled GET /v1/account/rules.
@@ -275,13 +284,14 @@ export async function getLatestSyncForMentor(
 
   return {
     blob: toPublicBlob(row),
-    payloadGzipBase64: row.payload_gzip.toString('base64'),
+    // be-24: never hand patient coach transcripts to a clinician.
+    payloadGzipBase64: stripChatHistoryFromSyncPayload(row.payload_gzip).toString('base64'),
   };
 }
 
 /**
- * The patient's own snapshot, payload included — the same bytes a linked clinic
- * reads, which is the point: /account/ shows exactly what a clinic would see.
+ * The patient's own snapshot, payload included. Same meals/metrics a clinic
+ * would see, plus coach chat for /account/ self-view (clinic downloads strip chat).
  *
  * Gated on the live column rather than on `user.webViewEnabled` from the access
  * token, so turning the view off revokes reads immediately instead of when the

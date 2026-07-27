@@ -268,10 +268,10 @@
 
     <script src="../clinic/clinic-api.js?v=20260726f"></script>
     <script src="../clinic/clinic-i18n.js?v=20260727g"></script>
-    <script src="../clinic/clinic-workspace-i18n.js?v=20260727g"></script>
+    <script src="../clinic/clinic-workspace-i18n.js?v=20260727h"></script>
     <script src="../clinic/clinic-theme.js?v=20260727c"></script>
     <script src="../clinic/clinic-charts.js?v=20260727o"></script>
-    <script src="../clinic/clinic-workspace.js?v=20260727x"></script>
+    <script src="../clinic/clinic-workspace.js?v=20260727y"></script>
     <script>
       ClinicI18n.applyDocumentLocale();
       ClinicTheme.applyThemePref();
@@ -284,9 +284,7 @@
       const { api, loadTokens, saveTokens, clearTokens } =
         HealthingsApi.createClient('healthings_account_tokens');
 
-      // Chat and Rules are the clinic's write tools. Everything else renders
-      // straight from the snapshot, so this list is what makes the page read-only.
-      // Same tab set as clinic; chat/rules render read-only under selfView (be-15).
+      // Same tab set as clinic; Rules editable; AI chat read-only from phone snapshot.
       const ACCOUNT_TABS = [
         'dashboard', 'profile', 'lipids', 'foodlog', 'nutrition', 'labs', 'chat', 'rules',
       ];
