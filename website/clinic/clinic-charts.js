@@ -3,13 +3,47 @@
  */
 (function (global) {
   const BUCKET_MS = 30 * 60 * 1000;
-  const GLUCOSE_GREEN = '#4CAF50';
-  const HR_RED = '#FF5252';
-  const CAL_BMR = '#90CAF9';
-  const CAL_STEPS = '#42A5F5';
-  const CAL_WORKOUT = '#1565C0';
-  const MEAL_ORANGE = '#FF9800';
   const MS_DAY = 86400000;
+
+  /** Chart colours from CSS vars (clinic-theme / workspace) so Appearance flips SVG too. */
+  function cssVar(name, fallback) {
+    try {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return v || fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  function chartPalette() {
+    return {
+      glucose: cssVar('--ws-chart-glucose', '#4CAF50'),
+      hr: cssVar('--ws-chart-hr', '#FF5252'),
+      bmr: cssVar('--ws-chart-bmr', '#90CAF9'),
+      steps: cssVar('--ws-chart-steps', '#42A5F5'),
+      workout: cssVar('--ws-chart-workout', '#1565C0'),
+      eaten: cssVar('--ws-chart-eaten', '#FF9800'),
+      total: cssVar('--ws-chart-total', '#4CAF50'),
+      balance: cssVar('--ws-chart-balance', '#37474F'),
+      fat: cssVar('--ws-chart-fat', '#FF5252'),
+      muscle: cssVar('--ws-chart-muscle', '#4CAF50'),
+      weight: cssVar('--ws-chart-weight', '#2196F3'),
+      visceral: cssVar('--ws-chart-visceral', '#7B1FA2'),
+      ldl: cssVar('--ws-chart-ldl', '#C62828'),
+      tg: cssVar('--ws-chart-tg', '#FF9800'),
+      hdl: cssVar('--ws-chart-hdl', '#2E7D32'),
+      totalChol: cssVar('--ws-chart-total-chol', '#1565C0'),
+      grid: cssVar('--ws-chart-grid', '#e8eaed'),
+      muted: cssVar('--ws-chart-muted', '#6b7280'),
+      glucoseBand: cssVar('--ws-chart-glucose-band', '#E3F2FD'),
+      surplusZone: cssVar('--ws-chart-surplus-zone', '#FFEBEE'),
+      deficitZone: cssVar('--ws-chart-deficit-zone', '#E8F5E9'),
+      deficitDot: cssVar('--ws-chart-deficit-dot', '#2E7D32'),
+      surplusDot: cssVar('--ws-chart-surplus-dot', '#C62828'),
+      meal: cssVar('--ws-chart-meal', '#FF9800'),
+      axis: cssVar('--ws-chart-axis', '#7c7c7c'),
+    };
+  }
   // Sub-6H chips are phone CGM-watching; clinic case review starts at 6H (be-28).
   const VIEWPORT_PRESETS = [
     { label: '6H', ms: 6 * 3600000 },
@@ -205,9 +239,19 @@
   const LIPID_LABEL_RESERVE = 16;
   const LIPID_PLOT_H = LIPID_STRIP_H - LIPID_LABEL_RESERVE;
   const LIPID_AXIS_BOTTOM = 22;
-  const LIPID_SAFE_FILL = 'rgba(76, 175, 80, 0.16)';
-  const LIPID_GRID = '#e8edf2';
-  const LIPID_MUTED = '#888';
+  function lipidTheme() {
+    const pal = chartPalette();
+    return {
+      safeFill: pal.hdl,
+      safeOpacity: '0.16',
+      grid: pal.grid,
+      muted: pal.muted,
+      total: pal.totalChol,
+      ldl: pal.ldl,
+      tg: pal.tg,
+      hdl: pal.hdl,
+    };
+  }
 
   function hdlSafeThreshold(gender) {
     return gender === 'female' ? 50 : 40;
@@ -215,11 +259,12 @@
 
   function buildLipidStripDefs(gender) {
     const hdlT = hdlSafeThreshold(gender);
+    const lt = lipidTheme();
     return [
-      { key: 'totalCholesterol', label: 'TOTAL', color: '#1565C0', mode: 'below', threshold: 200, thresholdLabel: '<200' },
-      { key: 'ldl', label: 'LDL', color: '#C62828', mode: 'below', threshold: 100, thresholdLabel: '<100' },
-      { key: 'triglycerides', label: 'TG', color: '#FF9800', mode: 'below', threshold: 150, thresholdLabel: '<150' },
-      { key: 'hdl', label: 'HDL', color: '#2E7D32', mode: 'above', threshold: hdlT, thresholdLabel: `≥${hdlT}` },
+      { key: 'totalCholesterol', label: 'TOTAL', color: lt.total, mode: 'below', threshold: 200, thresholdLabel: '<200' },
+      { key: 'ldl', label: 'LDL', color: lt.ldl, mode: 'below', threshold: 100, thresholdLabel: '<100' },
+      { key: 'triglycerides', label: 'TG', color: lt.tg, mode: 'below', threshold: 150, thresholdLabel: '<150' },
+      { key: 'hdl', label: 'HDL', color: lt.hdl, mode: 'above', threshold: hdlT, thresholdLabel: `≥${hdlT}` },
     ];
   }
 
@@ -332,6 +377,13 @@
   }
 
   function drawMetabolicChart(host, data, ctx, onChange) {
+    const pal = chartPalette();
+    const GLUCOSE_GREEN = pal.glucose;
+    const HR_RED = pal.hr;
+    const CAL_BMR = pal.bmr;
+    const CAL_STEPS = pal.steps;
+    const CAL_WORKOUT = pal.workout;
+    const MEAL_ORANGE = pal.meal;
     const vpIdx = ctx.chartVp ?? DEFAULT_VIEWPORT_INDEX;
     const preset = VIEWPORT_PRESETS[vpIdx] || VIEWPORT_PRESETS[DEFAULT_VIEWPORT_INDEX];
     const chartEnd = ctx.chartEndMs ?? Date.now();
@@ -421,15 +473,15 @@
     calYMax = Math.min(200, Math.ceil(calYMax * 1.15));
 
     let svg = `<svg class="metabolic-svg" viewBox="0 0 ${W} ${H}" width="100%" height="${H}">`;
-    svg += `<rect x="${padL}" y="${calStripTop}" width="${innerW}" height="${calH}" fill="#E3F2FD" opacity="0.7"/>`;
-    svg += `<rect x="${padL}" y="${yOf(100)}" width="${innerW}" height="${Math.max(0, yOf(70) - yOf(100))}" fill="rgba(76,175,80,0.16)"/>`;
+    svg += `<rect x="${padL}" y="${calStripTop}" width="${innerW}" height="${calH}" fill="${pal.glucoseBand}" opacity="0.7"/>`;
+    svg += `<rect x="${padL}" y="${yOf(100)}" width="${innerW}" height="${Math.max(0, yOf(70) - yOf(100))}" fill="${pal.glucose}" opacity="0.16"/>`;
 
     for (let v = Math.ceil(yMin / 10) * 10; v <= yMax; v += 10) {
       const y = yOf(v);
-      svg += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#e8e8e8"/>`;
-      if (v % 20 === 0) svg += `<text x="4" y="${y + 4}" font-size="9" fill="#7c7c7c">${v}</text>`;
+      svg += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="${pal.grid}"/>`;
+      if (v % 20 === 0) svg += `<text x="4" y="${y + 4}" font-size="9" fill="${pal.axis}">${v}</text>`;
     }
-    svg += `<line x1="${padL}" y1="${calStripTop}" x2="${W - padR}" y2="${calStripTop}" stroke="#e8e8e8"/>`;
+    svg += `<line x1="${padL}" y1="${calStripTop}" x2="${W - padR}" y2="${calStripTop}" stroke="${pal.grid}"/>`;
 
     const barW = Math.max(2, innerW / Math.max(1, preset.ms / BUCKET_MS) * 0.85);
     for (let b = Math.floor(t0 / BUCKET_MS) * BUCKET_MS; b <= t1; b += BUCKET_MS) {
@@ -498,13 +550,13 @@
     for (let t = Math.ceil(t0 / tickStepMs) * tickStepMs, i = 0; t <= t1 && i < 32; t += tickStepMs, i += 1) {
       const x = xOf(t);
       if (x < padL - 1 || x > W - padR + 1) continue;
-      svg += `<line x1="${x}" y1="${plotH - 8}" x2="${x}" y2="${plotH - 2}" stroke="#999" stroke-width="1"/>`;
+      svg += `<line x1="${x}" y1="${plotH - 8}" x2="${x}" y2="${plotH - 2}" stroke="${pal.muted}" stroke-width="1"/>`;
       const lbl = formatMetabolicAxisLabel(t, tickStepMs);
       const halfW = labelHalfWidth(lbl, 9);
       // Tick marks all stay; only the text thins out, so dropped ones read as minor gridlines.
       if (x - halfW < labelRightEdge) continue;
       labelRightEdge = x + halfW;
-      svg += `<text x="${x}" y="${H - 6}" font-size="9" fill="#7c7c7c" text-anchor="middle">${lbl}</text>`;
+      svg += `<text x="${x}" y="${H - 6}" font-size="9" fill="${pal.axis}" text-anchor="middle">${lbl}</text>`;
     }
     svg += '</svg>';
 
@@ -552,12 +604,6 @@
 
   const TREND_PERIOD_OPTIONS = [8, 16, 32, 64, 128];
   const DEFAULT_TREND_PERIOD = 32;
-  const TREND_BLUE = '#2196F3';
-  const TREND_GREEN = '#4CAF50';
-  const TREND_FAT = '#FF5252';
-  const TREND_VISCERAL = '#7B1FA2';
-  const TREND_GRID = '#e8eaed';
-  const TREND_MUTED = '#6b7280';
   const TREND_PAD_L = 36;
   const TREND_PAD_R = 10;
   const TREND_PAD_TOP = 4;
@@ -822,6 +868,13 @@
   }
 
   function drawTrendAnalysis(host, allDays, sessions, periodDays, availableDays, onPeriodChange, opts) {
+    const pal = chartPalette();
+    const TREND_BLUE = pal.weight;
+    const TREND_GREEN = pal.muscle;
+    const TREND_FAT = pal.fat;
+    const TREND_VISCERAL = pal.visceral;
+    const TREND_GRID = pal.grid;
+    const TREND_MUTED = pal.muted;
     const fill = opts?.fillHeight !== false;
     const stripH = fill
       ? resolveStripHeight(3, TREND_STRIP_H, 175 + 3 * TREND_TITLE_H)
@@ -998,6 +1051,7 @@
   }
 
   function drawEnergyChart(host, days, eatenByDay, opts) {
+    const pal = chartPalette();
     const fill = opts?.fillHeight !== false;
     const ENERGY_BASE_STRIP_H = 58;
     const ENERGY_STRIP_H = fill
@@ -1010,16 +1064,17 @@
     const ENERGY_STRIP_UNIT = ENERGY_TITLE_H + ENERGY_STRIP_H;
     const ENERGY_AXIS_BOTTOM = 24;
     const ENERGY_NUM_STRIPS = 5;
-    const COLOR_BMR = '#1A1A1A';
-    const COLOR_ACTIVITY = '#42A5F5';
-    const COLOR_TOTAL = '#4CAF50';
-    const COLOR_EATEN = '#FF9800';
-    const COLOR_BALANCE_LINE = '#37474F';
-    const COLOR_DEFICIT_ZONE = '#E8F5E9';
-    const COLOR_SURPLUS_ZONE = '#FFEBEE';
-    const COLOR_DEFICIT_DOT = '#2E7D32';
-    const COLOR_SURPLUS_DOT = '#C62828';
-    const COLOR_GRID = '#e8eaed';
+    const COLOR_BMR = cssVar('--text', '#1A1A1A');
+    const COLOR_ACTIVITY = pal.steps;
+    const COLOR_TOTAL = pal.total;
+    const COLOR_EATEN = pal.eaten;
+    const COLOR_BALANCE_LINE = pal.balance;
+    const COLOR_DEFICIT_ZONE = pal.deficitZone;
+    const COLOR_SURPLUS_ZONE = pal.surplusZone;
+    const COLOR_DEFICIT_DOT = pal.deficitDot;
+    const COLOR_SURPLUS_DOT = pal.surplusDot;
+    const COLOR_GRID = pal.grid;
+    const TREND_MUTED = pal.muted;
 
     const slice = days || [];
     if (slice.length < 2) {
@@ -1190,7 +1245,7 @@
     if (balancePts.length > 1) svg += `<path d="${smoothPath(balancePts)}" fill="none" stroke="${COLOR_BALANCE_LINE}" stroke-width="2.4"/>`;
     for (const dot of balanceDots) {
       const fill = dot.value < 0 ? COLOR_DEFICIT_DOT : dot.value > 0 ? COLOR_SURPLUS_DOT : COLOR_BALANCE_LINE;
-      svg += `<circle cx="${dot.x}" cy="${dot.y}" r="4" fill="${fill}" stroke="#fff" stroke-width="1.5"/>`;
+      svg += `<circle cx="${dot.x}" cy="${dot.y}" r="4" fill="${fill}" stroke="${cssVar('--surface', '#fff')}" stroke-width="1.5"/>`;
     }
 
     svg += `<line x1="${plotLeft}" y1="${xAxisY}" x2="${W - ENERGY_PAD_R}" y2="${xAxisY}" stroke="${COLOR_GRID}" stroke-width="1" opacity="0.8"/>`;
@@ -1208,6 +1263,11 @@
   }
 
   function drawLipidChart(host, labs, opts) {
+    const lt = lipidTheme();
+    const LIPID_SAFE_FILL = lt.safeFill;
+    const LIPID_SAFE_OPACITY = lt.safeOpacity;
+    const LIPID_GRID = lt.grid;
+    const LIPID_MUTED = lt.muted;
     const gender = opts?.gender || null;
     const rtl = !!opts?.rtl;
     const pts = buildLipidPoints(labs);
@@ -1292,7 +1352,7 @@
       const label = strip.def.label;
       svg += `<text x="${plotLeft + 4}" y="${LIPID_PAD_TOP + strip.stripIdx * LIPID_STRIP_UNIT + 11}" fill="${strip.def.color}" font-size="9" font-weight="700">${label} · ${strip.def.thresholdLabel} mg/dL</text>`;
       if (strip.safeRect) {
-        svg += `<rect x="${plotLeft}" y="${strip.safeRect.y}" width="${chartRight - plotLeft}" height="${strip.safeRect.h}" fill="${LIPID_SAFE_FILL}"/>`;
+        svg += `<rect x="${plotLeft}" y="${strip.safeRect.y}" width="${chartRight - plotLeft}" height="${strip.safeRect.h}" fill="${LIPID_SAFE_FILL}" opacity="${LIPID_SAFE_OPACITY}"/>`;
       }
       for (const g of strip.grid) {
         svg += `<line x1="${plotLeft}" y1="${g.y}" x2="${chartRight}" y2="${g.y}" stroke="${LIPID_GRID}" stroke-width="1" opacity="0.5"/>`;
@@ -1305,7 +1365,7 @@
         const w = Math.max(24, lab.length * 5.4 + 8);
         const lx = lipidClampLabelCenter(pt.x, w, chartW);
         const ly = pt.y + 14;
-        svg += `<rect x="${lx - w / 2}" y="${ly - 9}" width="${w}" height="13" rx="3" fill="#fff" stroke="${strip.def.color}" stroke-width="0.75"/>`;
+        svg += `<rect x="${lx - w / 2}" y="${ly - 9}" width="${w}" height="13" rx="3" fill="${cssVar('--surface', '#fff')}" stroke="${strip.def.color}" stroke-width="0.75"/>`;
         svg += `<text x="${lx}" y="${ly}" font-size="9" font-weight="600" fill="${strip.def.color}" text-anchor="middle">${lab}</text>`;
       }
     }

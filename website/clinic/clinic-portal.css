@@ -1,10 +1,9 @@
 /**
  * Clinic portal panel (be-25).
  *
- * Tokens only — no hardcoded surface/text/line colours. The portal opts into
- * `<html class="theme-auto">`, so it darkens with the OS like the landing page.
- * Status tints are portal-local because tokens.css carries only the solid
- * --ok / --warn / --danger inks, not the pale fills a banner needs.
+ * Tokens only — no hardcoded surface/text/line colours.
+ * Dark status tints for Appearance pref live in clinic-theme.css (be-31, app darkColors).
+ * Light defaults stay here.
  */
 :root {
   --portal-ok-bg: #ecfdf3;
@@ -19,21 +18,6 @@
   --portal-neutral-bg: #f3f4f6;
   --portal-neutral-line: var(--line);
   --portal-neutral-ink: var(--muted);
-}
-
-@media (prefers-color-scheme: dark) {
-  .theme-auto {
-    --portal-ok-bg: #10251a;
-    --portal-ok-line: #1f5133;
-    --portal-ok-ink: #86efac;
-    --portal-warn-bg: #2a2110;
-    --portal-warn-line: #5c4715;
-    --portal-warn-ink: #fcd34d;
-    --portal-err-bg: #2a1416;
-    --portal-err-line: #5f2226;
-    --portal-err-ink: #fca5a5;
-    --portal-neutral-bg: var(--surface-2);
-  }
 }
 
 .portal-wrap {

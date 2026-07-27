@@ -26,6 +26,7 @@ Run in this order. The reason is the dependency, not preference.
 
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
+| `be-31-clinic-dark-theme.md` | Clinic + account dark theme (app tokens + Appearance) | **needs-review** | Warm graphite `darkColors`; system/light/dark picker; landing untouched |
 | — | be-30 labs + lipids clinical view | not drafted | Needs owner clinical judgment (reference ranges); not an Auto batch |
 
 ## Done

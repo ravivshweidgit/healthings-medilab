@@ -12,13 +12,32 @@
   --track: var(--surface-2);
   --max-w: 1440px;
 
-  /* Chart series + clinical tints — not brand primitives; flip for dark below.
-     Same pattern as --portal-* in clinic-portal.css (be-22). */
+  /* Chart series — light app chart.*; dark remap in clinic-theme.css (be-31). */
   --ws-chart-glucose: #4caf50;
   --ws-chart-hr: #ff5252;
   --ws-chart-bmr: #90caf9;
   --ws-chart-steps: #42a5f5;
   --ws-chart-workout: #1565c0;
+  --ws-chart-eaten: #ff9800;
+  --ws-chart-total: #4caf50;
+  --ws-chart-balance: #37474f;
+  --ws-chart-fat: #ff5252;
+  --ws-chart-muscle: #4caf50;
+  --ws-chart-weight: #2196f3;
+  --ws-chart-visceral: #7b1fa2;
+  --ws-chart-ldl: #c62828;
+  --ws-chart-tg: #ff9800;
+  --ws-chart-hdl: #2e7d32;
+  --ws-chart-total-chol: #1565c0;
+  --ws-chart-grid: #e8eaed;
+  --ws-chart-muted: #6b7280;
+  --ws-chart-glucose-band: #e3f2fd;
+  --ws-chart-surplus-zone: #ffebee;
+  --ws-chart-deficit-zone: #e8f5e9;
+  --ws-chart-deficit-dot: #2e7d32;
+  --ws-chart-surplus-dot: #c62828;
+  --ws-chart-meal: #ff9800;
+  --ws-chart-axis: #7c7c7c;
   --ws-chip-active-bg: var(--accent-light);
   --ws-chip-active-line: #90caf9;
   --ws-bubble-user: var(--accent-light);
@@ -33,18 +52,8 @@
   --ws-hover: color-mix(in srgb, var(--text) 4%, transparent);
   --ws-overlay: rgba(0, 0, 0, 0.45);
   --ws-modal-shadow: var(--shadow-lg);
-}
-
-@media (prefers-color-scheme: dark) {
-  .theme-auto {
-    --ws-chart-glucose: #66bb6a;
-    --ws-chart-hr: #ff8a80;
-    --ws-chart-bmr: #64b5f6;
-    --ws-chart-steps: #64b5f6;
-    --ws-chart-workout: #90caf9;
-    --ws-chip-active-line: #4aa8e0;
-    --ws-overlay: rgba(0, 0, 0, 0.65);
-  }
+  --ws-strip-title: var(--muted);
+  --ws-chrome-icon: var(--muted);
 }
 
 * { box-sizing: border-box; }

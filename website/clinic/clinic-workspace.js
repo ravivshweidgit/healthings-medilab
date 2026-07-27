@@ -1505,6 +1505,8 @@
   }
 
   function renderWorkspace(root, ctx) {
+    global.__clinicWorkspaceCtx = ctx;
+    global.__clinicWorkspaceRoot = root;
     const permitted = allowedTabs(ctx);
     const tab = permitted.some((tabDef) => tabDef.id === ctx.tab) ? ctx.tab : permitted[0].id;
     const fillHeight = tab === 'rules';
@@ -1526,6 +1528,15 @@
     const banner = document.getElementById('patient-banner');
     if (banner) renderPatientBanner(banner, ctx, ctx.displayName || null);
   }
+
+  /** Re-paint chart tabs when Appearance flips (SVG reads CSS vars at draw time). */
+  global.addEventListener('healthings-theme-change', () => {
+    const ctx = global.__clinicWorkspaceCtx;
+    const root = global.__clinicWorkspaceRoot;
+    if (!ctx || !root) return;
+    const tab = ctx.tab;
+    if (tab === 'dashboard' || tab === 'lipids') renderWorkspace(root, ctx);
+  });
 
   function initTabs(tabsEl, ctx, mainEl) {
     if (global.__clinicTab) ctx.tab = global.__clinicTab;
