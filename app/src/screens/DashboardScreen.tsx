@@ -153,7 +153,7 @@ import {
   loadWithingsTokens,
 } from '../services/WithingsApiService';
 import { type AuthUser, fetchCurrentUser, updatePatientNames } from '../services/AuthApiService';
-import { pullClinicOverlays } from '../services/ClinicOverlayService';
+import { pullAccountRulesIfNewer, pullClinicOverlays } from '../services/ClinicOverlayService';
 import {
   CLINIC_SYNC_POLL_MS,
   fulfillPendingClinicSyncRequests,
@@ -1350,7 +1350,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, []);
 
   const applyClinicOverlays = useCallback(async () => {
-    const rules = await pullClinicOverlays();
+    // Web-view rules first so a clinic overlay pull does not race past a newer account edit.
+    const fromWeb = await pullAccountRulesIfNewer();
+    const fromClinic = await pullClinicOverlays();
+    const rules = fromClinic || fromWeb;
     if (rules) {
       setUserRules(rules);
       await loadCoachMessage();

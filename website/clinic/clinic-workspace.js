@@ -1209,32 +1209,32 @@
     const rtl = profileRtl(ctx.parsed.profile);
     const editorOpen = ctx.rulesEditorExpanded !== false;
     const historyOpen = !!ctx.rulesHistoryExpanded;
-    const readonly = !!ctx.selfView;
-    const sourceHint = readonly
-      ? t('wsRulesHintSelfReadonly')
+    // Account can edit; clinic history API is mentor-only so stay hidden on selfView.
+    const hideHistory = !!ctx.selfView;
+    const sourceHint = ctx.selfView
+      ? t('wsRulesHintSelfEdit')
       : rulesSourceHint(ctx.parsed, ctx.overlay);
 
     panel.innerHTML = `
-      <p class="sub rules-intro">${esc(t(readonly ? 'wsRulesIntroSelf' : 'wsRulesIntro'))}</p>
+      <p class="sub rules-intro">${esc(t(ctx.selfView ? 'wsRulesIntroSelf' : 'wsRulesIntro'))}</p>
       <div class="rules-layout">
         <div class="rules-fold rules-editor-section${editorOpen ? ' is-open' : ''}">
           <button type="button" class="rules-fold-toggle" id="rules-editor-toggle" aria-expanded="${editorOpen ? 'true' : 'false'}">
-            <span class="rules-fold-title">${esc(t('wsRulesEditorTitle'))}</span>
+            <span class="rules-fold-title">${esc(t(ctx.selfView ? 'wsRulesEditorTitleSelf' : 'wsRulesEditorTitle'))}</span>
             <span class="rules-fold-preview">${esc(rulesTextPreview(raw))}</span>
             <span class="rules-fold-chevron">${editorOpen ? '⌃' : '›'}</span>
           </button>
           <div class="rules-fold-body">
-            <textarea id="rules-raw"${rtl ? ' dir="rtl"' : ''}${readonly ? ' readonly' : ''} placeholder="${esc(t('wsRulesPlaceholder'))}">${esc(raw)}</textarea>
-            ${readonly ? '' : `
+            <textarea id="rules-raw"${rtl ? ' dir="rtl"' : ''} placeholder="${esc(t('wsRulesPlaceholder'))}">${esc(raw)}</textarea>
             <div class="rules-actions">
               <button type="button" class="ws-btn primary" id="rules-save">${esc(t('wsRulesSave'))}</button>
               <span id="rules-status" class="sub"></span>
             </div>
-            <div id="rules-error" class="ws-inline-error" hidden role="alert"></div>`}
+            <div id="rules-error" class="ws-inline-error" hidden role="alert"></div>
             <p class="rules-hint">${esc(sourceHint)}</p>
           </div>
         </div>
-        ${readonly ? '' : `
+        ${hideHistory ? '' : `
         <div class="rules-fold rules-history-section${historyOpen ? ' is-open' : ''}">
           <button type="button" class="rules-fold-toggle" id="rules-history-toggle" aria-expanded="${historyOpen ? 'true' : 'false'}">
             <span class="rules-fold-title">${esc(t('wsRulesHistoryTitle'))}</span>
@@ -1247,15 +1247,12 @@
         </div>`}
       </div>`;
 
-    if (!readonly) {
-      panel.querySelector('#rules-save')?.addEventListener('click', () => void saveRules(ctx, panel));
-    }
+    panel.querySelector('#rules-save')?.addEventListener('click', () => void saveRules(ctx, panel));
     wireRulesFolds(panel, ctx);
-    if (!readonly) void loadRulesHistory(panel, ctx);
+    if (!hideHistory) void loadRulesHistory(panel, ctx);
   }
 
   async function saveRules(ctx, panel) {
-    if (ctx.selfView) return;
     const raw = panel.querySelector('#rules-raw')?.value?.trim();
     if (!raw) return;
     const status = panel.querySelector('#rules-status');
@@ -1265,19 +1262,32 @@
     if (btn) btn.disabled = true;
     if (status) status.textContent = t('wsRulesSaving');
     try {
-      const res = await ctx.api(`/v1/clinic/patients/${ctx.patientId}/rules`, {
-        method: 'PUT',
-        body: JSON.stringify({ rawText: raw }),
-      });
+      const res = ctx.selfView
+        ? await ctx.api('/v1/account/rules', {
+            method: 'PUT',
+            body: JSON.stringify({ rawText: raw }),
+          })
+        : await ctx.api(`/v1/clinic/patients/${ctx.patientId}/rules`, {
+            method: 'PUT',
+            body: JSON.stringify({ rawText: raw }),
+          });
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
         throw new Error(errBody.error || t('wsRulesSaveFailedStatus', { n: res.status }));
       }
       const data = await res.json();
-      ctx.overlay = data.overlay;
-      if (status) status.textContent = t('wsRulesSaved');
-      renderRules(panel, ctx);
-      void loadRulesHistory(panel, ctx);
+      if (ctx.selfView) {
+        ctx.parsed.userRules = data.rules;
+        if (status) status.textContent = t('wsRulesSavedSelf');
+        renderRules(panel, ctx);
+        const banner = document.getElementById('patient-banner');
+        if (banner) renderPatientBanner(banner, ctx, ctx.displayName || null);
+      } else {
+        ctx.overlay = data.overlay;
+        if (status) status.textContent = t('wsRulesSaved');
+        renderRules(panel, ctx);
+        void loadRulesHistory(panel, ctx);
+      }
     } catch (e) {
       if (status) status.textContent = '';
       const msg = e instanceof Error ? e.message : t('wsRulesSaveFailed');

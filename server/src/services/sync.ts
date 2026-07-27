@@ -275,3 +275,110 @@ export async function getLatestSyncMetaForPatient(user: PublicUser): Promise<Pub
   if (!row) return null;
   return toPublicBlob(row);
 }
+
+async function assertPatientWebViewOn(user: PublicUser): Promise<void> {
+  if (user.role !== 'patient') {
+    throw new SyncError('Only patients can manage their own rules here', 403);
+  }
+  const { rows: flag } = await query<{ on: boolean }>(
+    `SELECT web_view_enabled AS on FROM users WHERE id = $1`,
+    [user.id],
+  );
+  if (flag[0]?.on !== true) {
+    throw new SyncError('Turn on your web view to manage rules here', 403);
+  }
+}
+
+/** Latest My Rules from the patient's own sync blob (web-view gated). */
+export async function getPatientRulesFromLatestBlob(
+  user: PublicUser,
+): Promise<ClinicUserRules | null> {
+  await assertPatientWebViewOn(user);
+
+  const { rows } = await query<SyncRow>(
+    `SELECT * FROM sync_blobs
+     WHERE patient_id = $1
+     ORDER BY version DESC
+     LIMIT 1`,
+    [user.id],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return patientRulesFromSyncPayload(row.payload_gzip);
+}
+
+/**
+ * Patch user_rules inside the latest sync blob and bump version.
+ * Phone pulls via GET /v1/account/rules so the next upload does not wipe web edits.
+ */
+export async function updatePatientRulesInLatestBlob(
+  user: PublicUser,
+  rawText: string,
+): Promise<ClinicUserRules> {
+  await assertPatientWebViewOn(user);
+
+  const trimmed = rawText.trim();
+  if (!trimmed) {
+    throw new SyncError('Rules text is required', 400);
+  }
+
+  const { rows } = await query<SyncRow>(
+    `SELECT * FROM sync_blobs
+     WHERE patient_id = $1
+     ORDER BY version DESC
+     LIMIT 1`,
+    [user.id],
+  );
+  const row = rows[0];
+  if (!row) {
+    throw new SyncError('No snapshot yet — open the app once with web view on', 404);
+  }
+
+  let json: string;
+  try {
+    json = decompressSyncPayload(row.payload_gzip);
+  } catch {
+    throw new SyncError('Invalid sync payload', 400);
+  }
+  if (Buffer.byteLength(json, 'utf8') > MAX_INFLATED_BYTES) {
+    throw new SyncError('Payload too large when decompressed', 413);
+  }
+
+  let parsed: { asyncStorage?: Record<string, string>; [k: string]: unknown };
+  try {
+    parsed = JSON.parse(json) as { asyncStorage?: Record<string, string> };
+  } catch {
+    throw new SyncError('Invalid sync payload', 400);
+  }
+  if (!parsed.asyncStorage || typeof parsed.asyncStorage !== 'object') {
+    parsed.asyncStorage = {};
+  }
+
+  const rules: ClinicUserRules = {
+    rawText: trimmed,
+    summary: '',
+    constraints: [],
+    analyzedAt: new Date().toISOString(),
+  };
+  parsed.asyncStorage.user_rules = JSON.stringify(rules);
+
+  const stored = deflateSync(Buffer.from(JSON.stringify(parsed), 'utf8'));
+  const version = await nextVersion(user.id);
+  const payloadHash = createHash('sha256').update(stored).digest('hex');
+
+  await query<SyncRow>(
+    `INSERT INTO sync_blobs (patient_id, version, byte_size, payload_hash, summary, payload_gzip)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING *`,
+    [user.id, version, stored.length, payloadHash, row.summary, stored],
+  );
+  await query(`DELETE FROM sync_blobs WHERE patient_id = $1 AND version < $2`, [user.id, version]);
+
+  try {
+    await reconcileOverlayRulesFromPatientSnapshot(user.id, rules);
+  } catch {
+    // Non-fatal: rules still saved in the blob.
+  }
+
+  return rules;
+}

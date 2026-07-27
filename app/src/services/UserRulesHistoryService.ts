@@ -11,7 +11,7 @@ export const MAX_HISTORY_ENTRIES = 30;
 export type UserRulesHistoryEntry = {
   id: string;
   savedAt: string;
-  source: 'patient' | 'clinic';
+  source: 'patient' | 'clinic' | 'web';
   clinicLabel?: string;
   rules: UserRules;
 };
@@ -55,7 +55,7 @@ async function persistUserRulesHistory(entries: UserRulesHistoryEntry[]): Promis
 /** Archive prior rules when rawText changes, then persist the new active rules. */
 export async function saveUserRulesWithHistory(
   next: UserRules,
-  meta: { source: 'patient' | 'clinic'; clinicLabel?: string },
+  meta: { source: 'patient' | 'clinic' | 'web'; clinicLabel?: string },
 ): Promise<void> {
   const prior = await getUserRules();
   if (prior?.rawText?.trim() && !rawTextEqual(prior, next)) {
@@ -107,6 +107,7 @@ export function historyEntryMatchesActive(
 
 export function formatHistorySource(entry: UserRulesHistoryEntry): string {
   if (entry.source === 'clinic') return entry.clinicLabel?.trim() || 'Clinic';
+  if (entry.source === 'web') return 'Web';
   return 'You';
 }
 

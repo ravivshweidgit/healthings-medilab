@@ -63,3 +63,41 @@ async function shouldApplyNonClinicRules(
   const localAt = local ? Date.parse(local.analyzedAt) : 0;
   return serverOverlayAt > localAt;
 }
+
+type AccountRulesResponse = {
+  rules: UserRules | null;
+};
+
+/**
+ * Pull My Rules edited on /account/ when newer than local.
+ * Without this, the next phone upload would wipe web edits.
+ */
+export async function pullAccountRulesIfNewer(): Promise<UserRules | null> {
+  try {
+    const res = await authFetch('/v1/account/rules');
+    if (!res.ok) return null;
+    const data = (await res.json()) as AccountRulesResponse;
+    const rules = data.rules;
+    if (!rules?.rawText?.trim() || !rules.analyzedAt) return null;
+
+    const serverAt = Date.parse(rules.analyzedAt);
+    if (Number.isNaN(serverAt)) return null;
+
+    const local = await getUserRules();
+    const localAt = local?.analyzedAt ? Date.parse(local.analyzedAt) : 0;
+    if (Number.isFinite(localAt) && serverAt <= localAt) return null;
+    if (local && (local.rawText?.trim() ?? '') === rules.rawText.trim()) return null;
+
+    const saved: UserRules = {
+      rawText: rules.rawText,
+      summary: rules.summary ?? '',
+      constraints: rules.constraints ?? [],
+      aiContext: rules.aiContext ?? '',
+      analyzedAt: rules.analyzedAt,
+    };
+    await saveUserRulesWithHistory(saved, { source: 'web' });
+    return saved;
+  } catch {
+    return null;
+  }
+}
