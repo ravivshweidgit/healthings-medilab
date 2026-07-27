@@ -30,8 +30,8 @@ html.theme-pref-dark {
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
   --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.45);
 
-  --portal-ok-bg: #1f3f29;
-  --portal-ok-line: #2d5a3a;
+  --portal-ok-bg: #000000;
+  --portal-ok-line: #2a2a2a;
   --portal-ok-ink: #5fd068;
   --portal-warn-bg: #332b15;
   --portal-warn-line: #57491d;
@@ -101,8 +101,8 @@ html.theme-pref-dark {
     --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
     --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.45);
 
-    --portal-ok-bg: #1f3f29;
-    --portal-ok-line: #2d5a3a;
+    --portal-ok-bg: #000000;
+    --portal-ok-line: #2a2a2a;
     --portal-ok-ink: #5fd068;
     --portal-warn-bg: #332b15;
     --portal-warn-line: #57491d;
