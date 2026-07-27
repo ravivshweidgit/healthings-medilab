@@ -5,7 +5,7 @@
 **Authored by:** Owner + agent (same session as the be-06 web-chat/two-layer notes)
 **Builds on:** be-06 (wallet, `ai_usage_events`, sponsorships), be-15 (`/account/`), be-26 (portal i18n, 10 locales)
 **Deployed:** api.healthings.ai · healthings.ai clinic + account
-**Implemented:** 2026-07-27…2026-07-28
+**Implemented:** 2026-07-27…2026-07-28 — `c6bc449`
 
 ## Problem
 
