@@ -71,7 +71,7 @@ Full record: `be-08-clinic-portal-ux.md`.
 | `be-29-workspace-i18n.md` | Patient workspace i18n (`clinicLocale`) | 2026-07-27 — owner: first iteration ok (~95%); `07a839d`; minor polish deferred |
 | `be-31-clinic-dark-theme.md` | Clinic + account dark theme (app tokens + Appearance) | 2026-07-27 — owner accepted dark; picker restored on request |
 | `be-32-usage-billing-invoices.md` | Usage tracking + zero-charge invoices (`BILLING_LIVE`) | 2026-07-28 — owner: looks good / invoice 0; `c6bc449` |
-| `be-33-phone-prepaid-bucket.md` | Phone prepaid bucket: local gate + batch upload | 2026-07-28 — owner: chats flushed live; commit after `bi` |
+| `be-33-phone-prepaid-bucket.md` | Phone prepaid bucket: local gate + batch upload | 2026-07-28 — owner: chats flushed live; `78e30fc` |
 
 be-22 was written first, then mostly absorbed by be-25 on the home page; what shipped under be-22 is the
 patient workspace half plus money-led balance. be-25 and be-26 are one decision split in two: the owner
