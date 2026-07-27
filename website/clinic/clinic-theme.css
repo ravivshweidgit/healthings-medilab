@@ -183,6 +183,13 @@ html.theme-pref-dark .lipid-chart-box {
   border-radius: 8px;
 }
 
+/* Food log meal cards */
+.theme-pref-dark .meal-chip,
+html.theme-pref-dark .meal-chip {
+  background: #000000;
+  border-color: #2a2a2a;
+}
+
 @media (prefers-color-scheme: dark) {
   .theme-pref-system .ws-banner-stats,
   html.theme-pref-system .ws-banner-stats {
@@ -209,6 +216,12 @@ html.theme-pref-dark .lipid-chart-box {
   html.theme-pref-system .lipid-chart-box {
     background: #000000;
     border-radius: 8px;
+  }
+
+  .theme-pref-system .meal-chip,
+  html.theme-pref-system .meal-chip {
+    background: #000000;
+    border-color: #2a2a2a;
   }
 }
 
