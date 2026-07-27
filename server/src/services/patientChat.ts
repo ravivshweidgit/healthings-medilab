@@ -10,6 +10,7 @@ import {
   loadPatientAppChatThread,
   type AppChatMessage,
 } from './sync.js';
+import { meterPatientSelfChat } from './usage.js';
 
 export async function sendPatientAppChat(
   user: PublicUser,
@@ -36,6 +37,9 @@ export async function sendPatientAppChat(
     user.id,
     locale || replyLocale,
   );
+
+  // /account/ AI chat → patient wallet only (ignore clinic sponsorship).
+  await meterPatientSelfChat(user.id);
 
   const userMsg: AppChatMessage = {
     role: 'user',

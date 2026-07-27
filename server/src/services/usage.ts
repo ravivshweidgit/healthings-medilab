@@ -1,7 +1,7 @@
 import { query } from '../db/pool.js';
 import { resolveAiPayer } from './sponsor.js';
 import { tokensForReason, type AiUsageReason } from './aiBilling.js';
-import { debitAiUsageForPatient } from './wallet.js';
+import { debitAiUsage, debitAiUsageForPatient } from './wallet.js';
 
 export type AiUsageEvent = {
   id: string;
@@ -24,7 +24,72 @@ export type UsageSummaryRow = {
 
 export { type AiUsageReason };
 
-/** Log usage and debit payer (auto-reloads card when balance low). */
+async function recordAiUsageEvent(
+  patientId: string,
+  payerUserId: string,
+  tokens: number,
+  reason: AiUsageReason,
+  sponsored: boolean,
+  sponsorId: string | null,
+): Promise<AiUsageEvent> {
+  const { rows } = await query<{ id: string; created_at: Date }>(
+    `INSERT INTO ai_usage_events (patient_id, payer_user_id, sponsor_id, sponsored, tokens, reason)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, created_at`,
+    [patientId, payerUserId, sponsorId, sponsored, tokens, reason],
+  );
+
+  const { rows: balRows } = await query<{ balance_tokens: number }>(
+    `SELECT balance_tokens FROM wallets WHERE user_id = $1`,
+    [payerUserId],
+  );
+
+  const row = rows[0];
+  return {
+    id: row.id,
+    patientId,
+    payerUserId,
+    sponsorId,
+    sponsored,
+    tokens,
+    reason,
+    createdAt: row.created_at.toISOString(),
+    balanceAfter: balRows[0]?.balance_tokens ?? 0,
+  };
+}
+
+/**
+ * Debit an explicit payer (not sponsorship resolution).
+ * Used by clinic portal chat (mentor wallet) and /account/ chat (patient wallet).
+ */
+export async function meterAiUsageForPayer(
+  payerUserId: string,
+  patientId: string,
+  reason: AiUsageReason,
+  tokensOverride?: number,
+): Promise<AiUsageEvent> {
+  const tokens = tokensForReason(reason, tokensOverride);
+  await debitAiUsage(payerUserId, patientId, tokens, reason);
+  return recordAiUsageEvent(patientId, payerUserId, tokens, reason, false, null);
+}
+
+/** Clinic portal mentor chat — always the acting mentor's wallet. */
+export async function meterClinicChat(
+  mentorId: string,
+  patientId: string,
+): Promise<AiUsageEvent> {
+  return meterAiUsageForPayer(mentorId, patientId, 'ai_chat');
+}
+
+/**
+ * Patient /account/ AI chat — always the patient's wallet.
+ * Ignores ai_sponsorships so clinic balance is not charged for web self-chat.
+ */
+export async function meterPatientSelfChat(patientId: string): Promise<AiUsageEvent> {
+  return meterAiUsageForPayer(patientId, patientId, 'ai_chat');
+}
+
+/** Log usage and debit payer via sponsorship (phone app AI). Auto-reloads card when balance low. */
 export async function meterAiUsage(
   patientId: string,
   reason: AiUsageReason,
@@ -36,30 +101,14 @@ export async function meterAiUsage(
 
   await debitAiUsageForPatient(patientId, tokens, reason);
 
-  const { rows } = await query<{ id: string; created_at: Date }>(
-    `INSERT INTO ai_usage_events (patient_id, payer_user_id, sponsor_id, sponsored, tokens, reason)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, created_at`,
-    [patientId, payer.payerUserId, sponsorId, payer.sponsored, tokens, reason],
-  );
-
-  const { rows: balRows } = await query<{ balance_tokens: number }>(
-    `SELECT balance_tokens FROM wallets WHERE user_id = $1`,
-    [payer.payerUserId],
-  );
-
-  const row = rows[0];
-  return {
-    id: row.id,
+  return recordAiUsageEvent(
     patientId,
-    payerUserId: payer.payerUserId,
-    sponsorId,
-    sponsored: payer.sponsored,
+    payer.payerUserId,
     tokens,
     reason,
-    createdAt: row.created_at.toISOString(),
-    balanceAfter: balRows[0]?.balance_tokens ?? 0,
-  };
+    payer.sponsored,
+    sponsorId,
+  );
 }
 
 export async function getMentorUsageSummary(

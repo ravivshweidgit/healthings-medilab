@@ -15,6 +15,7 @@ import { saveDietaryRules } from '../services/dietaryRules.js';
 import { CLINIC_CHAT_LOCALES, mentorChatReply } from '../services/geminiClinic.js';
 import { sendPatientAppChat } from '../services/patientChat.js';
 import { SyncError } from '../services/sync.js';
+import { meterClinicChat } from '../services/usage.js';
 import {
   SyncRequestError,
   getSyncStatusForActor,
@@ -127,6 +128,8 @@ export async function registerClinicRoutes(app: FastifyInstance) {
         overlay.rules,
         body.locale,
       );
+      // Clinic portal chat → acting mentor's wallet (before persist).
+      await meterClinicChat(user.id, params.patientId);
       const assistantMsg = {
         role: 'assistant' as const,
         text: replyText,

@@ -1,7 +1,8 @@
 # be-15 — Patient web account (read-only, consent-gated)
 
 **Status:** done — server, website and app shipped and verified live with real data. Opus 5, 2026-07-26  
-**Refined 2026-07-27 (owner: looks good):** Rules edit on `/account/`; Refresh snapshot parity; AI chat tab (today-only app→account, compose on web, no account→app chat pull); LIVE badge; clinic privacy strip unchanged (be-24).
+**Refined 2026-07-27 (owner: looks good):** Rules edit on `/account/`; Refresh snapshot parity; AI chat tab (today-only app→account, compose on web, no account→app chat pull); LIVE badge; clinic privacy strip unchanged (be-24).  
+**Refined 2026-07-27 (billing):** `/account/` AI chat debits the **patient** wallet (`meterPatientSelfChat` — ignores `ai_sponsorships`). Clinic portal chat debits the **acting mentor** wallet (`meterClinicChat`). Phone app AI still uses `resolveAiPayer` (be-06).
 
 Remaining follow-ups are tracked elsewhere: the privacy policy sentences (below), mentor invite email, landing Sign-in routing, account chrome i18n. `/account/` is still `noindex` and unlinked.
 
@@ -393,7 +394,7 @@ web view is on (`fulfillPendingClinicSyncRequests`).
 - [ ] Revoking the last clinic share while web view is on does **not** purge the snapshot
 - [ ] Delete account requires a fresh code, then removes all rows; a later sign-in creates a clean account
 - [x] ~~Read-only: no rules save~~ **Superseded 2026-07-27:** patients may edit Rules on `/account/` via the same `PUT /v1/clinic/patients/:id/rules` + `saveDietaryRules` as clinic. Patient path patches the sync blob **and** mirrors into org overlays (`publishPatientWebRulesToOverlays`) so the phone’s existing `pullClinicOverlays` receives the edit. Also: keep newer web `user_rules` on phone upload (`mergeNewerServerUserRules`); `GET /v1/account/rules` remains a belt-and-suspenders pull. Owner-confirmed 2026-07-27.
-- [x] ~~Chat compose unreachable~~ **Superseded 2026-07-27:** `/account/` **AI chat** (not Clinic chat) — read/write today’s `chat_history_*` on the sync blob; Gemini patient reply; App→account today-only; **no** account→app chat pull; clinic mentor downloads still strip chat (be-24). Owner: looks good 2026-07-27. Sponsor control remains unreachable from `/account/`.
+- [x] ~~Chat compose unreachable~~ **Superseded 2026-07-27:** `/account/` **AI chat** (not Clinic chat) — read/write today’s `chat_history_*` on the sync blob; Gemini patient reply; App→account today-only; **no** account→app chat pull; clinic mentor downloads still strip chat (be-24). Owner: looks good 2026-07-27. Sponsor control remains unreachable from `/account/`. **Billing 2026-07-27:** account chat → patient token wallet; clinic chat → mentor token wallet (not sponsorship resolution).
 - [ ] Desktop (~1280) and mobile (~390): both usable; the clinic workspace CSS is desktop-first and
       will need the responsive work from be-14 before the snapshot tab is mobile-clean
 - [ ] No regression: clinic portal and clinic patient workspace behave exactly as before

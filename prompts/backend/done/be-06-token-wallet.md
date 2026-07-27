@@ -35,6 +35,8 @@ MVP alpha may run with **`PAYMENTS_ENABLED=false`** — log usage + balances in 
 
 > **Note:** be-03 supersedes be-01 “transfer tokens to client wallet” for MVP — clinic wallet debited directly via `resolveAiPayer`, not peer transfer.
 
+> **Web chat (2026-07-27):** Clinic portal chat always debits the **acting mentor** (`meterClinicChat`). `/account/` AI chat always debits the **patient** (`meterPatientSelfChat`) and ignores sponsorship — deliberate exception vs phone `resolveAiPayer`. See be-15.
+
 ---
 
 ## What ships
