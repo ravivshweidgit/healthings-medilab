@@ -105,6 +105,26 @@ h3,
   padding: 4px 2px;
   flex-shrink: 0;
 }
+/* Shared lead column — “← Clinic portal” and “My data” reserve the same
+   width so the patient name starts on the same x on both pages. Sized for
+   the longest locale back label; shorter labels leave trailing slack. */
+.ws-topbar--case > .ws-case-lead {
+  box-sizing: border-box;
+  flex: 0 0 13.5rem;
+  width: 13.5rem;
+  max-width: 13.5rem;
+  min-height: var(--tap-min);
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 2px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--accent-ink);
+  text-decoration: none;
+}
 .ws-topbar h1 { margin: 0; font-size: 1.15rem; font-weight: 700; }
 .ws-topbar .meta { color: var(--muted); font-size: 0.88rem; flex: 1; min-width: 200px; }
 .ws-topbar .badge {
@@ -181,11 +201,8 @@ h3,
   margin-inline-start: 0;
 }
 .ws-topbar--case .ws-case-brand {
-  font-size: 1.05rem;
-  font-weight: 700;
+  /* Width/type come from .ws-case-lead — keep this for older markup. */
   flex-shrink: 0;
-  white-space: nowrap;
-  color: var(--accent-ink);
 }
 .ws-topbar--case .ws-case-readonly {
   cursor: default;
