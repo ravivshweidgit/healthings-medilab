@@ -1359,8 +1359,13 @@ h3,
   align-items: center;
   justify-content: center;
   color: var(--muted);
-  width: 1.5rem;
-  min-height: 1.5rem;
+  width: 1.35rem;
+  height: 1.35rem;
+  overflow: hidden; /* never let a multi-glyph row paint over the title */
+}
+.group-card .row-icon .ws-icon {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 .ws-icon {
   display: block;
@@ -1377,6 +1382,7 @@ h3,
   width: 1.05rem;
   height: 1.05rem;
 }
+.profile-group .collapse-info .sub:empty { display: none; }
 .mentor-pill .ws-icon,
 .coach-mentor-title .ws-icon,
 .mentor-pick .ws-icon {

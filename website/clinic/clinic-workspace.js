@@ -32,6 +32,8 @@
     targets: lucideSvg('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>'),
     rules: lucideSvg('<path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>'),
     macros: lucideSvg('<path d="M7 21h10"/><path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z"/><path d="M11.38 12a2.4 2.4 0 0 1-.4-4.77 2.4 2.4 0 0 1 3.2-2.77 2.4 2.4 0 0 1 3.47-.63 2.4 2.4 0 0 1 3.37 3.37 2.4 2.4 0 0 1-1.1 3.7 2.51 2.51 0 0 1 .03 1.1"/><path d="m13 12 4-4"/><path d="M12 12v1"/>'),
+    /** Care team row — one mark; do not pack three mentor glyphs into the 24px slot. */
+    careTeam: lucideSvg('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
     doctor: lucideSvg('<path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/>'),
     nutritionist: lucideSvg('<path d="M7 21h10"/><path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z"/><path d="M11.38 12a2.4 2.4 0 0 1-.4-4.77 2.4 2.4 0 0 1 3.2-2.77 2.4 2.4 0 0 1 3.47-.63 2.4 2.4 0 0 1 3.37 3.37 2.4 2.4 0 0 1-1.1 3.7 2.51 2.51 0 0 1 .03 1.1"/><path d="m13 12 4-4"/><path d="M12 12v1"/>'),
     coach: lucideSvg('<path d="M17.596 12.768a2 2 0 1 0 2.829-2.829l-1.768-1.767a2 2 0 0 0 2.828-2.829l-2.828-2.828a2 2 0 0 0-2.829 2.828l-1.767-1.768a2 2 0 1 0-2.829 2.829z"/><path d="m2.5 21.5 1.4-1.4"/><path d="m20.1 3.9 1.4-1.4"/><path d="M5.343 21.485a2 2 0 1 0 2.829-2.828l1.767 1.768a2 2 0 1 0 2.829-2.829l-6.364-6.364a2 2 0 1 0-2.829 2.829l1.768 1.767a2 2 0 0 0-2.828 2.829z"/><path d="m9.6 14.4 4.8-4.8"/>'),
@@ -749,12 +751,13 @@
       ])}
       ${bt.reasoning ? `<p class="reasoning-block">${esc(bt.reasoning)}</p>` : ''}` : '<p class="empty">No body targets in snapshot</p>';
 
-    const mentorsBody = `
-      <div class="mentor-pills">${mentors.map((m) => {
-        const x = mentorMeta(m);
-        return `<span class="mentor-pill active">${mentorChromeIcon(m)} ${esc(x.label)}</span>`;
-      }).join('')}</div>
-      <p class="sub mentors-note">Active mentors from ${ctx.selfView ? 'your' : 'patient'} app snapshot (read-only).</p>`;
+    const mentorsBody = mentors.length
+      ? `<div class="mentor-pills">${mentors.map((m) => {
+          const x = mentorMeta(m);
+          return `<span class="mentor-pill active">${mentorChromeIcon(m)} ${esc(x.label)}</span>`;
+        }).join('')}</div>
+        <p class="sub mentors-note">From ${ctx.selfView ? 'your' : 'patient'} snapshot — read-only.</p>`
+      : '<p class="empty">No mentors in snapshot</p>';
 
     const rulesBody = rules?.rawText
       ? `
@@ -783,14 +786,22 @@
           ${collapseSection('targets', ChromeIcons.targets, targetsTitle, esc(targetsHeaderSub(bt)), targetsBody, !!ex.targets)}
         </div>
         <div class="group-card profile-group profile-col">
-          ${collapseSection('mentors', activeMentorIconsHtml(mentors), mentorsTitle, esc(mentorsHeaderSub(mentors)), mentorsBody, !!ex.mentors)}
+          ${collapseSection(
+            'mentors',
+            ChromeIcons.careTeam,
+            mentorsTitle,
+            // Collapsed: labels in the subtitle. Expanded: pills only (no triple-list).
+            ex.mentors ? '' : esc(mentorsHeaderSub(mentors)),
+            mentorsBody,
+            !!ex.mentors,
+          )}
           <div class="group-divider"></div>
           ${collapseSection('rules', ChromeIcons.rules, rulesTitle, esc(rulesTextPreview(rules?.rawText || '')), rulesBody, !!ex.rules)}
           <div class="group-divider"></div>
           ${collapseSection('macros', ChromeIcons.macros, macrosTitle, macrosSub, macrosBody, !!ex.macros)}
           ${coach ? `
           <div class="group-divider"></div>
-          ${collapseSection('coach', activeMentorIconsHtml(mentors), coachTitle, esc(coachSub), renderCoachBody(coach, mentors), !!ex.coach)}` : ''}
+          ${collapseSection('coach', ChromeIcons.coach, coachTitle, esc(coachSub), renderCoachBody(coach, mentors), !!ex.coach)}` : ''}
         </div>
       </div>`;
 
