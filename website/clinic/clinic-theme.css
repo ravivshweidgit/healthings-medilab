@@ -191,6 +191,14 @@ html.theme-pref-dark .chip.active {
     color: var(--accent-ink);
     border-color: var(--ws-chip-active-line);
   }
+
+  .theme-pref-system .chart-wrap,
+  .theme-pref-system .lipid-chart-box,
+  html.theme-pref-system .chart-wrap,
+  html.theme-pref-system .lipid-chart-box {
+    background: #000000;
+    border-radius: 8px;
+  }
 }
 
 .theme-pref-select {
