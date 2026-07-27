@@ -74,6 +74,52 @@ export function stripChatHistoryFromSyncPayload(payloadGzip: Buffer): Buffer {
   return deflateSync(Buffer.from(JSON.stringify(parsed), 'utf8'));
 }
 
+/**
+ * Keep web-edited My Rules when the phone uploads an older copy
+ * (app has not pulled GET /v1/account/rules yet). Compared by analyzedAt.
+ */
+function mergeNewerServerUserRules(
+  incomingGzip: Buffer,
+  existingGzip: Buffer | null,
+): Buffer {
+  if (!existingGzip) return incomingGzip;
+  const serverRules = patientRulesFromSyncPayload(existingGzip);
+  if (!serverRules?.rawText?.trim() || !serverRules.analyzedAt) return incomingGzip;
+
+  const serverAt = Date.parse(serverRules.analyzedAt);
+  if (!Number.isFinite(serverAt)) return incomingGzip;
+
+  let json: string;
+  try {
+    json = decompressSyncPayload(incomingGzip);
+  } catch {
+    return incomingGzip;
+  }
+
+  let parsed: { asyncStorage?: Record<string, string>; [k: string]: unknown };
+  try {
+    parsed = JSON.parse(json) as { asyncStorage?: Record<string, string> };
+  } catch {
+    return incomingGzip;
+  }
+  if (!parsed.asyncStorage || typeof parsed.asyncStorage !== 'object') {
+    parsed.asyncStorage = {};
+  }
+
+  const phoneRules = patientRulesFromSyncPayload(incomingGzip);
+  const phoneAt = phoneRules?.analyzedAt ? Date.parse(phoneRules.analyzedAt) : 0;
+  if (Number.isFinite(phoneAt) && phoneAt >= serverAt) return incomingGzip;
+  if (
+    phoneRules?.rawText?.trim() &&
+    phoneRules.rawText.trim() === serverRules.rawText.trim()
+  ) {
+    return incomingGzip;
+  }
+
+  parsed.asyncStorage.user_rules = JSON.stringify(serverRules);
+  return deflateSync(Buffer.from(JSON.stringify(parsed), 'utf8'));
+}
+
 function patientRulesFromSyncPayload(payloadGzip: Buffer): ClinicUserRules | null {
   try {
     const parsed = JSON.parse(decompressSyncPayload(payloadGzip)) as {
@@ -159,7 +205,18 @@ export async function uploadSyncBlob(
   }
 
   // Strip before hash/store so old app builds cannot leave coach chat at rest.
-  const stored = stripChatHistoryFromSyncPayload(payloadGzip);
+  let stored = stripChatHistoryFromSyncPayload(payloadGzip);
+
+  // Prefer newer My Rules already on the server (account web edit) over an
+  // older phone copy uploaded before the app pulled GET /v1/account/rules.
+  const { rows: prevRows } = await query<SyncRow>(
+    `SELECT * FROM sync_blobs
+     WHERE patient_id = $1
+     ORDER BY version DESC
+     LIMIT 1`,
+    [user.id],
+  );
+  stored = mergeNewerServerUserRules(stored, prevRows[0]?.payload_gzip ?? null);
 
   const version = await nextVersion(user.id);
   const payloadHash = createHash('sha256').update(stored).digest('hex');

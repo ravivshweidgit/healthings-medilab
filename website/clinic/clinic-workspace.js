@@ -1273,12 +1273,16 @@
       }
       const data = await res.json();
       if (data.rules) ctx.parsed.userRules = data.rules;
-      if (data.overlay) ctx.overlay = data.overlay;
-      if (status) status.textContent = ctx.selfView ? t('wsRulesSavedSelf') : t('wsRulesSaved');
+      // Account keeps overlay null (snapshot is source of truth). Clinic keeps mentor overlay.
+      if (!ctx.selfView && data.overlay) ctx.overlay = data.overlay;
       renderRules(panel, ctx);
       const banner = document.getElementById('patient-banner');
       if (banner) renderPatientBanner(banner, ctx, ctx.displayName || null);
       if (!ctx.selfView) void loadRulesHistory(panel, ctx);
+      const statusEl = panel.querySelector('#rules-status');
+      if (statusEl) {
+        statusEl.textContent = ctx.selfView ? t('wsRulesSavedSelf') : t('wsRulesSaved');
+      }
     } catch (e) {
       if (status) status.textContent = '';
       const msg = e instanceof Error ? e.message : t('wsRulesSaveFailed');
