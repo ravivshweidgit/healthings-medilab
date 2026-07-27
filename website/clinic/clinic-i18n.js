@@ -180,6 +180,11 @@
     nameCleared: 'Display name cleared. Patients will see your email address instead.',
     languageLabel: 'Portal language',
 
+    appearanceLabel: 'Appearance',
+    themeSystem: 'System',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+
     creditsTitle: 'AI credits (alpha)',
     creditsLead:
       'When balance runs low, your saved card is charged automatically and tokens reload.',
@@ -351,6 +356,11 @@
     nameSaved: 'נשמר. מטופלים יראו ״{name}״ בהזמנות ובאפליקציה.',
     nameCleared: 'שם התצוגה נמחק. מטופלים יראו את כתובת האימייל במקום.',
     languageLabel: 'שפת הפורטל',
+
+    appearanceLabel: 'מראה',
+    themeSystem: 'מערכת',
+    themeLight: 'בהיר',
+    themeDark: 'כהה',
     creditsTitle: 'זיכויי AI (אלפא)',
     creditsLead: 'כשהיתרה נמוכה, הכרטיס השמור מחויב אוטומטית וה־tokens מתחדשים.',
     balance: 'יתרה:',
@@ -522,6 +532,11 @@
     nameSaved: 'Guardado. Los pacientes verán “{name}” en invitaciones y en la app.',
     nameCleared: 'Nombre borrado. Los pacientes verán su correo en su lugar.',
     languageLabel: 'Idioma del portal',
+
+    appearanceLabel: 'Apariencia',
+    themeSystem: 'Sistema',
+    themeLight: 'Claro',
+    themeDark: 'Oscuro',
     creditsTitle: 'Créditos AI (alpha)',
     creditsLead:
       'Cuando el saldo es bajo, se cobra automáticamente la tarjeta guardada y se recargan tokens.',
@@ -695,6 +710,11 @@
     nameSaved: 'Enregistré. Les patients verront « {name} » sur les invitations et dans l’app.',
     nameCleared: 'Nom effacé. Les patients verront votre e-mail à la place.',
     languageLabel: 'Langue du portail',
+
+    appearanceLabel: 'Apparence',
+    themeSystem: 'Système',
+    themeLight: 'Clair',
+    themeDark: 'Sombre',
     creditsTitle: 'Crédits AI (alpha)',
     creditsLead:
       'Lorsque le solde est bas, la carte enregistrée est débitée automatiquement et les tokens sont rechargés.',
@@ -868,6 +888,11 @@
     nameSaved: 'Gespeichert. Patienten sehen „{name}“ bei Einladungen und in der App.',
     nameCleared: 'Anzeigename gelöscht. Patienten sehen stattdessen Ihre E-Mail.',
     languageLabel: 'Portalsprache',
+
+    appearanceLabel: 'Darstellung',
+    themeSystem: 'System',
+    themeLight: 'Hell',
+    themeDark: 'Dunkel',
     creditsTitle: 'AI-Guthaben (Alpha)',
     creditsLead:
       'Bei niedrigem Saldo wird die hinterlegte Karte automatisch belastet und tokens werden aufgeladen.',
@@ -1039,6 +1064,11 @@
     nameSaved: 'حُفظ. سيرى المرضى «{name}» في الدعوات والتطبيق.',
     nameCleared: 'مُسح الاسم الظاهر. سيرى المرضى بريدك بدلاً منه.',
     languageLabel: 'لغة البوابة',
+
+    appearanceLabel: 'المظهر',
+    themeSystem: 'النظام',
+    themeLight: 'فاتح',
+    themeDark: 'داكن',
     creditsTitle: 'أرصدة AI (ألفا)',
     creditsLead: 'عند انخفاض الرصيد تُخصم البطاقة المحفوظة تلقائياً وتُعاد تعبئة tokens.',
     balance: 'الرصيد:',
@@ -1210,6 +1240,11 @@
     nameSaved: 'Сохранено. Пациенты увидят «{name}» в приглашениях и в приложении.',
     nameCleared: 'Отображаемое имя удалено. Пациенты увидят ваш e-mail.',
     languageLabel: 'Язык портала',
+
+    appearanceLabel: 'Оформление',
+    themeSystem: 'Системная',
+    themeLight: 'Светлая',
+    themeDark: 'Тёмная',
     creditsTitle: 'Кредиты AI (alpha)',
     creditsLead:
       'При низком балансе сохранённая карта списывается автоматически, и tokens пополняются.',
@@ -1383,6 +1418,11 @@
     nameSaved: 'Guardado. Os pacientes verão “{name}” nos convites e na app.',
     nameCleared: 'Nome apagado. Os pacientes verão o seu e-mail.',
     languageLabel: 'Idioma do portal',
+
+    appearanceLabel: 'Aparência',
+    themeSystem: 'Sistema',
+    themeLight: 'Claro',
+    themeDark: 'Escuro',
     creditsTitle: 'Créditos AI (alpha)',
     creditsLead:
       'Quando o saldo está baixo, o cartão guardado é cobrado automaticamente e os tokens são recarregados.',
@@ -1556,6 +1596,11 @@
     nameSaved: 'Salvato. I pazienti vedranno “{name}” negli inviti e nell’app.',
     nameCleared: 'Nome cancellato. I pazienti vedranno la tua e-mail.',
     languageLabel: 'Lingua del portale',
+
+    appearanceLabel: 'Aspetto',
+    themeSystem: 'Sistema',
+    themeLight: 'Chiaro',
+    themeDark: 'Scuro',
     creditsTitle: 'Crediti AI (alpha)',
     creditsLead:
       'Quando il saldo è basso, la carta salvata viene addebitata automaticamente e i tokens si ricaricano.',
@@ -1729,6 +1774,11 @@
     nameSaved: 'Kaydedildi. Hastalar davetlerde ve uygulamada “{name}” görecek.',
     nameCleared: 'Görünen ad silindi. Hastalar bunun yerine e-postanızı görecek.',
     languageLabel: 'Portal dili',
+
+    appearanceLabel: 'Görünüm',
+    themeSystem: 'Sistem',
+    themeLight: 'Açık',
+    themeDark: 'Koyu',
     creditsTitle: 'AI kredileri (alpha)',
     creditsLead:
       'Bakiye düşükken kayıtlı kart otomatik çekilir ve tokens yenilenir.',

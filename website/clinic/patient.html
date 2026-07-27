@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="en" class="theme-clinic">
+<html lang="en" class="theme-pref-system">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Healthings — Patient workspace</title>
-    <script src="clinic-theme-boot.js?v=20260727b"></script>
+    <script src="clinic-theme-boot.js?v=20260727c"></script>
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="clinic-portal.css?v=20260727h" />
     <link rel="stylesheet" href="clinic-workspace.css?v=20260727j" />
-    <link rel="stylesheet" href="clinic-theme.css?v=20260727b" />
+    <link rel="stylesheet" href="clinic-theme.css?v=20260727c" />
   </head>
   <body class="clinic-workspace">
     <div class="ws-chrome">
@@ -18,6 +18,13 @@
         <!-- Single case strip: name · demographics · rules · body stats · sync (no second row). -->
         <div id="patient-banner" class="ws-case-header" hidden></div>
         <span id="sync-status-hint" class="meta sync-status-hint" hidden></span>
+        <select
+          id="theme-workspace"
+          class="portal-select theme-pref-select"
+          data-theme-picker
+          data-i18n-aria="appearanceLabel"
+          aria-label="Appearance"
+        ></select>
         <button id="refresh-snapshot-btn" class="ws-btn primary" type="button" hidden data-i18n="wsRefreshSnapshot">Refresh snapshot</button>
       </header>
       <nav class="ws-tabs" id="ws-tabs" hidden></nav>
@@ -33,9 +40,9 @@
 
     <script src="clinic-api.js?v=20260726k"></script>
     <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
-    <script src="clinic-i18n.js?v=20260727f"></script>
+    <script src="clinic-i18n.js?v=20260727g"></script>
     <script src="clinic-workspace-i18n.js?v=20260727b"></script>
-    <script src="clinic-theme.js?v=20260727b"></script>
+    <script src="clinic-theme.js?v=20260727c"></script>
     <script src="clinic-charts.js?v=20260727m"></script>
     <script src="clinic-workspace.js?v=20260727m"></script>
     <script>
@@ -49,8 +56,9 @@
         });
       }
       ClinicI18n.applyDocumentLocale();
-      ClinicTheme.ensureClinicThemeClass();
+      ClinicTheme.applyThemePref();
       hydrateStaticCopy();
+      ClinicTheme.bindThemePickers();
 
       const { api, loadTokens, saveTokens, clearTokens } = ClinicApi;
       let pollTimer = null;

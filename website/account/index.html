@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" class="theme-clinic">
+<html lang="en" class="theme-pref-system">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex" />
     <title>Healthings — Account</title>
-    <script src="../clinic/clinic-theme-boot.js?v=20260727b"></script>
+    <script src="../clinic/clinic-theme-boot.js?v=20260727c"></script>
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726f" />
     <!--
@@ -14,7 +14,7 @@
     -->
     <link rel="stylesheet" href="../clinic/clinic-portal.css?v=20260727h" />
     <link rel="stylesheet" href="../clinic/clinic-workspace.css?v=20260727j" />
-    <link rel="stylesheet" href="../clinic/clinic-theme.css?v=20260727b" />
+    <link rel="stylesheet" href="../clinic/clinic-theme.css?v=20260727c" />
     <style>
       .acct-wrap { max-width: 560px; margin: 0 auto; padding: 32px 16px 48px; }
       .acct-wrap .card { margin-bottom: 16px; }
@@ -72,6 +72,13 @@
           <strong>read your data</strong> (if My web view is on) or
           <strong>delete your account</strong>.
         </p>
+        <label class="acct-note" for="theme-gate" data-i18n="appearanceLabel">Appearance</label>
+        <select
+          id="theme-gate"
+          class="acct-input theme-pref-select"
+          data-theme-picker
+          aria-label="Appearance"
+        ></select>
         <div id="signin-step-email">
           <label class="acct-note" for="email">Email</label>
           <input id="email" class="acct-input" type="email" placeholder="you@example.com" autocomplete="email" />
@@ -225,6 +232,12 @@
           <h1>My data</h1>
           <span class="badge">Read-only</span>
           <span id="snapshot-meta" class="meta">Loading…</span>
+          <select
+            id="theme-app"
+            class="portal-select theme-pref-select"
+            data-theme-picker
+            aria-label="Appearance"
+          ></select>
           <!-- Deliberately not styled as destructive: switching the view off
                reduces exposure. The confirm dialog carries the explanation. -->
           <button id="turn-off" class="ws-btn" type="button">Turn off web view</button>
@@ -245,17 +258,18 @@
     </div>
 
     <script src="../clinic/clinic-api.js?v=20260726f"></script>
-    <script src="../clinic/clinic-i18n.js?v=20260727f"></script>
+    <script src="../clinic/clinic-i18n.js?v=20260727g"></script>
     <script src="../clinic/clinic-workspace-i18n.js?v=20260727b"></script>
-    <script src="../clinic/clinic-theme.js?v=20260727b"></script>
+    <script src="../clinic/clinic-theme.js?v=20260727c"></script>
     <script src="../clinic/clinic-charts.js?v=20260727m"></script>
     <script src="../clinic/clinic-workspace.js?v=20260727m"></script>
     <script>
       ClinicI18n.applyDocumentLocale();
-      ClinicTheme.ensureClinicThemeClass();
+      ClinicTheme.applyThemePref();
       document.querySelectorAll('[data-i18n]').forEach((el) => {
         el.textContent = ClinicI18n.t(el.getAttribute('data-i18n'));
       });
+      ClinicTheme.bindThemePickers();
       // Its own token key: a clinician and a patient sharing a browser must not
       // sign each other out.
       const { api, loadTokens, saveTokens, clearTokens } =

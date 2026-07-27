@@ -1,10 +1,10 @@
 # be-31 — Clinic + account dark theme (app tokens)
 
-**Status:** done — owner accepted 2026-07-27 (“ok dark mode is working”)  
+**Status:** done — owner accepted 2026-07-27 (“ok dark mode is working”); Appearance picker **restored** 2026-07-27 on owner request  
 **Model to implement:** Auto  
 **Authored by:** Owner + Auto  
 **Depends on:** be-25/be-22 (`theme-auto` plumbing), app prompt96 (`darkColors`)  
-**Implemented:** 2026-07-27 — `2e6575e` + follow-up (no Appearance picker)  
+**Implemented:** 2026-07-27 — `2e6575e` + follow-ups  
 **Deployed:** healthings.ai clinic + account
 
 ## Problem
@@ -16,28 +16,28 @@ Clinic and `/account/` darkened via OS `theme-auto`, but the palette was cool bl
 
 | Piece | Detail |
 |-------|--------|
-| Class | `theme-clinic` on clinic + account `<html>` (not landing `.theme-auto`) |
-| Dark | OS `prefers-color-scheme: dark` → app graphite + chart vars in `clinic-theme.css` |
-| Charts | `clinic-charts.js` `chartPalette()` reads CSS vars; repaint on OS scheme change |
-| Control | **OS only** — no Appearance picker (owner: no picker; dark mode working) |
+| Pref | `localStorage.healthings_theme_pref` = `system` \| `light` \| `dark` |
+| Classes | `theme-pref-system` / `theme-pref-light` / `theme-pref-dark` |
+| Dark | App graphite + chart vars in `clinic-theme.css` |
+| Picker | Appearance select on clinic login + worklist header, patient topbar, account gate/app |
+| Charts | `chartPalette()` CSS vars; repaint on pref / OS change |
 | Landing | Cool `.theme-auto` in `tokens.css` unchanged |
 
 ## Acceptance
 
-- [x] Clinic/account dark = warm graphite (app-like), not cool `#0d1117`
-- [x] Light OS → light clinic chrome
+- [x] Dark pref / OS-dark system → warm graphite
+- [x] Light pref → forced light when OS is dark
 - [x] Landing dark unchanged
 - [x] Charts readable in dark
-- [x] No Appearance picker UI
+- [x] Appearance picker present and filled (System / Light / Dark)
 
 ## Out of scope / deferred
 
-- Forced light/dark override picker (explicitly declined)
 - Server-persisted theme; sync with phone app
 - be-30 labs redesign
 
 ## Agent checklist
 
 - [x] Implemented + deployed
-- [x] Picker leftovers removed
-- [x] Owner accepted → `done/`
+- [x] Owner accepted dark mode
+- [x] Picker restored on owner request → `done/` updated
