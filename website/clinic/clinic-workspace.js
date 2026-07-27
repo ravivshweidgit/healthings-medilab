@@ -1449,8 +1449,9 @@
     return allowed.length ? allowed : ALL_TABS;
   }
 
-  function tabButtonHtml(tab, activeId, selfView) {
-    const live = tab.live && !selfView ? ` <span class="ws-tab-live">${esc(t('wsTabLive'))}</span>` : '';
+  function tabButtonHtml(tab, activeId) {
+    // Rules is live on clinic and account (both can edit / save).
+    const live = tab.live ? ` <span class="ws-tab-live">${esc(t('wsTabLive'))}</span>` : '';
     return `<button type="button" class="ws-tab${activeId === tab.id ? ' active' : ''}" data-tab="${tab.id}">${esc(t(tab.labelKey))}${live}</button>`;
   }
 
@@ -1567,10 +1568,10 @@
     function paint() {
       const read = tabs.filter((tabDef) => tabDef.group !== 'write');
       const write = tabs.filter((tabDef) => tabDef.group === 'write');
-      let html = read.map((tabDef) => tabButtonHtml(tabDef, ctx.tab, ctx.selfView)).join('');
+      let html = read.map((tabDef) => tabButtonHtml(tabDef, ctx.tab)).join('');
       if (write.length) {
         html += '<span class="ws-tab-divider" aria-hidden="true"></span>';
-        html += write.map((tabDef) => tabButtonHtml(tabDef, ctx.tab, ctx.selfView)).join('');
+        html += write.map((tabDef) => tabButtonHtml(tabDef, ctx.tab)).join('');
       }
       tabsEl.innerHTML = html;
       tabsEl.querySelectorAll('.ws-tab').forEach((btn) => {
