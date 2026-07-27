@@ -267,7 +267,7 @@
 
     <script src="../clinic/clinic-api.js?v=20260726f"></script>
     <script src="../clinic/clinic-i18n.js?v=20260727g"></script>
-    <script src="../clinic/clinic-workspace-i18n.js?v=20260727e"></script>
+    <script src="../clinic/clinic-workspace-i18n.js?v=20260727f"></script>
     <script src="../clinic/clinic-theme.js?v=20260727c"></script>
     <script src="../clinic/clinic-charts.js?v=20260727o"></script>
     <script src="../clinic/clinic-workspace.js?v=20260727q"></script>
@@ -285,7 +285,10 @@
 
       // Chat and Rules are the clinic's write tools. Everything else renders
       // straight from the snapshot, so this list is what makes the page read-only.
-      const READ_ONLY_TABS = ['dashboard', 'profile', 'lipids', 'foodlog', 'nutrition', 'labs'];
+      // Same tab set as clinic; chat/rules render read-only under selfView (be-15).
+      const ACCOUNT_TABS = [
+        'dashboard', 'profile', 'lipids', 'foodlog', 'nutrition', 'labs', 'chat', 'rules',
+      ];
 
       const VIEWS = [
         'signin-view', 'offline-view', 'empty-view', 'wrong-role-view', 'fatal-view',
@@ -592,7 +595,7 @@
           selfView: true,
           // Same identity slot as clinic: real name, not a generic "You".
           displayName: patientDisplayName || null,
-          tabIds: READ_ONLY_TABS,
+          tabIds: ACCOUNT_TABS,
           tab: window.__clinicTab || 'dashboard',
           activeMentor: parsed.mentors[0] || 'nutritionist',
         };

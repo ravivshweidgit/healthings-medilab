@@ -890,9 +890,10 @@
     const activeMentor = ctx.activeMentor || 'nutritionist';
     const thread = (ctx.overlay?.chat || {})[activeMentor] || [];
     const draft = ctx._chatDraft || '';
+    const readonly = !!ctx.selfView;
 
     panel.innerHTML = `
-      <p class="sub snapshot-note">${esc(t('wsChatPrivacyNote'))}</p>
+      <p class="sub snapshot-note">${esc(t(readonly ? 'wsChatPrivacyNoteSelf' : 'wsChatPrivacyNote'))}</p>
       <div class="chat-layout">
         <div class="mentor-nav">
           ${MENTORS.map((m) => `
@@ -902,23 +903,28 @@
         </div>
         <div class="chat-thread">
           <div class="chat-messages" id="chat-msgs">
-            ${thread.length ? thread.map((m) => bubbleHtml(m)).join('') : `<p class="empty">${esc(t('wsChatEmpty'))}</p>`}
+            ${thread.length
+              ? thread.map((m) => bubbleHtml(m)).join('')
+              : `<p class="empty">${esc(t(readonly ? 'wsChatEmptySelf' : 'wsChatEmpty'))}</p>`}
           </div>
+          ${readonly ? '' : `
           <div class="chat-compose">
             <textarea id="chat-input" placeholder="${esc(t('wsChatPlaceholder', { mentor: mentorMeta(activeMentor).label }))}" rows="2">${esc(draft)}</textarea>
             <button type="button" class="ws-btn primary" id="chat-send">${esc(t('wsChatSend'))}</button>
           </div>
-          <div id="chat-error" class="ws-inline-error" hidden role="alert"></div>
+          <div id="chat-error" class="ws-inline-error" hidden role="alert"></div>`}
         </div>
       </div>`;
 
     panel.querySelectorAll('.mentor-pick').forEach((btn) => {
       btn.addEventListener('click', () => {
         ctx.activeMentor = btn.getAttribute('data-mentor');
-        ctx._chatDraft = panel.querySelector('#chat-input')?.value || '';
+        if (!readonly) ctx._chatDraft = panel.querySelector('#chat-input')?.value || '';
         renderChat(panel, ctx);
       });
     });
+
+    if (readonly) return;
 
     const send = panel.querySelector('#chat-send');
     const input = panel.querySelector('#chat-input');
@@ -975,6 +981,7 @@
   }
 
   async function sendChat(ctx, input, panel) {
+    if (ctx.selfView) return;
     const text = input?.value?.trim();
     if (!text || !ctx.api) return;
     const btn = panel.querySelector('#chat-send');
@@ -1202,10 +1209,13 @@
     const rtl = profileRtl(ctx.parsed.profile);
     const editorOpen = ctx.rulesEditorExpanded !== false;
     const historyOpen = !!ctx.rulesHistoryExpanded;
-    const sourceHint = rulesSourceHint(ctx.parsed, ctx.overlay);
+    const readonly = !!ctx.selfView;
+    const sourceHint = readonly
+      ? t('wsRulesHintSelfReadonly')
+      : rulesSourceHint(ctx.parsed, ctx.overlay);
 
     panel.innerHTML = `
-      <p class="sub rules-intro">${esc(t('wsRulesIntro'))}</p>
+      <p class="sub rules-intro">${esc(t(readonly ? 'wsRulesIntroSelf' : 'wsRulesIntro'))}</p>
       <div class="rules-layout">
         <div class="rules-fold rules-editor-section${editorOpen ? ' is-open' : ''}">
           <button type="button" class="rules-fold-toggle" id="rules-editor-toggle" aria-expanded="${editorOpen ? 'true' : 'false'}">
@@ -1214,15 +1224,17 @@
             <span class="rules-fold-chevron">${editorOpen ? '⌃' : '›'}</span>
           </button>
           <div class="rules-fold-body">
-            <textarea id="rules-raw"${rtl ? ' dir="rtl"' : ''} placeholder="${esc(t('wsRulesPlaceholder'))}">${esc(raw)}</textarea>
+            <textarea id="rules-raw"${rtl ? ' dir="rtl"' : ''}${readonly ? ' readonly' : ''} placeholder="${esc(t('wsRulesPlaceholder'))}">${esc(raw)}</textarea>
+            ${readonly ? '' : `
             <div class="rules-actions">
               <button type="button" class="ws-btn primary" id="rules-save">${esc(t('wsRulesSave'))}</button>
               <span id="rules-status" class="sub"></span>
             </div>
-            <div id="rules-error" class="ws-inline-error" hidden role="alert"></div>
+            <div id="rules-error" class="ws-inline-error" hidden role="alert"></div>`}
             <p class="rules-hint">${esc(sourceHint)}</p>
           </div>
         </div>
+        ${readonly ? '' : `
         <div class="rules-fold rules-history-section${historyOpen ? ' is-open' : ''}">
           <button type="button" class="rules-fold-toggle" id="rules-history-toggle" aria-expanded="${historyOpen ? 'true' : 'false'}">
             <span class="rules-fold-title">${esc(t('wsRulesHistoryTitle'))}</span>
@@ -1232,12 +1244,14 @@
           <div class="rules-fold-body">
             <div id="rules-history-host" class="rules-history-panel"><p class="sub rules-hint">${esc(t('wsRulesLoadingHistory'))}</p></div>
           </div>
-        </div>
+        </div>`}
       </div>`;
 
-    panel.querySelector('#rules-save')?.addEventListener('click', () => void saveRules(ctx, panel));
+    if (!readonly) {
+      panel.querySelector('#rules-save')?.addEventListener('click', () => void saveRules(ctx, panel));
+    }
     wireRulesFolds(panel, ctx);
-    void loadRulesHistory(panel, ctx);
+    if (!readonly) void loadRulesHistory(panel, ctx);
   }
 
   async function saveRules(ctx, panel) {
@@ -1420,10 +1434,8 @@
   ];
 
   /**
-   * Chat and Rules are the only tabs that write, and the only ones that read
-   * `ctx.overlay`. A caller passing `ctx.tabIds` without them — the patient's own
-   * view at /account/ — gets a read-only workspace with no render function
-   * changed and no clinic data required.
+   * Chat and Rules write on clinic (overlay APIs). On /account/ they still appear
+   * for IA parity, but render read-only from the phone snapshot (be-15).
    */
   function allowedTabs(ctx) {
     if (!Array.isArray(ctx.tabIds)) return ALL_TABS;
@@ -1431,8 +1443,8 @@
     return allowed.length ? allowed : ALL_TABS;
   }
 
-  function tabButtonHtml(tab, activeId) {
-    const live = tab.live ? ` <span class="ws-tab-live">${esc(t('wsTabLive'))}</span>` : '';
+  function tabButtonHtml(tab, activeId, selfView) {
+    const live = tab.live && !selfView ? ` <span class="ws-tab-live">${esc(t('wsTabLive'))}</span>` : '';
     return `<button type="button" class="ws-tab${activeId === tab.id ? ' active' : ''}" data-tab="${tab.id}">${esc(t(tab.labelKey))}${live}</button>`;
   }
 
@@ -1549,10 +1561,10 @@
     function paint() {
       const read = tabs.filter((tabDef) => tabDef.group !== 'write');
       const write = tabs.filter((tabDef) => tabDef.group === 'write');
-      let html = read.map((tabDef) => tabButtonHtml(tabDef, ctx.tab)).join('');
+      let html = read.map((tabDef) => tabButtonHtml(tabDef, ctx.tab, ctx.selfView)).join('');
       if (write.length) {
         html += '<span class="ws-tab-divider" aria-hidden="true"></span>';
-        html += write.map((tabDef) => tabButtonHtml(tabDef, ctx.tab)).join('');
+        html += write.map((tabDef) => tabButtonHtml(tabDef, ctx.tab, ctx.selfView)).join('');
       }
       tabsEl.innerHTML = html;
       tabsEl.querySelectorAll('.ws-tab').forEach((btn) => {
