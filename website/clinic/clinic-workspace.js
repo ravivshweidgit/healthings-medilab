@@ -1491,7 +1491,7 @@
       </div>`;
   }
 
-  /** Account self-view still uses a thin topbar meta slot; clinic case header owns sync. */
+  /** Legacy helper — sync now lives in the case header via renderPatientBanner. */
   function paintHeaderMeta(metaEl, rulesChipEl, ctx) {
     if (metaEl) {
       metaEl.textContent = formatRelativeSync(ctx.blob?.createdAt);

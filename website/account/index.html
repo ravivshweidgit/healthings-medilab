@@ -13,7 +13,7 @@
       styles.css alongside it would give two competing definitions.
     -->
     <link rel="stylesheet" href="../clinic/clinic-portal.css?v=20260727h" />
-    <link rel="stylesheet" href="../clinic/clinic-workspace.css?v=20260727j" />
+    <link rel="stylesheet" href="../clinic/clinic-workspace.css?v=20260727k" />
     <link rel="stylesheet" href="../clinic/clinic-theme.css?v=20260727c" />
     <style>
       .acct-wrap { max-width: 560px; margin: 0 auto; padding: 32px 16px 48px; }
@@ -225,26 +225,27 @@
       </p>
     </div>
 
-    <!-- Signed in with the web view on: the same workspace a clinic sees, minus the writes. -->
+    <!-- Signed in with the web view on: same case chrome as clinic workspace (be-28 strip). -->
     <div id="acct-app" hidden>
       <div class="ws-chrome">
-        <header class="ws-topbar">
-          <h1>My data</h1>
+        <header class="ws-topbar ws-topbar--case">
+          <span class="ws-case-brand">My data</span>
           <span class="badge">Read-only</span>
-          <span id="snapshot-meta" class="meta">Loading…</span>
-          <select
-            id="theme-app"
-            class="portal-select theme-pref-select"
-            data-theme-picker
-            aria-label="Appearance"
-          ></select>
-          <!-- Deliberately not styled as destructive: switching the view off
-               reduces exposure. The confirm dialog carries the explanation. -->
-          <button id="turn-off" class="ws-btn" type="button">Turn off web view</button>
-          <button id="app-signout" class="ws-btn" type="button">Sign out</button>
-          <button id="delete-open-app" class="acct-link" type="button">Delete account</button>
+          <div id="patient-banner" class="ws-case-header" hidden></div>
+          <div class="ws-case-actions">
+            <select
+              id="theme-app"
+              class="portal-select theme-pref-select"
+              data-theme-picker
+              aria-label="Appearance"
+            ></select>
+            <!-- Deliberately not styled as destructive: switching the view off
+                 reduces exposure. The confirm dialog carries the explanation. -->
+            <button id="turn-off" class="ws-btn" type="button">Turn off web view</button>
+            <button id="app-signout" class="ws-btn" type="button">Sign out</button>
+            <button id="delete-open-app" class="acct-link" type="button">Delete account</button>
+          </div>
         </header>
-        <div id="patient-banner" class="ws-banner" hidden></div>
         <nav class="ws-tabs" id="ws-tabs" hidden></nav>
       </div>
       <p id="load-error" class="ws-error" hidden></p>
@@ -537,7 +538,6 @@
         showApp();
         showSkeleton();
         document.getElementById('load-error').hidden = true;
-        document.getElementById('snapshot-meta').textContent = 'Loading…';
 
         const res = await api('/v1/sync/mine/payload');
         // The gate is re-checked server-side on every read, so turning the view
@@ -574,12 +574,6 @@
           tab: window.__clinicTab || 'dashboard',
           activeMentor: parsed.mentors[0] || 'nutritionist',
         };
-
-        ClinicWorkspace.paintHeaderMeta(
-          document.getElementById('snapshot-meta'),
-          null,
-          ctx,
-        );
 
         const main = document.getElementById('ws-main');
         const tabs = document.getElementById('ws-tabs');
