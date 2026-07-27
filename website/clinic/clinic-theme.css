@@ -158,11 +158,38 @@ html.theme-pref-dark .ws-banner-stats {
   border-color: #2a2a2a;
 }
 
+/* Chart range chips (6H…32D) — black fill; active keeps accent border/text. */
+.theme-pref-dark .chip,
+html.theme-pref-dark .chip {
+  background: #000000;
+  border-color: #2a2a2a;
+  color: var(--text);
+}
+.theme-pref-dark .chip.active,
+html.theme-pref-dark .chip.active {
+  background: #000000;
+  color: var(--accent-ink);
+  border-color: var(--ws-chip-active-line);
+}
+
 @media (prefers-color-scheme: dark) {
   .theme-pref-system .ws-banner-stats,
   html.theme-pref-system .ws-banner-stats {
     background: #000000;
     border-color: #2a2a2a;
+  }
+
+  .theme-pref-system .chip,
+  html.theme-pref-system .chip {
+    background: #000000;
+    border-color: #2a2a2a;
+    color: var(--text);
+  }
+  .theme-pref-system .chip.active,
+  html.theme-pref-system .chip.active {
+    background: #000000;
+    color: var(--accent-ink);
+    border-color: var(--ws-chip-active-line);
   }
 }
 
