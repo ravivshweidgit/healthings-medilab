@@ -1481,11 +1481,12 @@
     el.hidden = false;
     // One horizontal strip — name + demographics + rules + stats + sync.
     // Topbar used to repeat name/sync/rules; that also drifted two “Synced … ago” clocks.
+    // Rules chip: green when any rules are active (clinic overlay or self) — same chrome language.
     el.innerHTML = `
       <div class="ws-case-header-inner">
         <h1 class="ws-banner-name" dir="auto">${esc(name)}</h1>
         <span class="ws-banner-identity">${esc(identity)}</span>
-        <span class="chip ${clinicRules ? 'ok' : 'off'}">${esc(rulesLabel)}</span>
+        <span class="chip ${n > 0 ? 'ok' : 'off'}">${esc(rulesLabel)}</span>
         <div class="ws-banner-stats" title="${esc(scanTitle)}">${stats}</div>
         <span class="ws-banner-sync" title="${esc(supportMetaTitle(ctx.blob))}">${esc(syncLabel)}</span>
       </div>`;

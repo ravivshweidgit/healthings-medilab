@@ -185,6 +185,11 @@ h3,
   font-weight: 700;
   flex-shrink: 0;
   white-space: nowrap;
+  color: var(--accent-ink);
+}
+.ws-topbar--case .ws-case-readonly {
+  cursor: default;
+  flex-shrink: 0;
 }
 .ws-topbar--case .ws-case-actions {
   display: flex;
@@ -193,6 +198,9 @@ h3,
   gap: 8px;
   margin-inline-start: auto;
   flex-shrink: 0;
+}
+.ws-topbar--case .ws-case-actions .portal-select {
+  min-height: var(--tap-min);
 }
 .ws-btn {
   border: 1px solid var(--grid);

@@ -13,7 +13,7 @@
       styles.css alongside it would give two competing definitions.
     -->
     <link rel="stylesheet" href="../clinic/clinic-portal.css?v=20260727h" />
-    <link rel="stylesheet" href="../clinic/clinic-workspace.css?v=20260727k" />
+    <link rel="stylesheet" href="../clinic/clinic-workspace.css?v=20260727m" />
     <link rel="stylesheet" href="../clinic/clinic-theme.css?v=20260727c" />
     <style>
       .acct-wrap { max-width: 560px; margin: 0 auto; padding: 32px 16px 48px; }
@@ -230,7 +230,7 @@
       <div class="ws-chrome">
         <header class="ws-topbar ws-topbar--case">
           <span class="ws-case-brand">My data</span>
-          <span class="badge">Read-only</span>
+          <span class="chip soon ws-case-readonly">Read-only</span>
           <div id="patient-banner" class="ws-case-header" hidden></div>
           <div class="ws-case-actions">
             <select
@@ -239,11 +239,12 @@
               data-theme-picker
               aria-label="Appearance"
             ></select>
+            <button id="refresh-snapshot-btn" class="ws-btn primary" type="button">Refresh</button>
             <!-- Deliberately not styled as destructive: switching the view off
                  reduces exposure. The confirm dialog carries the explanation. -->
             <button id="turn-off" class="ws-btn" type="button">Turn off web view</button>
             <button id="app-signout" class="ws-btn" type="button">Sign out</button>
-            <button id="delete-open-app" class="acct-link" type="button">Delete account</button>
+            <button id="delete-open-app" class="ws-btn" type="button">Delete account</button>
           </div>
         </header>
         <nav class="ws-tabs" id="ws-tabs" hidden></nav>
@@ -262,8 +263,8 @@
     <script src="../clinic/clinic-i18n.js?v=20260727g"></script>
     <script src="../clinic/clinic-workspace-i18n.js?v=20260727b"></script>
     <script src="../clinic/clinic-theme.js?v=20260727c"></script>
-    <script src="../clinic/clinic-charts.js?v=20260727m"></script>
-    <script src="../clinic/clinic-workspace.js?v=20260727m"></script>
+    <script src="../clinic/clinic-charts.js?v=20260727n"></script>
+    <script src="../clinic/clinic-workspace.js?v=20260727n"></script>
     <script>
       ClinicI18n.applyDocumentLocale();
       ClinicTheme.applyThemePref();
@@ -581,6 +582,14 @@
         ClinicWorkspace.initTabs(tabs, ctx, main);
         ClinicWorkspace.renderWorkspace(main, ctx);
       }
+
+      document.getElementById('refresh-snapshot-btn').onclick = () => {
+        const btn = document.getElementById('refresh-snapshot-btn');
+        btn.disabled = true;
+        void renderSnapshot().finally(() => {
+          btn.disabled = false;
+        });
+      };
 
       // --- boot ------------------------------------------------------------
       async function boot() {
