@@ -1255,6 +1255,7 @@
   }
 
   async function saveRules(ctx, panel) {
+    if (ctx.selfView) return;
     const raw = panel.querySelector('#rules-raw')?.value?.trim();
     if (!raw) return;
     const status = panel.querySelector('#rules-status');
