@@ -74,9 +74,9 @@ Full record: `be-08-clinic-portal-ux.md`.
 | `be-33-phone-prepaid-bucket.md` | Phone prepaid bucket: local gate + batch upload | 2026-07-28 — owner: chats flushed live; `78e30fc` |
 | `be-34-billing-live-psp.md` | Stripe Checkout + grace/pause-coverage (dark until flag) | 2026-07-28 — owner: Add card → Stripe not configured; `5056f78` |
 | `be-35-cogs-margin-view.md` | Dev-gated COGS/margin glance (revenue vs Gemini cost) | 2026-07-28 — owner: live margin panel OK; `14eb3e0` |
-| `be-36-chat-prompt-cogs.md` | Shrink clinic/account chat prompt COGS | 2026-07-28 — owner: web chats ~15–17k vs ~70k |
-| `be-37-admin-margin-gate.md` | Admin allowlist + global margin API (403 non-admin) | 2026-07-28 — clinic UI superseded by be-38 |
-| `be-38-admin-console.md` | Dedicated `/admin/` operator console | 2026-07-28 — owner: looks good |
+| `be-36-chat-prompt-cogs.md` | Shrink clinic/account chat prompt COGS | 2026-07-28 — owner: web chats ~15–17k vs ~70k; `40e2f18` |
+| `be-37-admin-margin-gate.md` | Admin allowlist + global margin API (403 non-admin) | 2026-07-28 — clinic UI superseded by be-38; `40e2f18` |
+| `be-38-admin-console.md` | Dedicated `/admin/` operator console | 2026-07-28 — owner: looks good; `40e2f18` |
 
 be-22 was written first, then mostly absorbed by be-25 on the home page; what shipped under be-22 is the
 patient workspace half plus money-led balance. be-25 and be-26 are one decision split in two: the owner
