@@ -1,4 +1,5 @@
 import { query } from '../db/pool.js';
+import { config } from '../config.js';
 import { resolveAiPayer } from './sponsor.js';
 import { tokensForReason, type AiUsageReason } from './aiBilling.js';
 import { debitAiUsage, debitAiUsageForPatient } from './wallet.js';
@@ -339,6 +340,114 @@ export async function getMentorUsageSummary(
     totalTokens: r.total_tokens,
     eventCount: r.event_count,
   }));
+}
+
+export type MarginRow = {
+  /** YYYY-MM-DD (UTC) for day rows; reason code for reason rows. */
+  key: string;
+  events: number;
+  eventsWithGemini: number;
+  credits: number;
+  revenueCents: number;
+  promptTokens: number;
+  outputTokens: number;
+  cogsCents: number;
+  marginCents: number;
+};
+
+export type MarginReport = {
+  days: MarginRow[];
+  byReason: MarginRow[];
+  totals: MarginRow;
+  rates: {
+    inputCentsPerMtok: number;
+    outputCentsPerMtok: number;
+    creditPriceCents: number;
+  };
+};
+
+type MarginAggRow = {
+  key: string;
+  events: string;
+  events_with_gemini: string;
+  credits: string;
+  prompt_tokens: string;
+  output_tokens: string;
+};
+
+function toMarginRow(r: MarginAggRow): MarginRow {
+  const credits = Number(r.credits);
+  const promptTokens = Number(r.prompt_tokens);
+  const outputTokens = Number(r.output_tokens);
+  const creditPriceCents = config.TOKEN_PACK_PRICE_CENTS / config.TOKEN_PACK_SIZE;
+  const revenueCents = credits * creditPriceCents;
+  const cogsCents =
+    (promptTokens * config.GEMINI_INPUT_COST_PER_MTOK_CENTS +
+      outputTokens * config.GEMINI_OUTPUT_COST_PER_MTOK_CENTS) /
+    1_000_000;
+  return {
+    key: r.key,
+    events: Number(r.events),
+    eventsWithGemini: Number(r.events_with_gemini),
+    credits,
+    revenueCents: Math.round(revenueCents * 100) / 100,
+    promptTokens,
+    outputTokens,
+    cogsCents: Math.round(cogsCents * 100) / 100,
+    marginCents: Math.round((revenueCents - cogsCents) * 100) / 100,
+  };
+}
+
+const MARGIN_AGG_SELECT = `
+  COUNT(*)::text AS events,
+  COUNT(gemini_total_tokens)::text AS events_with_gemini,
+  COALESCE(SUM(tokens), 0)::text AS credits,
+  COALESCE(SUM(gemini_prompt_tokens), 0)::text AS prompt_tokens,
+  COALESCE(SUM(COALESCE(gemini_candidates_tokens, 0) + COALESCE(gemini_thoughts_tokens, 0)), 0)::text AS output_tokens
+`;
+
+/**
+ * Revenue (credits at list price) vs estimated Gemini COGS for one payer (be-35).
+ * Pure math over stored usage — rates come from config, never live billing.
+ */
+export async function getMarginForPayer(payerUserId: string, days = 30): Promise<MarginReport> {
+  const boundedDays = Math.min(Math.max(days, 1), 90);
+
+  const { rows: dayRows } = await query<MarginAggRow>(
+    `SELECT to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS key, ${MARGIN_AGG_SELECT}
+     FROM ai_usage_events
+     WHERE payer_user_id = $1 AND created_at >= NOW() - ($2 || ' days')::interval
+     GROUP BY 1
+     ORDER BY 1 DESC`,
+    [payerUserId, String(boundedDays)],
+  );
+
+  const { rows: reasonRows } = await query<MarginAggRow>(
+    `SELECT reason AS key, ${MARGIN_AGG_SELECT}
+     FROM ai_usage_events
+     WHERE payer_user_id = $1 AND created_at >= NOW() - ($2 || ' days')::interval
+     GROUP BY 1
+     ORDER BY SUM(tokens) DESC`,
+    [payerUserId, String(boundedDays)],
+  );
+
+  const { rows: totalRows } = await query<MarginAggRow>(
+    `SELECT 'total' AS key, ${MARGIN_AGG_SELECT}
+     FROM ai_usage_events
+     WHERE payer_user_id = $1 AND created_at >= NOW() - ($2 || ' days')::interval`,
+    [payerUserId, String(boundedDays)],
+  );
+
+  return {
+    days: dayRows.map(toMarginRow),
+    byReason: reasonRows.map(toMarginRow),
+    totals: toMarginRow(totalRows[0]!),
+    rates: {
+      inputCentsPerMtok: config.GEMINI_INPUT_COST_PER_MTOK_CENTS,
+      outputCentsPerMtok: config.GEMINI_OUTPUT_COST_PER_MTOK_CENTS,
+      creditPriceCents: config.TOKEN_PACK_PRICE_CENTS / config.TOKEN_PACK_SIZE,
+    },
+  };
 }
 
 export async function getPatientUsageTotal(patientId: string, from?: Date, to?: Date): Promise<number> {

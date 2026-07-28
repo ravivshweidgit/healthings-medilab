@@ -43,6 +43,9 @@ const envSchema = z.object({
   BILLING_GRACE_TOKENS: z.coerce.number().int().positive().optional(),
   /** Comma-separated day offsets from first failure for card retries (be-34). */
   BILLING_RETRY_SCHEDULE_DAYS: z.string().default('1,3,5'),
+  /** COGS estimate rates (be-35), cents per million Gemini tokens. Flash list price. */
+  GEMINI_INPUT_COST_PER_MTOK_CENTS: z.coerce.number().default(30),
+  GEMINI_OUTPUT_COST_PER_MTOK_CENTS: z.coerce.number().default(250),
   GEMINI_API_KEY: z.string().optional(),
   /** When true and Stripe absent: simulate card charge + grant pack on auto-reload. */
   AUTO_RELOAD_SIMULATE: z

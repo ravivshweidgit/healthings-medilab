@@ -27,7 +27,6 @@ Run in this order. The reason is the dependency, not preference.
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
 | — | be-30 labs + lipids clinical view | not drafted | Needs owner clinical judgment (reference ranges); not an Auto batch |
-
 ## Done
 
 See [`done/README.md`](./done/README.md) — be-01 through be-34 (incl. be-08, be-22).

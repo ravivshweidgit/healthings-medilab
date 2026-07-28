@@ -254,6 +254,7 @@
           </summary>
           <div id="usage-summary"></div>
           <div id="usage-events"></div>
+          <div id="usage-margin" class="dev-only" hidden></div>
         </details>
 
         <details class="secondary-panel" id="billing-panel">
@@ -290,7 +291,7 @@
       </section>
     </div>
 
-    <script src="clinic-i18n.js?v=20260728c"></script>
+    <script src="clinic-i18n.js?v=20260728d"></script>
     <script src="clinic-theme.js?v=20260727c"></script>
     <script src="clinic-api.js?v=20260726k"></script>
     <script>
@@ -323,6 +324,7 @@
         events: [],
         invoices: null,
         wallet: null,
+        margin: null,
       };
 
       function formatWalletMoney(wallet) {
@@ -463,6 +465,7 @@
         renderUsageSummary(document.getElementById('usage-summary'), billingState.usage);
         renderUsageEvents(document.getElementById('usage-events'), billingState.events);
         renderInvoices(billingState.invoices);
+        renderMargin(billingState.margin);
       }
 
       /* ── helpers ───────────────────────────────────────────────────────── */
@@ -1089,6 +1092,79 @@
           </table>`;
       }
 
+      /** COGS money can be fractions of a cent — allow up to 4 decimals. */
+      function marginMoney(cents) {
+        const currency = String(
+          (billingState.wallet && billingState.wallet.currency) || 'usd',
+        ).toUpperCase();
+        try {
+          return new Intl.NumberFormat(getLocale(), {
+            style: 'currency',
+            currency,
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          }).format(cents / 100);
+        } catch {
+          return (cents / 100).toFixed(4) + ' ' + currency;
+        }
+      }
+
+      /** Dev-only (be-35): Healthings unit economics — never shown to real clinics. */
+      function renderMargin(margin) {
+        const el = document.getElementById('usage-margin');
+        if (!el) return;
+        if (!isDevMode()) {
+          el.hidden = true;
+          el.innerHTML = '';
+          return;
+        }
+        el.hidden = false;
+        if (!margin || !margin.totals || !margin.totals.events) {
+          el.innerHTML = `
+            <h3 style="margin:16px 0 4px">${escHtml(t('marginTitle'))}</h3>
+            <p class="muted">${escHtml(t('noMargin'))}</p>`;
+          return;
+        }
+        const row = (r, label) => `
+          <tr>
+            <td dir="ltr">${escHtml(label != null ? label : r.key)}</td>
+            <td dir="ltr">${escHtml(r.events)}</td>
+            <td dir="ltr">${escHtml(r.credits)}</td>
+            <td dir="ltr">${escHtml(marginMoney(r.revenueCents))}</td>
+            <td dir="ltr">${escHtml(marginMoney(r.cogsCents))}</td>
+            <td dir="ltr">${escHtml(marginMoney(r.marginCents))}</td>
+          </tr>`;
+        const head = (firstKey) => `
+          <thead><tr>
+            <th>${escHtml(t(firstKey))}</th>
+            <th>${escHtml(t('marginColEvents'))}</th>
+            <th>${escHtml(t('marginColCredits'))}</th>
+            <th>${escHtml(t('marginColRevenue'))}</th>
+            <th>${escHtml(t('marginColCogs'))}</th>
+            <th>${escHtml(t('marginColMargin'))}</th>
+          </tr></thead>`;
+        el.innerHTML = `
+          <h3 style="margin:16px 0 4px">${escHtml(t('marginTitle'))}</h3>
+          <p class="muted">${escHtml(t('marginLead'))}</p>
+          <table class="usage-table">
+            ${head('marginColDay')}
+            <tbody>
+              ${margin.days.map((d) => row(d)).join('')}
+              ${row(margin.totals, t('marginTotal'))}
+            </tbody>
+          </table>
+          <table class="usage-table">
+            ${head('marginColType')}
+            <tbody>${margin.byReason.map((r) => row(r)).join('')}</tbody>
+          </table>
+          <p class="muted">${escHtml(
+            t('marginCoverage', {
+              with: margin.totals.eventsWithGemini,
+              total: margin.totals.events,
+            }),
+          )}</p>`;
+      }
+
       /* ── data ──────────────────────────────────────────────────────────── */
 
       async function refreshDashboard() {
@@ -1137,6 +1213,13 @@
           billingState.events = usageEvents;
           billingState.invoices = invoiceData;
           billingState.wallet = wallet;
+          if (isDevMode()) {
+            const marginRes = await api('/v1/usage/margin?days=30').catch(() => null);
+            billingState.margin =
+              marginRes && marginRes.ok ? (await marginRes.json()).margin : null;
+          } else {
+            billingState.margin = null;
+          }
           paintBillingPanels();
 
         const BUSY_LABEL = {
