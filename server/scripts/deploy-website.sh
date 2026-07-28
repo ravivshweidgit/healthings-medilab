@@ -65,6 +65,10 @@ server {
         try_files $uri $uri/ /clinic/index.html;
     }
 
+    location /admin/ {
+        try_files $uri $uri/ /admin/index.html;
+    }
+
     location /downloads/ {
         default_type application/vnd.android.package-archive;
         add_header Content-Disposition 'attachment; filename="healthings-medilab.apk"';

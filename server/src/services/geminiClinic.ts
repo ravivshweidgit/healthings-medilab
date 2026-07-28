@@ -6,6 +6,74 @@ import type { ClinicChatMessage, ClinicUserRules } from './clinicOverlay.js';
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_TIMEOUT_MS = 60_000;
 
+/**
+ * Default clinic/account chat packing (be-36). History was never the ~70k driver —
+ * 31d itemized food + 7d raw CGM was. Keep full rules text for Gemini judgment.
+ */
+const CHAT_FOOD_LOOKBACK_DAYS = 31;
+const CHAT_FOOD_DETAIL_DAYS = 7;
+const CHAT_CGM_LOOKBACK_DAYS = 14;
+const CHAT_CGM_FULL_SERIES_DAYS = 2;
+const CHAT_CGM_SERIES_STEP_MIN = 15;
+const CHAT_WORKOUT_LOOKBACK_DAYS = 14;
+const CHAT_LAB_REPORT_LIMIT = 3;
+const CHAT_THINKING_BUDGET = 1024;
+
+type ChatPacking = {
+  foodLookbackDays: number;
+  foodDetailDays: number;
+  cgmLookbackDays: number;
+  cgmFullSeriesDays: number;
+  workoutLookbackDays: number;
+  labReportLimit: number;
+};
+
+const DEFAULT_CHAT_PACKING: ChatPacking = {
+  foodLookbackDays: CHAT_FOOD_LOOKBACK_DAYS,
+  foodDetailDays: CHAT_FOOD_DETAIL_DAYS,
+  cgmLookbackDays: CHAT_CGM_LOOKBACK_DAYS,
+  cgmFullSeriesDays: CHAT_CGM_FULL_SERIES_DAYS,
+  workoutLookbackDays: CHAT_WORKOUT_LOOKBACK_DAYS,
+  labReportLimit: CHAT_LAB_REPORT_LIMIT,
+};
+
+/** Pre-be-36 packing when staff/patient explicitly asks for a wide window. */
+const WIDE_CHAT_PACKING: ChatPacking = {
+  foodLookbackDays: 31,
+  foodDetailDays: 31,
+  cgmLookbackDays: 31,
+  cgmFullSeriesDays: 7,
+  workoutLookbackDays: 31,
+  labReportLimit: 10,
+};
+
+/**
+ * Intent routing only — not clinical rule parsing (ai-judgment-not-regex).
+ * Matches “last 30 days”, “past month”, Hebrew “חודש”, etc.
+ */
+function wantsWideChatContext(message: string): boolean {
+  const m = String(message || '').toLowerCase();
+  return (
+    /\b(30|31)\s*-?\s*days?\b/.test(m) ||
+    /\blast\s+(month|30|31)\b/.test(m) ||
+    /\bpast\s+(month|30|31)\b/.test(m) ||
+    /\bfull\s+(history|month|log|cgm|food)\b/.test(m) ||
+    /\b(último|ultimo)\s+mes\b/.test(m) ||
+    /\b(mois|Monat|mese|mês|mes)\s+(dernier|letzten|scorso|passado|pasado)\b/.test(m) ||
+    /חודש/.test(message) ||
+    /الشهر/.test(message) ||
+    /месяц/.test(message)
+  );
+}
+
+function packingForMessage(message: string): ChatPacking {
+  return wantsWideChatContext(message) ? WIDE_CHAT_PACKING : DEFAULT_CHAT_PACKING;
+}
+
+function dayKeyDaysAgo(days: number, utcOffsetMinutes = 0): string {
+  return dayKeyFromMsWithOffset(Date.now() - days * 86_400_000, utcOffsetMinutes);
+}
+
 export type MentorType = 'doctor' | 'nutritionist' | 'coach';
 
 type GeminiPart = { text?: string; thought?: boolean };
@@ -248,7 +316,7 @@ type LabReportRow = {
   }>;
 };
 
-function formatLabReports(store: Record<string, string>): string | null {
+function formatLabReports(store: Record<string, string>, limit = CHAT_LAB_REPORT_LIMIT): string | null {
   const reports: LabReportRow[] = [];
   for (const [key, raw] of Object.entries(store)) {
     if (!key.startsWith('lab_report_')) continue;
@@ -260,7 +328,7 @@ function formatLabReports(store: Record<string, string>): string | null {
   if (!reports.length) return null;
 
   const blocks: string[] = [];
-  for (const report of reports.slice(0, 10)) {
+  for (const report of reports.slice(0, Math.max(1, limit))) {
     const resultLines: string[] = [];
     for (const panel of report.panels ?? []) {
       for (const r of panel.results ?? []) {
@@ -425,20 +493,20 @@ function inferPatientUtcOffsetMinutes(store: Record<string, string>): number {
 /** Multi-day food log for clinic mentor chat — matches Food log tab in portal. */
 function formatFoodLogBlock(
   store: Record<string, string>,
-  lookbackDays = 31,
+  lookbackDays = CHAT_FOOD_LOOKBACK_DAYS,
   utcOffsetMinutes = 0,
+  detailDays = CHAT_FOOD_DETAIL_DAYS,
 ): string | null {
   const byDay = parseFoodLogsFromStore(store);
   if (byDay.size === 0) return null;
 
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - lookbackDays);
-  const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
+  const cutoffKey = dayKeyDaysAgo(lookbackDays, utcOffsetMinutes);
+  const detailCutoffKey = dayKeyDaysAgo(Math.min(detailDays, lookbackDays), utcOffsetMinutes);
 
   const dayKeys = [...byDay.keys()].sort((a, b) => b.localeCompare(a));
   const tzLabel = formatUtcOffsetLabel(utcOffsetMinutes);
   const lines: string[] = [
-    `Food log (by day, newest first — meal times patient local ${tzLabel}; use for questions about any listed date):`,
+    `Food log (by day, newest first — meal times patient local ${tzLabel}; item detail last ${Math.min(detailDays, lookbackDays)}d, day totals through ${lookbackDays}d):`,
   ];
 
   for (const dk of dayKeys) {
@@ -449,9 +517,11 @@ function formatFoodLogBlock(
     const p = meals.reduce((a, m) => a + (m.totalProtein_g ?? 0), 0);
     const c = meals.reduce((a, m) => a + (m.totalCarb_g ?? 0), 0);
     const f = meals.reduce((a, m) => a + (m.totalFat_g ?? 0), 0);
+    const detail = dk >= detailCutoffKey;
     lines.push(
-      `${dk}: ${meals.length} meals, ${Math.round(kcal)} kcal, P${Math.round(p)} C${Math.round(c)} F${Math.round(f)} g`,
+      `${dk}: ${meals.length} meals, ${Math.round(kcal)} kcal, P${Math.round(p)} C${Math.round(c)} F${Math.round(f)} g${detail ? '' : ' (totals only)'}`,
     );
+    if (!detail) continue;
     for (const meal of meals) {
       lines.push(...formatFoodLogMealLines(meal, utcOffsetMinutes));
     }
@@ -478,27 +548,53 @@ function glucoseOnDay(glucose: GlucosePoint[], dayKey: string, utcOffsetMinutes:
   );
 }
 
+function downsampleGlucosePoints(
+  dayPts: GlucosePoint[],
+  stepMinutes: number,
+): GlucosePoint[] {
+  if (dayPts.length <= 2 || stepMinutes <= 0) return dayPts;
+  const stepMs = stepMinutes * 60_000;
+  const out: GlucosePoint[] = [];
+  let lastKeptMs = -Infinity;
+  for (let i = 0; i < dayPts.length; i++) {
+    const p = dayPts[i]!;
+    const t = Date.parse(p.timestamp);
+    const isLast = i === dayPts.length - 1;
+    if (isLast || t - lastKeptMs >= stepMs || out.length === 0) {
+      out.push(p);
+      lastKeptMs = t;
+    }
+  }
+  return out;
+}
+
 function formatDayGlucoseSeries(
   glucose: GlucosePoint[],
   dayKey: string,
   utcOffsetMinutes: number,
+  stepMinutes = CHAT_CGM_SERIES_STEP_MIN,
 ): string | null {
   const dayPts = glucoseOnDay(glucose, dayKey, utcOffsetMinutes).sort(
     (a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp),
   );
   if (!dayPts.length) return null;
-  const readings = dayPts.map(
+  const sampled = downsampleGlucosePoints(dayPts, stepMinutes);
+  const readings = sampled.map(
     (p) => `${formatHmFromIsoWithOffset(p.timestamp, utcOffsetMinutes)}=${Math.round(p.value)}`,
   );
   const last = dayPts[dayPts.length - 1]!;
-  return `  CGM readings (${dayPts.length} samples, HH:MM=mg/dL patient local — match Food log meal times): ${readings.join(', ')} | latest ${Math.round(last.value)} mg/dL at ${formatHmFromIsoWithOffset(last.timestamp, utcOffsetMinutes)}`;
+  const sampleNote =
+    sampled.length < dayPts.length
+      ? `${sampled.length} of ${dayPts.length} samples (~${stepMinutes} min)`
+      : `${dayPts.length} samples`;
+  return `  CGM readings (${sampleNote}, HH:MM=mg/dL patient local — match Food log meal times): ${readings.join(', ')} | latest ${Math.round(last.value)} mg/dL at ${formatHmFromIsoWithOffset(last.timestamp, utcOffsetMinutes)}`;
 }
 
 /** Multi-day CGM for clinic mentor chat — matches dashboard chart data in portal. */
 function formatCgmBlock(
   store: Record<string, string>,
-  lookbackDays = 31,
-  fullSeriesDays = 7,
+  lookbackDays = CHAT_CGM_LOOKBACK_DAYS,
+  fullSeriesDays = CHAT_CGM_FULL_SERIES_DAYS,
   utcOffsetMinutes = 0,
 ): string | null {
   const cgmRaw = store['healthings:lastMetrics'];
@@ -641,7 +737,7 @@ function formatWorkoutLine(
 /** Withings workout sessions + daily active calories for clinic mentor chat. */
 function formatWorkoutsBlock(
   store: Record<string, string>,
-  lookbackDays = 31,
+  lookbackDays = CHAT_WORKOUT_LOOKBACK_DAYS,
   utcOffsetMinutes = 0,
 ): string | null {
   const withings = parseWithingsStore(store);
@@ -742,7 +838,10 @@ function formatProfileBlock(store: Record<string, string>): string | null {
   return `Profile: ${parts.join(', ')}`;
 }
 
-function buildPatientContextBlock(exportData: SnapshotExport | null): string {
+function buildPatientContextBlock(
+  exportData: SnapshotExport | null,
+  packing: ChatPacking = DEFAULT_CHAT_PACKING,
+): string {
   if (!exportData?.asyncStorage) return 'No patient snapshot uploaded yet.';
 
   const store = exportData.asyncStorage;
@@ -752,7 +851,7 @@ function buildPatientContextBlock(exportData: SnapshotExport | null): string {
   const profileBlock = formatProfileBlock(store);
   if (profileBlock) lines.push(profileBlock);
 
-  const labsBlock = formatLabReports(store);
+  const labsBlock = formatLabReports(store, packing.labReportLimit);
   if (labsBlock) lines.push(`Lab reports (newest first):\n${labsBlock}`);
 
   const withings = parseWithingsStore(store);
@@ -763,22 +862,26 @@ function buildPatientContextBlock(exportData: SnapshotExport | null): string {
     );
   }
 
-  const cgmBlock = formatCgmBlock(store, 31, 7, utcOffsetMinutes);
+  const cgmBlock = formatCgmBlock(
+    store,
+    packing.cgmLookbackDays,
+    packing.cgmFullSeriesDays,
+    utcOffsetMinutes,
+  );
   if (cgmBlock) lines.push(cgmBlock);
 
-  const foodBlock = formatFoodLogBlock(store, 31, utcOffsetMinutes);
+  const foodBlock = formatFoodLogBlock(
+    store,
+    packing.foodLookbackDays,
+    utcOffsetMinutes,
+    packing.foodDetailDays,
+  );
   if (foodBlock) lines.push(foodBlock);
 
-  const workoutsBlock = formatWorkoutsBlock(store, 31, utcOffsetMinutes);
+  const workoutsBlock = formatWorkoutsBlock(store, packing.workoutLookbackDays, utcOffsetMinutes);
   if (workoutsBlock) lines.push(workoutsBlock);
 
-  const rulesRaw = store.user_rules;
-  if (rulesRaw) {
-    try {
-      const rules = JSON.parse(rulesRaw) as { summary?: string; rawText?: string };
-      lines.push(`Patient rules: ${rules.summary ?? rules.rawText?.slice(0, 80) ?? '—'}`);
-    } catch { /* */ }
-  }
+  // Full rules rawText is attached separately in mentorChatReply* — do not duplicate here.
 
   const macroRaw = store.daily_macro_target;
   if (macroRaw) {
@@ -791,6 +894,10 @@ function buildPatientContextBlock(exportData: SnapshotExport | null): string {
   if (exportData.exportedAt) {
     lines.push(`Snapshot exported: ${exportData.exportedAt}`);
   }
+
+  lines.push(
+    `Context window: food items last ${packing.foodDetailDays}d (day totals through ${packing.foodLookbackDays}d); CGM day stats ${packing.cgmLookbackDays}d, detailed readings last ${packing.cgmFullSeriesDays}d (~${CHAT_CGM_SERIES_STEP_MIN} min); workouts ${packing.workoutLookbackDays}d; labs last ${packing.labReportLimit}. Ask for a wider window (e.g. last 30 days) if needed.`,
+  );
 
   return lines.length ? lines.join('\n') : 'Snapshot present but sparse.';
 }
@@ -806,7 +913,8 @@ export async function mentorChatReply(
   const clinicLocale = normalizeClinicChatLocale(clinicLocaleRaw);
   const replyLanguage = CLINIC_LOCALE_NAME[clinicLocale];
   const snapshot = await loadLatestSnapshotExport(patientId);
-  const dataBlock = buildPatientContextBlock(snapshot);
+  const packing = packingForMessage(message);
+  const dataBlock = buildPatientContextBlock(snapshot, packing);
 
   let snapRules: ClinicUserRules | null = null;
   const rulesRaw = snapshot?.asyncStorage?.user_rules;
@@ -861,7 +969,7 @@ Reply as the ${MENTOR_LABEL[mentorType]} mentor in ${replyLanguage} (plain text,
     return await geminiTextWithUsage(prompt, {
       temperature: 0.4,
       maxOutputTokens: 8192,
-      thinkingBudget: 4096,
+      thinkingBudget: CHAT_THINKING_BUDGET,
     });
   } catch (e) {
     return { text: e instanceof Error ? e.message : 'AI chat unavailable', usage: null };
@@ -882,7 +990,8 @@ export async function mentorChatReplyForPatient(
   const locale = normalizeClinicChatLocale(localeRaw);
   const replyLanguage = CLINIC_LOCALE_NAME[locale];
   const snapshot = await loadLatestSnapshotExport(patientId);
-  const dataBlock = buildPatientContextBlock(snapshot);
+  const packing = packingForMessage(message);
+  const dataBlock = buildPatientContextBlock(snapshot, packing);
 
   let snapRules: ClinicUserRules | null = null;
   const rulesRaw = snapshot?.asyncStorage?.user_rules;
@@ -929,7 +1038,7 @@ Reply as the ${MENTOR_LABEL[mentorType]} mentor in ${replyLanguage} (plain text,
     return await geminiTextWithUsage(prompt, {
       temperature: 0.4,
       maxOutputTokens: 8192,
-      thinkingBudget: 4096,
+      thinkingBudget: CHAT_THINKING_BUDGET,
     });
   } catch (e) {
     return { text: e instanceof Error ? e.message : 'AI chat unavailable', usage: null };

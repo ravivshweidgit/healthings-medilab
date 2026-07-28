@@ -1,10 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authenticate } from '../middleware/authenticate.js';
+import { isAdminEmail } from '../config.js';
 import { findUserById } from '../services/users.js';
 import { getWalletForUser } from '../services/wallet.js';
 import {
-  getMarginForPayer,
+  getMarginReport,
   getMentorUsageSummary,
   getPatientUsageTotal,
   getUsageEventsForPayer,
@@ -103,8 +104,9 @@ export async function registerUsageRoutes(app: FastifyInstance) {
   });
 
   /**
-   * Revenue vs estimated Gemini COGS for the caller as payer (be-35).
-   * Rates are config estimates, not live Google billing.
+   * Platform-wide revenue vs estimated Gemini COGS (be-35, admin-gated be-37).
+   * Unit economics — server-side allowlist, never mentor-visible. Rates are
+   * config estimates, not live Google billing.
    */
   app.get('/v1/usage/margin', { preHandler: authenticate }, async (request, reply) => {
     const q = z
@@ -112,7 +114,10 @@ export async function registerUsageRoutes(app: FastifyInstance) {
       .parse(request.query);
     const user = await findUserById(request.userId!);
     if (!user) return reply.code(404).send({ error: 'User not found' });
-    const margin = await getMarginForPayer(user.id, q.days ?? 30);
+    if (!isAdminEmail(user.email)) {
+      return reply.code(403).send({ error: 'Admin only' });
+    }
+    const margin = await getMarginReport(null, q.days ?? 30);
     return { margin };
   });
 

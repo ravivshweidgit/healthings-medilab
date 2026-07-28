@@ -46,6 +46,11 @@ const envSchema = z.object({
   /** COGS estimate rates (be-35), cents per million Gemini tokens. Flash list price. */
   GEMINI_INPUT_COST_PER_MTOK_CENTS: z.coerce.number().default(30),
   GEMINI_OUTPUT_COST_PER_MTOK_CENTS: z.coerce.number().default(250),
+  /**
+   * Comma-separated operator emails (be-37). Unlocks platform-wide margin/COGS —
+   * unit-economics data no clinic account may see. Empty = no admins.
+   */
+  ADMIN_EMAILS: z.string().default(''),
   GEMINI_API_KEY: z.string().optional(),
   /** When true and Stripe absent: simulate card charge + grant pack on auto-reload. */
   AUTO_RELOAD_SIMULATE: z
@@ -80,6 +85,18 @@ export const config = {
   BILLING_GRACE_TOKENS: parsed.data.BILLING_GRACE_TOKENS ?? parsed.data.TOKEN_PACK_SIZE,
   BILLING_RETRY_SCHEDULE_DAYS: retryScheduleDays.length ? retryScheduleDays : [1, 3, 5],
 };
+
+const adminEmails = new Set(
+  parsed.data.ADMIN_EMAILS.split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean),
+);
+
+/** Operator check (be-37) — allowlist until a real admin role exists. */
+export function isAdminEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return adminEmails.has(String(email).trim().toLowerCase());
+}
 
 export const OTP = {
   length: 6,

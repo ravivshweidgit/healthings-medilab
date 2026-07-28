@@ -407,16 +407,22 @@ const MARGIN_AGG_SELECT = `
 `;
 
 /**
- * Revenue (credits at list price) vs estimated Gemini COGS for one payer (be-35).
+ * Revenue (credits at list price) vs estimated Gemini COGS (be-35, be-37).
+ * `payerUserId = null` → all payers (platform-wide; admin-only at the route).
  * Pure math over stored usage — rates come from config, never live billing.
  */
-export async function getMarginForPayer(payerUserId: string, days = 30): Promise<MarginReport> {
+export async function getMarginReport(
+  payerUserId: string | null,
+  days = 30,
+): Promise<MarginReport> {
   const boundedDays = Math.min(Math.max(days, 1), 90);
+  const where = `($1::uuid IS NULL OR payer_user_id = $1)
+     AND created_at >= NOW() - ($2 || ' days')::interval`;
 
   const { rows: dayRows } = await query<MarginAggRow>(
     `SELECT to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS key, ${MARGIN_AGG_SELECT}
      FROM ai_usage_events
-     WHERE payer_user_id = $1 AND created_at >= NOW() - ($2 || ' days')::interval
+     WHERE ${where}
      GROUP BY 1
      ORDER BY 1 DESC`,
     [payerUserId, String(boundedDays)],
@@ -425,7 +431,7 @@ export async function getMarginForPayer(payerUserId: string, days = 30): Promise
   const { rows: reasonRows } = await query<MarginAggRow>(
     `SELECT reason AS key, ${MARGIN_AGG_SELECT}
      FROM ai_usage_events
-     WHERE payer_user_id = $1 AND created_at >= NOW() - ($2 || ' days')::interval
+     WHERE ${where}
      GROUP BY 1
      ORDER BY SUM(tokens) DESC`,
     [payerUserId, String(boundedDays)],
@@ -434,7 +440,7 @@ export async function getMarginForPayer(payerUserId: string, days = 30): Promise
   const { rows: totalRows } = await query<MarginAggRow>(
     `SELECT 'total' AS key, ${MARGIN_AGG_SELECT}
      FROM ai_usage_events
-     WHERE payer_user_id = $1 AND created_at >= NOW() - ($2 || ' days')::interval`,
+     WHERE ${where}`,
     [payerUserId, String(boundedDays)],
   );
 

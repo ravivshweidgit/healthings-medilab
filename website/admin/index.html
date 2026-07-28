@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en" class="theme-pref-system">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache" />
+    <title>Healthings — Operator</title>
+    <script src="../clinic/clinic-theme-boot.js?v=20260727c"></script>
+    <link rel="icon" href="../assets/icon.png" type="image/png" />
+    <link rel="stylesheet" href="../tokens.css?v=20260726j" />
+    <link rel="stylesheet" href="../styles.css?v=20260726g" />
+    <link rel="stylesheet" href="../clinic/clinic-portal.css?v=20260727i" />
+    <link rel="stylesheet" href="../clinic/clinic-theme.css?v=20260728e" />
+    <style>
+      /* Login stays narrow; signed-in shell is its own wide wrap (v20260728f). */
+      .admin-login-wrap {
+        max-width: 480px;
+        margin: 0 auto;
+        padding: 24px 16px 48px;
+      }
+      .admin-app-wrap {
+        max-width: min(1400px, 96vw);
+        width: 100%;
+        margin: 0 auto;
+        padding: 24px 20px 48px;
+        box-sizing: border-box;
+      }
+      .admin-app-wrap .panel-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      #margin-panel {
+        display: block;
+        padding: 20px 24px;
+      }
+      #margin-body {
+        overflow-x: auto;
+      }
+      .admin-app-wrap .usage-table {
+        width: 100%;
+        font-size: 0.95rem;
+        table-layout: auto;
+      }
+      .admin-app-wrap .usage-table th,
+      .admin-app-wrap .usage-table td {
+        padding: 10px 16px;
+        white-space: nowrap;
+        overflow-wrap: normal;
+      }
+    </style>
+  </head>
+  <body class="admin-console">
+    <div id="login-wrap" class="admin-login-wrap">
+      <section id="login-view" class="card login-card">
+        <a class="panel-brand" href="../index.html" style="margin-bottom: 16px">
+          <img src="../assets/icon.png" alt="" width="36" height="36" />
+          <span>
+            <span class="panel-brand-text">Healthings</span><br />
+            <span class="panel-brand-sub">Operator</span>
+          </span>
+        </a>
+        <h1>Operator console</h1>
+        <p class="muted">Platform margin — not the clinic portal. Sign in with an operator email.</p>
+
+        <form id="login-form-email">
+          <label class="field-label" for="email">Email</label>
+          <input
+            id="email"
+            class="portal-input"
+            type="email"
+            name="email"
+            dir="ltr"
+            autocomplete="email"
+            required
+          />
+          <button id="send-code" class="portal-btn" type="submit">Send code</button>
+        </form>
+
+        <form id="login-form-code" hidden>
+          <p class="muted">Code sent to <span id="email-display" dir="ltr"></span></p>
+          <label class="field-label" for="code">One-time code</label>
+          <input
+            id="code"
+            class="portal-input"
+            type="text"
+            name="code"
+            dir="ltr"
+            inputmode="numeric"
+            maxlength="6"
+            autocomplete="one-time-code"
+            required
+          />
+          <button id="verify-code" class="portal-btn" type="submit">Sign in</button>
+          <button id="change-email" class="portal-btn secondary" type="button">Change email</button>
+        </form>
+
+        <p id="login-error" class="error" role="alert" hidden></p>
+
+        <label class="field-label" for="theme-login">Appearance</label>
+        <select
+          id="theme-login"
+          class="portal-select theme-pref-select"
+          data-theme-picker
+          aria-label="Appearance"
+        ></select>
+      </section>
+    </div>
+
+    <div id="app-wrap" class="admin-app-wrap" hidden>
+      <section id="app-view">
+        <header class="panel-header">
+          <a class="panel-brand" href="../index.html">
+            <img src="../assets/icon.png" alt="" width="36" height="36" />
+            <span>
+              <span class="panel-brand-text">Healthings</span><br />
+              <span class="panel-brand-sub">Operator</span>
+            </span>
+          </a>
+          <div class="panel-header-meta">
+            <span class="muted" id="header-email" dir="ltr"></span>
+            <select
+              id="theme-app"
+              class="portal-select theme-pref-select"
+              data-theme-picker
+              aria-label="Appearance"
+            ></select>
+            <button id="logout" class="portal-btn secondary" type="button">Sign out</button>
+          </div>
+        </header>
+
+        <div id="margin-panel" class="secondary-panel">
+          <h2 style="margin: 0 0 4px">Margin</h2>
+          <p class="muted" id="margin-lead">
+            Credit revenue vs estimated Gemini cost — all payers. Internal estimate, not a Google bill.
+          </p>
+          <div id="margin-body"></div>
+        </div>
+
+        <p id="app-error" class="error" role="alert" hidden></p>
+      </section>
+    </div>
+
+    <script src="../clinic/clinic-theme.js?v=20260727c"></script>
+    <script src="../clinic/clinic-api.js?v=20260726k"></script>
+    <script>
+      const { api, loadTokens, saveTokens, clearTokens } = HealthingsApi.createClient(
+        'healthings_admin_tokens',
+      );
+
+      let loginEmail = '';
+
+      function showError(el, msg) {
+        if (!el) return;
+        if (!msg) {
+          el.hidden = true;
+          el.textContent = '';
+          return;
+        }
+        el.hidden = false;
+        el.textContent = msg;
+      }
+
+      function escHtml(s) {
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+
+      function money(cents) {
+        try {
+          return new Intl.NumberFormat('en', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          }).format(cents / 100);
+        } catch {
+          return (cents / 100).toFixed(4) + ' USD';
+        }
+      }
+
+      function renderMargin(margin) {
+        const el = document.getElementById('margin-body');
+        if (!el) return;
+        if (!margin || !margin.totals || !margin.totals.events) {
+          el.innerHTML = '<p class="muted">No usage yet.</p>';
+          return;
+        }
+        const row = (r, label) => `
+          <tr>
+            <td class="admin-cell">${escHtml(label != null ? label : r.key)}</td>
+            <td class="admin-cell">${escHtml(r.events)}</td>
+            <td class="admin-cell">${escHtml(r.credits)}</td>
+            <td class="admin-cell">${escHtml(money(r.revenueCents))}</td>
+            <td class="admin-cell">${escHtml(money(r.cogsCents))}</td>
+            <td class="admin-cell">${escHtml(money(r.marginCents))}</td>
+          </tr>`;
+        const head = (first) => `
+          <thead><tr>
+            <th>${escHtml(first)}</th>
+            <th>Events</th>
+            <th>Credits</th>
+            <th>Revenue</th>
+            <th>AI cost</th>
+            <th>Margin</th>
+          </tr></thead>`;
+        el.innerHTML = `
+          <table class="usage-table">
+            ${head('Day')}
+            <tbody>
+              ${margin.days.map((d) => row(d)).join('')}
+              ${row(margin.totals, 'Total')}
+            </tbody>
+          </table>
+          <table class="usage-table">
+            ${head('Type')}
+            <tbody>${margin.byReason.map((r) => row(r)).join('')}</tbody>
+          </table>
+          <p class="muted">${escHtml(margin.totals.eventsWithGemini)} of ${escHtml(
+            margin.totals.events,
+          )} events include Gemini token counts.</p>`;
+      }
+
+      function showLogin() {
+        document.getElementById('login-wrap').hidden = false;
+        document.getElementById('app-wrap').hidden = true;
+      }
+
+      function showApp() {
+        document.getElementById('login-wrap').hidden = true;
+        document.getElementById('app-wrap').hidden = false;
+      }
+
+      async function refresh() {
+        showError(document.getElementById('app-error'), '');
+        const meRes = await api('/v1/me');
+        if (!meRes.ok) {
+          clearTokens();
+          showLogin();
+          return;
+        }
+        const { user } = await meRes.json();
+        if (!user.isAdmin) {
+          clearTokens();
+          showLogin();
+          showError(
+            document.getElementById('login-error'),
+            'Not an operator account. Use an email on ADMIN_EMAILS.',
+          );
+          return;
+        }
+        document.getElementById('header-email').textContent = user.email;
+        showApp();
+        const marginRes = await api('/v1/usage/margin?days=30');
+        if (!marginRes.ok) {
+          showError(
+            document.getElementById('app-error'),
+            marginRes.status === 403 ? 'Admin only' : 'Could not load margin',
+          );
+          renderMargin(null);
+          return;
+        }
+        const data = await marginRes.json();
+        renderMargin(data.margin);
+      }
+
+      document.getElementById('login-form-email').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        showError(document.getElementById('login-error'), '');
+        loginEmail = document.getElementById('email').value.trim();
+        const btn = document.getElementById('send-code');
+        btn.disabled = true;
+        try {
+          const res = await api('/v1/auth/otp/request', {
+            method: 'POST',
+            body: JSON.stringify({
+              email: loginEmail,
+              role: 'patient',
+              purpose: 'admin',
+            }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || (res.status === 403 ? 'Not an operator account' : 'Could not send code'));
+          }
+          document.getElementById('email-display').textContent = loginEmail;
+          document.getElementById('login-form-email').hidden = true;
+          document.getElementById('login-form-code').hidden = false;
+          document.getElementById('code').focus();
+        } catch (err) {
+          showError(document.getElementById('login-error'), err.message || String(err));
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      document.getElementById('login-form-code').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        showError(document.getElementById('login-error'), '');
+        const code = document.getElementById('code').value.trim();
+        const btn = document.getElementById('verify-code');
+        btn.disabled = true;
+        try {
+          const res = await api('/v1/auth/otp/verify', {
+            method: 'POST',
+            body: JSON.stringify({ email: loginEmail, code }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Invalid code');
+          }
+          const data = await res.json();
+          if (!data.user || !data.user.isAdmin) {
+            clearTokens();
+            throw new Error('Not an operator account. Use an email on ADMIN_EMAILS.');
+          }
+          saveTokens(data.accessToken, data.refreshToken);
+          document.getElementById('code').value = '';
+          await refresh();
+        } catch (err) {
+          showError(document.getElementById('login-error'), err.message || String(err));
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      document.getElementById('change-email').addEventListener('click', () => {
+        document.getElementById('login-form-code').hidden = true;
+        document.getElementById('login-form-email').hidden = false;
+        document.getElementById('code').value = '';
+        showError(document.getElementById('login-error'), '');
+      });
+
+      document.getElementById('logout').addEventListener('click', () => {
+        clearTokens();
+        showLogin();
+      });
+
+      ClinicTheme.bindThemePickers();
+      if (loadTokens()) {
+        void refresh();
+      } else {
+        showLogin();
+      }
+    </script>
+  </body>
+</html>
