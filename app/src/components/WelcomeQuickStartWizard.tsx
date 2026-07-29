@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Text as SvgText } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { IosDateTimePickerSheet } from './IosDateTimePickerSheet';
 import { LabReportModal } from './LabReportModal';
 import { NutritionDirectiveReviewModal } from './NutritionDirectiveReviewModal';
 import { CONFIG } from '../config/env';
@@ -1591,7 +1592,19 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                   })}
                 </Text>
               </Pressable>
-              {showDatePicker && (
+              <IosDateTimePickerSheet
+                visible={showDatePicker}
+                value={birthdate}
+                mode="date"
+                maximumDate={new Date()}
+                minimumDate={new Date(1920, 0, 1)}
+                onDone={(d) => {
+                  setBirthdatePick(d);
+                  setShowDatePicker(false);
+                }}
+                onCancel={() => setShowDatePicker(false)}
+              />
+              {showDatePicker && Platform.OS === 'android' ? (
                 <DateTimePicker
                   value={birthdate}
                   mode="date"
@@ -1603,7 +1616,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                     if (d) setBirthdatePick(d);
                   }}
                 />
-              )}
+              ) : null}
               {age >= 13 && <Text style={[styles.hint, copyAlign]}>{t.ageYears(age)}</Text>}
             </>
           )}

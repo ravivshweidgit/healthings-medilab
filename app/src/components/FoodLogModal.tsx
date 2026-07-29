@@ -4,7 +4,7 @@
  * Photo add/remove merge on existing meals still uses approve preview.
  */
 
-import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -48,6 +48,7 @@ import {
 import { getMacroTarget, getUserRules, type UserLanguage } from '../services/TargetService';
 import { getNutritionDirectiveAiContext } from '../services/NutritionDirectiveService';
 import { cardShadow } from '../theme/wellness';
+import { IosDateTimePickerSheet } from './IosDateTimePickerSheet';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { ActionIcons, DashIcon } from '../theme/icons';
@@ -1480,18 +1481,18 @@ export function FoodLogModal({
                   <Text style={styles.timeValue}>{formatMealDateTime(mealTime, lang?.code)}</Text>
                   <Text style={styles.timeEdit}>Edit</Text>
                 </Pressable>
-                {showTimePicker && Platform.OS === 'ios' && (
-                  <DateTimePicker
-                    value={new Date(mealTime)}
-                    mode="datetime"
-                    display="spinner"
-                    maximumDate={new Date()}
-                    onChange={(_, date) => {
-                      setShowTimePicker(false);
-                      if (date) setMealTime(capMealTimestamp(date.getTime()));
-                    }}
-                  />
-                )}
+                <IosDateTimePickerSheet
+                  visible={showTimePicker && Platform.OS === 'ios'}
+                  value={new Date(mealTime)}
+                  mode="datetime"
+                  maximumDate={new Date()}
+                  doneLabel={ui.done}
+                  onDone={(date) => {
+                    setMealTime(capMealTimestamp(date.getTime()));
+                    setShowTimePicker(false);
+                  }}
+                  onCancel={() => setShowTimePicker(false)}
+                />
 
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
               </View>
