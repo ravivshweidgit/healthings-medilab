@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta
+      name="description"
+      content="Healthings — מודל בעלות לשותפים (תכנון, לא חוזה)"
+    />
+    <title>Healthings — מודל בעלות לשותפים (פנימי)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Montserrat:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #1a1a1a;
+        --muted: #5c5c5c;
+        --line: #e5e5e5;
+        --surface: #fafafa;
+        --accent: #2196f3;
+        --wrap: 42rem;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Assistant, 'Segoe UI', Tahoma, sans-serif;
+        font-size: 1.05rem;
+        line-height: 1.65;
+        color: var(--ink);
+        background: #fff;
+      }
+      .wrap {
+        max-width: var(--wrap);
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+      .brand {
+        font-family: Montserrat, sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 0.95rem;
+        margin: 0.75rem 0 1.5rem;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #854d0e;
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 999px;
+        padding: 0.25rem 0.75rem;
+        margin-bottom: 1rem;
+      }
+      h1 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin: 0 0 0.5rem;
+        line-height: 1.3;
+      }
+      h2 {
+        font-size: 1.25rem;
+        margin: 2rem 0 0.75rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid var(--line);
+      }
+      h3 {
+        font-size: 1.05rem;
+        margin: 1.25rem 0 0.5rem;
+      }
+      p,
+      li {
+        margin: 0.5rem 0;
+      }
+      strong.formula {
+        display: block;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 0.85rem 1rem;
+        margin: 0.75rem 0;
+        font-size: 1.05rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+        margin: 0.75rem 0 1rem;
+      }
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 0.55rem 0.4rem;
+        text-align: start;
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 700;
+      }
+      td.num,
+      th.num {
+        text-align: end;
+        font-variant-numeric: tabular-nums;
+        direction: ltr;
+        unicode-bidi: embed;
+      }
+      .ltr {
+        direction: ltr;
+        unicode-bidi: embed;
+      }
+      .summary {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 12px;
+        padding: 1rem 1.15rem;
+        margin: 1.5rem 0;
+      }
+      .foot {
+        margin-top: 2.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      ol {
+        padding-inline-start: 1.25rem;
+      }
+      a {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <p class="brand">HEALTHINGS.AI</p>
+      <p class="badge">מסמך פנימי · מודל לתכנון — לא חוזה חתום</p>
+      <h1>מודל בעלות לשותפים</h1>
+      <p class="meta">
+        אל: שיי, מיכל, וכל מי שמצטרף<br />
+        מאת: רביב · 29 ביולי 2026
+      </p>
+      <p>
+        מסמך זה מסביר את <strong>המודל</strong>, את <strong>מצב ההשקעה הנוכחי</strong>, ואת
+        <strong>אופן ההצטרפות</strong>. עורכי דין ינסחו מסמכים רשמיים בהמשך.
+      </p>
+
+      <h2>1. איך מחושב אחוז הבעלות</h2>
+      <p>התרומה של כל אדם:</p>
+      <p><strong class="formula">תרומה = מזומן שהשקעת + (שעות עבודה × R)</strong></p>
+      <p>אחוז הבעלות שלך:</p>
+      <p><strong class="formula">אחוז = התרומה שלך ÷ סכום כל התרומות × 100%</strong></p>
+      <table>
+        <thead>
+          <tr>
+            <th>מונח</th>
+            <th>משמעות</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>מזומן</strong></td>
+            <td>כסף שאת/ה מממן למוצר (או חשבונות חברה ששילמת)</td>
+          </tr>
+          <tr>
+            <td><strong>שעות</strong></td>
+            <td>זמן עבודה מוסכם (מוצר, קליניקה, תפעול, בדיקות שטח)</td>
+          </tr>
+          <tr>
+            <td><strong>R</strong></td>
+            <td>תעריף שעתי <strong>אחד משותף</strong> לכולם</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>2. כלל מאמץ שווה</h2>
+      <p><strong>לא</strong> משתמשים בתעריף השכר או החיוב האישי של כל אחד לשעות שלו.</p>
+      <p>
+        <strong
+          >R = התעריף השעתי המקצועי הגבוה ביותר מבין המשתתפים בפרויקט.</strong
+        >
+      </p>
+      <p>
+        כיום זה תעריף התזונאית:
+        <strong class="ltr">$133 / שעה</strong>
+        (בהנחה שמפגש = שעה; אפשר לעדכן אם המפגש קצר יותר).
+      </p>
+      <p>
+        לכן גם אם תעריף יום־העבודה של רביב נמוך יותר (~<span class="ltr">$40</span>/שעה) ושל מיכל
+        <span class="ltr">$133</span>/שעה — <strong>שניהם</strong> מקבלים
+        <strong class="ltr">$133</strong> על כל שעת עבודה מוסכמת בתוך Healthings. מסירות נמדדת
+        בשווה — מעמד בשוק לא יוצר יתרון.
+      </p>
+      <p>
+        אם מישהו יצטרף עם תעריף <strong>גבוה יותר</strong>, <strong>R עולה לכולם</strong> ומחשבים
+        מחדש את כל שווי השעות.
+      </p>
+
+      <h2>3. מפגשים קליניים בתשלום מול מניות</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>אם…</th>
+            <th>אז…</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>רביב <strong>משלם</strong> למיכל על מפגש (<span class="ltr">$133</span> או ₪)</td>
+            <td>
+              הכסף נספר כ<strong>מזומן של רביב</strong>. זה <strong>לא</strong> נותן למיכל מניות
+              מעצמו.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              מיכל <strong>משקיעה מזומן</strong> או רושמת <strong>שעות מוסכמות ללא תשלום</strong>
+              (או מוותרת על שכר תמורת מניות — בהסכם בכתב)
+            </td>
+            <td>זה בונה את <strong>התרומה והאחוז של מיכל</strong>.</td>
+          </tr>
+          <tr>
+            <td>מחיר מחירון <span class="ltr">$133</span>/מפגש</td>
+            <td>כרטיס תעריף ל־R ולחיוב — <strong>לא</strong> מניות אוטומטיות.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        כבר שולם ע״י רביב על מפגשים: <strong>400 ₪</strong> (~<span class="ltr">$108</span>) →
+        נספר במזומן של רביב.
+      </p>
+
+      <h2>4. מצב נוכחי (רביב עד כה)</h2>
+      <p>
+        הפרויקט מאז הקומיט הראשון <strong>8 במאי 2026</strong>. המספרים הם סדרי גודל מפנקס
+        ההוצאות.
+      </p>
+      <table>
+        <tbody>
+          <tr>
+            <td>מזומן שהושקע (חומרה, כלים, אחסון, מפגשים וכו׳)</td>
+            <td class="num"><strong>~$4,500</strong></td>
+          </tr>
+          <tr>
+            <td>שעות (פיתוח + פרוטוקול בדיקות שטח יומי)</td>
+            <td class="num"><strong>~470 שעות</strong></td>
+          </tr>
+          <tr>
+            <td>שווי שעות ב־R = <span class="ltr">$133</span>/שעה</td>
+            <td class="num"><strong>~$62,500</strong></td>
+          </tr>
+          <tr>
+            <td><strong>סה״כ תרומה</strong></td>
+            <td class="num"><strong>~$67,000</strong></td>
+          </tr>
+          <tr>
+            <td><strong>אחוז היום</strong> (התורם היחיד בטבלה)</td>
+            <td class="num"><strong>100%</strong></td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        כששיי ו/או מיכל יוסיפו <strong>מזומן</strong> ו/או <strong>שעות</strong> תחת אותו R —
+        האחוזים של כולם יחושבו מחדש מהסכומים.
+      </p>
+
+      <h3>טבלת מקום שמור</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>אדם</th>
+            <th class="num">מזומן ($)</th>
+            <th class="num">שעות</th>
+            <th class="num">שווי שעות</th>
+            <th class="num">תרומה</th>
+            <th class="num">אחוז</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>רביב</td>
+            <td class="num">~4,500</td>
+            <td class="num">~470</td>
+            <td class="num">~62,500</td>
+            <td class="num">~67,000</td>
+            <td class="num">100%</td>
+          </tr>
+          <tr>
+            <td>מיכל</td>
+            <td class="num">ייקבע</td>
+            <td class="num">ייקבע</td>
+            <td class="num"></td>
+            <td class="num"></td>
+            <td class="num"></td>
+          </tr>
+          <tr>
+            <td>שיי</td>
+            <td class="num">ייקבע</td>
+            <td class="num">ייקבע</td>
+            <td class="num"></td>
+            <td class="num"></td>
+            <td class="num"></td>
+          </tr>
+          <tr>
+            <td><strong>סה״כ</strong></td>
+            <td class="num"></td>
+            <td class="num"></td>
+            <td class="num"></td>
+            <td class="num"><strong>Σ</strong></td>
+            <td class="num"><strong>100%</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>5. איך זה יעבוד כשתצטרפו</h2>
+      <ol>
+        <li>
+          מסכימים מה נספר כ<strong>מזומן</strong> שלכם ומה כ<strong>שעות</strong> (וש־R =
+          המקסימום, כיום <span class="ltr">$133</span>/שעה).
+        </li>
+        <li>מוסיפים את המספרים לטבלה → מחשבים מחדש כל אחוז.</li>
+        <li>
+          מסכימים על <strong>הבשלה (vesting)</strong> לחלק המבוסס על זמן (בדרך כלל רב־שנתי עם
+          תקופת המתנה).
+        </li>
+        <li>חותמים מסמכים אמיתיים — המסמך הזה מסביר רק את <strong>המתמטיקה</strong>.</li>
+      </ol>
+      <p>
+        <strong>דוגמה:</strong> רביב עם תרומה ~67 אלף <span class="ltr">$</span>. מישהו מוסיף
+        <strong>20 אלף <span class="ltr">$</span> מזומן בלבד</strong> → מקבל בערך
+        <strong>23%</strong>, רביב ~<strong>77%</strong>. אם גם עובד
+        <strong>100 שעות</strong>, השעות × <span class="ltr">$133</span> מוסיפות ~13 אלף
+        <span class="ltr">$</span> לתרומה שלו והאחוז עולה בהתאם.
+      </p>
+
+      <div class="summary">
+        <h2 style="border: 0; margin-top: 0; padding-top: 0">משפט אחד</h2>
+        <p style="margin-bottom: 0">
+          <strong
+            >מחלקים בעלות לפי כסף שהושקע ועוד שעות עבודה, עם תעריף שעתי משותף אחד (הגבוה
+            מבינינו) — כך המאמץ שווה; ותשלום שמקבלים על מפגש ממישהו אחר אינו זהה להשקעה
+            בחברה.</strong
+          >
+        </p>
+      </div>
+
+      <p>שאלות ברוכות — נוכל למלא יחד את השורות של מיכל ושיי.</p>
+
+      <p class="foot">
+        Internal company document — do not publish on the public website.
+        Source: share-model-partners.he.md · EN: share-model-partners.html
+      </p>
+    </main>
+  </body>
+</html>

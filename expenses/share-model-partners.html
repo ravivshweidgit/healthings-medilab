@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta
+      name="description"
+      content="Healthings — ownership model for partners (planning, not a contract)"
+    />
+    <title>Healthings — ownership model (internal)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Montserrat:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #1a1a1a;
+        --muted: #5c5c5c;
+        --line: #e5e5e5;
+        --surface: #fafafa;
+        --accent: #2196f3;
+        --wrap: 42rem;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Assistant, 'Segoe UI', Tahoma, sans-serif;
+        font-size: 1.05rem;
+        line-height: 1.65;
+        color: var(--ink);
+        background: #fff;
+      }
+      .wrap {
+        max-width: var(--wrap);
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+      .brand {
+        font-family: Montserrat, sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 0.95rem;
+        margin: 0.75rem 0 1.5rem;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #854d0e;
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 999px;
+        padding: 0.25rem 0.75rem;
+        margin-bottom: 1rem;
+      }
+      h1 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin: 0 0 0.5rem;
+        line-height: 1.3;
+      }
+      h2 {
+        font-size: 1.25rem;
+        margin: 2rem 0 0.75rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid var(--line);
+      }
+      h3 {
+        font-size: 1.05rem;
+        margin: 1.25rem 0 0.5rem;
+      }
+      p,
+      li {
+        margin: 0.5rem 0;
+      }
+      strong.formula {
+        display: block;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 0.85rem 1rem;
+        margin: 0.75rem 0;
+        font-size: 1.05rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+        margin: 0.75rem 0 1rem;
+      }
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 0.55rem 0.4rem;
+        text-align: start;
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 700;
+      }
+      td.num,
+      th.num {
+        text-align: end;
+        font-variant-numeric: tabular-nums;
+      }
+      .summary {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 12px;
+        padding: 1rem 1.15rem;
+        margin: 1.5rem 0;
+      }
+      .foot {
+        margin-top: 2.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      ol {
+        padding-inline-start: 1.25rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <p class="brand">HEALTHINGS.AI</p>
+      <p class="badge">Internal · planning model — not a signed contract</p>
+      <h1>Ownership model for partners</h1>
+      <p class="meta">
+        To: Shaii, Michal, and anyone joining<br />
+        From: Raviv · 29 July 2026
+      </p>
+      <p>
+        This note explains the <strong>model</strong>, the <strong>current investment picture</strong>,
+        and <strong>how joining works</strong>. Lawyers will paper the real deal later.
+      </p>
+
+      <h2>1. How ownership % works</h2>
+      <p>Each person’s contribution is:</p>
+      <p><strong class="formula">Contribution = Cash you put in + (Hours you work × R)</strong></p>
+      <p>Your share % is:</p>
+      <p>
+        <strong class="formula"
+          >Share % = Your contribution ÷ everyone’s contributions × 100%</strong
+        >
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Term</th>
+            <th>Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Cash</strong></td>
+            <td>Money you fund for the product (or company bills you pay)</td>
+          </tr>
+          <tr>
+            <td><strong>Hours</strong></td>
+            <td>Agreed work time (product, clinical, ops, field testing)</td>
+          </tr>
+          <tr>
+            <td><strong>R</strong></td>
+            <td>One shared $/hour for <strong>everyone</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>2. Equal-effort rule</h2>
+      <p>
+        We do <strong>not</strong> use each person’s private salary or fee for their own hours.
+      </p>
+      <p>
+        <strong>R = the highest professional hourly rate among people in the project.</strong>
+      </p>
+      <p>
+        Today that is the nutritionist rate: <strong>$133 / hour</strong> (assuming a 1-hour
+        session; we can adjust if sessions are shorter).
+      </p>
+      <p>
+        So if Raviv’s day-job rate is lower (~$40/h) and Michal’s is $133/h,
+        <strong>both</strong> still get <strong>$133 per agreed Hour</strong> inside Healthings.
+        Dedication is valued equally — marketplace status does not create an advantage.
+      </p>
+      <p>
+        If someone later joins with a <strong>higher</strong> rate,
+        <strong>R rises for everyone</strong> and all sweat is recomputed. Same rule for all.
+      </p>
+
+      <h2>3. Paid clinical sessions vs equity</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>If…</th>
+            <th>Then…</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Raviv <strong>pays</strong> Michal’s session fee ($133 or ₪)</td>
+            <td>
+              That money is <strong>Raviv’s Cash</strong>. It does <strong>not</strong> give Michal
+              equity by itself.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              Michal <strong>invests cash</strong> or logs
+              <strong>agreed unpaid Hours</strong> (or waives fees for equity — written agreement)
+            </td>
+            <td>That builds <strong>Michal’s</strong> contribution and share.</td>
+          </tr>
+          <tr>
+            <td>List price $133/session</td>
+            <td>Rate card for R and for billing — <strong>not</strong> automatic shares.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        Already paid by Raviv toward sessions: <strong>400 ₪</strong> (~$108) → counted in Raviv’s
+        Cash below.
+      </p>
+
+      <h2>4. Current status (Raviv so far)</h2>
+      <p>
+        Project since first commit <strong>8 May 2026</strong>. Figures are order-of-magnitude from
+        the expense ledger.
+      </p>
+      <table>
+        <tbody>
+          <tr>
+            <td>Cash in (hardware, tools, hosting ballpark, sessions paid, etc.)</td>
+            <td class="num"><strong>~$4,500</strong></td>
+          </tr>
+          <tr>
+            <td>Hours (build + daily field testing protocol)</td>
+            <td class="num"><strong>~470 h</strong></td>
+          </tr>
+          <tr>
+            <td>Sweat at R = $133/h</td>
+            <td class="num"><strong>~$62,500</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Total contribution</strong></td>
+            <td class="num"><strong>~$67,000</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Share today</strong> (only contributor in the table)</td>
+            <td class="num"><strong>100%</strong></td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        When Shaii and/or Michal add <strong>Cash</strong> and/or <strong>Hours</strong> under the
+        same R, everyone’s % is recalculated from the totals.
+      </p>
+
+      <h3>Placeholder table</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Person</th>
+            <th class="num">Cash ($)</th>
+            <th class="num">Hours</th>
+            <th class="num">Sweat (× $133)</th>
+            <th class="num">Contribution</th>
+            <th class="num">Share %</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Raviv</td>
+            <td class="num">~4,500</td>
+            <td class="num">~470</td>
+            <td class="num">~62,500</td>
+            <td class="num">~67,000</td>
+            <td class="num">100%</td>
+          </tr>
+          <tr>
+            <td>Michal</td>
+            <td class="num">TBD</td>
+            <td class="num">TBD</td>
+            <td class="num"></td>
+            <td class="num"></td>
+            <td class="num"></td>
+          </tr>
+          <tr>
+            <td>Shaii</td>
+            <td class="num">TBD</td>
+            <td class="num">TBD</td>
+            <td class="num"></td>
+            <td class="num"></td>
+            <td class="num"></td>
+          </tr>
+          <tr>
+            <td><strong>Total</strong></td>
+            <td class="num"></td>
+            <td class="num"></td>
+            <td class="num"></td>
+            <td class="num"><strong>Σ</strong></td>
+            <td class="num"><strong>100%</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>5. How it will work when you join</h2>
+      <ol>
+        <li>
+          Agree what counts as your <strong>Cash</strong> and your <strong>Hours</strong> (and that
+          R = max rate, currently $133/h).
+        </li>
+        <li>Add your numbers to the table → recompute every share %.</li>
+        <li>
+          Agree <strong>vesting</strong> for time-based share (typical: multi-year, with a cliff) so
+          % tracks ongoing contribution.
+        </li>
+        <li>
+          Sign real documents (advisor / founder / SAFE) — this note only explains the
+          <strong>math</strong>.
+        </li>
+      </ol>
+      <p>
+        <strong>Example:</strong> Raviv at ~$67k contribution. Someone adds
+        <strong>$20k cash only</strong> → they get roughly <strong>23%</strong>, Raviv
+        ~<strong>77%</strong>. If they also work <strong>100 hours</strong>, those hours × $133 add
+        ~$13k more to their contribution and their % rises accordingly.
+      </p>
+
+      <div class="summary">
+        <h2 style="border: 0; margin-top: 0; padding-top: 0">One sentence</h2>
+        <p style="margin-bottom: 0">
+          <strong
+            >We split ownership by money invested plus hours worked, using one shared hourly rate
+            (the highest among us), so effort is equal — and fees someone else pays you for sessions
+            are not the same as you investing in the company.</strong
+          >
+        </p>
+      </div>
+
+      <p>Questions welcome — we can fill Michal’s and Shaii’s rows together.</p>
+
+      <p class="foot">
+        Internal company document — do not publish on the public website. Source:
+        share-model-partners.md · HE: share-model-partners.he.html
+      </p>
+    </main>
+  </body>
+</html>
