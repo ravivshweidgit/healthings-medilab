@@ -1432,6 +1432,23 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     void AsyncStorage.setItem(DASH_SETTINGS_CARD_EXPANDED_KEY, settingsCardExpanded ? 'true' : 'false');
   }, [settingsCardExpanded, dashExpandPrefsLoaded]);
 
+  /** Collapsing Profile & Settings also collapses every nested strip. */
+  useEffect(() => {
+    if (settingsCardExpanded) return;
+    setProfileExpanded(false);
+    setLanguageExpanded(false);
+    setUnitsExpanded(false);
+    setAppearanceExpanded(false);
+    setGearExpanded(false);
+    setMentorExpanded(false);
+    setRulesExpanded(false);
+    setMacroExpanded(false);
+    setAccountExpanded(false);
+    setClinicExpanded(false);
+    setReportsExpanded(false);
+    setBackupExpanded(false);
+  }, [settingsCardExpanded]);
+
   useEffect(() => {
     if (!dashExpandPrefsLoaded) return;
     void AsyncStorage.setItem(DASH_LANGUAGE_EXPANDED_KEY, languageExpanded ? 'true' : 'false');

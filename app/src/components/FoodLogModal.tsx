@@ -229,6 +229,54 @@ function parseNum(raw: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Baseline nutrients for linear grams→macro scaling in Edit Item. */
+type EditNutrientBase = {
+  grams: number;
+  kcal: number;
+  protein_g: number;
+  carb_g: number;
+  fat_g: number;
+  fiber_g: number;
+};
+
+function formatEditKcal(n: number): string {
+  return String(Math.max(0, Math.round(n)));
+}
+
+function formatEditMacro(n: number): string {
+  const r = Math.round(Math.max(0, n) * 10) / 10;
+  return String(r);
+}
+
+function scaleEditDraftFromGrams(
+  draft: {
+    name: string;
+    grams: string;
+    kcal: string;
+    protein_g: string;
+    carb_g: string;
+    fat_g: string;
+    fiber_g: string;
+  },
+  gramsText: string,
+  base: EditNutrientBase,
+) {
+  const next = { ...draft, grams: gramsText };
+  const trimmed = gramsText.trim();
+  if (trimmed === '' || !(base.grams > 0)) return next;
+  const newG = parseNum(gramsText);
+  if (!Number.isFinite(newG) || newG < 0) return next;
+  const r = newG / base.grams;
+  return {
+    ...next,
+    kcal: formatEditKcal(base.kcal * r),
+    protein_g: formatEditMacro(base.protein_g * r),
+    carb_g: formatEditMacro(base.carb_g * r),
+    fat_g: formatEditMacro(base.fat_g * r),
+    fiber_g: formatEditMacro(base.fiber_g * r),
+  };
+}
+
 function FoodItemsCard({
   items,
   title,
@@ -381,6 +429,15 @@ export function FoodLogModal({
     carb_g: '',
     fat_g: '',
     fiber_g: '',
+  });
+  /** Fixed while editing grams; refreshed when user manually edits kcal/macros. */
+  const editNutrientBaseRef = useRef<EditNutrientBase>({
+    grams: 0,
+    kcal: 0,
+    protein_g: 0,
+    carb_g: 0,
+    fat_g: 0,
+    fiber_g: 0,
   });
   const [browseDayMs, setBrowseDayMs] = useState(() => startOfLocalDay(Date.now()));
   const [pastDayMeals, setPastDayMeals] = useState<FoodEntry[]>([]);
@@ -951,7 +1008,7 @@ export function FoodLogModal({
     (index: number) => {
       const item = items[index];
       if (!item || screen !== 'result') return;
-      setEditDraft({
+      const draft = {
         name: item.name_local ?? item.name,
         grams: String(item.grams),
         kcal: String(item.kcal),
@@ -959,10 +1016,43 @@ export function FoodLogModal({
         carb_g: String(item.carb_g),
         fat_g: String(item.fat_g),
         fiber_g: String(item.fiber_g ?? 0),
-      });
+      };
+      editNutrientBaseRef.current = {
+        grams: Math.max(0, item.grams),
+        kcal: Math.max(0, item.kcal),
+        protein_g: Math.max(0, item.protein_g),
+        carb_g: Math.max(0, item.carb_g),
+        fat_g: Math.max(0, item.fat_g),
+        fiber_g: Math.max(0, item.fiber_g ?? 0),
+      };
+      setEditDraft(draft);
       setEditItemIndex(index);
     },
     [items, screen],
+  );
+
+  const onEditGramsChange = useCallback((v: string) => {
+    setEditDraft((d) => scaleEditDraftFromGrams(d, v, editNutrientBaseRef.current));
+  }, []);
+
+  /** Manual kcal/macro edit — re-baseline so later grams changes keep the new ratios. */
+  const onEditNutrientChange = useCallback(
+    (key: 'kcal' | 'protein_g' | 'carb_g' | 'fat_g' | 'fiber_g', v: string) => {
+      setEditDraft((d) => {
+        const next = { ...d, [key]: v };
+        const g = parseNum(next.grams);
+        editNutrientBaseRef.current = {
+          grams: g > 0 ? g : editNutrientBaseRef.current.grams,
+          kcal: Math.max(0, parseNum(next.kcal)),
+          protein_g: Math.max(0, parseNum(next.protein_g)),
+          carb_g: Math.max(0, parseNum(next.carb_g)),
+          fat_g: Math.max(0, parseNum(next.fat_g)),
+          fiber_g: Math.max(0, parseNum(next.fiber_g)),
+        };
+        return next;
+      });
+    },
+    [],
   );
 
   const closeEditItem = useCallback(() => {
@@ -1620,7 +1710,11 @@ export function FoodLogModal({
                   <TextInput
                     style={[styles.editFieldInput, rtl && styles.textRtl]}
                     value={editDraft[key]}
-                    onChangeText={(v) => setEditDraft((d) => ({ ...d, [key]: v }))}
+                    onChangeText={(v) => {
+                      if (key === 'grams') onEditGramsChange(v);
+                      else if (key === 'kcal') onEditNutrientChange('kcal', v);
+                      else setEditDraft((d) => ({ ...d, [key]: v }));
+                    }}
                     keyboardType={key === 'name' ? 'default' : 'decimal-pad'}
                     autoCapitalize={key === 'name' ? 'sentences' : 'none'}
                   />
@@ -1644,7 +1738,7 @@ export function FoodLogModal({
                     <TextInput
                       style={[styles.editFieldInput, styles.editMacroInput, rtl && styles.textRtl]}
                       value={editDraft[key]}
-                      onChangeText={(v) => setEditDraft((d) => ({ ...d, [key]: v }))}
+                      onChangeText={(v) => onEditNutrientChange(key, v)}
                       keyboardType="decimal-pad"
                       accessibilityLabel={label}
                     />
@@ -1656,7 +1750,7 @@ export function FoodLogModal({
                 <TextInput
                   style={[styles.editFieldInput, rtl && styles.textRtl]}
                   value={editDraft.fiber_g}
-                  onChangeText={(v) => setEditDraft((d) => ({ ...d, fiber_g: v }))}
+                  onChangeText={(v) => onEditNutrientChange('fiber_g', v)}
                   keyboardType="decimal-pad"
                 />
               </View>
