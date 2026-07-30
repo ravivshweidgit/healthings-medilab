@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HEALTHINGS.AI — lockup draft (Withings-like type)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Geometric sans close to Withings: Montserrat Medium + wide tracking -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #111;
+        --bg: #fff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: Montserrat, system-ui, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4rem;
+        padding: 3rem 1.5rem;
+      }
+      .wordmark {
+        font-weight: 500;
+        font-size: clamp(1.25rem, 4vw, 2.75rem);
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        margin: 0;
+        /* optical: Withings-like airy tracking; trim trailing space from letter-spacing */
+        padding-right: 0.22em;
+      }
+      .lockup-h {
+        display: flex;
+        align-items: center;
+        gap: 1.75rem;
+      }
+      .lockup-v {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+      }
+      .mark {
+        width: clamp(72px, 12vw, 120px);
+        height: auto;
+        display: block;
+      }
+      .label {
+        font-size: 0.7rem;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        opacity: 0.45;
+        margin: 0 0 0.75rem;
+        font-weight: 600;
+      }
+      section {
+        text-align: center;
+      }
+      .note {
+        max-width: 36rem;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        opacity: 0.55;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+      }
+    </style>
+  </head>
+  <body>
+    <section>
+      <p class="label">Horizontal</p>
+      <div class="lockup-h">
+        <img class="mark" src="logo-knowledge-health-optimized.png" alt="" />
+        <p class="wordmark">Healthings.AI</p>
+      </div>
+    </section>
+    <section>
+      <p class="label">Stacked</p>
+      <div class="lockup-v">
+        <img class="mark" src="logo-knowledge-health-optimized.png" alt="" />
+        <p class="wordmark">Healthings.AI</p>
+      </div>
+    </section>
+    <p class="note">
+      Type: Montserrat Medium + wide tracking (Withings-like geometric caps). Open this
+      file locally to preview real font — PNG drafts are AI approximations of the same style.
+    </p>
+  </body>
+</html>
