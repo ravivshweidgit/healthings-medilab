@@ -1369,6 +1369,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         syncPerfTrackSibling('metrics/syncWithings', () => syncWithings({ quiet: true })),
         syncPerfTrackSibling('food/loadToday', () => loadTodayFood()),
         syncPerfTrackSibling('manualTrend/load', () => loadManualTrend()),
+        // Watch Off: Food Log activity kcal comes from the phone step map (HK/HC),
+        // not metricsStore alone — reload it on refresh so daytime steps update.
+        ...(usePhoneHealthActivity
+          ? [syncPerfTrackSibling('phoneHealth/steps', () => loadHcStepTotals())]
+          : []),
       ]);
       // Clinic already polls on an interval — don't block pull-refresh on it.
       if (user.role === 'patient') {
@@ -1386,7 +1391,16 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         ]);
       }
     }
-  }, [refetch, syncWithings, loadTodayFood, loadManualTrend, user.role, applyClinicOverlays]);
+  }, [
+    refetch,
+    syncWithings,
+    loadTodayFood,
+    loadManualTrend,
+    usePhoneHealthActivity,
+    loadHcStepTotals,
+    user.role,
+    applyClinicOverlays,
+  ]);
 
   useEffect(() => {
     void loadTodayFood();

@@ -68,7 +68,7 @@ import {
   getGender,
   getLanguage,
   getMentorGender,
-  resetQuickQuestionsForLanguage,
+  ensureQuickQuestionsForLanguage,
   getMentors,
   getUserRules,
   getBodyTarget,
@@ -837,7 +837,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     }
     await Promise.all(tasks);
     if (prev.code !== language.code) {
-      await resetQuickQuestionsForLanguage(language);
+      await ensureQuickQuestionsForLanguage(language);
     }
   }, [language, mentorGender]);
 

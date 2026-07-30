@@ -766,11 +766,17 @@ export async function saveYesterdaySummary(summary: string): Promise<void> {
 // ─── Quick questions ──────────────────────────────────────────────────────────
 
 const QUICK_QUESTIONS_KEY = 'chat_quick_questions';
+/** Legacy: which language the flat `chat_quick_questions` blob belonged to. */
+const QUICK_QUESTIONS_LANG_KEY = 'chat_quick_questions_lang';
+/** Canonical: one custom chip set per language code. Never wipe sibling languages. */
+const QUICK_QUESTIONS_BY_LANG_KEY = 'chat_quick_questions_by_lang';
 
 export type QuickQuestion = {
   id: string;    // stable UUID
   label: string; // display text, also the message sent
 };
+
+type QuickQuestionsByLang = Record<string, QuickQuestion[]>;
 
 const DEFAULT_QUICK_QUESTIONS: QuickQuestion[] = [
   { id: 'qq-default-1', label: 'Yesterday summary' },
@@ -832,33 +838,101 @@ const DEFAULT_QUICK_QUESTIONS_BY_LANG: Record<string, QuickQuestion[]> = {
   ],
 };
 
-const QUICK_QUESTIONS_LANG_KEY = 'chat_quick_questions_lang';
-
 function defaultQuickQuestions(langCode?: string): QuickQuestion[] {
   return DEFAULT_QUICK_QUESTIONS_BY_LANG[langCode ?? 'en'] ?? DEFAULT_QUICK_QUESTIONS;
 }
 
+function parseQuestionsArray(raw: string | null): QuickQuestion[] | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as QuickQuestion[];
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+  } catch { /* ignore */ }
+  return null;
+}
+
+/**
+ * Load per-language map. One-time: lift legacy flat blob into the map under its
+ * language tag when that slot is empty — never overwrite an existing slot.
+ */
+async function loadQuickQuestionsByLang(): Promise<QuickQuestionsByLang> {
+  const map: QuickQuestionsByLang = {};
+  const byLangRaw = await AsyncStorage.getItem(QUICK_QUESTIONS_BY_LANG_KEY);
+  if (byLangRaw) {
+    try {
+      const parsed = JSON.parse(byLangRaw) as QuickQuestionsByLang;
+      if (parsed && typeof parsed === 'object') {
+        for (const [code, qs] of Object.entries(parsed)) {
+          if (Array.isArray(qs) && qs.length > 0) map[code] = qs;
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  const legacyQs = parseQuestionsArray(await AsyncStorage.getItem(QUICK_QUESTIONS_KEY));
+  if (legacyQs) {
+    const legacyLang = (await AsyncStorage.getItem(QUICK_QUESTIONS_LANG_KEY)) ?? 'en';
+    if (!map[legacyLang]?.length) {
+      map[legacyLang] = legacyQs;
+      await AsyncStorage.setItem(QUICK_QUESTIONS_BY_LANG_KEY, JSON.stringify(map));
+    }
+  }
+
+  return map;
+}
+
+async function persistQuickQuestionsByLang(
+  map: QuickQuestionsByLang,
+  activeCode?: string,
+): Promise<void> {
+  await AsyncStorage.setItem(QUICK_QUESTIONS_BY_LANG_KEY, JSON.stringify(map));
+  // Keep legacy keys as a mirror of the active language for older backups / readers.
+  if (activeCode && map[activeCode]?.length) {
+    await AsyncStorage.setItem(QUICK_QUESTIONS_KEY, JSON.stringify(map[activeCode]));
+    await AsyncStorage.setItem(QUICK_QUESTIONS_LANG_KEY, activeCode);
+  }
+}
+
 export async function getQuickQuestions(lang?: UserLanguage | null): Promise<QuickQuestion[]> {
   const code = lang?.code ?? 'en';
-  const savedLang = await AsyncStorage.getItem(QUICK_QUESTIONS_LANG_KEY);
-  const raw = await AsyncStorage.getItem(QUICK_QUESTIONS_KEY);
-  if (raw && savedLang === code) {
-    try {
-      const parsed = JSON.parse(raw) as QuickQuestion[];
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    } catch { /* fall through */ }
-  }
+  const map = await loadQuickQuestionsByLang();
+  const saved = map[code];
+  if (saved?.length) return saved;
   return defaultQuickQuestions(code);
 }
 
+/** Save chips for one language only — other languages are left untouched. */
 export async function saveQuickQuestions(qs: QuickQuestion[], lang?: UserLanguage | null): Promise<void> {
-  await AsyncStorage.setItem(QUICK_QUESTIONS_KEY, JSON.stringify(qs));
-  if (lang) await AsyncStorage.setItem(QUICK_QUESTIONS_LANG_KEY, lang.code);
+  const code = lang?.code ?? (await getLanguage()).code;
+  const map = await loadQuickQuestionsByLang();
+  map[code] = qs;
+  await persistQuickQuestionsByLang(map, code);
 }
 
-/** Reset chips to language defaults (e.g. after user changes language). */
-export async function resetQuickQuestionsForLanguage(lang: UserLanguage): Promise<QuickQuestion[]> {
+/**
+ * Language change / onboarding: return this language’s chips.
+ * Seeds stock defaults only when that language has never been saved.
+ * Never overwrites an existing set for this or any other language.
+ */
+export async function ensureQuickQuestionsForLanguage(lang: UserLanguage): Promise<QuickQuestion[]> {
+  const map = await loadQuickQuestionsByLang();
+  const existing = map[lang.code];
+  if (existing?.length) {
+    await persistQuickQuestionsByLang(map, lang.code);
+    return existing;
+  }
   const qs = defaultQuickQuestions(lang.code);
-  await saveQuickQuestions(qs, lang);
+  map[lang.code] = qs;
+  await persistQuickQuestionsByLang(map, lang.code);
   return qs;
+}
+
+/** @deprecated Alias — never wipes; same as ensureQuickQuestionsForLanguage. */
+export async function migrateQuickQuestionsForLanguage(lang: UserLanguage): Promise<QuickQuestion[]> {
+  return ensureQuickQuestionsForLanguage(lang);
+}
+
+/** @deprecated Alias — never wipes; same as ensureQuickQuestionsForLanguage. */
+export async function resetQuickQuestionsForLanguage(lang: UserLanguage): Promise<QuickQuestion[]> {
+  return ensureQuickQuestionsForLanguage(lang);
 }

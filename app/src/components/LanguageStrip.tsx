@@ -9,7 +9,7 @@ import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import {
   SUPPORTED_LANGUAGES,
   setLanguage,
-  resetQuickQuestionsForLanguage,
+  ensureQuickQuestionsForLanguage,
   type UserLanguage,
 } from '../services/TargetService';
 import { useTheme } from '../theme/ThemeProvider';
@@ -46,7 +46,7 @@ export function LanguageStrip({
     try {
       onLanguageChanged(lang);
       await setLanguage(lang);
-      await resetQuickQuestionsForLanguage(lang);
+      await ensureQuickQuestionsForLanguage(lang);
       await onAfterLanguagePersist?.();
     } finally {
       setBusy(false);
