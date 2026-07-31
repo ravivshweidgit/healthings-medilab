@@ -7,6 +7,7 @@ export type AiUsageReason =
   | 'ai_macro'
   | 'ai_rules'
   | 'ai_lab'
+  | 'ai_help'
   | 'ai_other';
 
 /** Real Gemini usageMetadata for the server's COGS analytics — never wallet math. */

@@ -1,0 +1,39 @@
+# prompt98 — In-app Help strip (product Q&A)
+
+**Status:** in progress (2026-07-31)  
+**Builds on:** prompt81 / website help (`help-locale-content.mjs`), language policy (`appLocale`), Gemini `langInstruction`
+
+## Problem
+
+Users ask “how do I update my scale / link Withings / log a meal?” but help is only external website pages via `?`. There is no place to ask free-form product questions inside the app.
+
+## Product rules
+
+1. **Separate from mentor chat** — no patient meals/labs/My Rules in the Help prompt; no coach/doctor persona.
+2. **Answer language = current App & coach language** (`userLanguage` / `appLocale`). Same `langInstruction` + always-English glossary (kcal, CGM, Withings…).
+3. **Knowledge = bundled English KB** derived from website EN help articles + short appendix for recent UI (grams slider, phone-health refresh, per-language quick questions). Gemini translates the reply; do not maintain 10 KB copies.
+4. Keep website `?` / `helpUrl` for long-form reading; Help strip may deep-link topics.
+5. Credits: `ai_help` (same soft cost as one chat turn).
+
+## What shipped (code)
+
+| Piece | Path |
+|-------|------|
+| KB | `app/src/help/AppHelpKnowledge.ts` (+ `app/scripts/gen-app-help-knowledge.mjs`) |
+| Gemini | `askAppHelp(question, lang)` in `GeminiService.ts` |
+| UI | `HelpStrip.tsx` dashboard card below AI chat; Profile link “Open app Help” |
+| Copy | `helpStripCopy.ts` (`openFromProfile`) |
+| Billing | `ai_help` on app + server |
+
+## Phone checklist
+
+- [ ] Dashboard Help (below AI chat) → ask in English → clear product answer
+- [ ] Profile → “Open app Help” → Help expands; settings collapses
+- [ ] Switch app language → ask same → answer in that language; glossary terms stay English
+- [ ] Out-of-credits shows a clear error (no crash)
+- [ ] Mentor chat still unrelated (Help does not open mentor tabs)
+
+## Deferred
+
+- Sync KB automatically in CI when help-locale-content changes
+- Suggested starter questions chips

@@ -27,6 +27,7 @@ const CREDITS_PER_REASON: Record<AiUsageReason, number> = {
   ai_macro: 1,
   ai_rules: 1,
   ai_lab: 2,
+  ai_help: 1,
   ai_other: 1,
 };
 

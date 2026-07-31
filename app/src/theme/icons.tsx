@@ -16,6 +16,7 @@ import {
   Droplet,
   Dumbbell,
   FlaskConical,
+  CircleHelp,
   Image as ImageIcon,
   ListChecks,
   MoreHorizontal,
@@ -48,6 +49,7 @@ export const StripIcons = {
   sessions: CalendarClock,
   rules: ListChecks,
   water: Droplet,
+  help: CircleHelp,
 } as const;
 
 /** Action-button glyphs (chrome) — replaces emoji on tiles/toolbars. */

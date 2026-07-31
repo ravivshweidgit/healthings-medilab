@@ -15,6 +15,7 @@ Feature specs for the Healthings MediLab React Native app. **Keep in sync with c
 
 | File | Topic |
 |------|--------|
+| `prompt98.txt` | In-app Help strip — product Q&A in `appLocale` |
 | `prompt31.txt` | Source config spec — **shipped in `done/prompt55.txt`** |
 | `prompt32.txt` | Backup import QA + hardening |
 | `prompt38.txt` | Secondary lab findings (liver, iron, uric acid) |

@@ -1,3 +1,4 @@
+import { buildAppHelpKnowledgeBlock } from '../help/AppHelpKnowledge';
 import { GEMINI_API_KEY } from '@env';
 import { geminiUsageFromResponse, reportAiUsage, type GeminiUsageReport } from './UsageApiService';
 import { assertCanSpendCredits, OutOfCreditsError } from './UsageQueueService';
@@ -2663,4 +2664,68 @@ export async function summariseChatDay(history: ChatMessage[]): Promise<string> 
   const json = await response.json();
   const raw: string = extractGeminiText(json?.candidates?.[0]);
   return raw.trim().slice(0, 200);
+}
+
+/**
+ * Product Help Q&A (prompt98) — not mentor chat.
+ * Answers in appLocale via langInstruction; knowledge is English only.
+ */
+export async function askAppHelp(
+  question: string,
+  lang?: UserLanguage | null,
+): Promise<string> {
+  const q = question.trim();
+  if (!q) return '';
+
+  await assertCanSpendCredits('ai_help');
+
+  const knowledge = buildAppHelpKnowledgeBlock();
+
+  const system = `You are Healthings product Help — an in-app guide for how to use the Healthings MediLab app.
+Rules:
+- Answer ONLY from the KNOWLEDGE block below. If something is not covered, say you are not sure and suggest Profile & Settings or the website help pages.
+- Do NOT give medical diagnoses, prescriptions, or personalised clinical advice. Redirect health coaching to the AI chat mentors.
+- Do NOT invent buttons, screens, or settings that are not in KNOWLEDGE.
+- Be concise (short paragraphs or a short numbered list). Prefer concrete taps: e.g. Profile & Settings → Gear.
+- Keep unit symbols and brand/acronym glossary in English (kcal, kg, CGM, Withings, BMR, AI).
+${langInstruction(lang)}
+
+KNOWLEDGE:
+${knowledge}`;
+
+  const body = {
+    contents: [
+      { role: 'user', parts: [{ text: `SYSTEM:\n${system}\n\nAcknowledge.` }] },
+      {
+        role: 'model',
+        parts: [{ text: 'Understood. I will answer only from KNOWLEDGE as product Help.' }],
+      },
+      { role: 'user', parts: [{ text: q }] },
+    ],
+    generationConfig: geminiGenerationConfig({
+      temperature: 0.3,
+      maxOutputTokens: 2048,
+      thinkingBudget: 0,
+    }),
+  };
+
+  const response = await fetch(GEMINI_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.text().catch(() => '');
+    throw new Error(`Gemini help error ${response.status}: ${err.slice(0, 200)}`);
+  }
+
+  const json = await response.json();
+  reportAiUsage('ai_help', undefined, geminiUsageFromResponse(json, GEMINI_MODEL));
+  const raw = extractGeminiText(json?.candidates?.[0]).trim();
+  if (!raw) {
+    return lang && lang.code !== 'en'
+      ? `Sorry — I could not answer that. Try rephrasing. (${lang.label})`
+      : 'Sorry — I could not answer that. Try rephrasing, or open website help from a ? on Quick Start.';
+  }
+  return raw;
 }

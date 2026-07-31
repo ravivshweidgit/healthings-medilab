@@ -1,9 +1,9 @@
 /**
  * Manual weigh-in + body composition + optional BMR (no Withings scale).
- * Same UI on Android and iOS — weight, %/mass toggle, Fat + Muscle fields, BMR, one Save.
+ * Persist via Profile Save (ref.saveBody) — no separate Save body button.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { Alert, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   compositionSumRatio,
@@ -50,6 +50,21 @@ type Props = {
   onSaved: (snap: ManualBodySnapshot) => void | Promise<void>;
 };
 
+/** Result of Profile Save → body persist. */
+export type ManualBodySaveResult = 'saved' | 'noop' | 'error';
+
+export type ManualBodyProfileSectionHandle = {
+  /**
+   * Persist weigh-in if fields warrant it. noop = nothing to write (profile-only Save OK).
+   * Pass profile overrides so Save can use height/gender just written (before React re-render).
+   */
+  saveBody: (profileOverride?: {
+    gender: Gender;
+    heightCm: number;
+    ageYears: number;
+  }) => Promise<ManualBodySaveResult>;
+};
+
 function parseNum(raw: string): number | null {
   return parseLocaleNumber(raw);
 }
@@ -58,17 +73,21 @@ function fmt1(n: number): string {
   return (Math.round(n * 10) / 10).toFixed(1);
 }
 
-export function ManualBodyProfileSection({
-  effectiveWeightKg,
-  manualBodySnap,
-  userGender,
-  heightCm,
-  userAge,
-  massUnit = 'kg',
-  energyUnit = 'kcal',
-  langCode,
-  onSaved,
-}: Props) {
+export const ManualBodyProfileSection = forwardRef<ManualBodyProfileSectionHandle, Props>(
+  function ManualBodyProfileSection(
+    {
+      effectiveWeightKg,
+      manualBodySnap,
+      userGender,
+      heightCm,
+      userAge,
+      massUnit = 'kg',
+      energyUnit = 'kcal',
+      langCode,
+      onSaved,
+    },
+    ref,
+  ) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const bodyLabels = getBodyMetricsCopy(langCode);
@@ -228,7 +247,12 @@ export function ManualBodyProfileSection({
     setCompUnit(next);
   };
 
-  const saveAll = async () => {
+  const saveAll = async (profileOverride?: {
+    gender: Gender;
+    heightCm: number;
+    ageYears: number;
+  }): Promise<ManualBodySaveResult> => {
+    const optsProfile = profileOverride ?? profileOpts;
     const wTyped = parseNum(weightInput);
     const wKg = wTyped != null ? displayToKg(wTyped, massUnit) : null;
     const maxW = massUnit === 'lb' ? 880 : 400;
@@ -241,19 +265,20 @@ export function ManualBodyProfileSection({
 
     if (wKg != null && (!(wKg > 0) || (wTyped != null && wTyped > maxW))) {
       Alert.alert('Body', `Enter a valid weight in ${massLabel}.`);
-      return;
+      return 'error';
     }
     if (bmrKcal != null && (bmrKcal < 800 || bmrKcal > 4500)) {
       Alert.alert('BMR', `Enter BMR between 800 and 4500 ${energyLab}/day.`);
-      return;
+      return 'error';
     }
+    // Profile-only Save: no weight yet and nothing body-related typed.
     if (wKg == null && !manualBodySnap) {
+      if (!hasComp && bmrKcal == null) return 'noop';
       Alert.alert('Body', 'Enter your weight first.');
-      return;
+      return 'error';
     }
     if (wKg == null && !hasComp && bmrKcal == null) {
-      Alert.alert('Body', 'Change weight, composition, or BMR, then Save.');
-      return;
+      return 'noop';
     }
 
     const weightForComp = wKg ?? manualBodySnap!.weight_kg;
@@ -268,14 +293,14 @@ export function ManualBodyProfileSection({
       if (compUnit === 'pct') {
         if (fatN < 3 || fatN > 65) {
           Alert.alert('Body fat', 'Enter body fat between 3% and 65%.');
-          return;
+          return 'error';
         }
         opts.fatPct = fatN;
       } else {
         const kg = displayToKg(fatN, massUnit);
         if (fatPctFromKg(weightForComp, kg) == null) {
           Alert.alert('Body fat', `Enter a valid fat mass in ${massLabel}.`);
-          return;
+          return 'error';
         }
         opts.fatKg = kg;
       }
@@ -285,14 +310,14 @@ export function ManualBodyProfileSection({
       if (compUnit === 'pct') {
         if (musN < 5 || musN > 80) {
           Alert.alert('Muscle', 'Enter muscle between 5% and 80%.');
-          return;
+          return 'error';
         }
         opts.musclePct = musN;
       } else {
         const kg = displayToKg(musN, massUnit);
         if (!(kg > 0) || kg >= weightForComp) {
           Alert.alert('Muscle', `Muscle must be less than total weight (${massLabel}).`);
-          return;
+          return 'error';
         }
         opts.muscleKg = kg;
       }
@@ -312,22 +337,41 @@ export function ManualBodyProfileSection({
           : null;
     if (fatKgCheck != null && musKgCheck != null && fatKgCheck + musKgCheck > weightForComp + 0.05) {
       Alert.alert('Composition', 'Fat + muscle cannot exceed total weight. Check your values.');
-      return;
+      return 'error';
     }
 
     setSaving(true);
     try {
       const weightToSave = wKg ?? manualBodySnap!.weight_kg;
       const snap = await logManualWeighIn(weightToSave, {
-        ...profileOpts,
+        ...optsProfile,
         ...opts,
         ...(bmrKcal != null ? { bmrKcal } : {}),
       });
       await onSaved(snap);
+      return 'saved';
+    } catch {
+      Alert.alert('Body', 'Could not save body. Try again.');
+      return 'error';
     } finally {
       setSaving(false);
     }
   };
+
+  useImperativeHandle(ref, () => ({ saveBody: saveAll }), [
+    weightInput,
+    fatInput,
+    muscleInput,
+    bmrInput,
+    massUnit,
+    energyUnit,
+    compUnit,
+    manualBodySnap,
+    profileOpts,
+    massLabel,
+    energyLab,
+    onSaved,
+  ]);
 
   const fatAlt =
     draftComp && draftWeightKg
@@ -455,21 +499,13 @@ export function ManualBodyProfileSection({
         <Text style={styles.bmrHint}>
           Mifflin estimate ~{formatEnergy(draftComp.formulaBmr, energyUnit)}/day. Override with your
           scale or clinic BMR if you have it.
+          {saving ? ' · Saving…' : ''}
         </Text>
       ) : null}
-
-      <Pressable
-        style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-        disabled={saving}
-        onPress={() => void saveAll()}
-        accessibilityRole="button"
-        accessibilityLabel="Save body"
-      >
-        <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save body'}</Text>
-      </Pressable>
     </View>
   );
-}
+},
+);
 
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
@@ -611,13 +647,4 @@ const makeStyles = (c: ThemeColors) =>
     marginTop: -4,
     marginBottom: 12,
   },
-  saveBtn: {
-    backgroundColor: c.accentBlue,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

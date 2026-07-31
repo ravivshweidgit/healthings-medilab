@@ -21,6 +21,7 @@ const usageReasonSchema = z.enum([
   'ai_macro',
   'ai_rules',
   'ai_lab',
+  'ai_help',
   'ai_other',
 ]);
 

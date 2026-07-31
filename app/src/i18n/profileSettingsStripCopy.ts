@@ -16,6 +16,7 @@ export type ProfileSettingsStripCopy = {
   dataSharing: string;
   reports: string;
   appBackup: string;
+  help: string;
   exportBackup: string;
   importBackup: string;
   /** Data sharing collapsed subtitle. */
@@ -38,6 +39,7 @@ const EN: ProfileSettingsStripCopy = {
   dataSharing: 'DATA SHARING',
   reports: 'REPORTS',
   appBackup: 'APP BACKUP',
+  help: 'HELP',
   exportBackup: 'Export',
   importBackup: 'Import',
   noAccountsWhitelisted: 'No accounts whitelisted — app works fully without sharing',
@@ -60,6 +62,7 @@ const HE: ProfileSettingsStripCopy = {
   dataSharing: 'שיתוף נתונים',
   reports: 'דוחות',
   appBackup: 'גיבוי אפליקציה',
+  help: 'עזרה',
   exportBackup: 'ייצוא',
   importBackup: 'ייבוא',
   noAccountsWhitelisted: 'אין חשבונות ברשימה — האפליקציה עובדת במלואה בלי שיתוף',
@@ -82,6 +85,7 @@ const ES: ProfileSettingsStripCopy = {
   dataSharing: 'COMPARTIR DATOS',
   reports: 'INFORMES',
   appBackup: 'COPIA DE SEGURIDAD',
+  help: 'AYUDA',
   exportBackup: 'Exportar',
   importBackup: 'Importar',
   noAccountsWhitelisted: 'Ninguna cuenta autorizada — la app funciona sin compartir',
@@ -104,6 +108,7 @@ const FR: ProfileSettingsStripCopy = {
   dataSharing: 'PARTAGE DE DONNÉES',
   reports: 'RAPPORTS',
   appBackup: 'SAUVEGARDE',
+  help: 'AIDE',
   exportBackup: 'Exporter',
   importBackup: 'Importer',
   noAccountsWhitelisted: 'Aucun compte autorisé — l’app fonctionne sans partage',
@@ -126,6 +131,7 @@ const DE: ProfileSettingsStripCopy = {
   dataSharing: 'DATENFREIGABE',
   reports: 'BERICHTE',
   appBackup: 'APP-BACKUP',
+  help: 'HILFE',
   exportBackup: 'Exportieren',
   importBackup: 'Importieren',
   noAccountsWhitelisted: 'Keine freigegebenen Konten — App funktioniert ohne Teilen',
@@ -148,6 +154,7 @@ const AR: ProfileSettingsStripCopy = {
   dataSharing: 'مشاركة البيانات',
   reports: 'التقارير',
   appBackup: 'نسخ احتياطي',
+  help: 'مساعدة',
   exportBackup: 'تصدير',
   importBackup: 'استيراد',
   noAccountsWhitelisted: 'لا حسابات في القائمة — التطبيق يعمل بالكامل دون مشاركة',
@@ -170,6 +177,7 @@ const RU: ProfileSettingsStripCopy = {
   dataSharing: 'ОБМЕН ДАННЫМИ',
   reports: 'ОТЧЁТЫ',
   appBackup: 'РЕЗЕРВНАЯ КОПИЯ',
+  help: 'СПРАВКА',
   exportBackup: 'Экспорт',
   importBackup: 'Импорт',
   noAccountsWhitelisted: 'Нет разрешённых аккаунтов — приложение работает без общего доступа',
@@ -192,6 +200,7 @@ const PT: ProfileSettingsStripCopy = {
   dataSharing: 'COMPARTILHAMENTO',
   reports: 'RELATÓRIOS',
   appBackup: 'BACKUP DO APP',
+  help: 'AJUDA',
   exportBackup: 'Exportar',
   importBackup: 'Importar',
   noAccountsWhitelisted: 'Nenhuma conta autorizada — o app funciona sem compartilhar',
@@ -214,6 +223,7 @@ const IT: ProfileSettingsStripCopy = {
   dataSharing: 'CONDIVISIONE DATI',
   reports: 'REPORT',
   appBackup: 'BACKUP APP',
+  help: 'AIUTO',
   exportBackup: 'Esporta',
   importBackup: 'Importa',
   noAccountsWhitelisted: 'Nessun account autorizzato — l’app funziona senza condivisione',
@@ -236,6 +246,7 @@ const TR: ProfileSettingsStripCopy = {
   dataSharing: 'VERİ PAYLAŞIMI',
   reports: 'RAPORLAR',
   appBackup: 'UYGULAMA YEDEĞİ',
+  help: 'YARDIM',
   exportBackup: 'Dışa aktar',
   importBackup: 'İçe aktar',
   noAccountsWhitelisted: 'Yetkili hesap yok — uygulama paylaşım olmadan tam çalışır',

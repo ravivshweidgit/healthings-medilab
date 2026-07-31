@@ -1,6 +1,6 @@
 import { config } from '../config.js';
 
-export type AiUsageReason = 'ai_meal' | 'ai_chat' | 'ai_coach' | 'ai_macro' | 'ai_rules' | 'ai_lab' | 'ai_other';
+export type AiUsageReason = 'ai_meal' | 'ai_chat' | 'ai_coach' | 'ai_macro' | 'ai_rules' | 'ai_lab' | 'ai_help' | 'ai_other';
 
 const TOKEN_COST: Record<AiUsageReason, number> = {
   ai_meal: config.AI_TOKENS_PER_MEAL,
@@ -9,6 +9,7 @@ const TOKEN_COST: Record<AiUsageReason, number> = {
   ai_macro: 1,
   ai_rules: 1,
   ai_lab: 2,
+  ai_help: config.AI_TOKENS_PER_CHAT_TURN,
   ai_other: 1,
 };
 

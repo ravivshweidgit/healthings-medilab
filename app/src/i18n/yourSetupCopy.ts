@@ -20,6 +20,8 @@ export type YourSetupCopy = {
   ageYears: (n: number) => string;
   /** Under Profile Save — what this button persists. */
   saveHint: string;
+  /** When scale is off — Save also persists manual body. */
+  saveHintWithBody: string;
   withingsScale: string;
   withingsWatch: string;
   /** Collapsed gear subtitle — bare noun (no Withings). */
@@ -54,6 +56,7 @@ const EN: YourSetupCopy = {
   birthDate: 'Birth Date',
   ageYears: (n) => `Age: ${n} years`,
   saveHint: 'Name, gender, height & birth date',
+  saveHintWithBody: 'Name, gender, height, birth date & body',
   withingsScale: 'Withings scale',
   withingsWatch: 'Withings watch',
   scaleShort: 'Scale',
@@ -86,6 +89,7 @@ const HE: YourSetupCopy = {
   birthDate: 'תאריך לידה',
   ageYears: (n) => `גיל: ${n}`,
   saveHint: 'שם, מין, גובה ותאריך לידה',
+  saveHintWithBody: 'שם, מין, גובה, תאריך לידה וגוף',
   withingsScale: 'משקל Withings',
   withingsWatch: 'שעון Withings',
   scaleShort: 'משקל',
@@ -118,6 +122,7 @@ const ES: YourSetupCopy = {
   birthDate: 'Fecha de nacimiento',
   ageYears: (n) => `Edad: ${n} años`,
   saveHint: 'Nombre, sexo, altura y fecha de nacimiento',
+  saveHintWithBody: 'Nombre, sexo, altura, fecha de nacimiento y cuerpo',
   withingsScale: 'Báscula Withings',
   withingsWatch: 'Reloj Withings',
   scaleShort: 'Báscula',
@@ -150,6 +155,7 @@ const FR: YourSetupCopy = {
   birthDate: 'Date de naissance',
   ageYears: (n) => `Âge : ${n} ans`,
   saveHint: 'Nom, sexe, taille et date de naissance',
+  saveHintWithBody: 'Nom, sexe, taille, date de naissance et corps',
   withingsScale: 'Balance Withings',
   withingsWatch: 'Montre Withings',
   scaleShort: 'Balance',
@@ -182,6 +188,7 @@ const DE: YourSetupCopy = {
   birthDate: 'Geburtsdatum',
   ageYears: (n) => `Alter: ${n} Jahre`,
   saveHint: 'Name, Geschlecht, Größe & Geburtsdatum',
+  saveHintWithBody: 'Name, Geschlecht, Größe, Geburtsdatum & Körper',
   withingsScale: 'Withings-Waage',
   withingsWatch: 'Withings-Uhr',
   scaleShort: 'Waage',
@@ -214,6 +221,7 @@ const AR: YourSetupCopy = {
   birthDate: 'تاريخ الميلاد',
   ageYears: (n) => `العمر: ${n}`,
   saveHint: 'الاسم والجنس والطول وتاريخ الميلاد',
+  saveHintWithBody: 'الاسم والجنس والطول وتاريخ الميلاد والجسم',
   withingsScale: 'ميزان Withings',
   withingsWatch: 'ساعة Withings',
   scaleShort: 'ميزان',
@@ -246,6 +254,7 @@ const RU: YourSetupCopy = {
   birthDate: 'Дата рождения',
   ageYears: (n) => `Возраст: ${n} лет`,
   saveHint: 'Имя, пол, рост и дата рождения',
+  saveHintWithBody: 'Имя, пол, рост, дата рождения и тело',
   withingsScale: 'Весы Withings',
   withingsWatch: 'Часы Withings',
   scaleShort: 'Весы',
@@ -278,6 +287,7 @@ const PT: YourSetupCopy = {
   birthDate: 'Data de nascimento',
   ageYears: (n) => `Idade: ${n} anos`,
   saveHint: 'Nome, sexo, altura e data de nascimento',
+  saveHintWithBody: 'Nome, sexo, altura, data de nascimento e corpo',
   withingsScale: 'Balança Withings',
   withingsWatch: 'Relógio Withings',
   scaleShort: 'Balança',
@@ -310,6 +320,7 @@ const IT: YourSetupCopy = {
   birthDate: 'Data di nascita',
   ageYears: (n) => `Età: ${n} anni`,
   saveHint: 'Nome, sesso, altezza e data di nascita',
+  saveHintWithBody: 'Nome, sesso, altezza, data di nascita e corpo',
   withingsScale: 'Bilancia Withings',
   withingsWatch: 'Orologio Withings',
   scaleShort: 'Bilancia',
@@ -342,6 +353,7 @@ const TR: YourSetupCopy = {
   birthDate: 'Doğum tarihi',
   ageYears: (n) => `Yaş: ${n}`,
   saveHint: 'Ad, cinsiyet, boy ve doğum tarihi',
+  saveHintWithBody: 'Ad, cinsiyet, boy, doğum tarihi ve beden',
   withingsScale: 'Withings tartı',
   withingsWatch: 'Withings saat',
   scaleShort: 'Tartı',

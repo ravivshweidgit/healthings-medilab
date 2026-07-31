@@ -40,6 +40,7 @@ import { AccountStrip } from '../components/AccountStrip';
 import { ClinicLinkStrip } from '../components/ClinicLinkStrip';
 import { ReportsStrip } from '../components/ReportsStrip';
 import { LocalBackupStrip } from '../components/LocalBackupStrip';
+import { HelpStrip } from '../components/HelpStrip';
 import { DashboardCollapseHeader } from '../components/DashboardCollapseHeader';
 import { ActionIcons, ActiveMentorIcons, DashIcon, StripIcons } from '../theme/icons';
 import { RulesStrip } from '../components/RulesStrip';
@@ -49,8 +50,8 @@ import { WelcomeQuickStartWizard } from '../components/WelcomeQuickStartWizard';
 import { Check, X } from 'lucide-react-native';
 import { CgmDevicesMark, WithingsDevicesMark } from '../components/GearIllustrations';
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
-import { ManualBodyProfileSection } from '../components/ManualBodyProfileSection';
-import { getManualBody, getManualBodyHistory, manualBodyToDashboardMetrics, countDistinctWeighInDays, type ManualBodySnapshot } from '../services/ManualBodyService';
+import { ManualBodyProfileSection, type ManualBodyProfileSectionHandle } from '../components/ManualBodyProfileSection';
+import { getManualBody, getManualBodyHistory, manualBodyToDashboardMetrics, type ManualBodySnapshot } from '../services/ManualBodyService';
 import { LanguageStrip } from '../components/LanguageStrip';
 import { UnitsStrip } from '../components/UnitsStrip';
 import { AppearanceStrip } from '../components/AppearanceStrip';
@@ -74,7 +75,7 @@ import {
   parseLocaleNumber,
   formatEnergy,
 } from '../logic/unitConvert';
-import { buildManualTrendDays } from '../services/ManualTrendService';
+import { buildManualTrendDays, countMergedWeighInDays } from '../services/ManualTrendService';
 import {
   isLiveGlucoseSource,
   isPhoneHealthActivity,
@@ -113,6 +114,7 @@ import { formatLocalizedDate, formatLocalizedDateTime } from '../i18n/dateLocale
 import { getBodyMetricsCopy } from '../i18n/bodyMetricsCopy';
 import { aiChatActionSummary, aiChatAskPrompt, aiChatOpenLabel, aiChatTitle } from '../i18n/aiChatCopy';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
+import { getHelpStripCopy } from '../i18n/helpStripCopy';
 import { getYourSetupCopy } from '../i18n/yourSetupCopy';
 import {
   formatRelativeAgoLocalized,
@@ -346,6 +348,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [clinicExpanded, setClinicExpanded] = useState(false);
   const [reportsExpanded, setReportsExpanded] = useState(false);
   const [backupExpanded, setBackupExpanded] = useState(false);
+  const [helpExpanded, setHelpExpanded] = useState(false);
 
   const [trendPeriodDays, setTrendPeriodDays] = useState<number>(DEFAULT_TREND_PERIOD_DAYS);
 
@@ -372,6 +375,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   // Always holds the latest coachContext to avoid stale closure issues
   const coachContextRef = useRef<CoachContext | null>(null);
   const foodMacroStripRef = useRef<FoodMacroStripHandle>(null);
+  const manualBodySectionRef = useRef<ManualBodyProfileSectionHandle>(null);
 
   // ─── Height + birthdate + gender ─────────────────────────────────────────
   const [heightCm, setHeightCm] = useState<number | null>(null);
@@ -449,9 +453,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       ]);
       setSourceConfig(config);
       setSetupToggles(togglesFromSourceConfig(config));
-      setManualWeighInDayCount(countDistinctWeighInDays(history));
       const snap = manualSnap ?? (await getManualBody());
-      if (history.length === 0 && !snap) {
+      const prior = bodyTrendDays;
+      const mergedWeighIns = countMergedWeighInDays(prior, history);
+      setManualWeighInDayCount(mergedWeighIns);
+      if (history.length === 0 && !snap && !prior.some((d) => d.weightKg != null)) {
         setManualTrendDays([]);
         return;
       }
@@ -460,7 +466,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         setManualTrendDays([]);
         return;
       }
-      const latestWeight = snap?.weight_kg ?? history[history.length - 1]?.weight_kg ?? 0;
+      const latestWeight =
+        snap?.weight_kg ??
+        history[history.length - 1]?.weight_kg ??
+        [...prior].reverse().find((d) => d.weightKg != null)?.weightKg ??
+        0;
       const lookback = Math.max(...TREND_PERIOD_DAY_OPTIONS, DEFAULT_TREND_PERIOD_DAYS);
       // HC/HK step pull: shallow by default (deep via Allow / Deep sync).
       const stepMap = isPhoneHealthActivity(config.activity)
@@ -478,13 +488,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         gender,
         history: history.length > 0 ? history : snap ? [snap] : [],
         stepTotalsByDay: stepMap,
-        bmrOverrideKcal: bmrOverride ?? snap?.bmr_kcal ?? null,
+        bmrOverrideKcal: bmrOverride ?? null,
+        priorTrendDays: prior,
       });
       setManualTrendDays(days);
     } finally {
       setManualTrendLoading(false);
     }
-  }, []);
+  }, [bodyTrendDays]);
 
   const loadLabReports = useCallback(async (refreshCoach = false) => {
     const [reports, mt, effMt] = await Promise.all([
@@ -863,6 +874,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     () => getProfileSettingsStripCopy(userLanguage.code),
     [userLanguage.code],
   );
+  const helpStripCopy = useMemo(
+    () => getHelpStripCopy(userLanguage.code),
+    [userLanguage.code],
+  );
   const yourSetupCopy = useMemo(
     () => getYourSetupCopy(userLanguage.code),
     [userLanguage.code],
@@ -1083,7 +1098,20 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, [baseTrendDays]);
 
   const trendChartLoading = useManualWeightTrend ? manualTrendLoading : trendLoading;
-  const trendAvailableDays = useManualWeightTrend ? manualTrendDays.length : bodyTrendDays.length;
+  const trendAvailableDays = useManualWeightTrend
+    ? Math.max(manualTrendDays.length, bodyTrendDays.length)
+    : bodyTrendDays.length;
+
+  /** Prior Withings BIA still in merged manual trend — show fat/muscle strips. */
+  const trendHasScaleComposition = useMemo(
+    () =>
+      (useManualWeightTrend ? manualTrendDays : bodyTrendDays).some(
+        (d) =>
+          (d.fatMassKg != null && Number.isFinite(d.fatMassKg)) ||
+          (d.muscleMassKg != null && Number.isFinite(d.muscleMassKg)),
+      ),
+    [useManualWeightTrend, manualTrendDays, bodyTrendDays],
+  );
 
   /** User age computed from stored birthdate. */
   const userAge = useMemo((): number | null => {
@@ -1614,6 +1642,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     if (usePhoneHealthActivity) void loadHcStepTotals();
   }, [usePhoneHealthActivity, loadHcStepTotals]);
 
+  /** Rebuild manual trend when store Withings history arrives/updates (scale-off merge). */
+  useEffect(() => {
+    if (useManualWeightTrend) void loadManualTrend();
+  }, [useManualWeightTrend, loadManualTrend]);
+
   useEffect(() => {
     void loadSourceConfig().then((c) => {
       setSourceConfig(c);
@@ -1972,6 +2005,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           <Text style={styles.nudgeStripChevron}>›</Text>
         </Pressable>
 
+        {/* App Help — product Q&A (not mentor chat); near AI entry for discoverability */}
+        <View style={[styles.groupCard, cardShadow, !helpExpanded && styles.groupCardCollapsed]}>
+          <HelpStrip
+            expanded={helpExpanded}
+            onToggleExpand={() => setHelpExpanded((e) => !e)}
+            lang={userLanguage}
+          />
+        </View>
+
         <View style={[styles.bodyScanCard, cardShadow]}>
           {showBodySourcesHeader || bodyScanLoading ? (
           <View style={[styles.bodyScanHeader, !showBodySourcesHeader && bodyScanLoading && styles.bodyScanHeaderManualOnly]}>
@@ -2288,12 +2330,16 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 {visibleTrend ? (
                   <MetabolicTrendChart7d
                     days={visibleTrend.days}
-                    periodAnchor={useManualWeightTrend ? null : visibleTrend.anchor}
+                    periodAnchor={
+                      useManualWeightTrend && !trendHasScaleComposition
+                        ? null
+                        : visibleTrend.anchor
+                    }
                     periodDays={trendPeriodDays}
                     periodOptions={TREND_PERIOD_DAY_OPTIONS}
                     availableDays={trendAvailableDays}
                     onPeriodChange={setTrendPeriodDays}
-                    weightOnly={useManualWeightTrend}
+                    weightOnly={useManualWeightTrend && !trendHasScaleComposition}
                     weighInDayCount={manualWeighInDayCount}
                     hideTitle
                     massUnit={unitsPrefs.mass}
@@ -2482,6 +2528,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               {manualBodyScaleActive ? (
                 manualBodyProfileReady ? (
                   <ManualBodyProfileSection
+                    ref={manualBodySectionRef}
                     effectiveWeightKg={effectiveBodyScan?.weightKg ?? null}
                     manualBodySnap={manualBodySnap}
                     userGender={manualBodyProfile.gender!}
@@ -2506,7 +2553,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 )
               ) : null}
 
-              <Text style={styles.birthdateSaveHint}>{yourSetupCopy.saveHint}</Text>
+              <Text style={styles.birthdateSaveHint}>
+                {manualBodyScaleActive
+                  ? yourSetupCopy.saveHintWithBody
+                  : yourSetupCopy.saveHint}
+              </Text>
               <Pressable
                 style={styles.birthdateSaveBtn}
                 onPress={async () => {
@@ -2531,6 +2582,18 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   ]);
                   if (cm != null && cm > 0) setHeightCm(cm);
                   setUserGender(genderPicker);
+
+                  if (manualBodyScaleActive && manualBodyProfileReady) {
+                    const ageEff = computeAge(iso);
+                    const heightEff = cm != null && cm > 0 ? cm : manualBodyProfile.heightCm!;
+                    const bodyResult = await manualBodySectionRef.current?.saveBody({
+                      gender: genderPicker,
+                      heightCm: heightEff,
+                      ageYears: ageEff,
+                    });
+                    if (bodyResult === 'error') return;
+                  }
+
                   setProfileExpanded(false);
                 }}
               >
@@ -2592,6 +2655,23 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               await refreshCoachForLanguage();
             }}
           />
+
+          <View style={styles.groupDivider} />
+
+          <Pressable
+            style={styles.profileHelpLink}
+            onPress={() => {
+              setSettingsCardExpanded(false);
+              setHelpExpanded(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={helpStripCopy.openFromProfile}
+          >
+            <Text style={styles.profileHelpLinkText}>
+              {helpStripCopy.openFromProfile}
+            </Text>
+            <Text style={styles.profileHelpLinkChevron}>›</Text>
+          </Pressable>
 
           <View style={styles.groupDivider} />
 
@@ -3390,6 +3470,23 @@ const makeStyles = (c: ThemeColors, isDark: boolean) => {
   },
   groupCardCollapsed: {
     paddingBottom: 12,
+  },
+  profileHelpLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  profileHelpLinkText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: c.accentBlue,
+  },
+  profileHelpLinkChevron: {
+    fontSize: 20,
+    color: c.textSecondary,
+    marginLeft: 8,
   },
   groupDivider: {
     height: StyleSheet.hairlineWidth,
