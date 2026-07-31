@@ -7,17 +7,34 @@ const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_TIMEOUT_MS = 60_000;
 
 /**
- * Default clinic/account chat packing (be-36). History was never the ~70k driver —
- * 31d itemized food + 7d raw CGM was. Keep full rules text for Gemini judgment.
+ * Packing splits clinic vs patient web chat (be-39).
+ * Clinic must not hide meal items — default 128d itemized food (matches portal trend max).
+ * Patient /account/ keeps be-36 COGS defaults; optional widen on “30 days” / “חודש”.
  */
-const CHAT_FOOD_LOOKBACK_DAYS = 31;
-const CHAT_FOOD_DETAIL_DAYS = 7;
-const CHAT_CGM_LOOKBACK_DAYS = 14;
-const CHAT_CGM_FULL_SERIES_DAYS = 2;
+const PATIENT_FOOD_LOOKBACK_DAYS = 31;
+const PATIENT_FOOD_DETAIL_DAYS = 7;
+const PATIENT_CGM_LOOKBACK_DAYS = 14;
+const PATIENT_CGM_FULL_SERIES_DAYS = 2;
+const PATIENT_WORKOUT_LOOKBACK_DAYS = 14;
+const PATIENT_LAB_REPORT_LIMIT = 3;
+
+const CLINIC_FOOD_LOOKBACK_DAYS = 128;
+const CLINIC_FOOD_DETAIL_DAYS = 128;
+const CLINIC_CGM_LOOKBACK_DAYS = 128;
+const CLINIC_CGM_FULL_SERIES_DAYS = 14;
+const CLINIC_WORKOUT_LOOKBACK_DAYS = 128;
+const CLINIC_LAB_REPORT_LIMIT = 10;
+
 const CHAT_CGM_SERIES_STEP_MIN = 15;
-const CHAT_WORKOUT_LOOKBACK_DAYS = 14;
-const CHAT_LAB_REPORT_LIMIT = 3;
 const CHAT_THINKING_BUDGET = 1024;
+
+/** Defaults used by format* helpers when packing omitted. */
+const CHAT_FOOD_LOOKBACK_DAYS = CLINIC_FOOD_LOOKBACK_DAYS;
+const CHAT_FOOD_DETAIL_DAYS = CLINIC_FOOD_DETAIL_DAYS;
+const CHAT_CGM_LOOKBACK_DAYS = CLINIC_CGM_LOOKBACK_DAYS;
+const CHAT_CGM_FULL_SERIES_DAYS = CLINIC_CGM_FULL_SERIES_DAYS;
+const CHAT_WORKOUT_LOOKBACK_DAYS = CLINIC_WORKOUT_LOOKBACK_DAYS;
+const CHAT_LAB_REPORT_LIMIT = CLINIC_LAB_REPORT_LIMIT;
 
 type ChatPacking = {
   foodLookbackDays: number;
@@ -28,17 +45,28 @@ type ChatPacking = {
   labReportLimit: number;
 };
 
-const DEFAULT_CHAT_PACKING: ChatPacking = {
-  foodLookbackDays: CHAT_FOOD_LOOKBACK_DAYS,
-  foodDetailDays: CHAT_FOOD_DETAIL_DAYS,
-  cgmLookbackDays: CHAT_CGM_LOOKBACK_DAYS,
-  cgmFullSeriesDays: CHAT_CGM_FULL_SERIES_DAYS,
-  workoutLookbackDays: CHAT_WORKOUT_LOOKBACK_DAYS,
-  labReportLimit: CHAT_LAB_REPORT_LIMIT,
+/** Clinic portal mentor chat — full clinical window; never totals-only within lookback. */
+const CLINIC_CHAT_PACKING: ChatPacking = {
+  foodLookbackDays: CLINIC_FOOD_LOOKBACK_DAYS,
+  foodDetailDays: CLINIC_FOOD_DETAIL_DAYS,
+  cgmLookbackDays: CLINIC_CGM_LOOKBACK_DAYS,
+  cgmFullSeriesDays: CLINIC_CGM_FULL_SERIES_DAYS,
+  workoutLookbackDays: CLINIC_WORKOUT_LOOKBACK_DAYS,
+  labReportLimit: CLINIC_LAB_REPORT_LIMIT,
 };
 
-/** Pre-be-36 packing when staff/patient explicitly asks for a wide window. */
-const WIDE_CHAT_PACKING: ChatPacking = {
+/** Patient /account/ self-chat (be-36 COGS). */
+const PATIENT_CHAT_PACKING: ChatPacking = {
+  foodLookbackDays: PATIENT_FOOD_LOOKBACK_DAYS,
+  foodDetailDays: PATIENT_FOOD_DETAIL_DAYS,
+  cgmLookbackDays: PATIENT_CGM_LOOKBACK_DAYS,
+  cgmFullSeriesDays: PATIENT_CGM_FULL_SERIES_DAYS,
+  workoutLookbackDays: PATIENT_WORKOUT_LOOKBACK_DAYS,
+  labReportLimit: PATIENT_LAB_REPORT_LIMIT,
+};
+
+/** Patient widen when they explicitly ask for a wide window. */
+const PATIENT_WIDE_CHAT_PACKING: ChatPacking = {
   foodLookbackDays: 31,
   foodDetailDays: 31,
   cgmLookbackDays: 31,
@@ -47,9 +75,12 @@ const WIDE_CHAT_PACKING: ChatPacking = {
   labReportLimit: 10,
 };
 
+/** @deprecated alias — prefer CLINIC_CHAT_PACKING / PATIENT_CHAT_PACKING */
+const DEFAULT_CHAT_PACKING = CLINIC_CHAT_PACKING;
+
 /**
  * Intent routing only — not clinical rule parsing (ai-judgment-not-regex).
- * Matches “last 30 days”, “past month”, Hebrew “חודש”, etc.
+ * Matches “last 30 days”, “past month”, Hebrew “חודש”, etc. Patient web only.
  */
 function wantsWideChatContext(message: string): boolean {
   const m = String(message || '').toLowerCase();
@@ -66,8 +97,8 @@ function wantsWideChatContext(message: string): boolean {
   );
 }
 
-function packingForMessage(message: string): ChatPacking {
-  return wantsWideChatContext(message) ? WIDE_CHAT_PACKING : DEFAULT_CHAT_PACKING;
+function packingForPatientMessage(message: string): ChatPacking {
+  return wantsWideChatContext(message) ? PATIENT_WIDE_CHAT_PACKING : PATIENT_CHAT_PACKING;
 }
 
 function dayKeyDaysAgo(days: number, utcOffsetMinutes = 0): string {
@@ -506,7 +537,9 @@ function formatFoodLogBlock(
   const dayKeys = [...byDay.keys()].sort((a, b) => b.localeCompare(a));
   const tzLabel = formatUtcOffsetLabel(utcOffsetMinutes);
   const lines: string[] = [
-    `Food log (by day, newest first — meal times patient local ${tzLabel}; item detail last ${Math.min(detailDays, lookbackDays)}d, day totals through ${lookbackDays}d):`,
+    detailDays >= lookbackDays
+      ? `Food log (by day, newest first — meal times patient local ${tzLabel}; full item detail through ${lookbackDays}d):`
+      : `Food log (by day, newest first — meal times patient local ${tzLabel}; item detail last ${Math.min(detailDays, lookbackDays)}d, day totals through ${lookbackDays}d):`,
   ];
 
   for (const dk of dayKeys) {
@@ -896,7 +929,9 @@ function buildPatientContextBlock(
   }
 
   lines.push(
-    `Context window: food items last ${packing.foodDetailDays}d (day totals through ${packing.foodLookbackDays}d); CGM day stats ${packing.cgmLookbackDays}d, detailed readings last ${packing.cgmFullSeriesDays}d (~${CHAT_CGM_SERIES_STEP_MIN} min); workouts ${packing.workoutLookbackDays}d; labs last ${packing.labReportLimit}. Ask for a wider window (e.g. last 30 days) if needed.`,
+    packing.foodDetailDays >= packing.foodLookbackDays
+      ? `Context window: food items through ${packing.foodLookbackDays}d (full item detail — no totals-only truncation); CGM day stats ${packing.cgmLookbackDays}d, detailed readings last ${packing.cgmFullSeriesDays}d (~${CHAT_CGM_SERIES_STEP_MIN} min); workouts ${packing.workoutLookbackDays}d; labs last ${packing.labReportLimit}.`
+      : `Context window: food items last ${packing.foodDetailDays}d (day totals through ${packing.foodLookbackDays}d); CGM day stats ${packing.cgmLookbackDays}d, detailed readings last ${packing.cgmFullSeriesDays}d (~${CHAT_CGM_SERIES_STEP_MIN} min); workouts ${packing.workoutLookbackDays}d; labs last ${packing.labReportLimit}. Ask for a wider window (e.g. last 30 days) if needed.`,
   );
 
   return lines.length ? lines.join('\n') : 'Snapshot present but sparse.';
@@ -913,7 +948,7 @@ export async function mentorChatReply(
   const clinicLocale = normalizeClinicChatLocale(clinicLocaleRaw);
   const replyLanguage = CLINIC_LOCALE_NAME[clinicLocale];
   const snapshot = await loadLatestSnapshotExport(patientId);
-  const packing = packingForMessage(message);
+  const packing = CLINIC_CHAT_PACKING;
   const dataBlock = buildPatientContextBlock(snapshot, packing);
 
   let snapRules: ClinicUserRules | null = null;
@@ -943,10 +978,14 @@ export async function mentorChatReply(
 
   const prompt = `You are the ${MENTOR_LABEL[mentorType]} AI mentor in a clinical nutrition app.
 The clinic staff is chatting on behalf of reviewing this patient's data. Answer in clear, practical prose.
-Use the patient data below. Do not invent labs or meals not listed.
+Use the patient data below. Do not invent labs, weigh-ins, CGM points, or meals that are not listed.
 When Profile lists height (cm), gender, birthdate, or age — those values ARE known. Use them for BMI and similar. Never say height (or other Profile fields) is missing when it appears in the Profile line.
 When CGM glucose lists a date with avg/min/max or HH:MM readings, that date HAS glucose data — cite it and correlate with Food log meals. Never say glucose/CGM is missing for a date that appears in the CGM block.
 When Workouts & activity lists timed sessions for a date/time, that exercise IS logged — cite start/end, duration, and kcal. Correlate walks/workouts with CGM trends after meals. Never say exercise is missing for a date that appears in the Workouts block.
+
+ESTIMATE WHAT WE DO NOT STORE (HARD — core product): Food log lines give kcal and macros (P/C/F/Fi) and food names + grams — NOT iodine, omega-3/6, vitamins, minerals, sodium, glycemic load, or other micronutrients per item. When clinic staff ask about those (or any nutrient/quality not in the numbers): ALWAYS answer using your food-science judgment from the logged food names + grams (USDA-style / standard tables). Lead with a concrete estimate (e.g. rough µg iodine for that day, main contributing foods). Label figures as estimated. Never open with "data not available", "iodine not in the log", or refuse. Never spend a turn explaining that the app does not store micronutrients — clinic staff already know; just estimate. One brief "estimated from food tables" caveat at the end is enough. Distinguish exact logged USER DATA (meals, P/C/F/Fi, labs, CGM) from AI estimates.
+
+CLINIC TONE (HARD): Be a helpful senior clinical nutrition colleague — concise, concrete, respectful. Prefer numbers + named foods over meta talk about the software. If staff say the patient did log food detail, briefly agree and either (a) restate the estimate with the contributing foods, or (b) list the meal items — do not defend or describe product limitations. Meal times in PATIENT DATA are patient-local; present them as written. Do not invent labs or meals not listed.
 
 REPLY LANGUAGE (HARD): Write your entire reply in ${replyLanguage} (clinic portal locale: ${clinicLocale}).
 A patient may have rules, meal names, or notes in another language — quote those snippets as written when needed, but your explanation, greeting, and recommendations MUST be in ${replyLanguage}.
@@ -990,7 +1029,7 @@ export async function mentorChatReplyForPatient(
   const locale = normalizeClinicChatLocale(localeRaw);
   const replyLanguage = CLINIC_LOCALE_NAME[locale];
   const snapshot = await loadLatestSnapshotExport(patientId);
-  const packing = packingForMessage(message);
+  const packing = packingForPatientMessage(message);
   const dataBlock = buildPatientContextBlock(snapshot, packing);
 
   let snapRules: ClinicUserRules | null = null;
@@ -1013,10 +1052,12 @@ export async function mentorChatReplyForPatient(
 
   const prompt = `You are the ${MENTOR_LABEL[mentorType]} AI mentor in a clinical nutrition app.
 The patient is chatting with you about their own health data. Answer in clear, practical prose in second person ("you").
-Use the patient data below. Do not invent labs or meals not listed.
+Use the patient data below. Do not invent labs, weigh-ins, CGM points, or meals that are not listed.
 When Profile lists height (cm), gender, birthdate, or age — those values ARE known. Use them for BMI and similar. Never say height (or other Profile fields) is missing when it appears in the Profile line.
 When CGM glucose lists a date with avg/min/max or HH:MM readings, that date HAS glucose data — cite it and correlate with Food log meals. Never say glucose/CGM is missing for a date that appears in the CGM block.
 When Workouts & activity lists timed sessions for a date/time, that exercise IS logged — cite start/end, duration, and kcal. Correlate walks/workouts with CGM trends after meals. Never say exercise is missing for a date that appears in the Workouts block.
+
+ESTIMATE WHAT WE DO NOT STORE (HARD — core product): Food log lines give kcal and macros (P/C/F/Fi) and food names + grams — NOT iodine, omega-3/6, vitamins, minerals, sodium, glycemic load, or other micronutrients per item. When the patient asks about those (or any nutrient/quality not in the numbers): ALWAYS answer using your food-science judgment from the logged food names + grams (USDA-style / standard tables). Lead with a concrete estimate. Label figures as estimated. Never open with "data not available" or refuse. One brief "estimated from food tables" caveat at the end is enough. Distinguish exact logged USER DATA from AI estimates.
 
 REPLY LANGUAGE (HARD): Write your entire reply in ${replyLanguage} (patient app language: ${locale}).
 Quote patient-authored snippets as written when needed, but your explanation and recommendations MUST be in ${replyLanguage}.

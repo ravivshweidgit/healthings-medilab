@@ -27,6 +27,7 @@ Run in this order. The reason is the dependency, not preference.
 | File | Title | Status | Notes |
 |------|-------|--------|-------|
 | — | be-30 labs + lipids clinical view | not drafted | Needs owner clinical judgment (reference ranges); not an Auto batch |
+| `be-39-clinic-chat-128d-food.md` | Clinic chat 128d full food items | needs-review | Owner: do not hide meal items from clinic AI (Natali Jul 22) |
 
 ## Done
 

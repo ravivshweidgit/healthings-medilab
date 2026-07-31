@@ -1,6 +1,7 @@
 # be-36 — Shrink clinic/account chat prompt COGS
 
-**Status:** done (2026-07-28) — owner accepted: web `ai_chat` ~15–17k vs prior ~70k
+**Status:** done (2026-07-28) — owner accepted: web `ai_chat` ~15–17k vs prior ~70k  
+**Clinic packing superseded:** be-39 restores **128d itemized food** for clinic portal chat only (patient `/account/` keeps this batch’s COGS defaults).
 **Model to implement:** Fable 5 (Cursor)
 **Authored by:** Owner + agent (deferred from be-35; live margin showed `ai_chat` as the cost sink)
 **Depends on:** be-32 / be-35 (Gemini usage metering + margin view)
