@@ -5,6 +5,7 @@
  */
 
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import Slider from '@react-native-community/slider';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -439,6 +440,8 @@ export function FoodLogModal({
     fat_g: 0,
     fiber_g: 0,
   });
+  /** Grams at Edit open — slider mid; max = 2× (double). */
+  const [editGramsOrigin, setEditGramsOrigin] = useState(0);
   const [browseDayMs, setBrowseDayMs] = useState(() => startOfLocalDay(Date.now()));
   const [pastDayMeals, setPastDayMeals] = useState<FoodEntry[]>([]);
   const [pastDayLoading, setPastDayLoading] = useState(false);
@@ -1017,14 +1020,16 @@ export function FoodLogModal({
         fat_g: String(item.fat_g),
         fiber_g: String(item.fiber_g ?? 0),
       };
+      const originG = Math.max(0, item.grams);
       editNutrientBaseRef.current = {
-        grams: Math.max(0, item.grams),
+        grams: originG,
         kcal: Math.max(0, item.kcal),
         protein_g: Math.max(0, item.protein_g),
         carb_g: Math.max(0, item.carb_g),
         fat_g: Math.max(0, item.fat_g),
         fiber_g: Math.max(0, item.fiber_g ?? 0),
       };
+      setEditGramsOrigin(originG);
       setEditDraft(draft);
       setEditItemIndex(index);
     },
@@ -1034,6 +1039,13 @@ export function FoodLogModal({
   const onEditGramsChange = useCallback((v: string) => {
     setEditDraft((d) => scaleEditDraftFromGrams(d, v, editNutrientBaseRef.current));
   }, []);
+
+  const onEditGramsSlider = useCallback(
+    (v: number) => {
+      onEditGramsChange(String(Math.max(0, Math.round(v))));
+    },
+    [onEditGramsChange],
+  );
 
   /** Manual kcal/macro edit — re-baseline so later grams changes keep the new ratios. */
   const onEditNutrientChange = useCallback(
@@ -1057,7 +1069,16 @@ export function FoodLogModal({
 
   const closeEditItem = useCallback(() => {
     setEditItemIndex(null);
+    setEditGramsOrigin(0);
   }, []);
+
+  const editGramsSliderMax = editGramsOrigin * 2;
+  const editGramsSliderValue = useMemo(() => {
+    if (!(editGramsSliderMax > 0)) return 0;
+    const g = parseNum(editDraft.grams);
+    if (!Number.isFinite(g)) return editGramsOrigin;
+    return Math.min(editGramsSliderMax, Math.max(0, g));
+  }, [editDraft.grams, editGramsOrigin, editGramsSliderMax]);
 
   const saveEditItem = useCallback(() => {
     if (editItemIndex == null) return;
@@ -1085,6 +1106,7 @@ export function FoodLogModal({
     setOverrideSaveOnce(false);
     setOverrideSnapshotKey(null);
     setEditItemIndex(null);
+    setEditGramsOrigin(0);
   }, [editItemIndex, editDraft]);
 
   const handleDeleteItem = useCallback(
@@ -1718,6 +1740,31 @@ export function FoodLogModal({
                     keyboardType={key === 'name' ? 'default' : 'decimal-pad'}
                     autoCapitalize={key === 'name' ? 'sentences' : 'none'}
                   />
+                  {key === 'grams' && editGramsOrigin > 0 ? (
+                    <View style={styles.editGramsSliderWrap}>
+                      <Slider
+                        style={styles.editGramsSlider}
+                        minimumValue={0}
+                        maximumValue={editGramsSliderMax}
+                        step={1}
+                        value={editGramsSliderValue}
+                        onValueChange={onEditGramsSlider}
+                        minimumTrackTintColor={colors.accentBlue}
+                        maximumTrackTintColor={colors.gridLine}
+                        thumbTintColor={colors.accentBlue}
+                        accessibilityLabel={ui.fieldGrams}
+                      />
+                      <View style={styles.editGramsSliderLabels}>
+                        <Text style={styles.editGramsSliderLabel}>0</Text>
+                        <Text style={styles.editGramsSliderLabelMid}>
+                          {Math.round(editGramsOrigin)}
+                        </Text>
+                        <Text style={styles.editGramsSliderLabel}>
+                          {Math.round(editGramsSliderMax)}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null}
                 </View>
               ))}
               <View style={[styles.editMacroRow, rtl && styles.editMacroRowRtl]}>
@@ -2141,6 +2188,29 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     fontSize: 15,
     color: c.textPrimary,
     backgroundColor: c.surface,
+  },
+  editGramsSliderWrap: {
+    marginTop: 4,
+    gap: 2,
+  },
+  editGramsSlider: {
+    width: '100%',
+    height: 36,
+  },
+  editGramsSliderLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+  },
+  editGramsSliderLabel: {
+    fontSize: 11,
+    color: c.textSecondary,
+    fontWeight: '500',
+  },
+  editGramsSliderLabelMid: {
+    fontSize: 11,
+    color: c.accentBlue,
+    fontWeight: '700',
   },
   editMacroRow: {
     flexDirection: 'row',
