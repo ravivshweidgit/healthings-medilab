@@ -1049,6 +1049,19 @@ h3,
 .data-table th, .data-table td { border-bottom: 1px solid var(--grid); padding: 10px 8px; text-align: left; }
 .lab-panel { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--grid); }
 
+/* Verbatim PDF label under the canonical English name (prompt99 / lab i18n). */
+.lab-name-original {
+  font-size: 0.82em;
+  color: var(--muted);
+  unicode-bidi: isolate;
+}
+
+.lab-ref-range {
+  font-size: 0.82em;
+  color: var(--muted);
+  unicode-bidi: isolate;
+}
+
 .empty { color: var(--muted); text-align: center; padding: 32px 16px; }
 
 /* Nutrition reports — list rail + body (be-28) */

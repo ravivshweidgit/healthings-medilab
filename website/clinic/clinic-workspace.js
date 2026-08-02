@@ -1480,8 +1480,12 @@
           <tbody>
             ${(report.panels || []).flatMap((p) => (p.results || []).map((r) => `
               <tr>
-                <td>${esc(r.name || r.code)}</td>
-                <td>${r.value} ${esc(r.unit || '')}</td>
+                <td>${esc(r.name || r.code)}${r.nameOriginal && r.nameOriginal !== r.name
+                  ? `<br><span class="lab-name-original" dir="ltr">${esc(r.nameOriginal)}</span>`
+                  : ''}</td>
+                <td>${r.value} ${esc(r.unit || '')}${Number.isFinite(r.refLow) && Number.isFinite(r.refHigh)
+                  ? `<br><span class="lab-ref-range" dir="ltr">${r.refLow}&ndash;${r.refHigh}</span>`
+                  : ''}</td>
                 <td>${r.flag && r.flag !== 'normal' && r.flag !== 'unknown' ? esc(r.flag) : ''}</td>
               </tr>`)).join('')}
           </tbody>

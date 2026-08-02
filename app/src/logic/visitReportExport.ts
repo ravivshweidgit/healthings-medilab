@@ -202,7 +202,13 @@ function formatLabsHtml(reports: LabReport[], flaggedLabel: string, noLabs: stri
   return sorted
     .map((report) => {
       const date = reportDateKey(report.collectedAt);
-      const provider = report.labProvider === 'clalit' ? 'Clalit' : 'Lab';
+      const providerLabels: Record<string, string> = {
+        clalit: 'Clalit',
+        meuhedet: 'Meuhedet',
+        maccabi: 'Maccabi',
+        leumit: 'Leumit',
+      };
+      const provider = providerLabels[report.labProvider] ?? 'Lab';
       const rows = report.panels
         .flatMap((panel) => panel.results.map((r) => formatLabResultCell(r, flaggedLabel)))
         .join('\n');

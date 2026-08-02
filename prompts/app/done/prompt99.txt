@@ -1,0 +1,42 @@
+# prompt99 — Lab reports: canonical English + Meuhedet gauge parse
+
+**Status:** done (2026-08-02) — phone-tested Meuhedet re-import (TSH 3.64 normal)
+**Builds on:** lab PDF import (LabLogService / GeminiService), language policy
+
+## Problem
+
+1. Natali (app language Russian) imported labs; `langInstruction` made Gemini store Russian
+   test names the Hebrew clinic could not read. Values were also sometimes wrong on re-parse.
+2. Meuhedet PDFs use a gauge/slider layout: range ends (e.g. 0.35–4.94) sit on the scale,
+   result (e.g. 3.64) sits above the marker. First parse stored TSH **value=0.35** (refLow)
+   with flag low/unknown. Clalit table layout worked; Meuhedet did not.
+
+## Decision
+
+- Lab rows are **canonical English** at rest; `nameOriginal` keeps the PDF label.
+- One provider-agnostic parser (no per-HMO code paths) — gauge rules in the Gemini prompt
+  + pure-math flag/range checks in `normalizeLabResults`.
+- When `value` equals `refLow`/`refHigh`, automatic **second-pass** re-read of those codes.
+
+## What shipped
+
+| Piece | Change |
+|-------|--------|
+| `GeminiService.parseLabReportPdf` | No `langInstruction`; canonical English `name`; exact values; gauge HARD rules + TSH example; `refLow`/`refHigh`; `repairGaugeBoundCollisions` second pass |
+| `LabLogService` | `refLow`/`refHigh` on `LabResult`; `LabProvider` includes meuhedet/maccabi/leumit |
+| `LabReportModal` / strip | Delete report UI + confirm; show numeric range under value |
+| `labResultsStripCopy` | Delete / confirm i18n |
+| `clinic-workspace.js` / `.css` | `nameOriginal` secondary; `refLow–refHigh` under value |
+| `visitReportExport` | Friendly HMO labels |
+
+## Phone-tested
+
+- [x] Meuhedet import: TSH **3.64** µIU/mL, range 0.35–4.94, flag normal (not 0.35)
+- [x] Re-import updated the row without a separate delete step
+- [x] Delete report control present in lab modal
+- [ ] Portal Lab tab (clinic deploy) — code ready; verify after next server deploy
+
+## Related
+
+- Natali: delete/re-import remaining Russian-named panels if any still on device; use latest APK/AAB.
+- Deferred: optional patient-locale display catalog for common codes (names stay English at rest).

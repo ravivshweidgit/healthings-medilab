@@ -118,6 +118,12 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
     Alert.alert(copy.savedTitle, copy.savedBody);
   }, [closeModal, onReportsChanged, copy.savedTitle, copy.savedBody]);
 
+  const handleDeleted = useCallback(() => {
+    onReportsChanged();
+    closeModal();
+    Alert.alert(copy.deletedTitle, copy.deletedBody);
+  }, [closeModal, onReportsChanged, copy.deletedTitle, copy.deletedBody]);
+
   const handleExport = useCallback(async () => {
     try {
       await exportLabLog();
@@ -220,6 +226,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
         lang={lang}
         onClose={closeModal}
         onSaved={handleSaved}
+        onDeleted={handleDeleted}
       />
     </View>
   );

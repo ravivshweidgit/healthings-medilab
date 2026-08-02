@@ -16,6 +16,9 @@ export type LabResult = {
   unit: string;
   flag: LabResultFlag;
   referenceText?: string;
+  /** Numeric reference range bounds when printed (gauge scales, range columns). */
+  refLow?: number;
+  refHigh?: number;
 };
 
 export type LabPanelType = 'chemistry' | 'cbc' | 'other';
@@ -27,9 +30,12 @@ export type LabPanel = {
   note?: string;
 };
 
+/** Known Israeli HMOs get a friendly label; anything else stays 'unknown'. */
+export type LabProvider = 'clalit' | 'meuhedet' | 'maccabi' | 'leumit' | 'unknown';
+
 export type LabReport = {
   id: string;
-  labProvider: 'clalit' | 'unknown';
+  labProvider: LabProvider;
   patientName?: string;
   patientId?: string;
   collectedAt: string;
@@ -42,7 +48,7 @@ export type LabReport = {
 
 /** Draft from Gemini before save — one panel per PDF. */
 export type ParsedLabPdf = {
-  labProvider: 'clalit' | 'unknown';
+  labProvider: LabProvider;
   patientName?: string;
   patientId?: string;
   collectedAt: string;
@@ -151,7 +157,13 @@ function panelTypeLabel(types: LabPanelType[]): string {
 
 function formatReportBlock(report: LabReport, prefix: string): string[] {
   const date = reportDateKey(report.collectedAt);
-  const provider = report.labProvider === 'clalit' ? 'Clalit' : 'Lab';
+  const providerLabels: Record<string, string> = {
+    clalit: 'Clalit',
+    meuhedet: 'Meuhedet',
+    maccabi: 'Maccabi',
+    leumit: 'Leumit',
+  };
+  const provider = providerLabels[report.labProvider] ?? 'Lab';
   const types = report.panels.map((p) => p.panelType);
   const lines: string[] = [`${prefix} ${date} (${provider}) — ${panelTypeLabel(types)}:`];
   for (const panel of report.panels) {

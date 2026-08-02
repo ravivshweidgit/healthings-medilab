@@ -19,6 +19,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { parseLabReportPdf } from '../services/GeminiService';
 import {
+  deleteLabReport,
   readPdfBase64FromUri,
   saveParsedLabPanel,
   updateLabReport,
@@ -37,6 +38,8 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onSaved: (report: LabReport) => void;
+  /** Fired after a saved report is removed from the phone. */
+  onDeleted?: () => void;
   lang?: UserLanguage | null;
   autoPickPdf?: boolean;
   viewReport?: LabReport | null;
@@ -56,7 +59,15 @@ function bottomInset(insetsBottom: number): number {
   return Platform.OS === 'android' ? 48 : 16;
 }
 
-export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, viewReport }: Props) {
+export function LabReportModal({
+  visible,
+  onClose,
+  onSaved,
+  onDeleted,
+  lang,
+  autoPickPdf,
+  viewReport,
+}: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
@@ -190,6 +201,29 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
     }
   }, [editingReport, onSaved]);
 
+  const handleDeleteReport = useCallback(() => {
+    if (!editingReport) return;
+    Alert.alert(copy.deleteConfirmTitle, copy.deleteConfirmBody, [
+      { text: copy.deleteCancel, style: 'cancel' },
+      {
+        text: copy.deleteReport,
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            setLoadingPhase('save');
+            try {
+              await deleteLabReport(editingReport.id);
+              onDeleted?.();
+            } catch (e: unknown) {
+              setError(e instanceof Error ? e.message : copy.deleteFailed);
+              setLoadingPhase(null);
+            }
+          })();
+        },
+      },
+    ]);
+  }, [editingReport, copy, onDeleted]);
+
   const title = copy.modalTitle;
   const saveLabel = copy.save;
   const pickLabel = copy.choosePdf;
@@ -217,7 +251,11 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
           />
           <TextInput style={styles.unitInput} value={r.unit} onChangeText={onUnit} />
         </View>
-        {r.referenceText ? <Text style={styles.refText}>{r.referenceText}</Text> : null}
+        {r.refLow != null && r.refHigh != null ? (
+          <Text style={styles.refText}>{`${r.refLow}–${r.refHigh} ${r.unit}`.trim()}</Text>
+        ) : r.referenceText ? (
+          <Text style={styles.refText}>{r.referenceText}</Text>
+        ) : null}
         <Text style={[styles.flag, { color: flagColor(r.flag, colors.textSecondary) }]}>{r.flag}</Text>
       </View>
       {onDelete ? (
@@ -308,6 +346,14 @@ export function LabReportModal({ visible, onClose, onSaved, lang, autoPickPdf, v
             </ScrollView>
             {error && <Text style={styles.errorText}>{error}</Text>}
             <View style={[styles.footer, { paddingBottom: 16 + footerPadBottom }]}>
+              <Pressable
+                style={styles.dangerBtn}
+                onPress={handleDeleteReport}
+                accessibilityRole="button"
+                accessibilityLabel={copy.deleteReport}
+              >
+                <Text style={styles.dangerBtnText}>{copy.deleteReport}</Text>
+              </Pressable>
               <Pressable style={styles.primaryBtn} onPress={() => void handleSaveView()}>
                 <Text style={styles.primaryBtnText}>✓ {saveLabel}</Text>
               </Pressable>
@@ -381,7 +427,13 @@ const makeStyles = (c: ThemeColors) =>
   refText: { fontSize: 11, color: c.textSecondary, marginTop: 4, fontStyle: 'italic' },
   flag: { fontSize: 11, marginTop: 2, textTransform: 'uppercase' },
   deleteBtn: { fontSize: 18, paddingTop: 4 },
-  footer: { padding: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: c.gridLine },
+  footer: {
+    padding: 16,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: c.gridLine,
+    gap: 10,
+  },
   primaryBtn: {
     backgroundColor: c.accentBlue,
     borderRadius: 12,
@@ -389,5 +441,14 @@ const makeStyles = (c: ThemeColors) =>
     alignItems: 'center',
   },
   primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  dangerBtn: {
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E53935',
+    backgroundColor: c.surface,
+  },
+  dangerBtnText: { color: '#E53935', fontWeight: '700', fontSize: 15 },
   errorText: { fontSize: 12, color: '#E53935', paddingHorizontal: 20, marginTop: 8 },
 });

@@ -1345,6 +1345,33 @@ function normalizePanelType(v: unknown): LabPanelType {
   return 'other';
 }
 
+/** True when value sits on a printed range endpoint (classic gauge mix-up). */
+function valueEqualsBound(value: number, bound: number | undefined): boolean {
+  if (bound == null || !Number.isFinite(bound)) return false;
+  return Math.abs(value - bound) < 1e-9;
+}
+
+/**
+ * Pure math (no text parsing): recompute flag from value vs numeric range.
+ * Catches gauge-layout mixups where a range bound was extracted as the value
+ * (e.g. Meuhedet TSH "0.35 low" when 0.35 was the scale minimum).
+ */
+function flagFromRange(
+  value: number,
+  refLow: number | undefined,
+  refHigh: number | undefined,
+  extracted: LabResult['flag'],
+): LabResult['flag'] {
+  if (refLow == null || refHigh == null || !(refLow < refHigh)) return extracted;
+  // Value on a bound is almost always a gauge OCR mistake — never trust "low"/"high".
+  if (valueEqualsBound(value, refLow) || valueEqualsBound(value, refHigh)) {
+    return 'unknown';
+  }
+  const math: LabResult['flag'] =
+    value < refLow ? 'low' : value > refHigh ? 'high' : 'normal';
+  return math;
+}
+
 function normalizeLabResults(raw: unknown): LabResult[] {
   if (!Array.isArray(raw)) return [];
   const out: LabResult[] = [];
@@ -1354,22 +1381,120 @@ function normalizeLabResults(raw: unknown): LabResult[] {
     const value = Number(o.value);
     if (!Number.isFinite(value)) continue;
     const code = String(o.code ?? o.nameOriginal ?? 'UNKNOWN').trim().replace(/\s+/g, '_').toUpperCase();
+    const refLowRaw = Number(o.refLow);
+    const refHighRaw = Number(o.refHigh);
+    const refLow = Number.isFinite(refLowRaw) ? refLowRaw : undefined;
+    const refHigh = Number.isFinite(refHighRaw) ? refHighRaw : undefined;
+    const extractedFlag = normalizeLabFlag(o.flag);
     out.push({
       code,
       name: String(o.name ?? code),
       nameOriginal: o.nameOriginal != null ? String(o.nameOriginal) : undefined,
       value,
       unit: String(o.unit ?? '').trim(),
-      flag: normalizeLabFlag(o.flag),
+      flag: flagFromRange(value, refLow, refHigh, extractedFlag),
       referenceText: o.referenceText != null ? String(o.referenceText) : undefined,
+      ...(refLow != null ? { refLow } : {}),
+      ...(refHigh != null ? { refHigh } : {}),
     });
   }
   return out;
 }
 
+function isGaugeBoundCollision(r: LabResult): boolean {
+  return (
+    (r.refLow != null && r.refHigh != null && r.refLow < r.refHigh)
+    && (valueEqualsBound(r.value, r.refLow) || valueEqualsBound(r.value, r.refHigh))
+  );
+}
+
+/**
+ * Second pass when first extract set value == refLow/refHigh (Meuhedet gauge bug).
+ * Re-asks Gemini only for those codes; keeps first-pass row if repair fails.
+ */
+async function repairGaugeBoundCollisions(
+  pdfBase64: string,
+  results: LabResult[],
+): Promise<LabResult[]> {
+  const bad = results.filter(isGaugeBoundCollision);
+  if (bad.length === 0) return results;
+
+  const codes = bad.map((r) => r.code).join(', ');
+  const prompt = `You re-read a medical lab PDF. The first pass wrongly used a REFERENCE RANGE endpoint as the test RESULT for these codes: ${codes}.
+
+GAUGE LAYOUT (Meuhedet / similar): each test is a horizontal scale.
+- Numbers at the LEFT and RIGHT ends of the scale = refLow and refHigh only.
+- The RESULT is the number printed at the vertical marker, usually ABOVE the scale (often blue/bold).
+- HARD example: TSH scale ends 0.35 … 4.94 with marker label 3.64 above → value=3.64, refLow=0.35, refHigh=4.94. NEVER value=0.35 or 4.94.
+
+For EACH listed code, find that row again and output JSON only:
+{"results":[{"code":"TSH","value":3.64,"unit":"µIU/mL","refLow":0.35,"refHigh":4.94,"flag":"normal"}]}
+
+Rules:
+- value MUST NOT equal refLow or refHigh.
+- Copy digits exactly; skip a code if the marker value is unreadable.
+- Include only the codes listed above that you can fix.`;
+
+  try {
+    const body = {
+      contents: [{
+        role: 'user',
+        parts: [
+          { inline_data: { mime_type: 'application/pdf', data: pdfBase64 } },
+          { text: prompt },
+        ],
+      }],
+      generationConfig: geminiGenerationConfig({ temperature: 0, maxOutputTokens: 4096 }),
+    };
+    const response = await fetch(GEMINI_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) return results;
+    const json = await response.json();
+    const raw: string = extractGeminiText(json?.candidates?.[0]);
+    if (!raw) return results;
+    const stripped = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    const start = stripped.indexOf('{');
+    const end = stripped.lastIndexOf('}');
+    const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(cleaned) as Record<string, unknown>;
+    } catch {
+      return results;
+    }
+    const repaired = normalizeLabResults(data.results);
+    if (repaired.length === 0) return results;
+
+    const byCode = new Map(repaired.map((r) => [r.code, r]));
+    return results.map((r) => {
+      if (!isGaugeBoundCollision(r)) return r;
+      const fix = byCode.get(r.code);
+      if (!fix || isGaugeBoundCollision(fix)) return r;
+      return {
+        ...r,
+        value: fix.value,
+        unit: fix.unit || r.unit,
+        flag: flagFromRange(fix.value, fix.refLow ?? r.refLow, fix.refHigh ?? r.refHigh, fix.flag),
+        refLow: fix.refLow ?? r.refLow,
+        refHigh: fix.refHigh ?? r.refHigh,
+      };
+    });
+  } catch {
+    return results;
+  }
+}
+
+/**
+ * Lab PDF → structured rows. Data parse, NOT a chat reply: output is canonical
+ * English regardless of app language (prompt99 — a Russian-app import painted
+ * the clinic portal with Russian test names the clinician couldn't read).
+ */
 export async function parseLabReportPdf(
   pdfBase64: string,
-  lang?: UserLanguage | null,
+  _lang?: UserLanguage | null,
   useMock = false,
 ): Promise<LabPdfParseResult> {
   if (useMock || MOCK_MODE) {
@@ -1377,21 +1502,33 @@ export async function parseLabReportPdf(
     return { parsed: LAB_PARSE_MOCK, confidence: 'high' };
   }
 
-  const prompt = `You are a medical lab report parser. Extract structured data from this PDF lab printout (Israeli Clalit online format).
+  const prompt = `You are a medical lab report parser. Extract structured data from this PDF lab printout (any provider, any language — Israeli HMO formats like Clalit, Meuhedet, Maccabi, Leumit are common).
 
 Output JSON only, no markdown:
-{"labProvider":"clalit","patientName":"...","patientId":"...","collectedAt":"2026-06-16T10:10:00+03:00","printedAt":"2026-06-16T15:52:00+03:00","panelType":"chemistry","panelNote":null,"results":[{"code":"GLUCOSE","name":"Glucose","nameOriginal":"GLUCOSE","value":91,"unit":"mg/dL","flag":"unknown","referenceText":null}]}
+{"labProvider":"meuhedet","patientName":"...","patientId":"...","collectedAt":"2026-06-16T10:10:00+03:00","printedAt":"2026-06-16T15:52:00+03:00","panelType":"chemistry","panelNote":null,"results":[{"code":"TSH","name":"TSH","nameOriginal":"TSH","value":3.64,"unit":"µIU/mL","flag":"normal","refLow":0.35,"refHigh":4.94,"referenceText":null}]}
 
 Rules:
-- Extract EVERY numeric test row from the table; do not invent tests not in the PDF.
-- Parse specimen date/time from "תאריך הבדיקה ושעת ביצועה" → ISO 8601 with +03:00 offset.
-- panelType: "chemistry" (metabolic/lipids/liver/renal), "cbc" (blood count/differential), or "other".
-- **Canonical \`code\` values (mandatory when the test is present):** CREATININE, UREA (or BUN), CHOLESTEROL_LDL, CHOLESTEROL, CHOLESTEROL_HDL, TRIGLYCERIDES, GLUCOSE, HBA1C. Map Hebrew/English labels to these codes yourself — the app matches codes only, not names.
-- Other tests: normalize similarly (spaces/hyphens → underscore, UPPERCASE), e.g. NEUT.abs → NEUT_ABS.
-- flag: "high", "low", "normal", or "unknown" (from norm column or footer Hebrew notes).
+- Extract EVERY numeric test row; do not invent tests not in the PDF.
+- **Values are sacred:** copy each number EXACTLY as printed (digits and decimal point). Never round, estimate, or invent. If unreadable, skip that row.
+- **GAUGE / SCALE LAYOUTS (Meuhedet and similar) — HARD:**
+  Each test is often a horizontal ruler/slider.
+  • LEFT end number = refLow only. RIGHT end number (+ unit) = refHigh only.
+  • RESULT = the number at the vertical marker, almost always printed ABOVE the scale (blue/bold).
+  • HARD EXAMPLE that must not be misread: TSH with scale ends 0.35 and 4.94 µIU/mL and marker label 3.64 above → {"value":3.64,"refLow":0.35,"refHigh":4.94,"flag":"normal"}. Writing value:0.35 is WRONG.
+  • HARD RULE: \`value\` MUST NOT equal \`refLow\` or \`refHigh\`. If it does, you grabbed a bound — look again for the marker number above the scale.
+  Plain table layouts (Clalit): value is its own column; range is a separate "norm" cell like "0.35 - 4.94".
+- **\`refLow\` / \`refHigh\`:** always fill when the report prints a range (scale ends or norm column).
+- **Self-check:** value < refLow → flag low; value > refHigh → high; else normal. If flag text (e.g. "low") disagrees with this math, you mixed value and bound — re-read.
+- **\`name\` is ALWAYS canonical clinical English** (e.g. "Glucose", "TSH") — never Hebrew/Russian/app language. Clinicians read this JSON worldwide.
+- **\`nameOriginal\` = verbatim PDF label** (any language).
+- Specimen date/time → ISO 8601 with local offset.
+- panelType: "chemistry", "cbc", or "other".
+- **Canonical \`code\` when present:** CREATININE, UREA (or BUN), CHOLESTEROL_LDL, CHOLESTEROL, CHOLESTEROL_HDL, TRIGLYCERIDES, GLUCOSE, HBA1C, TSH. Map any-language labels to these codes — the app matches codes only.
+- Other tests: spaces/hyphens → underscore, UPPERCASE.
+- flag: "high", "low", "normal", or "unknown".
 - Skip non-numeric QC rows (HEMOLYTIC, LIPEMIC, ICTERIC) — put text in panelNote if needed.
-- Attach footer reference notes to matching tests when present.
-- labProvider: "clalit" if from כללית, else "unknown".${langInstruction(lang)}`;
+- referenceText stays verbatim when present.
+- labProvider: "clalit" (כללית), "meuhedet" (מאוחדת), "maccabi" (מכבי), "leumit" (לאומית), else "unknown".`;
 
   const body = {
     contents: [{
@@ -1430,13 +1567,19 @@ Rules:
     throw new Error(`Could not parse lab PDF JSON: ${raw.slice(0, 120)}`);
   }
 
-  const results = normalizeLabResults(data.results);
+  let results = normalizeLabResults(data.results);
   if (results.length === 0) {
     throw new Error('No lab results found in PDF — try exporting again from Clalit');
   }
+  // Meuhedet gauges: first pass often sets value=refLow; repair those rows.
+  results = await repairGaugeBoundCollisions(pdfBase64, results);
 
+  const knownProviders = new Set(['clalit', 'meuhedet', 'maccabi', 'leumit']);
+  const providerRaw = String(data.labProvider ?? '').toLowerCase();
   const parsed: ParsedLabPdf = {
-    labProvider: data.labProvider === 'clalit' ? 'clalit' : 'unknown',
+    labProvider: knownProviders.has(providerRaw)
+      ? (providerRaw as ParsedLabPdf['labProvider'])
+      : 'unknown',
     patientName: data.patientName != null ? String(data.patientName) : undefined,
     patientId: data.patientId != null ? String(data.patientId) : undefined,
     collectedAt: String(data.collectedAt ?? new Date().toISOString()),
@@ -1446,7 +1589,11 @@ Rules:
     panelNote: data.panelNote != null ? String(data.panelNote) : undefined,
   };
 
-  return { parsed, confidence: results.length >= 5 ? 'high' : 'low' };
+  const stillBad = results.some(isGaugeBoundCollision);
+  return {
+    parsed,
+    confidence: stillBad ? 'low' : results.length >= 5 ? 'high' : 'low',
+  };
 }
 
 // ─── Nutritionist session PDF ─────────────────────────────────────────────────
