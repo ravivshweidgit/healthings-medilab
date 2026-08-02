@@ -2693,6 +2693,12 @@ function formatChatMsgTimePrefix(iso: string, now = new Date()): string {
   return `[${date} ${time}] `;
 }
 
+/** Optional file attach for mentor chat (PDF inline; TXT appended to the prompt). */
+export type MentorChatFileExtras = {
+  pdfBase64?: string | null;
+  documentText?: string | null;
+};
+
 async function chatWithSingleMentor(
   mentor: MentorType,
   message: string,
@@ -2701,6 +2707,7 @@ async function chatWithSingleMentor(
   yesterdaySummary: string | null,
   imageBase64?: string | null,
   imageMimeType: string = 'image/jpeg',
+  fileExtras?: MentorChatFileExtras | null,
 ): Promise<string> {
   const blocks = buildChatContextBlocks(ctx, message, yesterdaySummary, mentor, history.length);
   const periodSection = await blocks.periodSection;
@@ -2713,6 +2720,25 @@ async function chatWithSingleMentor(
     historyLen: history.length,
     glucoseDeepDive: blocks.glucoseDeepDive,
   });
+  const pdfBase64 = fileExtras?.pdfBase64?.trim() || '';
+  const documentText = fileExtras?.documentText?.trim() || '';
+  const attachNotes: string[] = [];
+  if (imageBase64) {
+    attachNotes.push('[User attached a photo — read it and answer using their goals and rules above.]');
+  }
+  if (pdfBase64) {
+    attachNotes.push('[User attached a PDF — read it and answer using their goals and rules above.]');
+  }
+  if (documentText) {
+    attachNotes.push('[User attached a text document — read it and answer using their goals and rules above.]');
+  }
+  let userText = `${formatChatMsgTimePrefix(new Date().toISOString())}${blocks.userMessage}`;
+  if (documentText) {
+    userText += `\n\n--- ATTACHED DOCUMENT TEXT ---\n${documentText}\n--- END DOCUMENT ---`;
+  }
+  if (attachNotes.length > 0) {
+    userText += `\n${attachNotes.join('\n')}`;
+  }
   const recentHistory = history.slice(-CHAT_HISTORY_MAX_MESSAGES);
   const contents = [
     { role: 'user', parts: [{ text: `SYSTEM CONTEXT:\n${systemText}\n\nAcknowledge.` }] },
@@ -2731,11 +2757,10 @@ async function chatWithSingleMentor(
         ...(imageBase64
           ? [{ inline_data: { mime_type: imageMimeType, data: imageBase64 } } satisfies GeminiChatPart]
           : []),
-        {
-          text: `${formatChatMsgTimePrefix(new Date().toISOString())}${blocks.userMessage}${
-            imageBase64 ? '\n[User attached a photo — read it and answer using their goals and rules above.]' : ''
-          }`,
-        },
+        ...(pdfBase64
+          ? [{ inline_data: { mime_type: 'application/pdf', data: pdfBase64 } } satisfies GeminiChatPart]
+          : []),
+        { text: userText },
       ],
     },
   ];
@@ -2753,6 +2778,7 @@ export async function chatWithMentor(
   yesterdaySummary: string | null,
   imageBase64?: string | null,
   imageMimeType?: string,
+  fileExtras?: MentorChatFileExtras | null,
 ): Promise<string> {
   await assertCanSpendCredits('ai_chat');
 
@@ -2765,6 +2791,7 @@ export async function chatWithMentor(
     yesterdaySummary,
     imageBase64,
     imageMimeType,
+    fileExtras,
   );
   if (!text.trim()) return chatErrorMessage(ctx.lang);
   reportAiUsage('ai_chat', undefined, lastChatGeminiUsage);

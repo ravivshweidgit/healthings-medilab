@@ -1,0 +1,36 @@
+# prompt100 — Mentor chat: copy + PDF/TXT attach; Food Log save alerts i18n
+
+**Status:** done (2026-08-02) — phone-tested Android
+**Builds on:** ChatScreen attach photo (prompt95), food log alerts, language policy (10 locales)
+
+## Problem
+
+1. Users could not copy mentor chat bubbles to the clipboard.
+2. Mentor chat needed PDF/TXT attach (menus, labels, notes) — not Log Meal.
+3. Food Log save warnings (nutritionist alert, macro overages) were English-only.
+
+## What shipped
+
+| Piece | Change |
+|-------|--------|
+| Long-press bubble → Copy | `expo-clipboard`; `chatBubbleCopy.ts` (all 10 locales) |
+| Mentor attach sheet | Camera / Gallery / File; PDF `inline_data` + TXT into prompt via `chatWithMentor` extras |
+| Attach UX | In-chat bottom sheet (not system Alert) — Android back + tap-outside dismiss; File visible on Android 3-button limit |
+| Food Log alerts | `foodLogAlertCopy.ts` + `mealIssueAnalysis` message templates in `appLocale` |
+| Version | Android **1.2.27 (55)** |
+
+## Phone-tested
+
+- [x] Long-press user/AI bubble → Copy → Copied
+- [x] Attach → File (PDF/TXT); Word rejected with message
+- [x] Attach sheet: File shown; back / Cancel / backdrop close the sheet
+- [x] Food Log save nutritionist / macro warnings in Hebrew (app language)
+
+## Deferred
+
+- Full chat chrome i18n beyond copy/attach (still he/ar/en for many toolbar strings)
+- iOS TestFlight bump for this batch (Android first)
+
+## Related
+
+- Not in Log Meal — file attach is mentor chat only

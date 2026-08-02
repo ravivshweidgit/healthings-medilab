@@ -33,6 +33,7 @@ import {
 } from '../services/GeminiService';
 import { saveMeal, deleteMeal, foodLogDayKey, getDailyMacros, getRecentMeals, getMealsForDay, type FoodEntry } from '../services/FoodLogService';
 import { formatLocalizedDate, formatLocalizedTime, formatFoodLogDayLabel } from '../i18n/dateLocale';
+import { getFoodLogAlertCopy } from '../i18n/foodLogAlertCopy';
 import { getFoodLogUiCopy } from '../i18n/foodLogUiCopy';
 import { formatFoodLogHistoryForMealAi } from '../logic/foodLogMealHistory';
 import { buildMealMergePreview, type MealMergePreview } from '../logic/mealPhotoMerge';
@@ -392,6 +393,7 @@ export function FoodLogModal({
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const insets = useSafeAreaInsets();
   const ui = getFoodLogUiCopy(lang?.code);
+  const alerts = useMemo(() => getFoodLogAlertCopy(lang?.code), [lang?.code]);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
   const [screen, setScreen] = useState<Screen>(() =>
     editEntry || (prefillItems && prefillItems.length > 0) ? 'result' : 'idle',
@@ -626,9 +628,15 @@ export function FoodLogModal({
       mealTimestamp: timestamp,
     };
 
-    const macroIssues = analyzeMacroMealIssues(issueInput);
-    return [...macroIssues, ...mealIssuesFromFoodItems(mealItems)];
-  }, []);
+    const msgs = {
+      carbOver: alerts.carbOver,
+      kcalOver: alerts.kcalOver,
+      proteinLow: alerts.proteinLow,
+      ruleConflictFallback: alerts.ruleConflictFallback,
+    };
+    const macroIssues = analyzeMacroMealIssues(issueInput, msgs);
+    return [...macroIssues, ...mealIssuesFromFoodItems(mealItems, msgs)];
+  }, [alerts]);
 
   const persistMealItems = useCallback(
     async (opts: {
@@ -696,7 +704,7 @@ export function FoodLogModal({
         });
         return true;
       } catch {
-        setError('Failed to save. Please try again.');
+        setError(alerts.failedToSave);
         setScreen('result');
         return false;
       }
@@ -813,7 +821,7 @@ export function FoodLogModal({
 
         setScreen('result');
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'AI analysis failed. Please try again.');
+        setError(e instanceof Error ? e.message : alerts.aiAnalysisFailed);
         setScreen('result');
       }
     },
@@ -885,7 +893,7 @@ export function FoodLogModal({
         });
         setScreen('result');
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'AI analysis failed. Please try again.');
+        setError(e instanceof Error ? e.message : alerts.aiAnalysisFailed);
         setScreen(items.length > 0 || editEntry ? 'result' : 'idle');
       }
     },
@@ -900,8 +908,8 @@ export function FoodLogModal({
           : await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
         Alert.alert(
-          'Permission required',
-          `Please allow ${source === 'camera' ? 'camera' : 'photo library'} access in Settings.`,
+          alerts.permissionRequired,
+          source === 'camera' ? alerts.permissionCamera : alerts.permissionGallery,
         );
         return;
       }
@@ -924,14 +932,11 @@ export function FoodLogModal({
       const asset = result.assets[0];
       const b64 = asset.base64 ?? null;
       if (b64 && b64.length > 4_000_000) {
-        Alert.alert(
-          'Image too large',
-          'This photo is very large and may fail. Try a smaller image or use the camera instead.',
-        );
+        Alert.alert(alerts.imageTooLargeTitle, alerts.imageTooLargeBody);
       }
       await runPhotoAnalysis(asset.uri, b64, '', []);
     },
-    [runPhotoAnalysis],
+    [runPhotoAnalysis, alerts],
   );
 
   const handleCamera = useCallback(() => pickImage('camera'), [pickImage]);
@@ -973,7 +978,7 @@ export function FoodLogModal({
         );
         setScreen('result');
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'AI analysis failed. Please try again.');
+        setError(e instanceof Error ? e.message : alerts.aiAnalysisFailed);
         setScreen('result');
       }
       return;
@@ -1176,7 +1181,7 @@ export function FoodLogModal({
     try {
       await persistSave();
     } catch {
-      setError('Failed to save. Please try again.');
+      setError(alerts.failedToSave);
       setScreen('result');
     }
   }, [items, mealTime, editingId, overrideSaveOnce, overrideSnapshotKey, recomputeMealIssues, persistSave]);
@@ -1184,7 +1189,7 @@ export function FoodLogModal({
   const handleSaveAnyway = useCallback(async () => {
     if (items.length === 0) {
       setShowIssueModal(false);
-      setError('Nothing to save — meal items are missing. Edit or re-analyze, then save.');
+      setError(alerts.nothingToSave);
       setScreen('result');
       return;
     }
@@ -1196,7 +1201,7 @@ export function FoodLogModal({
     try {
       await persistSave();
     } catch {
-      setError('Failed to save. Please try again.');
+      setError(alerts.failedToSave);
       setScreen('result');
     }
   }, [items, persistSave]);
@@ -1665,7 +1670,7 @@ export function FoodLogModal({
           {showIssueModal && mealIssues.length > 0 ? (
             <View style={styles.issueOverlay}>
               <View style={styles.issueModalCard}>
-                <Text style={styles.issueModalTitle}>Nutritionist alert</Text>
+                <Text style={styles.issueModalTitle}>{alerts.nutritionistAlert}</Text>
                 <Text style={styles.issueModalBody}>{issueModalBody(mealIssues)}</Text>
                 <View style={styles.issueModalActions}>
                   <Pressable
@@ -1673,14 +1678,14 @@ export function FoodLogModal({
                     onPress={() => setShowIssueModal(false)}
                     disabled={screen === 'saving'}
                   >
-                    <Text style={styles.issueEditText}>Edit meal</Text>
+                    <Text style={styles.issueEditText}>{alerts.editMealAction}</Text>
                   </Pressable>
                   <Pressable
                     style={styles.issueSaveAnywayBtn}
                     onPress={() => void handleSaveAnyway()}
                     disabled={screen === 'saving'}
                   >
-                    <Text style={styles.issueSaveAnywayText}>Save anyway</Text>
+                    <Text style={styles.issueSaveAnywayText}>{alerts.saveAnyway}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -1691,8 +1696,8 @@ export function FoodLogModal({
             <View style={styles.savingOverlay} pointerEvents="auto">
               <View style={styles.savingCard}>
                 <ActivityIndicator color={colors.accentBlue} size="large" />
-                <Text style={styles.savingTitle}>Saving meal…</Text>
-                <Text style={styles.savingSub}>Updating your food log</Text>
+                <Text style={styles.savingTitle}>{alerts.savingMeal}</Text>
+                <Text style={styles.savingSub}>{alerts.updatingFoodLog}</Text>
               </View>
             </View>
           ) : null}

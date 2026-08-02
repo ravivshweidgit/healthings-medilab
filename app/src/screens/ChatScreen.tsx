@@ -5,6 +5,9 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as Clipboard from 'expo-clipboard';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ActivityIndicator,
@@ -46,7 +49,8 @@ import {
   getUserRules,
   MENTOR_CHAT_TAB_ORDER,
 } from '../services/TargetService';
-import { getLabsAiContextForHeader } from '../services/LabLogService';
+import { getChatBubbleCopy } from '../i18n/chatBubbleCopy';
+import { getLabsAiContextForHeader, readPdfBase64FromUri } from '../services/LabLogService';
 import { getNutritionDirectiveAiContext } from '../services/NutritionDirectiveService';
 import { chatWithMentor, summariseChatDay, type CoachContext, type MacroSuggestion } from '../services/GeminiService';
 import { isYesterdayIntentQuery } from '../logic/chatIntent';
@@ -118,13 +122,17 @@ function yesterdayKey(): string {
 /** In-memory only — preview URI and macro proposal are never written to AsyncStorage. */
 type ChatMessageUI = ChatMessage & {
   previewUri?: string;
+  previewFileName?: string;
   macroProposal?: MacroSuggestion;
   macroDismissed?: boolean;
   recipePlan?: RecipePlan;
   recipeDismissed?: boolean;
 };
 
-type PendingChatImage = { uri: string; base64: string; mimeType: string };
+type PendingChatAttachment =
+  | { kind: 'image'; uri: string; base64: string; mimeType: string }
+  | { kind: 'pdf'; name: string; base64: string }
+  | { kind: 'text'; name: string; textContent: string };
 
 function defaultImagePrompt(lang?: UserLanguage | null): string {
   if (lang?.code === 'he') {
@@ -134,6 +142,14 @@ function defaultImagePrompt(lang?: UserLanguage | null): string {
     return 'أرفقت صورة. ماذا تنصحني وفق أهدافي وقواعدي؟';
   }
   return 'I attached a photo. What do you recommend for me based on my goals and dietary rules?';
+}
+
+function defaultAttachPrompt(
+  lang: UserLanguage | null | undefined,
+  attachment: PendingChatAttachment | null | undefined,
+): string {
+  if (!attachment || attachment.kind === 'image') return defaultImagePrompt(lang);
+  return getChatBubbleCopy(lang?.code).defaultFilePrompt;
 }
 
 function actionItemsHeader(done: number, total: number, _lang?: UserLanguage | null): string {
@@ -187,6 +203,7 @@ function chatUiStrings(context: CoachContext) {
   const { lang, mentors, mentorGender, gender: userGender } = context;
   const collective = mentorsCollectiveLabel(lang, mentorGender, userGender as Gender | null);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
+  const bubble = getChatBubbleCopy(lang?.code);
   if (lang?.code === 'he') {
     return {
       header: collective,
@@ -213,7 +230,7 @@ function chatUiStrings(context: CoachContext) {
       expand: 'פתח',
       collapse: 'סגור',
       attachPhoto: 'צרף',
-      attachTitle: 'צרף תמונה',
+      attachTitle: 'צרף',
       attachCamera: 'מצלמה',
       attachGallery: 'גלריה',
       exportChat: 'ייצוא',
@@ -224,6 +241,7 @@ function chatUiStrings(context: CoachContext) {
       scrollTop: 'גלול למעלה',
       scrollBottom: 'גלול למטה',
       moreActions: 'עוד פעולות',
+      ...bubble,
       rtl,
     };
   }
@@ -253,7 +271,7 @@ function chatUiStrings(context: CoachContext) {
       expand: 'فتح',
       collapse: 'إغلاق',
       attachPhoto: 'صورة',
-      attachTitle: 'إرفاق صورة',
+      attachTitle: 'إرفاق',
       attachCamera: 'كاميرا',
       attachGallery: 'معرض',
       exportChat: 'تصدير',
@@ -264,6 +282,7 @@ function chatUiStrings(context: CoachContext) {
       scrollTop: 'الانتقال للأعلى',
       scrollBottom: 'الانتقال للأسفل',
       moreActions: 'إجراءات أخرى',
+      ...bubble,
       rtl: true,
     };
   }
@@ -292,7 +311,7 @@ function chatUiStrings(context: CoachContext) {
     expand: 'Expand',
     collapse: 'Collapse',
     attachPhoto: 'Photo',
-    attachTitle: 'Attach photo',
+    attachTitle: 'Attach',
     attachCamera: 'Camera',
     attachGallery: 'Gallery',
     exportChat: 'Export',
@@ -303,6 +322,7 @@ function chatUiStrings(context: CoachContext) {
     scrollTop: 'Scroll to top',
     scrollBottom: 'Scroll to bottom',
     moreActions: 'More actions',
+    ...bubble,
     rtl,
   };
 }
@@ -951,6 +971,10 @@ function MessageBubble({
   rtl,
   lang,
   energyUnit,
+  copyLabel,
+  cancelLabel,
+  copiedTitle,
+  copiedMessage,
   onMacroApplied,
   onMacroDismiss,
   onRecipeOpen,
@@ -962,6 +986,10 @@ function MessageBubble({
   rtl?: boolean;
   lang?: UserLanguage | null;
   energyUnit?: EnergyUnit;
+  copyLabel: string;
+  cancelLabel: string;
+  copiedTitle: string;
+  copiedMessage: string;
   onMacroApplied?: (target: DailyMacroTarget) => void;
   onMacroDismiss?: () => void;
   onRecipeOpen?: (plan: RecipePlan) => void;
@@ -975,55 +1003,88 @@ function MessageBubble({
 
   const time = formatBubbleTime(msg.sentAt);
 
+  const handleLongPress = useCallback(() => {
+    const text = (msg.text ?? '').trim();
+    if (!text) return;
+    Alert.alert(copyLabel, undefined, [
+      { text: cancelLabel, style: 'cancel' },
+      {
+        text: copyLabel,
+        onPress: () => {
+          void Clipboard.setStringAsync(text).then(() => {
+            Alert.alert(copiedTitle, copiedMessage);
+          });
+        },
+      },
+    ]);
+  }, [msg.text, copyLabel, cancelLabel, copiedTitle, copiedMessage]);
+
   if (isUser) {
     return (
       <View style={[styles.msgWrap, styles.msgWrapUser]}>
-        <View style={[styles.msgBubble, styles.msgBubbleUser]}>
-          {msg.previewUri ? (
-            <Image source={{ uri: msg.previewUri }} style={styles.msgAttachedImage} resizeMode="cover" />
-          ) : null}
-          <Text style={[styles.msgText, styles.msgTextUser, rtl && styles.rtlText]}>{msg.text}</Text>
-          {time ? (
-            <Text style={[styles.msgTime, styles.msgTimeUser, rtl && styles.rtlText]}>{time}</Text>
-          ) : null}
-        </View>
+        <Pressable
+          onLongPress={handleLongPress}
+          delayLongPress={350}
+          accessibilityHint={copyLabel}
+        >
+          <View style={[styles.msgBubble, styles.msgBubbleUser]}>
+            {msg.previewUri ? (
+              <Image source={{ uri: msg.previewUri }} style={styles.msgAttachedImage} resizeMode="cover" />
+            ) : null}
+            {msg.previewFileName ? (
+              <Text style={[styles.msgAttachedFileName, rtl && styles.rtlText]} numberOfLines={1}>
+                {msg.previewFileName}
+              </Text>
+            ) : null}
+            <Text style={[styles.msgText, styles.msgTextUser, rtl && styles.rtlText]}>{msg.text}</Text>
+            {time ? (
+              <Text style={[styles.msgTime, styles.msgTimeUser, rtl && styles.rtlText]}>{time}</Text>
+            ) : null}
+          </View>
+        </Pressable>
       </View>
     );
   }
 
   return (
     <View style={[styles.msgWrap, styles.msgWrapAI]}>
-      <View
-        style={[
-          styles.msgBubble,
-          styles.msgBubbleAI,
-          { backgroundColor: colors.backgroundColor, borderColor: colors.borderColor },
-        ]}
+      <Pressable
+        onLongPress={handleLongPress}
+        delayLongPress={350}
+        accessibilityHint={copyLabel}
       >
-        <Text style={[styles.msgTextAI, rtl && styles.rtlText]}>{msg.text}</Text>
-        {!msg.macroDismissed && msg.macroProposal ? (
-          <MacroProposalCard
-            proposal={msg.macroProposal}
-            lang={lang}
-            energyUnit={energyUnit}
-            onApplied={onMacroApplied}
-            onDismiss={onMacroDismiss}
-          />
-        ) : null}
-        {!msg.recipeDismissed && msg.recipePlan && onRecipeOpen && onRecipeLog ? (
-          <RecipeCard
-            plan={msg.recipePlan}
-            lang={lang}
-            energyUnit={energyUnit}
-            onOpen={() => onRecipeOpen(msg.recipePlan!)}
-            onLogMeal={() => onRecipeLog(msg.recipePlan!)}
-            onDismiss={onRecipeDismiss}
-          />
-        ) : null}
-        {time ? (
-          <Text style={[styles.msgTime, styles.msgTimeAI, rtl && styles.rtlText]}>{time}</Text>
-        ) : null}
-      </View>
+        <View
+          style={[
+            styles.msgBubble,
+            styles.msgBubbleAI,
+            { backgroundColor: colors.backgroundColor, borderColor: colors.borderColor },
+          ]}
+        >
+          <Text style={[styles.msgTextAI, rtl && styles.rtlText]}>{msg.text}</Text>
+          {!msg.macroDismissed && msg.macroProposal ? (
+            <MacroProposalCard
+              proposal={msg.macroProposal}
+              lang={lang}
+              energyUnit={energyUnit}
+              onApplied={onMacroApplied}
+              onDismiss={onMacroDismiss}
+            />
+          ) : null}
+          {!msg.recipeDismissed && msg.recipePlan && onRecipeOpen && onRecipeLog ? (
+            <RecipeCard
+              plan={msg.recipePlan}
+              lang={lang}
+              energyUnit={energyUnit}
+              onOpen={() => onRecipeOpen(msg.recipePlan!)}
+              onLogMeal={() => onRecipeLog(msg.recipePlan!)}
+              onDismiss={onRecipeDismiss}
+            />
+          ) : null}
+          {time ? (
+            <Text style={[styles.msgTime, styles.msgTimeAI, rtl && styles.rtlText]}>{time}</Text>
+          ) : null}
+        </View>
+      </Pressable>
     </View>
   );
 }
@@ -1040,7 +1101,8 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
   const [history, setHistory] = useState<ChatMessageUI[]>([]);
   const [questions, setQuestions] = useState<QuickQuestion[]>([]);
   const [inputText, setInputText] = useState('');
-  const [pendingImage, setPendingImage] = useState<PendingChatImage | null>(null);
+  const [pendingAttach, setPendingAttach] = useState<PendingChatAttachment | null>(null);
+  const [attachSheetOpen, setAttachSheetOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [faqVisible, setFaqVisible] = useState(false);
   const [toolbarMenuOpen, setToolbarMenuOpen] = useState(false);
@@ -1283,16 +1345,89 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
       return;
     }
     const mimeType = asset.mimeType?.startsWith('image/') ? asset.mimeType : 'image/jpeg';
-    setPendingImage({ uri: asset.uri, base64, mimeType });
+    setPendingAttach({ kind: 'image', uri: asset.uri, base64, mimeType });
   }, []);
 
+  const pickChatFile = useCallback(async () => {
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'text/plain',
+          'text/csv',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          '*/*',
+        ],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (picked.canceled || !picked.assets?.[0]) return;
+      const asset = picked.assets[0];
+      const name = asset.name || 'document';
+      const mime = (asset.mimeType || '').toLowerCase();
+      const lower = name.toLowerCase();
+      const isPdf = mime === 'application/pdf' || lower.endsWith('.pdf');
+      const isTxt =
+        mime === 'text/plain'
+        || mime === 'text/csv'
+        || lower.endsWith('.txt')
+        || lower.endsWith('.csv')
+        || lower.endsWith('.md');
+      const isWord =
+        mime.includes('word')
+        || lower.endsWith('.doc')
+        || lower.endsWith('.docx');
+
+      if (isWord || (!isPdf && !isTxt)) {
+        Alert.alert(ui.attachUnsupportedTitle, ui.attachUnsupportedBody);
+        return;
+      }
+
+      if (isPdf) {
+        const base64 = await readPdfBase64FromUri(asset.uri);
+        if (base64.length > 6_000_000) {
+          Alert.alert(ui.fileTooLargeTitle, ui.fileTooLargeBody);
+          return;
+        }
+        setPendingAttach({ kind: 'pdf', name, base64 });
+        return;
+      }
+
+      const textContent = await FileSystem.readAsStringAsync(asset.uri, { encoding: 'utf8' });
+      if (!textContent.trim()) {
+        Alert.alert(ui.attachUnsupportedTitle, ui.emptyFileBody);
+        return;
+      }
+      setPendingAttach({ kind: 'text', name, textContent: textContent.slice(0, 80_000) });
+    } catch (e) {
+      Alert.alert(
+        ui.attachUnsupportedTitle,
+        e instanceof Error ? e.message : ui.openFileFailed,
+      );
+    }
+  }, [ui]);
+
+  const closeAttachSheet = useCallback(() => setAttachSheetOpen(false), []);
+
   const handleAttachPhoto = useCallback(() => {
-    Alert.alert(ui.attachTitle, undefined, [
-      { text: ui.cancel, style: 'cancel' },
-      { text: ui.attachCamera, onPress: () => void pickChatImage('camera') },
-      { text: ui.attachGallery, onPress: () => void pickChatImage('gallery') },
-    ]);
-  }, [ui, pickChatImage]);
+    setToolbarMenuOpen(false);
+    setAttachSheetOpen(true);
+  }, []);
+
+  // In-chat sheet (not system Alert) so Android back / tap-outside dismisses reliably.
+  useEffect(() => {
+    if (!attachSheetOpen) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setAttachSheetOpen(false);
+      return true;
+    });
+    return () => sub.remove();
+  }, [attachSheetOpen]);
+
+  useEffect(() => {
+    if (!visible) setAttachSheetOpen(false);
+  }, [visible]);
 
   const buildFreshContext = useCallback(async (): Promise<CoachContext> => {
     const [meals, macroTarget, userRules, labsAiContext, nutritionDirectiveContext] = await Promise.all([
@@ -1329,25 +1464,27 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
   }, [context]);
 
   const sendMessage = useCallback(
-    async (text: string, attachment?: PendingChatImage | null) => {
+    async (text: string, attachment?: PendingChatAttachment | null) => {
       const trimmed = text.trim();
-      const image = attachment ?? null;
-      if ((!trimmed && !image) || sending) return;
+      const attach = attachment ?? null;
+      if ((!trimmed && !attach) || sending) return;
 
-      const promptText = trimmed || defaultImagePrompt(context.lang);
+      const promptText = trimmed || defaultAttachPrompt(context.lang, attach);
       const today = todayKey();
       const sentAt = new Date().toISOString();
       const storedMsg: ChatMessage = { role: 'user', text: promptText, sentAt };
       const displayMsg: ChatMessageUI = {
         ...storedMsg,
-        previewUri: image?.uri,
+        previewUri: attach?.kind === 'image' ? attach.uri : undefined,
+        previewFileName:
+          attach?.kind === 'pdf' || attach?.kind === 'text' ? attach.name : undefined,
       };
 
       setHistory((prev) => [...prev, displayMsg]);
       await appendChatMessage(today, activeMentor, storedMsg);
       setAnyChatHistory(true);
       setInputText('');
-      setPendingImage(null);
+      setPendingAttach(null);
       setSending(true);
       scrollToBottom();
 
@@ -1415,7 +1552,7 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
         const wantsMacro = activeMentor === 'nutritionist' && isMacroChatRequest(promptText);
         const wantsRecipe =
           activeMentor === 'nutritionist' &&
-          !image &&
+          !attach &&
           isRecipePlanChatRequest(promptText) &&
           !wantsMacro;
 
@@ -1447,8 +1584,13 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
             currentHistory.slice(0, -1),
             freshContext,
             yesterdaySummary,
-            image?.base64 ?? null,
-            image?.mimeType,
+            attach?.kind === 'image' ? attach.base64 : null,
+            attach?.kind === 'image' ? attach.mimeType : undefined,
+            attach?.kind === 'pdf'
+              ? { pdfBase64: attach.base64 }
+              : attach?.kind === 'text'
+                ? { documentText: attach.textContent }
+                : null,
           );
         }
 
@@ -1621,6 +1763,10 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
                 rtl={ui.rtl}
                 lang={context.lang}
                 energyUnit={context.unitsPrefs?.energy ?? 'kcal'}
+                copyLabel={ui.copy}
+                cancelLabel={ui.cancel}
+                copiedTitle={ui.copiedTitle}
+                copiedMessage={ui.copiedMessage}
                 onMacroApplied={handleMacroApplied}
                 onMacroDismiss={
                   item.macroProposal && !item.macroDismissed
@@ -1678,10 +1824,23 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
                 },
               ]}
             >
-              {pendingImage ? (
+              {pendingAttach ? (
                 <View style={[styles.attachPreviewRow, ui.rtl && styles.attachPreviewRowRtl]}>
-                  <Image source={{ uri: pendingImage.uri }} style={styles.attachPreviewThumb} resizeMode="cover" />
-                  <Pressable style={styles.attachPreviewClear} onPress={() => setPendingImage(null)} hitSlop={8}>
+                  {pendingAttach.kind === 'image' ? (
+                    <Image
+                      source={{ uri: pendingAttach.uri }}
+                      style={styles.attachPreviewThumb}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.attachPreviewFileChip}>
+                      <DashIcon icon={ActionIcons.attachFile} size={16} color={colors.accentBlue} />
+                      <Text style={[styles.attachPreviewFileName, ui.rtl && styles.rtlText]} numberOfLines={1}>
+                        {pendingAttach.name}
+                      </Text>
+                    </View>
+                  )}
+                  <Pressable style={styles.attachPreviewClear} onPress={() => setPendingAttach(null)} hitSlop={8}>
                     <Text style={styles.attachPreviewClearText}>✕</Text>
                   </Pressable>
                 </View>
@@ -1796,10 +1955,10 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
                 <Pressable
                   style={[
                     styles.sendBtn,
-                    ((!inputText.trim() && !pendingImage) || sending) && styles.sendBtnDisabled,
+                    ((!inputText.trim() && !pendingAttach) || sending) && styles.sendBtnDisabled,
                   ]}
-                  onPress={() => void sendMessage(inputText, pendingImage)}
-                  disabled={(!inputText.trim() && !pendingImage) || sending}
+                  onPress={() => void sendMessage(inputText, pendingAttach)}
+                  disabled={(!inputText.trim() && !pendingAttach) || sending}
                 >
                   <Text style={styles.sendBtnText}>{ui.send}</Text>
                 </Pressable>
@@ -1814,6 +1973,70 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
           </View>
         </View>
       </View>
+
+      {attachSheetOpen ? (
+        <View style={styles.attachSheetRoot} pointerEvents="box-none">
+          <Pressable
+            style={styles.attachSheetBackdrop}
+            onPress={closeAttachSheet}
+            accessibilityRole="button"
+            accessibilityLabel={ui.cancel}
+          />
+          <View
+            style={[
+              styles.attachSheetCard,
+              ui.rtl && styles.attachSheetCardRtl,
+              { paddingBottom: Math.max(insets.bottom, 12) + 8 },
+            ]}
+          >
+            <Text style={[styles.attachSheetTitle, ui.rtl && styles.rtlText]}>{ui.attachTitle}</Text>
+            <Pressable
+              style={[styles.attachSheetRow, ui.rtl && styles.attachSheetRowRtl]}
+              onPress={() => {
+                closeAttachSheet();
+                void pickChatImage('camera');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={ui.attachCamera}
+            >
+              <DashIcon icon={ActionIcons.camera} size={20} color={colors.textPrimary} />
+              <Text style={[styles.attachSheetRowText, ui.rtl && styles.rtlText]}>{ui.attachCamera}</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.attachSheetRow, ui.rtl && styles.attachSheetRowRtl]}
+              onPress={() => {
+                closeAttachSheet();
+                void pickChatImage('gallery');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={ui.attachGallery}
+            >
+              <DashIcon icon={ActionIcons.gallery} size={20} color={colors.textPrimary} />
+              <Text style={[styles.attachSheetRowText, ui.rtl && styles.rtlText]}>{ui.attachGallery}</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.attachSheetRow, ui.rtl && styles.attachSheetRowRtl]}
+              onPress={() => {
+                closeAttachSheet();
+                void pickChatFile();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={ui.attachFile}
+            >
+              <DashIcon icon={ActionIcons.attachFile} size={20} color={colors.textPrimary} />
+              <Text style={[styles.attachSheetRowText, ui.rtl && styles.rtlText]}>{ui.attachFile}</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.attachSheetCancel, ui.rtl && styles.attachSheetRowRtl]}
+              onPress={closeAttachSheet}
+              accessibilityRole="button"
+              accessibilityLabel={ui.cancel}
+            >
+              <Text style={[styles.attachSheetCancelText, ui.rtl && styles.rtlText]}>{ui.cancel}</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
 
       <FaqModal
         visible={faqVisible}
@@ -2136,6 +2359,12 @@ const makeStyles = (c: ThemeColors, isDark: boolean) => {
     marginBottom: 8,
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
+  msgAttachedFileName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.92)',
+    marginBottom: 6,
+  },
   msgTextAI: { color: c.textPrimary },
   attachPreviewRow: {
     flexDirection: 'row',
@@ -2152,6 +2381,24 @@ const makeStyles = (c: ThemeColors, isDark: boolean) => {
     borderWidth: 1,
     borderColor: c.gridLine,
   },
+  attachPreviewFileChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 40,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: c.gridLine,
+    backgroundColor: c.surface,
+  },
+  attachPreviewFileName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: c.textPrimary,
+  },
   attachPreviewClear: {
     width: 28,
     height: 28,
@@ -2164,6 +2411,60 @@ const makeStyles = (c: ThemeColors, isDark: boolean) => {
   },
   attachPreviewClearText: {
     fontSize: 14,
+    fontWeight: '700',
+    color: c.textSecondary,
+  },
+  attachSheetRoot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 40,
+    justifyContent: 'flex-end',
+  },
+  attachSheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  attachSheetCard: {
+    backgroundColor: c.surface,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderColor: c.gridLine,
+    gap: 4,
+  },
+  attachSheetCardRtl: { alignItems: 'stretch' },
+  attachSheetTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: c.textPrimary,
+    marginBottom: 6,
+    paddingHorizontal: 4,
+  },
+  attachSheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 48,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+  attachSheetRowRtl: { flexDirection: 'row-reverse' },
+  attachSheetRowText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: c.textPrimary,
+  },
+  attachSheetCancel: {
+    marginTop: 4,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    backgroundColor: c.background,
+  },
+  attachSheetCancelText: {
+    fontSize: 15,
     fontWeight: '700',
     color: c.textSecondary,
   },

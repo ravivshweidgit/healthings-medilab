@@ -2,6 +2,8 @@
 
 Implemented prompt specs live here after they ship (phone-tested or explicitly closed).
 
+**prompt100** — done (2026-08-02). Mentor chat: long-press Copy (`expo-clipboard`, 10 locales); PDF/TXT File attach via in-chat sheet (back dismisses); Food Log save/nutritionist alerts in `appLocale`. Android 1.2.27 (55). See `done/prompt100.txt`.
+
 **prompt99** — done (2026-08-02). Lab parse: canonical English names + `nameOriginal`; Meuhedet gauge layout (value above marker, not range ends); `refLow`/`refHigh` + second-pass repair; delete-report UI; portal range line. Phone-tested Meuhedet TSH 3.64. See `done/prompt99.txt`.
 
 Active / backlog specs stay in `prompts/app/`:

@@ -30,6 +30,14 @@ export type MealIssueInput = {
   mealTimestamp: number;
 };
 
+/** Localized templates for app-generated macro / fallback rule messages. */
+export type MealIssueMessages = {
+  carbOver: (projected: number, over: number, target: number) => string;
+  kcalOver: (projected: number, over: number, target: number) => string;
+  proteinLow: (projected: number, expected: number, short: number) => string;
+  ruleConflictFallback: (name: string) => string;
+};
+
 function itemDisplayName(item: FoodItem): string {
   return item.name_local ?? item.name;
 }
@@ -79,16 +87,25 @@ export function mergeMealRuleIssues(...groups: MealIssue[][]): MealIssue[] {
   return out;
 }
 
-export function mealIssuesFromFoodItems(items: FoodItem[]): MealIssue[] {
+export function mealIssuesFromFoodItems(
+  items: FoodItem[],
+  messages?: Pick<MealIssueMessages, 'ruleConflictFallback'>,
+): MealIssue[] {
   return items
     .filter((item) => item.rule_conflict)
-    .map((item, index) => ({
-      id: `item-rule-${index}-${itemDisplayName(item)}`,
-      severity: 'critical' as const,
-      code: 'rule_conflict' as const,
-      message: item.rule_message?.trim() || `"${itemDisplayName(item)}" conflicts with your dietary rules.`,
-      itemNames: [itemDisplayName(item)],
-    }));
+    .map((item, index) => {
+      const name = itemDisplayName(item);
+      return {
+        id: `item-rule-${index}-${name}`,
+        severity: 'critical' as const,
+        code: 'rule_conflict' as const,
+        message:
+          item.rule_message?.trim()
+          || messages?.ruleConflictFallback(name)
+          || `"${name}" conflicts with your dietary rules.`,
+        itemNames: [name],
+      };
+    });
 }
 
 export function mealIssuesFromGeminiRules(geminiIssues: Array<{
@@ -105,7 +122,10 @@ export function mealIssuesFromGeminiRules(geminiIssues: Array<{
   }));
 }
 
-export function analyzeMacroMealIssues(input: MealIssueInput): MealIssue[] {
+export function analyzeMacroMealIssues(
+  input: MealIssueInput,
+  messages?: MealIssueMessages,
+): MealIssue[] {
   const { items, dayTotalsBeforeMeal, macroTarget, mealTimestamp } = input;
   if (items.length === 0) return [];
 
@@ -116,22 +136,30 @@ export function analyzeMacroMealIssues(input: MealIssueInput): MealIssue[] {
   if (macroTarget) {
     if (projected.carb_g > macroTarget.carb_g + 0.5) {
       const over = Math.round(projected.carb_g - macroTarget.carb_g);
+      const projectedR = Math.round(projected.carb_g);
+      const targetR = Math.round(macroTarget.carb_g);
       issues.push({
         id: 'carb-over',
         severity: 'critical',
         code: 'carb_over',
-        message: `Today's carbs would reach ${Math.round(projected.carb_g)}g (${over}g over your ${Math.round(macroTarget.carb_g)}g target).`,
+        message:
+          messages?.carbOver(projectedR, over, targetR)
+          ?? `Today's carbs would reach ${projectedR}g (${over}g over your ${targetR}g target).`,
         itemNames: carbContributors(items),
       });
     }
 
     if (projected.kcal > macroTarget.kcal + 5) {
       const over = Math.round(projected.kcal - macroTarget.kcal);
+      const projectedR = Math.round(projected.kcal);
+      const targetR = Math.round(macroTarget.kcal);
       issues.push({
         id: 'kcal-over',
         severity: 'critical',
         code: 'kcal_over',
-        message: `Today's calories would reach ${Math.round(projected.kcal)} kcal (${over} over your ${Math.round(macroTarget.kcal)} target).`,
+        message:
+          messages?.kcalOver(projectedR, over, targetR)
+          ?? `Today's calories would reach ${projectedR} kcal (${over} over your ${targetR} target).`,
         itemNames: kcalContributors(items),
       });
     }
@@ -142,11 +170,15 @@ export function analyzeMacroMealIssues(input: MealIssueInput): MealIssue[] {
     const expectedProtein = macroTarget.protein_g * paceFraction;
     if (hoursIntoDay >= 12 && projected.protein_g < expectedProtein * 0.65) {
       const short = Math.round(expectedProtein - projected.protein_g);
+      const projectedR = Math.round(projected.protein_g);
+      const expectedR = Math.round(expectedProtein);
       issues.push({
         id: 'protein-low',
         severity: 'warning',
         code: 'protein_low',
-        message: `Protein is behind pace for today (${Math.round(projected.protein_g)}g vs ~${Math.round(expectedProtein)}g expected by now, ~${short}g short).`,
+        message:
+          messages?.proteinLow(projectedR, expectedR, short)
+          ?? `Protein is behind pace for today (${projectedR}g vs ~${expectedR}g expected by now, ~${short}g short).`,
       });
     }
   }
