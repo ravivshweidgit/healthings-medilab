@@ -66,12 +66,18 @@ const CORE_READ_PERMISSIONS = [
 ];
 
 const STEPS_READ_PERMISSION = { accessType: 'read', recordType: 'Steps' } as const;
+/** Android 14+: without this, HC often returns only ~recent days even when Steps is granted. */
+const HISTORY_READ_PERMISSION = {
+  accessType: 'read',
+  recordType: 'ReadHealthDataHistory',
+} as const;
 
 const ACTIVITY_READ_PERMISSIONS = [
   STEPS_READ_PERMISSION,
   { accessType: 'read', recordType: 'ExerciseSession' } as const,
   { accessType: 'read', recordType: 'ActiveCaloriesBurned' } as const,
   { accessType: 'read', recordType: 'HeartRate' } as const,
+  HISTORY_READ_PERMISSION,
 ];
 
 function hasCoreReadAccess(
@@ -211,21 +217,30 @@ class HealthConnectService {
         };
       }
 
-      const granted = await requestPermission([...ACTIVITY_READ_PERMISSIONS]);
+      const granted = await requestPermission([...ACTIVITY_READ_PERMISSIONS] as Parameters<
+        typeof requestPermission
+      >[0]);
       const hasSteps = granted.some(
         (p) => p.accessType === STEPS_READ_PERMISSION.accessType && p.recordType === STEPS_READ_PERMISSION.recordType,
       );
       if (hasSteps) {
+        const hasHistory = granted.some(
+          (p) =>
+            p.accessType === HISTORY_READ_PERMISSION.accessType
+            && p.recordType === HISTORY_READ_PERMISSION.recordType,
+        );
         return {
           ok: true,
-          message: 'Healthings can read steps from Health Connect.',
+          message: hasHistory
+            ? 'Healthings can read steps and history from Health Connect. Use Deep sync for up to 128 days.'
+            : 'Healthings can read steps. If older days stay empty, open Health Connect → App permissions → Healthings → allow access to past data, then Deep sync.',
         };
       }
 
       return {
         ok: false,
         message:
-          'Steps were not allowed. Tap Open Health Connect → App permissions → Healthings → turn on Steps (and Heart rate if you want HR).',
+          'Steps were not allowed. Tap Open Health Connect → App permissions → Healthings → turn on Steps (and past data / history if shown).',
         openSettings: true,
       };
     } catch (e) {

@@ -75,7 +75,13 @@ import {
   parseLocaleNumber,
   formatEnergy,
 } from '../logic/unitConvert';
-import { buildManualTrendDays, countMergedWeighInDays } from '../services/ManualTrendService';
+import {
+  buildManualTrendDays,
+  countMergedWeighInDays,
+  fillBmrGaps,
+  resolveUserBmrAnchor,
+} from '../services/ManualTrendService';
+import type { PhoneHealthSyncSummary } from '../services/phoneHealthSyncTypes';
 import {
   isLiveGlucoseSource,
   isPhoneHealthActivity,
@@ -439,8 +445,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [manualTrendDays, setManualTrendDays] = useState<MetabolicTrend7dDay[]>([]);
   const [manualTrendLoading, setManualTrendLoading] = useState(false);
   const [manualWeighInDayCount, setManualWeighInDayCount] = useState(0);
+  /** Profile BMR override or earliest user-entered BMR — seeds empty chart days. */
+  const [userBmrAnchor, setUserBmrAnchor] = useState<number | null>(null);
 
-  const loadManualTrend = useCallback(async (manualSnap?: ManualBodySnapshot | null) => {
+  const loadManualTrend = useCallback(async (
+    manualSnap?: ManualBodySnapshot | null,
+    opts?: { deepSteps?: boolean },
+  ) => {
     setManualTrendLoading(true);
     try {
       const [config, history, gender, height, bd, bmrOverride] = await Promise.all([
@@ -455,6 +466,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       setSetupToggles(togglesFromSourceConfig(config));
       const snap = manualSnap ?? (await getManualBody());
       const prior = bodyTrendDays;
+      const hist = history.length > 0 ? history : snap ? [snap] : [];
+      setUserBmrAnchor(resolveUserBmrAnchor(hist, bmrOverride ?? null));
       const mergedWeighIns = countMergedWeighInDays(prior, history);
       setManualWeighInDayCount(mergedWeighIns);
       if (history.length === 0 && !snap && !prior.some((d) => d.weightKg != null)) {
@@ -472,14 +485,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         [...prior].reverse().find((d) => d.weightKg != null)?.weightKg ??
         0;
       const lookback = Math.max(...TREND_PERIOD_DAY_OPTIONS, DEFAULT_TREND_PERIOD_DAYS);
-      // HC/HK step pull: shallow by default (deep via Allow / Deep sync).
+      // HC/HK step pull: shallow by default; deep after Deep sync (same 128d window).
+      const stepLookback = opts?.deepSteps
+        ? PHONE_HEALTH_DEEP_LOOKBACK_DAYS
+        : PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS;
       const stepMap = isPhoneHealthActivity(config.activity)
-        ? await fetchDailyStepTotalsForTrend(
-            PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS,
-            latestWeight,
-            height,
-            gender,
-          )
+        ? await fetchDailyStepTotalsForTrend(stepLookback, latestWeight, height, gender)
         : new Map<string, number>();
       const days = buildManualTrendDays({
         lookbackDays: lookback,
@@ -640,21 +651,28 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
   const usePhoneHealthActivity = isPhoneHealthActivity(sourceConfig?.activity ?? 'none');
 
+  /** After Deep sync, keep the 128d step window until app restart (shallow remounts used to wipe UI). */
+  const hcPreferDeepRef = useRef(false);
+
   const loadHcStepTotals = useCallback(async (deep = false) => {
     if (!usePhoneHealthActivity || !heightCm || !userGender) {
       setHcStepTotalsByDay(new Map());
       setHcActivityLookbackDays(PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS);
       return;
     }
+    if (deep) hcPreferDeepRef.current = true;
     const weightKg =
       effectiveBodyScan?.weightKg ?? manualBodySnap?.weight_kg ?? bodyScan?.weightKg ?? 70;
-    const lookback = deep
-      ? PHONE_HEALTH_DEEP_LOOKBACK_DAYS
-      : PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS;
+    const lookback =
+      deep || hcPreferDeepRef.current
+        ? PHONE_HEALTH_DEEP_LOOKBACK_DAYS
+        : PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS;
     setHcActivityLookbackDays(lookback);
     const map = await fetchDailyStepTotalsForTrend(lookback, weightKg, heightCm, userGender);
-    // Shallow must not keep older deep-filled days — those fall back to Withings activity.
+    // Shallow map covers only the lookback window; older days render from the
+    // persisted store activityKcalDay (or Withings hybrid when distance exists).
     setHcStepTotalsByDay(map);
+    return map;
   }, [usePhoneHealthActivity, heightCm, userGender, effectiveBodyScan, manualBodySnap, bodyScan]);
 
   const useManualWeightTrend = useMemo(() => {
@@ -753,12 +771,16 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
     const storeDistanceByDay = new Map<string, number>();
     const storeStepsByDay = new Map<string, number>();
+    const storeActivityByDay = new Map<string, number>();
     for (const d of bodyTrendDays) {
       if (d.distanceM != null && Number.isFinite(d.distanceM) && d.distanceM > 0) {
         storeDistanceByDay.set(d.dayKey, d.distanceM);
       }
       if (d.steps != null && Number.isFinite(d.steps) && d.steps > 0) {
         storeStepsByDay.set(d.dayKey, d.steps);
+      }
+      if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay) && d.activityKcalDay > 0) {
+        storeActivityByDay.set(d.dayKey, d.activityKcalDay);
       }
     }
 
@@ -779,10 +801,18 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       return storeStepsByDay.get(d.dayKey) ?? null;
     };
 
+    const storedOrBaseActivity = (d: MetabolicTrend7dDay): number | null => {
+      const stored = storeActivityByDay.get(d.dayKey);
+      if (stored != null) return stored;
+      return d.activityKcalDay;
+    };
+
     if (usePhoneHealthActivity && heightCm && userGender) {
       days = days.map((d) => {
         if (!phoneOwnsDay(d.dayKey)) {
-          return { ...d, activityKcalDay: null };
+          // Outside the phone window: prefer metricsStore activity (HC deep merge).
+          const act = storedOrBaseActivity(d);
+          return act !== d.activityKcalDay ? { ...d, activityKcalDay: act } : d;
         }
         const steps = hcStepTotalsByDay.get(d.dayKey) ?? 0;
         const weightKg = weightForDay(d);
@@ -792,8 +822,9 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             activityKcalDay: stepsToActiveKcal(steps, weightKg, heightCm, userGender),
           };
         }
-        // Phone-owned day with no steps yet — show 0 activity (not blank Food Log lines).
-        return { ...d, activityKcalDay: 0 };
+        // No fresh steps — keep store history instead of forcing 0 (shallow remount wipe).
+        const kept = storedOrBaseActivity(d);
+        return { ...d, activityKcalDay: kept ?? 0 };
       });
     }
 
@@ -804,21 +835,29 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       if (weightKg == null) return d;
       const dist = distanceForDay(d);
       const steps = stepsForDay(d);
+      const hybrid = hybridWithingsActivityKcal({
+        dayKey: d.dayKey,
+        distanceM: dist,
+        steps,
+        weightKg,
+        heightCm,
+        gender: userGender,
+        workouts: workoutSessions,
+      });
       return {
         ...d,
         distanceM: dist,
         steps,
-        activityKcalDay: hybridWithingsActivityKcal({
-          dayKey: d.dayKey,
-          distanceM: dist,
-          steps,
-          weightKg,
-          heightCm,
-          gender: userGender,
-          workouts: workoutSessions,
-        }),
+        // Watch Off: hybrid has no Withings distance/workouts and returns 0 — persisted
+        // HC history (store activityKcalDay) must win, not be overwritten with 0.
+        activityKcalDay: usePhoneHealthActivity
+          ? (hybrid > 0 ? hybrid : storedOrBaseActivity(d))
+          : hybrid,
       };
     });
+
+    // Empty BMR days: carry-forward measured BMR; seed from Profile / first user BMR.
+    days = fillBmrGaps(days, { seedBmrKcal: userBmrAnchor });
 
     return days;
   }, [
@@ -832,6 +871,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     effectiveBodyScan,
     manualBodySnap,
     workoutSessions,
+    userBmrAnchor,
   ]);
 
   const visibleTrend = useMemo(() => {
@@ -2715,10 +2755,30 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             onPhoneHealthPermissionGranted={() => {
               void syncWithings().then(() => loadHcStepTotals(false));
             }}
-            onPhoneHealthSync={(deep) => {
-              void syncWithings(deep ? { deep: true } : undefined).then(() =>
-                loadHcStepTotals(deep),
-              );
+            onPhoneHealthSync={async (deep): Promise<PhoneHealthSyncSummary> => {
+              const store = await syncWithings(deep ? { deep: true } : undefined);
+              const stepMap = (await loadHcStepTotals(deep)) ?? new Map<string, number>();
+              if (deep) {
+                await loadManualTrend(undefined, { deepSteps: true });
+              }
+              const lookback = deep
+                ? PHONE_HEALTH_DEEP_LOOKBACK_DAYS
+                : PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS;
+              let stepDays = 0;
+              for (const n of stepMap.values()) {
+                if (n > 0) stepDays += 1;
+              }
+              const activityDays = store.bodyTrendDays.filter(
+                (d) => d.activityKcalDay != null && d.activityKcalDay > 0,
+              ).length;
+              return {
+                deep,
+                lookbackDays: lookback,
+                stepDays,
+                activityDays,
+                hrSamples: store.heartRate.length,
+                workouts: store.workouts.length,
+              };
             }}
             onQuickStartAgain={() => {
               void clearOnboardingCompletedAt().then(() => setQuickStartVisible(true));

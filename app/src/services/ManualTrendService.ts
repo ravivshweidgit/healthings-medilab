@@ -60,6 +60,60 @@ function manualOnDay(history: ManualBodySnapshot[], dayKey: string): ManualBodyS
 }
 
 /**
+ * Anchor BMR when a day has none: explicit Profile override, else earliest
+ * user-entered BMR in history (first inserted). Carry-forward in the series is better
+ * than stamping every empty day with the first value alone — see fillBmrGaps.
+ */
+export function resolveUserBmrAnchor(
+  history: ManualBodySnapshot[],
+  bmrOverrideKcal?: number | null,
+): number | null {
+  if (bmrOverrideKcal != null && Number.isFinite(bmrOverrideKcal) && bmrOverrideKcal > 0) {
+    return Math.round(bmrOverrideKcal);
+  }
+  let earliest: { ms: number; bmr: number } | null = null;
+  for (const h of history) {
+    if (!(h.bmr_kcal > 0)) continue;
+    const ms = Date.parse(h.measuredAt);
+    if (Number.isNaN(ms)) continue;
+    if (!earliest || ms < earliest.ms) {
+      earliest = { ms, bmr: Math.round(h.bmr_kcal) };
+    }
+  }
+  return earliest?.bmr ?? null;
+}
+
+/**
+ * Forward-fill empty BMR days for energy charts (128d deep window).
+ * Measured / prior BMR wins and updates the carry; seed covers leading gaps.
+ */
+export function fillBmrGaps(
+  days: MetabolicTrend7dDay[],
+  opts?: { seedBmrKcal?: number | null },
+): MetabolicTrend7dDay[] {
+  let last: number | null =
+    opts?.seedBmrKcal != null && Number.isFinite(opts.seedBmrKcal) && opts.seedBmrKcal > 0
+      ? Math.round(opts.seedBmrKcal)
+      : null;
+  if (last == null) {
+    for (const d of days) {
+      if (d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay) && d.bmrKcalDay > 0) {
+        last = Math.round(d.bmrKcalDay);
+        break;
+      }
+    }
+  }
+  if (last == null) return days;
+  return days.map((d) => {
+    if (d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay) && d.bmrKcalDay > 0) {
+      last = Math.round(d.bmrKcalDay);
+      return { ...d, bmrKcalDay: last };
+    }
+    return { ...d, bmrKcalDay: last };
+  });
+}
+
+/**
  * Distinct weigh-in days for chart hints: Withings weight days + manual days
  * that do not already have Withings (manual never counts over scale).
  */
@@ -123,6 +177,8 @@ export function buildManualTrendDays(opts: {
   const keys = dayKeysBack(Math.max(2, lookbackDays));
 
   let lastWeightKg: number | null = null;
+  // BMR carry: override / first user BMR seeds leading gaps; measured values update it.
+  let lastBmrKcal: number | null = resolveUserBmrAnchor(history, bmrOverrideKcal);
   const firstKey = keys[0];
   if (firstKey) {
     const priorBefore = [...priorByDay.values()]
@@ -132,13 +188,23 @@ export function buildManualTrendDays(opts: {
     if (lastPrior?.weightKg != null) {
       lastWeightKg = lastPrior.weightKg;
     }
+    if (lastPrior?.bmrKcalDay != null && lastPrior.bmrKcalDay > 0) {
+      lastBmrKcal = Math.round(lastPrior.bmrKcalDay);
+    }
     const manualBefore = weightForDay(history, firstKey);
     if (lastWeightKg == null && manualBefore) {
       lastWeightKg = manualBefore.weight_kg;
     }
+    if (
+      (lastBmrKcal == null || lastBmrKcal <= 0)
+      && manualBefore
+      && manualBefore.bmr_kcal > 0
+    ) {
+      lastBmrKcal = Math.round(manualBefore.bmr_kcal);
+    }
   }
 
-  return keys.map((dayKey) => {
+  const built = keys.map((dayKey) => {
     const prior = priorByDay.get(dayKey);
     const priorW =
       prior?.weightKg != null && Number.isFinite(prior.weightKg) ? prior.weightKg : null;
@@ -163,7 +229,7 @@ export function buildManualTrendDays(opts: {
       if (prior?.visceralFatIndex != null && Number.isFinite(prior.visceralFatIndex)) {
         visceralFatIndex = prior.visceralFatIndex;
       }
-      if (prior?.bmrKcalDay != null && Number.isFinite(prior.bmrKcalDay)) {
+      if (prior?.bmrKcalDay != null && Number.isFinite(prior.bmrKcalDay) && prior.bmrKcalDay > 0) {
         bmrKcalDay = Math.round(prior.bmrKcalDay);
       }
     } else if (manualDay) {
@@ -183,20 +249,27 @@ export function buildManualTrendDays(opts: {
       weightKg = lastWeightKg;
     }
 
-    if (bmrOverrideKcal != null && Number.isFinite(bmrOverrideKcal) && bmrOverrideKcal > 0) {
-      bmrKcalDay = Math.round(bmrOverrideKcal);
+    if (bmrKcalDay != null && bmrKcalDay > 0) {
+      lastBmrKcal = bmrKcalDay;
+    } else if (lastBmrKcal != null && lastBmrKcal > 0) {
+      bmrKcalDay = lastBmrKcal;
     } else if (bmrKcalDay == null && weightKg != null && gender && priorW == null) {
       // Mifflin only on non-scale days so energy chart keeps Withings BMR points intact.
       bmrKcalDay = mifflinStJeorKcal(gender, weightKg, heightCm, ageYears);
+      if (bmrKcalDay > 0) lastBmrKcal = bmrKcalDay;
     }
 
     const steps = stepTotalsByDay.get(dayKey) ?? 0;
+    // Fresh phone steps win; otherwise the persisted store value (HC/HK history written
+    // by sync) — the shallow step map must not zero out older days.
+    const priorActivity =
+      prior?.activityKcalDay != null && Number.isFinite(prior.activityKcalDay)
+        ? prior.activityKcalDay
+        : null;
     const activityKcalDay =
       weightKg != null && steps > 0
         ? stepsToActiveKcal(steps, weightKg, heightCm, gender)
-        : weightKg != null
-          ? 0
-          : null;
+        : priorActivity ?? (weightKg != null ? 0 : null);
 
     return {
       dayKey,
@@ -210,4 +283,6 @@ export function buildManualTrendDays(opts: {
       steps: prior?.steps ?? null,
     };
   });
+
+  return fillBmrGaps(built, { seedBmrKcal: resolveUserBmrAnchor(history, bmrOverrideKcal) });
 }

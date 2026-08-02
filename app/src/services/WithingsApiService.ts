@@ -18,6 +18,10 @@ import {
   type MetabolicTrend7dDay,
 } from '../logic/metabolicTrend7d';
 import { fetchWithTimeout } from './fetchWithTimeout';
+import {
+  METRICS_DEEP_LOOKBACK_DAYS,
+  METRICS_SHALLOW_LOOKBACK_DAYS,
+} from './metricsSyncLookback';
 
 const WITHINGS_FETCH_TIMEOUT_MS = 12_000;
 
@@ -972,10 +976,10 @@ export type WithingsIntradayTodayFetch = WithingsIntradayData & {
   apiError: string | null;
 };
 
-/** Deep history pull for HR + intraday calories (first link / explicit deep). Matches workout depth. */
-export const WITHINGS_HR_DEEP_LOOKBACK_DAYS = 128;
+/** Deep history pull for HR + intraday calories — same depth as phone health / workouts. */
+export const WITHINGS_HR_DEEP_LOOKBACK_DAYS = METRICS_DEEP_LOOKBACK_DAYS;
 /** Routine sync: yesterday + today only — persistence already holds older days. */
-export const WITHINGS_SHALLOW_LOOKBACK_DAYS = 2;
+export const WITHINGS_SHALLOW_LOOKBACK_DAYS = METRICS_SHALLOW_LOOKBACK_DAYS;
 /** @deprecated use WITHINGS_HR_DEEP_LOOKBACK_DAYS */
 const HEART_RATE_LOOKBACK_DAYS = WITHINGS_HR_DEEP_LOOKBACK_DAYS;
 /** Parallel Withings intraday requests (one calendar day each). */
@@ -1249,8 +1253,8 @@ function withingsUnixToMs(value: number): number {
   return value >= 1e12 ? Math.round(value) : Math.round(value * 1000);
 }
 
-/** Deep workout history lookback (on-demand / first link). */
-export const WITHINGS_WORKOUT_DEEP_LOOKBACK_DAYS = 128;
+/** Deep workout history lookback (on-demand / first link) — same as HR / phone health. */
+export const WITHINGS_WORKOUT_DEEP_LOOKBACK_DAYS = METRICS_DEEP_LOOKBACK_DAYS;
 /** @deprecated use WITHINGS_WORKOUT_DEEP_LOOKBACK_DAYS */
 const WORKOUT_LOOKBACK_DAYS = WITHINGS_WORKOUT_DEEP_LOOKBACK_DAYS;
 

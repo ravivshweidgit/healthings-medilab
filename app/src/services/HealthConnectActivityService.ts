@@ -13,12 +13,16 @@ import {
   loadSourceConfig,
   type ActivitySource,
 } from './SourceConfigService';
+import {
+  METRICS_DEEP_LOOKBACK_DAYS,
+  METRICS_SHALLOW_LOOKBACK_DAYS,
+} from './metricsSyncLookback';
 import type { WithingsHeartRatePoint, WorkoutSession } from './WithingsApiService';
 
-/** Routine sync — today + previous 2 local days (3 total) so “yesterday” survives midnight. */
-export const PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS = 3;
-/** On-demand / first-fill deep pull (workouts + HR; activity kcal from steps). */
-export const PHONE_HEALTH_DEEP_LOOKBACK_DAYS = 31;
+/** Routine sync — same window as Withings (yesterday + today). */
+export const PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS = METRICS_SHALLOW_LOOKBACK_DAYS;
+/** On-demand / first-fill deep pull — same depth as Withings HR / workouts. */
+export const PHONE_HEALTH_DEEP_LOOKBACK_DAYS = METRICS_DEEP_LOOKBACK_DAYS;
 
 export type PhoneWalkProfile = {
   weightKg: number;
@@ -30,12 +34,18 @@ export type HealthConnectActivityFetch = {
   workouts: WorkoutSession[];
   heartRate: WithingsHeartRatePoint[];
   dailyActiveKcalByDay: Record<string, number>;
+  /**
+   * Start of the fetched window (local-midnight ms). The fetch is authoritative only
+   * inside this window — stored HC workouts older than this must be retained.
+   */
+  lookbackStartMs: number;
 };
 
 const EMPTY_FETCH: HealthConnectActivityFetch = {
   workouts: [],
   heartRate: [],
   dailyActiveKcalByDay: {},
+  lookbackStartMs: Number.MAX_SAFE_INTEGER,
 };
 
 /** Read HC steps/distance→kcal, exercise labels, optional HR — no AsyncStorage writes. */
@@ -82,6 +92,7 @@ export async function fetchHealthConnectActivity(
     workouts,
     dailyActiveKcalByDay,
     heartRate: readHr ? mapHcHeartRateRecords(hrRecords) : [],
+    lookbackStartMs: start.getTime(),
   };
 }
 

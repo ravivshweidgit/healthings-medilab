@@ -14,6 +14,7 @@ import {
 } from '../logic/metabolicTrend7d';
 import { fetchHealthConnectActivity, PHONE_HEALTH_DEEP_LOOKBACK_DAYS, PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS } from './HealthConnectActivityService';
 import { getManualBody } from './ManualBodyService';
+import { METRICS_DEEP_LOOKBACK_DAYS } from './metricsSyncLookback';
 import { getCachedHeightCm, getGender } from './TargetService';
 import { healthKitService } from './HealthKitService';
 import { dailyActiveKcalFromStepsMaps } from './SamsungStepsAdapter';
@@ -67,8 +68,8 @@ export const LEGACY_HC_ACTIVITY_STORE_KEY = 'healthings:hcActivityStore';
 /** @deprecated Use METRICS_STORE_KEY */
 export const WITHINGS_STORE_KEY = METRICS_STORE_KEY;
 
-/** Keep this many days of intraday HR/calories — must be ≥ WITHINGS_HR_DEEP_LOOKBACK_DAYS. */
-const MAX_INTRADAY_STORE_DAYS = 128;
+/** Keep this many days of intraday HR/calories — matches deep sync window. */
+const MAX_INTRADAY_STORE_DAYS = METRICS_DEEP_LOOKBACK_DAYS;
 
 export type MetricsPersistedStore = {
   version: 1;
@@ -237,10 +238,33 @@ function mergeByTimestamp<T extends { timestamp: string }>(prev: T[], next: T[])
   return [...map.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
 }
 
+/**
+ * Field-level coalesce — never let a fetch that doesn't know a field null it out.
+ * Withings trend days always carry activityKcalDay/steps null; wholesale day replace
+ * wiped the Health Connect activity history for Watch Off users (same class as the
+ * old HR shallow-sync wipe).
+ */
+function coalesceTrendDay(prev: MetabolicTrend7dDay, next: MetabolicTrend7dDay): MetabolicTrend7dDay {
+  return {
+    dayKey: next.dayKey,
+    weightKg: next.weightKg ?? prev.weightKg,
+    fatMassKg: next.fatMassKg ?? prev.fatMassKg,
+    muscleMassKg: next.muscleMassKg ?? prev.muscleMassKg,
+    visceralFatIndex: next.visceralFatIndex ?? prev.visceralFatIndex,
+    bmrKcalDay: next.bmrKcalDay ?? prev.bmrKcalDay,
+    activityKcalDay: next.activityKcalDay ?? prev.activityKcalDay,
+    distanceM: next.distanceM ?? prev.distanceM ?? null,
+    steps: next.steps ?? prev.steps ?? null,
+  };
+}
+
 function mergeTrendDays(prev: MetabolicTrend7dDay[], next: MetabolicTrend7dDay[]): MetabolicTrend7dDay[] {
   const map = new Map<string, MetabolicTrend7dDay>();
   for (const d of prev) map.set(d.dayKey, d);
-  for (const d of next) map.set(d.dayKey, d);
+  for (const d of next) {
+    const existing = map.get(d.dayKey);
+    map.set(d.dayKey, existing ? coalesceTrendDay(existing, d) : d);
+  }
   return [...map.values()].sort((a, b) => a.dayKey.localeCompare(b.dayKey));
 }
 
@@ -275,9 +299,19 @@ function mergeWorkouts(prev: WorkoutSession[], next: WorkoutSession[]): WorkoutS
   return [...map.values()].sort((a, b) => a.startMs - b.startMs);
 }
 
-/** HC replace: keep Withings (and other non-HC) rows, swap in fresh HC sessions. */
-function replaceHealthConnectWorkouts(prev: WorkoutSession[], hcWorkouts: WorkoutSession[]): WorkoutSession[] {
-  const kept = prev.filter((w) => w.source !== 'health-connect');
+/**
+ * HC replace — bounded to the fetch window: keep Withings (and other non-HC) rows,
+ * keep HC rows older than `lookbackStartMs`, swap in fresh HC sessions inside it.
+ * A shallow fetch must never delete HC workout history (old HR-wipe class of bug).
+ */
+function replaceHealthConnectWorkouts(
+  prev: WorkoutSession[],
+  hcWorkouts: WorkoutSession[],
+  lookbackStartMs: number,
+): WorkoutSession[] {
+  const kept = prev.filter(
+    (w) => w.source !== 'health-connect' || w.startMs < lookbackStartMs,
+  );
   return mergeWorkouts(kept, hcWorkouts);
 }
 
@@ -380,10 +414,16 @@ function mergeHealthConnectFetchIntoStore(
     workouts: WorkoutSession[];
     heartRate: WithingsHeartRatePoint[];
     dailyActiveKcalByDay: Record<string, number>;
+    /** Fetch window start; HC rows older than this are retained. */
+    lookbackStartMs: number;
   },
   config: Awaited<ReturnType<typeof loadSourceConfig>>,
 ): MetricsPersistedStore {
-  const workouts = replaceHealthConnectWorkouts(prev.workouts, fetch.workouts);
+  const workouts = replaceHealthConnectWorkouts(
+    prev.workouts,
+    fetch.workouts,
+    fetch.lookbackStartMs,
+  );
   const bodyTrendDays = applyDailyActiveKcalToTrendDays(
     prev.bodyTrendDays,
     fetch.dailyActiveKcalByDay,
@@ -452,6 +492,8 @@ async function runMigrationOnce(): Promise<void> {
             hc.dailyActiveKcalByDay && typeof hc.dailyActiveKcalByDay === 'object'
               ? hc.dailyActiveKcalByDay
               : {},
+          // Migration merges — never drop existing HC rows.
+          lookbackStartMs: Number.MAX_SAFE_INTEGER,
         },
         config,
       );
@@ -602,6 +644,8 @@ export async function syncHealthKitIntoStore(
       workouts: [],
       heartRate: isHealthKitHeartRate(config.heartRate) ? window.heartRate : [],
       dailyActiveKcalByDay,
+      // HealthKit brings no HC workouts — historical Android HC rows stay read-only.
+      lookbackStartMs: Number.MAX_SAFE_INTEGER,
     },
     config,
   );
@@ -853,8 +897,8 @@ export async function syncWithingsApiIntoStore(
 /**
  * Sync all configured adapters into the metrics store (Withings + phone health).
  * UI and mentors should call this — not vendor-specific sync helpers.
- * Pass `{ deep: true }` for full Withings history and phone-health deep lookback (31d).
- * Default phone-health sync is shallow (2d), same as Withings normal sync.
+ * Pass `{ deep: true }` for full history (128d — shared Withings + phone health).
+ * Default sync is shallow (2d) for both adapters.
  */
 export async function syncMetricsStore(
   opts?: SyncMetricsOptions,

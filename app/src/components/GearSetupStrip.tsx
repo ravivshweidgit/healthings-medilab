@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import { getYourSetupCopy } from '../i18n/yourSetupCopy';
+import type { PhoneHealthSyncSummary } from '../services/phoneHealthSyncTypes';
 import type { SetupToggles } from '../services/SourceConfigService';
 import type { UserLanguage } from '../services/TargetService';
 import { useTheme } from '../theme/ThemeProvider';
@@ -36,7 +37,7 @@ type Props = {
   showLinkError: boolean;
   onWithingsAccountPress: () => void;
   onPhoneHealthPermissionGranted: () => void;
-  onPhoneHealthSync: (deep: boolean) => void;
+  onPhoneHealthSync: (deep: boolean) => void | Promise<PhoneHealthSyncSummary | void>;
   onQuickStartAgain: () => void;
   careSensImportBusy?: boolean;
   careSensImportMessage?: string | null;
