@@ -168,6 +168,9 @@
             <button type="button" class="chip-btn" data-filter="outgoing" aria-pressed="false">
               <span data-i18n="filterOutgoing">Outgoing</span> <span class="n" id="count-outgoing">(0)</span>
             </button>
+            <button type="button" class="chip-btn" data-filter="ai-only" aria-pressed="false">
+              <span data-i18n="filterAiOnly">AI only</span> <span class="n" id="count-ai-only">(0)</span>
+            </button>
             <button type="button" class="chip-btn" data-filter="all" aria-pressed="false">
               <span data-i18n="filterAll">All</span> <span class="n" id="count-all">(0)</span>
             </button>
@@ -316,7 +319,7 @@
       </section>
     </div>
 
-    <script src="clinic-i18n.js?v=20260803a"></script>
+    <script src="clinic-i18n.js?v=20260803b"></script>
     <script src="clinic-theme.js?v=20260727c"></script>
     <script src="clinic-api.js?v=20260726k"></script>
     <script>
@@ -340,6 +343,7 @@
         pending: [],
         outgoing: [],
         approved: [],
+        aiOnly: [],
         sponsorByPatient: new Map(),
         act: null,
       };
@@ -628,6 +632,9 @@
       /* ── worklist ──────────────────────────────────────────────────────── */
 
       function statusSub(share) {
+        if (share.status === 'ai_only') {
+          return t('statusAiOnly');
+        }
         if (share.status === 'pending' && share.initiatedBy === 'mentor') {
           return t('statusWaitingApproval');
         }
@@ -647,18 +654,20 @@
       function statusChip(share) {
         const el = document.createElement('span');
         const tone =
-          share.status === 'pending'
+          share.status === 'ai_only'
             ? 'soon'
-            : share.status === 'rejected' || share.status === 'revoked'
-              ? 'gone'
-              : 'off';
+            : share.status === 'pending'
+              ? 'soon'
+              : share.status === 'rejected' || share.status === 'revoked'
+                ? 'gone'
+                : 'off';
         el.className = 'chip status-chip ' + tone;
         el.textContent = statusSub(share);
         return el;
       }
 
       function filteredShares() {
-        const { filter, searchName, searchEmail, sort, pending, outgoing, approved, sponsorByPatient } =
+        const { filter, searchName, searchEmail, sort, pending, outgoing, approved, aiOnly, sponsorByPatient } =
           worklistState;
         let list =
           filter === 'linked'
@@ -667,7 +676,9 @@
               ? pending.slice()
               : filter === 'outgoing'
                 ? outgoing.slice()
-                : approved.concat(pending, outgoing);
+                : filter === 'ai-only'
+                  ? aiOnly.slice()
+                  : approved.concat(pending, outgoing);
 
         const qName = searchName.trim().toLowerCase();
         const qEmail = searchEmail.trim().toLowerCase();
@@ -737,6 +748,34 @@
       function fillActions(actions, share, onAction, sponsorByPatient) {
         actions.replaceChildren();
         const sp = share.patientId ? sponsorByPatient.get(share.patientId) : null;
+
+        if (share.status === 'ai_only') {
+          const invite = document.createElement('button');
+          invite.className = 'portal-btn secondary';
+          invite.type = 'button';
+          labelWithTip(invite, 'inviteFromAiOnly', 'tipInviteFromAiOnly');
+          invite.onclick = () => {
+            const input = document.getElementById('patient-email');
+            if (input && share.patientEmail) {
+              input.value = share.patientEmail;
+              input.focus();
+              input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          };
+          actions.append(invite);
+
+          const spBtn = document.createElement('button');
+          spBtn.className = 'portal-btn secondary act-sponsor';
+          spBtn.type = 'button';
+          labelWithTip(spBtn, 'stopSponsorship', 'tipStopSponsorship');
+          spBtn.onclick = () =>
+            void onAction('sponsor-off', share.patientId, {
+              email: share.patientEmail,
+              btn: spBtn,
+            });
+          actions.append(spBtn);
+          return;
+        }
 
         if (share.status === 'pending' && share.initiatedBy === 'patient') {
           const ok = document.createElement('button');
@@ -861,6 +900,7 @@
         return {
           pending: t('emptyPending'),
           outgoing: t('emptyOutgoing'),
+          'ai-only': t('emptyAiOnly'),
           all: t('emptyAll'),
         }[worklistState.filter] || t('emptyLinked');
       }
@@ -940,6 +980,7 @@
           tdSp.className = 'sponsor-cell';
           tdSp.dataset.label = t('colSponsor');
           if (share.status === 'approved' && share.patientId) tdSp.appendChild(sponsorChip(sp));
+          else if (share.status === 'ai_only' && share.patientId) tdSp.appendChild(sponsorChip(sp));
           else tdSp.textContent = '—';
 
           const tdAct = document.createElement('td');
@@ -969,13 +1010,15 @@
       }
 
       function setCounts() {
-        const { pending, outgoing, approved } = worklistState;
+        const { pending, outgoing, approved, aiOnly } = worklistState;
         const set = (id, n) => {
-          document.getElementById(id).textContent = '(' + n + ')';
+          const el = document.getElementById(id);
+          if (el) el.textContent = '(' + n + ')';
         };
         set('count-linked', approved.length);
         set('count-pending', pending.length);
         set('count-outgoing', outgoing.length);
+        set('count-ai-only', aiOnly.length);
         set('count-all', approved.length + pending.length + outgoing.length);
       }
 
@@ -1185,6 +1228,9 @@
           if (action === 'cancel') {
             if (!window.confirm(t('confirmCancel', { email }))) return;
           }
+          if (action === 'sponsor-off') {
+            if (!window.confirm(t('confirmStopSponsorship', { email }))) return;
+          }
 
           const run = async () => {
             if (action === 'sponsor-on') {
@@ -1249,6 +1295,24 @@
         worklistState.outgoing = outgoing;
         worklistState.approved = approved;
         worklistState.sponsorByPatient = new Map(sponsored.map((s) => [s.patientId, s]));
+        // Covered patients with no share (invite/approved/pending) — Cover AI by email.
+        const sharePatientIds = new Set(
+          [...approved, ...pending, ...outgoing]
+            .map((s) => s.patientId)
+            .filter(Boolean),
+        );
+        worklistState.aiOnly = sponsored
+          .filter((s) => s.active && s.patientId && !sharePatientIds.has(s.patientId))
+          .map((s) => ({
+            id: 'ai-only-' + s.patientId,
+            status: 'ai_only',
+            patientId: s.patientId,
+            patientEmail: s.patientEmail,
+            patientFirstName: null,
+            patientLastName: null,
+            lastSyncAt: null,
+            initiatedBy: null,
+          }));
         worklistState.act = act;
         setCounts();
         renderWorklist();
