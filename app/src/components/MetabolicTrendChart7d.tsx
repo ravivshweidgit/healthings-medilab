@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import { curveMonotoneX, line } from 'd3-shape';
@@ -11,6 +11,7 @@ import {
   visceralPercentChange,
   withingsChartCompositionKg,
   withingsChartVisceralIndex,
+  localDayKeyFromMs,
   type CompositionPeriodAnchor,
   type MetabolicTrend7dDay,
   type VisceralTrendDebug,
@@ -265,8 +266,10 @@ export function MetabolicTrendChart7d({
 }: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
-  const { width } = useWindowDimensions();
-  const chartW = Math.max(280, width - 40);
+  const { width: windowWidth } = useWindowDimensions();
+  /** Measured plot width — avoids `windowWidth - 40` under-sizing inside the padded card (right trim). */
+  const [layoutW, setLayoutW] = useState(0);
+  const chartW = Math.max(280, layoutW > 0 ? layoutW : Math.max(280, windowWidth - 68));
   const bodyLabels = useMemo(() => getBodyMetricsCopy(langCode), [langCode]);
 
   const weightOnlyPrepared = useMemo(() => {
@@ -285,12 +288,17 @@ export function MetabolicTrendChart7d({
     const wDom = domainPad(wVals, wVals[0] - 1, wVals[0] + 1, 0.08);
 
     const wPts: PixelPoint[] = [];
+    let holdW: number | null = null;
+    const todayKey = localDayKeyFromMs(Date.now());
     days.forEach((d, i) => {
+      if (d.dayKey > todayKey) return;
       if (d.weightKg != null && Number.isFinite(d.weightKg)) {
-        const wDisp = kgToDisplay(d.weightKg, massUnit);
+        holdW = kgToDisplay(d.weightKg, massUnit);
+      }
+      if (holdW != null) {
         wPts.push({
           x: xAtIndex(i, plotLeft, innerW, n),
-          y: mapY(wDisp, wDom.min, wDom.max, stripTop(0), STRIP_H),
+          y: mapY(holdW, wDom.min, wDom.max, stripTop(0), STRIP_H),
         });
       }
     });
@@ -369,19 +377,27 @@ export function MetabolicTrendChart7d({
     }
     const deltaDom = deltaDomainFromValues(compositionDeltas);
 
+    const todayKey = localDayKeyFromMs(Date.now());
+
     const mkPts = (
       getter: (d: MetabolicTrend7dDay, i: number) => number | null,
       dom: { min: number; max: number },
-      stripIndex: number
+      stripIndex: number,
+      opts?: { holdLast?: boolean },
     ) => {
       const top = stripTop(stripIndex);
       const pts: PixelPoint[] = [];
+      let last: number | null = null;
       days.forEach((d, i) => {
+        // Future pad slot(s) — leave empty so the line keeps a small right gap.
+        if (d.dayKey > todayKey) return;
         const v = getter(d, i);
-        if (v != null && Number.isFinite(v)) {
+        if (v != null && Number.isFinite(v)) last = v;
+        const plot = opts?.holdLast ? last : v;
+        if (plot != null && Number.isFinite(plot)) {
           pts.push({
             x: xAtIndex(i, plotLeft, innerW, n),
-            y: mapY(v, dom.min, dom.max, top, STRIP_H),
+            y: mapY(plot, dom.min, dom.max, top, STRIP_H),
           });
         }
       });
@@ -391,23 +407,30 @@ export function MetabolicTrendChart7d({
     const mkDeltaPts = (getter: (i: number) => number | null, baseline: number | null, stripIndex: number) => {
       const top = stripTop(stripIndex);
       const pts: PixelPoint[] = [];
-      days.forEach((_, i) => {
+      let last: number | null = null;
+      days.forEach((d, i) => {
+        if (d.dayKey > todayKey) return;
         if (!compBase || baseline == null) return;
         const vKg = deltaKg(getter(i), baseline);
-        if (vKg == null) return;
-        const v = kgToDisplay(vKg, massUnit);
+        if (vKg != null) last = kgToDisplay(vKg, massUnit);
+        if (last == null) return;
         pts.push({
           x: xAtIndex(i, plotLeft, innerW, n),
-          y: mapY(v, deltaDom.min, deltaDom.max, top, STRIP_H),
+          y: mapY(last, deltaDom.min, deltaDom.max, top, STRIP_H),
         });
       });
       return pts;
     };
 
-    const wPts = mkPts((d) => (d.weightKg != null ? kgToDisplay(d.weightKg, massUnit) : null), wDom, 0);
+    const wPts = mkPts(
+      (d) => (d.weightKg != null ? kgToDisplay(d.weightKg, massUnit) : null),
+      wDom,
+      0,
+      { holdLast: true },
+    );
     const fPts = mkDeltaPts(chartFatKg, fatBaseline, 1);
     const mPts = mkDeltaPts(chartMuscleKg, muscleBaseline, 1);
-    const vPts = mkPts((_, i) => chartVisceral(i), vDom, 2);
+    const vPts = mkPts((_, i) => chartVisceral(i), vDom, 2, { holdLast: true });
 
     const weightPath = buildSmoothPath(wPts);
     const fatPath = buildSmoothPath(fPts);
@@ -563,8 +586,14 @@ export function MetabolicTrendChart7d({
             One weigh-in logged — line is flat until you log again.
           </Text>
         ) : null}
-        <View style={[styles.chartRow, styles.chartCanvas]}>
-          <Svg width={p.chartW} height={p.svgH} style={styles.svg}>
+        <View
+          style={[styles.chartRow, styles.chartCanvas]}
+          onLayout={(e) => {
+            const w = Math.floor(e.nativeEvent.layout.width);
+            if (w > 0 && w !== layoutW) setLayoutW(w);
+          }}
+        >
+          <Svg width={p.chartW} height={p.svgH}>
             <Line
               x1={p.plotLeft}
               y1={stripBandTop(0)}
@@ -644,8 +673,14 @@ export function MetabolicTrendChart7d({
       {hideTitle ? null : <Text style={styles.title}>TREND ANALYSIS</Text>}
       {selector}
 
-      <View style={[styles.chartRow, styles.chartCanvas]}>
-        <Svg width={prepared.chartW} height={prepared.svgH} style={styles.svg}>
+      <View
+        style={[styles.chartRow, styles.chartCanvas]}
+        onLayout={(e) => {
+          const w = Math.floor(e.nativeEvent.layout.width);
+          if (w > 0 && w !== layoutW) setLayoutW(w);
+        }}
+      >
+        <Svg width={prepared.chartW} height={prepared.svgH}>
           {[
             { i: 0, label: bodyLabels.weight.toUpperCase(), color: colors.accentBlue },
             { i: 1, label: `${bodyLabels.fat} / ${bodyLabels.muscle} (Δ)`.toUpperCase(), color: colors.textSecondary },
@@ -831,10 +866,6 @@ const makeStyles = (colors: ThemeColors, isDark: boolean) =>
     borderRadius: isDark ? 12 : 0,
     overflow: 'hidden',
     paddingVertical: isDark ? 4 : 0,
-  },
-  svg: {
-    flex: 1,
-    minWidth: 0,
   },
   legend: {
     marginTop: 8,

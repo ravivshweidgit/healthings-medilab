@@ -405,6 +405,84 @@ export const TREND_PERIOD_DAY_OPTIONS = [8, 16, 32, 64, 128] as const;
 export const MAX_TREND_PERIOD_DAYS = 128;
 export const DEFAULT_TREND_PERIOD_DAYS = 32;
 
+export function emptyTrendDay(dayKey: string): MetabolicTrend7dDay {
+  return {
+    dayKey,
+    weightKg: null,
+    fatMassKg: null,
+    muscleMassKg: null,
+    visceralFatIndex: null,
+    bmrKcalDay: null,
+    activityKcalDay: null,
+    distanceM: null,
+    steps: null,
+  };
+}
+
+/**
+ * Empty future days after today so the line keeps a small right gap.
+ * 8/16 → +1 (looks good); 32 → +3, 64 → +6, 128 → +12.
+ */
+export function trendChartRightPadDays(n: number): number {
+  const count = Math.max(2, Math.floor(n));
+  if (count <= 16) return 1;
+  return Math.max(3, Math.round((count * 3) / 32));
+}
+
+/**
+ * Contiguous last-n local calendar days ending today, plus empty future pad day(s)
+ * so today's point never sits on the chart edge (intentional breathing room).
+ */
+export function alignTrendDaysToLastNCalendarDays(
+  days: MetabolicTrend7dDay[],
+  n: number,
+): MetabolicTrend7dDay[] {
+  const count = Math.max(2, Math.floor(n));
+  const keys = lastNLocalDayKeysOldestFirst(count);
+  const byKey = new Map<string, MetabolicTrend7dDay>();
+  for (const d of days) byKey.set(d.dayKey, d);
+  const aligned = keys.map((k) => byKey.get(k) ?? emptyTrendDay(k));
+
+  const pad = trendChartRightPadDays(count);
+  const lastKey = aligned[aligned.length - 1]?.dayKey;
+  for (let i = 1; i <= pad; i += 1) {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + i);
+    const key = localDayKeyFromMs(d.getTime());
+    if (lastKey && key <= lastKey) continue;
+    if (aligned[aligned.length - 1]?.dayKey === key) continue;
+    aligned.push(emptyTrendDay(key));
+  }
+  return aligned;
+}
+
+/**
+ * Hold last known weight across empty calendar days through `throughDayKey` (usually today).
+ * Days after that (e.g. tomorrow pad) stay empty so the line leaves a small right gap.
+ */
+export function forwardFillTrendWeight(
+  days: MetabolicTrend7dDay[],
+  seedWeightKg?: number | null,
+  throughDayKey?: string | null,
+): MetabolicTrend7dDay[] {
+  let last =
+    seedWeightKg != null && Number.isFinite(seedWeightKg) && seedWeightKg > 0
+      ? seedWeightKg
+      : null;
+  const cap = throughDayKey ?? null;
+  return days.map((d) => {
+    if (cap && d.dayKey > cap) {
+      return { ...d, weightKg: null };
+    }
+    if (d.weightKg != null && Number.isFinite(d.weightKg) && d.weightKg > 0) {
+      last = d.weightKg;
+      return d;
+    }
+    return last != null ? { ...d, weightKg: last } : d;
+  });
+}
+
 /** Last `n` local calendar days, oldest → newest (today last), local midnight boundaries. */
 export function lastNLocalDayKeysOldestFirst(n: number): string[] {
   const count = Math.max(1, Math.floor(n));

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { curveMonotoneX, line } from 'd3-shape';
@@ -137,8 +137,9 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
     deficitDot: COLOR_DEFICIT_DOT,
     surplusDot: COLOR_SURPLUS_DOT,
   } = useMemo(() => chartColors(colors), [colors]);
-  const { width } = useWindowDimensions();
-  const chartW = Math.max(280, width - 40);
+  const { width: windowWidth } = useWindowDimensions();
+  const [layoutW, setLayoutW] = useState(0);
+  const chartW = Math.max(280, layoutW > 0 ? layoutW : Math.max(280, windowWidth - 68));
 
   const prepared = useMemo(() => {
     if (!days || days.length < 2) return null;
@@ -381,8 +382,14 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
     <View style={styles.wrap}>
       <Text style={styles.title}>ENERGY</Text>
 
-      <View style={styles.chartCanvas}>
-      <Svg width={prepared.chartW} height={SVG_H} style={styles.svg}>
+      <View
+        style={styles.chartCanvas}
+        onLayout={(e) => {
+          const w = Math.floor(e.nativeEvent.layout.width);
+          if (w > 0 && w !== layoutW) setLayoutW(w);
+        }}
+      >
+      <Svg width={prepared.chartW} height={SVG_H}>
 
         {/* ── Strip 0: BMR ──────────────────────────────────────────────── */}
         {renderDivider(0)}
@@ -582,8 +589,8 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
       borderRadius: isDark ? 12 : 0,
       overflow: 'hidden',
       paddingVertical: isDark ? 4 : 0,
+      width: '100%',
     },
-    svg: { flex: 1, minWidth: 0 },
     loadingBox:   { minHeight: 120, alignItems: 'center', justifyContent: 'center', padding: 16 },
     loadingText:  { marginTop: 8, fontSize: 13, color: c.textSecondary, textAlign: 'center', lineHeight: 19 },
   });

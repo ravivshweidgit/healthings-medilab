@@ -1,0 +1,39 @@
+# prompt102 — Trend / Energy chart right trim
+
+**Status:** done (2026-08-03). Phone-tested 8/16/32/64/128.
+
+## Builds on
+
+- prompt95 (trend mini-panels), prompt67 (chart sync windows)
+
+## Problem
+
+TREND ANALYSIS and ENERGY lines stopped short of the right edge — worse on longer windows (32D+). Causes: X domain not pinned to a calendar window ending today; SVG width guessed from `windowWidth - 40` inside a padded card; sparse weigh-in days left paths ending early; a single “tomorrow” pad was enough for 8/16 but looked trimmed again at 32D+.
+
+## What shipped
+
+| Piece | Detail |
+|-------|--------|
+| Calendar align | `alignTrendDaysToLastNCalendarDays` — last N local days ending today + empty future pad |
+| Right pad | `trendChartRightPadDays`: 8/16 → +1; 32 → +3; 64 → +6; 128 → +12 |
+| Weight fill | `forwardFillTrendWeight` through **today** only; future pad stays empty |
+| Dashboard | `visibleTrend` clears metrics on days after today; composition anchor ≤ today |
+| Chart layout | `onLayout` measured width; removed SVG `flex:1` |
+| Hold-last | Weight / composition / visceral hold through today, skip future pad |
+
+## Files
+
+- `app/src/logic/metabolicTrend7d.ts`
+- `app/src/screens/DashboardScreen.tsx` (`visibleTrend`)
+- `app/src/components/MetabolicTrendChart7d.tsx`
+- `app/src/components/BmrHistoryChart7d.tsx`
+
+## Phone-tested
+
+- [x] 8D / 16D — small right gap, lines to today
+- [x] 32D — +3 pad looks good
+- [x] 64 / 128 — scaled pad (+6 / +12)
+
+## Deferred
+
+- None

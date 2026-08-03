@@ -110,6 +110,8 @@ import { healthConnectService, openHealthConnectSettings } from '../services/Hea
 import {
   DEFAULT_TREND_PERIOD_DAYS,
   TREND_PERIOD_DAY_OPTIONS,
+  alignTrendDaysToLastNCalendarDays,
+  forwardFillTrendWeight,
   localDayKeyFromMs,
   dayKeyStartMs,
   resolveCompositionPeriodAnchor,
@@ -876,14 +878,39 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
   const visibleTrend = useMemo(() => {
     if (bodyTrendDaysWithActivity.length < 2) return null;
-    const n = Math.min(trendPeriodDays, bodyTrendDaysWithActivity.length);
-    const days = bodyTrendDaysWithActivity.slice(-n);
+    const aligned = alignTrendDaysToLastNCalendarDays(
+      bodyTrendDaysWithActivity,
+      trendPeriodDays,
+    );
+    const todayKey = localDayKeyFromMs(Date.now());
+    const firstKey = aligned[0]?.dayKey;
+    let seedWeight: number | null = null;
+    if (firstKey) {
+      for (const d of bodyTrendDaysWithActivity) {
+        if (d.dayKey < firstKey && d.weightKg != null && Number.isFinite(d.weightKg)) {
+          seedWeight = d.weightKg;
+        }
+      }
+    }
+    // Fill through today only — leave empty tomorrow pad so lines keep a small right gap.
+    const filled = fillBmrGaps(
+      forwardFillTrendWeight(aligned, seedWeight, todayKey),
+      { seedBmrKcal: userBmrAnchor },
+    );
+    const days = filled.map((d) =>
+      d.dayKey > todayKey
+        ? { ...d, weightKg: null, bmrKcalDay: null, activityKcalDay: null, fatMassKg: null, muscleMassKg: null, visceralFatIndex: null }
+        : d,
+    );
+    const hasPlot =
+      days.some((d) => d.weightKg != null) || days.some((d) => d.bmrKcalDay != null);
+    if (!hasPlot) return null;
     const anchor = resolveCompositionPeriodAnchor(
       bodyTrendSessions,
-      days.map((d) => d.dayKey)
+      days.filter((d) => d.dayKey <= todayKey).map((d) => d.dayKey),
     );
     return { days, anchor };
-  }, [bodyTrendDaysWithActivity, bodyTrendSessions, trendPeriodDays]);
+  }, [bodyTrendDaysWithActivity, bodyTrendSessions, trendPeriodDays, userBmrAnchor]);
 
   const hasEnergyHistory = useMemo(
     () =>
