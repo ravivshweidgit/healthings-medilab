@@ -54,6 +54,15 @@
         white-space: nowrap;
         overflow-wrap: normal;
       }
+      /* Name cells: force one edge so Hebrew dir=auto does not flip column align. */
+      .admin-app-wrap .usage-table th.admin-name,
+      .admin-app-wrap .usage-table td.admin-name {
+        text-align: left;
+      }
+      .admin-app-wrap .usage-table td.admin-name > span {
+        display: inline-block;
+        text-align: left;
+      }
     </style>
   </head>
   <body class="admin-console">
@@ -241,8 +250,8 @@
         el.innerHTML = `
           <table class="usage-table">
             <thead><tr>
-              <th>First name</th>
-              <th>Last name</th>
+              <th class="admin-name">First name</th>
+              <th class="admin-name">Last name</th>
               <th>Email</th>
               <th>Events</th>
               <th>Credits</th>
@@ -256,8 +265,8 @@
                   const last = (p.lastName || '').trim() || '—';
                   return `
                 <tr>
-                  <td class="admin-cell" dir="auto">${escHtml(first)}</td>
-                  <td class="admin-cell" dir="auto">${escHtml(last)}</td>
+                  <td class="admin-cell admin-name"><span dir="auto">${escHtml(first)}</span></td>
+                  <td class="admin-cell admin-name"><span dir="auto">${escHtml(last)}</span></td>
                   <td class="admin-cell" dir="ltr">${escHtml(p.patientEmail)}</td>
                   <td class="admin-cell">${escHtml(p.eventCount)}</td>
                   <td class="admin-cell">${escHtml(p.totalTokens)}</td>
