@@ -762,11 +762,13 @@ h3,
 }
 .lipid-chart-box {
   width: 100%;
+  max-width: 600px;
+  margin-inline: auto;
   overflow: hidden;
   display: flex;
   justify-content: center;
 }
-.lipid-chart-box svg { display: block; max-width: 100%; }
+.lipid-chart-box svg { display: block; max-width: 100%; width: 100%; height: auto; }
 .lipid-disclaimer {
   font-size: 0.68rem;
   color: var(--muted);

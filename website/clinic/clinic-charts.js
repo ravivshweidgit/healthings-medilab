@@ -1287,7 +1287,7 @@
       return;
     }
 
-    const chartW = Math.max(280, host.clientWidth || 640);
+    const chartW = Math.min(600, Math.max(280, host.clientWidth || 640));
     const stripDefs = buildLipidStripDefs(gender);
     const n = pts.length;
     const plotLeft = LIPID_PAD_L;
@@ -1548,7 +1548,7 @@
       return;
     }
     const pts = series.points;
-    const chartW = Math.max(280, host.clientWidth || 640);
+    const chartW = Math.min(600, Math.max(280, host.clientWidth || 640));
     const n = pts.length;
     const plotLeft = LIPID_PAD_L;
     const innerW = Math.max(1, chartW - plotLeft - LIPID_PAD_R);
