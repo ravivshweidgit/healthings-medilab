@@ -1361,7 +1361,10 @@
         svg += `<line x1="${plotLeft}" y1="${LIPID_PAD_TOP + strip.stripIdx * LIPID_STRIP_UNIT}" x2="${chartRight}" y2="${LIPID_PAD_TOP + strip.stripIdx * LIPID_STRIP_UNIT}" stroke="${LIPID_GRID}" stroke-width="1" opacity="0.6"/>`;
       }
       const label = strip.def.label;
-      svg += `<text x="${plotLeft + 4}" y="${LIPID_PAD_TOP + strip.stripIdx * LIPID_STRIP_UNIT + 11}" fill="${strip.def.color}" font-size="9" font-weight="700">${label} · ${strip.def.thresholdLabel} mg/dL</text>`;
+      const titleX = (plotLeft + chartRight) / 2;
+      // direction=ltr + middle: portal RTL was anchoring start on the right and
+      // painting the title off the left edge (clipped to "00 mg/dL").
+      svg += `<text x="${titleX}" y="${LIPID_PAD_TOP + strip.stripIdx * LIPID_STRIP_UNIT + 12}" fill="${strip.def.color}" font-size="10" font-weight="700" text-anchor="middle" direction="ltr">${label} · ${strip.def.thresholdLabel} mg/dL</text>`;
       if (strip.safeRect) {
         svg += `<rect x="${plotLeft}" y="${strip.safeRect.y}" width="${chartRight - plotLeft}" height="${strip.safeRect.h}" fill="${LIPID_SAFE_FILL}" opacity="${LIPID_SAFE_OPACITY}"/>`;
       }
@@ -1591,7 +1594,8 @@
       : `${series.code}${unitSuffix}`;
 
     let svg = plotBackdrop(chartW, svgH, chartPalette().plotBg);
-    svg += `<text x="${plotLeft + 4}" y="${LIPID_PAD_TOP + 11}" fill="${color}" font-size="9" font-weight="700">${escapeXml(stripTitle)}</text>`;
+    const titleX = (plotLeft + chartRight) / 2;
+    svg += `<text x="${titleX}" y="${LIPID_PAD_TOP + 12}" fill="${color}" font-size="10" font-weight="700" text-anchor="middle" direction="ltr">${escapeXml(stripTitle)}</text>`;
     if (safeRect) {
       svg += `<rect x="${plotLeft}" y="${safeRect.y}" width="${chartRight - plotLeft}" height="${safeRect.h}" fill="${lt.safeFill}" opacity="${lt.safeOpacity}"/>`;
     }

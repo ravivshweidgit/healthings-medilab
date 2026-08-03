@@ -313,11 +313,12 @@ export function LipidTrendChart({ points, rtl, gender, langCode, hideTitle }: Pr
             ) : null}
 
             <SvgText
-              x={prepared.plotLeft + 4}
-              y={PAD_TOP + strip.stripIdx * STRIP_UNIT + 11}
+              x={(prepared.plotLeft + prepared.chartRight) / 2}
+              y={PAD_TOP + strip.stripIdx * STRIP_UNIT + 12}
               fill={strip.def.color}
-              fontSize={9}
+              fontSize={10}
               fontWeight="700"
+              textAnchor="middle"
             >
               {rtl ? strip.def.labelHe : strip.def.label} · {strip.def.thresholdLabel} mg/dL
             </SvgText>

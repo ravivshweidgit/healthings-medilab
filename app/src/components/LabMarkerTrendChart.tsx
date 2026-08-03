@@ -192,11 +192,12 @@ export function LabMarkerTrendChart({ series, rtl, langCode, hideTitle }: Props)
       <View style={styles.chartBox}>
         <Svg width={prepared.chartW} height={prepared.svgH}>
           <SvgText
-            x={prepared.plotLeft + 4}
-            y={PAD_TOP + 11}
+            x={(prepared.plotLeft + prepared.chartW - PAD_R) / 2}
+            y={PAD_TOP + 12}
             fill={prepared.color}
-            fontSize={9}
+            fontSize={10}
             fontWeight="700"
+            textAnchor="middle"
           >
             {stripTitle}
           </SvgText>
