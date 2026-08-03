@@ -1,6 +1,6 @@
 # Google Play — internal testing (alpha)
 
-Step-by-step for **Healthings Medilab** (`com.healthings.medilab`). Spec: `prompts/app/prompt47.txt`.
+Step-by-step for **Healthings Medilab** (`com.healthings.medilab`). Spec: `prompts/app/001-099/prompt47.txt`.
 
 ## Prerequisites
 
@@ -168,5 +168,5 @@ Redeploy website → Play button appears on https://healthings.ai
 
 - `app/scripts/bundle-release.ps1` — AAB build
 - `website/privacy.html` — privacy policy
-- `prompts/app/prompt47.txt` — full spec
-- `prompts/app/done/prompt15.txt` — release signing
+- `prompts/app/001-099/prompt47.txt` — full spec
+- `prompts/app/001-099/done/prompt15.txt` — release signing

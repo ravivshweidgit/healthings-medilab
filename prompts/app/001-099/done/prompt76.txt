@@ -68,7 +68,7 @@ Brand does not matter. User populates the phone health store; Healthings only re
 
 ### Related
 
-- `prompts/app/prompt56.txt` — HealthKit activity marked shipped for steps/HR path
-- `prompts/app/prompt65.txt` — Watch No no longer `none`
+- `prompts/app/001-099/prompt56.txt` — HealthKit activity marked shipped for steps/HR path
+- `prompts/app/001-099/prompt65.txt` — Watch No no longer `none`
 - Persistence parity: adapters merge into `healthings:metricsStore` only
 - **Watch On walking superseded by `done/prompt80.txt`** (Withings distance×weight + bike; this prompt remains Watch Off)

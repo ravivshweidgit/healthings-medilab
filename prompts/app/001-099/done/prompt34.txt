@@ -5,7 +5,7 @@ reviews made the status row and chat fallback unnecessary for this user (chart =
 Phase 2 manual sub-65 exclusions deferred — revisit only if compression lows become a real problem.
 
 **Split from prompt21 (2026-06-17).** Prompt21 is done: persistence layer, HC/CSV merge,
-mentor sync-on-read, chart, filters, TODAY WORKOUTS. See `prompts/app/done/prompt21.txt`.
+mentor sync-on-read, chart, filters, TODAY WORKOUTS. See `prompts/app/001-099/done/prompt21.txt`.
 
 This prompt tracked **optional** UX and a small chat fallback — closed without implementation.
 

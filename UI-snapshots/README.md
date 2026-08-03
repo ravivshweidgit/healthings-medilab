@@ -1,6 +1,6 @@
 # UI snapshots
 
-On-device / rendered screenshots for the UI/UX review (`prompts/app/prompt92.txt`, Opus 4.8).
+On-device / rendered screenshots for the UI/UX review (`prompts/app/001-099/prompt92.txt`, Opus 4.8).
 
 Capture light mode, real data unless noted. Suggested naming:
 `passN-screen[-locale][-state].png` — e.g. `pass1-language-gate-he.png`,

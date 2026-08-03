@@ -47,5 +47,5 @@
 
 ### Related
 
-- `prompts/app/prompt65.txt` — manual body UX line updated to dual fields
+- `prompts/app/001-099/prompt65.txt` — manual body UX line updated to dual fields
 - Auto-apply / units: `done/prompt72.txt`

@@ -7,24 +7,40 @@ alwaysApply: true
 
 ## Layout — one rule, both halves
 
-**A file at the top level is open. A file in `done/` is shipped.** No third state, no nesting.
+**A file at the range-folder root is open. A file in that range’s `done/` is shipped.** No third state.
+
+App specs are split by **number range** (not by executor/model):
 
 ```
 prompts/app/
-  promptNN.txt      ← open / planned (not yet done)
-  done/
-    promptNN.txt    ← shipped or explicitly closed
-    README.md       ← index of done + open table
-  macros/           ← exported Gemini prompt dumps (reference, not ship specs)
+  README.md                 ← master index + links
+  001-099/
+    promptNN.txt            ← open / planned (01–99, incl. 40b / 81b)
+    done/
+      promptNN.txt          ← shipped or explicitly closed
+      README.md             ← done index for this range
+  100-200/
+    promptNN.txt            ← open / planned (100–200)
+    done/
+      promptNN.txt
+      README.md
+  # next band when needed: 201-300/, …
+
+prompts/macros/             ← exported Gemini prompt dumps (reference, not ship specs)
 
 prompts/backend/
-  README.md         ← the index: open batches table, status values, review loop
-  be-NN-….md        ← open batches (ready / in_progress / needs-review / blocked)
+  README.md                 ← the index: open batches table, status values, review loop
+  be-NN-….md                ← open batches (ready / in_progress / needs-review / blocked)
   done/
-    be-NN-….md      ← shipped + owner-accepted (record only)
-    README.md       ← index of done
-  briefs/           ← reusable investigation packs + batch TEMPLATE (no code ships from here)
+    be-NN-….md              ← shipped + owner-accepted (record only)
+    README.md               ← index of done
+  briefs/                   ← reusable investigation packs + batch TEMPLATE (no code ships from here)
 ```
+
+| App number | Folder |
+|------------|--------|
+| 01–99 | `prompts/app/001-099/` |
+| 100–200 | `prompts/app/100-200/` |
 
 ## Do not invent a third axis
 
@@ -35,16 +51,17 @@ re-derived two findings that be-08 had already catalogued.
 
 Never name a prompt folder after **who or what did the work** — not a model (`opus5/`), not an
 executor (`auto/`), not a tool. Executors change per batch and the label goes stale immediately;
-`done/` in particular belongs to no executor. Organize by **state** (open vs done) and find work by
-**topic + number**. A batch's model or agent belongs in its Status line, not its path.
+`done/` in particular belongs to no executor. Organize by **state** (open vs done) and **number
+range**, and find work by **topic + number**. A batch's model or agent belongs in its Status line,
+not its path.
 
 ## When to update prompts
 
 **After shipping a feature batch** (phone-tested or user confirmed):
 
-1. Create or update `prompts/app/done/promptNN.txt` — status, problem, what shipped, files, phone checklist.
-2. Move spec from `prompts/app/` → `done/` if it was backlog; or split (e.g. 40a done, 40b stays backlog).
-3. Update `prompts/app/done/README.md` — one-line entry + backlog table.
+1. Create or update `prompts/app/<range>/done/promptNN.txt` — status, problem, what shipped, files, phone checklist.
+2. Move spec from `prompts/app/<range>/` → `<range>/done/` if it was backlog; or split (e.g. 40a done, 40b stays backlog).
+3. Update that range’s `done/README.md` — one-line entry; update the range open `README.md` backlog table.
 4. Note commit hash in the done spec when available.
 5. If Gemini prompt text changed materially, export to `prompts/macros/` (optional reference dump).
 
@@ -54,9 +71,9 @@ executor (`auto/`), not a tool. Executors change per batch and the label goes st
 
 | State | Location | README |
 |-------|----------|--------|
-| Shipped + tested | `done/` | Listed under done summaries |
-| Planned / partial | top level | Listed in the open table with reason |
-| Closed without ship | `done/` | Note “closed without ship” + why |
+| Shipped + tested | `<range>/done/` | Listed under that range’s done summaries |
+| Planned / partial | `<range>/` root | Listed in that range’s open README table |
+| Closed without ship | `<range>/done/` | Note “closed without ship” + why |
 
 **Backend only:** Auto must not move a batch to `done/` itself. It sets `Status: needs-review` with
 evidence and stops; owner acceptance (“looks ok”, “lgtm”, “works”) is what promotes it.
@@ -90,8 +107,8 @@ Each done prompt should include:
 
 ## Agent checklist (before commit / when user says “ship it”)
 
-- [ ] Done spec written or updated?
-- [ ] `done/README.md` updated (and `prompts/backend/README.md` open table for backend)?
+- [ ] Done spec written or updated under the correct number-range folder?
+- [ ] That range’s `done/README.md` updated (and open `README.md` / `prompts/backend/README.md` as needed)?
 - [ ] Open prompt trimmed if scope moved to done?
 - [ ] No orphaned claims in an open prompt that are already shipped?
 - [ ] Checkboxes actually ticked for work that landed — not left `[ ]` under a `done` header?

@@ -2,46 +2,43 @@
 
 Feature specs for the Healthings MediLab React Native app. **Keep in sync with code** — see `.cursor/rules/prompts-workflow.mdc`.
 
-## Ship priority (2026-07-03)
+## Layout (number ranges)
 
-| Order | Prompt | Topic |
-|-------|--------|--------|
-| **1 — next** | **`prompt54.txt`** | Local-first clinic relay — **Share button shipped**; server relay + revoke purge pending |
-| 2 | **`prompt65.txt`** | **iOS TestFlight Withings-first** — no HealthKit v1; platform guards + EAS (Apple Dev enrolled) |
-| 3 | **`prompt56.txt`** | **iOS Phase 2** — HealthKit glucose/steps (after 65 alpha) |
-| 4 | `prompt52.txt` | My Rules rawText-only save (optional with 54) |
+Open vs done is unchanged: **open at the range folder root**, **shipped under that range’s `done/`**.
 
-## Backlog (`prompts/app/`)
+```
+prompts/app/
+  README.md                 ← this index
+  001-099/
+    promptNN.txt            ← open / planned (01–99)
+    done/
+      promptNN.txt          ← shipped
+      README.md             ← done index for 01–99
+  100-200/
+    promptNN.txt            ← open / planned (100–200)
+    done/
+      promptNN.txt          ← shipped
+      README.md             ← done index for 100–200
+```
 
-| File | Topic |
-|------|--------|
-| `prompt98.txt` | In-app Help strip — product Q&A in `appLocale` |
-| `prompt31.txt` | Source config spec — **shipped in `done/prompt55.txt`** |
-| `prompt32.txt` | Backup import QA + hardening |
-| `prompt38.txt` | Secondary lab findings (liver, iron, uric acid) |
-| `prompt40b.txt` | Day/week meal plans, export, food preferences |
-| `prompt46.txt` | Medical rules import + My Rules (medical overrides; conflict feedback) |
-| `prompt47.txt` | Play Store internal testing (local-first privacy; AAB + privacy page) |
-| `prompt49.txt` | Link to clinic + share encrypted data + sponsored AI badge |
-| `prompt52.txt` | My Rules rawText-only save — deprecate summarise-on-save |
-| `prompt65.txt` | iOS TestFlight Withings-first — no HealthKit v1 |
-| `prompt56.txt` | **Partial:** HealthKit glucose on TF **1.2.2 (23)**; steps/HR still backlog |
-| `prompt66.txt` | Macro target stability — day snapshots + dampened auto-apply (code in; phone test pending) |
+Macros (Gemini dumps, not ship specs): `prompts/macros/`.
 
-**prompt64** — done (2026-07-12). HC activity Phase 1 + Garmin colleague validation. See `done/prompt64.txt`.
+| Number | Folder |
+|--------|--------|
+| 01–99 (incl. suffixes like `40b`, `81b`) | `001-099/` |
+| 100–200 | `100-200/` |
 
-**prompt77** — done (2026-07-18). Quick Start one-question UX. See `done/prompt77.txt`.
+When numbering past 200, add the next range folder the same way (e.g. `201-300/`).
 
-**prompt78** — done (2026-07-18). HEALTHINGS.AI brand lockup. See `done/prompt78.txt`.
+## Open / backlog
 
-**prompt79** — done (2026-07-19). Pull-refresh performance (~9s→~4s). See `done/prompt79.txt`.
+### 001–099 — see [`001-099/README.md`](./001-099/README.md)
 
-## Done (`prompts/app/done/`)
+### 100–200 — see [`100-200/README.md`](./100-200/README.md)
 
-See [done/README.md](./done/README.md) for the full index.
+## Done indexes
 
-Recent: **79** pull-refresh perf · **78** HEALTHINGS.AI brand · **77** Quick Start UX · **76** phone health Watch Off.
+- [`001-099/done/README.md`](./001-099/done/README.md)
+- [`100-200/done/README.md`](./100-200/done/README.md)
 
-## Macros reference dumps
-
-`prompts/macros/macro-gemini-prompt_*.txt` — exported Gemini context samples; not ship specs.
+Recent: **100** mentor copy + file attach · **99** lab gauge / `refLow`·`refHigh` · **97** metabolic label collision.

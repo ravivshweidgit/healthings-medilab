@@ -66,6 +66,6 @@ After Phase A (language gate + Quick Start + help), Dashboard / Food Log / Profi
 ### Related
 
 - Phase A: `done/prompt81.txt`
-- Spec that this closes: `prompts/app/prompt81b.txt` (pointer → this file)
+- Spec that this closes: `prompts/app/001-099/prompt81b.txt` (pointer → this file)
 - Language policy: `.cursor/rules/language-policy.mdc` (updated for Phase B)
 - Follow-up chrome: `done/prompt88.txt`

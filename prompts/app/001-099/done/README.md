@@ -1,21 +1,10 @@
-# Done prompts
+# Done prompts (001–099)
 
-Implemented prompt specs live here after they ship (phone-tested or explicitly closed).
+Implemented prompt specs in this range after they ship (phone-tested or explicitly closed).
 
-**prompt100** — done (2026-08-02). Mentor chat: long-press Copy (`expo-clipboard`, 10 locales); PDF/TXT File attach via in-chat sheet (back dismisses); Food Log save/nutritionist alerts in `appLocale`. Android 1.2.27 (55). See `done/prompt100.txt`.
+Open / backlog for this range: [../README.md](../README.md)
 
 **prompt99** — done (2026-08-02). Lab parse: canonical English names + `nameOriginal`; Meuhedet gauge layout (value above marker, not range ends); `refLow`/`refHigh` + second-pass repair; delete-report UI; portal range line. Phone-tested Meuhedet TSH 3.64. See `done/prompt99.txt`.
-
-Active / backlog specs stay in `prompts/app/`:
-
-| File | Why still active |
-|------|------------------|
-| prompt31.txt | Spec only — **shipped in done/prompt55** (source_config + Samsung steps) |
-| prompt32.txt | Spec only — backup import QA + hardening (deferred) |
-| prompt38.txt | Planned — secondary lab findings (liver, iron, uric acid) |
-| prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
-| `prompt81b.txt` | **Shipped** — Phase B → `done/prompt87.txt` |
-| `prompt92.txt` | UI/UX review brief + **review output (2026-07-24, Opus 4.8)** — 19 findings F2–F20 (F1 withdrawn), batches A–E; feeds prompt93+ |
 
 **prompt97** — done (2026-07-25). Metabolic chart label collision: workout names moved to their own 12px lane above the calorie bars (chart grew 273→285 so the glucose plot kept its resolution), meal kcal numbers keep the strip, each lane placed greedily by kcal so the biggest events keep their text and dropped labels still show bar/▼. Axis time labels thinned by measured width (tick marks stay). Fixed three overlaps at the default 12H view, including a 548 kcal meal that was being drawn *underneath* a neighbour and was invisible. Phone-tested 3H/6H/12H/24H. See `done/prompt97.txt`.
 
@@ -30,12 +19,6 @@ Active / backlog specs stay in `prompts/app/`:
 **prompt93** — done (2026-07-24). First-impression UI polish from audit batches A+B: AA secondary text, unified chevron, navy Gallery, solid Meal/water, QS Step N of M, coach tips badge, stable QS progress, compact Yes/No heroes, unified language gate. Phone-tested. See `done/prompt93.txt`.
 
 **prompt58** — done (2026-07-07). Editable Your setup: 3 toggles (scale/watch/CGM), HC steps when watch off, no OAuth auto-promote. Compile-check OK; phone test pending. See `done/prompt58.txt`.
-
-| prompt40b.txt | Planned — day/week meal plans, export, food preferences (after 40a) |
-| prompt60.txt | **Shipped** — see `done/prompt68.txt` for restore fix; feature live, remaining checklist in prompt60 |
-| `prompt64.txt` | **Phase 1 shipped** (`10569f2`); **Garmin phone-tested success 2026-07-12** → `done/prompt64.txt` |
-| `prompt65.txt` | **iOS TestFlight Withings-first** — no HealthKit v1; EAS + platform guards (Apple Dev enrolled 2026-07-10) |
-| `prompt56.txt` | **Partial:** HealthKit glucose on TF **1.2.2 (23)**; steps/HR still backlog |
 
 **prompt61** — done (2026-07-08). One-tap text meal save; modal stays open for Done review. Phone-tested. See `done/prompt61.txt`.
 

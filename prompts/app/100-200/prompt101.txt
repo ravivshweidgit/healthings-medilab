@@ -1,0 +1,80 @@
+## Prompt 101 — Custom lab parameter historical chart
+
+**Status:** open / planned (2026-08-03)
+
+**Builds on:** prompt48 (lipid strips), prompt99 (`refLow`/`refHigh`), prompt39 (lab strip)
+
+---
+
+### Problem
+
+Lipid trends already chart Total/LDL/TG/HDL with fixed adult thresholds. Users (and clinic/account viewers) also want a **historical chart for any other lab item** (e.g. TSH, creatinine, glucose) with a green **from–to** band from that item’s reference range.
+
+---
+
+### Locked decisions (owner 2026-08-03)
+
+| Decision | Choice |
+|----------|--------|
+| Charts | **One** custom chart, **one** parameter |
+| Picker | Dropdown with **filter / autocomplete**; options = union of markers across saved draws, **grouped by code** |
+| Match | Exact **code** (aliases via existing code sets where applicable) |
+| Lipid codes | **Exclude** LDL / total chol / HDL / TG (and their aliases) — dedicated lipid chart covers them |
+| Green band | **`refLow`–`refHigh`** range fill (white outside) — not lipid-style single threshold |
+| Range when draws differ | **One item → one range.** Use a single from–to for the whole series (prefer latest draw that has both `refLow` and `refHigh` for that code) |
+| Clinic / account | **Independent pick** (viewer chooses). Default to patient’s saved pick when present; changing it is view-only and does **not** write back to the patient |
+| Collapsible | Lipid chart becomes its own collapsible; custom chart under it (app) / near it (clinic·account), also collapsible |
+
+---
+
+### Behaviour
+
+1. Collect unique markers from all `LabReport` panels (code + display name + unit).
+2. Drop lipid codes: `CHOLESTEROL_LDL` / `LDL`…, `CHOLESTEROL` / `TOTAL_CHOL`…, `CHOLESTEROL_HDL` / `HDL`…, `TRIGLYCERIDES` / `TG`… (same sets as `LabLogService`).
+3. User picks one code via searchable dropdown.
+4. Build points: oldest→newest draws that contain that code; need **≥2** values to draw.
+5. Green band: single `refLow`/`refHigh` as above. If neither bound exists → chart still draws, **no** green band (or show hint).
+6. App persists selection: AsyncStorage key e.g. `lab_custom_trend_code` (include in backup/sync so clinic can default).
+7. Collapse prefs: e.g. `dash_lab_lipid_chart_expanded`, `dash_lab_custom_chart_expanded` (app); clinic/account session or `localStorage` for viewer override + collapse.
+
+---
+
+### Surfaces
+
+| Surface | UI |
+|---------|-----|
+| **App** `LabResultsStrip` | After report chips: collapsible **Cholesterol trends** (existing `LipidTrendChart`) → collapsible **Lab trend** (picker + single-series chart) |
+| **Clinic / Account** lipids (or labs-adjacent) tab | Same: lipid card collapsible; custom marker card with picker defaulting from patient key, local override |
+
+---
+
+### Implementation sketch
+
+| Piece | Role |
+|-------|------|
+| `LabLogService` | `listLabTrendMarkerOptions(reports)`, `buildLabMarkerTrendPoints(reports, code)`, `isLipidChartCode(code)`, single-range picker helper |
+| New chart component (or shared strip) | One strip; `mode: 'range'`; `safeBand` = fill between mapped `refLow` and `refHigh` |
+| `clinic-charts.js` | Mirror `buildMarkerTrendPoints` + `drawMarkerTrendChart` |
+| `clinic-workspace.js` | Picker + both collapsible cards; account shares via `selfView` |
+| i18n | `labResultsStripCopy` + clinic `t()` keys (10 langs) |
+
+**Do not** parse marker names with regex for clinical meaning — codes only (ai-judgment-not-regex).
+
+---
+
+### Phone / portal checklist (when shipping)
+
+- [ ] Pick TSH (or creatinine) with ≥2 draws → line + green from–to
+- [ ] Lipid codes absent from dropdown
+- [ ] Lipid + custom each collapse independently
+- [ ] Clinic defaults to patient pick; changing clinic pick does not alter phone storage
+- [ ] Account same rendering path as clinic
+- [ ] Backup/restore keeps `lab_custom_trend_code`
+
+---
+
+### Deferred
+
+- Multiple simultaneous custom series
+- Visit-report Appendix A export of custom series
+- Per-point varying ranges across draws

@@ -132,7 +132,7 @@ We do **not** compete on App Store polish or mass marketing today. We compete on
 - [Key rule & channels](./key-rule.md) — ICP filter, community + clinic  
 - [Nutrisense vs MediLab](./Nutricence-medilab.md) — battle card, clinic synergy  
 - [Product readme](../readme.md) — vision & architecture  
-- [Shipped specs](../prompts/app/done/README.md) — feature depth (prompt35–42)
+- [Shipped specs](../prompts/app/001-099/done/README.md) — feature depth (prompt35–42)
 
 ---
 

@@ -1,6 +1,6 @@
 # Apple TestFlight — internal testing (iOS)
 
-Step-by-step for **Healthings** (`com.healthings.medilab`). Spec: `prompts/app/prompt65.txt`.
+Step-by-step for **Healthings** (`com.healthings.medilab`). Spec: `prompts/app/001-099/prompt65.txt`.
 
 ## Prerequisites
 
@@ -251,5 +251,5 @@ Bump both before each store upload. Android: `app/android/app/build.gradle`. iOS
 ## Related
 
 - `server/PLAY-CONSOLE-INTERNAL.md` — Android Play internal
-- `prompts/app/prompt65.txt` — full iOS scope (Phases A–D)
-- `prompts/app/prompt56.txt` — HealthKit Phase 2
+- `prompts/app/001-099/prompt65.txt` — full iOS scope (Phases A–D)
+- `prompts/app/001-099/prompt56.txt` — HealthKit Phase 2

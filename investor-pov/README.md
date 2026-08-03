@@ -4,7 +4,7 @@ Internal positioning memo. Not a pitch deck. Update when traction, ICP, or GTM c
 
 **Send to advisors:** [EXECUTIVE-SUMMARY.md](./EXECUTIVE-SUMMARY.md) · [key-rule.md](./key-rule.md) (ICP + dual channels) · [COMPETITOR-SCORES.md](./COMPETITOR-SCORES.md) · [Nutricence-medilab.md](./Nutricence-medilab.md)
 
-**Product repo:** [../readme.md](../readme.md) · **Shipped specs:** [../prompts/app/done/README.md](../prompts/app/done/README.md)
+**Product repo:** [../readme.md](../readme.md) · **Shipped specs:** [../prompts/app/001-099/done/README.md](../prompts/app/001-099/done/README.md)
 
 ---
 
@@ -118,7 +118,7 @@ Investors will ask: **Who pays, CAC, churn after month 3, and one outcome metric
 - Tailwinds: consumer CGM, GLP-1 awareness, longevity, AI health.
 - Clinical-ish macro logic (cholesterol, kidney caps, energy balance) with **human-in-the-loop**.
 - Multiple GTM paths (D2C, clinic, employer, regional).
-- Builder credibility: documented ship cadence in `prompts/app/done/`.
+- Builder credibility: documented ship cadence in `prompts/app/001-099/done/` (and `100-200/done/`).
 
 ---
 
@@ -160,7 +160,7 @@ Investors will ask: **Who pays, CAC, churn after month 3, and one outcome metric
 - **App:** `app/` — React Native, Android release APK workflow
 - **Macro brain:** `macroAutoAdjust.ts`, `macroFiberCoupling.ts`, `GeminiService` macro revision prompt
 - **CGM:** persistence, period reviews, meal–glucose analysis
-- **Specs:** `prompts/app/done/` — prompt35–42 cover macros, CGM chat, recipes, guards
+- **Specs:** `prompts/app/001-099/done/` — prompt35–42 cover macros, CGM chat, recipes, guards
 
 ---
 

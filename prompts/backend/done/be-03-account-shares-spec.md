@@ -173,7 +173,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT;
 
 ## App integration (phase 2b — **`prompt49.txt`**)
 
-Full UI spec: **`prompts/app/prompt49.txt`**. Summary:
+Full UI spec: **`prompts/app/001-099/prompt49.txt`**. Summary:
 
 | Surface | Behavior |
 |---------|----------|

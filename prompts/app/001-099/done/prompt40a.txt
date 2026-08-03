@@ -4,7 +4,7 @@
 
 Commits: `0709809` (recipe cards) + follow-up (slash-only, English commands, autocomplete, food-log refresh).
 
-Spec split: **40b** → `prompts/app/prompt40b.txt` (day/week plans, export, preferences).
+Spec split: **40b** → `prompts/app/001-099/prompt40b.txt` (day/week plans, export, preferences).
 
 Builds on **prompt39** (food log history) and **MacroProposalCard** pattern (`/macros`).
 

@@ -23,7 +23,7 @@ PART G (manual low-corruption exclusions) ships **after** connection UX is confi
 **Not in scope:** direct BLE to CareSens, SmartLog cloud, iOS HealthKit, prompt09 7-day
 glucose overlay chart, prompt08 visceral+glucose pair card (defer).
 
-**Architecture reference:** `prompts/app/done/prompt29.txt` — persistence-first principle;
+**Architecture reference:** `prompts/app/001-099/done/prompt29.txt` — persistence-first principle;
 `CgmPersistenceService.ts` + `HealthPersistenceService.ts`.
 
 ---
