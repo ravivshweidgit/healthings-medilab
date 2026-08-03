@@ -61,7 +61,7 @@
     sendInvite: 'Send invite',
     sendingInvite: 'Sending…',
     inviteNote:
-      'They get an email and must approve in the app before anything is shared. Use Cover AI on a linked patient to pay for their coach.',
+      'They get an email and must approve in the app before anything is shared. To pay for AI without data sharing, use Cover AI by email below.',
     inviteNeedsEmail: 'Enter the patient email address.',
     inviteNotEmail: 'That does not look like an email address.',
     inviteFailed: 'Invite failed — try again.',
@@ -71,6 +71,14 @@
     inviteSavedNoEmail:
       'Invite saved for {email}, but the email could not be sent. Ask them to open the Healthings app and check pending clinic invites, or try again later.',
 
+    coverAiLabel: 'Cover AI by email',
+    coverAiPlaceholder: 'patient@example.com',
+    coverAiSend: 'Cover AI (90 days)',
+    coverAiWorking: 'Starting coverage…',
+    coverAiNote:
+      'Pays for their coach only — no snapshot or data share. Patient must already have a Healthings account. They appear under Linked only after an invite is accepted.',
+    coverAiNeedsEmail: 'Enter the patient email address.',
+    coverAiNotEmail: 'That does not look like an email address.',
     filterLabel: 'Patient list filter',
     filterLinked: 'Linked',
     filterPending: 'Pending',
@@ -295,7 +303,7 @@
     sendInvite: 'שליחת הזמנה',
     sendingInvite: 'שולח…',
     inviteNote:
-      'המטופל יקבל אימייל ויאשר באפליקציה לפני שיתוף נתונים. ב״כיסוי AI״ למטופל מקושר ניתן לממן את המאמן עבורו.',
+      'הם מקבלים אימייל וחייבים לאשר באפליקציה לפני שיתוף. כדי לשלם על AI בלי שיתוף נתונים, השתמשו ב«כיסוי AI לפי אימייל» למטה.',
     inviteNeedsEmail: 'הזינו את אימייל המטופל.',
     inviteNotEmail: 'זה לא נראה כמו כתובת אימייל.',
     inviteFailed: 'ההזמנה נכשלה — נסו שוב.',
@@ -304,6 +312,14 @@
       'נשלחה הזמנה אל {email}. יישלח אימייל — אין שיתוף עד לאישור באפליקציה. ההזמנה מופיעה גם תחת יוצאות.',
     inviteSavedNoEmail:
       'ההזמנה נשמרה עבור {email}, אך האימייל לא נשלח. בקשו לפתוח את אפליקציית Healthings ולבדוק הזמנות ממתינות, או נסו מאוחר יותר.',
+    coverAiLabel: 'כיסוי AI לפי אימייל',
+    coverAiPlaceholder: 'patient@example.com',
+    coverAiSend: 'כיסוי AI (90 יום)',
+    coverAiWorking: 'מתחיל כיסוי…',
+    coverAiNote:
+      'משלם רק על ה־AI שלהם — בלי צילום מצב או שיתוף נתונים. למטופל חייב להיות חשבון Healthings. הם יופיעו תחת מקושרים רק אחרי הזמנה שאושרה.',
+    coverAiNeedsEmail: 'הזינו את אימייל המטופל.',
+    coverAiNotEmail: 'זה לא נראה כמו כתובת אימייל.',
     filterLabel: 'סינון רשימת מטופלים',
     filterLinked: 'מקושרים',
     filterPending: 'ממתינים',
@@ -518,7 +534,7 @@
     sendInvite: 'Enviar invitación',
     sendingInvite: 'Enviando…',
     inviteNote:
-      'Recibirán un correo y deben aprobar en la app antes de compartir datos. Con «Cubrir IA» en un paciente vinculado usted paga su coach.',
+      'They get an email and must approve in the app before anything is shared. To pay for AI without data sharing, use Cover AI by email below.',
     inviteNeedsEmail: 'Introduzca el correo del paciente.',
     inviteNotEmail: 'Eso no parece una dirección de correo.',
     inviteFailed: 'La invitación falló — inténtelo de nuevo.',
@@ -527,6 +543,14 @@
       'Invitación enviada a {email}. Recibirán un correo — no se comparte nada hasta que aprueben en la app. También aparece en Salientes.',
     inviteSavedNoEmail:
       'Invitación guardada para {email}, pero no se pudo enviar el correo. Pídales que abran la app Healthings y revisen las invitaciones pendientes, o inténtelo más tarde.',
+    coverAiLabel: 'Cover AI by email',
+    coverAiPlaceholder: 'patient@example.com',
+    coverAiSend: 'Cover AI (90 days)',
+    coverAiWorking: 'Starting coverage…',
+    coverAiNote:
+      'Pays for their coach only — no snapshot or data share. Patient must already have a Healthings account. They appear under Linked only after an invite is accepted.',
+    coverAiNeedsEmail: 'Enter the patient email address.',
+    coverAiNotEmail: 'That does not look like an email address.',
     filterLabel: 'Filtro de lista de pacientes',
     filterLinked: 'Vinculados',
     filterPending: 'Pendientes',
@@ -745,7 +769,7 @@
     sendInvite: 'Envoyer l’invitation',
     sendingInvite: 'Envoi…',
     inviteNote:
-      'Ils reçoivent un e-mail et doivent approuver dans l’app avant tout partage. « Couvrir IA » sur un patient lié finance leur coach.',
+      'They get an email and must approve in the app before anything is shared. To pay for AI without data sharing, use Cover AI by email below.',
     inviteNeedsEmail: 'Saisissez l’e-mail du patient.',
     inviteNotEmail: 'Cela ne ressemble pas à une adresse e-mail.',
     inviteFailed: 'Invitation échouée — réessayez.',
@@ -754,6 +778,14 @@
       'Invitation envoyée à {email}. Un e-mail partira — rien n’est partagé tant qu’ils n’ont pas approuvé dans l’app. Visible aussi sous Sortantes.',
     inviteSavedNoEmail:
       'Invitation enregistrée pour {email}, mais l’e-mail n’a pas pu être envoyé. Demandez-leur d’ouvrir l’app Healthings et de vérifier les invitations en attente, ou réessayez plus tard.',
+    coverAiLabel: 'Cover AI by email',
+    coverAiPlaceholder: 'patient@example.com',
+    coverAiSend: 'Cover AI (90 days)',
+    coverAiWorking: 'Starting coverage…',
+    coverAiNote:
+      'Pays for their coach only — no snapshot or data share. Patient must already have a Healthings account. They appear under Linked only after an invite is accepted.',
+    coverAiNeedsEmail: 'Enter the patient email address.',
+    coverAiNotEmail: 'That does not look like an email address.',
     filterLabel: 'Filtre de la liste patients',
     filterLinked: 'Liés',
     filterPending: 'En attente',
@@ -972,7 +1004,7 @@
     sendInvite: 'Einladung senden',
     sendingInvite: 'Wird gesendet…',
     inviteNote:
-      'Sie erhalten eine E-Mail und müssen in der App zustimmen, bevor Daten geteilt werden. Mit „KI zahlen“ für einen verknüpften Patienten zahlen Sie deren Coach.',
+      'They get an email and must approve in the app before anything is shared. To pay for AI without data sharing, use Cover AI by email below.',
     inviteNeedsEmail: 'Geben Sie die E-Mail des Patienten ein.',
     inviteNotEmail: 'Das sieht nicht wie eine E-Mail-Adresse aus.',
     inviteFailed: 'Einladung fehlgeschlagen — bitte erneut versuchen.',
@@ -981,6 +1013,14 @@
       'Einladung an {email} gesendet. Es folgt eine E-Mail — nichts wird geteilt, bis sie in der App zustimmen. Auch unter Ausgehend sichtbar.',
     inviteSavedNoEmail:
       'Einladung für {email} gespeichert, aber die E-Mail konnte nicht gesendet werden. Bitten Sie, die Healthings-App zu öffnen und ausstehende Klinikeinladungen zu prüfen, oder versuchen Sie es später.',
+    coverAiLabel: 'Cover AI by email',
+    coverAiPlaceholder: 'patient@example.com',
+    coverAiSend: 'Cover AI (90 days)',
+    coverAiWorking: 'Starting coverage…',
+    coverAiNote:
+      'Pays for their coach only — no snapshot or data share. Patient must already have a Healthings account. They appear under Linked only after an invite is accepted.',
+    coverAiNeedsEmail: 'Enter the patient email address.',
+    coverAiNotEmail: 'That does not look like an email address.',
     filterLabel: 'Patientenliste filtern',
     filterLinked: 'Verknüpft',
     filterPending: 'Ausstehend',
@@ -1199,7 +1239,7 @@
     sendInvite: 'إرسال الدعوة',
     sendingInvite: 'جارٍ الإرسال…',
     inviteNote:
-      'يستلمون بريداً ويجب الموافقة في التطبيق قبل أي مشاركة. استخدم «تغطية AI» لمريض مرتبط لتمويل مدربه.',
+      'They get an email and must approve in the app before anything is shared. To pay for AI without data sharing, use Cover AI by email below.',
     inviteNeedsEmail: 'أدخل بريد المريض.',
     inviteNotEmail: 'هذا لا يبدو عنوان بريد إلكتروني.',
     inviteFailed: 'فشلت الدعوة — حاول مجدداً.',
@@ -1208,6 +1248,14 @@
       'أُرسلت دعوة إلى {email}. سيصل بريد — لا مشاركة حتى الموافقة في التطبيق. تظهر أيضاً تحت الصادرة.',
     inviteSavedNoEmail:
       'حُفظت الدعوة لـ {email} لكن تعذّر إرسال البريد. اطلب فتح تطبيق Healthings والتحقق من دعوات العيادة المعلّقة، أو حاول لاحقاً.',
+    coverAiLabel: 'Cover AI by email',
+    coverAiPlaceholder: 'patient@example.com',
+    coverAiSend: 'Cover AI (90 days)',
+    coverAiWorking: 'Starting coverage…',
+    coverAiNote:
+      'Pays for their coach only — no snapshot or data share. Patient must already have a Healthings account. They appear under Linked only after an invite is accepted.',
+    coverAiNeedsEmail: 'Enter the patient email address.',
+    coverAiNotEmail: 'That does not look like an email address.',
     filterLabel: 'تصفية قائمة المرضى',
     filterLinked: 'مرتبطون',
     filterPending: 'معلّق',
@@ -1422,7 +1470,7 @@
     sendInvite: 'Отправить приглашение',
     sendingInvite: 'Отправка…',
     inviteNote:
-      'Пациент получит письмо и должен подтвердить в приложении до обмена данными. «Оплатить ИИ» у связанного пациента покрывает стоимость его коуча.',
+      'They get an email and must approve in the app before anything is shared. To pay for AI without data sharing, use Cover AI by email below.',
     inviteNeedsEmail: 'Введите e-mail пациента.',
     inviteNotEmail: 'Это не похоже на адрес e-mail.',
     inviteFailed: 'Приглашение не удалось — попробуйте снова.',
@@ -1431,6 +1479,14 @@
       'Приглашение отправлено на {email}. Придёт письмо — обмен начнётся только после подтверждения в приложении. Также видно в Исходящих.',
     inviteSavedNoEmail:
       'Приглашение сохранено для {email}, но письмо не отправлено. Попросите открыть приложение Healthings и проверить ожидающие приглашения клиники или повторите позже.',
+    coverAiLabel: 'Cover AI by email',
+    coverAiPlaceholder: 'patient@example.com',
+    coverAiSend: 'Cover AI (90 days)',
+    coverAiWorking: 'Starting coverage…',
+    coverAiNote:
+      'Pays for their coach only — no snapshot or data share. Patient must already have a Healthings account. They appear under Linked only after an invite is accepted.',
+    coverAiNeedsEmail: 'Enter the patient email address.',
+    coverAiNotEmail: 'That does not look like an email address.',
     filterLabel: 'Фильтр списка пациентов',
     filterLinked: 'Связанные',
     filterPending: 'Ожидают',
@@ -1649,7 +1705,7 @@
     sendInvite: 'Enviar convite',
     sendingInvite: 'Enviando…',
     inviteNote:
-      'Recebem um e-mail e devem aprovar na app antes de partilhar dados. Use «Cobrir IA» num paciente vinculado para pagar o coach dele.',
+      'They get an email and must approve in the app before anything is shared. To pay for AI without data sharing, use Cover AI by email below.',
     inviteNeedsEmail: 'Introduza o e-mail do paciente.',
     inviteNotEmail: 'Isso não parece um endereço de e-mail.',
     inviteFailed: 'O convite falhou — tente novamente.',
@@ -1658,6 +1714,14 @@
       'Convite enviado para {email}. Receberão um e-mail — nada é partilhado até aprovarem na app. Também aparece em Enviados.',
     inviteSavedNoEmail:
       'Convite guardado para {email}, mas o e-mail não pôde ser enviado. Peça para abrirem a app Healthings e verificarem convites de clínica pendentes, ou tente mais tarde.',
+    coverAiLabel: 'Cover AI by email',
+    coverAiPlaceholder: 'patient@example.com',
+    coverAiSend: 'Cover AI (90 days)',
+    coverAiWorking: 'Starting coverage…',
+    coverAiNote:
+      'Pays for their coach only — no snapshot or data share. Patient must already have a Healthings account. They appear under Linked only after an invite is accepted.',
+    coverAiNeedsEmail: 'Enter the patient email address.',
+    coverAiNotEmail: 'That does not look like an email address.',
     filterLabel: 'Filtro da lista de pacientes',
     filterLinked: 'Vinculados',
     filterPending: 'Pendentes',
@@ -1876,7 +1940,7 @@
     sendInvite: 'Invia invito',
     sendingInvite: 'Invio…',
     inviteNote:
-      'Ricevono un’e-mail e devono approvare nell’app prima di condividere i dati. Con «Copri AI» su un paziente collegato paghi il loro coach.',
+      'They get an email and must approve in the app before anything is shared. To pay for AI without data sharing, use Cover AI by email below.',
     inviteNeedsEmail: 'Inserisci l’e-mail del paziente.',
     inviteNotEmail: 'Non sembra un indirizzo e-mail.',
     inviteFailed: 'Invito non riuscito — riprova.',
@@ -1885,6 +1949,14 @@
       'Invito inviato a {email}. Arriverà un’e-mail — nulla è condiviso finché non approvino nell’app. Compare anche in In uscita.',
     inviteSavedNoEmail:
       'Invito salvato per {email}, ma l’e-mail non è stata inviata. Chiedi di aprire l’app Healthings e controllare gli inviti clinici in sospeso, oppure riprova più tardi.',
+    coverAiLabel: 'Cover AI by email',
+    coverAiPlaceholder: 'patient@example.com',
+    coverAiSend: 'Cover AI (90 days)',
+    coverAiWorking: 'Starting coverage…',
+    coverAiNote:
+      'Pays for their coach only — no snapshot or data share. Patient must already have a Healthings account. They appear under Linked only after an invite is accepted.',
+    coverAiNeedsEmail: 'Enter the patient email address.',
+    coverAiNotEmail: 'That does not look like an email address.',
     filterLabel: 'Filtro elenco pazienti',
     filterLinked: 'Collegati',
     filterPending: 'In sospeso',
@@ -2103,7 +2175,7 @@
     sendInvite: 'Davet gönder',
     sendingInvite: 'Gönderiliyor…',
     inviteNote:
-      'E-posta alırlar ve veri paylaşılmadan önce uygulamada onaylamaları gerekir. Bağlı bir hastada «AI karşıla» ile koçunu siz ödersiniz.',
+      'They get an email and must approve in the app before anything is shared. To pay for AI without data sharing, use Cover AI by email below.',
     inviteNeedsEmail: 'Hastanın e-postasını girin.',
     inviteNotEmail: 'Bu bir e-posta adresine benzemiyor.',
     inviteFailed: 'Davet başarısız — tekrar deneyin.',
@@ -2112,6 +2184,14 @@
       '{email} adresine davet gönderildi. E-posta gelecek — uygulamada onaylayana kadar paylaşım yok. Ayrıca Gidenler’de görünür.',
     inviteSavedNoEmail:
       '{email} için davet kaydedildi ancak e-posta gönderilemedi. Healthings uygulamasını açıp bekleyen klinik davetlerini kontrol etmelerini isteyin veya sonra tekrar deneyin.',
+    coverAiLabel: 'Cover AI by email',
+    coverAiPlaceholder: 'patient@example.com',
+    coverAiSend: 'Cover AI (90 days)',
+    coverAiWorking: 'Starting coverage…',
+    coverAiNote:
+      'Pays for their coach only — no snapshot or data share. Patient must already have a Healthings account. They appear under Linked only after an invite is accepted.',
+    coverAiNeedsEmail: 'Enter the patient email address.',
+    coverAiNotEmail: 'That does not look like an email address.',
     filterLabel: 'Hasta listesi filtresi',
     filterLinked: 'Bağlı',
     filterPending: 'Bekleyen',

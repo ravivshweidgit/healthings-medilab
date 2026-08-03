@@ -129,6 +129,32 @@
         </div>
         <p class="muted invite-note" data-i18n="inviteNote"></p>
 
+        <div class="invite-strip cover-ai-strip">
+          <div class="invite-field">
+            <label class="field-label" for="cover-ai-email" data-i18n="coverAiLabel">Cover AI by email</label>
+            <input
+              id="cover-ai-email"
+              class="portal-input"
+              type="email"
+              dir="ltr"
+              data-i18n-placeholder="coverAiPlaceholder"
+              autocomplete="email"
+            />
+          </div>
+          <button id="cover-ai-btn" class="portal-btn secondary" type="button" data-i18n="coverAiSend">
+            Cover AI (90 days)
+          </button>
+          <p
+            id="cover-ai-status"
+            class="portal-status"
+            role="status"
+            aria-live="polite"
+            hidden
+            style="flex: 1 1 100%"
+          ></p>
+        </div>
+        <p class="muted invite-note" data-i18n="coverAiNote"></p>
+
         <div class="worklist-toolbar">
           <!-- aria-pressed, not role=tab: these filter a table in place, they do not
                switch tabpanels, and role=tab without a panel misleads a screen reader. -->
@@ -290,7 +316,7 @@
       </section>
     </div>
 
-    <script src="clinic-i18n.js?v=20260728e"></script>
+    <script src="clinic-i18n.js?v=20260803a"></script>
     <script src="clinic-theme.js?v=20260727c"></script>
     <script src="clinic-api.js?v=20260726k"></script>
     <script>
@@ -1555,6 +1581,91 @@
       document.getElementById('patient-email').addEventListener('input', () => {
         const el = document.getElementById('invite-status');
         if (!el.hidden && el.classList.contains('err')) setInviteStatus('', '');
+      });
+
+      function setCoverAiStatus(kind, msg) {
+        const el = document.getElementById('cover-ai-status');
+        if (!msg) {
+          el.hidden = true;
+          el.textContent = '';
+          el.className = 'portal-status';
+          return;
+        }
+        el.hidden = false;
+        el.textContent = msg;
+        el.className = 'portal-status' + (kind ? ' ' + kind : '');
+      }
+
+      document.getElementById('cover-ai-btn').onclick = async () => {
+        showError(appErrorEl(), '');
+        const btn = document.getElementById('cover-ai-btn');
+        const input = document.getElementById('cover-ai-email');
+        const patientEmail = input.value.trim().toLowerCase();
+        if (!patientEmail) {
+          setCoverAiStatus('err', t('coverAiNeedsEmail'));
+          input.focus();
+          return;
+        }
+        if (!patientEmail.includes('@')) {
+          setCoverAiStatus('err', t('coverAiNotEmail'));
+          input.focus();
+          return;
+        }
+
+        await withBusy(btn, t('coverAiWorking'), async () => {
+          input.disabled = true;
+          setCoverAiStatus('', '');
+          try {
+            const days = 90;
+            const exp = new Date();
+            exp.setUTCDate(exp.getUTCDate() + days);
+            const res = await api('/v1/sponsorships/enable', {
+              method: 'POST',
+              body: JSON.stringify({ patientEmail, expiresAt: exp.toISOString() }),
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              setCoverAiStatus('err', err.error || t('couldNotStartSponsorship'));
+              return;
+            }
+            input.value = '';
+            await refreshDashboard();
+            setCoverAiStatus(
+              'ok',
+              t('resultSponsorOn', {
+                email: patientEmail,
+                days: pluralDays(days),
+                date: formatExpiry(exp.toISOString()),
+              }),
+            );
+            setFlash(
+              'ok',
+              t('resultSponsorOn', {
+                email: patientEmail,
+                days: pluralDays(days),
+                date: formatExpiry(exp.toISOString()),
+              }),
+            );
+          } catch (err) {
+            setCoverAiStatus(
+              'err',
+              err instanceof Error ? err.message : t('couldNotStartSponsorship'),
+            );
+          } finally {
+            input.disabled = false;
+          }
+        });
+      };
+
+      document.getElementById('cover-ai-email').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          document.getElementById('cover-ai-btn').click();
+        }
+      });
+      document.getElementById('cover-ai-email').addEventListener('input', () => {
+        const el = document.getElementById('cover-ai-status');
+        if (!el.hidden && el.classList.contains('err')) setCoverAiStatus('', '');
       });
 
       document.getElementById('add-card-btn').onclick = async () => {
