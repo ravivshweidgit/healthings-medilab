@@ -470,3 +470,57 @@ export async function getPatientUsageTotal(patientId: string, from?: Date, to?: 
   const { rows } = await query<{ total: number }>(sql, params);
   return rows[0]?.total ?? 0;
 }
+
+/** Platform-wide active patients from ai_usage_events (admin console). */
+export type ActiveUsageRow = {
+  patientId: string;
+  patientEmail: string;
+  firstName: string | null;
+  lastName: string | null;
+  eventCount: number;
+  totalTokens: number;
+  sponsoredEvents: number;
+  firstAt: string;
+  lastAt: string;
+};
+
+export async function getActiveUsageByPatient(from: Date, to: Date): Promise<ActiveUsageRow[]> {
+  const { rows } = await query<{
+    patient_id: string;
+    patient_email: string;
+    first_name: string | null;
+    last_name: string | null;
+    event_count: number;
+    total_tokens: number;
+    sponsored_events: number;
+    first_at: Date;
+    last_at: Date;
+  }>(
+    `SELECT e.patient_id,
+            p.email AS patient_email,
+            p.first_name,
+            p.last_name,
+            COUNT(*)::int AS event_count,
+            COALESCE(SUM(e.tokens), 0)::int AS total_tokens,
+            COUNT(*) FILTER (WHERE e.sponsored)::int AS sponsored_events,
+            MIN(e.created_at) AS first_at,
+            MAX(e.created_at) AS last_at
+     FROM ai_usage_events e
+     JOIN users p ON p.id = e.patient_id
+     WHERE e.created_at >= $1 AND e.created_at <= $2
+     GROUP BY e.patient_id, p.email, p.first_name, p.last_name
+     ORDER BY last_at DESC`,
+    [from.toISOString(), to.toISOString()],
+  );
+  return rows.map((r) => ({
+    patientId: r.patient_id,
+    patientEmail: r.patient_email,
+    firstName: r.first_name,
+    lastName: r.last_name,
+    eventCount: r.event_count,
+    totalTokens: r.total_tokens,
+    sponsoredEvents: r.sponsored_events,
+    firstAt: r.first_at.toISOString(),
+    lastAt: r.last_at.toISOString(),
+  }));
+}

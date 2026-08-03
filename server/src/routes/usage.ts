@@ -5,6 +5,7 @@ import { isAdminEmail } from '../config.js';
 import { findUserById } from '../services/users.js';
 import { getWalletForUser } from '../services/wallet.js';
 import {
+  getActiveUsageByPatient,
   getMarginReport,
   getMentorUsageSummary,
   getPatientUsageTotal,
@@ -120,6 +121,34 @@ export async function registerUsageRoutes(app: FastifyInstance) {
     }
     const margin = await getMarginReport(null, q.days ?? 30);
     return { margin };
+  });
+
+  /**
+   * Who used AI in a window — all patients (admin only).
+   * Pass local-day `from`/`to` ISO from the browser so "today" matches the operator clock.
+   */
+  app.get('/v1/usage/active', { preHandler: authenticate }, async (request, reply) => {
+    const q = z
+      .object({
+        from: z.string().datetime().optional(),
+        to: z.string().datetime().optional(),
+      })
+      .parse(request.query);
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    if (!isAdminEmail(user.email)) {
+      return reply.code(403).send({ error: 'Admin only' });
+    }
+    const to = q.to ? new Date(q.to) : new Date();
+    const from = q.from
+      ? new Date(q.from)
+      : new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate()));
+    const patients = await getActiveUsageByPatient(from, to);
+    return {
+      from: from.toISOString(),
+      to: to.toISOString(),
+      patients,
+    };
   });
 
   /** Recent per-event AI usage paid by the caller (mentor or patient). */

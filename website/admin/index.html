@@ -33,11 +33,14 @@
         gap: 12px;
         margin-bottom: 20px;
       }
-      #margin-panel {
+      #margin-panel,
+      #active-panel {
         display: block;
         padding: 20px 24px;
+        margin-bottom: 16px;
       }
-      #margin-body {
+      #margin-body,
+      #active-body {
         overflow-x: auto;
       }
       .admin-app-wrap .usage-table {
@@ -132,6 +135,14 @@
           </div>
         </header>
 
+        <div id="active-panel" class="secondary-panel">
+          <h2 style="margin: 0 0 4px">Active today</h2>
+          <p class="muted" id="active-lead">
+            Patients with AI usage since local midnight — last time shown in your timezone.
+          </p>
+          <div id="active-body"></div>
+        </div>
+
         <div id="margin-panel" class="secondary-panel">
           <h2 style="margin: 0 0 4px">Margin</h2>
           <p class="muted" id="margin-lead">
@@ -182,6 +193,81 @@
         } catch {
           return (cents / 100).toFixed(4) + ' USD';
         }
+      }
+
+      function localDayRange() {
+        const from = new Date();
+        from.setHours(0, 0, 0, 0);
+        const to = new Date();
+        to.setHours(23, 59, 59, 999);
+        return { from: from.toISOString(), to: to.toISOString() };
+      }
+
+      function localWhen(iso) {
+        if (!iso) return '—';
+        try {
+          return new Date(iso).toLocaleString(undefined, {
+            dateStyle: 'short',
+            timeStyle: 'short',
+          });
+        } catch {
+          return String(iso);
+        }
+      }
+
+      function tzLabel() {
+        try {
+          return Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
+        } catch {
+          return 'local';
+        }
+      }
+
+      function renderActive(data) {
+        const el = document.getElementById('active-body');
+        const lead = document.getElementById('active-lead');
+        if (!el) return;
+        const patients = (data && data.patients) || [];
+        if (lead) {
+          lead.textContent =
+            'Patients with AI usage since local midnight (' +
+            tzLabel() +
+            '). Last time is local, not UTC.';
+        }
+        if (!patients.length) {
+          el.innerHTML = '<p class="muted">No AI usage yet today.</p>';
+          return;
+        }
+        el.innerHTML = `
+          <table class="usage-table">
+            <thead><tr>
+              <th>First name</th>
+              <th>Last name</th>
+              <th>Email</th>
+              <th>Events</th>
+              <th>Credits</th>
+              <th>Sponsored</th>
+              <th>Last (local)</th>
+            </tr></thead>
+            <tbody>
+              ${patients
+                .map((p) => {
+                  const first = (p.firstName || '').trim() || '—';
+                  const last = (p.lastName || '').trim() || '—';
+                  return `
+                <tr>
+                  <td class="admin-cell" dir="auto">${escHtml(first)}</td>
+                  <td class="admin-cell" dir="auto">${escHtml(last)}</td>
+                  <td class="admin-cell" dir="ltr">${escHtml(p.patientEmail)}</td>
+                  <td class="admin-cell">${escHtml(p.eventCount)}</td>
+                  <td class="admin-cell">${escHtml(p.totalTokens)}</td>
+                  <td class="admin-cell">${escHtml(p.sponsoredEvents)}</td>
+                  <td class="admin-cell">${escHtml(localWhen(p.lastAt))}</td>
+                </tr>`;
+                })
+                .join('')}
+            </tbody>
+          </table>`;
       }
 
       function renderMargin(margin) {
@@ -256,7 +342,27 @@
         }
         document.getElementById('header-email').textContent = user.email;
         showApp();
-        const marginRes = await api('/v1/usage/margin?days=30');
+
+        const range = localDayRange();
+        const qs =
+          'from=' + encodeURIComponent(range.from) + '&to=' + encodeURIComponent(range.to);
+        const [activeRes, marginRes] = await Promise.all([
+          api('/v1/usage/active?' + qs),
+          api('/v1/usage/margin?days=30'),
+        ]);
+
+        if (activeRes.ok) {
+          renderActive(await activeRes.json());
+        } else {
+          renderActive(null);
+          if (activeRes.status !== 403) {
+            showError(
+              document.getElementById('app-error'),
+              'Could not load active users',
+            );
+          }
+        }
+
         if (!marginRes.ok) {
           showError(
             document.getElementById('app-error'),
