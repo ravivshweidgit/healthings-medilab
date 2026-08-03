@@ -688,6 +688,63 @@ h3,
 .energy-wrap { width: 100%; flex: 1; display: flex; flex-direction: column; min-height: 100%; }
 
 .lipid-tab-card { width: 100%; }
+.lab-chart-details {
+  margin-top: 12px;
+  border: 1px solid var(--grid);
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.lab-chart-details > summary.lab-chart-summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 12px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  user-select: none;
+}
+.lab-chart-details > summary.lab-chart-summary::-webkit-details-marker { display: none; }
+.lab-chart-details > summary.lab-chart-summary::after {
+  content: '▾';
+  float: right;
+  opacity: 0.7;
+}
+.lab-chart-details[open] > summary.lab-chart-summary::after { content: '▴'; }
+.lab-chart-details .lipid-tab-card {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+  padding: 0 10px 12px;
+}
+.marker-picker-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 4px 0 6px;
+}
+.marker-picker-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.marker-filter,
+.marker-pick {
+  flex: 1 1 160px;
+  min-width: 140px;
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--grid);
+  background: var(--bg, var(--background, #fff));
+  color: var(--text);
+}
+.marker-default-hint { margin: 0 0 8px; font-size: 0.78rem; }
 .lipid-wrap {
   padding: 10px 4px 4px;
   border-top: 1px solid var(--grid);

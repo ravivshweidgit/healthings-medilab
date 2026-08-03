@@ -35,6 +35,17 @@ export type LabResultsStripCopy = {
   choosePdf: string;
   saving: string;
   reading: string;
+  lipidTrendsTitle: string;
+  lipidCollapseA11y: string;
+  lipidExpandA11y: string;
+  customTrendTitle: string;
+  customCollapseA11y: string;
+  customExpandA11y: string;
+  customPickPlaceholder: string;
+  customSearchPlaceholder: string;
+  customNeedTwo: string;
+  customNoMarkers: string;
+  customClear: string;
 };
 
 const EN: LabResultsStripCopy = {
@@ -69,6 +80,17 @@ const EN: LabResultsStripCopy = {
   choosePdf: 'Choose PDF',
   saving: 'Saving…',
   reading: 'Reading lab report…',
+  lipidTrendsTitle: 'Cholesterol trends',
+  lipidCollapseA11y: 'Collapse cholesterol trends',
+  lipidExpandA11y: 'Expand cholesterol trends',
+  customTrendTitle: 'Lab trend',
+  customCollapseA11y: 'Collapse lab trend',
+  customExpandA11y: 'Expand lab trend',
+  customPickPlaceholder: 'Choose a lab test…',
+  customSearchPlaceholder: 'Search tests',
+  customNeedTwo: 'Import another draw to chart this test',
+  customNoMarkers: 'No other lab tests to chart yet',
+  customClear: 'Clear',
 };
 
 const HE: LabResultsStripCopy = {
@@ -103,6 +125,17 @@ const HE: LabResultsStripCopy = {
   choosePdf: 'בחר PDF',
   saving: 'שומר…',
   reading: 'קורא את הדוח…',
+  lipidTrendsTitle: 'מגמת כולסטרול',
+  lipidCollapseA11y: 'כווץ מגמת כולסטרול',
+  lipidExpandA11y: 'הרחב מגמת כולסטרול',
+  customTrendTitle: 'מגמת מעבדה',
+  customCollapseA11y: 'כווץ מגמת מעבדה',
+  customExpandA11y: 'הרחב מגמת מעבדה',
+  customPickPlaceholder: 'בחרו בדיקת מעבדה…',
+  customSearchPlaceholder: 'חיפוש בדיקות',
+  customNeedTwo: 'ייבאו דגימה נוספת כדי לשרטט את הבדיקה',
+  customNoMarkers: 'אין עדיין בדיקות אחרות לשרטוט',
+  customClear: 'נקה',
 };
 
 const ES: LabResultsStripCopy = {
@@ -137,6 +170,17 @@ const ES: LabResultsStripCopy = {
   choosePdf: 'Elegir PDF',
   saving: 'Guardando…',
   reading: 'Leyendo el informe…',
+  lipidTrendsTitle: 'Tendencias de colesterol',
+  lipidCollapseA11y: 'Contraer tendencias de colesterol',
+  lipidExpandA11y: 'Expandir tendencias de colesterol',
+  customTrendTitle: 'Tendencia de laboratorio',
+  customCollapseA11y: 'Contraer tendencia de laboratorio',
+  customExpandA11y: 'Expandir tendencia de laboratorio',
+  customPickPlaceholder: 'Elegir una prueba…',
+  customSearchPlaceholder: 'Buscar pruebas',
+  customNeedTwo: 'Importe otra extracción para graficar esta prueba',
+  customNoMarkers: 'Aún no hay otras pruebas para graficar',
+  customClear: 'Borrar',
 };
 
 const FR: LabResultsStripCopy = {
@@ -171,6 +215,17 @@ const FR: LabResultsStripCopy = {
   choosePdf: 'Choisir un PDF',
   saving: 'Enregistrement…',
   reading: 'Lecture du rapport…',
+  lipidTrendsTitle: 'Tendances cholestérol',
+  lipidCollapseA11y: 'Réduire les tendances cholestérol',
+  lipidExpandA11y: 'Développer les tendances cholestérol',
+  customTrendTitle: 'Tendance analyse',
+  customCollapseA11y: 'Réduire la tendance analyse',
+  customExpandA11y: 'Développer la tendance analyse',
+  customPickPlaceholder: 'Choisir une analyse…',
+  customSearchPlaceholder: 'Rechercher',
+  customNeedTwo: 'Importez un autre prélèvement pour tracer cette analyse',
+  customNoMarkers: 'Pas encore d’autres analyses à tracer',
+  customClear: 'Effacer',
 };
 
 const DE: LabResultsStripCopy = {
@@ -205,6 +260,17 @@ const DE: LabResultsStripCopy = {
   choosePdf: 'PDF wählen',
   saving: 'Speichern…',
   reading: 'Befund wird gelesen…',
+  lipidTrendsTitle: 'Cholesterin-Trends',
+  lipidCollapseA11y: 'Cholesterin-Trends einklappen',
+  lipidExpandA11y: 'Cholesterin-Trends ausklappen',
+  customTrendTitle: 'Labor-Trend',
+  customCollapseA11y: 'Labor-Trend einklappen',
+  customExpandA11y: 'Labor-Trend ausklappen',
+  customPickPlaceholder: 'Laborwert wählen…',
+  customSearchPlaceholder: 'Werte suchen',
+  customNeedTwo: 'Importieren Sie eine weitere Entnahme für dieses Diagramm',
+  customNoMarkers: 'Noch keine anderen Laborwerte zum Diagramm',
+  customClear: 'Löschen',
 };
 
 const AR: LabResultsStripCopy = {
@@ -239,6 +305,17 @@ const AR: LabResultsStripCopy = {
   choosePdf: 'اختر PDF',
   saving: 'جارٍ الحفظ…',
   reading: 'جارٍ قراءة التقرير…',
+  lipidTrendsTitle: 'اتجاهات الكوليسترول',
+  lipidCollapseA11y: 'طي اتجاهات الكوليسترول',
+  lipidExpandA11y: 'توسيع اتجاهات الكوليسترول',
+  customTrendTitle: 'اتجاه المختبر',
+  customCollapseA11y: 'طي اتجاه المختبر',
+  customExpandA11y: 'توسيع اتجاه المختبر',
+  customPickPlaceholder: 'اختر فحصاً…',
+  customSearchPlaceholder: 'بحث في الفحوصات',
+  customNeedTwo: 'استورد سحباً آخر لرسم هذا الفحص',
+  customNoMarkers: 'لا توجد فحوصات أخرى للرسم بعد',
+  customClear: 'مسح',
 };
 
 const RU: LabResultsStripCopy = {
@@ -285,6 +362,17 @@ const RU: LabResultsStripCopy = {
   choosePdf: 'Выбрать PDF',
   saving: 'Сохранение…',
   reading: 'Чтение отчёта…',
+  lipidTrendsTitle: 'Тренды холестерина',
+  lipidCollapseA11y: 'Свернуть тренды холестерина',
+  lipidExpandA11y: 'Развернуть тренды холестерина',
+  customTrendTitle: 'Тренд анализа',
+  customCollapseA11y: 'Свернуть тренд анализа',
+  customExpandA11y: 'Развернуть тренд анализа',
+  customPickPlaceholder: 'Выберите анализ…',
+  customSearchPlaceholder: 'Поиск анализов',
+  customNeedTwo: 'Импортируйте ещё один забор, чтобы построить график',
+  customNoMarkers: 'Пока нет других анализов для графика',
+  customClear: 'Очистить',
 };
 
 const PT: LabResultsStripCopy = {
@@ -319,6 +407,17 @@ const PT: LabResultsStripCopy = {
   choosePdf: 'Escolher PDF',
   saving: 'Salvando…',
   reading: 'Lendo o laudo…',
+  lipidTrendsTitle: 'Tendências de colesterol',
+  lipidCollapseA11y: 'Recolher tendências de colesterol',
+  lipidExpandA11y: 'Expandir tendências de colesterol',
+  customTrendTitle: 'Tendência de laboratório',
+  customCollapseA11y: 'Recolher tendência de laboratório',
+  customExpandA11y: 'Expandir tendência de laboratório',
+  customPickPlaceholder: 'Escolher um exame…',
+  customSearchPlaceholder: 'Pesquisar exames',
+  customNeedTwo: 'Importe outra coleta para traçar este exame',
+  customNoMarkers: 'Ainda não há outros exames para traçar',
+  customClear: 'Limpar',
 };
 
 const IT: LabResultsStripCopy = {
@@ -353,6 +452,17 @@ const IT: LabResultsStripCopy = {
   choosePdf: 'Scegli PDF',
   saving: 'Salvataggio…',
   reading: 'Lettura del referto…',
+  lipidTrendsTitle: 'Andamento colesterolo',
+  lipidCollapseA11y: 'Comprimi andamento colesterolo',
+  lipidExpandA11y: 'Espandi andamento colesterolo',
+  customTrendTitle: 'Andamento esame',
+  customCollapseA11y: 'Comprimi andamento esame',
+  customExpandA11y: 'Espandi andamento esame',
+  customPickPlaceholder: 'Scegli un esame…',
+  customSearchPlaceholder: 'Cerca esami',
+  customNeedTwo: 'Importa un altro prelievo per tracciare questo esame',
+  customNoMarkers: 'Nessun altro esame da tracciare ancora',
+  customClear: 'Cancella',
 };
 
 const TR: LabResultsStripCopy = {
@@ -387,6 +497,17 @@ const TR: LabResultsStripCopy = {
   choosePdf: 'PDF seç',
   saving: 'Kaydediliyor…',
   reading: 'Rapor okunuyor…',
+  lipidTrendsTitle: 'Kolesterol eğilimleri',
+  lipidCollapseA11y: 'Kolesterol eğilimlerini daralt',
+  lipidExpandA11y: 'Kolesterol eğilimlerini genişlet',
+  customTrendTitle: 'Laboratuvar eğilimi',
+  customCollapseA11y: 'Laboratuvar eğilimini daralt',
+  customExpandA11y: 'Laboratuvar eğilimini genişlet',
+  customPickPlaceholder: 'Bir test seçin…',
+  customSearchPlaceholder: 'Test ara',
+  customNeedTwo: 'Bu testi çizmek için başka bir alım içe aktarın',
+  customNoMarkers: 'Henüz çizilecek başka test yok',
+  customClear: 'Temizle',
 };
 
 const BY_CODE: Record<string, LabResultsStripCopy> = {

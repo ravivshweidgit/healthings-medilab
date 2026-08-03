@@ -64,6 +64,8 @@ type Props = {
   rtl?: boolean;
   gender?: Gender | null;
   langCode?: string | null;
+  /** When nested under DashboardCollapseHeader, hide internal title. */
+  hideTitle?: boolean;
 };
 
 function hdlSafeThreshold(gender?: Gender | null): number {
@@ -205,7 +207,7 @@ function safeBandRect(
   return h > 1 ? { y, h } : null;
 }
 
-export function LipidTrendChart({ points, rtl, gender, langCode }: Props) {
+export function LipidTrendChart({ points, rtl, gender, langCode, hideTitle }: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const { width } = useWindowDimensions();
@@ -292,8 +294,8 @@ export function LipidTrendChart({ points, rtl, gender, langCode }: Props) {
     : 'General adult targets — not medical advice';
 
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.title}>{title}</Text>
+    <View style={[styles.wrap, hideTitle && styles.wrapNested]}>
+      {hideTitle ? null : <Text style={styles.title}>{title}</Text>}
       <View style={styles.chartBox}>
         <Svg width={prepared.chartW} height={prepared.svgH}>
         {prepared.visible.map((strip) => (
@@ -420,6 +422,11 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
       paddingTop: 10,
       borderTopWidth: 1,
       borderTopColor: c.gridLine,
+    },
+    wrapNested: {
+      marginTop: 4,
+      paddingTop: 0,
+      borderTopWidth: 0,
     },
     title: {
       fontSize: 11,

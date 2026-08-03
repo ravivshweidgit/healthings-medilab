@@ -1395,6 +1395,234 @@
       </div>`;
   }
 
+  // ─── Custom lab marker trend (prompt101) ───────────────────────────────────
+
+  const LIPID_EXCLUDE_CODES = new Set([
+    'CHOLESTEROL_LDL', 'LDL', 'LDL_CHOL', 'LDL_C',
+    'CHOLESTEROL', 'TOTAL_CHOLESTEROL', 'CHOL',
+    'CHOLESTEROL_HDL', 'HDL', 'HDL_CHOL', 'HDL_C',
+    'TRIGLYCERIDES', 'TRIGLYCERIDE', 'TG',
+  ]);
+  const CREATININE_CODES = new Set(['CREATININE', 'CREATININ']);
+  const UREA_CODES = new Set(['UREA', 'BUN']);
+  const GLUCOSE_CODES = new Set(['GLUCOSE', 'GLUC']);
+  const HBA1C_CODES = new Set(['HBA1C', 'HBA_1C', 'A1C', 'HEMOGLOBIN_A1C']);
+
+  function normalizeLabCode(code) {
+    const s = String(code || '').trim().toUpperCase();
+    let out = '';
+    let sep = false;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      const ok = (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9');
+      if (ok) { out += ch; sep = false; }
+      else if (out.length > 0 && !sep) { out += '_'; sep = true; }
+    }
+    if (out.endsWith('_')) out = out.slice(0, -1);
+    return out;
+  }
+
+  function isLipidChartCode(code) {
+    return LIPID_EXCLUDE_CODES.has(normalizeLabCode(code));
+  }
+
+  function canonicalLabTrendCode(code) {
+    const k = normalizeLabCode(code);
+    if (!k || isLipidChartCode(k)) return null;
+    if (CREATININE_CODES.has(k)) return 'CREATININE';
+    if (UREA_CODES.has(k)) return 'UREA';
+    if (GLUCOSE_CODES.has(k)) return 'GLUCOSE';
+    if (HBA1C_CODES.has(k)) return 'HBA1C';
+    return k;
+  }
+
+  function labDateKey(collectedAt) {
+    return String(collectedAt || '').slice(0, 10);
+  }
+
+  function listLabTrendMarkerOptions(labs) {
+    const byCode = new Map();
+    for (const report of labs || []) {
+      const dateKey = labDateKey(report.collectedAt);
+      for (const panel of report.panels || []) {
+        for (const r of panel.results || []) {
+          const code = canonicalLabTrendCode(r.code);
+          if (!code) continue;
+          const cur = byCode.get(code);
+          if (!cur) {
+            byCode.set(code, { name: r.name || code, unit: r.unit || '', dates: new Set([dateKey]) });
+          } else {
+            cur.dates.add(dateKey);
+            if (!cur.name && r.name) cur.name = r.name;
+            if (!cur.unit && r.unit) cur.unit = r.unit;
+          }
+        }
+      }
+    }
+    return Array.from(byCode.entries())
+      .map(([code, v]) => ({ code, name: v.name, unit: v.unit, drawCount: v.dates.size }))
+      .sort((a, b) => a.name.localeCompare(b.name) || a.code.localeCompare(b.code));
+  }
+
+  function resultMatchesTrendCode(r, selectedCode) {
+    const canon = canonicalLabTrendCode(r.code);
+    const selected = canonicalLabTrendCode(selectedCode);
+    return !!canon && !!selected && canon === selected;
+  }
+
+  function buildLabMarkerTrendSeries(labs, selectedCode) {
+    const selected = canonicalLabTrendCode(selectedCode);
+    if (!selected) return null;
+    const sorted = (labs || []).slice().sort((a, b) => (a.collectedAt || '').localeCompare(b.collectedAt || ''));
+    const points = [];
+    let name = selected;
+    let unit = '';
+    let refLow = null;
+    let refHigh = null;
+
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const report = sorted[i];
+      for (const panel of report.panels || []) {
+        for (const r of panel.results || []) {
+          if (!resultMatchesTrendCode(r, selected)) continue;
+          if (
+            refLow == null && refHigh == null
+            && Number.isFinite(r.refLow) && Number.isFinite(r.refHigh)
+          ) {
+            refLow = r.refLow;
+            refHigh = r.refHigh;
+          }
+          if (!unit && r.unit) unit = r.unit;
+          if (name === selected && r.name) name = r.name;
+        }
+      }
+    }
+
+    for (const report of sorted) {
+      let value = null;
+      for (const panel of report.panels || []) {
+        for (const r of panel.results || []) {
+          if (!resultMatchesTrendCode(r, selected)) continue;
+          if (Number.isFinite(r.value)) {
+            value = r.value;
+            if (r.name) name = r.name;
+            if (r.unit) unit = r.unit;
+            break;
+          }
+        }
+        if (value != null) break;
+      }
+      if (value == null) continue;
+      points.push({ dateKey: labDateKey(report.collectedAt), collectedAt: report.collectedAt, value });
+    }
+    if (!points.length) return null;
+    return { code: selected, name, unit, points, refLow, refHigh };
+  }
+
+  function markerRangeDomain(values, refLow, refHigh) {
+    let lo = Math.min(...values);
+    let hi = Math.max(...values);
+    if (Number.isFinite(refLow)) lo = Math.min(lo, refLow);
+    if (Number.isFinite(refHigh)) hi = Math.max(hi, refHigh);
+    if (lo === hi) { lo -= 8; hi += 8; }
+    const pad = (hi - lo) * 0.1;
+    return { min: lo - pad, max: hi + pad };
+  }
+
+  function markerRangeBandRect(dom, refLow, refHigh, stripTop) {
+    if (!Number.isFinite(refLow) || !Number.isFinite(refHigh)) return null;
+    const lo = Math.min(refLow, refHigh);
+    const hi = Math.max(refLow, refHigh);
+    const yTop = lipidMapY(Math.min(hi, dom.max), dom.min, dom.max, stripTop, LIPID_PLOT_H);
+    const yBottom = lipidMapY(Math.max(lo, dom.min), dom.min, dom.max, stripTop, LIPID_PLOT_H);
+    const h = yBottom - yTop;
+    return h > 1 ? { y: yTop, h } : null;
+  }
+
+  function drawMarkerTrendChart(host, series, opts) {
+    const lt = lipidTheme();
+    const rtl = !!opts?.rtl;
+    if (!series || !series.points || series.points.length < 2) {
+      host.innerHTML = `<p class="empty">${escapeXml(t('wsMarkerNeedTwo'))}</p>`;
+      return;
+    }
+    const pts = series.points;
+    const chartW = Math.max(280, host.clientWidth || 640);
+    const n = pts.length;
+    const plotLeft = LIPID_PAD_L;
+    const innerW = Math.max(1, chartW - plotLeft - LIPID_PAD_R);
+    const chartRight = chartW - LIPID_PAD_R;
+    const values = pts.map((p) => p.value);
+    const dom = markerRangeDomain(values, series.refLow, series.refHigh);
+    const stripTop = LIPID_PAD_TOP + LIPID_TITLE_H;
+    const plotPts = pts.map((p, i) => ({
+      x: lipidXAtIndex(i, plotLeft, innerW, n),
+      y: lipidMapY(p.value, dom.min, dom.max, stripTop, LIPID_PLOT_H),
+      value: p.value,
+      dataIndex: i,
+    }));
+    const path = smoothPath(plotPts);
+    const grid = lipidYTicks(dom.min, dom.max).map((v, k) => ({
+      y: lipidMapY(v, dom.min, dom.max, stripTop, LIPID_PLOT_H),
+      label: String(v),
+      key: `g-${k}`,
+    }));
+    const safeRect = markerRangeBandRect(dom, series.refLow, series.refHigh, stripTop);
+    const tickIdx = new Set(lipidPickTickIndices(n, 5));
+    const xTicks = pts
+      .map((p, i) => ({ p, i }))
+      .filter(({ i }) => tickIdx.has(i))
+      .map(({ p, i }) => ({
+        x: lipidXAtIndex(i, plotLeft, innerW, n),
+        label: lipidAxisDateLabel(p.dateKey),
+        key: p.dateKey,
+      }));
+    const svgH = LIPID_PAD_TOP + LIPID_TITLE_H + LIPID_STRIP_H + LIPID_AXIS_BOTTOM;
+    const xAxisY = LIPID_PAD_TOP + LIPID_TITLE_H + LIPID_STRIP_H + 14;
+    const color = lt.total;
+    const rangeLabel =
+      Number.isFinite(series.refLow) && Number.isFinite(series.refHigh)
+        ? `${formatLabValue(series.refLow)}–${formatLabValue(series.refHigh)}`
+        : null;
+    const unitSuffix = series.unit ? ` ${series.unit}` : '';
+    const stripTitle = rangeLabel
+      ? `${series.code} · ${rangeLabel}${unitSuffix}`
+      : `${series.code}${unitSuffix}`;
+
+    let svg = plotBackdrop(chartW, svgH, chartPalette().plotBg);
+    svg += `<text x="${plotLeft + 4}" y="${LIPID_PAD_TOP + 11}" fill="${color}" font-size="9" font-weight="700">${escapeXml(stripTitle)}</text>`;
+    if (safeRect) {
+      svg += `<rect x="${plotLeft}" y="${safeRect.y}" width="${chartRight - plotLeft}" height="${safeRect.h}" fill="${lt.safeFill}" opacity="${lt.safeOpacity}"/>`;
+    }
+    for (const g of grid) {
+      svg += `<line x1="${plotLeft}" y1="${g.y}" x2="${chartRight}" y2="${g.y}" stroke="${lt.grid}" stroke-width="1" opacity="0.5"/>`;
+      svg += `<text x="${plotLeft - 4}" y="${g.y + 3}" font-size="8" fill="${lt.muted}" text-anchor="end">${g.label}</text>`;
+    }
+    if (path) svg += `<path d="${path}" fill="none" stroke="${color}" stroke-width="2.2"/>`;
+    for (const pt of plotPts) {
+      svg += `<circle cx="${pt.x}" cy="${pt.y}" r="3.5" fill="${color}"/>`;
+      const lab = formatLabValue(pt.value);
+      const w = Math.max(24, lab.length * 5.4 + 8);
+      const lx = lipidClampLabelCenter(pt.x, w, chartW);
+      const ly = pt.y + 14;
+      svg += `<rect x="${lx - w / 2}" y="${ly - 9}" width="${w}" height="13" rx="3" fill="${cssVar('--surface', '#fff')}" stroke="${color}" stroke-width="0.75"/>`;
+      svg += `<text x="${lx}" y="${ly}" font-size="9" font-weight="600" fill="${color}" text-anchor="middle">${lab}</text>`;
+    }
+    for (const tick of xTicks) {
+      svg += `<text x="${tick.x}" y="${xAxisY}" font-size="9" fill="${lt.muted}" text-anchor="middle">${tick.label}</text>`;
+    }
+
+    host.innerHTML = `
+      <div class="lipid-wrap${rtl ? ' rtl' : ''}">
+        <div class="lipid-chart-box">
+          <svg viewBox="0 0 ${chartW} ${svgH}" width="100%" height="${svgH}" role="img" aria-label="${escapeXml(series.name || series.code)}">
+            ${svg}
+          </svg>
+        </div>
+        <div class="lipid-disclaimer">${escapeXml(t('wsMarkerDisclaimer'))}</div>
+      </div>`;
+  }
+
   global.ClinicCharts = {
     computeBurnByDay,
     eatenByDay,
@@ -1405,5 +1633,9 @@
     drawEnergyChart,
     drawLipidChart,
     buildLipidPoints,
+    listLabTrendMarkerOptions,
+    buildLabMarkerTrendSeries,
+    drawMarkerTrendChart,
+    isLipidChartCode,
   };
 })(window);

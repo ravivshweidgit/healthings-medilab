@@ -439,6 +439,159 @@ export function buildLipidTrendPoints(reports: LabReport[]): LipidTrendPoint[] {
   return points;
 }
 
+/** AsyncStorage — patient’s selected custom lab trend marker (synced via backup/clinic snapshot). */
+export const LAB_CUSTOM_TREND_CODE_KEY = 'lab_custom_trend_code';
+
+/** Codes covered by the dedicated lipid chart — excluded from custom marker picker. */
+export function isLipidChartCode(code: string): boolean {
+  const k = resultCodeKey({ code, name: '', value: 0, unit: '', flag: 'unknown' });
+  return (
+    LDL_CODES.has(k) ||
+    TOTAL_CHOL_CODES.has(k) ||
+    HDL_CODES.has(k) ||
+    TG_CODES.has(k)
+  );
+}
+
+/** Collapse known alias families to one picker key (exact codes only — no name regex). */
+export function canonicalLabTrendCode(code: string): string | null {
+  const k = resultCodeKey({ code, name: '', value: 0, unit: '', flag: 'unknown' });
+  if (!k || isLipidChartCode(k)) return null;
+  if (CREATININE_CODES.has(k)) return 'CREATININE';
+  if (UREA_CODES.has(k)) return 'UREA';
+  if (GLUCOSE_CODES.has(k)) return 'GLUCOSE';
+  if (HBA1C_CODES.has(k)) return 'HBA1C';
+  return k;
+}
+
+function resultMatchesTrendCode(r: LabResult, selectedCode: string): boolean {
+  const canon = canonicalLabTrendCode(r.code);
+  const selected = canonicalLabTrendCode(selectedCode);
+  if (!canon || !selected) return false;
+  return canon === selected;
+}
+
+export type LabTrendMarkerOption = {
+  code: string;
+  name: string;
+  unit: string;
+  drawCount: number;
+};
+
+/** Union of non-lipid markers across reports, grouped by canonical code. */
+export function listLabTrendMarkerOptions(reports: LabReport[]): LabTrendMarkerOption[] {
+  const byCode = new Map<string, { name: string; unit: string; dates: Set<string> }>();
+  for (const report of reports) {
+    const dateKey = reportDateKey(report.collectedAt);
+    for (const panel of report.panels) {
+      for (const r of panel.results) {
+        const code = canonicalLabTrendCode(r.code);
+        if (!code) continue;
+        const cur = byCode.get(code);
+        if (!cur) {
+          byCode.set(code, {
+            name: r.name || code,
+            unit: r.unit || '',
+            dates: new Set([dateKey]),
+          });
+        } else {
+          cur.dates.add(dateKey);
+          if (!cur.name && r.name) cur.name = r.name;
+          if (!cur.unit && r.unit) cur.unit = r.unit;
+        }
+      }
+    }
+  }
+  return Array.from(byCode.entries())
+    .map(([code, v]) => ({
+      code,
+      name: v.name,
+      unit: v.unit,
+      drawCount: v.dates.size,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name) || a.code.localeCompare(b.code));
+}
+
+export type LabMarkerTrendPoint = {
+  dateKey: string;
+  collectedAt: string;
+  value: number;
+};
+
+export type LabMarkerTrendSeries = {
+  code: string;
+  name: string;
+  unit: string;
+  points: LabMarkerTrendPoint[];
+  /** Single from–to for the whole series (latest draw that has both bounds). */
+  refLow: number | null;
+  refHigh: number | null;
+};
+
+/** Time series for one marker code; green band from a single refLow–refHigh. */
+export function buildLabMarkerTrendSeries(
+  reports: LabReport[],
+  selectedCode: string,
+): LabMarkerTrendSeries | null {
+  const selected = canonicalLabTrendCode(selectedCode);
+  if (!selected) return null;
+
+  const sorted = [...reports].sort((a, b) => a.collectedAt.localeCompare(b.collectedAt));
+  const points: LabMarkerTrendPoint[] = [];
+  let name = selected;
+  let unit = '';
+  let refLow: number | null = null;
+  let refHigh: number | null = null;
+
+  // Newest → oldest for range pick
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const report = sorted[i]!;
+    for (const panel of report.panels) {
+      for (const r of panel.results) {
+        if (!resultMatchesTrendCode(r, selected)) continue;
+        if (
+          refLow == null &&
+          refHigh == null &&
+          r.refLow != null &&
+          r.refHigh != null &&
+          Number.isFinite(r.refLow) &&
+          Number.isFinite(r.refHigh)
+        ) {
+          refLow = r.refLow;
+          refHigh = r.refHigh;
+        }
+        if (!unit && r.unit) unit = r.unit;
+        if (name === selected && r.name) name = r.name;
+      }
+    }
+  }
+
+  for (const report of sorted) {
+    let value: number | null = null;
+    for (const panel of report.panels) {
+      for (const r of panel.results) {
+        if (!resultMatchesTrendCode(r, selected)) continue;
+        if (Number.isFinite(r.value)) {
+          value = r.value;
+          if (r.name) name = r.name;
+          if (r.unit) unit = r.unit;
+          break;
+        }
+      }
+      if (value != null) break;
+    }
+    if (value == null) continue;
+    points.push({
+      dateKey: reportDateKey(report.collectedAt),
+      collectedAt: report.collectedAt,
+      value,
+    });
+  }
+
+  if (points.length === 0) return null;
+  return { code: selected, name, unit, points, refLow, refHigh };
+}
+
 /** Latest draw + one prior draw for macro revision (trends: UREA, creatinine, LDL). */
 export async function buildLabsForMacroRevision(): Promise<string | null> {
   const all = await getAllLabReports();

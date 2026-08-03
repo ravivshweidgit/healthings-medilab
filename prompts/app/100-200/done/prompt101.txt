@@ -1,0 +1,62 @@
+## Prompt 101 — Custom lab parameter historical chart
+
+**Status:** done (2026-08-03) — **App phone-tested.** Clinic/account code shipped in same commit; portal deploy + verify still pending.
+
+**Builds on:** prompt48 (lipid strips), prompt99 (`refLow`/`refHigh`), prompt39 (lab strip)
+
+---
+
+### Problem
+
+Lipid trends already chart Total/LDL/TG/HDL with fixed adult thresholds. Users (and clinic/account viewers) also want a **historical chart for any other lab item** (e.g. TSH, creatinine, glucose) with a green **from–to** band from that item’s reference range.
+
+---
+
+### Locked decisions (owner 2026-08-03)
+
+| Decision | Choice |
+|----------|--------|
+| Charts | **One** custom chart, **one** parameter |
+| Picker | Dropdown with **filter / autocomplete**; options = union of markers across saved draws, **grouped by code** |
+| Match | Exact **code** (aliases via existing code sets where applicable) |
+| Lipid codes | **Exclude** LDL / total chol / HDL / TG (and their aliases) — dedicated lipid chart covers them |
+| Green band | **`refLow`–`refHigh`** range fill (white outside) — not lipid-style single threshold |
+| Range when draws differ | **One item → one range.** Latest draw that has both `refLow` and `refHigh` |
+| Clinic / account | **Independent pick**; default to patient’s `lab_custom_trend_code`; viewer change is local only |
+| Collapsible | Lipid + custom each collapsible (app under Lab Results; clinic/account Lipids tab) |
+
+---
+
+### What shipped
+
+| Piece | Role |
+|-------|------|
+| `LabLogService` | `listLabTrendMarkerOptions`, `buildLabMarkerTrendSeries`, `isLipidChartCode`, `LAB_CUSTOM_TREND_CODE_KEY` |
+| `LabMarkerTrendChart.tsx` | Single-strip SVG; green from–to band |
+| `LabResultsStrip.tsx` | Nested collapsible lipid + custom picker/chart |
+| `LipidTrendChart.tsx` | `hideTitle` when nested |
+| `labResultsStripCopy.ts` | 10-locale chrome for picker/collapse |
+| `clinic-charts.js` | Marker options + series + `drawMarkerTrendChart` |
+| `clinic-workspace.js` / CSS / i18n | Lipids tab: two `<details>` + search/select; `localStorage` viewer override |
+
+**Persistence:** `lab_custom_trend_code`, `dash_lab_lipid_chart_expanded`, `dash_lab_custom_chart_expanded` (not on backup exclude list → syncs).
+
+---
+
+### Phone / portal checklist
+
+- [x] Pick non-lipid test with ≥2 draws → line + green from–to (app)
+- [x] Lipid codes absent from dropdown (app)
+- [x] Lipid + custom each collapse independently (app)
+- [ ] Clinic defaults to patient pick; changing clinic pick does not alter phone storage *(needs website deploy)*
+- [ ] Account same rendering path as clinic *(needs website deploy)*
+- [x] Backup/restore keeps `lab_custom_trend_code` (key not excluded; rides sync blob)
+
+---
+
+### Deferred
+
+- Multiple simultaneous custom series
+- Visit-report Appendix A export of custom series
+- Per-point varying ranges across draws
+- Portal phone-test after website deploy

@@ -221,6 +221,14 @@
       wsLipidDisclaimer: 'General adult targets — not medical advice',
       wsLipidEmptyNeedTwo: 'Need at least 2 lipid lab draws in snapshot to show trends',
       wsLipidEmptyNoSeries: 'No lipid series with 2+ values in snapshot',
+
+      wsMarkerTitle: 'Lab trend',
+      wsMarkerPick: 'Choose a lab test…',
+      wsMarkerSearch: 'Search tests',
+      wsMarkerNeedTwo: 'Need at least 2 draws of this test in the snapshot to show a trend.',
+      wsMarkerNoOptions: 'No other lab tests to chart yet (lipids have their own chart).',
+      wsMarkerDisclaimer: 'Reference range from report — not medical advice',
+      wsMarkerPatientDefault: 'Patient app default: {code} (change here is view-only)',
     },
     he: {
       wsBackToPortal: '← פורטל מרפאה',
@@ -436,6 +444,14 @@
       wsLipidDisclaimer: 'יעדים כלליים למבוגרים — אינו ייעוץ רפואי',
       wsLipidEmptyNeedTwo: 'נדרשות לפחות 2 דגימות שומנים בצילום המצב כדי להציג מגמות',
       wsLipidEmptyNoSeries: 'אין סדרת שומנים עם 2+ ערכים בצילום המצב',
+
+      wsMarkerTitle: 'Lab trend',
+      wsMarkerPick: 'Choose a lab test…',
+      wsMarkerSearch: 'Search tests',
+      wsMarkerNeedTwo: 'Need at least 2 draws of this test in the snapshot to show a trend.',
+      wsMarkerNoOptions: 'No other lab tests to chart yet (lipids have their own chart).',
+      wsMarkerDisclaimer: 'Reference range from report — not medical advice',
+      wsMarkerPatientDefault: 'Patient app default: {code} (change here is view-only)',
     },
     es: {
       wsBackToPortal: '← Portal clínico',
@@ -643,6 +659,14 @@
       wsLipidDisclaimer: 'Objetivos generales para adultos — no es consejo médico',
       wsLipidEmptyNeedTwo: 'Se necesitan al menos 2 extracciones de lípidos en la captura para mostrar tendencias',
       wsLipidEmptyNoSeries: 'No hay serie de lípidos con 2+ valores en la captura',
+
+      wsMarkerTitle: 'Lab trend',
+      wsMarkerPick: 'Choose a lab test…',
+      wsMarkerSearch: 'Search tests',
+      wsMarkerNeedTwo: 'Need at least 2 draws of this test in the snapshot to show a trend.',
+      wsMarkerNoOptions: 'No other lab tests to chart yet (lipids have their own chart).',
+      wsMarkerDisclaimer: 'Reference range from report — not medical advice',
+      wsMarkerPatientDefault: 'Patient app default: {code} (change here is view-only)',
     },
     fr: {
       wsBackToPortal: '← Portail clinique',
@@ -850,6 +874,14 @@
       wsLipidDisclaimer: 'Cibles générales adultes — ne constitue pas un avis médical',
       wsLipidEmptyNeedTwo: 'Il faut au moins 2 prélèvements lipidiques dans l’instantané pour afficher les tendances',
       wsLipidEmptyNoSeries: 'Aucune série lipidique avec 2+ valeurs dans l’instantané',
+
+      wsMarkerTitle: 'Lab trend',
+      wsMarkerPick: 'Choose a lab test…',
+      wsMarkerSearch: 'Search tests',
+      wsMarkerNeedTwo: 'Need at least 2 draws of this test in the snapshot to show a trend.',
+      wsMarkerNoOptions: 'No other lab tests to chart yet (lipids have their own chart).',
+      wsMarkerDisclaimer: 'Reference range from report — not medical advice',
+      wsMarkerPatientDefault: 'Patient app default: {code} (change here is view-only)',
     },
     de: {
       wsBackToPortal: '← Klinikportal',
@@ -1057,6 +1089,14 @@
       wsLipidDisclaimer: 'Allgemeine Erwachsenenziele — keine medizinische Beratung',
       wsLipidEmptyNeedTwo: 'Mindestens 2 Lipid-Laborentnahmen im Snapshot nötig, um Trends anzuzeigen',
       wsLipidEmptyNoSeries: 'Keine Lipidserie mit 2+ Werten im Snapshot',
+
+      wsMarkerTitle: 'Lab trend',
+      wsMarkerPick: 'Choose a lab test…',
+      wsMarkerSearch: 'Search tests',
+      wsMarkerNeedTwo: 'Need at least 2 draws of this test in the snapshot to show a trend.',
+      wsMarkerNoOptions: 'No other lab tests to chart yet (lipids have their own chart).',
+      wsMarkerDisclaimer: 'Reference range from report — not medical advice',
+      wsMarkerPatientDefault: 'Patient app default: {code} (change here is view-only)',
     },
     ar: {
       wsBackToPortal: '← بوابة العيادة',
@@ -1264,6 +1304,14 @@
       wsLipidDisclaimer: 'أهداف عامة للبالغين — ليست نصيحة طبية',
       wsLipidEmptyNeedTwo: 'يلزم سحبان على الأقل لتحاليل الدهون في اللقطة لعرض الاتجاهات',
       wsLipidEmptyNoSeries: 'لا سلسلة دهون بقيمتين فأكثر في اللقطة',
+
+      wsMarkerTitle: 'Lab trend',
+      wsMarkerPick: 'Choose a lab test…',
+      wsMarkerSearch: 'Search tests',
+      wsMarkerNeedTwo: 'Need at least 2 draws of this test in the snapshot to show a trend.',
+      wsMarkerNoOptions: 'No other lab tests to chart yet (lipids have their own chart).',
+      wsMarkerDisclaimer: 'Reference range from report — not medical advice',
+      wsMarkerPatientDefault: 'Patient app default: {code} (change here is view-only)',
     },
     ru: {
       wsBackToPortal: '← Клинический портал',
@@ -1471,6 +1519,14 @@
       wsLipidDisclaimer: 'Общие цели для взрослых — не является медицинской рекомендацией',
       wsLipidEmptyNeedTwo: 'Нужно не менее 2 липидных лабораторных заборов в снимке для трендов',
       wsLipidEmptyNoSeries: 'Нет липидной серии с 2+ значениями в снимке',
+
+      wsMarkerTitle: 'Lab trend',
+      wsMarkerPick: 'Choose a lab test…',
+      wsMarkerSearch: 'Search tests',
+      wsMarkerNeedTwo: 'Need at least 2 draws of this test in the snapshot to show a trend.',
+      wsMarkerNoOptions: 'No other lab tests to chart yet (lipids have their own chart).',
+      wsMarkerDisclaimer: 'Reference range from report — not medical advice',
+      wsMarkerPatientDefault: 'Patient app default: {code} (change here is view-only)',
     },
     pt: {
       wsBackToPortal: '← Portal clínico',
@@ -1678,6 +1734,14 @@
       wsLipidDisclaimer: 'Metas gerais para adultos — não é aconselhamento médico',
       wsLipidEmptyNeedTwo: 'É preciso pelo menos 2 coletas de lipídios na captura para mostrar tendências',
       wsLipidEmptyNoSeries: 'Nenhuma série de lipídios com 2+ valores na captura',
+
+      wsMarkerTitle: 'Lab trend',
+      wsMarkerPick: 'Choose a lab test…',
+      wsMarkerSearch: 'Search tests',
+      wsMarkerNeedTwo: 'Need at least 2 draws of this test in the snapshot to show a trend.',
+      wsMarkerNoOptions: 'No other lab tests to chart yet (lipids have their own chart).',
+      wsMarkerDisclaimer: 'Reference range from report — not medical advice',
+      wsMarkerPatientDefault: 'Patient app default: {code} (change here is view-only)',
     },
     it: {
       wsBackToPortal: '← Portale clinico',
@@ -1885,6 +1949,14 @@
       wsLipidDisclaimer: 'Obiettivi generali per adulti — non è un consiglio medico',
       wsLipidEmptyNeedTwo: 'Servono almeno 2 prelievi lipidici nello snapshot per mostrare gli andamenti',
       wsLipidEmptyNoSeries: 'Nessuna serie lipidica con 2+ valori nello snapshot',
+
+      wsMarkerTitle: 'Lab trend',
+      wsMarkerPick: 'Choose a lab test…',
+      wsMarkerSearch: 'Search tests',
+      wsMarkerNeedTwo: 'Need at least 2 draws of this test in the snapshot to show a trend.',
+      wsMarkerNoOptions: 'No other lab tests to chart yet (lipids have their own chart).',
+      wsMarkerDisclaimer: 'Reference range from report — not medical advice',
+      wsMarkerPatientDefault: 'Patient app default: {code} (change here is view-only)',
     },
     tr: {
       wsBackToPortal: '← Klinik portal',
@@ -2092,6 +2164,14 @@
       wsLipidDisclaimer: 'Genel yetişkin hedefleri — tıbbi tavsiye değildir',
       wsLipidEmptyNeedTwo: 'Eğilimleri göstermek için anlık görüntüde en az 2 lipid laboratuvar alımı gerekir',
       wsLipidEmptyNoSeries: 'Anlık görüntüde 2+ değere sahip lipid serisi yok',
+
+      wsMarkerTitle: 'Lab trend',
+      wsMarkerPick: 'Choose a lab test…',
+      wsMarkerSearch: 'Search tests',
+      wsMarkerNeedTwo: 'Need at least 2 draws of this test in the snapshot to show a trend.',
+      wsMarkerNoOptions: 'No other lab tests to chart yet (lipids have their own chart).',
+      wsMarkerDisclaimer: 'Reference range from report — not medical advice',
+      wsMarkerPatientDefault: 'Patient app default: {code} (change here is view-only)',
     },
   };
 

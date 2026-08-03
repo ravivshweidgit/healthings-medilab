@@ -243,6 +243,8 @@
       nutritionDirectives: parseNutritionDirectives(store),
       waterByDay: water.byDay,
       waterGoalMl: water.goalMl,
+      /** Raw asyncStorage for prefs like lab_custom_trend_code (prompt101). */
+      rawStore: store,
     };
   }
 
@@ -1368,22 +1370,112 @@
 
   function renderLipidsTab(panel, ctx) {
     const charts = global.ClinicCharts;
-    const pts = charts?.buildLipidPoints(ctx.parsed.labs) || [];
+    const labs = ctx.parsed.labs || [];
+    const pts = charts?.buildLipidPoints(labs) || [];
+    const options = charts?.listLabTrendMarkerOptions?.(labs) || [];
     const drawsFrag = pts.length
       ? t(pts.length === 1 ? 'wsLipidsDrawsOne' : 'wsLipidsDrawsMany', { n: pts.length })
       : '';
     const noteKey = ctx.selfView ? 'wsLipidsNoteSelf' : 'wsLipidsNoteClinic';
+
+    const store = ctx.parsed?.rawStore || {};
+    let patientCode = '';
+    try {
+      const raw = store.lab_custom_trend_code;
+      if (raw != null) {
+        patientCode = typeof raw === 'string' ? raw.replace(/^"|"$/g, '').trim() : String(raw);
+      }
+    } catch { /* */ }
+
+    const viewKey = `clinic_lab_custom_trend_${ctx.patientId || 'self'}`;
+    let viewerCode = null;
+    try { viewerCode = localStorage.getItem(viewKey); } catch { /* */ }
+    if (viewerCode === '') viewerCode = null;
+    const effectiveCode = viewerCode != null ? viewerCode : (patientCode || '');
+    const series = effectiveCode && charts?.buildLabMarkerTrendSeries
+      ? charts.buildLabMarkerTrendSeries(labs, effectiveCode)
+      : null;
+
+    const lipidOpen = localStorage.getItem('clinic_lipid_chart_open') !== '0';
+    const markerOpen = localStorage.getItem('clinic_marker_chart_open') !== '0';
+
+    const optionHtml = options.map((m) => {
+      const sel = m.code === effectiveCode ? ' selected' : '';
+      const label = `${m.name} (${m.code})${m.unit ? ` · ${m.unit}` : ''} · ${m.drawCount}`;
+      return `<option value="${esc(m.code)}"${sel}>${esc(label)}</option>`;
+    }).join('');
+
     panel.innerHTML = `
       <p class="sub snapshot-note">${esc(t(noteKey, { draws: drawsFrag }))}</p>
-      <div class="dash-card lipid-tab-card"><div id="lipid-trend-host"></div></div>
-      ${pts.length >= 2 ? '' : `<p class="sub lipid-need-more">${esc(t('wsLipidNeedMore'))}</p>`}`;
-    const host = panel.querySelector('#lipid-trend-host');
-    if (host && charts) {
-      charts.drawLipidChart(host, ctx.parsed.labs, {
+      <details class="lab-chart-details" id="lipid-details"${lipidOpen ? ' open' : ''}>
+        <summary class="lab-chart-summary">${esc(t('wsLipidTitle'))}</summary>
+        <div class="dash-card lipid-tab-card"><div id="lipid-trend-host"></div></div>
+        ${pts.length >= 2 ? '' : `<p class="sub lipid-need-more">${esc(t('wsLipidNeedMore'))}</p>`}
+      </details>
+      <details class="lab-chart-details" id="marker-details"${markerOpen ? ' open' : ''}>
+        <summary class="lab-chart-summary">${esc(t('wsMarkerTitle'))}</summary>
+        <div class="dash-card lipid-tab-card marker-tab-card">
+          <label class="marker-picker-label" for="marker-pick">${esc(t('wsMarkerPick'))}</label>
+          <div class="marker-picker-row">
+            <input type="search" id="marker-filter" class="marker-filter" placeholder="${esc(t('wsMarkerSearch'))}" autocomplete="off" />
+            <select id="marker-pick" class="marker-pick">
+              <option value="">${esc(t('wsMarkerPick'))}</option>
+              ${optionHtml}
+            </select>
+          </div>
+          ${!ctx.selfView && patientCode ? `<p class="sub marker-default-hint">${esc(t('wsMarkerPatientDefault', { code: patientCode }))}</p>` : ''}
+          <div id="marker-trend-host"></div>
+        </div>
+      </details>`;
+
+    const lipidHost = panel.querySelector('#lipid-trend-host');
+    if (lipidHost && charts && pts.length >= 2) {
+      charts.drawLipidChart(lipidHost, labs, {
         gender: ctx.parsed.profile?.gender || null,
         rtl: profileRtl(ctx.parsed.profile),
       });
     }
+
+    const markerHost = panel.querySelector('#marker-trend-host');
+    if (markerHost && charts) {
+      if (series && series.points.length >= 2) {
+        charts.drawMarkerTrendChart(markerHost, series, { rtl: profileRtl(ctx.parsed.profile) });
+      } else if (effectiveCode) {
+        markerHost.innerHTML = `<p class="sub lipid-need-more">${esc(t('wsMarkerNeedTwo'))}</p>`;
+      } else if (!options.length) {
+        markerHost.innerHTML = `<p class="sub lipid-need-more">${esc(t('wsMarkerNoOptions'))}</p>`;
+      } else {
+        markerHost.innerHTML = '';
+      }
+    }
+
+    const lipidDetails = panel.querySelector('#lipid-details');
+    const markerDetails = panel.querySelector('#marker-details');
+    lipidDetails?.addEventListener('toggle', () => {
+      try { localStorage.setItem('clinic_lipid_chart_open', lipidDetails.open ? '1' : '0'); } catch { /* */ }
+    });
+    markerDetails?.addEventListener('toggle', () => {
+      try { localStorage.setItem('clinic_marker_chart_open', markerDetails.open ? '1' : '0'); } catch { /* */ }
+    });
+
+    const pick = panel.querySelector('#marker-pick');
+    const filter = panel.querySelector('#marker-filter');
+    const allOptions = Array.from(pick?.querySelectorAll('option') || []);
+
+    filter?.addEventListener('input', () => {
+      const q = String(filter.value || '').trim().toLowerCase();
+      allOptions.forEach((opt, idx) => {
+        if (idx === 0) { opt.hidden = false; return; }
+        const hay = `${opt.value} ${opt.textContent || ''}`.toLowerCase();
+        opt.hidden = q ? !hay.includes(q) : false;
+      });
+    });
+
+    pick?.addEventListener('change', () => {
+      const next = pick.value || '';
+      try { localStorage.setItem(viewKey, next); } catch { /* */ }
+      renderLipidsTab(panel, ctx);
+    });
   }
 
   function renderNutritionReports(panel, ctx) {
