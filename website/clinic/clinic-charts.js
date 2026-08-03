@@ -240,12 +240,13 @@
   const LIPID_PAD_R = 12;
   const LIPID_X_INSET = 26;
   const LIPID_PAD_TOP = 4;
-  const LIPID_TITLE_H = 14;
-  const LIPID_STRIP_H = 88;
+  const LIPID_TITLE_H = 18;
+  /** Doubled vs phone (88) — clinic/account have more vertical room (prompt101 follow-up). */
+  const LIPID_STRIP_H = 176;
   const LIPID_STRIP_UNIT = LIPID_TITLE_H + LIPID_STRIP_H;
-  const LIPID_LABEL_RESERVE = 16;
+  const LIPID_LABEL_RESERVE = 24;
   const LIPID_PLOT_H = LIPID_STRIP_H - LIPID_LABEL_RESERVE;
-  const LIPID_AXIS_BOTTOM = 22;
+  const LIPID_AXIS_BOTTOM = 28;
   function lipidTheme() {
     const pal = chartPalette();
     return {
