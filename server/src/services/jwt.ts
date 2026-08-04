@@ -9,6 +9,8 @@ export type PublicUser = {
   id: string;
   email: string;
   role: UserRole;
+  /** Sequential account number (1…n). UUID id stays the primary key. */
+  userNo: number;
   displayName: string | null;
   /** Patient first name for clinic findability (be-27). Null for mentors. */
   firstName: string | null;

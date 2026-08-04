@@ -303,6 +303,7 @@
         el.innerHTML = `
           <table class="usage-table">
             <thead><tr>
+              <th>#</th>
               <th class="admin-name">First name</th>
               <th class="admin-name">Last name</th>
               <th>Email</th>
@@ -316,8 +317,10 @@
                 .map((p) => {
                   const first = (p.firstName || '').trim() || '—';
                   const last = (p.lastName || '').trim() || '—';
+                  const no = p.userNo != null ? p.userNo : '—';
                   return `
                 <tr>
+                  <td class="admin-cell" dir="ltr">${escHtml(no)}</td>
                   <td class="admin-cell admin-name"><span dir="auto">${escHtml(first)}</span></td>
                   <td class="admin-cell admin-name"><span dir="auto">${escHtml(last)}</span></td>
                   <td class="admin-cell" dir="ltr">${escHtml(p.patientEmail)}</td>

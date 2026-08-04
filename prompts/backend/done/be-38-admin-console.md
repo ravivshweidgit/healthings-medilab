@@ -1,7 +1,8 @@
 # be-38 — Dedicated `/admin/` operator console (margin ≠ clinic)
 
 **Status:** done (2026-07-28) — owner: `/admin/` looks good (wide layout)  
-**Follow-up (2026-08-05):** Active users day picker (Prev / date / Today / Next) + click Margin day → who used AI that local day (`website/admin/index.html`; API already had `from`/`to`).
+**Follow-up (2026-08-05):** Active users day picker (Prev / date / Today / Next) + click Margin day → who used AI that local day (`website/admin/index.html`; API already had `from`/`to`).  
+**Follow-up (2026-08-05):** `users.user_no` sequential 1…n (backfill by `created_at`); admin Active users `#` column.
 **Model to implement:** Fable 5 (Cursor)
 **Authored by:** Owner + agent (owner: admin is not a clinic; use `raviv.shweid+admin@gmail.com`)
 **Depends on:** be-37 (`ADMIN_EMAILS`, admin-only `GET /v1/usage/margin`, global aggregate)

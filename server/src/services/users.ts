@@ -7,6 +7,7 @@ type UserRow = {
   id: string;
   email: string;
   role: UserRole;
+  user_no: number;
   display_name: string | null;
   first_name: string | null;
   last_name: string | null;
@@ -28,6 +29,7 @@ function toPublicUser(row: UserRow): PublicUser {
     id: row.id,
     email: row.email,
     role: row.role,
+    userNo: row.user_no,
     displayName: row.display_name,
     firstName: row.first_name,
     lastName: row.last_name,

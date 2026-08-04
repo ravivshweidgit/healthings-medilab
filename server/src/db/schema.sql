@@ -21,6 +21,39 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT;
 -- Off by default: nothing reaches the server without the patient turning it on.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS web_view_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- Human-readable account number (1…n). UUID id stays the primary key.
+CREATE SEQUENCE IF NOT EXISTS users_user_no_seq;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS user_no INTEGER;
+WITH max_existing AS (
+  SELECT COALESCE(MAX(user_no), 0) AS m FROM users
+),
+ordered AS (
+  SELECT id,
+         (SELECT m FROM max_existing)
+           + ROW_NUMBER() OVER (ORDER BY created_at ASC, id ASC) AS n
+  FROM users
+  WHERE user_no IS NULL
+)
+UPDATE users u
+SET user_no = o.n
+FROM ordered o
+WHERE u.id = o.id AND u.user_no IS NULL;
+DO $$
+DECLARE
+  m INTEGER;
+BEGIN
+  SELECT MAX(user_no) INTO m FROM users;
+  IF m IS NULL THEN
+    PERFORM setval('users_user_no_seq', 1, false);
+  ELSE
+    PERFORM setval('users_user_no_seq', m, true);
+  END IF;
+END $$;
+ALTER TABLE users ALTER COLUMN user_no SET DEFAULT nextval('users_user_no_seq');
+ALTER TABLE users ALTER COLUMN user_no SET NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_user_no ON users (user_no);
+ALTER SEQUENCE users_user_no_seq OWNED BY users.user_no;
+
 CREATE TABLE IF NOT EXISTS otp_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email CITEXT NOT NULL,

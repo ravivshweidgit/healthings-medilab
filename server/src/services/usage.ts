@@ -474,6 +474,7 @@ export async function getPatientUsageTotal(patientId: string, from?: Date, to?: 
 /** Platform-wide active patients from ai_usage_events (admin console). */
 export type ActiveUsageRow = {
   patientId: string;
+  userNo: number;
   patientEmail: string;
   firstName: string | null;
   lastName: string | null;
@@ -487,6 +488,7 @@ export type ActiveUsageRow = {
 export async function getActiveUsageByPatient(from: Date, to: Date): Promise<ActiveUsageRow[]> {
   const { rows } = await query<{
     patient_id: string;
+    user_no: number;
     patient_email: string;
     first_name: string | null;
     last_name: string | null;
@@ -497,6 +499,7 @@ export async function getActiveUsageByPatient(from: Date, to: Date): Promise<Act
     last_at: Date;
   }>(
     `SELECT e.patient_id,
+            p.user_no,
             p.email AS patient_email,
             p.first_name,
             p.last_name,
@@ -508,12 +511,13 @@ export async function getActiveUsageByPatient(from: Date, to: Date): Promise<Act
      FROM ai_usage_events e
      JOIN users p ON p.id = e.patient_id
      WHERE e.created_at >= $1 AND e.created_at <= $2
-     GROUP BY e.patient_id, p.email, p.first_name, p.last_name
+     GROUP BY e.patient_id, p.user_no, p.email, p.first_name, p.last_name
      ORDER BY last_at DESC`,
     [from.toISOString(), to.toISOString()],
   );
   return rows.map((r) => ({
     patientId: r.patient_id,
+    userNo: r.user_no,
     patientEmail: r.patient_email,
     firstName: r.first_name,
     lastName: r.last_name,
