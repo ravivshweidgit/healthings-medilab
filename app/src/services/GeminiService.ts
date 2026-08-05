@@ -37,7 +37,6 @@ import {
 import { detectChatIntent, isGlucoseDeepDiveQuery, isGlucoseQuery, type ChatIntent } from '../logic/chatIntent';
 import { resolveMentorGender } from '../logic/mentorLabels';
 import { formatUserRulesLines, formatUserRulesBlock, formatMacroRevisionRulesBlock, MEAL_FAT_RULE_FLAGGING_GUIDANCE } from '../logic/userRulesContext';
-import { formatDirectiveAndRulesForChecks } from '../logic/nutritionDirectiveContext';
 
 /**
  * Unit symbols stay English in every language (language-policy glossary).
@@ -1239,10 +1238,9 @@ export async function checkMealAgainstUserRules(
   items: FoodItem[],
   userRules: UserRules | null,
   lang?: UserLanguage | null,
-  nutritionDirectiveContext?: string | null,
 ): Promise<MealRuleCheckIssue[]> {
   if (MOCK_MODE || items.length === 0) return [];
-  if (!userRules?.rawText?.trim() && !nutritionDirectiveContext?.trim()) return [];
+  if (!userRules?.rawText?.trim()) return [];
 
   const itemLines = items
     .map((item) => {
@@ -1251,17 +1249,12 @@ export async function checkMealAgainstUserRules(
     })
     .join('\n');
 
-  const rulesCombined = formatDirectiveAndRulesForChecks(
-    nutritionDirectiveContext,
-    userRules?.rawText?.trim()
-      ? formatMacroRevisionRulesBlock(userRules)
-      : '=== MY RULES ===\n(none — apply NUTRITIONIST DIRECTIVE only)',
-  );
+  const rulesBlock = formatMacroRevisionRulesBlock(userRules);
 
   const prompt = `You are the Nutritionist mentor. The user is about to SAVE this meal to their food log.
-Check EVERY item line independently against the NUTRITIONIST DIRECTIVE (if present) and MY RULES. Flag only lines that VIOLATE — never flag because something is missing from the meal.
+Check EVERY item line independently against MY RULES only. Do NOT invent constraints from a nutritionist session PDF, sample menu, or clinic report — those are not in this prompt. Flag only lines that VIOLATE MY RULES — never flag because something is missing from the meal.
 
-${rulesCombined}
+${rulesBlock}
 
 ${MEAL_FAT_RULE_FLAGGING_GUIDANCE}
 
@@ -1269,11 +1262,10 @@ MEAL TO SAVE (check each line):
 ${itemLines}
 
 Return JSON ONLY (no markdown):
-{"issues":[{"itemName":"<display name from meal list>","severity":"critical"|"warning","message":"<one short sentence why THIS item violates rules>"}]}
+{"issues":[{"itemName":"<display name from meal list>","severity":"critical"|"warning","message":"<one short sentence why THIS item violates MY RULES>"}]}
 
 Rules for your response:
-- Apply NUTRITIONIST DIRECTIVE first on conflict, then MY RULES.
-- Apply ONLY what the blocks say — verbatim Original may allow exceptions (e.g. whey isolate while limiting other animal fats).
+- Apply ONLY MY RULES — verbatim text. Ignore any memory of nutritionist menus or protein-yogurt examples.
 - Plant-fat items pass when rules favor unsaturated sources; flag animal/dairy fat only when rules forbid it without an exception.
 - Do NOT flag "missing" preferred foods. Do NOT flag psyllium/fiber for fat.
 - itemName must match the violating line's label (before the English name in parentheses).

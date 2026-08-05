@@ -1,0 +1,32 @@
+# prompt103 — Meal rule check: My Rules only (no directive leak)
+
+**Status:** done (2026-08-05). Phone-tested Edit Meal yogurt item.
+
+## Builds on
+
+- prompt20 (meal rule checks), prompt53 / nutritionist directives
+
+## Problem
+
+Edit Meal flagged items using the **active nutritionist session PDF** (sample menu lines like “protein yogurt 20g”) via `checkMealAgainstUserRules`. User expects **My Rules only** for per-item save/edit flags — directive in that prompt was a leak.
+
+## What shipped
+
+| Piece | Detail |
+|-------|--------|
+| `checkMealAgainstUserRules` | Dropped `nutritionDirectiveContext`; prompt = My Rules + fat flagging guidance only |
+| `FoodLogModal` | No longer loads directive for the save-time rule check |
+| Mentor / Ask macros | Unchanged — still receive directive for daily targets |
+
+## Files
+
+- `app/src/services/GeminiService.ts`
+- `app/src/components/FoodLogModal.tsx`
+
+## Phone-tested
+
+- [x] Edit meal with Yoplait 0% — no false “20g protein yogurt” directive warning
+
+## Deferred
+
+- None (directive remains in chat/macros by design)
