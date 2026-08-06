@@ -1,0 +1,125 @@
+# prompt104 — Activity Log (Food Log twin) + user favorites
+
+**Status:** backlog / draft (2026-08-06)  
+**Test order:** Samsung Android first (`bi`) → iOS TestFlight later (`bi-os`)  
+**Builds on:** Food Log strip/modal (`FoodMacroStrip`, `FoodLogModal`, `FoodLogService`), burn correction (`BurnCorrectionService`), hybrid activity burn / `metricsStore` workouts (`WorkoutSession`), persistence parity
+
+## Problem
+
+Activity kcal today is mostly wearable sync + a blunt **Adjust activity kcal** correction. Users who do YouTube / bodyweight / gym sessions (no watch, or watch undercounts) have no Food-Log-like place to log sessions, reuse favorites, or attach a reference video/photo.
+
+## Product rules (agreed)
+
+1. **UI twin of Food Log** — dashboard strip under Food Log (“ACTIVITY LOG”): same day chrome (prev/next date), day total, horizontal chips / rows, collapse/expand.
+2. **Quantity = minutes (required).** No grams. No structured sets×reps in v1.
+3. **Optional free-text note / instruction** — e.g. “3×12 pull-ups, last to failure” or “did the video twice.” Gemini may use note (+ optional photo) for kcal/intensity judgment; do not parse sets with regex.
+4. **User favorites library** — user-created list (not a built-in catalog):
+   - name
+   - default minutes
+   - optional default note
+   - optional YouTube URL (e.g. https://youtu.be/R5uLtIAfd9s)
+   - optional reference image
+5. **Log entry sources**
+   - **Manual / favorite** — user picks favorite or types name + minutes (+ note / photo / YouTube).
+   - **Wearable** — existing `metricsStore` / HC / Withings `WorkoutSession` rows appear in the day list with a source badge; user can edit label/note lightly; do not invent a second workout store for vendor data.
+6. **Day activity total** — sum of logged session kcal for that day feeds ENERGY BALANCE / Food Log burn line. Prefer wearable kcal when present; else Gemini estimate from name + minutes + note/photo; else a simple duration×intensity fallback.
+7. **Adjust activity kcal** — keep as rare **override** on top of the log (not the primary UX).
+8. **Language** — strip chrome + modals follow `appLocale` (same pattern as Food Log copy). Always-English glossary: kcal, BMR, YouTube, CGM, etc.
+9. **Persistence parity** — canonical AsyncStorage keys (shared Android/iOS). No `Platform.OS` in key names.
+10. **Backup defensive rule (do not backup less than the phone DB)**  
+    Local / cloud backup already dumps **`getAllKeys()` minus a small ephemeral exclude set** (`LocalBackupService` / `ShareExportService` `EXCLUDED_ASYNC_KEYS`). Keep that model:
+    - **Never** switch to an allowlist of keys to export — that silently drops new stores.
+    - Activity favorites + day entries **must not** be added to either exclusion list.
+    - When adding a key, default = **included**. Only put debug / billing / ephemeral keys on the exclude lists; update **both** lists together if you exclude anything.
+    - If favorite/session images live as file URIs outside AsyncStorage, either store payload bytes (or a durable key) inside AS so backup carries them, or explicitly copy those files into the backup payload — **do not** leave dangling paths that restore empty on another phone.
+
+11. **Activity-specific defensive check (required — not covered by meal/HR alone)**  
+    Meals and HR already block thin phones from wiping richer cloud copies (`backupFingerprint.ts` → `canOverwriteCloudBackup`: never overwrite with fewer `mealDays` / less HR). **Activity must get the same treatment**, as its own dimensions — do not assume meal/byteSize checks protect workouts/favorites.
+
+    | Check | Behavior |
+    |-------|----------|
+    | **Fingerprint fields** | Add e.g. `activityDays` (day keys with ≥1 activity entry), `activityEntries` (total session count), `activityFavorites` (favorite count). Count from activity-log keys + favorites key in the payload. |
+    | **Cloud overwrite** | In `canOverwriteCloudBackup`: refuse if phone `activityDays` / `activityFavorites` / `activityEntries` is **less** than cloud (same tone as meals: restore or force replace). Empty phone must not wipe a cloud that has activity history. |
+    | **Export assert** | After `collectAsyncStorageExport`, compare device activity keys/counts vs payload; if the phone has favorites or day entries that are missing from the payload → **fail the export** (log + user-visible error), do not write a thin file. |
+    | **Import merge** | Mirror food-day merge by entry `id` for activity day keys; refresh activity day index after import (like `refreshFoodDayIndex`). Favorites: merge by favorite `id` (union, never drop cloud-only or phone-only without force). |
+    | **Clinic / account share** | Same keys ride the shared dump unless privacy policy excludes them; if excluded, document why — default is **include** (health behavior data). |
+
+    Emptyish heuristic (`isEmptyish`) should treat “no meals and no glucose” **or** consider activity: a phone with only activity history is not empty for overwrite purposes if cloud also has activity — extend carefully so activity-only users are protected.
+
+## Data sketch (v1)
+
+```
+ActivityFavorite {
+  id, name, defaultMinutes, note?, youtubeUrl?, imageUri? (or stored blob key), createdAt
+}
+
+ActivityEntry {
+  id, dayKey, timestamp,
+  name, minutes, note?,
+  youtubeUrl?,           // copy from favorite or paste
+  imageUri?,             // optional camera/gallery + prompt like meal
+  activityKcal,          // estimated or from wearable
+  source: 'manual' | 'favorite' | 'withings' | 'health-connect' | 'healthkit',
+  favoriteId?,           // if logged from favorite
+  wearableStartMs?       // link to WorkoutSession when mirrored
+}
+```
+
+Favorites key e.g. `healthings:activityFavorites`  
+Day entries e.g. `healthings:activityLog` / per-day index parallel to `food_log_days` — exact names locked at implement time; document in this file when shipped.
+
+## UI sketch
+
+| Surface | Behavior |
+|---------|----------|
+| Strip header | Day label, total activity kcal, + Activity |
+| Chips | time · name · minutes · kcal · source badge · ✎ |
+| + Activity | Sheet: pick favorite chips **or** new name; minutes; optional note; optional YouTube paste; optional photo (+ short prompt); Save |
+| Favorites manage | From sheet or Profile-adjacent: add/edit/delete favorite (name, default minutes, note, YouTube, image) |
+| Wearable row | Auto-listed; badge Withings / HC; tap shows detail; optional “save as favorite” |
+
+## Gemini (optional on save)
+
+- Photo and/or text note + minutes + activity name → estimate `activityKcal` (HARD: use user minutes; judgment for intensity).
+- Credits: reuse a soft cost similar to meal text (`ai_chat` / dedicated `ai_activity` — decide at implement; document here).
+- Do **not** scrape full YouTube transcripts in v1; URL is reference for the user + name/title hint only if we resolve oEmbed later (deferred).
+
+## Out of scope / deferred
+
+- Structured sets × reps × load and progression charts
+- Auto-playing / embedding YouTube in-app (open external is enough)
+- Full replacement of hybrid burn math in one PR — wire day total carefully; keep Adjust
+- iOS HealthKit workout mirror polish until after Samsung `bi` pass
+- Clinic portal activity-log UI (export key first; portal later if needed)
+
+## Implementation notes
+
+- Mirror Food Log patterns: service + strip + modal; `appLocale` copy module.
+- KeyboardAvoidingView on iOS for any TextInput modals (prompt103-era lesson: Adjust activity modal).
+- Wearable merge: read `WorkoutSession` from existing loaders; write manual entries only to activity-log store; never fork `metricsStore` for manual rows.
+- Android first: `app\build-APK.bat install` (`bi`); do not commit until Samsung phone-tested.
+
+## Phone checklist (Samsung first)
+
+- [ ] ACTIVITY LOG strip under Food Log; day prev/next matches Food Log day
+- [ ] Add manual session (name + minutes + optional note) → chip + day total updates burn line
+- [ ] Create favorite with YouTube URL + default minutes → one-tap log uses defaults
+- [ ] Optional photo on log → save does not crash; kcal estimate reasonable or editable
+- [ ] Wearable workout (HC/Withings if available) appears with source badge same day
+- [ ] Adjust activity kcal still works as override; Clear works
+- [ ] Kill app / re-open — favorites + entries persist
+- [ ] Export backup JSON contains activity favorites + day entries (not on exclude lists)
+- [ ] Export fails loudly if phone has activity data missing from payload (export assert)
+- [ ] Cloud upload blocked when phone has fewer activity days / favorites / entries than cloud (force replace only if intentional)
+- [ ] Import merge: union by entry/favorite id; day index refreshed; no silent drop
+- [ ] Import backup on clean install restores favorites + sessions (same richness as pre-backup phone)
+- [ ] Dark + light; Hebrew `appLocale` chrome strings
+
+## Related
+
+- Food Log: `FoodMacroStrip`, `FoodLogModal`, `FoodLogService`
+- Burn: `BurnCorrectionService`, `hybridActivityBurn.ts`
+- Workouts: `WorkoutSession` in `WithingsApiService` / `metricsStore`
+- Persistence: `.cursor/rules/persistence-parity.mdc`
+- Backup richness: `app/src/logic/backupFingerprint.ts` (`mealDays` / HR guards → extend for activity)
+- Backup I/O: `LocalBackupService.ts`, `CloudBackupService.ts`, `ShareExportService.ts`

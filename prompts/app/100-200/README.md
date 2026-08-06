@@ -4,4 +4,4 @@ Shipped specs: [`done/README.md`](./done/README.md). Layout: [`../README.md`](..
 
 | File | Why still active |
 |------|------------------|
-| *(none)* | — |
+| [`prompt104.txt`](./prompt104.txt) | Activity Log twin of Food Log + user favorites (YouTube / photo / minutes + free-text). Samsung `bi` first. |

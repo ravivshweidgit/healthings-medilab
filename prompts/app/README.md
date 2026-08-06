@@ -41,4 +41,4 @@ When numbering past 200, add the next range folder the same way (e.g. `201-300/`
 - [`001-099/done/README.md`](./001-099/done/README.md)
 - [`100-200/done/README.md`](./100-200/done/README.md)
 
-Recent: **100** mentor copy + file attach · **99** lab gauge / `refLow`·`refHigh` · **97** metabolic label collision.
+Recent: **104** Activity Log + favorites (backlog, Samsung first) · **103** meal rule check My Rules only · **102** trend/energy right trim.
