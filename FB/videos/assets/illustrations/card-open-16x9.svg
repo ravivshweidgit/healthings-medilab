@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <title>Healthings open card - 16:9</title>
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#B8DAF0"/>
+      <stop offset="0.12" stop-color="#D6EBF8"/>
+      <stop offset="0.31" stop-color="#F0F4F8"/>
+      <stop offset="1" stop-color="#F0F4F8"/>
+    </linearGradient>
+    <linearGradient id="heart" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E53935"/>
+      <stop offset="1" stop-color="#B71C1C"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#page)"/>
+
+  <path d="M 960 372 C 944 346, 906 349, 906 381 C 906 410, 941 432, 960 448
+           C 979 432, 1014 410, 1014 381 C 1014 349, 976 346, 960 372 Z"
+        fill="url(#heart)"/>
+
+  <g font-family="Montserrat" text-anchor="middle">
+    <text x="960" y="576" fill="#1A2B4A" font-size="86" font-weight="700"
+          letter-spacing="3.4">HEALTHINGS.AI</text>
+
+    <path d="M 720 638 H 890 L 920 606 L 950 676 L 980 622 L 1005 638 H 1200"
+          fill="none" stroke="#00A8C0" stroke-width="6"
+          stroke-linecap="round" stroke-linejoin="round"/>
+
+    <text x="960" y="752" fill="#5C6B7A" font-size="34" font-weight="500">Metabolic OS</text>
+
+    <rect x="710" y="806" width="500" height="52" rx="26" fill="#E8F4FC"
+          stroke="#3D9DD6" stroke-opacity="0.35" stroke-width="2"/>
+    <text x="960" y="841" fill="#1A2B4A" font-size="20" font-weight="700"
+          letter-spacing="3">CLINIC &#183; RULES &#183; GEAR &#183; AI</text>
+  </g>
+</svg>

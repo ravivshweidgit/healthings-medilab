@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920">
+  <title>Healthings - four sources, no loop</title>
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#B8DAF0"/>
+      <stop offset="0.14" stop-color="#D6EBF8"/>
+      <stop offset="0.32" stop-color="#F0F4F8"/>
+      <stop offset="1" stop-color="#F0F4F8"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1080" height="1920" fill="url(#page)"/>
+
+  <g font-family="Montserrat" text-anchor="middle">
+    <text x="540" y="128" fill="#1A2B4A" font-size="34" font-weight="700"
+          letter-spacing="1.4">HEALTHINGS.AI</text>
+    <rect x="345" y="168" width="390" height="42" rx="21" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+    <text x="540" y="196" fill="#5C6B7A" font-size="18" font-weight="700"
+          letter-spacing="2.6">FOUR SOURCES, NO LOOP</text>
+  </g>
+
+  <g stroke="#C3D2E0" stroke-width="8" stroke-linecap="round" fill="none">
+    <path d="M 660 630 A 330 330 0 0 1 806 750"/>
+    <path d="M 848 1032 A 330 330 0 0 1 700 1176"/>
+    <path d="M 380 1176 A 330 330 0 0 1 232 1032"/>
+    <path d="M 274 750 A 330 330 0 0 1 420 630"/>
+  </g>
+
+  <g font-family="Montserrat" text-anchor="middle">
+    <rect x="415" y="512" width="250" height="116" rx="20" fill="#F8F9FA" stroke="#E2E8F0" stroke-width="2"/>
+    <rect x="745" y="842" width="250" height="116" rx="20" fill="#F8F9FA" stroke="#E2E8F0" stroke-width="2"/>
+    <rect x="415" y="1172" width="250" height="116" rx="20" fill="#F8F9FA" stroke="#E2E8F0" stroke-width="2"/>
+    <rect x="85" y="842" width="250" height="116" rx="20" fill="#F8F9FA" stroke="#E2E8F0" stroke-width="2"/>
+
+    <text x="540" y="560" fill="#5C6B7A" font-size="32" font-weight="700">Clinic</text>
+    <text x="540" y="600" fill="#8FA0B0" font-size="21" font-weight="500">once a month</text>
+
+    <text x="870" y="890" fill="#5C6B7A" font-size="32" font-weight="700">Labs</text>
+    <text x="870" y="930" fill="#8FA0B0" font-size="21" font-weight="500">a PDF in email</text>
+
+    <text x="540" y="1220" fill="#5C6B7A" font-size="32" font-weight="700">Meals</text>
+    <text x="540" y="1260" fill="#8FA0B0" font-size="21" font-weight="500">a diary</text>
+
+    <text x="210" y="890" fill="#5C6B7A" font-size="32" font-weight="700">Gear</text>
+    <text x="210" y="930" fill="#8FA0B0" font-size="21" font-weight="500">its own app</text>
+  </g>
+</svg>

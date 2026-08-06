@@ -22,6 +22,18 @@ healthings_visit_*.html
 # Device screenshots for UI work — real glucose/meal data, staging only
 assets-staging/
 
+# Video explainer raw dumps + large finals (keep scripts/storyboards tracked)
+FB/videos/assets/raw/**
+!FB/videos/assets/raw/README.md
+FB/videos/assets/exports/**
+!FB/videos/assets/exports/README.md
+FB/videos/assets/screens/*.{mp4,mov,webm,mkv}
+FB/videos/assets/screens/*.{MP4,MOV,WEBM,MKV}
+FB/videos/assets/audio/**
+!FB/videos/assets/audio/README.md
+FB/videos/assets/qa/
+FB/videos/elevenlabs/api-key.local.txt
+
 # --- Build / tooling artifacts ---
 __pycache__/
 

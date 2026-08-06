@@ -610,6 +610,34 @@ h1 {
   margin: 0 auto;
 }
 
+/* ── Explainer video ──
+   preload="none" on purpose: the poster is 23 KB, the film is 5 MB, and nothing
+   on this page is worth pushing the install CTA down the connection queue. The
+   video is drawn from the same tokens as the page, so it needs no chrome beyond
+   the card border. */
+.explainer {
+  margin: 36px auto 0;
+}
+
+.explainer-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-page);
+  box-shadow: var(--shadow-sm);
+}
+
+.explainer figcaption {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: var(--measure);
+}
+
 /* ── Phone frame ──
    Lifted verbatim from clinic/clinic-dashboard.css so the chrome is identical
    in the clinic mirror and here. --phone-w is local; the clinic sets its own. */

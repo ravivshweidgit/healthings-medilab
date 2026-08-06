@@ -1,0 +1,59 @@
+{
+  "id": "06-what-is-healthings",
+  "title": "What is Healthings",
+  "audience": "new users / cold audience",
+  "vo_lang": "en",
+  "subs_lang": "he",
+  "segments": [
+    {
+      "en": "You log your meals. You wear a watch. You get blood tests.",
+      "he": "אתם מתעדים ארוחות. עונדים שעון. עושים בדיקות דם.",
+      "shot": { "type": "phone", "file": "a3-food-log.jpg" }
+    },
+    {
+      "en": "But none of it talks to each other.",
+      "he": "אבל שום דבר לא מדבר אחד עם השני.",
+      "shot": { "type": "art", "file": "loop-disconnected.png" }
+    },
+    {
+      "en": "Healthings connects all of it into one loop.",
+      "he": "Healthings מחבר את הכול למעגל אחד.",
+      "shot": { "type": "art", "file": "loop-video.png" }
+    },
+    {
+      "en": "It starts in the clinic. A licensed nutritionist reads your labs and sets your plan.",
+      "he": "מתחיל בקליניקה: תזונאית מורשית קוראת את הבדיקות ובונה תוכנית.",
+      "shot": { "type": "phone", "file": "clinic-labs-import.jpg" }
+    },
+    {
+      "en": "That plan becomes rules that live inside your app.",
+      "he": "התוכנית הופכת לכללים שחיים בתוך האפליקציה.",
+      "shot": { "type": "phone", "file": "a4-my-rules-targets.jpg" }
+    },
+    {
+      "en": "Your scale, your watch, and your CGM keep the numbers honest.",
+      "he": "המשקל, השעון והחיישן שומרים שהמספרים יהיו אמיתיים.",
+      "shot": { "type": "phone", "file": "a1-dashboard.jpg" }
+    },
+    {
+      "en": "Every meal you log is checked against your plan, in seconds.",
+      "he": "כל ארוחה שמתעדים נבדקת מול התוכנית — תוך שניות.",
+      "shot": { "type": "phone", "file": "a6-coach.jpg" }
+    },
+    {
+      "en": "And your clinic sees the real week, not a story from memory, and adjusts.",
+      "he": "והקליניקה רואה את השבוע האמיתי — ומתאימה.",
+      "shot": { "type": "phone", "file": "a2-food-log-strip.jpg" }
+    },
+    {
+      "en": "Clinic directs. App executes. Devices measure.",
+      "he": "הקליניקה מכוונת. האפליקציה מיישמת. המכשירים מודדים.",
+      "shot": { "type": "art", "file": "loop-video.png" }
+    },
+    {
+      "en": "Healthings. One loop, closed.",
+      "he": "Healthings. מעגל אחד, סגור.",
+      "shot": { "type": "art", "file": "loop-video.png" }
+    }
+  ]
+}

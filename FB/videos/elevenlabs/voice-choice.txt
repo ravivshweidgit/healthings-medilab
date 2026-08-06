@@ -1,0 +1,15 @@
+# Voice choice — Healthings explainers
+# Fill after listening to assets/audio/auditions/
+
+# English (same as Tanzania safari hero)
+SELECTED_EN: Daniel | onwK4e9ZLuTAKqWW03F9 | British | Steady broadcaster
+
+# Hebrew — parked (owner: HE VO quality bad; English-only for explainers)
+SELECTED_HE: SKIP | — | not using HE VO
+
+# Audition slate (edit IDs before running gen_auditions.py)
+# Daniel | onwK4e9ZLuTAKqWW03F9
+# Bill   | pqHfZKP75CvOlQylNhV4
+# Brian  | nPczCjzI2devNBz1zQrb
+# George | JBFqnCBsd6RMkjVDRZzb
+# Add Hebrew / multilingual candidates from your ElevenLabs library

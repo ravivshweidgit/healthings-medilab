@@ -74,6 +74,15 @@ bash server/scripts/deploy-website.sh
 - https://healthings.ai/privacy.html — privacy policy (Play Store)
 - https://healthings.ai/downloads/healthings-medilab.apk — APK download
 
+Explainer video in **How it works** — check the content types, not just the status
+codes. A `.vtt` served as `application/octet-stream` still returns 200 while Safari
+silently drops the captions:
+
+```bash
+curl -sI https://healthings.ai/videos/how-it-works.mp4    | grep -i 'content-type\|accept-ranges'
+curl -sI https://healthings.ai/videos/how-it-works.en.vtt | grep -i content-type   # text/vtt
+```
+
 ## Structure
 
 ```
@@ -82,6 +91,7 @@ website/
   privacy.html        Privacy policy (Play Store required)
   styles.css
   assets/             Logo, favicon
+  videos/             Explainer film + WebVTT captions + poster (in git)
   downloads/          healthings-medilab.apk (not in git)
   scripts/publish-apk.*
 app/

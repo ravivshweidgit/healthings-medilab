@@ -1,0 +1,39 @@
+{
+  "id": "05-closed-loop",
+  "title": "Closed loop",
+  "audience": "warm / already saw the product",
+  "vo_lang": "en",
+  "subs_lang": "he",
+  "segments": [
+    {
+      "en": "The clinic sees real progress. Food, metrics, trends.",
+      "he": "הקליניקה רואה התקדמות אמיתית: אוכל, מדדים, מגמות.",
+      "shot": { "type": "phone", "file": "a2-food-log-strip.jpg" }
+    },
+    {
+      "en": "Not a story from memory.",
+      "he": "לא סיפור מהזיכרון.",
+      "shot": { "type": "phone", "file": "a1-dashboard.jpg" }
+    },
+    {
+      "en": "When needed, the rules adjust, and your phone updates.",
+      "he": "כשצריך — הכללים מתעדכנים, והטלפון מתיישר.",
+      "shot": { "type": "phone", "file": "a4-my-rules-targets.jpg" }
+    },
+    {
+      "en": "The cycle continues.",
+      "he": "והמעגל ממשיך.",
+      "shot": { "type": "phone", "file": "a6-coach.jpg" }
+    },
+    {
+      "en": "Directs. Executes. Measures. Closes.",
+      "he": "מכוונת · מיישמת · מודדת · נסגרת.",
+      "shot": { "type": "art", "file": "loop-video.png" }
+    },
+    {
+      "en": "Healthings. A holistic closed-cycle solution.",
+      "he": "Healthings — פתרון הוליסטי במעגל סגור.",
+      "shot": { "type": "art", "file": "loop-video.png" }
+    }
+  ]
+}

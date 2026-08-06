@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <title>Healthings phone frame overlay - 16:9</title>
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#B8DAF0"/>
+      <stop offset="0.12" stop-color="#D6EBF8"/>
+      <stop offset="0.31" stop-color="#F0F4F8"/>
+      <stop offset="1" stop-color="#F0F4F8"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#2A2A2A"/>
+      <stop offset="1" stop-color="#111111"/>
+    </linearGradient>
+    <filter id="phoneShadow" x="-40%" y="-25%" width="180%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#1A2B4A" flood-opacity="0.22"/>
+    </filter>
+    <mask id="screenHole">
+      <rect width="1920" height="1080" fill="#fff"/>
+      <rect x="600" y="105" width="720" height="1376" rx="34" fill="#000"/>
+    </mask>
+  </defs>
+
+  <g mask="url(#screenHole)">
+    <rect width="1920" height="1080" fill="url(#page)"/>
+    <rect x="568" y="50" width="784" height="1500" rx="56"
+          fill="url(#body)" filter="url(#phoneShadow)"/>
+  </g>
+
+  <rect x="905" y="70" width="110" height="8" rx="4" fill="#3A3A3A"/>
+
+  <text x="80" y="84" font-family="Montserrat" fill="#1A2B4A" font-size="30"
+        font-weight="700" letter-spacing="1.2">HEALTHINGS.AI</text>
+</svg>

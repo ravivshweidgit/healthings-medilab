@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920">
+  <title>Healthings closed cycle - site design system</title>
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#B8DAF0"/>
+      <stop offset="0.14" stop-color="#D6EBF8"/>
+      <stop offset="0.32" stop-color="#F0F4F8"/>
+      <stop offset="1" stop-color="#F0F4F8"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-30%" y="-40%" width="160%" height="200%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#1A2B4A" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+
+  <rect width="1080" height="1920" fill="url(#page)"/>
+
+  <g font-family="Montserrat" text-anchor="middle">
+    <text x="540" y="128" fill="#1A2B4A" font-size="34" font-weight="700"
+          letter-spacing="1.4">HEALTHINGS.AI</text>
+    <rect x="380" y="168" width="320" height="42" rx="21" fill="#E8F4FC" stroke="#3D9DD6"
+          stroke-opacity="0.35" stroke-width="2"/>
+    <text x="540" y="196" fill="#1A2B4A" font-size="18" font-weight="700"
+          letter-spacing="2.6">ONE CLOSED LOOP</text>
+  </g>
+
+  <circle cx="540" cy="900" r="330" fill="none" stroke="#3D9DD6" stroke-width="8"/>
+  <circle cx="540" cy="900" r="330" fill="none" stroke="#FFFFFF" stroke-width="2"
+          stroke-dasharray="10 22" opacity="0.9"/>
+
+  <g font-family="Montserrat" text-anchor="middle">
+    <g filter="url(#cardShadow)">
+      <rect x="415" y="512" width="250" height="116" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+      <rect x="745" y="842" width="250" height="116" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+      <rect x="415" y="1172" width="250" height="116" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+      <rect x="85" y="842" width="250" height="116" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+    </g>
+
+    <text x="540" y="560" fill="#1A2B4A" font-size="32" font-weight="700">Clinic</text>
+    <text x="540" y="600" fill="#5C6B7A" font-size="21" font-weight="500">directs</text>
+
+    <text x="870" y="890" fill="#1A2B4A" font-size="32" font-weight="700">Rules</text>
+    <text x="870" y="930" fill="#5C6B7A" font-size="21" font-weight="500">live in the app</text>
+
+    <text x="540" y="1220" fill="#1A2B4A" font-size="32" font-weight="700">App + AI</text>
+    <text x="540" y="1260" fill="#5C6B7A" font-size="21" font-weight="500">executes daily</text>
+
+    <text x="210" y="884" fill="#1A2B4A" font-size="32" font-weight="700">Gear</text>
+    <text x="210" y="920" fill="#5C6B7A" font-size="19" font-weight="500">scale &#183; watch</text>
+    <text x="210" y="946" fill="#5C6B7A" font-size="19" font-weight="500">CGM</text>
+  </g>
+</svg>

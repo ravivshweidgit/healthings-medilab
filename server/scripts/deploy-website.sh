@@ -24,7 +24,25 @@ fi
 
 chown -R www-data:www-data "$WEB_ROOT"
 
-cat > /etc/nginx/sites-available/healthings-web <<'NGINX'
+SITE_CONF=/etc/nginx/sites-available/healthings-web
+
+# The config below is written in place, so a syntax error would sit in
+# sites-available waiting for the next unrelated `systemctl reload nginx` to pick
+# it up — long after this script exited. Keep the previous one and roll back.
+CONF_BACKUP=""
+if [ -f "$SITE_CONF" ]; then
+  CONF_BACKUP="$(mktemp)"
+  cp "$SITE_CONF" "$CONF_BACKUP"
+fi
+
+restore_conf() {
+  if [ -n "$CONF_BACKUP" ] && [ -f "$CONF_BACKUP" ]; then
+    echo "nginx config rejected — restoring the previous one." >&2
+    cp "$CONF_BACKUP" "$SITE_CONF"
+  fi
+}
+
+cat > "$SITE_CONF" <<'NGINX'
 server {
     listen 80;
     server_name healthings.ai www.healthings.ai;
@@ -49,6 +67,24 @@ server {
 
     location ~* \.(css|js)$ {
         add_header Cache-Control "public, max-age=300";
+        try_files $uri =404;
+    }
+
+    # WebVTT is absent from nginx's bundled mime.types. Without this the caption
+    # tracks on the explainer video are served as application/octet-stream and
+    # Safari refuses to load them, so the film ships with no captions at all.
+    location ~* \.vtt$ {
+        types { }
+        default_type text/vtt;
+        add_header Cache-Control "public, max-age=300" always;
+        try_files $uri =404;
+    }
+
+    # Media is versioned by filename, so it can be cached hard. The blanket
+    # no-cache above is meant for HTML; left to apply here it would revalidate a
+    # 5 MB video on every page view.
+    location ~* \.(mp4|webm|jpg|jpeg|png|webp|svg|ico|woff2)$ {
+        add_header Cache-Control "public, max-age=2592000" always;
         try_files $uri =404;
     }
 
@@ -77,7 +113,12 @@ server {
 }
 NGINX
 
-ln -sf /etc/nginx/sites-available/healthings-web /etc/nginx/sites-enabled/
+ln -sf "$SITE_CONF" /etc/nginx/sites-enabled/
+
+if ! nginx -t; then
+  restore_conf
+  exit 1
+fi
 
 if ! grep -q "healthings.ai" /etc/letsencrypt/renewal/*.conf 2>/dev/null; then
   certbot --nginx -d healthings.ai -d www.healthings.ai \
