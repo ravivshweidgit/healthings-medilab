@@ -28,6 +28,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CLIPS = ROOT / "clips"
 STILLS = ROOT / "assets" / "screens" / "stills"
 SCREENS = ROOT / "assets" / "screens"
+BROLL = SCREENS / "broll"
 ART = ROOT / "assets" / "illustrations"
 AUDIO = ROOT / "assets" / "audio"
 EXPORTS = ROOT / "assets" / "exports"
@@ -105,6 +106,10 @@ def find_shot(kind: str, name: str, layout: Layout) -> Path:
         # layout. Screenshots are shape-agnostic — they sit inside the phone.
         sized = ART / f"{Path(name).stem}{layout.art_suffix}{Path(name).suffix}"
         path = sized if sized.is_file() else ART / name
+    elif kind == "broll":
+        path = BROLL / name
+        if not path.is_file():
+            path = SCREENS / name
     else:
         path = STILLS / name
         if not path.is_file():
@@ -239,6 +244,24 @@ def render_full_shot(src: Path, dur: float, index: int, out: Path, layout: Layou
     encode(chain, ["-loop", "1", "-i", str(src)], frames, out)
 
 
+def render_broll_shot(src: Path, dur: float, index: int, out: Path, layout: Layout) -> None:
+    """Full-bleed motion from a short mp4 (YouTube workout flash). Loops if short."""
+    frames = max(12, round(dur * FPS))
+    chain = (
+        f"[0:v]scale={layout.w}:{layout.h}:force_original_aspect_ratio=increase,"
+        f"crop={layout.w}:{layout.h},"
+        f"fps={FPS},setpts=PTS-STARTPTS,"
+        f"{zoompan(frames, layout.w, layout.h, index, 1.04)},"
+        f"format=yuv420p[v]"
+    )
+    encode(
+        chain,
+        ["-stream_loop", "-1", "-i", str(src)],
+        frames,
+        out,
+    )
+
+
 def xfade_chain(spans: list[float]) -> tuple[list[float], list[float], list[float]]:
     """Plan dissolves that straddle each boundary instead of butting parts together.
 
@@ -366,8 +389,11 @@ def main() -> None:
             )
 
     EXPORTS.mkdir(parents=True, exist_ok=True)
+    export_subdir = spec.get("export_dir")
+    out_dir = EXPORTS / export_subdir if export_subdir else EXPORTS
+    out_dir.mkdir(parents=True, exist_ok=True)
     tag = f"{vo_lang}" + ("" if args.no_subs else f"-sub{subs_lang}")
-    out = EXPORTS / f"{spec['id']}-{tag}-{layout.name}.mp4"
+    out = out_dir / f"{spec['id']}-{tag}-{layout.name}.mp4"
 
     print(f"clip={spec['id']} {layout.name} vo={vo_dur:.1f}s "
           f"shots={len(shots)} total={total:.1f}s")
@@ -390,6 +416,8 @@ def main() -> None:
                 shot = shots[i - 1]
                 if shot.kind == "phone":
                     render_phone_shot(shot.path, frame_png, dur, i, part, layout)
+                elif shot.kind == "broll":
+                    render_broll_shot(shot.path, dur, i, part, layout)
                 else:
                     render_full_shot(shot.path, dur, i, part, layout)
                 print(f"  shot {i}/{len(shots)} {dur:5.1f}s {shot.kind:5} {shot.path.name}")
@@ -428,9 +456,9 @@ def main() -> None:
         # Sidecars for every language in the spec, burned or not: the website
         # picks the visitor's language from <track>, so it needs them all.
         for lang, lines in subs.items():
-            write_srt(EXPORTS / f"{spec['id']}-{lang}.srt", lines, PREROLL)
-            write_vtt(EXPORTS / f"{spec['id']}-{lang}.vtt", lines, PREROLL)
-        print(f"  sidecars: {', '.join(sorted(subs))} (.srt + .vtt)")
+            write_srt(out_dir / f"{spec['id']}-{lang}.srt", lines, PREROLL)
+            write_vtt(out_dir / f"{spec['id']}-{lang}.vtt", lines, PREROLL)
+        print(f"  sidecars: {', '.join(sorted(subs))} (.srt + .vtt) -> {out_dir.name}")
 
         v_chain = f"[0:v]trim=duration={total:.3f},setpts=PTS-STARTPTS,fps={FPS}"
         if not args.no_subs:

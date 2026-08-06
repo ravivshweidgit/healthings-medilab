@@ -2,6 +2,7 @@
   "id": "06-what-is-healthings",
   "title": "What is Healthings",
   "audience": "new users / cold audience",
+  "export_dir": "002-what-is-healthings",
   "vo_lang": "en",
   "subs_lang": "he",
   "segments": [

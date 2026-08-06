@@ -1,5 +1,13 @@
 # Final exports
 
-Post-ready files, e.g. `clip00-closed-cycle-he-9x16.mp4`.
+Each finished film lives in its own numbered folder:
+
+| Dir | Clip |
+|-----|------|
+| `001-closed-loop/` | Closed loop (~27s) |
+| `002-what-is-healthings/` | What is Healthings (~49s) |
+| `003-activity-youtube/` | Activity Log YouTube how-to (~32s) |
+
+Clip specs set `"export_dir"`; `production/render_clip.py` writes the mp4 + `.srt` / `.vtt` there.
 
 Large binaries: prefer gitignore + local/Drive copy if the repo gets heavy.

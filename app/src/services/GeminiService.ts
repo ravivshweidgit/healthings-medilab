@@ -2960,85 +2960,66 @@ function buildActivityKcalPrompt(args: {
   activityName: string;
   youtubeUrl: string | null;
   watchVideo: boolean;
-  equipmentWeightKg: number | null;
 }): string {
-  const hasLoad = args.equipmentWeightKg != null && args.equipmentWeightKg > 0;
-  const load = hasLoad ? args.equipmentWeightKg : null;
-  const equipLine = hasLoad
-    ? `equipment_load_kg: ${load}`
-    : `equipment_load_kg: (none)`;
-
-  const loadHard = hasLoad
-    ? `## HARD — equipment load (do not ignore)
-USER_EQUIPMENT_LOAD_KG = ${load}
-The user lifts ${load} kg (dumbbell/bar load they entered — NOT body weight).
-- You MUST estimate activityKcal for THIS load (${load} kg), not for 5, 10, or 20 unless USER_EQUIPMENT_LOAD_KG is that value.
-- Same video + same duration: different USER_EQUIPMENT_LOAD_KG MUST produce DIFFERENT activityKcal (heavier → higher).
-- reason MUST contain exactly "@ ${load} kg" (this number, not another).
-- equipmentLoadKgUsed MUST equal ${load} (number).
-- NEVER copy sample/example JSON numbers from anywhere in this prompt.`
-    : `## Equipment load
-No equipment_load_kg entered. Return equipmentLoadKgUsed: null. Do not invent a load in reason.`;
-
   const mode = args.watchVideo
     ? `## Video input
 A public YouTube workout is attached. WATCH the video (visuals + audio cues).
-Judge what a person FOLLOWING ALONG on TV for the FULL film would do: movement type, work vs rest, intensity, floor/standing, cardio vs strength vs yoga.
-When USER_EQUIPMENT_LOAD_KG is set, assume THEY use that load on strength moves.
+Judge workout type and intensity for someone FOLLOWING ALONG on TV.
 
 CRITICAL — duration:
-- Read the actual video length (e.g. 12 minutes 7 seconds).
-- Set durationMinutes to that length rounded to whole minutes. Minimum 1.
-- Estimate activityKcal for THAT full follow-along duration — IGNORE minutes_hint if it disagrees with the film.`
+- Read the actual video length.
+- Set durationMinutes to that length rounded to whole minutes (minimum 1).
+- Ignore minutes_hint if it disagrees with the film.
+
+CRITICAL — return MET only:
+- Return Compendium-style MET for this follow-along (typical adult, body weight only).
+- Do NOT compute calories. Do NOT factor dumbbell/bar load (the app applies Load kg in a formula).
+- Typical bands: yoga/stretch ~2.5–3.5, light weights ~3.5–5, moderate circuit/HIIT ~5–8, hard HIIT ~8–12.`
     : `## No video attached
-Infer workout type/intensity from activity_name and/or youtube_url text only (no frames).
-Use Session minutes_hint as the completed duration. Set durationMinutes equal to that minutes value.`;
+Infer workout type/intensity from activity_name and/or youtube_url text only.
+Set durationMinutes from minutes_hint.
+Return Compendium-style MET only — do NOT compute calories or apply handheld load.`;
 
-  const echoLoad = hasLoad ? String(load) : 'null';
+  return `You classify workout intensity as a MET value for the ACSM calorie equation.
 
-  return `You estimate ACTIVE exercise calories (not including BMR) for one workout session.
-
-## User body profile
+## User body profile (context only — do not compute kcal)
 ${args.profileLines}
 
 ## Session
 minutes_hint: ${args.minutes}
 activity_name: ${args.activityName || '(none)'}
 youtube_url: ${args.youtubeUrl || '(none)'}
-${equipLine}
-
-${loadHard}
 
 ${mode}
 
 ## Rules
-- activityKcal = ACTIVE kcal for durationMinutes only (exclude resting BMR for those minutes).
-- Body mass for MET is weight_kg from the profile — never substitute equipment_load_kg for body mass.
-- Prefer lean/muscle mass context for strength; total weight for cardio.
-- Sanity: typically ~2–15 kcal/min for most adults; lower confidence if extreme.
-- reason: max 14 words, English glossary (kcal, MET, HIIT, kg OK).
+- met: number, typically 2.0–12.0 for follow-along workouts.
+- durationMinutes: integer ≥ 1.
+- reason: max 12 words, English glossary (MET, HIIT OK). No load kg.
+- confidence: high|medium|low.
 
-JSON fields (fill with YOUR judgment — do not reuse any sample kcal):
-activityKcal (int), durationMinutes (int), equipmentLoadKgUsed (${echoLoad}), confidence (high|medium|low), reason (string).`;
+Return JSON only:
+{"met":5.5,"durationMinutes":12,"confidence":"medium","reason":"Dumbbell arm circuit moderate MET"}`;
 }
 
-/** True when the model clearly copied the old few-shot example (110 kcal / 10 kg). */
-function looksLikeAnchoredExample(
-  kcal: number,
-  reason: string,
-  equipmentWeightKg: number | null,
-): boolean {
-  const r = reason.toLowerCase();
-  const mentions10 = /(?:@\s*)?10\s*kg/.test(r) || /strength\s*@\s*10/.test(r);
-  const mentions6met = /~\s*6\s*met/.test(r) || /\b6\s*met\b/.test(r);
-  if (equipmentWeightKg != null && equipmentWeightKg !== 10 && mentions10) return true;
-  if (equipmentWeightKg != null && equipmentWeightKg !== 10 && kcal === 110 && mentions6met) {
-    return true;
-  }
-  if (equipmentWeightKg != null && equipmentWeightKg !== 10 && kcal === 110 && mentions10) {
-    return true;
-  }
-  return false;
+/**
+ * ACSM: kcal ≈ MET × 3.5 × mass_kg / 200 × minutes.
+ * Load kg is added to body mass (enter total extra mass moved — both DBs summed, or bar).
+ */
+export function activityKcalFromMet(
+  met: number,
+  bodyWeightKg: number,
+  minutes: number,
+  equipmentLoadKg?: number | null,
+): number {
+  const m = Math.max(0.5, Number(met));
+  const mins = Math.max(0, Math.round(minutes));
+  const load =
+    equipmentLoadKg != null && Number.isFinite(equipmentLoadKg) && equipmentLoadKg > 0
+      ? equipmentLoadKg
+      : 0;
+  const massKg = Math.max(30, bodyWeightKg) + load;
+  return Math.max(0, Math.round((m * 3.5 * massKg * mins) / 200));
 }
 
 function forceLoadInReason(reason: string, loadKg: number): string {
@@ -3047,21 +3028,20 @@ function forceLoadInReason(reason: string, loadKg: number): string {
     .replace(/\b\d+(?:\.\d+)?\s*kg\b/gi, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
-  const base = cleaned || 'Strength follow-along';
-  const withLoad = `${base} @ ${loadKg} kg`.replace(/\s{2,}/g, ' ').trim();
-  return withLoad.slice(0, 120);
+  const base = cleaned || 'Follow-along';
+  return `${base} @ ${loadKg} kg`.replace(/\s{2,}/g, ' ').trim().slice(0, 120);
 }
 
 /**
- * Estimate active kcal for a YouTube workout (or named session) from body profile + minutes.
- * When a public YouTube URL is present, Gemini receives the video via fileData (watch-along mode).
+ * Estimate active kcal for a YouTube workout (or named session).
+ * Gemini returns MET + duration from the film; kcal uses ACSM with body kg + Load kg.
  */
 export async function estimateActivityKcalFromYoutube(
   input: ActivityKcalEstimateInput,
 ): Promise<ActivityKcalEstimate> {
   const rawUrl = input.youtubeUrl.trim();
   const watchUrl = normalizeYoutubeWatchUrl(rawUrl);
-  const minutes = Math.max(1, Math.round(input.minutes));
+  const minutesHint = Math.max(1, Math.round(input.minutes));
   const activityName = (input.activityName ?? '').trim();
   if (!rawUrl && !activityName) {
     throw new Error('Add a YouTube link or activity name first.');
@@ -3102,11 +3082,10 @@ export async function estimateActivityKcalFromYoutube(
       : null;
   const prompt = buildActivityKcalPrompt({
     profileLines,
-    minutes,
+    minutes: minutesHint,
     activityName,
     youtubeUrl: watchUrl,
     watchVideo,
-    equipmentWeightKg,
   });
 
   type ContentPart =
@@ -3120,7 +3099,6 @@ export async function estimateActivityKcalFromYoutube(
         temperature: 0,
         maxOutputTokens: 768,
         thinkingBudget: 0,
-        // JSON mode only — no responseSchema (Gemini rejects type: [number, null] unions).
         responseMimeType: 'application/json',
       }),
     };
@@ -3161,60 +3139,47 @@ export async function estimateActivityKcalFromYoutube(
       ]
     : [{ text: prompt }];
 
-  let parsed = await callGemini(parts);
-  let kcal = Math.round(Number(parsed.activityKcal));
-  if (!Number.isFinite(kcal) || kcal < 0) {
-    throw new Error('AI returned an invalid calorie value.');
-  }
-  let reason =
-    String(parsed.reason ?? '').trim().slice(0, 120) ||
-    (watchVideo ? 'Estimated from watched workout video' : 'Estimated from profile + workout name');
+  const parsed = await callGemini(parts);
 
-  // Model often copied an old few-shot example (110 kcal / @ 10 kg). One cheap text retry.
-  if (looksLikeAnchoredExample(kcal, reason, equipmentWeightKg) && equipmentWeightKg != null) {
-    await assertCanSpendCredits('ai_other');
-    const durHint = Number(parsed.durationMinutes);
-    const dur =
-      Number.isFinite(durHint) && durHint > 0 ? Math.round(durHint) : minutes;
-    const fixPrompt = `Correct a bad calorie estimate. The previous model answer wrongly used sample numbers (often 110 kcal and "@ 10 kg").
-
-USER_EQUIPMENT_LOAD_KG = ${equipmentWeightKg}
-durationMinutes = ${dur}
-activity_name = ${activityName || '(none)'}
-youtube_url = ${watchUrl || rawUrl || '(none)'}
-body profile:
-${profileLines}
-
-Previous bad JSON: ${JSON.stringify(parsed)}
-
-Return fresh JSON for a follow-along of durationMinutes at USER_EQUIPMENT_LOAD_KG=${equipmentWeightKg} kg.
-activityKcal MUST differ from 110 unless that is truly correct for ${equipmentWeightKg} kg.
-reason MUST include "@ ${equipmentWeightKg} kg" and MUST NOT say 10 kg.
-equipmentLoadKgUsed MUST be ${equipmentWeightKg}.`;
-    parsed = await callGemini([{ text: fixPrompt }]);
-    kcal = Math.round(Number(parsed.activityKcal));
-    if (!Number.isFinite(kcal) || kcal < 0) {
-      throw new Error('AI returned an invalid calorie value on retry.');
+  let met = Number(parsed.met);
+  if (!Number.isFinite(met) || met <= 0) {
+    // Backward-compatible: derive MET from a legacy activityKcal at body weight only.
+    const legacyKcal = Number(parsed.activityKcal);
+    const durGuess = Number(parsed.durationMinutes);
+    const minsForLegacy =
+      Number.isFinite(durGuess) && durGuess > 0 ? Math.round(durGuess) : minutesHint;
+    if (Number.isFinite(legacyKcal) && legacyKcal > 0 && minsForLegacy > 0) {
+      met = legacyKcal / ((3.5 * input.weightKg * minsForLegacy) / 200);
     }
-    reason =
-      String(parsed.reason ?? '').trim().slice(0, 120) ||
-      `Follow-along @ ${equipmentWeightKg} kg`;
   }
-
-  const confRaw = String(parsed.confidence ?? 'medium').toLowerCase();
-  const confidence: ActivityKcalEstimate['confidence'] =
-    confRaw === 'high' || confRaw === 'low' ? confRaw : 'medium';
-
-  if (equipmentWeightKg != null) {
-    reason = forceLoadInReason(reason, equipmentWeightKg);
+  if (!Number.isFinite(met) || met <= 0) {
+    throw new Error('AI did not return a valid MET value.');
   }
+  met = Math.min(14, Math.max(1.5, met));
 
   let durationMinutes: number | undefined;
   const durRaw = Number(parsed.durationMinutes);
   if (Number.isFinite(durRaw) && durRaw > 0) {
     durationMinutes = Math.max(1, Math.round(durRaw));
   } else if (!watchVideo) {
-    durationMinutes = minutes;
+    durationMinutes = minutesHint;
+  }
+  const minsForKcal = durationMinutes ?? minutesHint;
+
+  const kcal = activityKcalFromMet(met, input.weightKg, minsForKcal, equipmentWeightKg);
+
+  const confRaw = String(parsed.confidence ?? 'medium').toLowerCase();
+  const confidence: ActivityKcalEstimate['confidence'] =
+    confRaw === 'high' || confRaw === 'low' ? confRaw : 'medium';
+
+  let reason =
+    String(parsed.reason ?? '').trim().slice(0, 120) ||
+    (watchVideo ? `MET ${met.toFixed(1)} from workout video` : `MET ${met.toFixed(1)} from activity`);
+  if (equipmentWeightKg != null) {
+    reason = forceLoadInReason(
+      `${reason} · ACSM MET×kg×min`,
+      equipmentWeightKg,
+    );
   }
 
   return {

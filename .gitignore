@@ -25,6 +25,8 @@ assets-staging/
 # Video explainer raw dumps + large finals (keep scripts/storyboards tracked)
 FB/videos/assets/raw/**
 !FB/videos/assets/raw/README.md
+!FB/videos/assets/raw/youtube/
+!FB/videos/assets/raw/youtube/README.md
 FB/videos/assets/exports/**
 !FB/videos/assets/exports/README.md
 FB/videos/assets/screens/*.{mp4,mov,webm,mkv}

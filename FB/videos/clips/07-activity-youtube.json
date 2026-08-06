@@ -1,0 +1,66 @@
+{
+  "id": "07-activity-youtube",
+  "title": "Activity Log — YouTube workouts",
+  "audience": "users who train from YouTube / TV follow-alongs",
+  "export_dir": "003-activity-youtube",
+  "vo_lang": "en",
+  "subs_lang": "he",
+  "segments": [
+    {
+      "en": "Got a YouTube workout? Log it in Activity Log.",
+      "he": "יש לכם אימון ב-YouTube? תעדו אותו ביומן הפעילות.",
+      "shot": {
+        "type": "phone",
+        "file": "a9-activity-strip.jpg"
+      }
+    },
+    {
+      "en": "Paste the link — the same film you follow on the TV.",
+      "he": "הדביקו את הקישור — אותו סרטון שאתם עוקבים אחריו בטלוויזיה.",
+      "shot": {
+        "type": "broll",
+        "file": "yt-arms-15s.mp4"
+      }
+    },
+    {
+      "en": "Arms, upper body — any public workout video.",
+      "he": "ידיים, פלג גוף עליון — כל סרטון אימון ציבורי.",
+      "shot": {
+        "type": "broll",
+        "file": "yt-upper-15s.mp4"
+      }
+    },
+    {
+      "en": "Tap AI calc. Healthings watches the video and sets your minutes and calories.",
+      "he": "לחצו חישוב AI. Healthings צופה בסרטון ומגדיר דקות וקלוריות.",
+      "shot": {
+        "type": "phone",
+        "file": "a9-activity-ai-5kg.jpg"
+      }
+    },
+    {
+      "en": "Add your load — five kilos.",
+      "he": "הוסיפו את העומס — חמישה קילו.",
+      "shot": {
+        "type": "phone",
+        "file": "a9-activity-ai-5kg.jpg"
+      }
+    },
+    {
+      "en": "Same film, fifteen kilos — AI recalculates for your body.",
+      "he": "אותו סרטון, חמישה-עשר קילו — ה-AI מחשב מחדש לפי הגוף שלכם.",
+      "shot": {
+        "type": "phone",
+        "file": "a9-activity-ai-15kg.jpg"
+      }
+    },
+    {
+      "en": "Save. Your burn updates. Healthings.",
+      "he": "שמרו. השריפה מתעדכנת. Healthings.",
+      "shot": {
+        "type": "phone",
+        "file": "a9-activity-ai-15kg.jpg"
+      }
+    }
+  ]
+}
