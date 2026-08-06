@@ -6,7 +6,9 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -890,50 +892,55 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
 
       {/* Burn correction modal */}
       <Modal visible={correctionModalVisible} transparent animationType="fade" onRequestClose={() => setCorrectionModalVisible(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setCorrectionModalVisible(false)}>
-          <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Adjust activity {eLab}</Text>
-            <Text style={styles.modalSub}>
-              Enter a correction (e.g. <Text style={styles.modalCode}>-{Math.round(kcalToDisplay(188, energyU))}</Text> to
-              reduce activity by {formatEnergy(188, energyU)}).
-              {'\n'}
-              Recorded activity:{' '}
-              <Text style={styles.modalBold}>
-                {burnParts != null
-                  ? formatEnergy(burnParts.activity, energyU)
-                  : '—'}
+        <KeyboardAvoidingView
+          style={styles.modalKav}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setCorrectionModalVisible(false)}>
+            <Pressable style={styles.modalCard} onPress={() => {}}>
+              <Text style={styles.modalTitle}>Adjust activity {eLab}</Text>
+              <Text style={styles.modalSub}>
+                Enter a correction (e.g. <Text style={styles.modalCode}>-{Math.round(kcalToDisplay(188, energyU))}</Text> to
+                reduce activity by {formatEnergy(188, energyU)}).
+                {'\n'}
+                Recorded activity:{' '}
+                <Text style={styles.modalBold}>
+                  {burnParts != null
+                    ? formatEnergy(burnParts.activity, energyU)
+                    : '—'}
+                </Text>
+                {burnParts != null ? (
+                  <>
+                    {' · '}BMR <Text style={styles.modalBold}>{formatEnergy(burnParts.bmr, energyU)}</Text>
+                  </>
+                ) : null}
               </Text>
-              {burnParts != null ? (
-                <>
-                  {' · '}BMR <Text style={styles.modalBold}>{formatEnergy(burnParts.bmr, energyU)}</Text>
-                </>
-              ) : null}
-            </Text>
-            <TextInput
-              style={styles.modalInput}
-              value={correctionInput}
-              onChangeText={setCorrectionInput}
-              keyboardType="numbers-and-punctuation"
-              placeholder={`-${Math.round(kcalToDisplay(188, energyU))}`}
-              placeholderTextColor={colors.textSecondary}
-              autoFocus
-              selectTextOnFocus
-            />
-            <View style={styles.modalBtns}>
-              {burnCorrection !== 0 && (
-                <Pressable style={styles.modalBtnClear} onPress={async () => { await setBurnCorrection(activeDayKey, 0); setBurnCorrectionState(0); setCorrectionModalVisible(false); }}>
-                  <Text style={styles.modalBtnClearText}>Clear</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={correctionInput}
+                onChangeText={setCorrectionInput}
+                keyboardType="numbers-and-punctuation"
+                placeholder={`-${Math.round(kcalToDisplay(188, energyU))}`}
+                placeholderTextColor={colors.textSecondary}
+                autoFocus
+                selectTextOnFocus
+              />
+              <View style={styles.modalBtns}>
+                {burnCorrection !== 0 && (
+                  <Pressable style={styles.modalBtnClear} onPress={async () => { await setBurnCorrection(activeDayKey, 0); setBurnCorrectionState(0); setCorrectionModalVisible(false); }}>
+                    <Text style={styles.modalBtnClearText}>Clear</Text>
+                  </Pressable>
+                )}
+                <Pressable style={styles.modalBtnCancel} onPress={() => setCorrectionModalVisible(false)}>
+                  <Text style={styles.modalBtnCancelText}>Cancel</Text>
                 </Pressable>
-              )}
-              <Pressable style={styles.modalBtnCancel} onPress={() => setCorrectionModalVisible(false)}>
-                <Text style={styles.modalBtnCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable style={styles.modalBtnSave} onPress={handleSaveCorrection}>
-                <Text style={styles.modalBtnSaveText}>Save</Text>
-              </Pressable>
-            </View>
+                <Pressable style={styles.modalBtnSave} onPress={handleSaveCorrection}>
+                  <Text style={styles.modalBtnSaveText}>Save</Text>
+                </Pressable>
+              </View>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Water quick sheet */}
@@ -1029,62 +1036,67 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
 
       {/* Water intake / goal modal */}
       <Modal visible={waterModalVisible} transparent animationType="fade" onRequestClose={() => setWaterModalVisible(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setWaterModalVisible(false)}>
-          <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>
-              {waterModalMode === 'goal'
-                ? ui.waterGoal
-                : waterEntryEdit
-                  ? ui.waterAmount
-                  : ui.waterIntake}
-            </Text>
-            <Text style={styles.modalSub}>
-              {waterModalMode === 'goal' ? (
-                <>
-                  {ui.waterGoalHint(
-                    waterUnitLabel(waterU),
-                    formatWaterMl(DEFAULT_WATER_GOAL_ML, waterU),
-                  )}
-                </>
-              ) : waterEntryEdit ? (
-                <>
-                  {ui.waterAmountHint(
-                    waterUnitLabel(waterU),
-                    formatTime(waterEntryEdit.timestamp),
-                  )}
-                </>
-              ) : (
-                <>
-                  {ui.waterIntakeHint(waterUnitLabel(waterU))}{' '}
-                  <Text style={styles.modalBold}>{formatWaterMl(waterGoalMl, waterU)}</Text>
-                </>
-              )}
-            </Text>
-            <TextInput
-              style={styles.modalInput}
-              value={waterInput}
-              onChangeText={setWaterInput}
-              keyboardType="number-pad"
-              placeholder={waterModalMode === 'goal' ? String(DEFAULT_WATER_GOAL_ML) : '0'}
-              placeholderTextColor={colors.textSecondary}
-              autoFocus
-              selectTextOnFocus
-            />
-            <View style={styles.modalBtns}>
-              {waterModalMode === 'intake' && (waterEntryEdit || waterMl > 0) ? (
-                <Pressable style={styles.modalBtnClear} onPress={() => void handleClearWaterDay()}>
-                  <Text style={styles.modalBtnClearText}>{ui.clear}</Text>
+        <KeyboardAvoidingView
+          style={styles.modalKav}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setWaterModalVisible(false)}>
+            <Pressable style={styles.modalCard} onPress={() => {}}>
+              <Text style={styles.modalTitle}>
+                {waterModalMode === 'goal'
+                  ? ui.waterGoal
+                  : waterEntryEdit
+                    ? ui.waterAmount
+                    : ui.waterIntake}
+              </Text>
+              <Text style={styles.modalSub}>
+                {waterModalMode === 'goal' ? (
+                  <>
+                    {ui.waterGoalHint(
+                      waterUnitLabel(waterU),
+                      formatWaterMl(DEFAULT_WATER_GOAL_ML, waterU),
+                    )}
+                  </>
+                ) : waterEntryEdit ? (
+                  <>
+                    {ui.waterAmountHint(
+                      waterUnitLabel(waterU),
+                      formatTime(waterEntryEdit.timestamp),
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {ui.waterIntakeHint(waterUnitLabel(waterU))}{' '}
+                    <Text style={styles.modalBold}>{formatWaterMl(waterGoalMl, waterU)}</Text>
+                  </>
+                )}
+              </Text>
+              <TextInput
+                style={styles.modalInput}
+                value={waterInput}
+                onChangeText={setWaterInput}
+                keyboardType="number-pad"
+                placeholder={waterModalMode === 'goal' ? String(DEFAULT_WATER_GOAL_ML) : '0'}
+                placeholderTextColor={colors.textSecondary}
+                autoFocus
+                selectTextOnFocus
+              />
+              <View style={styles.modalBtns}>
+                {waterModalMode === 'intake' && (waterEntryEdit || waterMl > 0) ? (
+                  <Pressable style={styles.modalBtnClear} onPress={() => void handleClearWaterDay()}>
+                    <Text style={styles.modalBtnClearText}>{ui.clear}</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable style={styles.modalBtnCancel} onPress={() => setWaterModalVisible(false)}>
+                  <Text style={styles.modalBtnCancelText}>{ui.cancel}</Text>
                 </Pressable>
-              ) : null}
-              <Pressable style={styles.modalBtnCancel} onPress={() => setWaterModalVisible(false)}>
-                <Text style={styles.modalBtnCancelText}>{ui.cancel}</Text>
-              </Pressable>
-              <Pressable style={styles.modalBtnSave} onPress={() => void handleSaveWaterModal()}>
-                <Text style={styles.modalBtnSaveText}>{ui.saveItem}</Text>
-              </Pressable>
-            </View>
+                <Pressable style={styles.modalBtnSave} onPress={() => void handleSaveWaterModal()}>
+                  <Text style={styles.modalBtnSaveText}>{ui.saveItem}</Text>
+                </Pressable>
+              </View>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -1448,6 +1460,9 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     fontSize: 13,
     color: c.textSecondary,
     marginLeft: 6,
+  },
+  modalKav: {
+    flex: 1,
   },
   modalOverlay: {
     flex: 1,
