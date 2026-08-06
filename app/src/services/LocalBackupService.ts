@@ -3,6 +3,12 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { mergeCgmSessionStarts, mergeGlucoseTimePoints, type CachedHealthMetrics } from './healthMetricsCache';
 import { loadWithingsTokens, saveWithingsTokens, type WithingsOAuthTokens } from './WithingsApiService';
+import {
+  ACTIVITY_FAVORITES_KEY,
+  ACTIVITY_LOG_DAYS_KEY,
+  countDeviceActivityRichness,
+  isActivityDayKey,
+} from './ActivityLogService';
 
 const BACKUP_APP = 'healthings-medilab';
 const BACKUP_VERSION = 1;
@@ -34,6 +40,8 @@ type LocalBackupPayload = {
 export type LocalBackupImportResult = {
   keysRestored: number;
   mealsAdded: number;
+  activitiesAdded: number;
+  favoritesMerged: number;
   chatMessagesAdded: number;
   glucosePointsMerged: number;
   tokensRestored: boolean;
@@ -66,6 +74,47 @@ function mergeFoodDay(existingRaw: string | null, incomingRaw: string): { raw: s
   }
   const merged = [...map.values()].sort((a, b) => a.timestamp - b.timestamp);
   return { raw: JSON.stringify(merged), mealsAdded: added };
+}
+
+function mergeActivityDay(
+  existingRaw: string | null,
+  incomingRaw: string,
+): { raw: string; activitiesAdded: number } {
+  const existing = existingRaw ? (JSON.parse(existingRaw) as Array<{ id: string; timestamp: number }>) : [];
+  const incoming = JSON.parse(incomingRaw) as Array<{ id: string; timestamp: number }>;
+  const map = new Map<string, { id: string; timestamp: number }>();
+  for (const row of existing) map.set(row.id, row);
+  let added = 0;
+  for (const row of incoming) {
+    if (!map.has(row.id)) added += 1;
+    map.set(row.id, row);
+  }
+  const merged = [...map.values()].sort((a, b) => a.timestamp - b.timestamp);
+  return { raw: JSON.stringify(merged), activitiesAdded: added };
+}
+
+function mergeFavorites(
+  existingRaw: string | null,
+  incomingRaw: string,
+): { raw: string; favoritesMerged: number } {
+  type Fav = { id: string; updatedAt?: number };
+  const existing = existingRaw ? (JSON.parse(existingRaw) as Fav[]) : [];
+  const incoming = JSON.parse(incomingRaw) as Fav[];
+  const map = new Map<string, Fav>();
+  for (const row of existing) map.set(row.id, row);
+  let mergedCount = 0;
+  for (const row of incoming) {
+    const prev = map.get(row.id);
+    if (!prev) {
+      map.set(row.id, row);
+      mergedCount += 1;
+    } else {
+      const prevAt = prev.updatedAt ?? 0;
+      const nextAt = row.updatedAt ?? 0;
+      map.set(row.id, nextAt >= prevAt ? row : prev);
+    }
+  }
+  return { raw: JSON.stringify([...map.values()]), favoritesMerged: mergedCount };
 }
 
 function mergeChatHistory(existingRaw: string | null, incomingRaw: string): { raw: string; added: number } {
@@ -115,6 +164,15 @@ async function refreshFoodDayIndex(): Promise<void> {
   await AsyncStorage.setItem(FOOD_DAY_INDEX_KEY, JSON.stringify(dayKeys));
 }
 
+async function refreshActivityDayIndex(): Promise<void> {
+  const allKeys = await AsyncStorage.getAllKeys();
+  const dayKeys = allKeys
+    .filter((k) => isActivityDayKey(k))
+    .map((k) => k.replace('activity_log_', ''))
+    .sort();
+  await AsyncStorage.setItem(ACTIVITY_LOG_DAYS_KEY, JSON.stringify(dayKeys));
+}
+
 async function collectAsyncStorageExport(): Promise<Record<string, string>> {
   const allKeys = await AsyncStorage.getAllKeys();
   const exportKeys = allKeys.filter((k) => !EXCLUDED_ASYNC_KEYS.has(k));
@@ -126,16 +184,52 @@ async function collectAsyncStorageExport(): Promise<Record<string, string>> {
   return asyncStorage;
 }
 
+/** Fail export if device activity richness is missing from the payload (prompt104). */
+async function assertActivityBackupComplete(asyncStorage: Record<string, string>): Promise<void> {
+  const device = await countDeviceActivityRichness();
+  let payloadDays = 0;
+  let payloadEntries = 0;
+  for (const [key, raw] of Object.entries(asyncStorage)) {
+    if (!isActivityDayKey(key)) continue;
+    payloadDays += 1;
+    try {
+      const list = JSON.parse(raw) as unknown[];
+      if (Array.isArray(list)) payloadEntries += list.length;
+    } catch {
+      /* ignore */
+    }
+  }
+  let payloadFavs = 0;
+  try {
+    const favs = JSON.parse(asyncStorage[ACTIVITY_FAVORITES_KEY] ?? '[]') as unknown[];
+    if (Array.isArray(favs)) payloadFavs = favs.length;
+  } catch {
+    /* ignore */
+  }
+
+  if (
+    payloadDays < device.activityDays ||
+    payloadEntries < device.activityEntries ||
+    payloadFavs < device.activityFavorites
+  ) {
+    throw new Error(
+      `Activity backup incomplete (device ${device.activityDays}d/${device.activityEntries} sessions/${device.activityFavorites} favs vs payload ${payloadDays}d/${payloadEntries}/${payloadFavs}). Export aborted.`,
+    );
+  }
+}
+
 /** Build backup JSON payload (local file or cloud — cloud omits Withings tokens). */
 export async function buildLocalBackupPayload(opts?: {
   includeWithingsTokens?: boolean;
 }): Promise<LocalBackupPayload> {
   const includeWithingsTokens = opts?.includeWithingsTokens !== false;
+  const asyncStorage = await collectAsyncStorageExport();
+  await assertActivityBackupComplete(asyncStorage);
   return {
     version: BACKUP_VERSION,
     app: BACKUP_APP,
     exportedAt: new Date().toISOString(),
-    asyncStorage: await collectAsyncStorageExport(),
+    asyncStorage,
     ...(includeWithingsTokens
       ? { withingsTokens: await loadWithingsTokens() }
       : {}),
@@ -147,6 +241,8 @@ export async function applyLocalBackupPayload(
 ): Promise<LocalBackupImportResult> {
   let keysRestored = 0;
   let mealsAdded = 0;
+  let activitiesAdded = 0;
+  let favoritesMerged = 0;
   let chatMessagesAdded = 0;
   let glucosePointsMerged = 0;
 
@@ -159,6 +255,22 @@ export async function applyLocalBackupPayload(
       const merged = mergeFoodDay(existingRaw, incomingRaw);
       await AsyncStorage.setItem(key, merged.raw);
       mealsAdded += merged.mealsAdded;
+      keysRestored += 1;
+      continue;
+    }
+
+    if (isActivityDayKey(key)) {
+      const merged = mergeActivityDay(existingRaw, incomingRaw);
+      await AsyncStorage.setItem(key, merged.raw);
+      activitiesAdded += merged.activitiesAdded;
+      keysRestored += 1;
+      continue;
+    }
+
+    if (key === ACTIVITY_FAVORITES_KEY) {
+      const merged = mergeFavorites(existingRaw, incomingRaw);
+      await AsyncStorage.setItem(key, merged.raw);
+      favoritesMerged += merged.favoritesMerged;
       keysRestored += 1;
       continue;
     }
@@ -184,6 +296,7 @@ export async function applyLocalBackupPayload(
   }
 
   await refreshFoodDayIndex();
+  await refreshActivityDayIndex();
 
   let tokensRestored = false;
   if (payload.withingsTokens) {
@@ -191,7 +304,15 @@ export async function applyLocalBackupPayload(
     tokensRestored = true;
   }
 
-  return { keysRestored, mealsAdded, chatMessagesAdded, glucosePointsMerged, tokensRestored };
+  return {
+    keysRestored,
+    mealsAdded,
+    activitiesAdded,
+    favoritesMerged,
+    chatMessagesAdded,
+    glucosePointsMerged,
+    tokensRestored,
+  };
 }
 
 export async function exportLocalBackup(): Promise<void> {
@@ -215,7 +336,15 @@ export async function importLocalBackup(): Promise<LocalBackupImportResult> {
     copyToCacheDirectory: true,
   });
   if (pick.canceled) {
-    return { keysRestored: 0, mealsAdded: 0, chatMessagesAdded: 0, glucosePointsMerged: 0, tokensRestored: false };
+    return {
+      keysRestored: 0,
+      mealsAdded: 0,
+      activitiesAdded: 0,
+      favoritesMerged: 0,
+      chatMessagesAdded: 0,
+      glucosePointsMerged: 0,
+      tokensRestored: false,
+    };
   }
 
   const raw = await FileSystem.readAsStringAsync(pick.assets[0].uri, { encoding: 'utf8' });

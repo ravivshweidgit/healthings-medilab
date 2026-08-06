@@ -4,6 +4,8 @@ Implemented prompt specs in this range after they ship (phone-tested or explicit
 
 Open / backlog for this range: [`../README.md`](../README.md)
 
+**prompt104** — done (2026-08-06). Activity Log strip (Food Log twin), favorites + YouTube video AI kcal (duration + equipment load), Appearance hide toggle, backup fingerprint guards. Samsung phone-tested. See [`prompt104.txt`](./prompt104.txt).
+
 **prompt103** — done (2026-08-05). Meal save/edit rule check uses My Rules only — nutritionist directive removed from that prompt (sample-menu leak). Mentor/macros still get directive. Phone-tested yogurt Edit Meal. See [`prompt103.txt`](./prompt103.txt).
 
 **prompt101** — done (2026-08-03). Custom lab marker historical chart (one parameter, from–to green band); collapsible under lipids. App phone-tested; clinic/account code in tree, portal deploy verify pending. See [`prompt101.txt`](./prompt101.txt).

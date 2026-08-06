@@ -2895,3 +2895,334 @@ ${knowledge}`;
   }
   return raw;
 }
+
+// ─── Activity kcal from YouTube (prompt104) ───────────────────────────────────
+
+export type ActivityKcalEstimateInput = {
+  youtubeUrl: string;
+  minutes: number;
+  activityName?: string;
+  /** Dumbbell / bar load (kg) — not body weight. */
+  equipmentWeightKg?: number | null;
+  weightKg: number;
+  heightCm?: number | null;
+  age?: number | null;
+  gender?: string | null;
+  fatMassKg?: number | null;
+  muscleMassKg?: number | null;
+  fatPct?: number | null;
+  bmrKcal?: number | null;
+};
+
+export type ActivityKcalEstimate = {
+  activityKcal: number;
+  confidence: 'high' | 'medium' | 'low';
+  reason: string;
+  /** True when Gemini received the YouTube video as multimodal input. */
+  usedVideo: boolean;
+  /**
+   * When usedVideo: whole minutes from the film length (e.g. 12:07 → 12).
+   * App should set the minutes field to this.
+   */
+  durationMinutes?: number;
+  /** Echo of equipment load sent to the model (kg), when provided. */
+  equipmentLoadKgUsed?: number | null;
+};
+
+/** Canonical watch URL for Gemini YouTube video understanding (public videos only). */
+export function normalizeYoutubeWatchUrl(raw: string): string | null {
+  const t = raw.trim();
+  if (!t) return null;
+  const withScheme = /^https?:\/\//i.test(t) ? t : `https://${t}`;
+  try {
+    const u = new URL(withScheme);
+    const host = u.hostname.replace(/^www\./i, '').toLowerCase();
+    if (host === 'youtu.be') {
+      const id = u.pathname.replace(/^\//, '').split('/')[0];
+      return id ? `https://www.youtube.com/watch?v=${id}` : null;
+    }
+    if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com') {
+      const short = u.pathname.match(/^\/(?:shorts|embed|live)\/([\w-]{6,})/i);
+      if (short?.[1]) return `https://www.youtube.com/watch?v=${short[1]}`;
+      const v = u.searchParams.get('v');
+      if (v) return `https://www.youtube.com/watch?v=${v}`;
+    }
+  } catch {
+    /* fall through */
+  }
+  const loose = t.match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([\w-]{6,})/i);
+  return loose?.[1] ? `https://www.youtube.com/watch?v=${loose[1]}` : null;
+}
+
+function buildActivityKcalPrompt(args: {
+  profileLines: string;
+  minutes: number;
+  activityName: string;
+  youtubeUrl: string | null;
+  watchVideo: boolean;
+  equipmentWeightKg: number | null;
+}): string {
+  const hasLoad = args.equipmentWeightKg != null && args.equipmentWeightKg > 0;
+  const load = hasLoad ? args.equipmentWeightKg : null;
+  const equipLine = hasLoad
+    ? `equipment_load_kg: ${load}`
+    : `equipment_load_kg: (none)`;
+
+  const loadHard = hasLoad
+    ? `## HARD — equipment load (do not ignore)
+USER_EQUIPMENT_LOAD_KG = ${load}
+The user lifts ${load} kg (dumbbell/bar load they entered — NOT body weight).
+- You MUST estimate activityKcal for THIS load (${load} kg), not for 5, 10, or 20 unless USER_EQUIPMENT_LOAD_KG is that value.
+- Same video + same duration: different USER_EQUIPMENT_LOAD_KG MUST produce DIFFERENT activityKcal (heavier → higher).
+- reason MUST contain exactly "@ ${load} kg" (this number, not another).
+- equipmentLoadKgUsed MUST equal ${load} (number).
+- NEVER copy sample/example JSON numbers from anywhere in this prompt.`
+    : `## Equipment load
+No equipment_load_kg entered. Return equipmentLoadKgUsed: null. Do not invent a load in reason.`;
+
+  const mode = args.watchVideo
+    ? `## Video input
+A public YouTube workout is attached. WATCH the video (visuals + audio cues).
+Judge what a person FOLLOWING ALONG on TV for the FULL film would do: movement type, work vs rest, intensity, floor/standing, cardio vs strength vs yoga.
+When USER_EQUIPMENT_LOAD_KG is set, assume THEY use that load on strength moves.
+
+CRITICAL — duration:
+- Read the actual video length (e.g. 12 minutes 7 seconds).
+- Set durationMinutes to that length rounded to whole minutes. Minimum 1.
+- Estimate activityKcal for THAT full follow-along duration — IGNORE minutes_hint if it disagrees with the film.`
+    : `## No video attached
+Infer workout type/intensity from activity_name and/or youtube_url text only (no frames).
+Use Session minutes_hint as the completed duration. Set durationMinutes equal to that minutes value.`;
+
+  const echoLoad = hasLoad ? String(load) : 'null';
+
+  return `You estimate ACTIVE exercise calories (not including BMR) for one workout session.
+
+## User body profile
+${args.profileLines}
+
+## Session
+minutes_hint: ${args.minutes}
+activity_name: ${args.activityName || '(none)'}
+youtube_url: ${args.youtubeUrl || '(none)'}
+${equipLine}
+
+${loadHard}
+
+${mode}
+
+## Rules
+- activityKcal = ACTIVE kcal for durationMinutes only (exclude resting BMR for those minutes).
+- Body mass for MET is weight_kg from the profile — never substitute equipment_load_kg for body mass.
+- Prefer lean/muscle mass context for strength; total weight for cardio.
+- Sanity: typically ~2–15 kcal/min for most adults; lower confidence if extreme.
+- reason: max 14 words, English glossary (kcal, MET, HIIT, kg OK).
+
+JSON fields (fill with YOUR judgment — do not reuse any sample kcal):
+activityKcal (int), durationMinutes (int), equipmentLoadKgUsed (${echoLoad}), confidence (high|medium|low), reason (string).`;
+}
+
+/** True when the model clearly copied the old few-shot example (110 kcal / 10 kg). */
+function looksLikeAnchoredExample(
+  kcal: number,
+  reason: string,
+  equipmentWeightKg: number | null,
+): boolean {
+  const r = reason.toLowerCase();
+  const mentions10 = /(?:@\s*)?10\s*kg/.test(r) || /strength\s*@\s*10/.test(r);
+  const mentions6met = /~\s*6\s*met/.test(r) || /\b6\s*met\b/.test(r);
+  if (equipmentWeightKg != null && equipmentWeightKg !== 10 && mentions10) return true;
+  if (equipmentWeightKg != null && equipmentWeightKg !== 10 && kcal === 110 && mentions6met) {
+    return true;
+  }
+  if (equipmentWeightKg != null && equipmentWeightKg !== 10 && kcal === 110 && mentions10) {
+    return true;
+  }
+  return false;
+}
+
+function forceLoadInReason(reason: string, loadKg: number): string {
+  const cleaned = reason
+    .replace(/@\s*\d+(?:\.\d+)?\s*kg/gi, '')
+    .replace(/\b\d+(?:\.\d+)?\s*kg\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  const base = cleaned || 'Strength follow-along';
+  const withLoad = `${base} @ ${loadKg} kg`.replace(/\s{2,}/g, ' ').trim();
+  return withLoad.slice(0, 120);
+}
+
+/**
+ * Estimate active kcal for a YouTube workout (or named session) from body profile + minutes.
+ * When a public YouTube URL is present, Gemini receives the video via fileData (watch-along mode).
+ */
+export async function estimateActivityKcalFromYoutube(
+  input: ActivityKcalEstimateInput,
+): Promise<ActivityKcalEstimate> {
+  const rawUrl = input.youtubeUrl.trim();
+  const watchUrl = normalizeYoutubeWatchUrl(rawUrl);
+  const minutes = Math.max(1, Math.round(input.minutes));
+  const activityName = (input.activityName ?? '').trim();
+  if (!rawUrl && !activityName) {
+    throw new Error('Add a YouTube link or activity name first.');
+  }
+  if (rawUrl && !watchUrl) {
+    throw new Error('Paste a valid public YouTube link (watch / youtu.be / Shorts).');
+  }
+  if (!(input.weightKg > 0)) {
+    throw new Error('Body weight is required for AI calorie estimate.');
+  }
+
+  await assertCanSpendCredits('ai_other');
+
+  const fatPct =
+    input.fatPct != null && Number.isFinite(input.fatPct)
+      ? input.fatPct
+      : input.fatMassKg != null && input.weightKg > 0
+        ? (input.fatMassKg / input.weightKg) * 100
+        : null;
+
+  const profileLines = [
+    `weight_kg: ${input.weightKg.toFixed(1)}`,
+    input.heightCm != null ? `height_cm: ${Math.round(input.heightCm)}` : null,
+    input.age != null ? `age_years: ${Math.round(input.age)}` : null,
+    input.gender ? `sex: ${input.gender}` : null,
+    fatPct != null ? `fat_pct: ${fatPct.toFixed(1)}` : null,
+    input.muscleMassKg != null ? `muscle_mass_kg: ${input.muscleMassKg.toFixed(1)}` : null,
+    input.bmrKcal != null ? `bmr_kcal_day: ${Math.round(input.bmrKcal)}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const watchVideo = Boolean(watchUrl);
+  const equipRaw = input.equipmentWeightKg;
+  const equipmentWeightKg =
+    equipRaw != null && Number.isFinite(equipRaw) && equipRaw > 0
+      ? Math.round(equipRaw * 10) / 10
+      : null;
+  const prompt = buildActivityKcalPrompt({
+    profileLines,
+    minutes,
+    activityName,
+    youtubeUrl: watchUrl,
+    watchVideo,
+    equipmentWeightKg,
+  });
+
+  type ContentPart =
+    | { text: string }
+    | { fileData: { fileUri: string; mimeType: string } };
+
+  const callGemini = async (parts: ContentPart[]): Promise<Record<string, unknown>> => {
+    const body = {
+      contents: [{ role: 'user', parts }],
+      generationConfig: geminiGenerationConfig({
+        temperature: 0,
+        maxOutputTokens: 768,
+        thinkingBudget: 0,
+        // JSON mode only — no responseSchema (Gemini rejects type: [number, null] unions).
+        responseMimeType: 'application/json',
+      }),
+    };
+    const response = await fetch(GEMINI_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const err = await response.text().catch(() => '');
+      const snippet = err.slice(0, 280);
+      const schemaFail = /response_schema|INVALID_ARGUMENT/i.test(snippet);
+      if (watchVideo && !schemaFail) {
+        throw new Error(
+          `Could not watch that YouTube video (${response.status}). Use a public video (not private/unlisted). ${snippet}`,
+        );
+      }
+      throw new Error(`Gemini activity error ${response.status}: ${snippet.slice(0, 200)}`);
+    }
+    const json = await response.json();
+    reportAiUsage('ai_other', undefined, geminiUsageFromResponse(json, GEMINI_MODEL));
+    const raw = extractGeminiText(json?.candidates?.[0])
+      .replace(/```json\s*/g, '')
+      .replace(/```\s*/g, '')
+      .trim();
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start === -1 || end <= start) {
+      throw new Error('AI did not return a calorie estimate.');
+    }
+    return JSON.parse(raw.slice(start, end + 1)) as Record<string, unknown>;
+  };
+
+  const parts: ContentPart[] = watchVideo
+    ? [
+        { fileData: { fileUri: watchUrl!, mimeType: 'video/*' } },
+        { text: prompt },
+      ]
+    : [{ text: prompt }];
+
+  let parsed = await callGemini(parts);
+  let kcal = Math.round(Number(parsed.activityKcal));
+  if (!Number.isFinite(kcal) || kcal < 0) {
+    throw new Error('AI returned an invalid calorie value.');
+  }
+  let reason =
+    String(parsed.reason ?? '').trim().slice(0, 120) ||
+    (watchVideo ? 'Estimated from watched workout video' : 'Estimated from profile + workout name');
+
+  // Model often copied an old few-shot example (110 kcal / @ 10 kg). One cheap text retry.
+  if (looksLikeAnchoredExample(kcal, reason, equipmentWeightKg) && equipmentWeightKg != null) {
+    await assertCanSpendCredits('ai_other');
+    const durHint = Number(parsed.durationMinutes);
+    const dur =
+      Number.isFinite(durHint) && durHint > 0 ? Math.round(durHint) : minutes;
+    const fixPrompt = `Correct a bad calorie estimate. The previous model answer wrongly used sample numbers (often 110 kcal and "@ 10 kg").
+
+USER_EQUIPMENT_LOAD_KG = ${equipmentWeightKg}
+durationMinutes = ${dur}
+activity_name = ${activityName || '(none)'}
+youtube_url = ${watchUrl || rawUrl || '(none)'}
+body profile:
+${profileLines}
+
+Previous bad JSON: ${JSON.stringify(parsed)}
+
+Return fresh JSON for a follow-along of durationMinutes at USER_EQUIPMENT_LOAD_KG=${equipmentWeightKg} kg.
+activityKcal MUST differ from 110 unless that is truly correct for ${equipmentWeightKg} kg.
+reason MUST include "@ ${equipmentWeightKg} kg" and MUST NOT say 10 kg.
+equipmentLoadKgUsed MUST be ${equipmentWeightKg}.`;
+    parsed = await callGemini([{ text: fixPrompt }]);
+    kcal = Math.round(Number(parsed.activityKcal));
+    if (!Number.isFinite(kcal) || kcal < 0) {
+      throw new Error('AI returned an invalid calorie value on retry.');
+    }
+    reason =
+      String(parsed.reason ?? '').trim().slice(0, 120) ||
+      `Follow-along @ ${equipmentWeightKg} kg`;
+  }
+
+  const confRaw = String(parsed.confidence ?? 'medium').toLowerCase();
+  const confidence: ActivityKcalEstimate['confidence'] =
+    confRaw === 'high' || confRaw === 'low' ? confRaw : 'medium';
+
+  if (equipmentWeightKg != null) {
+    reason = forceLoadInReason(reason, equipmentWeightKg);
+  }
+
+  let durationMinutes: number | undefined;
+  const durRaw = Number(parsed.durationMinutes);
+  if (Number.isFinite(durRaw) && durRaw > 0) {
+    durationMinutes = Math.max(1, Math.round(durRaw));
+  } else if (!watchVideo) {
+    durationMinutes = minutes;
+  }
+
+  return {
+    activityKcal: kcal,
+    confidence,
+    reason,
+    usedVideo: watchVideo,
+    durationMinutes,
+    equipmentLoadKgUsed: equipmentWeightKg,
+  };
+}

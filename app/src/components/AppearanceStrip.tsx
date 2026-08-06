@@ -13,14 +13,24 @@ import type { ThemePref } from '../services/ThemePreferenceService';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
+import { SetupToggleRow } from './SetupToggleRow';
 
 type Props = {
   expanded: boolean;
   onToggleExpand: () => void;
   lang?: UserLanguage | null;
+  /** Show Activity Log strip on the main dashboard. */
+  activityLogVisible: boolean;
+  onActivityLogVisibleChange: (visible: boolean) => void;
 };
 
-export function AppearanceStrip({ expanded, onToggleExpand, lang }: Props) {
+export function AppearanceStrip({
+  expanded,
+  onToggleExpand,
+  lang,
+  activityLogVisible,
+  onActivityLogVisibleChange,
+}: Props) {
   const { colors, isDark, pref, setThemePref } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const t = getAppearanceCopy(lang?.code);
@@ -67,6 +77,17 @@ export function AppearanceStrip({ expanded, onToggleExpand, lang }: Props) {
             </View>
           </View>
           <Text style={[styles.hint, rtl && styles.textRtl]}>{t.hint}</Text>
+
+          <View style={styles.dashPref}>
+            <SetupToggleRow
+              label={t.activityLog}
+              value={activityLogVisible}
+              yesLabel={t.yes}
+              noLabel={t.no}
+              onChange={onActivityLogVisibleChange}
+              hint={t.activityLogHint}
+            />
+          </View>
         </View>
       ) : null}
     </View>
@@ -129,4 +150,5 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
       writingDirection: 'rtl',
       textAlign: 'right',
     },
+    dashPref: { marginTop: 12 },
   });

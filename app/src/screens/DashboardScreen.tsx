@@ -32,6 +32,8 @@ import {
 import { BmrHistoryChart7d } from '../components/BmrHistoryChart7d';
 import { FoodLogModal } from '../components/FoodLogModal';
 import { FoodMacroStrip, type FoodMacroStripHandle } from '../components/FoodMacroStrip';
+import { ActivityLogModal } from '../components/ActivityLogModal';
+import { ActivityLogStrip, type ActivityLogStripHandle } from '../components/ActivityLogStrip';
 import { MetabolicChart } from '../components/MetabolicChart';
 import { MetabolicTrendChart7d } from '../components/MetabolicTrendChart7d';
 import { WeightTargetStrip } from '../components/WeightTargetStrip';
@@ -137,6 +139,11 @@ import {
   readCareSensCsvText,
 } from '../services/careSensCsv';
 import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getRecentMeals, getDailyMacros, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
+import {
+  defaultActivityTimestampForDay,
+  getAllActivityKcalByDay,
+  type ActivityEntry,
+} from '../services/ActivityLogService';
 import { buildLabsAiContext, getAllLabReports, type LabReport } from '../services/LabLogService';
 import {
   getActiveNutritionDirective,
@@ -193,6 +200,8 @@ const DASH_LANGUAGE_EXPANDED_KEY = 'dash_language_expanded';
 const DASH_UNITS_EXPANDED_KEY = 'dash_units_expanded';
 const DASH_APPEARANCE_EXPANDED_KEY = 'dash_appearance_expanded';
 const DASH_GEAR_EXPANDED_KEY = 'dash_gear_expanded';
+/** Show Activity Log strip on dashboard (prompt104). Default on. */
+const DASH_ACTIVITY_LOG_VISIBLE_KEY = 'dash_activity_log_visible';
 const BRAND_LOGO = require('../../assets/brand-logo.png');
 // Same geometry as the light lockup (so header height is unchanged), light ink on a
 // transparent background instead of the white plate.
@@ -375,6 +384,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [eatenKcalByDay, setEatenKcalByDay] = useState<Record<string, number>>({});
   const todayDayKey = foodLogDayKey(Date.now());
 
+  const [activityModalVisible, setActivityModalVisible] = useState(false);
+  const [activityEditEntry, setActivityEditEntry] = useState<ActivityEntry | undefined>();
+  const [activityInitialTimestamp, setActivityInitialTimestamp] = useState<number | undefined>();
+  const [activityRefreshKey, setActivityRefreshKey] = useState(0);
+  /** Manual/favorite session kcal by day — added on top of wearable/hybrid activity. */
+  const [manualActivityByDay, setManualActivityByDay] = useState<Record<string, number>>({});
+
   const [pullRefreshing, setPullRefreshing] = useState(false);
 
   // ─── Coach message + chat ────────────────────────────────────────────────
@@ -383,6 +399,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   // Always holds the latest coachContext to avoid stale closure issues
   const coachContextRef = useRef<CoachContext | null>(null);
   const foodMacroStripRef = useRef<FoodMacroStripHandle>(null);
+  const activityLogStripRef = useRef<ActivityLogStripHandle>(null);
   const manualBodySectionRef = useRef<ManualBodyProfileSectionHandle>(null);
 
   // ─── Height + birthdate + gender ─────────────────────────────────────────
@@ -443,6 +460,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [unitsExpanded, setUnitsExpanded] = useState(false);
   const [appearanceExpanded, setAppearanceExpanded] = useState(false);
   const [gearExpanded, setGearExpanded] = useState(false);
+  /** Activity Log strip on dashboard — Profile → Appearance Yes/No. */
+  const [activityLogVisible, setActivityLogVisible] = useState(true);
   const [quickStartVisible, setQuickStartVisible] = useState(false);
   const [manualTrendDays, setManualTrendDays] = useState<MetabolicTrend7dDay[]>([]);
   const [manualTrendLoading, setManualTrendLoading] = useState(false);
@@ -650,6 +669,22 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     setFoodEditEntry(entry);
     setFoodModalVisible(true);
   }, []);
+
+  const handleActivitySaved = useCallback(async () => {
+    setActivityRefreshKey((k) => k + 1);
+    const totals = await getAllActivityKcalByDay();
+    setManualActivityByDay(totals);
+    await activityLogStripRef.current?.reload();
+  }, []);
+
+  const handleEditActivity = useCallback((entry: ActivityEntry) => {
+    setActivityEditEntry(entry);
+    setActivityModalVisible(true);
+  }, []);
+
+  useEffect(() => {
+    void getAllActivityKcalByDay().then(setManualActivityByDay);
+  }, [activityRefreshKey]);
 
   const usePhoneHealthActivity = isPhoneHealthActivity(sourceConfig?.activity ?? 'none');
 
@@ -1124,13 +1159,26 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     userGender,
   ]);
 
+  /** Wearable/hybrid activity + manual Activity Log kcal (prompt104 merge). */
+  const burnPartsMerged = useMemo((): Record<string, { bmr: number; activity: number }> => {
+    const result: Record<string, { bmr: number; activity: number }> = {};
+    for (const [dk, parts] of Object.entries(burnPartsByDay)) {
+      const add = manualActivityByDay[dk] ?? 0;
+      result[dk] = {
+        bmr: parts.bmr,
+        activity: Math.round(parts.activity + add),
+      };
+    }
+    return result;
+  }, [burnPartsByDay, manualActivityByDay]);
+
   const burnKcalByDay = useMemo((): Record<string, number> => {
     const result: Record<string, number> = {};
-    for (const [dk, parts] of Object.entries(burnPartsByDay)) {
+    for (const [dk, parts] of Object.entries(burnPartsMerged)) {
       result[dk] = parts.bmr + parts.activity;
     }
     return result;
-  }, [burnPartsByDay]);
+  }, [burnPartsMerged]);
 
   /** Fat% derived from body scan (fatMassKg / weightKg * 100). */
   const fatPct = useMemo((): number | null => {
@@ -1504,7 +1552,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   useEffect(() => {
     void (async () => {
       try {
-        const [g, t, s, langEx, unitsEx, appearanceEx, gearEx] = await AsyncStorage.multiGet([
+        const [g, t, s, langEx, unitsEx, appearanceEx, gearEx, actVis] = await AsyncStorage.multiGet([
           DASH_GLUCOSE_EXPANDED_KEY,
           DASH_TREND_EXPANDED_KEY,
           DASH_SETTINGS_CARD_EXPANDED_KEY,
@@ -1512,6 +1560,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           DASH_UNITS_EXPANDED_KEY,
           DASH_APPEARANCE_EXPANDED_KEY,
           DASH_GEAR_EXPANDED_KEY,
+          DASH_ACTIVITY_LOG_VISIBLE_KEY,
         ]);
         if (g[1] === 'true') setGlucoseExpanded(true);
         if (t[1] === 'true') setTrendExpanded(true);
@@ -1520,6 +1569,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         if (unitsEx[1] === 'true') setUnitsExpanded(true);
         if (appearanceEx[1] === 'true') setAppearanceExpanded(true);
         if (gearEx[1] === 'true') setGearExpanded(true);
+        if (actVis[1] === 'false') setActivityLogVisible(false);
       } finally {
         setDashExpandPrefsLoaded(true);
       }
@@ -1572,6 +1622,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     if (!dashExpandPrefsLoaded) return;
     void AsyncStorage.setItem(DASH_APPEARANCE_EXPANDED_KEY, appearanceExpanded ? 'true' : 'false');
   }, [appearanceExpanded, dashExpandPrefsLoaded]);
+
+  useEffect(() => {
+    if (!dashExpandPrefsLoaded) return;
+    void AsyncStorage.setItem(
+      DASH_ACTIVITY_LOG_VISIBLE_KEY,
+      activityLogVisible ? 'true' : 'false',
+    );
+  }, [activityLogVisible, dashExpandPrefsLoaded]);
 
   useEffect(() => {
     if (!dashExpandPrefsLoaded) return;
@@ -1942,7 +2000,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
       await refreshAfterBackupRestore();
 
-      const summary = `Restored ${result.keysRestored} keys • +${result.mealsAdded} meals • +${result.chatMessagesAdded} chat messages • +${result.glucosePointsMerged} glucose points${result.tokensRestored ? ' • Withings link restored' : ''}`;
+      const summary = `Restored ${result.keysRestored} keys • +${result.mealsAdded} meals • +${result.activitiesAdded} activities • +${result.favoritesMerged} favorites • +${result.chatMessagesAdded} chat messages • +${result.glucosePointsMerged} glucose points${result.tokensRestored ? ' • Withings link restored' : ''}`;
       setBackupMessage(summary);
       Alert.alert('Backup imported', summary);
     } catch (err) {
@@ -2307,13 +2365,29 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           onEditMeal={handleEditMeal}
           refreshKey={foodRefreshKey}
           burnKcalByDay={burnKcalByDay}
-          burnPartsByDay={burnPartsByDay}
+          burnPartsByDay={burnPartsMerged}
           onImported={() => { setFoodRefreshKey((k) => k + 1); loadTodayFood(); }}
           macroTarget={macroTarget}
           unitsPrefs={unitsPrefs}
           lang={userLanguage}
         />
 
+        {activityLogVisible ? (
+          <ActivityLogStrip
+            ref={activityLogStripRef}
+            dayKey={todayDayKey}
+            onAddActivity={(dayKey) => {
+              setActivityEditEntry(undefined);
+              setActivityInitialTimestamp(defaultActivityTimestampForDay(dayKey));
+              setActivityModalVisible(true);
+            }}
+            onEditActivity={handleEditActivity}
+            refreshKey={activityRefreshKey}
+            workoutSessions={workoutSessions}
+            unitsPrefs={unitsPrefs}
+            lang={userLanguage}
+          />
+        ) : null}
         {metabolicHeader.show ? (
           <View style={styles.glucoseHistorySection}>
             <View style={styles.chartBleed}>
@@ -2764,6 +2838,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             expanded={appearanceExpanded}
             onToggleExpand={() => setAppearanceExpanded((e) => !e)}
             lang={userLanguage}
+            activityLogVisible={activityLogVisible}
+            onActivityLogVisibleChange={setActivityLogVisible}
           />
 
           <View style={styles.groupDivider} />
@@ -2985,6 +3061,30 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         editEntry={foodEditEntry}
         lang={userLanguage}
         energyUnit={unitsPrefs.energy}
+      />
+
+      <ActivityLogModal
+        visible={activityModalVisible}
+        onClose={() => {
+          setActivityModalVisible(false);
+          setActivityEditEntry(undefined);
+          setActivityInitialTimestamp(undefined);
+        }}
+        onSaved={handleActivitySaved}
+        initialTimestamp={activityInitialTimestamp ?? Date.now()}
+        editEntry={activityEditEntry}
+        lang={userLanguage}
+        energyUnit={unitsPrefs.energy}
+        bodyProfile={{
+          weightKg:
+            effectiveBodyScan?.weightKg ?? manualBodySnap?.weight_kg ?? null,
+          heightCm,
+          age: userAge,
+          gender: userGender,
+          fatMassKg: effectiveBodyScan?.fatMassKg ?? null,
+          muscleMassKg: effectiveBodyScan?.muscleMassKg ?? null,
+          bmrKcal: effectiveBodyScan?.bmrKcalDay ?? manualBodySnap?.bmr_kcal ?? null,
+        }}
       />
 
       <WelcomeQuickStartWizard

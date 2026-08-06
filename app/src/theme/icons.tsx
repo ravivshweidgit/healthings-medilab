@@ -43,6 +43,7 @@ const MENTOR_ICON_ORDER: MentorIconKey[] = ['doctor', 'nutritionist', 'coach'];
 /** Leading icon for each top-level dashboard strip. */
 export const StripIcons = {
   foodLog: UtensilsCrossed,
+  activityLog: Dumbbell,
   glucose: Activity,
   trend: TrendingUp,
   profile: Settings,

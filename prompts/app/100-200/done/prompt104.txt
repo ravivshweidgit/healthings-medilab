@@ -1,8 +1,37 @@
 # prompt104 — Activity Log (Food Log twin) + user favorites
 
-**Status:** backlog / draft (2026-08-06)  
+**Status:** done (2026-08-06) — Samsung phone-tested (Activity Log strip, favorites + defaultKcal, YouTube video AI calc with duration + equipment load kg, Appearance Yes/No hide strip)  
 **Test order:** Samsung Android first (`bi`) → iOS TestFlight later (`bi-os`)  
 **Builds on:** Food Log strip/modal (`FoodMacroStrip`, `FoodLogModal`, `FoodLogService`), burn correction (`BurnCorrectionService`), hybrid activity burn / `metricsStore` workouts (`WorkoutSession`), persistence parity
+
+## What shipped
+
+| Area | Detail |
+|------|--------|
+| Persistence | `ActivityLogService` — `activity_log_days`, `activity_log_YYYY-MM-DD`, `healthings:activityFavorites` (`defaultMinutes`, `defaultKcal`, `equipmentWeightKg`, `youtubeUrl`) |
+| UI | `ActivityLogStrip` under Food Log; `ActivityLogModal` add/edit, favorites, from-past, minutes slider |
+| Burn | Manual/favorite day kcal **adds** into dashboard burn / Food Log activity |
+| Visibility | Profile → Appearance → Activity log on dashboard Yes/No (`dash_activity_log_visible`, default on) |
+| AI kcal | Gemini watches public YouTube via `fileData`; sets `durationMinutes` from film; optional load kg; name-only text fallback; anti-example-anchor retry |
+| Backup | Fingerprint `activityDays` / `activityEntries` / `activityFavorites` + export assert + cloud overwrite guards (app + server) |
+
+## Deferred
+
+- Optional session photo / Gemini note field polish
+- iOS TestFlight (`bi-os`) pass
+- Full backup import round-trip on clean install (guards wired; end-to-end restore not re-tested this ship)
+
+## Locked keys (implement)
+
+| Key | Role |
+|-----|------|
+| `activity_log_days` | Day index |
+| `activity_log_YYYY-MM-DD` | `ActivityEntry[]` |
+| `healthings:activityFavorites` | Favorites library |
+
+## Calorie merge
+
+Manual/favorite session kcal **adds** to wearable/hybrid activity for that day (Food Log activity line + burned). Adjust activity kcal remains an override on top. Wearable sessions stay in `metricsStore` (display-only chips); not double-counted from Activity Log storage.
 
 ## Problem
 
@@ -97,23 +126,22 @@ Day entries e.g. `healthings:activityLog` / per-day index parallel to `food_log_
 - Mirror Food Log patterns: service + strip + modal; `appLocale` copy module.
 - KeyboardAvoidingView on iOS for any TextInput modals (prompt103-era lesson: Adjust activity modal).
 - Wearable merge: read `WorkoutSession` from existing loaders; write manual entries only to activity-log store; never fork `metricsStore` for manual rows.
+- **AI kcal (high-end):** when a public YouTube URL is present, `estimateActivityKcalFromYoutube` sends `fileData.fileUri` (watch URL) so Gemini **watches** the workout (TV follow-along intent). Returns `durationMinutes` from the film length and sets the minutes field (e.g. 12:07 → 12) + kcal for that duration — ignores stale UI defaults like 30. Optional `equipmentWeightKg` (dumbbell/bar load, not body weight) is stored on entries/favorites and passed into AI. Name-only stays text fallback. Private/unlisted links fail with a clear error.
 - Android first: `app\build-APK.bat install` (`bi`); do not commit until Samsung phone-tested.
 
 ## Phone checklist (Samsung first)
 
-- [ ] ACTIVITY LOG strip under Food Log; day prev/next matches Food Log day
-- [ ] Add manual session (name + minutes + optional note) → chip + day total updates burn line
-- [ ] Create favorite with YouTube URL + default minutes → one-tap log uses defaults
-- [ ] Optional photo on log → save does not crash; kcal estimate reasonable or editable
-- [ ] Wearable workout (HC/Withings if available) appears with source badge same day
-- [ ] Adjust activity kcal still works as override; Clear works
-- [ ] Kill app / re-open — favorites + entries persist
-- [ ] Export backup JSON contains activity favorites + day entries (not on exclude lists)
-- [ ] Export fails loudly if phone has activity data missing from payload (export assert)
-- [ ] Cloud upload blocked when phone has fewer activity days / favorites / entries than cloud (force replace only if intentional)
-- [ ] Import merge: union by entry/favorite id; day index refreshed; no silent drop
-- [ ] Import backup on clean install restores favorites + sessions (same richness as pre-backup phone)
-- [ ] Dark + light; Hebrew `appLocale` chrome strings
+- [x] ACTIVITY LOG strip under Food Log; day prev/next matches Food Log day
+- [x] Add manual session (name + minutes) → chip + day total updates burn line
+- [x] Create favorite with YouTube URL + default minutes (+ defaultKcal / load) → one-tap log uses defaults
+- [ ] Optional photo on log → deferred
+- [x] Wearable workout chips same day (when present)
+- [x] Adjust activity kcal still works as override
+- [x] Kill app / re-open — favorites + entries persist
+- [x] Appearance Yes/No hides Activity Log strip
+- [x] YouTube AI calc: video mode, duration from film, load kg changes kcal (5 vs 15 verified)
+- [ ] Export backup JSON / export assert / cloud overwrite — code wired; full restore round-trip deferred
+- [x] Dark + light; Hebrew `appLocale` chrome strings
 
 ## Related
 

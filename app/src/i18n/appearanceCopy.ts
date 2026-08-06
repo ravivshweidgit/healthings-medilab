@@ -18,6 +18,11 @@ export type AppearanceCopy = {
   light: string;
   dark: string;
   hint: string;
+  /** Dashboard visibility — Activity Log strip. */
+  activityLog: string;
+  activityLogHint: string;
+  yes: string;
+  no: string;
 };
 
 const EN: AppearanceCopy = {
@@ -27,6 +32,10 @@ const EN: AppearanceCopy = {
   light: 'Light',
   dark: 'Dark',
   hint: '“System” follows your phone setting.',
+  activityLog: 'Activity log on dashboard',
+  activityLogHint: 'Hide if you do not log workouts manually.',
+  yes: 'Yes',
+  no: 'No',
 };
 
 const HE: AppearanceCopy = {
@@ -36,6 +45,10 @@ const HE: AppearanceCopy = {
   light: 'בהיר',
   dark: 'כהה',
   hint: '״מערכת״ עוקב אחרי הגדרת הטלפון.',
+  activityLog: 'יומן פעילות בדשבורד',
+  activityLogHint: 'הסתירו אם אינכם מתעדים אימונים ידנית.',
+  yes: 'כן',
+  no: 'לא',
 };
 
 const ES: AppearanceCopy = {
@@ -45,6 +58,10 @@ const ES: AppearanceCopy = {
   light: 'Claro',
   dark: 'Oscuro',
   hint: '«Sistema» sigue la configuración de tu teléfono.',
+  activityLog: 'Registro de actividad en el panel',
+  activityLogHint: 'Oculta si no registras entrenamientos manualmente.',
+  yes: 'Sí',
+  no: 'No',
 };
 
 const FR: AppearanceCopy = {
@@ -54,6 +71,10 @@ const FR: AppearanceCopy = {
   light: 'Clair',
   dark: 'Sombre',
   hint: '« Système » suit le réglage de votre téléphone.',
+  activityLog: 'Journal d’activité sur le tableau',
+  activityLogHint: 'Masquez si vous ne journalisez pas les séances.',
+  yes: 'Oui',
+  no: 'Non',
 };
 
 const DE: AppearanceCopy = {
@@ -63,6 +84,10 @@ const DE: AppearanceCopy = {
   light: 'Hell',
   dark: 'Dunkel',
   hint: '„System“ folgt der Einstellung deines Telefons.',
+  activityLog: 'Aktivitätslog auf dem Dashboard',
+  activityLogHint: 'Ausblenden, wenn Sie Workouts nicht manuell loggen.',
+  yes: 'Ja',
+  no: 'Nein',
 };
 
 const AR: AppearanceCopy = {
@@ -72,6 +97,10 @@ const AR: AppearanceCopy = {
   light: 'فاتح',
   dark: 'داكن',
   hint: '«النظام» يتبع إعداد هاتفك.',
+  activityLog: 'سجل النشاط في لوحة التحكم',
+  activityLogHint: 'أخفِه إن لم تسجّل التمارين يدويًا.',
+  yes: 'نعم',
+  no: 'لا',
 };
 
 const RU: AppearanceCopy = {
@@ -81,6 +110,10 @@ const RU: AppearanceCopy = {
   light: 'Светлая',
   dark: 'Тёмная',
   hint: '«Система» следует настройке телефона.',
+  activityLog: 'Дневник активности на панели',
+  activityLogHint: 'Скройте, если не ведёте тренировки вручную.',
+  yes: 'Да',
+  no: 'Нет',
 };
 
 const PT: AppearanceCopy = {
@@ -90,6 +123,10 @@ const PT: AppearanceCopy = {
   light: 'Claro',
   dark: 'Escuro',
   hint: '«Sistema» segue a configuração do seu telefone.',
+  activityLog: 'Diário de atividade no painel',
+  activityLogHint: 'Oculte se não registrar treinos manualmente.',
+  yes: 'Sim',
+  no: 'Não',
 };
 
 const IT: AppearanceCopy = {
@@ -99,6 +136,10 @@ const IT: AppearanceCopy = {
   light: 'Chiaro',
   dark: 'Scuro',
   hint: '«Sistema» segue l’impostazione del telefono.',
+  activityLog: 'Diario attività sulla dashboard',
+  activityLogHint: 'Nascondi se non registri gli allenamenti.',
+  yes: 'Sì',
+  no: 'No',
 };
 
 const TR: AppearanceCopy = {
@@ -108,6 +149,10 @@ const TR: AppearanceCopy = {
   light: 'Açık',
   dark: 'Koyu',
   hint: '“Sistem” telefonunuzun ayarını izler.',
+  activityLog: 'Gösterge panelinde aktivite günlüğü',
+  activityLogHint: 'Antrenmanları elle kaydetmiyorsanız gizleyin.',
+  yes: 'Evet',
+  no: 'Hayır',
 };
 
 export function getAppearanceCopy(langCode?: string | null): AppearanceCopy {

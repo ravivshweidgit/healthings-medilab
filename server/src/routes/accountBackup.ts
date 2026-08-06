@@ -18,6 +18,9 @@ const fingerprintSchema = z.object({
   /** Optional for older app builds; server recomputes cloud HR from payload for the guard. */
   heartRatePoints: z.number().int().nonnegative().optional().default(0),
   hrEarliestDay: z.string().nullable().optional().default(null),
+  activityDays: z.number().int().nonnegative().optional().default(0),
+  activityEntries: z.number().int().nonnegative().optional().default(0),
+  activityFavorites: z.number().int().nonnegative().optional().default(0),
   keyCount: z.number().int().nonnegative(),
   byteSize: z.number().int().nonnegative(),
 });

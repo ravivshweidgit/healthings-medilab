@@ -52,6 +52,9 @@ function parseFingerprint(raw: unknown): BackupFingerprint | null {
     glucosePoints: f.glucosePoints ?? 0,
     heartRatePoints: typeof f.heartRatePoints === 'number' ? f.heartRatePoints : 0,
     hrEarliestDay: f.hrEarliestDay ?? null,
+    activityDays: typeof f.activityDays === 'number' ? f.activityDays : 0,
+    activityEntries: typeof f.activityEntries === 'number' ? f.activityEntries : 0,
+    activityFavorites: typeof f.activityFavorites === 'number' ? f.activityFavorites : 0,
     keyCount: f.keyCount ?? 0,
     byteSize: f.byteSize,
   };
@@ -73,6 +76,9 @@ function cloudFingerprintForGuard(row: BackupRow): BackupFingerprint {
         glucosePoints: 0,
         heartRatePoints: 0,
         hrEarliestDay: null,
+        activityDays: 0,
+        activityEntries: 0,
+        activityFavorites: 0,
         keyCount: 0,
         byteSize: row.byte_size,
       }
@@ -134,6 +140,9 @@ export async function upsertCloudBackup(
     glucosePoints: fingerprint.glucosePoints ?? 0,
     heartRatePoints: fingerprint.heartRatePoints ?? 0,
     hrEarliestDay: fingerprint.hrEarliestDay ?? null,
+    activityDays: fingerprint.activityDays ?? 0,
+    activityEntries: fingerprint.activityEntries ?? 0,
+    activityFavorites: fingerprint.activityFavorites ?? 0,
     keyCount: fingerprint.keyCount ?? 0,
     byteSize: payloadGzip.length,
   };

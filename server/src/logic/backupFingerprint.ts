@@ -9,6 +9,9 @@ export type BackupFingerprint = {
   glucosePoints: number;
   heartRatePoints: number;
   hrEarliestDay: string | null;
+  activityDays: number;
+  activityEntries: number;
+  activityFavorites: number;
   keyCount: number;
   byteSize: number;
 };
@@ -18,8 +21,10 @@ type PayloadLike = {
 };
 
 const FOOD_KEY = /^food_log_(\d{4}-\d{2}-\d{2})$/;
+const ACTIVITY_KEY = /^activity_log_(\d{4}-\d{2}-\d{2})$/;
 const CHAT_KEY = /^chat_history_(\d{4}-\d{2}-\d{2})/;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const ACTIVITY_FAVORITES_KEY = 'healthings:activityFavorites';
 
 function pushDay(days: string[], raw: string | null | undefined) {
   if (raw && DAY_RE.test(raw)) days.push(raw);
@@ -65,6 +70,8 @@ export function fingerprintFromBackupPayload(
   const asyncStorage = payload.asyncStorage ?? {};
   const days: string[] = [];
   let mealDays = 0;
+  let activityDays = 0;
+  let activityEntries = 0;
 
   for (const key of Object.keys(asyncStorage)) {
     const food = key.match(FOOD_KEY);
@@ -73,8 +80,28 @@ export function fingerprintFromBackupPayload(
       pushDay(days, food[1]);
       continue;
     }
+    const act = key.match(ACTIVITY_KEY);
+    if (act) {
+      activityDays += 1;
+      pushDay(days, act[1]);
+      try {
+        const list = JSON.parse(asyncStorage[key] ?? '[]') as unknown[];
+        if (Array.isArray(list)) activityEntries += list.length;
+      } catch {
+        /* ignore */
+      }
+      continue;
+    }
     const chat = key.match(CHAT_KEY);
     if (chat) pushDay(days, chat[1]);
+  }
+
+  let activityFavorites = 0;
+  try {
+    const favs = JSON.parse(asyncStorage[ACTIVITY_FAVORITES_KEY] ?? '[]') as unknown[];
+    if (Array.isArray(favs)) activityFavorites = favs.length;
+  } catch {
+    /* ignore */
   }
 
   const metricsRaw =
@@ -99,13 +126,22 @@ export function fingerprintFromBackupPayload(
     glucosePoints,
     heartRatePoints,
     hrEarliestDay,
+    activityDays,
+    activityEntries,
+    activityFavorites,
     keyCount: Object.keys(asyncStorage).length,
     byteSize,
   };
 }
 
 function isEmptyish(fp: BackupFingerprint): boolean {
-  return fp.mealDays === 0 && fp.glucosePoints === 0 && (fp.earliestDay == null || fp.keyCount < 5);
+  return (
+    fp.mealDays === 0 &&
+    fp.glucosePoints === 0 &&
+    fp.activityDays === 0 &&
+    fp.activityFavorites === 0 &&
+    (fp.earliestDay == null || fp.keyCount < 5)
+  );
 }
 
 export function canOverwriteCloudBackup(
@@ -136,6 +172,27 @@ export function canOverwriteCloudBackup(
     return {
       ok: false,
       reason: `Cloud has more meal days (${cloud.mealDays} vs ${phone.mealDays}).`,
+    };
+  }
+
+  if (phone.activityDays < (cloud.activityDays ?? 0)) {
+    return {
+      ok: false,
+      reason: `Cloud has more activity days (${cloud.activityDays} vs ${phone.activityDays}).`,
+    };
+  }
+
+  if (phone.activityEntries < (cloud.activityEntries ?? 0)) {
+    return {
+      ok: false,
+      reason: `Cloud has more activity sessions (${cloud.activityEntries} vs ${phone.activityEntries}).`,
+    };
+  }
+
+  if (phone.activityFavorites < (cloud.activityFavorites ?? 0)) {
+    return {
+      ok: false,
+      reason: `Cloud has more activity favorites (${cloud.activityFavorites} vs ${phone.activityFavorites}).`,
     };
   }
 
