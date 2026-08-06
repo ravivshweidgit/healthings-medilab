@@ -59,7 +59,29 @@ def parse_voice_choice(lang: str) -> str | None:
     return None
 
 
-def resolve_voice_id(lang: str) -> str:
+# Premade ElevenLabs labels we use for A/B without digging up IDs.
+VOICE_ALIASES = {
+    "daniel": "onwK4e9ZLuTAKqWW03F9",
+    "bill": "pqHfZKP75CvOlQylNhV4",
+    "brian": "nPczCjzI2devNBz1zQrb",
+    "george": "JBFqnCBsd6RMkjVDRZzb",
+    # Female EN candidates for explainers (IDs verified on this account)
+    "sarah": "EXAVITQu4vr4xnSDxMaL",
+    "rachel": "21m00Tcm4TlvDq8ikWAM",
+    "charlotte": "XB0fDUnXU5powFXDhCwa",
+    "lily": "pFZP5JQG7iQjIQuC4Bku",
+    "matilda": "XrExE9yKIg1WjnnlVkGX",
+    "alice": "Xb7hH8MSUJpSbSDYk0k2",
+}
+
+
+def resolve_voice_id(lang: str, override: str | None = None) -> str:
+    if override:
+        key = override.strip()
+        alias = VOICE_ALIASES.get(key.lower())
+        if alias:
+            return alias
+        return key  # raw ElevenLabs voice id
     chosen = parse_voice_choice(lang)
     if chosen:
         return chosen

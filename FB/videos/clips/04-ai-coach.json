@@ -1,0 +1,35 @@
+{
+  "id": "04-ai-coach",
+  "title": "App + AI",
+  "audience": "reel series — between visits the app keeps the direction",
+  "export_dir": "007-ai-coach",
+  "vo_lang": "en",
+  "subs_lang": "he",
+  "segments": [
+    {
+      "en": "Between visits — who keeps the direction? The app.",
+      "he": "בין מפגש למפגש — מי שומר על הכיוון? האפליקציה.",
+      "shot": { "type": "phone", "file": "a6-coach.jpg" }
+    },
+    {
+      "en": "You log meals. Metrics flow from your gear.",
+      "he": "אתם מתעדים ארוחות. המדדים זורמים מהציוד.",
+      "shot": { "type": "phone", "file": "a3-food-log.jpg" }
+    },
+    {
+      "en": "AI applies your rules — close follow-through, not daily hand-holding by the nutritionist.",
+      "he": "ה־AI מיישם את הכללים — ליווי צמוד, לא ליווי יומיומי של התזונאית.",
+      "shot": { "type": "phone", "file": "a6b-coach-open.jpg" }
+    },
+    {
+      "en": "When drift appears — you can see it in time.",
+      "he": "כשיש סטייה — אפשר לראות אותה בזמן.",
+      "shot": { "type": "phone", "file": "a2-food-log-strip.jpg" }
+    },
+    {
+      "en": "The clinic directs. Healthings executes.",
+      "he": "הקליניקה מכוונת. Healthings מיישם.",
+      "shot": { "type": "art", "file": "loop-video.png" }
+    }
+  ]
+}

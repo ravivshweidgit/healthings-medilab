@@ -74,6 +74,14 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--clip", required=True)
     ap.add_argument("--force", action="store_true")
+    ap.add_argument(
+        "--voice",
+        help="Override voice: alias (sarah, rachel, daniel, …) or ElevenLabs voice id",
+    )
+    ap.add_argument(
+        "--tag",
+        help="Write side-by-side VO files as <id>-<tag>-eq.wav (keeps default Daniel take)",
+    )
     args = ap.parse_args()
 
     spec = load_spec(args.clip)
@@ -81,17 +89,18 @@ def main() -> None:
     out_dir = AUDIO / lang
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    raw = out_dir / f"{spec['id']}-raw.mp3"
-    wav = out_dir / f"{spec['id']}-eq.wav"
-    align_path = out_dir / f"{spec['id']}-align.json"
+    stem = f"{spec['id']}-{args.tag}" if args.tag else spec["id"]
+    raw = out_dir / f"{stem}-raw.mp3"
+    wav = out_dir / f"{stem}-eq.wav"
+    align_path = out_dir / f"{stem}-align.json"
 
     if wav.exists() and align_path.exists() and not args.force:
         print(f"exists (use --force to regenerate): {wav.name}")
         return
 
     text, spans = build_vo_text(spec)
-    voice = resolve_voice_id(lang)
-    print(f"clip={spec['id']} voice={voice} chars={len(text)} segments={len(spans)}")
+    voice = resolve_voice_id(lang, args.voice)
+    print(f"clip={spec['id']} voice={voice} tag={args.tag or '-'} chars={len(text)} segments={len(spans)}")
 
     payload = tts_with_timestamps(load_api_key(), voice, text)
     raw.write_bytes(base64.b64decode(payload["audio_base64"]))

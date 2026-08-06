@@ -131,9 +131,9 @@ class Shot:
         return max(0.4, self.end - self.start)
 
 
-def load_alignment(spec: dict) -> list[dict]:
+def load_alignment(spec: dict, stem: str) -> list[dict]:
     lang = spec.get("vo_lang", "en")
-    path = AUDIO / lang / f"{spec['id']}-align.json"
+    path = AUDIO / lang / f"{stem}-align.json"
     if not path.is_file():
         raise SystemExit(
             f"Missing alignment: {path}\n"
@@ -354,11 +354,22 @@ def main() -> None:
     ap.add_argument("--clip", required=True)
     ap.add_argument("--music", help="Optional music bed (ducked under the voice)")
     ap.add_argument("--music-level", type=float, default=0.22)
+    ap.add_argument(
+        "--music-fade-in",
+        type=float,
+        default=0.55,
+        help="Seconds for music bed fade-in (0 disables)",
+    )
     ap.add_argument("--no-subs", action="store_true",
                     help="Skip burned-in subtitles; sidecars are written either way")
     ap.add_argument("--aspect", choices=sorted(LAYOUTS), default="9x16")
     ap.add_argument("--crf", type=int, default=19,
                     help="Lower is better quality. 19 for social upload, 23-24 for the web")
+    ap.add_argument(
+        "--vo-tag",
+        help="Use side-by-side VO from gen_clip_vo.py --tag (e.g. sarah). "
+             "Writes <id>-…-<tag>.mp4 so the Daniel cut stays.",
+    )
     args = ap.parse_args()
     layout = LAYOUTS[args.aspect]
 
@@ -369,12 +380,16 @@ def main() -> None:
 
     vo_lang = spec.get("vo_lang", "en")
     subs_lang = spec.get("subs_lang", "he")
-    vo = AUDIO / vo_lang / f"{spec['id']}-eq.wav"
+    vo_stem = f"{spec['id']}-{args.vo_tag}" if args.vo_tag else spec["id"]
+    vo = AUDIO / vo_lang / f"{vo_stem}-eq.wav"
     if not vo.is_file():
-        raise SystemExit(f"Missing VO: {vo}\nRun: python elevenlabs/gen_clip_vo.py --clip {spec['id']}")
+        hint = f" --tag {args.vo_tag}" if args.vo_tag else ""
+        raise SystemExit(
+            f"Missing VO: {vo}\nRun: python elevenlabs/gen_clip_vo.py --clip {spec['id']}{hint}"
+        )
 
     vo_dur = probe_dur(vo)
-    segs = load_alignment(spec)
+    segs = load_alignment(spec, vo_stem)
     shots, subs = build_shots(spec, segs, vo_dur, layout)
     total = PREROLL + vo_dur + TAIL
 
@@ -393,10 +408,12 @@ def main() -> None:
     out_dir = EXPORTS / export_subdir if export_subdir else EXPORTS
     out_dir.mkdir(parents=True, exist_ok=True)
     tag = f"{vo_lang}" + ("" if args.no_subs else f"-sub{subs_lang}")
-    out = out_dir / f"{spec['id']}-{tag}-{layout.name}.mp4"
+    voice_suffix = f"-{args.vo_tag}" if args.vo_tag else ""
+    out = out_dir / f"{spec['id']}-{tag}-{layout.name}{voice_suffix}.mp4"
 
     print(f"clip={spec['id']} {layout.name} vo={vo_dur:.1f}s "
-          f"shots={len(shots)} total={total:.1f}s")
+          f"shots={len(shots)} total={total:.1f}s"
+          + (f" voice_tag={args.vo_tag}" if args.vo_tag else ""))
 
     with tempfile.TemporaryDirectory(prefix="hm-render-") as tmp:
         tmp_path = Path(tmp)
@@ -491,14 +508,28 @@ def main() -> None:
             if not music.is_file():
                 raise SystemExit(f"Music not found: {music}")
             inputs = ["-i", str(picture), "-i", str(vo), "-stream_loop", "-1", "-i", str(music)]
+            # asplit VO: sidechaincompress + amix each consume a label once
+            fade = (
+                f",afade=t=in:st=0:d={args.music_fade_in:.3f}"
+                if args.music_fade_in > 0
+                else ""
+            )
+            # Light presence boost so gym riffs cut through under VO
             a_chain += (
-                f";[2:a]volume={args.music_level},atrim=0:{headroom:.3f},asetpts=N/SR/TB,"
+                f";[vo]asplit=2[vo_sc][vo_mix]"
+                f";[2:a]volume={args.music_level}"
+                f",equalizer=f=2200:t=q:w=1.1:g=3.5"
+                f",equalizer=f=4500:t=q:w=1.0:g=2.0"
+                f"{fade},atrim=0:{headroom:.3f},asetpts=N/SR/TB,"
                 f"aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[bed]"
-                f";[bed][vo]sidechaincompress=threshold=0.03:ratio=14:attack=12:release=320[duck]"
-                f";[duck][vo]amix=inputs=2:normalize=0:duration=first[mix]"
+                f";[bed][vo_sc]sidechaincompress=threshold=0.045:ratio=9:attack=8:release=220[duck]"
+                f";[duck][vo_mix]amix=inputs=2:normalize=0:duration=first[mix]"
                 f";[mix]loudnorm=I=-14:TP=-1.5:LRA=11,apad,atrim=0:{total:.3f},asetpts=N/SR/TB[a]"
             )
-            print(f"  music bed: {music.name} @ {args.music_level}")
+            print(
+                f"  music bed: {music.name} @ {args.music_level}"
+                f" fade-in={args.music_fade_in:.2f}s (riff presence + lighter duck)"
+            )
         else:
             a_chain += (
                 f";[vo]loudnorm=I=-14:TP=-1.5:LRA=11,apad,atrim=0:{total:.3f},asetpts=N/SR/TB[a]"

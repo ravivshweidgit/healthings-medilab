@@ -7,40 +7,40 @@
   "subs_lang": "he",
   "segments": [
     {
-      "en": "Got a YouTube workout? Log it in Activity Log.",
-      "he": "יש לכם אימון ב-YouTube? תעדו אותו ביומן הפעילות.",
+      "en": "Watching a YouTube workout? Log it in Activity Log.",
+      "he": "עוקבים אחרי אימון ב-YouTube? תעדו אותו ביומן הפעילות.",
       "shot": {
         "type": "phone",
         "file": "a9-activity-strip.jpg"
       }
     },
     {
-      "en": "Paste the link — the same film you follow on the TV.",
-      "he": "הדביקו את הקישור — אותו סרטון שאתם עוקבים אחריו בטלוויזיה.",
-      "shot": {
-        "type": "broll",
-        "file": "yt-arms-15s.mp4"
-      }
-    },
-    {
-      "en": "Arms, upper body — any public workout video.",
-      "he": "ידיים, פלג גוף עליון — כל סרטון אימון ציבורי.",
+      "en": "First sample — upper body. Paste the link from the film on your TV.",
+      "he": "דוגמה ראשונה — פלג גוף עליון. מדביקים את הקישור מהסרטון בטלוויזיה.",
       "shot": {
         "type": "broll",
         "file": "yt-upper-15s.mp4"
       }
     },
     {
-      "en": "Tap AI calc. Healthings watches the video and sets your minutes and calories.",
-      "he": "לחצו חישוב AI. Healthings צופה בסרטון ומגדיר דקות וקלוריות.",
+      "en": "Tap AI calc. Healthings sets your minutes and calories.",
+      "he": "לחיצה על חישוב AI. Healthings מגדיר דקות וקלוריות.",
       "shot": {
         "type": "phone",
-        "file": "a9-activity-ai-5kg.jpg"
+        "file": "a9-activity-ai-noload.jpg"
+      }
+    },
+    {
+      "en": "Second sample — arms with dumbbells.",
+      "he": "דוגמה שנייה — ידיים עם משקולות.",
+      "shot": {
+        "type": "broll",
+        "file": "yt-arms-15s.mp4"
       }
     },
     {
       "en": "Add your load — five kilos.",
-      "he": "הוסיפו את העומס — חמישה קילו.",
+      "he": "מוסיפים את העומס — חמישה קילו.",
       "shot": {
         "type": "phone",
         "file": "a9-activity-ai-5kg.jpg"
@@ -55,11 +55,19 @@
       }
     },
     {
-      "en": "Save. Your burn updates. Healthings.",
-      "he": "שמרו. השריפה מתעדכנת. Healthings.",
+      "en": "Save to favorites — link, load, minutes, and calories, kept for you.",
+      "he": "שומרים במועדפים — קישור, עומס, דקות וקלוריות, נשמרים בשבילכם.",
       "shot": {
         "type": "phone",
         "file": "a9-activity-ai-15kg.jpg"
+      }
+    },
+    {
+      "en": "From then on, tap and log. Your customized workout, ready every day. Healthings.",
+      "he": "מעכשיו — לחיצה ותיעוד. האימון המותאם שלכם, מוכן כל יום. Healthings.",
+      "shot": {
+        "type": "phone",
+        "file": "a9-activity-strip.jpg"
       }
     }
   ]

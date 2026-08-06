@@ -1,0 +1,30 @@
+{
+  "id": "02-rules",
+  "title": "Rules",
+  "audience": "reel series — clinic directives live as My Rules",
+  "export_dir": "005-rules",
+  "vo_lang": "en",
+  "subs_lang": "he",
+  "segments": [
+    {
+      "en": "What was said in the visit does not stay in the conversation.",
+      "he": "מה שנאמר בפגישה לא נשאר בשיחה.",
+      "shot": { "type": "phone", "file": "clinic-labs-import.jpg" }
+    },
+    {
+      "en": "Clinic directives land in My Rules on your phone.",
+      "he": "הוראות הקליניקה נכנסות ל־My Rules בטלפון.",
+      "shot": { "type": "phone", "file": "a4-my-rules-targets.jpg" }
+    },
+    {
+      "en": "The rules live in the app: they follow meals, metrics, and daily decisions.",
+      "he": "הכללים חיים באפליקציה: הם מלווים ארוחות, מדדים, והחלטות יומיומיות.",
+      "shot": { "type": "phone", "file": "a2-food-log-strip.jpg" }
+    },
+    {
+      "en": "AI does not invent your clinical direction. It runs what the clinic directed.",
+      "he": "ה־AI לא ממציא כיוון רפואי. הוא מיישם את מה שהקליניקה כיוונה.",
+      "shot": { "type": "phone", "file": "a6-coach.jpg" }
+    }
+  ]
+}

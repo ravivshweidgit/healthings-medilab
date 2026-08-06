@@ -11,6 +11,10 @@ Rendered from a spec + ElevenLabs voiceover by script — no timeline editor req
 | 001 | **05 Closed loop** | ~27s | Warm audience | `assets/exports/001-closed-loop/` |
 | 002 | **06 What is Healthings** | ~49s | New users / cold | `assets/exports/002-what-is-healthings/` |
 | 003 | **07 Activity YouTube** | ~32s | YouTube / TV workouts | `assets/exports/003-activity-youtube/` |
+| 004 | **01 Clinic** | ~24s | Reel series | `assets/exports/004-clinic/` |
+| 005 | **02 Rules** | ~23s | Reel series | `assets/exports/005-rules/` |
+| 006 | **03 Gear** | ~25s | Reel series | `assets/exports/006-gear/` |
+| 007 | **04 App + AI** | ~27s | Reel series | `assets/exports/007-ai-coach/` |
 | — | **06 — website cut** | ~49s | healthings.ai How it works | `website/videos/how-it-works.mp4` |
 
 Social cuts are 1080×1920, **English voice** (ElevenLabs Daniel) with **burned Hebrew
@@ -20,8 +24,8 @@ subtitles**. Every render writes `.srt` and `.vtt` sidecars for both languages.
 ## Render a clip
 
 ```powershell
-python FB/videos/elevenlabs/gen_clip_vo.py --clip 07-activity-youtube
-python FB/videos/production/render_clip.py  --clip 07-activity-youtube
+python FB/videos/elevenlabs/gen_clip_vo.py --clip 01-clinic
+python FB/videos/production/render_clip.py  --clip 01-clinic
 ```
 
 Website cut (clip 06):
@@ -34,7 +38,7 @@ python FB/videos/production/render_clip.py --clip 06-what-is-healthings `
 Add a music bed when you have a licensed track:
 
 ```powershell
-python FB/videos/production/render_clip.py --clip 07-activity-youtube --music "C:\path\bed.mp3"
+python FB/videos/production/render_clip.py --clip 01-clinic --music "C:\path\bed.mp3"
 ```
 
 Regenerate the voice after editing a spec: add `--force` to `gen_clip_vo.py`.
@@ -64,13 +68,19 @@ FB/videos/
       001-closed-loop/
       002-what-is-healthings/
       003-activity-youtube/
+      004-clinic/
+      005-rules/
+      006-gear/
+      007-ai-coach/
 ```
 
 ## Still to improve
 
 - **Music bed** — no licensed track yet; `--music` is wired
 - **Native Activity Log stills** at full phone resolution (unlock + adb) for clip 07 polish
-- Clips 00–04 can be given specs the same way
+- Clinic portal worklist / Rules tab (reel 01–02 still use lab-import as stand-in)
+- Clip **00** master closed-cycle (~75–90s) — storyboard only
+- Square 1:1 variant for feed
 
 ## Related
 

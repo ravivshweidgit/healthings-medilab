@@ -6,9 +6,8 @@
 
 ## What is built
 
-`06-what-is-healthings` (new users, ~49s) and `05-closed-loop` (warm, ~27s) render from
-`clips/*.json` — see `README.md`. Everything below is the storyboard backlog; a clip gets
-a spec when it is ready to shoot.
+Cold/warm masters (`06`, `05`), Activity how-to (`07`), and reel series (`01`–`04`) render
+from `clips/*.json` — see `README.md`. Clip **00** (master ~75–90s) remains storyboard-only.
 
 ## Audience (now)
 

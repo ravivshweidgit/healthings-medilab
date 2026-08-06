@@ -1,0 +1,35 @@
+{
+  "id": "01-clinic",
+  "title": "Clinic",
+  "audience": "reel series — licensed clinic owns clinical direction",
+  "export_dir": "004-clinic",
+  "vo_lang": "en",
+  "subs_lang": "he",
+  "segments": [
+    {
+      "en": "It starts with a deep visit.",
+      "he": "הכול מתחיל במפגש מעמיק.",
+      "shot": { "type": "art", "file": "loop-video.png" }
+    },
+    {
+      "en": "A licensed clinical nutritionist directs from your labs — not a generic tip from the internet.",
+      "he": "תזונאית קלינית עם רישיון מכוונת לפי הבדיקות — לא לפי טיפ גנרי מהרשת.",
+      "shot": { "type": "phone", "file": "clinic-labs-import.jpg" }
+    },
+    {
+      "en": "Clinical direction is written clearly once.",
+      "he": "הכיוון הקליני נכתב פעם אחת בבהירות.",
+      "shot": { "type": "phone", "file": "a4-my-rules-targets.jpg" }
+    },
+    {
+      "en": "From there, daily life moves into the app.",
+      "he": "משם — היום־יום עובר לאפליקציה.",
+      "shot": { "type": "phone", "file": "a1-dashboard.jpg" }
+    },
+    {
+      "en": "The clinic directs. Healthings continues from there.",
+      "he": "הקליניקה מכוונת. Healthings ממשיך משם.",
+      "shot": { "type": "art", "file": "loop-video.png" }
+    }
+  ]
+}
