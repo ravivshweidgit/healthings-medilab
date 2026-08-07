@@ -32,6 +32,7 @@ import {
   type GeminiTurn,
 } from '../services/GeminiService';
 import { saveMeal, deleteMeal, foodLogDayKey, getDailyMacros, getRecentMeals, getMealsForDay, type FoodEntry } from '../services/FoodLogService';
+import { logMethodTiming, PERF_WARN_AI_MS, PERF_WARN_MEAL_MS, timeAsync } from '../services/AppDailyLogService';
 import { formatLocalizedDate, formatLocalizedTime, formatFoodLogDayLabel } from '../i18n/dateLocale';
 import { getFoodLogAlertCopy } from '../i18n/foodLogAlertCopy';
 import { getFoodLogUiCopy } from '../i18n/foodLogUiCopy';
@@ -461,10 +462,30 @@ export function FoodLogModal({
     return loadFoodLogHistory(editingId ?? undefined);
   }, [foodLogHistoryContext, editingId, loadFoodLogHistory]);
 
+  const mealOpenLoggedRef = useRef(false);
+
   React.useEffect(() => {
-    if (!visible) return;
-    void loadFoodLogHistory(editingId);
-  }, [visible, editingId, loadFoodLogHistory]);
+    if (!visible) {
+      mealOpenLoggedRef.current = false;
+      return;
+    }
+    const opening = !mealOpenLoggedRef.current;
+    mealOpenLoggedRef.current = true;
+    const t0 = Date.now();
+    if (opening) {
+      logMethodTiming('FoodLogModal.open', 0, {
+        edit: Boolean(editEntry?.id),
+        prefill: Boolean(prefillItems && prefillItems.length > 0),
+      });
+    }
+    void loadFoodLogHistory(editingId).finally(() => {
+      if (!opening) return;
+      const duration_ms = Date.now() - t0;
+      logMethodTiming('FoodLogModal.openReady', duration_ms, {
+        edit: Boolean(editEntry?.id),
+      }, PERF_WARN_MEAL_MS);
+    });
+  }, [visible, editingId, loadFoodLogHistory, editEntry?.id, prefillItems]);
 
   useEffect(() => {
     if (!visible || screen !== 'pickPast') return;
@@ -647,30 +668,41 @@ export function FoodLogModal({
       /** Keep modal open so user can fix time / items after first auto-save. */
       stayOpen?: boolean;
     }) => {
-      const totals = computeTotals(opts.mealItems);
-      const saved = await saveMeal({
-        id: opts.id,
-        timestamp: opts.timestamp,
-        items: opts.mealItems,
-        totalKcal: Math.round(totals.totalKcal),
-        totalProtein_g: Math.round(totals.totalProtein_g * 10) / 10,
-        totalCarb_g: Math.round(totals.totalCarb_g * 10) / 10,
-        totalFat_g: Math.round(totals.totalFat_g * 10) / 10,
-        totalFiber_g: Math.round(totals.totalFiber_g * 10) / 10,
-        source: opts.fromPhoto ? 'camera-ai' : opts.historyLen > 0 ? 'text-ai' : 'manual',
-      });
-      if (opts.stayOpen) {
-        setEditingId(saved.id);
-        setItems(saved.items);
-        setMealTime(saved.timestamp);
-        setMealHistory((h) => (h.length > 0 ? h : []));
-        setScreen('result');
-        setAutoSavedBanner(true);
-        await onSaved({ close: false });
-        return;
-      }
-      await onSaved({ close: true });
-      reset();
+      await timeAsync(
+        'FoodLogModal.save',
+        async () => {
+          const totals = computeTotals(opts.mealItems);
+          const saved = await saveMeal({
+            id: opts.id,
+            timestamp: opts.timestamp,
+            items: opts.mealItems,
+            totalKcal: Math.round(totals.totalKcal),
+            totalProtein_g: Math.round(totals.totalProtein_g * 10) / 10,
+            totalCarb_g: Math.round(totals.totalCarb_g * 10) / 10,
+            totalFat_g: Math.round(totals.totalFat_g * 10) / 10,
+            totalFiber_g: Math.round(totals.totalFiber_g * 10) / 10,
+            source: opts.fromPhoto ? 'camera-ai' : opts.historyLen > 0 ? 'text-ai' : 'manual',
+          });
+          if (opts.stayOpen) {
+            setEditingId(saved.id);
+            setItems(saved.items);
+            setMealTime(saved.timestamp);
+            setMealHistory((h) => (h.length > 0 ? h : []));
+            setScreen('result');
+            setAutoSavedBanner(true);
+            await onSaved({ close: false });
+            return;
+          }
+          await onSaved({ close: true });
+          reset();
+        },
+        {
+          stay_open: Boolean(opts.stayOpen),
+          item_count: opts.mealItems.length,
+          edit: Boolean(opts.id),
+        },
+        PERF_WARN_MEAL_MS,
+      );
     },
     [reset, onSaved],
   );
@@ -791,39 +823,46 @@ export function FoodLogModal({
       setAnalyzingPhotoUri(null);
       setError(null);
       try {
-        const userRules = await getUserRules();
-        const historyBlock = await resolveFoodLogHistory();
-        const { result, updatedHistory } = await analyzeFood(
-          null,
-          userText,
-          hist,
-          null,
-          lang,
-          userRules,
-          historyBlock,
+        await timeAsync(
+          'FoodLogModal.analyzeFood',
+          async () => {
+            const userRules = await getUserRules();
+            const historyBlock = await resolveFoodLogHistory();
+            const { result, updatedHistory } = await analyzeFood(
+              null,
+              userText,
+              hist,
+              null,
+              lang,
+              userRules,
+              historyBlock,
+            );
+            setItems(result.items);
+            setConfidence(result.confidence);
+            setDescription(result.description);
+            setSuggestion(result.suggestion);
+            setMealHistory(updatedHistory);
+
+            // First parse (text): describe + send → auto-save when clean.
+            if (hist.length === 0 && !editingId && result.items.length > 0) {
+              const saved = await tryAutoSaveNewMeal(result.items, {
+                fromPhoto: false,
+                historyLen: updatedHistory.length,
+              });
+              if (saved) return;
+            }
+
+            setScreen('result');
+          },
+          { photo: 0, history_n: hist.length },
+          PERF_WARN_AI_MS,
         );
-        setItems(result.items);
-        setConfidence(result.confidence);
-        setDescription(result.description);
-        setSuggestion(result.suggestion);
-        setMealHistory(updatedHistory);
-
-        // First parse (text): describe + send → auto-save when clean.
-        if (hist.length === 0 && !editingId && result.items.length > 0) {
-          const saved = await tryAutoSaveNewMeal(result.items, {
-            fromPhoto: false,
-            historyLen: updatedHistory.length,
-          });
-          if (saved) return;
-        }
-
-        setScreen('result');
       } catch (e) {
         setError(e instanceof Error ? e.message : alerts.aiAnalysisFailed);
         setScreen('result');
       }
     },
-    [lang, resolveFoodLogHistory, editingId, tryAutoSaveNewMeal],
+    [lang, resolveFoodLogHistory, editingId, tryAutoSaveNewMeal, alerts.aiAnalysisFailed],
   );
 
   const runPhotoAnalysis = useCallback(
@@ -838,64 +877,71 @@ export function FoodLogModal({
       setError(null);
       setMergePreview(null);
       try {
-        const userRules = await getUserRules();
-        const historyBlock = await resolveFoodLogHistory();
-        const { result, updatedHistory } = await analyzeFood(
-          imageBase64,
-          userText,
-          hist,
-          null,
-          lang,
-          userRules,
-          historyBlock,
+        await timeAsync(
+          'FoodLogModal.analyzeFood',
+          async () => {
+            const userRules = await getUserRules();
+            const historyBlock = await resolveFoodLogHistory();
+            const { result, updatedHistory } = await analyzeFood(
+              imageBase64,
+              userText,
+              hist,
+              null,
+              lang,
+              userRules,
+              historyBlock,
+            );
+            setMealHistory(updatedHistory);
+            setHadPhotoForSave(true);
+
+            const isFirstPhotoNewMeal =
+              hist.length === 0 && !editingId && items.length === 0 && result.items.length > 0;
+
+            // First photo on a new meal: same as text — auto-save, stay open, Done (no Use/Approve/Save).
+            // Do NOT setItems for edit / add-photo paths — photo lives in photoSession until
+            // "+ Add to meal" / "Use as meal" → Approve (prompt20). Overwriting items wiped the meal.
+            if (isFirstPhotoNewMeal) {
+              const saved = await tryAutoSaveNewMeal(result.items, {
+                fromPhoto: true,
+                historyLen: updatedHistory.length,
+              });
+              if (saved) {
+                // persistMealItems(stayOpen) already set items from the saved entry.
+                setConfidence(result.confidence);
+                setDescription(result.description);
+                setSuggestion(result.suggestion);
+                setPhotoSession(null);
+                setMergePreview(null);
+                return;
+              }
+              // Nutritionist alert path: keep analyzed items in the editor so Save anyway
+              // does not persist an empty meal (text flow already setItems before tryAutoSave).
+              setItems(result.items);
+              setConfidence(result.confidence);
+              setDescription(result.description);
+              setSuggestion(result.suggestion);
+              setPhotoSession(null);
+              setMergePreview(null);
+              setScreen('result');
+              return;
+            }
+
+            setPhotoSession({
+              uri,
+              base64: imageBase64,
+              ...applyAnalysisResult(result, updatedHistory),
+            });
+            setScreen('result');
+          },
+          { photo: 1, history_n: hist.length },
+          PERF_WARN_AI_MS,
         );
-        setMealHistory(updatedHistory);
-        setHadPhotoForSave(true);
-
-        const isFirstPhotoNewMeal =
-          hist.length === 0 && !editingId && items.length === 0 && result.items.length > 0;
-
-        // First photo on a new meal: same as text — auto-save, stay open, Done (no Use/Approve/Save).
-        // Do NOT setItems for edit / add-photo paths — photo lives in photoSession until
-        // "+ Add to meal" / "Use as meal" → Approve (prompt20). Overwriting items wiped the meal.
-        if (isFirstPhotoNewMeal) {
-          const saved = await tryAutoSaveNewMeal(result.items, {
-            fromPhoto: true,
-            historyLen: updatedHistory.length,
-          });
-          if (saved) {
-            // persistMealItems(stayOpen) already set items from the saved entry.
-            setConfidence(result.confidence);
-            setDescription(result.description);
-            setSuggestion(result.suggestion);
-            setPhotoSession(null);
-            setMergePreview(null);
-            return;
-          }
-          // Nutritionist alert path: keep analyzed items in the editor so Save anyway
-          // does not persist an empty meal (text flow already setItems before tryAutoSave).
-          setItems(result.items);
-          setConfidence(result.confidence);
-          setDescription(result.description);
-          setSuggestion(result.suggestion);
-          setPhotoSession(null);
-          setMergePreview(null);
-          setScreen('result');
-          return;
-        }
-
-        setPhotoSession({
-          uri,
-          base64: imageBase64,
-          ...applyAnalysisResult(result, updatedHistory),
-        });
-        setScreen('result');
       } catch (e) {
         setError(e instanceof Error ? e.message : alerts.aiAnalysisFailed);
         setScreen(items.length > 0 || editEntry ? 'result' : 'idle');
       }
     },
-    [lang, items.length, editEntry, editingId, resolveFoodLogHistory, tryAutoSaveNewMeal],
+    [lang, items.length, editEntry, editingId, resolveFoodLogHistory, tryAutoSaveNewMeal, alerts.aiAnalysisFailed],
   );
 
   const pickImage = useCallback(
@@ -960,21 +1006,28 @@ export function FoodLogModal({
       setScreen('analyzing');
       setError(null);
       try {
-        const userRules = await getUserRules();
-        const historyBlock = await resolveFoodLogHistory();
-        const { result, updatedHistory } = await analyzeFood(
-          null,
-          text,
-          photoSession.history,
-          null,
-          lang,
-          userRules,
-          historyBlock,
+        await timeAsync(
+          'FoodLogModal.analyzeFood',
+          async () => {
+            const userRules = await getUserRules();
+            const historyBlock = await resolveFoodLogHistory();
+            const { result, updatedHistory } = await analyzeFood(
+              null,
+              text,
+              photoSession.history,
+              null,
+              lang,
+              userRules,
+              historyBlock,
+            );
+            setPhotoSession((prev) =>
+              prev ? { ...prev, ...applyAnalysisResult(result, updatedHistory) } : prev,
+            );
+            setScreen('result');
+          },
+          { photo: 0, correction: 1 },
+          PERF_WARN_AI_MS,
         );
-        setPhotoSession((prev) =>
-          prev ? { ...prev, ...applyAnalysisResult(result, updatedHistory) } : prev,
-        );
-        setScreen('result');
       } catch (e) {
         setError(e instanceof Error ? e.message : alerts.aiAnalysisFailed);
         setScreen('result');

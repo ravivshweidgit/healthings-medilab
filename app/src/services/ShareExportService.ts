@@ -34,6 +34,8 @@ const EXCLUDED_ASYNC_KEYS = new Set<string>([
   'usage_credits_left_v1',
   'usage_sponsored_v1',
   'usage_last_flush_at_v1',
+  // prompt105 — daily app logs are files; reserve pointer key if ever used.
+  'healthings:app_daily_log_pointer',
 ]);
 
 export type ClinicExportPayload = {

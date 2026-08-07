@@ -4,6 +4,7 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { PERF_WARN_SYNC_MS, timeAsync } from './AppDailyLogService';
 import { periodDeltaKg, periodEndpointsKg } from '../logic/metabolicTrend7d';
 import { localDayKeyFromMs } from '../logic/metabolicTrend7d';
 import { buildVisitReportCharts } from '../logic/visitReportChartSvg';
@@ -197,29 +198,36 @@ export async function shareVisitReport(opts: {
   dayCount: VisitReportDayCount;
   lang?: UserLanguage | null;
 }): Promise<{ ok: boolean; error?: string }> {
-  const content = await buildVisitReportContent(opts);
-  const html = formatVisitReportHtml(content);
-  const filename = `healthings_visit_${opts.dayCount}d_${todayKey()}.html`;
-  const cacheDir = FileSystem.cacheDirectory;
-  if (!cacheDir) {
-    return { ok: false, error: 'Cache directory unavailable.' };
-  }
+  return timeAsync(
+    'shareVisitReport',
+    async () => {
+      const content = await buildVisitReportContent(opts);
+      const html = formatVisitReportHtml(content);
+      const filename = `healthings_visit_${opts.dayCount}d_${todayKey()}.html`;
+      const cacheDir = FileSystem.cacheDirectory;
+      if (!cacheDir) {
+        return { ok: false, error: 'Cache directory unavailable.' };
+      }
 
-  const fileUri = `${cacheDir}${filename}`;
-  await FileSystem.writeAsStringAsync(fileUri, html, { encoding: 'utf8' });
+      const fileUri = `${cacheDir}${filename}`;
+      await FileSystem.writeAsStringAsync(fileUri, html, { encoding: 'utf8' });
 
-  const canShare = await Sharing.isAvailableAsync();
-  if (!canShare) {
-    return { ok: false, error: 'Sharing is not available on this device.' };
-  }
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        return { ok: false, error: 'Sharing is not available on this device.' };
+      }
 
-  await Sharing.shareAsync(fileUri, {
-    mimeType: 'text/html',
-    dialogTitle: opts.lang?.code === 'he' ? 'שיתוף דוח ביקור' : 'Share visit report',
-    UTI: 'public.html',
-  });
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'text/html',
+        dialogTitle: opts.lang?.code === 'he' ? 'שיתוף דוח ביקור' : 'Share visit report',
+        UTI: 'public.html',
+      });
 
-  return { ok: true };
+      return { ok: true };
+    },
+    { days: opts.dayCount },
+    PERF_WARN_SYNC_MS,
+  );
 }
 
 /** Profile age helper for tests / diagnostics. */

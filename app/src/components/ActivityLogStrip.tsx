@@ -188,6 +188,7 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
         collapseLabel={ui.collapse}
         expandLabel={ui.expand}
         icon={StripIcons.activityLog}
+        perfTag="ActivityLogStrip"
       />
 
       {expanded ? (

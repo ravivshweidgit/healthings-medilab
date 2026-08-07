@@ -40,6 +40,7 @@ import {
   uploadCloudBackup,
   type CloudBackupStatus,
 } from '../services/CloudBackupService';
+import { shareTodayAppLog } from '../services/AppDailyLogService';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
@@ -377,6 +378,7 @@ export function AccountStrip({
         titleRtl={lang?.code === 'he' || lang?.code === 'ar'}
         collapseLabel="Collapse account"
         expandLabel="Expand account"
+        perfTag="AccountStrip"
       />
 
       {expanded && (
@@ -489,6 +491,20 @@ export function AccountStrip({
           ) : null}
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          <Pressable
+            style={[styles.cloudBtnOutline, busy && styles.btnDisabled]}
+            disabled={busy}
+            onPress={() => {
+              void shareTodayAppLog().catch((e: unknown) => {
+                Alert.alert(
+                  'App log',
+                  e instanceof Error ? e.message : 'Could not share today\'s log.',
+                );
+              });
+            }}
+          >
+            <Text style={styles.cloudBtnOutlineText}>Share app log (today)</Text>
+          </Pressable>
           <Pressable
             style={[styles.logoutBtn, busy && styles.btnDisabled]}
             onPress={handleLogout}

@@ -67,6 +67,7 @@ export function ReportsStrip({
         titleRtl={lang?.code === 'he' || lang?.code === 'ar'}
         collapseLabel="Collapse Reports"
         expandLabel="Expand Reports"
+        perfTag="ReportsStrip"
       />
 
       {expanded ? (

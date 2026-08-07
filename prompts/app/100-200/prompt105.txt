@@ -1,0 +1,145 @@
+# prompt105 — Daily app performance log + session-expiry must not open Quick Start
+
+**Status:** phone-tested Android (2026-08-07) — daily log + method-name perf + Share log + pull-refresh distance; QS expiry code landed (force-expiry checklist still open). Glucose on-demand window **deferred**.  
+**Test order:** Samsung Android first (`bi`) → iOS later (`bi-os`)  
+**Builds on:** `ProfileCompletenessService.shouldShowQuickStart`, `AuthApiService` / `AuthTokenStore.clearAuthTokens`, Food Log / Meal modal, dashboard strip expand-collapse, `expo-file-system`
+
+## Problem
+
+1. **Felt slowness** — expand/collapse strips and Food Log **Meal** flows sometimes feel laggy. No durable on-device trail of high-level service timings, so we cannot tell app jank vs a busy phone.
+2. **Session expired → Quick Start (bug)** — when login/session expires (401 → `clearAuthTokens`), dashboard still runs `shouldShowQuickStart()`. That gate uses `isProfileBasicsComplete()` → `loadCachedAuthUser()` for first+last name. Cleared auth makes names look missing → **Welcome / Quick Start opens**. Wrong product path: expired session must **abort any onboarding/Quick Start immediately** and send the user to sign-in / account, not the wizard.
+3. **Phone load unknown** — owner may also have a device crowded with apps; need a short check path (adb / Settings) so we do not chase app bugs when the handset is the bottleneck.
+
+## Goals
+
+| # | Goal |
+|---|------|
+| A | Daily rotating **application log file** on device |
+| B | High-level **performance** lines for important UI/services (especially expand/collapse + Meal) |
+| C | **Fix:** expired / cleared session never opens Quick Start; exit that flow immediately |
+| D | Optional: document how to sanity-check phone load (not a product feature) |
+
+---
+
+## A — Daily log file
+
+**Filename (device local):** `yyyy-mm-dd-healthings-app.log`  
+Example: `2026-08-07-healthings-app.log`
+
+| Rule | Detail |
+|------|--------|
+| One file per local calendar day | New day → new file; do not append yesterday into today |
+| Location | App-private documents/cache dir via `expo-file-system` (e.g. `documentDirectory` or `cacheDirectory` + `logs/`). Prefer durable enough to pull via share / SAF / `adb`, not wiped every cold start |
+| Retention | **Hard limit:** keep last **7** days only; delete older `*-healthings-app.log` on write/startup. Also **≤ 512 KB per day** — stop appending when capped (one WARN line). Unknown files in the log dir are deleted. Logs must never grow forever. |
+| Format | One line per event, UTF-8, timestamped. Prefer structured plain text (easy to `adb pull` / paste), e.g. `ISO8601 LEVEL tag key=value …` |
+| PII | **No** meal names, My Rules text, tokens, passwords, full emails. OK: durations ms, route/service names, boolean flags, HTTP status, entry counts |
+| Backup | Log files are **ephemeral debug** — add path/key pattern to backup **exclude** lists (same rule as other debug keys). Do not ship multi-day logs into clinic export |
+| Share (optional v1) | Profile / Account “Share app log (today)” or copy path for USB — nice-to-have; not required to ship A+B+C |
+
+Suggested helper: `AppPerfLogService` / `AppDailyLogService` with `log(level, tag, fields)` and `timeAsync(tag, fn)`.
+
+---
+
+## B — High-level performance instrumentation
+
+Log **service / interaction boundaries**, not every React render.
+
+### Must instrument (v1)
+
+| Surface | Events to time / mark |
+|---------|------------------------|
+| Dashboard strips | Expand / collapse of major strips (Food Log, Activity Log, Profile nested, Trend, etc.) — `interactionStart` → paint/settled or `InteractionManager.runAfterInteractions` |
+| Food Log **Meal** | Open Add/Edit Meal modal; load existing entry; save meal (persist + strip reload); close path; rule-check / Gemini call duration as separate child span if awaited |
+| Food Log strip | Day load / chip refresh after save |
+| Auth | Session refresh failure, `clearAuthTokens`, “blocked Quick Start because session expired” |
+
+### Nice-to-have
+
+| Surface | Notes |
+|---------|--------|
+| Activity Log modal | Open / AI calc / save (already heavy) |
+| Coach review after meal | Fire-and-forget today — log start/end without blocking UX |
+| Cold dashboard bootstrap | `loadHeightAndBirthdate` / first paint gate |
+
+### Log line shape (example)
+
+```
+2026-08-07T16:04:01.123Z INFO perf op=meal_save_ms duration_ms=842 day=2026-08-07 ok=1
+2026-08-07T16:04:12.001Z INFO perf op=strip_expand name=food_log duration_ms=210
+2026-08-07T16:05:00.010Z WARN auth session_expired blocked_quick_start=1
+```
+
+Thresholds (soft): log `WARN` when `duration_ms` ≥ **300** for expand/collapse, ≥ **800** for meal save (tune after first phone pass). Always log INFO for the ops above so “sometimes slow” is visible even under threshold.
+
+Do **not** parse clinical text with regex; timings only.
+
+---
+
+## C — Session expired must not open Quick Start (bug fix)
+
+### Observed
+
+Expired session → tokens cleared → `shouldShowQuickStart()` true (cached user names gone / incomplete) → `WelcomeQuickStartWizard` visible.
+
+### Required behavior
+
+1. If access/refresh is expired or tokens were cleared / user is logged out → **do not** call into Quick Start; **do not** leave the wizard visible.
+2. If Quick Start is already open when auth fails mid-flow → **dismiss immediately** (exit flow) and route to Account / sign-in surface.
+3. `shouldShowQuickStart()` (or its callers) must require a **valid signed-in session** (or equivalent “auth ready + tokens present”) **before** profile-completeness can open the wizard.
+4. Completing / skipping Quick Start must not be forced by a 401; logout / re-login is the path.
+
+### Likely touch points
+
+- `ProfileCompletenessService.shouldShowQuickStart`
+- `DashboardScreen` bootstrap (`loadHeightAndBirthdate` / `setQuickStartVisible`)
+- `AuthApiService` 401/`clearAuthTokens` path — emit auth event or set flag the dashboard listens to
+- `WelcomeQuickStartWizard` — hard close on auth-loss
+
+### Phone checklist
+
+- [ ] Log in, complete Quick Start once, kill app, reopen → no wizard
+- [ ] Force session expiry (invalidate refresh / clear tokens while on dashboard) → wizard **does not** open; sign-in / account path shown
+- [ ] Mid-wizard simulate 401 → wizard closes immediately
+- [ ] Fresh install / never onboarded + valid login → Quick Start still allowed
+
+---
+
+## D — Phone load sanity (owner / agent notes — not app code)
+
+When “phone feels slow” after logs look fine:
+
+1. `adb shell dumpsys meminfo <package>` / top mem / CPU while expanding Food Log
+2. Settings → Apps: unused heavy apps, battery unrestricted offenders
+3. Compare same build on a second device if available (crash-debug Android-first rule)
+
+Record findings in the done spec; do not “fix” Quick Start with product workarounds for a saturated handset.
+
+---
+
+## Out of scope
+
+- Full APM / Sentry (unless already present — do not add a paid SDK in this prompt)
+- Logging meal contents or Gemini prompt bodies
+- Changing Meal UX layout (perf only + logs)
+- Hebrew VO / video work
+
+## Acceptance
+
+- [x] Daily file `yyyy-mm-dd-healthings-app.log` written on device; rolls by day; old files pruned
+- [x] Expand/collapse + Meal open/save emit duration lines (English method `op=` only; charts: `MetabolicChart.ready` / `.paint`)
+- [ ] Session expiry never opens Quick Start; mid-flow auth loss exits wizard immediately (code in; force-expiry phone checklist still open)
+- [x] Logs excluded from backup/clinic dump
+- [x] Phone-tested on Samsung (`bi`) — perf + pull-refresh; Account → Share app log (today)
+
+### Phone findings (2026-08-07)
+
+- `FoodMacroStrip.paint` expand ~80–200ms; cold `FoodMacroStrip.load` once WARN ~1.8s
+- `MetabolicChart.paint` expand consistently WARN ~330–390ms with `glucose_n≈24k` / `hr_n≈28k` — default view is 12H but full series still scanned
+- **Deferred:** on-demand chart working set (start ~12H, extend on pan / wider chip)
+
+## Related
+
+- `prompt87` / language + Quick Start gate history
+- be-27 patient names in Quick Start
+- Food Log: `FoodLogModal`, `FoodLogService`, `FoodMacroStrip`
+- Auth: `AuthApiService`, `AuthTokenStore`

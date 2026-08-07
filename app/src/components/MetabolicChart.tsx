@@ -20,6 +20,7 @@ import type { FoodEntry } from '../services/FoodLogService';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { formatEnergy, formatGlucose, kcalToDisplay, type EnergyUnit } from '../logic/unitConvert';
+import { markMethodReady } from '../services/AppDailyLogService';
 
 type Point = { timestamp: string; value: number };
 
@@ -599,6 +600,14 @@ export function MetabolicChart({
 
   const plotH = CHART_PLOT_HEIGHT;
   const svgH = SVG_TOTAL_HEIGHT;
+
+  useEffect(() => {
+    markMethodReady('MetabolicChart.ready', {
+      glucose_n: glucose?.length ?? 0,
+      hr_n: heartRate?.length ?? 0,
+      food_n: foodEntries?.length ?? 0,
+    });
+  }, []);
 
   useEffect(() => {
     setNowAnchor(Date.now());

@@ -138,6 +138,7 @@ export function MentorStrip({
         collapseLabel="Collapse mentors"
         expandLabel="Expand mentors"
         subtitleNumberOfLines={2}
+        perfTag="MentorStrip"
       />
 
       {expanded && (

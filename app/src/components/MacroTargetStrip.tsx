@@ -511,6 +511,7 @@ export function MacroTargetStrip({
         collapseLabel="Collapse my macros"
         expandLabel="Expand my macros"
         subtitleNumberOfLines={2}
+        perfTag="MacroTargetStrip"
       />
 
       {expanded && (

@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   AppState,
+  DeviceEventEmitter,
   Image,
   InteractionManager,
   KeyboardAvoidingView,
@@ -102,6 +103,8 @@ import {
 } from '../services/SamsungStepsAdapter';
 import { hybridWithingsActivityKcal } from '../services/hybridActivityBurn';
 import { clearOnboardingCompletedAt, shouldShowQuickStart } from '../services/ProfileCompletenessService';
+import { AUTH_CLEARED_EVENT } from '../services/AuthTokenStore';
+import { appLog, pruneOldAppLogs, PERF_WARN_SYNC_MS, timeAsync } from '../services/AppDailyLogService';
 import { maybeRunOpportunisticCloudBackup } from '../services/CloudBackupService';
 import { applyAutoMacroRevision, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
 import { ChatScreen } from './ChatScreen';
@@ -187,6 +190,7 @@ import { cardShadow, dashCardGap } from '../theme/wellness';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { demoNoticeCopy } from '../utils/wellnessCopy';
+import { applyPullRefreshTriggerDistance } from '../utils/pullRefreshTrigger';
 
 /** Must match `styles.scroll.paddingHorizontal`. */
 const SCROLL_HORIZONTAL_PADDING = 20;
@@ -685,6 +689,24 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   useEffect(() => {
     void getAllActivityKcalByDay().then(setManualActivityByDay);
   }, [activityRefreshKey]);
+
+  /** prompt105: expired session must never leave Quick Start open. */
+  useEffect(() => {
+    void pruneOldAppLogs().then(() => appLog('INFO', 'boot', { app_log_ready: 1 }));
+    const applyPull = () => applyPullRefreshTriggerDistance(150);
+    applyPull();
+    const t1 = setTimeout(applyPull, 400);
+    const t2 = setTimeout(applyPull, 1200);
+    const sub = DeviceEventEmitter.addListener(AUTH_CLEARED_EVENT, () => {
+      setQuickStartVisible(false);
+      appLog('WARN', 'auth', { session_expired: 1, blocked_quick_start: 1 });
+    });
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      sub.remove();
+    };
+  }, []);
 
   const usePhoneHealthActivity = isPhoneHealthActivity(sourceConfig?.activity ?? 'none');
 
@@ -1504,25 +1526,33 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, [loadCoachMessage]);
 
   const handlePullRefresh = useCallback(async () => {
+    if (pullRefreshing) return;
     setPullRefreshing(true);
     syncPerfStart('pull-refresh');
     try {
-      await Promise.all([
-        syncPerfTrackSibling('cgm/refetch', () => refetch()),
-        syncPerfTrackSibling('metrics/syncWithings', () => syncWithings({ quiet: true })),
-        syncPerfTrackSibling('food/loadToday', () => loadTodayFood()),
-        syncPerfTrackSibling('manualTrend/load', () => loadManualTrend()),
-        // Watch Off: Food Log activity kcal comes from the phone step map (HK/HC),
-        // not metricsStore alone — reload it on refresh so daytime steps update.
-        ...(usePhoneHealthActivity
-          ? [syncPerfTrackSibling('phoneHealth/steps', () => loadHcStepTotals())]
-          : []),
-      ]);
-      // Clinic already polls on an interval — don't block pull-refresh on it.
-      if (user.role === 'patient') {
-        void fulfillPendingClinicSyncRequests();
-        void applyClinicOverlays();
-      }
+      await timeAsync(
+        'DashboardScreen.pullRefresh',
+        async () => {
+          await Promise.all([
+            syncPerfTrackSibling('cgm/refetch', () => refetch()),
+            syncPerfTrackSibling('metrics/syncWithings', () => syncWithings({ quiet: true })),
+            syncPerfTrackSibling('food/loadToday', () => loadTodayFood()),
+            syncPerfTrackSibling('manualTrend/load', () => loadManualTrend()),
+            // Watch Off: Food Log activity kcal comes from the phone step map (HK/HC),
+            // not metricsStore alone — reload it on refresh so daytime steps update.
+            ...(usePhoneHealthActivity
+              ? [syncPerfTrackSibling('phoneHealth/steps', () => loadHcStepTotals())]
+              : []),
+          ]);
+          // Clinic already polls on an interval — don't block pull-refresh on it.
+          if (user.role === 'patient') {
+            void fulfillPendingClinicSyncRequests();
+            void applyClinicOverlays();
+          }
+        },
+        {},
+        PERF_WARN_SYNC_MS,
+      );
     } finally {
       setPullRefreshing(false);
       const report = syncPerfEnd();
@@ -1535,6 +1565,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       }
     }
   }, [
+    pullRefreshing,
     refetch,
     syncWithings,
     loadTodayFood,
@@ -2407,6 +2438,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   collapseLabel={metabolicHeader.a11yCollapse}
                   expandLabel={metabolicHeader.a11yExpand}
                   icon={StripIcons.glucose}
+                  perfTag="MetabolicChart"
                 />
                 {glucoseExpanded ? (
                   <MetabolicChart
@@ -2456,6 +2488,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               collapseLabel={metabolicStripCopy.a11yCollapseTrend}
               expandLabel={metabolicStripCopy.a11yExpandTrend}
               icon={StripIcons.trend}
+              perfTag="MetabolicTrendChart7d"
             />
             {trendExpanded ? (
               <>
@@ -2536,6 +2569,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             expandLabel={metabolicStripCopy.a11yExpandProfileSettings}
             subtitleNumberOfLines={2}
             icon={StripIcons.profile}
+            perfTag="ProfileSettings"
           />
           {settingsCardExpanded ? (
           <>
@@ -2592,6 +2626,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             collapseLabel="Collapse my profile"
             expandLabel="Expand my profile"
             subtitleNumberOfLines={2}
+            perfTag="MyProfile"
           />
 
           {profileExpanded && (

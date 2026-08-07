@@ -175,6 +175,7 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
         collapseLabel={`Collapse ${profileTitles.myRules}`}
         expandLabel={`Expand ${profileTitles.myRules}`}
         subtitleNumberOfLines={2}
+        perfTag="RulesStrip"
       />
 
       {expanded ? (

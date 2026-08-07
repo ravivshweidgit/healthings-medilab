@@ -241,6 +241,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
         expandLabel={copy.expandA11y}
         subtitleNumberOfLines={1}
         icon={StripIcons.labs}
+        perfTag="LabResultsStrip"
       />
 
       {expanded ? (

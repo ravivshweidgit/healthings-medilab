@@ -17,6 +17,7 @@ import { getBodyMetricsCopy } from '../i18n/bodyMetricsCopy';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import { suggestBodyTargets, type BodyTargetInput } from '../services/GeminiService';
+import { PERF_WARN_AI_MS, timeAsync } from '../services/AppDailyLogService';
 import {
   getBodyTarget,
   saveBodyTarget,
@@ -300,7 +301,12 @@ export function WeightTargetStrip({
         weeklyWeightChange_kg,
         avgDailyDeficit_kcal,
       };
-      const result = await suggestBodyTargets(input, lang);
+      const result = await timeAsync(
+        'suggestBodyTargets',
+        () => suggestBodyTargets(input, lang),
+        {},
+        PERF_WARN_AI_MS,
+      );
       const now = new Date().toISOString();
       const proposed: BodyTarget = {
         targetWeight_kg: result.targetWeight_kg,
@@ -409,6 +415,7 @@ export function WeightTargetStrip({
         collapseLabel="Collapse my targets"
         expandLabel="Expand my targets"
         subtitleNumberOfLines={2}
+        perfTag="WeightTargetStrip"
       />
 
       {!expanded ? null : <View style={styles.body}>

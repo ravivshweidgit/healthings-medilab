@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Calculator, Sparkles } from 'lucide-react-native';
+import { PERF_WARN_AI_MS, PERF_WARN_MEAL_MS, timeAsync } from '../services/AppDailyLogService';
 import {
   activityDayKeyToMs,
   activityLogDayKey,
@@ -338,19 +339,25 @@ export function ActivityLogModal({
     const watching = hasLink;
     setAiHint(watching ? ui.aiCalcBusyVideo : ui.aiCalcBusy);
     try {
-      const result = await estimateActivityKcalFromYoutube({
-        youtubeUrl: youtubeUrl.trim(),
-        minutes: Number.isFinite(mins) && mins > 0 ? mins : 30,
-        activityName: name.trim() || undefined,
-        equipmentWeightKg: parseEquipmentKg() ?? null,
-        weightKg,
-        heightCm: bodyProfile?.heightCm ?? null,
-        age: bodyProfile?.age ?? null,
-        gender: bodyProfile?.gender ?? null,
-        fatMassKg: bodyProfile?.fatMassKg ?? null,
-        muscleMassKg: bodyProfile?.muscleMassKg ?? null,
-        bmrKcal: bodyProfile?.bmrKcal ?? null,
-      });
+      const result = await timeAsync(
+        'estimateActivityKcalFromYoutube',
+        () =>
+          estimateActivityKcalFromYoutube({
+            youtubeUrl: youtubeUrl.trim(),
+            minutes: Number.isFinite(mins) && mins > 0 ? mins : 30,
+            activityName: name.trim() || undefined,
+            equipmentWeightKg: parseEquipmentKg() ?? null,
+            weightKg,
+            heightCm: bodyProfile?.heightCm ?? null,
+            age: bodyProfile?.age ?? null,
+            gender: bodyProfile?.gender ?? null,
+            fatMassKg: bodyProfile?.fatMassKg ?? null,
+            muscleMassKg: bodyProfile?.muscleMassKg ?? null,
+            bmrKcal: bodyProfile?.bmrKcal ?? null,
+          }),
+        { video: watching },
+        PERF_WARN_AI_MS,
+      );
       const applyMins =
         result.usedVideo && result.durationMinutes != null && result.durationMinutes > 0
           ? result.durationMinutes
@@ -410,33 +417,40 @@ export function ActivityLogModal({
 
     setBusy(true);
     try {
-      const equipmentWeightKg = parseEquipmentKg();
-      let favId = favoriteId;
-      if (saveAsFav) {
-        const fav = await saveFavorite({
-          id: favoriteId,
-          name: trimmed,
-          defaultMinutes: mins,
-          defaultKcal: activityKcal,
-          equipmentWeightKg,
-          youtubeUrl: youtubeUrl.trim() || undefined,
-        });
-        favId = fav.id;
-      }
-      await saveActivity({
-        id: editEntry?.id,
-        timestamp: editEntry?.timestamp ?? initialTimestamp,
-        name: trimmed,
-        minutes: mins,
-        note: editEntry?.note,
-        youtubeUrl: youtubeUrl.trim() || undefined,
-        equipmentWeightKg,
-        activityKcal,
-        source: favId ? 'favorite' : 'manual',
-        favoriteId: favId,
-      });
-      await onSaved();
-      onClose();
+      await timeAsync(
+        'ActivityLogModal.save',
+        async () => {
+          const equipmentWeightKg = parseEquipmentKg();
+          let favId = favoriteId;
+          if (saveAsFav) {
+            const fav = await saveFavorite({
+              id: favoriteId,
+              name: trimmed,
+              defaultMinutes: mins,
+              defaultKcal: activityKcal,
+              equipmentWeightKg,
+              youtubeUrl: youtubeUrl.trim() || undefined,
+            });
+            favId = fav.id;
+          }
+          await saveActivity({
+            id: editEntry?.id,
+            timestamp: editEntry?.timestamp ?? initialTimestamp,
+            name: trimmed,
+            minutes: mins,
+            note: editEntry?.note,
+            youtubeUrl: youtubeUrl.trim() || undefined,
+            equipmentWeightKg,
+            activityKcal,
+            source: favId ? 'favorite' : 'manual',
+            favoriteId: favId,
+          });
+          await onSaved();
+          onClose();
+        },
+        { edit: Boolean(editEntry?.id) },
+        PERF_WARN_MEAL_MS,
+      );
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       Alert.alert('Save failed', msg);

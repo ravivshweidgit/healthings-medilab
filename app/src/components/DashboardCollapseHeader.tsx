@@ -11,6 +11,7 @@ import {
   type StyleProp,
   ViewStyle,
 } from 'react-native';
+import { logStripToggle } from '../services/AppDailyLogService';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { DashIcon, type LucideIcon } from '../theme/icons';
@@ -31,6 +32,8 @@ type Props = {
   trailing?: React.ReactNode;
   /** Optional leading chrome icon (Lucide) — audit F7 / prompt94. */
   icon?: LucideIcon;
+  /** Stable English method/component id for perf logs — never UI title. Required to log. */
+  perfTag?: string;
 };
 
 export function DashboardCollapseHeader({
@@ -45,6 +48,7 @@ export function DashboardCollapseHeader({
   subtitleNumberOfLines = 1,
   trailing,
   icon,
+  perfTag,
 }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -53,7 +57,11 @@ export function DashboardCollapseHeader({
   return (
     <Pressable
       style={[styles.header, style]}
-      onPress={onToggle}
+      onPress={() => {
+        const expanding = !expanded;
+        if (perfTag) logStripToggle(perfTag, expanding);
+        onToggle();
+      }}
       accessibilityRole="button"
       accessibilityState={{ expanded }}
       accessibilityLabel={expanded ? collapseLabel : expandLabel}

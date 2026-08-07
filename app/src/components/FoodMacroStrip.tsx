@@ -36,6 +36,7 @@ import { cardShadow, dashCardGap } from '../theme/wellness';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
+import { PERF_WARN_MEAL_MS, timeAsync } from '../services/AppDailyLogService';
 import { ActionIcons, DashIcon, StripIcons } from '../theme/icons';
 import type { DailyMacroTarget } from '../services/TargetService';
 import { getMacroTargetForDay, resolveFiberTarget_g, resolveNetCarbTarget_g } from '../services/TargetService';
@@ -443,20 +444,27 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   }, []);
 
   const load = useCallback(async () => {
-    const [data, correction, dayTarget, dayWater, entries, goal] = await Promise.all([
-      getDailyMacros(activeDayKey),
-      getBurnCorrection(activeDayKey),
-      getMacroTargetForDay(activeDayKey),
-      getWaterMl(activeDayKey),
-      getWaterEntries(activeDayKey),
-      getWaterGoalMl(),
-    ]);
-    setMacros(data);
-    setBurnCorrectionState(correction);
-    setDayMacroTarget(dayTarget ?? macroTarget ?? null);
-    setWaterMlState(dayWater);
-    setWaterEntries(entries);
-    setWaterGoalMlState(goal);
+    await timeAsync(
+      'FoodMacroStrip.load',
+      async () => {
+        const [data, correction, dayTarget, dayWater, entries, goal] = await Promise.all([
+          getDailyMacros(activeDayKey),
+          getBurnCorrection(activeDayKey),
+          getMacroTargetForDay(activeDayKey),
+          getWaterMl(activeDayKey),
+          getWaterEntries(activeDayKey),
+          getWaterGoalMl(),
+        ]);
+        setMacros(data);
+        setBurnCorrectionState(correction);
+        setDayMacroTarget(dayTarget ?? macroTarget ?? null);
+        setWaterMlState(dayWater);
+        setWaterEntries(entries);
+        setWaterGoalMlState(goal);
+      },
+      {},
+      PERF_WARN_MEAL_MS,
+    );
   }, [activeDayKey, macroTarget]);
 
   useImperativeHandle(ref, () => ({ reload: load }), [load]);
@@ -670,6 +678,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
         collapseLabel={`Collapse ${title}`}
         expandLabel={`Expand ${title}`}
         icon={StripIcons.foodLog}
+        perfTag="FoodMacroStrip"
       />
 
       {expanded ? (

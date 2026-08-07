@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { curveMonotoneX, line } from 'd3-shape';
 import { formatAxisDayLabel } from '../i18n/dateLocale';
 import { resolveBmrWeekTrend, withingsChartBmrKcal, type MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
+import { markMethodReady } from '../services/AppDailyLogService';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { energyUnitLabel, kcalToDisplay, type EnergyUnit } from '../logic/unitConvert';
@@ -140,6 +141,13 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
   const { width: windowWidth } = useWindowDimensions();
   const [layoutW, setLayoutW] = useState(0);
   const chartW = Math.max(280, layoutW > 0 ? layoutW : Math.max(280, windowWidth - 68));
+
+  useEffect(() => {
+    markMethodReady('BmrHistoryChart7d.ready', {
+      days_n: days?.length ?? 0,
+      loading: Boolean(loading),
+    });
+  }, []);
 
   const prepared = useMemo(() => {
     if (!days || days.length < 2) return null;

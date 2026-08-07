@@ -3,7 +3,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { loadCachedAuthUser } from './AuthTokenStore';
+import { hasAuthSession, loadCachedAuthUser } from './AuthTokenStore';
 import { getBirthdate, getCachedHeightCm, getGender } from './TargetService';
 
 export const ONBOARDING_COMPLETE_KEY = 'onboarding_complete_v1';
@@ -45,8 +45,12 @@ export async function isProfileBasicsComplete(): Promise<boolean> {
 /**
  * Show Welcome & Quick Start when profile basics (body + names) incomplete
  * or onboarding never finished. Names are collected in the wizard (be-27).
+ *
+ * prompt105: never open Quick Start without a live auth session — expired
+ * tokens clear cached user names and would falsely re-open the wizard.
  */
 export async function shouldShowQuickStart(): Promise<boolean> {
+  if (!(await hasAuthSession())) return false;
   const [profileOk, completedAt] = await Promise.all([
     isProfileBasicsComplete(),
     getOnboardingCompletedAt(),

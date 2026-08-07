@@ -27,6 +27,9 @@ const EXCLUDED_ASYNC_KEYS = new Set<string>([
   'usage_credits_left_v1',
   'usage_sponsored_v1',
   'usage_last_flush_at_v1',
+  // prompt105 daily logs live as files under documentDirectory/healthings-logs/
+  // (not AsyncStorage). Keep this comment so future AS keys for log pointers stay excluded.
+  'healthings:app_daily_log_pointer',
 ]);
 
 type LocalBackupPayload = {

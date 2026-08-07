@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import { curveMonotoneX, line } from 'd3-shape';
@@ -19,6 +19,7 @@ import {
 } from '../logic/metabolicTrend7d';
 import { getBodyMetricsCopy } from '../i18n/bodyMetricsCopy';
 import { formatAxisDayLabel, formatLocalizedDate } from '../i18n/dateLocale';
+import { markMethodReady } from '../services/AppDailyLogService';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { kgToDisplay, massUnitLabel, type MassUnit } from '../logic/unitConvert';
@@ -271,6 +272,14 @@ export function MetabolicTrendChart7d({
   const [layoutW, setLayoutW] = useState(0);
   const chartW = Math.max(280, layoutW > 0 ? layoutW : Math.max(280, windowWidth - 68));
   const bodyLabels = useMemo(() => getBodyMetricsCopy(langCode), [langCode]);
+
+  useEffect(() => {
+    markMethodReady('MetabolicTrendChart7d.ready', {
+      days_n: days?.length ?? 0,
+      loading: Boolean(loading),
+      weight_only: Boolean(weightOnly),
+    });
+  }, []);
 
   const weightOnlyPrepared = useMemo(() => {
     if (!weightOnly || !days || days.length < 2) return null;
