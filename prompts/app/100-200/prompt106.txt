@@ -1,0 +1,165 @@
+# prompt106 — UX / polish / retention (close Nutrisense gap)
+
+**Status:** backlog (draft 2026-08-08)  
+**Test order:** Samsung Android first (`bi`) → iOS later (`bi-os`)  
+**Builds on:** prompt105 (perf logs — use for polish before/after), Quick Start / `GearSetupStrip`, Food Log, Activity Log (prompt104), `metabolicStripCopy` / language policy  
+**Positioning:** [investor-pov/COMPETITOR-SCORES.md](../../../investor-pov/COMPETITOR-SCORES.md) — Healthings.AI **UX / polish / retention ≈ 52** vs Nutrisense **≈ 88**
+
+## Problem
+
+Healthings.AI leads **macro engine, data fusion, Activity / YouTube AI burn, language**. Competitor scorecard says we still lose the ICP race on **feel**:
+
+| Gap | Score (ICP) | Competitor lead |
+|-----|------------:|-----------------|
+| UX / polish / retention | ~52 | Nutrisense ~88, Levels ~85 |
+| Setup ease | ~56 | Libre / Withings ~88–90 |
+| Human coach (solo) | ~25 | Nutrisense ~92 — **clinic RD path**, not this prompt |
+
+Users with Libre + Withings + labs hit **setup friction**, **strip archaeology**, and **weak first-session aha** — so they never stick long enough to feel the engine advantage.
+
+This prompt is **product polish + habit speed**, not a visual redesign of the brand and not “beat Cronometer food DB.”
+
+## Goals
+
+| # | Goal |
+|---|------|
+| A | **Time-to-value:** first useful dashboard moment after setup is obvious and short |
+| B | **Daily 2-tap habits:** Food + Activity feel as easy as Nutrisense meal logging |
+| C | **Premium empty / sync / error states** — no dead ends, calm copy (`appLocale`) |
+| D | **Measure:** prompt105-style timings + a short phone checklist so polish is evidenced, not vibes-only |
+
+**Out of scope (this batch)**
+
+- Hiring / packaging a human coach (clinic RD = separate GTM; coach score is not fixed by UI alone)
+- Full chrome RTL (language policy still deferred)
+- Redesigning MetabolicChart math / History 7d·Full (prompt105)
+- New competitor features for their own sake
+
+---
+
+## Phase A — Setup & first session (highest retention leverage)
+
+### Target
+
+New or re-onboarded ICP user reaches: **CGM readable + scale linked (or explicit skip) + one meal or one activity logged** with clear success — without hunting Profile strips.
+
+### Likely surfaces
+
+- `WelcomeQuickStartWizard` / Your setup (`GearSetupStrip`)
+- Dashboard collapsed strips — first-open hierarchy
+- Post-setup “what’s next” (one primary CTA)
+
+### Acceptance (A)
+
+- [ ] Document current happy-path step count (phone) before changes
+- [ ] Cut or merge redundant setup steps where safe (no broken Withings/CGM gates)
+- [ ] After setup: one visible next action (e.g. “Log meal” or “Add activity”) — not a wall of collapsed strips
+- [ ] Empty glucose / no-Withings states use localized calm copy + recovery action
+- [ ] Samsung `bi` walkthrough timed; note duration in done spec
+
+---
+
+## Phase B — Daily habit speed (Food + Activity)
+
+### Target
+
+Same ICP, day 2+: log food **or** YouTube activity with **fewer taps / less scroll** than today.
+
+### Likely surfaces
+
+- `FoodMacroStrip` / `FoodLogModal` — open Add meal path
+- `ActivityLogStrip` / activity modal — YouTube paste → estimate → save
+- Dashboard strip expand cost already logged (`FoodMacroStrip.paint`, etc.) — keep under soft warns where possible
+
+### Acceptance (B)
+
+- [ ] Tap-count (or stopwatch) for: open app → save meal; open app → save YouTube activity — before/after in done spec
+- [ ] Primary actions reachable without expanding unrelated Profile nests
+- [ ] Loading / Gemini-in-flight / failure states are explicit (no silent hang)
+- [ ] No regression to Activity kcal override rules (prompt104)
+
+---
+
+## Phase C — Polish pass (trust = retention)
+
+### Target
+
+Surfaces the user hits weekly look intentional: sync, CareSens import toast, pull-refresh, chart History row, language-aware chrome.
+
+### Checklist (pick ≥3 for v1 ship; rest deferred)
+
+- [ ] Pull-refresh / sync busy + done feedback (copy + disabled double-fire)
+- [ ] CareSens import result readable on success **and** failure (range, truncation)
+- [ ] Glucose / Food / Activity strip headers: consistent density, chevron, a11y labels
+- [ ] Dark mode spot-check on polished surfaces (prompt96)
+- [ ] HE (or second `appLocale`) pass on new strings — catalog only, no inline English UI
+
+---
+
+## How to use LLMs / agents (process, not a feature)
+
+Polish is **spec → small PR → phone**. Model choice is secondary:
+
+| Work | Prefer |
+|------|--------|
+| RN layout / theme / i18n diffs | Coding agent against existing `ThemeProvider` + `*Copy.ts` |
+| Microcopy | Same catalogs; always-English glossary unchanged |
+| Taste / hierarchy | Owner decides on device; agent does not invent a new design system |
+
+Do **not** open a broad “redesign dashboard” batch. One phase per ship.
+
+---
+
+## Instrumentation (reuse prompt105)
+
+Before/after on Samsung:
+
+| Op | Use |
+|----|-----|
+| `FoodMacroStrip.paint` / `.toggle` | Expand habit |
+| Activity / meal open-save ops if present | Habit speed |
+| `MetabolicChart.paint` | Must not regress History 7d path |
+| Manual stopwatch | Setup → first log |
+
+Soft warns stay as in `AppDailyLogService` unless retuned with evidence.
+
+---
+
+## Primary files (expected)
+
+| Area | Paths |
+|------|--------|
+| Setup | `WelcomeQuickStartWizard.tsx`, `GearSetupStrip.tsx`, `yourSetupCopy.ts` / `quickStartCopy.ts` |
+| Food | `FoodMacroStrip.tsx`, `FoodLogModal.tsx` |
+| Activity | Activity log strip/modal (prompt104 surfaces) |
+| Dashboard chrome | `DashboardScreen.tsx`, `DashboardCollapseHeader.tsx` |
+| Copy | `metabolicStripCopy.ts` and related i18n catalogs |
+
+Exact file list finalized when phase A/B scope is locked on phone.
+
+---
+
+## Phone checklist (v1 = Phase A + at least one of B/C)
+
+- [ ] Fresh-ish setup path feels shorter; next CTA obvious
+- [ ] Meal log path fewer taps or clearly faster
+- [ ] YouTube activity path fewer taps or clearly faster
+- [ ] No dead-end empty/sync states on happy path
+- [ ] HE (or second language) strings OK on touched UI
+- [ ] Perf log: no new strip/chart WARN pattern vs prompt105 baseline
+- [ ] Owner: “feels closer to packaged-app calm” (subjective gate)
+
+## Deferred
+
+- Push / local notification retention loops
+- Full coach-in-a-box (Nutrisense parity)
+- iOS-first polish before Android proof
+- Scoring update in `COMPETITOR-SCORES` after phone evidence (target: UX band **52 → ~65+** if A+B land)
+
+## Related
+
+- `investor-pov/COMPETITOR-SCORES.md` / `.html` — positioning
+- prompt105 — daily log + glucose History
+- prompt104 — Activity Log + YouTube AI kcal
+- prompt87 / language policy — chrome copy
+- Nutrisense deep dive: `investor-pov/Nutricence-medilab.md`

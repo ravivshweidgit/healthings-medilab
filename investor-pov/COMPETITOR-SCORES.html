@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Competitor Scores · Healthings.ai Medilab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800&display=swap" rel="stylesheet">
+    <style>
+        @page { size: A4; margin: 0; }
+
+        :root {
+            --navy: #1a2b3c;
+            --navy-deep: #122031;
+            --teal: #30c5c5;
+            --teal-deep: #1f8f93;
+            --rose: #a11d33;
+            --ink: #1a2b3c;
+            --slate: #3f5061;
+            --muted: #7a8794;
+            --line: #e4e8ee;
+            --paper: #f7f9fb;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Montserrat', 'Segoe UI', Helvetica, Arial, sans-serif;
+            color: var(--ink);
+            background: #e9edf4;
+            line-height: 1.55;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .sheet {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 18px auto;
+            background: #ffffff;
+            box-shadow: 0 12px 44px rgba(26, 43, 60, 0.16);
+            padding: 28px 34px 0;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sheet-body { flex: 1; }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        .brand .wordmark {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 28px;
+            letter-spacing: -0.3px;
+            color: var(--navy);
+            line-height: 1;
+        }
+        .brand .w-thin { font-weight: 600; }
+        .brand .w-bold { font-weight: 700; }
+        .brand .pulse { flex: 0 0 auto; }
+
+        .tagline {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            color: var(--navy);
+            font-size: 10.5px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            margin-top: 8px;
+        }
+
+        .rule {
+            height: 2px; border: 0; margin: 14px 0 12px;
+            background: linear-gradient(90deg, var(--navy) 0%, var(--teal) 55%, rgba(48,197,197,0) 100%);
+        }
+
+        .doc-title {
+            text-align: center;
+            font-style: italic;
+            font-weight: 800;
+            font-size: 19px;
+            color: var(--navy);
+            margin: 2px 0 4px;
+            letter-spacing: -0.2px;
+            line-height: 1.3;
+        }
+        .doc-sub {
+            text-align: center;
+            font-size: 10px;
+            color: var(--muted);
+            margin: 0 0 16px;
+            font-weight: 500;
+        }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        .span-2 { grid-column: 1 / -1; }
+
+        .card {
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 14px 16px 12px;
+        }
+        .card-h {
+            color: var(--navy);
+            font-size: 12.5px;
+            font-weight: 700;
+            margin: 0 0 8px;
+            letter-spacing: 0.1px;
+        }
+        .card p {
+            margin: 0 0 6px;
+            font-size: 9.5px;
+            color: var(--slate);
+            line-height: 1.55;
+        }
+        .card p:last-child { margin-bottom: 0; }
+        .card strong { color: var(--navy); font-weight: 700; }
+
+        ul.bullets { list-style: none; margin: 0; padding: 0; }
+        ul.bullets li {
+            position: relative;
+            padding-left: 15px;
+            font-size: 9.5px;
+            color: var(--slate);
+            margin-bottom: 6px;
+            line-height: 1.5;
+        }
+        ul.bullets li:last-child { margin-bottom: 0; }
+        ul.bullets li::before {
+            content: "";
+            position: absolute;
+            left: 0; top: 6px;
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: var(--teal);
+        }
+
+        /* Score bars */
+        .score-row {
+            display: grid;
+            grid-template-columns: 118px 1fr 32px 92px;
+            gap: 6px;
+            align-items: center;
+            margin-bottom: 7px;
+            font-size: 9.5px;
+        }
+        .score-row:last-child { margin-bottom: 0; }
+        .score-name { font-weight: 600; color: var(--navy); }
+        .score-name.hi { color: var(--teal-deep); }
+        .score-price {
+            font-size: 7.5px;
+            font-weight: 600;
+            color: var(--muted);
+            text-align: right;
+            line-height: 1.25;
+        }
+        .score-price b { color: var(--navy); font-weight: 700; }
+        .score-track {
+            height: 10px;
+            background: #e8eef3;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .score-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--navy) 0%, var(--teal) 100%);
+        }
+        .score-fill.accent {
+            background: linear-gradient(90deg, var(--teal-deep) 0%, var(--teal) 100%);
+        }
+        .score-fill.muted-bar {
+            background: linear-gradient(90deg, #7a8794 0%, #b0bac4 100%);
+        }
+        .score-num {
+            font-weight: 800;
+            color: var(--navy);
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Tables */
+        table.data {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 8.5px;
+        }
+        table.data th {
+            text-align: left;
+            color: var(--navy);
+            font-weight: 700;
+            padding: 5px 4px;
+            border-bottom: 2px solid var(--navy);
+            white-space: nowrap;
+        }
+        table.data th.num, table.data td.num {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        table.data td {
+            padding: 5px 4px;
+            color: var(--slate);
+            border-bottom: 1px solid var(--line);
+            vertical-align: top;
+        }
+        table.data tr:last-child td { border-bottom: 0; }
+        table.data .best { color: var(--teal-deep); font-weight: 800; }
+        table.data .row-hi td { background: rgba(48, 197, 197, 0.08); }
+        table.data .row-total td {
+            background: var(--navy);
+            color: #fff;
+            font-weight: 800;
+            border-bottom: 0;
+            padding-top: 9px;
+            padding-bottom: 9px;
+        }
+        table.data .row-total .best { color: var(--teal); }
+
+        /* Weight chips */
+        .weights {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .chip {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 4px 9px;
+            font-size: 8.5px;
+            color: var(--slate);
+            font-weight: 500;
+        }
+        .chip b { color: var(--navy); font-weight: 700; }
+
+        /* Quadrant map */
+        .quad {
+            position: relative;
+            height: 220px;
+            background:
+                linear-gradient(to right, transparent 49.5%, var(--line) 49.5%, var(--line) 50.5%, transparent 50.5%),
+                linear-gradient(to bottom, transparent 49.5%, var(--line) 49.5%, var(--line) 50.5%, transparent 50.5%),
+                var(--paper);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            margin-top: 4px;
+        }
+        .quad-label {
+            position: absolute;
+            font-size: 7.5px;
+            font-weight: 700;
+            color: var(--muted);
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+        .quad-label.x-left { left: 8px; bottom: 6px; }
+        .quad-label.x-right { right: 8px; bottom: 6px; text-align: right; }
+        .quad-label.y-low { left: 8px; top: 50%; transform: translateY(14px); writing-mode: vertical-rl; transform: rotate(180deg); }
+        .quad-label.y-high { left: 8px; top: 8px; }
+        .quad-axis-x {
+            position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%);
+            font-size: 8px; font-weight: 700; color: var(--navy);
+        }
+        .quad-axis-y {
+            position: absolute; left: 6px; top: 50%; transform: translateY(-50%) rotate(-90deg);
+            font-size: 8px; font-weight: 700; color: var(--navy); white-space: nowrap;
+        }
+        .dot {
+            position: absolute;
+            transform: translate(-50%, 50%);
+            white-space: nowrap;
+            font-size: 8px;
+            font-weight: 700;
+            color: var(--navy);
+        }
+        .dot::before {
+            content: "";
+            display: inline-block;
+            width: 9px; height: 9px;
+            border-radius: 50%;
+            background: var(--teal);
+            margin-right: 4px;
+            vertical-align: -1px;
+            box-shadow: 0 0 0 2px rgba(48,197,197,0.25);
+        }
+        .dot.star::before {
+            background: var(--rose);
+            box-shadow: 0 0 0 2px rgba(161,29,51,0.25);
+        }
+        .dot.soft::before { background: var(--muted); box-shadow: none; }
+
+        .callout {
+            border-left: 3px solid var(--rose);
+            padding-left: 10px;
+            margin-top: 10px;
+            font-size: 9.5px;
+            color: var(--slate);
+            line-height: 1.55;
+        }
+        .callout strong { color: var(--navy); }
+
+        .pitch-box {
+            background: var(--navy);
+            color: #d5dee8;
+            border-radius: 10px;
+            padding: 14px 16px;
+            font-size: 10px;
+            line-height: 1.55;
+        }
+        .pitch-box strong { color: #fff; }
+        .pitch-box .teal { color: var(--teal); font-weight: 700; }
+        .pitch-label {
+            font-size: 8px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--teal);
+            margin-bottom: 6px;
+        }
+
+        .edge-med { color: var(--teal-deep); font-weight: 800; }
+        .edge-nut { color: var(--rose); font-weight: 800; }
+        .edge-tie { color: var(--muted); font-weight: 700; }
+
+        .footer {
+            margin: 18px -34px 0;
+            background: var(--navy);
+            color: #aebccb;
+            padding: 12px 34px;
+            text-align: center;
+            font-size: 9px;
+            letter-spacing: .5px;
+            font-weight: 500;
+        }
+        .footer strong { color: #fff; font-weight: 700; }
+
+        .page-num {
+            position: absolute;
+            right: 34px;
+            bottom: 42px;
+            font-size: 8px;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        @media print {
+            body { background: #fff; }
+            .sheet {
+                margin: 0;
+                box-shadow: none;
+                page-break-after: always;
+                break-after: page;
+            }
+            .sheet:last-child { page-break-after: auto; }
+            .card, .grid { break-inside: avoid; }
+            .page-num { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===================== SHEET 1 ===================== -->
+<div class="sheet">
+    <div class="sheet-body">
+        <div class="brand">
+            <div class="wordmark">
+                <span class="w-thin">Healthings.ai</span>
+                <svg class="pulse" width="54" height="26" viewBox="0 0 60 28" aria-hidden="true">
+                    <polyline points="0,14 13,14 19,14 24,4 32,24 38,8 43,14 60,14"
+                        fill="none" stroke="#30c5c5" stroke-width="3"
+                        stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="w-bold">Medilab</span>
+            </div>
+        </div>
+        <div class="tagline">
+            <svg width="12" height="12" viewBox="0 0 32 32" aria-hidden="true">
+                <path fill="#a11d33" d="M16 28S3 20.2 3 11.6C3 7.4 6.3 4.2 10.3 4.2c2.4 0 4.6 1.2 5.7 3.1 1.1-1.9 3.3-3.1 5.7-3.1 4 0 7.3 3.2 7.3 7.4C29 20.2 16 28 16 28z"/>
+            </svg>
+            <span>Competitor scores &amp; positioning</span>
+        </div>
+
+        <hr class="rule">
+
+        <h1 class="doc-title">Healthings.AI vs the field — ICP lens</h1>
+        <p class="doc-sub">Advisor · investor · clinic conversations &nbsp;•&nbsp; August 2026 &nbsp;•&nbsp; Subjective positioning (0–100)</p>
+
+        <div class="grid">
+            <div class="card">
+                <div class="card-h">How to read these scores</div>
+                <ul class="bullets">
+                    <li><strong>0–100</strong> = subjective strength for <strong>one ICP only</strong> — not “best app in the world.”</li>
+                    <li><strong>Not clinical evidence</strong> — positioning memo, not a study.</li>
+                    <li>Re-score when product, Nutrisense feature set, or GTM changes.</li>
+                </ul>
+            </div>
+            <div class="card">
+                <div class="card-h">Ideal customer profile (ICP)</div>
+                <ul class="bullets">
+                    <li><strong>CGM:</strong> Libre / CareSens via Health Connect or xDrip+</li>
+                    <li><strong>Scale:</strong> Withings (weight, body comp, BMR)</li>
+                    <li><strong>Food:</strong> daily log (photo AI + text)</li>
+                    <li><strong>Activity:</strong> Activity Log + YouTube training AI calorie burn</li>
+                    <li><strong>Labs:</strong> BYO lab PDF → AI (LDL / A1c / kidney) → macros</li>
+                    <li><strong>Goal:</strong> daily macro targets + meals — not glucose chart only</li>
+                    <li><strong>Optional:</strong> local RD (clinic) approves targets</li>
+                </ul>
+            </div>
+
+            <div class="card span-2">
+                <div class="card-h">Overall scores (ICP) · market price</div>
+                <div class="score-row">
+                    <div class="score-name hi">Healthings.AI + clinic RD</div>
+                    <div class="score-track"><div class="score-fill accent" style="width:89%"></div></div>
+                    <div class="score-num">89</div>
+                    <div class="score-price"><b>Pay-as-you-go</b> AI</div>
+                </div>
+                <div class="score-row">
+                    <div class="score-name hi">Healthings.AI (solo)</div>
+                    <div class="score-track"><div class="score-fill accent" style="width:82%"></div></div>
+                    <div class="score-num">82</div>
+                    <div class="score-price"><b>Pay-as-you-go</b> · ~90% off</div>
+                </div>
+                <div class="score-row">
+                    <div class="score-name">Levels</div>
+                    <div class="score-track"><div class="score-fill" style="width:64%"></div></div>
+                    <div class="score-num">64</div>
+                    <div class="score-price"><b>~$15–167</b>/mo tiers</div>
+                </div>
+                <div class="score-row">
+                    <div class="score-name">Nutrisense</div>
+                    <div class="score-track"><div class="score-fill" style="width:64%"></div></div>
+                    <div class="score-num">64</div>
+                    <div class="score-price"><b>~$150–225</b>/mo · BYO $39</div>
+                </div>
+                <div class="score-row">
+                    <div class="score-name">4-app stack + ChatGPT</div>
+                    <div class="score-track"><div class="score-fill muted-bar" style="width:58%"></div></div>
+                    <div class="score-num">58</div>
+                    <div class="score-price">ChatGPT <b>~$20</b>/mo</div>
+                </div>
+                <div class="score-row">
+                    <div class="score-name">Cronometer</div>
+                    <div class="score-track"><div class="score-fill muted-bar" style="width:41%"></div></div>
+                    <div class="score-num">41</div>
+                    <div class="score-price">Free · Gold <b>~$50</b>/yr</div>
+                </div>
+                <div class="score-row">
+                    <div class="score-name">Libre app</div>
+                    <div class="score-track"><div class="score-fill muted-bar" style="width:33%"></div></div>
+                    <div class="score-num">33</div>
+                    <div class="score-price"><b>Free</b> (sensors sep.)</div>
+                </div>
+                <div class="score-row">
+                    <div class="score-name">Withings app</div>
+                    <div class="score-track"><div class="score-fill muted-bar" style="width:33%"></div></div>
+                    <div class="score-num">33</div>
+                    <div class="score-price">Withings+ <b>~$10</b>/mo</div>
+                </div>
+                <p style="margin-top:10px;font-size:9px;color:var(--muted);">
+                    Incl. <strong style="color:var(--navy);">My Rules → real-time correction</strong> · sessions ≠ coach · pay as you go.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="page-num">01 / 05</div>
+    <div class="footer">
+        <strong>Healthings.ai Medilab</strong> &nbsp;•&nbsp; Confidential · Positioning memo &nbsp;•&nbsp; 2026
+    </div>
+</div>
+
+<!-- ===================== SHEET 2 — PRICING ===================== -->
+<div class="sheet">
+    <div class="sheet-body">
+        <div class="brand">
+            <div class="wordmark">
+                <span class="w-thin">Healthings.ai</span>
+                <svg class="pulse" width="54" height="26" viewBox="0 0 60 28" aria-hidden="true">
+                    <polyline points="0,14 13,14 19,14 24,4 32,24 38,8 43,14 60,14"
+                        fill="none" stroke="#30c5c5" stroke-width="3"
+                        stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="w-bold">Medilab</span>
+            </div>
+        </div>
+        <hr class="rule">
+        <h1 class="doc-title">Market prices</h1>
+        <p class="doc-sub">USD · ~August 2026 · Pay-as-you-go AI ≠ ~$200/mo coach membership ≠ sensor bundles</p>
+
+        <div class="card" style="margin-bottom:14px;">
+            <div class="card-h">Consumer list prices</div>
+            <table class="data">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Typical price</th>
+                        <th>Bundle</th>
+                        <th>Note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="row-hi">
+                        <td><strong>Healthings.AI</strong> (solo or +RD)</td>
+                        <td><strong>Pay as you go</strong> · $5 / 100 cr · ~$15–25 active mo</td>
+                        <td>App · BYO CGM + scale</td>
+                        <td>Not a locked monthly bill · ~90% off ~$200 NS</td>
+                    </tr>
+                    <tr class="row-hi">
+                        <td><strong>Clinic RD</strong> (optional)</td>
+                        <td><strong>You decide when</strong> — pay clinic then</td>
+                        <td>Human RD on Healthings brief</td>
+                        <td>Closed loop daily; RD not $200/mo meter</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Nutrisense</strong> CGM program</td>
+                        <td><strong>~$151–225/mo</strong> (from ~$179 list)</td>
+                        <td>Sensors + app + RD options</td>
+                        <td>Longer plans cheaper /mo</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Nutrisense</strong> BYO sensor</td>
+                        <td><strong>~$39/mo</strong></td>
+                        <td>App (+ RD if eligible)</td>
+                        <td>Own CGM</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Levels</strong> Build / app</td>
+                        <td><strong>~$15/mo</strong> or $80/yr</td>
+                        <td>App; CGM/labs à la carte</td>
+                        <td>Flexible path</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Levels</strong> Core</td>
+                        <td><strong>~$41/mo</strong> ($499/yr)</td>
+                        <td>App + limited CGM/labs</td>
+                        <td>Annual bill</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Levels</strong> Complete</td>
+                        <td><strong>~$167/mo</strong> ($1,999/yr)</td>
+                        <td>Deeper labs + more CGM</td>
+                        <td>Concierge tier</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cronometer</strong></td>
+                        <td>Free · Gold <strong>~$50/yr</strong></td>
+                        <td>Food tracking</td>
+                        <td>~$4–5/mo effective</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Withings+</strong></td>
+                        <td><strong>~$9.95/mo</strong> or ~$99.50/yr</td>
+                        <td>Hardware insights</td>
+                        <td>Device purchase separate</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Libre / LibreLink</strong></td>
+                        <td><strong>Free</strong> app</td>
+                        <td>Native CGM UX</td>
+                        <td>Sensors pharmacy / OTC</td>
+                    </tr>
+                    <tr>
+                        <td><strong>DIY stack</strong></td>
+                        <td>ChatGPT <strong>~$20/mo</strong> + apps</td>
+                        <td>User glues tools</td>
+                        <td>Time cost ignored</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="grid">
+            <div class="card pitch-box">
+                <div class="pitch-label">Pay as you go · not ~$200/mo</div>
+                Nutrisense often means <span class="teal">~$150–225 every month</span> (sensors + packaged RD).
+                Healthings: buy AI credits when you use them (<span class="teal">~$15–25</span> busy month) —
+                see a nutritionist <strong>when you decide</strong>, pay the clinic then.
+                You don’t need that standing coach bill: the <strong>closed loop</strong>
+                (CGM + scale + food + labs + activity → macros) runs day to day.
+            </div>
+            <div class="card">
+                <div class="card-h">How to read prices</div>
+                <ul class="bullets">
+                    <li>Healthings = <strong>pay as you go</strong> tokens — not a fixed $200/mo SKU</li>
+                    <li>RD timing = <strong>your choice</strong> (clinic), same app tokens</li>
+                    <li><strong>~90% off</strong> ≈ vs Nutrisense sensor+coach month</li>
+                    <li>Always ask: <strong>sensors in or out?</strong></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="page-num">02 / 05</div>
+    <div class="footer">
+        <strong>Healthings.ai Medilab</strong> &nbsp;•&nbsp; Confidential · Positioning memo &nbsp;•&nbsp; 2026
+    </div>
+</div>
+
+<!-- ===================== SHEET 3 ===================== -->
+<div class="sheet">
+    <div class="sheet-body">
+        <div class="brand">
+            <div class="wordmark">
+                <span class="w-thin">Healthings.ai</span>
+                <svg class="pulse" width="54" height="26" viewBox="0 0 60 28" aria-hidden="true">
+                    <polyline points="0,14 13,14 19,14 24,4 32,24 38,8 43,14 60,14"
+                        fill="none" stroke="#30c5c5" stroke-width="3"
+                        stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="w-bold">Medilab</span>
+            </div>
+        </div>
+        <hr class="rule">
+        <h1 class="doc-title">Category scores — same ICP</h1>
+        <p class="doc-sub">Rules → real-time correction · Sessions ≠ Human coach · Pay as you go · TOTAL = sheet 01</p>
+
+        <div class="card" style="margin-bottom:14px;">
+            <div class="card-h">By category (0–100) + weighted TOTAL</div>
+            <table class="data">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th class="num">Wt</th>
+                        <th class="num">Healthings.AI</th>
+                        <th class="num">+ RD</th>
+                        <th class="num">Nutrisense</th>
+                        <th class="num">Levels</th>
+                        <th class="num">Cronometer</th>
+                        <th class="num">Libre</th>
+                        <th class="num">Withings</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="row-hi">
+                        <td><strong>Macro engine</strong></td>
+                        <td class="num">14%</td>
+                        <td class="num best">94</td><td class="num best">94</td>
+                        <td class="num">55</td><td class="num">50</td><td class="num">25</td><td class="num">10</td><td class="num">15</td>
+                    </tr>
+                    <tr class="row-hi">
+                        <td><strong>Data fusion</strong></td>
+                        <td class="num">11%</td>
+                        <td class="num best">97</td><td class="num best">97</td>
+                        <td class="num">52</td><td class="num">48</td><td class="num">35</td><td class="num">28</td><td class="num">40</td>
+                    </tr>
+                    <tr class="row-hi">
+                        <td><strong>Rules → closed-loop</strong></td>
+                        <td class="num">8%</td>
+                        <td class="num best">94</td><td class="num best">94</td>
+                        <td class="num">45</td><td class="num">40</td><td class="num">35</td><td class="num">10</td><td class="num">15</td>
+                    </tr>
+                    <tr class="row-hi">
+                        <td><strong>Lab reports</strong> (PDF → AI)</td>
+                        <td class="num">6%</td>
+                        <td class="num best">95</td><td class="num best">95</td>
+                        <td class="num">22</td><td class="num">75</td><td class="num">28</td><td class="num">8</td><td class="num">8</td>
+                    </tr>
+                    <tr class="row-hi">
+                        <td><strong>AI chats</strong> (context-rich)</td>
+                        <td class="num">6%</td>
+                        <td class="num best">90</td><td class="num best">90</td>
+                        <td class="num">78</td><td class="num">70</td><td class="num">38</td><td class="num">12</td><td class="num">22</td>
+                    </tr>
+                    <tr class="row-hi">
+                        <td><strong>Charts &amp; energy</strong> (glu+HR+meals)</td>
+                        <td class="num">6%</td>
+                        <td class="num best">92</td><td class="num best">92</td>
+                        <td class="num">82</td><td class="num">80</td><td class="num">35</td><td class="num">70</td><td class="num">50</td>
+                    </tr>
+                    <tr class="row-hi">
+                        <td><strong>Activity / training</strong></td>
+                        <td class="num">6%</td>
+                        <td class="num best">90</td><td class="num best">90</td>
+                        <td class="num">58</td><td class="num">55</td><td class="num">42</td><td class="num">12</td><td class="num">65</td>
+                    </tr>
+                    <tr class="row-hi">
+                        <td><strong>Price / value</strong> (pay-as-you-go)</td>
+                        <td class="num">7%</td>
+                        <td class="num best">90</td><td class="num best">90</td>
+                        <td class="num">48</td><td class="num">72</td><td class="num">58</td><td class="num">52</td><td class="num">55</td>
+                    </tr>
+                    <tr>
+                        <td><strong>CGM + meals</strong> (meal scores)</td>
+                        <td class="num">6%</td>
+                        <td class="num">84</td><td class="num">84</td>
+                        <td class="num best">88</td><td class="num best">85</td><td class="num">30</td><td class="num">75</td><td class="num">10</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Food logging</strong> (photo/AI/reuse/g)</td>
+                        <td class="num">5%</td>
+                        <td class="num best">88</td><td class="num best">88</td>
+                        <td class="num">78</td><td class="num">72</td><td class="num best">90</td><td class="num">25</td><td class="num">5</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Human coach</strong></td>
+                        <td class="num">5%</td>
+                        <td class="num">25</td><td class="num best">90</td>
+                        <td class="num best">92</td><td class="num">80</td><td class="num">15</td><td class="num">10</td><td class="num">10</td>
+                    </tr>
+                    <tr class="row-hi">
+                        <td><strong>Nutritionist sessions</strong></td>
+                        <td class="num">7%</td>
+                        <td class="num">42</td><td class="num best">93</td>
+                        <td class="num best">90</td><td class="num">74</td><td class="num">18</td><td class="num">12</td><td class="num">12</td>
+                    </tr>
+                    <tr>
+                        <td><strong>UX / polish</strong></td>
+                        <td class="num">5%</td>
+                        <td class="num">52</td><td class="num">56</td>
+                        <td class="num best">88</td><td class="num best">85</td><td class="num">80</td><td class="num">82</td><td class="num">78</td>
+                    </tr>
+                    <tr class="row-hi">
+                        <td><strong>Language / local</strong></td>
+                        <td class="num">4%</td>
+                        <td class="num best">85</td><td class="num best">85</td>
+                        <td class="num">35</td><td class="num">35</td><td class="num">70</td><td class="num">75</td><td class="num">75</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Setup ease</strong></td>
+                        <td class="num">4%</td>
+                        <td class="num">56</td><td class="num">56</td>
+                        <td class="num best">82</td><td class="num best">80</td><td class="num best">85</td><td class="num best">90</td><td class="num">88</td>
+                    </tr>
+                    <tr class="row-total">
+                        <td>TOTAL (weighted)</td>
+                        <td class="num">100%</td>
+                        <td class="num best">82</td><td class="num best">89</td>
+                        <td class="num">64</td><td class="num">64</td><td class="num">41</td><td class="num">33</td><td class="num">33</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p style="margin-top:8px;font-size:8.5px;color:var(--muted);">
+                <strong>Food logging 88:</strong> photo + load image + AI chat correct + reuse meals + item grams slider.
+                Cronometer <strong>90</strong> still leads verified DB / barcode / micros — not meal-edit UX.
+            </p>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <div class="card-h">Who leads what</div>
+                <ul class="bullets">
+                    <li><strong>Healthings:</strong> rules→correction, fusion, charts, <strong>food log UX</strong>, AI chat, price</li>
+                    <li><strong>Healthings + RD:</strong> + session brief depth</li>
+                    <li><strong>Nutrisense:</strong> packaged sessions, human coach, meal scores, polish</li>
+                    <li><strong>Cronometer:</strong> food <em>database</em> depth</li>
+                </ul>
+            </div>
+            <div class="card">
+                <div class="card-h">Weighted overall</div>
+                <div class="weights">
+                    <span class="chip"><b>14%</b> Macro</span>
+                    <span class="chip"><b>11%</b> Fusion</span>
+                    <span class="chip"><b>8%</b> Rules → closed-loop</span>
+                    <span class="chip"><b>6%</b> Labs / AI / Charts / Activity / CGM</span>
+                    <span class="chip"><b>7%</b> Price / Sessions</span>
+                    <span class="chip"><b>5%</b> Food / Human / UX</span>
+                    <span class="chip"><b>4%</b> Lang / Setup</span>
+                </div>
+                <p style="margin-top:10px;">
+                    <strong>Healthings.AI solo ≈ 82</strong> ·
+                    <strong>+ clinic RD ≈ 89</strong> ·
+                    <strong>Levels / Nutrisense ≈ 64</strong>
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="page-num">03 / 05</div>
+    <div class="footer">
+        <strong>Healthings.ai Medilab</strong> &nbsp;•&nbsp; Confidential · Positioning memo &nbsp;•&nbsp; 2026
+    </div>
+</div>
+
+<!-- ===================== SHEET 4 ===================== -->
+<div class="sheet">
+    <div class="sheet-body">
+        <div class="brand">
+            <div class="wordmark">
+                <span class="w-thin">Healthings.ai</span>
+                <svg class="pulse" width="54" height="26" viewBox="0 0 60 28" aria-hidden="true">
+                    <polyline points="0,14 13,14 19,14 24,4 32,24 38,8 43,14 60,14"
+                        fill="none" stroke="#30c5c5" stroke-width="3"
+                        stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="w-bold">Medilab</span>
+            </div>
+        </div>
+        <hr class="rule">
+        <h1 class="doc-title">Positioning map — who is strongest where</h1>
+        <p class="doc-sub">Depth of fusion vs ease + coach &nbsp;•&nbsp; Healthings.AI wins fusion (incl. Activity / YouTube AI) — not “best at everything”</p>
+
+        <div class="grid">
+            <div class="card span-2">
+                <div class="card-h">Quadrant: fusion × polish / coach</div>
+                <div class="quad" aria-label="Positioning quadrant chart">
+                    <span class="quad-label y-high">High polish / coach</span>
+                    <span class="quad-axis-x">Fusion →</span>
+                    <!-- x = fusion 0–1 from left, y = polish from bottom; CSS top = (1-y)*100% -->
+                    <span class="dot soft" style="left:28%; bottom:78%;">Libre</span>
+                    <span class="dot soft" style="left:38%; bottom:72%;">Withings</span>
+                    <span class="dot soft" style="left:35%; bottom:75%;">Cronometer</span>
+                    <span class="dot" style="left:50%; bottom:82%;">Levels</span>
+                    <span class="dot" style="left:55%; bottom:88%;">Nutrisense</span>
+                    <span class="dot soft" style="left:70%; bottom:35%;">DIY stack</span>
+                    <span class="dot star" style="left:95%; bottom:48%;">Healthings.AI</span>
+                    <span class="dot star" style="left:95%; bottom:88%;">Healthings.AI + RD</span>
+                    <span class="quad-label x-left">Low fusion</span>
+                    <span class="quad-label x-right">High fusion</span>
+                </div>
+                <div class="callout">
+                    <strong>Healthings.AI</strong> sits far right (best fusion, incl. activity / YouTube AI burn) but lower on polish/coach alone.
+                    <strong>Healthings.AI + clinic RD</strong> moves into the top-right — fusion + human.
+                    <strong>Nutrisense</strong> is top-mid — great coach/polish, weaker full fusion.
+                    Libre / Withings / Cronometer = strong on one pillar, weak fusion.
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-h">Fusion axis (ICP)</div>
+                <ul class="bullets">
+                    <li><strong>Healthings.AI ★</strong> — CGM + scale + food + labs + activity → daily macros</li>
+                    <li><strong>Healthings.AI + RD ★★</strong> — same engine + human approval</li>
+                    <li>Nutrisense / Levels — CGM lifestyle strength</li>
+                    <li>Cronometer — food pillar</li>
+                    <li>Libre · Withings — single-sensor / single-job</li>
+                </ul>
+            </div>
+            <div class="card">
+                <div class="card-h">Casual user flip</div>
+                <p>When the job is “just want CGM tips,” scores reverse:</p>
+                <div class="score-row" style="margin-top:8px;">
+                    <div class="score-name">Nutrisense</div>
+                    <div class="score-track"><div class="score-fill" style="width:85%"></div></div>
+                    <div class="score-num">85</div>
+                </div>
+                <div class="score-row">
+                    <div class="score-name">Libre</div>
+                    <div class="score-track"><div class="score-fill" style="width:82%"></div></div>
+                    <div class="score-num">82</div>
+                </div>
+                <div class="score-row">
+                    <div class="score-name">Levels</div>
+                    <div class="score-track"><div class="score-fill" style="width:80%"></div></div>
+                    <div class="score-num">80</div>
+                </div>
+                <div class="score-row">
+                    <div class="score-name">Healthings.AI</div>
+                    <div class="score-track"><div class="score-fill muted-bar" style="width:44%"></div></div>
+                    <div class="score-num">44</div>
+                </div>
+                <p style="margin-top:8px;font-size:9px;color:var(--muted);">Overkill + setup friction (slightly eased by YouTube activity).</p>
+            </div>
+        </div>
+    </div>
+    <div class="page-num">04 / 05</div>
+    <div class="footer">
+        <strong>Healthings.ai Medilab</strong> &nbsp;•&nbsp; Confidential · Positioning memo &nbsp;•&nbsp; 2026
+    </div>
+</div>
+
+<!-- ===================== SHEET 5 ===================== -->
+<div class="sheet">
+    <div class="sheet-body">
+        <div class="brand">
+            <div class="wordmark">
+                <span class="w-thin">Healthings.ai</span>
+                <svg class="pulse" width="54" height="26" viewBox="0 0 60 28" aria-hidden="true">
+                    <polyline points="0,14 13,14 19,14 24,4 32,24 38,8 43,14 60,14"
+                        fill="none" stroke="#30c5c5" stroke-width="3"
+                        stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="w-bold">Medilab</span>
+            </div>
+        </div>
+        <hr class="rule">
+        <h1 class="doc-title">Head-to-head &amp; fair pitch lines</h1>
+        <p class="doc-sub">Healthings.AI vs Nutrisense &nbsp;•&nbsp; What to say — and what not to say</p>
+
+        <div class="card" style="margin-bottom:14px;">
+            <div class="card-h">Healthings.AI vs Nutrisense</div>
+            <table class="data">
+                <thead>
+                    <tr>
+                        <th>Dimension</th>
+                        <th>Healthings.AI</th>
+                        <th>Nutrisense</th>
+                        <th>Edge</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Daily macro from all data</td><td>Engine</td><td>Partial</td><td class="edge-med">Healthings.AI</td></tr>
+                    <tr><td>My Rules → real-time correction</td><td>Closed loop</td><td>Coach / manual</td><td class="edge-med">Healthings.AI</td></tr>
+                    <tr><td>Withings → calories / macros</td><td>Built-in</td><td>Weak</td><td class="edge-med">Healthings.AI</td></tr>
+                    <tr><td>Lab PDF → AI / structured markers</td><td>Import</td><td>No</td><td class="edge-med">Healthings.AI</td></tr>
+                    <tr><td>Labs → P/C/F / daily macros</td><td>Wired in</td><td>No</td><td class="edge-med">Healthings.AI</td></tr>
+                    <tr><td>Activity / YouTube AI burn → energy</td><td>Activity Log</td><td>Thinner</td><td class="edge-med">Healthings.AI</td></tr>
+                    <tr><td>AI chats (full metabolic file)</td><td>Gemini + /macros /7</td><td>Nora (polished, thinner)</td><td class="edge-med">Healthings.AI</td></tr>
+                    <tr><td>Charts: glu + HR + meals + energy</td><td>One MetabolicChart</td><td>Glu+meals+activity</td><td class="edge-med">Healthings.AI</td></tr>
+                    <tr><td>Photo / AI chat / reuse / item-g edit</td><td>Strong UX</td><td>Photo + scores</td><td class="edge-med">Healthings.AI</td></tr>
+                    <tr><td>Photo food → same brain as macros</td><td>Yes</td><td>Yes</td><td class="edge-tie">Tie</td></tr>
+                    <tr><td>CGM meal feedback</td><td>/7 reviews</td><td>Meal scores</td><td class="edge-tie">Tie / Nutrisense UX</td></tr>
+                    <tr><td>Real dietitian</td><td>→ clinic</td><td>Included</td><td class="edge-nut">Nutrisense</td></tr>
+                    <tr><td>App polish &amp; onboarding</td><td>Growing</td><td>Strong</td><td class="edge-nut">Nutrisense</td></tr>
+                    <tr><td>Coach weekly brief (complex client)</td><td>Rich</td><td>Thinner</td><td class="edge-med">Healthings.AI</td></tr>
+                    <tr><td>Multi-language metabolic coaching</td><td>AI, 7+ langs</td><td>US-centric</td><td class="edge-med">Healthings.AI</td></tr>
+                    <tr><td>Price / value</td><td>Pay as you go (~90% off ~$200)</td><td>Often ~$150–225 every mo</td><td class="edge-med">Healthings.AI</td></tr>
+                    <tr><td>Nutritionist timing</td><td>You decide (clinic visit)</td><td>Membership meter</td><td class="edge-med">Healthings.AI</td></tr>
+                    <tr><td>Nutritionist sessions</td><td>Deep clinic brief (+RD)</td><td>Packaged video+chat</td><td class="edge-tie">Tie / +RD depth</td></tr>
+                    <tr><td>Closed loop vs standing coach bill</td><td>Loop carries daily</td><td>Packaged RD month</td><td class="edge-med">Healthings.AI</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <div class="card-h">Beat Nutrisense when…</div>
+                <ul class="bullets">
+                    <li>IL + <strong>lab PDF → AI</strong> + Withings + activity + multi-goal</li>
+                    <li><strong>Local RD on Healthings.AI brief</strong> closes the coach gap</li>
+                    <li><strong>Pay as you go</strong> — not ~$200 every month</li>
+                    <li>RD when you choose; closed loop carries the daily work</li>
+                </ul>
+            </div>
+            <div class="card">
+                <div class="card-h">Lose to Nutrisense when…</div>
+                <ul class="bullets">
+                    <li>US mass market</li>
+                    <li>“Easy CGM + coach in a box”</li>
+                </ul>
+            </div>
+
+            <div class="card span-2 pitch-box">
+                <div class="pitch-label">Strong pitch</div>
+                For Libre + Withings + labs users who log food and training daily, Healthings.AI scores
+                <span class="teal">82</span> solo vs Nutrisense <span class="teal">64</span>.
+                We win <strong>My Rules → real-time correction</strong>, fusion, fused charts,
+                <strong>AI food log</strong> (photo / chat / reuse / item grams), and <strong>pay-as-you-go</strong>.
+                They win <strong>packaged nutritionist sessions</strong> + meal-score polish.
+                <strong>+ clinic RD (~89)</strong> — RD walks in with the full brief;
+                you still don’t pay <span class="teal">~$200 every month</span>.
+                <p style="margin:10px 0 0; font-size:9.5px; color:#aebccb;">
+                    One sentence: Nutrisense = <strong style="color:#fff;">~$200/mo sessions in a box</strong>.
+                    Healthings = <strong style="color:#fff;">pay-as-you-go closed loop</strong>
+                    that corrects targets from your rules in real time — RD when you choose.
+                </p>
+            </div>
+
+            <div class="card span-2">
+                <div class="card-h">Weak line — do not use</div>
+                <p>“We beat Nutrisense at everything.”</p>
+            </div>
+        </div>
+    </div>
+    <div class="page-num">05 / 05</div>
+    <div class="footer">
+        <strong>Healthings.ai Medilab</strong> &nbsp;•&nbsp; Subjective positioning only · Not medical or investment advice &nbsp;•&nbsp; 2026
+    </div>
+</div>
+
+</body>
+</html>
