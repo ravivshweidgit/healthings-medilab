@@ -1,14 +1,15 @@
 # prompt105 — Daily app performance log + session-expiry must not open Quick Start
 
-**Status:** phone-tested Android (2026-08-07) — daily log + method-name perf + Share log + pull-refresh distance; QS expiry code landed (force-expiry checklist still open). Glucose on-demand window **deferred**.  
+**Status:** phone-tested Android (2026-08-07) — daily log + method-name perf + Share log + pull-refresh; QS expiry code landed (force-expiry checklist still open). Glucose chart **History 7 days / Full** landed + localized (expand paint ~2× faster).  
 **Test order:** Samsung Android first (`bi`) → iOS later (`bi-os`)  
-**Builds on:** `ProfileCompletenessService.shouldShowQuickStart`, `AuthApiService` / `AuthTokenStore.clearAuthTokens`, Food Log / Meal modal, dashboard strip expand-collapse, `expo-file-system`
+**Builds on:** `ProfileCompletenessService.shouldShowQuickStart`, `AuthApiService` / `AuthTokenStore.clearAuthTokens`, Food Log / Meal modal, dashboard strip expand-collapse, `expo-file-system`, `MetabolicChart`
 
 ## Problem
 
 1. **Felt slowness** — expand/collapse strips and Food Log **Meal** flows sometimes feel laggy. No durable on-device trail of high-level service timings, so we cannot tell app jank vs a busy phone.
 2. **Session expired → Quick Start (bug)** — when login/session expires (401 → `clearAuthTokens`), dashboard still runs `shouldShowQuickStart()`. That gate uses `isProfileBasicsComplete()` → `loadCachedAuthUser()` for first+last name. Cleared auth makes names look missing → **Welcome / Quick Start opens**. Wrong product path: expired session must **abort any onboarding/Quick Start immediately** and send the user to sign-in / account, not the wizard.
 3. **Phone load unknown** — owner may also have a device crowded with apps; need a short check path (adb / Settings) so we do not chase app bugs when the handset is the bottleneck.
+4. **Glucose expand lag** — default zoom is 12H but expand scanned the **full** CGM/HR store (~24k / ~28k points) → `MetabolicChart.paint` WARN ~330–390 ms every expand. On-demand “grow while panning” was tried and **rejected** (chip/pan time instability).
 
 ## Goals
 
@@ -18,6 +19,7 @@
 | B | High-level **performance** lines for important UI/services (especially expand/collapse + Meal) |
 | C | **Fix:** expired / cleared session never opens Quick Start; exit that flow immediately |
 | D | Optional: document how to sanity-check phone load (not a product feature) |
+| E | Glucose chart: fast default expand + stable pan/chips; optional full history (like Normal vs Deep sync) |
 
 ---
 
@@ -122,6 +124,42 @@ Record findings in the done spec; do not “fix” Quick Start with product work
 - Logging meal contents or Gemini prompt bodies
 - Changing Meal UX layout (perf only + logs)
 - Hebrew VO / video work
+- On-demand extend-while-panning chart window (tried; unstable — do not revive without absolute-time scroll)
+
+---
+
+## E — Glucose chart history depth (shipped 2026-08-07)
+
+**Product model** (orthogonal axes, like Withings Normal vs Deep sync):
+
+| Control | Role |
+|---------|------|
+| **History · 7 days / Full** | How much store series is loaded into the chart |
+| **Zoom chips** (1H…16D) | Visible window width only — pan/chip math unchanged from pre-windowing |
+
+| Mode | Series | Default |
+|------|--------|---------|
+| **7 days** | Last 7 days of glucose + HR from the in-memory store | Yes |
+| **Full** | Entire stored series | Explicit tap |
+
+**Rejected approach:** seed ~12H+buffer and extend on pan/wider chip — caused live-edge loss on chip change and time jitter while swiping.
+
+**Localization (`appLocale` via `metabolicStripCopy`):** History / 7 days / Full + natural zoom labels (e.g. HE: שעה, 3 שעות, יום, יומיים, 4 ימים…). Internal ids stay `1H`…`16D`.
+
+### Primary files
+
+| File | Role |
+|------|------|
+| `app/src/components/MetabolicChart.tsx` | `historyDepth` light/full; slice series; History row above zoom chips |
+| `app/src/i18n/metabolicStripCopy.ts` | History + viewport labels (10 langs); `viewportPresetLabel` |
+
+### Phone checklist (chart)
+
+- [x] Expand glucose in **7 days** — snappier; pan/chips stable; starts at live (now → back)
+- [x] Switch zoom (12H → 6H → 3H → 1H) — latest data stays on the right
+- [x] **Full** loads older history; zoom still independent
+- [x] Labels follow app language (HE verified)
+- [x] Selected zoom chip (default 12 hours) stays **centered** in the chip scroller
 
 ## Acceptance
 
@@ -130,12 +168,15 @@ Record findings in the done spec; do not “fix” Quick Start with product work
 - [ ] Session expiry never opens Quick Start; mid-flow auth loss exits wizard immediately (code in; force-expiry phone checklist still open)
 - [x] Logs excluded from backup/clinic dump
 - [x] Phone-tested on Samsung (`bi`) — perf + pull-refresh; Account → Share app log (today)
+- [x] Glucose History **7 days** default + **Full** toggle; expand paint under strip soft-warn (~300 ms) in 7-day mode
 
 ### Phone findings (2026-08-07)
 
 - `FoodMacroStrip.paint` expand ~80–200ms; cold `FoodMacroStrip.load` once WARN ~1.8s
-- `MetabolicChart.paint` expand consistently WARN ~330–390ms with `glucose_n≈24k` / `hr_n≈28k` — default view is 12H but full series still scanned
-- **Deferred:** on-demand chart working set (start ~12H, extend on pan / wider chip)
+- **Glucose before fix:** `MetabolicChart.paint` expand **333–388 ms WARN**; `ready` **191–307 ms**; `glucose_n≈24055` / `hr_n≈28380` (full store every expand)
+- **Glucose after History 7 days:** `paint` expand **~152–202 ms**; `ready` **~64–95 ms** typical; `glucose_n≈1638` / `hr_n≈1470` with `store_glucose_n≈24088`, `history=light`
+- Collapse paint unchanged (~45–55 ms). **Full** not sampled in that buffer — expect cost near the old full-store band
+- One cold `ready` outlier **4374 ms** right after reinstall/sync — ignore for steady-state
 
 ## Related
 
@@ -143,3 +184,4 @@ Record findings in the done spec; do not “fix” Quick Start with product work
 - be-27 patient names in Quick Start
 - Food Log: `FoodLogModal`, `FoodLogService`, `FoodMacroStrip`
 - Auth: `AuthApiService`, `AuthTokenStore`
+- Chart: `MetabolicChart`, Withings Normal vs Deep sync (UX parallel only)

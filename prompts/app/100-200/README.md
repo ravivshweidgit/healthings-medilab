@@ -4,5 +4,5 @@ Shipped specs: [`done/README.md`](./done/README.md). Layout: [`../README.md`](..
 
 | File | Why still active |
 |------|------------------|
-| [`prompt105.txt`](./prompt105.txt) | Daily app log + method-name perf; QS expiry code in (force-expiry checklist open); glucose on-demand window deferred |
+| [`prompt105.txt`](./prompt105.txt) | Daily app log + method-name perf; QS expiry checklist open; glucose History 7 days / Full + localized zoom chips (phone-tested) |
 

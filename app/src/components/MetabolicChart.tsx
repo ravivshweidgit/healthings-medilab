@@ -13,7 +13,7 @@ import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg
 import { curveMonotoneX, line } from 'd3-shape';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { formatLocalizedDate, formatLocalizedTime } from '../i18n/dateLocale';
-import { getMetabolicStripCopy } from '../i18n/metabolicStripCopy';
+import { getMetabolicStripCopy, viewportPresetLabel, type ViewportPresetId } from '../i18n/metabolicStripCopy';
 import type { ActivityZone } from '../logic/MetabolicLogic';
 import type { WithingsCaloriePoint, WorkoutSession } from '../services/WithingsApiService';
 import type { FoodEntry } from '../services/FoodLogService';
@@ -113,19 +113,27 @@ const DATE_SWIPE_VX = 0.42;
  * Zoom chips set window duration (one screen width). Default view ends at **now**; horizontal pan slides
  * backward through history (same duration window).
  */
-const VIEWPORT_PRESETS = [
-  { label: '1H', ms: 1 * MS_HOUR },
-  { label: '3H', ms: 3 * MS_HOUR },
-  { label: '6H', ms: 6 * MS_HOUR },
-  { label: '12H', ms: 12 * MS_HOUR },
-  { label: '24H', ms: 24 * MS_HOUR },
-  { label: '2D', ms: 2 * MS_DAY },
-  { label: '4D', ms: 4 * MS_DAY },
-  { label: '8D', ms: 8 * MS_DAY },
-  { label: '16D', ms: 16 * MS_DAY },
-] as const;
+const VIEWPORT_PRESETS: { id: ViewportPresetId; ms: number }[] = [
+  { id: '1H', ms: 1 * MS_HOUR },
+  { id: '3H', ms: 3 * MS_HOUR },
+  { id: '6H', ms: 6 * MS_HOUR },
+  { id: '12H', ms: 12 * MS_HOUR },
+  { id: '24H', ms: 24 * MS_HOUR },
+  { id: '2D', ms: 2 * MS_DAY },
+  { id: '4D', ms: 4 * MS_DAY },
+  { id: '8D', ms: 8 * MS_DAY },
+  { id: '16D', ms: 16 * MS_DAY },
+];
 
 const DEFAULT_VIEWPORT_PRESET_INDEX = 3; // 12H
+
+/**
+ * History depth (independent of zoom chips):
+ * 7 days = last week loaded (default, like Normal sync).
+ * Full = entire in-memory CGM/HR store (like Deep sync).
+ */
+const SERIES_HISTORY_LIGHT_MS = 7 * MS_DAY;
+type HistoryDepth = 'light' | 'full';
 
 /**
  * Plot width must fit the strip card's inner box, or the fixed-width canvas is cut off
@@ -548,6 +556,8 @@ export function MetabolicChart({
   const stripCopy = useMemo(() => getMetabolicStripCopy(langCode), [langCode]);
   const { width: windowW } = useWindowDimensions();
   const [viewportPresetIndex, setViewportPresetIndex] = useState(DEFAULT_VIEWPORT_PRESET_INDEX);
+  /** 7 days vs Full store. Orthogonal to 1H…16D zoom. */
+  const [historyDepth, setHistoryDepth] = useState<HistoryDepth>('light');
   const [nowAnchor, setNowAnchor] = useState(() => Date.now());
   /** Horizontal pan offset (px). `null` until synced — treat as “live” end position in useMemo. */
   const [scrollX, setScrollX] = useState<number | null>(null);
@@ -560,8 +570,25 @@ export function MetabolicChart({
   const [scrubMs, setScrubMs] = useState<number | null>(null);
   const chartTouchRef = useRef({ x0: 0, y0: 0, tapPending: false });
   const chartScrollRef = useRef<ScrollView>(null);
+  const chipScrollRef = useRef<ScrollView>(null);
+  const chipLayoutsRef = useRef<Record<number, { x: number; width: number }>>({});
+  const chipViewportWRef = useRef(0);
   const scrollXRef = useRef<number | null>(null);
   scrollXRef.current = scrollX;
+
+  /** Keep the selected zoom chip centered in the horizontal chip scroller. */
+  const centerViewportChip = useCallback((index: number, animated: boolean) => {
+    const layout = chipLayoutsRef.current[index];
+    const vw = chipViewportWRef.current;
+    if (!layout || vw <= 0) return;
+    const x = Math.max(0, layout.x + layout.width / 2 - vw / 2);
+    chipScrollRef.current?.scrollTo({ x, animated });
+  }, []);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => centerViewportChip(viewportPresetIndex, true));
+    return () => cancelAnimationFrame(id);
+  }, [viewportPresetIndex, centerViewportChip, langCode]);
   /** Latest day-step actions for the stable date-header `PanResponder`. */
   const dateSwipeRef = useRef<{
     shiftDay: (delta: number) => void;
@@ -601,17 +628,32 @@ export function MetabolicChart({
   const plotH = CHART_PLOT_HEIGHT;
   const svgH = SVG_TOTAL_HEIGHT;
 
+  /** Series fed to the chart — Light=7d; Full=store. Pan/zoom math unchanged. */
+  const chartGlucose = useMemo(() => {
+    if (historyDepth === 'full' || !glucose?.length) return glucose;
+    const t0 = Date.now() - SERIES_HISTORY_LIGHT_MS;
+    return filterPointsByTime(glucose, t0, Number.POSITIVE_INFINITY);
+  }, [glucose, historyDepth]);
+
+  const chartHeartRate = useMemo(() => {
+    if (historyDepth === 'full' || !heartRate?.length) return heartRate;
+    const t0 = Date.now() - SERIES_HISTORY_LIGHT_MS;
+    return filterPointsByTime(heartRate, t0, Number.POSITIVE_INFINITY);
+  }, [heartRate, historyDepth]);
+
   useEffect(() => {
     markMethodReady('MetabolicChart.ready', {
-      glucose_n: glucose?.length ?? 0,
-      hr_n: heartRate?.length ?? 0,
+      glucose_n: chartGlucose?.length ?? 0,
+      hr_n: chartHeartRate?.length ?? 0,
       food_n: foodEntries?.length ?? 0,
+      history: historyDepth,
+      store_glucose_n: glucose?.length ?? 0,
     });
-  }, []);
+  }, [chartGlucose, chartHeartRate, historyDepth, foodEntries?.length, glucose?.length]);
 
   useEffect(() => {
     setNowAnchor(Date.now());
-  }, [glucose, heartRate]);
+  }, [chartGlucose, chartHeartRate]);
 
   useEffect(() => {
     const id = setInterval(() => setNowAnchor(Date.now()), 60_000);
@@ -619,13 +661,14 @@ export function MetabolicChart({
   }, []);
 
   const prepared = useMemo(() => {
-    const bounds = mergeTimeBounds(glucose, heartRate);
+    const bounds = mergeTimeBounds(chartGlucose, chartHeartRate);
     if (!bounds) return null;
 
     const dataTMin = bounds.tMin;
     const vpPx = viewportWidthPx(windowW);
     const viewportMs = VIEWPORT_PRESETS[viewportPresetIndex]?.ms ?? VIEWPORT_PRESETS[DEFAULT_VIEWPORT_PRESET_INDEX].ms;
-    const viewportLabel = VIEWPORT_PRESETS[viewportPresetIndex]?.label ?? '2D';
+    const viewportId = VIEWPORT_PRESETS[viewportPresetIndex]?.id ?? '12H';
+    const viewportLabel = viewportPresetLabel(stripCopy, viewportId);
 
     /** How far the window’s end time can move from “oldest” [dataTMin + viewportMs] to “live” [now]. */
     const slideMs = Math.max(0, nowAnchor - dataTMin - viewportMs);
@@ -664,8 +707,8 @@ export function MetabolicChart({
 
     const chartW = vpPx;
 
-    const gWin = filterPointsByTime(glucose, mapTMin, mapTMax);
-    const hWin = filterPointsByTime(heartRate, mapTMin, mapTMax);
+    const gWin = filterPointsByTime(chartGlucose, mapTMin, mapTMax);
+    const hWin = filterPointsByTime(chartHeartRate, mapTMin, mapTMax);
     const { yMin, yMax, gridLines: yGridDefs } = computeSharedYDomain(gWin, hWin);
 
     const seriesBudget = Math.min(
@@ -825,7 +868,7 @@ export function MetabolicChart({
       targetBandBottomY,
       targetBandVisible,
     };
-  }, [activityZones, endTimeOverrideMs, glucose, heartRate, langCode, nowAnchor, plotH, scrollX, viewportPresetIndex, windowW]);
+  }, [activityZones, chartGlucose, chartHeartRate, endTimeOverrideMs, langCode, nowAnchor, plotH, scrollX, stripCopy, viewportPresetIndex, windowW]);
 
   /** Compute 30-min calorie bars for the currently visible time window. */
   const caloriePrepared = useMemo(() => {
@@ -983,7 +1026,7 @@ export function MetabolicChart({
     chartPanReadyRef.current = true;
   };
 
-  /** Chip change → jump back to “live” (scroll end). Retries help when `scrollTo` runs before content is measured. */
+  /** Chip / history-range change → jump back to “live” (scroll end). Retries help when `scrollTo` runs before content is measured. */
   useLayoutEffect(() => {
     if (!prepared) return;
     setEndTimeOverrideMs(null);
@@ -1009,7 +1052,7 @@ export function MetabolicChart({
       });
     });
     return () => cancelAnimationFrame(id);
-  }, [viewportPresetIndex]);
+  }, [viewportPresetIndex, historyDepth]);
 
   /** If the scrollable range shrinks, don’t leave offset past the end. */
   useEffect(() => {
@@ -1365,17 +1408,59 @@ export function MetabolicChart({
   return (
     <View style={styles.wrap}>
 
-      <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={styles.viewportPresetRow}>
+      <View style={styles.historyDepthRow}>
+        <Text style={styles.historyDepthLabel}>{stripCopy.historyDepthLabel}</Text>
+        <Pressable
+          onPress={() => setHistoryDepth('light')}
+          style={[styles.viewportChip, historyDepth === 'light' && styles.viewportChipSelected]}
+          accessibilityLabel={stripCopy.a11yHistory7Days}
+          accessibilityState={{ selected: historyDepth === 'light' }}
+        >
+          <Text style={[styles.viewportChipText, historyDepth === 'light' && styles.viewportChipTextSelected]}>
+            {stripCopy.historyDepth7Days}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setHistoryDepth('full')}
+          style={[styles.viewportChip, historyDepth === 'full' && styles.viewportChipSelected]}
+          accessibilityLabel={stripCopy.a11yHistoryFull}
+          accessibilityState={{ selected: historyDepth === 'full' }}
+        >
+          <Text style={[styles.viewportChipText, historyDepth === 'full' && styles.viewportChipTextSelected]}>
+            {stripCopy.historyDepthFull}
+          </Text>
+        </Pressable>
+      </View>
+
+      <ScrollView
+        ref={chipScrollRef}
+        horizontal
+        nestedScrollEnabled
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.viewportPresetRow}
+        onLayout={(e) => {
+          chipViewportWRef.current = e.nativeEvent.layout.width;
+          centerViewportChip(viewportPresetIndex, false);
+        }}
+      >
         {VIEWPORT_PRESETS.map((preset, index) => {
           const selected = index === viewportPresetIndex;
+          const label = viewportPresetLabel(stripCopy, preset.id);
           return (
             <Pressable
-              key={preset.label}
+              key={preset.id}
               onPress={() => setViewportPresetIndex(index)}
+              onLayout={(e) => {
+                const { x, width } = e.nativeEvent.layout;
+                chipLayoutsRef.current[index] = { x, width };
+                if (index === viewportPresetIndex) {
+                  requestAnimationFrame(() => centerViewportChip(index, false));
+                }
+              }}
               style={[styles.viewportChip, selected && styles.viewportChipSelected]}
-              accessibilityLabel={`Viewport ${preset.label}`}
+              accessibilityLabel={label}
             >
-              <Text style={[styles.viewportChipText, selected && styles.viewportChipTextSelected]}>{preset.label}</Text>
+              <Text style={[styles.viewportChipText, selected && styles.viewportChipTextSelected]}>{label}</Text>
             </Pressable>
           );
         })}
@@ -1604,6 +1689,19 @@ const makeStyles = (colors: ThemeColors, isDark: boolean) =>
   },
   viewportChipTextSelected: {
     color: colors.accentBlue,
+  },
+  historyDepthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  historyDepthLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginRight: 2,
   },
   chartRow: {
     flexDirection: 'row',

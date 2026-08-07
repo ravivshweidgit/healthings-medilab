@@ -35,6 +35,22 @@ export type MetabolicStripCopy = {
   legendHeartRate: string;
   legendSteps: string;
   legendWorkout: string;
+  /** Glucose chart history depth (orthogonal to zoom chips). */
+  historyDepthLabel: string;
+  historyDepth7Days: string;
+  historyDepthFull: string;
+  a11yHistory7Days: string;
+  a11yHistoryFull: string;
+  /** Zoom chip labels (natural language; ids stay 1H…16D in code). */
+  viewport1H: string;
+  viewport3H: string;
+  viewport6H: string;
+  viewport12H: string;
+  viewport24H: string;
+  viewport2D: string;
+  viewport4D: string;
+  viewport8D: string;
+  viewport16D: string;
   /** Compact relative time: minutes / hours / days. */
   minsAgo: (n: number) => string;
   hoursAgo: (n: number) => string;
@@ -70,6 +86,20 @@ const EN: MetabolicStripCopy = {
   legendHeartRate: 'Heart rate',
   legendSteps: 'Steps',
   legendWorkout: 'Workout',
+  historyDepthLabel: 'History',
+  historyDepth7Days: '7 days',
+  historyDepthFull: 'Full',
+  a11yHistory7Days: 'History, last 7 days',
+  a11yHistoryFull: 'History, full stored readings',
+  viewport1H: '1 hour',
+  viewport3H: '3 hours',
+  viewport6H: '6 hours',
+  viewport12H: '12 hours',
+  viewport24H: '1 day',
+  viewport2D: '2 days',
+  viewport4D: '4 days',
+  viewport8D: '8 days',
+  viewport16D: '16 days',
   minsAgo: (n) => `${n}m ago`,
   hoursAgo: (n) => `${n}h ago`,
   daysAgo: (n) => `${n}d ago`,
@@ -104,6 +134,20 @@ const HE: MetabolicStripCopy = {
   legendHeartRate: 'דופק',
   legendSteps: 'צעדים',
   legendWorkout: 'אימון',
+  historyDepthLabel: 'היסטוריה',
+  historyDepth7Days: '7 ימים',
+  historyDepthFull: 'מלא',
+  a11yHistory7Days: 'היסטוריה, 7 הימים האחרונים',
+  a11yHistoryFull: 'היסטוריה מלאה, כל הקריאות השמורות',
+  viewport1H: 'שעה',
+  viewport3H: '3 שעות',
+  viewport6H: '6 שעות',
+  viewport12H: '12 שעות',
+  viewport24H: 'יום',
+  viewport2D: 'יומיים',
+  viewport4D: '4 ימים',
+  viewport8D: '8 ימים',
+  viewport16D: '16 ימים',
   minsAgo: (n) => `לפני ${n}ד׳`,
   hoursAgo: (n) => `לפני ${n}ש׳`,
   daysAgo: (n) => `לפני ${n}י׳`,
@@ -138,6 +182,20 @@ const ES: MetabolicStripCopy = {
   legendHeartRate: 'Frecuencia cardíaca',
   legendSteps: 'Pasos',
   legendWorkout: 'Entrenamiento',
+  historyDepthLabel: 'Historial',
+  historyDepth7Days: '7 días',
+  historyDepthFull: 'Completo',
+  a11yHistory7Days: 'Historial, últimos 7 días',
+  a11yHistoryFull: 'Historial completo, todas las lecturas guardadas',
+  viewport1H: '1 hora',
+  viewport3H: '3 horas',
+  viewport6H: '6 horas',
+  viewport12H: '12 horas',
+  viewport24H: '1 día',
+  viewport2D: '2 días',
+  viewport4D: '4 días',
+  viewport8D: '8 días',
+  viewport16D: '16 días',
   minsAgo: (n) => `hace ${n}m`,
   hoursAgo: (n) => `hace ${n}h`,
   daysAgo: (n) => `hace ${n}d`,
@@ -172,6 +230,20 @@ const FR: MetabolicStripCopy = {
   legendHeartRate: 'Fréquence cardiaque',
   legendSteps: 'Pas',
   legendWorkout: 'Séance',
+  historyDepthLabel: 'Historique',
+  historyDepth7Days: '7 jours',
+  historyDepthFull: 'Complet',
+  a11yHistory7Days: 'Historique, 7 derniers jours',
+  a11yHistoryFull: 'Historique complète, toutes les lectures enregistrées',
+  viewport1H: '1 heure',
+  viewport3H: '3 heures',
+  viewport6H: '6 heures',
+  viewport12H: '12 heures',
+  viewport24H: '1 jour',
+  viewport2D: '2 jours',
+  viewport4D: '4 jours',
+  viewport8D: '8 jours',
+  viewport16D: '16 jours',
   minsAgo: (n) => `il y a ${n}m`,
   hoursAgo: (n) => `il y a ${n}h`,
   daysAgo: (n) => `il y a ${n}j`,
@@ -206,6 +278,20 @@ const DE: MetabolicStripCopy = {
   legendHeartRate: 'Herzfrequenz',
   legendSteps: 'Schritte',
   legendWorkout: 'Training',
+  historyDepthLabel: 'Verlauf',
+  historyDepth7Days: '7 Tage',
+  historyDepthFull: 'Voll',
+  a11yHistory7Days: 'Verlauf, letzte 7 Tage',
+  a11yHistoryFull: 'Vollständiger Verlauf, alle gespeicherten Messungen',
+  viewport1H: '1 Stunde',
+  viewport3H: '3 Stunden',
+  viewport6H: '6 Stunden',
+  viewport12H: '12 Stunden',
+  viewport24H: '1 Tag',
+  viewport2D: '2 Tage',
+  viewport4D: '4 Tage',
+  viewport8D: '8 Tage',
+  viewport16D: '16 Tage',
   minsAgo: (n) => `vor ${n}m`,
   hoursAgo: (n) => `vor ${n}h`,
   daysAgo: (n) => `vor ${n}T`,
@@ -240,6 +326,20 @@ const AR: MetabolicStripCopy = {
   legendHeartRate: 'معدل القلب',
   legendSteps: 'خطوات',
   legendWorkout: 'تمرين',
+  historyDepthLabel: 'السجل',
+  historyDepth7Days: '7 أيام',
+  historyDepthFull: 'كامل',
+  a11yHistory7Days: 'السجل، آخر 7 أيام',
+  a11yHistoryFull: 'السجل الكامل، كل القراءات المحفوظة',
+  viewport1H: 'ساعة',
+  viewport3H: '3 ساعات',
+  viewport6H: '6 ساعات',
+  viewport12H: '12 ساعة',
+  viewport24H: 'يوم',
+  viewport2D: 'يومان',
+  viewport4D: '4 أيام',
+  viewport8D: '8 أيام',
+  viewport16D: '16 يوماً',
   minsAgo: (n) => `منذ ${n}د`,
   hoursAgo: (n) => `منذ ${n}س`,
   daysAgo: (n) => `منذ ${n}ي`,
@@ -274,6 +374,20 @@ const RU: MetabolicStripCopy = {
   legendHeartRate: 'Пульс',
   legendSteps: 'Шаги',
   legendWorkout: 'Тренировка',
+  historyDepthLabel: 'История',
+  historyDepth7Days: '7 дней',
+  historyDepthFull: 'Полная',
+  a11yHistory7Days: 'История, последние 7 дней',
+  a11yHistoryFull: 'Полная история, все сохранённые показания',
+  viewport1H: '1 час',
+  viewport3H: '3 часа',
+  viewport6H: '6 часов',
+  viewport12H: '12 часов',
+  viewport24H: '1 день',
+  viewport2D: '2 дня',
+  viewport4D: '4 дня',
+  viewport8D: '8 дней',
+  viewport16D: '16 дней',
   minsAgo: (n) => `${n}м назад`,
   hoursAgo: (n) => `${n}ч назад`,
   daysAgo: (n) => `${n}д назад`,
@@ -308,6 +422,20 @@ const PT: MetabolicStripCopy = {
   legendHeartRate: 'Frequência cardíaca',
   legendSteps: 'Passos',
   legendWorkout: 'Treino',
+  historyDepthLabel: 'Histórico',
+  historyDepth7Days: '7 dias',
+  historyDepthFull: 'Completo',
+  a11yHistory7Days: 'Histórico, últimos 7 dias',
+  a11yHistoryFull: 'Histórico completo, todas as leituras salvas',
+  viewport1H: '1 hora',
+  viewport3H: '3 horas',
+  viewport6H: '6 horas',
+  viewport12H: '12 horas',
+  viewport24H: '1 dia',
+  viewport2D: '2 dias',
+  viewport4D: '4 dias',
+  viewport8D: '8 dias',
+  viewport16D: '16 dias',
   minsAgo: (n) => `há ${n}m`,
   hoursAgo: (n) => `há ${n}h`,
   daysAgo: (n) => `há ${n}d`,
@@ -342,6 +470,20 @@ const IT: MetabolicStripCopy = {
   legendHeartRate: 'Frequenza cardiaca',
   legendSteps: 'Passi',
   legendWorkout: 'Allenamento',
+  historyDepthLabel: 'Cronologia',
+  historyDepth7Days: '7 giorni',
+  historyDepthFull: 'Completa',
+  a11yHistory7Days: 'Cronologia, ultimi 7 giorni',
+  a11yHistoryFull: 'Cronologia completa, tutte le letture salvate',
+  viewport1H: '1 ora',
+  viewport3H: '3 ore',
+  viewport6H: '6 ore',
+  viewport12H: '12 ore',
+  viewport24H: '1 giorno',
+  viewport2D: '2 giorni',
+  viewport4D: '4 giorni',
+  viewport8D: '8 giorni',
+  viewport16D: '16 giorni',
   minsAgo: (n) => `${n}m fa`,
   hoursAgo: (n) => `${n}h fa`,
   daysAgo: (n) => `${n}g fa`,
@@ -376,10 +518,35 @@ const TR: MetabolicStripCopy = {
   legendHeartRate: 'Nabız',
   legendSteps: 'Adım',
   legendWorkout: 'Antrenman',
+  historyDepthLabel: 'Geçmiş',
+  historyDepth7Days: '7 gün',
+  historyDepthFull: 'Tam',
+  a11yHistory7Days: 'Geçmiş, son 7 gün',
+  a11yHistoryFull: 'Tam geçmiş, kayıtlı tüm okumalar',
+  viewport1H: '1 saat',
+  viewport3H: '3 saat',
+  viewport6H: '6 saat',
+  viewport12H: '12 saat',
+  viewport24H: '1 gün',
+  viewport2D: '2 gün',
+  viewport4D: '4 gün',
+  viewport8D: '8 gün',
+  viewport16D: '16 gün',
   minsAgo: (n) => `${n}dk önce`,
   hoursAgo: (n) => `${n}s önce`,
   daysAgo: (n) => `${n}g önce`,
 };
+
+export type ViewportPresetId =
+  | '1H'
+  | '3H'
+  | '6H'
+  | '12H'
+  | '24H'
+  | '2D'
+  | '4D'
+  | '8D'
+  | '16D';
 
 export function getMetabolicStripCopy(langCode?: string | null): MetabolicStripCopy {
   const c = (langCode || 'en').toLowerCase().slice(0, 2);
@@ -393,6 +560,32 @@ export function getMetabolicStripCopy(langCode?: string | null): MetabolicStripC
   if (c === 'it') return IT;
   if (c === 'tr') return TR;
   return EN;
+}
+
+/** Localized zoom-chip label for a preset id. */
+export function viewportPresetLabel(copy: MetabolicStripCopy, id: ViewportPresetId): string {
+  switch (id) {
+    case '1H':
+      return copy.viewport1H;
+    case '3H':
+      return copy.viewport3H;
+    case '6H':
+      return copy.viewport6H;
+    case '12H':
+      return copy.viewport12H;
+    case '24H':
+      return copy.viewport24H;
+    case '2D':
+      return copy.viewport2D;
+    case '4D':
+      return copy.viewport4D;
+    case '8D':
+      return copy.viewport8D;
+    case '16D':
+      return copy.viewport16D;
+    default:
+      return id;
+  }
 }
 
 /** Compact relative ago for collapsed glucose subtitle. */
