@@ -136,6 +136,8 @@ const HE: ActivityLogUiCopy = {
   orDivider: 'או',
   nameRequired: 'הזינו שם',
   minutesRequired: 'הזינו דקות',
+  collapse: 'כווץ יומן פעילות',
+  expand: 'הרחב יומן פעילות',
 };
 
 const ES: ActivityLogUiCopy = {
@@ -155,6 +157,8 @@ const ES: ActivityLogUiCopy = {
   fromPastTitle: 'Elegir actividad pasada',
   useAsNewActivity: 'Usar como nueva',
   back: 'Atrás',
+  collapse: 'Contraer registro de actividad',
+  expand: 'Expandir registro de actividad',
 };
 
 const FR: ActivityLogUiCopy = {
@@ -174,6 +178,8 @@ const FR: ActivityLogUiCopy = {
   fromPastTitle: 'Choisir une activité passée',
   useAsNewActivity: 'Utiliser comme nouvelle',
   back: 'Retour',
+  collapse: 'Réduire le journal d’activité',
+  expand: 'Développer le journal d’activité',
 };
 
 const DE: ActivityLogUiCopy = {
@@ -193,6 +199,8 @@ const DE: ActivityLogUiCopy = {
   fromPastTitle: 'Frühere Aktivität wählen',
   useAsNewActivity: 'Als neu verwenden',
   back: 'Zurück',
+  collapse: 'Aktivitätslog einklappen',
+  expand: 'Aktivitätslog ausklappen',
 };
 
 const AR: ActivityLogUiCopy = {
@@ -212,6 +220,8 @@ const AR: ActivityLogUiCopy = {
   fromPastTitle: 'اختر نشاطًا سابقًا',
   useAsNewActivity: 'استخدم كجديد',
   back: 'رجوع',
+  collapse: 'طي سجل النشاط',
+  expand: 'توسيع سجل النشاط',
 };
 
 const RU: ActivityLogUiCopy = {
@@ -231,6 +241,8 @@ const RU: ActivityLogUiCopy = {
   fromPastTitle: 'Выберите прошлую активность',
   useAsNewActivity: 'Использовать как новую',
   back: 'Назад',
+  collapse: 'Свернуть дневник активности',
+  expand: 'Развернуть дневник активности',
 };
 
 const PT: ActivityLogUiCopy = {
@@ -250,6 +262,8 @@ const PT: ActivityLogUiCopy = {
   fromPastTitle: 'Escolher atividade passada',
   useAsNewActivity: 'Usar como nova',
   back: 'Voltar',
+  collapse: 'Recolher diário de atividade',
+  expand: 'Expandir diário de atividade',
 };
 
 const IT: ActivityLogUiCopy = {
@@ -269,6 +283,8 @@ const IT: ActivityLogUiCopy = {
   fromPastTitle: 'Scegli attività passata',
   useAsNewActivity: 'Usa come nuova',
   back: 'Indietro',
+  collapse: 'Comprimi diario attività',
+  expand: 'Espandi diario attività',
 };
 
 const TR: ActivityLogUiCopy = {
@@ -288,6 +304,8 @@ const TR: ActivityLogUiCopy = {
   fromPastTitle: 'Geçmiş aktivite seç',
   useAsNewActivity: 'Yeni olarak kullan',
   back: 'Geri',
+  collapse: 'Aktivite günlüğünü daralt',
+  expand: 'Aktivite günlüğünü genişlet',
 };
 
 const BY_CODE: Record<string, ActivityLogUiCopy> = {

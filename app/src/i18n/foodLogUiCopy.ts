@@ -57,6 +57,9 @@ export type FoodLogUiCopy = {
   confidenceLow: string;
   /** Label above Camera/Gallery when editing a meal */
   updateWithPhoto: string;
+  /** Strip collapse / expand a11y (prompt106) */
+  collapse: string;
+  expand: string;
   orDescribeIt: string;
   orDivider: string;
   /** Water sheet / Food Log water actions */
@@ -130,6 +133,8 @@ const EN: FoodLogUiCopy = {
   confidenceMedium: 'Medium confidence',
   confidenceLow: 'Low confidence',
   updateWithPhoto: 'Update with a photo:',
+  collapse: 'Collapse food log',
+  expand: 'Expand food log',
   orDescribeIt: '— or describe it —',
   orDivider: '— or —',
   addWater: 'Add water',
@@ -201,6 +206,8 @@ const HE: FoodLogUiCopy = {
   confidenceMedium: 'ביטחון בינוני',
   confidenceLow: 'ביטחון נמוך',
   updateWithPhoto: 'עדכון עם תמונה:',
+  collapse: 'כווץ יומן אוכל',
+  expand: 'הרחב יומן אוכל',
   orDescribeIt: '— או תארו במילים —',
   orDivider: '— או —',
   addWater: 'הוסף מים',
@@ -273,6 +280,8 @@ const ES: FoodLogUiCopy = {
   confidenceMedium: 'Confianza media',
   confidenceLow: 'Baja confianza',
   updateWithPhoto: 'Actualizar con una foto:',
+  collapse: 'Contraer registro de comida',
+  expand: 'Expandir registro de comida',
   orDescribeIt: '— o descríbela —',
   orDivider: '— o —',
   addWater: 'Añadir agua',
@@ -346,6 +355,8 @@ const FR: FoodLogUiCopy = {
   confidenceMedium: 'Confiance moyenne',
   confidenceLow: 'Confiance faible',
   updateWithPhoto: 'Mettre à jour avec une photo :',
+  collapse: 'Réduire le journal alimentaire',
+  expand: 'Développer le journal alimentaire',
   orDescribeIt: '— ou décrivez-le —',
   orDivider: '— ou —',
   addWater: 'Ajouter de l’eau',
@@ -419,6 +430,8 @@ const DE: FoodLogUiCopy = {
   confidenceMedium: 'Mittlere Sicherheit',
   confidenceLow: 'Niedrige Sicherheit',
   updateWithPhoto: 'Mit Foto aktualisieren:',
+  collapse: 'Essensprotokoll einklappen',
+  expand: 'Essensprotokoll ausklappen',
   orDescribeIt: '— oder beschreiben —',
   orDivider: '— oder —',
   addWater: 'Wasser hinzufügen',
@@ -490,6 +503,8 @@ const AR: FoodLogUiCopy = {
   confidenceMedium: 'ثقة متوسطة',
   confidenceLow: 'ثقة منخفضة',
   updateWithPhoto: 'تحديث بصورة:',
+  collapse: 'طي سجل الطعام',
+  expand: 'توسيع سجل الطعام',
   orDescribeIt: '— أو صفها —',
   orDivider: '— أو —',
   addWater: 'إضافة ماء',
@@ -563,6 +578,8 @@ const RU: FoodLogUiCopy = {
   confidenceMedium: 'Средняя уверенность',
   confidenceLow: 'Низкая уверенность',
   updateWithPhoto: 'Обновить фото:',
+  collapse: 'Свернуть журнал еды',
+  expand: 'Развернуть журнал еды',
   orDescribeIt: '— или опишите —',
   orDivider: '— или —',
   addWater: 'Добавить воду',
@@ -636,6 +653,8 @@ const PT: FoodLogUiCopy = {
   confidenceMedium: 'Confiança média',
   confidenceLow: 'Baixa confiança',
   updateWithPhoto: 'Atualizar com uma foto:',
+  collapse: 'Recolher diário alimentar',
+  expand: 'Expandir diário alimentar',
   orDescribeIt: '— ou descreva —',
   orDivider: '— ou —',
   addWater: 'Adicionar água',
@@ -709,6 +728,8 @@ const IT: FoodLogUiCopy = {
   confidenceMedium: 'Media confidenza',
   confidenceLow: 'Bassa confidenza',
   updateWithPhoto: 'Aggiorna con una foto:',
+  collapse: 'Comprimi diario pasti',
+  expand: 'Espandi diario pasti',
   orDescribeIt: '— oppure descrivilo —',
   orDivider: '— oppure —',
   addWater: 'Aggiungi acqua',
@@ -782,6 +803,8 @@ const TR: FoodLogUiCopy = {
   confidenceMedium: 'Orta güven',
   confidenceLow: 'Düşük güven',
   updateWithPhoto: 'Fotoğrafla güncelle:',
+  collapse: 'Yemek günlüğünü daralt',
+  expand: 'Yemek günlüğünü genişlet',
   orDescribeIt: '— veya tarif edin —',
   orDivider: '— veya —',
   addWater: 'Su ekle',

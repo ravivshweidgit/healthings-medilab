@@ -705,8 +705,8 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
           })
         }
         titleRtl={titleRtl}
-        collapseLabel={`Collapse ${title}`}
-        expandLabel={`Expand ${title}`}
+        collapseLabel={ui.collapse}
+        expandLabel={ui.expand}
         icon={StripIcons.foodLog}
         perfTag="FoodMacroStrip"
       />

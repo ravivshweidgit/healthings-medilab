@@ -203,7 +203,14 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
       : ui.noSessions;
 
   return (
-    <View style={[styles.card, cardShadow, { marginBottom: dashCardGap }]}>
+    <View
+      style={[
+        styles.card,
+        !expanded && styles.cardCollapsed,
+        cardShadow,
+        { marginBottom: dashCardGap },
+      ]}
+    >
       <DashboardCollapseHeader
         title={ui.title}
         subtitle={collapsedSub}
@@ -326,6 +333,10 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
       paddingHorizontal: 18,
       paddingTop: 14,
       paddingBottom: 14,
+    },
+    // Match FoodMacroStrip collapsed density (prompt106).
+    cardCollapsed: {
+      paddingBottom: 12,
     },
     dayNav: {
       flexDirection: 'row',

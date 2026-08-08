@@ -95,7 +95,7 @@ Surfaces the user hits weekly look intentional: sync, CareSens import toast, pul
 
 - [x] Pull-refresh / sync busy + done feedback (copy + disabled double-fire) — overlay “Updating…”, flash Updated / failed (`metabolicStripCopy.refresh*`), header a11y busy; double-fire already gated
 - [x] CareSens import result readable on success **and** failure (range, truncation) — ok/error chip + `careSensImportCopy` (10 locales); incomplete/empty/columns mapped
-- [ ] Glucose / Food / Activity strip headers: consistent density, chevron, a11y labels
+- [x] Glucose / Food / Activity strip headers: consistent density, chevron, a11y labels — Food `ui.collapse`/`expand`; Activity a11y localized; collapsed padding + glucose inset aligned; shared ▾ chevron + hitSlop
 - [ ] Dark mode spot-check on polished surfaces (prompt96)
 - [x] HE (or second `appLocale`) pass on new strings — catalog only, no inline English UI — Food Log meal/photo chrome via `foodLogUiCopy` + `foodLogPhotoUiCopy` (still some edge English OK to defer)
 

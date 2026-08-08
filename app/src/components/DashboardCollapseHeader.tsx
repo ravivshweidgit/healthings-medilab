@@ -62,6 +62,7 @@ export function DashboardCollapseHeader({
         if (perfTag) logStripToggle(perfTag, expanding);
         onToggle();
       }}
+      hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
       accessibilityRole="button"
       accessibilityState={{ expanded }}
       accessibilityLabel={expanded ? collapseLabel : expandLabel}

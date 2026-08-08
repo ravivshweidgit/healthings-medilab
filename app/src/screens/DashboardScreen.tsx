@@ -3654,7 +3654,8 @@ const makeStyles = (c: ThemeColors, isDark: boolean) => {
   chartCardBleed: {
     backgroundColor: c.surface,
     borderRadius: 24,
-    paddingHorizontal: 14,
+    // Match Food / Activity strip horizontal inset (prompt106 header density).
+    paddingHorizontal: 18,
     paddingTop: 14,
     paddingBottom: 4,
     minHeight: 328,
@@ -3664,7 +3665,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) => {
     minHeight: 0,
     paddingTop: 14,
     paddingBottom: 12,
-    paddingHorizontal: 14,
+    paddingHorizontal: 18,
   },
   trendBleed: {
     marginBottom: dashCardGap,
