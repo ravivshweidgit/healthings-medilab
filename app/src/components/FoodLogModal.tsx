@@ -416,7 +416,9 @@ export function FoodLogModal({
   const [mergePreview, setMergePreview] = useState<MealMergePreview | null>(null);
   const [confidence, setConfidence] = useState<'high' | 'medium' | 'low'>('high');
   const [description, setDescription] = useState(() =>
-    editEntry ? 'Editing saved meal' : prefillDescription ?? '',
+    editEntry
+      ? getFoodLogUiCopy(lang?.code).editingSavedMealHint
+      : prefillDescription ?? '',
   );
   const [suggestion, setSuggestion] = useState<string | undefined>();
   const [chatText, setChatText] = useState('');
@@ -586,7 +588,7 @@ export function FoodLogModal({
       setScreen('result');
       setItems(editEntry.items);
       setMealTime(editEntry.timestamp);
-      setDescription('Editing saved meal — add a photo or use chat to correct');
+      setDescription(ui.editingSavedMealHint);
       setEditingId(editEntry.id);
       setMealHistory(seedMealHistory(editEntry, lang));
       setPhotoSession(null);
@@ -594,7 +596,7 @@ export function FoodLogModal({
       setChatText('');
       setError(null);
     }
-  }, [editEntry, lang?.code]);
+  }, [editEntry, lang?.code, ui.editingSavedMealHint]);
 
   React.useEffect(() => {
     if (visible && !editEntry) {
@@ -1498,9 +1500,15 @@ export function FoodLogModal({
 
                 {showMealSection && !mergePreview ? (
                   <View style={styles.mealSection}>
-                    <Text style={styles.sectionTitle}>Your meal</Text>
+                    <Text style={[styles.sectionTitle, rtl && styles.sectionTitleRtl]}>
+                      {ui.yourMeal}
+                    </Text>
                     {!photoSession && description && items.length > 0 ? (
-                      <Text style={styles.descriptionText}>{description}</Text>
+                      <Text
+                        style={[styles.descriptionText, rtl && styles.descriptionTextRtl]}
+                      >
+                        {description}
+                      </Text>
                     ) : null}
                     <FoodItemsCard
                       items={items}
@@ -1539,10 +1547,10 @@ export function FoodLogModal({
                         ]}
                       >
                         {photoSession.confidence === 'high'
-                          ? '✓ High confidence'
+                          ? `✓ ${ui.confidenceHigh}`
                           : photoSession.confidence === 'medium'
-                            ? '⚠ Medium confidence'
-                            : '⚠ Low confidence'}
+                            ? `⚠ ${ui.confidenceMedium}`
+                            : `⚠ ${ui.confidenceLow}`}
                       </Text>
                     </View>
                     {photoSession.description ? (
@@ -1562,7 +1570,7 @@ export function FoodLogModal({
                       </Pressable>
                       <Pressable style={[styles.afterPhotoBtn, styles.afterPhotoBtnRow]} onPress={() => handleAddPhoto('gallery')}>
                         <DashIcon icon={ActionIcons.gallery} size={15} color={colors.textPrimary} />
-                        <Text style={styles.afterPhotoBtnText}>Gallery</Text>
+                        <Text style={styles.afterPhotoBtnText}>{ui.gallery}</Text>
                       </Pressable>
                     </View>
 
@@ -1611,10 +1619,10 @@ export function FoodLogModal({
                         ]}
                       >
                         {confidence === 'high'
-                          ? '✓ High confidence'
+                          ? `✓ ${ui.confidenceHigh}`
                           : confidence === 'medium'
-                            ? '⚠ Medium confidence'
-                            : '⚠ Low confidence'}
+                            ? `⚠ ${ui.confidenceMedium}`
+                            : `⚠ ${ui.confidenceLow}`}
                       </Text>
                     </View>
                     {suggestion ? (
@@ -1629,15 +1637,17 @@ export function FoodLogModal({
                   <>
                     {!photoSession && items.length > 0 ? (
                       <View style={styles.addPhotoRow}>
-                        <Text style={styles.addPhotoLabel}>Update with a photo:</Text>
+                        <Text style={[styles.addPhotoLabel, rtl && styles.addPhotoLabelRtl]}>
+                          {ui.updateWithPhoto}
+                        </Text>
                         <View style={styles.photoRow}>
                           <Pressable style={[styles.afterPhotoBtn, styles.afterPhotoBtnRow]} onPress={() => handleAddPhoto('camera')}>
                             <DashIcon icon={ActionIcons.camera} size={15} color={colors.textPrimary} />
-                            <Text style={styles.afterPhotoBtnText}>Camera</Text>
+                            <Text style={styles.afterPhotoBtnText}>{ui.camera}</Text>
                           </Pressable>
                           <Pressable style={[styles.afterPhotoBtn, styles.afterPhotoBtnRow]} onPress={() => handleAddPhoto('gallery')}>
                             <DashIcon icon={ActionIcons.gallery} size={15} color={colors.textPrimary} />
-                            <Text style={styles.afterPhotoBtnText}>Gallery</Text>
+                            <Text style={styles.afterPhotoBtnText}>{ui.gallery}</Text>
                           </Pressable>
                         </View>
                       </View>
@@ -1667,9 +1677,11 @@ export function FoodLogModal({
                 ) : null}
 
                 <Pressable style={styles.timeRow} onPress={openMealDateTimePicker}>
-                  <Text style={styles.timeLabel}>🕐 Date & time:</Text>
+                  <Text style={[styles.timeLabel, rtl && styles.timeLabelRtl]}>
+                    🕐 {ui.dateAndTime}:
+                  </Text>
                   <Text style={styles.timeValue}>{formatMealDateTime(mealTime, lang?.code)}</Text>
-                  <Text style={styles.timeEdit}>Edit</Text>
+                  <Text style={styles.timeEdit}>{ui.editItem}</Text>
                 </Pressable>
                 <IosDateTimePickerSheet
                   visible={showTimePicker && Platform.OS === 'ios'}
@@ -2125,6 +2137,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
 
   resultWrap: { gap: 12 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: c.textPrimary },
+  sectionTitleRtl: { textAlign: 'right', writingDirection: 'rtl' },
   mealSection: { gap: 8 },
   photoSection: { gap: 8, marginTop: 4 },
   photoThumbSmall: { width: 88, height: 88, borderRadius: 12 },
@@ -2137,6 +2150,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   },
   confidenceText: { fontSize: 12, fontWeight: '600' },
   descriptionText: { color: c.textSecondary, fontSize: 13, lineHeight: 18 },
+  descriptionTextRtl: { textAlign: 'right', writingDirection: 'rtl' },
   itemsCard: {
     backgroundColor: c.surface,
     borderRadius: 16,
@@ -2409,6 +2423,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
 
   addPhotoRow: { gap: 6 },
   addPhotoLabel: { fontSize: 12, color: c.textSecondary },
+  addPhotoLabelRtl: { textAlign: 'right', writingDirection: 'rtl' },
   afterPhotoBtn: {
     flex: 1,
     borderWidth: 1,
@@ -2435,6 +2450,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   },
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 },
   timeLabel: { fontSize: 13, color: c.textSecondary },
+  timeLabelRtl: { writingDirection: 'rtl' },
   timeValue: { fontSize: 13, fontWeight: '600', color: c.textPrimary },
   timeEdit: { fontSize: 12, color: c.accentBlue, marginLeft: 4 },
 
