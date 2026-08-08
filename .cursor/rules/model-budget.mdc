@@ -1,0 +1,54 @@
+---
+description: Recommend a model before each activity — Auto by default, strong models where a mistake is expensive.
+alwaysApply: true
+---
+
+# Model choice — spend where it matters
+
+Budget is finite. **Before starting an activity, say which model it should run on and why**, in one
+line, then proceed. Do not silently burn a premium model on work Auto handles.
+
+```
+Model: Auto — mechanical theme diff, guarded by dark-theme-tokens + compile check.
+Model: Opus 5 — deciding which setup steps are safe to cut (Withings/CGM gates).
+```
+
+## Default is Auto
+
+Auto unless the work hits a **spend trigger** below. Cheap-model work looks like: applying a decided
+diff, renaming, catalog/i18n string edits, moving prompts to `done/`, reading a file the user named,
+running a build.
+
+## Spend triggers — invest a strong model
+
+| Trigger | Why |
+|---|---|
+| A wrong answer costs a **phone round-trip** (~40s build) or a TestFlight cycle | Iteration is the real budget |
+| Constraints are **scattered across files** — setup gates, kcal override rules, persistence keys | Needs held context, not lookup |
+| **Clinical or safety** judgment — rules text, lab codes, macro floors (`ai-judgment-not-regex.mdc`) | A plausible-but-wrong answer ships silently |
+| Debugging something already **retried once** without progress | More of the same model repeats the failure |
+| Irreversible: history rewrite, force-push, DB migration, secret rotation | No undo |
+
+## Split the job before picking
+
+Most tasks are not one difficulty. Audit → decide → apply is usually **cheap → expensive → cheap**.
+Delegate the read-only sweep to an `explore` subagent on a fast model, spend on the decision, then
+apply on Auto.
+
+Never spend a premium model on **taste** — hierarchy and visual calls are the owner's on device
+(`prompt106`), and no model substitutes for that.
+
+## Don't
+
+- Start a long agentic run without stating the model and the reason
+- Escalate to a bigger model instead of gathering evidence — read the file, check the terminal, take
+  the screenshot first
+- Use Auto for a clinical-judgment or irreversible step to save budget
+- Re-run the same failing prompt on a stronger model without changing the inputs
+
+## Checklist
+
+- [ ] Model named before the activity starts, with a one-line reason?
+- [ ] Auto chosen unless a spend trigger fires?
+- [ ] Expensive part isolated, so the cheap parts stay cheap?
+- [ ] Owner asked instead of guessing, where the call is taste?
