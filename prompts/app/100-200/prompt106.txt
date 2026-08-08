@@ -3,7 +3,7 @@
 **Status:** Phase A CTA slice phone-tested (2026-08-08) — B/C + setup-step trim still open  
 **Test order:** Samsung Android first (`bi`) → iOS later (`bi-os`)  
 **Builds on:** prompt105 (perf logs — use for polish before/after), Quick Start / `GearSetupStrip`, Food Log, Activity Log (prompt104), `metabolicStripCopy` / language policy  
-**Positioning:** [investor-pov/COMPETITOR-SCORES.md](../../../investor-pov/COMPETITOR-SCORES.md) — Healthings.AI **UX / polish / retention ≈ 52** vs Nutrisense **≈ 88**  
+**Positioning:** [investor-pov/COMPETITOR-SCORES.md](../../../investor-pov/COMPETITOR-SCORES.md) — Healthings.AI **UX / polish / retention ≈ 60** vs Nutrisense **≈ 88** (was 52; rescored after Phase A + empty-day expand)  
 **Shipped (A slice):** `WhatsNextCard` + `whatsNextCopy` (10 locales); empty body-scan + glucose chart calm copy; dismiss key `healthings:whatsNextDismissed_v1`; localize rule `.cursor/rules/localize-speak-like-a-person.mdc`
 
 ## Problem
@@ -159,12 +159,14 @@ Exact file list finalized when phase A/B scope is locked on phone.
 - Push / local notification retention loops
 - Full coach-in-a-box (Nutrisense parity)
 - iOS-first polish before Android proof
-- Scoring update in `COMPETITOR-SCORES` after phone evidence (target: UX band **52 → ~65+** if A+B land)
+- Further UX band after B/C (polish already **52→60** in scorecard; target mid-60s if more lands)
+- In-app explainer videos → **prompt107** (not this batch)
 
 ## Related
 
 - `investor-pov/COMPETITOR-SCORES.md` / `.html` — positioning
 - prompt105 — daily log + glucose History
 - prompt104 — Activity Log + YouTube AI kcal
+- prompt107 — hosted explainer videos in Help / What’s next Watch
 - prompt87 / language policy — chrome copy
 - Nutrisense deep dive: `investor-pov/Nutricence-medilab.md`

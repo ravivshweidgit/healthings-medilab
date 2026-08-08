@@ -1,0 +1,116 @@
+# prompt107 — In-app explainer videos (Watch how-to)
+
+**Status:** backlog (spec draft) — 2026-08-08  
+**Test order:** Samsung Android first (`bi`) → iOS later (`bi-os`)  
+**Builds on:** prompt106 (`WhatsNextCard`, Help strip), `helpUrls` / help site (prompt81+), FB films under `FB/videos/` (clips 01–09)  
+**Positioning:** Improves **setup ease** + **UX / polish / retention** by teaching habits inside the app (Withings-style tips), without shipping mp4s in the APK.
+
+## Problem
+
+Explainer films already exist for FB / website (meal entry, grams, Activity/YouTube, gear, closed loop, clinic→rules→coach). Users who install the app never see them unless they find the site. What’s next tells them **what to do** (Log meal / Add activity) but not **how it looks** in 20–40s.
+
+## Goal
+
+Surface a small catalog of **hosted** explainer videos inside the app — optional “Watch” paths next to existing Help / What’s next — so first-session and habit learning match the marketed story.
+
+## Non-goals
+
+- Do **not** embed large video files in the APK / IPA
+- Do **not** replace What’s next primary CTAs with video (actions stay first)
+- Do **not** build a full in-app Netflix / course system
+- Do **not** require new Hebrew VO — ship existing EN VO + HE burned subs (same as FB exports) until a later locale pass
+- Do **not** block prompt106 B/C micro-polish; this can ship after or in parallel as its own batch
+
+---
+
+## Product rules
+
+### Placement (pick in implementation; prefer A+C)
+
+| Surface | Role |
+|---------|------|
+| **A. What’s next** | Secondary text link only: e.g. “Watch: log a meal” — never a third primary pill competing with Log meal / Add activity |
+| **B. Food Log / Activity Log** | Optional `?` or “How to” near Add — deep-link to the matching clip |
+| **C. Help strip** | Section **Watch explainers** — list of 3–6 titles → open video URL (same pattern as help articles) |
+| **D. Your setup / Gear** | Optional one “Watch: connect gear” after skip/link — only if it doesn’t add setup steps |
+
+**Default v1:** Help strip list (C) + one What’s next secondary link for meal entry (A). Skip B/D unless phone test shows they’re needed.
+
+### Hosting
+
+| Rule | Detail |
+|------|--------|
+| Origin | `https://healthings.ai/…` (or CDN under same brand) — gitignored local exports stay in `FB/videos/assets/exports/` |
+| Format | Vertical 9:16 mp4 already rendered (`*-en-subhe-9x16.mp4`) |
+| Delivery | Direct HTTPS mp4 **or** a thin HTML watch page that plays the file (easier analytics / poster / back link to help) |
+| App open | `Linking.openURL` (browser / system player) **or** `expo-av` / WebView only if offline/poster needs justify the dependency — prefer URL open for v1 |
+| APK | Zero video bytes |
+
+### Catalog (v1 — start with habit clips)
+
+| Id | Clip (FB) | Title intent (EN; localize like a person) | When to show / link |
+|----|-----------|---------------------------------------------|---------------------|
+| `meal-entry` | 09 | How to log a meal (photo, text, past) | What’s next + Help + optional Food Log |
+| `meal-grams` | 08 | Adjust grams / items | Help (+ Food Log after first meal optional) |
+| `activity-youtube` | 07 | Add activity from YouTube | What’s next (if Activity on) + Help + Activity Log |
+| `gear` | 03 | Connect scale / watch / CGM | Help + optional Gear |
+| `closed-loop` | 05 or 06 | What Healthings is (loop) | Help only — not What’s next |
+
+Defer reel series 01/02/04 (clinic/rules/coach) to v1.1 unless Help “Learn more” wants the full story.
+
+### Copy / language
+
+- UI chrome: `appLocale` catalogs (`*Copy.ts`); speak-like-a-person; no Latin mid-RTL in running prose
+- Always-English glossary on video stays (kcal, CGM, Withings…) — language-policy
+- Video asset itself: current EN+HE-subs cut for all locales in v1; document that full dubbed locales are deferred
+- Titles/descriptions in all 10 `SUPPORTED_LANGUAGES`
+
+### Persistence
+
+- Optional: `healthings:explainerWatched_v1` map of clip id → watched — for “New” badges or hiding a tip; **not** required for v1
+- Do **not** tie to `whatsNextDismissed_v1` — dismissing What’s next must not hide Help videos
+
+---
+
+## Implementation sketch
+
+1. **Host** — Copy or symlink chosen exports to website deploy path (e.g. `website/assets/videos/` or `website/en/watch/…` HTML wrappers). Update deploy script if needed. No secrets.
+2. **URL helper** — e.g. `explainerVideoUrl(id)` next to `helpUrl` (stable ids, not FB export folder numbers).
+3. **Catalog module** — id, title key, duration hint, url, optional `helpsWith: 'meal' | 'activity' | 'gear' | 'story'`.
+4. **UI** — Help strip section; What’s next secondary link → `meal-entry` (and activity clip if strip visible).
+5. **i18n** — new `explainerCopy.ts` (or extend `helpStripCopy` / `whatsNextCopy`).
+6. **Phone test** — open each URL on Android; confirm portrait play; dark/light chrome around the link looks intentional.
+
+### Primary files (expected)
+
+| Area | Paths |
+|------|--------|
+| App | `app/src/i18n/explainerCopy.ts` (or help), `helpUrls.ts` or `explainerUrls.ts`, `HelpStrip.tsx`, `WhatsNextCard.tsx`, `DashboardScreen.tsx` |
+| Site | `website/…` watch pages and/or `assets/videos/*.mp4` + deploy |
+| Specs | `FB/videos/NEXT.md` note “also in-app via prompt107” |
+
+---
+
+## Acceptance
+
+- [ ] At least **3** explainers reachable from Help without leaving “help” mental model (meal entry, activity, closed-loop or gear)
+- [ ] What’s next still shows Log meal / Add activity as primary; Watch is secondary or absent if dismissed
+- [ ] No mp4 in app binary / git LFS surprise — URLs only
+- [ ] 10-locale titles for list rows; video may stay EN+HE-subs
+- [ ] Samsung `bi`: tap → video plays; back to app; no crash if offline (calm error / browser message)
+- [ ] iOS later: same URLs
+- [ ] prompt106 polish score narrative: optional note after ship (setup ease / polish bump only if phone-felt)
+
+## Deferred
+
+- In-app fullscreen player with posters
+- Per-locale dubbed VO
+- Auto-play / forced tutorial on first launch (avoid; opt-in Watch only)
+- Clinic portal embedding same assets
+
+## Related
+
+- `prompt106.txt` — What’s next + polish; this is education layer, not habit-speed UI
+- `FB/videos/NEXT.md` / `PLAN.md` — source films
+- `helpUrls.ts` — same origin / locale patterns where possible
+- Competitor: Nutrisense / Withings in-product education vs Healthings help-site-only today

@@ -33,7 +33,7 @@ Weighted from [Category scores](#category-scores-0100-same-icp) (includes **Nutr
 | App / stack | Score | Market price (USD, ~Aug 2026) | One-line why |
 |-------------|------:|-------------------------------|--------------|
 | **Healthings.AI + clinic RD** | **89** | **Pay as you go** AI + RD **when you choose** (clinic) | Local-first phone + explicit clinic share + rules loop — not $200/mo cloud coach |
-| **Healthings.AI** (solo) | **82** | **Pay as you go** · **$5 / 100 cr** · ~**$15–25**/active mo (~**90% less** than ~$200 Nutrisense) | **Local-first** metabolic file + rules→real-time correction + AI food log; sessions via clinic / BYO RD |
+| **Healthings.AI** (solo) | **83** | **Pay as you go** · **$5 / 100 cr** · ~**$15–25**/active mo (~**90% less** than ~$200 Nutrisense) | **Local-first** metabolic file + rules→real-time correction + AI food log; sessions via clinic / BYO RD |
 | **Levels** | **63** | App **~$15/mo** · Core **~$41** · Complete **~$167** | Polished CGM cloud membership; weak rules→auto-correct / local-first |
 | **Nutrisense** | **62** | **~$150–225/mo** sensors · BYO **~$39/mo** | Best **packaged RD sessions** + meal scores; cloud coach platform, thinner fusion |
 | **4-app stack + ChatGPT** | **58** | ChatGPT **~$20/mo** + apps | Strong generic AI chat if user pastes the file; no closed loop |
@@ -47,7 +47,7 @@ See [Market prices](#market-prices-usd--aug-2026) for prepaid vs subscription vs
 
 ```
 Healthings.AI + RD  ████████████████████░  89
-Healthings.AI       ██████████████████░░░  82
+Healthings.AI       ██████████████████░░░  83
 Levels              ███████████████░░░░░░  63
 Nutrisense          ███████████████░░░░░░  62
 DIY stack           ██████████████░░░░░░░  58
@@ -107,12 +107,14 @@ Compare **apples carefully**: some prices include **CGM sensors + coach**; other
 | **Food logging** (photo / AI chat / reuse / item g) | 5% | **88** | **88** | 78 | 72 | **90** | 25 | 5 |
 | **Human coach** | 5% | 25 | **90** | **92** | 80 | 15 | 10 | 10 |
 | **Nutritionist sessions** (brief + visit workflow) | 6% | 42 | **93** | **90** | 74 | 18 | 12 | 12 |
-| **UX / polish / retention** | 4% | 52 | 56 | **88** | **85** | 80 | **82** | **78** |
+| **UX / polish / retention** | 4% | **60** | **64** | **88** | **85** | 80 | **82** | **78** |
 | **Language / local** (IL, multi-lang AI) | 4% | **85** | **85** | 35 | 35 | 70 | 75 | 75 |
 | **Setup ease** (higher = easier) | 4% | 56 | 56 | **82** | **80** | **85** | **90** | **88** |
-| **TOTAL (weighted)** | **100%** | **82** | **89** | **62** | **63** | **42** | **33** | **33** |
+| **TOTAL (weighted)** | **100%** | **83** | **89** | **62** | **63** | **42** | **33** | **33** |
 
-**Rescore note (2026-08):** Added **Privacy / local-first (6%)** — phone is source of truth; AI/clinic are opt-in pipes, not the vault. Healthings **92** (solo) / **88** (+RD, explicit clinic share). Nutrisense **38**, Levels **40** (cloud membership). Food logging already **88**. Overall solo **82**, +RD **89**; Nutrisense **64→62**, Levels **64→63**.
+**Rescore note (2026-08):** Added **Privacy / local-first (6%)** — phone is source of truth; AI/clinic are opt-in pipes, not the vault. Healthings **92** (solo) / **88** (+RD, explicit clinic share). Nutrisense **38**, Levels **40** (cloud membership). Food logging already **88**. Overall solo **82→83**, +RD **89**; Nutrisense **64→62**, Levels **64→63**.
+
+**Rescore note (2026-08-08, prompt106):** **UX / polish / retention** **52→60** (solo) / **56→64** (+RD) — What’s next CTA, calm empty states, empty-today Food/Activity auto-expand, Add activity dark punch-out. Still well below Nutrisense **88**; weighted solo **~83**.
 
 **Healthings.AI leads:** macro, fusion, **rules→real-time correction**, **privacy / local-first**, labs, AI chats, charts & energy, activity, price, language; **near-lead food log UX**; **+RD also session brief**.  
 **Nutrisense leads:** human coach, **packaged sessions**, polish, CGM meal scores, setup.  
@@ -122,7 +124,7 @@ Compare **apples carefully**: some prices include **CGM sensors + coach**; other
 
 ---
 
-## Weighted overall (how 82 / 62 were derived)
+## Weighted overall (how 83 / 62 were derived)
 
 | Weight | Category |
 |-------:|----------|
@@ -143,7 +145,7 @@ Compare **apples carefully**: some prices include **CGM sensors + coach**; other
 | 4% | Language / local |
 | 4% | Setup ease |
 
-**Healthings.AI solo ≈ 82** · **Healthings.AI + clinic RD ≈ 89** · **Levels ≈ 63** · **Nutrisense ≈ 62**
+**Healthings.AI solo ≈ 83** · **Healthings.AI + clinic RD ≈ 89** · **Levels ≈ 63** · **Nutrisense ≈ 62**
 
 ---
 
@@ -166,7 +168,7 @@ quadrantChart
     Libre: [0.28, 0.78]
     Withings: [0.38, 0.72]
     DIY stack: [0.70, 0.35]
-    Healthings.AI: [0.95, 0.48]
+    Healthings.AI: [0.95, 0.55]
     Healthings.AI + RD: [0.95, 0.88]
 ```
 
@@ -244,7 +246,7 @@ Scores **flip** when the job is not the ICP:
 
 **Weak:** “We beat Nutrisense at everything.”
 
-**Strong:** “For Libre + Withings + labs users who log food and training daily, Healthings.AI scores **82** solo vs Nutrisense **62**. We win **local-first privacy**, **My Rules → real-time correction**, fusion, fused charts, **AI food log**, and **pay-as-you-go**. They win **packaged nutritionist sessions** + meal-score polish. **+ clinic RD (~89)** — RD walks in with the full brief; you still don’t pay ~$200 every month.”
+**Strong:** “For Libre + Withings + labs users who log food and training daily, Healthings.AI scores **83** solo vs Nutrisense **62**. We win **local-first privacy**, **My Rules → real-time correction**, fusion, fused charts, **AI food log**, and **pay-as-you-go**. They win **packaged nutritionist sessions** + meal-score polish. **+ clinic RD (~89)** — RD walks in with the full brief; you still don’t pay ~$200 every month.”
 
 **One sentence:** Nutrisense = **~$200/mo cloud sessions in a box**. Healthings = **local-first closed loop** that corrects targets from your rules — RD when you choose.
 
@@ -269,6 +271,7 @@ Scores **flip** when the job is not the ICP:
 | 2026-08-08 | **Rules → closed-loop correction** (8%); overall **81 / 88 / 64** |
 | 2026-08-08 | Food logging **68→88** (photo/AI/reuse/item-g); overall **82 / 89 / 64** |
 | 2026-08-08 | **Privacy / local-first** (6%); Nutrisense **62**, Levels **63** |
+| 2026-08-08 | **UX / polish** **52→60** / **56→64** (prompt106 What’s next + habit expand); solo overall **82→83** |
 
 ---
 
