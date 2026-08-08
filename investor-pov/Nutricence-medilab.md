@@ -11,7 +11,7 @@
 | | Nutrisense | MediLab | MediLab + clinic RD |
 |--|------------|---------|---------------------|
 | **What it is** | US CGM membership + **packaged dietitian** | **Daily macro OS** (CGM + Withings + food + labs) | Fusion + **local licensed RD** |
-| **ICP score** (see [scores](./COMPETITOR-SCORES.md)) | **64** | **82** | **89** |
+| **ICP score** (see [scores](./COMPETITOR-SCORES.md)) | **62** | **82** | **89** |
 | **Wins on** | Coach, polish, easy CGM onboarding | Fusion, macro engine, labs, Withings, language | **Both** — if clinic uses the brief |
 | **Loses on** | Withings depth, labs → macros, IL/local | Solo coach, polish, iOS, US brand | Product polish vs Nutrisense app |
 
@@ -232,7 +232,7 @@ This is the gate for enrollment and pitch — not “everyone who sees a nutriti
 |---------|------:|
 | MediLab + clinic RD | **89** |
 | MediLab solo | **82** |
-| Nutrisense | **64** |
+| Nutrisense | **62** |
 
 Full breakdown: [COMPETITOR-SCORES.md](./COMPETITOR-SCORES.md)
 
