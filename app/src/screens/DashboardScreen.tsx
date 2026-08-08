@@ -135,6 +135,10 @@ import {
   formatRelativeAgoLocalized,
   getMetabolicStripCopy,
 } from '../i18n/metabolicStripCopy';
+import {
+  getCareSensImportCopy,
+  mapCareSensImportError,
+} from '../i18n/careSensImportCopy';
 import { getWhatsNextCopy, WHATS_NEXT_DISMISSED_KEY } from '../i18n/whatsNextCopy';
 import { metabolicChartHeader } from '../logic/sourceConfigLabels';
 import { awsDataService } from '../services/AwsDataService';
@@ -365,7 +369,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, [bodyScan, manualBodySnap, sourceConfig]);
 
   const [importBusy, setImportBusy] = useState(false);
-  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [careSensImportResult, setCareSensImportResult] = useState<{
+    kind: 'ok' | 'error';
+    text: string;
+  } | null>(null);
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const [visitReportBusy, setVisitReportBusy] = useState(false);
@@ -1991,7 +1998,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   };
 
   const handleImportCareSensCsv = useCallback(async () => {
-    setImportMessage(null);
+    const careSensCopy = getCareSensImportCopy(userLanguage.code);
+    setCareSensImportResult(null);
     setImportBusy(true);
     try {
       const pick = await DocumentPicker.getDocumentAsync({
@@ -2002,7 +2010,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       const asset = pick.assets?.[0];
       const uri = asset?.uri;
       if (!uri) {
-        setImportMessage('No file was selected.');
+        setCareSensImportResult({ kind: 'error', text: careSensCopy.noFile });
+        void AccessibilityInfo.announceForAccessibility(careSensCopy.noFile);
         return;
       }
       const expectedBytes =
@@ -2033,16 +2042,22 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       assertCareSensCsvMatchesExportName(asset.name, lastTimestamp, read.bytesRead);
       const importResult = await applyImportedGlucose(points, sessionStarts);
       const range = formatCareSensImportRange(firstTimestamp, lastTimestamp);
-      setImportMessage(
-        `Imported ${importResult.csvCount} CSV (+${importResult.newPointsAdded} new) + ${importResult.hcCount} HC → ${importResult.chartCount} on chart (${importResult.sessionCount} sensor session${importResult.sessionCount === 1 ? '' : 's'}; ${range}).`,
-      );
+      const okText = careSensCopy.ok({
+        newPoints: importResult.newPointsAdded,
+        chartCount: importResult.chartCount,
+        sessionCount: importResult.sessionCount,
+        range,
+      });
+      setCareSensImportResult({ kind: 'ok', text: okText });
+      void AccessibilityInfo.announceForAccessibility(okText.replace(/\n/g, '. '));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not import CSV.';
-      setImportMessage(message);
+      const message = mapCareSensImportError(err, careSensCopy);
+      setCareSensImportResult({ kind: 'error', text: message });
+      void AccessibilityInfo.announceForAccessibility(message);
     } finally {
       setImportBusy(false);
     }
-  }, [applyImportedGlucose]);
+  }, [applyImportedGlucose, userLanguage.code]);
 
   const handleExportBackup = useCallback(async () => {
     setBackupBusy(true);
@@ -3044,7 +3059,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               void clearOnboardingCompletedAt().then(() => setQuickStartVisible(true));
             }}
             careSensImportBusy={importBusy}
-            careSensImportMessage={importMessage}
+            careSensImportResult={careSensImportResult}
             onCareSensImport={() => void handleImportCareSensCsv()}
           />
 

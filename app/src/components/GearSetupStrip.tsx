@@ -12,6 +12,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { getCareSensImportCopy } from '../i18n/careSensImportCopy';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import { getYourSetupCopy } from '../i18n/yourSetupCopy';
 import type { PhoneHealthSyncSummary } from '../services/phoneHealthSyncTypes';
@@ -40,7 +41,8 @@ type Props = {
   onPhoneHealthSync: (deep: boolean) => void | Promise<PhoneHealthSyncSummary | void>;
   onQuickStartAgain: () => void;
   careSensImportBusy?: boolean;
-  careSensImportMessage?: string | null;
+  /** Localized import result — ok vs error chip (prompt106). */
+  careSensImportResult?: { kind: 'ok' | 'error'; text: string } | null;
   onCareSensImport?: () => void;
 };
 
@@ -59,13 +61,14 @@ export function GearSetupStrip({
   onPhoneHealthSync,
   onQuickStartAgain,
   careSensImportBusy = false,
-  careSensImportMessage = null,
+  careSensImportResult = null,
   onCareSensImport,
 }: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const titles = getProfileSettingsStripCopy(lang?.code);
   const setup = getYourSetupCopy(lang?.code);
+  const careSensCopy = getCareSensImportCopy(lang?.code);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
 
   const headerSub = useMemo(() => {
@@ -174,7 +177,8 @@ export function GearSetupStrip({
                     onPress={onCareSensImport}
                     disabled={careSensImportBusy}
                     accessibilityRole="button"
-                    accessibilityLabel="Import CareSens Air CSV"
+                    accessibilityLabel={careSensCopy.a11yImport}
+                    accessibilityState={{ busy: careSensImportBusy, disabled: careSensImportBusy }}
                   >
                     {careSensImportBusy ? (
                       <ActivityIndicator color={colors.accentBlue} />
@@ -192,8 +196,25 @@ export function GearSetupStrip({
                       </View>
                     )}
                   </Pressable>
-                  {careSensImportMessage ? (
-                    <Text style={styles.importMessageText}>{careSensImportMessage}</Text>
+                  {careSensImportResult ? (
+                    <View
+                      style={[
+                        styles.importResultChip,
+                        careSensImportResult.kind === 'error' && styles.importResultChipError,
+                      ]}
+                      accessibilityLiveRegion="polite"
+                      accessibilityRole="text"
+                    >
+                      <Text
+                        style={[
+                          styles.importResultText,
+                          careSensImportResult.kind === 'error' && styles.importResultTextError,
+                          rtl && styles.importResultRtl,
+                        ]}
+                      >
+                        {careSensImportResult.text}
+                      </Text>
+                    </View>
                   ) : null}
                 </View>
               ) : null}
@@ -307,10 +328,33 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
       color: c.accentBlue,
       letterSpacing: 0.3,
     },
-    importMessageText: {
-      fontSize: 14,
-      color: c.textPrimary,
+    // Informational status — not an action pill (dark: white ink, soft surface, no accent border).
+    importResultChip: {
+      marginTop: 4,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      borderWidth: isDark ? 0 : 1,
+      borderColor: isDark ? 'transparent' : 'rgba(31, 61, 92, 0.2)',
+      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(31, 61, 92, 0.06)',
+    },
+    importResultChipError: {
+      borderWidth: isDark ? 0 : 1,
+      borderColor: isDark ? 'transparent' : 'rgba(198, 40, 40, 0.35)',
+      backgroundColor: isDark ? 'rgba(239, 83, 80, 0.15)' : 'rgba(198, 40, 40, 0.08)',
+    },
+    importResultText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: isDark ? c.textPrimary : '#1F3D5C',
       textAlign: 'center',
-      lineHeight: 20,
+      lineHeight: 19,
+    },
+    importResultTextError: {
+      color: isDark ? '#FFCDD2' : '#C62828',
+    },
+    importResultRtl: {
+      textAlign: 'right',
+      writingDirection: 'rtl',
     },
   });

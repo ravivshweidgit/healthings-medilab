@@ -94,7 +94,7 @@ Surfaces the user hits weekly look intentional: sync, CareSens import toast, pul
 ### Checklist (pick ≥3 for v1 ship; rest deferred)
 
 - [x] Pull-refresh / sync busy + done feedback (copy + disabled double-fire) — overlay “Updating…”, flash Updated / failed (`metabolicStripCopy.refresh*`), header a11y busy; double-fire already gated
-- [ ] CareSens import result readable on success **and** failure (range, truncation)
+- [x] CareSens import result readable on success **and** failure (range, truncation) — ok/error chip + `careSensImportCopy` (10 locales); incomplete/empty/columns mapped
 - [ ] Glucose / Food / Activity strip headers: consistent density, chevron, a11y labels
 - [ ] Dark mode spot-check on polished surfaces (prompt96)
 - [ ] HE (or second `appLocale`) pass on new strings — catalog only, no inline English UI
