@@ -32,8 +32,8 @@ gradient, and the phone mockup is the site's own dark handset
 
 Display is **Montserrat** 500/700 — the site's `--font-display`. It is not installed
 on Windows, so a copy lives in `assets/fonts/` (SIL OFL) and `build_art.py` points the
-rasteriser at it. Subtitles use **Arial**: Montserrat carries no Hebrew, and the site's
-`--font-text` is a system sans anyway.
+rasteriser at it. Burned subtitles use **Noto Sans Hebrew** (HE) / **Noto Sans** (Latin)
+from the same folder — outline style, not a dark band.
 
 Shape language follows the site: 20px card radius, 999px pills, `0 8px 32px
 rgba(26,43,74,0.08)` shadow.

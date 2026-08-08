@@ -32,6 +32,7 @@ BROLL = SCREENS / "broll"
 ART = ROOT / "assets" / "illustrations"
 AUDIO = ROOT / "assets" / "audio"
 EXPORTS = ROOT / "assets" / "exports"
+FONTS = ROOT / "assets" / "fonts"
 
 FPS = 30
 
@@ -43,7 +44,13 @@ PREROLL = 1.4   # open card before the first word
 TAIL = 3.0      # end card after the last word
 XFADE = 0.40    # dissolve straddling each shot boundary
 
-SUB_FONT = "Arial"  # Montserrat carries no Hebrew; --font-text is a system sans anyway
+# Burned subs: Noto (vendored) — Hebrew burns + Latin glossary; outline style (no band).
+SUB_FONT_HE = "Noto Sans Hebrew"
+SUB_FONT_LATIN = "Noto Sans"
+
+
+def sub_font_for(lang: str) -> str:
+    return SUB_FONT_HE if lang == "he" else SUB_FONT_LATIN
 
 # Phone captures are 1080x2400; the status and nav bars are trimmed off so what
 # is left matches the screen cutout aspect exactly.
@@ -341,8 +348,14 @@ def srt_time(t: float) -> str:
 
 
 def write_ass(
-    path: Path, subs: list[tuple[float, float, str]], shift: float, layout: Layout
+    path: Path,
+    subs: list[tuple[float, float, str]],
+    shift: float,
+    layout: Layout,
+    *,
+    font: str,
 ) -> None:
+    # Outline-only (BorderStyle 1): navy fill + thick white edge — no full-width band.
     header = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {layout.w}
@@ -353,7 +366,7 @@ YCbCr Matrix: TV.709
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{SUB_FONT},{layout.sub_size},&H004A2B1A,&H000000FF,&H00FFFFFF,&H40C0D0E0,-1,0,0,0,100,100,0,0,1,5,0,2,96,96,{layout.sub_margin_v},1
+Style: Default,{font},{layout.sub_size},&H004A2B1A,&H000000FF,&H00FFFFFF,&H40C0D0E0,0,0,0,0,100,100,0,0,1,5,0,2,96,96,{layout.sub_margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -535,12 +548,15 @@ def main() -> None:
             if subs_lang not in subs:
                 raise SystemExit(f"Spec has no '{subs_lang}' text to burn")
             ass_path = tmp_path / "subs.ass"
-            write_ass(ass_path, subs[subs_lang], PREROLL, layout)
+            font = sub_font_for(subs_lang)
+            write_ass(ass_path, subs[subs_lang], PREROLL, layout, font=font)
+            if not FONTS.is_dir():
+                raise SystemExit(f"Missing fonts dir: {FONTS}")
             v_chain += (
                 f",subtitles='{escape_filter_path(ass_path)}'"
-                f":fontsdir='{escape_filter_path(Path('C:/Windows/Fonts'))}'"
+                f":fontsdir='{escape_filter_path(FONTS)}'"
             )
-            print(f"  burned {subs_lang}: {len(subs[subs_lang])} lines")
+            print(f"  burned {subs_lang}: {len(subs[subs_lang])} lines · font={font}")
         v_chain += (
             f",fade=t=in:st=0:d=0.45:color=white"
             f",fade=t=out:st={total - 0.6:.3f}:d=0.6:color=white"

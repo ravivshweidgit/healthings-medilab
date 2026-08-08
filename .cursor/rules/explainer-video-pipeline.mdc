@@ -17,6 +17,7 @@ or invent a new music bed unless the owner asks.
 | VO | ElevenLabs **Matilda** — alias `matilda`, id `XrExE9yKIg1WjnnlVkGX` |
 | Subs (social default) | Hebrew burned on EN VO (`subs_lang: he`) |
 | Sub look | **Outline only** (navy fill + thick white edge) — no 0.3 full-width band |
+| Sub font | **Noto Sans Hebrew** (HE burns) / **Noto Sans** (Latin) in `assets/fonts/` |
 | Music bed | `FB/videos/assets/audio/music/gym-max-oazo-bed-novocals.mp3` (instrumental) |
 | Bed level | `--music-level 0.18` (pre-duck); sidechain duck keeps VO on top |
 | Picture | **Steady film** — `--motion 1.0` (default). No Ken Burns / zoompan on UI stills |
