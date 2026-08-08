@@ -8,6 +8,8 @@ export type FoodLogAlertCopy = {
   saveAnyway: string;
   savingMeal: string;
   updatingFoodLog: string;
+  /** Gemini meal analysis in flight */
+  analyzing: string;
   permissionRequired: string;
   permissionCamera: string;
   permissionGallery: string;
@@ -28,6 +30,7 @@ const EN: FoodLogAlertCopy = {
   saveAnyway: 'Save anyway',
   savingMeal: 'Saving meal…',
   updatingFoodLog: 'Updating your food log',
+  analyzing: 'Analyzing…',
   permissionRequired: 'Permission required',
   permissionCamera: 'Please allow camera access in Settings.',
   permissionGallery: 'Please allow photo library access in Settings.',
@@ -51,6 +54,7 @@ const HE: FoodLogAlertCopy = {
   saveAnyway: 'שמור בכל זאת',
   savingMeal: 'שומר ארוחה…',
   updatingFoodLog: 'מעדכן את יומן האוכל',
+  analyzing: 'מנתח…',
   permissionRequired: 'נדרשת הרשאה',
   permissionCamera: 'אפשרו גישה למצלמה בהגדרות.',
   permissionGallery: 'אפשרו גישה לגלריה בהגדרות.',
@@ -74,6 +78,7 @@ const ES: FoodLogAlertCopy = {
   saveAnyway: 'Guardar de todos modos',
   savingMeal: 'Guardando comida…',
   updatingFoodLog: 'Actualizando tu registro',
+  analyzing: 'Analizando…',
   permissionRequired: 'Permiso requerido',
   permissionCamera: 'Permite el acceso a la cámara en Ajustes.',
   permissionGallery: 'Permite el acceso a la galería en Ajustes.',
@@ -97,6 +102,7 @@ const FR: FoodLogAlertCopy = {
   saveAnyway: 'Enregistrer quand même',
   savingMeal: 'Enregistrement…',
   updatingFoodLog: 'Mise à jour du journal',
+  analyzing: 'Analyse…',
   permissionRequired: 'Autorisation requise',
   permissionCamera: 'Autorisez l’appareil photo dans Réglages.',
   permissionGallery: 'Autorisez la photothèque dans Réglages.',
@@ -120,6 +126,7 @@ const DE: FoodLogAlertCopy = {
   saveAnyway: 'Trotzdem speichern',
   savingMeal: 'Mahlzeit wird gespeichert…',
   updatingFoodLog: 'Essensprotokoll wird aktualisiert',
+  analyzing: 'Analysiere…',
   permissionRequired: 'Berechtigung erforderlich',
   permissionCamera: 'Bitte Kamerazugriff in den Einstellungen erlauben.',
   permissionGallery: 'Bitte Galeriezugriff in den Einstellungen erlauben.',
@@ -143,6 +150,7 @@ const AR: FoodLogAlertCopy = {
   saveAnyway: 'حفظ على أي حال',
   savingMeal: 'جارٍ حفظ الوجبة…',
   updatingFoodLog: 'تحديث سجل الطعام',
+  analyzing: 'جارٍ التحليل…',
   permissionRequired: 'الإذن مطلوب',
   permissionCamera: 'اسمح بالوصول إلى الكاميرا في الإعدادات.',
   permissionGallery: 'اسمح بالوصول إلى المعرض في الإعدادات.',
@@ -166,6 +174,7 @@ const RU: FoodLogAlertCopy = {
   saveAnyway: 'Всё равно сохранить',
   savingMeal: 'Сохранение…',
   updatingFoodLog: 'Обновление журнала еды',
+  analyzing: 'Анализ…',
   permissionRequired: 'Нужно разрешение',
   permissionCamera: 'Разрешите доступ к камере в настройках.',
   permissionGallery: 'Разрешите доступ к галерее в настройках.',
@@ -189,6 +198,7 @@ const PT: FoodLogAlertCopy = {
   saveAnyway: 'Salvar mesmo assim',
   savingMeal: 'Salvando refeição…',
   updatingFoodLog: 'Atualizando o diário',
+  analyzing: 'Analisando…',
   permissionRequired: 'Permissão necessária',
   permissionCamera: 'Permita o acesso à câmera em Ajustes.',
   permissionGallery: 'Permita o acesso à galeria em Ajustes.',
@@ -212,6 +222,7 @@ const IT: FoodLogAlertCopy = {
   saveAnyway: 'Salva comunque',
   savingMeal: 'Salvataggio…',
   updatingFoodLog: 'Aggiornamento del diario',
+  analyzing: 'Analisi…',
   permissionRequired: 'Autorizzazione richiesta',
   permissionCamera: 'Consenti l’accesso alla fotocamera nelle Impostazioni.',
   permissionGallery: 'Consenti l’accesso alla galleria nelle Impostazioni.',
@@ -235,6 +246,7 @@ const TR: FoodLogAlertCopy = {
   saveAnyway: 'Yine de kaydet',
   savingMeal: 'Öğün kaydediliyor…',
   updatingFoodLog: 'Yemek günlüğü güncelleniyor',
+  analyzing: 'Analiz ediliyor…',
   permissionRequired: 'İzin gerekli',
   permissionCamera: 'Ayarlardan kamera erişimine izin verin.',
   permissionGallery: 'Ayarlardan galeri erişimine izin verin.',

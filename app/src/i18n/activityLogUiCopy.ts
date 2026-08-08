@@ -20,6 +20,8 @@ export type ActivityLogUiCopy = {
   /** Shown while Gemini watches the attached YouTube workout. */
   aiCalcBusyVideo: string;
   aiCalcDone: (kcalLabel: string) => string;
+  /** Calm failure after AI calc (inline, not raw API text). */
+  aiCalcFailed: string;
   save: string;
   cancel: string;
   delete: string;
@@ -65,6 +67,7 @@ const EN: ActivityLogUiCopy = {
   aiCalcBusy: 'Estimating…',
   aiCalcBusyVideo: 'Watching workout video…',
   aiCalcDone: (kcalLabel) => `Set to ${kcalLabel}`,
+  aiCalcFailed: 'Couldn’t estimate — try again.',
   save: 'Save',
   cancel: 'Cancel',
   delete: 'Delete',
@@ -110,6 +113,7 @@ const HE: ActivityLogUiCopy = {
   aiCalcBusy: 'מעריך…',
   aiCalcBusyVideo: 'צופה בסרטון האימון…',
   aiCalcDone: (kcalLabel) => `עודכן ל-${kcalLabel}`,
+  aiCalcFailed: 'לא הצלחנו להעריך — נסו שוב.',
   save: 'שמור',
   cancel: 'ביטול',
   delete: 'מחק',

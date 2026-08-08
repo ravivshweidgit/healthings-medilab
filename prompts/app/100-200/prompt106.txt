@@ -80,7 +80,7 @@ Same ICP, day 2+: log food **or** YouTube activity with **fewer taps / less scro
 
 - [ ] Tap-count (or stopwatch) for: open app → save meal; open app → save YouTube activity — before/after in done spec
 - [ ] Primary actions reachable without expanding unrelated Profile nests
-- [ ] Loading / Gemini-in-flight / failure states are explicit (no silent hang)
+- [x] Loading / Gemini-in-flight / failure states are explicit (no silent hang) — Food `analyzing` localized + calm AI fail (no raw Gemini text); Activity AI calc spinner + inline busy/ok/error
 - [ ] No regression to Activity kcal override rules (prompt104)
 
 ---

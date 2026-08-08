@@ -36,6 +36,7 @@ import {
   type ActivityFavorite,
 } from '../services/ActivityLogService';
 import { estimateActivityKcalFromYoutube } from '../services/GeminiService';
+import { getHelpStripCopy } from '../i18n/helpStripCopy';
 import { OutOfCreditsError } from '../services/UsageQueueService';
 import { getActivityLogUiCopy } from '../i18n/activityLogUiCopy';
 import { formatFoodLogDayLabel } from '../i18n/dateLocale';
@@ -133,6 +134,7 @@ export function ActivityLogModal({
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const ui = useMemo(() => getActivityLogUiCopy(lang?.code), [lang?.code]);
+  const helpCopy = useMemo(() => getHelpStripCopy(lang?.code), [lang?.code]);
 
   const [mode, setMode] = useState<Mode>('form');
   const [name, setName] = useState('');
@@ -145,7 +147,9 @@ export function ActivityLogModal({
   const [favoriteId, setFavoriteId] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
-  const [aiHint, setAiHint] = useState<string | null>(null);
+  const [aiHint, setAiHint] = useState<{ kind: 'busy' | 'ok' | 'error'; text: string } | null>(
+    null,
+  );
   const [managingFavs, setManagingFavs] = useState(false);
   const [minutesOrigin, setMinutesOrigin] = useState(30);
   const kcalPerMinRef = useRef(5);
@@ -337,7 +341,10 @@ export function ActivityLogModal({
 
     setAiBusy(true);
     const watching = hasLink;
-    setAiHint(watching ? ui.aiCalcBusyVideo : ui.aiCalcBusy);
+    setAiHint({
+      kind: 'busy',
+      text: watching ? ui.aiCalcBusyVideo : ui.aiCalcBusy,
+    });
     try {
       const result = await timeAsync(
         'estimateActivityKcalFromYoutube',
@@ -374,17 +381,14 @@ export function ActivityLogModal({
         result.equipmentLoadKgUsed != null && result.equipmentLoadKgUsed > 0
           ? `@ ${result.equipmentLoadKgUsed} kg · `
           : '';
-      setAiHint(
-        `${ui.aiCalcDone(formatEnergy(result.activityKcal, energyUnit))} · ${durTag}${loadTag}${modeTag} · ${result.reason}`,
-      );
+      setAiHint({
+        kind: 'ok',
+        text: `${ui.aiCalcDone(formatEnergy(result.activityKcal, energyUnit))} · ${durTag}${loadTag}${modeTag} · ${result.reason}`,
+      });
     } catch (e: unknown) {
-      if (e instanceof OutOfCreditsError) {
-        Alert.alert('Out of credits', e.message);
-      } else {
-        const msg = e instanceof Error ? e.message : String(e);
-        Alert.alert('AI calc failed', msg);
-      }
-      setAiHint(null);
+      const text =
+        e instanceof OutOfCreditsError ? helpCopy.outOfCredits : ui.aiCalcFailed;
+      setAiHint({ kind: 'error', text });
     } finally {
       setAiBusy(false);
     }
@@ -394,6 +398,7 @@ export function ActivityLogModal({
     name,
     bodyProfile,
     ui,
+    helpCopy.outOfCredits,
     energyUnit,
     seedMinutesAndKcal,
     parseEquipmentKg,
@@ -757,10 +762,17 @@ export function ActivityLogModal({
                     onPress={() => void runAiCalc()}
                     disabled={aiBusy || busy}
                     accessibilityLabel={ui.aiCalc}
+                    accessibilityState={{ busy: aiBusy, disabled: aiBusy || busy }}
                   >
-                    <Sparkles size={16} color={colors.accentBlue} strokeWidth={2.2} />
-                    <YouTubeMark size={16} />
-                    <Calculator size={16} color={colors.textPrimary} strokeWidth={2.2} />
+                    {aiBusy ? (
+                      <ActivityIndicator color={colors.accentBlue} size="small" />
+                    ) : (
+                      <>
+                        <Sparkles size={16} color={colors.accentBlue} strokeWidth={2.2} />
+                        <YouTubeMark size={16} />
+                        <Calculator size={16} color={colors.textPrimary} strokeWidth={2.2} />
+                      </>
+                    )}
                     <Text style={styles.aiCalcBtnText}>
                       {aiBusy
                         ? youtubeUrl.trim()
@@ -770,8 +782,16 @@ export function ActivityLogModal({
                     </Text>
                   </Pressable>
                   {aiHint ? (
-                    <Text style={styles.aiHint} numberOfLines={2}>
-                      {aiHint}
+                    <Text
+                      style={[
+                        styles.aiHint,
+                        aiHint.kind === 'error' && styles.aiHintError,
+                        aiHint.kind === 'busy' && styles.aiHintBusy,
+                      ]}
+                      numberOfLines={aiHint.kind === 'error' ? 4 : 3}
+                      accessibilityLiveRegion="polite"
+                    >
+                      {aiHint.text}
                     </Text>
                   ) : null}
 
@@ -1017,7 +1037,20 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     },
     aiCalcBtnBusy: { opacity: 0.65 },
     aiCalcBtnText: { fontSize: 13, fontWeight: '700', color: c.textPrimary },
-    aiHint: { fontSize: 11, color: c.textSecondary, marginTop: 2 },
+    // Informational status under AI calc — not an action pill.
+    aiHint: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: isDark ? c.textPrimary : c.textSecondary,
+      marginTop: 4,
+      lineHeight: 17,
+    },
+    aiHintBusy: {
+      color: isDark ? c.textSecondary : c.textSecondary,
+    },
+    aiHintError: {
+      color: isDark ? '#FFCDD2' : '#C62828',
+    },
     link: { fontSize: 14, color: '#1E88E5', fontWeight: '700' },
     switchRow: {
       flexDirection: 'row',

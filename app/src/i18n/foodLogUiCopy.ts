@@ -40,6 +40,8 @@ export type FoodLogUiCopy = {
   back: string;
   saveMeal: string;
   done: string;
+  /** After auto-save — stay open to review time/items */
+  autoSavedHint: string;
   logMeal: string;
   editMeal: string;
   camera: string;
@@ -104,6 +106,8 @@ const EN: FoodLogUiCopy = {
   back: 'Back',
   saveMeal: 'Save meal',
   done: 'Done',
+  autoSavedHint:
+    'Saved — check time and items, then tap Done. Use chat to correct if needed.',
   logMeal: 'Log Meal',
   editMeal: 'Edit Meal',
   camera: 'Camera',
@@ -167,6 +171,7 @@ const HE: FoodLogUiCopy = {
   back: 'חזרה',
   saveMeal: 'שמור ארוחה',
   done: 'סיום',
+  autoSavedHint: 'נשמרה — בדקו שעה ופריטים, ואז סיום. אפשר לתקן בצ׳אט אם צריך.',
   logMeal: 'רישום ארוחה',
   editMeal: 'עריכת ארוחה',
   camera: 'מצלמה',
@@ -230,6 +235,8 @@ const ES: FoodLogUiCopy = {
   back: 'Atrás',
   saveMeal: 'Guardar comida',
   done: 'Listo',
+  autoSavedHint:
+    'Guardado — revisa hora e ítems y toca Listo. Usa el chat si quieres corregir.',
   logMeal: 'Registrar comida',
   editMeal: 'Editar comida',
   camera: 'Cámara',
@@ -293,6 +300,8 @@ const FR: FoodLogUiCopy = {
   back: 'Retour',
   saveMeal: 'Enregistrer le repas',
   done: 'Terminé',
+  autoSavedHint:
+    'Enregistré — vérifiez l’heure et les aliments, puis Terminé. Corrigez via le chat si besoin.',
   logMeal: 'Enregistrer un repas',
   editMeal: 'Modifier le repas',
   camera: 'Appareil photo',
@@ -356,6 +365,8 @@ const DE: FoodLogUiCopy = {
   back: 'Zurück',
   saveMeal: 'Mahlzeit speichern',
   done: 'Fertig',
+  autoSavedHint:
+    'Gespeichert — Zeit und Einträge prüfen, dann Fertig. Per Chat korrigieren, wenn nötig.',
   logMeal: 'Mahlzeit erfassen',
   editMeal: 'Mahlzeit bearbeiten',
   camera: 'Kamera',
@@ -419,6 +430,7 @@ const AR: FoodLogUiCopy = {
   back: 'رجوع',
   saveMeal: 'حفظ الوجبة',
   done: 'تم',
+  autoSavedHint: 'حُفظت — راجعوا الوقت والأصناف ثم تم. يمكن التصحيح في الدردشة إن لزم.',
   logMeal: 'تسجيل وجبة',
   editMeal: 'تعديل الوجبة',
   camera: 'الكاميرا',
@@ -482,6 +494,8 @@ const RU: FoodLogUiCopy = {
   back: 'Назад',
   saveMeal: 'Сохранить приём',
   done: 'Готово',
+  autoSavedHint:
+    'Сохранено — проверьте время и позиции, затем Готово. Исправьте в чате, если нужно.',
   logMeal: 'Записать приём',
   editMeal: 'Изменить приём',
   camera: 'Камера',
@@ -545,6 +559,8 @@ const PT: FoodLogUiCopy = {
   back: 'Voltar',
   saveMeal: 'Salvar refeição',
   done: 'Concluído',
+  autoSavedHint:
+    'Salvo — confira horário e itens e toque em Concluído. Use o chat para corrigir se precisar.',
   logMeal: 'Registrar refeição',
   editMeal: 'Editar refeição',
   camera: 'Câmera',
@@ -608,6 +624,8 @@ const IT: FoodLogUiCopy = {
   back: 'Indietro',
   saveMeal: 'Salva pasto',
   done: 'Fatto',
+  autoSavedHint:
+    'Salvato — controlla ora e voci, poi Fatto. Usa la chat per correggere se serve.',
   logMeal: 'Registra pasto',
   editMeal: 'Modifica pasto',
   camera: 'Fotocamera',
@@ -671,6 +689,8 @@ const TR: FoodLogUiCopy = {
   back: 'Geri',
   saveMeal: 'Öğünü kaydet',
   done: 'Tamam',
+  autoSavedHint:
+    'Kaydedildi — saati ve öğeleri kontrol edin, sonra Tamam. Gerekirse sohbetten düzeltin.',
   logMeal: 'Öğün kaydet',
   editMeal: 'Öğünü düzenle',
   camera: 'Kamera',

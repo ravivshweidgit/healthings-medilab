@@ -35,6 +35,8 @@ import { saveMeal, deleteMeal, foodLogDayKey, getDailyMacros, getRecentMeals, ge
 import { logMethodTiming, PERF_WARN_AI_MS, PERF_WARN_MEAL_MS, timeAsync } from '../services/AppDailyLogService';
 import { formatLocalizedDate, formatLocalizedTime, formatFoodLogDayLabel } from '../i18n/dateLocale';
 import { getFoodLogAlertCopy } from '../i18n/foodLogAlertCopy';
+import { getHelpStripCopy } from '../i18n/helpStripCopy';
+import { OutOfCreditsError } from '../services/UsageQueueService';
 import { getFoodLogUiCopy } from '../i18n/foodLogUiCopy';
 import { formatFoodLogHistoryForMealAi } from '../logic/foodLogMealHistory';
 import { buildMealMergePreview, type MealMergePreview } from '../logic/mealPhotoMerge';
@@ -394,7 +396,15 @@ export function FoodLogModal({
   const insets = useSafeAreaInsets();
   const ui = getFoodLogUiCopy(lang?.code);
   const alerts = useMemo(() => getFoodLogAlertCopy(lang?.code), [lang?.code]);
+  const helpCopy = useMemo(() => getHelpStripCopy(lang?.code), [lang?.code]);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
+  const mapFoodAiError = useCallback(
+    (e: unknown) => {
+      if (e instanceof OutOfCreditsError) return helpCopy.outOfCredits;
+      return alerts.aiAnalysisFailed;
+    },
+    [alerts.aiAnalysisFailed, helpCopy.outOfCredits],
+  );
   const [screen, setScreen] = useState<Screen>(() =>
     editEntry || (prefillItems && prefillItems.length > 0) ? 'result' : 'idle',
   );
@@ -858,11 +868,11 @@ export function FoodLogModal({
           PERF_WARN_AI_MS,
         );
       } catch (e) {
-        setError(e instanceof Error ? e.message : alerts.aiAnalysisFailed);
-        setScreen('result');
+        setError(mapFoodAiError(e));
+        setScreen(editingId ? 'result' : 'idle');
       }
     },
-    [lang, resolveFoodLogHistory, editingId, tryAutoSaveNewMeal, alerts.aiAnalysisFailed],
+    [lang, resolveFoodLogHistory, editingId, tryAutoSaveNewMeal, mapFoodAiError],
   );
 
   const runPhotoAnalysis = useCallback(
@@ -937,11 +947,11 @@ export function FoodLogModal({
           PERF_WARN_AI_MS,
         );
       } catch (e) {
-        setError(e instanceof Error ? e.message : alerts.aiAnalysisFailed);
+        setError(mapFoodAiError(e));
         setScreen(items.length > 0 || editEntry ? 'result' : 'idle');
       }
     },
-    [lang, items.length, editEntry, editingId, resolveFoodLogHistory, tryAutoSaveNewMeal, alerts.aiAnalysisFailed],
+    [lang, items.length, editEntry, editingId, resolveFoodLogHistory, tryAutoSaveNewMeal, mapFoodAiError],
   );
 
   const pickImage = useCallback(
@@ -1029,14 +1039,24 @@ export function FoodLogModal({
           PERF_WARN_AI_MS,
         );
       } catch (e) {
-        setError(e instanceof Error ? e.message : alerts.aiAnalysisFailed);
+        setError(mapFoodAiError(e));
         setScreen('result');
       }
       return;
     }
 
     await runMealAnalysis(text, mealHistory);
-  }, [chatText, screen, mergePreview, photoSession, mealHistory, runMealAnalysis, lang, resolveFoodLogHistory]);
+  }, [
+    chatText,
+    screen,
+    mergePreview,
+    photoSession,
+    mealHistory,
+    runMealAnalysis,
+    lang,
+    resolveFoodLogHistory,
+    mapFoodAiError,
+  ]);
 
   const handleStartMerge = useCallback(
     (mode: 'add' | 'remove') => {
@@ -1428,7 +1448,7 @@ export function FoodLogModal({
                   <Image source={{ uri: analyzingPhotoUri }} style={styles.photoThumb} resizeMode="cover" />
                 ) : null}
                 <ActivityIndicator color={colors.accentBlue} size="large" style={{ marginTop: 24 }} />
-                <Text style={styles.analyzingLabel}>Analyzing…</Text>
+                <Text style={styles.analyzingLabel}>{alerts.analyzing}</Text>
               </View>
             )}
 
@@ -1436,8 +1456,10 @@ export function FoodLogModal({
               <View style={styles.resultWrap}>
                 {autoSavedBanner ? (
                   <View style={styles.autoSavedBanner}>
-                    <Text style={styles.autoSavedBannerText}>
-                      Saved — check time and items, then tap Done. Use chat to correct if needed.
+                    <Text
+                      style={[styles.autoSavedBannerText, rtl && styles.autoSavedBannerRtl]}
+                    >
+                      {ui.autoSavedHint}
                     </Text>
                   </View>
                 ) : null}
@@ -1894,6 +1916,10 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     lineHeight: 18,
     color: c.textPrimary,
     fontWeight: '600',
+  },
+  autoSavedBannerRtl: {
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   container: {
     flex: 1,
