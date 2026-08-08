@@ -16,6 +16,12 @@ export type MetabolicStripCopy = {
   tapToOpen: string;
   /** Primary dashboard sync button */
   refreshMyData: string;
+  /** Pull-refresh / header sync — in flight */
+  refreshUpdating: string;
+  /** Pull-refresh finished OK (brief flash) */
+  refreshDone: string;
+  /** Pull-refresh failed (brief flash) */
+  refreshFailed: string;
   genderMale: string;
   genderFemale: string;
   genderOther: string;
@@ -69,6 +75,9 @@ const EN: MetabolicStripCopy = {
   tapToOpenCharts: 'Tap to open charts',
   tapToOpen: 'Tap to open',
   refreshMyData: 'Refresh my data',
+  refreshUpdating: 'Updating…',
+  refreshDone: 'Updated',
+  refreshFailed: 'Couldn’t update — try again',
   genderMale: 'Male',
   genderFemale: 'Female',
   genderOther: 'Other',
@@ -117,6 +126,9 @@ const HE: MetabolicStripCopy = {
   tapToOpenCharts: 'הקש לפתיחת הגרפים',
   tapToOpen: 'הקש לפתיחה',
   refreshMyData: 'רענון הנתונים שלי',
+  refreshUpdating: 'מעדכן…',
+  refreshDone: 'עודכן',
+  refreshFailed: 'לא התעדכן — נסו שוב',
   genderMale: 'זכר',
   genderFemale: 'נקבה',
   genderOther: 'אחר',
@@ -165,6 +177,9 @@ const ES: MetabolicStripCopy = {
   tapToOpenCharts: 'Toca para abrir gráficos',
   tapToOpen: 'Toca para abrir',
   refreshMyData: 'Actualizar mis datos',
+  refreshUpdating: 'Actualizando…',
+  refreshDone: 'Actualizado',
+  refreshFailed: 'No se pudo actualizar — inténtalo de nuevo',
   genderMale: 'Hombre',
   genderFemale: 'Mujer',
   genderOther: 'Otro',
@@ -213,6 +228,9 @@ const FR: MetabolicStripCopy = {
   tapToOpenCharts: 'Appuyer pour ouvrir les graphiques',
   tapToOpen: 'Appuyer pour ouvrir',
   refreshMyData: 'Actualiser mes données',
+  refreshUpdating: 'Mise à jour…',
+  refreshDone: 'À jour',
+  refreshFailed: 'Échec de la mise à jour — réessayez',
   genderMale: 'Homme',
   genderFemale: 'Femme',
   genderOther: 'Autre',
@@ -261,6 +279,9 @@ const DE: MetabolicStripCopy = {
   tapToOpenCharts: 'Tippen für Diagramme',
   tapToOpen: 'Tippen zum Öffnen',
   refreshMyData: 'Meine Daten aktualisieren',
+  refreshUpdating: 'Aktualisiere…',
+  refreshDone: 'Aktualisiert',
+  refreshFailed: 'Aktualisierung fehlgeschlagen — erneut versuchen',
   genderMale: 'Männlich',
   genderFemale: 'Weiblich',
   genderOther: 'Divers',
@@ -309,6 +330,9 @@ const AR: MetabolicStripCopy = {
   tapToOpenCharts: 'اضغط لفتح الرسوم',
   tapToOpen: 'اضغط للفتح',
   refreshMyData: 'تحديث بياناتي',
+  refreshUpdating: 'جاري التحديث…',
+  refreshDone: 'تم التحديث',
+  refreshFailed: 'تعذّر التحديث — حاولوا مرة أخرى',
   genderMale: 'ذكر',
   genderFemale: 'أنثى',
   genderOther: 'آخر',
@@ -357,6 +381,9 @@ const RU: MetabolicStripCopy = {
   tapToOpenCharts: 'Нажмите, чтобы открыть графики',
   tapToOpen: 'Нажмите, чтобы открыть',
   refreshMyData: 'Обновить мои данные',
+  refreshUpdating: 'Обновление…',
+  refreshDone: 'Обновлено',
+  refreshFailed: 'Не удалось обновить — попробуйте снова',
   genderMale: 'Мужской',
   genderFemale: 'Женский',
   genderOther: 'Другой',
@@ -405,6 +432,9 @@ const PT: MetabolicStripCopy = {
   tapToOpenCharts: 'Toque para abrir gráficos',
   tapToOpen: 'Toque para abrir',
   refreshMyData: 'Atualizar meus dados',
+  refreshUpdating: 'Atualizando…',
+  refreshDone: 'Atualizado',
+  refreshFailed: 'Não foi possível atualizar — tente de novo',
   genderMale: 'Masculino',
   genderFemale: 'Feminino',
   genderOther: 'Outro',
@@ -453,6 +483,9 @@ const IT: MetabolicStripCopy = {
   tapToOpenCharts: 'Tocca per aprire i grafici',
   tapToOpen: 'Tocca per aprire',
   refreshMyData: 'Aggiorna i miei dati',
+  refreshUpdating: 'Aggiornamento…',
+  refreshDone: 'Aggiornato',
+  refreshFailed: 'Aggiornamento non riuscito — riprova',
   genderMale: 'Uomo',
   genderFemale: 'Donna',
   genderOther: 'Altro',
@@ -501,6 +534,9 @@ const TR: MetabolicStripCopy = {
   tapToOpenCharts: 'Grafikleri açmak için dokunun',
   tapToOpen: 'Açmak için dokunun',
   refreshMyData: 'Verilerimi yenile',
+  refreshUpdating: 'Güncelleniyor…',
+  refreshDone: 'Güncellendi',
+  refreshFailed: 'Güncellenemedi — tekrar deneyin',
   genderMale: 'Erkek',
   genderFemale: 'Kadın',
   genderOther: 'Diğer',

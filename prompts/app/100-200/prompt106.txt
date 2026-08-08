@@ -93,7 +93,7 @@ Surfaces the user hits weekly look intentional: sync, CareSens import toast, pul
 
 ### Checklist (pick ≥3 for v1 ship; rest deferred)
 
-- [ ] Pull-refresh / sync busy + done feedback (copy + disabled double-fire)
+- [x] Pull-refresh / sync busy + done feedback (copy + disabled double-fire) — overlay “Updating…”, flash Updated / failed (`metabolicStripCopy.refresh*`), header a11y busy; double-fire already gated
 - [ ] CareSens import result readable on success **and** failure (range, truncation)
 - [ ] Glucose / Food / Activity strip headers: consistent density, chevron, a11y labels
 - [ ] Dark mode spot-check on polished surfaces (prompt96)

@@ -4,6 +4,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Alert,
   AppState,
@@ -399,6 +400,9 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [manualActivityByDay, setManualActivityByDay] = useState<Record<string, number>>({});
 
   const [pullRefreshing, setPullRefreshing] = useState(false);
+  /** Brief post-refresh flash: done | failed (busy uses overlay + header spinner). */
+  const [pullRefreshFlash, setPullRefreshFlash] = useState<'done' | 'failed' | null>(null);
+  const pullRefreshFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ─── Coach message + chat ────────────────────────────────────────────────
   const [coachMsg, setCoachMsg] = useState<CoachMessage | null>(null);
@@ -1560,8 +1564,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
   const handlePullRefresh = useCallback(async () => {
     if (pullRefreshing) return;
+    if (pullRefreshFlashTimer.current) {
+      clearTimeout(pullRefreshFlashTimer.current);
+      pullRefreshFlashTimer.current = null;
+    }
+    setPullRefreshFlash(null);
     setPullRefreshing(true);
     syncPerfStart('pull-refresh');
+    let ok = true;
     try {
       await timeAsync(
         'DashboardScreen.pullRefresh',
@@ -1586,8 +1596,20 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         {},
         PERF_WARN_SYNC_MS,
       );
+    } catch {
+      ok = false;
     } finally {
       setPullRefreshing(false);
+      const flash: 'done' | 'failed' = ok ? 'done' : 'failed';
+      setPullRefreshFlash(flash);
+      const announce = ok
+        ? metabolicStripCopy.refreshDone
+        : metabolicStripCopy.refreshFailed;
+      void AccessibilityInfo.announceForAccessibility(announce);
+      pullRefreshFlashTimer.current = setTimeout(() => {
+        setPullRefreshFlash(null);
+        pullRefreshFlashTimer.current = null;
+      }, ok ? 2200 : 3200);
       const report = syncPerfEnd();
       if (SYNC_PERF_ALERT && report) {
         const body = formatSyncPerfReport(report);
@@ -1607,11 +1629,19 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     loadHcStepTotals,
     user.role,
     applyClinicOverlays,
+    metabolicStripCopy.refreshDone,
+    metabolicStripCopy.refreshFailed,
   ]);
 
   useEffect(() => {
     void loadTodayFood();
   }, [loadTodayFood]);
+
+  useEffect(() => {
+    return () => {
+      if (pullRefreshFlashTimer.current) clearTimeout(pullRefreshFlashTimer.current);
+    };
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -2135,7 +2165,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             disabled={pullRefreshing}
             hitSlop={10}
             accessibilityRole="button"
-            accessibilityLabel={metabolicStripCopy.refreshMyData}
+            accessibilityLabel={
+              pullRefreshing
+                ? metabolicStripCopy.refreshUpdating
+                : metabolicStripCopy.refreshMyData
+            }
+            accessibilityState={{ busy: pullRefreshing, disabled: pullRefreshing }}
           >
             {pullRefreshing ? (
               <ActivityIndicator size="small" color={colors.textSecondary} />
@@ -2144,6 +2179,29 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             )}
           </Pressable>
         </View>
+
+        {pullRefreshFlash ? (
+          <View
+            style={[
+              styles.refreshFlash,
+              pullRefreshFlash === 'failed' && styles.refreshFlashFailed,
+              { marginTop: -Math.min(12, noticeOverlapUnderLogo) },
+            ]}
+            accessibilityLiveRegion="polite"
+            accessibilityRole="text"
+          >
+            <Text
+              style={[
+                styles.refreshFlashText,
+                pullRefreshFlash === 'failed' && styles.refreshFlashTextFailed,
+              ]}
+            >
+              {pullRefreshFlash === 'done'
+                ? metabolicStripCopy.refreshDone
+                : metabolicStripCopy.refreshFailed}
+            </Text>
+          </View>
+        ) : null}
 
         {demoNotice ? (
           <View style={[styles.notice, { marginTop: -noticeOverlapUnderLogo }]}>
@@ -3142,11 +3200,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       </ScrollView>
       </KeyboardAvoidingView>
 
-      {pullRefreshing && (
-        <View style={styles.refreshOverlay} pointerEvents="none">
-          <ActivityIndicator size="large" color="#000" />
+      {pullRefreshing ? (
+        <View style={styles.refreshOverlay} pointerEvents="none" accessibilityElementsHidden>
+          <ActivityIndicator size="large" color={colors.accentBlue} />
+          <Text style={styles.refreshOverlayText}>{metabolicStripCopy.refreshUpdating}</Text>
         </View>
-      )}
+      ) : null}
 
       <FoodLogModal
         visible={foodModalVisible}
@@ -3290,8 +3349,38 @@ const makeStyles = (c: ThemeColors, isDark: boolean) => {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    gap: 12,
+    backgroundColor: isDark ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.55)',
     zIndex: 20,
+  },
+  refreshOverlayText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: c.textPrimary,
+  },
+  // Soft but readable — tinted chip + solid ink (grey-on-grey was too easy to miss).
+  refreshFlash: {
+    alignSelf: 'center',
+    marginBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: isDark ? 'rgba(142, 155, 255, 0.9)' : 'rgba(31, 61, 92, 0.85)',
+    backgroundColor: isDark ? c.background : 'rgba(31, 61, 92, 0.1)',
+  },
+  refreshFlashFailed: {
+    borderColor: isDark ? 'rgba(239, 154, 154, 0.9)' : 'rgba(198, 40, 40, 0.75)',
+    backgroundColor: isDark ? c.background : 'rgba(198, 40, 40, 0.08)',
+  },
+  refreshFlashText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: isDark ? c.accentBlue : '#1F3D5C',
+    textAlign: 'center',
+  },
+  refreshFlashTextFailed: {
+    color: isDark ? '#EF9A9A' : '#C62828',
   },
   scroll: {
     paddingHorizontal: 20,
