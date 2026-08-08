@@ -3,7 +3,15 @@
  * Manual/favorite sessions + wearable WorkoutSession chips (read-only).
  */
 
-import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Pressable,
   ScrollView,
@@ -86,6 +94,8 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
 
   const [expanded, setExpanded] = useState(true);
   const [expandPrefsLoaded, setExpandPrefsLoaded] = useState(false);
+  /** User collapsed Activity while today still has 0 manual sessions — don't fight that this session. */
+  const skipEmptyAutoExpand = useRef(false);
   const [selectedMs, setSelectedMs] = useState(() => {
     if (initialDayKey) {
       const parts = initialDayKey.split('-').map(Number);
@@ -94,6 +104,7 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
     return startOfLocalDay(Date.now());
   });
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
+  const [entriesLoaded, setEntriesLoaded] = useState(false);
   const [manualKcal, setManualKcal] = useState(0);
 
   useEffect(() => {
@@ -111,6 +122,7 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
 
   const activeDayKey = activityLogDayKey(selectedMs);
   const todayKey = activityLogDayKey(Date.now());
+  const isToday = activeDayKey === todayKey;
 
   const dayWorkouts = useMemo(
     () => workoutSessions.filter((w) => activityLogDayKey(w.startMs) === activeDayKey),
@@ -151,11 +163,24 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
     ]);
     setEntries(list);
     setManualKcal(kcal);
+    setEntriesLoaded(true);
   }, [activeDayKey]);
 
   useEffect(() => {
+    setEntriesLoaded(false);
     void load();
   }, [load, refreshKey]);
+
+  // Empty today: open Activity so Add is one tap (pairs with What’s next). Respect a same-session collapse.
+  useEffect(() => {
+    if (!expandPrefsLoaded || !entriesLoaded || !isToday) return;
+    if (entries.length > 0) {
+      skipEmptyAutoExpand.current = false;
+      return;
+    }
+    if (skipEmptyAutoExpand.current) return;
+    setExpanded(true);
+  }, [expandPrefsLoaded, entriesLoaded, isToday, entries.length]);
 
   useImperativeHandle(ref, () => ({ reload: load }), [load]);
 
@@ -183,7 +208,15 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
         title={ui.title}
         subtitle={collapsedSub}
         expanded={expanded}
-        onToggle={() => setExpanded((v) => !v)}
+        onToggle={() =>
+          setExpanded((v) => {
+            const next = !v;
+            if (!next && isToday && entries.length === 0) {
+              skipEmptyAutoExpand.current = true;
+            }
+            return next;
+          })
+        }
         titleRtl={titleRtl}
         collapseLabel={ui.collapse}
         expandLabel={ui.expand}

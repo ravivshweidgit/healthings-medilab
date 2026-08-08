@@ -3,7 +3,15 @@
  * Shows today's logged meals with kcal totals and P/C/F bars.
  */
 
-import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -366,6 +374,8 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const [expanded, setExpanded] = useState(true);
   const [expandPrefsLoaded, setExpandPrefsLoaded] = useState(false);
+  /** User collapsed Food Log while today still has 0 meals — don't fight that this session. */
+  const skipEmptyAutoExpand = useRef(false);
 
   useEffect(() => {
     void AsyncStorage.getItem(FOOD_LOG_EXPANDED_KEY).then((v) => {
@@ -470,6 +480,18 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   useImperativeHandle(ref, () => ({ reload: load }), [load]);
 
   useEffect(() => { load(); }, [load, refreshKey]);
+
+  // Empty today: open Food Log so Add meal is one tap (pairs with What’s next). Respect a same-session collapse.
+  useEffect(() => {
+    if (!expandPrefsLoaded || !isToday || !macros) return;
+    const mealCount = macros.entries?.length ?? 0;
+    if (mealCount > 0) {
+      skipEmptyAutoExpand.current = false;
+      return;
+    }
+    if (skipEmptyAutoExpand.current) return;
+    setExpanded(true);
+  }, [expandPrefsLoaded, isToday, macros]);
 
   // Collapsed header always summarizes today, even while the log browses a past day.
   useEffect(() => {
@@ -673,7 +695,15 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
         title={title}
         subtitle={collapsedSub}
         expanded={expanded}
-        onToggle={() => setExpanded((v) => !v)}
+        onToggle={() =>
+          setExpanded((v) => {
+            const next = !v;
+            if (!next && isToday && (macros?.entries?.length ?? 0) === 0) {
+              skipEmptyAutoExpand.current = true;
+            }
+            return next;
+          })
+        }
         titleRtl={titleRtl}
         collapseLabel={`Collapse ${title}`}
         expandLabel={`Expand ${title}`}

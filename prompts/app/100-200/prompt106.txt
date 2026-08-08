@@ -72,6 +72,10 @@ Same ICP, day 2+: log food **or** YouTube activity with **fewer taps / less scro
 - `ActivityLogStrip` / activity modal — YouTube paste → estimate → save
 - Dashboard strip expand cost already logged (`FoodMacroStrip.paint`, etc.) — keep under soft warns where possible
 
+### In progress / partial
+
+- [x] **Empty-today auto-expand** — Food Log + Activity expand when viewing today with 0 meals / 0 manual sessions so Add is visible without an extra expand tap. Same-session collapse is respected (`skipEmptyAutoExpand`). Pref keys unchanged (`dash_food_log_expanded`, `dash_activity_log_expanded`).
+
 ### Acceptance (B)
 
 - [ ] Tap-count (or stopwatch) for: open app → save meal; open app → save YouTube activity — before/after in done spec
