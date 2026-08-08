@@ -37,6 +37,7 @@ import { formatLocalizedDate, formatLocalizedTime, formatFoodLogDayLabel } from 
 import { getFoodLogAlertCopy } from '../i18n/foodLogAlertCopy';
 import { getHelpStripCopy } from '../i18n/helpStripCopy';
 import { OutOfCreditsError } from '../services/UsageQueueService';
+import { getFoodLogPhotoUiCopy } from '../i18n/foodLogPhotoUiCopy';
 import { getFoodLogUiCopy } from '../i18n/foodLogUiCopy';
 import { formatFoodLogHistoryForMealAi } from '../logic/foodLogMealHistory';
 import { buildMealMergePreview, type MealMergePreview } from '../logic/mealPhotoMerge';
@@ -289,6 +290,7 @@ function FoodItemsCard({
   editable = false,
   editLabel = 'Edit',
   deleteLabel = 'Delete',
+  emptyLabel = 'Empty',
   onEditItem,
   onDeleteItem,
 }: {
@@ -299,6 +301,7 @@ function FoodItemsCard({
   editable?: boolean;
   editLabel?: string;
   deleteLabel?: string;
+  emptyLabel?: string;
   onEditItem?: (index: number) => void;
   onDeleteItem?: (index: number) => void;
 }) {
@@ -308,7 +311,7 @@ function FoodItemsCard({
     return (
       <View style={[styles.itemsCard, cardShadow]}>
         {title ? <Text style={styles.itemsCardTitle}>{title}</Text> : null}
-        <Text style={styles.emptyItemsText}>Empty</Text>
+        <Text style={styles.emptyItemsText}>{emptyLabel}</Text>
       </View>
     );
   }
@@ -395,6 +398,7 @@ export function FoodLogModal({
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const insets = useSafeAreaInsets();
   const ui = getFoodLogUiCopy(lang?.code);
+  const photoUi = useMemo(() => getFoodLogPhotoUiCopy(lang?.code), [lang?.code]);
   const alerts = useMemo(() => getFoodLogAlertCopy(lang?.code), [lang?.code]);
   const helpCopy = useMemo(() => getHelpStripCopy(lang?.code), [lang?.code]);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
@@ -1075,11 +1079,9 @@ export function FoodLogModal({
     setPhotoSession(null);
     setChatText('');
     setDescription(
-      mergePreview.mode === 'add'
-        ? 'Photo items added to meal'
-        : 'Matching items removed from meal',
+      mergePreview.mode === 'add' ? photoUi.photoItemsAdded : photoUi.photoItemsRemoved,
     );
-  }, [mergePreview]);
+  }, [mergePreview, photoUi.photoItemsAdded, photoUi.photoItemsRemoved]);
 
   const handleCancelMerge = useCallback(() => {
     setMergePreview(null);
@@ -1282,16 +1284,10 @@ export function FoodLogModal({
   const flaggedIndices = flaggedItemIndices(items, mealIssues);
 
   const showMealSection = items.length > 0 || editingId != null;
-  const describePlaceholder = rtl
-    ? 'למשל "שייק חלבון" או "הוסף את השייק מאתמול בערב"'
-    : 'e.g. "protein shake" or "add last evening\'s shake"';
+  const describePlaceholder = photoUi.describePlaceholder;
   const chatPlaceholder = photoSession
-    ? rtl
-      ? 'תיקון מהתמונה: "חצי פיתה", "הוסף קפה"…'
-      : 'Correct photo list: "only half the pita", "add coffee"…'
-    : rtl
-      ? 'תיקון או מהעבר: "אותה ארוחת עוף", "השייק הרגיל שלי"…'
-      : 'Correct or from history: "same chicken meal", "my usual shake"…';
+    ? photoUi.chatPlaceholderPhoto
+    : photoUi.chatPlaceholderHistory;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
@@ -1467,32 +1463,44 @@ export function FoodLogModal({
                 ) : null}
                 {mergePreview ? (
                   <View style={styles.previewSection}>
-                    <Text style={styles.sectionTitle}>Preview update</Text>
-                    <Text style={styles.previewModeLabel}>
-                      {mergePreview.mode === 'add' ? 'Adding photo items to meal' : 'Removing items shown in photo'}
+                    <Text style={[styles.sectionTitle, rtl && styles.sectionTitleRtl]}>
+                      {photoUi.previewUpdate}
+                    </Text>
+                    <Text style={[styles.previewModeLabel, rtl && styles.descriptionTextRtl]}>
+                      {mergePreview.mode === 'add'
+                        ? photoUi.addingPhotoItems
+                        : photoUi.removingPhotoItems}
                     </Text>
                     <View style={styles.previewColumns}>
                       <View style={styles.previewCol}>
-                        <Text style={styles.previewColTitle}>Current meal</Text>
-                        <FoodItemsCard items={mergePreview.before} energyUnit={energyUnit} />
+                        <Text style={styles.previewColTitle}>{photoUi.currentMeal}</Text>
+                        <FoodItemsCard
+                          items={mergePreview.before}
+                          energyUnit={energyUnit}
+                          emptyLabel={photoUi.emptyItems}
+                        />
                       </View>
                       <View style={styles.previewCol}>
-                        <Text style={styles.previewColTitle}>After update</Text>
-                        <FoodItemsCard items={mergePreview.after} energyUnit={energyUnit} />
+                        <Text style={styles.previewColTitle}>{photoUi.afterUpdate}</Text>
+                        <FoodItemsCard
+                          items={mergePreview.after}
+                          energyUnit={energyUnit}
+                          emptyLabel={photoUi.emptyItems}
+                        />
                       </View>
                     </View>
                     <View style={styles.deltaBox}>
-                      <Text style={styles.deltaLabel}>Change</Text>
+                      <Text style={styles.deltaLabel}>{photoUi.change}</Text>
                       <Text style={styles.deltaValue}>
                         {macroDelta(mergePreview.before, mergePreview.after, energyUnit)}
                       </Text>
                     </View>
                     <View style={styles.previewActions}>
                       <Pressable style={styles.cancelPreviewBtn} onPress={handleCancelMerge} disabled={screen === 'saving'}>
-                        <Text style={styles.cancelPreviewBtnText}>Cancel</Text>
+                        <Text style={styles.cancelPreviewBtnText}>{ui.cancel}</Text>
                       </Pressable>
                       <Pressable style={styles.approveBtn} onPress={handleApproveMerge} disabled={screen === 'saving'}>
-                        <Text style={styles.approveBtnText}>✓ Approve update</Text>
+                        <Text style={styles.approveBtnText}>{photoUi.approveUpdate}</Text>
                       </Pressable>
                     </View>
                   </View>
@@ -1517,6 +1525,7 @@ export function FoodLogModal({
                       editable={screen === 'result'}
                       editLabel={ui.editItem}
                       deleteLabel={ui.deleteItem}
+                      emptyLabel={photoUi.emptyItems}
                       onEditItem={openEditItem}
                       onDeleteItem={handleDeleteItem}
                     />
@@ -1525,7 +1534,9 @@ export function FoodLogModal({
 
                 {photoSession && !mergePreview ? (
                   <View style={styles.photoSection}>
-                    <Text style={styles.sectionTitle}>Photo assistant</Text>
+                    <Text style={[styles.sectionTitle, rtl && styles.sectionTitleRtl]}>
+                      {photoUi.photoAssistant}
+                    </Text>
                     <Image source={{ uri: photoSession.uri }} style={styles.photoThumbSmall} resizeMode="cover" />
                     <View
                       style={[
@@ -1556,7 +1567,12 @@ export function FoodLogModal({
                     {photoSession.description ? (
                       <Text style={styles.descriptionText}>{photoSession.description}</Text>
                     ) : null}
-                    <FoodItemsCard items={photoSession.items} title="From photo" energyUnit={energyUnit} />
+                    <FoodItemsCard
+                      items={photoSession.items}
+                      title={photoUi.fromPhoto}
+                      energyUnit={energyUnit}
+                      emptyLabel={photoUi.emptyItems}
+                    />
                     {photoSession.suggestion ? (
                       <View style={styles.suggestionBox}>
                         <Text style={styles.suggestionText}>💡 {photoSession.suggestion}</Text>
@@ -1566,7 +1582,7 @@ export function FoodLogModal({
                     <View style={styles.photoRow}>
                       <Pressable style={[styles.afterPhotoBtn, styles.afterPhotoBtnRow]} onPress={() => handleAddPhoto('camera')}>
                         <DashIcon icon={ActionIcons.camera} size={15} color={colors.textPrimary} />
-                        <Text style={styles.afterPhotoBtnText}>New photo</Text>
+                        <Text style={styles.afterPhotoBtnText}>{photoUi.newPhoto}</Text>
                       </Pressable>
                       <Pressable style={[styles.afterPhotoBtn, styles.afterPhotoBtnRow]} onPress={() => handleAddPhoto('gallery')}>
                         <DashIcon icon={ActionIcons.gallery} size={15} color={colors.textPrimary} />
@@ -1578,22 +1594,22 @@ export function FoodLogModal({
                       <View style={styles.intentRow}>
                         {items.length === 0 ? (
                           <Pressable style={styles.useMealBtn} onPress={() => handleStartMerge('add')}>
-                            <Text style={styles.useMealBtnText}>Use as meal</Text>
+                            <Text style={styles.useMealBtnText}>{photoUi.useAsMeal}</Text>
                           </Pressable>
                         ) : (
                           <>
                             <Pressable style={styles.addBtn} onPress={() => handleStartMerge('add')}>
-                              <Text style={styles.addBtnText}>+ Add to meal</Text>
+                              <Text style={styles.addBtnText}>{photoUi.addToMeal}</Text>
                             </Pressable>
                             <Pressable style={styles.removeBtn} onPress={() => handleStartMerge('remove')}>
-                              <Text style={styles.removeBtnText}>− Remove from meal</Text>
+                              <Text style={styles.removeBtnText}>{photoUi.removeFromMeal}</Text>
                             </Pressable>
                           </>
                         )}
                       </View>
                     ) : null}
-                    <Text style={styles.removeHint}>
-                      Remove = photo shows food you did not eat (leftovers)
+                    <Text style={[styles.removeHint, rtl && styles.descriptionTextRtl]}>
+                      {photoUi.removeLeftoversHint}
                     </Text>
                   </View>
                 ) : null}
