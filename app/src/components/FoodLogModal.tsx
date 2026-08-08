@@ -1,6 +1,6 @@
 /**
  * Food Log Modal — camera / text → Gemini AI → correction chat → save.
- * New meal: text or first photo auto-saves and stays open for Done review.
+ * New meal: text or first photo auto-saves when clean, then closes (habit speed).
  * Photo add/remove merge on existing meals still uses approve preview.
  */
 
@@ -724,8 +724,9 @@ export function FoodLogModal({
   );
 
   /**
-   * New meal (text or first photo): analyze → save when clean, stay open to review time/items.
-   * Photo +/- merge on existing items / edits stay multi-step.
+   * New meal (text or first photo): analyze → save when clean, then close.
+   * Issue / nutritionist alert and photo+/- merge stay multi-step (modal stays open).
+   * Edit a chip on the Food strip if time or items need a tweak after close.
    */
   const tryAutoSaveNewMeal = useCallback(
     async (
@@ -747,7 +748,7 @@ export function FoodLogModal({
           historyLen: opts.historyLen,
           fromPhoto: opts.fromPhoto,
           timestamp: mealTime,
-          stayOpen: true,
+          stayOpen: false,
         });
         return true;
       } catch {
@@ -756,7 +757,7 @@ export function FoodLogModal({
         return false;
       }
     },
-    [editingId, mealTime, recomputeMealIssues, persistMealItems],
+    [editingId, mealTime, recomputeMealIssues, persistMealItems, alerts.failedToSave],
   );
 
   // Recipe "Log meal" — same one-tap save when clean.
