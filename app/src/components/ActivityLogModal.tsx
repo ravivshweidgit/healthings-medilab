@@ -35,7 +35,10 @@ import {
   type ActivityEntry,
   type ActivityFavorite,
 } from '../services/ActivityLogService';
-import { estimateActivityKcalFromYoutube } from '../services/GeminiService';
+import {
+  estimateActivityKcalFromYoutube,
+  fetchYoutubeVideoTitle,
+} from '../services/GeminiService';
 import { getHelpStripCopy } from '../i18n/helpStripCopy';
 import { OutOfCreditsError } from '../services/UsageQueueService';
 import { getActivityLogUiCopy } from '../i18n/activityLogUiCopy';
@@ -346,25 +349,31 @@ export function ActivityLogModal({
       text: watching ? ui.aiCalcBusyVideo : ui.aiCalcBusy,
     });
     try {
-      const result = await timeAsync(
-        'estimateActivityKcalFromYoutube',
-        () =>
-          estimateActivityKcalFromYoutube({
-            youtubeUrl: youtubeUrl.trim(),
-            minutes: Number.isFinite(mins) && mins > 0 ? mins : 30,
-            activityName: name.trim() || undefined,
-            equipmentWeightKg: parseEquipmentKg() ?? null,
-            weightKg,
-            heightCm: bodyProfile?.heightCm ?? null,
-            age: bodyProfile?.age ?? null,
-            gender: bodyProfile?.gender ?? null,
-            fatMassKg: bodyProfile?.fatMassKg ?? null,
-            muscleMassKg: bodyProfile?.muscleMassKg ?? null,
-            bmrKcal: bodyProfile?.bmrKcal ?? null,
-          }),
-        { video: watching },
-        PERF_WARN_AI_MS,
-      );
+      const urlTrim = youtubeUrl.trim();
+      const needTitle = !name.trim() && Boolean(urlTrim);
+      // oEmbed for the real YouTube title (Gemini often omits suggestedName).
+      const [result, ytTitle] = await Promise.all([
+        timeAsync(
+          'estimateActivityKcalFromYoutube',
+          () =>
+            estimateActivityKcalFromYoutube({
+              youtubeUrl: urlTrim,
+              minutes: Number.isFinite(mins) && mins > 0 ? mins : 30,
+              activityName: name.trim() || undefined,
+              equipmentWeightKg: parseEquipmentKg() ?? null,
+              weightKg,
+              heightCm: bodyProfile?.heightCm ?? null,
+              age: bodyProfile?.age ?? null,
+              gender: bodyProfile?.gender ?? null,
+              fatMassKg: bodyProfile?.fatMassKg ?? null,
+              muscleMassKg: bodyProfile?.muscleMassKg ?? null,
+              bmrKcal: bodyProfile?.bmrKcal ?? null,
+            }),
+          { video: watching },
+          PERF_WARN_AI_MS,
+        ),
+        needTitle ? fetchYoutubeVideoTitle(urlTrim) : Promise.resolve(null),
+      ]);
       const applyMins =
         result.usedVideo && result.durationMinutes != null && result.durationMinutes > 0
           ? result.durationMinutes
@@ -372,6 +381,11 @@ export function ActivityLogModal({
             ? mins
             : result.durationMinutes ?? 30;
       seedMinutesAndKcal(applyMins, result.activityKcal);
+      // Prefill name only when blank — prefer real YouTube title, then Gemini label.
+      if (!name.trim()) {
+        const fill = (ytTitle ?? result.suggestedName ?? '').trim();
+        if (fill) setName(fill);
+      }
       const modeTag = result.usedVideo ? 'video' : 'name';
       const durTag =
         result.usedVideo && result.durationMinutes != null
@@ -606,7 +620,12 @@ export function ActivityLogModal({
               </View>
             ) : (
               <View style={styles.formWrap}>
-                <View style={styles.formBody}>
+                <ScrollView
+                  style={styles.formScroll}
+                  contentContainerStyle={styles.formBody}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                >
                   {!editEntry ? (
                     <View style={styles.fromPastRow}>
                       <Pressable style={styles.fromPastBtn} onPress={openPastPicker}>
@@ -627,6 +646,7 @@ export function ActivityLogModal({
                         horizontal
                         showsHorizontalScrollIndicator={false}
                         style={styles.favScroll}
+                        keyboardShouldPersistTaps="handled"
                       >
                         {favorites.map((fav) => (
                           <Pressable
@@ -661,7 +681,6 @@ export function ActivityLogModal({
                     onChangeText={setName}
                     placeholder={ui.favoriteName}
                     placeholderTextColor={colors.textSecondary}
-                    autoFocus={!editEntry}
                   />
 
                   <View style={styles.minsKcalRow}>
@@ -739,6 +758,7 @@ export function ActivityLogModal({
                       placeholderTextColor={colors.textSecondary}
                       autoCapitalize="none"
                       autoCorrect={false}
+                      autoFocus={!editEntry}
                     />
                     <Pressable
                       style={[
@@ -805,7 +825,7 @@ export function ActivityLogModal({
                       style={styles.switchCompact}
                     />
                   </View>
-                </View>
+                </ScrollView>
 
                 <View style={styles.btns}>
                   {editEntry ? (
@@ -862,9 +882,15 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     },
     formWrap: {
       gap: 0,
+      maxHeight: '100%',
+    },
+    formScroll: {
+      flexGrow: 0,
+      maxHeight: 420,
     },
     formBody: {
       gap: 6,
+      paddingBottom: 4,
     },
     fromPastRow: { marginBottom: 2 },
     fromPastBtn: {

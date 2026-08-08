@@ -2927,7 +2927,31 @@ export type ActivityKcalEstimate = {
   durationMinutes?: number;
   /** Echo of equipment load sent to the model (kg), when provided. */
   equipmentLoadKgUsed?: number | null;
+  /**
+   * Short label for the session when the user left activity_name empty
+   * (video title / workout type). App may prefill the name field.
+   */
+  suggestedName?: string;
 };
+
+/**
+ * Public YouTube title via oEmbed (no API key). Returns null on private/blocked/network fail.
+ */
+export async function fetchYoutubeVideoTitle(rawUrl: string): Promise<string | null> {
+  const watch = normalizeYoutubeWatchUrl(rawUrl);
+  if (!watch) return null;
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(watch)}&format=json`,
+    );
+    if (!res.ok) return null;
+    const json = (await res.json()) as { title?: unknown };
+    const title = String(json?.title ?? '').trim();
+    return title.length > 0 ? title.slice(0, 80) : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Canonical watch URL for Gemini YouTube video understanding (public videos only). */
 export function normalizeYoutubeWatchUrl(raw: string): string | null {
@@ -2997,9 +3021,11 @@ ${mode}
 - durationMinutes: integer ≥ 1.
 - reason: max 12 words, English glossary (MET, HIIT OK). No load kg.
 - confidence: high|medium|low.
+- suggestedName: when activity_name is (none), a short session label (max 40 chars)
+  from the video title or workout type; omit when activity_name is already set.
 
 Return JSON only:
-{"met":5.5,"durationMinutes":12,"confidence":"medium","reason":"Dumbbell arm circuit moderate MET"}`;
+{"met":5.5,"durationMinutes":12,"confidence":"medium","reason":"Dumbbell arm circuit moderate MET","suggestedName":"20 min dumbbell arms"}`;
 }
 
 /**
@@ -3182,6 +3208,10 @@ export async function estimateActivityKcalFromYoutube(
     );
   }
 
+  const suggestedRaw = String(parsed.suggestedName ?? '').trim().slice(0, 40);
+  const suggestedName =
+    !activityName && suggestedRaw.length > 0 ? suggestedRaw : undefined;
+
   return {
     activityKcal: kcal,
     confidence,
@@ -3189,5 +3219,6 @@ export async function estimateActivityKcalFromYoutube(
     usedVideo: watchVideo,
     durationMinutes,
     equipmentLoadKgUsed: equipmentWeightKg,
+    suggestedName,
   };
 }
