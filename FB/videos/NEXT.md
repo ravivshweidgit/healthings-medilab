@@ -13,6 +13,8 @@ Seven finished films render end-to-end from a spec. Exports are numbered:
 | 005 | `assets/exports/005-rules/` | `02-rules-en-subhe-9x16.mp4` (~23s) |
 | 006 | `assets/exports/006-gear/` | `03-gear-en-subhe-9x16.mp4` (~25s) |
 | 007 | `assets/exports/007-ai-coach/` | `04-ai-coach-en-subhe-9x16.mp4` (~27s) |
+| 008 | `assets/exports/008-meal-logging/` | `08-meal-logging-en-subhe-9x16.mp4` |
+| 009 | `assets/exports/009-meal-entry/` | `09-meal-entry-en-subhe-9x16.mp4` |
 
 English voice (ElevenLabs Daniel), burned Hebrew subtitles, branded phone frame,
 open/end cards, -14 LUFS, `.srt` / `.vtt` sidecars.
@@ -22,6 +24,12 @@ optionally 05 closed-loop as the warm closer.
 
 Clip **07** adds full-bleed YouTube B-roll (`shot.type: "broll"`) plus Activity Log
 phone stills (paste link → AI calc → load 5→15 kg).
+
+Clip **08** is Food Log meal items + grams slider (phone stills + in-frame screencap
+mp4 for live macro updates).
+
+Clip **09** teaches meal *entry*: Camera/Gallery, AI describe, chat correct, From past
+meal — post before 08 (entry → precision).
 
 Both website-branded films (05/06) carry the **website's design system** — see
 `brand-notes.md`. Art is rebuilt with `python production/build_art.py` after any SVG edit.

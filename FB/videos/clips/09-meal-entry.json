@@ -1,0 +1,74 @@
+{
+  "id": "09-meal-entry",
+  "title": "Food Log — how to add a meal",
+  "audience": "new users learning camera, AI describe, chat correct, and reuse",
+  "export_dir": "009-meal-entry",
+  "vo_lang": "en",
+  "subs_lang": "he",
+  "segments": [
+    {
+      "en": "Open Food Log. Tap Meal when you are ready to log.",
+      "he": "פותחים את יומן האוכל. לוחצים על ארוחה כשמוכנים לתעד.",
+      "shot": {
+        "type": "phone",
+        "file": "a11-food-strip-open.jpg"
+      }
+    },
+    {
+      "en": "Three ways in — Camera, Gallery, or describe it in plain words.",
+      "he": "שלוש דרכים — מצלמה, גלריה, או לתאר במילים פשוטות.",
+      "shot": {
+        "type": "phone",
+        "file": "a11-log-meal-idle.jpg"
+      }
+    },
+    {
+      "en": "Snap or pick a plate. AI reads the photo and builds your item list.",
+      "he": "מצלמים או בוחרים צלחת. ה-AI קורא את התמונה ובונה את רשימת הפריטים.",
+      "shot": {
+        "type": "phone",
+        "file": "a11-meal-photo-analyzing.jpg"
+      }
+    },
+    {
+      "en": "Or type a meal — protein shake, yesterday's lunch — AI parses grams and macros.",
+      "he": "או מקלידים ארוחה — שייק חלבון, ארוחת הצהריים מאתמול — ה-AI מפרק לגרמים ומאקרו.",
+      "shot": {
+        "type": "phone",
+        "file": "a11-meal-from-text.jpg"
+      }
+    },
+    {
+      "en": "Chat to correct — add an item, rename it, or say same chicken meal.",
+      "he": "מתקנים בצ'אט — מוסיפים פריט, משנים שם, או כותבים אותה ארוחת עוף.",
+      "shot": {
+        "type": "phone",
+        "file": "a11-meal-chat-correct.jpg"
+      }
+    },
+    {
+      "en": "Already logged it before? From past meal — pick the day and reuse.",
+      "he": "כבר תיעדתם? מארוחה קודמת — בוחרים יום ומשתמשים שוב.",
+      "shot": {
+        "type": "phone",
+        "file": "a11-past-meal-picker.jpg"
+      }
+    },
+    {
+      "en": "Then tune grams on any item — macros follow. Save when it looks right.",
+      "he": "ואז מכוונים גרמים בכל פריט — המאקרו מתעדכן. שומרים כשזה נראה נכון.",
+      "shot": {
+        "type": "phone",
+        "file": "a10-meal-grams-39g.jpg"
+      }
+    },
+    {
+      "en": "Log once. Correct and reuse forever. Healthings.",
+      "he": "מתעדים פעם אחת. מתקנים ומשתמשים שוב לנצח. Healthings.",
+      "shot": {
+        "type": "phone",
+        "file": "a11-log-meal-idle.jpg"
+      }
+    }
+  ]
+}

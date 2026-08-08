@@ -192,8 +192,17 @@ def build_shots(
 
 
 def zoompan(frames: int, out_w: int, out_h: int, index: int, zmax: float) -> str:
-    """Slow push-in. Flat vector art gets a gentler ceiling than a screenshot —
-    a hard zoom makes the diagram strokes shimmer."""
+    """Optional slow push-in + vertical drift (Ken Burns).
+
+    Default path is *static* — zoompan re-samples every frame and makes app UI
+    look soft / shaky. Pass zmax > 1 only when you want that living-still feel.
+    """
+    if zmax <= 1.001:
+        return (
+            f"scale={out_w}:{out_h}:flags=lanczos,"
+            f"fps={FPS},setpts=PTS-STARTPTS,"
+            f"trim=end_frame={frames},setpts=PTS-STARTPTS"
+        )
     span = max(1, frames - 1)
     rate = (zmax - 1.0) / span
     drift = f"(on/{span})" if index % 2 == 0 else f"(1-on/{span})"
@@ -217,43 +226,76 @@ def encode(chain: str, inputs: list[str], frames: int, out: Path) -> None:
 
 
 def render_phone_shot(
-    src: Path, frame_png: Path, dur: float, index: int, out: Path, layout: Layout
+    src: Path, frame_png: Path, dur: float, index: int, out: Path, layout: Layout,
+    *, motion: float = 1.0,
 ) -> None:
-    """Screenshot inside the site's phone mockup. The frame PNG carries the page
-    gradient and punches the screen hole, so it overlays the screenshot."""
+    """Screenshot (or short screencap mp4) inside the site's phone mockup.
+
+    The frame PNG carries the page gradient and punches the screen hole, so it
+    overlays the screenshot. Video sources loop if shorter than the VO beat;
+    Ken Burns stays off for video so the UI stays sharp while the slider moves.
+    """
     frames = max(12, round(dur * FPS))
     cw, ch, cx, cy = layout.shot_crop
+    is_video = src.suffix.lower() in {".mp4", ".mov", ".webm", ".mkv"}
+    frame_in = ["-loop", "1", "-i", str(frame_png)]
+    if is_video:
+        chain = (
+            f"[0:v]crop={cw}:{ch}:{cx}:{cy},"
+            f"scale={layout.screen_w}:{layout.screen_h}:flags=lanczos,"
+            f"fps={FPS},setpts=PTS-STARTPTS,"
+            f"trim=end_frame={frames},setpts=PTS-STARTPTS[scr];"
+            f"color=c={SCREEN_OFF}:s={layout.w}x{layout.h}:r={FPS}[base];"
+            f"[base][scr]overlay={layout.screen_x}:{layout.screen_y}:format=auto[withscreen];"
+            f"[withscreen][1:v]overlay=0:0:format=auto,format=yuv420p[v]"
+        )
+        encode(chain, ["-stream_loop", "-1", "-i", str(src), *frame_in], frames, out)
+        return
     chain = (
         f"[0:v]crop={cw}:{ch}:{cx}:{cy},"
-        f"{zoompan(frames, layout.screen_w, layout.screen_h, index, 1.10)}[scr];"
+        f"{zoompan(frames, layout.screen_w, layout.screen_h, index, motion)}[scr];"
         f"color=c={SCREEN_OFF}:s={layout.w}x{layout.h}:r={FPS}[base];"
         f"[base][scr]overlay={layout.screen_x}:{layout.screen_y}:format=auto[withscreen];"
         f"[withscreen][1:v]overlay=0:0:format=auto,format=yuv420p[v]"
     )
-    encode(chain, ["-loop", "1", "-i", str(src), "-loop", "1", "-i", str(frame_png)], frames, out)
+    encode(chain, ["-loop", "1", "-i", str(src), *frame_in], frames, out)
 
 
-def render_full_shot(src: Path, dur: float, index: int, out: Path, layout: Layout) -> None:
+def render_full_shot(
+    src: Path, dur: float, index: int, out: Path, layout: Layout, *, motion: float = 1.0,
+) -> None:
     frames = max(12, round(dur * FPS))
     chain = (
-        f"[0:v]scale={layout.w}:{layout.h}:force_original_aspect_ratio=increase,"
+        f"[0:v]scale={layout.w}:{layout.h}:force_original_aspect_ratio=increase:flags=lanczos,"
         f"crop={layout.w}:{layout.h},"
-        f"{zoompan(frames, layout.w, layout.h, index, 1.035)},"
+        f"{zoompan(frames, layout.w, layout.h, index, motion)},"
         f"format=yuv420p[v]"
     )
     encode(chain, ["-loop", "1", "-i", str(src)], frames, out)
 
 
-def render_broll_shot(src: Path, dur: float, index: int, out: Path, layout: Layout) -> None:
+def render_broll_shot(
+    src: Path, dur: float, index: int, out: Path, layout: Layout, *, motion: float = 1.0,
+) -> None:
     """Full-bleed motion from a short mp4 (YouTube workout flash). Loops if short."""
     frames = max(12, round(dur * FPS))
-    chain = (
-        f"[0:v]scale={layout.w}:{layout.h}:force_original_aspect_ratio=increase,"
-        f"crop={layout.w}:{layout.h},"
-        f"fps={FPS},setpts=PTS-STARTPTS,"
-        f"{zoompan(frames, layout.w, layout.h, index, 1.04)},"
-        f"format=yuv420p[v]"
-    )
+    # Source already moves — extra zoompan only softens the picture.
+    if motion <= 1.001:
+        chain = (
+            f"[0:v]scale={layout.w}:{layout.h}:force_original_aspect_ratio=increase:flags=lanczos,"
+            f"crop={layout.w}:{layout.h},"
+            f"fps={FPS},setpts=PTS-STARTPTS,"
+            f"trim=end_frame={frames},setpts=PTS-STARTPTS,"
+            f"format=yuv420p[v]"
+        )
+    else:
+        chain = (
+            f"[0:v]scale={layout.w}:{layout.h}:force_original_aspect_ratio=increase:flags=lanczos,"
+            f"crop={layout.w}:{layout.h},"
+            f"fps={FPS},setpts=PTS-STARTPTS,"
+            f"{zoompan(frames, layout.w, layout.h, index, motion)},"
+            f"format=yuv420p[v]"
+        )
     encode(
         chain,
         ["-stream_loop", "-1", "-i", str(src)],
@@ -370,6 +412,13 @@ def main() -> None:
         help="Use side-by-side VO from gen_clip_vo.py --tag (e.g. sarah). "
              "Writes <id>-…-<tag>.mp4 so the Daniel cut stays.",
     )
+    ap.add_argument(
+        "--motion",
+        type=float,
+        default=1.0,
+        help="Ken Burns peak zoom (1.0 = sharp locked frame; try 1.06 for a soft push). "
+             "Old shaky look was ~1.10 on phone stills.",
+    )
     args = ap.parse_args()
     layout = LAYOUTS[args.aspect]
 
@@ -413,30 +462,34 @@ def main() -> None:
 
     print(f"clip={spec['id']} {layout.name} vo={vo_dur:.1f}s "
           f"shots={len(shots)} total={total:.1f}s"
-          + (f" voice_tag={args.vo_tag}" if args.vo_tag else ""))
+          + (f" voice_tag={args.vo_tag}" if args.vo_tag else "")
+          + (f" motion={args.motion}" if args.motion > 1.001 else " stable"))
 
     with tempfile.TemporaryDirectory(prefix="hm-render-") as tmp:
         tmp_path = Path(tmp)
         spans = [PREROLL] + [s.dur for s in shots] + [TAIL]
         durs, offsets, trans = xfade_chain(spans)
+        motion = args.motion
 
         parts: list[Path] = []
         for i, dur in enumerate(durs):
             part = tmp_path / f"part-{i:02d}.mp4"
             if i == 0:
-                render_full_shot(card_open, dur, 0, part, layout)
+                render_full_shot(card_open, dur, 0, part, layout, motion=motion)
                 print(f"  open  {dur:5.1f}s {card_open.name}")
             elif i == len(durs) - 1:
-                render_full_shot(card_end, dur, 1, part, layout)
+                render_full_shot(card_end, dur, 1, part, layout, motion=motion)
                 print(f"  end   {dur:5.1f}s {card_end.name}")
             else:
                 shot = shots[i - 1]
                 if shot.kind == "phone":
-                    render_phone_shot(shot.path, frame_png, dur, i, part, layout)
+                    render_phone_shot(
+                        shot.path, frame_png, dur, i, part, layout, motion=motion,
+                    )
                 elif shot.kind == "broll":
-                    render_broll_shot(shot.path, dur, i, part, layout)
+                    render_broll_shot(shot.path, dur, i, part, layout, motion=motion)
                 else:
-                    render_full_shot(shot.path, dur, i, part, layout)
+                    render_full_shot(shot.path, dur, i, part, layout, motion=motion)
                 print(f"  shot {i}/{len(shots)} {dur:5.1f}s {shot.kind:5} {shot.path.name}")
             parts.append(part)
 

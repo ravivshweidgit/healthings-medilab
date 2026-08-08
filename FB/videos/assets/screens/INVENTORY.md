@@ -21,6 +21,17 @@ data" toast) and must not be used on screen.
 | `a6c-mentors-alt.jpg` | Mentors with midday nudge | spare |
 | `a8-quick-start-candidate.jpg` | Quick Start step | spare |
 | `a9-activity-*.jpg` | Activity Log strip / AI calc / load | 07 |
+| `a10-food-strip-*.jpg` | Food Log strip summary / expanded | 08 |
+| `a10-meal-edit-*-en.jpg` | Edit Meal English items + totals | 08 |
+| `a10-meal-grams-*.jpg` / `.mp4` | Edit item grams slider (stills + motion) | 08 |
+| `a11-food-strip-open.jpg` | Food Log expanded (Meal entry) | 09 |
+| `a11-log-meal-idle.jpg` | Log Meal: Camera / Gallery / describe / past | 09 |
+| `a11-meal-photo-analyzing.jpg` | Plate photo + Analyzing… | 09 |
+| `a11-meal-from-photo.jpg` | AI item list after gallery photo | spare |
+| `a11-meal-from-text.jpg` | AI result from describe text | 09 |
+| `a11-meal-chat-correct.jpg` | Correction chat field on result | 09 |
+| `a11-past-meal-picker.jpg` | From past meal day browser | 09 |
+| `a11-meal-from-past.jpg` | Reused past meal prefilled | spare |
 | `clinic-labs-import.jpg` | Import lab PDF / nutritionist session PDF | 06, 01, 02 (portal stand-in) |
 | `cover-cholesterol-trend.png` | Cholesterol trend chart (not 9:16) | FB post cover only |
 

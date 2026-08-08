@@ -1,0 +1,74 @@
+{
+  "id": "08-meal-logging",
+  "title": "Food Log — meal items & grams",
+  "audience": "users who want accurate meal logging with per-item macros",
+  "export_dir": "008-meal-logging",
+  "vo_lang": "en",
+  "subs_lang": "he",
+  "segments": [
+    {
+      "en": "Open Food Log. Your day of meals, calories in and out.",
+      "he": "פותחים את יומן האוכל. הארוחות של היום — קלוריות פנימה והחוצה.",
+      "shot": {
+        "type": "phone",
+        "file": "a10-food-strip-summary.jpg"
+      }
+    },
+    {
+      "en": "Tap a meal. Every item is listed — grams, calories, macros.",
+      "he": "לוחצים על ארוחה. כל פריט ברשימה — גרמים, קלוריות ומאקרו.",
+      "shot": {
+        "type": "phone",
+        "file": "a10-meal-edit-en.jpg"
+      }
+    },
+    {
+      "en": "Yogurt, seeds, nuts — each line has its own numbers. Rules can flag what matters.",
+      "he": "יוגורט, זרעים, אגוזים — לכל שורה המספרים שלה. הכללים מסמנים מה חשוב.",
+      "shot": {
+        "type": "phone",
+        "file": "a10-meal-edit-bottom-en.jpg"
+      }
+    },
+    {
+      "en": "Edit any item. Set the grams with the slider.",
+      "he": "עורכים פריט. מגדירים גרמים עם הסליידר.",
+      "shot": {
+        "type": "phone",
+        "file": "a10-meal-grams-39g.jpg"
+      }
+    },
+    {
+      "en": "Slide up — calories and macros recalculate with you.",
+      "he": "מושכים למעלה — קלוריות ומאקרו מתעדכנים איתכם.",
+      "shot": {
+        "type": "phone",
+        "file": "a10-meal-grams-slider.mp4"
+      }
+    },
+    {
+      "en": "Slide down — same food, honest portions.",
+      "he": "מושכים למטה — אותו אוכל, מנות אמיתיות.",
+      "shot": {
+        "type": "phone",
+        "file": "a10-meal-grams-5g.jpg"
+      }
+    },
+    {
+      "en": "Back to the meal total. Save when it looks right.",
+      "he": "חוזרים לסך הארוחה. שומרים כשזה נראה נכון.",
+      "shot": {
+        "type": "phone",
+        "file": "a10-meal-edit-bottom-en.jpg"
+      }
+    },
+    {
+      "en": "Food Log that scales with every bite. Healthings.",
+      "he": "יומן אוכל שמתאים לכל ביס. Healthings.",
+      "shot": {
+        "type": "phone",
+        "file": "a10-food-strip-summary.jpg"
+      }
+    }
+  ]
+}
