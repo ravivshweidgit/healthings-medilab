@@ -16,7 +16,8 @@ Seven finished films render end-to-end from a spec. Exports are numbered:
 | 008 | `assets/exports/008-meal-logging/` | `08-meal-logging-en-subhe-9x16.mp4` |
 | 009 | `assets/exports/009-meal-entry/` | `09-meal-entry-en-subhe-9x16.mp4` |
 
-English voice (ElevenLabs Daniel), burned Hebrew subtitles, branded phone frame,
+English voice (ElevenLabs **Matilda**), burned Hebrew subtitles, branded phone frame,
+Max Oazo **instrumental** bed ducked under VO, **steady** picture (no Ken Burns),
 open/end cards, -14 LUFS, `.srt` / `.vtt` sidecars.
 
 **Reel series** posts as 01 → 02 → 03 → 04 (Clinic → Rules → Gear → App+AI), then
@@ -41,10 +42,13 @@ Both website-branded films (05/06) carry the **website's design system** — see
 | VO language | English — Hebrew ElevenLabs pass was rejected |
 | Subtitles | Hebrew, burned (most FB views are muted) |
 | Founder 13-day POC | Post text only, never in the film |
-| Voice | Daniel `onwK4e9ZLuTAKqWW03F9` |
+| Voice | **Matilda** `XrExE9yKIg1WjnnlVkGX` (locked to Activity YouTube cut) |
+| Music bed | `assets/audio/music/gym-max-oazo-bed-novocals.mp3` @ `--music-level 0.18` |
+| Picture | Steady film — `--motion 1.0` (no Ken Burns on UI) |
 | Palette / type | `website/tokens.css` + Montserrat — never a video-only palette |
 | Transitions | `xfade` dissolves centred on the VO word boundary |
 | Export layout | One numbered directory per film (`001` …) |
+| Agent rule | `.cursor/rules/explainer-video-pipeline.mdc` |
 
 ## Editing a film
 

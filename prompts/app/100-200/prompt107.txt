@@ -20,7 +20,7 @@ Surface a small catalog of **hosted** explainer videos inside the app — option
 - Do **not** embed large video files in the APK / IPA
 - Do **not** replace What’s next primary CTAs with video (actions stay first)
 - Do **not** build a full in-app Netflix / course system
-- Do **not** require new Hebrew VO — ship existing EN VO + HE burned subs (same as FB exports) until a later locale pass
+- Do **not** require new Hebrew VO — ship EN VO (**Matilda**) + HE burned subs + Max Oazo instrumental bed, steady picture (see `.cursor/rules/explainer-video-pipeline.mdc`) until a later locale pass
 - Do **not** block prompt106 B/C micro-polish; this can ship after or in parallel as its own batch
 
 ---
@@ -86,8 +86,19 @@ Defer reel series 01/02/04 (clinic/rules/coach) unless Help “Learn more” wan
 
 - UI chrome: `appLocale` catalogs (`*Copy.ts`); speak-like-a-person; no Latin mid-RTL in running prose
 - Always-English glossary on video stays (kcal, CGM, Withings…) — language-policy
-- Video asset itself: current EN+HE-subs cut for all locales in v1; document that full dubbed locales are deferred
 - Titles/descriptions in all 10 `SUPPORTED_LANGUAGES`
+
+### Locale / VO ladder (locked 2026-08-08 — clarity + ship speed)
+
+| Priority | Ship | Rationale |
+|----------|------|-----------|
+| **v1** | EN Matilda VO + HE burned subs on every clip | FB / IL social + master; picture once |
+| **v1.1 VO** | **FR + DE spoken** Matilda on **`phone-health` + `cgm-pipeline` only** | Permission literacy fails if users only skim EN while reading subs |
+| **Deferred** | FR/DE VO on meal/activity; any VO for es/pt/it/ar/ru/tr | Until a market pull; catalog titles still localize |
+| **Never (default)** | Hebrew **spoken** VO | Prior quality fail — HE stays burned on EN |
+| **In-app** | Open `appLocale` watch URL when file exists; else EN master | Don’t block Quick Start on missing FR/DE |
+
+Subtitle look: **outline only** (no 0.3 full-width band). Mix rule: `.cursor/rules/explainer-video-pipeline.mdc`.
 
 ### Persistence
 
@@ -131,10 +142,11 @@ Defer reel series 01/02/04 (clinic/rules/coach) unless Help “Learn more” wan
 
 ## Produce next (owner priority — 2026-08-08)
 
-1. Script + render **`phone-health`** (storyboard 10) — Watch No path  
-2. Script + render **`cgm-pipeline`** (storyboard 11) — CareSens / xDrip live vs end-of-day  
-3. Host under `healthings.ai` + wire Quick Start secondary Watch + Help list  
-4. Only then consider a “why Withings?” brand film (likely still unnecessary)
+1. Script + render **`phone-health`** + **`cgm-pipeline`** EN masters (Matilda + HE burns + instrumental + steady)  
+2. Host + wire Help / Quick Start Watch (EN; `appLocale` fallback)  
+3. Translate + render **FR + DE VO** for those two permission films only  
+4. Habit-clip FR/DE VO and other locales — only after watch analytics / clinic ask  
+5. “Why Withings?” brand film — only if No-first copy + tip still fail
 
 ## Deferred
 

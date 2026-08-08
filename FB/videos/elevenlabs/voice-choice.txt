@@ -1,15 +1,17 @@
 # Voice choice — Healthings explainers
-# Fill after listening to assets/audio/auditions/
+# Locked to the Activity YouTube (clip 07) social cut.
 
-# English (same as Tanzania safari hero)
-SELECTED_EN: Daniel | onwK4e9ZLuTAKqWW03F9 | British | Steady broadcaster
+# English — Matilda (XrExE9yKIg1WjnnlVkGX)
+SELECTED_EN: Matilda | XrExE9yKIg1WjnnlVkGX | Premade | Clear explainer (locked 2026-08)
 
 # Hebrew — parked (owner: HE VO quality bad; English-only for explainers)
 SELECTED_HE: SKIP | — | not using HE VO
 
-# Audition slate (edit IDs before running gen_auditions.py)
-# Daniel | onwK4e9ZLuTAKqWW03F9
-# Bill   | pqHfZKP75CvOlQylNhV4
-# Brian  | nPczCjzI2devNBz1zQrb
-# George | JBFqnCBsd6RMkjVDRZzb
-# Add Hebrew / multilingual candidates from your ElevenLabs library
+# Aliases in _tts.py (for --voice overrides / A/B only)
+# matilda | XrExE9yKIg1WjnnlVkGX   ← default
+# daniel  | onwK4e9ZLuTAKqWW03F9   ← legacy
+# sarah   | EXAVITQu4vr4xnSDxMaL
+# rachel  | 21m00Tcm4TlvDq8ikWAM
+# charlotte | XB0fDUnXU5powFXDhCwa
+# lily    | pFZP5JQG7iQjIQuC4Bku
+# alice   | Xb7hH8MSUJpSbSDYk0k2

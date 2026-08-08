@@ -1,0 +1,88 @@
+---
+description: Explainer film defaults — Matilda VO, Max Oazo instrumental bed, steady (no Ken Burns).
+globs: FB/videos/**/*,prompts/app/100-200/prompt107.txt
+alwaysApply: false
+---
+
+# Explainer video pipeline (locked mix)
+
+New Healthings explainers (prompt107, phone-health, CGM, habit clips) match the **Activity
+YouTube** cut — same voice, same instrumental bed, steady picture. Do not re-audition voices
+or invent a new music bed unless the owner asks.
+
+## Locked defaults
+
+| Knob | Value |
+|------|--------|
+| VO | ElevenLabs **Matilda** — alias `matilda`, id `XrExE9yKIg1WjnnlVkGX` |
+| Subs (social default) | Hebrew burned on EN VO (`subs_lang: he`) |
+| Sub look | **Outline only** (navy fill + thick white edge) — no 0.3 full-width band |
+| Music bed | `FB/videos/assets/audio/music/gym-max-oazo-bed-novocals.mp3` (instrumental) |
+| Bed level | `--music-level 0.18` (pre-duck); sidechain duck keeps VO on top |
+| Picture | **Steady film** — `--motion 1.0` (default). No Ken Burns / zoompan on UI stills |
+| Loudness | `-14` LUFS via `render_clip.py` loudnorm |
+| Aspect | `9x16` primary |
+
+## Locale ladder (product — clarity over completeness)
+
+Ship speed and first-session clarity beat “10 dubbed Netflix catalogs.”
+
+| Tier | What | When |
+|------|------|------|
+| **0 — Master** | EN Matilda VO + HE burned subs + instrumental + steady | Every new clip before anything else |
+| **1 — Permission literacy** | **FR + DE spoken VO** (Matilda multilingual) for `phone-health` + `cgm-pipeline` only | After EN masters exist — Europe clinic / setup confusion |
+| **2 — Habit clips** | FR/DE VO for meal / activity only if Tier 1 proved watch time | Optional |
+| **HE spoken VO** | **Do not** — HE burned on EN only (prior HE VO quality fail) | Reopen only with a Hebrew-native audition win |
+| **Other app locales** (es, pt, it, ar, ru, tr) | Catalog titles localized; video stays EN (+ HE burns on social) | No dubbed VO until a named market pull |
+
+**In-app Watch URL:** prefer `appLocale` cut when hosted (`…/fr/watch/phone-health`); else fall back to EN master. Never block setup on a missing locale file.
+
+**Why FR/DE VO (not subs-only) for permission films:** write→read / xDrip / Health Connect is easy to miss while reading burned lines over English speech. Spoken local language wins clarity; meal how-tos can stay EN+subs longer.
+
+The vocal bed `gym-max-oazo-bed.mp3` is legacy A/B only — **prefer `-novocals`** so Matilda
+does not fight sung lyrics.
+
+## Canonical render
+
+```powershell
+python FB/videos/elevenlabs/gen_clip_vo.py --clip <id> --voice matilda --tag matilda --force
+python FB/videos/production/render_clip.py --clip <id> `
+  --vo-tag matilda `
+  --music FB/videos/assets/audio/music/gym-max-oazo-bed-novocals.mp3 `
+  --music-level 0.18
+  # --motion 1.0 is already the default — omit unless overriding
+```
+
+Primary export: copy/rename the `-matilda` cut to the untagged `…-en-subhe-9x16.mp4` when the
+owner accepts it (same pattern as clip 07).
+
+## Steady film — what it means
+
+- Still phone UI stays **sharp and locked** (`motion <= 1.0`)
+- Screencap / B-roll video may move on its own; do **not** add zoompan on top
+- Soft push (`--motion 1.06`) only if the owner asks for a living-still beat
+
+## Don't
+
+- Default new clips to Daniel / Sarah / other audition voices
+- Render without `--music` when shipping a social cut (bed is part of the brand mix now)
+- Use the vocal Max Oazo bed as the default
+- Re-enable Ken Burns “to make it feel alive” without an explicit ask
+- Full-width low-opacity subtitle bands (0.3) — outline only unless a still fails readability
+- Dub all 10 app locales before EN masters + FR/DE permission VO
+- Reopen Hebrew spoken VO without a native-voice audition win
+- Embed mp4s in the app APK (prompt107 — URLs only)
+
+## Checklist
+
+- [ ] VO generated with `--voice matilda --tag matilda`?
+- [ ] Render uses `-novocals` bed at `0.18`?
+- [ ] Motion left at `1.0` (steady) unless owner requested otherwise?
+- [ ] `voice-choice.txt` still lists Matilda as `SELECTED_EN`?
+
+## Reference
+
+- Precedent: `FB/videos/assets/exports/003-activity-youtube/`
+- Bed notes: `FB/videos/assets/audio/music/README.md`
+- Voice aliases: `FB/videos/elevenlabs/_tts.py` (`matilda`)
+- Spec / placement: `prompts/app/100-200/prompt107.txt`

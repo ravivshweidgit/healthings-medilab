@@ -7,7 +7,7 @@
     "use_speaker_boost": true
   },
   "eq_ffmpeg": "highpass=f=120,lowshelf=f=200:g=-6,equalizer=f=250:t=q:w=1.2:g=-4,equalizer=f=3500:t=q:w=1:g=4,treble=g=3:f=9000,acompressor=threshold=-18dB:ratio=3:attack=8:release=120",
-  "voices_en_default": "onwK4e9ZLuTAKqWW03F9",
+  "voices_en_default": "XrExE9yKIg1WjnnlVkGX",
   "audition_voice_ids": [
     "onwK4e9ZLuTAKqWW03F9",
     "pqHfZKP75CvOlQylNhV4",
@@ -20,5 +20,5 @@
     "nPczCjzI2devNBz1zQrb": "Brian",
     "JBFqnCBsd6RMkjVDRZzb": "George"
   },
-  "notes": "Mirror of home-hero-video safari VO settings. Add Hebrew voice IDs from ElevenLabs UI into audition_voice_ids."
+  "notes": "EN default locked to Matilda (Activity YouTube cut). Hebrew VO parked — burned HE subs only."
 }
