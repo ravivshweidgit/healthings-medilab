@@ -50,6 +50,7 @@ import { RulesStrip } from '../components/RulesStrip';
 import { NutritionDirectivesStrip } from '../components/NutritionDirectivesStrip';
 import { LabResultsStrip } from '../components/LabResultsStrip';
 import { WelcomeQuickStartWizard } from '../components/WelcomeQuickStartWizard';
+import { WhatsNextCard } from '../components/WhatsNextCard';
 import { Check, X } from 'lucide-react-native';
 import { CgmDevicesMark, WithingsDevicesMark } from '../components/GearIllustrations';
 import { MacroTargetStrip } from '../components/MacroTargetStrip';
@@ -133,6 +134,7 @@ import {
   formatRelativeAgoLocalized,
   getMetabolicStripCopy,
 } from '../i18n/metabolicStripCopy';
+import { getWhatsNextCopy, WHATS_NEXT_DISMISSED_KEY } from '../i18n/whatsNextCopy';
 import { metabolicChartHeader } from '../logic/sourceConfigLabels';
 import { awsDataService } from '../services/AwsDataService';
 import {
@@ -144,6 +146,7 @@ import {
 import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getRecentMeals, getDailyMacros, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
 import {
   defaultActivityTimestampForDay,
+  getActivitiesForDay,
   getAllActivityKcalByDay,
   type ActivityEntry,
 } from '../services/ActivityLogService';
@@ -459,6 +462,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     setChartMeals(recent);
   }, []);
 
+  const loadTodayActivityCount = useCallback(async () => {
+    const list = await getActivitiesForDay(foodLogDayKey(Date.now()));
+    setTodayActivityCount(list.length);
+  }, []);
+
   const [profileExpanded, setProfileExpanded] = useState(false);
   const [languageExpanded, setLanguageExpanded] = useState(false);
   const [unitsExpanded, setUnitsExpanded] = useState(false);
@@ -467,6 +475,9 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   /** Activity Log strip on dashboard — Profile → Appearance Yes/No. */
   const [activityLogVisible, setActivityLogVisible] = useState(true);
   const [quickStartVisible, setQuickStartVisible] = useState(false);
+  /** prompt106 — hide What’s next until Later, or after first meal/activity today. */
+  const [whatsNextDismissed, setWhatsNextDismissed] = useState(false);
+  const [todayActivityCount, setTodayActivityCount] = useState(0);
   const [manualTrendDays, setManualTrendDays] = useState<MetabolicTrend7dDay[]>([]);
   const [manualTrendLoading, setManualTrendLoading] = useState(false);
   const [manualWeighInDayCount, setManualWeighInDayCount] = useState(0);
@@ -688,7 +699,25 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
   useEffect(() => {
     void getAllActivityKcalByDay().then(setManualActivityByDay);
-  }, [activityRefreshKey]);
+    void loadTodayActivityCount();
+  }, [activityRefreshKey, loadTodayActivityCount]);
+
+  useEffect(() => {
+    void AsyncStorage.getItem(WHATS_NEXT_DISMISSED_KEY).then((v) => {
+      if (v === '1') setWhatsNextDismissed(true);
+    });
+  }, []);
+
+  const dismissWhatsNext = useCallback(() => {
+    setWhatsNextDismissed(true);
+    void AsyncStorage.setItem(WHATS_NEXT_DISMISSED_KEY, '1');
+  }, []);
+
+  const showWhatsNext =
+    !quickStartVisible &&
+    !whatsNextDismissed &&
+    todayFoodEntries.length === 0 &&
+    todayActivityCount === 0;
 
   /** prompt105: expired session must never leave Quick Start open. */
   useEffect(() => {
@@ -1004,6 +1033,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   );
   const yourSetupCopy = useMemo(
     () => getYourSetupCopy(userLanguage.code),
+    [userLanguage.code],
+  );
+  const whatsNextCopy = useMemo(
+    () => getWhatsNextCopy(userLanguage.code),
     [userLanguage.code],
   );
 
@@ -2380,9 +2413,40 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
             </>
           ) : !bodyScanLoading && !displayBodyScan && !bodyScanError ? (
-            <Text style={styles.bodyScanEmpty}>No body scan data yet.</Text>
+            <View style={styles.bodyScanEmptyWrap}>
+              <Text style={styles.bodyScanEmpty}>{whatsNextCopy.emptyBodyScan}</Text>
+              <Pressable
+                onPress={() => {
+                  setProfileExpanded(true);
+                  setGearExpanded(true);
+                }}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={whatsNextCopy.openYourSetup}
+              >
+                <Text style={styles.bodyScanEmptyAction}>{whatsNextCopy.openYourSetup}</Text>
+              </Pressable>
+            </View>
           ) : null}
         </View>
+
+        {showWhatsNext ? (
+          <WhatsNextCard
+            langCode={userLanguage.code}
+            showActivity={activityLogVisible}
+            onLogMeal={() => {
+              setFoodEditEntry(undefined);
+              setFoodInitialTimestamp(defaultMealTimestampForDay(todayDayKey));
+              setFoodModalVisible(true);
+            }}
+            onAddActivity={() => {
+              setActivityEditEntry(undefined);
+              setActivityInitialTimestamp(defaultActivityTimestampForDay(todayDayKey));
+              setActivityModalVisible(true);
+            }}
+            onDismiss={dismissWhatsNext}
+          />
+        ) : null}
 
         {/* Food log — above charts so users find it without scrolling past glucose/trend */}
         <FoodMacroStrip
@@ -3463,10 +3527,19 @@ const makeStyles = (c: ThemeColors, isDark: boolean) => {
     textAlign: 'right',
     flexShrink: 0,
   },
+  bodyScanEmptyWrap: {
+    marginTop: 4,
+    gap: 6,
+  },
   bodyScanEmpty: {
     fontSize: 14,
     color: c.textSecondary,
-    marginTop: 4,
+    lineHeight: 20,
+  },
+  bodyScanEmptyAction: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: c.accentBlue,
   },
   /** Same horizontal gutter as surface cards (scroll padding + card inner padding). */
   chartBleed: {

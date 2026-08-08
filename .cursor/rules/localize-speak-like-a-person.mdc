@@ -1,0 +1,37 @@
+---
+description: Localize UI as a person speaking that language — not English grammar in translation
+alwaysApply: true
+---
+
+# Localize — speak like a person
+
+When writing or editing `appLocale` / `clinicLocale` strings (`app/src/i18n/*Copy.ts`, portal catalogs, wizard copy):
+
+## Do
+
+- Keep **intent**, change **rhythm**. Same job as English; natural phrasing for that language.
+- Prefer short UI beats: **action + short payoff** (especially Hebrew/Arabic).
+- Match existing catalog labels for the same action (`logMeal`, `addActivity`, Your setup titles) — don’t invent a parallel verb.
+- For RTL (he/ar): write **plain local prose**. Prefer “חיישן סוכר” / “האפליקציה” over mid-sentence Latin when a clear local word exists.
+
+## Don’t
+
+- Don’t translate English **word order** (“From this habit, the rest of the app starts working for you” → awkward Hebrew).
+- Don’t pack product thesis into one abstract sentence. CTA copy is not a press release.
+- Don’t mix Latin brand/acronyms mid-RTL sentence when it hurts reading (RTL/LTR flicker). Glossary English still belongs on **dedicated labels** and always-English tokens per `language-policy.mdc` (units, slash commands, device rows) — not sprinkled into running Hebrew prose.
+
+## Hebrew smell test
+
+If it sounds like translated English, rewrite.
+
+```
+❌ מההרגל הזה שאר האפליקציה מתחילה לעבוד בשבילכם
+✅ תעדו ארוחה אחת או פעילות אחת — ומשם הכול מתחבר
+```
+
+## Checklist
+
+- [ ] Would a native speaker say this on a phone button / tip card?
+- [ ] Same CTA verb as Food Log / Activity / Your setup where applicable?
+- [ ] RTL strings free of unnecessary Latin mid-sentence?
+- [ ] Glossary English only where language-policy requires it?

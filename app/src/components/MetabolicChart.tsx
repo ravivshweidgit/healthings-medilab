@@ -14,6 +14,7 @@ import { curveMonotoneX, line } from 'd3-shape';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { formatLocalizedDate, formatLocalizedTime } from '../i18n/dateLocale';
 import { getMetabolicStripCopy, viewportPresetLabel, type ViewportPresetId } from '../i18n/metabolicStripCopy';
+import { getWhatsNextCopy } from '../i18n/whatsNextCopy';
 import type { ActivityZone } from '../logic/MetabolicLogic';
 import type { WithingsCaloriePoint, WorkoutSession } from '../services/WithingsApiService';
 import type { FoodEntry } from '../services/FoodLogService';
@@ -554,6 +555,7 @@ export function MetabolicChart({
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const stripCopy = useMemo(() => getMetabolicStripCopy(langCode), [langCode]);
+  const emptyCopy = useMemo(() => getWhatsNextCopy(langCode), [langCode]);
   const { width: windowW } = useWindowDimensions();
   const [viewportPresetIndex, setViewportPresetIndex] = useState(DEFAULT_VIEWPORT_PRESET_INDEX);
   /** 7 days vs Full store. Orthogonal to 1H…16D zoom. */
@@ -1171,7 +1173,10 @@ export function MetabolicChart({
   if (!prepared) {
     return (
       <View style={[styles.empty, { minHeight: CHART_PLOT_HEIGHT }]}>
-        <Text style={styles.emptyText}>Your trends will appear after you refresh.</Text>
+        <Text style={styles.emptyText}>{emptyCopy.emptyTrends}</Text>
+        <Text style={[styles.emptyText, { marginTop: 8, opacity: 0.85 }]}>
+          {emptyCopy.refreshHint}
+        </Text>
       </View>
     );
   }

@@ -1,9 +1,10 @@
 # prompt106 — UX / polish / retention (close Nutrisense gap)
 
-**Status:** backlog (draft 2026-08-08)  
+**Status:** Phase A CTA slice phone-tested (2026-08-08) — B/C + setup-step trim still open  
 **Test order:** Samsung Android first (`bi`) → iOS later (`bi-os`)  
 **Builds on:** prompt105 (perf logs — use for polish before/after), Quick Start / `GearSetupStrip`, Food Log, Activity Log (prompt104), `metabolicStripCopy` / language policy  
-**Positioning:** [investor-pov/COMPETITOR-SCORES.md](../../../investor-pov/COMPETITOR-SCORES.md) — Healthings.AI **UX / polish / retention ≈ 52** vs Nutrisense **≈ 88**
+**Positioning:** [investor-pov/COMPETITOR-SCORES.md](../../../investor-pov/COMPETITOR-SCORES.md) — Healthings.AI **UX / polish / retention ≈ 52** vs Nutrisense **≈ 88**  
+**Shipped (A slice):** `WhatsNextCard` + `whatsNextCopy` (10 locales); empty body-scan + glucose chart calm copy; dismiss key `healthings:whatsNextDismissed_v1`; localize rule `.cursor/rules/localize-speak-like-a-person.mdc`
 
 ## Problem
 
@@ -53,8 +54,8 @@ New or re-onboarded ICP user reaches: **CGM readable + scale linked (or explicit
 
 - [ ] Document current happy-path step count (phone) before changes
 - [ ] Cut or merge redundant setup steps where safe (no broken Withings/CGM gates)
-- [ ] After setup: one visible next action (e.g. “Log meal” or “Add activity”) — not a wall of collapsed strips
-- [ ] Empty glucose / no-Withings states use localized calm copy + recovery action
+- [x] After setup: one visible next action (e.g. “Log meal” or “Add activity”) — not a wall of collapsed strips (`WhatsNextCard`, Samsung `bi` 2026-08-08)
+- [x] Empty glucose / no-body-scan states use localized calm copy + recovery action (Your setup / refresh hint)
 - [ ] Samsung `bi` walkthrough timed; note duration in done spec
 
 ---
@@ -141,13 +142,13 @@ Exact file list finalized when phase A/B scope is locked on phone.
 
 ## Phone checklist (v1 = Phase A + at least one of B/C)
 
-- [ ] Fresh-ish setup path feels shorter; next CTA obvious
+- [x] Fresh-ish setup path feels shorter; next CTA obvious (What’s next card — owner LGTM)
 - [ ] Meal log path fewer taps or clearly faster
 - [ ] YouTube activity path fewer taps or clearly faster
-- [ ] No dead-end empty/sync states on happy path
-- [ ] HE (or second language) strings OK on touched UI
+- [x] No dead-end empty/sync states on happy path (touched empties — body scan / chart)
+- [x] HE (or second language) strings OK on touched UI (owner reviewed Hebrew)
 - [ ] Perf log: no new strip/chart WARN pattern vs prompt105 baseline
-- [ ] Owner: “feels closer to packaged-app calm” (subjective gate)
+- [x] Owner: “feels closer to packaged-app calm” (subjective gate) — What’s next LGTM
 
 ## Deferred
 
