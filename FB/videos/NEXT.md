@@ -15,8 +15,31 @@ Seven finished films render end-to-end from a spec. Exports are numbered:
 | 007 | `assets/exports/007-ai-coach/` | `04-ai-coach-en-subhe-9x16.mp4` (~27s) |
 | 008 | `assets/exports/008-meal-logging/` | `08-meal-logging-en-subhe-9x16.mp4` |
 | 009 | `assets/exports/009-meal-entry/` | `09-meal-entry-en-subhe-9x16.mp4` |
+| 010 | `assets/exports/010-phone-health/` | `10-phone-health-en-subhe-9x16.mp4` (~31s) |
+| 011 | `assets/exports/011-cgm-pipeline/` | `11-cgm-pipeline-en-subhe-9x16.mp4` (~41s) |
+| 012 | `assets/exports/012-scale-trends/` | `12-scale-trends-en-subhe-9x16.mp4` (~31s) |
+| 013 | `assets/exports/013-scale-choice/` | `13-scale-choice-en-subhe-9x16.mp4` (~27s) |
 
-English voice (ElevenLabs **Matilda**), burned Hebrew subtitles, branded phone frame,
+**German catalog (Tier 1 full):** Matilda spoken **DE** + **burned DE subs** (`*-de-subde-9x16.mp4`) for films 01–12 — same-language captions for hearing accessibility. EN masters keep HE burns.
+
+**French (permission only):** `*-fr-subfr-9x16.mp4` for clips 10 + 11. Other app locales — no spoken VO until a named market pull.
+
+| # | DE export |
+|---|-----------|
+| 001–009 | `0NN-…/<id>-de-subde-9x16.mp4` |
+| 010 | `10-phone-health-de-subde-9x16.mp4` (+ `…-fr-subfr-…`) |
+| 011 | `11-cgm-pipeline-de-subde-9x16.mp4` (+ `…-fr-subfr-…`) |
+| 012 | `12-scale-trends-de-subde-9x16.mp4` |
+| 013 | `13-scale-choice-de-subde-9x16.mp4` |
+
+```powershell
+python FB/videos/elevenlabs/gen_clip_vo.py --clip 10-phone-health --lang de --force
+# Native VO burns same-language subs by default (do not pass --no-subs)
+python FB/videos/production/render_clip.py --clip 10-phone-health --vo-lang de `
+  --music FB/videos/assets/audio/music/gym-max-oazo-bed-novocals.mp3 --music-level 0.18
+```
+
+English voice (ElevenLabs **Matilda**, except **06** Daniel / “David BBC”), burned Hebrew subtitles, branded phone frame,
 Max Oazo **instrumental** bed ducked under VO, **steady** picture (no Ken Burns),
 open/end cards, -14 LUFS, `.srt` / `.vtt` sidecars.
 
@@ -39,10 +62,11 @@ Both website-branded films (05/06) carry the **website's design system** — see
 
 | Question | Answer |
 |----------|--------|
-| VO language | English — Hebrew ElevenLabs pass was rejected |
-| Subtitles | Hebrew, burned (most FB views are muted) |
+| VO language | English master; DE catalog spoken; FR spoken on permission films only |
+| Subtitles | EN masters → HE burned (muted social). Native VO → **same language burned** (DE/FR) for hearing access |
+| Hebrew spoken VO | Rejected — HE burned on EN only |
 | Founder 13-day POC | Post text only, never in the film |
-| Voice | **Matilda** `XrExE9yKIg1WjnnlVkGX` (locked to Activity YouTube cut) |
+| Voice | **Matilda** default; **exception:** `06-what-is-healthings` EN = **Daniel** (“David BBC”) `onwK4e9ZLuTAKqWW03F9`. Remastered to Matilda: gear, meal-entry, meal-grams (2026-08-08). Still Daniel until remaster: clinic/rules/coach/closed-loop/activity-youtube |
 | Music bed | `assets/audio/music/gym-max-oazo-bed-novocals.mp3` @ `--music-level 0.18` |
 | Picture | Steady film — `--motion 1.0` (no Ken Burns on UI) |
 | Palette / type | `website/tokens.css` + Montserrat — never a video-only palette |
@@ -71,7 +95,10 @@ cut with no burned subtitles: `website/videos/how-it-works.mp4`.
 - Clinic-portal worklist + Rules tab (upgrade 01/02 beyond lab-import)
 - Square 1:1 variant for feed
 - Music bed (licensed) — `--music` already ducks under VO
-- **In-app Watch** — host exports for prompt107; Quick Start optional link to clip **03-gear** after No-first copy. Do **not** shoot a new “why Withings?” until phone still confuses after that.
-- **Produce (prompt107 v1.1)** — storyboards ready:
-  - [`10-phone-health.md`](./storyboards/10-phone-health.md) — Watch No: wearable **writes** → HC / Apple Health → Healthings **reads**
-  - [`11-cgm-pipeline.md`](./storyboards/11-cgm-pipeline.md) — CareSens live needs **xDrip+ → HC**; without it, Samsung Health–style **end-of-day** write is not live CGM
+- **In-app Watch** — Quick Start: welcome `what-is-healthings` (Daniel exception only); scale `scale-choice`; **watch Yes/No → `phone-health`** (Matilda — never gear/Daniel); CGM/phone-health/meals. `scale-trends` = Help payoff only.
+- **`scale-choice` (013)** — QS scale Yes/No routing (“No is fine” / cloud not Bluetooth).
+- **`scale-trends` (012)** — composition → Trend & Energy → BMR; Help catalog; live still `a2-trend-energy.jpg`.
+- **Locale catalog + host (2026-08-08)** — full DE (`*-de-subde`) for 01–12; FR (`*-fr-subfr`) for permission 10–11.
+  - Publish: `python FB/videos/production/publish_explainers.py` → `website/videos/{en,de,fr}/` + `/{loc}/watch/{id}.html`
+  - App: `explainerWatchUrl` + Help strip Watch list + Quick Start Watch on scale/watch/CGM/phone-health/meals
+  - Deploy: publish on the deploy machine, then `bash server/scripts/deploy-website.sh` (mp4s gitignored)

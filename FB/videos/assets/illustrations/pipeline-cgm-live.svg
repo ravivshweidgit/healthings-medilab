@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920">
+  <title>CareSens live CGM chain</title>
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#B8DAF0"/>
+      <stop offset="0.14" stop-color="#D6EBF8"/>
+      <stop offset="0.32" stop-color="#F0F4F8"/>
+      <stop offset="1" stop-color="#F0F4F8"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-20%" y="-30%" width="140%" height="180%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#1A2B4A" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+  <rect width="1080" height="1920" fill="url(#page)"/>
+  <g font-family="Montserrat" text-anchor="middle">
+    <text x="540" y="128" fill="#1A2B4A" font-size="34" font-weight="700" letter-spacing="1.4">HEALTHINGS.AI</text>
+    <rect x="320" y="168" width="440" height="42" rx="21" fill="#E8F5E9" stroke="#43A047" stroke-opacity="0.4" stroke-width="2"/>
+    <text x="540" y="196" fill="#1A2B4A" font-size="18" font-weight="700" letter-spacing="2">LIVE CGM - ANDROID</text>
+  </g>
+  <g font-family="Montserrat" text-anchor="middle">
+    <g filter="url(#cardShadow)">
+      <rect x="190" y="360" width="700" height="140" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+      <rect x="190" y="560" width="700" height="140" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+      <rect x="190" y="760" width="700" height="140" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+      <rect x="190" y="960" width="700" height="140" rx="20" fill="#FFFFFF" stroke="#3D9DD6" stroke-width="3"/>
+    </g>
+    <text x="540" y="420" fill="#1A2B4A" font-size="36" font-weight="700">CareSens</text>
+    <text x="540" y="460" fill="#5C6B7A" font-size="22" font-weight="500">sensor on the arm</text>
+    <text x="540" y="540" fill="#1A2B4A" font-size="40" font-weight="700">&#8595;</text>
+    <text x="540" y="620" fill="#1A2B4A" font-size="36" font-weight="700">xDrip+</text>
+    <text x="540" y="660" fill="#5C6B7A" font-size="22" font-weight="500">writes continuous values</text>
+    <text x="540" y="740" fill="#1A2B4A" font-size="40" font-weight="700">&#8595;</text>
+    <text x="540" y="820" fill="#1A2B4A" font-size="36" font-weight="700">Health Connect</text>
+    <text x="540" y="860" fill="#5C6B7A" font-size="22" font-weight="500">phone glucose store</text>
+    <text x="540" y="940" fill="#1A2B4A" font-size="40" font-weight="700">&#8595;</text>
+    <text x="540" y="1020" fill="#1A2B4A" font-size="36" font-weight="700">Healthings</text>
+    <text x="540" y="1060" fill="#3D9DD6" font-size="22" font-weight="700">reads / charts / coaches</text>
+  </g>
+  <g font-family="Montserrat" text-anchor="middle" filter="url(#cardShadow)">
+    <rect x="140" y="1280" width="800" height="220" rx="24" fill="#FFF8E1" stroke="#F9A825" stroke-width="2"/>
+    <text x="540" y="1360" fill="#1A2B4A" font-size="30" font-weight="700">Without xDrip+?</text>
+    <text x="540" y="1415" fill="#5C6B7A" font-size="24" font-weight="500">Samsung Health often writes</text>
+    <text x="540" y="1460" fill="#5C6B7A" font-size="24" font-weight="500">once a day - not live</text>
+  </g>
+</svg>

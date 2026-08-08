@@ -1,0 +1,8 @@
+YouTube-Workout anschauen? Protokollieren Sie es im Activity Log.
+Erstes Beispiel — Oberkörper. Link vom Film auf dem Fernseher einfügen.
+Tippen Sie auf AI-Berechnung. Healthings setzt Minuten und Kalorien.
+Zweites Beispiel — Arme mit Hanteln.
+Last dazu — fünf Kilo.
+Gleicher Film, fünfzehn Kilo — die KI rechnet für Ihren Körper neu.
+In Favoriten speichern — Link, Last, Minuten und Kalorien bleiben für Sie.
+Danach: tippen und protokollieren. Ihr angepasstes Workout, jeden Tag bereit. Healthings.

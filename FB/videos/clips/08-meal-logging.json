@@ -12,7 +12,8 @@
       "shot": {
         "type": "phone",
         "file": "a10-food-strip-summary.jpg"
-      }
+      },
+      "de": "Food Log öffnen. Ihr Tag mit Mahlzeiten — Kalorien rein und raus."
     },
     {
       "en": "Tap a meal. Every item is listed — grams, calories, macros.",
@@ -20,7 +21,8 @@
       "shot": {
         "type": "phone",
         "file": "a10-meal-edit-en.jpg"
-      }
+      },
+      "de": "Mahlzeit antippen. Jeder Eintrag — Gramm, Kalorien, Makros."
     },
     {
       "en": "Yogurt, seeds, nuts — each line has its own numbers. Rules can flag what matters.",
@@ -28,7 +30,8 @@
       "shot": {
         "type": "phone",
         "file": "a10-meal-edit-bottom-en.jpg"
-      }
+      },
+      "de": "Joghurt, Samen, Nüsse — jede Zeile hat ihre Zahlen. Regeln markieren, was zählt."
     },
     {
       "en": "Edit any item. Set the grams with the slider.",
@@ -36,7 +39,8 @@
       "shot": {
         "type": "phone",
         "file": "a10-meal-grams-39g.jpg"
-      }
+      },
+      "de": "Eintrag bearbeiten. Gramm mit dem Schieberegler setzen."
     },
     {
       "en": "Slide up — calories and macros recalculate with you.",
@@ -44,7 +48,8 @@
       "shot": {
         "type": "phone",
         "file": "a10-meal-grams-slider.mp4"
-      }
+      },
+      "de": "Nach oben schieben — Kalorien und Makros rechnen mit."
     },
     {
       "en": "Slide down — same food, honest portions.",
@@ -52,7 +57,8 @@
       "shot": {
         "type": "phone",
         "file": "a10-meal-grams-5g.jpg"
-      }
+      },
+      "de": "Nach unten — gleiches Essen, ehrliche Portionen."
     },
     {
       "en": "Back to the meal total. Save when it looks right.",
@@ -60,7 +66,8 @@
       "shot": {
         "type": "phone",
         "file": "a10-meal-edit-bottom-en.jpg"
-      }
+      },
+      "de": "Zurück zur Mahlzeit-Summe. Speichern, wenn es stimmt."
     },
     {
       "en": "Food Log that scales with every bite. Healthings.",
@@ -68,7 +75,8 @@
       "shot": {
         "type": "phone",
         "file": "a10-food-strip-summary.jpg"
-      }
+      },
+      "de": "Food Log, das mit jedem Bissen skaliert. Healthings."
     }
   ]
 }

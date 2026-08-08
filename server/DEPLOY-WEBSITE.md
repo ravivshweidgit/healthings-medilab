@@ -83,6 +83,21 @@ curl -sI https://healthings.ai/videos/how-it-works.mp4    | grep -i 'content-typ
 curl -sI https://healthings.ai/videos/how-it-works.en.vtt | grep -i content-type   # text/vtt
 ```
 
+### Prompt107 Watch explainers
+
+`python FB/videos/production/publish_explainers.py` copies catalog mp4s into `website/videos/{en,de,fr}/` (gitignored) and writes `/{loc}/watch/{id}.html` (tracked).
+
+Deploy from a machine that has run publish (rsync `--delete` would drop remote mp4s if the VPS tree lacks them). After `git pull` on the VPS, either re-run publish there from copied exports, or from the PC:
+
+```powershell
+python FB/videos/production/publish_explainers.py
+scp -r website/videos/en website/videos/de website/videos/fr healthings-api:/opt/healthings-api/website/videos/
+# then on VPS:
+bash server/scripts/deploy-website.sh
+```
+
+Verify: `https://healthings.ai/en/watch/phone-health.html` · `https://healthings.ai/videos/de/cgm-pipeline.mp4`
+
 ## Structure
 
 ```
@@ -91,7 +106,8 @@ website/
   privacy.html        Privacy policy (Play Store required)
   styles.css
   assets/             Logo, favicon
-  videos/             Explainer film + WebVTT captions + poster (in git)
+  videos/             how-it-works + en/de/fr explainers (locale mp4s gitignored)
+  {en,de,fr}/watch/   Thin Watch pages (prompt107)
   downloads/          healthings-medilab.apk (not in git)
   scripts/publish-apk.*
 app/

@@ -1,0 +1,8 @@
+Food Log öffnen. Ihr Tag mit Mahlzeiten — Kalorien rein und raus.
+Mahlzeit antippen. Jeder Eintrag — Gramm, Kalorien, Makros.
+Joghurt, Samen, Nüsse — jede Zeile hat ihre Zahlen. Regeln markieren, was zählt.
+Eintrag bearbeiten. Gramm mit dem Schieberegler setzen.
+Nach oben schieben — Kalorien und Makros rechnen mit.
+Nach unten — gleiches Essen, ehrliche Portionen.
+Zurück zur Mahlzeit-Summe. Speichern, wenn es stimmt.
+Food Log, das mit jedem Bissen skaliert. Healthings.

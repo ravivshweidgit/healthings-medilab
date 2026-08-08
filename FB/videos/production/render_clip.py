@@ -138,13 +138,13 @@ class Shot:
         return max(0.4, self.end - self.start)
 
 
-def load_alignment(spec: dict, stem: str) -> list[dict]:
-    lang = spec.get("vo_lang", "en")
+def load_alignment(spec: dict, stem: str, *, vo_lang: str | None = None) -> list[dict]:
+    lang = vo_lang or spec.get("vo_lang", "en")
     path = AUDIO / lang / f"{stem}-align.json"
     if not path.is_file():
         raise SystemExit(
             f"Missing alignment: {path}\n"
-            f"Run: python elevenlabs/gen_clip_vo.py --clip {spec['id']}"
+            f"Run: python elevenlabs/gen_clip_vo.py --clip {spec['id']} --lang {lang}"
         )
     data = json.loads(path.read_text(encoding="utf-8"))
     segs = data["segments"]
@@ -176,7 +176,13 @@ def build_shots(
     # Subtitle spans, one track per language the spec carries: hold each line
     # until the next one starts. The website needs every language as a sidecar,
     # not just the one that would have been burned in.
-    langs = [k for k in ("en", "he") if all(k in s for s in spec["segments"])]
+    # Include spoken-locale keys (de/fr/…) so native VO cuts can burn same-language
+    # subs for hearing accessibility.
+    candidate_langs = ("en", "he", "de", "fr", "es", "pt", "it", "ar", "ru", "tr")
+    langs = [
+        k for k in candidate_langs
+        if all((s.get(k) or "").strip() for s in spec["segments"])
+    ]
     subs: dict[str, list[tuple[float, float, str]]] = {k: [] for k in langs}
     for i, (start, end) in enumerate(times):
         next_start = times[i + 1][0] if i + 1 < len(times) else vo_dur
@@ -432,6 +438,16 @@ def main() -> None:
         help="Ken Burns peak zoom (1.0 = sharp locked frame; try 1.06 for a soft push). "
              "Old shaky look was ~1.10 on phone stills.",
     )
+    ap.add_argument(
+        "--vo-lang",
+        help="Override VO language folder / alignment (e.g. de). Default: spec vo_lang",
+    )
+    ap.add_argument(
+        "--subs-lang",
+        help="Burned subtitle language (e.g. de). Default: same as --vo-lang when not en; "
+             "else spec subs_lang (usually he). Use with native VO so hard-of-hearing viewers "
+             "can read in the spoken language.",
+    )
     args = ap.parse_args()
     layout = LAYOUTS[args.aspect]
 
@@ -440,18 +456,25 @@ def main() -> None:
         raise SystemExit(f"No spec: {spec_path}")
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
 
-    vo_lang = spec.get("vo_lang", "en")
-    subs_lang = spec.get("subs_lang", "he")
+    vo_lang = args.vo_lang or spec.get("vo_lang", "en")
+    if args.subs_lang:
+        subs_lang = args.subs_lang
+    elif vo_lang != "en" and all((s.get(vo_lang) or "").strip() for s in spec["segments"]):
+        # Native VO → same-language burned subs (accessibility).
+        subs_lang = vo_lang
+    else:
+        subs_lang = spec.get("subs_lang", "he")
     vo_stem = f"{spec['id']}-{args.vo_tag}" if args.vo_tag else spec["id"]
     vo = AUDIO / vo_lang / f"{vo_stem}-eq.wav"
     if not vo.is_file():
         hint = f" --tag {args.vo_tag}" if args.vo_tag else ""
         raise SystemExit(
-            f"Missing VO: {vo}\nRun: python elevenlabs/gen_clip_vo.py --clip {spec['id']}{hint}"
+            f"Missing VO: {vo}\n"
+            f"Run: python elevenlabs/gen_clip_vo.py --clip {spec['id']} --lang {vo_lang}{hint}"
         )
 
     vo_dur = probe_dur(vo)
-    segs = load_alignment(spec, vo_stem)
+    segs = load_alignment(spec, vo_stem, vo_lang=vo_lang)
     shots, subs = build_shots(spec, segs, vo_dur, layout)
     total = PREROLL + vo_dur + TAIL
 

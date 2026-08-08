@@ -1,0 +1,6 @@
+Messen Sie Zucker? Healthings zeigt, was im Gesundheits-Speicher des Telefons liegt.
+Unter Android braucht CareSens live eine Kette: CareSens, dann xDrip+, dann Health Connect, dann Healthings.
+xDrip überspringen und auf Samsung Health warten? Oft einmal am Tag — nicht live.
+Am iPhone: Blutzucker mit Apple Health teilen, dann in Healthings erlauben.
+Nach Erlaubnis und Sync wird die CGM-Zeile OK — und der Chart füllt sich.
+CSV-Import hilft bei der Historie. Live braucht weiter jemanden, der in den Speicher schreibt. Healthings.

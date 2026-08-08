@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920">
+  <title>Wearable writes - phone store - Healthings reads</title>
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#B8DAF0"/>
+      <stop offset="0.14" stop-color="#D6EBF8"/>
+      <stop offset="0.32" stop-color="#F0F4F8"/>
+      <stop offset="1" stop-color="#F0F4F8"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-20%" y="-30%" width="140%" height="180%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#1A2B4A" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+  <rect width="1080" height="1920" fill="url(#page)"/>
+  <g font-family="Montserrat" text-anchor="middle">
+    <text x="540" y="128" fill="#1A2B4A" font-size="34" font-weight="700" letter-spacing="1.4">HEALTHINGS.AI</text>
+    <rect x="300" y="168" width="480" height="42" rx="21" fill="#E8F4FC" stroke="#3D9DD6" stroke-opacity="0.35" stroke-width="2"/>
+    <text x="540" y="196" fill="#1A2B4A" font-size="18" font-weight="700" letter-spacing="1.8">WRITE - STORE - READ</text>
+  </g>
+  <g font-family="Montserrat" text-anchor="middle" filter="url(#cardShadow)">
+    <rect x="140" y="420" width="800" height="280" rx="24" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+    <text x="540" y="520" fill="#1A2B4A" font-size="40" font-weight="700">Watch app</text>
+    <text x="540" y="580" fill="#5C6B7A" font-size="26" font-weight="500">Garmin / Samsung / Apple Watch</text>
+    <text x="540" y="640" fill="#3D9DD6" font-size="28" font-weight="700">writes</text>
+  </g>
+  <text x="540" y="780" fill="#1A2B4A" font-size="48" font-weight="700" text-anchor="middle">&#8595;</text>
+  <g font-family="Montserrat" text-anchor="middle" filter="url(#cardShadow)">
+    <rect x="140" y="820" width="800" height="280" rx="24" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+    <text x="540" y="920" fill="#1A2B4A" font-size="40" font-weight="700">Phone health store</text>
+    <text x="540" y="980" fill="#5C6B7A" font-size="26" font-weight="500">Health Connect / Apple Health</text>
+    <text x="540" y="1040" fill="#5C6B7A" font-size="24" font-weight="500">one hub on the phone</text>
+  </g>
+  <text x="540" y="1180" fill="#1A2B4A" font-size="48" font-weight="700" text-anchor="middle">&#8595;</text>
+  <g font-family="Montserrat" text-anchor="middle" filter="url(#cardShadow)">
+    <rect x="140" y="1220" width="800" height="280" rx="24" fill="#FFFFFF" stroke="#3D9DD6" stroke-width="3"/>
+    <text x="540" y="1320" fill="#1A2B4A" font-size="40" font-weight="700">Healthings</text>
+    <text x="540" y="1380" fill="#5C6B7A" font-size="26" font-weight="500">asks permission to read</text>
+    <text x="540" y="1440" fill="#3D9DD6" font-size="28" font-weight="700">does not replace your watch app</text>
+  </g>
+</svg>

@@ -1,0 +1,8 @@
+Food Log öffnen. Auf Meal tippen, wenn Sie bereit sind zu protokollieren.
+Drei Wege — Kamera, Galerie, oder in einfachen Worten beschreiben.
+Foto machen oder Teller wählen. KI liest das Bild und baut die Liste.
+Oder eine Mahlzeit tippen — Proteinshake, gestriges Mittagessen — KI zerlegt Gramm und Makros.
+Per Chat korrigieren — Eintrag hinzufügen, umbenennen, oder dieselbe Hähnchen-Mahlzeit sagen.
+Schon einmal protokolliert? From past meal — Tag wählen und wiederverwenden.
+Dann Gramm feinjustieren — Makros folgen. Speichern, wenn es stimmt.
+Einmal protokollieren. Korrigieren und für immer wiederverwenden. Healthings.

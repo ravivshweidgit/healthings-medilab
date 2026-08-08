@@ -1,0 +1,8 @@
+# 10 — Phone health
+
+No Withings watch? Phone health still works.
+Your watch app writes steps and heart rate into Health Connect or Apple Health.
+Brand does not matter — Garmin, Samsung, Apple Watch.
+Healthings asks to read that store — not to replace your watch app.
+Allow once. Pull to refresh — activity shows from the phone.
+Scale can still be Withings or manual. This film is only about activity. Healthings.

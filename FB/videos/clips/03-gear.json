@@ -9,27 +9,47 @@
     {
       "en": "Scale. Watch. CGM.",
       "he": "Scale. Watch. CGM.",
-      "shot": { "type": "phone", "file": "a1-dashboard.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a1-dashboard.jpg"
+      },
+      "de": "Scale. Watch. CGM."
     },
     {
       "en": "Each measures something different — together they make one metabolic picture.",
       "he": "כל אחד מודד משהו אחר — ביחד הם נותנים תמונה מטבולית אחת.",
-      "shot": { "type": "phone", "file": "a1-dashboard.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a1-dashboard.jpg"
+      },
+      "de": "Jedes misst etwas anderes — zusammen entsteht ein metabolisches Bild."
     },
     {
       "en": "In Healthings, devices connect into one dashboard.",
       "he": "ב־Healthings המכשירים מתחברים לדשבורד אחד.",
-      "shot": { "type": "phone", "file": "a5-gear-qs3.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a5-gear-qs3.jpg"
+      },
+      "de": "In Healthings verbinden sich die Geräte zu einem Dashboard."
     },
     {
       "en": "Not three separate apps looking in different directions.",
       "he": "לא שלוש אפליקציות נפרדות שמסתכלות לכיוונים שונים.",
-      "shot": { "type": "art", "file": "loop-disconnected.png" }
+      "shot": {
+        "type": "art",
+        "file": "loop-disconnected.png"
+      },
+      "de": "Nicht drei getrennte Apps, die in verschiedene Richtungen schauen."
     },
     {
       "en": "Gear measures. The cycle connects.",
       "he": "הציוד מודד. המעגל מחבר.",
-      "shot": { "type": "art", "file": "loop-video.png" }
+      "shot": {
+        "type": "art",
+        "file": "loop-video.png"
+      },
+      "de": "Das Gear misst. Der Kreislauf verbindet."
     }
   ]
 }

@@ -1,6 +1,8 @@
 # prompt107 — In-app explainer videos (Watch how-to)
 
-**Status:** backlog (spec draft) — 2026-08-08; Quick Start copy softener shipped ahead of hosting  
+**Status:** in progress (hosting live 2026-08-08; app Watch wiring local — phone-test / commit next)  
+**Live:** `https://healthings.ai/{en|de|fr}/watch/{id}.html` + `videos/{en|de|fr}/{id}.mp4`  
+
 **Test order:** Samsung Android first (`bi`) → iOS later (`bi-os`)  
 **Builds on:** prompt106 (`WhatsNextCard`, Help strip), `WelcomeQuickStartWizard`, `helpUrls` / help site (prompt81+), FB films under `FB/videos/` (clips 01–09)  
 **Positioning:** Improves **setup ease** + **UX / polish / retention** by teaching habits inside the app (Withings-style tips), without shipping mp4s in the APK.
@@ -69,6 +71,8 @@ Surface a small catalog of **hosted** explainer videos inside the app — option
 | `meal-grams` | 08 | Adjust grams / items | Help (+ Food Log after first meal optional) |
 | `activity-youtube` | 07 | Add activity from YouTube | What’s next (if Activity on) + Help + Activity Log |
 | `gear` | 03 | Connect scale / watch / CGM (overview) | Help + optional Gear / Quick Start |
+| `scale-choice` | 13 | Withings scale Yes/No (No is fine) | Quick Start scale Watch |
+| `scale-trends` | 12 | Scale → body composition → Trend & Energy → BMR | Help payoff (not QS Yes/No) |
 | `closed-loop` | 05 or 06 | What Healthings is (loop) | Help only — not What’s next |
 
 ### Catalog (v1.1 — **produce**; setup ease / permission literacy)
@@ -77,8 +81,10 @@ These are **not** covered by clip 03. Users who tap Watch = No or CGM = Yes hit 
 
 | Id | Storyboard | Title intent | Teaching must-land | When to show / link |
 |----|------------|--------------|--------------------|---------------------|
-| `phone-health` | [`10-phone-health.md`](../../../FB/videos/storyboards/10-phone-health.md) | Phone health: who writes, who reads | Watch No → wearable apps write steps/HR into HC / Apple Health; Healthings Allow = **read**; do not confuse with Withings cloud | Quick Start phone-health step; Help `phone-health-activity`; Gear when watch off |
+| `phone-health` | [`10-phone-health.md`](../../../FB/videos/storyboards/10-phone-health.md) | Phone health: who writes, who reads | Watch No → wearable apps write steps/HR into HC / Apple Health; Healthings Allow = **read**; do not confuse with Withings cloud | Quick Start **watch Yes/No** + phone-health step; Help `phone-health-activity` |
 | `cgm-pipeline` | [`11-cgm-pipeline.md`](../../../FB/videos/storyboards/11-cgm-pipeline.md) | Live CGM vs end-of-day | Android CareSens **live** needs **xDrip+ → Health Connect**; Samsung Health (etc.) often **end of day** only; iOS = share Blood Glucose → Apple Health; CSV Import ≠ live | Quick Start CGM / phone-health; Help `cgm`; CareSens chip empty/allow states |
+| `scale-choice` | [`13-scale-choice.md`](../../../FB/videos/storyboards/13-scale-choice.md) | Withings scale — Yes or No | No is fine → enter weight; Yes → cloud composition (not Bluetooth) | Quick Start scale |
+| `scale-trends` | [`12-scale-trends.md`](../../../FB/videos/storyboards/12-scale-trends.md) | Scale, composition, energy, BMR | Body strip → Trend & Energy → BMR floor | Help only |
 
 Defer reel series 01/02/04 (clinic/rules/coach) unless Help “Learn more” wants the full story.
 
@@ -142,11 +148,14 @@ Subtitle look: **outline only** (no 0.3 full-width band). Mix rule: `.cursor/rul
 
 ## Produce next (owner priority — 2026-08-08)
 
-1. Script + render **`phone-health`** + **`cgm-pipeline`** EN masters (Matilda + HE burns + instrumental + steady)  
-2. Host + wire Help / Quick Start Watch (EN; `appLocale` fallback)  
-3. Translate + render **FR + DE VO** for those two permission films only  
-4. Habit-clip FR/DE VO and other locales — only after watch analytics / clinic ask  
-5. “Why Withings?” brand film — only if No-first copy + tip still fail
+1. [x] Script + render **`phone-health`** + **`cgm-pipeline`** EN masters (Matilda + HE burns + instrumental + steady)  
+2. [x] Host + wire Help / Quick Start Watch (EN; `appLocale` fallback)  
+3. [x] Translate + render **FR + DE VO** for those two permission films only  
+4. [x] **`scale-trends`** (012) — Help payoff; EN+HE + DE  
+5. [x] **`scale-choice`** (013) — QS scale Yes/No Watch; EN+HE + DE  
+6. Habit-clip FR/DE VO and other locales — only after watch analytics / clinic ask  
+7. [x] Live Trend & Energy still (`a2-trend-energy.jpg`) in clip 12  
+8. Longer “why Withings?” brand film — only if scale-choice + tip still fail
 
 ## Deferred
 

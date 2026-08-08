@@ -1,0 +1,6 @@
+Vous suivez le glucose ? Healthings affiche ce que le magasin santé du téléphone contient.
+Sous Android, CareSens en direct demande une chaîne : CareSens, puis xDrip+, puis Health Connect, puis Healthings.
+Sans xDrip, en attendant Samsung Health ? Souvent une fois par jour — pas en direct.
+Sur iPhone : partagez la glycémie avec Apple Health, puis autorisez dans Healthings.
+Après autorisation et sync, la ligne CGM passe à OK et le graphique se remplit.
+L’import CSV aide l’historique. Le direct a toujours besoin de quelqu’un qui écrit dans le magasin. Healthings.

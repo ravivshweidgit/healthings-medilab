@@ -34,13 +34,15 @@ def load_spec(clip_id: str) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def build_vo_text(spec: dict) -> tuple[str, list[tuple[int, int]]]:
+def build_vo_text(spec: dict, lang: str) -> tuple[str, list[tuple[int, int]]]:
     """Return joined VO text plus (start_char, end_char) per segment."""
     spans: list[tuple[int, int]] = []
     parts: list[str] = []
     cursor = 0
-    for seg in spec["segments"]:
-        text = seg["en"].strip()
+    for i, seg in enumerate(spec["segments"]):
+        text = (seg.get(lang) or seg.get("en") or "").strip()
+        if not text:
+            raise SystemExit(f"Segment {i} has no '{lang}' (or en) VO text")
         if parts:
             cursor += len(JOINER)
         parts.append(text)
@@ -82,10 +84,14 @@ def main() -> None:
         "--tag",
         help="Write side-by-side VO files as <id>-<tag>-eq.wav (keeps default Daniel take)",
     )
+    ap.add_argument(
+        "--lang",
+        help="VO language key in the clip spec (en, de, fr, …). Default: spec vo_lang",
+    )
     args = ap.parse_args()
 
     spec = load_spec(args.clip)
-    lang = spec.get("vo_lang", "en")
+    lang = args.lang or spec.get("vo_lang", "en")
     out_dir = AUDIO / lang
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -98,9 +104,16 @@ def main() -> None:
         print(f"exists (use --force to regenerate): {wav.name}")
         return
 
-    text, spans = build_vo_text(spec)
-    voice = resolve_voice_id(lang, args.voice)
-    print(f"clip={spec['id']} voice={voice} tag={args.tag or '-'} chars={len(text)} segments={len(spans)}")
+    text, spans = build_vo_text(spec, lang)
+    # Matilda (SELECTED_EN) speaks FR/DE/RU via multilingual_v2; HE stays parked.
+    # Spec `"voice"` (e.g. daniel on 06) applies to EN only — locale dubs stay Matilda.
+    voice_lang = "en" if lang != "he" else "he"
+    voice_override = args.voice or (spec.get("voice") if lang == "en" else None)
+    voice = resolve_voice_id(voice_lang, voice_override)
+    print(
+        f"clip={spec['id']} lang={lang} voice={voice} "
+        f"tag={args.tag or '-'} chars={len(text)} segments={len(spans)}"
+    )
 
     payload = tts_with_timestamps(load_api_key(), voice, text)
     raw.write_bytes(base64.b64decode(payload["audio_base64"]))
@@ -119,12 +132,21 @@ def main() -> None:
             end = float(ends[min(b, len(ends)) - 1])
         else:
             start = end = -1.0
-        segments.append({"en": seg["en"], "he": seg.get("he", ""), "start": start, "end": end})
+        row = {
+            "en": seg.get("en", ""),
+            "he": seg.get("he", ""),
+            "start": start,
+            "end": end,
+        }
+        if lang not in ("en", "he") and seg.get(lang):
+            row[lang] = seg[lang]
+        segments.append(row)
 
     align_path.write_text(
         json.dumps(
             {
                 "clip": spec["id"],
+                "vo_lang": lang,
                 "voice_id": voice,
                 "text": text,
                 "aligned": aligned,
@@ -139,7 +161,8 @@ def main() -> None:
     if aligned:
         print(f"aligned OK -> {align_path.name}")
         for s in segments:
-            print(f"  {s['start']:6.2f}-{s['end']:6.2f}  {s['en'][:52]}")
+            preview = (s.get(lang) or s.get("en") or "")[:52]
+            print(f"  {s['start']:6.2f}-{s['end']:6.2f}  {preview}")
     else:
         print("WARNING: alignment length mismatch; renderer will fall back to proportional timing")
     print(f"VO -> {wav}")

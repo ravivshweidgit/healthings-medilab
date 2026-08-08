@@ -12,7 +12,8 @@
       "shot": {
         "type": "phone",
         "file": "a9-activity-strip.jpg"
-      }
+      },
+      "de": "YouTube-Workout anschauen? Protokollieren Sie es im Activity Log."
     },
     {
       "en": "First sample — upper body. Paste the link from the film on your TV.",
@@ -20,7 +21,8 @@
       "shot": {
         "type": "broll",
         "file": "yt-upper-15s.mp4"
-      }
+      },
+      "de": "Erstes Beispiel — Oberkörper. Link vom Film auf dem Fernseher einfügen."
     },
     {
       "en": "Tap AI calc. Healthings sets your minutes and calories.",
@@ -28,7 +30,8 @@
       "shot": {
         "type": "phone",
         "file": "a9-activity-ai-noload.jpg"
-      }
+      },
+      "de": "Tippen Sie auf AI-Berechnung. Healthings setzt Minuten und Kalorien."
     },
     {
       "en": "Second sample — arms with dumbbells.",
@@ -36,7 +39,8 @@
       "shot": {
         "type": "broll",
         "file": "yt-arms-15s.mp4"
-      }
+      },
+      "de": "Zweites Beispiel — Arme mit Hanteln."
     },
     {
       "en": "Add your load — five kilos.",
@@ -44,7 +48,8 @@
       "shot": {
         "type": "phone",
         "file": "a9-activity-ai-5kg.jpg"
-      }
+      },
+      "de": "Last dazu — fünf Kilo."
     },
     {
       "en": "Same film, fifteen kilos — AI recalculates for your body.",
@@ -52,7 +57,8 @@
       "shot": {
         "type": "phone",
         "file": "a9-activity-ai-15kg.jpg"
-      }
+      },
+      "de": "Gleicher Film, fünfzehn Kilo — die KI rechnet für Ihren Körper neu."
     },
     {
       "en": "Save to favorites — link, load, minutes, and calories, kept for you.",
@@ -60,7 +66,8 @@
       "shot": {
         "type": "phone",
         "file": "a9-activity-ai-15kg.jpg"
-      }
+      },
+      "de": "In Favoriten speichern — Link, Last, Minuten und Kalorien bleiben für Sie."
     },
     {
       "en": "From then on, tap and log. Your customized workout, ready every day. Healthings.",
@@ -68,7 +75,8 @@
       "shot": {
         "type": "phone",
         "file": "a9-activity-strip.jpg"
-      }
+      },
+      "de": "Danach: tippen und protokollieren. Ihr angepasstes Workout, jeden Tag bereit. Healthings."
     }
   ]
 }

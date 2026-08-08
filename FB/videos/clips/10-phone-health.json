@@ -1,0 +1,52 @@
+{
+  "id": "10-phone-health",
+  "title": "Phone health — who writes, who reads",
+  "audience": "Quick Start Watch No · Health Connect / Apple Health",
+  "export_dir": "010-phone-health",
+  "vo_lang": "en",
+  "subs_lang": "he",
+  "segments": [
+    {
+      "en": "No Withings watch? Phone health still works.",
+      "de": "Keine Withings-Uhr? Kein Problem — geht auch übers Telefon.",
+      "fr": "Pas de montre Withings ? Pas de souci — ça marche aussi via le téléphone.",
+      "he": "אין שעון Withings? אין בעיה — אפשר דרך הטלפון.",
+      "shot": { "type": "phone", "file": "a8-quick-start-watch-no.jpg" }
+    },
+    {
+      "en": "Your watch app writes steps and heart rate into Health Connect or Apple Health.",
+      "de": "Die Uhren-App schreibt Schritte und Puls in Health Connect oder Apple Health.",
+      "fr": "L’app de la montre écrit pas et pouls dans Health Connect ou Apple Health.",
+      "he": "אפליקציית השעון כותבת צעדים ודופק ל־Health Connect או Apple Health.",
+      "shot": { "type": "art", "file": "pipeline-write-read.png" }
+    },
+    {
+      "en": "Brand does not matter — Garmin, Samsung, Apple Watch.",
+      "de": "Die Marke ist egal — Garmin, Samsung, Apple Watch.",
+      "fr": "La marque n’a pas d’importance — Garmin, Samsung, Apple Watch.",
+      "he": "לא משנה איזה מותג — Garmin, Samsung, Apple Watch.",
+      "shot": { "type": "art", "file": "pipeline-write-read.png" }
+    },
+    {
+      "en": "Healthings asks to read that store — not to replace your watch app.",
+      "de": "Healthings liest nur aus dem Speicher — ersetzt nicht Ihre Uhren-App.",
+      "fr": "Healthings lit seulement le magasin — elle ne remplace pas l’app de la montre.",
+      "he": "Healthings רק קוראת מהמאגר — לא מחליפה את אפליקציית השעון.",
+      "shot": { "type": "phone", "file": "a5-gear-qs3.jpg" }
+    },
+    {
+      "en": "Allow once. Pull to refresh — activity shows from the phone.",
+      "de": "Einmal erlauben. Zum Aktualisieren ziehen — die Aktivität kommt vom Telefon.",
+      "fr": "Autorisez une fois. Tirez pour actualiser — l’activité vient du téléphone.",
+      "he": "מאשרים פעם אחת. מושכים לרענון — והפעילות מופיעה מהטלפון.",
+      "shot": { "type": "phone", "file": "a9-activity-strip.jpg" }
+    },
+    {
+      "en": "Scale can still be Withings or manual. This film is only about activity. Healthings.",
+      "de": "Die Waage bleibt Withings oder manuell. Hier geht es nur um Aktivität. Healthings.",
+      "fr": "La balance peut rester Withings ou manuelle. Ici, on parle seulement d’activité. Healthings.",
+      "he": "משקל — Withings או ידני, כרגיל. כאן מדברים רק על פעילות. Healthings.",
+      "shot": { "type": "phone", "file": "a1-dashboard.jpg" }
+    }
+  ]
+}

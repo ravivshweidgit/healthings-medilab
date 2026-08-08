@@ -1,0 +1,40 @@
+{
+  "id": "13-scale-choice",
+  "title": "Withings scale — Yes or No",
+  "audience": "Quick Start scale Yes/No routing",
+  "export_dir": "013-scale-choice",
+  "vo_lang": "en",
+  "subs_lang": "he",
+  "segments": [
+    {
+      "en": "Do you use a Withings scale? No is fine.",
+      "de": "Nutzen Sie eine Withings-Waage? Nein ist in Ordnung.",
+      "he": "משתמשים במשקל Withings? לא — זה בסדר.",
+      "shot": { "type": "art", "file": "pipeline-scale-choice.png" }
+    },
+    {
+      "en": "No — enter weight next. The app still works.",
+      "de": "Nein — Gewicht danach eingeben. Die App funktioniert trotzdem.",
+      "he": "לא — מזינים משקל בהמשך. האפליקציה עובדת גם בלי.",
+      "shot": { "type": "phone", "file": "a5-gear-qs2.jpg" }
+    },
+    {
+      "en": "Yes — weight and composition from your Withings account.",
+      "de": "Ja — Gewicht und Zusammensetzung aus Ihrem Withings-Konto.",
+      "he": "כן — משקל והרכב גוף מחשבון Withings שלכם.",
+      "shot": { "type": "phone", "file": "a5-withings-body-scan.jpg" }
+    },
+    {
+      "en": "Cloud sync — not Bluetooth. Body and Body Scan both work.",
+      "de": "Cloud-Sync — nicht Bluetooth. Body und Body Scan funktionieren beide.",
+      "he": "סנכרון מהענן — לא Bluetooth. Body ו־Body Scan עובדים אותו דבר.",
+      "shot": { "type": "phone", "file": "a5-withings-body-scan.jpg" }
+    },
+    {
+      "en": "Tap Yes or No, then continue. Healthings.",
+      "de": "Tippen Sie Ja oder Nein, dann weiter. Healthings.",
+      "he": "לוחצים כן או לא — וממשיכים. Healthings.",
+      "shot": { "type": "art", "file": "pipeline-scale-choice.png" }
+    }
+  ]
+}

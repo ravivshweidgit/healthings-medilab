@@ -14,8 +14,10 @@ or invent a new music bed unless the owner asks.
 
 | Knob | Value |
 |------|--------|
-| VO | ElevenLabs **Matilda** — alias `matilda`, id `XrExE9yKIg1WjnnlVkGX` |
+| VO (default) | ElevenLabs **Matilda** — alias `matilda`, id `XrExE9yKIg1WjnnlVkGX` |
+| VO (**exception**) | **What is Healthings** (`06-what-is-healthings` / Watch id `what-is-healthings`) keeps **Daniel** (“David BBC”) `onwK4e9ZLuTAKqWW03F9` — EN master already locked; do **not** remaster that film with Matilda |
 | Subs (social default) | Hebrew burned on EN VO (`subs_lang: he`) |
+| Subs (native VO) | **Same language as VO** burned (DE→DE, FR→FR) — hearing accessibility; `render_clip.py` defaults this when `--vo-lang` ≠ `en` |
 | Sub look | **Outline only** (navy fill + thick white edge) — no 0.3 full-width band |
 | Sub font | **Noto Sans Hebrew** (HE burns) / **Noto Sans** (Latin) in `assets/fonts/` |
 | Music bed | `FB/videos/assets/audio/music/gym-max-oazo-bed-novocals.mp3` (instrumental) |
@@ -30,7 +32,7 @@ Ship speed and first-session clarity beat “10 dubbed Netflix catalogs.”
 
 | Tier | What | When |
 |------|------|------|
-| **0 — Master** | EN Matilda VO + HE burned subs + instrumental + steady | Every new clip before anything else |
+| **0 — Master** | EN Matilda VO + HE burned subs + instrumental + steady (except `06` = Daniel) | Every new clip before anything else |
 | **1 — Permission literacy** | **FR + DE spoken VO** (Matilda multilingual) for `phone-health` + `cgm-pipeline` only | After EN masters exist — Europe clinic / setup confusion |
 | **2 — Habit clips** | FR/DE VO for meal / activity only if Tier 1 proved watch time | Optional |
 | **HE spoken VO** | **Do not** — HE burned on EN only (prior HE VO quality fail) | Reopen only with a Hebrew-native audition win |
@@ -52,10 +54,15 @@ python FB/videos/production/render_clip.py --clip <id> `
   --music FB/videos/assets/audio/music/gym-max-oazo-bed-novocals.mp3 `
   --music-level 0.18
   # --motion 1.0 is already the default — omit unless overriding
+
+# Native VO (e.g. DE) — burns DE subs by default (do not pass --no-subs):
+python FB/videos/production/render_clip.py --clip <id> --vo-lang de `
+  --music FB/videos/assets/audio/music/gym-max-oazo-bed-novocals.mp3 --music-level 0.18
 ```
 
 Primary export: copy/rename the `-matilda` cut to the untagged `…-en-subhe-9x16.mp4` when the
-owner accepts it (same pattern as clip 07).
+owner accepts it (same pattern as clip 07). **Exception:** clip `06` EN untagged master is
+Daniel — keep as-is; Matilda A/B stays tagged `-matilda` only.
 
 ## Steady film — what it means
 
@@ -65,7 +72,8 @@ owner accepts it (same pattern as clip 07).
 
 ## Don't
 
-- Default new clips to Daniel / Sarah / other audition voices
+- Remaster **06 what-is-healthings** EN with Matilda (Daniel / “David BBC” stays)
+- Default **new** clips to Daniel / Sarah / other audition voices — Matilda only
 - Render without `--music` when shipping a social cut (bed is part of the brand mix now)
 - Use the vocal Max Oazo bed as the default
 - Re-enable Ken Burns “to make it feel alive” without an explicit ask

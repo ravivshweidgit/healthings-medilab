@@ -1,0 +1,46 @@
+{
+  "id": "12-scale-trends",
+  "title": "Scale, trends, energy, BMR",
+  "audience": "Quick Start scale Yes · body composition payoff",
+  "export_dir": "012-scale-trends",
+  "vo_lang": "en",
+  "subs_lang": "he",
+  "segments": [
+    {
+      "en": "Step on the scale — Healthings pulls weight and body composition.",
+      "de": "Auf die Waage steigen — Healthings holt Gewicht und Körperzusammensetzung.",
+      "he": "עולים על המשקל — Healthings מושכת משקל והרכב גוף.",
+      "shot": { "type": "phone", "file": "a1-dashboard.jpg" }
+    },
+    {
+      "en": "Muscle, fat, weight — one strip. Not three separate apps.",
+      "de": "Muskel, Fett, Gewicht — ein Streifen. Nicht drei getrennte Apps.",
+      "he": "שריר, שומן, משקל — רצועה אחת. לא שלוש אפליקציות נפרדות.",
+      "shot": { "type": "phone", "file": "a1-dashboard.jpg" }
+    },
+    {
+      "en": "Open Trend and Energy — see how composition moves over the weeks.",
+      "de": "Trend und Energie öffnen — so bewegt sich die Zusammensetzung über die Wochen.",
+      "he": "פותחים Trend & Energy — רואים איך ההרכב זז לאורך השבועות.",
+      "shot": { "type": "phone", "file": "a2-trend-energy.jpg" }
+    },
+    {
+      "en": "Energy balance: what you ate against BMR plus activity.",
+      "de": "Energiebilanz: was Sie gegessen haben gegen BMR plus Aktivität.",
+      "he": "מאזן אנרגיה: מה אכלתם מול BMR ועוד פעילות.",
+      "shot": { "type": "phone", "file": "a2-food-log-strip.jpg" }
+    },
+    {
+      "en": "BMR is your resting burn — the floor under every day.",
+      "de": "BMR ist Ihr Ruheverbrauch — die Basis unter jedem Tag.",
+      "he": "BMR הוא שריפת המנוחה — הרצפה מתחת לכל יום.",
+      "shot": { "type": "phone", "file": "a2-food-log-strip.jpg" }
+    },
+    {
+      "en": "Scale feeds the charts. The charts sharpen the path. Healthings.",
+      "de": "Die Waage speist die Charts. Die Charts schärfen den Weg. Healthings.",
+      "he": "המשקל מזין את הגרפים. הגרפים מחדדים את הדרך. Healthings.",
+      "shot": { "type": "phone", "file": "a1-dashboard.jpg" }
+    }
+  ]
+}

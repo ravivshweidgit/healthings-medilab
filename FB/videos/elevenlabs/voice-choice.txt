@@ -1,15 +1,20 @@
 # Voice choice — Healthings explainers
-# Locked to the Activity YouTube (clip 07) social cut.
+# Default locked to Matilda (Activity YouTube / habit / permission films).
 
 # English — Matilda (XrExE9yKIg1WjnnlVkGX)
 SELECTED_EN: Matilda | XrExE9yKIg1WjnnlVkGX | Premade | Clear explainer (locked 2026-08)
+
+# Exception — What is Healthings (clip 06) EN master:
+#   Daniel / “David BBC” | onwK4e9ZLuTAKqWW03F9
+#   Regenerate only with: gen_clip_vo.py --clip 06-what-is-healthings --voice daniel --force
+#   Do not overwrite the untagged EN cut with Matilda.
 
 # Hebrew — parked (owner: HE VO quality bad; English-only for explainers)
 SELECTED_HE: SKIP | — | not using HE VO
 
 # Aliases in _tts.py (for --voice overrides / A/B only)
 # matilda | XrExE9yKIg1WjnnlVkGX   ← default
-# daniel  | onwK4e9ZLuTAKqWW03F9   ← legacy
+# daniel / david | onwK4e9ZLuTAKqWW03F9   ← 06 what-is-healthings EN only
 # sarah   | EXAVITQu4vr4xnSDxMaL
 # rachel  | 21m00Tcm4TlvDq8ikWAM
 # charlotte | XB0fDUnXU5powFXDhCwa

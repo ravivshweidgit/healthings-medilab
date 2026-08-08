@@ -4,57 +4,98 @@
   "audience": "new users / cold audience",
   "export_dir": "002-what-is-healthings",
   "vo_lang": "en",
+  "voice": "daniel",
   "subs_lang": "he",
   "segments": [
     {
       "en": "You log your meals. You wear a watch. You get blood tests.",
       "he": "אתם מתעדים ארוחות. עונדים שעון. עושים בדיקות דם.",
-      "shot": { "type": "phone", "file": "a3-food-log.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a3-food-log.jpg"
+      },
+      "de": "Sie protokollieren Mahlzeiten. Tragen eine Uhr. Machen Bluttests."
     },
     {
       "en": "But none of it talks to each other.",
       "he": "אבל שום דבר לא מדבר אחד עם השני.",
-      "shot": { "type": "art", "file": "loop-disconnected.png" }
+      "shot": {
+        "type": "art",
+        "file": "loop-disconnected.png"
+      },
+      "de": "Aber nichts spricht miteinander."
     },
     {
       "en": "Healthings connects all of it into one loop.",
       "he": "Healthings מחבר את הכול למעגל אחד.",
-      "shot": { "type": "art", "file": "loop-video.png" }
+      "shot": {
+        "type": "art",
+        "file": "loop-video.png"
+      },
+      "de": "Healthings verbindet alles zu einem Kreislauf."
     },
     {
       "en": "It starts in the clinic. A licensed nutritionist reads your labs and sets your plan.",
       "he": "מתחיל בקליניקה: תזונאית מורשית קוראת את הבדיקות ובונה תוכנית.",
-      "shot": { "type": "phone", "file": "clinic-labs-import.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "clinic-labs-import.jpg"
+      },
+      "de": "Es beginnt in der Klinik. Eine lizenzierte Ernährungsexpertin liest Ihre Labs und setzt den Plan."
     },
     {
       "en": "That plan becomes rules that live inside your app.",
       "he": "התוכנית הופכת לכללים שחיים בתוך האפליקציה.",
-      "shot": { "type": "phone", "file": "a4-my-rules-targets.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a4-my-rules-targets.jpg"
+      },
+      "de": "Der Plan wird zu Regeln, die in Ihrer App leben."
     },
     {
       "en": "Your scale, your watch, and your CGM keep the numbers honest.",
       "he": "המשקל, השעון והחיישן שומרים שהמספרים יהיו אמיתיים.",
-      "shot": { "type": "phone", "file": "a1-dashboard.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a1-dashboard.jpg"
+      },
+      "de": "Waage, Uhr und CGM halten die Zahlen ehrlich."
     },
     {
       "en": "Every meal you log is checked against your plan, in seconds.",
       "he": "כל ארוחה שמתעדים נבדקת מול התוכנית — תוך שניות.",
-      "shot": { "type": "phone", "file": "a6-coach.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a6-coach.jpg"
+      },
+      "de": "Jede protokollierte Mahlzeit wird in Sekunden gegen Ihren Plan geprüft."
     },
     {
       "en": "And your clinic sees the real week, not a story from memory, and adjusts.",
       "he": "והקליניקה רואה את השבוע האמיתי — ומתאימה.",
-      "shot": { "type": "phone", "file": "a2-food-log-strip.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a2-food-log-strip.jpg"
+      },
+      "de": "Und Ihre Klinik sieht die echte Woche — nicht eine Geschichte aus dem Gedächtnis — und justiert."
     },
     {
       "en": "Clinic directs. App executes. Devices measure.",
       "he": "הקליניקה מכוונת. האפליקציה מיישמת. המכשירים מודדים.",
-      "shot": { "type": "art", "file": "loop-video.png" }
+      "shot": {
+        "type": "art",
+        "file": "loop-video.png"
+      },
+      "de": "Klinik steuert. App führt aus. Geräte messen."
     },
     {
       "en": "Healthings. One loop, closed.",
       "he": "Healthings. מעגל אחד, סגור.",
-      "shot": { "type": "art", "file": "loop-video.png" }
+      "shot": {
+        "type": "art",
+        "file": "loop-video.png"
+      },
+      "de": "Healthings. Ein Kreislauf, geschlossen."
     }
   ]
 }

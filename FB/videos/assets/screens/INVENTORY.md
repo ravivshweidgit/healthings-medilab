@@ -9,18 +9,25 @@ data" toast) and must not be used on screen.
 | File | Shows | Used by |
 |------|-------|---------|
 | `a1-dashboard.jpg` | Dashboard: Withings + CGM marks, weight/muscle/fat/BMR | 05, 06, 01, 03 |
-| `a2-food-log-strip.jpg` | Food Log strip: kcal in/out, deficit, macros | 05, 06, 02, 04 |
+| `a1-glucose-chart.jpg` | Glucose strip expanded — filled CGM / HR chart | 11 |
+| `a2-food-log-strip.jpg` | Food Log strip: kcal in/out, deficit, macros | 05, 06, 02, 04, 12 |
+| `a2-trend-energy.jpg` | Trend & Energy expanded (64D weight/fat/muscle/visceral) | 12 |
+| `a2-energy-charts.jpg` | ENERGY stack (BMR / activity / burn / eaten / balance) — dense; spare | not in 12 (skip — Food Log beat clearer) |
 | `a3-food-log.jpg` | Log Meal sheet (camera / gallery / describe) | 06, 04 |
 | `a3b-food-log-flow.jpg` | Edit Meal with per-item macros | spare (has volume pill) |
 | `a4-my-rules-targets.jpg` | Quick Start targets + Rules applied | 05, 06, 01, 02 |
 | `a4b-rules-candidate.jpg` | Alternate rules frame | spare |
-| `a5-gear-qs2.jpg` | Quick Start starting weight | spare |
+| `a5-gear-qs2.jpg` | Quick Start starting weight | 13 |
+| `a5-withings-body-scan.jpg` | Withings app My devices — Body Scan + cloud sync | 13 |
 | `a5-gear-qs3.jpg` | Allow Health Connect (steps, HR, glucose) | 03 gear |
+| `a5-gear-caresens-import.jpg` | Gear → CareSens Air **Import** (CSV history) | 11 |
 | `a6-coach.jpg` | My mentors chat with a data-grounded reply | 05, 06, 02, 04 |
 | `a6b-coach-open.jpg` | Chat, alternate frame | 04 |
 | `a6c-mentors-alt.jpg` | Mentors with midday nudge | spare |
 | `a8-quick-start-candidate.jpg` | Quick Start step | spare |
-| `a9-activity-*.jpg` | Activity Log strip / AI calc / load | 07 |
+| `a8-quick-start-watch-no.jpg` | QS Watch/band — **No** selected (phone-health open) | 10 |
+| `a9-activity-*.jpg` | Activity Log strip / AI calc / load | 07, 10 |
+| `a9-activity-phone-now.jpg` | **Reject** — AOD charging lock (black); not Activity | do not use |
 | `a10-food-strip-*.jpg` | Food Log strip summary / expanded | 08 |
 | `a10-meal-edit-*-en.jpg` | Edit Meal English items + totals | 08 |
 | `a10-meal-grams-*.jpg` / `.mp4` | Edit item grams slider (stills + motion) | 08 |
@@ -36,6 +43,14 @@ data" toast) and must not be used on screen.
 | `cover-cholesterol-trend.png` | Cholesterol trend chart (not 9:16) | FB post cover only |
 
 B-roll under `broll/`: `yt-arms-15s.mp4`, `yt-upper-15s.mp4` — clip 07.
+
+## Illustrations (video art)
+
+| File | Shows | Used by |
+|------|-------|---------|
+| `pipeline-write-read.png` | Watch app → phone store → Healthings reads | 10 |
+| `pipeline-cgm-live.png` | CareSens → xDrip → HC → Healthings | 11 |
+| `pipeline-scale-energy.png` | Body / Trend / Energy / BMR teaching card | 12 |
 
 ## Missing — worth capturing
 

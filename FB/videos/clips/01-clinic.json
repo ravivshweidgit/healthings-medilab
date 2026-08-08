@@ -9,27 +9,47 @@
     {
       "en": "It starts with a deep visit.",
       "he": "הכול מתחיל במפגש מעמיק.",
-      "shot": { "type": "art", "file": "loop-video.png" }
+      "shot": {
+        "type": "art",
+        "file": "loop-video.png"
+      },
+      "de": "Es beginnt mit einem gründlichen Termin."
     },
     {
       "en": "A licensed clinical nutritionist directs from your labs — not a generic tip from the internet.",
       "he": "תזונאית קלינית עם רישיון מכוונת לפי הבדיקות — לא לפי טיפ גנרי מהרשת.",
-      "shot": { "type": "phone", "file": "clinic-labs-import.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "clinic-labs-import.jpg"
+      },
+      "de": "Eine lizenzierte klinische Ernährungsexpertin steuert nach Ihren Laborwerten — nicht nach einem generischen Tipp aus dem Netz."
     },
     {
       "en": "Clinical direction is written clearly once.",
       "he": "הכיוון הקליני נכתב פעם אחת בבהירות.",
-      "shot": { "type": "phone", "file": "a4-my-rules-targets.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a4-my-rules-targets.jpg"
+      },
+      "de": "Die klinische Richtung wird einmal klar aufgeschrieben."
     },
     {
       "en": "From there, daily life moves into the app.",
       "he": "משם — היום־יום עובר לאפליקציה.",
-      "shot": { "type": "phone", "file": "a1-dashboard.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a1-dashboard.jpg"
+      },
+      "de": "Von dort geht der Alltag in die App."
     },
     {
       "en": "The clinic directs. Healthings continues from there.",
       "he": "הקליניקה מכוונת. Healthings ממשיך משם.",
-      "shot": { "type": "art", "file": "loop-video.png" }
+      "shot": {
+        "type": "art",
+        "file": "loop-video.png"
+      },
+      "de": "Die Klinik steuert. Healthings macht weiter."
     }
   ]
 }

@@ -1,0 +1,8 @@
+# 11 — CGM pipeline
+
+Tracking glucose? Healthings charts what your phone health store holds.
+On Android, live CareSens needs a chain: CareSens, then xDrip+, then Health Connect, then Healthings.
+Skip xDrip and wait on Samsung Health? Often once a day — not live.
+On iPhone: share Blood Glucose to Apple Health, then Allow in Healthings.
+After Allow and sync, the CGM row turns OK and the chart fills.
+CSV Import helps history. Live still needs the write path. Healthings.

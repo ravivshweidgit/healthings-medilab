@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920">
+  <title>Withings scale Yes or No</title>
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#B8DAF0"/>
+      <stop offset="0.14" stop-color="#D6EBF8"/>
+      <stop offset="0.32" stop-color="#F0F4F8"/>
+      <stop offset="1" stop-color="#F0F4F8"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-20%" y="-30%" width="140%" height="180%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#1A2B4A" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+  <rect width="1080" height="1920" fill="url(#page)"/>
+  <g font-family="Montserrat" text-anchor="middle">
+    <text x="540" y="140" fill="#1A2B4A" font-size="34" font-weight="700" letter-spacing="1.4">HEALTHINGS.AI</text>
+    <rect x="220" y="180" width="640" height="48" rx="24" fill="#E8F4FC" stroke="#3D9DD6" stroke-opacity="0.35" stroke-width="2"/>
+    <text x="540" y="212" fill="#1A2B4A" font-size="20" font-weight="700" letter-spacing="1.4">WITHINGS SCALE</text>
+  </g>
+  <g font-family="Montserrat" text-anchor="middle">
+    <text x="540" y="360" fill="#1A2B4A" font-size="44" font-weight="700">Do you use a</text>
+    <text x="540" y="420" fill="#1A2B4A" font-size="44" font-weight="700">Withings scale?</text>
+  </g>
+  <!-- No card -->
+  <g font-family="Montserrat" filter="url(#cardShadow)">
+    <rect x="100" y="520" width="880" height="420" rx="28" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="3"/>
+    <rect x="140" y="560" width="160" height="64" rx="32" fill="#F0F4F8" stroke="#1A2B4A" stroke-width="2"/>
+    <text x="220" y="602" fill="#1A2B4A" font-size="28" font-weight="700" text-anchor="middle">No</text>
+    <text x="540" y="700" fill="#1A2B4A" font-size="36" font-weight="700" text-anchor="middle">No is fine</text>
+    <text x="540" y="770" fill="#5C6B7A" font-size="28" font-weight="500" text-anchor="middle">Enter weight next</text>
+    <text x="540" y="830" fill="#5C6B7A" font-size="28" font-weight="500" text-anchor="middle">The app still works</text>
+  </g>
+  <!-- Yes card -->
+  <g font-family="Montserrat" filter="url(#cardShadow)">
+    <rect x="100" y="1000" width="880" height="520" rx="28" fill="#FFFFFF" stroke="#3D9DD6" stroke-width="4"/>
+    <rect x="140" y="1040" width="160" height="64" rx="32" fill="#3D9DD6"/>
+    <text x="220" y="1082" fill="#FFFFFF" font-size="28" font-weight="700" text-anchor="middle">Yes</text>
+    <text x="540" y="1180" fill="#1A2B4A" font-size="36" font-weight="700" text-anchor="middle">Link Withings</text>
+    <text x="540" y="1260" fill="#5C6B7A" font-size="28" font-weight="500" text-anchor="middle">Weight + composition</text>
+    <text x="540" y="1330" fill="#5C6B7A" font-size="28" font-weight="500" text-anchor="middle">from the cloud</text>
+    <text x="540" y="1410" fill="#3D9DD6" font-size="26" font-weight="700" text-anchor="middle">not Bluetooth</text>
+  </g>
+</svg>

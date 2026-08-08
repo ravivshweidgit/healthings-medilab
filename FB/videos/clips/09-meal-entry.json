@@ -12,7 +12,8 @@
       "shot": {
         "type": "phone",
         "file": "a11-food-strip-open.jpg"
-      }
+      },
+      "de": "Food Log öffnen. Auf Meal tippen, wenn Sie bereit sind zu protokollieren."
     },
     {
       "en": "Three ways in — Camera, Gallery, or describe it in plain words.",
@@ -20,7 +21,8 @@
       "shot": {
         "type": "phone",
         "file": "a11-log-meal-idle.jpg"
-      }
+      },
+      "de": "Drei Wege — Kamera, Galerie, oder in einfachen Worten beschreiben."
     },
     {
       "en": "Snap or pick a plate. AI reads the photo and builds your item list.",
@@ -28,7 +30,8 @@
       "shot": {
         "type": "phone",
         "file": "a11-meal-photo-analyzing.jpg"
-      }
+      },
+      "de": "Foto machen oder Teller wählen. KI liest das Bild und baut die Liste."
     },
     {
       "en": "Or type a meal — protein shake, yesterday's lunch — AI parses grams and macros.",
@@ -36,7 +39,8 @@
       "shot": {
         "type": "phone",
         "file": "a11-meal-from-text.jpg"
-      }
+      },
+      "de": "Oder eine Mahlzeit tippen — Proteinshake, gestriges Mittagessen — KI zerlegt Gramm und Makros."
     },
     {
       "en": "Chat to correct — add an item, rename it, or say same chicken meal.",
@@ -44,7 +48,8 @@
       "shot": {
         "type": "phone",
         "file": "a11-meal-chat-correct.jpg"
-      }
+      },
+      "de": "Per Chat korrigieren — Eintrag hinzufügen, umbenennen, oder dieselbe Hähnchen-Mahlzeit sagen."
     },
     {
       "en": "Already logged it before? From past meal — pick the day and reuse.",
@@ -52,7 +57,8 @@
       "shot": {
         "type": "phone",
         "file": "a11-past-meal-picker.jpg"
-      }
+      },
+      "de": "Schon einmal protokolliert? From past meal — Tag wählen und wiederverwenden."
     },
     {
       "en": "Then tune grams on any item — macros follow. Save when it looks right.",
@@ -60,7 +66,8 @@
       "shot": {
         "type": "phone",
         "file": "a10-meal-grams-39g.jpg"
-      }
+      },
+      "de": "Dann Gramm feinjustieren — Makros folgen. Speichern, wenn es stimmt."
     },
     {
       "en": "Log once. Correct and reuse forever. Healthings.",
@@ -68,7 +75,8 @@
       "shot": {
         "type": "phone",
         "file": "a11-log-meal-idle.jpg"
-      }
+      },
+      "de": "Einmal protokollieren. Korrigieren und für immer wiederverwenden. Healthings."
     }
   ]
 }

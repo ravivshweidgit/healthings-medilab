@@ -100,6 +100,8 @@ import {
 } from '../services/WithingsApiService';
 import { loadWithingsStore } from '../services/WithingsPersistenceService';
 import { helpUrl } from '../i18n/helpUrls';
+import { getExplainerCopy } from '../i18n/explainerCopy';
+import { explainerWatchUrl, type ExplainerId } from '../i18n/explainerUrls';
 import { formatLocalizedDate } from '../i18n/dateLocale';
 import {
   LANGUAGE_GATE_OPTIONS,
@@ -488,6 +490,68 @@ function HelpButton({
     >
       <CircleHelp size={compact ? 22 : 18} color={NEXT_BLUE_DEEP} strokeWidth={2.25} />
       {!compact ? <Text style={styles.helpChipText}>{shown}</Text> : null}
+    </Pressable>
+  );
+}
+
+/** Small YouTube mark (lucide has no Youtube glyph in this package). */
+function YouTubeMark({ size = 22 }: { size?: number }) {
+  const play = Math.round(size * 0.32);
+  return (
+    <View
+      style={{
+        width: size,
+        height: Math.round(size * 0.72),
+        borderRadius: Math.round(size * 0.22),
+        backgroundColor: '#FF0000',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <View
+        style={{
+          width: 0,
+          height: 0,
+          marginLeft: Math.round(play * 0.15),
+          borderTopWidth: play * 0.55,
+          borderBottomWidth: play * 0.55,
+          borderLeftWidth: play,
+          borderTopColor: 'transparent',
+          borderBottomColor: 'transparent',
+          borderLeftColor: '#fff',
+        }}
+      />
+    </View>
+  );
+}
+
+/** Optional Watch → hosted explainer (prompt107). Sit under gear hero — never required. */
+function WatchExplainerLink({
+  langCode,
+  id,
+  rtl = false,
+}: {
+  langCode: string;
+  id: ExplainerId;
+  rtl?: boolean;
+}) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const ec = useMemo(() => getExplainerCopy(langCode), [langCode]);
+  const label = `${ec.watchCta}: ${ec.titles[id]}`;
+  return (
+    <Pressable
+      onPress={() => void Linking.openURL(explainerWatchUrl(langCode, id))}
+      accessibilityRole="link"
+      accessibilityLabel={label}
+      style={({ pressed }) => [
+        styles.watchExplainerLink,
+        rtl && styles.watchExplainerLinkRtl,
+        pressed && styles.helpPressed,
+      ]}
+    >
+      <YouTubeMark size={20} />
+      <Text style={[styles.watchExplainerText, rtl && styles.textRtl]}>{label}</Text>
     </Pressable>
   );
 }
@@ -1554,6 +1618,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
           {stepId === 'welcome' && (
             <>
               <WelcomeBrandMark brandTag={t.brandTag} />
+              <WatchExplainerLink langCode={langCode} id="what-is-healthings" rtl={rtl} />
               <StepHeading
                 title={t.welcome.title}
                 helpHref={helpUrl(langCode, 'quick-start-welcome')}
@@ -1705,6 +1770,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
           {stepId === 'scale' && (
             <>
               <GearHeroCard kind="scale" compact />
+              <WatchExplainerLink langCode={langCode} id="scale-choice" rtl={rtl} />
               <BrandStepHeading
                 title={t.scale.title}
                 tipTitle={t.withingsTip.title}
@@ -1737,6 +1803,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
           {stepId === 'watch' && (
             <>
               <GearHeroCard kind="watch" compact />
+              <WatchExplainerLink langCode={langCode} id="phone-health" rtl={rtl} />
               <BrandStepHeading
                 title={t.watch.title}
                 tipTitle={t.withingsTip.title}
@@ -1769,6 +1836,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
           {stepId === 'cgm' && (
             <>
               <GearHeroCard kind="cgm" compact />
+              <WatchExplainerLink langCode={langCode} id="cgm-pipeline" rtl={rtl} />
               <StepHeading
                 title={t.cgm.title}
                 helpHref={helpUrl(langCode, 'cgm')}
@@ -1885,6 +1953,10 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
           {stepId === 'phone_health' && (
             <>
               <GearHeroCard kind="phone" />
+              <WatchExplainerLink langCode={langCode} id="phone-health" rtl={rtl} />
+              {tracksCgm ? (
+                <WatchExplainerLink langCode={langCode} id="cgm-pipeline" rtl={rtl} />
+              ) : null}
               {Platform.OS === 'ios' ? (
                 <>
                   <StepHeading
@@ -2055,6 +2127,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
           {stepId === 'meals' && (
             <>
               <GearHeroCard kind="meals" />
+              <WatchExplainerLink langCode={langCode} id="meal-entry" rtl={rtl} />
               <StepHeading
                 title={t.meals.title}
                 helpHref={helpUrl(langCode, 'meal-logging')}
@@ -2489,6 +2562,30 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     color: NEXT_BLUE_DEEP,
   },
   helpPressed: { opacity: 0.7 },
+  watchExplainerLink: {
+    marginTop: 8,
+    marginBottom: 12,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  watchExplainerLinkRtl: {
+    flexDirection: 'row-reverse',
+  },
+  watchExplainerText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: NEXT_BLUE_DEEP,
+    textDecorationLine: 'underline',
+    flexShrink: 1,
+  },
+  textRtl: {
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
   lead: { fontSize: 15, lineHeight: 22, color: c.textPrimary, marginBottom: 16 },
   fieldLabel: {
     fontSize: 13,

@@ -12,6 +12,8 @@ export type HelpStripCopy = {
   outOfCredits: string;
   /** Profile → open dashboard Help. */
   openFromProfile: string;
+  /** Watch explainers section under chips (prompt107). */
+  watchSection: string;
 };
 
 const EN: HelpStripCopy = {
@@ -23,6 +25,7 @@ const EN: HelpStripCopy = {
   errorGeneric: 'Could not get an answer. Check the network and try again.',
   outOfCredits: 'Out of AI credits. Add a token pack to continue.',
   openFromProfile: 'Open app Help',
+  watchSection: 'Watch explainers',
 };
 
 const HE: HelpStripCopy = {
@@ -34,6 +37,7 @@ const HE: HelpStripCopy = {
   errorGeneric: 'לא התקבלה תשובה. בדקו את הרשת ונסו שוב.',
   outOfCredits: 'נגמרו קרדיטי ה־AI. הוסיפו חבילת אסימונים להמשך.',
   openFromProfile: 'פתחו עזרה באפליקציה',
+  watchSection: 'סרטוני הסבר',
 };
 
 const ES: HelpStripCopy = {
@@ -45,6 +49,7 @@ const ES: HelpStripCopy = {
   errorGeneric: 'No se pudo obtener respuesta. Revisa la red e inténtalo de nuevo.',
   outOfCredits: 'Sin créditos de IA. Añade un paquete de tokens para continuar.',
   openFromProfile: 'Abrir Ayuda de la app',
+  watchSection: 'Videos explicativos',
 };
 
 const FR: HelpStripCopy = {
@@ -56,6 +61,7 @@ const FR: HelpStripCopy = {
   errorGeneric: 'Pas de réponse. Vérifiez le réseau et réessayez.',
   outOfCredits: 'Plus de crédits IA. Ajoutez un pack de jetons pour continuer.',
   openFromProfile: 'Ouvrir l\'Aide de l\'app',
+  watchSection: 'Vidéos explicatives',
 };
 
 const DE: HelpStripCopy = {
@@ -67,6 +73,7 @@ const DE: HelpStripCopy = {
   errorGeneric: 'Keine Antwort. Netzwerk prüfen und erneut versuchen.',
   outOfCredits: 'Keine KI-Credits mehr. Token-Paket hinzufügen.',
   openFromProfile: 'App-Hilfe öffnen',
+  watchSection: 'Erklärfilme',
 };
 
 const AR: HelpStripCopy = {
@@ -78,6 +85,7 @@ const AR: HelpStripCopy = {
   errorGeneric: 'تعذّر الحصول على إجابة. تحقق من الشبكة وحاول مجدداً.',
   outOfCredits: 'نفدت أرصدة الذكاء. أضف حزمة رموز للمتابعة.',
   openFromProfile: 'فتح مساعدة التطبيق',
+  watchSection: 'فيديوهات شرح',
 };
 
 const RU: HelpStripCopy = {
@@ -89,6 +97,7 @@ const RU: HelpStripCopy = {
   errorGeneric: 'Не удалось получить ответ. Проверьте сеть и повторите.',
   outOfCredits: 'Кончились кредиты ИИ. Добавьте пакет токенов.',
   openFromProfile: 'Открыть справку приложения',
+  watchSection: 'Видео-объяснения',
 };
 
 const PT: HelpStripCopy = {
@@ -100,6 +109,7 @@ const PT: HelpStripCopy = {
   errorGeneric: 'Não foi possível obter resposta. Verifique a rede e tente de novo.',
   outOfCredits: 'Sem créditos de IA. Adicione um pacote de tokens.',
   openFromProfile: 'Abrir Ajuda da app',
+  watchSection: 'Vídeos explicativos',
 };
 
 const IT: HelpStripCopy = {
@@ -111,6 +121,7 @@ const IT: HelpStripCopy = {
   errorGeneric: 'Impossibile ottenere una risposta. Controlla la rete e riprova.',
   outOfCredits: 'Crediti IA esauriti. Aggiungi un pacchetto di token.',
   openFromProfile: 'Apri Aiuto app',
+  watchSection: 'Video esplicativi',
 };
 
 const TR: HelpStripCopy = {
@@ -122,6 +133,7 @@ const TR: HelpStripCopy = {
   errorGeneric: 'Yanıt alınamadı. Ağı kontrol edip tekrar deneyin.',
   outOfCredits: 'YZ kredisi bitti. Devam için jeton paketi ekleyin.',
   openFromProfile: 'Uygulama Yardımı\'nı aç',
+  watchSection: 'Anlatım videoları',
 };
 
 export function getHelpStripCopy(langCode?: string | null): HelpStripCopy {

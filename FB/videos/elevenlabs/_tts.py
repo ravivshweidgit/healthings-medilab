@@ -61,11 +61,13 @@ def parse_voice_choice(lang: str) -> str | None:
 
 # Premade ElevenLabs labels we use for A/B without digging up IDs.
 VOICE_ALIASES = {
+    # Owner “David BBC” = ElevenLabs Daniel (locked on 06 what-is-healthings EN)
     "daniel": "onwK4e9ZLuTAKqWW03F9",
+    "david": "onwK4e9ZLuTAKqWW03F9",
     "bill": "pqHfZKP75CvOlQylNhV4",
     "brian": "nPczCjzI2devNBz1zQrb",
     "george": "JBFqnCBsd6RMkjVDRZzb",
-    # Female EN candidates for explainers (IDs verified on this account)
+    # Female EN — Matilda is the series default
     "sarah": "EXAVITQu4vr4xnSDxMaL",
     "rachel": "21m00Tcm4TlvDq8ikWAM",
     "charlotte": "XB0fDUnXU5powFXDhCwa",

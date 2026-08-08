@@ -9,32 +9,56 @@
     {
       "en": "The clinic sees real progress. Food, metrics, trends.",
       "he": "הקליניקה רואה התקדמות אמיתית: אוכל, מדדים, מגמות.",
-      "shot": { "type": "phone", "file": "a2-food-log-strip.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a2-food-log-strip.jpg"
+      },
+      "de": "Die Klinik sieht echten Fortschritt. Essen, Werte, Trends."
     },
     {
       "en": "Not a story from memory.",
       "he": "לא סיפור מהזיכרון.",
-      "shot": { "type": "phone", "file": "a1-dashboard.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a1-dashboard.jpg"
+      },
+      "de": "Keine Geschichte aus dem Gedächtnis."
     },
     {
       "en": "When needed, the rules adjust, and your phone updates.",
       "he": "כשצריך — הכללים מתעדכנים, והטלפון מתיישר.",
-      "shot": { "type": "phone", "file": "a4-my-rules-targets.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a4-my-rules-targets.jpg"
+      },
+      "de": "Wenn nötig, passen sich die Regeln an — und Ihr Telefon aktualisiert sich."
     },
     {
       "en": "The cycle continues.",
       "he": "והמעגל ממשיך.",
-      "shot": { "type": "phone", "file": "a6-coach.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a6-coach.jpg"
+      },
+      "de": "Der Kreislauf geht weiter."
     },
     {
       "en": "Directs. Executes. Measures. Closes.",
       "he": "מכוונת · מיישמת · מודדת · נסגרת.",
-      "shot": { "type": "art", "file": "loop-video.png" }
+      "shot": {
+        "type": "art",
+        "file": "loop-video.png"
+      },
+      "de": "Steuert. Führt aus. Misst. Schließt."
     },
     {
       "en": "Healthings. A holistic closed-cycle solution.",
       "he": "Healthings — פתרון הוליסטי במעגל סגור.",
-      "shot": { "type": "art", "file": "loop-video.png" }
+      "shot": {
+        "type": "art",
+        "file": "loop-video.png"
+      },
+      "de": "Healthings. Eine ganzheitliche Closed-Cycle-Lösung."
     }
   ]
 }

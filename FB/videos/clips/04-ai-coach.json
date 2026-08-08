@@ -9,27 +9,47 @@
     {
       "en": "Between visits — who keeps the direction? The app.",
       "he": "בין מפגש למפגש — מי שומר על הכיוון? האפליקציה.",
-      "shot": { "type": "phone", "file": "a6-coach.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a6-coach.jpg"
+      },
+      "de": "Zwischen den Terminen — wer hält die Richtung? Die App."
     },
     {
       "en": "You log meals. Metrics flow from your gear.",
       "he": "אתם מתעדים ארוחות. המדדים זורמים מהציוד.",
-      "shot": { "type": "phone", "file": "a3-food-log.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a3-food-log.jpg"
+      },
+      "de": "Sie protokollieren Mahlzeiten. Werte fließen vom Gear."
     },
     {
       "en": "AI applies your rules — close follow-through, not daily hand-holding by the nutritionist.",
       "he": "ה־AI מיישם את הכללים — ליווי צמוד, לא ליווי יומיומי של התזונאית.",
-      "shot": { "type": "phone", "file": "a6b-coach-open.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a6b-coach-open.jpg"
+      },
+      "de": "KI wendet Ihre Regeln an — enge Begleitung, nicht tägliches Handhalten durch die Ernährungsexpertin."
     },
     {
       "en": "When drift appears — you can see it in time.",
       "he": "כשיש סטייה — אפשר לראות אותה בזמן.",
-      "shot": { "type": "phone", "file": "a2-food-log-strip.jpg" }
+      "shot": {
+        "type": "phone",
+        "file": "a2-food-log-strip.jpg"
+      },
+      "de": "Wenn Drift entsteht — sehen Sie ihn rechtzeitig."
     },
     {
       "en": "The clinic directs. Healthings executes.",
       "he": "הקליניקה מכוונת. Healthings מיישם.",
-      "shot": { "type": "art", "file": "loop-video.png" }
+      "shot": {
+        "type": "art",
+        "file": "loop-video.png"
+      },
+      "de": "Die Klinik steuert. Healthings führt aus."
     }
   ]
 }

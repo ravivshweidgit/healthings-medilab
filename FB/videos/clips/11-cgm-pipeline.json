@@ -1,0 +1,52 @@
+{
+  "id": "11-cgm-pipeline",
+  "title": "Live CGM pipeline — CareSens and xDrip+",
+  "audience": "Quick Start CGM Yes · Android live vs end-of-day",
+  "export_dir": "011-cgm-pipeline",
+  "vo_lang": "en",
+  "subs_lang": "he",
+  "segments": [
+    {
+      "en": "Tracking glucose? Healthings charts what your phone health store holds.",
+      "de": "Messen Sie Zucker? Healthings zeigt, was im Gesundheits-Speicher des Telefons liegt.",
+      "fr": "Vous suivez le glucose ? Healthings affiche ce que le magasin santé du téléphone contient.",
+      "he": "מודדים סוכר? Healthings מציגה מה שכבר שמור במאגר הבריאות בטלפון.",
+      "shot": { "type": "phone", "file": "a1-dashboard.jpg" }
+    },
+    {
+      "en": "On Android, live CareSens needs a chain: CareSens, then xDrip+, then Health Connect, then Healthings.",
+      "de": "Unter Android braucht CareSens live eine Kette: CareSens, dann xDrip+, dann Health Connect, dann Healthings.",
+      "fr": "Sous Android, CareSens en direct demande une chaîne : CareSens, puis xDrip+, puis Health Connect, puis Healthings.",
+      "he": "באנדרואיד, לזמן אמת צריך שרשרת: CareSens, אחר כך xDrip+, אחר כך Health Connect, ואז Healthings.",
+      "shot": { "type": "art", "file": "pipeline-cgm-live.png" }
+    },
+    {
+      "en": "Skip xDrip and wait on Samsung Health? Often once a day — not live.",
+      "de": "xDrip überspringen und auf Samsung Health warten? Oft einmal am Tag — nicht live.",
+      "fr": "Sans xDrip, en attendant Samsung Health ? Souvent une fois par jour — pas en direct.",
+      "he": "מדלגים על xDrip ומחכים ל־Samsung Health? לרוב פעם ביום — לא בזמן אמת.",
+      "shot": { "type": "art", "file": "pipeline-cgm-live.png" }
+    },
+    {
+      "en": "On iPhone: share Blood Glucose to Apple Health, then Allow in Healthings.",
+      "de": "Am iPhone: Blutzucker mit Apple Health teilen, dann in Healthings erlauben.",
+      "fr": "Sur iPhone : partagez la glycémie avec Apple Health, puis autorisez dans Healthings.",
+      "he": "באייפון: משתפים את הסוכר ל־Apple Health, ואז מאשרים ב־Healthings.",
+      "shot": { "type": "phone", "file": "a5-gear-qs3.jpg" }
+    },
+    {
+      "en": "After Allow and sync, the CGM row turns OK and the chart fills.",
+      "de": "Nach Erlaubnis und Sync wird die CGM-Zeile OK — und der Chart füllt sich.",
+      "fr": "Après autorisation et sync, la ligne CGM passe à OK et le graphique se remplit.",
+      "he": "אחרי אישור וסנכרון — שורת ה־CGM עוברת ל־OK, והגרף מתמלא.",
+      "shot": { "type": "phone", "file": "a1-glucose-chart.jpg" }
+    },
+    {
+      "en": "CSV Import helps history. Live still needs the write path. Healthings.",
+      "de": "CSV-Import hilft bei der Historie. Live braucht weiter jemanden, der in den Speicher schreibt. Healthings.",
+      "fr": "L’import CSV aide l’historique. Le direct a toujours besoin de quelqu’un qui écrit dans le magasin. Healthings.",
+      "he": "ייבוא CSV עוזר להיסטוריה. לזמן אמת עדיין צריך מי שכותב למאגר. Healthings.",
+      "shot": { "type": "phone", "file": "a5-gear-caresens-import.jpg" }
+    }
+  ]
+}
