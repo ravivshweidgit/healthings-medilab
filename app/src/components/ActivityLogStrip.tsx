@@ -247,7 +247,7 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
               </Text>
             </Pressable>
             <Pressable
-              style={styles.addBtn}
+              style={({ pressed }) => [styles.addBtn, pressed && styles.addBtnPressed]}
               onPress={() => onAddActivity(activeDayKey)}
               accessibilityLabel={ui.addActivity}
             >
@@ -344,13 +344,22 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
       textAlign: 'center',
     },
     rtl: { textAlign: 'right', writingDirection: 'rtl' },
+    // Match FoodMacroStrip add-action / What’s next — black punch-out on dark, navy tint on light.
     addBtn: {
-      paddingVertical: 6,
-      paddingHorizontal: 10,
-      borderRadius: 10,
-      backgroundColor: isDark ? 'rgba(67,160,71,0.2)' : '#E8F5E9',
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderStyle: 'solid',
+      borderColor: isDark ? 'rgba(142, 155, 255, 0.9)' : 'rgba(31, 61, 92, 0.85)',
+      backgroundColor: isDark ? c.background : 'rgba(31, 61, 92, 0.08)',
     },
-    addBtnText: { fontSize: 12, fontWeight: '700', color: '#2E7D32' },
+    addBtnPressed: { opacity: 0.75 },
+    addBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: isDark ? c.accentBlue : '#1F3D5C',
+    },
     totalLine: {
       fontSize: 13,
       fontWeight: '600',
