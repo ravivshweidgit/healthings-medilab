@@ -395,5 +395,5 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     chipLabel: { fontSize: 13, fontWeight: '700', color: c.textPrimary, minHeight: 34 },
     chipMeta: { fontSize: 11, color: c.textPrimary, marginTop: 4, fontVariant: ['tabular-nums'] },
     chipBadge: { fontSize: 10, color: c.textSecondary, marginTop: 4 },
-    chipBadgeWearable: { fontSize: 10, color: '#1E88E5', marginTop: 4, fontWeight: '600' },
+    chipBadgeWearable: { fontSize: 10, color: isDark ? c.accentBlue : '#1E88E5', marginTop: 4, fontWeight: '600' },
   });

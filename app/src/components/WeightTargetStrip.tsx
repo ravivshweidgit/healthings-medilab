@@ -183,8 +183,8 @@ function EditField({
   unit: string;
   hint?: string;
 }) {
-  const { colors } = useTheme();
-  const editStyles = useMemo(() => makeEditStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const editStyles = useMemo(() => makeEditStyles(colors, isDark), [colors, isDark]);
   return (
     <View style={editStyles.row}>
       <Text style={editStyles.label}>{label}</Text>
@@ -208,7 +208,7 @@ function EditField({
   );
 }
 
-const makeEditStyles = (c: ThemeColors) =>
+const makeEditStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 6 },
   label: { width: 56, fontSize: 12, fontWeight: '700', color: c.textSecondary },
@@ -219,8 +219,9 @@ const makeEditStyles = (c: ThemeColors) =>
     minWidth: 72,
     borderWidth: 1.5,
     borderColor: c.gridLine,
-    borderRadius: 10,
-    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: isDark ? c.background : c.surface,
+    paddingVertical: 10,
     paddingHorizontal: 8,
     fontSize: 16,
     fontWeight: '700',
@@ -642,17 +643,21 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   // idle
   idleWrap: { alignItems: 'stretch', paddingVertical: 8, gap: 10 },
   idleText: { fontSize: 13, color: c.textSecondary, textAlign: 'center', lineHeight: 18 },
-  errorText: { fontSize: 12, color: '#E53935', textAlign: 'center' },
+  errorText: { fontSize: 12, color: isDark ? c.accentRed : '#E53935', textAlign: 'center' },
   manualBtn: {
-    backgroundColor: c.accentBlue,
+    backgroundColor: isDark ? c.background : c.accentBlue,
+    borderWidth: isDark ? 1.5 : 0,
+    borderColor: isDark ? c.accentBlue : 'transparent',
     borderRadius: 999,
     paddingHorizontal: 24,
     paddingVertical: 12,
     alignItems: 'center',
   },
-  manualBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  manualBtnText: { color: isDark ? c.accentBlue : '#fff', fontWeight: '700', fontSize: 14 },
   aiBtn: {
-    backgroundColor: c.accentGreen,
+    backgroundColor: isDark ? c.background : c.accentBlue,
+    borderWidth: isDark ? 1.5 : 0,
+    borderColor: isDark ? c.accentBlue : 'transparent',
     borderRadius: 999,
     paddingHorizontal: 24,
     paddingVertical: 12,
@@ -668,7 +673,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   aiBtnOutlineText: { color: c.textPrimary, fontWeight: '600', fontSize: 13 },
   aiBtnOutlineTextDisabled: { color: c.textSecondary },
   aiBtnDisabled: { borderColor: c.gridLine, opacity: 0.7 },
-  aiBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  aiBtnText: { color: isDark ? c.accentBlue : '#fff', fontWeight: '700', fontSize: 14 },
   editHint: {
     fontSize: 12,
     color: c.textSecondary,
@@ -686,19 +691,19 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   suggestionVal: { fontSize: 17, fontWeight: '700', color: c.textPrimary },
   suggestionLabel: { fontSize: 11, color: c.textSecondary },
   suggestionBtns: { flexDirection: 'row', gap: 10 },
-  suggestionBtn: { flex: 1, paddingVertical: 11, borderRadius: 12, alignItems: 'center' },
+  suggestionBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center' },
   suggestionBtnAccept: {
-    backgroundColor: isDark ? c.background : c.accentGreen,
+    backgroundColor: isDark ? c.background : c.accentBlue,
     borderWidth: isDark ? 1.5 : 0,
-    borderColor: isDark ? c.accentGreen : 'transparent',
+    borderColor: isDark ? c.accentBlue : 'transparent',
   },
   suggestionBtnEdit: {
     borderWidth: 1.5,
     borderColor: c.gridLine,
-    backgroundColor: isDark ? c.background : undefined,
+    backgroundColor: isDark ? c.background : 'transparent',
   },
-  suggestionBtnTextAccept: { color: isDark ? c.accentGreen : '#fff', fontWeight: '700', fontSize: 14 },
-  suggestionBtnTextEdit: { color: c.textPrimary, fontWeight: '600', fontSize: 14 },
+  suggestionBtnTextAccept: { color: isDark ? c.accentBlue : '#fff', fontWeight: '700', fontSize: 14 },
+  suggestionBtnTextEdit: { color: c.textSecondary, fontWeight: '600', fontSize: 14 },
 
   // editing
   editBtns: { flexDirection: 'row', gap: 10, marginTop: 4 },
@@ -734,10 +739,10 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   manualSummarySub: { fontSize: 11, color: c.textSecondary, marginTop: 4 },
   editTargetsBtn: {
     backgroundColor: isDark ? c.background : c.accentBlue,
-    borderWidth: isDark ? 1 : 0,
+    borderWidth: isDark ? 1.5 : 0,
     borderColor: isDark ? c.accentBlue : 'transparent',
-    borderRadius: 10,
-    paddingVertical: 11,
+    borderRadius: 14,
+    paddingVertical: 12,
     alignItems: 'center',
     marginBottom: 8,
   },
@@ -750,11 +755,11 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     marginTop: -8,
   },
   reanalyzeBtn: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: c.gridLine,
-    backgroundColor: isDark ? c.background : undefined,
-    borderRadius: 10,
-    paddingVertical: 8,
+    backgroundColor: isDark ? c.background : 'transparent',
+    borderRadius: 14,
+    paddingVertical: 10,
     alignItems: 'center',
     marginTop: 4,
   },

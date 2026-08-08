@@ -24,8 +24,8 @@ type Props = {
 };
 
 export function RecipeCard({ plan, lang, energyUnit = 'kcal', onOpen, onLogMeal, onDismiss }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
   const title = recipeDisplayTitle(plan, rtl);
   const summary = recipeMacroSummary(plan, energyUnit);
@@ -64,38 +64,40 @@ export function RecipeCard({ plan, lang, energyUnit = 'kcal', onOpen, onLogMeal,
   );
 }
 
-const makeStyles = (c: ThemeColors) =>
+const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   card: {
     marginTop: 10,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: '#F1F8E9',
+    backgroundColor: isDark ? c.surface : '#F1F8E9',
     borderWidth: 1,
-    borderColor: '#A5D6A7',
+    borderColor: isDark ? c.gridLine : '#A5D6A7',
   },
   emoji: { fontSize: 22, marginBottom: 4 },
   title: { fontSize: 15, fontWeight: '700', color: c.textPrimary },
   meta: { fontSize: 12, color: c.textSecondary, marginTop: 2 },
-  summary: { fontSize: 14, fontWeight: '600', color: '#2E7D32', marginTop: 6 },
+  summary: { fontSize: 14, fontWeight: '600', color: isDark ? c.accentGreen : '#2E7D32', marginTop: 6 },
   source: { fontSize: 11, color: c.textSecondary, marginTop: 4, fontStyle: 'italic' },
   rtl: { textAlign: 'right', writingDirection: 'rtl' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8, marginTop: 12 },
   dismissBtn: { paddingVertical: 8, paddingHorizontal: 10 },
   dismissText: { fontSize: 13, color: c.textSecondary },
   secondaryBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#81C784',
-  },
-  secondaryText: { fontSize: 13, fontWeight: '600', color: '#2E7D32' },
-  primaryBtn: {
-    paddingVertical: 8,
+    paddingVertical: 11,
     paddingHorizontal: 14,
-    borderRadius: 8,
-    backgroundColor: '#43A047',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: c.gridLine,
   },
-  primaryText: { fontSize: 13, fontWeight: '600', color: '#fff' },
+  secondaryText: { fontSize: 13, fontWeight: '600', color: c.textSecondary },
+  primaryBtn: {
+    paddingVertical: 11,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    borderWidth: isDark ? 1.5 : 0,
+    borderColor: isDark ? c.accentBlue : 'transparent',
+    backgroundColor: isDark ? c.background : c.accentBlue,
+  },
+  primaryText: { fontSize: 13, fontWeight: '700', color: isDark ? c.accentBlue : '#fff' },
 });

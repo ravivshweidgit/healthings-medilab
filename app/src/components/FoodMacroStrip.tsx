@@ -145,6 +145,11 @@ const COLOR_NET_CARB = '#FB8C00';
 const COLOR_WATER   = '#29B6F6';
 /** Add-water tile ink on dark — #0288D1 only reaches 3.67:1 on a dark card. */
 const WATER_INK_DARK = '#4FC3F7';
+/**
+ * Glass outline on dark. The tile border and the ml ink are both blue, so a blue rim made the
+ * glass dissolve into its own tile — near-white separates the vessel from the water in it.
+ */
+const GLASS_RIM_DARK = '#F5F5F4';
 
 const WATER_HALF_ML = 100;
 const WATER_FULL_ML = 200;
@@ -152,7 +157,7 @@ const WATER_BIG_ML = 250;
 
 type WaterGlassVariant = 'half' | 'full' | 'big';
 
-function WaterGlassIcon({ variant }: { variant: WaterGlassVariant }) {
+function WaterGlassIcon({ variant, isDark }: { variant: WaterGlassVariant; isDark: boolean }) {
   const spec =
     variant === 'half'
       ? { w: 22, h: 28, fill: 0.4 }
@@ -167,6 +172,7 @@ function WaterGlassIcon({ variant }: { variant: WaterGlassVariant }) {
         style={[
           glassIconStyles.glass,
           { width: spec.w, height: innerH },
+          isDark && { borderColor: GLASS_RIM_DARK },
         ]}
       >
         <View style={[glassIconStyles.fill, { height: fillH }]} />
@@ -216,7 +222,7 @@ function WaterQuickTile({ variant, ml, label, onPress, waterUnit = 'ml' }: Water
       onPress={onPress}
       accessibilityLabel={`Add ${formatWaterMl(ml, waterUnit)}, ${label}`}
     >
-      <WaterGlassIcon variant={variant} />
+      <WaterGlassIcon variant={variant} isDark={isDark} />
       <Text style={waterTileStyles.ml}>{formatWaterMl(ml, waterUnit)}</Text>
       <Text style={waterTileStyles.label} numberOfLines={1}>
         {label}
@@ -279,14 +285,17 @@ type MacroBarProps = {
   showTarget?: boolean;
   /** Default grams (`g`). Energy/water pass already-converted display values. */
   unit?: 'g' | 'kcal' | 'kj' | 'ml' | 'floz';
+  /** Hitting the target is the win — no over-target penalty colour (water). */
+  goalIsFloor?: boolean;
   onPress?: () => void;
 };
 
-function MacroBar({ label, value, target, color, showTarget, unit = 'g', onPress }: MacroBarProps) {
+function MacroBar({ label, value, target, color, showTarget, unit = 'g', goalIsFloor, onPress }: MacroBarProps) {
   const { colors, isDark } = useTheme();
   const barStyles = useMemo(() => makeBarStyles(colors, isDark), [colors, isDark]);
   const ratio = target > 0 ? Math.min(1, value / target) : 0;
-  const over = value > target * 1.05;
+  const met = goalIsFloor && target > 0 && value >= target;
+  const over = !goalIsFloor && value > target * 1.05;
   const suffix =
     unit === 'g' ? 'g' : unit === 'ml' ? 'ml' : unit === 'floz' ? 'fl oz' : unit === 'kj' ? '' : '';
   const valueText = showTarget
@@ -308,10 +317,23 @@ function MacroBar({ label, value, target, color, showTarget, unit = 'g', onPress
         {label}
       </Text>
       <View style={barStyles.track}>
-        <View style={[barStyles.fill, { width: `${ratio * 100}%`, backgroundColor: over ? '#EF5350' : color }]} />
+        <View
+          style={[
+            barStyles.fill,
+            {
+              width: `${ratio * 100}%`,
+              backgroundColor: met ? colors.accentGreen : over ? (isDark ? colors.accentRed : '#EF5350') : color,
+            },
+          ]}
+        />
       </View>
       <Text
-        style={[barStyles.value, showTarget && barStyles.valueTarget, over && barStyles.valueOver]}
+        style={[
+          barStyles.value,
+          showTarget && barStyles.valueTarget,
+          met && barStyles.valueMet,
+          over && barStyles.valueOver,
+        ]}
         numberOfLines={1}
         maxFontSizeMultiplier={1.15}
       >
@@ -350,7 +372,8 @@ const makeBarStyles = (c: ThemeColors, isDark: boolean) =>
     fontVariant: ['tabular-nums'],
   },
   valueTarget: { width: 98 },
-  valueOver: { color: '#EF5350' },
+  valueMet: { color: c.accentGreen },
+  valueOver: { color: isDark ? c.accentRed : '#EF5350' },
 });
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -846,7 +869,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
             <MacroBar label="P" value={macros?.protein_g ?? 0} target={displayTarget ? displayTarget.protein_g : maxMacro} color={COLOR_PROTEIN} showTarget={!!displayTarget} />
             <MacroBar label="C" value={macros?.carb_g    ?? 0} target={displayTarget ? displayTarget.carb_g    : maxMacro} color={COLOR_CARB}    showTarget={!!displayTarget} />
             <MacroBar label="F" value={macros?.fat_g     ?? 0} target={displayTarget ? displayTarget.fat_g     : maxMacro} color={COLOR_FAT}     showTarget={!!displayTarget} />
-            <MacroBar label="Fi" value={macros?.fiber_g ?? 0} target={fiberBarTarget} color={COLOR_FIBER} showTarget={!!displayTarget} />
+            <MacroBar label="Fi" value={macros?.fiber_g ?? 0} target={fiberBarTarget} color={COLOR_FIBER} showTarget={!!displayTarget} goalIsFloor />
             <MacroBar
               label="C-Fi"
               value={netCarbEaten}
@@ -863,6 +886,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
           color={COLOR_WATER}
           showTarget
           unit={waterBarUnit}
+          goalIsFloor
           onPress={openWaterSheet}
         />
       </View>
@@ -1224,17 +1248,6 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     minWidth: 72,
     textAlign: 'center',
   },
-  addBtn: {
-    backgroundColor: c.accentGreen,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  addBtnText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
   energyLines: {
     marginBottom: 6,
     gap: 3,
@@ -1393,7 +1406,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   waterUtilityText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0288D1',
+    color: isDark ? WATER_INK_DARK : '#0288D1',
   },
   waterSheetFooter: {
     flexDirection: 'row',
@@ -1405,9 +1418,9 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     width: 52,
     paddingVertical: 14,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#FFCDD2',
-    backgroundColor: '#FFEBEE',
+    borderWidth: 1.5,
+    borderColor: isDark ? c.accentRed + '80' : '#FFCDD2',
+    backgroundColor: isDark ? c.background : '#FFEBEE',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1418,8 +1431,9 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     flex: 1,
     paddingVertical: 14,
     borderRadius: 14,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: c.gridLine,
+    backgroundColor: isDark ? c.background : 'transparent',
     alignItems: 'center',
   },
   waterSheetCancelBtnSolo: {
@@ -1540,8 +1554,9 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   modalInput: {
     borderWidth: 1.5,
     borderColor: c.gridLine,
-    borderRadius: 12,
-    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: isDark ? c.background : c.surface,
+    paddingVertical: 12,
     paddingHorizontal: 14,
     fontSize: 20,
     fontWeight: '700',
@@ -1556,28 +1571,32 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   },
   modalBtnClear: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 12,
+    borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#EF5350',
+    borderColor: c.accentRed,
+    backgroundColor: isDark ? c.background : 'transparent',
     alignItems: 'center',
   },
-  modalBtnClearText: { fontSize: 14, color: '#EF5350', fontWeight: '600' },
+  modalBtnClearText: { fontSize: 14, color: c.accentRed, fontWeight: '600' },
   modalBtnCancel: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 14,
     borderWidth: 1.5,
     borderColor: c.gridLine,
+    backgroundColor: isDark ? c.background : 'transparent',
     alignItems: 'center',
   },
-  modalBtnCancelText: { fontSize: 14, color: c.textSecondary },
+  modalBtnCancelText: { fontSize: 14, color: c.textSecondary, fontWeight: '600' },
   modalBtnSave: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    backgroundColor: c.accentGreen,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    borderRadius: 14,
+    borderWidth: isDark ? 1.5 : 0,
+    borderColor: isDark ? c.accentBlue : 'transparent',
+    backgroundColor: isDark ? c.background : c.accentBlue,
     alignItems: 'center',
   },
-  modalBtnSaveText: { fontSize: 14, color: '#fff', fontWeight: '700' },
+  modalBtnSaveText: { fontSize: 14, fontWeight: '700', color: isDark ? c.accentBlue : '#fff' },
 });

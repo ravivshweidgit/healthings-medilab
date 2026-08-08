@@ -1,0 +1,109 @@
+---
+description: Dark/light parity — theme tokens only, one primary-button style, green means success.
+globs: app/src/**/*.tsx
+alwaysApply: false
+---
+
+# Dark theme & unified style
+
+The app ships **light and dark** from one stylesheet. A literal hex in a component is a dark-mode
+bug waiting to render.
+
+## Every stylesheet is theme-aware
+
+```tsx
+const { colors, isDark } = useTheme();
+const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+
+const makeStyles = (c: ThemeColors, isDark: boolean) => StyleSheet.create({ ... });
+```
+
+A `makeStyles(c)` without `isDark` cannot express a punch-out and will smuggle light literals in.
+Light-only literals are allowed **only** behind the flag: `isDark ? c.accentRed : '#C62828'`.
+
+## Primary action — one pill, everywhere
+
+| | Dark | Light |
+|---|---|---|
+| Fill | `c.background` (punch-out) | `c.accentBlue` |
+| Border | `1.5` `c.accentBlue` | none |
+| Ink | `c.accentBlue` | `#fff` |
+| Radius | `14` | `14` |
+
+```tsx
+primaryBtn: {
+  paddingVertical: 12,
+  paddingHorizontal: 20,
+  borderRadius: 14,
+  borderWidth: isDark ? 1.5 : 0,
+  borderColor: isDark ? c.accentBlue : 'transparent',
+  backgroundColor: isDark ? c.background : c.accentBlue,
+  alignItems: 'center',
+},
+primaryBtnText: { fontSize: 14, fontWeight: '700', color: isDark ? c.accentBlue : '#fff' },
+```
+
+Secondary = `1.5` `c.gridLine` outline + `c.textSecondary` ink. Destructive = `1.5` `c.accentRed`
+outline + `c.accentRed` ink. Spinner inside a primary takes `isDark ? c.accentBlue : '#fff'`, never
+a bare `"#fff"`.
+
+## On dark, controls punch out — they never inherit the card
+
+A dialog card is `c.surface`. Any control **inside** it — secondary button, Cancel, destructive
+outline, `TextInput` — takes `backgroundColor: isDark ? c.background : …`. Leaving it transparent
+or on `c.surface` makes the control vanish into the card; only its border survives.
+
+```tsx
+cancelBtn: {
+  borderWidth: 1.5,
+  borderColor: c.gridLine,
+  backgroundColor: isDark ? c.background : 'transparent',  // ✅
+},
+input: {
+  borderWidth: 1.5,
+  borderColor: c.gridLine,
+  backgroundColor: isDark ? c.background : c.surface,      // ✅ not c.surface alone
+},
+```
+
+## Semantic colors — do not improvise
+
+| Token | Means | Never |
+|---|---|---|
+| `accentBlue` | action / link / save | — |
+| `accentGreen` | **success state only** | a Save or Apply button |
+| `accentRed` | destructive, alert, over-target | soft caution |
+| `warningAmber` | caution, medium confidence | alert |
+| `brandNavy` | the only navy **fill** on dark (white text clears AA) | ink |
+| `primaryTier` | focus-tier **ink** / edge | a fill |
+
+## Don't
+
+- `backgroundColor: '#43A047'` / `c.accentGreen` on a save, apply, or approve button
+- A tinted card (`#F1F8E9`, `#FFEBEE`, `#E8F5E9`) with no `isDark` branch — it becomes a glowing
+  patch on black
+- Deep inks (`#2E7D32`, `#B71C1C`, `#0288D1`, `#1E88E5`) unbranched — they fall under 4.5:1 on
+  `surface`
+- A one-off radius (`8`, `10`) on a dialog footer next to `14` elsewhere
+
+## Precedent
+
+prompt106 (2026-08-08): the water-total dialog shipped a solid green pill while every neighbouring
+save was blue punch-out, and the Recipe / Macro-proposal chat cards were light-only end to end.
+Ten call sites were carrying green saves. Judge a new control by **whether it matches its
+neighbours**, not by whether its contrast ratio passes.
+
+## Checklist
+
+- [ ] `makeStyles(c, isDark)` — not `makeStyles(c)`?
+- [ ] No bare hex outside an `isDark ? … : …` branch?
+- [ ] Primary action uses the punch-out pill above?
+- [ ] Green only marks success, never an action?
+- [ ] Secondary buttons and inputs punch out to `c.background` on dark?
+- [ ] Card / chip backgrounds branch for dark?
+
+## Reference
+
+`app/src/theme/tokens.ts` (contrast notes live in the palette comments) ·
+`FoodLogModal.saveBtn` · `WhatsNextCard` · `ActivityLogStrip.addBtn`.
+Press/busy states: `button-press-feedback.mdc`.

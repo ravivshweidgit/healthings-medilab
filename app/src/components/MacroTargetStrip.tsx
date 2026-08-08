@@ -137,6 +137,7 @@ function MacroBar({
   target,
   color,
   unit = 'g',
+  goalIsFloor,
   onPress,
 }: {
   label: string;
@@ -144,12 +145,15 @@ function MacroBar({
   target: number;
   color: string;
   unit?: 'g' | 'kcal' | 'kj' | 'ml' | 'floz';
+  /** Hitting the target is the win — no over-target penalty colour (water). */
+  goalIsFloor?: boolean;
   onPress?: () => void;
 }) {
   const { colors, isDark } = useTheme();
   const barStyles = useMemo(() => makeBarStyles(colors, isDark), [colors, isDark]);
   const pct = actual != null && target > 0 ? Math.min(1, actual / target) : 0;
-  const over = actual != null && actual > target * 1.1;
+  const met = goalIsFloor === true && actual != null && target > 0 && actual >= target;
+  const over = !goalIsFloor && actual != null && actual > target * 1.1;
   const suffix =
     unit === 'g' ? 'g' : unit === 'ml' ? 'ml' : unit === 'floz' ? 'fl oz' : '';
   const fmt = (v: number) =>
@@ -166,10 +170,18 @@ function MacroBar({
         {label}
       </Text>
       <View style={barStyles.track}>
-        <View style={[barStyles.fill, { width: `${pct * 100}%`, backgroundColor: over ? '#EF5350' : color }]} />
+        <View
+          style={[
+            barStyles.fill,
+            {
+              width: `${pct * 100}%`,
+              backgroundColor: met ? colors.accentGreen : over ? (isDark ? colors.accentRed : '#EF5350') : color,
+            },
+          ]}
+        />
       </View>
       <Text
-        style={[barStyles.nums, over && barStyles.numsOver]}
+        style={[barStyles.nums, met && barStyles.numsMet, over && barStyles.numsOver]}
         numberOfLines={1}
         maxFontSizeMultiplier={1.15}
       >
@@ -215,7 +227,8 @@ const makeBarStyles = (c: ThemeColors, isDark: boolean) =>
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
   },
-  numsOver: { color: '#EF5350' },
+  numsMet: { color: c.accentGreen },
+  numsOver: { color: isDark ? c.accentRed : '#EF5350' },
 });
 
 // ─── Edit field ───────────────────────────────────────────────────────────────
@@ -223,8 +236,8 @@ const makeBarStyles = (c: ThemeColors, isDark: boolean) =>
 function EditField({
   label, value, onChange, unit, aiVal, hint,
 }: { label: string; value: string; onChange: (v: string) => void; unit: string; aiVal?: number; hint?: string }) {
-  const { colors } = useTheme();
-  const editStyles = useMemo(() => makeEditStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const editStyles = useMemo(() => makeEditStyles(colors, isDark), [colors, isDark]);
   return (
     <View style={editStyles.row}>
       <Text style={editStyles.label}>{label}</Text>
@@ -242,13 +255,14 @@ function EditField({
   );
 }
 
-const makeEditStyles = (c: ThemeColors) =>
+const makeEditStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
   label: { width: 70, fontSize: 12, fontWeight: '700', color: c.textSecondary },
   input: {
     flex: 1, borderWidth: 1.5, borderColor: c.gridLine,
-    borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10,
+    borderRadius: 12, backgroundColor: isDark ? c.background : c.surface,
+    paddingVertical: 10, paddingHorizontal: 10,
     fontSize: 15, fontWeight: '700', color: c.textPrimary, textAlign: 'center',
   },
   unit: { fontSize: 12, color: c.textSecondary, flexShrink: 0 },
@@ -669,7 +683,7 @@ export function MacroTargetStrip({
               <MacroBar label="P" actual={actualProtein_g} target={target.protein_g} color="#4CAF50" />
               <MacroBar label="C" actual={actualCarb_g}    target={target.carb_g}    color="#FF9800" />
               <MacroBar label="F" actual={actualFat_g}     target={target.fat_g}     color="#2196F3" />
-              <MacroBar label="Fi" actual={actualFiber_g} target={resolveFiberTarget_g(target)} color="#66BB6A" />
+              <MacroBar label="Fi" actual={actualFiber_g} target={resolveFiberTarget_g(target)} color="#66BB6A" goalIsFloor />
               <MacroBar
                 label="Net"
                 actual={
@@ -686,6 +700,7 @@ export function MacroTargetStrip({
                 target={mlToDisplay(waterGoalMl, unitsPrefs.water)}
                 color="#29B6F6"
                 unit={unitsPrefs.water === 'floz' ? 'floz' : 'ml'}
+                goalIsFloor
                 onPress={openWaterGoalModal}
               />
               <Text style={styles.h2oHint}>Tap H2O bar to edit water goal</Text>
@@ -764,7 +779,8 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   modalInput: {
     borderWidth: 1.5,
     borderColor: c.gridLine,
-    borderRadius: 12,
+    borderRadius: 14,
+    backgroundColor: isDark ? c.background : c.surface,
     paddingVertical: 12,
     paddingHorizontal: 14,
     fontSize: 18,
@@ -778,15 +794,15 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   hintText: { fontSize: 12, color: c.textSecondary, fontStyle: 'italic' },
   errorText: { fontSize: 12, color: '#E53935' },
   aiBtn: {
-    backgroundColor: isDark ? c.background : c.accentGreen,
+    backgroundColor: isDark ? c.background : c.accentBlue,
     borderWidth: isDark ? 1.5 : 0,
-    borderColor: isDark ? c.accentGreen : 'transparent',
+    borderColor: isDark ? c.accentBlue : 'transparent',
     borderRadius: 999,
     paddingVertical: 12,
     alignItems: 'center',
   },
   aiBtnDisabled: { backgroundColor: isDark ? c.background : c.gridLine, opacity: isDark ? 0.55 : 1 },
-  aiBtnText: { color: isDark ? c.accentGreen : '#fff', fontWeight: '700', fontSize: 14 },
+  aiBtnText: { color: isDark ? c.accentBlue : '#fff', fontWeight: '700', fontSize: 14 },
 
   loadingWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
   loadingText: { fontSize: 13, color: c.textSecondary },
@@ -821,15 +837,19 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   suggLabel: { fontSize: 11, color: c.textSecondary },
 
   suggBtns: { flexDirection: 'row', gap: 10 },
-  btn: { flex: 1, paddingVertical: 11, borderRadius: 12, alignItems: 'center' },
+  btn: { flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center' },
   btnAccept: {
-    backgroundColor: isDark ? c.background : c.accentGreen,
+    backgroundColor: isDark ? c.background : c.accentBlue,
     borderWidth: isDark ? 1.5 : 0,
-    borderColor: isDark ? c.accentGreen : 'transparent',
+    borderColor: isDark ? c.accentBlue : 'transparent',
   },
-  btnEdit: { borderWidth: 1.5, borderColor: c.gridLine, backgroundColor: isDark ? c.background : undefined },
-  btnTextAccept: { color: isDark ? c.accentGreen : '#fff', fontWeight: '700', fontSize: 14 },
-  btnTextEdit: { color: c.textPrimary, fontWeight: '600', fontSize: 14 },
+  btnEdit: {
+    borderWidth: 1.5,
+    borderColor: c.gridLine,
+    backgroundColor: isDark ? c.background : 'transparent',
+  },
+  btnTextAccept: { color: isDark ? c.accentBlue : '#fff', fontWeight: '700', fontSize: 14 },
+  btnTextEdit: { color: c.textSecondary, fontWeight: '600', fontSize: 14 },
 
   activeLabelRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 6 },
   dietBadgeSmall: {

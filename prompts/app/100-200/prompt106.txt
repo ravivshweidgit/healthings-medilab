@@ -96,7 +96,8 @@ Surfaces the user hits weekly look intentional: sync, CareSens import toast, pul
 - [x] Pull-refresh / sync busy + done feedback (copy + disabled double-fire) — overlay “Updating…”, flash Updated / failed (`metabolicStripCopy.refresh*`), header a11y busy; double-fire already gated
 - [x] CareSens import result readable on success **and** failure (range, truncation) — ok/error chip + `careSensImportCopy` (10 locales); incomplete/empty/columns mapped
 - [x] Glucose / Food / Activity strip headers: consistent density, chevron, a11y labels — Food `ui.collapse`/`expand`; Activity a11y localized; collapsed padding + glucose inset aligned; shared ▾ chevron + hitSlop
-- [ ] Dark mode spot-check on polished surfaces (prompt96)
+- [x] Dark mode spot-check on polished surfaces (prompt96) — water sheet (utility ink, glass outline, delete tile), Food Log remove tile / nutritionist-alert title / gallery tile (`brandNavy` fill, not navy-on-black), Activity past-CTA + favourite chip + link ink. CareSens chip and refresh flash already dark-aware.
+- [x] **Dialog buttons unified** — every primary action is now the same punch-out pill (dark: `background` fill + `accentBlue` border/ink; light: solid `accentBlue` + white), radius 14, matching `FoodLogModal.saveBtn` / What's next / Add activity. Removed the stray green fills (`accentGreen`, `#43A047`) from water total, water goal, macro correction, Activity save, Food Log Use as meal / Add to meal / Approve update / Edit item / alert Edit, Macro proposal Apply, Recipe Log meal. Green is success-only per `tokens.ts`. Destructive outlines use `accentRed`, not `#EF5350`. Recipe + Macro proposal chat cards were light-only (`#F1F8E9` card on black) — now themed.
 - [x] HE (or second `appLocale`) pass on new strings — catalog only, no inline English UI — Food Log meal/photo chrome via `foodLogUiCopy` + `foodLogPhotoUiCopy` (still some edge English OK to defer)
 
 ---
