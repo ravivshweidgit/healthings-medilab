@@ -167,6 +167,19 @@ type Props = {
   onOpenFoodLog?: () => void;
 };
 
+/**
+ * Quick Start step matrix (phone-counted 2026-08-08 — prompt106):
+ *
+ * | Path | Steps | Count |
+ * |------|-------|------:|
+ * | Core always | language → appearance → names → welcome → units → body → scale → watch → cgm → weight → targets → meals | 12 |
+ * | + Withings | insert `link_withings` after cgm when scale **or** watch = Yes | +1 |
+ * | + phone health | insert `phone_health` when watch = No **or** CGM = Yes | +1 |
+ * | Max (scale+watch+CGM) | core + link_withings + phone_health (CGM) | 14 → was 15 with pdfs |
+ *
+ * **Safe trim (2026-08):** dropped mandatory `pdfs` — lab/nutrition PDF import stays on
+ * dashboard Labs / Nutrition strips. Does not touch Withings/CGM/link gates.
+ */
 function buildStepList(
   hasScale: boolean | null,
   hasWatch: boolean | null,
@@ -191,13 +204,13 @@ function buildStepList(
   if (hasWatch === false || tracksCgm === true) {
     steps.push('phone_health');
   }
-  steps.push('pdfs', 'targets', 'meals');
+  steps.push('targets', 'meals');
   return steps;
 }
 
 /**
  * Fixed progress denominator. Device answers (scale/watch/cgm) insert optional
- * steps, so the raw list length grows 11→13 mid-flow — a moving goalpost. Using
+ * steps, so the raw list length grows mid-flow — a moving goalpost. Using
  * the maximum possible length keeps "Step N of M" and the dot count stable.
  */
 const MAX_QUICK_START_STEPS = buildStepList(true, true, true).length;

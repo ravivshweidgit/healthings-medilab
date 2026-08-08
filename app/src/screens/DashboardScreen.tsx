@@ -139,7 +139,11 @@ import {
   getCareSensImportCopy,
   mapCareSensImportError,
 } from '../i18n/careSensImportCopy';
-import { getWhatsNextCopy, WHATS_NEXT_DISMISSED_KEY } from '../i18n/whatsNextCopy';
+import {
+  getWhatsNextCopy,
+  MEAL_NUDGE_DISMISSED_DAY_KEY,
+  WHATS_NEXT_DISMISSED_KEY,
+} from '../i18n/whatsNextCopy';
 import { metabolicChartHeader } from '../logic/sourceConfigLabels';
 import { awsDataService } from '../services/AwsDataService';
 import {
@@ -488,6 +492,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [quickStartVisible, setQuickStartVisible] = useState(false);
   /** prompt106 — hide What’s next until Later, or after first meal/activity today. */
   const [whatsNextDismissed, setWhatsNextDismissed] = useState(false);
+  /** Soft retention — day key when user dismissed “log meal?” nudge. */
+  const [mealNudgeDismissedDay, setMealNudgeDismissedDay] = useState<string | null>(null);
+  /** One-shot “You’re set” after Quick Start Finish. */
+  const [postSetupCelebration, setPostSetupCelebration] = useState(false);
   const [todayActivityCount, setTodayActivityCount] = useState(0);
   const [manualTrendDays, setManualTrendDays] = useState<MetabolicTrend7dDay[]>([]);
   const [manualTrendLoading, setManualTrendLoading] = useState(false);
@@ -717,6 +725,9 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     void AsyncStorage.getItem(WHATS_NEXT_DISMISSED_KEY).then((v) => {
       if (v === '1') setWhatsNextDismissed(true);
     });
+    void AsyncStorage.getItem(MEAL_NUDGE_DISMISSED_DAY_KEY).then((v) => {
+      if (v) setMealNudgeDismissedDay(v);
+    });
   }, []);
 
   const dismissWhatsNext = useCallback(() => {
@@ -724,11 +735,23 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     void AsyncStorage.setItem(WHATS_NEXT_DISMISSED_KEY, '1');
   }, []);
 
+  const dismissMealNudge = useCallback(() => {
+    setMealNudgeDismissedDay(todayDayKey);
+    void AsyncStorage.setItem(MEAL_NUDGE_DISMISSED_DAY_KEY, todayDayKey);
+  }, [todayDayKey]);
+
   const showWhatsNext =
     !quickStartVisible &&
     !whatsNextDismissed &&
     todayFoodEntries.length === 0 &&
     todayActivityCount === 0;
+
+  const showMealNudge =
+    !quickStartVisible &&
+    !postSetupCelebration &&
+    !showWhatsNext &&
+    todayFoodEntries.length === 0 &&
+    mealNudgeDismissedDay !== todayDayKey;
 
   /** prompt105: expired session must never leave Quick Start open. */
   useEffect(() => {
@@ -2224,6 +2247,25 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           </View>
         ) : null}
 
+        {/* First-session focus: habit CTA before coach chrome (Phase 2 hierarchy). */}
+        {showWhatsNext ? (
+          <WhatsNextCard
+            langCode={userLanguage.code}
+            showActivity={activityLogVisible}
+            onLogMeal={() => {
+              setFoodEditEntry(undefined);
+              setFoodInitialTimestamp(defaultMealTimestampForDay(todayDayKey));
+              setFoodModalVisible(true);
+            }}
+            onAddActivity={() => {
+              setActivityEditEntry(undefined);
+              setActivityInitialTimestamp(defaultActivityTimestampForDay(todayDayKey));
+              setActivityModalVisible(true);
+            }}
+            onDismiss={dismissWhatsNext}
+          />
+        ) : null}
+
         {/* AI chat entry — always visible; mentors + optional action progress */}
         <Pressable
           style={styles.nudgeStrip}
@@ -2365,9 +2407,39 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           </View>
           ) : null}
 
-          {!showWithingsBodyHeader && linkError ? <Text style={styles.linkErrorText}>{linkError}</Text> : null}
+          {!showWithingsBodyHeader && linkError ? (
+            <View style={styles.bodyScanEmptyWrap}>
+              <Text style={styles.linkErrorText}>{whatsNextCopy.syncFailedHint}</Text>
+              <Pressable
+                onPress={() => {
+                  setProfileExpanded(true);
+                  setGearExpanded(true);
+                }}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={whatsNextCopy.openYourSetup}
+              >
+                <Text style={styles.bodyScanEmptyAction}>{whatsNextCopy.openYourSetup}</Text>
+              </Pressable>
+            </View>
+          ) : null}
 
-          {bodyScanError ? <Text style={styles.bodyScanErrorText}>{bodyScanError}</Text> : null}
+          {bodyScanError ? (
+            <View style={styles.bodyScanEmptyWrap}>
+              <Text style={styles.bodyScanErrorText}>{whatsNextCopy.syncFailedHint}</Text>
+              <Pressable
+                onPress={() => {
+                  setProfileExpanded(true);
+                  setGearExpanded(true);
+                }}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={whatsNextCopy.openYourSetup}
+              >
+                <Text style={styles.bodyScanEmptyAction}>{whatsNextCopy.openYourSetup}</Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           {displayBodyScan && !bodyScanLoading ? (
             <>
@@ -2503,22 +2575,33 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           ) : null}
         </View>
 
-        {showWhatsNext ? (
-          <WhatsNextCard
-            langCode={userLanguage.code}
-            showActivity={activityLogVisible}
-            onLogMeal={() => {
-              setFoodEditEntry(undefined);
-              setFoodInitialTimestamp(defaultMealTimestampForDay(todayDayKey));
-              setFoodModalVisible(true);
-            }}
-            onAddActivity={() => {
-              setActivityEditEntry(undefined);
-              setActivityInitialTimestamp(defaultActivityTimestampForDay(todayDayKey));
-              setActivityModalVisible(true);
-            }}
-            onDismiss={dismissWhatsNext}
-          />
+        {showMealNudge ? (
+          <View style={[styles.mealNudgeCard, cardShadow]}>
+            <Text style={styles.mealNudgeLead}>{whatsNextCopy.mealNudgeLead}</Text>
+            <View style={styles.mealNudgeActions}>
+              <Pressable
+                style={styles.mealNudgePrimary}
+                onPress={() => {
+                  dismissMealNudge();
+                  setFoodEditEntry(undefined);
+                  setFoodInitialTimestamp(defaultMealTimestampForDay(todayDayKey));
+                  setFoodModalVisible(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={whatsNextCopy.mealNudgeCta}
+              >
+                <Text style={styles.mealNudgePrimaryText}>{whatsNextCopy.mealNudgeCta}</Text>
+              </Pressable>
+              <Pressable
+                onPress={dismissMealNudge}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={whatsNextCopy.mealNudgeLater}
+              >
+                <Text style={styles.mealNudgeLater}>{whatsNextCopy.mealNudgeLater}</Text>
+              </Pressable>
+            </View>
+          </View>
         ) : null}
 
         {/* Food log — above charts so users find it without scrolling past glucose/trend */}
@@ -2630,12 +2713,26 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             {trendExpanded ? (
               <>
                 {trendError && !useManualWeightTrend ? (
-                  <Text style={styles.trendErrorText}>{trendError}</Text>
+                  <View style={styles.bodyScanEmptyWrap}>
+                    <Text style={styles.trendErrorText}>{whatsNextCopy.syncFailedHint}</Text>
+                    <Text style={styles.bodyScanEmpty}>{whatsNextCopy.refreshHint}</Text>
+                    <Pressable
+                      onPress={() => {
+                        setProfileExpanded(true);
+                        setGearExpanded(true);
+                      }}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={whatsNextCopy.openYourSetup}
+                    >
+                      <Text style={styles.bodyScanEmptyAction}>{whatsNextCopy.openYourSetup}</Text>
+                    </Pressable>
+                  </View>
                 ) : null}
                 {trendChartLoading && !visibleTrend ? (
                   <View style={styles.trendLoadingOnly}>
                     <ActivityIndicator color={colors.accentBlue} />
-                    <Text style={styles.trendLoadingLabel}>Loading trend analysis…</Text>
+                    <Text style={styles.trendLoadingLabel}>{metabolicStripCopy.loading}</Text>
                   </View>
                 ) : null}
                 {visibleTrend ? (
@@ -2656,6 +2753,23 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     massUnit={unitsPrefs.mass}
                     langCode={userLanguage.code}
                   />
+                ) : null}
+                {!trendChartLoading && !visibleTrend && !(trendError && !useManualWeightTrend) ? (
+                  <View style={styles.bodyScanEmptyWrap}>
+                    <Text style={styles.bodyScanEmpty}>{whatsNextCopy.emptyTrendAnalysis}</Text>
+                    <Text style={styles.bodyScanEmpty}>{whatsNextCopy.refreshHint}</Text>
+                    <Pressable
+                      onPress={() => {
+                        setProfileExpanded(true);
+                        setGearExpanded(true);
+                      }}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={whatsNextCopy.openYourSetup}
+                    >
+                      <Text style={styles.bodyScanEmptyAction}>{whatsNextCopy.openYourSetup}</Text>
+                    </Pressable>
+                  </View>
                 ) : null}
                 {hasEnergyHistory && visibleTrend ? (
                   <View style={styles.bmrInsideTrend}>
@@ -3264,6 +3378,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         visible={quickStartVisible}
         onComplete={() => {
           setQuickStartVisible(false);
+          setPostSetupCelebration(true);
           void loadHeightAndBirthdate();
           void loadManualTrend();
         }}
@@ -3274,6 +3389,33 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           void loadManualTrend();
         }}
       />
+
+      <Modal
+        visible={postSetupCelebration}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPostSetupCelebration(false)}
+      >
+        <Pressable
+          style={styles.celebrationBackdrop}
+          onPress={() => setPostSetupCelebration(false)}
+          accessibilityRole="button"
+          accessibilityLabel={whatsNextCopy.setupCompleteCta}
+        >
+          <Pressable style={[styles.celebrationCard, cardShadow]} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.celebrationTitle}>{whatsNextCopy.setupCompleteTitle}</Text>
+            <Text style={styles.celebrationLead}>{whatsNextCopy.setupCompleteLead}</Text>
+            <Pressable
+              style={styles.celebrationCta}
+              onPress={() => setPostSetupCelebration(false)}
+              accessibilityRole="button"
+              accessibilityLabel={whatsNextCopy.setupCompleteCta}
+            >
+              <Text style={styles.celebrationCtaText}>{whatsNextCopy.setupCompleteCta}</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal
         visible={withingsMenuVisible}
@@ -3644,6 +3786,83 @@ const makeStyles = (c: ThemeColors, isDark: boolean) => {
     fontSize: 14,
     fontWeight: '600',
     color: c.accentBlue,
+  },
+  mealNudgeCard: {
+    backgroundColor: c.surface,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: dashCardGap,
+    gap: 10,
+  },
+  mealNudgeLead: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: c.textPrimary,
+  },
+  mealNudgeActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  mealNudgePrimary: {
+    backgroundColor: isDark ? c.background : c.accentBlue,
+    borderWidth: isDark ? 1.5 : 0,
+    borderColor: c.accentBlue,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  mealNudgePrimaryText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: isDark ? c.accentBlue : '#FFFFFF',
+  },
+  mealNudgeLater: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: c.textSecondary,
+  },
+  celebrationBackdrop: {
+    flex: 1,
+    backgroundColor: isDark ? 'rgba(0,0,0,0.55)' : 'rgba(26,43,74,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+  },
+  celebrationCard: {
+    backgroundColor: c.surface,
+    borderRadius: 20,
+    paddingHorizontal: 22,
+    paddingVertical: 22,
+    width: '100%',
+    maxWidth: 360,
+    gap: 10,
+  },
+  celebrationTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: c.textPrimary,
+  },
+  celebrationLead: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: c.textSecondary,
+    marginBottom: 6,
+  },
+  celebrationCta: {
+    alignSelf: 'flex-start',
+    backgroundColor: isDark ? c.background : c.accentBlue,
+    borderWidth: isDark ? 1.5 : 0,
+    borderColor: c.accentBlue,
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  celebrationCtaText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: isDark ? c.accentBlue : '#FFFFFF',
   },
   /** Same horizontal gutter as surface cards (scroll padding + card inner padding). */
   chartBleed: {

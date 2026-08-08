@@ -140,7 +140,7 @@ Subtitle look: **outline only** (no 0.3 full-width band). Mix rule: `.cursor/rul
 - [ ] 10-locale titles for list rows; video may stay EN+HE-subs
 - [ ] Samsung `bi`: tap → video plays; back to app; no crash if offline (calm error / browser message)
 - [ ] iOS later: same URLs
-- [ ] prompt106 polish score narrative: optional note after ship (setup ease / polish bump only if phone-felt)
+- [x] prompt106 polish score narrative — `COMPETITOR-SCORES.md` 2026-08-08: Setup **56→64**, UX/polish **60→63** / **64→67**; overall solo **82**, +clinic **90**
 
 ## Shipped ahead of video hosting
 

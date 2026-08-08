@@ -38,6 +38,7 @@ import {
 import {
   estimateActivityKcalFromYoutube,
   fetchYoutubeVideoTitle,
+  normalizeYoutubeWatchUrl,
 } from '../services/GeminiService';
 import { getHelpStripCopy } from '../i18n/helpStripCopy';
 import { OutOfCreditsError } from '../services/UsageQueueService';
@@ -156,6 +157,8 @@ export function ActivityLogModal({
   const [managingFavs, setManagingFavs] = useState(false);
   const [minutesOrigin, setMinutesOrigin] = useState(30);
   const kcalPerMinRef = useRef(5);
+  /** Dedupes paste→auto AI (reset when modal opens). */
+  const autoAiUrlRef = useRef<string | null>(null);
 
   const [browseDayMs, setBrowseDayMs] = useState(() => startOfLocalDay(Date.now()));
   const [pastDayEntries, setPastDayEntries] = useState<ActivityEntry[]>([]);
@@ -179,6 +182,7 @@ export function ActivityLogModal({
 
   useEffect(() => {
     if (!visible) return;
+    autoAiUrlRef.current = null;
     void reloadFavs();
     setMode('form');
     setAiHint(null);
@@ -417,6 +421,21 @@ export function ActivityLogModal({
     seedMinutesAndKcal,
     parseEquipmentKg,
   ]);
+
+  // Paste → auto AI calc (prompt106 tap cut). Keep AI button for re-run / name-only.
+  useEffect(() => {
+    if (!visible || editEntry || aiBusy || favoriteId) return;
+    const watch = normalizeYoutubeWatchUrl(youtubeUrl);
+    if (!watch) return;
+    if (autoAiUrlRef.current === watch) return;
+    const weightKg = bodyProfile?.weightKg;
+    if (weightKg == null || !(weightKg > 0)) return;
+    const t = setTimeout(() => {
+      autoAiUrlRef.current = watch;
+      void runAiCalc();
+    }, 450);
+    return () => clearTimeout(t);
+  }, [visible, youtubeUrl, editEntry, aiBusy, favoriteId, bodyProfile?.weightKg, runAiCalc]);
 
   const handleSave = useCallback(async () => {
     const trimmed = name.trim();

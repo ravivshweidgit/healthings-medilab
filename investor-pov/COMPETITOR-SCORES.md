@@ -32,8 +32,8 @@ Weighted from [Category scores](#category-scores-0100-same-icp) (includes **Choo
 
 | App / stack | Score | Market price (USD, ~Aug 2026) | One-line why |
 |-------------|------:|-------------------------------|--------------|
-| **Healthings + clinic** (same app + your nutritionist) | **89** | **Pay as you go** AI + nutritionist **when you choose** (clinic) | Same Healthings.AI — local-first + **your** clinic nutritionist + rules loop — not $200/mo cloud coach |
-| **Healthings.AI** (solo) | **81** | **Pay as you go** · **$5 / 100 cr** · ~**$15–25**/active mo (~**90% less** than ~$200 Nutrisense) | Same app alone — no clinic linked yet (**Choose nutritionist = 0** until you connect) |
+| **Healthings + clinic** (same app + your nutritionist) | **90** | **Pay as you go** AI + nutritionist **when you choose** (clinic) | Same Healthings.AI — local-first + **your** clinic nutritionist + rules loop — not $200/mo cloud coach |
+| **Healthings.AI** (solo) | **82** | **Pay as you go** · **$5 / 100 cr** · ~**$15–25**/active mo (~**90% less** than ~$200 Nutrisense) | Same app alone — no clinic linked yet (**Choose nutritionist = 0** until you connect) |
 | **Levels** | **60** | App **~$15/mo** · Core **~$41** · Complete **~$167** | Polished CGM cloud membership; weak rules→auto-correct / local-first / your own nutritionist |
 | **Nutrisense** | **60** | **~$150–225/mo** sensors · BYO **~$39/mo** | Best **packaged** nutritionist sessions + meal scores; **their** coach network, not your local nutritionist |
 | **4-app stack + ChatGPT** | **58** | ChatGPT **~$20/mo** + apps | Strong generic AI chat if user pastes the file; no closed loop |
@@ -46,8 +46,8 @@ See [Market prices](#market-prices-usd--aug-2026) for prepaid vs subscription vs
 ### Visual (ICP)
 
 ```
-Healthings + clinic ████████████████████░  89
-Healthings.AI       ████████████████░░░░░  81
+Healthings + clinic ████████████████████░  90
+Healthings.AI       ████████████████░░░░░  82
 Levels              ███████████████░░░░░░  60
 Nutrisense          ███████████████░░░░░░  60
 DIY stack           ██████████████░░░░░░░  58
@@ -109,16 +109,20 @@ Same product, two modes: **Healthings.AI** = app alone · **Healthings + clinic*
 | **Food logging** (photo / AI chat / reuse / item g) | 5% | **88** | **88** | 78 | 72 | **90** | 25 | 5 |
 | **Choose your real nutritionist** | 5% | **0** | **98** | 32 | 35 | 15 | 10 | 10 |
 | **Nutritionist sessions** (human visit + brief) | 8% | 42 | **93** | **90** | 74 | 18 | 12 | 12 |
-| **UX / polish / retention** | 4% | **60** | **64** | **88** | **85** | 80 | **82** | **78** |
+| **UX / polish / retention** | 4% | **71** | **74** | **88** | **85** | 80 | **82** | **78** |
 | **Language / local** (IL, multi-lang AI) | 4% | **85** | **85** | 35 | 35 | 70 | 75 | 75 |
-| **Setup ease** (higher = easier) | 4% | 56 | 56 | **82** | **80** | **85** | **90** | **88** |
-| **TOTAL (weighted)** | **100%** | **81** | **89** | **60** | **60** | **41** | **32** | **33** |
+| **Setup ease** (higher = easier) | 4% | **69** | **69** | **82** | **80** | **85** | **90** | **88** |
+| **TOTAL (weighted)** | **100%** | **82** | **90** | **60** | **60** | **41** | **32** | **33** |
 
 **Rescore note (2026-08):** Added **Privacy / local-first (6%)** — phone is source of truth; AI/clinic are opt-in pipes, not the vault. Healthings **92** (solo) / **88** (+nutritionist, explicit clinic share). Nutrisense **38**, Levels **40** (cloud membership). Food logging already **88**. Overall solo **82→83**, +nutritionist **89**; Nutrisense **64→62**, Levels **64→63**.
 
 **Rescore note (2026-08-08, prompt106):** **UX / polish / retention** **52→60** (solo) / **56→64** (+ nutritionist) — What’s next CTA, calm empty states, empty-today Food/Activity auto-expand, Add activity dark punch-out. Still well below Nutrisense **88**; weighted solo **~83**.
 
 **Rescore note (2026-08-08, your own nutritionist):** Added **Choose your real nutritionist (5%)** — Solo **0** until linked; **Healthings + clinic 98**. Dropped **Human coach** (overlap); weight into **Nutritionist sessions (5%→8%)**. Overall solo **80→81**; Nutrisense / Levels both **≈60**.
+
+**Rescore note (2026-08-08, prompt107 Watch explainers):** In-app **Watch** films (scale Yes/No, phone-health, CGM pipeline, meal entry) + Help catalog — Withings-style in-product teaching. **Setup ease** **56→64**; **UX / polish / retention** **60→63** (solo) / **64→67** (+ clinic) — retention half of the polish band, not chrome alone. Still below Nutrisense polish **88** / setup **82**. Weighted overall solo **81→82**, + clinic **89→90**.
+
+**Rescore note (2026-08-08, polish ladder Phase 1+2):** What’s next → Watch secondary; Matilda remasters; meal autofocus + YouTube paste→auto AI; QS `-pdfs` step; trend/sync calm empties; What’s next above AI strip; post-QS “You’re set”; soft in-app meal nudge. **UX / polish / retention** **63→71** (solo) / **67→74** (+ clinic); **Setup ease** **64→69**. Still below Nutrisense **88** / **82** — ≥80 polish needs more phone-proven habit speed. Overall solo stays **~82** (small weight on polish).
 
 **Healthings.AI leads:** macro, fusion, **rules→real-time correction**, **privacy / local-first**, labs, AI chats, charts & energy, activity, price, language; **near-lead food log UX**. **Healthings + clinic** also: **choose your real nutritionist** + session brief.  
 **Nutrisense leads:** **packaged sessions**, polish, CGM meal scores, setup — **not** “bring your own local nutritionist.”  
@@ -128,7 +132,7 @@ Same product, two modes: **Healthings.AI** = app alone · **Healthings + clinic*
 
 ---
 
-## Weighted overall (how 81 / 60 were derived)
+## Weighted overall (how 82 / 60 were derived)
 
 | Weight | Category |
 |-------:|----------|
@@ -149,7 +153,7 @@ Same product, two modes: **Healthings.AI** = app alone · **Healthings + clinic*
 | 4% | Language / local |
 | 4% | Setup ease |
 
-**Healthings.AI solo ≈ 81** · **Healthings + clinic ≈ 89** · **Levels ≈ 60** · **Nutrisense ≈ 60**
+**Healthings.AI solo ≈ 82** · **Healthings + clinic ≈ 90** · **Levels ≈ 60** · **Nutrisense ≈ 60**
 
 ---
 
@@ -251,7 +255,7 @@ Scores **flip** when the job is not the ICP:
 
 **Weak:** “We beat Nutrisense at everything.”
 
-**Strong:** “For Libre + Withings + labs users who log food and training daily, Healthings.AI scores **81** solo vs Nutrisense **60**. We win **local-first privacy**, **My Rules → real-time correction**, fusion, fused charts, **AI food log**, and **pay-as-you-go**. They win **packaged nutritionist sessions** + meal-score polish. **Healthings + clinic (~89)** — *your* nutritionist (you chose them) walks in with the full brief; you still don’t pay ~$200 every month.”
+**Strong:** “For Libre + Withings + labs users who log food and training daily, Healthings.AI scores **82** solo vs Nutrisense **60**. We win **local-first privacy**, **My Rules → real-time correction**, fusion, fused charts, **AI food log**, and **pay-as-you-go**. They win **packaged nutritionist sessions** + meal-score polish. **Healthings + clinic (~90)** — *your* nutritionist (you chose them) walks in with the full brief; you still don’t pay ~$200 every month.”
 
 **One sentence:** Nutrisense = **~$200/mo cloud sessions with their nutritionists**. Healthings = **local-first closed loop** + **your** nutritionist when you want — not theirs.
 
@@ -278,6 +282,8 @@ Scores **flip** when the job is not the ICP:
 | 2026-08-08 | **Privacy / local-first** (6%); Nutrisense **62**, Levels **63** |
 | 2026-08-08 | **UX / polish** **52→60** / **56→64** (prompt106 What’s next + habit expand); solo overall **82→83** |
 | 2026-08-08 | **Choose your real nutritionist** (5%); rename → **Healthings + clinic**; solo Choose **0**; drop **Human coach** → Sessions **8%**; solo overall **81**, + clinic **89** |
+| 2026-08-08 | prompt107 Watch explainers: **Setup** **56→64**, **UX / polish** **60→63** / **64→67**; overall solo **82**, + clinic **90** |
+| 2026-08-08 | Polish ladder P1+2: **UX / polish** **63→71** / **67→74**, **Setup** **64→69**; path to ≥80 still open |
 
 ---
 

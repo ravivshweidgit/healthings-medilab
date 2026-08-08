@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  InteractionManager,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -464,6 +465,7 @@ export function FoodLogModal({
   const [pastDayMeals, setPastDayMeals] = useState<FoodEntry[]>([]);
   const [pastDayLoading, setPastDayLoading] = useState(false);
   const chatInputRef = useRef<TextInput>(null);
+  const describeInputRef = useRef<TextInput>(null);
   const mealCompositionKey = mealItemsCompositionKey(items);
 
   const loadFoodLogHistory = useCallback(async (excludeId?: string) => {
@@ -607,6 +609,24 @@ export function FoodLogModal({
       setMealTime(initialTimestamp ?? Date.now());
     }
   }, [visible, initialTimestamp, editEntry]);
+
+  // Modal slide steals focus on Android — autoFocus alone often no-ops. Focus after settle.
+  useEffect(() => {
+    if (!visible || editEntry || screen !== 'idle') return;
+    if (prefillItems && prefillItems.length > 0) return;
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const task = InteractionManager.runAfterInteractions(() => {
+      timeoutId = setTimeout(() => {
+        if (!cancelled) describeInputRef.current?.focus();
+      }, Platform.OS === 'android' ? 400 : 250);
+    });
+    return () => {
+      cancelled = true;
+      if (timeoutId != null) clearTimeout(timeoutId);
+      task.cancel();
+    };
+  }, [visible, editEntry, screen, prefillItems]);
 
   const reset = useCallback(() => {
     setScreen('idle');
@@ -1330,6 +1350,7 @@ export function FoodLogModal({
 
                 <View style={styles.textInputRow}>
                   <TextInput
+                    ref={describeInputRef}
                     style={styles.describeInput}
                     placeholder={describePlaceholder}
                     placeholderTextColor={colors.textSecondary}
@@ -1338,6 +1359,7 @@ export function FoodLogModal({
                     onSubmitEditing={handleTextSubmit}
                     returnKeyType="done"
                     multiline={false}
+                    showSoftInputOnFocus
                   />
                   <Pressable
                     style={[styles.sendBtn, !textPrompt.trim() && styles.sendBtnDisabled]}

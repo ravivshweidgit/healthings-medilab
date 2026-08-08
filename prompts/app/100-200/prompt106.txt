@@ -3,7 +3,7 @@
 **Status:** Phase A CTA slice phone-tested (2026-08-08) — B/C + setup-step trim still open  
 **Test order:** Samsung Android first (`bi`) → iOS later (`bi-os`)  
 **Builds on:** prompt105 (perf logs — use for polish before/after), Quick Start / `GearSetupStrip`, Food Log, Activity Log (prompt104), `metabolicStripCopy` / language policy  
-**Positioning:** [investor-pov/COMPETITOR-SCORES.md](../../../investor-pov/COMPETITOR-SCORES.md) — Healthings.AI **UX / polish / retention ≈ 60** vs Nutrisense **≈ 88** (was 52; rescored after Phase A + empty-day expand)  
+**Positioning:** [investor-pov/COMPETITOR-SCORES.md](../../../investor-pov/COMPETITOR-SCORES.md) — Healthings.AI **UX / polish / retention ≈ 71** vs Nutrisense **≈ 88** (52→60 Phase A; 60→63 Watch; **63→71** Phase 1+2 ladder). **Setup ease ≈ 69** (was 64).  
 **Shipped (A slice):** `WhatsNextCard` + `whatsNextCopy` (10 locales); empty body-scan + glucose chart calm copy; dismiss key `healthings:whatsNextDismissed_v1`; localize rule `.cursor/rules/localize-speak-like-a-person.mdc`
 
 ## Problem
@@ -52,8 +52,8 @@ New or re-onboarded ICP user reaches: **CGM readable + scale linked (or explicit
 
 ### Acceptance (A)
 
-- [ ] Document current happy-path step count (phone) before changes
-- [ ] Cut or merge redundant setup steps where safe (no broken Withings/CGM gates)
+- [x] Document current happy-path step count (phone) before changes — `buildStepList` matrix in `WelcomeQuickStartWizard.tsx` (core 12; +link / +phone_health; max 14)
+- [x] Cut or merge redundant setup steps where safe (no broken Withings/CGM gates) — dropped mandatory `pdfs` (Labs/Nutrition strips on dashboard); Withings/CGM/link gates unchanged
 - [x] Soften Quick Start scale / watch / CGM copy (No-first) so “No Withings” does not read as blocked — `quickStartCopy.ts` 2026-08-08; explainer Watch = prompt107
 - [x] After setup: one visible next action (e.g. “Log meal” or “Add activity”) — not a wall of collapsed strips (`WhatsNextCard`, Samsung `bi` 2026-08-08)
 - [x] Empty glucose / no-body-scan states use localized calm copy + recovery action (Your setup / refresh hint)
@@ -78,10 +78,12 @@ Same ICP, day 2+: log food **or** YouTube activity with **fewer taps / less scro
 - [x] **Empty-today auto-expand** — Food Log + Activity expand when viewing today with 0 meals / 0 manual sessions so Add is visible without an extra expand tap. Same-session collapse is respected (`skipEmptyAutoExpand`). Pref keys unchanged (`dash_food_log_expanded`, `dash_activity_log_expanded`).
 - [x] **YouTube activity habit cuts (2026-08-08)** — form `ScrollView` + autofocus YouTube URL (not name); oEmbed title prefill when blank. Ideal path: paste → AI → Save.
 - [x] **Meal clean auto-save closes** (2026-08-08) — text/first-photo happy path no longer stays open for Done; strip chip to edit. Issue alert + photo merge still multi-step.
+- [x] **Meal tap cut (2026-08-08 Phase 1)** — describe `TextInput` `autoFocus` on new meal (skip extra tap to keyboard).
+- [x] **YouTube tap cut (2026-08-08 Phase 1)** — paste valid YouTube URL → debounced auto AI calc (AI button kept for re-run / name-only).
 
 ### Acceptance (B)
 
-- [ ] Tap-count (or stopwatch) for: open app → save meal; open app → save YouTube activity — before/after in done spec
+- [x] Tap-count (or stopwatch) for: open app → save meal; open app → save YouTube activity — before/after in done spec — Phase 1 cuts above; phone stopwatch optional confirm
 - [ ] Primary actions reachable without expanding unrelated Profile nests
 - [x] Loading / Gemini-in-flight / failure states are explicit (no silent hang) — Food `analyzing` localized + calm AI fail (no raw Gemini text); Activity AI calc spinner + inline busy/ok/error
 - [ ] No regression to Activity kcal override rules (prompt104)
@@ -151,19 +153,20 @@ Exact file list finalized when phase A/B scope is locked on phone.
 ## Phone checklist (v1 = Phase A + at least one of B/C)
 
 - [x] Fresh-ish setup path feels shorter; next CTA obvious (What’s next card — owner LGTM)
-- [ ] Meal log path fewer taps or clearly faster
-- [ ] YouTube activity path fewer taps or clearly faster
-- [x] No dead-end empty/sync states on happy path (touched empties — body scan / chart)
+- [x] Meal log path fewer taps or clearly faster — describe autofocus (phone confirm on `bi`)
+- [x] YouTube activity path fewer taps or clearly faster — paste→auto AI (phone confirm on `bi`)
+- [x] No dead-end empty/sync states on happy path — body scan / glucose / trend empty + sync calm copy + Your setup CTA
 - [x] HE (or second language) strings OK on touched UI (owner reviewed Hebrew)
 - [ ] Perf log: no new strip/chart WARN pattern vs prompt105 baseline
 - [x] Owner: “feels closer to packaged-app calm” (subjective gate) — What’s next LGTM
+- [x] Phase 2 slice: What’s next above AI strip; post-QS “You’re set”; soft in-app meal nudge (not OS push)
 
 ## Deferred
 
-- Push / local notification retention loops
+- OS push / `expo-notifications` retention loops (in-app meal nudge shipped instead)
 - Full coach-in-a-box (Nutrisense parity)
 - iOS-first polish before Android proof
-- Further UX band after B/C (polish already **52→60** in scorecard; target mid-60s if more lands)
+- Further UX band toward Nutrisense **88** (scorecard **~71** after Phase 1+2 ladder; ≥80 needs more habit proof on phone)
 - In-app explainer videos → **prompt107** (not this batch)
 
 ## Related

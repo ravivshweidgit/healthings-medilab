@@ -1,14 +1,18 @@
 /**
  * Post-setup dashboard CTA — Log meal / Add activity (prompt106 Phase A).
  * Action pills match FoodMacroStrip add-actions (black punch-out on dark).
+ * Secondary Watch links (prompt107) — never a third primary pill.
  */
 
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { UtensilsCrossed, Dumbbell, X } from 'lucide-react-native';
+import Svg, { Path, Rect } from 'react-native-svg';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { getWhatsNextCopy } from '../i18n/whatsNextCopy';
+import { getExplainerCopy } from '../i18n/explainerCopy';
+import { explainerWatchUrl, type ExplainerId } from '../i18n/explainerUrls';
 
 type Props = {
   langCode?: string | null;
@@ -18,6 +22,54 @@ type Props = {
   /** Hide Add activity when Activity Log strip is off in Appearance. */
   showActivity?: boolean;
 };
+
+function YouTubeMark({ size = 20 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityElementsHidden>
+      <Rect x="1" y="4" width="22" height="16" rx="4" fill="#FF0000" />
+      <Path d="M10 9.5v5l5-2.5-5-2.5z" fill="#FFFFFF" />
+    </Svg>
+  );
+}
+
+function WatchLink({
+  langCode,
+  id,
+  rtl,
+  colors,
+}: {
+  langCode: string;
+  id: ExplainerId;
+  rtl: boolean;
+  colors: ThemeColors;
+}) {
+  const ec = getExplainerCopy(langCode);
+  const label = `${ec.watchCta}: ${ec.titles[id]}`;
+  return (
+    <Pressable
+      onPress={() => void Linking.openURL(explainerWatchUrl(langCode, id))}
+      accessibilityRole="link"
+      accessibilityLabel={label}
+      style={({ pressed }) => [{ opacity: pressed ? 0.75 : 1 }]}
+      hitSlop={6}
+    >
+      <View style={{ flexDirection: rtl ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
+        <YouTubeMark size={18} />
+        <Text
+          style={{
+            fontSize: 13,
+            fontWeight: '600',
+            color: colors.accentBlue,
+            textAlign: rtl ? 'right' : 'left',
+          }}
+          numberOfLines={2}
+        >
+          {label}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
 
 export function WhatsNextCard({
   langCode,
@@ -75,6 +127,22 @@ export function WhatsNextCard({
               {copy.addActivity}
             </Text>
           </Pressable>
+        ) : null}
+      </View>
+      <View style={[styles.watchRow, rtl && styles.watchRowRtl]}>
+        <WatchLink
+          langCode={langCode || 'en'}
+          id="meal-entry"
+          rtl={rtl}
+          colors={colors}
+        />
+        {showActivity ? (
+          <WatchLink
+            langCode={langCode || 'en'}
+            id="activity-youtube"
+            rtl={rtl}
+            colors={colors}
+          />
         ) : null}
       </View>
       <Pressable
@@ -153,6 +221,11 @@ function makeStyles(colors: ThemeColors, isDark: boolean) {
       fontWeight: '700',
       textAlign: 'center',
     },
+    watchRow: {
+      marginTop: 12,
+      gap: 8,
+    },
+    watchRowRtl: { alignItems: 'flex-end' },
     laterLink: {
       alignSelf: 'center',
       marginTop: 10,
