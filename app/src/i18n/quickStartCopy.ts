@@ -103,6 +103,13 @@ export type QuickStartCopy = {
     height: string;
     birthDate: string;
   };
+  /** In-app tip when ? sits next to the Withings brand on scale/watch steps. */
+  withingsTip: {
+    title: string;
+    body: string;
+    more: string;
+    dismiss: string;
+  };
   scale: {
     title: string;
     helpLabel: string;
@@ -254,23 +261,30 @@ const EN: QuickStartCopy = {
     height: 'Height',
     birthDate: 'Birth date',
   },
+  withingsTip: {
+    title: 'What is Withings?',
+    body:
+      'Withings makes smart scales and watches. If you have one, link your account and Healthings reads weight and activity from their cloud — not Bluetooth. No Withings? Tap No — enter weight next; the app still works.',
+    more: 'More help',
+    dismiss: 'Got it',
+  },
   scale: {
-    title: 'Do you have a Withings body scale?',
-    helpLabel: 'Scale help',
+    title: 'Do you use a Withings scale?',
+    helpLabel: 'What is Withings?',
     lead:
-      'Any Withings scale on your Withings account works — Body, Body Scan, and similar. Healthings reads the cloud after you link (not Bluetooth).',
+      'No is fine — enter weight in the next steps; the app still works. Yes — we sync weight and composition from your Withings account (cloud, not Bluetooth). Body, Body Scan, and similar all work.',
   },
   watch: {
-    title: 'Do you have a Withings watch or activity band?',
-    helpLabel: 'Watch help',
+    title: 'Do you use a Withings watch or band?',
+    helpLabel: 'What is Withings?',
     lead:
-      'Yes → activity and heart rate from Withings cloud. No → from Health Connect / Apple Health (Garmin, Apple Watch, Samsung, etc.).',
+      'No is fine — steps and heart rate can come from Health Connect / Apple Health (Garmin, Apple Watch, Samsung…). Yes — activity from your Withings account.',
   },
   cgm: {
-    title: 'Do you track glucose with a CGM?',
+    title: 'Do you use a CGM for glucose?',
     helpLabel: 'CGM help',
     lead:
-      'Continuous glucose via Health Connect (Android) or Apple Health (iPhone). You can also import lab PDFs later.',
+      'No is fine — you can import lab PDFs later. Yes — continuous glucose via Health Connect (Android) or Apple Health (iPhone).',
   },
   link: {
     title: 'Link your Withings account',
@@ -413,23 +427,30 @@ const HE: QuickStartCopy = {
     height: 'גובה',
     birthDate: 'תאריך לידה',
   },
+  withingsTip: {
+    title: 'מה זה Withings?',
+    body:
+      'Withings מייצרים משקלים ושעונים חכמים. אם יש לכם — מחברים את החשבון, ו־Healthings קורא משקל ופעילות מהענן שלהם, לא מ־Bluetooth. אין? לחצו לא — תזינו משקל בהמשך; האפליקציה עובדת גם בלי.',
+    more: 'עוד עזרה',
+    dismiss: 'הבנתי',
+  },
   scale: {
     title: 'יש משקל Withings?',
-    helpLabel: 'עזרה — משקל',
+    helpLabel: 'מה זה Withings?',
     lead:
-      'כל משקל Withings בחשבון מתאים — Body, Body Scan ודומיהם. אחרי החיבור קוראים מהענן, לא מ־Bluetooth.',
+      'אין? אין בעיה — תזינו משקל בהמשך, האפליקציה עובדת גם בלי. יש? נסנכרן משקל והרכב גוף מחשבון Withings (ענן, לא Bluetooth). Body, Body Scan ודומיהם מתאימים.',
   },
   watch: {
     title: 'יש שעון או צמיד Withings?',
-    helpLabel: 'עזרה — שעון',
+    helpLabel: 'מה זה Withings?',
     lead:
-      'כן → פעילות ודופק מענן Withings.\nלא → מ־Health Connect / Apple Health (Garmin, Apple Watch, Samsung…).',
+      'אין? אין בעיה — צעדים ודופק מ־Health Connect / Apple Health (Garmin, Apple Watch, Samsung…). יש? פעילות מחשבון Withings.',
   },
   cgm: {
     title: 'יש CGM לגלוקוז?',
     helpLabel: 'עזרה — CGM',
     lead:
-      'גלוקוז רציף דרך Health Connect (Android) או Apple Health (iPhone). אפשר גם לייבא PDF מעבדה אחר כך.',
+      'אין? אין בעיה — אפשר לייבא PDF של מעבדה אחר כך. יש? גלוקוז רציף דרך Health Connect או Apple Health.',
   },
   link: {
     title: 'חיבור ל־Withings',
@@ -572,23 +593,30 @@ const DE: QuickStartCopy = {
     height: 'Größe',
     birthDate: 'Geburtsdatum',
   },
+  withingsTip: {
+    title: 'Was ist Withings?',
+    body:
+      'Withings stellt intelligente Waagen und Uhren her. Wenn Sie welche haben: Konto verbinden — Healthings liest Gewicht und Aktivität aus der Cloud, nicht per Bluetooth. Kein Withings? Nein tippen — Gewicht danach eingeben; die App funktioniert trotzdem.',
+    more: 'Mehr Hilfe',
+    dismiss: 'Verstanden',
+  },
   scale: {
-    title: 'Haben Sie eine Withings-Körperwaage?',
-    helpLabel: 'Hilfe — Waage',
+    title: 'Nutzen Sie eine Withings-Waage?',
+    helpLabel: 'Was ist Withings?',
     lead:
-      'Jede Withings-Waage in Ihrem Konto passt — Body, Body Scan und ähnliche. Nach dem Verbinden liest Healthings die Cloud, nicht Bluetooth.',
+      'Nein ist in Ordnung — Gewicht in den nächsten Schritten eingeben; die App funktioniert trotzdem. Ja — Sync von Gewicht und Körperzusammensetzung aus Ihrem Withings-Konto (Cloud, nicht Bluetooth). Body, Body Scan und ähnliche passen.',
   },
   watch: {
-    title: 'Haben Sie eine Withings-Uhr oder ein Band?',
-    helpLabel: 'Hilfe — Uhr',
+    title: 'Nutzen Sie eine Withings-Uhr oder ein Band?',
+    helpLabel: 'Was ist Withings?',
     lead:
-      'Ja → Aktivität und Puls aus der Withings-Cloud.\nNein → aus Health Connect / Apple Health (Garmin, Apple Watch, Samsung …).',
+      'Nein ist in Ordnung — Schritte und Puls können von Health Connect / Apple Health kommen (Garmin, Apple Watch, Samsung …). Ja — Aktivität aus Ihrem Withings-Konto.',
   },
   cgm: {
     title: 'Nutzen Sie ein CGM für Glukose?',
     helpLabel: 'Hilfe — CGM',
     lead:
-      'Kontinuierliche Glukose über Health Connect (Android) oder Apple Health (iPhone). Lab-PDFs können Sie später importieren.',
+      'Nein ist in Ordnung — Lab-PDFs können Sie später importieren. Ja — kontinuierliche Glukose über Health Connect (Android) oder Apple Health (iPhone).',
   },
   link: {
     title: 'Withings verbinden',
@@ -731,23 +759,30 @@ const ES: QuickStartCopy = {
     height: 'Altura',
     birthDate: 'Fecha de nacimiento',
   },
+  withingsTip: {
+    title: '¿Qué es Withings?',
+    body:
+      'Withings fabrica básculas y relojes inteligentes. Si tiene uno, vincule su cuenta y Healthings lee peso y actividad desde su nube — no Bluetooth. ¿Sin Withings? Toque No e introduzca el peso después; la app sigue funcionando.',
+    more: 'Más ayuda',
+    dismiss: 'Entendido',
+  },
   scale: {
-    title: '¿Tiene una báscula Withings?',
-    helpLabel: 'Ayuda — báscula',
+    title: '¿Usa una báscula Withings?',
+    helpLabel: '¿Qué es Withings?',
     lead:
-      'Cualquier báscula Withings de su cuenta sirve — Body, Body Scan y similares. Tras vincular, Healthings lee la nube, no Bluetooth.',
+      'No pasa nada — introduzca el peso en los siguientes pasos; la app sigue funcionando. Sí — sincronizamos peso y composición desde su cuenta Withings (nube, no Bluetooth). Body, Body Scan y similares sirven.',
   },
   watch: {
-    title: '¿Tiene un reloj o pulsera Withings?',
-    helpLabel: 'Ayuda — reloj',
+    title: '¿Usa un reloj o pulsera Withings?',
+    helpLabel: '¿Qué es Withings?',
     lead:
-      'Sí → actividad y pulso desde la nube Withings.\nNo → desde Health Connect / Apple Health (Garmin, Apple Watch, Samsung…).',
+      'No pasa nada — pasos y pulso pueden venir de Health Connect / Apple Health (Garmin, Apple Watch, Samsung…). Sí — actividad desde su cuenta Withings.',
   },
   cgm: {
     title: '¿Usa un CGM para la glucosa?',
     helpLabel: 'Ayuda — CGM',
     lead:
-      'Glucosa continua vía Health Connect (Android) o Apple Health (iPhone). También puede importar PDFs de laboratorio más adelante.',
+      'No pasa nada — puede importar PDFs de laboratorio más adelante. Sí — glucosa continua vía Health Connect (Android) o Apple Health (iPhone).',
   },
   link: {
     title: 'Vincular Withings',
@@ -890,23 +925,30 @@ const FR: QuickStartCopy = {
     height: 'Taille',
     birthDate: 'Date de naissance',
   },
+  withingsTip: {
+    title: 'Qu’est-ce que Withings ?',
+    body:
+      'Withings fabrique des balances et montres connectées. Si vous en avez une, reliez votre compte — Healthings lit poids et activité depuis le cloud, pas le Bluetooth. Pas de Withings ? Touchez Non et saisissez le poids ensuite ; l’app fonctionne quand même.',
+    more: 'Plus d’aide',
+    dismiss: 'Compris',
+  },
   scale: {
-    title: 'Avez-vous une balance Withings ?',
-    helpLabel: 'Aide — balance',
+    title: 'Utilisez-vous une balance Withings ?',
+    helpLabel: 'Qu’est-ce que Withings ?',
     lead:
-      'Toute balance Withings de votre compte convient — Body, Body Scan et similaires. Après liaison, Healthings lit le cloud, pas le Bluetooth.',
+      'Non, ce n’est pas un problème — saisissez le poids aux étapes suivantes ; l’app fonctionne quand même. Oui — sync du poids et de la composition depuis votre compte Withings (cloud, pas Bluetooth). Body, Body Scan et similaires conviennent.',
   },
   watch: {
-    title: 'Avez-vous une montre ou un bracelet Withings ?',
-    helpLabel: 'Aide — montre',
+    title: 'Utilisez-vous une montre ou un bracelet Withings ?',
+    helpLabel: 'Qu’est-ce que Withings ?',
     lead:
-      'Oui → activité et pouls depuis le cloud Withings.\nNon → depuis Health Connect / Apple Health (Garmin, Apple Watch, Samsung…).',
+      'Non, ce n’est pas un problème — pas et pouls peuvent venir de Health Connect / Apple Health (Garmin, Apple Watch, Samsung…). Oui — activité depuis votre compte Withings.',
   },
   cgm: {
-    title: 'Suivez-vous le glucose avec un CGM ?',
+    title: 'Utilisez-vous un CGM pour le glucose ?',
     helpLabel: 'Aide — CGM',
     lead:
-      'Glucose en continu via Health Connect (Android) ou Apple Health (iPhone). Vous pourrez aussi importer des PDF de laboratoire plus tard.',
+      'Non, ce n’est pas un problème — vous pourrez importer des PDF de laboratoire plus tard. Oui — glucose en continu via Health Connect (Android) ou Apple Health (iPhone).',
   },
   link: {
     title: 'Relier Withings',
@@ -1048,23 +1090,30 @@ const AR: QuickStartCopy = {
     height: 'الطول',
     birthDate: 'تاريخ الميلاد',
   },
+  withingsTip: {
+    title: 'ما هو Withings؟',
+    body:
+      'Withings تصنع موازين وساعات ذكية. إن كان لديكم جهاز، اربطوا الحساب — Healthings يقرأ الوزن والنشاط من السحابة، وليس Bluetooth. بلا Withings؟ اضغطوا لا وأدخلوا الوزن لاحقاً؛ التطبيق يعمل أيضاً.',
+    more: 'مزيد من المساعدة',
+    dismiss: 'حسناً',
+  },
   scale: {
-    title: 'هل لديكم ميزان Withings؟',
-    helpLabel: 'مساعدة — الميزان',
+    title: 'هل تستخدمون ميزان Withings؟',
+    helpLabel: 'ما هو Withings؟',
     lead:
-      'أي ميزان Withings في حسابكم يناسب — Body و Body Scan وما شابه. بعد الربط نقرأ من السحابة، وليس من Bluetooth.',
+      'لا؟ لا بأس — أدخلوا الوزن في الخطوات التالية؛ التطبيق يعمل أيضاً بدونها. نعم — نزامن الوزن وتركيب الجسم من حساب Withings (سحابة، وليس Bluetooth). Body و Body Scan وما شابه تناسب.',
   },
   watch: {
-    title: 'هل لديكم ساعة أو سوار Withings؟',
-    helpLabel: 'مساعدة — الساعة',
+    title: 'هل تستخدمون ساعة أو سوار Withings؟',
+    helpLabel: 'ما هو Withings؟',
     lead:
-      'نعم → نشاط ونبض من سحابة Withings.\nلا → من Health Connect / Apple Health (Garmin، Apple Watch، Samsung…).',
+      'لا؟ لا بأس — الخطوات والنبض يمكن أن تأتيا من Health Connect / Apple Health (Garmin، Apple Watch، Samsung…). نعم — النشاط من حساب Withings.',
   },
   cgm: {
     title: 'هل تستخدمون CGM للجلوكوز؟',
     helpLabel: 'مساعدة — CGM',
     lead:
-      'جلوكوز مستمر عبر Health Connect (Android) أو Apple Health (iPhone). يمكن أيضاً استيراد PDF مختبر لاحقاً.',
+      'لا؟ لا بأس — يمكن استيراد PDF مختبر لاحقاً. نعم — جلوكوز مستمر عبر Health Connect أو Apple Health.',
   },
   link: {
     title: 'ربط Withings',
@@ -1207,23 +1256,30 @@ const RU: QuickStartCopy = {
     height: 'Рост',
     birthDate: 'Дата рождения',
   },
+  withingsTip: {
+    title: 'Что такое Withings?',
+    body:
+      'Withings делает умные весы и часы. Если они у вас есть — свяжите аккаунт: Healthings читает вес и активность из облака, не по Bluetooth. Нет Withings? Нажмите «Нет» и введите вес дальше — приложение работает и так.',
+    more: 'Ещё справка',
+    dismiss: 'Понятно',
+  },
   scale: {
-    title: 'Есть весы Withings?',
-    helpLabel: 'Справка — весы',
+    title: 'Пользуетесь весами Withings?',
+    helpLabel: 'Что такое Withings?',
     lead:
-      'Подойдут любые весы Withings в вашем аккаунте — Body, Body Scan и похожие. После связи Healthings читает облако, не Bluetooth.',
+      'Нет — нормально: введите вес на следующих шагах, приложение работает и без них. Да — синхронизируем вес и состав тела из аккаунта Withings (облако, не Bluetooth). Подойдут Body, Body Scan и похожие.',
   },
   watch: {
-    title: 'Есть часы или браслет Withings?',
-    helpLabel: 'Справка — часы',
+    title: 'Пользуетесь часами или браслетом Withings?',
+    helpLabel: 'Что такое Withings?',
     lead:
-      'Да → активность и пульс из облака Withings.\nНет → из Health Connect / Apple Health (Garmin, Apple Watch, Samsung…).',
+      'Нет — нормально: шаги и пульс могут идти из Health Connect / Apple Health (Garmin, Apple Watch, Samsung…). Да — активность из аккаунта Withings.',
   },
   cgm: {
-    title: 'Есть CGM для глюкозы?',
+    title: 'Пользуетесь CGM для глюкозы?',
     helpLabel: 'Справка — CGM',
     lead:
-      'Непрерывная глюкоза через Health Connect (Android) или Apple Health (iPhone). PDF анализов можно импортировать позже.',
+      'Нет — нормально: PDF анализов можно импортировать позже. Да — непрерывная глюкоза через Health Connect (Android) или Apple Health (iPhone).',
   },
   link: {
     title: 'Связь с Withings',
@@ -1366,23 +1422,30 @@ const PT: QuickStartCopy = {
     height: 'Altura',
     birthDate: 'Data de nascimento',
   },
+  withingsTip: {
+    title: 'O que é Withings?',
+    body:
+      'Withings faz balanças e relógios inteligentes. Se você tem um, vincule a conta — o Healthings lê peso e atividade da nuvem, não do Bluetooth. Sem Withings? Toque Não e digite o peso depois; o app funciona mesmo assim.',
+    more: 'Mais ajuda',
+    dismiss: 'Entendi',
+  },
   scale: {
-    title: 'Você tem uma balança Withings?',
-    helpLabel: 'Ajuda — balança',
+    title: 'Você usa uma balança Withings?',
+    helpLabel: 'O que é Withings?',
     lead:
-      'Qualquer balança Withings da sua conta serve — Body, Body Scan e similares. Depois de vincular, o Healthings lê da nuvem, não do Bluetooth.',
+      'Não tem problema — digite o peso nos próximos passos; o app funciona mesmo assim. Sim — sincronizamos peso e composição da sua conta Withings (nuvem, não Bluetooth). Body, Body Scan e similares servem.',
   },
   watch: {
-    title: 'Você tem um relógio ou pulseira Withings?',
-    helpLabel: 'Ajuda — relógio',
+    title: 'Você usa um relógio ou pulseira Withings?',
+    helpLabel: 'O que é Withings?',
     lead:
-      'Sim → atividade e FC pela nuvem Withings.\nNão → pelo Health Connect / Apple Health (Garmin, Apple Watch, Samsung…).',
+      'Não tem problema — passos e FC podem vir do Health Connect / Apple Health (Garmin, Apple Watch, Samsung…). Sim — atividade da sua conta Withings.',
   },
   cgm: {
-    title: 'Você monitora glicose com um CGM?',
+    title: 'Você usa um CGM para glicose?',
     helpLabel: 'Ajuda — CGM',
     lead:
-      'Glicose contínua via Health Connect (Android) ou Apple Health (iPhone). PDFs de laboratório podem ser importados depois.',
+      'Não tem problema — PDFs de laboratório podem ser importados depois. Sim — glicose contínua via Health Connect (Android) ou Apple Health (iPhone).',
   },
   link: {
     title: 'Vincular sua conta Withings',
@@ -1526,23 +1589,30 @@ const IT: QuickStartCopy = {
     height: 'Altezza',
     birthDate: 'Data di nascita',
   },
+  withingsTip: {
+    title: 'Cos’è Withings?',
+    body:
+      'Withings produce bilance e orologi smart. Se ne hai uno, collega l’account — Healthings legge peso e attività dal cloud, non da Bluetooth. Niente Withings? Tocca No e inserisci il peso dopo; l’app funziona lo stesso.',
+    more: 'Altro aiuto',
+    dismiss: 'Ho capito',
+  },
   scale: {
-    title: 'Hai una bilancia Withings?',
-    helpLabel: 'Aiuto — bilancia',
+    title: 'Usi una bilancia Withings?',
+    helpLabel: 'Cos’è Withings?',
     lead:
-      'Qualsiasi bilancia Withings del tuo account va bene — Body, Body Scan e simili. Dopo il collegamento, Healthings legge dal cloud, non dal Bluetooth.',
+      'Nessun problema — inserisci il peso nei passaggi successivi; l’app funziona lo stesso. Sì — sincronizziamo peso e composizione dal tuo account Withings (cloud, non Bluetooth). Body, Body Scan e simili vanno bene.',
   },
   watch: {
-    title: 'Hai un orologio o bracciale Withings?',
-    helpLabel: 'Aiuto — orologio',
+    title: 'Usi un orologio o bracciale Withings?',
+    helpLabel: 'Cos’è Withings?',
     lead:
-      'Sì → attività e FC dal cloud Withings.\nNo → da Health Connect / Apple Health (Garmin, Apple Watch, Samsung…).',
+      'Nessun problema — passi e FC possono arrivare da Health Connect / Apple Health (Garmin, Apple Watch, Samsung…). Sì — attività dal tuo account Withings.',
   },
   cgm: {
-    title: 'Monitori il glucosio con un CGM?',
+    title: 'Usi un CGM per il glucosio?',
     helpLabel: 'Aiuto — CGM',
     lead:
-      'Glucosio continuo via Health Connect (Android) o Apple Health (iPhone). I PDF di laboratorio si possono importare dopo.',
+      'Nessun problema — i PDF di laboratorio si possono importare dopo. Sì — glucosio continuo via Health Connect (Android) o Apple Health (iPhone).',
   },
   link: {
     title: 'Collega il tuo account Withings',
@@ -1686,23 +1756,30 @@ const TR: QuickStartCopy = {
     height: 'Boy',
     birthDate: 'Doğum tarihi',
   },
+  withingsTip: {
+    title: 'Withings nedir?',
+    body:
+      'Withings akıllı tartı ve saat üretir. Varsa hesabınızı bağlayın — Healthings kilo ve aktiviteyi buluttan okur, Bluetooth’tan değil. Withings yok mu? Hayır’a dokunun, sonra kilo girin; uygulama yine çalışır.',
+    more: 'Daha fazla yardım',
+    dismiss: 'Anladım',
+  },
   scale: {
-    title: 'Withings vücut tartınız var mı?',
-    helpLabel: 'Yardım — tartı',
+    title: 'Withings tartı kullanıyor musunuz?',
+    helpLabel: 'Withings nedir?',
     lead:
-      'Hesabınızdaki her Withings tartı uygundur — Body, Body Scan ve benzerleri. Bağlandıktan sonra Healthings buluttan okur, Bluetooth’tan değil.',
+      'Hayır sorun değil — sonraki adımlarda kilo girin; uygulama yine çalışır. Evet — kilo ve vücut kompozisyonunu Withings hesabınızdan senkronlarız (bulut, Bluetooth değil). Body, Body Scan ve benzerleri uygundur.',
   },
   watch: {
-    title: 'Withings saat veya bileklik var mı?',
-    helpLabel: 'Yardım — saat',
+    title: 'Withings saat veya bileklik kullanıyor musunuz?',
+    helpLabel: 'Withings nedir?',
     lead:
-      'Evet → aktivite ve nabız Withings bulutundan.\nHayır → Health Connect / Apple Health’ten (Garmin, Apple Watch, Samsung…).',
+      'Hayır sorun değil — adım ve nabız Health Connect / Apple Health’ten gelebilir (Garmin, Apple Watch, Samsung…). Evet — aktivite Withings hesabınızdan.',
   },
   cgm: {
-    title: 'Glukozu CGM ile takip ediyor musunuz?',
+    title: 'Glukoz için CGM kullanıyor musunuz?',
     helpLabel: 'Yardım — CGM',
     lead:
-      'Sürekli glukoz Health Connect (Android) veya Apple Health (iPhone) üzerinden. Laboratuvar PDF’lerini sonra içe aktarabilirsiniz.',
+      'Hayır sorun değil — laboratuvar PDF’lerini sonra içe aktarabilirsiniz. Evet — sürekli glukoz Health Connect (Android) veya Apple Health (iPhone) üzerinden.',
   },
   link: {
     title: 'Withings hesabınızı bağlayın',

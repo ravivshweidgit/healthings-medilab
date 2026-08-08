@@ -915,14 +915,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  /** Shared title style — both hubs read as peer account cards. */
+  /** Shared title style — both hubs read as peer account cards (brand casing, not ALL CAPS). */
   frameTitle: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.6,
+    letterSpacing: 0.2,
     color: '#1A2B4A',
     marginBottom: 6,
-    textTransform: 'uppercase',
     textAlign: 'center',
   },
   healthingsHub: {
@@ -974,7 +973,7 @@ const styles = StyleSheet.create({
   },
   /**
    * Column width = max(title, icons). Withings keeps minWidth so a single
-   * scale/watch never lets "WITHINGS" overflow into CGM.
+   * scale/watch never lets "Withings" overflow into CGM.
    */
   devicesMark: {
     alignItems: 'center',
@@ -985,13 +984,12 @@ const styles = StyleSheet.create({
   },
   devicesMarkTitle: {
     height: 12,
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: '800',
-    letterSpacing: 0.4,
+    letterSpacing: 0.15,
     color: '#1A2B4A',
-    textTransform: 'uppercase',
     textAlign: 'center',
-    lineHeight: 10,
+    lineHeight: 11,
     includeFontPadding: false,
   },
   devicesMarkBody: {
@@ -1099,12 +1097,11 @@ const makeMarkStyles = (c: ThemeColors, isDark: boolean) =>
 const makeLinkChromeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
     frameTitle: {
-      fontSize: 9,
+      fontSize: 10,
       fontWeight: '800',
-      letterSpacing: 0.6,
+      letterSpacing: 0.2,
       color: isDark ? c.stripTitle : '#1A2B4A',
       marginBottom: 6,
-      textTransform: 'uppercase',
       textAlign: 'center',
     },
     healthingsHub: {

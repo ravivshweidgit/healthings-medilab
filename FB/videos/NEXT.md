@@ -67,3 +67,7 @@ cut with no burned subtitles: `website/videos/how-it-works.mp4`.
 - Clinic-portal worklist + Rules tab (upgrade 01/02 beyond lab-import)
 - Square 1:1 variant for feed
 - Music bed (licensed) — `--music` already ducks under VO
+- **In-app Watch** — host exports for prompt107; Quick Start optional link to clip **03-gear** after No-first copy. Do **not** shoot a new “why Withings?” until phone still confuses after that.
+- **Produce (prompt107 v1.1)** — storyboards ready:
+  - [`10-phone-health.md`](./storyboards/10-phone-health.md) — Watch No: wearable **writes** → HC / Apple Health → Healthings **reads**
+  - [`11-cgm-pipeline.md`](./storyboards/11-cgm-pipeline.md) — CareSens live needs **xDrip+ → HC**; without it, Samsung Health–style **end-of-day** write is not live CGM

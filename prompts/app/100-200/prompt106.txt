@@ -54,6 +54,7 @@ New or re-onboarded ICP user reaches: **CGM readable + scale linked (or explicit
 
 - [ ] Document current happy-path step count (phone) before changes
 - [ ] Cut or merge redundant setup steps where safe (no broken Withings/CGM gates)
+- [x] Soften Quick Start scale / watch / CGM copy (No-first) so “No Withings” does not read as blocked — `quickStartCopy.ts` 2026-08-08; explainer Watch = prompt107
 - [x] After setup: one visible next action (e.g. “Log meal” or “Add activity”) — not a wall of collapsed strips (`WhatsNextCard`, Samsung `bi` 2026-08-08)
 - [x] Empty glucose / no-body-scan states use localized calm copy + recovery action (Your setup / refresh hint)
 - [ ] Samsung `bi` walkthrough timed; note duration in done spec

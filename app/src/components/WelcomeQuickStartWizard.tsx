@@ -7,6 +7,7 @@ import * as WebBrowser from 'expo-web-browser';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Easing,
   Image,
@@ -511,6 +512,86 @@ function StepHeading({
     <View style={[styles.stepHeading, rtl && styles.stepHeadingRtl]}>
       <Text style={[styles.question, textStyle]}>{title}</Text>
       <HelpButton href={helpHref} label={helpLabel} compact />
+    </View>
+  );
+}
+
+/**
+ * Title with ? glued to a glossary brand (Withings) — in-app tip first, optional help article.
+ * Falls back to StepHeading if the brand string is missing from the title.
+ */
+function BrandStepHeading({
+  title,
+  brand = 'Withings',
+  tipTitle,
+  tipBody,
+  tipMore,
+  tipDismiss,
+  helpHref,
+  helpLabel,
+  textStyle,
+  rtl = false,
+}: {
+  title: string;
+  brand?: string;
+  tipTitle: string;
+  tipBody: string;
+  tipMore: string;
+  tipDismiss: string;
+  helpHref: string;
+  helpLabel?: string;
+  textStyle?: object;
+  rtl?: boolean;
+}) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const idx = title.indexOf(brand);
+
+  const openTip = useCallback(() => {
+    Alert.alert(tipTitle, tipBody, [
+      {
+        text: tipMore,
+        onPress: () => void Linking.openURL(helpHref),
+      },
+      { text: tipDismiss, style: 'default' },
+    ]);
+  }, [tipTitle, tipBody, tipMore, tipDismiss, helpHref]);
+
+  if (idx < 0) {
+    return (
+      <StepHeading
+        title={title}
+        helpHref={helpHref}
+        helpLabel={helpLabel}
+        textStyle={textStyle}
+        rtl={rtl}
+      />
+    );
+  }
+
+  const before = title.slice(0, idx);
+  const after = title.slice(idx + brand.length);
+
+  return (
+    <View style={[styles.stepHeading, rtl && styles.stepHeadingRtl]}>
+      <View style={[styles.brandTitleWrap, rtl && styles.brandTitleWrapRtl]}>
+        {before ? (
+          <Text style={[styles.questionInline, textStyle]}>{before}</Text>
+        ) : null}
+        <Text style={[styles.questionInline, styles.brandInTitle, textStyle]}>{brand}</Text>
+        <Pressable
+          onPress={openTip}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={helpLabel ?? tipTitle}
+          style={({ pressed }) => [styles.brandHelpBtn, pressed && styles.helpPressed]}
+        >
+          <CircleHelp size={22} color={NEXT_BLUE_DEEP} strokeWidth={2.25} />
+        </Pressable>
+        {after ? (
+          <Text style={[styles.questionInline, textStyle]}>{after}</Text>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -1624,8 +1705,12 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
           {stepId === 'scale' && (
             <>
               <GearHeroCard kind="scale" compact />
-              <StepHeading
+              <BrandStepHeading
                 title={t.scale.title}
+                tipTitle={t.withingsTip.title}
+                tipBody={t.withingsTip.body}
+                tipMore={t.withingsTip.more}
+                tipDismiss={t.withingsTip.dismiss}
                 helpHref={helpUrl(langCode, 'withings-scale')}
                 helpLabel={t.scale.helpLabel}
                 textStyle={copyAlign}
@@ -1652,8 +1737,12 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
           {stepId === 'watch' && (
             <>
               <GearHeroCard kind="watch" compact />
-              <StepHeading
+              <BrandStepHeading
                 title={t.watch.title}
+                tipTitle={t.withingsTip.title}
+                tipBody={t.withingsTip.body}
+                tipMore={t.withingsTip.more}
+                tipDismiss={t.withingsTip.dismiss}
                 helpHref={helpUrl(langCode, 'quick-start-watch')}
                 helpLabel={t.watch.helpLabel}
                 textStyle={copyAlign}
@@ -2325,6 +2414,31 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     color: c.textPrimary,
     lineHeight: 28,
     paddingRight: 8,
+  },
+  questionInline: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: c.textPrimary,
+    lineHeight: 28,
+  },
+  brandTitleWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: 2,
+    rowGap: 2,
+  },
+  brandTitleWrapRtl: {
+    flexDirection: 'row-reverse',
+  },
+  brandInTitle: {
+    color: NEXT_BLUE_DEEP,
+  },
+  brandHelpBtn: {
+    paddingHorizontal: 2,
+    paddingVertical: 1,
+    marginTop: 1,
   },
   stepHeading: {
     flexDirection: 'row',

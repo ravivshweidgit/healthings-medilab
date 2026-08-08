@@ -1,13 +1,15 @@
 # prompt107 — In-app explainer videos (Watch how-to)
 
-**Status:** backlog (spec draft) — 2026-08-08  
+**Status:** backlog (spec draft) — 2026-08-08; Quick Start copy softener shipped ahead of hosting  
 **Test order:** Samsung Android first (`bi`) → iOS later (`bi-os`)  
-**Builds on:** prompt106 (`WhatsNextCard`, Help strip), `helpUrls` / help site (prompt81+), FB films under `FB/videos/` (clips 01–09)  
+**Builds on:** prompt106 (`WhatsNextCard`, Help strip), `WelcomeQuickStartWizard`, `helpUrls` / help site (prompt81+), FB films under `FB/videos/` (clips 01–09)  
 **Positioning:** Improves **setup ease** + **UX / polish / retention** by teaching habits inside the app (Withings-style tips), without shipping mp4s in the APK.
 
 ## Problem
 
 Explainer films already exist for FB / website (meal entry, grams, Activity/YouTube, gear, closed loop, clinic→rules→coach). Users who install the app never see them unless they find the site. What’s next tells them **what to do** (Log meal / Add activity) but not **how it looks** in 20–40s.
+
+Quick Start also confuses some users at **“Do you have a Withings scale?”** — they hear “app requires Withings,” not a routing question. That is primarily a **copy** problem (No-first lead); video is optional backup, not a new required step.
 
 ## Goal
 
@@ -33,8 +35,21 @@ Surface a small catalog of **hosted** explainer videos inside the app — option
 | **B. Food Log / Activity Log** | Optional `?` or “How to” near Add — deep-link to the matching clip |
 | **C. Help strip** | Section **Watch explainers** — list of 3–6 titles → open video URL (same pattern as help articles) |
 | **D. Your setup / Gear** | Optional one “Watch: connect gear” after skip/link — only if it doesn’t add setup steps |
+| **E. Quick Start gear Yes/No** | Optional secondary **Watch** under scale / watch / CGM leads → matching clip. Never autoplay; never a required step before Yes/No |
+| **F. Quick Start phone-health** | After **Watch = No** (and/or CGM Yes): secondary Watch → `phone-health` / `cgm-pipeline` — these are the high-confusion permission films |
 
-**Default v1:** Help strip list (C) + one What’s next secondary link for meal entry (A). Skip B/D unless phone test shows they’re needed.
+**Default v1 (host existing):** Help strip list (C) + What’s next meal Watch (A) + optional `gear`.  
+**Default v1.1 (produce next):** `phone-health` + `cgm-pipeline` — owner-confirmed need; storyboards in `FB/videos/storyboards/10-*.md` / `11-*.md`.
+
+### Quick Start — locked decisions (2026-08-08)
+
+| Decision | Detail |
+|----------|--------|
+| Soften copy first | Scale / watch / CGM leads lead with **No is fine** → then Yes path. Shipped in `quickStartCopy.ts` (all 10 locales) ahead of video hosting. |
+| No forced video in wizard | Opt-in Watch only; do not insert a film step into `buildStepList`. |
+| Reuse `gear` (clip 03) for brand overview | Do **not** produce a “why Withings?” film until copy + tip still fail. Clip 03 does **not** replace permission films. |
+| **New films required** | `phone-health` (Watch No → HC / Apple Health write→read) and `cgm-pipeline` (CareSens → xDrip live vs end-of-day writers). See catalog v1.1. |
+| Help `?` stays | Existing help articles + in-app Withings tip remain; Watch is additive. |
 
 ### Hosting
 
@@ -46,17 +61,26 @@ Surface a small catalog of **hosted** explainer videos inside the app — option
 | App open | `Linking.openURL` (browser / system player) **or** `expo-av` / WebView only if offline/poster needs justify the dependency — prefer URL open for v1 |
 | APK | Zero video bytes |
 
-### Catalog (v1 — start with habit clips)
+### Catalog (v1 — host existing habit / gear clips)
 
 | Id | Clip (FB) | Title intent (EN; localize like a person) | When to show / link |
 |----|-----------|---------------------------------------------|---------------------|
 | `meal-entry` | 09 | How to log a meal (photo, text, past) | What’s next + Help + optional Food Log |
 | `meal-grams` | 08 | Adjust grams / items | Help (+ Food Log after first meal optional) |
 | `activity-youtube` | 07 | Add activity from YouTube | What’s next (if Activity on) + Help + Activity Log |
-| `gear` | 03 | Connect scale / watch / CGM | Help + optional Gear |
+| `gear` | 03 | Connect scale / watch / CGM (overview) | Help + optional Gear / Quick Start |
 | `closed-loop` | 05 or 06 | What Healthings is (loop) | Help only — not What’s next |
 
-Defer reel series 01/02/04 (clinic/rules/coach) to v1.1 unless Help “Learn more” wants the full story.
+### Catalog (v1.1 — **produce**; setup ease / permission literacy)
+
+These are **not** covered by clip 03. Users who tap Watch = No or CGM = Yes hit a technical model: other apps **write** to Health Connect / Apple Health; Healthings needs **read** permission.
+
+| Id | Storyboard | Title intent | Teaching must-land | When to show / link |
+|----|------------|--------------|--------------------|---------------------|
+| `phone-health` | [`10-phone-health.md`](../../../FB/videos/storyboards/10-phone-health.md) | Phone health: who writes, who reads | Watch No → wearable apps write steps/HR into HC / Apple Health; Healthings Allow = **read**; do not confuse with Withings cloud | Quick Start phone-health step; Help `phone-health-activity`; Gear when watch off |
+| `cgm-pipeline` | [`11-cgm-pipeline.md`](../../../FB/videos/storyboards/11-cgm-pipeline.md) | Live CGM vs end-of-day | Android CareSens **live** needs **xDrip+ → Health Connect**; Samsung Health (etc.) often **end of day** only; iOS = share Blood Glucose → Apple Health; CSV Import ≠ live | Quick Start CGM / phone-health; Help `cgm`; CareSens chip empty/allow states |
+
+Defer reel series 01/02/04 (clinic/rules/coach) unless Help “Learn more” wants the full story.
 
 ### Copy / language
 
@@ -101,16 +125,30 @@ Defer reel series 01/02/04 (clinic/rules/coach) to v1.1 unless Help “Learn mor
 - [ ] iOS later: same URLs
 - [ ] prompt106 polish score narrative: optional note after ship (setup ease / polish bump only if phone-felt)
 
+## Shipped ahead of video hosting
+
+- [x] Quick Start scale / watch / CGM copy — No-first leads (2026-08-08) so “No Withings” does not read as blocked
+
+## Produce next (owner priority — 2026-08-08)
+
+1. Script + render **`phone-health`** (storyboard 10) — Watch No path  
+2. Script + render **`cgm-pipeline`** (storyboard 11) — CareSens / xDrip live vs end-of-day  
+3. Host under `healthings.ai` + wire Quick Start secondary Watch + Help list  
+4. Only then consider a “why Withings?” brand film (likely still unnecessary)
+
 ## Deferred
 
 - In-app fullscreen player with posters
 - Per-locale dubbed VO
 - Auto-play / forced tutorial on first launch (avoid; opt-in Watch only)
 - Clinic portal embedding same assets
+- New film “why we ask about Withings” — only if copy + tip still fail on phone
 
 ## Related
 
 - `prompt106.txt` — What’s next + polish; this is education layer, not habit-speed UI
-- `FB/videos/NEXT.md` / `PLAN.md` — source films
+- `prompt76` — Watch off → phone health (HC / Apple Health) product rules
+- `prompt34` / `prompt21` — CareSens → xDrip+ → Health Connect live path
+- `FB/videos/NEXT.md` / `PLAN.md` — source films + produce queue
 - `helpUrls.ts` — same origin / locale patterns where possible
 - Competitor: Nutrisense / Withings in-product education vs Healthings help-site-only today
