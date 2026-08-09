@@ -26,8 +26,11 @@ export function detectCgmSessionStarts(
   glucose: TimePoint[],
   hints?: CgmSessionStart[],
 ): CgmSessionStart[] {
-  if (hints != null && hints.length > 0) {
-    return hints.sort((a, b) => a.startMs - b.startMs);
+  // Explicit list (including empty) — do not invent gap sessions. Empty is how xDrip /
+  // prepareGlucoseSeries says “no CareSens warm-up”; `hints.length > 0` used to fall
+  // through to gap detection and hide the live HC tail for 24h after any >24h hole.
+  if (hints !== undefined) {
+    return [...hints].sort((a, b) => a.startMs - b.startMs);
   }
 
   const sorted = [...glucose]
@@ -74,7 +77,9 @@ export function excludeCgmWarmupReadings(
   sessionStarts?: CgmSessionStart[],
 ): TimePoint[] {
   if (glucose.length === 0) return [];
+  // Pass-through undefined → gap detect; pass [] / serial starts → use exactly that list.
   const starts = detectCgmSessionStarts(glucose, sessionStarts);
+  if (starts.length === 0) return glucose;
   return glucose.filter((p) => !isCgmWarmupMs(toMs(p.timestamp), starts));
 }
 

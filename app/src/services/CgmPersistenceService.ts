@@ -18,7 +18,11 @@ import {
 } from './healthMetricsCache';
 import { healthConnectService, type RecentMetrics, type TimePoint } from './HealthConnectService';
 import { healthKitService } from './HealthKitService';
+import { appLog, flushAppLogWrites } from './AppDailyLogService';
+import { latestGlucosePoint, saveCgmSyncDiag } from './cgmSyncDiag';
 import { syncPerfTrack } from './SyncPerf';
+
+export type CgmSyncReason = 'boot' | 'interval' | 'foreground' | 'expand' | 'pull' | 'manual' | 'unknown';
 
 export type CgmStore = CachedHealthMetrics;
 
@@ -46,12 +50,50 @@ export function viewFromCgmStore(store: CgmStore): CgmViewState {
   return buildViewState(store, []);
 }
 
+/** Cap persisted CGM history — 26k+ points was filling AsyncStorage (SQLITE_FULL). */
+const CGM_STORE_RETAIN_DAYS = 90;
+const CGM_STORE_EMERGENCY_RETAIN_DAYS = 45;
+
+function pruneGlucosePoints(glucose: TimePoint[], retainDays: number): TimePoint[] {
+  if (glucose.length === 0) return glucose;
+  const cutoff = Date.now() - Math.max(1, retainDays) * 24 * 60 * 60 * 1000;
+  return glucose.filter((p) => {
+    const ms = Date.parse(p.timestamp);
+    return Number.isFinite(ms) && ms >= cutoff;
+  });
+}
+
+function pruneCgmStore(store: CgmStore, retainDays: number): CgmStore {
+  const cutoff = Date.now() - Math.max(1, retainDays) * 24 * 60 * 60 * 1000;
+  return {
+    glucose: pruneGlucosePoints(store.glucose, retainDays),
+    cgmSessionStarts: (store.cgmSessionStarts ?? []).filter((s) => s.startMs >= cutoff),
+  };
+}
+
+function isSqliteFullError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  return /SQLITE_FULL|database or disk is full/i.test(msg);
+}
+
 export async function loadCgmStore(): Promise<CgmStore | null> {
   return loadCachedHealthMetrics();
 }
 
 export async function saveCgmStore(store: CgmStore): Promise<void> {
-  await AsyncStorage.setItem(HEALTH_METRICS_CACHE_KEY, JSON.stringify(store));
+  const pruned = pruneCgmStore(store, CGM_STORE_RETAIN_DAYS);
+  try {
+    await AsyncStorage.setItem(HEALTH_METRICS_CACHE_KEY, JSON.stringify(pruned));
+  } catch (err) {
+    if (!isSqliteFullError(err)) throw err;
+    const emergency = pruneCgmStore(pruned, CGM_STORE_EMERGENCY_RETAIN_DAYS);
+    appLog('WARN', 'cgm/save_prune', {
+      from_n: store.glucose.length,
+      to_n: emergency.glucose.length,
+      retain_d: CGM_STORE_EMERGENCY_RETAIN_DAYS,
+    });
+    await AsyncStorage.setItem(HEALTH_METRICS_CACHE_KEY, JSON.stringify(emergency));
+  }
 }
 
 function buildViewState(store: CgmStore, hcSteps: TimePoint[] = [], hcHr: TimePoint[] = []): CgmViewState {
@@ -168,10 +210,15 @@ export async function mergeImportedGlucoseIntoStore(
  * Pull from Health Connect / HealthKit (or demo source) and merge into the local CGM store.
  * Returns cached store when sync is unavailable — never wipes existing data.
  */
-export async function syncCgmStore(dataSource?: HealthDataSource): Promise<CgmSyncResult | null> {
+export async function syncCgmStore(
+  dataSource?: HealthDataSource,
+  opts?: { reason?: CgmSyncReason },
+): Promise<CgmSyncResult | null> {
   return syncPerfTrack('syncCgmStore', async () => {
   const source = dataSource ?? getHealthDataSource();
+  const reason: CgmSyncReason = opts?.reason ?? 'unknown';
   const prev = await loadCgmStore();
+  const prevLatest = latestGlucosePoint(prev?.glucose ?? []);
 
   if (!isLiveCgmDataSource(source)) {
     if (hasCgmData(prev)) {
@@ -189,12 +236,93 @@ export async function syncCgmStore(dataSource?: HealthDataSource): Promise<CgmSy
     const live = await syncPerfTrack(`cgm/fetchLiveGlucose(${lookback}d)`, () =>
       fetchLiveGlucose(source, lookback),
     );
-    const mergedRaw = mergeGlucoseTimePoints([prev?.glucose ?? [], live.glucose]);
+    const mergedRaw = pruneGlucosePoints(
+      mergeGlucoseTimePoints([prev?.glucose ?? [], live.glucose]),
+      CGM_STORE_RETAIN_DAYS,
+    );
     const store = storeFromGlucose(mergedRaw, prev?.cgmSessionStarts);
-    await syncPerfTrack('cgm/saveStore', () => saveCgmStore(store));
+    let saveOk = 1;
+    try {
+      await syncPerfTrack('cgm/saveStore', () => saveCgmStore(store));
+    } catch (saveErr) {
+      // HC merge succeeded — still paint the live edge even if disk is full.
+      saveOk = 0;
+      appLog('WARN', 'cgm/save_fail', {
+        reason,
+        message: (saveErr instanceof Error ? saveErr.message : 'save_failed').slice(0, 160),
+        store_n: store.glucose.length,
+      });
+    }
     const view = buildViewState(store, live.steps ?? [], live.heartRate ?? []);
+    const liveLatest = latestGlucosePoint(live.glucose);
+    const viewLatest = latestGlucosePoint(view.glucoseData);
+    const nowMs = Date.now();
+    const lagSec =
+      viewLatest != null ? Math.max(0, Math.round((nowMs - viewLatest.ms) / 1000)) : null;
+    const filterDropN = Math.max(0, store.glucose.length - view.glucoseData.length);
+    const fields = {
+      reason,
+      source,
+      lookback_d: lookback,
+      live_n: live.glucose.length,
+      store_n: store.glucose.length,
+      view_n: view.glucoseData.length,
+      filter_drop_n: filterDropN,
+      save_ok: saveOk,
+      prev_last: prevLatest?.ts ?? null,
+      live_last: liveLatest?.ts ?? null,
+      view_last: viewLatest?.ts ?? null,
+      live_last_mgdl: liveLatest?.mgdl ?? null,
+      view_last_mgdl: viewLatest?.mgdl ?? null,
+      lag_sec: lagSec,
+    };
+    appLog('INFO', 'cgm/sync', fields);
+    void saveCgmSyncDiag({
+      at: new Date().toISOString(),
+      reason,
+      source,
+      lookbackDays: lookback,
+      liveN: live.glucose.length,
+      storeN: store.glucose.length,
+      viewN: view.glucoseData.length,
+      filterDropN,
+      prevLast: prevLatest?.ts ?? null,
+      liveLast: liveLatest?.ts ?? null,
+      viewLast: viewLatest?.ts ?? null,
+      liveLastMgdl: liveLatest?.mgdl ?? null,
+      viewLastMgdl: viewLatest?.mgdl ?? null,
+      lagSec,
+      error: saveOk ? null : 'save_failed',
+    });
+    void flushAppLogWrites();
     return { store, view };
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'cgm_sync_failed';
+    appLog('WARN', 'cgm/sync_fail', {
+      reason,
+      source,
+      message: message.slice(0, 160),
+      prev_last: prevLatest?.ts ?? null,
+      store_n: prev?.glucose.length ?? 0,
+    });
+    void saveCgmSyncDiag({
+      at: new Date().toISOString(),
+      reason,
+      source,
+      lookbackDays: hasCgmData(prev) ? CGM_SHALLOW_LOOKBACK_DAYS : CGM_DEEP_LOOKBACK_DAYS,
+      liveN: 0,
+      storeN: prev?.glucose.length ?? 0,
+      viewN: 0,
+      filterDropN: 0,
+      prevLast: prevLatest?.ts ?? null,
+      liveLast: null,
+      viewLast: null,
+      liveLastMgdl: null,
+      viewLastMgdl: null,
+      lagSec: null,
+      error: message.slice(0, 200),
+    });
+    void flushAppLogWrites();
     if (hasCgmData(prev)) {
       return { store: prev!, view: buildViewState(prev!) };
     }

@@ -80,7 +80,7 @@ function sanitizeFields(fields: Record<string, string | number | boolean | null 
     let val: string;
     if (typeof v === 'boolean') val = v ? '1' : '0';
     else if (typeof v === 'number') val = Number.isFinite(v) ? String(Math.round(v * 1000) / 1000) : 'nan';
-    else val = String(v).replace(/[\r\n\t]+/g, ' ').slice(0, 80);
+    else val = String(v).replace(/[\r\n\t]+/g, ' ').slice(0, 120);
     parts.push(`${key}=${val}`);
   }
   return parts.join(' ');

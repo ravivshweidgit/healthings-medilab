@@ -9,6 +9,7 @@ import {
 import { Linking } from 'react-native';
 
 import { localDayKeyFromMs } from '../logic/metabolicTrend7d';
+import { appLog } from './AppDailyLogService';
 import type { HealthConnectReadDebug, RecentMetrics } from './healthMetricsTypes';
 import { parseBloodGlucoseMgDl } from './healthMetricsTypes';
 import { isWithingsHcOrigin } from './HealthConnectActivityAdapter';
@@ -72,6 +73,9 @@ const HISTORY_READ_PERMISSION = {
   recordType: 'ReadHealthDataHistory',
 } as const;
 
+/** Request with Blood glucose — not required for access OK (older Android / denied still read). */
+const GLUCOSE_READ_PERMISSIONS = [...CORE_READ_PERMISSIONS, HISTORY_READ_PERMISSION] as const;
+
 const ACTIVITY_READ_PERMISSIONS = [
   STEPS_READ_PERMISSION,
   { accessType: 'read', recordType: 'ExerciseSession' } as const,
@@ -93,13 +97,17 @@ function defaultHealthQueryStart(): Date {
 }
 
 function mapGlucoseRecords(records: Array<Record<string, unknown>>) {
-  return records.map((record) => {
+  const out: Array<{ timestamp: string; value: number }> = [];
+  for (const record of records) {
     const timestamp = String(
-      record.time ?? record.endTime ?? record.startTime ?? new Date().toISOString(),
+      record.time ?? record.endTime ?? record.startTime ?? '',
     );
+    if (!timestamp) continue;
     const value = parseBloodGlucoseMgDl(record);
-    return { timestamp, value };
-  });
+    if (!(value > 0)) continue;
+    out.push({ timestamp, value });
+  }
+  return out;
 }
 
 class HealthConnectService {
@@ -156,7 +164,8 @@ class HealthConnectService {
     }
 
     if (!this.sessionAccessOk) {
-      granted = await requestPermission([...CORE_READ_PERMISSIONS]);
+      // Ask history with glucose (Android 14+ depth); Blood glucose alone still unlocks sync.
+      granted = await requestPermission([...GLUCOSE_READ_PERMISSIONS]);
       if (hasCoreReadAccess(granted)) {
         this.markAccessOk();
         return granted;
@@ -544,6 +553,9 @@ class HealthConnectService {
     const pages: unknown[] = [];
     let pageToken: string | undefined;
     let pageGuard = 0;
+    // Default ascending (oldest→newest). Newest-first was tried and can throw on some
+    // HC / RN-HC builds; syncCgmStore used to swallow that and freeze the chart edge.
+    // Never pass ascendingOrder together with pageToken (HC IllegalStateException).
     do {
       const page = (await readRecords('BloodGlucose' as never, {
         timeRangeFilter: {
@@ -552,13 +564,16 @@ class HealthConnectService {
           endTime: endTime.toISOString(),
         },
         pageSize: HC_PAGE_SIZE,
-        ...(pageToken ? { pageToken } : {}),
+        ...(pageToken ? { pageToken } : { ascendingOrder: true }),
       } as never)) as { records?: Array<Record<string, unknown>>; pageToken?: string };
 
       const pageRecords = (page.records ?? []) as Array<Record<string, unknown>>;
       records.push(...pageRecords);
       pages.push(page);
-      pageToken = page.pageToken || undefined;
+      const next = page.pageToken;
+      // HC uses -1 / empty when exhausted.
+      pageToken =
+        next != null && String(next) !== '' && String(next) !== '-1' ? String(next) : undefined;
       pageGuard += 1;
     } while (pageToken && pageGuard < HC_MAX_PAGES);
 
@@ -566,6 +581,29 @@ class HealthConnectService {
     if (glucose.length > 0) {
       this.markAccessOk();
     }
+
+    let lastTs: string | null = null;
+    let lastMgdl: number | null = null;
+    let lastMs = -Infinity;
+    for (const p of glucose) {
+      const ms = Date.parse(p.timestamp);
+      if (Number.isFinite(ms) && ms >= lastMs) {
+        lastMs = ms;
+        lastTs = p.timestamp;
+        lastMgdl = p.value;
+      }
+    }
+    appLog('INFO', 'cgm/hc_fetch', {
+      pages: pageGuard,
+      raw_n: records.length,
+      mapped_n: glucose.length,
+      parse_drop_n: Math.max(0, records.length - glucose.length),
+      query_start: startTime.toISOString(),
+      query_end: endTime.toISOString(),
+      last_ts: lastTs,
+      last_mgdl: lastMgdl,
+      lag_sec: lastMs > 0 ? Math.max(0, Math.round((Date.now() - lastMs) / 1000)) : null,
+    });
 
     return {
       metrics: { glucose },

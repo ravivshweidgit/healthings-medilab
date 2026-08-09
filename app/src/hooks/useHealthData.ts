@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import type { CgmSessionStart } from '../logic/cgmWarmupFilter';
 import type { ActivityZone } from '../logic/MetabolicLogic';
 import {
@@ -7,6 +8,7 @@ import {
   mergeImportedGlucoseIntoStore,
   syncCgmStore,
   viewFromCgmStore,
+  type CgmSyncReason,
   type CgmViewState,
 } from '../services/CgmPersistenceService';
 import type { HealthDataSource } from '../services/healthRuntime';
@@ -90,48 +92,53 @@ export const useHealthData = () => {
     [applyView, dataSource, withGlucoseSyncLock],
   );
 
-  const refetch = useCallback(async (): Promise<HealthSyncResult | null> => {
-    if (refetchInFlight.current) {
-      return refetchInFlight.current;
-    }
-
-    const run = withGlucoseSyncLock(async (): Promise<HealthSyncResult | null> => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const result = await syncCgmStore(dataSource);
-        if (!result) {
-          setError('Failed to sync health data.');
-          return null;
-        }
-        applyView(result.view);
-        return {
-          metrics: { glucose: result.store.glucose },
-          efficiencyScore: result.view.efficiencyScore,
-          insight: result.view.insight,
-          activityZones: result.view.activityZones,
-        };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to sync health data.';
-        const cached = await loadCgmStore();
-        if (hasCgmData(cached)) {
-          setError(null);
-          return null;
-        }
-        setError(message);
-        return null;
-      } finally {
-        setIsLoading(false);
+  const refetch = useCallback(
+    async (opts?: { quiet?: boolean; reason?: CgmSyncReason }): Promise<HealthSyncResult | null> => {
+      if (refetchInFlight.current) {
+        return refetchInFlight.current;
       }
-    });
 
-    refetchInFlight.current = run;
-    try {
-      return await run;
-    } finally {
-      refetchInFlight.current = null;
-    }
-  }, [applyView, dataSource, withGlucoseSyncLock]);
+      const quiet = opts?.quiet === true;
+      const reason = opts?.reason ?? 'manual';
+      const run = withGlucoseSyncLock(async (): Promise<HealthSyncResult | null> => {
+        if (!quiet) setIsLoading(true);
+        setError(null);
+        try {
+          const result = await syncCgmStore(dataSource, { reason });
+          if (!result) {
+            setError('Failed to sync health data.');
+            return null;
+          }
+          applyView(result.view);
+          return {
+            metrics: { glucose: result.store.glucose },
+            efficiencyScore: result.view.efficiencyScore,
+            insight: result.view.insight,
+            activityZones: result.view.activityZones,
+          };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Failed to sync health data.';
+          const cached = await loadCgmStore();
+          if (hasCgmData(cached)) {
+            setError(null);
+            return null;
+          }
+          setError(message);
+          return null;
+        } finally {
+          if (!quiet) setIsLoading(false);
+        }
+      });
+
+      refetchInFlight.current = run;
+      try {
+        return await run;
+      } finally {
+        refetchInFlight.current = null;
+      }
+    },
+    [applyView, dataSource, withGlucoseSyncLock],
+  );
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -144,7 +151,7 @@ export const useHealthData = () => {
       } catch {
         // Non-fatal: cache read failure should not block sync.
       }
-      await refetch();
+      await refetch({ reason: 'boot' });
     };
 
     void bootstrap();
@@ -152,9 +159,18 @@ export const useHealthData = () => {
 
   useEffect(() => {
     const id = setInterval(() => {
-      void refetch();
+      void refetch({ quiet: true, reason: 'interval' });
     }, 5 * 60 * 1000);
     return () => clearInterval(id);
+  }, [refetch]);
+
+  // Match Withings HR: pull CGM on foreground so the chart right edge does not go stale.
+  useEffect(() => {
+    const onState = (next: AppStateStatus) => {
+      if (next === 'active') void refetch({ quiet: true, reason: 'foreground' });
+    };
+    const sub = AppState.addEventListener('change', onState);
+    return () => sub.remove();
   }, [refetch]);
 
   return {

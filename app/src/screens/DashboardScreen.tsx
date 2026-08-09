@@ -1607,7 +1607,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         'DashboardScreen.pullRefresh',
         async () => {
           await Promise.all([
-            syncPerfTrackSibling('cgm/refetch', () => refetch()),
+            syncPerfTrackSibling('cgm/refetch', () => refetch({ reason: 'pull' })),
             syncPerfTrackSibling('metrics/syncWithings', () => syncWithings({ quiet: true })),
             syncPerfTrackSibling('food/loadToday', () => loadTodayFood()),
             syncPerfTrackSibling('manualTrend/load', () => loadManualTrend()),
@@ -1990,7 +1990,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, [handleLinkWithings]);
 
   const handleSync = async () => {
-    const [, result] = await Promise.all([syncWithings(), refetch()]);
+    const [, result] = await Promise.all([syncWithings(), refetch({ reason: 'manual' })]);
     if (!result) {
       if (dataSource === 'health-connect') {
         Alert.alert(
@@ -2100,7 +2100,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
   const refreshAfterBackupRestore = useCallback(async () => {
     await Promise.all([
-      refetch(),
+      refetch({ reason: 'manual' }),
       syncWithings(),
       loadTodayFood(),
       loadLabReports(),
@@ -2653,7 +2653,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                   title={metabolicHeader.title}
                   subtitle={metabolicHeader.compactSub}
                   expanded={glucoseExpanded}
-                  onToggle={() => setGlucoseExpanded((v) => !v)}
+                  onToggle={() => {
+                    setGlucoseExpanded((v) => {
+                      if (!v) void refetch({ quiet: true, reason: 'expand' });
+                      return !v;
+                    });
+                  }}
                   titleRtl={userLanguage.code === 'he' || userLanguage.code === 'ar'}
                   collapseLabel={metabolicHeader.a11yCollapse}
                   expandLabel={metabolicHeader.a11yExpand}

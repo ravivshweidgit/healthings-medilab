@@ -765,11 +765,17 @@ export function MetabolicChart({
     const glucosePath = buildSmoothPaths(gPxSegs);
     const heartRatePath = buildSmoothPaths(hPxSegs);
     // Isolated single samples as dots — capped so a shattered series cannot flood the SVG.
-    const orphanDots = hPxSegs.filter((seg) => seg.length === 1).map((seg) => seg[0]!);
+    const orphanHr = hPxSegs.filter((seg) => seg.length === 1).map((seg) => seg[0]!);
     const heartRateDots =
-      orphanDots.length <= MAX_HR_ORPHAN_DOTS
-        ? orphanDots
-        : orphanDots.filter((_, i) => i % Math.ceil(orphanDots.length / MAX_HR_ORPHAN_DOTS) === 0).slice(0, MAX_HR_ORPHAN_DOTS);
+      orphanHr.length <= MAX_HR_ORPHAN_DOTS
+        ? orphanHr
+        : orphanHr.filter((_, i) => i % Math.ceil(orphanHr.length / MAX_HR_ORPHAN_DOTS) === 0).slice(0, MAX_HR_ORPHAN_DOTS);
+    // Same for glucose — a post-gap live sample must still paint (was path-only, so orphans vanished).
+    const orphanGlu = gPxSegs.filter((seg) => seg.length === 1).map((seg) => seg[0]!);
+    const glucoseDots =
+      orphanGlu.length <= MAX_HR_ORPHAN_DOTS
+        ? orphanGlu
+        : orphanGlu.filter((_, i) => i % Math.ceil(orphanGlu.length / MAX_HR_ORPHAN_DOTS) === 0).slice(0, MAX_HR_ORPHAN_DOTS);
 
     const innerW = Math.max(1, chartW - padL - padR);
     const spanT = Math.max(1, mapTMax - mapTMin);
@@ -834,6 +840,7 @@ export function MetabolicChart({
       glucosePath,
       heartRatePath,
       heartRateDots,
+      glucoseDots,
       gridLines,
       activitySegments,
       timeTicks,
@@ -1240,6 +1247,16 @@ export function MetabolicChart({
       {prepared.glucosePath ? (
         <Path d={prepared.glucosePath} fill="none" stroke={colors.accentGreen} strokeWidth={2.5} />
       ) : null}
+      {(prepared.glucoseDots ?? []).map((dot, i) => (
+        <Circle
+          key={`glu-dot-${i}`}
+          cx={dot.x}
+          cy={dot.y}
+          r={2.5}
+          fill={colors.accentGreen}
+          opacity={0.95}
+        />
+      ))}
 
       {scrub ? (
         <>
