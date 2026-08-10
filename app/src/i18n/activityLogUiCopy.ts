@@ -28,6 +28,8 @@ export type ActivityLogUiCopy = {
   deleteTitle: string;
   deleteMessage: string;
   favorites: string;
+  /** prompt108 — short discoverability hint */
+  favoritesHint: string;
   saveAsFavorite: string;
   manageFavorites: string;
   editFavorite: string;
@@ -74,6 +76,7 @@ const EN: ActivityLogUiCopy = {
   deleteTitle: 'Delete activity?',
   deleteMessage: 'Remove this session from the log?',
   favorites: 'Favorites',
+  favoritesHint: 'Tap a favorite to log it fast — or save a session as favorite.',
   saveAsFavorite: 'Save as favorite',
   manageFavorites: 'Manage favorites',
   editFavorite: 'Edit favorite',
@@ -120,6 +123,7 @@ const HE: ActivityLogUiCopy = {
   deleteTitle: 'למחוק פעילות?',
   deleteMessage: 'להסיר את הסשן מהיומן?',
   favorites: 'מועדפים',
+  favoritesHint: 'לחצו על מועדף להוספה מהירה — או שמרו סשן כמועדף.',
   saveAsFavorite: 'שמור כמועדף',
   manageFavorites: 'ניהול מועדפים',
   noFavorites: 'אין מועדפים — שמרו אחד מסשן.',

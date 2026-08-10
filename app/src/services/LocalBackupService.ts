@@ -9,6 +9,7 @@ import {
   countDeviceActivityRichness,
   isActivityDayKey,
 } from './ActivityLogService';
+import { FOOD_STAPLES_KEY } from './FoodStaplesService';
 
 const BACKUP_APP = 'healthings-medilab';
 const BACKUP_VERSION = 1;
@@ -270,7 +271,7 @@ export async function applyLocalBackupPayload(
       continue;
     }
 
-    if (key === ACTIVITY_FAVORITES_KEY) {
+    if (key === ACTIVITY_FAVORITES_KEY || key === FOOD_STAPLES_KEY) {
       const merged = mergeFavorites(existingRaw, incomingRaw);
       await AsyncStorage.setItem(key, merged.raw);
       favoritesMerged += merged.favoritesMerged;

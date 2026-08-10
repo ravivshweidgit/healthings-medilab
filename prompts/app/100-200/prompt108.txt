@@ -1,0 +1,63 @@
+# prompt108 — Alpha review polish (friction + severity + staples)
+
+**Status:** implemented — awaiting Samsung `bi` phone test  
+**Test order:** Samsung Android first (`bi`) → iOS later if needed  
+**Builds on:** prompt106 (polish/retention), prompt104 (activity favorites), Food Log / meal issues, ManualBody  
+**Source:** owner alpha review `Prod-Review.pdf` (2026-08) — implement-now slice only
+
+## Problem
+
+An alpha user day-used the app and hit: accidental app exit on Back, keyboard covering inputs, cramped meal field, red flags that feel like bans (e.g. egg + cholesterol), unclear manual weight save semantics, and too much retyping for foods they eat every day.
+
+Thesis from the review (keep): daily actions must be fast; attention ≠ forbidden.
+
+## In scope (this batch)
+
+### A — Exit / keyboard / meal field
+1. Android hardware Back on dashboard root: confirm before exit (never single-press exit). Nested modals keep closing via `onRequestClose`.
+2. Meal describe / chat / edit-item: taller multi-line fields; edit-item sheet uses KeyboardAvoidingView so Save stays reachable.
+3. Food Log already uses KeyboardAvoidingView on the main sheet — keep + harden edit nested modal.
+
+### B — Severity tone (judgment, not regex)
+1. Visual ladder: amber = watch / in moderation; red = hard My Rules / allergen-class / true safety.
+2. Tighten `MEAL_FAT_RULE_FLAGGING_GUIDANCE` + save-time check: prefer “count toward total” over “forbidden”; quantity + frequency + context; one egg ≠ automatic critical.
+3. `FoodItem.rule_severity`; macro carb/kcal overshoot → warning (not critical).
+4. No Profile “strictness” slider.
+
+### C — One-tap staples
+1. `FoodStaplesService` — AsyncStorage `healthings:foodStaples`; export/backup via normal AS dump; merge-on-import like activity favorites.
+2. Food Log idle: staple chips + save-as-staple from meal items.
+3. `appLocale` copy in `foodLogUiCopy`.
+
+### D — Clarify existing behavior
+1. Manual weight: one line — save = new history measurement.
+2. Activity log: short favorites hint.
+
+## Out of scope
+Custom cups, supplements module, coffee counters, widgets, metric `i` buttons, nav redesign, monetization tiers, menu-photo coach surface, water additives builder.
+
+## Likely files
+- `DashboardScreen.tsx`, `FoodLogModal.tsx`
+- `logic/userRulesContext.ts`, `GeminiService.ts`, `mealIssueAnalysis.ts`
+- `FoodStaplesService.ts`, `LocalBackupService.ts`
+- `ManualBodyProfileSection.tsx`, `bodyMetricsCopy.ts`, `activityLogUiCopy.ts`, `foodLogUiCopy.ts`
+- `i18n/androidBackCopy.ts`
+
+## Acceptance
+- [ ] Root Back never exits on first press without confirm
+- [ ] Meal describe / edit fields multi-line; edit Save usable with keyboard
+- [ ] Soft fat/cholesterol cases amber + non-ban wording; red reserved
+- [ ] Save staple → add later in ≤2 taps
+- [ ] Manual weight copy states new history reading
+- [ ] `app\build-APK.bat` compile check; Samsung `bi` when owner asks
+- [ ] No commit until owner phone-confirms
+
+## Phone checklist
+- [ ] Back from Food Log / Activity → returns; root → confirm exit
+- [ ] Log meal, edit grams with keyboard — Save visible
+- [ ] Soft vs hard flag colors + copy
+- [ ] Save staple, add next session
+- [ ] Manual weight: copy clear; history grows
+
+## Done when
+Logging feels faster, Back doesn’t surprise, red means something again.

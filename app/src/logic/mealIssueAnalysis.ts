@@ -95,9 +95,11 @@ export function mealIssuesFromFoodItems(
     .filter((item) => item.rule_conflict)
     .map((item, index) => {
       const name = itemDisplayName(item);
+      const severity: 'warning' | 'critical' =
+        item.rule_severity === 'critical' ? 'critical' : 'warning';
       return {
         id: `item-rule-${index}-${name}`,
-        severity: 'critical' as const,
+        severity,
         code: 'rule_conflict' as const,
         message:
           item.rule_message?.trim()
@@ -140,7 +142,7 @@ export function analyzeMacroMealIssues(
       const targetR = Math.round(macroTarget.carb_g);
       issues.push({
         id: 'carb-over',
-        severity: 'critical',
+        severity: 'warning',
         code: 'carb_over',
         message:
           messages?.carbOver(projectedR, over, targetR)
@@ -155,7 +157,7 @@ export function analyzeMacroMealIssues(
       const targetR = Math.round(macroTarget.kcal);
       issues.push({
         id: 'kcal-over',
-        severity: 'critical',
+        severity: 'warning',
         code: 'kcal_over',
         message:
           messages?.kcalOver(projectedR, over, targetR)
@@ -251,7 +253,7 @@ function namesMatchItem(itemName: string, item: FoodItem): boolean {
 /** Re-apply Gemini rule check results onto items (clears stale rule_conflict from saved meals). */
 export function syncFoodItemRuleFlags(
   items: FoodItem[],
-  geminiIssues: Array<{ itemName: string; message: string }>,
+  geminiIssues: Array<{ itemName: string; message: string; severity?: 'warning' | 'critical' }>,
 ): FoodItem[] {
   return items.map((item) => {
     const hit = geminiIssues.find((issue) => namesMatchItem(issue.itemName, item));
@@ -259,8 +261,30 @@ export function syncFoodItemRuleFlags(
       ...item,
       rule_conflict: Boolean(hit),
       rule_message: hit?.message?.trim() || undefined,
+      rule_severity: hit
+        ? hit.severity === 'critical'
+          ? 'critical'
+          : 'warning'
+        : undefined,
     };
   });
+}
+
+/** Per-item visual severity for Food Log rows (amber vs red). */
+export function itemFlagSeverity(
+  index: number,
+  item: FoodItem,
+  issues: MealIssue[],
+  flaggedIndices: Set<number>,
+): 'warning' | 'critical' | null {
+  if (!flaggedIndices.has(index) && !item.rule_conflict) return null;
+  if (item.rule_severity === 'critical') return 'critical';
+  for (const issue of issues) {
+    const names = issue.itemNames ?? [];
+    if (!names.some((n) => namesMatchItem(n, item))) continue;
+    if (issue.severity === 'critical') return 'critical';
+  }
+  return 'warning';
 }
 
 export function issueModalBody(issues: MealIssue[]): string {

@@ -657,6 +657,7 @@ export function ActivityLogModal({
                     <View style={styles.favSection}>
                       <View style={styles.favHeader}>
                         <Text style={styles.sectionLabel}>{ui.favorites}</Text>
+                        <Text style={styles.favoritesHint}>{ui.favoritesHint}</Text>
                         <Pressable onPress={() => setManagingFavs((v) => !v)} hitSlop={6}>
                           <Text style={styles.link}>{ui.manageFavorites}</Text>
                         </Pressable>
@@ -978,6 +979,12 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
       fontWeight: '700',
       color: c.textSecondary,
       textTransform: 'uppercase',
+    },
+    favoritesHint: {
+      fontSize: 12,
+      lineHeight: 16,
+      color: c.textSecondary,
+      marginBottom: 6,
     },
     favSection: { marginBottom: 2 },
     favHeader: {

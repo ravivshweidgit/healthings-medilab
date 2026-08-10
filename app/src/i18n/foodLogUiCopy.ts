@@ -82,6 +82,11 @@ export type FoodLogUiCopy = {
   waterGoalHint: (unit: string, defaultAmt: string) => string;
   waterAmountHint: (unit: string, time: string) => string;
   waterIntakeHint: (unit: string) => string;
+  /** prompt108 — saved staple foods */
+  staples: string;
+  saveAsStaple: string;
+  stapleSaved: string;
+  noStaplesYet: string;
 };
 
 const EN: FoodLogUiCopy = {
@@ -156,6 +161,10 @@ const EN: FoodLogUiCopy = {
   waterGoalHint: (unit, defaultAmt) => `Daily H2O target in ${unit} (default ${defaultAmt}).`,
   waterAmountHint: (unit, time) => `Set ${unit} for this drink (${time}).`,
   waterIntakeHint: (unit) => `Set today's total in ${unit}. Goal:`,
+  staples: 'Staples',
+  saveAsStaple: 'Save staple',
+  stapleSaved: 'Saved as staple',
+  noStaplesYet: 'Save foods you eat often — tap Save staple on an item.',
 };
 
 const HE: FoodLogUiCopy = {
@@ -229,6 +238,10 @@ const HE: FoodLogUiCopy = {
   waterGoalHint: (unit, defaultAmt) => `יעד H2O יומי ב־${unit} (ברירת מחדל ${defaultAmt}).`,
   waterAmountHint: (unit, time) => `הגדר ${unit} לשתייה זו (${time}).`,
   waterIntakeHint: (unit) => `הגדר סה״כ להיום ב־${unit}. יעד:`,
+  staples: 'מרכיבים קבועים',
+  saveAsStaple: 'שמור כקבוע',
+  stapleSaved: 'נשמר כקבוע',
+  noStaplesYet: 'שמרו מזונות שחוזרים — לחצו שמור כקבוע על פריט.',
 };
 
 const ES: FoodLogUiCopy = {
@@ -303,6 +316,10 @@ const ES: FoodLogUiCopy = {
   waterGoalHint: (unit, defaultAmt) => `Meta diaria de H2O en ${unit} (por defecto ${defaultAmt}).`,
   waterAmountHint: (unit, time) => `Define ${unit} para esta bebida (${time}).`,
   waterIntakeHint: (unit) => `Define el total de hoy en ${unit}. Meta:`,
+  staples: 'Básicos',
+  saveAsStaple: 'Guardar básico',
+  stapleSaved: 'Guardado como básico',
+  noStaplesYet: 'Guarda alimentos frecuentes — toca Guardar básico en un ítem.',
 };
 
 const FR: FoodLogUiCopy = {
@@ -378,6 +395,10 @@ const FR: FoodLogUiCopy = {
   waterGoalHint: (unit, defaultAmt) => `Objectif H2O quotidien en ${unit} (défaut ${defaultAmt}).`,
   waterAmountHint: (unit, time) => `Définir ${unit} pour cette boisson (${time}).`,
   waterIntakeHint: (unit) => `Définir le total du jour en ${unit}. Objectif :`,
+  staples: 'Basiques',
+  saveAsStaple: 'Enregistrer en basique',
+  stapleSaved: 'Enregistré en basique',
+  noStaplesYet: 'Enregistrez les aliments fréquents — touchez Enregistrer en basique.',
 };
 
 const DE: FoodLogUiCopy = {
@@ -453,6 +474,10 @@ const DE: FoodLogUiCopy = {
   waterGoalHint: (unit, defaultAmt) => `Tägliches H2O-Ziel in ${unit} (Standard ${defaultAmt}).`,
   waterAmountHint: (unit, time) => `${unit} für diesen Drink festlegen (${time}).`,
   waterIntakeHint: (unit) => `Heutige Gesamtsumme in ${unit} festlegen. Ziel:`,
+  staples: 'Staples',
+  saveAsStaple: 'Als Staple speichern',
+  stapleSaved: 'Als Staple gespeichert',
+  noStaplesYet: 'Speichere häufige Lebensmittel — tippe Als Staple speichern.',
 };
 
 const AR: FoodLogUiCopy = {
@@ -526,6 +551,10 @@ const AR: FoodLogUiCopy = {
   waterGoalHint: (unit, defaultAmt) => `هدف H2O اليومي بـ ${unit} (الافتراضي ${defaultAmt}).`,
   waterAmountHint: (unit, time) => `عيّن ${unit} لهذا المشروب (${time}).`,
   waterIntakeHint: (unit) => `عيّن إجمالي اليوم بـ ${unit}. الهدف:`,
+  staples: 'أساسيات',
+  saveAsStaple: 'حفظ كأساسي',
+  stapleSaved: 'حُفظ كأساسي',
+  noStaplesYet: 'احفظ الأطعمة المتكررة — اضغط حفظ كأساسي على صنف.',
 };
 
 const RU: FoodLogUiCopy = {
@@ -601,6 +630,10 @@ const RU: FoodLogUiCopy = {
   waterGoalHint: (unit, defaultAmt) => `Дневная цель H2O в ${unit} (по умолчанию ${defaultAmt}).`,
   waterAmountHint: (unit, time) => `Задайте ${unit} для этого напитка (${time}).`,
   waterIntakeHint: (unit) => `Задайте итог за сегодня в ${unit}. Цель:`,
+  staples: 'Основы',
+  saveAsStaple: 'Сохранить основу',
+  stapleSaved: 'Сохранено как основа',
+  noStaplesYet: 'Сохраняйте частые продукты — нажмите Сохранить основу.',
 };
 
 const PT: FoodLogUiCopy = {
@@ -676,6 +709,10 @@ const PT: FoodLogUiCopy = {
   waterGoalHint: (unit, defaultAmt) => `Meta diária de H2O em ${unit} (padrão ${defaultAmt}).`,
   waterAmountHint: (unit, time) => `Defina ${unit} para esta bebida (${time}).`,
   waterIntakeHint: (unit) => `Defina o total de hoje em ${unit}. Meta:`,
+  staples: 'Básicos',
+  saveAsStaple: 'Guardar básico',
+  stapleSaved: 'Guardado como básico',
+  noStaplesYet: 'Guarde alimentos frequentes — toque Guardar básico num item.',
 };
 
 const IT: FoodLogUiCopy = {
@@ -751,6 +788,10 @@ const IT: FoodLogUiCopy = {
   waterGoalHint: (unit, defaultAmt) => `Obiettivo H2O giornaliero in ${unit} (predefinito ${defaultAmt}).`,
   waterAmountHint: (unit, time) => `Imposta ${unit} per questa bevanda (${time}).`,
   waterIntakeHint: (unit) => `Imposta il totale di oggi in ${unit}. Obiettivo:`,
+  staples: 'Base',
+  saveAsStaple: 'Salva base',
+  stapleSaved: 'Salvato come base',
+  noStaplesYet: 'Salva cibi frequenti — tocca Salva base su un alimento.',
 };
 
 const TR: FoodLogUiCopy = {
@@ -826,6 +867,10 @@ const TR: FoodLogUiCopy = {
   waterGoalHint: (unit, defaultAmt) => `Günlük H2O hedefi ${unit} cinsinden (varsayılan ${defaultAmt}).`,
   waterAmountHint: (unit, time) => `Bu içecek için ${unit} ayarlayın (${time}).`,
   waterIntakeHint: (unit) => `Bugünün toplamını ${unit} cinsinden ayarlayın. Hedef:`,
+  staples: 'Sabitler',
+  saveAsStaple: 'Sabit kaydet',
+  stapleSaved: 'Sabit olarak kaydedildi',
+  noStaplesYet: 'Sık yediklerinizi kaydedin — öğede Sabit kaydet’e dokunun.',
 };
 
 const BY_CODE: Record<string, FoodLogUiCopy> = {

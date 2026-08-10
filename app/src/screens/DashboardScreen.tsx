@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   AppState,
+  BackHandler,
   DeviceEventEmitter,
   Image,
   InteractionManager,
@@ -135,6 +136,7 @@ import {
   formatRelativeAgoLocalized,
   getMetabolicStripCopy,
 } from '../i18n/metabolicStripCopy';
+import { getAndroidBackCopy } from '../i18n/androidBackCopy';
 import {
   getCareSensImportCopy,
   mapCareSensImportError,
@@ -1073,6 +1075,30 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     () => getWhatsNextCopy(userLanguage.code),
     [userLanguage.code],
   );
+
+  /** prompt108 — Android root Back confirms before exit; modals keep onRequestClose. */
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (foodModalVisible || activityModalVisible || chatVisible || quickStartVisible || showDatePickerDialog) {
+        return false;
+      }
+      const copy = getAndroidBackCopy(userLanguage.code);
+      Alert.alert(copy.exitTitle, copy.exitMessage, [
+        { text: copy.stay, style: 'cancel' },
+        { text: copy.exitConfirm, style: 'destructive', onPress: () => BackHandler.exitApp() },
+      ]);
+      return true;
+    });
+    return () => sub.remove();
+  }, [
+    foodModalVisible,
+    activityModalVisible,
+    chatVisible,
+    quickStartVisible,
+    showDatePickerDialog,
+    userLanguage.code,
+  ]);
 
   const metabolicHeader = useMemo(() => {
     const summaryLine = glucoseCompactSummary

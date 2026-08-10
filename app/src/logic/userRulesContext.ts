@@ -22,7 +22,11 @@ export const MEAL_FAT_RULE_FLAGGING_GUIDANCE = `FAT / CHOLESTEROL — PER-ITEM (
 2. Verbatim MY RULES wins over shortcuts: if rules explicitly allow whey isolate / אבקת חלבון אייזולט / מי גבינה as an exception, do NOT flag it.
 3. Understand food identity from name + name_local + macros: plant protein (pea/soy/rice, חלבון מהצומח) is NOT whey; whey/casein (מי גבינה, אייזולט) is dairy — flag only when rules forbid dairy fat without an exception.
 4. Plant-fat items (olive oil, nuts, seeds, avocado, pumpkin seeds) and fiber (psyllium) → compliant unless rules say otherwise.
-5. Do NOT blanket-flag whey. Do NOT use "lacks fish/nuts/olive oil" — only flag the item that brings forbidden fat per the user's actual rules.`;
+5. Do NOT blanket-flag whey. Do NOT use "lacks fish/nuts/olive oil" — only flag the item that brings forbidden fat per the user's actual rules.
+6. SEVERITY LADDER (required when flagging):
+   - warning = attention / consume in moderation / count toward daily fat or cholesterol totals. Soft lipid goals, one egg, moderate cheese, etc. Prefer wording like "count this toward your fat/cholesterol total" — NEVER "forbidden", "must not eat", or "אסור".
+   - critical = hard My Rules ban, allergen-class risk, or explicit absolute prohibition in the user's rules.
+7. Quantity + frequency + context matter: one egg with a cholesterol-aware goal is usually warning (or no flag), not critical. Do NOT apply medical X → food Y forbidden shortcuts.`;
 
 /** Macro revision — verbatim user text only. */
 export function formatMacroRevisionRulesBlock(rules: UserRules): string {

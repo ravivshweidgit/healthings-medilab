@@ -46,12 +46,19 @@ import {
   analyzeMacroMealIssues,
   flaggedItemIndices,
   issueModalBody,
+  itemFlagSeverity,
   mealIssuesFromFoodItems,
   mealItemsCompositionKey,
   mealItemsSnapshotKey,
   syncFoodItemRuleFlags,
   type MealIssue,
 } from '../logic/mealIssueAnalysis';
+import {
+  getFoodStaples,
+  saveFoodStapleFromItem,
+  stapleToFoodItem,
+  type FoodStaple,
+} from '../services/FoodStaplesService';
 import { getMacroTarget, getUserRules, type UserLanguage } from '../services/TargetService';
 import { cardShadow } from '../theme/wellness';
 import { IosDateTimePickerSheet } from './IosDateTimePickerSheet';
@@ -287,24 +294,30 @@ function FoodItemsCard({
   items,
   title,
   flaggedIndices,
+  mealIssues,
   energyUnit = 'kcal',
   editable = false,
   editLabel = 'Edit',
   deleteLabel = 'Delete',
+  saveStapleLabel,
   emptyLabel = 'Empty',
   onEditItem,
   onDeleteItem,
+  onSaveStaple,
 }: {
   items: FoodItem[];
   title?: string;
   flaggedIndices?: Set<number>;
+  mealIssues?: MealIssue[];
   energyUnit?: EnergyUnit;
   editable?: boolean;
   editLabel?: string;
   deleteLabel?: string;
+  saveStapleLabel?: string;
   emptyLabel?: string;
   onEditItem?: (index: number) => void;
   onDeleteItem?: (index: number) => void;
+  onSaveStaple?: (index: number) => void;
 }) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
@@ -320,27 +333,55 @@ function FoodItemsCard({
     <View style={[styles.itemsCard, cardShadow]}>
       {title ? <Text style={styles.itemsCardTitle}>{title}</Text> : null}
       {items.map((item, i) => {
-        const flagged = flaggedIndices?.has(i) || item.rule_conflict;
+        const flaggedSet = flaggedIndices ?? new Set<number>();
+        const severity = itemFlagSeverity(i, item, mealIssues ?? [], flaggedSet);
+        const flagged = severity != null;
+        const isCritical = severity === 'critical';
         return (
           <View
             key={`item-${i}`}
             style={[
               styles.itemRow,
               i > 0 && styles.itemRowBorder,
-              flagged && styles.itemRowFlagged,
+              flagged && (isCritical ? styles.itemRowFlaggedCritical : styles.itemRowFlaggedWarning),
             ]}
           >
             <View style={styles.itemTopRow}>
               <View style={styles.itemNameRow}>
-                {flagged ? <Text style={styles.itemWarningDot}>⚠</Text> : null}
+                {flagged ? (
+                  <Text
+                    style={[
+                      styles.itemWarningDot,
+                      isCritical ? styles.itemWarningDotCritical : styles.itemWarningDotWarning,
+                    ]}
+                  >
+                    ⚠
+                  </Text>
+                ) : null}
                 <Text
-                  style={[styles.itemName, flagged && styles.itemNameFlagged]}
+                  style={[
+                    styles.itemName,
+                    flagged && (isCritical ? styles.itemNameFlaggedCritical : styles.itemNameFlaggedWarning),
+                  ]}
                 >
                   {item.name_local ?? item.name}
                 </Text>
               </View>
               {editable ? (
                 <View style={styles.itemActions}>
+                  {onSaveStaple && saveStapleLabel ? (
+                    <Pressable
+                      style={styles.itemStapleBtn}
+                      onPress={() => onSaveStaple(i)}
+                      accessibilityRole="button"
+                      accessibilityLabel={saveStapleLabel}
+                      hitSlop={6}
+                    >
+                      <Text style={styles.itemStapleBtnText} numberOfLines={1}>
+                        {saveStapleLabel}
+                      </Text>
+                    </Pressable>
+                  ) : null}
                   <Pressable
                     style={styles.itemEditBtn}
                     onPress={() => onEditItem?.(i)}
@@ -363,7 +404,14 @@ function FoodItemsCard({
               ) : null}
             </View>
             {flagged && item.rule_message ? (
-              <Text style={styles.itemRuleMessage}>{item.rule_message}</Text>
+              <Text
+                style={[
+                  styles.itemRuleMessage,
+                  isCritical ? styles.itemRuleMessageCritical : styles.itemRuleMessageWarning,
+                ]}
+              >
+                {item.rule_message}
+              </Text>
             ) : null}
             <Text style={styles.itemGrams}>{item.grams}g</Text>
             <View style={styles.itemMetricsRow}>
@@ -464,6 +512,8 @@ export function FoodLogModal({
   const [browseDayMs, setBrowseDayMs] = useState(() => startOfLocalDay(Date.now()));
   const [pastDayMeals, setPastDayMeals] = useState<FoodEntry[]>([]);
   const [pastDayLoading, setPastDayLoading] = useState(false);
+  const [staples, setStaples] = useState<FoodStaple[]>([]);
+  const [stapleFlash, setStapleFlash] = useState<string | null>(null);
   const chatInputRef = useRef<TextInput>(null);
   const describeInputRef = useRef<TextInput>(null);
   const mealCompositionKey = mealItemsCompositionKey(items);
@@ -520,6 +570,17 @@ export function FoodLogModal({
       cancelled = true;
     };
   }, [visible, screen, browseDayMs]);
+
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    void getFoodStaples().then((list) => {
+      if (!cancelled) setStaples(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
 
   const shiftBrowseDay = useCallback((delta: number) => {
     setBrowseDayMs((prev) => {
@@ -796,7 +857,12 @@ export function FoodLogModal({
       if (cancelled) return;
       if (!userRules?.rawText?.trim()) {
         setItems((prev) =>
-          prev.map((item) => ({ ...item, rule_conflict: false, rule_message: undefined })),
+          prev.map((item) => ({
+            ...item,
+            rule_conflict: false,
+            rule_message: undefined,
+            rule_severity: undefined,
+          })),
         );
         return;
       }
@@ -1232,6 +1298,32 @@ export function FoodLogModal({
     [screen, items, ui],
   );
 
+  const handleSaveStaple = useCallback(
+    async (index: number) => {
+      const item = items[index];
+      if (!item) return;
+      try {
+        await saveFoodStapleFromItem(item);
+        const list = await getFoodStaples();
+        setStaples(list);
+        setStapleFlash(ui.stapleSaved);
+        setTimeout(() => setStapleFlash(null), 1800);
+      } catch {
+        // ignore — storage rare failure
+      }
+    },
+    [items, ui.stapleSaved],
+  );
+
+  const applyStaple = useCallback((staple: FoodStaple) => {
+    const next = stapleToFoodItem(staple);
+    setItems((prev) => [...prev, next]);
+    setScreen('result');
+    setError(null);
+    setOverrideSaveOnce(false);
+    setOverrideSnapshotKey(null);
+  }, []);
+
   const handleDelete = useCallback(async () => {
     if (!editingId) return;
     Alert.alert(ui.deleteMealTitle, ui.deleteMealMessage, [
@@ -1358,7 +1450,8 @@ export function FoodLogModal({
                     onChangeText={setTextPrompt}
                     onSubmitEditing={handleTextSubmit}
                     returnKeyType="done"
-                    multiline={false}
+                    multiline
+                    textAlignVertical="top"
                     showSoftInputOnFocus
                   />
                   <Pressable
@@ -1369,6 +1462,35 @@ export function FoodLogModal({
                     <Text style={styles.sendBtnText}>→</Text>
                   </Pressable>
                 </View>
+
+                {!editEntry && staples.length > 0 ? (
+                  <View style={styles.staplesWrap}>
+                    <Text style={[styles.staplesLabel, rtl && styles.textRtl]}>{ui.staples}</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.staplesRow}
+                      keyboardShouldPersistTaps="handled"
+                    >
+                      {staples.map((staple) => (
+                        <Pressable
+                          key={staple.id}
+                          style={styles.stapleChip}
+                          onPress={() => applyStaple(staple)}
+                          accessibilityRole="button"
+                          accessibilityLabel={staple.name_local ?? staple.name}
+                        >
+                          <Text style={styles.stapleChipText} numberOfLines={1}>
+                            {staple.name_local ?? staple.name}
+                          </Text>
+                          <Text style={styles.stapleChipGrams}>{staple.grams}g</Text>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </View>
+                ) : !editEntry ? (
+                  <Text style={[styles.staplesEmptyHint, rtl && styles.textRtl]}>{ui.noStaplesYet}</Text>
+                ) : null}
 
                 {!editEntry ? (
                   <>
@@ -1544,14 +1666,20 @@ export function FoodLogModal({
                     <FoodItemsCard
                       items={items}
                       flaggedIndices={flaggedIndices}
+                      mealIssues={mealIssues}
                       energyUnit={energyUnit}
                       editable={screen === 'result'}
                       editLabel={ui.editItem}
                       deleteLabel={ui.deleteItem}
+                      saveStapleLabel={ui.saveAsStaple}
                       emptyLabel={photoUi.emptyItems}
                       onEditItem={openEditItem}
                       onDeleteItem={handleDeleteItem}
+                      onSaveStaple={(i) => void handleSaveStaple(i)}
                     />
+                    {stapleFlash ? (
+                      <Text style={[styles.stapleFlash, rtl && styles.textRtl]}>{stapleFlash}</Text>
+                    ) : null}
                   </View>
                 ) : null}
 
@@ -1702,6 +1830,8 @@ export function FoodLogModal({
                         onChangeText={setChatText}
                         onSubmitEditing={handleCorrection}
                         returnKeyType="send"
+                        multiline
+                        textAlignVertical="top"
                         editable={screen === 'result'}
                       />
                       <Pressable
@@ -1834,117 +1964,128 @@ export function FoodLogModal({
         transparent
         onRequestClose={closeEditItem}
       >
-        <View style={styles.editItemBackdrop}>
-          <View
-            style={[
-              styles.editItemCard,
-              {
-                paddingTop: Math.max(insets.top, 16),
-                paddingBottom: Math.max(insets.bottom, 16),
-              },
-            ]}
-          >
-            <Text style={[styles.editItemTitle, rtl && styles.textRtl]}>{ui.editItemTitle}</Text>
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.editItemForm}
+        <KeyboardAvoidingView
+          style={styles.editItemKav}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.editItemBackdrop}>
+            <View
+              style={[
+                styles.editItemCard,
+                {
+                  paddingTop: Math.max(insets.top, 16),
+                  paddingBottom: Math.max(insets.bottom, 16),
+                },
+              ]}
             >
-              {(
-                [
-                  ['name', ui.fieldName],
-                  ['grams', ui.fieldGrams],
-                  ['kcal', ui.fieldKcal],
-                ] as const
-              ).map(([key, label]) => (
-                <View key={key} style={styles.editField}>
-                  <Text style={[styles.editFieldLabel, rtl && styles.textRtl]}>{label}</Text>
-                  <TextInput
-                    style={[styles.editFieldInput, rtl && styles.textRtl]}
-                    value={editDraft[key]}
-                    onChangeText={(v) => {
-                      if (key === 'grams') onEditGramsChange(v);
-                      else if (key === 'kcal') onEditNutrientChange('kcal', v);
-                      else setEditDraft((d) => ({ ...d, [key]: v }));
-                    }}
-                    keyboardType={key === 'name' ? 'default' : 'decimal-pad'}
-                    autoCapitalize={key === 'name' ? 'sentences' : 'none'}
-                  />
-                  {key === 'grams' && editGramsOrigin > 0 ? (
-                    <View style={styles.editGramsSliderWrap}>
-                      <Slider
-                        style={styles.editGramsSlider}
-                        minimumValue={0}
-                        maximumValue={editGramsSliderMax}
-                        step={1}
-                        value={editGramsSliderValue}
-                        onValueChange={onEditGramsSlider}
-                        minimumTrackTintColor={colors.accentBlue}
-                        maximumTrackTintColor={colors.gridLine}
-                        thumbTintColor={colors.accentBlue}
-                        accessibilityLabel={ui.fieldGrams}
-                      />
-                      <View style={styles.editGramsSliderLabels}>
-                        <Text style={styles.editGramsSliderLabel}>0</Text>
-                        <Text style={styles.editGramsSliderLabelMid}>
-                          {Math.round(editGramsOrigin)}
-                        </Text>
-                        <Text style={styles.editGramsSliderLabel}>
-                          {Math.round(editGramsSliderMax)}
-                        </Text>
-                      </View>
-                    </View>
-                  ) : null}
-                </View>
-              ))}
-              <View style={[styles.editMacroRow, rtl && styles.editMacroRowRtl]}>
+              <Text style={[styles.editItemTitle, rtl && styles.textRtl]}>{ui.editItemTitle}</Text>
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.editItemForm}
+              >
                 {(
                   [
-                    ['protein_g', ui.fieldProtein],
-                    ['carb_g', ui.fieldCarb],
-                    ['fat_g', ui.fieldFat],
+                    ['name', ui.fieldName],
+                    ['grams', ui.fieldGrams],
+                    ['kcal', ui.fieldKcal],
                   ] as const
                 ).map(([key, label]) => (
-                  <View key={key} style={styles.editMacroField}>
-                    <Text
-                      style={[styles.editFieldLabel, styles.editMacroLabel, rtl && styles.textRtl]}
-                      numberOfLines={2}
-                    >
-                      {label}
-                    </Text>
+                  <View key={key} style={styles.editField}>
+                    <Text style={[styles.editFieldLabel, rtl && styles.textRtl]}>{label}</Text>
                     <TextInput
-                      style={[styles.editFieldInput, styles.editMacroInput, rtl && styles.textRtl]}
+                      style={[
+                        styles.editFieldInput,
+                        key === 'name' && styles.editFieldInputMultiline,
+                        rtl && styles.textRtl,
+                      ]}
                       value={editDraft[key]}
-                      onChangeText={(v) => onEditNutrientChange(key, v)}
-                      keyboardType="decimal-pad"
-                      accessibilityLabel={label}
+                      onChangeText={(v) => {
+                        if (key === 'grams') onEditGramsChange(v);
+                        else if (key === 'kcal') onEditNutrientChange('kcal', v);
+                        else setEditDraft((d) => ({ ...d, [key]: v }));
+                      }}
+                      keyboardType={key === 'name' ? 'default' : 'decimal-pad'}
+                      autoCapitalize={key === 'name' ? 'sentences' : 'none'}
+                      multiline={key === 'name'}
+                      textAlignVertical={key === 'name' ? 'top' : 'center'}
                     />
+                    {key === 'grams' && editGramsOrigin > 0 ? (
+                      <View style={styles.editGramsSliderWrap}>
+                        <Slider
+                          style={styles.editGramsSlider}
+                          minimumValue={0}
+                          maximumValue={editGramsSliderMax}
+                          step={1}
+                          value={editGramsSliderValue}
+                          onValueChange={onEditGramsSlider}
+                          minimumTrackTintColor={colors.accentBlue}
+                          maximumTrackTintColor={colors.gridLine}
+                          thumbTintColor={colors.accentBlue}
+                          accessibilityLabel={ui.fieldGrams}
+                        />
+                        <View style={styles.editGramsSliderLabels}>
+                          <Text style={styles.editGramsSliderLabel}>0</Text>
+                          <Text style={styles.editGramsSliderLabelMid}>
+                            {Math.round(editGramsOrigin)}
+                          </Text>
+                          <Text style={styles.editGramsSliderLabel}>
+                            {Math.round(editGramsSliderMax)}
+                          </Text>
+                        </View>
+                      </View>
+                    ) : null}
                   </View>
                 ))}
+                <View style={[styles.editMacroRow, rtl && styles.editMacroRowRtl]}>
+                  {(
+                    [
+                      ['protein_g', ui.fieldProtein],
+                      ['carb_g', ui.fieldCarb],
+                      ['fat_g', ui.fieldFat],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <View key={key} style={styles.editMacroField}>
+                      <Text
+                        style={[styles.editFieldLabel, styles.editMacroLabel, rtl && styles.textRtl]}
+                        numberOfLines={2}
+                      >
+                        {label}
+                      </Text>
+                      <TextInput
+                        style={[styles.editFieldInput, styles.editMacroInput, rtl && styles.textRtl]}
+                        value={editDraft[key]}
+                        onChangeText={(v) => onEditNutrientChange(key, v)}
+                        keyboardType="decimal-pad"
+                        accessibilityLabel={label}
+                      />
+                    </View>
+                  ))}
+                </View>
+                <View style={styles.editField}>
+                  <Text style={[styles.editFieldLabel, rtl && styles.textRtl]}>{ui.fieldFiber}</Text>
+                  <TextInput
+                    style={[styles.editFieldInput, rtl && styles.textRtl]}
+                    value={editDraft.fiber_g}
+                    onChangeText={(v) => onEditNutrientChange('fiber_g', v)}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </ScrollView>
+              <View style={styles.editItemActions}>
+                <Pressable
+                  style={[styles.editItemSaveBtn, !editDraft.name.trim() && styles.saveBtnDisabled]}
+                  onPress={saveEditItem}
+                  disabled={!editDraft.name.trim()}
+                >
+                  <Text style={styles.editItemSaveText}>{ui.saveItem}</Text>
+                </Pressable>
+                <Pressable style={styles.editItemCancelBtn} onPress={closeEditItem}>
+                  <Text style={styles.editItemCancelText}>{ui.cancel}</Text>
+                </Pressable>
               </View>
-              <View style={styles.editField}>
-                <Text style={[styles.editFieldLabel, rtl && styles.textRtl]}>{ui.fieldFiber}</Text>
-                <TextInput
-                  style={[styles.editFieldInput, rtl && styles.textRtl]}
-                  value={editDraft.fiber_g}
-                  onChangeText={(v) => onEditNutrientChange('fiber_g', v)}
-                  keyboardType="decimal-pad"
-                />
-              </View>
-            </ScrollView>
-            <View style={styles.editItemActions}>
-              <Pressable
-                style={[styles.editItemSaveBtn, !editDraft.name.trim() && styles.saveBtnDisabled]}
-                onPress={saveEditItem}
-                disabled={!editDraft.name.trim()}
-              >
-                <Text style={styles.editItemSaveText}>{ui.saveItem}</Text>
-              </Pressable>
-              <Pressable style={styles.editItemCancelBtn} onPress={closeEditItem}>
-                <Text style={styles.editItemCancelText}>{ui.cancel}</Text>
-              </Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </Modal>
   );
@@ -2150,6 +2291,8 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   textInputRow: { flexDirection: 'row', width: '100%', gap: 8 },
   describeInput: {
     flex: 1,
+    minHeight: 88,
+    maxHeight: 140,
     borderWidth: 1.5,
     borderColor: c.gridLine,
     borderRadius: 12,
@@ -2158,6 +2301,32 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     fontSize: 14,
     backgroundColor: isDark ? c.background : c.surface,
     color: c.textPrimary,
+  },
+  staplesWrap: { width: '100%', gap: 8, marginTop: 12 },
+  staplesLabel: { fontSize: 13, fontWeight: '700', color: c.textPrimary },
+  staplesRow: { gap: 8, paddingVertical: 2 },
+  stapleChip: {
+    borderWidth: 1,
+    borderColor: c.accentBlue,
+    backgroundColor: isDark ? c.background : c.accentBlue + '14',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    maxWidth: 160,
+  },
+  stapleChipText: { fontSize: 13, fontWeight: '600', color: c.textPrimary },
+  stapleChipGrams: { fontSize: 11, color: c.textSecondary, marginTop: 2 },
+  staplesEmptyHint: {
+    marginTop: 10,
+    fontSize: 12,
+    lineHeight: 16,
+    color: c.textSecondary,
+  },
+  stapleFlash: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: '600',
+    color: isDark ? c.accentGreen : '#2E7D32',
   },
   sendBtn: {
     width: 48,
@@ -2216,10 +2385,15 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     gap: 4,
   },
   itemRowBorder: { borderTopWidth: 1, borderTopColor: c.gridLine },
-  itemRowFlagged: {
+  itemRowFlaggedCritical: {
     borderLeftWidth: 4,
     borderLeftColor: isDark ? c.accentRed : '#C62828',
     backgroundColor: isDark ? c.background : '#FFEBEE',
+  },
+  itemRowFlaggedWarning: {
+    borderLeftWidth: 4,
+    borderLeftColor: c.warningAmber,
+    backgroundColor: isDark ? c.background : '#FFF8E1',
   },
   itemTopRow: {
     flexDirection: 'row',
@@ -2228,7 +2402,9 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     width: '100%',
   },
   itemNameRow: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 6, minWidth: 0 },
-  itemWarningDot: { fontSize: 11, color: isDark ? c.accentRed : '#C62828', marginTop: 1 },
+  itemWarningDot: { fontSize: 11, marginTop: 1 },
+  itemWarningDotCritical: { color: isDark ? c.accentRed : '#C62828' },
+  itemWarningDotWarning: { color: c.warningAmber },
   itemName: {
     flex: 1,
     flexShrink: 1,
@@ -2238,13 +2414,26 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     color: c.textPrimary,
     lineHeight: 17,
   },
-  itemNameFlagged: { color: isDark ? c.accentRed : '#B71C1C' },
+  itemNameFlaggedCritical: { color: isDark ? c.accentRed : '#B71C1C' },
+  itemNameFlaggedWarning: { color: isDark ? c.warningAmber : '#B45309' },
   itemActions: {
     flexDirection: 'row',
     flexShrink: 0,
     gap: 6,
     alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    maxWidth: '48%',
   },
+  itemStapleBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: c.gridLine,
+    backgroundColor: isDark ? c.background : c.surface,
+  },
+  itemStapleBtnText: { fontSize: 11, fontWeight: '600', color: c.textSecondary },
   itemEditBtn: {
     paddingVertical: 4,
     paddingHorizontal: 8,
@@ -2271,7 +2460,9 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     fontWeight: '700',
     color: c.accentRed,
   },
-  itemRuleMessage: { fontSize: 11, color: isDark ? c.accentRed : '#C62828', lineHeight: 15 },
+  itemRuleMessage: { fontSize: 11, lineHeight: 15 },
+  itemRuleMessageCritical: { color: isDark ? c.accentRed : '#C62828' },
+  itemRuleMessageWarning: { color: isDark ? c.warningAmber : '#B45309' },
   itemGrams: { fontSize: 12, color: c.textSecondary },
   itemMetricsRow: {
     flexDirection: 'row',
@@ -2289,6 +2480,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   },
   totalValue: { fontSize: 13, fontWeight: '700', color: c.accentBlue },
   textRtl: { textAlign: 'right', writingDirection: 'rtl' },
+  editItemKav: { flex: 1 },
   editItemBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -2323,6 +2515,10 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     fontSize: 15,
     color: c.textPrimary,
     backgroundColor: isDark ? c.background : c.surface,
+  },
+  editFieldInputMultiline: {
+    minHeight: 72,
+    maxHeight: 120,
   },
   editGramsSliderWrap: {
     marginTop: 4,
@@ -2488,6 +2684,8 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   chatRow: { flexDirection: 'row', gap: 8 },
   chatInput: {
     flex: 1,
+    minHeight: 52,
+    maxHeight: 100,
     borderWidth: 1.5,
     borderColor: c.gridLine,
     borderRadius: 12,

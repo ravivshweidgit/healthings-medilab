@@ -393,6 +393,7 @@ export const ManualBodyProfileSection = forwardRef<ManualBodyProfileSectionHandl
         Log weight and composition from your scale or DEXA. Fat and muscle are independent — residual
         (bone, water) is normal.
       </Text>
+      <Text style={styles.hint}>{bodyLabels.weightHistoryHint}</Text>
       <Pressable onPress={() => void Linking.openURL(helpHref)} hitSlop={8}>
         <Text style={styles.helpLink}>How manual body logging works</Text>
       </Pressable>
