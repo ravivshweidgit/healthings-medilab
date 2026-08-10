@@ -58,9 +58,9 @@ Project since first commit **8 May 2026**. Figures are order-of-magnitude from t
 | | Approx. |
 |--|--------:|
 | Cash in (hardware, tools, hosting ballpark, sessions paid, etc.) | **~\$4,500** |
-| Hours (build + daily field testing protocol) | **~470 h** |
-| Sweat at R = \$133/h | **~\$62,500** |
-| **Total contribution** | **~\$67,000** |
+| Hours (build + daily field testing protocol) | **~547 h** |
+| Sweat at R = \$133/h | **~\$72,800** |
+| **Total contribution** | **~\$77,200** |
 | **Share today** (only contributor in the table) | **100%** |
 
 When Shaii and/or Michal add **Cash** and/or **Hours** under the same R, everyone’s % is recalculated from the totals.
@@ -69,7 +69,7 @@ When Shaii and/or Michal add **Cash** and/or **Hours** under the same R, everyon
 
 | Person | Cash (\$) | Hours | Sweat (Hours × \$133) | Contribution | Share % |
 |--------|----------:|------:|----------------------:|-------------:|--------:|
-| Raviv | ~4,500 | ~470 | ~62,500 | ~67,000 | 100% for now |
+| Raviv | ~4,500 | ~547 | ~72,800 | ~77,200 | 100% for now |
 | Michal | *TBD* | *TBD* | | | |
 | Shaii | *TBD* | *TBD* | | | |
 | **Total** | | | | **Σ** | **100%** |
@@ -83,7 +83,7 @@ When Shaii and/or Michal add **Cash** and/or **Hours** under the same R, everyon
 3. Agree **vesting** for time-based share (typical: multi-year, with a cliff) so % tracks ongoing contribution.  
 4. Sign real documents (advisor / founder / SAFE) — this note only explains the **math**.
 
-**Example:** Raviv at ~\$67k contribution. Someone adds **\$20k cash only** → they get roughly **23%**, Raviv ~**77%**. If they also work **100 hours**, those hours × \$133 add ~\$13k more to their contribution and their % rises accordingly.
+**Example:** Raviv at ~\$77k contribution. Someone adds **\$20k cash only** → they get roughly **21%**, Raviv ~**79%**. If they also work **100 hours**, those hours × \$133 add ~\$13k more to their contribution and their % rises accordingly.
 
 ---
 

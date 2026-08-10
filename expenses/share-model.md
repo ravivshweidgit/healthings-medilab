@@ -4,7 +4,7 @@
 **Not legal advice** — a planning worksheet before lawyers/cap table tools (Pulley, Carta, etc.).  
 **Agent rule:** `.cursor/rules/share-model-investors.mdc` (applies under `expenses/**` and when discussing investors / ownership).
 
-**As of:** 2026-07-29  
+**As of:** 2026-08-10  
 **Inputs:** [README.md](./README.md) (cash) · [human-hours.md](./human-hours.md) (hours)
 
 ---
@@ -101,9 +101,9 @@ If sessions are shorter/longer, recalculate \(R = 133 / \text{hours per session}
 | Expo + stores + hosting (guess) | ~$150 | $150 |
 | Nutritionist sessions (owner-paid) | 400 ₪ ≈ $108 | $108 |
 | **Cash subtotal** | | **~$4,471** |
-| Hours (central) | human-hours ~470 h | 470 |
-| Sweat \(= 470 \times 133\) | | **$62,510** |
-| **Total contribution** | | **~$66,981** |
+| Hours (central) | human-hours ~547 h | 547 |
+| Sweat \(= 547 \times 133\) | | **$72,751** |
+| **Total contribution** | | **~$77,222** |
 
 If Raviv is the **only** contributor so far → **Share = 100%** until someone else adds Cash and/or Hours under the same \(R\).
 
@@ -118,7 +118,7 @@ Copy a row per person. Same \(R\) for all.
 
 | Person | Role | Cash ($) | Hours | Sweat (= Hours × R) | Contribution | Share % |
 |--------|------|--------:|------:|--------------------:|-------------:|--------:|
-| Raviv | Founder | 4,471 | 470 | 62,510 | 66,981 | *(auto)* |
+| Raviv | Founder | 4,471 | 547 | 72,751 | 77,222 | *(auto)* |
 | *(Nutritionist)* | Advisor | 0* | | | | |
 | *(Investor A)* | Angel | | | | | |
 | **Total** | | | | | **Σ** | **100%** |
@@ -133,11 +133,11 @@ Copy a row per person. Same \(R\) for all.
 
 | Person | Cash | Sweat | Contribution | Share |
 |--------|-----:|------:|-------------:|------:|
-| Raviv | 4,471 | 62,510 | 66,981 | **77.0%** |
-| Investor A | 20,000 | 0 | 20,000 | **23.0%** |
-| **Total** | | | **86,981** | 100% |
+| Raviv | 4,471 | 72,751 | 77,222 | **79.4%** |
+| Investor A | 20,000 | 0 | 20,000 | **20.6%** |
+| **Total** | | | **97,222** | 100% |
 
-If Investor A also works **100 h**: sweat = \(100 \times 133 = \$13,300\) → contribution \$33,300 → share ≈ **33%**, Raviv ≈ **67%**.
+If Investor A also works **100 h**: sweat = \(100 \times 133 = \$13,300\) → contribution \$33,300 → share ≈ **30%**, Raviv ≈ **70%**.
 
 ---
 
@@ -191,3 +191,4 @@ Keep one active copy of the people table in §5; archive old snapshots dated bel
 | 2026-07-29 | 75 | Initial model (superseded) |
 | 2026-07-29 | 75 | + nutritionist §3b; owner-paid 400 ₪ as founder Cash |
 | 2026-07-29 | **133** | Equal-effort: R = max charge rate (nutritionist \$133/session ≈ \$133/h until session length agreed) |
+| 2026-08-10 | **133** | Hours refresh: ~470 → **~547 h** (daily effort continued; sweat ~\$72.8k) |

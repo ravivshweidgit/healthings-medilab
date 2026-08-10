@@ -1,10 +1,11 @@
 # Healthings — human hours report
 
-**As of:** 2026-07-29  
-**Window:** first commit **2026-05-08** → **2026-07-29** (82 calendar days)  
+**As of:** 2026-08-10  
+**Window:** first commit **2026-05-08** → **2026-08-10** (95 calendar days)  
+**Prior snapshot:** 2026-07-29 (~470 h central) — refreshed because owner keeps daily product + field effort  
 **Companion:** [README.md](./README.md) (cash), [cursor-invoices.md](./cursor-invoices.md)
 
-This is an **effort estimate**, not a timesheet. Coding hours are inferred from git activity; field-test hours use the owner’s stated daily protocol.
+This is an **effort estimate**, not a timesheet. Coding hours are inferred from git activity; field-test hours use the owner’s stated daily protocol (still every day).
 
 ---
 
@@ -12,28 +13,28 @@ This is an **effort estimate**, not a timesheet. Coding hours are inferred from 
 
 | Signal | Value |
 |--------|------:|
-| Calendar days | 82 |
-| Days with ≥1 commit | 56 |
-| Commits (approx.) | 533 |
-| Churn vs initial commit | ~810 files / ~135k lines added |
-| Commits by month | May 18 · Jun 129 · Jul 386 |
+| Calendar days | 95 |
+| Days with ≥1 commit | 65 |
+| Commits (approx.) | 595 |
+| Since prior snapshot (after 2026-07-29) | +9 active days · +63 commits |
 
-### Coding / product hours (56 active days)
+### Coding / product hours (65 active days)
 
 | Intensity | Hours / active day | Total hours | ≈ person-months (160h) |
 |-----------|-------------------:|------------:|-----------------------:|
-| Light | 3 | ~170 | ~1.0 |
-| **Typical (used below)** | **5** | **~280** | **~1.8** |
-| Heavy (July-like) | 7 | ~390 | ~2.4 |
+| Light | 3 | ~195 | ~1.2 |
+| **Typical (used below)** | **5** | **~325** | **~2.0** |
+| Heavy | 7 | ~455 | ~2.8 |
 
-**Working figure for coding + Cursor-driven build:** **~280 hours** (range **250–350**).  
-Does not fully capture Play/TestFlight forms, pairing, or non-commit debugging.
+**Working figure for coding + Cursor-driven build:** **~325 hours** (range **~250–400**).  
+Does not fully capture Play/TestFlight forms, pairing, or non-commit debugging.  
+Aug 10 may add another active day after this snapshot’s last commit (2026-08-09).
 
 ---
 
 ## 2. Daily field testing (owner protocol)
 
-Stated regimen — **every calendar day** in the window:
+Stated regimen — **every calendar day** in the window (owner confirms still ongoing):
 
 | Session | Duration | Role |
 |---------|----------|------|
@@ -42,21 +43,23 @@ Stated regimen — **every calendar day** in the window:
 | Walking — evening | **60 min** | Walking test |
 | **Per day** | **80 min walk + 60 min bike** | |
 
-### Field hours (82 days × every day)
+### Field hours (95 days × every day)
 
-| Component | Per day | × 82 days |
+| Component | Per day | × 95 days |
 |-----------|--------:|----------:|
-| Walking (20 + 60) | 80 min | **~109 h** |
-| Bike (2 × 30 min) | 60 min | **~82 h** |
-| **Field testing total** | **140 min (~2.3 h)** | **~191 h** |
+| Walking (20 + 60) | 80 min | **~127 h** |
+| Bike (2 × 30 min) | 60 min | **~95 h** |
+| **Field testing total** | **140 min (~2.3 h)** | **~222 h** |
+
+Delta since 2026-07-29 snapshot: **+12 calendar days** (Jul 30 → Aug 10) → **~+28 h** field.
 
 Alternate bike lengths (if you correct the assumption):
 
-| Each bike session | Bike total (82d) | Field total (with walks) |
+| Each bike session | Bike total (95d) | Field total (with walks) |
 |-------------------|-----------------:|-------------------------:|
-| 20 min | ~55 h | ~164 h |
-| **30 min (default)** | **~82 h** | **~191 h** |
-| 45 min | ~123 h | ~232 h |
+| 20 min | ~63 h | ~190 h |
+| **30 min (default)** | **~95 h** | **~222 h** |
+| 45 min | ~143 h | ~270 h |
 
 ---
 
@@ -64,25 +67,35 @@ Alternate bike lengths (if you correct the assumption):
 
 | Bucket | Hours (working figure) |
 |--------|-----------------------:|
-| Coding / product / releases | ~280 |
-| Daily bike + walk field tests | ~191 |
-| **All-in** | **~470 h** |
+| Coding / product / releases | ~325 |
+| Daily bike + walk field tests | ~222 |
+| **All-in** | **~547 h** |
 
 | Range | Hours | ≈ person-months |
 |-------|------:|----------------:|
-| Conservative (light code + short bikes) | ~170 + 164 ≈ **335** | ~2.1 |
-| **Central** | **~470** | **~2.9** |
-| Aggressive (heavy code + long bikes) | ~390 + 232 ≈ **620** | ~3.9 |
+| Conservative (light code + short bikes) | ~195 + 190 ≈ **385** | ~2.4 |
+| **Central** | **~547** | **~3.4** |
+| Aggressive (heavy code + long bikes) | ~455 + 270 ≈ **725** | ~4.5 |
 
-**Central estimate: ~3 person-months of owner time** over ~2.7 calendar months — high intensity, especially July.
+**Central estimate: ~3.4 person-months of owner time** over ~3.1 calendar months.
+
+### vs prior snapshot (2026-07-29)
+
+| | Prior | Now | Δ |
+|--|------:|----:|--:|
+| Calendar days | ~82–83 | 95 | +12–13 |
+| Commit-active days | 56 | 65 | +9 |
+| Coding (5 h/day) | ~280 | ~325 | +45 |
+| Field | ~191 | ~222 | +31 |
+| **Central all-in** | **~470** | **~547** | **~+77** |
 
 ---
 
 ## 4. Assumptions to revisit
 
 1. **Bike = 30 min each** — owner did not specify; change §2 if wrong.  
-2. **Field tests every day** including travel/illness days — if some days skipped, scale by actual days.  
-3. **Coding = 5 h × 56 commit days** — founder+AI blend; adjust if many full-time days or many light days.  
+2. **Field tests every day** including travel/illness days — if some days skipped, scale by actual days. Owner states effort continues daily since last calc.  
+3. **Coding = 5 h × active commit days** — founder+AI blend; adjust if many full-time days or many light days.  
 4. **No double-count** of “lunch walk while also coding” — field block is treated as dedicated test time.  
 5. **Cash is separate** — see [README.md](./README.md); do not convert hours to salary here unless you add a rate.
 
@@ -97,12 +110,12 @@ Sweat for the share model uses **equal-effort \(R\)** = max participant charge r
 \text{sweat \$} \approx \text{Hours} \times R_{\max}
 \]
 
-Example: \(470 \times 133 \approx \$62.5\text{k}\) sweat (not a salary claim — equity math only).
+Example: \(547 \times 133 \approx \$72.8\text{k}\) sweat (not a salary claim — equity math only).
 
 ---
 
 ## How to update
 
-1. After each month, refresh commit/active-day counts (`git log --since=…`).  
+1. After each month (or when owner asks), refresh commit/active-day counts (`git log --since=…`).  
 2. Correct bike minutes and any missed field days.  
 3. Keep cash in `README.md`; keep hours here.
