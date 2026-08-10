@@ -1,0 +1,10 @@
+Vous notez vos repas. Vous portez une montre. Vous faites des analyses.
+Mais rien ne se parle.
+Healthings relie le tout en une seule boucle.
+Ça commence au cabinet. Une nutritionniste diplômée lit vos analyses et pose le plan.
+Ce plan devient des règles qui vivent dans l’application.
+La balance, la montre et le CGM gardent les chiffres honnêtes.
+Chaque repas noté est confronté à votre plan, en quelques secondes.
+Et le cabinet voit la vraie semaine — pas un récit de mémoire — et ajuste.
+Le cabinet dirige. L’app exécute. Les appareils mesurent.
+Healthings. Une boucle, fermée.

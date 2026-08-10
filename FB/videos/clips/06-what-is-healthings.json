@@ -14,7 +14,8 @@
         "type": "phone",
         "file": "a3-food-log.jpg"
       },
-      "de": "Sie protokollieren Mahlzeiten. Tragen eine Uhr. Machen Bluttests."
+      "de": "Sie protokollieren Mahlzeiten. Tragen eine Uhr. Machen Bluttests.",
+      "fr": "Vous notez vos repas. Vous portez une montre. Vous faites des analyses."
     },
     {
       "en": "But none of it talks to each other.",
@@ -23,7 +24,8 @@
         "type": "art",
         "file": "loop-disconnected.png"
       },
-      "de": "Aber nichts spricht miteinander."
+      "de": "Aber nichts spricht miteinander.",
+      "fr": "Mais rien ne se parle."
     },
     {
       "en": "Healthings connects all of it into one loop.",
@@ -32,7 +34,8 @@
         "type": "art",
         "file": "loop-video.png"
       },
-      "de": "Healthings verbindet alles zu einem Kreislauf."
+      "de": "Healthings verbindet alles zu einem Kreislauf.",
+      "fr": "Healthings relie le tout en une seule boucle."
     },
     {
       "en": "It starts in the clinic. A licensed nutritionist reads your labs and sets your plan.",
@@ -41,7 +44,8 @@
         "type": "phone",
         "file": "clinic-labs-import.jpg"
       },
-      "de": "Es beginnt in der Klinik. Eine lizenzierte Ernährungsexpertin liest Ihre Labs und setzt den Plan."
+      "de": "Es beginnt in der Klinik. Eine lizenzierte Ernährungsexpertin liest Ihre Labs und setzt den Plan.",
+      "fr": "Ça commence au cabinet. Une nutritionniste diplômée lit vos analyses et pose le plan."
     },
     {
       "en": "That plan becomes rules that live inside your app.",
@@ -50,7 +54,8 @@
         "type": "phone",
         "file": "a4-my-rules-targets.jpg"
       },
-      "de": "Der Plan wird zu Regeln, die in Ihrer App leben."
+      "de": "Der Plan wird zu Regeln, die in Ihrer App leben.",
+      "fr": "Ce plan devient des règles qui vivent dans l’application."
     },
     {
       "en": "Your scale, your watch, and your CGM keep the numbers honest.",
@@ -59,7 +64,8 @@
         "type": "phone",
         "file": "a1-dashboard.jpg"
       },
-      "de": "Waage, Uhr und CGM halten die Zahlen ehrlich."
+      "de": "Waage, Uhr und CGM halten die Zahlen ehrlich.",
+      "fr": "La balance, la montre et le CGM gardent les chiffres honnêtes."
     },
     {
       "en": "Every meal you log is checked against your plan, in seconds.",
@@ -68,7 +74,8 @@
         "type": "phone",
         "file": "a6-coach.jpg"
       },
-      "de": "Jede protokollierte Mahlzeit wird in Sekunden gegen Ihren Plan geprüft."
+      "de": "Jede protokollierte Mahlzeit wird in Sekunden gegen Ihren Plan geprüft.",
+      "fr": "Chaque repas noté est confronté à votre plan, en quelques secondes."
     },
     {
       "en": "And your clinic sees the real week, not a story from memory, and adjusts.",
@@ -77,7 +84,8 @@
         "type": "phone",
         "file": "a2-food-log-strip.jpg"
       },
-      "de": "Und Ihre Klinik sieht die echte Woche — nicht eine Geschichte aus dem Gedächtnis — und justiert."
+      "de": "Und Ihre Klinik sieht die echte Woche — nicht eine Geschichte aus dem Gedächtnis — und justiert.",
+      "fr": "Et le cabinet voit la vraie semaine — pas un récit de mémoire — et ajuste."
     },
     {
       "en": "Clinic directs. App executes. Devices measure.",
@@ -86,7 +94,8 @@
         "type": "art",
         "file": "loop-video.png"
       },
-      "de": "Klinik steuert. App führt aus. Geräte messen."
+      "de": "Klinik steuert. App führt aus. Geräte messen.",
+      "fr": "Le cabinet dirige. L’app exécute. Les appareils mesurent."
     },
     {
       "en": "Healthings. One loop, closed.",
@@ -95,7 +104,8 @@
         "type": "art",
         "file": "loop-video.png"
       },
-      "de": "Healthings. Ein Kreislauf, geschlossen."
+      "de": "Healthings. Ein Kreislauf, geschlossen.",
+      "fr": "Healthings. Une boucle, fermée."
     }
   ]
 }
