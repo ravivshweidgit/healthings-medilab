@@ -8,7 +8,6 @@ declare module '@env' {
   export const WITHINGS_CLIENT_SECRET: string;
   /** Must match Withings portal; default in code is `healthings-medilab://oauth` if unset. */
   export const WITHINGS_CALLBACK_URL: string;
-  export const GEMINI_API_KEY: string;
   /** Healthings backend; defaults to https://api.healthings.ai if unset. */
   export const HEALTHINGS_API_URL: string;
 }

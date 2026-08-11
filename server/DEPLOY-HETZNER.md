@@ -79,6 +79,10 @@ systemctl restart healthings-api
 curl -s https://api.healthings.ai/health
 ```
 
+Gemini proxy (be-40) needs nginx `client_max_body_size 16m` and `proxy_read_timeout 180s`
+on the HTTPS server block (meal photos / long chats). Bootstrap writes these on a
+fresh VPS; on an existing box, add them next to `location /` and `nginx -t && systemctl reload nginx`.
+
 ---
 
 ## 4. Manual setup (reference)

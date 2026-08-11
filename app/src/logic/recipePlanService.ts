@@ -2,7 +2,7 @@
  * Generate structured recipe plans for nutritionist chat (prompt40a).
  */
 
-import { GEMINI_API_KEY } from '@env';
+import { geminiGenerate } from '../services/GeminiProxyService';
 import { formatFoodLogHistoryForMealAi } from './foodLogMealHistory';
 import { finalizeRecipePlan, type RecipeIngredient, type RecipePlan } from './mealPlanTypes';
 import { formatUserRulesBlock } from './userRulesContext';
@@ -16,8 +16,7 @@ import {
   type UserLanguage,
 } from '../services/TargetService';
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+// Gemini calls go through the server proxy (be-40) — no key in the app.
 
 export type RecipePlanMode = 'eat_now' | 'recipe';
 
@@ -147,11 +146,7 @@ async function fetchRecipeJson(prompt: string): Promise<string> {
       thinkingConfig: { thinkingBudget: 0, includeThoughts: false },
     },
   };
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const response = await geminiGenerate('ai_chat', body);
   if (!response.ok) {
     const err = await response.text();
     throw new Error(`Recipe API ${response.status}: ${err.slice(0, 200)}`);

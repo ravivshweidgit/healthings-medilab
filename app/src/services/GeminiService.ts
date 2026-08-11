@@ -1,6 +1,5 @@
 import { buildAppHelpKnowledgeBlock } from '../help/AppHelpKnowledge';
-import { GEMINI_API_KEY } from '@env';
-import { geminiUsageFromResponse, reportAiUsage, type GeminiUsageReport } from './UsageApiService';
+import { geminiGenerate } from './GeminiProxyService';
 import { assertCanSpendCredits, OutOfCreditsError } from './UsageQueueService';
 
 export { OutOfCreditsError };
@@ -429,11 +428,7 @@ ${blendedText.slice(0, 1200)}`;
   };
 
   try {
-    const response = await fetch(GEMINI_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    const response = await geminiGenerate('ai_chat', body);
     if (!response.ok) return null;
     const json = await response.json();
     const raw: string = extractGeminiText(json?.candidates?.[0]);
@@ -519,8 +514,8 @@ function parseMentorBulletMap(
   }
   return Object.keys(out).length > 0 ? out : undefined;
 }
-const GEMINI_MODEL = 'gemini-2.5-flash';
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+// Gemini calls go through the server proxy (be-40) — model pinned server-side,
+// key never ships in the app. See GeminiProxyService.geminiGenerate.
 
 type GeminiPart = { text?: string; thought?: boolean };
 
@@ -855,11 +850,7 @@ export async function analyzeFood(
     }),
   };
 
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const response = await geminiGenerate('ai_meal', body);
 
   if (!response.ok) {
     const errText = await response.text().catch(() => '');
@@ -891,7 +882,6 @@ export async function analyzeFood(
   }
 
   const result = parseGeminiJson(rawText, finishReason);
-  reportAiUsage('ai_meal', undefined, geminiUsageFromResponse(json, GEMINI_MODEL));
 
   const newUserTurn: GeminiTurn = { role: 'user', text: userText, imageBase64: imageBase64 ?? undefined };
   const modelTurn: GeminiTurn = { role: 'model', text: rawText };
@@ -976,11 +966,7 @@ RULES:
     generationConfig: geminiGenerationConfig({ temperature: 0.2, maxOutputTokens: 8192 }),
   };
 
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const response = await geminiGenerate('ai_other', body);
 
   if (!response.ok) {
     const errText = await response.text().catch(() => '');
@@ -1215,11 +1201,7 @@ ${rawText.replace(/"/g, "'")}
     generationConfig: geminiGenerationConfig({ temperature: 0, maxOutputTokens: 2048 }),
   };
 
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const response = await geminiGenerate('ai_rules', body);
   if (!response.ok) {
     const err = await response.text().catch(() => '');
     throw new Error(`Gemini error ${response.status}: ${err.slice(0, 200)}`);
@@ -1286,11 +1268,7 @@ Rules for your response:
     generationConfig: geminiGenerationConfig({ temperature: 0.1, maxOutputTokens: 1024 }),
   };
 
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const response = await geminiGenerate('ai_meal', body);
   if (!response.ok) {
     const err = await response.text().catch(() => '');
     throw new Error(`Gemini error ${response.status}: ${err.slice(0, 200)}`);
@@ -1447,11 +1425,7 @@ Rules:
       }],
       generationConfig: geminiGenerationConfig({ temperature: 0, maxOutputTokens: 4096 }),
     };
-    const response = await fetch(GEMINI_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    const response = await geminiGenerate('ai_other', body);
     if (!response.ok) return results;
     const json = await response.json();
     const raw: string = extractGeminiText(json?.candidates?.[0]);
@@ -1542,11 +1516,7 @@ Rules:
     generationConfig: geminiGenerationConfig({ temperature: 0.1, maxOutputTokens: 8192 }),
   };
 
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const response = await geminiGenerate('ai_lab', body);
   if (!response.ok) {
     const err = await response.text().catch(() => '');
     throw new Error(`Gemini lab PDF error ${response.status}: ${err.slice(0, 200)}`);
@@ -1656,11 +1626,7 @@ Before you output: scan fullText — confirm blank lines (\\n\\n) between major 
     generationConfig: geminiGenerationConfig({ temperature: 0.1, maxOutputTokens: 8192 }),
   };
 
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const response = await geminiGenerate('ai_lab', body);
   if (!response.ok) {
     const err = await response.text().catch(() => '');
     throw new Error(`Gemini directive PDF error ${response.status}: ${err.slice(0, 200)}`);
@@ -1909,11 +1875,7 @@ export async function reviseMacroTargetsWithGemini(
     generationConfig: geminiGenerationConfig({ temperature: 0, maxOutputTokens: 8192 }),
   };
 
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const response = await geminiGenerate('ai_macro', body);
   if (!response.ok) {
     const err = await response.text().catch(() => '');
     throw new Error(`Gemini macro revision error ${response.status}: ${err.slice(0, 200)}`);
@@ -1996,11 +1958,7 @@ ${text}`;
     }),
   };
 
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const response = await geminiGenerate('ai_macro', body);
   if (!response.ok) return null;
 
   const json = await response.json();
@@ -2281,11 +2239,7 @@ Rules:
     generationConfig: geminiGenerationConfig({ temperature: 0.3, maxOutputTokens: 8192 }),
   };
 
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const response = await geminiGenerate('ai_coach', body);
   if (!response.ok) {
     const err = await response.text().catch(() => '');
     throw new Error(`Gemini coach error ${response.status}: ${err.slice(0, 200)}`);
@@ -2328,8 +2282,6 @@ Rules:
     text = resolved.text;
     mentorLines = resolved.mentorLines;
   }
-
-  reportAiUsage('ai_coach', undefined, geminiUsageFromResponse(json, GEMINI_MODEL));
 
   return {
     id: `coach-${Date.now()}`,
@@ -2417,9 +2369,6 @@ type GeminiChatPart =
   | { text: string }
   | { inline_data: { mime_type: string; data: string } };
 
-/** Usage from the most recent fetchGeminiChat call — read right after the awaited chain (analytics only). */
-let lastChatGeminiUsage: GeminiUsageReport | null = null;
-
 async function fetchGeminiChat(contents: Array<{ role: string; parts: GeminiChatPart[] }>): Promise<string> {
   const body = {
     contents,
@@ -2436,18 +2385,13 @@ async function fetchGeminiChat(contents: Array<{ role: string; parts: GeminiChat
     }),
   };
 
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const response = await geminiGenerate('ai_chat', body);
   if (!response.ok) {
     const err = await response.text().catch(() => '');
     throw new Error(`Gemini chat error ${response.status}: ${err.slice(0, 200)}`);
   }
 
   const json = await response.json();
-  lastChatGeminiUsage = geminiUsageFromResponse(json, GEMINI_MODEL);
   return parseChatEnvelope(extractGeminiText(json?.candidates?.[0]));
 }
 
@@ -2795,8 +2739,6 @@ export async function chatWithMentor(
     fileExtras,
   );
   if (!text.trim()) return chatErrorMessage(ctx.lang);
-  reportAiUsage('ai_chat', undefined, lastChatGeminiUsage);
-  lastChatGeminiUsage = null;
   return text;
 }
 
@@ -2829,11 +2771,7 @@ export async function summariseChatDay(history: ChatMessage[]): Promise<string> 
     generationConfig: geminiGenerationConfig({ temperature: 0.2, maxOutputTokens: 256 }),
   };
 
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const response = await geminiGenerate('ai_chat', body);
   if (!response.ok) return '';
 
   const json = await response.json();
@@ -2884,18 +2822,13 @@ ${knowledge}`;
     }),
   };
 
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const response = await geminiGenerate('ai_help', body);
   if (!response.ok) {
     const err = await response.text().catch(() => '');
     throw new Error(`Gemini help error ${response.status}: ${err.slice(0, 200)}`);
   }
 
   const json = await response.json();
-  reportAiUsage('ai_help', undefined, geminiUsageFromResponse(json, GEMINI_MODEL));
   const raw = extractGeminiText(json?.candidates?.[0]).trim();
   if (!raw) {
     return lang && lang.code !== 'en'
@@ -3137,11 +3070,7 @@ export async function estimateActivityKcalFromYoutube(
         responseMimeType: 'application/json',
       }),
     };
-    const response = await fetch(GEMINI_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    const response = await geminiGenerate('ai_other', body);
     if (!response.ok) {
       const err = await response.text().catch(() => '');
       const snippet = err.slice(0, 280);
@@ -3154,7 +3083,6 @@ export async function estimateActivityKcalFromYoutube(
       throw new Error(`Gemini activity error ${response.status}: ${snippet.slice(0, 200)}`);
     }
     const json = await response.json();
-    reportAiUsage('ai_other', undefined, geminiUsageFromResponse(json, GEMINI_MODEL));
     const raw = extractGeminiText(json?.candidates?.[0])
       .replace(/```json\s*/g, '')
       .replace(/```\s*/g, '')

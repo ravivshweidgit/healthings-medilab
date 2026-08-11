@@ -54,7 +54,7 @@ type BatchFlushResponse = {
 
 let flushInFlight: Promise<void> | null = null;
 
-function randomUuid(): string {
+export function randomUuid(): string {
   const c = globalThis.crypto;
   if (c && typeof c.randomUUID === 'function') return c.randomUUID();
   const bytes = new Uint8Array(16);

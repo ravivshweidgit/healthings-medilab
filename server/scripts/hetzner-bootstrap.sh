@@ -64,6 +64,11 @@ server {
     listen 80;
     server_name api.healthings.ai;
 
+    # be-40: meal photos / lab PDFs as inline base64; Gemini can take >60s.
+    client_max_body_size 16m;
+    proxy_read_timeout 180s;
+    proxy_send_timeout 180s;
+
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
