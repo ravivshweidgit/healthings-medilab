@@ -86,7 +86,7 @@ POST /v1/ai/generate      (JWT required — same middleware as /v1/usage)
 - [x] `grep -r "generativelanguage" app/src` → no direct endpoint outside a comment
 - [x] `grep AIza` on a fresh `index.android.bundle` → nothing (2026-08-11: key bytes and
       `generativelanguage` both absent from `assets/index.android.bundle` in the release APK)
-- [ ] Phone: chat, meal photo (large image), Help Q&A, `/macros`, recipe plan all work
+- [x] Phone (2026-08-11, owner): coach/chat, meal photo, Help Q&A, macro reanalyze work through the proxy
 - [ ] Draining wallet to 0 → app shows out-of-credits (server 402), Google not called
 - [ ] `ai_usage_events` rows carry real `gemini_*` usage columns for proxied calls
 - [ ] Old key revoked; old APK build fails AI calls (proof enforcement is real)
@@ -116,9 +116,9 @@ POST /v1/ai/generate      (JWT required — same middleware as /v1/usage)
   before `BILLING_LIVE=true`.
 - Server `npx tsc --noEmit` clean; release APK builds; bundle grep clean (see above).
 
-**Remaining before done:** deploy server, phone-test the five flows, drain-to-402 check,
-then rotate the old key (rollout order above). Local `app/.env` still holds the old key —
-harmless (not imported, not bundled) but rotate regardless.
+**Remaining before done:** drain-to-402 check (optional); tell pilots to update; **then**
+rotate the old key. Local `app/.env` still holds the old key — harmless (not imported,
+not bundled) but rotate regardless. Do not revoke until old APKs are off pilot phones.
 
 ## Out of scope
 

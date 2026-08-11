@@ -28,7 +28,7 @@ Run in this order. The reason is the dependency, not preference.
 |------|-------|--------|-------|
 | — | be-30 labs + lipids clinical view | not drafted | Needs owner clinical judgment (reference ranges); not an Auto batch |
 | `be-39-clinic-chat-128d-food.md` | Clinic chat 128d full food items | needs-review | Owner: do not hide meal items from clinic AI (Natali Jul 22) |
-| `be-40-gemini-proxy.md` | Gemini proxy — key out of the APK | needs-review | Implemented 2026-08-11: `/v1/ai/generate` + app swap; bundle grep clean. Pending: deploy, phone test, key rotation |
+| `be-40-gemini-proxy.md` | Gemini proxy — key out of the APK | needs-review | Deployed; owner phone: chat, meal, Help, macros OK. Pending: pilot update, then key rotation |
 
 ## Done
 
