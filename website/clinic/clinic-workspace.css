@@ -1737,3 +1737,47 @@ h3,
 .action-items { list-style: none; padding: 0; margin: 10px 0 0; font-size: 0.88rem; }
 .action-items li { padding: 6px 0; border-bottom: 1px solid var(--grid); }
 .action-items li.done { color: var(--muted); text-decoration: line-through; }
+
+/* Treatment markers (be-41) */
+.treat-list { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 18px; }
+.treat-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--grid);
+  border-radius: var(--radius);
+  background: var(--surface, var(--bg));
+}
+.treat-row-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.treat-meta { font-size: 0.85rem; color: var(--muted); }
+.treat-lab { font-size: 0.8rem; color: var(--blue); }
+.treat-note { margin: 4px 0 0; font-size: 0.85rem; line-height: 1.35; }
+.treat-add {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+  padding: 14px;
+  border: 1px dashed var(--grid);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+}
+.treat-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+.treat-field select,
+.treat-field input {
+  font: inherit;
+  font-weight: 500;
+  color: var(--ws-clinical-ink, inherit);
+  padding: 8px 10px;
+  border: 1px solid var(--grid);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.treat-field-wide { grid-column: 1 / -1; }
+.treat-unit { font-weight: 600; margin-top: 4px; }
+#treat-add-btn { grid-column: 1 / -1; justify-self: start; }
+@media (max-width: 640px) {
+  .treat-add { grid-template-columns: 1fr; }
+  .treat-row { flex-direction: column; }
+}

@@ -29,7 +29,7 @@ Run in this order. The reason is the dependency, not preference.
 | — | be-30 labs + lipids clinical view | not drafted | Needs owner clinical judgment (reference ranges); not an Auto batch |
 | `be-39-clinic-chat-128d-food.md` | Clinic chat 128d full food items | needs-review | Owner: do not hide meal items from clinic AI (Natali Jul 22) |
 | `be-40-gemini-proxy.md` | Gemini proxy — key out of the APK | needs-review | Play internal 1.2.31 (60) live. Pending: testers update, then key rotation |
-| `be-41-clinic-treatment-markers.md` | Clinic-set treatment markers (custom macros) | ready | Structured markers_json on overlays + portal panel; run before app prompt110 |
+| `be-41-clinic-treatment-markers.md` | Clinic-set treatment markers (custom macros) | needs-review | Implemented; pending VPS migrate + portal deploy smoke. Max 3. Then prompt110 |
 
 ## Done
 
@@ -95,11 +95,10 @@ trusting the script's exit code.
 
 ## Auto kickoff (paste)
 
-**be-41 is `ready`** (clinic treatment markers — server + portal).
+**be-41 is `needs-review`** (clinic treatment markers — server + portal coded; VPS migrate + smoke pending).
 
 ```
-To implement clinic treatment markers: open be-41-clinic-treatment-markers.md and ship.
-App half is prompts/app/100-200/prompt110.txt — do NOT start it until be-41 is needs-review.
+After owner accepts be-41 (migrate + portal smoke): implement prompts/app/100-200/prompt110.txt.
 ```
 
 ## Code

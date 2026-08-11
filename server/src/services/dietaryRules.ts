@@ -40,6 +40,7 @@ export async function saveDietaryRules(
         overlay: {
           patientId,
           rules: saved,
+          markers: null,
           chat: {},
           updatedAt: saved.analyzedAt,
           updatedBy: actor.id,

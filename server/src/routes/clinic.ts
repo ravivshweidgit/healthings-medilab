@@ -11,6 +11,10 @@ import {
   getRulesHistoryForMentor,
   type ClinicUserRules,
 } from '../services/clinicOverlay.js';
+import {
+  dietMarkerCatalog,
+  saveMarkersForPatient,
+} from '../services/treatmentMarkers.js';
 import { saveDietaryRules } from '../services/dietaryRules.js';
 import { CLINIC_CHAT_LOCALES, mentorChatReply } from '../services/geminiClinic.js';
 import { sendPatientAppChat } from '../services/patientChat.js';
@@ -82,6 +86,41 @@ export async function registerClinicRoutes(app: FastifyInstance) {
       if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
       request.log.error(err);
       return reply.code(500).send({ error: 'Failed to save rules' });
+    }
+  });
+
+  /** Catalog of diet-marker codes for the portal picker (be-41). */
+  app.get('/v1/clinic/marker-catalog', { preHandler: authenticate }, async (request, reply) => {
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    if (user.role !== 'mentor') return reply.code(403).send({ error: 'Requires mentor role' });
+    return { catalog: dietMarkerCatalog(), maxMarkers: 3 };
+  });
+
+  app.put('/v1/clinic/patients/:patientId/markers', { preHandler: authenticate }, async (request, reply) => {
+    const params = z.object({ patientId: z.string().uuid() }).parse(request.params);
+    const body = z
+      .object({
+        markers: z.array(
+          z.object({
+            marker: z.string().min(1),
+            direction: z.enum(['cap', 'floor']),
+            dailyTarget: z.number(),
+            note: z.string().max(500).optional(),
+            linkedLabCodes: z.array(z.string()).optional(),
+          }),
+        ),
+      })
+      .parse(request.body);
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    try {
+      const overlay = await saveMarkersForPatient(user, params.patientId, body.markers);
+      return { overlay, markers: overlay.markers };
+    } catch (err) {
+      if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
+      request.log.error(err);
+      return reply.code(500).send({ error: 'Failed to save markers' });
     }
   });
 

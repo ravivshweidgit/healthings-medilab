@@ -13,6 +13,8 @@ export type AccessAction =
   | 'snapshot.read'
   | 'rules.read'
   | 'rules.write'
+  | 'markers.read'
+  | 'markers.write'
   | 'chat.read'
   | 'chat.write'
   | 'refresh.request';

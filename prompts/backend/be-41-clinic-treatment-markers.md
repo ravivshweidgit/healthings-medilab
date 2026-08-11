@@ -1,10 +1,20 @@
 # be-41 — Clinic-set treatment markers (custom macros, server + portal)
 
-**Status:** ready  
+**Status:** needs-review (implemented 2026-08-12 — evidence below; VPS migrate + portal deploy pending owner)  
 **Model to implement:** Auto (schema + routes + portal panel); owner reviews marker enum before first real patient  
 **Authored by:** Owner + Fable 5 (2026-08-12 chat — customized macros discussion)  
 **Depends on:** be-23 (consent/audit), be-25/26 (workspace panel IA + clinicLocale), be-40 (Gemini proxy, for the app half)  
 **Pairs with:** `prompts/app/100-200/prompt110.txt` (app half — implement this batch FIRST; the app pulls what this creates)
+
+## Evidence (Auto 2026-08-12)
+
+- `server/` `tsc --noEmit` clean
+- Schema: `markers_json JSONB` on `clinic_org_overlays` (+ `ALTER … IF NOT EXISTS`)
+- Routes: `PUT /v1/clinic/patients/:patientId/markers`, `GET /v1/clinic/marker-catalog`; overlays include `markers`
+- Audit actions: `markers.read` / `markers.write`
+- Portal: **Treatment markers** tab (clinic-only), max 3, lab provenance hint from snapshot, `clinicLocale` keys (`wsTreat*` + he full / others EN fallback for panel body)
+- Max markers locked at **3** (owner agreed 2026-08-12)
+- **Still needed for live smoke:** `npm run migrate` (or deploy script) on VPS + website deploy; curl PUT/GET with mentor JWT; portal screenshots en+he
 
 ## Problem
 

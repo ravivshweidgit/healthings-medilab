@@ -5,6 +5,7 @@ import {
   getMentorOrgId,
   recordPatientAccess,
 } from './clinicAccess.js';
+import type { TreatmentMarker, TreatmentMarkersPayload } from './treatmentMarkers.js';
 
 export type ClinicChatMessage = {
   role: 'user' | 'assistant';
@@ -25,6 +26,8 @@ export type ClinicUserRules = {
 export type ClinicOverlay = {
   patientId: string;
   rules: ClinicUserRules | null;
+  /** Clinic-set treatment markers (be-41). Null when unset. */
+  markers: TreatmentMarker[] | null;
   chat: Record<string, ClinicChatMessage[]>;
   updatedAt: string;
   updatedBy: string | null;
@@ -45,6 +48,7 @@ type OrgOverlayRow = {
   patient_id: string;
   org_id: string;
   rules_json: ClinicUserRules | null;
+  markers_json: TreatmentMarkersPayload | null;
   updated_at: Date;
   updated_by: string | null;
 };
@@ -82,6 +86,12 @@ async function requireMentorOrg(mentorId: string): Promise<string> {
   return orgId;
 }
 
+function markersFromRow(row: OrgOverlayRow | null | undefined): TreatmentMarker[] | null {
+  const payload = row?.markers_json;
+  if (!payload || !Array.isArray(payload.markers) || payload.markers.length === 0) return null;
+  return payload.markers;
+}
+
 function mergeOverlay(
   patientId: string,
   rulesRow: OrgOverlayRow | null | undefined,
@@ -93,6 +103,7 @@ function mergeOverlay(
   return {
     patientId,
     rules: rulesRow?.rules_json ?? null,
+    markers: markersFromRow(rulesRow),
     chat: chatRow?.chat_json ?? {},
     updatedAt: latest > 0 ? new Date(latest).toISOString() : new Date(0).toISOString(),
     updatedBy: rulesRow?.updated_by ?? null,
@@ -122,6 +133,12 @@ export async function getOverlayForMentor(mentor: PublicUser, patientId: string)
     patientId,
     actorUserId: mentor.id,
     orgId,
+    action: 'markers.read',
+  });
+  await recordPatientAccess({
+    patientId,
+    actorUserId: mentor.id,
+    orgId,
     action: 'chat.read',
   });
 
@@ -139,7 +156,8 @@ export async function getOverlayForPatient(patient: PublicUser): Promise<ClinicO
   }
   const { rows } = await query<OrgOverlayRow>(
     `SELECT * FROM clinic_org_overlays
-     WHERE patient_id = $1 AND rules_json IS NOT NULL
+     WHERE patient_id = $1
+       AND (rules_json IS NOT NULL OR markers_json IS NOT NULL)
      ORDER BY updated_at DESC
      LIMIT 1`,
     [patient.id],

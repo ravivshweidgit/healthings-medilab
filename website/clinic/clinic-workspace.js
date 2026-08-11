@@ -1266,6 +1266,278 @@
     renderRulesHistoryHost(host, history, ctx, panel);
   }
 
+  const DIET_MARKER_CATALOG = [
+    { code: 'SAT_FAT_G', unit: 'g', defaultDirection: 'cap', linkedLabCodes: ['CHOLESTEROL_LDL', 'CHOLESTEROL'] },
+    { code: 'CHOLESTEROL_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: ['CHOLESTEROL_LDL', 'CHOLESTEROL'] },
+    { code: 'SOLUBLE_FIBER_G', unit: 'g', defaultDirection: 'floor', linkedLabCodes: ['CHOLESTEROL_LDL'] },
+    { code: 'OMEGA3_G', unit: 'g', defaultDirection: 'floor', linkedLabCodes: ['TRIGLYCERIDES'] },
+    { code: 'ADDED_SUGAR_G', unit: 'g', defaultDirection: 'cap', linkedLabCodes: ['HBA1C', 'GLUCOSE', 'TRIGLYCERIDES'] },
+    { code: 'SODIUM_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: [] },
+    { code: 'POTASSIUM_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: ['CREATININE', 'UREA'] },
+    { code: 'PHOSPHORUS_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: ['CREATININE', 'UREA'] },
+  ];
+  const MAX_TREAT_MARKERS = 3;
+
+  const LAB_CODE_ALIASES = {
+    CHOLESTEROL_LDL: ['CHOLESTEROL_LDL', 'LDL', 'LDL_CHOL', 'LDL_C'],
+    CHOLESTEROL: ['CHOLESTEROL', 'TOTAL_CHOLESTEROL', 'CHOL'],
+    CHOLESTEROL_HDL: ['CHOLESTEROL_HDL', 'HDL', 'HDL_CHOL', 'HDL_C'],
+    TRIGLYCERIDES: ['TRIGLYCERIDES', 'TRIGLYCERIDE', 'TG'],
+    GLUCOSE: ['GLUCOSE', 'GLUC'],
+    HBA1C: ['HBA1C', 'HBA_1C', 'A1C', 'HEMOGLOBIN_A1C'],
+    CREATININE: ['CREATININE', 'CREATININ'],
+    UREA: ['UREA', 'BUN'],
+  };
+
+  function normalizeTreatLabCode(code) {
+    return String(code || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '_')
+      .replace(/^_|_$/g, '');
+  }
+
+  function labCodeMatchesLinked(resultCode, linkedCodes) {
+    const k = normalizeTreatLabCode(resultCode);
+    for (const linked of linkedCodes || []) {
+      const canon = normalizeTreatLabCode(linked);
+      if (k === canon) return true;
+      const aliases = LAB_CODE_ALIASES[canon];
+      if (aliases && aliases.includes(k)) return true;
+    }
+    return false;
+  }
+
+  function findLinkedLabHit(labs, linkedCodes) {
+    for (const report of labs || []) {
+      for (const panel of report.panels || []) {
+        for (const r of panel.results || []) {
+          if (!labCodeMatchesLinked(r.code, linkedCodes)) continue;
+          return {
+            code: normalizeTreatLabCode(r.code),
+            value: r.value,
+            unit: r.unit || '',
+            date: String(report.collectedAt || '').slice(0, 10),
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  function markerLabel(code) {
+    return t(`wsTreat_${code}`) || code;
+  }
+
+  function draftMarkersFromOverlay(ctx) {
+    if (Array.isArray(ctx.markersDraft)) return ctx.markersDraft;
+    const live = ctx.overlay?.markers;
+    ctx.markersDraft = Array.isArray(live) ? live.map((m) => ({ ...m })) : [];
+    return ctx.markersDraft;
+  }
+
+  function renderMarkers(panel, ctx) {
+    const draft = draftMarkersFromOverlay(ctx);
+    const labs = ctx.parsed.labs || [];
+    const used = new Set(draft.map((m) => m.marker));
+    const available = DIET_MARKER_CATALOG.filter((c) => !used.has(c.code));
+    const canAdd = draft.length < MAX_TREAT_MARKERS && available.length > 0;
+
+    const rows = draft.length
+      ? draft
+          .map((m, idx) => {
+            const meta = DIET_MARKER_CATALOG.find((c) => c.code === m.marker);
+            const linked = m.linkedLabCodes || meta?.linkedLabCodes || [];
+            const hit = findLinkedLabHit(labs, linked);
+            const labLine = hit
+              ? t('wsTreatLabHint', {
+                  code: hit.code,
+                  value: hit.value,
+                  unit: hit.unit,
+                  date: hit.date,
+                })
+              : t('wsTreatNoLab');
+            const note = m.note ? `<p class="treat-note" dir="auto">${esc(m.note)}</p>` : '';
+            return `
+          <div class="treat-row" data-idx="${idx}">
+            <div class="treat-row-main">
+              <strong>${esc(markerLabel(m.marker))}</strong>
+              <span class="treat-meta">${esc(m.direction === 'floor' ? t('wsTreatFloor') : t('wsTreatCap'))}
+                · ${esc(String(m.dailyTarget))} ${esc(m.unit)}</span>
+              <span class="treat-lab">${esc(labLine)}</span>
+              ${note}
+            </div>
+            <button type="button" class="ws-btn secondary treat-remove" data-idx="${idx}">${esc(t('wsTreatRemove'))}</button>
+          </div>`;
+          })
+          .join('')
+      : `<p class="sub">${esc(t('wsTreatEmpty'))}</p>`;
+
+    const addForm = canAdd
+      ? `
+      <div class="treat-add">
+        <label class="treat-field">
+          <span>${esc(t('wsTreatCode'))}</span>
+          <select id="treat-code">
+            <option value="">${esc(t('wsTreatPick'))}</option>
+            ${available
+              .map(
+                (c) =>
+                  `<option value="${esc(c.code)}" data-unit="${esc(c.unit)}" data-dir="${esc(c.defaultDirection)}">${esc(markerLabel(c.code))} (${esc(c.unit)})</option>`,
+              )
+              .join('')}
+          </select>
+        </label>
+        <label class="treat-field">
+          <span>${esc(t('wsTreatDirection'))}</span>
+          <select id="treat-dir">
+            <option value="cap">${esc(t('wsTreatCap'))}</option>
+            <option value="floor">${esc(t('wsTreatFloor'))}</option>
+          </select>
+        </label>
+        <label class="treat-field">
+          <span>${esc(t('wsTreatTarget'))}</span>
+          <input type="number" id="treat-target" min="0.1" step="0.1" />
+          <span id="treat-unit" class="treat-unit">g</span>
+        </label>
+        <label class="treat-field treat-field-wide">
+          <span>${esc(t('wsTreatNote'))}</span>
+          <input type="text" id="treat-note" maxlength="500" placeholder="${esc(t('wsTreatNotePlaceholder'))}" dir="auto" />
+        </label>
+        <p id="treat-lab-hint" class="sub treat-lab">${esc(t('wsTreatNoLab'))}</p>
+        <button type="button" class="ws-btn secondary" id="treat-add-btn">${esc(t('wsTreatAdd'))}</button>
+      </div>`
+      : draft.length >= MAX_TREAT_MARKERS
+        ? `<p class="sub">${esc(t('wsTreatMax'))}</p>`
+        : '';
+
+    panel.innerHTML = `
+      <p class="sub rules-intro">${esc(t('wsTreatIntro'))}</p>
+      <div class="treat-list">${rows}</div>
+      ${addForm}
+      <div class="rules-actions" style="margin-top:16px">
+        <button type="button" class="ws-btn primary" id="treat-save">${esc(t('wsTreatSave'))}</button>
+        <span id="treat-status" class="sub"></span>
+      </div>
+      <div id="treat-error" class="ws-inline-error" hidden role="alert"></div>
+      <p class="rules-hint">${esc(t('wsTreatAdherenceStub'))}</p>`;
+
+    const codeSel = panel.querySelector('#treat-code');
+    const dirSel = panel.querySelector('#treat-dir');
+    const unitEl = panel.querySelector('#treat-unit');
+    const labHint = panel.querySelector('#treat-lab-hint');
+
+    function refreshAddHint() {
+      const code = codeSel?.value;
+      const meta = DIET_MARKER_CATALOG.find((c) => c.code === code);
+      if (!meta) {
+        if (labHint) labHint.textContent = t('wsTreatNoLab');
+        return;
+      }
+      if (unitEl) unitEl.textContent = meta.unit;
+      if (dirSel && !dirSel.dataset.touched) dirSel.value = meta.defaultDirection;
+      const hit = findLinkedLabHit(labs, meta.linkedLabCodes);
+      if (labHint) {
+        labHint.textContent = hit
+          ? t('wsTreatLabHint', {
+              code: hit.code,
+              value: hit.value,
+              unit: hit.unit,
+              date: hit.date,
+            })
+          : t('wsTreatNoLab');
+      }
+    }
+    codeSel?.addEventListener('change', refreshAddHint);
+    dirSel?.addEventListener('change', () => {
+      if (dirSel) dirSel.dataset.touched = '1';
+    });
+    refreshAddHint();
+
+    panel.querySelector('#treat-add-btn')?.addEventListener('click', () => {
+      const code = codeSel?.value;
+      const meta = DIET_MARKER_CATALOG.find((c) => c.code === code);
+      const dailyTarget = Number(panel.querySelector('#treat-target')?.value);
+      if (!meta || !Number.isFinite(dailyTarget) || dailyTarget <= 0) return;
+      const note = String(panel.querySelector('#treat-note')?.value || '').trim();
+      draft.push({
+        marker: meta.code,
+        direction: dirSel?.value === 'floor' ? 'floor' : 'cap',
+        dailyTarget,
+        unit: meta.unit,
+        linkedLabCodes: [...meta.linkedLabCodes],
+        ...(note ? { note } : {}),
+        setAt: new Date().toISOString(),
+        setBy: 'draft',
+      });
+      ctx.markersDraft = draft;
+      renderMarkers(panel, ctx);
+    });
+
+    panel.querySelectorAll('.treat-remove').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.getAttribute('data-idx'));
+        if (!Number.isFinite(idx)) return;
+        draft.splice(idx, 1);
+        ctx.markersDraft = draft;
+        renderMarkers(panel, ctx);
+      });
+    });
+
+    panel.querySelector('#treat-save')?.addEventListener('click', () => void saveMarkers(ctx, panel));
+  }
+
+  async function saveMarkers(ctx, panel) {
+    const draft = draftMarkersFromOverlay(ctx);
+    const status = panel.querySelector('#treat-status');
+    const btn = panel.querySelector('#treat-save');
+    const err = panel.querySelector('#treat-error');
+    if (err) {
+      err.hidden = true;
+      err.innerHTML = '';
+    }
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = t('wsTreatSaving');
+    try {
+      const body = {
+        markers: draft.map((m) => ({
+          marker: m.marker,
+          direction: m.direction,
+          dailyTarget: m.dailyTarget,
+          note: m.note,
+          linkedLabCodes: m.linkedLabCodes,
+        })),
+      };
+      const res = await ctx.api(`/v1/clinic/patients/${ctx.patientId}/markers`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || t('wsTreatSaveFailed'));
+      }
+      const data = await res.json();
+      if (data.overlay) ctx.overlay = data.overlay;
+      ctx.markersDraft = Array.isArray(data.markers)
+        ? data.markers.map((m) => ({ ...m }))
+        : Array.isArray(ctx.overlay?.markers)
+          ? ctx.overlay.markers.map((m) => ({ ...m }))
+          : [];
+      renderMarkers(panel, ctx);
+      const statusEl = panel.querySelector('#treat-status');
+      if (statusEl) statusEl.textContent = t('wsTreatSaved');
+    } catch (e) {
+      if (status) status.textContent = '';
+      const msg = e instanceof Error ? e.message : t('wsTreatSaveFailed');
+      if (err) {
+        err.hidden = false;
+        err.innerHTML = `<span>${esc(msg)}</span>`;
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   function renderRules(panel, ctx) {
     const rules = effectiveRules(ctx.parsed, ctx.overlay);
     const raw = rules?.rawText || '';
@@ -1712,6 +1984,7 @@
     { id: 'labs', labelKey: 'wsTabLabs', group: 'read' },
     { id: 'chat', labelKey: 'wsTabChat', labelKeySelf: 'wsTabChatSelf', group: 'write' },
     { id: 'rules', labelKey: 'wsTabRules', group: 'write', live: true },
+    { id: 'markers', labelKey: 'wsTabMarkers', group: 'write', live: true, clinicOnly: true },
     // selfOnly: /v1/usage/events is payer-scoped — on the clinic patient page it
     // would show the mentor's whole-clinic ledger, not this patient's usage.
     { id: 'usage', labelKey: 'wsTabUsage', group: 'read', selfOnly: true },
@@ -1720,9 +1993,14 @@
   /**
    * Chat and Rules write on clinic (overlay APIs). On /account/ Rules is editable;
    * AI chat is read-only from the phone snapshot (be-15 / be-24 account exception).
+   * Treatment markers are clinic-only (be-41).
    */
   function allowedTabs(ctx) {
-    const base = ALL_TABS.filter((tab) => !tab.selfOnly || ctx.selfView);
+    const base = ALL_TABS.filter((tab) => {
+      if (tab.selfOnly && !ctx.selfView) return false;
+      if (tab.clinicOnly && ctx.selfView) return false;
+      return true;
+    });
     if (!Array.isArray(ctx.tabIds)) return base;
     const allowed = base.filter((tab) => ctx.tabIds.includes(tab.id));
     return allowed.length ? allowed : base;
@@ -1826,6 +2104,7 @@
     else if (tab === 'lipids') renderLipidsTab(body, ctx);
     else if (tab === 'chat') renderChat(body, ctx);
     else if (tab === 'rules') renderRules(body, ctx);
+    else if (tab === 'markers') renderMarkers(body, ctx);
     else if (tab === 'labs') renderLabs(body, ctx);
     else if (tab === 'usage') void renderUsage(body, ctx);
 

@@ -29,6 +29,7 @@
       wsTabChat: 'Clinic chat',
       wsTabChatSelf: 'AI chat',
       wsTabRules: 'Rules',
+      wsTabMarkers: 'Treatment markers',
       wsTabLive: 'Live',
       wsSyncedJustNow: 'Synced just now',
       wsSyncedMinutesAgo: 'Synced {n} min ago',
@@ -252,6 +253,7 @@
       wsTabChat: 'צ׳אט מרפאה',
       wsTabChatSelf: 'צ׳אט AI',
       wsTabRules: 'כללים',
+      wsTabMarkers: 'מדדי טיפול',
       wsTabLive: 'חי',
       wsSyncedJustNow: 'סונכרן זה עתה',
       wsSyncedMinutesAgo: 'סונכרן לפני {n} דק׳',
@@ -475,6 +477,7 @@
       wsTabChat: 'Chat clínico',
       wsTabChatSelf: 'Chat IA',
       wsTabRules: 'Reglas',
+      wsTabMarkers: 'Marcadores de tratamiento',
       wsTabLive: 'En vivo',
       wsSyncedJustNow: 'Sincronizado ahora',
       wsSyncedMinutesAgo: 'Sincronizado hace {n} min',
@@ -690,6 +693,7 @@
       wsTabChat: 'Chat clinique',
       wsTabChatSelf: 'Chat IA',
       wsTabRules: 'Règles',
+      wsTabMarkers: 'Marqueurs de traitement',
       wsTabLive: 'En direct',
       wsSyncedJustNow: 'Synchronisé à l’instant',
       wsSyncedMinutesAgo: 'Synchronisé il y a {n} min',
@@ -905,6 +909,7 @@
       wsTabChat: 'Klinik-Chat',
       wsTabChatSelf: 'KI-Chat',
       wsTabRules: 'Regeln',
+      wsTabMarkers: 'Behandlungsmarker',
       wsTabLive: 'Live',
       wsSyncedJustNow: 'Gerade synchronisiert',
       wsSyncedMinutesAgo: 'Vor {n} Min. synchronisiert',
@@ -1120,6 +1125,7 @@
       wsTabChat: 'محادثة العيادة',
       wsTabChatSelf: 'محادثة الذكاء الاصطناعي',
       wsTabRules: 'القواعد',
+      wsTabMarkers: 'مؤشرات العلاج',
       wsTabLive: 'مباشر',
       wsSyncedJustNow: 'تمت المزامنة للتو',
       wsSyncedMinutesAgo: 'تمت المزامنة منذ {n} د',
@@ -1335,6 +1341,7 @@
       wsTabChat: 'Чат клиники',
       wsTabChatSelf: 'ИИ-чат',
       wsTabRules: 'Правила',
+      wsTabMarkers: 'Маркеры лечения',
       wsTabLive: 'Онлайн',
       wsSyncedJustNow: 'Синхронизировано только что',
       wsSyncedMinutesAgo: 'Синхронизировано {n} мин назад',
@@ -1550,6 +1557,7 @@
       wsTabChat: 'Chat clínico',
       wsTabChatSelf: 'Chat IA',
       wsTabRules: 'Regras',
+      wsTabMarkers: 'Marcadores de tratamento',
       wsTabLive: 'Ao vivo',
       wsSyncedJustNow: 'Sincronizado agora',
       wsSyncedMinutesAgo: 'Sincronizado há {n} min',
@@ -1765,6 +1773,7 @@
       wsTabChat: 'Chat clinica',
       wsTabChatSelf: 'Chat IA',
       wsTabRules: 'Regole',
+      wsTabMarkers: 'Marker di trattamento',
       wsTabLive: 'Live',
       wsSyncedJustNow: 'Sincronizzato ora',
       wsSyncedMinutesAgo: 'Sincronizzato {n} min fa',
@@ -1980,6 +1989,7 @@
       wsTabChat: 'Klinik sohbet',
       wsTabChatSelf: 'YZ sohbet',
       wsTabRules: 'Kurallar',
+      wsTabMarkers: 'Tedavi belirteçleri',
       wsTabLive: 'Canlı',
       wsSyncedJustNow: 'Az önce senkronize edildi',
       wsSyncedMinutesAgo: '{n} dk önce senkronize edildi',
@@ -2174,6 +2184,82 @@
       wsMarkerPatientDefault: 'Patient app default: {code} (change here is view-only)',
     },
   };
+
+  /** Treatment markers panel (be-41) — merged into every locale. */
+  const TREAT = {
+    en: {
+      wsTreatIntro:
+        'Up to 3 daily intake targets the patient meters in Food Log. Caps and floors sync to their phone on next open.',
+      wsTreatEmpty: 'No treatment markers yet — add up to 3.',
+      wsTreatMax: 'Maximum 3 markers',
+      wsTreatAdd: 'Add marker',
+      wsTreatSave: 'Save markers',
+      wsTreatSaving: 'Saving…',
+      wsTreatSaved: 'Saved — patient receives on next app open',
+      wsTreatSaveFailed: 'Save failed',
+      wsTreatRemove: 'Remove',
+      wsTreatCode: 'Marker',
+      wsTreatDirection: 'Direction',
+      wsTreatCap: 'Cap (max / day)',
+      wsTreatFloor: 'Floor (min / day)',
+      wsTreatTarget: 'Daily target',
+      wsTreatNote: 'Note (optional)',
+      wsTreatNotePlaceholder: 'Why this target…',
+      wsTreatLabHint: '{code} {value} {unit} · {date}',
+      wsTreatNoLab: 'No linked lab result in this snapshot',
+      wsTreatAdherenceStub:
+        'Adherence charting — needs app build with meal marker estimates (prompt110).',
+      wsTreatPick: 'Choose a marker…',
+      wsTreat_SAT_FAT_G: 'Saturated fat',
+      wsTreat_CHOLESTEROL_MG: 'Dietary cholesterol',
+      wsTreat_SOLUBLE_FIBER_G: 'Soluble fiber',
+      wsTreat_OMEGA3_G: 'Omega-3',
+      wsTreat_ADDED_SUGAR_G: 'Added sugar',
+      wsTreat_SODIUM_MG: 'Sodium',
+      wsTreat_POTASSIUM_MG: 'Potassium',
+      wsTreat_PHOSPHORUS_MG: 'Phosphorus',
+    },
+    he: {
+      wsTreatIntro:
+        'עד 3 יעדי צריכה יומיים שהמטופל מודד ביומן הארוחות. תקרות ורצפות מסתנכרנות לטלפון בפתיחה הבאה.',
+      wsTreatEmpty: 'אין עדיין מדדי טיפול — הוסיפו עד 3.',
+      wsTreatMax: 'מקסימום 3 מדדים',
+      wsTreatAdd: 'הוספת מדד',
+      wsTreatSave: 'שמירת מדדים',
+      wsTreatSaving: 'שומר…',
+      wsTreatSaved: 'נשמר — המטופל יקבל בפתיחה הבאה של האפליקציה',
+      wsTreatSaveFailed: 'השמירה נכשלה',
+      wsTreatRemove: 'הסרה',
+      wsTreatCode: 'מדד',
+      wsTreatDirection: 'כיוון',
+      wsTreatCap: 'תקרה (מקס׳ ליום)',
+      wsTreatFloor: 'רצפה (מינ׳ ליום)',
+      wsTreatTarget: 'יעד יומי',
+      wsTreatNote: 'הערה (אופציונלי)',
+      wsTreatNotePlaceholder: 'למה היעד הזה…',
+      wsTreatLabHint: '{code} {value} {unit} · {date}',
+      wsTreatNoLab: 'אין תוצאת מעבדה מקושרת בצילום מצב זה',
+      wsTreatAdherenceStub:
+        'תרשים היענות — דורש גרסת אפליקציה עם הערכת מדדים בארוחה (prompt110).',
+      wsTreatPick: 'בחרו מדד…',
+      wsTreat_SAT_FAT_G: 'שומן רווי',
+      wsTreat_CHOLESTEROL_MG: 'כולסטרול תזונתי',
+      wsTreat_SOLUBLE_FIBER_G: 'סיבים מסיסים',
+      wsTreat_OMEGA3_G: 'אומגה‑3',
+      wsTreat_ADDED_SUGAR_G: 'סוכר מוסף',
+      wsTreat_SODIUM_MG: 'נתרן',
+      wsTreat_POTASSIUM_MG: 'אשלגן',
+      wsTreat_PHOSPHORUS_MG: 'זרחן',
+    },
+  };
+
+  const TREAT_FALLBACK_LOCALES = ['es', 'fr', 'de', 'ar', 'ru', 'pt', 'it', 'tr'];
+  for (const [code, table] of Object.entries(TREAT)) {
+    if (i18n.COPY[code]) Object.assign(i18n.COPY[code], table);
+  }
+  for (const code of TREAT_FALLBACK_LOCALES) {
+    if (i18n.COPY[code]) Object.assign(i18n.COPY[code], TREAT.en);
+  }
 
   for (const [code, table] of Object.entries(WS)) {
     if (i18n.COPY[code]) Object.assign(i18n.COPY[code], table);
