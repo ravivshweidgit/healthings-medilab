@@ -3,6 +3,7 @@
  * Exact code match only; no keyword/name parsing.
  */
 
+import { randomUUID } from 'node:crypto';
 import { query } from '../db/pool.js';
 import type { PublicUser } from './jwt.js';
 import {
@@ -84,9 +85,27 @@ export type TreatmentMarker = {
   setBy: string;
 };
 
+/** Clinic-opt-in past meal marker estimate (phone executes; caps tokens). */
+export type MarkersBackfillRequest = {
+  id: string;
+  days: number;
+  requestedAt: string;
+  requestedBy: string;
+  status: 'pending' | 'done' | 'failed';
+  completedAt?: string;
+  mealsUpdated?: number;
+  error?: string;
+};
+
+export const MARKERS_BACKFILL_MIN_DAYS = 1;
+export const MARKERS_BACKFILL_MAX_DAYS = 90;
+export const MARKERS_BACKFILL_DEFAULT_DAYS = 14;
+
 export type TreatmentMarkersPayload = {
   markers: TreatmentMarker[];
   updatedAt: string;
+  /** Optional one-shot past-meal fill — clinic sets, phone runs + acks. */
+  backfill?: MarkersBackfillRequest | null;
 };
 
 export function isDietMarkerCode(raw: string): raw is DietMarkerCode {
@@ -184,6 +203,34 @@ async function requireMentorOrg(mentorId: string): Promise<string> {
   return orgId;
 }
 
+async function loadMarkersPayload(
+  patientId: string,
+  orgId: string,
+): Promise<TreatmentMarkersPayload | null> {
+  const { rows } = await query<{ markers_json: TreatmentMarkersPayload | null }>(
+    `SELECT markers_json FROM clinic_org_overlays WHERE patient_id = $1 AND org_id = $2`,
+    [patientId, orgId],
+  );
+  return rows[0]?.markers_json ?? null;
+}
+
+async function writeMarkersPayload(
+  patientId: string,
+  orgId: string,
+  payload: TreatmentMarkersPayload,
+  updatedBy: string,
+): Promise<void> {
+  await query(
+    `INSERT INTO clinic_org_overlays (patient_id, org_id, markers_json, updated_at, updated_by)
+     VALUES ($1, $2, $3, NOW(), $4)
+     ON CONFLICT (patient_id, org_id) DO UPDATE
+       SET markers_json = EXCLUDED.markers_json,
+           updated_at = NOW(),
+           updated_by = EXCLUDED.updated_by`,
+    [patientId, orgId, payload, updatedBy],
+  );
+}
+
 export async function saveMarkersForPatient(
   mentor: PublicUser,
   patientId: string,
@@ -193,17 +240,15 @@ export async function saveMarkersForPatient(
   const orgId = await requireMentorOrg(mentor.id);
   const setAt = new Date().toISOString();
   const markers = normalizeTreatmentMarkers(input, mentor.id, setAt);
-  const payload: TreatmentMarkersPayload = { markers, updatedAt: setAt };
+  const prev = await loadMarkersPayload(patientId, orgId);
+  const payload: TreatmentMarkersPayload = {
+    markers,
+    updatedAt: setAt,
+    // Preserve an in-flight / last backfill job when only the marker list changes.
+    ...(prev?.backfill ? { backfill: prev.backfill } : {}),
+  };
 
-  await query(
-    `INSERT INTO clinic_org_overlays (patient_id, org_id, markers_json, updated_at, updated_by)
-     VALUES ($1, $2, $3, NOW(), $4)
-     ON CONFLICT (patient_id, org_id) DO UPDATE
-       SET markers_json = EXCLUDED.markers_json,
-           updated_at = NOW(),
-           updated_by = EXCLUDED.updated_by`,
-    [patientId, orgId, payload, mentor.id],
-  );
+  await writeMarkersPayload(patientId, orgId, payload, mentor.id);
 
   await recordPatientAccess({
     patientId,
@@ -213,4 +258,129 @@ export async function saveMarkersForPatient(
   });
 
   return getOverlayForMentor(mentor, patientId);
+}
+
+/** Clinic requests phone to re-estimate markers on past meals (token-gated). */
+export async function requestMarkersBackfill(
+  mentor: PublicUser,
+  patientId: string,
+  daysRaw: number,
+): Promise<ClinicOverlay> {
+  await assertMentorPatientAccess(mentor, patientId, ClinicError);
+  const orgId = await requireMentorOrg(mentor.id);
+  const days = Math.round(Number(daysRaw));
+  if (
+    !Number.isFinite(days) ||
+    days < MARKERS_BACKFILL_MIN_DAYS ||
+    days > MARKERS_BACKFILL_MAX_DAYS
+  ) {
+    throw new ClinicError(
+      `days must be ${MARKERS_BACKFILL_MIN_DAYS}–${MARKERS_BACKFILL_MAX_DAYS}`,
+      400,
+    );
+  }
+
+  const prev = await loadMarkersPayload(patientId, orgId);
+  const markers = prev?.markers ?? [];
+  if (!markers.length) {
+    throw new ClinicError('Save treatment markers before requesting a past fill', 400);
+  }
+  if (prev?.backfill?.status === 'pending') {
+    throw new ClinicError('A past-meal fill is already pending on the phone', 409);
+  }
+
+  const setAt = new Date().toISOString();
+  const backfill: MarkersBackfillRequest = {
+    id: randomUUID(),
+    days,
+    requestedAt: setAt,
+    requestedBy: mentor.id,
+    status: 'pending',
+  };
+  const payload: TreatmentMarkersPayload = {
+    markers,
+    updatedAt: setAt,
+    backfill,
+  };
+  await writeMarkersPayload(patientId, orgId, payload, mentor.id);
+
+  await recordPatientAccess({
+    patientId,
+    actorUserId: mentor.id,
+    orgId,
+    action: 'markers.backfill.request',
+  });
+
+  return getOverlayForMentor(mentor, patientId);
+}
+
+/** Patient phone reports backfill finished (or failed). */
+export async function ackMarkersBackfill(
+  patient: PublicUser,
+  body: {
+    id: string;
+    status: 'done' | 'failed';
+    mealsUpdated?: number;
+    error?: string;
+  },
+): Promise<{ backfill: MarkersBackfillRequest | null }> {
+  if (patient.role !== 'patient') {
+    throw new ClinicError('Requires patient role', 403);
+  }
+  const id = String(body.id || '').trim();
+  if (!id) throw new ClinicError('backfill id required', 400);
+  if (body.status !== 'done' && body.status !== 'failed') {
+    throw new ClinicError('status must be done or failed', 400);
+  }
+
+  const { rows } = await query<
+    { org_id: string; markers_json: TreatmentMarkersPayload | null }
+  >(
+    `SELECT org_id, markers_json FROM clinic_org_overlays
+     WHERE patient_id = $1 AND markers_json IS NOT NULL
+     ORDER BY updated_at DESC
+     LIMIT 1`,
+    [patient.id],
+  );
+  const row = rows[0];
+  if (!row?.markers_json) {
+    throw new ClinicError('No markers overlay', 404);
+  }
+  const prev = row.markers_json;
+  if (!prev.backfill || prev.backfill.id !== id) {
+    throw new ClinicError('No matching pending backfill', 404);
+  }
+  if (prev.backfill.status !== 'pending') {
+    return { backfill: prev.backfill };
+  }
+
+  const completedAt = new Date().toISOString();
+  const mealsUpdated =
+    body.mealsUpdated != null && Number.isFinite(Number(body.mealsUpdated))
+      ? Math.max(0, Math.round(Number(body.mealsUpdated)))
+      : undefined;
+  const errText =
+    typeof body.error === 'string' ? body.error.trim().slice(0, 500) : '';
+  const backfill: MarkersBackfillRequest = {
+    ...prev.backfill,
+    status: body.status,
+    completedAt,
+    ...(mealsUpdated != null ? { mealsUpdated } : {}),
+    ...(errText ? { error: errText } : {}),
+  };
+  const payload: TreatmentMarkersPayload = {
+    markers: prev.markers ?? [],
+    updatedAt: completedAt,
+    backfill,
+  };
+  await writeMarkersPayload(patient.id, row.org_id, payload, patient.id);
+
+  await recordPatientAccess({
+    patientId: patient.id,
+    actorUserId: patient.id,
+    orgId: row.org_id,
+    action: 'markers.backfill.ack',
+  });
+
+  return { backfill };
 }

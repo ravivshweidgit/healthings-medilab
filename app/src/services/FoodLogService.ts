@@ -7,6 +7,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
 import type { FoodItem } from './GeminiService';
+import type { DietMarkerCode, MarkerAmounts } from './TreatmentMarkerService';
+import { sumMarkerAmounts } from './TreatmentMarkerService';
 
 export type { FoodItem };
 
@@ -19,6 +21,8 @@ export type FoodEntry = {
   totalCarb_g: number;
   totalFat_g: number;
   totalFiber_g?: number;
+  /** Clinic treatment-marker estimates for this meal (prompt110). Absent = no data. */
+  markers?: MarkerAmounts;
   note?: string;
   source: 'camera-ai' | 'text-ai' | 'manual';
 };
@@ -36,6 +40,40 @@ export type DailyMacros = {
 export function entryFiber_g(entry: FoodEntry): number {
   if (entry.totalFiber_g != null && Number.isFinite(entry.totalFiber_g)) return entry.totalFiber_g;
   return entry.items.reduce((acc, item) => acc + (item.fiber_g ?? 0), 0);
+}
+
+/** Sum treatment markers for a day — missing entry/item markers count as unknown, not zero. */
+export function dayMarkerTotals(
+  entries: FoodEntry[],
+  codes: DietMarkerCode[],
+): { totals: MarkerAmounts; hasAny: boolean } {
+  const parts: MarkerAmounts[] = [];
+  let hasAny = false;
+  for (const e of entries) {
+    if (e.markers && Object.keys(e.markers).length > 0) {
+      parts.push(e.markers);
+      hasAny = true;
+      continue;
+    }
+    const fromItems = sumMarkerAmounts(
+      e.items.map((it) => it.markers ?? {}).filter((m) => Object.keys(m).length > 0),
+    );
+    if (Object.keys(fromItems).length > 0) {
+      parts.push(fromItems);
+      hasAny = true;
+    }
+  }
+  const summed = sumMarkerAmounts(parts);
+  const totals: MarkerAmounts = {};
+  for (const c of codes) {
+    if (summed[c] != null) totals[c] = summed[c];
+  }
+  return { totals, hasAny };
+}
+
+export function entryMarkerTotals(entry: FoodEntry): MarkerAmounts {
+  if (entry.markers && Object.keys(entry.markers).length > 0) return entry.markers;
+  return sumMarkerAmounts(entry.items.map((it) => it.markers ?? {}));
 }
 
 const KEY_INDEX = 'food_log_days';

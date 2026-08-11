@@ -41,6 +41,7 @@ export async function saveDietaryRules(
           patientId,
           rules: saved,
           markers: null,
+          markersBackfill: null,
           chat: {},
           updatedAt: saved.analyzedAt,
           updatedBy: actor.id,

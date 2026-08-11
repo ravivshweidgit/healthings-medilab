@@ -1,0 +1,257 @@
+/**
+ * Clinic treatment markers (prompt110 / be-41).
+ * Canonical store — screens read here, never the API.
+ */
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+export const TREATMENT_MARKERS_KEY = 'healthings:treatmentMarkers';
+export const TREATMENT_MARKERS_SYNC_AT_KEY = 'healthings:treatmentMarkersSyncedAt';
+export const LAB_MARKER_NUDGE_KEY = 'healthings:labMarkerNudge';
+
+export const DIET_MARKER_CODES = [
+  'SAT_FAT_G',
+  'CHOLESTEROL_MG',
+  'SOLUBLE_FIBER_G',
+  'OMEGA3_G',
+  'ADDED_SUGAR_G',
+  'SODIUM_MG',
+  'POTASSIUM_MG',
+  'PHOSPHORUS_MG',
+] as const;
+
+export type DietMarkerCode = (typeof DIET_MARKER_CODES)[number];
+
+export type TreatmentMarker = {
+  marker: DietMarkerCode;
+  direction: 'cap' | 'floor';
+  dailyTarget: number;
+  unit: 'g' | 'mg';
+  linkedLabCodes: string[];
+  note?: string;
+  setAt: string;
+  setBy: string;
+};
+
+export type TreatmentMarkersStore = {
+  markers: TreatmentMarker[];
+  updatedAt: string;
+  source: 'clinic';
+};
+
+/** Clinic-queued past meal fill — mirrors server MarkersBackfillRequest. */
+export type MarkersBackfillRequest = {
+  id: string;
+  days: number;
+  requestedAt: string;
+  requestedBy: string;
+  status: 'pending' | 'done' | 'failed';
+  completedAt?: string;
+  mealsUpdated?: number;
+  error?: string;
+};
+
+export type MarkerAmounts = Partial<Record<DietMarkerCode, number>>;
+
+/** JSON field names Gemini returns per item (snake of the code). */
+export function dietMarkerJsonField(code: DietMarkerCode): string {
+  return code.toLowerCase();
+}
+
+export function isDietMarkerCode(raw: string): raw is DietMarkerCode {
+  return (DIET_MARKER_CODES as readonly string[]).includes(raw);
+}
+
+export async function loadTreatmentMarkers(): Promise<TreatmentMarkersStore | null> {
+  try {
+    const raw = await AsyncStorage.getItem(TREATMENT_MARKERS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as TreatmentMarkersStore;
+    if (!parsed || !Array.isArray(parsed.markers)) return null;
+    const markers = parsed.markers.filter((m) => m && isDietMarkerCode(m.marker)).slice(0, 3);
+    return {
+      markers,
+      updatedAt: parsed.updatedAt || '',
+      source: 'clinic',
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function saveTreatmentMarkers(store: TreatmentMarkersStore): Promise<void> {
+  const payload: TreatmentMarkersStore = {
+    markers: store.markers.filter((m) => isDietMarkerCode(m.marker)).slice(0, 3),
+    updatedAt: store.updatedAt || new Date().toISOString(),
+    source: 'clinic',
+  };
+  await AsyncStorage.setItem(TREATMENT_MARKERS_KEY, JSON.stringify(payload));
+}
+
+export async function clearTreatmentMarkers(): Promise<void> {
+  await AsyncStorage.removeItem(TREATMENT_MARKERS_KEY);
+}
+
+/** Apply overlay.markers from GET /v1/clinic/overlays when newer. */
+export async function applyClinicMarkersFromOverlay(
+  markers: TreatmentMarker[] | null | undefined,
+  overlayUpdatedAt: string,
+): Promise<TreatmentMarkersStore | null> {
+  const serverAt = Date.parse(overlayUpdatedAt);
+  if (Number.isNaN(serverAt)) return null;
+
+  const lastRaw = await AsyncStorage.getItem(TREATMENT_MARKERS_SYNC_AT_KEY);
+  const lastAt = lastRaw ? Date.parse(lastRaw) : 0;
+  if (serverAt <= lastAt) return null;
+
+  if (!markers || markers.length === 0) {
+    await clearTreatmentMarkers();
+    await AsyncStorage.setItem(TREATMENT_MARKERS_SYNC_AT_KEY, overlayUpdatedAt);
+    return { markers: [], updatedAt: overlayUpdatedAt, source: 'clinic' };
+  }
+
+  const cleaned: TreatmentMarker[] = [];
+  for (const m of markers) {
+    if (!m || !isDietMarkerCode(m.marker)) continue;
+    if (m.direction !== 'cap' && m.direction !== 'floor') continue;
+    const dailyTarget = Number(m.dailyTarget);
+    if (!Number.isFinite(dailyTarget) || dailyTarget <= 0) continue;
+    cleaned.push({
+      marker: m.marker,
+      direction: m.direction,
+      dailyTarget,
+      unit: m.unit === 'mg' ? 'mg' : 'g',
+      linkedLabCodes: Array.isArray(m.linkedLabCodes)
+        ? m.linkedLabCodes.map((c) => String(c).trim().toUpperCase()).filter(Boolean)
+        : [],
+      ...(m.note?.trim() ? { note: m.note.trim().slice(0, 500) } : {}),
+      setAt: m.setAt || overlayUpdatedAt,
+      setBy: m.setBy || 'clinic',
+    });
+    if (cleaned.length >= 3) break;
+  }
+
+  const store: TreatmentMarkersStore = {
+    markers: cleaned,
+    updatedAt: overlayUpdatedAt,
+    source: 'clinic',
+  };
+  await saveTreatmentMarkers(store);
+  await AsyncStorage.setItem(TREATMENT_MARKERS_SYNC_AT_KEY, overlayUpdatedAt);
+  return store;
+}
+
+export function sumMarkerAmounts(parts: MarkerAmounts[]): MarkerAmounts {
+  const out: MarkerAmounts = {};
+  for (const part of parts) {
+    for (const code of DIET_MARKER_CODES) {
+      const v = part[code];
+      if (v == null || !Number.isFinite(v)) continue;
+      out[code] = Math.round(((out[code] ?? 0) + v) * 10) / 10;
+    }
+  }
+  return out;
+}
+
+export function extractMarkersFromFoodItem(
+  it: Record<string, unknown>,
+  active: DietMarkerCode[],
+): MarkerAmounts {
+  const out: MarkerAmounts = {};
+  for (const code of active) {
+    const field = dietMarkerJsonField(code);
+    const raw = it[field] ?? it[code];
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 0) out[code] = Math.round(n * 10) / 10;
+  }
+  return out;
+}
+
+/** HARD lines for Gemini prompts — numbers only, no clinical reinterpretation. */
+export function treatmentMarkersHardBlock(markers: TreatmentMarker[]): string {
+  if (!markers.length) return '';
+  const lines = markers.map(
+    (m) =>
+      `HARD from clinic: ${m.marker} ${m.direction} ${m.dailyTarget} ${m.unit}/day` +
+      (m.note?.trim() ? ` (${m.note.trim()})` : ''),
+  );
+  return [
+    'CLINIC TREATMENT MARKERS (HARD — do not revise, soften, or contradict):',
+    ...lines,
+    'Daily meal estimates must include these markers when estimating food.',
+  ].join('\n');
+}
+
+export function mealMarkerSchemaHint(markers: TreatmentMarker[]): string {
+  if (!markers.length) return '';
+  const fields = markers.map((m) => {
+    const f = dietMarkerJsonField(m.marker);
+    return `"${f}":0.0 /* ${m.marker} ${m.direction} ${m.dailyTarget}${m.unit}/day — estimate for this item */`;
+  });
+  return (
+    `Also estimate per item (same units): ${fields.join(', ')}. ` +
+    'These are estimates for treatment monitoring — best effort from the meal description/photo.'
+  );
+}
+
+export type LabMarkerNudge = {
+  marker: DietMarkerCode;
+  labCode: string;
+  labValue: string;
+  seenAt: string;
+};
+
+export async function loadLabMarkerNudge(): Promise<LabMarkerNudge | null> {
+  try {
+    const raw = await AsyncStorage.getItem(LAB_MARKER_NUDGE_KEY);
+    return raw ? (JSON.parse(raw) as LabMarkerNudge) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveLabMarkerNudge(nudge: LabMarkerNudge): Promise<void> {
+  await AsyncStorage.setItem(LAB_MARKER_NUDGE_KEY, JSON.stringify(nudge));
+}
+
+export async function clearLabMarkerNudge(): Promise<void> {
+  await AsyncStorage.removeItem(LAB_MARKER_NUDGE_KEY);
+}
+
+/** After lab import: if a new result code matches an active marker's linkedLabCodes, queue a one-shot nudge. */
+export async function maybeQueueLabMarkerNudgeFromReports(
+  reports: Array<{
+    collectedAt?: string;
+    panels?: Array<{ results?: Array<{ code?: string; value?: string | number }> }>;
+  }>,
+): Promise<LabMarkerNudge | null> {
+  const store = await loadTreatmentMarkers();
+  if (!store?.markers?.length || !reports?.length) return null;
+  const latest = [...reports].sort((a, b) =>
+    String(b.collectedAt || '').localeCompare(String(a.collectedAt || '')),
+  )[0];
+  if (!latest) return null;
+  for (const m of store.markers) {
+    const linked = (m.linkedLabCodes || []).map((c) => c.toUpperCase());
+    if (!linked.length) continue;
+    for (const panel of latest.panels || []) {
+      for (const r of panel.results || []) {
+        const code = String(r.code || '').trim().toUpperCase();
+        if (!code) continue;
+        const hit = linked.some(
+          (l) => code === l || code.includes(l) || l.includes(code),
+        );
+        if (!hit) continue;
+        const nudge: LabMarkerNudge = {
+          marker: m.marker,
+          labCode: code,
+          labValue: String(r.value ?? ''),
+          seenAt: new Date().toISOString(),
+        };
+        await saveLabMarkerNudge(nudge);
+        return nudge;
+      }
+    }
+  }
+  return null;
+}

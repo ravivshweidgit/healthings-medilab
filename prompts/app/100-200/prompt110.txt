@@ -78,20 +78,20 @@ as HARD in every AI macro decision, and show the patient *why* the number exists
 - Adherence charting in the clinic portal — be-41 phase 2 (needs this data shape)
 - Editing clinic markers in the app; multi-clinic merge (be-41 documents "latest org wins")
 - New micronutrients beyond the 8-code enum (clinical call, owner + clinic)
+- Auto past-meal backfill — **clinic-gated instead** (be-42): portal picks days, phone runs once
 
 ## Files
 
 | File | Change |
 |------|--------|
-| app/src/services/TreatmentMarkerService.ts | new — types, canonical key, load/save |
-| app/src/services/ClinicOverlayService.ts | pull markers alongside rules |
-| app/src/services/GeminiService.ts | meal schema extension; HARD lines in macro/chat/meal-check prompts |
+| app/src/services/TreatmentMarkerService.ts | types, canonical key, load/save |
+| app/src/services/ClinicOverlayService.ts | pull markers + pending backfill |
+| app/src/services/MarkersBackfillService.ts | phone execute + ack (be-42) |
+| app/src/services/GeminiService.ts | meal schema + marker-only estimate |
 | app/src/services/FoodLogService.ts | FoodEntry.markers + daily totals |
 | app/src/components/FoodMacroStrip.tsx | marker chips + provenance detail |
 | app/src/logic/macroAutoAdjust.ts | clinic cap/floor guard |
-| app/src/services/LabLogService.ts (or import flow) | post-import linked-code nudge |
-| app/src/i18n/* | marker labels + badge/nudge copy ×10 locales |
-| Backup/export services | include healthings:treatmentMarkers |
+| app/src/i18n/treatmentMarkersCopy.ts | marker labels + badge/nudge |
 
 ## Phone checklist
 
@@ -103,10 +103,12 @@ as HARD in every AI macro decision, and show the patient *why* the number exists
 - [ ] Backup export/import round-trip keeps markers (Android↔iOS shape identical)
 - [ ] he/ar RTL: chip labels + clinician note dir correct; units stay English
 - [ ] No markers set → zero UI change anywhere (regression)
+- [ ] be-42: clinic Fill past → phone estimates window → portal shows done count
 
 ## Related
 
-- be-41 — server/portal half + enum table (single source: keep enums in sync)
+- be-41 — server/portal half + enum table
+- be-42 — clinic-gated past meal marker backfill
 - ai-judgment-not-regex.mdc — estimation is judgment; sums/colors/triggers are code
 - persistence-parity.mdc — one canonical key, all export paths
 - COMPETITOR-SCORES: deepens Rules→closed-loop + Nutritionist sessions (+ clinic story)

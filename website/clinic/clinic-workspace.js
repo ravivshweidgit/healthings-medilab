@@ -1419,6 +1419,7 @@
         <button type="button" class="ws-btn primary" id="treat-save">${esc(t('wsTreatSave'))}</button>
         <span id="treat-status" class="sub"></span>
       </div>
+      ${renderBackfillBlock(ctx, draft)}
       <div id="treat-error" class="ws-inline-error" hidden role="alert"></div>
       <p class="rules-hint">${esc(t('wsTreatAdherenceStub'))}</p>`;
 
@@ -1485,6 +1486,81 @@
     });
 
     panel.querySelector('#treat-save')?.addEventListener('click', () => void saveMarkers(ctx, panel));
+    panel.querySelector('#treat-backfill')?.addEventListener('click', () => void requestBackfill(ctx, panel));
+  }
+
+  function renderBackfillBlock(ctx, draft) {
+    const bf = ctx.overlay?.markersBackfill;
+    const hasMarkers = Array.isArray(draft) && draft.length > 0;
+    let statusLine = '';
+    if (bf?.status === 'pending') {
+      statusLine = t('wsTreatBackfillPending', { days: String(bf.days || '') });
+    } else if (bf?.status === 'done') {
+      statusLine = t('wsTreatBackfillDone', {
+        count: String(bf.mealsUpdated != null ? bf.mealsUpdated : '—'),
+        days: String(bf.days || ''),
+      });
+    } else if (bf?.status === 'failed') {
+      statusLine = t('wsTreatBackfillFailed', {
+        error: bf.error || t('wsTreatBackfillFailedGeneric'),
+      });
+    }
+    const disabled = !hasMarkers || bf?.status === 'pending';
+    return `
+      <div class="treat-backfill" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border, #ddd)">
+        <p class="sub">${esc(t('wsTreatBackfillIntro'))}</p>
+        <div class="treat-add" style="align-items:flex-end">
+          <label class="treat-field">
+            <span>${esc(t('wsTreatBackfillDays'))}</span>
+            <select id="treat-backfill-days" ${disabled ? 'disabled' : ''}>
+              ${[7, 14, 30, 60, 90]
+                .map(
+                  (d) =>
+                    `<option value="${d}" ${d === 14 ? 'selected' : ''}>${d}</option>`,
+                )
+                .join('')}
+            </select>
+          </label>
+          <button type="button" class="ws-btn secondary" id="treat-backfill" ${disabled ? 'disabled' : ''}>
+            ${esc(t('wsTreatBackfillRun'))}
+          </button>
+        </div>
+        ${statusLine ? `<p class="sub treat-lab" id="treat-backfill-status">${esc(statusLine)}</p>` : '<p class="sub treat-lab" id="treat-backfill-status"></p>'}
+      </div>`;
+  }
+
+  async function requestBackfill(ctx, panel) {
+    const status = panel.querySelector('#treat-backfill-status');
+    const btn = panel.querySelector('#treat-backfill');
+    const err = panel.querySelector('#treat-error');
+    const days = Number(panel.querySelector('#treat-backfill-days')?.value || 14);
+    if (err) {
+      err.hidden = true;
+      err.innerHTML = '';
+    }
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = t('wsTreatBackfillRequesting');
+    try {
+      const res = await ctx.api(`/v1/clinic/patients/${ctx.patientId}/markers/backfill`, {
+        method: 'POST',
+        body: JSON.stringify({ days }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || t('wsTreatBackfillFailedGeneric'));
+      }
+      const data = await res.json();
+      if (data.overlay) ctx.overlay = data.overlay;
+      renderMarkers(panel, ctx);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : t('wsTreatBackfillFailedGeneric');
+      if (status) status.textContent = '';
+      if (err) {
+        err.hidden = false;
+        err.innerHTML = `<span>${esc(msg)}</span>`;
+      }
+      if (btn) btn.disabled = false;
+    }
   }
 
   async function saveMarkers(ctx, panel) {

@@ -32,7 +32,7 @@ import {
   type GeminiAnalysisResult,
   type GeminiTurn,
 } from '../services/GeminiService';
-import { saveMeal, deleteMeal, foodLogDayKey, getDailyMacros, getRecentMeals, getMealsForDay, type FoodEntry } from '../services/FoodLogService';
+import { saveMeal, deleteMeal, foodLogDayKey, getDailyMacros, getRecentMeals, getMealsForDay, entryMarkerTotals, type FoodEntry } from '../services/FoodLogService';
 import { logMethodTiming, PERF_WARN_AI_MS, PERF_WARN_MEAL_MS, timeAsync } from '../services/AppDailyLogService';
 import { formatLocalizedDate, formatLocalizedTime, formatFoodLogDayLabel } from '../i18n/dateLocale';
 import { getFoodLogAlertCopy } from '../i18n/foodLogAlertCopy';
@@ -769,6 +769,16 @@ export function FoodLogModal({
         'FoodLogModal.save',
         async () => {
           const totals = computeTotals(opts.mealItems);
+          const markers = entryMarkerTotals({
+            id: '',
+            timestamp: opts.timestamp,
+            items: opts.mealItems,
+            totalKcal: 0,
+            totalProtein_g: 0,
+            totalCarb_g: 0,
+            totalFat_g: 0,
+            source: 'manual',
+          });
           const saved = await saveMeal({
             id: opts.id,
             timestamp: opts.timestamp,
@@ -778,6 +788,7 @@ export function FoodLogModal({
             totalCarb_g: Math.round(totals.totalCarb_g * 10) / 10,
             totalFat_g: Math.round(totals.totalFat_g * 10) / 10,
             totalFiber_g: Math.round(totals.totalFiber_g * 10) / 10,
+            ...(Object.keys(markers).length > 0 ? { markers } : {}),
             source: opts.fromPhoto ? 'camera-ai' : opts.historyLen > 0 ? 'text-ai' : 'manual',
           });
           if (opts.stayOpen) {

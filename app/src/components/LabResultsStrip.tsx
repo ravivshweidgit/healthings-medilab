@@ -28,10 +28,12 @@ import {
   buildLabMarkerTrendSeries,
   buildLipidTrendPoints,
   exportLabLog,
+  getAllLabReports,
   importLabLog,
   listLabTrendMarkerOptions,
   type LabReport,
 } from '../services/LabLogService';
+import { maybeQueueLabMarkerNudgeFromReports } from '../services/TreatmentMarkerService';
 import type { Gender, UserLanguage } from '../services/TargetService';
 import { cardShadow, dashCardGap } from '../theme/wellness';
 import { useTheme } from '../theme/ThemeProvider';
@@ -200,6 +202,7 @@ export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function
   const handleSaved = useCallback(() => {
     onReportsChanged();
     closeModal();
+    void getAllLabReports().then((list) => maybeQueueLabMarkerNudgeFromReports(list));
     Alert.alert(copy.savedTitle, copy.savedBody);
   }, [closeModal, onReportsChanged, copy.savedTitle, copy.savedBody]);
 
@@ -226,6 +229,7 @@ export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function
       } else {
         Alert.alert(copy.importComplete, copy.importCount(count));
         onReportsChanged();
+        void getAllLabReports().then((list) => maybeQueueLabMarkerNudgeFromReports(list));
       }
     } catch (e: unknown) {
       Alert.alert(copy.importFailed, e instanceof Error ? e.message : String(e));

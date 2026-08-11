@@ -27,7 +27,13 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getBurnCorrection, setBurnCorrection } from '../services/BurnCorrectionService';
-import { getDailyMacros, foodLogDayKey, exportFoodLog, importFoodLog, type DailyMacros, type FoodEntry } from '../services/FoodLogService';
+import { getDailyMacros, foodLogDayKey, exportFoodLog, importFoodLog, dayMarkerTotals, type DailyMacros, type FoodEntry } from '../services/FoodLogService';
+import {
+  loadTreatmentMarkers,
+  type TreatmentMarker,
+} from '../services/TreatmentMarkerService';
+import { getAllLabReports, type LabReport } from '../services/LabLogService';
+import { getTreatmentMarkersCopy } from '../i18n/treatmentMarkersCopy';
 import {
   addWaterMl,
   DEFAULT_WATER_GOAL_ML,
@@ -286,7 +292,7 @@ type MacroBarProps = {
   color: string;
   showTarget?: boolean;
   /** Default grams (`g`). Energy/water pass already-converted display values. */
-  unit?: 'g' | 'kcal' | 'kj' | 'ml' | 'floz';
+  unit?: 'g' | 'mg' | 'kcal' | 'kj' | 'ml' | 'floz';
   /** Hitting the target is the win — no over-target penalty colour (water). */
   goalIsFloor?: boolean;
   onPress?: () => void;
@@ -299,13 +305,15 @@ function MacroBar({ label, value, target, color, showTarget, unit = 'g', goalIsF
   const met = goalIsFloor && target > 0 && value >= target;
   const over = !goalIsFloor && value > target * 1.05;
   const suffix =
-    unit === 'g' ? 'g' : unit === 'ml' ? 'ml' : unit === 'floz' ? 'fl oz' : unit === 'kj' ? '' : '';
+    unit === 'g' ? 'g' : unit === 'mg' ? 'mg' : unit === 'ml' ? 'ml' : unit === 'floz' ? 'fl oz' : unit === 'kj' ? '' : '';
   const valueText = showTarget
     ? unit === 'kcal' || unit === 'kj'
       ? `${Math.round(value)}/${Math.round(target)}${unit === 'kj' ? '' : ''}`
       : unit === 'floz'
         ? `${value.toFixed(1)}/${target.toFixed(1)}${suffix}`
-        : `${Math.round(value)}/${Math.round(target)}${suffix}`
+        : unit === 'mg'
+          ? `${Math.round(value)}/${Math.round(target)}${suffix}`
+          : `${Math.round(value)}/${Math.round(target)}${suffix}`
     : unit === 'kcal'
       ? `${Math.round(value)} kcal`
       : unit === 'kj'
@@ -433,6 +441,11 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   const [waterSheetVisible, setWaterSheetVisible] = useState(false);
   const [waterEntries, setWaterEntries] = useState<WaterEntry[]>([]);
   const [waterEntryEdit, setWaterEntryEdit] = useState<WaterEntry | null>(null);
+  const [treatmentMarkers, setTreatmentMarkers] = useState<TreatmentMarker[]>([]);
+  const [markerDayTotals, setMarkerDayTotals] = useState<Record<string, number>>({});
+  const [markerDetail, setMarkerDetail] = useState<TreatmentMarker | null>(null);
+  const [labReports, setLabReports] = useState<LabReport[]>([]);
+  const treatCopy = useMemo(() => getTreatmentMarkersCopy(lang?.code), [lang?.code]);
 
   const handleExport = useCallback(async () => {
     try {
@@ -482,13 +495,15 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
     await timeAsync(
       'FoodMacroStrip.load',
       async () => {
-        const [data, correction, dayTarget, dayWater, entries, goal] = await Promise.all([
+        const [data, correction, dayTarget, dayWater, entries, goal, treatStore, labs] = await Promise.all([
           getDailyMacros(activeDayKey),
           getBurnCorrection(activeDayKey),
           getMacroTargetForDay(activeDayKey),
           getWaterMl(activeDayKey),
           getWaterEntries(activeDayKey),
           getWaterGoalMl(),
+          loadTreatmentMarkers(),
+          getAllLabReports(),
         ]);
         setMacros(data);
         setBurnCorrectionState(correction);
@@ -496,6 +511,18 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
         setWaterMlState(dayWater);
         setWaterEntries(entries);
         setWaterGoalMlState(goal);
+        const markers = treatStore?.markers ?? [];
+        setTreatmentMarkers(markers);
+        setLabReports(labs);
+        if (markers.length > 0 && data?.entries) {
+          const { totals } = dayMarkerTotals(
+            data.entries,
+            markers.map((m) => m.marker),
+          );
+          setMarkerDayTotals(totals as Record<string, number>);
+        } else {
+          setMarkerDayTotals({});
+        }
       },
       {},
       PERF_WARN_MEAL_MS,
@@ -864,7 +891,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
 
       {/* Macro bars — meals/targets + always-on H2O */}
       <View style={[styles.barsWrap, { marginTop: 10 }]}>
-        {(!isEmpty || displayTarget) ? (
+        {(!isEmpty || displayTarget || treatmentMarkers.length > 0) ? (
           <>
             {displayTarget ? (
               <MacroBar
@@ -876,6 +903,8 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                 unit={energyBarUnit}
               />
             ) : null}
+            {(!isEmpty || displayTarget) ? (
+              <>
             <MacroBar label="P" value={macros?.protein_g ?? 0} target={displayTarget ? displayTarget.protein_g : maxMacro} color={COLOR_PROTEIN} showTarget={!!displayTarget} />
             <MacroBar label="C" value={macros?.carb_g    ?? 0} target={displayTarget ? displayTarget.carb_g    : maxMacro} color={COLOR_CARB}    showTarget={!!displayTarget} />
             <MacroBar label="F" value={macros?.fat_g     ?? 0} target={displayTarget ? displayTarget.fat_g     : maxMacro} color={COLOR_FAT}     showTarget={!!displayTarget} />
@@ -887,6 +916,30 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               color={COLOR_NET_CARB}
               showTarget={!!displayTarget}
             />
+              </>
+            ) : null}
+            {treatmentMarkers.map((m) => {
+              const val = markerDayTotals[m.marker];
+              const hasVal = val != null && Number.isFinite(val);
+              return (
+                <MacroBar
+                  key={m.marker}
+                  label={treatCopy.shortLabel[m.marker] ?? m.marker}
+                  value={hasVal ? val! : 0}
+                  target={m.dailyTarget}
+                  color="#8D6E63"
+                  showTarget
+                  unit={m.unit}
+                  goalIsFloor={m.direction === 'floor'}
+                  onPress={() => setMarkerDetail(m)}
+                />
+              );
+            })}
+            {treatmentMarkers.length > 0 ? (
+              <Text style={styles.treatClinicHint}>
+                {treatCopy.setByClinic} · {treatCopy.estimated}
+              </Text>
+            ) : null}
           </>
         ) : null}
         <MacroBar
@@ -964,6 +1017,66 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
       ) : null}
 
       {/* Burn correction modal */}
+      <Modal
+        visible={markerDetail != null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMarkerDetail(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setMarkerDetail(null)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            {markerDetail ? (
+              <>
+                <Text style={[styles.modalTitle, titleRtl && { textAlign: 'right' }]}>
+                  {treatCopy.fullLabel[markerDetail.marker] ?? markerDetail.marker}
+                </Text>
+                <Text style={[styles.modalSub, titleRtl && { textAlign: 'right' }]}>
+                  {treatCopy.setByClinic}
+                  {' · '}
+                  {markerDetail.direction === 'floor' ? treatCopy.floorLabel : treatCopy.capLabel}
+                  {` ${markerDetail.dailyTarget} ${markerDetail.unit}/day`}
+                </Text>
+                <Text style={[styles.modalSub, titleRtl && { textAlign: 'right' }]}>
+                  {(() => {
+                    const linked = markerDetail.linkedLabCodes || [];
+                    for (const report of labReports) {
+                      for (const panel of report.panels || []) {
+                        for (const r of panel.results || []) {
+                          const code = String(r.code || '').trim().toUpperCase();
+                          if (
+                            linked.includes(code) ||
+                            linked.some((l) => code === l || code.includes(l) || l.includes(code))
+                          ) {
+                            return treatCopy.labProvenance(
+                              code,
+                              String(r.value),
+                              String(report.collectedAt || '').slice(0, 10),
+                            );
+                          }
+                        }
+                      }
+                    }
+                    return treatCopy.noLab;
+                  })()}
+                </Text>
+                {markerDetail.note?.trim() ? (
+                  <Text
+                    style={[styles.modalSub, titleRtl && { textAlign: 'right' }]}
+                    // Patient/clinician free text — auto direction
+                  >
+                    {markerDetail.note.trim()}
+                  </Text>
+                ) : null}
+                <Text style={[styles.modalSub, { marginTop: 8 }]}>{treatCopy.estimated}</Text>
+                <Pressable style={styles.modalBtnSave} onPress={() => setMarkerDetail(null)}>
+                  <Text style={styles.modalBtnSaveText}>{treatCopy.nudgeDismiss}</Text>
+                </Pressable>
+              </>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <Modal visible={correctionModalVisible} transparent animationType="fade" onRequestClose={() => setCorrectionModalVisible(false)}>
         <KeyboardAvoidingView
           style={styles.modalKav}
@@ -1338,6 +1451,12 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     opacity: 0.9,
   },
   barsWrap: { marginBottom: 12 },
+  treatClinicHint: {
+    fontSize: 11,
+    color: c.textSecondary,
+    marginTop: 4,
+    marginBottom: 2,
+  },
   addActionsRow: {
     flexDirection: 'row',
     gap: 10,

@@ -191,7 +191,15 @@ import {
   loadWithingsTokens,
 } from '../services/WithingsApiService';
 import { type AuthUser, fetchCurrentUser, updatePatientNames } from '../services/AuthApiService';
-import { pullAccountRulesIfNewer, pullClinicOverlays } from '../services/ClinicOverlayService';
+import { pullAccountRulesIfNewer, pullClinicOverlaysFull } from '../services/ClinicOverlayService';
+import {
+  loadTreatmentMarkers,
+  loadLabMarkerNudge,
+  clearLabMarkerNudge,
+  treatmentMarkersHardBlock,
+  type LabMarkerNudge,
+} from '../services/TreatmentMarkerService';
+import { getTreatmentMarkersCopy } from '../i18n/treatmentMarkersCopy';
 import {
   CLINIC_SYNC_POLL_MS,
   fulfillPendingClinicSyncRequests,
@@ -443,6 +451,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [bodyTargetForMacros, setBodyTargetForMacros] = useState<BodyTarget | null>(null);
   const [mentors, setMentorsState] = useState<MentorType[]>(['coach', 'nutritionist']);
   const [userRules, setUserRules] = useState<UserRules | null>(null);
+  const [treatmentMarkersHard, setTreatmentMarkersHard] = useState<string | null>(null);
+  const [labMarkerNudge, setLabMarkerNudge] = useState<LabMarkerNudge | null>(null);
   const [labReports, setLabReports] = useState<LabReport[]>([]);
   const [labsAiContext, setLabsAiContext] = useState<string | null>(null);
   const [nutritionDirectiveContext, setNutritionDirectiveContext] = useState<string | null>(null);
@@ -1520,6 +1530,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       macroTarget: macroTarget ?? effectiveMacroTarget,
       bodyTarget: bodyTargetForMacros,
       userRules,
+      treatmentMarkersHard,
       labsAiContext,
       nutritionDirectiveContext,
       unitsDisplayHint: formatUnitsDisplayHint(unitsPrefs),
@@ -1529,7 +1540,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     return ctx;
   }, [
     mentors, userAge, userGender, userMentorGender, mentorGenderPicker, heightCm, effectiveBodyScan, fatPct, bodyTargetForMacros,
-    todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, mealGlucoseContext, glucoseData, macroTarget, effectiveMacroTarget, userRules, labsAiContext, nutritionDirectiveContext, userLanguage, unitsPrefs,
+    todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, mealGlucoseContext, glucoseData, macroTarget, effectiveMacroTarget, userRules, treatmentMarkersHard, labsAiContext, nutritionDirectiveContext, userLanguage, unitsPrefs,
   ]);
 
   /** Regenerate coach message using stored language (not stale React state). */
@@ -1621,11 +1632,20 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const applyClinicOverlays = useCallback(async () => {
     // Web-view rules first so a clinic overlay pull does not race past a newer account edit.
     const fromWeb = await pullAccountRulesIfNewer();
-    const fromClinic = await pullClinicOverlays();
-    const rules = fromClinic || fromWeb;
+    const fromClinic = await pullClinicOverlaysFull();
+    const rules = fromClinic.rules || fromWeb;
     if (rules) {
       setUserRules(rules);
       await loadCoachMessage();
+    }
+    const treat = fromClinic.markers ?? (await loadTreatmentMarkers());
+    setTreatmentMarkersHard(
+      treat?.markers?.length ? treatmentMarkersHardBlock(treat.markers) : null,
+    );
+    const nudge = await loadLabMarkerNudge();
+    setLabMarkerNudge(nudge);
+    if (fromClinic.backfillResult) {
+      foodMacroStripRef.current?.reload();
     }
   }, [loadCoachMessage]);
 
@@ -2401,6 +2421,28 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             }}
             onDismiss={dismissWhatsNext}
           />
+        ) : null}
+
+        {labMarkerNudge ? (
+          <View style={[styles.notice, { marginBottom: 8 }]}>
+            <Text style={styles.noticeText}>
+              {getTreatmentMarkersCopy(userLanguage.code).nudgeBody(
+                getTreatmentMarkersCopy(userLanguage.code).fullLabel[labMarkerNudge.marker] ??
+                  labMarkerNudge.marker,
+                labMarkerNudge.labCode,
+              )}
+            </Text>
+            <Pressable
+              onPress={() => {
+                void clearLabMarkerNudge().then(() => setLabMarkerNudge(null));
+              }}
+              hitSlop={8}
+            >
+              <Text style={styles.bodyScanEmptyAction}>
+                {getTreatmentMarkersCopy(userLanguage.code).nudgeDismiss}
+              </Text>
+            </Pressable>
+          </View>
         ) : null}
 
         {/* AI chat entry — always visible; mentors + optional action progress */}

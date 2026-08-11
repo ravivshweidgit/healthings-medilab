@@ -5,7 +5,11 @@ import {
   getMentorOrgId,
   recordPatientAccess,
 } from './clinicAccess.js';
-import type { TreatmentMarker, TreatmentMarkersPayload } from './treatmentMarkers.js';
+import type {
+  TreatmentMarker,
+  TreatmentMarkersPayload,
+  MarkersBackfillRequest,
+} from './treatmentMarkers.js';
 
 export type ClinicChatMessage = {
   role: 'user' | 'assistant';
@@ -28,6 +32,8 @@ export type ClinicOverlay = {
   rules: ClinicUserRules | null;
   /** Clinic-set treatment markers (be-41). Null when unset. */
   markers: TreatmentMarker[] | null;
+  /** Clinic-opt-in past meal marker fill — phone executes when pending. */
+  markersBackfill: MarkersBackfillRequest | null;
   chat: Record<string, ClinicChatMessage[]>;
   updatedAt: string;
   updatedBy: string | null;
@@ -92,10 +98,21 @@ function markersFromRow(row: OrgOverlayRow | null | undefined): TreatmentMarker[
   return payload.markers;
 }
 
+function backfillFromRow(
+  row: OrgOverlayRow | null | undefined,
+  forPatient: boolean,
+): MarkersBackfillRequest | null {
+  const b = row?.markers_json?.backfill;
+  if (!b || typeof b !== 'object' || !b.id) return null;
+  if (forPatient && b.status !== 'pending') return null;
+  return b;
+}
+
 function mergeOverlay(
   patientId: string,
   rulesRow: OrgOverlayRow | null | undefined,
   chatRow: ChatRow | null | undefined,
+  forPatient = false,
 ): ClinicOverlay {
   const rulesAt = rulesRow?.updated_at?.getTime() ?? 0;
   const chatAt = chatRow?.updated_at?.getTime() ?? 0;
@@ -104,6 +121,7 @@ function mergeOverlay(
     patientId,
     rules: rulesRow?.rules_json ?? null,
     markers: markersFromRow(rulesRow),
+    markersBackfill: backfillFromRow(rulesRow, forPatient),
     chat: chatRow?.chat_json ?? {},
     updatedAt: latest > 0 ? new Date(latest).toISOString() : new Date(0).toISOString(),
     updatedBy: rulesRow?.updated_by ?? null,
@@ -142,7 +160,7 @@ export async function getOverlayForMentor(mentor: PublicUser, patientId: string)
     action: 'chat.read',
   });
 
-  return mergeOverlay(patientId, ruleRows[0], chatRows[0]);
+  return mergeOverlay(patientId, ruleRows[0], chatRows[0], false);
 }
 
 /**
@@ -163,7 +181,7 @@ export async function getOverlayForPatient(patient: PublicUser): Promise<ClinicO
     [patient.id],
   );
   if (!rows[0]) return null;
-  return mergeOverlay(patient.id, rows[0], null);
+  return mergeOverlay(patient.id, rows[0], null, true);
 }
 
 async function archiveRulesHistory(

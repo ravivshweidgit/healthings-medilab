@@ -30,6 +30,7 @@ Run in this order. The reason is the dependency, not preference.
 | `be-39-clinic-chat-128d-food.md` | Clinic chat 128d full food items | needs-review | Owner: do not hide meal items from clinic AI (Natali Jul 22) |
 | `be-40-gemini-proxy.md` | Gemini proxy — key out of the APK | needs-review | Play internal 1.2.31 (60) live. Pending: testers update, then key rotation |
 | `be-41-clinic-treatment-markers.md` | Clinic-set treatment markers (custom macros) | needs-review | Implemented; pending VPS migrate + portal deploy smoke. Max 3. Then prompt110 |
+| `be-42-markers-backfill.md` | Clinic-gated past meal marker fill | needs-review | Portal days + phone execute; caps 90d / 80 meals |
 
 ## Done
 

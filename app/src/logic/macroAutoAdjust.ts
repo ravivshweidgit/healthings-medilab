@@ -18,6 +18,10 @@ import {
 } from './macroFiberCoupling';
 import { buildPeriodReviewBlock, get7DayAverageBurnKcal, get7DayAverageEatenKcal, get7DayAverageEatenCarb_g } from '../services/ReviewService';
 import {
+  loadTreatmentMarkers,
+  treatmentMarkersHardBlock,
+} from '../services/TreatmentMarkerService';
+import {
   buildLabsForMacroRevision,
   formatKidneyMarkersSummary,
   getLatestGlycemicLabStatus,
@@ -763,12 +767,16 @@ export async function buildMacroRevisionBundle(opts: {
   const weightTrend14 = formatWeightTrendLines(store.bodyTrendDays, 14);
   const weightDelta14dKg = weightDeltaKg(store.bodyTrendDays, 14);
   const bodyTrend28 = formatBodyCompTrendLines(store.bodyTrendDays, 28);
-  const [labs, kidneyLabStatus, lipidLabStatus, glycemicLabStatus] = await Promise.all([
+  const [labs, kidneyLabStatus, lipidLabStatus, glycemicLabStatus, treatStore] = await Promise.all([
     buildLabsForMacroRevision(),
     getLatestKidneyLabStatus(),
     getLatestLipidLabStatus(),
     getLatestGlycemicLabStatus(),
+    loadTreatmentMarkers(),
   ]);
+
+  const treatmentMarkersBlock =
+    treatStore?.markers?.length ? treatmentMarkersHardBlock(treatStore.markers) : null;
 
   const header = `=== MACRO REVISION (${opts.trigger}${opts.triggerDetail ? `: ${opts.triggerDetail}` : ''}) ===`;
 
@@ -837,6 +845,7 @@ export async function buildMacroRevisionBundle(opts: {
     nutritionDirectiveContext,
     directiveMacros ? formatDirectiveMacroHardBlock(directiveMacros) : null,
     userRules ? formatMacroRevisionRulesBlock(userRules) : null,
+    treatmentMarkersBlock,
     formatProfileBasics({ age, gender, heightCm, weightKg, fatMassKg, bmr_kcal, leanMassKg, avgBurn7d }),
     weightTrend14,
     // Omit burn-based ENERGY BALANCE when directive sets kcal — it was anchoring ~2500.

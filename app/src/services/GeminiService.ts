@@ -29,6 +29,16 @@ import type { ParsedLabPdf, LabPanelType, LabResult, LabResultFlag } from './Lab
 import type { TimePoint } from './HealthConnectService';
 import type { UnitsPrefs } from './UnitsPreferenceService';
 import {
+  extractMarkersFromFoodItem,
+  dietMarkerJsonField,
+  loadTreatmentMarkers,
+  mealMarkerSchemaHint,
+  treatmentMarkersHardBlock,
+  type DietMarkerCode,
+  type MarkerAmounts,
+  type TreatmentMarker,
+} from './TreatmentMarkerService';
+import {
   buildPeriodReviewBlock,
   detectPeriodReviewQuery,
   PERIOD_REVIEW_CHAT_INSTRUCTION,
@@ -125,12 +135,17 @@ export function buildFoodSystemPrompt(
   lang?: UserLanguage | null,
   userRules?: UserRules | null,
   foodLogHistory?: string | null,
+  treatmentMarkers?: TreatmentMarker[] | null,
 ): string {
   const langNote = foodJsonLangInstruction(lang);
   let prompt = langNote ? `${SYSTEM_PROMPT}${langNote}` : SYSTEM_PROMPT;
   if (userRules) {
     prompt += `\n\nUSER DIETARY RULES (same as Nutritionist mentor — apply on every analysis):\n${formatMacroRevisionRulesBlock(userRules)}`;
     prompt += `\n\n${MEAL_FAT_RULE_FLAGGING_GUIDANCE}`;
+  }
+  if (treatmentMarkers && treatmentMarkers.length > 0) {
+    prompt += `\n\n${treatmentMarkersHardBlock(treatmentMarkers)}`;
+    prompt += `\n\n${mealMarkerSchemaHint(treatmentMarkers)}`;
   }
   if (foodLogHistory?.trim()) {
     prompt += `\n\n${foodLogHistory.trim()}`;
@@ -608,6 +623,8 @@ export type FoodItem = {
   carb_g: number;
   fat_g: number;
   fiber_g: number;
+  /** Clinic treatment-marker estimates for this item (prompt110). */
+  markers?: MarkerAmounts;
   /** True when this item violates the user's My Rules (set by Gemini). */
   rule_conflict?: boolean;
   /** Short reason when rule_conflict is true. */
@@ -701,7 +718,11 @@ function computeTotals(items: FoodItem[]): { totalKcal: number; totalProtein_g: 
   );
 }
 
-function parseGeminiJson(raw: string, finishReason = 'STOP'): GeminiAnalysisResult {
+function parseGeminiJson(
+  raw: string,
+  finishReason = 'STOP',
+  activeMarkers: DietMarkerCode[] = [],
+): GeminiAnalysisResult {
   try {
     // Strip markdown fences, then find the first { ... } block in case Gemini
     // prepends prose like "Here is the analysis:" before the JSON.
@@ -710,24 +731,31 @@ function parseGeminiJson(raw: string, finishReason = 'STOP'): GeminiAnalysisResu
     const end = stripped.lastIndexOf('}');
     const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
     const parsed = JSON.parse(cleaned);
-    const items: FoodItem[] = Array.isArray(parsed.items) ? parsed.items.map((it: Partial<FoodItem>) => ({
-      name: String(it.name ?? 'Unknown food'),
-      name_local: it.name_local,
-      grams: Number(it.grams ?? 0),
-      kcal: Math.round(Number(it.kcal ?? 0)),
-      protein_g: Math.round(Number(it.protein_g ?? 0) * 10) / 10,
-      carb_g: Math.round(Number(it.carb_g ?? 0) * 10) / 10,
-      fat_g: Math.round(Number(it.fat_g ?? 0) * 10) / 10,
-      fiber_g: Math.round(Number(it.fiber_g ?? 0) * 10) / 10,
-      rule_conflict: Boolean(it.rule_conflict),
-      rule_message: it.rule_message ? String(it.rule_message) : undefined,
-      rule_severity:
-        it.rule_conflict
-          ? (String((it as { rule_severity?: string }).rule_severity ?? '').toLowerCase() === 'critical'
-            ? 'critical'
-            : 'warning')
-          : undefined,
-    })) : [];
+    const items: FoodItem[] = Array.isArray(parsed.items) ? parsed.items.map((it: Partial<FoodItem> & Record<string, unknown>) => {
+      const markers =
+        activeMarkers.length > 0
+          ? extractMarkersFromFoodItem(it as Record<string, unknown>, activeMarkers)
+          : undefined;
+      return {
+        name: String(it.name ?? 'Unknown food'),
+        name_local: it.name_local,
+        grams: Number(it.grams ?? 0),
+        kcal: Math.round(Number(it.kcal ?? 0)),
+        protein_g: Math.round(Number(it.protein_g ?? 0) * 10) / 10,
+        carb_g: Math.round(Number(it.carb_g ?? 0) * 10) / 10,
+        fat_g: Math.round(Number(it.fat_g ?? 0) * 10) / 10,
+        fiber_g: Math.round(Number(it.fiber_g ?? 0) * 10) / 10,
+        ...(markers && Object.keys(markers).length > 0 ? { markers } : {}),
+        rule_conflict: Boolean(it.rule_conflict),
+        rule_message: it.rule_message ? String(it.rule_message) : undefined,
+        rule_severity:
+          it.rule_conflict
+            ? (String((it as { rule_severity?: string }).rule_severity ?? '').toLowerCase() === 'critical'
+              ? 'critical'
+              : 'warning')
+            : undefined,
+      };
+    }) : [];
     return {
       items,
       confidence: (parsed.confidence === 'high' || parsed.confidence === 'medium' || parsed.confidence === 'low')
@@ -779,7 +807,15 @@ export async function analyzeFood(
 
   await assertCanSpendCredits('ai_meal');
 
-  const systemPromptWithLang = buildFoodSystemPrompt(lang, userRules, foodLogHistory);
+  const markerStore = await loadTreatmentMarkers();
+  const treatmentMarkers = markerStore?.markers ?? [];
+  const activeMarkerCodes = treatmentMarkers.map((m) => m.marker);
+  const systemPromptWithLang = buildFoodSystemPrompt(
+    lang,
+    userRules,
+    foodLogHistory,
+    treatmentMarkers,
+  );
 
   // Prepend system prompt as a synthetic user/model exchange (compatible with all API versions).
   const readyLine =
@@ -882,7 +918,7 @@ export async function analyzeFood(
     throw new Error(`Gemini returned empty response (finishReason: ${finishReason}). Check API key.`);
   }
 
-  const result = parseGeminiJson(rawText, finishReason);
+  const result = parseGeminiJson(rawText, finishReason, activeMarkerCodes);
 
   const newUserTurn: GeminiTurn = { role: 'user', text: userText, imageBase64: imageBase64 ?? undefined };
   const modelTurn: GeminiTurn = { role: 'model', text: rawText };
@@ -897,6 +933,97 @@ export async function analyzeFood(
     result,
     updatedHistory: [...systemHistoryTurns, ...history, newUserTurn, modelTurn],
   };
+}
+
+/**
+ * Marker-only re-estimate for already-saved meals (clinic backfill).
+ * Does not change P/C/F/kcal — only attaches marker fields per item.
+ */
+export async function estimateMarkersForSavedMeals(
+  meals: Array<{ id: string; items: FoodItem[] }>,
+  markers: TreatmentMarker[],
+): Promise<Map<string, FoodItem[]>> {
+  const out = new Map<string, FoodItem[]>();
+  if (!meals.length || !markers.length) return out;
+
+  await assertCanSpendCredits('ai_meal');
+
+  const codes = markers.map((m) => m.marker);
+  const fieldHint = markers
+    .map((m) => `"${dietMarkerJsonField(m.marker)}":0.0 /* ${m.marker} ${m.unit} */`)
+    .join(', ');
+
+  const mealBlocks = meals.map((meal) => {
+    const items = meal.items.map((it, idx) => ({
+      i: idx,
+      name: it.name,
+      name_local: it.name_local,
+      grams: it.grams,
+      kcal: it.kcal,
+      protein_g: it.protein_g,
+      carb_g: it.carb_g,
+      fat_g: it.fat_g,
+      fiber_g: it.fiber_g ?? 0,
+    }));
+    return { id: meal.id, items };
+  });
+
+  const prompt = `You estimate clinic treatment markers for already-logged meals.
+Do NOT change macros (kcal/P/C/F/fiber). Only estimate the marker fields listed.
+Return JSON ONLY:
+{"meals":[{"id":"...","items":[{${fieldHint}}]}]}
+Same meal ids, same item count and order as input.
+Markers to estimate: ${markers.map((m) => `${m.marker} (${m.direction} ${m.dailyTarget}${m.unit}/day)`).join('; ')}.
+Best-effort estimates; use 0.0 when negligible.
+
+INPUT:
+${JSON.stringify({ meals: mealBlocks })}`;
+
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: geminiGenerationConfig({
+      temperature: 0,
+      maxOutputTokens: 4096,
+      responseMimeType: 'application/json',
+    }),
+  };
+
+  const response = await geminiGenerate('ai_meal', body);
+  if (!response.ok) {
+    const err = await response.text().catch(() => '');
+    throw new Error(`Marker estimate failed ${response.status}: ${err.slice(0, 160)}`);
+  }
+  const json = await response.json();
+  const raw = extractGeminiText(json?.candidates?.[0]);
+  if (!raw) throw new Error('Empty marker estimate response');
+
+  const stripped = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  const start = stripped.indexOf('{');
+  const end = stripped.lastIndexOf('}');
+  const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+  const parsed = JSON.parse(cleaned) as {
+    meals?: Array<{ id?: string; items?: Array<Record<string, unknown>> }>;
+  };
+  const byId = new Map(
+    (parsed.meals || [])
+      .filter((m) => m && m.id)
+      .map((m) => [String(m.id), m.items || []] as const),
+  );
+
+  for (const meal of meals) {
+    const estimated = byId.get(meal.id);
+    if (!estimated) continue;
+    const items = meal.items.map((it, idx) => {
+      const row = estimated[idx] as Record<string, unknown> | undefined;
+      const markersAmt = row ? extractMarkersFromFoodItem(row, codes) : {};
+      return {
+        ...it,
+        ...(Object.keys(markersAmt).length ? { markers: markersAmt } : {}),
+      };
+    });
+    out.set(meal.id, items);
+  }
+  return out;
 }
 
 export { computeTotals };
@@ -2053,6 +2180,8 @@ export type CoachContext = {
   macroTarget: DailyMacroTarget | null;
   bodyTarget: BodyTarget | null;
   userRules: UserRules | null;
+  /** Clinic treatment markers HARD block (prompt110). */
+  treatmentMarkersHard?: string | null;
   /** All saved lab draws formatted for mentors (from LabLogService). */
   labsAiContext: string | null;
   /** Active nutritionist session directive (authoritative over My Rules). */
@@ -2156,6 +2285,7 @@ function buildProfileTargetsHeader(ctx: CoachContext, opts?: { omitMacroTarget?:
       : []),
     ...(ctx.nutritionDirectiveContext ? [ctx.nutritionDirectiveContext] : []),
     ...(ctx.userRules ? formatUserRulesForContext(ctx.userRules) : []),
+    ...(ctx.treatmentMarkersHard ? [ctx.treatmentMarkersHard] : []),
     ...(ctx.labsAiContext ? [ctx.labsAiContext] : []),
   ].filter((l): l is string => Boolean(l));
 }

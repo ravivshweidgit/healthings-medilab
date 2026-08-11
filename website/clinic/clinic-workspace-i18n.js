@@ -2210,6 +2210,15 @@
       wsTreatAdherenceStub:
         'Adherence charting — needs app build with meal marker estimates (prompt110).',
       wsTreatPick: 'Choose a marker…',
+      wsTreatBackfillIntro:
+        'Past meals were logged without these markers. Request a one-shot fill — the phone estimates only missing values for the chosen window (uses AI credits).',
+      wsTreatBackfillDays: 'Days to fill',
+      wsTreatBackfillRun: 'Fill past meals on phone',
+      wsTreatBackfillRequesting: 'Queuing…',
+      wsTreatBackfillPending: 'Pending on phone — last {days} days. Opens app to run.',
+      wsTreatBackfillDone: 'Phone filled {count} meals (last {days} days).',
+      wsTreatBackfillFailed: 'Phone fill failed: {error}',
+      wsTreatBackfillFailedGeneric: 'Could not queue past fill',
       wsTreat_SAT_FAT_G: 'Saturated fat',
       wsTreat_CHOLESTEROL_MG: 'Dietary cholesterol',
       wsTreat_SOLUBLE_FIBER_G: 'Soluble fiber',
@@ -2242,6 +2251,15 @@
       wsTreatAdherenceStub:
         'תרשים היענות — דורש גרסת אפליקציה עם הערכת מדדים בארוחה (prompt110).',
       wsTreatPick: 'בחרו מדד…',
+      wsTreatBackfillIntro:
+        'ארוחות ישנות נשמרו בלי המדדים האלה. בקשו מילוי חד־פעמי — הטלפון יעריך רק ערכים חסרים בחלון שנבחר (צורך קרדיטי AI).',
+      wsTreatBackfillDays: 'ימים למילוי',
+      wsTreatBackfillRun: 'מילוי ארוחות ישנות בטלפון',
+      wsTreatBackfillRequesting: 'שולח…',
+      wsTreatBackfillPending: 'ממתין בטלפון — {days} הימים האחרונים. יירוץ בפתיחת האפליקציה.',
+      wsTreatBackfillDone: 'הטלפון מילא {count} ארוחות ({days} ימים).',
+      wsTreatBackfillFailed: 'המילוי נכשל: {error}',
+      wsTreatBackfillFailedGeneric: 'לא ניתן לשלוח בקשת מילוי',
       wsTreat_SAT_FAT_G: 'שומן רווי',
       wsTreat_CHOLESTEROL_MG: 'כולסטרול תזונתי',
       wsTreat_SOLUBLE_FIBER_G: 'סיבים מסיסים',

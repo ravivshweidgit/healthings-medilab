@@ -14,6 +14,11 @@ import {
 import {
   dietMarkerCatalog,
   saveMarkersForPatient,
+  requestMarkersBackfill,
+  ackMarkersBackfill,
+  MARKERS_BACKFILL_DEFAULT_DAYS,
+  MARKERS_BACKFILL_MAX_DAYS,
+  MARKERS_BACKFILL_MIN_DAYS,
 } from '../services/treatmentMarkers.js';
 import { saveDietaryRules } from '../services/dietaryRules.js';
 import { CLINIC_CHAT_LOCALES, mentorChatReply } from '../services/geminiClinic.js';
@@ -116,11 +121,59 @@ export async function registerClinicRoutes(app: FastifyInstance) {
     if (!user) return reply.code(404).send({ error: 'User not found' });
     try {
       const overlay = await saveMarkersForPatient(user, params.patientId, body.markers);
-      return { overlay, markers: overlay.markers };
+      return { overlay, markers: overlay.markers, markersBackfill: overlay.markersBackfill };
     } catch (err) {
       if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
       request.log.error(err);
       return reply.code(500).send({ error: 'Failed to save markers' });
+    }
+  });
+
+  /** Clinic: queue past-meal marker estimates on the patient's phone. */
+  app.post('/v1/clinic/patients/:patientId/markers/backfill', { preHandler: authenticate }, async (request, reply) => {
+    const params = z.object({ patientId: z.string().uuid() }).parse(request.params);
+    const body = z
+      .object({
+        days: z
+          .number()
+          .int()
+          .min(MARKERS_BACKFILL_MIN_DAYS)
+          .max(MARKERS_BACKFILL_MAX_DAYS)
+          .optional()
+          .default(MARKERS_BACKFILL_DEFAULT_DAYS),
+      })
+      .parse(request.body ?? {});
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    try {
+      const overlay = await requestMarkersBackfill(user, params.patientId, body.days);
+      return { overlay, markersBackfill: overlay.markersBackfill };
+    } catch (err) {
+      if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
+      request.log.error(err);
+      return reply.code(500).send({ error: 'Failed to request marker backfill' });
+    }
+  });
+
+  /** Patient phone: report past-meal marker fill finished. */
+  app.post('/v1/clinic/overlays/markers-backfill/ack', { preHandler: authenticate }, async (request, reply) => {
+    const body = z
+      .object({
+        id: z.string().uuid(),
+        status: z.enum(['done', 'failed']),
+        mealsUpdated: z.number().int().min(0).optional(),
+        error: z.string().max(500).optional(),
+      })
+      .parse(request.body);
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    try {
+      const result = await ackMarkersBackfill(user, body);
+      return result;
+    } catch (err) {
+      if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
+      request.log.error(err);
+      return reply.code(500).send({ error: 'Failed to ack marker backfill' });
     }
   });
 
