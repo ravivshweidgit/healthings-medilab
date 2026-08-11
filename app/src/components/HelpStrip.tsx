@@ -20,6 +20,7 @@ import { helpUrl, type HelpSlug } from '../i18n/helpUrls';
 import { askAppHelp } from '../services/GeminiService';
 import { OutOfCreditsError } from '../services/UsageQueueService';
 import type { UserLanguage } from '../services/TargetService';
+import { dashNavLabel, type DashNavTarget } from '../logic/dashboardNav';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { StripIcons } from '../theme/icons';
@@ -29,6 +30,7 @@ type Props = {
   expanded: boolean;
   onToggleExpand: () => void;
   lang: UserLanguage;
+  onNavigate?: (target: DashNavTarget) => void;
 };
 
 const TOPIC_CHIPS: { slug: HelpSlug; labelEn: string }[] = [
@@ -38,7 +40,7 @@ const TOPIC_CHIPS: { slug: HelpSlug; labelEn: string }[] = [
   { slug: 'withings-link', labelEn: 'Withings' },
 ];
 
-export function HelpStrip({ expanded, onToggleExpand, lang }: Props) {
+export function HelpStrip({ expanded, onToggleExpand, lang, onNavigate }: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const t = getHelpStripCopy(lang.code);
@@ -47,6 +49,7 @@ export function HelpStrip({ expanded, onToggleExpand, lang }: Props) {
 
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<string | null>(null);
+  const [navTargets, setNavTargets] = useState<DashNavTarget[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,9 +59,11 @@ export function HelpStrip({ expanded, onToggleExpand, lang }: Props) {
     setBusy(true);
     setError(null);
     setAnswer(null);
+    setNavTargets([]);
     try {
-      const text = await askAppHelp(q, lang);
-      setAnswer(text);
+      const result = await askAppHelp(q, lang);
+      setAnswer(result.text);
+      setNavTargets(result.targets);
     } catch (e) {
       if (e instanceof OutOfCreditsError) {
         setError(t.outOfCredits);
@@ -112,6 +117,23 @@ export function HelpStrip({ expanded, onToggleExpand, lang }: Props) {
           {answer ? (
             <View style={styles.answerCard}>
               <Text style={[styles.answerText, rtl && styles.textRtl]}>{answer}</Text>
+              {onNavigate && navTargets.length > 0 ? (
+                <View style={styles.navChipRow}>
+                  {navTargets.map((target) => (
+                    <Pressable
+                      key={target}
+                      style={styles.navChip}
+                      onPress={() => onNavigate(target)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${t.openPrefix} ${dashNavLabel(target, lang.code)}`}
+                    >
+                      <Text style={[styles.navChipText, rtl && styles.textRtl]}>
+                        {t.openPrefix} {dashNavLabel(target, lang.code)}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
             </View>
           ) : null}
 
@@ -202,6 +224,23 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
       borderColor: c.gridLine,
       padding: 12,
       backgroundColor: isDark ? c.background : c.surface,
+    },
+    navChipRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginTop: 12,
+    },
+    navChip: {
+      borderRadius: 10,
+      backgroundColor: c.accentBlue,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    navChipText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: '#fff',
     },
     answerText: {
       fontSize: 14,

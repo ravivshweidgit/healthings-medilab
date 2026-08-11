@@ -109,10 +109,18 @@ Same product, two modes: **Healthings.AI** = app alone · **Healthings + clinic*
 | **Food logging** (photo / AI chat / reuse / item g) | 5% | **88** | **88** | 78 | 72 | **90** | 25 | 5 |
 | **Choose your real nutritionist** | 5% | **0** | **98** | 32 | 35 | 15 | 10 | 10 |
 | **Nutritionist sessions** (human visit + brief) | 8% | 42 | **93** | **90** | 74 | 18 | 12 | 12 |
-| **UX / polish / retention** | 4% | **71** | **74** | **88** | **85** | 80 | **82** | **78** |
+| **UX / polish / retention** | 4% | **74** | **77** | **88** | **85** | 80 | **82** | **78** |
 | **Language / local** (IL, multi-lang AI) | 4% | **85** | **85** | 35 | 35 | 70 | 75 | 75 |
 | **Setup ease** (higher = easier) | 4% | **69** | **69** | **82** | **80** | **85** | **90** | **88** |
 | **TOTAL (weighted)** | **100%** | **82** | **90** | **60** | **60** | **41** | **32** | **33** |
+
+**Rescore note (2026-08-12, prompt109 fluid AI Help):** Help answers stay in place;
+chips jump to the surface (Data sharing, Lab Results + lipids, Food Log, …) with
+exclusive expand + center pulse — **Help stays open**. Competitor factor: Nora /
+Levels chat do not drive a long fusion dashboard; Libre / Withings = articles;
+DIY ChatGPT cannot open Cronometer. Counts inside the **UX / polish / retention**
+4% band (not a new category; not AI chats). **UX** **71→74** (solo) / **74→77**
+(+ clinic). Still below Nutrisense **88**. Weighted overall stays **~82 / ~90**.
 
 **Rescore note (2026-08):** Added **Privacy / local-first (6%)** — phone is source of truth; AI/clinic are opt-in pipes, not the vault. Healthings **92** (solo) / **88** (+nutritionist, explicit clinic share). Nutrisense **38**, Levels **40** (cloud membership). Food logging already **88**. Overall solo **82→83**, +nutritionist **89**; Nutrisense **64→62**, Levels **64→63**.
 
@@ -221,7 +229,8 @@ quadrantChart
 | CGM meal feedback | ✅ `/7` | ✅ meal scores | Tie / Nutrisense UX |
 | **Choose your real nutritionist** | ❌ solo **0** → ✅ + clinic (your email) | ⚠️ **their** nutritionist network | **Healthings + clinic** |
 | Real dietitian *included in membership* | ❌ → clinic / pay clinic | ✅ packaged | **Nutrisense** (access in box) |
-| App polish & onboarding | ⚠️ | ✅ | **Nutrisense** |
+| App polish & onboarding | ⚠️ climbing (Help chips → surface) | ✅ | **Nutrisense** (still) |
+| Fluid Help (answer → Open strip) | ✅ chip → exclusive expand + center | ❌ chat tab / articles | **Healthings.AI** |
 | AI chats (full metabolic file in prompt) | ✅ Gemini + `/macros` `/7` | ✅ Nora (polished, thinner file) | **Healthings.AI** (context) |
 | Charts: glucose + HR + meals + energy | ✅ one MetabolicChart | ⚠️ glu+meals+activity (less HR/kcal strip) | **Healthings.AI** |
 | Coach weekly brief (complex client) | ✅ rich | ⚠️ thinner | **Healthings.AI** |
@@ -284,6 +293,7 @@ Scores **flip** when the job is not the ICP:
 | 2026-08-08 | **Choose your real nutritionist** (5%); rename → **Healthings + clinic**; solo Choose **0**; drop **Human coach** → Sessions **8%**; solo overall **81**, + clinic **89** |
 | 2026-08-08 | prompt107 Watch explainers: **Setup** **56→64**, **UX / polish** **60→63** / **64→67**; overall solo **82**, + clinic **90** |
 | 2026-08-08 | Polish ladder P1+2: **UX / polish** **63→71** / **67→74**, **Setup** **64→69**; path to ≥80 still open |
+| 2026-08-12 | prompt109 fluid AI Help chips: **UX** **71→74** / **74→77**; overall ~**82 / 90** |
 
 ---
 

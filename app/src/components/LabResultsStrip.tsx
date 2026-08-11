@@ -2,7 +2,14 @@
  * Lab results — dashboard card (same pattern as FoodMacroStrip).
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -39,6 +46,12 @@ const EXPANDED_KEY = 'dash_lab_results_expanded';
 const LIPID_EXPANDED_KEY = 'dash_lab_lipid_chart_expanded';
 const CUSTOM_EXPANDED_KEY = 'dash_lab_custom_chart_expanded';
 
+export type LabResultsStripHandle = {
+  /** Help nav focus: open strip + lipid chart. */
+  expand: () => void;
+  collapse: () => void;
+};
+
 type Props = {
   reports: LabReport[];
   onReportsChanged: () => void;
@@ -70,7 +83,10 @@ function highlightResult(report: LabReport): string | null {
   return null;
 }
 
-export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Props) {
+export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function LabResultsStrip(
+  { reports, onReportsChanged, lang, gender },
+  ref,
+) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -146,11 +162,22 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
     else void AsyncStorage.removeItem(LAB_CUSTOM_TREND_CODE_KEY);
   }, [customCode, prefsLoaded]);
 
-  /** Drop stale pick if that marker vanished after deletes. */
   useEffect(() => {
     if (!customCode) return;
     if (!markerOptions.some((m) => m.code === customCode)) setCustomCode(null);
   }, [customCode, markerOptions]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      expand: () => {
+        setExpanded(true);
+        setLipidExpanded(true);
+      },
+      collapse: () => setExpanded(false),
+    }),
+    [],
+  );
 
   const openImport = useCallback(() => {
     setViewReport(null);
@@ -421,7 +448,7 @@ export function LabResultsStrip({ reports, onReportsChanged, lang, gender }: Pro
       />
     </View>
   );
-}
+});
 
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({

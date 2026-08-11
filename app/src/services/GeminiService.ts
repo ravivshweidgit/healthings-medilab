@@ -1,4 +1,5 @@
 import { buildAppHelpKnowledgeBlock } from '../help/AppHelpKnowledge';
+import { DASH_NAV_TARGET_LIST, splitHelpTargets, type HelpNavResult } from '../logic/dashboardNav';
 import { geminiGenerate } from './GeminiProxyService';
 import { assertCanSpendCredits, OutOfCreditsError } from './UsageQueueService';
 
@@ -2786,9 +2787,9 @@ export async function summariseChatDay(history: ChatMessage[]): Promise<string> 
 export async function askAppHelp(
   question: string,
   lang?: UserLanguage | null,
-): Promise<string> {
+): Promise<HelpNavResult> {
   const q = question.trim();
-  if (!q) return '';
+  if (!q) return { text: '', targets: [] };
 
   await assertCanSpendCredits('ai_help');
 
@@ -2799,8 +2800,12 @@ Rules:
 - Answer ONLY from the KNOWLEDGE block below. If something is not covered, say you are not sure and suggest Profile & Settings or the website help pages.
 - Do NOT give medical diagnoses, prescriptions, or personalised clinical advice. Redirect health coaching to the AI chat mentors.
 - Do NOT invent buttons, screens, or settings that are not in KNOWLEDGE.
-- Be concise (short paragraphs or a short numbered list). Prefer concrete taps: e.g. Profile & Settings → Gear.
+- Prefer concrete taps: e.g. Profile & Settings → Gear.
 - Keep unit symbols and brand/acronym glossary in English (kcal, kg, CGM, Withings, BMR, AI).
+- HOW-TO-USE / GOAL questions (cholesterol, labs, dietitian, “how do I use the app”): cover ALL three phases in KNOWLEDGE [goal-loop]. Phase A: labs → Share with the licensed nutritionist → she sets My Rules → macros + gear. Phase B daily cycle: scale, watch, how to Log Meal, Food Log meters (eaten / burned / deficit / macros), glucose chart, Nutritionist alert meal corrections, what to ask mentors (what’s good, what’s bad, how can I improve). Phase C: every ~3 months new labs + Share + her rule correction. Never stop after lab import. Say where each thing lives (see [where]). Keep each step to 1–3 short sentences.
+- After the answer, on its own last line, write exactly: TARGETS: id1,id2
+  with 0–3 ids from this list only, most useful jumps first: ${DASH_NAV_TARGET_LIST}.
+  Omit the TARGETS line if no dashboard jump applies (e.g. “what is BMR?”). Never put TARGETS inside the prose. Never invent ids. Do not emit ai-chat unless the question is about where the AI chat entry lives — Help does not open mentor coaching.
 ${langInstruction(lang)}
 
 KNOWLEDGE:
@@ -2817,7 +2822,7 @@ ${knowledge}`;
     ],
     generationConfig: geminiGenerationConfig({
       temperature: 0.3,
-      maxOutputTokens: 2048,
+      maxOutputTokens: 4096,
       thinkingBudget: 0,
     }),
   };
@@ -2831,11 +2836,13 @@ ${knowledge}`;
   const json = await response.json();
   const raw = extractGeminiText(json?.candidates?.[0]).trim();
   if (!raw) {
-    return lang && lang.code !== 'en'
-      ? `Sorry — I could not answer that. Try rephrasing. (${lang.label})`
-      : 'Sorry — I could not answer that. Try rephrasing, or open website help from a ? on Quick Start.';
+    const fallback =
+      lang && lang.code !== 'en'
+        ? `Sorry — I could not answer that. Try rephrasing. (${lang.label})`
+        : 'Sorry — I could not answer that. Try rephrasing, or open website help from a ? on Quick Start.';
+    return { text: fallback, targets: [] };
   }
-  return raw;
+  return splitHelpTargets(raw);
 }
 
 // ─── Activity kcal from YouTube (prompt104) ───────────────────────────────────

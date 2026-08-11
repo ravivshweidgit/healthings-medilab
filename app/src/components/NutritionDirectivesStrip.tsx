@@ -2,7 +2,14 @@
  * Nutritionist session reports — dashboard card (same pattern as LabResultsStrip).
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from 'react';
 import {
   Alert,
   Modal,
@@ -32,6 +39,11 @@ import { contentAlignStyle } from '../logic/textDirection';
 
 const EXPANDED_KEY = 'dash_nutrition_reports_expanded';
 
+export type NutritionDirectivesStripHandle = {
+  expand: () => void;
+  collapse: () => void;
+};
+
 type Props = {
   directives: NutritionDirective[];
   activeId: string | null;
@@ -43,7 +55,10 @@ function chipPreview(entry: NutritionDirective): string | null {
   return directivePreviewLine(entry);
 }
 
-export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang }: Props) {
+export const NutritionDirectivesStrip = forwardRef<
+  NutritionDirectivesStripHandle,
+  Props
+>(function NutritionDirectivesStrip({ directives, activeId, onChanged, lang }, ref) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const [importVisible, setImportVisible] = useState(false);
@@ -53,6 +68,15 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const copy = getNutritionSessionsStripCopy(lang?.code);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      expand: () => setExpanded(true),
+      collapse: () => setExpanded(false),
+    }),
+    [],
+  );
 
   const effectiveActiveId = activeId ?? directives[0]?.id ?? null;
   const active = useMemo(
@@ -217,7 +241,7 @@ export function NutritionDirectivesStrip({ directives, activeId, onChanged, lang
       </Modal>
     </View>
   );
-}
+});
 
 const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({

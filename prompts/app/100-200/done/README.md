@@ -4,6 +4,8 @@ Implemented prompt specs in this range after they ship (phone-tested or explicit
 
 Open / backlog for this range: [`../README.md`](../README.md)
 
+**prompt109** — done (2026-08-12). Fluid AI Help: answer chips → exclusive `focusStrip` (Help stays open); Lab Results + lipids expand. Phone-tested. UX score 71→74 / 74→77. See [`prompt109.txt`](./prompt109.txt).
+
 **prompt104** — done (2026-08-06). Activity Log strip (Food Log twin), favorites + YouTube video AI kcal (duration + equipment load), Appearance hide toggle, backup fingerprint guards. Samsung phone-tested. See [`prompt104.txt`](./prompt104.txt).
 
 **prompt103** — done (2026-08-05). Meal save/edit rule check uses My Rules only — nutritionist directive removed from that prompt (sample-menu leak). Mentor/macros still get directive. Phone-tested yogurt Edit Meal. See [`prompt103.txt`](./prompt103.txt).

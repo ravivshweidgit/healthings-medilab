@@ -1,0 +1,49 @@
+prompt109 — Fluid AI Help UI: answer chips that navigate the dashboard
+
+Status: done (phone-tested 2026-08-12)
+Builds on: prompt98 (Help strip), prompt87 (appLocale), prompt106 (What's next CTA)
+Also: Help knowledge [goal-loop] + lab→share→rules path (manual regen same batch)
+
+## Problem
+
+Help answers said "Profile & Settings → Data sharing" but the user still had to
+find it on a long scrolling dashboard.
+
+## What shipped
+
+- `dashboardNav.ts` — DashNavTarget enum + labels + TARGETS envelope split
+- `askAppHelp` returns `{ text, targets }`; Gemini appends `TARGETS: id1,id2`
+- HelpStrip nav chips (`openPrefix` ×10 locales) → `onNavigate`
+- `focusStrip()`: exclusive expand (collapse peers), Help stays open, center
+  scroll + accent pulse; Lab Results handle expands strip + lipid chart
+- Food / Activity / Nutrition / Lab strip `expand`/`collapse` handles
+
+## Out of scope (still)
+
+- Auto-nav on “take me there”; Help performing Share/Send; mentor chips under Help
+
+## Files
+
+| File | Change |
+|------|--------|
+| app/src/logic/dashboardNav.ts | new |
+| app/src/services/GeminiService.ts | TARGETS envelope |
+| app/src/components/HelpStrip.tsx | nav chips |
+| app/src/screens/DashboardScreen.tsx | focusStrip exclusive |
+| app/src/components/LabResultsStrip.tsx | expand/collapse + lipid |
+| app/src/components/{FoodMacro,ActivityLog,NutritionDirectives}Strip.tsx | expand/collapse |
+| app/src/i18n/helpStripCopy.ts | openPrefix |
+| app/help-src/app-manual.md + AppHelpKnowledge.ts | goal-loop knowledge |
+| investor-pov/COMPETITOR-SCORES.md/.html | UX 71→74 / 74→77 |
+
+## Phone-tested
+
+- [x] Share-with-clinic → Open Data sharing → expands + centers
+- [x] Lab Results chip → expands strip + lipids (after exclusive-focus fix)
+- [x] Exclusive collapse of peers; Help stays open
+- [x] Owner: “everything works” / high retention value vs on-site help
+
+## Related
+
+- prompt98, prompt107; COMPETITOR-SCORES fluid Help sub-rubric (UX band)
+- Owner UX: ask by default, navigate on chip tap — not Ask/Agent modes

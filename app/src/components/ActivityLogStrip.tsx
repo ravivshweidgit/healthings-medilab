@@ -62,7 +62,11 @@ function workoutMinutes(w: WorkoutSession): number {
   return Math.max(1, Math.round((w.endMs - w.startMs) / 60_000));
 }
 
-export type ActivityLogStripHandle = { reload: () => Promise<void> };
+export type ActivityLogStripHandle = {
+  reload: () => Promise<void>;
+  expand: () => void;
+  collapse: () => void;
+};
 
 type Props = {
   dayKey?: string;
@@ -182,7 +186,15 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
     setExpanded(true);
   }, [expandPrefsLoaded, entriesLoaded, isToday, entries.length]);
 
-  useImperativeHandle(ref, () => ({ reload: load }), [load]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      reload: load,
+      expand: () => setExpanded(true),
+      collapse: () => setExpanded(false),
+    }),
+    [load],
+  );
 
   const shiftDay = useCallback((delta: number) => {
     setSelectedMs((prev) => {

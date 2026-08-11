@@ -104,7 +104,89 @@ Coach tips: the coach panel lists What's going well and What to improve with act
 
 - Visit report (Profile & Settings → Reports): tap 7 / 14 / 30 / 90 days to build a PDF-style report — clinical summary plus a full data appendix (charts, and full CGM detail for 7-day reports). It opens the share sheet, so you can send it to your clinic or nutritionist before a visit.
 - LAB RESULTS (dashboard): Add report imports a lab PDF (for example from your HMO). AI extracts markers; lipid trends and custom marker trends appear as charts. Mentors use lab values (for example LDL, HbA1c) in their guidance. Export / Import moves the archive between phones.
-- NUTRITIONIST SESSIONS (dashboard): Add session imports a session-summary PDF from your nutritionist. Set active makes that plan the one your mentors follow.
+- NUTRITIONIST SESSIONS (dashboard): Add session imports a session-summary PDF from a licensed nutritionist (dietitian). The first import is saved and set as active automatically; later tap a session → Set active. Mentors follow the active plan. On conflict the active session wins over My Rules. This is the in-app home for a licensed nutritionist's written program — not the same as AI chat's AI nutritionist tab.
+
+## Optimal loop for a health goal [goal-loop]
+
+When someone asks how to use the app for a goal (lower cholesterol / LDL, lose fat, follow a dietitian, improve labs or glucose), give this **full** loop in three phases. **Never stop after lab import.** Labs without sharing, licensed rules, and a daily execute cycle leave the user with numbers and no program.
+
+The licensed nutritionist writes the plan. The app executes it every day (meals, watch, scale, meters, mentors). About every 3 months you bring new labs, share again, and she corrects the rules. Then the daily cycle restarts.
+
+Help explains **where** and **which tap**. It does not diagnose or prescribe. The in-app **AI nutritionist** tab coaches on her plan — it does not replace her.
+
+### Phase A — Start the program (once, then again every ~90 days)
+
+1. **Import labs.** Scroll the dashboard to **LAB RESULTS** → **Add report**. Pick the lab PDF (HMO / clinic). AI extracts markers; lipid and custom charts appear under that strip. Mentors and your nutritionist can now see LDL, HDL, triglycerides, HbA1c, and the rest.
+2. **Share with your licensed nutritionist.** Profile & Settings → **DATA SHARING** → type her clinic email → **Send request**. When the card reads **Sharing with** her name, tap **Share**. That upload is how she sees your labs, meals, scale, watch, and current rules in the clinic portal at healthings.ai/clinic. Do this **before** you expect a program — she cannot set rules on data she does not have.
+3. **She sets My Rules.** In the portal she writes the nutrition program. Next time you open the app, Profile & Settings → **RULES** shows that text. Mentors treat it as a hard constraint. You can also **Add rules** / **Edit** yourself, or restore a past version from history. Optional extra: if she emailed a session-summary PDF, dashboard → **NUTRITIONIST SESSIONS** → **Add session** (first import becomes **Active**). The active session wins over My Rules on conflict.
+4. **Turn the program into daily targets.** Profile & Settings → **MACROS** → **Ask AI to set my macros** (first time) or **Re-analyze with AI**. AI reads her rules, the active session, and labs. Tap **Accept** or **Edit**.
+5. **Connect the body sensors** (Quick Start or Profile & Settings → **GEAR**). Withings scale **Yes** and **Link Withings** — morning weigh-ins land on the body card (weight, muscle, fat, BMR). Withings watch **Yes** — activity kcal, heart rate, workouts. Watch **No** → phone steps via Health Connect / Apple Health. CGM **Yes** if you wear a sensor (see CGM section). Pull the header refresh icon after you weigh or wear the watch.
+
+The program has started only when rules are on the phone and macros are accepted. Then live it.
+
+### Phase B — Daily cycle (every day — this is how you execute her plan)
+
+**Morning — body and refresh.** Weigh on the smart scale. Open the app. Tap the header refresh icon. The **body card** (top of the dashboard) shows today's weight / muscle / fat / BMR and the measured time. **TREND & ENERGY** (further down) shows whether weight and energy balance are moving the way her plan expects.
+
+**Wear the watch** (or keep phone-health steps on). Burned calories feed the Food Log energy row so eaten vs burned is honest.
+
+**Log every meal** — dashboard → **FOOD LOG** → **Log Meal**:
+- **Photo** — Camera or Gallery. AI names items and grams; a clean result auto-saves (**Saved — check time and items**). Fix anything, then **Done**.
+- **Describe it** — type the meal and send.
+- **Staples** — foods you saved with **Save staple**.
+- **From past meal** — reuse a previous day.
+Tap a meal chip to **Edit Meal**. Each item has **Edit** / **Delete**. In **Edit item**, the grams slider: centre = original grams, left = 0 g, right = double; kcal and macros scale. You can change date and time. **Delete meal** removes the whole meal.
+
+**Real-time correction (same meal, before it stands).** After analyze / before or at save, the coach checks the meal against **My Rules** and today's targets. A **Nutritionist alert** can appear (for example calories over target, protein short, a rule conflict). Choose **Edit meal** to fix the plate now, or **Save anyway** if you mean it. That is the in-the-moment correction — do not wait until evening.
+
+**Read the Food Log meters** (same **FOOD LOG** strip — this is your day dashboard):
+- **eaten** — kcal you logged.
+- **burned** / activity — kcal from the watch or phone steps (and **ACTIVITY LOG** sessions if that strip is on).
+- **deficit** or **surplus** — eaten minus burned. Her plan usually wants a direction here; the number tells you if the day is on track.
+- Macro bars vs **MACROS** targets: protein, carbs, fat, fiber (Fi), kcal, water. Fill protein and fiber; stay inside her carb / fat / kcal rules. **Add water** for Half glass / Full glass / Big glass / Set amount.
+- Day chips at the top of Food Log move yesterday / tomorrow so you can see a missed meal.
+
+**Read the glucose chart** (if CGM is on — strip title **GLUCOSE**; if CGM is off the same strip is **ACTIVITY**). Scroll to it. The live curve is glucose; heart rate, steps, workouts, and **meal marks** sit on the same timeline so you can see what a logged meal did. **History 7 days** / **Full**; pinch / zoom from about 1 hour to 16 days. Use it to navigate the day: if a meal spiked, the next meal is the correction (log it, then ask the mentor — do not invent a new diet in Help). HbA1c still comes from **LAB RESULTS**, not the CGM curve.
+
+**Ask the mentors — this is the daily coaching loop.** Dashboard → **AI chat**. Tabs: **AI doctor**, **AI nutritionist**, **AI coach** (whichever you enabled under Profile & Settings → **MENTORS**). They already see her rules, labs, macros, meals, scale, and glucose. Ask in plain language, every day, for example:
+- What went well today?
+- What was bad / off-plan?
+- How can I improve the next meal / the rest of today?
+- Weekly: type **/7** (or **/30**) for a period review; **/macros** on the nutritionist tab if she wants a 7-day macro tweak you confirm.
+
+The coach panel lists **What's going well** and **What to improve** with checkboxes (coach tips). The AI chat subtitle on the dashboard counts how many tips you completed. Turn on **Review after each meal** in **MENTORS** if you want an automatic review after you log (respects the minimum-gap slider).
+
+Photo in chat analyzes a food in the conversation if you are about to eat and want a correction before you log.
+
+### Phase C — Every ~3 months (licensed correction + new labs)
+
+The daily cycle runs until the next clinic visit. Then close the loop:
+
+1. New blood tests from the lab / HMO → **LAB RESULTS** → **Add report** again. Compare lipid / marker charts to the last visit.
+2. Profile & Settings → **REPORTS** → tap **90** (or 7 / 14 / 30) to build a visit report. Share the PDF to her if she wants a file as well as the live snapshot.
+3. **DATA SHARING** → **Share** again so she has the new labs, 90 days of meals, scale, and watch.
+4. She corrects **My Rules** in the portal (or sends a new session PDF → **NUTRITIONIST SESSIONS** → **Set active**).
+5. **MACROS** → **Re-analyze with AI** → **Accept**. Then go back to Phase B.
+
+That is the optimal rhythm: she sets the program → you execute daily with meters, chart, meal alerts, and mentors → every ~3 months new labs + share + her correction.
+
+## Where each surface lives (quick map) [where]
+
+Use this map whenever a how-to answer needs a location:
+- Body / scale numbers — body card, top of dashboard. Link / Re-link Withings on that card or in **GEAR**.
+- Meal logging and macro meters — **FOOD LOG** (dashboard).
+- Manual workouts — **ACTIVITY LOG** (dashboard; show it with Appearance → Activity log = **Yes**).
+- Glucose + HR + steps + meal marks — **GLUCOSE** / **ACTIVITY** chart (dashboard).
+- Weight and energy history — **TREND & ENERGY** (dashboard).
+- Labs — **LAB RESULTS** (dashboard, near the bottom).
+- Licensed session PDFs — **NUTRITIONIST SESSIONS** (dashboard, just above labs).
+- My Rules — Profile & Settings → **RULES**.
+- Daily macro targets — Profile & Settings → **MACROS**.
+- Scale / watch / CGM switches — Profile & Settings → **GEAR**.
+- Mentor tabs and meal-review toggle — Profile & Settings → **MENTORS**; chat itself is **AI chat** (dashboard, near the top).
+- Share with the licensed clinic — Profile & Settings → **DATA SHARING**.
+- 90-day visit PDF — Profile & Settings → **REPORTS**.
+- This how-to assistant — **HELP** (dashboard, under AI chat). Ask product questions here; ask “what’s good / what’s bad / how do I improve” in **AI chat**.
 
 ## Backup and restore [backup]
 

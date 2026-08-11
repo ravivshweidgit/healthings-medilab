@@ -81,8 +81,8 @@ const FOOD_LOG_TITLE: Record<string, string> = {
   tr: 'YEMEK GÜNLÜĞÜ',
 };
 
-function foodLogTitle(lang: UserLanguage | null | undefined): string {
-  const code = lang?.code ?? 'en';
+export function foodLogTitle(lang: UserLanguage | { code?: string } | string | null | undefined): string {
+  const code = typeof lang === 'string' ? lang : lang?.code ?? 'en';
   return FOOD_LOG_TITLE[code] ?? FOOD_LOG_TITLE.en;
 }
 
@@ -134,6 +134,8 @@ type Props = {
 /** Parent awaits `reload()` after meal save so chips match AsyncStorage before the editor closes. */
 export type FoodMacroStripHandle = {
   reload: () => Promise<void>;
+  expand: () => void;
+  collapse: () => void;
 };
 
 const COLOR_PROTEIN = '#42A5F5';
@@ -500,7 +502,15 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
     );
   }, [activeDayKey, macroTarget]);
 
-  useImperativeHandle(ref, () => ({ reload: load }), [load]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      reload: load,
+      expand: () => setExpanded(true),
+      collapse: () => setExpanded(false),
+    }),
+    [load],
+  );
 
   useEffect(() => { load(); }, [load, refreshKey]);
 

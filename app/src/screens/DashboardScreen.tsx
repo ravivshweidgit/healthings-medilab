@@ -49,8 +49,8 @@ import { HelpStrip } from '../components/HelpStrip';
 import { DashboardCollapseHeader } from '../components/DashboardCollapseHeader';
 import { ActionIcons, ActiveMentorIcons, DashIcon, StripIcons } from '../theme/icons';
 import { RulesStrip } from '../components/RulesStrip';
-import { NutritionDirectivesStrip } from '../components/NutritionDirectivesStrip';
-import { LabResultsStrip } from '../components/LabResultsStrip';
+import { NutritionDirectivesStrip, type NutritionDirectivesStripHandle } from '../components/NutritionDirectivesStrip';
+import { LabResultsStrip, type LabResultsStripHandle } from '../components/LabResultsStrip';
 import { WelcomeQuickStartWizard } from '../components/WelcomeQuickStartWizard';
 import { WhatsNextCard } from '../components/WhatsNextCard';
 import { Check, X } from 'lucide-react-native';
@@ -131,6 +131,10 @@ import { getBodyMetricsCopy } from '../i18n/bodyMetricsCopy';
 import { aiChatActionSummary, aiChatAskPrompt, aiChatOpenLabel, aiChatTitle } from '../i18n/aiChatCopy';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import { getHelpStripCopy } from '../i18n/helpStripCopy';
+import {
+  dashNavNeedsSettingsCard,
+  type DashNavTarget,
+} from '../logic/dashboardNav';
 import { getYourSetupCopy } from '../i18n/yourSetupCopy';
 import {
   formatRelativeAgoLocalized,
@@ -424,7 +428,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const coachContextRef = useRef<CoachContext | null>(null);
   const foodMacroStripRef = useRef<FoodMacroStripHandle>(null);
   const activityLogStripRef = useRef<ActivityLogStripHandle>(null);
+  const labResultsStripRef = useRef<LabResultsStripHandle>(null);
+  const nutritionSessionsStripRef = useRef<NutritionDirectivesStripHandle>(null);
   const manualBodySectionRef = useRef<ManualBodyProfileSectionHandle>(null);
+  const dashScrollRef = useRef<ScrollView>(null);
+  const dashScrollOffset = useRef(0);
+  const stripNodeRefs = useRef<Partial<Record<DashNavTarget, View | null>>>({});
+  const focusPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [focusPulseTarget, setFocusPulseTarget] = useState<DashNavTarget | null>(null);
 
   // ─── Height + birthdate + gender ─────────────────────────────────────────
   const [heightCm, setHeightCm] = useState<number | null>(null);
@@ -1758,6 +1769,101 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     setBackupExpanded(false);
   }, [settingsCardExpanded]);
 
+  const setStripNode = useCallback((id: DashNavTarget) => (node: View | null) => {
+    stripNodeRefs.current[id] = node;
+  }, []);
+
+  const navPulseStyle = useCallback(
+    (id: DashNavTarget) =>
+      focusPulseTarget === id ? styles.navFocusPulse : styles.navFocusIdle,
+    [focusPulseTarget, styles],
+  );
+
+  const focusStrip = useCallback((target: DashNavTarget) => {
+    const inSettings = dashNavNeedsSettingsCard(target);
+
+    // Exclusive focus: collapse peers; Help stays open (answer + chips are the map).
+    if (target !== 'food-log') foodMacroStripRef.current?.collapse();
+    if (target !== 'activity-log') activityLogStripRef.current?.collapse();
+    if (target !== 'lab-results') labResultsStripRef.current?.collapse();
+    if (target !== 'nutritionist-sessions') nutritionSessionsStripRef.current?.collapse();
+    if (target !== 'glucose-chart') setGlucoseExpanded(false);
+    if (target !== 'trend-energy') setTrendExpanded(false);
+
+    if (!inSettings) {
+      setSettingsCardExpanded(false);
+    } else {
+      setSettingsCardExpanded(true);
+      setProfileExpanded(target === 'profile');
+      setLanguageExpanded(target === 'language');
+      setUnitsExpanded(target === 'units');
+      setAppearanceExpanded(target === 'appearance');
+      setGearExpanded(target === 'gear');
+      setMentorExpanded(target === 'mentors');
+      setRulesExpanded(target === 'rules');
+      setMacroExpanded(target === 'macros');
+      setAccountExpanded(target === 'account');
+      setClinicExpanded(target === 'data-sharing');
+      setReportsExpanded(target === 'reports');
+      setBackupExpanded(target === 'app-backup');
+    }
+
+    switch (target) {
+      case 'food-log':
+        foodMacroStripRef.current?.expand();
+        break;
+      case 'activity-log':
+        activityLogStripRef.current?.expand();
+        break;
+      case 'lab-results':
+        labResultsStripRef.current?.expand();
+        break;
+      case 'nutritionist-sessions':
+        nutritionSessionsStripRef.current?.expand();
+        break;
+      case 'glucose-chart':
+        setGlucoseExpanded(true);
+        break;
+      case 'trend-energy':
+        setTrendExpanded(true);
+        break;
+      case 'ai-chat':
+        setChatVisible(true);
+        break;
+      default:
+        break;
+    }
+
+    setFocusPulseTarget(target);
+    if (focusPulseTimer.current) clearTimeout(focusPulseTimer.current);
+    focusPulseTimer.current = setTimeout(() => setFocusPulseTarget(null), 700);
+
+    const scrollToTarget = () => {
+      const node = stripNodeRefs.current[target];
+      const scroll = dashScrollRef.current;
+      if (!node || !scroll) return;
+      node.measureInWindow((_sx, sy, _sw, sh) => {
+        if (sh < 2) return;
+        scroll.measureInWindow((_vx, vy, _vw, vh) => {
+          const delta = sy - vy - (vh - sh) / 2;
+          scroll.scrollTo({ y: Math.max(0, dashScrollOffset.current + delta), animated: true });
+        });
+      });
+    };
+
+    InteractionManager.runAfterInteractions(() => {
+      setTimeout(scrollToTarget, 80);
+      setTimeout(scrollToTarget, 240);
+      setTimeout(scrollToTarget, 480);
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (focusPulseTimer.current) clearTimeout(focusPulseTimer.current);
+    };
+  }, []);
+
   useEffect(() => {
     if (!dashExpandPrefsLoaded) return;
     void AsyncStorage.setItem(DASH_LANGUAGE_EXPANDED_KEY, languageExpanded ? 'true' : 'false');
@@ -2200,10 +2306,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
       <ScrollView
+        ref={dashScrollRef}
         contentContainerStyle={[styles.scroll, { paddingBottom: 32 + navBarBottomInset(insets.bottom) }]}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
         keyboardShouldPersistTaps="handled"
+        onScroll={(e) => {
+          dashScrollOffset.current = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={false}
@@ -2293,6 +2404,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         ) : null}
 
         {/* AI chat entry — always visible; mentors + optional action progress */}
+        <View ref={setStripNode('ai-chat')} collapsable={false} style={navPulseStyle('ai-chat')}>
         <Pressable
           style={styles.nudgeStrip}
           onPress={() => setChatVisible(true)}
@@ -2334,6 +2446,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           </View>
           <Text style={styles.nudgeStripChevron}>›</Text>
         </Pressable>
+        </View>
 
         {/* App Help — product Q&A (not mentor chat); near AI entry for discoverability */}
         <View style={[styles.groupCard, cardShadow, !helpExpanded && styles.groupCardCollapsed]}>
@@ -2341,6 +2454,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             expanded={helpExpanded}
             onToggleExpand={() => setHelpExpanded((e) => !e)}
             lang={userLanguage}
+            onNavigate={focusStrip}
           />
         </View>
 
@@ -2631,6 +2745,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         ) : null}
 
         {/* Food log — above charts so users find it without scrolling past glucose/trend */}
+        <View ref={setStripNode('food-log')} collapsable={false} style={navPulseStyle('food-log')}>
         <FoodMacroStrip
           ref={foodMacroStripRef}
           dayKey={todayDayKey}
@@ -2648,8 +2763,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           unitsPrefs={unitsPrefs}
           lang={userLanguage}
         />
+        </View>
 
         {activityLogVisible ? (
+          <View ref={setStripNode('activity-log')} collapsable={false} style={navPulseStyle('activity-log')}>
           <ActivityLogStrip
             ref={activityLogStripRef}
             dayKey={todayDayKey}
@@ -2664,9 +2781,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             unitsPrefs={unitsPrefs}
             lang={userLanguage}
           />
+          </View>
         ) : null}
         {metabolicHeader.show ? (
-          <View style={styles.glucoseHistorySection}>
+          <View ref={setStripNode('glucose-chart')} collapsable={false} style={[styles.glucoseHistorySection, navPulseStyle('glucose-chart')]}>
             <View style={styles.chartBleed}>
               <View
                 style={[
@@ -2712,7 +2830,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           </View>
         ) : null}
 
-        <View style={styles.trendBleed}>
+        <View ref={setStripNode('trend-energy')} collapsable={false} style={[styles.trendBleed, navPulseStyle('trend-energy')]}>
           <View
             style={[
               styles.trendCardBleed,
@@ -2855,6 +2973,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           />
           {settingsCardExpanded ? (
           <>
+          <View ref={setStripNode('profile')} collapsable={false} style={navPulseStyle('profile')}>
           <DashboardCollapseHeader
             title={profileStripCopy.myProfile}
             subtitle={
@@ -3101,9 +3220,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               }}
             />
           ) : null}
+          </View>
 
           <View style={styles.groupDivider} />
 
+          <View ref={setStripNode('language')} collapsable={false} style={navPulseStyle('language')}>
           <LanguageStrip
             expanded={languageExpanded}
             onToggleExpand={() => setLanguageExpanded((e) => !e)}
@@ -3113,6 +3234,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               await refreshCoachForLanguage();
             }}
           />
+          </View>
 
           <View style={styles.groupDivider} />
 
@@ -3133,6 +3255,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
           <View style={styles.groupDivider} />
 
+          <View ref={setStripNode('units')} collapsable={false} style={navPulseStyle('units')}>
           <UnitsStrip
             expanded={unitsExpanded}
             onToggleExpand={() => setUnitsExpanded((e) => !e)}
@@ -3148,9 +3271,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               void saveUnitsPrefs(next);
             }}
           />
+          </View>
 
           <View style={styles.groupDivider} />
 
+          <View ref={setStripNode('appearance')} collapsable={false} style={navPulseStyle('appearance')}>
           <AppearanceStrip
             expanded={appearanceExpanded}
             onToggleExpand={() => setAppearanceExpanded((e) => !e)}
@@ -3158,9 +3283,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             activityLogVisible={activityLogVisible}
             onActivityLogVisibleChange={setActivityLogVisible}
           />
+          </View>
 
           <View style={styles.groupDivider} />
 
+          <View ref={setStripNode('gear')} collapsable={false} style={navPulseStyle('gear')}>
           <GearSetupStrip
             expanded={gearExpanded}
             onToggleExpand={() => setGearExpanded((e) => !e)}
@@ -3207,9 +3334,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             careSensImportResult={careSensImportResult}
             onCareSensImport={() => void handleImportCareSensCsv()}
           />
+          </View>
 
           <View style={styles.groupDivider} />
 
+          <View ref={setStripNode('targets')} collapsable={false} style={navPulseStyle('targets')}>
           <WeightTargetStrip
             weightKg={effectiveBodyScan?.weightKg ?? null}
             fatPct={fatPct}
@@ -3223,9 +3352,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             hideWithingsScalePrompt={manualBodyScaleActive}
             massUnit={unitsPrefs.mass}
           />
+          </View>
 
           <View style={styles.groupDivider} />
 
+          <View ref={setStripNode('mentors')} collapsable={false} style={navPulseStyle('mentors')}>
           <MentorStrip
             mentors={mentors}
             onChanged={async (m) => { setMentorsState(m); await saveMentors(m); }}
@@ -3239,9 +3370,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             }}
             userGender={userGender}
           />
+          </View>
 
           <View style={styles.groupDivider} />
 
+          <View ref={setStripNode('rules')} collapsable={false} style={navPulseStyle('rules')}>
           <RulesStrip
             userRules={userRules}
             mentors={mentors}
@@ -3250,9 +3383,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             onToggleExpand={() => setRulesExpanded((e) => !e)}
             lang={userLanguage}
           />
+          </View>
 
           <View style={styles.groupDivider} />
 
+          <View ref={setStripNode('macros')} collapsable={false} style={navPulseStyle('macros')}>
           <MacroTargetStrip
             actualProtein_g={todayActualMacros.protein_g}
             actualFat_g={todayActualMacros.fat_g}
@@ -3284,9 +3419,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             lang={userLanguage}
             unitsPrefs={unitsPrefs}
           />
+          </View>
 
           <View style={styles.groupDivider} />
 
+          <View ref={setStripNode('account')} collapsable={false} style={navPulseStyle('account')}>
           <AccountStrip
             user={user}
             expanded={accountExpanded}
@@ -3295,16 +3432,20 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             onDataRestored={refreshAfterBackupRestore}
             lang={userLanguage}
           />
+          </View>
 
           <View style={styles.groupDivider} />
+          <View ref={setStripNode('data-sharing')} collapsable={false} style={navPulseStyle('data-sharing')}>
           <ClinicLinkStrip
             user={user}
             expanded={clinicExpanded}
             onToggleExpand={() => setClinicExpanded((e) => !e)}
             lang={userLanguage}
           />
+          </View>
 
           <View style={styles.groupDivider} />
+          <View ref={setStripNode('reports')} collapsable={false} style={navPulseStyle('reports')}>
           <ReportsStrip
             expanded={reportsExpanded}
             onToggleExpand={() => setReportsExpanded((e) => !e)}
@@ -3313,8 +3454,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             onShareVisitReport={(days) => void handleShareVisitReport(days)}
             lang={userLanguage}
           />
+          </View>
 
           <View style={styles.groupDivider} />
+          <View ref={setStripNode('app-backup')} collapsable={false} style={navPulseStyle('app-backup')}>
           <LocalBackupStrip
             expanded={backupExpanded}
             onToggleExpand={() => setBackupExpanded((e) => !e)}
@@ -3324,23 +3467,30 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             onImport={() => void handleImportBackup()}
             lang={userLanguage}
           />
+          </View>
           </>
           ) : null}
         </View>
 
         {/* Nutrition + lab archives — bottom of dashboard */}
+        <View ref={setStripNode('nutritionist-sessions')} collapsable={false} style={navPulseStyle('nutritionist-sessions')}>
         <NutritionDirectivesStrip
+          ref={nutritionSessionsStripRef}
           directives={nutritionDirectives}
           activeId={directiveActiveId}
           onChanged={() => void loadNutritionDirectives(true)}
           lang={userLanguage}
         />
+        </View>
+        <View ref={setStripNode('lab-results')} collapsable={false} style={navPulseStyle('lab-results')}>
         <LabResultsStrip
+          ref={labResultsStripRef}
           reports={labReports}
           onReportsChanged={() => void loadLabReports(false)}
           lang={userLanguage}
           gender={userGender}
         />
+        </View>
 
         <Pressable
           style={[styles.primaryButton, (isLoading || bodyScanLoading || trendLoading) && styles.primaryButtonDisabled]}
@@ -4143,6 +4293,16 @@ const makeStyles = (c: ThemeColors, isDark: boolean) => {
     backgroundColor: c.gridLine,
     marginHorizontal: 4,
     marginVertical: 2,
+  },
+  navFocusIdle: {
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderRadius: 14,
+  },
+  navFocusPulse: {
+    borderWidth: 2,
+    borderColor: c.accentBlue,
+    borderRadius: 14,
   },
   profileBody: {
     paddingHorizontal: 4,
