@@ -1,6 +1,6 @@
 /**
- * Patient data-share whitelist (AI sponsorship is mentor-side, read-only badge here).
- * UI strings are English only (see .cursor/rules/language-policy.mdc).
+ * Patient data-share list (AI sponsorship is mentor-side, read-only badge here).
+ * Chrome is appLocale (`clinicLinkCopy` + profile strip titles).
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -33,6 +33,7 @@ import { fetchMyLatestSyncMeta, type PublicSyncBlob } from '../services/SyncApiS
 import { loadCachedApprovedShares, saveCachedApprovedShares } from '../services/ShareCacheService';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
+import { getClinicLinkCopy } from '../i18n/clinicLinkCopy';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import type { UserLanguage } from '../services/TargetService';
@@ -44,37 +45,12 @@ type Props = {
   lang?: UserLanguage | null;
 };
 
-const L = {
-  title: 'Data sharing',
-  subtitle: 'Optional whitelist — who may access your data',
-  clinicSyncHint:
-    'Your clinic can collect from the server after you tap Share — even if you close the app. Opening the app also auto-uploads when the clinic requests an update.',
-  emailPh: 'clinic@example.com',
-  send: 'Send request',
-  waiting: 'Waiting for approval',
-  invited: 'invited you to share data',
-  approve: 'Approve',
-  reject: 'Reject',
-  sharesWith: 'Shares data with',
-  share: 'Share',
-  shareOk: 'Snapshot uploaded — your clinic can collect it from their portal.',
-  revoke: 'Revoke access',
-  noShares: 'No accounts whitelisted — app works fully without sharing',
-  mentorWeb: 'Mentor account: manage patients and AI sponsorship at healthings.ai/clinic',
-  lastShared: 'Last shared',
-  neverShared: 'No upload yet — tap Share or wait for clinic to request an update',
-  sponsored: 'AI sponsored by',
-  sponsoredUntil: 'until',
-  sponsorshipExpired: 'AI sponsorship expired',
-  addAccount: 'Request access for account',
-  addPack: 'Add AI token pack',
-  addPackOk: 'Token pack added.',
-} as const;
-
 export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const L = useMemo(() => getClinicLinkCopy(lang?.code), [lang?.code]);
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
+  const rtl = lang?.code === 'he' || lang?.code === 'ar';
   const [busy, setBusy] = useState(false);
   const [mentorEmail, setMentorEmail] = useState('');
   const [pending, setPending] = useState<AccountShare[]>([]);
@@ -100,10 +76,10 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
       setLastSync(syncMeta);
       setError(null);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Could not load sharing settings';
+      const msg = e instanceof Error ? e.message : L.loadFailed;
       setError(msg);
     }
-  }, [user.role]);
+  }, [user.role, L.loadFailed]);
 
   useEffect(() => {
     if (user.role !== 'patient') return;
@@ -125,12 +101,12 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
         await fn();
         await refresh();
       } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : 'Action failed');
+        setError(e instanceof Error ? e.message : L.actionFailed);
       } finally {
         setBusy(false);
       }
     },
-    [refresh],
+    [refresh, L.actionFailed],
   );
 
   const headerSub = useMemo(() => {
@@ -163,9 +139,9 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
         subtitle={headerSub}
         expanded={expanded}
         onToggle={onToggleExpand}
-        titleRtl={lang?.code === 'he' || lang?.code === 'ar'}
-        collapseLabel="Collapse data sharing"
-        expandLabel="Expand data sharing"
+        titleRtl={rtl}
+        collapseLabel={L.collapse}
+        expandLabel={L.expand}
         subtitleNumberOfLines={2}
       />
 
@@ -174,9 +150,7 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
           {wallet ? (
             <View style={styles.creditBlock}>
               <Text style={styles.creditLine}>
-                AI credits: {wallet.balanceTokens}
-                {wallet.sponsored ? ' (clinic payer)' : ''}
-                {wallet.autoReload ? ' · auto-reload on' : ''}
+                {L.creditsLine(wallet.balanceTokens, Boolean(wallet.sponsored), Boolean(wallet.autoReload))}
               </Text>
               {!wallet.sponsored ? (
                 <Pressable
@@ -185,7 +159,7 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
                   onPress={() =>
                     void run(async () => {
                       const result = await addTokenPack();
-                      Alert.alert(L.addPackOk, `+${result.added} credits · balance ${result.balanceTokens}`);
+                      Alert.alert(L.addPackOk, L.packAdded(result.added, result.balanceTokens));
                     })
                   }
                 >
@@ -279,8 +253,8 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
                 <Pressable
                   style={[styles.btnGhost, busy && styles.btnDisabled]}
                   onPress={() => {
-                    Alert.alert(L.revoke, 'Remove this account from your whitelist?', [
-                      { text: 'Cancel', style: 'cancel' },
+                    Alert.alert(L.revoke, L.revokeConfirm, [
+                      { text: L.cancel, style: 'cancel' },
                       {
                         text: L.revoke,
                         style: 'destructive',
@@ -302,7 +276,7 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
 
           <Text style={styles.hint}>{L.subtitle}</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { writingDirection: 'ltr', textAlign: 'left' }]}
             value={mentorEmail}
             onChangeText={setMentorEmail}
             placeholder={L.emailPh}

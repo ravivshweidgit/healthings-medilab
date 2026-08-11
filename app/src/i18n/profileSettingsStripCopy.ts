@@ -42,11 +42,11 @@ const EN: ProfileSettingsStripCopy = {
   help: 'HELP',
   exportBackup: 'Export',
   importBackup: 'Import',
-  noAccountsWhitelisted: 'No accounts whitelisted — app works fully without sharing',
+  noAccountsWhitelisted: 'No one on the list — the app works fine without sharing',
   waitingApproval: 'Waiting for approval',
-  sharesWith: 'Shares data with',
+  sharesWith: 'Sharing with',
   accountsWhitelisted: (n) =>
-    n === 1 ? '1 account whitelisted' : `${n} accounts whitelisted`,
+    n === 1 ? '1 account on the list' : `${n} accounts on the list`,
 };
 
 const HE: ProfileSettingsStripCopy = {
