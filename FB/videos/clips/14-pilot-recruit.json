@@ -1,0 +1,81 @@
+{
+  "id": "14-pilot-recruit",
+  "title": "Pilot recruit — 10 free seats",
+  "audience": "Hebrew social / DM funnel (owner post)",
+  "export_dir": "014-pilot-recruit",
+  "vo_lang": "en",
+  "voice": "daniel",
+  "subs_lang": "he",
+  "segments": [
+    {
+      "en": "Looking for ten participants for a free pilot of a metabolic nutrition app.",
+      "he": "מחפשים 10 משתתפים/ות לפיילוט (ללא תשלום) של אפליקציה לניהול תזונה מטבולית.",
+      "shot": { "type": "art", "file": "loop-video.png" }
+    },
+    {
+      "en": "The idea, briefly.",
+      "he": "הרעיון בקצרה:",
+      "shot": { "type": "art", "file": "loop-disconnected.png" }
+    },
+    {
+      "en": "A licensed clinical dietitian runs a deep session and directs from your labs.",
+      "he": "תזונאית קלינית עם רישיון נותנת מפגש מעמיק ומכוונת לפי הבדיקות שלכם.",
+      "shot": { "type": "phone", "file": "clinic-labs-import.jpg" }
+    },
+    {
+      "en": "The app continues from there with close support, around the clock — applying her instructions, tracking food and metrics, and catching mistakes in real time.",
+      "he": "האפליקציה ממשיכה משם בליווי צמוד 24/7: יישום הוראות התזונאית, מעקב אחרי אוכל ומדדים, וזיהוי טעויות בזמן אמת.",
+      "shot": { "type": "phone", "file": "a6-coach.jpg" }
+    },
+    {
+      "en": "She sees your progress. Day-to-day support is the app — not daily coaching from her.",
+      "he": "היא רואה את ההתקדמות; הליווי השוטף הוא של האפליקציה, לא ליווי יומיומי שלה.",
+      "shot": { "type": "phone", "file": "a4-my-rules-targets.jpg" }
+    },
+    {
+      "en": "I used the app myself — from a cholesterol prescription to healthy labs without medication, in thirteen days. Documented in blood work.",
+      "he": "אני עצמי ירדתי עם האפליקציה ממצב של מרשם לכולסטרול למצב בריא בלי תרופות, תוך 13 יום (מתועד בבדיקות).",
+      "shot": { "type": "phone", "file": "a12-cholesterol-trend.jpg" }
+    },
+    {
+      "en": "Now we're opening a small pilot.",
+      "he": "עכשיו פותחים פיילוט קטן.",
+      "shot": { "type": "art", "file": "loop-video.png" }
+    },
+    {
+      "en": "Who it's for right now: prediabetes — or a lipid and cholesterol profile that needs nutrition follow-up.",
+      "he": "למי זה מתאים עכשיו: טרום־סוכרת, או פרופיל שומנים / כולסטרול שדורש מעקב תזונתי.",
+      "shot": { "type": "phone", "file": "a1-dashboard.jpg" }
+    },
+    {
+      "en": "What you get: a deep session with a licensed clinical dietitian.",
+      "he": "מה מקבלים: מפגש מעמיק עם תזונאית קלינית עם רישיון.",
+      "shot": { "type": "phone", "file": "clinic-labs-import.jpg" }
+    },
+    {
+      "en": "A dedicated app that runs her instructions every day — food plus metrics.",
+      "he": "אפליקציה ייעודית שמריצה את ההוראות שלה ביומיום (אוכל + מדדים).",
+      "shot": { "type": "phone", "file": "a3-food-log.jpg" }
+    },
+    {
+      "en": "Support from me on using the app. Limited to ten people.",
+      "he": "מענה ממני על השימוש באפליקציה. מוגבל ל־10 משתתפים.",
+      "shot": { "type": "phone", "file": "a2-food-log-strip.jpg" }
+    },
+    {
+      "en": "Best fit if you're used to apps and ready to log meals regularly.",
+      "he": "מתאים למי שרגיל/ה לאפליקציות ומוכן/ה לעקוב אחרי ארוחות באופן קבוע.",
+      "shot": { "type": "phone", "file": "a11-log-meal-idle.jpg" }
+    },
+    {
+      "en": "My result is personal — not a promise for everyone.",
+      "he": "התוצאה שלי אישית; לא הבטחה לכולם.",
+      "shot": { "type": "art", "file": "loop-disconnected.png" }
+    },
+    {
+      "en": "For details and a short fit call — message me privately.",
+      "he": "לפרטים ולשיחת התאמה קצרה, שלחו לי הודעה בפרטי.",
+      "shot": { "type": "art", "file": "loop-video.png" }
+    }
+  ]
+}
