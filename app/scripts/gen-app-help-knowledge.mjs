@@ -1,14 +1,16 @@
 /**
- * Generate app/src/help/AppHelpKnowledge.ts from website EN help articles.
+ * Generate app/src/help/AppHelpKnowledge.ts from website EN help articles
+ * plus the full product manual (app/help-src/app-manual.md).
  * Run from repo root: node app/scripts/gen-app-help-knowledge.mjs
  */
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { ARTICLES, HELP_SLUGS } from '../../website/scripts/help-locale-content.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const outPath = join(__dirname, '../src/help/AppHelpKnowledge.ts');
+const manualPath = join(__dirname, '../help-src/app-manual.md');
 
 function stripHtml(s) {
   return String(s || '')
@@ -40,9 +42,15 @@ for (const slug of HELP_SLUGS) {
 }
 const knowledge = knowledgeParts.join('\n').trim();
 
+// Full product manual — strip the source-file preamble (everything before the
+// first "## " section) so the KB starts at real content.
+const manualRaw = readFileSync(manualPath, 'utf8');
+const manual = manualRaw.slice(manualRaw.indexOf('## ')).trim();
+
 const file = `/**
  * Bundled English product KB for in-app Help AI (prompt98).
- * Sourced from website/scripts/help-locale-content.mjs EN articles + app appendix.
+ * Sourced from website/scripts/help-locale-content.mjs EN articles,
+ * app/help-src/app-manual.md, and the app appendix.
  * Regenerate: node app/scripts/gen-app-help-knowledge.mjs
  * Do not invent UI that is not described here.
  */
@@ -51,8 +59,10 @@ export const APP_HELP_APPENDIX = ${JSON.stringify(appendix)};
 
 export const APP_HELP_KNOWLEDGE_EN = ${JSON.stringify(knowledge)};
 
+export const APP_HELP_MANUAL_EN = ${JSON.stringify(manual)};
+
 export function buildAppHelpKnowledgeBlock(): string {
-  return \`# Healthings app — product help knowledge\\n\\n\${APP_HELP_KNOWLEDGE_EN}\\n\\n\${APP_HELP_APPENDIX}\`;
+  return \`# Healthings app — product help knowledge\\n\\n\${APP_HELP_MANUAL_EN}\\n\\n\${APP_HELP_KNOWLEDGE_EN}\\n\\n\${APP_HELP_APPENDIX}\`;
 }
 `;
 
