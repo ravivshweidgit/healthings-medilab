@@ -1,0 +1,112 @@
+prompt110 — Treatment markers in the app: clinic-set custom macros with lab provenance
+
+Status: backlog (spec draft 2026-08-12, Fable 5 + owner)
+Builds on: prompt109 (Help nav), prompt103 (rules in meal check), prompt42/35 (macro auto-apply)
+Depends on: be-41 (server + portal half — MUST ship first; this pulls what be-41 creates)
+Model to implement: Auto (wiring); any change to the marker enum or HARD semantics is a
+clinical call — stop and ask the owner (model-budget spend trigger)
+
+## Problem
+
+P/C/F/Fi/net is universal, but treatment success usually hangs on one or two
+problem-specific intakes: saturated fat for LDL, sodium for blood pressure,
+potassium/phosphorus for kidney. The clinic can now set these as structured markers
+(be-41). The app must pull them, estimate them per meal, meter them daily, treat them
+as HARD in every AI macro decision, and show the patient *why* the number exists
+("Cap set because LDL was 148 on your July draw").
+
+## Design rules
+
+- Markers are **structured**, never parsed from rules text. Codes are exact matches
+  from the shared enum (SAT_FAT_G, CHOLESTEROL_MG, SOLUBLE_FIBER_G, OMEGA3_G,
+  ADDED_SUGAR_G, SODIUM_MG, POTASSIUM_MG, PHOSPHORUS_MG). No keyword tables
+  (ai-judgment-not-regex).
+- Precedence: clinic-set = HARD (AI may not revise; patient may not edit — view only).
+  Phase 2 adds AI-proposed (solo) and user-added soft slots; v1 is clinic-only.
+- Per-meal marker *estimation* is Gemini judgment inside the existing meal call.
+  Daily summing, cap/floor comparison, and colors are pure code math.
+- Labels localized both sides from catalogs; units always-English (g, mg).
+
+## What ships
+
+### A. Pull + storage (persistence parity)
+
+- `ClinicOverlayService.pullClinicOverlays` also reads `overlay.markers` and writes
+  canonical key `healthings:treatmentMarkers`
+  (`{ markers: TreatmentMarker[], updatedAt, source: 'clinic' }`).
+- New `TreatmentMarkerService.ts` owns load/save/types; screens read the store, never
+  the API. Key joins the backup/export/clinic-snapshot inclusion lists
+  (LocalBackupService, ShareExportService, cloud backup — all three).
+
+### B. Meal analysis — extended schema, same call
+
+- When active markers exist, the meal prompt (photo + text paths in GeminiService)
+  appends per-item fields for ONLY those codes, e.g. `"sat_fat_g":0.0`, with a one-line
+  definition each. Items → entry totals summed in code.
+- `FoodEntry` gains optional `markers?: Record<DietMarkerCode, number>` (entry total);
+  older entries without it render as no-data, not zero.
+- Accuracy honesty: marker chips carry an "estimated" hint (tooltip/subtitle); sodium
+  and cholesterol mg are trend-quality, not label-truth.
+
+### C. Meters — Food Log macro strip
+
+- Up to 3 marker chips after Fi/net: label from appLocale catalog, today total vs
+  target, cap = red-when-over, floor = green-when-met (reuse existing meter colors).
+- "Set by your clinic" badge + provenance line built from `linkedLabCodes` matched
+  against local lab store by exact code: "LDL 148 · Jul 2026". No lab match → badge only.
+- View-only detail (tap): direction, target, clinician note verbatim (dir auto),
+  set date. No edit controls for clinic-set markers.
+
+### D. HARD wiring — every AI macro surface
+
+- Macro analyze / auto-apply (macroAutoAdjust, weigh-in revision), mentor chat
+  context, and meal rule-check prompts each receive active markers as verbatim HARD
+  constraints ("HARD from clinic: SAT_FAT_G cap 15 g/day") — judgment in prompt,
+  enforcement math in code where a number is checkable (e.g. suggested menu sums).
+- Auto-apply must never emit a target that conflicts with a clinic cap/floor; when a
+  conflict is unavoidable, keep the clinic number and say so in the reasoning line.
+
+### E. Lab-import nudge (code trigger, human decision)
+
+- After lab PDF import: if any new result's canonical code appears in an active
+  marker's `linkedLabCodes`, show a one-shot card: "New LDL result — review your
+  saturated-fat cap with your nutritionist." Exact code match; no AI, no auto-change.
+
+## Out of scope (explicit)
+
+- AI-proposed markers for solo users + user-added soft slots — phase 2 (own prompt)
+- Adherence charting in the clinic portal — be-41 phase 2 (needs this data shape)
+- Editing clinic markers in the app; multi-clinic merge (be-41 documents "latest org wins")
+- New micronutrients beyond the 8-code enum (clinical call, owner + clinic)
+
+## Files
+
+| File | Change |
+|------|--------|
+| app/src/services/TreatmentMarkerService.ts | new — types, canonical key, load/save |
+| app/src/services/ClinicOverlayService.ts | pull markers alongside rules |
+| app/src/services/GeminiService.ts | meal schema extension; HARD lines in macro/chat/meal-check prompts |
+| app/src/services/FoodLogService.ts | FoodEntry.markers + daily totals |
+| app/src/components/FoodMacroStrip.tsx | marker chips + provenance detail |
+| app/src/logic/macroAutoAdjust.ts | clinic cap/floor guard |
+| app/src/services/LabLogService.ts (or import flow) | post-import linked-code nudge |
+| app/src/i18n/* | marker labels + badge/nudge copy ×10 locales |
+| Backup/export services | include healthings:treatmentMarkers |
+
+## Phone checklist
+
+- [ ] Clinic sets SAT_FAT_G cap 15 in portal → app pulls; chip appears with clinic badge
+- [ ] Provenance shows own LDL result (exact code, right date); no lab → badge only
+- [ ] Meal photo → sat-fat estimate on items; day total colors vs cap
+- [ ] Macro reanalyze reasoning respects the cap; auto-apply never crosses it
+- [ ] Lab PDF with new LDL → one-shot review nudge; no target changed
+- [ ] Backup export/import round-trip keeps markers (Android↔iOS shape identical)
+- [ ] he/ar RTL: chip labels + clinician note dir correct; units stay English
+- [ ] No markers set → zero UI change anywhere (regression)
+
+## Related
+
+- be-41 — server/portal half + enum table (single source: keep enums in sync)
+- ai-judgment-not-regex.mdc — estimation is judgment; sums/colors/triggers are code
+- persistence-parity.mdc — one canonical key, all export paths
+- COMPETITOR-SCORES: deepens Rules→closed-loop + Nutritionist sessions (+ clinic story)
