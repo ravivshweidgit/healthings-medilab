@@ -1,0 +1,41 @@
+{
+  "id": "15-clinic-share",
+  "title": "Share data with your clinic",
+  "audience": "patients / Michal clinic how-to",
+  "export_dir": "015-clinic-share",
+  "vo_lang": "en",
+  "voice": "matilda",
+  "subs_lang": "he",
+  "segments": [
+    {
+      "en": "To share with your clinic, open Profile and settings.",
+      "he": "כדי לשתף עם הקליניקה, פתחו פרופיל והגדרות.",
+      "shot": { "type": "phone", "file": "a13-profile-settings.jpg" }
+    },
+    {
+      "en": "Tap Data sharing.",
+      "he": "לחצו שיתוף נתונים.",
+      "shot": { "type": "phone", "file": "a13-data-sharing-collapsed.jpg" }
+    },
+    {
+      "en": "Type the clinic email. For Michal, that’s habushamichal@gmail.com",
+      "he": "כתבו את מייל הקליניקה. אצל מיכל: habushamichal@gmail.com",
+      "shot": { "type": "phone", "file": "a13-request-access.jpg" }
+    },
+    {
+      "en": "Tap Send request. She approves on her side.",
+      "he": "לחצו שלחו בקשה. היא מאשרת מהצד שלה.",
+      "shot": { "type": "phone", "file": "a13-request-access.jpg" }
+    },
+    {
+      "en": "When you see Sharing with her name — tap Share.",
+      "he": "כשמופיע משתפים עם השם שלה — לחצו שתפו.",
+      "shot": { "type": "phone", "file": "a13-data-sharing-open.jpg" }
+    },
+    {
+      "en": "That’s it. She can collect the update even after you close the app.",
+      "he": "זהו. היא יכולה לאסוף את העדכון גם אחרי שסוגרים את האפליקציה.",
+      "shot": { "type": "phone", "file": "a13-data-sharing-open.jpg" }
+    }
+  ]
+}
