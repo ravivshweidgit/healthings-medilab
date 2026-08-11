@@ -87,6 +87,7 @@ POST /v1/ai/generate      (JWT required — same middleware as /v1/usage)
 - [x] `grep AIza` on a fresh `index.android.bundle` → nothing (2026-08-11: key bytes and
       `generativelanguage` both absent from `assets/index.android.bundle` in the release APK)
 - [x] Phone (2026-08-11, owner): coach/chat, meal photo, Help Q&A, macro reanalyze work through the proxy
+- [x] Play internal 1.2.31 (`versionCode` 60) released 2026-08-11 19:42 — available to internal testers (not reviewed; expected on that track)
 - [ ] Draining wallet to 0 → app shows out-of-credits (server 402), Google not called
 - [ ] `ai_usage_events` rows carry real `gemini_*` usage columns for proxied calls
 - [ ] Old key revoked; old APK build fails AI calls (proof enforcement is real)
@@ -116,9 +117,10 @@ POST /v1/ai/generate      (JWT required — same middleware as /v1/usage)
   before `BILLING_LIVE=true`.
 - Server `npx tsc --noEmit` clean; release APK builds; bundle grep clean (see above).
 
-**Remaining before done:** drain-to-402 check (optional); tell pilots to update; **then**
-rotate the old key. Local `app/.env` still holds the old key — harmless (not imported,
-not bundled) but rotate regardless. Do not revoke until old APKs are off pilot phones.
+**Remaining before done:** tell Play internal testers to update to 1.2.31; iOS still on
+the old TestFlight until `bi-os`; **then** rotate the old key. Local `app/.env` still
+holds the old key — harmless (not imported, not bundled) but rotate regardless. Do not
+revoke until old APKs / old TestFlight are off pilot phones.
 
 ## Out of scope
 
