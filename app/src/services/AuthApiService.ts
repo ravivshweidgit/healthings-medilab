@@ -139,10 +139,19 @@ export async function verifyOtp(email: string, code: string): Promise<AuthUser> 
     throw new AuthApiError(await parseError(res), res.status);
   }
   const data = (await res.json()) as VerifyResponse;
+  if (data.user.role !== 'patient') {
+    await clearAuthTokens();
+    throw new AuthApiError(CLINIC_PHONE_LOGIN_BLOCKED, 403);
+  }
   await saveAuthTokens(data.accessToken, data.refreshToken);
   await saveCachedAuthUser(data.user);
   return data.user;
 }
+
+/** Clinic mentor accounts must use healthings.ai/clinic — never the phone app. */
+export const CLINIC_PHONE_LOGIN_BLOCKED =
+  'Clinic accounts use the web portal only (healthings.ai/clinic). Sign in here with a patient email. / מייל קליניקה — רק באתר healthings.ai/clinic. באפליקציה היכנסו עם מייל מטופל.';
+
 
 export async function refreshAuthSession(): Promise<{ accessToken: string; user: AuthUser } | null> {
   const { refreshToken } = await loadAuthTokens();
@@ -294,16 +303,39 @@ export async function restoreAuthSession(): Promise<AuthUser | null> {
   if (!accessToken && !refreshToken) return null;
 
   const user = await fetchCurrentUser();
-  if (user) return user;
+  if (user) {
+    if (user.role !== 'patient') {
+      await clearAuthTokens();
+      return null;
+    }
+    return user;
+  }
 
   const refreshed = await refreshAuthSessionSingleFlight();
-  if (refreshed?.user) return refreshed.user;
+  if (refreshed?.user) {
+    if (refreshed.user.role !== 'patient') {
+      await clearAuthTokens();
+      return null;
+    }
+    return refreshed.user;
+  }
 
-  // Offline fallback — do not wipe tokens.
+  // Offline fallback — do not wipe tokens for network failures; still reject mentors.
   if (accessToken || refreshToken) {
     const cached = await loadCachedAuthUser();
-    if (cached) return cached;
-    return userFromAccessToken(accessToken);
+    if (cached) {
+      if (cached.role !== 'patient') {
+        await clearAuthTokens();
+        return null;
+      }
+      return cached;
+    }
+    const fromJwt = userFromAccessToken(accessToken);
+    if (fromJwt && fromJwt.role !== 'patient') {
+      await clearAuthTokens();
+      return null;
+    }
+    return fromJwt;
   }
   return null;
 }

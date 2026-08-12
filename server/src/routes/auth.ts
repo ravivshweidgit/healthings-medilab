@@ -15,7 +15,7 @@ import {
 } from '../services/otp.js';
 import { OtpEmailSendError } from '../services/email.js';
 import { attachPendingShares } from '../services/shares.js';
-import { findOrCreateUser, findUserById, updateUserDisplayName, updateUserNames } from '../services/users.js';
+import { findOrCreateUser, findUserById, findUserByEmail, updateUserDisplayName, updateUserNames } from '../services/users.js';
 import { isAdminEmail } from '../config.js';
 
 const roleSchema = z.enum(['patient', 'mentor']);
@@ -54,6 +54,16 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: 'Not an operator account' });
     }
     try {
+      // Phone always requests role=patient. Clinic mentor emails must use the web portal only.
+      if (body.role === 'patient') {
+        const existing = await findUserByEmail(body.email.trim().toLowerCase());
+        if (existing?.role === 'mentor') {
+          return reply.code(403).send({
+            error:
+              'Clinic accounts use the web portal only (healthings.ai/clinic). Sign in on the phone with a patient email.',
+          });
+        }
+      }
       await createOtpRequest(body.email, body.role);
       return { sent: true };
     } catch (err) {
@@ -74,6 +84,13 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     try {
       const { email, role } = await verifyOtpAndGetEmail(body.email, body.code);
       const user = await findOrCreateUser(email, role);
+      // Belt-and-suspenders: patient OTP must never issue a mentor session (phone app).
+      if (role === 'patient' && user.role === 'mentor') {
+        return reply.code(403).send({
+          error:
+            'Clinic accounts use the web portal only (healthings.ai/clinic). Sign in on the phone with a patient email.',
+        });
+      }
       if (user.role === 'patient') {
         await attachPendingShares(user.email, user.id);
       }

@@ -90,6 +90,10 @@ function AppInner() {
 
   const handleSignedIn = useCallback(
     (signedInUser: AuthUser) => {
+      if (signedInUser.role !== 'patient') {
+        setUser(null);
+        return;
+      }
       setUser(signedInUser);
       void offerBiometricUnlock();
     },

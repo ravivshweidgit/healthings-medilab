@@ -1,7 +1,9 @@
-# Michal — clinic pack
+**Clinic / mentor email:** `habushamichal+clinic@gmail.com`  
+Portal: https://healthings.ai/clinic  
 
-**Clinic / mentor email:** `habushamichal@gmail.com`  
-Portal: https://healthings.ai/clinic
+Do **not** open the phone app with this email — clinic accounts are portal-only.
+
+Legacy mentor (same org, kept): `habushamichal@gmail.com`  
 
 Not `clinic@healthings.ai` (Healthings operator account).
 
