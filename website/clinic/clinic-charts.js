@@ -480,7 +480,7 @@
     }
     calYMax = Math.min(200, Math.ceil(calYMax * 1.15));
 
-    let svg = `<svg class="metabolic-svg" viewBox="0 0 ${W} ${H}" width="100%" height="${H}">`;
+    let svg = `<svg class="metabolic-svg" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" direction="ltr">`;
     svg += plotBackdrop(W, H, pal.plotBg);
     svg += `<rect x="${padL}" y="${calStripTop}" width="${innerW}" height="${calH}" fill="${pal.glucoseBand}" opacity="0.7"/>`;
     svg += `<rect x="${padL}" y="${yOf(100)}" width="${innerW}" height="${Math.max(0, yOf(70) - yOf(100))}" fill="${pal.glucose}" opacity="0.16"/>`;
@@ -990,7 +990,7 @@
     const weightWeekDelta = anchor ? anchor.end.weightKg - anchor.start.weightKg : null;
     const visceralWeekTrend = resolveVisceralWeekTrend(slice);
 
-    let svg = `<svg class="trend-svg" viewBox="0 0 ${W} ${svgH}" width="100%" height="${svgH}">`;
+    let svg = `<svg class="trend-svg" viewBox="0 0 ${W} ${svgH}" width="100%" height="${svgH}" direction="ltr">`;
     svg += plotBackdrop(W, svgH, pal.plotBg);
     // Three unrelated scales share one 36px gutter. Without a caption per band the
     // numbers read as a single collapsing column and no one can tell kg from Δkg.
@@ -1220,7 +1220,7 @@
     const avgEaten = avgRounded(eatenVals);
     const avgBalance = avgRounded(balanceVals);
 
-    let svg = `<svg class="energy-svg" viewBox="0 0 ${W} ${svgH}" width="100%" height="${svgH}">`;
+    let svg = `<svg class="energy-svg" viewBox="0 0 ${W} ${svgH}" width="100%" height="${svgH}" direction="ltr">`;
     svg += plotBackdrop(W, svgH, pal.plotBg);
 
     for (let div = 0; div < ENERGY_NUM_STRIPS; div += 1) {
@@ -1391,7 +1391,7 @@
       <div class="lipid-wrap${rtl ? ' rtl' : ''}">
         <div class="lipid-title">${escapeXml(title)}</div>
         <div class="lipid-chart-box">
-          <svg viewBox="0 0 ${chartW} ${svgH}" width="100%" height="${svgH}" role="img" aria-label="${title}">
+          <svg viewBox="0 0 ${chartW} ${svgH}" width="100%" height="${svgH}" direction="ltr" role="img" aria-label="${title}">
             ${svg}
           </svg>
         </div>
@@ -1620,7 +1620,7 @@
     host.innerHTML = `
       <div class="lipid-wrap${rtl ? ' rtl' : ''}">
         <div class="lipid-chart-box">
-          <svg viewBox="0 0 ${chartW} ${svgH}" width="100%" height="${svgH}" role="img" aria-label="${escapeXml(series.name || series.code)}">
+          <svg viewBox="0 0 ${chartW} ${svgH}" width="100%" height="${svgH}" direction="ltr" role="img" aria-label="${escapeXml(series.name || series.code)}">
             ${svg}
           </svg>
         </div>

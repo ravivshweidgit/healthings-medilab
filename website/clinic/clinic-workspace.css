@@ -566,6 +566,16 @@ h3,
 .card .sub { color: var(--muted); font-size: 0.82rem; margin: -8px 0 12px; }
 
 .chart-wrap { width: 100%; overflow: hidden; }
+/* Charts use LTR coordinates (x=0 is left). Under clinicLocale he/ar the page is
+   dir=rtl, and SVG inherits that — axis labels at x=4 extend leftward out of the
+   viewBox so only the trailing digit shows (a column of "0"s from 60/80/100…). */
+.metabolic-svg,
+.trend-svg,
+.energy-svg,
+.lipid-chart-box svg {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
 .metabolic-svg { width: 100%; display: block; }
 .chart-head {
   display: flex;
