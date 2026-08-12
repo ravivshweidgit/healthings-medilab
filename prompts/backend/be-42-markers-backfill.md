@@ -25,8 +25,9 @@ patient would burn AI credits. Clinic must opt in and choose the day window.
 | Cap | Value |
 |-----|-------|
 | Days | 1–90 (clinic picks) |
-| Meals / run | 80 |
-| Gemini batch | 4 meals / call |
+| Unit of work | **One Gemini call per calendar day** (all meals that day still missing markers) |
+| Meal-count cap | **None** — full window |
+| Pace | ~3.5s between days (+ 429 retries) |
 | Default off | No request → no past work |
 
 ## Evidence

@@ -1,12 +1,16 @@
 /**
  * Clinic-opt-in past meal marker fill (prompt110 / be-41 extension).
  * Phone only runs when overlay.markersBackfill.status === 'pending'.
+ *
+ * One Gemini call per calendar day (all meals that day that still need markers).
+ * Walks the full clinic-requested window (up to 90 days) — no meal-count cap.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authFetch } from './AuthApiService';
 import {
   entryMarkerTotals,
+  foodLogDayKey,
   getMealsForDay,
   getRecentMeals,
   saveMeal,
@@ -24,14 +28,24 @@ import { OutOfCreditsError } from './UsageQueueService';
 const RUNNING_KEY = 'healthings:markersBackfillRunningId';
 const LAST_ACK_KEY = 'healthings:markersBackfillLastAckId';
 
-/** Soft caps — clinic picks days; phone bounds cost. */
-export const MARKERS_BACKFILL_MAX_MEALS = 80;
-export const MARKERS_BACKFILL_BATCH = 4;
+/** Pause between day prompts to stay under provider rate limits. */
+export const MARKERS_BACKFILL_DAY_GAP_MS = 3500;
 
 function entryNeedsMarkers(entry: FoodEntry, codes: DietMarkerCode[]): boolean {
   if (!entry.items?.length) return false;
   const have = entryMarkerTotals(entry);
   return codes.some((c) => have[c] == null);
+}
+
+function groupMealsByDay(entries: FoodEntry[]): Map<string, FoodEntry[]> {
+  const byDay = new Map<string, FoodEntry[]>();
+  for (const e of entries) {
+    const dk = foodLogDayKey(e.timestamp);
+    const list = byDay.get(dk);
+    if (list) list.push(e);
+    else byDay.set(dk, [e]);
+  }
+  return byDay;
 }
 
 export async function ackMarkersBackfill(body: {
@@ -48,7 +62,9 @@ export async function ackMarkersBackfill(body: {
     const err = await res.text().catch(() => '');
     throw new Error(`backfill ack failed ${res.status}: ${err.slice(0, 120)}`);
   }
-  await AsyncStorage.setItem(LAST_ACK_KEY, body.id);
+  if (body.status === 'done') {
+    await AsyncStorage.setItem(LAST_ACK_KEY, body.id);
+  }
 }
 
 /**
@@ -94,17 +110,27 @@ export async function runPendingMarkersBackfill(
   let mealsUpdated = 0;
   try {
     const recent = await getRecentMeals(days);
-    const need = recent
-      .filter((e) => entryNeedsMarkers(e, codes))
-      .slice(-MARKERS_BACKFILL_MAX_MEALS);
+    const byDay = groupMealsByDay(recent);
+    const dayKeys = [...byDay.keys()].sort();
 
-    for (let i = 0; i < need.length; i += MARKERS_BACKFILL_BATCH) {
-      const batch = need.slice(i, i + MARKERS_BACKFILL_BATCH);
+    let dayIndex = 0;
+    for (const dk of dayKeys) {
+      const dayMeals = byDay.get(dk) ?? [];
+      // All meals that day still missing markers — one prompt for the whole day.
+      const need = dayMeals.filter((e) => entryNeedsMarkers(e, codes));
+      if (!need.length) continue;
+
+      if (dayIndex > 0) {
+        await new Promise((r) => setTimeout(r, MARKERS_BACKFILL_DAY_GAP_MS));
+      }
+      dayIndex += 1;
+      opts?.onProgress?.(`Filling ${dk} (${need.length} meals)…`);
+
       const estimated = await estimateMarkersForSavedMeals(
-        batch.map((e) => ({ id: e.id, items: e.items })),
+        need.map((e) => ({ id: e.id, items: e.items })),
         markers,
       );
-      for (const entry of batch) {
+      for (const entry of need) {
         const updatedItems = estimated.get(entry.id);
         if (!updatedItems?.length) continue;
         const next: FoodEntry = {
@@ -131,15 +157,18 @@ export async function runPendingMarkersBackfill(
         : e instanceof Error
           ? e.message.slice(0, 400)
           : 'Backfill failed';
-    try {
-      await ackMarkersBackfill({
-        id: request.id,
-        status: 'failed',
-        mealsUpdated,
-        error,
-      });
-    } catch {
-      /* phone still has partial saves */
+    const transient = /429|rate limit/i.test(error);
+    if (!transient) {
+      try {
+        await ackMarkersBackfill({
+          id: request.id,
+          status: 'failed',
+          mealsUpdated,
+          error,
+        });
+      } catch {
+        /* phone still has partial saves */
+      }
     }
     opts?.onProgress?.(error);
     return { ran: true, mealsUpdated, error };

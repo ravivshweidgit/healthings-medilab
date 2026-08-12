@@ -988,10 +988,23 @@ ${JSON.stringify({ meals: mealBlocks })}`;
     }),
   };
 
-  const response = await geminiGenerate('ai_meal', body);
-  if (!response.ok) {
-    const err = await response.text().catch(() => '');
-    throw new Error(`Marker estimate failed ${response.status}: ${err.slice(0, 160)}`);
+  const maxAttempts = 6;
+  let response: Awaited<ReturnType<typeof geminiGenerate>> | null = null;
+  let lastErr = '';
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    response = await geminiGenerate('ai_meal', body);
+    if (response.ok) break;
+    lastErr = await response.text().catch(() => '');
+    const is429 = response.status === 429 || /rate limit/i.test(lastErr);
+    if (!is429 || attempt === maxAttempts) {
+      throw new Error(`Marker estimate failed ${response.status}: ${lastErr.slice(0, 160)}`);
+    }
+    const waitMatch = lastErr.match(/retry in\s+(\d+)\s*seconds?/i);
+    const waitSec = waitMatch ? Math.min(60, Math.max(1, Number(waitMatch[1]))) : Math.min(30, 2 ** attempt);
+    await new Promise((r) => setTimeout(r, waitSec * 1000));
+  }
+  if (!response?.ok) {
+    throw new Error(`Marker estimate failed: ${lastErr.slice(0, 160)}`);
   }
   const json = await response.json();
   const raw = extractGeminiText(json?.candidates?.[0]);
