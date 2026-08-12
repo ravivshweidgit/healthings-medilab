@@ -21,19 +21,19 @@ Same hardware and habits as founder POC:
 - **Food:** daily log (photo AI + text)
 - **Activity:** Activity Log + **YouTube training AI** calorie-burn model (workout sessions → energy balance)
 - **Labs:** BYO lab **PDF import** → AI (LDL / A1c / kidney) → daily eating / macros
-- **Goal:** daily **macro targets + meals**, not glucose chart only
-- **Optional:** your nutritionist (clinic) approves targets
+- **Goal:** daily **macro targets + meals**, not glucose chart only — plus **clinic treatment markers** (custom caps/floors: sat fat, sodium, …) when linked
+- **Optional:** your nutritionist (clinic) sets rules **and** structured treatment markers
 
 ---
 
 ## Overall scores (ICP)
 
-Weighted from [Category scores](#category-scores-0100-same-icp) (includes **Choose your real nutritionist** + **Nutritionist sessions**).
+Weighted from [Category scores](#category-scores-0100-same-icp) (includes **Choose your real nutritionist** + **Nutritionist sessions** + treatment markers in Macro).
 
 | App / stack | Score | Market price (USD, ~Aug 2026) | One-line why |
 |-------------|------:|-------------------------------|--------------|
-| **Healthings + clinic** (same app + your nutritionist) | **90** | **Pay as you go** AI + nutritionist **when you choose** (clinic) | Same Healthings.AI — local-first + **your** clinic nutritionist + rules loop — not $200/mo cloud coach |
-| **Healthings.AI** (solo) | **82** | **Pay as you go** · **$5 / 100 cr** · ~**$15–25**/active mo (~**90% less** than ~$200 Nutrisense) | Same app alone — no clinic linked yet (**Choose nutritionist = 0** until you connect) |
+| **Healthings + clinic** (same app + your nutritionist) | **91** | **Pay as you go** AI + nutritionist **when you choose** (clinic) | Same Healthings.AI — local-first + **your** nutritionist + rules + **custom treatment macros** (HARD) — not $200/mo cloud coach |
+| **Healthings.AI** (solo) | **82** | **Pay as you go** · **$5 / 100 cr** · ~**$15–25**/active mo (~**90% less** than ~$200 Nutrisense) | Same app alone — fluid Help + P/C/F engine; **Choose nutritionist = 0** / clinic markers until you connect |
 | **Levels** | **60** | App **~$15/mo** · Core **~$41** · Complete **~$167** | Polished CGM cloud membership; weak rules→auto-correct / local-first / your own nutritionist |
 | **Nutrisense** | **60** | **~$150–225/mo** sensors · BYO **~$39/mo** | Best **packaged** nutritionist sessions + meal scores; **their** coach network, not your local nutritionist |
 | **4-app stack + ChatGPT** | **58** | ChatGPT **~$20/mo** + apps | Strong generic AI chat if user pastes the file; no closed loop |
@@ -46,7 +46,7 @@ See [Market prices](#market-prices-usd--aug-2026) for prepaid vs subscription vs
 ### Visual (ICP)
 
 ```
-Healthings + clinic ████████████████████░  90
+Healthings + clinic ████████████████████░  91
 Healthings.AI       ████████████████░░░░░  82
 Levels              ███████████████░░░░░░  60
 Nutrisense          ███████████████░░░░░░  60
@@ -89,38 +89,37 @@ Compare **apples carefully**: some prices include **CGM sensors + coach**; other
 - **Nutritionist sessions** = *human visit layer* — access cadence + prep brief + clinic tools (ex-“Human coach” folded here). Nutrisense wins **packaged video+chat**; Healthings + clinic wins **brief depth**. Solo = export only (**42**), not an in-app session SKU.  
 - **Choose your real nutritionist** = have you linked **your** licensed person (not a platform roster). **Solo = 0** until a clinic is approved. **Healthings + clinic = 98**. Nutrisense / Levels = membership network, not “bring your own.”  
 **Charts & energy trends** = one timeline (glu + HR + meals + kcal). **CGM + meals** = meal-score packaging.  
-**Rules → closed-loop correction** ≠ Macro engine. Macro = P/C/F math + burn. **Rules correction** = My Rules / clinic directives as HARD policy + **real-time revise** when weigh-in, labs, or energy data lands (auto-apply).  
+**Rules → closed-loop correction** ≠ Macro engine. Macro = P/C/F math + burn **plus** clinic **treatment markers** (structured custom caps/floors — sat fat, soluble fiber, sodium, … — metered daily, HARD in AI). **Rules correction** = My Rules / clinic directives as HARD policy + **real-time revise** when weigh-in, labs, or energy data lands (auto-apply). Markers are **not** free-text rules — canonical codes + lab provenance.  
 **Privacy / local-first** = canonical health file lives **on the phone** (AsyncStorage / metrics store); AI is called with context when the user acts; clinic / cloud backup are **explicit opt-in** — not a cloud coach silo that owns the record. Nutrisense / Levels / Libre / Withings are vendor-cloud by default.
 
 Same product, two modes: **Healthings.AI** = app alone · **Healthings + clinic** = same app with *your* nutritionist linked. **Nutrisense / Levels / …** = competitors.
 
 | Category | Wt | Healthings.AI | Healthings + clinic | Nutrisense | Levels | Cronometer | Libre | Withings |
 |----------|---:|--------------:|--------------------:|-----------:|-------:|-----------:|------:|---------:|
-| **Macro engine** (daily revise + burn) | 13% | **94** | 94 | 55 | 50 | 25 | 10 | 15 |
+| **Macro engine** (daily revise + burn + treatment markers) | 13% | **95** | **97** | 55 | 50 | 25 | 10 | 15 |
 | **Data fusion** (CGM+scale+food+labs+activity) | 10% | **97** | 97 | 52 | 48 | 35 | 28 | 40 |
-| **Rules → closed-loop correction** | 7% | **94** | **94** | 45 | 40 | 35 | 10 | 15 |
+| **Rules → closed-loop correction** | 7% | **94** | **96** | 45 | 40 | 35 | 10 | 15 |
 | **Privacy / local-first** | 6% | **92** | 88 | 38 | 40 | 52 | 42 | 45 |
-| **Lab reports** (PDF → AI inputs) | 6% | **95** | 95 | 22 | 75 | 28 | 8 | 8 |
+| **Lab reports** (PDF → AI inputs) | 6% | **96** | **96** | 22 | 75 | 28 | 8 | 8 |
 | **AI chats** (context-rich coach chat) | 6% | **90** | **90** | 78 | 70 | 38 | 12 | 22 |
 | **Charts & energy trends** (glu+HR+meals+kcal) | 6% | **92** | **92** | 82 | 80 | 35 | 70 | 50 |
 | **Activity / training log** (YouTube AI kcal) | 6% | **90** | 90 | 58 | 55 | 42 | 12 | 65 |
 | **Price / value** (pay as you go vs ~$200/mo) | 5% | **90** | **90** | 48 | 72 | 58 | 52 | 55 |
 | **CGM + meals loop** | 5% | 84 | 84 | **88** | **85** | 30 | 75 | 10 |
-| **Food logging** (photo / AI chat / reuse / item g) | 5% | **88** | **88** | 78 | 72 | **90** | 25 | 5 |
+| **Food logging** (photo / AI chat / reuse / item g) | 5% | **90** | **90** | 78 | 72 | **90** | 25 | 5 |
 | **Choose your real nutritionist** | 5% | **0** | **98** | 32 | 35 | 15 | 10 | 10 |
-| **Nutritionist sessions** (human visit + brief) | 8% | 42 | **93** | **90** | 74 | 18 | 12 | 12 |
-| **UX / polish / retention** | 4% | **74** | **77** | **88** | **85** | 80 | **82** | **78** |
+| **Nutritionist sessions** (human visit + brief) | 8% | 42 | **95** | **90** | 74 | 18 | 12 | 12 |
+| **UX / polish / retention** | 4% | **76** | **79** | **88** | **85** | 80 | **82** | **78** |
 | **Language / local** (IL, multi-lang AI) | 4% | **85** | **85** | 35 | 35 | 70 | 75 | 75 |
 | **Setup ease** (higher = easier) | 4% | **69** | **69** | **82** | **80** | **85** | **90** | **88** |
-| **TOTAL (weighted)** | **100%** | **82** | **90** | **60** | **60** | **41** | **32** | **33** |
+| **TOTAL (weighted)** | **100%** | **82** | **91** | **60** | **60** | **41** | **32** | **33** |
 
-**Rescore note (2026-08-12, prompt109 fluid AI Help):** Help answers stay in place;
-chips jump to the surface (Data sharing, Lab Results + lipids, Food Log, …) with
-exclusive expand + center pulse — **Help stays open**. Competitor factor: Nora /
-Levels chat do not drive a long fusion dashboard; Libre / Withings = articles;
-DIY ChatGPT cannot open Cronometer. Counts inside the **UX / polish / retention**
-4% band (not a new category; not AI chats). **UX** **71→74** (solo) / **74→77**
-(+ clinic). Still below Nutrisense **88**. Weighted overall stays **~82 / ~90**.
+**Rescore note (2026-08-12, fluid Help + customized macros):**  
+**(1) prompt109 fluid AI Help** — answer chips → exclusive `focusStrip` (Help stays open); counts in **UX** band. Nora / Levels chat don’t drive a fusion dashboard.  
+**(2) be-41 + prompt110 treatment markers** — clinic sets up to **3** structured custom macros (e.g. sat-fat cap from LDL); phone meters them, meal AI estimates them, every macro/chat path treats them as **HARD**; lab provenance on the chip. Solo v1 = P/C/F + plumbing only until a clinic links markers (phase-2 solo AI markers deferred). Competitors stay free-text coach notes / no BYO structured treatment meters.  
+**Moves:** Macro **94→95** / **94→97**; Rules +clinic **94→96**; Labs **95→96**; Food **88→90**; Sessions +clinic **93→95**; UX **74→76** / **77→79**. Overall solo stays **~82** (markers are clinic-gated); + clinic **90→91**. Still below Nutrisense polish **88**.
+
+**Rescore note (2026-08-12, prompt109 fluid AI Help — first pass):** Help chips → surface with exclusive expand; **UX** **71→74** / **74→77**. Folded into the combined note above.
 
 **Rescore note (2026-08):** Added **Privacy / local-first (6%)** — phone is source of truth; AI/clinic are opt-in pipes, not the vault. Healthings **92** (solo) / **88** (+nutritionist, explicit clinic share). Nutrisense **38**, Levels **40** (cloud membership). Food logging already **88**. Overall solo **82→83**, +nutritionist **89**; Nutrisense **64→62**, Levels **64→63**.
 
@@ -132,10 +131,10 @@ DIY ChatGPT cannot open Cronometer. Counts inside the **UX / polish / retention*
 
 **Rescore note (2026-08-08, polish ladder Phase 1+2):** What’s next → Watch secondary; Matilda remasters; meal autofocus + YouTube paste→auto AI; QS `-pdfs` step; trend/sync calm empties; What’s next above AI strip; post-QS “You’re set”; soft in-app meal nudge. **UX / polish / retention** **63→71** (solo) / **67→74** (+ clinic); **Setup ease** **64→69**. Still below Nutrisense **88** / **82** — ≥80 polish needs more phone-proven habit speed. Overall solo stays **~82** (small weight on polish).
 
-**Healthings.AI leads:** macro, fusion, **rules→real-time correction**, **privacy / local-first**, labs, AI chats, charts & energy, activity, price, language; **near-lead food log UX**. **Healthings + clinic** also: **choose your real nutritionist** + session brief.  
-**Nutrisense leads:** **packaged sessions**, polish, CGM meal scores, setup — **not** “bring your own local nutritionist.”  
+**Healthings.AI leads:** macro (incl. treatment-marker plumbing), fusion, **rules→real-time correction**, **privacy / local-first**, labs, AI chats, charts & energy, activity, price, language; **near-lead food log UX** (marker meters when clinic-set). **Healthings + clinic** also: **choose your real nutritionist**, session brief, **custom treatment macros** (HARD + lab provenance).  
+**Nutrisense leads:** **packaged sessions**, polish, CGM meal scores, setup — **not** “bring your own local nutritionist” / structured treatment markers on BYO.  
 **Levels:** polished CGM + optional dietitian — weak auto rules loop / local-first / your own nutritionist.  
-**Cronometer leads:** food **database** depth (barcode / micros) — not meal-edit UX.  
+**Cronometer leads:** food **database** depth (barcode / micros) — not meal-edit UX or treatment meters.  
 **Libre / Withings:** chart or device pillars; vendor cloud.
 
 ---
@@ -144,7 +143,7 @@ DIY ChatGPT cannot open Cronometer. Counts inside the **UX / polish / retention*
 
 | Weight | Category |
 |-------:|----------|
-| 13% | Macro engine |
+| 13% | Macro engine (P/C/F + treatment markers) |
 | 10% | Data fusion |
 | 7% | Rules → closed-loop correction |
 | 6% | Privacy / local-first |
@@ -161,7 +160,7 @@ DIY ChatGPT cannot open Cronometer. Counts inside the **UX / polish / retention*
 | 4% | Language / local |
 | 4% | Setup ease |
 
-**Healthings.AI solo ≈ 82** · **Healthings + clinic ≈ 90** · **Levels ≈ 60** · **Nutrisense ≈ 60**
+**Healthings.AI solo ≈ 82** · **Healthings + clinic ≈ 91** · **Levels ≈ 60** · **Nutrisense ≈ 60**
 
 ---
 
@@ -184,8 +183,8 @@ quadrantChart
     Libre: [0.28, 0.78]
     Withings: [0.38, 0.72]
     DIY stack: [0.70, 0.35]
-    Healthings.AI: [0.95, 0.55]
-    Healthings + clinic: [0.95, 0.88]
+    Healthings.AI: [0.95, 0.58]
+    Healthings + clinic: [0.95, 0.90]
 ```
 
 **Read it:**
@@ -219,17 +218,19 @@ quadrantChart
 | Dimension | Healthings.AI | Nutrisense | Edge |
 |-----------|---------------|------------|------|
 | Daily macro from all data | ✅ engine | ⚠️ partial | **Healthings.AI** |
+| **Treatment markers** (clinic custom caps/floors) | ❌ solo → ✅ + clinic (HARD + meters + lab provenance) | ⚠️ coach notes / no structured BYO meters | **Healthings + clinic** |
 | My Rules → real-time target correction | ✅ closed loop | ⚠️ coach / manual | **Healthings.AI** |
 | Withings → calories/macros | ✅ built-in | ⚠️ weak | **Healthings.AI** |
 | Lab PDF → AI / structured markers | ✅ import | ❌ | **Healthings.AI** |
 | Labs → P/C/F / daily macros | ✅ wired in | ❌ | **Healthings.AI** |
+| Labs → treatment-marker provenance | ✅ LDL → sat-fat cap chip | ❌ | **Healthings + clinic** |
 | Activity / YouTube AI burn → energy | ✅ Activity Log | ⚠️ thinner | **Healthings.AI** |
 | Photo / AI chat / reuse / item-g edit | ✅ strong UX | ✅ photo + scores | **Healthings.AI** (edit UX) |
 | Photo food → same brain as `/macros` | ✅ | ✅ | Tie |
 | CGM meal feedback | ✅ `/7` | ✅ meal scores | Tie / Nutrisense UX |
 | **Choose your real nutritionist** | ❌ solo **0** → ✅ + clinic (your email) | ⚠️ **their** nutritionist network | **Healthings + clinic** |
 | Real dietitian *included in membership* | ❌ → clinic / pay clinic | ✅ packaged | **Nutrisense** (access in box) |
-| App polish & onboarding | ⚠️ climbing (Help chips → surface) | ✅ | **Nutrisense** (still) |
+| App polish & onboarding | ⚠️ climbing (fluid Help + habit UX) | ✅ | **Nutrisense** (still) |
 | Fluid Help (answer → Open strip) | ✅ chip → exclusive expand + center | ❌ chat tab / articles | **Healthings.AI** |
 | AI chats (full metabolic file in prompt) | ✅ Gemini + `/macros` `/7` | ✅ Nora (polished, thinner file) | **Healthings.AI** (context) |
 | Charts: glucose + HR + meals + energy | ✅ one MetabolicChart | ⚠️ glu+meals+activity (less HR/kcal strip) | **Healthings.AI** |
@@ -239,9 +240,9 @@ quadrantChart
 | Continuous coach bill | ❌ not required — closed loop | ✅ packaged nutritionist month | **Healthings.AI** |
 | Privacy / local-first | ✅ phone vault; AI/clinic opt-in | ⚠️ cloud coach platform | **Healthings.AI** |
 | Nutritionist timing | ✅ **you decide** (clinic visit) | ⚠️ membership meter | **Healthings.AI** |
-| Nutritionist sessions (brief quality) | ✅ clinic brief from full file | ✅ packaged video+chat cadence | Tie / **+ nutritionist depth** vs **NS packaging** |
+| Nutritionist sessions (brief quality) | ✅ clinic brief from full file + markers | ✅ packaged video+chat cadence | Tie / **+ nutritionist depth** vs **NS packaging** |
 
-**Beat Nutrisense:** IL + labs + Withings + activity burn + multi-goal + **you pick your real nutritionist** (not their roster) + **your nutritionist on Healthings.AI session brief** + ~**90% lower** software month.  
+**Beat Nutrisense:** IL + labs + Withings + activity burn + multi-goal + **you pick your real nutritionist** + **custom treatment macros** (not free-text only) + **your nutritionist on Healthings.AI session brief** + ~**90% lower** software month.  
 **Lose to Nutrisense:** US mass market, “easy CGM + coach sessions in a box” (when the user *wants* a packaged nutritionist, not their own).  
 **Deep dive:** [Nutricence-medilab.md](./Nutricence-medilab.md)
 
@@ -264,9 +265,9 @@ Scores **flip** when the job is not the ICP:
 
 **Weak:** “We beat Nutrisense at everything.”
 
-**Strong:** “For Libre + Withings + labs users who log food and training daily, Healthings.AI scores **82** solo vs Nutrisense **60**. We win **local-first privacy**, **My Rules → real-time correction**, fusion, fused charts, **AI food log**, and **pay-as-you-go**. They win **packaged nutritionist sessions** + meal-score polish. **Healthings + clinic (~90)** — *your* nutritionist (you chose them) walks in with the full brief; you still don’t pay ~$200 every month.”
+**Strong:** “For Libre + Withings + labs users who log food and training daily, Healthings.AI scores **82** solo vs Nutrisense **60**. We win **local-first privacy**, **My Rules → real-time correction**, fusion, fused charts, **AI food log**, **fluid Help**, and **pay-as-you-go**. They win **packaged nutritionist sessions** + meal-score polish. **Healthings + clinic (~91)** — *your* nutritionist sets **structured treatment macros** (e.g. sat-fat cap from LDL) and walks in with the full brief; you still don’t pay ~$200 every month.”
 
-**One sentence:** Nutrisense = **~$200/mo cloud sessions with their nutritionists**. Healthings = **local-first closed loop** + **your** nutritionist when you want — not theirs.
+**One sentence:** Nutrisense = **~$200/mo cloud sessions with their nutritionists**. Healthings = **local-first closed loop** + **your** nutritionist’s **custom macros** when you want — not theirs.
 
 ---
 
@@ -294,6 +295,7 @@ Scores **flip** when the job is not the ICP:
 | 2026-08-08 | prompt107 Watch explainers: **Setup** **56→64**, **UX / polish** **60→63** / **64→67**; overall solo **82**, + clinic **90** |
 | 2026-08-08 | Polish ladder P1+2: **UX / polish** **63→71** / **67→74**, **Setup** **64→69**; path to ≥80 still open |
 | 2026-08-12 | prompt109 fluid AI Help chips: **UX** **71→74** / **74→77**; overall ~**82 / 90** |
+| 2026-08-12 | Fluid Help + **treatment markers** (custom macros): Macro **95/97**, Food **90**, UX **76/79**; overall **82 / 91** |
 
 ---
 

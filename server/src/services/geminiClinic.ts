@@ -8,7 +8,7 @@ const GEMINI_TIMEOUT_MS = 60_000;
 
 /**
  * Packing splits clinic vs patient web chat (be-39).
- * Clinic must not hide meal items — default 128d itemized food (matches portal trend max).
+ * Clinic must not hide meal items — default 365d itemized food (clinic snapshot window).
  * Patient /account/ keeps be-36 COGS defaults; optional widen on “30 days” / “חודש”.
  */
 const PATIENT_FOOD_LOOKBACK_DAYS = 31;
@@ -18,11 +18,11 @@ const PATIENT_CGM_FULL_SERIES_DAYS = 2;
 const PATIENT_WORKOUT_LOOKBACK_DAYS = 14;
 const PATIENT_LAB_REPORT_LIMIT = 3;
 
-const CLINIC_FOOD_LOOKBACK_DAYS = 128;
-const CLINIC_FOOD_DETAIL_DAYS = 128;
-const CLINIC_CGM_LOOKBACK_DAYS = 128;
+const CLINIC_FOOD_LOOKBACK_DAYS = 365;
+const CLINIC_FOOD_DETAIL_DAYS = 365;
+const CLINIC_CGM_LOOKBACK_DAYS = 365;
 const CLINIC_CGM_FULL_SERIES_DAYS = 14;
-const CLINIC_WORKOUT_LOOKBACK_DAYS = 128;
+const CLINIC_WORKOUT_LOOKBACK_DAYS = 365;
 const CLINIC_LAB_REPORT_LIMIT = 10;
 
 const CHAT_CGM_SERIES_STEP_MIN = 15;

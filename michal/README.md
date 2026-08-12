@@ -1,9 +1,9 @@
-**Clinic / mentor email:** `habushamichal+clinic@gmail.com`  
+**Clinic / mentor email (portal):** `habushamichal@gmail.com`  
 Portal: https://healthings.ai/clinic  
 
-Do **not** open the phone app with this email — clinic accounts are portal-only.
+Do **not** open the phone app with a clinic email — mentors are portal-only.
 
-Legacy mentor (same org, kept): `habushamichal@gmail.com`  
+`habushamichal+clinic@gmail.com` — do not use for portal or app (alias mess; kept as empty mentor).
 
 Not `clinic@healthings.ai` (Healthings operator account).
 

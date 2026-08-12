@@ -62,7 +62,7 @@ export async function fulfillPendingClinicSyncRequests(): Promise<boolean> {
       ]);
       if (requests.length === 0) return false;
       if (approved.length === 0 && !webView) return false;
-      await shareClinicExport('90d');
+      await shareClinicExport('365d');
       return true;
     } catch (err) {
       console.warn('[ClinicSync] upload failed:', err);
@@ -79,7 +79,7 @@ export async function fulfillPendingClinicSyncRequests(): Promise<boolean> {
 export async function shareSnapshotIfAnyConsumer(): Promise<boolean> {
   try {
     if (!(await hasSnapshotConsumer())) return false;
-    await shareClinicExport('90d');
+    await shareClinicExport('365d');
     return true;
   } catch {
     return false;
@@ -91,7 +91,7 @@ export async function shareSnapshotNow(): Promise<ShareExportResult> {
   if (!(await hasSnapshotConsumer())) {
     throw new Error('Nothing reads your data yet — link a clinic or turn on your web view');
   }
-  return shareClinicExport('90d');
+  return shareClinicExport('365d');
 }
 
 /**
@@ -106,7 +106,7 @@ export async function pushSnapshotForWebView(): Promise<boolean> {
     // Set only once we know the view is on, so an off state does not consume
     // the throttle window and delay the first push after enabling.
     lastWebViewPushAt = now;
-    await shareClinicExport('90d');
+    await shareClinicExport('365d');
     return true;
   } catch (err) {
     console.warn('[ClinicSync] web view push failed:', err);

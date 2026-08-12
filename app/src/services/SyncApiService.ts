@@ -1,6 +1,6 @@
 import { authFetch } from './AuthApiService';
 
-export type SyncLookbackMode = '90d' | 'full';
+export type SyncLookbackMode = '90d' | '128d' | '365d' | 'full';
 
 export type SyncSummary = {
   generatedAt: string;

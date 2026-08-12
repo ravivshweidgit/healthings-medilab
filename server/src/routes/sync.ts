@@ -18,7 +18,7 @@ import {
 const summarySchema = z.object({
   generatedAt: z.string(),
   lookbackDays: z.number().int().positive(),
-  lookbackMode: z.enum(['90d', 'full']),
+  lookbackMode: z.enum(['90d', '128d', '365d', 'full']),
   dayRange: z.object({
     from: z.string(),
     to: z.string(),

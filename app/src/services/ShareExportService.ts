@@ -16,8 +16,16 @@ import {
   syncMetricsStore,
   type MetricsPersistedStore,
 } from './MetricsPersistenceService';
-
 const LEGACY_WITHINGS_STORE_KEY = 'healthings:withingsStore';
+
+/** Standard clinic snapshot window — ~1y; gzip typically well under 1 MB. */
+export const CLINIC_DEFAULT_LOOKBACK_DAYS = 365;
+
+function lookbackDaysForMode(mode: SyncLookbackMode): number {
+  if (mode === 'full') return 3650;
+  // Legacy wire values ('90d' / '128d') still mean the current standard window.
+  return CLINIC_DEFAULT_LOOKBACK_DAYS;
+}
 
 const EXPORT_APP = 'healthings-medilab';
 const EXPORT_VERSION = 1;
@@ -148,10 +156,10 @@ function dayRangeFromKeys(asyncStorage: Record<string, string>): { from: string;
 }
 
 export async function buildClinicExport(
-  lookbackMode: SyncLookbackMode = '90d',
+  lookbackMode: SyncLookbackMode = '365d',
   metricsOverride?: MetricsPersistedStore,
 ): Promise<ClinicExportPayload> {
-  const lookbackDays = lookbackMode === 'full' ? 3650 : 90;
+  const lookbackDays = lookbackDaysForMode(lookbackMode);
   const cutoffDay = lookbackMode === 'full' ? '1970-01-01' : cutoffDayKey(lookbackDays);
 
   const allKeys = await AsyncStorage.getAllKeys();
@@ -209,7 +217,7 @@ export async function buildClinicExport(
   };
 }
 
-export async function shareClinicExport(lookbackMode: SyncLookbackMode = '90d'): Promise<ShareExportResult> {
+export async function shareClinicExport(lookbackMode: SyncLookbackMode = '365d'): Promise<ShareExportResult> {
   const synced = await syncMetricsStore();
   if (!hasMetricsData(synced)) {
     console.warn('[ClinicExport] metrics store empty after sync — snapshot may lack body/HR/workouts');
@@ -219,7 +227,7 @@ export async function shareClinicExport(lookbackMode: SyncLookbackMode = '90d'):
   const compressed = deflate(json);
   const payloadGzipBase64 = bytesToBase64(compressed);
 
-  const lookbackDays = lookbackMode === 'full' ? 3650 : 90;
+  const lookbackDays = lookbackDaysForMode(lookbackMode);
   const summary: SyncSummary = {
     generatedAt: payload.exportedAt,
     lookbackDays,

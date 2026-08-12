@@ -141,7 +141,7 @@ function patientRulesFromSyncPayload(payloadGzip: Buffer): ClinicUserRules | nul
 export type SyncSummary = {
   generatedAt: string;
   lookbackDays: number;
-  lookbackMode: '90d' | 'full';
+  lookbackMode: '90d' | '128d' | '365d' | 'full';
   dayRange: { from: string; to: string };
   includes: string[];
 };
