@@ -137,12 +137,14 @@ const SERIES_HISTORY_LIGHT_MS = 7 * MS_DAY;
 type HistoryDepth = 'light' | 'full';
 
 /**
- * Plot width must fit the strip card's inner box, or the fixed-width canvas is cut off
- * on the right by `chartPlot`'s overflow:hidden. Budget: 40 scroll padding + 28 card
- * padding + 2 y-axis margin, on top of the y-axis column itself.
+ * Fallback when `chartPlot` has not measured yet. Must match dashboard gutters or the
+ * fixed-width canvas is cut off on the right by `chartPlot`'s overflow:hidden — which
+ * shears off `graphCanvas` borderTopRightRadius / borderBottomRightRadius (square corners).
+ * Budget: 20×2 scroll + 18×2 chart card + 2 y-axis gutter (= 78), on top of Y_AXIS_WIDTH.
+ * Prefer the onLayout measurement; this is only a first-paint estimate.
  */
 function viewportWidthPx(windowW: number): number {
-  return Math.max(180, windowW - Y_AXIS_WIDTH - 70);
+  return Math.max(180, windowW - Y_AXIS_WIDTH - 78);
 }
 
 function filterPointsByTime(points: Point[], t0: number, t1: number): Point[] {
@@ -557,6 +559,8 @@ export function MetabolicChart({
   const stripCopy = useMemo(() => getMetabolicStripCopy(langCode), [langCode]);
   const emptyCopy = useMemo(() => getWhatsNextCopy(langCode), [langCode]);
   const { width: windowW } = useWindowDimensions();
+  /** Measured chartPlot width — authoritative; formula fallback until first layout. */
+  const [plotWidthPx, setPlotWidthPx] = useState(0);
   const [viewportPresetIndex, setViewportPresetIndex] = useState(DEFAULT_VIEWPORT_PRESET_INDEX);
   /** 7 days vs Full store. Orthogonal to 1H…16D zoom. */
   const [historyDepth, setHistoryDepth] = useState<HistoryDepth>('light');
@@ -667,7 +671,7 @@ export function MetabolicChart({
     if (!bounds) return null;
 
     const dataTMin = bounds.tMin;
-    const vpPx = viewportWidthPx(windowW);
+    const vpPx = plotWidthPx > 0 ? plotWidthPx : viewportWidthPx(windowW);
     const viewportMs = VIEWPORT_PRESETS[viewportPresetIndex]?.ms ?? VIEWPORT_PRESETS[DEFAULT_VIEWPORT_PRESET_INDEX].ms;
     const viewportId = VIEWPORT_PRESETS[viewportPresetIndex]?.id ?? '12H';
     const viewportLabel = viewportPresetLabel(stripCopy, viewportId);
@@ -877,7 +881,7 @@ export function MetabolicChart({
       targetBandBottomY,
       targetBandVisible,
     };
-  }, [activityZones, chartGlucose, chartHeartRate, endTimeOverrideMs, langCode, nowAnchor, plotH, scrollX, stripCopy, viewportPresetIndex, windowW]);
+  }, [activityZones, chartGlucose, chartHeartRate, endTimeOverrideMs, langCode, nowAnchor, plotH, plotWidthPx, scrollX, stripCopy, viewportPresetIndex, windowW]);
 
   /** Compute 30-min calorie bars for the currently visible time window. */
   const caloriePrepared = useMemo(() => {
@@ -1508,7 +1512,13 @@ export function MetabolicChart({
             ))}
         </View>
 
-        <View style={[styles.chartPlot, { height: DATE_HEADER_HEIGHT + prepared.svgH }]}>
+        <View
+          style={[styles.chartPlot, { height: DATE_HEADER_HEIGHT + prepared.svgH }]}
+          onLayout={(e) => {
+            const w = Math.round(e.nativeEvent.layout.width);
+            if (w > 0 && w !== plotWidthPx) setPlotWidthPx(w);
+          }}
+        >
           <View style={styles.chartDateHeaderOuter}>
             <View style={styles.chartDateHeaderRow}>
               <View style={styles.chartDateNavCol}>
