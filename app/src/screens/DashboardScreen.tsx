@@ -105,6 +105,7 @@ import {
   stepsToActiveKcal,
 } from '../services/SamsungStepsAdapter';
 import { hybridWithingsActivityKcal } from '../services/hybridActivityBurn';
+import { loadMetricsStore } from '../services/MetricsPersistenceService';
 import { clearOnboardingCompletedAt, shouldShowQuickStart } from '../services/ProfileCompletenessService';
 import { AUTH_CLEARED_EVENT } from '../services/AuthTokenStore';
 import { appLog, pruneOldAppLogs, PERF_WARN_SYNC_MS, timeAsync } from '../services/AppDailyLogService';
@@ -543,7 +544,18 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       setSourceConfig(config);
       setSetupToggles(togglesFromSourceConfig(config));
       const snap = manualSnap ?? (await getManualBody());
-      const prior = bodyTrendDays;
+      // Prefer React state; if boot raced before cache applied, read the store so a
+      // shallow step map cannot zero 128d of phone-health activity after midnight.
+      let prior = bodyTrendDays;
+      if (
+        isPhoneHealthActivity(config.activity)
+        && !prior.some((d) => d.activityKcalDay != null && d.activityKcalDay > 0)
+      ) {
+        const cached = await loadMetricsStore();
+        if (cached.bodyTrendDays.some((d) => d.activityKcalDay != null && d.activityKcalDay > 0)) {
+          prior = cached.bodyTrendDays;
+        }
+      }
       const hist = history.length > 0 ? history : snap ? [snap] : [];
       setUserBmrAnchor(resolveUserBmrAnchor(hist, bmrOverride ?? null));
       const mergedWeighIns = countMergedWeighInDays(prior, history);
@@ -1157,7 +1169,9 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   /**
    * BMR + activity kcal per day.
    * Watch On: hybrid (distance×weight + non-distance workouts).
-   * Watch Off: phone steps in lookback; hybrid outside.
+   * Watch Off (HC/HK): patched trend activity for every day — never Withings hybrid
+   * outside the shallow 2-day step window (that hybrid is 0 without a watch, so after a
+   * midnight remount older Food Log days looked empty until Deep sync).
    * Do not Math.max with legacy Withings totals — that re-inflated activity to ~937.
    */
   const burnPartsByDay = useMemo((): Record<string, { bmr: number; activity: number }> => {
@@ -1237,19 +1251,22 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       for (const d of bodyTrendDaysWithActivity) {
         const bmr = d.bmrKcalDay ?? fallbackBmr;
         if (!bmr || !Number.isFinite(bmr)) continue;
-        const phoneOwns = phoneLookbackKeys.has(d.dayKey);
-        const activity = phoneOwns
+        // Phone health: bodyTrendDaysWithActivity already restored store history outside
+        // the shallow step window. Withings hybrid here would zero Watch Off days.
+        const activity = usePhoneHealthActivity
           ? (d.activityKcalDay ?? 0)
           : withingsActivityForDay(d.dayKey);
         result[d.dayKey] = { bmr: Math.round(bmr), activity: Math.round(activity) };
       }
       const todayKey = localDayKeyFromMs(Date.now());
-      // New calendar day with 0 steps must still show activity 0 + burned (BMR + 0).
-      ensureDay(
-        result,
-        todayKey,
-        phoneLookbackKeys.has(todayKey) ? 0 : withingsActivityForDay(todayKey),
-      );
+      // Seed today only when missing — never overwrite real steps/store activity with 0.
+      if (!result[todayKey]) {
+        ensureDay(
+          result,
+          todayKey,
+          usePhoneHealthActivity ? 0 : withingsActivityForDay(todayKey),
+        );
+      }
       for (const dk of phoneLookbackKeys) {
         if (!result[dk]) ensureDay(result, dk, 0);
       }
