@@ -111,10 +111,21 @@ import { getAppearanceCopy } from '../i18n/appearanceCopy';
 import { getQuickStartCopy, isRtlLang, usesMentorGenderUi } from '../i18n/quickStartCopy';
 import {
   CircleHelp,
+  Droplet,
+  HeartPulse,
+  Link as LinkIcon,
   Moon,
+  Palette,
+  Ruler,
   Smartphone,
+  Stethoscope,
   Sun,
+  Target,
+  UserRound,
   UtensilsCrossed,
+  Watch,
+  Weight,
+  type LucideIcon,
 } from 'lucide-react-native';
 import { GearHeroCard } from './GearIllustrations';
 import { useTheme } from '../theme/ThemeProvider';
@@ -126,6 +137,11 @@ import { UnitsPreferenceSection } from './UnitsPreferenceSection';
 const SITE_HOME = 'https://healthings.ai';
 const BRAND_LOGO = require('../../assets/brand-logo.png');
 const BRAND_LOGO_DARK = require('../../assets/brand-logo-dark.png');
+/** Michal coach card badges — crops as-is (circle + glyph baked in). */
+const COACH_ICON_PERSON_HEART = require('../../assets/quick-start/coach-person-heart.png');
+const COACH_ICON_REFRESH = require('../../assets/quick-start/coach-refresh.png');
+const COACH_ICON_LOTUS = require('../../assets/quick-start/coach-lotus.png');
+const COACH_ICON_HEADER = require('../../assets/quick-start/coach-header-person-sparkle.png');
 /** Match DashboardScreen brand lockup sizing. */
 const SCROLL_HORIZONTAL_PADDING = 20;
 const BRAND_HEADER_HEIGHT_FALLBACK = 152;
@@ -149,6 +165,7 @@ type StepId =
   | 'appearance'
   | 'names'
   | 'welcome'
+  | 'coach'
   | 'units'
   | 'body'
   | 'scale'
@@ -168,14 +185,16 @@ type Props = {
 };
 
 /**
- * Quick Start step matrix (phone-counted 2026-08-08 — prompt106):
+ * Quick Start step matrix (phone-counted 2026-08-08 — prompt106; coach split 2026-08-13):
  *
  * | Path | Steps | Count |
  * |------|-------|------:|
- * | Core always | language → appearance → names → welcome → units → body → scale → watch → cgm → weight → targets → meals | 12 |
+ * | Core always | language → appearance → names → welcome → coach → units → body → scale → watch → cgm → weight → targets → meals | 13 |
  * | + Withings | insert `link_withings` after cgm when scale **or** watch = Yes | +1 |
  * | + phone health | insert `phone_health` when watch = No **or** CGM = Yes | +1 |
- * | Max (scale+watch+CGM) | core + link_withings + phone_health (CGM) | 14 → was 15 with pdfs |
+ * | Max (scale+watch+CGM) | core + link_withings + phone_health | 15 |
+ *
+ * Coach step is in every language (Michal). Mentor gender picker inside it is he/ar only.
  *
  * **Safe trim (2026-08):** dropped mandatory `pdfs` — lab/nutrition PDF import stays on
  * dashboard Labs / Nutrition strips. Does not touch Withings/CGM/link gates.
@@ -191,6 +210,7 @@ function buildStepList(
     'appearance',
     'names',
     'welcome',
+    'coach',
     'units',
     'body',
     'scale',
@@ -210,14 +230,49 @@ function buildStepList(
 
 /**
  * Fixed progress denominator. Device answers (scale/watch/cgm) insert optional
- * steps, so the raw list length grows mid-flow — a moving goalpost. Using
- * the maximum possible length keeps "Step N of M" and the dot count stable.
+ * steps, so the raw list length grows mid-flow — a moving goalpost. Using the
+ * maximum possible length keeps "Step N of M" and the dot count stable.
  */
 const MAX_QUICK_START_STEPS = buildStepList(true, true, true).length;
 
-/** Soft sky blue — Next buttons + help ? links (distinct from brand green). */
-const NEXT_BLUE = '#5BAFE8';
-const NEXT_BLUE_DEEP = '#3D9DD6';
+/**
+ * One glyph per step, shown in the header badge (redesign 2026-08-13, Michal).
+ * Orientation cue only — the title still carries the meaning, so a repeat between
+ * two far-apart steps (names/body, scale/weight) is fine. `language` is absent on
+ * purpose: the gate hides the header.
+ */
+const STEP_ICONS: Partial<Record<StepId, LucideIcon>> = {
+  appearance: Palette,
+  names: UserRound,
+  welcome: HeartPulse,
+  units: Ruler,
+  body: UserRound,
+  scale: Weight,
+  watch: Watch,
+  cgm: Droplet,
+  link_withings: LinkIcon,
+  weight: Weight,
+  phone_health: Smartphone,
+  pdfs: Stethoscope,
+  targets: Target,
+  meals: UtensilsCrossed,
+};
+
+/** Copy ships the ordinal inline ("1. Tap +") — the numbered badge would repeat it. */
+function stripListNumber(text: string): string {
+  return text.replace(/^\s*\d+\s*[.)]\s*/, '');
+}
+
+/**
+ * Michal redesign light-blue (= teal) — sampled from her crops 2026-08-13.
+ * Button fill ~#0D86A3; icon/link ~#0BA5BE. Replaces the old sky #5BAFE8 / #3D9DD6
+ * so Quick Start matches her mockups without forking the global theme tokens.
+ */
+const NEXT_BLUE = '#0D86A3';
+const NEXT_BLUE_DEEP = '#0BA5BE';
+/** Soft wash behind help ? / header badges — same hue, low alpha. */
+const NEXT_BLUE_WASH = 'rgba(13, 134, 163, 0.12)';
+const NEXT_BLUE_WASH_BORDER = 'rgba(13, 134, 163, 0.28)';
 /** Navy from HEALTHINGS.AI wordmark — brand lockup text. */
 const BRAND_NAVY = '#1A2B4A';
 /** Familiar PDF file-type red (generic document mark, not Adobe trademark). */
@@ -253,6 +308,18 @@ function PdfFileIcon({ size = 44 }: { size?: number }) {
         PDF
       </SvgText>
     </Svg>
+  );
+}
+
+/** Michal crop already includes the wash/solid circle — show pixel-for-pixel. */
+function CoachCropIcon({ source, size = 44 }: { source: number; size?: number }) {
+  return (
+    <Image
+      source={source}
+      style={{ width: size, height: size }}
+      resizeMode="contain"
+      accessibilityIgnoresInvertColors
+    />
   );
 }
 
@@ -459,15 +526,18 @@ function WelcomeBrandMark({ brandTag, compact }: { brandTag: string; compact?: b
         />
       </View>
       {!compact ? (
-        <Pressable
-          onPress={() => void Linking.openURL(SITE_HOME)}
-          accessibilityRole="link"
-          accessibilityLabel="Open healthings.ai"
-          hitSlop={8}
-          style={({ pressed }) => [styles.brandSiteRow, pressed && styles.helpPressed]}
-        >
-          <Text style={styles.brandSite}>healthings.ai</Text>
-        </Pressable>
+        <>
+          <View style={styles.brandDivider} />
+          <Pressable
+            onPress={() => void Linking.openURL(SITE_HOME)}
+            accessibilityRole="link"
+            accessibilityLabel="Open healthings.ai"
+            hitSlop={8}
+            style={({ pressed }) => [styles.brandSiteRow, pressed && styles.helpPressed]}
+          >
+            <Text style={styles.brandSite}>healthings.ai</Text>
+          </Pressable>
+        </>
       ) : null}
       {!compact && brandTag ? <Text style={styles.brandTag}>{brandTag}</Text> : null}
     </View>
@@ -507,16 +577,16 @@ function HelpButton({
   );
 }
 
-/** Small YouTube mark (lucide has no Youtube glyph in this package). */
-function YouTubeMark({ size = 22 }: { size?: number }) {
-  const play = Math.round(size * 0.32);
+/** Michal explainer mark — teal rounded square + white play triangle. */
+function TealPlayMark({ size = 22 }: { size?: number }) {
+  const play = Math.round(size * 0.34);
   return (
     <View
       style={{
         width: size,
-        height: Math.round(size * 0.72),
-        borderRadius: Math.round(size * 0.22),
-        backgroundColor: '#FF0000',
+        height: size,
+        borderRadius: Math.round(size * 0.28),
+        backgroundColor: NEXT_BLUE,
         alignItems: 'center',
         justifyContent: 'center',
       }}
@@ -525,7 +595,7 @@ function YouTubeMark({ size = 22 }: { size?: number }) {
         style={{
           width: 0,
           height: 0,
-          marginLeft: Math.round(play * 0.15),
+          marginLeft: Math.round(play * 0.18),
           borderTopWidth: play * 0.55,
           borderBottomWidth: play * 0.55,
           borderLeftWidth: play,
@@ -559,17 +629,17 @@ function WatchExplainerLink({
       accessibilityLabel={label}
       style={({ pressed }) => [
         styles.watchExplainerLink,
-        rtl && styles.watchExplainerLinkRtl,
         pressed && styles.helpPressed,
       ]}
     >
-      <YouTubeMark size={20} />
+      {/* LTR: teal play on the physical left, underlined label (Michal). */}
+      <TealPlayMark size={22} />
       <Text style={[styles.watchExplainerText, rtl && styles.textRtl]}>{label}</Text>
     </Pressable>
   );
 }
 
-/** Step headline + ? — primary place users look for explanations. */
+/** Step headline + ? — ? always on the physical right; title right-aligns in he/ar. */
 function StepHeading({
   title,
   helpHref,
@@ -586,7 +656,7 @@ function StepHeading({
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   return (
-    <View style={[styles.stepHeading, rtl && styles.stepHeadingRtl]}>
+    <View style={styles.stepHeading}>
       <Text style={[styles.question, textStyle]}>{title}</Text>
       <HelpButton href={helpHref} label={helpLabel} compact />
     </View>
@@ -596,6 +666,7 @@ function StepHeading({
 /**
  * Title with ? glued to a glossary brand (Withings) — in-app tip first, optional help article.
  * Falls back to StepHeading if the brand string is missing from the title.
+ * he/ar: brand on its own second line (Michal) so Latin doesn't scramble the Hebrew question.
  */
 function BrandStepHeading({
   title,
@@ -634,6 +705,18 @@ function BrandStepHeading({
     ]);
   }, [tipTitle, tipBody, tipMore, tipDismiss, helpHref]);
 
+  const helpBtn = (
+    <Pressable
+      onPress={openTip}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel={helpLabel ?? tipTitle}
+      style={({ pressed }) => [styles.brandHelpBtn, pressed && styles.helpPressed]}
+    >
+      <CircleHelp size={22} color={NEXT_BLUE_DEEP} strokeWidth={2.25} />
+    </Pressable>
+  );
+
   if (idx < 0) {
     return (
       <StepHeading
@@ -649,22 +732,27 @@ function BrandStepHeading({
   const before = title.slice(0, idx);
   const after = title.slice(idx + brand.length);
 
+  if (rtl) {
+    const line1 = `${before.trimEnd()}${after.trim()}`.trim();
+    return (
+      <View style={styles.stepHeading}>
+        <View style={styles.brandTitleStack}>
+          {line1 ? <Text style={[styles.question, textStyle]}>{line1}</Text> : null}
+          <Text style={[styles.question, styles.brandInTitle, textStyle]}>{brand}</Text>
+        </View>
+        {helpBtn}
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.stepHeading, rtl && styles.stepHeadingRtl]}>
-      <View style={[styles.brandTitleWrap, rtl && styles.brandTitleWrapRtl]}>
+    <View style={styles.stepHeading}>
+      <View style={styles.brandTitleWrap}>
         {before ? (
           <Text style={[styles.questionInline, textStyle]}>{before}</Text>
         ) : null}
         <Text style={[styles.questionInline, styles.brandInTitle, textStyle]}>{brand}</Text>
-        <Pressable
-          onPress={openTip}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel={helpLabel ?? tipTitle}
-          style={({ pressed }) => [styles.brandHelpBtn, pressed && styles.helpPressed]}
-        >
-          <CircleHelp size={22} color={NEXT_BLUE_DEEP} strokeWidth={2.25} />
-        </Pressable>
+        {helpBtn}
         {after ? (
           <Text style={[styles.questionInline, textStyle]}>{after}</Text>
         ) : null}
@@ -722,8 +810,8 @@ function QuestionYesNo({
     outputRange: [colors.gridLine, NEXT_BLUE_DEEP],
   });
 
-  const selected = { backgroundColor: BRAND_NAVY, borderColor: BRAND_NAVY };
-
+  // Michal: white plates; selected = teal outline + teal label (never filled navy).
+  // DOM order No → Yes with LTR so לא is left / כן is right in he and en.
   return (
     <View style={styles.yesNoBlock}>
       <View style={styles.yesNoRow}>
@@ -734,13 +822,15 @@ function QuestionYesNo({
           ]}
         >
           <Pressable
-            style={[styles.yesNoBtn, value === true && selected]}
-            onPress={() => onChange(true)}
+            style={[styles.yesNoBtn, value === false && styles.yesNoBtnOn]}
+            onPress={() => onChange(false)}
             accessibilityRole="button"
-            accessibilityState={{ selected: value === true }}
-            accessibilityLabel={yesLabel}
+            accessibilityState={{ selected: value === false }}
+            accessibilityLabel={noLabel}
           >
-            <Text style={[styles.yesNoText, value === true && styles.yesNoTextOn]}>{yesLabel}</Text>
+            <Text style={[styles.yesNoText, value === false && styles.yesNoTextOn]}>
+              {noLabel}
+            </Text>
           </Pressable>
         </Animated.View>
         <Animated.View
@@ -750,13 +840,15 @@ function QuestionYesNo({
           ]}
         >
           <Pressable
-            style={[styles.yesNoBtn, value === false && selected]}
-            onPress={() => onChange(false)}
+            style={[styles.yesNoBtn, value === true && styles.yesNoBtnOn]}
+            onPress={() => onChange(true)}
             accessibilityRole="button"
-            accessibilityState={{ selected: value === false }}
-            accessibilityLabel={noLabel}
+            accessibilityState={{ selected: value === true }}
+            accessibilityLabel={yesLabel}
           >
-            <Text style={[styles.yesNoText, value === false && styles.yesNoTextOn]}>{noLabel}</Text>
+            <Text style={[styles.yesNoText, value === true && styles.yesNoTextOn]}>
+              {yesLabel}
+            </Text>
           </Pressable>
         </Animated.View>
       </View>
@@ -765,21 +857,133 @@ function QuestionYesNo({
   );
 }
 
-function FieldLabelWithHelp({
-  label,
-  href,
-  textStyle,
+/**
+ * Card with a title, body, and one side badge — either a subject glyph or the ?.
+ * Michal: badge is its own column, clearly gapped from the text block (not glued to the title).
+ */
+function InfoCard({
+  title,
+  body,
+  icon: Icon,
+  glyph,
+  glyphPlain = false,
+  helpHref,
+  helpLabel,
+  rtl = false,
+  children,
 }: {
-  label: string;
-  href: string;
-  textStyle?: object;
+  title: string;
+  body?: string;
+  icon?: LucideIcon;
+  /** Custom badge — SVG or Michal PNG crop. */
+  glyph?: React.ReactNode;
+  /** Crop already has its own circle — skip the wash plate. */
+  glyphPlain?: boolean;
+  helpHref?: string;
+  helpLabel?: string;
+  rtl?: boolean;
+  children?: React.ReactNode;
+}) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const iconColor = isDark ? colors.accentBlue : NEXT_BLUE_DEEP;
+  const badge = helpHref ? (
+    <HelpButton href={helpHref} label={helpLabel} compact />
+  ) : glyph ? (
+    <View style={glyphPlain ? styles.infoCardBadgePlain : styles.infoCardBadge}>{glyph}</View>
+  ) : Icon ? (
+    <View style={styles.infoCardBadge}>
+      <Icon size={22} color={iconColor} strokeWidth={2} />
+    </View>
+  ) : null;
+  const copy = (
+    <View style={styles.infoCardCopy}>
+      <Text style={[styles.infoCardTitle, rtl && styles.textRtl]}>{title}</Text>
+      {body ? (
+        <Text style={[styles.infoCardBody, rtl && styles.textRtl]}>{body}</Text>
+      ) : null}
+      {children}
+    </View>
+  );
+  return (
+    <View style={styles.infoCard}>
+      {/*
+        Row stays LTR so the badge is always on the physical right (Michal).
+        Hebrew/Arabic copy still right-aligns inside the text column.
+      */}
+      <View style={styles.infoCardRow}>
+        {copy}
+        {badge}
+      </View>
+    </View>
+  );
+}
+
+/** Joined pills for a small either/or choice (mentor voice, gender). */
+function SegmentedChoice<T extends string>({
+  options,
+  value,
+  onChange,
+  rtl = false,
+}: {
+  options: { id: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+  rtl?: boolean;
 }) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   return (
-    <View style={styles.fieldLabelRow}>
-      <Text style={[styles.fieldLabel, styles.fieldLabelFlush, textStyle]}>{label}</Text>
-      <HelpButton href={href} compact />
+    // Force LTR so option order is physical left→right even inside he/ar shell RTL.
+    <View style={styles.segment}>
+      {options.map((opt) => {
+        const on = opt.id === value;
+        return (
+          <Pressable
+            key={opt.id}
+            style={[styles.segmentItem, on && styles.segmentItemOn]}
+            onPress={() => onChange(opt.id)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={opt.label}
+          >
+            <Text style={[styles.segmentText, on && styles.segmentTextOn]} numberOfLines={1}>
+              {opt.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** Ordered how-to row — badge carries the step number so the copy stays a sentence. */
+function NumberedRow({
+  n,
+  text,
+  rtl = false,
+  last = false,
+}: {
+  n: number;
+  text: string;
+  rtl?: boolean;
+  last?: boolean;
+}) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const badge = (
+    <View style={styles.numBadge}>
+      <Text style={styles.numBadgeText}>{n}</Text>
+    </View>
+  );
+  const copy = (
+    <Text style={[styles.numText, rtl && styles.textRtl]}>{stripListNumber(text)}</Text>
+  );
+  return (
+    <View style={[styles.numRow, rtl && styles.numRowRtl, !last && styles.numRowDivider]}>
+      {/* LTR: badge left. RTL forced row-reverse so badge sits on the physical right (Michal). */}
+      {badge}
+      {copy}
     </View>
   );
 }
@@ -842,6 +1046,14 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     () => ({
       writingDirection: (rtl ? 'rtl' : 'ltr') as 'rtl' | 'ltr',
       textAlign: (rtl ? 'right' : 'left') as 'right' | 'left',
+    }),
+    [rtl],
+  );
+  /** Scale/watch leads + titles — Michal centers the device question block. */
+  const deviceCopyAlign = useMemo(
+    () => ({
+      writingDirection: (rtl ? 'rtl' : 'ltr') as 'rtl' | 'ltr',
+      textAlign: 'center' as const,
     }),
     [rtl],
   );
@@ -989,10 +1201,8 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
   const saveLanguage = useCallback(async () => {
     const prev = await getLanguage();
     const tasks: Promise<unknown>[] = [setLanguage(language)];
-    // Mentor gender only applies to Hebrew/Arabic coach grammar.
-    if (usesMentorGenderUi(language.code)) {
-      tasks.push(setMentorGender(mentorGender));
-    }
+    // Mentor voice (man/woman) — all languages; not the same as profile gender.
+    tasks.push(setMentorGender(mentorGender));
     await Promise.all(tasks);
     if (prev.code !== language.code) {
       await ensureQuickQuestionsForLanguage(language);
@@ -1377,6 +1587,10 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
       goToAdjacent(1);
       return;
     }
+    if (stepId === 'coach') {
+      goToAdjacent(1);
+      return;
+    }
     if (stepId === 'units') {
       await saveUnitsPrefs(unitsPrefs);
       goToAdjacent(1);
@@ -1529,6 +1743,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
   const showMentorGender = usesMentorGenderUi(language.code);
   const isLanguageGate = stepId === 'language';
+  const StepIcon = STEP_ICONS[stepId];
   const headerSub = stepId === 'welcome' ? t.welcomeTo : progressLabel;
   const genderLabel = (g: Gender) =>
     g === 'male' ? t.genderMale : g === 'female' ? t.genderFemale : t.genderOther;
@@ -1538,14 +1753,39 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={[styles.safe, rtl && styles.safeRtl]}>
         {!isLanguageGate ? (
           <View style={styles.header}>
-            <Text style={[styles.headerTitle, copyAlign]}>{t.quickStart}</Text>
-            <Text style={[styles.headerSub, copyAlign]}>{headerSub}</Text>
-            <View style={styles.dots}>
+            <View style={styles.headerRow}>
+              {/* No `direction` here — badge stays on the physical right in he/ar and en. */}
+              <View style={styles.headerCopy}>
+                <Text style={[styles.headerTitle, copyAlign]}>{t.quickStart}</Text>
+                <Text style={[styles.headerSub, copyAlign]}>{headerSub}</Text>
+              </View>
+              {stepId === 'coach' ? (
+                <View style={styles.headerBadgePlain}>
+                  <CoachCropIcon source={COACH_ICON_HEADER} size={46} />
+                </View>
+              ) : StepIcon ? (
+                <View style={styles.headerBadge}>
+                  <StepIcon
+                    size={24}
+                    color={isDark ? colors.accentBlue : NEXT_BLUE_DEEP}
+                    strokeWidth={2}
+                  />
+                </View>
+              ) : null}
+            </View>
+            <View style={[styles.dots, rtl && styles.dotsRtl]}>
               {Array.from({ length: MAX_QUICK_START_STEPS }).map((_, i) => (
-                <View key={i} style={[styles.dot, i <= stepIndex && styles.dotOn]} />
+                <View
+                  key={i}
+                  style={[
+                    styles.dot,
+                    i <= stepIndex && styles.dotOn,
+                    i === stepIndex && styles.dotNow,
+                  ]}
+                />
               ))}
             </View>
           </View>
@@ -1556,6 +1796,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
           style={styles.scroll}
           contentContainerStyle={[
             styles.scrollContent,
+            rtl && styles.safeRtl,
             isLanguageGate && styles.languageGateContent,
           ]}
           scrollEnabled={!isLanguageGate}
@@ -1609,7 +1850,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
               <Text style={[styles.lead, copyAlign]}>{t.names.lead}</Text>
               <Text style={[styles.fieldLabel, copyAlign]}>{t.names.firstName}</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, copyAlign]}
                 value={firstNameInput}
                 onChangeText={setFirstNameInput}
                 autoCapitalize="words"
@@ -1618,7 +1859,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
               />
               <Text style={[styles.fieldLabel, copyAlign]}>{t.names.lastName}</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, copyAlign]}
                 value={lastNameInput}
                 onChangeText={setLastNameInput}
                 autoCapitalize="words"
@@ -1632,53 +1873,67 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
             <>
               <WelcomeBrandMark brandTag={t.brandTag} />
               <WatchExplainerLink langCode={langCode} id="what-is-healthings" rtl={rtl} />
-              <StepHeading
+              <InfoCard
                 title={t.welcome.title}
+                body={t.welcome.lead}
                 helpHref={helpUrl(langCode, 'quick-start-welcome')}
                 helpLabel={t.welcome.helpLabel}
-                textStyle={copyAlign}
                 rtl={rtl}
               />
-              <Text style={[styles.lead, copyAlign]}>{t.welcome.lead}</Text>
+            </>
+          )}
+
+          {stepId === 'coach' && (
+            <>
               {showMentorGender ? (
-                <View style={styles.mentorBlock}>
-                  <FieldLabelWithHelp
-                    label={t.language.mentorVoice}
-                    href={helpUrl(langCode, 'mentor-voice-gender')}
-                    textStyle={copyAlign}
+                <>
+                  <SegmentedChoice
+                    options={(['female', 'male'] as Gender[]).map((g) => ({
+                      id: g,
+                      label: genderLabel(g),
+                    }))}
+                    value={mentorGender}
+                    onChange={setMentorGenderPick}
+                    rtl={rtl}
                   />
-                  <Text style={[styles.hint, copyAlign]}>{t.language.mentorHint}</Text>
-                  <View style={styles.chipRow}>
-                    {(['male', 'female'] as Gender[]).map((g) => (
-                      <Pressable
-                        key={g}
-                        style={[styles.chip, mentorGender === g && styles.chipOn]}
-                        onPress={() => setMentorGenderPick(g)}
-                      >
-                        <Text style={[styles.chipText, mentorGender === g && styles.chipTextOn]}>
-                          {genderLabel(g)}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-              ) : null}
-              <View style={styles.welcomeCard}>
-                <Text style={[styles.optionTitle, copyAlign]}>{t.welcome.card1Title}</Text>
-                <Text style={[styles.hint, copyAlign]}>{t.welcome.card1Body}</Text>
-              </View>
-              <View style={styles.welcomeCard}>
-                <Text style={[styles.optionTitle, copyAlign]}>{t.welcome.card2Title}</Text>
-                <Text style={[styles.hint, copyAlign]}>{t.welcome.card2Body}</Text>
-              </View>
-              <View style={styles.welcomeCard}>
-                <Text style={[styles.optionTitle, copyAlign]}>{t.welcome.card3Title}</Text>
-                <Text style={[styles.hint, copyAlign]}>{t.welcome.card3Body}</Text>
-              </View>
-              <View style={styles.welcomeCard}>
-                <Text style={[styles.optionTitle, copyAlign]}>{t.welcome.card4Title}</Text>
-                <Text style={[styles.hint, copyAlign]}>{t.welcome.card4Body}</Text>
-              </View>
+                  <InfoCard
+                    title={t.language.mentorVoice}
+                    body={t.language.mentorHint}
+                    helpHref={helpUrl(langCode, 'mentor-voice-gender')}
+                    helpLabel={t.language.helpLabel}
+                    rtl={rtl}
+                  />
+                </>
+              ) : (
+                <StepHeading
+                  title={t.language.mentorVoice}
+                  helpHref={helpUrl(langCode, 'quick-start-welcome')}
+                  helpLabel={t.welcome.helpLabel}
+                  textStyle={copyAlign}
+                  rtl={rtl}
+                />
+              )}
+              <InfoCard
+                title={t.welcome.card1Title}
+                body={t.welcome.card1Body}
+                glyph={<CoachCropIcon source={COACH_ICON_PERSON_HEART} />}
+                glyphPlain
+                rtl={rtl}
+              />
+              <InfoCard
+                title={t.welcome.card2Title}
+                body={t.welcome.card2Body}
+                glyph={<CoachCropIcon source={COACH_ICON_REFRESH} />}
+                glyphPlain
+                rtl={rtl}
+              />
+              <InfoCard
+                title={t.welcome.card3Title}
+                body={t.welcome.card3Body}
+                glyph={<CoachCropIcon source={COACH_ICON_LOTUS} />}
+                glyphPlain
+                rtl={rtl}
+              />
               <HelpButton
                 href={helpUrl(langCode, 'quick-start-welcome')}
                 label={t.welcome.privacyLink}
@@ -1702,6 +1957,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                 onChange={onUnitsChange}
                 langCode={langCode}
                 hideHeader
+                variant="card"
               />
             </>
           )}
@@ -1717,24 +1973,20 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
               />
               <Text style={[styles.lead, copyAlign]}>{t.body.lead}</Text>
               <Text style={[styles.fieldLabel, copyAlign]}>{t.body.gender}</Text>
-              <View style={styles.chipRow}>
-                {(['male', 'female', 'other'] as Gender[]).map((g) => (
-                  <Pressable
-                    key={g}
-                    style={[styles.chip, gender === g && styles.chipOn]}
-                    onPress={() => setGenderPick(g)}
-                  >
-                    <Text style={[styles.chipText, gender === g && styles.chipTextOn]}>
-                      {genderLabel(g)}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+              <SegmentedChoice
+                options={(['male', 'female', 'other'] as Gender[]).map((g) => ({
+                  id: g,
+                  label: genderLabel(g),
+                }))}
+                value={gender}
+                onChange={setGenderPick}
+                rtl={rtl}
+              />
               <Text style={[styles.fieldLabel, copyAlign]}>
                 {t.body.height} ({unitsPrefs.height === 'ftin' ? "ft'in\"" : 'cm'})
               </Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, copyAlign]}
                 value={heightInput}
                 onChangeText={setHeightInput}
                 keyboardType={unitsPrefs.height === 'ftin' ? 'default' : 'number-pad'}
@@ -1782,7 +2034,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
           {stepId === 'scale' && (
             <>
-              <GearHeroCard kind="scale" compact />
+              <GearHeroCard kind="scale" compact caption={t.scale.exampleCaption} rtl={rtl} />
               <WatchExplainerLink langCode={langCode} id="scale-choice" rtl={rtl} />
               <BrandStepHeading
                 title={t.scale.title}
@@ -1792,10 +2044,10 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                 tipDismiss={t.withingsTip.dismiss}
                 helpHref={helpUrl(langCode, 'withings-scale')}
                 helpLabel={t.scale.helpLabel}
-                textStyle={copyAlign}
+                textStyle={deviceCopyAlign}
                 rtl={rtl}
               />
-              <Text style={[styles.lead, copyAlign]}>{t.scale.lead}</Text>
+              <Text style={[styles.lead, styles.leadDevice, deviceCopyAlign]}>{t.scale.lead}</Text>
               <View
                 onLayout={(e) => {
                   yesNoAnchorY.current = e.nativeEvent.layout.y;
@@ -1815,7 +2067,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
           {stepId === 'watch' && (
             <>
-              <GearHeroCard kind="watch" compact />
+              <GearHeroCard kind="watch" compact caption={t.watch.exampleCaption} rtl={rtl} />
               <WatchExplainerLink langCode={langCode} id="phone-health" rtl={rtl} />
               <BrandStepHeading
                 title={t.watch.title}
@@ -1825,10 +2077,10 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                 tipDismiss={t.withingsTip.dismiss}
                 helpHref={helpUrl(langCode, 'quick-start-watch')}
                 helpLabel={t.watch.helpLabel}
-                textStyle={copyAlign}
+                textStyle={deviceCopyAlign}
                 rtl={rtl}
               />
-              <Text style={[styles.lead, copyAlign]}>{t.watch.lead}</Text>
+              <Text style={[styles.lead, styles.leadDevice, deviceCopyAlign]}>{t.watch.lead}</Text>
               <View
                 onLayout={(e) => {
                   yesNoAnchorY.current = e.nativeEvent.layout.y;
@@ -1848,16 +2100,16 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
           {stepId === 'cgm' && (
             <>
-              <GearHeroCard kind="cgm" compact />
+              <GearHeroCard kind="cgm" compact caption={t.cgm.exampleCaption} rtl={rtl} />
               <WatchExplainerLink langCode={langCode} id="cgm-pipeline" rtl={rtl} />
               <StepHeading
                 title={t.cgm.title}
                 helpHref={helpUrl(langCode, 'cgm')}
                 helpLabel={t.cgm.helpLabel}
-                textStyle={copyAlign}
+                textStyle={deviceCopyAlign}
                 rtl={rtl}
               />
-              <Text style={[styles.lead, copyAlign]}>{t.cgm.lead}</Text>
+              <Text style={[styles.lead, styles.leadDevice, deviceCopyAlign]}>{t.cgm.lead}</Text>
               <View
                 onLayout={(e) => {
                   yesNoAnchorY.current = e.nativeEvent.layout.y;
@@ -1877,7 +2129,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
           {stepId === 'link_withings' && (
             <>
-              <GearHeroCard kind="link" />
+              <GearHeroCard kind="link" caption={t.link.exampleCaption} rtl={rtl} />
               <StepHeading
                 title={t.link.title}
                 helpHref={helpUrl(langCode, 'withings-link')}
@@ -1944,7 +2196,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                     {t.weight.currentWeight} ({massUnitLabel(unitsPrefs.mass)})
                   </Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, copyAlign]}
                     value={weightInput}
                     onChangeText={setWeightInput}
                     keyboardType="decimal-pad"
@@ -1965,7 +2217,15 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
           {stepId === 'phone_health' && (
             <>
-              <GearHeroCard kind="phone" />
+              <GearHeroCard
+                kind="phone"
+                caption={
+                  Platform.OS === 'ios'
+                    ? t.phoneHealth.exampleCaptionIos
+                    : t.phoneHealth.exampleCaptionAndroid
+                }
+                rtl={rtl}
+              />
               <WatchExplainerLink langCode={langCode} id="phone-health" rtl={rtl} />
               {tracksCgm ? (
                 <WatchExplainerLink langCode={langCode} id="cgm-pipeline" rtl={rtl} />
@@ -2139,20 +2399,27 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 
           {stepId === 'meals' && (
             <>
-              <GearHeroCard kind="meals" />
+              <GearHeroCard kind="meals" caption={t.meals.exampleCaption} rtl={rtl} />
               <WatchExplainerLink langCode={langCode} id="meal-entry" rtl={rtl} />
               <StepHeading
                 title={t.meals.title}
                 helpHref={helpUrl(langCode, 'meal-logging')}
                 helpLabel={t.meals.helpLabel}
-                textStyle={copyAlign}
+                textStyle={deviceCopyAlign}
                 rtl={rtl}
               />
-              <Text style={[styles.lead, copyAlign]}>{t.meals.lead}</Text>
-              <Text style={[styles.bullet, copyAlign]}>{t.meals.b1}</Text>
-              <Text style={[styles.bullet, copyAlign]}>{t.meals.b2}</Text>
-              <Text style={[styles.bullet, copyAlign]}>{t.meals.b3}</Text>
-              <Text style={[styles.bullet, copyAlign]}>{t.meals.b4}</Text>
+              <Text style={[styles.lead, styles.leadDevice, deviceCopyAlign]}>{t.meals.lead}</Text>
+              <View style={styles.listFlat}>
+                {[t.meals.b1, t.meals.b2, t.meals.b3, t.meals.b4].map((line, i, all) => (
+                  <NumberedRow
+                    key={i}
+                    n={i + 1}
+                    text={line}
+                    rtl={rtl}
+                    last={i === all.length - 1}
+                  />
+                ))}
+              </View>
               <Pressable
                 style={({ pressed }) => [
                   styles.btnNavy,
@@ -2168,7 +2435,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                 {finishSpinner ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <UtensilsCrossed size={18} color="#fff" strokeWidth={2.25} />
+                  <UtensilsCrossed size={18} color={NEXT_BLUE_DEEP} strokeWidth={2.25} />
                 )}
                 <Text style={styles.btnNavyText}>
                   {finishSpinner ? t.working : t.meals.logFirst}
@@ -2230,9 +2497,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
               <Text style={styles.btnNextText}>
                 {nextSpinner || (stepId === 'phone_health' && permBusy)
                   ? t.working
-                  : isLanguageGate
-                    ? 'Next'
-                    : t.next}
+                  : t.next}
               </Text>
             </Pressable>
           )}
@@ -2274,13 +2539,45 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
 const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.background },
+  // Real layout direction (he/ar) — flex rows start on the right.
+  safeRtl: { direction: 'rtl' },
+  // Header forced LTR so the shell's `direction: rtl` cannot put the glyph on the left.
+  // Copy right-aligns via textAlign; dots use row-reverse so progress fills from the right.
+  dotsRtl: { flexDirection: 'row-reverse' },
   header: {
+    direction: 'ltr',
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: c.gridLine,
   },
+  headerRow: {
+    flexDirection: 'row',
+    direction: 'ltr',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerCopy: { flex: 1, minWidth: 0 },
+  headerBadge: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: isDark ? c.iconTintBlue : NEXT_BLUE_WASH,
+  },
+  // Coach header crop already includes the solid teal circle.
+  headerBadgePlain: {
+    width: 46,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  // Right-align titles in the copy column for he/ar (physical right, next to the badge).
+  headerTitleRtl: { textAlign: 'right', writingDirection: 'rtl' },
+  headerSubRtl: { textAlign: 'right', writingDirection: 'rtl' },
   headerTitle: { fontSize: 22, fontWeight: '700', color: c.textPrimary },
   headerSub: { fontSize: 14, color: c.textSecondary, marginTop: 4 },
   languageGateContent: {
@@ -2293,10 +2590,17 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     flex: 1,
     justifyContent: 'space-between',
   },
+  // Gate shows the wordmark alone — no card frame competing with the language grid.
   brandHeroGate: {
     marginBottom: 0,
+    paddingTop: 0,
     paddingBottom: 0,
-    borderBottomWidth: 0,
+    paddingHorizontal: 0,
+    borderWidth: 0,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   brandLogoWrapCrop: {
     overflow: 'hidden',
@@ -2448,12 +2752,29 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     lineHeight: 16,
     color: c.textSecondary,
   },
+  // Framed as a card (redesign 2026-08-13) so the lockup reads as the brand plate the
+  // site uses, not as a page header with a rule under it. The gate keeps the bare crop.
   brandHero: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
+    paddingTop: 12,
     paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: c.gridLine,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: c.gridLine,
+    borderRadius: 16,
+    backgroundColor: c.surface,
+    shadowColor: c.shadow,
+    shadowOpacity: isDark ? 0 : 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: isDark ? 0 : 2,
+  },
+  brandDivider: {
+    alignSelf: 'stretch',
+    height: 1,
+    marginTop: 12,
+    backgroundColor: c.gridLine,
   },
   brandLogoWrap: {
     width: '100%',
@@ -2483,14 +2804,16 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     textAlign: 'center',
     paddingHorizontal: 12,
   },
-  dots: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 10 },
-  dot: {
+  dots: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginTop: 10 },
+dot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: c.gridLine,
   },
-  dotOn: { backgroundColor: isDark ? c.accentBlue : BRAND_NAVY },
+  dotOn: { backgroundColor: isDark ? c.accentBlue : NEXT_BLUE },
+  /** Current step reads as a short bar so position is findable in the max-length track. */
+  dotNow: { width: 16 },
   scroll: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 48 },
   question: {
@@ -2499,7 +2822,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     fontWeight: '700',
     color: c.textPrimary,
     lineHeight: 28,
-    paddingRight: 8,
+    paddingEnd: 8,
   },
   questionInline: {
     fontSize: 22,
@@ -2515,8 +2838,12 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     columnGap: 2,
     rowGap: 2,
   },
-  brandTitleWrapRtl: {
-    flexDirection: 'row-reverse',
+  // he/ar: Hebrew question on line 1, teal Withings alone on line 2 (Michal).
+  brandTitleStack: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+    alignItems: 'center',
   },
   brandInTitle: {
     color: NEXT_BLUE_DEEP,
@@ -2528,25 +2855,11 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   },
   stepHeading: {
     flexDirection: 'row',
+    direction: 'ltr',
     alignItems: 'flex-start',
     marginBottom: 10,
-    gap: 4,
-  },
-  stepHeadingRtl: {
-    flexDirection: 'row-reverse',
-  },
-  fieldLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 4,
-    gap: 6,
-  },
-  mentorBlock: {
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: c.gridLine,
+    // Michal: ? sits apart from the title, not jammed against it.
+    gap: 14,
   },
   helpIconBtn: {
     width: 44,
@@ -2554,7 +2867,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(61, 157, 214, 0.12)',
+    backgroundColor: isDark ? c.iconTintBlue : NEXT_BLUE_WASH,
   },
   helpChip: {
     flexDirection: 'row',
@@ -2565,9 +2878,9 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 20,
-    backgroundColor: 'rgba(61, 157, 214, 0.12)',
+    backgroundColor: isDark ? c.iconTintBlue : NEXT_BLUE_WASH,
     borderWidth: 1,
-    borderColor: 'rgba(61, 157, 214, 0.35)',
+    borderColor: NEXT_BLUE_WASH_BORDER,
   },
   helpChipText: {
     fontSize: 14,
@@ -2575,31 +2888,39 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     color: NEXT_BLUE_DEEP,
   },
   helpPressed: { opacity: 0.7 },
+  // Michal: bare link — teal play + underlined teal copy (no grey strip).
   watchExplainerLink: {
     marginTop: 8,
-    marginBottom: 12,
-    alignSelf: 'center',
+    marginBottom: 14,
+    alignSelf: 'stretch',
     flexDirection: 'row',
+    direction: 'ltr',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-  },
-  watchExplainerLinkRtl: {
-    flexDirection: 'row-reverse',
+    paddingVertical: 4,
+    paddingHorizontal: 2,
   },
   watchExplainerText: {
     fontSize: 14,
     fontWeight: '600',
-    color: NEXT_BLUE_DEEP,
+    color: NEXT_BLUE,
     textDecorationLine: 'underline',
     flexShrink: 1,
+    textAlign: 'center',
   },
   textRtl: {
     textAlign: 'right',
     writingDirection: 'rtl',
   },
   lead: { fontSize: 15, lineHeight: 22, color: c.textPrimary, marginBottom: 16 },
+  // Scale/watch body — centered under the device question (Michal).
+  leadDevice: {
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+    alignSelf: 'stretch',
+  },
   fieldLabel: {
     fontSize: 13,
     fontWeight: '700',
@@ -2622,17 +2943,31 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     color: c.textPrimary,
     backgroundColor: c.surface,
   },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
+  // Full-width pill (Michal mentor gender) — physical left→right via direction:ltr.
+  segment: {
+    flexDirection: 'row',
+    direction: 'ltr',
+    alignSelf: 'stretch',
+    marginTop: 4,
+    marginBottom: 14,
+    padding: 0,
+    borderRadius: 999,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: c.gridLine,
+    backgroundColor: isDark ? c.background : '#FFFFFF',
   },
-  chipOn: { backgroundColor: BRAND_NAVY, borderColor: BRAND_NAVY },
-  chipText: { fontSize: 14, fontWeight: '600', color: c.textSecondary },
-  chipTextOn: { color: '#fff' },
+  segmentItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  segmentItemOn: {
+    backgroundColor: isDark ? c.accentBlue : NEXT_BLUE,
+  },
+  segmentText: { fontSize: 15, fontWeight: '600', color: c.textPrimary },
+  segmentTextOn: { color: '#fff', fontWeight: '700' },
   dateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2645,21 +2980,26 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   dateBtnText: { fontSize: 15, color: c.textPrimary },
   hint: { fontSize: 13, lineHeight: 19, color: c.textSecondary, marginTop: 6 },
   yesNoBlock: { marginTop: 8, marginBottom: 8 },
-  yesNoRow: { flexDirection: 'row', gap: 12 },
+  // Force LTR so No stays left / Yes right even inside he/ar shell RTL (Michal).
+  yesNoRow: { flexDirection: 'row', direction: 'ltr', gap: 12 },
   yesNoBtnOuter: {
     flex: 1,
-    borderRadius: 14,
+    borderRadius: 12,
   },
   yesNoBtn: {
-    paddingVertical: 18,
+    paddingVertical: 16,
     alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
+    borderRadius: 12,
+    borderWidth: 1.5,
     borderColor: c.gridLine,
-    backgroundColor: c.surface,
+    backgroundColor: isDark ? c.background : '#FFFFFF',
   },
-  yesNoText: { fontSize: 18, fontWeight: '700', color: c.textSecondary },
-  yesNoTextOn: { color: '#fff' },
+  yesNoBtnOn: {
+    borderColor: NEXT_BLUE,
+    backgroundColor: isDark ? c.background : '#FFFFFF',
+  },
+  yesNoText: { fontSize: 18, fontWeight: '700', color: c.textPrimary },
+  yesNoTextOn: { color: NEXT_BLUE },
   yesNoCoachHint: {
     textAlign: 'center',
     marginTop: 12,
@@ -2686,7 +3026,43 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     borderRadius: 8,
     backgroundColor: c.progressTrack,
   },
-  bullet: { fontSize: 14, lineHeight: 22, color: c.textPrimary, marginBottom: 8 },
+  listCard: {
+    borderWidth: 1,
+    borderColor: c.gridLine,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    backgroundColor: c.surface,
+  },
+  // Meals how-to (Michal): numbered rows on the page, no card chrome.
+  listFlat: {
+    marginTop: 4,
+    paddingHorizontal: 2,
+  },
+  numRow: {
+    flexDirection: 'row',
+    direction: 'ltr',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+  },
+  // Badge on the physical right in he/ar (Michal).
+  numRowRtl: {
+    flexDirection: 'row-reverse',
+  },
+  numRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: c.gridLine,
+  },
+  numBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: isDark ? c.accentBlue : NEXT_BLUE,
+  },
+  numBadgeText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  numText: { flex: 1, fontSize: 14, lineHeight: 20, color: c.textPrimary },
   optionCard: {
     borderWidth: 1,
     borderColor: c.gridLine,
@@ -2697,13 +3073,58 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   },
   optionCardOn: { borderColor: '#2E7D5A', borderWidth: 2 },
   optionTitle: { fontSize: 15, fontWeight: '700', color: c.textPrimary },
-  welcomeCard: {
+  infoCard: {
     borderWidth: 1,
     borderColor: c.gridLine,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
     backgroundColor: c.surface,
+    shadowColor: c.shadow,
+    shadowOpacity: isDark ? 0 : 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: isDark ? 0 : 2,
+  },
+  // Badge column + text column. Row is forced LTR so `direction: rtl` on ancestors
+  // cannot flip the ? to the left — Michal keeps it on the physical right.
+  infoCardRow: {
+    flexDirection: 'row',
+    direction: 'ltr',
+    alignItems: 'flex-start',
+    gap: 14,
+  },
+  infoCardCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  infoCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 22,
+    color: c.textPrimary,
+  },
+  infoCardBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: isDark ? c.iconTintBlue : NEXT_BLUE_WASH,
+  },
+  // Michal PNG crops already include the wash circle.
+  infoCardBadgePlain: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  infoCardBody: {
+    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 19,
+    color: c.textSecondary,
   },
   reportCard: {
     borderWidth: 1,
@@ -2743,7 +3164,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     borderTopColor: c.gridLine,
     paddingBottom: Platform.OS === 'android' ? 24 : 16,
   },
-  footerGate: {
+footerGate: {
     borderTopWidth: 0,
     paddingTop: 8,
   },
@@ -2791,7 +3212,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: NEXT_BLUE_DEEP,
+    borderColor: NEXT_BLUE,
   },
   btnNextGate: {
     paddingVertical: 15,
@@ -2799,11 +3220,12 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   },
   btnNextPressed: {
     backgroundColor: NEXT_BLUE_DEEP,
-    borderColor: BRAND_NAVY,
+    borderColor: NEXT_BLUE_DEEP,
     transform: [{ scale: 0.97 }],
   },
   btnNextSpinner: { marginRight: 2 },
   btnNextText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  // Michal: Back is outlined teal, not grey — same hue as Continue fill.
   btnGhost: {
     flex: 1,
     flexDirection: 'row',
@@ -2811,16 +3233,16 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     justifyContent: 'center',
     gap: 8,
     borderWidth: 2,
-    borderColor: c.textSecondary,
+    borderColor: NEXT_BLUE,
     paddingVertical: 12,
     borderRadius: 10,
     backgroundColor: c.surface,
   },
   btnGhostPressed: {
-    borderColor: BRAND_NAVY,
-    backgroundColor: 'rgba(26, 43, 74, 0.06)',
+    borderColor: NEXT_BLUE_DEEP,
+    backgroundColor: NEXT_BLUE_WASH,
     transform: [{ scale: 0.97 }],
   },
-  btnGhostText: { color: c.textSecondary, fontWeight: '600', fontSize: 15 },
+  btnGhostText: { color: NEXT_BLUE, fontWeight: '600', fontSize: 15 },
   errorText: { fontSize: 13, color: '#c0392b', marginTop: 10 },
   });

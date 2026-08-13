@@ -1,0 +1,54 @@
+# prompt111 — Quick Start visual hierarchy (Michal redesign pass)
+
+**Status:** done — owner accepted redesign complete (2026-08-14); follow-up: mentor voice toggle for all languages (was he/ar-only)
+**Test order:** Android `bi` first (Hebrew); iOS optional follow-up
+**Builds on:** prompt77 (wizard), prompt81b (language gate), prompt96 P4b (appearance step), prompt106 Phase A (step trim), prompt107 (explainer links)
+**Design input:** `michal/redesign/01–05*.jpg` — five annotated mockups of the Hebrew wizard
+**Model:** Opus 5 for structure/RTL decisions; Auto for crop-driven style follow-ups
+
+## Problem
+
+Quick Start read as a stack of loose paragraphs with occasional cards. Michal's mockups
+pointed at the same thing five times: **the eye has nothing to land on**.
+
+## What shipped (final)
+
+| Area | Shipped |
+|---|---|
+| Palette | Wizard-local Michal teal `#0D86A3` / `#0BA5BE` (`NEXT_BLUE*`); global `tokens.ts` untouched |
+| Welcome (4) | Brand plate + teal-play explainer link + one welcome `InfoCard` |
+| Coach (5) | Mentor gender pill (he/ar only) + mentor tip card + 3 how-it-works cards; PNG crop glyphs + solid teal header person+sparkle |
+| Units | `UnitsPreferenceSection variant="card"` — equal-width pills, no RTL label overlap |
+| Scale / watch / CGM | Caption **inside** white plate, localized `exampleCaption`; Yes/No outlined teal/grey; centered lead; Withings on own line (he/ar) |
+| Meals | Localized plate caption inside card; Lucide camera badge **over** the food; flat 1–4 list (no card chrome); teal number badges; teal utensils on navy CTA |
+| RTL | Shell `direction:'rtl'`; header/info cards force LTR so `?` stays physical-right; dots `row-reverse` |
+| Bidi | HE/AR `Healthings` / `Withings` on dedicated lines where mixed Latin scrambled Hebrew |
+
+## Files
+
+| File | Change |
+|---|---|
+| `app/src/components/WelcomeQuickStartWizard.tsx` | Wizard chrome, coach step, device leads, meals list, explainer play mark, Yes/No, BrandStepHeading |
+| `app/src/components/UnitsPreferenceSection.tsx` | `card` variant layout fix for he/ar |
+| `app/src/components/GearIllustrations.tsx` | In-stage captions; meals camera overlay; scale/watch/cgm/meals caption-in-plate |
+| `app/src/i18n/quickStartCopy.ts` | `exampleCaption` for scale/watch/cgm/meals (10 locales); HE/AR bidi line breaks |
+| `app/assets/quick-start/` | Coach PNG crops (person+heart, refresh, lotus, header sparkle) |
+
+## Phone checklist
+
+- [x] Owner: Michal redesign pass accepted on device (2026-08-14)
+- [x] Coach / units / device / meals polish iterated via phone crops
+- [ ] English smoke of the same path (optional)
+- [ ] iOS / TestFlight visual parity (optional)
+
+## Deferred
+
+- Honest progress denominator — still fixed at max path length
+- Full app chrome RTL beyond the wizard shell
+- Profile Units stays `compact` (by design)
+
+## Related
+
+- prompt106 — taste / hierarchy: owner decides on device
+- prompt107 — explainer links this reframes
+- `localize-speak-like-a-person.mdc` / `language-policy.mdc`

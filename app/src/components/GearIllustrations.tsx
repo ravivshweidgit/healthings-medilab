@@ -18,6 +18,10 @@ import Svg, {
 } from 'react-native-svg';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
+import { Camera } from 'lucide-react-native';
+
+/** Michal QS teal — keep in sync with WelcomeQuickStartWizard NEXT_BLUE. */
+const QS_TEAL = '#0D86A3';
 
 const Soft = {
   glass: '#F4F2F0',
@@ -478,15 +482,15 @@ export function CgmIllustration({ size = 160 }: { size?: number }) {
 type GearKind = 'scale' | 'watch' | 'cgm' | 'link' | 'phone' | 'meals';
 
 const CAPTIONS: Record<GearKind, string> = {
-  scale: 'Example — any Withings scale on your account',
-  watch: 'Example — any Withings watch or band on your account',
+  scale: 'Example — any Withings scale\non your account',
+  watch: 'Example — any Withings watch or band\non your account',
   cgm: 'Glucose from your phone health app',
   link: 'One link: Healthings ↔ your Withings account (scale & watch)',
   phone:
     Platform.OS === 'ios'
       ? 'Steps and heart rate from Apple Health'
       : 'Steps and heart rate via Health Connect',
-  meals: 'Photo, text, or coach — then save in the food log',
+  meals: 'Photo, text, or your coach\n— then save in the food log',
 };
 
 /** Premium device card — neutral silver/graphite, not brand green. */
@@ -494,27 +498,44 @@ export function GearHeroCard({
   kind,
   caption,
   compact = false,
+  rtl = false,
 }: {
   kind: GearKind;
   caption?: string;
   /** Shorter hero for Yes/No decision steps so the choice stays above the fold. */
   compact?: boolean;
+  /** he/ar captions under the product plate. */
+  rtl?: boolean;
 }) {
   const { colors, isDark } = useTheme();
   const chrome = useMemo(() => makeChromeStyles(colors, isDark), [colors, isDark]);
   const label = caption ?? CAPTIONS[kind];
   const s = compact ? 124 : 168;
+  /** Device/meals heroes (Michal): caption rides inside the white plate under the product. */
+  const captionInStage =
+    kind === 'scale' ||
+    kind === 'watch' ||
+    kind === 'cgm' ||
+    kind === 'link' ||
+    kind === 'phone' ||
+    kind === 'meals';
+  const captionStyle = [
+    captionInStage ? chrome.captionInStage : chrome.caption,
+    rtl ? chrome.captionRtl : null,
+  ];
   return (
     <View
       style={[styles.card, compact && styles.cardCompact]}
       accessibilityRole="image"
-      accessibilityLabel={label}
+      accessibilityLabel={label.replace(/\n/g, ' ')}
     >
       <View
         style={[
           chrome.stage,
           compact && styles.stageCompact,
+          captionInStage && (compact ? styles.stageCompactWithCaption : styles.stageWithCaption),
           kind === 'meals' && styles.stageMeals,
+          kind === 'meals' && styles.stageMealsWithCaption,
         ]}
       >
         {kind === 'scale' ? <BodyScaleIllustration size={s} /> : null}
@@ -523,8 +544,9 @@ export function GearHeroCard({
         {kind === 'meals' ? <MealsIllustration size={268} /> : null}
         {kind === 'link' ? <WithingsLinkIllustration size={168} /> : null}
         {kind === 'phone' ? <PhoneHealthBrandMark /> : null}
+        {captionInStage ? <Text style={captionStyle}>{label}</Text> : null}
       </View>
-      <Text style={chrome.caption}>{label}</Text>
+      {!captionInStage ? <Text style={captionStyle}>{label}</Text> : null}
     </View>
   );
 }
@@ -784,15 +806,48 @@ export function MealsIllustration({ size = 160 }: { size?: number }) {
   const scale = breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.012] });
   /** Artwork is landscape (~1024×737) — match aspect so contain doesn't letterbox. */
   const height = size * (737 / 1024);
+  const badge = Math.round(Math.min(56, size * 0.2));
+  const cam = Math.round(badge * 0.48);
 
   return (
-    <Animated.View style={{ transform: [{ scale }], alignItems: 'center', width: '100%' }}>
-      <Image
-        source={isDark ? mealsPlateArtDark : mealsPlateArt}
-        style={{ width: size, height, maxWidth: '100%' }}
-        resizeMode="contain"
-        accessibilityIgnoresInvertColors
-      />
+    <Animated.View
+      style={{
+        transform: [{ scale }],
+        alignItems: 'center',
+        width: '100%',
+      }}
+    >
+      <View style={{ width: size, height, maxWidth: '100%', alignItems: 'center' }}>
+        <Image
+          source={isDark ? mealsPlateArtDark : mealsPlateArt}
+          style={{ width: size, height, maxWidth: '100%' }}
+          resizeMode="contain"
+          accessibilityIgnoresInvertColors
+        />
+        {/* Michal: ready Lucide camera, seated on the plate (over the food). */}
+        <View
+          style={{
+            position: 'absolute',
+            bottom: height * 0.08,
+            width: badge,
+            height: badge,
+            borderRadius: badge / 2,
+            backgroundColor: QS_TEAL,
+            borderWidth: 3,
+            borderColor: '#FFFFFF',
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: '#1A2B3C',
+            shadowOpacity: 0.2,
+            shadowRadius: 6,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: 4,
+          }}
+          accessibilityLabel="Camera"
+        >
+          <Camera size={cam} color="#FFFFFF" strokeWidth={2.25} />
+        </View>
+      </View>
     </Animated.View>
   );
 }
@@ -857,10 +912,26 @@ const styles = StyleSheet.create({
     minHeight: 132,
     paddingVertical: 8,
   },
+  stageWithCaption: {
+    minHeight: 220,
+    paddingBottom: 16,
+    justifyContent: 'flex-start',
+  },
+  stageCompactWithCaption: {
+    minHeight: 168,
+    paddingTop: 10,
+    paddingBottom: 12,
+    justifyContent: 'flex-start',
+  },
   stageMeals: {
     paddingVertical: 6,
     paddingHorizontal: 4,
     minHeight: 200,
+  },
+  stageMealsWithCaption: {
+    minHeight: 248,
+    paddingBottom: 14,
+    justifyContent: 'flex-start',
   },
   linkStageInner: {
     width: '100%',
@@ -1063,6 +1134,19 @@ const makeChromeStyles = (c: ThemeColors, isDark: boolean) =>
       color: isDark ? c.textSecondary : Soft.caption,
       textAlign: 'center',
       paddingHorizontal: 16,
+    },
+    // Inside the white plate under the product (Michal watch/scale).
+    captionInStage: {
+      marginTop: 8,
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: '500',
+      color: isDark ? c.textSecondary : Soft.caption,
+      textAlign: 'center',
+      paddingHorizontal: 10,
+    },
+    captionRtl: {
+      writingDirection: 'rtl',
     },
     cgmLabel: {
       marginTop: 6,

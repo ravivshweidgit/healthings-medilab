@@ -113,21 +113,29 @@ export type QuickStartCopy = {
   scale: {
     title: string;
     helpLabel: string;
+    /** Caption under the scale illustration (always-English Withings glossary OK). */
+    exampleCaption: string;
     lead: string;
   };
   watch: {
     title: string;
     helpLabel: string;
+    /** Caption under the watch illustration. */
+    exampleCaption: string;
     lead: string;
   };
   cgm: {
     title: string;
     helpLabel: string;
+    /** Caption under the CGM illustration. */
+    exampleCaption: string;
     lead: string;
   };
   link: {
     title: string;
     helpLabel: string;
+    /** Caption under the link diagram. */
+    exampleCaption: string;
     lead: string;
     connected: string;
     relinkHint: string;
@@ -149,6 +157,8 @@ export type QuickStartCopy = {
     titleIos: string;
     titleAndroid: string;
     helpLabel: string;
+    exampleCaptionIos: string;
+    exampleCaptionAndroid: string;
     leadIos: string;
     leadAndroid: string;
     cgmIos: string;
@@ -181,6 +191,8 @@ export type QuickStartCopy = {
   meals: {
     title: string;
     helpLabel: string;
+    /** Caption under the plate illustration. */
+    exampleCaption: string;
     lead: string;
     b1: string;
     b2: string;
@@ -271,24 +283,28 @@ const EN: QuickStartCopy = {
   scale: {
     title: 'Do you use a Withings scale?',
     helpLabel: 'What is Withings?',
+    exampleCaption: 'Example — any Withings scale\non your account',
     lead:
       'No is fine — enter weight in the next steps; the app still works. Yes — we sync weight and composition from your Withings account (cloud, not Bluetooth). Body, Body Scan, and similar all work.',
   },
   watch: {
     title: 'Do you use a Withings watch or band?',
     helpLabel: 'What is Withings?',
+    exampleCaption: 'Example — any Withings watch or band\non your account',
     lead:
       'No is fine — steps and heart rate can come from Health Connect / Apple Health (Garmin, Apple Watch, Samsung…). Yes — activity from your Withings account.',
   },
   cgm: {
     title: 'Do you use a CGM for glucose?',
     helpLabel: 'CGM help',
+    exampleCaption: 'Glucose from your\nphone health app',
     lead:
       'No is fine — you can import lab PDFs later. Yes — continuous glucose via Health Connect (Android) or Apple Health (iPhone).',
   },
   link: {
     title: 'Link your Withings account',
     helpLabel: 'Linking help',
+    exampleCaption: 'One link: Healthings ↔ your Withings account\n(scale & watch)',
     lead: 'Sign in with the same account used in the Withings app. One link covers scale and watch data.',
     connected: 'Withings connected',
     relinkHint: 'You can re-link anytime in Profile.',
@@ -312,6 +328,8 @@ const EN: QuickStartCopy = {
     titleIos: 'Allow Apple Health',
     titleAndroid: 'Allow Health Connect',
     helpLabel: 'Phone health',
+    exampleCaptionIos: 'Steps and heart rate from Apple Health',
+    exampleCaptionAndroid: 'Steps and heart rate via Health Connect',
     leadIos:
       'Tap Next — Apple Health may ask once. Use Allow access below for steps and heart rate when your Withings watch is off.',
     leadAndroid:
@@ -347,6 +365,7 @@ const EN: QuickStartCopy = {
   meals: {
     title: 'How to log meals',
     helpLabel: 'Meal logging',
+    exampleCaption: 'Photo, text, or your coach\n— then save in the food log',
     lead:
       'Log what you eat so Healthings can coach under My Rules and show live impact on your charts.',
     b1: '1. Tap + on the metabolic chart to open the food log.',
@@ -360,7 +379,7 @@ const EN: QuickStartCopy = {
 const HE: QuickStartCopy = {
   quickStart: 'התחלה מהירה',
   progress: (n, total) => `שלב ${n} מתוך ${total}`,
-  welcomeTo: 'ברוכים הבאים ל־Healthings',
+  welcomeTo: 'ברוכים הבאים ל־\nHealthings',
   back: 'חזרה',
   next: 'המשך',
   finish: 'סיום',
@@ -379,7 +398,7 @@ const HE: QuickStartCopy = {
     helpLabel: 'עזרה — שפה',
     lead: 'בשפה הזו עוברים את ההתחלה, מדברים עם המאמן, רואים שמות ארוחות ודוחות. גם דפי העזרה נפתחים בה.',
     mentorVoice: 'המאמן באפליקציה',
-    mentorHint: 'גבר או אישה — כך ידבר אליכם המאמן. לא המגדר שלכם בפרופיל.',
+    mentorHint: 'גבר או אישה — כך ידבר אליכם המאמן. לא המגדר שלכם',
   },
   appearance: {
     title: 'בהיר או כהה?',
@@ -399,13 +418,14 @@ const HE: QuickStartCopy = {
     title: 'ברוכים הבאים',
     helpLabel: 'איך Healthings עובד',
     lead:
-      'Healthings לומדת את הגוף, מסבירה מה קורה עכשיו, ומעבירה משוב ברור לתזונאי — כדי שהדרך ליעדים תתחדד מיום ליום.',
+      // Brand on its own LTR line — avoids HE↔EN bidi flip mid-sentence (Michal / prompt111).
+      'Healthings\nלומדת את הגוף, מסבירה מה קורה עכשיו, ומעבירה משוב ברור לתזונאי — כדי שהדרך ליעדים תתחדד מיום ליום.',
     card1Title: 'לומדת את הגוף. מלמדת אתכם.',
     card1Body:
       'גרפים חיים של משקל, הרכב גוף, פעילות וגלוקוז (כשמחוברים). המודל מבין איך הגוף מגיב, מסביר את המספרים בשפה פשוטה, ומאמן לפי My Rules — כדי להבין התקדמות, לא רק לאסוף נתונים.',
     card2Title: 'מהמעקב — למעגל מלא',
     card2Body:
-      'רוב האפליקציות עוצרות במעקב. כאן המעגל נסגר:\n\n• התזונאי כותב כוונה ב־My Rules\n• אתם חיים את זה — אוכל, גוף, פעילות, בדיקות\n• Healthings מבצעת, לומדת ומסבירה\n• כשמשתפים — התזונאי רואה מה קורה בגוף\n• יחד מחדדים את התוכנית\n\nלא עוד יומן אוכל מנותק מהקליניקה.',
+      'רוב האפליקציות עוצרות במעקב. כאן המעגל נסגר:\n\n• התזונאי כותב כוונה ב־My Rules\n• אתם חיים את זה — אוכל, גוף, פעילות, בדיקות\n• Healthings\nמבצעת, לומדת ומסבירה\n• כשמשתפים — התזונאי רואה מה קורה בגוף\n• יחד מחדדים את התוכנית\n\nלא עוד יומן אוכל מנותק מהקליניקה.',
     card3Title: 'Wellness — ברמה מקצועית',
     card3Body:
       'בלי אבחון, בלי מרשמים, בלי להחליף רופא. הערך הוא השיטה: ליווי מורשה, תמונת גוף חיה, ומשוב שמרגיש כמו קליניקה טובה.',
@@ -437,24 +457,28 @@ const HE: QuickStartCopy = {
   scale: {
     title: 'יש משקל Withings?',
     helpLabel: 'מה זה Withings?',
+    exampleCaption: 'דוגמה — כל משקל Withings\nבחשבון שלכם',
     lead:
       'אין? אין בעיה — תזינו משקל בהמשך, האפליקציה עובדת גם בלי. יש? נסנכרן משקל והרכב גוף מחשבון Withings (ענן, לא Bluetooth). Body, Body Scan ודומיהם מתאימים.',
   },
   watch: {
     title: 'יש שעון או צמיד Withings?',
     helpLabel: 'מה זה Withings?',
+    exampleCaption: 'דוגמה — כל שעון או צמיד Withings\nבחשבון שלכם',
     lead:
       'אין? אין בעיה — צעדים ודופק מ־Health Connect / Apple Health (Garmin, Apple Watch, Samsung…). יש? פעילות מחשבון Withings.',
   },
   cgm: {
     title: 'יש CGM לגלוקוז?',
     helpLabel: 'עזרה — CGM',
+    exampleCaption: 'גלוקוז מאפליקציית הבריאות\nבטלפון',
     lead:
       'אין? אין בעיה — אפשר לייבא PDF של מעבדה אחר כך. יש? גלוקוז רציף דרך Health Connect או Apple Health.',
   },
   link: {
     title: 'חיבור ל־Withings',
     helpLabel: 'עזרה — חיבור',
+    exampleCaption: 'חיבור אחד: Healthings ↔ Withings\n(משקל ושעון)',
     lead: 'אותו חשבון כמו באפליקציית Withings. חיבור אחד — למשקל ולשעון.',
     connected: 'Withings מחובר',
     relinkHint: 'אפשר לחבר שוב מהפרופיל.',
@@ -478,6 +502,8 @@ const HE: QuickStartCopy = {
     titleIos: 'גישה ל־Apple Health',
     titleAndroid: 'גישה ל־Health Connect',
     helpLabel: 'בריאות מהטלפון',
+    exampleCaptionIos: 'צעדים ודופק מ־Apple Health',
+    exampleCaptionAndroid: 'צעדים ודופק דרך Health Connect',
     leadIos:
       'בהמשך — Apple Health עלול לבקש אישור פעם אחת. Allow access: צעדים ודופק כששעון Withings לא פעיל.',
     leadAndroid:
@@ -513,6 +539,7 @@ const HE: QuickStartCopy = {
   meals: {
     title: 'איך רושמים ארוחה',
     helpLabel: 'רישום ארוחות',
+    exampleCaption: 'צילום, טקסט או המאמן שלך\n— ושומרים ביומן האוכל',
     lead: 'רושמים מה אוכלים — והמאמן עובד לפי My Rules, עם השפעה חיה בגרפים.',
     b1: '1. לוחצים + בגרף המטבולי → יומן האוכל.',
     b2: '2. תמונה — מצלמים את הצלחת, מאשרים מה שה־AI מציע.',
@@ -603,24 +630,28 @@ const DE: QuickStartCopy = {
   scale: {
     title: 'Nutzen Sie eine Withings-Waage?',
     helpLabel: 'Was ist Withings?',
+    exampleCaption: 'Beispiel — jede Withings-Waage\nin Ihrem Konto',
     lead:
       'Nein ist in Ordnung — Gewicht in den nächsten Schritten eingeben; die App funktioniert trotzdem. Ja — Sync von Gewicht und Körperzusammensetzung aus Ihrem Withings-Konto (Cloud, nicht Bluetooth). Body, Body Scan und ähnliche passen.',
   },
   watch: {
     title: 'Nutzen Sie eine Withings-Uhr oder ein Band?',
     helpLabel: 'Was ist Withings?',
+    exampleCaption: 'Beispiel — jede Withings-Uhr oder jedes Band\nin Ihrem Konto',
     lead:
       'Nein ist in Ordnung — Schritte und Puls können von Health Connect / Apple Health kommen (Garmin, Apple Watch, Samsung …). Ja — Aktivität aus Ihrem Withings-Konto.',
   },
   cgm: {
     title: 'Nutzen Sie ein CGM für Glukose?',
     helpLabel: 'Hilfe — CGM',
+    exampleCaption: 'Glukose aus Ihrer\nHandy-Gesundheits-App',
     lead:
       'Nein ist in Ordnung — Lab-PDFs können Sie später importieren. Ja — kontinuierliche Glukose über Health Connect (Android) oder Apple Health (iPhone).',
   },
   link: {
     title: 'Withings verbinden',
     helpLabel: 'Hilfe — Verbinden',
+    exampleCaption: 'Eine Verbindung: Healthings ↔ Withings\n(Waage & Uhr)',
     lead: 'Derselbe Account wie in der Withings-App. Eine Verbindung — für Waage und Uhr.',
     connected: 'Withings verbunden',
     relinkHint: 'Erneut verbinden geht jederzeit unter Profil.',
@@ -644,6 +675,8 @@ const DE: QuickStartCopy = {
     titleIos: 'Zugriff auf Apple Health',
     titleAndroid: 'Zugriff auf Health Connect',
     helpLabel: 'Gesundheit am Telefon',
+    exampleCaptionIos: 'Schritte und Puls aus Apple Health',
+    exampleCaptionAndroid: 'Schritte und Puls über Health Connect',
     leadIos:
       'Als Nächstes kann Apple Health einmal um Erlaubnis fragen. Allow access: Schritte und Puls, wenn Ihre Withings-Uhr aus ist.',
     leadAndroid:
@@ -679,6 +712,7 @@ const DE: QuickStartCopy = {
   meals: {
     title: 'Mahlzeiten erfassen',
     helpLabel: 'Essen loggen',
+    exampleCaption: 'Foto, Text oder Coach\n— Speichern im Essens-Tagebuch',
     lead: 'Essen erfassen — der Coach arbeitet nach My Rules und zeigt den Einfluss live in den Charts.',
     b1: '1. + im Stoffwechsel-Chart tippen → Essensprotokoll.',
     b2: '2. Foto — Teller fotografieren, Vorschlag der KI bestätigen.',
@@ -769,24 +803,28 @@ const ES: QuickStartCopy = {
   scale: {
     title: '¿Usa una báscula Withings?',
     helpLabel: '¿Qué es Withings?',
+    exampleCaption: 'Ejemplo — cualquier báscula Withings\nde su cuenta',
     lead:
       'No pasa nada — introduzca el peso en los siguientes pasos; la app sigue funcionando. Sí — sincronizamos peso y composición desde su cuenta Withings (nube, no Bluetooth). Body, Body Scan y similares sirven.',
   },
   watch: {
     title: '¿Usa un reloj o pulsera Withings?',
     helpLabel: '¿Qué es Withings?',
+    exampleCaption: 'Ejemplo — cualquier reloj o pulsera Withings\nde su cuenta',
     lead:
       'No pasa nada — pasos y pulso pueden venir de Health Connect / Apple Health (Garmin, Apple Watch, Samsung…). Sí — actividad desde su cuenta Withings.',
   },
   cgm: {
     title: '¿Usa un CGM para la glucosa?',
     helpLabel: 'Ayuda — CGM',
+    exampleCaption: 'Glucosa desde la app de salud\nde su teléfono',
     lead:
       'No pasa nada — puede importar PDFs de laboratorio más adelante. Sí — glucosa continua vía Health Connect (Android) o Apple Health (iPhone).',
   },
   link: {
     title: 'Vincular Withings',
     helpLabel: 'Ayuda — vinculación',
+    exampleCaption: 'Un enlace: Healthings ↔ Withings\n(báscula y reloj)',
     lead: 'La misma cuenta que en la app Withings. Un vínculo — para báscula y reloj.',
     connected: 'Withings vinculado',
     relinkHint: 'Puede volver a vincular desde Perfil.',
@@ -810,6 +848,8 @@ const ES: QuickStartCopy = {
     titleIos: 'Acceso a Apple Health',
     titleAndroid: 'Acceso a Health Connect',
     helpLabel: 'Salud del teléfono',
+    exampleCaptionIos: 'Pasos y pulso desde Apple Health',
+    exampleCaptionAndroid: 'Pasos y pulso vía Health Connect',
     leadIos:
       'A continuación, Apple Health puede pedir permiso una vez. Allow access: pasos y pulso cuando el reloj Withings está apagado.',
     leadAndroid:
@@ -845,6 +885,7 @@ const ES: QuickStartCopy = {
   meals: {
     title: 'Cómo registrar una comida',
     helpLabel: 'Registro de comidas',
+    exampleCaption: 'Foto, texto o su coach\n— y se guarda en el diario',
     lead: 'Registre lo que come — el coach trabaja según My Rules y muestra el impacto en vivo en los gráficos.',
     b1: '1. Toque + en el gráfico metabólico → diario de comida.',
     b2: '2. Foto — fotografíe el plato y confirme lo que propone la IA.',
@@ -935,24 +976,28 @@ const FR: QuickStartCopy = {
   scale: {
     title: 'Utilisez-vous une balance Withings ?',
     helpLabel: 'Qu’est-ce que Withings ?',
+    exampleCaption: 'Exemple — toute balance Withings\nsur votre compte',
     lead:
       'Non, ce n’est pas un problème — saisissez le poids aux étapes suivantes ; l’app fonctionne quand même. Oui — sync du poids et de la composition depuis votre compte Withings (cloud, pas Bluetooth). Body, Body Scan et similaires conviennent.',
   },
   watch: {
     title: 'Utilisez-vous une montre ou un bracelet Withings ?',
     helpLabel: 'Qu’est-ce que Withings ?',
+    exampleCaption: 'Exemple — toute montre ou bracelet Withings\nsur votre compte',
     lead:
       'Non, ce n’est pas un problème — pas et pouls peuvent venir de Health Connect / Apple Health (Garmin, Apple Watch, Samsung…). Oui — activité depuis votre compte Withings.',
   },
   cgm: {
     title: 'Utilisez-vous un CGM pour le glucose ?',
     helpLabel: 'Aide — CGM',
+    exampleCaption: 'Glucose depuis l’app santé\nde votre téléphone',
     lead:
       'Non, ce n’est pas un problème — vous pourrez importer des PDF de laboratoire plus tard. Oui — glucose en continu via Health Connect (Android) ou Apple Health (iPhone).',
   },
   link: {
     title: 'Relier Withings',
     helpLabel: 'Aide — liaison',
+    exampleCaption: 'Un lien : Healthings ↔ Withings\n(balance et montre)',
     lead: 'Le même compte que dans l’app Withings. Une liaison — pour la balance et la montre.',
     connected: 'Withings relié',
     relinkHint: 'Vous pouvez relier à nouveau depuis Profil.',
@@ -976,6 +1021,8 @@ const FR: QuickStartCopy = {
     titleIos: 'Accès à Apple Health',
     titleAndroid: 'Accès à Health Connect',
     helpLabel: 'Santé du téléphone',
+    exampleCaptionIos: 'Pas et pouls depuis Apple Health',
+    exampleCaptionAndroid: 'Pas et pouls via Health Connect',
     leadIos:
       'Ensuite, Apple Health peut demander une autorisation une fois. Allow access : pas et pouls quand la montre Withings est éteinte.',
     leadAndroid:
@@ -1011,6 +1058,7 @@ const FR: QuickStartCopy = {
   meals: {
     title: 'Comment enregistrer un repas',
     helpLabel: 'Journal alimentaire',
+    exampleCaption: 'Photo, texte ou coach\n— puis enregistrement dans le journal',
     lead: 'Enregistrez ce que vous mangez — le coach travaille selon My Rules et montre l’impact en direct sur les graphiques.',
     b1: '1. Touchez + sur le graphique métabolique → journal alimentaire.',
     b2: '2. Photo — photographiez l’assiette, validez la proposition de l’IA.',
@@ -1023,7 +1071,7 @@ const FR: QuickStartCopy = {
 const AR: QuickStartCopy = {
   quickStart: 'بداية سريعة',
   progress: (n, total) => `الخطوة ${n} من ${total}`,
-  welcomeTo: 'مرحباً بكم في Healthings',
+  welcomeTo: 'مرحباً بكم في\nHealthings',
   back: 'رجوع',
   next: 'متابعة',
   finish: 'إنهاء',
@@ -1062,13 +1110,14 @@ const AR: QuickStartCopy = {
     title: 'مرحباً بكم',
     helpLabel: 'كيف يعمل Healthings',
     lead:
-      'Healthings يتعلّم الجسم، ويشرح ما يحدث الآن، وينقل تغذية راجعة واضحة لأخصائي التغذية — حتى يصبح الطريق إلى أهدافكم أدق يوماً بعد يوم.',
+      // Brand on its own LTR line — avoids AR↔EN bidi flip mid-sentence (Michal / prompt111).
+      'Healthings\nيتعلّم الجسم، ويشرح ما يحدث الآن، وينقل تغذية راجعة واضحة لأخصائي التغذية — حتى يصبح الطريق إلى أهدافكم أدق يوماً بعد يوم.',
     card1Title: 'يتعلّم الجسم. يعلّمكم.',
     card1Body:
       'رسوم حية للوزن وتركيب الجسم والنشاط والجلوكوز (عند الاتصال). النموذج يفهم كيف يستجيب الجسم، ويشرح الأرقام ببساطة، ويدرب وفق My Rules — لفهم التقدّم لا لجمع أرقام فقط.',
     card2Title: 'من التتبع إلى حلقة كاملة',
     card2Body:
-      'معظم التطبيقات تتوقف عند التتبع. هنا تُغلق الحلقة:\n\n• أخصائي التغذية يضع النيّة في My Rules\n• أنتم تعيشون الخطة — طعام، جسم، نشاط، فحوصات\n• Healthings ينفّذ ويتعلّم ويشرح\n• عند المشاركة يرى الأخصائي ما يحدث في الجسم\n• معاً تضبطون الخطة\n\nليس يوميات طعام منفصلة عن العيادة.',
+      'معظم التطبيقات تتوقف عند التتبع. هنا تُغلق الحلقة:\n\n• أخصائي التغذية يضع النيّة في My Rules\n• أنتم تعيشون الخطة — طعام، جسم، نشاط، فحوصات\n• Healthings\nينفّذ ويتعلّم ويشرح\n• عند المشاركة يرى الأخصائي ما يحدث في الجسم\n• معاً تضبطون الخطة\n\nليس يوميات طعام منفصلة عن العيادة.',
     card3Title: 'Wellness — بمستوى مهني',
     card3Body:
       'بلا تشخيص، بلا وصفات، بلا استبدال للطبيب. القيمة في المنهج: مرافقة مرخّصة، صورة حيّة للجسم، وتغذية راجعة كعيادة جيدة.',
@@ -1100,24 +1149,28 @@ const AR: QuickStartCopy = {
   scale: {
     title: 'هل تستخدمون ميزان Withings؟',
     helpLabel: 'ما هو Withings؟',
+    exampleCaption: 'مثال — أي ميزان Withings\nفي حسابكم',
     lead:
       'لا؟ لا بأس — أدخلوا الوزن في الخطوات التالية؛ التطبيق يعمل أيضاً بدونها. نعم — نزامن الوزن وتركيب الجسم من حساب Withings (سحابة، وليس Bluetooth). Body و Body Scan وما شابه تناسب.',
   },
   watch: {
     title: 'هل تستخدمون ساعة أو سوار Withings؟',
     helpLabel: 'ما هو Withings؟',
+    exampleCaption: 'مثال — أي ساعة أو سوار Withings\nفي حسابكم',
     lead:
       'لا؟ لا بأس — الخطوات والنبض يمكن أن تأتيا من Health Connect / Apple Health (Garmin، Apple Watch، Samsung…). نعم — النشاط من حساب Withings.',
   },
   cgm: {
     title: 'هل تستخدمون CGM للجلوكوز؟',
     helpLabel: 'مساعدة — CGM',
+    exampleCaption: 'الجلوكوز من تطبيق الصحة\nعلى الهاتف',
     lead:
       'لا؟ لا بأس — يمكن استيراد PDF مختبر لاحقاً. نعم — جلوكوز مستمر عبر Health Connect أو Apple Health.',
   },
   link: {
     title: 'ربط Withings',
     helpLabel: 'مساعدة — الربط',
+    exampleCaption: 'رابط واحد: Healthings ↔ Withings\n(الميزان والساعة)',
     lead: 'نفس حساب تطبيق Withings. ربط واحد — للميزان والساعة.',
     connected: 'Withings مربوط',
     relinkHint: 'يمكن الربط مجدداً من الملف.',
@@ -1141,6 +1194,8 @@ const AR: QuickStartCopy = {
     titleIos: 'الوصول إلى Apple Health',
     titleAndroid: 'الوصول إلى Health Connect',
     helpLabel: 'صحة الهاتف',
+    exampleCaptionIos: 'خطوات ونبض من Apple Health',
+    exampleCaptionAndroid: 'خطوات ونبض عبر Health Connect',
     leadIos:
       'بعدها قد يطلب Apple Health إذناً مرة واحدة. Allow access: خطوات ونبض عندما تكون ساعة Withings غير نشطة.',
     leadAndroid:
@@ -1176,6 +1231,7 @@ const AR: QuickStartCopy = {
   meals: {
     title: 'كيف تسجّلون وجبة',
     helpLabel: 'تسجيل الوجبات',
+    exampleCaption: 'صورة أو نص أو المدرب\n— والحفظ في يوميات الطعام',
     lead: 'تسجّلون ما تأكلون — والمدرب يعمل وفق My Rules مع أثر حي على الرسوم.',
     b1: '1. اضغطوا + على الرسم الأيضي → سجل الطعام.',
     b2: '2. صورة — صوّروا الطبق ووافقوا على اقتراح الذكاء.',
@@ -1266,24 +1322,28 @@ const RU: QuickStartCopy = {
   scale: {
     title: 'Пользуетесь весами Withings?',
     helpLabel: 'Что такое Withings?',
+    exampleCaption: 'Пример — любые весы Withings\nв вашем аккаунте',
     lead:
       'Нет — нормально: введите вес на следующих шагах, приложение работает и без них. Да — синхронизируем вес и состав тела из аккаунта Withings (облако, не Bluetooth). Подойдут Body, Body Scan и похожие.',
   },
   watch: {
     title: 'Пользуетесь часами или браслетом Withings?',
     helpLabel: 'Что такое Withings?',
+    exampleCaption: 'Пример — любые часы или браслет Withings\nв вашем аккаунте',
     lead:
       'Нет — нормально: шаги и пульс могут идти из Health Connect / Apple Health (Garmin, Apple Watch, Samsung…). Да — активность из аккаунта Withings.',
   },
   cgm: {
     title: 'Пользуетесь CGM для глюкозы?',
     helpLabel: 'Справка — CGM',
+    exampleCaption: 'Глюкоза из приложения здоровья\nна телефоне',
     lead:
       'Нет — нормально: PDF анализов можно импортировать позже. Да — непрерывная глюкоза через Health Connect (Android) или Apple Health (iPhone).',
   },
   link: {
     title: 'Связь с Withings',
     helpLabel: 'Справка — связь',
+    exampleCaption: 'Одна связь: Healthings ↔ Withings\n(весы и часы)',
     lead: 'Тот же аккаунт, что в приложении Withings. Одна связь — для весов и часов.',
     connected: 'Withings связан',
     relinkHint: 'Связать снова можно в разделе «Профиль».',
@@ -1307,6 +1367,8 @@ const RU: QuickStartCopy = {
     titleIos: 'Доступ к Apple Health',
     titleAndroid: 'Доступ к Health Connect',
     helpLabel: 'Здоровье телефона',
+    exampleCaptionIos: 'Шаги и пульс из Apple Health',
+    exampleCaptionAndroid: 'Шаги и пульс через Health Connect',
     leadIos:
       'Дальше Apple Health может один раз запросить разрешение. Allow access: шаги и пульс, когда часы Withings выключены.',
     leadAndroid:
@@ -1342,6 +1404,7 @@ const RU: QuickStartCopy = {
   meals: {
     title: 'Как логировать еду',
     helpLabel: 'Дневник еды',
+    exampleCaption: 'Фото, текст или наставник\n— сохранение в дневнике еды',
     lead: 'Логируйте, что едите — коуч работает по My Rules и показывает влияние на графиках вживую.',
     b1: '1. Нажмите + на метаболическом графике → дневник еды.',
     b2: '2. Фото — снимите тарелку, подтвердите предложение ИИ.',
@@ -1432,24 +1495,28 @@ const PT: QuickStartCopy = {
   scale: {
     title: 'Você usa uma balança Withings?',
     helpLabel: 'O que é Withings?',
+    exampleCaption: 'Exemplo — qualquer balança Withings\nda sua conta',
     lead:
       'Não tem problema — digite o peso nos próximos passos; o app funciona mesmo assim. Sim — sincronizamos peso e composição da sua conta Withings (nuvem, não Bluetooth). Body, Body Scan e similares servem.',
   },
   watch: {
     title: 'Você usa um relógio ou pulseira Withings?',
     helpLabel: 'O que é Withings?',
+    exampleCaption: 'Exemplo — qualquer relógio ou pulseira Withings\nda sua conta',
     lead:
       'Não tem problema — passos e FC podem vir do Health Connect / Apple Health (Garmin, Apple Watch, Samsung…). Sim — atividade da sua conta Withings.',
   },
   cgm: {
     title: 'Você usa um CGM para glicose?',
     helpLabel: 'Ajuda — CGM',
+    exampleCaption: 'Glicose do app de saúde\ndo seu telefone',
     lead:
       'Não tem problema — PDFs de laboratório podem ser importados depois. Sim — glicose contínua via Health Connect (Android) ou Apple Health (iPhone).',
   },
   link: {
     title: 'Vincular sua conta Withings',
     helpLabel: 'Ajuda — vinculação',
+    exampleCaption: 'Um link: Healthings ↔ Withings\n(balança e relógio)',
     lead: 'A mesma conta do app Withings. Um vínculo — para balança e relógio.',
     connected: 'Withings conectado',
     relinkHint: 'Você pode revincular a qualquer momento em Perfil.',
@@ -1473,6 +1540,8 @@ const PT: QuickStartCopy = {
     titleIos: 'Permitir Apple Health',
     titleAndroid: 'Permitir Health Connect',
     helpLabel: 'Saúde do celular',
+    exampleCaptionIos: 'Passos e FC do Apple Health',
+    exampleCaptionAndroid: 'Passos e FC via Health Connect',
     leadIos:
       'Toque Continuar — o Apple Health pode pedir permissão uma vez. Allow access: passos e FC quando o relógio Withings estiver desligado.',
     leadAndroid:
@@ -1508,6 +1577,7 @@ const PT: QuickStartCopy = {
   meals: {
     title: 'Como registrar refeições',
     helpLabel: 'Registro de refeições',
+    exampleCaption: 'Foto, texto ou coach\n— e salva no diário alimentar',
     lead:
       'Registre o que come — o coach trabalha conforme My Rules e mostra o impacto ao vivo nos gráficos.',
     b1: '1. Toque + no gráfico metabólico → diário alimentar.',
@@ -1599,24 +1669,28 @@ const IT: QuickStartCopy = {
   scale: {
     title: 'Usi una bilancia Withings?',
     helpLabel: 'Cos’è Withings?',
+    exampleCaption: 'Esempio — qualsiasi bilancia Withings\nnel tuo account',
     lead:
       'Nessun problema — inserisci il peso nei passaggi successivi; l’app funziona lo stesso. Sì — sincronizziamo peso e composizione dal tuo account Withings (cloud, non Bluetooth). Body, Body Scan e simili vanno bene.',
   },
   watch: {
     title: 'Usi un orologio o bracciale Withings?',
     helpLabel: 'Cos’è Withings?',
+    exampleCaption: 'Esempio — qualsiasi orologio o bracciale Withings\nnel tuo account',
     lead:
       'Nessun problema — passi e FC possono arrivare da Health Connect / Apple Health (Garmin, Apple Watch, Samsung…). Sì — attività dal tuo account Withings.',
   },
   cgm: {
     title: 'Usi un CGM per il glucosio?',
     helpLabel: 'Aiuto — CGM',
+    exampleCaption: 'Glucosio dall’app salute\ndel telefono',
     lead:
       'Nessun problema — i PDF di laboratorio si possono importare dopo. Sì — glucosio continuo via Health Connect (Android) o Apple Health (iPhone).',
   },
   link: {
     title: 'Collega il tuo account Withings',
     helpLabel: 'Aiuto — collegamento',
+    exampleCaption: 'Un collegamento: Healthings ↔ Withings\n(bilancia e orologio)',
     lead: 'Lo stesso account dell’app Withings. Un collegamento — per bilancia e orologio.',
     connected: 'Withings collegato',
     relinkHint: 'Puoi ricollegare in qualsiasi momento dal Profilo.',
@@ -1640,6 +1714,8 @@ const IT: QuickStartCopy = {
     titleIos: 'Consenti Apple Health',
     titleAndroid: 'Consenti Health Connect',
     helpLabel: 'Salute del telefono',
+    exampleCaptionIos: 'Passi e FC da Apple Health',
+    exampleCaptionAndroid: 'Passi e FC via Health Connect',
     leadIos:
       'Tocca Continua — Apple Health può chiedere permesso una volta. Allow access: passi e FC quando l’orologio Withings è spento.',
     leadAndroid:
@@ -1675,6 +1751,7 @@ const IT: QuickStartCopy = {
   meals: {
     title: 'Come registrare i pasti',
     helpLabel: 'Registro pasti',
+    exampleCaption: 'Foto, testo o coach\n— poi salva nel diario pasti',
     lead:
       'Registra cosa mangi — il coach lavora secondo My Rules e mostra l’impatto live sui grafici.',
     b1: '1. Tocca + sul grafico metabolico → diario alimentare.',
@@ -1766,24 +1843,28 @@ const TR: QuickStartCopy = {
   scale: {
     title: 'Withings tartı kullanıyor musunuz?',
     helpLabel: 'Withings nedir?',
+    exampleCaption: 'Örnek — hesabınızdaki herhangi bir\nWithings tartı',
     lead:
       'Hayır sorun değil — sonraki adımlarda kilo girin; uygulama yine çalışır. Evet — kilo ve vücut kompozisyonunu Withings hesabınızdan senkronlarız (bulut, Bluetooth değil). Body, Body Scan ve benzerleri uygundur.',
   },
   watch: {
     title: 'Withings saat veya bileklik kullanıyor musunuz?',
     helpLabel: 'Withings nedir?',
+    exampleCaption: 'Örnek — hesabınızdaki herhangi bir\nWithings saat veya bileklik',
     lead:
       'Hayır sorun değil — adım ve nabız Health Connect / Apple Health’ten gelebilir (Garmin, Apple Watch, Samsung…). Evet — aktivite Withings hesabınızdan.',
   },
   cgm: {
     title: 'Glukoz için CGM kullanıyor musunuz?',
     helpLabel: 'Yardım — CGM',
+    exampleCaption: 'Telefondaki sağlık uygulamasından\nglikoz',
     lead:
       'Hayır sorun değil — laboratuvar PDF’lerini sonra içe aktarabilirsiniz. Evet — sürekli glukoz Health Connect (Android) veya Apple Health (iPhone) üzerinden.',
   },
   link: {
     title: 'Withings hesabınızı bağlayın',
     helpLabel: 'Yardım — bağlama',
+    exampleCaption: 'Tek bağlantı: Healthings ↔ Withings\n(tartı ve saat)',
     lead: 'Withings uygulamasındaki aynı hesap. Tek bağlantı — tartı ve saat için.',
     connected: 'Withings bağlı',
     relinkHint: 'Profil’den istediğiniz zaman yeniden bağlayabilirsiniz.',
@@ -1807,6 +1888,8 @@ const TR: QuickStartCopy = {
     titleIos: 'Apple Health’e izin ver',
     titleAndroid: 'Health Connect’e izin ver',
     helpLabel: 'Telefon sağlığı',
+    exampleCaptionIos: 'Apple Health’ten adım ve nabız',
+    exampleCaptionAndroid: 'Health Connect üzerinden adım ve nabız',
     leadIos:
       'Devam’a dokunun — Apple Health bir kez izin isteyebilir. Allow access: Withings saati kapalıyken adım ve nabız.',
     leadAndroid:
@@ -1842,6 +1925,7 @@ const TR: QuickStartCopy = {
   meals: {
     title: 'Öğün nasıl kaydedilir',
     helpLabel: 'Öğün kaydı',
+    exampleCaption: 'Fotoğraf, metin veya koç\n— yemek günlüğüne kaydedin',
     lead:
       'Ne yediğinizi kaydedin — koç My Rules altında çalışır ve etkiyi grafiklerde canlı gösterir.',
     b1: '1. Metabolik grafikte + → yemek günlüğü.',
@@ -1857,10 +1941,13 @@ export function isRtlLang(code: string): boolean {
   return c === 'he' || c === 'ar';
 }
 
-/** AI mentor gender picker — Hebrew/Arabic only (gendered titles/grammar). Hidden for Latin + Russian. */
-export function usesMentorGenderUi(code: string | null | undefined): boolean {
-  const c = (code || '').toLowerCase().slice(0, 2);
-  return c === 'he' || c === 'ar';
+/**
+ * AI mentor gender picker — all app languages.
+ * Controls coach *voice* (how the AI addresses you), not profile gender.
+ * Was he/ar-only for grammar; English still needs the voice choice on coach step.
+ */
+export function usesMentorGenderUi(_code: string | null | undefined): boolean {
+  return true;
 }
 
 export function getQuickStartCopy(langCode: string): QuickStartCopy {
