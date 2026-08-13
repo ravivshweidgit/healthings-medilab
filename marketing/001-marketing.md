@@ -1,14 +1,21 @@
 # 001 — Marketing strategy prompt (for Opus)
 
-**Use:** paste into a strong reasoning model (Opus / equivalent).  
+**Use:** open a chat on **Opus** (or equivalent strong model) and send the prompt below.  
 **Not for:** Auto — this is wedge / persona / channel judgment.  
-**Context pack:** attach or paste [`README.md`](./README.md) + [`../investor-pov/COMPETITOR-SCORES.md`](../investor-pov/COMPETITOR-SCORES.md) (ICP + scores + pitch lines). Optional: [`../investor-pov/EXECUTIVE-SUMMARY.md`](../investor-pov/EXECUTIVE-SUMMARY.md).
+**Do not paste file bodies** — tell the model to **read** the paths (Cursor can open them).
 
 ---
 
-## Prompt (copy below)
+## Prompt (send as the user message)
 
 ```
+Read these files first, then answer. Do not ask me to paste them.
+
+- marketing/README.md
+- marketing/001-marketing.md (this brief)
+- investor-pov/COMPETITOR-SCORES.md
+- investor-pov/EXECUTIVE-SUMMARY.md (optional depth)
+
 You are a marketing strategist for Healthings.AI (Medilab) — a local-first metabolic OS
 (CGM + Withings/scale + food log + lab PDF → daily macros / meals), with optional
 clinic nutritionist link (rules + structured treatment markers). Not a mass CGM
@@ -27,12 +34,6 @@ membership app.
 6. Product truth: solo = strong fusion/macros; +clinic = your nutritionist + treatment
    markers (custom caps/floors HARD). Markers are clinic-set in v1.
 
-## Inputs I will provide
-
-- marketing/README.md (wedge draft)
-- investor-pov/COMPETITOR-SCORES.md (scores, H2H, pitch)
-- [optional] EXECUTIVE-SUMMARY.md, clinic partner notes, current channels tried
-
 ## Deliverables (be concrete, Israel-realistic)
 
 1. **Primary persona** — one page: who, trigger, jobs, objections, where they hang out.
@@ -48,6 +49,11 @@ membership app.
 7. **What NOT to say** — 5 banned lines that overclaim or attract the wrong crowd.
 8. **90-day test plan** — weekly checkpoints; what evidence upgrades the wedge vs kills it.
 
+## Output
+
+Write the full answer to marketing/002-opus-wedge-YYYY-MM-DD.md (use today’s date).
+Then promote any durable decisions (persona, wedge, channels) back into marketing/README.md.
+
 ## Style
 
 - Direct, opinionated, fewer options with a clear #1.
@@ -59,6 +65,5 @@ membership app.
 
 ## After Opus returns
 
-- Save the answer as `marketing/002-opus-wedge-YYYY-MM-DD.md` (or similar).  
-- Promote durable decisions back into `README.md` (persona, wedge, channels).  
+- Confirm `002-opus-wedge-….md` exists and README was updated if decisions stuck.  
 - Copy / ads → cheaper model once ICP + messages are locked.
