@@ -85,7 +85,9 @@ import {
   buildManualTrendDays,
   countMergedWeighInDays,
   fillBmrGaps,
+  resolveTrendBmrSeed,
   resolveUserBmrAnchor,
+  stampBmrIfMissing,
 } from '../services/ManualTrendService';
 import type { PhoneHealthSyncSummary } from '../services/phoneHealthSyncTypes';
 import {
@@ -1013,8 +1015,18 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       };
     });
 
-    // Empty BMR days: carry-forward measured BMR; seed from Profile / first user BMR.
-    days = fillBmrGaps(days, { seedBmrKcal: userBmrAnchor });
+    // Empty BMR days: carry first available BMR backward (first Withings scale day,
+    // profile override, or manual snap) so total-burn / balance history exists behind
+    // meal + activity days that predate the first weigh-in.
+    const todayKey = localDayKeyFromMs(Date.now());
+    const scanBmr = effectiveBodyScan?.bmrKcalDay ?? manualBodySnap?.bmr_kcal ?? null;
+    days = stampBmrIfMissing(days, scanBmr, todayKey);
+    const seedBmr = resolveTrendBmrSeed(days, {
+      profileAnchorKcal: userBmrAnchor,
+      bodyScanBmrKcal: effectiveBodyScan?.bmrKcalDay,
+      manualSnapBmrKcal: manualBodySnap?.bmr_kcal,
+    });
+    days = fillBmrGaps(days, { seedBmrKcal: seedBmr });
 
     return days;
   }, [
@@ -1048,10 +1060,20 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       }
     }
     // Fill through today only — leave empty tomorrow pad so lines keep a small right gap.
-    const filled = fillBmrGaps(
+    // Re-seed from body card BMR: first scale day often lands on bodyScan before the
+    // trend row has type-226, and align() reintroduces empty calendar days.
+    const scanBmr = effectiveBodyScan?.bmrKcalDay ?? manualBodySnap?.bmr_kcal ?? null;
+    const stamped = stampBmrIfMissing(
       forwardFillTrendWeight(aligned, seedWeight, todayKey),
-      { seedBmrKcal: userBmrAnchor },
+      scanBmr,
+      todayKey,
     );
+    const seedBmr = resolveTrendBmrSeed(stamped, {
+      profileAnchorKcal: userBmrAnchor,
+      bodyScanBmrKcal: effectiveBodyScan?.bmrKcalDay,
+      manualSnapBmrKcal: manualBodySnap?.bmr_kcal,
+    });
+    const filled = fillBmrGaps(stamped, { seedBmrKcal: seedBmr });
     const days = filled.map((d) =>
       d.dayKey > todayKey
         ? { ...d, weightKg: null, bmrKcalDay: null, activityKcalDay: null, fatMassKg: null, muscleMassKg: null, visceralFatIndex: null }
@@ -1065,7 +1087,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       days.filter((d) => d.dayKey <= todayKey).map((d) => d.dayKey),
     );
     return { days, anchor };
-  }, [bodyTrendDaysWithActivity, bodyTrendSessions, trendPeriodDays, userBmrAnchor]);
+  }, [
+    bodyTrendDaysWithActivity,
+    bodyTrendSessions,
+    trendPeriodDays,
+    userBmrAnchor,
+    effectiveBodyScan?.bmrKcalDay,
+    manualBodySnap?.bmr_kcal,
+  ]);
 
   const hasEnergyHistory = useMemo(
     () =>
@@ -2987,6 +3016,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                       eatenKcalByDay={eatenKcalByDay}
                       energyUnit={unitsPrefs.energy}
                       langCode={userLanguage.code}
+                      fallbackBmrKcal={
+                        effectiveBodyScan?.bmrKcalDay ??
+                        manualBodySnap?.bmr_kcal ??
+                        userBmrAnchor
+                      }
                     />
                   </View>
                 ) : null}

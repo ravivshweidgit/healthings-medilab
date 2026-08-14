@@ -59,6 +59,11 @@ function manualOnDay(history: ManualBodySnapshot[], dayKey: string): ManualBodyS
   return best;
 }
 
+function positiveBmrKcal(v: number | null | undefined): number | null {
+  if (v == null || !Number.isFinite(v) || v <= 0) return null;
+  return Math.round(v);
+}
+
 /**
  * Anchor BMR when a day has none: explicit Profile override, else earliest
  * user-entered BMR in history (first inserted). Carry-forward in the series is better
@@ -68,46 +73,99 @@ export function resolveUserBmrAnchor(
   history: ManualBodySnapshot[],
   bmrOverrideKcal?: number | null,
 ): number | null {
-  if (bmrOverrideKcal != null && Number.isFinite(bmrOverrideKcal) && bmrOverrideKcal > 0) {
-    return Math.round(bmrOverrideKcal);
-  }
+  const override = positiveBmrKcal(bmrOverrideKcal);
+  if (override != null) return override;
   let earliest: { ms: number; bmr: number } | null = null;
   for (const h of history) {
-    if (!(h.bmr_kcal > 0)) continue;
+    const bmr = positiveBmrKcal(h.bmr_kcal);
+    if (bmr == null) continue;
     const ms = Date.parse(h.measuredAt);
     if (Number.isNaN(ms)) continue;
     if (!earliest || ms < earliest.ms) {
-      earliest = { ms, bmr: Math.round(h.bmr_kcal) };
+      earliest = { ms, bmr };
     }
   }
   return earliest?.bmr ?? null;
 }
 
 /**
+ * First usable BMR for energy-history backfill.
+ * Prefer an explicit profile/manual anchor, then any live body-scan (Withings first
+ * weigh-in), then the earliest point already on the trend series.
+ */
+export function resolveTrendBmrSeed(
+  days: MetabolicTrend7dDay[],
+  opts?: {
+    profileAnchorKcal?: number | null;
+    bodyScanBmrKcal?: number | null;
+    manualSnapBmrKcal?: number | null;
+  },
+): number | null {
+  const fromProfile = positiveBmrKcal(opts?.profileAnchorKcal);
+  if (fromProfile != null) return fromProfile;
+  const fromScan = positiveBmrKcal(opts?.bodyScanBmrKcal);
+  if (fromScan != null) return fromScan;
+  const fromManual = positiveBmrKcal(opts?.manualSnapBmrKcal);
+  if (fromManual != null) return fromManual;
+  for (const d of days) {
+    const bmr = positiveBmrKcal(d.bmrKcalDay);
+    if (bmr != null) return bmr;
+  }
+  return null;
+}
+
+/**
+ * When the latest Withings/manual BMR landed on the body card but not yet on any
+ * trend day (first scale day, or getmeas trend lag), stamp it onto today so
+ * fillBmrGaps has a measured point to carry backward across meal/activity history.
+ */
+export function stampBmrIfMissing(
+  days: MetabolicTrend7dDay[],
+  bmrKcal: number | null | undefined,
+  todayKey: string,
+): MetabolicTrend7dDay[] {
+  const bmr = positiveBmrKcal(bmrKcal);
+  if (bmr == null || days.length === 0) return days;
+  if (days.some((d) => positiveBmrKcal(d.bmrKcalDay) != null)) return days;
+
+  let stampKey = days.find((d) => d.dayKey === todayKey)?.dayKey ?? null;
+  if (stampKey == null) {
+    for (let i = days.length - 1; i >= 0; i -= 1) {
+      if (days[i].dayKey <= todayKey) {
+        stampKey = days[i].dayKey;
+        break;
+      }
+    }
+  }
+  if (stampKey == null) return days;
+  return days.map((d) => (d.dayKey === stampKey ? { ...d, bmrKcalDay: bmr } : d));
+}
+
+/**
  * Forward-fill empty BMR days for energy charts (128d deep window).
- * Measured / prior BMR wins and updates the carry; seed covers leading gaps.
+ * Measured / prior BMR wins and updates the carry; seed covers leading gaps
+ * (first scale day → flat BMR + total-burn history behind meal/activity days).
  */
 export function fillBmrGaps(
   days: MetabolicTrend7dDay[],
   opts?: { seedBmrKcal?: number | null },
 ): MetabolicTrend7dDay[] {
-  let last: number | null =
-    opts?.seedBmrKcal != null && Number.isFinite(opts.seedBmrKcal) && opts.seedBmrKcal > 0
-      ? Math.round(opts.seedBmrKcal)
-      : null;
+  let last: number | null = positiveBmrKcal(opts?.seedBmrKcal);
   if (last == null) {
     for (const d of days) {
-      if (d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay) && d.bmrKcalDay > 0) {
-        last = Math.round(d.bmrKcalDay);
+      const bmr = positiveBmrKcal(d.bmrKcalDay);
+      if (bmr != null) {
+        last = bmr;
         break;
       }
     }
   }
   if (last == null) return days;
   return days.map((d) => {
-    if (d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay) && d.bmrKcalDay > 0) {
-      last = Math.round(d.bmrKcalDay);
-      return { ...d, bmrKcalDay: last };
+    const measured = positiveBmrKcal(d.bmrKcalDay);
+    if (measured != null) {
+      last = measured;
+      return { ...d, bmrKcalDay: measured };
     }
     return { ...d, bmrKcalDay: last };
   });

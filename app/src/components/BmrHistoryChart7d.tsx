@@ -3,7 +3,8 @@ import { ActivityIndicator, StyleSheet, Text, View, useWindowDimensions } from '
 import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { curveMonotoneX, line } from 'd3-shape';
 import { formatAxisDayLabel } from '../i18n/dateLocale';
-import { resolveBmrWeekTrend, withingsChartBmrKcal, type MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
+import { localDayKeyFromMs, resolveBmrWeekTrend, withingsChartBmrKcal, type MetabolicTrend7dDay } from '../logic/metabolicTrend7d';
+import { fillBmrGaps } from '../services/ManualTrendService';
 import { markMethodReady } from '../services/AppDailyLogService';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
@@ -48,6 +49,11 @@ type Props = {
   energyUnit?: EnergyUnit;
   /** Coach language — axis date labels. */
   langCode?: string | null;
+  /**
+   * First available BMR (body card / profile) when trend rows are still empty —
+   * backfills flat BMR + total-burn history behind meal/activity days.
+   */
+  fallbackBmrKcal?: number | null;
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -124,7 +130,14 @@ function stripAvgLabel(avg: number | null, energyUnit: EnergyUnit): string {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 'kcal', langCode }: Props) {
+export function BmrHistoryChart7d({
+  days,
+  loading,
+  eatenKcalByDay,
+  energyUnit = 'kcal',
+  langCode,
+  fallbackBmrKcal,
+}: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const {
@@ -149,10 +162,18 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
     });
   }, []);
 
-  const prepared = useMemo(() => {
-    if (!days || days.length < 2) return null;
+  /** Last-mile backfill: first scale BMR → flat history across the visible window. */
+  const plotDays = useMemo(() => {
+    const filled = fillBmrGaps(days ?? [], { seedBmrKcal: fallbackBmrKcal });
+    const todayKey = localDayKeyFromMs(Date.now());
+    // Keep the intentional right-pad empty (same rule as Dashboard visibleTrend).
+    return filled.map((d) => (d.dayKey > todayKey ? { ...d, bmrKcalDay: null } : d));
+  }, [days, fallbackBmrKcal]);
 
-    const n       = days.length;
+  const prepared = useMemo(() => {
+    if (!plotDays || plotDays.length < 2) return null;
+
+    const n       = plotDays.length;
     const plotLeft = PLOT_PAD_L;
     const innerW   = Math.max(1, chartW - plotLeft - PAD_R);
 
@@ -163,8 +184,8 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
     const eatenVals:   number[] = [];
     const balanceVals: number[] = [];
 
-    days.forEach((d, i) => {
-      const bmr = withingsChartBmrKcal(days, i);
+    plotDays.forEach((d, i) => {
+      const bmr = withingsChartBmrKcal(plotDays, i);
       const act = d.activityKcalDay;
       const eaten = eatenKcalByDay?.[d.dayKey] ?? 0;
       const chartBurn = bmr != null && act != null ? bmr + act : null;
@@ -200,14 +221,14 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
 
     // ── BMR line ─────────────────────────────────────────────────────────────
     const bmrPts: PixelPoint[] = [];
-    days.forEach((_, i) => {
-      const v = withingsChartBmrKcal(days, i);
+    plotDays.forEach((_, i) => {
+      const v = withingsChartBmrKcal(plotDays, i);
       if (v != null) bmrPts.push({ x: xAtIndex(i, plotLeft, innerW, n), y: myBmr(kcalToDisplay(v, energyUnit)) });
     });
 
     // ── Activity line ─────────────────────────────────────────────────────────
     const actPts: PixelPoint[] = [];
-    days.forEach((d, i) => {
+    plotDays.forEach((d, i) => {
       const act = d.activityKcalDay;
       if (act == null || !Number.isFinite(act)) return;
       actPts.push({ x: xAtIndex(i, plotLeft, innerW, n), y: myAct(kcalToDisplay(act, energyUnit)) });
@@ -215,8 +236,8 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
 
     // ── Total burn line (BMR + Withings activity — unchanged from original) ───
     const totalPts: PixelPoint[] = [];
-    days.forEach((d, i) => {
-      const bmr = withingsChartBmrKcal(days, i);
+    plotDays.forEach((d, i) => {
+      const bmr = withingsChartBmrKcal(plotDays, i);
       const act = d.activityKcalDay;
       if (bmr != null && act != null) {
         totalPts.push({
@@ -228,7 +249,7 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
 
     // ── Eaten line ─────────────────────────────────────────────────────────────
     const eatenPts: PixelPoint[] = [];
-    days.forEach((d, i) => {
+    plotDays.forEach((d, i) => {
       const eaten = eatenKcalByDay?.[d.dayKey] ?? 0;
       if (eaten > 0) {
         eatenPts.push({
@@ -240,8 +261,8 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
 
     // ── Balance line (eaten − total burn; negative = deficit) ─────────────────
     const balancePts: PixelPoint[] = [];
-    days.forEach((d, i) => {
-      const bmr = withingsChartBmrKcal(days, i);
+    plotDays.forEach((d, i) => {
+      const bmr = withingsChartBmrKcal(plotDays, i);
       const act = d.activityKcalDay;
       const chartBurn = bmr != null && act != null ? bmr + act : null;
       const eaten = eatenKcalByDay?.[d.dayKey] ?? 0;
@@ -272,8 +293,8 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
     const balanceZeroY = myBalance(0);
 
     const balanceDots: BalanceDot[] = [];
-    days.forEach((d, i) => {
-      const bmr = withingsChartBmrKcal(days, i);
+    plotDays.forEach((d, i) => {
+      const bmr = withingsChartBmrKcal(plotDays, i);
       const act = d.activityKcalDay;
       const chartBurn = bmr != null && act != null ? bmr + act : null;
       const eaten = eatenKcalByDay?.[d.dayKey] ?? 0;
@@ -291,7 +312,7 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
     // ── X axis ticks (shared) ─────────────────────────────────────────────────
     const tickIdx = new Set(pickTickIndices(n, 7));
     const xAxisY  = PAD_TOP + NUM_STRIPS * STRIP_UNIT;
-    const xTicks  = days
+    const xTicks  = plotDays
       .map((d, i) => ({ d, i }))
       .filter(({ i }) => tickIdx.has(i))
       .map(({ d, i }) => ({
@@ -300,7 +321,7 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
         key: d.dayKey,
       }));
 
-    const weekDeltaKcal = resolveBmrWeekTrend(days).deltaKcal;
+    const weekDeltaKcal = resolveBmrWeekTrend(plotDays).deltaKcal;
     const weekDelta =
       weekDeltaKcal != null ? kcalToDisplay(weekDeltaKcal, energyUnit) : null;
     const avgBmr = avgRounded(bmrVals);
@@ -329,7 +350,7 @@ export function BmrHistoryChart7d({ days, loading, eatenKcalByDay, energyUnit = 
       avgBalance,
       eLab,
     };
-  }, [chartW, days, eatenKcalByDay, energyUnit, langCode]);
+  }, [chartW, plotDays, eatenKcalByDay, energyUnit, langCode]);
 
   // ── Loading / empty states ───────────────────────────────────────────────
   if (loading) {
