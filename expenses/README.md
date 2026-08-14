@@ -1,110 +1,54 @@
-# Healthings — cash expense report
+# Healthings — people ledger (cash + hours)
 
-**As of:** 2026-07-29  
-**Repo start (initial commit):** 2026-05-08 (`278d9f8`)
+**As of:** 2026-08-14  
+**Internal only** — do **not** deploy to healthings.ai.  
+**Company books:** **USD** · ILS→USD at **3.0 ₪/$** (locked).
 
-Hardware and Expo figures are owner-stated. Cursor amounts are from Cursor Billing invoices (paid lines). Platform/hosting rows are ballpark unless replaced with receipts.
+## Layout
 
-**Also see:** [human-hours.md](./human-hours.md) (time effort) · [share-model.md](./share-model.md) (full internal model) · [share-model-partners.md](./share-model-partners.md) / [share-model-partners.html](./share-model-partners.html) (**EN**) · [share-model-partners.he.md](./share-model-partners.he.md) / [share-model-partners.he.html](./share-model-partners.he.html) (**HE**) · [cursor-invoices.md](./cursor-invoices.md)
+```
+expenses/
+  Raviv|Shai|Michal/
+    expenses/
+      README.md                 ← person cash rollup
+      YYYY-WW/                  ← that ISO week’s receipts + week README
+    working-hours/
+      README.md                 ← person hours rollup
+      YYYY-WW/                  ← that week’s hour log
+  share-holders-reports/
+    YYYY-WW/                    ← weekly shareholders snapshot (Cash/Hours/%)
+  share-model*.md|.html         ← shared ownership pool
+```
 
-Internal only — do **not** deploy share-model docs to healthings.ai.
+## Week folders — `YYYY-WW` (01–54)
 
----
+| Rule | |
+|------|--|
+| Name | `YYYY-WW` — e.g. `2026-33` |
+| `WW` | ISO week **01–54**, or **`00`** for locked pre–week-33 baseline (Raviv hours + expenses) |
+| Create | Only when that week has cash or hours to log — do **not** pre-create empty 01–54 |
+| Undated | Ballpark / “earlier” rows stay on the person `expenses/README.md` until a date is known |
 
-## 1. Hardware (owner figures)
+| Person | Cash | Hours |
+|--------|------|-------|
+| [Raviv](./Raviv/) | [expenses](./Raviv/expenses/README.md) · [2026-00](./Raviv/expenses/2026-00/) + [2026-33](./Raviv/expenses/2026-33/) | [2026-00 ~544 h](./Raviv/working-hours/2026-00/) + [2026-33](./Raviv/working-hours/2026-33/) → [rollup](./Raviv/working-hours/README.md) |
+| [Shai](./Shai/) | [expenses](./Shai/expenses/README.md) · [2026-33](./Shai/expenses/2026-33/) **$266.67** (2 alpha sessions → clinic) | [working-hours](./Shai/working-hours/README.md) · [2026-33](./Shai/working-hours/2026-33/) |
+| [Michal](./Michal/) | **No expenses** (she is the clinic) | [working-hours](./Michal/working-hours/README.md) · [2026-33](./Michal/working-hours/2026-33/) |
 
-| Item | Calc | USD |
-|------|------|----:|
-| Watches ×3 | 3 × 500 | 1,500 |
-| Phone | 1 × 1,000 | 1,000 |
-| Scales ×2 | 2 × 700 | 1,400 |
-| **Hardware subtotal** | | **3,900** |
+### Ownership model (shared)
 
----
+| Doc | |
+|-----|--|
+| [share-model.md](./share-model.md) | Full internal formula + people table |
+| [share-model-partners.md](./share-model-partners.md) / [`.html`](./share-model-partners.html) | Partner-facing EN |
+| [share-model-partners.he.md](./share-model-partners.he.md) / [`.html`](./share-model-partners.he.html) | Partner-facing HE |
+| [share-holders-reports/](./share-holders-reports/README.md) | Weekly snapshots · [**2026-33 EN**](./share-holders-reports/2026-33/share-holders-report-2026-33-EN.html) · [**HE**](./share-holders-reports/2026-33/share-holders-report-2026-33-HE.html) |
 
-## 2. Cursor (invoices)
+**Pool snapshot (2026-08-14):** Raviv ~98.1% · Michal ~1.6% · Shai ~0.3%.
 
-| Date | Description | Status | USD |
-|------|-------------|--------|----:|
-| 2026-03-09 | (subscription) | paid | 20.06 |
-| 2026-04-09 | (subscription) | paid | 20.00 |
-| 2026-05-09 | (subscription) | paid | 20.00 |
-| 2026-06-03 | Usage cycle from 2026-05-09 (mid-month) | paid | 20.29 |
-| 2026-06-07 | Usage cycle from 2026-05-09 (mid-month) | paid | 40.26 |
-| 2026-06-09 | (subscription) | refunded (−4.87 noted) | 20.00 *not counted* |
-| 2026-06-10 | Usage cycle from 2026-05-09 | paid | 32.87 |
-| 2026-07-02 | (plan) | refunded (−19.39 noted) | 60.00 *not counted* |
-| 2026-07-24 | (Ultra / plan) | paid | 200.00 |
+### How to update
 
-| Cursor rollup | USD |
-|---------------|----:|
-| All **paid** invoice lines | **353.48** |
-| After noted refunds (−4.87 −19.39) | **~329.22** |
-| **Since repo (2026-05-08)** paid only | **313.42** |
-| Since repo, after those refunds | **~289.16** |
-
----
-
-## 3. Expo / EAS (owner figures)
-
-| Item | Notes | USD |
-|------|-------|----:|
-| Plan | ~19 / month | *fill months × 19* |
-| Extra builds | ~2 each beyond quota | *fill count × 2* |
-
-*(Replace with Expo billing export when available.)*
-
----
-
-## 4. Clinical / nutritionist (owner-paid)
-
-List price she quotes: **$133 / patient session**.  
-**Who pays matters for the share model** — see [share-model.md](./share-model.md) §3b.
-
-| Date / note | Description | Amount | USD (approx.) |
-|-------------|-------------|-------:|--------------:|
-| Paid already (owner) | Nutritionist sessions (project / clinical input) | **400 ₪** | **~108** (@ ~3.70 ₪/USD) |
-| Rate card (reference) | Her stated fee per patient session | $133 | 133 |
-
-| Clinical rollup | |
-|-----------------|--:|
-| Owner-paid to date (USD approx.) | **~108** |
-| Still owed / future sessions | *add rows when paid* |
-
-When the **founder pays** the invoice → that cash is **founder’s Cash** contribution.  
-It does **not** count as the nutritionist investing money. Her share only grows if **she** puts in Cash and/or agreed Hours (or she forgoes fee for equity — document that explicitly).
-
----
-
-## 5. Stores & hosting (ballpark — replace with receipts)
-
-| Item | Notes | USD |
-|------|-------|----:|
-| Google Play Developer | one-time | 25 |
-| Apple Developer | ~99 / year | ~99 |
-| Hetzner VPS | ~5–15 / month | *TBD* |
-| Domain + DNS | ~10–20 / year | *TBD* |
-| Email (Resend / SMTP) | often free tier | *TBD* |
-
----
-
-## 6. Totals (order of magnitude)
-
-| Scope | ~USD |
-|-------|-----:|
-| Hardware only | **3,900** |
-| + Cursor (all paid) | **~4,253** |
-| + Nutritionist (400 ₪) | **~4,360** |
-| + Cursor since repo only + nutritionist | **~4,320** |
-| + Expo + Apple + Play + hosting (guess) | **~4,500–4,800** |
-
-**Not included:** owner time, Gemini API, Stripe (not live), tax, shipping, Withings accessories beyond watches/scales, unpaid nutritionist list-price ($133×N).
-
----
-
-## How to update
-
-1. Add new rows under the right section when invoices arrive.  
-2. Prefer receipt totals over ballpark rows in §3–5.  
-3. Keep “since repo” as amounts on/after **2026-05-08**.  
-4. Nutritionist: log **₪ + who paid**; convert to USD in the table when FX is known.
+1. Find ISO week for the receipt/work date → folder `YYYY-WW` under that person’s `expenses/` or `working-hours/`.  
+2. Add a row in that week’s `README.md` (+ file if useful).  
+3. Refresh the person rollup README, then [share-model.md](./share-model.md).  
+4. When the week is ready for partners, add [share-holders-reports/YYYY-WW/](./share-holders-reports/README.md).

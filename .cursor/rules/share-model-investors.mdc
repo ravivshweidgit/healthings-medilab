@@ -6,7 +6,9 @@ alwaysApply: false
 
 # Share model — new investors
 
-**Source of truth:** `expenses/share-model.md` (with `expenses/README.md` cash + `expenses/human-hours.md` time).  
+**Source of truth:** `expenses/share-model.md`  
+**Per-person ledgers:** `expenses/{Raviv|Shai|Michal}/expenses/YYYY-WW/` (cash) and `.../working-hours/YYYY-WW/` (hours); `WW` = ISO week **01–54**. Index: `expenses/README.md`.  
+**Weekly partners pack:** `expenses/share-holders-reports/YYYY-WW/` — final sendables are `share-holders-report-YYYY-WW-EN.html` + `…-HE.html`.  
 **Partner-facing:** `expenses/share-model-partners.md` (+ `.he.md` / `.he.html`).  
 **Internal only** — never deploy share-model docs to healthings.ai / `website/`. Send as file or private link only.  
 **Not legal advice** — planning only; lawyers issue real equity/SAFE.
@@ -27,10 +29,11 @@ Share_i        = Contribution_i / sum(all Contributions)
 ## When a new investor appears
 
 1. Ask: cash amount, hours (or cash-only), and confirm R.
-2. Add a row to the people table in `expenses/share-model.md` §5.
-3. Recompute every Share % from totals — do not invent fixed % without the formula.
-4. Remind: sweat usually **vests** (e.g. 4y / 1y cliff); cash terms are a separate paper deal.
-5. Do **not** treat this markdown as a signed cap table.
+2. Create `expenses/<Name>/expenses/YYYY-WW/` + `working-hours/YYYY-WW/` for the week (ISO 01–54); log Cash/Hours there.
+3. Add a row to the people table in `expenses/share-model.md` §5.
+4. Recompute every Share % from totals — do not invent fixed % without the formula.
+5. Remind: sweat usually **vests** (e.g. 4y / 1y cliff); cash terms are a separate paper deal.
+6. Do **not** treat this markdown as a signed cap table.
 
 ## What counts
 
@@ -39,13 +42,13 @@ Share_i        = Contribution_i / sum(all Contributions)
 | Money they funded for the product (incl. agreed company hardware/bills) | Product work + agreed field QA (bike/walk protocol) |
 | Not: living costs | Not: vague “thinking” with no deliverable |
 
-**Paid advisor/nutritionist sessions:** if the **founder pays** the fee ($133 list or ₪ invoice), that Cash is the **founder’s**. It does **not** give the advisor equity. Advisor Share only from **their** Cash, **their** Hours × R, or an explicit **fee waiver for equity** (document; don’t double-count waiver + Hours).
+**Paid advisor/nutritionist sessions:** if the **founder (or another partner) pays** the fee ($133 list or ₪ invoice), that Cash is the **payer’s**. It does **not** give the advisor equity. Advisor Share only from **their** Cash, **their** Hours × R, or an explicit **fee waiver for equity** (document; don’t double-count waiver + Hours).
 
 ## Agent checklist
 
 - [ ] \(R = \max\) professional rates (equal-effort), same \(R\) for everyone?
 - [ ] Per-session fees normalized to \$/hour?
 - [ ] Updated `share-model.md` table + snapshot log?
-- [ ] Cash/hours numbers match `README.md` / `human-hours.md` when citing founder baseline?
-- [ ] Founder-paid advisor fees → founder Cash, not advisor equity?
+- [ ] Cash/hours numbers match that person’s `expenses/` + `working-hours/` READMEs?
+- [ ] Founder-/partner-paid advisor fees → payer Cash, not advisor equity?
 - [ ] Stated that lawyers/paper still required?
