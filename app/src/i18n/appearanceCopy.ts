@@ -21,6 +21,9 @@ export type AppearanceCopy = {
   /** Dashboard visibility — Activity Log strip. */
   activityLog: string;
   activityLogHint: string;
+  /** Lab results — dedicated LDL / total / HDL / TG trend charts. */
+  lipidCharts: string;
+  lipidChartsHint: string;
   yes: string;
   no: string;
 };
@@ -34,6 +37,8 @@ const EN: AppearanceCopy = {
   hint: '“System” follows your phone setting.',
   activityLog: 'Activity log on dashboard',
   activityLogHint: 'Hide if you do not log workouts manually.',
+  lipidCharts: 'Cholesterol charts in lab results',
+  lipidChartsHint: 'Hide LDL, total cholesterol, HDL, and TG trend charts.',
   yes: 'Yes',
   no: 'No',
 };
@@ -47,6 +52,8 @@ const HE: AppearanceCopy = {
   hint: '״מערכת״ עוקב אחרי הגדרת הטלפון.',
   activityLog: 'יומן פעילות בדשבורד',
   activityLogHint: 'הסתירו אם אינכם מתעדים אימונים ידנית.',
+  lipidCharts: 'גרפי כולסטרול בתוצאות מעבדה',
+  lipidChartsHint: 'הסתירו מגמות LDL, כולסטרול כללי, HDL וטריגליצרידים.',
   yes: 'כן',
   no: 'לא',
 };
@@ -60,6 +67,8 @@ const ES: AppearanceCopy = {
   hint: '«Sistema» sigue la configuración de tu teléfono.',
   activityLog: 'Registro de actividad en el panel',
   activityLogHint: 'Oculta si no registras entrenamientos manualmente.',
+  lipidCharts: 'Gráficos de colesterol en lab',
+  lipidChartsHint: 'Oculta tendencias de LDL, colesterol total, HDL y TG.',
   yes: 'Sí',
   no: 'No',
 };
@@ -73,6 +82,8 @@ const FR: AppearanceCopy = {
   hint: '« Système » suit le réglage de votre téléphone.',
   activityLog: 'Journal d’activité sur le tableau',
   activityLogHint: 'Masquez si vous ne journalisez pas les séances.',
+  lipidCharts: 'Graphiques cholestérol (labo)',
+  lipidChartsHint: 'Masquez les tendances LDL, cholestérol total, HDL et TG.',
   yes: 'Oui',
   no: 'Non',
 };
@@ -86,6 +97,8 @@ const DE: AppearanceCopy = {
   hint: '„System“ folgt der Einstellung deines Telefons.',
   activityLog: 'Aktivitätslog auf dem Dashboard',
   activityLogHint: 'Ausblenden, wenn Sie Workouts nicht manuell loggen.',
+  lipidCharts: 'Cholesterin-Diagramme bei Labs',
+  lipidChartsHint: 'LDL-, Gesamt-, HDL- und TG-Trends ausblenden.',
   yes: 'Ja',
   no: 'Nein',
 };
@@ -99,6 +112,8 @@ const AR: AppearanceCopy = {
   hint: '«النظام» يتبع إعداد هاتفك.',
   activityLog: 'سجل النشاط في لوحة التحكم',
   activityLogHint: 'أخفِه إن لم تسجّل التمارين يدويًا.',
+  lipidCharts: 'رسوم الكوليسترول في المختبر',
+  lipidChartsHint: 'أخفِ اتجاهات LDL والكوليسترول الكلي وHDL وTG.',
   yes: 'نعم',
   no: 'لا',
 };
@@ -112,6 +127,8 @@ const RU: AppearanceCopy = {
   hint: '«Система» следует настройке телефона.',
   activityLog: 'Дневник активности на панели',
   activityLogHint: 'Скройте, если не ведёте тренировки вручную.',
+  lipidCharts: 'Графики холестерина в анализах',
+  lipidChartsHint: 'Скрыть тренды LDL, общего холестерина, HDL и ТГ.',
   yes: 'Да',
   no: 'Нет',
 };
@@ -125,6 +142,8 @@ const PT: AppearanceCopy = {
   hint: '«Sistema» segue a configuração do seu telefone.',
   activityLog: 'Diário de atividade no painel',
   activityLogHint: 'Oculte se não registrar treinos manualmente.',
+  lipidCharts: 'Gráficos de colesterol no lab',
+  lipidChartsHint: 'Oculte tendências de LDL, colesterol total, HDL e TG.',
   yes: 'Sim',
   no: 'Não',
 };
@@ -138,6 +157,8 @@ const IT: AppearanceCopy = {
   hint: '«Sistema» segue l’impostazione del telefono.',
   activityLog: 'Diario attività sulla dashboard',
   activityLogHint: 'Nascondi se non registri gli allenamenti.',
+  lipidCharts: 'Grafici colesterolo nei lab',
+  lipidChartsHint: 'Nascondi andamenti LDL, colesterolo totale, HDL e TG.',
   yes: 'Sì',
   no: 'No',
 };
@@ -151,6 +172,8 @@ const TR: AppearanceCopy = {
   hint: '“Sistem” telefonunuzun ayarını izler.',
   activityLog: 'Gösterge panelinde aktivite günlüğü',
   activityLogHint: 'Antrenmanları elle kaydetmiyorsanız gizleyin.',
+  lipidCharts: 'Lab sonuçlarında kolesterol grafikleri',
+  lipidChartsHint: 'LDL, toplam kolesterol, HDL ve TG trendlerini gizle.',
   yes: 'Evet',
   no: 'Hayır',
 };

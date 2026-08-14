@@ -59,6 +59,8 @@ type Props = {
   onReportsChanged: () => void;
   lang?: UserLanguage | null;
   gender?: Gender | null;
+  /** Appearance — when false, hide the dedicated cholesterol trend card. */
+  lipidChartsVisible?: boolean;
 };
 
 function formatDrawDate(iso: string, langCode?: string | null): string {
@@ -86,7 +88,7 @@ function highlightResult(report: LabReport): string | null {
 }
 
 export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function LabResultsStrip(
-  { reports, onReportsChanged, lang, gender },
+  { reports, onReportsChanged, lang, gender, lipidChartsVisible = true },
   ref,
 ) {
   const { colors } = useTheme();
@@ -166,6 +168,8 @@ export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function
 
   useEffect(() => {
     if (!customCode) return;
+    // Wait until markers are known — empty list on first paint used to wipe the saved pick.
+    if (markerOptions.length === 0) return;
     if (!markerOptions.some((m) => m.code === customCode)) setCustomCode(null);
   }, [customCode, markerOptions]);
 
@@ -258,7 +262,9 @@ export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function
   const selectedOption = customCode ? markerOptions.find((m) => m.code === customCode) : null;
   const customSubtitle = selectedOption
     ? `${selectedOption.name}${selectedOption.unit ? ` · ${selectedOption.unit}` : ''}`
-    : copy.customPickPlaceholder;
+    : customCode
+      ? customCode
+      : copy.customPickPlaceholder;
 
   return (
     <View style={[styles.card, cardShadow, !expanded && styles.cardCollapsed]}>
@@ -306,7 +312,7 @@ export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function
         })}
       </ScrollView>
 
-      {lipidTrendPoints.length >= 1 ? (
+      {lipidChartsVisible && lipidTrendPoints.length >= 1 ? (
         <View style={styles.nestedCard}>
           <DashboardCollapseHeader
             title={copy.lipidTrendsTitle}

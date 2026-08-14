@@ -235,6 +235,8 @@ const DASH_APPEARANCE_EXPANDED_KEY = 'dash_appearance_expanded';
 const DASH_GEAR_EXPANDED_KEY = 'dash_gear_expanded';
 /** Show Activity Log strip on dashboard (prompt104). Default on. */
 const DASH_ACTIVITY_LOG_VISIBLE_KEY = 'dash_activity_log_visible';
+/** Appearance — show LDL/total/HDL/TG charts under Lab results (default Yes). */
+const DASH_LAB_LIPID_CHARTS_VISIBLE_KEY = 'dash_lab_lipid_charts_visible';
 const BRAND_LOGO = require('../../assets/brand-logo.png');
 // Same geometry as the light lockup (so header height is unchanged), light ink on a
 // transparent background instead of the white plate.
@@ -515,6 +517,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [gearExpanded, setGearExpanded] = useState(false);
   /** Activity Log strip on dashboard — Profile → Appearance Yes/No. */
   const [activityLogVisible, setActivityLogVisible] = useState(true);
+  /** Cholesterol trend charts under Lab results — Profile → Appearance Yes/No. */
+  const [lipidChartsVisible, setLipidChartsVisible] = useState(true);
   const [quickStartVisible, setQuickStartVisible] = useState(false);
   /** prompt106 — hide What’s next until Later, or after first meal/activity today. */
   const [whatsNextDismissed, setWhatsNextDismissed] = useState(false);
@@ -1779,7 +1783,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   useEffect(() => {
     void (async () => {
       try {
-        const [g, t, s, langEx, unitsEx, appearanceEx, gearEx, actVis] = await AsyncStorage.multiGet([
+        const [g, t, s, langEx, unitsEx, appearanceEx, gearEx, actVis, lipidVis] = await AsyncStorage.multiGet([
           DASH_GLUCOSE_EXPANDED_KEY,
           DASH_TREND_EXPANDED_KEY,
           DASH_SETTINGS_CARD_EXPANDED_KEY,
@@ -1788,6 +1792,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           DASH_APPEARANCE_EXPANDED_KEY,
           DASH_GEAR_EXPANDED_KEY,
           DASH_ACTIVITY_LOG_VISIBLE_KEY,
+          DASH_LAB_LIPID_CHARTS_VISIBLE_KEY,
         ]);
         if (g[1] === 'true') setGlucoseExpanded(true);
         if (t[1] === 'true') setTrendExpanded(true);
@@ -1797,6 +1802,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         if (appearanceEx[1] === 'true') setAppearanceExpanded(true);
         if (gearEx[1] === 'true') setGearExpanded(true);
         if (actVis[1] === 'false') setActivityLogVisible(false);
+        if (lipidVis[1] === 'false') setLipidChartsVisible(false);
       } finally {
         setDashExpandPrefsLoaded(true);
       }
@@ -1952,6 +1958,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       activityLogVisible ? 'true' : 'false',
     );
   }, [activityLogVisible, dashExpandPrefsLoaded]);
+
+  useEffect(() => {
+    if (!dashExpandPrefsLoaded) return;
+    void AsyncStorage.setItem(
+      DASH_LAB_LIPID_CHARTS_VISIBLE_KEY,
+      lipidChartsVisible ? 'true' : 'false',
+    );
+  }, [lipidChartsVisible, dashExpandPrefsLoaded]);
 
   useEffect(() => {
     if (!dashExpandPrefsLoaded) return;
@@ -3375,6 +3389,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             lang={userLanguage}
             activityLogVisible={activityLogVisible}
             onActivityLogVisibleChange={setActivityLogVisible}
+            lipidChartsVisible={lipidChartsVisible}
+            onLipidChartsVisibleChange={setLipidChartsVisible}
           />
           </View>
 
@@ -3582,6 +3598,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           onReportsChanged={() => void loadLabReports(false)}
           lang={userLanguage}
           gender={userGender}
+          lipidChartsVisible={lipidChartsVisible}
         />
         </View>
 

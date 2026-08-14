@@ -22,6 +22,9 @@ type Props = {
   /** Show Activity Log strip on the main dashboard. */
   activityLogVisible: boolean;
   onActivityLogVisibleChange: (visible: boolean) => void;
+  /** Show cholesterol (lipid) trend charts under Lab results. */
+  lipidChartsVisible: boolean;
+  onLipidChartsVisibleChange: (visible: boolean) => void;
 };
 
 export function AppearanceStrip({
@@ -30,6 +33,8 @@ export function AppearanceStrip({
   lang,
   activityLogVisible,
   onActivityLogVisibleChange,
+  lipidChartsVisible,
+  onLipidChartsVisibleChange,
 }: Props) {
   const { colors, isDark, pref, setThemePref } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
@@ -86,6 +91,17 @@ export function AppearanceStrip({
               noLabel={t.no}
               onChange={onActivityLogVisibleChange}
               hint={t.activityLogHint}
+            />
+          </View>
+
+          <View style={styles.dashPref}>
+            <SetupToggleRow
+              label={t.lipidCharts}
+              value={lipidChartsVisible}
+              yesLabel={t.yes}
+              noLabel={t.no}
+              onChange={onLipidChartsVisibleChange}
+              hint={t.lipidChartsHint}
             />
           </View>
         </View>
