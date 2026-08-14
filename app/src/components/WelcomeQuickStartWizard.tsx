@@ -137,11 +137,28 @@ import { UnitsPreferenceSection } from './UnitsPreferenceSection';
 const SITE_HOME = 'https://healthings.ai';
 const BRAND_LOGO = require('../../assets/brand-logo.png');
 const BRAND_LOGO_DARK = require('../../assets/brand-logo-dark.png');
-/** Michal coach card badges — crops as-is (circle + glyph baked in). */
-const COACH_ICON_PERSON_HEART = require('../../assets/quick-start/coach-person-heart.png');
-const COACH_ICON_REFRESH = require('../../assets/quick-start/coach-refresh.png');
-const COACH_ICON_LOTUS = require('../../assets/quick-start/coach-lotus.png');
-const COACH_ICON_HEADER = require('../../assets/quick-start/coach-header-person-sparkle.png');
+/**
+ * Michal coach card badges — crops as-is (circle + glyph baked in).
+ *
+ * The crops are flattened onto an opaque page white, so dark needs its own file
+ * rather than a tint: see `app/scripts/make-coach-icons-dark.py`.
+ */
+const COACH_ICON_PERSON_HEART = {
+  light: require('../../assets/quick-start/coach-person-heart.png'),
+  dark: require('../../assets/quick-start/coach-person-heart-dark.png'),
+};
+const COACH_ICON_REFRESH = {
+  light: require('../../assets/quick-start/coach-refresh.png'),
+  dark: require('../../assets/quick-start/coach-refresh-dark.png'),
+};
+const COACH_ICON_LOTUS = {
+  light: require('../../assets/quick-start/coach-lotus.png'),
+  dark: require('../../assets/quick-start/coach-lotus-dark.png'),
+};
+const COACH_ICON_HEADER = {
+  light: require('../../assets/quick-start/coach-header-person-sparkle.png'),
+  dark: require('../../assets/quick-start/coach-header-person-sparkle-dark.png'),
+};
 /** Match DashboardScreen brand lockup sizing. */
 const SCROLL_HORIZONTAL_PADDING = 20;
 const BRAND_HEADER_HEIGHT_FALLBACK = 152;
@@ -312,10 +329,17 @@ function PdfFileIcon({ size = 44 }: { size?: number }) {
 }
 
 /** Michal crop already includes the wash/solid circle — show pixel-for-pixel. */
-function CoachCropIcon({ source, size = 44 }: { source: number; size?: number }) {
+function CoachCropIcon({
+  source,
+  size = 44,
+}: {
+  source: { light: number; dark: number };
+  size?: number;
+}) {
+  const { isDark } = useTheme();
   return (
     <Image
-      source={source}
+      source={isDark ? source.dark : source.light}
       style={{ width: size, height: size }}
       resizeMode="contain"
       accessibilityIgnoresInvertColors
