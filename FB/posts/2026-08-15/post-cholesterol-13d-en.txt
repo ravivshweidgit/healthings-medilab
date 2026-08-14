@@ -1,0 +1,67 @@
+Documented Nutrition Protocol: Lipid Response Over 13 Days (Single-Subject Case)
+
+Protocol summary
+We documented a structured, rule-based nutrition protocol over 13 days, with laboratory lipids measured before and after the window. Meals were logged daily in Healthings. Clinical dietary rules were set with a licensed dietitian. No cholesterol-lowering medication was used during this interval.
+
+This is a single-subject (n=1) observational case note — not a randomized trial and not a guarantee of similar results for others. Shared for transparency: labs, rules, and the actual menu.
+
+Study window
+• Start labs: 16 June 2026
+• End labs: 29 June 2026
+• Duration: 13 days
+• Lipid-lowering medication: none in window
+
+Primary endpoints (serum lipids, mg/dL)
+
+• Total cholesterol: 225.6 → 173.1 (reference <200) — entered target range
+• LDL: 170.0 → 118.5 (reference <100) — −51.5 mg/dL; still above target
+• Triglycerides: 60 → 60 (reference <150) — already in range; unchanged
+• HDL: 44 → 43 (reference ≥40) — remained in range
+
+Chart: in-app Cholesterol trends (attached). Highlighted interval on the chart = 2nd → 3rd draw (16–29 Jun). Earlier/later draws are context only.
+
+Intervention — dietary rules applied
+1. Prefer unsaturated fats (fish, nuts, seeds, olive oil, avocado)
+2. High fiber daily (psyllium + vegetables + oats; fiber target ≥ ~35 g/day)
+3. Carbohydrate floor maintained (≥ ~65 g/day per rules)
+4. Protein primarily from fish, poultry, and protein isolates
+5. Minimize fatty cheeses and red meat during the window
+6. Every meal logged; adherence checked against rules daily
+
+Adherence method
+Continuous food logging in Healthings + dietitian-aligned constraints. Loop: labs → rules → logged meals → retest.
+
+Typical daily pattern (modal menu)
+• Morning: protein powder + psyllium + oats + almonds / walnuts / pumpkin seeds
+• Midday: fish or chicken breast + vegetables + olive oil + lemon
+• Evening: salmon (or other fish) + vegetables + olive oil / avocado
+• Often: additional protein + psyllium later in the day
+
+Highest-recurrence foods in the 13-day log
+olive oil · almonds · psyllium · pumpkin seeds · walnuts · avocado · salmon · protein powder · oats · green & cruciferous vegetables · chicken breast / tilapia
+
+Example day (20 June 2026) — complete log
+• Morning shake: protein + psyllium + nuts + oats
+• Chicken + cauliflower/broccoli + lettuce + cherry tomatoes + olive oil
+• Chicken + olive oil
+• Protein + psyllium
+
+Full day-by-day menu (all 13 days)
+Posted in the first comment / available on request. Source: Healthings food log, 16–29 June 2026.
+
+Interpretation (cautious)
+In this single documented case, total cholesterol moved into the conventional <200 range and LDL fell substantially, while remaining above the <100 target. Triglycerides and HDL were already acceptable. Causality cannot be proven from n=1; the value of the record is the transparent pairing of labs with the actual menu.
+
+Limitations
+Single subject · short window · no control arm · lifestyle factors beyond diet not isolated · not generalizable · not a substitute for medical care.
+
+About Healthings
+Healthings closes the loop between labs, clinician rules, daily meals, and device metrics — so nutrition follow-up is continuous, not only visit-to-visit.
+
+Contact
+Pilot interest (prediabetes / lipid nutrition follow-up): message privately.
+
+Disclaimer
+Company case documentation only. Not medical advice. Not a claim that Healthings treats or cures disease. Discuss labs, diet, and medication with a licensed clinician.
+
+#Healthings #nutrition #cholesterol #LDL #clinicalnutrition #MetabolicHealth #foodasmedicine #dietitian #labtolifestyle #PreventiveHealthCheckup #hearthealth #evidencebasednutrition #digitalhealth
