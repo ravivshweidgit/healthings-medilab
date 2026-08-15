@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { HELP_LOCALES, UI as HELP_UI } from './help-locale-content.mjs';
 import {
   CSS_VER,
-  AMOUNTS,
+  AMOUNT_DEFS,
+  formatAmount,
   PLATES_UI,
   PLATE_COPY,
 } from './plates-locale-content.mjs';
@@ -68,18 +69,13 @@ function langSwitcher(current, file, langLabel) {
       <noscript class="help-lang-noscript"><p>${noscript}</p></noscript>`;
 }
 
-function amount(ui, key) {
-  if (key === 'fresh') return ui.fresh;
-  return AMOUNTS[key] ?? '';
-}
-
 function plateCards(lang, ui, list) {
   return list
     .map((p, i) => {
       const items = p.items
         .map(
           ([name, key]) =>
-            `<li><span>${esc(name)}</span><span class="grams">${esc(amount(ui, key))}</span></li>`,
+            `<li><span>${esc(name)}</span><span class="grams">${esc(formatAmount(ui, key))}</span></li>`,
         )
         .join('\n              ');
       const hint = p.hint.replace(
@@ -114,6 +110,7 @@ function plateCards(lang, ui, list) {
 }
 
 function platesJson(lang, list) {
+  const ui = PLATES_UI[lang] || PLATES_UI.en;
   const enList = PLATE_COPY.en;
   const plates = list.map((p, idx) => {
     const en = enList[idx];
@@ -134,12 +131,18 @@ function platesJson(lang, list) {
           name_en: enItem[0],
           name,
         };
-        const a = AMOUNTS[key];
         if (key === 'fresh') row.amount = 'fresh';
-        else if (a) {
-          row.amount = a;
-          const g = parseFloat(String(a).replace(/[^0-9.]/g, ''));
-          if (!Number.isNaN(g) && /g|ml/i.test(a)) row.grams = Math.round(g);
+        else {
+          const formatted = formatAmount(ui, key);
+          const def = AMOUNT_DEFS[key];
+          if (formatted) row.amount = formatted;
+          if (def?.text) {
+            const g = parseFloat(String(def.text).replace(/[^0-9.]/g, ''));
+            if (!Number.isNaN(g) && /g|ml/i.test(def.text)) row.grams = Math.round(g);
+          } else if (def?.approx) {
+            const g = parseFloat(String(def.approx).replace(/[^0-9.]/g, ''));
+            if (!Number.isNaN(g)) row.grams = Math.round(g);
+          }
         }
         return row;
       }),

@@ -1,6 +1,6 @@
 /**
  * Example plates — multi-locale copy (same 10 langs as help).
- * Units/acronyms stay English where language-policy requires (g, ml, tbsp, Log Meal brand terms as needed).
+ * Keep g / ml English (language-policy). Localize tbsp / halves via PLATES_UI.
  */
 import { HELP_LOCALES } from './help-locale-content.mjs';
 
@@ -9,32 +9,52 @@ export { HELP_LOCALES };
 const CSS_VER = '20260816e';
 export { CSS_VER };
 
-/** Shared amounts (not translated). */
-export const AMOUNTS = {
-  yogurtG: '150 g',
-  waterMl: '100 ml',
-  blueberriesG: '40 g',
-  oatBran: '1 tbsp (~17 g)',
-  psyllium: '1 tbsp (~5 g)',
-  chia: '1 tbsp (~10 g)',
-  pumpkin: '1 tbsp (~8 g)',
-  walnuts: '3 halves (~5 g)',
-  almonds: '4 (~6 g)',
-  proteinG: '150 g',
-  lentils: '5 tbsp',
-  cucumberLunch: '2 tbsp',
-  oilLunch: '2 tbsp',
-  sashimi: '~100 g',
-  avocado: '~90–100 g',
-  ginger: '~10 g',
-  teriyaki: '~10–15 g',
-  sprouts: '50 g',
-  pepper: '40 g',
-  cucumberDinner: '30 g',
-  onion: '20 g',
-  lettuce: '30 g',
-  fresh: null, // localized word
+/** Shared amount defs — tbsp/halves words come from PLATES_UI per locale. */
+export const AMOUNT_DEFS = {
+  yogurtG: { text: '150 g' },
+  waterMl: { text: '100 ml' },
+  blueberriesG: { text: '40 g' },
+  oatBran: { tbsp: 1, approx: '~17 g' },
+  psyllium: { tbsp: 1, approx: '~5 g' },
+  chia: { tbsp: 1, approx: '~10 g' },
+  pumpkin: { tbsp: 1, approx: '~8 g' },
+  walnuts: { halves: 3, approx: '~5 g' },
+  almonds: { text: '4 (~6 g)' },
+  proteinG: { text: '150 g' },
+  lentils: { tbsp: 5 },
+  cucumberLunch: { tbsp: 2 },
+  oilLunch: { tbsp: 2 },
+  sashimi: { text: '~100 g' },
+  avocado: { text: '~90–100 g' },
+  ginger: { text: '~10 g' },
+  teriyaki: { text: '~10–15 g' },
+  sprouts: { text: '50 g' },
+  pepper: { text: '40 g' },
+  cucumberDinner: { text: '30 g' },
+  onion: { text: '20 g' },
+  lettuce: { text: '30 g' },
+  fresh: { fresh: true },
 };
+
+/** Format amount for a locale UI (needs tbsp1 / tbspN / halves / fresh). */
+export function formatAmount(ui, key) {
+  const d = AMOUNT_DEFS[key];
+  if (!d) return '';
+  if (d.fresh) return ui.fresh || '';
+  if (d.text) return d.text;
+  if (d.tbsp != null) {
+    const n = d.tbsp;
+    const unit = n === 1 ? ui.tbsp1 : ui.tbspN;
+    return d.approx ? `${n} ${unit} (${d.approx})` : `${n} ${unit}`;
+  }
+  if (d.halves != null) {
+    return `${d.halves} ${ui.halves} (${d.approx})`;
+  }
+  return '';
+}
+
+/** @deprecated — use formatAmount; kept so older imports fail loudly if still string-keyed. */
+export const AMOUNTS = AMOUNT_DEFS;
 
 /**
  * PLATES_UI[code] — chrome + page shell.
@@ -71,6 +91,9 @@ ui('en', {
   allPlates: '← All plate collections',
   logMeal: 'Log Meal',
   fresh: 'fresh',
+  tbsp1: 'tbsp',
+  tbspN: 'tbsp',
+  halves: 'halves',
   helpIndexLink: 'Example plates — a day from the log',
   mealLoggingBlurb:
     '<p><a href="../plates/lipid-protocol.html">Example plates</a> — meals from the log with amounts you can type into Log Meal.</p>',
@@ -87,7 +110,7 @@ plates('en', [
     alt: 'Yogurt bowl with bran, seeds, nuts, and blueberries',
     img: 'yogurt-breakfast.jpg?v=20260816a',
     items: [
-      ['Yogurt 2%', 'yogurtG'],
+      ['Yogurt 0%', 'yogurtG'],
       ['Water', 'waterMl'],
       ['Blueberries', 'blueberriesG'],
       ['Oat bran', 'oatBran'],
@@ -97,7 +120,7 @@ plates('en', [
       ['Walnuts', 'walnuts'],
       ['Almonds', 'almonds'],
     ],
-    hint: 'Chia, bran, and psyllium drink the water. In the app: {log} → text, e.g. “yogurt 2% 150g, water 100ml, blueberries 40g, oat bran 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, pumpkin seeds 1 tbsp, 3 walnut halves, 4 almonds”.',
+    hint: 'Chia, bran, and psyllium drink the water. In the app: {log} → text, e.g. “yogurt 0% 150g, water 100ml, blueberries 40g, oat bran 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, pumpkin seeds 1 tbsp, 3 walnut halves, 4 almonds”.',
   },
   {
     id: 'lunch-protein',
@@ -144,7 +167,7 @@ plates('en', [
     alt: 'Yogurt bowl with bran, seeds, and nuts — no blueberries',
     img: 'yogurt-evening.jpg?v=20260816b',
     items: [
-      ['Yogurt 2%', 'yogurtG'],
+      ['Yogurt 0%', 'yogurtG'],
       ['Water', 'waterMl'],
       ['Oat bran', 'oatBran'],
       ['Psyllium', 'psyllium'],
@@ -153,7 +176,7 @@ plates('en', [
       ['Walnuts', 'walnuts'],
       ['Almonds', 'almonds'],
     ],
-    hint: 'In the app: {log} → text, e.g. “yogurt 2% 150g, water 100ml, oat bran 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, pumpkin seeds 1 tbsp, 3 walnut halves, 4 almonds”.',
+    hint: 'In the app: {log} → text, e.g. “yogurt 0% 150g, water 100ml, oat bran 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, pumpkin seeds 1 tbsp, 3 walnut halves, 4 almonds”.',
   },
 ]);
 
@@ -178,6 +201,9 @@ ui('he', {
   allPlates: '← כל הצלחות',
   logMeal: 'רישום ארוחה',
   fresh: 'טרי',
+  tbsp1: 'כף',
+  tbspN: 'כפות',
+  halves: 'חצאים',
   helpIndexLink: 'צלחות לדוגמה — יום מהיומן',
   mealLoggingBlurb:
     '<p><a href="../plates/lipid-protocol.html">צלחות לדוגמה</a> — ארוחות מהיומן עם כמויות שאפשר להקליד ברישום ארוחה.</p>',
@@ -192,7 +218,7 @@ plates('he', [
     alt: 'קערת יוגורט עם סובין, זרעים, אגוזים ואוכמניות',
     img: 'yogurt-breakfast.jpg?v=20260816a',
     items: [
-      ['יוגורט 2%', 'yogurtG'],
+      ['יוגורט 0%', 'yogurtG'],
       ['מים', 'waterMl'],
       ['אוכמניות', 'blueberriesG'],
       ['סובין שיבולת שועל', 'oatBran'],
@@ -202,7 +228,7 @@ plates('he', [
       ['אגוזי מלך', 'walnuts'],
       ['שקדים', 'almonds'],
     ],
-    hint: 'באפליקציה: {log} → טקסט, למשל «יוגורט 2% 150ג, מים 100 מ״ל, אוכמניות 40ג, סובין שיבולת שועל כף, פסיליום כף, ציה כף, זרעי דלעת כף, 3 חצאי אגוז מלך, 4 שקדים».',
+    hint: 'באפליקציה: {log} → טקסט, למשל «יוגורט 0% 150ג, מים 100 מ״ל, אוכמניות 40ג, סובין שיבולת שועל כף, פסיליום כף, ציה כף, זרעי דלעת כף, 3 חצאי אגוז מלך, 4 שקדים».',
   },
   {
     id: 'lunch-protein',
@@ -249,7 +275,7 @@ plates('he', [
     alt: 'קערת יוגורט עם סובין וזרעים — בלי אוכמניות',
     img: 'yogurt-evening.jpg?v=20260816b',
     items: [
-      ['יוגורט 2%', 'yogurtG'],
+      ['יוגורט 0%', 'yogurtG'],
       ['מים', 'waterMl'],
       ['סובין שיבולת שועל', 'oatBran'],
       ['פסיליום', 'psyllium'],
@@ -258,6 +284,6 @@ plates('he', [
       ['אגוזי מלך', 'walnuts'],
       ['שקדים', 'almonds'],
     ],
-    hint: 'באפליקציה: {log} → טקסט, למשל «יוגורט 2% 150ג, מים 100 מ״ל, סובין שיבולת שועל כף, פסיליום כף, ציה כף, זרעי דלעת כף, 3 חצאי אגוז מלך, 4 שקדים».',
+    hint: 'באפליקציה: {log} → טקסט, למשל «יוגורט 0% 150ג, מים 100 מ״ל, סובין שיבולת שועל כף, פסיליום כף, ציה כף, זרעי דלעת כף, 3 חצאי אגוז מלך, 4 שקדים».',
   },
 ]);

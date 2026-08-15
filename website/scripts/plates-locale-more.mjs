@@ -19,6 +19,9 @@ export function registerMoreLocales(ui, plates) {
     allPlates: '← Todas las colecciones de platos',
     logMeal: 'Registrar comida',
     fresh: 'fresco',
+    tbsp1: 'cda',
+    tbspN: 'cdas',
+    halves: 'mitades',
     helpIndexLink: 'Platos de ejemplo — un día del diario',
     mealLoggingBlurb:
       '<p><a href="../plates/lipid-protocol.html">Platos de ejemplo</a> — comidas del diario con cantidades que puedes escribir al registrar comida.</p>',
@@ -33,7 +36,7 @@ export function registerMoreLocales(ui, plates) {
       alt: 'Bol de yogur con salvado, semillas, frutos secos y arándanos',
       img: 'yogurt-breakfast.jpg?v=20260816a',
       items: [
-        ['Yogur 2%', 'yogurtG'],
+        ['Yogur 0%', 'yogurtG'],
         ['Agua', 'waterMl'],
         ['Arándanos', 'blueberriesG'],
         ['Salvado de avena', 'oatBran'],
@@ -43,7 +46,7 @@ export function registerMoreLocales(ui, plates) {
         ['Nueces', 'walnuts'],
         ['Almendras', 'almonds'],
       ],
-      hint: 'La chía, el salvado y el psyllium absorben el agua. En la app: {log} → texto, por ejemplo “yogur 2% 150g, agua 100ml, arándanos 40g, salvado de avena 1 tbsp, psyllium 1 tbsp, chía 1 tbsp, semillas de calabaza 1 tbsp, 3 mitades de nuez, 4 almendras”.',
+      hint: 'La chía, el salvado y el psyllium absorben el agua. En la app: {log} → texto, por ejemplo “yogur 0% 150g, agua 100ml, arándanos 40g, salvado de avena 1 tbsp, psyllium 1 tbsp, chía 1 tbsp, semillas de calabaza 1 tbsp, 3 mitades de nuez, 4 almendras”.',
     },
     {
       id: 'lunch-protein',
@@ -90,7 +93,7 @@ export function registerMoreLocales(ui, plates) {
       alt: 'Bol de yogur con salvado, semillas y frutos secos, sin arándanos',
       img: 'yogurt-evening.jpg?v=20260816b',
       items: [
-        ['Yogur 2%', 'yogurtG'],
+        ['Yogur 0%', 'yogurtG'],
         ['Agua', 'waterMl'],
         ['Salvado de avena', 'oatBran'],
         ['Psyllium', 'psyllium'],
@@ -99,7 +102,7 @@ export function registerMoreLocales(ui, plates) {
         ['Nueces', 'walnuts'],
         ['Almendras', 'almonds'],
       ],
-      hint: 'En la app: {log} → texto, por ejemplo “yogur 2% 150g, agua 100ml, salvado de avena 1 tbsp, psyllium 1 tbsp, chía 1 tbsp, semillas de calabaza 1 tbsp, 3 mitades de nuez, 4 almendras”.',
+      hint: 'En la app: {log} → texto, por ejemplo “yogur 0% 150g, agua 100ml, salvado de avena 1 tbsp, psyllium 1 tbsp, chía 1 tbsp, semillas de calabaza 1 tbsp, 3 mitades de nuez, 4 almendras”.',
     },
   ]);
 
@@ -123,6 +126,9 @@ export function registerMoreLocales(ui, plates) {
     allPlates: '← Toutes les collections d’assiettes',
     logMeal: 'Enregistrer un repas',
     fresh: 'frais',
+    tbsp1: 'c. à s.',
+    tbspN: 'c. à s.',
+    halves: 'demis',
     helpIndexLink: 'Assiettes exemples — une journée du journal',
     mealLoggingBlurb:
       '<p><a href="../plates/lipid-protocol.html">Assiettes exemples</a> — des repas du journal avec des quantités à saisir dans Enregistrer un repas.</p>',
@@ -137,7 +143,7 @@ export function registerMoreLocales(ui, plates) {
       alt: 'Bol de yaourt avec son, graines, noix et myrtilles',
       img: 'yogurt-breakfast.jpg?v=20260816a',
       items: [
-        ['Yaourt 2%', 'yogurtG'],
+        ['Yaourt 0%', 'yogurtG'],
         ['Eau', 'waterMl'],
         ['Myrtilles', 'blueberriesG'],
         ['Son d’avoine', 'oatBran'],
@@ -147,7 +153,7 @@ export function registerMoreLocales(ui, plates) {
         ['Noix', 'walnuts'],
         ['Amandes', 'almonds'],
       ],
-      hint: 'Le chia, le son et le psyllium absorbent l’eau. Dans l’app: {log} → texte, par exemple “yaourt 2% 150g, eau 100ml, myrtilles 40g, son d’avoine 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, graines de courge 1 tbsp, 3 demi-noix, 4 amandes”.',
+      hint: 'Le chia, le son et le psyllium absorbent l’eau. Dans l’app: {log} → texte, par exemple “yaourt 0% 150g, eau 100ml, myrtilles 40g, son d’avoine 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, graines de courge 1 tbsp, 3 demi-noix, 4 amandes”.',
     },
     {
       id: 'lunch-protein',
@@ -194,7 +200,7 @@ export function registerMoreLocales(ui, plates) {
       alt: 'Bol de yaourt avec son, graines et noix, sans myrtilles',
       img: 'yogurt-evening.jpg?v=20260816b',
       items: [
-        ['Yaourt 2%', 'yogurtG'],
+        ['Yaourt 0%', 'yogurtG'],
         ['Eau', 'waterMl'],
         ['Son d’avoine', 'oatBran'],
         ['Psyllium', 'psyllium'],
@@ -203,7 +209,7 @@ export function registerMoreLocales(ui, plates) {
         ['Noix', 'walnuts'],
         ['Amandes', 'almonds'],
       ],
-      hint: 'Dans l’app: {log} → texte, par exemple “yaourt 2% 150g, eau 100ml, son d’avoine 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, graines de courge 1 tbsp, 3 demi-noix, 4 amandes”.',
+      hint: 'Dans l’app: {log} → texte, par exemple “yaourt 0% 150g, eau 100ml, son d’avoine 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, graines de courge 1 tbsp, 3 demi-noix, 4 amandes”.',
     },
   ]);
 
@@ -227,6 +233,9 @@ export function registerMoreLocales(ui, plates) {
     allPlates: '← Alle Tellersammlungen',
     logMeal: 'Mahlzeit erfassen',
     fresh: 'frisch',
+    tbsp1: 'EL',
+    tbspN: 'EL',
+    halves: 'Hälften',
     helpIndexLink: 'Beispielteller — ein Tag aus dem Tagebuch',
     mealLoggingBlurb:
       '<p><a href="../plates/lipid-protocol.html">Beispielteller</a> — Mahlzeiten aus dem Tagebuch mit Mengen, die du in Mahlzeit erfassen eingeben kannst.</p>',
@@ -241,7 +250,7 @@ export function registerMoreLocales(ui, plates) {
       alt: 'Joghurtschüssel mit Kleie, Samen, Nüssen und Blaubeeren',
       img: 'yogurt-breakfast.jpg?v=20260816a',
       items: [
-        ['Joghurt 2%', 'yogurtG'],
+        ['Joghurt 0%', 'yogurtG'],
         ['Wasser', 'waterMl'],
         ['Blaubeeren', 'blueberriesG'],
         ['Haferkleie', 'oatBran'],
@@ -251,7 +260,7 @@ export function registerMoreLocales(ui, plates) {
         ['Walnüsse', 'walnuts'],
         ['Mandeln', 'almonds'],
       ],
-      hint: 'Chia, Kleie und Psyllium nehmen das Wasser auf. In der App: {log} → Text, z. B. „Joghurt 2% 150g, Wasser 100ml, Blaubeeren 40g, Haferkleie 1 tbsp, Psyllium 1 tbsp, Chia 1 tbsp, Kürbiskerne 1 tbsp, 3 Walnusshälften, 4 Mandeln“.',
+      hint: 'Chia, Kleie und Psyllium nehmen das Wasser auf. In der App: {log} → Text, z. B. „Joghurt 0% 150g, Wasser 100ml, Blaubeeren 40g, Haferkleie 1 tbsp, Psyllium 1 tbsp, Chia 1 tbsp, Kürbiskerne 1 tbsp, 3 Walnusshälften, 4 Mandeln“.',
     },
     {
       id: 'lunch-protein',
@@ -298,7 +307,7 @@ export function registerMoreLocales(ui, plates) {
       alt: 'Joghurtschüssel mit Kleie, Samen und Nüssen, ohne Blaubeeren',
       img: 'yogurt-evening.jpg?v=20260816b',
       items: [
-        ['Joghurt 2%', 'yogurtG'],
+        ['Joghurt 0%', 'yogurtG'],
         ['Wasser', 'waterMl'],
         ['Haferkleie', 'oatBran'],
         ['Psyllium', 'psyllium'],
@@ -307,7 +316,7 @@ export function registerMoreLocales(ui, plates) {
         ['Walnüsse', 'walnuts'],
         ['Mandeln', 'almonds'],
       ],
-      hint: 'In der App: {log} → Text, z. B. „Joghurt 2% 150g, Wasser 100ml, Haferkleie 1 tbsp, Psyllium 1 tbsp, Chia 1 tbsp, Kürbiskerne 1 tbsp, 3 Walnusshälften, 4 Mandeln“.',
+      hint: 'In der App: {log} → Text, z. B. „Joghurt 0% 150g, Wasser 100ml, Haferkleie 1 tbsp, Psyllium 1 tbsp, Chia 1 tbsp, Kürbiskerne 1 tbsp, 3 Walnusshälften, 4 Mandeln“.',
     },
   ]);
 
@@ -331,6 +340,9 @@ export function registerMoreLocales(ui, plates) {
     allPlates: '← كل مجموعات الأطباق',
     logMeal: 'تسجيل وجبة',
     fresh: 'طازج',
+    tbsp1: 'ملعقة كبيرة',
+    tbspN: 'ملاعق كبيرة',
+    halves: 'أنصاف',
     helpIndexLink: 'أطباق كمثال — يوم من اليوميات',
     mealLoggingBlurb:
       '<p><a href="../plates/lipid-protocol.html">أطباق كمثال</a> — وجبات من اليوميات مع كميات يمكنك كتابتها عند تسجيل وجبة.</p>',
@@ -345,7 +357,7 @@ export function registerMoreLocales(ui, plates) {
       alt: 'وعاء زبادي مع نخالة وبذور ومكسرات وتوت أزرق',
       img: 'yogurt-breakfast.jpg?v=20260816a',
       items: [
-        ['زبادي 2%', 'yogurtG'],
+        ['زبادي 0%', 'yogurtG'],
         ['ماء', 'waterMl'],
         ['توت أزرق', 'blueberriesG'],
         ['نخالة الشوفان', 'oatBran'],
@@ -355,7 +367,7 @@ export function registerMoreLocales(ui, plates) {
         ['جوز', 'walnuts'],
         ['لوز', 'almonds'],
       ],
-      hint: 'الشيا والنخالة والسيليوم تشرب الماء. في التطبيق: {log} → نص، مثل “زبادي 2% 150g، ماء 100ml، توت أزرق 40g، نخالة الشوفان 1 tbsp، سيليوم 1 tbsp، شيا 1 tbsp، بذور القرع 1 tbsp، 3 أنصاف جوز، 4 حبات لوز”.',
+      hint: 'الشيا والنخالة والسيليوم تشرب الماء. في التطبيق: {log} → نص، مثل “زبادي 0% 150g، ماء 100ml، توت أزرق 40g، نخالة الشوفان 1 tbsp، سيليوم 1 tbsp، شيا 1 tbsp، بذور القرع 1 tbsp، 3 أنصاف جوز، 4 حبات لوز”.',
     },
     {
       id: 'lunch-protein',
@@ -402,7 +414,7 @@ export function registerMoreLocales(ui, plates) {
       alt: 'وعاء زبادي مع نخالة وبذور ومكسرات، بدون توت أزرق',
       img: 'yogurt-evening.jpg?v=20260816b',
       items: [
-        ['زبادي 2%', 'yogurtG'],
+        ['زبادي 0%', 'yogurtG'],
         ['ماء', 'waterMl'],
         ['نخالة الشوفان', 'oatBran'],
         ['سيليوم', 'psyllium'],
@@ -411,7 +423,7 @@ export function registerMoreLocales(ui, plates) {
         ['جوز', 'walnuts'],
         ['لوز', 'almonds'],
       ],
-      hint: 'في التطبيق: {log} → نص، مثل “زبادي 2% 150g، ماء 100ml، نخالة الشوفان 1 tbsp، سيليوم 1 tbsp، شيا 1 tbsp، بذور القرع 1 tbsp، 3 أنصاف جوز، 4 حبات لوز”.',
+      hint: 'في التطبيق: {log} → نص، مثل “زبادي 0% 150g، ماء 100ml، نخالة الشوفان 1 tbsp، سيليوم 1 tbsp، شيا 1 tbsp، بذور القرع 1 tbsp، 3 أنصاف جوز، 4 حبات لوز”.',
     },
   ]);
 
@@ -435,6 +447,9 @@ export function registerMoreLocales(ui, plates) {
     allPlates: '← Все подборки тарелок',
     logMeal: 'Записать приём',
     fresh: 'свежая',
+    tbsp1: 'ст. л.',
+    tbspN: 'ст. л.',
+    halves: 'половинки',
     helpIndexLink: 'Примеры тарелок — день из дневника',
     mealLoggingBlurb:
       '<p><a href="../plates/lipid-protocol.html">Примеры тарелок</a> — еда из дневника с количествами, которые можно ввести при записи приёма.</p>',
@@ -449,7 +464,7 @@ export function registerMoreLocales(ui, plates) {
       alt: 'Миска йогурта с отрубями, семенами, орехами и голубикой',
       img: 'yogurt-breakfast.jpg?v=20260816a',
       items: [
-        ['Йогурт 2%', 'yogurtG'],
+        ['Йогурт 0%', 'yogurtG'],
         ['Вода', 'waterMl'],
         ['Голубика', 'blueberriesG'],
         ['Овсяные отруби', 'oatBran'],
@@ -459,7 +474,7 @@ export function registerMoreLocales(ui, plates) {
         ['Грецкие орехи', 'walnuts'],
         ['Миндаль', 'almonds'],
       ],
-      hint: 'Чиа, отруби и псиллиум впитывают воду. В приложении: {log} → текст, например “йогурт 2% 150g, вода 100ml, голубика 40g, овсяные отруби 1 tbsp, псиллиум 1 tbsp, чиа 1 tbsp, тыквенные семечки 1 tbsp, 3 половинки грецкого ореха, 4 миндаля”.',
+      hint: 'Чиа, отруби и псиллиум впитывают воду. В приложении: {log} → текст, например “йогурт 0% 150g, вода 100ml, голубика 40g, овсяные отруби 1 tbsp, псиллиум 1 tbsp, чиа 1 tbsp, тыквенные семечки 1 tbsp, 3 половинки грецкого ореха, 4 миндаля”.',
     },
     {
       id: 'lunch-protein',
@@ -506,7 +521,7 @@ export function registerMoreLocales(ui, plates) {
       alt: 'Миска йогурта с отрубями, семенами и орехами, без голубики',
       img: 'yogurt-evening.jpg?v=20260816b',
       items: [
-        ['Йогурт 2%', 'yogurtG'],
+        ['Йогурт 0%', 'yogurtG'],
         ['Вода', 'waterMl'],
         ['Овсяные отруби', 'oatBran'],
         ['Псиллиум', 'psyllium'],
@@ -515,7 +530,7 @@ export function registerMoreLocales(ui, plates) {
         ['Грецкие орехи', 'walnuts'],
         ['Миндаль', 'almonds'],
       ],
-      hint: 'В приложении: {log} → текст, например “йогурт 2% 150g, вода 100ml, овсяные отруби 1 tbsp, псиллиум 1 tbsp, чиа 1 tbsp, тыквенные семечки 1 tbsp, 3 половинки грецкого ореха, 4 миндаля”.',
+      hint: 'В приложении: {log} → текст, например “йогурт 0% 150g, вода 100ml, овсяные отруби 1 tbsp, псиллиум 1 tbsp, чиа 1 tbsp, тыквенные семечки 1 tbsp, 3 половинки грецкого ореха, 4 миндаля”.',
     },
   ]);
 
@@ -539,6 +554,9 @@ export function registerMoreLocales(ui, plates) {
     allPlates: '← Todas as coleções de pratos',
     logMeal: 'Registrar refeição',
     fresh: 'fresco',
+    tbsp1: 'col.',
+    tbspN: 'col.',
+    halves: 'metades',
     helpIndexLink: 'Pratos de exemplo — um dia do diário',
     mealLoggingBlurb:
       '<p><a href="../plates/lipid-protocol.html">Pratos de exemplo</a> — refeições do diário com quantidades que você pode digitar ao registrar refeição.</p>',
@@ -553,7 +571,7 @@ export function registerMoreLocales(ui, plates) {
       alt: 'Tigela de iogurte com farelo, sementes, castanhas e mirtilos',
       img: 'yogurt-breakfast.jpg?v=20260816a',
       items: [
-        ['Iogurte 2%', 'yogurtG'],
+        ['Iogurte 0%', 'yogurtG'],
         ['Água', 'waterMl'],
         ['Mirtilos', 'blueberriesG'],
         ['Farelo de aveia', 'oatBran'],
@@ -563,7 +581,7 @@ export function registerMoreLocales(ui, plates) {
         ['Nozes', 'walnuts'],
         ['Amêndoas', 'almonds'],
       ],
-      hint: 'A chia, o farelo e o psyllium puxam a água. No app: {log} → texto, por exemplo “iogurte 2% 150g, água 100ml, mirtilos 40g, farelo de aveia 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, sementes de abóbora 1 tbsp, 3 metades de noz, 4 amêndoas”.',
+      hint: 'A chia, o farelo e o psyllium puxam a água. No app: {log} → texto, por exemplo “iogurte 0% 150g, água 100ml, mirtilos 40g, farelo de aveia 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, sementes de abóbora 1 tbsp, 3 metades de noz, 4 amêndoas”.',
     },
     {
       id: 'lunch-protein',
@@ -610,7 +628,7 @@ export function registerMoreLocales(ui, plates) {
       alt: 'Tigela de iogurte com farelo, sementes e castanhas, sem mirtilos',
       img: 'yogurt-evening.jpg?v=20260816b',
       items: [
-        ['Iogurte 2%', 'yogurtG'],
+        ['Iogurte 0%', 'yogurtG'],
         ['Água', 'waterMl'],
         ['Farelo de aveia', 'oatBran'],
         ['Psyllium', 'psyllium'],
@@ -619,7 +637,7 @@ export function registerMoreLocales(ui, plates) {
         ['Nozes', 'walnuts'],
         ['Amêndoas', 'almonds'],
       ],
-      hint: 'No app: {log} → texto, por exemplo “iogurte 2% 150g, água 100ml, farelo de aveia 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, sementes de abóbora 1 tbsp, 3 metades de noz, 4 amêndoas”.',
+      hint: 'No app: {log} → texto, por exemplo “iogurte 0% 150g, água 100ml, farelo de aveia 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, sementes de abóbora 1 tbsp, 3 metades de noz, 4 amêndoas”.',
     },
   ]);
 
@@ -643,6 +661,9 @@ export function registerMoreLocales(ui, plates) {
     allPlates: '← Tutte le raccolte di piatti',
     logMeal: 'Registra pasto',
     fresh: 'fresco',
+    tbsp1: 'cucch.',
+    tbspN: 'cucch.',
+    halves: 'mezze',
     helpIndexLink: 'Piatti di esempio — un giorno dal diario',
     mealLoggingBlurb:
       '<p><a href="../plates/lipid-protocol.html">Piatti di esempio</a> — pasti dal diario con quantità che puoi digitare in Registra pasto.</p>',
@@ -657,7 +678,7 @@ export function registerMoreLocales(ui, plates) {
       alt: 'Ciotola di yogurt con crusca, semi, frutta secca e mirtilli',
       img: 'yogurt-breakfast.jpg?v=20260816a',
       items: [
-        ['Yogurt 2%', 'yogurtG'],
+        ['Yogurt 0%', 'yogurtG'],
         ['Acqua', 'waterMl'],
         ['Mirtilli', 'blueberriesG'],
         ['Crusca d’avena', 'oatBran'],
@@ -667,7 +688,7 @@ export function registerMoreLocales(ui, plates) {
         ['Noci', 'walnuts'],
         ['Mandorle', 'almonds'],
       ],
-      hint: 'Chia, crusca e psyllium assorbono l’acqua. Nell’app: {log} → testo, per esempio “yogurt 2% 150g, acqua 100ml, mirtilli 40g, crusca d’avena 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, semi di zucca 1 tbsp, 3 mezze noci, 4 mandorle”.',
+      hint: 'Chia, crusca e psyllium assorbono l’acqua. Nell’app: {log} → testo, per esempio “yogurt 0% 150g, acqua 100ml, mirtilli 40g, crusca d’avena 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, semi di zucca 1 tbsp, 3 mezze noci, 4 mandorle”.',
     },
     {
       id: 'lunch-protein',
@@ -714,7 +735,7 @@ export function registerMoreLocales(ui, plates) {
       alt: 'Ciotola di yogurt con crusca, semi e frutta secca, senza mirtilli',
       img: 'yogurt-evening.jpg?v=20260816b',
       items: [
-        ['Yogurt 2%', 'yogurtG'],
+        ['Yogurt 0%', 'yogurtG'],
         ['Acqua', 'waterMl'],
         ['Crusca d’avena', 'oatBran'],
         ['Psyllium', 'psyllium'],
@@ -723,7 +744,7 @@ export function registerMoreLocales(ui, plates) {
         ['Noci', 'walnuts'],
         ['Mandorle', 'almonds'],
       ],
-      hint: 'Nell’app: {log} → testo, per esempio “yogurt 2% 150g, acqua 100ml, crusca d’avena 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, semi di zucca 1 tbsp, 3 mezze noci, 4 mandorle”.',
+      hint: 'Nell’app: {log} → testo, per esempio “yogurt 0% 150g, acqua 100ml, crusca d’avena 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, semi di zucca 1 tbsp, 3 mezze noci, 4 mandorle”.',
     },
   ]);
 
@@ -747,6 +768,9 @@ export function registerMoreLocales(ui, plates) {
     allPlates: '← Tüm tabak koleksiyonları',
     logMeal: 'Öğün kaydet',
     fresh: 'taze',
+    tbsp1: 'yk',
+    tbspN: 'yk',
+    halves: 'yarım',
     helpIndexLink: 'Örnek tabaklar — günlükten bir gün',
     mealLoggingBlurb:
       '<p><a href="../plates/lipid-protocol.html">Örnek tabaklar</a> — Öğün kaydet ekranına yazabileceğin miktarlarla günlükten öğünler.</p>',
@@ -761,7 +785,7 @@ export function registerMoreLocales(ui, plates) {
       alt: 'Kepek, tohum, kuruyemiş ve yaban mersinli yoğurt kasesi',
       img: 'yogurt-breakfast.jpg?v=20260816a',
       items: [
-        ['Yoğurt 2%', 'yogurtG'],
+        ['Yoğurt 0%', 'yogurtG'],
         ['Su', 'waterMl'],
         ['Yaban mersini', 'blueberriesG'],
         ['Yulaf kepeği', 'oatBran'],
@@ -771,7 +795,7 @@ export function registerMoreLocales(ui, plates) {
         ['Ceviz', 'walnuts'],
         ['Badem', 'almonds'],
       ],
-      hint: 'Chia, kepek ve psyllium suyu çeker. Uygulamada: {log} → metin, örneğin “yoğurt 2% 150g, su 100ml, yaban mersini 40g, yulaf kepeği 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, kabak çekirdeği 1 tbsp, 3 yarım ceviz, 4 badem”.',
+      hint: 'Chia, kepek ve psyllium suyu çeker. Uygulamada: {log} → metin, örneğin “yoğurt 0% 150g, su 100ml, yaban mersini 40g, yulaf kepeği 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, kabak çekirdeği 1 tbsp, 3 yarım ceviz, 4 badem”.',
     },
     {
       id: 'lunch-protein',
@@ -818,7 +842,7 @@ export function registerMoreLocales(ui, plates) {
       alt: 'Kepek, tohum ve kuruyemişli yoğurt kasesi, yaban mersinsiz',
       img: 'yogurt-evening.jpg?v=20260816b',
       items: [
-        ['Yoğurt 2%', 'yogurtG'],
+        ['Yoğurt 0%', 'yogurtG'],
         ['Su', 'waterMl'],
         ['Yulaf kepeği', 'oatBran'],
         ['Psyllium', 'psyllium'],
@@ -827,7 +851,7 @@ export function registerMoreLocales(ui, plates) {
         ['Ceviz', 'walnuts'],
         ['Badem', 'almonds'],
       ],
-      hint: 'Uygulamada: {log} → metin, örneğin “yoğurt 2% 150g, su 100ml, yulaf kepeği 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, kabak çekirdeği 1 tbsp, 3 yarım ceviz, 4 badem”.',
+      hint: 'Uygulamada: {log} → metin, örneğin “yoğurt 0% 150g, su 100ml, yulaf kepeği 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, kabak çekirdeği 1 tbsp, 3 yarım ceviz, 4 badem”.',
     },
   ]);
 }
