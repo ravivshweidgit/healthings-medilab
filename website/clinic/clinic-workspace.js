@@ -1455,13 +1455,21 @@
     });
     refreshAddHint();
 
-    panel.querySelector('#treat-add-btn')?.addEventListener('click', () => {
+    function showTreatError(msg) {
+      const err = panel.querySelector('#treat-error');
+      if (!err) return;
+      err.hidden = false;
+      err.innerHTML = `<span>${esc(msg)}</span>`;
+    }
+
+    /** Pending form row — must be Add'd (or flushed on Save) before it is stored. */
+    function readPendingMarker() {
       const code = codeSel?.value;
       const meta = DIET_MARKER_CATALOG.find((c) => c.code === code);
       const dailyTarget = Number(panel.querySelector('#treat-target')?.value);
-      if (!meta || !Number.isFinite(dailyTarget) || dailyTarget <= 0) return;
+      if (!meta || !Number.isFinite(dailyTarget) || dailyTarget <= 0) return null;
       const note = String(panel.querySelector('#treat-note')?.value || '').trim();
-      draft.push({
+      return {
         marker: meta.code,
         direction: dirSel?.value === 'floor' ? 'floor' : 'cap',
         dailyTarget,
@@ -1470,8 +1478,29 @@
         ...(note ? { note } : {}),
         setAt: new Date().toISOString(),
         setBy: 'draft',
-      });
+      };
+    }
+
+    function flushPendingIntoDraft() {
+      const pending = readPendingMarker();
+      if (!pending) return false;
+      if (draft.some((m) => m.marker === pending.marker)) return true;
+      if (draft.length >= MAX_TREAT_MARKERS) return false;
+      draft.push(pending);
       ctx.markersDraft = draft;
+      return true;
+    }
+
+    panel.querySelector('#treat-add-btn')?.addEventListener('click', () => {
+      const err = panel.querySelector('#treat-error');
+      if (err) {
+        err.hidden = true;
+        err.innerHTML = '';
+      }
+      if (!flushPendingIntoDraft()) {
+        showTreatError(t('wsTreatNeedFields'));
+        return;
+      }
       renderMarkers(panel, ctx);
     });
 
@@ -1485,7 +1514,22 @@
       });
     });
 
-    panel.querySelector('#treat-save')?.addEventListener('click', () => void saveMarkers(ctx, panel));
+    panel.querySelector('#treat-save')?.addEventListener('click', () => {
+      const err = panel.querySelector('#treat-error');
+      if (err) {
+        err.hidden = true;
+        err.innerHTML = '';
+      }
+      // Form filled but Add not clicked — include it so Save matches clinician intent.
+      flushPendingIntoDraft();
+      if (!draftMarkersFromOverlay(ctx).length) {
+        const pendingPartial =
+          Boolean(codeSel?.value) || Boolean(panel.querySelector('#treat-target')?.value);
+        showTreatError(pendingPartial ? t('wsTreatNeedFields') : t('wsTreatNeedOne'));
+        return;
+      }
+      void saveMarkers(ctx, panel);
+    });
     panel.querySelector('#treat-backfill')?.addEventListener('click', () => void requestBackfill(ctx, panel));
   }
 
