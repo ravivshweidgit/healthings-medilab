@@ -28,9 +28,9 @@
         <a href="index.html">مساعدة</a>
         <a href="../../index.html">الرئيسية</a>
       </nav>
-      <form class="help-lang" action="#" method="get" onsubmit="var s=this.elements.namedItem('lang'); if(s&amp;&amp;s.value){location.href=s.value;} return false;">
+      <form class="help-lang" action="#" method="get" onsubmit="return false;">
         <label for="help-lang-select">اللغة</label>
-        <select id="help-lang-select" name="lang">
+        <select id="help-lang-select" name="lang" onchange="if(this.value)location.href=this.value;">
           <option value="/en/help/meal-logging.html" lang="en">English</option>
           <option value="/he/help/meal-logging.html" lang="he">עברית</option>
           <option value="/es/help/meal-logging.html" lang="es">Español</option>
@@ -42,7 +42,6 @@
           <option value="/it/help/meal-logging.html" lang="it">Italiano</option>
           <option value="/tr/help/meal-logging.html" lang="tr">Türkçe</option>
         </select>
-        <button type="submit" class="help-lang-go">انتقل</button>
       </form>
       <noscript class="help-lang-noscript"><p><a href="/en/help/meal-logging.html" hreflang="en">English</a> · <a href="/he/help/meal-logging.html" hreflang="he">עברית</a> · <a href="/es/help/meal-logging.html" hreflang="es">Español</a> · <a href="/fr/help/meal-logging.html" hreflang="fr">Français</a> · <a href="/de/help/meal-logging.html" hreflang="de">Deutsch</a> · <a href="/ar/help/meal-logging.html" hreflang="ar">العربية</a> · <a href="/ru/help/meal-logging.html" hreflang="ru">Русский</a> · <a href="/pt/help/meal-logging.html" hreflang="pt">Português</a> · <a href="/it/help/meal-logging.html" hreflang="it">Italiano</a> · <a href="/tr/help/meal-logging.html" hreflang="tr">Türkçe</a></p></noscript>
       <section class="hero">
@@ -53,6 +52,8 @@
       </section>
       <section class="card prose">
         <ol><li>في <strong>سجل الوجبات</strong> اضغط <strong>وجبة</strong>.</li><li><strong>صورة</strong> — صوّر الطبق ووافق.</li><li><strong>نص</strong> — صف الوجبة؛ الذكاء يفك الماكرو.</li><li>الدردشة قد تقترح — الحفظ عبر سجل الطعام.</li></ol>
+        
+        <p><a href="../plates/lipid-protocol.html">أطباق كمثال</a> — وجبات من اليوميات مع كميات يمكنك كتابتها عند تسجيل وجبة.</p>
         <p class="help-next"><a href="manual-body.html">الموضوع التالي: إدخال الجسم يدوياً ←</a></p>
         <p class="help-back"><a href="index.html">→ كل المواضيع</a></p>
       </section>

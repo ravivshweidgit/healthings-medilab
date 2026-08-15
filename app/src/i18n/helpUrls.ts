@@ -38,9 +38,8 @@ export function helpUrl(langCode: string, slug: HelpSlug): string {
   return `${HELP_ORIGIN}/${loc}/help/${slug}.html`;
 }
 
-/** Example plates pages ship EN + HE only; other app locales open English. */
+/** Example plates — all help locales. */
 export function platesUrl(langCode: string, collection = 'lipid-protocol'): string {
-  const c = (langCode || 'en').toLowerCase().slice(0, 2);
-  const loc = c === 'he' ? 'he' : 'en';
+  const loc = helpLocale(langCode);
   return `${HELP_ORIGIN}/${loc}/plates/${collection}.html`;
 }

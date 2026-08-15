@@ -329,7 +329,7 @@ const ES: FoodLogUiCopy = {
   saveAsStaple: 'Guardar básico',
   stapleSaved: 'Guardado como básico',
   noStaplesYet: 'Guarda alimentos frecuentes — toca Guardar básico en un ítem.',
-  examplePlates: 'Example plates',
+  examplePlates: 'Platos de ejemplo',
 };
 
 const FR: FoodLogUiCopy = {
@@ -410,7 +410,7 @@ const FR: FoodLogUiCopy = {
   saveAsStaple: 'Enregistrer en basique',
   stapleSaved: 'Enregistré en basique',
   noStaplesYet: 'Enregistrez les aliments fréquents — touchez Enregistrer en basique.',
-  examplePlates: 'Example plates',
+  examplePlates: 'Assiettes exemples',
 };
 
 const DE: FoodLogUiCopy = {
@@ -491,7 +491,7 @@ const DE: FoodLogUiCopy = {
   saveAsStaple: 'Als Staple speichern',
   stapleSaved: 'Als Staple gespeichert',
   noStaplesYet: 'Speichere häufige Lebensmittel — tippe Als Staple speichern.',
-  examplePlates: 'Example plates',
+  examplePlates: 'Beispielteller',
 };
 
 const AR: FoodLogUiCopy = {
@@ -570,7 +570,7 @@ const AR: FoodLogUiCopy = {
   saveAsStaple: 'حفظ كأساسي',
   stapleSaved: 'حُفظ كأساسي',
   noStaplesYet: 'احفظ الأطعمة المتكررة — اضغط حفظ كأساسي على صنف.',
-  examplePlates: 'Example plates',
+  examplePlates: 'أطباق كمثال',
 };
 
 const RU: FoodLogUiCopy = {
@@ -651,7 +651,7 @@ const RU: FoodLogUiCopy = {
   saveAsStaple: 'Сохранить основу',
   stapleSaved: 'Сохранено как основа',
   noStaplesYet: 'Сохраняйте частые продукты — нажмите Сохранить основу.',
-  examplePlates: 'Example plates',
+  examplePlates: 'Примеры тарелок',
 };
 
 const PT: FoodLogUiCopy = {
@@ -732,7 +732,7 @@ const PT: FoodLogUiCopy = {
   saveAsStaple: 'Guardar básico',
   stapleSaved: 'Guardado como básico',
   noStaplesYet: 'Guarde alimentos frequentes — toque Guardar básico num item.',
-  examplePlates: 'Example plates',
+  examplePlates: 'Pratos de exemplo',
 };
 
 const IT: FoodLogUiCopy = {
@@ -813,7 +813,7 @@ const IT: FoodLogUiCopy = {
   saveAsStaple: 'Salva base',
   stapleSaved: 'Salvato come base',
   noStaplesYet: 'Salva cibi frequenti — tocca Salva base su un alimento.',
-  examplePlates: 'Example plates',
+  examplePlates: 'Piatti di esempio',
 };
 
 const TR: FoodLogUiCopy = {
@@ -894,7 +894,7 @@ const TR: FoodLogUiCopy = {
   saveAsStaple: 'Sabit kaydet',
   stapleSaved: 'Sabit olarak kaydedildi',
   noStaplesYet: 'Sık yediklerinizi kaydedin — öğede Sabit kaydet’e dokunun.',
-  examplePlates: 'Example plates',
+  examplePlates: 'Örnek tabaklar',
 };
 
 const BY_CODE: Record<string, FoodLogUiCopy> = {

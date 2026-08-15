@@ -28,9 +28,9 @@
         <a href="index.html">Help</a>
         <a href="../../index.html">Home</a>
       </nav>
-      <form class="help-lang" action="#" method="get" onsubmit="var s=this.elements.namedItem('lang'); if(s&amp;&amp;s.value){location.href=s.value;} return false;">
+      <form class="help-lang" action="#" method="get" onsubmit="return false;">
         <label for="help-lang-select">Language</label>
-        <select id="help-lang-select" name="lang">
+        <select id="help-lang-select" name="lang" onchange="if(this.value)location.href=this.value;">
           <option value="/en/help/phone-health-activity.html" lang="en" selected>English</option>
           <option value="/he/help/phone-health-activity.html" lang="he">עברית</option>
           <option value="/es/help/phone-health-activity.html" lang="es">Español</option>
@@ -42,7 +42,6 @@
           <option value="/it/help/phone-health-activity.html" lang="it">Italiano</option>
           <option value="/tr/help/phone-health-activity.html" lang="tr">Türkçe</option>
         </select>
-        <button type="submit" class="help-lang-go">Go</button>
       </form>
       <noscript class="help-lang-noscript"><p><a href="/en/help/phone-health-activity.html" hreflang="en">English</a> · <a href="/he/help/phone-health-activity.html" hreflang="he">עברית</a> · <a href="/es/help/phone-health-activity.html" hreflang="es">Español</a> · <a href="/fr/help/phone-health-activity.html" hreflang="fr">Français</a> · <a href="/de/help/phone-health-activity.html" hreflang="de">Deutsch</a> · <a href="/ar/help/phone-health-activity.html" hreflang="ar">العربية</a> · <a href="/ru/help/phone-health-activity.html" hreflang="ru">Русский</a> · <a href="/pt/help/phone-health-activity.html" hreflang="pt">Português</a> · <a href="/it/help/phone-health-activity.html" hreflang="it">Italiano</a> · <a href="/tr/help/phone-health-activity.html" hreflang="tr">Türkçe</a></p></noscript>
       <section class="hero">

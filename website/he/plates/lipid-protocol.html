@@ -3,18 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="צלחות לדוגמה מיום מתועד בחלון ליפידים — יוגורט בוקר, חלבון בצהריים, סשימי בערב, יוגורט אחרי ארוחת ערב. דוגמאות מיומן אישי, לא ייעוץ רפואי."
-    />
-    <title>צלחות לדוגמה — חלון ליפידים — Healthings</title>
+    <meta name="description" content="ארבע צלחות מיום אחד ביומן. ארוחות מהיומן — עם כמויות שאפשר להקליד ברישום ארוחה." />
+    <title>צלחות לדוגמה — Healthings</title>
     <link rel="canonical" href="https://healthings.ai/he/plates/lipid-protocol.html" />
     <link rel="icon" href="../../assets/icon.png" type="image/png" />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="../../tokens.css?v=20260816a" />
-    <link rel="stylesheet" href="../../styles.css?v=20260816a" />
+    <link rel="stylesheet" href="../../tokens.css?v=20260816e" />
+    <link rel="stylesheet" href="../../styles.css?v=20260816e" />
     <link rel="alternate" hreflang="en" href="https://healthings.ai/en/plates/lipid-protocol.html" />
     <link rel="alternate" hreflang="he" href="https://healthings.ai/he/plates/lipid-protocol.html" />
+    <link rel="alternate" hreflang="es" href="https://healthings.ai/es/plates/lipid-protocol.html" />
+    <link rel="alternate" hreflang="fr" href="https://healthings.ai/fr/plates/lipid-protocol.html" />
+    <link rel="alternate" hreflang="de" href="https://healthings.ai/de/plates/lipid-protocol.html" />
+    <link rel="alternate" hreflang="ar" href="https://healthings.ai/ar/plates/lipid-protocol.html" />
+    <link rel="alternate" hreflang="ru" href="https://healthings.ai/ru/plates/lipid-protocol.html" />
+    <link rel="alternate" hreflang="pt" href="https://healthings.ai/pt/plates/lipid-protocol.html" />
+    <link rel="alternate" hreflang="it" href="https://healthings.ai/it/plates/lipid-protocol.html" />
+    <link rel="alternate" hreflang="tr" href="https://healthings.ai/tr/plates/lipid-protocol.html" />
     <link rel="alternate" hreflang="x-default" href="https://healthings.ai/en/plates/lipid-protocol.html" />
   </head>
   <body class="help-rtl plates-page">
@@ -24,29 +29,30 @@
         <a href="../help/index.html">עזרה</a>
         <a href="../../index.html">דף הבית</a>
       </nav>
-      <form class="help-lang" action="#" method="get" onsubmit="var s=this.elements.namedItem('lang'); if(s&amp;&amp;s.value){location.href=s.value;} return false;">
+      <form class="help-lang" action="#" method="get" onsubmit="return false;">
         <label for="help-lang-select">שפה</label>
-        <select id="help-lang-select" name="lang">
+        <select id="help-lang-select" name="lang" onchange="if(this.value)location.href=this.value;">
           <option value="/en/plates/lipid-protocol.html" lang="en">English</option>
           <option value="/he/plates/lipid-protocol.html" lang="he" selected>עברית</option>
+          <option value="/es/plates/lipid-protocol.html" lang="es">Español</option>
+          <option value="/fr/plates/lipid-protocol.html" lang="fr">Français</option>
+          <option value="/de/plates/lipid-protocol.html" lang="de">Deutsch</option>
+          <option value="/ar/plates/lipid-protocol.html" lang="ar">العربية</option>
+          <option value="/ru/plates/lipid-protocol.html" lang="ru">Русский</option>
+          <option value="/pt/plates/lipid-protocol.html" lang="pt">Português</option>
+          <option value="/it/plates/lipid-protocol.html" lang="it">Italiano</option>
+          <option value="/tr/plates/lipid-protocol.html" lang="tr">Türkçe</option>
         </select>
-        <button type="submit" class="help-lang-go">עבור</button>
       </form>
+      <noscript class="help-lang-noscript"><p><a href="/en/plates/lipid-protocol.html" hreflang="en">English</a> · <a href="/he/plates/lipid-protocol.html" hreflang="he">עברית</a> · <a href="/es/plates/lipid-protocol.html" hreflang="es">Español</a> · <a href="/fr/plates/lipid-protocol.html" hreflang="fr">Français</a> · <a href="/de/plates/lipid-protocol.html" hreflang="de">Deutsch</a> · <a href="/ar/plates/lipid-protocol.html" hreflang="ar">العربية</a> · <a href="/ru/plates/lipid-protocol.html" hreflang="ru">Русский</a> · <a href="/pt/plates/lipid-protocol.html" hreflang="pt">Português</a> · <a href="/it/plates/lipid-protocol.html" hreflang="it">Italiano</a> · <a href="/tr/plates/lipid-protocol.html" hreflang="tr">Türkçe</a></p></noscript>
 
       <section class="hero">
         <p class="badge">צלחות לדוגמה</p>
-        <h1>קצב יום מתועד מחלון ליפידים</h1>
-        <p class="lead">
-          ארבע צלחות חוזרות מיומן אמיתי. כמויות משוערות — כדי להקליד את אותה צלחת ב־
-          <strong>תיעוד ארוחה</strong>.
-        </p>
+        <h1>ארבע צלחות מיום אחד ביומן</h1>
+        <p class="lead">מבוקר עד אחרי ערב — עם כמויות שאפשר להקליד ב־<strong>רישום ארוחה</strong>. מיומן אמיתי, מתקופה של בדיקות כולסטרול.</p>
       </section>
 
-      <p class="plates-disclaimer">
-        <strong>לא ייעוץ רפואי.</strong> זו אוכל שתועד ביומן של אדם אחד בחלון מעבדה מתועד —
-        לא הבטחה שהצלחות האלה מורידות כולסטרול. את הכללים קובעים אצל הקלינאי ב־
-        <strong>הכללים שלי</strong> ובמדדי הטיפול; באפליקציה מאשרים כל ארוחה לפני השמירה.
-      </p>
+      <p class="plates-disclaimer"><strong>לא ייעוץ רפואי.</strong> זה מה שאדם אחד תיעד ביומן בתקופת מעבדה — לא הבטחה שהצלחות האלה מורידות כולסטרול. את <strong>הכללים שלי</strong> ומדדי הטיפול קובע הקלינאי; באפליקציה מאשרים כל ארוחה לפני ששומרים.</p>
 
       <div class="plates-grid">
         <article class="plate-card" id="yogurt-breakfast" data-plate-id="yogurt-breakfast">
@@ -55,7 +61,7 @@
               src="../../images/plates/yogurt-breakfast.jpg?v=20260816a"
               width="1200"
               height="800"
-              alt="קערת יוגורט עם סובין, זרעים, אגוזים ואוכמניות על רקע כחול רך"
+              alt="קערת יוגורט עם סובין, זרעים, אגוזים ואוכמניות"
               loading="eager"
               decoding="async"
             />
@@ -64,24 +70,19 @@
           <div class="plate-body">
             <p class="plate-slot">בוקר</p>
             <h2>יוגורט עם סובין, זרעים, אגוזים ואוכמניות</h2>
-            <p class="plate-why">
-              קערת בוקר — יוגורט, תערובת סיבים ואוכמניות. מוסיפים 100 מ״ל מים — צ׳יה, סובין ופסיליום שותים את המים.
-            </p>
+            <p class="plate-why">קערת הבוקר: יוגורט, סובין וזרעים, אוכמניות. מוסיפים 100 מ״ל מים — הצ׳יה, הסובין והפסיליום שותים אותם.</p>
             <ul class="plate-items">
-              <li><span>יוגורט 2%</span><span class="grams">150 ג׳</span></li>
-              <li><span>מים</span><span class="grams">100 מ״ל</span></li>
-              <li><span>אוכמניות</span><span class="grams">40 ג׳</span></li>
-              <li><span>סובין שיבולת שועל</span><span class="grams">1 כף (~17 ג׳)</span></li>
-              <li><span>פסיליום</span><span class="grams">1 כף (~5 ג׳)</span></li>
-              <li><span>צ׳יה</span><span class="grams">1 כף (~10 ג׳)</span></li>
-              <li><span>זרעי דלעת</span><span class="grams">1 כף (~8 ג׳)</span></li>
-              <li><span>אגוזי מלך</span><span class="grams">3 חצאים (~5 ג׳)</span></li>
-              <li><span>שקדים</span><span class="grams">4 (~6 ג׳)</span></li>
+              <li><span>יוגורט 2%</span><span class="grams">150 g</span></li>
+              <li><span>מים</span><span class="grams">100 ml</span></li>
+              <li><span>אוכמניות</span><span class="grams">40 g</span></li>
+              <li><span>סובין שיבולת שועל</span><span class="grams">1 tbsp (~17 g)</span></li>
+              <li><span>פסיליום</span><span class="grams">1 tbsp (~5 g)</span></li>
+              <li><span>צ׳יה</span><span class="grams">1 tbsp (~10 g)</span></li>
+              <li><span>זרעי דלעת</span><span class="grams">1 tbsp (~8 g)</span></li>
+              <li><span>אגוזי מלך</span><span class="grams">3 halves (~5 g)</span></li>
+              <li><span>שקדים</span><span class="grams">4 (~6 g)</span></li>
             </ul>
-            <p class="plate-hint">
-              צ׳יה, סובין ופסיליום שותים את המים. באפליקציה: <a href="../help/meal-logging.html">תיעוד ארוחה</a> → טקסט, למשל
-              «יוגורט 2% 150ג, מים 100 מ״ל, אוכמניות 40ג, סובין שיבולת שועל כף, פסיליום כף, ציה כף, זרעי דלעת כף, 3 חצאי אגוז מלך, 4 שקדים».
-            </p>
+            <p class="plate-hint">באפליקציה: <a href="../help/meal-logging.html">רישום ארוחה</a> → טקסט, למשל «יוגורט 2% 150ג, מים 100 מ״ל, אוכמניות 40ג, סובין שיבולת שועל כף, פסיליום כף, ציה כף, זרעי דלעת כף, 3 חצאי אגוז מלך, 4 שקדים».</p>
           </div>
         </article>
 
@@ -91,7 +92,7 @@
               src="../../images/plates/lunch-protein.jpg?v=20260816a"
               width="1200"
               height="800"
-              alt="צלחת צהריים עם דג לבן, עדשים, מלפפון ושמן זית — בלי אבוקדו"
+              alt="צלחת צהריים עם דג לבן, עדשים ומלפפון"
               loading="lazy"
               decoding="async"
             />
@@ -100,19 +101,14 @@
           <div class="plate-body">
             <p class="plate-slot">צהריים</p>
             <h2>דג לבן (או עוף / טופו), עדשים ומלפפון</h2>
-            <p class="plate-why">
-              חלבון בצהריים + קטניות + ירק חי + שמן זית. מחליפים דג לבן בחזה עוף או טופו — בלי אבוקדו כאן.
-            </p>
+            <p class="plate-why">צהריים: דג לבן עם עדשים, מלפפון ושמן זית. אפשר להחליף לעוף או טופו — בלי אבוקדו בצהריים.</p>
             <ul class="plate-items">
-              <li><span>דג לבן / עוף / טופו</span><span class="grams">150 ג׳</span></li>
-              <li><span>עדשים מבושלות</span><span class="grams">5 כפות</span></li>
-              <li><span>מלפפון</span><span class="grams">2 כפות</span></li>
-              <li><span>שמן זית</span><span class="grams">2 כפות</span></li>
+              <li><span>דג לבן / עוף / טופו</span><span class="grams">150 g</span></li>
+              <li><span>עדשים מבושלות</span><span class="grams">5 tbsp</span></li>
+              <li><span>מלפפון</span><span class="grams">2 tbsp</span></li>
+              <li><span>שמן זית</span><span class="grams">2 tbsp</span></li>
             </ul>
-            <p class="plate-hint">
-              באפליקציה: <a href="../help/meal-logging.html">תיעוד ארוחה</a> → טקסט, למשל
-              «דג לבן בגריל 150ג, עדשים 5 כפות, מלפפון 2 כפות, שמן זית 2 כפות» — או עוף / טופו במקום הדג.
-            </p>
+            <p class="plate-hint">באפליקציה: <a href="../help/meal-logging.html">רישום ארוחה</a> → טקסט, למשל «דג לבן בגריל 150ג, עדשים 5 כפות, מלפפון 2 כפות, שמן זית 2 כפות» — או עוף / טופו במקום הדג.</p>
           </div>
         </article>
 
@@ -122,7 +118,7 @@
               src="../../images/plates/dinner-sashimi.jpg?v=20260816a"
               width="1200"
               height="800"
-              alt="צלחת ערב עם סשימי סלמון, אבוקדו, ג׳ינג׳ר, טריאקי וסלט תאילנדי"
+              alt="צלחת ערב עם סשימי סלמון, אבוקדו וסלט"
               loading="lazy"
               decoding="async"
             />
@@ -131,26 +127,21 @@
           <div class="plate-body">
             <p class="plate-slot">ערב</p>
             <h2>סשימי סלמון, אבוקדו, ג׳ינג׳ר, טריאקי וסלט תאילנדי</h2>
-            <p class="plate-why">
-              צלחת ערב לפי היומן: סשימי + אבוקדו, עם סלט תאילנדי קצוץ דק (נבטים, גמבה, מלפפון, בצל, חסה, נענע, בזיליקום), ג׳ינג׳ר וטריאקי.
-            </p>
+            <p class="plate-why">בערב: סשימי ואבוקדו, עם סלט קצוץ דק (נבטים, גמבה, מלפפון, בצל, חסה, נענע ובזיליקום), ג׳ינג׳ר וטריאקי.</p>
             <ul class="plate-items">
-              <li><span>סשימי סלמון</span><span class="grams">~100 ג׳</span></li>
-              <li><span>אבוקדו (חצי)</span><span class="grams">~90–100 ג׳</span></li>
-              <li><span>ג׳ינג׳ר כבוש</span><span class="grams">~10 ג׳</span></li>
-              <li><span>רוטב טריאקי</span><span class="grams">~10–15 ג׳</span></li>
-              <li><span>נבטים</span><span class="grams">50 ג׳</span></li>
-              <li><span>גמבה</span><span class="grams">40 ג׳</span></li>
-              <li><span>מלפפון</span><span class="grams">30 ג׳</span></li>
-              <li><span>בצל</span><span class="grams">20 ג׳</span></li>
-              <li><span>חסה</span><span class="grams">30 ג׳</span></li>
+              <li><span>סשימי סלמון</span><span class="grams">~100 g</span></li>
+              <li><span>אבוקדו (חצי)</span><span class="grams">~90–100 g</span></li>
+              <li><span>ג׳ינג׳ר כבוש</span><span class="grams">~10 g</span></li>
+              <li><span>רוטב טריאקי</span><span class="grams">~10–15 g</span></li>
+              <li><span>נבטים</span><span class="grams">50 g</span></li>
+              <li><span>גמבה</span><span class="grams">40 g</span></li>
+              <li><span>מלפפון</span><span class="grams">30 g</span></li>
+              <li><span>בצל</span><span class="grams">20 g</span></li>
+              <li><span>חסה</span><span class="grams">30 g</span></li>
               <li><span>נענע</span><span class="grams">טרי</span></li>
               <li><span>בזיליקום</span><span class="grams">טרי</span></li>
             </ul>
-            <p class="plate-hint">
-              ירקות הסלט — הכל קצוץ דק. באפליקציה: <a href="../help/meal-logging.html">תיעוד ארוחה</a> → טקסט, למשל
-              «סשימי סלמון 100ג, חצי אבוקדו 100ג, ג׳ינג׳ר כבוש 10ג, טריאקי 15ג, נבטים 50ג, גמבה 40ג, מלפפון 30ג, בצל 20ג, חסה 30ג, נענע, בזיליקום — הכל קצוץ דק».
-            </p>
+            <p class="plate-hint">את ירקות הסלט קוצצים דק. באפליקציה: <a href="../help/meal-logging.html">רישום ארוחה</a> → טקסט, למשל «סשימי סלמון 100ג, חצי אבוקדו 100ג, ג׳ינג׳ר כבוש 10ג, טריאקי 15ג, נבטים 50ג, גמבה 40ג, מלפפון 30ג, בצל 20ג, חסה 30ג, נענע, בזיליקום — הכל קצוץ דק».</p>
           </div>
         </article>
 
@@ -160,41 +151,36 @@
               src="../../images/plates/yogurt-evening.jpg?v=20260816b"
               width="1200"
               height="800"
-              alt="קערת יוגורט עם סובין, זרעים ואגוזים — כמו בבוקר בלי אוכמניות"
+              alt="קערת יוגורט עם סובין וזרעים — בלי אוכמניות"
               loading="lazy"
               decoding="async"
             />
             <div class="plate-visual-fade" aria-hidden="true"></div>
           </div>
           <div class="plate-body">
-            <p class="plate-slot">אחרי ארוחת ערב</p>
+            <p class="plate-slot">אחרי ערב</p>
             <h2>יוגורט עם סובין, זרעים ואגוזים</h2>
-            <p class="plate-why">
-              אותה קערה כמו בבוקר — בלי האוכמניות. מוסיפים 100 מ״ל מים — צ׳יה, סובין ופסיליום שותים את המים.
-            </p>
+            <p class="plate-why">אותה קערה כמו בבוקר — בלי אוכמניות. גם כאן 100 מ״ל מים; הצ׳יה, הסובין והפסיליום שותים אותם.</p>
             <ul class="plate-items">
-              <li><span>יוגורט 2%</span><span class="grams">150 ג׳</span></li>
-              <li><span>מים</span><span class="grams">100 מ״ל</span></li>
-              <li><span>סובין שיבולת שועל</span><span class="grams">1 כף (~17 ג׳)</span></li>
-              <li><span>פסיליום</span><span class="grams">1 כף (~5 ג׳)</span></li>
-              <li><span>צ׳יה</span><span class="grams">1 כף (~10 ג׳)</span></li>
-              <li><span>זרעי דלעת</span><span class="grams">1 כף (~8 ג׳)</span></li>
-              <li><span>אגוזי מלך</span><span class="grams">3 חצאים (~5 ג׳)</span></li>
-              <li><span>שקדים</span><span class="grams">4 (~6 ג׳)</span></li>
+              <li><span>יוגורט 2%</span><span class="grams">150 g</span></li>
+              <li><span>מים</span><span class="grams">100 ml</span></li>
+              <li><span>סובין שיבולת שועל</span><span class="grams">1 tbsp (~17 g)</span></li>
+              <li><span>פסיליום</span><span class="grams">1 tbsp (~5 g)</span></li>
+              <li><span>צ׳יה</span><span class="grams">1 tbsp (~10 g)</span></li>
+              <li><span>זרעי דלעת</span><span class="grams">1 tbsp (~8 g)</span></li>
+              <li><span>אגוזי מלך</span><span class="grams">3 halves (~5 g)</span></li>
+              <li><span>שקדים</span><span class="grams">4 (~6 g)</span></li>
             </ul>
-            <p class="plate-hint">
-              צ׳יה, סובין ופסיליום שותים את המים. באפליקציה: <a href="../help/meal-logging.html">תיעוד ארוחה</a> → טקסט, למשל
-              «יוגורט 2% 150ג, מים 100 מ״ל, סובין שיבולת שועל כף, פסיליום כף, ציה כף, זרעי דלעת כף, 3 חצאי אגוז מלך, 4 שקדים».
-            </p>
+            <p class="plate-hint">באפליקציה: <a href="../help/meal-logging.html">רישום ארוחה</a> → טקסט, למשל «יוגורט 2% 150ג, מים 100 מ״ל, סובין שיבולת שועל כף, פסיליום כף, ציה כף, זרעי דלעת כף, 3 חצאי אגוז מלך, 4 שקדים».</p>
           </div>
         </article>
       </div>
 
       <section class="card prose">
-        <h2>המשך</h2>
-        <p>עוד צלחות יוכלו להצטרף לאוסף בהמשך.</p>
+        <h2>עוד</h2>
+        <p>נוסיף צלחות נוספות בהמשך.</p>
         <p class="help-next"><a href="../help/meal-logging.html">איך רושמים ארוחה →</a></p>
-        <p class="help-back"><a href="index.html">← כל אוספי הצלחות</a></p>
+        <p class="help-back"><a href="index.html">← כל הצלחות</a></p>
       </section>
     </main>
 
@@ -202,69 +188,225 @@
 {
   "collection": "lipid-protocol",
   "version": 2,
+  "locale": "he",
   "plates": [
     {
       "id": "yogurt-breakfast",
       "slot": "breakfast",
       "name_en": "Yogurt with bran, seeds, nuts & blueberries",
-      "name_he": "יוגורט עם סובין, זרעים, אגוזים ואוכמניות",
+      "name": "יוגורט עם סובין, זרעים, אגוזים ואוכמניות",
       "items": [
-        { "name": "Yogurt 2%", "name_he": "יוגורט 2%", "grams": 150 },
-        { "name": "Water", "name_he": "מים", "amount": "100 ml", "grams": 100 },
-        { "name": "Blueberries", "name_he": "אוכמניות", "grams": 40 },
-        { "name": "Oat bran", "name_he": "סובין שיבולת שועל", "amount": "1 tbsp", "grams": 17 },
-        { "name": "Psyllium", "name_he": "פסיליום", "amount": "1 tbsp", "grams": 5 },
-        { "name": "Chia seeds", "name_he": "צ׳יה", "amount": "1 tbsp", "grams": 10 },
-        { "name": "Pumpkin seeds", "name_he": "זרעי דלעת", "amount": "1 tbsp", "grams": 8 },
-        { "name": "Walnuts", "name_he": "אגוזי מלך", "amount": "3 halves", "grams": 5 },
-        { "name": "Almonds", "name_he": "שקדים", "amount": "4", "grams": 6 }
+        {
+          "name_en": "Yogurt 2%",
+          "name": "יוגורט 2%",
+          "amount": "150 g",
+          "grams": 150
+        },
+        {
+          "name_en": "Water",
+          "name": "מים",
+          "amount": "100 ml",
+          "grams": 100
+        },
+        {
+          "name_en": "Blueberries",
+          "name": "אוכמניות",
+          "amount": "40 g",
+          "grams": 40
+        },
+        {
+          "name_en": "Oat bran",
+          "name": "סובין שיבולת שועל",
+          "amount": "1 tbsp (~17 g)",
+          "grams": 117
+        },
+        {
+          "name_en": "Psyllium",
+          "name": "פסיליום",
+          "amount": "1 tbsp (~5 g)",
+          "grams": 15
+        },
+        {
+          "name_en": "Chia seeds",
+          "name": "צ׳יה",
+          "amount": "1 tbsp (~10 g)",
+          "grams": 110
+        },
+        {
+          "name_en": "Pumpkin seeds",
+          "name": "זרעי דלעת",
+          "amount": "1 tbsp (~8 g)",
+          "grams": 18
+        },
+        {
+          "name_en": "Walnuts",
+          "name": "אגוזי מלך",
+          "amount": "3 halves (~5 g)",
+          "grams": 35
+        },
+        {
+          "name_en": "Almonds",
+          "name": "שקדים",
+          "amount": "4 (~6 g)",
+          "grams": 46
+        }
       ]
     },
     {
       "id": "lunch-protein",
       "slot": "lunch",
       "name_en": "White fish (or chicken / tofu), lentils & cucumber",
-      "name_he": "דג לבן (או עוף / טופו), עדשים ומלפפון",
+      "name": "דג לבן (או עוף / טופו), עדשים ומלפפון",
       "items": [
-        { "name": "White fish / chicken / tofu", "name_he": "דג לבן / עוף / טופו", "grams": 150 },
-        { "name": "Cooked lentils", "name_he": "עדשים מבושלות", "amount": "5 tbsp" },
-        { "name": "Cucumber", "name_he": "מלפפון", "amount": "2 tbsp" },
-        { "name": "Olive oil", "name_he": "שמן זית", "amount": "2 tbsp" }
+        {
+          "name_en": "White fish / chicken / tofu",
+          "name": "דג לבן / עוף / טופו",
+          "amount": "150 g",
+          "grams": 150
+        },
+        {
+          "name_en": "Cooked lentils",
+          "name": "עדשים מבושלות",
+          "amount": "5 tbsp"
+        },
+        {
+          "name_en": "Cucumber",
+          "name": "מלפפון",
+          "amount": "2 tbsp"
+        },
+        {
+          "name_en": "Olive oil",
+          "name": "שמן זית",
+          "amount": "2 tbsp"
+        }
       ]
     },
     {
       "id": "dinner-sashimi",
       "slot": "dinner",
       "name_en": "Salmon sashimi, avocado, ginger, teriyaki & Thai salad",
-      "name_he": "סשימי סלמון, אבוקדו, ג׳ינג׳ר, טריאקי וסלט תאילנדי",
+      "name": "סשימי סלמון, אבוקדו, ג׳ינג׳ר, טריאקי וסלט תאילנדי",
       "items": [
-        { "name": "Salmon sashimi", "name_he": "סשימי סלמון", "grams": 100 },
-        { "name": "Avocado (½)", "name_he": "אבוקדו (חצי)", "grams": 100 },
-        { "name": "Pickled ginger", "name_he": "ג׳ינג׳ר כבוש", "grams": 10 },
-        { "name": "Teriyaki sauce", "name_he": "רוטב טריאקי", "grams": 15 },
-        { "name": "Sprouts", "name_he": "נבטים", "grams": 50 },
-        { "name": "Bell pepper", "name_he": "גמבה", "grams": 40 },
-        { "name": "Cucumber", "name_he": "מלפפון", "grams": 30 },
-        { "name": "Onion", "name_he": "בצל", "grams": 20 },
-        { "name": "Lettuce", "name_he": "חסה", "grams": 30 },
-        { "name": "Mint", "name_he": "נענע", "amount": "fresh" },
-        { "name": "Basil", "name_he": "בזיליקום", "amount": "fresh" }
+        {
+          "name_en": "Salmon sashimi",
+          "name": "סשימי סלמון",
+          "amount": "~100 g",
+          "grams": 100
+        },
+        {
+          "name_en": "Avocado (½)",
+          "name": "אבוקדו (חצי)",
+          "amount": "~90–100 g",
+          "grams": 90100
+        },
+        {
+          "name_en": "Pickled ginger",
+          "name": "ג׳ינג׳ר כבוש",
+          "amount": "~10 g",
+          "grams": 10
+        },
+        {
+          "name_en": "Teriyaki sauce",
+          "name": "רוטב טריאקי",
+          "amount": "~10–15 g",
+          "grams": 1015
+        },
+        {
+          "name_en": "Sprouts",
+          "name": "נבטים",
+          "amount": "50 g",
+          "grams": 50
+        },
+        {
+          "name_en": "Bell pepper",
+          "name": "גמבה",
+          "amount": "40 g",
+          "grams": 40
+        },
+        {
+          "name_en": "Cucumber",
+          "name": "מלפפון",
+          "amount": "30 g",
+          "grams": 30
+        },
+        {
+          "name_en": "Onion",
+          "name": "בצל",
+          "amount": "20 g",
+          "grams": 20
+        },
+        {
+          "name_en": "Lettuce",
+          "name": "חסה",
+          "amount": "30 g",
+          "grams": 30
+        },
+        {
+          "name_en": "Mint",
+          "name": "נענע",
+          "amount": "fresh"
+        },
+        {
+          "name_en": "Basil",
+          "name": "בזיליקום",
+          "amount": "fresh"
+        }
       ]
     },
     {
       "id": "yogurt-evening",
       "slot": "after_dinner",
       "name_en": "Yogurt with bran, seeds & nuts",
-      "name_he": "יוגורט עם סובין, זרעים ואגוזים",
+      "name": "יוגורט עם סובין, זרעים ואגוזים",
       "items": [
-        { "name": "Yogurt 2%", "name_he": "יוגורט 2%", "grams": 150 },
-        { "name": "Water", "name_he": "מים", "amount": "100 ml", "grams": 100 },
-        { "name": "Oat bran", "name_he": "סובין שיבולת שועל", "amount": "1 tbsp", "grams": 17 },
-        { "name": "Psyllium", "name_he": "פסיליום", "amount": "1 tbsp", "grams": 5 },
-        { "name": "Chia seeds", "name_he": "צ׳יה", "amount": "1 tbsp", "grams": 10 },
-        { "name": "Pumpkin seeds", "name_he": "זרעי דלעת", "amount": "1 tbsp", "grams": 8 },
-        { "name": "Walnuts", "name_he": "אגוזי מלך", "amount": "3 halves", "grams": 5 },
-        { "name": "Almonds", "name_he": "שקדים", "amount": "4", "grams": 6 }
+        {
+          "name_en": "Yogurt 2%",
+          "name": "יוגורט 2%",
+          "amount": "150 g",
+          "grams": 150
+        },
+        {
+          "name_en": "Water",
+          "name": "מים",
+          "amount": "100 ml",
+          "grams": 100
+        },
+        {
+          "name_en": "Oat bran",
+          "name": "סובין שיבולת שועל",
+          "amount": "1 tbsp (~17 g)",
+          "grams": 117
+        },
+        {
+          "name_en": "Psyllium",
+          "name": "פסיליום",
+          "amount": "1 tbsp (~5 g)",
+          "grams": 15
+        },
+        {
+          "name_en": "Chia seeds",
+          "name": "צ׳יה",
+          "amount": "1 tbsp (~10 g)",
+          "grams": 110
+        },
+        {
+          "name_en": "Pumpkin seeds",
+          "name": "זרעי דלעת",
+          "amount": "1 tbsp (~8 g)",
+          "grams": 18
+        },
+        {
+          "name_en": "Walnuts",
+          "name": "אגוזי מלך",
+          "amount": "3 halves (~5 g)",
+          "grams": 35
+        },
+        {
+          "name_en": "Almonds",
+          "name": "שקדים",
+          "amount": "4 (~6 g)",
+          "grams": 46
+        }
       ]
     }
   ]

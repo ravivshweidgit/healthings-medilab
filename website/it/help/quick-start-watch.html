@@ -28,9 +28,9 @@
         <a href="index.html">Aiuto</a>
         <a href="../../index.html">Home</a>
       </nav>
-      <form class="help-lang" action="#" method="get" onsubmit="var s=this.elements.namedItem('lang'); if(s&amp;&amp;s.value){location.href=s.value;} return false;">
+      <form class="help-lang" action="#" method="get" onsubmit="return false;">
         <label for="help-lang-select">Lingua</label>
-        <select id="help-lang-select" name="lang">
+        <select id="help-lang-select" name="lang" onchange="if(this.value)location.href=this.value;">
           <option value="/en/help/quick-start-watch.html" lang="en">English</option>
           <option value="/he/help/quick-start-watch.html" lang="he">עברית</option>
           <option value="/es/help/quick-start-watch.html" lang="es">Español</option>
@@ -42,7 +42,6 @@
           <option value="/it/help/quick-start-watch.html" lang="it" selected>Italiano</option>
           <option value="/tr/help/quick-start-watch.html" lang="tr">Türkçe</option>
         </select>
-        <button type="submit" class="help-lang-go">Vai</button>
       </form>
       <noscript class="help-lang-noscript"><p><a href="/en/help/quick-start-watch.html" hreflang="en">English</a> · <a href="/he/help/quick-start-watch.html" hreflang="he">עברית</a> · <a href="/es/help/quick-start-watch.html" hreflang="es">Español</a> · <a href="/fr/help/quick-start-watch.html" hreflang="fr">Français</a> · <a href="/de/help/quick-start-watch.html" hreflang="de">Deutsch</a> · <a href="/ar/help/quick-start-watch.html" hreflang="ar">العربية</a> · <a href="/ru/help/quick-start-watch.html" hreflang="ru">Русский</a> · <a href="/pt/help/quick-start-watch.html" hreflang="pt">Português</a> · <a href="/it/help/quick-start-watch.html" hreflang="it">Italiano</a> · <a href="/tr/help/quick-start-watch.html" hreflang="tr">Türkçe</a></p></noscript>
       <section class="hero">

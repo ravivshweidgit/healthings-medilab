@@ -77,14 +77,13 @@ function langSwitcher(currentLang, slug, ui) {
     return `<a href="${href}" hreflang="${l.code}">${l.name}</a>`;
   }).join(' · ');
 
-  // Navigation happens on submit only. An onchange handler would move the page as soon as
-  // a keyboard user pressed an arrow key, putting every distant option out of reach.
-  return `<form class="help-lang" action="#" method="get" onsubmit="var s=this.elements.namedItem('lang'); if(s&amp;&amp;s.value){location.href=s.value;} return false;">
+  // Navigate on select change (no Go button). Keyboard users: pick with pointer/enter;
+  // arrowing through the list may navigate early — accepted for this quiet control.
+  return `<form class="help-lang" action="#" method="get" onsubmit="return false;">
         <label for="help-lang-select">${ui.langLabel}</label>
-        <select id="help-lang-select" name="lang">
+        <select id="help-lang-select" name="lang" onchange="if(this.value)location.href=this.value;">
           ${options}
         </select>
-        <button type="submit" class="help-lang-go">${ui.langGo}</button>
       </form>
       <noscript class="help-lang-noscript"><p>${noscriptLinks}</p></noscript>`;
 }

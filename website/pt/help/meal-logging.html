@@ -28,9 +28,9 @@
         <a href="index.html">Ajuda</a>
         <a href="../../index.html">Início</a>
       </nav>
-      <form class="help-lang" action="#" method="get" onsubmit="var s=this.elements.namedItem('lang'); if(s&amp;&amp;s.value){location.href=s.value;} return false;">
+      <form class="help-lang" action="#" method="get" onsubmit="return false;">
         <label for="help-lang-select">Idioma</label>
-        <select id="help-lang-select" name="lang">
+        <select id="help-lang-select" name="lang" onchange="if(this.value)location.href=this.value;">
           <option value="/en/help/meal-logging.html" lang="en">English</option>
           <option value="/he/help/meal-logging.html" lang="he">עברית</option>
           <option value="/es/help/meal-logging.html" lang="es">Español</option>
@@ -42,7 +42,6 @@
           <option value="/it/help/meal-logging.html" lang="it">Italiano</option>
           <option value="/tr/help/meal-logging.html" lang="tr">Türkçe</option>
         </select>
-        <button type="submit" class="help-lang-go">Ir</button>
       </form>
       <noscript class="help-lang-noscript"><p><a href="/en/help/meal-logging.html" hreflang="en">English</a> · <a href="/he/help/meal-logging.html" hreflang="he">עברית</a> · <a href="/es/help/meal-logging.html" hreflang="es">Español</a> · <a href="/fr/help/meal-logging.html" hreflang="fr">Français</a> · <a href="/de/help/meal-logging.html" hreflang="de">Deutsch</a> · <a href="/ar/help/meal-logging.html" hreflang="ar">العربية</a> · <a href="/ru/help/meal-logging.html" hreflang="ru">Русский</a> · <a href="/pt/help/meal-logging.html" hreflang="pt">Português</a> · <a href="/it/help/meal-logging.html" hreflang="it">Italiano</a> · <a href="/tr/help/meal-logging.html" hreflang="tr">Türkçe</a></p></noscript>
       <section class="hero">
@@ -53,6 +52,8 @@
       </section>
       <section class="card prose">
         <ol><li>No <strong>DIÁRIO ALIMENTAR</strong>, toque em <strong>Refeição</strong>.</li><li><strong>Foto</strong> — tire a foto do prato e aprove.</li><li><strong>Texto</strong> — descreva; a IA calcula macros.</li><li>O chat pode sugerir — grava no food log.</li></ol>
+        
+        <p><a href="../plates/lipid-protocol.html">Pratos de exemplo</a> — refeições do diário com quantidades que você pode digitar ao registrar refeição.</p>
         <p class="help-next"><a href="manual-body.html">Próximo tópico: Corpo manual →</a></p>
         <p class="help-back"><a href="index.html">← Todos os tópicos</a></p>
       </section>

@@ -28,9 +28,9 @@
         <a href="index.html"><strong>עזרה</strong></a>
         <a href="../../index.html">דף הבית</a>
       </nav>
-      <form class="help-lang" action="#" method="get" onsubmit="var s=this.elements.namedItem('lang'); if(s&amp;&amp;s.value){location.href=s.value;} return false;">
+      <form class="help-lang" action="#" method="get" onsubmit="return false;">
         <label for="help-lang-select">שפה</label>
-        <select id="help-lang-select" name="lang">
+        <select id="help-lang-select" name="lang" onchange="if(this.value)location.href=this.value;">
           <option value="/en/help/index.html" lang="en">English</option>
           <option value="/he/help/index.html" lang="he" selected>עברית</option>
           <option value="/es/help/index.html" lang="es">Español</option>
@@ -42,7 +42,6 @@
           <option value="/it/help/index.html" lang="it">Italiano</option>
           <option value="/tr/help/index.html" lang="tr">Türkçe</option>
         </select>
-        <button type="submit" class="help-lang-go">עבור</button>
       </form>
       <noscript class="help-lang-noscript"><p><a href="/en/help/index.html" hreflang="en">English</a> · <a href="/he/help/index.html" hreflang="he">עברית</a> · <a href="/es/help/index.html" hreflang="es">Español</a> · <a href="/fr/help/index.html" hreflang="fr">Français</a> · <a href="/de/help/index.html" hreflang="de">Deutsch</a> · <a href="/ar/help/index.html" hreflang="ar">العربية</a> · <a href="/ru/help/index.html" hreflang="ru">Русский</a> · <a href="/pt/help/index.html" hreflang="pt">Português</a> · <a href="/it/help/index.html" hreflang="it">Italiano</a> · <a href="/tr/help/index.html" hreflang="tr">Türkçe</a></p></noscript>
       <section class="hero">
@@ -65,7 +64,7 @@
           <li><a href="reports-import.html">דוחות — לא חובה</a></li>
           <li><a href="targets-help.html">היעדים שלכם</a></li>
           <li><a href="meal-logging.html">איך רושמים ארוחה</a></li>
-          <li><a href="../plates/lipid-protocol.html">צלחות לדוגמה — חלון ליפידים</a></li>
+          <li><a href="../plates/lipid-protocol.html">צלחות לדוגמה — יום מהיומן</a></li>
           <li><a href="manual-body.html">הזנת גוף ידנית</a></li>
         </ul>
       </section>

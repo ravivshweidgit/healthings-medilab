@@ -3,18 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="Example day plates from a logged lipid window — morning yogurt, lunch protein, sashimi evening, after-dinner yogurt. Personal food log examples, not medical advice."
-    />
-    <title>Example plates — lipid window — Healthings</title>
+    <meta name="description" content="Four plates from one day in the food log. Meals from a real food log — with amounts you can type into Log Meal." />
+    <title>Example plates — Healthings</title>
     <link rel="canonical" href="https://healthings.ai/en/plates/lipid-protocol.html" />
     <link rel="icon" href="../../assets/icon.png" type="image/png" />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="../../tokens.css?v=20260816a" />
-    <link rel="stylesheet" href="../../styles.css?v=20260816a" />
+    <link rel="stylesheet" href="../../tokens.css?v=20260816e" />
+    <link rel="stylesheet" href="../../styles.css?v=20260816e" />
     <link rel="alternate" hreflang="en" href="https://healthings.ai/en/plates/lipid-protocol.html" />
     <link rel="alternate" hreflang="he" href="https://healthings.ai/he/plates/lipid-protocol.html" />
+    <link rel="alternate" hreflang="es" href="https://healthings.ai/es/plates/lipid-protocol.html" />
+    <link rel="alternate" hreflang="fr" href="https://healthings.ai/fr/plates/lipid-protocol.html" />
+    <link rel="alternate" hreflang="de" href="https://healthings.ai/de/plates/lipid-protocol.html" />
+    <link rel="alternate" hreflang="ar" href="https://healthings.ai/ar/plates/lipid-protocol.html" />
+    <link rel="alternate" hreflang="ru" href="https://healthings.ai/ru/plates/lipid-protocol.html" />
+    <link rel="alternate" hreflang="pt" href="https://healthings.ai/pt/plates/lipid-protocol.html" />
+    <link rel="alternate" hreflang="it" href="https://healthings.ai/it/plates/lipid-protocol.html" />
+    <link rel="alternate" hreflang="tr" href="https://healthings.ai/tr/plates/lipid-protocol.html" />
     <link rel="alternate" hreflang="x-default" href="https://healthings.ai/en/plates/lipid-protocol.html" />
   </head>
   <body class="plates-page">
@@ -24,29 +29,30 @@
         <a href="../help/index.html">Help</a>
         <a href="../../index.html">Home</a>
       </nav>
-      <form class="help-lang" action="#" method="get" onsubmit="var s=this.elements.namedItem('lang'); if(s&amp;&amp;s.value){location.href=s.value;} return false;">
+      <form class="help-lang" action="#" method="get" onsubmit="return false;">
         <label for="help-lang-select">Language</label>
-        <select id="help-lang-select" name="lang">
+        <select id="help-lang-select" name="lang" onchange="if(this.value)location.href=this.value;">
           <option value="/en/plates/lipid-protocol.html" lang="en" selected>English</option>
           <option value="/he/plates/lipid-protocol.html" lang="he">עברית</option>
+          <option value="/es/plates/lipid-protocol.html" lang="es">Español</option>
+          <option value="/fr/plates/lipid-protocol.html" lang="fr">Français</option>
+          <option value="/de/plates/lipid-protocol.html" lang="de">Deutsch</option>
+          <option value="/ar/plates/lipid-protocol.html" lang="ar">العربية</option>
+          <option value="/ru/plates/lipid-protocol.html" lang="ru">Русский</option>
+          <option value="/pt/plates/lipid-protocol.html" lang="pt">Português</option>
+          <option value="/it/plates/lipid-protocol.html" lang="it">Italiano</option>
+          <option value="/tr/plates/lipid-protocol.html" lang="tr">Türkçe</option>
         </select>
-        <button type="submit" class="help-lang-go">Go</button>
       </form>
+      <noscript class="help-lang-noscript"><p><a href="/en/plates/lipid-protocol.html" hreflang="en">English</a> · <a href="/he/plates/lipid-protocol.html" hreflang="he">עברית</a> · <a href="/es/plates/lipid-protocol.html" hreflang="es">Español</a> · <a href="/fr/plates/lipid-protocol.html" hreflang="fr">Français</a> · <a href="/de/plates/lipid-protocol.html" hreflang="de">Deutsch</a> · <a href="/ar/plates/lipid-protocol.html" hreflang="ar">العربية</a> · <a href="/ru/plates/lipid-protocol.html" hreflang="ru">Русский</a> · <a href="/pt/plates/lipid-protocol.html" hreflang="pt">Português</a> · <a href="/it/plates/lipid-protocol.html" hreflang="it">Italiano</a> · <a href="/tr/plates/lipid-protocol.html" hreflang="tr">Türkçe</a></p></noscript>
 
       <section class="hero">
         <p class="badge">Example plates</p>
-        <h1>A logged day rhythm from a lipid window</h1>
-        <p class="lead">
-          Four repeatable plates from a real food log. Rough amounts so you can type the same
-          plate into <strong>Log Meal</strong>.
-        </p>
+        <h1>Four plates from one day in the food log</h1>
+        <p class="lead">Breakfast through after dinner — rough amounts you can type into <strong>Log Meal</strong>. From a real diary around cholesterol lab checks.</p>
       </section>
 
-      <p class="plates-disclaimer">
-        <strong>Not medical advice.</strong> This is one person’s logged food during a documented lab
-        window — not a promise that these plates lower cholesterol. Your clinician sets
-        <strong>My Rules</strong> and treatment markers; confirm every meal in the app before it saves.
-      </p>
+      <p class="plates-disclaimer"><strong>Not medical advice.</strong> This is one person’s logged food during a lab period — not a promise that these plates lower cholesterol. Your clinician sets <strong>My Rules</strong> and treatment markers; confirm every meal in the app before it saves.</p>
 
       <div class="plates-grid">
         <article class="plate-card" id="yogurt-breakfast" data-plate-id="yogurt-breakfast">
@@ -55,7 +61,7 @@
               src="../../images/plates/yogurt-breakfast.jpg?v=20260816a"
               width="1200"
               height="800"
-              alt="Yogurt bowl with bran, seeds, nuts, and blueberries on a soft blue background"
+              alt="Yogurt bowl with bran, seeds, nuts, and blueberries"
               loading="eager"
               decoding="async"
             />
@@ -64,9 +70,7 @@
           <div class="plate-body">
             <p class="plate-slot">Breakfast</p>
             <h2>Yogurt with bran, seeds, nuts &amp; blueberries</h2>
-            <p class="plate-why">
-              Morning bowl — yogurt, fiber mix, and blueberries. Add 100 ml water so chia, bran, and psyllium can soak it up.
-            </p>
+            <p class="plate-why">Morning bowl — yogurt, bran and seeds, blueberries. Add 100 ml water so chia, bran, and psyllium can soak it up.</p>
             <ul class="plate-items">
               <li><span>Yogurt 2%</span><span class="grams">150 g</span></li>
               <li><span>Water</span><span class="grams">100 ml</span></li>
@@ -78,10 +82,7 @@
               <li><span>Walnuts</span><span class="grams">3 halves (~5 g)</span></li>
               <li><span>Almonds</span><span class="grams">4 (~6 g)</span></li>
             </ul>
-            <p class="plate-hint">
-              Chia, bran, and psyllium drink the water. In the app: <a href="../help/meal-logging.html">Log Meal</a> → text, e.g.
-              “yogurt 2% 150g, water 100ml, blueberries 40g, oat bran 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, pumpkin seeds 1 tbsp, 3 walnut halves, 4 almonds”.
-            </p>
+            <p class="plate-hint">Chia, bran, and psyllium drink the water. In the app: <a href="../help/meal-logging.html">Log Meal</a> → text, e.g. “yogurt 2% 150g, water 100ml, blueberries 40g, oat bran 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, pumpkin seeds 1 tbsp, 3 walnut halves, 4 almonds”.</p>
           </div>
         </article>
 
@@ -91,7 +92,7 @@
               src="../../images/plates/lunch-protein.jpg?v=20260816a"
               width="1200"
               height="800"
-              alt="Lunch plate with white fish, lentils, cucumber, and olive oil — no avocado"
+              alt="Lunch plate with white fish, lentils, cucumber, and olive oil"
               loading="lazy"
               decoding="async"
             />
@@ -100,19 +101,14 @@
           <div class="plate-body">
             <p class="plate-slot">Lunch</p>
             <h2>White fish (or chicken / tofu), lentils &amp; cucumber</h2>
-            <p class="plate-why">
-              Midday protein + legumes + raw veg + olive oil. Swap white fish for chicken breast or tofu — no avocado here.
-            </p>
+            <p class="plate-why">Lunch: white fish with lentils, cucumber, and olive oil. Swap for chicken or tofu — no avocado at lunch.</p>
             <ul class="plate-items">
               <li><span>White fish / chicken / tofu</span><span class="grams">150 g</span></li>
               <li><span>Cooked lentils</span><span class="grams">5 tbsp</span></li>
               <li><span>Cucumber</span><span class="grams">2 tbsp</span></li>
               <li><span>Olive oil</span><span class="grams">2 tbsp</span></li>
             </ul>
-            <p class="plate-hint">
-              In the app: <a href="../help/meal-logging.html">Log Meal</a> → text, e.g.
-              “grilled white fish 150g, lentils 5 tbsp, cucumber 2 tbsp, olive oil 2 tbsp” — or chicken / tofu instead of fish.
-            </p>
+            <p class="plate-hint">In the app: <a href="../help/meal-logging.html">Log Meal</a> → text, e.g. “grilled white fish 150g, lentils 5 tbsp, cucumber 2 tbsp, olive oil 2 tbsp” — or chicken / tofu instead of fish.</p>
           </div>
         </article>
 
@@ -122,7 +118,7 @@
               src="../../images/plates/dinner-sashimi.jpg?v=20260816a"
               width="1200"
               height="800"
-              alt="Dinner plate with salmon sashimi, avocado, ginger, teriyaki, and Thai salad"
+              alt="Dinner plate with salmon sashimi, avocado, and salad"
               loading="lazy"
               decoding="async"
             />
@@ -131,9 +127,7 @@
           <div class="plate-body">
             <p class="plate-slot">Evening</p>
             <h2>Salmon sashimi, avocado, ginger, teriyaki &amp; Thai salad</h2>
-            <p class="plate-why">
-              Evening plate from the log: sashimi + avocado, with a finely chopped Thai salad (sprouts, pepper, cucumber, onion, lettuce, mint, basil), ginger, and teriyaki.
-            </p>
+            <p class="plate-why">Evening: sashimi and avocado, with a finely chopped salad (sprouts, pepper, cucumber, onion, lettuce, mint, basil), ginger, and teriyaki.</p>
             <ul class="plate-items">
               <li><span>Salmon sashimi</span><span class="grams">~100 g</span></li>
               <li><span>Avocado (½)</span><span class="grams">~90–100 g</span></li>
@@ -147,10 +141,7 @@
               <li><span>Mint</span><span class="grams">fresh</span></li>
               <li><span>Basil</span><span class="grams">fresh</span></li>
             </ul>
-            <p class="plate-hint">
-              Salad veg is all finely chopped. In the app: <a href="../help/meal-logging.html">Log Meal</a> → text, e.g.
-              “salmon sashimi 100g, half avocado 100g, pickled ginger 10g, teriyaki 15g, sprouts 50g, bell pepper 40g, cucumber 30g, onion 20g, lettuce 30g, mint, basil — all finely chopped”.
-            </p>
+            <p class="plate-hint">Chop the salad veg finely. In the app: <a href="../help/meal-logging.html">Log Meal</a> → text, e.g. “salmon sashimi 100g, half avocado 100g, pickled ginger 10g, teriyaki 15g, sprouts 50g, bell pepper 40g, cucumber 30g, onion 20g, lettuce 30g, mint, basil — all finely chopped”.</p>
           </div>
         </article>
 
@@ -160,7 +151,7 @@
               src="../../images/plates/yogurt-evening.jpg?v=20260816b"
               width="1200"
               height="800"
-              alt="Yogurt bowl with bran, seeds, and nuts — same as breakfast without blueberries"
+              alt="Yogurt bowl with bran, seeds, and nuts — no blueberries"
               loading="lazy"
               decoding="async"
             />
@@ -169,9 +160,7 @@
           <div class="plate-body">
             <p class="plate-slot">After dinner</p>
             <h2>Yogurt with bran, seeds &amp; nuts</h2>
-            <p class="plate-why">
-              Same bowl as breakfast — without the blueberries. Add 100 ml water so chia, bran, and psyllium can soak it up.
-            </p>
+            <p class="plate-why">Same bowl as breakfast — without blueberries. Again 100 ml water; chia, bran, and psyllium soak it up.</p>
             <ul class="plate-items">
               <li><span>Yogurt 2%</span><span class="grams">150 g</span></li>
               <li><span>Water</span><span class="grams">100 ml</span></li>
@@ -182,10 +171,7 @@
               <li><span>Walnuts</span><span class="grams">3 halves (~5 g)</span></li>
               <li><span>Almonds</span><span class="grams">4 (~6 g)</span></li>
             </ul>
-            <p class="plate-hint">
-              Chia, bran, and psyllium drink the water. In the app: <a href="../help/meal-logging.html">Log Meal</a> → text, e.g.
-              “yogurt 2% 150g, water 100ml, oat bran 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, pumpkin seeds 1 tbsp, 3 walnut halves, 4 almonds”.
-            </p>
+            <p class="plate-hint">In the app: <a href="../help/meal-logging.html">Log Meal</a> → text, e.g. “yogurt 2% 150g, water 100ml, oat bran 1 tbsp, psyllium 1 tbsp, chia 1 tbsp, pumpkin seeds 1 tbsp, 3 walnut halves, 4 almonds”.</p>
           </div>
         </article>
       </div>
@@ -202,69 +188,225 @@
 {
   "collection": "lipid-protocol",
   "version": 2,
+  "locale": "en",
   "plates": [
     {
       "id": "yogurt-breakfast",
       "slot": "breakfast",
       "name_en": "Yogurt with bran, seeds, nuts & blueberries",
-      "name_he": "יוגורט עם סובין, זרעים, אגוזים ואוכמניות",
+      "name": "Yogurt with bran, seeds, nuts & blueberries",
       "items": [
-        { "name": "Yogurt 2%", "name_he": "יוגורט 2%", "grams": 150 },
-        { "name": "Water", "name_he": "מים", "amount": "100 ml", "grams": 100 },
-        { "name": "Blueberries", "name_he": "אוכמניות", "grams": 40 },
-        { "name": "Oat bran", "name_he": "סובין שיבולת שועל", "amount": "1 tbsp", "grams": 17 },
-        { "name": "Psyllium", "name_he": "פסיליום", "amount": "1 tbsp", "grams": 5 },
-        { "name": "Chia seeds", "name_he": "צ׳יה", "amount": "1 tbsp", "grams": 10 },
-        { "name": "Pumpkin seeds", "name_he": "זרעי דלעת", "amount": "1 tbsp", "grams": 8 },
-        { "name": "Walnuts", "name_he": "אגוזי מלך", "amount": "3 halves", "grams": 5 },
-        { "name": "Almonds", "name_he": "שקדים", "amount": "4", "grams": 6 }
+        {
+          "name_en": "Yogurt 2%",
+          "name": "Yogurt 2%",
+          "amount": "150 g",
+          "grams": 150
+        },
+        {
+          "name_en": "Water",
+          "name": "Water",
+          "amount": "100 ml",
+          "grams": 100
+        },
+        {
+          "name_en": "Blueberries",
+          "name": "Blueberries",
+          "amount": "40 g",
+          "grams": 40
+        },
+        {
+          "name_en": "Oat bran",
+          "name": "Oat bran",
+          "amount": "1 tbsp (~17 g)",
+          "grams": 117
+        },
+        {
+          "name_en": "Psyllium",
+          "name": "Psyllium",
+          "amount": "1 tbsp (~5 g)",
+          "grams": 15
+        },
+        {
+          "name_en": "Chia seeds",
+          "name": "Chia seeds",
+          "amount": "1 tbsp (~10 g)",
+          "grams": 110
+        },
+        {
+          "name_en": "Pumpkin seeds",
+          "name": "Pumpkin seeds",
+          "amount": "1 tbsp (~8 g)",
+          "grams": 18
+        },
+        {
+          "name_en": "Walnuts",
+          "name": "Walnuts",
+          "amount": "3 halves (~5 g)",
+          "grams": 35
+        },
+        {
+          "name_en": "Almonds",
+          "name": "Almonds",
+          "amount": "4 (~6 g)",
+          "grams": 46
+        }
       ]
     },
     {
       "id": "lunch-protein",
       "slot": "lunch",
       "name_en": "White fish (or chicken / tofu), lentils & cucumber",
-      "name_he": "דג לבן (או עוף / טופו), עדשים ומלפפון",
+      "name": "White fish (or chicken / tofu), lentils & cucumber",
       "items": [
-        { "name": "White fish / chicken / tofu", "name_he": "דג לבן / עוף / טופו", "grams": 150 },
-        { "name": "Cooked lentils", "name_he": "עדשים מבושלות", "amount": "5 tbsp" },
-        { "name": "Cucumber", "name_he": "מלפפון", "amount": "2 tbsp" },
-        { "name": "Olive oil", "name_he": "שמן זית", "amount": "2 tbsp" }
+        {
+          "name_en": "White fish / chicken / tofu",
+          "name": "White fish / chicken / tofu",
+          "amount": "150 g",
+          "grams": 150
+        },
+        {
+          "name_en": "Cooked lentils",
+          "name": "Cooked lentils",
+          "amount": "5 tbsp"
+        },
+        {
+          "name_en": "Cucumber",
+          "name": "Cucumber",
+          "amount": "2 tbsp"
+        },
+        {
+          "name_en": "Olive oil",
+          "name": "Olive oil",
+          "amount": "2 tbsp"
+        }
       ]
     },
     {
       "id": "dinner-sashimi",
       "slot": "dinner",
       "name_en": "Salmon sashimi, avocado, ginger, teriyaki & Thai salad",
-      "name_he": "סשימי סלמון, אבוקדו, ג׳ינג׳ר, טריאקי וסלט תאילנדי",
+      "name": "Salmon sashimi, avocado, ginger, teriyaki & Thai salad",
       "items": [
-        { "name": "Salmon sashimi", "name_he": "סשימי סלמון", "grams": 100 },
-        { "name": "Avocado (½)", "name_he": "אבוקדו (חצי)", "grams": 100 },
-        { "name": "Pickled ginger", "name_he": "ג׳ינג׳ר כבוש", "grams": 10 },
-        { "name": "Teriyaki sauce", "name_he": "רוטב טריאקי", "grams": 15 },
-        { "name": "Sprouts", "name_he": "נבטים", "grams": 50 },
-        { "name": "Bell pepper", "name_he": "גמבה", "grams": 40 },
-        { "name": "Cucumber", "name_he": "מלפפון", "grams": 30 },
-        { "name": "Onion", "name_he": "בצל", "grams": 20 },
-        { "name": "Lettuce", "name_he": "חסה", "grams": 30 },
-        { "name": "Mint", "name_he": "נענע", "amount": "fresh" },
-        { "name": "Basil", "name_he": "בזיליקום", "amount": "fresh" }
+        {
+          "name_en": "Salmon sashimi",
+          "name": "Salmon sashimi",
+          "amount": "~100 g",
+          "grams": 100
+        },
+        {
+          "name_en": "Avocado (½)",
+          "name": "Avocado (½)",
+          "amount": "~90–100 g",
+          "grams": 90100
+        },
+        {
+          "name_en": "Pickled ginger",
+          "name": "Pickled ginger",
+          "amount": "~10 g",
+          "grams": 10
+        },
+        {
+          "name_en": "Teriyaki sauce",
+          "name": "Teriyaki sauce",
+          "amount": "~10–15 g",
+          "grams": 1015
+        },
+        {
+          "name_en": "Sprouts",
+          "name": "Sprouts",
+          "amount": "50 g",
+          "grams": 50
+        },
+        {
+          "name_en": "Bell pepper",
+          "name": "Bell pepper",
+          "amount": "40 g",
+          "grams": 40
+        },
+        {
+          "name_en": "Cucumber",
+          "name": "Cucumber",
+          "amount": "30 g",
+          "grams": 30
+        },
+        {
+          "name_en": "Onion",
+          "name": "Onion",
+          "amount": "20 g",
+          "grams": 20
+        },
+        {
+          "name_en": "Lettuce",
+          "name": "Lettuce",
+          "amount": "30 g",
+          "grams": 30
+        },
+        {
+          "name_en": "Mint",
+          "name": "Mint",
+          "amount": "fresh"
+        },
+        {
+          "name_en": "Basil",
+          "name": "Basil",
+          "amount": "fresh"
+        }
       ]
     },
     {
       "id": "yogurt-evening",
       "slot": "after_dinner",
       "name_en": "Yogurt with bran, seeds & nuts",
-      "name_he": "יוגורט עם סובין, זרעים ואגוזים",
+      "name": "Yogurt with bran, seeds & nuts",
       "items": [
-        { "name": "Yogurt 2%", "name_he": "יוגורט 2%", "grams": 150 },
-        { "name": "Water", "name_he": "מים", "amount": "100 ml", "grams": 100 },
-        { "name": "Oat bran", "name_he": "סובין שיבולת שועל", "amount": "1 tbsp", "grams": 17 },
-        { "name": "Psyllium", "name_he": "פסיליום", "amount": "1 tbsp", "grams": 5 },
-        { "name": "Chia seeds", "name_he": "צ׳יה", "amount": "1 tbsp", "grams": 10 },
-        { "name": "Pumpkin seeds", "name_he": "זרעי דלעת", "amount": "1 tbsp", "grams": 8 },
-        { "name": "Walnuts", "name_he": "אגוזי מלך", "amount": "3 halves", "grams": 5 },
-        { "name": "Almonds", "name_he": "שקדים", "amount": "4", "grams": 6 }
+        {
+          "name_en": "Yogurt 2%",
+          "name": "Yogurt 2%",
+          "amount": "150 g",
+          "grams": 150
+        },
+        {
+          "name_en": "Water",
+          "name": "Water",
+          "amount": "100 ml",
+          "grams": 100
+        },
+        {
+          "name_en": "Oat bran",
+          "name": "Oat bran",
+          "amount": "1 tbsp (~17 g)",
+          "grams": 117
+        },
+        {
+          "name_en": "Psyllium",
+          "name": "Psyllium",
+          "amount": "1 tbsp (~5 g)",
+          "grams": 15
+        },
+        {
+          "name_en": "Chia seeds",
+          "name": "Chia seeds",
+          "amount": "1 tbsp (~10 g)",
+          "grams": 110
+        },
+        {
+          "name_en": "Pumpkin seeds",
+          "name": "Pumpkin seeds",
+          "amount": "1 tbsp (~8 g)",
+          "grams": 18
+        },
+        {
+          "name_en": "Walnuts",
+          "name": "Walnuts",
+          "amount": "3 halves (~5 g)",
+          "grams": 35
+        },
+        {
+          "name_en": "Almonds",
+          "name": "Almonds",
+          "amount": "4 (~6 g)",
+          "grams": 46
+        }
       ]
     }
   ]

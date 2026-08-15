@@ -28,9 +28,9 @@
         <a href="index.html">Yardım</a>
         <a href="../../index.html">Ana sayfa</a>
       </nav>
-      <form class="help-lang" action="#" method="get" onsubmit="var s=this.elements.namedItem('lang'); if(s&amp;&amp;s.value){location.href=s.value;} return false;">
+      <form class="help-lang" action="#" method="get" onsubmit="return false;">
         <label for="help-lang-select">Dil</label>
-        <select id="help-lang-select" name="lang">
+        <select id="help-lang-select" name="lang" onchange="if(this.value)location.href=this.value;">
           <option value="/en/help/withings-link.html" lang="en">English</option>
           <option value="/he/help/withings-link.html" lang="he">עברית</option>
           <option value="/es/help/withings-link.html" lang="es">Español</option>
@@ -42,7 +42,6 @@
           <option value="/it/help/withings-link.html" lang="it">Italiano</option>
           <option value="/tr/help/withings-link.html" lang="tr" selected>Türkçe</option>
         </select>
-        <button type="submit" class="help-lang-go">Git</button>
       </form>
       <noscript class="help-lang-noscript"><p><a href="/en/help/withings-link.html" hreflang="en">English</a> · <a href="/he/help/withings-link.html" hreflang="he">עברית</a> · <a href="/es/help/withings-link.html" hreflang="es">Español</a> · <a href="/fr/help/withings-link.html" hreflang="fr">Français</a> · <a href="/de/help/withings-link.html" hreflang="de">Deutsch</a> · <a href="/ar/help/withings-link.html" hreflang="ar">العربية</a> · <a href="/ru/help/withings-link.html" hreflang="ru">Русский</a> · <a href="/pt/help/withings-link.html" hreflang="pt">Português</a> · <a href="/it/help/withings-link.html" hreflang="it">Italiano</a> · <a href="/tr/help/withings-link.html" hreflang="tr">Türkçe</a></p></noscript>
       <section class="hero">

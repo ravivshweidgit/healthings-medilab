@@ -28,9 +28,9 @@
         <a href="index.html">Help</a>
         <a href="../../index.html">Home</a>
       </nav>
-      <form class="help-lang" action="#" method="get" onsubmit="var s=this.elements.namedItem('lang'); if(s&amp;&amp;s.value){location.href=s.value;} return false;">
+      <form class="help-lang" action="#" method="get" onsubmit="return false;">
         <label for="help-lang-select">Language</label>
-        <select id="help-lang-select" name="lang">
+        <select id="help-lang-select" name="lang" onchange="if(this.value)location.href=this.value;">
           <option value="/en/help/meal-logging.html" lang="en" selected>English</option>
           <option value="/he/help/meal-logging.html" lang="he">עברית</option>
           <option value="/es/help/meal-logging.html" lang="es">Español</option>
@@ -42,7 +42,6 @@
           <option value="/it/help/meal-logging.html" lang="it">Italiano</option>
           <option value="/tr/help/meal-logging.html" lang="tr">Türkçe</option>
         </select>
-        <button type="submit" class="help-lang-go">Go</button>
       </form>
       <noscript class="help-lang-noscript"><p><a href="/en/help/meal-logging.html" hreflang="en">English</a> · <a href="/he/help/meal-logging.html" hreflang="he">עברית</a> · <a href="/es/help/meal-logging.html" hreflang="es">Español</a> · <a href="/fr/help/meal-logging.html" hreflang="fr">Français</a> · <a href="/de/help/meal-logging.html" hreflang="de">Deutsch</a> · <a href="/ar/help/meal-logging.html" hreflang="ar">العربية</a> · <a href="/ru/help/meal-logging.html" hreflang="ru">Русский</a> · <a href="/pt/help/meal-logging.html" hreflang="pt">Português</a> · <a href="/it/help/meal-logging.html" hreflang="it">Italiano</a> · <a href="/tr/help/meal-logging.html" hreflang="tr">Türkçe</a></p></noscript>
       <section class="hero">
@@ -53,7 +52,7 @@
       </section>
       <section class="card prose">
         <ol><li>In <strong>FOOD LOG</strong>, tap <strong>Meal</strong>.</li><li><strong>Photo</strong> — snap the plate; approve AI items.</li><li><strong>Text</strong> — describe the meal; AI parses macros.</li><li>Coach chat can suggest logs — save via the food log.</li></ol>
-        <p><a href="../plates/lipid-protocol.html">Example plates</a> — repeatable meals with rough grams you can type into Log Meal.</p>
+        <p><a href="../plates/lipid-protocol.html">Example plates</a> — meals from the log with amounts you can type into Log Meal.</p>
         <p class="help-next"><a href="manual-body.html">Next topic: Manual body entry →</a></p>
         <p class="help-back"><a href="index.html">← All help topics</a></p>
       </section>
