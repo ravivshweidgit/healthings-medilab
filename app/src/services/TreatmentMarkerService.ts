@@ -182,6 +182,35 @@ export function treatmentMarkersHardBlock(markers: TreatmentMarker[]): string {
   ].join('\n');
 }
 
+/** One-line target list for period review / visit report headers. */
+export function formatTreatmentMarkersTargetLine(markers: TreatmentMarker[]): string {
+  if (!markers.length) return '';
+  return (
+    'Clinic treatment markers (HARD): ' +
+    markers
+      .map(
+        (m) =>
+          `${m.marker} ${m.direction} ${m.dailyTarget}${m.unit}/day` +
+          (m.note?.trim() ? ` (${m.note.trim()})` : ''),
+      )
+      .join(' | ')
+  );
+}
+
+/** Day/meal amounts vs clinic targets — for mentor period review & meal context. */
+export function formatMarkerAmountsVsTargets(
+  amounts: MarkerAmounts,
+  markers: TreatmentMarker[],
+): string {
+  if (!markers.length) return '';
+  const bits = markers.map((m) => {
+    const v = amounts[m.marker];
+    const shown = v != null && Number.isFinite(v) ? String(v) : '—';
+    return `${m.marker} ${shown}/${m.dailyTarget}${m.unit}`;
+  });
+  return `Treat markers: ${bits.join(' · ')}`;
+}
+
 export function mealMarkerSchemaHint(markers: TreatmentMarker[]): string {
   if (!markers.length) return '';
   const fields = markers.map((m) => {

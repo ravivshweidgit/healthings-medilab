@@ -16,6 +16,7 @@ import {
 } from '../logic/visitReportExport';
 import { buildLipidTrendPoints, getAllLabReports } from './LabLogService';
 import { getDailyMacros } from './FoodLogService';
+import { loadTreatmentMarkers } from './TreatmentMarkerService';
 import { loadCgmViewFromStore, syncCgmStore } from './CgmPersistenceService';
 import { buildPeriodReviewBlock, computeBurnKcalByDay, type PeriodReviewRequest } from './ReviewService';
 import {
@@ -90,6 +91,7 @@ export async function buildVisitReportContent(opts: {
     mentors,
     labReports,
     unitsPrefs,
+    treatStore,
   ] = await Promise.all([
     getBirthdate(),
     getGender(),
@@ -100,7 +102,9 @@ export async function buildVisitReportContent(opts: {
     getMentors(),
     getAllLabReports(),
     getUnitsPrefs(),
+    loadTreatmentMarkers(),
   ]);
+  const treatmentMarkers = treatStore?.markers?.length ? treatStore.markers : null;
 
   await Promise.all([syncMetricsStore(), syncCgmStore()]);
   const [metricsStore, cgmView] = await Promise.all([
@@ -135,6 +139,7 @@ export async function buildVisitReportContent(opts: {
     gender,
     profile,
     macroTarget,
+    treatmentMarkers,
     userRules,
     labs: labReports,
     coachMsg,

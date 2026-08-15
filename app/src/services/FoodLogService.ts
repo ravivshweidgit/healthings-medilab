@@ -7,8 +7,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
 import type { FoodItem } from './GeminiService';
-import type { DietMarkerCode, MarkerAmounts } from './TreatmentMarkerService';
-import { sumMarkerAmounts } from './TreatmentMarkerService';
+import type { DietMarkerCode, MarkerAmounts, TreatmentMarker } from './TreatmentMarkerService';
+import { formatMarkerAmountsVsTargets, sumMarkerAmounts } from './TreatmentMarkerService';
 
 export type { FoodItem };
 
@@ -141,7 +141,10 @@ export async function getRecentMeals(days: number): Promise<FoodEntry[]> {
 }
 
 /** Formats today's meals for AI mentor context — full item-level detail. */
-export function buildMealsAiContext(entries: FoodEntry[]): {
+export function buildMealsAiContext(
+  entries: FoodEntry[],
+  treatmentMarkers?: TreatmentMarker[] | null,
+): {
   lastMealSummary: string | null;
   todayMealsDetail: string | null;
 } {
@@ -150,6 +153,7 @@ export function buildMealsAiContext(entries: FoodEntry[]): {
   }
 
   const sorted = [...entries].sort((a, b) => a.timestamp - b.timestamp);
+  const active = treatmentMarkers?.length ? treatmentMarkers : null;
 
   const formatMeal = (entry: FoodEntry, index: number): string => {
     const time = new Date(entry.timestamp).toLocaleTimeString(undefined, {
@@ -162,10 +166,19 @@ export function buildMealsAiContext(entries: FoodEntry[]): {
           return `    • ${name}: ${Math.round(i.grams)}g, ${Math.round(i.kcal)} kcal, P${i.protein_g}g C${i.carb_g}g F${i.fat_g}g Fi${i.fiber_g ?? 0}g`;
         }).join('\n')
       : '    • (items not stored — totals only)';
+    const mealMarks = entryMarkerTotals(entry);
+    const treatLine = active?.length
+      ? formatMarkerAmountsVsTargets(mealMarks, active)
+      : Object.keys(mealMarks).length > 0
+        ? `Treat markers: ${Object.entries(mealMarks)
+            .map(([k, v]) => `${k}:${v}`)
+            .join(' · ')}`
+        : null;
     return [
       `Meal ${index + 1} at ${time}:`,
       itemLines,
       `  Total: ${entry.totalKcal} kcal | P${entry.totalProtein_g}g C${entry.totalCarb_g}g F${entry.totalFat_g}g Fi${entryFiber_g(entry)}g`,
+      treatLine ? `  ${treatLine}` : null,
       entry.note ? `  Note: ${entry.note}` : null,
     ].filter(Boolean).join('\n');
   };

@@ -12,6 +12,7 @@
   const NUTRITION_DIRECTIVES_KEY = 'nutrition_directives_v1';
   const WATER_LOG_KEY = 'water_log_v1';
   const WATER_GOAL_KEY = 'water_goal_ml_v1';
+  const TREATMENT_MARKERS_KEY = 'healthings:treatmentMarkers';
   const DEFAULT_WATER_GOAL_ML = 2500;
 
   function t(key, vars) {
@@ -176,6 +177,8 @@
     try { if (store[COACH_KEY]) coachMsg = JSON.parse(store[COACH_KEY]); } catch { /* */ }
     try { if (store[MENTOR_KEY]) mentors = JSON.parse(store[MENTOR_KEY]); } catch { /* */ }
 
+    const treatmentMarkers = parseTreatmentMarkersFromStore(store);
+
     const appChat = parseAppChatFromStore(store);
 
     let profile = { gender: null, heightCm: null, birthdate: null, age: null, language: null };
@@ -233,6 +236,7 @@
       glucose: cgm?.glucose || [],
       withings,
       macroTarget,
+      treatmentMarkers,
       bodyTarget,
       userRules,
       coachMsg,
@@ -246,6 +250,38 @@
       /** Raw asyncStorage for prefs like lab_custom_trend_code (prompt101). */
       rawStore: store,
     };
+  }
+
+  /** Phone AsyncStorage key — same shape ClinicOverlayService writes. */
+  function parseTreatmentMarkersFromStore(store) {
+    try {
+      const raw = store?.[TREATMENT_MARKERS_KEY];
+      if (!raw) return null;
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      const list = Array.isArray(parsed?.markers)
+        ? parsed.markers
+        : Array.isArray(parsed)
+          ? parsed
+          : null;
+      if (!list?.length) return null;
+      return list.filter(
+        (m) => m && typeof m.marker === 'string' && Number.isFinite(Number(m.dailyTarget)) && Number(m.dailyTarget) > 0,
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Prefer this org's overlay markers; else what the phone is running (snapshot).
+   * Closes the mentor gap when Profile/Food Log only showed P/C/F/Fi.
+   */
+  function effectiveTreatmentMarkers(parsed, overlay) {
+    if (Array.isArray(overlay?.markers) && overlay.markers.length) return overlay.markers;
+    if (Array.isArray(parsed?.treatmentMarkers) && parsed.treatmentMarkers.length) {
+      return parsed.treatmentMarkers;
+    }
+    return null;
   }
 
   /** Snapshot already carries water_log_v1 / water_goal_ml_v1 (ShareExportService). */
@@ -457,7 +493,7 @@
     return out;
   }
 
-  function treatmentMarkerBarsHtml(meals, overlayMarkers) {
+  function treatmentMarkerBarsHtml(meals, overlayMarkers, opts) {
     const markers = Array.isArray(overlayMarkers) ? overlayMarkers : [];
     if (!markers.length) return '';
     const codes = markers.map((m) => m.marker).filter(Boolean);
@@ -476,6 +512,7 @@
         );
       })
       .join('');
+    if (opts?.omitHint) return rows;
     return `${rows}<p class="treat-food-hint sub">${esc(t('wsTreatFoodHint'))}</p>`;
   }
 
@@ -586,7 +623,7 @@
     const waterMl = ctx.parsed.waterByDay?.[dk] || 0;
     const waterGoal = ctx.parsed.waterGoalMl || DEFAULT_WATER_GOAL_ML;
     const isDeficit = balance != null && balance < 0;
-    const treatMarkers = Array.isArray(ctx.overlay?.markers) ? ctx.overlay.markers : [];
+    const treatMarkers = effectiveTreatmentMarkers(ctx.parsed, ctx.overlay) || [];
     const showBars = meals.length || target || waterMl > 0 || treatMarkers.length > 0;
 
     host.innerHTML = `
@@ -753,7 +790,13 @@
   function renderMacroTargetsBody(mt, ctx) {
     const today = dailyMacros(ctx.parsed.todayMeals || []);
     const eaten = today.kcal > 0 ? Math.round(today.kcal) : null;
-    return `
+    const treat = effectiveTreatmentMarkers(ctx.parsed, ctx.overlay) || [];
+    const treatRows = treatmentMarkerBarsHtml(ctx.parsed.todayMeals || [], treat, { omitHint: true });
+    if (!mt && !treat.length) {
+      return `<p class="empty">${esc(t('wsNoMacroTargets'))}</p>`;
+    }
+    const classic = mt
+      ? `
       ${renderClinicalProfileBanner(mt)}
       <div class="macro-bars profile-macros">
         ${macroBarWithActual('P', today.protein_g, mt.protein_g, 'p')}
@@ -763,7 +806,15 @@
       </div>
       <div class="macro-kcal-row">${eaten != null ? eaten.toLocaleString() : '—'} / ${Math.round(mt.kcal).toLocaleString()} kcal</div>
       ${mt.diet_label ? `<p class="macro-diet-label">${esc(mt.diet_label)}</p>` : ''}
-      ${mt.reasoning ? `<p class="reasoning-block">${esc(mt.reasoning)}</p>` : ''}`;
+      ${mt.reasoning ? `<p class="reasoning-block">${esc(mt.reasoning)}</p>` : ''}`
+      : '';
+    const treatBlock = treat.length
+      ? `
+      ${mt ? `<p class="sub treat-profile-label">${esc(t('wsTreatInMacros'))}</p>` : ''}
+      <div class="macro-bars profile-macros treat-profile-bars">${treatRows}</div>
+      <p class="treat-food-hint sub">${esc(t('wsTreatFoodHint'))}</p>`
+      : '';
+    return `${classic}${treatBlock}`;
   }
 
   function targetsHeaderSub(bt) {
@@ -772,9 +823,22 @@
     return `${Number(bt.targetWeight_kg).toFixed(1)} kg · ${Number(bt.targetFatPct).toFixed(1)}% fat · ${Number(bt.targetMuscleMass_kg).toFixed(1)} kg muscle${weeks ? ` · ${weeks}w` : ''}`;
   }
 
-  function macrosHeaderSub(mt) {
-    if (!mt) return t('wsNoMacroTargets');
-    return `${mt.protein_g}P / ${mt.fat_g}F / ${mt.carb_g}C / ${fiberTarget_g(mt)}Fi`;
+  function macrosHeaderSub(mt, treatMarkers) {
+    const classic = mt
+      ? `${mt.protein_g}P / ${mt.fat_g}F / ${mt.carb_g}C / ${fiberTarget_g(mt)}Fi`
+      : '';
+    const treat = Array.isArray(treatMarkers) ? treatMarkers : [];
+    const treatBits = treat
+      .slice(0, 3)
+      .map((m) => {
+        const dir = m.direction === 'floor' ? '≥' : '≤';
+        return `${markerLabel(m.marker)} ${dir}${m.dailyTarget}${m.unit || 'g'}`;
+      })
+      .join(' · ');
+    if (classic && treatBits) return `${classic} · ${treatBits}`;
+    if (treatBits) return treatBits;
+    if (classic) return classic;
+    return t('wsNoMacroTargets');
   }
 
   function formatIsoShort(iso) {
@@ -881,9 +945,10 @@
       ${rules.analyzedAt ? `<p class="coach-meta">${esc(t('wsUpdated', { when: formatIsoShort(rules.analyzedAt) }))}</p>` : ''}`
       : `<p class="empty">${esc(t('wsNoDietaryRules'))}</p>`;
 
-    const macrosSub = `${esc(macrosHeaderSub(mt))}${mt?.analyzedAt ? `<span class="macro-updated">${esc(t('wsUpdated', { when: formatIsoShort(mt.analyzedAt) }))}</span>` : ''}`;
+    const treatMarkers = effectiveTreatmentMarkers(ctx.parsed, ctx.overlay) || [];
+    const macrosSub = `${esc(macrosHeaderSub(mt, treatMarkers))}${mt?.analyzedAt ? `<span class="macro-updated">${esc(t('wsUpdated', { when: formatIsoShort(mt.analyzedAt) }))}</span>` : ''}`;
 
-    const macrosBody = mt ? renderMacroTargetsBody(mt, ctx) : `<p class="empty">${esc(t('wsNoMacroTargets'))}</p>`;
+    const macrosBody = renderMacroTargetsBody(mt, ctx);
 
     const coachSub = coach?.summary || coach?.text?.slice(0, 120) || t('wsNoCoachMessageShort');
 

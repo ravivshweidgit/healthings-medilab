@@ -201,6 +201,7 @@ import {
   clearLabMarkerNudge,
   treatmentMarkersHardBlock,
   type LabMarkerNudge,
+  type TreatmentMarker,
 } from '../services/TreatmentMarkerService';
 import { getTreatmentMarkersCopy } from '../i18n/treatmentMarkersCopy';
 import {
@@ -457,6 +458,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [mentors, setMentorsState] = useState<MentorType[]>(['coach', 'nutritionist']);
   const [userRules, setUserRules] = useState<UserRules | null>(null);
   const [treatmentMarkersHard, setTreatmentMarkersHard] = useState<string | null>(null);
+  const [treatmentMarkersList, setTreatmentMarkersList] = useState<TreatmentMarker[]>([]);
   const [labMarkerNudge, setLabMarkerNudge] = useState<LabMarkerNudge | null>(null);
   const [labReports, setLabReports] = useState<LabReport[]>([]);
   const [labsAiContext, setLabsAiContext] = useState<string | null>(null);
@@ -1498,8 +1500,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
   /** Meal detail strings for mentor AI context. */
   const mealContext = useMemo(
-    () => buildMealsAiContext(todayFoodEntries),
-    [todayFoodEntries],
+    () => buildMealsAiContext(todayFoodEntries, treatmentMarkersList),
+    [todayFoodEntries, treatmentMarkersList],
   );
 
   const mealGlucoseContext = useMemo(
@@ -1689,9 +1691,9 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       await loadCoachMessage();
     }
     const treat = fromClinic.markers ?? (await loadTreatmentMarkers());
-    setTreatmentMarkersHard(
-      treat?.markers?.length ? treatmentMarkersHardBlock(treat.markers) : null,
-    );
+    const list = treat?.markers?.length ? treat.markers : [];
+    setTreatmentMarkersList(list);
+    setTreatmentMarkersHard(list.length ? treatmentMarkersHardBlock(list) : null);
     const nudge = await loadLabMarkerNudge();
     setLabMarkerNudge(nudge);
     if (fromClinic.backfillResult) {
@@ -1980,6 +1982,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       await loadCoachMessage();
     })();
   }, [loadHeightAndBirthdate, loadLabReports, loadNutritionDirectives, loadCoachMessage]);
+
+  useEffect(() => {
+    void (async () => {
+      const treat = await loadTreatmentMarkers();
+      const list = treat?.markers?.length ? treat.markers : [];
+      setTreatmentMarkersList(list);
+      setTreatmentMarkersHard(list.length ? treatmentMarkersHardBlock(list) : null);
+    })();
+  }, []);
 
   useEffect(() => {
     if (user.role !== 'patient') return;

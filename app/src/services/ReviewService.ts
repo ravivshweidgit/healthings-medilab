@@ -14,7 +14,13 @@ import {
   type MetabolicTrend7dDay,
   type CompositionSession,
 } from '../logic/metabolicTrend7d';
-import { getDailyMacros, buildMealsAiContext } from './FoodLogService';
+import { getDailyMacros, buildMealsAiContext, dayMarkerTotals } from './FoodLogService';
+import {
+  formatMarkerAmountsVsTargets,
+  formatTreatmentMarkersTargetLine,
+  loadTreatmentMarkers,
+  type TreatmentMarker,
+} from './TreatmentMarkerService';
 import { buildLabsAiContext, getLabReportsForDayKeys } from './LabLogService';
 import {
   buildDayMealGlucoseBlock,
@@ -404,15 +410,27 @@ function formatEnergyLine(eaten: number, burn: number | undefined): string {
 function formatFoodBlock(
   dayKey: string,
   macros: Awaited<ReturnType<typeof getDailyMacros>>,
+  treatmentMarkers?: TreatmentMarker[] | null,
 ): string {
   const header = [
     `${Math.round(macros.kcal)} kcal eaten`,
     `P${Math.round(macros.protein_g)}g C${Math.round(macros.carb_g)}g F${Math.round(macros.fat_g)}g Fi${Math.round(macros.fiber_g ?? 0)}g`,
     `${macros.entries.length} meals`,
   ].join(' | ');
-  if (macros.entries.length === 0) return header;
-  const detail = buildMealsAiContext(macros.entries).todayMealsDetail;
-  return detail ? `${header}\n${detail}` : header;
+  const treat =
+    treatmentMarkers?.length && macros.entries.length
+      ? formatMarkerAmountsVsTargets(
+          dayMarkerTotals(
+            macros.entries,
+            treatmentMarkers.map((m) => m.marker),
+          ).totals,
+          treatmentMarkers,
+        )
+      : '';
+  const head = treat ? `${header} | ${treat}` : header;
+  if (macros.entries.length === 0) return head;
+  const detail = buildMealsAiContext(macros.entries, treatmentMarkers).todayMealsDetail;
+  return detail ? `${head}\n${detail}` : head;
 }
 
 function buildTrendSection(
@@ -606,12 +624,19 @@ export async function buildPeriodReviewBlock(
   const burnByDay = computeBurnKcalByDay(bodyPayload.days, intraday.calories, workoutsFiltered);
   const macrosList = await Promise.all(dayKeys.map((dk) => getDailyMacros(dk)));
   const macrosByDay = new Map(dayKeys.map((dk, i) => [dk, macrosList[i]]));
+  const treatStore = await loadTreatmentMarkers().catch(() => null);
+  const treatmentMarkers = treatStore?.markers?.length ? treatStore.markers : null;
 
   const rawDataOnly = options?.rawDataOnly === true;
-  const targetLine =
+  const classicTarget =
     !rawDataOnly && macroTarget
       ? `Macro targets: ${macroTarget.kcal} kcal | P${macroTarget.protein_g}g C${macroTarget.carb_g}g F${macroTarget.fat_g}g${macroTarget.fiber_g != null ? ` Fi${macroTarget.fiber_g}g` : ''}`
       : '';
+  const treatTarget =
+    !rawDataOnly && treatmentMarkers
+      ? formatTreatmentMarkersTargetLine(treatmentMarkers)
+      : '';
+  const targetLine = [classicTarget, treatTarget].filter(Boolean).join('\n');
 
   const periodHeader = rawDataOnly
     ? `=== ${dayKeys.length}-DAY RAW DATA (${dayKeys[0]} → ${dayKeys[dayKeys.length - 1]}) ===`
@@ -664,7 +689,7 @@ export async function buildPeriodReviewBlock(
       formatEnergyLine(eaten, burnByDay.get(dk)),
       hrLine,
       'FOOD & MEALS:',
-      formatFoodBlock(dk, macros),
+      formatFoodBlock(dk, macros, treatmentMarkers),
     );
 
     const dayGlucoseBlock = buildDayMealGlucoseBlock(macros.entries, periodGlucose, dk);

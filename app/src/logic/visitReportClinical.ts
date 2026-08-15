@@ -30,6 +30,8 @@ import type {
   UserLanguage,
   UserRules,
 } from '../services/TargetService';
+import type { TreatmentMarker } from '../services/TreatmentMarkerService';
+import { formatTreatmentMarkersTargetLine } from '../services/TreatmentMarkerService';
 import type { MetabolicTrend7dDay, CompositionSession } from './metabolicTrend7d';
 import type { WorkoutSession } from '../services/WithingsApiService';
 import type { VisitReportProfile } from './visitReportExport';
@@ -74,6 +76,8 @@ export type BuildClinicalNoteInput = {
   gender: Gender | null;
   profile: VisitReportProfile;
   macroTarget: DailyMacroTarget | null;
+  /** Clinic treatment markers (prompt110) — same HARD caps/floors as the phone strip. */
+  treatmentMarkers?: TreatmentMarker[] | null;
   userRules: UserRules | null;
   labs: LabReport[];
   coachMsg: CoachMessage | null;
@@ -767,6 +771,9 @@ export async function buildClinicalVisitNote(input: BuildClinicalNoteInput): Pro
       s4Bullets.push(`${L.carbOver}: ${daysOverCarb}`);
       s4Bullets.push(`${L.proteinUnder}: ${daysUnderProtein}`);
     }
+    if (input.treatmentMarkers?.length) {
+      s4Bullets.push(formatTreatmentMarkersTargetLine(input.treatmentMarkers));
+    }
     if (mealDays < dayKeys.length * 0.6) s4Bullets.push(L.sparseLogging);
   }
 
@@ -805,6 +812,9 @@ export async function buildClinicalVisitNote(input: BuildClinicalNoteInput): Pro
     s7Bullets.push(
       `${L.macroRx}: ${input.macroTarget.diet_label} — ${formatEnergy(input.macroTarget.kcal, units.energy)}, P${input.macroTarget.protein_g}/C${input.macroTarget.carb_g}/F${input.macroTarget.fat_g}g`,
     );
+  }
+  if (input.treatmentMarkers?.length) {
+    s7Bullets.push(formatTreatmentMarkersTargetLine(input.treatmentMarkers));
   }
   if (input.includeCoach && input.coachMsg) {
     const note =
