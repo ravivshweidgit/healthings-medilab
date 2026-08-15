@@ -14,6 +14,7 @@ import {
   Image,
   InteractionManager,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -40,6 +41,7 @@ import { getHelpStripCopy } from '../i18n/helpStripCopy';
 import { OutOfCreditsError } from '../services/UsageQueueService';
 import { getFoodLogPhotoUiCopy } from '../i18n/foodLogPhotoUiCopy';
 import { getFoodLogUiCopy } from '../i18n/foodLogUiCopy';
+import { platesUrl } from '../i18n/helpUrls';
 import { formatFoodLogHistoryForMealAi } from '../logic/foodLogMealHistory';
 import { buildMealMergePreview, type MealMergePreview } from '../logic/mealPhotoMerge';
 import {
@@ -1509,6 +1511,16 @@ export function FoodLogModal({
                     <Pressable style={styles.fromPastBtn} onPress={openPastMealPicker}>
                       <Text style={styles.fromPastBtnText}>{ui.fromPastMeal}</Text>
                     </Pressable>
+                    <Pressable
+                      style={styles.examplePlatesLink}
+                      onPress={() => void Linking.openURL(platesUrl(lang?.code ?? 'en'))}
+                      accessibilityRole="link"
+                      accessibilityLabel={ui.examplePlates}
+                    >
+                      <Text style={[styles.examplePlatesLinkText, rtl && styles.textRtl]}>
+                        {ui.examplePlates}
+                      </Text>
+                    </Pressable>
                   </>
                 ) : null}
 
@@ -2210,6 +2222,18 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     fontSize: 15,
     fontWeight: '700',
     color: c.accentBlue,
+  },
+  examplePlatesLink: {
+    alignSelf: 'center',
+    marginTop: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  examplePlatesLinkText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: c.accentBlue,
+    textDecorationLine: 'underline',
   },
   pickPastWrap: { gap: 14, paddingTop: 4 },
   browseDayNav: {

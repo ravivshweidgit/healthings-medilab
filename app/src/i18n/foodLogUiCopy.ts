@@ -89,6 +89,8 @@ export type FoodLogUiCopy = {
   saveAsStaple: string;
   stapleSaved: string;
   noStaplesYet: string;
+  /** Opens example plates in browser (Log Meal idle) */
+  examplePlates: string;
 };
 
 const EN: FoodLogUiCopy = {
@@ -168,6 +170,7 @@ const EN: FoodLogUiCopy = {
   saveAsStaple: 'Save staple',
   stapleSaved: 'Saved as staple',
   noStaplesYet: 'Save foods you eat often — tap Save staple on an item.',
+  examplePlates: 'Example plates',
 };
 
 const HE: FoodLogUiCopy = {
@@ -246,6 +249,7 @@ const HE: FoodLogUiCopy = {
   saveAsStaple: 'שמור כקבוע',
   stapleSaved: 'נשמר כקבוע',
   noStaplesYet: 'שמרו מזונות שחוזרים — לחצו שמור כקבוע על פריט.',
+  examplePlates: 'צלחות לדוגמה',
 };
 
 const ES: FoodLogUiCopy = {
@@ -325,6 +329,7 @@ const ES: FoodLogUiCopy = {
   saveAsStaple: 'Guardar básico',
   stapleSaved: 'Guardado como básico',
   noStaplesYet: 'Guarda alimentos frecuentes — toca Guardar básico en un ítem.',
+  examplePlates: 'Example plates',
 };
 
 const FR: FoodLogUiCopy = {
@@ -405,6 +410,7 @@ const FR: FoodLogUiCopy = {
   saveAsStaple: 'Enregistrer en basique',
   stapleSaved: 'Enregistré en basique',
   noStaplesYet: 'Enregistrez les aliments fréquents — touchez Enregistrer en basique.',
+  examplePlates: 'Example plates',
 };
 
 const DE: FoodLogUiCopy = {
@@ -485,6 +491,7 @@ const DE: FoodLogUiCopy = {
   saveAsStaple: 'Als Staple speichern',
   stapleSaved: 'Als Staple gespeichert',
   noStaplesYet: 'Speichere häufige Lebensmittel — tippe Als Staple speichern.',
+  examplePlates: 'Example plates',
 };
 
 const AR: FoodLogUiCopy = {
@@ -563,6 +570,7 @@ const AR: FoodLogUiCopy = {
   saveAsStaple: 'حفظ كأساسي',
   stapleSaved: 'حُفظ كأساسي',
   noStaplesYet: 'احفظ الأطعمة المتكررة — اضغط حفظ كأساسي على صنف.',
+  examplePlates: 'Example plates',
 };
 
 const RU: FoodLogUiCopy = {
@@ -643,6 +651,7 @@ const RU: FoodLogUiCopy = {
   saveAsStaple: 'Сохранить основу',
   stapleSaved: 'Сохранено как основа',
   noStaplesYet: 'Сохраняйте частые продукты — нажмите Сохранить основу.',
+  examplePlates: 'Example plates',
 };
 
 const PT: FoodLogUiCopy = {
@@ -723,6 +732,7 @@ const PT: FoodLogUiCopy = {
   saveAsStaple: 'Guardar básico',
   stapleSaved: 'Guardado como básico',
   noStaplesYet: 'Guarde alimentos frequentes — toque Guardar básico num item.',
+  examplePlates: 'Example plates',
 };
 
 const IT: FoodLogUiCopy = {
@@ -803,6 +813,7 @@ const IT: FoodLogUiCopy = {
   saveAsStaple: 'Salva base',
   stapleSaved: 'Salvato come base',
   noStaplesYet: 'Salva cibi frequenti — tocca Salva base su un alimento.',
+  examplePlates: 'Example plates',
 };
 
 const TR: FoodLogUiCopy = {
@@ -883,6 +894,7 @@ const TR: FoodLogUiCopy = {
   saveAsStaple: 'Sabit kaydet',
   stapleSaved: 'Sabit olarak kaydedildi',
   noStaplesYet: 'Sık yediklerinizi kaydedin — öğede Sabit kaydet’e dokunun.',
+  examplePlates: 'Example plates',
 };
 
 const BY_CODE: Record<string, FoodLogUiCopy> = {
