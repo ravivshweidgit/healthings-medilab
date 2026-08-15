@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  InteractionManager,
   PanResponder,
   Pressable,
   ScrollView,
@@ -564,6 +566,8 @@ export function MetabolicChart({
   const [viewportPresetIndex, setViewportPresetIndex] = useState(DEFAULT_VIEWPORT_PRESET_INDEX);
   /** 7 days vs Full store. Orthogonal to 1H…16D zoom. */
   const [historyDepth, setHistoryDepth] = useState<HistoryDepth>('light');
+  /** Spinner while history depth / zoom chip rebuild + scroll snap settles. */
+  const [rangeBusy, setRangeBusy] = useState(false);
   const [nowAnchor, setNowAnchor] = useState(() => Date.now());
   /** Horizontal pan offset (px). `null` until synced — treat as “live” end position in useMemo. */
   const [scrollX, setScrollX] = useState<number | null>(null);
@@ -1051,6 +1055,7 @@ export function MetabolicChart({
       setScrollX(0);
       chartPanReadyRef.current = true;
       forceSnapChartScrollRef.current = false;
+      InteractionManager.runAfterInteractions(() => setRangeBusy(false));
       return;
     }
     const apply = () => {
@@ -1062,10 +1067,29 @@ export function MetabolicChart({
       requestAnimationFrame(() => {
         apply();
         chartPanReadyRef.current = true;
+        InteractionManager.runAfterInteractions(() => setRangeBusy(false));
       });
     });
     return () => cancelAnimationFrame(id);
   }, [viewportPresetIndex, historyDepth]);
+
+  const selectHistoryDepth = useCallback(
+    (next: HistoryDepth) => {
+      if (historyDepth === next) return;
+      setRangeBusy(true);
+      setHistoryDepth(next);
+    },
+    [historyDepth],
+  );
+
+  const selectViewportPreset = useCallback(
+    (index: number) => {
+      if (viewportPresetIndex === index) return;
+      setRangeBusy(true);
+      setViewportPresetIndex(index);
+    },
+    [viewportPresetIndex],
+  );
 
   /** If the scrollable range shrinks, don’t leave offset past the end. */
   useEffect(() => {
@@ -1437,25 +1461,30 @@ export function MetabolicChart({
       <View style={styles.historyDepthRow}>
         <Text style={styles.historyDepthLabel}>{stripCopy.historyDepthLabel}</Text>
         <Pressable
-          onPress={() => setHistoryDepth('light')}
+          onPress={() => selectHistoryDepth('light')}
+          disabled={rangeBusy}
           style={[styles.viewportChip, historyDepth === 'light' && styles.viewportChipSelected]}
           accessibilityLabel={stripCopy.a11yHistory7Days}
-          accessibilityState={{ selected: historyDepth === 'light' }}
+          accessibilityState={{ selected: historyDepth === 'light', busy: rangeBusy }}
         >
           <Text style={[styles.viewportChipText, historyDepth === 'light' && styles.viewportChipTextSelected]}>
             {stripCopy.historyDepth7Days}
           </Text>
         </Pressable>
         <Pressable
-          onPress={() => setHistoryDepth('full')}
+          onPress={() => selectHistoryDepth('full')}
+          disabled={rangeBusy}
           style={[styles.viewportChip, historyDepth === 'full' && styles.viewportChipSelected]}
           accessibilityLabel={stripCopy.a11yHistoryFull}
-          accessibilityState={{ selected: historyDepth === 'full' }}
+          accessibilityState={{ selected: historyDepth === 'full', busy: rangeBusy }}
         >
           <Text style={[styles.viewportChipText, historyDepth === 'full' && styles.viewportChipTextSelected]}>
             {stripCopy.historyDepthFull}
           </Text>
         </Pressable>
+        {rangeBusy ? (
+          <ActivityIndicator size="small" color={colors.accentBlue} accessibilityLabel={stripCopy.loading} />
+        ) : null}
       </View>
 
       <ScrollView
@@ -1475,7 +1504,8 @@ export function MetabolicChart({
           return (
             <Pressable
               key={preset.id}
-              onPress={() => setViewportPresetIndex(index)}
+              onPress={() => selectViewportPreset(index)}
+              disabled={rangeBusy}
               onLayout={(e) => {
                 const { x, width } = e.nativeEvent.layout;
                 chipLayoutsRef.current[index] = { x, width };
@@ -1485,13 +1515,13 @@ export function MetabolicChart({
               }}
               style={[styles.viewportChip, selected && styles.viewportChipSelected]}
               accessibilityLabel={label}
+              accessibilityState={{ selected, busy: rangeBusy }}
             >
               <Text style={[styles.viewportChipText, selected && styles.viewportChipTextSelected]}>{label}</Text>
             </Pressable>
           );
         })}
       </ScrollView>
-
       <View style={[styles.chartRow, styles.chartRowLtr, { minHeight: DATE_HEADER_HEIGHT + svgH }]}>
         <View style={[styles.yAxis, { height: DATE_HEADER_HEIGHT + prepared.svgH }]}>
           {/* Canvas colour continues behind the scale so labels sit on the plot background. */}
@@ -1658,6 +1688,15 @@ export function MetabolicChart({
             <View style={{ width: Math.max(prepared.totalW, prepared.chartW), height: prepared.svgH, backgroundColor: 'transparent' }} />
           </ScrollView>
           </View>
+          {rangeBusy ? (
+            <View style={styles.rangeBusyOverlay} pointerEvents="none">
+              <ActivityIndicator
+                size="large"
+                color={colors.accentBlue}
+                accessibilityLabel={stripCopy.loading}
+              />
+            </View>
+          ) : null}
         </View>
       </View>
 
@@ -1750,6 +1789,13 @@ const makeStyles = (colors: ThemeColors, isDark: boolean) =>
     position: 'relative',
     overflow: 'hidden',
     direction: 'ltr',
+  },
+  rangeBusyOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.12)',
+    zIndex: 4,
   },
   chartDateHeaderOuter: {
     width: '100%',

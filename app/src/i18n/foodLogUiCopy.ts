@@ -60,6 +60,8 @@ export type FoodLogUiCopy = {
   /** Strip collapse / expand a11y (prompt106) */
   collapse: string;
   expand: string;
+  /** Header spinner while day load / expand paint settles */
+  busy: string;
   orDescribeIt: string;
   orDivider: string;
   /** Water sheet / Food Log water actions */
@@ -140,6 +142,7 @@ const EN: FoodLogUiCopy = {
   updateWithPhoto: 'Update with a photo:',
   collapse: 'Collapse food log',
   expand: 'Expand food log',
+  busy: 'Loading food log',
   orDescribeIt: '— or describe it —',
   orDivider: '— or —',
   addWater: 'Add water',
@@ -217,6 +220,7 @@ const HE: FoodLogUiCopy = {
   updateWithPhoto: 'עדכון עם תמונה:',
   collapse: 'כווץ יומן אוכל',
   expand: 'הרחב יומן אוכל',
+  busy: 'טוען יומן ארוחות',
   orDescribeIt: '— או תארו במילים —',
   orDivider: '— או —',
   addWater: 'הוסף מים',
@@ -295,6 +299,7 @@ const ES: FoodLogUiCopy = {
   updateWithPhoto: 'Actualizar con una foto:',
   collapse: 'Contraer registro de comida',
   expand: 'Expandir registro de comida',
+  busy: 'Cargando diario de comidas',
   orDescribeIt: '— o descríbela —',
   orDivider: '— o —',
   addWater: 'Añadir agua',
@@ -374,6 +379,7 @@ const FR: FoodLogUiCopy = {
   updateWithPhoto: 'Mettre à jour avec une photo :',
   collapse: 'Réduire le journal alimentaire',
   expand: 'Développer le journal alimentaire',
+  busy: 'Chargement du journal',
   orDescribeIt: '— ou décrivez-le —',
   orDivider: '— ou —',
   addWater: 'Ajouter de l’eau',
@@ -453,6 +459,7 @@ const DE: FoodLogUiCopy = {
   updateWithPhoto: 'Mit Foto aktualisieren:',
   collapse: 'Essensprotokoll einklappen',
   expand: 'Essensprotokoll ausklappen',
+  busy: 'Essensprotokoll wird geladen',
   orDescribeIt: '— oder beschreiben —',
   orDivider: '— oder —',
   addWater: 'Wasser hinzufügen',
@@ -530,6 +537,7 @@ const AR: FoodLogUiCopy = {
   updateWithPhoto: 'تحديث بصورة:',
   collapse: 'طي سجل الطعام',
   expand: 'توسيع سجل الطعام',
+  busy: 'جارٍ تحميل سجل الطعام',
   orDescribeIt: '— أو صفها —',
   orDivider: '— أو —',
   addWater: 'إضافة ماء',
@@ -609,6 +617,7 @@ const RU: FoodLogUiCopy = {
   updateWithPhoto: 'Обновить фото:',
   collapse: 'Свернуть журнал еды',
   expand: 'Развернуть журнал еды',
+  busy: 'Загрузка журнала еды',
   orDescribeIt: '— или опишите —',
   orDivider: '— или —',
   addWater: 'Добавить воду',
@@ -688,6 +697,7 @@ const PT: FoodLogUiCopy = {
   updateWithPhoto: 'Atualizar com uma foto:',
   collapse: 'Recolher diário alimentar',
   expand: 'Expandir diário alimentar',
+  busy: 'Carregando diário alimentar',
   orDescribeIt: '— ou descreva —',
   orDivider: '— ou —',
   addWater: 'Adicionar água',
@@ -767,6 +777,7 @@ const IT: FoodLogUiCopy = {
   updateWithPhoto: 'Aggiorna con una foto:',
   collapse: 'Comprimi diario pasti',
   expand: 'Espandi diario pasti',
+  busy: 'Caricamento diario pasti',
   orDescribeIt: '— oppure descrivilo —',
   orDivider: '— oppure —',
   addWater: 'Aggiungi acqua',
@@ -846,6 +857,7 @@ const TR: FoodLogUiCopy = {
   updateWithPhoto: 'Fotoğrafla güncelle:',
   collapse: 'Yemek günlüğünü daralt',
   expand: 'Yemek günlüğünü genişlet',
+  busy: 'Yemek günlüğü yükleniyor',
   orDescribeIt: '— veya tarif edin —',
   orDivider: '— veya —',
   addWater: 'Su ekle',

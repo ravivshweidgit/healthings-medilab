@@ -286,7 +286,7 @@
     return { goalMl, byDay };
   }
 
-  /** Activity kcal for a day = burn − BMR when both known (matches phone food strip). */
+  /** Activity + BMR parts — burned total matches phone Food Log (BMR + activity). */
   function burnPartsForDay(withings, dk, totalBurn) {
     const trend = withings?.bodyTrendDays || [];
     const day = trend.find((d) => d.dayKey === dk);
@@ -298,7 +298,15 @@
     } else if (totalBurn != null && bmr != null) {
       activity = Math.max(0, Math.round(totalBurn) - bmr);
     }
-    return { bmr, activity, total: totalBurn != null ? Math.round(totalBurn) : null };
+    let total = null;
+    if (bmr != null && activity != null) {
+      total = bmr + activity;
+    } else if (totalBurn != null) {
+      total = Math.round(totalBurn);
+    } else if (bmr != null) {
+      total = bmr;
+    }
+    return { bmr, activity, total };
   }
 
   function parseNutritionDirectives(store) {
@@ -405,16 +413,70 @@
     return next > todayKey() ? todayKey() : next;
   }
 
-  /** unit: 'g' | 'ml' | '' (kcal bar has no unit suffix — label carries it). */
-  function macroBar(label, val, tgt, tone, unit) {
+  /** unit: 'g' | 'ml' | 'mg' | '' (kcal bar has no unit suffix — label carries it). opts.goalIsFloor = no over-target red. */
+  function macroBar(label, val, tgt, tone, unit, opts) {
     const u = unit === undefined ? 'g' : unit;
+    const goalIsFloor = !!opts?.goalIsFloor;
     const ratio = tgt > 0 ? Math.min(1, val / tgt) : 0;
-    const over = tgt > 0 && val > tgt * 1.05;
+    const over = !goalIsFloor && tgt > 0 && val > tgt * 1.05;
     const text = tgt
       ? `${Math.round(val).toLocaleString()}/${Math.round(tgt).toLocaleString()}${u}`
       : `${Math.round(val).toLocaleString()}${u}`;
     const fillClass = over ? 'macro-fill-over' : 'macro-fill-' + tone;
-    return `<div class="macro-row"><span>${label}</span><div class="track"><div class="fill ${fillClass}" style="width:${ratio * 100}%"></div></div><span class="${over ? 'macro-over' : ''}">${text}</span></div>`;
+    return `<div class="macro-row"><span>${esc(label)}</span><div class="track"><div class="fill ${fillClass}" style="width:${ratio * 100}%"></div></div><span class="${over ? 'macro-over' : ''}">${text}</span></div>`;
+  }
+
+  /** Sum meal/item treatment markers for the day (same rules as app dayMarkerTotals). */
+  function dayMarkerTotals(meals, codes) {
+    const totals = {};
+    for (const code of codes) totals[code] = null;
+    for (const meal of meals || []) {
+      let amounts = meal.markers && typeof meal.markers === 'object' ? meal.markers : null;
+      if (!amounts || !Object.keys(amounts).length) {
+        amounts = {};
+        for (const it of meal.items || []) {
+          const m = it.markers;
+          if (!m || typeof m !== 'object') continue;
+          for (const [k, v] of Object.entries(m)) {
+            const n = Number(v);
+            if (!Number.isFinite(n) || n < 0) continue;
+            amounts[k] = (amounts[k] || 0) + n;
+          }
+        }
+      }
+      for (const code of codes) {
+        const n = Number(amounts[code]);
+        if (!Number.isFinite(n)) continue;
+        totals[code] = (totals[code] == null ? 0 : totals[code]) + n;
+      }
+    }
+    const out = {};
+    for (const code of codes) {
+      if (totals[code] != null) out[code] = Math.round(totals[code] * 10) / 10;
+    }
+    return out;
+  }
+
+  function treatmentMarkerBarsHtml(meals, overlayMarkers) {
+    const markers = Array.isArray(overlayMarkers) ? overlayMarkers : [];
+    if (!markers.length) return '';
+    const codes = markers.map((m) => m.marker).filter(Boolean);
+    const totals = dayMarkerTotals(meals, codes);
+    const rows = markers
+      .map((m) => {
+        const val = totals[m.marker];
+        const hasVal = val != null && Number.isFinite(val);
+        return macroBar(
+          markerLabel(m.marker),
+          hasVal ? val : 0,
+          m.dailyTarget,
+          'treat',
+          m.unit === 'mg' ? 'mg' : 'g',
+          { goalIsFloor: m.direction === 'floor' },
+        );
+      })
+      .join('');
+    return `${rows}<p class="treat-food-hint sub">${esc(t('wsTreatFoodHint'))}</p>`;
   }
 
   function entryFiber(meal) {
@@ -515,7 +577,8 @@
     const eaten = Math.round(macros.kcal);
     const burn = ctx.parsed.burnByDay[dk] ?? null;
     const parts = burnPartsForDay(ctx.parsed.withings, dk, burn);
-    const balance = burn != null && eaten > 0 ? eaten - burn : null;
+    const burnedTotal = parts.total ?? burn;
+    const balance = burnedTotal != null && eaten > 0 ? eaten - burnedTotal : null;
     const isToday = dk >= todayKey();
     const fiberT = fiberTarget_g(target);
     const netEaten = Math.max(0, Math.round((macros.carb_g || 0) - (macros.fiber_g || 0)));
@@ -523,7 +586,8 @@
     const waterMl = ctx.parsed.waterByDay?.[dk] || 0;
     const waterGoal = ctx.parsed.waterGoalMl || DEFAULT_WATER_GOAL_ML;
     const isDeficit = balance != null && balance < 0;
-    const showBars = meals.length || target || waterMl > 0;
+    const treatMarkers = Array.isArray(ctx.overlay?.markers) ? ctx.overlay.markers : [];
+    const showBars = meals.length || target || waterMl > 0 || treatMarkers.length > 0;
 
     host.innerHTML = `
       <div class="food-log-card food-log-grid">
@@ -565,6 +629,7 @@
             ${macroBar('Fi', macros.fiber_g || 0, target ? fiberT : null, 'fi')}
             ${macroBar('C-Fi', netEaten, netT, 'net')}
             ` : ''}
+            ${treatmentMarkerBarsHtml(meals, treatMarkers)}
             ${macroBar('H2O', waterMl, waterGoal, 'h2o', 'ml')}
           </div>` : ''}
         </div>
@@ -887,7 +952,11 @@
     const energyHost = panel.querySelector('#energy-host');
     const allDays = charts.enrichBodyTrendDays(ctx.parsed.withings);
     const pd = ctx.trendPeriod ?? 32;
-    const chartOpts = { fillHeight: true, periodDays: pd };
+    const fallbackBmr =
+      ctx.parsed.withings?.bodyScan?.bmrKcalDay ??
+      allDays.find((d) => d.bmrKcalDay != null && Number.isFinite(d.bmrKcalDay))?.bmrKcalDay ??
+      null;
+    const chartOpts = { fillHeight: true, periodDays: pd, fallbackBmrKcal: fallbackBmr };
     const windowDays = charts.trendWindowSlice(allDays, pd);
     if (energyHost) {
       charts.drawEnergyChart(energyHost, windowDays, ctx.parsed.eatenByDay, chartOpts);

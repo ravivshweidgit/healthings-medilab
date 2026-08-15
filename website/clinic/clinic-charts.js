@@ -128,16 +128,21 @@
     const calories = withings?.calories || [];
     const workouts = withings?.workouts || [];
     const bmrByDay = new Map();
+    const activityByDay = new Map();
     for (const d of trend) {
       if (d.bmrKcalDay != null) bmrByDay.set(d.dayKey, d.bmrKcalDay);
       else if (d.activityKcalDay != null && d.bmrKcalDay == null && fallbackBmr) bmrByDay.set(d.dayKey, fallbackBmr);
+      if (d.activityKcalDay != null && Number.isFinite(d.activityKcalDay)) {
+        activityByDay.set(d.dayKey, d.activityKcalDay);
+      }
     }
     const passiveByDay = new Map();
     for (const pt of calories) {
       const ms = Date.parse(pt.timestamp);
+      if (!Number.isFinite(ms)) continue;
       const dk = dayKeyFromMs(ms);
       if (!passiveByDay.has(dk)) passiveByDay.set(dk, new Map());
-      const bk = Math.floor(t / BUCKET_MS) * BUCKET_MS;
+      const bk = Math.floor(ms / BUCKET_MS) * BUCKET_MS;
       const m = passiveByDay.get(dk);
       m.set(bk, (m.get(bk) || 0) + (pt.kcal || 0));
     }
@@ -151,7 +156,13 @@
       const firstBk = Math.floor(w.startMs / BUCKET_MS) * BUCKET_MS;
       for (let bk = firstBk; bk < w.endMs; bk += BUCKET_MS) set.add(bk);
     }
-    const keys = new Set([dayKeyFromMs(Date.now()), ...bmrByDay.keys(), ...passiveByDay.keys(), ...workoutKcalByDay.keys()]);
+    const keys = new Set([
+      dayKeyFromMs(Date.now()),
+      ...bmrByDay.keys(),
+      ...activityByDay.keys(),
+      ...passiveByDay.keys(),
+      ...workoutKcalByDay.keys(),
+    ]);
     const result = {};
     for (const dk of keys) {
       const bmr = bmrByDay.get(dk) ?? fallbackBmr;
@@ -161,7 +172,14 @@
       for (const [bk, kcal] of passiveByDay.get(dk) || []) {
         if (!wktBuckets.has(bk)) passive += kcal;
       }
-      result[dk] = Math.round(bmr + passive + (workoutKcalByDay.get(dk) || 0));
+      const fromSeries = passive + (workoutKcalByDay.get(dk) || 0);
+      // Phone Food Log: burned = BMR + activityKcalDay when the trend carries activity.
+      const trendAct = activityByDay.get(dk);
+      const activity =
+        trendAct != null && Number.isFinite(trendAct)
+          ? Math.round(trendAct)
+          : Math.round(fromSeries);
+      result[dk] = Math.round(bmr + activity);
     }
     return result;
   }
@@ -364,6 +382,37 @@
       const wkt = workoutByDay.get(d.dayKey);
       if (wkt != null && wkt > 0) return { ...d, activityKcalDay: Math.round(wkt) };
       return d;
+    });
+  }
+
+  function positiveBmrKcal(v) {
+    return v != null && Number.isFinite(v) && v > 0 ? Math.round(v) : null;
+  }
+
+  /**
+   * Phone ManualTrendService.fillcale gaps: carry last measured BMR (or seed from
+   * body scan) across days so total burn + balance exist wherever activity/meals do.
+   */
+  function fillBmrGaps(days, opts) {
+    const list = days || [];
+    let last = positiveBmrKcal(opts?.seedBmrKcal);
+    if (last == null) {
+      for (const d of list) {
+        const bmr = positiveBmrKcal(d.bmrKcalDay);
+        if (bmr != null) {
+          last = bmr;
+          break;
+        }
+      }
+    }
+    if (last == null) return list;
+    return list.map((d) => {
+      const measured = positiveBmrKcal(d.bmrKcalDay);
+      if (measured != null) {
+        last = measured;
+        return { ...d, bmrKcalDay: measured };
+      }
+      return { ...d, bmrKcalDay: last };
     });
   }
 
@@ -1086,7 +1135,9 @@
     const COLOR_GRID = pal.grid;
     const TREND_MUTED = pal.muted;
 
-    const slice = days || [];
+    const todayKey = dayKeyFromMs(Date.now());
+    const slice = fillBmrGaps(days || [], { seedBmrKcal: opts?.fallbackBmrKcal })
+      .map((d) => (d.dayKey > todayKey ? { ...d, bmrKcalDay: null } : d));
     if (slice.length < 2) {
       host.innerHTML = `
         <div class="energy-wrap">
@@ -1632,6 +1683,7 @@
     computeBurnByDay,
     eatenByDay,
     enrichBodyTrendDays,
+    fillBmrGaps,
     trendWindowSlice,
     drawMetabolicChart,
     drawTrendAnalysis,

@@ -13,7 +13,9 @@ import React, {
   useState,
 } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  InteractionManager,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -407,12 +409,22 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const [expanded, setExpanded] = useState(true);
   const [expandPrefsLoaded, setExpandPrefsLoaded] = useState(false);
+  /** Keep body mounted after first expand so collapse/expand does not remount bars/chips. */
+  const [bodyMounted, setBodyMounted] = useState(true);
+  const [dayLoading, setDayLoading] = useState(false);
+  const [toggleBusy, setToggleBusy] = useState(false);
   /** User collapsed Food Log while today still has 0 meals — don't fight that this session. */
   const skipEmptyAutoExpand = useRef(false);
+  const labsLoadedRef = useRef(false);
+  const expandPersistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toggleBusyClear = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     void AsyncStorage.getItem(FOOD_LOG_EXPANDED_KEY).then((v) => {
-      if (v === 'false') setExpanded(false);
+      if (v === 'false') {
+        setExpanded(false);
+        setBodyMounted(false);
+      }
       if (v === 'true') setExpanded(true);
       setExpandPrefsLoaded(true);
     });
@@ -420,8 +432,18 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
 
   useEffect(() => {
     if (!expandPrefsLoaded) return;
-    void AsyncStorage.setItem(FOOD_LOG_EXPANDED_KEY, expanded ? 'true' : 'false');
+    if (expandPersistTimer.current) clearTimeout(expandPersistTimer.current);
+    expandPersistTimer.current = setTimeout(() => {
+      void AsyncStorage.setItem(FOOD_LOG_EXPANDED_KEY, expanded ? 'true' : 'false');
+    }, 250);
+    return () => {
+      if (expandPersistTimer.current) clearTimeout(expandPersistTimer.current);
+    };
   }, [expanded, expandPrefsLoaded]);
+
+  useEffect(() => {
+    if (expanded) setBodyMounted(true);
+  }, [expanded]);
 
   const ui = useMemo(() => getFoodLogUiCopy(lang?.code), [lang?.code]);
   const title = foodLogTitle(lang);
@@ -446,6 +468,32 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   const [markerDetail, setMarkerDetail] = useState<TreatmentMarker | null>(null);
   const [labReports, setLabReports] = useState<LabReport[]>([]);
   const treatCopy = useMemo(() => getTreatmentMarkersCopy(lang?.code), [lang?.code]);
+
+  const stripBusy = dayLoading || toggleBusy;
+
+  const beginToggleBusy = useCallback(() => {
+    setToggleBusy(true);
+    if (toggleBusyClear.current) clearTimeout(toggleBusyClear.current);
+    // Clear after paint + interactions (mirrors logStripToggle timing window).
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        InteractionManager.runAfterInteractions(() => {
+          toggleBusyClear.current = setTimeout(() => setToggleBusy(false), 40);
+        });
+      });
+    });
+  }, []);
+
+  const ensureLabReports = useCallback(async () => {
+    if (labsLoadedRef.current) return;
+    try {
+      const labs = await getAllLabReports();
+      setLabReports(labs);
+      labsLoadedRef.current = true;
+    } catch {
+      // Provenance is optional — strip stays usable without labs.
+    }
+  }, []);
 
   const handleExport = useCallback(async () => {
     try {
@@ -492,54 +540,74 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   }, []);
 
   const load = useCallback(async () => {
-    await timeAsync(
-      'FoodMacroStrip.load',
-      async () => {
-        const [data, correction, dayTarget, dayWater, entries, goal, treatStore, labs] = await Promise.all([
-          getDailyMacros(activeDayKey),
-          getBurnCorrection(activeDayKey),
-          getMacroTargetForDay(activeDayKey),
-          getWaterMl(activeDayKey),
-          getWaterEntries(activeDayKey),
-          getWaterGoalMl(),
-          loadTreatmentMarkers(),
-          getAllLabReports(),
-        ]);
-        setMacros(data);
-        setBurnCorrectionState(correction);
-        setDayMacroTarget(dayTarget ?? macroTarget ?? null);
-        setWaterMlState(dayWater);
-        setWaterEntries(entries);
-        setWaterGoalMlState(goal);
-        const markers = treatStore?.markers ?? [];
-        setTreatmentMarkers(markers);
-        setLabReports(labs);
-        if (markers.length > 0 && data?.entries) {
-          const { totals } = dayMarkerTotals(
-            data.entries,
-            markers.map((m) => m.marker),
-          );
-          setMarkerDayTotals(totals as Record<string, number>);
-        } else {
-          setMarkerDayTotals({});
-        }
-      },
-      {},
-      PERF_WARN_MEAL_MS,
-    );
-  }, [activeDayKey, macroTarget]);
+    setDayLoading(true);
+    try {
+      await timeAsync(
+        'FoodMacroStrip.load',
+        async () => {
+          // Essentials only — lab reports are N AsyncStorage reads and only used in marker modal.
+          const skipDayTarget = isToday && macroTarget != null;
+          const [data, correction, dayTarget, dayWater, entries, goal, treatStore] = await Promise.all([
+            getDailyMacros(activeDayKey),
+            getBurnCorrection(activeDayKey),
+            skipDayTarget ? Promise.resolve(null) : getMacroTargetForDay(activeDayKey),
+            getWaterMl(activeDayKey),
+            getWaterEntries(activeDayKey),
+            getWaterGoalMl(),
+            loadTreatmentMarkers(),
+          ]);
+          setMacros(data);
+          setBurnCorrectionState(correction);
+          setDayMacroTarget(dayTarget ?? macroTarget ?? null);
+          setWaterMlState(dayWater);
+          setWaterEntries(entries);
+          setWaterGoalMlState(goal);
+          const markers = treatStore?.markers ?? [];
+          setTreatmentMarkers(markers);
+          if (markers.length > 0 && data?.entries) {
+            const { totals } = dayMarkerTotals(
+              data.entries,
+              markers.map((m) => m.marker),
+            );
+            setMarkerDayTotals(totals as Record<string, number>);
+          } else {
+            setMarkerDayTotals({});
+          }
+        },
+        {},
+        PERF_WARN_MEAL_MS,
+      );
+    } finally {
+      setDayLoading(false);
+    }
+    // Warm labs after the strip is interactive (does not block FoodMacroStrip.load timing).
+    InteractionManager.runAfterInteractions(() => {
+      void ensureLabReports();
+    });
+  }, [activeDayKey, macroTarget, isToday, ensureLabReports]);
 
   useImperativeHandle(
     ref,
     () => ({
       reload: load,
-      expand: () => setExpanded(true),
-      collapse: () => setExpanded(false),
+      expand: () => {
+        beginToggleBusy();
+        setBodyMounted(true);
+        setExpanded(true);
+      },
+      collapse: () => {
+        beginToggleBusy();
+        setExpanded(false);
+      },
     }),
-    [load],
+    [load, beginToggleBusy],
   );
 
   useEffect(() => { load(); }, [load, refreshKey]);
+
+  useEffect(() => {
+    if (markerDetail != null) void ensureLabReports();
+  }, [markerDetail, ensureLabReports]);
 
   // Empty today: open Food Log so Add meal is one tap (pairs with What’s next). Respect a same-session collapse.
   useEffect(() => {
@@ -550,6 +618,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
       return;
     }
     if (skipEmptyAutoExpand.current) return;
+    setBodyMounted(true);
     setExpanded(true);
   }, [expandPrefsLoaded, isToday, macros]);
 
@@ -755,24 +824,39 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
         title={title}
         subtitle={collapsedSub}
         expanded={expanded}
-        onToggle={() =>
+        onToggle={() => {
+          beginToggleBusy();
           setExpanded((v) => {
             const next = !v;
             if (!next && isToday && (macros?.entries?.length ?? 0) === 0) {
               skipEmptyAutoExpand.current = true;
             }
             return next;
-          })
-        }
+          });
+        }}
         titleRtl={titleRtl}
         collapseLabel={ui.collapse}
         expandLabel={ui.expand}
         icon={StripIcons.foodLog}
         perfTag="FoodMacroStrip"
+        trailing={
+          stripBusy ? (
+            <ActivityIndicator
+              size="small"
+              color={colors.textSecondary}
+              accessibilityLabel={ui.busy}
+            />
+          ) : undefined
+        }
       />
 
-      {expanded ? (
-      <>
+      {bodyMounted ? (
+      <View
+        style={!expanded ? styles.bodyCollapsed : undefined}
+        pointerEvents={expanded ? 'auto' : 'none'}
+        accessibilityElementsHidden={!expanded}
+        importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+      >
       {/* Date navigator — centred below title */}
       <View style={styles.dateNavRow}>
         <Pressable style={styles.dateNavBtn} onPress={() => shiftDay(-1)} hitSlop={8} accessibilityLabel="Previous day">
@@ -1013,7 +1097,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
           <Text style={styles.footerBtnText}>⬇ Import</Text>
         </Pressable>
       </View>
-      </>
+      </View>
       ) : null}
 
       {/* Burn correction modal */}
@@ -1305,6 +1389,16 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   },
   cardCollapsed: {
     paddingBottom: 12,
+  },
+  /** Hide without unmount — expand/collapse stays cheap after first open. */
+  bodyCollapsed: {
+    height: 0,
+    overflow: 'hidden',
+    opacity: 0,
+    marginTop: 0,
+    marginBottom: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   dateNavRow: {
     flexDirection: 'row',

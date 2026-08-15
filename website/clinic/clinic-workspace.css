@@ -437,8 +437,13 @@ h3,
 .macro-fill-kcal { background: var(--ws-chart-workout); }
 .macro-fill-net { background: var(--orange); }
 .macro-fill-h2o { background: var(--ws-chart-bmr); }
+.macro-fill-treat { background: #8D6E63; }
 .macro-fill-over { background: var(--red); }
-
+.treat-food-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+}
 .ws-tabs {
   max-width: var(--max-w);
   margin: 0 auto;

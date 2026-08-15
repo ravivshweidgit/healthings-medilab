@@ -210,17 +210,19 @@ export async function deleteMeal(entryId: string, timestamp: number): Promise<vo
 
 export async function getDailyMacros(dk: string): Promise<DailyMacros> {
   const entries = await getMealsForDay(dk);
-  return entries.reduce(
-    (acc, e) => ({
-      kcal: acc.kcal + e.totalKcal,
-      protein_g: acc.protein_g + e.totalProtein_g,
-      carb_g: acc.carb_g + e.totalCarb_g,
-      fat_g: acc.fat_g + e.totalFat_g,
-      fiber_g: acc.fiber_g + entryFiber_g(e),
-      entries: [...acc.entries, e],
-    }),
-    { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0, fiber_g: 0, entries: [] as FoodEntry[] }
-  );
+  let kcal = 0;
+  let protein_g = 0;
+  let carb_g = 0;
+  let fat_g = 0;
+  let fiber_g = 0;
+  for (const e of entries) {
+    kcal += e.totalKcal;
+    protein_g += e.totalProtein_g;
+    carb_g += e.totalCarb_g;
+    fat_g += e.totalFat_g;
+    fiber_g += entryFiber_g(e);
+  }
+  return { kcal, protein_g, carb_g, fat_g, fiber_g, entries };
 }
 
 export async function getTodayMacros(): Promise<DailyMacros> {
