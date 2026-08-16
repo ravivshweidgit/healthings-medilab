@@ -1,0 +1,98 @@
+{
+  "id": "18-the-gap",
+  "title": "The gap — Swiss picture",
+  "audience": "brand / clinic / investor — report handoff → plan → navigator → markers",
+  "export_dir": "018-the-gap",
+  "vo_lang": "en",
+  "voice": "daniel",
+  "subs_lang": "en",
+  "subs_style": "film",
+  "preroll": 5.0,
+  "tail": 8.0,
+  "outro_fade": 2.5,
+  "cards": "dark",
+  "crf": 16,
+  "note": "017 picture lock. Bed: Vivaldi @ 0.12. Arc: gap → clinic plan → Healthings navigator → chol/glucose dials → clinic sees week. No Waze brand; no 'numbers honest'.",
+  "segments": [
+    {
+      "en": "The clinic visit ends with a report.",
+      "he": "הביקור בקליניקה נגמר בדוח.",
+      "shot": { "type": "art", "file": "vo-clinic-labs-plan-slate.jpg" }
+    },
+    {
+      "en": "Clear direction. Written carefully.",
+      "he": "כיוון ברור. כתוב בקפידה.",
+      "shot": { "type": "art", "file": "clinic-portal-dark-16x9.jpg" }
+    },
+    {
+      "en": "Then you go home to execute it — alone.",
+      "he": "ואז חוזרים הביתה לבצע — לבד.",
+      "shot": { "type": "art", "file": "swiss-food.jpg" }
+    },
+    {
+      "en": "Who supports the Tuesday meal? A Facebook group. A search. A guess.",
+      "he": "מי תומך בארוחת יום שלישי? קבוצת פייסבוק. חיפוש. ניחוש.",
+      "shot": { "type": "art", "file": "loop-disconnected-dark.png" }
+    },
+    {
+      "en": "That is the gap.",
+      "he": "זה הפער.",
+      "shot": { "type": "art", "file": "loop-disconnected-dark.png" }
+    },
+    {
+      "en": "Healthings closes it.",
+      "he": "Healthings סוגר אותו.",
+      "shot": { "type": "art", "file": "loop-video-dark.png" }
+    },
+    {
+      "en": "The clinic sets the metabolic plan.",
+      "he": "הקליניקה קובעת את התוכנית המטבולית.",
+      "shot": { "type": "art", "file": "vo-clinic-labs-plan-slate.jpg" }
+    },
+    {
+      "en": "Healthings is the daily navigator.",
+      "he": "Healthings הוא הנווט היומי.",
+      "shot": { "type": "phone", "file": "a4-rules-meters-dark.jpg" }
+    },
+    {
+      "en": "Saturated fat and soluble fiber for cholesterol.",
+      "he": "שומן רווי וסיבים מסיסים לכולסטרול.",
+      "shot": { "type": "phone", "file": "a4-rules-meters-dark.jpg" }
+    },
+    {
+      "en": "Added sugar when glucose is the fight.",
+      "he": "סוכר מוסף כשהמאבק הוא סוכר.",
+      "shot": { "type": "phone", "file": "a14-food-log-dark-meters.jpg" }
+    },
+    {
+      "en": "Every meal is checked against that destination.",
+      "he": "כל ארוחה נבדקת מול היעד הזה.",
+      "shot": { "type": "phone", "file": "a14-food-log-dark-meters.jpg" }
+    },
+    {
+      "en": "Scale, CGM, and labs show what's actually happening.",
+      "he": "משקל, CGM ובדיקות מראים מה שבאמת קורה.",
+      "shot": { "type": "art", "file": "vo-scale-watch-cgm-slate.jpg" }
+    },
+    {
+      "en": "The clinic sees the real week — and adjusts.",
+      "he": "הקליניקה רואה את השבוע האמיתי — ומתאימה.",
+      "shot": { "type": "art", "file": "vo-clinic-sees-week-slate.jpg" }
+    },
+    {
+      "en": "Not another report that sits in a PDF.",
+      "he": "לא עוד דוח שנשאר ב־PDF.",
+      "shot": { "type": "art", "file": "clinic-portal-dark-16x9.jpg" }
+    },
+    {
+      "en": "One loop: directs, executes, measures, closes.",
+      "he": "לולאה אחת: מכוונים · מבצעים · מודדים · סוגרים.",
+      "shot": { "type": "art", "file": "loop-video-dark-roles.png" }
+    },
+    {
+      "en": "Healthings.",
+      "he": "Healthings.",
+      "shot": { "type": "art", "file": "vo-clinic-close-slate.jpg" }
+    }
+  ]
+}

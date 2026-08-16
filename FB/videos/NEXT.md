@@ -19,6 +19,7 @@ Seven finished films render end-to-end from a spec. Exports are numbered:
 | 011 | `assets/exports/011-cgm-pipeline/` | `11-cgm-pipeline-en-subhe-9x16.mp4` (~41s) |
 | 012 | `assets/exports/012-scale-trends/` | `12-scale-trends-en-subhe-9x16.mp4` (~31s) |
 | 013 | `assets/exports/013-scale-choice/` | `13-scale-choice-en-subhe-9x16.mp4` (~27s) |
+| 018 | `assets/exports/018-the-gap/` | `18-the-gap-en-suben-16x9.mp4` (~65s) — gap → plan → navigator → markers; Vivaldi |
 
 **German catalog (Tier 1 full):** Matilda spoken **DE** + **burned DE subs** (`*-de-subde-9x16.mp4`) for films 01–12 — same-language captions for hearing accessibility. EN masters keep HE burns.
 
