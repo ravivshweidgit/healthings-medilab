@@ -17,16 +17,17 @@ the ESTIMATE HARD prompt treated everything beyond macros as unstored.
 
 | Piece | Change |
 |-------|--------|
-| `geminiClinic.ts` food format | Item + meal + **day** lines include **all** logged treatment-marker amounts (`SatF`, `Chol`, `SolFi`, …) |
+| `geminiClinic.ts` food format | Item + meal + **day** lines include **all** logged treatment-marker amounts |
 | Day total | Same resolve as phone: sum item markers, else meal.markers |
-| Clinic ESTIMATE HARD | **Any** clinic treatment-marker amount in the Food log = USER DATA; never estimate / re-ask |
+| Clinic HARD | Default cite logged day totals; **estimate OK when staff ask**; **rely on daily macros/markers OK when staff ask** — do not volunteer food-detail estimates instead of present totals |
 | Targets | HARD daily targets from clinic overlay (+ phone snapshot fallback) in PATIENT DATA |
 
 ## Acceptance
 
-- [ ] Clinic chat food block shows marker bits on days that have logged amounts (any clinic-set code)
-- [ ] Mentor cites those day totals — no "הערכה מפירוט מזונות" when present
-- [ ] Days without that marker omit it (honest gap; estimate only then if asked)
+- [ ] Clinic chat food block shows marker bits on days that have logged amounts
+- [ ] Default answer cites logged day totals (no unsolicited "הערכה מפירוט")
+- [ ] Explicit "estimate from foods" → estimate labeled as such
+- [ ] Explicit "use the daily logged SatF/markers" → uses USER DATA totals
 
 ## Deploy
 
