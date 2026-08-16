@@ -153,6 +153,18 @@ export function sumMarkerAmounts(parts: MarkerAmounts[]): MarkerAmounts {
   return out;
 }
 
+/** Scale marker amounts with portion (Edit Item grams slider). */
+export function scaleMarkerAmounts(amounts: MarkerAmounts, ratio: number): MarkerAmounts {
+  if (!Number.isFinite(ratio) || ratio <= 0) return {};
+  const out: MarkerAmounts = {};
+  for (const code of DIET_MARKER_CODES) {
+    const v = amounts[code];
+    if (v == null || !Number.isFinite(v)) continue;
+    out[code] = Math.round(v * ratio * 10) / 10;
+  }
+  return out;
+}
+
 export function extractMarkersFromFoodItem(
   it: Record<string, unknown>,
   active: DietMarkerCode[],
@@ -219,7 +231,8 @@ export function mealMarkerSchemaHint(markers: TreatmentMarker[]): string {
   });
   return (
     `Also estimate per item (same units): ${fields.join(', ')}. ` +
-    'These are estimates for treatment monitoring — best effort from the meal description/photo.'
+    'These are absolute estimates for THAT item only (treatment monitoring) — best effort from the meal description/photo. ' +
+    'Do NOT put remaining daily budget or day totals in these fields; the app sums all of today\'s meals itself.'
   );
 }
 

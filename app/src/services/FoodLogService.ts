@@ -43,6 +43,13 @@ export function entryFiber_g(entry: FoodEntry): number {
 }
 
 /** Sum treatment markers for a day — missing entry/item markers count as unknown, not zero. */
+export function resolveEntryMarkers(entry: FoodEntry): MarkerAmounts {
+  const fromItems = sumMarkerAmounts(entry.items.map((it) => it.markers ?? {}));
+  if (Object.keys(fromItems).length > 0) return fromItems;
+  if (entry.markers && Object.keys(entry.markers).length > 0) return entry.markers;
+  return {};
+}
+
 export function dayMarkerTotals(
   entries: FoodEntry[],
   codes: DietMarkerCode[],
@@ -50,18 +57,10 @@ export function dayMarkerTotals(
   const parts: MarkerAmounts[] = [];
   let hasAny = false;
   for (const e of entries) {
-    if (e.markers && Object.keys(e.markers).length > 0) {
-      parts.push(e.markers);
-      hasAny = true;
-      continue;
-    }
-    const fromItems = sumMarkerAmounts(
-      e.items.map((it) => it.markers ?? {}).filter((m) => Object.keys(m).length > 0),
-    );
-    if (Object.keys(fromItems).length > 0) {
-      parts.push(fromItems);
-      hasAny = true;
-    }
+    const resolved = resolveEntryMarkers(e);
+    if (Object.keys(resolved).length === 0) continue;
+    parts.push(resolved);
+    hasAny = true;
   }
   const summed = sumMarkerAmounts(parts);
   const totals: MarkerAmounts = {};
@@ -72,8 +71,7 @@ export function dayMarkerTotals(
 }
 
 export function entryMarkerTotals(entry: FoodEntry): MarkerAmounts {
-  if (entry.markers && Object.keys(entry.markers).length > 0) return entry.markers;
-  return sumMarkerAmounts(entry.items.map((it) => it.markers ?? {}));
+  return resolveEntryMarkers(entry);
 }
 
 const KEY_INDEX = 'food_log_days';
@@ -197,6 +195,31 @@ export async function saveMeal(entry: Omit<FoodEntry, 'id'> & { id?: string }): 
   const saved: FoodEntry = { ...entry, id: entry.id ?? makeId() };
   const meals = await getMealsForDay(dk);
   const idx = meals.findIndex((m) => m.id === saved.id);
+
+  // Prefer item-level estimates; never blank an existing meal's markers when Gemini omitted them.
+  let markers = entryMarkerTotals(saved);
+  if (Object.keys(markers).length === 0 && idx >= 0) {
+    const prev = meals[idx]!;
+    const prevMarkers = entryMarkerTotals(prev);
+    if (Object.keys(prevMarkers).length > 0) {
+      markers = prevMarkers;
+      saved.items = saved.items.map((it, i) => {
+        const prevItem = prev.items[i];
+        if (it.markers && Object.keys(it.markers).length > 0) return it;
+        if (prevItem?.markers && Object.keys(prevItem.markers).length > 0) {
+          return { ...it, markers: prevItem.markers };
+        }
+        return it;
+      });
+      markers = entryMarkerTotals(saved);
+    }
+  }
+  if (Object.keys(markers).length > 0) {
+    saved.markers = markers;
+  } else {
+    delete saved.markers;
+  }
+
   if (idx >= 0) {
     meals[idx] = saved;
   } else {

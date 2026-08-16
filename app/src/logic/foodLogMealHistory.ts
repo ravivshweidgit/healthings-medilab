@@ -90,9 +90,16 @@ function formatMealBlock(entry: FoodEntry, index: number): string[] {
   );
   for (const item of entry.items) {
     const name = itemLabel(item);
-    lines.push(
-      `    • ${name}: ${Math.round(item.grams)}g, ${Math.round(item.kcal)} kcal, P${item.protein_g}g C${item.carb_g}g F${item.fat_g}g Fi${item.fiber_g ?? 0}g`,
-    );
+    let line =
+      `    • ${name}: ${Math.round(item.grams)}g, ${Math.round(item.kcal)} kcal, P${item.protein_g}g C${item.carb_g}g F${item.fat_g}g Fi${item.fiber_g ?? 0}g`;
+    const marks = item.markers;
+    if (marks && Object.keys(marks).length > 0) {
+      const bits = Object.entries(marks)
+        .filter(([, v]) => v != null && Number.isFinite(v))
+        .map(([k, v]) => `${k}:${v}`);
+      if (bits.length) line += ` | ${bits.join(' ')}`;
+    }
+    lines.push(line);
   }
   return lines;
 }
@@ -121,7 +128,7 @@ export function formatFoodLogHistoryForMealAi(
   const lookback = opts?.lookbackDays ?? 14;
   const lines = [
     `FOOD LOG HISTORY (last ${lookback} days — use to resolve references like "last evening", "yesterday", "usual shake", "same chicken meal"):`,
-    'When the user references a past meal, COPY items (name, name_local, grams, kcal, macros) from the matching entry unless they specify a change.',
+    'When the user references a past meal, COPY items (name, name_local, grams, kcal, macros, and any sat_fat_g / marker fields) from the matching entry unless they specify a change.',
     'Match by: time phrases (evening/morning/yesterday), food names, or FREQUENT MEALS below.',
     '',
   ];

@@ -34,6 +34,8 @@ import {
   type GeminiTurn,
 } from '../services/GeminiService';
 import { saveMeal, deleteMeal, foodLogDayKey, getDailyMacros, getRecentMeals, getMealsForDay, entryMarkerTotals, type FoodEntry } from '../services/FoodLogService';
+import { fillMissingMarkersForDay } from '../services/MarkersBackfillService';
+import { scaleMarkerAmounts } from '../services/TreatmentMarkerService';
 import { logMethodTiming, PERF_WARN_AI_MS, PERF_WARN_MEAL_MS, timeAsync } from '../services/AppDailyLogService';
 import { formatLocalizedDate, formatLocalizedTime, formatFoodLogDayLabel } from '../i18n/dateLocale';
 import { getFoodLogAlertCopy } from '../i18n/foodLogAlertCopy';
@@ -797,6 +799,12 @@ export function FoodLogModal({
             ...(Object.keys(markers).length > 0 ? { markers } : {}),
             source: opts.fromPhoto ? 'camera-ai' : opts.historyLen > 0 ? 'text-ai' : 'manual',
           });
+          // Fill any of today's meals still missing SatF/etc. so the meter sums the whole day.
+          try {
+            await fillMissingMarkersForDay(foodLogDayKey(saved.timestamp));
+          } catch {
+            /* credits / network — keep the meal; meter may undercount until next save */
+          }
           if (opts.stayOpen) {
             setEditingId(saved.id);
             setItems(saved.items);
@@ -1281,11 +1289,14 @@ export function FoodLogModal({
       const next = [...prev];
       const cur = next[editItemIndex];
       if (!cur) return prev;
-      next[editItemIndex] = {
+      const newGrams = Math.max(0, Math.round(parseNum(editDraft.grams)));
+      const oldGrams = cur.grams > 0 ? cur.grams : 0;
+      const markerRatio = oldGrams > 0 ? newGrams / oldGrams : 1;
+      const updated: FoodItem = {
         ...cur,
         name: cur.name || name,
         name_local: name,
-        grams: Math.max(0, Math.round(parseNum(editDraft.grams))),
+        grams: newGrams,
         kcal: Math.max(0, Math.round(parseNum(editDraft.kcal))),
         protein_g: Math.round(parseNum(editDraft.protein_g) * 10) / 10,
         carb_g: Math.round(parseNum(editDraft.carb_g) * 10) / 10,
@@ -1294,6 +1305,12 @@ export function FoodLogModal({
         rule_conflict: false,
         rule_message: '',
       };
+      if (cur.markers && Object.keys(cur.markers).length > 0) {
+        const scaled = scaleMarkerAmounts(cur.markers, markerRatio);
+        if (Object.keys(scaled).length > 0) updated.markers = scaled;
+        else delete updated.markers;
+      }
+      next[editItemIndex] = updated;
       return next;
     });
     setOverrideSaveOnce(false);

@@ -37,6 +37,36 @@ function entryNeedsMarkers(entry: FoodEntry, codes: DietMarkerCode[]): boolean {
   return codes.some((c) => have[c] == null);
 }
 
+/**
+ * After a meal save: estimate any of today's meals still missing clinic markers
+ * so SatF (etc.) meters sum the whole day, not only the latest AI meal.
+ */
+export async function fillMissingMarkersForDay(dayKey: string): Promise<number> {
+  const treat = await loadTreatmentMarkers();
+  const markers: TreatmentMarker[] = treat?.markers ?? [];
+  if (!markers.length) return 0;
+
+  const codes = markers.map((m) => m.marker);
+  const meals = await getMealsForDay(dayKey);
+  const need = meals.filter((e) => entryNeedsMarkers(e, codes));
+  if (!need.length) return 0;
+
+  const estimated = await estimateMarkersForSavedMeals(
+    need.map((e) => ({ id: e.id, items: e.items })),
+    markers,
+  );
+  let updated = 0;
+  for (const entry of need) {
+    const updatedItems = estimated.get(entry.id);
+    if (!updatedItems?.length) continue;
+    const next: FoodEntry = { ...entry, items: updatedItems };
+    next.markers = entryMarkerTotals(next);
+    await saveMeal(next);
+    updated += 1;
+  }
+  return updated;
+}
+
 function groupMealsByDay(entries: FoodEntry[]): Map<string, FoodEntry[]> {
   const byDay = new Map<string, FoodEntry[]>();
   for (const e of entries) {

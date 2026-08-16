@@ -150,7 +150,7 @@ export function buildFoodSystemPrompt(
   if (foodLogHistory?.trim()) {
     prompt += `\n\n${foodLogHistory.trim()}`;
     prompt += `\n\nFOOD HISTORY RULES:
-- When the user references a past meal ("last evening", "yesterday", "usual", "same as", "my regular shake", "הוסף את השייק מאתמול", "אותה ארוחת עוף"): copy items from FOOD LOG HISTORY — same name, name_local, grams, kcal, and macros unless they specify a change.
+- When the user references a past meal ("last evening", "yesterday", "usual", "same as", "my regular shake", "הוסף את השייק מאתמול", "אותה ארוחת עוף"): copy items from FOOD LOG HISTORY — same name, name_local, grams, kcal, macros, and marker fields (e.g. sat_fat_g) unless they specify a change.
 - Prefer the closest match by time + food names; use FREQUENT MEALS for "usual" / "regular".
 - In "description", cite which history meal you matched (date/time or frequent label).
 - If no match: best estimate from text; confidence "low".
@@ -665,8 +665,12 @@ RULES:
 - When USER DIETARY RULES are provided: evaluate EACH item line — set rule_conflict true only if THAT item violates rules (not because the meal lacks something). Read name_local carefully (e.g. plant protein מהצומח vs whey מי גבינה). rule_message = one short sentence why (attention wording, not "forbidden", unless rules are absolute). rule_severity = "warning" (count toward totals / moderation) or "critical" (hard ban / allergen). Otherwise rule_conflict false, rule_severity "", and rule_message "".`;
 
 /** History seed when editing a saved meal — includes language-aware system prompt. */
-export function seedMealEditHistory(entry: { items: FoodItem[] }, lang?: UserLanguage | null): GeminiTurn[] {
-  const systemPrompt = buildFoodSystemPrompt(lang);
+export function seedMealEditHistory(
+  entry: { items: FoodItem[] },
+  lang?: UserLanguage | null,
+  treatmentMarkers?: TreatmentMarker[] | null,
+): GeminiTurn[] {
+  const systemPrompt = buildFoodSystemPrompt(lang, null, null, treatmentMarkers);
   const seedJson = JSON.stringify({
     items: entry.items,
     confidence: 'high',
@@ -856,6 +860,11 @@ export async function analyzeFood(
   const userTextWithLang = (() => {
     let text = langTail && history.length > 0 ? `${effectiveText}${langTail}` : effectiveText;
     if (rulesTail) text += rulesTail;
+    // Corrections reuse prior turns without the system prompt — re-assert marker fields
+    // so Gemini does not omit sat_fat_g and wipe the meal's treatment totals on save.
+    if (treatmentMarkers.length > 0 && history.length > 0) {
+      text += `\n\n${mealMarkerSchemaHint(treatmentMarkers)}`;
+    }
     return text;
   })();
 
