@@ -4,6 +4,8 @@ Implemented prompt specs in this range after they ship (phone-tested or explicit
 
 Open / backlog for this range: [`../README.md`](../README.md)
 
+**prompt112** — done (2026-08-16). Lab PDF: identify HMO → confirm → Meuhedet layout pack; Clalit/Maccabi skip confirm when high confidence. Meuhedet phone-tested. Country-scoped packs → prompt113. See [`prompt112.txt`](./prompt112.txt).
+
 **prompt111** — done (2026-08-14). Quick Start Michal redesign: teal palette, coach step, crop icons, localized in-plate gear captions, flat meals list + camera on plate. Owner accepted on Android. See [`prompt111.txt`](./prompt111.txt).
 
 **prompt109** — done (2026-08-12). Fluid AI Help: answer chips → exclusive `focusStrip` (Help stays open); Lab Results + lipids expand. Phone-tested. UX score 71→74 / 74→77. See [`prompt109.txt`](./prompt109.txt).

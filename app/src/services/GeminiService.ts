@@ -25,7 +25,13 @@ import {
   type UserLanguage,
   type Gender,
 } from './TargetService';
-import type { ParsedLabPdf, LabPanelType, LabResult, LabResultFlag } from './LabLogService';
+import type {
+  ParsedLabPdf,
+  LabPanelType,
+  LabProvider,
+  LabResult,
+  LabResultFlag,
+} from './LabLogService';
 import type { TimePoint } from './HealthConnectService';
 import type { UnitsPrefs } from './UnitsPreferenceService';
 import {
@@ -1448,6 +1454,130 @@ export type LabPdfParseResult = {
   confidence: 'high' | 'low';
 };
 
+export type LabProviderIdentifyResult = {
+  labProvider: LabProvider;
+  confidence: 'high' | 'low';
+};
+
+const LAB_PROVIDERS = new Set<LabProvider>(['clalit', 'meuhedet', 'maccabi', 'leumit', 'unknown']);
+
+function normalizeLabProvider(raw: unknown): LabProvider {
+  const p = String(raw ?? '').toLowerCase().trim();
+  return LAB_PROVIDERS.has(p as LabProvider) ? (p as LabProvider) : 'unknown';
+}
+
+/** Meuhedet gauge pack — Pass 2 when user confirmed Meuhedet (prompt112). */
+const MEUHEDDET_LAYOUT_PACK = `
+MEUHEDDET GAUGE LAYOUT — HARD (this PDF is Meuhedet):
+Each test is a horizontal ruler/slider/scale.
+• LEFT end number = refLow ONLY. RIGHT end number (+ unit) = refHigh ONLY.
+• RESULT = the number at the vertical marker, almost always printed ABOVE the scale (often blue/bold).
+• HARD EXAMPLE: TSH scale ends 0.35 … 4.94 µIU/mL with marker label 3.64 above → value=3.64, refLow=0.35, refHigh=4.94, flag=normal. Writing value:0.35 or 4.94 is WRONG.
+• HARD RULE: value MUST NOT equal refLow or refHigh. If it would, you grabbed a bound — find the marker number above the scale.
+• Self-check: value < refLow → flag low; value > refHigh → high; else normal. If printed "low" disagrees with this math, re-read value vs bounds.
+`;
+
+const LAB_PARSE_BASE_RULES = `Rules:
+- Extract EVERY numeric test row; do not invent tests not in the PDF.
+- **Values are sacred:** copy each number EXACTLY as printed (digits and decimal point). Never round, estimate, or invent. If unreadable, skip that row.
+- **\`refLow\` / \`refHigh\`:** always fill when the report prints a range (scale ends or norm column).
+- **Self-check:** value < refLow → flag low; value > refHigh → high; else normal. If flag text (e.g. "low") disagrees with this math, you mixed value and bound — re-read.
+- **\`name\` is ALWAYS canonical clinical English** (e.g. "Glucose", "TSH") — never Hebrew/Russian/app language. Clinicians read this JSON worldwide.
+- **\`nameOriginal\` = verbatim PDF label** (any language).
+- Specimen date/time → ISO 8601 with local offset.
+- panelType: "chemistry", "cbc", or "other".
+- **Canonical \`code\` when present:** CREATININE, UREA (or BUN), CHOLESTEROL_LDL, CHOLESTEROL, CHOLESTEROL_HDL, TRIGLYCERIDES, GLUCOSE, HBA1C, TSH. Map any-language labels to these codes — the app matches codes only.
+- Other tests: spaces/hyphens → underscore, UPPERCASE.
+- flag: "high", "low", "normal", or "unknown".
+- Skip non-numeric QC rows (HEMOLYTIC, LIPEMIC, ICTERIC) — put text in panelNote if needed.
+- referenceText stays verbatim when present.
+- labProvider: "clalit" (כללית), "meuhedet" (מאוחדת), "maccabi" (מכבי), "leumit" (לאומית), else "unknown".`;
+
+const LAB_PARSE_DEFAULT_LAYOUT = `
+DEFAULT / CLALIT / MACCABI / LEUMIT LAYOUT HINTS:
+- **GAUGE / SCALE (if present):** LEFT = refLow, RIGHT = refHigh; RESULT = marker ABOVE the scale. value MUST NOT equal refLow or refHigh.
+- Plain tables: value in its own column; range like "0.35 - 4.94" → refLow/refHigh.
+- HARD example (gauge): TSH ends 0.35 … 4.94, marker 3.64 → value=3.64 (never 0.35).
+`;
+
+function buildLabParsePrompt(provider: LabProvider): string {
+  const layout =
+    provider === 'meuhedet' ? MEUHEDDET_LAYOUT_PACK : LAB_PARSE_DEFAULT_LAYOUT;
+  const providerHint =
+    provider === 'unknown'
+      ? 'Provider not confirmed — apply the layout that matches the PDF.'
+      : `Confirmed lab provider for this PDF: ${provider}. Prefer that HMO's layout.`;
+  return `You are a medical lab report parser. Extract structured data from this PDF lab printout.
+
+${providerHint}
+
+Output JSON only, no markdown:
+{"labProvider":"${provider === 'unknown' ? 'clalit' : provider}","patientName":"...","patientId":"...","collectedAt":"2026-06-16T10:10:00+03:00","printedAt":"2026-06-16T15:52:00+03:00","panelType":"chemistry","panelNote":null,"results":[{"code":"TSH","name":"TSH","nameOriginal":"TSH","value":3.64,"unit":"µIU/mL","flag":"normal","refLow":0.35,"refHigh":4.94,"referenceText":null}]}
+
+${layout}
+
+${LAB_PARSE_BASE_RULES}`;
+}
+
+/**
+ * Pass 1 (prompt112) — identify HMO only; no result extraction.
+ */
+export async function identifyLabPdfProvider(
+  pdfBase64: string,
+  useMock = false,
+): Promise<LabProviderIdentifyResult> {
+  if (useMock || MOCK_MODE) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { labProvider: 'clalit', confidence: 'high' };
+  }
+
+  await assertCanSpendCredits('ai_lab');
+
+  const prompt = `Identify which Israeli HMO / lab portal printed this PDF. Do NOT extract test results.
+
+Return JSON only:
+{"labProvider":"meuhedet","confidence":"high"}
+
+labProvider must be one of: clalit, meuhedet, maccabi, leumit, unknown.
+Hints:
+- כללית / Clalit / clalit.co.il / "רפואי אישי" Clalit online → clalit
+- מאוחדת / Meuhedet / gauge/slider scales with marker above → meuhedet
+- מכבי / Maccabi → maccabi
+- לאומית / Leumit → leumit
+confidence "high" when branding or layout is clear; "low" when unsure → still pick best guess or unknown.`;
+
+  const body = {
+    contents: [{
+      role: 'user',
+      parts: [
+        { inline_data: { mime_type: 'application/pdf', data: pdfBase64 } },
+        { text: prompt },
+      ],
+    }],
+    generationConfig: geminiGenerationConfig({ temperature: 0, maxOutputTokens: 256 }),
+  };
+
+  const response = await geminiGenerate('ai_lab', body);
+  if (!response.ok) {
+    const err = await response.text().catch(() => '');
+    throw new Error(`Gemini lab identify error ${response.status}: ${err.slice(0, 200)}`);
+  }
+  const json = await response.json();
+  const raw: string = extractGeminiText(json?.candidates?.[0]);
+  if (!raw) return { labProvider: 'unknown', confidence: 'low' };
+  const stripped = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  const start = stripped.indexOf('{');
+  const end = stripped.lastIndexOf('}');
+  const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+  try {
+    const data = JSON.parse(cleaned) as { labProvider?: string; confidence?: string };
+    const confidence = data.confidence === 'high' ? 'high' : 'low';
+    return { labProvider: normalizeLabProvider(data.labProvider), confidence };
+  } catch {
+    return { labProvider: 'unknown', confidence: 'low' };
+  }
+}
+
 const LAB_PARSE_MOCK: ParsedLabPdf = {
   labProvider: 'clalit',
   patientName: 'רביב שוויד',
@@ -1616,44 +1746,22 @@ Rules:
  * Lab PDF → structured rows. Data parse, NOT a chat reply: output is canonical
  * English regardless of app language (prompt99 — a Russian-app import painted
  * the clinic portal with Russian test names the clinician couldn't read).
+ *
+ * prompt112: pass confirmed `provider` so Meuhedet gets the gauge layout pack.
  */
 export async function parseLabReportPdf(
   pdfBase64: string,
   _lang?: UserLanguage | null,
   useMock = false,
+  opts?: { provider?: LabProvider },
 ): Promise<LabPdfParseResult> {
   if (useMock || MOCK_MODE) {
     await new Promise((r) => setTimeout(r, 600));
     return { parsed: LAB_PARSE_MOCK, confidence: 'high' };
   }
 
-  const prompt = `You are a medical lab report parser. Extract structured data from this PDF lab printout (any provider, any language — Israeli HMO formats like Clalit, Meuhedet, Maccabi, Leumit are common).
-
-Output JSON only, no markdown:
-{"labProvider":"meuhedet","patientName":"...","patientId":"...","collectedAt":"2026-06-16T10:10:00+03:00","printedAt":"2026-06-16T15:52:00+03:00","panelType":"chemistry","panelNote":null,"results":[{"code":"TSH","name":"TSH","nameOriginal":"TSH","value":3.64,"unit":"µIU/mL","flag":"normal","refLow":0.35,"refHigh":4.94,"referenceText":null}]}
-
-Rules:
-- Extract EVERY numeric test row; do not invent tests not in the PDF.
-- **Values are sacred:** copy each number EXACTLY as printed (digits and decimal point). Never round, estimate, or invent. If unreadable, skip that row.
-- **GAUGE / SCALE LAYOUTS (Meuhedet and similar) — HARD:**
-  Each test is often a horizontal ruler/slider.
-  • LEFT end number = refLow only. RIGHT end number (+ unit) = refHigh only.
-  • RESULT = the number at the vertical marker, almost always printed ABOVE the scale (blue/bold).
-  • HARD EXAMPLE that must not be misread: TSH with scale ends 0.35 and 4.94 µIU/mL and marker label 3.64 above → {"value":3.64,"refLow":0.35,"refHigh":4.94,"flag":"normal"}. Writing value:0.35 is WRONG.
-  • HARD RULE: \`value\` MUST NOT equal \`refLow\` or \`refHigh\`. If it does, you grabbed a bound — look again for the marker number above the scale.
-  Plain table layouts (Clalit): value is its own column; range is a separate "norm" cell like "0.35 - 4.94".
-- **\`refLow\` / \`refHigh\`:** always fill when the report prints a range (scale ends or norm column).
-- **Self-check:** value < refLow → flag low; value > refHigh → high; else normal. If flag text (e.g. "low") disagrees with this math, you mixed value and bound — re-read.
-- **\`name\` is ALWAYS canonical clinical English** (e.g. "Glucose", "TSH") — never Hebrew/Russian/app language. Clinicians read this JSON worldwide.
-- **\`nameOriginal\` = verbatim PDF label** (any language).
-- Specimen date/time → ISO 8601 with local offset.
-- panelType: "chemistry", "cbc", or "other".
-- **Canonical \`code\` when present:** CREATININE, UREA (or BUN), CHOLESTEROL_LDL, CHOLESTEROL, CHOLESTEROL_HDL, TRIGLYCERIDES, GLUCOSE, HBA1C, TSH. Map any-language labels to these codes — the app matches codes only.
-- Other tests: spaces/hyphens → underscore, UPPERCASE.
-- flag: "high", "low", "normal", or "unknown".
-- Skip non-numeric QC rows (HEMOLYTIC, LIPEMIC, ICTERIC) — put text in panelNote if needed.
-- referenceText stays verbatim when present.
-- labProvider: "clalit" (כללית), "meuhedet" (מאוחדת), "maccabi" (מכבי), "leumit" (לאומית), else "unknown".`;
+  const provider = opts?.provider ?? 'unknown';
+  const prompt = buildLabParsePrompt(provider);
 
   const body = {
     contents: [{
@@ -1695,12 +1803,9 @@ Rules:
   // Meuhedet gauges: first pass often sets value=refLow; repair those rows.
   results = await repairGaugeBoundCollisions(pdfBase64, results);
 
-  const knownProviders = new Set(['clalit', 'meuhedet', 'maccabi', 'leumit']);
-  const providerRaw = String(data.labProvider ?? '').toLowerCase();
+  const providerRaw = String(data.labProvider ?? provider).toLowerCase();
   const parsed: ParsedLabPdf = {
-    labProvider: knownProviders.has(providerRaw)
-      ? (providerRaw as ParsedLabPdf['labProvider'])
-      : 'unknown',
+    labProvider: normalizeLabProvider(provider !== 'unknown' ? provider : providerRaw),
     patientName: data.patientName != null ? String(data.patientName) : undefined,
     patientId: data.patientId != null ? String(data.patientId) : undefined,
     collectedAt: String(data.collectedAt ?? new Date().toISOString()),

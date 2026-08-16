@@ -17,13 +17,14 @@ import {
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { parseLabReportPdf } from '../services/GeminiService';
+import { identifyLabPdfProvider, parseLabReportPdf } from '../services/GeminiService';
 import {
   deleteLabReport,
   readPdfBase64FromUri,
   saveParsedLabPanel,
   updateLabReport,
   type LabPanel,
+  type LabProvider,
   type LabReport,
   type LabResult,
   type ParsedLabPdf,
@@ -52,11 +53,26 @@ function flagColor(flag: LabResult['flag'], fallback: string): string {
   return fallback;
 }
 
-type LoadingPhase = 'parse' | 'save' | null;
+type LoadingPhase = 'identify' | 'parse' | 'save' | null;
 
 function bottomInset(insetsBottom: number): number {
   if (insetsBottom > 0) return insetsBottom;
   return Platform.OS === 'android' ? 48 : 16;
+}
+
+function providerLabel(provider: LabProvider, copy: ReturnType<typeof getLabResultsStripCopy>): string {
+  switch (provider) {
+    case 'clalit':
+      return copy.providerClalit;
+    case 'meuhedet':
+      return copy.providerMeuhedet;
+    case 'maccabi':
+      return copy.providerMaccabi;
+    case 'leumit':
+      return copy.providerLeumit;
+    default:
+      return copy.providerNotSure;
+  }
 }
 
 export function LabReportModal({
@@ -76,6 +92,9 @@ export function LabReportModal({
   const [draft, setDraft] = useState<ParsedLabPdf | null>(null);
   const [editingReport, setEditingReport] = useState<LabReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** PDF bytes waiting for HMO confirm (prompt112). */
+  const [pendingPdfBase64, setPendingPdfBase64] = useState<string | null>(null);
+  const [suggestedProvider, setSuggestedProvider] = useState<LabProvider>('unknown');
   const autoPickStartedRef = useRef(false);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
   const copy = getLabResultsStripCopy(lang?.code);
@@ -86,6 +105,8 @@ export function LabReportModal({
     setEditingReport(null);
     setError(null);
     setLoadingPhase(null);
+    setPendingPdfBase64(null);
+    setSuggestedProvider('unknown');
     autoPickStartedRef.current = false;
   }, []);
 
@@ -97,8 +118,31 @@ export function LabReportModal({
     if (visible && viewReport) {
       setEditingReport(JSON.parse(JSON.stringify(viewReport)) as LabReport);
       setDraft(null);
+      setPendingPdfBase64(null);
     }
   }, [visible, viewReport]);
+
+  const runParseWithProvider = useCallback(
+    async (base64: string, provider: LabProvider) => {
+      setPendingPdfBase64(null);
+      setLoadingPhase('parse');
+      try {
+        const { parsed } = await parseLabReportPdf(base64, lang, false, { provider });
+        setDraft(parsed);
+        setEditingReport(null);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Could not read PDF';
+        setError(msg);
+        if (autoPickPdf) {
+          Alert.alert(rtl ? 'שגיאה' : 'Error', msg);
+          onClose();
+        }
+      } finally {
+        setLoadingPhase(null);
+      }
+    },
+    [autoPickPdf, lang, onClose, rtl],
+  );
 
   const pickAndParse = useCallback(async () => {
     setError(null);
@@ -110,34 +154,51 @@ export function LabReportModal({
       if (autoPickPdf) onClose();
       return;
     }
-    setLoadingPhase('parse');
+    setLoadingPhase('identify');
     try {
       const base64 = await readPdfBase64FromUri(result.assets[0].uri);
-      const { parsed } = await parseLabReportPdf(base64, lang);
-      setDraft(parsed);
-      setEditingReport(null);
+      const id = await identifyLabPdfProvider(base64);
+      // Clalit / Maccabi / Leumit with high confidence: skip confirm (owner — Meuhedet is the hard case).
+      const skipConfirm =
+        id.confidence === 'high' &&
+        (id.labProvider === 'clalit' ||
+          id.labProvider === 'maccabi' ||
+          id.labProvider === 'leumit');
+      if (skipConfirm) {
+        await runParseWithProvider(base64, id.labProvider);
+        return;
+      }
+      setSuggestedProvider(id.labProvider);
+      setPendingPdfBase64(base64);
+      setLoadingPhase(null);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Could not read PDF';
       setError(msg);
+      setLoadingPhase(null);
       if (autoPickPdf) {
         Alert.alert(rtl ? 'שגיאה' : 'Error', msg);
         onClose();
       }
-    } finally {
-      setLoadingPhase(null);
     }
-  }, [autoPickPdf, lang, onClose, rtl]);
+  }, [autoPickPdf, onClose, rtl, runParseWithProvider]);
 
   useEffect(() => {
     if (!visible) {
       autoPickStartedRef.current = false;
       return;
     }
-    if (autoPickPdf && !autoPickStartedRef.current && !draft && !loading && !viewReport) {
+    if (
+      autoPickPdf &&
+      !autoPickStartedRef.current &&
+      !draft &&
+      !loading &&
+      !viewReport &&
+      !pendingPdfBase64
+    ) {
       autoPickStartedRef.current = true;
       void pickAndParse();
     }
-  }, [visible, autoPickPdf, draft, loading, pickAndParse, viewReport]);
+  }, [visible, autoPickPdf, draft, loading, pickAndParse, viewReport, pendingPdfBase64]);
 
   const updateDraftResult = useCallback((index: number, patch: Partial<LabResult>) => {
     setDraft((prev) => {
@@ -227,7 +288,18 @@ export function LabReportModal({
   const title = copy.modalTitle;
   const saveLabel = copy.save;
   const pickLabel = copy.choosePdf;
-  const loadingLabel = loadingPhase === 'save' ? copy.saving : copy.reading;
+  const loadingLabel =
+    loadingPhase === 'save'
+      ? copy.saving
+      : loadingPhase === 'identify'
+        ? copy.identifyingPdf
+        : copy.reading;
+
+  const suggestedLabel =
+    suggestedProvider === 'unknown'
+      ? copy.providerNotSure
+      : providerLabel(suggestedProvider, copy);
+
   const renderResultRow = (
     r: LabResult,
     key: string,
@@ -283,14 +355,68 @@ export function LabReportModal({
           </View>
         )}
 
-        {!loading && !draft && !editingReport && (
+        {!loading && !draft && !editingReport && !pendingPdfBase64 && (
           <View style={styles.emptyWrap}>
-            <Text style={styles.emptyText}>
-              {rtl ? 'ייבאו תדפיס PDF מכללית און־ליין' : 'Import a Clalit online lab PDF'}
+            <Text style={[styles.emptyText, rtl && styles.textRtl]}>
+              {rtl ? 'ייבאו תדפיס PDF ממעבדה (כללית / מאוחדת / מכבי…)' : 'Import a lab PDF (Clalit / Meuhedet / Maccabi…)'}
             </Text>
             {error && <Text style={styles.errorText}>{error}</Text>}
             <Pressable style={styles.primaryBtn} onPress={() => void pickAndParse()}>
               <Text style={styles.primaryBtnText}>📄 {pickLabel}</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {!loading && pendingPdfBase64 && (
+          <View style={styles.confirmWrap}>
+            <Text style={[styles.confirmTitle, rtl && styles.textRtl]}>{copy.providerConfirmTitle}</Text>
+            <Text style={[styles.confirmBody, rtl && styles.textRtl]}>
+              {suggestedProvider === 'unknown'
+                ? copy.providerConfirmUnknownBody
+                : copy.providerConfirmBody(suggestedLabel)}
+            </Text>
+            {error && <Text style={styles.errorText}>{error}</Text>}
+            {suggestedProvider !== 'unknown' ? (
+              <Pressable
+                style={styles.primaryBtn}
+                onPress={() => void runParseWithProvider(pendingPdfBase64, suggestedProvider)}
+              >
+                <Text style={styles.primaryBtnText}>{copy.providerContinue(suggestedLabel)}</Text>
+              </Pressable>
+            ) : null}
+            <View style={styles.providerGrid}>
+              {(
+                [
+                  ['clalit', copy.providerClalit],
+                  ['meuhedet', copy.providerMeuhedet],
+                  ['maccabi', copy.providerMaccabi],
+                  ['leumit', copy.providerLeumit],
+                ] as const
+              ).map(([id, label]) => (
+                <Pressable
+                  key={id}
+                  style={[
+                    styles.providerChip,
+                    suggestedProvider === id && styles.providerChipActive,
+                  ]}
+                  onPress={() => void runParseWithProvider(pendingPdfBase64, id)}
+                >
+                  <Text
+                    style={[
+                      styles.providerChipText,
+                      suggestedProvider === id && styles.providerChipTextActive,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable
+              style={styles.secondaryBtn}
+              onPress={() => void runParseWithProvider(pendingPdfBase64, 'unknown')}
+            >
+              <Text style={styles.secondaryBtnText}>{copy.providerNotSure}</Text>
             </Pressable>
           </View>
         )}
@@ -381,6 +507,29 @@ const makeStyles = (c: ThemeColors) =>
   loadingText: { fontSize: 14, color: c.textSecondary },
   emptyWrap: { flex: 1, padding: 24, justifyContent: 'center', gap: 16 },
   emptyText: { fontSize: 15, color: c.textSecondary, textAlign: 'center' },
+  textRtl: { textAlign: 'right', writingDirection: 'rtl' },
+  confirmWrap: { flex: 1, padding: 24, justifyContent: 'center', gap: 12 },
+  confirmTitle: { fontSize: 18, fontWeight: '700', color: c.textPrimary, textAlign: 'center' },
+  confirmBody: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20 },
+  providerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
+  providerChip: {
+    borderWidth: 1,
+    borderColor: c.gridLine,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  providerChipActive: { borderColor: c.accentBlue, backgroundColor: c.accentBlue + '22' },
+  providerChipText: { fontSize: 14, fontWeight: '600', color: c.textPrimary },
+  providerChipTextActive: { color: c.accentBlue },
+  secondaryBtn: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: c.gridLine,
+  },
+  secondaryBtnText: { fontSize: 14, fontWeight: '600', color: c.textSecondary },
   meta: { fontSize: 12, color: c.textSecondary, paddingHorizontal: 20, marginBottom: 8 },
   panelTitle: {
     fontSize: 11,

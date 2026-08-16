@@ -46,6 +46,18 @@ export type LabResultsStripCopy = {
   customNeedTwo: string;
   customNoMarkers: string;
   customClear: string;
+  /** prompt112 — HMO confirm before parse */
+  identifyingPdf: string;
+  providerConfirmTitle: string;
+  providerConfirmBody: (name: string) => string;
+  /** When Pass 1 returned unknown — ask user to pick. */
+  providerConfirmUnknownBody: string;
+  providerContinue: (name: string) => string;
+  providerNotSure: string;
+  providerClalit: string;
+  providerMeuhedet: string;
+  providerMaccabi: string;
+  providerLeumit: string;
 };
 
 const EN: LabResultsStripCopy = {
@@ -91,6 +103,18 @@ const EN: LabResultsStripCopy = {
   customNeedTwo: 'Import another draw to chart this test',
   customNoMarkers: 'No other lab tests to chart yet',
   customClear: 'Clear',
+  identifyingPdf: 'Checking which HMO printed this…',
+  providerConfirmTitle: 'Which lab portal?',
+  providerConfirmBody: (name) =>
+    `This looks like ${name}. Confirm for a more accurate read — especially Meuhedet gauges.`,
+  providerConfirmUnknownBody:
+    "Couldn't tell which portal. Pick one below — Meuhedet gauges need the right layout.",
+  providerContinue: (name) => `Continue as ${name}`,
+  providerNotSure: 'Not sure — use default',
+  providerClalit: 'Clalit',
+  providerMeuhedet: 'Meuhedet',
+  providerMaccabi: 'Maccabi',
+  providerLeumit: 'Leumit',
 };
 
 const HE: LabResultsStripCopy = {
@@ -136,6 +160,18 @@ const HE: LabResultsStripCopy = {
   customNeedTwo: 'ייבאו דגימה נוספת כדי לשרטט את הבדיקה',
   customNoMarkers: 'אין עדיין בדיקות אחרות לשרטוט',
   customClear: 'נקה',
+  identifyingPdf: 'בודקים איזו קופת חולים הדפיסה…',
+  providerConfirmTitle: 'איזו מערכת מעבדה?',
+  providerConfirmBody: (name) =>
+    `נראה שזה ${name}. אשרו לקריאה מדויקת יותר — במיוחד במאוחדת.`,
+  providerConfirmUnknownBody:
+    'לא זיהינו את המערכת. בחרו למטה — במאוחדת חשוב לבחור נכון בגלל הסרגלים.',
+  providerContinue: (name) => `המשך כ־${name}`,
+  providerNotSure: 'לא בטוחים — ברירת מחדל',
+  providerClalit: 'כללית',
+  providerMeuhedet: 'מאוחדת',
+  providerMaccabi: 'מכבי',
+  providerLeumit: 'לאומית',
 };
 
 const ES: LabResultsStripCopy = {
@@ -181,6 +217,18 @@ const ES: LabResultsStripCopy = {
   customNeedTwo: 'Importe otra extracción para graficar esta prueba',
   customNoMarkers: 'Aún no hay otras pruebas para graficar',
   customClear: 'Borrar',
+  identifyingPdf: 'Comprobando qué portal imprimió esto…',
+  providerConfirmTitle: '¿Qué laboratorio?',
+  providerConfirmBody: (name) =>
+    `Parece ${name}. Confirma para una lectura más precisa — sobre todo Meuhedet.`,
+  providerConfirmUnknownBody:
+    'No se pudo identificar el portal. Elige abajo — Meuhedet necesita el diseño correcto.',
+  providerContinue: (name) => `Continuar como ${name}`,
+  providerNotSure: 'No estoy seguro — predeterminado',
+  providerClalit: 'Clalit',
+  providerMeuhedet: 'Meuhedet',
+  providerMaccabi: 'Maccabi',
+  providerLeumit: 'Leumit',
 };
 
 const FR: LabResultsStripCopy = {
@@ -226,6 +274,18 @@ const FR: LabResultsStripCopy = {
   customNeedTwo: 'Importez un autre prélèvement pour tracer cette analyse',
   customNoMarkers: 'Pas encore d’autres analyses à tracer',
   customClear: 'Effacer',
+  identifyingPdf: 'Vérification du portail labo…',
+  providerConfirmTitle: 'Quel portail labo ?',
+  providerConfirmBody: (name) =>
+    `Cela ressemble à ${name}. Confirmez pour une lecture plus précise — surtout Meuhedet.`,
+  providerConfirmUnknownBody:
+    'Portail non reconnu. Choisissez ci-dessous — Meuhedet a besoin du bon modèle.',
+  providerContinue: (name) => `Continuer comme ${name}`,
+  providerNotSure: 'Pas sûr — défaut',
+  providerClalit: 'Clalit',
+  providerMeuhedet: 'Meuhedet',
+  providerMaccabi: 'Maccabi',
+  providerLeumit: 'Leumit',
 };
 
 const DE: LabResultsStripCopy = {
@@ -271,6 +331,18 @@ const DE: LabResultsStripCopy = {
   customNeedTwo: 'Importieren Sie eine weitere Entnahme für dieses Diagramm',
   customNoMarkers: 'Noch keine anderen Laborwerte zum Diagramm',
   customClear: 'Löschen',
+  identifyingPdf: 'Prüfe, welches Portal das gedruckt hat…',
+  providerConfirmTitle: 'Welches Lab-Portal?',
+  providerConfirmBody: (name) =>
+    `Sieht aus wie ${name}. Bestätigen für genauere Lesung — besonders Meuhedet.`,
+  providerConfirmUnknownBody:
+    'Portal unklar. Unten wählen — Meuhedet braucht das richtige Layout.',
+  providerContinue: (name) => `Weiter als ${name}`,
+  providerNotSure: 'Unsicher — Standard',
+  providerClalit: 'Clalit',
+  providerMeuhedet: 'Meuhedet',
+  providerMaccabi: 'Maccabi',
+  providerLeumit: 'Leumit',
 };
 
 const AR: LabResultsStripCopy = {
@@ -316,6 +388,18 @@ const AR: LabResultsStripCopy = {
   customNeedTwo: 'استورد سحباً آخر لرسم هذا الفحص',
   customNoMarkers: 'لا توجد فحوصات أخرى للرسم بعد',
   customClear: 'مسح',
+  identifyingPdf: 'جارٍ التعرّف على بوابة المختبر…',
+  providerConfirmTitle: 'أي بوابة مختبر؟',
+  providerConfirmBody: (name) =>
+    `يبدو أن هذا ${name}. أكّدوا لقراءة أدق — خاصة Meuhedet.`,
+  providerConfirmUnknownBody:
+    'لم نتعرف على البوابة. اختاروا من الأسفل — Meuhedet يحتاج التخطيط الصحيح.',
+  providerContinue: (name) => `متابعة كـ ${name}`,
+  providerNotSure: 'غير متأكد — افتراضي',
+  providerClalit: 'Clalit',
+  providerMeuhedet: 'Meuhedet',
+  providerMaccabi: 'Maccabi',
+  providerLeumit: 'Leumit',
 };
 
 const RU: LabResultsStripCopy = {
@@ -373,6 +457,18 @@ const RU: LabResultsStripCopy = {
   customNeedTwo: 'Импортируйте ещё один забор, чтобы построить график',
   customNoMarkers: 'Пока нет других анализов для графика',
   customClear: 'Очистить',
+  identifyingPdf: 'Определяем портал лаборатории…',
+  providerConfirmTitle: 'Какой портал лаборатории?',
+  providerConfirmBody: (name) =>
+    `Похоже на ${name}. Подтвердите для более точного чтения — особенно Meuhedet.`,
+  providerConfirmUnknownBody:
+    'Портал не распознан. Выберите ниже — Meuhedet нужен правильный макет.',
+  providerContinue: (name) => `Продолжить как ${name}`,
+  providerNotSure: 'Не уверен — по умолчанию',
+  providerClalit: 'Clalit',
+  providerMeuhedet: 'Meuhedet',
+  providerMaccabi: 'Maccabi',
+  providerLeumit: 'Leumit',
 };
 
 const PT: LabResultsStripCopy = {
@@ -418,6 +514,18 @@ const PT: LabResultsStripCopy = {
   customNeedTwo: 'Importe outra coleta para traçar este exame',
   customNoMarkers: 'Ainda não há outros exames para traçar',
   customClear: 'Limpar',
+  identifyingPdf: 'A verificar qual portal imprimiu isto…',
+  providerConfirmTitle: 'Qual portal de laboratório?',
+  providerConfirmBody: (name) =>
+    `Parece ${name}. Confirme para uma leitura mais precisa — sobretudo Meuhedet.`,
+  providerConfirmUnknownBody:
+    'Não reconhecemos o portal. Escolha abaixo — Meuhedet precisa do layout certo.',
+  providerContinue: (name) => `Continuar como ${name}`,
+  providerNotSure: 'Não tenho a certeza — predefinido',
+  providerClalit: 'Clalit',
+  providerMeuhedet: 'Meuhedet',
+  providerMaccabi: 'Maccabi',
+  providerLeumit: 'Leumit',
 };
 
 const IT: LabResultsStripCopy = {
@@ -463,6 +571,18 @@ const IT: LabResultsStripCopy = {
   customNeedTwo: 'Importa un altro prelievo per tracciare questo esame',
   customNoMarkers: 'Nessun altro esame da tracciare ancora',
   customClear: 'Cancella',
+  identifyingPdf: 'Controllo quale portale ha stampato questo…',
+  providerConfirmTitle: 'Quale portale lab?',
+  providerConfirmBody: (name) =>
+    `Sembra ${name}. Conferma per una lettura più precisa — soprattutto Meuhedet.`,
+  providerConfirmUnknownBody:
+    'Portale non riconosciuto. Scegli sotto — Meuhedet serve il layout giusto.',
+  providerContinue: (name) => `Continua come ${name}`,
+  providerNotSure: 'Non sicuro — predefinito',
+  providerClalit: 'Clalit',
+  providerMeuhedet: 'Meuhedet',
+  providerMaccabi: 'Maccabi',
+  providerLeumit: 'Leumit',
 };
 
 const TR: LabResultsStripCopy = {
@@ -508,6 +628,18 @@ const TR: LabResultsStripCopy = {
   customNeedTwo: 'Bu testi çizmek için başka bir alım içe aktarın',
   customNoMarkers: 'Henüz çizilecek başka test yok',
   customClear: 'Temizle',
+  identifyingPdf: 'Hangi laboratuvar portalının yazdırdığı kontrol ediliyor…',
+  providerConfirmTitle: 'Hangi laboratuvar portalı?',
+  providerConfirmBody: (name) =>
+    `Bu ${name} gibi görünüyor. Daha doğru okuma için onaylayın — özellikle Meuhedet.`,
+  providerConfirmUnknownBody:
+    'Portal tanınmadı. Aşağıdan seçin — Meuhedet doğru düzeni ister.',
+  providerContinue: (name) => `${name} olarak devam`,
+  providerNotSure: 'Emin değilim — varsayılan',
+  providerClalit: 'Clalit',
+  providerMeuhedet: 'Meuhedet',
+  providerMaccabi: 'Maccabi',
+  providerLeumit: 'Leumit',
 };
 
 const BY_CODE: Record<string, LabResultsStripCopy> = {

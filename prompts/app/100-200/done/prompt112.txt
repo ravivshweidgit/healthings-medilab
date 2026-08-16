@@ -1,0 +1,41 @@
+# prompt112 — Lab PDF import: identify HMO → confirm → layout-specific parse
+
+**Status:** done (2026-08-16) — Meuhedet phone-tested “looks better”; remaining smoke items optional  
+**Builds on:** prompt99 (Meuhedet gauge + `refLow`/`refHigh` + repair pass), prompt30 (Clalit table), prompt39  
+**Follow-up:** [`../prompt113.txt`](../prompt113.txt) — user country + country-scoped lab model packs
+
+## Problem
+
+One provider-agnostic Gemini prompt kept regressing on **Meuhedet** gauge layouts
+(value confused with scale ends — classic TSH `value=0.35` instead of marker above).
+
+**Owner call (2026-08-16):** Clalit/Maccabi OK in practice; **Meuhedet is the hard case.**
+Maximize Meuhedet success with identify → user confirm → dedicated layout pack.
+
+## What shipped
+
+| Piece | Change |
+|-------|--------|
+| `GeminiService.ts` | `identifyLabPdfProvider`; `parseLabReportPdf(..., { provider })` with Meuhedet gauge pack vs default; `repairGaugeBoundCollisions` still runs |
+| `LabReportModal.tsx` | Pass 1 → confirm sheet (always Meuhedet/low/unknown; skip high-confidence clalit/maccabi/leumit) → Pass 2 |
+| `labResultsStripCopy.ts` | Confirm / picker / unknown body (10 langs) |
+| Strip + Quick Start | Both use `LabReportModal` — no second import path |
+
+## Phone checklist
+
+- [x] Meuhedet PDF: Pass 1 → confirm → values better than single-prompt (owner 2026-08-16)
+- [ ] Confirm “Pick Clalit” when Pass 1 wrong → still imports
+- [ ] Not sure → default path + repair still works
+- [ ] Clalit / Maccabi smoke: no worse than today
+- [ ] he/ar confirm sheet RTL OK
+
+## Deferred → prompt113
+
+Country-scoped lab models need a real **user country** preference (not language). See prompt113.
+
+## Related
+
+- prompt99 — Meuhedet gauge + repair
+- prompt113 — user country + per-country lab packs
+- ai-judgment-not-regex — layout identity is Gemini judgment
+- language-policy — lab `name` stays English at rest
