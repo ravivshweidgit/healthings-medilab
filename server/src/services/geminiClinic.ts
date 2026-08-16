@@ -419,8 +419,9 @@ const MARKER_SHORT: Record<string, string> = {
 function formatMarkerBits(markers: MarkerAmounts | null | undefined): string {
   if (!markers) return '';
   const bits: string[] = [];
-  for (const [k, v] of Object.entries(markers)) {
+  for (const [rawKey, v] of Object.entries(markers)) {
     if (v == null || !Number.isFinite(v)) continue;
+    const k = rawKey.toUpperCase();
     const label = MARKER_SHORT[k] ?? k;
     const rounded = Math.round(v * 10) / 10;
     bits.push(`${label}${rounded}`);
@@ -431,8 +432,9 @@ function formatMarkerBits(markers: MarkerAmounts | null | undefined): string {
 function sumMarkerMaps(parts: MarkerAmounts[]): MarkerAmounts {
   const out: MarkerAmounts = {};
   for (const part of parts) {
-    for (const [k, v] of Object.entries(part)) {
+    for (const [rawKey, v] of Object.entries(part)) {
       if (v == null || !Number.isFinite(v)) continue;
+      const k = rawKey.toUpperCase();
       out[k] = Math.round(((out[k] ?? 0) + v) * 10) / 10;
     }
   }
@@ -639,8 +641,8 @@ function formatFoodLogBlock(
   const tzLabel = formatUtcOffsetLabel(utcOffsetMinutes);
   const lines: string[] = [
     detailDays >= lookbackDays
-      ? `Food log (by day, newest first — meal times patient local ${tzLabel}; full item detail through ${lookbackDays}d; SatF/Chol/etc. markers when logged = USER DATA day totals, not estimates):`
-      : `Food log (by day, newest first — meal times patient local ${tzLabel}; item detail last ${Math.min(detailDays, lookbackDays)}d, day totals through ${lookbackDays}d; SatF/Chol/etc. markers when logged = USER DATA):`,
+      ? `Food log (by day, newest first — meal times patient local ${tzLabel}; full item detail through ${lookbackDays}d; clinic treatment-marker amounts when logged = USER DATA day totals, not estimates):`
+      : `Food log (by day, newest first — meal times patient local ${tzLabel}; item detail last ${Math.min(detailDays, lookbackDays)}d, day totals through ${lookbackDays}d; clinic treatment-marker amounts when logged = USER DATA):`,
   ];
 
   for (const dk of dayKeys) {
@@ -976,6 +978,43 @@ function formatProfileBlock(store: Record<string, string>): string | null {
   return `Profile: ${parts.join(', ')}`;
 }
 
+type ClinicMarkerTarget = {
+  marker: string;
+  direction: string;
+  dailyTarget: number;
+  unit: string;
+  note?: string;
+};
+
+function formatTreatmentMarkersTargetsBlock(
+  markers: ClinicMarkerTarget[] | null | undefined,
+  source: 'clinic overlay' | 'phone snapshot',
+): string | null {
+  if (!markers?.length) return null;
+  const lines = markers.map((m) => {
+    const code = String(m.marker ?? '').toUpperCase();
+    const short = MARKER_SHORT[code] ?? code;
+    const note = m.note?.trim() ? ` — ${m.note.trim()}` : '';
+    return `- ${short} (${code}): ${m.direction} ${m.dailyTarget}${m.unit}/day${note}`;
+  });
+  return (
+    `Clinic treatment markers — HARD daily targets (${source}). ` +
+    `Food-log day/meal amounts for these codes are logged USER DATA (phone day meter) — never estimate from ingredients when present:\n` +
+    lines.join('\n')
+  );
+}
+
+function formatTreatmentMarkersTargetsFromStore(store: Record<string, string>): string | null {
+  const raw = store['healthings:treatmentMarkers'];
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { markers?: ClinicMarkerTarget[] };
+    return formatTreatmentMarkersTargetsBlock(parsed.markers, 'phone snapshot');
+  } catch {
+    return null;
+  }
+}
+
 function buildPatientContextBlock(
   exportData: SnapshotExport | null,
   packing: ChatPacking = DEFAULT_CHAT_PACKING,
@@ -1029,6 +1068,9 @@ function buildPatientContextBlock(
     } catch { /* */ }
   }
 
+  const treatFromPhone = formatTreatmentMarkersTargetsFromStore(store);
+  if (treatFromPhone) lines.push(treatFromPhone);
+
   if (exportData.exportedAt) {
     lines.push(`Snapshot exported: ${exportData.exportedAt}`);
   }
@@ -1049,12 +1091,21 @@ export async function mentorChatReply(
   patientId: string,
   clinicRules: ClinicUserRules | null,
   clinicLocaleRaw?: string | null,
+  clinicMarkers?: ClinicMarkerTarget[] | null,
 ): Promise<{ text: string; usage: GeminiUsage | null }> {
   const clinicLocale = normalizeClinicChatLocale(clinicLocaleRaw);
   const replyLanguage = CLINIC_LOCALE_NAME[clinicLocale];
   const snapshot = await loadLatestSnapshotExport(patientId);
   const packing = CLINIC_CHAT_PACKING;
-  const dataBlock = buildPatientContextBlock(snapshot, packing);
+  let dataBlock = buildPatientContextBlock(snapshot, packing);
+  const overlayMarkersBlock = formatTreatmentMarkersTargetsBlock(
+    clinicMarkers,
+    'clinic overlay',
+  );
+  if (overlayMarkersBlock) {
+    // Live clinic overlay wins over phone snapshot copy of the same targets.
+    dataBlock = `${overlayMarkersBlock}\n${dataBlock}`;
+  }
 
   let snapRules: ClinicUserRules | null = null;
   const rulesRaw = snapshot?.asyncStorage?.user_rules;
@@ -1088,7 +1139,7 @@ When Profile lists height (cm), gender, birthdate, or age — those values ARE k
 When CGM glucose lists a date with avg/min/max or HH:MM readings, that date HAS glucose data — cite it and correlate with Food log meals. Never say glucose/CGM is missing for a date that appears in the CGM block.
 When Workouts & activity lists timed sessions for a date/time, that exercise IS logged — cite start/end, duration, and kcal. Correlate walks/workouts with CGM trends after meals. Never say exercise is missing for a date that appears in the Workouts block.
 
-ESTIMATE WHAT WE DO NOT STORE (HARD — core product): Food log lines give kcal, macros (P/C/F/Fi), food names + grams, and — when present — treatment markers such as SatF (saturated fat, SAT_FAT_G), Chol, SolFi, etc. on day totals, meal totals, and items. Those marker numbers ARE exact logged USER DATA (same as the phone day meter). When SatF / other markers appear in the Food log block: USE those day and meal totals — never invent, never "estimate from food detail" / "הערכה מפירוט מזונות", never ask clinic staff to re-type numbers already in PATIENT DATA. Only nutrients NOT listed in the numbers (iodine, most vitamins/minerals, omega ratios when n3 is absent, glycemic load, etc.) should be estimated from food names + grams (USDA-style). Label true estimates as estimated. Never open with "data not available" for micronutrients that are not stored. Distinguish exact logged USER DATA (meals, P/C/F/Fi, SatF/markers when shown, labs, CGM) from AI estimates.
+ESTIMATE WHAT WE DO NOT STORE (HARD — core product): Food log lines give kcal, macros (P/C/F/Fi), food names + grams, and — when present — **any clinic treatment-marker amounts** the clinic set for this patient (SatF, Chol, SolFi, n3, AddSug, Na, K, P, … — whatever codes appear on day/meal/item lines). Those amounts ARE exact logged USER DATA (same as the phone day meters for clinic-set markers). When a treatment-marker amount appears in the Food log or PATIENT DATA: USE the day and meal totals — never invent, never "estimate from food detail" / "הערכה מפירוט מזונות", never ask clinic staff to re-type numbers already shown. Only nutrients NOT listed among macros or those marker codes (e.g. iodine, most vitamins) should be estimated from food names + grams (USDA-style). Label true estimates as estimated. Distinguish exact logged USER DATA (meals, P/C/F/Fi, clinic treatment markers when shown, labs, CGM) from AI estimates.
 
 CLINIC TONE (HARD): Be a helpful senior clinical nutrition colleague — concise, concrete, respectful. Prefer numbers + named foods over meta talk about the software. If staff say the patient did log food detail, briefly agree and either (a) restate the estimate with the contributing foods, or (b) list the meal items — do not defend or describe product limitations. Meal times in PATIENT DATA are patient-local; present them as written. Do not invent labs or meals not listed.
 
@@ -1162,7 +1213,7 @@ When Profile lists height (cm), gender, birthdate, or age — those values ARE k
 When CGM glucose lists a date with avg/min/max or HH:MM readings, that date HAS glucose data — cite it and correlate with Food log meals. Never say glucose/CGM is missing for a date that appears in the CGM block.
 When Workouts & activity lists timed sessions for a date/time, that exercise IS logged — cite start/end, duration, and kcal. Correlate walks/workouts with CGM trends after meals. Never say exercise is missing for a date that appears in the Workouts block.
 
-ESTIMATE WHAT WE DO NOT STORE (HARD — core product): Food log lines give kcal, macros (P/C/F/Fi), food names + grams, and — when present — treatment markers such as SatF (SAT_FAT_G) on day/meal/item lines. Those marker numbers ARE exact logged USER DATA — use them; never invent or "estimate from food detail" for SatF when shown. Only nutrients NOT listed (iodine, most vitamins/minerals, etc.) should be estimated from food names + grams. Label true estimates as estimated. Never open with "data not available" or refuse. Distinguish exact logged USER DATA from AI estimates.
+ESTIMATE WHAT WE DO NOT STORE (HARD — core product): Food log lines give kcal, macros (P/C/F/Fi), food names + grams, and — when present — **any clinic treatment-marker amounts** (whatever codes appear on day/meal/item lines). Those ARE exact logged USER DATA — use them; never invent or "estimate from food detail" for a marker amount that is shown. Only nutrients NOT listed should be estimated from food names + grams. Label true estimates as estimated. Distinguish exact logged USER DATA from AI estimates.
 
 REPLY LANGUAGE (HARD): Write your entire reply in ${replyLanguage} (patient app language: ${locale}).
 Quote patient-authored snippets as written when needed, but your explanation and recommendations MUST be in ${replyLanguage}.

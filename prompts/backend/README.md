@@ -32,7 +32,8 @@ Run in this order. The reason is the dependency, not preference.
 | `be-41-clinic-treatment-markers.md` | Clinic-set treatment markers (custom macros) | needs-review | Implemented; pending VPS migrate + portal deploy smoke. Max 3. Then prompt110 |
 | `be-42-markers-backfill.md` | Clinic-gated past meal marker fill | needs-review | Portal days + phone execute; caps 90d / 80 meals |
 | `be-43-lab-catalog.md` | Lab countries / providers / prompt packs | needs-review | Full ISO ~249 countries; VPS migrate; search picker |
-| `be-44-clinic-chat-satfat-markers.md` | Clinic food log includes SatF markers | needs-review | Stop "הערכה מפירוט" when day SatF is logged |
+| `be-44-clinic-chat-satfat-markers.md` | Clinic food log includes **all** treatment markers | needs-review | Stop "הערכה מפירוט" for any clinic-set marker |
+
 
 
 

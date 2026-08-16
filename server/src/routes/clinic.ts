@@ -219,6 +219,7 @@ export async function registerClinicRoutes(app: FastifyInstance) {
         params.patientId,
         overlay.rules,
         body.locale,
+        overlay.markers,
       );
       // Clinic portal chat → acting mentor's wallet (before persist).
       await meterClinicChat(user.id, params.patientId, geminiUsage);
