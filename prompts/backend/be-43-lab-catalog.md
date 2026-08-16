@@ -1,9 +1,11 @@
 # be-43 — Lab PDF catalog (countries / providers / prompt packs)
 
-**Status:** needs-review  
+**Status:** needs-review → owner phone OK 2026-08-17 (“it was ok”, did not save report)  
 **Model to implement:** Auto  
 **Builds on:** prompt112 (IL two-pass), prompt113 (country gate)  
-**Authored:** 2026-08-16
+**Authored:** 2026-08-16  
+**Shipped:** `87bc498` (gate + catalog), `e04ac98` (full ISO ~249 + search)  
+**VPS:** migrate seeded 249 `lab_countries`
 
 ## Problem
 

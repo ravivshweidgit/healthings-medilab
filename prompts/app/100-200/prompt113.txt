@@ -1,8 +1,9 @@
 # prompt113 — Lab country gate + country-scoped lab PDF models
 
-**Status:** in_progress (implemented 2026-08-16 — needs VPS migrate + phone test)  
+**Status:** in_progress → phone OK 2026-08-17 (owner: “it was ok”; report not saved) — awaiting full smoke / be-43 accept to `done`  
 **Builds on:** prompt112 (IL HMO identify → confirm → layout pack)  
 **Backend:** [`../../backend/be-43-lab-catalog.md`](../../backend/be-43-lab-catalog.md)
+**Commits:** `87bc498`, `e04ac98`
 
 ## Owner UX (locked)
 
@@ -21,11 +22,13 @@
 
 ## Phone checklist
 
-- [ ] Fresh install: cannot import until country chosen
+- [x] Fresh install / gate: country chosen in Lab UI before import (owner 2026-08-17)
+- [x] Full ISO list + search usable (owner: “it was ok”)
+- [ ] Save imported report after country gate (owner skipped save this pass)
 - [ ] IL → Meuhedet: chips show מאוחדת (native), parse still good
 - [ ] App language English + lab country IL → still native HMO names
-- [ ] US: no IL HMO chips; generic parse
-- [ ] After VPS migrate: catalog from API (not only fallback)
+- [ ] US / other: no IL HMO chips; generic parse
+- [x] Catalog from API after VPS migrate (249 countries)
 
 ## Related
 
