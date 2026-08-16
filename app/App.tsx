@@ -1,7 +1,7 @@
 import * as WebBrowser from 'expo-web-browser';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   authenticateWithBiometric,
@@ -12,7 +12,8 @@ import {
   setBiometricUnlockEnabled,
   wasBiometricPromptShown,
 } from './src/services/BiometricUnlockService';
-import { restoreAuthSession, type AuthUser } from './src/services/AuthApiService';
+import { refreshAuthSession, restoreAuthSession, type AuthUser } from './src/services/AuthApiService';
+import { AUTH_CLEARED_EVENT } from './src/services/AuthTokenStore';
 import {
   CLINIC_SYNC_POLL_MS,
   fulfillPendingClinicSyncRequests,
@@ -23,6 +24,9 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 
 WebBrowser.maybeCompleteAuthSession();
+
+/** Silent refresh on foreground — slides the 30-day refresh token without OTP. */
+const SESSION_KEEPALIVE_MIN_MS = 6 * 60 * 60 * 1000;
 
 export default function App() {
   return (
@@ -104,16 +108,36 @@ function AppInner() {
     setUser(null);
   }, []);
 
+  // Tokens wiped after failed refresh (401/403) — leave dashboard and show login.
+  // Without this, in-memory `user` stays set and AI/clinic calls fail with generic errors.
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener(AUTH_CLEARED_EVENT, () => {
+      setUser(null);
+    });
+    return () => sub.remove();
+  }, []);
+
   useEffect(() => {
     if (!user || user.role !== 'patient') return;
 
+    let lastKeepaliveAt = 0;
+    const keepaliveSession = () => {
+      const now = Date.now();
+      if (now - lastKeepaliveAt < SESSION_KEEPALIVE_MIN_MS) return;
+      lastKeepaliveAt = now;
+      // Rotates refresh → new 30-day expiry. Network blips do not wipe tokens.
+      void refreshAuthSession();
+    };
+
     void fulfillPendingClinicSyncRequests();
     void flushUsageQueueIfDue();
+    keepaliveSession();
 
     const onActive = (state: string) => {
       if (state === 'active') {
         void fulfillPendingClinicSyncRequests();
         void flushUsageQueueIfDue();
+        keepaliveSession();
       }
     };
     const appStateSub = AppState.addEventListener('change', onActive);

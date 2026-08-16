@@ -14,6 +14,14 @@ import type { AiUsageReason } from './UsageApiService';
 /** Gemini itself can take a minute on big prompts; well above authFetch's 8s default. */
 const PROXY_TIMEOUT_MS = 180_000;
 
+/** Refresh failed — Food Log / chat must say “sign in again”, not “AI analysis failed”. */
+export class SessionExpiredError extends Error {
+  constructor(message = 'Session expired — sign out and sign in again') {
+    super(message);
+    this.name = 'SessionExpiredError';
+  }
+}
+
 export type GeminiProxyResponse = {
   ok: boolean;
   status: number;
@@ -42,6 +50,7 @@ export async function geminiGenerate(
   );
 
   if (res.status === 402) throw new OutOfCreditsError();
+  if (res.status === 401) throw new SessionExpiredError();
 
   if (!res.ok) {
     const errText = await res.text().catch(() => '');

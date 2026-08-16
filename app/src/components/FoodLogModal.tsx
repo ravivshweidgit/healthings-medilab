@@ -39,6 +39,7 @@ import { formatLocalizedDate, formatLocalizedTime, formatFoodLogDayLabel } from 
 import { getFoodLogAlertCopy } from '../i18n/foodLogAlertCopy';
 import { getHelpStripCopy } from '../i18n/helpStripCopy';
 import { OutOfCreditsError } from '../services/UsageQueueService';
+import { SessionExpiredError } from '../services/GeminiProxyService';
 import { getFoodLogPhotoUiCopy } from '../i18n/foodLogPhotoUiCopy';
 import { getFoodLogUiCopy } from '../i18n/foodLogUiCopy';
 import { platesUrl } from '../i18n/helpUrls';
@@ -456,9 +457,12 @@ export function FoodLogModal({
   const mapFoodAiError = useCallback(
     (e: unknown) => {
       if (e instanceof OutOfCreditsError) return helpCopy.outOfCredits;
+      if (e instanceof SessionExpiredError) return alerts.sessionExpired;
+      const msg = e instanceof Error ? e.message : String(e ?? '');
+      if (/session expired|401/i.test(msg)) return alerts.sessionExpired;
       return alerts.aiAnalysisFailed;
     },
-    [alerts.aiAnalysisFailed, helpCopy.outOfCredits],
+    [alerts.aiAnalysisFailed, alerts.sessionExpired, helpCopy.outOfCredits],
   );
   const [screen, setScreen] = useState<Screen>(() =>
     editEntry || (prefillItems && prefillItems.length > 0) ? 'result' : 'idle',
@@ -1062,41 +1066,50 @@ export function FoodLogModal({
 
   const pickImage = useCallback(
     async (source: 'camera' | 'gallery') => {
-      const perm =
-        source === 'camera'
-          ? await ImagePicker.requestCameraPermissionsAsync()
-          : await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert(
-          alerts.permissionRequired,
-          source === 'camera' ? alerts.permissionCamera : alerts.permissionGallery,
-        );
-        return;
+      try {
+        // Let the camera-button press paint before the heavy native picker opens (felt lag).
+        await new Promise<void>((resolve) => {
+          InteractionManager.runAfterInteractions(() => resolve());
+        });
+        const perm =
+          source === 'camera'
+            ? await ImagePicker.requestCameraPermissionsAsync()
+            : await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          Alert.alert(
+            alerts.permissionRequired,
+            source === 'camera' ? alerts.permissionCamera : alerts.permissionGallery,
+          );
+          return;
+        }
+        const result =
+          source === 'camera'
+            ? await ImagePicker.launchCameraAsync({
+                mediaTypes: ['images'],
+                quality: 0.7,
+                base64: true,
+                allowsEditing: false,
+              })
+            : await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                quality: 0.5,
+                base64: true,
+                allowsEditing: false,
+                exif: false,
+              });
+        if (result.canceled || !result.assets[0]) return;
+        const asset = result.assets[0];
+        const b64 = asset.base64 ?? null;
+        if (b64 && b64.length > 4_000_000) {
+          Alert.alert(alerts.imageTooLargeTitle, alerts.imageTooLargeBody);
+        }
+        await runPhotoAnalysis(asset.uri, b64, '', []);
+      } catch (e) {
+        setError(mapFoodAiError(e));
+        setScreen(items.length > 0 || editEntry ? 'result' : 'idle');
       }
-      const result =
-        source === 'camera'
-          ? await ImagePicker.launchCameraAsync({
-              mediaTypes: ['images'],
-              quality: 0.7,
-              base64: true,
-              allowsEditing: false,
-            })
-          : await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ['images'],
-              quality: 0.5,
-              base64: true,
-              allowsEditing: false,
-              exif: false,
-            });
-      if (result.canceled || !result.assets[0]) return;
-      const asset = result.assets[0];
-      const b64 = asset.base64 ?? null;
-      if (b64 && b64.length > 4_000_000) {
-        Alert.alert(alerts.imageTooLargeTitle, alerts.imageTooLargeBody);
-      }
-      await runPhotoAnalysis(asset.uri, b64, '', []);
     },
-    [runPhotoAnalysis, alerts],
+    [runPhotoAnalysis, alerts, mapFoodAiError, items.length, editEntry],
   );
 
   const handleCamera = useCallback(() => pickImage('camera'), [pickImage]);

@@ -16,6 +16,8 @@ export type FoodLogAlertCopy = {
   imageTooLargeTitle: string;
   imageTooLargeBody: string;
   aiAnalysisFailed: string;
+  /** Proxy returned 401 after refresh failed */
+  sessionExpired: string;
   failedToSave: string;
   nothingToSave: string;
   carbOver: (projected: number, over: number, target: number) => string;
@@ -37,6 +39,7 @@ const EN: FoodLogAlertCopy = {
   imageTooLargeTitle: 'Image too large',
   imageTooLargeBody: 'This photo is very large and may fail. Try a smaller image or use the camera instead.',
   aiAnalysisFailed: 'AI analysis failed. Please try again.',
+  sessionExpired: 'Session expired — sign out and sign in again, then retry the photo.',
   failedToSave: 'Failed to save. Please try again.',
   nothingToSave: 'Nothing to save — meal items are missing. Edit or re-analyze, then save.',
   carbOver: (projected, over, target) =>
@@ -61,6 +64,7 @@ const HE: FoodLogAlertCopy = {
   imageTooLargeTitle: 'התמונה גדולה מדי',
   imageTooLargeBody: 'התמונה גדולה מאוד ועלולה להיכשל. נסו תמונה קטנה יותר או השתמשו במצלמה.',
   aiAnalysisFailed: 'ניתוח ה-AI נכשל. נסו שוב.',
+  sessionExpired: 'פג תוקף ההתחברות — התנתקו והתחברו שוב, ואז נסו שוב את התמונה.',
   failedToSave: 'השמירה נכשלה. נסו שוב.',
   nothingToSave: 'אין מה לשמור — חסרים פריטי ארוחה. ערכו או נתחו מחדש ושמרו.',
   carbOver: (projected, over, target) =>
@@ -85,6 +89,7 @@ const ES: FoodLogAlertCopy = {
   imageTooLargeTitle: 'Imagen demasiado grande',
   imageTooLargeBody: 'Esta foto es muy grande y puede fallar. Prueba una más pequeña o usa la cámara.',
   aiAnalysisFailed: 'Falló el análisis de IA. Inténtalo de nuevo.',
+  sessionExpired: 'Sesión caducada — cierra sesión, vuelve a entrar y reintenta la foto.',
   failedToSave: 'No se pudo guardar. Inténtalo de nuevo.',
   nothingToSave: 'Nada que guardar — faltan ítems. Edita o vuelve a analizar y guarda.',
   carbOver: (projected, over, target) =>
@@ -109,6 +114,7 @@ const FR: FoodLogAlertCopy = {
   imageTooLargeTitle: 'Image trop grande',
   imageTooLargeBody: 'Cette photo est très grande et peut échouer. Essayez une plus petite ou l’appareil photo.',
   aiAnalysisFailed: 'L’analyse IA a échoué. Réessayez.',
+  sessionExpired: 'Session expirée — déconnectez-vous, reconnectez-vous, puis réessayez la photo.',
   failedToSave: 'Échec de l’enregistrement. Réessayez.',
   nothingToSave: 'Rien à enregistrer — éléments manquants. Modifiez ou réanalysez, puis enregistrez.',
   carbOver: (projected, over, target) =>
@@ -133,6 +139,7 @@ const DE: FoodLogAlertCopy = {
   imageTooLargeTitle: 'Bild zu groß',
   imageTooLargeBody: 'Dieses Foto ist sehr groß und kann fehlschlagen. Kleineres Bild oder Kamera nutzen.',
   aiAnalysisFailed: 'KI-Analyse fehlgeschlagen. Bitte erneut versuchen.',
+  sessionExpired: 'Sitzung abgelaufen — abmelden, erneut anmelden, dann Foto erneut versuchen.',
   failedToSave: 'Speichern fehlgeschlagen. Bitte erneut versuchen.',
   nothingToSave: 'Nichts zu speichern — Einträge fehlen. Bearbeiten oder neu analysieren, dann speichern.',
   carbOver: (projected, over, target) =>
@@ -157,6 +164,7 @@ const AR: FoodLogAlertCopy = {
   imageTooLargeTitle: 'الصورة كبيرة جداً',
   imageTooLargeBody: 'هذه الصورة كبيرة جداً وقد تفشل. جرّب صورة أصغر أو الكاميرا.',
   aiAnalysisFailed: 'فشل تحليل الذكاء الاصطناعي. حاول مرة أخرى.',
+  sessionExpired: 'انتهت الجلسة — سجّل الخروج ثم الدخول مجدداً، ثم أعد محاولة الصورة.',
   failedToSave: 'فشل الحفظ. حاول مرة أخرى.',
   nothingToSave: 'لا شيء للحفظ — عناصر الوجبة مفقودة. عدّل أو حلّل مجدداً ثم احفظ.',
   carbOver: (projected, over, target) =>
@@ -181,6 +189,7 @@ const RU: FoodLogAlertCopy = {
   imageTooLargeTitle: 'Слишком большое изображение',
   imageTooLargeBody: 'Фото слишком большое и может не загрузиться. Попробуйте меньше или камеру.',
   aiAnalysisFailed: 'Анализ ИИ не удался. Попробуйте снова.',
+  sessionExpired: 'Сессия истекла — выйдите и войдите снова, затем повторите фото.',
   failedToSave: 'Не удалось сохранить. Попробуйте снова.',
   nothingToSave: 'Нечего сохранять — нет позиций. Измените или проанализируйте снова.',
   carbOver: (projected, over, target) =>
@@ -205,6 +214,7 @@ const PT: FoodLogAlertCopy = {
   imageTooLargeTitle: 'Imagem muito grande',
   imageTooLargeBody: 'Esta foto é muito grande e pode falhar. Tente uma menor ou use a câmera.',
   aiAnalysisFailed: 'A análise de IA falhou. Tente de novo.',
+  sessionExpired: 'Sessão expirada — saia, entre de novo e tente a foto outra vez.',
   failedToSave: 'Falha ao salvar. Tente de novo.',
   nothingToSave: 'Nada para salvar — itens ausentes. Edite ou analise de novo e salve.',
   carbOver: (projected, over, target) =>
@@ -229,6 +239,7 @@ const IT: FoodLogAlertCopy = {
   imageTooLargeTitle: 'Immagine troppo grande',
   imageTooLargeBody: 'Questa foto è molto grande e può fallire. Prova una più piccola o la fotocamera.',
   aiAnalysisFailed: 'Analisi IA non riuscita. Riprova.',
+  sessionExpired: 'Sessione scaduta — esci, accedi di nuovo e riprova la foto.',
   failedToSave: 'Salvataggio non riuscito. Riprova.',
   nothingToSave: 'Niente da salvare — voci mancanti. Modifica o rianalizza, poi salva.',
   carbOver: (projected, over, target) =>
@@ -253,6 +264,7 @@ const TR: FoodLogAlertCopy = {
   imageTooLargeTitle: 'Görüntü çok büyük',
   imageTooLargeBody: 'Bu fotoğraf çok büyük ve başarısız olabilir. Daha küçük deneyin veya kamerayı kullanın.',
   aiAnalysisFailed: 'Yapay zeka analizi başarısız. Tekrar deneyin.',
+  sessionExpired: 'Oturum süresi doldu — çıkış yapıp tekrar giriş yapın, sonra fotoğrafı yeniden deneyin.',
   failedToSave: 'Kaydetme başarısız. Tekrar deneyin.',
   nothingToSave: 'Kaydedilecek bir şey yok — öğeler eksik. Düzenleyin veya yeniden analiz edin.',
   carbOver: (projected, over, target) =>
