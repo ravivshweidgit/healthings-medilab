@@ -15,8 +15,8 @@ ROOT = Path(__file__).resolve().parent.parent
 CLIP = ROOT / "clips" / "17-swiss-what-is-healthings.json"
 OUT_DIR = ROOT / "assets" / "audio" / "he"
 
-VOICE = "he-IL-HilaNeural"
-TAG = "he-hila"
+VOICE_DEFAULT = "he-IL-HilaNeural"
+TAG_DEFAULT = "he-hila"
 GAP_MS = 280  # short breath between lines
 
 # TTS-only niqqud (subs stay plain)
@@ -27,8 +27,8 @@ VO_FIXES = {
     "מחליטה": "מַחְלִיטָה",
     "רושמים": "רוֹשְׁמִים",
     "ומעדכנת": "וּמְעַדְכֶּנֶת",
-    "למעגל": "לְמַעְגָּל",
-    "מעגל": "מַעְגָּל",
+    "למעגל": "לְמַעֲגָל",
+    "מעגל": "מַעֲגָל",
     "מחברת": "מְחַבֶּרֶת",
     "לישות": "לִישׁוּת",
 }
@@ -54,17 +54,42 @@ def ffprobe_dur(path: Path) -> float:
     return float(p.stdout.strip())
 
 
-async def synth_segment(text: str, out_mp3: Path) -> None:
-    await edge_tts.Communicate(point_for_tts(text), VOICE).save(str(out_mp3))
+async def synth_segment(text: str, out_mp3: Path, voice: str) -> None:
+    await edge_tts.Communicate(point_for_tts(text), voice).save(str(out_mp3))
 
 
 async def main() -> None:
+    import argparse
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument(
+        "--voice",
+        default=VOICE_DEFAULT,
+        help="Edge neural voice id (he-IL-HilaNeural / he-IL-AvriNeural)",
+    )
+    ap.add_argument(
+        "--tag",
+        default=None,
+        help="Output stem tag (default: he-hila / he-avri from voice)",
+    )
+    args = ap.parse_args()
+    voice = args.voice
+    if args.tag:
+        tag = args.tag
+    elif "Avri" in voice:
+        tag = "he-avri"
+    elif "Hila" in voice:
+        tag = "he-hila"
+    else:
+        tag = TAG_DEFAULT
+
     spec = json.loads(CLIP.read_text(encoding="utf-8"))
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    stem = f"{spec['id']}-{TAG}"
+    stem = f"{spec['id']}-{tag}"
     raw_mp3 = OUT_DIR / f"{stem}-raw.mp3"
     eq_wav = OUT_DIR / f"{stem}-eq.wav"
     align_path = OUT_DIR / f"{stem}-align.json"
+    print(f"voice={voice} tag={tag}")
 
     with tempfile.TemporaryDirectory() as td:
         tdir = Path(td)
@@ -78,7 +103,7 @@ async def main() -> None:
                 raise SystemExit(f"segment {i} missing he")
             part = tdir / f"seg{i:02d}.mp3"
             print(f"TTS {i + 1}/{len(spec['segments'])}: {he[:40]}…")
-            await synth_segment(he, part)
+            await synth_segment(he, part, voice)
             dur = ffprobe_dur(part)
             segs_out.append(
                 {
@@ -125,7 +150,7 @@ async def main() -> None:
             {
                 "clip": spec["id"],
                 "vo_lang": "he",
-                "voice_id": VOICE,
+                "voice_id": voice,
                 "text": " ".join(s["he"] for s in segs_out),
                 "aligned": True,
                 "segments": segs_out,
