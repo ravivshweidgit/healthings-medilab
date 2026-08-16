@@ -31,7 +31,8 @@ Run in this order. The reason is the dependency, not preference.
 | `be-40-gemini-proxy.md` | Gemini proxy — key out of the APK | needs-review | Play internal 1.2.32 (61) live (markers). Pending: testers update, then key rotation |
 | `be-41-clinic-treatment-markers.md` | Clinic-set treatment markers (custom macros) | needs-review | Implemented; pending VPS migrate + portal deploy smoke. Max 3. Then prompt110 |
 | `be-42-markers-backfill.md` | Clinic-gated past meal marker fill | needs-review | Portal days + phone execute; caps 90d / 80 meals |
-| `be-43-lab-catalog.md` | Lab countries / providers / prompt packs | needs-review | prompt113; VPS migrate required for live packs |
+| `be-43-lab-catalog.md` | Lab countries / providers / prompt packs | needs-review | Full ISO ~249 countries; VPS migrate; search picker |
+
 
 ## Done
 

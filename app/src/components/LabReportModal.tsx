@@ -93,6 +93,7 @@ export function LabReportModal({
   const [suggestedProvider, setSuggestedProvider] = useState<LabProvider>('unknown');
   const [labCountry, setLabCountryState] = useState<string | null>(null);
   const [countries, setCountries] = useState<LabCountryInfo[]>([]);
+  const [countryQuery, setCountryQuery] = useState('');
   const [catalog, setCatalog] = useState<LabCountryCatalog | null>(null);
   const [countryReady, setCountryReady] = useState(false);
   const autoPickStartedRef = useRef(false);
@@ -107,6 +108,7 @@ export function LabReportModal({
     setLoadingPhase(null);
     setPendingPdfBase64(null);
     setSuggestedProvider('unknown');
+    setCountryQuery('');
     autoPickStartedRef.current = false;
   }, []);
 
@@ -291,6 +293,18 @@ export function LabReportModal({
     pendingPdfBase64,
   ]);
 
+  const filteredCountries = useMemo(() => {
+    const q = countryQuery.trim().toLowerCase();
+    if (!q) return countries;
+    return countries.filter(
+      (c) =>
+        c.code.toLowerCase().includes(q) ||
+        c.nameEn.toLowerCase().includes(q) ||
+        (c.nameNative && c.nameNative.toLowerCase().includes(q)) ||
+        (c.displayName && c.displayName.toLowerCase().includes(q)),
+    );
+  }, [countries, countryQuery]);
+
   const updateDraftResult = useCallback((index: number, patch: Partial<LabResult>) => {
     setDraft((prev) => {
       if (!prev) return prev;
@@ -450,8 +464,21 @@ export function LabReportModal({
             <Text style={[styles.confirmTitle, rtl && styles.textRtl]}>{copy.countryPickerTitle}</Text>
             <Text style={[styles.confirmBody, rtl && styles.textRtl]}>{copy.countryPickerBody}</Text>
             {error && <Text style={styles.errorText}>{error}</Text>}
-            <View style={styles.providerGrid}>
-              {countries.map((c) => (
+            <TextInput
+              style={[styles.countrySearch, rtl && styles.textRtl]}
+              value={countryQuery}
+              onChangeText={setCountryQuery}
+              placeholder={copy.countrySearchPlaceholder}
+              placeholderTextColor={colors.textSecondary}
+              autoCorrect={false}
+              autoCapitalize="none"
+            />
+            <ScrollView
+              style={styles.countryScroll}
+              contentContainerStyle={styles.providerGrid}
+              keyboardShouldPersistTaps="handled"
+            >
+              {filteredCountries.map((c) => (
                 <Pressable
                   key={c.code}
                   style={styles.providerChip}
@@ -460,7 +487,7 @@ export function LabReportModal({
                   <Text style={styles.providerChipText}>{c.displayName || c.nameEn}</Text>
                 </Pressable>
               ))}
-            </View>
+            </ScrollView>
           </View>
         )}
 
@@ -640,6 +667,16 @@ const makeStyles = (c: ThemeColors) =>
   confirmWrap: { flex: 1, padding: 24, justifyContent: 'center', gap: 12 },
   confirmTitle: { fontSize: 18, fontWeight: '700', color: c.textPrimary, textAlign: 'center' },
   confirmBody: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20 },
+  countrySearch: {
+    borderWidth: 1,
+    borderColor: c.gridLine,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: c.textPrimary,
+  },
+  countryScroll: { flex: 1, maxHeight: 420 },
   providerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
   providerChip: {
     borderWidth: 1,

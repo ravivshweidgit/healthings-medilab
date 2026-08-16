@@ -15,11 +15,9 @@
 
 | Piece | Change |
 |-------|--------|
-| DB | `lab_countries`, `lab_providers`, `lab_prompt_packs` + IL/US seed |
-| API | `GET /v1/lab/countries`, `GET /v1/lab/catalog/:countryCode` |
-| `lab_country` AsyncStorage | null until user picks; backup/export auto-includes |
-| Lab strip + modal | Country gate; Change country; packs into identify/parse |
-| GeminiService | Accepts server packs; embedded IL fallback if API offline |
+- DB | `lab_countries` (ISO 3166-1 ~249), `lab_providers`, `lab_prompt_packs` + IL special packs; generic packs for all other countries |
+- API | `GET /v1/lab/countries`, `GET /v1/lab/catalog/:countryCode` |
+- App | searchable country picker; `lab_country` gate; packs into identify/parse |
 
 ## Phone checklist
 

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { authenticate } from '../middleware/authenticate.js';
 import {
-  ensureIlPromptPacksSeeded,
+  ensureLabCatalogSeeded,
   getLabCountryCatalog,
   listLabCountries,
 } from '../services/labCatalog.js';
@@ -13,7 +13,7 @@ import {
  */
 export async function registerLabCatalogRoutes(app: FastifyInstance) {
   app.get('/v1/lab/countries', { preHandler: authenticate }, async (_request, reply) => {
-    await ensureIlPromptPacksSeeded();
+    await ensureLabCatalogSeeded();
     const countries = await listLabCountries();
     return reply.send({ countries });
   });
@@ -22,7 +22,7 @@ export async function registerLabCatalogRoutes(app: FastifyInstance) {
     '/v1/lab/catalog/:countryCode',
     { preHandler: authenticate },
     async (request, reply) => {
-      await ensureIlPromptPacksSeeded();
+      await ensureLabCatalogSeeded();
       const catalog = await getLabCountryCatalog(request.params.countryCode);
       if (!catalog) return reply.code(404).send({ error: 'Unknown lab country' });
       return reply.send(catalog);

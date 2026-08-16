@@ -555,10 +555,11 @@ CREATE INDEX IF NOT EXISTS lab_prompt_packs_active_idx
   ON lab_prompt_packs (country_code, kind, provider_code)
   WHERE active;
 
--- Seed IL / US + IL HMO packs (idempotent). Display: name_native ?? name_en (country brand, not appLocale).
+-- Seed note: full ISO 3166-1 country list (~249) + prompt packs are loaded by
+-- ensureLabCatalogSeeded() in services/labCatalog.ts (migrate + first API hit).
+-- Keep a tiny bootstrap so the FK for IL providers exists before that runs.
 INSERT INTO lab_countries (code, name_en, name_native, sort_order) VALUES
-  ('IL', 'Israel', 'ישראל', 10),
-  ('US', 'United States', NULL, 20)
+  ('IL', 'Israel', 'ישראל', 10)
 ON CONFLICT (code) DO UPDATE SET
   name_en = EXCLUDED.name_en,
   name_native = COALESCE(EXCLUDED.name_native, lab_countries.name_native),

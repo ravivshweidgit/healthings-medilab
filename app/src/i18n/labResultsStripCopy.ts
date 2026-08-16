@@ -66,6 +66,7 @@ export type LabResultsStripCopy = {
   changeCountry: string;
   chooseCountryCta: string;
   loadingCountries: string;
+  countrySearchPlaceholder: string;
 };
 
 const EN: LabResultsStripCopy = {
@@ -131,6 +132,7 @@ const EN: LabResultsStripCopy = {
   changeCountry: 'Change country',
   chooseCountryCta: 'Choose country',
   loadingCountries: 'Loading countries…',
+  countrySearchPlaceholder: 'Search country…',
 };
 
 const HE: LabResultsStripCopy = {
@@ -196,6 +198,7 @@ const HE: LabResultsStripCopy = {
   changeCountry: 'החלפת מדינה',
   chooseCountryCta: 'בחירת מדינה',
   loadingCountries: 'טוענים מדינות…',
+  countrySearchPlaceholder: 'חיפוש מדינה…',
 };
 
 const ES: LabResultsStripCopy = {
@@ -261,6 +264,7 @@ const ES: LabResultsStripCopy = {
   changeCountry: 'Cambiar país',
   chooseCountryCta: 'Elegir país',
   loadingCountries: 'Cargando países…',
+  countrySearchPlaceholder: 'Buscar país…',
 };
 
 const FR: LabResultsStripCopy = {
@@ -326,6 +330,7 @@ const FR: LabResultsStripCopy = {
   changeCountry: 'Changer de pays',
   chooseCountryCta: 'Choisir le pays',
   loadingCountries: 'Chargement des pays…',
+  countrySearchPlaceholder: 'Rechercher un pays…',
 };
 
 const DE: LabResultsStripCopy = {
@@ -391,6 +396,7 @@ const DE: LabResultsStripCopy = {
   changeCountry: 'Land ändern',
   chooseCountryCta: 'Land wählen',
   loadingCountries: 'Länder werden geladen…',
+  countrySearchPlaceholder: 'Land suchen…',
 };
 
 const AR: LabResultsStripCopy = {
@@ -456,6 +462,7 @@ const AR: LabResultsStripCopy = {
   changeCountry: 'تغيير البلد',
   chooseCountryCta: 'اختيار البلد',
   loadingCountries: 'جارٍ تحميل البلدان…',
+  countrySearchPlaceholder: 'بحث عن بلد…',
 };
 
 const RU: LabResultsStripCopy = {
@@ -533,6 +540,7 @@ const RU: LabResultsStripCopy = {
   changeCountry: 'Сменить страну',
   chooseCountryCta: 'Выбрать страну',
   loadingCountries: 'Загрузка стран…',
+  countrySearchPlaceholder: 'Поиск страны…',
 };
 
 const PT: LabResultsStripCopy = {
@@ -598,6 +606,7 @@ const PT: LabResultsStripCopy = {
   changeCountry: 'Mudar país',
   chooseCountryCta: 'Escolher país',
   loadingCountries: 'A carregar países…',
+  countrySearchPlaceholder: 'Pesquisar país…',
 };
 
 const IT: LabResultsStripCopy = {
@@ -663,6 +672,7 @@ const IT: LabResultsStripCopy = {
   changeCountry: 'Cambia paese',
   chooseCountryCta: 'Scegli paese',
   loadingCountries: 'Caricamento paesi…',
+  countrySearchPlaceholder: 'Cerca paese…',
 };
 
 const TR: LabResultsStripCopy = {
@@ -728,6 +738,7 @@ const TR: LabResultsStripCopy = {
   changeCountry: 'Ülkeyi değiştir',
   chooseCountryCta: 'Ülke seç',
   loadingCountries: 'Ülkeler yükleniyor…',
+  countrySearchPlaceholder: 'Ülke ara…',
 };
 
 const BY_CODE: Record<string, LabResultsStripCopy> = {
