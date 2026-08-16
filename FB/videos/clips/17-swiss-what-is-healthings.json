@@ -12,7 +12,7 @@
   "outro_fade": 3.8,
   "cards": "dark",
   "crf": 16,
-  "note": "EN identical to 06. End card holds through Forever Young violin swell (~53–60s bed), then slow fade.",
+  "note": "EN from 06, devices line reworded per RD feedback ('keep the numbers honest' is not clinical language). End card holds through Forever Young violin swell (~53–60s bed), then slow fade.",
   "segments": [
     {
       "en": "You log your meals. You wear a watch. You get blood tests.",
@@ -39,7 +39,7 @@
       "shot": { "type": "phone", "file": "a4-rules-meters-dark.jpg" }
     },
     {
-      "en": "Your scale, your watch, and your CGM keep the numbers honest.",
+      "en": "Your scale, your watch, and your CGM measure what's actually happening.",
       "shot": { "type": "art", "file": "vo-scale-watch-cgm-slate.jpg" }
     },
     {
