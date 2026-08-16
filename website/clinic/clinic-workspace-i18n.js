@@ -2190,6 +2190,8 @@
     en: {
       wsTreatIntro:
         'Up to 3 daily intake targets the patient meters in Food Log. Caps and floors sync to their phone on next open.',
+      wsTreatAddedSugarHint:
+        'Added sugar ≠ carbs/net: only sugars added in processing (sweet drinks, candy, syrups). Whole fruit and unsweetened dairy are usually 0. Prefer this marker when HbA1c or glucose is elevated — type the daily gram cap yourself.',
       wsTreatEmpty: 'No treatment markers yet — add up to 3.',
       wsTreatMax: 'Maximum 3 markers',
       wsTreatAdd: 'Add marker',
@@ -2235,6 +2237,8 @@
     he: {
       wsTreatIntro:
         'עד 3 יעדי צריכה יומיים שהמטופל מודד ביומן הארוחות. תקרות ורצפות מסתנכרנות לטלפון בפתיחה הבאה.',
+      wsTreatAddedSugarHint:
+        'סוכר מוסף ≠ פחמימות/נטו: רק סוכר שנוסף בעיבוד (משקאות ממותקים, ממתקים, סירופים). פרי שלם וחלב לא־ממותק בדרך כלל 0. עדיף כשיש HbA1c או גלוקוז גבוהים — אתם מקלידים את תקרת הגרם.',
       wsTreatEmpty: 'אין עדיין מדדי טיפול — הוסיפו עד 3.',
       wsTreatMax: 'מקסימום 3 מדדים',
       wsTreatAdd: 'הוספת מדד',

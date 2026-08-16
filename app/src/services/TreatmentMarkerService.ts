@@ -223,16 +223,36 @@ export function formatMarkerAmountsVsTargets(
   return `Treat markers: ${bits.join(' · ')}`;
 }
 
+/**
+ * Per-marker estimation rules for Gemini (definition only — no clinical targets).
+ * ADDED_SUGAR_G must not be confused with total carbs / net / intrinsic fruit sugar.
+ */
+export function markerEstimateGuidance(markers: TreatmentMarker[]): string {
+  const codes = new Set(markers.map((m) => m.marker));
+  const lines: string[] = [];
+  if (codes.has('ADDED_SUGAR_G')) {
+    lines.push(
+      'ADDED_SUGAR_G (added_sugar_g): count only sugars **added** in making/processing ' +
+        '(table sugar, syrups, honey used as sweetener, sweetened drinks, candy, sweetened yogurt/sauces). ' +
+        'Use **0** for whole unsweetened fruit, plain milk/unsweetened dairy (intrinsic lactose), ' +
+        'unsweetened starches (rice, bread, potato). Do **not** copy carb_g or net carbs into this field.',
+    );
+  }
+  return lines.length ? `MARKER DEFINITIONS:\n${lines.join('\n')}` : '';
+}
+
 export function mealMarkerSchemaHint(markers: TreatmentMarker[]): string {
   if (!markers.length) return '';
   const fields = markers.map((m) => {
     const f = dietMarkerJsonField(m.marker);
     return `"${f}":0.0 /* ${m.marker} ${m.direction} ${m.dailyTarget}${m.unit}/day — estimate for this item */`;
   });
+  const defs = markerEstimateGuidance(markers);
   return (
     `Also estimate per item (same units): ${fields.join(', ')}. ` +
     'These are absolute estimates for THAT item only (treatment monitoring) — best effort from the meal description/photo. ' +
-    'Do NOT put remaining daily budget or day totals in these fields; the app sums all of today\'s meals itself.'
+    'Do NOT put remaining daily budget or day totals in these fields; the app sums all of today\'s meals itself.' +
+    (defs ? ` ${defs}` : '')
   );
 }
 

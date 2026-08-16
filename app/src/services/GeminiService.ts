@@ -38,6 +38,7 @@ import {
   extractMarkersFromFoodItem,
   dietMarkerJsonField,
   loadTreatmentMarkers,
+  markerEstimateGuidance,
   mealMarkerSchemaHint,
   treatmentMarkersHardBlock,
   type DietMarkerCode,
@@ -983,6 +984,7 @@ export async function estimateMarkersForSavedMeals(
     return { id: meal.id, items };
   });
 
+  const defs = markerEstimateGuidance(markers);
   const prompt = `You estimate clinic treatment markers for already-logged meals.
 Do NOT change macros (kcal/P/C/F/fiber). Only estimate the marker fields listed.
 Return JSON ONLY:
@@ -990,7 +992,7 @@ Return JSON ONLY:
 Same meal ids, same item count and order as input.
 Markers to estimate: ${markers.map((m) => `${m.marker} (${m.direction} ${m.dailyTarget}${m.unit}/day)`).join('; ')}.
 Best-effort estimates; use 0.0 when negligible.
-
+${defs ? `${defs}\n` : ''}
 INPUT:
 ${JSON.stringify({ meals: mealBlocks })}`;
 

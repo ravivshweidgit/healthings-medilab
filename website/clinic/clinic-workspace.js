@@ -1474,7 +1474,12 @@
     const draft = draftMarkersFromOverlay(ctx);
     const labs = ctx.parsed.labs || [];
     const used = new Set(draft.map((m) => m.marker));
-    const available = DIET_MARKER_CATALOG.filter((c) => !used.has(c.code));
+    const available = DIET_MARKER_CATALOG.filter((c) => !used.has(c.code)).sort((a, b) => {
+      const aHit = findLinkedLabHit(labs, a.linkedLabCodes) ? 1 : 0;
+      const bHit = findLinkedLabHit(labs, b.linkedLabCodes) ? 1 : 0;
+      if (bHit !== aHit) return bHit - aHit;
+      return 0;
+    });
     const canAdd = draft.length < MAX_TREAT_MARKERS && available.length > 0;
 
     const rows = draft.length
@@ -1547,6 +1552,7 @@
 
     panel.innerHTML = `
       <p class="sub rules-intro">${esc(t('wsTreatIntro'))}</p>
+      <p class="sub rules-intro">${esc(t('wsTreatAddedSugarHint'))}</p>
       <div class="treat-list">${rows}</div>
       ${addForm}
       <div class="rules-actions" style="margin-top:16px">
