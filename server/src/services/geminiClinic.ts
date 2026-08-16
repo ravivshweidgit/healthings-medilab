@@ -376,6 +376,8 @@ function formatLabReports(store: Record<string, string>, limit = CHAT_LAB_REPORT
   return blocks.length ? blocks.join('\n\n') : null;
 }
 
+type MarkerAmounts = Record<string, number>;
+
 type FoodMealItem = {
   name?: string;
   name_local?: string;
@@ -385,6 +387,8 @@ type FoodMealItem = {
   carb_g?: number;
   fat_g?: number;
   fiber_g?: number;
+  /** Treatment markers on the item — e.g. SAT_FAT_G (prompt110 / be-41). */
+  markers?: MarkerAmounts;
 };
 
 type FoodMeal = {
@@ -396,7 +400,52 @@ type FoodMeal = {
   totalFiber_g?: number;
   note?: string;
   items?: FoodMealItem[];
+  /** Meal-level marker totals (preferred when present). */
+  markers?: MarkerAmounts;
 };
+
+/** Short labels for clinic mentor food lines (always-English glossary). */
+const MARKER_SHORT: Record<string, string> = {
+  SAT_FAT_G: 'SatF',
+  CHOLESTEROL_MG: 'Chol',
+  SOLUBLE_FIBER_G: 'SolFi',
+  OMEGA3_G: 'n3',
+  ADDED_SUGAR_G: 'AddSug',
+  SODIUM_MG: 'Na',
+  POTASSIUM_MG: 'K',
+  PHOSPHORUS_MG: 'P',
+};
+
+function formatMarkerBits(markers: MarkerAmounts | null | undefined): string {
+  if (!markers) return '';
+  const bits: string[] = [];
+  for (const [k, v] of Object.entries(markers)) {
+    if (v == null || !Number.isFinite(v)) continue;
+    const label = MARKER_SHORT[k] ?? k;
+    const rounded = Math.round(v * 10) / 10;
+    bits.push(`${label}${rounded}`);
+  }
+  return bits.length ? bits.join(' ') : '';
+}
+
+function sumMarkerMaps(parts: MarkerAmounts[]): MarkerAmounts {
+  const out: MarkerAmounts = {};
+  for (const part of parts) {
+    for (const [k, v] of Object.entries(part)) {
+      if (v == null || !Number.isFinite(v)) continue;
+      out[k] = Math.round(((out[k] ?? 0) + v) * 10) / 10;
+    }
+  }
+  return out;
+}
+
+/** Same resolution as the phone Food Log day meter: items first, else meal.markers. */
+function resolveMealMarkers(meal: FoodMeal): MarkerAmounts {
+  const fromItems = sumMarkerMaps((meal.items ?? []).map((it) => it.markers ?? {}));
+  if (Object.keys(fromItems).length > 0) return fromItems;
+  if (meal.markers && Object.keys(meal.markers).length > 0) return meal.markers;
+  return {};
+}
 
 function formatFoodLogItemLine(item: FoodMealItem): string {
   const name = (item.name_local || item.name || 'item').trim();
@@ -409,14 +458,18 @@ function formatFoodLogItemLine(item: FoodMealItem): string {
     item.carb_g != null ||
     item.fat_g != null ||
     item.fiber_g != null;
+  const markBits = formatMarkerBits(item.markers);
+  let base: string;
   if (hasGrams && hasKcal && hasMacros) {
-    return `${name}: ${Math.round(grams)}g, ${Math.round(kcal)} kcal, P${Math.round(item.protein_g ?? 0)}g C${Math.round(item.carb_g ?? 0)}g F${Math.round(item.fat_g ?? 0)}g Fi${Math.round(item.fiber_g ?? 0)}g`;
+    base = `${name}: ${Math.round(grams)}g, ${Math.round(kcal)} kcal, P${Math.round(item.protein_g ?? 0)}g C${Math.round(item.carb_g ?? 0)}g F${Math.round(item.fat_g ?? 0)}g Fi${Math.round(item.fiber_g ?? 0)}g`;
+  } else if (hasGrams && hasKcal) {
+    base = `${name}: ${Math.round(grams)}g, ${Math.round(kcal)} kcal`;
+  } else if (hasGrams) {
+    base = `${name}: ${Math.round(grams)}g`;
+  } else {
+    base = name;
   }
-  if (hasGrams && hasKcal) {
-    return `${name}: ${Math.round(grams)}g, ${Math.round(kcal)} kcal`;
-  }
-  if (hasGrams) return `${name}: ${Math.round(grams)}g`;
-  return name;
+  return markBits ? `${base} | ${markBits}` : base;
 }
 
 function formatFoodLogMealLines(meal: FoodMeal, utcOffsetMinutes: number): string[] {
@@ -432,8 +485,11 @@ function formatFoodLogMealLines(meal: FoodMeal, utcOffsetMinutes: number): strin
   } else {
     lines.push('      • (items not stored — totals only)');
   }
+  const mealMarks = resolveMealMarkers(meal);
+  const markBits = formatMarkerBits(mealMarks);
   lines.push(
-    `    Total: ${Math.round(meal.totalKcal ?? 0)} kcal | P${Math.round(meal.totalProtein_g ?? 0)}g C${Math.round(meal.totalCarb_g ?? 0)}g F${Math.round(meal.totalFat_g ?? 0)}g Fi${Math.round(meal.totalFiber_g ?? 0)}g`,
+    `    Total: ${Math.round(meal.totalKcal ?? 0)} kcal | P${Math.round(meal.totalProtein_g ?? 0)}g C${Math.round(meal.totalCarb_g ?? 0)}g F${Math.round(meal.totalFat_g ?? 0)}g Fi${Math.round(meal.totalFiber_g ?? 0)}g` +
+      (markBits ? ` | ${markBits}` : ''),
   );
   if (meal.note?.trim()) lines.push(`    Note: ${meal.note.trim()}`);
   return lines;
@@ -583,8 +639,8 @@ function formatFoodLogBlock(
   const tzLabel = formatUtcOffsetLabel(utcOffsetMinutes);
   const lines: string[] = [
     detailDays >= lookbackDays
-      ? `Food log (by day, newest first — meal times patient local ${tzLabel}; full item detail through ${lookbackDays}d):`
-      : `Food log (by day, newest first — meal times patient local ${tzLabel}; item detail last ${Math.min(detailDays, lookbackDays)}d, day totals through ${lookbackDays}d):`,
+      ? `Food log (by day, newest first — meal times patient local ${tzLabel}; full item detail through ${lookbackDays}d; SatF/Chol/etc. markers when logged = USER DATA day totals, not estimates):`
+      : `Food log (by day, newest first — meal times patient local ${tzLabel}; item detail last ${Math.min(detailDays, lookbackDays)}d, day totals through ${lookbackDays}d; SatF/Chol/etc. markers when logged = USER DATA):`,
   ];
 
   for (const dk of dayKeys) {
@@ -595,9 +651,13 @@ function formatFoodLogBlock(
     const p = meals.reduce((a, m) => a + (m.totalProtein_g ?? 0), 0);
     const c = meals.reduce((a, m) => a + (m.totalCarb_g ?? 0), 0);
     const f = meals.reduce((a, m) => a + (m.totalFat_g ?? 0), 0);
+    const dayMarks = sumMarkerMaps(meals.map(resolveMealMarkers));
+    const dayMarkBits = formatMarkerBits(dayMarks);
     const detail = dk >= detailCutoffKey;
     lines.push(
-      `${dk}: ${meals.length} meals, ${Math.round(kcal)} kcal, P${Math.round(p)} C${Math.round(c)} F${Math.round(f)} g${detail ? '' : ' (totals only)'}`,
+      `${dk}: ${meals.length} meals, ${Math.round(kcal)} kcal, P${Math.round(p)} C${Math.round(c)} F${Math.round(f)} g` +
+        (dayMarkBits ? ` | ${dayMarkBits}` : '') +
+        (detail ? '' : ' (totals only)'),
     );
     if (!detail) continue;
     for (const meal of meals) {
@@ -1028,7 +1088,7 @@ When Profile lists height (cm), gender, birthdate, or age — those values ARE k
 When CGM glucose lists a date with avg/min/max or HH:MM readings, that date HAS glucose data — cite it and correlate with Food log meals. Never say glucose/CGM is missing for a date that appears in the CGM block.
 When Workouts & activity lists timed sessions for a date/time, that exercise IS logged — cite start/end, duration, and kcal. Correlate walks/workouts with CGM trends after meals. Never say exercise is missing for a date that appears in the Workouts block.
 
-ESTIMATE WHAT WE DO NOT STORE (HARD — core product): Food log lines give kcal and macros (P/C/F/Fi) and food names + grams — NOT iodine, omega-3/6, vitamins, minerals, sodium, glycemic load, or other micronutrients per item. When clinic staff ask about those (or any nutrient/quality not in the numbers): ALWAYS answer using your food-science judgment from the logged food names + grams (USDA-style / standard tables). Lead with a concrete estimate (e.g. rough µg iodine for that day, main contributing foods). Label figures as estimated. Never open with "data not available", "iodine not in the log", or refuse. Never spend a turn explaining that the app does not store micronutrients — clinic staff already know; just estimate. One brief "estimated from food tables" caveat at the end is enough. Distinguish exact logged USER DATA (meals, P/C/F/Fi, labs, CGM) from AI estimates.
+ESTIMATE WHAT WE DO NOT STORE (HARD — core product): Food log lines give kcal, macros (P/C/F/Fi), food names + grams, and — when present — treatment markers such as SatF (saturated fat, SAT_FAT_G), Chol, SolFi, etc. on day totals, meal totals, and items. Those marker numbers ARE exact logged USER DATA (same as the phone day meter). When SatF / other markers appear in the Food log block: USE those day and meal totals — never invent, never "estimate from food detail" / "הערכה מפירוט מזונות", never ask clinic staff to re-type numbers already in PATIENT DATA. Only nutrients NOT listed in the numbers (iodine, most vitamins/minerals, omega ratios when n3 is absent, glycemic load, etc.) should be estimated from food names + grams (USDA-style). Label true estimates as estimated. Never open with "data not available" for micronutrients that are not stored. Distinguish exact logged USER DATA (meals, P/C/F/Fi, SatF/markers when shown, labs, CGM) from AI estimates.
 
 CLINIC TONE (HARD): Be a helpful senior clinical nutrition colleague — concise, concrete, respectful. Prefer numbers + named foods over meta talk about the software. If staff say the patient did log food detail, briefly agree and either (a) restate the estimate with the contributing foods, or (b) list the meal items — do not defend or describe product limitations. Meal times in PATIENT DATA are patient-local; present them as written. Do not invent labs or meals not listed.
 
@@ -1102,7 +1162,7 @@ When Profile lists height (cm), gender, birthdate, or age — those values ARE k
 When CGM glucose lists a date with avg/min/max or HH:MM readings, that date HAS glucose data — cite it and correlate with Food log meals. Never say glucose/CGM is missing for a date that appears in the CGM block.
 When Workouts & activity lists timed sessions for a date/time, that exercise IS logged — cite start/end, duration, and kcal. Correlate walks/workouts with CGM trends after meals. Never say exercise is missing for a date that appears in the Workouts block.
 
-ESTIMATE WHAT WE DO NOT STORE (HARD — core product): Food log lines give kcal and macros (P/C/F/Fi) and food names + grams — NOT iodine, omega-3/6, vitamins, minerals, sodium, glycemic load, or other micronutrients per item. When the patient asks about those (or any nutrient/quality not in the numbers): ALWAYS answer using your food-science judgment from the logged food names + grams (USDA-style / standard tables). Lead with a concrete estimate. Label figures as estimated. Never open with "data not available" or refuse. One brief "estimated from food tables" caveat at the end is enough. Distinguish exact logged USER DATA from AI estimates.
+ESTIMATE WHAT WE DO NOT STORE (HARD — core product): Food log lines give kcal, macros (P/C/F/Fi), food names + grams, and — when present — treatment markers such as SatF (SAT_FAT_G) on day/meal/item lines. Those marker numbers ARE exact logged USER DATA — use them; never invent or "estimate from food detail" for SatF when shown. Only nutrients NOT listed (iodine, most vitamins/minerals, etc.) should be estimated from food names + grams. Label true estimates as estimated. Never open with "data not available" or refuse. Distinguish exact logged USER DATA from AI estimates.
 
 REPLY LANGUAGE (HARD): Write your entire reply in ${replyLanguage} (patient app language: ${locale}).
 Quote patient-authored snippets as written when needed, but your explanation and recommendations MUST be in ${replyLanguage}.
