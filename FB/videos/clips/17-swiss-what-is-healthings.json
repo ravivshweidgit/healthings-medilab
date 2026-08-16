@@ -7,8 +7,8 @@
   "voice": "daniel",
   "subs_lang": "en",
   "subs_style": "film",
-  "preroll": 3.2,
-  "tail": 19.5,
+  "preroll": 5.0,
+  "tail": 23.5,
   "outro_fade": 3.8,
   "cards": "dark",
   "crf": 16,
@@ -16,50 +16,62 @@
   "segments": [
     {
       "en": "You log your meals. You wear a watch. You get blood tests.",
+      "he": "אתם מתעדים ארוחות. הולכים עם שעון. עושים בדיקות דם.",
       "shot": { "type": "art", "file": "vo-meals-watch-labs-slate.jpg" }
     },
     {
       "en": "But none of it talks to each other.",
+      "he": "אבל כלום לא מתחבר לכלום.",
       "shot": { "type": "art", "file": "loop-disconnected-dark.png" }
     },
     {
       "en": "Healthings connects all of it into one loop.",
+      "he": "Healthings מחברת הכל יחד לישות שלמה.",
       "shot": { "type": "art", "file": "loop-video-dark.png" }
     },
     {
       "en": "It starts in the clinic.",
+      "he": "הכול מתחיל בקליניקה.",
       "shot": { "type": "art", "file": "vo-clinic-labs-plan-slate.jpg" }
     },
     {
       "en": "A licensed nutritionist reads your labs and sets your plan.",
+      "he": "דיאטנית מוסמכת קוראת את הבדיקות שלכם ובונה לכם תוכנית.",
       "shot": { "type": "art", "file": "clinic-portal-dark-16x9.jpg" }
     },
     {
       "en": "That plan becomes rules that live inside your app.",
+      "he": "התוכנית הזאת הופכת לכללים שנכנסים לאפליקציה שלכם.",
       "shot": { "type": "phone", "file": "a4-rules-meters-dark.jpg" }
     },
     {
       "en": "Your scale, your watch, and your CGM measure what's actually happening.",
+      "he": "המשקל, השעון וחיישן הסוכר מודדים מה שבאמת קורה.",
       "shot": { "type": "art", "file": "vo-scale-watch-cgm-slate.jpg" }
     },
     {
       "en": "Every meal you log is checked against your plan, in seconds.",
+      "he": "כל ארוחה שאתם מתעדים נבדקת מול התוכנית, תוך שניות.",
       "shot": { "type": "phone", "file": "a14-food-log-dark-meters.jpg" }
     },
     {
       "en": "And your clinic sees the real week,",
+      "he": "והדיאטנית שלכם רואה את השבוע האמיתי,",
       "shot": { "type": "art", "file": "vo-clinic-sees-week-slate.jpg" }
     },
     {
       "en": "not a story from memory, and adjusts.",
+      "he": "לא מה שזוכרים לספר בפגישה — ומעדכנת את התוכנית.",
       "shot": { "type": "art", "file": "clinic-portal-dark-16x9.jpg" }
     },
     {
       "en": "Clinic directs. App executes. Devices measure.",
+      "he": "הקליניקה מחליטה. האפליקציה מבצעת. המכשירים מודדים.",
       "shot": { "type": "art", "file": "loop-video-dark-roles.png" }
     },
     {
       "en": "Healthings. One loop, closed.",
+      "he": "Healthings. מעגל אחד, סגור.",
       "shot": { "type": "art", "file": "vo-clinic-close-slate.jpg" }
     }
   ]

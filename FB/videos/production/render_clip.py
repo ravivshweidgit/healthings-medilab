@@ -365,6 +365,158 @@ def srt_time(t: float) -> str:
     return f"{int(t // 3600):02d}:{int((t % 3600) // 60):02d}:{int(t % 60):02d},{ms:03d}"
 
 
+def _ass_visual_rtl(text: str) -> str:
+    """Convert logical RTL to visual order for LTR-only ASS/libass burns.
+
+    Our ffmpeg libass path paints left-to-right and ignores Unicode RLI, so
+    Hebrew cues land with the period on the right. python-bidi get_display
+    produces the glyph order an LTR engine must draw to look correct RTL."""
+    from bidi.algorithm import get_display
+
+    return get_display(text, base_dir="R")
+
+
+def _soft_wrap_logical(text: str, limit: int = 48) -> list[str]:
+    if len(text) <= limit:
+        return [text]
+    # Prefer sentence ends for Hebrew film burns — midpoint cuts park the
+    # period on the wrong visual edge after bidi.
+    for sep in (". ", "۔ ", "? ", "! "):
+        idx = text.rfind(sep, 0, limit + 8)
+        if idx >= max(12, limit // 3):
+            cut = idx + 1  # keep the period on the first line
+            return [text[:cut].rstrip(), text[cut:].lstrip()]
+    mid = len(text) // 2
+    cut = -1
+    for i in range(mid - 18, mid + 18):
+        if 0 < i < len(text) and text[i] == " ":
+            cut = i
+            break
+    if cut <= 0:
+        return [text]
+    return [text[:cut].rstrip(), text[cut + 1 :].lstrip()]
+
+
+def _hebrew_font_path() -> Path:
+    for name in (
+        "NotoSansHebrew-SemiBold.ttf",
+        "NotoSansHebrew-Medium.ttf",
+        "NotoSansHebrew-Regular.ttf",
+    ):
+        p = FONTS / name
+        if p.is_file():
+            return p
+    raise SystemExit(f"Missing Noto Sans Hebrew under {FONTS}")
+
+
+def _latin_font_path() -> Path:
+    for name in (
+        "NotoSans-SemiBold.ttf",
+        "NotoSans-Medium.ttf",
+        "NotoSans-Regular.ttf",
+        "NotoSans-Bold.ttf",
+    ):
+        p = FONTS / name
+        if p.is_file():
+            return p
+    raise SystemExit(f"Missing Noto Sans (Latin) under {FONTS}")
+
+
+def _is_hebrew_char(ch: str) -> bool:
+    o = ord(ch)
+    return 0x0590 <= o <= 0x05FF  # Hebrew block
+
+
+def _draw_mixed_line(
+    draw,
+    xy: tuple[int, int],
+    text: str,
+    *,
+    font_he,
+    font_lat,
+    fill: tuple[int, int, int, int],
+    stroke_fill: tuple[int, int, int, int],
+    stroke_w: int,
+) -> int:
+    """Draw visual-order text LTR, picking Hebrew vs Latin font per glyph.
+
+    Noto Sans Hebrew has no ASCII/Latin — periods and \"Healthings\" become tofu
+    boxes unless Latin Noto Sans is used for those runs."""
+    x, y = xy
+    for ch in text:
+        font = font_he if _is_hebrew_char(ch) else font_lat
+        draw.text(
+            (x, y),
+            ch,
+            font=font,
+            fill=fill,
+            stroke_width=stroke_w,
+            stroke_fill=stroke_fill,
+        )
+        x += int(draw.textlength(ch, font=font))
+    return x
+
+
+def _mixed_line_width(draw, text: str, *, font_he, font_lat, stroke_w: int) -> int:
+    w = 0
+    for ch in text:
+        font = font_he if _is_hebrew_char(ch) else font_lat
+        # textlength ignores stroke; add a little so centering matches ink.
+        w += int(draw.textlength(ch, font=font)) + (stroke_w // 4)
+    return w
+
+
+def write_rtl_burn_pngs(
+    dest_dir: Path,
+    subs: list[tuple[float, float, str]],
+    shift: float,
+    layout: Layout,
+    *,
+    style: str = "film",
+) -> list[tuple[Path, float, float]]:
+    """Pillow PNG overlays — reliable Hebrew RTL (ASS/libass bidi is unusable here)."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    size = 42 if style == "film" and layout.h >= 1080 else max(36, layout.sub_size)
+    margin_v = max(120, round(layout.h * 0.12)) if style == "film" else layout.sub_margin_v
+    font_he = ImageFont.truetype(str(_hebrew_font_path()), size)
+    font_lat = ImageFont.truetype(str(_latin_font_path()), size)
+    fill = (245, 245, 245, 255) if style == "film" else (26, 43, 74, 255)
+    stroke = (0, 0, 0, 255) if style == "film" else (255, 255, 255, 255)
+    stroke_w = 3 if style == "film" else 5
+    out: list[tuple[Path, float, float]] = []
+    line_gap = int(size * 1.35)
+
+    for i, (start, end, text) in enumerate(subs):
+        logical_lines = _soft_wrap_logical(text.replace("\\N", " "))
+        visual_lines = [_ass_visual_rtl(ln) for ln in logical_lines]
+        img = Image.new("RGBA", (layout.w, layout.h), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        total_h = line_gap * len(visual_lines)
+        y = layout.h - margin_v - total_h
+        for vis in visual_lines:
+            tw = _mixed_line_width(
+                draw, vis, font_he=font_he, font_lat=font_lat, stroke_w=stroke_w
+            )
+            x = (layout.w - tw) // 2
+            _draw_mixed_line(
+                draw,
+                (x, y),
+                vis,
+                font_he=font_he,
+                font_lat=font_lat,
+                fill=fill,
+                stroke_fill=stroke,
+                stroke_w=stroke_w,
+            )
+            y += line_gap
+        path = dest_dir / f"rtl-sub-{i:02d}.png"
+        img.save(path)
+        out.append((path, start + shift, end + shift))
+    return out
+
+
 def write_ass(
     path: Path,
     subs: list[tuple[float, float, str]],
@@ -373,6 +525,7 @@ def write_ass(
     *,
     font: str,
     style: str = "brand",
+    rtl: bool = False,
 ) -> None:
     # brand  — navy fill + thick white edge (social / muted FB)
     # film   — white fill + soft black outline + light shadow (cinema)
@@ -411,10 +564,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     rows = []
     for start, end, text in subs:
         safe = text.replace("\\", "\\\\").replace("{", "(").replace("}", ")")
-        # Soft wrap long single lines for film burns (ASS \\N).
+        # Soft wrap on logical text first (space near midpoint), then visualise.
         if "\\N" not in safe and len(safe) > 48:
             mid = len(safe) // 2
-            # Prefer break after punctuation / space near midpoint.
             cut = -1
             for i in range(mid - 18, mid + 18):
                 if 0 < i < len(safe) and safe[i] == " ":
@@ -422,6 +574,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     break
             if cut > 0:
                 safe = safe[:cut].rstrip() + "\\N" + safe[cut + 1 :].lstrip()
+        if rtl:
+            # Per visual line — \\N splits before bidi so each row is independent.
+            parts = safe.split("\\N")
+            # For RTL soft-wrap, reverse line order so first logical clause sits
+            # on the lower line (reading top→bottom still matches speech).
+            visual_parts = [_ass_visual_rtl(p) for p in parts]
+            safe = "\\N".join(visual_parts)
         rows.append(
             f"Dialogue: 0,{ass_time(start + shift)},{ass_time(end + shift)},Default,,0,0,0,,{safe}"
         )
@@ -669,16 +828,64 @@ def main() -> None:
         if not args.no_subs:
             if subs_lang not in subs:
                 raise SystemExit(f"Spec has no '{subs_lang}' text to burn")
-            ass_path = tmp_path / "subs.ass"
-            font = sub_font_for(subs_lang)
-            write_ass(ass_path, subs[subs_lang], preroll, layout, font=font, style=subs_style)
-            if not FONTS.is_dir():
-                raise SystemExit(f"Missing fonts dir: {FONTS}")
-            v_chain += (
-                f",subtitles='{escape_filter_path(ass_path)}'"
-                f":fontsdir='{escape_filter_path(FONTS)}'"
-            )
-            print(f"  burned {subs_lang}: {len(subs[subs_lang])} lines · font={font} · style={subs_style}")
+            if subs_lang in ("he", "ar"):
+                # ASS/libass bidi is unreliable for Hebrew on our ffmpeg — Pillow PNGs.
+                pngs = write_rtl_burn_pngs(
+                    tmp_path / "rtl-subs",
+                    subs[subs_lang],
+                    preroll,
+                    layout,
+                    style=subs_style,
+                )
+                pictured = tmp_path / "picture-subs.mp4"
+                ov_inputs: list[str] = ["-i", str(picture)]
+                for png, _, _ in pngs:
+                    ov_inputs += ["-loop", "1", "-i", str(png)]
+                ov_filters: list[str] = []
+                prev = "[0:v]"
+                for i, (_, t0, t1) in enumerate(pngs):
+                    nxt = "[vout]" if i == len(pngs) - 1 else f"[o{i}]"
+                    en = f"between(t\\,{t0:.3f}\\,{t1:.3f})"
+                    ov_filters.append(
+                        f"{prev}[{i + 1}:v]overlay=0:0:format=auto:enable='{en}'{nxt}"
+                    )
+                    prev = nxt
+                run([
+                    "ffmpeg", "-hide_banner", "-loglevel", "error",
+                    *ov_inputs,
+                    "-filter_complex", ";".join(ov_filters),
+                    "-map", "[vout]",
+                    "-c:v", "libx264", "-preset", "medium", "-crf", "17",
+                    "-pix_fmt", "yuv420p", "-r", str(FPS),
+                    "-t", f"{total:.3f}",
+                    "-y", str(pictured),
+                ])
+                picture = pictured
+                print(
+                    f"  burned {subs_lang}: {len(pngs)} Pillow RTL overlays · style={subs_style}"
+                )
+            else:
+                ass_path = tmp_path / "subs.ass"
+                font = sub_font_for(subs_lang)
+                write_ass(
+                    ass_path,
+                    subs[subs_lang],
+                    preroll,
+                    layout,
+                    font=font,
+                    style=subs_style,
+                    rtl=False,
+                )
+                if not FONTS.is_dir():
+                    raise SystemExit(f"Missing fonts dir: {FONTS}")
+                v_chain += (
+                    f",subtitles='{escape_filter_path(ass_path)}'"
+                    f":fontsdir='{escape_filter_path(FONTS)}'"
+                )
+                print(
+                    f"  burned {subs_lang}: {len(subs[subs_lang])} lines · "
+                    f"font={font} · style={subs_style}"
+                )
         # Dark cards: fade to black so the closer doesn't flash white.
         fade_color = "black" if cards == "dark" else "white"
         fade_start = max(0.0, total - outro_fade)
