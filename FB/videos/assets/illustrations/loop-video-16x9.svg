@@ -1,18 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     viewBox="0 0 1920 1080" width="1920" height="1080">
   <title>Healthings closed cycle - 16:9</title>
   <defs>
-    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#B8DAF0"/>
-      <stop offset="0.12" stop-color="#D6EBF8"/>
-      <stop offset="0.31" stop-color="#F0F4F8"/>
-      <stop offset="1" stop-color="#F0F4F8"/>
+    <linearGradient id="wash" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F0F4F8" stop-opacity="0.72"/>
+      <stop offset="0.45" stop-color="#F0F4F8" stop-opacity="0.88"/>
+      <stop offset="1" stop-color="#F0F4F8" stop-opacity="0.94"/>
     </linearGradient>
     <filter id="cardShadow" x="-30%" y="-40%" width="160%" height="200%">
-      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#1A2B4A" flood-opacity="0.10"/>
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#1A2B4A" flood-opacity="0.12"/>
     </filter>
+    <filter id="logoShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#1A2B4A" flood-opacity="0.18"/>
+    </filter>
+    <clipPath id="frame">
+      <rect width="1920" height="1080"/>
+    </clipPath>
   </defs>
 
-  <rect width="1920" height="1080" fill="url(#page)"/>
+  <g clip-path="url(#frame)">
+    <!-- Soft Swiss clinic — atmosphere only; wash keeps cards readable -->
+    <image href="_bg-clinic.jpg" x="0" y="-80" width="1920" height="1280" preserveAspectRatio="xMidYMid slice"/>
+    <rect width="1920" height="1080" fill="url(#wash)"/>
+  </g>
 
   <text x="80" y="84" font-family="Montserrat" fill="#1A2B4A" font-size="30"
         font-weight="700" letter-spacing="1.2">HEALTHINGS.AI</text>
@@ -21,9 +31,21 @@
   <text x="104" y="135" font-family="Montserrat" fill="#1A2B4A" font-size="17"
         font-weight="700" letter-spacing="2.4">ONE CLOSED LOOP</text>
 
-  <circle cx="960" cy="540" r="290" fill="none" stroke="#3D9DD6" stroke-width="7"/>
-  <circle cx="960" cy="540" r="290" fill="none" stroke="#FFFFFF" stroke-width="2"
-          stroke-dasharray="10 22" opacity="0.9"/>
+  <circle cx="960" cy="540" r="290" fill="none" stroke="#3D9DD6" stroke-width="10"/>
+  <circle cx="960" cy="540" r="290" fill="none" stroke="#FFFFFF" stroke-width="3"
+          stroke-dasharray="10 22" opacity="0.95"/>
+  <g fill="#3D9DD6">
+    <polygon points="1188,400 1210,418 1182,428"/>
+    <polygon points="1120,750 1102,772 1092,744"/>
+    <polygon points="732,680 710,662 738,652"/>
+    <polygon points="800,330 818,308 828,336"/>
+  </g>
+
+  <!-- Brand at the hub — Healthings is the loop -->
+  <g filter="url(#logoShadow)">
+    <circle cx="960" cy="540" r="78" fill="#FFFFFF"/>
+    <image href="healthings-icon.png" x="910" y="490" width="100" height="100"/>
+  </g>
 
   <g font-family="Montserrat" text-anchor="middle">
     <g filter="url(#cardShadow)">

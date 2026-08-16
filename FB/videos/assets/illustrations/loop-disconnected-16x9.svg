@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
-  <title>Healthings - four sources, no loop - 16:9</title>
+  <title>Healthings - four isolated sources - 16:9</title>
   <defs>
     <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#B8DAF0"/>
@@ -13,33 +13,30 @@
 
   <text x="80" y="84" font-family="Montserrat" fill="#1A2B4A" font-size="30"
         font-weight="700" letter-spacing="1.2">HEALTHINGS.AI</text>
-  <rect x="80" y="108" width="360" height="40" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+  <rect x="80" y="108" width="420" height="40" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
   <text x="104" y="135" font-family="Montserrat" fill="#5C6B7A" font-size="17"
-        font-weight="700" letter-spacing="2.4">FOUR SOURCES, NO LOOP</text>
+        font-weight="700" letter-spacing="2.4">FOUR ISLANDS — NOTHING CONNECTS</text>
 
-  <g stroke="#C3D2E0" stroke-width="7" stroke-linecap="round" fill="none">
-    <path d="M 1083 277 A 290 290 0 0 1 1223 417"/>
-    <path d="M 1223 663 A 290 290 0 0 1 1083 803"/>
-    <path d="M 837 803 A 290 290 0 0 1 697 663"/>
-    <path d="M 697 417 A 290 290 0 0 1 837 277"/>
-  </g>
+  <!-- Same four nodes as the closed loop — islands first, then the ring closes. -->
 
   <g font-family="Montserrat" text-anchor="middle">
-    <rect x="835" y="192" width="250" height="116" rx="20" fill="#F8F9FA" stroke="#E2E8F0" stroke-width="2"/>
-    <rect x="1125" y="482" width="250" height="116" rx="20" fill="#F8F9FA" stroke="#E2E8F0" stroke-width="2"/>
-    <rect x="835" y="772" width="250" height="116" rx="20" fill="#F8F9FA" stroke="#E2E8F0" stroke-width="2"/>
-    <rect x="545" y="482" width="250" height="116" rx="20" fill="#F8F9FA" stroke="#E2E8F0" stroke-width="2"/>
+    <rect x="835" y="192" width="250" height="116" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+    <rect x="1125" y="482" width="250" height="116" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+    <rect x="835" y="772" width="250" height="116" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+    <rect x="545" y="482" width="250" height="116" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
 
     <text x="960" y="240" fill="#5C6B7A" font-size="32" font-weight="700">Clinic</text>
     <text x="960" y="280" fill="#8FA0B0" font-size="21" font-weight="500">once a month</text>
 
-    <text x="1250" y="530" fill="#5C6B7A" font-size="32" font-weight="700">Labs</text>
-    <text x="1250" y="570" fill="#8FA0B0" font-size="21" font-weight="500">a PDF in email</text>
+    <text x="1250" y="530" fill="#5C6B7A" font-size="32" font-weight="700">Rules</text>
+    <text x="1250" y="570" fill="#8FA0B0" font-size="21" font-weight="500">a visit note</text>
 
-    <text x="960" y="820" fill="#5C6B7A" font-size="32" font-weight="700">Meals</text>
-    <text x="960" y="860" fill="#8FA0B0" font-size="21" font-weight="500">a diary</text>
+    <text x="960" y="820" fill="#5C6B7A" font-size="32" font-weight="700">App + AI</text>
+    <text x="960" y="860" fill="#8FA0B0" font-size="21" font-weight="500">another chat</text>
 
     <text x="670" y="530" fill="#5C6B7A" font-size="32" font-weight="700">Gear</text>
     <text x="670" y="570" fill="#8FA0B0" font-size="21" font-weight="500">its own app</text>
+
+    <text x="960" y="548" fill="#A9B8C6" font-size="22" font-weight="600" letter-spacing="1.5">no loop</text>
   </g>
 </svg>

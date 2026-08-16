@@ -1,0 +1,56 @@
+{
+  "id": "17-swiss-what-is-healthings",
+  "title": "What is Healthings — Swiss picture",
+  "audience": "brand / clinic / investor — locked 06 VO; pictures matched to each line",
+  "export_dir": "017-swiss-what-is-healthings",
+  "vo_lang": "en",
+  "voice": "daniel",
+  "subs_lang": "en",
+  "subs_style": "film",
+  "preroll": 3.2,
+  "tail": 4.0,
+  "cards": "dark",
+  "note": "EN identical to 06. Stills generated to match each VO beat. No Hebrew. Dark logo cards; open ~3.2s / end ~4.0s (brand hold).",
+  "segments": [
+    {
+      "en": "You log your meals. You wear a watch. You get blood tests.",
+      "shot": { "type": "art", "file": "vo-meals-watch-labs.jpg" }
+    },
+    {
+      "en": "But none of it talks to each other.",
+      "shot": { "type": "art", "file": "loop-disconnected-dark.png" }
+    },
+    {
+      "en": "Healthings connects all of it into one loop.",
+      "shot": { "type": "art", "file": "loop-video-dark.png" }
+    },
+    {
+      "en": "It starts in the clinic. A licensed nutritionist reads your labs and sets your plan.",
+      "shot": { "type": "art", "file": "vo-clinic-labs-plan.jpg" }
+    },
+    {
+      "en": "That plan becomes rules that live inside your app.",
+      "shot": { "type": "phone", "file": "a4-rules-meters-dark.jpg" }
+    },
+    {
+      "en": "Your scale, your watch, and your CGM keep the numbers honest.",
+      "shot": { "type": "art", "file": "vo-scale-watch-cgm.jpg" }
+    },
+    {
+      "en": "Every meal you log is checked against your plan, in seconds.",
+      "shot": { "type": "phone", "file": "a14-food-log-dark-meters.jpg" }
+    },
+    {
+      "en": "And your clinic sees the real week, not a story from memory, and adjusts.",
+      "shot": { "type": "art", "file": "vo-clinic-sees-week.jpg" }
+    },
+    {
+      "en": "Clinic directs. App executes. Devices measure.",
+      "shot": { "type": "art", "file": "loop-video-dark.png" }
+    },
+    {
+      "en": "Healthings. One loop, closed.",
+      "shot": { "type": "art", "file": "vo-clinic-labs-plan.jpg" }
+    }
+  ]
+}

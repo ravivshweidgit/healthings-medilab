@@ -40,8 +40,8 @@ FPS = 30
 # frame PNG, so the only colour the renderer needs is what sits under the screen.
 SCREEN_OFF = "0xFFFFFF"
 
-PREROLL = 1.4   # open card before the first word
-TAIL = 3.0      # end card after the last word
+PREROLL = 1.4   # open card before the first word (override via --preroll / spec)
+TAIL = 3.0      # end card after the last word (override via --tail / spec)
 XFADE = 0.40    # dissolve straddling each shot boundary
 
 # Burned subs: Noto (vendored) — Hebrew burns + Latin glossary; outline style (no band).
@@ -240,7 +240,7 @@ def encode(chain: str, inputs: list[str], frames: int, out: Path) -> None:
 
 def render_phone_shot(
     src: Path, frame_png: Path, dur: float, index: int, out: Path, layout: Layout,
-    *, motion: float = 1.0,
+    *, motion: float = 1.0, screen_off: str = SCREEN_OFF,
 ) -> None:
     """Screenshot (or short screencap mp4) inside the site's phone mockup.
 
@@ -258,7 +258,7 @@ def render_phone_shot(
             f"scale={layout.screen_w}:{layout.screen_h}:flags=lanczos,"
             f"fps={FPS},setpts=PTS-STARTPTS,"
             f"trim=end_frame={frames},setpts=PTS-STARTPTS[scr];"
-            f"color=c={SCREEN_OFF}:s={layout.w}x{layout.h}:r={FPS}[base];"
+            f"color=c={screen_off}:s={layout.w}x{layout.h}:r={FPS}[base];"
             f"[base][scr]overlay={layout.screen_x}:{layout.screen_y}:format=auto[withscreen];"
             f"[withscreen][1:v]overlay=0:0:format=auto,format=yuv420p[v]"
         )
@@ -267,7 +267,7 @@ def render_phone_shot(
     chain = (
         f"[0:v]crop={cw}:{ch}:{cx}:{cy},"
         f"{zoompan(frames, layout.screen_w, layout.screen_h, index, motion)}[scr];"
-        f"color=c={SCREEN_OFF}:s={layout.w}x{layout.h}:r={FPS}[base];"
+        f"color=c={screen_off}:s={layout.w}x{layout.h}:r={FPS}[base];"
         f"[base][scr]overlay={layout.screen_x}:{layout.screen_y}:format=auto[withscreen];"
         f"[withscreen][1:v]overlay=0:0:format=auto,format=yuv420p[v]"
     )
@@ -360,8 +360,28 @@ def write_ass(
     layout: Layout,
     *,
     font: str,
+    style: str = "brand",
 ) -> None:
-    # Outline-only (BorderStyle 1): navy fill + thick white edge — no full-width band.
+    # brand  — navy fill + thick white edge (social / muted FB)
+    # film   — white fill + soft black outline + light shadow (cinema)
+    size = layout.sub_size
+    margin_v = layout.sub_margin_v
+    if style == "film":
+        # Slightly smaller + a touch higher than social burns — reads as titles.
+        size = max(28, round(layout.sub_size * 0.88))
+        margin_v = max(48, round(layout.sub_margin_v * 1.15))
+        # ASS colours are &HAABBGGRR
+        style_line = (
+            f"Style: Default,{font},{size},"
+            f"&H00F5F5F5,&H000000FF,&H00000000,&H64000000,"
+            f"0,0,0,0,100,100,0.4,0,1,2.4,1.2,2,110,110,{margin_v},1"
+        )
+    else:
+        style_line = (
+            f"Style: Default,{font},{size},"
+            f"&H004A2B1A,&H000000FF,&H00FFFFFF,&H40C0D0E0,"
+            f"0,0,0,0,100,100,0,0,1,5,0,2,96,96,{margin_v},1"
+        )
     header = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {layout.w}
@@ -372,7 +392,7 @@ YCbCr Matrix: TV.709
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{font},{layout.sub_size},&H004A2B1A,&H000000FF,&H00FFFFFF,&H40C0D0E0,0,0,0,0,100,100,0,0,1,5,0,2,96,96,{layout.sub_margin_v},1
+{style_line}
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -448,6 +468,26 @@ def main() -> None:
              "else spec subs_lang (usually he). Use with native VO so hard-of-hearing viewers "
              "can read in the spoken language.",
     )
+    ap.add_argument(
+        "--preroll",
+        type=float,
+        help="Open logo hold seconds (default 1.4; brand films ~3.0–3.5)",
+    )
+    ap.add_argument(
+        "--tail",
+        type=float,
+        help="End logo hold seconds (default 3.0; brand closers ~3.5–4.5)",
+    )
+    ap.add_argument(
+        "--cards",
+        choices=("default", "dark"),
+        help="Card art variant. dark → card-open-dark-{aspect}.png",
+    )
+    ap.add_argument(
+        "--subs-style",
+        choices=("brand", "film"),
+        help="Burned caption look. film = white + soft black edge (cinema). Default brand.",
+    )
     args = ap.parse_args()
     layout = LAYOUTS[args.aspect]
 
@@ -455,6 +495,13 @@ def main() -> None:
     if not spec_path.is_file():
         raise SystemExit(f"No spec: {spec_path}")
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
+
+    preroll = float(args.preroll if args.preroll is not None else spec.get("preroll", PREROLL))
+    tail = float(args.tail if args.tail is not None else spec.get("tail", TAIL))
+    cards = args.cards or spec.get("cards", "default")
+    subs_style = args.subs_style or spec.get("subs_style", "brand")
+    if preroll < 0.5 or tail < 0.5:
+        raise SystemExit("preroll/tail must be >= 0.5s")
 
     vo_lang = args.vo_lang or spec.get("vo_lang", "en")
     if args.subs_lang:
@@ -476,12 +523,26 @@ def main() -> None:
     vo_dur = probe_dur(vo)
     segs = load_alignment(spec, vo_stem, vo_lang=vo_lang)
     shots, subs = build_shots(spec, segs, vo_dur, layout)
-    total = PREROLL + vo_dur + TAIL
+    total = preroll + vo_dur + tail
 
     sfx = layout.art_suffix
     frame_png = ART / f"phone-frame{sfx}.png"
-    card_open = ART / f"card-open{sfx}.png"
-    card_end = ART / f"card-end{sfx}.png"
+    screen_off = SCREEN_OFF
+    if cards == "dark":
+        # Prefer aspect-specific dark cards; fall back to light if missing.
+        card_open = ART / f"card-open-dark{sfx}.png"
+        card_end = ART / f"card-end-dark{sfx}.png"
+        if not card_open.is_file():
+            card_open = ART / f"card-open{sfx}.png"
+        if not card_end.is_file():
+            card_end = ART / f"card-end{sfx}.png"
+        dark_frame = ART / f"phone-frame-dark{sfx}.png"
+        if dark_frame.is_file():
+            frame_png = dark_frame
+            screen_off = "0x1C2128"
+    else:
+        card_open = ART / f"card-open{sfx}.png"
+        card_end = ART / f"card-end{sfx}.png"
     for required in (frame_png, card_open, card_end):
         if not required.is_file():
             raise SystemExit(
@@ -497,13 +558,13 @@ def main() -> None:
     out = out_dir / f"{spec['id']}-{tag}-{layout.name}{voice_suffix}.mp4"
 
     print(f"clip={spec['id']} {layout.name} vo={vo_dur:.1f}s "
-          f"shots={len(shots)} total={total:.1f}s"
+          f"shots={len(shots)} total={total:.1f}s open={preroll:.1f}s end={tail:.1f}s cards={cards}"
           + (f" voice_tag={args.vo_tag}" if args.vo_tag else "")
           + (f" motion={args.motion}" if args.motion > 1.001 else " stable"))
 
     with tempfile.TemporaryDirectory(prefix="hm-render-") as tmp:
         tmp_path = Path(tmp)
-        spans = [PREROLL] + [s.dur for s in shots] + [TAIL]
+        spans = [preroll] + [s.dur for s in shots] + [tail]
         durs, offsets, trans = xfade_chain(spans)
         motion = args.motion
 
@@ -521,6 +582,7 @@ def main() -> None:
                 if shot.kind == "phone":
                     render_phone_shot(
                         shot.path, frame_png, dur, i, part, layout, motion=motion,
+                        screen_off=screen_off,
                     )
                 elif shot.kind == "broll":
                     render_broll_shot(shot.path, dur, i, part, layout, motion=motion)
@@ -562,8 +624,8 @@ def main() -> None:
         # Sidecars for every language in the spec, burned or not: the website
         # picks the visitor's language from <track>, so it needs them all.
         for lang, lines in subs.items():
-            write_srt(out_dir / f"{spec['id']}-{lang}.srt", lines, PREROLL)
-            write_vtt(out_dir / f"{spec['id']}-{lang}.vtt", lines, PREROLL)
+            write_srt(out_dir / f"{spec['id']}-{lang}.srt", lines, preroll)
+            write_vtt(out_dir / f"{spec['id']}-{lang}.vtt", lines, preroll)
         print(f"  sidecars: {', '.join(sorted(subs))} (.srt + .vtt) -> {out_dir.name}")
 
         v_chain = f"[0:v]trim=duration={total:.3f},setpts=PTS-STARTPTS,fps={FPS}"
@@ -572,21 +634,23 @@ def main() -> None:
                 raise SystemExit(f"Spec has no '{subs_lang}' text to burn")
             ass_path = tmp_path / "subs.ass"
             font = sub_font_for(subs_lang)
-            write_ass(ass_path, subs[subs_lang], PREROLL, layout, font=font)
+            write_ass(ass_path, subs[subs_lang], preroll, layout, font=font, style=subs_style)
             if not FONTS.is_dir():
                 raise SystemExit(f"Missing fonts dir: {FONTS}")
             v_chain += (
                 f",subtitles='{escape_filter_path(ass_path)}'"
                 f":fontsdir='{escape_filter_path(FONTS)}'"
             )
-            print(f"  burned {subs_lang}: {len(subs[subs_lang])} lines · font={font}")
+            print(f"  burned {subs_lang}: {len(subs[subs_lang])} lines · font={font} · style={subs_style}")
+        # Dark cards: fade to black so the closer doesn't flash white.
+        fade_color = "black" if cards == "dark" else "white"
         v_chain += (
-            f",fade=t=in:st=0:d=0.45:color=white"
-            f",fade=t=out:st={total - 0.6:.3f}:d=0.6:color=white"
+            f",fade=t=in:st=0:d=0.45:color={fade_color}"
+            f",fade=t=out:st={total - 0.6:.3f}:d=0.6:color={fade_color}"
             f",format=yuv420p[v]"
         )
 
-        pre_ms = int(PREROLL * 1000)
+        pre_ms = int(preroll * 1000)
         # Single-pass loudnorm has lookahead latency and eats the tail, so run it
         # against a generously padded stream and cut to length afterwards.
         headroom = total + 6.0

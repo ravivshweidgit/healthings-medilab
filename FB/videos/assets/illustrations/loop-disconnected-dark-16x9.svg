@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <title>Healthings four islands - slate - 16:9</title>
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2A3038"/>
+      <stop offset="0.5" stop-color="#1C2128"/>
+      <stop offset="1" stop-color="#14181E"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#page)"/>
+
+  <text x="80" y="84" font-family="Montserrat" fill="#F3F5F7" font-size="28"
+        font-weight="700" letter-spacing="3">HEALTHINGS.AI</text>
+  <text x="80" y="122" font-family="Montserrat" fill="#8B95A1" font-size="15"
+        font-weight="600" letter-spacing="3.2">FOUR ISLANDS - NOTHING CONNECTS</text>
+
+  <g font-family="Montserrat" text-anchor="middle">
+    <rect x="835" y="192" width="250" height="100" rx="14" fill="#2C333C"
+          stroke="rgba(255,255,255,0.1)" stroke-width="1.5"/>
+    <rect x="1180" y="490" width="250" height="100" rx="14" fill="#2C333C"
+          stroke="rgba(255,255,255,0.1)" stroke-width="1.5"/>
+    <rect x="835" y="788" width="250" height="100" rx="14" fill="#2C333C"
+          stroke="rgba(255,255,255,0.1)" stroke-width="1.5"/>
+    <rect x="490" y="490" width="250" height="100" rx="14" fill="#2C333C"
+          stroke="rgba(255,255,255,0.1)" stroke-width="1.5"/>
+
+    <text x="960" y="250" fill="#C5CCD4" font-size="26" font-weight="700"
+          letter-spacing="4">CLINIC</text>
+    <text x="1305" y="548" fill="#C5CCD4" font-size="26" font-weight="700"
+          letter-spacing="4">RULES</text>
+    <text x="960" y="846" fill="#C5CCD4" font-size="24" font-weight="700"
+          letter-spacing="3">APP + AI</text>
+    <text x="615" y="548" fill="#C5CCD4" font-size="26" font-weight="700"
+          letter-spacing="4">GEAR</text>
+
+    <text x="960" y="548" fill="#4A5560" font-size="18" font-weight="600"
+          letter-spacing="2.5">NO LOOP</text>
+  </g>
+</svg>

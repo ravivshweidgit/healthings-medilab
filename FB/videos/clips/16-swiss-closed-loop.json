@@ -1,0 +1,55 @@
+{
+  "id": "16-swiss-closed-loop",
+  "title": "Swiss wellness · closed loop",
+  "audience": "clinic / brand / investor — premium wellness face + closed loop",
+  "export_dir": "016-swiss-closed-loop",
+  "vo_lang": "en",
+  "voice": "daniel",
+  "subs_lang": "en",
+  "segments": [
+    {
+      "en": "In a quiet clinic, care is meant to feel calm.",
+      "shot": { "type": "art", "file": "swiss-clinic.jpg" }
+    },
+    {
+      "en": "But calm alone does not close the loop.",
+      "shot": { "type": "art", "file": "loop-disconnected.png" }
+    },
+    {
+      "en": "Recovery belongs in the protocol — rest you can feel, and later measure.",
+      "shot": { "type": "art", "file": "swiss-spa.jpg" }
+    },
+    {
+      "en": "Food enters as medicine. A plate. A photograph. A sentence. Logged — not left to memory.",
+      "shot": { "type": "art", "file": "swiss-food.jpg" }
+    },
+    {
+      "en": "Glucose joins the same picture — the curve beside the meal.",
+      "shot": { "type": "phone", "file": "a1-glucose-chart.jpg" }
+    },
+    {
+      "en": "Heart rate and activity from the watch change today's targets.",
+      "shot": { "type": "art", "file": "watch-activity.jpg" }
+    },
+    {
+      "en": "At night, sleep closes the day. The week remains visible.",
+      "shot": { "type": "art", "file": "sleep-night.jpg" }
+    },
+    {
+      "en": "This is Healthings. Sensor, scale, meals, labs, and movement — fused into today's numbers.",
+      "shot": { "type": "art", "file": "loop-video.png" }
+    },
+    {
+      "en": "When new data lands, the plan steers back to the clinician's rules. Hard floors. Hard caps. Theirs.",
+      "shot": { "type": "phone", "file": "a4-my-rules-targets.jpg" }
+    },
+    {
+      "en": "High-end calm. A closed loop. The whole week — before the patient sits down.",
+      "shot": { "type": "art", "file": "swiss-clinic.jpg" }
+    },
+    {
+      "en": "Healthings.",
+      "shot": { "type": "art", "file": "loop-video.png" }
+    }
+  ]
+}
