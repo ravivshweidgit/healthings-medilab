@@ -188,7 +188,19 @@ def build_shots(
         next_start = times[i + 1][0] if i + 1 < len(times) else vo_dur
         span_end = max(end, next_start - 0.06)
         for lang in langs:
-            subs[lang].append((start, span_end, spec["segments"][i][lang]))
+            text = spec["segments"][i][lang]
+            # Split multi-sentence captions across the beat (film readability).
+            parts = [p.strip() for p in text.replace("? ", "?|").replace(". ", ".|").split("|") if p.strip()]
+            if len(parts) >= 2 and len(text) >= 56:
+                weights = [max(1, len(p)) for p in parts]
+                total_w = sum(weights)
+                cursor = start
+                for j, part in enumerate(parts):
+                    part_end = span_end if j == len(parts) - 1 else cursor + (span_end - start) * weights[j] / total_w
+                    subs[lang].append((cursor, part_end, part))
+                    cursor = part_end
+            else:
+                subs[lang].append((start, span_end, text))
 
     # picture: one shot per segment, merged when consecutive segments share an asset
     shots: list[Shot] = []
@@ -367,14 +379,13 @@ def write_ass(
     size = layout.sub_size
     margin_v = layout.sub_margin_v
     if style == "film":
-        # Slightly smaller + a touch higher than social burns — reads as titles.
-        size = max(28, round(layout.sub_size * 0.88))
-        margin_v = max(48, round(layout.sub_margin_v * 1.15))
-        # ASS colours are &HAABBGGRR
+        # Broadcast-ish: ~42px @1080p, baseline ~86% (MarginV from bottom).
+        size = 42 if layout.h >= 1080 else max(36, round(layout.sub_size * 1.05))
+        margin_v = max(120, round(layout.h * 0.12))
         style_line = (
             f"Style: Default,{font},{size},"
-            f"&H00F5F5F5,&H000000FF,&H00000000,&H64000000,"
-            f"0,0,0,0,100,100,0.4,0,1,2.4,1.2,2,110,110,{margin_v},1"
+            f"&H00F5F5F5,&H000000FF,&H00000000,&H80000000,"
+            f"0,0,0,0,100,100,0.6,0,1,2.8,1.4,2,96,96,{margin_v},1"
         )
     else:
         style_line = (
@@ -400,6 +411,17 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     rows = []
     for start, end, text in subs:
         safe = text.replace("\\", "\\\\").replace("{", "(").replace("}", ")")
+        # Soft wrap long single lines for film burns (ASS \\N).
+        if "\\N" not in safe and len(safe) > 48:
+            mid = len(safe) // 2
+            # Prefer break after punctuation / space near midpoint.
+            cut = -1
+            for i in range(mid - 18, mid + 18):
+                if 0 < i < len(safe) and safe[i] == " ":
+                    cut = i
+                    break
+            if cut > 0:
+                safe = safe[:cut].rstrip() + "\\N" + safe[cut + 1 :].lstrip()
         rows.append(
             f"Dialogue: 0,{ass_time(start + shift)},{ass_time(end + shift)},Default,,0,0,0,,{safe}"
         )
@@ -445,7 +467,7 @@ def main() -> None:
                     help="Skip burned-in subtitles; sidecars are written either way")
     ap.add_argument("--aspect", choices=sorted(LAYOUTS), default="9x16")
     ap.add_argument("--crf", type=int, default=19,
-                    help="Lower is better quality. 19 for social upload, 23-24 for the web")
+                    help="Lower is better quality. 16–17 for dark brand films, 19 social, 23–24 web")
     ap.add_argument(
         "--vo-tag",
         help="Use side-by-side VO from gen_clip_vo.py --tag (e.g. sarah). "
@@ -479,6 +501,11 @@ def main() -> None:
         help="End logo hold seconds (default 3.0; brand closers ~3.5–4.5)",
     )
     ap.add_argument(
+        "--outro-fade",
+        type=float,
+        help="Slow fade-out at the end (picture + music). Default 0.6; brand ~3–4s",
+    )
+    ap.add_argument(
         "--cards",
         choices=("default", "dark"),
         help="Card art variant. dark → card-open-dark-{aspect}.png",
@@ -500,8 +527,17 @@ def main() -> None:
     tail = float(args.tail if args.tail is not None else spec.get("tail", TAIL))
     cards = args.cards or spec.get("cards", "default")
     subs_style = args.subs_style or spec.get("subs_style", "brand")
+    outro_fade = float(
+        args.outro_fade if args.outro_fade is not None else spec.get("outro_fade", 0.6)
+    )
+    # Spec may raise quality for dark brand cuts; CLI --crf always wins when passed.
+    crf = int(args.crf)
+    if args.crf == 19 and "crf" in spec:
+        crf = int(spec["crf"])
     if preroll < 0.5 or tail < 0.5:
         raise SystemExit("preroll/tail must be >= 0.5s")
+    if outro_fade < 0.3 or outro_fade > tail - 0.2:
+        raise SystemExit("outro_fade must be >= 0.3s and leave >= 0.2s of solid end card")
 
     vo_lang = args.vo_lang or spec.get("vo_lang", "en")
     if args.subs_lang:
@@ -558,7 +594,8 @@ def main() -> None:
     out = out_dir / f"{spec['id']}-{tag}-{layout.name}{voice_suffix}.mp4"
 
     print(f"clip={spec['id']} {layout.name} vo={vo_dur:.1f}s "
-          f"shots={len(shots)} total={total:.1f}s open={preroll:.1f}s end={tail:.1f}s cards={cards}"
+          f"shots={len(shots)} total={total:.1f}s open={preroll:.1f}s end={tail:.1f}s "
+          f"outro_fade={outro_fade:.1f}s cards={cards}"
           + (f" voice_tag={args.vo_tag}" if args.vo_tag else "")
           + (f" motion={args.motion}" if args.motion > 1.001 else " stable"))
 
@@ -644,9 +681,10 @@ def main() -> None:
             print(f"  burned {subs_lang}: {len(subs[subs_lang])} lines · font={font} · style={subs_style}")
         # Dark cards: fade to black so the closer doesn't flash white.
         fade_color = "black" if cards == "dark" else "white"
+        fade_start = max(0.0, total - outro_fade)
         v_chain += (
             f",fade=t=in:st=0:d=0.45:color={fade_color}"
-            f",fade=t=out:st={total - 0.6:.3f}:d=0.6:color={fade_color}"
+            f",fade=t=out:st={fade_start:.3f}:d={outro_fade:.3f}:color={fade_color}"
             f",format=yuv420p[v]"
         )
 
@@ -665,44 +703,57 @@ def main() -> None:
                 raise SystemExit(f"Music not found: {music}")
             inputs = ["-i", str(picture), "-i", str(vo), "-stream_loop", "-1", "-i", str(music)]
             # asplit VO: sidechaincompress + amix each consume a label once
-            fade = (
+            fade_in = (
                 f",afade=t=in:st=0:d={args.music_fade_in:.3f}"
                 if args.music_fade_in > 0
                 else ""
             )
+            fade_out = f",afade=t=out:st={fade_start:.3f}:d={outro_fade:.3f}"
             # Light presence boost so gym riffs cut through under VO
             a_chain += (
                 f";[vo]asplit=2[vo_sc][vo_mix]"
                 f";[2:a]volume={args.music_level}"
                 f",equalizer=f=2200:t=q:w=1.1:g=3.5"
                 f",equalizer=f=4500:t=q:w=1.0:g=2.0"
-                f"{fade},atrim=0:{headroom:.3f},asetpts=N/SR/TB,"
+                f"{fade_in}{fade_out},atrim=0:{headroom:.3f},asetpts=N/SR/TB,"
                 f"aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[bed]"
                 f";[bed][vo_sc]sidechaincompress=threshold=0.045:ratio=9:attack=8:release=220[duck]"
                 f";[duck][vo_mix]amix=inputs=2:normalize=0:duration=first[mix]"
-                f";[mix]loudnorm=I=-14:TP=-1.5:LRA=11,apad,atrim=0:{total:.3f},asetpts=N/SR/TB[a]"
+                f";[mix]loudnorm=I=-14:TP=-1.5:LRA=11,"
+                f"afade=t=out:st={fade_start:.3f}:d={outro_fade:.3f},"
+                f"apad,atrim=0:{total:.3f},asetpts=N/SR/TB[a]"
             )
             print(
                 f"  music bed: {music.name} @ {args.music_level}"
-                f" fade-in={args.music_fade_in:.2f}s (riff presence + lighter duck)"
+                f" fade-in={args.music_fade_in:.2f}s outro_fade={outro_fade:.2f}s"
             )
         else:
             a_chain += (
                 f";[vo]loudnorm=I=-14:TP=-1.5:LRA=11,apad,atrim=0:{total:.3f},asetpts=N/SR/TB[a]"
             )
 
+        v_encode = [
+            "-c:v", "libx264", "-preset", "slow", "-profile:v", "high",
+            "-pix_fmt", "yuv420p",
+        ]
+        # Dark brand cuts: bitrate target so slate gradients don't band under CRF.
+        if cards == "dark" or crf <= 16:
+            v_encode += ["-b:v", "8M", "-maxrate", "10M", "-bufsize", "16M"]
+        else:
+            v_encode += ["-crf", str(crf)]
+
         run([
             "ffmpeg", "-hide_banner", "-loglevel", "error",
             *inputs,
             "-filter_complex", f"{v_chain};{a_chain}",
             "-map", "[v]", "-map", "[a]",
-            "-c:v", "libx264", "-preset", "slow", "-crf", str(args.crf), "-profile:v", "high",
+            *v_encode,
             "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
             "-movflags", "+faststart",
             "-y", str(out),
         ])
 
-    print(f"OK {out} ({total:.1f}s, {out.stat().st_size / 1024 / 1024:.1f} MB)")
+    print(f"OK {out} ({total:.1f}s, {out.stat().st_size / 1024 / 1024:.1f} MB, crf={crf})")
 
 
 if __name__ == "__main__":

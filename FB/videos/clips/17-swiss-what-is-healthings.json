@@ -8,13 +8,15 @@
   "subs_lang": "en",
   "subs_style": "film",
   "preroll": 3.2,
-  "tail": 4.0,
+  "tail": 19.5,
+  "outro_fade": 3.8,
   "cards": "dark",
-  "note": "EN identical to 06. Stills generated to match each VO beat. No Hebrew. Dark logo cards; open ~3.2s / end ~4.0s (brand hold).",
+  "crf": 16,
+  "note": "EN identical to 06. End card holds through Forever Young violin swell (~53–60s bed), then slow fade.",
   "segments": [
     {
       "en": "You log your meals. You wear a watch. You get blood tests.",
-      "shot": { "type": "art", "file": "vo-meals-watch-labs.jpg" }
+      "shot": { "type": "art", "file": "vo-meals-watch-labs-slate.jpg" }
     },
     {
       "en": "But none of it talks to each other.",
@@ -25,8 +27,12 @@
       "shot": { "type": "art", "file": "loop-video-dark.png" }
     },
     {
-      "en": "It starts in the clinic. A licensed nutritionist reads your labs and sets your plan.",
-      "shot": { "type": "art", "file": "vo-clinic-labs-plan.jpg" }
+      "en": "It starts in the clinic.",
+      "shot": { "type": "art", "file": "vo-clinic-labs-plan-slate.jpg" }
+    },
+    {
+      "en": "A licensed nutritionist reads your labs and sets your plan.",
+      "shot": { "type": "art", "file": "clinic-portal-dark-16x9.jpg" }
     },
     {
       "en": "That plan becomes rules that live inside your app.",
@@ -34,23 +40,27 @@
     },
     {
       "en": "Your scale, your watch, and your CGM keep the numbers honest.",
-      "shot": { "type": "art", "file": "vo-scale-watch-cgm.jpg" }
+      "shot": { "type": "art", "file": "vo-scale-watch-cgm-slate.jpg" }
     },
     {
       "en": "Every meal you log is checked against your plan, in seconds.",
       "shot": { "type": "phone", "file": "a14-food-log-dark-meters.jpg" }
     },
     {
-      "en": "And your clinic sees the real week, not a story from memory, and adjusts.",
-      "shot": { "type": "art", "file": "vo-clinic-sees-week.jpg" }
+      "en": "And your clinic sees the real week,",
+      "shot": { "type": "art", "file": "vo-clinic-sees-week-slate.jpg" }
+    },
+    {
+      "en": "not a story from memory, and adjusts.",
+      "shot": { "type": "art", "file": "clinic-portal-dark-16x9.jpg" }
     },
     {
       "en": "Clinic directs. App executes. Devices measure.",
-      "shot": { "type": "art", "file": "loop-video-dark.png" }
+      "shot": { "type": "art", "file": "loop-video-dark-roles.png" }
     },
     {
       "en": "Healthings. One loop, closed.",
-      "shot": { "type": "art", "file": "vo-clinic-labs-plan.jpg" }
+      "shot": { "type": "art", "file": "vo-clinic-close-slate.jpg" }
     }
   ]
 }

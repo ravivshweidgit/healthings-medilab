@@ -2,38 +2,41 @@
   <title>Healthings end card dark - 16:9</title>
   <defs>
     <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1A3050"/>
-      <stop offset="0.45" stop-color="#0F1A2C"/>
-      <stop offset="1" stop-color="#070D16"/>
+      <stop offset="0" stop-color="#2A3038"/>
+      <stop offset="0.5" stop-color="#1C2128"/>
+      <stop offset="1" stop-color="#14181E"/>
     </linearGradient>
-    <filter id="cardShadow" x="-20%" y="-30%" width="140%" height="180%">
-      <feDropShadow dx="0" dy="10" stdDeviation="20" flood-color="#000000" flood-opacity="0.45"/>
-    </filter>
+    <linearGradient id="heart" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E53935"/>
+      <stop offset="1" stop-color="#B71C1C"/>
+    </linearGradient>
   </defs>
 
   <rect width="1920" height="1080" fill="url(#page)"/>
 
-  <g filter="url(#cardShadow)">
-    <rect x="460" y="290" width="1000" height="500" rx="20" fill="#14243C"
-          stroke="rgba(255,255,255,0.14)" stroke-width="2"/>
-  </g>
+  <path d="M 960 300 C 944 274, 906 277, 906 309 C 906 338, 941 360, 960 376
+           C 979 360, 1014 338, 1014 309 C 1014 277, 976 274, 960 300 Z"
+        fill="url(#heart)"/>
 
   <g font-family="Montserrat" text-anchor="middle">
-    <text x="960" y="425" fill="#EEF4FB" font-size="62" font-weight="700"
-          letter-spacing="2.4">HEALTHINGS.AI</text>
+    <text x="960" y="470" fill="#F3F5F7" font-size="72" font-weight="700"
+          letter-spacing="3">HEALTHINGS.AI</text>
 
-    <path d="M 730 477 H 882 L 910 449 L 938 513 L 966 463 L 990 477 H 1190"
-          fill="none" stroke="#7EC8EF" stroke-width="5"
+    <path d="M 730 520 H 882 L 910 492 L 938 556 L 966 506 L 990 520 H 1190"
+          fill="none" stroke="#6EB6E0" stroke-width="5"
           stroke-linecap="round" stroke-linejoin="round"/>
 
-    <text x="960" y="562" fill="#A9BED6" font-size="32" font-weight="500">One loop, closed.</text>
+    <text x="960" y="590" fill="#8B95A1" font-size="32" font-weight="500">One loop, closed.</text>
 
-    <rect x="710" y="602" width="500" height="52" rx="26" fill="rgba(61,157,214,0.18)"
-          stroke="#3D9DD6" stroke-opacity="0.55" stroke-width="2"/>
-    <text x="960" y="637" fill="#EEF4FB" font-size="20" font-weight="700"
-          letter-spacing="3">CLINIC &#183; RULES &#183; GEAR &#183; AI</text>
+    <rect x="620" y="640" width="680" height="52" rx="26" fill="#000000"
+          stroke="#6EB6E0" stroke-opacity="0.45" stroke-width="2"/>
+    <text x="960" y="675" fill="#F3F5F7" font-size="18" font-weight="700"
+          letter-spacing="2.4">CLINIC &#183; RULES &#183; APP + AI &#183; GEAR</text>
 
-    <text x="960" y="722" fill="#7EC8EF" font-size="36" font-weight="700"
+    <text x="960" y="760" fill="#6EB6E0" font-size="34" font-weight="700"
           letter-spacing="1">healthings.ai</text>
+    <text x="960" y="810" fill="#8B95A1" font-size="22" font-weight="500">
+      For clinics and their patients
+    </text>
   </g>
 </svg>
