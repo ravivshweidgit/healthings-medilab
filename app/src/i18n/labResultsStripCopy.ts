@@ -58,6 +58,14 @@ export type LabResultsStripCopy = {
   providerMeuhedet: string;
   providerMaccabi: string;
   providerLeumit: string;
+  /** prompt113 — country gate (chrome only; country/provider names from server) */
+  countryPickerTitle: string;
+  countryPickerBody: string;
+  countryRequired: string;
+  countrySelectedLabel: (name: string) => string;
+  changeCountry: string;
+  chooseCountryCta: string;
+  loadingCountries: string;
 };
 
 const EN: LabResultsStripCopy = {
@@ -115,6 +123,14 @@ const EN: LabResultsStripCopy = {
   providerMeuhedet: 'Meuhedet',
   providerMaccabi: 'Maccabi',
   providerLeumit: 'Leumit',
+  countryPickerTitle: 'Where are your lab reports from?',
+  countryPickerBody:
+    'Pick a country first — we use the right layout pack for that country’s labs. This is not your app language.',
+  countryRequired: 'Choose a country before importing a PDF.',
+  countrySelectedLabel: (name) => `Lab country: ${name}`,
+  changeCountry: 'Change country',
+  chooseCountryCta: 'Choose country',
+  loadingCountries: 'Loading countries…',
 };
 
 const HE: LabResultsStripCopy = {
@@ -172,6 +188,14 @@ const HE: LabResultsStripCopy = {
   providerMeuhedet: 'מאוחדת',
   providerMaccabi: 'מכבי',
   providerLeumit: 'לאומית',
+  countryPickerTitle: 'מאיזו מדינה דוחות המעבדה?',
+  countryPickerBody:
+    'בחרו מדינה לפני הייבוא — לכל מדינה מודל קריאה משלה. זו לא שפת האפליקציה.',
+  countryRequired: 'בחרו מדינה לפני ייבוא PDF.',
+  countrySelectedLabel: (name) => `מדינת מעבדה: ${name}`,
+  changeCountry: 'החלפת מדינה',
+  chooseCountryCta: 'בחירת מדינה',
+  loadingCountries: 'טוענים מדינות…',
 };
 
 const ES: LabResultsStripCopy = {
@@ -229,6 +253,14 @@ const ES: LabResultsStripCopy = {
   providerMeuhedet: 'Meuhedet',
   providerMaccabi: 'Maccabi',
   providerLeumit: 'Leumit',
+  countryPickerTitle: '¿De qué país son tus análisis?',
+  countryPickerBody:
+    'Elige un país antes de importar — cada país tiene su propio modelo de lectura. No es el idioma de la app.',
+  countryRequired: 'Elige un país antes de importar un PDF.',
+  countrySelectedLabel: (name) => `País del laboratorio: ${name}`,
+  changeCountry: 'Cambiar país',
+  chooseCountryCta: 'Elegir país',
+  loadingCountries: 'Cargando países…',
 };
 
 const FR: LabResultsStripCopy = {
@@ -286,6 +318,14 @@ const FR: LabResultsStripCopy = {
   providerMeuhedet: 'Meuhedet',
   providerMaccabi: 'Maccabi',
   providerLeumit: 'Leumit',
+  countryPickerTitle: 'De quel pays viennent vos analyses ?',
+  countryPickerBody:
+    'Choisissez un pays avant d’importer — chaque pays a son modèle de lecture. Ce n’est pas la langue de l’app.',
+  countryRequired: 'Choisissez un pays avant d’importer un PDF.',
+  countrySelectedLabel: (name) => `Pays du labo : ${name}`,
+  changeCountry: 'Changer de pays',
+  chooseCountryCta: 'Choisir le pays',
+  loadingCountries: 'Chargement des pays…',
 };
 
 const DE: LabResultsStripCopy = {
@@ -343,6 +383,14 @@ const DE: LabResultsStripCopy = {
   providerMeuhedet: 'Meuhedet',
   providerMaccabi: 'Maccabi',
   providerLeumit: 'Leumit',
+  countryPickerTitle: 'Aus welchem Land sind die Laborberichte?',
+  countryPickerBody:
+    'Land zuerst wählen — jedes Land hat ein eigenes Lesemodell. Das ist nicht die App-Sprache.',
+  countryRequired: 'Land wählen, bevor Sie ein PDF importieren.',
+  countrySelectedLabel: (name) => `Laborland: ${name}`,
+  changeCountry: 'Land ändern',
+  chooseCountryCta: 'Land wählen',
+  loadingCountries: 'Länder werden geladen…',
 };
 
 const AR: LabResultsStripCopy = {
@@ -400,6 +448,14 @@ const AR: LabResultsStripCopy = {
   providerMeuhedet: 'Meuhedet',
   providerMaccabi: 'Maccabi',
   providerLeumit: 'Leumit',
+  countryPickerTitle: 'من أي بلد تقارير المختبر؟',
+  countryPickerBody:
+    'اختاروا بلداً قبل الاستيراد — لكل بلد نموذج قراءة خاص. هذه ليست لغة التطبيق.',
+  countryRequired: 'اختاروا بلداً قبل استيراد PDF.',
+  countrySelectedLabel: (name) => `بلد المختبر: ${name}`,
+  changeCountry: 'تغيير البلد',
+  chooseCountryCta: 'اختيار البلد',
+  loadingCountries: 'جارٍ تحميل البلدان…',
 };
 
 const RU: LabResultsStripCopy = {
@@ -469,6 +525,14 @@ const RU: LabResultsStripCopy = {
   providerMeuhedet: 'Meuhedet',
   providerMaccabi: 'Maccabi',
   providerLeumit: 'Leumit',
+  countryPickerTitle: 'Из какой страны анализы?',
+  countryPickerBody:
+    'Сначала выберите страну — у каждой свой пакет разбора. Это не язык приложения.',
+  countryRequired: 'Выберите страну перед импортом PDF.',
+  countrySelectedLabel: (name) => `Страна лаборатории: ${name}`,
+  changeCountry: 'Сменить страну',
+  chooseCountryCta: 'Выбрать страну',
+  loadingCountries: 'Загрузка стран…',
 };
 
 const PT: LabResultsStripCopy = {
@@ -526,6 +590,14 @@ const PT: LabResultsStripCopy = {
   providerMeuhedet: 'Meuhedet',
   providerMaccabi: 'Maccabi',
   providerLeumit: 'Leumit',
+  countryPickerTitle: 'De que país são as análises?',
+  countryPickerBody:
+    'Escolha um país antes de importar — cada país tem o seu modelo de leitura. Não é o idioma da app.',
+  countryRequired: 'Escolha um país antes de importar um PDF.',
+  countrySelectedLabel: (name) => `País do laboratório: ${name}`,
+  changeCountry: 'Mudar país',
+  chooseCountryCta: 'Escolher país',
+  loadingCountries: 'A carregar países…',
 };
 
 const IT: LabResultsStripCopy = {
@@ -583,6 +655,14 @@ const IT: LabResultsStripCopy = {
   providerMeuhedet: 'Meuhedet',
   providerMaccabi: 'Maccabi',
   providerLeumit: 'Leumit',
+  countryPickerTitle: 'Di quale paese sono le analisi?',
+  countryPickerBody:
+    'Scegli un paese prima di importare — ogni paese ha il suo modello di lettura. Non è la lingua dell’app.',
+  countryRequired: 'Scegli un paese prima di importare un PDF.',
+  countrySelectedLabel: (name) => `Paese del laboratorio: ${name}`,
+  changeCountry: 'Cambia paese',
+  chooseCountryCta: 'Scegli paese',
+  loadingCountries: 'Caricamento paesi…',
 };
 
 const TR: LabResultsStripCopy = {
@@ -640,6 +720,14 @@ const TR: LabResultsStripCopy = {
   providerMeuhedet: 'Meuhedet',
   providerMaccabi: 'Maccabi',
   providerLeumit: 'Leumit',
+  countryPickerTitle: 'Lab raporları hangi ülkeden?',
+  countryPickerBody:
+    'İçe aktarmadan önce ülke seçin — her ülkenin kendi okuma modeli var. Bu uygulama dili değil.',
+  countryRequired: 'PDF içe aktarmadan önce ülke seçin.',
+  countrySelectedLabel: (name) => `Lab ülkesi: ${name}`,
+  changeCountry: 'Ülkeyi değiştir',
+  chooseCountryCta: 'Ülke seç',
+  loadingCountries: 'Ülkeler yükleniyor…',
 };
 
 const BY_CODE: Record<string, LabResultsStripCopy> = {

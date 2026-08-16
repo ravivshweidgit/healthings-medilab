@@ -513,3 +513,64 @@ ALTER TABLE user_cloud_backups ADD COLUMN IF NOT EXISTS prev_payload_gzip BYTEA;
 ALTER TABLE user_cloud_backups ADD COLUMN IF NOT EXISTS prev_byte_size INT;
 ALTER TABLE user_cloud_backups ADD COLUMN IF NOT EXISTS prev_exported_at TIMESTAMPTZ;
 ALTER TABLE user_cloud_backups ADD COLUMN IF NOT EXISTS prev_fingerprint JSONB;
+
+-- prompt113 / be-43: lab PDF country → providers → versioned prompt packs
+CREATE TABLE IF NOT EXISTS lab_countries (
+  code CHAR(2) PRIMARY KEY,
+  name_en TEXT NOT NULL,
+  name_native TEXT,
+  sort_order INT NOT NULL DEFAULT 100,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS lab_providers (
+  country_code CHAR(2) NOT NULL REFERENCES lab_countries (code) ON DELETE CASCADE,
+  code TEXT NOT NULL,
+  name_en TEXT NOT NULL,
+  name_native TEXT,
+  sort_order INT NOT NULL DEFAULT 100,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (country_code, code)
+);
+
+CREATE INDEX IF NOT EXISTS lab_providers_country_idx ON lab_providers (country_code) WHERE active;
+
+-- kind: identify | parse_layout | parse_base | repair
+-- provider_code '' = country-level pack (not a specific provider)
+CREATE TABLE IF NOT EXISTS lab_prompt_packs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  country_code CHAR(2) NOT NULL REFERENCES lab_countries (code) ON DELETE CASCADE,
+  provider_code TEXT NOT NULL DEFAULT '',
+  kind TEXT NOT NULL CHECK (kind IN ('identify', 'parse_layout', 'parse_base', 'repair')),
+  version INT NOT NULL DEFAULT 1,
+  body TEXT NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (country_code, provider_code, kind, version)
+);
+
+CREATE INDEX IF NOT EXISTS lab_prompt_packs_active_idx
+  ON lab_prompt_packs (country_code, kind, provider_code)
+  WHERE active;
+
+-- Seed IL / US + IL HMO packs (idempotent). Display: name_native ?? name_en (country brand, not appLocale).
+INSERT INTO lab_countries (code, name_en, name_native, sort_order) VALUES
+  ('IL', 'Israel', 'ישראל', 10),
+  ('US', 'United States', NULL, 20)
+ON CONFLICT (code) DO UPDATE SET
+  name_en = EXCLUDED.name_en,
+  name_native = COALESCE(EXCLUDED.name_native, lab_countries.name_native),
+  sort_order = EXCLUDED.sort_order;
+
+INSERT INTO lab_providers (country_code, code, name_en, name_native, sort_order) VALUES
+  ('IL', 'clalit', 'Clalit', 'כללית', 10),
+  ('IL', 'meuhedet', 'Meuhedet', 'מאוחדת', 20),
+  ('IL', 'maccabi', 'Maccabi', 'מכבי', 30),
+  ('IL', 'leumit', 'Leumit', 'לאומית', 40)
+ON CONFLICT (country_code, code) DO UPDATE SET
+  name_en = EXCLUDED.name_en,
+  name_native = EXCLUDED.name_native,
+  sort_order = EXCLUDED.sort_order,
+  active = TRUE;

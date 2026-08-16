@@ -19,6 +19,14 @@ import * as DocumentPicker from 'expo-document-picker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { identifyLabPdfProvider, parseLabReportPdf } from '../services/GeminiService';
 import {
+  fetchLabCountries,
+  fetchLabCountryCatalog,
+  providerDisplayName,
+  type LabCountryCatalog,
+  type LabCountryInfo,
+} from '../services/LabCatalogService';
+import { getLabCountry, setLabCountry, clearLabCountry } from '../services/LabCountryService';
+import {
   deleteLabReport,
   readPdfBase64FromUri,
   saveParsedLabPanel,
@@ -41,6 +49,8 @@ type Props = {
   onSaved: (report: LabReport) => void;
   /** Fired after a saved report is removed from the phone. */
   onDeleted?: () => void;
+  /** Fired when lab country is chosen or changed (prompt113). */
+  onLabCountryChanged?: () => void;
   lang?: UserLanguage | null;
   autoPickPdf?: boolean;
   viewReport?: LabReport | null;
@@ -53,26 +63,11 @@ function flagColor(flag: LabResult['flag'], fallback: string): string {
   return fallback;
 }
 
-type LoadingPhase = 'identify' | 'parse' | 'save' | null;
+type LoadingPhase = 'identify' | 'parse' | 'save' | 'catalog' | null;
 
 function bottomInset(insetsBottom: number): number {
   if (insetsBottom > 0) return insetsBottom;
   return Platform.OS === 'android' ? 48 : 16;
-}
-
-function providerLabel(provider: LabProvider, copy: ReturnType<typeof getLabResultsStripCopy>): string {
-  switch (provider) {
-    case 'clalit':
-      return copy.providerClalit;
-    case 'meuhedet':
-      return copy.providerMeuhedet;
-    case 'maccabi':
-      return copy.providerMaccabi;
-    case 'leumit':
-      return copy.providerLeumit;
-    default:
-      return copy.providerNotSure;
-  }
 }
 
 export function LabReportModal({
@@ -80,6 +75,7 @@ export function LabReportModal({
   onClose,
   onSaved,
   onDeleted,
+  onLabCountryChanged,
   lang,
   autoPickPdf,
   viewReport,
@@ -95,6 +91,10 @@ export function LabReportModal({
   /** PDF bytes waiting for HMO confirm (prompt112). */
   const [pendingPdfBase64, setPendingPdfBase64] = useState<string | null>(null);
   const [suggestedProvider, setSuggestedProvider] = useState<LabProvider>('unknown');
+  const [labCountry, setLabCountryState] = useState<string | null>(null);
+  const [countries, setCountries] = useState<LabCountryInfo[]>([]);
+  const [catalog, setCatalog] = useState<LabCountryCatalog | null>(null);
+  const [countryReady, setCountryReady] = useState(false);
   const autoPickStartedRef = useRef(false);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
   const copy = getLabResultsStripCopy(lang?.code);
@@ -115,19 +115,77 @@ export function LabReportModal({
   }, [visible, reset]);
 
   useEffect(() => {
+    if (!visible || viewReport) return;
+    let cancelled = false;
+    void (async () => {
+      setCountryReady(false);
+      const code = await getLabCountry();
+      const list = await fetchLabCountries();
+      if (cancelled) return;
+      setCountries(list);
+      setLabCountryState(code);
+      if (code) {
+        const cat = await fetchLabCountryCatalog(code);
+        if (!cancelled) setCatalog(cat);
+      } else {
+        setCatalog(null);
+      }
+      if (!cancelled) setCountryReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, viewReport]);
+
+  useEffect(() => {
     if (visible && viewReport) {
       setEditingReport(JSON.parse(JSON.stringify(viewReport)) as LabReport);
       setDraft(null);
       setPendingPdfBase64(null);
+      setCountryReady(true);
     }
   }, [visible, viewReport]);
+
+  const providerLabel = useCallback(
+    (provider: LabProvider): string => {
+      if (provider === 'unknown') return copy.providerNotSure;
+      const fromCat = catalog?.providers.find((p) => p.code === provider);
+      if (fromCat) return providerDisplayName(fromCat);
+      return provider;
+    },
+    [catalog, copy.providerNotSure],
+  );
+
+  const chooseCountry = useCallback(
+    async (code: string) => {
+      setError(null);
+      setLoadingPhase('catalog');
+      try {
+        await setLabCountry(code);
+        const cat = await fetchLabCountryCatalog(code);
+        setLabCountryState(code);
+        setCatalog(cat);
+        onLabCountryChanged?.();
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'Could not save country');
+      } finally {
+        setLoadingPhase(null);
+      }
+    },
+    [onLabCountryChanged],
+  );
 
   const runParseWithProvider = useCallback(
     async (base64: string, provider: LabProvider) => {
       setPendingPdfBase64(null);
       setLoadingPhase('parse');
       try {
-        const { parsed } = await parseLabReportPdf(base64, lang, false, { provider });
+        const allowed = catalog?.providers.map((p) => p.code);
+        const { parsed } = await parseLabReportPdf(base64, lang, false, {
+          provider,
+          packs: catalog?.packs,
+          allowedProviders: allowed,
+        });
         setDraft(parsed);
         setEditingReport(null);
       } catch (e: unknown) {
@@ -141,10 +199,14 @@ export function LabReportModal({
         setLoadingPhase(null);
       }
     },
-    [autoPickPdf, lang, onClose, rtl],
+    [autoPickPdf, catalog, lang, onClose, rtl],
   );
 
   const pickAndParse = useCallback(async () => {
+    if (!labCountry) {
+      setError(copy.countryRequired);
+      return;
+    }
     setError(null);
     const result = await DocumentPicker.getDocumentAsync({
       type: 'application/pdf',
@@ -157,17 +219,26 @@ export function LabReportModal({
     setLoadingPhase('identify');
     try {
       const base64 = await readPdfBase64FromUri(result.assets[0].uri);
-      const id = await identifyLabPdfProvider(base64);
-      // Clalit / Maccabi / Leumit with high confidence: skip confirm (owner — Meuhedet is the hard case).
+      const allowed = catalog?.providers.map((p) => p.code) ?? [];
+      // No country providers yet → skip identify, parse with default pack.
+      if (allowed.length === 0) {
+        await runParseWithProvider(base64, 'unknown');
+        return;
+      }
+      const id = await identifyLabPdfProvider(base64, false, {
+        packs: catalog?.packs,
+        allowedProviders: allowed,
+      });
       const skipConfirm =
         id.confidence === 'high' &&
-        (id.labProvider === 'clalit' ||
-          id.labProvider === 'maccabi' ||
-          id.labProvider === 'leumit');
+        id.labProvider !== 'meuhedet' &&
+        id.labProvider !== 'unknown' &&
+        allowed.includes(id.labProvider);
       if (skipConfirm) {
         await runParseWithProvider(base64, id.labProvider);
         return;
       }
+      // Always confirm Meuhedet (or low / unknown).
       setSuggestedProvider(id.labProvider);
       setPendingPdfBase64(base64);
       setLoadingPhase(null);
@@ -180,7 +251,15 @@ export function LabReportModal({
         onClose();
       }
     }
-  }, [autoPickPdf, onClose, rtl, runParseWithProvider]);
+  }, [
+    autoPickPdf,
+    catalog,
+    copy.countryRequired,
+    labCountry,
+    onClose,
+    rtl,
+    runParseWithProvider,
+  ]);
 
   useEffect(() => {
     if (!visible) {
@@ -189,6 +268,8 @@ export function LabReportModal({
     }
     if (
       autoPickPdf &&
+      countryReady &&
+      labCountry &&
       !autoPickStartedRef.current &&
       !draft &&
       !loading &&
@@ -198,7 +279,17 @@ export function LabReportModal({
       autoPickStartedRef.current = true;
       void pickAndParse();
     }
-  }, [visible, autoPickPdf, draft, loading, pickAndParse, viewReport, pendingPdfBase64]);
+  }, [
+    visible,
+    autoPickPdf,
+    countryReady,
+    labCountry,
+    draft,
+    loading,
+    pickAndParse,
+    viewReport,
+    pendingPdfBase64,
+  ]);
 
   const updateDraftResult = useCallback((index: number, patch: Partial<LabResult>) => {
     setDraft((prev) => {
@@ -293,12 +384,11 @@ export function LabReportModal({
       ? copy.saving
       : loadingPhase === 'identify'
         ? copy.identifyingPdf
-        : copy.reading;
+        : loadingPhase === 'catalog'
+          ? copy.loadingCountries
+          : copy.reading;
 
-  const suggestedLabel =
-    suggestedProvider === 'unknown'
-      ? copy.providerNotSure
-      : providerLabel(suggestedProvider, copy);
+  const suggestedLabel = providerLabel(suggestedProvider);
 
   const renderResultRow = (
     r: LabResult,
@@ -355,15 +445,61 @@ export function LabReportModal({
           </View>
         )}
 
-        {!loading && !draft && !editingReport && !pendingPdfBase64 && (
+        {!loading && !draft && !editingReport && !pendingPdfBase64 && countryReady && !labCountry && (
+          <View style={styles.confirmWrap}>
+            <Text style={[styles.confirmTitle, rtl && styles.textRtl]}>{copy.countryPickerTitle}</Text>
+            <Text style={[styles.confirmBody, rtl && styles.textRtl]}>{copy.countryPickerBody}</Text>
+            {error && <Text style={styles.errorText}>{error}</Text>}
+            <View style={styles.providerGrid}>
+              {countries.map((c) => (
+                <Pressable
+                  key={c.code}
+                  style={styles.providerChip}
+                  onPress={() => void chooseCountry(c.code)}
+                >
+                  <Text style={styles.providerChipText}>{c.displayName || c.nameEn}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {!loading && !draft && !editingReport && !pendingPdfBase64 && countryReady && labCountry && (
           <View style={styles.emptyWrap}>
             <Text style={[styles.emptyText, rtl && styles.textRtl]}>
-              {rtl ? 'ייבאו תדפיס PDF ממעבדה (כללית / מאוחדת / מכבי…)' : 'Import a lab PDF (Clalit / Meuhedet / Maccabi…)'}
+              {rtl ? 'ייבאו תדפיס PDF ממעבדה' : 'Import a lab PDF'}
+            </Text>
+            <Text style={[styles.confirmBody, rtl && styles.textRtl]}>
+              {copy.countrySelectedLabel(
+                catalog?.country.displayName
+                  || countries.find((c) => c.code === labCountry)?.displayName
+                  || labCountry,
+              )}
             </Text>
             {error && <Text style={styles.errorText}>{error}</Text>}
             <Pressable style={styles.primaryBtn} onPress={() => void pickAndParse()}>
               <Text style={styles.primaryBtnText}>📄 {pickLabel}</Text>
             </Pressable>
+            <Pressable
+              style={styles.secondaryBtn}
+              onPress={() => {
+                void clearLabCountry().then(() => {
+                  setLabCountryState(null);
+                  setCatalog(null);
+                  autoPickStartedRef.current = false;
+                  onLabCountryChanged?.();
+                });
+              }}
+            >
+              <Text style={styles.secondaryBtnText}>{copy.changeCountry}</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {!loading && !countryReady && !viewReport && (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator color={colors.accentBlue} />
+            <Text style={styles.loadingText}>{copy.loadingCountries}</Text>
           </View>
         )}
 
@@ -385,29 +521,22 @@ export function LabReportModal({
               </Pressable>
             ) : null}
             <View style={styles.providerGrid}>
-              {(
-                [
-                  ['clalit', copy.providerClalit],
-                  ['meuhedet', copy.providerMeuhedet],
-                  ['maccabi', copy.providerMaccabi],
-                  ['leumit', copy.providerLeumit],
-                ] as const
-              ).map(([id, label]) => (
+              {(catalog?.providers ?? []).map((p) => (
                 <Pressable
-                  key={id}
+                  key={p.code}
                   style={[
                     styles.providerChip,
-                    suggestedProvider === id && styles.providerChipActive,
+                    suggestedProvider === p.code && styles.providerChipActive,
                   ]}
-                  onPress={() => void runParseWithProvider(pendingPdfBase64, id)}
+                  onPress={() => void runParseWithProvider(pendingPdfBase64, p.code)}
                 >
                   <Text
                     style={[
                       styles.providerChipText,
-                      suggestedProvider === id && styles.providerChipTextActive,
+                      suggestedProvider === p.code && styles.providerChipTextActive,
                     ]}
                   >
-                    {label}
+                    {providerDisplayName(p)}
                   </Text>
                 </Pressable>
               ))}

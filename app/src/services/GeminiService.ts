@@ -1459,14 +1459,25 @@ export type LabProviderIdentifyResult = {
   confidence: 'high' | 'low';
 };
 
-const LAB_PROVIDERS = new Set<LabProvider>(['clalit', 'meuhedet', 'maccabi', 'leumit', 'unknown']);
+const LAB_PROVIDERS_FALLBACK = new Set(['clalit', 'meuhedet', 'maccabi', 'leumit', 'unknown']);
 
-function normalizeLabProvider(raw: unknown): LabProvider {
+function normalizeLabProvider(raw: unknown, allowed?: Iterable<string>): LabProvider {
   const p = String(raw ?? '').toLowerCase().trim();
-  return LAB_PROVIDERS.has(p as LabProvider) ? (p as LabProvider) : 'unknown';
+  if (!p) return 'unknown';
+  if (p === 'unknown') return 'unknown';
+  const allow = allowed ? new Set([...allowed, 'unknown']) : LAB_PROVIDERS_FALLBACK;
+  return allow.has(p) ? p : 'unknown';
 }
 
-/** Meuhedet gauge pack — Pass 2 when user confirmed Meuhedet (prompt112). */
+export type LabPromptPacks = {
+  identify?: string | null;
+  parseBase?: string | null;
+  repair?: string | null;
+  parseLayoutByProvider?: Record<string, string>;
+  parseLayoutDefault?: string | null;
+};
+
+/** Meuhedet gauge pack — Pass 2 when user confirmed Meuhedet (prompt112). Embedded fallback if API packs missing. */
 const MEUHEDDET_LAYOUT_PACK = `
 MEUHEDDET GAUGE LAYOUT — HARD (this PDF is Meuhedet):
 Each test is a horizontal ruler/slider/scale.
@@ -1491,7 +1502,7 @@ const LAB_PARSE_BASE_RULES = `Rules:
 - flag: "high", "low", "normal", or "unknown".
 - Skip non-numeric QC rows (HEMOLYTIC, LIPEMIC, ICTERIC) — put text in panelNote if needed.
 - referenceText stays verbatim when present.
-- labProvider: "clalit" (כללית), "meuhedet" (מאוחדת), "maccabi" (מכבי), "leumit" (לאומית), else "unknown".`;
+- labProvider: use the confirmed provider code for this country, or "unknown".`;
 
 const LAB_PARSE_DEFAULT_LAYOUT = `
 DEFAULT / CLALIT / MACCABI / LEUMIT LAYOUT HINTS:
@@ -1500,40 +1511,7 @@ DEFAULT / CLALIT / MACCABI / LEUMIT LAYOUT HINTS:
 - HARD example (gauge): TSH ends 0.35 … 4.94, marker 3.64 → value=3.64 (never 0.35).
 `;
 
-function buildLabParsePrompt(provider: LabProvider): string {
-  const layout =
-    provider === 'meuhedet' ? MEUHEDDET_LAYOUT_PACK : LAB_PARSE_DEFAULT_LAYOUT;
-  const providerHint =
-    provider === 'unknown'
-      ? 'Provider not confirmed — apply the layout that matches the PDF.'
-      : `Confirmed lab provider for this PDF: ${provider}. Prefer that HMO's layout.`;
-  return `You are a medical lab report parser. Extract structured data from this PDF lab printout.
-
-${providerHint}
-
-Output JSON only, no markdown:
-{"labProvider":"${provider === 'unknown' ? 'clalit' : provider}","patientName":"...","patientId":"...","collectedAt":"2026-06-16T10:10:00+03:00","printedAt":"2026-06-16T15:52:00+03:00","panelType":"chemistry","panelNote":null,"results":[{"code":"TSH","name":"TSH","nameOriginal":"TSH","value":3.64,"unit":"µIU/mL","flag":"normal","refLow":0.35,"refHigh":4.94,"referenceText":null}]}
-
-${layout}
-
-${LAB_PARSE_BASE_RULES}`;
-}
-
-/**
- * Pass 1 (prompt112) — identify HMO only; no result extraction.
- */
-export async function identifyLabPdfProvider(
-  pdfBase64: string,
-  useMock = false,
-): Promise<LabProviderIdentifyResult> {
-  if (useMock || MOCK_MODE) {
-    await new Promise((r) => setTimeout(r, 200));
-    return { labProvider: 'clalit', confidence: 'high' };
-  }
-
-  await assertCanSpendCredits('ai_lab');
-
-  const prompt = `Identify which Israeli HMO / lab portal printed this PDF. Do NOT extract test results.
+const LAB_IDENTIFY_FALLBACK = `Identify which Israeli HMO / lab portal printed this PDF. Do NOT extract test results.
 
 Return JSON only:
 {"labProvider":"meuhedet","confidence":"high"}
@@ -1545,6 +1523,50 @@ Hints:
 - מכבי / Maccabi → maccabi
 - לאומית / Leumit → leumit
 confidence "high" when branding or layout is clear; "low" when unsure → still pick best guess or unknown.`;
+
+function buildLabParsePrompt(provider: LabProvider, packs?: LabPromptPacks | null): string {
+  const layoutFromPack =
+    provider !== 'unknown'
+      ? packs?.parseLayoutByProvider?.[provider]
+      : undefined;
+  const layout =
+    layoutFromPack
+    || (provider === 'meuhedet' ? MEUHEDDET_LAYOUT_PACK : null)
+    || packs?.parseLayoutDefault
+    || LAB_PARSE_DEFAULT_LAYOUT;
+  const base = packs?.parseBase?.trim() || LAB_PARSE_BASE_RULES;
+  const providerHint =
+    provider === 'unknown'
+      ? 'Provider not confirmed — apply the layout that matches the PDF.'
+      : `Confirmed lab provider for this PDF: ${provider}. Prefer that provider's layout.`;
+  return `You are a medical lab report parser. Extract structured data from this PDF lab printout.
+
+${providerHint}
+
+Output JSON only, no markdown:
+{"labProvider":"${provider === 'unknown' ? 'unknown' : provider}","patientName":"...","patientId":"...","collectedAt":"2026-06-16T10:10:00+03:00","printedAt":"2026-06-16T15:52:00+03:00","panelType":"chemistry","panelNote":null,"results":[{"code":"TSH","name":"TSH","nameOriginal":"TSH","value":3.64,"unit":"µIU/mL","flag":"normal","refLow":0.35,"refHigh":4.94,"referenceText":null}]}
+
+${layout}
+
+${base}`;
+}
+
+/**
+ * Pass 1 (prompt112/113) — identify provider only; no result extraction.
+ */
+export async function identifyLabPdfProvider(
+  pdfBase64: string,
+  useMock = false,
+  opts?: { packs?: LabPromptPacks | null; allowedProviders?: string[] },
+): Promise<LabProviderIdentifyResult> {
+  if (useMock || MOCK_MODE) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { labProvider: 'clalit', confidence: 'high' };
+  }
+
+  await assertCanSpendCredits('ai_lab');
+
+  const prompt = opts?.packs?.identify?.trim() || LAB_IDENTIFY_FALLBACK;
 
   const body = {
     contents: [{
@@ -1572,7 +1594,10 @@ confidence "high" when branding or layout is clear; "low" when unsure → still 
   try {
     const data = JSON.parse(cleaned) as { labProvider?: string; confidence?: string };
     const confidence = data.confidence === 'high' ? 'high' : 'low';
-    return { labProvider: normalizeLabProvider(data.labProvider), confidence };
+    return {
+      labProvider: normalizeLabProvider(data.labProvider, opts?.allowedProviders),
+      confidence,
+    };
   } catch {
     return { labProvider: 'unknown', confidence: 'low' };
   }
@@ -1674,12 +1699,13 @@ function isGaugeBoundCollision(r: LabResult): boolean {
 async function repairGaugeBoundCollisions(
   pdfBase64: string,
   results: LabResult[],
+  repairPromptBody?: string | null,
 ): Promise<LabResult[]> {
   const bad = results.filter(isGaugeBoundCollision);
   if (bad.length === 0) return results;
 
   const codes = bad.map((r) => r.code).join(', ');
-  const prompt = `You re-read a medical lab PDF. The first pass wrongly used a REFERENCE RANGE endpoint as the test RESULT for these codes: ${codes}.
+  const prompt = `${repairPromptBody?.trim() || `You re-read a medical lab PDF. The first pass wrongly used a REFERENCE RANGE endpoint as the test RESULT for listed codes.
 
 GAUGE LAYOUT (Meuhedet / similar): each test is a horizontal scale.
 - Numbers at the LEFT and RIGHT ends of the scale = refLow and refHigh only.
@@ -1692,7 +1718,9 @@ For EACH listed code, find that row again and output JSON only:
 Rules:
 - value MUST NOT equal refLow or refHigh.
 - Copy digits exactly; skip a code if the marker value is unreadable.
-- Include only the codes listed above that you can fix.`;
+- Include only the codes listed that you can fix.`}
+
+The codes to fix: ${codes}.`;
 
   try {
     const body = {
@@ -1753,7 +1781,7 @@ export async function parseLabReportPdf(
   pdfBase64: string,
   _lang?: UserLanguage | null,
   useMock = false,
-  opts?: { provider?: LabProvider },
+  opts?: { provider?: LabProvider; packs?: LabPromptPacks | null; allowedProviders?: string[] },
 ): Promise<LabPdfParseResult> {
   if (useMock || MOCK_MODE) {
     await new Promise((r) => setTimeout(r, 600));
@@ -1761,7 +1789,7 @@ export async function parseLabReportPdf(
   }
 
   const provider = opts?.provider ?? 'unknown';
-  const prompt = buildLabParsePrompt(provider);
+  const prompt = buildLabParsePrompt(provider, opts?.packs);
 
   const body = {
     contents: [{
@@ -1801,11 +1829,14 @@ export async function parseLabReportPdf(
     throw new Error('No lab results found in PDF — try exporting again from Clalit');
   }
   // Meuhedet gauges: first pass often sets value=refLow; repair those rows.
-  results = await repairGaugeBoundCollisions(pdfBase64, results);
+  results = await repairGaugeBoundCollisions(pdfBase64, results, opts?.packs?.repair);
 
   const providerRaw = String(data.labProvider ?? provider).toLowerCase();
   const parsed: ParsedLabPdf = {
-    labProvider: normalizeLabProvider(provider !== 'unknown' ? provider : providerRaw),
+    labProvider: normalizeLabProvider(
+      provider !== 'unknown' ? provider : providerRaw,
+      opts?.allowedProviders,
+    ),
     patientName: data.patientName != null ? String(data.patientName) : undefined,
     patientId: data.patientId != null ? String(data.patientId) : undefined,
     collectedAt: String(data.collectedAt ?? new Date().toISOString()),

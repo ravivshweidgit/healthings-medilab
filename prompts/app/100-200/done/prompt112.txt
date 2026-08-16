@@ -31,7 +31,7 @@ Maximize Meuhedet success with identify → user confirm → dedicated layout pa
 
 ## Deferred → prompt113
 
-Country-scoped lab models need a real **user country** preference (not language). See prompt113.
+Country-scoped lab models: picker under **Lab Reports UI**; **no import until country is selected** (not Profile). See prompt113.
 
 ## Related
 

@@ -9,5 +9,5 @@ Shipped specs: [`done/README.md`](./done/README.md). Layout: [`../README.md`](..
 | [`prompt107.txt`](./prompt107.txt) | In-app explainer videos (hosted FB films) — Help + optional What’s next Watch link; backlog |
 | [`prompt108.txt`](./prompt108.txt) | Alpha review polish — Android exit confirm, meal field/keyboard, severity tone, food staples |
 | [`prompt110.txt`](./prompt110.txt) | Treatment markers — clinic-set custom macros w/ lab provenance; needs be-41 first |
-| [`prompt113.txt`](./prompt113.txt) | User country + country-scoped lab PDF model packs (builds on prompt112) |
+| [`prompt113.txt`](./prompt113.txt) | Lab country gate + server catalog (be-43) — **in_progress** (VPS migrate + phone) |
 

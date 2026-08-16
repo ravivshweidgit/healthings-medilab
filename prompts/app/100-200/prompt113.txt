@@ -1,76 +1,36 @@
-# prompt113 — User country + country-scoped lab PDF models
+# prompt113 — Lab country gate + country-scoped lab PDF models
 
-**Status:** backlog (spec draft 2026-08-16)  
+**Status:** in_progress (implemented 2026-08-16 — needs VPS migrate + phone test)  
 **Builds on:** prompt112 (IL HMO identify → confirm → layout pack)  
-**Model to implement:** Opus/strong for Profile + defaulting rules; Auto for wiring packs
+**Backend:** [`../../backend/be-43-lab-catalog.md`](../../backend/be-43-lab-catalog.md)
 
-## Problem
+## Owner UX (locked)
 
-prompt112’s Pass 1/2 prompts and provider enums are **Israel-only** (Clalit / Meuhedet / Maccabi / Leumit).
-When the app goes global, one worldwide identify prompt will regress every country.
+- Country picker under **Lab Reports** only (not Profile / QS).
+- **No PDF import** until country is selected (no silent `IL` default).
+- Provider / country **display names** from server: `name_native ?? name_en`  
+  (country brand language — **not** `appLocale`). Canonical `name_en` always stored.
 
-**Owner (2026-08-16):** separate lab models by **user country**. Language ≠ country
-(Hebrew speaker abroad; English speaker in IL). Fine-tuning / prompt packs must key off country.
-
-## Design
-
-### 1. Persisted user country (canonical)
-
-| Piece | Rule |
-|-------|------|
-| Key | Documented AsyncStorage key (e.g. `user_country`) — ISO 3166-1 alpha-2 (`IL`, `US`, …) |
-| Not language | Never derive lab country from `user_language` alone |
-| Default | Existing installs → `IL` (current product). New installs may suggest from device region, user confirms in Profile / Quick Start |
-| Export / backup | Include in clinic snapshot + local/cloud backup (persistence-parity) |
-| Clinic | Patient country is app-side; portal does not invent a second country field unless product asks |
-
-### 2. Lab parse shell (same as prompt112)
-
-```
-country pack → Pass 1 identify (providers for that country)
-            → user confirm
-            → Pass 2 layout pack for confirmed provider
-            → repairGaugeBoundCollisions (shared safety net)
-```
-
-| Country | Pass 1 providers (v1) | Pass 2 packs |
-|---------|----------------------|--------------|
-| `IL` | clalit, meuhedet, maccabi, leumit, unknown | Meuhedet gauge (shipped); others default |
-| other | `unknown` / generic only until a pack exists | default + repair |
-
-Do **not** grow one mega identify prompt for all countries.
-
-### 3. Profile / QS UI
-
-- Short row: **Country** (endonyms or English country names — no flags-as-language confusion).
-- Lab import reads `getUserCountry()` before Pass 1.
-- Non-IL with no pack: skip Israeli HMO chips; generic parse + clear “layout pack for your country coming” if needed.
-
-## Out of scope (this prompt)
-
-- Training a separate Gemini fine-tune per country (prompt packs first; fine-tune later if data warrants)
-- Full US/EU provider catalogs on day one
-- Changing lab `name` language policy (stays English at rest)
-
-## What ships
+## What shipped (code)
 
 | Piece | Change |
 |-------|--------|
-| TargetService (or small CountryService) | get/set user country; default IL |
-| Profile + QS copy (10 langs) | Country picker |
-| `GeminiService` lab | `identify` / `parse` take `{ country }`; IL keeps today’s packs |
-| Backup / clinic export | Include `user_country` |
-| prompt112 | IL path unchanged for IL users |
+| DB | `lab_countries`, `lab_providers`, `lab_prompt_packs` + IL/US seed |
+| API | `GET /v1/lab/countries`, `GET /v1/lab/catalog/:countryCode` |
+| `lab_country` AsyncStorage | null until user picks; backup/export auto-includes |
+| Lab strip + modal | Country gate; Change country; packs into identify/parse |
+| GeminiService | Accepts server packs; embedded IL fallback if API offline |
 
 ## Phone checklist
 
-- [ ] Profile country persists across restart + backup restore
-- [ ] IL user: Meuhedet confirm path unchanged
-- [ ] Non-IL (e.g. US): no Clalit/Meuhedet chips; generic parse still works
-- [ ] Language Hebrew + country US does not force IL HMO identify
+- [ ] Fresh install: cannot import until country chosen
+- [ ] IL → Meuhedet: chips show מאוחדת (native), parse still good
+- [ ] App language English + lab country IL → still native HMO names
+- [ ] US: no IL HMO chips; generic parse
+- [ ] After VPS migrate: catalog from API (not only fallback)
 
 ## Related
 
-- prompt112 — IL two-pass lab import (done)
-- persistence-parity — new key must export/restore
-- language-policy — country ≠ `appLocale`
+- prompt112 — IL two-pass (done)
+- be-43 — server catalog
+- language-policy — country ≠ appLocale; lab test `name` stays English at rest

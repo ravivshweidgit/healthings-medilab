@@ -30,8 +30,8 @@ export type LabPanel = {
   note?: string;
 };
 
-/** Known Israeli HMOs get a friendly label; anything else stays 'unknown'. */
-export type LabProvider = 'clalit' | 'meuhedet' | 'maccabi' | 'leumit' | 'unknown';
+/** Known Israeli HMOs + unknown; other country codes come from the server catalog. */
+export type LabProvider = string;
 
 export type LabReport = {
   id: string;

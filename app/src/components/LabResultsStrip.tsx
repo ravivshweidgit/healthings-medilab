@@ -43,6 +43,12 @@ import { StripIcons } from '../theme/icons';
 import { LabReportModal } from './LabReportModal';
 import { LipidTrendChart } from './LipidTrendChart';
 import { LabMarkerTrendChart } from './LabMarkerTrendChart';
+import { getLabCountry } from '../services/LabCountryService';
+import {
+  countryDisplayName,
+  fetchLabCountries,
+  type LabCountryInfo,
+} from '../services/LabCatalogService';
 
 const EXPANDED_KEY = 'dash_lab_results_expanded';
 const LIPID_EXPANDED_KEY = 'dash_lab_lipid_chart_expanded';
@@ -104,8 +110,25 @@ export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState('');
   const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const [labCountry, setLabCountryState] = useState<string | null>(null);
+  const [countryInfo, setCountryInfo] = useState<LabCountryInfo | null>(null);
   const copy = getLabResultsStripCopy(lang?.code);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
+
+  const refreshLabCountry = useCallback(async () => {
+    const code = await getLabCountry();
+    setLabCountryState(code);
+    if (!code) {
+      setCountryInfo(null);
+      return;
+    }
+    const list = await fetchLabCountries();
+    setCountryInfo(list.find((c) => c.code === code) ?? null);
+  }, []);
+
+  useEffect(() => {
+    void refreshLabCountry();
+  }, [refreshLabCountry]);
 
   const latest = reports[0] ?? null;
   const lipidTrendPoints = useMemo(() => buildLipidTrendPoints(reports), [reports]);
@@ -185,11 +208,11 @@ export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function
     [],
   );
 
-  const openImport = useCallback(() => {
+  const openCountryOrImport = useCallback(() => {
     setViewReport(null);
-    setAutoPick(true);
+    setAutoPick(!!labCountry);
     setModalVisible(true);
-  }, []);
+  }, [labCountry]);
 
   const openReport = useCallback((report: LabReport) => {
     setViewReport(report);
@@ -257,7 +280,9 @@ export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function
 
   const latestLine = latest
     ? `${formatDrawDate(latest.collectedAt, lang?.code)} · ${copy.testsCount(resultCount(latest))}`
-    : copy.emptyHint;
+    : labCountry
+      ? copy.emptyHint
+      : copy.chooseCountryCta;
 
   const selectedOption = customCode ? markerOptions.find((m) => m.code === customCode) : null;
   const customSubtitle = selectedOption
@@ -286,12 +311,29 @@ export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
         <Pressable
           style={({ pressed }) => [styles.chip, styles.addChip, pressed && styles.chipPressed]}
-          onPress={openImport}
-          accessibilityLabel={copy.addReport}
+          onPress={openCountryOrImport}
+          accessibilityLabel={labCountry ? copy.addReport : copy.chooseCountryCta}
         >
           <Text style={styles.addChipIcon}>＋</Text>
-          <Text style={styles.addChipLabel}>{copy.addReport}</Text>
+          <Text style={styles.addChipLabel}>
+            {labCountry ? copy.addReport : copy.chooseCountryCta}
+          </Text>
         </Pressable>
+        {labCountry && countryInfo ? (
+          <Pressable
+            style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
+            onPress={() => {
+              setViewReport(null);
+              setAutoPick(false);
+              setModalVisible(true);
+            }}
+            accessibilityLabel={copy.changeCountry}
+          >
+            <Text style={styles.chipDate}>
+              {copy.countrySelectedLabel(countryDisplayName(countryInfo))}
+            </Text>
+          </Pressable>
+        ) : null}
         {reports.map((r) => {
           const hi = highlightResult(r);
           return (
@@ -455,6 +497,7 @@ export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function
         onClose={closeModal}
         onSaved={handleSaved}
         onDeleted={handleDeleted}
+        onLabCountryChanged={() => void refreshLabCountry()}
       />
     </View>
   );

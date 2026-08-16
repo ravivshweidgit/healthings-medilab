@@ -8,6 +8,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 async function migrate() {
   const sql = readFileSync(join(__dirname, 'schema.sql'), 'utf8');
   await pool.query(sql);
+  const { ensureIlPromptPacksSeeded } = await import('../services/labCatalog.js');
+  await ensureIlPromptPacksSeeded();
   console.log('Migration complete.');
   await pool.end();
 }
