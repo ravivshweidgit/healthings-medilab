@@ -492,11 +492,42 @@ function formatUtcOffsetLabel(utcOffsetMinutes: number): string {
   return m === 0 ? `UTC${sign}${h}` : `UTC${sign}${h}:${String(m).padStart(2, '0')}`;
 }
 
+/** Current UTC offset for Asia/Jerusalem (minutes east of UTC), e.g. +180 in summer. */
+function asiaJerusalemUtcOffsetMinutes(atMs = Date.now()): number {
+  const name =
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Jerusalem',
+      timeZoneName: 'longOffset',
+    })
+      .formatToParts(new Date(atMs))
+      .find((p) => p.type === 'timeZoneName')?.value ?? '';
+  const m = name.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/i);
+  if (!m) return 180;
+  const sign = m[1] === '-' ? -1 : 1;
+  return sign * (Number(m[2]) * 60 + Number(m[3] || 0));
+}
+
+/**
+ * Infer patient UTC offset from food_log day keys vs meal epoch ms.
+ *
+ * Day-key match alone ties across many offsets (meals mid-day stay on the same
+ * calendar date for ±several hours). Without a tie-break we kept the *first*
+ * max score while scanning −720…+840 — i.e. the most negative matching offset.
+ * That turned Israel 20:38 into clinic-chat "14:14" (Stav 2026-08-16) and made
+ * the mentor deny a meal that was clearly on the Food log tab (browser TZ).
+ *
+ * Tie-break order among best day-key scores:
+ * 1. Asia/Jerusalem if it matches (clinic is IL-first)
+ * 2. Most meals in waking hours 06:00–22:59
+ * 3. Smallest |offset|
+ */
 function inferPatientUtcOffsetMinutes(store: Record<string, string>): number {
-  let bestOffset = 0;
-  let bestScore = -Infinity;
+  type Candidate = { offsetMin: number; dayScore: number; wakeScore: number };
+  const candidates: Candidate[] = [];
+
   for (let offsetMin = -720; offsetMin <= 840; offsetMin += 30) {
-    let score = 0;
+    let dayScore = 0;
+    let wakeScore = 0;
     for (const [key, raw] of Object.entries(store)) {
       const m = key.match(/^food_log_(\d{4}-\d{2}-\d{2})$/);
       if (!m) continue;
@@ -506,19 +537,33 @@ function inferPatientUtcOffsetMinutes(store: Record<string, string>): number {
         if (!Array.isArray(meals)) continue;
         for (const meal of meals) {
           if (!meal.timestamp) continue;
-          if (dayKeyFromMsWithOffset(meal.timestamp, offsetMin) === expectedDay) score += 2;
-          else score -= 1;
+          if (dayKeyFromMsWithOffset(meal.timestamp, offsetMin) === expectedDay) {
+            dayScore += 2;
+            const hour = new Date(meal.timestamp + offsetMin * 60_000).getUTCHours();
+            if (hour >= 6 && hour <= 22) wakeScore += 1;
+          } else {
+            dayScore -= 1;
+          }
         }
       } catch {
         /* skip corrupt day */
       }
     }
-    if (score > bestScore) {
-      bestScore = score;
-      bestOffset = offsetMin;
-    }
+    candidates.push({ offsetMin, dayScore, wakeScore });
   }
-  return bestOffset;
+
+  if (!candidates.length) return asiaJerusalemUtcOffsetMinutes();
+
+  const maxDay = Math.max(...candidates.map((c) => c.dayScore));
+  const top = candidates.filter((c) => c.dayScore === maxDay);
+  const jerusalem = asiaJerusalemUtcOffsetMinutes();
+  if (top.some((c) => c.offsetMin === jerusalem)) return jerusalem;
+
+  top.sort(
+    (a, b) =>
+      b.wakeScore - a.wakeScore || Math.abs(a.offsetMin) - Math.abs(b.offsetMin),
+  );
+  return top[0]!.offsetMin;
 }
 
 /** Multi-day food log for clinic mentor chat — matches Food log tab in portal. */
