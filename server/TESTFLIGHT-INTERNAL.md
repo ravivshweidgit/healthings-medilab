@@ -35,17 +35,17 @@ On [expo.dev](https://expo.dev) → project → **Environment variables** → **
 
 | Name | Notes |
 |------|--------|
-| `WITHINGS_CLIENT_ID` | Same as local `app/.env` (one app client for all users) |
-| `WITHINGS_CLIENT_SECRET` | Same |
+| `WITHINGS_CLIENT_ID` | Same as local `app/.env` (public; used on the authorize URL) |
 | `WITHINGS_CALLBACK_URL` | `healthings-medilab://oauth` |
-| `GEMINI_API_KEY` | Same as local |
 | `HEALTHINGS_API_URL` | `https://api.healthings.ai` |
+
+`WITHINGS_CLIENT_SECRET` and `GEMINI_API_KEY` live on the **API server** (`server/.env`), not in EAS / the IPA.
 
 Or CLI (from `app/`):
 
 ```powershell
 eas env:create --environment production --visibility sensitive --name WITHINGS_CLIENT_ID --value "paste-from-local-env"
-# repeat for CLIENT_SECRET, CALLBACK_URL, GEMINI_API_KEY, HEALTHINGS_API_URL
+# repeat for CALLBACK_URL, HEALTHINGS_API_URL
 ```
 
 `eas-build-pre-install` runs `scripts/eas-write-dotenv.js` so Babel/`@env` sees them during the cloud build.

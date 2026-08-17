@@ -52,6 +52,10 @@ const envSchema = z.object({
    */
   ADMIN_EMAILS: z.string().default(''),
   GEMINI_API_KEY: z.string().optional(),
+  /** Withings OAuth — secret never ships in the APK (same idea as Gemini proxy). */
+  WITHINGS_CLIENT_ID: z.string().optional().default(''),
+  WITHINGS_CLIENT_SECRET: z.string().optional().default(''),
+  WITHINGS_CALLBACK_URL: z.string().default('healthings-medilab://oauth'),
   /** When true and Stripe absent: simulate card charge + grant pack on auto-reload. */
   AUTO_RELOAD_SIMULATE: z
     .string()

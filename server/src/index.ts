@@ -16,6 +16,7 @@ import { registerAccountBackupRoutes } from './routes/accountBackup.js';
 import { registerClinicRoutes } from './routes/clinic.js';
 import { registerAiRoutes } from './routes/ai.js';
 import { registerLabCatalogRoutes } from './routes/labCatalog.js';
+import { registerWithingsRoutes } from './routes/withings.js';
 import { processDelinquentRetries } from './services/payments.js';
 
 const VERSION = '0.1.0';
@@ -66,6 +67,7 @@ async function main() {
   await registerClinicRoutes(app);
   await registerAiRoutes(app);
   await registerLabCatalogRoutes(app);
+  await registerWithingsRoutes(app);
 
   // be-34: retry delinquent cards on an hourly sweep (no-op while BILLING_LIVE=false).
   const retryTimer = setInterval(() => {

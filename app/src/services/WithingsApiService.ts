@@ -18,6 +18,7 @@ import {
   type MetabolicTrend7dDay,
 } from '../logic/metabolicTrend7d';
 import { fetchWithTimeout } from './fetchWithTimeout';
+import { authFetch } from './AuthApiService';
 import {
   METRICS_DEEP_LOOKBACK_DAYS,
   METRICS_SHALLOW_LOOKBACK_DAYS,
@@ -29,8 +30,6 @@ async function withingsFetch(url: string, init: RequestInit): Promise<Response> 
   return fetchWithTimeout(url, init, WITHINGS_FETCH_TIMEOUT_MS);
 }
 const WITHINGS_AUTHORIZE_URL = 'https://account.withings.com/oauth2_user/authorize2';
-/** Token endpoint: POST, `Content-Type: application/x-www-form-urlencoded`, body includes `action=requesttoken`. */
-const WITHINGS_TOKEN_URL = 'https://wbsapi.withings.net/v2/oauth2';
 const WITHINGS_MEASURE_URL = 'https://wbsapi.withings.net/measure';
 
 /** Android SecureStore keys may only use [a-zA-Z0-9._-] — no colons. */
@@ -91,21 +90,6 @@ export type WithingsOAuthTokens = {
   tokenType?: string;
 };
 
-type WithingsTokenResponseBody = {
-  access_token: string;
-  refresh_token: string;
-  expires_in?: number;
-  userid?: number | string;
-  scope?: string;
-  token_type?: string;
-};
-
-type WithingsOAuthJson = {
-  status: number;
-  body?: WithingsTokenResponseBody;
-  error?: string;
-};
-
 type WithingsMeasure = {
   value: number;
   type: number;
@@ -128,17 +112,15 @@ type WithingsGetMeasJson = {
   error?: string;
 };
 
-function assertWithingsConfigured(): { clientId: string; clientSecret: string } {
+function assertWithingsClientId(): string {
   const clientId = CONFIG.withingsClientId.trim();
-  const clientSecret = CONFIG.withingsClientSecret.trim();
-  if (!clientId || !clientSecret) {
+  if (!clientId) {
     throw new Error(
-      'Withings is not available in this build (app OAuth keys missing). ' +
-        'This is not your Withings account — the TestFlight/EAS binary needs WITHINGS_CLIENT_ID/SECRET. ' +
-        'Developers: set EAS Environment variables and rebuild.',
+      'Withings is not available in this build (client id missing). ' +
+        'Developers: set WITHINGS_CLIENT_ID in app/.env (EAS: Environment variables) and rebuild.',
     );
   }
-  return { clientId, clientSecret };
+  return clientId;
 }
 
 /** `redirect_uri` for authorize + token exchange — always `CONFIG.withingsCallbackUrl` from `.env` `WITHINGS_CALLBACK_URL` (never Expo `exp://`). */
@@ -146,37 +128,39 @@ function withingsOAuthRedirectUri(): string {
   return CONFIG.withingsCallbackUrl.trim();
 }
 
-function mapTokenBody(body: WithingsTokenResponseBody, previousUserid?: string): WithingsOAuthTokens {
-  const expiresInSec = Number(body.expires_in ?? 10_800);
-  const expiresAt = new Date(Date.now() + Math.max(60, expiresInSec) * 1000).toISOString();
-  const userid =
-    body.userid != null ? String(body.userid) : previousUserid != null ? previousUserid : undefined;
-  return {
-    accessToken: body.access_token,
-    refreshToken: body.refresh_token,
-    expiresAt,
-    userid,
-    scope: body.scope,
-    tokenType: body.token_type,
-  };
-}
-
 async function postRequestToken(
-  form: Record<string, string>,
-  previousUserid?: string
+  grant:
+    | { grantType: 'authorization_code'; code: string }
+    | { grantType: 'refresh_token'; refreshToken: string },
+  previousUserid?: string,
 ): Promise<WithingsOAuthTokens> {
-  const body = new URLSearchParams({ action: 'requesttoken', ...form }).toString();
-  const res = await withingsFetch(WITHINGS_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  });
-  const json = (await res.json()) as WithingsOAuthJson;
-  if (json.status !== 0 || !json.body) {
-    const detail = json.error ?? res.statusText;
-    throw new Error(`Withings token request failed (status ${json.status}): ${detail}`);
+  const res = await authFetch(
+    '/v1/withings/oauth/token',
+    {
+      method: 'POST',
+      body: JSON.stringify(
+        grant.grantType === 'authorization_code'
+          ? { grantType: 'authorization_code', code: grant.code }
+          : { grantType: 'refresh_token', refreshToken: grant.refreshToken },
+      ),
+    },
+    { timeoutMs: 20_000 },
+  );
+  if (res.status === 401) {
+    throw new Error('Session expired — sign in again, then re-link Withings.');
   }
-  return mapTokenBody(json.body, previousUserid);
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error || `Withings token request failed (${res.status})`);
+  }
+  const tokens = (await res.json()) as WithingsOAuthTokens;
+  if (!tokens.accessToken || !tokens.refreshToken) {
+    throw new Error('Withings token request failed: empty response');
+  }
+  if (!tokens.userid && previousUserid) {
+    return { ...tokens, userid: previousUserid };
+  }
+  return tokens;
 }
 
 /**
@@ -184,7 +168,7 @@ async function postRequestToken(
  * including `redirect_uri` from `WITHINGS_CALLBACK_URL` / `CONFIG.withingsCallbackUrl` (must match Withings portal; not `exp://`).
  */
 export function buildAuthorizationUrl(state: string, scope: string = DEFAULT_WITHINGS_SCOPE): string {
-  const { clientId } = assertWithingsConfigured();
+  const clientId = assertWithingsClientId();
   const redirectUri = withingsOAuthRedirectUri();
   const params = new URLSearchParams({
     response_type: 'code',
@@ -200,18 +184,10 @@ export function buildAuthorizationUrl(state: string, scope: string = DEFAULT_WIT
  * Exchanges the authorization `code` for tokens via
  * `POST https://wbsapi.withings.net/v2/oauth2` with `action=requesttoken` (same `redirect_uri` as authorize).
  */
-export async function exchangeCodeForTokens(
-  code: string,
-  clientId?: string,
-  clientSecret?: string
-): Promise<WithingsOAuthTokens> {
-  const cfg = assertWithingsConfigured();
+export async function exchangeCodeForTokens(code: string): Promise<WithingsOAuthTokens> {
   return postRequestToken({
-    grant_type: 'authorization_code',
-    client_id: clientId ?? cfg.clientId,
-    client_secret: clientSecret ?? cfg.clientSecret,
+    grantType: 'authorization_code',
     code: code.trim(),
-    redirect_uri: withingsOAuthRedirectUri(),
   });
 }
 
@@ -219,18 +195,15 @@ export async function exchangeCodeForTokens(
  * Refreshes the access token using a refresh token (does not persist).
  */
 export async function refreshAccessToken(refreshToken: string): Promise<WithingsOAuthTokens> {
-  const { clientId, clientSecret } = assertWithingsConfigured();
   const stored = await loadWithingsTokens();
   const previousUserid =
     stored && stored.refreshToken.trim() === refreshToken.trim() ? stored.userid : undefined;
   return postRequestToken(
     {
-      grant_type: 'refresh_token',
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken.trim(),
+      grantType: 'refresh_token',
+      refreshToken: refreshToken.trim(),
     },
-    previousUserid
+    previousUserid,
   );
 }
 

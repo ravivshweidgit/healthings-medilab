@@ -5,8 +5,8 @@
  *
  * Set once on Expo (production + preview):
  *   eas env:create --environment production --name WITHINGS_CLIENT_ID --value "..." --visibility sensitive
- *   (same for WITHINGS_CLIENT_SECRET, WITHINGS_CALLBACK_URL, HEALTHINGS_API_URL)
- * GEMINI_API_KEY is no longer bundled — Gemini goes through the server proxy (be-40).
+ *   (same for WITHINGS_CALLBACK_URL, HEALTHINGS_API_URL)
+ * WITHINGS_CLIENT_SECRET and GEMINI_API_KEY stay on the server — not in the binary.
  */
 const fs = require('fs');
 const path = require('path');
@@ -18,7 +18,6 @@ const KEYS = [
   'NODE_ENV',
   'STORAGE_STRATEGY',
   'WITHINGS_CLIENT_ID',
-  'WITHINGS_CLIENT_SECRET',
   'WITHINGS_CALLBACK_URL',
   'HEALTHINGS_API_URL',
 ];

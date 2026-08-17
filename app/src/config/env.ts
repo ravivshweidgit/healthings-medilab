@@ -7,7 +7,6 @@ import {
   STORAGE_STRATEGY,
   WITHINGS_CALLBACK_URL as WITHINGS_CALLBACK_URL_ENV,
   WITHINGS_CLIENT_ID,
-  WITHINGS_CLIENT_SECRET,
 } from '@env';
 
 /**
@@ -31,7 +30,6 @@ export const CONFIG = {
   awsRegion: AWS_REGION ?? 'us-east-1',
   dynamodbTable: DYNAMODB_TABLE ?? 'HealthMetricsDev',
   withingsClientId: WITHINGS_CLIENT_ID ?? '',
-  withingsClientSecret: WITHINGS_CLIENT_SECRET ?? '',
   /** Same string as `WITHINGS_CALLBACK_URL` — used for authorize2, token exchange, and `openAuthSessionAsync`. */
   withingsCallbackUrl: WITHINGS_CALLBACK_URL,
 } as const;
