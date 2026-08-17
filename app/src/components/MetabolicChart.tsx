@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   InteractionManager,
@@ -544,7 +544,7 @@ type Props = {
   langCode?: string | null;
 };
 
-export function MetabolicChart({
+export function MetabolicChartInner({
   glucose,
   heartRate,
   activityZones,
@@ -1724,6 +1724,9 @@ export function MetabolicChart({
     </View>
   );
 }
+
+/** Skip re-render on dashboard toggles (collapse) when series props are unchanged. */
+export const MetabolicChart = memo(MetabolicChartInner);
 
 const makeStyles = (colors: ThemeColors, isDark: boolean) =>
   StyleSheet.create({

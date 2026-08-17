@@ -37,7 +37,7 @@ import { FoodLogModal } from '../components/FoodLogModal';
 import { FoodMacroStrip, type FoodMacroStripHandle } from '../components/FoodMacroStrip';
 import { ActivityLogModal } from '../components/ActivityLogModal';
 import { ActivityLogStrip, type ActivityLogStripHandle } from '../components/ActivityLogStrip';
-import { MetabolicChart } from '../components/MetabolicChart';
+import { GlucoseChartStrip, type GlucoseChartStripHandle } from '../components/GlucoseChartStrip';
 import { MetabolicTrendChart7d } from '../components/MetabolicTrendChart7d';
 import { WeightTargetStrip } from '../components/WeightTargetStrip';
 import { MentorStrip } from '../components/MentorStrip';
@@ -227,7 +227,6 @@ const SCROLL_HORIZONTAL_PADDING = 20;
 /** How far back to load meals for historical chart markers (days). */
 const CHART_MEAL_LOOKBACK_DAYS = 31;
 /** Persist glucose / trend expand state so compact stays default after relaunch. */
-const DASH_GLUCOSE_EXPANDED_KEY = 'dash_glucose_chart_expanded';
 const DASH_TREND_EXPANDED_KEY = 'dash_trend_chart_expanded';
 const DASH_SETTINGS_CARD_EXPANDED_KEY = 'dash_settings_card_expanded';
 const DASH_LANGUAGE_EXPANDED_KEY = 'dash_language_expanded';
@@ -238,6 +237,8 @@ const DASH_GEAR_EXPANDED_KEY = 'dash_gear_expanded';
 const DASH_ACTIVITY_LOG_VISIBLE_KEY = 'dash_activity_log_visible';
 /** Appearance — show LDL/total/HDL/TG charts under Lab results (default Yes). */
 const DASH_LAB_LIPID_CHARTS_VISIBLE_KEY = 'dash_lab_lipid_charts_visible';
+/** Stable empty series — avoid `[]` identity churn breaking MetabolicChart memo on collapse. */
+const EMPTY_GLUCOSE_SERIES: { timestamp: string; value: number }[] = [];
 const BRAND_LOGO = require('../../assets/brand-logo.png');
 // Same geometry as the light lockup (so header height is unchanged), light ink on a
 // transparent background instead of the white plate.
@@ -442,6 +443,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const coachContextRef = useRef<CoachContext | null>(null);
   const foodMacroStripRef = useRef<FoodMacroStripHandle>(null);
   const activityLogStripRef = useRef<ActivityLogStripHandle>(null);
+  const glucoseChartStripRef = useRef<GlucoseChartStripHandle>(null);
   const labResultsStripRef = useRef<LabResultsStripHandle>(null);
   const nutritionSessionsStripRef = useRef<NutritionDirectivesStripHandle>(null);
   const manualBodySectionRef = useRef<ManualBodyProfileSectionHandle>(null);
@@ -474,8 +476,9 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [rulesExpanded, setRulesExpanded] = useState(false);
   const [macroExpanded, setMacroExpanded] = useState(false);
   /** Glucose + trend (incl. energy) charts: collapsed by default so Food Log sits higher. */
-  const [glucoseExpanded, setGlucoseExpanded] = useState(false);
   const [trendExpanded, setTrendExpanded] = useState(false);
+  /** Lazy keep-alive for trend + energy charts (same as Food Log). */
+  const [trendChartMounted, setTrendChartMounted] = useState(false);
   const [settingsCardExpanded, setSettingsCardExpanded] = useState(false);
   const [dashExpandPrefsLoaded, setDashExpandPrefsLoaded] = useState(false);
   const [macroWeighInSuggestion, setMacroWeighInSuggestion] = useState<DailyMacroTarget | null>(null);
@@ -1785,8 +1788,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   useEffect(() => {
     void (async () => {
       try {
-        const [g, t, s, langEx, unitsEx, appearanceEx, gearEx, actVis, lipidVis] = await AsyncStorage.multiGet([
-          DASH_GLUCOSE_EXPANDED_KEY,
+        const [t, s, langEx, unitsEx, appearanceEx, gearEx, actVis, lipidVis] = await AsyncStorage.multiGet([
           DASH_TREND_EXPANDED_KEY,
           DASH_SETTINGS_CARD_EXPANDED_KEY,
           DASH_LANGUAGE_EXPANDED_KEY,
@@ -1796,8 +1798,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           DASH_ACTIVITY_LOG_VISIBLE_KEY,
           DASH_LAB_LIPID_CHARTS_VISIBLE_KEY,
         ]);
-        if (g[1] === 'true') setGlucoseExpanded(true);
-        if (t[1] === 'true') setTrendExpanded(true);
+        if (t[1] === 'true') {
+          setTrendExpanded(true);
+          setTrendChartMounted(true);
+        }
         if (s[1] === 'true') setSettingsCardExpanded(true);
         if (langEx[1] === 'true') setLanguageExpanded(true);
         if (unitsEx[1] === 'true') setUnitsExpanded(true);
@@ -1810,11 +1814,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       }
     })();
   }, []);
-
-  useEffect(() => {
-    if (!dashExpandPrefsLoaded) return;
-    void AsyncStorage.setItem(DASH_GLUCOSE_EXPANDED_KEY, glucoseExpanded ? 'true' : 'false');
-  }, [glucoseExpanded, dashExpandPrefsLoaded]);
 
   useEffect(() => {
     if (!dashExpandPrefsLoaded) return;
@@ -1861,7 +1860,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     if (target !== 'activity-log') activityLogStripRef.current?.collapse();
     if (target !== 'lab-results') labResultsStripRef.current?.collapse();
     if (target !== 'nutritionist-sessions') nutritionSessionsStripRef.current?.collapse();
-    if (target !== 'glucose-chart') setGlucoseExpanded(false);
+    if (target !== 'glucose-chart') glucoseChartStripRef.current?.collapse();
     if (target !== 'trend-energy') setTrendExpanded(false);
 
     if (!inSettings) {
@@ -1896,9 +1895,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         nutritionSessionsStripRef.current?.expand();
         break;
       case 'glucose-chart':
-        setGlucoseExpanded(true);
+        glucoseChartStripRef.current?.expand();
         break;
       case 'trend-energy':
+        setTrendChartMounted(true);
         setTrendExpanded(true);
         break;
       case 'ai-chat':
@@ -2898,48 +2898,28 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         ) : null}
         {metabolicHeader.show ? (
           <View ref={setStripNode('glucose-chart')} collapsable={false} style={[styles.glucoseHistorySection, navPulseStyle('glucose-chart')]}>
-            <View style={styles.chartBleed}>
-              <View
-                style={[
-                  styles.chartCardBleed,
-                  !glucoseExpanded && styles.chartCardBleedCollapsed,
-                  cardShadow,
-                ]}
-              >
-                <DashboardCollapseHeader
-                  title={metabolicHeader.title}
-                  subtitle={metabolicHeader.compactSub}
-                  expanded={glucoseExpanded}
-                  onToggle={() => {
-                    setGlucoseExpanded((v) => {
-                      if (!v) void refetch({ quiet: true, reason: 'expand' });
-                      return !v;
-                    });
-                  }}
-                  titleRtl={userLanguage.code === 'he' || userLanguage.code === 'ar'}
-                  collapseLabel={metabolicHeader.a11yCollapse}
-                  expandLabel={metabolicHeader.a11yExpand}
-                  icon={StripIcons.glucose}
-                  perfTag="MetabolicChart"
-                />
-                {glucoseExpanded ? (
-                  <MetabolicChart
-                    glucose={
-                      isLiveGlucoseSource(sourceConfig?.glucose ?? 'none') ? glucoseData : []
-                    }
-                    heartRate={withingsHeartRate}
-                    activityZones={activityZones}
-                    calorieBurns={withingsCalories}
-                    workoutSessions={workoutSessions}
-                    bmrKcalDay={effectiveBodyScan?.bmrKcalDay}
-                    foodEntries={chartMeals}
-                    glucoseDisplayUnit={unitsPrefs.glucose}
-                    energyDisplayUnit={unitsPrefs.energy}
-                    langCode={userLanguage.code}
-                  />
-                ) : null}
-              </View>
-            </View>
+            <GlucoseChartStrip
+              ref={glucoseChartStripRef}
+              title={metabolicHeader.title}
+              subtitle={metabolicHeader.compactSub}
+              collapseLabel={metabolicHeader.a11yCollapse}
+              expandLabel={metabolicHeader.a11yExpand}
+              titleRtl={userLanguage.code === 'he' || userLanguage.code === 'ar'}
+              glucose={
+                isLiveGlucoseSource(sourceConfig?.glucose ?? 'none')
+                  ? glucoseData
+                  : EMPTY_GLUCOSE_SERIES
+              }
+              heartRate={withingsHeartRate}
+              activityZones={activityZones}
+              calorieBurns={withingsCalories}
+              workoutSessions={workoutSessions}
+              bmrKcalDay={effectiveBodyScan?.bmrKcalDay}
+              foodEntries={chartMeals}
+              glucoseDisplayUnit={unitsPrefs.glucose}
+              energyDisplayUnit={unitsPrefs.energy}
+              langCode={userLanguage.code}
+            />
           </View>
         ) : null}
 
@@ -2965,15 +2945,25 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     : metabolicStripCopy.tapToOpenCharts
               }
               expanded={trendExpanded}
-              onToggle={() => setTrendExpanded((v) => !v)}
+              onToggle={() => {
+                setTrendExpanded((v) => {
+                  if (!v) setTrendChartMounted(true);
+                  return !v;
+                });
+              }}
               titleRtl={userLanguage.code === 'he' || userLanguage.code === 'ar'}
               collapseLabel={metabolicStripCopy.a11yCollapseTrend}
               expandLabel={metabolicStripCopy.a11yExpandTrend}
               icon={StripIcons.trend}
               perfTag="MetabolicTrendChart7d"
             />
-            {trendExpanded ? (
-              <>
+            {trendChartMounted ? (
+              <View
+                style={!trendExpanded ? styles.chartBodyCollapsed : undefined}
+                pointerEvents={trendExpanded ? 'auto' : 'none'}
+                accessibilityElementsHidden={!trendExpanded}
+                importantForAccessibility={trendExpanded ? 'yes' : 'no-hide-descendants'}
+              >
                 {trendError && !useManualWeightTrend ? (
                   <View style={styles.bodyScanEmptyWrap}>
                     <Text style={styles.trendErrorText}>{whatsNextCopy.syncFailedHint}</Text>
@@ -3049,7 +3039,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     />
                   </View>
                 ) : null}
-              </>
+              </View>
             ) : null}
           </View>
         </View>
@@ -4187,6 +4177,10 @@ const makeStyles = (c: ThemeColors, isDark: boolean) => {
     paddingTop: 14,
     paddingBottom: 12,
     paddingHorizontal: 18,
+  },
+  /** Keep chart fiber mounted; skip native layout (height:0 still laid out the SVG — laggy collapse). */
+  chartBodyCollapsed: {
+    display: 'none',
   },
   trendBleed: {
     marginBottom: dashCardGap,
