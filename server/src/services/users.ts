@@ -12,6 +12,7 @@ type UserRow = {
   first_name: string | null;
   last_name: string | null;
   web_view_enabled: boolean;
+  totp_enabled_at: Date | null;
   created_at: Date;
 };
 
@@ -34,6 +35,7 @@ function toPublicUser(row: UserRow): PublicUser {
     firstName: row.first_name,
     lastName: row.last_name,
     webViewEnabled: row.web_view_enabled ?? false,
+    totpEnabled: Boolean(row.totp_enabled_at),
     createdAt: row.created_at.toISOString(),
   };
 }

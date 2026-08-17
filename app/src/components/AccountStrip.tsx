@@ -11,9 +11,13 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import {
+  confirmTotpEnroll,
+  disableTotp,
+  emailTotpBarcode,
   fetchCurrentUser,
   logoutAuth,
   setWebViewEnabled,
@@ -82,6 +86,11 @@ export function AccountStrip({
   const [webViewBusy, setWebViewBusy] = useState(false);
   const [webViewSync, setWebViewSync] = useState<PublicSyncBlob | null>(null);
   const [webViewMessage, setWebViewMessage] = useState<string | null>(null);
+  const [totpEnabled, setTotpEnabled] = useState(user.totpEnabled === true);
+  const [totpBusy, setTotpBusy] = useState(false);
+  const [totpMessage, setTotpMessage] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState('');
+  const [totpAwaitingConfirm, setTotpAwaitingConfirm] = useState(false);
 
   const isPatient = user.role === 'patient';
 
@@ -103,21 +112,26 @@ export function AccountStrip({
       fetchCurrentUser().catch(() => null),
       fetchMyLatestSyncMeta().catch(() => null),
     ]);
-    if (me) setWebViewOn(me.webViewEnabled === true);
+    if (me) {
+      setWebViewOn(me.webViewEnabled === true);
+      setTotpEnabled(me.totpEnabled === true);
+    }
     setWebViewSync(sync);
   }, [isPatient]);
 
   useEffect(() => {
     if (!expanded) return;
     void (async () => {
-      const [available, enabled, label] = await Promise.all([
+      const [available, enabled, label, me] = await Promise.all([
         canUseBiometricUnlock(),
         isBiometricUnlockEnabled(),
         biometricUnlockLabel(),
+        fetchCurrentUser().catch(() => null),
       ]);
       setBiometricAvailable(available);
       setBiometricEnabled(enabled);
       setBiometricLabel(label);
+      if (me) setTotpEnabled(me.totpEnabled === true);
     })();
     if (isPatient) {
       void refreshCloudStatus();
@@ -346,6 +360,69 @@ export function AccountStrip({
     }
   }, [onSignedOut]);
 
+  const handleEmailTotpBarcode = useCallback(async () => {
+    setTotpMessage(null);
+    setTotpBusy(true);
+    try {
+      await emailTotpBarcode();
+      setTotpAwaitingConfirm(true);
+      setTotpCode('');
+      setTotpMessage('Barcode emailed. Scan it, then enter a 6-digit code here.');
+    } catch (e: unknown) {
+      setTotpMessage(e instanceof Error ? e.message : 'Could not email the barcode.');
+    } finally {
+      setTotpBusy(false);
+    }
+  }, []);
+
+  const handleConfirmTotp = useCallback(async () => {
+    if (totpCode.trim().length !== 6) return;
+    setTotpMessage(null);
+    setTotpBusy(true);
+    try {
+      const me = await confirmTotpEnroll(totpCode);
+      setTotpEnabled(me.totpEnabled === true);
+      setTotpAwaitingConfirm(false);
+      setTotpCode('');
+      setTotpMessage('Authenticator is on. Sign-in accepts that code or email OTP.');
+    } catch (e: unknown) {
+      setTotpMessage(e instanceof Error ? e.message : 'Invalid authenticator code.');
+    } finally {
+      setTotpBusy(false);
+    }
+  }, [totpCode]);
+
+  const handleRemoveTotp = useCallback(() => {
+    Alert.alert(
+      'Remove Authenticator?',
+      'Sign-in will use email codes only until you add it again.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              setTotpBusy(true);
+              setTotpMessage(null);
+              try {
+                const me = await disableTotp();
+                setTotpEnabled(me.totpEnabled === true);
+                setTotpAwaitingConfirm(false);
+                setTotpCode('');
+                setTotpMessage('Authenticator removed.');
+              } catch (e: unknown) {
+                setTotpMessage(e instanceof Error ? e.message : 'Could not remove authenticator.');
+              } finally {
+                setTotpBusy(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }, []);
+
   // Deletion is on the web (OTP to the account email). Opening the browser is the
   // whole app side — embedding a second flow here would drift from privacy.html
   // and from /account/. Offered to both roles: clinics have accounts too.
@@ -402,6 +479,60 @@ export function AccountStrip({
               />
             </View>
           ) : null}
+
+          <View style={styles.cloudBlock}>
+            <Text style={styles.biometricTitle}>Google Authenticator</Text>
+            <Text style={styles.biometricHint}>
+              Optional. We email a barcode to scan. After you confirm, sign-in accepts that
+              6-digit code or the email OTP.
+            </Text>
+            {totpEnabled ? (
+              <Text style={styles.cloudMeta}>On — email OTP still works</Text>
+            ) : null}
+            {!totpEnabled ? (
+              <Pressable
+                style={[styles.cloudBtn, totpBusy && styles.btnDisabled]}
+                disabled={totpBusy}
+                onPress={() => void handleEmailTotpBarcode()}
+              >
+                <Text style={styles.cloudBtnText}>Email barcode</Text>
+              </Pressable>
+            ) : null}
+            {totpAwaitingConfirm && !totpEnabled ? (
+              <>
+                <TextInput
+                  style={styles.totpInput}
+                  value={totpCode}
+                  onChangeText={setTotpCode}
+                  placeholder="123456"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  editable={!totpBusy}
+                  autoComplete="one-time-code"
+                  textContentType="oneTimeCode"
+                />
+                <Pressable
+                  style={[styles.cloudBtn, (totpCode.length !== 6 || totpBusy) && styles.btnDisabled]}
+                  disabled={totpCode.length !== 6 || totpBusy}
+                  onPress={() => void handleConfirmTotp()}
+                >
+                  <Text style={styles.cloudBtnText}>Confirm code</Text>
+                </Pressable>
+              </>
+            ) : null}
+            {totpEnabled ? (
+              <Pressable
+                style={[styles.cloudBtnOutline, totpBusy && styles.btnDisabled]}
+                disabled={totpBusy}
+                onPress={handleRemoveTotp}
+              >
+                <Text style={styles.cloudBtnOutlineText}>Remove Authenticator</Text>
+              </Pressable>
+            ) : null}
+            {totpBusy ? <ActivityIndicator color={colors.accentBlue} /> : null}
+            {totpMessage ? <Text style={styles.cloudMessage}>{totpMessage}</Text> : null}
+          </View>
 
           {isPatient ? (
             <View style={styles.cloudBlock}>
@@ -646,5 +777,15 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
       fontSize: 12,
       color: c.textSecondary,
       lineHeight: 17,
+    },
+    totpInput: {
+      borderWidth: 1.5,
+      borderColor: c.gridLine,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 16,
+      color: c.textPrimary,
+      backgroundColor: isDark ? c.background : c.surface,
     },
   });

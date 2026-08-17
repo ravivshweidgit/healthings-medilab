@@ -23,6 +23,8 @@ export type AuthUser = {
   lastName?: string | null;
   /** Patient's own read-only view at healthings.ai/account. Absent on users cached before it existed. */
   webViewEnabled?: boolean;
+  /** Google Authenticator confirmed. Absent on users cached before TOTP existed. */
+  totpEnabled?: boolean;
   createdAt: string;
 };
 
@@ -70,12 +72,70 @@ async function parseError(res: Response): Promise<string> {
 
 let refreshInFlight: Promise<{ accessToken: string; user: AuthUser } | null> | null = null;
 
-async function refreshAuthSessionSingleFlight(): Promise<{ accessToken: string; user: AuthUser } | null> {
+/** One refresh at a time — keepalive and 401 retries must share the same flight. */
+export async function refreshAuthSession(): Promise<{ accessToken: string; user: AuthUser } | null> {
   if (refreshInFlight) return refreshInFlight;
-  refreshInFlight = refreshAuthSession().finally(() => {
+  refreshInFlight = refreshAuthSessionOnce().finally(() => {
     refreshInFlight = null;
   });
   return refreshInFlight;
+}
+
+async function refreshAuthSessionSingleFlight(): Promise<{ accessToken: string; user: AuthUser } | null> {
+  return refreshAuthSession();
+}
+
+async function refreshAuthSessionOnce(
+  followRotated = true,
+): Promise<{ accessToken: string; user: AuthUser } | null> {
+  const { refreshToken } = await loadAuthTokens();
+  if (!refreshToken) return null;
+
+  try {
+    const res = await fetchWithTimeout(
+      `${apiBase()}/v1/auth/refresh`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      },
+      AUTH_FETCH_TIMEOUT_MS,
+    );
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        const latest = await loadAuthTokens();
+        if (followRotated && latest.refreshToken && latest.refreshToken !== refreshToken) {
+          return refreshAuthSessionOnce(false);
+        }
+        await clearAuthTokens();
+      }
+      return null;
+    }
+
+    const data = (await res.json()) as RefreshResponse;
+    await saveAuthTokens(data.accessToken, data.refreshToken);
+
+    const meRes = await authFetch('/v1/me', {}, { accessToken: data.accessToken, retryOn401: false });
+    if (!meRes.ok) {
+      if (meRes.status === 401 || meRes.status === 403) {
+        const latest = await loadAuthTokens();
+        if (followRotated && latest.refreshToken && latest.refreshToken !== data.refreshToken) {
+          return refreshAuthSessionOnce(false);
+        }
+        await clearAuthTokens();
+      }
+      return null;
+    }
+    const me = (await meRes.json()) as { user: AuthUser };
+    await saveCachedAuthUser(me.user);
+    return { accessToken: data.accessToken, user: me.user };
+  } catch (err) {
+    // Network / abort — keep tokens for offline use.
+    if (__DEV__) {
+      console.warn('[auth] refresh failed', isAbortError(err) ? 'timeout' : err);
+    }
+    return null;
+  }
 }
 
 export async function authFetch(
@@ -152,56 +212,11 @@ export async function verifyOtp(email: string, code: string): Promise<AuthUser> 
 export const CLINIC_PHONE_LOGIN_BLOCKED =
   'Clinic accounts use the web portal only (healthings.ai/clinic). Sign in here with a patient email. / מייל קליניקה — רק באתר healthings.ai/clinic. באפליקציה היכנסו עם מייל מטופל.';
 
-
-export async function refreshAuthSession(): Promise<{ accessToken: string; user: AuthUser } | null> {
-  const { refreshToken } = await loadAuthTokens();
-  if (!refreshToken) return null;
-
-  try {
-    const res = await fetchWithTimeout(
-      `${apiBase()}/v1/auth/refresh`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
-      },
-      AUTH_FETCH_TIMEOUT_MS,
-    );
-    if (!res.ok) {
-      // Only clear on auth rejection — keep tokens when offline / 5xx.
-      if (res.status === 401 || res.status === 403) {
-        await clearAuthTokens();
-      }
-      return null;
-    }
-
-    const data = (await res.json()) as RefreshResponse;
-    await saveAuthTokens(data.accessToken, data.refreshToken);
-
-    const meRes = await authFetch('/v1/me', {}, { accessToken: data.accessToken, retryOn401: false });
-    if (!meRes.ok) {
-      if (meRes.status === 401 || meRes.status === 403) {
-        await clearAuthTokens();
-      }
-      return null;
-    }
-    const me = (await meRes.json()) as { user: AuthUser };
-    await saveCachedAuthUser(me.user);
-    return { accessToken: data.accessToken, user: me.user };
-  } catch (err) {
-    // Network / abort — keep tokens for offline use.
-    if (__DEV__) {
-      console.warn('[auth] refresh failed', isAbortError(err) ? 'timeout' : err);
-    }
-    return null;
-  }
-}
-
 export async function fetchCurrentUser(): Promise<AuthUser | null> {
   try {
     const res = await authFetch('/v1/me');
     if (!res.ok) {
-      if (res.status === 401) await clearAuthTokens();
+      // Refresh already wiped if the refresh token itself was rejected.
       return null;
     }
     const data = (await res.json()) as { user: AuthUser };
@@ -355,6 +370,39 @@ export async function logoutAuth(): Promise<void> {
   }
   await clearAuthTokens();
   await clearCachedApprovedShares();
+}
+
+export async function emailTotpBarcode(): Promise<void> {
+  const res = await authFetch('/v1/me/totp/begin', { method: 'POST' });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error || 'Could not email the authenticator barcode');
+  }
+}
+
+export async function confirmTotpEnroll(code: string): Promise<AuthUser> {
+  const res = await authFetch('/v1/me/totp/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ code: code.trim() }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error || 'Invalid authenticator code');
+  }
+  const data = (await res.json()) as { user: AuthUser };
+  await saveCachedAuthUser(data.user);
+  return data.user;
+}
+
+export async function disableTotp(): Promise<AuthUser> {
+  const res = await authFetch('/v1/me/totp', { method: 'DELETE' });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error || 'Could not remove authenticator');
+  }
+  const data = (await res.json()) as { user: AuthUser };
+  await saveCachedAuthUser(data.user);
+  return data.user;
 }
 
 export async function checkApiHealth(): Promise<boolean> {

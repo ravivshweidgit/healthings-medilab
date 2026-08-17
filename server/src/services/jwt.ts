@@ -17,6 +17,8 @@ export type PublicUser = {
   /** Patient last name for clinic findability (be-27). Null for mentors. */
   lastName: string | null;
   webViewEnabled: boolean;
+  /** Google Authenticator (TOTP) confirmed for this account. */
+  totpEnabled: boolean;
   createdAt: string;
 };
 
@@ -66,8 +68,9 @@ export async function rotateRefreshToken(
     user_id: string;
     expires_at: Date;
     revoked_at: Date | null;
+    created_at: Date;
   }>(
-    `SELECT id, user_id, expires_at, revoked_at
+    `SELECT id, user_id, expires_at, revoked_at, created_at
      FROM refresh_tokens WHERE token_hash = $1`,
     [oldHash],
   );
@@ -75,6 +78,14 @@ export async function rotateRefreshToken(
   const row = rows[0];
   if (!row || row.revoked_at || new Date(row.expires_at) < new Date()) {
     return null;
+  }
+
+  // Keep the same refresh token for several hours so clinic sync + keepalive +
+  // AI 401 retries cannot rotate it twice and wipe the session.
+  const ageMs = Date.now() - new Date(row.created_at).getTime();
+  const rotateAfterMs = 6 * 60 * 60 * 1000;
+  if (ageMs < rotateAfterMs) {
+    return { userId: row.user_id, newToken: oldToken };
   }
 
   await query(`UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1`, [row.id]);

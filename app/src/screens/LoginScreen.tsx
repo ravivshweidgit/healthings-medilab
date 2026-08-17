@@ -31,6 +31,7 @@ import type { ThemeColors } from '../theme/tokens';
 const BRAND_LOGO = require('../../assets/brand-logo.png');
 const BRAND_LOGO_DARK = require('../../assets/brand-logo-dark.png');
 const OTP_PENDING_KEY = 'healthings_otp_pending';
+const LAST_EMAIL_KEY = 'healthings_last_email';
 
 type Props = {
   onSignedIn: (user: AuthUser) => void;
@@ -57,7 +58,10 @@ export function LoginScreen({ onSignedIn }: Props) {
       if (pending) {
         setEmail(pending);
         setStep('code');
+        return;
       }
+      const last = await AsyncStorage.getItem(LAST_EMAIL_KEY);
+      if (last) setEmail(last);
     })();
   }, []);
 
@@ -107,6 +111,7 @@ export function LoginScreen({ onSignedIn }: Props) {
     try {
       const user = await verifyOtp(trimmedEmail, trimmedCode);
       await AsyncStorage.removeItem(OTP_PENDING_KEY);
+      await AsyncStorage.setItem(LAST_EMAIL_KEY, trimmedEmail);
       onSignedIn(user);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Invalid code');
@@ -177,12 +182,24 @@ export function LoginScreen({ onSignedIn }: Props) {
                     <Text style={styles.primaryBtnText}>Send code</Text>
                   )}
                 </Pressable>
+                <Pressable
+                  style={styles.secondaryBtn}
+                  onPress={() => {
+                    if (!email.trim()) return;
+                    setError(null);
+                    setStep('code');
+                    setCode('');
+                  }}
+                  disabled={!email.trim() || busy}
+                >
+                  <Text style={styles.secondaryBtnText}>Use Authenticator</Text>
+                </Pressable>
               </>
             ) : (
               <>
                 <Text style={styles.codeHint}>
-                  Code sent to {email.trim()}. Check inbox and spam — or server logs if SMTP
-                  is not enabled yet.
+                  Email code sent to {email.trim()} — or a 6-digit code from Google Authenticator.
+                  Check inbox and spam if you used Send code.
                 </Text>
                 <TextInput
                   style={styles.input}
@@ -195,6 +212,8 @@ export function LoginScreen({ onSignedIn }: Props) {
                   maxLength={6}
                   editable={!busy}
                   autoFocus
+                  autoComplete="one-time-code"
+                  textContentType="oneTimeCode"
                 />
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
                 <Pressable

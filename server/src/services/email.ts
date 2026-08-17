@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import nodemailer from 'nodemailer';
 import { config } from '../config.js';
 
@@ -46,11 +48,36 @@ const OTP_COPY: Record<OtpPurpose, { subject: string; body: (code: string) => st
   },
 };
 
-type MailPayload = { to: string; subject: string; text: string; logTag: string };
+type MailAttachment = {
+  filename: string;
+  content: Buffer;
+  cid?: string;
+  contentType?: string;
+};
+
+type MailPayload = {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+  logTag: string;
+  attachments?: MailAttachment[];
+};
 
 async function deliverMail(payload: MailPayload): Promise<void> {
   if (config.SMTP_MODE === 'console') {
-    console.log(`[${payload.logTag}] ${payload.to} → ${payload.subject}\n${payload.text}`);
+    // Never print TOTP secrets / QR payloads — journal outlives the credential.
+    console.log(`[${payload.logTag}] ${payload.to} → ${payload.subject}`);
+    if (payload.logTag !== 'totp-enroll') {
+      console.log(payload.text);
+    }
+    const png = payload.attachments?.[0];
+    if (png && config.isDev) {
+      const dest = join(process.cwd(), 'tmp', png.filename);
+      mkdirSync(dirname(dest), { recursive: true });
+      writeFileSync(dest, png.content);
+      console.log(`[${payload.logTag}] QR PNG (dev) → ${dest}`);
+    }
     return;
   }
 
@@ -77,7 +104,72 @@ async function deliverMail(payload: MailPayload): Promise<void> {
     to: payload.to,
     subject: payload.subject,
     text: payload.text,
+    html: payload.html,
+    attachments: payload.attachments?.map((a) => ({
+      filename: a.filename,
+      content: a.content,
+      cid: a.cid,
+      contentType: a.contentType,
+    })),
   });
+}
+
+export class TotpEmailSendError extends Error {
+  constructor(cause?: unknown) {
+    super('Could not send the authenticator barcode');
+    this.name = 'TotpEmailSendError';
+    this.cause = cause;
+  }
+}
+
+/**
+ * Enroll mail: PNG barcode to scan in Google Authenticator, plus the setup key
+ * if the image is blocked. Never log `secret`.
+ */
+export async function sendTotpEnrollEmail(
+  email: string,
+  png: Buffer,
+  setupKey: string,
+): Promise<void> {
+  const grouped = setupKey.replace(/(.{4})/g, '$1 ').trim();
+  const subject = 'Healthings authenticator barcode';
+  const text =
+    `Scan the attached barcode with Google Authenticator (or Authy / 1Password).\n\n` +
+    `If the image does not show, add a code manually:\n` +
+    `Account: HEALTHINGS.AI\n` +
+    `Key: ${grouped}\n` +
+    `Time-based, 6 digits.\n\n` +
+    `Then open Healthings → Account and enter a 6-digit code from the app to finish.\n` +
+    `Authenticator is not on until you confirm.\n\n` +
+    `If you did not ask for this, ignore this email.`;
+  const html =
+    `<p>Scan this barcode with <strong>Google Authenticator</strong> (or Authy / 1Password).</p>` +
+    `<p><img src="cid:totp-qr" alt="Healthings authenticator barcode" width="280" height="280" /></p>` +
+    `<p>If the image does not show, add a code manually:<br/>` +
+    `Account: HEALTHINGS.AI<br/>Key: ${grouped}<br/>Time-based, 6 digits.</p>` +
+    `<p>Then open Healthings → Account and enter a 6-digit code from the app to finish. ` +
+    `Authenticator is not on until you confirm.</p>` +
+    `<p>If you did not ask for this, ignore this email.</p>`;
+  try {
+    await deliverMail({
+      to: email,
+      subject,
+      text,
+      html,
+      logTag: 'totp-enroll',
+      attachments: [
+        {
+          filename: 'healthings-authenticator.png',
+          content: png,
+          cid: 'totp-qr',
+          contentType: 'image/png',
+        },
+      ],
+    });
+  } catch (err) {
+    console.error('[TOTP enroll email failed]', { email, err });
+    throw new TotpEmailSendError(err);
+  }
 }
 
 export async function sendOtpEmail(

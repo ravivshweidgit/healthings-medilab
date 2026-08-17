@@ -21,6 +21,11 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT;
 -- Off by default: nothing reaches the server without the patient turning it on.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS web_view_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- Optional TOTP (Google Authenticator). Secret is AES-GCM encrypted with JWT_SECRET.
+-- totp_enabled_at is null until the user confirms a live code from the app.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret_enc TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled_at TIMESTAMPTZ;
+
 -- Human-readable account number (1…n). UUID id stays the primary key.
 CREATE SEQUENCE IF NOT EXISTS users_user_no_seq;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS user_no INTEGER;

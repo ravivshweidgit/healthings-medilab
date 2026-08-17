@@ -14,6 +14,15 @@ import {
   verifyOtpAndGetEmail,
 } from '../services/otp.js';
 import { OtpEmailSendError } from '../services/email.js';
+import {
+  beginTotpEnroll,
+  confirmTotpEnroll,
+  disableTotp,
+  TotpAlreadyEnabledError,
+  TotpEmailSendError,
+  TotpInvalidCodeError,
+  TotpNotPendingError,
+} from '../services/totp.js';
 import { attachPendingShares } from '../services/shares.js';
 import { findOrCreateUser, findUserById, findUserByEmail, updateUserDisplayName, updateUserNames } from '../services/users.js';
 import { isAdminEmail } from '../config.js';
@@ -169,5 +178,44 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       }
     }
     return { user };
+  });
+
+  app.post('/v1/me/totp/begin', { preHandler: authenticate }, async (request, reply) => {
+    try {
+      return await beginTotpEnroll(request.userId!);
+    } catch (err) {
+      if (err instanceof TotpAlreadyEnabledError) {
+        return reply.code(409).send({ error: err.message });
+      }
+      if (err instanceof TotpEmailSendError) {
+        return reply.code(502).send({ error: 'Could not email the authenticator barcode. Try again.' });
+      }
+      throw err;
+    }
+  });
+
+  const totpConfirmBody = z.object({
+    code: z.string().length(6).regex(/^\d+$/),
+  });
+
+  app.post('/v1/me/totp/confirm', { preHandler: authenticate }, async (request, reply) => {
+    const body = totpConfirmBody.parse(request.body);
+    try {
+      await confirmTotpEnroll(request.userId!, body.code);
+      const user = await findUserById(request.userId!);
+      return { totpEnabled: true, user };
+    } catch (err) {
+      if (err instanceof TotpNotPendingError || err instanceof TotpInvalidCodeError) {
+        return reply.code(401).send({ error: err.message });
+      }
+      throw err;
+    }
+  });
+
+  app.delete('/v1/me/totp', { preHandler: authenticate }, async (request, reply) => {
+    await disableTotp(request.userId!);
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    return { totpEnabled: false, user };
   });
 }

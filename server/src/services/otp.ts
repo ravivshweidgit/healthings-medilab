@@ -8,6 +8,7 @@ import {
 import { query } from '../db/pool.js';
 import { sendOtpEmail, type OtpPurpose } from './email.js';
 import type { UserRole } from './jwt.js';
+import { tryVerifyTotp } from './totp.js';
 
 export async function countRecentOtpRequests(email: string): Promise<number> {
   const { rows } = await query<{ count: string }>(
@@ -61,7 +62,20 @@ export async function verifyOtpAndGetEmail(
   code: string,
 ): Promise<{ email: string; role: UserRole }> {
   const normalized = normalizeEmail(email);
+  const fromTotp = await tryVerifyTotp(normalized, code);
+  if (fromTotp) {
+    await query(`DELETE FROM otp_requests WHERE email = $1`, [normalized]);
+    return fromTotp;
+  }
+  const fromMail = await tryVerifyEmailOtp(normalized, code);
+  if (fromMail) return fromMail;
+  throw new OtpInvalidError();
+}
 
+async function tryVerifyEmailOtp(
+  normalized: string,
+  code: string,
+): Promise<{ email: string; role: UserRole } | null> {
   const { rows } = await query<{
     id: string;
     code_hash: string;
@@ -78,15 +92,13 @@ export async function verifyOtpAndGetEmail(
   );
 
   const row = rows[0];
-  if (!row) throw new OtpInvalidError();
-
-  if (row.attempts >= OTP.maxAttempts) throw new OtpInvalidError();
-  if (new Date(row.expires_at) < new Date()) throw new OtpInvalidError();
+  if (!row) return null;
+  if (row.attempts >= OTP.maxAttempts) return null;
+  if (new Date(row.expires_at) < new Date()) return null;
 
   const ok = verifySecret(code, row.code_hash);
   await query(`UPDATE otp_requests SET attempts = attempts + 1 WHERE id = $1`, [row.id]);
-
-  if (!ok) throw new OtpInvalidError();
+  if (!ok) return null;
 
   await query(`DELETE FROM otp_requests WHERE email = $1`, [normalized]);
   return { email: normalized, role: row.role ?? 'patient' };
