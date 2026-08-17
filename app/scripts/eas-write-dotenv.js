@@ -16,7 +16,6 @@ const ENV_PATH = path.join(ROOT, '.env');
 
 const KEYS = [
   'NODE_ENV',
-  'STORAGE_STRATEGY',
   'WITHINGS_CLIENT_ID',
   'WITHINGS_CALLBACK_URL',
   'HEALTHINGS_API_URL',
