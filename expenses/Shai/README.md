@@ -2,6 +2,6 @@
 
 | | |
 |--|--|
-| [expenses/](./expenses/README.md) | Cash **$266.67** (2 alpha sessions → Michal/clinic; source ₪800) |
-| [working-hours/](./working-hours/README.md) | Agreed Hours (none logged yet) |
+| [expenses/](./expenses/README.md) | Cash **$666.67** (source ₪2,000 @ 3.0, transferred **2026-08-19** / week **2026-34** → Michal/clinic) |
+| [working-hours/](./working-hours/README.md) | **1 h** logged (week **2026-34**) |
 | Pool | [../share-model.md](../share-model.md) |

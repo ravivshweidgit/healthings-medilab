@@ -28,7 +28,8 @@ expenses/share-holders-reports/
 
 | Week | Folder | Closing pool | Shares (R / M / S) | HTML |
 |------|--------|-------------:|--------------------|------|
-| **2026-33** | [2026-33/](./2026-33/README.md) | **$84,507.59** | **98.1% / 1.6% / 0.3%** | [EN](./2026-33/share-holders-report-2026-33-EN.html) · [HE](./2026-33/share-holders-report-2026-33-HE.html) |
+| **2026-34** | [2026-34/](./2026-34/README.md) | **$88,843.99** | **96.9% / 2.2% / 0.9%** | [EN](./2026-34/share-holders-report-2026-34-EN.html) · [HE](./2026-34/share-holders-report-2026-34-HE.html) |
+| **2026-33** | [2026-33/](./2026-33/README.md) | **$84,453.32** | **98.4% / 1.6% / 0%** | [EN](./2026-33/share-holders-report-2026-33-EN.html) · [HE](./2026-33/share-holders-report-2026-33-HE.html) |
 
 ## How to add a week
 

@@ -1,6 +1,6 @@
 # Raviv — cash expenses (rollup)
 
-**As of:** 2026-08-14  
+**As of:** 2026-08-19  
 **Company books:** **USD only** · ILS→USD at **3.0 ₪/$** (locked)  
 Hours: [../working-hours/README.md](../working-hours/README.md) · Pool: [../../share-model.md](../../share-model.md)
 
@@ -16,15 +16,15 @@ Hours: [../working-hours/README.md](../working-hours/README.md) · Pool: [../../
 
 | Week | Folder | Highlights | **USD** |
 |------|--------|------------|--------:|
-| **2026-33** | [2026-33/](./2026-33/README.md) | ScanWatches ×2, scale, CareSens ×5, DHL customs ×2 | **1,885.15** |
+| **2026-33** | [2026-33/](./2026-33/README.md) | ScanWatches ×2, scale, CareSens ×5, DHL customs ×4 | **2,097.55** |
 
 ## Cash subtotal (share model)
 
 | Component | USD |
 |-----------|----:|
 | `2026-00` baseline | 4,417.77 |
-| + week folders | 1,885.15 |
-| **Cash subtotal** | **$6,302.92** |
+| + week folders | 2,097.55 |
+| **Cash subtotal** | **$6,515.32** |
 
 ## How to update
 

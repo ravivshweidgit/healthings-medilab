@@ -1,6 +1,6 @@
 # Healthings — people ledger (cash + hours)
 
-**As of:** 2026-08-14  
+**As of:** 2026-08-19  
 **Internal only** — do **not** deploy to healthings.ai.  
 **Company books:** **USD** · ILS→USD at **3.0 ₪/$** (locked).
 
@@ -31,9 +31,9 @@ expenses/
 
 | Person | Cash | Hours |
 |--------|------|-------|
-| [Raviv](./Raviv/) | [expenses](./Raviv/expenses/README.md) · [2026-00](./Raviv/expenses/2026-00/) + [2026-33](./Raviv/expenses/2026-33/) | [2026-00 ~544 h](./Raviv/working-hours/2026-00/) + [2026-33](./Raviv/working-hours/2026-33/) → [rollup](./Raviv/working-hours/README.md) |
-| [Shai](./Shai/) | [expenses](./Shai/expenses/README.md) · [2026-33](./Shai/expenses/2026-33/) **$266.67** (2 alpha sessions → clinic) | [working-hours](./Shai/working-hours/README.md) · [2026-33](./Shai/working-hours/2026-33/) |
-| [Michal](./Michal/) | **No expenses** (she is the clinic) | [working-hours](./Michal/working-hours/README.md) · [2026-33](./Michal/working-hours/2026-33/) |
+| [Raviv](./Raviv/) | [expenses](./Raviv/expenses/README.md) · [2026-00](./Raviv/expenses/2026-00/) + [2026-33](./Raviv/expenses/2026-33/) | [2026-00 ~544 h](./Raviv/working-hours/2026-00/) + [2026-33 ~32](./Raviv/working-hours/2026-33/) + [2026-34 **22**](./Raviv/working-hours/2026-34/) → [rollup **~598**](./Raviv/working-hours/README.md) |
+| [Shai](./Shai/) | [expenses](./Shai/expenses/README.md) · [2026-34](./Shai/expenses/2026-34/) **$666.67** (₪2,000 transferred 2026-08-19; week 33 had **no** transfer) | [working-hours](./Shai/working-hours/README.md) · [2026-34 **1 h**](./Shai/working-hours/2026-34/) |
+| [Michal](./Michal/) | **No expenses** (she is the clinic) | [working-hours](./Michal/working-hours/README.md) · [2026-33 **10**](./Michal/working-hours/2026-33/) + [2026-34 **5**](./Michal/working-hours/2026-34/) |
 
 ### Ownership model (shared)
 
@@ -42,9 +42,9 @@ expenses/
 | [share-model.md](./share-model.md) | Full internal formula + people table |
 | [share-model-partners.md](./share-model-partners.md) / [`.html`](./share-model-partners.html) | Partner-facing EN |
 | [share-model-partners.he.md](./share-model-partners.he.md) / [`.html`](./share-model-partners.he.html) | Partner-facing HE |
-| [share-holders-reports/](./share-holders-reports/README.md) | Weekly snapshots · [**2026-33 EN**](./share-holders-reports/2026-33/share-holders-report-2026-33-EN.html) · [**HE**](./share-holders-reports/2026-33/share-holders-report-2026-33-HE.html) |
+| [share-holders-reports/](./share-holders-reports/README.md) | Weekly snapshots · [**2026-34 EN**](./share-holders-reports/2026-34/share-holders-report-2026-34-EN.html) · [**HE**](./share-holders-reports/2026-34/share-holders-report-2026-34-HE.html) · [2026-33](./share-holders-reports/2026-33/) |
 
-**Pool snapshot (2026-08-14):** Raviv ~98.1% · Michal ~1.6% · Shai ~0.3%.
+**Pool snapshot (2026-08-19):** Raviv ~96.9% · Michal ~2.2% · Shai ~0.9%.
 
 ### How to update
 

@@ -1,6 +1,6 @@
 # Raviv — working hours (rollup)
 
-**As of:** 2026-08-14  
+**As of:** 2026-08-19  
 Cash: [../expenses/README.md](../expenses/README.md) · Pool: [../../share-model.md](../../share-model.md)
 
 ## Baseline (before week 33) — `2026-00`
@@ -16,17 +16,17 @@ Cash: [../expenses/README.md](../expenses/README.md) · Pool: [../../share-model
 | Week | Folder | Hours (central) |
 |------|--------|----------------:|
 | **2026-33** | [2026-33/](./2026-33/README.md) | **~32** (through Fri 2026-08-14; week ends Sun 16) |
+| **2026-34** | [2026-34/](./2026-34/README.md) | **22** (through Wed 2026-08-19; week ends Sun 23) |
 
 ## Total (for share model)
 
 | | Hours |
 |--|------:|
 | `2026-00` baseline | ~544 |
-| + logged weeks | ~32 |
-| **All-in** | **~576** |
+| + logged weeks | ~32 + 22 |
+| **All-in** | **~598** |
 
-*Through 2026-08-14. When week 33 closes (or more days log), refresh the week folder then this total.*  
-*Earlier “~581” rollup used calendar through Aug 14 with 70 active days; baseline+week split uses 65 active through Aug 9 + 4 in week 33 = 69 — ~576 is the consistent split. Prefer **`2026-00` + weeks** going forward.*
+*Through 2026-08-19. When week 34 closes (Thu–Sun), refresh the week folder then this total.*
 
 ## Method
 

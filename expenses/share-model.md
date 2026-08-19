@@ -4,7 +4,7 @@
 **Not legal advice** — a planning worksheet before lawyers/cap table tools (Pulley, Carta, etc.).  
 **Agent rule:** `.cursor/rules/share-model-investors.mdc` (applies under `expenses/**` and when discussing investors / ownership).
 
-**As of:** 2026-08-14  
+**As of:** 2026-08-19  
 **Company books currency:** **USD** · ILS→USD FX locked at **3.0 ₪ per $1** (source ₪ kept as footnotes only)  
 **Inputs (per person, by `YYYY-WW`):** [Raviv](./Raviv/) · [Shai](./Shai/) · [Michal](./Michal/) — each has `expenses/YYYY-WW/` + `working-hours/YYYY-WW/` (ISO week **01–54**); Raviv baseline locked as [2026-00](./Raviv/working-hours/2026-00/README.md) (~544 h, before week 33) · Index: [README.md](./README.md)
 
@@ -90,8 +90,8 @@ Normalize every rate to **\$/hour** first (agree session length if someone bills
 **Already paid by founder:** **$266.66** (2 × ₪400 @ 3.0) to **Michal (the clinic)** → [Raviv/expenses/2026-00](./Raviv/expenses/2026-00/README.md) (**Raviv’s Cash**, not Michal equity):  
 - Bit **2026-07-01** — **יעוץ תזונה** / nutrition counseling (**$133.33**)  
 - Bit **2026-07-31** — session for **נטלי / Natali** (**$133.33**)  
-**Paid by Shai Ivanir:** **$266.67** (source ₪800 @ 3.0) to **Michal (the clinic)** for **2 alpha-tester sessions** → [Shai/expenses/2026-33](./Shai/expenses/2026-33/README.md) (**Shai’s Cash**, not Michal equity).  
-**Michal:** clinic; **no expenses**; **10 h** logged in [2026-33](./Michal/working-hours/2026-33/README.md) (allocation 10 h/week).
+**Paid by Shai Ivanir:** **$666.67** (source **₪2,000** @ 3.0) to **Michal (the clinic)** on **2026-08-19** → [Shai/expenses/2026-34](./Shai/expenses/2026-34/README.md) (**Shai’s Cash**, not Michal equity). Covers the 2 alpha-tester sessions that had been noted at ₪800; that amount was **not transferred in week 33**.  
+**Michal:** clinic; **no expenses**; **15 h** logged — [2026-33](./Michal/working-hours/2026-33/README.md) **10** + [2026-34](./Michal/working-hours/2026-34/README.md) **5** (allocation 10 h/week).
 
 ---
 
@@ -105,25 +105,25 @@ If sessions are shorter/longer, recalculate \(R = 133 / \text{hours per session}
 
 | Component | Source | Amount |
 |-----------|--------|-------:|
-| Hardware + Cursor + phone + Expo/hosting + clinic sessions | [Raviv/expenses](./Raviv/expenses/README.md) = `2026-00` **$4,417.77** + `2026-33` **$1,885.15** | **$6,302.92** |
-| **Cash subtotal** | | **$6,302.92** |
+| Hardware + Cursor + phone + Expo/hosting + clinic sessions | [Raviv/expenses](./Raviv/expenses/README.md) = `2026-00` **$4,417.77** + `2026-33` **$2,097.55** | **$6,515.32** |
+| **Cash subtotal** | | **$6,515.32** |
 
 ### Hours & sweat
 
 | Person | Hours | Sweat (= Hours × 133) |
 |--------|------:|----------------------:|
-| Raviv (baseline ~544 + week 33 ~32) | 576 ([working-hours](./Raviv/working-hours/README.md)) | **$76,608** |
-| Michal (week 2026-33) | 10 ([working-hours](./Michal/working-hours/README.md)) | **$1,330** |
-| Shai | 0 ([working-hours](./Shai/working-hours/README.md)) | $0 |
+| Raviv (baseline ~544 + week 33 ~32 + week 34 **22**) | 598 ([working-hours](./Raviv/working-hours/README.md)) | **$79,534** |
+| Michal (week 33 **10** + week 34 **5**) | 15 ([working-hours](./Michal/working-hours/README.md)) | **$1,995** |
+| Shai | 1 ([working-hours](./Shai/working-hours/README.md)) | **$133** |
 
 ### Contributions
 
 | Person | Cash ($) | Hours | Sweat | Contribution | Share % |
 |--------|--------:|------:|------:|-------------:|--------:|
-| Raviv | 6,302.92 | 576 | 76,608 | **82,910.92** | **98.1%** |
-| Michal | 0 | 10 | 1,330 | **1,330.00** | **1.6%** |
-| Shai Ivanir | 266.67 | 0 | 0 | **266.67** | **0.3%** |
-| **Total** | **6,569.59** | **586** | **77,938** | **84,507.59** | **100%** |
+| Raviv | 6,515.32 | 598 | 79,534 | **86,049.32** | **96.9%** |
+| Michal | 0 | 15 | 1,995 | **1,995.00** | **2.2%** |
+| Shai Ivanir | 666.67 | 1 | 133 | **799.67** | **0.9%** |
+| **Total** | **7,181.99** | **614** | **81,662** | **88,843.99** | **100%** |
 
 ---
 
@@ -133,10 +133,10 @@ Copy a row per person. Same \(R\) for all.
 
 | Person | Role | Cash ($) | Hours | Sweat (= Hours × R) | Contribution | Share % |
 |--------|------|--------:|------:|--------------------:|-------------:|--------:|
-| Raviv | Founder | 6,302.92 | 576 | 76,608 | 82,910.92 | **98.1%** |
-| Michal | Clinic | 0 | 10 | 1,330 | 1,330.00 | **1.6%** |
-| Shai Ivanir | Partner | 266.67 | 0 | 0 | 266.67 | **0.3%** |
-| **Total** | | **6,569.59** | **586** | **77,938** | **84,507.59** | **100%** |
+| Raviv | Founder | 6,515.32 | 598 | 79,534 | 86,049.32 | **96.9%** |
+| Michal | Clinic | 0 | 15 | 1,995 | 1,995.00 | **2.2%** |
+| Shai Ivanir | Partner | 666.67 | 1 | 133 | 799.67 | **0.9%** |
+| **Total** | | **7,181.99** | **614** | **81,662** | **88,843.99** | **100%** |
 
 Sessions **someone else** pays ($133 list / ₪ invoices) increase **that payer’s** Cash, not Michal’s. Fill her Cash/Hours only when she invests or waives fees for equity (§3b), or logs her allocated unpaid Hours. All Hours use **same \(R\)** (= max rate on the project).
 
@@ -148,9 +148,9 @@ Sessions **someone else** pays ($133 list / ₪ invoices) increase **that payer�
 
 | Person | Cash | Sweat | Contribution | Share |
 |--------|-----:|------:|-------------:|------:|
-| Raviv | 6,302.92 | 76,608 | 82,910.92 | **~80.6%** |
-| Investor A | 20,000 | 0 | 20,000 | **~19.4%** |
-| **Total** | | | **102,910.92** | 100% |
+| Raviv | 6,515.32 | 79,534 | 86,049.32 | **~81.1%** |
+| Investor A | 20,000 | 0 | 20,000 | **~18.9%** |
+| **Total** | | | **106,049.32** | 100% |
 
 (Ignore Shai’s small row in this toy example.) If Investor A also works **100 h**: sweat = \(100 \times 133 = \$13,300\) → contribution \$33,300 → share rises accordingly.
 
@@ -178,7 +178,7 @@ Investors who only bring cash compete in the contribution pool (or buy into a pr
 ## 7. Checklist when someone “comes in”
 
 - [x] Agree \(R\) and whether hardware counts as Cash  
-- [x] Write their Cash and expected Hours (or “cash only”) — Michal 10 h/wk; Shai **$266.67** Cash (from ₪800)  
+- [x] Write their Cash and expected Hours (or “cash only”) — Michal 10 h/wk; Shai **$666.67** Cash (from ₪2,000) + **1 h** week 34  
 - [x] Compute Share % with the table  
 - [ ] Agree vesting / cliff for sweat (and cash if any)  
 - [ ] Paper: SAFE, SPA, or advisor agreement — **not** this markdown alone  
@@ -224,3 +224,6 @@ Keep one active copy of the people table in §5; archive old snapshots dated bel
 | 2026-08-14 | **133** | FX rebook **3.70 → 3.0 ₪/$**; + May 9 DHL **₪340.60** (**\$113.53**); Raviv Cash **\$6,169.59**, Shai **\$266.67**, pool **~\$84.4k**; shares **~98.1% / 1.6% / 0.3%** |
 | 2026-08-14 | **133** | Receipt: Raviv→Michal Bit **₪400** (**\$133.33**, 2026-07-31) for **Natali** session — was already in `2026-00` Cash; now dated + attached |
 | 2026-08-14 | **133** | + Raviv→Michal Bit **₪400** (**\$133.33**, 2026-07-01, יעוץ תזונה) → Raviv Cash **\$6,302.92**, pool **~\$84.5k** |
+| 2026-08-19 | **133** | Shai **₪2,000** transferred this day (week **2026-34**); week-33 ₪800 was **not** a transfer and is removed. Shai Cash **\$666.67**, pool **~\$84.9k**; shares **~97.6% / 1.6% / 0.8%** |
+| 2026-08-19 | **133** | + DHL customs **15 Aug**: **₪296.60** (waybill **7892401263**) + **₪340.60** (waybill **9229202382**) → Raviv Cash **\$6,515.32**, week 33 **\$2,097.55**, pool **~\$85.1k**; shares still **~97.6% / 1.6% / 0.8%** |
+| 2026-08-19 | **133** | Week **2026-34** hours (through Wed): Raviv **22 h** + Michal **5 h** + Shai **1 h** → pool **~\$88.8k**; shares **~96.9% / 2.2% / 0.9%** |

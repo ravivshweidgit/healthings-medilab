@@ -11,4 +11,6 @@
 | 2026-08-12 | DHL customs (Tradeinn) | Waybill **5598297412** · txn 210476581-114291493 | ₪296.60 | **98.87** |
 | 2026-08-13 | Withings ScanWatch 2 + DHL | [PNG](./2026-08-13-invoice-57313176-ScanWatch2-389.32.png) · Tradeinn 57313176 | $389.32 | **389.32** |
 | 2026-08-13 | Withings WBS08 scale + DHL | [PNG](./2026-08-13-invoice-57312981-WBS08-scale-496.83.png) · Tradeinn 57312981 | $496.83 | **496.83** |
-| **Week total** | | | | **$1,885.15** |
+| 2026-08-15 | DHL customs (Tradeinn) | [PNG](./2026-08-15-dhl-customs-7892401263-296.60-ILS.png) · waybill **7892401263** · txn 210843899-114656149 | ₪296.60 | **98.87** |
+| 2026-08-15 | DHL customs (Tradeinn) | [PNG](./2026-08-15-dhl-customs-9229202382-340.60-ILS.png) · waybill **9229202382** · txn 210843799-114656049 | ₪340.60 | **113.53** |
+| **Week total** | | | | **$2,097.55** |
