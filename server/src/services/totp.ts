@@ -8,7 +8,7 @@ import {
   verifyTotpCode,
 } from '../lib/totp.js';
 import { sendTotpEnrollEmail, TotpEmailSendError } from './email.js';
-import { findUserByEmail, findUserById } from './users.js';
+import { findUserById, findUserForLogin } from './users.js';
 
 export { TotpEmailSendError };
 
@@ -81,7 +81,7 @@ export async function tryVerifyTotp(
   email: string,
   code: string,
 ): Promise<{ email: string; role: 'patient' | 'mentor' } | null> {
-  const user = await findUserByEmail(email);
+  const user = await findUserForLogin(email);
   if (!user?.totpEnabled) return null;
   const { rows } = await query<{ totp_secret_enc: string | null }>(
     `SELECT totp_secret_enc FROM users WHERE id = $1`,

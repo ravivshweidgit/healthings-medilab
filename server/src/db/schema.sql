@@ -59,8 +59,7 @@ ALTER TABLE users ALTER COLUMN user_no SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_user_no ON users (user_no);
 ALTER SEQUENCE users_user_no_seq OWNED BY users.user_no;
 
--- Gmail/Googlemail mailbox key: dots stripped, +tag kept, domain folded to gmail.com.
--- Lookup only — NOT UNIQUE until owner-merged pairs (Alon dotted vs undotted) are gone.
+-- Lookup + unique: one Healthings user per Gmail mailbox (dots ignored, +tag kept).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS gmail_canonical TEXT;
 UPDATE users SET gmail_canonical = (
   lower(replace(split_part(split_part(trim(email::text), '@', 1), '+', 1), '.', ''))
@@ -76,7 +75,9 @@ UPDATE users SET gmail_canonical = (
 )
 WHERE gmail_canonical IS NULL
   AND lower(split_part(trim(email::text), '@', 2)) IN ('gmail.com', 'googlemail.com');
-CREATE INDEX IF NOT EXISTS idx_users_gmail_canonical ON users (gmail_canonical);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_gmail_canonical
+  ON users (gmail_canonical)
+  WHERE gmail_canonical IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS otp_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

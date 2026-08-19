@@ -1,5 +1,5 @@
 import { query } from '../db/pool.js';
-import { gmailDotKey, normalizeEmail } from '../lib/crypto.js';
+import { gmailDotKey } from '../lib/crypto.js';
 import { purgeClinicDataIfNoConsumers } from './consent.js';
 import { ensureMentorOrg } from './clinicAccess.js';
 import type { PublicUser, UserRole } from './jwt.js';
@@ -46,16 +46,18 @@ export async function findUserByEmail(email: string): Promise<PublicUser | null>
   return rows[0] ? toPublicUser(rows[0]) : null;
 }
 
-/** Other Gmail spellings that Google treats as the same inbox (dots only). */
-export async function findGmailDotSiblings(email: string): Promise<PublicUser[]> {
+/**
+ * Login lookup: Gmail/googlemail match on the dot-stripped mailbox (+tag kept).
+ * Oldest row wins if a legacy duplicate still exists. Other domains: exact email.
+ */
+export async function findUserForLogin(email: string): Promise<PublicUser | null> {
   const key = gmailDotKey(email);
-  if (!key) return [];
-  const typed = normalizeEmail(email);
+  if (!key) return findUserByEmail(email);
   const { rows } = await query<UserRow>(
-    `SELECT * FROM users WHERE gmail_canonical = $1 AND email <> $2`,
-    [key, typed],
+    `SELECT * FROM users WHERE gmail_canonical = $1 ORDER BY created_at ASC`,
+    [key],
   );
-  return rows.map(toPublicUser);
+  return rows[0] ? toPublicUser(rows[0]) : null;
 }
 
 export async function findUserById(id: string): Promise<PublicUser | null> {
@@ -63,35 +65,12 @@ export async function findUserById(id: string): Promise<PublicUser | null> {
   return rows[0] ? toPublicUser(rows[0]) : null;
 }
 
-export class GmailDotCollisionError extends Error {
-  existingEmail: string;
-
-  constructor(existingEmail: string) {
-    super(
-      `Gmail account already exists as ${existingEmail}. Sign in with that spelling.`,
-    );
-    this.name = 'GmailDotCollisionError';
-    this.existingEmail = existingEmail;
-  }
-}
-
 export async function findOrCreateUser(
   email: string,
   role: UserRole,
 ): Promise<PublicUser> {
-  const existing = await findUserByEmail(email);
+  const existing = await findUserForLogin(email);
   if (existing) return existing;
-
-  // Gmail ignores dots. An old app will type `alon.tsemach@` while the
-  // account lives at `alontsemach@` — log them into that user, never insert
-  // a second empty one. Plus-tags stay distinct (`habushamichal+clinic`).
-  const siblings = await findGmailDotSiblings(email);
-  if (siblings.length === 1) {
-    return siblings[0]!;
-  }
-  if (siblings.length > 1) {
-    throw new GmailDotCollisionError(siblings[0]!.email);
-  }
 
   const { rows } = await query<UserRow>(
     `INSERT INTO users (email, role, gmail_canonical) VALUES ($1, $2, $3)

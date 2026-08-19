@@ -24,6 +24,7 @@ import {
   verifyOtp,
   type AuthUser,
 } from '../services/AuthApiService';
+import { loadLastSignInEmail, persistLastSignInEmail } from '../services/AuthTokenStore';
 import { cardShadow } from '../theme/wellness';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
@@ -31,13 +32,13 @@ import type { ThemeColors } from '../theme/tokens';
 const BRAND_LOGO = require('../../assets/brand-logo.png');
 const BRAND_LOGO_DARK = require('../../assets/brand-logo-dark.png');
 const OTP_PENDING_KEY = 'healthings_otp_pending';
-const LAST_EMAIL_KEY = 'healthings_last_email';
 
 type Props = {
   onSignedIn: (user: AuthUser) => void;
 };
 
 type Step = 'email' | 'code';
+type CodeSource = 'email-otp' | 'authenticator';
 
 export function LoginScreen({ onSignedIn }: Props) {
   const { colors, isDark } = useTheme();
@@ -45,6 +46,7 @@ export function LoginScreen({ onSignedIn }: Props) {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const [step, setStep] = useState<Step>('email');
+  const [codeSource, setCodeSource] = useState<CodeSource>('email-otp');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -57,10 +59,11 @@ export function LoginScreen({ onSignedIn }: Props) {
       const pending = await AsyncStorage.getItem(OTP_PENDING_KEY);
       if (pending) {
         setEmail(pending);
+        setCodeSource('email-otp');
         setStep('code');
         return;
       }
-      const last = await AsyncStorage.getItem(LAST_EMAIL_KEY);
+      const last = await loadLastSignInEmail();
       if (last) setEmail(last);
     })();
   }, []);
@@ -92,7 +95,9 @@ export function LoginScreen({ onSignedIn }: Props) {
     setBusy(true);
     try {
       const result = await requestOtp(trimmed);
+      await persistLastSignInEmail(trimmed);
       await AsyncStorage.setItem(OTP_PENDING_KEY, trimmed);
+      setCodeSource('email-otp');
       setStep('code');
       setCode('');
       if (result.warning) setError(result.warning);
@@ -112,7 +117,7 @@ export function LoginScreen({ onSignedIn }: Props) {
     try {
       const user = await verifyOtp(trimmedEmail, trimmedCode);
       await AsyncStorage.removeItem(OTP_PENDING_KEY);
-      await AsyncStorage.setItem(LAST_EMAIL_KEY, trimmedEmail);
+      await persistLastSignInEmail(trimmedEmail);
       onSignedIn(user);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Invalid code');
@@ -148,7 +153,7 @@ export function LoginScreen({ onSignedIn }: Props) {
           <View style={[styles.card, cardShadow]}>
             <Text style={styles.title}>Sign in</Text>
             <Text style={styles.subtitle}>
-              Free registration · email + one-time code · no password
+              Free registration · email + a 6-digit code · no password
             </Text>
 
             {apiOk === false ? (
@@ -171,11 +176,6 @@ export function LoginScreen({ onSignedIn }: Props) {
                   autoCorrect={false}
                   editable={!busy}
                 />
-                {/@(gmail|googlemail)\.com$/i.test(email.trim()) ? (
-                  <Text style={styles.warnText}>
-                    Gmail ignores dots (alon.tsemach and alontsemach are the same inbox). Healthings does not — use the exact spelling you signed up with, or backup will look empty.
-                  </Text>
-                ) : null}
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
                 <Pressable
                   style={[styles.primaryBtn, (!email.trim() || busy) && styles.btnDisabled]}
@@ -191,8 +191,12 @@ export function LoginScreen({ onSignedIn }: Props) {
                 <Pressable
                   style={styles.secondaryBtn}
                   onPress={() => {
-                    if (!email.trim()) return;
+                    const trimmed = email.trim();
+                    if (!trimmed) return;
+                    void persistLastSignInEmail(trimmed);
+                    void AsyncStorage.removeItem(OTP_PENDING_KEY);
                     setError(null);
+                    setCodeSource('authenticator');
                     setStep('code');
                     setCode('');
                   }}
@@ -200,12 +204,17 @@ export function LoginScreen({ onSignedIn }: Props) {
                 >
                   <Text style={styles.secondaryBtnText}>Use Authenticator</Text>
                 </Pressable>
+                <Text style={styles.hintFoot}>
+                  Authenticator still needs this email — it is how we know which account. No
+                  message is sent. Open Google Authenticator and type the 6-digit code.
+                </Text>
               </>
             ) : (
               <>
                 <Text style={styles.codeHint}>
-                  Email code sent to {email.trim()} — or a 6-digit code from Google Authenticator.
-                  Check inbox and spam if you used Send code.
+                  {codeSource === 'authenticator'
+                    ? `Open Google Authenticator for ${email.trim()} and enter the 6-digit code. No email is sent.`
+                    : `Email code sent to ${email.trim()} — or a 6-digit code from Google Authenticator. Check inbox and spam.`}
                 </Text>
                 <TextInput
                   style={styles.input}
@@ -238,6 +247,7 @@ export function LoginScreen({ onSignedIn }: Props) {
                   onPress={() => {
                     void AsyncStorage.removeItem(OTP_PENDING_KEY);
                     setStep('email');
+                    setCodeSource('email-otp');
                     setCode('');
                     setError(null);
                   }}
@@ -314,6 +324,11 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     fontSize: 14,
     color: c.textSecondary,
     lineHeight: 20,
+  },
+  hintFoot: {
+    fontSize: 13,
+    color: c.textSecondary,
+    lineHeight: 18,
   },
   primaryBtn: {
     backgroundColor: c.accentGreen,
