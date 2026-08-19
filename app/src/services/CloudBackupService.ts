@@ -7,14 +7,20 @@ import { deflate, inflate } from 'pako';
 import {
   canOverwriteCloudBackup,
   fingerprintFromBackupPayload,
+  isEmptyish,
   type BackupFingerprint,
 } from '../logic/backupFingerprint';
 import { authFetch } from './AuthApiService';
-import { applyLocalBackupPayload, buildLocalBackupPayload } from './LocalBackupService';
+import {
+  applyLocalBackupPayload,
+  buildLocalBackupPayload,
+  countLocalFoodLogDays,
+} from './LocalBackupService';
 
 const CLOUD_BACKUP_OPT_IN_KEY = 'healthings:cloudBackupOptIn';
 const LAST_SUCCESS_KEY = 'healthings:cloudBackupLastSuccessAt';
 const OPTED_IN_AT_KEY = 'healthings:cloudBackupOptedInAt';
+const RESTORE_OFFER_DISMISSED_KEY = 'healthings:cloudRestoreOfferDismissed';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -93,16 +99,12 @@ export async function fetchCloudBackupStatus(): Promise<CloudBackupStatus> {
     fingerprint: BackupFingerprint | null;
     hasPrevious?: boolean;
   };
-  if (body.hasBackup) {
-    await setCloudBackupOptInLocal(true);
-    if (body.exportedAt) {
-      const existing = await AsyncStorage.getItem(LAST_SUCCESS_KEY);
-      if (!existing) await AsyncStorage.setItem(LAST_SUCCESS_KEY, body.exportedAt);
-    }
-  }
+  // Seeing a server copy must not flip this phone's opt-in. A new empty phone
+  // that auto-opts-in then opportunistic-uploads can replace a richer backup
+  // (or create a 0-meal "backup" that hides the real restore job).
   const localEnabled = await isCloudBackupOptInLocal();
   return {
-    enabled: body.hasBackup && localEnabled,
+    enabled: localEnabled,
     hasBackup: body.hasBackup,
     exportedAt: body.exportedAt,
     byteSize: body.byteSize,
@@ -123,6 +125,13 @@ export async function uploadCloudBackup(
   const json = JSON.stringify(payload);
   const gzip = deflate(json, { level: 6 });
   const fingerprint = fingerprintFromBackupPayload(payload, gzip.length);
+  if (isEmptyish(fingerprint)) {
+    throw new CloudBackupBlockedError(
+      'Nothing to back up — this phone has no meals, glucose, activity, or heart rate. An empty copy is never stored.',
+      fingerprint,
+      null,
+    );
+  }
 
   if (!opts?.force) {
     let cloudFp: BackupFingerprint | null = null;
@@ -216,7 +225,46 @@ export async function restoreCloudBackup() {
     throw new Error('Invalid cloud backup format.');
   }
 
-  return applyLocalBackupPayload(payload);
+  const result = await applyLocalBackupPayload(payload);
+  await AsyncStorage.setItem(RESTORE_OFFER_DISMISSED_KEY, new Date().toISOString());
+  return result;
+}
+
+export type CloudRestoreOffer = {
+  offer: boolean;
+  exportedAt: string | null;
+  cloudMealDays: number;
+  localMealDays: number;
+};
+
+/**
+ * New / empty phone + a cloud copy that actually has meals → prompt restore.
+ * Independent of the local opt-in toggle.
+ */
+export async function shouldOfferCloudRestore(): Promise<CloudRestoreOffer> {
+  const dismissed = await AsyncStorage.getItem(RESTORE_OFFER_DISMISSED_KEY);
+  if (dismissed) {
+    return { offer: false, exportedAt: null, cloudMealDays: 0, localMealDays: 0 };
+  }
+  try {
+    const status = await fetchCloudBackupStatus();
+    const localMealDays = await countLocalFoodLogDays();
+    const cloudMealDays = status.fingerprint?.mealDays ?? 0;
+    const offer =
+      status.hasBackup && cloudMealDays > 0 && localMealDays === 0;
+    return {
+      offer,
+      exportedAt: status.exportedAt,
+      cloudMealDays,
+      localMealDays,
+    };
+  } catch {
+    return { offer: false, exportedAt: null, cloudMealDays: 0, localMealDays: 0 };
+  }
+}
+
+export async function dismissCloudRestoreOffer(): Promise<void> {
+  await AsyncStorage.setItem(RESTORE_OFFER_DISMISSED_KEY, new Date().toISOString());
 }
 
 /**
@@ -226,6 +274,9 @@ export async function restoreCloudBackup() {
 export async function maybeRunOpportunisticCloudBackup(): Promise<'skipped' | 'uploaded' | 'blocked' | 'error'> {
   const optedIn = await isCloudBackupOptInLocal();
   if (!optedIn) return 'skipped';
+
+  const localMealDays = await countLocalFoodLogDays();
+  if (localMealDays === 0) return 'skipped';
 
   const lastSuccess = await AsyncStorage.getItem(LAST_SUCCESS_KEY);
   const optedAt = await AsyncStorage.getItem(OPTED_IN_AT_KEY);

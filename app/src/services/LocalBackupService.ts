@@ -159,6 +159,12 @@ function validateBackupPayload(raw: string): LocalBackupPayload {
   return payload as LocalBackupPayload;
 }
 
+/** How many `food_log_YYYY-MM-DD` keys exist on this phone. */
+export async function countLocalFoodLogDays(): Promise<number> {
+  const allKeys = await AsyncStorage.getAllKeys();
+  return allKeys.filter((k) => isFoodDayKey(k)).length;
+}
+
 async function refreshFoodDayIndex(): Promise<void> {
   const allKeys = await AsyncStorage.getAllKeys();
   const dayKeys = allKeys

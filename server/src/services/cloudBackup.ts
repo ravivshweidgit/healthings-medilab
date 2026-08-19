@@ -5,6 +5,7 @@ import { inflateSync } from 'node:zlib';
 import {
   canOverwriteCloudBackup,
   fingerprintFromBackupPayload,
+  isEmptyish,
   type BackupFingerprint,
 } from '../logic/backupFingerprint.js';
 
@@ -157,9 +158,25 @@ export async function upsertCloudBackup(
     [user.id],
   );
   const current = existing[0];
+  let fromPayload: BackupFingerprint;
+  try {
+    const parsed = JSON.parse(inflateSync(payloadGzip).toString('utf8')) as {
+      asyncStorage?: Record<string, string>;
+    };
+    fromPayload = fingerprintFromBackupPayload(parsed, payloadGzip.length);
+  } catch {
+    throw new CloudBackupError('Backup payload is not valid JSON', 400);
+  }
+  // First insert and force replace: never persist an empty phone as the restore source.
+  if (isEmptyish(fromPayload) || isEmptyish(fp)) {
+    throw new CloudBackupError(
+      'Nothing to back up — this phone has no meals, glucose, activity, or heart rate. An empty copy is never stored.',
+      409,
+    );
+  }
   if (current && !force) {
     const cloudFp = cloudFingerprintForGuard(current);
-    const decision = canOverwriteCloudBackup(fp, cloudFp);
+    const decision = canOverwriteCloudBackup(fromPayload, cloudFp);
     if (!decision.ok) {
       throw new CloudBackupError(decision.reason, 409);
     }

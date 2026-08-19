@@ -44,6 +44,7 @@ import {
   uploadCloudBackup,
   type CloudBackupStatus,
 } from '../services/CloudBackupService';
+import { countLocalFoodLogDays } from '../services/LocalBackupService';
 import { shareTodayAppLog } from '../services/AppDailyLogService';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
@@ -120,6 +121,10 @@ export function AccountStrip({
   }, [isPatient]);
 
   useEffect(() => {
+    if (isPatient) void refreshCloudStatus();
+  }, [isPatient, refreshCloudStatus]);
+
+  useEffect(() => {
     if (!expanded) return;
     void (async () => {
       const [available, enabled, label, me] = await Promise.all([
@@ -133,11 +138,8 @@ export function AccountStrip({
       setBiometricLabel(label);
       if (me) setTotpEnabled(me.totpEnabled === true);
     })();
-    if (isPatient) {
-      void refreshCloudStatus();
-      void refreshWebViewStatus();
-    }
-  }, [expanded, isPatient, refreshCloudStatus, refreshWebViewStatus]);
+    if (isPatient) void refreshWebViewStatus();
+  }, [expanded, isPatient, refreshWebViewStatus]);
 
   const handleBiometricToggle = useCallback(async (next: boolean) => {
     setError(null);
@@ -296,17 +298,24 @@ export function AccountStrip({
   const handleCloudToggle = useCallback((next: boolean) => {
     setCloudMessage(null);
     if (next) {
-      Alert.alert(
-        'Cloud backup',
-        'Upload a copy of your app data to Healthings servers for restore if you lose your phone. Backs up about once a day while enabled. Withings login is not included — re-link on a new device.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Enable',
-            onPress: () => void runUploadWithGuard(false),
-          },
-        ],
-      );
+      void (async () => {
+        const mealDays = await countLocalFoodLogDays();
+        const emptyWarn =
+          mealDays === 0
+            ? ' This phone has no meals. If you just switched phones, restore from cloud or tap Back up now on the old phone first — do not upload an empty copy.'
+            : '';
+        Alert.alert(
+          'Cloud backup',
+          `Upload a copy of your app data to Healthings servers for restore if you lose your phone. Backs up about once a day while enabled. Withings login is not included — re-link on a new device.${emptyWarn}`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: mealDays === 0 ? 'Enable anyway' : 'Enable',
+              onPress: () => void runUploadWithGuard(false),
+            },
+          ],
+        );
+      })();
       return;
     }
     Alert.alert(
@@ -449,7 +458,11 @@ export function AccountStrip({
     <View style={styles.wrap}>
       <DashboardCollapseHeader
         title={profileTitles.account}
-        subtitle={user.email}
+        subtitle={
+          cloudStatus?.hasBackup
+            ? `${user.email} · Restore from cloud available`
+            : user.email
+        }
         expanded={expanded}
         onToggle={onToggleExpand}
         titleRtl={lang?.code === 'he' || lang?.code === 'ar'}
@@ -540,7 +553,7 @@ export function AccountStrip({
                 <View style={styles.biometricText}>
                   <Text style={styles.biometricTitle}>Cloud backup</Text>
                   <Text style={styles.biometricHint}>
-                    Optional server copy for restore. Off deletes the server copy only. Auto-backs up about once a day while on.
+                    Optional auto-upload. Restore stays available whenever a server copy exists — you do not need this on. Off deletes the server copy only.
                   </Text>
                 </View>
                 <Switch
@@ -560,24 +573,22 @@ export function AccountStrip({
                   {cloudStatus.hasPrevious ? ' · previous kept' : ''}
                 </Text>
               ) : null}
-              {cloudStatus?.enabled ? (
+              {cloudStatus?.hasBackup ? (
                 <Pressable
                   style={[styles.cloudBtn, cloudBusy && styles.btnDisabled]}
                   disabled={cloudBusy}
-                  onPress={() => void handleCloudBackupNow()}
-                >
-                  <Text style={styles.cloudBtnText}>Back up now</Text>
-                </Pressable>
-              ) : null}
-              {cloudStatus?.hasBackup ? (
-                <Pressable
-                  style={[styles.cloudBtnOutline, cloudBusy && styles.btnDisabled]}
-                  disabled={cloudBusy}
                   onPress={() => void handleRestoreCloud()}
                 >
-                  <Text style={styles.cloudBtnOutlineText}>Restore from cloud</Text>
+                  <Text style={styles.cloudBtnText}>Restore from cloud</Text>
                 </Pressable>
               ) : null}
+              <Pressable
+                style={[styles.cloudBtnOutline, cloudBusy && styles.btnDisabled]}
+                disabled={cloudBusy}
+                onPress={() => void handleCloudBackupNow()}
+              >
+                <Text style={styles.cloudBtnOutlineText}>Back up now</Text>
+              </Pressable>
               {cloudBusy ? <ActivityIndicator color={colors.accentBlue} /> : null}
               {cloudMessage ? <Text style={styles.cloudMessage}>{cloudMessage}</Text> : null}
             </View>

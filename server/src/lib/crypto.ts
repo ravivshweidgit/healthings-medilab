@@ -35,3 +35,21 @@ export function hashToken(token: string): string {
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
+
+/**
+ * Gmail / Googlemail only: dots in the mailbox are ignored by Google.
+ * Plus-tags are kept (`alon+clinic@` ≠ `alon@`) — those are separate Healthings users.
+ * Returns null for every other domain.
+ */
+export function gmailDotKey(email: string): string | null {
+  const normalized = normalizeEmail(email);
+  const at = normalized.lastIndexOf('@');
+  if (at < 1) return null;
+  const local = normalized.slice(0, at);
+  const domain = normalized.slice(at + 1);
+  if (domain !== 'gmail.com' && domain !== 'googlemail.com') return null;
+  const plus = local.indexOf('+');
+  const mailbox = plus === -1 ? local : local.slice(0, plus);
+  const tag = plus === -1 ? '' : local.slice(plus);
+  return `${mailbox.replace(/\./g, '')}${tag}@gmail.com`;
+}

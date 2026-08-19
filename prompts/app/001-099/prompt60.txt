@@ -80,3 +80,4 @@ pm2 restart healthings-api
 - **`prompt54.txt`** — clinic relay (orthogonal)
 - **`done/prompt29.txt`** — local backup key inventory
 - **`done/prompt68.txt`** — cloud restore decompress/parse fix
+- **`100-200/done/prompt115.txt` / `backend/done/be-46`** — empty first-insert blocked; Gmail-dot alias; 14-day `user_cloud_backup_days` trail (server-only)

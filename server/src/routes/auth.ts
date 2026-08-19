@@ -24,7 +24,16 @@ import {
   TotpNotPendingError,
 } from '../services/totp.js';
 import { attachPendingShares } from '../services/shares.js';
-import { findOrCreateUser, findUserById, findUserByEmail, updateUserDisplayName, updateUserNames } from '../services/users.js';
+import {
+  findOrCreateUser,
+  findUserById,
+  findUserByEmail,
+  findGmailDotSiblings,
+  GmailDotCollisionError,
+  updateUserDisplayName,
+  updateUserNames,
+} from '../services/users.js';
+import { normalizeEmail } from '../lib/crypto.js';
 import { isAdminEmail } from '../config.js';
 
 const roleSchema = z.enum(['patient', 'mentor']);
@@ -63,15 +72,45 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: 'Not an operator account' });
     }
     try {
+      const typedEmail = normalizeEmail(body.email);
       // Phone always requests role=patient. Clinic mentor emails must use the web portal only.
       if (body.role === 'patient') {
-        const existing = await findUserByEmail(body.email.trim().toLowerCase());
+        const existing = await findUserByEmail(typedEmail);
         if (existing?.role === 'mentor') {
           return reply.code(403).send({
             error:
               'Clinic accounts use the web portal only (healthings.ai/clinic). Sign in on the phone with a patient email.',
           });
         }
+      }
+      const siblings = await findGmailDotSiblings(typedEmail);
+      if (siblings.length > 0) {
+        const existing = await findUserByEmail(typedEmail);
+        const other = siblings.map((s) => s.email).join(', ');
+        // One sibling, typed spelling does not exist: send the code. Verify
+        // aliases onto that user so an old APK that types dots still lands
+        // on the backup. 409 only when two Healthings users already share
+        // the inbox — the app cannot pick which one.
+        if (!existing && siblings.length === 1) {
+          await createOtpRequest(body.email, body.role);
+          return { sent: true };
+        }
+        if (!existing) {
+          return reply.code(409).send({
+            code: 'gmail_dot_collision',
+            existingEmail: siblings[0]!.email,
+            error:
+              `Gmail ignores dots, but Healthings does not. An account already exists as ${other}. ` +
+              `Sign in with that exact spelling — a new spelling creates an empty user and will not see your backup.`,
+          });
+        }
+        await createOtpRequest(body.email, body.role);
+        return {
+          sent: true,
+          warning:
+            `Same Gmail inbox as ${other}. This spelling is a different Healthings user. ` +
+            `If meals or backup are missing, sign out and use ${other}.`,
+        };
       }
       await createOtpRequest(body.email, body.role);
       return { sent: true };
@@ -113,6 +152,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     } catch (err) {
       if (err instanceof OtpInvalidError) {
         return reply.code(401).send({ error: err.message });
+      }
+      if (err instanceof GmailDotCollisionError) {
+        return reply.code(409).send({ error: err.message, existingEmail: err.existingEmail });
       }
       throw err;
     }

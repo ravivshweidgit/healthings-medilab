@@ -1,4 +1,5 @@
 import { query } from '../db/pool.js';
+import { gmailDotKey, normalizeEmail } from '../lib/crypto.js';
 import { purgeClinicDataIfNoConsumers } from './consent.js';
 import { ensureMentorOrg } from './clinicAccess.js';
 import type { PublicUser, UserRole } from './jwt.js';
@@ -45,9 +46,33 @@ export async function findUserByEmail(email: string): Promise<PublicUser | null>
   return rows[0] ? toPublicUser(rows[0]) : null;
 }
 
+/** Other Gmail spellings that Google treats as the same inbox (dots only). */
+export async function findGmailDotSiblings(email: string): Promise<PublicUser[]> {
+  const key = gmailDotKey(email);
+  if (!key) return [];
+  const typed = normalizeEmail(email);
+  const { rows } = await query<UserRow>(
+    `SELECT * FROM users WHERE gmail_canonical = $1 AND email <> $2`,
+    [key, typed],
+  );
+  return rows.map(toPublicUser);
+}
+
 export async function findUserById(id: string): Promise<PublicUser | null> {
   const { rows } = await query<UserRow>(`SELECT * FROM users WHERE id = $1`, [id]);
   return rows[0] ? toPublicUser(rows[0]) : null;
+}
+
+export class GmailDotCollisionError extends Error {
+  existingEmail: string;
+
+  constructor(existingEmail: string) {
+    super(
+      `Gmail account already exists as ${existingEmail}. Sign in with that spelling.`,
+    );
+    this.name = 'GmailDotCollisionError';
+    this.existingEmail = existingEmail;
+  }
 }
 
 export async function findOrCreateUser(
@@ -57,10 +82,21 @@ export async function findOrCreateUser(
   const existing = await findUserByEmail(email);
   if (existing) return existing;
 
+  // Gmail ignores dots. An old app will type `alon.tsemach@` while the
+  // account lives at `alontsemach@` — log them into that user, never insert
+  // a second empty one. Plus-tags stay distinct (`habushamichal+clinic`).
+  const siblings = await findGmailDotSiblings(email);
+  if (siblings.length === 1) {
+    return siblings[0]!;
+  }
+  if (siblings.length > 1) {
+    throw new GmailDotCollisionError(siblings[0]!.email);
+  }
+
   const { rows } = await query<UserRow>(
-    `INSERT INTO users (email, role) VALUES ($1, $2)
+    `INSERT INTO users (email, role, gmail_canonical) VALUES ($1, $2, $3)
      RETURNING *`,
-    [email, role],
+    [email, role, gmailDotKey(email)],
   );
   const user = toPublicUser(rows[0]);
   if (role === 'mentor') {

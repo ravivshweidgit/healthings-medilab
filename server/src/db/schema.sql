@@ -59,6 +59,25 @@ ALTER TABLE users ALTER COLUMN user_no SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_user_no ON users (user_no);
 ALTER SEQUENCE users_user_no_seq OWNED BY users.user_no;
 
+-- Gmail/Googlemail mailbox key: dots stripped, +tag kept, domain folded to gmail.com.
+-- Lookup only — NOT UNIQUE until owner-merged pairs (Alon dotted vs undotted) are gone.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS gmail_canonical TEXT;
+UPDATE users SET gmail_canonical = (
+  lower(replace(split_part(split_part(trim(email::text), '@', 1), '+', 1), '.', ''))
+  || CASE
+       WHEN position('+' IN split_part(trim(email::text), '@', 1)) > 0
+       THEN substring(
+         split_part(trim(email::text), '@', 1)
+         FROM position('+' IN split_part(trim(email::text), '@', 1))
+       )
+       ELSE ''
+     END
+  || '@gmail.com'
+)
+WHERE gmail_canonical IS NULL
+  AND lower(split_part(trim(email::text), '@', 2)) IN ('gmail.com', 'googlemail.com');
+CREATE INDEX IF NOT EXISTS idx_users_gmail_canonical ON users (gmail_canonical);
+
 CREATE TABLE IF NOT EXISTS otp_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email CITEXT NOT NULL,
@@ -518,6 +537,79 @@ ALTER TABLE user_cloud_backups ADD COLUMN IF NOT EXISTS prev_payload_gzip BYTEA;
 ALTER TABLE user_cloud_backups ADD COLUMN IF NOT EXISTS prev_byte_size INT;
 ALTER TABLE user_cloud_backups ADD COLUMN IF NOT EXISTS prev_exported_at TIMESTAMPTZ;
 ALTER TABLE user_cloud_backups ADD COLUMN IF NOT EXISTS prev_fingerprint JSONB;
+
+-- 14 calendar days of replaced currents. App still reads only the live row.
+-- Toggle off / account delete cascade-wipes this trail.
+CREATE TABLE IF NOT EXISTS user_cloud_backup_days (
+  user_id UUID NOT NULL REFERENCES user_cloud_backups (user_id) ON DELETE CASCADE,
+  day DATE NOT NULL,
+  exported_at TIMESTAMPTZ NOT NULL,
+  byte_size INT NOT NULL,
+  payload_hash TEXT NOT NULL,
+  payload_gzip BYTEA NOT NULL,
+  fingerprint JSONB,
+  archived_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, day)
+);
+
+CREATE OR REPLACE FUNCTION archive_user_cloud_backup_day()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF OLD.payload_hash IS NOT DISTINCT FROM NEW.payload_hash THEN
+    RETURN NEW;
+  END IF;
+
+  INSERT INTO user_cloud_backup_days (
+    user_id, day, exported_at, byte_size, payload_hash, payload_gzip, fingerprint
+  ) VALUES (
+    OLD.user_id,
+    (OLD.exported_at AT TIME ZONE 'UTC')::date,
+    OLD.exported_at,
+    OLD.byte_size,
+    OLD.payload_hash,
+    OLD.payload_gzip,
+    OLD.fingerprint
+  )
+  ON CONFLICT (user_id, day) DO UPDATE SET
+    exported_at = EXCLUDED.exported_at,
+    byte_size = EXCLUDED.byte_size,
+    payload_hash = EXCLUDED.payload_hash,
+    payload_gzip = EXCLUDED.payload_gzip,
+    fingerprint = EXCLUDED.fingerprint,
+    archived_at = NOW();
+
+  DELETE FROM user_cloud_backup_days
+  WHERE user_id = NEW.user_id
+    AND day < ((CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date - 14);
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_archive_user_cloud_backup_day ON user_cloud_backups;
+CREATE TRIGGER trg_archive_user_cloud_backup_day
+  AFTER UPDATE OF payload_hash, payload_gzip ON user_cloud_backups
+  FOR EACH ROW
+  EXECUTE FUNCTION archive_user_cloud_backup_day();
+
+INSERT INTO user_cloud_backup_days (
+  user_id, day, exported_at, byte_size, payload_hash, payload_gzip, fingerprint
+)
+SELECT
+  user_id,
+  (prev_exported_at AT TIME ZONE 'UTC')::date,
+  prev_exported_at,
+  prev_byte_size,
+  'prev:' || user_id::text || ':' || prev_exported_at::text,
+  prev_payload_gzip,
+  prev_fingerprint
+FROM user_cloud_backups
+WHERE prev_payload_gzip IS NOT NULL
+  AND prev_exported_at IS NOT NULL
+  AND prev_byte_size IS NOT NULL
+ON CONFLICT (user_id, day) DO NOTHING;
 
 -- prompt113 / be-43: lab PDF country → providers → versioned prompt packs
 CREATE TABLE IF NOT EXISTS lab_countries (

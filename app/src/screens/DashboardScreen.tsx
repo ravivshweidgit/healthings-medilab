@@ -111,7 +111,12 @@ import { loadMetricsStore } from '../services/MetricsPersistenceService';
 import { clearOnboardingCompletedAt, shouldShowQuickStart } from '../services/ProfileCompletenessService';
 import { AUTH_CLEARED_EVENT } from '../services/AuthTokenStore';
 import { appLog, pruneOldAppLogs, PERF_WARN_SYNC_MS, timeAsync } from '../services/AppDailyLogService';
-import { maybeRunOpportunisticCloudBackup } from '../services/CloudBackupService';
+import {
+  dismissCloudRestoreOffer,
+  maybeRunOpportunisticCloudBackup,
+  restoreCloudBackup,
+  shouldOfferCloudRestore,
+} from '../services/CloudBackupService';
 import { applyAutoMacroRevision, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
 import { ChatScreen } from './ChatScreen';
 import { CONFIG } from '../config/env';
@@ -2342,6 +2347,50 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     refetch,
     syncWithings,
   ]);
+
+  useEffect(() => {
+    if (user.role !== 'patient') return;
+    void (async () => {
+      const offer = await shouldOfferCloudRestore();
+      if (!offer.offer) return;
+      const when = offer.exportedAt
+        ? ` Last backup: ${new Date(offer.exportedAt).toLocaleString()}.`
+        : '';
+      Alert.alert(
+        'Cloud backup found',
+        `This phone has no meals, but the server has ${offer.cloudMealDays} meal day(s).${when} Restore now? You do not need to turn Cloud backup on.`,
+        [
+          {
+            text: 'Later',
+            style: 'cancel',
+            onPress: () => {
+              void dismissCloudRestoreOffer();
+            },
+          },
+          {
+            text: 'Restore',
+            onPress: () => {
+              void (async () => {
+                try {
+                  const result = await restoreCloudBackup();
+                  await refreshAfterBackupRestore();
+                  Alert.alert(
+                    'Cloud restore',
+                    `Restored ${result.keysRestored} keys • +${result.mealsAdded} meals • +${result.chatMessagesAdded} chat`,
+                  );
+                } catch (e: unknown) {
+                  Alert.alert(
+                    'Cloud restore',
+                    e instanceof Error ? e.message : 'Restore failed.',
+                  );
+                }
+              })();
+            },
+          },
+        ],
+      );
+    })();
+  }, [user.role, refreshAfterBackupRestore]);
 
   const handleImportBackup = useCallback(async () => {
     setBackupBusy(true);

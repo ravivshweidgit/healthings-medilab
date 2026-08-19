@@ -134,13 +134,13 @@ export function fingerprintFromBackupPayload(
   };
 }
 
-function isEmptyish(fp: BackupFingerprint): boolean {
+export function isEmptyish(fp: BackupFingerprint): boolean {
   return (
     fp.mealDays === 0 &&
     fp.glucosePoints === 0 &&
     fp.activityDays === 0 &&
     fp.activityFavorites === 0 &&
-    (fp.earliestDay == null || fp.keyCount < 5)
+    (fp.heartRatePoints ?? 0) === 0
   );
 }
 
@@ -148,14 +148,15 @@ export function canOverwriteCloudBackup(
   phone: BackupFingerprint,
   cloud: BackupFingerprint | null,
 ): { ok: boolean; reason: string } {
-  if (!cloud) return { ok: true, reason: 'No existing cloud backup.' };
-
-  if (isEmptyish(phone) && !isEmptyish(cloud)) {
+  if (isEmptyish(phone)) {
     return {
       ok: false,
-      reason: 'Phone backup is empty relative to existing cloud history.',
+      reason:
+        'Nothing to back up — this phone has no meals, glucose, activity, or heart rate. An empty copy is never stored.',
     };
   }
+
+  if (!cloud) return { ok: true, reason: 'No existing cloud backup.' }
 
   if (cloud.earliestDay && phone.earliestDay) {
     if (phone.earliestDay > cloud.earliestDay) {

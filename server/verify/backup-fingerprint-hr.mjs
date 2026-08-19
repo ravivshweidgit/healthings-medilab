@@ -104,6 +104,27 @@ check(
   true,
 );
 
+check(
+  'empty first backup blocked',
+  canOverwriteCloudBackup(
+    {
+      earliestDay: '2026-08-17',
+      latestDay: '2026-08-19',
+      mealDays: 0,
+      glucosePoints: 0,
+      heartRatePoints: 0,
+      hrEarliestDay: null,
+      activityDays: 0,
+      activityEntries: 0,
+      activityFavorites: 0,
+      keyCount: 42,
+      byteSize: 8606,
+    },
+    null,
+  ).ok,
+  false,
+);
+
 const payload = {
   asyncStorage: {
     'healthings:metricsStore': JSON.stringify({

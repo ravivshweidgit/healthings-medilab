@@ -91,10 +91,11 @@ export function LoginScreen({ onSignedIn }: Props) {
     setError(null);
     setBusy(true);
     try {
-      await requestOtp(trimmed);
+      const result = await requestOtp(trimmed);
       await AsyncStorage.setItem(OTP_PENDING_KEY, trimmed);
       setStep('code');
       setCode('');
+      if (result.warning) setError(result.warning);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Could not send code');
     } finally {
@@ -170,6 +171,11 @@ export function LoginScreen({ onSignedIn }: Props) {
                   autoCorrect={false}
                   editable={!busy}
                 />
+                {/@(gmail|googlemail)\.com$/i.test(email.trim()) ? (
+                  <Text style={styles.warnText}>
+                    Gmail ignores dots (alon.tsemach and alontsemach are the same inbox). Healthings does not — use the exact spelling you signed up with, or backup will look empty.
+                  </Text>
+                ) : null}
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
                 <Pressable
                   style={[styles.primaryBtn, (!email.trim() || busy) && styles.btnDisabled]}

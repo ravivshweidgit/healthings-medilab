@@ -1,0 +1,38 @@
+# prompt115 — New-phone restore + Gmail dots (empty backup never stored)
+
+**Status:** done (2026-08-19) — Play internal **1.2.39** (`versionCode` 68); API deployed  
+**Builds on:** `prompt60` (cloud backup), `done/prompt68` (restore inflate)  
+**Server half:** [`../../backend/done/be-46-gmail-dots-empty-backup.md`](../../backend/done/be-46-gmail-dots-empty-backup.md)
+
+## Problem
+
+A new phone that signed in with a Gmail **dot variant** became a **new empty user**. First INSERT stored a 0-meal blob. Restore was easy to miss (toggle off looked like “no backup”). Enabling daily backup on the empty phone could replace the real copy.
+
+## What shipped
+
+| Piece | Change |
+|-------|--------|
+| Account | **Restore from cloud** whenever a server copy exists — daily-backup switch is auto-upload only. Off still deletes the server copy. |
+| Account subtitle | “Restore from cloud available” when `hasBackup` |
+| Status fetch | Cloud status loads even if Account is collapsed |
+| Enable on 0 meals | Warn; empty upload refused on phone and server (first insert and force) |
+| Dashboard | Offer restore when cloud has meals and this phone has 0 |
+| Login | Gmail hint; OTP warning if two Healthings users already share the inbox |
+| Fingerprint | `isEmptyish` = 0 meals + 0 CGM + 0 activity + 0 HR (ignore keyCount / stub dates) |
+
+## Phone-tested
+
+- [x] `bi` 1.2.39 (68) on owner phone
+- [x] Play internal 68 released 2026-08-19 15:26 (not reviewed — expected on that track)
+- [ ] Alpha tester: update → Account → Restore from cloud (do not flip the switch off)
+
+## Deferred
+
+- Unique index on `users.gmail_canonical` once no remaining collisions
+- App UI to restore a **dated** trail row (`user_cloud_backup_days`, be-46) — server-only for now
+
+## Related
+
+- prompt60 — original opt-in backup; empty first-insert + Gmail alias refined here
+- prompt68 — restore JSON parse
+- language-policy — plus-tags stay distinct (`user+clinic@` ≠ `user@`)

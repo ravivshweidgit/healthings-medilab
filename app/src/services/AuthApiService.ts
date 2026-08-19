@@ -170,7 +170,10 @@ export async function authFetch(
   return res;
 }
 
-export async function requestOtp(email: string, role: UserRole = 'patient'): Promise<void> {
+export async function requestOtp(
+  email: string,
+  role: UserRole = 'patient',
+): Promise<{ warning?: string }> {
   const res = await fetchWithTimeout(
     `${apiBase()}/v1/auth/otp/request`,
     {
@@ -182,6 +185,12 @@ export async function requestOtp(email: string, role: UserRole = 'patient'): Pro
   );
   if (!res.ok) {
     throw new AuthApiError(await parseError(res), res.status);
+  }
+  try {
+    const body = (await res.json()) as { warning?: string };
+    return { warning: body.warning };
+  } catch {
+    return {};
   }
 }
 
