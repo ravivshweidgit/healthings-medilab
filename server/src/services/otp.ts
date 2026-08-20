@@ -54,8 +54,8 @@ export class OtpRateLimitError extends Error {
 }
 
 export class OtpInvalidError extends Error {
-  constructor() {
-    super('Invalid or expired code.');
+  constructor(message = 'Invalid or expired code.') {
+    super(message);
     this.name = 'OtpInvalidError';
   }
 }
@@ -72,6 +72,15 @@ export async function verifyOtpAndGetEmail(
   }
   const fromMail = await tryVerifyEmailOtp(normalized, code);
   if (fromMail) return fromMail;
+
+  const { rows } = await query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM otp_requests
+     WHERE email = $1 AND expires_at > NOW()`,
+    [normalized],
+  );
+  if (Number(rows[0]?.n ?? 0) === 0) {
+    throw new OtpInvalidError('No active code for this email. Request a new one.');
+  }
   throw new OtpInvalidError();
 }
 
