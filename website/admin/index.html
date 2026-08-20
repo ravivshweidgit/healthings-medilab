@@ -34,13 +34,15 @@
         margin-bottom: 20px;
       }
       #margin-panel,
-      #active-panel {
+      #active-panel,
+      #catalog-panel {
         display: block;
         padding: 20px 24px;
         margin-bottom: 16px;
       }
       #margin-body,
-      #active-body {
+      #active-body,
+      #catalog-body {
         overflow-x: auto;
       }
       .admin-app-wrap .usage-table {
@@ -81,6 +83,26 @@
       .admin-app-wrap .usage-table td.day-link:hover {
         color: var(--color-accent, #0b6e4f);
       }
+      .catalog-form {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 12px;
+        margin: 16px 0 8px;
+        align-items: end;
+      }
+      .catalog-form .field-wide {
+        grid-column: 1 / -1;
+      }
+      .catalog-form label {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.85rem;
+      }
+      .catalog-status {
+        margin: 8px 0 0;
+        min-height: 1.2em;
+      }
     </style>
   </head>
   <body class="admin-console">
@@ -94,7 +116,7 @@
           </span>
         </a>
         <h1>Operator console</h1>
-        <p class="muted">Platform margin — not the clinic portal. Sign in with an operator email.</p>
+        <p class="muted">Platform margin + marker catalog — not the clinic portal. Sign in with an operator email.</p>
 
         <form id="login-form-email">
           <label class="field-label" for="email">Email</label>
@@ -182,6 +204,50 @@
             Credit revenue vs estimated Gemini cost — all payers. Internal estimate, not a Google bill.
           </p>
           <div id="margin-body"></div>
+        </div>
+
+        <div id="catalog-panel" class="secondary-panel">
+          <h2 style="margin: 0 0 4px">Marker catalog</h2>
+          <p class="muted">
+            Shared nutrient codes clinics pick for Treatment markers. Invent codes here — never in the
+            clinic portal.
+          </p>
+          <div id="catalog-body"></div>
+          <form id="catalog-form" class="catalog-form">
+            <label>
+              Code
+              <input id="cat-code" class="portal-input" type="text" maxlength="48" placeholder="IODINE_MCG" dir="ltr" required />
+            </label>
+            <label>
+              Unit
+              <select id="cat-unit" class="portal-select">
+                <option value="g">g</option>
+                <option value="mg">mg</option>
+                <option value="mcg" selected>mcg</option>
+              </select>
+            </label>
+            <label>
+              Default
+              <select id="cat-dir" class="portal-select">
+                <option value="floor" selected>floor</option>
+                <option value="cap">cap</option>
+              </select>
+            </label>
+            <label>
+              Label (EN)
+              <input id="cat-en" class="portal-input" type="text" maxlength="80" dir="ltr" required />
+            </label>
+            <label>
+              Label (HE)
+              <input id="cat-he" class="portal-input" type="text" maxlength="80" dir="rtl" />
+            </label>
+            <label class="field-wide">
+              Estimate guidance (phone AI)
+              <input id="cat-hint" class="portal-input" type="text" maxlength="500" dir="auto" />
+            </label>
+            <button id="cat-add" class="portal-btn" type="submit">Add to catalog</button>
+          </form>
+          <p id="catalog-status" class="muted catalog-status" role="status"></p>
         </div>
 
         <p id="app-error" class="error" role="alert" hidden></p>
@@ -394,6 +460,54 @@
         });
       }
 
+      function renderCatalog(catalog) {
+        const el = document.getElementById('catalog-body');
+        if (!el) return;
+        const rows = Array.isArray(catalog) ? catalog : [];
+        if (!rows.length) {
+          el.innerHTML = '<p class="muted">Catalog empty.</p>';
+          return;
+        }
+        el.innerHTML = `
+          <table class="usage-table">
+            <thead><tr>
+              <th>Code</th>
+              <th>Unit</th>
+              <th>Default</th>
+              <th class="admin-name">EN</th>
+              <th class="admin-name">HE</th>
+            </tr></thead>
+            <tbody>
+              ${rows
+                .map((r) => {
+                  const en = (r.labels && r.labels.en && r.labels.en.full) || '';
+                  const he = (r.labels && r.labels.he && r.labels.he.full) || '';
+                  return `<tr>
+                    <td class="admin-cell" dir="ltr">${escHtml(r.code)}</td>
+                    <td class="admin-cell">${escHtml(r.unit)}</td>
+                    <td class="admin-cell">${escHtml(r.defaultDirection)}</td>
+                    <td class="admin-name"><span dir="ltr">${escHtml(en)}</span></td>
+                    <td class="admin-name"><span dir="rtl">${escHtml(he)}</span></td>
+                  </tr>`;
+                })
+                .join('')}
+            </tbody>
+          </table>`;
+      }
+
+      async function loadCatalog() {
+        const status = document.getElementById('catalog-status');
+        const res = await api('/v1/admin/marker-catalog');
+        if (!res.ok) {
+          renderCatalog([]);
+          if (status) status.textContent = res.status === 403 ? 'Admin only' : 'Could not load catalog';
+          return;
+        }
+        const data = await res.json();
+        renderCatalog(data.catalog);
+        if (status) status.textContent = '';
+      }
+
       function showLogin() {
         document.getElementById('login-wrap').hidden = false;
         document.getElementById('app-wrap').hidden = true;
@@ -447,11 +561,13 @@
 
         if (!activeYmd) activeYmd = ymdLocal(new Date());
 
-        const [activeOk, marginRes] = await Promise.all([
+        const [activeOk, marginRes, catalogOk] = await Promise.all([
           loadActive().then(() => true),
           api('/v1/usage/margin?days=30'),
+          loadCatalog().then(() => true),
         ]);
         void activeOk;
+        void catalogOk;
 
         if (!marginRes.ok) {
           showError(
@@ -535,6 +651,64 @@
       document.getElementById('logout').addEventListener('click', () => {
         clearTokens();
         showLogin();
+      });
+
+      document.getElementById('cat-code').addEventListener('input', (e) => {
+        const raw = String(e.target.value || '')
+          .toUpperCase()
+          .replace(/[^A-Z0-9_]/g, '');
+        if (e.target.value !== raw) e.target.value = raw;
+        const unit = document.getElementById('cat-unit');
+        if (!unit) return;
+        if (raw.endsWith('_MCG')) unit.value = 'mcg';
+        else if (raw.endsWith('_MG')) unit.value = 'mg';
+        else if (raw.endsWith('_G')) unit.value = 'g';
+      });
+
+      document.getElementById('catalog-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const status = document.getElementById('catalog-status');
+        const btn = document.getElementById('cat-add');
+        const code = document.getElementById('cat-code').value.trim().toUpperCase();
+        const unit = document.getElementById('cat-unit').value;
+        const defaultDirection = document.getElementById('cat-dir').value;
+        const en = document.getElementById('cat-en').value.trim();
+        const he = document.getElementById('cat-he').value.trim();
+        const estimateGuidance = document.getElementById('cat-hint').value.trim();
+        if (!code || !en) {
+          if (status) status.textContent = 'Code and English label required.';
+          return;
+        }
+        btn.disabled = true;
+        if (status) status.textContent = 'Saving…';
+        try {
+          const labels = { en: { full: en, short: en } };
+          if (he) labels.he = { full: he, short: he };
+          const res = await api('/v1/admin/marker-catalog', {
+            method: 'POST',
+            body: JSON.stringify({
+              code,
+              unit,
+              defaultDirection,
+              labels,
+              ...(estimateGuidance ? { estimateGuidance } : {}),
+            }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Could not add catalog item');
+          }
+          document.getElementById('cat-code').value = '';
+          document.getElementById('cat-en').value = '';
+          document.getElementById('cat-he').value = '';
+          document.getElementById('cat-hint').value = '';
+          await loadCatalog();
+          if (status) status.textContent = 'Added ' + code;
+        } catch (err) {
+          if (status) status.textContent = err.message || String(err);
+        } finally {
+          btn.disabled = false;
+        }
       });
 
       document.getElementById('active-prev').addEventListener('click', () => {

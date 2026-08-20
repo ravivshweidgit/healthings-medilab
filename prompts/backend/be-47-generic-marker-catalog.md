@@ -10,10 +10,11 @@
 
 - `server/` `tsc --noEmit` clean
 - Table `diet_marker_catalog` in `schema.sql`; seed 9 codes incl. `IODINE_MCG`
-- `GET`/`POST /v1/clinic/marker-catalog`; overlay GET hydrates labels + `estimateGuidance`
+- Clinic: `GET /v1/clinic/marker-catalog` (picker only)
+- Operator: `GET`/`POST /v1/admin/marker-catalog` + **Marker catalog** panel on `/admin/`
+  (admin never opens clinic — catalog invent lives on Operator console)
 - Phone: `isDietMarkerCode` is a format check, not an allowlist
-- Portal picker loads the catalog; “Add to catalog” form for new codes
-- **Still needed:** `npm run migrate` on VPS + website deploy + one phone build (generic after that)
+- **Still needed:** website + server deploy when owner asks
 
 ## Problem
 
@@ -26,8 +27,8 @@ could not add a marker without an app release.
 - Catalog lives in Postgres (`diet_marker_catalog`). Seed the existing 9 codes
   (incl. `IODINE_MCG`).
 - Clinic **picks** from the table and types the daily number (max 3).
-- **Operators only** may add a catalog row (`ADMIN_EMAILS` — canonical `CODE_G|_MG|_MCG`
-  + labels + optional AI estimate hint). Clinics only pick + type the daily number.
+- **Operators only** invent catalog rows (`ADMIN_EMAILS` via Operator console —
+  never the clinic portal). Clinics only pick + type the daily number.
 - Phone treats the overlay list as opaque: meter, persist, send to Gemini. Do not
   filter by a hardcoded enum.
 - Overlay GET hydrates **labels** + **estimateGuidance** from the live catalog so
@@ -38,9 +39,11 @@ could not add a marker without an app release.
 - `server/src/db/schema.sql` — table
 - `server/src/data/dietMarkerCatalogSeed.ts` — seed rows
 - `server/src/services/treatmentMarkers.ts` — seed, list, POST, hydrate, validate
-- `server/src/routes/clinic.ts` — GET/POST `/v1/clinic/marker-catalog`
+- `server/src/routes/clinic.ts` — GET `/v1/clinic/marker-catalog` (picker)
+- `server/src/routes/admin.ts` — GET/POST `/v1/admin/marker-catalog`
 - `server/src/services/clinicOverlay.ts` — hydrate on mentor + patient GET
-- `website/clinic/clinic-workspace.js` + i18n — fetch catalog + add-row form
+- `website/admin/index.html` — Marker catalog list + add form
+- `website/clinic/clinic-workspace.js` — picker only (no invent UI)
 - `app/src/services/TreatmentMarkerService.ts` — format check, not allowlist
 - `app/src/i18n/treatmentMarkersCopy.ts` — `markerUiLabel` prefers overlay labels
 
@@ -50,16 +53,17 @@ could not add a marker without an app release.
 - Units always-English: `g` | `mg` | `mcg`. Code suffix must match unit on catalog insert.
 - Clinic types the **number**; catalog owns code/unit/labels/guidance.
 - No parsing My Rules for “150 mcg iodine” (`ai-judgment-not-regex`).
-- Seeded rows upsert on migrate; clinic-added rows (`seeded = false`) are insert-only.
+- Seeded rows upsert on migrate; operator-added rows (`seeded = false`) are insert-only.
 
 ## Acceptance criteria
 
 - [ ] `GET /v1/clinic/marker-catalog` returns seed incl. `IODINE_MCG` after migrate
-- [ ] `POST /v1/clinic/marker-catalog` with `IRON_MG` + EN label → 200; duplicate → 409; `IRON` without suffix → 400
+- [ ] `POST /v1/admin/marker-catalog` with `IRON_MG` + EN label → 200; duplicate → 409; `IRON` without suffix → 400
+- [ ] Non-admin JWT → 403 on admin catalog routes
 - [ ] `PUT …/markers` rejects a code not in the table
 - [ ] Patient overlay markers include `labels` + `estimateGuidance` when the catalog has them
 - [ ] Phone `applyClinicMarkersFromOverlay` keeps an unknown-to-git code if the shape is valid
-- [ ] Portal picker lists catalog rows; “Add to catalog” appears without a new APK
+- [ ] Operator `/admin/` can list + add; clinic patient markers has **no** invent form
 
 ## Out of scope
 

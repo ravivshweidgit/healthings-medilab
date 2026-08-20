@@ -1478,7 +1478,6 @@
     ctx.markerCatalogLoaded = true;
     if (typeof ctx.api !== 'function') {
       ctx.markerCatalog = FALLBACK_MARKER_CATALOG;
-      ctx.canAddMarkerCatalog = false;
       return;
     }
     try {
@@ -1487,10 +1486,8 @@
       const data = await res.json();
       ctx.markerCatalog =
         Array.isArray(data.catalog) && data.catalog.length ? data.catalog : FALLBACK_MARKER_CATALOG;
-      ctx.canAddMarkerCatalog = Boolean(data.canAddCatalog);
     } catch {
       ctx.markerCatalog = FALLBACK_MARKER_CATALOG;
-      ctx.canAddMarkerCatalog = false;
     }
   }
 
@@ -1603,47 +1600,6 @@
       <p class="sub rules-intro">${esc(t('wsTreatAddedSugarHint'))}</p>
       <div class="treat-list">${rows}</div>
       ${addForm}
-      ${
-        ctx.canAddMarkerCatalog
-          ? `<div class="treat-catalog-add" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border, #ddd)">
-        <p class="sub">${esc(t('wsTreatCatalogIntro'))}</p>
-        <div class="treat-add">
-          <label class="treat-field">
-            <span>${esc(t('wsTreatCatalogCode'))}</span>
-            <input type="text" id="treat-cat-code" maxlength="48" placeholder="IRON_MG" dir="ltr" />
-          </label>
-          <label class="treat-field">
-            <span>${esc(t('wsTreatCatalogUnit'))}</span>
-            <select id="treat-cat-unit">
-              <option value="g">g</option>
-              <option value="mg" selected>mg</option>
-              <option value="mcg">mcg</option>
-            </select>
-          </label>
-          <label class="treat-field">
-            <span>${esc(t('wsTreatDirection'))}</span>
-            <select id="treat-cat-dir">
-              <option value="cap">${esc(t('wsTreatCap'))}</option>
-              <option value="floor">${esc(t('wsTreatFloor'))}</option>
-            </select>
-          </label>
-          <label class="treat-field">
-            <span>${esc(t('wsTreatCatalogLabelEn'))}</span>
-            <input type="text" id="treat-cat-en" maxlength="80" dir="ltr" />
-          </label>
-          <label class="treat-field">
-            <span>${esc(t('wsTreatCatalogLabelHe'))}</span>
-            <input type="text" id="treat-cat-he" maxlength="80" dir="rtl" />
-          </label>
-          <label class="treat-field treat-field-wide">
-            <span>${esc(t('wsTreatCatalogGuidance'))}</span>
-            <input type="text" id="treat-cat-hint" maxlength="500" dir="auto" />
-          </label>
-          <button type="button" class="ws-btn secondary" id="treat-catalog-add">${esc(t('wsTreatCatalogAddBtn'))}</button>
-        </div>
-      </div>`
-          : ''
-      }
       <div class="rules-actions" style="margin-top:16px">
         <button type="button" class="ws-btn primary" id="treat-save">${esc(t('wsTreatSave'))}</button>
         <span id="treat-status" class="sub"></span>
@@ -1733,18 +1689,6 @@
       renderMarkers(panel, ctx);
     });
 
-    const catCode = panel.querySelector('#treat-cat-code');
-    const catUnit = panel.querySelector('#treat-cat-unit');
-    catCode?.addEventListener('input', () => {
-      const raw = String(catCode.value || '').toUpperCase().replace(/[^A-Z0-9_]/g, '');
-      if (catCode.value !== raw) catCode.value = raw;
-      if (!catUnit) return;
-      if (raw.endsWith('_MCG')) catUnit.value = 'mcg';
-      else if (raw.endsWith('_MG')) catUnit.value = 'mg';
-      else if (raw.endsWith('_G')) catUnit.value = 'g';
-    });
-    panel.querySelector('#treat-catalog-add')?.addEventListener('click', () => void addCatalogItem(ctx, panel));
-
     panel.querySelectorAll('.treat-remove').forEach((btn) => {
       btn.addEventListener('click', () => {
         const idx = Number(btn.getAttribute('data-idx'));
@@ -1812,59 +1756,6 @@
         </div>
         ${statusLine ? `<p class="sub treat-lab" id="treat-backfill-status">${esc(statusLine)}</p>` : '<p class="sub treat-lab" id="treat-backfill-status"></p>'}
       </div>`;
-  }
-
-  async function addCatalogItem(ctx, panel) {
-    const err = panel.querySelector('#treat-error');
-    const status = panel.querySelector('#treat-status');
-    if (err) {
-      err.hidden = true;
-      err.innerHTML = '';
-    }
-    const code = String(panel.querySelector('#treat-cat-code')?.value || '')
-      .trim()
-      .toUpperCase();
-    const unit = panel.querySelector('#treat-cat-unit')?.value;
-    const defaultDirection =
-      panel.querySelector('#treat-cat-dir')?.value === 'cap' ? 'cap' : 'floor';
-    const en = String(panel.querySelector('#treat-cat-en')?.value || '').trim();
-    const he = String(panel.querySelector('#treat-cat-he')?.value || '').trim();
-    const estimateGuidance = String(panel.querySelector('#treat-cat-hint')?.value || '').trim();
-    if (!code || !en || (unit !== 'g' && unit !== 'mg' && unit !== 'mcg')) {
-      if (err) {
-        err.hidden = false;
-        err.innerHTML = `<span>${esc(t('wsTreatCatalogNeedFields'))}</span>`;
-      }
-      return;
-    }
-    try {
-      const labels = { en: { full: en, short: en } };
-      if (he) labels.he = { full: he, short: he };
-      const res = await ctx.api('/v1/clinic/marker-catalog', {
-        method: 'POST',
-        body: JSON.stringify({
-          code,
-          unit,
-          defaultDirection,
-          labels,
-          ...(estimateGuidance ? { estimateGuidance } : {}),
-        }),
-      });
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.error || t('wsTreatCatalogFailed'));
-      }
-      ctx.markerCatalogLoaded = false;
-      await ensureMarkerCatalog(ctx);
-      if (status) status.textContent = t('wsTreatCatalogAdded');
-      renderMarkers(panel, ctx);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : t('wsTreatCatalogFailed');
-      if (err) {
-        err.hidden = false;
-        err.innerHTML = `<span>${esc(msg)}</span>`;
-      }
-    }
   }
 
   async function requestBackfill(ctx, panel) {

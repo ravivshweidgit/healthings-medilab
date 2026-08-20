@@ -14,6 +14,7 @@ import { registerSyncRoutes } from './routes/sync.js';
 import { registerAccountRoutes } from './routes/account.js';
 import { registerAccountBackupRoutes } from './routes/accountBackup.js';
 import { registerClinicRoutes } from './routes/clinic.js';
+import { registerAdminRoutes } from './routes/admin.js';
 import { registerAiRoutes } from './routes/ai.js';
 import { registerLabCatalogRoutes } from './routes/labCatalog.js';
 import { registerWithingsRoutes } from './routes/withings.js';
@@ -65,6 +66,7 @@ async function main() {
   await registerAccountRoutes(app);
   await registerAccountBackupRoutes(app);
   await registerClinicRoutes(app);
+  await registerAdminRoutes(app);
   await registerAiRoutes(app);
   await registerLabCatalogRoutes(app);
   await registerWithingsRoutes(app);
