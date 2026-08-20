@@ -1478,6 +1478,7 @@
     ctx.markerCatalogLoaded = true;
     if (typeof ctx.api !== 'function') {
       ctx.markerCatalog = FALLBACK_MARKER_CATALOG;
+      ctx.canAddMarkerCatalog = false;
       return;
     }
     try {
@@ -1486,8 +1487,10 @@
       const data = await res.json();
       ctx.markerCatalog =
         Array.isArray(data.catalog) && data.catalog.length ? data.catalog : FALLBACK_MARKER_CATALOG;
+      ctx.canAddMarkerCatalog = Boolean(data.canAddCatalog);
     } catch {
       ctx.markerCatalog = FALLBACK_MARKER_CATALOG;
+      ctx.canAddMarkerCatalog = false;
     }
   }
 
@@ -1600,7 +1603,9 @@
       <p class="sub rules-intro">${esc(t('wsTreatAddedSugarHint'))}</p>
       <div class="treat-list">${rows}</div>
       ${addForm}
-      <div class="treat-catalog-add" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border, #ddd)">
+      ${
+        ctx.canAddMarkerCatalog
+          ? `<div class="treat-catalog-add" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border, #ddd)">
         <p class="sub">${esc(t('wsTreatCatalogIntro'))}</p>
         <div class="treat-add">
           <label class="treat-field">
@@ -1636,7 +1641,9 @@
           </label>
           <button type="button" class="ws-btn secondary" id="treat-catalog-add">${esc(t('wsTreatCatalogAddBtn'))}</button>
         </div>
-      </div>
+      </div>`
+          : ''
+      }
       <div class="rules-actions" style="margin-top:16px">
         <button type="button" class="ws-btn primary" id="treat-save">${esc(t('wsTreatSave'))}</button>
         <span id="treat-status" class="sub"></span>

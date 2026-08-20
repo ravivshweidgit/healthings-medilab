@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { isAdminEmail } from '../config.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { findUserById } from '../services/users.js';
 import {
@@ -102,18 +103,26 @@ export async function registerClinicRoutes(app: FastifyInstance) {
     if (user.role !== 'mentor') return reply.code(403).send({ error: 'Requires mentor role' });
     try {
       const catalog = await listDietMarkerCatalog();
-      return { catalog, maxMarkers: 3 };
+      return {
+        catalog,
+        maxMarkers: 3,
+        /** Only operators may invent codes — clinics pick + type the number. */
+        canAddCatalog: isAdminEmail(user.email),
+      };
     } catch (err) {
       request.log.error(err);
       return reply.code(500).send({ error: 'Failed to load marker catalog' });
     }
   });
 
-  /** Add a nutrient to the shared catalog — no app release. Mentors pick it afterward. */
+  /** Add a nutrient to the shared catalog — operator only (be-47). */
   app.post('/v1/clinic/marker-catalog', { preHandler: authenticate }, async (request, reply) => {
     const user = await findUserById(request.userId!);
     if (!user) return reply.code(404).send({ error: 'User not found' });
     if (user.role !== 'mentor') return reply.code(403).send({ error: 'Requires mentor role' });
+    if (!isAdminEmail(user.email)) {
+      return reply.code(403).send({ error: 'Only operators can add catalog items' });
+    }
     const body = z
       .object({
         code: z.string().min(2).max(48),

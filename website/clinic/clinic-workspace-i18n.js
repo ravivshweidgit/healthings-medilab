@@ -2258,7 +2258,7 @@
       wsTreat_IODINE_MCG: 'Iodine',
       wsTreatCatalogLoading: 'Loading marker list…',
       wsTreatCatalogIntro:
-        'Need a nutrient that is not listed? Add it to the shared catalog (code + unit). Then pick it above. Use a canonical code ending in _G, _MG, or _MCG.',
+        'Operator only: add a nutrient to the shared catalog (code + unit). Clinics then pick it above. Use a canonical code ending in _G, _MG, or _MCG.',
       wsTreatCatalogCode: 'Code',
       wsTreatCatalogUnit: 'Unit',
       wsTreatCatalogLabelEn: 'English name',
@@ -2318,7 +2318,7 @@
       wsTreat_IODINE_MCG: 'יוד',
       wsTreatCatalogLoading: 'טוען רשימת מדדים…',
       wsTreatCatalogIntro:
-        'חסר מדד ברשימה? הוסיפו אותו לקטלוג המשותף (קוד + יחידה) ואז בחרו למעלה. קוד באנגלית שמסתיים ב־_G / _MG / _MCG.',
+        'למפעיל בלבד: הוסיפו מדד לקטלוג המשותף (קוד + יחידה). המרפאה בוחרת אותו למעלה. קוד באנגלית שמסתיים ב־_G / _MG / _MCG.',
       wsTreatCatalogCode: 'קוד',
       wsTreatCatalogUnit: 'יחידה',
       wsTreatCatalogLabelEn: 'שם באנגלית',

@@ -26,8 +26,8 @@ could not add a marker without an app release.
 - Catalog lives in Postgres (`diet_marker_catalog`). Seed the existing 9 codes
   (incl. `IODINE_MCG`).
 - Clinic **picks** from the table and types the daily number (max 3).
-- Mentors may **add a catalog row** (canonical `CODE_G|_MG|_MCG` + labels + optional
-  AI estimate hint). That is not an app release.
+- **Operators only** may add a catalog row (`ADMIN_EMAILS` — canonical `CODE_G|_MG|_MCG`
+  + labels + optional AI estimate hint). Clinics only pick + type the daily number.
 - Phone treats the overlay list as opaque: meter, persist, send to Gemini. Do not
   filter by a hardcoded enum.
 - Overlay GET hydrates **labels** + **estimateGuidance** from the live catalog so
@@ -78,6 +78,7 @@ could not add a marker without an app release.
 **Judgment**
 
 - Is mentor POST-to-catalog acceptable, or should only the owner insert rows?
+  → **Owner 2026-08-20:** operator (`ADMIN_EMAILS`) only; clinics pick from the list.
 
 ## Agent checklist
 
