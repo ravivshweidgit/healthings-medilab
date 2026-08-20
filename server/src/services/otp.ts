@@ -35,6 +35,9 @@ export async function createOtpRequest(
   const expiresAt = new Date();
   expiresAt.setMinutes(expiresAt.getMinutes() + OTP.ttlMinutes);
 
+  // One live code per email — older mails must not burn attempts on the new row.
+  await query(`DELETE FROM otp_requests WHERE email = $1`, [normalized]);
+
   await query(
     `INSERT INTO otp_requests (email, code_hash, role, expires_at) VALUES ($1, $2, $3, $4)`,
     [normalized, codeHash, role, expiresAt.toISOString()],
@@ -76,6 +79,9 @@ async function tryVerifyEmailOtp(
   normalized: string,
   code: string,
 ): Promise<{ email: string; role: UserRole } | null> {
+  const trimmed = String(code || '').trim();
+  if (!trimmed) return null;
+
   const { rows } = await query<{
     id: string;
     code_hash: string;
@@ -86,20 +92,23 @@ async function tryVerifyEmailOtp(
     `SELECT id, code_hash, role, expires_at, attempts
      FROM otp_requests
      WHERE email = $1
-     ORDER BY created_at DESC
-     LIMIT 1`,
-    [normalized],
+       AND expires_at > NOW()
+       AND attempts < $2
+     ORDER BY created_at DESC`,
+    [normalized, OTP.maxAttempts],
   );
 
-  const row = rows[0];
-  if (!row) return null;
-  if (row.attempts >= OTP.maxAttempts) return null;
-  if (new Date(row.expires_at) < new Date()) return null;
+  if (!rows.length) return null;
 
-  const ok = verifySecret(code, row.code_hash);
-  await query(`UPDATE otp_requests SET attempts = attempts + 1 WHERE id = $1`, [row.id]);
-  if (!ok) return null;
+  for (const row of rows) {
+    const ok = verifySecret(trimmed, row.code_hash);
+    if (!ok) {
+      await query(`UPDATE otp_requests SET attempts = attempts + 1 WHERE id = $1`, [row.id]);
+      continue;
+    }
+    await query(`DELETE FROM otp_requests WHERE email = $1`, [normalized]);
+    return { email: normalized, role: row.role ?? 'patient' };
+  }
 
-  await query(`DELETE FROM otp_requests WHERE email = $1`, [normalized]);
-  return { email: normalized, role: row.role ?? 'patient' };
+  return null;
 }
