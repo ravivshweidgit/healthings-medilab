@@ -21,6 +21,11 @@
         align-items: center;
         box-sizing: border-box;
       }
+      /* Author display:flex/grid beats the UA [hidden] rule — same bug clinic pager had. */
+      .admin-login-wrap[hidden],
+      .admin-shell[hidden] {
+        display: none !important;
+      }
       .admin-login-wrap .login-card {
         width: 100%;
         padding: 28px 24px 24px;

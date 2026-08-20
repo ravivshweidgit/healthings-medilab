@@ -27,15 +27,17 @@ export class InviteEmailSendError extends Error {
  */
 export type OtpPurpose = 'sign-in' | 'account-deletion';
 
-const OTP_COPY: Record<OtpPurpose, { subject: string; body: (code: string) => string }> = {
+const OTP_COPY: Record<OtpPurpose, { subject: (code: string) => string; body: (code: string) => string }> = {
   'sign-in': {
-    subject: 'Your Healthings sign-in code',
+    // Code in subject so Gmail threads don't make you copy an older mail.
+    subject: (code) => `Healthings sign-in code ${code}`,
     body: (code) =>
       `Your sign-in code is ${code}. It expires in 10 minutes.\n\n` +
+      `This replaces any earlier code — use only this newest one.\n\n` +
       `If you did not request this, ignore this email.`,
   },
   'account-deletion': {
-    subject: 'Confirm deleting your Healthings account',
+    subject: () => 'Confirm deleting your Healthings account',
     body: (code) =>
       `Your account deletion code is ${code}. It expires in 10 minutes.\n\n` +
       `Entering it permanently deletes your Healthings account and everything we ` +
@@ -181,7 +183,7 @@ export async function sendOtpEmail(
   try {
     await deliverMail({
       to: email,
-      subject,
+      subject: subject(code),
       text: body(code),
       logTag: purpose === 'account-deletion' ? 'OTP-delete' : 'OTP',
     });
