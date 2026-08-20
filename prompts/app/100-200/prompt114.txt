@@ -1,0 +1,96 @@
+prompt114 — Clinic live macro bounds on the phone (meters + HARD)
+
+Status: backlog (spec draft 2026-08-18, owner + Auto)
+Builds on: prompt110 (markers HARD + meters), prompt42/35 (macro auto-apply)
+Depends on: be-45 (server + portal — MUST ship first; this pulls what be-45 creates)
+Model to implement: Auto (wiring); changing bound axes / HARD vs FLEX / C vs C−Fi identity is a
+clinical call — stop and ask the owner (model-budget spend trigger)
+
+## Problem
+
+Clinic will save live **macro bounds** (floor and/or ceiling per axis, HARD or FLEX) on the
+same overlay as rules. The phone still meters a single point `daily_macro_target` (`116/80g`)
+with no ≤ ≥, and auto-apply can overwrite a kidney protein cap. After be-45, the Food Log
+must show what the clinic ordered, and Gemini must not break HARD bounds.
+
+## Design rules
+
+- Bounds are **structured** (`axis`, `direction`, `value`, `strength`). Never parse rules
+  text for grams (`ai-judgment-not-regex`).
+- **Logged food:** `net = C − Fi` always (code math). **Orders:** C and C−Fi are independent.
+- HARD clinic bounds beat phone point targets on that axis. FLEX is a guide only (no ≤ ≥,
+  auto-apply may move).
+- Unordered axes keep today’s `eaten / daily_macro_target` (no sign).
+- Same overlay pull as rules/markers (`GET /v1/clinic/overlays`). Persistence parity:
+  canonical key, backup + clinic export.
+
+## What ships
+
+### A. Pull + storage
+
+- `ClinicOverlayService.pullClinicOverlaysFull` reads `overlay.macros` → store
+  `healthings:clinicMacroBounds`
+  `{ bounds: MacroBound[], updatedAt, source: 'clinic' }`.
+- New `ClinicMacroBoundsService.ts` (load/save/types + feasibility helpers shared conceptually
+  with server: one floor + one ceiling per axis, floor < ceiling).
+- Key on backup / ShareExport / cloud backup inclusion lists.
+- Empty or null overlay macros → clear clinic bounds (do not invent defaults).
+
+### B. Food Log meters (`FoodMacroStrip` `MacroBar`)
+
+For each of kcal, P, C, F, Fi, C−Fi:
+
+| Clinic HARD on that axis | Right-hand text | Color |
+|---|---|---|
+| ceiling only | `today ≤ N` + unit | red if today > N (keep ~5% slack only if we already had it for caps; **do not** slack HARD clinic caps — owner: 113 allowed, 114 not) |
+| floor only | `today ≥ N` | green if today ≥ N (same as Fi/H2O today) |
+| both | `today  lo–hi` e.g. `102  90–113g` | in range = ok; below floor or above ceiling = red |
+| none / FLEX only | keep `today/pointTarget` (current) | current rules |
+
+Examples (owner): `102  90–113g` on P; `66 ≤ 43g` on C−Fi; `116 ≥ 65g` if C is a floor.
+
+FLEX clinic numbers: do **not** show ≤ ≥. Optional later: faint caption — v1 skip.
+
+Marker rows (SatF, SolFi) already clinic-set: add the same ≤ ≥ treatment so the strip is consistent (`8 ≤ 15g`, `25 ≥ 10g`). H2O stays a local floor (`≥`).
+
+Compact header subtitle when any HARD bound exists: e.g. `P 90–113 · C-Fi ≤43` plus existing clinic marker bits. `Set by your clinic` stays under marker rows; HARD macros can share that hint when any HARD bound is present.
+
+### C. HARD wiring — every AI macro surface
+
+Pass clinic HARD bounds into:
+
+- `macroAutoAdjust` / weigh-in / lab revision
+- mentor chat context
+- meal rule-check if it already receives markers
+
+Verbatim block, e.g. `HARD from clinic: protein_g floor 90 g/day; protein_g ceiling 113 g/day; net_carb_g ceiling 43 g/day`. Judgment in the prompt; clamp/reject in **code** after Gemini returns a point target so P/C/F/kcal cannot land outside HARD bands. If Gemini omits an unordered axis, leave phone point target as today.
+
+Auto-apply must never emit a point that violates HARD (same as prompt110 markers). If conflict is unavoidable, keep the clinic bound and say so in reasoning.
+
+FLEX bounds: include as “FLEX guide” in the prompt only; do not clamp.
+
+### D. My Macros strip
+
+Patient must **not** edit HARD clinic axes (view-only numbers + signs). Unordered axes stay editable / analyzable. If all classic axes are HARD-banded, Analyze still runs for FLEX kcal/fat fill but cannot move HARD rows.
+
+## Out of scope
+
+- Portal editor / propose Gemini → be-45
+- Replacing `daily_macro_target` schema with bounds-only (point target remains for unordered axes)
+- Translating clinic `reasoning` into `appLocale`
+- WebSocket live update (open / pull-to-refresh is live, same as rules)
+
+## Phone-tested
+
+- [ ] Clinic PUT P floor 90 + ceiling 113 + C−Fi ceiling 43 → phone pull → meters match signs
+- [ ] Clear bounds on clinic → signs gone, old `102/112g` style back
+- [ ] C floor 65 + C−Fi ceiling 43: C can be green while C−Fi is red on the same day
+- [ ] Weigh-in auto-apply does not set P > 113
+- [ ] Backup / restore keeps bounds
+- [ ] he UI: labels RTL, `90–113g` LTR
+
+## Related
+
+- be-45 — overlay + clinic UI + propose prompt
+- prompt110 — treatment markers (SatF etc.); do not merge into macro bounds
+- prompt42 / 35 — auto-apply
