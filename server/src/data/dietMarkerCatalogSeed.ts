@@ -29,6 +29,11 @@ const IODINE_GUIDANCE =
   'dairy, eggs, fish/seafood, seaweed, and iodine-fortified foods. Un-iodized salt and most ' +
   'fresh produce contribute little. Do **not** copy sodium_mg into this field.';
 
+const SELENIUM_GUIDANCE =
+  'SELENIUM_MCG (selenium_mcg): estimate dietary selenium in **mcg** (not mg). Count Brazil nuts, ' +
+  'seafood, organ meats, eggs, poultry, and whole grains when relevant. Amounts vary a lot by soil; ' +
+  'prefer typical food averages. Do **not** copy iodine_mcg or sodium_mg into this field.';
+
 export const DIET_MARKER_CATALOG_SEED: DietMarkerCatalogSeedRow[] = [
   {
     code: 'SAT_FAT_G',
@@ -130,5 +135,17 @@ export const DIET_MARKER_CATALOG_SEED: DietMarkerCatalogSeedRow[] = [
     },
     estimateGuidance: IODINE_GUIDANCE,
     sortOrder: 90,
+  },
+  {
+    code: 'SELENIUM_MCG',
+    unit: 'mcg',
+    defaultDirection: 'floor',
+    linkedLabCodes: ['TSH'],
+    labels: {
+      en: { short: 'Se', full: 'Selenium' },
+      he: { short: 'סלניום', full: 'סלניום' },
+    },
+    estimateGuidance: SELENIUM_GUIDANCE,
+    sortOrder: 100,
   },
 ];

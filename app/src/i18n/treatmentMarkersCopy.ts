@@ -30,6 +30,7 @@ const SHORT_EN: Record<string, string> = {
   POTASSIUM_MG: 'K',
   PHOSPHORUS_MG: 'P',
   IODINE_MCG: 'Iod',
+  SELENIUM_MCG: 'Se',
 };
 
 const FULL_EN: Record<string, string> = {
@@ -42,6 +43,7 @@ const FULL_EN: Record<string, string> = {
   POTASSIUM_MG: 'Potassium',
   PHOSPHORUS_MG: 'Phosphorus',
   IODINE_MCG: 'Iodine',
+  SELENIUM_MCG: 'Selenium',
 };
 
 const EN: TreatmentMarkersCopy = {
@@ -84,6 +86,7 @@ const HE: TreatmentMarkersCopy = {
     POTASSIUM_MG: 'אשלגן',
     PHOSPHORUS_MG: 'זרחן',
     IODINE_MCG: 'יוד',
+    SELENIUM_MCG: 'סלניום',
   },
   fullLabel: {
     SAT_FAT_G: 'שומן רווי',
@@ -95,6 +98,7 @@ const HE: TreatmentMarkersCopy = {
     POTASSIUM_MG: 'אשלגן',
     PHOSPHORUS_MG: 'זרחן',
     IODINE_MCG: 'יוד',
+    SELENIUM_MCG: 'סלניום',
   },
 };
 

@@ -1411,6 +1411,7 @@
     { code: 'POTASSIUM_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: ['CREATININE', 'UREA'] },
     { code: 'PHOSPHORUS_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: ['CREATININE', 'UREA'] },
     { code: 'IODINE_MCG', unit: 'mcg', defaultDirection: 'floor', linkedLabCodes: ['TSH'] },
+    { code: 'SELENIUM_MCG', unit: 'mcg', defaultDirection: 'floor', linkedLabCodes: ['TSH'] },
   ];
   const MAX_TREAT_MARKERS = 3;
 
