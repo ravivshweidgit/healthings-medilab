@@ -2420,6 +2420,20 @@
     return `<button type="button" class="ws-tab${activeId === tab.id ? ' active' : ''}" data-tab="${tab.id}">${esc(t(labelKey))}${live}</button>`;
   }
 
+  function formatClientLabel(platform, appVersion, build) {
+    if (!platform && !appVersion && !build) return '';
+    const os =
+      platform === 'android'
+        ? 'Android'
+        : platform === 'ios'
+          ? 'iOS'
+          : platform
+            ? String(platform)
+            : '?';
+    const ver = [appVersion, build ? `(${build})` : ''].filter(Boolean).join(' ').trim();
+    return ver ? `${os} · ${ver}` : os;
+  }
+
   function renderPatientBanner(el, ctx, displayName) {
     if (!el) return;
     const p = ctx.parsed?.profile || {};
@@ -2445,6 +2459,14 @@
     // Account only: muted chip after Synced (not before the name — that competed with identity).
     const readonlyChip = ctx.selfView
       ? `<span class="chip off ws-case-readonly" title="${esc(t('wsMealReadonlySelf'))}">${esc(t('wsBannerReadonly'))}</span>`
+      : '';
+    const clientLabel = formatClientLabel(
+      ctx.client?.platform,
+      ctx.client?.appVersion,
+      ctx.client?.build,
+    );
+    const clientChip = clientLabel
+      ? `<span class="chip off ws-banner-client" title="${esc(t('wsBannerClientTip'))}">${esc(clientLabel)}</span>`
       : '';
 
     const stats = body
@@ -2473,6 +2495,7 @@
         <h1 class="ws-banner-name" dir="auto">${esc(name)}</h1>
         <span class="ws-banner-identity">${esc(identity)}</span>
         <span class="chip ${n > 0 ? 'ok' : 'off'}">${esc(rulesLabel)}</span>
+        ${clientChip}
         <div class="ws-banner-stats" title="${esc(scanTitle)}">${stats}</div>
         <span class="ws-banner-sync" title="${esc(supportMetaTitle(ctx.blob))}">${esc(syncLabel)}</span>
         ${readonlyChip}

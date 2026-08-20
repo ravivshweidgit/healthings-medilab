@@ -8,6 +8,7 @@ import {
   saveCachedAuthUser,
 } from './AuthTokenStore';
 import { fetchWithTimeout, isAbortError } from './fetchWithTimeout';
+import { clientIdentityHeaders } from './ClientIdentity';
 
 export type UserRole = 'patient' | 'mentor';
 
@@ -150,6 +151,9 @@ export async function authFetch(
   const accessToken = opts?.accessToken ?? (await loadAuthTokens()).accessToken;
   if (accessToken) {
     headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+  for (const [k, v] of Object.entries(clientIdentityHeaders())) {
+    if (!headers.has(k)) headers.set(k, v);
   }
 
   const res = await fetchWithTimeout(

@@ -975,6 +975,24 @@
           tdSync.dataset.label = t('colSync');
           tdSync.textContent = share.status === 'approved' ? relativeSync(share.lastSyncAt) : '—';
           if (share.lastSyncAt) tdSync.title = formatExpiry(share.lastSyncAt);
+          const clientBits = [];
+          if (share.patientClientPlatform === 'android') clientBits.push('Android');
+          else if (share.patientClientPlatform === 'ios') clientBits.push('iOS');
+          else if (share.patientClientPlatform) clientBits.push(share.patientClientPlatform);
+          if (share.patientClientAppVersion) {
+            clientBits.push(
+              share.patientClientBuild
+                ? `${share.patientClientAppVersion} (${share.patientClientBuild})`
+                : share.patientClientAppVersion,
+            );
+          }
+          if (clientBits.length) {
+            const clientLine = document.createElement('div');
+            clientLine.className = 'sync-client meta';
+            clientLine.textContent = clientBits.join(' · ');
+            if (share.patientClientSeenAt) clientLine.title = formatExpiry(share.patientClientSeenAt);
+            tdSync.appendChild(clientLine);
+          }
 
           const tdSp = document.createElement('td');
           tdSp.className = 'sponsor-cell';

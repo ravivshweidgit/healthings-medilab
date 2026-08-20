@@ -20,6 +20,13 @@ export type PublicUser = {
   /** Google Authenticator (TOTP) confirmed for this account. */
   totpEnabled: boolean;
   createdAt: string;
+  /** Last phone OS seen via X-Healthings-Platform (android|ios|…). */
+  lastClientPlatform?: string | null;
+  /** Marketing app version, e.g. 1.2.40 */
+  lastClientAppVersion?: string | null;
+  /** Native build number / versionCode */
+  lastClientBuild?: string | null;
+  lastClientSeenAt?: string | null;
 };
 
 export type AccessClaims = {

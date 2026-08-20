@@ -36,6 +36,7 @@ Run in this order. The reason is the dependency, not preference.
 | `be-45-clinic-live-macro-bounds.md` | Clinic live P/C/F/Fi/C−Fi/kcal bounds (floor+ceiling, HARD/FLEX) | ready | **Michal plan first:** `be-45-michal-plan.md`. Then overlay + portal. Then prompt114 |
 | `be-46-clinic-chat-not-live-rules.md` | Chat must not claim live rules | needs-review | Prompt HARD + Rules-tab hint; no auto-apply from chat |
 | `be-47-generic-marker-catalog.md` | Treatment markers as a DB catalog | needs-review | New nutrient = catalog row, not APK. Phone opaque overlay. VPS migrate + portal deploy pending |
+| `be-48-client-platform-build.md` | Last Android/iOS + app build on user | needs-review | Headers on authFetch; clinic worklist + banner |
 
 
 

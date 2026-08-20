@@ -15,9 +15,14 @@ type UserRow = {
   web_view_enabled: boolean;
   totp_enabled_at: Date | null;
   created_at: Date;
+  last_client_platform?: string | null;
+  last_client_app_version?: string | null;
+  last_client_build?: string | null;
+  last_client_seen_at?: Date | null;
 };
 
 const NAME_MAX = 80;
+const CLIENT_FIELD_MAX = 32;
 
 function normalizeName(raw: string | null | undefined): string | null {
   if (raw == null) return null;
@@ -38,6 +43,10 @@ function toPublicUser(row: UserRow): PublicUser {
     webViewEnabled: row.web_view_enabled ?? false,
     totpEnabled: Boolean(row.totp_enabled_at),
     createdAt: row.created_at.toISOString(),
+    lastClientPlatform: row.last_client_platform ?? null,
+    lastClientAppVersion: row.last_client_app_version ?? null,
+    lastClientBuild: row.last_client_build ?? null,
+    lastClientSeenAt: row.last_client_seen_at?.toISOString() ?? null,
   };
 }
 
@@ -151,4 +160,42 @@ export async function updateUserNames(
     ],
   );
   return rows[0] ? toPublicUser(rows[0]) : null;
+}
+
+const CLIENT_PLATFORMS = new Set(['android', 'ios', 'web', 'unknown']);
+
+function cleanClientField(raw: unknown): string | null {
+  if (raw == null) return null;
+  const s = String(raw).trim().slice(0, CLIENT_FIELD_MAX);
+  return s || null;
+}
+
+/**
+ * Persist last phone OS + app build from X-Healthings-* headers.
+ * Fire-and-forget from authenticate — never blocks the request on failure.
+ */
+export async function touchLastClientIdentity(
+  userId: string,
+  headers: Record<string, string | string[] | undefined>,
+): Promise<void> {
+  const get = (name: string): string | null => {
+    const v = headers[name] ?? headers[name.toLowerCase()];
+    if (Array.isArray(v)) return cleanClientField(v[0]);
+    return cleanClientField(v);
+  };
+  const platform = get('x-healthings-platform');
+  const appVersion = get('x-healthings-app-version');
+  const build = get('x-healthings-build');
+  if (!platform && !appVersion && !build) return;
+  if (platform && !CLIENT_PLATFORMS.has(platform)) return;
+
+  await query(
+    `UPDATE users SET
+       last_client_platform = COALESCE($2, last_client_platform),
+       last_client_app_version = COALESCE($3, last_client_app_version),
+       last_client_build = COALESCE($4, last_client_build),
+       last_client_seen_at = NOW()
+     WHERE id = $1`,
+    [userId, platform, appVersion, build],
+  );
 }

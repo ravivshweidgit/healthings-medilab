@@ -16,6 +16,7 @@ import {
   syncMetricsStore,
   type MetricsPersistedStore,
 } from './MetricsPersistenceService';
+import { getClientIdentity } from './ClientIdentity';
 const LEGACY_WITHINGS_STORE_KEY = 'healthings:withingsStore';
 
 /** Standard clinic snapshot window — ~1y; gzip typically well under 1 MB. */
@@ -51,6 +52,12 @@ export type ClinicExportPayload = {
   app: 'healthings-medilab';
   exportedAt: string;
   lookbackMode: SyncLookbackMode;
+  /** Phone OS + build — also sent as X-Healthings-* on every API call. */
+  client?: {
+    platform: string;
+    appVersion: string;
+    build: string;
+  };
   asyncStorage: Record<string, string>;
 };
 
@@ -213,6 +220,7 @@ export async function buildClinicExport(
     app: EXPORT_APP,
     exportedAt: new Date().toISOString(),
     lookbackMode,
+    client: getClientIdentity(),
     asyncStorage,
   };
 }

@@ -17,6 +17,11 @@ export type PublicShare = {
   patientEmail: string;
   patientFirstName: string | null;
   patientLastName: string | null;
+  /** android | ios | … from last phone API traffic */
+  patientClientPlatform: string | null;
+  patientClientAppVersion: string | null;
+  patientClientBuild: string | null;
+  patientClientSeenAt: string | null;
   mentorId: string;
   mentorEmail: string;
   mentorDisplayName: string | null;
@@ -43,6 +48,10 @@ type ShareRow = {
   mentor_display_name: string | null;
   patient_first_name: string | null;
   patient_last_name: string | null;
+  patient_client_platform: string | null;
+  patient_client_app_version: string | null;
+  patient_client_build: string | null;
+  patient_client_seen_at: Date | null;
   last_sync_at: Date | null;
 };
 
@@ -67,6 +76,10 @@ function toPublicShare(row: ShareRow): PublicShare {
     patientEmail: row.patient_email,
     patientFirstName: row.patient_first_name,
     patientLastName: row.patient_last_name,
+    patientClientPlatform: row.patient_client_platform,
+    patientClientAppVersion: row.patient_client_app_version,
+    patientClientBuild: row.patient_client_build,
+    patientClientSeenAt: row.patient_client_seen_at?.toISOString() ?? null,
     mentorId: row.mentor_id,
     mentorEmail: row.mentor_email,
     mentorDisplayName: row.mentor_display_name,
@@ -85,6 +98,10 @@ const shareSelect = `
          m.display_name AS mentor_display_name,
          p.first_name AS patient_first_name,
          p.last_name AS patient_last_name,
+         p.last_client_platform AS patient_client_platform,
+         p.last_client_app_version AS patient_client_app_version,
+         p.last_client_build AS patient_client_build,
+         p.last_client_seen_at AS patient_client_seen_at,
          snap.created_at AS last_sync_at
   FROM account_shares s
   JOIN users m ON m.id = s.mentor_id

@@ -79,6 +79,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_users_gmail_canonical
   ON users (gmail_canonical)
   WHERE gmail_canonical IS NOT NULL;
 
+-- Last phone/app identity seen on authenticated API traffic (clinic support).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_client_platform TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_client_app_version TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_client_build TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_client_seen_at TIMESTAMPTZ;
+
 CREATE TABLE IF NOT EXISTS otp_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email CITEXT NOT NULL,

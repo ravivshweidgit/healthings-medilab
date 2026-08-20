@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { verifyAccessToken } from '../services/jwt.js';
+import { touchLastClientIdentity } from '../services/users.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -22,4 +23,6 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
   } catch {
     return reply.code(401).send({ error: 'Invalid or expired token' });
   }
+  // Best-effort — do not fail the request if identity write fails.
+  void touchLastClientIdentity(request.userId!, request.headers).catch(() => undefined);
 }
