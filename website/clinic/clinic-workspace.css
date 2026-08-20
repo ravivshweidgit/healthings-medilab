@@ -1275,6 +1275,7 @@ h3,
 
 /* Dashboard cards */
 .snapshot-note { font-size: 0.82rem; color: var(--muted); margin: 0 0 16px; }
+.snapshot-note + .chat-rules-note { margin-top: -10px; }
 .nudge-strip {
   display: flex;
   align-items: center;

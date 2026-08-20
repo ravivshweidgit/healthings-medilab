@@ -33,6 +33,7 @@ Run in this order. The reason is the dependency, not preference.
 | `be-42-markers-backfill.md` | Clinic-gated past meal marker fill | needs-review | Portal days + phone execute; caps 90d / 80 meals |
 | `be-43-lab-catalog.md` | Lab countries / providers / prompt packs | needs-review | Full ISO ~249 countries; VPS migrate; search picker |
 | `be-44-clinic-chat-satfat-markers.md` | Clinic food log includes **all** treatment markers | needs-review | Stop "הערכה מפירוט" for any clinic-set marker |
+| `be-46-clinic-chat-not-live-rules.md` | Chat must not claim live rules | needs-review | Prompt HARD + Rules-tab hint; no auto-apply from chat |
 
 
 

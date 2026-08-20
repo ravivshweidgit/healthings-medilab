@@ -1065,6 +1065,7 @@
 
     panel.innerHTML = `
       <p class="sub snapshot-note">${esc(t(selfView ? 'wsChatPrivacyNoteSelf' : 'wsChatPrivacyNote'))}</p>
+      <p class="sub snapshot-note chat-rules-note">${esc(t(selfView ? 'wsChatRulesNoteSelf' : 'wsChatRulesNote'))}</p>
       <div class="chat-layout">
         <div class="mentor-nav">
           ${MENTORS.map((m) => `
