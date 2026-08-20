@@ -12,82 +12,298 @@
     <link rel="stylesheet" href="../clinic/clinic-portal.css?v=20260727i" />
     <link rel="stylesheet" href="../clinic/clinic-theme.css?v=20260728e" />
     <style>
-      /* Login stays narrow; signed-in shell is its own wide wrap (v20260728f). */
       .admin-login-wrap {
-        max-width: 480px;
+        max-width: 440px;
         margin: 0 auto;
-        padding: 24px 16px 48px;
-      }
-      .admin-app-wrap {
-        max-width: min(1400px, 96vw);
-        width: 100%;
-        margin: 0 auto;
-        padding: 24px 20px 48px;
+        padding: 48px 16px 64px;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
         box-sizing: border-box;
       }
-      .admin-app-wrap .panel-header {
+      .admin-login-wrap .login-card {
+        width: 100%;
+        padding: 28px 24px 24px;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--line);
+        background: var(--surface);
+        box-shadow: var(--shadow-lg);
+      }
+      .admin-login-wrap h1 {
+        font-family: var(--font-display);
+        font-size: 1.5rem;
+        margin: 12px 0 6px;
+        color: var(--navy);
+      }
+
+      body.admin-console {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(1200px 480px at 10% -10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent),
+          radial-gradient(900px 420px at 100% 0%, color-mix(in srgb, var(--bg-sky) 55%, transparent), transparent),
+          var(--bg-page);
+        color: var(--text);
+        font-family: var(--font-text);
+      }
+
+      .admin-shell {
+        display: grid;
+        grid-template-columns: 240px minmax(0, 1fr);
+        min-height: 100vh;
+        width: 100%;
+      }
+
+      .admin-sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 20px 14px;
+        background: color-mix(in srgb, var(--surface) 88%, var(--invert-bg));
+        border-right: 1px solid var(--line);
+        backdrop-filter: blur(12px);
+      }
+      .admin-sidebar .panel-brand {
+        margin: 4px 8px 16px;
+      }
+      .admin-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+      }
+      .admin-nav-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 11px 12px;
+        border: none;
+        border-radius: 10px;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-weight: 600;
+        font-size: 0.92rem;
+        text-align: left;
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+      .admin-nav-btn:hover {
+        background: var(--surface-2);
+        color: var(--text);
+      }
+      .admin-nav-btn[aria-current='page'] {
+        background: var(--accent-light);
+        color: var(--accent-ink);
+      }
+      .admin-nav-ico {
+        width: 1.35rem;
+        height: 1.35rem;
+        border-radius: 7px;
+        display: inline-grid;
+        place-items: center;
+        font-size: 0.75rem;
+        font-weight: 800;
+        background: var(--surface);
+        color: var(--navy);
+        border: 1px solid var(--line);
+        flex-shrink: 0;
+      }
+      .admin-nav-btn[aria-current='page'] .admin-nav-ico {
+        background: var(--accent);
+        color: #fff;
+        border-color: transparent;
+      }
+      .admin-side-foot {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px 8px 4px;
+        border-top: 1px solid var(--line);
+        margin-top: 12px;
+      }
+      .admin-side-foot .portal-select {
+        margin: 0;
+        min-height: 40px;
+      }
+      .admin-side-foot .portal-btn {
+        margin: 0;
+        width: 100%;
+      }
+
+      .admin-main {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        padding: 20px 24px 40px;
+      }
+      .admin-topbar {
         display: flex;
         flex-wrap: wrap;
-        align-items: center;
+        align-items: flex-end;
         justify-content: space-between;
         gap: 12px;
-        margin-bottom: 20px;
+        margin-bottom: 18px;
       }
-      #margin-panel,
-      #active-panel,
-      #catalog-panel {
-        display: block;
-        padding: 20px 24px;
-        margin-bottom: 16px;
+      .admin-topbar h1 {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: clamp(1.35rem, 2.2vw, 1.75rem);
+        color: var(--navy);
+        letter-spacing: -0.02em;
       }
-      #margin-body,
-      #active-body,
-      #catalog-body {
-        overflow-x: auto;
+      .admin-topbar .lead {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 0.92rem;
+        max-width: 52ch;
       }
-      .admin-app-wrap .usage-table {
-        width: 100%;
-        font-size: 0.95rem;
-        table-layout: auto;
+      .admin-topbar-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
       }
-      .admin-app-wrap .usage-table th,
-      .admin-app-wrap .usage-table td {
-        padding: 10px 16px;
-        white-space: nowrap;
-        overflow-wrap: normal;
+      .admin-email-chip {
+        font-size: 0.82rem;
+        color: var(--muted);
+        padding: 6px 10px;
+        border-radius: var(--radius-pill);
+        background: var(--surface);
+        border: 1px solid var(--line);
       }
-      /* Name cells: force one edge so Hebrew dir=auto does not flip column align. */
-      .admin-app-wrap .usage-table th.admin-name,
-      .admin-app-wrap .usage-table td.admin-name {
-        text-align: left;
+
+      .admin-view {
+        display: none;
+        flex-direction: column;
+        gap: 14px;
+        animation: adminIn 0.18s ease;
       }
-      .admin-app-wrap .usage-table td.admin-name > span {
-        display: inline-block;
-        text-align: left;
+      .admin-view.is-active {
+        display: flex;
       }
-      .active-day-nav {
+      @keyframes adminIn {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      .admin-toolbar {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         gap: 8px;
-        margin: 12px 0 8px;
       }
-      .active-day-nav input[type='date'] {
+      .admin-toolbar .portal-input,
+      .admin-toolbar .portal-btn,
+      .admin-toolbar .portal-select {
+        margin: 0;
+        min-height: 40px;
+      }
+      .admin-toolbar .portal-input[type='date'] {
         min-width: 10.5rem;
+        width: auto;
       }
-      .admin-app-wrap .usage-table td.day-link {
+
+      .admin-card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+      }
+      .admin-card-head {
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--line);
+        background: color-mix(in srgb, var(--surface-2) 80%, var(--surface));
+      }
+      .admin-card-head h2 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--navy);
+      }
+      .admin-card-head p {
+        margin: 4px 0 0;
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+      .admin-card-body {
+        padding: 0;
+        overflow-x: auto;
+      }
+      .admin-card-body > .muted {
+        padding: 16px 18px;
+        margin: 0;
+      }
+      .admin-card-body > .muted + .usage-table,
+      .admin-card-body > .usage-table + .muted {
+        /* spacing handled by padding on muted */
+      }
+
+      .admin-shell .usage-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+        table-layout: auto;
+      }
+      .admin-shell .usage-table th,
+      .admin-shell .usage-table td {
+        padding: 11px 16px;
+        white-space: nowrap;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+      }
+      .admin-shell .usage-table th {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        font-weight: 700;
+        background: var(--surface-2);
+        position: sticky;
+        top: 0;
+      }
+      .admin-shell .usage-table tbody tr:hover {
+        background: color-mix(in srgb, var(--accent-light) 55%, transparent);
+      }
+      .admin-shell .usage-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+      .admin-shell .usage-table th.admin-name,
+      .admin-shell .usage-table td.admin-name {
+        text-align: left;
+      }
+      .admin-shell .usage-table td.admin-name > span {
+        display: inline-block;
+        text-align: left;
+      }
+      .admin-shell .usage-table td.day-link {
         cursor: pointer;
+        color: var(--accent-ink);
+        font-weight: 600;
+      }
+      .admin-shell .usage-table td.day-link:hover {
         text-decoration: underline;
         text-underline-offset: 2px;
       }
-      .admin-app-wrap .usage-table td.day-link:hover {
-        color: var(--color-accent, #0b6e4f);
+
+      .catalog-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
+        gap: 14px;
+        align-items: start;
       }
       .catalog-form {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        grid-template-columns: 1fr 1fr;
         gap: 12px;
-        margin: 16px 0 8px;
+        padding: 16px 18px 18px;
         align-items: end;
       }
       .catalog-form .field-wide {
@@ -97,18 +313,72 @@
         display: flex;
         flex-direction: column;
         gap: 4px;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .catalog-form .portal-input,
+      .catalog-form .portal-select {
+        margin: 0;
+      }
+      .catalog-form .portal-btn {
+        margin: 0;
+        grid-column: 1 / -1;
       }
       .catalog-status {
-        margin: 8px 0 0;
+        margin: 0;
+        padding: 0 18px 16px;
         min-height: 1.2em;
+        font-size: 0.85rem;
+      }
+
+      .admin-mobile-nav {
+        display: none;
+      }
+
+      @media (max-width: 900px) {
+        .admin-shell {
+          grid-template-columns: 1fr;
+        }
+        .admin-sidebar {
+          border-right: none;
+          border-bottom: 1px solid var(--line);
+          padding: 12px 12px 8px;
+        }
+        .admin-nav {
+          flex-direction: row;
+          overflow-x: auto;
+          gap: 6px;
+        }
+        .admin-nav-btn {
+          flex: 0 0 auto;
+          white-space: nowrap;
+        }
+        .admin-side-foot {
+          flex-direction: row;
+          align-items: center;
+          margin-top: 8px;
+          padding-top: 10px;
+        }
+        .admin-side-foot .portal-btn {
+          width: auto;
+        }
+        .catalog-layout {
+          grid-template-columns: 1fr;
+        }
+        .admin-main {
+          padding: 16px 14px 32px;
+        }
+        .admin-mobile-nav {
+          display: flex;
+        }
       }
     </style>
   </head>
   <body class="admin-console">
     <div id="login-wrap" class="admin-login-wrap">
-      <section id="login-view" class="card login-card">
-        <a class="panel-brand" href="../index.html" style="margin-bottom: 16px">
+      <section id="login-view" class="login-card">
+        <a class="panel-brand" href="../index.html">
           <img src="../assets/icon.png" alt="" width="36" height="36" />
           <span>
             <span class="panel-brand-text">Healthings</span><br />
@@ -116,7 +386,7 @@
           </span>
         </a>
         <h1>Operator console</h1>
-        <p class="muted">Platform margin + marker catalog — not the clinic portal. Sign in with an operator email.</p>
+        <p class="muted">Platform tools — not the clinic portal. Sign in with an operator email.</p>
 
         <form id="login-form-email">
           <label class="field-label" for="email">Email</label>
@@ -162,96 +432,144 @@
       </section>
     </div>
 
-    <div id="app-wrap" class="admin-app-wrap" hidden>
-      <section id="app-view">
-        <header class="panel-header">
-          <a class="panel-brand" href="../index.html">
-            <img src="../assets/icon.png" alt="" width="36" height="36" />
-            <span>
-              <span class="panel-brand-text">Healthings</span><br />
-              <span class="panel-brand-sub">Operator</span>
-            </span>
-          </a>
-          <div class="panel-header-meta">
-            <span class="muted" id="header-email" dir="ltr"></span>
-            <select
-              id="theme-app"
-              class="portal-select theme-pref-select"
-              data-theme-picker
-              aria-label="Appearance"
-            ></select>
-            <button id="logout" class="portal-btn secondary" type="button">Sign out</button>
+    <div id="app-wrap" class="admin-shell" hidden>
+      <aside class="admin-sidebar" aria-label="Operator navigation">
+        <a class="panel-brand" href="../index.html">
+          <img src="../assets/icon.png" alt="" width="32" height="32" />
+          <span>
+            <span class="panel-brand-text">Healthings</span><br />
+            <span class="panel-brand-sub">Operator</span>
+          </span>
+        </a>
+        <nav class="admin-nav" role="tablist" aria-label="Sections">
+          <button type="button" class="admin-nav-btn" data-view="active" role="tab" aria-controls="active-panel">
+            <span class="admin-nav-ico" aria-hidden="true">A</span>
+            Active users
+          </button>
+          <button type="button" class="admin-nav-btn" data-view="margin" role="tab" aria-controls="margin-panel">
+            <span class="admin-nav-ico" aria-hidden="true">$</span>
+            Margin
+          </button>
+          <button type="button" class="admin-nav-btn" data-view="catalog" role="tab" aria-controls="catalog-panel">
+            <span class="admin-nav-ico" aria-hidden="true">M</span>
+            Marker catalog
+          </button>
+        </nav>
+        <div class="admin-side-foot">
+          <select
+            id="theme-app"
+            class="portal-select theme-pref-select"
+            data-theme-picker
+            aria-label="Appearance"
+          ></select>
+          <button id="logout" class="portal-btn secondary" type="button">Sign out</button>
+        </div>
+      </aside>
+
+      <main class="admin-main">
+        <header class="admin-topbar">
+          <div>
+            <h1 id="view-title">Active users</h1>
+            <p class="lead" id="view-lead">
+              Patients with AI usage on the selected local day.
+            </p>
+          </div>
+          <div class="admin-topbar-meta">
+            <span class="admin-email-chip" id="header-email" dir="ltr"></span>
           </div>
         </header>
 
-        <div id="active-panel" class="secondary-panel">
-          <h2 style="margin: 0 0 4px">Active users</h2>
-          <p class="muted" id="active-lead">
-            Patients with AI usage on the selected local day — last time shown in your timezone.
-          </p>
-          <div class="active-day-nav">
+        <p id="app-error" class="error" role="alert" hidden></p>
+
+        <section id="active-panel" class="admin-view" data-view-panel="active" role="tabpanel">
+          <div class="admin-toolbar">
             <button id="active-prev" class="portal-btn secondary" type="button">← Prev</button>
             <input id="active-date" class="portal-input" type="date" aria-label="Active day" />
             <button id="active-today" class="portal-btn secondary" type="button">Today</button>
             <button id="active-next" class="portal-btn secondary" type="button">Next →</button>
           </div>
-          <div id="active-body"></div>
-        </div>
+          <div class="admin-card">
+            <div class="admin-card-head">
+              <h2>Who used AI</h2>
+              <p id="active-lead">Last time shown in your timezone.</p>
+            </div>
+            <div class="admin-card-body" id="active-body"></div>
+          </div>
+        </section>
 
-        <div id="margin-panel" class="secondary-panel">
-          <h2 style="margin: 0 0 4px">Margin</h2>
-          <p class="muted" id="margin-lead">
-            Credit revenue vs estimated Gemini cost — all payers. Internal estimate, not a Google bill.
-          </p>
-          <div id="margin-body"></div>
-        </div>
+        <section id="margin-panel" class="admin-view" data-view-panel="margin" role="tabpanel">
+          <div class="admin-card">
+            <div class="admin-card-head">
+              <h2>Last 30 days</h2>
+              <p id="margin-lead">
+                Credit revenue vs estimated Gemini cost — internal estimate, not a Google bill.
+              </p>
+            </div>
+            <div class="admin-card-body" id="margin-body"></div>
+          </div>
+        </section>
 
-        <div id="catalog-panel" class="secondary-panel">
-          <h2 style="margin: 0 0 4px">Marker catalog</h2>
-          <p class="muted">
-            Shared nutrient codes clinics pick for Treatment markers. Invent codes here — never in the
-            clinic portal.
-          </p>
-          <div id="catalog-body"></div>
-          <form id="catalog-form" class="catalog-form">
-            <label>
-              Code
-              <input id="cat-code" class="portal-input" type="text" maxlength="48" placeholder="IODINE_MCG" dir="ltr" required />
-            </label>
-            <label>
-              Unit
-              <select id="cat-unit" class="portal-select">
-                <option value="g">g</option>
-                <option value="mg">mg</option>
-                <option value="mcg" selected>mcg</option>
-              </select>
-            </label>
-            <label>
-              Default
-              <select id="cat-dir" class="portal-select">
-                <option value="floor" selected>floor</option>
-                <option value="cap">cap</option>
-              </select>
-            </label>
-            <label>
-              Label (EN)
-              <input id="cat-en" class="portal-input" type="text" maxlength="80" dir="ltr" required />
-            </label>
-            <label>
-              Label (HE)
-              <input id="cat-he" class="portal-input" type="text" maxlength="80" dir="rtl" />
-            </label>
-            <label class="field-wide">
-              Estimate guidance (phone AI)
-              <input id="cat-hint" class="portal-input" type="text" maxlength="500" dir="auto" />
-            </label>
-            <button id="cat-add" class="portal-btn" type="submit">Add to catalog</button>
-          </form>
-          <p id="catalog-status" class="muted catalog-status" role="status"></p>
-        </div>
-
-        <p id="app-error" class="error" role="alert" hidden></p>
-      </section>
+        <section id="catalog-panel" class="admin-view" data-view-panel="catalog" role="tabpanel">
+          <div class="catalog-layout">
+            <div class="admin-card">
+              <div class="admin-card-head">
+                <h2>Shared catalog</h2>
+                <p>Codes clinics pick for Treatment markers.</p>
+              </div>
+              <div class="admin-card-body" id="catalog-body"></div>
+            </div>
+            <div class="admin-card">
+              <div class="admin-card-head">
+                <h2>Add nutrient</h2>
+                <p>Invent codes here — never in the clinic portal.</p>
+              </div>
+              <form id="catalog-form" class="catalog-form">
+                <label>
+                  Code
+                  <input
+                    id="cat-code"
+                    class="portal-input"
+                    type="text"
+                    maxlength="48"
+                    placeholder="IODINE_MCG"
+                    dir="ltr"
+                    required
+                  />
+                </label>
+                <label>
+                  Unit
+                  <select id="cat-unit" class="portal-select">
+                    <option value="g">g</option>
+                    <option value="mg">mg</option>
+                    <option value="mcg" selected>mcg</option>
+                  </select>
+                </label>
+                <label>
+                  Default
+                  <select id="cat-dir" class="portal-select">
+                    <option value="floor" selected>floor</option>
+                    <option value="cap">cap</option>
+                  </select>
+                </label>
+                <label>
+                  Label (EN)
+                  <input id="cat-en" class="portal-input" type="text" maxlength="80" dir="ltr" required />
+                </label>
+                <label class="field-wide">
+                  Label (HE)
+                  <input id="cat-he" class="portal-input" type="text" maxlength="80" dir="rtl" />
+                </label>
+                <label class="field-wide">
+                  Estimate guidance (phone AI)
+                  <input id="cat-hint" class="portal-input" type="text" maxlength="500" dir="auto" />
+                </label>
+                <button id="cat-add" class="portal-btn" type="submit">Add to catalog</button>
+              </form>
+              <p id="catalog-status" class="muted catalog-status" role="status"></p>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
 
     <script src="../clinic/clinic-theme.js?v=20260727c"></script>
@@ -261,9 +579,25 @@
         'healthings_admin_tokens',
       );
 
+      const VIEW_META = {
+        active: {
+          title: 'Active users',
+          lead: 'Patients with AI usage on the selected local day.',
+        },
+        margin: {
+          title: 'Margin',
+          lead: 'Credit revenue vs estimated Gemini cost — all payers.',
+        },
+        catalog: {
+          title: 'Marker catalog',
+          lead: 'Shared nutrient codes for clinic Treatment markers.',
+        },
+      };
+
       let loginEmail = '';
       /** YYYY-MM-DD in the operator's local timezone */
       let activeYmd = '';
+      let currentView = 'active';
 
       function showError(el, msg) {
         if (!el) return;
@@ -343,6 +677,33 @@
         } catch {
           return 'local';
         }
+      }
+
+      function showView(name, { pushHash = true } = {}) {
+        if (!VIEW_META[name]) name = 'active';
+        currentView = name;
+        document.querySelectorAll('[data-view-panel]').forEach((panel) => {
+          panel.classList.toggle('is-active', panel.getAttribute('data-view-panel') === name);
+        });
+        document.querySelectorAll('.admin-nav-btn').forEach((btn) => {
+          const on = btn.getAttribute('data-view') === name;
+          if (on) btn.setAttribute('aria-current', 'page');
+          else btn.removeAttribute('aria-current');
+        });
+        const meta = VIEW_META[name];
+        const title = document.getElementById('view-title');
+        const lead = document.getElementById('view-lead');
+        if (title) title.textContent = meta.title;
+        if (lead) lead.textContent = meta.lead;
+        if (pushHash) {
+          const next = '#' + name;
+          if (location.hash !== next) history.replaceState(null, '', next);
+        }
+      }
+
+      function viewFromHash() {
+        const h = (location.hash || '').replace(/^#/, '');
+        return VIEW_META[h] ? h : 'active';
       }
 
       function renderActive(data) {
@@ -440,14 +801,17 @@
               ${row(margin.totals, 'Total', null)}
             </tbody>
           </table>
-          <p class="muted" style="margin: 8px 0 16px">Click a day to see who used AI that day.</p>
+          <p class="muted" style="padding:12px 18px;margin:0;border-top:1px solid var(--line)">
+            Click a day to see who used AI that day.
+          </p>
           <table class="usage-table">
             ${head('Type')}
             <tbody>${margin.byReason.map((r) => row(r, null, null)).join('')}</tbody>
           </table>
-          <p class="muted">${escHtml(margin.totals.eventsWithGemini)} of ${escHtml(
-            margin.totals.events,
-          )} events include Gemini token counts.</p>`;
+          <p class="muted" style="padding:12px 18px;margin:0">
+            ${escHtml(margin.totals.eventsWithGemini)} of ${escHtml(margin.totals.events)} events
+            include Gemini token counts.
+          </p>`;
 
         el.querySelectorAll('td.day-link[data-ymd]').forEach((td) => {
           td.addEventListener('click', () => {
@@ -455,7 +819,7 @@
             if (!ymd) return;
             activeYmd = ymd;
             void loadActive();
-            document.getElementById('active-panel')?.scrollIntoView({ behavior: 'smooth' });
+            showView('active');
           });
         });
       }
@@ -516,6 +880,7 @@
       function showApp() {
         document.getElementById('login-wrap').hidden = true;
         document.getElementById('app-wrap').hidden = false;
+        showView(viewFromHash(), { pushHash: true });
       }
 
       async function loadActive() {
@@ -530,10 +895,7 @@
         } else {
           renderActive(null);
           if (activeRes.status !== 403) {
-            showError(
-              document.getElementById('app-error'),
-              'Could not load active users',
-            );
+            showError(document.getElementById('app-error'), 'Could not load active users');
           }
         }
       }
@@ -581,6 +943,15 @@
         renderMargin(data.margin);
       }
 
+      document.querySelectorAll('.admin-nav-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          showView(btn.getAttribute('data-view') || 'active');
+        });
+      });
+      window.addEventListener('hashchange', () => {
+        showView(viewFromHash(), { pushHash: false });
+      });
+
       document.getElementById('login-form-email').addEventListener('submit', async (e) => {
         e.preventDefault();
         showError(document.getElementById('login-error'), '');
@@ -598,7 +969,9 @@
           });
           if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || (res.status === 403 ? 'Not an operator account' : 'Could not send code'));
+            throw new Error(
+              err.error || (res.status === 403 ? 'Not an operator account' : 'Could not send code'),
+            );
           }
           document.getElementById('email-display').textContent = loginEmail;
           document.getElementById('login-form-email').hidden = true;
