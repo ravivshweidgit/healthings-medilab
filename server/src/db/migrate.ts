@@ -10,6 +10,8 @@ async function migrate() {
   await pool.query(sql);
   const { ensureLabCatalogSeeded } = await import('../services/labCatalog.js');
   await ensureLabCatalogSeeded();
+  const { ensureDietMarkerCatalogSeeded } = await import('../services/treatmentMarkers.js');
+  await ensureDietMarkerCatalogSeeded();
   console.log('Migration complete.');
   await pool.end();
 }

@@ -2253,6 +2253,19 @@
       wsTreat_SODIUM_MG: 'Sodium',
       wsTreat_POTASSIUM_MG: 'Potassium',
       wsTreat_PHOSPHORUS_MG: 'Phosphorus',
+      wsTreat_IODINE_MCG: 'Iodine',
+      wsTreatCatalogLoading: 'Loading marker list…',
+      wsTreatCatalogIntro:
+        'Need a nutrient that is not listed? Add it to the shared catalog (code + unit). Then pick it above. Use a canonical code ending in _G, _MG, or _MCG.',
+      wsTreatCatalogCode: 'Code',
+      wsTreatCatalogUnit: 'Unit',
+      wsTreatCatalogLabelEn: 'English name',
+      wsTreatCatalogLabelHe: 'Hebrew name',
+      wsTreatCatalogGuidance: 'AI estimate hint (optional)',
+      wsTreatCatalogAddBtn: 'Add to catalog',
+      wsTreatCatalogAdded: 'Added to catalog — pick it above',
+      wsTreatCatalogFailed: 'Could not add catalog item',
+      wsTreatCatalogNeedFields: 'Code, unit, and English name are required.',
     },
     he: {
       wsTreatIntro:
@@ -2300,6 +2313,19 @@
       wsTreat_SODIUM_MG: 'נתרן',
       wsTreat_POTASSIUM_MG: 'אשלגן',
       wsTreat_PHOSPHORUS_MG: 'זרחן',
+      wsTreat_IODINE_MCG: 'יוד',
+      wsTreatCatalogLoading: 'טוען רשימת מדדים…',
+      wsTreatCatalogIntro:
+        'חסר מדד ברשימה? הוסיפו אותו לקטלוג המשותף (קוד + יחידה) ואז בחרו למעלה. קוד באנגלית שמסתיים ב־_G / _MG / _MCG.',
+      wsTreatCatalogCode: 'קוד',
+      wsTreatCatalogUnit: 'יחידה',
+      wsTreatCatalogLabelEn: 'שם באנגלית',
+      wsTreatCatalogLabelHe: 'שם בעברית',
+      wsTreatCatalogGuidance: 'רמז להערכת AI (אופציונלי)',
+      wsTreatCatalogAddBtn: 'הוספה לקטלוג',
+      wsTreatCatalogAdded: 'נוסף לקטלוג — בחרו למעלה',
+      wsTreatCatalogFailed: 'לא ניתן להוסיף לקטלוג',
+      wsTreatCatalogNeedFields: 'חובה למלא קוד, יחידה ושם באנגלית.',
     },
   };
 

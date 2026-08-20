@@ -2,7 +2,7 @@
  * Treatment marker labels + Food Log meter copy (prompt110).
  */
 
-import type { DietMarkerCode } from '../services/TreatmentMarkerService';
+import type { TreatmentMarker } from '../services/TreatmentMarkerService';
 
 export type TreatmentMarkersCopy = {
   clinicBadge: string;
@@ -16,11 +16,11 @@ export type TreatmentMarkersCopy = {
   nudgeTitle: string;
   nudgeBody: (markerLabel: string, labCode: string) => string;
   nudgeDismiss: string;
-  shortLabel: Record<DietMarkerCode, string>;
-  fullLabel: Record<DietMarkerCode, string>;
+  shortLabel: Record<string, string>;
+  fullLabel: Record<string, string>;
 };
 
-const SHORT_EN: Record<DietMarkerCode, string> = {
+const SHORT_EN: Record<string, string> = {
   SAT_FAT_G: 'SatF',
   CHOLESTEROL_MG: 'Chol',
   SOLUBLE_FIBER_G: 'SolFi',
@@ -29,9 +29,10 @@ const SHORT_EN: Record<DietMarkerCode, string> = {
   SODIUM_MG: 'Na',
   POTASSIUM_MG: 'K',
   PHOSPHORUS_MG: 'P',
+  IODINE_MCG: 'Iod',
 };
 
-const FULL_EN: Record<DietMarkerCode, string> = {
+const FULL_EN: Record<string, string> = {
   SAT_FAT_G: 'Saturated fat',
   CHOLESTEROL_MG: 'Dietary cholesterol',
   SOLUBLE_FIBER_G: 'Soluble fiber',
@@ -40,6 +41,7 @@ const FULL_EN: Record<DietMarkerCode, string> = {
   SODIUM_MG: 'Sodium',
   POTASSIUM_MG: 'Potassium',
   PHOSPHORUS_MG: 'Phosphorus',
+  IODINE_MCG: 'Iodine',
 };
 
 const EN: TreatmentMarkersCopy = {
@@ -81,6 +83,7 @@ const HE: TreatmentMarkersCopy = {
     SODIUM_MG: 'נתרן',
     POTASSIUM_MG: 'אשלגן',
     PHOSPHORUS_MG: 'זרחן',
+    IODINE_MCG: 'יוד',
   },
   fullLabel: {
     SAT_FAT_G: 'שומן רווי',
@@ -91,6 +94,7 @@ const HE: TreatmentMarkersCopy = {
     SODIUM_MG: 'נתרן',
     POTASSIUM_MG: 'אשלגן',
     PHOSPHORUS_MG: 'זרחן',
+    IODINE_MCG: 'יוד',
   },
 };
 
@@ -99,4 +103,18 @@ export function getTreatmentMarkersCopy(langCode?: string | null): TreatmentMark
   if (c === 'he') return HE;
   // Other locales: English labels for v1 (glossary units stay English anyway).
   return EN;
+}
+
+/** Prefer overlay catalog labels; fall back to built-in copy for older phones. */
+export function markerUiLabel(
+  marker: Pick<TreatmentMarker, 'marker' | 'labels'>,
+  langCode: string | null | undefined,
+  kind: 'short' | 'full',
+): string {
+  const loc = (langCode || 'en').toLowerCase().slice(0, 2);
+  const fromCatalog = marker.labels?.[loc]?.[kind] || marker.labels?.en?.[kind];
+  if (fromCatalog) return fromCatalog;
+  const copy = getTreatmentMarkersCopy(langCode);
+  const map = kind === 'short' ? copy.shortLabel : copy.fullLabel;
+  return map[marker.marker] ?? marker.marker;
 }

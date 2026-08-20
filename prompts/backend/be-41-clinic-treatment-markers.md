@@ -45,6 +45,7 @@ codes. Units stay always-English glossary (`g`, `mg`).
 | `SODIUM_MG` | mg | cap | — (blood pressure, no lab code yet) |
 | `POTASSIUM_MG` | mg | cap or floor | `CREATININE`, `UREA` |
 | `PHOSPHORUS_MG` | mg | cap | `CREATININE`, `UREA` |
+| `IODINE_MCG` | mcg | floor | `TSH` |
 
 Rules:
 
@@ -96,7 +97,7 @@ type TreatmentMarker = {
 ## Portal panel (patient workspace)
 
 - New "Treatment markers" card in the workspace, after the rules card.
-- Add marker: dropdown of the 8 codes, localized labels from the `clinicLocale`
+- Add marker: dropdown of the catalog codes, localized labels from the `clinicLocale`
   catalog (10 languages — extend the same catalog file be-26 filled; **no inline
   strings**). Direction chip (cap/floor), numeric target + fixed unit, optional note.
 - If the patient's snapshot has a lab result whose canonical code appears in a
@@ -140,7 +141,7 @@ draws ("held SAT_FAT_G cap 80 days → LDL 148 → 122"). **Do not build this in
 
 **Judgment calls to check**
 
-- Is the 8-code enum right for the pilot clinics? (Owner + Natali — clinical call, not Auto's)
+- Catalog is 9 seed codes plus clinic-added rows as of be-47 (`diet_marker_catalog`). Further micronutrients are table rows, not APKs.
 - Does "most recent org wins" stay acceptable for markers, or does multi-clinic need resolving sooner than it did for rules?
 
 ## Agent checklist

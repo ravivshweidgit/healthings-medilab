@@ -10,6 +10,7 @@ import type {
   TreatmentMarkersPayload,
   MarkersBackfillRequest,
 } from './treatmentMarkers.js';
+import { hydrateTreatmentMarkers } from './treatmentMarkers.js';
 
 export type ClinicChatMessage = {
   role: 'user' | 'assistant';
@@ -160,7 +161,9 @@ export async function getOverlayForMentor(mentor: PublicUser, patientId: string)
     action: 'chat.read',
   });
 
-  return mergeOverlay(patientId, ruleRows[0], chatRows[0], false);
+  const overlay = mergeOverlay(patientId, ruleRows[0], chatRows[0], false);
+  overlay.markers = await hydrateTreatmentMarkers(overlay.markers);
+  return overlay;
 }
 
 /**
@@ -181,7 +184,9 @@ export async function getOverlayForPatient(patient: PublicUser): Promise<ClinicO
     [patient.id],
   );
   if (!rows[0]) return null;
-  return mergeOverlay(patient.id, rows[0], null, true);
+  const overlay = mergeOverlay(patient.id, rows[0], null, true);
+  overlay.markers = await hydrateTreatmentMarkers(overlay.markers);
+  return overlay;
 }
 
 async function archiveRulesHistory(

@@ -35,7 +35,7 @@ import {
   type TreatmentMarker,
 } from '../services/TreatmentMarkerService';
 import { getAllLabReports, type LabReport } from '../services/LabLogService';
-import { getTreatmentMarkersCopy } from '../i18n/treatmentMarkersCopy';
+import { getTreatmentMarkersCopy, markerUiLabel } from '../i18n/treatmentMarkersCopy';
 import {
   addWaterMl,
   DEFAULT_WATER_GOAL_ML,
@@ -294,7 +294,7 @@ type MacroBarProps = {
   color: string;
   showTarget?: boolean;
   /** Default grams (`g`). Energy/water pass already-converted display values. */
-  unit?: 'g' | 'mg' | 'kcal' | 'kj' | 'ml' | 'floz';
+  unit?: 'g' | 'mg' | 'mcg' | 'kcal' | 'kj' | 'ml' | 'floz';
   /** Hitting the target is the win — no over-target penalty colour (water). */
   goalIsFloor?: boolean;
   onPress?: () => void;
@@ -307,13 +307,13 @@ function MacroBar({ label, value, target, color, showTarget, unit = 'g', goalIsF
   const met = goalIsFloor && target > 0 && value >= target;
   const over = !goalIsFloor && value > target * 1.05;
   const suffix =
-    unit === 'g' ? 'g' : unit === 'mg' ? 'mg' : unit === 'ml' ? 'ml' : unit === 'floz' ? 'fl oz' : unit === 'kj' ? '' : '';
+    unit === 'g' ? 'g' : unit === 'mg' ? 'mg' : unit === 'mcg' ? 'mcg' : unit === 'ml' ? 'ml' : unit === 'floz' ? 'fl oz' : unit === 'kj' ? '' : '';
   const valueText = showTarget
     ? unit === 'kcal' || unit === 'kj'
       ? `${Math.round(value)}/${Math.round(target)}${unit === 'kj' ? '' : ''}`
       : unit === 'floz'
         ? `${value.toFixed(1)}/${target.toFixed(1)}${suffix}`
-        : unit === 'mg'
+        : unit === 'mg' || unit === 'mcg'
           ? `${Math.round(value)}/${Math.round(target)}${suffix}`
           : `${Math.round(value)}/${Math.round(target)}${suffix}`
     : unit === 'kcal'
@@ -1008,7 +1008,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               return (
                 <MacroBar
                   key={m.marker}
-                  label={treatCopy.shortLabel[m.marker] ?? m.marker}
+                  label={markerUiLabel(m, lang?.code, 'short')}
                   value={hasVal ? val! : 0}
                   target={m.dailyTarget}
                   color="#8D6E63"
@@ -1112,7 +1112,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
             {markerDetail ? (
               <>
                 <Text style={[styles.modalTitle, titleRtl && { textAlign: 'right' }]}>
-                  {treatCopy.fullLabel[markerDetail.marker] ?? markerDetail.marker}
+                  {markerUiLabel(markerDetail, lang?.code, 'full')}
                 </Text>
                 <Text style={[styles.modalSub, titleRtl && { textAlign: 'right' }]}>
                   {treatCopy.setByClinic}

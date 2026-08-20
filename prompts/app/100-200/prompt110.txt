@@ -19,13 +19,13 @@ as HARD in every AI macro decision, and show the patient *why* the number exists
 
 - Markers are **structured**, never parsed from rules text. Codes are exact matches
   from the shared enum (SAT_FAT_G, CHOLESTEROL_MG, SOLUBLE_FIBER_G, OMEGA3_G,
-  ADDED_SUGAR_G, SODIUM_MG, POTASSIUM_MG, PHOSPHORUS_MG). No keyword tables
+  ADDED_SUGAR_G, SODIUM_MG, POTASSIUM_MG, PHOSPHORUS_MG, IODINE_MCG). No keyword tables
   (ai-judgment-not-regex).
 - Precedence: clinic-set = HARD (AI may not revise; patient may not edit — view only).
   Phase 2 adds AI-proposed (solo) and user-added soft slots; v1 is clinic-only.
 - Per-meal marker *estimation* is Gemini judgment inside the existing meal call.
   Daily summing, cap/floor comparison, and colors are pure code math.
-- Labels localized both sides from catalogs; units always-English (g, mg).
+- Labels localized both sides from catalogs; units always-English (g, mg, mcg).
 
 ## What ships
 
@@ -77,7 +77,7 @@ as HARD in every AI macro decision, and show the patient *why* the number exists
 - AI-proposed markers for solo users + user-added soft slots — phase 2 (own prompt)
 - Adherence charting in the clinic portal — be-41 phase 2 (needs this data shape)
 - Editing clinic markers in the app; multi-clinic merge (be-41 documents "latest org wins")
-- New micronutrients beyond the 8-code enum (clinical call, owner + clinic)
+- New micronutrients beyond the catalog (clinical call, owner + clinic). Iodine (`IODINE_MCG`, floor, mcg) added 2026-08-20 for Natali.
 - Auto past-meal backfill — **clinic-gated instead** (be-42): portal picks days, phone runs once
 
 ## Files

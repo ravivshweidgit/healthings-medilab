@@ -208,7 +208,7 @@ import {
   type LabMarkerNudge,
   type TreatmentMarker,
 } from '../services/TreatmentMarkerService';
-import { getTreatmentMarkersCopy } from '../i18n/treatmentMarkersCopy';
+import { getTreatmentMarkersCopy, markerUiLabel } from '../i18n/treatmentMarkersCopy';
 import {
   CLINIC_SYNC_POLL_MS,
   fulfillPendingClinicSyncRequests,
@@ -2547,8 +2547,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           <View style={[styles.notice, { marginBottom: 8 }]}>
             <Text style={styles.noticeText}>
               {getTreatmentMarkersCopy(userLanguage.code).nudgeBody(
-                getTreatmentMarkersCopy(userLanguage.code).fullLabel[labMarkerNudge.marker] ??
-                  labMarkerNudge.marker,
+                markerUiLabel(
+                  {
+                    marker: labMarkerNudge.marker,
+                    labels: treatmentMarkersList.find((m) => m.marker === labMarkerNudge.marker)
+                      ?.labels,
+                  },
+                  userLanguage.code,
+                  'full',
+                ),
                 labMarkerNudge.labCode,
               )}
             </Text>

@@ -673,3 +673,22 @@ ON CONFLICT (country_code, code) DO UPDATE SET
   name_native = EXCLUDED.name_native,
   sort_order = EXCLUDED.sort_order,
   active = TRUE;
+
+-- Treatment-marker catalog (be-47). Clinic picks codes; new nutrients are rows, not app releases.
+CREATE TABLE IF NOT EXISTS diet_marker_catalog (
+  code TEXT PRIMARY KEY,
+  unit TEXT NOT NULL CHECK (unit IN ('g', 'mg', 'mcg')),
+  default_direction TEXT NOT NULL CHECK (default_direction IN ('cap', 'floor')),
+  linked_lab_codes JSONB NOT NULL DEFAULT '[]'::jsonb,
+  labels JSONB NOT NULL DEFAULT '{}'::jsonb,
+  estimate_guidance TEXT,
+  sort_order INT NOT NULL DEFAULT 100,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  seeded BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS diet_marker_catalog_enabled_idx
+  ON diet_marker_catalog (sort_order, code)
+  WHERE enabled;

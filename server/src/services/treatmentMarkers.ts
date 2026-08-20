@@ -16,74 +16,241 @@ import {
   getOverlayForMentor,
   type ClinicOverlay,
 } from './clinicOverlay.js';
+import {
+  DIET_MARKER_CATALOG_SEED,
+  type DietMarkerDirection,
+  type DietMarkerLabels,
+  type DietMarkerUnit,
+} from '../data/dietMarkerCatalogSeed.js';
 
-export const DIET_MARKER_CODES = [
-  'SAT_FAT_G',
-  'CHOLESTEROL_MG',
-  'SOLUBLE_FIBER_G',
-  'OMEGA3_G',
-  'ADDED_SUGAR_G',
-  'SODIUM_MG',
-  'POTASSIUM_MG',
-  'PHOSPHORUS_MG',
-] as const;
+export type { DietMarkerDirection, DietMarkerLabels, DietMarkerUnit };
 
-export type DietMarkerCode = (typeof DIET_MARKER_CODES)[number];
+/** Canonical code — catalog row, not a git enum. */
+export type DietMarkerCode = string;
 
 export const MAX_TREATMENT_MARKERS = 3;
 
-const MARKER_META: Record<
-  DietMarkerCode,
-  { unit: 'g' | 'mg'; defaultDirection: 'cap' | 'floor'; linkedLabCodes: string[] }
-> = {
-  SAT_FAT_G: {
-    unit: 'g',
-    defaultDirection: 'cap',
-    linkedLabCodes: ['CHOLESTEROL_LDL', 'CHOLESTEROL'],
-  },
-  CHOLESTEROL_MG: {
-    unit: 'mg',
-    defaultDirection: 'cap',
-    linkedLabCodes: ['CHOLESTEROL_LDL', 'CHOLESTEROL'],
-  },
-  SOLUBLE_FIBER_G: {
-    unit: 'g',
-    defaultDirection: 'floor',
-    linkedLabCodes: ['CHOLESTEROL_LDL'],
-  },
-  OMEGA3_G: {
-    unit: 'g',
-    defaultDirection: 'floor',
-    linkedLabCodes: ['TRIGLYCERIDES'],
-  },
-  ADDED_SUGAR_G: {
-    unit: 'g',
-    defaultDirection: 'cap',
-    linkedLabCodes: ['HBA1C', 'GLUCOSE', 'TRIGLYCERIDES'],
-  },
-  SODIUM_MG: { unit: 'mg', defaultDirection: 'cap', linkedLabCodes: [] },
-  POTASSIUM_MG: {
-    unit: 'mg',
-    defaultDirection: 'cap',
-    linkedLabCodes: ['CREATININE', 'UREA'],
-  },
-  PHOSPHORUS_MG: {
-    unit: 'mg',
-    defaultDirection: 'cap',
-    linkedLabCodes: ['CREATININE', 'UREA'],
-  },
+const MARKER_CODE_RE = /^[A-Z][A-Z0-9_]{1,46}$/;
+
+export type DietMarkerCatalogRow = {
+  code: DietMarkerCode;
+  unit: DietMarkerUnit;
+  defaultDirection: DietMarkerDirection;
+  linkedLabCodes: string[];
+  labels: DietMarkerLabels;
+  estimateGuidance: string | null;
+  sortOrder: number;
+  seeded: boolean;
 };
 
 export type TreatmentMarker = {
   marker: DietMarkerCode;
-  direction: 'cap' | 'floor';
+  direction: DietMarkerDirection;
   dailyTarget: number;
-  unit: 'g' | 'mg';
+  unit: DietMarkerUnit;
   linkedLabCodes: string[];
   note?: string;
   setAt: string;
   setBy: string;
+  labels?: DietMarkerLabels;
+  estimateGuidance?: string;
 };
+
+type CatalogDbRow = {
+  code: string;
+  unit: DietMarkerUnit;
+  default_direction: DietMarkerDirection;
+  linked_lab_codes: unknown;
+  labels: unknown;
+  estimate_guidance: string | null;
+  sort_order: number;
+  seeded: boolean;
+};
+
+let catalogSeedPromise: Promise<void> | null = null;
+
+export function isDietMarkerCode(raw: string): raw is DietMarkerCode {
+  return MARKER_CODE_RE.test(String(raw || '').trim());
+}
+
+export function unitFromMarkerCode(code: string): DietMarkerUnit | null {
+  if (code.endsWith('_MCG')) return 'mcg';
+  if (code.endsWith('_MG')) return 'mg';
+  if (code.endsWith('_G')) return 'g';
+  return null;
+}
+
+function parseLabels(raw: unknown): DietMarkerLabels {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: DietMarkerLabels = {};
+  for (const [loc, val] of Object.entries(raw as Record<string, unknown>)) {
+    if (!val || typeof val !== 'object') continue;
+    const short = String((val as { short?: string }).short || '').trim();
+    const full = String((val as { full?: string }).full || '').trim();
+    if (!short && !full) continue;
+    out[loc.slice(0, 8)] = { short: short || full, full: full || short };
+  }
+  return out;
+}
+
+function parseLabCodes(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((c) => String(c).trim().toUpperCase()).filter(Boolean);
+}
+
+function rowToCatalog(row: CatalogDbRow): DietMarkerCatalogRow {
+  return {
+    code: row.code,
+    unit: row.unit,
+    defaultDirection: row.default_direction,
+    linkedLabCodes: parseLabCodes(row.linked_lab_codes),
+    labels: parseLabels(row.labels),
+    estimateGuidance: row.estimate_guidance?.trim() || null,
+    sortOrder: row.sort_order,
+    seeded: row.seeded,
+  };
+}
+
+export async function ensureDietMarkerCatalogSeeded(): Promise<void> {
+  if (!catalogSeedPromise) {
+    catalogSeedPromise = seedDietMarkerCatalogOnce().catch((err) => {
+      catalogSeedPromise = null;
+      throw err;
+    });
+  }
+  await catalogSeedPromise;
+}
+
+async function seedDietMarkerCatalogOnce(): Promise<void> {
+  for (const s of DIET_MARKER_CATALOG_SEED) {
+    await query(
+      `INSERT INTO diet_marker_catalog
+         (code, unit, default_direction, linked_lab_codes, labels, estimate_guidance, sort_order, enabled, seeded, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, TRUE, TRUE, NOW())
+       ON CONFLICT (code) DO UPDATE SET
+         unit = EXCLUDED.unit,
+         default_direction = EXCLUDED.default_direction,
+         linked_lab_codes = EXCLUDED.linked_lab_codes,
+         labels = EXCLUDED.labels,
+         estimate_guidance = EXCLUDED.estimate_guidance,
+         sort_order = EXCLUDED.sort_order,
+         enabled = TRUE,
+         seeded = TRUE,
+         updated_at = NOW()
+       WHERE diet_marker_catalog.seeded = TRUE`,
+      [
+        s.code,
+        s.unit,
+        s.defaultDirection,
+        JSON.stringify(s.linkedLabCodes),
+        JSON.stringify(s.labels),
+        s.estimateGuidance ?? null,
+        s.sortOrder,
+      ],
+    );
+  }
+}
+
+export async function listDietMarkerCatalog(): Promise<DietMarkerCatalogRow[]> {
+  await ensureDietMarkerCatalogSeeded();
+  const { rows } = await query<CatalogDbRow>(
+    `SELECT code, unit, default_direction, linked_lab_codes, labels, estimate_guidance, sort_order, seeded
+     FROM diet_marker_catalog
+     WHERE enabled = TRUE
+     ORDER BY sort_order ASC, code ASC`,
+  );
+  return rows.map(rowToCatalog);
+}
+
+async function loadCatalogMap(): Promise<Map<string, DietMarkerCatalogRow>> {
+  const list = await listDietMarkerCatalog();
+  return new Map(list.map((r) => [r.code, r]));
+}
+
+export async function markerShortLabelMap(): Promise<Record<string, string>> {
+  const list = await listDietMarkerCatalog();
+  const out: Record<string, string> = {};
+  for (const r of list) {
+    out[r.code] = r.labels.en?.short || r.labels.en?.full || r.code;
+  }
+  return out;
+}
+
+type CatalogInsertInput = {
+  code: string;
+  unit: DietMarkerUnit;
+  defaultDirection: DietMarkerDirection;
+  linkedLabCodes?: string[];
+  labels: DietMarkerLabels;
+  estimateGuidance?: string;
+};
+
+export async function addDietMarkerCatalogRow(input: CatalogInsertInput): Promise<DietMarkerCatalogRow> {
+  await ensureDietMarkerCatalogSeeded();
+  const code = String(input.code || '').trim().toUpperCase();
+  if (!isDietMarkerCode(code)) {
+    throw new ClinicError('Invalid marker code', 400);
+  }
+  const suffixUnit = unitFromMarkerCode(code);
+  if (!suffixUnit || suffixUnit !== input.unit) {
+    throw new ClinicError('Code unit suffix must match unit (_G, _MG, or _MCG)', 400);
+  }
+  const enFull = input.labels?.en?.full?.trim() || input.labels?.en?.short?.trim() || '';
+  if (!enFull) {
+    throw new ClinicError('English label required', 400);
+  }
+  const labels: DietMarkerLabels = { ...parseLabels(input.labels) };
+  if (!labels.en) labels.en = { short: enFull, full: enFull };
+  if (!labels.en.short) labels.en.short = labels.en.full;
+  const linked = parseLabCodes(input.linkedLabCodes);
+  const guidance = typeof input.estimateGuidance === 'string' ? input.estimateGuidance.trim().slice(0, 2000) : '';
+  try {
+    const { rows } = await query<CatalogDbRow>(
+      `INSERT INTO diet_marker_catalog
+         (code, unit, default_direction, linked_lab_codes, labels, estimate_guidance, sort_order, enabled, seeded, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, 500, TRUE, FALSE, NOW())
+       RETURNING code, unit, default_direction, linked_lab_codes, labels, estimate_guidance, sort_order, seeded`,
+      [
+        code,
+        input.unit,
+        input.defaultDirection,
+        JSON.stringify(linked),
+        JSON.stringify(labels),
+        guidance || null,
+      ],
+    );
+    catalogSeedPromise = null;
+    return rowToCatalog(rows[0]);
+  } catch (err) {
+    const codeName = (err as { code?: string })?.code;
+    if (codeName === '23505') {
+      throw new ClinicError(`Marker already in catalog: ${code}`, 409);
+    }
+    throw err;
+  }
+}
+
+function attachCatalogMeta(marker: TreatmentMarker, meta: DietMarkerCatalogRow): TreatmentMarker {
+  return {
+    ...marker,
+    unit: meta.unit,
+    linkedLabCodes: marker.linkedLabCodes?.length ? marker.linkedLabCodes : meta.linkedLabCodes,
+    labels: meta.labels,
+    ...(meta.estimateGuidance ? { estimateGuidance: meta.estimateGuidance } : {}),
+  };
+}
+
+/** Overlay GET: attach current catalog labels + AI hint so the phone stays generic. */
+export async function hydrateTreatmentMarkers(
+  markers: TreatmentMarker[] | null | undefined,
+): Promise<TreatmentMarker[] | null> {
+  if (!markers?.length) return markers ?? null;
+  const map = await loadCatalogMap();
+  return markers.map((m) => {
+    const meta = map.get(m.marker);
+    return meta ? attachCatalogMeta(m, meta) : m;
+  });
+}
 
 /** Clinic-opt-in past meal marker estimate (phone executes; caps tokens). */
 export type MarkersBackfillRequest = {
@@ -108,32 +275,6 @@ export type TreatmentMarkersPayload = {
   backfill?: MarkersBackfillRequest | null;
 };
 
-export function isDietMarkerCode(raw: string): raw is DietMarkerCode {
-  return (DIET_MARKER_CODES as readonly string[]).includes(raw);
-}
-
-export function dietMarkerUnit(code: DietMarkerCode): 'g' | 'mg' {
-  return MARKER_META[code].unit;
-}
-
-export function dietMarkerDefaultLinkedLabs(code: DietMarkerCode): string[] {
-  return [...MARKER_META[code].linkedLabCodes];
-}
-
-export function dietMarkerCatalog(): Array<{
-  code: DietMarkerCode;
-  unit: 'g' | 'mg';
-  defaultDirection: 'cap' | 'floor';
-  linkedLabCodes: string[];
-}> {
-  return DIET_MARKER_CODES.map((code) => ({
-    code,
-    unit: MARKER_META[code].unit,
-    defaultDirection: MARKER_META[code].defaultDirection,
-    linkedLabCodes: [...MARKER_META[code].linkedLabCodes],
-  }));
-}
-
 type MarkerInput = {
   marker: string;
   direction: 'cap' | 'floor';
@@ -143,25 +284,27 @@ type MarkerInput = {
 };
 
 /**
- * Validate and normalize clinician-submitted markers.
+ * Validate and normalize clinician-submitted markers against the catalog table.
  * Throws ClinicError(400) on bad input.
  */
-export function normalizeTreatmentMarkers(
+export async function normalizeTreatmentMarkers(
   input: MarkerInput[],
   setBy: string,
   setAt: string = new Date().toISOString(),
-): TreatmentMarker[] {
+): Promise<TreatmentMarker[]> {
   if (!Array.isArray(input)) {
     throw new ClinicError('markers must be an array', 400);
   }
   if (input.length > MAX_TREATMENT_MARKERS) {
     throw new ClinicError(`At most ${MAX_TREATMENT_MARKERS} markers`, 400);
   }
+  const catalog = await loadCatalogMap();
   const seen = new Set<string>();
   const out: TreatmentMarker[] = [];
   for (const row of input) {
     const code = String(row?.marker || '').trim().toUpperCase();
-    if (!isDietMarkerCode(code)) {
+    const meta = catalog.get(code);
+    if (!meta) {
       throw new ClinicError(`Unknown marker code: ${row?.marker}`, 400);
     }
     if (seen.has(code)) {
@@ -175,22 +318,26 @@ export function normalizeTreatmentMarkers(
     if (!Number.isFinite(dailyTarget) || dailyTarget <= 0) {
       throw new ClinicError(`dailyTarget must be > 0 for ${code}`, 400);
     }
-    const unit = dietMarkerUnit(code);
     const linked =
       Array.isArray(row.linkedLabCodes) && row.linkedLabCodes.length > 0
-        ? row.linkedLabCodes.map((c) => String(c).trim().toUpperCase()).filter(Boolean)
-        : dietMarkerDefaultLinkedLabs(code);
+        ? parseLabCodes(row.linkedLabCodes)
+        : meta.linkedLabCodes;
     const note = typeof row.note === 'string' ? row.note.trim().slice(0, 500) : '';
-    out.push({
-      marker: code,
-      direction: row.direction,
-      dailyTarget: Math.round(dailyTarget * 10) / 10,
-      unit,
-      linkedLabCodes: linked,
-      ...(note ? { note } : {}),
-      setAt,
-      setBy,
-    });
+    out.push(
+      attachCatalogMeta(
+        {
+          marker: code,
+          direction: row.direction,
+          dailyTarget: Math.round(dailyTarget * 10) / 10,
+          unit: meta.unit,
+          linkedLabCodes: linked,
+          ...(note ? { note } : {}),
+          setAt,
+          setBy,
+        },
+        meta,
+      ),
+    );
   }
   return out;
 }
@@ -239,7 +386,7 @@ export async function saveMarkersForPatient(
   await assertMentorPatientAccess(mentor, patientId, ClinicError);
   const orgId = await requireMentorOrg(mentor.id);
   const setAt = new Date().toISOString();
-  const markers = normalizeTreatmentMarkers(input, mentor.id, setAt);
+  const markers = await normalizeTreatmentMarkers(input, mentor.id, setAt);
   const prev = await loadMarkersPayload(patientId, orgId);
   const payload: TreatmentMarkersPayload = {
     markers,

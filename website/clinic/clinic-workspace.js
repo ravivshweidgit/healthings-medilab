@@ -507,7 +507,7 @@
           hasVal ? val : 0,
           m.dailyTarget,
           'treat',
-          m.unit === 'mg' ? 'mg' : 'g',
+          m.unit === 'mg' ? 'mg' : m.unit === 'mcg' ? 'mcg' : 'g',
           { goalIsFloor: m.direction === 'floor' },
         );
       })
@@ -1401,7 +1401,7 @@
     renderRulesHistoryHost(host, history, ctx, panel);
   }
 
-  const DIET_MARKER_CATALOG = [
+  const FALLBACK_MARKER_CATALOG = [
     { code: 'SAT_FAT_G', unit: 'g', defaultDirection: 'cap', linkedLabCodes: ['CHOLESTEROL_LDL', 'CHOLESTEROL'] },
     { code: 'CHOLESTEROL_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: ['CHOLESTEROL_LDL', 'CHOLESTEROL'] },
     { code: 'SOLUBLE_FIBER_G', unit: 'g', defaultDirection: 'floor', linkedLabCodes: ['CHOLESTEROL_LDL'] },
@@ -1410,6 +1410,7 @@
     { code: 'SODIUM_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: [] },
     { code: 'POTASSIUM_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: ['CREATININE', 'UREA'] },
     { code: 'PHOSPHORUS_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: ['CREATININE', 'UREA'] },
+    { code: 'IODINE_MCG', unit: 'mcg', defaultDirection: 'floor', linkedLabCodes: ['TSH'] },
   ];
   const MAX_TREAT_MARKERS = 3;
 
@@ -1422,6 +1423,7 @@
     HBA1C: ['HBA1C', 'HBA_1C', 'A1C', 'HEMOGLOBIN_A1C'],
     CREATININE: ['CREATININE', 'CREATININ'],
     UREA: ['UREA', 'BUN'],
+    TSH: ['TSH'],
   };
 
   function normalizeTreatLabCode(code) {
@@ -1460,8 +1462,44 @@
     return null;
   }
 
-  function markerLabel(code) {
-    return t(`wsTreat_${code}`) || code;
+  function clinicTreatLocale() {
+    return String(global.ClinicI18n?.getLocale?.() || 'en')
+      .toLowerCase()
+      .slice(0, 2);
+  }
+
+  function catalogOf(ctx) {
+    if (Array.isArray(ctx.markerCatalog) && ctx.markerCatalog.length) return ctx.markerCatalog;
+    return FALLBACK_MARKER_CATALOG;
+  }
+
+  async function ensureMarkerCatalog(ctx) {
+    if (ctx.markerCatalogLoaded) return;
+    ctx.markerCatalogLoaded = true;
+    if (typeof ctx.api !== 'function') {
+      ctx.markerCatalog = FALLBACK_MARKER_CATALOG;
+      return;
+    }
+    try {
+      const res = await ctx.api('/v1/clinic/marker-catalog');
+      if (!res.ok) throw new Error('catalog');
+      const data = await res.json();
+      ctx.markerCatalog =
+        Array.isArray(data.catalog) && data.catalog.length ? data.catalog : FALLBACK_MARKER_CATALOG;
+    } catch {
+      ctx.markerCatalog = FALLBACK_MARKER_CATALOG;
+    }
+  }
+
+  function markerLabel(code, catalog) {
+    const meta = (catalog || []).find((c) => c.code === code);
+    const loc = clinicTreatLocale();
+    const fromRow = meta?.labels?.[loc]?.full || meta?.labels?.en?.full;
+    if (fromRow) return fromRow;
+    const key = `wsTreat_${code}`;
+    const i18n = t(key);
+    if (i18n && i18n !== key) return i18n;
+    return code;
   }
 
   function draftMarkersFromOverlay(ctx) {
@@ -1472,6 +1510,12 @@
   }
 
   function renderMarkers(panel, ctx) {
+    if (!ctx.markerCatalogLoaded) {
+      panel.innerHTML = `<p class="sub">${esc(t('wsTreatCatalogLoading'))}</p>`;
+      void ensureMarkerCatalog(ctx).then(() => renderMarkers(panel, ctx));
+      return;
+    }
+    const DIET_MARKER_CATALOG = catalogOf(ctx);
     const draft = draftMarkersFromOverlay(ctx);
     const labs = ctx.parsed.labs || [];
     const used = new Set(draft.map((m) => m.marker));
@@ -1501,7 +1545,7 @@
             return `
           <div class="treat-row" data-idx="${idx}">
             <div class="treat-row-main">
-              <strong>${esc(markerLabel(m.marker))}</strong>
+              <strong>${esc(markerLabel(m.marker, DIET_MARKER_CATALOG))}</strong>
               <span class="treat-meta">${esc(m.direction === 'floor' ? t('wsTreatFloor') : t('wsTreatCap'))}
                 · ${esc(String(m.dailyTarget))} ${esc(m.unit)}</span>
               <span class="treat-lab">${esc(labLine)}</span>
@@ -1523,7 +1567,7 @@
             ${available
               .map(
                 (c) =>
-                  `<option value="${esc(c.code)}" data-unit="${esc(c.unit)}" data-dir="${esc(c.defaultDirection)}">${esc(markerLabel(c.code))} (${esc(c.unit)})</option>`,
+                  `<option value="${esc(c.code)}" data-unit="${esc(c.unit)}" data-dir="${esc(c.defaultDirection)}">${esc(markerLabel(c.code, DIET_MARKER_CATALOG))} (${esc(c.unit)})</option>`,
               )
               .join('')}
           </select>
@@ -1556,6 +1600,43 @@
       <p class="sub rules-intro">${esc(t('wsTreatAddedSugarHint'))}</p>
       <div class="treat-list">${rows}</div>
       ${addForm}
+      <div class="treat-catalog-add" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border, #ddd)">
+        <p class="sub">${esc(t('wsTreatCatalogIntro'))}</p>
+        <div class="treat-add">
+          <label class="treat-field">
+            <span>${esc(t('wsTreatCatalogCode'))}</span>
+            <input type="text" id="treat-cat-code" maxlength="48" placeholder="IRON_MG" dir="ltr" />
+          </label>
+          <label class="treat-field">
+            <span>${esc(t('wsTreatCatalogUnit'))}</span>
+            <select id="treat-cat-unit">
+              <option value="g">g</option>
+              <option value="mg" selected>mg</option>
+              <option value="mcg">mcg</option>
+            </select>
+          </label>
+          <label class="treat-field">
+            <span>${esc(t('wsTreatDirection'))}</span>
+            <select id="treat-cat-dir">
+              <option value="cap">${esc(t('wsTreatCap'))}</option>
+              <option value="floor">${esc(t('wsTreatFloor'))}</option>
+            </select>
+          </label>
+          <label class="treat-field">
+            <span>${esc(t('wsTreatCatalogLabelEn'))}</span>
+            <input type="text" id="treat-cat-en" maxlength="80" dir="ltr" />
+          </label>
+          <label class="treat-field">
+            <span>${esc(t('wsTreatCatalogLabelHe'))}</span>
+            <input type="text" id="treat-cat-he" maxlength="80" dir="rtl" />
+          </label>
+          <label class="treat-field treat-field-wide">
+            <span>${esc(t('wsTreatCatalogGuidance'))}</span>
+            <input type="text" id="treat-cat-hint" maxlength="500" dir="auto" />
+          </label>
+          <button type="button" class="ws-btn secondary" id="treat-catalog-add">${esc(t('wsTreatCatalogAddBtn'))}</button>
+        </div>
+      </div>
       <div class="rules-actions" style="margin-top:16px">
         <button type="button" class="ws-btn primary" id="treat-save">${esc(t('wsTreatSave'))}</button>
         <span id="treat-status" class="sub"></span>
@@ -1645,6 +1726,18 @@
       renderMarkers(panel, ctx);
     });
 
+    const catCode = panel.querySelector('#treat-cat-code');
+    const catUnit = panel.querySelector('#treat-cat-unit');
+    catCode?.addEventListener('input', () => {
+      const raw = String(catCode.value || '').toUpperCase().replace(/[^A-Z0-9_]/g, '');
+      if (catCode.value !== raw) catCode.value = raw;
+      if (!catUnit) return;
+      if (raw.endsWith('_MCG')) catUnit.value = 'mcg';
+      else if (raw.endsWith('_MG')) catUnit.value = 'mg';
+      else if (raw.endsWith('_G')) catUnit.value = 'g';
+    });
+    panel.querySelector('#treat-catalog-add')?.addEventListener('click', () => void addCatalogItem(ctx, panel));
+
     panel.querySelectorAll('.treat-remove').forEach((btn) => {
       btn.addEventListener('click', () => {
         const idx = Number(btn.getAttribute('data-idx'));
@@ -1712,6 +1805,59 @@
         </div>
         ${statusLine ? `<p class="sub treat-lab" id="treat-backfill-status">${esc(statusLine)}</p>` : '<p class="sub treat-lab" id="treat-backfill-status"></p>'}
       </div>`;
+  }
+
+  async function addCatalogItem(ctx, panel) {
+    const err = panel.querySelector('#treat-error');
+    const status = panel.querySelector('#treat-status');
+    if (err) {
+      err.hidden = true;
+      err.innerHTML = '';
+    }
+    const code = String(panel.querySelector('#treat-cat-code')?.value || '')
+      .trim()
+      .toUpperCase();
+    const unit = panel.querySelector('#treat-cat-unit')?.value;
+    const defaultDirection =
+      panel.querySelector('#treat-cat-dir')?.value === 'cap' ? 'cap' : 'floor';
+    const en = String(panel.querySelector('#treat-cat-en')?.value || '').trim();
+    const he = String(panel.querySelector('#treat-cat-he')?.value || '').trim();
+    const estimateGuidance = String(panel.querySelector('#treat-cat-hint')?.value || '').trim();
+    if (!code || !en || (unit !== 'g' && unit !== 'mg' && unit !== 'mcg')) {
+      if (err) {
+        err.hidden = false;
+        err.innerHTML = `<span>${esc(t('wsTreatCatalogNeedFields'))}</span>`;
+      }
+      return;
+    }
+    try {
+      const labels = { en: { full: en, short: en } };
+      if (he) labels.he = { full: he, short: he };
+      const res = await ctx.api('/v1/clinic/marker-catalog', {
+        method: 'POST',
+        body: JSON.stringify({
+          code,
+          unit,
+          defaultDirection,
+          labels,
+          ...(estimateGuidance ? { estimateGuidance } : {}),
+        }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || t('wsTreatCatalogFailed'));
+      }
+      ctx.markerCatalogLoaded = false;
+      await ensureMarkerCatalog(ctx);
+      if (status) status.textContent = t('wsTreatCatalogAdded');
+      renderMarkers(panel, ctx);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : t('wsTreatCatalogFailed');
+      if (err) {
+        err.hidden = false;
+        err.innerHTML = `<span>${esc(msg)}</span>`;
+      }
+    }
   }
 
   async function requestBackfill(ctx, panel) {

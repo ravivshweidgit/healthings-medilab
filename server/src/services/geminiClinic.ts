@@ -2,6 +2,7 @@ import { gunzipSync, inflateSync } from 'node:zlib';
 import { config } from '../config.js';
 import { query } from '../db/pool.js';
 import type { ClinicChatMessage, ClinicUserRules } from './clinicOverlay.js';
+import { markerShortLabelMap } from './treatmentMarkers.js';
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_TIMEOUT_MS = 60_000;
@@ -405,7 +406,7 @@ type FoodMeal = {
 };
 
 /** Short labels for clinic mentor food lines (always-English glossary). */
-const MARKER_SHORT: Record<string, string> = {
+const MARKER_SHORT_FALLBACK: Record<string, string> = {
   SAT_FAT_G: 'SatF',
   CHOLESTEROL_MG: 'Chol',
   SOLUBLE_FIBER_G: 'SolFi',
@@ -414,7 +415,19 @@ const MARKER_SHORT: Record<string, string> = {
   SODIUM_MG: 'Na',
   POTASSIUM_MG: 'K',
   PHOSPHORUS_MG: 'P',
+  IODINE_MCG: 'Iod',
 };
+
+let MARKER_SHORT: Record<string, string> = { ...MARKER_SHORT_FALLBACK };
+
+async function refreshMarkerShorts(): Promise<void> {
+  try {
+    const extra = await markerShortLabelMap();
+    MARKER_SHORT = { ...MARKER_SHORT_FALLBACK, ...extra };
+  } catch {
+    MARKER_SHORT = { ...MARKER_SHORT_FALLBACK };
+  }
+}
 
 function formatMarkerBits(markers: MarkerAmounts | null | undefined): string {
   if (!markers) return '';
@@ -1096,6 +1109,7 @@ export async function mentorChatReply(
 ): Promise<{ text: string; usage: GeminiUsage | null }> {
   const clinicLocale = normalizeClinicChatLocale(clinicLocaleRaw);
   const replyLanguage = CLINIC_LOCALE_NAME[clinicLocale];
+  await refreshMarkerShorts();
   const snapshot = await loadLatestSnapshotExport(patientId);
   const packing = CLINIC_CHAT_PACKING;
   let dataBlock = buildPatientContextBlock(snapshot, packing);
@@ -1145,7 +1159,7 @@ LOGGED TOTALS VS ESTIMATES (HARD):
 - Default: when staff discuss a marker/macro that appears in PATIENT DATA, cite the **logged day/meal totals**. Do not claim they are missing. Do not volunteer "הערכה מפירוט מזונות" / food-detail estimates instead of those totals.
 - If staff **explicitly ask you to estimate** from foods/ingredients (or for a nutrient not listed in the numbers): estimate from food names + grams (USDA-style), label as estimated — that request is fine even when logged totals also exist.
 - If staff **explicitly ask you to rely on daily logged macros/markers**: use only those USER DATA totals.
-- Nutrients never listed (e.g. iodine, most vitamins): estimate from food detail when asked; do not invent that they appear in the log.
+- Nutrients never listed (e.g. most vitamins, minerals not in the treatment-marker set): estimate from food detail when asked; do not invent that they appear in the log.
 
 CLINIC TONE (HARD): Be a helpful senior clinical nutrition colleague — concise, concrete, respectful. Prefer numbers + named foods over meta talk about the software. If staff say the patient did log food detail, briefly agree and either (a) restate numbers from the log, or (b) estimate when they asked for an estimate — do not defend or describe product limitations. Meal times in PATIENT DATA are patient-local; present them as written. Do not invent labs or meals not listed.
 

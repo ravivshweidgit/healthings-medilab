@@ -9,28 +9,24 @@ export const TREATMENT_MARKERS_KEY = 'healthings:treatmentMarkers';
 export const TREATMENT_MARKERS_SYNC_AT_KEY = 'healthings:treatmentMarkersSyncedAt';
 export const LAB_MARKER_NUDGE_KEY = 'healthings:labMarkerNudge';
 
-export const DIET_MARKER_CODES = [
-  'SAT_FAT_G',
-  'CHOLESTEROL_MG',
-  'SOLUBLE_FIBER_G',
-  'OMEGA3_G',
-  'ADDED_SUGAR_G',
-  'SODIUM_MG',
-  'POTASSIUM_MG',
-  'PHOSPHORUS_MG',
-] as const;
+/** Canonical catalog code. Not a closed enum — overlay list is the source of truth. */
+export type DietMarkerCode = string;
+export type DietMarkerUnit = 'g' | 'mg' | 'mcg';
+export type DietMarkerLabels = Record<string, { short: string; full: string }>;
 
-export type DietMarkerCode = (typeof DIET_MARKER_CODES)[number];
+const MARKER_CODE_RE = /^[A-Z][A-Z0-9_]{1,46}$/;
 
 export type TreatmentMarker = {
   marker: DietMarkerCode;
   direction: 'cap' | 'floor';
   dailyTarget: number;
-  unit: 'g' | 'mg';
+  unit: DietMarkerUnit;
   linkedLabCodes: string[];
   note?: string;
   setAt: string;
   setBy: string;
+  labels?: DietMarkerLabels;
+  estimateGuidance?: string;
 };
 
 export type TreatmentMarkersStore = {
@@ -59,7 +55,25 @@ export function dietMarkerJsonField(code: DietMarkerCode): string {
 }
 
 export function isDietMarkerCode(raw: string): raw is DietMarkerCode {
-  return (DIET_MARKER_CODES as readonly string[]).includes(raw);
+  return MARKER_CODE_RE.test(String(raw || '').trim());
+}
+
+function normalizeUnit(raw: unknown): DietMarkerUnit {
+  if (raw === 'mg' || raw === 'mcg' || raw === 'g') return raw;
+  return 'g';
+}
+
+function parseLabels(raw: unknown): DietMarkerLabels | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const out: DietMarkerLabels = {};
+  for (const [loc, val] of Object.entries(raw as Record<string, unknown>)) {
+    if (!val || typeof val !== 'object') continue;
+    const short = String((val as { short?: string }).short || '').trim();
+    const full = String((val as { full?: string }).full || '').trim();
+    if (!short && !full) continue;
+    out[loc.slice(0, 8)] = { short: short || full, full: full || short };
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 export async function loadTreatmentMarkers(): Promise<TreatmentMarkersStore | null> {
@@ -116,15 +130,19 @@ export async function applyClinicMarkersFromOverlay(
     if (m.direction !== 'cap' && m.direction !== 'floor') continue;
     const dailyTarget = Number(m.dailyTarget);
     if (!Number.isFinite(dailyTarget) || dailyTarget <= 0) continue;
+    const labels = parseLabels(m.labels);
+    const guidance = m.estimateGuidance?.trim();
     cleaned.push({
       marker: m.marker,
       direction: m.direction,
       dailyTarget,
-      unit: m.unit === 'mg' ? 'mg' : 'g',
+      unit: normalizeUnit(m.unit),
       linkedLabCodes: Array.isArray(m.linkedLabCodes)
         ? m.linkedLabCodes.map((c) => String(c).trim().toUpperCase()).filter(Boolean)
         : [],
       ...(m.note?.trim() ? { note: m.note.trim().slice(0, 500) } : {}),
+      ...(labels ? { labels } : {}),
+      ...(guidance ? { estimateGuidance: guidance.slice(0, 2000) } : {}),
       setAt: m.setAt || overlayUpdatedAt,
       setBy: m.setBy || 'clinic',
     });
@@ -144,9 +162,8 @@ export async function applyClinicMarkersFromOverlay(
 export function sumMarkerAmounts(parts: MarkerAmounts[]): MarkerAmounts {
   const out: MarkerAmounts = {};
   for (const part of parts) {
-    for (const code of DIET_MARKER_CODES) {
-      const v = part[code];
-      if (v == null || !Number.isFinite(v)) continue;
+    for (const [code, v] of Object.entries(part)) {
+      if (!isDietMarkerCode(code) || v == null || !Number.isFinite(v)) continue;
       out[code] = Math.round(((out[code] ?? 0) + v) * 10) / 10;
     }
   }
@@ -157,9 +174,8 @@ export function sumMarkerAmounts(parts: MarkerAmounts[]): MarkerAmounts {
 export function scaleMarkerAmounts(amounts: MarkerAmounts, ratio: number): MarkerAmounts {
   if (!Number.isFinite(ratio) || ratio <= 0) return {};
   const out: MarkerAmounts = {};
-  for (const code of DIET_MARKER_CODES) {
-    const v = amounts[code];
-    if (v == null || !Number.isFinite(v)) continue;
+  for (const [code, v] of Object.entries(amounts)) {
+    if (!isDietMarkerCode(code) || v == null || !Number.isFinite(v)) continue;
     out[code] = Math.round(v * ratio * 10) / 10;
   }
   return out;
@@ -228,16 +244,9 @@ export function formatMarkerAmountsVsTargets(
  * ADDED_SUGAR_G must not be confused with total carbs / net / intrinsic fruit sugar.
  */
 export function markerEstimateGuidance(markers: TreatmentMarker[]): string {
-  const codes = new Set(markers.map((m) => m.marker));
-  const lines: string[] = [];
-  if (codes.has('ADDED_SUGAR_G')) {
-    lines.push(
-      'ADDED_SUGAR_G (added_sugar_g): count only sugars **added** in making/processing ' +
-        '(table sugar, syrups, honey used as sweetener, sweetened drinks, candy, sweetened yogurt/sauces). ' +
-        'Use **0** for whole unsweetened fruit, plain milk/unsweetened dairy (intrinsic lactose), ' +
-        'unsweetened starches (rice, bread, potato). Do **not** copy carb_g or net carbs into this field.',
-    );
-  }
+  const lines = markers
+    .map((m) => m.estimateGuidance?.trim())
+    .filter((s): s is string => Boolean(s));
   return lines.length ? `MARKER DEFINITIONS:\n${lines.join('\n')}` : '';
 }
 
