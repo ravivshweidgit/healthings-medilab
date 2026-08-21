@@ -2076,6 +2076,7 @@
       ${addForm}
       <p class="sub">${esc(t('wsMacroRebuildHint'))}</p>
       <div class="rules-actions" style="margin-top:16px">
+        <button type="button" class="ws-btn secondary" id="macro-rebuild">${esc(t('wsMacroRebuild'))}</button>
         <button type="button" class="ws-btn primary" id="macro-save">${esc(t('wsMacroSave'))}</button>
         <span id="macro-status" class="sub"></span>
       </div>
@@ -2156,6 +2157,44 @@
       renderMacros(panel, ctx);
     });
     panel.querySelector('#macro-save')?.addEventListener('click', () => void saveMacros(ctx, panel));
+    panel.querySelector('#macro-rebuild')?.addEventListener('click', () => void rebuildMacros(ctx, panel));
+  }
+
+  async function rebuildMacros(ctx, panel) {
+    const status = panel.querySelector('#macro-status');
+    const btn = panel.querySelector('#macro-rebuild');
+    const err = panel.querySelector('#macro-error');
+    if (err) {
+      err.hidden = true;
+      err.innerHTML = '';
+    }
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = t('wsMacroRebuilding');
+    try {
+      const res = await ctx.api(`/v1/clinic/patients/${ctx.patientId}/macros/rebuild`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || t('wsMacroRebuildFailed'));
+      }
+      const data = await res.json();
+      if (data.overlay) ctx.overlay = data.overlay;
+      ctx.macroDraft = null;
+      renderMacros(panel, ctx);
+      const statusEl = panel.querySelector('#macro-status');
+      if (statusEl) statusEl.textContent = t('wsMacroRebuildDone');
+    } catch (e) {
+      if (status) status.textContent = '';
+      const msg = e instanceof Error ? e.message : t('wsMacroRebuildFailed');
+      if (err) {
+        err.hidden = false;
+        err.innerHTML = `<span>${esc(msg)}</span>`;
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   async function saveMacros(ctx, panel) {

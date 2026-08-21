@@ -11,6 +11,7 @@ import {
   type ClinicUserRules,
 } from './clinicOverlay.js';
 import { SyncError, updatePatientRulesInLatestBlob } from './sync.js';
+import { rebuildMacrosFromRulesForPatient } from './clinicMacros.js';
 
 export type SaveDietaryRulesResult = {
   overlay: ClinicOverlay;
@@ -55,7 +56,13 @@ export async function saveDietaryRules(
 
   try {
     const overlay = await saveRulesOverlayForMentor(actor, patientId, rules);
-    return { overlay, rules };
+    // be-45: Save rules builds the macro/marker engine. Failures must not fail rules Save.
+    try {
+      const rebuilt = await rebuildMacrosFromRulesForPatient(actor, patientId);
+      return { overlay: rebuilt, rules };
+    } catch {
+      return { overlay, rules };
+    }
   } catch (err) {
     toClinicError(err);
   }

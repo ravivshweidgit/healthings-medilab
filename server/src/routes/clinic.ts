@@ -20,7 +20,11 @@ import {
   MARKERS_BACKFILL_MAX_DAYS,
   MARKERS_BACKFILL_MIN_DAYS,
 } from '../services/treatmentMarkers.js';
-import { saveMacrosForPatient } from '../services/clinicMacros.js';
+import {
+  saveMacrosForPatient,
+  proposeMacrosForPatient,
+  rebuildMacrosFromRulesForPatient,
+} from '../services/clinicMacros.js';
 import { saveDietaryRules } from '../services/dietaryRules.js';
 import { CLINIC_CHAT_LOCALES, mentorChatReply } from '../services/geminiClinic.js';
 import { sendPatientAppChat } from '../services/patientChat.js';
@@ -120,6 +124,8 @@ export async function registerClinicRoutes(app: FastifyInstance) {
             dailyTarget: z.number(),
             note: z.string().max(500).optional(),
             linkedLabCodes: z.array(z.string()).optional(),
+            percentOfEnergy: z.number().optional(),
+            ofEnergy: z.literal('kcal_eaten').optional(),
           }),
         ),
       })
@@ -179,6 +185,36 @@ export async function registerClinicRoutes(app: FastifyInstance) {
       if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
       request.log.error(err);
       return reply.code(500).send({ error: 'Failed to save macros' });
+    }
+  });
+
+  /** Propose only — does not write. */
+  app.post('/v1/clinic/patients/:patientId/macros/propose', { preHandler: authenticate }, async (request, reply) => {
+    const params = z.object({ patientId: z.string().uuid() }).parse(request.params);
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    try {
+      const proposed = await proposeMacrosForPatient(user, params.patientId);
+      return proposed;
+    } catch (err) {
+      if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
+      request.log.error(err);
+      return reply.code(500).send({ error: 'Failed to propose macros' });
+    }
+  });
+
+  /** Propose + apply (same as rules Save auto-apply). */
+  app.post('/v1/clinic/patients/:patientId/macros/rebuild', { preHandler: authenticate }, async (request, reply) => {
+    const params = z.object({ patientId: z.string().uuid() }).parse(request.params);
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    try {
+      const overlay = await rebuildMacrosFromRulesForPatient(user, params.patientId);
+      return { overlay, macros: overlay.macros, markers: overlay.markers };
+    } catch (err) {
+      if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
+      request.log.error(err);
+      return reply.code(500).send({ error: 'Failed to rebuild macros from rules' });
     }
   });
 

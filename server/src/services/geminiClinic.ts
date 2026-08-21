@@ -312,6 +312,127 @@ ${rawText.replace(/"/g, "'")}
   }
 }
 
+export type MacroProposeMarkerDraft = {
+  marker: string;
+  direction: 'cap' | 'floor';
+  dailyTarget: number;
+  percentOfEnergy?: number;
+  ofEnergy?: 'kcal_eaten';
+  note?: string;
+};
+
+export type MacroProposeResult = {
+  bounds: unknown[];
+  markers: MacroProposeMarkerDraft[];
+  reasoning: string;
+  impliedNotes: string[];
+  needsClinician: Array<{ axis: string; question: string }>;
+};
+
+/**
+ * be-45 — Propose clinic macro bounds (+ optional markers) from rules text.
+ * Judgment only; does not write. Caller validates and saves.
+ */
+export async function proposeClinicMacroOrder(input: {
+  rulesRawText: string;
+  markersSummary?: string;
+}): Promise<MacroProposeResult> {
+  const rules = String(input.rulesRawText || '').trim();
+  if (!rules) {
+    return {
+      bounds: [],
+      markers: [],
+      reasoning: 'Rules text is empty.',
+      impliedNotes: [],
+      needsClinician: [],
+    };
+  }
+
+  const prompt = `You are a licensed clinical nutritionist writing a SHORT diet ORDER for one patient.
+You are NOT filling a complete P/C/F/kcal plate unless the rules clearly require it.
+
+Return JSON only (no markdown):
+
+{
+  "bounds": [
+    { "axis": "protein_g", "direction": "floor", "value": 90, "strength": "hard", "kind": "constant" },
+    { "axis": "protein_g", "direction": "ceiling", "value": 113, "strength": "hard", "kind": "constant" }
+  ],
+  "markers": [
+    { "marker": "SAT_FAT_G", "direction": "cap", "dailyTarget": 19, "percentOfEnergy": 10, "ofEnergy": "kcal_eaten" }
+  ],
+  "reasoning": "short clinical English",
+  "impliedNotes": [],
+  "needsClinician": [{ "axis": "kcal", "question": "…" }]
+}
+
+AXES: kcal | protein_g | carb_g | fat_g | fiber_g | net_carb_g
+DIRECTION: floor | ceiling
+STRENGTH: hard | flex
+KIND: constant | percent (percent needs of: kcal_order and resolvedValue in grams)
+
+RULES
+- Omit axes that are not clearly constrained. Prefer omission over inventing numbers.
+- Kind is not HARD/FLEX. Prefer percent on carb_g when rules say share of daily calories; resolve against kcal_order; always fill resolvedValue.
+- TRAINING: one kcal ceiling with activityAddBack { thresholdKcal, capValue } when rules give a higher training allowance. Omit activityAddBack if threshold is unknown — put a needsClinician question instead. Never set followsActivity.
+- Markers (SAT_FAT_G, SOLUBLE_FIBER_G, IODINE_MCG, SELENIUM_MCG, …) go in markers[], never in bounds. Prefer percentOfEnergy for sat fat when rules say % of energy. Return markers: [] when rules name none.
+- When a required number is missing, omit that bound and add needsClinician. Never invent, never take the top of a range by default.
+- Do not parse with regex — read as a clinician.
+
+CLINIC RULES:
+"""
+${rules.replace(/"/g, "'").slice(0, 12000)}
+"""
+
+EXISTING TREATMENT MARKERS (context only — do not wipe; only propose markers the rules clearly set):
+${input.markersSummary || '(none)'}
+`;
+
+  const raw = await geminiText(prompt, { temperature: 0.2, maxOutputTokens: 4096, thinkingBudget: 0 });
+  const parsed = extractJsonObject(raw);
+  const bounds = Array.isArray(parsed.bounds) ? parsed.bounds : [];
+  const markersRaw = Array.isArray(parsed.markers) ? parsed.markers : [];
+  const markers: MacroProposeMarkerDraft[] = [];
+  for (const m of markersRaw) {
+    if (!m || typeof m !== 'object') continue;
+    const row = m as Record<string, unknown>;
+    const marker = String(row.marker || '').trim().toUpperCase();
+    const direction = row.direction === 'floor' ? 'floor' : row.direction === 'cap' ? 'cap' : null;
+    const dailyTarget = Number(row.dailyTarget);
+    if (!marker || !direction || !Number.isFinite(dailyTarget) || dailyTarget <= 0) continue;
+    const draft: MacroProposeMarkerDraft = { marker, direction, dailyTarget };
+    const pct = Number(row.percentOfEnergy);
+    if (Number.isFinite(pct) && pct > 0 && pct <= 100) {
+      draft.percentOfEnergy = pct;
+      draft.ofEnergy = 'kcal_eaten';
+    }
+    if (typeof row.note === 'string' && row.note.trim()) draft.note = row.note.trim().slice(0, 500);
+    markers.push(draft);
+  }
+  const needsClinician = Array.isArray(parsed.needsClinician)
+    ? parsed.needsClinician
+        .map((n) => {
+          if (!n || typeof n !== 'object') return null;
+          const row = n as Record<string, unknown>;
+          const axis = String(row.axis || '').trim();
+          const question = String(row.question || '').trim();
+          if (!axis || !question) return null;
+          return { axis, question };
+        })
+        .filter((n): n is { axis: string; question: string } => !!n)
+    : [];
+  const impliedNotes = Array.isArray(parsed.impliedNotes)
+    ? parsed.impliedNotes.map((x) => String(x)).filter(Boolean)
+    : [];
+  return {
+    bounds,
+    markers,
+    reasoning: String(parsed.reasoning || '').slice(0, 4000),
+    impliedNotes,
+    needsClinician,
+  };
+}
+
 type SnapshotExport = {
   asyncStorage?: Record<string, string>;
   exportedAt?: string;

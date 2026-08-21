@@ -54,6 +54,9 @@ export type TreatmentMarker = {
   setBy: string;
   labels?: DietMarkerLabels;
   estimateGuidance?: string;
+  /** Additive — absent means constant grams (be-45 compat). */
+  percentOfEnergy?: number;
+  ofEnergy?: 'kcal_eaten';
 };
 
 type CatalogDbRow = {
@@ -281,6 +284,8 @@ type MarkerInput = {
   dailyTarget: number;
   note?: string;
   linkedLabCodes?: string[];
+  percentOfEnergy?: number;
+  ofEnergy?: 'kcal_eaten';
 };
 
 /**
@@ -323,21 +328,32 @@ export async function normalizeTreatmentMarkers(
         ? parseLabCodes(row.linkedLabCodes)
         : meta.linkedLabCodes;
     const note = typeof row.note === 'string' ? row.note.trim().slice(0, 500) : '';
-    out.push(
-      attachCatalogMeta(
-        {
-          marker: code,
-          direction: row.direction,
-          dailyTarget: Math.round(dailyTarget * 10) / 10,
-          unit: meta.unit,
-          linkedLabCodes: linked,
-          ...(note ? { note } : {}),
-          setAt,
-          setBy,
-        },
-        meta,
-      ),
-    );
+    const markerRow: TreatmentMarker = {
+      marker: code,
+      direction: row.direction,
+      dailyTarget: Math.round(dailyTarget * 10) / 10,
+      unit: meta.unit,
+      linkedLabCodes: linked,
+      ...(note ? { note } : {}),
+      setAt,
+      setBy,
+    };
+    if (row.percentOfEnergy != null) {
+      const pct = Number(row.percentOfEnergy);
+      if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+        throw new ClinicError(`percentOfEnergy must be 0 < n ≤ 100 for ${code}`, 400);
+      }
+      if (row.ofEnergy !== 'kcal_eaten') {
+        throw new ClinicError(`ofEnergy must be kcal_eaten for percent marker ${code}`, 400);
+      }
+      // Until catalog.kcal_per_gram ships: only sat fat may be % of energy.
+      if (code !== 'SAT_FAT_G') {
+        throw new ClinicError(`${code}: percent of energy is only allowed for SAT_FAT_G`, 400);
+      }
+      markerRow.percentOfEnergy = Math.round(pct * 10) / 10;
+      markerRow.ofEnergy = 'kcal_eaten';
+    }
+    out.push(attachCatalogMeta(markerRow, meta));
   }
   return out;
 }

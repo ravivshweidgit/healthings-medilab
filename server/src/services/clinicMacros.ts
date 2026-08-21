@@ -10,6 +10,9 @@ import {
   recordPatientAccess,
 } from './clinicAccess.js';
 import { ClinicError, getOverlayForMentor, type ClinicOverlay } from './clinicOverlay.js';
+import { proposeClinicMacroOrder } from './geminiClinic.js';
+import { saveMarkersForPatient, type TreatmentMarker } from './treatmentMarkers.js';
+import { createHash } from 'crypto';
 
 export type MacroAxis = 'kcal' | 'protein_g' | 'carb_g' | 'fat_g' | 'fiber_g' | 'net_carb_g';
 export type MacroDirection = 'floor' | 'ceiling';
@@ -416,4 +419,127 @@ export function macrosPayloadFromUnknown(raw: unknown): ClinicMacrosPayload | nu
   } catch {
     return null;
   }
+}
+
+export function hashRulesText(rawText: string): string {
+  return createHash('sha256').update(String(rawText || '').trim(), 'utf8').digest('hex').slice(0, 32);
+}
+
+function markersSummaryLine(markers: TreatmentMarker[] | null | undefined): string {
+  if (!markers?.length) return '(none)';
+  return markers
+    .map((m) => {
+      const pct =
+        m.percentOfEnergy != null ? ` ${m.percentOfEnergy}% energy` : '';
+      return `${m.marker} ${m.direction} ${m.dailyTarget}${m.unit}${pct}`;
+    })
+    .join('; ');
+}
+
+/**
+ * Propose from rules (no write). Used by POST /macros/propose and rebuild.
+ */
+export async function proposeMacrosForPatient(
+  mentor: PublicUser,
+  patientId: string,
+): Promise<{
+  bounds: MacroBound[];
+  markers: Array<{
+    marker: string;
+    direction: 'cap' | 'floor';
+    dailyTarget: number;
+    percentOfEnergy?: number;
+    ofEnergy?: 'kcal_eaten';
+    note?: string;
+  }>;
+  reasoning: string;
+  impliedNotes: string[];
+  needsClinician: MacroNeedsClinician[];
+  rulesHash: string;
+}> {
+  await assertMentorPatientAccess(mentor, patientId, ClinicError);
+  const overlay = await getOverlayForMentor(mentor, patientId);
+  const rulesText = overlay.rules?.rawText || '';
+  const draft = await proposeClinicMacroOrder({
+    rulesRawText: rulesText,
+    markersSummary: markersSummaryLine(overlay.markers),
+  });
+  const bounds = normalizeClinicMacroBounds(draft.bounds as MacroBoundInput[], {
+    skipUnknown: true,
+  });
+  const needsClinician: MacroNeedsClinician[] = draft.needsClinician
+    .map((n) => {
+      const axis = n.axis as MacroNeedsClinician['axis'];
+      return { axis, question: n.question };
+    })
+    .filter((n) => n.question);
+  return {
+    bounds,
+    markers: draft.markers,
+    reasoning: draft.reasoning,
+    impliedNotes: draft.impliedNotes,
+    needsClinician,
+    rulesHash: hashRulesText(rulesText),
+  };
+}
+
+/**
+ * Auto-apply path: propose → write macros (source rules) → upsert markers named in proposal.
+ * Does not delete existing markers omitted from the proposal.
+ * Safe to call after rules Save — failures should be caught by the caller.
+ */
+export async function rebuildMacrosFromRulesForPatient(
+  mentor: PublicUser,
+  patientId: string,
+): Promise<ClinicOverlay> {
+  const proposed = await proposeMacrosForPatient(mentor, patientId);
+  const needs = proposed.needsClinician.map((n) => ({
+    axis: n.axis,
+    question: n.question,
+  }));
+
+  await saveMacrosForPatient(mentor, patientId, proposed.bounds as MacroBoundInput[], {
+    source: 'rules',
+    rulesHash: proposed.rulesHash,
+    reasoning: proposed.reasoning,
+    needsClinician: needs,
+  });
+
+  if (proposed.markers.length > 0) {
+    const overlay = await getOverlayForMentor(mentor, patientId);
+    const existing = overlay.markers || [];
+    const byCode = new Map(existing.map((m) => [m.marker, m]));
+    for (const m of proposed.markers) {
+      byCode.set(m.marker, {
+        marker: m.marker,
+        direction: m.direction,
+        dailyTarget: m.dailyTarget,
+        unit: 'g',
+        linkedLabCodes: [],
+        setAt: new Date().toISOString(),
+        setBy: mentor.id,
+        ...(m.note ? { note: m.note } : {}),
+        ...(m.percentOfEnergy != null
+          ? { percentOfEnergy: m.percentOfEnergy, ofEnergy: 'kcal_eaten' as const }
+          : {}),
+      });
+    }
+    const merged = [...byCode.values()].slice(0, 3).map((m) => ({
+      marker: m.marker,
+      direction: m.direction,
+      dailyTarget: m.dailyTarget,
+      note: m.note,
+      linkedLabCodes: m.linkedLabCodes,
+      ...(m.percentOfEnergy != null
+        ? { percentOfEnergy: m.percentOfEnergy, ofEnergy: 'kcal_eaten' as const }
+        : {}),
+    }));
+    try {
+      await saveMarkersForPatient(mentor, patientId, merged);
+    } catch {
+      // Marker upsert must not undo a successful macros write.
+    }
+  }
+
+  return getOverlayForMentor(mentor, patientId);
 }
