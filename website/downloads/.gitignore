@@ -1,2 +1,7 @@
 # APK binaries — publish via scripts/publish-apk.*
 *.apk
+
+# Provenance note for the xDrip+ mirror. Written by fetch-xdrip next to the APK it
+# describes, so it belongs wherever that APK was fetched. Committed, it would
+# claim a release tag and sha256 that the served file may not match.
+xdrip-plus-version.txt

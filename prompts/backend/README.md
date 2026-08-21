@@ -37,6 +37,8 @@ Run in this order. The reason is the dependency, not preference.
 | `be-46-clinic-chat-not-live-rules.md` | Chat must not claim live rules | needs-review | Prompt HARD + Rules-tab hint; no auto-apply from chat |
 | `be-47-generic-marker-catalog.md` | Treatment markers as a DB catalog | needs-review | New nutrient = catalog row, not APK. Phone opaque overlay. VPS migrate + portal deploy pending |
 | `be-48-client-platform-build.md` | Last Android/iOS + app build on user | needs-review | Headers on authFetch; clinic worklist + banner |
+| `be-49-help-xdrip-caresens.md` | Help topic: xDrip+ for CareSens Air + APK mirror | needs-review | Pages generated in 10 locales. **Blocking: get the mirror onto the VPS and deploy — the download 404s until then** |
+| `be-50-website-downloads.md` | Downloads page — companion apps per phone (10 locales) | needs-review | Android vs iPhone lists, auto-detected. Shares be-49's blocking mirror step |
 
 
 

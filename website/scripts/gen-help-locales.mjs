@@ -12,19 +12,11 @@ import {
   ARTICLES,
   INDEX,
 } from './help-locale-content.mjs';
+import { CSS_VER } from './css-version.mjs';
+import { DOWNLOADS_UI } from './downloads-locale-content.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB = join(__dirname, '..');
-/**
- * Keep in sync with hand-written pages. Do not invent a parallel token.
- *
- * Date plus a letter, and it only ever moves forward. Batch names were the old
- * scheme and they do not sort — be-16 shipped before be-13, so the token went
- * backwards and burned two keys. `20260726be11`, `20260726be13` and
- * `20260726be16` have all been served with different stylesheets behind them;
- * re-emitting any of the three would hand someone a stale CSS file.
- */
-const CSS_VER = '20260726e';
 
 function escAttr(s) {
   return String(s)
@@ -40,6 +32,15 @@ function metaDescription(lead) {
     .trim();
   if (plain.length <= 155) return plain;
   return `${plain.slice(0, 152).trimEnd()}…`;
+}
+
+/**
+ * The nav label for the companion-app page, borrowed from that page's own catalog
+ * rather than re-translated here. Two spellings of "Downloads" in one nav is how
+ * a reader concludes there are two different pages.
+ */
+function downloadsLabel(langCode) {
+  return (DOWNLOADS_UI[langCode] || DOWNLOADS_UI.en).nav;
 }
 
 function pageUrl(langCode, slug) {
@@ -122,6 +123,7 @@ function pageHtml(langMeta, slug, article) {
     <main class="wrap">
       <nav class="help-nav">
         <a href="index.html">${ui.help}</a>
+        <a href="../downloads/index.html">${downloadsLabel(langMeta.code)}</a>
         <a href="../../index.html">${ui.home}</a>
       </nav>
       ${langSwitcher(langMeta.code, slug, ui)}
@@ -172,6 +174,7 @@ function indexHtml(langMeta) {
     <main class="wrap">
       <nav class="help-nav">
         <a href="index.html"><strong>${ui.help}</strong></a>
+        <a href="../downloads/index.html">${downloadsLabel(langMeta.code)}</a>
         <a href="../../index.html">${ui.home}</a>
       </nav>
       ${langSwitcher(langMeta.code, 'index', ui)}

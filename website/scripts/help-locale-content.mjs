@@ -25,6 +25,7 @@ export const HELP_SLUGS = [
   'withings-scale',
   'quick-start-watch',
   'cgm',
+  'xdrip-caresens',
   'withings-link',
   'starting-weight',
   'phone-health-activity',
@@ -415,6 +416,478 @@ bulk('cgm', [
   ['pt', 'Glicose CGM', 'Glicose contínua via Health Connect (Android) ou Apple Health (iPhone). PDFs de lab depois.', `<p>Partilhe a app CGM com a saúde do telemóvel e permita Blood Glucose.</p>`],
   ['it', 'Glucosio CGM', 'Glucosio continuo via Health Connect (Android) o Apple Health (iPhone). PDF lab più tardi.', `<p>Condividi l’app CGM con la salute del telefono e consenti Blood Glucose.</p>`],
   ['tr', 'CGM glikoz', 'Sürekli glikoz Health Connect (Android) veya Apple Health (iPhone) üzerinden. Lab PDF’leri sonra.', `<p>CGM uygulamasını telefon sağlığıyla paylaşın, sonra Blood Glucose’a izin verin.</p>`],
+]);
+
+/**
+ * Phone captures for the xDrip+ walkthrough. Bumped like CSS_VER when a shot is
+ * re-taken — nginx caches images for 30 days, so a same-named replacement would
+ * otherwise keep showing the old screen for a month.
+ */
+const SHOT_VER = '20260821a';
+
+function shot(img, alt, caption) {
+  return `<figure class="help-shot"><img src="../../images/help/${img.file}?v=${SHOT_VER}" width="${img.w}" height="${img.h}" loading="lazy" alt="${alt}" /><figcaption>${caption}</figcaption></figure>`;
+}
+
+/**
+ * Real dimensions travel with each capture so the browser reserves the right box
+ * and the steps below a figure do not jump once the image loads. Two of these are
+ * cropped short — a full 460×1024 frame of a four-row settings screen is mostly
+ * empty wallpaper, which pushes the next step off the phone screen.
+ */
+const CARESENS_SHOT = { file: 'xdrip-caresens-share.png', w: 460, h: 500 };
+const SETTINGS_SHOT = { file: 'xdrip-settings-inter-app.png', w: 460, h: 1024 };
+const INTERAPP_SHOT = { file: 'xdrip-inter-app-health-connect.png', w: 460, h: 1024 };
+const HC_SHOT = { file: 'xdrip-health-connect-toggles.png', w: 460, h: 470 };
+
+/** Mirrored on healthings.ai — see website/downloads/README.md. */
+const XDRIP_APK = '/downloads/xdrip-plus.apk';
+const XDRIP_SOURCE = 'https://github.com/NightscoutFoundation/xDrip';
+/**
+ * Written by fetch-xdrip: upstream URL, release tag, sha256, mirror date. Linked
+ * from the phrase that claims the build is unchanged, because that claim is the
+ * one thing a mirror cannot ask to be taken on trust — and a mirror going stale
+ * is invisible until someone can read which release is actually being served.
+ */
+const XDRIP_NOTE = '/downloads/xdrip-plus-version.txt';
+
+/**
+ * The app's own mark, above the download button. Not decoration: the reader is
+ * about to sideload an APK from outside the Play Store, and the icon is how they
+ * confirm afterwards that the thing now on their home screen is the thing this
+ * page told them to install.
+ *
+ * `alt=""` on purpose — the button underneath already names the app, so a second
+ * announcement would only make the page longer to listen to.
+ */
+const XDRIP_MARK = `<p class="help-mark"><img src="../../images/apps/xdrip-plus-icon.png?v=${SHOT_VER}" width="76" height="76" alt="" /></p>`;
+
+/**
+ * Hebrew and Arabic only. "+" is bidi-neutral, so at the end of a Latin run
+ * inside RTL prose it resolves with the paragraph and the app name paints as
+ * "+xDrip" — the heading looked like a typo. A LEFT-TO-RIGHT MARK after the sign
+ * keeps it attached to the Latin word. Wrap the whole string, including the
+ * captions and alt text that come back from shot().
+ */
+function ltrPlus(s) {
+  return s.replace(/xDrip\+/g, 'xDrip+\u200e');
+}
+
+bulk('xdrip-caresens', [
+  [
+    'en',
+    'xDrip+ for CareSens Air (Android)',
+    'xDrip+ is the CareSens integration Healthings uses on Android. Download it here and connect once: CareSens Air → xDrip+ → Health Connect → Healthings.',
+    `<p class="tip"><strong>Android only.</strong> There is no xDrip+ on iPhone — there, CareSens Air shares straight to Apple Health. See <a href="cgm.html">CGM glucose</a>.</p>
+<p>CareSens Air keeps the readings inside its own app. xDrip+ is the CareSens integration on Android — it lines CareSens up with Healthings. You connect once, and after that glucose lands on your dashboard by itself.</p>
+<p>xDrip+ is in English on every phone, so the labels below are quoted exactly as you will see them.</p>
+${XDRIP_MARK}
+<p class="help-download"><a href="${XDRIP_APK}" download>Download xDrip+ for Android</a></p>
+<p class="help-download-note">About 16 MB. The CareSens integration Healthings uses on Android — <a href="${XDRIP_NOTE}">this build</a>, <a href="${XDRIP_SOURCE}" rel="noopener">source on GitHub</a>.</p>
+<h2>1. Install xDrip+</h2>
+<ol><li>Tap the button above on the phone itself. Your browser will warn you about an APK — that is normal outside the Play Store.</li>
+<li>Open the downloaded file. If Android refuses, allow <strong>Install unknown apps</strong> for your browser, then open it again.</li>
+<li>Open xDrip+ once. You can skip its sensor wizard — CareSens Air will do the feeding.</li></ol>
+<h2>2. Let CareSens Air talk to xDrip+</h2>
+<ol><li>In the <strong>CareSens Air</strong> app, open <strong>Manage Data &amp; Connections</strong>.</li>
+<li>Switch <strong>xDrip+</strong> on.</li></ol>
+${shot(CARESENS_SHOT, 'CareSens Air, Manage Data and Connections, with the xDrip+ switch on', 'CareSens Air — the xDrip+ switch is on.')}
+<p>Leave CareSens Air installed and running. It stays the app that talks to your sensor; xDrip+ only listens.</p>
+<h2>3. Point xDrip+ at the companion app</h2>
+<p>In xDrip+, open <strong>Settings</strong> → <strong>Hardware Data Source</strong> and choose <strong>Companion App</strong> (older builds call it <strong>640G / Eversense</strong>). Within a few minutes a glucose number should appear on the xDrip+ home screen.</p>
+<h2>4. Send the readings to Health Connect</h2>
+<ol><li>xDrip+ → <strong>Settings</strong> → <strong>Inter-app settings</strong>.</li>
+<li>Scroll to the bottom → <strong>Google Health Connect</strong>.</li>
+<li><strong>Use Health Connect</strong> ON, <strong>Send data to Health Connect</strong> ON, <strong>Get data from Health Connect</strong> OFF.</li>
+<li>Tap <strong>Manage permissions</strong> and let xDrip+ write Blood Glucose.</li></ol>
+${shot(SETTINGS_SHOT, 'xDrip+ Settings list with Inter-app settings near the top', 'xDrip+ Settings — Inter-app settings sits near the top.')}
+${shot(INTERAPP_SHOT, 'xDrip+ Inter-app settings with Google Health Connect at the bottom', 'Inter-app settings — Google Health Connect is at the bottom.')}
+${shot(HC_SHOT, 'xDrip+ Google Health Connect screen: Use Health Connect on, Get data off, Send data on', 'Use Health Connect ON, Send data ON, Get data OFF.')}
+<p class="tip">Leave <strong>Get data from Health Connect</strong> off. xDrip+ only needs to write here, and with reading on, some phones nag you every few minutes.</p>
+<h2>5. Let Healthings read the glucose</h2>
+<ol><li>In Healthings: <strong>Profile &amp; Settings</strong> → <strong>GEAR</strong> → <strong>CGM</strong> = <strong>Yes</strong>.</li>
+<li>Allow <strong>Blood Glucose</strong> when the phone asks (<strong>Allow access</strong>).</li>
+<li>Tap the refresh icon in the header. The chart strip turns into <strong>GLUCOSE</strong> and fills as readings arrive.</li></ol>
+<p>Already been wearing the sensor for a while? <strong>GEAR</strong> → <strong>Import</strong> loads CareSens CSV history, so the earlier days are not empty.</p>
+<h2>Nothing shows up?</h2>
+<ul><li>Give it about 15 minutes — a reading travels three apps. A fresh sensor is also in warm-up for its first hours.</li>
+<li>Check that CareSens Air is still installed and the <strong>xDrip+</strong> switch is still on.</li>
+<li>Phone <strong>Settings</strong> → <strong>Health Connect</strong> → <strong>App permissions</strong>: xDrip+ may write Blood Glucose, Healthings may read it.</li>
+<li>Battery saver: let xDrip+ and Healthings run in the background. Android stops the quiet apps first.</li></ul>`,
+  ],
+  [
+    'he',
+    ltrPlus('xDrip+ ל־CareSens Air (Android)'),
+    ltrPlus(
+      'xDrip+ היא החיבור של CareSens ל־Healthings באנדרואיד. מורידים כאן ומחברים פעם אחת: CareSens Air → xDrip+ → Health Connect → Healthings.',
+    ),
+    ltrPlus(`<p class="tip"><strong>אנדרואיד בלבד.</strong> ל־iPhone אין xDrip+ — שם CareSens Air משתפת ישר ל־Apple Health. ראו <a href="cgm.html">CGM לגלוקוז</a>.</p>
+<p>CareSens Air שומרת את המדידות אצלה. xDrip+ היא החיבור של CareSens באנדרואיד — ככה CareSens ו־Healthings עובדות יחד. מחברים פעם אחת, ומשם הגלוקוז מגיע לדשבורד לבד.</p>
+<p>המסכים של xDrip+ באנגלית בכל טלפון, ולכן השמות למטה מובאים בדיוק כפי שתראו אותם.</p>
+${XDRIP_MARK}
+<p class="help-download"><a href="${XDRIP_APK}" download>הורדת xDrip+ לאנדרואיד</a></p>
+<p class="help-download-note">כ־16MB. החיבור של CareSens ל־Healthings באנדרואיד — <a href="${XDRIP_NOTE}">הגרסה כאן</a>, <a href="${XDRIP_SOURCE}" rel="noopener">הקוד ב־GitHub</a>.</p>
+<h2>1. מתקינים את xDrip+</h2>
+<ol><li>לוחצים על הכפתור למעלה מהטלפון עצמו. הדפדפן יזהיר שזה קובץ APK — זה נורמלי מחוץ ל־Play Store.</li>
+<li>פותחים את הקובץ שהורד. אם אנדרואיד חוסם, מאשרים לדפדפן <strong>Install unknown apps</strong> ופותחים שוב.</li>
+<li>פותחים את xDrip+ פעם אחת. אפשר לדלג על אשף החיישן — CareSens Air היא זו שתזין אותה.</li></ol>
+<h2>2. מרשים ל־CareSens Air לדבר עם xDrip+</h2>
+<ol><li>באפליקציית <strong>CareSens Air</strong> נכנסים ל־<strong>Manage Data &amp; Connections</strong>.</li>
+<li>מדליקים את <strong>xDrip+</strong>.</li></ol>
+${shot(CARESENS_SHOT, 'מסך Manage Data and Connections באפליקציית CareSens Air, המפסק של xDrip+ דלוק', 'CareSens Air — המפסק של xDrip+ דלוק.')}
+<p>משאירים את CareSens Air מותקנת ופעילה. היא נשארת זו שמדברת עם החיישן; xDrip+ רק מקשיבה.</p>
+<h2>3. מכוונים את xDrip+ לאפליקציית הליווי</h2>
+<p>ב־xDrip+ נכנסים ל־<strong>Settings</strong> → <strong>Hardware Data Source</strong> ובוחרים <strong>Companion App</strong> (בגרסאות ותיקות זה נקרא <strong>640G / Eversense</strong>). תוך כמה דקות אמור להופיע מספר במסך הבית של xDrip+.</p>
+<h2>4. שולחים את המדידות ל־Health Connect</h2>
+<ol><li>ב־xDrip+: <strong>Settings</strong> → <strong>Inter-app settings</strong>.</li>
+<li>גוללים למטה עד <strong>Google Health Connect</strong>.</li>
+<li><strong>Use Health Connect</strong> ON, <strong>Send data to Health Connect</strong> ON, <strong>Get data from Health Connect</strong> OFF.</li>
+<li>לוחצים <strong>Manage permissions</strong> ומאשרים ל־xDrip+ לכתוב Blood Glucose.</li></ol>
+${shot(SETTINGS_SHOT, 'רשימת ההגדרות של xDrip+ עם Inter-app settings בראש הרשימה', 'ההגדרות של xDrip+ — ‏Inter-app settings בראש הרשימה.')}
+${shot(INTERAPP_SHOT, 'מסך Inter-app settings ב־xDrip+ עם Google Health Connect בתחתית', 'Inter-app settings — ‏Google Health Connect בתחתית.')}
+${shot(HC_SHOT, 'מסך Google Health Connect ב־xDrip+: ‏Use Health Connect דלוק, Get data כבוי, Send data דלוק', 'Use Health Connect דלוק, Send data דלוק, Get data כבוי.')}
+<p class="tip">משאירים את <strong>Get data from Health Connect</strong> כבוי. xDrip+ צריכה רק לכתוב לכאן, וכשהקריאה דלוקה יש טלפונים שמציקים בהתראה כל כמה דקות.</p>
+<h2>5. מרשים ל־Healthings לקרוא את הגלוקוז</h2>
+<ol><li>ב־Healthings: <strong>פרופיל והגדרות</strong> → <strong>GEAR</strong> → <strong>CGM</strong> = <strong>כן</strong>.</li>
+<li>מאשרים <strong>Blood Glucose</strong> כשהטלפון מבקש (<strong>Allow access</strong>).</li>
+<li>לוחצים על אייקון הרענון למעלה. רצועת הגרף הופכת ל־<strong>GLUCOSE</strong> ומתמלאת כשהמדידות נכנסות.</li></ol>
+<p>כבר עם חיישן על הזרוע כמה ימים? <strong>GEAR</strong> → <strong>Import</strong> טוען היסטוריית CSV מ־CareSens, כדי שהימים שקדמו לא יישארו ריקים.</p>
+<h2>לא מופיע כלום?</h2>
+<ul><li>תנו לזה כרבע שעה — המדידה עוברת שלוש אפליקציות. חיישן חדש גם בחימום בשעות הראשונות.</li>
+<li>בודקים ש־CareSens Air עדיין מותקנת ושהמפסק <strong>xDrip+</strong> עדיין דלוק.</li>
+<li>ב<strong>הגדרות</strong> הטלפון → <strong>Health Connect</strong> → <strong>App permissions</strong>: ל־xDrip+ מותר לכתוב Blood Glucose, ול־Healthings מותר לקרוא.</li>
+<li>חוסך סוללה: מרשים ל־xDrip+ ול־Healthings לעבוד ברקע. אנדרואיד עוצר קודם את האפליקציות השקטות.</li></ul>`),
+  ],
+  [
+    'es',
+    'xDrip+ para CareSens Air (Android)',
+    'xDrip+ es la integración de CareSens que Healthings usa en Android. Descárgalo aquí y conéctalo una vez: CareSens Air → xDrip+ → Health Connect → Healthings.',
+    `<p class="tip"><strong>Solo Android.</strong> En iPhone no existe xDrip+ — allí CareSens Air comparte directamente con Apple Health. Mira <a href="cgm.html">Glucosa CGM</a>.</p>
+<p>CareSens Air se guarda las lecturas para sí. xDrip+ es la integración de CareSens en Android: alinea CareSens con Healthings. Se conecta una vez y desde ahí la glucosa llega sola a tu panel.</p>
+<p>xDrip+ está en inglés en todos los teléfonos, así que las etiquetas de abajo van tal como las verás.</p>
+${XDRIP_MARK}
+<p class="help-download"><a href="${XDRIP_APK}" download>Descargar xDrip+ para Android</a></p>
+<p class="help-download-note">Unos 16 MB. La integración de CareSens que Healthings usa en Android — <a href="${XDRIP_NOTE}">esta versión</a>, <a href="${XDRIP_SOURCE}" rel="noopener">código en GitHub</a>.</p>
+<h2>1. Instala xDrip+</h2>
+<ol><li>Toca el botón de arriba desde el propio teléfono. El navegador avisará de un APK: es normal fuera de Play Store.</li>
+<li>Abre el archivo descargado. Si Android lo bloquea, permite <strong>Install unknown apps</strong> a tu navegador y ábrelo otra vez.</li>
+<li>Abre xDrip+ una vez. Puedes saltarte su asistente de sensor — quien alimenta es CareSens Air.</li></ol>
+<h2>2. Deja que CareSens Air hable con xDrip+</h2>
+<ol><li>En la app <strong>CareSens Air</strong>, abre <strong>Manage Data &amp; Connections</strong>.</li>
+<li>Activa <strong>xDrip+</strong>.</li></ol>
+${shot(CARESENS_SHOT, 'CareSens Air, Manage Data and Connections, con el interruptor de xDrip+ activado', 'CareSens Air — el interruptor de xDrip+ activado.')}
+<p>Deja CareSens Air instalada y funcionando. Sigue siendo la app que habla con el sensor; xDrip+ solo escucha.</p>
+<h2>3. Apunta xDrip+ a la app compañera</h2>
+<p>En xDrip+ abre <strong>Settings</strong> → <strong>Hardware Data Source</strong> y elige <strong>Companion App</strong> (en versiones antiguas se llama <strong>640G / Eversense</strong>). En unos minutos debería aparecer un número en la pantalla de inicio de xDrip+.</p>
+<h2>4. Envía las lecturas a Health Connect</h2>
+<ol><li>xDrip+ → <strong>Settings</strong> → <strong>Inter-app settings</strong>.</li>
+<li>Baja hasta <strong>Google Health Connect</strong>.</li>
+<li><strong>Use Health Connect</strong> ON, <strong>Send data to Health Connect</strong> ON, <strong>Get data from Health Connect</strong> OFF.</li>
+<li>Toca <strong>Manage permissions</strong> y deja que xDrip+ escriba Blood Glucose.</li></ol>
+${shot(SETTINGS_SHOT, 'Lista de ajustes de xDrip+ con Inter-app settings arriba', 'Ajustes de xDrip+ — Inter-app settings está arriba.')}
+${shot(INTERAPP_SHOT, 'Inter-app settings de xDrip+ con Google Health Connect al final', 'Inter-app settings — Google Health Connect al final.')}
+${shot(HC_SHOT, 'Pantalla Google Health Connect de xDrip+: Use Health Connect activado, Get data desactivado, Send data activado', 'Use Health Connect ON, Send data ON, Get data OFF.')}
+<p class="tip">Deja <strong>Get data from Health Connect</strong> apagado. xDrip+ solo necesita escribir aquí, y con la lectura activada algunos teléfonos avisan cada pocos minutos.</p>
+<h2>5. Deja que Healthings lea la glucosa</h2>
+<ol><li>En Healthings: <strong>Perfil y ajustes</strong> → <strong>GEAR</strong> → <strong>CGM</strong> = <strong>Sí</strong>.</li>
+<li>Permite <strong>Blood Glucose</strong> cuando el teléfono lo pida (<strong>Allow access</strong>).</li>
+<li>Toca el icono de recarga arriba. La franja del gráfico pasa a <strong>GLUCOSE</strong> y se va llenando.</li></ol>
+<p>¿Llevas ya días con el sensor? <strong>GEAR</strong> → <strong>Import</strong> carga el historial CSV de CareSens para que los días anteriores no queden vacíos.</p>
+<h2>¿No aparece nada?</h2>
+<ul><li>Dale unos 15 minutos: la lectura pasa por tres apps. Un sensor nuevo también está en calentamiento las primeras horas.</li>
+<li>Comprueba que CareSens Air sigue instalada y el interruptor <strong>xDrip+</strong> sigue activado.</li>
+<li><strong>Ajustes</strong> del teléfono → <strong>Health Connect</strong> → <strong>App permissions</strong>: xDrip+ puede escribir Blood Glucose y Healthings puede leerlo.</li>
+<li>Ahorro de batería: deja a xDrip+ y a Healthings funcionar en segundo plano. Android detiene primero las apps calladas.</li></ul>`,
+  ],
+  [
+    'fr',
+    'xDrip+ pour CareSens Air (Android)',
+    'xDrip+ est l’intégration CareSens que Healthings utilise sur Android. Téléchargez-le ici et branchez une fois : CareSens Air → xDrip+ → Health Connect → Healthings.',
+    `<p class="tip"><strong>Android seulement.</strong> Sur iPhone, xDrip+ n’existe pas — CareSens Air partage directement avec Apple Health. Voir <a href="cgm.html">Glucose CGM</a>.</p>
+<p>CareSens Air garde les mesures pour elle. xDrip+ est l’intégration CareSens sur Android : elle aligne CareSens avec Healthings. On branche une fois, ensuite le glucose arrive tout seul sur le tableau de bord.</p>
+<p>xDrip+ est en anglais sur tous les téléphones : les libellés ci-dessous sont cités tels que vous les verrez.</p>
+${XDRIP_MARK}
+<p class="help-download"><a href="${XDRIP_APK}" download>Télécharger xDrip+ pour Android</a></p>
+<p class="help-download-note">Environ 16 Mo. L’intégration CareSens que Healthings utilise sur Android — <a href="${XDRIP_NOTE}">cette version</a>, <a href="${XDRIP_SOURCE}" rel="noopener">code sur GitHub</a>.</p>
+<h2>1. Installez xDrip+</h2>
+<ol><li>Touchez le bouton ci-dessus depuis le téléphone. Le navigateur alerte sur un APK — normal hors Play Store.</li>
+<li>Ouvrez le fichier téléchargé. Si Android refuse, autorisez <strong>Install unknown apps</strong> pour votre navigateur, puis rouvrez-le.</li>
+<li>Ouvrez xDrip+ une fois. Vous pouvez passer son assistant capteur — c’est CareSens Air qui alimente.</li></ol>
+<h2>2. Laissez CareSens Air parler à xDrip+</h2>
+<ol><li>Dans l’app <strong>CareSens Air</strong>, ouvrez <strong>Manage Data &amp; Connections</strong>.</li>
+<li>Activez <strong>xDrip+</strong>.</li></ol>
+${shot(CARESENS_SHOT, 'CareSens Air, Manage Data and Connections, interrupteur xDrip+ activé', 'CareSens Air — l’interrupteur xDrip+ est activé.')}
+<p>Laissez CareSens Air installée et active. Elle reste l’app qui parle au capteur ; xDrip+ ne fait qu’écouter.</p>
+<h2>3. Pointez xDrip+ vers l’app compagnon</h2>
+<p>Dans xDrip+ : <strong>Settings</strong> → <strong>Hardware Data Source</strong> → choisissez <strong>Companion App</strong> (les anciennes versions l’appellent <strong>640G / Eversense</strong>). En quelques minutes, un chiffre doit apparaître sur l’écran d’accueil de xDrip+.</p>
+<h2>4. Envoyez les mesures vers Health Connect</h2>
+<ol><li>xDrip+ → <strong>Settings</strong> → <strong>Inter-app settings</strong>.</li>
+<li>Descendez jusqu’à <strong>Google Health Connect</strong>.</li>
+<li><strong>Use Health Connect</strong> ON, <strong>Send data to Health Connect</strong> ON, <strong>Get data from Health Connect</strong> OFF.</li>
+<li>Touchez <strong>Manage permissions</strong> et laissez xDrip+ écrire Blood Glucose.</li></ol>
+${shot(SETTINGS_SHOT, 'Liste des réglages xDrip+ avec Inter-app settings en haut', 'Réglages xDrip+ — Inter-app settings est en haut.')}
+${shot(INTERAPP_SHOT, 'Inter-app settings de xDrip+ avec Google Health Connect en bas', 'Inter-app settings — Google Health Connect est en bas.')}
+${shot(HC_SHOT, 'Écran Google Health Connect de xDrip+ : Use Health Connect activé, Get data désactivé, Send data activé', 'Use Health Connect ON, Send data ON, Get data OFF.')}
+<p class="tip">Laissez <strong>Get data from Health Connect</strong> désactivé. xDrip+ n’a qu’à écrire ici, et avec la lecture activée certains téléphones vous alertent toutes les quelques minutes.</p>
+<h2>5. Laissez Healthings lire le glucose</h2>
+<ol><li>Dans Healthings : <strong>Profil et réglages</strong> → <strong>GEAR</strong> → <strong>CGM</strong> = <strong>Oui</strong>.</li>
+<li>Autorisez <strong>Blood Glucose</strong> quand le téléphone le demande (<strong>Allow access</strong>).</li>
+<li>Touchez l’icône d’actualisation en haut. La bande du graphique devient <strong>GLUCOSE</strong> et se remplit.</li></ol>
+<p>Vous portez le capteur depuis quelques jours ? <strong>GEAR</strong> → <strong>Import</strong> charge l’historique CSV CareSens, pour que les jours passés ne soient pas vides.</p>
+<h2>Rien n’arrive ?</h2>
+<ul><li>Laissez environ 15 minutes : la mesure traverse trois apps. Un capteur neuf est aussi en préchauffage les premières heures.</li>
+<li>Vérifiez que CareSens Air est toujours installée et l’interrupteur <strong>xDrip+</strong> toujours actif.</li>
+<li><strong>Réglages</strong> du téléphone → <strong>Health Connect</strong> → <strong>App permissions</strong> : xDrip+ peut écrire Blood Glucose, Healthings peut le lire.</li>
+<li>Économiseur de batterie : laissez xDrip+ et Healthings tourner en arrière-plan. Android arrête d’abord les apps silencieuses.</li></ul>`,
+  ],
+  [
+    'de',
+    'xDrip+ für CareSens Air (Android)',
+    'xDrip+ ist die CareSens-Anbindung, die Healthings auf Android nutzt. Laden Sie sie hier und verbinden Sie einmal: CareSens Air → xDrip+ → Health Connect → Healthings.',
+    `<p class="tip"><strong>Nur Android.</strong> Auf dem iPhone gibt es xDrip+ nicht — dort teilt CareSens Air direkt mit Apple Health. Siehe <a href="cgm.html">CGM-Glukose</a>.</p>
+<p>CareSens Air behält die Messwerte in der eigenen App. xDrip+ ist die CareSens-Anbindung auf Android — sie bringt CareSens und Healthings zusammen. Einmal verbinden — danach landet Glukose von selbst auf Ihrem Dashboard.</p>
+<p>xDrip+ ist auf jedem Telefon englisch, deshalb stehen die Beschriftungen unten genau so, wie Sie sie sehen werden.</p>
+${XDRIP_MARK}
+<p class="help-download"><a href="${XDRIP_APK}" download>xDrip+ für Android herunterladen</a></p>
+<p class="help-download-note">Rund 16 MB. Die CareSens-Anbindung, die Healthings auf Android nutzt — <a href="${XDRIP_NOTE}">diese Version</a>, <a href="${XDRIP_SOURCE}" rel="noopener">Quellcode auf GitHub</a>.</p>
+<h2>1. xDrip+ installieren</h2>
+<ol><li>Tippen Sie den Button oben direkt auf dem Telefon. Der Browser warnt vor einer APK — außerhalb des Play Store normal.</li>
+<li>Öffnen Sie die geladene Datei. Blockt Android, erlauben Sie Ihrem Browser <strong>Install unknown apps</strong> und öffnen sie erneut.</li>
+<li>Öffnen Sie xDrip+ einmal. Den Sensor-Assistenten können Sie überspringen — gefüttert wird von CareSens Air.</li></ol>
+<h2>2. CareSens Air mit xDrip+ sprechen lassen</h2>
+<ol><li>In der <strong>CareSens Air</strong>-App <strong>Manage Data &amp; Connections</strong> öffnen.</li>
+<li><strong>xDrip+</strong> einschalten.</li></ol>
+${shot(CARESENS_SHOT, 'CareSens Air, Manage Data and Connections, Schalter für xDrip+ ist an', 'CareSens Air — der xDrip+-Schalter ist an.')}
+<p>Lassen Sie CareSens Air installiert und laufen. Sie bleibt die App, die mit dem Sensor spricht; xDrip+ hört nur zu.</p>
+<h2>3. xDrip+ auf die Companion-App zeigen</h2>
+<p>In xDrip+: <strong>Settings</strong> → <strong>Hardware Data Source</strong> → <strong>Companion App</strong> wählen (ältere Builds nennen es <strong>640G / Eversense</strong>). Nach wenigen Minuten sollte auf dem xDrip+-Startbildschirm eine Zahl stehen.</p>
+<h2>4. Messwerte an Health Connect senden</h2>
+<ol><li>xDrip+ → <strong>Settings</strong> → <strong>Inter-app settings</strong>.</li>
+<li>Nach unten bis <strong>Google Health Connect</strong> scrollen.</li>
+<li><strong>Use Health Connect</strong> ON, <strong>Send data to Health Connect</strong> ON, <strong>Get data from Health Connect</strong> OFF.</li>
+<li><strong>Manage permissions</strong> antippen und xDrip+ das Schreiben von Blood Glucose erlauben.</li></ol>
+${shot(SETTINGS_SHOT, 'xDrip+ Einstellungsliste, Inter-app settings oben', 'xDrip+ Settings — Inter-app settings steht oben.')}
+${shot(INTERAPP_SHOT, 'xDrip+ Inter-app settings mit Google Health Connect unten', 'Inter-app settings — Google Health Connect unten.')}
+${shot(HC_SHOT, 'xDrip+ Google Health Connect: Use Health Connect an, Get data aus, Send data an', 'Use Health Connect ON, Send data ON, Get data OFF.')}
+<p class="tip">Lassen Sie <strong>Get data from Health Connect</strong> aus. xDrip+ muss hier nur schreiben — mit aktivem Lesen melden manche Telefone alle paar Minuten eine Warnung.</p>
+<h2>5. Healthings die Glukose lesen lassen</h2>
+<ol><li>In Healthings: <strong>Profil &amp; Einstellungen</strong> → <strong>GEAR</strong> → <strong>CGM</strong> = <strong>Ja</strong>.</li>
+<li><strong>Blood Glucose</strong> erlauben, wenn das Telefon fragt (<strong>Allow access</strong>).</li>
+<li>Auf das Aktualisieren-Symbol oben tippen. Der Chart-Streifen wird zu <strong>GLUCOSE</strong> und füllt sich.</li></ol>
+<p>Sensor schon länger am Arm? <strong>GEAR</strong> → <strong>Import</strong> lädt die CareSens-CSV-Historie, damit die früheren Tage nicht leer bleiben.</p>
+<h2>Es kommt nichts an?</h2>
+<ul><li>Geben Sie ihm rund 15 Minuten — ein Messwert läuft durch drei Apps. Ein frischer Sensor ist in den ersten Stunden im Warm-up.</li>
+<li>Prüfen: CareSens Air noch installiert, Schalter <strong>xDrip+</strong> noch an?</li>
+<li>Telefon-<strong>Einstellungen</strong> → <strong>Health Connect</strong> → <strong>App permissions</strong>: xDrip+ darf Blood Glucose schreiben, Healthings darf es lesen.</li>
+<li>Energiesparmodus: xDrip+ und Healthings im Hintergrund laufen lassen. Android stoppt zuerst die stillen Apps.</li></ul>`,
+  ],
+  [
+    'ar',
+    ltrPlus('xDrip+ مع CareSens Air (Android)'),
+    ltrPlus(
+      'xDrip+ هو ربط CareSens الذي تستخدمه Healthings على أندرويد. حمّله من هنا وصِل مرة واحدة: CareSens Air → xDrip+ → Health Connect → Healthings.',
+    ),
+    ltrPlus(`<p class="tip"><strong>Android فقط.</strong> لا يوجد xDrip+ على iPhone — هناك تشارك CareSens Air مباشرة مع Apple Health. انظر <a href="cgm.html">جلوكوز CGM</a>.</p>
+<p>تحتفظ CareSens Air بالقراءات داخل تطبيقها. أما xDrip+ فهو ربط CareSens على أندرويد — هكذا تلتقي CareSens وHealthings. تربط مرة واحدة، وبعدها يصل الجلوكوز إلى لوحتك من تلقاء نفسه.</p>
+<p>شاشات xDrip+ بالإنجليزية على كل هاتف، فالأسماء أدناه مكتوبة كما ستراها تماماً.</p>
+${XDRIP_MARK}
+<p class="help-download"><a href="${XDRIP_APK}" download>تحميل xDrip+ لأندرويد</a></p>
+<p class="help-download-note">نحو 16MB. ربط CareSens الذي تستخدمه Healthings على أندرويد — <a href="${XDRIP_NOTE}">هذه النسخة</a>، <a href="${XDRIP_SOURCE}" rel="noopener">الكود على GitHub</a>.</p>
+<h2>1. ثبّت xDrip+</h2>
+<ol><li>اضغط الزر أعلاه من الهاتف نفسه. سيحذّرك المتصفح من ملف APK — هذا طبيعي خارج Play Store.</li>
+<li>افتح الملف بعد التحميل. إن رفض Android، اسمح لمتصفحك بـ <strong>Install unknown apps</strong> ثم افتحه مرة أخرى.</li>
+<li>افتح xDrip+ مرة واحدة. يمكنك تخطي معالج الحسّاس — فالتغذية تأتي من CareSens Air.</li></ol>
+<h2>2. اسمح لـ CareSens Air بمخاطبة xDrip+</h2>
+<ol><li>في تطبيق <strong>CareSens Air</strong> افتح <strong>Manage Data &amp; Connections</strong>.</li>
+<li>شغّل <strong>xDrip+</strong>.</li></ol>
+${shot(CARESENS_SHOT, 'شاشة Manage Data and Connections في CareSens Air ومفتاح xDrip+ مشغّل', 'CareSens Air — مفتاح xDrip+ مشغّل.')}
+<p>اترك CareSens Air مثبتاً وعاملاً. فهو يبقى التطبيق الذي يخاطب الحسّاس، أما xDrip+ فيستمع فقط.</p>
+<h2>3. وجّه xDrip+ إلى تطبيق الرفيق</h2>
+<p>في xDrip+: <strong>Settings</strong> → <strong>Hardware Data Source</strong> ثم اختر <strong>Companion App</strong> (النسخ القديمة تسميه <strong>640G / Eversense</strong>). خلال دقائق يجب أن يظهر رقم على شاشة xDrip+ الرئيسية.</p>
+<h2>4. أرسل القراءات إلى Health Connect</h2>
+<ol><li>xDrip+ → <strong>Settings</strong> → <strong>Inter-app settings</strong>.</li>
+<li>انزل إلى <strong>Google Health Connect</strong>.</li>
+<li><strong>Use Health Connect</strong> ON و<strong>Send data to Health Connect</strong> ON و<strong>Get data from Health Connect</strong> OFF.</li>
+<li>اضغط <strong>Manage permissions</strong> واسمح لـ xDrip+ بكتابة Blood Glucose.</li></ol>
+${shot(SETTINGS_SHOT, 'قائمة إعدادات xDrip+ وفيها Inter-app settings في الأعلى', 'إعدادات xDrip+ — ‏Inter-app settings في الأعلى.')}
+${shot(INTERAPP_SHOT, 'شاشة Inter-app settings في xDrip+ وفي أسفلها Google Health Connect', 'Inter-app settings — ‏Google Health Connect في الأسفل.')}
+${shot(HC_SHOT, 'شاشة Google Health Connect في xDrip+: ‏Use Health Connect مشغّل، Get data مطفأ، Send data مشغّل', 'Use Health Connect مشغّل، Send data مشغّل، Get data مطفأ.')}
+<p class="tip">اترك <strong>Get data from Health Connect</strong> مطفأً. فـ xDrip+ يحتاج الكتابة هنا فقط، ومع تشغيل القراءة تُزعجك بعض الهواتف بتنبيه كل دقائق.</p>
+<h2>5. اسمح لـ Healthings بقراءة الجلوكوز</h2>
+<ol><li>في Healthings: <strong>الملف والإعدادات</strong> → <strong>GEAR</strong> → <strong>CGM</strong> = <strong>نعم</strong>.</li>
+<li>اسمح بـ <strong>Blood Glucose</strong> عندما يسأل الهاتف (<strong>Allow access</strong>).</li>
+<li>اضغط أيقونة التحديث في الأعلى. يتحول شريط الرسم إلى <strong>GLUCOSE</strong> ويمتلئ مع وصول القراءات.</li></ol>
+<p>تلبس الحسّاس من أيام؟ <strong>GEAR</strong> → <strong>Import</strong> يحمّل سجل CSV من CareSens حتى لا تبقى الأيام السابقة فارغة.</p>
+<h2>لا يظهر شيء؟</h2>
+<ul><li>امنحه نحو 15 دقيقة — فالقراءة تمر بثلاثة تطبيقات. والحسّاس الجديد في فترة تسخين أول ساعاته.</li>
+<li>تأكد أن CareSens Air ما زال مثبتاً وأن مفتاح <strong>xDrip+</strong> ما زال مشغّلاً.</li>
+<li><strong>إعدادات</strong> الهاتف → <strong>Health Connect</strong> → <strong>App permissions</strong>: يُسمح لـ xDrip+ بكتابة Blood Glucose ولـ Healthings بقراءته.</li>
+<li>موفّر الطاقة: اسمح لـ xDrip+ و Healthings بالعمل في الخلفية. فأندرويد يوقف التطبيقات الهادئة أولاً.</li></ul>`),
+  ],
+  [
+    'ru',
+    'xDrip+ для CareSens Air (Android)',
+    'xDrip+ — это подключение CareSens, которым Healthings пользуется на Android. Скачайте здесь и соедините один раз: CareSens Air → xDrip+ → Health Connect → Healthings.',
+    `<p class="tip"><strong>Только Android.</strong> На iPhone xDrip+ не существует — там CareSens Air делится напрямую с Apple Health. См. <a href="cgm.html">Глюкоза CGM</a>.</p>
+<p>CareSens Air держит показания внутри своего приложения. xDrip+ — это подключение CareSens на Android: оно стыкует CareSens с Healthings. Соединяете один раз — дальше глюкоза приходит на дашборд сама.</p>
+<p>xDrip+ на всех телефонах на английском, поэтому названия ниже приведены точно так, как вы их увидите.</p>
+${XDRIP_MARK}
+<p class="help-download"><a href="${XDRIP_APK}" download>Скачать xDrip+ для Android</a></p>
+<p class="help-download-note">Около 16 МБ. Подключение CareSens, которым Healthings пользуется на Android — <a href="${XDRIP_NOTE}">эта сборка</a>, <a href="${XDRIP_SOURCE}" rel="noopener">код на GitHub</a>.</p>
+<h2>1. Установите xDrip+</h2>
+<ol><li>Нажмите кнопку выше с самого телефона. Браузер предупредит об APK — вне Play Store это нормально.</li>
+<li>Откройте скачанный файл. Если Android не пускает, разрешите браузеру <strong>Install unknown apps</strong> и откройте снова.</li>
+<li>Откройте xDrip+ один раз. Мастер сенсора можно пропустить — кормить будет CareSens Air.</li></ol>
+<h2>2. Разрешите CareSens Air говорить с xDrip+</h2>
+<ol><li>В приложении <strong>CareSens Air</strong> откройте <strong>Manage Data &amp; Connections</strong>.</li>
+<li>Включите <strong>xDrip+</strong>.</li></ol>
+${shot(CARESENS_SHOT, 'CareSens Air, экран Manage Data and Connections, переключатель xDrip+ включён', 'CareSens Air — переключатель xDrip+ включён.')}
+<p>Оставьте CareSens Air установленным и работающим. Он остаётся тем, кто говорит с сенсором; xDrip+ только слушает.</p>
+<h2>3. Укажите xDrip+ на приложение-компаньон</h2>
+<p>В xDrip+ откройте <strong>Settings</strong> → <strong>Hardware Data Source</strong> и выберите <strong>Companion App</strong> (в старых сборках это <strong>640G / Eversense</strong>). Через несколько минут на главном экране xDrip+ должно появиться число.</p>
+<h2>4. Отправьте показания в Health Connect</h2>
+<ol><li>xDrip+ → <strong>Settings</strong> → <strong>Inter-app settings</strong>.</li>
+<li>Прокрутите вниз до <strong>Google Health Connect</strong>.</li>
+<li><strong>Use Health Connect</strong> ON, <strong>Send data to Health Connect</strong> ON, <strong>Get data from Health Connect</strong> OFF.</li>
+<li>Нажмите <strong>Manage permissions</strong> и разрешите xDrip+ записывать Blood Glucose.</li></ol>
+${shot(SETTINGS_SHOT, 'Список настроек xDrip+, Inter-app settings сверху', 'Настройки xDrip+ — Inter-app settings сверху.')}
+${shot(INTERAPP_SHOT, 'Inter-app settings в xDrip+, Google Health Connect внизу', 'Inter-app settings — Google Health Connect внизу.')}
+${shot(HC_SHOT, 'Экран Google Health Connect в xDrip+: Use Health Connect включено, Get data выключено, Send data включено', 'Use Health Connect ON, Send data ON, Get data OFF.')}
+<p class="tip">Оставьте <strong>Get data from Health Connect</strong> выключенным. xDrip+ нужно только писать сюда, а с включённым чтением некоторые телефоны напоминают о себе каждые несколько минут.</p>
+<h2>5. Разрешите Healthings читать глюкозу</h2>
+<ol><li>В Healthings: <strong>Профиль и настройки</strong> → <strong>GEAR</strong> → <strong>CGM</strong> = <strong>Да</strong>.</li>
+<li>Разрешите <strong>Blood Glucose</strong>, когда телефон спросит (<strong>Allow access</strong>).</li>
+<li>Нажмите значок обновления сверху. Полоса графика станет <strong>GLUCOSE</strong> и заполнится по мере поступления данных.</li></ol>
+<p>Носите сенсор уже несколько дней? <strong>GEAR</strong> → <strong>Import</strong> загрузит историю CSV из CareSens, чтобы прошлые дни не пустовали.</p>
+<h2>Ничего не приходит?</h2>
+<ul><li>Дайте минут 15 — показание идёт через три приложения. Новый сенсор первые часы ещё прогревается.</li>
+<li>Проверьте, что CareSens Air на месте и переключатель <strong>xDrip+</strong> всё ещё включён.</li>
+<li><strong>Настройки</strong> телефона → <strong>Health Connect</strong> → <strong>App permissions</strong>: xDrip+ может писать Blood Glucose, Healthings — читать.</li>
+<li>Экономия батареи: разрешите xDrip+ и Healthings работать в фоне. Android первым останавливает тихие приложения.</li></ul>`,
+  ],
+  [
+    'pt',
+    'xDrip+ para CareSens Air (Android)',
+    'O xDrip+ é a integração da CareSens que a Healthings usa no Android. Descarregue aqui e ligue uma vez: CareSens Air → xDrip+ → Health Connect → Healthings.',
+    `<p class="tip"><strong>Só Android.</strong> No iPhone não existe xDrip+ — aí o CareSens Air partilha direto com o Apple Health. Veja <a href="cgm.html">Glicose CGM</a>.</p>
+<p>O CareSens Air guarda as leituras dentro da própria app. O xDrip+ é a integração da CareSens no Android — alinha a CareSens com a Healthings. Liga-se uma vez e depois a glicose chega ao painel sozinha.</p>
+<p>O xDrip+ está em inglês em todos os telemóveis, por isso os nomes abaixo estão como os vai ver.</p>
+${XDRIP_MARK}
+<p class="help-download"><a href="${XDRIP_APK}" download>Descarregar xDrip+ para Android</a></p>
+<p class="help-download-note">Cerca de 16 MB. A integração da CareSens que a Healthings usa no Android — <a href="${XDRIP_NOTE}">esta versão</a>, <a href="${XDRIP_SOURCE}" rel="noopener">código no GitHub</a>.</p>
+<h2>1. Instale o xDrip+</h2>
+<ol><li>Toque no botão acima no próprio telemóvel. O navegador avisa que é um APK — normal fora da Play Store.</li>
+<li>Abra o ficheiro descarregado. Se o Android bloquear, permita <strong>Install unknown apps</strong> ao navegador e abra outra vez.</li>
+<li>Abra o xDrip+ uma vez. Pode saltar o assistente de sensor — quem alimenta é o CareSens Air.</li></ol>
+<h2>2. Deixe o CareSens Air falar com o xDrip+</h2>
+<ol><li>Na app <strong>CareSens Air</strong>, abra <strong>Manage Data &amp; Connections</strong>.</li>
+<li>Ligue o <strong>xDrip+</strong>.</li></ol>
+${shot(CARESENS_SHOT, 'CareSens Air, Manage Data and Connections, interruptor do xDrip+ ligado', 'CareSens Air — o interruptor do xDrip+ está ligado.')}
+<p>Deixe o CareSens Air instalado e a funcionar. Continua a ser a app que fala com o sensor; o xDrip+ só ouve.</p>
+<h2>3. Aponte o xDrip+ à app companheira</h2>
+<p>No xDrip+: <strong>Settings</strong> → <strong>Hardware Data Source</strong> → escolha <strong>Companion App</strong> (versões antigas chamam-lhe <strong>640G / Eversense</strong>). Em poucos minutos deve aparecer um número no ecrã inicial do xDrip+.</p>
+<h2>4. Envie as leituras para o Health Connect</h2>
+<ol><li>xDrip+ → <strong>Settings</strong> → <strong>Inter-app settings</strong>.</li>
+<li>Desça até <strong>Google Health Connect</strong>.</li>
+<li><strong>Use Health Connect</strong> ON, <strong>Send data to Health Connect</strong> ON, <strong>Get data from Health Connect</strong> OFF.</li>
+<li>Toque em <strong>Manage permissions</strong> e deixe o xDrip+ escrever Blood Glucose.</li></ol>
+${shot(SETTINGS_SHOT, 'Lista de definições do xDrip+ com Inter-app settings no topo', 'Definições do xDrip+ — Inter-app settings fica no topo.')}
+${shot(INTERAPP_SHOT, 'Inter-app settings do xDrip+ com Google Health Connect no fim', 'Inter-app settings — Google Health Connect no fim.')}
+${shot(HC_SHOT, 'Ecrã Google Health Connect do xDrip+: Use Health Connect ligado, Get data desligado, Send data ligado', 'Use Health Connect ON, Send data ON, Get data OFF.')}
+<p class="tip">Deixe <strong>Get data from Health Connect</strong> desligado. O xDrip+ só precisa de escrever aqui e, com a leitura ligada, alguns telemóveis avisam a cada poucos minutos.</p>
+<h2>5. Deixe o Healthings ler a glicose</h2>
+<ol><li>No Healthings: <strong>Perfil e definições</strong> → <strong>GEAR</strong> → <strong>CGM</strong> = <strong>Sim</strong>.</li>
+<li>Permita <strong>Blood Glucose</strong> quando o telemóvel pedir (<strong>Allow access</strong>).</li>
+<li>Toque no ícone de atualizar no topo. A faixa do gráfico passa a <strong>GLUCOSE</strong> e enche-se com as leituras.</li></ol>
+<p>Já usa o sensor há dias? <strong>GEAR</strong> → <strong>Import</strong> carrega o histórico CSV do CareSens, para os dias anteriores não ficarem vazios.</p>
+<h2>Não aparece nada?</h2>
+<ul><li>Dê cerca de 15 minutos — a leitura atravessa três apps. Um sensor novo também está em aquecimento nas primeiras horas.</li>
+<li>Confirme que o CareSens Air continua instalado e o interruptor <strong>xDrip+</strong> ligado.</li>
+<li><strong>Definições</strong> do telemóvel → <strong>Health Connect</strong> → <strong>App permissions</strong>: o xDrip+ pode escrever Blood Glucose e o Healthings pode ler.</li>
+<li>Poupança de bateria: deixe o xDrip+ e o Healthings correr em segundo plano. O Android para primeiro as apps caladas.</li></ul>`,
+  ],
+  [
+    'it',
+    'xDrip+ per CareSens Air (Android)',
+    'xDrip+ è l’integrazione CareSens che Healthings usa su Android. Scaricalo qui e collega una volta: CareSens Air → xDrip+ → Health Connect → Healthings.',
+    `<p class="tip"><strong>Solo Android.</strong> Su iPhone xDrip+ non esiste — lì CareSens Air condivide direttamente con Apple Health. Vedi <a href="cgm.html">Glucosio CGM</a>.</p>
+<p>CareSens Air tiene le letture dentro la propria app. xDrip+ è l’integrazione CareSens su Android: allinea CareSens con Healthings. Si collega una volta e poi il glucosio arriva sulla dashboard da solo.</p>
+<p>xDrip+ è in inglese su ogni telefono, quindi le voci qui sotto sono citate come le vedrai.</p>
+${XDRIP_MARK}
+<p class="help-download"><a href="${XDRIP_APK}" download>Scarica xDrip+ per Android</a></p>
+<p class="help-download-note">Circa 16 MB. L’integrazione CareSens che Healthings usa su Android — <a href="${XDRIP_NOTE}">questa versione</a>, <a href="${XDRIP_SOURCE}" rel="noopener">codice su GitHub</a>.</p>
+<h2>1. Installa xDrip+</h2>
+<ol><li>Tocca il pulsante qui sopra dal telefono. Il browser avvisa che è un APK — normale fuori dal Play Store.</li>
+<li>Apri il file scaricato. Se Android blocca, consenti al browser <strong>Install unknown apps</strong> e riaprilo.</li>
+<li>Apri xDrip+ una volta. Puoi saltare la procedura del sensore — chi alimenta è CareSens Air.</li></ol>
+<h2>2. Fai parlare CareSens Air con xDrip+</h2>
+<ol><li>Nell’app <strong>CareSens Air</strong> apri <strong>Manage Data &amp; Connections</strong>.</li>
+<li>Attiva <strong>xDrip+</strong>.</li></ol>
+${shot(CARESENS_SHOT, 'CareSens Air, Manage Data and Connections, interruttore xDrip+ attivo', 'CareSens Air — l’interruttore xDrip+ è attivo.')}
+<p>Lascia CareSens Air installata e attiva. Resta l’app che parla col sensore; xDrip+ si limita ad ascoltare.</p>
+<h2>3. Punta xDrip+ sull’app compagna</h2>
+<p>In xDrip+: <strong>Settings</strong> → <strong>Hardware Data Source</strong> e scegli <strong>Companion App</strong> (nelle build vecchie si chiama <strong>640G / Eversense</strong>). In pochi minuti sulla home di xDrip+ dovrebbe apparire un numero.</p>
+<h2>4. Manda le letture a Health Connect</h2>
+<ol><li>xDrip+ → <strong>Settings</strong> → <strong>Inter-app settings</strong>.</li>
+<li>Scendi fino a <strong>Google Health Connect</strong>.</li>
+<li><strong>Use Health Connect</strong> ON, <strong>Send data to Health Connect</strong> ON, <strong>Get data from Health Connect</strong> OFF.</li>
+<li>Tocca <strong>Manage permissions</strong> e consenti a xDrip+ di scrivere Blood Glucose.</li></ol>
+${shot(SETTINGS_SHOT, 'Elenco impostazioni di xDrip+ con Inter-app settings in alto', 'Impostazioni xDrip+ — Inter-app settings è in alto.')}
+${shot(INTERAPP_SHOT, 'Inter-app settings di xDrip+ con Google Health Connect in fondo', 'Inter-app settings — Google Health Connect in fondo.')}
+${shot(HC_SHOT, 'Schermata Google Health Connect di xDrip+: Use Health Connect attivo, Get data disattivo, Send data attivo', 'Use Health Connect ON, Send data ON, Get data OFF.')}
+<p class="tip">Lascia <strong>Get data from Health Connect</strong> disattivo. xDrip+ qui deve solo scrivere e, con la lettura attiva, alcuni telefoni avvisano ogni pochi minuti.</p>
+<h2>5. Fai leggere il glucosio a Healthings</h2>
+<ol><li>In Healthings: <strong>Profilo e impostazioni</strong> → <strong>GEAR</strong> → <strong>CGM</strong> = <strong>Sì</strong>.</li>
+<li>Consenti <strong>Blood Glucose</strong> quando il telefono lo chiede (<strong>Allow access</strong>).</li>
+<li>Tocca l’icona di aggiornamento in alto. La striscia del grafico diventa <strong>GLUCOSE</strong> e si riempie.</li></ol>
+<p>Porti il sensore già da giorni? <strong>GEAR</strong> → <strong>Import</strong> carica lo storico CSV di CareSens, così i giorni precedenti non restano vuoti.</p>
+<h2>Non arriva niente?</h2>
+<ul><li>Dagli una quindicina di minuti: la lettura attraversa tre app. Un sensore nuovo è anche in warm-up nelle prime ore.</li>
+<li>Controlla che CareSens Air sia ancora installata e l’interruttore <strong>xDrip+</strong> ancora attivo.</li>
+<li><strong>Impostazioni</strong> del telefono → <strong>Health Connect</strong> → <strong>App permissions</strong>: xDrip+ può scrivere Blood Glucose, Healthings può leggerlo.</li>
+<li>Risparmio energetico: lascia xDrip+ e Healthings girare in background. Android ferma prima le app silenziose.</li></ul>`,
+  ],
+  [
+    'tr',
+    'CareSens Air için xDrip+ (Android)',
+    'xDrip+, Healthings’in Android’de kullandığı CareSens entegrasyonudur. Buradan indirin ve bir kez bağlayın: CareSens Air → xDrip+ → Health Connect → Healthings.',
+    `<p class="tip"><strong>Yalnızca Android.</strong> iPhone’da xDrip+ yok — orada CareSens Air doğrudan Apple Health ile paylaşır. Bkz. <a href="cgm.html">CGM glikoz</a>.</p>
+<p>CareSens Air ölçümleri kendi uygulamasında tutar. xDrip+ ise Android’deki CareSens entegrasyonu — CareSens ile Healthings’i hizalar. Bir kez bağlarsınız; sonrasında glikoz panonuza kendiliğinden düşer.</p>
+<p>xDrip+ her telefonda İngilizcedir, bu yüzden aşağıdaki etiketler göreceğiniz gibi yazılmıştır.</p>
+${XDRIP_MARK}
+<p class="help-download"><a href="${XDRIP_APK}" download>Android için xDrip+ indir</a></p>
+<p class="help-download-note">Yaklaşık 16 MB. Healthings’in Android’de kullandığı CareSens entegrasyonu — <a href="${XDRIP_NOTE}">bu sürüm</a>, <a href="${XDRIP_SOURCE}" rel="noopener">kaynak GitHub’da</a>.</p>
+<h2>1. xDrip+’ı kurun</h2>
+<ol><li>Yukarıdaki düğmeye telefonun kendisinden dokunun. Tarayıcı APK için uyarır — Play Store dışında normaldir.</li>
+<li>İnen dosyayı açın. Android engellerse tarayıcınıza <strong>Install unknown apps</strong> izni verip yeniden açın.</li>
+<li>xDrip+’ı bir kez açın. Sensör sihirbazını atlayabilirsiniz — besleyen CareSens Air olacak.</li></ol>
+<h2>2. CareSens Air’in xDrip+ ile konuşmasına izin verin</h2>
+<ol><li><strong>CareSens Air</strong> uygulamasında <strong>Manage Data &amp; Connections</strong>’ı açın.</li>
+<li><strong>xDrip+</strong>’ı açın.</li></ol>
+${shot(CARESENS_SHOT, 'CareSens Air, Manage Data and Connections ekranı, xDrip+ anahtarı açık', 'CareSens Air — xDrip+ anahtarı açık.')}
+<p>CareSens Air’i kurulu ve çalışır bırakın. Sensörle konuşan uygulama o kalır; xDrip+ yalnızca dinler.</p>
+<h2>3. xDrip+’ı eşlik eden uygulamaya yönlendirin</h2>
+<p>xDrip+’ta <strong>Settings</strong> → <strong>Hardware Data Source</strong> → <strong>Companion App</strong>’i seçin (eski sürümlerde <strong>640G / Eversense</strong> adıyla geçer). Birkaç dakika içinde xDrip+ ana ekranında bir sayı görünmeli.</p>
+<h2>4. Ölçümleri Health Connect’e gönderin</h2>
+<ol><li>xDrip+ → <strong>Settings</strong> → <strong>Inter-app settings</strong>.</li>
+<li>Aşağıda <strong>Google Health Connect</strong>’e inin.</li>
+<li><strong>Use Health Connect</strong> ON, <strong>Send data to Health Connect</strong> ON, <strong>Get data from Health Connect</strong> OFF.</li>
+<li><strong>Manage permissions</strong>’a dokunup xDrip+’a Blood Glucose yazma izni verin.</li></ol>
+${shot(SETTINGS_SHOT, 'xDrip+ ayarlar listesi, Inter-app settings üstte', 'xDrip+ Settings — Inter-app settings üstte.')}
+${shot(INTERAPP_SHOT, 'xDrip+ Inter-app settings ekranı, Google Health Connect en altta', 'Inter-app settings — Google Health Connect en altta.')}
+${shot(HC_SHOT, 'xDrip+ Google Health Connect ekranı: Use Health Connect açık, Get data kapalı, Send data açık', 'Use Health Connect ON, Send data ON, Get data OFF.')}
+<p class="tip"><strong>Get data from Health Connect</strong>’i kapalı bırakın. xDrip+’ın buraya yalnızca yazması gerekir; okuma açıkken bazı telefonlar birkaç dakikada bir uyarı gösterir.</p>
+<h2>5. Healthings’in glikozu okumasına izin verin</h2>
+<ol><li>Healthings’te: <strong>Profil ve ayarlar</strong> → <strong>GEAR</strong> → <strong>CGM</strong> = <strong>Evet</strong>.</li>
+<li>Telefon sorduğunda <strong>Blood Glucose</strong>’a izin verin (<strong>Allow access</strong>).</li>
+<li>Üstteki yenile simgesine dokunun. Grafik şeridi <strong>GLUCOSE</strong>’a döner ve ölçümler geldikçe dolar.</li></ol>
+<p>Sensörü günlerdir takıyorsanız: <strong>GEAR</strong> → <strong>Import</strong> CareSens CSV geçmişini yükler, böylece önceki günler boş kalmaz.</p>
+<h2>Hiçbir şey gelmiyor mu?</h2>
+<ul><li>15 dakika kadar verin — ölçüm üç uygulamadan geçiyor. Yeni sensör ilk saatlerde ısınma modundadır.</li>
+<li>CareSens Air’in kurulu ve <strong>xDrip+</strong> anahtarının açık olduğunu kontrol edin.</li>
+<li>Telefon <strong>Ayarlar</strong> → <strong>Health Connect</strong> → <strong>App permissions</strong>: xDrip+ Blood Glucose yazabilsin, Healthings okuyabilsin.</li>
+<li>Pil tasarrufu: xDrip+ ve Healthings’in arka planda çalışmasına izin verin. Android önce sessiz uygulamaları durdurur.</li></ul>`,
+  ],
 ]);
 
 bulk('withings-link', [

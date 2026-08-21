@@ -39,6 +39,12 @@ export type YourSetupCopy = {
   quickStartAgain: string;
   /** CareSens CSV import button label. */
   careSensImport: string;
+  /** Opens the Withings listing in Play / App Store. */
+  getWithings: string;
+  /** Opens the CareSens Air listing in Play / App Store. */
+  getCaresens: string;
+  /** Opens Healthings’ xDrip+ download + wiring guide (Android). */
+  getXdrip: string;
 };
 
 const EN: YourSetupCopy = {
@@ -72,6 +78,9 @@ const EN: YourSetupCopy = {
   relinkWithings: 'Re-link Withings',
   quickStartAgain: 'Quick Start again',
   careSensImport: 'Import',
+  getWithings: 'Get Withings',
+  getCaresens: 'Get CareSens Air',
+  getXdrip: 'Download xDrip+',
 };
 
 const HE: YourSetupCopy = {
@@ -105,6 +114,9 @@ const HE: YourSetupCopy = {
   relinkWithings: 'קשר מחדש Withings',
   quickStartAgain: 'התחלה מהירה מחדש',
   careSensImport: 'ייבוא',
+  getWithings: 'הורדת Withings',
+  getCaresens: 'הורדת CareSens Air',
+  getXdrip: 'הורדת xDrip+\u200e',
 };
 
 const ES: YourSetupCopy = {
@@ -138,6 +150,9 @@ const ES: YourSetupCopy = {
   relinkWithings: 'Re-vincular Withings',
   quickStartAgain: 'Inicio rápido de nuevo',
   careSensImport: 'Importar',
+  getWithings: 'Descargar Withings',
+  getCaresens: 'Descargar CareSens Air',
+  getXdrip: 'Descargar xDrip+',
 };
 
 const FR: YourSetupCopy = {
@@ -171,6 +186,9 @@ const FR: YourSetupCopy = {
   relinkWithings: 'Re-lier Withings',
   quickStartAgain: 'Recommencer le démarrage rapide',
   careSensImport: 'Importer',
+  getWithings: 'Télécharger Withings',
+  getCaresens: 'Télécharger CareSens Air',
+  getXdrip: 'Télécharger xDrip+',
 };
 
 const DE: YourSetupCopy = {
@@ -204,6 +222,9 @@ const DE: YourSetupCopy = {
   relinkWithings: 'Withings erneut verknüpfen',
   quickStartAgain: 'Schnellstart erneut',
   careSensImport: 'Importieren',
+  getWithings: 'Withings holen',
+  getCaresens: 'CareSens Air holen',
+  getXdrip: 'xDrip+ herunterladen',
 };
 
 const AR: YourSetupCopy = {
@@ -237,6 +258,9 @@ const AR: YourSetupCopy = {
   relinkWithings: 'إعادة ربط Withings',
   quickStartAgain: 'بداية سريعة مرة أخرى',
   careSensImport: 'استيراد',
+  getWithings: 'تنزيل Withings',
+  getCaresens: 'تنزيل CareSens Air',
+  getXdrip: 'تنزيل xDrip+\u200e',
 };
 
 const RU: YourSetupCopy = {
@@ -270,6 +294,9 @@ const RU: YourSetupCopy = {
   relinkWithings: 'Привязать Withings заново',
   quickStartAgain: 'Быстрый старт снова',
   careSensImport: 'Импорт',
+  getWithings: 'Скачать Withings',
+  getCaresens: 'Скачать CareSens Air',
+  getXdrip: 'Скачать xDrip+',
 };
 
 const PT: YourSetupCopy = {
@@ -303,6 +330,9 @@ const PT: YourSetupCopy = {
   relinkWithings: 'Revincular Withings',
   quickStartAgain: 'Início rápido de novo',
   careSensImport: 'Importar',
+  getWithings: 'Baixar Withings',
+  getCaresens: 'Baixar CareSens Air',
+  getXdrip: 'Baixar xDrip+',
 };
 
 const IT: YourSetupCopy = {
@@ -336,6 +366,9 @@ const IT: YourSetupCopy = {
   relinkWithings: 'Ricollega Withings',
   quickStartAgain: 'Avvio rapido di nuovo',
   careSensImport: 'Importa',
+  getWithings: 'Scarica Withings',
+  getCaresens: 'Scarica CareSens Air',
+  getXdrip: 'Scarica xDrip+',
 };
 
 const TR: YourSetupCopy = {
@@ -369,6 +402,9 @@ const TR: YourSetupCopy = {
   relinkWithings: 'Withings’i yeniden bağla',
   quickStartAgain: 'Hızlı başlangıç tekrar',
   careSensImport: 'İçe aktar',
+  getWithings: 'Withings indir',
+  getCaresens: 'CareSens Air indir',
+  getXdrip: 'xDrip+ indir',
 };
 
 const BY_CODE: Record<string, YourSetupCopy> = {

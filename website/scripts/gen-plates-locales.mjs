@@ -14,6 +14,7 @@ import {
   PLATE_COPY,
 } from './plates-locale-content.mjs';
 import { registerMoreLocales } from './plates-locale-more.mjs';
+import { DOWNLOADS_UI } from './downloads-locale-content.mjs';
 
 registerMoreLocales(
   (code, o) => {
@@ -37,6 +38,11 @@ function esc(s) {
 
 function pageUrl(lang, file) {
   return `https://healthings.ai/${lang}/plates/${file}`;
+}
+
+/** Same nav label the downloads page uses for itself — one spelling per locale. */
+function downloadsLabel(lang) {
+  return (DOWNLOADS_UI[lang] || DOWNLOADS_UI.en).nav;
 }
 
 function hreflang(file) {
@@ -184,6 +190,7 @@ function protocolHtml(langMeta) {
       <nav class="help-nav">
         <a href="index.html">${esc(ui.navPlates)}</a>
         <a href="../help/index.html">${esc(helpUi.help)}</a>
+        <a href="../downloads/index.html">${esc(downloadsLabel(code))}</a>
         <a href="../../index.html">${esc(helpUi.home)}</a>
       </nav>
       ${langSwitcher(code, 'lipid-protocol.html', helpUi.langLabel)}
@@ -241,6 +248,7 @@ function indexHtml(langMeta) {
       <nav class="help-nav">
         <a href="index.html"><strong>${esc(ui.navPlates)}</strong></a>
         <a href="../help/index.html">${esc(helpUi.help)}</a>
+        <a href="../downloads/index.html">${esc(downloadsLabel(code))}</a>
         <a href="../../index.html">${esc(helpUi.home)}</a>
       </nav>
       ${langSwitcher(code, 'index.html', helpUi.langLabel)}
@@ -287,10 +295,13 @@ function patchHelpIndex(lang) {
       link,
     );
   } else {
-    html = html.replace(
-      /(<ul>\s*)/,
-      `$1\n          ${link}\n          `,
-    );
+    // Follow "How to log meals" — the plates page is that topic's worked
+    // example. Inserting after `<ul>` instead put it first in a list that reads
+    // as Quick Start order, so the bonus page looked like step one.
+    const afterMealLogging = /(<li><a href="meal-logging\.html">[^<]*<\/a><\/li>\n)/;
+    html = afterMealLogging.test(html)
+      ? html.replace(afterMealLogging, `$1          ${link}\n`)
+      : html.replace(/(<ul>\n)/, `$1          ${link}\n`);
   }
   writeFileSync(file, html);
 }
@@ -307,10 +318,10 @@ function patchMealLogging(lang) {
       blurb,
     );
   } else {
-    html = html.replace(
-      /(<ol>[\s\S]*?<\/ol>\s*)/,
-      `$1\n        ${blurb}\n        `,
-    );
+    // Anchored on the newline that ends the steps list, not on `\s*`: swallowing
+    // trailing whitespace and writing it back added a blank line to the page on
+    // every regeneration.
+    html = html.replace(/(<ol>[\s\S]*?<\/ol>\n)/, `$1        ${blurb}\n`);
   }
   writeFileSync(file, html);
 }

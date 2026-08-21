@@ -15,6 +15,7 @@ export type HelpSlug =
   | 'withings-scale'
   | 'quick-start-watch'
   | 'cgm'
+  | 'xdrip-caresens'
   | 'withings-link'
   | 'starting-weight'
   | 'phone-health-activity'
@@ -36,6 +37,12 @@ export function helpLocale(code: string): HelpLocale {
 export function helpUrl(langCode: string, slug: HelpSlug): string {
   const loc = helpLocale(langCode);
   return `${HELP_ORIGIN}/${loc}/help/${slug}.html`;
+}
+
+/** Localized Downloads page — the app catalog, not the /downloads/ APK folder. */
+export function downloadsUrl(langCode: string): string {
+  const loc = helpLocale(langCode);
+  return `${HELP_ORIGIN}/${loc}/downloads/`;
 }
 
 /** Example plates — all help locales. */

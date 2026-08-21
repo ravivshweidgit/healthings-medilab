@@ -39,11 +39,11 @@ function pluginsForPlatform() {
 module.exports = {
   expo: {
     ...appJson.expo,
-    version: '1.2.41',
+    version: '1.2.42',
     plugins: pluginsForPlatform(),
     ios: {
       ...appJson.expo.ios,
-      buildNumber: '70',
+      buildNumber: '71',
       infoPlist: {
         CFBundleURLTypes: [
           {
@@ -57,7 +57,7 @@ module.exports = {
     },
     android: {
       ...appJson.expo.android,
-      versionCode: 70,
+      versionCode: 71,
       /**
        * expo-dev-client pulls in SYSTEM_ALERT_WINDOW for its dev-menu overlay, and the
        * plugin ships in every build. Nothing in the app draws over other apps, and Play

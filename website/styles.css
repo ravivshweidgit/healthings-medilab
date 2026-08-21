@@ -1064,6 +1064,76 @@ body.help-rtl .help-lang {
   color: var(--text);
 }
 
+/* ── Help screenshots ──
+   Phone captures inside an article. Capped well below the column width: at full
+   measure a 460px portrait screenshot pushes the next step off the first screen,
+   and the reader loses the place in the list they are following. */
+.help-shot {
+  margin: 14px auto 20px;
+  text-align: center;
+}
+
+.help-shot img {
+  width: 100%;
+  max-width: 230px;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.help-shot figcaption {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* The app's own icon above the download button, so a sideloaded APK has a face
+   before it is installed and a name to match afterwards. The white plate is the
+   source image's own background, kept and rounded rather than keyed out —
+   knocking out white would leave a halo on the drop's anti-aliased edge. */
+.help-mark {
+  margin: 20px 0 0;
+  text-align: center;
+}
+
+.help-mark img {
+  width: 76px;
+  height: 76px;
+  border-radius: 18px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Download button (third-party APK on the xDrip topic). Centred in both
+   directions, so no RTL override is needed. */
+.help-download {
+  margin: 16px 0 6px;
+  text-align: center;
+}
+
+.help-download a {
+  display: inline-block;
+  padding: 13px 24px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-ink);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+}
+
+.help-download a:hover {
+  text-decoration: none;
+  background: var(--navy);
+}
+
+/* `.prose p` also matches this paragraph and outranks a lone class, so the
+   provenance line has to be scoped the same way `.prose .tip` is. */
+.prose .help-download-note {
+  margin: 0 0 20px;
+  text-align: center;
+  font-size: 0.82rem;
+}
+
 /* ── Help index as tappable cards ── */
 .help-index ul {
   list-style: none;
@@ -1325,6 +1395,230 @@ a.plate-card-link:focus-visible {
 body.help-rtl.plates-page .hero,
 body.help-rtl .plate-body {
   text-align: start;
+}
+
+/* ── Downloads: the companion apps, per platform ──
+   Both platform lists are in the HTML; the body class hides one. With no class —
+   desktop, or scripting off — both stay visible, which is why the filtering lives
+   here as two hide rules rather than as a default-hidden panel. */
+.dl-switch {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.dl-tab {
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--accent-ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  padding: 9px 20px;
+  cursor: pointer;
+}
+
+.dl-tab[aria-pressed='true'] {
+  color: #fff;
+  background: var(--accent-ink);
+  border-color: var(--accent-ink);
+}
+
+.dl-detected {
+  margin: 0 0 22px;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+body.dl-only-android [data-platform='ios'],
+body.dl-only-ios [data-platform='android'] {
+  display: none;
+}
+
+.dl-panel {
+  margin: 0 0 26px;
+}
+
+.dl-panel-title {
+  font-size: 1.1rem;
+  text-align: center;
+  margin: 0 0 14px;
+}
+
+/* One column until there is room for two — these cards are read, not scanned,
+   and a 3-line body in a narrow column is worse than a longer page. */
+.dl-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 760px) {
+  .dl-list {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px 16px;
+  }
+}
+
+.dl-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 16px 16px 14px;
+  text-align: start;
+}
+
+.dl-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+
+/* Rounded, no border: the source image is a red drop on its own white square,
+   so the radius is doing the work an app icon's mask would. A border would only
+   outline a plate that is already invisible against the card.
+   Centred rather than baseline-aligned, and only on the card that has a mark —
+   an <img> on a baseline sits its bottom edge on the text baseline, which drops
+   it below the heading. Cards without a mark keep the baseline they had. */
+.dl-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex: 0 0 auto;
+}
+
+.dl-card-marked .dl-head {
+  align-items: center;
+}
+
+/* Holds the badge at the far edge, so icon and name stay a pair. */
+.dl-card-marked .dl-name {
+  margin-inline-end: auto;
+}
+
+.dl-name {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--navy);
+  margin: 0;
+}
+
+.dl-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  padding: 0.22rem 0.6rem;
+  white-space: nowrap;
+}
+
+.dl-tag-start {
+  color: var(--accent-ink);
+  background: var(--accent-light);
+  border-color: rgba(61, 157, 214, 0.28);
+}
+
+.dl-why {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.dl-act {
+  margin: 2px 0 0;
+}
+
+/* Outline by default: these are store links for hardware you may not own. Only
+   the app itself is a call to action, and it gets the filled variant below. */
+.dl-btn {
+  display: inline-block;
+  padding: 11px 20px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.dl-btn:hover {
+  text-decoration: none;
+  background: var(--accent-light);
+}
+
+.dl-btn-primary {
+  background: var(--accent-ink);
+  border-color: var(--accent-ink);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.dl-btn-primary:hover {
+  background: var(--navy);
+}
+
+.dl-alt {
+  margin: -2px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* Apple Health has nothing to download. It still needs a row — "it is already
+   here, you only grant permission" is the answer people come looking for — so it
+   gets the button's place without pretending to be one. */
+.dl-builtin {
+  display: inline-block;
+  padding: 10px 18px;
+  border-radius: var(--radius-pill);
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.86rem;
+}
+
+.dl-more {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.dl-aside {
+  margin: 14px 0 0;
+  padding: 0.85rem 1rem;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  font-size: 0.86rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.dl-aside p {
+  margin: 0;
+}
+
+.dl-aside-title {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.dl-foot {
+  margin: 4px 0 18px;
+  text-align: center;
+  font-size: 0.88rem;
+  color: var(--muted);
 }
 
 @media (prefers-color-scheme: dark) {

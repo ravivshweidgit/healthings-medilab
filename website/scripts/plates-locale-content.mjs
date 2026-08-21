@@ -6,8 +6,7 @@ import { HELP_LOCALES } from './help-locale-content.mjs';
 
 export { HELP_LOCALES };
 
-const CSS_VER = '20260816e';
-export { CSS_VER };
+export { CSS_VER } from './css-version.mjs';
 
 /** Shared amount defs — tbsp/halves words come from PLATES_UI per locale. */
 export const AMOUNT_DEFS = {

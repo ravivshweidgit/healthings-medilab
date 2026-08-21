@@ -17,10 +17,13 @@ mkdir -p "$WEB_ROOT/downloads"
 rsync -a --delete \
   --exclude 'downloads/*.apk' \
   "$SITE_SRC/" "$WEB_ROOT/"
-# Preserve uploaded APK if present; copy new one if in repo working tree
-if [ -f "$SITE_SRC/downloads/healthings-medilab.apk" ]; then
-  cp "$SITE_SRC/downloads/healthings-medilab.apk" "$WEB_ROOT/downloads/"
-fi
+# Preserve uploaded APKs; copy over any that are in the repo working tree.
+# More than one lives here now: our app plus the mirrored xDrip+ build the
+# CareSens help topic links to.
+for apk in "$SITE_SRC"/downloads/*.apk; do
+  [ -f "$apk" ] || continue
+  cp "$apk" "$WEB_ROOT/downloads/"
+done
 
 chown -R www-data:www-data "$WEB_ROOT"
 
@@ -105,9 +108,30 @@ server {
         try_files $uri $uri/ /admin/index.html;
     }
 
-    location /downloads/ {
+    # /downloads/ holds binaries, not a page — the human list lives at
+    # /{lang}/downloads/. Without this, the nav says "Downloads" and the obvious
+    # guess returns 404, because the folder has no index.html and autoindex is off.
+    location = /downloads {
+        return 302 /en/downloads/;
+    }
+
+    location = /downloads/ {
+        return 302 /en/downloads/;
+    }
+
+    # Scoped to .apk, not to the whole folder. The folder also holds the plain-text
+    # provenance note for the mirrored xDrip+ build, and "everything here is an
+    # Android package, as an attachment" downloaded that note as a nameless binary
+    # instead of showing it. Everything else under /downloads/ falls through to the
+    # static handler above.
+    #
+    # No filename= either. It used to be hard-coded to healthings-medilab.apk, which
+    # renamed every file in this folder — the xDrip+ build would have landed in
+    # people's Downloads wearing our app's name. Without the parameter the browser
+    # keeps the name from the URL.
+    location ~* ^/downloads/.+\.apk$ {
         default_type application/vnd.android.package-archive;
-        add_header Content-Disposition 'attachment; filename="healthings-medilab.apk"';
+        add_header Content-Disposition 'attachment';
         try_files $uri =404;
     }
 }
@@ -132,7 +156,13 @@ systemctl reload nginx
 
 echo "Site: $(curl -sf -o /dev/null -w '%{http_code}' https://healthings.ai/ || echo FAIL)"
 if [ -f "$WEB_ROOT/downloads/healthings-medilab.apk" ]; then
-  echo "APK:  $(curl -sf -o /dev/null -w '%{http_code}' -I https://healthings.ai/downloads/healthings-medilab.apk || echo FAIL)"
+  echo "APK:   $(curl -sf -o /dev/null -w '%{http_code}' -I https://healthings.ai/downloads/healthings-medilab.apk || echo FAIL)"
 else
-  echo "APK:  not uploaded yet — run publish-apk then redeploy"
+  echo "APK:   not uploaded yet — run publish-apk then redeploy"
+fi
+# The CareSens help topic links here, so a missing mirror is a dead download button.
+if [ -f "$WEB_ROOT/downloads/xdrip-plus.apk" ]; then
+  echo "xDrip: $(curl -sf -o /dev/null -w '%{http_code}' -I https://healthings.ai/downloads/xdrip-plus.apk || echo FAIL)"
+else
+  echo "xDrip: not uploaded yet — run website/scripts/fetch-xdrip.sh then redeploy"
 fi
