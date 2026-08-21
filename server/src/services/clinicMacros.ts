@@ -203,27 +203,33 @@ export function normalizeClinicMacroBounds(
     }
     const direction = String(row?.direction || '').trim() as MacroDirection;
     if (direction !== 'floor' && direction !== 'ceiling') {
+      if (opts.skipUnknown) continue;
       throw new ClinicError(`Invalid direction for ${axis}`, 400);
     }
     const strength = String(row?.strength || '').trim() as MacroStrength;
     if (strength !== 'hard' && strength !== 'flex') {
+      if (opts.skipUnknown) continue;
       throw new ClinicError(`Invalid strength for ${axis}`, 400);
     }
     const kindRaw = row?.kind == null || row.kind === '' ? 'constant' : String(row.kind);
     if (kindRaw !== 'constant' && kindRaw !== 'percent') {
+      if (opts.skipUnknown) continue;
       throw new ClinicError(`Invalid kind for ${axis}`, 400);
     }
     const kind = kindRaw as MacroBoundKind;
     const value = Number(row.value);
     if (!Number.isFinite(value) || value <= 0) {
+      if (opts.skipUnknown) continue;
       throw new ClinicError(`value must be > 0 for ${axis}`, 400);
     }
     if (kind === 'percent' && (value > 100 || value <= 0)) {
+      if (opts.skipUnknown) continue;
       throw new ClinicError(`percent value must be 0 < n ≤ 100 for ${axis}`, 400);
     }
 
     const key = `${axis}:${direction}`;
     if (seen.has(key)) {
+      if (opts.skipUnknown) continue;
       throw new ClinicError(`Duplicate ${direction} on ${axis}`, 400);
     }
     seen.add(key);
@@ -239,10 +245,12 @@ export function normalizeClinicMacroBounds(
     if (kind === 'percent') {
       const of = String(row?.of || '').trim() as MacroPercentOf;
       if (of !== 'kcal_order' && of !== 'kcal_eaten') {
+        if (opts.skipUnknown) continue;
         throw new ClinicError(`percent bound on ${axis} requires of: kcal_order | kcal_eaten`, 400);
       }
       // Macro card: only kcal_order for P/C/F (eaten is for markers).
       if (of === 'kcal_eaten') {
+        if (opts.skipUnknown) continue;
         throw new ClinicError(
           `${axis}: of kcal_eaten is for treatment markers, not macro bounds`,
           400,
@@ -251,45 +259,53 @@ export function normalizeClinicMacroBounds(
       bound.of = of;
       const resolved = Number(row.resolvedValue);
       if (!Number.isFinite(resolved) || resolved <= 0) {
+        if (opts.skipUnknown) continue;
         throw new ClinicError(`resolvedValue required for percent ${axis}`, 400);
       }
       bound.resolvedValue = axis === 'kcal' ? Math.round(resolved) : round1(resolved);
     }
 
     if (row.activityAddBack != null) {
-      if (axis !== 'kcal' || direction !== 'ceiling' || strength !== 'hard') {
-        throw new ClinicError(
-          'activityAddBack only allowed on HARD kcal ceiling',
-          400,
-        );
-      }
+      const addOk =
+        axis === 'kcal' && direction === 'ceiling' && strength === 'hard';
       const thr = Number(row.activityAddBack.thresholdKcal);
       const cap = Number(row.activityAddBack.capValue);
-      if (!Number.isFinite(thr) || thr < 0) {
-        throw new ClinicError('activityAddBack.thresholdKcal must be ≥ 0', 400);
-      }
-      if (!Number.isFinite(cap) || cap <= bound.value) {
+      if (
+        addOk &&
+        Number.isFinite(thr) &&
+        thr >= 0 &&
+        Number.isFinite(cap) &&
+        cap > bound.value
+      ) {
+        const add: MacroActivityAddBack = {
+          thresholdKcal: Math.round(thr),
+          capValue: Math.round(cap),
+        };
+        if (row.activityAddBack.ratio != null) {
+          const r = Number(row.activityAddBack.ratio);
+          if (Number.isFinite(r) && r > 0) add.ratio = r;
+        }
+        bound.activityAddBack = add;
+      } else if (!opts.skipUnknown) {
+        if (axis !== 'kcal' || direction !== 'ceiling' || strength !== 'hard') {
+          throw new ClinicError(
+            'activityAddBack only allowed on HARD kcal ceiling',
+            400,
+          );
+        }
+        if (!Number.isFinite(thr) || thr < 0) {
+          throw new ClinicError('activityAddBack.thresholdKcal must be ≥ 0', 400);
+        }
         throw new ClinicError('activityAddBack.capValue must be > base kcal value', 400);
       }
-      const add: MacroActivityAddBack = {
-        thresholdKcal: Math.round(thr),
-        capValue: Math.round(cap),
-      };
-      if (row.activityAddBack.ratio != null) {
-        const r = Number(row.activityAddBack.ratio);
-        if (!Number.isFinite(r) || r <= 0) {
-          throw new ClinicError('activityAddBack.ratio must be > 0', 400);
-        }
-        add.ratio = r;
-      }
-      bound.activityAddBack = add;
     }
 
     if (row.followsActivity === true) {
-      if (kind !== 'percent' || bound.of !== 'kcal_order') {
+      if (kind === 'percent' && bound.of === 'kcal_order') {
+        bound.followsActivity = true;
+      } else if (!opts.skipUnknown) {
         throw new ClinicError('followsActivity requires percent of kcal_order', 400);
       }
-      bound.followsActivity = true;
     }
 
     out.push(bound);
