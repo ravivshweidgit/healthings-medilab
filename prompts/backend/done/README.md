@@ -78,6 +78,7 @@ Full record: `be-08-clinic-portal-ux.md`.
 | `be-37-admin-margin-gate.md` | Admin allowlist + global margin API (403 non-admin) | 2026-07-28 — clinic UI superseded by be-38; `40e2f18` |
 | `be-38-admin-console.md` | Dedicated `/admin/` operator console | 2026-07-28 — owner: looks good; `40e2f18` |
 | `be-46-gmail-dots-empty-backup.md` | Gmail-dot alias + empty backup never stored + 14-day trail | 2026-08-19 — owner: commit after Play 1.2.39; app half prompt115 |
+| `be-51-refresh-slide-no-kick.md` | Refresh slides the same token; no Sign-in kick after rotate+kill | 2026-08-21 — owner: phone looks ok; `3065a16` |
 
 be-22 was written first, then mostly absorbed by be-25 on the home page; what shipped under be-22 is the
 patient workspace half plus money-led balance. be-25 and be-26 are one decision split in two: the owner

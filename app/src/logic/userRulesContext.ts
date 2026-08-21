@@ -26,7 +26,8 @@ export const MEAL_FAT_RULE_FLAGGING_GUIDANCE = `FAT / CHOLESTEROL — PER-ITEM (
 6. SEVERITY LADDER (required when flagging):
    - warning = attention / consume in moderation / count toward daily fat or cholesterol totals. Soft lipid goals, one egg, moderate cheese, etc. Prefer wording like "count this toward your fat/cholesterol total" — NEVER "forbidden", "must not eat", or "אסור".
    - critical = hard My Rules ban, allergen-class risk, or explicit absolute prohibition in the user's rules.
-7. Quantity + frequency + context matter: one egg with a cholesterol-aware goal is usually warning (or no flag), not critical. Do NOT apply medical X → food Y forbidden shortcuts.`;
+7. Quantity + frequency + context matter: one egg with a cholesterol-aware goal is usually warning (or no flag), not critical. Do NOT apply medical X → food Y forbidden shortcuts.
+8. rule_message must match THIS line's name + macros. Do not invent a fat % that contradicts name_local or fat_g (never "contains 2% fat" on "0% yogurt" / F0g). If the issue is the wrong product vs My Rules (0% when rules ask for 2%), say that: what this item is, and what the rules ask for.`;
 
 /** Macro revision — verbatim user text only. */
 export function formatMacroRevisionRulesBlock(rules: UserRules): string {

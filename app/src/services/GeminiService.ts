@@ -670,7 +670,7 @@ RULES:
 - "fiber_g" = dietary fiber only (not total carbs); estimate per ingredient.
 - For corrections: return full updated JSON, keep all items; keep both name fields in the correct languages. When grams change (half / double / divide the meal), scale any treatment-marker fields by the same factor as grams — they are amounts for that portion, not a constant.
 - If unsure: best guess with confidence "low".
-- When USER DIETARY RULES are provided: evaluate EACH item line — set rule_conflict true only if THAT item violates rules (not because the meal lacks something). Read name_local carefully (e.g. plant protein מהצומח vs whey מי גבינה). rule_message = one short sentence why (attention wording, not "forbidden", unless rules are absolute). rule_severity = "warning" (count toward totals / moderation) or "critical" (hard ban / allergen). Otherwise rule_conflict false, rule_severity "", and rule_message "".`;
+- When USER DIETARY RULES are provided: evaluate EACH item line — set rule_conflict true only if THAT item violates rules (not because the meal lacks something). Read name_local carefully (e.g. plant protein מהצומח vs whey מי גבינה). rule_message = one short sentence why (attention wording, not "forbidden", unless rules are absolute). The sentence must match this line's name and macros — do not invent a fat % that contradicts name_local or fat_g. rule_severity = "warning" (count toward totals / moderation) or "critical" (hard ban / allergen). Otherwise rule_conflict false, rule_severity "", and rule_message "".`;
 
 /** History seed when editing a saved meal — includes language-aware system prompt. */
 export function seedMealEditHistory(
@@ -1441,6 +1441,7 @@ Rules for your response:
 - Plant-fat items pass when rules favor unsaturated sources; flag animal/dairy fat only when rules forbid it without an exception.
 - Do NOT flag "missing" preferred foods. Do NOT flag psyllium/fiber for fat.
 - Prefer severity "warning" with wording like "count toward your fat/cholesterol total" for soft lipid goals; use "critical" only for hard bans / allergen-class / absolute prohibitions in MY RULES. Never say food is "forbidden" on a soft goal.
+- message must match that line's name and macros (F0g / "0% yogurt" is 0% fat). If rules prefer 2% yogurt, say this item is 0% and the rules ask for 2% — do not claim the item contains 2% fat.
 - itemName must match the violating line's label (before the English name in parentheses).
 - If no line violates, return {"issues":[]}
 - Max 5 issues.${langInstruction(lang)}`;
