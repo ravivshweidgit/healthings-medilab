@@ -246,7 +246,7 @@ function indexHtml(langMeta) {
   <body class="${bodyClass}">
     <main class="wrap">
       <nav class="help-nav">
-        <a href="index.html"><strong>${esc(ui.navPlates)}</strong></a>
+        <a href="index.html" aria-current="page">${esc(ui.navPlates)}</a>
         <a href="../help/index.html">${esc(helpUi.help)}</a>
         <a href="../downloads/index.html">${esc(downloadsLabel(code))}</a>
         <a href="../../index.html">${esc(helpUi.home)}</a>

@@ -70,6 +70,17 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((v) => v === 'true'),
+  /**
+   * One-tap Data sharing target (Healthings clinic). Change here + restart —
+   * no app store release. Empty disables the shortcut.
+   */
+  HEALTHINGS_CLINIC_SHARE_EMAIL: z
+    .string()
+    .optional()
+    .transform((v) => {
+      const t = (v ?? 'habushamichal@gmail.com').trim().toLowerCase();
+      return t.includes('@') ? t : '';
+    }),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -1,4 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CONFIG } from '../config/env';
 import { authFetch } from './AuthApiService';
+import { fetchWithTimeout } from './fetchWithTimeout';
 
 export type ShareStatus = 'pending' | 'approved' | 'rejected' | 'revoked';
 
@@ -72,6 +75,43 @@ async function parseJson<T>(res: Response): Promise<T> {
     throw new ShareApiError(await parseError(res), res.status);
   }
   return (await res.json()) as T;
+}
+
+/** Offline / old-API fallback — live value comes from GET /v1/public/app-config. */
+export const FALLBACK_CLINIC_SHARE_EMAIL = 'habushamichal@gmail.com';
+const CLINIC_SHARE_EMAIL_KEY = 'healthings:clinicShareEmail';
+
+export function isHealthingsClinicShare(
+  share: Pick<AccountShare, 'mentorEmail'>,
+  clinicEmail: string,
+): boolean {
+  const want = clinicEmail.trim().toLowerCase();
+  if (!want.includes('@')) return false;
+  return share.mentorEmail.trim().toLowerCase() === want;
+}
+
+export async function fetchClinicShareEmail(): Promise<string> {
+  try {
+    const base = CONFIG.healthingsApiUrl.replace(/\/$/, '');
+    const res = await fetchWithTimeout(`${base}/v1/public/app-config`, {}, 8000);
+    if (res.ok) {
+      const data = (await res.json()) as { clinicShareEmail?: string | null };
+      const email = String(data.clinicShareEmail ?? '').trim().toLowerCase();
+      if (email.includes('@')) {
+        await AsyncStorage.setItem(CLINIC_SHARE_EMAIL_KEY, email);
+        return email;
+      }
+    }
+  } catch {
+    /* offline — use cache / fallback */
+  }
+  try {
+    const cached = (await AsyncStorage.getItem(CLINIC_SHARE_EMAIL_KEY))?.trim().toLowerCase();
+    if (cached?.includes('@')) return cached;
+  } catch {
+    /* ignore */
+  }
+  return FALLBACK_CLINIC_SHARE_EMAIL;
 }
 
 export async function requestClinicLink(mentorEmail: string): Promise<AccountShare> {

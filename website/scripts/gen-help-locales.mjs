@@ -14,6 +14,7 @@ import {
 } from './help-locale-content.mjs';
 import { CSS_VER } from './css-version.mjs';
 import { DOWNLOADS_UI } from './downloads-locale-content.mjs';
+import { THE_CLINIC_UI } from './the-clinic-locale-content.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB = join(__dirname, '..');
@@ -41,6 +42,10 @@ function metaDescription(lead) {
  */
 function downloadsLabel(langCode) {
   return (DOWNLOADS_UI[langCode] || DOWNLOADS_UI.en).nav;
+}
+
+function clinicLabel(langCode) {
+  return (THE_CLINIC_UI[langCode] || THE_CLINIC_UI.en).nav;
 }
 
 function pageUrl(langCode, slug) {
@@ -106,7 +111,7 @@ function pageHtml(langMeta, slug, article) {
   const canonical = pageUrl(langMeta.code, slug);
   const desc = escAttr(metaDescription(article.lead));
   return `<!DOCTYPE html>
-<html lang="${langMeta.code}" dir="${langMeta.dir}">
+<html lang="${langMeta.code}" dir="${langMeta.dir}" class="theme-auto">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -124,6 +129,7 @@ function pageHtml(langMeta, slug, article) {
       <nav class="help-nav">
         <a href="index.html">${ui.help}</a>
         <a href="../downloads/index.html">${downloadsLabel(langMeta.code)}</a>
+        <a href="../the-clinic/">${clinicLabel(langMeta.code)}</a>
         <a href="../../index.html">${ui.home}</a>
       </nav>
       ${langSwitcher(langMeta.code, slug, ui)}
@@ -157,7 +163,7 @@ function indexHtml(langMeta) {
   }).filter(Boolean);
 
   return `<!DOCTYPE html>
-<html lang="${langMeta.code}" dir="${langMeta.dir}">
+<html lang="${langMeta.code}" dir="${langMeta.dir}" class="theme-auto">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -173,8 +179,9 @@ function indexHtml(langMeta) {
   <body${rtl ? ' class="help-rtl"' : ''}>
     <main class="wrap">
       <nav class="help-nav">
-        <a href="index.html"><strong>${ui.help}</strong></a>
+        <a href="index.html" aria-current="page">${ui.help}</a>
         <a href="../downloads/index.html">${downloadsLabel(langMeta.code)}</a>
+        <a href="../the-clinic/">${clinicLabel(langMeta.code)}</a>
         <a href="../../index.html">${ui.home}</a>
       </nav>
       ${langSwitcher(langMeta.code, 'index', ui)}

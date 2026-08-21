@@ -26,6 +26,11 @@ export type ClinicLinkCopy = {
   sponsoredUntil: string;
   sponsorshipExpired: string;
   addAccount: string;
+  healthingsClinicBtn: string;
+  healthingsClinicHint: string;
+  healthingsClinicSent: string;
+  healthingsClinicAlready: string;
+  healthingsClinicWaiting: string;
   addPack: string;
   addPackOk: string;
   creditsLine: (n: number, clinicPayer: boolean, autoReload: boolean) => string;
@@ -60,6 +65,11 @@ const EN: ClinicLinkCopy = {
   sponsoredUntil: 'until',
   sponsorshipExpired: 'AI sponsorship ended',
   addAccount: 'Add a clinic',
+  healthingsClinicBtn: 'Share with Healthings clinic',
+  healthingsClinicHint: 'One tap — no typing.',
+  healthingsClinicSent: 'Request sent. Healthings clinic will see it in their portal.',
+  healthingsClinicAlready: 'Already sharing with Healthings clinic.',
+  healthingsClinicWaiting: 'Waiting for Healthings clinic to approve.',
   addPack: 'Add AI credits',
   addPackOk: 'Credits added',
   creditsLine: (n, clinicPayer, autoReload) => {
@@ -99,6 +109,11 @@ const HE: ClinicLinkCopy = {
   sponsoredUntil: 'עד',
   sponsorshipExpired: 'חסות ה־AI הסתיימה',
   addAccount: 'הוסיפו קליניקה',
+  healthingsClinicBtn: 'שתפו עם קליניקת Healthings',
+  healthingsClinicHint: 'לחיצה אחת — בלי להקליד.',
+  healthingsClinicSent: 'הבקשה נשלחה. קליניקת Healthings תראה אותה בפורטל.',
+  healthingsClinicAlready: 'כבר משתפים עם קליניקת Healthings.',
+  healthingsClinicWaiting: 'ממתינים לאישור קליניקת Healthings.',
   addPack: 'הוסיפו קרדיטי AI',
   addPackOk: 'הקרדיטים נוספו',
   creditsLine: (n, clinicPayer, autoReload) => {
@@ -138,6 +153,11 @@ const ES: ClinicLinkCopy = {
   sponsoredUntil: 'hasta',
   sponsorshipExpired: 'El patrocinio de AI terminó',
   addAccount: 'Añadir una clínica',
+  healthingsClinicBtn: 'Compartir con la clínica Healthings',
+  healthingsClinicHint: 'Un toque — sin escribir el correo.',
+  healthingsClinicSent: 'Solicitud enviada. La clínica Healthings la verá en su portal.',
+  healthingsClinicAlready: 'Ya compartes con la clínica Healthings.',
+  healthingsClinicWaiting: 'Esperando aprobación de la clínica Healthings.',
   addPack: 'Añadir créditos AI',
   addPackOk: 'Créditos añadidos',
   creditsLine: (n, clinicPayer, autoReload) => {
@@ -177,6 +197,11 @@ const FR: ClinicLinkCopy = {
   sponsoredUntil: 'jusqu’au',
   sponsorshipExpired: 'Le parrainage AI est terminé',
   addAccount: 'Ajouter un cabinet',
+  healthingsClinicBtn: 'Partager avec le cabinet Healthings',
+  healthingsClinicHint: 'Un appui — sans taper l’adresse.',
+  healthingsClinicSent: 'Demande envoyée. Le cabinet Healthings la verra dans son portail.',
+  healthingsClinicAlready: 'Vous partagez déjà avec le cabinet Healthings.',
+  healthingsClinicWaiting: 'En attente de l’accord du cabinet Healthings.',
   addPack: 'Ajouter des crédits AI',
   addPackOk: 'Crédits ajoutés',
   creditsLine: (n, clinicPayer, autoReload) => {
@@ -216,6 +241,11 @@ const DE: ClinicLinkCopy = {
   sponsoredUntil: 'bis',
   sponsorshipExpired: 'AI-Sponsoring beendet',
   addAccount: 'Praxis hinzufügen',
+  healthingsClinicBtn: 'Mit Healthings-Praxis teilen',
+  healthingsClinicHint: 'Ein Tipp — nichts eintippen.',
+  healthingsClinicSent: 'Anfrage gesendet. Die Healthings-Praxis sieht sie im Portal.',
+  healthingsClinicAlready: 'Sie teilen bereits mit der Healthings-Praxis.',
+  healthingsClinicWaiting: 'Wartet auf Freigabe der Healthings-Praxis.',
   addPack: 'AI-Guthaben hinzufügen',
   addPackOk: 'Guthaben hinzugefügt',
   creditsLine: (n, clinicPayer, autoReload) => {
@@ -255,6 +285,11 @@ const AR: ClinicLinkCopy = {
   sponsoredUntil: 'حتى',
   sponsorshipExpired: 'انتهت رعاية AI',
   addAccount: 'أضيفوا عيادة',
+  healthingsClinicBtn: 'شاركوا مع عيادة Healthings',
+  healthingsClinicHint: 'ضغطة واحدة — بلا كتابة.',
+  healthingsClinicSent: 'أُرسل الطلب. عيادة Healthings تراه في البوابة.',
+  healthingsClinicAlready: 'تشاركون بالفعل مع عيادة Healthings.',
+  healthingsClinicWaiting: 'بانتظار موافقة عيادة Healthings.',
   addPack: 'أضيفوا رصيد AI',
   addPackOk: 'أُضيف الرصيد',
   creditsLine: (n, clinicPayer, autoReload) => {
@@ -294,6 +329,11 @@ const RU: ClinicLinkCopy = {
   sponsoredUntil: 'до',
   sponsorshipExpired: 'Спонсорство AI закончилось',
   addAccount: 'Добавить клинику',
+  healthingsClinicBtn: 'Поделиться с клиникой Healthings',
+  healthingsClinicHint: 'Одно нажатие — без набора адреса.',
+  healthingsClinicSent: 'Запрос отправлен. Клиника Healthings увидит его в портале.',
+  healthingsClinicAlready: 'Вы уже делитесь с клиникой Healthings.',
+  healthingsClinicWaiting: 'Ждём подтверждения клиники Healthings.',
   addPack: 'Добавить кредиты AI',
   addPackOk: 'Кредиты добавлены',
   creditsLine: (n, clinicPayer, autoReload) => {
@@ -333,6 +373,11 @@ const PT: ClinicLinkCopy = {
   sponsoredUntil: 'até',
   sponsorshipExpired: 'O patrocínio AI terminou',
   addAccount: 'Adicionar uma clínica',
+  healthingsClinicBtn: 'Partilhar com a clínica Healthings',
+  healthingsClinicHint: 'Um toque — sem escrever o email.',
+  healthingsClinicSent: 'Pedido enviado. A clínica Healthings vê-o no portal.',
+  healthingsClinicAlready: 'Já está a partilhar com a clínica Healthings.',
+  healthingsClinicWaiting: 'A aguardar aprovação da clínica Healthings.',
   addPack: 'Adicionar créditos AI',
   addPackOk: 'Créditos adicionados',
   creditsLine: (n, clinicPayer, autoReload) => {
@@ -372,6 +417,11 @@ const IT: ClinicLinkCopy = {
   sponsoredUntil: 'fino al',
   sponsorshipExpired: 'Sponsor AI terminato',
   addAccount: 'Aggiungi una clinica',
+  healthingsClinicBtn: 'Condividi con la clinica Healthings',
+  healthingsClinicHint: 'Un tocco — senza digitare.',
+  healthingsClinicSent: 'Richiesta inviata. La clinica Healthings la vede nel portale.',
+  healthingsClinicAlready: 'Stai già condividendo con la clinica Healthings.',
+  healthingsClinicWaiting: 'In attesa della conferma della clinica Healthings.',
   addPack: 'Aggiungi crediti AI',
   addPackOk: 'Crediti aggiunti',
   creditsLine: (n, clinicPayer, autoReload) => {
@@ -411,6 +461,11 @@ const TR: ClinicLinkCopy = {
   sponsoredUntil: 'bitiş',
   sponsorshipExpired: 'AI sponsorluğu bitti',
   addAccount: 'Klinik ekle',
+  healthingsClinicBtn: 'Healthings kliniğiyle paylaş',
+  healthingsClinicHint: 'Tek dokunuş — yazmaya gerek yok.',
+  healthingsClinicSent: 'İstek gönderildi. Healthings kliniği portalde görür.',
+  healthingsClinicAlready: 'Healthings kliniğiyle zaten paylaşıyorsunuz.',
+  healthingsClinicWaiting: 'Healthings kliniğinin onayı bekleniyor.',
   addPack: 'AI kredisi ekle',
   addPackOk: 'Kredi eklendi',
   creditsLine: (n, clinicPayer, autoReload) => {

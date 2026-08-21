@@ -17,4 +17,4 @@
  * Bump this whenever `styles.css` or `tokens.css` changes, and keep the
  * hand-written `index.html` / `privacy.html` links on the same value.
  */
-export const CSS_VER = '20260821c';
+export const CSS_VER = '20260821e';

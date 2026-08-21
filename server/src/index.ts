@@ -56,6 +56,11 @@ async function main() {
 
   app.get('/health', async () => ({ ok: true, version: VERSION }));
 
+  /** Public app chrome — clinic one-tap email. Not a secret; change via env + restart. */
+  app.get('/v1/public/app-config', async () => ({
+    clinicShareEmail: config.HEALTHINGS_CLINIC_SHARE_EMAIL || null,
+  }));
+
   await registerAuthRoutes(app);
   await registerShareRoutes(app);
   await registerSponsorshipRoutes(app);

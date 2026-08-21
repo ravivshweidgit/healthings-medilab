@@ -878,7 +878,12 @@ h1 {
 }
 
 .help-nav a {
-  font-weight: 600;
+  font-weight: 400;
+}
+
+.help-nav a[aria-current='page'] {
+  text-decoration: underline;
+  text-underline-offset: 0.22em;
 }
 
 /* Quiet language control — one select, endonyms, after help-nav */

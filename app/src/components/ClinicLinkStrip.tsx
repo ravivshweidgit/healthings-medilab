@@ -19,7 +19,9 @@ import {
   addTokenPack,
   approveShare,
   clinicDisplayLabel,
+  fetchClinicShareEmail,
   fetchWallet,
+  isHealthingsClinicShare,
   listPendingSharesForMe,
   listShares,
   rejectShare,
@@ -58,16 +60,19 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
   const [wallet, setWallet] = useState<WalletView | null>(null);
   const [lastSync, setLastSync] = useState<PublicSyncBlob | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [clinicShareEmail, setClinicShareEmail] = useState('');
 
   const refresh = useCallback(async () => {
     if (user.role !== 'patient') return;
     try {
-      const [pendingRows, approvedRows, walletView, syncMeta] = await Promise.all([
+      const [pendingRows, approvedRows, walletView, syncMeta, clinicEmail] = await Promise.all([
         listPendingSharesForMe(),
         listShares('approved'),
         fetchWallet(),
         fetchMyLatestSyncMeta().catch(() => null),
+        fetchClinicShareEmail(),
       ]);
+      setClinicShareEmail(clinicEmail);
       setPending(pendingRows);
       setApproved(approvedRows);
       await saveCachedApprovedShares(approvedRows);
@@ -131,6 +136,8 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
 
   const incoming = pending.filter((s) => s.initiatedBy === 'mentor');
   const outgoing = pending.filter((s) => s.initiatedBy === 'patient');
+  const healthingsApproved = approved.some((s) => isHealthingsClinicShare(s, clinicShareEmail));
+  const healthingsPending = pending.some((s) => isHealthingsClinicShare(s, clinicShareEmail));
 
   return (
     <View style={styles.wrap}>
@@ -147,6 +154,46 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
 
       {expanded && (
         <View style={styles.body}>
+          {clinicShareEmail ? (
+          <View style={styles.healthingsBlock}>
+            {healthingsPending && !healthingsApproved ? (
+              <Text style={styles.healthingsStatus}>{L.healthingsClinicWaiting}</Text>
+            ) : (
+              <Pressable
+                style={[styles.btnPrimary, styles.healthingsBtn, busy && styles.btnDisabled]}
+                onPress={() =>
+                  void run(async () => {
+                    if (healthingsApproved) {
+                      await shareSnapshotNow();
+                      Alert.alert(L.share, L.shareOk);
+                      return;
+                    }
+                    await requestClinicLink(clinicShareEmail);
+                    Alert.alert(L.healthingsClinicBtn, L.healthingsClinicSent);
+                  })
+                }
+                disabled={busy}
+                accessibilityRole="button"
+                accessibilityLabel={L.healthingsClinicBtn}
+              >
+                {busy ? (
+                  <ActivityIndicator color={isDark ? colors.accentGreen : '#fff'} />
+                ) : (
+                  <Text style={styles.btnPrimaryText}>{L.healthingsClinicBtn}</Text>
+                )}
+              </Pressable>
+            )}
+            <Text style={styles.emailLtr}>{clinicShareEmail}</Text>
+            <Text style={styles.hint}>
+              {healthingsApproved
+                ? L.healthingsClinicAlready
+                : healthingsPending
+                  ? L.healthingsClinicWaiting
+                  : L.healthingsClinicHint}
+            </Text>
+          </View>
+          ) : null}
+
           {wallet ? (
             <View style={styles.creditBlock}>
               <Text style={styles.creditLine}>
@@ -349,6 +396,24 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
       minWidth: 88,
     },
     btnPrimaryText: { color: isDark ? c.accentGreen : '#fff', fontWeight: '700', fontSize: 14 },
+    healthingsBlock: { gap: 6 },
+    healthingsStatus: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: isDark ? c.accentGreen : '#2E7D5A',
+      lineHeight: 20,
+    },
+    healthingsBtn: {
+      alignSelf: 'stretch',
+      minWidth: 0,
+      paddingVertical: 12,
+    },
+    emailLtr: {
+      fontSize: 13,
+      color: c.textSecondary,
+      writingDirection: 'ltr',
+      textAlign: 'left',
+    },
     btnGhost: {
       borderWidth: 1,
       borderColor: c.textSecondary,

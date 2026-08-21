@@ -12,6 +12,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HELP_LOCALES, UI as HELP_UI } from './help-locale-content.mjs';
+import { THE_CLINIC_UI } from './the-clinic-locale-content.mjs';
 import { CSS_VER } from './css-version.mjs';
 import {
   APPS,
@@ -195,7 +196,7 @@ function pageHtml(langMeta) {
   const fix = rtl ? ltrPlus : (s) => s;
   const bodyClass = rtl ? ' class="help-rtl"' : '';
   return `<!DOCTYPE html>
-<html lang="${code}" dir="${langMeta.dir}">
+<html lang="${code}" dir="${langMeta.dir}" class="theme-auto">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -211,8 +212,9 @@ function pageHtml(langMeta) {
   <body${bodyClass}>
     <main class="wrap">
       <nav class="help-nav">
-        <a href="index.html"><strong>${ui.nav}</strong></a>
+        <a href="index.html" aria-current="page">${ui.nav}</a>
         <a href="../help/index.html">${helpUi.help}</a>
+        <a href="../the-clinic/">${(THE_CLINIC_UI[code] || THE_CLINIC_UI.en).nav}</a>
         <a href="../../index.html">${helpUi.home}</a>
       </nav>
       ${langSwitcher(code, helpUi.langLabel)}
