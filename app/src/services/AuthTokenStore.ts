@@ -73,7 +73,7 @@ function emailFromAccessToken(accessToken: string | null): string | null {
   }
 }
 
-export async function clearAuthTokens(): Promise<void> {
+export async function clearAuthTokens(reason = 'unspecified'): Promise<void> {
   const cached = await loadCachedAuthUser();
   const { accessToken } = await loadAuthTokens();
   const email = cached?.email ?? emailFromAccessToken(accessToken);
@@ -84,6 +84,11 @@ export async function clearAuthTokens(): Promise<void> {
     AsyncStorage.removeItem(CACHED_USER_KEY),
   ]);
   DeviceEventEmitter.emit(AUTH_CLEARED_EVENT);
+  void import('./AppDailyLogService')
+    .then(({ appLog }) => {
+      appLog('WARN', 'auth', { tokens_cleared: 1, reason: String(reason).slice(0, 48) });
+    })
+    .catch(() => undefined);
 }
 
 export async function hasAuthSession(): Promise<boolean> {

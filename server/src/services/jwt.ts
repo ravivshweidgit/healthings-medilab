@@ -87,17 +87,16 @@ export async function rotateRefreshToken(
     return null;
   }
 
-  // Keep the same refresh token for several hours so clinic sync + keepalive +
-  // AI 401 retries cannot rotate it twice and wipe the session.
-  const ageMs = Date.now() - new Date(row.created_at).getTime();
-  const rotateAfterMs = 6 * 60 * 60 * 1000;
-  if (ageMs < rotateAfterMs) {
-    return { userId: row.user_id, newToken: oldToken };
-  }
-
-  await query(`UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1`, [row.id]);
-  const newToken = await issueRefreshToken(row.user_id);
-  return { userId: row.user_id, newToken };
+  // Slide the 30-day expiry on the same token. Do not revoke+reissue — a phone
+  // killed after rotate (bi / Play install / OS process death) still held the
+  // old token, the next refresh 401'd, and the app wiped the session.
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + JWT.refreshTtlDays);
+  await query(`UPDATE refresh_tokens SET expires_at = $2 WHERE id = $1`, [
+    row.id,
+    expiresAt.toISOString(),
+  ]);
+  return { userId: row.user_id, newToken: oldToken };
 }
 
 export async function revokeRefreshTokensForUser(userId: string): Promise<void> {

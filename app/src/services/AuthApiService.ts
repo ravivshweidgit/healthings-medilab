@@ -108,7 +108,7 @@ async function refreshAuthSessionOnce(
         if (followRotated && latest.refreshToken && latest.refreshToken !== refreshToken) {
           return refreshAuthSessionOnce(false);
         }
-        await clearAuthTokens();
+        await clearAuthTokens('refresh_rejected');
       }
       return null;
     }
@@ -117,19 +117,17 @@ async function refreshAuthSessionOnce(
     await saveAuthTokens(data.accessToken, data.refreshToken);
 
     const meRes = await authFetch('/v1/me', {}, { accessToken: data.accessToken, retryOn401: false });
-    if (!meRes.ok) {
-      if (meRes.status === 401 || meRes.status === 403) {
-        const latest = await loadAuthTokens();
-        if (followRotated && latest.refreshToken && latest.refreshToken !== data.refreshToken) {
-          return refreshAuthSessionOnce(false);
-        }
-        await clearAuthTokens();
-      }
-      return null;
+    if (meRes.ok) {
+      const me = (await meRes.json()) as { user: AuthUser };
+      await saveCachedAuthUser(me.user);
+      return { accessToken: data.accessToken, user: me.user };
     }
-    const me = (await meRes.json()) as { user: AuthUser };
-    await saveCachedAuthUser(me.user);
-    return { accessToken: data.accessToken, user: me.user };
+    // Refresh already succeeded — do not wipe because /me glitched.
+    const cached = await loadCachedAuthUser();
+    const fromJwt = userFromAccessToken(data.accessToken);
+    const user = cached ?? fromJwt;
+    if (user) return { accessToken: data.accessToken, user };
+    return null;
   } catch (err) {
     // Network / abort — keep tokens for offline use.
     if (__DEV__) {
@@ -213,7 +211,7 @@ export async function verifyOtp(email: string, code: string): Promise<AuthUser> 
   }
   const data = (await res.json()) as VerifyResponse;
   if (data.user.role !== 'patient') {
-    await clearAuthTokens();
+    await clearAuthTokens('otp_mentor_blocked');
     throw new AuthApiError(CLINIC_PHONE_LOGIN_BLOCKED, 403);
   }
   await saveAuthTokens(data.accessToken, data.refreshToken);
@@ -333,7 +331,7 @@ export async function restoreAuthSession(): Promise<AuthUser | null> {
   const user = await fetchCurrentUser();
   if (user) {
     if (user.role !== 'patient') {
-      await clearAuthTokens();
+      await clearAuthTokens('restore_not_patient');
       return null;
     }
     return user;
@@ -342,7 +340,7 @@ export async function restoreAuthSession(): Promise<AuthUser | null> {
   const refreshed = await refreshAuthSessionSingleFlight();
   if (refreshed?.user) {
     if (refreshed.user.role !== 'patient') {
-      await clearAuthTokens();
+      await clearAuthTokens('restore_refresh_not_patient');
       return null;
     }
     return refreshed.user;
@@ -353,14 +351,14 @@ export async function restoreAuthSession(): Promise<AuthUser | null> {
     const cached = await loadCachedAuthUser();
     if (cached) {
       if (cached.role !== 'patient') {
-        await clearAuthTokens();
+        await clearAuthTokens('restore_cached_not_patient');
         return null;
       }
       return cached;
     }
     const fromJwt = userFromAccessToken(accessToken);
     if (fromJwt && fromJwt.role !== 'patient') {
-      await clearAuthTokens();
+      await clearAuthTokens('restore_jwt_not_patient');
       return null;
     }
     return fromJwt;
@@ -381,7 +379,7 @@ export async function logoutAuth(): Promise<void> {
   } catch {
     /* offline logout still clears local tokens */
   }
-  await clearAuthTokens();
+  await clearAuthTokens('logout');
   await clearCachedApprovedShares();
 }
 
