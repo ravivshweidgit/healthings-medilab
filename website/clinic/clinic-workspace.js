@@ -957,6 +957,9 @@
     const mentorsTitle = ctx.selfView ? t('wsMentorsSectionSelf') : t('wsCareTeamSectionClinic');
     const rulesTitle = ctx.selfView ? t('wsRulesSectionSelf') : t('wsDietaryRulesClinic');
     const macrosTitle = ctx.selfView ? t('wsMacrosSectionSelf') : t('wsMacroTargetsClinic');
+    const macrosBodyHtml = `
+      ${ctx.selfView ? '' : `<p class="sub">${esc(t('wsMacroTargetsClinicHint'))}</p>`}
+      ${macrosBody}`;
     const coachTitle = ctx.selfView ? t('wsCoachSectionSelf') : t('wsCoachSummaryClinic');
 
     host.innerHTML = `
@@ -979,7 +982,7 @@
           <div class="group-divider"></div>
           ${collapseSection('rules', ChromeIcons.rules, rulesTitle, esc(rulesTextPreview(rules?.rawText || '')), rulesBody, !!ex.rules)}
           <div class="group-divider"></div>
-          ${collapseSection('macros', ChromeIcons.macros, macrosTitle, macrosSub, macrosBody, !!ex.macros)}
+          ${collapseSection('macros', ChromeIcons.macros, macrosTitle, macrosSub, macrosBodyHtml, !!ex.macros)}
           ${coach ? `
           <div class="group-divider"></div>
           ${collapseSection('coach', ChromeIcons.coach, coachTitle, esc(coachSub), renderCoachBody(coach, mentors), !!ex.coach)}` : ''}
@@ -1844,6 +1847,378 @@
     }
   }
 
+  const MACRO_AXES = [
+    { id: 'kcal', labelKey: 'wsMacroAxisKcal' },
+    { id: 'protein_g', labelKey: 'wsMacroAxisP' },
+    { id: 'carb_g', labelKey: 'wsMacroAxisC' },
+    { id: 'fat_g', labelKey: 'wsMacroAxisF' },
+    { id: 'fiber_g', labelKey: 'wsMacroAxisFi' },
+    { id: 'net_carb_g', labelKey: 'wsMacroAxisNet' },
+  ];
+
+  function axisLabel(axis) {
+    const row = MACRO_AXES.find((a) => a.id === axis);
+    return row ? t(row.labelKey) : axis;
+  }
+
+  function todayValueForAxis(today, axis) {
+    if (axis === 'kcal') return today.kcal || 0;
+    if (axis === 'protein_g') return today.protein_g || 0;
+    if (axis === 'carb_g') return today.carb_g || 0;
+    if (axis === 'fat_g') return today.fat_g || 0;
+    if (axis === 'fiber_g') return today.fiber_g || 0;
+    if (axis === 'net_carb_g') return Math.max(0, (today.carb_g || 0) - (today.fiber_g || 0));
+    return 0;
+  }
+
+  /** Flatten bounds → one UI row per axis (floor+ceiling = range). */
+  function macroRowsFromBounds(bounds) {
+    const byAxis = new Map();
+    for (const b of bounds || []) {
+      const slot = byAxis.get(b.axis) || { axis: b.axis, floor: null, ceiling: null };
+      if (b.direction === 'floor') slot.floor = b;
+      else slot.ceiling = b;
+      byAxis.set(b.axis, slot);
+    }
+    return [...byAxis.values()].map((slot) => {
+      const floor = slot.floor;
+      const ceiling = slot.ceiling;
+      let type = 'flex';
+      if (floor && ceiling) type = 'range';
+      else if (floor) type = floor.strength === 'flex' ? 'flex' : 'floor';
+      else if (ceiling) type = ceiling.strength === 'flex' ? 'flex' : 'limit';
+      const primary = ceiling || floor;
+      const kind = primary?.kind === 'percent' ? 'percent' : 'constant';
+      return {
+        axis: slot.axis,
+        type,
+        kind,
+        lo: floor ? floor.value : '',
+        hi: ceiling ? ceiling.value : floor && type === 'flex' ? floor.value : ceiling ? ceiling.value : '',
+        value: type === 'range' ? '' : primary ? primary.value : '',
+        resolvedValue: primary?.resolvedValue,
+        of: primary?.of,
+        activityAddBack: ceiling?.activityAddBack || null,
+        strength: primary?.strength || 'hard',
+      };
+    });
+  }
+
+  function boundsFromMacroRows(rows) {
+    const bounds = [];
+    for (const row of rows) {
+      const kind = row.kind === 'percent' ? 'percent' : 'constant';
+      const unitStrength = row.type === 'flex' ? 'flex' : 'hard';
+      const pushOne = (direction, value) => {
+        const v = Number(value);
+        if (!Number.isFinite(v) || v <= 0) return;
+        const b = {
+          axis: row.axis,
+          direction,
+          kind,
+          value: v,
+          strength: unitStrength,
+        };
+        if (kind === 'percent') {
+          b.of = 'kcal_order';
+          b.resolvedValue =
+            row.resolvedValue != null && Number(row.resolvedValue) > 0
+              ? Number(row.resolvedValue)
+              : v;
+        }
+        if (
+          direction === 'ceiling' &&
+          row.axis === 'kcal' &&
+          row.activityAddBack &&
+          Number(row.activityAddBack.capValue) > v
+        ) {
+          b.activityAddBack = {
+            thresholdKcal: Number(row.activityAddBack.thresholdKcal) || 0,
+            capValue: Number(row.activityAddBack.capValue),
+          };
+          b.strength = 'hard';
+        }
+        bounds.push(b);
+      };
+      if (row.type === 'range') {
+        pushOne('floor', row.lo);
+        pushOne('ceiling', row.hi);
+      } else if (row.type === 'floor') {
+        pushOne('floor', row.value || row.lo);
+      } else if (row.type === 'limit') {
+        pushOne('ceiling', row.value || row.hi);
+      } else {
+        // FLEX guide — store as ceiling guide number if present
+        const v = row.value || row.hi || row.lo;
+        if (v !== '' && v != null) pushOne('ceiling', v);
+      }
+    }
+    return bounds;
+  }
+
+  function draftMacrosFromOverlay(ctx) {
+    if (Array.isArray(ctx.macroDraft)) return ctx.macroDraft;
+    const bounds = ctx.overlay?.macros?.bounds || [];
+    ctx.macroDraft = macroRowsFromBounds(bounds);
+    return ctx.macroDraft;
+  }
+
+  function formatBoundSummary(row) {
+    const unit = row.kind === 'percent' ? '%' : row.axis === 'kcal' ? ' kcal' : 'g';
+    if (row.type === 'range') return `${row.lo}–${row.hi}${unit}`;
+    if (row.type === 'floor') return `≥ ${row.value}${unit}`;
+    if (row.type === 'limit') return `≤ ${row.value}${unit}`;
+    return `${row.value || '—'}${unit}`;
+  }
+
+  function renderMacros(panel, ctx) {
+    const draft = draftMacrosFromOverlay(ctx);
+    const today = dailyMacros(ctx.parsed.todayMeals || []);
+    const macrosMeta = ctx.overlay?.macros || null;
+    const used = new Set(draft.map((r) => r.axis));
+    const available = MACRO_AXES.filter((a) => !used.has(a.id));
+    const needs = Array.isArray(macrosMeta?.needsClinician) ? macrosMeta.needsClinician : [];
+    const override = macrosMeta?.source === 'clinic_override';
+
+    const needsHtml = needs.length
+      ? `<div class="ws-inline-error" role="status" style="margin-bottom:12px">
+          <strong>${esc(t('wsMacroNeedsClinician'))}</strong>
+          <ul>${needs.map((n) => `<li>${esc(n.question || n.axis)}</li>`).join('')}</ul>
+        </div>`
+      : '';
+
+    const badge = macrosMeta
+      ? override
+        ? `<p class="sub" style="color:var(--warn,#b45309)">${esc(t('wsMacroOverrideBadge'))}</p>`
+        : `<p class="sub">${esc(t('wsMacroFromRules'))}${macrosMeta.updatedAt ? ` · ${esc(formatIsoShort(macrosMeta.updatedAt))}` : ''}</p>`
+      : '';
+
+    const rowsHtml = draft.length
+      ? draft
+          .map((row, idx) => {
+            const actual = todayValueForAxis(today, row.axis);
+            const isPct = row.kind === 'percent';
+            const unitOpts =
+              row.axis === 'kcal'
+                ? `<option value="constant" selected>${esc(t('wsMacroUnitKcal'))}</option>`
+                : `<option value="constant"${isPct ? '' : ' selected'}>${esc(t('wsMacroUnitG'))}</option>
+                   <option value="percent"${isPct ? ' selected' : ''}>${esc(t('wsMacroUnitPct'))}</option>`;
+            const valueFields =
+              row.type === 'range'
+                ? `<input type="number" class="macro-lo" data-idx="${idx}" min="0.1" step="0.1" value="${esc(String(row.lo ?? ''))}" dir="ltr" />
+                   <span>–</span>
+                   <input type="number" class="macro-hi" data-idx="${idx}" min="0.1" step="0.1" value="${esc(String(row.hi ?? ''))}" dir="ltr" />`
+                : `<input type="number" class="macro-val" data-idx="${idx}" min="0.1" step="0.1" value="${esc(String(row.value ?? ''))}" dir="ltr" />`;
+            const resolved =
+              isPct && row.resolvedValue != null
+                ? `<span class="sub" dir="ltr">${esc(t('wsMacroResolved', { n: row.resolvedValue }))}</span>`
+                : isPct
+                  ? `<span class="sub">${esc(t('wsMacroOfTarget'))}</span>`
+                  : '';
+            const training =
+              row.axis === 'kcal' && (row.type === 'limit' || row.type === 'range')
+                ? `<details class="macro-training"${row.activityAddBack ? ' open' : ''}>
+                    <summary>${esc(t('wsMacroTraining'))}</summary>
+                    <label class="treat-field">${esc(t('wsMacroTrainingAbove'))}
+                      <input type="number" class="macro-thr" data-idx="${idx}" min="0" step="1" value="${esc(String(row.activityAddBack?.thresholdKcal ?? ''))}" dir="ltr" />
+                    </label>
+                    <label class="treat-field">${esc(t('wsMacroTrainingUpTo'))}
+                      <input type="number" class="macro-cap" data-idx="${idx}" min="1" step="1" value="${esc(String(row.activityAddBack?.capValue ?? ''))}" dir="ltr" />
+                    </label>
+                    <p class="sub">${esc(t('wsMacroTrainingPreview', { base: row.value || row.hi || '—', cap: row.activityAddBack?.capValue || '—' }))}</p>
+                  </details>`
+                : '';
+            const hard =
+              row.type !== 'flex' ? `<span class="treat-meta">${esc(t('wsMacroHard'))}</span>` : '';
+            return `
+              <div class="treat-row macro-bound-row" data-idx="${idx}">
+                <div class="treat-row-main">
+                  <strong>${esc(axisLabel(row.axis))}</strong>
+                  ${hard}
+                  <div class="macro-edit-row">
+                    <select class="macro-type" data-idx="${idx}">
+                      <option value="flex"${row.type === 'flex' ? ' selected' : ''}>${esc(t('wsMacroTypeFlex'))}</option>
+                      <option value="floor"${row.type === 'floor' ? ' selected' : ''}>${esc(t('wsMacroTypeFloor'))}</option>
+                      <option value="limit"${row.type === 'limit' ? ' selected' : ''}>${esc(t('wsMacroTypeLimit'))}</option>
+                      <option value="range"${row.type === 'range' ? ' selected' : ''}>${esc(t('wsMacroTypeRange'))}</option>
+                    </select>
+                    ${valueFields}
+                    <select class="macro-kind" data-idx="${idx}"${row.axis === 'kcal' ? ' disabled' : ''}>${unitOpts}</select>
+                  </div>
+                  ${resolved}
+                  ${training}
+                  <span class="treat-lab" dir="ltr">${esc(t('wsMacroToday'))}: ${Math.round(actual)} · ${esc(formatBoundSummary(row))}</span>
+                </div>
+                <button type="button" class="ws-btn secondary macro-remove" data-idx="${idx}">${esc(t('wsMacroRemove'))}</button>
+              </div>`;
+          })
+          .join('')
+      : `<p class="sub">${esc(t('wsMacroOrderEmpty'))}</p>`;
+
+    const addForm = available.length
+      ? `<div class="treat-add">
+          <label class="treat-field">
+            <span>${esc(t('wsMacroAdd'))}</span>
+            <select id="macro-add-axis">
+              <option value="">${esc(t('wsMacroPickAxis'))}</option>
+              ${available.map((a) => `<option value="${esc(a.id)}">${esc(t(a.labelKey))}</option>`).join('')}
+            </select>
+          </label>
+          <button type="button" class="ws-btn secondary" id="macro-add-btn">${esc(t('wsMacroAdd'))}</button>
+        </div>`
+      : '';
+
+    panel.innerHTML = `
+      <p class="sub rules-intro">${esc(t('wsMacroOrderIntro'))}</p>
+      ${badge}
+      ${needsHtml}
+      <div class="treat-list">${rowsHtml}</div>
+      ${addForm}
+      <p class="sub">${esc(t('wsMacroRebuildHint'))}</p>
+      <div class="rules-actions" style="margin-top:16px">
+        <button type="button" class="ws-btn primary" id="macro-save">${esc(t('wsMacroSave'))}</button>
+        <span id="macro-status" class="sub"></span>
+      </div>
+      <div id="macro-error" class="ws-inline-error" hidden role="alert"></div>`;
+
+    const syncDraftField = (idx, patch) => {
+      const cur = draftMacrosFromOverlay(ctx);
+      if (!cur[idx]) return;
+      cur[idx] = { ...cur[idx], ...patch };
+      ctx.macroDraft = cur;
+    };
+
+    panel.querySelectorAll('.macro-type').forEach((sel) => {
+      sel.addEventListener('change', () => {
+        const idx = Number(sel.getAttribute('data-idx'));
+        syncDraftField(idx, { type: sel.value });
+        renderMacros(panel, ctx);
+      });
+    });
+    panel.querySelectorAll('.macro-kind').forEach((sel) => {
+      sel.addEventListener('change', () => {
+        const idx = Number(sel.getAttribute('data-idx'));
+        syncDraftField(idx, { kind: sel.value });
+        renderMacros(panel, ctx);
+      });
+    });
+    panel.querySelectorAll('.macro-val').forEach((inp) => {
+      inp.addEventListener('change', () => {
+        syncDraftField(Number(inp.getAttribute('data-idx')), { value: inp.value });
+      });
+    });
+    panel.querySelectorAll('.macro-lo').forEach((inp) => {
+      inp.addEventListener('change', () => {
+        syncDraftField(Number(inp.getAttribute('data-idx')), { lo: inp.value });
+      });
+    });
+    panel.querySelectorAll('.macro-hi').forEach((inp) => {
+      inp.addEventListener('change', () => {
+        syncDraftField(Number(inp.getAttribute('data-idx')), { hi: inp.value });
+      });
+    });
+    panel.querySelectorAll('.macro-thr, .macro-cap').forEach((inp) => {
+      inp.addEventListener('change', () => {
+        const idx = Number(inp.getAttribute('data-idx'));
+        const row = draftMacrosFromOverlay(ctx)[idx];
+        if (!row) return;
+        const thr = panel.querySelector(`.macro-thr[data-idx="${idx}"]`)?.value;
+        const cap = panel.querySelector(`.macro-cap[data-idx="${idx}"]`)?.value;
+        const add =
+          cap && Number(cap) > 0
+            ? { thresholdKcal: Number(thr) || 0, capValue: Number(cap) }
+            : null;
+        syncDraftField(idx, { activityAddBack: add });
+      });
+    });
+    panel.querySelectorAll('.macro-remove').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.getAttribute('data-idx'));
+        ctx.macroDraft = draftMacrosFromOverlay(ctx).filter((_, i) => i !== idx);
+        renderMacros(panel, ctx);
+      });
+    });
+    panel.querySelector('#macro-add-btn')?.addEventListener('click', () => {
+      const axis = panel.querySelector('#macro-add-axis')?.value;
+      if (!axis) return;
+      const rows = draftMacrosFromOverlay(ctx);
+      rows.push({
+        axis,
+        type: axis === 'kcal' ? 'limit' : 'range',
+        kind: 'constant',
+        value: '',
+        lo: '',
+        hi: '',
+        strength: 'hard',
+        activityAddBack: null,
+      });
+      ctx.macroDraft = rows;
+      renderMacros(panel, ctx);
+    });
+    panel.querySelector('#macro-save')?.addEventListener('click', () => void saveMacros(ctx, panel));
+  }
+
+  async function saveMacros(ctx, panel) {
+    const status = panel.querySelector('#macro-status');
+    const btn = panel.querySelector('#macro-save');
+    const err = panel.querySelector('#macro-error');
+    if (err) {
+      err.hidden = true;
+      err.innerHTML = '';
+    }
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = t('wsMacroSaving');
+    try {
+      const rows = draftMacrosFromOverlay(ctx);
+      // Flush number inputs before convert
+      panel.querySelectorAll('.macro-val').forEach((inp) => {
+        const idx = Number(inp.getAttribute('data-idx'));
+        if (rows[idx]) rows[idx].value = inp.value;
+      });
+      panel.querySelectorAll('.macro-lo').forEach((inp) => {
+        const idx = Number(inp.getAttribute('data-idx'));
+        if (rows[idx]) rows[idx].lo = inp.value;
+      });
+      panel.querySelectorAll('.macro-hi').forEach((inp) => {
+        const idx = Number(inp.getAttribute('data-idx'));
+        if (rows[idx]) rows[idx].hi = inp.value;
+      });
+      const bounds = boundsFromMacroRows(rows);
+      // Percent resolvedValue: if missing, leave server to 400 — compute from kcal row when possible
+      const kcalRow = rows.find((r) => r.axis === 'kcal');
+      const kcalBase = Number(kcalRow?.value || kcalRow?.hi || 0);
+      for (const b of bounds) {
+        if (b.kind === 'percent' && !(b.resolvedValue > 0) && kcalBase > 0) {
+          const denom = b.axis === 'fat_g' ? 9 : 4;
+          b.resolvedValue = Math.round((b.value / 100) * kcalBase / denom * 10) / 10;
+        }
+      }
+      const res = await ctx.api(`/v1/clinic/patients/${ctx.patientId}/macros`, {
+        method: 'PUT',
+        body: JSON.stringify({ bounds, source: 'clinic_override' }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || t('wsMacroSaveFailed'));
+      }
+      const data = await res.json();
+      if (data.overlay) ctx.overlay = data.overlay;
+      ctx.macroDraft = null;
+      renderMacros(panel, ctx);
+      const statusEl = panel.querySelector('#macro-status');
+      if (statusEl) statusEl.textContent = t('wsMacroSaved');
+    } catch (e) {
+      if (status) status.textContent = '';
+      const msg = e instanceof Error ? e.message : t('wsMacroSaveFailed');
+      if (err) {
+        err.hidden = false;
+        err.innerHTML = `<span>${esc(msg)}</span>`;
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   function renderRules(panel, ctx) {
     const rules = effectiveRules(ctx.parsed, ctx.overlay);
     const raw = rules?.rawText || '';
@@ -2291,6 +2666,7 @@
     { id: 'chat', labelKey: 'wsTabChat', labelKeySelf: 'wsTabChatSelf', group: 'write' },
     { id: 'rules', labelKey: 'wsTabRules', group: 'write', live: true },
     { id: 'markers', labelKey: 'wsTabMarkers', group: 'write', live: true, clinicOnly: true },
+    { id: 'macros', labelKey: 'wsTabMacros', group: 'write', live: true, clinicOnly: true },
     // selfOnly: /v1/usage/events is payer-scoped — on the clinic patient page it
     // would show the mentor's whole-clinic ledger, not this patient's usage.
     { id: 'usage', labelKey: 'wsTabUsage', group: 'read', selfOnly: true },
@@ -2434,6 +2810,7 @@
     else if (tab === 'chat') renderChat(body, ctx);
     else if (tab === 'rules') renderRules(body, ctx);
     else if (tab === 'markers') renderMarkers(body, ctx);
+    else if (tab === 'macros') renderMacros(body, ctx);
     else if (tab === 'labs') renderLabs(body, ctx);
     else if (tab === 'usage') void renderUsage(body, ctx);
 

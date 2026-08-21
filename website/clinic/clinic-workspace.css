@@ -1770,6 +1770,21 @@ h3,
 .treat-meta { font-size: 0.85rem; color: var(--muted); }
 .treat-lab { font-size: 0.8rem; color: var(--blue); }
 .treat-note { margin: 4px 0 0; font-size: 0.85rem; line-height: 1.35; }
+.macro-edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.macro-edit-row input[type='number'] {
+  width: 5.5rem;
+  direction: ltr;
+  font-weight: 600;
+}
+.macro-edit-row select { max-width: 9rem; }
+.macro-training { margin-top: 8px; font-size: 0.85rem; }
+.macro-training summary { cursor: pointer; color: var(--muted); }
 .treat-add {
   display: grid;
   grid-template-columns: 1fr 1fr;
