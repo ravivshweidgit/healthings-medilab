@@ -37,6 +37,7 @@ import {
 import {
   loadClinicMacroBounds,
   resolveClinicMacroMeters,
+  clinicMacroMetersApplyToDay,
   type ResolvedAxisMeter,
 } from '../services/ClinicMacroBoundsService';
 import { getAllLabReports, type LabReport } from '../services/LabLogService';
@@ -633,10 +634,13 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
           const markers = treatStore?.markers ?? [];
           setTreatmentMarkers(markers);
           const activityKcal = burnPartsByDay?.[activeDayKey]?.activity ?? null;
+          const applyClinic = clinicMacroMetersApplyToDay(clinicStore, activeDayKey);
           setClinicMeters(
-            resolveClinicMacroMeters(clinicStore, { activityKcal }).filter(
-              (m) => m.strength === 'hard',
-            ),
+            applyClinic
+              ? resolveClinicMacroMeters(clinicStore, { activityKcal }).filter(
+                  (m) => m.strength === 'hard',
+                )
+              : [],
           );
           if (markers.length > 0 && data?.entries) {
             const { totals } = dayMarkerTotals(

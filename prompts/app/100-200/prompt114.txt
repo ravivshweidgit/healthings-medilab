@@ -20,7 +20,9 @@ must show what the clinic ordered, and Gemini must not break HARD bounds.
 - **Logged food:** `net = C − Fi` always (code math). **Orders:** C and C−Fi are independent.
 - HARD clinic bounds beat phone point targets on that axis. FLEX is a guide only (no ≤ ≥,
   auto-apply may move).
-- Unordered axes keep today’s `eaten / daily_macro_target` (no sign).
+- **History honesty:** clinic meters apply only on/after the local calendar day of
+  `macros.updatedAt`. Earlier Food Log days keep phone day snapshots / point targets only —
+  never rewrite `macro_target_by_day_v1` or the revision log.
 - Same overlay pull as rules/markers (`GET /v1/clinic/overlays`). Persistence parity:
   canonical key, backup + clinic export.
 

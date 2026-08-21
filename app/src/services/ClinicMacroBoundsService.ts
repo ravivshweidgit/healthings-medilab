@@ -137,6 +137,33 @@ export async function applyClinicMacrosFromOverlay(
   return store;
 }
 
+/** Local calendar day of the clinic order (YYYY-MM-DD), or null if unknown. */
+export function clinicMacroOrderEffectiveDayKey(
+  store: ClinicMacroBoundsStore | null,
+): string | null {
+  if (!store?.updatedAt) return null;
+  const ms = Date.parse(store.updatedAt);
+  if (Number.isNaN(ms)) return null;
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Keep Food Log history honest: clinic HARD meters only on/after the order's local day.
+ * Earlier days keep phone `macro_target_by_day` / point targets only.
+ */
+export function clinicMacroMetersApplyToDay(
+  store: ClinicMacroBoundsStore | null,
+  dayKey: string,
+): boolean {
+  const from = clinicMacroOrderEffectiveDayKey(store);
+  if (!from || !dayKey) return false;
+  return dayKey >= from;
+}
+
 export function resolvePercentGrams(
   percent: number,
   kcalBase: number,
