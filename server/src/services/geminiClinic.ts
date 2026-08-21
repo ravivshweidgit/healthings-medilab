@@ -372,12 +372,14 @@ STRENGTH: hard | flex
 KIND: constant | percent (percent needs of: kcal_order and resolvedValue in grams)
 
 RULES
-- Omit axes that are not clearly constrained. Prefer omission over inventing numbers.
+- Cover every Food Log axis in bounds: kcal | protein_g | carb_g | fat_g | fiber_g | net_carb_g.
+- HARD / floor / ceiling / range only when the rules clearly give a number. FLEX = unlocked axis with NO value field and NO invented grams — example: { "axis": "fat_g", "direction": "ceiling", "kind": "constant", "strength": "flex" }.
+- Never invent a number just to fill FLEX. Prefer FLEX-with-no-value over guessing.
 - Kind is not HARD/FLEX. Prefer percent on carb_g when rules say share of daily calories; resolve against kcal_order; always fill resolvedValue.
 - ENERGY / kcal: when the rules give ONE clear daily energy number (e.g. "קלוריות: 1,690 קק״ל", "1690 kcal", "energy 2000"), ALWAYS emit a HARD kcal ceiling with that value (strip thousands separators). Do NOT leave kcal only in needsClinician when that number is present. Use needsClinician for kcal ONLY when energy is a range with no chosen target, or truly absent.
 - TRAINING: one kcal ceiling with activityAddBack { thresholdKcal, capValue } when rules give a higher training allowance. Omit activityAddBack if threshold is unknown — put a needsClinician question instead. Never set followsActivity.
 - Markers (SAT_FAT_G, SOLUBLE_FIBER_G, IODINE_MCG, SELENIUM_MCG, …) go in markers[], never in bounds. Prefer percentOfEnergy for sat fat when rules say % of energy. Return markers: [] when rules name none.
-- When a required number is missing, omit that bound and add needsClinician. Never invent, never take the top of a range by default.
+- When a HARD number is missing but required (e.g. % carb with no kcal), omit that HARD bound and add needsClinician — still include the axis as FLEX with no value if you are not locking it.
 - Do not parse with regex — read as a clinician.
 
 CLINIC RULES:

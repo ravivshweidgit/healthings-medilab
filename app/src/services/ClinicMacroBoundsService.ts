@@ -23,7 +23,8 @@ export type MacroBound = {
   axis: MacroAxis;
   direction: MacroDirection;
   kind: MacroBoundKind;
-  value: number;
+  /** Omitted = FLEX unlocked (no guide number). */
+  value?: number;
   of?: MacroPercentOf;
   resolvedValue?: number;
   strength: MacroStrength;
@@ -59,7 +60,12 @@ function parseBound(raw: unknown): MacroBound | null {
   const strength = o.strength === 'flex' ? 'flex' : 'hard';
   const kind = o.kind === 'percent' ? 'percent' : 'constant';
   const value = Number(o.value);
-  if (!Number.isFinite(value) || value <= 0) return null;
+  const hasNum = Number.isFinite(value) && value > 0;
+  // FLEX unlocked (no number) — keep for store completeness; meters ignore it.
+  if (!hasNum) {
+    if (strength !== 'flex') return null;
+    return { axis, direction, kind: 'constant', strength: 'flex' };
+  }
   const bound: MacroBound = { axis, direction, kind, value, strength };
   if (kind === 'percent') {
     if (o.of === 'kcal_order' || o.of === 'kcal_eaten') bound.of = o.of;
@@ -147,11 +153,11 @@ export function resolveKcalCeilingForDay(
   activityKcal: number | null | undefined,
 ): number {
   if (bound.axis !== 'kcal' || bound.direction !== 'ceiling') {
-    return bound.resolvedValue ?? bound.value;
+    return bound.resolvedValue ?? bound.value ?? 0;
   }
-  const base = bound.value;
+  const base = bound.value ?? 0;
   const add = bound.activityAddBack;
-  if (!add) return base;
+  if (!add || !(bound.value != null && bound.value > 0)) return base;
   const activity = activityKcal == null || !Number.isFinite(activityKcal) ? 0 : activityKcal;
   const ratio = add.ratio == null || !Number.isFinite(add.ratio) ? 1 : add.ratio;
   const extra = Math.max(0, activity - add.thresholdKcal) * ratio;
@@ -177,6 +183,9 @@ export function resolveClinicMacroMeters(
   if (!store?.bounds?.length) return [];
   const byAxis = new Map<MacroAxis, { floor?: MacroBound; ceiling?: MacroBound }>();
   for (const b of store.bounds) {
+    if (!(b.value != null && b.value > 0) && !(b.resolvedValue != null && b.resolvedValue > 0)) {
+      continue;
+    }
     const slot = byAxis.get(b.axis) || {};
     if (b.direction === 'floor') slot.floor = b;
     else slot.ceiling = b;

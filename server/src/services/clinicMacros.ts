@@ -30,7 +30,8 @@ export type MacroBound = {
   axis: MacroAxis;
   direction: MacroDirection;
   kind: MacroBoundKind;
-  value: number;
+  /** Omitted when strength is flex and there is no guide number (unlocked axis). */
+  value?: number;
   of?: MacroPercentOf;
   resolvedValue?: number;
   strength: MacroStrength;
@@ -100,11 +101,11 @@ export function resolveKcalCeiling(
   if (bound.axis !== 'kcal' || bound.direction !== 'ceiling') {
     return bound.kind === 'percent' && bound.resolvedValue != null
       ? bound.resolvedValue
-      : bound.value;
+      : bound.value ?? 0;
   }
-  const base = bound.value;
+  const base = bound.value ?? 0;
   const add = bound.activityAddBack;
-  if (!add) return base;
+  if (!add || !boundHasNumber(bound)) return base;
   const activity = activityKcal == null || !Number.isFinite(activityKcal) ? 0 : activityKcal;
   const ratio = add.ratio == null || !Number.isFinite(add.ratio) ? 1 : add.ratio;
   const extra = Math.max(0, activity - add.thresholdKcal) * ratio;
@@ -112,18 +113,19 @@ export function resolveKcalCeiling(
 }
 
 function kcalOrderAnchor(bounds: MacroBound[]): number | null {
-  const kcalBounds = bounds.filter((b) => b.axis === 'kcal');
+  const kcalBounds = bounds.filter((b) => b.axis === 'kcal' && boundHasNumber(b));
   if (kcalBounds.length === 0) return null;
   // Prefer a ceiling / flex point as the prescription anchor; else floor.
   const ceiling = kcalBounds.find((b) => b.direction === 'ceiling');
-  if (ceiling) return ceiling.value;
+  if (ceiling?.value != null) return ceiling.value;
   const floor = kcalBounds.find((b) => b.direction === 'floor');
-  return floor ? floor.value : null;
+  return floor?.value != null ? floor.value : null;
 }
 
 function assertFeasibility(bounds: MacroBound[]): void {
   const byAxis = new Map<MacroAxis, { floor?: MacroBound; ceiling?: MacroBound }>();
   for (const b of bounds) {
+    if (!boundHasNumber(b)) continue;
     const slot = byAxis.get(b.axis) ?? {};
     if (b.direction === 'floor') slot.floor = b;
     else slot.ceiling = b;
@@ -132,8 +134,8 @@ function assertFeasibility(bounds: MacroBound[]): void {
 
   for (const [axis, pair] of byAxis) {
     if (pair.floor && pair.ceiling) {
-      const flo = pair.floor.resolvedValue ?? pair.floor.value;
-      const cei = pair.ceiling.resolvedValue ?? pair.ceiling.value;
+      const flo = pair.floor.resolvedValue ?? pair.floor.value!;
+      const cei = pair.ceiling.resolvedValue ?? pair.ceiling.value!;
       if (!(flo < cei)) {
         throw new ClinicError(`${axis}: floor must be < ceiling`, 400);
       }
@@ -147,13 +149,13 @@ function assertFeasibility(bounds: MacroBound[]): void {
     carb?.floor?.strength === 'hard' &&
     net?.ceiling?.strength === 'hard'
   ) {
-    const F = carb.floor.resolvedValue ?? carb.floor.value;
-    const N = net.ceiling.resolvedValue ?? net.ceiling.value;
+    const F = carb.floor.resolvedValue ?? carb.floor.value!;
+    const N = net.ceiling.resolvedValue ?? net.ceiling.value!;
     if (F > N) {
       const impliedFi = F - N;
       if (
         fiber?.ceiling?.strength === 'hard' &&
-        (fiber.ceiling.resolvedValue ?? fiber.ceiling.value) < impliedFi
+        (fiber.ceiling.resolvedValue ?? fiber.ceiling.value!) < impliedFi
       ) {
         throw new ClinicError(
           `Impossible: C floor ${F} + net ceiling ${N} needs Fi ≥ ${impliedFi}, but Fi ceiling is lower`,
@@ -168,7 +170,7 @@ export type MacroBoundInput = {
   axis: string;
   direction: string;
   kind?: string;
-  value: number;
+  value?: number | null;
   of?: string;
   resolvedValue?: number;
   strength: string;
@@ -179,6 +181,39 @@ export type MacroBoundInput = {
   };
   followsActivity?: boolean;
 };
+
+/** Food Log meter order — Propose should cover every axis (FLEX = no number when unlocked). */
+export const FOOD_LOG_MACRO_AXES: MacroAxis[] = [
+  'kcal',
+  'protein_g',
+  'carb_g',
+  'fat_g',
+  'fiber_g',
+  'net_carb_g',
+];
+
+/** True when this bound locks or guides a number on the phone. */
+export function boundHasNumber(b: MacroBound): boolean {
+  return b.value != null && Number.isFinite(b.value) && b.value > 0;
+}
+
+/**
+ * Ensure every Food Log axis appears. Missing axes → FLEX with no value (not invented).
+ */
+export function ensureFoodLogFlexPlaceholders(bounds: MacroBound[]): MacroBound[] {
+  const present = new Set(bounds.map((b) => b.axis));
+  const out = [...bounds];
+  for (const axis of FOOD_LOG_MACRO_AXES) {
+    if (present.has(axis)) continue;
+    out.push({
+      axis,
+      direction: 'ceiling',
+      kind: 'constant',
+      strength: 'flex',
+    });
+  }
+  return out;
+}
 
 /**
  * Validate clinician / Propose bounds. Throws ClinicError(400).
@@ -217,8 +252,29 @@ export function normalizeClinicMacroBounds(
       throw new ClinicError(`Invalid kind for ${axis}`, 400);
     }
     const kind = kindRaw as MacroBoundKind;
-    const value = Number(row.value);
-    if (!Number.isFinite(value) || value <= 0) {
+    const valueRaw = row.value;
+    const value =
+      valueRaw == null || valueRaw === ('' as unknown) ? NaN : Number(valueRaw);
+    const hasNumber = Number.isFinite(value) && value > 0;
+
+    // FLEX with no number = unlocked Food Log axis (no invent). One slot per axis.
+    if (strength === 'flex' && !hasNumber) {
+      const key = `${axis}:flex_open`;
+      if (seen.has(key) || [...seen].some((k) => k.startsWith(`${axis}:`))) {
+        if (opts.skipUnknown) continue;
+        throw new ClinicError(`Duplicate bound on ${axis}`, 400);
+      }
+      seen.add(key);
+      out.push({
+        axis,
+        direction: direction || 'ceiling',
+        kind: 'constant',
+        strength: 'flex',
+      });
+      continue;
+    }
+
+    if (!hasNumber) {
       if (opts.skipUnknown) continue;
       throw new ClinicError(`value must be > 0 for ${axis}`, 400);
     }
@@ -275,7 +331,7 @@ export function normalizeClinicMacroBounds(
         Number.isFinite(thr) &&
         thr >= 0 &&
         Number.isFinite(cap) &&
-        cap > bound.value
+        cap > (bound.value ?? 0)
       ) {
         const add: MacroActivityAddBack = {
           thresholdKcal: Math.round(thr),
@@ -480,9 +536,11 @@ export async function proposeMacrosForPatient(
     rulesRawText: rulesText,
     markersSummary: markersSummaryLine(overlay.markers),
   });
-  const bounds = normalizeClinicMacroBounds(draft.bounds as MacroBoundInput[], {
-    skipUnknown: true,
-  });
+  const bounds = ensureFoodLogFlexPlaceholders(
+    normalizeClinicMacroBounds(draft.bounds as MacroBoundInput[], {
+      skipUnknown: true,
+    }),
+  );
   const needsClinician: MacroNeedsClinician[] = draft.needsClinician
     .map((n) => {
       const axis = n.axis as MacroNeedsClinician['axis'];

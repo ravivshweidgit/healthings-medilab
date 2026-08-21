@@ -1920,27 +1920,33 @@
     return [...byAxis.values()]
       .sort((a, b) => macroAxisSortIndex(a.axis) - macroAxisSortIndex(b.axis))
       .map((slot) => {
-      const floor = slot.floor;
-      const ceiling = slot.ceiling;
-      let type = 'flex';
-      if (floor && ceiling) type = 'range';
-      else if (floor) type = floor.strength === 'flex' ? 'flex' : 'floor';
-      else if (ceiling) type = ceiling.strength === 'flex' ? 'flex' : 'limit';
-      const primary = ceiling || floor;
-      const kind = primary?.kind === 'percent' ? 'percent' : 'constant';
-      return {
-        axis: slot.axis,
-        type,
-        kind,
-        lo: floor ? floor.value : '',
-        hi: ceiling ? ceiling.value : floor && type === 'flex' ? floor.value : ceiling ? ceiling.value : '',
-        value: type === 'range' ? '' : primary ? primary.value : '',
-        resolvedValue: primary?.resolvedValue,
-        of: primary?.of,
-        activityAddBack: ceiling?.activityAddBack || null,
-        strength: primary?.strength || 'hard',
-      };
-    });
+        const floor = slot.floor;
+        const ceiling = slot.ceiling;
+        const primary = ceiling || floor;
+        const kind = primary?.kind === 'percent' ? 'percent' : 'constant';
+        const num = (b) => b && b.value != null && Number(b.value) > 0;
+        const floorNum = num(floor);
+        const ceilNum = num(ceiling);
+        let type = 'flex';
+        if (floorNum && ceilNum) type = 'range';
+        else if (floorNum) type = floor.strength === 'flex' ? 'flex' : 'floor';
+        else if (ceilNum) type = ceiling.strength === 'flex' ? 'flex' : 'limit';
+        // FLEX with no number (unlocked axis from Propose)
+        else type = 'flex';
+        const primaryVal = primary && num(primary) ? primary.value : '';
+        return {
+          axis: slot.axis,
+          type,
+          kind,
+          lo: floorNum ? floor.value : '',
+          hi: ceilNum ? ceiling.value : '',
+          value: type === 'range' ? '' : primaryVal,
+          resolvedValue: primary?.resolvedValue,
+          of: primary?.of,
+          activityAddBack: ceiling?.activityAddBack || null,
+          strength: primary?.strength || (type === 'flex' ? 'flex' : 'hard'),
+        };
+      });
   }
 
   function boundsFromMacroRows(rows) {
@@ -1987,9 +1993,18 @@
       } else if (row.type === 'limit') {
         pushOne('ceiling', row.value || row.hi);
       } else {
-        // FLEX guide — store as ceiling guide number if present
+        // FLEX — optional guide number, or unlocked with no value
         const v = row.value || row.hi || row.lo;
-        if (v !== '' && v != null) pushOne('ceiling', v);
+        if (v !== '' && v != null && Number(v) > 0) {
+          pushOne('ceiling', v);
+        } else {
+          bounds.push({
+            axis: row.axis,
+            direction: 'ceiling',
+            kind: 'constant',
+            strength: 'flex',
+          });
+        }
       }
     }
     return bounds;
