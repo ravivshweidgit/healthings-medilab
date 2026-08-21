@@ -1051,14 +1051,31 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
       <View style={[styles.barsWrap, { marginTop: 10 }]}>
         {(!isEmpty || displayTarget || treatmentMarkers.length > 0) ? (
           <>
-            {displayTarget ? (
+            {displayTarget || clinicMeters.find((m) => m.axis === 'kcal') ? (
               <MacroBar
                 label={energyBarLabel}
                 value={kcalToDisplay(eaten, energyU)}
-                target={kcalToDisplay(displayTarget.kcal, energyU)}
+                target={
+                  displayTarget
+                    ? kcalToDisplay(displayTarget.kcal, energyU)
+                    : kcalToDisplay(clinicMeters.find((m) => m.axis === 'kcal')?.ceiling
+                        ?? clinicMeters.find((m) => m.axis === 'kcal')?.floor
+                        ?? 0, energyU)
+                }
                 color="#5C6BC0"
                 showTarget
                 unit={energyBarUnit}
+                clinicFloor={
+                  clinicMeters.find((m) => m.axis === 'kcal')?.floor != null
+                    ? kcalToDisplay(clinicMeters.find((m) => m.axis === 'kcal')!.floor!, energyU)
+                    : undefined
+                }
+                clinicCeiling={
+                  clinicMeters.find((m) => m.axis === 'kcal')?.ceiling != null
+                    ? kcalToDisplay(clinicMeters.find((m) => m.axis === 'kcal')!.ceiling!, energyU)
+                    : undefined
+                }
+                clinicCaption={clinicMeters.find((m) => m.axis === 'kcal')?.caption}
               />
             ) : null}
             {(!isEmpty || displayTarget || clinicMeters.length > 0) ? (

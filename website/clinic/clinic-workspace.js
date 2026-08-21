@@ -1887,6 +1887,12 @@
     { id: 'net_carb_g', labelKey: 'wsMacroAxisNet' },
   ];
 
+  /** Same order as Food Log meters: kcal, P, C, F, Fi, C−Fi. */
+  function macroAxisSortIndex(axis) {
+    const i = MACRO_AXES.findIndex((a) => a.id === axis);
+    return i >= 0 ? i : 99;
+  }
+
   function axisLabel(axis) {
     const row = MACRO_AXES.find((a) => a.id === axis);
     return row ? t(row.labelKey) : axis;
@@ -1902,7 +1908,7 @@
     return 0;
   }
 
-  /** Flatten bounds → one UI row per axis (floor+ceiling = range). */
+  /** Flatten bounds → one UI row per axis (floor+ceiling = range), Food Log order. */
   function macroRowsFromBounds(bounds) {
     const byAxis = new Map();
     for (const b of bounds || []) {
@@ -1911,7 +1917,9 @@
       else slot.ceiling = b;
       byAxis.set(b.axis, slot);
     }
-    return [...byAxis.values()].map((slot) => {
+    return [...byAxis.values()]
+      .sort((a, b) => macroAxisSortIndex(a.axis) - macroAxisSortIndex(b.axis))
+      .map((slot) => {
       const floor = slot.floor;
       const ceiling = slot.ceiling;
       let type = 'flex';
@@ -2019,7 +2027,11 @@
   }
 
   function renderMacros(panel, ctx) {
-    const draft = draftMacrosFromOverlay(ctx);
+    const draft = [...draftMacrosFromOverlay(ctx)].sort(
+      (a, b) => macroAxisSortIndex(a.axis) - macroAxisSortIndex(b.axis),
+    );
+    // Keep draft sorted so Save / Add keep Food Log order.
+    setMacroDraft(ctx, draft);
     const today = dailyMacros(ctx.parsed.todayMeals || []);
     const macrosMeta = ctx.overlay?.macros || null;
     const used = new Set(draft.map((r) => r.axis));
