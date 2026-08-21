@@ -109,6 +109,33 @@ export async function clearTreatmentMarkers(): Promise<void> {
   await AsyncStorage.removeItem(TREATMENT_MARKERS_KEY);
 }
 
+/** Local calendar day of the clinic markers order (YYYY-MM-DD). */
+export function treatmentMarkersEffectiveDayKey(
+  store: TreatmentMarkersStore | null,
+): string | null {
+  if (!store?.updatedAt) return null;
+  const ms = Date.parse(store.updatedAt);
+  if (Number.isNaN(ms)) return null;
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Keep Food Log history honest: marker meters only on/after the order's local day.
+ * Earlier days show no clinic SatF/SolFi/… bars (meal estimates in storage stay).
+ */
+export function treatmentMarkersApplyToDay(
+  store: TreatmentMarkersStore | null,
+  dayKey: string,
+): boolean {
+  const from = treatmentMarkersEffectiveDayKey(store);
+  if (!from || !dayKey) return false;
+  return dayKey >= from;
+}
+
 /** Apply overlay.markers from GET /v1/clinic/overlays when newer. */
 export async function applyClinicMarkersFromOverlay(
   markers: TreatmentMarker[] | null | undefined,

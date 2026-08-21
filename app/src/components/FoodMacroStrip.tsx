@@ -32,6 +32,7 @@ import { getBurnCorrection, setBurnCorrection } from '../services/BurnCorrection
 import { getDailyMacros, foodLogDayKey, exportFoodLog, importFoodLog, dayMarkerTotals, type DailyMacros, type FoodEntry } from '../services/FoodLogService';
 import {
   loadTreatmentMarkers,
+  treatmentMarkersApplyToDay,
   type TreatmentMarker,
 } from '../services/TreatmentMarkerService';
 import {
@@ -631,7 +632,9 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
           setWaterMlState(dayWater);
           setWaterEntries(entries);
           setWaterGoalMlState(goal);
-          const markers = treatStore?.markers ?? [];
+          const markersStore = treatStore;
+          const applyMarkers = treatmentMarkersApplyToDay(markersStore, activeDayKey);
+          const markers = applyMarkers ? markersStore?.markers ?? [] : [];
           setTreatmentMarkers(markers);
           const activityKcal = burnPartsByDay?.[activeDayKey]?.activity ?? null;
           const applyClinic = clinicMacroMetersApplyToDay(clinicStore, activeDayKey);
