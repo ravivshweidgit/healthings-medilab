@@ -1988,10 +1988,26 @@
   }
 
   function draftMacrosFromOverlay(ctx) {
-    if (Array.isArray(ctx.macroDraft)) return ctx.macroDraft;
     const bounds = ctx.overlay?.macros?.bounds || [];
+    const stamp = ctx.overlay?.macros?.updatedAt || '';
+    // Rebuild when overlay macros change (e.g. after Rules Save). Keep local edits
+    // while the same stamp is open.
+    if (Array.isArray(ctx.macroDraft) && ctx.macroDraftStamp === stamp) {
+      return ctx.macroDraft;
+    }
     ctx.macroDraft = macroRowsFromBounds(bounds);
+    ctx.macroDraftStamp = stamp;
     return ctx.macroDraft;
+  }
+
+  function setMacroDraft(ctx, rows) {
+    ctx.macroDraft = rows;
+    ctx.macroDraftStamp = ctx.overlay?.macros?.updatedAt || '';
+  }
+
+  function clearMacroDraft(ctx) {
+    ctx.macroDraft = null;
+    ctx.macroDraftStamp = null;
   }
 
   function formatBoundSummary(row) {
@@ -2117,7 +2133,7 @@
       const cur = draftMacrosFromOverlay(ctx);
       if (!cur[idx]) return;
       cur[idx] = { ...cur[idx], ...patch };
-      ctx.macroDraft = cur;
+      setMacroDraft(ctx, cur);
     };
 
     panel.querySelectorAll('.macro-type').forEach((sel) => {
@@ -2166,7 +2182,10 @@
     panel.querySelectorAll('.macro-remove').forEach((btn) => {
       btn.addEventListener('click', () => {
         const idx = Number(btn.getAttribute('data-idx'));
-        ctx.macroDraft = draftMacrosFromOverlay(ctx).filter((_, i) => i !== idx);
+        setMacroDraft(
+          ctx,
+          draftMacrosFromOverlay(ctx).filter((_, i) => i !== idx),
+        );
         renderMacros(panel, ctx);
       });
     });
@@ -2184,7 +2203,7 @@
         strength: 'hard',
         activityAddBack: null,
       });
-      ctx.macroDraft = rows;
+      setMacroDraft(ctx, rows);
       renderMacros(panel, ctx);
     });
     panel.querySelector('#macro-save')?.addEventListener('click', () => void saveMacros(ctx, panel));
@@ -2212,7 +2231,7 @@
       }
       const data = await res.json();
       if (data.overlay) ctx.overlay = data.overlay;
-      ctx.macroDraft = null;
+      clearMacroDraft(ctx);
       renderMacros(panel, ctx);
       const statusEl = panel.querySelector('#macro-status');
       if (statusEl) statusEl.textContent = t('wsMacroRebuildDone');
@@ -2273,7 +2292,7 @@
       }
       const data = await res.json();
       if (data.overlay) ctx.overlay = data.overlay;
-      ctx.macroDraft = null;
+      clearMacroDraft(ctx);
       renderMacros(panel, ctx);
       const statusEl = panel.querySelector('#macro-status');
       if (statusEl) statusEl.textContent = t('wsMacroSaved');
@@ -2360,7 +2379,11 @@
       const data = await res.json();
       if (data.rules) ctx.parsed.userRules = data.rules;
       // Account keeps overlay null (snapshot is source of truth). Clinic keeps mentor overlay.
-      if (!ctx.selfView && data.overlay) ctx.overlay = data.overlay;
+      if (!ctx.selfView && data.overlay) {
+        ctx.overlay = data.overlay;
+        // Rules Save rebuilds macros — drop stale Macros · Live draft so kcal/etc. appear.
+        clearMacroDraft(ctx);
+      }
       renderRules(panel, ctx);
       const banner = document.getElementById('patient-banner');
       if (banner) renderPatientBanner(banner, ctx, ctx.displayName || null);
