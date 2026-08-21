@@ -1995,6 +1995,25 @@
     return bounds;
   }
 
+  function emptyFlexMacroRow(axis) {
+    return {
+      axis,
+      type: 'flex',
+      kind: 'constant',
+      value: '',
+      lo: '',
+      hi: '',
+      strength: 'flex',
+      activityAddBack: null,
+    };
+  }
+
+  /** Always show the Food Log axis set; unlocked axes appear as FLEX (empty until edited). */
+  function ensureFoodLogMacroRows(rows) {
+    const byAxis = new Map((rows || []).map((r) => [r.axis, r]));
+    return MACRO_AXES.map((a) => byAxis.get(a.id) || emptyFlexMacroRow(a.id));
+  }
+
   function draftMacrosFromOverlay(ctx) {
     const bounds = ctx.overlay?.macros?.bounds || [];
     const stamp = ctx.overlay?.macros?.updatedAt || '';
@@ -2003,7 +2022,7 @@
     if (Array.isArray(ctx.macroDraft) && ctx.macroDraftStamp === stamp) {
       return ctx.macroDraft;
     }
-    ctx.macroDraft = macroRowsFromBounds(bounds);
+    ctx.macroDraft = ensureFoodLogMacroRows(macroRowsFromBounds(bounds));
     ctx.macroDraftStamp = stamp;
     return ctx.macroDraft;
   }
@@ -2027,15 +2046,15 @@
   }
 
   function renderMacros(panel, ctx) {
-    const draft = [...draftMacrosFromOverlay(ctx)].sort(
-      (a, b) => macroAxisSortIndex(a.axis) - macroAxisSortIndex(b.axis),
+    const draft = ensureFoodLogMacroRows(
+      [...draftMacrosFromOverlay(ctx)].sort(
+        (a, b) => macroAxisSortIndex(a.axis) - macroAxisSortIndex(b.axis),
+      ),
     );
     // Keep draft sorted so Save / Add keep Food Log order.
     setMacroDraft(ctx, draft);
     const today = dailyMacros(ctx.parsed.todayMeals || []);
     const macrosMeta = ctx.overlay?.macros || null;
-    const used = new Set(draft.map((r) => r.axis));
-    const available = MACRO_AXES.filter((a) => !used.has(a.id));
     const needs = Array.isArray(macrosMeta?.needsClinician) ? macrosMeta.needsClinician : [];
     const override = macrosMeta?.source === 'clinic_override';
 
@@ -2052,8 +2071,7 @@
         : `<p class="sub">${esc(t('wsMacroFromRules'))}${macrosMeta.updatedAt ? ` · ${esc(formatIsoShort(macrosMeta.updatedAt))}` : ''}</p>`
       : '';
 
-    const rowsHtml = draft.length
-      ? draft
+    const rowsHtml = draft
           .map((row, idx) => {
             const actual = todayValueForAxis(today, row.axis);
             const isPct = row.kind === 'percent';
@@ -2108,24 +2126,13 @@
                   ${training}
                   <span class="treat-lab" dir="ltr">${esc(t('wsMacroToday'))}: ${Math.round(actual)} · ${esc(formatBoundSummary(row))}</span>
                 </div>
-                <button type="button" class="ws-btn secondary macro-remove" data-idx="${idx}">${esc(t('wsMacroRemove'))}</button>
+                <button type="button" class="ws-btn secondary macro-clear" data-idx="${idx}">${esc(t('wsMacroClear'))}</button>
               </div>`;
           })
-          .join('')
-      : `<p class="sub">${esc(t('wsMacroOrderEmpty'))}</p>`;
+          .join('');
 
-    const addForm = available.length
-      ? `<div class="treat-add">
-          <label class="treat-field">
-            <span>${esc(t('wsMacroAdd'))}</span>
-            <select id="macro-add-axis">
-              <option value="">${esc(t('wsMacroPickAxis'))}</option>
-              ${available.map((a) => `<option value="${esc(a.id)}">${esc(t(a.labelKey))}</option>`).join('')}
-            </select>
-          </label>
-          <button type="button" class="ws-btn secondary" id="macro-add-btn">${esc(t('wsMacroAdd'))}</button>
-        </div>`
-      : '';
+    // All Food Log axes are always listed — no separate Add picker.
+    const addForm = '';
 
     panel.innerHTML = `
       <p class="sub rules-intro">${esc(t('wsMacroOrderIntro'))}</p>
@@ -2191,32 +2198,15 @@
         syncDraftField(idx, { activityAddBack: add });
       });
     });
-    panel.querySelectorAll('.macro-remove').forEach((btn) => {
+    panel.querySelectorAll('.macro-clear').forEach((btn) => {
       btn.addEventListener('click', () => {
         const idx = Number(btn.getAttribute('data-idx'));
-        setMacroDraft(
-          ctx,
-          draftMacrosFromOverlay(ctx).filter((_, i) => i !== idx),
-        );
+        const rows = draftMacrosFromOverlay(ctx);
+        if (!rows[idx]) return;
+        rows[idx] = emptyFlexMacroRow(rows[idx].axis);
+        setMacroDraft(ctx, ensureFoodLogMacroRows(rows));
         renderMacros(panel, ctx);
       });
-    });
-    panel.querySelector('#macro-add-btn')?.addEventListener('click', () => {
-      const axis = panel.querySelector('#macro-add-axis')?.value;
-      if (!axis) return;
-      const rows = draftMacrosFromOverlay(ctx);
-      rows.push({
-        axis,
-        type: axis === 'kcal' ? 'limit' : 'range',
-        kind: 'constant',
-        value: '',
-        lo: '',
-        hi: '',
-        strength: 'hard',
-        activityAddBack: null,
-      });
-      setMacroDraft(ctx, rows);
-      renderMacros(panel, ctx);
     });
     panel.querySelector('#macro-save')?.addEventListener('click', () => void saveMacros(ctx, panel));
     panel.querySelector('#macro-rebuild')?.addEventListener('click', () => void rebuildMacros(ctx, panel));
