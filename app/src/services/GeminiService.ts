@@ -36,6 +36,7 @@ import type { TimePoint } from './HealthConnectService';
 import type { UnitsPrefs } from './UnitsPreferenceService';
 import {
   extractMarkersFromFoodItem,
+  rescaleMarkersWhenGramsChange,
   dietMarkerJsonField,
   loadTreatmentMarkers,
   markerEstimateGuidance,
@@ -667,7 +668,7 @@ RULES:
 - Estimate grams from plate size (standard plate = 26cm).
 - Split dishes into ingredients. Use USDA values.
 - "fiber_g" = dietary fiber only (not total carbs); estimate per ingredient.
-- For corrections: return full updated JSON, keep all items; keep both name fields in the correct languages.
+- For corrections: return full updated JSON, keep all items; keep both name fields in the correct languages. When grams change (half / double / divide the meal), scale any treatment-marker fields by the same factor as grams — they are amounts for that portion, not a constant.
 - If unsure: best guess with confidence "low".
 - When USER DIETARY RULES are provided: evaluate EACH item line — set rule_conflict true only if THAT item violates rules (not because the meal lacks something). Read name_local carefully (e.g. plant protein מהצומח vs whey מי גבינה). rule_message = one short sentence why (attention wording, not "forbidden", unless rules are absolute). rule_severity = "warning" (count toward totals / moderation) or "critical" (hard ban / allergen). Otherwise rule_conflict false, rule_severity "", and rule_message "".`;
 
@@ -787,6 +788,21 @@ function parseGeminiJson(
   }
 }
 
+function lastFoodItemsFromHistory(
+  history: GeminiTurn[],
+  activeMarkers: DietMarkerCode[],
+): FoodItem[] {
+  for (let i = history.length - 1; i >= 0; i--) {
+    const turn = history[i];
+    if (turn.role !== 'model' || !turn.text) continue;
+    const parsed = parseGeminiJson(turn.text, 'STOP', activeMarkers);
+    if (parsed.items.length > 0 && parsed.items.some((it) => it.grams > 0)) {
+      return parsed.items;
+    }
+  }
+  return [];
+}
+
 // ─── Main API ─────────────────────────────────────────────────────────────────
 
 /**
@@ -869,6 +885,8 @@ export async function analyzeFood(
     if (rulesTail) text += rulesTail;
     // Corrections reuse prior turns without the system prompt — re-assert marker fields
     // so Gemini does not omit sat_fat_g and wipe the meal's treatment totals on save.
+    // Portion changes still scale in code (rescaleMarkersWhenGramsChange) if Gemini copies
+    // the old amounts.
     if (treatmentMarkers.length > 0 && history.length > 0) {
       text += `\n\n${mealMarkerSchemaHint(treatmentMarkers)}`;
     }
@@ -934,7 +952,13 @@ export async function analyzeFood(
     throw new Error(`Gemini returned empty response (finishReason: ${finishReason}). Check API key.`);
   }
 
-  const result = parseGeminiJson(rawText, finishReason, activeMarkerCodes);
+  let result = parseGeminiJson(rawText, finishReason, activeMarkerCodes);
+  if (history.length > 0 && activeMarkerCodes.length > 0) {
+    const prior = lastFoodItemsFromHistory(history, activeMarkerCodes);
+    if (prior.length > 0) {
+      result = { ...result, items: rescaleMarkersWhenGramsChange(result.items, prior) };
+    }
+  }
 
   const newUserTurn: GeminiTurn = { role: 'user', text: userText, imageBase64: imageBase64 ?? undefined };
   const modelTurn: GeminiTurn = { role: 'model', text: rawText };

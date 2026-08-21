@@ -296,14 +296,71 @@ export function scaleMarkerAmounts(amounts: MarkerAmounts, ratio: number): Marke
   return out;
 }
 
+type MarkerPortionItem = {
+  name: string;
+  name_local?: string;
+  grams: number;
+  markers?: MarkerAmounts;
+};
+
+function itemMatchKey(it: MarkerPortionItem): string {
+  return `${String(it.name || '').trim().toLowerCase()}|${String(it.name_local || '').trim().toLowerCase()}`;
+}
+
+function itemNameKey(it: MarkerPortionItem): string {
+  return String(it.name || '').trim().toLowerCase();
+}
+
+/**
+ * Chat corrections ("divide everything by 2") change grams/kcal/macros but Gemini
+ * often copies the previous sat_fat_g (and other markers) unchanged. Edit Item
+ * already scales markers with grams; this is the same math for a whole-meal
+ * portion change. New unmatched items keep whatever Gemini estimated.
+ */
+export function rescaleMarkersWhenGramsChange<T extends MarkerPortionItem>(
+  next: T[],
+  prior: T[],
+): T[] {
+  const used = new Set<number>();
+  return next.map((item) => {
+    let prev: T | undefined;
+    const want = itemMatchKey(item);
+    const wantName = itemNameKey(item);
+    if (want !== '|') {
+      const i = prior.findIndex((p, idx) => !used.has(idx) && itemMatchKey(p) === want);
+      if (i >= 0) {
+        used.add(i);
+        prev = prior[i];
+      }
+    }
+    if (!prev && wantName) {
+      const i = prior.findIndex((p, idx) => !used.has(idx) && itemNameKey(p) === wantName);
+      if (i >= 0) {
+        used.add(i);
+        prev = prior[i];
+      }
+    }
+    if (!prev?.markers || Object.keys(prev.markers).length === 0) return item;
+    if (!(prev.grams > 0) || !(item.grams >= 0)) return item;
+    const ratio = item.grams / prev.grams;
+    if (Math.abs(ratio - 1) < 0.02) return item;
+    const markers = scaleMarkerAmounts(prev.markers, ratio);
+    return Object.keys(markers).length > 0 ? { ...item, markers } : item;
+  });
+}
+
 export function extractMarkersFromFoodItem(
   it: Record<string, unknown>,
   active: DietMarkerCode[],
 ): MarkerAmounts {
+  const nested =
+    it.markers && typeof it.markers === 'object' && !Array.isArray(it.markers)
+      ? (it.markers as Record<string, unknown>)
+      : null;
   const out: MarkerAmounts = {};
   for (const code of active) {
     const field = dietMarkerJsonField(code);
-    const raw = it[field] ?? it[code];
+    const raw = it[field] ?? it[code] ?? nested?.[code] ?? nested?.[field];
     const n = Number(raw);
     if (Number.isFinite(n) && n >= 0) out[code] = Math.round(n * 10) / 10;
   }
@@ -375,6 +432,7 @@ export function mealMarkerSchemaHint(markers: TreatmentMarker[]): string {
   return (
     `Also estimate per item (same units): ${fields.join(', ')}. ` +
     'These are absolute estimates for THAT item only (treatment monitoring) — best effort from the meal description/photo. ' +
+    'When grams on an existing item change (half, double, divide the meal), scale these fields by the same factor as grams — they are amounts for that portion, not a constant per food name. ' +
     'Do NOT put remaining daily budget or day totals in these fields; the app sums all of today\'s meals itself.' +
     (defs ? ` ${defs}` : '')
   );
