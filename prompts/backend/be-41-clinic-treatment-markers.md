@@ -4,7 +4,8 @@
 **Model to implement:** Auto (schema + routes + portal panel); owner reviews marker enum before first real patient  
 **Authored by:** Owner + Fable 5 (2026-08-12 chat — customized macros discussion)  
 **Depends on:** be-23 (consent/audit), be-25/26 (workspace panel IA + clinicLocale), be-40 (Gemini proxy, for the app half)  
-**Pairs with:** `prompts/app/100-200/prompt110.txt` (app half — implement this batch FIRST; the app pulls what this creates)
+**Pairs with:** `prompts/app/100-200/prompt110.txt` (app half — implement this batch FIRST; the app pulls what this creates)  
+**Extended by:** `be-45-clinic-live-macro-bounds.md` § *Markers tab alignment* — marker rows adopt the macro `<` / `>` type select; `SAT_FAT_G` gains **additive** `percentOfEnergy` + `ofEnergy` (`dailyTarget` keeps holding grams, so installed apps are unaffected); catalog gains nullable `kcal_per_gram`; `geminiClinic` percent formatting fixed. Markers stay a separate object; no FLEX, no range in v1. **No migration** — existing marker rows are untouched.
 
 ## Evidence (Auto 2026-08-12)
 

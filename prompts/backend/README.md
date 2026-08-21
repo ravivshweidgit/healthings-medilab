@@ -33,7 +33,7 @@ Run in this order. The reason is the dependency, not preference.
 | `be-42-markers-backfill.md` | Clinic-gated past meal marker fill | needs-review | Portal days + phone execute; caps 90d / 80 meals |
 | `be-43-lab-catalog.md` | Lab countries / providers / prompt packs | needs-review | Full ISO ~249 countries; VPS migrate; search picker |
 | `be-44-clinic-chat-satfat-markers.md` | Clinic food log includes **all** treatment markers | needs-review | Stop "הערכה מפירוט" for any clinic-set marker |
-| `be-45-clinic-live-macro-bounds.md` | Clinic live P/C/F/Fi/C−Fi/kcal bounds (floor+ceiling, HARD/FLEX) | ready | **Michal plan first:** `be-45-michal-plan.md`. Then overlay + portal. Then prompt114 |
+| `be-45-clinic-live-macro-bounds.md` | Clinic live macros — **Save rules builds engine**; Macros · Live = result; constant/%, training add-back, markers % | ready | **Owner-approved.** Auto-apply on rules Save. Then prompt114 (meters + real-time meal check) |
 | `be-46-clinic-chat-not-live-rules.md` | Chat must not claim live rules | needs-review | Prompt HARD + Rules-tab hint; no auto-apply from chat |
 | `be-47-generic-marker-catalog.md` | Treatment markers as a DB catalog | needs-review | New nutrient = catalog row, not APK. Phone opaque overlay. VPS migrate + portal deploy pending |
 | `be-48-client-platform-build.md` | Last Android/iOS + app build on user | needs-review | Headers on authFetch; clinic worklist + banner |

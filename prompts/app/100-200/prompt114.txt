@@ -31,10 +31,21 @@ must show what the clinic ordered, and Gemini must not break HARD bounds.
 - `ClinicOverlayService.pullClinicOverlaysFull` reads `overlay.macros` → store
   `healthings:clinicMacroBounds`
   `{ bounds: MacroBound[], updatedAt, source: 'clinic' }`.
+- `macros` is a **sibling of `rules` and `markers`** on the same overlay pull — not grams appended to
+  rules text (would mean parsing prose on the phone) and not treatment-marker rows (no floor+ceiling
+  pair, no % anchor, no activity add-back). Three fields, one request, one refresh.
 - New `ClinicMacroBoundsService.ts` (load/save/types + feasibility helpers shared conceptually
   with server: one floor + one ceiling per axis, floor < ceiling).
 - Key on backup / ShareExport / cloud backup inclusion lists.
-- Empty or null overlay macros → clear clinic bounds (do not invent defaults).
+- Empty or null overlay macros → clear clinic bounds (do not invent defaults). The Food Log returns to
+  `eaten / daily_macro_target` with no signs — the pre-be-45 display. This is also the server-rollback
+  path, so it must be a clean, tested state, not an afterthought.
+- **Skip unknown, keep the rest.** An unrecognised `axis`, `kind`, or `of` → drop that one bound, log,
+  render everything else. If a `percent` bound arrives with no usable base, fall back to its
+  `resolvedValue`. Never discard the whole payload and never crash the pull.
+- Store bounds **as ordered**, including `kind`/`of`/`activityAddBack`/`followsActivity`. Do **not**
+  flatten to grams on pull — the phone resolves per day (below). Server `resolvedValue` is the
+  clinician's Confirm snapshot for the portal, not the meter.
 
 ### B. Food Log meters (`FoodMacroStrip` `MacroBar`)
 
@@ -53,7 +64,46 @@ FLEX clinic numbers: do **not** show ≤ ≥. Optional later: faint caption — 
 
 Marker rows (SatF, SolFi) already clinic-set: add the same ≤ ≥ treatment so the strip is consistent (`8 ≤ 15g`, `25 ≥ 10g`). H2O stays a local floor (`≥`).
 
+A marker may now arrive with `percentOfEnergy` + `ofEnergy: 'kcal_eaten'` (be-45 § Markers tab
+alignment — SatF only, catalog rows carrying `kcal_per_gram`). Resolve
+`g = percentOfEnergy/100 × kcalEaten / kcal_per_gram` per day and render grams plus a `%` chip:
+`18 ≤ 19g` `10%`.
+
+`dailyTarget` **always** holds grams and never a percent — it stays the fallback. Missing
+`percentOfEnergy`, unknown `ofEnergy`, or no energy density → render `dailyTarget` exactly as today.
+Never drop the marker, never render a percent as grams.
+
 Compact header subtitle when any HARD bound exists: e.g. `P 90–113 · C-Fi ≤43` plus existing clinic marker bits. `Set by your clinic` stays under marker rows; HARD macros can share that hint when any HARD bound is present.
+
+### B2. Daily resolution — which meters move
+
+Resolve every bound to grams/kcal **for the shown day** before rendering. Code math only, no AI.
+
+| Bound | Resolves to | Moves during the day |
+|---|---|---|
+| `kind: constant` | `value` | no |
+| `kind: percent`, `of: kcal_order` | `value/100 × kcalBase / (fat ? 9 : 4)` | no |
+| `kind: percent`, `of: kcal_eaten` (markers: SatF) | same math on today's eaten kcal | **yes** — every meal |
+| kcal ceiling with `activityAddBack` | see below | **yes** — upward only, capped |
+
+**kcal add-back** (Michal/Stav: base 2000, threshold 400, cap 2300):
+
+```
+activityKcal = today's measured activity kcal — Activity Log sessions + watch/steps burn.
+               NOT BMR, NOT total burn. Same number the energy row already uses.
+extra        = max(0, activityKcal - thresholdKcal) * (ratio ?? 1)
+ceiling      = min(value + extra, capValue)     // never below value, never above capValue
+```
+
+- Caption under the kcal bar when boosted: `2000 + 300 activity` (`appLocale`, numbers `ltr`).
+- **No activity data** (watch off, no sync, no session) → `ceiling = value` + caption saying activity
+  was not counted. Never infer a session, never infer from steps alone if the burn number is absent.
+- `kcalBase` for `of: kcal_order` percent bounds is the **base** `value`, not the boosted ceiling,
+  unless that bound has `followsActivity: true`. Stav's C stays `≤ 150 g` on a training day and goes
+  red at 152 while kcal is green — intended, not a bug.
+- Past days: resolve against **that day's** stored activity, not today's.
+
+**No patient day-kind toggle in v1.** The phone measures the session; it does not ask.
 
 ### C. HARD wiring — every AI macro surface
 
@@ -68,6 +118,11 @@ Verbatim block, e.g. `HARD from clinic: protein_g floor 90 g/day; protein_g ceil
 Auto-apply must never emit a point that violates HARD (same as prompt110 markers). If conflict is unavoidable, keep the clinic bound and say so in reasoning.
 
 FLEX bounds: include as “FLEX guide” in the prompt only; do not clamp.
+
+Pass **resolved-for-today** numbers, and say what they resolved from, so Gemini does not re-derive
+them: `HARD from clinic: kcal ceiling 2300 today (base 2000 + 300 measured activity); carb_g ceiling
+150 g (30% of the 2000 target — does NOT rise on training days)`. Clamp in code against the same
+resolved values.
 
 ### D. My Macros strip
 
@@ -84,8 +139,15 @@ Patient must **not** edit HARD clinic axes (view-only numbers + signs). Unordere
 
 - [ ] Clinic PUT P floor 90 + ceiling 113 + C−Fi ceiling 43 → phone pull → meters match signs
 - [ ] Clear bounds on clinic → signs gone, old `102/112g` style back
+- [ ] App **without** any clinic macro order behaves exactly as before this batch (point targets, no signs)
+- [ ] Existing constant markers (SatF 15 g) render unchanged; a percent SatF renders grams + `%`, never `10g`
+- [ ] Overlay with an unknown axis or kind → that row skipped, other meters normal, no crash
 - [ ] C floor 65 + C−Fi ceiling 43: C can be green while C−Fi is red on the same day
 - [ ] Weigh-in auto-apply does not set P > 113
+- [ ] kcal 2000 + add-back (400 / 2300): rest day shows `≤ 2000`; log a 700 kcal session → `≤ 2300` + caption
+- [ ] Watch off / no activity today → stays `≤ 2000`, caption says activity not counted
+- [ ] Training day with C ≤ 30%: carb bar still `≤ 150g` and goes red at 152 while kcal is green
+- [ ] Yesterday with a session resolves from yesterday's activity, not today's
 - [ ] Backup / restore keeps bounds
 - [ ] he UI: labels RTL, `90–113g` LTR
 
