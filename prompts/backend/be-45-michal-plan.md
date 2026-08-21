@@ -25,7 +25,7 @@
 
 AI turns that text into the live macro / marker order and pushes it to the phone (same pull as rules). You do **not** fill type dropdowns, percent math, or training toggles unless you want to open the Macros tab and override.
 
-**Macros · Live** tab = audit view of what the clinic set. Optional edit for power users / owner — not the daily path.
+**Macros · Live** tab = audit of the full Food Log order (kcal · P · C · F · Fi · C−Fi). Unlocked axes stay visible as **FLEX** (no number). Optional edit for power users / owner — not the daily path.
 
 ---
 

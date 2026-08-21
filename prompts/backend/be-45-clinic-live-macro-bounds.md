@@ -24,7 +24,7 @@ Engine shape (under the hood — clinician never needs this vocabulary):
 
 | Mode | Stored | Patient meter |
 |---|---|---|
-| **FLEX** | no HARD bound (optional guide) | `53 / 102g` — no ≤ ≥ |
+| **FLEX** | unlocked — **no number** (no ≤ ≥ on phone) | Axis still listed; Food Log has no hard lock |
 | **Floor** | HARD floor | `116 ≥ 65g` |
 | **Limit** | HARD ceiling | `66 ≤ 43g` |
 | **Band** | HARD floor + ceiling | `102  90–113g` |
@@ -226,14 +226,14 @@ Keep the old snapshot bars, relabelled so the two can never be confused:
 | **Macros tab** (new) | `overlay.macros` — clinic order | **Set by this clinic · Live** |
 | **Macro targets** card (existing) | snapshot `daily_macro_target` | **Patient app targets · last sync {date}** |
 
-Each ordered axis shows the clinic bound; unordered axes show only the app number.
+Each ordered axis shows the clinic bound; unlocked axes stay visible as **FLEX** (no number).
 
 **Primary: order list**
 
+- **Always show all Food Log axes** in this order: **kcal · P · C · F · Fi · C−Fi** (same as the phone strip). Owner preference (2026-08-21): clearer than hiding unlocked rows.
 - Rows: axis label · **type select (`FLEX` · `>` · `<` · `range`)** · value field(s) · unit (`g` / `%` / `kcal`) · Today (from snapshot meals, same math as now: net = C − Fi on the day)
-- **The type select is the strength.** `FLEX` → `strength: 'flex'`; `>` `<` `range` → `'hard'`. No separate HARD/FLEX control — one decision per row. Render HARD as a derived badge, not an input.
-- **Add bound** — axis picker (kcal, P, C, F, Fi, C−Fi). Adding P twice is floor+ceiling on one row, not two P rows.
-- Empty axes hidden until added.
+- **The type select is the strength.** `FLEX` → `strength: 'flex'` with **no value** when unlocked; `>` `<` `range` → `'hard'` with numbers. No separate HARD/FLEX control — one decision per row. Render HARD as a derived badge, not an input.
+- No “Add axis” picker — every axis is already on the card. Clear resets a row to FLEX (no number).
 - **kcal ceiling row only:** collapsed “Training day” toggle → `add activity above [400] kcal, up to [2300]`. Hidden until opened; empty = plain ceiling. Preview line: “Rest 2000 · session burning 700 → 2300.”
 - **Percent row:** checkbox “follows the training bump” (default off), shown only when a kcal add-back exists. Caption states both resolutions: “30% of 2000 = 150 g · of 2300 = 173 g.”
 - Hint line when HARD C floor + HARD C−Fi ceiling: e.g. “At 65 g C, fiber needs ≥ 22 g to keep net ≤ 43.” `clinicLocale`; numbers+units `ltr`.
@@ -446,8 +446,8 @@ STRENGTH: hard | flex
 
 RULES
 - Each axis may have at most one floor and one ceiling.
-- Omit an axis entirely when the clinic should not lock it (FLEX / not ordered). Prefer OMISSION over inventing numbers.
-- HARD = patient must follow; FLEX = optional guide. Default to HARD only when rules/labs clearly constrain that axis; otherwise omit or FLEX.
+- Cover every Food Log axis in `bounds`. Unlocked → FLEX with **no value** (never invent grams). HARD / floor / ceiling / range only when the rules clearly give a number.
+- HARD = patient must follow; FLEX = unlocked, no ≤ ≥. Default to HARD only when rules/labs clearly constrain that axis; otherwise FLEX with no number.
 - protein_g, carb_g, fat_g, fiber_g, net_carb_g are grams/day. kcal is kcal/day.
 - KIND: constant (grams/kcal) or percent (0–100 of kcal_order or kcal_eaten). Kind is not HARD/FLEX. Michal writes protein and kcal as constants; she writes carb ceilings and sat fat as % of energy. Prefer percent on carb_g when rules say “עד X% מסה״כ הקלוריות”; resolve against kcal_order (the prescription), not eaten. Sat fat % of energy is a MARKER (kcal_eaten), not a macro bound. Always also fill resolvedValue so the meter has grams. Old phone point targets are constant kind and stay off this card until the clinician adds a bound.
 - TRAINING DAYS: when rules give one calorie target plus a higher allowance on training days ("HB 2000, on training never above 2300"), that is ONE kcal ceiling with activityAddBack { thresholdKcal, capValue }, NOT a kcal range and NOT two orders. capValue is the number they must never exceed. Pick thresholdKcal from the rules if stated, otherwise omit activityAddBack and say in reasoning that the threshold needs the clinician. Never set followsActivity yourself — extra energy is not extra carbohydrate unless the clinician says so.
