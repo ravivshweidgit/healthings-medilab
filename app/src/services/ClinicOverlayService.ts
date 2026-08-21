@@ -22,6 +22,8 @@ type ClinicOverlayResponse = {
   overlay: {
     rules: ClinicOverlayRules | null;
     markers?: TreatmentMarker[] | null;
+    markersHistory?: Array<{ updatedAt: string; markers: TreatmentMarker[] }> | null;
+    markersUpdatedAt?: string | null;
     markersBackfill?: MarkersBackfillRequest | null;
     macros?: {
       bounds?: unknown[];
@@ -74,6 +76,10 @@ export async function pullClinicOverlaysFull(): Promise<ClinicOverlayPullResult>
       out.markers = await applyClinicMarkersFromOverlay(
         overlay.markers ?? null,
         overlay.updatedAt,
+        {
+          markersUpdatedAt: overlay.markersUpdatedAt ?? null,
+          history: overlay.markersHistory ?? null,
+        },
       );
     } catch {
       /* keep null */

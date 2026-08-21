@@ -269,6 +269,7 @@ Propose returns `markers: [{ marker, direction, dailyTarget, percentOfEnergy?, o
 
 - **Upsert by code** — SatF in the proposal updates / creates SatF.
 - **Do not delete** a marker Propose omitted (Raviv’s iodine stays if the new rules only mention protein). Clearing a marker is an explicit Markers-tab Remove, not a silent AI side effect.
+- **Archive on change** — each markers write that changes the list pushes the previous `{ updatedAt, markers }` into `markers_json.history` (cap 20). Phone Food Log uses `markersForDay(day)` = latest history/current whose local day ≤ that day. Blanking past days after an update is not honest.
 - **Max 3** — if Propose returns more, keep the first 3 that validate; put the rest in `needsClinician`.
 - Percent SatF: set `percentOfEnergy` + `ofEnergy: 'kcal_eaten'` and always fill `dailyTarget` grams as the fallback (compat).
 - Existing constant markers without percent stay constant unless the rules clearly say “% of energy.”

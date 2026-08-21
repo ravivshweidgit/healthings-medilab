@@ -21,9 +21,11 @@ must show what the clinic ordered, and Gemini must not break HARD bounds.
 - HARD clinic bounds beat phone point targets on that axis. FLEX is a guide only (no ≤ ≥,
   auto-apply may move).
 - **History honesty:** clinic macro meters apply only on/after the local calendar day of
-  `macros.updatedAt`. Treatment marker meters the same way using `treatmentMarkers.updatedAt`.
-  Earlier Food Log days keep phone day snapshots / point targets only — never rewrite
-  `macro_target_by_day_v1`, the revision log, or past meal marker estimates for display.
+  `macros.updatedAt`. Treatment markers: each Food Log day shows the marker **order that was
+  in effect that day** (`markersForDay` — current + `markers_json.history`, latest
+  `updatedAt` day ≤ dayKey). Saving a new marker set **archives** the previous list; it must
+  not blank past days or erase prior targets. Meal estimates in storage are never rewritten for
+  display. Earlier days before the first order show no clinic marker meters.
 - Same overlay pull as rules/markers (`GET /v1/clinic/overlays`). Persistence parity:
   canonical key, backup + clinic export.
 

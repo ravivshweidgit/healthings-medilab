@@ -32,11 +32,79 @@ export type TreatmentMarker = {
   ofEnergy?: 'kcal_eaten';
 };
 
+export type MarkersHistoryEntry = {
+  updatedAt: string;
+  markers: TreatmentMarker[];
+};
+
 export type TreatmentMarkersStore = {
   markers: TreatmentMarker[];
   updatedAt: string;
   source: 'clinic';
+  /** Prior orders (oldest → newest). Food Log picks the version in effect that day. */
+  history?: MarkersHistoryEntry[];
 };
+
+function localDayKeyFromIso(iso: string): string | null {
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return null;
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function cleanMarkerList(
+  markers: TreatmentMarker[] | null | undefined,
+  fallbackAt: string,
+): TreatmentMarker[] {
+  const cleaned: TreatmentMarker[] = [];
+  for (const m of markers || []) {
+    if (!m || !isDietMarkerCode(m.marker)) continue;
+    if (m.direction !== 'cap' && m.direction !== 'floor') continue;
+    const dailyTarget = Number(m.dailyTarget);
+    if (!Number.isFinite(dailyTarget) || dailyTarget <= 0) continue;
+    const labels = parseLabels(m.labels);
+    const guidance = m.estimateGuidance?.trim();
+    cleaned.push({
+      marker: m.marker,
+      direction: m.direction,
+      dailyTarget,
+      unit: normalizeUnit(m.unit),
+      linkedLabCodes: Array.isArray(m.linkedLabCodes)
+        ? m.linkedLabCodes.map((c) => String(c).trim().toUpperCase()).filter(Boolean)
+        : [],
+      ...(m.note?.trim() ? { note: m.note.trim().slice(0, 500) } : {}),
+      ...(labels ? { labels } : {}),
+      ...(guidance ? { estimateGuidance: guidance.slice(0, 2000) } : {}),
+      ...(typeof m.percentOfEnergy === 'number' &&
+      m.percentOfEnergy > 0 &&
+      m.percentOfEnergy <= 100 &&
+      m.ofEnergy === 'kcal_eaten'
+        ? { percentOfEnergy: m.percentOfEnergy, ofEnergy: 'kcal_eaten' as const }
+        : {}),
+      setAt: m.setAt || fallbackAt,
+      setBy: m.setBy || 'clinic',
+    });
+    if (cleaned.length >= 3) break;
+  }
+  return cleaned;
+}
+
+function cleanHistory(
+  history: MarkersHistoryEntry[] | null | undefined,
+): MarkersHistoryEntry[] {
+  if (!Array.isArray(history) || history.length === 0) return [];
+  const out: MarkersHistoryEntry[] = [];
+  for (const h of history) {
+    if (!h || typeof h.updatedAt !== 'string' || !h.updatedAt) continue;
+    const markers = cleanMarkerList(h.markers, h.updatedAt);
+    if (!markers.length) continue;
+    out.push({ updatedAt: h.updatedAt, markers });
+  }
+  return out.slice(-20);
+}
 
 /** Clinic-queued past meal fill — mirrors server MarkersBackfillRequest. */
 export type MarkersBackfillRequest = {
@@ -85,11 +153,13 @@ export async function loadTreatmentMarkers(): Promise<TreatmentMarkersStore | nu
     if (!raw) return null;
     const parsed = JSON.parse(raw) as TreatmentMarkersStore;
     if (!parsed || !Array.isArray(parsed.markers)) return null;
-    const markers = parsed.markers.filter((m) => m && isDietMarkerCode(m.marker)).slice(0, 3);
+    const markers = cleanMarkerList(parsed.markers, parsed.updatedAt || '');
+    const history = cleanHistory(parsed.history);
     return {
       markers,
       updatedAt: parsed.updatedAt || '',
       source: 'clinic',
+      ...(history.length ? { history } : {}),
     };
   } catch {
     return null;
@@ -97,10 +167,12 @@ export async function loadTreatmentMarkers(): Promise<TreatmentMarkersStore | nu
 }
 
 export async function saveTreatmentMarkers(store: TreatmentMarkersStore): Promise<void> {
+  const history = cleanHistory(store.history);
   const payload: TreatmentMarkersStore = {
-    markers: store.markers.filter((m) => isDietMarkerCode(m.marker)).slice(0, 3),
+    markers: cleanMarkerList(store.markers, store.updatedAt || new Date().toISOString()),
     updatedAt: store.updatedAt || new Date().toISOString(),
     source: 'clinic',
+    ...(history.length ? { history } : {}),
   };
   await AsyncStorage.setItem(TREATMENT_MARKERS_KEY, JSON.stringify(payload));
 }
@@ -109,89 +181,96 @@ export async function clearTreatmentMarkers(): Promise<void> {
   await AsyncStorage.removeItem(TREATMENT_MARKERS_KEY);
 }
 
-/** Local calendar day of the clinic markers order (YYYY-MM-DD). */
+/** Local calendar day of the current clinic markers order (YYYY-MM-DD). */
 export function treatmentMarkersEffectiveDayKey(
   store: TreatmentMarkersStore | null,
 ): string | null {
   if (!store?.updatedAt) return null;
-  const ms = Date.parse(store.updatedAt);
-  if (Number.isNaN(ms)) return null;
-  const d = new Date(ms);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return localDayKeyFromIso(store.updatedAt);
 }
 
 /**
- * Keep Food Log history honest: marker meters only on/after the order's local day.
- * Earlier days show no clinic SatF/SolFi/… bars (meal estimates in storage stay).
+ * Markers that were in effect on dayKey (latest order whose local day ≤ dayKey).
+ * Days before the first order → []. Does not rewrite meal estimates in storage.
+ */
+export function markersForDay(
+  store: TreatmentMarkersStore | null,
+  dayKey: string,
+): TreatmentMarker[] {
+  if (!store || !dayKey) return [];
+  const versions: MarkersHistoryEntry[] = [
+    ...cleanHistory(store.history),
+    { updatedAt: store.updatedAt, markers: store.markers },
+  ];
+  let best: TreatmentMarker[] | null = null;
+  for (const v of versions) {
+    const d = localDayKeyFromIso(v.updatedAt);
+    if (!d || d > dayKey) continue;
+    best = v.markers;
+  }
+  return best ?? [];
+}
+
+/**
+ * @deprecated Prefer markersForDay — blanking past days after an update is not honest.
  */
 export function treatmentMarkersApplyToDay(
   store: TreatmentMarkersStore | null,
   dayKey: string,
 ): boolean {
-  const from = treatmentMarkersEffectiveDayKey(store);
-  if (!from || !dayKey) return false;
-  return dayKey >= from;
+  return markersForDay(store, dayKey).length > 0;
 }
 
 /** Apply overlay.markers from GET /v1/clinic/overlays when newer. */
 export async function applyClinicMarkersFromOverlay(
   markers: TreatmentMarker[] | null | undefined,
   overlayUpdatedAt: string,
+  options?: {
+    markersUpdatedAt?: string | null;
+    history?: MarkersHistoryEntry[] | null;
+  },
 ): Promise<TreatmentMarkersStore | null> {
-  const serverAt = Date.parse(overlayUpdatedAt);
-  if (Number.isNaN(serverAt)) return null;
+  const markersAt =
+    (options?.markersUpdatedAt && !Number.isNaN(Date.parse(options.markersUpdatedAt))
+      ? options.markersUpdatedAt
+      : null) || overlayUpdatedAt;
+  if (Number.isNaN(Date.parse(markersAt))) return null;
+
+  const cleaned = cleanMarkerList(markers || [], markersAt);
+  const history = cleanHistory(options?.history);
+  const syncToken = [
+    markersAt,
+    `h${history.length}`,
+    cleaned
+      .map((m) =>
+        [
+          m.marker,
+          m.direction,
+          m.dailyTarget,
+          m.percentOfEnergy ?? '',
+          m.ofEnergy ?? '',
+        ].join(':'),
+      )
+      .join('|'),
+  ].join('#');
 
   const lastRaw = await AsyncStorage.getItem(TREATMENT_MARKERS_SYNC_AT_KEY);
-  const lastAt = lastRaw ? Date.parse(lastRaw) : 0;
-  if (serverAt <= lastAt) return null;
+  if (lastRaw === syncToken) return null;
 
-  if (!markers || markers.length === 0) {
+  if (!markers || markers.length === 0 || cleaned.length === 0) {
     await clearTreatmentMarkers();
-    await AsyncStorage.setItem(TREATMENT_MARKERS_SYNC_AT_KEY, overlayUpdatedAt);
-    return { markers: [], updatedAt: overlayUpdatedAt, source: 'clinic' };
-  }
-
-  const cleaned: TreatmentMarker[] = [];
-  for (const m of markers) {
-    if (!m || !isDietMarkerCode(m.marker)) continue;
-    if (m.direction !== 'cap' && m.direction !== 'floor') continue;
-    const dailyTarget = Number(m.dailyTarget);
-    if (!Number.isFinite(dailyTarget) || dailyTarget <= 0) continue;
-    const labels = parseLabels(m.labels);
-    const guidance = m.estimateGuidance?.trim();
-    cleaned.push({
-      marker: m.marker,
-      direction: m.direction,
-      dailyTarget,
-      unit: normalizeUnit(m.unit),
-      linkedLabCodes: Array.isArray(m.linkedLabCodes)
-        ? m.linkedLabCodes.map((c) => String(c).trim().toUpperCase()).filter(Boolean)
-        : [],
-      ...(m.note?.trim() ? { note: m.note.trim().slice(0, 500) } : {}),
-      ...(labels ? { labels } : {}),
-      ...(guidance ? { estimateGuidance: guidance.slice(0, 2000) } : {}),
-      ...(typeof m.percentOfEnergy === 'number' &&
-      m.percentOfEnergy > 0 &&
-      m.percentOfEnergy <= 100 &&
-      m.ofEnergy === 'kcal_eaten'
-        ? { percentOfEnergy: m.percentOfEnergy, ofEnergy: 'kcal_eaten' as const }
-        : {}),
-      setAt: m.setAt || overlayUpdatedAt,
-      setBy: m.setBy || 'clinic',
-    });
-    if (cleaned.length >= 3) break;
+    await AsyncStorage.setItem(TREATMENT_MARKERS_SYNC_AT_KEY, syncToken);
+    return { markers: [], updatedAt: markersAt, source: 'clinic' };
   }
 
   const store: TreatmentMarkersStore = {
     markers: cleaned,
-    updatedAt: overlayUpdatedAt,
+    updatedAt: markersAt,
     source: 'clinic',
+    ...(history.length ? { history } : {}),
   };
   await saveTreatmentMarkers(store);
-  await AsyncStorage.setItem(TREATMENT_MARKERS_SYNC_AT_KEY, overlayUpdatedAt);
+  await AsyncStorage.setItem(TREATMENT_MARKERS_SYNC_AT_KEY, syncToken);
   return store;
 }
 

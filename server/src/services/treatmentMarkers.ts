@@ -271,12 +271,46 @@ export const MARKERS_BACKFILL_MIN_DAYS = 1;
 export const MARKERS_BACKFILL_MAX_DAYS = 90;
 export const MARKERS_BACKFILL_DEFAULT_DAYS = 14;
 
+export type MarkersHistoryEntry = {
+  updatedAt: string;
+  markers: TreatmentMarker[];
+};
+
 export type TreatmentMarkersPayload = {
   markers: TreatmentMarker[];
   updatedAt: string;
+  /** Prior marker orders (oldest → newest). Cap 20. For Food Log history honesty. */
+  history?: MarkersHistoryEntry[];
   /** Optional one-shot past-meal fill — clinic sets, phone runs + acks. */
   backfill?: MarkersBackfillRequest | null;
 };
+
+const MARKERS_HISTORY_MAX = 20;
+
+function markersFingerprint(markers: TreatmentMarker[]): string {
+  return JSON.stringify(
+    markers.map((m) => ({
+      marker: m.marker,
+      direction: m.direction,
+      dailyTarget: m.dailyTarget,
+      percentOfEnergy: m.percentOfEnergy ?? null,
+      ofEnergy: m.ofEnergy ?? null,
+    })),
+  );
+}
+
+function archivePreviousMarkers(
+  prev: TreatmentMarkersPayload | null,
+  nextMarkers: TreatmentMarker[],
+): MarkersHistoryEntry[] {
+  const history = Array.isArray(prev?.history) ? [...prev.history] : [];
+  if (!prev?.markers?.length || !prev.updatedAt) return history.slice(-MARKERS_HISTORY_MAX);
+  if (markersFingerprint(prev.markers) === markersFingerprint(nextMarkers)) {
+    return history.slice(-MARKERS_HISTORY_MAX);
+  }
+  history.push({ updatedAt: prev.updatedAt, markers: prev.markers });
+  return history.slice(-MARKERS_HISTORY_MAX);
+}
 
 type MarkerInput = {
   marker: string;
@@ -404,9 +438,11 @@ export async function saveMarkersForPatient(
   const setAt = new Date().toISOString();
   const markers = await normalizeTreatmentMarkers(input, mentor.id, setAt);
   const prev = await loadMarkersPayload(patientId, orgId);
+  const history = archivePreviousMarkers(prev, markers);
   const payload: TreatmentMarkersPayload = {
     markers,
     updatedAt: setAt,
+    ...(history.length ? { history } : {}),
     // Preserve an in-flight / last backfill job when only the marker list changes.
     ...(prev?.backfill ? { backfill: prev.backfill } : {}),
   };
@@ -462,7 +498,8 @@ export async function requestMarkersBackfill(
   };
   const payload: TreatmentMarkersPayload = {
     markers,
-    updatedAt: setAt,
+    updatedAt: prev?.updatedAt || setAt,
+    ...(Array.isArray(prev?.history) && prev.history.length ? { history: prev.history } : {}),
     backfill,
   };
   await writeMarkersPayload(patientId, orgId, payload, mentor.id);
@@ -533,7 +570,8 @@ export async function ackMarkersBackfill(
   };
   const payload: TreatmentMarkersPayload = {
     markers: prev.markers ?? [],
-    updatedAt: completedAt,
+    updatedAt: prev.updatedAt || completedAt,
+    ...(Array.isArray(prev.history) && prev.history.length ? { history: prev.history } : {}),
     backfill,
   };
   await writeMarkersPayload(patient.id, row.org_id, payload, patient.id);

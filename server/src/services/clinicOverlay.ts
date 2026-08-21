@@ -35,6 +35,10 @@ export type ClinicOverlay = {
   rules: ClinicUserRules | null;
   /** Clinic-set treatment markers (be-41). Null when unset. */
   markers: TreatmentMarker[] | null;
+  /** Prior marker orders for Food Log history (be-45 honesty). */
+  markersHistory?: Array<{ updatedAt: string; markers: TreatmentMarker[] }> | null;
+  /** Markers payload clock — use for history, not overlay.updatedAt. */
+  markersUpdatedAt?: string | null;
   /** Clinic-opt-in past meal marker fill — phone executes when pending. */
   markersBackfill: MarkersBackfillRequest | null;
   /** Clinic live macro order (be-45). Null when unset. */
@@ -104,6 +108,21 @@ function markersFromRow(row: OrgOverlayRow | null | undefined): TreatmentMarker[
   return payload.markers;
 }
 
+function markersHistoryFromRow(
+  row: OrgOverlayRow | null | undefined,
+): Array<{ updatedAt: string; markers: TreatmentMarker[] }> | null {
+  const hist = row?.markers_json?.history;
+  if (!Array.isArray(hist) || hist.length === 0) return null;
+  return hist
+    .filter((h) => h && typeof h.updatedAt === 'string' && Array.isArray(h.markers))
+    .map((h) => ({ updatedAt: h.updatedAt, markers: h.markers }));
+}
+
+function markersUpdatedAtFromRow(row: OrgOverlayRow | null | undefined): string | null {
+  const at = row?.markers_json?.updatedAt;
+  return typeof at === 'string' && at ? at : null;
+}
+
 function macrosFromRow(row: OrgOverlayRow | null | undefined): ClinicMacrosPayload | null {
   return macrosPayloadFromUnknown(row?.macros_json ?? null);
 }
@@ -131,6 +150,8 @@ function mergeOverlay(
     patientId,
     rules: rulesRow?.rules_json ?? null,
     markers: markersFromRow(rulesRow),
+    markersHistory: markersHistoryFromRow(rulesRow),
+    markersUpdatedAt: markersUpdatedAtFromRow(rulesRow),
     markersBackfill: backfillFromRow(rulesRow, forPatient),
     macros: macrosFromRow(rulesRow),
     chat: chatRow?.chat_json ?? {},
@@ -179,6 +200,14 @@ export async function getOverlayForMentor(mentor: PublicUser, patientId: string)
 
   const overlay = mergeOverlay(patientId, ruleRows[0], chatRows[0], false);
   overlay.markers = await hydrateTreatmentMarkers(overlay.markers);
+  if (overlay.markersHistory?.length) {
+    overlay.markersHistory = await Promise.all(
+      overlay.markersHistory.map(async (h) => ({
+        updatedAt: h.updatedAt,
+        markers: (await hydrateTreatmentMarkers(h.markers)) ?? [],
+      })),
+    );
+  }
   return overlay;
 }
 
@@ -202,6 +231,14 @@ export async function getOverlayForPatient(patient: PublicUser): Promise<ClinicO
   if (!rows[0]) return null;
   const overlay = mergeOverlay(patient.id, rows[0], null, true);
   overlay.markers = await hydrateTreatmentMarkers(overlay.markers);
+  if (overlay.markersHistory?.length) {
+    overlay.markersHistory = await Promise.all(
+      overlay.markersHistory.map(async (h) => ({
+        updatedAt: h.updatedAt,
+        markers: (await hydrateTreatmentMarkers(h.markers)) ?? [],
+      })),
+    );
+  }
   return overlay;
 }
 
