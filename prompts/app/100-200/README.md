@@ -11,4 +11,5 @@ Shipped specs: [`done/README.md`](./done/README.md). Layout: [`../README.md`](..
 | [`prompt110.txt`](./prompt110.txt) | Treatment markers — clinic-set custom macros w/ lab provenance; needs be-41 first |
 | [`prompt113.txt`](./prompt113.txt) | Lab country gate + server catalog (be-43) — **in_progress** (VPS migrate + phone) |
 | [`prompt114.txt`](./prompt114.txt) | Clinic live macro bounds on Food Log meters (≤ ≥ / bands) + AI HARD; needs be-45 first |
+| [`prompt116.txt`](./prompt116.txt) | Camera meal thumbs, 30-day keep, clinic tap-to-view; needs be-53 (upload cap + lightbox) |
 

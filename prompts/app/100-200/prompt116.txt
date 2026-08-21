@@ -1,0 +1,122 @@
+prompt116 — Meal camera thumbs: 30-day keep, clinic tap-to-view
+
+Status: backlog (spec draft 2026-08-22, owner)
+Builds on: Food Log camera-ai (`FoodEntry.source`), clinic snapshot (`ShareExportService`),
+  clinic metabolic chart meal triangles (be-28 chart mirror)
+Depends on: be-53 (server gzip cap + clinic lightbox — ship with this, not after)
+Model to implement: Auto (persist / purge / share inject / camera mark). Overlay layout on
+  the glucose strip is taste — owner on device (`prompt106`). Do not invent a photo CDN.
+
+## Problem
+
+People log meals with the app camera. Gemini sees the plate, then the JPEG is thrown away.
+The clinic snapshot has kcal, items, and `source: camera-ai`. The orange triangle (e.g. 579)
+has nothing to open. Clinicians ask “what was that plate?” about **recent** meals, especially
+new users. Full-res originals would fill the phone; tiling photos on the 24H strip would
+fight glucose / HR / walks.
+
+## Design (owner, 2026-08-22)
+
+- **One compressed thumb per camera meal** (~100 KB). Five camera meals ≈ **0.5 MB/day**.
+  30 days ≈ **15 MB** high end (every meal a photo, every day). Text-only meals: no file.
+- **Keep files 30 calendar days** on the phone, then delete. Meal **numbers stay forever**
+  (triangle, kcal, items). Missing file = no camera mark, not a broken meal.
+- **Share sends whatever thumbs still exist** that day (same consent as the rest of the
+  snapshot). Local + cloud backup include the same files so a new phone still has the window.
+- **UI:** do not paint photos on the chart. Tiny camera mark on the triangle / meal chip
+  when a thumb exists. Tap triangle **or** chip → existing meal card with the plate on top.
+- **One image per meal** (the plate used for the saved estimate — usually the before shot).
+  After-meal leftover photos are not a second stored file in v1.
+
+## Design rules
+
+- Photos leave the phone only on **Share**, **local backup**, and **cloud backup**. Same
+  exclusion lists as other health keys — do not add a parallel store.
+- **Persistence parity:** `photoId` on `FoodEntry` is the canonical pointer (meal `id`).
+  Files live under `documentDirectory/healthings-meal-photos/{id}.jpg` — **no** `Platform.OS`
+  in the path or AsyncStorage key. Restore writes the same files back.
+- **Do not** keep JPEG base64 in day `food_log_*` JSON or in AsyncStorage at rest.
+  Inject a sidecar map at export time only (`healthings:mealPhotos`).
+- **Do not** parse meal names to decide what to show (`ai-judgment-not-regex`). Camera
+  meals with a live file show the mark; everyone else does not.
+- **Do not** dump thumbs into mentor chat or clinic Gemini context. Human lightbox only.
+- JPEGs barely gzip. Today clinic upload is **15 MB gzipped** (`sync.ts`) — 30d of thumbs
+  can fill that alone. **be-53 raises the cap** (see that batch). Target thumb so 5×30 stays
+  ~15 MB of JPEG, not 50.
+
+## What ships (app)
+
+### A. Save thumb on camera save
+
+- After a new/edited meal is saved from a photo, write one JPEG: longest edge ~720–800 px,
+  quality such that typical plates land **~80–120 KB** (owner math: 100 KB).
+- Set `FoodEntry.photoId` to that meal’s `id` (stable across edits of the same entry).
+  Replacing the photo overwrites the same file. Deleting the meal deletes the file.
+- Text-only / manual meals: leave `photoId` unset.
+
+### B. 30-day purge
+
+- On launch and after meal save: delete files whose meal timestamp is older than 30
+  calendar days (local timezone, same day-key rules as `food_log_*`). Clear `photoId` on
+  those entries so the JSON does not point at a missing file.
+- Cap is **days**, not a 15 MB quota. Quiet weeks just use less disk.
+
+### C. Export / restore
+
+- `ShareExportService`, `LocalBackupService`, and cloud backup: after building
+  `asyncStorage`, inject `healthings:mealPhotos` = JSON `{ [photoId]: "<jpeg-base64>" }`
+  for files that still exist (≤30d). Same key on all three paths.
+- On backup import / cloud restore: write files from that map, then drop the key from
+  live AsyncStorage (files on disk are source of truth).
+- Debug/ephemeral exclusion lists: do **not** exclude this sidecar on export; do **not**
+  leave the fat base64 map sitting in AsyncStorage after import.
+
+### D. Phone chart + Food Log (light)
+
+- Metabolic chart: camera glyph on the orange triangle only when `photoId` resolves to a
+  file. Tap opens the meal (existing Food Log edit/view) with the thumb — **not** a second
+  photo-only overlay unless the current meal sheet cannot show an image.
+- Food Log chips: same camera hint when a thumb exists.
+- Dense 6H/24H: skip the glyph before skipping the kcal label if the lane is crowded;
+  never overlay a thumbnail on the plot.
+
+## Out of scope (explicit)
+
+- Full-resolution originals, photo gallery, or a second after-meal file
+- Clinic AI / phone coach reading the JPEG
+- Photos older than 30 days (even if the clinic asks later — they needed a Share while
+  the file still existed)
+- Changing meal-item macros from the photo in the portal (view only)
+- Pixel-perfect chart chrome — owner on device
+
+## Files
+
+| File | Change |
+|------|--------|
+| app/src/services/MealPhotoService.ts | new: write / read / purge / export map |
+| app/src/services/FoodLogService.ts | `FoodEntry.photoId?`; delete file with meal |
+| app/src/components/FoodLogModal.tsx | save thumb when `fromPhoto` |
+| app/src/components/MetabolicChart.tsx | camera mark + tap → meal |
+| app/src/services/ShareExportService.ts | inject `healthings:mealPhotos` |
+| app/src/services/LocalBackupService.ts | export + restore files |
+| app/src/services/CloudBackupService.ts | same sidecar (cap: be-53) |
+| app/src/i18n/*Copy.ts | short “photo” / camera hint if a visible string is needed |
+
+## Phone checklist
+
+- [ ] Camera meal → file on disk ~100 KB; `photoId` set; triangle shows camera mark
+- [ ] Text meal → no file, no mark
+- [ ] Tap triangle / chip → plate on the meal card, then items / kcal as today
+- [ ] Meal from 31+ days ago: numbers remain, file gone, no mark
+- [ ] Delete meal → file gone
+- [ ] Share while thumbs exist → clinic (be-53) can open them; Share with 0 photos still works
+- [ ] Local backup export/import on a second install restores remaining thumbs (Android↔iOS shape identical)
+- [ ] he/ar: meal names still `dir=auto`; no extra Latin in running copy
+- [ ] 24H strip still readable (no photo tiles under Walk / kcal)
+
+## Related
+
+- be-53 — gzip/cloud caps + clinic lightbox (meal modal + chart tap)
+- persistence-parity.mdc — files + `photoId`, not a platform-prefixed blob
+- language-policy.mdc — patient meal names unchanged; clinic chrome `clinicLocale`
+- prompt106 — chart taste on device
