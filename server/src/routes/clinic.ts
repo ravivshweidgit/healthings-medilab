@@ -159,7 +159,8 @@ export async function registerClinicRoutes(app: FastifyInstance) {
             axis: z.string().min(1),
             direction: z.enum(['floor', 'ceiling']),
             kind: z.enum(['constant', 'percent']).optional(),
-            value: z.number(),
+            // FLEX unlocked = no number (omit / null). HARD still validated in normalize.
+            value: z.number().positive().optional().nullable(),
             of: z.enum(['kcal_order', 'kcal_eaten']).optional(),
             resolvedValue: z.number().optional(),
             strength: z.enum(['hard', 'flex']),
