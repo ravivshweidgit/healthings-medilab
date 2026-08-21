@@ -379,6 +379,8 @@ RULES
 - ENERGY / kcal: when the rules give ONE clear daily energy number (e.g. "קלוריות: 1,690 קק״ל", "1690 kcal", "energy 2000"), ALWAYS emit a HARD kcal ceiling with that value (strip thousands separators). Do NOT leave kcal only in needsClinician when that number is present. Use needsClinician for kcal ONLY when energy is a range with no chosen target, or truly absent.
 - TRAINING: one kcal ceiling with activityAddBack { thresholdKcal, capValue } when rules give a higher training allowance. Omit activityAddBack if threshold is unknown — put a needsClinician question instead. Never set followsActivity.
 - Markers (SAT_FAT_G, SOLUBLE_FIBER_G, IODINE_MCG, SELENIUM_MCG, …) go in markers[], never in bounds. Prefer percentOfEnergy for sat fat when rules say % of energy. Return markers: [] when rules name none.
+- When rules say saturated fat as a share of daily energy (e.g. "פחות מ-7% מסך האנרגיה", "<10% of energy"), ALWAYS return SAT_FAT_G with percentOfEnergy + ofEnergy "kcal_eaten" and a dailyTarget grams fallback at the kcal order (kcal×pct/100/9). Do not leave sat fat as a constant-only grams cap when the rules are clearly %.
+- Soluble fiber / iodine / selenium: constant grams or mcg floors/caps as stated. Upsert only what rules name; never delete other markers.
 - When a HARD number is missing but required (e.g. % carb with no kcal), omit that HARD bound and add needsClinician — still include the axis as FLEX with no value if you are not locking it.
 - Do not parse with regex — read as a clinician.
 

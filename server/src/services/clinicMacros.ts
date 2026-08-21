@@ -583,16 +583,37 @@ export async function rebuildMacrosFromRulesForPatient(
     const overlay = await getOverlayForMentor(mentor, patientId);
     const existing = overlay.markers || [];
     const byCode = new Map(existing.map((m) => [m.marker, m]));
+    const kcalCeiling = proposed.bounds.find(
+      (b) => b.axis === 'kcal' && b.direction === 'ceiling' && boundHasNumber(b),
+    );
+    const kcalBase = kcalCeiling?.value ?? 1740;
+
     for (const m of proposed.markers) {
+      const prev = byCode.get(m.marker);
+      let dailyTarget = Number(m.dailyTarget);
+      if (m.percentOfEnergy != null && m.percentOfEnergy > 0) {
+        // Grams fallback at kcal order (compat) — phone resolves live from kcal eaten.
+        const fromPct = round1((m.percentOfEnergy / 100) * kcalBase / 9);
+        if (!Number.isFinite(dailyTarget) || dailyTarget <= 0) dailyTarget = fromPct;
+      }
+      if (!Number.isFinite(dailyTarget) || dailyTarget <= 0) continue;
+
       byCode.set(m.marker, {
         marker: m.marker,
         direction: m.direction,
-        dailyTarget: m.dailyTarget,
-        unit: 'g',
-        linkedLabCodes: [],
+        dailyTarget,
+        // Catalog unit wins on save; keep prior labs / notes / labels.
+        unit: prev?.unit || 'g',
+        linkedLabCodes: Array.isArray(prev?.linkedLabCodes) ? prev.linkedLabCodes : [],
         setAt: new Date().toISOString(),
         setBy: mentor.id,
-        ...(m.note ? { note: m.note } : {}),
+        ...(prev?.labels ? { labels: prev.labels } : {}),
+        ...(prev?.estimateGuidance ? { estimateGuidance: prev.estimateGuidance } : {}),
+        ...(m.note?.trim()
+          ? { note: m.note.trim() }
+          : prev?.note
+            ? { note: prev.note }
+            : {}),
         ...(m.percentOfEnergy != null
           ? { percentOfEnergy: m.percentOfEnergy, ofEnergy: 'kcal_eaten' as const }
           : {}),
