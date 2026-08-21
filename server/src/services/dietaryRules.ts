@@ -60,7 +60,12 @@ export async function saveDietaryRules(
     try {
       const rebuilt = await rebuildMacrosFromRulesForPatient(actor, patientId);
       return { overlay: rebuilt, rules };
-    } catch {
+    } catch (rebuildErr) {
+      console.warn(
+        '[dietaryRules] macros rebuild after rules Save failed',
+        patientId,
+        rebuildErr instanceof Error ? rebuildErr.message : rebuildErr,
+      );
       return { overlay, rules };
     }
   } catch (err) {
