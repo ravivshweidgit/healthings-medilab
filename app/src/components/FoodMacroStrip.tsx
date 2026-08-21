@@ -34,6 +34,11 @@ import {
   loadTreatmentMarkers,
   type TreatmentMarker,
 } from '../services/TreatmentMarkerService';
+import {
+  loadClinicMacroBounds,
+  resolveClinicMacroMeters,
+  type ResolvedAxisMeter,
+} from '../services/ClinicMacroBoundsService';
 import { getAllLabReports, type LabReport } from '../services/LabLogService';
 import { getTreatmentMarkersCopy, markerUiLabel } from '../i18n/treatmentMarkersCopy';
 import {
@@ -297,60 +302,118 @@ type MacroBarProps = {
   unit?: 'g' | 'mg' | 'mcg' | 'kcal' | 'kj' | 'ml' | 'floz';
   /** Hitting the target is the win — no over-target penalty colour (water). */
   goalIsFloor?: boolean;
+  /** Clinic HARD band — when both set, display `value  lo–hi` and red outside. */
+  clinicFloor?: number;
+  clinicCeiling?: number;
+  /** Optional caption under the value (e.g. `30% of 2000`). */
+  clinicCaption?: string;
   onPress?: () => void;
 };
 
-function MacroBar({ label, value, target, color, showTarget, unit = 'g', goalIsFloor, onPress }: MacroBarProps) {
+function MacroBar({
+  label,
+  value,
+  target,
+  color,
+  showTarget,
+  unit = 'g',
+  goalIsFloor,
+  clinicFloor,
+  clinicCeiling,
+  clinicCaption,
+  onPress,
+}: MacroBarProps) {
   const { colors, isDark } = useTheme();
   const barStyles = useMemo(() => makeBarStyles(colors, isDark), [colors, isDark]);
-  const ratio = target > 0 ? Math.min(1, value / target) : 0;
-  const met = goalIsFloor && target > 0 && value >= target;
-  const over = !goalIsFloor && value > target * 1.05;
+  const hasBand = clinicFloor != null && clinicCeiling != null && clinicFloor > 0 && clinicCeiling > 0;
+  const hasClinicCeiling = clinicCeiling != null && clinicCeiling > 0 && clinicFloor == null;
+  const hasClinicFloor = clinicFloor != null && clinicFloor > 0 && clinicCeiling == null;
+  const effectiveTarget =
+    hasBand ? clinicCeiling! : hasClinicCeiling ? clinicCeiling! : hasClinicFloor ? clinicFloor! : target;
+  const ratio = effectiveTarget > 0 ? Math.min(1, value / effectiveTarget) : 0;
+  const met = hasBand
+    ? value >= clinicFloor! && value <= clinicCeiling!
+    : hasClinicFloor
+      ? value >= clinicFloor!
+      : goalIsFloor && effectiveTarget > 0 && value >= effectiveTarget;
+  const over = hasBand
+    ? value < clinicFloor! || value > clinicCeiling!
+    : hasClinicCeiling
+      ? value > clinicCeiling!
+      : !goalIsFloor && !hasClinicFloor && value > effectiveTarget * 1.05;
+  const underFloor = hasClinicFloor && value < clinicFloor!;
+  const bad = over || underFloor || (hasBand && (value < clinicFloor! || value > clinicCeiling!));
   const suffix =
     unit === 'g' ? 'g' : unit === 'mg' ? 'mg' : unit === 'mcg' ? 'mcg' : unit === 'ml' ? 'ml' : unit === 'floz' ? 'fl oz' : unit === 'kj' ? '' : '';
-  const valueText = showTarget
-    ? unit === 'kcal' || unit === 'kj'
-      ? `${Math.round(value)}/${Math.round(target)}${unit === 'kj' ? '' : ''}`
-      : unit === 'floz'
-        ? `${value.toFixed(1)}/${target.toFixed(1)}${suffix}`
-        : unit === 'mg' || unit === 'mcg'
-          ? `${Math.round(value)}/${Math.round(target)}${suffix}`
-          : `${Math.round(value)}/${Math.round(target)}${suffix}`
-    : unit === 'kcal'
-      ? `${Math.round(value)} kcal`
-      : unit === 'kj'
-        ? `${Math.round(value)} kJ`
+  const fmt = (n: number) =>
+    unit === 'kcal' || unit === 'kj' || unit === 'mg' || unit === 'mcg' ? `${Math.round(n)}` : `${Math.round(n)}`;
+  let valueText: string;
+  if (hasBand && showTarget) {
+    valueText = `${fmt(value)}  ${fmt(clinicFloor!)}–${fmt(clinicCeiling!)}${suffix}`;
+  } else if (hasClinicCeiling && showTarget) {
+    valueText = `${fmt(value)} ≤ ${fmt(clinicCeiling!)}${suffix}`;
+  } else if (hasClinicFloor && showTarget) {
+    valueText = `${fmt(value)} ≥ ${fmt(clinicFloor!)}${suffix}`;
+  } else if (showTarget) {
+    valueText =
+      unit === 'kcal' || unit === 'kj'
+        ? `${Math.round(value)}/${Math.round(target)}${unit === 'kj' ? '' : ''}`
         : unit === 'floz'
-          ? `${value.toFixed(1)}${suffix}`
-          : `${Math.round(value)}${suffix}`;
+          ? `${value.toFixed(1)}/${target.toFixed(1)}${suffix}`
+          : unit === 'mg' || unit === 'mcg'
+            ? `${Math.round(value)}/${Math.round(target)}${suffix}`
+            : `${Math.round(value)}/${Math.round(target)}${suffix}`;
+  } else {
+    valueText =
+      unit === 'kcal'
+        ? `${Math.round(value)} kcal`
+        : unit === 'kj'
+          ? `${Math.round(value)} kJ`
+          : unit === 'floz'
+            ? `${value.toFixed(1)}${suffix}`
+            : `${Math.round(value)}${suffix}`;
+  }
   const row = (
-    <View style={barStyles.row}>
-      <Text style={barStyles.label} numberOfLines={1}>
-        {label}
-      </Text>
-      <View style={barStyles.track}>
-        <View
+    <View style={barStyles.rowWrap}>
+      <View style={barStyles.row}>
+        <Text style={barStyles.label} numberOfLines={1}>
+          {label}
+        </Text>
+        <View style={barStyles.track}>
+          <View
+            style={[
+              barStyles.fill,
+              {
+                width: `${ratio * 100}%`,
+                backgroundColor: met && !bad
+                  ? colors.accentGreen
+                  : bad
+                    ? isDark
+                      ? colors.accentRed
+                      : '#EF5350'
+                    : color,
+              },
+            ]}
+          />
+        </View>
+        <Text
           style={[
-            barStyles.fill,
-            {
-              width: `${ratio * 100}%`,
-              backgroundColor: met ? colors.accentGreen : over ? (isDark ? colors.accentRed : '#EF5350') : color,
-            },
+            barStyles.value,
+            showTarget && barStyles.valueTarget,
+            met && !bad && barStyles.valueMet,
+            bad && barStyles.valueOver,
           ]}
-        />
+          numberOfLines={1}
+          maxFontSizeMultiplier={1.15}
+        >
+          {valueText}
+        </Text>
       </View>
-      <Text
-        style={[
-          barStyles.value,
-          showTarget && barStyles.valueTarget,
-          met && barStyles.valueMet,
-          over && barStyles.valueOver,
-        ]}
-        numberOfLines={1}
-        maxFontSizeMultiplier={1.15}
-      >
-        {valueText}
-      </Text>
+      {clinicCaption ? (
+        <Text style={barStyles.caption} numberOfLines={1}>
+          {clinicCaption}
+        </Text>
+      ) : null}
     </View>
   );
   if (!onPress) return row;
@@ -364,8 +427,10 @@ function MacroBar({ label, value, target, color, showTarget, unit = 'g', goalIsF
 const makeBarStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5, width: '100%' },
+  rowWrap: { width: '100%', marginBottom: 2 },
   rowPressable: { alignSelf: 'stretch' },
   label: { width: 40, fontSize: 11, fontWeight: '700', color: c.textSecondary },
+  caption: { fontSize: 10, color: c.textSecondary, marginLeft: 48, marginBottom: 4 },
   track: {
     flex: 1,
     height: 6,
@@ -464,6 +529,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   const [waterEntries, setWaterEntries] = useState<WaterEntry[]>([]);
   const [waterEntryEdit, setWaterEntryEdit] = useState<WaterEntry | null>(null);
   const [treatmentMarkers, setTreatmentMarkers] = useState<TreatmentMarker[]>([]);
+  const [clinicMeters, setClinicMeters] = useState<ResolvedAxisMeter[]>([]);
   const [markerDayTotals, setMarkerDayTotals] = useState<Record<string, number>>({});
   const [markerDetail, setMarkerDetail] = useState<TreatmentMarker | null>(null);
   const [labReports, setLabReports] = useState<LabReport[]>([]);
@@ -547,15 +613,17 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
         async () => {
           // Essentials only — lab reports are N AsyncStorage reads and only used in marker modal.
           const skipDayTarget = isToday && macroTarget != null;
-          const [data, correction, dayTarget, dayWater, entries, goal, treatStore] = await Promise.all([
-            getDailyMacros(activeDayKey),
-            getBurnCorrection(activeDayKey),
-            skipDayTarget ? Promise.resolve(null) : getMacroTargetForDay(activeDayKey),
-            getWaterMl(activeDayKey),
-            getWaterEntries(activeDayKey),
-            getWaterGoalMl(),
-            loadTreatmentMarkers(),
-          ]);
+          const [data, correction, dayTarget, dayWater, entries, goal, treatStore, clinicStore] =
+            await Promise.all([
+              getDailyMacros(activeDayKey),
+              getBurnCorrection(activeDayKey),
+              skipDayTarget ? Promise.resolve(null) : getMacroTargetForDay(activeDayKey),
+              getWaterMl(activeDayKey),
+              getWaterEntries(activeDayKey),
+              getWaterGoalMl(),
+              loadTreatmentMarkers(),
+              loadClinicMacroBounds(),
+            ]);
           setMacros(data);
           setBurnCorrectionState(correction);
           setDayMacroTarget(dayTarget ?? macroTarget ?? null);
@@ -564,6 +632,12 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
           setWaterGoalMlState(goal);
           const markers = treatStore?.markers ?? [];
           setTreatmentMarkers(markers);
+          const activityKcal = burnPartsByDay?.[activeDayKey]?.activity ?? null;
+          setClinicMeters(
+            resolveClinicMacroMeters(clinicStore, { activityKcal }).filter(
+              (m) => m.strength === 'hard',
+            ),
+          );
           if (markers.length > 0 && data?.entries) {
             const { totals } = dayMarkerTotals(
               data.entries,
@@ -584,7 +658,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
     InteractionManager.runAfterInteractions(() => {
       void ensureLabReports();
     });
-  }, [activeDayKey, macroTarget, isToday, ensureLabReports]);
+  }, [activeDayKey, macroTarget, isToday, ensureLabReports, burnPartsByDay]);
 
   useImperativeHandle(
     ref,
@@ -987,39 +1061,85 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                 unit={energyBarUnit}
               />
             ) : null}
-            {(!isEmpty || displayTarget) ? (
+            {(!isEmpty || displayTarget || clinicMeters.length > 0) ? (
               <>
-            <MacroBar label="P" value={macros?.protein_g ?? 0} target={displayTarget ? displayTarget.protein_g : maxMacro} color={COLOR_PROTEIN} showTarget={!!displayTarget} />
-            <MacroBar label="C" value={macros?.carb_g    ?? 0} target={displayTarget ? displayTarget.carb_g    : maxMacro} color={COLOR_CARB}    showTarget={!!displayTarget} />
-            <MacroBar label="F" value={macros?.fat_g     ?? 0} target={displayTarget ? displayTarget.fat_g     : maxMacro} color={COLOR_FAT}     showTarget={!!displayTarget} />
-            <MacroBar label="Fi" value={macros?.fiber_g ?? 0} target={fiberBarTarget} color={COLOR_FIBER} showTarget={!!displayTarget} goalIsFloor />
+            <MacroBar
+              label="P"
+              value={macros?.protein_g ?? 0}
+              target={displayTarget ? displayTarget.protein_g : maxMacro}
+              color={COLOR_PROTEIN}
+              showTarget={!!displayTarget || !!clinicMeters.find((m) => m.axis === 'protein_g')}
+              clinicFloor={clinicMeters.find((m) => m.axis === 'protein_g')?.floor}
+              clinicCeiling={clinicMeters.find((m) => m.axis === 'protein_g')?.ceiling}
+              clinicCaption={clinicMeters.find((m) => m.axis === 'protein_g')?.caption}
+            />
+            <MacroBar
+              label="C"
+              value={macros?.carb_g ?? 0}
+              target={displayTarget ? displayTarget.carb_g : maxMacro}
+              color={COLOR_CARB}
+              showTarget={!!displayTarget || !!clinicMeters.find((m) => m.axis === 'carb_g')}
+              clinicFloor={clinicMeters.find((m) => m.axis === 'carb_g')?.floor}
+              clinicCeiling={clinicMeters.find((m) => m.axis === 'carb_g')?.ceiling}
+              clinicCaption={clinicMeters.find((m) => m.axis === 'carb_g')?.caption}
+            />
+            <MacroBar
+              label="F"
+              value={macros?.fat_g ?? 0}
+              target={displayTarget ? displayTarget.fat_g : maxMacro}
+              color={COLOR_FAT}
+              showTarget={!!displayTarget || !!clinicMeters.find((m) => m.axis === 'fat_g')}
+              clinicFloor={clinicMeters.find((m) => m.axis === 'fat_g')?.floor}
+              clinicCeiling={clinicMeters.find((m) => m.axis === 'fat_g')?.ceiling}
+              clinicCaption={clinicMeters.find((m) => m.axis === 'fat_g')?.caption}
+            />
+            <MacroBar
+              label="Fi"
+              value={macros?.fiber_g ?? 0}
+              target={fiberBarTarget}
+              color={COLOR_FIBER}
+              showTarget={!!displayTarget || !!clinicMeters.find((m) => m.axis === 'fiber_g')}
+              goalIsFloor
+              clinicFloor={clinicMeters.find((m) => m.axis === 'fiber_g')?.floor}
+              clinicCeiling={clinicMeters.find((m) => m.axis === 'fiber_g')?.ceiling}
+            />
             <MacroBar
               label="C-Fi"
               value={netCarbEaten}
               target={netCarbBarTarget}
               color={COLOR_NET_CARB}
-              showTarget={!!displayTarget}
+              showTarget={!!displayTarget || !!clinicMeters.find((m) => m.axis === 'net_carb_g')}
+              clinicFloor={clinicMeters.find((m) => m.axis === 'net_carb_g')?.floor}
+              clinicCeiling={clinicMeters.find((m) => m.axis === 'net_carb_g')?.ceiling}
             />
               </>
             ) : null}
             {treatmentMarkers.map((m) => {
               const val = markerDayTotals[m.marker];
               const hasVal = val != null && Number.isFinite(val);
+              const eatenKcal = macros?.kcal ?? 0;
+              const pctTarget =
+                m.percentOfEnergy != null && m.ofEnergy === 'kcal_eaten' && eatenKcal > 0
+                  ? Math.round((m.percentOfEnergy / 100) * eatenKcal / 9 * 10) / 10
+                  : m.dailyTarget;
               return (
                 <MacroBar
                   key={m.marker}
                   label={markerUiLabel(m, lang?.code, 'short')}
                   value={hasVal ? val! : 0}
-                  target={m.dailyTarget}
+                  target={pctTarget}
                   color="#8D6E63"
                   showTarget
                   unit={m.unit}
                   goalIsFloor={m.direction === 'floor'}
+                  clinicCaption={
+                    m.percentOfEnergy != null ? `${m.percentOfEnergy}%` : undefined
+                  }
                   onPress={() => setMarkerDetail(m)}
                 />
               );
             })}
-            {treatmentMarkers.length > 0 ? (
+            {(treatmentMarkers.length > 0 || clinicMeters.length > 0) ? (
               <Text style={styles.treatClinicHint}>
                 {treatCopy.setByClinic} · {treatCopy.estimated}
               </Text>

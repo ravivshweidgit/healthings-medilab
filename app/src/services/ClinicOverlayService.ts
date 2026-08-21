@@ -8,6 +8,10 @@ import {
   type TreatmentMarker,
   type TreatmentMarkersStore,
 } from './TreatmentMarkerService';
+import {
+  applyClinicMacrosFromOverlay,
+  type ClinicMacroBoundsStore,
+} from './ClinicMacroBoundsService';
 import { runPendingMarkersBackfill } from './MarkersBackfillService';
 
 const CLINIC_RULES_SYNC_AT_KEY = 'healthings:clinicRulesSyncedAt';
@@ -19,6 +23,12 @@ type ClinicOverlayResponse = {
     rules: ClinicOverlayRules | null;
     markers?: TreatmentMarker[] | null;
     markersBackfill?: MarkersBackfillRequest | null;
+    macros?: {
+      bounds?: unknown[];
+      updatedAt?: string;
+      rulesHash?: string;
+      reasoning?: string;
+    } | null;
     updatedAt: string;
   } | null;
 };
@@ -27,6 +37,7 @@ export type ClinicOverlayPullResult = {
   rules: UserRules | null;
   markers: TreatmentMarkersStore | null;
   markersBackfill: MarkersBackfillRequest | null;
+  macros: ClinicMacroBoundsStore | null;
   /** Set when a pending backfill was executed during this pull. */
   backfillResult?: { mealsUpdated: number; error?: string };
 };
@@ -43,6 +54,7 @@ export async function pullClinicOverlaysFull(): Promise<ClinicOverlayPullResult>
     rules: null,
     markers: null,
     markersBackfill: null,
+    macros: null,
   };
   try {
     const res = await authFetch('/v1/clinic/overlays');
@@ -61,6 +73,16 @@ export async function pullClinicOverlaysFull(): Promise<ClinicOverlayPullResult>
     try {
       out.markers = await applyClinicMarkersFromOverlay(
         overlay.markers ?? null,
+        overlay.updatedAt,
+      );
+    } catch {
+      /* keep null */
+    }
+
+    // Macros — sibling of markers (be-45). Empty clears local clinic bounds.
+    try {
+      out.macros = await applyClinicMacrosFromOverlay(
+        overlay.macros ?? null,
         overlay.updatedAt,
       );
     } catch {

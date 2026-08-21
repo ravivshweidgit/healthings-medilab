@@ -27,6 +27,9 @@ export type TreatmentMarker = {
   setBy: string;
   labels?: DietMarkerLabels;
   estimateGuidance?: string;
+  /** Additive (be-45). Absent ⇒ constant grams. */
+  percentOfEnergy?: number;
+  ofEnergy?: 'kcal_eaten';
 };
 
 export type TreatmentMarkersStore = {
@@ -143,6 +146,12 @@ export async function applyClinicMarkersFromOverlay(
       ...(m.note?.trim() ? { note: m.note.trim().slice(0, 500) } : {}),
       ...(labels ? { labels } : {}),
       ...(guidance ? { estimateGuidance: guidance.slice(0, 2000) } : {}),
+      ...(typeof m.percentOfEnergy === 'number' &&
+      m.percentOfEnergy > 0 &&
+      m.percentOfEnergy <= 100 &&
+      m.ofEnergy === 'kcal_eaten'
+        ? { percentOfEnergy: m.percentOfEnergy, ofEnergy: 'kcal_eaten' as const }
+        : {}),
       setAt: m.setAt || overlayUpdatedAt,
       setBy: m.setBy || 'clinic',
     });

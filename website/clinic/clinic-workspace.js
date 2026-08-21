@@ -1546,12 +1546,16 @@
                 })
               : t('wsTreatNoLab');
             const note = m.note ? `<p class="treat-note" dir="auto">${esc(m.note)}</p>` : '';
+            const isPct = m.percentOfEnergy != null && m.ofEnergy === 'kcal_eaten';
+            const dirSym = m.direction === 'floor' ? '>' : '<';
+            const valueLine = isPct
+              ? `${dirSym} ${esc(String(m.percentOfEnergy))}% ${esc(t('wsTreatOfEaten'))} · ${esc(String(m.dailyTarget))}${esc(m.unit)}`
+              : `${dirSym} ${esc(String(m.dailyTarget))} ${esc(m.unit)}`;
             return `
           <div class="treat-row" data-idx="${idx}">
             <div class="treat-row-main">
               <strong>${esc(markerLabel(m.marker, DIET_MARKER_CATALOG))}</strong>
-              <span class="treat-meta">${esc(m.direction === 'floor' ? t('wsTreatFloor') : t('wsTreatCap'))}
-                · ${esc(String(m.dailyTarget))} ${esc(m.unit)}</span>
+              <span class="treat-meta" dir="ltr">${esc(valueLine)}</span>
               <span class="treat-lab">${esc(labLine)}</span>
               ${note}
             </div>
@@ -1579,8 +1583,15 @@
         <label class="treat-field">
           <span>${esc(t('wsTreatDirection'))}</span>
           <select id="treat-dir">
-            <option value="cap">${esc(t('wsTreatCap'))}</option>
-            <option value="floor">${esc(t('wsTreatFloor'))}</option>
+            <option value="cap">${esc(t('wsMacroTypeLimit'))}</option>
+            <option value="floor">${esc(t('wsMacroTypeFloor'))}</option>
+          </select>
+        </label>
+        <label class="treat-field" id="treat-kind-wrap" hidden>
+          <span>${esc(t('wsMacroUnit'))}</span>
+          <select id="treat-kind">
+            <option value="constant">${esc(t('wsMacroUnitG'))}</option>
+            <option value="percent">${esc(t('wsMacroUnitPct'))}</option>
           </select>
         </label>
         <label class="treat-field">
@@ -1615,6 +1626,8 @@
     const codeSel = panel.querySelector('#treat-code');
     const dirSel = panel.querySelector('#treat-dir');
     const unitEl = panel.querySelector('#treat-unit');
+    const kindWrap = panel.querySelector('#treat-kind-wrap');
+    const kindSel = panel.querySelector('#treat-kind');
     const labHint = panel.querySelector('#treat-lab-hint');
 
     function refreshAddHint() {
@@ -1622,9 +1635,14 @@
       const meta = DIET_MARKER_CATALOG.find((c) => c.code === code);
       if (!meta) {
         if (labHint) labHint.textContent = t('wsTreatNoLab');
+        if (kindWrap) kindWrap.hidden = true;
         return;
       }
-      if (unitEl) unitEl.textContent = meta.unit;
+      if (unitEl) {
+        const asPct = kindSel?.value === 'percent' && code === 'SAT_FAT_G';
+        unitEl.textContent = asPct ? '%' : meta.unit;
+      }
+      if (kindWrap) kindWrap.hidden = code !== 'SAT_FAT_G';
       if (dirSel && !dirSel.dataset.touched) dirSel.value = meta.defaultDirection;
       const hit = findLinkedLabHit(labs, meta.linkedLabCodes);
       if (labHint) {
@@ -1639,6 +1657,7 @@
       }
     }
     codeSel?.addEventListener('change', refreshAddHint);
+    kindSel?.addEventListener('change', refreshAddHint);
     dirSel?.addEventListener('change', () => {
       if (dirSel) dirSel.dataset.touched = '1';
     });
@@ -1658,16 +1677,25 @@
       const dailyTarget = Number(panel.querySelector('#treat-target')?.value);
       if (!meta || !Number.isFinite(dailyTarget) || dailyTarget <= 0) return null;
       const note = String(panel.querySelector('#treat-note')?.value || '').trim();
-      return {
+      const asPct = code === 'SAT_FAT_G' && kindSel?.value === 'percent';
+      const row = {
         marker: meta.code,
         direction: dirSel?.value === 'floor' ? 'floor' : 'cap',
-        dailyTarget,
+        dailyTarget: asPct
+          ? Math.max(1, Math.round((dailyTarget / 100) * 1740 * 10) / 10)
+          : dailyTarget,
         unit: meta.unit,
         linkedLabCodes: [...meta.linkedLabCodes],
         ...(note ? { note } : {}),
         setAt: new Date().toISOString(),
         setBy: 'draft',
       };
+      if (asPct) {
+        row.percentOfEnergy = dailyTarget;
+        row.ofEnergy = 'kcal_eaten';
+        // Keep dailyTarget as grams fallback (~10% of 1740) until Confirm has today's kcal.
+      }
+      return row;
     }
 
     function flushPendingIntoDraft() {
@@ -1815,6 +1843,9 @@
           dailyTarget: m.dailyTarget,
           note: m.note,
           linkedLabCodes: m.linkedLabCodes,
+          ...(m.percentOfEnergy != null
+            ? { percentOfEnergy: m.percentOfEnergy, ofEnergy: 'kcal_eaten' }
+            : {}),
         })),
       };
       const res = await ctx.api(`/v1/clinic/patients/${ctx.patientId}/markers`, {
