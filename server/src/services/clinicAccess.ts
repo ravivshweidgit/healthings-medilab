@@ -17,6 +17,8 @@ export type AccessAction =
   | 'markers.write'
   | 'markers.backfill.request'
   | 'markers.backfill.ack'
+  | 'macros.read'
+  | 'macros.write'
   | 'chat.read'
   | 'chat.write'
   | 'refresh.request';

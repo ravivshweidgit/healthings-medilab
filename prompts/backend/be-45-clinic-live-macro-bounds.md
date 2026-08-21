@@ -1,6 +1,6 @@
 # be-45 — Clinic live macro bounds (floor + ceiling, HARD / FLEX)
 
-**Status:** ready — **owner-approved 2026-08-21** (clinician path = Save rules builds engine; Macros tab = result view). Implement when owner says go.  
+**Status:** in_progress — **owner-approved 2026-08-21** (clinician path = Save rules builds engine; Macros tab = result view). Branch: `macro-redesign`.  
 **Model to implement:** Auto (schema + routes + portal + propose auto-apply); Gemini prompt text is locked in this file — do not “simplify” with regex  
 **Authored by:** Owner + Auto (2026-08-18 chat — clinic macros, C vs C−Fi, P 90–113)  
 **Depends on:** be-23 (overlay/audit), be-26 (`clinicLocale`), be-40 (server Gemini), be-41 (overlay GET already returns markers)  

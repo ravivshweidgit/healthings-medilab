@@ -20,6 +20,7 @@ import {
   MARKERS_BACKFILL_MAX_DAYS,
   MARKERS_BACKFILL_MIN_DAYS,
 } from '../services/treatmentMarkers.js';
+import { saveMacrosForPatient } from '../services/clinicMacros.js';
 import { saveDietaryRules } from '../services/dietaryRules.js';
 import { CLINIC_CHAT_LOCALES, mentorChatReply } from '../services/geminiClinic.js';
 import { sendPatientAppChat } from '../services/patientChat.js';
@@ -132,6 +133,52 @@ export async function registerClinicRoutes(app: FastifyInstance) {
       if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
       request.log.error(err);
       return reply.code(500).send({ error: 'Failed to save markers' });
+    }
+  });
+
+  /** Clinic live macro order (be-45). Empty bounds clears the order. */
+  app.put('/v1/clinic/patients/:patientId/macros', { preHandler: authenticate }, async (request, reply) => {
+    const params = z.object({ patientId: z.string().uuid() }).parse(request.params);
+    const activityAddBackSchema = z
+      .object({
+        thresholdKcal: z.number(),
+        capValue: z.number(),
+        ratio: z.number().optional(),
+      })
+      .optional();
+    const body = z
+      .object({
+        bounds: z.array(
+          z.object({
+            axis: z.string().min(1),
+            direction: z.enum(['floor', 'ceiling']),
+            kind: z.enum(['constant', 'percent']).optional(),
+            value: z.number(),
+            of: z.enum(['kcal_order', 'kcal_eaten']).optional(),
+            resolvedValue: z.number().optional(),
+            strength: z.enum(['hard', 'flex']),
+            activityAddBack: activityAddBackSchema,
+            followsActivity: z.boolean().optional(),
+          }),
+        ),
+        source: z.enum(['rules', 'clinic_override']).optional(),
+        rulesHash: z.string().optional(),
+        reasoning: z.string().max(4000).optional(),
+      })
+      .parse(request.body);
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    try {
+      const overlay = await saveMacrosForPatient(user, params.patientId, body.bounds, {
+        source: body.source ?? 'clinic_override',
+        rulesHash: body.rulesHash,
+        reasoning: body.reasoning,
+      });
+      return { overlay, macros: overlay.macros };
+    } catch (err) {
+      if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
+      request.log.error(err);
+      return reply.code(500).send({ error: 'Failed to save macros' });
     }
   });
 

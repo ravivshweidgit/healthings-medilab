@@ -11,6 +11,8 @@ import type {
   MarkersBackfillRequest,
 } from './treatmentMarkers.js';
 import { hydrateTreatmentMarkers } from './treatmentMarkers.js';
+import type { ClinicMacrosPayload } from './clinicMacros.js';
+import { macrosPayloadFromUnknown } from './clinicMacros.js';
 
 export type ClinicChatMessage = {
   role: 'user' | 'assistant';
@@ -35,6 +37,8 @@ export type ClinicOverlay = {
   markers: TreatmentMarker[] | null;
   /** Clinic-opt-in past meal marker fill — phone executes when pending. */
   markersBackfill: MarkersBackfillRequest | null;
+  /** Clinic live macro order (be-45). Null when unset. */
+  macros: ClinicMacrosPayload | null;
   chat: Record<string, ClinicChatMessage[]>;
   updatedAt: string;
   updatedBy: string | null;
@@ -56,6 +60,7 @@ type OrgOverlayRow = {
   org_id: string;
   rules_json: ClinicUserRules | null;
   markers_json: TreatmentMarkersPayload | null;
+  macros_json: ClinicMacrosPayload | null;
   updated_at: Date;
   updated_by: string | null;
 };
@@ -99,6 +104,10 @@ function markersFromRow(row: OrgOverlayRow | null | undefined): TreatmentMarker[
   return payload.markers;
 }
 
+function macrosFromRow(row: OrgOverlayRow | null | undefined): ClinicMacrosPayload | null {
+  return macrosPayloadFromUnknown(row?.macros_json ?? null);
+}
+
 function backfillFromRow(
   row: OrgOverlayRow | null | undefined,
   forPatient: boolean,
@@ -123,6 +132,7 @@ function mergeOverlay(
     rules: rulesRow?.rules_json ?? null,
     markers: markersFromRow(rulesRow),
     markersBackfill: backfillFromRow(rulesRow, forPatient),
+    macros: macrosFromRow(rulesRow),
     chat: chatRow?.chat_json ?? {},
     updatedAt: latest > 0 ? new Date(latest).toISOString() : new Date(0).toISOString(),
     updatedBy: rulesRow?.updated_by ?? null,
@@ -158,6 +168,12 @@ export async function getOverlayForMentor(mentor: PublicUser, patientId: string)
     patientId,
     actorUserId: mentor.id,
     orgId,
+    action: 'macros.read',
+  });
+  await recordPatientAccess({
+    patientId,
+    actorUserId: mentor.id,
+    orgId,
     action: 'chat.read',
   });
 
@@ -178,7 +194,7 @@ export async function getOverlayForPatient(patient: PublicUser): Promise<ClinicO
   const { rows } = await query<OrgOverlayRow>(
     `SELECT * FROM clinic_org_overlays
      WHERE patient_id = $1
-       AND (rules_json IS NOT NULL OR markers_json IS NOT NULL)
+       AND (rules_json IS NOT NULL OR markers_json IS NOT NULL OR macros_json IS NOT NULL)
      ORDER BY updated_at DESC
      LIMIT 1`,
     [patient.id],

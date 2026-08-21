@@ -383,6 +383,7 @@ CREATE TABLE IF NOT EXISTS clinic_org_overlays (
   org_id UUID NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
   rules_json JSONB,
   markers_json JSONB,
+  macros_json JSONB,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by UUID REFERENCES users (id) ON DELETE SET NULL,
   PRIMARY KEY (patient_id, org_id)
@@ -390,6 +391,9 @@ CREATE TABLE IF NOT EXISTS clinic_org_overlays (
 
 ALTER TABLE clinic_org_overlays
   ADD COLUMN IF NOT EXISTS markers_json JSONB;
+
+ALTER TABLE clinic_org_overlays
+  ADD COLUMN IF NOT EXISTS macros_json JSONB;
 
 -- AI chat: private to the individual clinician.
 CREATE TABLE IF NOT EXISTS clinic_clinician_chats (
