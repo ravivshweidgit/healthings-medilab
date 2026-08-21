@@ -160,7 +160,7 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
               <Text style={styles.healthingsStatus}>{L.healthingsClinicWaiting}</Text>
             ) : (
               <Pressable
-                style={[styles.btnPrimary, styles.healthingsBtn, busy && styles.btnDisabled]}
+                style={[styles.healthingsBtn, busy && styles.btnDisabled]}
                 onPress={() =>
                   void run(async () => {
                     if (healthingsApproved) {
@@ -177,13 +177,12 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
                 accessibilityLabel={L.healthingsClinicBtn}
               >
                 {busy ? (
-                  <ActivityIndicator color={isDark ? colors.accentGreen : '#fff'} />
+                  <ActivityIndicator color={isDark ? colors.accentBlue : '#fff'} />
                 ) : (
-                  <Text style={styles.btnPrimaryText}>{L.healthingsClinicBtn}</Text>
+                  <Text style={styles.healthingsBtnText}>{L.healthingsClinicBtn}</Text>
                 )}
               </Pressable>
             )}
-            <Text style={styles.emailLtr}>{clinicShareEmail}</Text>
             <Text style={styles.hint}>
               {healthingsApproved
                 ? L.healthingsClinicAlready
@@ -399,20 +398,25 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     healthingsBlock: { gap: 6 },
     healthingsStatus: {
       fontSize: 15,
-      fontWeight: '700',
-      color: isDark ? c.accentGreen : '#2E7D5A',
+      fontWeight: '600',
+      color: c.textPrimary,
       lineHeight: 20,
     },
     healthingsBtn: {
       alignSelf: 'stretch',
       minWidth: 0,
       paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      alignItems: 'center',
+      borderWidth: isDark ? 1.5 : 0,
+      borderColor: isDark ? c.accentBlue : 'transparent',
+      backgroundColor: isDark ? c.background : c.accentBlue,
     },
-    emailLtr: {
-      fontSize: 13,
-      color: c.textSecondary,
-      writingDirection: 'ltr',
-      textAlign: 'left',
+    healthingsBtnText: {
+      color: isDark ? c.accentBlue : '#fff',
+      fontWeight: '700',
+      fontSize: 14,
     },
     btnGhost: {
       borderWidth: 1,

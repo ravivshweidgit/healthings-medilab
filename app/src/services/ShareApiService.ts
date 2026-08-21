@@ -77,8 +77,6 @@ async function parseJson<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
-/** Offline / old-API fallback — live value comes from GET /v1/public/app-config. */
-export const FALLBACK_CLINIC_SHARE_EMAIL = 'habushamichal@gmail.com';
 const CLINIC_SHARE_EMAIL_KEY = 'healthings:clinicShareEmail';
 
 export function isHealthingsClinicShare(
@@ -103,7 +101,7 @@ export async function fetchClinicShareEmail(): Promise<string> {
       }
     }
   } catch {
-    /* offline — use cache / fallback */
+    /* offline — use cache */
   }
   try {
     const cached = (await AsyncStorage.getItem(CLINIC_SHARE_EMAIL_KEY))?.trim().toLowerCase();
@@ -111,7 +109,7 @@ export async function fetchClinicShareEmail(): Promise<string> {
   } catch {
     /* ignore */
   }
-  return FALLBACK_CLINIC_SHARE_EMAIL;
+  return '';
 }
 
 export async function requestClinicLink(mentorEmail: string): Promise<AccountShare> {
