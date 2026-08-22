@@ -86,9 +86,9 @@ export function isMacroChatRequest(text: string): boolean {
 
 export function macroSlashIntro(langCode?: string | null): string {
   if (langCode === 'he') {
-    return 'יעדי המאקרו מחושבים מ-7 ימי נתונים (שריפה, פעילות, CGM, בדיקות דם וכללים). בדוק/י את המספרים ואשר/י למטה.';
+    return 'המאקרו החי נבנה מהכללים שלך — אותה מערכת כמו במרפאה. תראו את הסימנים ביומן האוכל.';
   }
-  return 'Macro targets from your 7-day data (burn, activity, CGM, labs, rules). Review the numbers and confirm below.';
+  return 'Live macros rebuilt from your My Rules — same engine as the clinic. Food Log shows the ≥ ≤ meters now.';
 }
 
 export function macroSlashWrongTabHint(langCode?: string | null): string {

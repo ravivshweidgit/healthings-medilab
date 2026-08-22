@@ -17,6 +17,7 @@ import { formatLocalizedDate, formatLocalizedTime } from '../i18n/dateLocale';
 import { suggestMacroTargets, confirmSavedMacroTarget, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
 import { contentAlignStyle } from '../logic/textDirection';
 import { clinicHardMacrosApplyToday } from '../services/ClinicMacroBoundsService';
+import { buildAndExportMacroPrompt } from '../services/macroPromptExport';
 import { RulesAdviceBanner } from './RulesAdviceBanner';
 import { MacroClinicalProfileBanner } from './MacroClinicalProfileBanner';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
@@ -77,7 +78,7 @@ export type MacroTargetProps = {
   mentors: MentorType[];
   /** Parent-held target — refreshes strip after weigh-in/lab auto-revision. */
   savedTarget?: DailyMacroTarget | null;
-  onSaved?: (t: DailyMacroTarget) => void;
+  onSaved?: (t: DailyMacroTarget | null) => void;
   /** Weigh-in blocked auto-save — parent injects Gemini proposal for one-tap Accept. */
   weighInSuggestion?: DailyMacroTarget | null;
   weighInSuggestionHint?: string | null;
@@ -334,35 +335,46 @@ export function MacroTargetStrip({
     }
   }, [savedTarget]);
 
-  const canAnalyze = !!(weightKg && fatMassKg != null && muscleMass_kg && bmr_kcal && heightCm && age && gender);
+  const canAnalyze = !!(userRules?.rawText?.trim());
 
   const headerSub = target
     ? `${target.protein_g}P / ${target.fat_g}F / ${target.carb_g}C / ${resolveFiberTarget_g(target)}Fi / ${resolveNetCarbTarget_g(target)}Net`
-    : 'Tap to set AI macro targets';
+    : 'Tap to rebuild live macros from My Rules';
 
   const updatedLabel = target ? formatMacroUpdatedAt(target.analyzedAt, lang) : null;
 
   const handleAsk = useCallback(async () => {
-    if (!canAnalyze) { setError('Need body scan data and profile to analyse.'); return; }
+    if (!canAnalyze) {
+      setError(lang?.code === 'he' ? 'צריך כללים שלי כדי לבנות מאקרו חי.' : 'Need My Rules to rebuild live macros.');
+      return;
+    }
     setError(null);
     setRulesAdvice(null);
     setSuggestionHint(null);
     setScreen('loading');
     try {
-      const [{ suggestion: result }, rules, mentorList] = await Promise.all([
-        suggestMacroTargets({ trigger: 'dashboard-suggest', lang }),
-        getUserRules(),
-        getMentors(),
-      ]);
-      setRulesAdvice(result.rules_advice ?? null);
-      const proposed = macroSuggestionToDailyTarget(result, rules, mentorList);
+      const rebuilt = await suggestMacroTargets({ trigger: 'dashboard-suggest', lang });
+      if (rebuilt.liveMacrosApplied) {
+        onSaved?.(null);
+        setSuggestion(null);
+        setScreen('idle');
+        return;
+      }
+      const [rules, mentorList] = await Promise.all([getUserRules(), getMentors()]);
+      if (!rebuilt.suggestion) {
+        setError(lang?.code === 'he' ? 'הבנייה לא החזירה יעדים' : 'Rebuild returned no targets');
+        setScreen('idle');
+        return;
+      }
+      setRulesAdvice(rebuilt.suggestion.rules_advice ?? null);
+      const proposed = macroSuggestionToDailyTarget(rebuilt.suggestion, rules, mentorList);
       setSuggestion(proposed);
       setScreen('suggestion');
     } catch (e: any) {
       setError(e?.message ?? 'AI analysis failed');
       setScreen('idle');
     }
-  }, [canAnalyze, lang]);
+  }, [canAnalyze, lang, onSaved]);
 
   useEffect(() => {
     if (analyzeRequestId == null || analyzeRequestId <= 0) return;
@@ -535,8 +547,8 @@ export function MacroTargetStrip({
           {/* idle */}
           {screen === 'idle' && (
             <View style={styles.idleWrap}>
-              {!userRules && (
-                <Text style={styles.hintText}>Add your dietary rules above for better results</Text>
+              {!userRules?.rawText?.trim() && (
+                <Text style={styles.hintText}>Add your dietary rules above to rebuild live macros</Text>
               )}
               {error && <Text style={styles.errorText}>{error}</Text>}
               <Pressable
@@ -544,7 +556,7 @@ export function MacroTargetStrip({
                 onPress={handleAsk}
                 disabled={!canAnalyze}
               >
-                <Text style={styles.aiBtnText}>✨ Ask AI to set my macros</Text>
+                <Text style={styles.aiBtnText}>✨ Rebuild live macros from My Rules</Text>
               </Pressable>
               {exportPromptLink}
             </View>

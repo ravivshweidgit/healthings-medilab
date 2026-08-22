@@ -1,6 +1,6 @@
 # be-45 — Clinic live macro bounds (floor + ceiling, HARD / FLEX)
 
-**Status:** in_progress — **owner-approved 2026-08-21** (clinician path = Save rules builds engine; Macros tab = result view). Branch: `macro-redesign`.  
+**Status:** in_progress — **owner-approved 2026-08-21** (clinician path = Save rules builds engine; Macros tab = result view). **2026-08-23: one engine everywhere** — phone Analyze / weigh-in call the same Propose as Rules Save (`POST /v1/account/macros/rebuild`). Mentor chat has no `/macros`. Branch: `macro-redesign`.  
 **Model to implement:** Auto (schema + routes + portal + propose auto-apply); Gemini prompt text is locked in this file — do not “simplify” with regex  
 **Authored by:** Owner + Auto (2026-08-18 chat — clinic macros, C vs C−Fi, P 90–113)  
 **Depends on:** be-23 (overlay/audit), be-26 (`clinicLocale`), be-40 (server Gemini), be-41 (overlay GET already returns markers)  
@@ -164,6 +164,14 @@ Mirror markers:
   `{ bounds, markers, reasoning, impliedNotes, needsClinician }`. Used by **Rebuild from rules** and
   by rules PUT auto-apply. When called alone it does not write; rules Save path validates then writes
   macros bounds **and** upserts markers.
+- `POST /v1/account/macros/rebuild` (patient JWT) — **same Propose** as clinic Rules Save
+  (`proposeMacrosFromRulesText` → `proposeClinicMacroOrder`). Body `{ rawText }`. Writes
+  `macros_json` to every org overlay for that patient (same union as web-rules publish). Returns
+  `{ macros, wallet }`. Meters `ai_macro`. Phone Analyze / weigh-in **must** use this —
+  never the old 7-day point generator (`reviseMacroTargetsWithGemini`). Mentor chat does **not**
+  call this — no `/macros` slash hijack.
+
+**One engine (owner 2026-08-23):** redesign is Propose → bounds, always. Clinic Save and phone Analyze are the same job. There is no second Gemini that turns 7-day data into a leftover `daily_macro_target` point.
 
 Multi-org: same as rules/markers — most recently updated org wins on patient pull; document, don’t solve.
 
@@ -217,7 +225,8 @@ Register beside them (`clinic-workspace.js` tab list, after `markers`):
 
 `live: true` gives the existing `ws-tab-live` badge, so the tab reads **Macros · Live** exactly like
 Rules and Markers. `renderMacros(body, ctx)` in the `tab === …` chain; `clinicOnly` because the
-mentor is the write path for v1 (patient `/account/` does not edit clinic HARD macros).
+mentor still owns the **manual override editor**. Patient Analyze writes bounds via Propose
+(`POST /v1/account/macros/rebuild`) — that is the same engine, not a second editor.
 
 Keep the old snapshot bars, relabelled so the two can never be confused:
 
@@ -297,7 +306,8 @@ Copy: extend `clinic-workspace-i18n.js` (`wsMacroBound*` keys). EN + HE full; ot
 
 Patient-authored meal names stay `dir="auto"`. Bound numbers `dir="ltr"`.
 
-Self-view (`/account/`): read-only or same PUT if web already edits rules — **clinic mentor is the write path for v1**; patient web does not edit clinic HARD macros.
+Self-view (`/account/`): read-only editor. Patient phone Analyze writes via Propose
+(`POST /v1/account/macros/rebuild`) — same engine as clinic Rules Save, not a second point generator.
 
 ## Markers tab alignment (same language, separate object)
 

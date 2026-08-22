@@ -2084,7 +2084,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       triggerDetail: formatMass(w, unitsPrefs.mass),
       weightKg: w,
       measuredAt,
-      onSaved: (t) => { setMacroTarget(t); setEffectiveMacroTarget(t); },
+      onSaved: (t) => {
+        setMacroTarget(t ?? null);
+        setEffectiveMacroTarget(t ?? null);
+        if (t == null) void refreshClinicMacroMeters();
+      },
       onNeedsReview: async ({ proposal, source, triggerDetail }) => {
         setMacroExpanded(true);
         const he = userLanguage?.code === 'he';
@@ -3600,7 +3604,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             userRules={userRules}
             mentors={mentors}
             savedTarget={macroTarget}
-            onSaved={(t) => { setMacroTarget(t ?? null); setEffectiveMacroTarget(t ?? null); }}
+            onSaved={(t) => {
+              setMacroTarget(t ?? null);
+              setEffectiveMacroTarget(t ?? null);
+              if (t == null) void refreshClinicMacroMeters();
+            }}
             weighInSuggestion={macroWeighInSuggestion}
             weighInSuggestionHint={macroWeighInHint}
             onWeighInSuggestionConsumed={() => {
@@ -3853,8 +3861,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             onClose={() => setChatVisible(false)}
             context={coachContext}
             onCoachMessageUpdated={(msg) => setCoachMsg(msg)}
-            onMacroTargetUpdated={(t) => { setMacroTarget(t); setEffectiveMacroTarget(t); }}
-            onFoodLogSaved={handleFoodSaved}
           />
         </SafeAreaProvider>
       </Modal>

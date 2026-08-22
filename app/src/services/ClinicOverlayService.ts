@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authFetch } from './AuthApiService';
+import { SessionExpiredError } from './GeminiProxyService';
 import { saveUserRulesWithHistory } from './UserRulesHistoryService';
 import { getUserRules, type UserRules } from './TargetService';
+import { adoptWalletCredits, assertCanSpendCredits, OutOfCreditsError } from './UsageQueueService';
 import {
   applyClinicMarkersFromOverlay,
   type MarkersBackfillRequest,
@@ -181,4 +183,56 @@ export async function pullAccountRulesIfNewer(): Promise<UserRules | null> {
   } catch {
     return null;
   }
+}
+
+const REBUILD_MACROS_TIMEOUT_MS = 180_000;
+
+/**
+ * Phone Analyze / weigh-in — same Propose as clinic Rules Save.
+ * Applies returned bounds locally even when the patient has no clinic org yet.
+ */
+export async function rebuildLiveMacrosFromMyRules(
+  rawText: string,
+): Promise<ClinicMacroBoundsStore> {
+  await assertCanSpendCredits('ai_macro');
+  const res = await authFetch(
+    '/v1/account/macros/rebuild',
+    {
+      method: 'POST',
+      body: JSON.stringify({ rawText }),
+    },
+    { timeoutMs: REBUILD_MACROS_TIMEOUT_MS },
+  );
+  if (res.status === 402) throw new OutOfCreditsError();
+  if (res.status === 401) throw new SessionExpiredError();
+  if (!res.ok) {
+    let msg = 'Failed to rebuild live macros';
+    try {
+      const err = (await res.json()) as { error?: string };
+      if (err?.error) msg = err.error;
+    } catch {
+      /* keep default */
+    }
+    throw new Error(msg);
+  }
+  const data = (await res.json()) as {
+    macros?: {
+      bounds?: unknown[];
+      updatedAt?: string;
+      rulesHash?: string;
+      reasoning?: string;
+    } | null;
+    wallet?: { balanceTokens: number; sponsored: boolean };
+  };
+  if (data.wallet) {
+    void adoptWalletCredits(data.wallet).catch(() => {
+      /* non-fatal */
+    });
+  }
+  const applied = await applyClinicMacrosFromOverlay(
+    data.macros ?? null,
+    data.macros?.updatedAt || new Date().toISOString(),
+  );
+  if (!applied) throw new Error('Propose returned no macro bounds');
+  return applied;
 }

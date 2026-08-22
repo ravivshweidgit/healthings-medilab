@@ -5,7 +5,6 @@
 
 import { detectPeriodReviewQuery } from '../services/ReviewService';
 import type { MentorType } from '../services/TargetService';
-import { isMacroSlashCommand, isRecipeSlashCommand, parseMealSlashCommand } from './chatIntent';
 
 export type SlashCommandOption = {
   match: string;
@@ -34,47 +33,9 @@ export const CHAT_SLASH_COMMANDS: SlashCommandOption[] = [
     hintEn: 'Yesterday only',
     hintHe: 'אתמול בלבד',
   },
-  {
-    match: '/macros',
-    insert: '/macros ',
-    hintEn: 'Revise macro targets',
-    hintHe: 'עדכון יעדי מאקרו',
-    mentors: ['nutritionist'],
-  },
-  {
-    match: '/eat',
-    insert: '/eat ',
-    hintEn: 'Recipe card — eat now',
-    hintHe: 'כרטיס מתכון — מה לאכול עכשיו',
-    mentors: ['nutritionist'],
-  },
-  {
-    match: '/recipe',
-    insert: '/recipe ',
-    hintEn: 'Recipe card',
-    hintHe: 'כרטיס מתכון',
-    mentors: ['nutritionist'],
-  },
-  {
-    match: '/recipt',
-    insert: '/recipt ',
-    hintEn: 'Recipe card (typo alias)',
-    hintHe: 'כרטיס מתכון',
-    mentors: ['nutritionist'],
-  },
-  {
-    match: '/create',
-    insert: '/create ',
-    hintEn: 'Recipe card',
-    hintHe: 'כרטיס מתכון',
-    mentors: ['nutritionist'],
-  },
 ];
 
 function isSlashHeadComplete(head: string): boolean {
-  if (isMacroSlashCommand(head)) return true;
-  if (isRecipeSlashCommand(head)) return true;
-  if (parseMealSlashCommand(head)) return true;
   if (detectPeriodReviewQuery(head)) return true;
   return false;
 }
@@ -90,7 +51,6 @@ function slashSuggestionRank(
   const mentorSpecific = opt.mentors?.includes(activeMentor) ?? false;
 
   if (mentorSpecific) rank += 1000;
-  if (activeMentor === 'nutritionist' && !opt.mentors) rank -= 300;
   if (token.length > 1 && opt.match.toLowerCase().startsWith(token.toLowerCase())) rank += 500;
   return rank;
 }

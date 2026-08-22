@@ -9,7 +9,7 @@ import {
   getMentorOrgId,
   recordPatientAccess,
 } from './clinicAccess.js';
-import { ClinicError, getOverlayForMentor, type ClinicOverlay } from './clinicOverlay.js';
+import { ClinicError, getOverlayForMentor, getOverlayForPatient, type ClinicOverlay } from './clinicOverlay.js';
 import { proposeClinicMacroOrder } from './geminiClinic.js';
 import { saveMarkersForPatient, type TreatmentMarker } from './treatmentMarkers.js';
 import { stripLegacyMacroTargetFromLatestBlob } from './sync.js';
@@ -521,13 +521,7 @@ function markersSummaryLine(markers: TreatmentMarker[] | null | undefined): stri
     .join('; ');
 }
 
-/**
- * Propose from rules (no write). Used by POST /macros/propose and rebuild.
- */
-export async function proposeMacrosForPatient(
-  mentor: PublicUser,
-  patientId: string,
-): Promise<{
+export type ProposedClinicMacros = {
   bounds: MacroBound[];
   markers: Array<{
     marker: string;
@@ -541,13 +535,16 @@ export async function proposeMacrosForPatient(
   impliedNotes: string[];
   needsClinician: MacroNeedsClinician[];
   rulesHash: string;
-}> {
-  await assertMentorPatientAccess(mentor, patientId, ClinicError);
-  const overlay = await getOverlayForMentor(mentor, patientId);
-  const rulesText = overlay.rules?.rawText || '';
+};
+
+/** One engine — same Propose as clinic Rules Save. */
+export async function proposeMacrosFromRulesText(
+  rulesText: string,
+  markersSummary: string,
+): Promise<ProposedClinicMacros> {
   const draft = await proposeClinicMacroOrder({
     rulesRawText: rulesText,
-    markersSummary: markersSummaryLine(overlay.markers),
+    markersSummary,
   });
   const bounds = ensureFoodLogFlexPlaceholders(
     normalizeClinicMacroBounds(draft.bounds as MacroBoundInput[], {
@@ -568,6 +565,93 @@ export async function proposeMacrosForPatient(
     needsClinician,
     rulesHash: hashRulesText(rulesText),
   };
+}
+
+/**
+ * Propose from rules (no write). Used by POST /macros/propose and rebuild.
+ */
+export async function proposeMacrosForPatient(
+  mentor: PublicUser,
+  patientId: string,
+): Promise<ProposedClinicMacros> {
+  await assertMentorPatientAccess(mentor, patientId, ClinicError);
+  const overlay = await getOverlayForMentor(mentor, patientId);
+  const rulesText = overlay.rules?.rawText || '';
+  return proposeMacrosFromRulesText(rulesText, markersSummaryLine(overlay.markers));
+}
+
+function buildMacrosWritePayload(
+  bounds: MacroBound[],
+  meta: {
+    rulesHash?: string;
+    reasoning?: string;
+    needsClinician?: MacroNeedsClinician[];
+    source?: 'rules' | 'clinic_override';
+  },
+): ClinicMacrosPayload {
+  const setAt = new Date().toISOString();
+  return bounds.length === 0
+    ? { bounds: [], updatedAt: setAt, ...(meta.source ? { source: meta.source } : {}) }
+    : {
+        bounds,
+        updatedAt: setAt,
+        ...(meta.rulesHash ? { rulesHash: meta.rulesHash } : {}),
+        ...(meta.reasoning ? { reasoning: meta.reasoning } : {}),
+        ...(meta.needsClinician?.length ? { needsClinician: meta.needsClinician } : {}),
+        source: meta.source ?? 'clinic_override',
+      };
+}
+
+async function patientOrgIds(patientId: string): Promise<string[]> {
+  const { rows } = await query<{ org_id: string }>(
+    `SELECT org_id FROM clinic_org_overlays WHERE patient_id = $1
+     UNION
+     SELECT org_id FROM account_shares
+     WHERE patient_id = $1 AND status = 'approved' AND org_id IS NOT NULL`,
+    [patientId],
+  );
+  return rows.map((r) => r.org_id).filter(Boolean);
+}
+
+/** Phone Analyze / /macros — same Propose + overlay write as clinic Rules Save. */
+export async function rebuildMacrosForPatientSelf(
+  patient: PublicUser,
+  rulesText: string,
+): Promise<{ macros: ClinicMacrosPayload }> {
+  if (patient.role !== 'patient') {
+    throw new ClinicError('Requires patient role', 403);
+  }
+  const trimmed = rulesText.trim();
+  if (!trimmed) {
+    throw new ClinicError('My Rules text is required to rebuild live macros', 400);
+  }
+  const overlay = await getOverlayForPatient(patient);
+  const proposed = await proposeMacrosFromRulesText(
+    trimmed,
+    markersSummaryLine(overlay?.markers ?? null),
+  );
+  const payload = buildMacrosWritePayload(proposed.bounds, {
+    source: 'rules',
+    rulesHash: proposed.rulesHash,
+    reasoning: proposed.reasoning,
+    needsClinician: proposed.needsClinician,
+  });
+  const orgs = await patientOrgIds(patient.id);
+  for (const orgId of orgs) {
+    await writeMacrosPayload(patient.id, orgId, payload, patient.id);
+  }
+  if (proposed.bounds.some((b) => b.strength === 'hard')) {
+    try {
+      await stripLegacyMacroTargetFromLatestBlob(patient.id);
+    } catch (err) {
+      console.warn(
+        '[clinicMacros] strip leftover daily_macro_target failed',
+        patient.id,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+  return { macros: payload };
 }
 
 /**

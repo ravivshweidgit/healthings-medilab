@@ -112,9 +112,17 @@ ceiling      = min(value + extra, capValue)     // never below value, never abov
 
 ### C. HARD wiring — every AI macro surface
 
+**One engine (owner 2026-08-23):** phone Analyze and weigh-in/lab auto-apply call the
+same clinic Propose as Rules Save (`POST /v1/account/macros/rebuild` → `proposeClinicMacroOrder`).
+They write live bounds and **must not** call `reviseMacroTargetsWithGemini` / the 7-day P/C/F point
+card. Empty My Rules → error (Analyze) or skip (weigh-in). No leftover point.
+
+**Chat is not a command bar (owner 2026-08-23):** no `/macros`, `/recipe`, `/eat`, `/create` in
+mentor chat. Those hijacks only caused trouble. Period review `/7` `/30` `/yesterday` stay.
+Rebuild live macros from **My Macros → Analyze**. Recipe talk is prose in the nutritionist tab.
+
 Pass clinic HARD bounds into:
 
-- `macroAutoAdjust` / weigh-in / lab revision
 - mentor chat context
 - meal rule-check if it already receives markers
 
@@ -123,7 +131,7 @@ Pass clinic HARD bounds into:
 prompts** (coach, chat USER DATA, PERIOD REVIEW, recipe/meal-plan, action-item fallbacks,
 clinic mentor chat). Clinic HARD axes only (`Clinic live macros: C ≥ 65g | C−Fi ≤ 43g | …`).
 Unordered axes are omitted from the prompt — do not fill them from the old phone point
-(C 80, P 112, …). Solo users with no clinic macro order still get the phone point line.
+(C 80, P 112, …). After Analyze, solo users have the same live bounds as clinic Save.
 
 Verbatim block, e.g. `HARD from clinic: protein_g floor 90 g/day; protein_g ceiling 113 g/day; net_carb_g ceiling 43 g/day`. Judgment in the prompt; clamp/reject in **code** after Gemini returns a point so P/C/F/kcal cannot land outside HARD bands. Auto-apply must **not** write `daily_macro_target` while clinic HARD macros apply today.
 
@@ -138,12 +146,13 @@ resolved values.
 
 ### D. My Macros strip
 
-Patient must **not** edit HARD clinic axes (view-only numbers + signs). Unordered axes stay editable / analyzable. If all classic axes are HARD-banded, Analyze still runs for FLEX kcal/fat fill but cannot move HARD rows.
+Analyze requires **My Rules**, not a body scan. After Propose applies, skip the old P/C/F confirm
+card (`onSaved(null)` + refresh meters). Patient must **not** edit HARD clinic axes (view-only
+numbers + signs). Unordered / FLEX axes stay listed on Food Log with no leftover point.
 
 ## Out of scope
 
-- Portal editor / propose Gemini → be-45
-- Replacing `daily_macro_target` schema with bounds-only (solo users still use the point; clinic HARD days delete it)
+- Portal editor / propose Gemini → be-45 (phone now **calls** that same Propose)
 - Translating clinic `reasoning` into `appLocale`
 - WebSocket live update (open / pull-to-refresh is live, same as rules)
 
@@ -151,7 +160,9 @@ Patient must **not** edit HARD clinic axes (view-only numbers + signs). Unordere
 
 - [ ] Clinic PUT P floor 90 + ceiling 113 + C−Fi ceiling 43 → phone pull → meters match signs
 - [ ] Clear bounds on clinic → signs gone, old `102/112g` style back
-- [ ] App **without** any clinic macro order behaves exactly as before this batch (point targets, no signs)
+- [ ] App **without** My Rules: Analyze refuses (no old 7-day point generator)
+- [ ] Analyze with My Rules: same Propose as clinic Rules Save; Food Log shows ≥ ≤; leftover `daily_macro_target` gone when HARD applies
+- [ ] Mentor chat: `/macros` `/recipe` `/eat` are **not** special — they go to the mentor as normal text (or user just does not use them). Autocomplete only `/7` `/30` `/yesterday`.
 - [ ] Existing constant markers (SatF 15 g) render unchanged; a percent SatF renders grams + `%`, never `10g`
 - [ ] Overlay with an unknown axis or kind → that row skipped, other meters normal, no crash
 - [ ] C floor 65 + C−Fi ceiling 43: C can be green while C−Fi is red on the same day

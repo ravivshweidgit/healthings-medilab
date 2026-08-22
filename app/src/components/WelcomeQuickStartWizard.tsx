@@ -31,7 +31,6 @@ import { CONFIG } from '../config/env';
 import { estimateBodyFromProfile } from '../logic/bmrEstimate';
 import {
   confirmSavedMacroTarget,
-  macroSuggestionToDailyTarget,
   suggestMacroTargets,
 } from '../logic/macroAutoAdjust';
 import {
@@ -70,7 +69,6 @@ import {
   getLanguage,
   getMentorGender,
   ensureQuickQuestionsForLanguage,
-  getMentors,
   getUserRules,
   getBodyTarget,
   getMacroTarget,
@@ -1495,10 +1493,13 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
         }
         setBodyTarget(proposedBody);
 
-        const { suggestion } = await suggestMacroTargets({ trigger: 'onboarding', lang: language });
-        const [mentorList] = await Promise.all([getMentors()]);
-        const daily = macroSuggestionToDailyTarget(suggestion, rules, mentorList);
-        setMacroTarget(daily);
+        if (rules?.rawText?.trim()) {
+          try {
+            await suggestMacroTargets({ trigger: 'onboarding', lang: language });
+          } catch {
+            /* live rebuild is optional during Quick Start — Analyze later */
+          }
+        }
       } catch (e: unknown) {
         setTargetsError(e instanceof Error ? e.message : 'Could not generate targets.');
       } finally {
@@ -1694,12 +1695,14 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
       return;
     }
     if (stepId === 'targets') {
-      if (!bodyTarget || !macroTarget) {
+      if (!bodyTarget) {
         setStepError(t.targets.waitOrRetry);
         return;
       }
       await saveBodyTarget(bodyTarget);
-      await confirmSavedMacroTarget(macroTarget, 'onboarding');
+      if (macroTarget) {
+        await confirmSavedMacroTarget(macroTarget, 'onboarding');
+      }
       goToAdjacent(1);
     }
   }, [

@@ -804,7 +804,6 @@ const DEFAULT_QUICK_QUESTIONS: QuickQuestion[] = [
   { id: 'qq-default-1', label: 'Yesterday summary' },
   { id: 'qq-default-2', label: 'Weekly summary' },
   { id: 'qq-default-3', label: 'Monthly summary' },
-  { id: 'qq-macros', label: '/macros' },
 ];
 
 const DEFAULT_QUICK_QUESTIONS_BY_LANG: Record<string, QuickQuestion[]> = {
@@ -813,7 +812,6 @@ const DEFAULT_QUICK_QUESTIONS_BY_LANG: Record<string, QuickQuestion[]> = {
     { id: 'qq-default-1', label: 'סיכום אתמול' },
     { id: 'qq-default-2', label: 'סיכום שבועי' },
     { id: 'qq-default-3', label: 'סיכום חודשי' },
-    { id: 'qq-macros', label: '/macros' },
   ],
   es: [
     { id: 'qq-default-1', label: 'Revisa mi estado' },
@@ -844,24 +842,32 @@ const DEFAULT_QUICK_QUESTIONS_BY_LANG: Record<string, QuickQuestion[]> = {
     { id: 'qq-default-1', label: 'Resumo de ontem' },
     { id: 'qq-default-2', label: 'Resumo semanal' },
     { id: 'qq-default-3', label: 'Resumo mensal' },
-    { id: 'qq-macros', label: '/macros' },
   ],
   it: [
     { id: 'qq-default-1', label: 'Riepilogo di ieri' },
     { id: 'qq-default-2', label: 'Riepilogo settimanale' },
     { id: 'qq-default-3', label: 'Riepilogo mensile' },
-    { id: 'qq-macros', label: '/macros' },
   ],
   tr: [
     { id: 'qq-default-1', label: 'Dünkü özet' },
     { id: 'qq-default-2', label: 'Haftalık özet' },
     { id: 'qq-default-3', label: 'Aylık özet' },
-    { id: 'qq-macros', label: '/macros' },
   ],
 };
 
 function defaultQuickQuestions(langCode?: string): QuickQuestion[] {
   return DEFAULT_QUICK_QUESTIONS_BY_LANG[langCode ?? 'en'] ?? DEFAULT_QUICK_QUESTIONS;
+}
+
+/** Retired chat slash chips — /macros /recipe /eat hijacked mentor chat. */
+function isRetiredChatSlashChip(q: QuickQuestion): boolean {
+  if (q.id === 'qq-macros') return true;
+  const t = q.label.trim().toLowerCase();
+  return /^\/(macros?|eat|recipe|recipt|create|menu(-[dwm])?|daily|weekly)\b/.test(t);
+}
+
+function withoutRetiredChatSlashChips(qs: QuickQuestion[]): QuickQuestion[] {
+  return qs.filter((q) => !isRetiredChatSlashChip(q));
 }
 
 function parseQuestionsArray(raw: string | null): QuickQuestion[] | null {
@@ -919,7 +925,15 @@ export async function getQuickQuestions(lang?: UserLanguage | null): Promise<Qui
   const code = lang?.code ?? 'en';
   const map = await loadQuickQuestionsByLang();
   const saved = map[code];
-  if (saved?.length) return saved;
+  if (saved?.length) {
+    const cleaned = withoutRetiredChatSlashChips(saved);
+    if (cleaned.length !== saved.length) {
+      map[code] = cleaned.length ? cleaned : defaultQuickQuestions(code);
+      await persistQuickQuestionsByLang(map, code);
+      return map[code];
+    }
+    return saved;
+  }
   return defaultQuickQuestions(code);
 }
 
@@ -940,8 +954,12 @@ export async function ensureQuickQuestionsForLanguage(lang: UserLanguage): Promi
   const map = await loadQuickQuestionsByLang();
   const existing = map[lang.code];
   if (existing?.length) {
+    const cleaned = withoutRetiredChatSlashChips(existing);
+    if (cleaned.length !== existing.length) {
+      map[lang.code] = cleaned.length ? cleaned : defaultQuickQuestions(lang.code);
+    }
     await persistQuickQuestionsByLang(map, lang.code);
-    return existing;
+    return map[lang.code];
   }
   const qs = defaultQuickQuestions(lang.code);
   map[lang.code] = qs;

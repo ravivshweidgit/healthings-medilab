@@ -2348,8 +2348,11 @@ ${text}`;
  */
 export async function suggestDailyMacros(input: MacroSuggestionInput, lang?: UserLanguage | null): Promise<MacroSuggestion> {
   const { suggestMacroTargets } = await import('../logic/macroAutoAdjust');
-  const { suggestion } = await suggestMacroTargets({ trigger: 'dashboard-suggest', lang });
-  return suggestion;
+  const result = await suggestMacroTargets({ trigger: 'dashboard-suggest', lang });
+  if (!result.suggestion) {
+    throw new Error('Live macros rebuilt — no point target');
+  }
+  return result.suggestion;
 }
 
 // ─── Coach context & message generation ───────────────────────────────────────
@@ -2938,7 +2941,8 @@ OLDER HISTORY (anything before yesterday):
 - If the user asks about a longer range (a week, a month, "lately") and only the 2-day window is
   loaded, do NOT guess or assume the history exists. Give the today/yesterday view and ask the
   user to load it: "for a full 7-day review send /7" (also /30, /N up to 128 days).
-- Nutritionist tab only: /macros (or /macro) runs the full 7-day macro revision pipeline and shows a confirm card — cite that flow when asked how to update targets; do not invent different numbers in prose.
+- Do NOT tell the user to type /macros, /recipe, /eat, or /create. Chat is conversation only.
+  Live macro rebuild is My Macros Analyze on the dashboard. Recipes: answer in prose or they log a meal.
 - Whatever window is loaded, verify each figure actually appears in the block before citing —
   if a personal synced metric is missing or empty there, say so rather than inventing it.
 - This rule applies to USER-SYNCED metrics only (glucose, weight, labs, logged macros) — NOT to
@@ -2995,7 +2999,7 @@ CGM DEFAULT: qualitative one-liner (stable / in range / elevated / low-side). DE
 CGM DATE SPAN (mandatory): only cite "N days" when the data block explicitly states N days. If unsure, say "the available CGM window" — never invent 7 days. Slash commands (/7, /30) widen the loaded window — use that block's day count.
 When the user asks for a longer review (/7, /30), analyze the full snapshot (body, energy, HR, food, workouts): what went well, what to improve, specific next steps.
 When GLUCOSE & FOOD IMPACT is present and user asked for detail: cite which foods preceded spikes and recommend swaps for repeat offenders.
-Users can request any window via slash commands: /1 or /yesterday, /7, /30, /100 (up to 128 days). Nutritionist tab: /macros for daily macro target revision (7-day data).
+Users can request any window via slash commands: /1 or /yesterday, /7, /30, /100 (up to 128 days). Do not suggest /macros or /recipe — those are not chat commands.
 Ignore any earlier chat messages where you said data was unavailable; always use the data block above.${coachRules}${cgmRules}${genderInstruction(ctx)}${langInstruction(ctx.lang)}`;
 }
 

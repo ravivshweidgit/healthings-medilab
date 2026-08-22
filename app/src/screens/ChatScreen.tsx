@@ -52,38 +52,15 @@ import {
 import { getChatBubbleCopy } from '../i18n/chatBubbleCopy';
 import { getLabsAiContextForHeader, readPdfBase64FromUri } from '../services/LabLogService';
 import { getNutritionDirectiveAiContext } from '../services/NutritionDirectiveService';
-import { chatWithMentor, summariseChatDay, type CoachContext, type MacroSuggestion } from '../services/GeminiService';
+import { chatWithMentor, summariseChatDay, type CoachContext } from '../services/GeminiService';
 import {
   clinicMacroRedesignActive,
   effectiveCarbCeilingG,
   hardAxis,
 } from '../services/ClinicMacroBoundsService';
 import { isYesterdayIntentQuery } from '../logic/chatIntent';
-import {
-  isMacroChatRequest,
-  isMacroSlashCommand,
-  isMealPlanSlashCommand,
-  isMenuSlashCommand,
-  isRecipePlanChatRequest,
-  macroSlashIntro,
-  macroSlashWrongTabHint,
-  menuSlashDeferredHint,
-  mealPlanSlashWrongTabHint,
-  parseMealSlashCommand,
-  recipePlanIntro,
-  resolveRecipePlanMode,
-} from '../logic/chatIntent';
-import { suggestMacroTargets } from '../logic/macroAutoAdjust';
-import { MacroProposalCard } from '../components/MacroProposalCard';
-import { RecipeCard } from '../components/RecipeCard';
 import { SlashCommandSuggestions } from '../components/SlashCommandSuggestions';
 import { filterSlashCommandSuggestions } from '../logic/chatSlashCommands';
-import { RecipeViewerModal } from '../components/RecipeViewerModal';
-import { FoodLogModal } from '../components/FoodLogModal';
-import { recipePlanToFoodItems, type RecipePlan } from '../logic/mealPlanTypes';
-import { generateRecipePlan } from '../logic/recipePlanService';
-import type { FoodItem } from '../services/GeminiService';
-import type { DailyMacroTarget } from '../services/TargetService';
 import { runAutoChecksAndPersist, refreshCoachReview, forceCoachReview } from '../services/CoachService';
 import { exportMentorChat } from '../services/mentorChatExport';
 import { normalizeMentorChatText, buildMentorDisplaySegments, mentorBubbleColors, hasSeparateMentorVoices } from '../logic/mentorChatText';
@@ -94,16 +71,12 @@ import { getTodayMeals, getMealsForDay, buildMealsAiContext, foodLogDayKey } fro
 import { cardShadow } from '../theme/wellness';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
-import type { EnergyUnit } from '../logic/unitConvert';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
   context: CoachContext;
   onCoachMessageUpdated?: (msg: CoachMessage | null) => void;
-  onMacroTargetUpdated?: (target: DailyMacroTarget) => void;
-  /** Dashboard food list + coach refresh after log-from-recipe in chat. */
-  onFoodLogSaved?: (opts?: { close?: boolean }) => void | Promise<void>;
 };
 
 /** Local calendar day — must match FoodLogService day keys (not UTC toISOString). */
@@ -124,14 +97,10 @@ function yesterdayKey(): string {
   return foodLogDayKey(d.getTime());
 }
 
-/** In-memory only — preview URI and macro proposal are never written to AsyncStorage. */
+/** In-memory only — preview URI is never written to AsyncStorage. */
 type ChatMessageUI = ChatMessage & {
   previewUri?: string;
   previewFileName?: string;
-  macroProposal?: MacroSuggestion;
-  macroDismissed?: boolean;
-  recipePlan?: RecipePlan;
-  recipeDismissed?: boolean;
 };
 
 type PendingChatAttachment =
@@ -974,32 +943,18 @@ function MessageBubble({
   msg,
   mentor,
   rtl,
-  lang,
-  energyUnit,
   copyLabel,
   cancelLabel,
   copiedTitle,
   copiedMessage,
-  onMacroApplied,
-  onMacroDismiss,
-  onRecipeOpen,
-  onRecipeLog,
-  onRecipeDismiss,
 }: {
   msg: ChatMessageUI;
   mentor: MentorType;
   rtl?: boolean;
-  lang?: UserLanguage | null;
-  energyUnit?: EnergyUnit;
   copyLabel: string;
   cancelLabel: string;
   copiedTitle: string;
   copiedMessage: string;
-  onMacroApplied?: (target: DailyMacroTarget) => void;
-  onMacroDismiss?: () => void;
-  onRecipeOpen?: (plan: RecipePlan) => void;
-  onRecipeLog?: (plan: RecipePlan) => void;
-  onRecipeDismiss?: () => void;
 }) {
   const { colors: themeColors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(themeColors, isDark), [themeColors, isDark]);
@@ -1066,25 +1021,6 @@ function MessageBubble({
           ]}
         >
           <Text style={[styles.msgTextAI, rtl && styles.rtlText]}>{msg.text}</Text>
-          {!msg.macroDismissed && msg.macroProposal ? (
-            <MacroProposalCard
-              proposal={msg.macroProposal}
-              lang={lang}
-              energyUnit={energyUnit}
-              onApplied={onMacroApplied}
-              onDismiss={onMacroDismiss}
-            />
-          ) : null}
-          {!msg.recipeDismissed && msg.recipePlan && onRecipeOpen && onRecipeLog ? (
-            <RecipeCard
-              plan={msg.recipePlan}
-              lang={lang}
-              energyUnit={energyUnit}
-              onOpen={() => onRecipeOpen(msg.recipePlan!)}
-              onLogMeal={() => onRecipeLog(msg.recipePlan!)}
-              onDismiss={onRecipeDismiss}
-            />
-          ) : null}
           {time ? (
             <Text style={[styles.msgTime, styles.msgTimeAI, rtl && styles.rtlText]}>{time}</Text>
           ) : null}
@@ -1096,7 +1032,7 @@ function MessageBubble({
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
-export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, onMacroTargetUpdated, onFoodLogSaved }: Props) {
+export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated }: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const insets = useSafeAreaInsets();
@@ -1115,12 +1051,6 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
   const [refreshingCoach, setRefreshingCoach] = useState(false);
   const [anyChatHistory, setAnyChatHistory] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [recipeViewerPlan, setRecipeViewerPlan] = useState<RecipePlan | null>(null);
-  const [foodLogVisible, setFoodLogVisible] = useState(false);
-  const [foodLogPrefill, setFoodLogPrefill] = useState<{
-    items: FoodItem[];
-    description: string;
-  } | null>(null);
   const listRef = useRef<FlatList<ChatMessageUI>>(null);
   /** Guards the one-shot coach auto-regen per chat open (avoids API spam on repeated failures). */
   const coachAutoRegenRef = useRef(false);
@@ -1506,110 +1436,25 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
         ]);
         const freshContext: CoachContext = await withYesterdayFoodContext(baseFresh, promptText);
 
-        if (isMacroSlashCommand(promptText) && activeMentor !== 'nutritionist') {
-          const aiMsg: ChatMessageUI = {
-            role: 'assistant',
-            text: macroSlashWrongTabHint(freshContext.lang?.code),
-            sentAt: new Date().toISOString(),
-          };
-          setHistory((prev) => [...prev, aiMsg]);
-          await appendChatMessage(today, activeMentor, {
-            role: 'assistant',
-            text: aiMsg.text,
-            sentAt: aiMsg.sentAt,
-          });
-          scrollToBottom();
-          return;
-        }
-
-        if (isMealPlanSlashCommand(promptText) && activeMentor !== 'nutritionist') {
-          const aiMsg: ChatMessageUI = {
-            role: 'assistant',
-            text: mealPlanSlashWrongTabHint(freshContext.lang?.code),
-            sentAt: new Date().toISOString(),
-          };
-          setHistory((prev) => [...prev, aiMsg]);
-          await appendChatMessage(today, activeMentor, {
-            role: 'assistant',
-            text: aiMsg.text,
-            sentAt: aiMsg.sentAt,
-          });
-          scrollToBottom();
-          return;
-        }
-
-        const mealSlash = parseMealSlashCommand(promptText);
-        if (
-          mealSlash &&
-          activeMentor === 'nutritionist' &&
-          isMenuSlashCommand(mealSlash.command)
-        ) {
-          const aiMsg: ChatMessageUI = {
-            role: 'assistant',
-            text: menuSlashDeferredHint(mealSlash.command, freshContext.lang?.code),
-            sentAt: new Date().toISOString(),
-          };
-          setHistory((prev) => [...prev, aiMsg]);
-          await appendChatMessage(today, activeMentor, {
-            role: 'assistant',
-            text: aiMsg.text,
-            sentAt: aiMsg.sentAt,
-          });
-          scrollToBottom();
-          return;
-        }
-
-        const wantsMacro = activeMentor === 'nutritionist' && isMacroChatRequest(promptText);
-        const wantsRecipe =
-          activeMentor === 'nutritionist' &&
-          !attach &&
-          isRecipePlanChatRequest(promptText) &&
-          !wantsMacro;
-
-        let replyText: string;
-        let macroResult: Awaited<ReturnType<typeof suggestMacroTargets>> | null = null;
-        let recipeResult: RecipePlan | null = null;
-
-        if (wantsMacro) {
-          macroResult = await suggestMacroTargets({
-            trigger: 'chat-proposal',
-            triggerDetail: promptText,
-            lang: freshContext.lang,
-          });
-          replyText = macroSlashIntro(freshContext.lang?.code);
-        } else if (wantsRecipe) {
-          const { mode, hint } = resolveRecipePlanMode(promptText);
-          recipeResult = await generateRecipePlan({
-            userMessage: promptText,
-            hint,
-            mode,
-            command: mealSlash?.command,
-            lang: freshContext.lang,
-          });
-          replyText = recipePlanIntro(freshContext.lang?.code);
-        } else {
-          replyText = await chatWithMentor(
-            activeMentor,
-            promptText,
-            currentHistory.slice(0, -1),
-            freshContext,
-            yesterdaySummary,
-            attach?.kind === 'image' ? attach.base64 : null,
-            attach?.kind === 'image' ? attach.mimeType : undefined,
-            attach?.kind === 'pdf'
-              ? { pdfBase64: attach.base64 }
-              : attach?.kind === 'text'
-                ? { documentText: attach.textContent }
-                : null,
-          );
-        }
+        const replyText = await chatWithMentor(
+          activeMentor,
+          promptText,
+          currentHistory.slice(0, -1),
+          freshContext,
+          yesterdaySummary,
+          attach?.kind === 'image' ? attach.base64 : null,
+          attach?.kind === 'image' ? attach.mimeType : undefined,
+          attach?.kind === 'pdf'
+            ? { pdfBase64: attach.base64 }
+            : attach?.kind === 'text'
+              ? { documentText: attach.textContent }
+              : null,
+        );
 
         const aiMsg: ChatMessageUI = {
           role: 'assistant',
           text: replyText,
           sentAt: new Date().toISOString(),
-          macroProposal: macroResult?.suggestion,
-          recipePlan: recipeResult ?? undefined,
         };
         setHistory((prev) => [...prev, aiMsg]);
         await appendChatMessage(today, activeMentor, {
@@ -1631,40 +1476,6 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
     },
     [sending, activeMentor, scrollToBottom, buildFreshContext, context.lang],
   );
-
-  const handleMacroApplied = useCallback(
-    (target: DailyMacroTarget) => {
-      onMacroTargetUpdated?.(target);
-    },
-    [onMacroTargetUpdated],
-  );
-
-  const handleMacroDismiss = useCallback((sentAt: string) => {
-    setHistory((prev) =>
-      prev.map((m) => (m.sentAt === sentAt ? { ...m, macroDismissed: true } : m)),
-    );
-  }, []);
-
-  const handleRecipeDismiss = useCallback((sentAt: string) => {
-    setHistory((prev) =>
-      prev.map((m) => (m.sentAt === sentAt ? { ...m, recipeDismissed: true } : m)),
-    );
-  }, []);
-
-  const openRecipeLog = useCallback((plan: RecipePlan) => {
-    setFoodLogPrefill({
-      items: recipePlanToFoodItems(plan),
-      description: plan.source_note || plan.title,
-    });
-    setFoodLogVisible(true);
-  }, []);
-
-  const handleFoodLogSaved = useCallback(async (opts?: { close?: boolean }) => {
-    await onFoodLogSaved?.(opts);
-    if (opts?.close === false) return;
-    setFoodLogVisible(false);
-    setFoodLogPrefill(null);
-  }, [onFoodLogSaved]);
 
   const handleToggleActionItem = useCallback(
     async (itemId: string) => {
@@ -1771,27 +1582,10 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
                 msg={item}
                 mentor={activeMentor}
                 rtl={ui.rtl}
-                lang={context.lang}
-                energyUnit={context.unitsPrefs?.energy ?? 'kcal'}
                 copyLabel={ui.copy}
                 cancelLabel={ui.cancel}
                 copiedTitle={ui.copiedTitle}
                 copiedMessage={ui.copiedMessage}
-                onMacroApplied={handleMacroApplied}
-                onMacroDismiss={
-                  item.macroProposal && !item.macroDismissed
-                    ? () => handleMacroDismiss(item.sentAt)
-                    : undefined
-                }
-                onRecipeOpen={item.recipePlan && !item.recipeDismissed ? setRecipeViewerPlan : undefined}
-                onRecipeLog={
-                  item.recipePlan && !item.recipeDismissed ? openRecipeLog : undefined
-                }
-                onRecipeDismiss={
-                  item.recipePlan && !item.recipeDismissed
-                    ? () => handleRecipeDismiss(item.sentAt)
-                    : undefined
-                }
               />
             )}
             contentContainerStyle={styles.messageList}
@@ -2055,35 +1849,6 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
         onClose={() => setFaqVisible(false)}
         onSave={handleSaveQuestions}
         onPick={pickQuestion}
-      />
-
-      <RecipeViewerModal
-        visible={recipeViewerPlan != null}
-        plan={recipeViewerPlan}
-        lang={context.lang}
-        energyUnit={context.unitsPrefs?.energy ?? 'kcal'}
-        onClose={() => setRecipeViewerPlan(null)}
-        onLogMeal={
-          recipeViewerPlan
-            ? () => {
-                openRecipeLog(recipeViewerPlan);
-                setRecipeViewerPlan(null);
-              }
-            : undefined
-        }
-      />
-
-      <FoodLogModal
-        visible={foodLogVisible}
-        onClose={() => {
-          setFoodLogVisible(false);
-          setFoodLogPrefill(null);
-        }}
-        onSaved={handleFoodLogSaved}
-        prefillItems={foodLogPrefill?.items}
-        prefillDescription={foodLogPrefill?.description}
-        lang={context.lang}
-        energyUnit={context.unitsPrefs?.energy ?? 'kcal'}
       />
     </SafeAreaView>
   );

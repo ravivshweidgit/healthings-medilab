@@ -2,16 +2,26 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authenticate } from '../middleware/authenticate.js';
 import { deleteAccountWithCode } from '../services/accountDeletion.js';
+import { tokensForReason } from '../services/aiBilling.js';
+import { rebuildMacrosForPatientSelf } from '../services/clinicMacros.js';
+import { ClinicError } from '../services/clinicOverlay.js';
 import { OtpEmailSendError } from '../services/email.js';
 import { OtpInvalidError, OtpRateLimitError, createOtpRequest } from '../services/otp.js';
+import { ensurePayerBalance } from '../services/payments.js';
+import { resolveAiPayer } from '../services/sponsor.js';
 import {
   SyncError,
   getPatientRulesFromLatestBlob,
 } from '../services/sync.js';
+import { meterAiUsageResult } from '../services/usage.js';
 import { findUserById, setWebViewEnabled } from '../services/users.js';
+import { ensureWallet, getBalance } from '../services/wallet.js';
 
 const webViewBody = z.object({ enabled: z.boolean() });
 const deleteBody = z.object({ code: z.string().min(4).max(12) });
+const rebuildMacrosBody = z.object({
+  rawText: z.string().min(1).max(80_000),
+});
 
 export async function registerAccountRoutes(app: FastifyInstance) {
   // Reading the current value needs no endpoint: GET /v1/me already carries
@@ -94,4 +104,51 @@ export async function registerAccountRoutes(app: FastifyInstance) {
       throw err;
     }
   });
+
+  /**
+   * Phone Analyze / /macros / weigh-in — same Propose engine as clinic Rules Save.
+   * Writes overlay macros_json (when the patient has an org) and returns the payload
+   * so the phone can apply immediately.
+   */
+  app.post(
+    '/v1/account/macros/rebuild',
+    {
+      preHandler: authenticate,
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const user = await findUserById(request.userId!);
+      if (!user) return reply.code(404).send({ error: 'User not found' });
+      if (user.role !== 'patient') {
+        return reply.code(403).send({ error: 'Requires patient role' });
+      }
+
+      const cost = tokensForReason('ai_macro');
+      const payer = await resolveAiPayer(user.id);
+      await ensureWallet(payer.payerUserId);
+      let balance = await getBalance(payer.payerUserId);
+      if (balance < cost) {
+        await ensurePayerBalance(payer.payerUserId, cost);
+        balance = await getBalance(payer.payerUserId);
+        if (balance < cost) {
+          return reply.code(402).send({ error: 'out_of_credits' });
+        }
+      }
+
+      const body = rebuildMacrosBody.parse(request.body ?? {});
+      try {
+        const rebuilt = await rebuildMacrosForPatientSelf(user, body.rawText);
+        const metered = await meterAiUsageResult(user.id, 'ai_macro');
+        const balanceAfter = metered.event?.balanceAfter ?? (await getBalance(payer.payerUserId));
+        return {
+          macros: rebuilt.macros,
+          wallet: { balanceTokens: balanceAfter, sponsored: payer.sponsored },
+        };
+      } catch (err) {
+        if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
+        request.log.error(err);
+        return reply.code(500).send({ error: 'Failed to rebuild live macros' });
+      }
+    },
+  );
 }

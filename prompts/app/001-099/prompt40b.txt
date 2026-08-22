@@ -2,7 +2,12 @@
 
 **Status: planned** — builds on **prompt40a** (done).
 
+**Owner 2026-08-23:** mentor chat must **not** hijack `/eat` `/recipe` `/macros`. Those slash
+cards only caused trouble. Chat = conversation (`/7` `/30` `/yesterday` stay). Recipe/menu
+viewers, if they ship, are **not** typed as chat slash commands.
+
 **40a shipped:** single-recipe cards, `/eat`, `/recipe`, kitchen units, log-as-meal. See `done/prompt40a.txt`.
+That chat slash path is **retired** — do not re-enable.
 
 ---
 
