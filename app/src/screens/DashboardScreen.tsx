@@ -188,7 +188,7 @@ import {
   setHeightCm as saveHeightCm, getGender, setGender, getMentors, saveMentors,
   getUserRules, getMacroTarget, getEffectiveMacroTarget, getBodyTarget, getCoachMessage, saveCoachMessage,
   getLanguage, getMentorGender, SUPPORTED_LANGUAGES,
-  ensureMacroTargetDaySnapshot, getManualBmrKcal,
+  ensureMacroTargetDaySnapshot, getManualBmrKcal, clearLegacyPhoneMacroTarget,
   type Gender, type MentorType, type UserRules, type DailyMacroTarget, type BodyTarget, type CoachMessage, type UserLanguage,
 } from '../services/TargetService';
 import { type CoachContext } from '../services/GeminiService';
@@ -208,6 +208,14 @@ import {
   type LabMarkerNudge,
   type TreatmentMarker,
 } from '../services/TreatmentMarkerService';
+import {
+  clinicMacroMetersApplyToDay,
+  clinicMacroOrderEffectiveDayKey,
+  effectiveCarbCeilingG,
+  loadClinicMacroBounds,
+  resolveClinicMacroMeters,
+  type ResolvedAxisMeter,
+} from '../services/ClinicMacroBoundsService';
 import { getTreatmentMarkersCopy, markerUiLabel } from '../i18n/treatmentMarkersCopy';
 import {
   CLINIC_SYNC_POLL_MS,
@@ -465,6 +473,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [mentors, setMentorsState] = useState<MentorType[]>(['coach', 'nutritionist']);
   const [userRules, setUserRules] = useState<UserRules | null>(null);
   const [treatmentMarkersHard, setTreatmentMarkersHard] = useState<string | null>(null);
+  const [clinicMacroMeters, setClinicMacroMeters] = useState<ResolvedAxisMeter[]>([]);
   const [treatmentMarkersList, setTreatmentMarkersList] = useState<TreatmentMarker[]>([]);
   const [labMarkerNudge, setLabMarkerNudge] = useState<LabMarkerNudge | null>(null);
   const [labReports, setLabReports] = useState<LabReport[]>([]);
@@ -1588,6 +1597,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       todayMealGlucoseDetail: mealGlucoseContext,
       glucoseHistory: glucoseData,
       macroTarget: macroTarget ?? effectiveMacroTarget,
+      clinicMacroMeters,
       bodyTarget: bodyTargetForMacros,
       userRules,
       treatmentMarkersHard,
@@ -1600,7 +1610,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     return ctx;
   }, [
     mentors, userAge, userGender, userMentorGender, mentorGenderPicker, heightCm, effectiveBodyScan, fatPct, bodyTargetForMacros,
-    todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, mealGlucoseContext, glucoseData, macroTarget, effectiveMacroTarget, userRules, treatmentMarkersHard, labsAiContext, nutritionDirectiveContext, userLanguage, unitsPrefs,
+    todayActualMacros, todayEstimatedBurn, todayFoodEntries.length, mealContext, mealGlucoseContext, glucoseData, macroTarget, effectiveMacroTarget, userRules, treatmentMarkersHard, clinicMacroMeters, labsAiContext, nutritionDirectiveContext, userLanguage, unitsPrefs,
   ]);
 
   /** Regenerate coach message using stored language (not stale React state). */
@@ -1665,7 +1675,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       todayEaten: ctx?.todayEaten ?? null,
       todayBurn: ctx?.todayBurn ?? null,
       mealCount: ctx?.mealCount ?? 0,
-      macroTargetCarb_g: ctx?.macroTarget?.carb_g ?? null,
+      macroTargetCarb_g: effectiveCarbCeilingG(ctx?.clinicMacroMeters ?? [], ctx?.macroTarget?.carb_g),
       macroTargetProtein_g: ctx?.macroTarget?.protein_g ?? null,
     };
     const updated = await runAutoChecksAndPersist(msg, data);
@@ -1689,6 +1699,19 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     }
   }, []);
 
+  const refreshClinicMacroMeters = useCallback(async () => {
+    const store = await loadClinicMacroBounds();
+    const today = localDayKeyFromMs(Date.now());
+    const apply = clinicMacroMetersApplyToDay(store, today);
+    const meters = apply ? resolveClinicMacroMeters(store).filter((m) => m.strength === 'hard') : [];
+    setClinicMacroMeters(meters);
+    if (meters.length) {
+      await clearLegacyPhoneMacroTarget(clinicMacroOrderEffectiveDayKey(store));
+      setMacroTarget(null);
+      setEffectiveMacroTarget(null);
+    }
+  }, []);
+
   const applyClinicOverlays = useCallback(async () => {
     // Web-view rules first so a clinic overlay pull does not race past a newer account edit.
     const fromWeb = await pullAccountRulesIfNewer();
@@ -1702,12 +1725,16 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     const list = treat?.markers?.length ? treat.markers : [];
     setTreatmentMarkersList(list);
     setTreatmentMarkersHard(list.length ? treatmentMarkersHardBlock(list) : null);
+    await refreshClinicMacroMeters();
+    const [mt, effMt] = await Promise.all([getMacroTarget(), getEffectiveMacroTarget()]);
+    setMacroTarget(mt);
+    setEffectiveMacroTarget(effMt);
     const nudge = await loadLabMarkerNudge();
     setLabMarkerNudge(nudge);
     if (fromClinic.backfillResult) {
       foodMacroStripRef.current?.reload();
     }
-  }, [loadCoachMessage]);
+  }, [loadCoachMessage, refreshClinicMacroMeters]);
 
   const handlePullRefresh = useCallback(async () => {
     if (pullRefreshing) return;
@@ -1994,8 +2021,9 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       const list = treat?.markers?.length ? treat.markers : [];
       setTreatmentMarkersList(list);
       setTreatmentMarkersHard(list.length ? treatmentMarkersHardBlock(list) : null);
+      await refreshClinicMacroMeters();
     })();
-  }, []);
+  }, [refreshClinicMacroMeters]);
 
   useEffect(() => {
     if (user.role !== 'patient') return;

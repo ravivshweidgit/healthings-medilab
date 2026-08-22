@@ -610,7 +610,7 @@
     const dk = ctx.foodDayKey || todayKey();
     const meals = [...(ctx.parsed.mealsByDay[dk] || [])].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     const macros = dailyMacros(meals);
-    const target = ctx.parsed.macroTarget;
+    const target = leftoverPhoneMacroTarget(ctx.parsed, ctx.overlay);
     const eaten = Math.round(macros.kcal);
     const burn = ctx.parsed.burnByDay[dk] ?? null;
     const parts = burnPartsForDay(ctx.parsed.withings, dk, burn);
@@ -903,7 +903,7 @@
     const ex = ctx.profileExpand;
     const p = ctx.parsed.profile || {};
     const bt = ctx.parsed.bodyTarget;
-    const mt = ctx.parsed.macroTarget;
+    const mt = leftoverPhoneMacroTarget(ctx.parsed, ctx.overlay);
     const rules = ctx.parsed.userRules;
     const coach = ctx.parsed.coachMsg;
     const mentors = ctx.parsed.mentors || [];
@@ -946,7 +946,10 @@
       : `<p class="empty">${esc(t('wsNoDietaryRules'))}</p>`;
 
     const treatMarkers = effectiveTreatmentMarkers(ctx.parsed, ctx.overlay) || [];
-    const macrosSub = `${esc(macrosHeaderSub(mt, treatMarkers))}${mt?.analyzedAt ? `<span class="macro-updated">${esc(t('wsUpdated', { when: formatIsoShort(mt.analyzedAt) }))}</span>` : ''}`;
+    const liveHard = clinicLiveMacrosHard(ctx.overlay);
+    const macrosSub = liveHard
+      ? esc(overlayHardMacrosSub(ctx.overlay) || t('wsTabMacros'))
+      : `${esc(macrosHeaderSub(mt, treatMarkers))}${mt?.analyzedAt ? `<span class="macro-updated">${esc(t('wsUpdated', { when: formatIsoShort(mt.analyzedAt) }))}</span>` : ''}`;
 
     const macrosBody = renderMacroTargetsBody(mt, ctx);
 
@@ -1886,6 +1889,20 @@
     { id: 'fiber_g', labelKey: 'wsMacroAxisFi' },
     { id: 'net_carb_g', labelKey: 'wsMacroAxisNet' },
   ];
+
+  function clinicLiveMacrosHard(overlay) {
+    return (overlay?.macros?.bounds || []).some((b) => String(b.strength || 'hard') === 'hard');
+  }
+
+  function leftoverPhoneMacroTarget(parsed, overlay) {
+    return clinicLiveMacrosHard(overlay) ? null : parsed?.macroTarget || null;
+  }
+
+  function overlayHardMacrosSub(overlay) {
+    const rows = macroRowsFromBounds(overlay?.macros?.bounds || []).filter((r) => r.type && r.type !== 'flex');
+    if (!rows.length) return '';
+    return rows.map((r) => `${axisLabel(r.axis)} ${formatBoundSummary(r)}`).join(' · ');
+  }
 
   /** Same order as Food Log meters: kcal, P, C, F, Fi, C−Fi. */
   function macroAxisSortIndex(axis) {

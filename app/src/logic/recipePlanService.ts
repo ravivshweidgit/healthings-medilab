@@ -15,6 +15,16 @@ import {
   type DailyMacroTarget,
   type UserLanguage,
 } from '../services/TargetService';
+import {
+  clinicMacroMetersApplyToDay,
+  clinicMacroRedesignActive,
+  formatEffectiveDailyMacroTargetLine,
+  hardAxis,
+  loadClinicMacroBounds,
+  resolveClinicMacroMeters,
+  type ResolvedAxisMeter,
+} from '../services/ClinicMacroBoundsService';
+import { deriveNetCarb_g } from './macroFiberCoupling';
 
 // Gemini calls go through the server proxy (be-40) — no key in the app.
 
@@ -68,9 +78,32 @@ function langInstruction(lang?: UserLanguage | null): string {
 function remainingMacrosBlock(
   target: DailyMacroTarget | null | undefined,
   eaten: GenerateRecipePlanOpts['todayEaten'],
+  meters: ResolvedAxisMeter[],
 ): string {
-  if (!target) return 'MACRO TARGET: not set — use reasonable portions.';
   const e = eaten ?? { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0, fiber_g: 0 };
+  if (clinicMacroRedesignActive(meters)) {
+    const line = formatEffectiveDailyMacroTargetLine(null, meters);
+    const bits: string[] = [];
+    const kcalCap = hardAxis(meters, 'kcal')?.ceiling;
+    if (kcalCap != null) bits.push(`kcal vs ≤${kcalCap}: remaining ${Math.round(kcalCap - e.kcal)}`);
+    const pFloor = hardAxis(meters, 'protein_g')?.floor;
+    if (pFloor != null) bits.push(`P vs ≥${pFloor}: still ${Math.round(pFloor - e.protein_g)}`);
+    const cFloor = hardAxis(meters, 'carb_g')?.floor;
+    const cCeil = hardAxis(meters, 'carb_g')?.ceiling;
+    if (cCeil != null) bits.push(`C vs ≤${cCeil}: remaining ${Math.round(cCeil - e.carb_g)}`);
+    else if (cFloor != null) bits.push(`C vs ≥${cFloor}: still ${Math.round(cFloor - e.carb_g)} (floor, not a cap)`);
+    const netCap = hardAxis(meters, 'net_carb_g')?.ceiling;
+    if (netCap != null) {
+      const netEaten = deriveNetCarb_g(e.carb_g, e.fiber_g);
+      bits.push(`C−Fi vs ≤${netCap}: remaining ${Math.round(netCap - netEaten)}`);
+    }
+    const fiFloor = hardAxis(meters, 'fiber_g')?.floor;
+    if (fiFloor != null) bits.push(`Fi vs ≥${fiFloor}: still ${Math.round(fiFloor - e.fiber_g)}`);
+    return `${line}
+EATEN TODAY: ${Math.round(e.kcal)} kcal · P${Math.round(e.protein_g)} · C${Math.round(e.carb_g)} · F${Math.round(e.fat_g)} · Fi${Math.round(e.fiber_g)}
+CLINIC REMAINING (ordered axes only — do not use a leftover phone daily_macro_target): ${bits.join(' | ') || 'none numbered'}`;
+  }
+  if (!target) return 'MACRO TARGET: not set — use reasonable portions.';
   const rem = {
     kcal: target.kcal - e.kcal,
     protein_g: target.protein_g - e.protein_g,
@@ -87,6 +120,7 @@ function buildRecipePrompt(
   opts: GenerateRecipePlanOpts,
   userRules: Awaited<ReturnType<typeof getUserRules>>,
   foodLogHistory: string | null,
+  clinicMeters: ResolvedAxisMeter[],
 ): string {
   const hint = opts.hint?.trim() || opts.userMessage.trim();
   const modeLine =
@@ -100,7 +134,7 @@ function buildRecipePrompt(
 
 ${modeLine}
 USER REQUEST: ${hint}
-${remainingMacrosBlock(opts.macroTarget, opts.todayEaten)}
+${remainingMacrosBlock(opts.macroTarget, opts.todayEaten, clinicMeters)}
 
 ${rulesBlock}
 
@@ -175,19 +209,25 @@ export async function loadTodayEatenTotals(): Promise<GenerateRecipePlanOpts['to
 }
 
 export async function generateRecipePlan(opts: GenerateRecipePlanOpts): Promise<RecipePlan> {
-  const [userRules, macroTarget, meals, lang] = await Promise.all([
+  const [userRules, macroTarget, meals, lang, clinicStore] = await Promise.all([
     getUserRules(),
     opts.macroTarget !== undefined ? Promise.resolve(opts.macroTarget) : getMacroTarget(),
     getRecentMeals(14),
     opts.lang !== undefined ? Promise.resolve(opts.lang) : getLanguage(),
+    loadClinicMacroBounds(),
   ]);
   const todayEaten =
     opts.todayEaten !== undefined ? opts.todayEaten : await loadTodayEatenTotals();
   const foodLogHistory = formatFoodLogHistoryForMealAi(meals, { lookbackDays: 14 });
+  const dayKey = foodLogDayKey(Date.now());
+  const clinicMeters = clinicMacroMetersApplyToDay(clinicStore, dayKey)
+    ? resolveClinicMacroMeters(clinicStore).filter((m) => m.strength === 'hard')
+    : [];
   const prompt = buildRecipePrompt(
     { ...opts, lang, macroTarget, todayEaten },
     userRules,
     foodLogHistory,
+    clinicMeters,
   );
   const raw = await fetchRecipeJson(prompt);
   return parseRecipeJson(raw);

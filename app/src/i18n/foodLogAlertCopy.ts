@@ -21,6 +21,7 @@ export type FoodLogAlertCopy = {
   failedToSave: string;
   nothingToSave: string;
   carbOver: (projected: number, over: number, target: number) => string;
+  netOver: (projected: number, over: number, target: number) => string;
   kcalOver: (projected: number, over: number, target: number) => string;
   proteinLow: (projected: number, expected: number, short: number) => string;
   ruleConflictFallback: (name: string) => string;
@@ -44,6 +45,8 @@ const EN: FoodLogAlertCopy = {
   nothingToSave: 'Nothing to save — meal items are missing. Edit or re-analyze, then save.',
   carbOver: (projected, over, target) =>
     `Today's carbs would reach ${projected}g (${over}g over your ${target}g target).`,
+  netOver: (projected, over, target) =>
+    `Today's net carbs would reach ${projected}g (${over}g over your ${target}g target).`,
   kcalOver: (projected, over, target) =>
     `Today's calories would reach ${projected} kcal (${over} over your ${target} target).`,
   proteinLow: (projected, expected, short) =>
@@ -69,6 +72,8 @@ const HE: FoodLogAlertCopy = {
   nothingToSave: 'אין מה לשמור — חסרים פריטי ארוחה. ערכו או נתחו מחדש ושמרו.',
   carbOver: (projected, over, target) =>
     `פחמימות היום יגיעו ל־${projected}ג׳ (${over}ג׳ מעל יעד ${target}ג׳).`,
+  netOver: (projected, over, target) =>
+    `פחמימות נטו היום יגיעו ל־${projected}ג׳ (${over}ג׳ מעל יעד ${target}ג׳).`,
   kcalOver: (projected, over, target) =>
     `קלוריות היום יגיעו ל־${projected} kcal (${over} מעל יעד ${target}).`,
   proteinLow: (projected, expected, short) =>
@@ -94,6 +99,8 @@ const ES: FoodLogAlertCopy = {
   nothingToSave: 'Nada que guardar — faltan ítems. Edita o vuelve a analizar y guarda.',
   carbOver: (projected, over, target) =>
     `Los carbos de hoy llegarían a ${projected}g (${over}g sobre tu meta de ${target}g).`,
+  netOver: (projected, over, target) =>
+    `Los carbos netos de hoy llegarían a ${projected}g (${over}g sobre tu meta de ${target}g).`,
   kcalOver: (projected, over, target) =>
     `Las calorías de hoy llegarían a ${projected} kcal (${over} sobre tu meta de ${target}).`,
   proteinLow: (projected, expected, short) =>
@@ -119,6 +126,8 @@ const FR: FoodLogAlertCopy = {
   nothingToSave: 'Rien à enregistrer — éléments manquants. Modifiez ou réanalysez, puis enregistrez.',
   carbOver: (projected, over, target) =>
     `Les glucides du jour atteindraient ${projected}g (${over}g au-dessus de votre objectif de ${target}g).`,
+  netOver: (projected, over, target) =>
+    `Les glucides nets du jour atteindraient ${projected}g (${over}g au-dessus de votre objectif de ${target}g).`,
   kcalOver: (projected, over, target) =>
     `Les calories du jour atteindraient ${projected} kcal (${over} au-dessus de votre objectif de ${target}).`,
   proteinLow: (projected, expected, short) =>
@@ -144,6 +153,8 @@ const DE: FoodLogAlertCopy = {
   nothingToSave: 'Nichts zu speichern — Einträge fehlen. Bearbeiten oder neu analysieren, dann speichern.',
   carbOver: (projected, over, target) =>
     `Kohlenhydrate heute würden ${projected}g erreichen (${over}g über Ihrem Ziel von ${target}g).`,
+  netOver: (projected, over, target) =>
+    `Nettokohlenhydrate heute würden ${projected}g erreichen (${over}g über Ihrem Ziel von ${target}g).`,
   kcalOver: (projected, over, target) =>
     `Kalorien heute würden ${projected} kcal erreichen (${over} über Ihrem Ziel von ${target}).`,
   proteinLow: (projected, expected, short) =>
@@ -169,6 +180,8 @@ const AR: FoodLogAlertCopy = {
   nothingToSave: 'لا شيء للحفظ — عناصر الوجبة مفقودة. عدّل أو حلّل مجدداً ثم احفظ.',
   carbOver: (projected, over, target) =>
     `كربوهيدرات اليوم ستصل إلى ${projected}غ (${over}غ فوق هدفك ${target}غ).`,
+  netOver: (projected, over, target) =>
+    `الكربوهيدرات الصافية اليوم ستصل إلى ${projected}غ (${over}غ فوق هدفك ${target}غ).`,
   kcalOver: (projected, over, target) =>
     `سعرات اليوم ستصل إلى ${projected} kcal (${over} فوق هدفك ${target}).`,
   proteinLow: (projected, expected, short) =>
@@ -194,6 +207,8 @@ const RU: FoodLogAlertCopy = {
   nothingToSave: 'Нечего сохранять — нет позиций. Измените или проанализируйте снова.',
   carbOver: (projected, over, target) =>
     `Углеводы за день достигнут ${projected}г (${over}г сверх цели ${target}г).`,
+  netOver: (projected, over, target) =>
+    `Чистые углеводы за день достигнут ${projected}г (${over}г сверх цели ${target}г).`,
   kcalOver: (projected, over, target) =>
     `Калории за день достигнут ${projected} kcal (${over} сверх цели ${target}).`,
   proteinLow: (projected, expected, short) =>
@@ -219,6 +234,8 @@ const PT: FoodLogAlertCopy = {
   nothingToSave: 'Nada para salvar — itens ausentes. Edite ou analise de novo e salve.',
   carbOver: (projected, over, target) =>
     `Os carboidratos de hoje chegariam a ${projected}g (${over}g acima da meta de ${target}g).`,
+  netOver: (projected, over, target) =>
+    `Os carboidratos líquidos de hoje chegariam a ${projected}g (${over}g acima da meta de ${target}g).`,
   kcalOver: (projected, over, target) =>
     `As calorias de hoje chegariam a ${projected} kcal (${over} acima da meta de ${target}).`,
   proteinLow: (projected, expected, short) =>
@@ -244,6 +261,8 @@ const IT: FoodLogAlertCopy = {
   nothingToSave: 'Niente da salvare — voci mancanti. Modifica o rianalizza, poi salva.',
   carbOver: (projected, over, target) =>
     `I carboidrati di oggi raggiungerebbero ${projected}g (${over}g oltre il tuo obiettivo di ${target}g).`,
+  netOver: (projected, over, target) =>
+    `I carboidrati netti di oggi raggiungerebbero ${projected}g (${over}g oltre il tuo obiettivo di ${target}g).`,
   kcalOver: (projected, over, target) =>
     `Le calorie di oggi raggiungerebbero ${projected} kcal (${over} oltre il tuo obiettivo di ${target}).`,
   proteinLow: (projected, expected, short) =>
@@ -269,6 +288,8 @@ const TR: FoodLogAlertCopy = {
   nothingToSave: 'Kaydedilecek bir şey yok — öğeler eksik. Düzenleyin veya yeniden analiz edin.',
   carbOver: (projected, over, target) =>
     `Bugünkü karbonhidrat ${projected}g olur (${target}g hedefinizin ${over}g üzerinde).`,
+  netOver: (projected, over, target) =>
+    `Bugünkü net karbonhidrat ${projected}g olur (${target}g hedefinizin ${over}g üzerinde).`,
   kcalOver: (projected, over, target) =>
     `Bugünkü kalori ${projected} kcal olur (${target} hedefinizin ${over} üzerinde).`,
   proteinLow: (projected, expected, short) =>

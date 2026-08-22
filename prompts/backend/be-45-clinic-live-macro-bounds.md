@@ -548,7 +548,10 @@ rollback runbook rather than trying to prevent it.
 - Macro history versioning (rules history pattern later)
 - Translating `reasoning` into `appLocale` (same open decision as rules text)
 - Chat that PUTs macros as a side effect
-- Replacing snapshot `daily_macro_target` on the server (phone still owns the point target for unordered axes)
+
+Owner 2026-08-22: leftover snapshot `daily_macro_target` **is** stripped on rules Save / macros
+write (and on phone overlay apply) so clinic chat cannot cite the old point. Phone auto-apply does
+not rewrite the point while HARD clinic macros apply today.
 
 ## Review by owner (after Auto marks needs-review)
 

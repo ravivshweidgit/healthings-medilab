@@ -288,6 +288,28 @@ export async function clearMacroTarget(): Promise<void> {
   await AsyncStorage.removeItem(MACRO_TARGET_KEY);
 }
 
+/**
+ * Clinic HARD live macros own the day: drop leftover phone point so it cannot
+ * leak into Gemini, Share, or save alerts. Keep per-day snapshots *before*
+ * the order day (Food Log history honesty).
+ */
+export async function clearLegacyPhoneMacroTarget(fromDayKey?: string | null): Promise<void> {
+  await AsyncStorage.removeItem(MACRO_TARGET_KEY);
+  const store = await loadMacroTargetByDay();
+  if (!fromDayKey) {
+    await AsyncStorage.removeItem(MACRO_TARGET_BY_DAY_KEY);
+    return;
+  }
+  let changed = false;
+  for (const k of Object.keys(store)) {
+    if (k >= fromDayKey) {
+      delete store[k];
+      changed = true;
+    }
+  }
+  if (changed) await saveMacroTargetByDay(store);
+}
+
 // ─── Per-day macro target snapshots (stability / fair food-log bars) ──────────
 
 const MACRO_TARGET_BY_DAY_KEY = 'macro_target_by_day_v1';

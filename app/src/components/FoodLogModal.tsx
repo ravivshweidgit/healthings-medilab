@@ -33,7 +33,7 @@ import {
   type GeminiAnalysisResult,
   type GeminiTurn,
 } from '../services/GeminiService';
-import { saveMeal, deleteMeal, foodLogDayKey, getDailyMacros, getRecentMeals, getMealsForDay, entryMarkerTotals, type FoodEntry } from '../services/FoodLogService';
+import { saveMeal, deleteMeal, foodLogDayKey, getDailyMacros, getRecentMeals, getMealsForDay, entryMarkerTotals, entryFiber_g, type FoodEntry } from '../services/FoodLogService';
 import { fillMissingMarkersForDay } from '../services/MarkersBackfillService';
 import { scaleMarkerAmounts } from '../services/TreatmentMarkerService';
 import { logMethodTiming, PERF_WARN_AI_MS, PERF_WARN_MEAL_MS, timeAsync } from '../services/AppDailyLogService';
@@ -65,6 +65,11 @@ import {
   type FoodStaple,
 } from '../services/FoodStaplesService';
 import { getMacroTarget, getUserRules, type UserLanguage } from '../services/TargetService';
+import {
+  clinicMacroMetersApplyToDay,
+  loadClinicMacroBounds,
+  resolveClinicMacroMeters,
+} from '../services/ClinicMacroBoundsService';
 import { cardShadow } from '../theme/wellness';
 import { IosDateTimePickerSheet } from './IosDateTimePickerSheet';
 import { useTheme } from '../theme/ThemeProvider';
@@ -712,10 +717,15 @@ export function FoodLogModal({
     timestamp: number,
     excludeId?: string,
   ) => {
-    const [macroTarget, dayMacros] = await Promise.all([
+    const [macroTarget, dayMacros, clinicStore] = await Promise.all([
       getMacroTarget(),
       getDailyMacros(foodLogDayKey(timestamp)),
+      loadClinicMacroBounds(),
     ]);
+    const dayKey = foodLogDayKey(timestamp);
+    const clinicMeters = clinicMacroMetersApplyToDay(clinicStore, dayKey)
+      ? resolveClinicMacroMeters(clinicStore).filter((m) => m.strength === 'hard')
+      : [];
     const before = dayMacros.entries
       .filter((entry) => entry.id !== excludeId)
       .reduce(
@@ -724,18 +734,21 @@ export function FoodLogModal({
           protein_g: acc.protein_g + entry.totalProtein_g,
           carb_g: acc.carb_g + entry.totalCarb_g,
           fat_g: acc.fat_g + entry.totalFat_g,
+          fiber_g: acc.fiber_g + entryFiber_g(entry),
         }),
-        { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0 },
+        { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0, fiber_g: 0 },
       );
     const issueInput = {
       items: mealItems,
       dayTotalsBeforeMeal: before,
       macroTarget,
       mealTimestamp: timestamp,
+      clinicMeters,
     };
 
     const msgs = {
       carbOver: alerts.carbOver,
+      netOver: alerts.netOver,
       kcalOver: alerts.kcalOver,
       proteinLow: alerts.proteinLow,
       ruleConflictFallback: alerts.ruleConflictFallback,

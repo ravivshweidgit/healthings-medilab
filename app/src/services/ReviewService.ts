@@ -39,6 +39,11 @@ import { loadCgmViewFromStore, syncCgmStore } from './CgmPersistenceService';
 import { loadMetricsStore, syncMetricsStore, type MetricsPersistedStore } from './MetricsPersistenceService';
 import type { TimePoint } from './HealthConnectService';
 import type { DailyMacroTarget } from './TargetService';
+import {
+  clinicMacroRedesignActive,
+  formatEffectiveDailyMacroTargetLine,
+  type ResolvedAxisMeter,
+} from './ClinicMacroBoundsService';
 
 export const MAX_REVIEW_DAYS = 128;
 
@@ -592,7 +597,11 @@ export async function buildPeriodReviewBlock(
   request: PeriodReviewRequest,
   macroTarget?: DailyMacroTarget | null,
   appGlucose?: TimePoint[] | null,
-  options?: { includeLabHistory?: boolean; rawDataOnly?: boolean },
+  options?: {
+    includeLabHistory?: boolean;
+    rawDataOnly?: boolean;
+    clinicMacroMeters?: ResolvedAxisMeter[];
+  },
 ): Promise<string> {
   const dayCount = reviewDayCount(request);
   const dayKeys = windowDayKeys(request);
@@ -628,10 +637,15 @@ export async function buildPeriodReviewBlock(
   const treatmentMarkers = treatStore?.markers?.length ? treatStore.markers : null;
 
   const rawDataOnly = options?.rawDataOnly === true;
-  const classicTarget =
-    !rawDataOnly && macroTarget
-      ? `Macro targets: ${macroTarget.kcal} kcal | P${macroTarget.protein_g}g C${macroTarget.carb_g}g F${macroTarget.fat_g}g${macroTarget.fiber_g != null ? ` Fi${macroTarget.fiber_g}g` : ''}`
-      : '';
+  const clinicMeters = options?.clinicMacroMeters ?? [];
+  const redesign = clinicMacroRedesignActive(clinicMeters);
+  const classicTarget = !rawDataOnly
+    ? redesign
+      ? formatEffectiveDailyMacroTargetLine(null, clinicMeters)
+      : macroTarget
+        ? `Macro targets: ${macroTarget.kcal} kcal | P${macroTarget.protein_g}g C${macroTarget.carb_g}g F${macroTarget.fat_g}g${macroTarget.fiber_g != null ? ` Fi${macroTarget.fiber_g}g` : ''}`
+        : ''
+    : '';
   const treatTarget =
     !rawDataOnly && treatmentMarkers
       ? formatTreatmentMarkersTargetLine(treatmentMarkers)
@@ -644,7 +658,9 @@ export async function buildPeriodReviewBlock(
 
   const macroSummaryLine = rawDataOnly
     ? buildMacroEatenSummary(dayKeys, macrosByDay)
-    : buildMacroAdherenceSummary(dayKeys, macrosByDay, macroTarget);
+    : redesign
+      ? buildMacroEatenSummary(dayKeys, macrosByDay)
+      : buildMacroAdherenceSummary(dayKeys, macrosByDay, macroTarget);
 
   const lines: string[] = [
     periodHeader,

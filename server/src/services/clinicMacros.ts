@@ -12,6 +12,7 @@ import {
 import { ClinicError, getOverlayForMentor, type ClinicOverlay } from './clinicOverlay.js';
 import { proposeClinicMacroOrder } from './geminiClinic.js';
 import { saveMarkersForPatient, type TreatmentMarker } from './treatmentMarkers.js';
+import { stripLegacyMacroTargetFromLatestBlob } from './sync.js';
 import { createHash } from 'crypto';
 
 export type MacroAxis = 'kcal' | 'protein_g' | 'carb_g' | 'fat_g' | 'fiber_g' | 'net_carb_g';
@@ -454,6 +455,18 @@ export async function saveMacrosForPatient(
     orgId,
     action: 'macros.write',
   });
+
+  if (bounds.some((b) => b.strength === 'hard')) {
+    try {
+      await stripLegacyMacroTargetFromLatestBlob(patientId);
+    } catch (err) {
+      console.warn(
+        '[clinicMacros] strip leftover daily_macro_target failed',
+        patientId,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
 
   return getOverlayForMentor(mentor, patientId);
 }

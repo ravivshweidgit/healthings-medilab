@@ -4,6 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearLegacyPhoneMacroTarget } from './TargetService';
 
 export const CLINIC_MACRO_BOUNDS_KEY = 'healthings:clinicMacroBounds';
 
@@ -134,6 +135,9 @@ export async function applyClinicMacrosFromOverlay(
     ...(typeof macros.reasoning === 'string' ? { reasoning: macros.reasoning } : {}),
   };
   await AsyncStorage.setItem(CLINIC_MACRO_BOUNDS_KEY, JSON.stringify(store));
+  if (bounds.some((b) => b.strength === 'hard')) {
+    await clearLegacyPhoneMacroTarget(clinicMacroOrderEffectiveDayKey(store));
+  }
   return store;
 }
 
@@ -279,4 +283,127 @@ export function clinicMacrosHardBlock(store: ClinicMacroBoundsStore | null): str
     return m.axis;
   });
   return `HARD from clinic: ${parts.join('; ')}`;
+}
+
+export function hardAxis(
+  meters: ResolvedAxisMeter[],
+  axis: MacroAxis,
+): ResolvedAxisMeter | undefined {
+  return meters.find((m) => m.axis === axis && m.strength === 'hard');
+}
+
+/**
+ * Number used as a carb *cap* (stay-under).
+ * Once clinic live macros exist for the day, the leftover phone point (e.g. C 80)
+ * is never a cap — only a HARD carb ceiling is.
+ */
+export function effectiveCarbCeilingG(
+  meters: ResolvedAxisMeter[],
+  pointCarb_g: number | null | undefined,
+): number | null {
+  if (clinicMacroRedesignActive(meters)) {
+    return hardAxis(meters, 'carb_g')?.ceiling ?? null;
+  }
+  return pointCarb_g != null && Number.isFinite(pointCarb_g) ? pointCarb_g : null;
+}
+
+export function clinicMacroRedesignActive(
+  meters: ResolvedAxisMeter[] | null | undefined,
+): boolean {
+  return Array.isArray(meters) && meters.some((m) => m.strength === 'hard');
+}
+
+/** True when today's Food Log is owned by clinic HARD live macros. */
+export async function clinicHardMacrosApplyToday(): Promise<boolean> {
+  const store = await loadClinicMacroBounds();
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  if (!clinicMacroMetersApplyToDay(store, today)) return false;
+  return resolveClinicMacroMeters(store).some((m) => m.strength === 'hard');
+}
+
+function axisUnit(axis: MacroAxis): string {
+  return axis === 'kcal' ? '' : 'g';
+}
+
+const PROMPT_AXES: MacroAxis[] = [
+  'kcal',
+  'protein_g',
+  'carb_g',
+  'fat_g',
+  'fiber_g',
+  'net_carb_g',
+];
+
+function formatHardSlot(m: ResolvedAxisMeter): string {
+  const u = axisUnit(m.axis);
+  if (m.floor != null && m.ceiling != null) {
+    return `${axisShort(m.axis)} ${m.floor}–${m.ceiling}${u}`;
+  }
+  if (m.ceiling != null) return `${axisShort(m.axis)} ≤ ${m.ceiling}${u}`;
+  if (m.floor != null) return `${axisShort(m.axis)} ≥ ${m.floor}${u}`;
+  return axisShort(m.axis);
+}
+
+/**
+ * Daily macro line for coach/chat/period review.
+ * Clinic live macros for the day → clinic HARD axes only (no leftover daily_macro_target).
+ * No clinic order → phone point, same as before the redesign.
+ */
+export function formatEffectiveDailyMacroTargetLine(
+  point: {
+    kcal?: number;
+    protein_g?: number;
+    carb_g?: number;
+    fat_g?: number;
+    fiber_g?: number;
+    net_carb_g?: number;
+  } | null,
+  meters: ResolvedAxisMeter[],
+): string {
+  if (clinicMacroRedesignActive(meters)) {
+    const parts = PROMPT_AXES.map((axis) => {
+      const hard = hardAxis(meters, axis);
+      return hard ? formatHardSlot(hard) : null;
+    }).filter((s): s is string => Boolean(s));
+    return parts.length ? `Clinic live macros: ${parts.join(' | ')}` : '';
+  }
+  const kcal = formatAxisSlot(meters, 'kcal', point?.kcal, '');
+  const p = formatAxisSlot(meters, 'protein_g', point?.protein_g, 'g');
+  const c = formatAxisSlot(meters, 'carb_g', point?.carb_g, 'g');
+  const f = formatAxisSlot(meters, 'fat_g', point?.fat_g, 'g');
+  const fi = formatAxisSlot(meters, 'fiber_g', point?.fiber_g, 'g');
+  const net = formatAxisSlot(meters, 'net_carb_g', point?.net_carb_g, 'g');
+  const showNet = point?.net_carb_g != null;
+  return `Daily macro target: ${kcal} | ${p} | ${c} | ${f} | ${fi}${showNet ? ` | ${net}` : ''}`;
+}
+
+function axisShort(axis: MacroAxis): string {
+  switch (axis) {
+    case 'kcal': return 'kcal';
+    case 'protein_g': return 'P';
+    case 'carb_g': return 'C';
+    case 'fat_g': return 'F';
+    case 'fiber_g': return 'Fi';
+    case 'net_carb_g': return 'C−Fi';
+  }
+}
+
+function formatAxisSlot(
+  meters: ResolvedAxisMeter[],
+  axis: MacroAxis,
+  point: number | null | undefined,
+  unit: string,
+): string {
+  const hard = hardAxis(meters, axis);
+  const u = unit ? unit : '';
+  if (hard) {
+    if (hard.floor != null && hard.ceiling != null) {
+      return `${axisShort(axis)} ${hard.floor}–${hard.ceiling}${u}`;
+    }
+    if (hard.ceiling != null) return `${axisShort(axis)} ≤ ${hard.ceiling}${u}`;
+    if (hard.floor != null) return `${axisShort(axis)} ≥ ${hard.floor}${u}`;
+  }
+  if (point != null && Number.isFinite(point)) return `${axisShort(axis)} ${point}${u}`;
+  return `${axisShort(axis)} —`;
 }

@@ -5,8 +5,14 @@
 
 import type { FoodItem } from '../services/GeminiService';
 import type { DailyMacroTarget } from '../services/TargetService';
+import {
+  effectiveCarbCeilingG,
+  hardAxis,
+  type ResolvedAxisMeter,
+} from '../services/ClinicMacroBoundsService';
+import { deriveNetCarb_g } from './macroFiberCoupling';
 
-export type MealIssueCode = 'carb_over' | 'kcal_over' | 'protein_low' | 'rule_conflict';
+export type MealIssueCode = 'carb_over' | 'kcal_over' | 'protein_low' | 'net_over' | 'rule_conflict';
 
 export type MealIssue = {
   id: string;
@@ -21,6 +27,7 @@ export type DayMacroTotals = {
   protein_g: number;
   carb_g: number;
   fat_g: number;
+  fiber_g: number;
 };
 
 export type MealIssueInput = {
@@ -28,11 +35,14 @@ export type MealIssueInput = {
   dayTotalsBeforeMeal: DayMacroTotals;
   macroTarget: DailyMacroTarget | null;
   mealTimestamp: number;
+  /** HARD clinic meters for this meal's day. Empty = solo / no order yet — use the phone point. */
+  clinicMeters?: ResolvedAxisMeter[];
 };
 
 /** Localized templates for app-generated macro / fallback rule messages. */
 export type MealIssueMessages = {
   carbOver: (projected: number, over: number, target: number) => string;
+  netOver?: (projected: number, over: number, target: number) => string;
   kcalOver: (projected: number, over: number, target: number) => string;
   proteinLow: (projected: number, expected: number, short: number) => string;
   ruleConflictFallback: (name: string) => string;
@@ -49,8 +59,9 @@ function mealTotals(items: FoodItem[]): DayMacroTotals {
       protein_g: acc.protein_g + item.protein_g,
       carb_g: acc.carb_g + item.carb_g,
       fat_g: acc.fat_g + item.fat_g,
+      fiber_g: acc.fiber_g + (item.fiber_g ?? 0),
     }),
-    { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0 },
+    { kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0, fiber_g: 0 },
   );
 }
 
@@ -60,6 +71,7 @@ function projectedDayTotals(before: DayMacroTotals, meal: DayMacroTotals): DayMa
     protein_g: before.protein_g + meal.protein_g,
     carb_g: before.carb_g + meal.carb_g,
     fat_g: before.fat_g + meal.fat_g,
+    fiber_g: before.fiber_g + meal.fiber_g,
   };
 }
 
@@ -128,48 +140,74 @@ export function analyzeMacroMealIssues(
   input: MealIssueInput,
   messages?: MealIssueMessages,
 ): MealIssue[] {
-  const { items, dayTotalsBeforeMeal, macroTarget, mealTimestamp } = input;
+  const { items, dayTotalsBeforeMeal, macroTarget, mealTimestamp, clinicMeters = [] } = input;
   if (items.length === 0) return [];
 
   const issues: MealIssue[] = [];
   const meal = mealTotals(items);
   const projected = projectedDayTotals(dayTotalsBeforeMeal, meal);
 
-  if (macroTarget) {
-    if (projected.carb_g > macroTarget.carb_g + 0.5) {
-      const over = Math.round(projected.carb_g - macroTarget.carb_g);
-      const projectedR = Math.round(projected.carb_g);
-      const targetR = Math.round(macroTarget.carb_g);
+  const redesign = clinicMeters.length > 0;
+  const carbCap = effectiveCarbCeilingG(clinicMeters, redesign ? null : macroTarget?.carb_g);
+  if (carbCap != null && projected.carb_g > carbCap + 0.5) {
+    const over = Math.round(projected.carb_g - carbCap);
+    const projectedR = Math.round(projected.carb_g);
+    const targetR = Math.round(carbCap);
+    issues.push({
+      id: 'carb-over',
+      severity: 'warning',
+      code: 'carb_over',
+      message:
+        messages?.carbOver(projectedR, over, targetR)
+        ?? `Today's carbs would reach ${projectedR}g (${over}g over your ${targetR}g target).`,
+      itemNames: carbContributors(items),
+    });
+  }
+
+  const netCap = hardAxis(clinicMeters, 'net_carb_g')?.ceiling;
+  if (netCap != null) {
+    const projectedNet = deriveNetCarb_g(projected.carb_g, projected.fiber_g);
+    if (projectedNet > netCap + 0.5) {
+      const over = Math.round(projectedNet - netCap);
+      const projectedR = Math.round(projectedNet);
+      const targetR = Math.round(netCap);
       issues.push({
-        id: 'carb-over',
+        id: 'net-over',
         severity: 'warning',
-        code: 'carb_over',
+        code: 'net_over',
         message:
-          messages?.carbOver(projectedR, over, targetR)
-          ?? `Today's carbs would reach ${projectedR}g (${over}g over your ${targetR}g target).`,
+          messages?.netOver?.(projectedR, over, targetR)
+          ?? `Today's net carbs would reach ${projectedR}g (${over}g over your ${targetR}g target).`,
         itemNames: carbContributors(items),
       });
     }
+  }
 
-    if (projected.kcal > macroTarget.kcal + 5) {
-      const over = Math.round(projected.kcal - macroTarget.kcal);
-      const projectedR = Math.round(projected.kcal);
-      const targetR = Math.round(macroTarget.kcal);
-      issues.push({
-        id: 'kcal-over',
-        severity: 'warning',
-        code: 'kcal_over',
-        message:
-          messages?.kcalOver(projectedR, over, targetR)
-          ?? `Today's calories would reach ${projectedR} kcal (${over} over your ${targetR} target).`,
-        itemNames: kcalContributors(items),
-      });
-    }
+  const kcalCap = hardAxis(clinicMeters, 'kcal')?.ceiling
+    ?? (redesign ? undefined : macroTarget?.kcal);
+  if (kcalCap != null && projected.kcal > kcalCap + 5) {
+    const over = Math.round(projected.kcal - kcalCap);
+    const projectedR = Math.round(projected.kcal);
+    const targetR = Math.round(kcalCap);
+    issues.push({
+      id: 'kcal-over',
+      severity: 'warning',
+      code: 'kcal_over',
+      message:
+        messages?.kcalOver(projectedR, over, targetR)
+        ?? `Today's calories would reach ${projectedR} kcal (${over} over your ${targetR} target).`,
+      itemNames: kcalContributors(items),
+    });
+  }
 
+  const proteinFloor =
+    hardAxis(clinicMeters, 'protein_g')?.floor
+    ?? (redesign ? undefined : macroTarget?.protein_g);
+  if (proteinFloor != null) {
     const mealDate = new Date(mealTimestamp);
     const hoursIntoDay = mealDate.getHours() + mealDate.getMinutes() / 60;
     const paceFraction = Math.max(0.35, hoursIntoDay / 24);
-    const expectedProtein = macroTarget.protein_g * paceFraction;
+    const expectedProtein = proteinFloor * paceFraction;
     if (hoursIntoDay >= 12 && projected.protein_g < expectedProtein * 0.65) {
       const short = Math.round(expectedProtein - projected.protein_g);
       const projectedR = Math.round(projected.protein_g);

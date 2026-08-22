@@ -1144,6 +1144,32 @@ function formatTreatmentMarkersTargetsBlock(
   );
 }
 
+type OverlayMacroBound = {
+  axis?: string;
+  direction?: string;
+  value?: number;
+  resolvedValue?: number;
+  strength?: string;
+};
+
+function formatClinicLiveMacrosBlock(
+  macros: { bounds?: OverlayMacroBound[] } | null | undefined,
+): string | null {
+  const bounds = (macros?.bounds ?? []).filter((b) => (b.strength || 'hard') === 'hard');
+  if (!bounds.length) return null;
+  const parts = bounds.map((b) => {
+    const axis = String(b.axis ?? 'axis');
+    const dir = b.direction === 'floor' ? 'floor' : 'ceiling';
+    const n = b.resolvedValue ?? b.value;
+    const num = n != null && Number.isFinite(Number(n)) ? Number(n) : '—';
+    return `${axis} ${dir} ${num}`;
+  });
+  return (
+    `Clinic live macros (overlay HARD). Use these signs — do not cite leftover snapshot daily_macro_target:\n` +
+    `HARD from clinic: ${parts.join('; ')}`
+  );
+}
+
 function formatTreatmentMarkersTargetsFromStore(store: Record<string, string>): string | null {
   const raw = store['healthings:treatmentMarkers'];
   if (!raw) return null;
@@ -1158,6 +1184,7 @@ function formatTreatmentMarkersTargetsFromStore(store: Record<string, string>): 
 function buildPatientContextBlock(
   exportData: SnapshotExport | null,
   packing: ChatPacking = DEFAULT_CHAT_PACKING,
+  opts?: { omitLegacyMacroTarget?: boolean },
 ): string {
   if (!exportData?.asyncStorage) return 'No patient snapshot uploaded yet.';
 
@@ -1200,7 +1227,7 @@ function buildPatientContextBlock(
 
   // Full rules rawText is attached separately in mentorChatReply* — do not duplicate here.
 
-  const macroRaw = store.daily_macro_target;
+  const macroRaw = opts?.omitLegacyMacroTarget ? null : store.daily_macro_target;
   if (macroRaw) {
     try {
       const m = JSON.parse(macroRaw) as { kcal?: number; protein_g?: number; carb_g?: number; fat_g?: number };
@@ -1232,13 +1259,20 @@ export async function mentorChatReply(
   clinicRules: ClinicUserRules | null,
   clinicLocaleRaw?: string | null,
   clinicMarkers?: ClinicMarkerTarget[] | null,
+  clinicMacros?: { bounds?: OverlayMacroBound[] } | null,
 ): Promise<{ text: string; usage: GeminiUsage | null }> {
   const clinicLocale = normalizeClinicChatLocale(clinicLocaleRaw);
   const replyLanguage = CLINIC_LOCALE_NAME[clinicLocale];
   await refreshMarkerShorts();
   const snapshot = await loadLatestSnapshotExport(patientId);
   const packing = CLINIC_CHAT_PACKING;
-  let dataBlock = buildPatientContextBlock(snapshot, packing);
+  const overlayMacrosBlock = formatClinicLiveMacrosBlock(clinicMacros);
+  let dataBlock = buildPatientContextBlock(snapshot, packing, {
+    omitLegacyMacroTarget: Boolean(overlayMacrosBlock),
+  });
+  if (overlayMacrosBlock) {
+    dataBlock = `${overlayMacrosBlock}\n${dataBlock}`;
+  }
   const overlayMarkersBlock = formatTreatmentMarkersTargetsBlock(
     clinicMarkers,
     'clinic overlay',

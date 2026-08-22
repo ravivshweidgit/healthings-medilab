@@ -187,6 +187,57 @@ async function nextVersion(patientId: string): Promise<number> {
   return (rows[0]?.max ?? 0) + 1;
 }
 
+const LEGACY_MACRO_TARGET_KEY = 'daily_macro_target';
+
+/**
+ * Clinic HARD live macros own the prompt: drop leftover phone point from the
+ * latest snapshot so clinic chat cannot cite C 80 / P 112 after rules Save.
+ * Non-fatal — caller should catch.
+ */
+export async function stripLegacyMacroTargetFromLatestBlob(patientId: string): Promise<boolean> {
+  const { rows } = await query<SyncRow>(
+    `SELECT * FROM sync_blobs
+     WHERE patient_id = $1
+     ORDER BY version DESC
+     LIMIT 1`,
+    [patientId],
+  );
+  const row = rows[0];
+  if (!row) return false;
+
+  let json: string;
+  try {
+    json = decompressSyncPayload(row.payload_gzip);
+  } catch {
+    return false;
+  }
+  if (Buffer.byteLength(json, 'utf8') > MAX_INFLATED_BYTES) return false;
+
+  let parsed: { asyncStorage?: Record<string, string>; [k: string]: unknown };
+  try {
+    parsed = JSON.parse(json) as { asyncStorage?: Record<string, string> };
+  } catch {
+    return false;
+  }
+  if (!parsed.asyncStorage || typeof parsed.asyncStorage !== 'object') return false;
+  if (!(LEGACY_MACRO_TARGET_KEY in parsed.asyncStorage)) return false;
+
+  delete parsed.asyncStorage[LEGACY_MACRO_TARGET_KEY];
+
+  const stored = deflateSync(Buffer.from(JSON.stringify(parsed), 'utf8'));
+  const version = await nextVersion(patientId);
+  const payloadHash = createHash('sha256').update(stored).digest('hex');
+
+  await query<SyncRow>(
+    `INSERT INTO sync_blobs (patient_id, version, byte_size, payload_hash, summary, payload_gzip)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING *`,
+    [patientId, version, stored.length, payloadHash, row.summary, stored],
+  );
+  await query(`DELETE FROM sync_blobs WHERE patient_id = $1 AND version < $2`, [patientId, version]);
+  return true;
+}
+
 export async function uploadSyncBlob(
   user: PublicUser,
   payloadGzip: Buffer,

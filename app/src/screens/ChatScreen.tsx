@@ -53,6 +53,11 @@ import { getChatBubbleCopy } from '../i18n/chatBubbleCopy';
 import { getLabsAiContextForHeader, readPdfBase64FromUri } from '../services/LabLogService';
 import { getNutritionDirectiveAiContext } from '../services/NutritionDirectiveService';
 import { chatWithMentor, summariseChatDay, type CoachContext, type MacroSuggestion } from '../services/GeminiService';
+import {
+  clinicMacroRedesignActive,
+  effectiveCarbCeilingG,
+  hardAxis,
+} from '../services/ClinicMacroBoundsService';
 import { isYesterdayIntentQuery } from '../logic/chatIntent';
 import {
   isMacroChatRequest,
@@ -1183,8 +1188,13 @@ export function ChatScreen({ visible, onClose, context, onCoachMessageUpdated, o
         todayEaten: context.todayEaten,
         todayBurn: context.todayBurn,
         mealCount: context.mealCount,
-        macroTargetCarb_g: context.macroTarget?.carb_g ?? null,
-        macroTargetProtein_g: context.macroTarget?.protein_g ?? null,
+        macroTargetCarb_g: effectiveCarbCeilingG(
+          context.clinicMacroMeters ?? [],
+          context.macroTarget?.carb_g,
+        ),
+        macroTargetProtein_g: clinicMacroRedesignActive(context.clinicMacroMeters)
+          ? hardAxis(context.clinicMacroMeters ?? [], 'protein_g')?.floor ?? null
+          : context.macroTarget?.protein_g ?? null,
       };
       const updated = await runAutoChecksAndPersist(msg, data);
       setCoachMsg(updated);

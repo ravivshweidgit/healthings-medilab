@@ -118,7 +118,14 @@ Pass clinic HARD bounds into:
 - mentor chat context
 - meal rule-check if it already receives markers
 
-Verbatim block, e.g. `HARD from clinic: protein_g floor 90 g/day; protein_g ceiling 113 g/day; net_carb_g ceiling 43 g/day`. Judgment in the prompt; clamp/reject in **code** after Gemini returns a point target so P/C/F/kcal cannot land outside HARD bands. If Gemini omits an unordered axis, leave phone point target as today.
+**Once clinic live macros exist for that day, leftover `daily_macro_target` is deleted**
+(phone store + clinic snapshot on rules Save / macros write) **and must not appear in Gemini
+prompts** (coach, chat USER DATA, PERIOD REVIEW, recipe/meal-plan, action-item fallbacks,
+clinic mentor chat). Clinic HARD axes only (`Clinic live macros: C ≥ 65g | C−Fi ≤ 43g | …`).
+Unordered axes are omitted from the prompt — do not fill them from the old phone point
+(C 80, P 112, …). Solo users with no clinic macro order still get the phone point line.
+
+Verbatim block, e.g. `HARD from clinic: protein_g floor 90 g/day; protein_g ceiling 113 g/day; net_carb_g ceiling 43 g/day`. Judgment in the prompt; clamp/reject in **code** after Gemini returns a point so P/C/F/kcal cannot land outside HARD bands. Auto-apply must **not** write `daily_macro_target` while clinic HARD macros apply today.
 
 Auto-apply must never emit a point that violates HARD (same as prompt110 markers). If conflict is unavoidable, keep the clinic bound and say so in reasoning.
 
@@ -136,7 +143,7 @@ Patient must **not** edit HARD clinic axes (view-only numbers + signs). Unordere
 ## Out of scope
 
 - Portal editor / propose Gemini → be-45
-- Replacing `daily_macro_target` schema with bounds-only (point target remains for unordered axes)
+- Replacing `daily_macro_target` schema with bounds-only (solo users still use the point; clinic HARD days delete it)
 - Translating clinic `reasoning` into `appLocale`
 - WebSocket live update (open / pull-to-refresh is live, same as rules)
 
@@ -155,6 +162,8 @@ Patient must **not** edit HARD clinic axes (view-only numbers + signs). Unordere
 - [ ] Yesterday with a session resolves from yesterday's activity, not today's
 - [ ] Backup / restore keeps bounds
 - [ ] he UI: labels RTL, `90–113g` LTR
+- [ ] Save meal: no leftover `daily_macro_target` (e.g. יעד 80) in the alert or Gemini when clinic HARD exists; mentor line is `Clinic live macros: …` only
+- [ ] Clinic HARD pull / Rules Save: phone `daily_macro_target` gone; clinic chat prompt uses overlay HARD, not snapshot C 80
 
 ## Related
 

@@ -74,6 +74,16 @@ import {
   type DirectiveMacroSummary,
 } from '../services/GeminiService';
 import { captureMacroGeminiPrompt } from '../services/macroPromptExport';
+import { foodLogDayKey } from '../services/FoodLogService';
+import {
+  clinicMacroMetersApplyToDay,
+  clinicMacroRedesignActive,
+  clinicMacrosHardBlock,
+  clinicHardMacrosApplyToday,
+  formatEffectiveDailyMacroTargetLine,
+  loadClinicMacroBounds,
+  resolveClinicMacroMeters,
+} from '../services/ClinicMacroBoundsService';
 import {
   appendMacroRevisionLog,
   getMacroRevisionLog,
@@ -767,13 +777,15 @@ export async function buildMacroRevisionBundle(opts: {
   const weightTrend14 = formatWeightTrendLines(store.bodyTrendDays, 14);
   const weightDelta14dKg = weightDeltaKg(store.bodyTrendDays, 14);
   const bodyTrend28 = formatBodyCompTrendLines(store.bodyTrendDays, 28);
-  const [labs, kidneyLabStatus, lipidLabStatus, glycemicLabStatus, treatStore] = await Promise.all([
-    buildLabsForMacroRevision(),
-    getLatestKidneyLabStatus(),
-    getLatestLipidLabStatus(),
-    getLatestGlycemicLabStatus(),
-    loadTreatmentMarkers(),
-  ]);
+  const [labs, kidneyLabStatus, lipidLabStatus, glycemicLabStatus, treatStore, clinicStore] =
+    await Promise.all([
+      buildLabsForMacroRevision(),
+      getLatestKidneyLabStatus(),
+      getLatestLipidLabStatus(),
+      getLatestGlycemicLabStatus(),
+      loadTreatmentMarkers(),
+      loadClinicMacroBounds(),
+    ]);
 
   const treatmentMarkersBlock =
     treatStore?.markers?.length ? treatmentMarkersHardBlock(treatStore.markers) : null;
@@ -818,8 +830,21 @@ export async function buildMacroRevisionBundle(opts: {
   }
   const hasDirectiveKcal = directiveMacros?.kcal != null && directiveMacros.kcal > 0;
 
-  const priorTargetsBlock =
-    macroTarget || recentSnaps.length > 0
+  const todayKey = foodLogDayKey(Date.now());
+  const clinicMeters = clinicMacroMetersApplyToDay(clinicStore, todayKey)
+    ? resolveClinicMacroMeters(clinicStore).filter((m) => m.strength === 'hard')
+    : [];
+  const redesign = clinicMacroRedesignActive(clinicMeters);
+
+  const priorTargetsBlock = redesign
+    ? [
+        formatEffectiveDailyMacroTargetLine(null, clinicMeters),
+        clinicMacrosHardBlock(clinicStore),
+        'Do not cite leftover phone daily_macro_target (C 80 / P 112 / …). Clinic HARD axes above own this revision. Unordered axes stay omitted here.',
+      ]
+        .filter(Boolean)
+        .join('\n')
+    : macroTarget || recentSnaps.length > 0
       ? [
           hasDirectiveKcal
             ? 'ACTIVE / RECENT MACRO TARGETS (context only — DIRECTIVE MACRO SUMMARY wins; large jumps from active targets are required):'
@@ -860,9 +885,11 @@ export async function buildMacroRevisionBundle(opts: {
     bodyTrend28,
     labs,
     period7,
-    hasDirectiveKcal
-      ? 'Derive daily macro TARGETS from DIRECTIVE MACRO SUMMARY first (HARD). Then P/C/Fi/net from directive/My Rules; fat fills remaining kcal.'
-      : 'Derive daily macro TARGETS from the raw data above (not meal advice). Start from ACTIVE targets above; only change what the data justifies. Large jumps need a clear clinical or adherence reason.',
+    redesign
+      ? 'Derive daily macro TARGETS from Clinic live macros HARD first. Do not start from leftover phone daily_macro_target. Unordered axes: fill only after HARD clamp.'
+      : hasDirectiveKcal
+        ? 'Derive daily macro TARGETS from DIRECTIVE MACRO SUMMARY first (HARD). Then P/C/Fi/net from directive/My Rules; fat fills remaining kcal.'
+        : 'Derive daily macro TARGETS from the raw data above (not meal advice). Start from ACTIVE targets above; only change what the data justifies. Large jumps need a clear clinical or adherence reason.',
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -1047,6 +1074,7 @@ export async function confirmSavedMacroTarget(
   target: DailyMacroTarget,
   trigger: MacroRevisionTrigger = 'dashboard-suggest',
 ): Promise<void> {
+  if (await clinicHardMacrosApplyToday()) return;
   await saveMacroTarget(target);
   const state = await getMacroAutoAdjustState();
   await saveMacroAutoAdjustState({
@@ -1283,6 +1311,23 @@ export async function applyAutoMacroRevision(opts: {
   }
 
   const target = macroSuggestionToDailyTarget(stabilized, userRules, mentors);
+  if (await clinicHardMacrosApplyToday()) {
+    await appendMacroRevisionLog({
+      at: new Date().toISOString(),
+      trigger: opts.trigger,
+      triggerDetail: opts.triggerDetail,
+      source,
+      kcal: target.kcal,
+      protein_g: target.protein_g,
+      carb_g: target.carb_g,
+      fat_g: target.fat_g,
+      fiber_g: target.fiber_g ?? deriveFiberTargetFromCarbs(target.carb_g),
+      applied: false,
+      blockReason: 'clinic live macros own this day — leftover daily_macro_target not written',
+    });
+    await bumpState();
+    return null;
+  }
   await saveMacroTarget(target);
 
   await saveMacroAutoAdjustState({

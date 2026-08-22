@@ -16,7 +16,7 @@ import {
 import { formatLocalizedDate, formatLocalizedTime } from '../i18n/dateLocale';
 import { suggestMacroTargets, confirmSavedMacroTarget, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
 import { contentAlignStyle } from '../logic/textDirection';
-import { buildAndExportMacroPrompt } from '../services/macroPromptExport';
+import { clinicHardMacrosApplyToday } from '../services/ClinicMacroBoundsService';
 import { RulesAdviceBanner } from './RulesAdviceBanner';
 import { MacroClinicalProfileBanner } from './MacroClinicalProfileBanner';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
@@ -480,15 +480,17 @@ export function MacroTargetStrip({
       kcal: k,
       analyzedAt: new Date().toISOString(),
     });
-    await saveMacroTarget(updated, { userEdited: true });
+    if (!(await clinicHardMacrosApplyToday())) {
+      await saveMacroTarget(updated, { userEdited: true });
+      setTarget(updated);
+      onSaved?.(updated);
+    }
     const wRaw = parseLocaleNumber(editWater);
     const w = wRaw != null ? Math.round(displayToMl(wRaw, unitsPrefs.water)) : NaN;
     if (!isNaN(w) && w > 0 && w !== waterGoalMl) {
       await setWaterGoalMl(w);
       setWaterGoalMlState(w);
     }
-    setTarget(updated);
-    onSaved?.(updated);
     setSuggestion(null);
     setEditBaseline(null);
     setScreen('active');

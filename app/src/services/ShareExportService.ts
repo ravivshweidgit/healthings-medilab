@@ -17,6 +17,7 @@ import {
   type MetricsPersistedStore,
 } from './MetricsPersistenceService';
 import { getClientIdentity } from './ClientIdentity';
+import { clinicHardMacrosApplyToday } from './ClinicMacroBoundsService';
 const LEGACY_WITHINGS_STORE_KEY = 'healthings:withingsStore';
 
 /** Standard clinic snapshot window — ~1y; gzip typically well under 1 MB. */
@@ -213,6 +214,10 @@ export async function buildClinicExport(
     const json = JSON.stringify(canonicalMetrics);
     asyncStorage[METRICS_STORE_KEY] =
       lookbackMode !== 'full' ? trimMetricsStore(json, cutoffDay) : json;
+  }
+
+  if (await clinicHardMacrosApplyToday()) {
+    delete asyncStorage['daily_macro_target'];
   }
 
   return {

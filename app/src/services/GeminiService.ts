@@ -55,6 +55,13 @@ import {
 import { detectChatIntent, isGlucoseDeepDiveQuery, isGlucoseQuery, type ChatIntent } from '../logic/chatIntent';
 import { resolveMentorGender } from '../logic/mentorLabels';
 import { formatUserRulesLines, formatUserRulesBlock, formatMacroRevisionRulesBlock, MEAL_FAT_RULE_FLAGGING_GUIDANCE } from '../logic/userRulesContext';
+import {
+  clinicMacroRedesignActive,
+  effectiveCarbCeilingG,
+  formatEffectiveDailyMacroTargetLine,
+  hardAxis,
+  type ResolvedAxisMeter,
+} from './ClinicMacroBoundsService';
 
 /**
  * Unit symbols stay English in every language (language-policy glossary).
@@ -190,9 +197,23 @@ function defaultFoodAnalysisPrompt(
   return 'What food is in this photo? Give me the macros.' + jsonReminder;
 }
 
+function promptCarbCeilingG(ctx: CoachContext): number | null {
+  return effectiveCarbCeilingG(ctx.clinicMacroMeters ?? [], ctx.macroTarget?.carb_g);
+}
+
+function promptProteinFloorG(ctx: CoachContext): number | null {
+  const meters = ctx.clinicMacroMeters ?? [];
+  if (clinicMacroRedesignActive(meters)) {
+    return hardAxis(meters, 'protein_g')?.floor ?? null;
+  }
+  return ctx.macroTarget?.protein_g ?? null;
+}
+
 function coachJsonExample(ctx: CoachContext): string {
-  const carb = Math.round(ctx.macroTarget?.carb_g ?? 35);
-  const protein = Math.round(ctx.macroTarget?.protein_g ?? 140);
+  const carbCap = promptCarbCeilingG(ctx);
+  const protein = promptProteinFloorG(ctx) != null
+    ? Math.round(promptProteinFloorG(ctx)!)
+    : 140;
   const code = ctx.lang?.code ?? 'en';
   const he = code === 'he';
   const active = MENTOR_PRIORITY.filter((m) => ctx.mentors.includes(m));
@@ -231,8 +252,9 @@ function coachJsonExample(ctx: CoachContext): string {
     improveObj[m] = [improveBy[m]];
     actionParts.push(actionBy[m]);
   }
-  // Show the nutritionist a second auto-checkable item so carbs_under_target appears.
-  if (ctx.mentors.includes('nutritionist')) {
+  // Caps only: HARD C floor (C ≥ 65) must not emit "stay under 80".
+  if (ctx.mentors.includes('nutritionist') && carbCap != null) {
+    const carb = Math.round(carbCap);
     actionParts.push(
       he
         ? `{"text":"להישאר מתחת ל-${carb}g פחמימות","mentor":"nutritionist","autoCheckType":"carbs_under_target"}`
@@ -312,28 +334,32 @@ function capPerMentor(
 function buildNutritionistActionItems(ctx: CoachContext): CoachActionItem[] {
   const code = ctx.lang?.code ?? 'en';
   const he = code === 'he';
-  const carb = ctx.macroTarget?.carb_g;
-  const protein = ctx.macroTarget?.protein_g;
+  const carb = promptCarbCeilingG(ctx);
+  const protein = promptProteinFloorG(ctx);
   const ts = Date.now();
   const items: CoachActionItem[] = [];
-  items.push({
-    id: `nut-${ts}-c`,
-    text: he
-      ? carb != null ? `להישאר מתחת ל-${Math.round(carb)}g פחמימות` : 'לשמור על יעד הפחמימות'
-      : carb != null ? `Stay under ${Math.round(carb)}g carbs` : 'Stay within carb target',
-    done: false,
-    autoCheckType: 'carbs_under_target',
-    mentor: 'nutritionist',
-  });
-  items.push({
-    id: `nut-${ts}-p`,
-    text: he
-      ? protein != null ? `להגיע ל-${Math.round(protein)}g חלבון` : 'להגיע ליעד החלבון'
-      : protein != null ? `Hit ${Math.round(protein)}g protein` : 'Hit protein target',
-    done: false,
-    autoCheckType: 'protein_over_target',
-    mentor: 'nutritionist',
-  });
+  if (carb != null) {
+    items.push({
+      id: `nut-${ts}-c`,
+      text: he
+        ? `להישאר מתחת ל-${Math.round(carb)}g פחמימות`
+        : `Stay under ${Math.round(carb)}g carbs`,
+      done: false,
+      autoCheckType: 'carbs_under_target',
+      mentor: 'nutritionist',
+    });
+  }
+  if (protein != null) {
+    items.push({
+      id: `nut-${ts}-p`,
+      text: he
+        ? `להגיע ל-${Math.round(protein)}g חלבון`
+        : `Hit ${Math.round(protein)}g protein`,
+      done: false,
+      autoCheckType: 'protein_over_target',
+      mentor: 'nutritionist',
+    });
+  }
   return items;
 }
 
@@ -356,9 +382,11 @@ function actionItemTextForCheck(
   ctx: CoachContext,
 ): string | null {
   const code = ctx.lang?.code ?? 'en';
-  const carb = ctx.macroTarget?.carb_g;
-  const protein = ctx.macroTarget?.protein_g;
-  const kcal = ctx.macroTarget?.kcal;
+  const carb = promptCarbCeilingG(ctx);
+  const protein = promptProteinFloorG(ctx);
+  const kcal = clinicMacroRedesignActive(ctx.clinicMacroMeters)
+    ? hardAxis(ctx.clinicMacroMeters ?? [], 'kcal')?.ceiling ?? null
+    : ctx.macroTarget?.kcal;
   if (type === 'carbs_under_target' && carb != null) {
     const c = Math.round(carb);
     return code === 'he' ? `להישאר מתחת ל-${c}g פחמימות` : `Stay under ${c}g carbs`;
@@ -394,8 +422,8 @@ function isValidActionItemText(text: string): boolean {
 
 function buildFallbackActionItems(ctx: CoachContext): CoachActionItem[] {
   const code = ctx.lang?.code ?? 'en';
-  const carb = ctx.macroTarget?.carb_g;
-  const protein = ctx.macroTarget?.protein_g;
+  const carb = promptCarbCeilingG(ctx);
+  const protein = promptProteinFloorG(ctx);
   const ts = Date.now();
   const hasCoach = ctx.mentors.includes('coach');
   const hasNutritionist = ctx.mentors.includes('nutritionist');
@@ -415,8 +443,12 @@ function buildFallbackActionItems(ctx: CoachContext): CoachActionItem[] {
         };
   const items: CoachActionItem[] = [];
   if (hasNutritionist) {
-    items.push({ id: `fb-${ts}-0`, text: labels.carbs, done: false, autoCheckType: 'carbs_under_target', mentor: 'nutritionist' });
-    items.push({ id: `fb-${ts}-1`, text: labels.protein, done: false, autoCheckType: 'protein_over_target', mentor: 'nutritionist' });
+    if (carb != null) {
+      items.push({ id: `fb-${ts}-0`, text: labels.carbs, done: false, autoCheckType: 'carbs_under_target', mentor: 'nutritionist' });
+    }
+    if (protein != null) {
+      items.push({ id: `fb-${ts}-1`, text: labels.protein, done: false, autoCheckType: 'protein_over_target', mentor: 'nutritionist' });
+    }
   }
   if (hasCoach) {
     items.push({ id: `fb-${ts}-c`, text: labels.coach, done: false, autoCheckType: null, mentor: 'coach' });
@@ -2363,6 +2395,8 @@ export type CoachContext = {
   yesterdayMealsDetail?: string | null;
   // targets
   macroTarget: DailyMacroTarget | null;
+  /** HARD clinic meters for today — own that axis over daily_macro_target. */
+  clinicMacroMeters?: ResolvedAxisMeter[];
   bodyTarget: BodyTarget | null;
   userRules: UserRules | null;
   /** Clinic treatment markers HARD block (prompt110). */
@@ -2417,8 +2451,9 @@ function formatLocalTimeContext(now = new Date()): { clockLine: string; guidance
 /**
  * Pace daily targets to the current time of day, so the mentor judges "am I on track" relative to
  * how far the day has advanced — not as if the day were already over. Reach-targets (kcal, protein,
- * fat) are pro-rated linearly across a typical 07:00–23:00 eating window; carbs stay a FULL-DAY
- * ceiling (keto: stay under all day, never pro-rated up).
+ * fat) are pro-rated linearly across a typical 07:00–23:00 eating window. Carbs: clinic HARD ceiling
+ * (or the phone point if unordered) is a full-day cap; clinic HARD floor (C ≥ N) is a full-day floor,
+ * never a leftover point cap.
  */
 function formatDayPacingLine(ctx: CoachContext, now = new Date(), omitTargets = false): string {
   const START_HOUR = 7;
@@ -2428,12 +2463,35 @@ function formatDayPacingLine(ctx: CoachContext, now = new Date(), omitTargets = 
   const pct = Math.round(frac * 100);
   const timeStr = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   const mt = ctx.macroTarget;
+  const meters = ctx.clinicMacroMeters ?? [];
+  const redesign = clinicMacroRedesignActive(meters);
+  const carbHard = hardAxis(meters, 'carb_g');
 
   const base = `DAY PACING (judge intake by the hour, NOT as if the day is over): now ${timeStr}, ~${pct}% through the typical 07:00–23:00 eating window.`;
-  const guide =
-    !omitTargets && mt != null
-      ? ` On-pace-by-now (linear guide for reach-targets): ~${Math.round(mt.kcal * frac)} kcal | P${Math.round(mt.protein_g * frac)}g | F${Math.round(mt.fat_g * frac)}g. Carbs ${Math.round(mt.carb_g)}g is a FULL-DAY CEILING (stay under all day — do NOT pro-rate).`
-      : '';
+  let guide = '';
+  if (!omitTargets) {
+    if (redesign) {
+      const pFloor = hardAxis(meters, 'protein_g')?.floor;
+      const kcalCap = hardAxis(meters, 'kcal')?.ceiling;
+      const reachBits = [
+        kcalCap != null ? `~${Math.round(kcalCap * frac)} kcal` : null,
+        pFloor != null ? `P${Math.round(pFloor * frac)}g` : null,
+      ].filter(Boolean);
+      const reach = reachBits.length
+        ? ` On-pace-by-now (clinic live macros only): ${reachBits.join(' | ')}.`
+        : '';
+      if (carbHard?.floor != null && carbHard.ceiling == null) {
+        guide = `${reach} Carbs ≥ ${Math.round(carbHard.floor)}g is a FULL-DAY FLOOR (clinic HARD). Do not cite a leftover phone carb point.`;
+      } else if (carbHard?.ceiling != null) {
+        guide = `${reach} Carbs ${Math.round(carbHard.ceiling)}g is a FULL-DAY CEILING (clinic HARD — stay under all day, do NOT pro-rate).`;
+      } else {
+        guide = reach;
+      }
+    } else if (mt != null) {
+      const reach = ` On-pace-by-now (linear guide for reach-targets): ~${Math.round(mt.kcal * frac)} kcal | P${Math.round(mt.protein_g * frac)}g | F${Math.round(mt.fat_g * frac)}g.`;
+      guide = `${reach} Carbs ${Math.round(mt.carb_g)}g is a FULL-DAY CEILING (stay under all day — do NOT pro-rate).`;
+    }
+  }
   const rule =
     ' A shortfall that is normal for this hour is NOT a failure; only flag a genuine gap late in the day. Early morning with 0 eaten is expected.';
   return `${base}${guide}${rule}`;
@@ -2466,7 +2524,7 @@ function buildProfileTargetsHeader(ctx: CoachContext, opts?: { omitMacroTarget?:
     ...(ctx.unitsDisplayHint ? [ctx.unitsDisplayHint] : []),
     `Goals: target weight ${n(bt?.targetWeight_kg ?? null, ' kg')} | target fat ${n(bt?.targetFatPct ?? null, '%')} | target muscle ${n(bt?.targetMuscleMass_kg ?? null, ' kg')} | start weight ${n(ctx.startWeight_kg, ' kg')} | start muscle ${n(ctx.startMuscle_kg, ' kg')}`,
     ...(!omitMacroTarget
-      ? [`Daily macro target: ${n(mt?.kcal ?? null, ' kcal')} | P ${n(mt?.protein_g ?? null, 'g')} | C ${n(mt?.carb_g ?? null, 'g')} | F ${n(mt?.fat_g ?? null, 'g')} | Fi ${n(mt?.fiber_g ?? null, 'g')}`]
+      ? [formatEffectiveDailyMacroTargetLine(mt, ctx.clinicMacroMeters ?? [])]
       : []),
     ...(ctx.nutritionDirectiveContext ? [ctx.nutritionDirectiveContext] : []),
     ...(ctx.userRules ? formatUserRulesForContext(ctx.userRules) : []),
@@ -2508,13 +2566,14 @@ export async function generateCoachMessage(ctx: CoachContext): Promise<CoachMess
   // the complete picture (yesterday, 24/7 HR, visceral, full CGM), not just today's summary.
   const snapshot = await buildPeriodReviewBlock(
     { mode: 'days', days: 2 },
-    ctx.macroTarget,
+    clinicMacroRedesignActive(ctx.clinicMacroMeters) ? null : ctx.macroTarget,
     ctx.glucoseHistory,
+    { clinicMacroMeters: ctx.clinicMacroMeters ?? [] },
   ).catch(() => '');
 
   const jsonExample = coachJsonExample(ctx);
-  const carbTarget = ctx.macroTarget?.carb_g;
-  const proteinTarget = ctx.macroTarget?.protein_g;
+  const carbTarget = promptCarbCeilingG(ctx);
+  const proteinTarget = promptProteinFloorG(ctx);
 
   const snapshotSection = snapshot
     ? `\n\n${snapshot}\n(The PERIOD REVIEW above is your COMPLETE today+yesterday data and your ONLY source for collected values — body incl. visceral + BMR, 24/7 HR, energy in/out/balance, full food logs, full CGM with meal impact, every workout with HR. Read all numbers from it; the USER DATA header above carries only profile, goals and macro targets for the autoCheckType keys.)`
@@ -2537,8 +2596,8 @@ Rules:
   - Coach 💪 items: movement, muscle, training, or body-composition (autoCheckType null).
   - Doctor 🩺 items: safety / clinical follow-up (autoCheckType null).
 - autoCheckType keys are always English: "carbs_under_target", "protein_over_target", "calorie_deficit", "meal_logged", or null.
-- carbs_under_target MUST cite carb target ${carbTarget != null ? `${Math.round(carbTarget)}g` : 'from the Daily macro target line'} — never use generic 20g keto defaults
-- protein_over_target MUST cite protein target ${proteinTarget != null ? `${Math.round(proteinTarget)}g` : 'from the Daily macro target line'}
+- carbs_under_target MUST cite a carb *ceiling* ${carbTarget != null ? `${Math.round(carbTarget)}g` : 'from Clinic live macros'} — never use generic 20g keto defaults. If Clinic live macros show C ≥ N (floor only) or there is no carb ceiling, do NOT emit carbs_under_target and do NOT cite a leftover phone daily_macro_target.
+- protein_over_target MUST cite protein ${proteinTarget != null ? `${Math.round(proteinTarget)}g` : 'from Clinic live macros / Daily macro target'} — never a leftover phone point when Clinic live macros exist.
 - Dietary rules in USER DATA (My Rules) override any generic diet assumptions; when asked what the user's rules are, quote the My Rules text verbatim — do NOT paraphrase vaguely or invent rules
 - When LAB RESULTS is in USER DATA, never claim labs are missing; cite exact values for cholesterol, CBC, kidney, liver, glucose when relevant; informational only — not a diagnosis
 - If event is meal: focus on remaining macros for the day. If weigh-in: trend vs target, muscle vs start. If workout: calorie budget + HR during session vs resting baseline from the WORKOUTS lines in the PERIOD REVIEW.
@@ -2794,11 +2853,16 @@ function buildChatContextBlocks(
   const reviewRequest: PeriodReviewRequest = periodRequest ?? { mode: 'days', days: 2 };
   const snapshot = buildPeriodReviewBlock(
     reviewRequest,
-    periodRequest ? null : ctx.macroTarget,
+    periodRequest
+      ? null
+      : clinicMacroRedesignActive(ctx.clinicMacroMeters)
+        ? null
+        : ctx.macroTarget,
     ctx.glucoseHistory,
     {
       includeLabHistory: Boolean(periodRequest),
       rawDataOnly: Boolean(periodRequest),
+      clinicMacroMeters: periodRequest ? [] : (ctx.clinicMacroMeters ?? []),
     },
   );
   const snapshotInstruction = periodRequest ? PERIOD_REVIEW_CHAT_INSTRUCTION : DEFAULT_SNAPSHOT_INSTRUCTION;
