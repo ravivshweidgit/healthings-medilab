@@ -7,6 +7,8 @@
   const WITHINGS_KEY = 'healthings:withingsStore';
   const COACH_KEY = 'coach_message_today';
   const MACRO_KEY = 'daily_macro_target';
+  const MACRO_BY_DAY_KEY = 'macro_target_by_day_v1';
+  const REBUILD_RECOVERY_DAYS = 2;
   const RULES_KEY = 'user_rules';
   const MENTOR_KEY = 'user_mentors';
   const NUTRITION_DIRECTIVES_KEY = 'nutrition_directives_v1';
@@ -173,11 +175,19 @@
       if (metricsRaw) withings = JSON.parse(metricsRaw);
     } catch { /* */ }
     try { if (store[MACRO_KEY]) macroTarget = JSON.parse(store[MACRO_KEY]); } catch { /* */ }
+    let macroTargetByDay = {};
+    try {
+      if (store[MACRO_BY_DAY_KEY]) {
+        const byDay = JSON.parse(store[MACRO_BY_DAY_KEY]);
+        if (byDay && typeof byDay === 'object') macroTargetByDay = byDay;
+      }
+    } catch { /* */ }
     try { if (store[RULES_KEY]) userRules = JSON.parse(store[RULES_KEY]); } catch { /* */ }
     try { if (store[COACH_KEY]) coachMsg = JSON.parse(store[COACH_KEY]); } catch { /* */ }
     try { if (store[MENTOR_KEY]) mentors = JSON.parse(store[MENTOR_KEY]); } catch { /* */ }
 
-    const treatmentMarkers = parseTreatmentMarkersFromStore(store);
+    const treatmentMarkersStore = parseTreatmentMarkersStore(store);
+    const treatmentMarkers = treatmentMarkersStore?.markers || null;
 
     const appChat = parseAppChatFromStore(store);
 
@@ -236,7 +246,9 @@
       glucose: cgm?.glucose || [],
       withings,
       macroTarget,
+      macroTargetByDay,
       treatmentMarkers,
+      treatmentMarkersStore,
       bodyTarget,
       userRules,
       coachMsg,
@@ -253,7 +265,7 @@
   }
 
   /** Phone AsyncStorage key — same shape ClinicOverlayService writes. */
-  function parseTreatmentMarkersFromStore(store) {
+  function parseTreatmentMarkersStore(store) {
     try {
       const raw = store?.[TREATMENT_MARKERS_KEY];
       if (!raw) return null;
@@ -264,9 +276,15 @@
           ? parsed
           : null;
       if (!list?.length) return null;
-      return list.filter(
+      const markers = list.filter(
         (m) => m && typeof m.marker === 'string' && Number.isFinite(Number(m.dailyTarget)) && Number(m.dailyTarget) > 0,
       );
+      if (!markers.length) return null;
+      return {
+        markers,
+        updatedAt: typeof parsed?.updatedAt === 'string' ? parsed.updatedAt : '',
+        history: Array.isArray(parsed?.history) ? parsed.history : [],
+      };
     } catch {
       return null;
     }
@@ -453,13 +471,43 @@
   function macroBar(label, val, tgt, tone, unit, opts) {
     const u = unit === undefined ? 'g' : unit;
     const goalIsFloor = !!opts?.goalIsFloor;
-    const ratio = tgt > 0 ? Math.min(1, val / tgt) : 0;
-    const over = !goalIsFloor && tgt > 0 && val > tgt * 1.05;
-    const text = tgt
-      ? `${Math.round(val).toLocaleString()}/${Math.round(tgt).toLocaleString()}${u}`
-      : `${Math.round(val).toLocaleString()}${u}`;
-    const fillClass = over ? 'macro-fill-over' : 'macro-fill-' + tone;
-    return `<div class="macro-row"><span>${esc(label)}</span><div class="track"><div class="fill ${fillClass}" style="width:${ratio * 100}%"></div></div><span class="${over ? 'macro-over' : ''}">${text}</span></div>`;
+    const clinicFloor = opts?.clinicFloor;
+    const clinicCeiling = opts?.clinicCeiling;
+    const hasBand = clinicFloor != null && clinicCeiling != null && clinicFloor > 0 && clinicCeiling > 0;
+    const hasClinicCeiling = clinicCeiling != null && clinicCeiling > 0 && clinicFloor == null;
+    const hasClinicFloor = clinicFloor != null && clinicFloor > 0 && clinicCeiling == null;
+    const effectiveTarget = hasBand
+      ? clinicCeiling
+      : hasClinicCeiling
+        ? clinicCeiling
+        : hasClinicFloor
+          ? clinicFloor
+          : tgt;
+    const ratio = effectiveTarget > 0 ? Math.min(1, val / effectiveTarget) : 0;
+    const over = hasBand
+      ? val < clinicFloor || val > clinicCeiling
+      : hasClinicCeiling
+        ? val > clinicCeiling
+        : !goalIsFloor && !hasClinicFloor && tgt > 0 && val > tgt * 1.05;
+    const underFloor = hasClinicFloor && val < clinicFloor;
+    const bad = over || underFloor;
+    const suffix = u === '' || u == null ? '' : u;
+    let text;
+    if (hasBand) {
+      text = `${Math.round(val)}  ${Math.round(clinicFloor)}–${Math.round(clinicCeiling)}${suffix}`;
+    } else if (hasClinicCeiling) {
+      text = `${Math.round(val)} ≤ ${Math.round(clinicCeiling)}${suffix}`;
+    } else if (hasClinicFloor) {
+      text = `${Math.round(val)} ≥ ${Math.round(clinicFloor)}${suffix}`;
+    } else if (tgt) {
+      text = `${Math.round(val)} / ${Math.round(tgt)}${suffix}`;
+    } else {
+      text = `${Math.round(val)}${suffix}`;
+    }
+    const pctInline = String(opts?.clinicCaption || '').match(/^(\d+(?:\.\d+)?)%/);
+    if (pctInline) text = `${text}  ${pctInline[1]}%`;
+    const fillClass = bad ? 'macro-fill-over' : 'macro-fill-' + tone;
+    return `<div class="macro-row"><span>${esc(label)}</span><div class="track"><div class="fill ${fillClass}" style="width:${ratio * 100}%"></div></div><span class="${bad ? 'macro-over' : ''}">${text}</span></div>`;
   }
 
   /** Sum meal/item treatment markers for the day (same rules as app dayMarkerTotals). */
@@ -498,17 +546,26 @@
     if (!markers.length) return '';
     const codes = markers.map((m) => m.marker).filter(Boolean);
     const totals = dayMarkerTotals(meals, codes);
+    const clinicSigns = !!opts?.clinicSigns;
     const rows = markers
       .map((m) => {
         const val = totals[m.marker];
         const hasVal = val != null && Number.isFinite(val);
+        const isFloor = m.direction === 'floor';
+        const tgt = m.dailyTarget;
         return macroBar(
           markerLabel(m.marker),
           hasVal ? val : 0,
-          m.dailyTarget,
+          tgt,
           'treat',
           m.unit === 'mg' ? 'mg' : m.unit === 'mcg' ? 'mcg' : 'g',
-          { goalIsFloor: m.direction === 'floor' },
+          {
+            goalIsFloor: isFloor,
+            clinicFloor: clinicSigns && isFloor ? tgt : undefined,
+            clinicCeiling: clinicSigns && !isFloor ? tgt : undefined,
+            clinicCaption:
+              clinicSigns && m.percentOfEnergy != null ? `${m.percentOfEnergy}%` : undefined,
+          },
         );
       })
       .join('');
@@ -610,12 +667,19 @@
     const dk = ctx.foodDayKey || todayKey();
     const meals = [...(ctx.parsed.mealsByDay[dk] || [])].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     const macros = dailyMacros(meals);
-    const target = leftoverPhoneMacroTarget(ctx.parsed, ctx.overlay);
+    const applyClinic = clinicMacroMetersApplyToDay(ctx.overlay, dk);
     const eaten = Math.round(macros.kcal);
     const burn = ctx.parsed.burnByDay[dk] ?? null;
     const parts = burnPartsForDay(ctx.parsed.withings, dk, burn);
     const burnedTotal = parts.total ?? burn;
     const balance = burnedTotal != null && eaten > 0 ? eaten - burnedTotal : null;
+    const clinicMeters = applyClinic
+      ? resolveClinicMacroMeters(ctx.overlay?.macros, { activityKcal: parts.activity }).filter(
+          (m) => m.strength === 'hard',
+        )
+      : [];
+    const meter = (axis) => clinicMeters.find((m) => m.axis === axis);
+    const target = leftoverPhoneMacroTargetForDay(ctx.parsed, ctx.overlay, dk);
     const isToday = dk >= todayKey();
     const fiberT = fiberTarget_g(target);
     const netEaten = Math.max(0, Math.round((macros.carb_g || 0) - (macros.fiber_g || 0)));
@@ -623,8 +687,18 @@
     const waterMl = ctx.parsed.waterByDay?.[dk] || 0;
     const waterGoal = ctx.parsed.waterGoalMl || DEFAULT_WATER_GOAL_ML;
     const isDeficit = balance != null && balance < 0;
-    const treatMarkers = effectiveTreatmentMarkers(ctx.parsed, ctx.overlay) || [];
-    const showBars = meals.length || target || waterMl > 0 || treatMarkers.length > 0;
+    const treatMarkers = treatmentMarkersForFoodLogDay(ctx.overlay, ctx.parsed, dk);
+    const showBars =
+      meals.length || target || clinicMeters.length > 0 || waterMl > 0 || treatMarkers.length > 0;
+    const axisOpts = (axis, extra) => {
+      const m = meter(axis);
+      return {
+        ...(extra || {}),
+        clinicFloor: m?.floor,
+        clinicCeiling: m?.ceiling,
+        clinicCaption: m?.caption,
+      };
+    };
 
     host.innerHTML = `
       <div class="food-log-card food-log-grid">
@@ -658,16 +732,16 @@
           </div>
           ${showBars ? `
           <div class="macro-bars">
-            ${target ? macroBar('kcal', eaten, target.kcal, 'kcal', '') : ''}
-            ${(meals.length || target) ? `
-            ${macroBar('P', macros.protein_g, target?.protein_g, 'p')}
-            ${macroBar('C', macros.carb_g, target?.carb_g, 'c')}
-            ${macroBar('F', macros.fat_g, target?.fat_g, 'f')}
-            ${macroBar('Fi', macros.fiber_g || 0, target ? fiberT : null, 'fi')}
-            ${macroBar('C-Fi', netEaten, netT, 'net')}
+            ${target || meter('kcal') ? macroBar('kcal', eaten, target?.kcal, 'kcal', '', axisOpts('kcal')) : ''}
+            ${(meals.length || target || clinicMeters.length) ? `
+            ${macroBar('P', macros.protein_g, target?.protein_g, 'p', 'g', axisOpts('protein_g'))}
+            ${macroBar('C', macros.carb_g, target?.carb_g, 'c', 'g', axisOpts('carb_g'))}
+            ${macroBar('F', macros.fat_g, target?.fat_g, 'f', 'g', axisOpts('fat_g'))}
+            ${macroBar('Fi', macros.fiber_g || 0, target ? fiberT : null, 'fi', 'g', axisOpts('fiber_g', { goalIsFloor: true }))}
+            ${macroBar('C-Fi', netEaten, netT, 'net', 'g', axisOpts('net_carb_g'))}
             ` : ''}
-            ${treatmentMarkerBarsHtml(meals, treatMarkers)}
-            ${macroBar('H2O', waterMl, waterGoal, 'h2o', 'ml')}
+            ${treatmentMarkerBarsHtml(meals, treatMarkers, { clinicSigns: clinicMeters.length > 0 })}
+            ${macroBar('H2O', waterMl, waterGoal, 'h2o', 'ml', { goalIsFloor: true })}
           </div>` : ''}
         </div>
         <div class="meal-chips-row">
@@ -1896,6 +1970,187 @@
 
   function leftoverPhoneMacroTarget(parsed, overlay) {
     return clinicLiveMacrosHard(overlay) ? null : parsed?.macroTarget || null;
+  }
+
+  function isDayKey(s) {
+    return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+  }
+
+  function localDayKeyFromMs(ms) {
+    const d = new Date(ms);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function lookbackFloorDayKey(fromDay, days) {
+    const [y, m, d] = fromDay.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() - days);
+    return localDayKeyFromMs(dt.getTime());
+  }
+
+  /** Same 2-day rebuild recovery as the phone — 21 Aug onward after an Aug 23 rebuild. */
+  function clinicMacroOrderEffectiveDayKey(overlay) {
+    const macros = overlay?.macros;
+    if (!macros?.bounds?.length) return null;
+    if (isDayKey(macros.effectiveFrom)) return macros.effectiveFrom;
+    const ms = Date.parse(macros.updatedAt || '');
+    if (Number.isNaN(ms)) return null;
+    return lookbackFloorDayKey(localDayKeyFromMs(ms), REBUILD_RECOVERY_DAYS);
+  }
+
+  function clinicMacroMetersApplyToDay(overlay, dayKey) {
+    if (!overlay?.macros?.bounds?.length || !dayKey) return false;
+    const from = clinicMacroOrderEffectiveDayKey(overlay);
+    if (!from) return true;
+    return dayKey >= from;
+  }
+
+  function leftoverPhoneMacroTargetForDay(parsed, overlay, dayKey) {
+    if (clinicMacroMetersApplyToDay(overlay, dayKey)) return null;
+    const store = parsed?.macroTargetByDay || {};
+    const snapKey = store[dayKey]
+      ? dayKey
+      : Object.keys(store)
+          .filter((k) => k <= dayKey)
+          .sort()
+          .pop();
+    const snap = snapKey ? store[snapKey] : null;
+    if (snap) {
+      return {
+        protein_g: snap.protein_g,
+        fat_g: snap.fat_g,
+        carb_g: snap.carb_g,
+        fiber_g: snap.fiber_g,
+        net_carb_g: snap.net_carb_g,
+        kcal: snap.kcal,
+      };
+    }
+    return parsed?.macroTarget || null;
+  }
+
+  function localDayKeyFromIso(iso) {
+    const ms = Date.parse(iso || '');
+    if (Number.isNaN(ms)) return null;
+    return localDayKeyFromMs(ms);
+  }
+
+  function markersForDay(store, dayKey) {
+    if (!store || !dayKey) return [];
+    const versions = [
+      ...(Array.isArray(store.history) ? store.history : []),
+      { updatedAt: store.updatedAt, markers: store.markers },
+    ];
+    let best = null;
+    for (const v of versions) {
+      const d = localDayKeyFromIso(v.updatedAt);
+      if (!d || d > dayKey) continue;
+      best = v.markers;
+    }
+    return Array.isArray(best) ? best : [];
+  }
+
+  function treatmentMarkersForFoodLogDay(overlay, parsed, dayKey) {
+    if (Array.isArray(overlay?.markers) && overlay.markers.length) {
+      return markersForDay(
+        {
+          markers: overlay.markers,
+          updatedAt: overlay.markersUpdatedAt || overlay.updatedAt,
+          history: overlay.markersHistory || [],
+        },
+        dayKey,
+      );
+    }
+    if (parsed?.treatmentMarkersStore) {
+      return markersForDay(parsed.treatmentMarkersStore, dayKey);
+    }
+    return parsed?.treatmentMarkers || [];
+  }
+
+  function resolvePercentGrams(percent, kcalBase, axis) {
+    if (axis === 'kcal') return Math.round((percent / 100) * kcalBase);
+    const denom = axis === 'fat_g' ? 9 : 4;
+    return Math.round(((percent / 100) * kcalBase) / denom * 10) / 10;
+  }
+
+  function resolveKcalCeilingForDay(bound, activityKcal) {
+    const base = Number(bound?.value);
+    if (!Number.isFinite(base) || base <= 0) return null;
+    const add = bound.activityAddBack;
+    if (!add || activityKcal == null) return base;
+    const thr = Number(add.thresholdKcal);
+    const cap = Number(add.capValue);
+    if (!Number.isFinite(thr) || !Number.isFinite(cap) || cap <= base) return base;
+    const extra = Math.max(0, Number(activityKcal) - thr);
+    if (extra <= 0) return base;
+    const ratio = Number.isFinite(Number(add.ratio)) ? Number(add.ratio) : 1;
+    return Math.min(base + extra * ratio, cap);
+  }
+
+  function resolveClinicMacroMeters(macros, opts) {
+    const bounds = macros?.bounds || [];
+    if (!bounds.length) return [];
+    const byAxis = new Map();
+    for (const b of bounds) {
+      const hasNum =
+        (b.value != null && Number(b.value) > 0) ||
+        (b.resolvedValue != null && Number(b.resolvedValue) > 0);
+      if (!hasNum) continue;
+      const slot = byAxis.get(b.axis) || {};
+      if (b.direction === 'floor') slot.floor = b;
+      else slot.ceiling = b;
+      byAxis.set(b.axis, slot);
+    }
+    const kcalCeiling = byAxis.get('kcal')?.ceiling;
+    const kcalBase = kcalCeiling?.value != null ? Number(kcalCeiling.value) : null;
+    const activityKcal = opts?.activityKcal;
+    const boosted = kcalCeiling != null ? resolveKcalCeilingForDay(kcalCeiling, activityKcal) : null;
+    const out = [];
+    for (const [axis, pair] of byAxis) {
+      const strength =
+        pair.floor?.strength === 'hard' || pair.ceiling?.strength === 'hard' ? 'hard' : 'flex';
+      const resolveOne = (b) => {
+        if (!b) return undefined;
+        if (b.axis === 'kcal' && b.direction === 'ceiling') {
+          return resolveKcalCeilingForDay(b, activityKcal);
+        }
+        if (b.kind === 'percent' && b.of === 'kcal_order') {
+          const base =
+            b.followsActivity && boosted != null
+              ? boosted
+              : kcalBase != null
+                ? kcalBase
+                : b.resolvedValue ?? null;
+          if (base == null) return b.resolvedValue != null ? Number(b.resolvedValue) : undefined;
+          return resolvePercentGrams(Number(b.value), base, axis);
+        }
+        return b.resolvedValue != null ? Number(b.resolvedValue) : Number(b.value);
+      };
+      const floor = resolveOne(pair.floor);
+      const ceiling = resolveOne(pair.ceiling);
+      let caption;
+      if (
+        axis === 'kcal' &&
+        kcalCeiling?.activityAddBack &&
+        boosted != null &&
+        kcalBase != null &&
+        boosted > kcalBase
+      ) {
+        caption = `${kcalBase} + ${Math.round(boosted - kcalBase)} activity`;
+      } else if (pair.ceiling?.kind === 'percent' && pair.ceiling.of === 'kcal_order' && kcalBase != null) {
+        caption = `${pair.ceiling.value}% of ${kcalBase}`;
+      }
+      out.push({
+        axis,
+        strength,
+        ...(floor != null && Number.isFinite(floor) ? { floor } : {}),
+        ...(ceiling != null && Number.isFinite(ceiling) ? { ceiling } : {}),
+        ...(caption ? { caption } : {}),
+      });
+    }
+    return out;
   }
 
   function overlayHardMacrosSub(overlay) {

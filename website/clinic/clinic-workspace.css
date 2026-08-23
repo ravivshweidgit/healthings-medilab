@@ -1423,11 +1423,16 @@ h3,
 .food-log-card .macro-bars { margin: 12px 0 16px; }
 .food-log-card .macro-row {
   display: grid;
-  grid-template-columns: 28px 1fr auto;
+  grid-template-columns: 36px 1fr minmax(88px, auto);
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
   font-size: 0.82rem;
+}
+.food-log-card .macro-row span:last-child {
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+  white-space: nowrap;
 }
 .food-log-card .macro-row .track {
   height: 8px;

@@ -8,7 +8,10 @@
 
 ## Problem
 
-The workspace **shows** P/C/F/Fi/C−Fi/kcal from the last phone snapshot. The nutritionist **cannot write** them. After a visit they save live **rules** (and markers), while the Food Log meters still follow whatever the phone last proposed.
+The workspace **shows** P/C/F/Fi/C−Fi/kcal from the last phone snapshot **and**, on/after
+`macros.effectiveFrom` (2-day rebuild recovery, same as the phone), the live clinic HARD ≤ ≥
+meters. Days before that keep leftover `eaten / target`. The nutritionist **cannot write**
+point targets. After a visit they save live **rules** (and markers).
 
 ## Goal (owner lock)
 
