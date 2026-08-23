@@ -12,6 +12,8 @@ export type ProfileSettingsStripCopy = {
   myMentors: string;
   myRules: string;
   myMacros: string;
+  /** Short CTA — rebuild live macros from My Rules. */
+  macrosUpdate: string;
   account: string;
   dataSharing: string;
   reports: string;
@@ -35,6 +37,7 @@ const EN: ProfileSettingsStripCopy = {
   myMentors: 'MENTORS',
   myRules: 'RULES',
   myMacros: 'MACROS',
+  macrosUpdate: 'Update',
   account: 'ACCOUNT',
   dataSharing: 'DATA SHARING',
   reports: 'REPORTS',
@@ -58,6 +61,7 @@ const HE: ProfileSettingsStripCopy = {
   myMentors: 'מנטורים',
   myRules: 'כללים',
   myMacros: 'מאקרו',
+  macrosUpdate: 'עדכון',
   account: 'חשבון',
   dataSharing: 'שיתוף נתונים',
   reports: 'דוחות',
@@ -81,6 +85,7 @@ const ES: ProfileSettingsStripCopy = {
   myMentors: 'MENTORES',
   myRules: 'REGLAS',
   myMacros: 'MACROS',
+  macrosUpdate: 'Actualizar',
   account: 'CUENTA',
   dataSharing: 'COMPARTIR DATOS',
   reports: 'INFORMES',
@@ -104,6 +109,7 @@ const FR: ProfileSettingsStripCopy = {
   myMentors: 'MENTORS',
   myRules: 'RÈGLES',
   myMacros: 'MACROS',
+  macrosUpdate: 'Actualiser',
   account: 'COMPTE',
   dataSharing: 'PARTAGE DE DONNÉES',
   reports: 'RAPPORTS',
@@ -127,6 +133,7 @@ const DE: ProfileSettingsStripCopy = {
   myMentors: 'MENTOREN',
   myRules: 'REGELN',
   myMacros: 'MAKROS',
+  macrosUpdate: 'Aktualisieren',
   account: 'KONTO',
   dataSharing: 'DATENFREIGABE',
   reports: 'BERICHTE',
@@ -150,6 +157,7 @@ const AR: ProfileSettingsStripCopy = {
   myMentors: 'المرشدون',
   myRules: 'القواعد',
   myMacros: 'الماكرو',
+  macrosUpdate: 'تحديث',
   account: 'الحساب',
   dataSharing: 'مشاركة البيانات',
   reports: 'التقارير',
@@ -173,6 +181,7 @@ const RU: ProfileSettingsStripCopy = {
   myMentors: 'НАСТАВНИКИ',
   myRules: 'ПРАВИЛА',
   myMacros: 'МАКРОСЫ',
+  macrosUpdate: 'Обновить',
   account: 'АККАУНТ',
   dataSharing: 'ОБМЕН ДАННЫМИ',
   reports: 'ОТЧЁТЫ',
@@ -196,6 +205,7 @@ const PT: ProfileSettingsStripCopy = {
   myMentors: 'MENTORES',
   myRules: 'REGRAS',
   myMacros: 'MACROS',
+  macrosUpdate: 'Atualizar',
   account: 'CONTA',
   dataSharing: 'COMPARTILHAMENTO',
   reports: 'RELATÓRIOS',
@@ -219,6 +229,7 @@ const IT: ProfileSettingsStripCopy = {
   myMentors: 'MENTOR',
   myRules: 'REGOLE',
   myMacros: 'MACRO',
+  macrosUpdate: 'Aggiorna',
   account: 'ACCOUNT',
   dataSharing: 'CONDIVISIONE DATI',
   reports: 'REPORT',
@@ -242,6 +253,7 @@ const TR: ProfileSettingsStripCopy = {
   myMentors: 'MENTORLAR',
   myRules: 'KURALLAR',
   myMacros: 'MAKROLAR',
+  macrosUpdate: 'Güncelle',
   account: 'HESAP',
   dataSharing: 'VERİ PAYLAŞIMI',
   reports: 'RAPORLAR',

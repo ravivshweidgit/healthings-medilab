@@ -1710,6 +1710,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       setMacroTarget(null);
       setEffectiveMacroTarget(null);
     }
+    return meters;
   }, []);
 
   const applyClinicOverlays = useCallback(async () => {
@@ -1725,10 +1726,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     const list = treat?.markers?.length ? treat.markers : [];
     setTreatmentMarkersList(list);
     setTreatmentMarkersHard(list.length ? treatmentMarkersHardBlock(list) : null);
-    await refreshClinicMacroMeters();
-    const [mt, effMt] = await Promise.all([getMacroTarget(), getEffectiveMacroTarget()]);
-    setMacroTarget(mt);
-    setEffectiveMacroTarget(effMt);
+    const meters = await refreshClinicMacroMeters();
+    foodMacroStripRef.current?.reload();
+    if (!meters.length) {
+      const [mt, effMt] = await Promise.all([getMacroTarget(), getEffectiveMacroTarget()]);
+      setMacroTarget(mt);
+      setEffectiveMacroTarget(effMt);
+    }
     const nudge = await loadLabMarkerNudge();
     setLabMarkerNudge(nudge);
     if (fromClinic.backfillResult) {
@@ -3604,6 +3608,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             userRules={userRules}
             mentors={mentors}
             savedTarget={macroTarget}
+            clinicMeters={clinicMacroMeters}
             onSaved={(t) => {
               setMacroTarget(t ?? null);
               setEffectiveMacroTarget(t ?? null);

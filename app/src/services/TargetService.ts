@@ -289,9 +289,9 @@ export async function clearMacroTarget(): Promise<void> {
 }
 
 /**
- * Clinic HARD live macros own the day: drop leftover phone point so it cannot
+ * Clinic HARD live macros own today: drop leftover phone point so it cannot
  * leak into Gemini, Share, or save alerts. Keep per-day snapshots *before*
- * the order day (Food Log history honesty).
+ * the order day so Food Log history can still paint eaten / target.
  */
 export async function clearLegacyPhoneMacroTarget(fromDayKey?: string | null): Promise<void> {
   await AsyncStorage.removeItem(MACRO_TARGET_KEY);
@@ -366,6 +366,14 @@ async function loadMacroTargetByDay(): Promise<MacroTargetByDayStore> {
   }
 }
 
+/** Earliest per-day leftover snapshot (YYYY-MM-DD), if any. */
+export async function earliestMacroTargetDayKey(): Promise<string | null> {
+  const keys = Object.keys(await loadMacroTargetByDay())
+    .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+    .sort();
+  return keys[0] ?? null;
+}
+
 async function saveMacroTargetByDay(store: MacroTargetByDayStore): Promise<void> {
   const keys = Object.keys(store).sort();
   if (keys.length > MACRO_TARGET_BY_DAY_MAX) {
@@ -397,10 +405,17 @@ export async function ensureMacroTargetDaySnapshot(): Promise<void> {
   await saveMacroTargetByDay(store);
 }
 
-/** Target numbers to judge a given calendar day (snapshot, else active). */
+/** Target numbers to judge a given calendar day (snapshot, else prior snapshot, else active). */
 export async function getMacroTargetForDay(dayKey: string): Promise<DailyMacroTarget | null> {
   const store = await loadMacroTargetByDay();
-  const snap = store[dayKey];
+  const snapKey =
+    store[dayKey]
+      ? dayKey
+      : Object.keys(store)
+          .filter((k) => k <= dayKey)
+          .sort()
+          .pop();
+  const snap = snapKey ? store[snapKey] : undefined;
   const active = await getMacroTarget();
   if (snap) {
     if (!active) {

@@ -29,13 +29,10 @@ import { LabReportModal } from './LabReportModal';
 import { NutritionDirectiveReviewModal } from './NutritionDirectiveReviewModal';
 import { CONFIG } from '../config/env';
 import { estimateBodyFromProfile } from '../logic/bmrEstimate';
-import {
-  confirmSavedMacroTarget,
-  suggestMacroTargets,
-} from '../logic/macroAutoAdjust';
+import { ClinicLiveMacroBars } from './ClinicLiveMacroBars';
+import { suggestMacroTargets } from '../logic/macroAutoAdjust';
 import {
   displayToKg,
-  formatEnergy,
   formatMass,
   heightCmToInput,
   coerceHeightInputForUnit,
@@ -51,6 +48,13 @@ import { healthKitService } from '../services/HealthKitService';
 import type { LabReport } from '../services/LabLogService';
 import { getManualBody, saveManualBody, type ManualBodySnapshot } from '../services/ManualBodyService';
 import { syncMetricsStore } from '../services/MetricsPersistenceService';
+import { foodLogDayKey } from '../services/FoodLogService';
+import {
+  clinicMacroMetersApplyToDay,
+  loadClinicMacroBounds,
+  resolveClinicMacroMeters,
+  type ResolvedAxisMeter,
+} from '../services/ClinicMacroBoundsService';
 import type { NutritionDirective } from '../services/NutritionDirectiveService';
 import { setOnboardingCompletedAt } from '../services/ProfileCompletenessService';
 import { fetchCurrentUser, updatePatientNames } from '../services/AuthApiService';
@@ -71,7 +75,6 @@ import {
   ensureQuickQuestionsForLanguage,
   getUserRules,
   getBodyTarget,
-  getMacroTarget,
   saveBodyTarget,
   setBirthdate,
   setGender,
@@ -81,7 +84,6 @@ import {
   setMentorGender,
   SUPPORTED_LANGUAGES,
   type BodyTarget,
-  type DailyMacroTarget,
   type Gender,
   type UserLanguage,
 } from '../services/TargetService';
@@ -1048,7 +1050,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
   const [targetsBusy, setTargetsBusy] = useState(false);
   const [targetsError, setTargetsError] = useState<string | null>(null);
   const [bodyTarget, setBodyTarget] = useState<BodyTarget | null>(null);
-  const [macroTarget, setMacroTarget] = useState<DailyMacroTarget | null>(null);
+  const [liveClinicMeters, setLiveClinicMeters] = useState<ResolvedAxisMeter[]>([]);
   const [usingSavedTargets, setUsingSavedTargets] = useState(false);
   const [rulesPreview, setRulesPreview] = useState<string | null>(null);
   const [manualBody, setManualBody] = useState<ManualBodySnapshot | null>(null);
@@ -1119,7 +1121,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
       setStepId('language');
       setStepError(null);
       setBodyTarget(null);
-      setMacroTarget(null);
+      setLiveClinicMeters([]);
       setTargetsError(null);
       setLabDone(false);
       setNutritionDone(false);
@@ -1415,16 +1417,23 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
       setTargetsBusy(true);
       setTargetsError(null);
       try {
-        const [existingBody, existingMacro, rules] = await Promise.all([
+        const [existingBody, rules] = await Promise.all([
           getBodyTarget(),
-          getMacroTarget(),
           getUserRules(),
         ]);
         setRulesPreview(rules ? formatUserRulesBlock(rules) : null);
 
-        if (!forceRegenerate && existingBody && existingMacro) {
+        const store = await loadClinicMacroBounds();
+        const dayKey = foodLogDayKey(Date.now());
+        const applyClinic = clinicMacroMetersApplyToDay(store, dayKey);
+        setLiveClinicMeters(
+          applyClinic
+            ? resolveClinicMacroMeters(store).filter((m) => m.strength === 'hard')
+            : [],
+        );
+
+        if (!forceRegenerate && existingBody) {
           setBodyTarget(existingBody);
-          setMacroTarget(existingMacro);
           setUsingSavedTargets(true);
           return;
         }
@@ -1439,11 +1448,8 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
         const cm = parseHeightInputToCm(heightInput, unitsPrefs.height) ?? 170;
         const bmi = body.weight_kg / ((cm / 100) ** 2);
         let proposedBody: BodyTarget;
-        if (!forceRegenerate && existingBody) {
-          proposedBody = existingBody;
-        } else {
-          try {
-            const ai = await suggestBodyTargets(
+        try {
+          const ai = await suggestBodyTargets(
               {
                 weight_kg: body.weight_kg,
                 fatPct: body.fat_pct,
@@ -1490,16 +1496,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
               targetWeeks: 12,
             };
           }
-        }
         setBodyTarget(proposedBody);
-
-        if (rules?.rawText?.trim()) {
-          try {
-            await suggestMacroTargets({ trigger: 'onboarding', lang: language });
-          } catch {
-            /* live rebuild is optional during Quick Start — Analyze later */
-          }
-        }
       } catch (e: unknown) {
         setTargetsError(e instanceof Error ? e.message : 'Could not generate targets.');
       } finally {
@@ -1700,8 +1697,13 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
         return;
       }
       await saveBodyTarget(bodyTarget);
-      if (macroTarget) {
-        await confirmSavedMacroTarget(macroTarget, 'onboarding');
+      const rules = await getUserRules();
+      if (rules?.rawText?.trim() && liveClinicMeters.length === 0) {
+        try {
+          await suggestMacroTargets({ trigger: 'onboarding', lang: language });
+        } catch {
+          /* Food Log Update later */
+        }
       }
       goToAdjacent(1);
     }
@@ -1723,7 +1725,8 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
     buildManualBody,
     runPermissions,
     bodyTarget,
-    macroTarget,
+    liveClinicMeters.length,
+    language,
     goToAdjacent,
     nudgeYesNoChoice,
     t.targets.waitOrRetry,
@@ -2383,7 +2386,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                   </Pressable>
                 </>
               ) : null}
-              {bodyTarget && macroTarget ? (
+              {bodyTarget ? (
                 <>
                   {usingSavedTargets ? (
                     <Text style={[styles.hint, copyAlign]}>{t.targets.usingSaved}</Text>
@@ -2397,22 +2400,23 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                     <Text style={[styles.optionTitle, copyAlign, { marginTop: 12 }]}>
                       {t.targets.dailyMacros}
                     </Text>
-                    <Text style={[styles.hint, copyAlign]}>
-                      {formatEnergy(macroTarget.kcal, unitsPrefs.energy)} · P{macroTarget.protein_g} ·
-                      C{macroTarget.carb_g} · F{macroTarget.fat_g}
-                      {macroTarget.fiber_g != null ? ` · Fi${macroTarget.fiber_g}` : ''}
-                    </Text>
-                    {macroTarget.rulesContext ? (
-                      <Text style={[styles.hint, copyAlign, { marginTop: 8 }]}>
-                        {t.targets.rulesApplied}: {macroTarget.rulesContext}
+                    {liveClinicMeters.length > 0 ? (
+                      <View style={{ marginTop: 8 }}>
+                        <ClinicLiveMacroBars
+                          meters={liveClinicMeters}
+                          energyUnit={unitsPrefs.energy}
+                        />
+                      </View>
+                    ) : (
+                      <Text style={[styles.hint, copyAlign]}>
+                        {t.targets.macrosNeedRules}
                       </Text>
-                    ) : null}
+                    )}
                   </View>
                   <Pressable
                     style={styles.btnGhost}
                     onPress={() => {
                       setBodyTarget(null);
-                      setMacroTarget(null);
                       setUsingSavedTargets(false);
                       void runTargetAi(true);
                     }}

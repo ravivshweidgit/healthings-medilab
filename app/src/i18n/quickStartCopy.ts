@@ -185,7 +185,8 @@ export type QuickStartCopy = {
     usingSaved: string;
     bodyTarget: string;
     dailyMacros: string;
-    rulesApplied: string;
+    macrosFromRules: string;
+    macrosNeedRules: string;
     regenerate: string;
   };
   meals: {
@@ -352,14 +353,15 @@ const EN: QuickStartCopy = {
   targets: {
     title: 'Your targets',
     helpLabel: 'Targets help',
-    lead: 'AI suggests body and macro targets from your profile.',
+    lead: 'AI suggests a body target from your profile. Macros come from My Rules — yours or the clinic’s — not from the profile.',
     waitOrRetry: 'Wait for targets or tap Retry.',
     retry: 'Retry',
     usingSaved:
-      'Using your saved targets — My Rules and prior edits are kept. Tap Regenerate only if you want fresh AI numbers.',
+      'Using your saved body target. Tap Regenerate only if you want a fresh AI number.',
     bodyTarget: 'Body target',
-    dailyMacros: 'Daily macros',
-    rulesApplied: 'Rules applied',
+    dailyMacros: 'Macros',
+    macrosFromRules: 'Live macros rebuilt from My Rules.',
+    macrosNeedRules: 'No My Rules yet — macros stay empty until you or your clinic write them.',
     regenerate: 'Regenerate with AI',
   },
   meals: {
@@ -526,14 +528,15 @@ const HE: QuickStartCopy = {
   targets: {
     title: 'היעדים שלכם',
     helpLabel: 'עזרה — יעדים',
-    lead: 'ה־AI מציע יעדי גוף ומאקרו לפי הפרופיל.',
+    lead: 'ה־AI מציע יעד גוף לפי הפרופיל. מאקרו נבנה מכללים שלי — שלך או של המרפאה — לא מהפרופיל.',
     waitOrRetry: 'מחכים ליעדים… או מנסים שוב.',
     retry: 'לנסות שוב',
     usingSaved:
-      'נשארים עם היעדים השמורים — כולל My Rules. «יצירה מחדש» רק אם רוצים מספרים חדשים מה־AI.',
+      'נשארים עם יעד הגוף השמור. «יצירה מחדש» רק אם רוצים מספר חדש מה־AI.',
     bodyTarget: 'יעד גוף',
-    dailyMacros: 'מאקרו ליום',
-    rulesApplied: 'כללים פעילים',
+    dailyMacros: 'מאקרו',
+    macrosFromRules: 'מאקרו חי נבנה מכללים שלי.',
+    macrosNeedRules: 'אין עדיין כללים שלי — מאקרו יישאר ריק עד שאתם או המרפאה תכתבו אותם.',
     regenerate: 'יצירה מחדש עם AI',
   },
   meals: {
@@ -699,14 +702,15 @@ const DE: QuickStartCopy = {
   targets: {
     title: 'Ihre Ziele',
     helpLabel: 'Hilfe — Ziele',
-    lead: 'Die KI schlägt Körper- und Makroziele aus Ihrem Profil vor.',
+    lead: 'Die KI schlägt ein Körperziel aus Ihrem Profil vor. Makros kommen aus My Rules — Ihre oder die der Praxis — nicht aus dem Profil.',
     waitOrRetry: 'Ziele werden geladen… oder erneut versuchen.',
     retry: 'Erneut versuchen',
     usingSaved:
-      'Gespeicherte Ziele bleiben — inklusive My Rules. „Neu erzeugen“ nur, wenn Sie frische KI-Zahlen wollen.',
+      'Gespeichertes Körperziel bleibt. „Neu erzeugen“ nur, wenn Sie eine frische KI-Zahl wollen.',
     bodyTarget: 'Körperziel',
-    dailyMacros: 'Makros pro Tag',
-    rulesApplied: 'Aktive Regeln',
+    dailyMacros: 'Makros',
+    macrosFromRules: 'Live-Makros aus My Rules neu gebaut.',
+    macrosNeedRules: 'Noch keine My Rules — Makros bleiben leer, bis Sie oder die Praxis sie schreiben.',
     regenerate: 'Neu erzeugen mit AI',
   },
   meals: {
@@ -872,14 +876,15 @@ const ES: QuickStartCopy = {
   targets: {
     title: 'Sus objetivos',
     helpLabel: 'Ayuda — objetivos',
-    lead: 'La IA propone objetivos de cuerpo y macros según su perfil.',
+    lead: 'La IA propone un objetivo corporal según su perfil. Los macros salen de My Rules — suyos o de la clínica — no del perfil.',
     waitOrRetry: 'Cargando objetivos… o inténtelo de nuevo.',
     retry: 'Reintentar',
     usingSaved:
-      'Se mantienen los objetivos guardados — incluido My Rules. «Regenerar» solo si quiere cifras nuevas de la IA.',
+      'Se mantiene el objetivo corporal guardado. «Regenerar» solo si quiere una cifra nueva de la IA.',
     bodyTarget: 'Objetivo corporal',
-    dailyMacros: 'Macros al día',
-    rulesApplied: 'Reglas activas',
+    dailyMacros: 'Macros',
+    macrosFromRules: 'Macros en vivo reconstruidos desde My Rules.',
+    macrosNeedRules: 'Aún no hay My Rules — los macros quedan vacíos hasta que usted o la clínica los escriban.',
     regenerate: 'Regenerar con AI',
   },
   meals: {
@@ -1045,14 +1050,15 @@ const FR: QuickStartCopy = {
   targets: {
     title: 'Vos objectifs',
     helpLabel: 'Aide — objectifs',
-    lead: 'L’IA propose des objectifs corps et macros à partir de votre profil.',
+    lead: 'L’IA propose un objectif corporel à partir de votre profil. Les macros viennent de My Rules — les vôtres ou celles de la clinique — pas du profil.',
     waitOrRetry: 'Chargement des objectifs… ou réessayez.',
     retry: 'Réessayer',
     usingSaved:
-      'On garde vos objectifs enregistrés — y compris My Rules. « Régénérer » seulement si vous voulez de nouveaux chiffres IA.',
+      'On garde votre objectif corporel enregistré. « Régénérer » seulement si vous voulez un nouveau chiffre IA.',
     bodyTarget: 'Objectif corporel',
-    dailyMacros: 'Macros par jour',
-    rulesApplied: 'Règles actives',
+    dailyMacros: 'Macros',
+    macrosFromRules: 'Macros live reconstruites depuis My Rules.',
+    macrosNeedRules: 'Pas encore de My Rules — les macros restent vides jusqu’à ce que vous ou la clinique les écriviez.',
     regenerate: 'Régénérer avec AI',
   },
   meals: {
@@ -1218,14 +1224,15 @@ const AR: QuickStartCopy = {
   targets: {
     title: 'أهدافكم',
     helpLabel: 'مساعدة — الأهداف',
-    lead: 'يقترح الذكاء أهداف الجسم والماكرو حسب ملفكم.',
+    lead: 'يقترح الذكاء هدف الجسم حسب ملفكم. الماكرو يُبنى من القواعد — قواعدكم أو العيادة — لا من الملف.',
     waitOrRetry: 'بانتظار الأهداف… أو إعادة المحاولة.',
     retry: 'إعادة المحاولة',
     usingSaved:
-      'نبقى على الأهداف المحفوظة — بما فيها My Rules. «إعادة التوليد» فقط إذا أردتم أرقاماً جديدة من الذكاء.',
+      'نبقى على هدف الجسم المحفوظ. «إعادة التوليد» فقط إذا أردتم رقماً جديداً من الذكاء.',
     bodyTarget: 'هدف الجسم',
-    dailyMacros: 'ماكرو يومي',
-    rulesApplied: 'قواعد نشطة',
+    dailyMacros: 'ماكرو',
+    macrosFromRules: 'ماكرو حي أُعيد بناؤه من القواعد.',
+    macrosNeedRules: 'لا قواعد بعد — الماكرو يبقى فارغاً حتى تكتبوها أنتم أو العيادة.',
     regenerate: 'إعادة التوليد مع AI',
   },
   meals: {
@@ -1391,14 +1398,15 @@ const RU: QuickStartCopy = {
   targets: {
     title: 'Ваши цели',
     helpLabel: 'Справка — цели',
-    lead: 'ИИ предлагает цели по телу и макросам из вашего профиля.',
+    lead: 'ИИ предлагает цель по телу из вашего профиля. Макросы — из My Rules: ваши или клиники, не из профиля.',
     waitOrRetry: 'Ждём цели… или попробуйте снова.',
     retry: 'Повторить',
     usingSaved:
-      'Оставляем сохранённые цели — включая My Rules. «Пересчитать» только если нужны новые цифры от ИИ.',
+      'Оставляем сохранённую цель по телу. «Пересчитать» только если нужна новая цифра от ИИ.',
     bodyTarget: 'Цель по телу',
-    dailyMacros: 'Макросы на день',
-    rulesApplied: 'Активные правила',
+    dailyMacros: 'Макросы',
+    macrosFromRules: 'Живые макросы пересобраны из My Rules.',
+    macrosNeedRules: 'Пока нет My Rules — макросы пустые, пока вы или клиника их не напишете.',
     regenerate: 'Пересчитать с AI',
   },
   meals: {
@@ -1564,14 +1572,15 @@ const PT: QuickStartCopy = {
   targets: {
     title: 'Suas metas',
     helpLabel: 'Ajuda — metas',
-    lead: 'A IA sugere metas corporais e de macro a partir do seu perfil.',
+    lead: 'A IA sugere uma meta corporal a partir do seu perfil. Macros vêm de My Rules — suas ou da clínica — não do perfil.',
     waitOrRetry: 'Aguardando metas… ou toque em Tentar de novo.',
     retry: 'Tentar de novo',
     usingSaved:
-      'Usando metas salvas — My Rules e edições anteriores são mantidas. Regenerar só se quiser números novos da IA.',
+      'Usando a meta corporal salva. Regenerar só se quiser um número novo da IA.',
     bodyTarget: 'Meta corporal',
-    dailyMacros: 'Macros diários',
-    rulesApplied: 'Regras aplicadas',
+    dailyMacros: 'Macros',
+    macrosFromRules: 'Macros ao vivo reconstruídos a partir de My Rules.',
+    macrosNeedRules: 'Ainda sem My Rules — macros ficam vazios até você ou a clínica escreverem.',
     regenerate: 'Regenerar com AI',
   },
   meals: {
@@ -1738,14 +1747,15 @@ const IT: QuickStartCopy = {
   targets: {
     title: 'I tuoi obiettivi',
     helpLabel: 'Aiuto — obiettivi',
-    lead: 'L’IA propone obiettivi corporei e macro dal tuo profilo.',
+    lead: 'L’IA propone un obiettivo corporeo dal tuo profilo. I macro arrivano da My Rules — tue o della clinica — non dal profilo.',
     waitOrRetry: 'In attesa degli obiettivi… o tocca Riprova.',
     retry: 'Riprova',
     usingSaved:
-      'Si usano gli obiettivi salvati — My Rules e modifiche precedenti restano. Rigenera solo se vuoi nuovi numeri dall’IA.',
+      'Si usa l’obiettivo corporeo salvato. Rigenera solo se vuoi un nuovo numero dall’IA.',
     bodyTarget: 'Obiettivo corporeo',
-    dailyMacros: 'Macro giornalieri',
-    rulesApplied: 'Regole applicate',
+    dailyMacros: 'Macro',
+    macrosFromRules: 'Macro live ricostruiti da My Rules.',
+    macrosNeedRules: 'Ancora niente My Rules — i macro restano vuoti finché non li scrivi tu o la clinica.',
     regenerate: 'Rigenera con AI',
   },
   meals: {
@@ -1912,14 +1922,15 @@ const TR: QuickStartCopy = {
   targets: {
     title: 'Hedefleriniz',
     helpLabel: 'Yardım — hedefler',
-    lead: 'Yapay zekâ profilinizden vücut ve makro hedefleri önerir.',
+    lead: 'Yapay zekâ profilinizden bir vücut hedefi önerir. Makrolar My Rules’tan gelir — sizin veya kliniğin — profilden değil.',
     waitOrRetry: 'Hedefler bekleniyor… veya Yeniden dene.',
     retry: 'Yeniden dene',
     usingSaved:
-      'Kayıtlı hedefler kullanılıyor — My Rules ve önceki düzenlemeler korunur. Yalnızca yeni yapay zekâ sayıları istiyorsanız Yeniden oluştur.',
+      'Kayıtlı vücut hedefi kullanılıyor. Yalnızca yeni bir yapay zekâ sayısı istiyorsanız Yeniden oluştur.',
     bodyTarget: 'Vücut hedefi',
-    dailyMacros: 'Günlük makrolar',
-    rulesApplied: 'Uygulanan kurallar',
+    dailyMacros: 'Makrolar',
+    macrosFromRules: 'Canlı makrolar My Rules’tan yeniden kuruldu.',
+    macrosNeedRules: 'Henüz My Rules yok — siz veya klinik yazana kadar makrolar boş kalır.',
     regenerate: 'AI ile yeniden oluştur',
   },
   meals: {

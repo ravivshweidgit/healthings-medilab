@@ -36,6 +36,10 @@ export type MacroBound = {
 export type ClinicMacroBoundsStore = {
   bounds: MacroBound[];
   updatedAt: string;
+  /** First local calendar day this order applied. Rebuild must not advance it. */
+  effectiveFrom?: string;
+  /** 2 = locked after 2-day rebuild recovery (do not re-infer from food log). */
+  effectiveFromRev?: number;
   source: 'clinic';
   rulesHash?: string;
   reasoning?: string;
@@ -89,6 +93,65 @@ function parseBound(raw: unknown): MacroBound | null {
   return bound;
 }
 
+function isDayKey(s: string | null | undefined): s is string {
+  return !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+function localDayKeyFromMs(ms: number): string {
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function dayKeyFromIso(iso: string | undefined): string | null {
+  if (!iso) return null;
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return null;
+  return localDayKeyFromMs(ms);
+}
+
+function lookbackFloorDayKey(fromDay: string, days: number): string {
+  const [y, m, d] = fromDay.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() - days);
+  return localDayKeyFromMs(dt.getTime());
+}
+
+/**
+ * Rebuild bumps updatedAt to today. Recover the previous 2 local days (21–22 after
+ * an Aug 23 rebuild) but do not paint Aug 20 and older — leftover point meters stay.
+ */
+const EFFECTIVE_FROM_REV = 2;
+const REBUILD_RECOVERY_DAYS = 2;
+
+async function resolveEffectiveFrom(
+  store: { updatedAt?: string; effectiveFrom?: string; effectiveFromRev?: number } | null,
+  incomingIso?: string,
+): Promise<string | null> {
+  if (store?.effectiveFromRev === EFFECTIVE_FROM_REV && isDayKey(store.effectiveFrom)) {
+    return store.effectiveFrom;
+  }
+  const updatedDay = dayKeyFromIso(incomingIso || store?.updatedAt);
+  const today = localDayKeyFromMs(Date.now());
+  const anchor = updatedDay || today;
+  return lookbackFloorDayKey(anchor, REBUILD_RECOVERY_DAYS);
+}
+
+function storeFromParsed(parsed: ClinicMacroBoundsStore, bounds: MacroBound[]): ClinicMacroBoundsStore {
+  return {
+    bounds,
+    updatedAt: String(parsed.updatedAt || ''),
+    source: 'clinic',
+    ...(isDayKey(parsed.effectiveFrom) ? { effectiveFrom: parsed.effectiveFrom } : {}),
+    ...(typeof parsed.effectiveFromRev === 'number' ? { effectiveFromRev: parsed.effectiveFromRev } : {}),
+    ...(parsed.rulesHash ? { rulesHash: parsed.rulesHash } : {}),
+    ...(parsed.reasoning ? { reasoning: parsed.reasoning } : {}),
+    ...(parsed.needsClinician ? { needsClinician: parsed.needsClinician } : {}),
+  };
+}
+
 export async function loadClinicMacroBounds(): Promise<ClinicMacroBoundsStore | null> {
   try {
     const raw = await AsyncStorage.getItem(CLINIC_MACRO_BOUNDS_KEY);
@@ -96,14 +159,14 @@ export async function loadClinicMacroBounds(): Promise<ClinicMacroBoundsStore | 
     const parsed = JSON.parse(raw) as ClinicMacroBoundsStore;
     if (!parsed || !Array.isArray(parsed.bounds)) return null;
     const bounds = parsed.bounds.map(parseBound).filter((b): b is MacroBound => !!b);
-    return {
-      bounds,
-      updatedAt: String(parsed.updatedAt || ''),
-      source: 'clinic',
-      ...(parsed.rulesHash ? { rulesHash: parsed.rulesHash } : {}),
-      ...(parsed.reasoning ? { reasoning: parsed.reasoning } : {}),
-      ...(parsed.needsClinician ? { needsClinician: parsed.needsClinician } : {}),
-    };
+    const store = storeFromParsed(parsed, bounds);
+    if (!bounds.length) return store;
+    if (store.effectiveFromRev === EFFECTIVE_FROM_REV && isDayKey(store.effectiveFrom)) return store;
+    const effectiveFrom = await resolveEffectiveFrom(store);
+    if (!effectiveFrom) return store;
+    const next = { ...store, effectiveFrom, effectiveFromRev: EFFECTIVE_FROM_REV };
+    await AsyncStorage.setItem(CLINIC_MACRO_BOUNDS_KEY, JSON.stringify(next));
+    return next;
   } catch {
     return null;
   }
@@ -113,23 +176,40 @@ export async function clearClinicMacroBounds(): Promise<void> {
   await AsyncStorage.removeItem(CLINIC_MACRO_BOUNDS_KEY);
 }
 
-/** Apply overlay.macros from clinic pull. Empty/null clears. */
+/** Apply overlay.macros from clinic pull.
+ * Explicit empty `bounds: []` clears local (clinic cleared the order).
+ * Omitted/null macros keep the local store — a rules-only overlay row must not
+ * wipe a live order the phone already has (self-rebuild / other org).
+ */
 export async function applyClinicMacrosFromOverlay(
   macros: { bounds?: unknown[]; updatedAt?: string; rulesHash?: string; reasoning?: string; needsClinician?: unknown } | null,
   overlayUpdatedAt: string,
 ): Promise<ClinicMacroBoundsStore | null> {
-  if (!macros || !Array.isArray(macros.bounds) || macros.bounds.length === 0) {
+  if (macros == null || !Array.isArray(macros.bounds)) {
+    return loadClinicMacroBounds();
+  }
+  if (macros.bounds.length === 0) {
     await clearClinicMacroBounds();
     return null;
   }
   const bounds = macros.bounds.map(parseBound).filter((b): b is MacroBound => !!b);
   if (!bounds.length) {
-    await clearClinicMacroBounds();
-    return null;
+    return loadClinicMacroBounds();
   }
+  const prev = await loadClinicMacroBounds();
+  const incomingIso = String(macros.updatedAt || overlayUpdatedAt);
+  const effectiveFrom =
+    (await resolveEffectiveFrom(
+      prev,
+      incomingIso,
+    )) ||
+    dayKeyFromIso(incomingIso) ||
+    localDayKeyFromMs(Date.now());
   const store: ClinicMacroBoundsStore = {
     bounds,
-    updatedAt: String(macros.updatedAt || overlayUpdatedAt),
+    updatedAt: incomingIso,
+    effectiveFrom,
+    effectiveFromRev: EFFECTIVE_FROM_REV,
     source: 'clinic',
     ...(typeof macros.rulesHash === 'string' ? { rulesHash: macros.rulesHash } : {}),
     ...(typeof macros.reasoning === 'string' ? { reasoning: macros.reasoning } : {}),
@@ -141,30 +221,25 @@ export async function applyClinicMacrosFromOverlay(
   return store;
 }
 
-/** Local calendar day of the clinic order (YYYY-MM-DD), or null if unknown. */
+/** Local calendar day the order first applied (YYYY-MM-DD), or null if unknown. */
 export function clinicMacroOrderEffectiveDayKey(
   store: ClinicMacroBoundsStore | null,
 ): string | null {
-  if (!store?.updatedAt) return null;
-  const ms = Date.parse(store.updatedAt);
-  if (Number.isNaN(ms)) return null;
-  const d = new Date(ms);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  if (isDayKey(store?.effectiveFrom)) return store!.effectiveFrom;
+  return dayKeyFromIso(store?.updatedAt);
 }
 
 /**
- * Keep Food Log history honest: clinic HARD meters only on/after the order's local day.
- * Earlier days keep phone `macro_target_by_day` / point targets only.
+ * Clinic ≤ ≥ meters on/after effectiveFrom. Days before keep leftover point UI.
  */
 export function clinicMacroMetersApplyToDay(
   store: ClinicMacroBoundsStore | null,
   dayKey: string,
 ): boolean {
+  if (!store?.bounds?.length || !dayKey) return false;
   const from = clinicMacroOrderEffectiveDayKey(store);
-  if (!from || !dayKey) return false;
+  // Unparseable updatedAt must not hide a live order.
+  if (!from) return true;
   return dayKey >= from;
 }
 

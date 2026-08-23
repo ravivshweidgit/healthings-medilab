@@ -20,8 +20,12 @@ must show what the clinic ordered, and Gemini must not break HARD bounds.
 - **Logged food:** `net = C − Fi` always (code math). **Orders:** C and C−Fi are independent.
 - HARD clinic bounds beat phone point targets on that axis. FLEX is a guide only (no ≤ ≥,
   auto-apply may move).
-- **History honesty:** clinic macro meters apply only on/after the local calendar day of
-  `macros.updatedAt`. Treatment markers: each Food Log day shows the marker **order that was
+- **History honesty:** clinic ≤ ≥ meters apply on/after `macros.effectiveFrom`. A rebuild
+  recovers **2 local days** back from `updatedAt` (21–22 stay metered after an Aug 23 rebuild),
+  then **locks** (`effectiveFromRev: 2`) so later Updates never walk further back and **must
+  not advance** that start. **20 Aug and older** keep leftover point-target meters
+  (`real / target`, e.g. `1294 / 1690`, no ≤ ≥). Treatment markers on those days use the same
+  slash, not ≤ ≥. Treatment markers: each Food Log day shows the marker **order that was
   in effect that day** (`markersForDay` — current + `markers_json.history`, latest
   `updatedAt` day ≤ dayKey). Saving a new marker set **archives** the previous list; it must
   not blank past days or erase prior targets. Meal estimates in storage are never rewritten for
@@ -112,14 +116,19 @@ ceiling      = min(value + extra, capValue)     // never below value, never abov
 
 ### C. HARD wiring — every AI macro surface
 
-**One engine (owner 2026-08-23):** phone Analyze and weigh-in/lab auto-apply call the
+**One engine (owner 2026-08-23):** phone Update and weigh-in/lab auto-apply call the
 same clinic Propose as Rules Save (`POST /v1/account/macros/rebuild` → `proposeClinicMacroOrder`).
 They write live bounds and **must not** call `reviseMacroTargetsWithGemini` / the 7-day P/C/F point
-card. Empty My Rules → error (Analyze) or skip (weigh-in). No leftover point.
+card. Empty My Rules → error (Update) or skip (weigh-in). No leftover point.
+
+**Quick Start does not author a diet (owner 2026-08-23):** the targets step may AI-suggest a
+**body** goal (weight / fat / muscle). It must not invent or save a `daily_macro_target` point.
+If My Rules exist, same Propose rebuild; if not, macros stay empty until the user or clinic writes
+rules and taps Update. Clinic decides, AI executes.
 
 **Chat is not a command bar (owner 2026-08-23):** no `/macros`, `/recipe`, `/eat`, `/create` in
 mentor chat. Those hijacks only caused trouble. Period review `/7` `/30` `/yesterday` stay.
-Rebuild live macros from **My Macros → Analyze**. Recipe talk is prose in the nutritionist tab.
+Rebuild live macros from **My Macros → Update**. Recipe talk is prose in the nutritionist tab.
 
 Pass clinic HARD bounds into:
 
@@ -131,7 +140,7 @@ Pass clinic HARD bounds into:
 prompts** (coach, chat USER DATA, PERIOD REVIEW, recipe/meal-plan, action-item fallbacks,
 clinic mentor chat). Clinic HARD axes only (`Clinic live macros: C ≥ 65g | C−Fi ≤ 43g | …`).
 Unordered axes are omitted from the prompt — do not fill them from the old phone point
-(C 80, P 112, …). After Analyze, solo users have the same live bounds as clinic Save.
+(C 80, P 112, …). After Update, solo users have the same live bounds as clinic Save.
 
 Verbatim block, e.g. `HARD from clinic: protein_g floor 90 g/day; protein_g ceiling 113 g/day; net_carb_g ceiling 43 g/day`. Judgment in the prompt; clamp/reject in **code** after Gemini returns a point so P/C/F/kcal cannot land outside HARD bands. Auto-apply must **not** write `daily_macro_target` while clinic HARD macros apply today.
 
@@ -146,7 +155,7 @@ resolved values.
 
 ### D. My Macros strip
 
-Analyze requires **My Rules**, not a body scan. After Propose applies, skip the old P/C/F confirm
+Update requires **My Rules**, not a body scan. After Propose applies, skip the old P/C/F confirm
 card (`onSaved(null)` + refresh meters). Patient must **not** edit HARD clinic axes (view-only
 numbers + signs). Unordered / FLEX axes stay listed on Food Log with no leftover point.
 
@@ -160,8 +169,9 @@ numbers + signs). Unordered / FLEX axes stay listed on Food Log with no leftover
 
 - [ ] Clinic PUT P floor 90 + ceiling 113 + C−Fi ceiling 43 → phone pull → meters match signs
 - [ ] Clear bounds on clinic → signs gone, old `102/112g` style back
-- [ ] App **without** My Rules: Analyze refuses (no old 7-day point generator)
-- [ ] Analyze with My Rules: same Propose as clinic Rules Save; Food Log shows ≥ ≤; leftover `daily_macro_target` gone when HARD applies
+- [ ] App **without** My Rules: Update refuses (no old 7-day point generator)
+- [ ] Update with My Rules: same Propose as clinic Rules Save; Food Log shows ≥ ≤; leftover `daily_macro_target` gone when HARD applies
+- [ ] Quick Start targets: body goal only — no P/C/F point invented or saved; no My Rules → macros stay empty
 - [ ] Mentor chat: `/macros` `/recipe` `/eat` are **not** special — they go to the mentor as normal text (or user just does not use them). Autocomplete only `/7` `/30` `/yesterday`.
 - [ ] Existing constant markers (SatF 15 g) render unchanged; a percent SatF renders grams + `%`, never `10g`
 - [ ] Overlay with an unknown axis or kind → that row skipped, other meters normal, no crash

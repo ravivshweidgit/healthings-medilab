@@ -35,6 +35,7 @@ import {
   markersForDay,
   type TreatmentMarker,
 } from '../services/TreatmentMarkerService';
+import { MacroMeterBar } from './MacroMeterBar';
 import {
   loadClinicMacroBounds,
   resolveClinicMacroMeters,
@@ -293,167 +294,6 @@ function mealLabel(entry: FoodEntry, copy: FoodLogUiCopy): string {
   if (h < 17) return copy.snack;
   return copy.dinner;
 }
-
-type MacroBarProps = {
-  label: string;
-  value: number;
-  target: number;
-  color: string;
-  showTarget?: boolean;
-  /** Default grams (`g`). Energy/water pass already-converted display values. */
-  unit?: 'g' | 'mg' | 'mcg' | 'kcal' | 'kj' | 'ml' | 'floz';
-  /** Hitting the target is the win — no over-target penalty colour (water). */
-  goalIsFloor?: boolean;
-  /** Clinic HARD band — when both set, display `value  lo–hi` and red outside. */
-  clinicFloor?: number;
-  clinicCeiling?: number;
-  /** Optional caption under the value (e.g. `30% of 2000`). */
-  clinicCaption?: string;
-  onPress?: () => void;
-};
-
-function MacroBar({
-  label,
-  value,
-  target,
-  color,
-  showTarget,
-  unit = 'g',
-  goalIsFloor,
-  clinicFloor,
-  clinicCeiling,
-  clinicCaption,
-  onPress,
-}: MacroBarProps) {
-  const { colors, isDark } = useTheme();
-  const barStyles = useMemo(() => makeBarStyles(colors, isDark), [colors, isDark]);
-  const hasBand = clinicFloor != null && clinicCeiling != null && clinicFloor > 0 && clinicCeiling > 0;
-  const hasClinicCeiling = clinicCeiling != null && clinicCeiling > 0 && clinicFloor == null;
-  const hasClinicFloor = clinicFloor != null && clinicFloor > 0 && clinicCeiling == null;
-  const effectiveTarget =
-    hasBand ? clinicCeiling! : hasClinicCeiling ? clinicCeiling! : hasClinicFloor ? clinicFloor! : target;
-  const ratio = effectiveTarget > 0 ? Math.min(1, value / effectiveTarget) : 0;
-  const met = hasBand
-    ? value >= clinicFloor! && value <= clinicCeiling!
-    : hasClinicFloor
-      ? value >= clinicFloor!
-      : goalIsFloor && effectiveTarget > 0 && value >= effectiveTarget;
-  const over = hasBand
-    ? value < clinicFloor! || value > clinicCeiling!
-    : hasClinicCeiling
-      ? value > clinicCeiling!
-      : !goalIsFloor && !hasClinicFloor && value > effectiveTarget * 1.05;
-  const underFloor = hasClinicFloor && value < clinicFloor!;
-  const bad = over || underFloor || (hasBand && (value < clinicFloor! || value > clinicCeiling!));
-  const suffix =
-    unit === 'g' ? 'g' : unit === 'mg' ? 'mg' : unit === 'mcg' ? 'mcg' : unit === 'ml' ? 'ml' : unit === 'floz' ? 'fl oz' : unit === 'kj' ? '' : '';
-  const fmt = (n: number) =>
-    unit === 'kcal' || unit === 'kj' || unit === 'mg' || unit === 'mcg' ? `${Math.round(n)}` : `${Math.round(n)}`;
-  let valueText: string;
-  if (hasBand && showTarget) {
-    valueText = `${fmt(value)}  ${fmt(clinicFloor!)}–${fmt(clinicCeiling!)}${suffix}`;
-  } else if (hasClinicCeiling && showTarget) {
-    valueText = `${fmt(value)} ≤ ${fmt(clinicCeiling!)}${suffix}`;
-  } else if (hasClinicFloor && showTarget) {
-    valueText = `${fmt(value)} ≥ ${fmt(clinicFloor!)}${suffix}`;
-  } else if (showTarget) {
-    valueText =
-      unit === 'kcal' || unit === 'kj'
-        ? `${Math.round(value)}/${Math.round(target)}${unit === 'kj' ? '' : ''}`
-        : unit === 'floz'
-          ? `${value.toFixed(1)}/${target.toFixed(1)}${suffix}`
-          : unit === 'mg' || unit === 'mcg'
-            ? `${Math.round(value)}/${Math.round(target)}${suffix}`
-            : `${Math.round(value)}/${Math.round(target)}${suffix}`;
-  } else {
-    valueText =
-      unit === 'kcal'
-        ? `${Math.round(value)} kcal`
-        : unit === 'kj'
-          ? `${Math.round(value)} kJ`
-          : unit === 'floz'
-            ? `${value.toFixed(1)}${suffix}`
-            : `${Math.round(value)}${suffix}`;
-  }
-  const row = (
-    <View style={barStyles.rowWrap}>
-      <View style={barStyles.row}>
-        <Text style={barStyles.label} numberOfLines={1}>
-          {label}
-        </Text>
-        <View style={barStyles.track}>
-          <View
-            style={[
-              barStyles.fill,
-              {
-                width: `${ratio * 100}%`,
-                backgroundColor: met && !bad
-                  ? colors.accentGreen
-                  : bad
-                    ? isDark
-                      ? colors.accentRed
-                      : '#EF5350'
-                    : color,
-              },
-            ]}
-          />
-        </View>
-        <Text
-          style={[
-            barStyles.value,
-            showTarget && barStyles.valueTarget,
-            met && !bad && barStyles.valueMet,
-            bad && barStyles.valueOver,
-          ]}
-          numberOfLines={1}
-          maxFontSizeMultiplier={1.15}
-        >
-          {valueText}
-        </Text>
-      </View>
-      {clinicCaption ? (
-        <Text style={barStyles.caption} numberOfLines={1}>
-          {clinicCaption}
-        </Text>
-      ) : null}
-    </View>
-  );
-  if (!onPress) return row;
-  return (
-    <Pressable style={barStyles.rowPressable} onPress={onPress} accessibilityRole="button" hitSlop={4}>
-      {row}
-    </Pressable>
-  );
-}
-
-const makeBarStyles = (c: ThemeColors, isDark: boolean) =>
-  StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5, width: '100%' },
-  rowWrap: { width: '100%', marginBottom: 2 },
-  rowPressable: { alignSelf: 'stretch' },
-  label: { width: 40, fontSize: 11, fontWeight: '700', color: c.textSecondary },
-  caption: { fontSize: 10, color: c.textSecondary, marginLeft: 48, marginBottom: 4 },
-  track: {
-    flex: 1,
-    height: 6,
-    borderRadius: 3,
-    // Dark: unfilled remainder reads as canvas, matching the chips and balance pill.
-    backgroundColor: isDark ? c.background : c.progressTrack,
-    overflow: 'hidden',
-  },
-  fill: { height: '100%', borderRadius: 3 },
-  value: {
-    width: 44,
-    fontSize: 11,
-    fontWeight: '600',
-    color: c.textPrimary,
-    textAlign: 'right',
-    fontVariant: ['tabular-nums'],
-  },
-  valueTarget: { width: 98 },
-  valueMet: { color: c.accentGreen },
-  valueOver: { color: isDark ? c.accentRed : '#EF5350' },
-});
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -1055,10 +895,10 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
 
       {/* Macro bars — meals/targets + always-on H2O */}
       <View style={[styles.barsWrap, { marginTop: 10 }]}>
-        {(!isEmpty || displayTarget || treatmentMarkers.length > 0) ? (
+        {(!isEmpty || displayTarget || treatmentMarkers.length > 0 || clinicMeters.length > 0) ? (
           <>
-            {displayTarget || clinicMeters.find((m) => m.axis === 'kcal') ? (
-              <MacroBar
+            {displayTarget || clinicMeters.length > 0 ? (
+              <MacroMeterBar
                 label={energyBarLabel}
                 value={kcalToDisplay(eaten, energyU)}
                 target={
@@ -1069,7 +909,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                         ?? 0, energyU)
                 }
                 color="#5C6BC0"
-                showTarget
+                showTarget={!!displayTarget || !!clinicMeters.find((m) => m.axis === 'kcal')}
                 unit={energyBarUnit}
                 clinicFloor={
                   clinicMeters.find((m) => m.axis === 'kcal')?.floor != null
@@ -1086,7 +926,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
             ) : null}
             {(!isEmpty || displayTarget || clinicMeters.length > 0) ? (
               <>
-            <MacroBar
+            <MacroMeterBar
               label="P"
               value={macros?.protein_g ?? 0}
               target={displayTarget ? displayTarget.protein_g : maxMacro}
@@ -1096,7 +936,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               clinicCeiling={clinicMeters.find((m) => m.axis === 'protein_g')?.ceiling}
               clinicCaption={clinicMeters.find((m) => m.axis === 'protein_g')?.caption}
             />
-            <MacroBar
+            <MacroMeterBar
               label="C"
               value={macros?.carb_g ?? 0}
               target={displayTarget ? displayTarget.carb_g : maxMacro}
@@ -1106,7 +946,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               clinicCeiling={clinicMeters.find((m) => m.axis === 'carb_g')?.ceiling}
               clinicCaption={clinicMeters.find((m) => m.axis === 'carb_g')?.caption}
             />
-            <MacroBar
+            <MacroMeterBar
               label="F"
               value={macros?.fat_g ?? 0}
               target={displayTarget ? displayTarget.fat_g : maxMacro}
@@ -1116,7 +956,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               clinicCeiling={clinicMeters.find((m) => m.axis === 'fat_g')?.ceiling}
               clinicCaption={clinicMeters.find((m) => m.axis === 'fat_g')?.caption}
             />
-            <MacroBar
+            <MacroMeterBar
               label="Fi"
               value={macros?.fiber_g ?? 0}
               target={fiberBarTarget}
@@ -1126,7 +966,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               clinicFloor={clinicMeters.find((m) => m.axis === 'fiber_g')?.floor}
               clinicCeiling={clinicMeters.find((m) => m.axis === 'fiber_g')?.ceiling}
             />
-            <MacroBar
+            <MacroMeterBar
               label="C-Fi"
               value={netCarbEaten}
               target={netCarbBarTarget}
@@ -1145,8 +985,10 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                 m.percentOfEnergy != null && m.ofEnergy === 'kcal_eaten' && eatenKcal > 0
                   ? Math.round((m.percentOfEnergy / 100) * eatenKcal / 9 * 10) / 10
                   : m.dailyTarget;
+              const isFloor = m.direction === 'floor';
+              const clinicMarkerSigns = clinicMeters.length > 0;
               return (
-                <MacroBar
+                <MacroMeterBar
                   key={m.marker}
                   label={markerUiLabel(m, lang?.code, 'short')}
                   value={hasVal ? val! : 0}
@@ -1154,9 +996,13 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                   color="#8D6E63"
                   showTarget
                   unit={m.unit}
-                  goalIsFloor={m.direction === 'floor'}
+                  goalIsFloor={isFloor}
+                  clinicFloor={clinicMarkerSigns && isFloor ? pctTarget : undefined}
+                  clinicCeiling={clinicMarkerSigns && !isFloor ? pctTarget : undefined}
                   clinicCaption={
-                    m.percentOfEnergy != null ? `${m.percentOfEnergy}%` : undefined
+                    clinicMarkerSigns && m.percentOfEnergy != null
+                      ? `${m.percentOfEnergy}%`
+                      : undefined
                   }
                   onPress={() => setMarkerDetail(m)}
                 />
@@ -1169,7 +1015,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
             ) : null}
           </>
         ) : null}
-        <MacroBar
+        <MacroMeterBar
           label="H2O"
           value={mlToDisplay(waterMl, waterU)}
           target={mlToDisplay(waterGoalMl, waterU)}
@@ -1260,8 +1106,11 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                 <Text style={[styles.modalSub, titleRtl && { textAlign: 'right' }]}>
                   {treatCopy.setByClinic}
                   {' · '}
-                  {markerDetail.direction === 'floor' ? treatCopy.floorLabel : treatCopy.capLabel}
-                  {` ${markerDetail.dailyTarget} ${markerDetail.unit}/day`}
+                  {markerDetail.direction === 'floor' ? '≥' : '≤'}
+                  {` ${markerDetail.dailyTarget}${markerDetail.unit}/day`}
+                  {markerDetail.percentOfEnergy != null
+                    ? `  ${markerDetail.percentOfEnergy}%`
+                    : ''}
                 </Text>
                 <Text style={[styles.modalSub, titleRtl && { textAlign: 'right' }]}>
                   {(() => {

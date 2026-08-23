@@ -36,7 +36,7 @@ Tap PROFILE & SETTINGS to expand nested strips. Each opens in place:
 - TARGETS — body targets. Set / edit targets manually or Suggest with AI (needs profile and a weight), then Accept or Edit.
 - MENTORS — choose AI advisors (AI doctor, AI nutritionist, AI coach — at least one). App mentor Man / Woman sets how the mentor speaks in gendered languages (Hebrew, Arabic). Review after each meal toggle and a minimum-gap slider (0–6h) control automatic meal reviews.
 - RULES — My Rules free text (Add rules / Edit). The mentors treat these as hard constraints. Past versions can be viewed and restored.
-- MACROS — daily macro targets (protein, fat, carbs, fiber, kcal, water). Ask AI to set my macros, then Accept or Edit; Re-analyze with AI refreshes them. Water goal has its own editor.
+- MACROS — live macros are a derivative of My Rules (yours or the clinic’s). Update rebuilds them from that text. Empty rules → no macros. Water goal has its own editor.
 - ACCOUNT — signed-in email, biometric unlock, Cloud backup (Back up now / Restore from cloud), My web view snapshot, Share app log (today), Sign out, Delete account.
 - DATA SHARING — clinic sharing (see the dedicated section below).
 - REPORTS — Visit report generation (see Reports below).
@@ -119,10 +119,10 @@ Help explains **where** and **which tap**. It does not diagnose or prescribe. Th
 1. **Import labs.** Scroll the dashboard to **LAB RESULTS** → **Add report**. Pick the lab PDF (HMO / clinic). AI extracts markers; lipid and custom charts appear under that strip. Mentors and your nutritionist can now see LDL, HDL, triglycerides, HbA1c, and the rest.
 2. **Share with your licensed nutritionist.** Profile & Settings → **DATA SHARING** → type her clinic email → **Send request**. When the card reads **Sharing with** her name, tap **Share**. That upload is how she sees your labs, meals, scale, watch, and current rules in the clinic portal at healthings.ai/clinic. Do this **before** you expect a program — she cannot set rules on data she does not have.
 3. **She sets My Rules.** In the portal she writes the nutrition program. Next time you open the app, Profile & Settings → **RULES** shows that text. Mentors treat it as a hard constraint. You can also **Add rules** / **Edit** yourself, or restore a past version from history. Optional extra: if she emailed a session-summary PDF, dashboard → **NUTRITIONIST SESSIONS** → **Add session** (first import becomes **Active**). The active session wins over My Rules on conflict.
-4. **Turn the program into daily targets.** Profile & Settings → **MACROS** → **Ask AI to set my macros** (first time) or **Re-analyze with AI**. AI reads her rules, the active session, and labs. Tap **Accept** or **Edit**.
+4. **Turn the program into live macros.** Profile & Settings → **MACROS** → **Update**. Same engine as clinic Rules Save. Needs My Rules. Healthings does not invent a diet from your profile.
 5. **Connect the body sensors** (Quick Start or Profile & Settings → **GEAR**). Withings scale **Yes** and **Link Withings** — morning weigh-ins land on the body card (weight, muscle, fat, BMR). Withings watch **Yes** — activity kcal, heart rate, workouts. Watch **No** → phone steps via Health Connect / Apple Health. CGM **Yes** if you wear a sensor (see CGM section). Pull the header refresh icon after you weigh or wear the watch.
 
-The program has started only when rules are on the phone and macros are accepted. Then live it.
+The program has started only when rules are on the phone and live macros have been built from them. Then live it.
 
 ### Phase B — Daily cycle (every day — this is how you execute her plan)
 
@@ -166,7 +166,7 @@ The daily cycle runs until the next clinic visit. Then close the loop:
 2. Profile & Settings → **REPORTS** → tap **90** (or 7 / 14 / 30) to build a visit report. Share the PDF to her if she wants a file as well as the live snapshot.
 3. **DATA SHARING** → **Share** again so she has the new labs, 90 days of meals, scale, and watch.
 4. She corrects **My Rules** in the portal (or sends a new session PDF → **NUTRITIONIST SESSIONS** → **Set active**).
-5. **MACROS** → **Re-analyze with AI** → **Accept**. Then go back to Phase B.
+5. **MACROS** → **Update**. Then go back to Phase B.
 
 That is the optimal rhythm: she sets the program → you execute daily with meters, chart, meal alerts, and mentors → every ~3 months new labs + share + her correction.
 

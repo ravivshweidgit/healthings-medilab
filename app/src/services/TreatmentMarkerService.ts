@@ -406,7 +406,9 @@ export function formatMarkerAmountsVsTargets(
   const bits = markers.map((m) => {
     const v = amounts[m.marker];
     const shown = v != null && Number.isFinite(v) ? String(v) : '—';
-    return `${m.marker} ${shown}/${m.dailyTarget}${m.unit}`;
+    const sign = m.direction === 'floor' ? '≥' : '≤';
+    const pct = m.percentOfEnergy != null ? ` ${m.percentOfEnergy}%` : '';
+    return `${m.marker} ${shown} ${sign} ${m.dailyTarget}${m.unit}${pct}`;
   });
   return `Treat markers: ${bits.join(' · ')}`;
 }

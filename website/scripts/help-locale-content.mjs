@@ -943,16 +943,16 @@ bulk('reports-import', [
 ]);
 
 bulk('targets-help', [
-  ['en', 'Your targets', 'AI suggests body and macro targets from your profile. Saved targets keep My Rules.', `<p>Regenerate only if you want fresh AI numbers.</p>`],
-  ['he', 'היעדים שלכם', 'ה־AI מציע יעדי גוף ומאקרו לפי הפרופיל. יעדים שמורים שומרים על My Rules.', `<p>«יצירה מחדש» — רק אם רוצים מספרים חדשים מה־AI.</p>`],
-  ['es', 'Tus objetivos', 'La IA propone cuerpo y macros según tu perfil. Los guardados conservan My Rules.', `<p>Regenera solo si quieres números nuevos de la IA.</p>`],
-  ['fr', 'Vos objectifs', 'L’IA propose corps et macros selon le profil. Les objectifs sauvés gardent My Rules.', `<p>Régénérez seulement pour de nouveaux chiffres IA.</p>`],
-  ['de', 'Ihre Ziele', 'Die KI schlägt Körper- und Makroziele aus dem Profil vor. Gespeicherte behalten My Rules.', `<p>Neu erzeugen nur, wenn Sie frische KI-Zahlen wollen.</p>`],
-  ['ar', 'أهدافك', 'يقترح الذكاء أهداف الجسم والماكرو من ملفك. المحفوظة تبقي My Rules.', `<p>أعد التوليد فقط إذا أردت أرقاماً جديدة من الذكاء.</p>`],
-  ['ru', 'Ваши цели', 'ИИ предлагает цели по телу и макросам из профиля. Сохранённые держат My Rules.', `<p>Пересчёт — только если нужны новые цифры от ИИ.</p>`],
-  ['pt', 'As suas metas', 'A IA sugere corpo e macros a partir do perfil. Metas guardadas mantêm My Rules.', `<p>Regenere só se quiser números novos da IA.</p>`],
-  ['it', 'I tuoi obiettivi', 'L’IA suggerisce corpo e macro dal profilo. Gli obiettivi salvati tengono My Rules.', `<p>Rigenera solo se vuoi numeri freschi dall’IA.</p>`],
-  ['tr', 'Hedefleriniz', 'YZ profilinizden beden ve makro hedefleri önerir. Kayıtlı hedefler My Rules’u korur.', `<p>Yalnızca yeni YZ sayıları istiyorsanız yeniden oluşturun.</p>`],
+  ['en', 'Your targets', 'AI suggests a body target from your profile. Macros come from My Rules — yours or the clinic’s — not from the profile.', `<p>Regenerate only if you want a fresh body number. If My Rules are already there, live macros rebuild from that text. If not, macros stay empty until you or the clinic write them.</p>`],
+  ['he', 'היעדים שלכם', 'ה־AI מציע יעד גוף לפי הפרופיל. מאקרו נבנה מכללים שלי — שלך או של המרפאה — לא מהפרופיל.', `<p>«יצירה מחדש» — רק אם רוצים מספר גוף חדש מה־AI. אם יש כללים שלי, מאקרו חי נבנה מהם. אם אין — מאקרו יישאר ריק עד שאתם או המרפאה תכתבו.</p>`],
+  ['es', 'Tus objetivos', 'La IA propone un objetivo corporal según tu perfil. Los macros salen de My Rules — tuyos o de la clínica — no del perfil.', `<p>Regenera solo si quieres un número corporal nuevo. Si ya hay My Rules, los macros en vivo se reconstruyen de ese texto. Si no, quedan vacíos hasta que tú o la clínica los escriban.</p>`],
+  ['fr', 'Vos objectifs', 'L’IA propose un objectif corporel à partir du profil. Les macros viennent de My Rules — les vôtres ou celles de la clinique — pas du profil.', `<p>Régénérez seulement pour un nouveau chiffre corps. Si My Rules est déjà là, les macros live se reconstruisent depuis ce texte. Sinon elles restent vides jusqu’à ce que vous ou la clinique les écriviez.</p>`],
+  ['de', 'Ihre Ziele', 'Die KI schlägt ein Körperziel aus dem Profil vor. Makros kommen aus My Rules — Ihre oder die der Praxis — nicht aus dem Profil.', `<p>Neu erzeugen nur für eine frische Körperzahl. Wenn My Rules schon da sind, werden Live-Makros daraus gebaut. Sonst bleiben Makros leer, bis Sie oder die Praxis sie schreiben.</p>`],
+  ['ar', 'أهدافك', 'يقترح الذكاء هدف الجسم من ملفك. الماكرو يُبنى من القواعد — قواعدك أو العيادة — لا من الملف.', `<p>أعد التوليد فقط لرقم جسم جديد. إن وُجدت القواعد يُعاد بناء الماكرو الحي منها. وإلا يبقى فارغاً حتى تكتبها أنت أو العيادة.</p>`],
+  ['ru', 'Ваши цели', 'ИИ предлагает цель по телу из профиля. Макросы — из My Rules: ваши или клиники, не из профиля.', `<p>Пересчёт — только если нужна новая цифра по телу. Если My Rules уже есть, живые макросы собираются из этого текста. Если нет — макросы пустые, пока вы или клиника их не напишете.</p>`],
+  ['pt', 'As suas metas', 'A IA sugere uma meta corporal a partir do perfil. Macros vêm de My Rules — suas ou da clínica — não do perfil.', `<p>Regenere só se quiser um número corporal novo. Se já houver My Rules, macros ao vivo reconstruídos desse texto. Se não, ficam vazios até você ou a clínica escreverem.</p>`],
+  ['it', 'I tuoi obiettivi', 'L’IA suggerisce un obiettivo corporeo dal profilo. I macro arrivano da My Rules — tue o della clinica — non dal profilo.', `<p>Rigenera solo se vuoi un nuovo numero corpo. Se My Rules c’è già, i macro live si ricostruiscono da quel testo. Altrimenti restano vuoti finché non li scrivi tu o la clinica.</p>`],
+  ['tr', 'Hedefleriniz', 'YZ profilinizden bir vücut hedefi önerir. Makrolar My Rules’tan gelir — sizin veya kliniğin — profilden değil.', `<p>Yalnızca yeni bir vücut sayısı istiyorsanız yeniden oluşturun. My Rules varsa canlı makrolar o metinden kurulur. Yoksa siz veya klinik yazana kadar boş kalır.</p>`],
 ]);
 
 bulk('meal-logging', [

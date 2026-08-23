@@ -16,7 +16,15 @@ import {
 import { formatLocalizedDate, formatLocalizedTime } from '../i18n/dateLocale';
 import { suggestMacroTargets, confirmSavedMacroTarget, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
 import { contentAlignStyle } from '../logic/textDirection';
-import { clinicHardMacrosApplyToday } from '../services/ClinicMacroBoundsService';
+import { ClinicLiveMacroBars } from './ClinicLiveMacroBars';
+import {
+  clinicHardMacrosApplyToday,
+  clinicMacroMetersApplyToDay,
+  formatEffectiveDailyMacroTargetLine,
+  loadClinicMacroBounds,
+  resolveClinicMacroMeters,
+  type ResolvedAxisMeter,
+} from '../services/ClinicMacroBoundsService';
 import { buildAndExportMacroPrompt } from '../services/macroPromptExport';
 import { RulesAdviceBanner } from './RulesAdviceBanner';
 import { MacroClinicalProfileBanner } from './MacroClinicalProfileBanner';
@@ -83,7 +91,8 @@ export type MacroTargetProps = {
   weighInSuggestion?: DailyMacroTarget | null;
   weighInSuggestionHint?: string | null;
   onWeighInSuggestionConsumed?: () => void;
-  /** Increment to auto-run Analyze (e.g. when weigh-in Gemini failed). */
+  /** Live clinic / self-rebuild meters — same source as Food Log. */
+  clinicMeters?: ResolvedAxisMeter[];
   analyzeRequestId?: number;
   expanded: boolean;
   onToggleExpand: () => void;
@@ -277,6 +286,7 @@ export function MacroTargetStrip({
   weightKg, fatMassKg, muscleMass_kg, bmr_kcal, estimatedBurn_kcal,
   heightCm, age, gender, bodyTarget, userRules, mentors, savedTarget,
   onSaved, weighInSuggestion, weighInSuggestionHint, onWeighInSuggestionConsumed,
+  clinicMeters: clinicMetersProp,
   analyzeRequestId, expanded, onToggleExpand, lang,
   unitsPrefs = DEFAULT_UNITS_PREFS,
 }: MacroTargetProps) {
@@ -303,6 +313,7 @@ export function MacroTargetStrip({
   const [waterGoalInput, setWaterGoalInput] = useState('');
   const [exportBusy, setExportBusy] = useState(false);
   const [rulesAdvice, setRulesAdvice] = useState<string | null>(null);
+  const [liveMeters, setLiveMeters] = useState<ResolvedAxisMeter[]>([]);
   const lastAnalyzeRequestId = useRef(0);
 
   useEffect(() => {
@@ -328,18 +339,43 @@ export function MacroTargetStrip({
     return () => { cancelled = true; };
   }, [expanded]);
 
+  const reloadLiveMeters = useCallback(async () => {
+    const store = await loadClinicMacroBounds();
+    const dayKey = foodLogDayKey(Date.now());
+    const apply = clinicMacroMetersApplyToDay(store, dayKey);
+    setLiveMeters(
+      apply ? resolveClinicMacroMeters(store).filter((m) => m.strength === 'hard') : [],
+    );
+  }, []);
+
   useEffect(() => {
+    void reloadLiveMeters();
+  }, [reloadLiveMeters, expanded, savedTarget]);
+
+  const displayMeters =
+    clinicMetersProp && clinicMetersProp.length > 0 ? clinicMetersProp : liveMeters;
+
+  useEffect(() => {
+    if (displayMeters.length > 0) {
+      setScreen((s) => (s === 'loading' || s === 'suggestion' || s === 'editing' ? s : 'idle'));
+      return;
+    }
     if (savedTarget) {
       setTarget(withCarbFiberNetTargets(savedTarget));
       setScreen((s) => (s === 'loading' || s === 'suggestion' || s === 'editing' ? s : 'active'));
     }
-  }, [savedTarget]);
+  }, [savedTarget, displayMeters.length]);
 
   const canAnalyze = !!(userRules?.rawText?.trim());
 
-  const headerSub = target
-    ? `${target.protein_g}P / ${target.fat_g}F / ${target.carb_g}C / ${resolveFiberTarget_g(target)}Fi / ${resolveNetCarbTarget_g(target)}Net`
-    : 'Tap to rebuild live macros from My Rules';
+  const liveHeader = displayMeters.length
+    ? formatEffectiveDailyMacroTargetLine(null, displayMeters).replace(/^Clinic live macros:\s*/, '')
+    : '';
+  const headerSub = liveHeader
+    ? liveHeader
+    : target
+      ? `${target.protein_g}P / ${target.fat_g}F / ${target.carb_g}C / ${resolveFiberTarget_g(target)}Fi / ${resolveNetCarbTarget_g(target)}Net`
+      : 'Tap to rebuild live macros from My Rules';
 
   const updatedLabel = target ? formatMacroUpdatedAt(target.analyzedAt, lang) : null;
 
@@ -357,6 +393,7 @@ export function MacroTargetStrip({
       if (rebuilt.liveMacrosApplied) {
         onSaved?.(null);
         setSuggestion(null);
+        await reloadLiveMeters();
         setScreen('idle');
         return;
       }
@@ -374,7 +411,7 @@ export function MacroTargetStrip({
       setError(e?.message ?? 'AI analysis failed');
       setScreen('idle');
     }
-  }, [canAnalyze, lang, onSaved]);
+  }, [canAnalyze, lang, onSaved, reloadLiveMeters]);
 
   useEffect(() => {
     if (analyzeRequestId == null || analyzeRequestId <= 0) return;
@@ -547,6 +584,19 @@ export function MacroTargetStrip({
           {/* idle */}
           {screen === 'idle' && (
             <View style={styles.idleWrap}>
+              {displayMeters.length > 0 ? (
+                <ClinicLiveMacroBars
+                  meters={displayMeters}
+                  eaten={{
+                    kcal: actualKcal ?? 0,
+                    protein_g: actualProtein_g ?? 0,
+                    carb_g: actualCarb_g ?? 0,
+                    fat_g: actualFat_g ?? 0,
+                    fiber_g: actualFiber_g ?? 0,
+                  }}
+                  energyUnit={unitsPrefs.energy}
+                />
+              ) : null}
               {!userRules?.rawText?.trim() && (
                 <Text style={styles.hintText}>Add your dietary rules above to rebuild live macros</Text>
               )}
@@ -556,7 +606,7 @@ export function MacroTargetStrip({
                 onPress={handleAsk}
                 disabled={!canAnalyze}
               >
-                <Text style={styles.aiBtnText}>✨ Rebuild live macros from My Rules</Text>
+                <Text style={styles.aiBtnText}>{profileTitles.macrosUpdate}</Text>
               </Pressable>
               {exportPromptLink}
             </View>
@@ -722,7 +772,7 @@ export function MacroTargetStrip({
                 <Text style={styles.btnTextEdit}>✎ Edit</Text>
               </Pressable>
               <Pressable style={styles.reanalyzeBtn} onPress={() => void handleAsk()}>
-                <Text style={styles.reanalyzeBtnText}>Re-analyze with AI</Text>
+                <Text style={styles.reanalyzeBtnText}>{profileTitles.macrosUpdate}</Text>
               </Pressable>
               {exportPromptLink}
             </View>

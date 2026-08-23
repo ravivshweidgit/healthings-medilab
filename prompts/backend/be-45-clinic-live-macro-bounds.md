@@ -171,7 +171,7 @@ Mirror markers:
   never the old 7-day point generator (`reviseMacroTargetsWithGemini`). Mentor chat does **not**
   call this — no `/macros` slash hijack.
 
-**One engine (owner 2026-08-23):** redesign is Propose → bounds, always. Clinic Save and phone Analyze are the same job. There is no second Gemini that turns 7-day data into a leftover `daily_macro_target` point.
+**One engine (owner 2026-08-23):** redesign is Propose → bounds, always. Clinic Save and phone Analyze are the same job. There is no second Gemini that turns 7-day data into a leftover `daily_macro_target` point. Quick Start may suggest a **body** target; it must not invent macros from the profile. No rules → no macros.
 
 Multi-org: same as rules/markers — most recently updated org wins on patient pull; document, don’t solve.
 

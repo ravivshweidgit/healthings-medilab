@@ -87,10 +87,11 @@ export async function pullClinicOverlaysFull(): Promise<ClinicOverlayPullResult>
       /* keep null */
     }
 
-    // Macros — sibling of markers (be-45). Empty clears local clinic bounds.
+    // Macros — sibling of markers (be-45). Explicit empty bounds clears;
+    // omitted macros keep the local live order.
     try {
       out.macros = await applyClinicMacrosFromOverlay(
-        overlay.macros ?? null,
+        overlay.macros === undefined ? null : overlay.macros,
         overlay.updatedAt,
       );
     } catch {
