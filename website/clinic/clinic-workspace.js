@@ -256,6 +256,7 @@
       profile,
       mentors: Array.isArray(mentors) ? mentors : ['nutritionist'],
       labs: parseLabs(store),
+      labPdfs: parseLabPdfs(store),
       nutritionDirectives: parseNutritionDirectives(store),
       waterByDay: water.byDay,
       waterGoalMl: water.goalMl,
@@ -428,6 +429,18 @@
       try { labs.push(JSON.parse(raw)); } catch { /* */ }
     }
     return labs.sort((a, b) => (b.collectedAt || '').localeCompare(a.collectedAt || ''));
+  }
+
+  function parseLabPdfs(store) {
+    try {
+      const raw = store && store['healthings:labPdfs'];
+      if (!raw) return {};
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+      return parsed;
+    } catch {
+      return {};
+    }
   }
 
   function dailyMacros(entries) {
@@ -2893,16 +2906,8 @@
     return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
   }
 
-  function renderLabs(panel, ctx) {
-    const labs = ctx.parsed.labs;
-    if (!labs.length) {
-      panel.innerHTML = `<p class="empty">${esc(t('wsLabsEmpty'))}</p>`;
-      return;
-    }
-    panel.innerHTML = labs.map((report) => `
-      <div class="lab-panel">
-        <h3>${esc(formatLabDate(report.collectedAt))}</h3>
-        <table class="data-table">
+  function labResultsTableHtml(report) {
+    return `<table class="data-table">
           <thead><tr><th>${esc(t('wsLabsTest'))}</th><th>${esc(t('wsLabsValue'))}</th><th>${esc(t('wsLabsFlag'))}</th></tr></thead>
           <tbody>
             ${(report.panels || []).flatMap((p) => (p.results || []).map((r) => `
@@ -2916,8 +2921,87 @@
                 <td>${r.flag && r.flag !== 'normal' && r.flag !== 'unknown' ? esc(r.flag) : ''}</td>
               </tr>`)).join('')}
           </tbody>
-        </table>
-      </div>`).join('');
+        </table>`;
+  }
+
+  function pdfBase64ToObjectUrl(b64) {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+  }
+
+  function closeLabPdfLightbox() {
+    const el = document.getElementById('lab-pdf-lightbox');
+    if (!el) return;
+    const iframe = el.querySelector('iframe');
+    const src = iframe && iframe.getAttribute('src');
+    el.remove();
+    if (src && src.startsWith('blob:')) URL.revokeObjectURL(src);
+  }
+
+  function openLabPdfLightbox(report, pdfB64, panelType) {
+    closeLabPdfLightbox();
+    const url = pdfBase64ToObjectUrl(pdfB64);
+    const overlay = document.createElement('div');
+    overlay.id = 'lab-pdf-lightbox';
+    overlay.className = 'lab-pdf-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-label', t('wsLabsPdfTitle'));
+    const sub = [formatLabDate(report.collectedAt), panelType].filter(Boolean).join(' · ');
+    overlay.innerHTML = `
+      <div class="lab-pdf-card">
+        <div class="lab-pdf-head">
+          <div>
+            <div class="lab-pdf-title">${esc(t('wsLabsPdfTitle'))}</div>
+            <div class="lab-pdf-sub">${esc(sub)}</div>
+          </div>
+          <button type="button" class="lab-pdf-close" data-close-lab-pdf aria-label="${esc(t('wsCloseAria'))}">✕</button>
+        </div>
+        <p class="lab-pdf-hint">${esc(t('wsLabsPdfHint'))}</p>
+        <div class="lab-pdf-split">
+          <iframe class="lab-pdf-frame" title="${esc(t('wsLabsPdfTitle'))}" src="${url}"></iframe>
+          <div class="lab-pdf-table">${labResultsTableHtml(report)}</div>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay || e.target.closest('[data-close-lab-pdf]')) closeLabPdfLightbox();
+    });
+  }
+
+  function renderLabs(panel, ctx) {
+    const labs = ctx.parsed.labs;
+    const pdfs = ctx.parsed.labPdfs || {};
+    if (!labs.length) {
+      panel.innerHTML = `<p class="empty">${esc(t('wsLabsEmpty'))}</p>`;
+      return;
+    }
+    panel.innerHTML = labs.map((report) => {
+      const pdfBtns = (report.panels || [])
+        .filter((p) => p.pdfFileId && pdfs[p.pdfFileId])
+        .map((p) => `<button type="button" class="lab-pdf-btn" data-lab-pdf-id="${esc(p.pdfFileId)}" data-lab-report-id="${esc(report.id)}">${esc(t('wsLabsOpenPdf'))} · ${esc(p.panelType)}</button>`)
+        .join('');
+      return `
+      <div class="lab-panel">
+        <div class="lab-panel-head">
+          <h3>${esc(formatLabDate(report.collectedAt))}</h3>
+          <div class="lab-pdf-actions">${pdfBtns}</div>
+        </div>
+        ${labResultsTableHtml(report)}
+      </div>`;
+    }).join('');
+    panel.querySelectorAll('[data-lab-pdf-id]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const pdfId = btn.getAttribute('data-lab-pdf-id');
+        const reportId = btn.getAttribute('data-lab-report-id');
+        const report = labs.find((r) => r.id === reportId);
+        const b64 = pdfId && pdfs[pdfId];
+        if (!report || !b64) return;
+        const panelType = (report.panels || []).find((p) => p.pdfFileId === pdfId)?.panelType || '';
+        openLabPdfLightbox(report, b64, panelType);
+      });
+    });
   }
 
   /* ── usage tab (/account/ self-view — be-06 two-layer billing) ────────── */

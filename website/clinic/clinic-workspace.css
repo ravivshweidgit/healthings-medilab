@@ -1817,3 +1817,83 @@ h3,
   .treat-add { grid-template-columns: 1fr; }
   .treat-row { flex-direction: column; }
 }
+
+/* prompt117 — original lab PDF vs parsed table */
+.lab-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+}
+.lab-panel-head h3 { margin: 0; }
+.lab-pdf-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.lab-pdf-btn {
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-ink);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.lab-pdf-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: var(--ws-overlay, rgba(0, 0, 0, 0.45));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.lab-pdf-card {
+  background: var(--surface);
+  border-radius: 16px;
+  width: min(1100px, 100%);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--ws-modal-shadow, 0 16px 40px rgba(0,0,0,0.2));
+  padding: 16px 16px 12px;
+}
+.lab-pdf-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.lab-pdf-title { font-size: 1.1rem; font-weight: 800; }
+.lab-pdf-sub { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+.lab-pdf-close {
+  font: inherit;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--muted);
+}
+.lab-pdf-hint { font-size: 0.82rem; color: var(--muted); margin: 8px 0 12px; }
+.lab-pdf-split {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 12px;
+  min-height: 0;
+  flex: 1;
+}
+.lab-pdf-frame {
+  width: 100%;
+  height: min(70vh, 640px);
+  border: 1px solid var(--grid);
+  border-radius: 10px;
+  background: #fff;
+}
+.lab-pdf-table { overflow: auto; max-height: min(70vh, 640px); }
+@media (max-width: 800px) {
+  .lab-pdf-split { grid-template-columns: 1fr; }
+  .lab-pdf-frame { height: 42vh; }
+}

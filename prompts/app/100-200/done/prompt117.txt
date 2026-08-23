@@ -1,0 +1,68 @@
+# prompt117 — Keep original lab PDF beside parsed rows (clinic compare)
+
+**Status:** done (2026-08-23) — Android `bi` + clinic site deployed; owner accepted  
+**Builds on:** prompt30 (lab JSON), prompt112 (HMO parse), prompt116 (sidecar-on-disk, not base64 in JSON)
+
+## Problem
+
+Gemini can put a neighbor’s number on LDL (Clalit: value **above** the name; NON-HDL
+sits next to LDL). JSON is what charts and mentors trust. The clinician (and the
+patient) need the **printout next to the rows** to catch that. Putting PDF bytes
+inside `lab_report_*` JSON would bloat every backup and the 15 MB clinic gzip cap
+(same lesson as meal thumbs).
+
+## What shipped
+
+| Piece | Change |
+|-------|--------|
+| Parsed rows | `lab_report_{id}` JSON (unchanged) |
+| Original PDF | `documentDirectory/healthings-lab-pdfs/{panelId}.pdf` |
+| Pointer | `LabPanel.pdfFileId` (= panel `id`) — no `Platform.OS` in path or key |
+| Phone open | **Open original PDF** uses Android `content://` VIEW (Chrome / Drive / PDF app); share sheet is fallback |
+| Clalit parse | Layout pack: value above name; draw date = `תאריך הבדיקה`; LDL ≠ NON-HDL |
+| Swap repair | Friedewald LDL/NON-HDL repair on parse, save, and load |
+| Share / backup | inject `healthings:labPdfs` at export; **not** left in live AsyncStorage after restore |
+| Clinic Labs | **Original PDF** → lightbox: PDF + that draw’s table |
+| Mentors | lab JSON only — never PDF bytes |
+
+Keep PDFs for the life of the report. Delete the file when the report is deleted.
+Old reports have no file until that PDF is imported again on this build.
+
+## Files
+
+| File | Change |
+|------|--------|
+| `app/src/services/LabPdfFileService.ts` | new: write / read / delete / export map / open |
+| `app/src/services/LabLogService.ts` | `pdfFileId`; save bytes; delete files; swap repair |
+| `app/src/services/GeminiService.ts` | Clalit layout pack |
+| `app/src/components/LabReportModal.tsx` | keep PDF through save; Open original |
+| `app/src/i18n/labResultsStripCopy.ts` | Open original strings |
+| `app/src/services/ShareExportService.ts` | inject sidecar |
+| `app/src/services/LocalBackupService.ts` | inject + restore files, drop key from AS |
+| `server/src/services/labCatalog.ts` | IL Clalit `parse_layout` pack |
+| `website/clinic/clinic-workspace.js` | Labs lightbox |
+| `website/clinic/clinic-workspace.css` | lightbox layout |
+| `website/clinic/clinic-workspace-i18n.js` | Original PDF / compare strings |
+| `website/clinic/patient.html` | cache `?v=20260823b` |
+| `website/account/index.html` | same cache |
+
+## Phone-tested
+
+- [x] New Clalit import → file on disk; **Open original** opens in the system PDF viewer
+- [x] Share → clinic Labs **Original PDF**; lightbox PDF vs table
+- [x] Clinic chat still has numbers only
+- [x] Pre-this-build reports: no button until re-import
+- [ ] Delete report → file gone
+- [ ] Backup restore on a second install restores PDFs; `healthings:labPdfs` not sitting in AsyncStorage
+
+## Deferred
+
+- Re-parse from the stored PDF (human compare only in v1)
+- Dumping PDFs into mentor chat
+- 30-day purge (unlike meal thumbs)
+
+## Related
+
+- persistence-parity.mdc — files + `pdfFileId`, not a platform-prefixed blob
+- prompt116 — sidecar pattern (meals are thumbs + 30d; labs are full PDF + keep)
+- language-policy.mdc — clinic chrome `clinicLocale`; PDF is the source scan

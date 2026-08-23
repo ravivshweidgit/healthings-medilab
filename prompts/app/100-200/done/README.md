@@ -4,6 +4,8 @@ Implemented prompt specs in this range after they ship (phone-tested or explicit
 
 Open / backlog for this range: [`../README.md`](../README.md)
 
+**prompt117** — done (2026-08-23). Original lab PDF on disk; clinic Labs lightbox vs parsed rows; Clalit LDL/NON-HDL layout pack. Android + portal accepted. See [`prompt117.txt`](./prompt117.txt).
+
 **prompt115** — done (2026-08-19). New-phone restore + Gmail-dot login; empty backup never stored. Play internal 1.2.39 (68). Server half: be-46. See [`prompt115.txt`](./prompt115.txt).
 
 **prompt112** — done (2026-08-16). Lab PDF: identify HMO → confirm → Meuhedet layout pack; Clalit/Maccabi skip confirm when high confidence. Meuhedet phone-tested. Country-scoped packs → prompt113. See [`prompt112.txt`](./prompt112.txt).
