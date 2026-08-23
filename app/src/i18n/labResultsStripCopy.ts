@@ -32,6 +32,8 @@ export type LabResultsStripCopy = {
   deleteFailed: string;
   deletedTitle: string;
   deletedBody: string;
+  openOriginalPdf: string;
+  openOriginalFailed: string;
   choosePdf: string;
   saving: string;
   reading: string;
@@ -98,6 +100,8 @@ const EN: LabResultsStripCopy = {
   deleteFailed: 'Could not delete report',
   deletedTitle: 'Deleted',
   deletedBody: 'Lab report removed. You can import the PDF again.',
+  openOriginalPdf: 'Open original PDF',
+  openOriginalFailed: 'Original PDF is not on this phone. Import it again.',
   choosePdf: 'Choose PDF',
   saving: 'Saving…',
   reading: 'Reading lab report…',
@@ -164,6 +168,8 @@ const HE: LabResultsStripCopy = {
   deleteFailed: 'לא ניתן למחוק את הדוח',
   deletedTitle: 'נמחק',
   deletedBody: 'הדוח הוסר. אפשר לייבא את ה־PDF שוב.',
+  openOriginalPdf: 'פתח PDF מקורי',
+  openOriginalFailed: 'ה־PDF המקורי לא נמצא בטלפון. ייבא שוב.',
   choosePdf: 'בחר PDF',
   saving: 'שומר…',
   reading: 'קורא את הדוח…',
@@ -230,6 +236,8 @@ const ES: LabResultsStripCopy = {
   deleteFailed: 'No se pudo eliminar',
   deletedTitle: 'Eliminado',
   deletedBody: 'Informe eliminado. Puedes importar el PDF de nuevo.',
+  openOriginalPdf: 'Abrir PDF original',
+  openOriginalFailed: 'El PDF original no está en el teléfono. Impórtalo de nuevo.',
   choosePdf: 'Elegir PDF',
   saving: 'Guardando…',
   reading: 'Leyendo el informe…',
@@ -296,6 +304,8 @@ const FR: LabResultsStripCopy = {
   deleteFailed: 'Impossible de supprimer',
   deletedTitle: 'Supprimé',
   deletedBody: 'Rapport supprimé. Vous pouvez réimporter le PDF.',
+  openOriginalPdf: 'Ouvrir le PDF original',
+  openOriginalFailed: 'Le PDF original n’est pas sur ce téléphone. Réimportez-le.',
   choosePdf: 'Choisir un PDF',
   saving: 'Enregistrement…',
   reading: 'Lecture du rapport…',
@@ -362,6 +372,8 @@ const DE: LabResultsStripCopy = {
   deleteFailed: 'Löschen fehlgeschlagen',
   deletedTitle: 'Gelöscht',
   deletedBody: 'Bericht entfernt. Sie können das PDF erneut importieren.',
+  openOriginalPdf: 'Original-PDF öffnen',
+  openOriginalFailed: 'Das Original-PDF ist nicht auf diesem Telefon. Bitte erneut importieren.',
   choosePdf: 'PDF wählen',
   saving: 'Speichern…',
   reading: 'Befund wird gelesen…',
@@ -428,6 +440,8 @@ const AR: LabResultsStripCopy = {
   deleteFailed: 'تعذّر الحذف',
   deletedTitle: 'تم الحذف',
   deletedBody: 'أُزيل التقرير. يمكنك استيراد الـ PDF مجددًا.',
+  openOriginalPdf: 'فتح PDF الأصلي',
+  openOriginalFailed: 'ملف PDF الأصلي غير موجود على الهاتف. استورده مرة أخرى.',
   choosePdf: 'اختر PDF',
   saving: 'جارٍ الحفظ…',
   reading: 'جارٍ قراءة التقرير…',
@@ -506,6 +520,8 @@ const RU: LabResultsStripCopy = {
   deleteFailed: 'Не удалось удалить',
   deletedTitle: 'Удалено',
   deletedBody: 'Отчёт удалён. Можно снова импортировать PDF.',
+  openOriginalPdf: 'Открыть исходный PDF',
+  openOriginalFailed: 'Исходный PDF не на этом телефоне. Импортируйте снова.',
   choosePdf: 'Выбрать PDF',
   saving: 'Сохранение…',
   reading: 'Чтение отчёта…',
@@ -572,6 +588,8 @@ const PT: LabResultsStripCopy = {
   deleteFailed: 'Não foi possível excluir',
   deletedTitle: 'Excluído',
   deletedBody: 'Laudo removido. Pode importar o PDF novamente.',
+  openOriginalPdf: 'Abrir PDF original',
+  openOriginalFailed: 'O PDF original não está neste telefone. Importe de novo.',
   choosePdf: 'Escolher PDF',
   saving: 'Salvando…',
   reading: 'Lendo o laudo…',
@@ -638,6 +656,8 @@ const IT: LabResultsStripCopy = {
   deleteFailed: 'Eliminazione non riuscita',
   deletedTitle: 'Eliminato',
   deletedBody: 'Referto rimosso. Puoi importare di nuovo il PDF.',
+  openOriginalPdf: 'Apri PDF originale',
+  openOriginalFailed: 'Il PDF originale non è su questo telefono. Importalo di nuovo.',
   choosePdf: 'Scegli PDF',
   saving: 'Salvataggio…',
   reading: 'Lettura del referto…',
@@ -704,6 +724,8 @@ const TR: LabResultsStripCopy = {
   deleteFailed: 'Silinemedi',
   deletedTitle: 'Silindi',
   deletedBody: 'Rapor kaldırıldı. PDF’yi yeniden içe aktarabilirsiniz.',
+  openOriginalPdf: 'Orijinal PDF’yi aç',
+  openOriginalFailed: 'Orijinal PDF bu telefonda yok. Yeniden içe aktarın.',
   choosePdf: 'PDF seç',
   saving: 'Kaydediliyor…',
   reading: 'Rapor okunuyor…',

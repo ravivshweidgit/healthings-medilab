@@ -141,9 +141,9 @@ const PARSE_BASE = `Rules:
 - **Self-check:** value < refLow → flag low; value > refHigh → high; else normal. If flag text (e.g. "low") disagrees with this math, you mixed value and bound — re-read.
 - **\`name\` is ALWAYS canonical clinical English** (e.g. "Glucose", "TSH") — never Hebrew/Russian/app language. Clinicians read this JSON worldwide.
 - **\`nameOriginal\` = verbatim PDF label** (any language).
-- Specimen date/time → ISO 8601 with local offset.
+- **collectedAt** = specimen DRAW date/time. NEVER the PDF filename, NEVER the print/download footer. **printedAt** = portal print time when shown.
 - panelType: "chemistry", "cbc", or "other".
-- **Canonical \`code\` when present:** CREATININE, UREA (or BUN), CHOLESTEROL_LDL, CHOLESTEROL, CHOLESTEROL_HDL, TRIGLYCERIDES, GLUCOSE, HBA1C, TSH. Map any-language labels to these codes — the app matches codes only.
+- **Canonical \`code\` when present:** CREATININE, UREA (or BUN), CHOLESTEROL_LDL, NON_HDL_CHOLESTEROL, CHOLESTEROL, CHOLESTEROL_HDL, TRIGLYCERIDES, GLUCOSE, HBA1C, TSH. Map any-language labels to these codes — the app matches codes only.
 - Other tests: spaces/hyphens → underscore, UPPERCASE.
 - flag: "high", "low", "normal", or "unknown".
 - Skip non-numeric QC rows (HEMOLYTIC, LIPEMIC, ICTERIC) — put text in panelNote if needed.
@@ -191,12 +191,31 @@ Each test is a horizontal ruler/slider/scale.
 • HARD RULE: value MUST NOT equal refLow or refHigh. If it would, you grabbed a bound — find the marker number above the scale.
 • Self-check: value < refLow → flag low; value > refHigh → high; else normal. If printed "low" disagrees with this math, re-read value vs bounds.`;
 
+const CLALIT = `CLALIT ONLINE TABLE LAYOUT — HARD (this PDF is Clalit / כללית און-ליין):
+• Each test is a ROW: the RESULT number is printed ABOVE the test name, not beside it and not below it.
+• The number BELOW a name belongs to the NEXT test. Never assign a neighbor's number.
+• HARD lipids example: 104.5 above "CHOLESTEROL-LDL calc", then 116 above "NON-HDL_CHOLESTEROL" → CHOLESTEROL_LDL=104.5, NON_HDL_CHOLESTEROL=116. Putting 116 on LDL is WRONG (that 116 is NON-HDL).
+• Canonical codes: CHOLESTEROL_LDL (CHOLESTEROL-LDL calc), NON_HDL_CHOLESTEROL (NON-HDL_CHOLESTEROL / NON-HDL), CHOLESTEROL, CHOLESTEROL_HDL, TRIGLYCERIDES.
+• collectedAt = תאריך הבדיקה ושעת ביצועה (draw date/time in the header). ISO 8601 with Asia/Jerusalem offset.
+• printedAt = footer הודפס מאתר כללית. NEVER use the filename as a date (e.g. 2623-08-26-ldl.pdf is not 26 Aug). NEVER use the print footer as collectedAt.
+• HARD date example: header 03.08.2026 09:54, footer 23.08.2026 09:51, filename 2623-08-26 → collectedAt=2026-08-03T09:54:00+03:00, printedAt=2026-08-23T09:51:00+03:00.`;
+
 async function upsertPack(
   country: string,
   provider: string,
   kind: string,
   body: string,
+  replace = false,
 ): Promise<void> {
+  if (replace) {
+    await query(
+      `INSERT INTO lab_prompt_packs (country_code, provider_code, kind, version, body, active)
+       VALUES ($1, $2, $3, 1, $4, TRUE)
+       ON CONFLICT (country_code, provider_code, kind, version) DO UPDATE SET body = EXCLUDED.body`,
+      [country, provider, kind, body],
+    );
+    return;
+  }
   await query(
     `INSERT INTO lab_prompt_packs (country_code, provider_code, kind, version, body, active)
      VALUES ($1, $2, $3, 1, $4, TRUE)
@@ -208,9 +227,10 @@ async function upsertPack(
 async function ensurePromptPacksForAllCountries(): Promise<void> {
   // IL specialized packs first.
   await upsertPack('IL', '', 'identify', IL_IDENTIFY);
-  await upsertPack('IL', '', 'parse_base', PARSE_BASE);
+  await upsertPack('IL', '', 'parse_base', PARSE_BASE, true);
   await upsertPack('IL', '', 'parse_layout', PARSE_DEFAULT);
   await upsertPack('IL', 'meuhedet', 'parse_layout', MEUHEDDET);
+  await upsertPack('IL', 'clalit', 'parse_layout', CLALIT, true);
   await upsertPack('IL', '', 'repair', REPAIR);
 
   // Generic packs for every other country missing an identify row (one INSERT…SELECT per kind).

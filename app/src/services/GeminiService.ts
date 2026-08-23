@@ -25,12 +25,13 @@ import {
   type UserLanguage,
   type Gender,
 } from './TargetService';
-import type {
-  ParsedLabPdf,
-  LabPanelType,
-  LabProvider,
-  LabResult,
-  LabResultFlag,
+import {
+  repairSwappedLdlNonHdlResults,
+  type ParsedLabPdf,
+  type LabPanelType,
+  type LabProvider,
+  type LabResult,
+  type LabResultFlag,
 } from './LabLogService';
 import type { TimePoint } from './HealthConnectService';
 import type { UnitsPrefs } from './UnitsPreferenceService';
@@ -1547,6 +1548,18 @@ Each test is a horizontal ruler/slider/scale.
 • Self-check: value < refLow → flag low; value > refHigh → high; else normal. If printed "low" disagrees with this math, re-read value vs bounds.
 `;
 
+/** Clalit online table pack — Pass 2 when user confirmed Clalit. Embedded fallback if API packs missing. */
+const CLALIT_LAYOUT_PACK = `
+CLALIT ONLINE TABLE LAYOUT — HARD (this PDF is Clalit / כללית און-ליין):
+• Each test is a ROW: the RESULT number is printed ABOVE the test name, not beside it and not below it.
+• The number BELOW a name belongs to the NEXT test. Never assign a neighbor's number.
+• HARD lipids example: 104.5 above "CHOLESTEROL-LDL calc", then 116 above "NON-HDL_CHOLESTEROL" → CHOLESTEROL_LDL=104.5, NON_HDL_CHOLESTEROL=116. Putting 116 on LDL is WRONG (that 116 is NON-HDL).
+• Canonical codes: CHOLESTEROL_LDL (CHOLESTEROL-LDL calc), NON_HDL_CHOLESTEROL (NON-HDL_CHOLESTEROL / NON-HDL), CHOLESTEROL, CHOLESTEROL_HDL, TRIGLYCERIDES.
+• collectedAt = תאריך הבדיקה ושעת ביצועה (draw date/time in the header). ISO 8601 with Asia/Jerusalem offset.
+• printedAt = footer הודפס מאתר כללית. NEVER use the filename as a date (e.g. 2623-08-26-ldl.pdf is not 26 Aug). NEVER use the print footer as collectedAt.
+• HARD date example: header 03.08.2026 09:54, footer 23.08.2026 09:51, filename 2623-08-26 → collectedAt=2026-08-03T09:54:00+03:00, printedAt=2026-08-23T09:51:00+03:00.
+`;
+
 const LAB_PARSE_BASE_RULES = `Rules:
 - Extract EVERY numeric test row; do not invent tests not in the PDF.
 - **Values are sacred:** copy each number EXACTLY as printed (digits and decimal point). Never round, estimate, or invent. If unreadable, skip that row.
@@ -1554,9 +1567,9 @@ const LAB_PARSE_BASE_RULES = `Rules:
 - **Self-check:** value < refLow → flag low; value > refHigh → high; else normal. If flag text (e.g. "low") disagrees with this math, you mixed value and bound — re-read.
 - **\`name\` is ALWAYS canonical clinical English** (e.g. "Glucose", "TSH") — never Hebrew/Russian/app language. Clinicians read this JSON worldwide.
 - **\`nameOriginal\` = verbatim PDF label** (any language).
-- Specimen date/time → ISO 8601 with local offset.
+- **collectedAt** = specimen DRAW date/time (תאריך הבדיקה / collection). NEVER the PDF filename, NEVER the print/download footer. **printedAt** = portal print time when shown.
 - panelType: "chemistry", "cbc", or "other".
-- **Canonical \`code\` when present:** CREATININE, UREA (or BUN), CHOLESTEROL_LDL, CHOLESTEROL, CHOLESTEROL_HDL, TRIGLYCERIDES, GLUCOSE, HBA1C, TSH. Map any-language labels to these codes — the app matches codes only.
+- **Canonical \`code\` when present:** CREATININE, UREA (or BUN), CHOLESTEROL_LDL, NON_HDL_CHOLESTEROL, CHOLESTEROL, CHOLESTEROL_HDL, TRIGLYCERIDES, GLUCOSE, HBA1C, TSH. Map any-language labels to these codes — the app matches codes only.
 - Other tests: spaces/hyphens → underscore, UPPERCASE.
 - flag: "high", "low", "normal", or "unknown".
 - Skip non-numeric QC rows (HEMOLYTIC, LIPEMIC, ICTERIC) — put text in panelNote if needed.
@@ -1591,6 +1604,7 @@ function buildLabParsePrompt(provider: LabProvider, packs?: LabPromptPacks | nul
   const layout =
     layoutFromPack
     || (provider === 'meuhedet' ? MEUHEDDET_LAYOUT_PACK : null)
+    || (provider === 'clalit' ? CLALIT_LAYOUT_PACK : null)
     || packs?.parseLayoutDefault
     || LAB_PARSE_DEFAULT_LAYOUT;
   const base = packs?.parseBase?.trim() || LAB_PARSE_BASE_RULES;
@@ -1889,6 +1903,7 @@ export async function parseLabReportPdf(
   }
   // Meuhedet gauges: first pass often sets value=refLow; repair those rows.
   results = await repairGaugeBoundCollisions(pdfBase64, results, opts?.packs?.repair);
+  results = repairSwappedLdlNonHdlResults(results);
 
   const providerRaw = String(data.labProvider ?? provider).toLowerCase();
   const parsed: ParsedLabPdf = {

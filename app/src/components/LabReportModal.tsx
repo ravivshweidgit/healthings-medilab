@@ -37,6 +37,7 @@ import {
   type LabResult,
   type ParsedLabPdf,
 } from '../services/LabLogService';
+import { labPdfExists, openLabPdf } from '../services/LabPdfFileService';
 import { applyAutoMacroRevision } from '../logic/macroAutoAdjust';
 import { getLabResultsStripCopy } from '../i18n/labResultsStripCopy';
 import type { UserLanguage } from '../services/TargetService';
@@ -100,6 +101,8 @@ export function LabReportModal({
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
   const copy = getLabResultsStripCopy(lang?.code);
   const loading = loadingPhase != null;
+  /** Original PDF bytes until Save — not stored in the draft JSON. */
+  const importPdfRef = useRef<string | null>(null);
 
   const reset = useCallback(() => {
     setDraft(null);
@@ -110,6 +113,7 @@ export function LabReportModal({
     setSuggestedProvider('unknown');
     setCountryQuery('');
     autoPickStartedRef.current = false;
+    importPdfRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -179,6 +183,7 @@ export function LabReportModal({
 
   const runParseWithProvider = useCallback(
     async (base64: string, provider: LabProvider) => {
+      importPdfRef.current = base64;
       setPendingPdfBase64(null);
       setLoadingPhase('parse');
       try {
@@ -339,7 +344,8 @@ export function LabReportModal({
     if (!draft || draft.results.length === 0) return;
     setLoadingPhase('save');
     try {
-      const saved = await saveParsedLabPanel(draft);
+      const saved = await saveParsedLabPanel(draft, { pdfBase64: importPdfRef.current });
+      importPdfRef.current = null;
       onSaved(saved);
       // Macro revision uses Gemini separately — run after modal closes so we don't re-show "reading PDF".
       void applyAutoMacroRevision({
@@ -389,6 +395,22 @@ export function LabReportModal({
       },
     ]);
   }, [editingReport, copy, onDeleted]);
+
+  const handleOpenPanelPdf = useCallback(
+    async (pdfFileId: string) => {
+      try {
+        const ok = await labPdfExists(pdfFileId);
+        if (!ok) {
+          Alert.alert(copy.openOriginalPdf, copy.openOriginalFailed);
+          return;
+        }
+        await openLabPdf(pdfFileId);
+      } catch {
+        Alert.alert(copy.openOriginalPdf, copy.openOriginalFailed);
+      }
+    },
+    [copy.openOriginalFailed, copy.openOriginalPdf],
+  );
 
   const title = copy.modalTitle;
   const saveLabel = copy.save;
@@ -614,7 +636,18 @@ export function LabReportModal({
             <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
               {editingReport.panels.map((panel, pi) => (
                 <View key={panel.id}>
-                  <Text style={styles.panelTitle}>{panel.panelType.toUpperCase()}</Text>
+                  <View style={styles.panelHead}>
+                    <Text style={styles.panelTitle}>{panel.panelType.toUpperCase()}</Text>
+                    {panel.pdfFileId ? (
+                      <Pressable
+                        onPress={() => void handleOpenPanelPdf(panel.pdfFileId!)}
+                        accessibilityRole="button"
+                        accessibilityLabel={copy.openOriginalPdf}
+                      >
+                        <Text style={styles.pdfLink}>{copy.openOriginalPdf}</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
                   {panel.results.map((r, ri) =>
                     renderResultRow(
                       r,
@@ -704,8 +737,15 @@ const makeStyles = (c: ThemeColors) =>
     color: c.textSecondary,
     marginTop: 8,
     marginBottom: 4,
-    paddingHorizontal: 4,
+    flex: 1,
   },
+  panelHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  pdfLink: { fontSize: 13, fontWeight: '600', color: c.accentBlue },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 16 },
   row: {

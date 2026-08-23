@@ -5,6 +5,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { deleteLabPdfs, writeLabPdf } from './LabPdfFileService';
 
 export type LabResultFlag = 'low' | 'high' | 'normal' | 'unknown';
 
@@ -28,6 +29,8 @@ export type LabPanel = {
   panelType: LabPanelType;
   results: LabResult[];
   note?: string;
+  /** Disk file id under healthings-lab-pdfs/ — original PDF for clinic compare. */
+  pdfFileId?: string;
 };
 
 /** Known Israeli HMOs + unknown; other country codes come from the server catalog. */
@@ -115,10 +118,17 @@ async function writeReport(report: LabReport): Promise<void> {
 
 export async function getAllLabReports(): Promise<LabReport[]> {
   const ids = await getReportIds();
-  const reports = await Promise.all(ids.map((id) => readReport(id)));
-  return reports
-    .filter((r): r is LabReport => r != null)
-    .sort((a, b) => b.collectedAt.localeCompare(a.collectedAt));
+  const loaded = await Promise.all(ids.map((id) => readReport(id)));
+  const out: LabReport[] = [];
+  for (const r of loaded) {
+    if (!r) continue;
+    const { report, changed } = repairLabReportLipids(r);
+    if (changed) {
+      await AsyncStorage.setItem(storageKey(report.id), JSON.stringify(report));
+    }
+    out.push(report);
+  }
+  return out.sort((a, b) => b.collectedAt.localeCompare(a.collectedAt));
 }
 
 export async function getLatestLabReport(): Promise<LabReport | null> {
@@ -236,7 +246,21 @@ function resultCodeKey(r: LabResult): string {
 /** Exact AI-assigned lab codes only — no name/Hebrew keyword matching. */
 const CREATININE_CODES = new Set(['CREATININE', 'CREATININ']);
 const UREA_CODES = new Set(['UREA', 'BUN']);
-const LDL_CODES = new Set(['CHOLESTEROL_LDL', 'LDL', 'LDL_CHOL', 'LDL_C']);
+const LDL_CODES = new Set([
+  'CHOLESTEROL_LDL',
+  'LDL',
+  'LDL_CHOL',
+  'LDL_C',
+  'CHOLESTEROL_LDL_CALC',
+  'LDL_CALC',
+]);
+const NON_HDL_CODES = new Set([
+  'NON_HDL_CHOLESTEROL',
+  'NONHDL_CHOLESTEROL',
+  'CHOLESTEROL_NON_HDL',
+  'NON_HDL',
+  'NON_HDL_CHOL',
+]);
 const TOTAL_CHOL_CODES = new Set(['CHOLESTEROL', 'TOTAL_CHOLESTEROL', 'CHOL']);
 const HDL_CODES = new Set(['CHOLESTEROL_HDL', 'HDL', 'HDL_CHOL', 'HDL_C']);
 const TG_CODES = new Set(['TRIGLYCERIDES', 'TRIGLYCERIDE', 'TG']);
@@ -251,7 +275,12 @@ function isUreaResult(r: LabResult): boolean {
   return UREA_CODES.has(resultCodeKey(r));
 }
 
+function isNonHdlResult(r: LabResult): boolean {
+  return NON_HDL_CODES.has(resultCodeKey(r));
+}
+
 function isLdlResult(r: LabResult): boolean {
+  if (isNonHdlResult(r)) return false;
   return LDL_CODES.has(resultCodeKey(r));
 }
 
@@ -273,6 +302,113 @@ function isGlucoseResult(r: LabResult): boolean {
 
 function isHba1cResult(r: LabResult): boolean {
   return HBA1C_CODES.has(resultCodeKey(r));
+}
+
+const LDL_NONHDL_SWAP_MARGIN = 4;
+
+function flagForNewValue(r: LabResult, value: number): LabResultFlag {
+  if (r.refLow != null && r.refHigh != null && r.refLow < r.refHigh) {
+    if (value < r.refLow) return 'low';
+    if (value > r.refHigh) return 'high';
+    return 'normal';
+  }
+  return r.flag;
+}
+
+/**
+ * Clalit tables print the number above the name, so LDL calc and NON-HDL
+ * (adjacent rows) sometimes land in each other's slots. Friedewald math on
+ * already-extracted codes/values — not name regex.
+ */
+export function repairSwappedLdlNonHdlResults(results: LabResult[]): LabResult[] {
+  const ldl = results.find(isLdlResult);
+  const nonHdl = results.find(isNonHdlResult);
+  const total = results.find(isTotalCholResult);
+  const hdl = results.find(isHdlResult);
+  const tg = results.find(isTriglycerideResult);
+  if (!ldl || !nonHdl || !total || !hdl || !tg) return results;
+
+  const expectedNonHdl = total.value - hdl.value;
+  const expectedLdl = total.value - hdl.value - tg.value / 5;
+  const dist = (a: number, b: number) => Math.abs(a - b);
+  const keep = dist(ldl.value, expectedLdl) + dist(nonHdl.value, expectedNonHdl);
+  const swap = dist(ldl.value, expectedNonHdl) + dist(nonHdl.value, expectedLdl);
+  if (!(swap + LDL_NONHDL_SWAP_MARGIN < keep)) return results;
+
+  return results.map((r) => {
+    if (r === ldl) {
+      const value = nonHdl.value;
+      return { ...r, value, flag: flagForNewValue(r, value) };
+    }
+    if (r === nonHdl) {
+      const value = ldl.value;
+      return { ...r, value, flag: flagForNewValue(r, value) };
+    }
+    return r;
+  });
+}
+
+function repairLabReportLipids(report: LabReport): { report: LabReport; changed: boolean } {
+  let changed = false;
+  const panels = report.panels.map((p) => {
+    const results = repairSwappedLdlNonHdlResults(p.results);
+    if (results === p.results) return p;
+    changed = true;
+    return { ...p, results };
+  });
+  return changed ? { report: { ...report, panels }, changed: true } : { report, changed: false };
+}
+
+function lipidFingerprint(results: LabResult[]): string | null {
+  const total = results.find(isTotalCholResult);
+  const hdl = results.find(isHdlResult);
+  const tg = results.find(isTriglycerideResult);
+  if (!total || !hdl || !tg) return null;
+  const q = (n: number) => (Math.round(n * 10) / 10).toFixed(1);
+  return `${q(total.value)}|${q(hdl.value)}|${q(tg.value)}`;
+}
+
+function isoDayKey(iso: string): string {
+  return reportDateKey(iso);
+}
+
+function collectedAfterPrint(collectedAt: string, printedAt?: string): boolean {
+  if (!printedAt) return false;
+  return isoDayKey(collectedAt) > isoDayKey(printedAt);
+}
+
+function sameDrawAsParsed(existing: LabReport, parsed: ParsedLabPdf): boolean {
+  return (
+    collectedAfterPrint(existing.collectedAt, existing.printedAt ?? parsed.printedAt)
+    || collectedAfterPrint(parsed.collectedAt, parsed.printedAt)
+    || collectedAfterPrint(existing.collectedAt, parsed.printedAt)
+  );
+}
+
+function preferCollectedAt(existing: LabReport, parsed: ParsedLabPdf): string {
+  const parsedBad = collectedAfterPrint(parsed.collectedAt, parsed.printedAt);
+  const existingBad = collectedAfterPrint(existing.collectedAt, existing.printedAt ?? parsed.printedAt);
+  if (parsedBad && !existingBad) return existing.collectedAt;
+  if (existingBad && !parsedBad) return parsed.collectedAt;
+  return isoDayKey(parsed.collectedAt) <= isoDayKey(existing.collectedAt)
+    ? parsed.collectedAt
+    : existing.collectedAt;
+}
+
+async function findReportByLipidFingerprint(
+  results: LabResult[],
+  skipDateKey: string,
+): Promise<LabReport | null> {
+  const fp = lipidFingerprint(results);
+  if (!fp) return null;
+  const all = await getAllLabReports();
+  for (const r of all) {
+    if (reportDateKey(r.collectedAt) === skipDateKey) continue;
+    for (const p of r.panels) {
+      if (lipidFingerprint(p.results) === fp) return r;
+    }
+  }
+  return null;
 }
 
 /** Scan one lab report for creatinine / urea markers and high flags. */
@@ -604,14 +740,33 @@ export async function buildLabsForMacroRevision(): Promise<string | null> {
 }
 
 /** Merge parsed PDF panel into storage (same draw day → one report). */
-export async function saveParsedLabPanel(parsed: ParsedLabPdf): Promise<LabReport> {
+export async function saveParsedLabPanel(
+  parsed: ParsedLabPdf,
+  opts?: { pdfBase64?: string | null },
+): Promise<LabReport> {
+  const results = repairSwappedLdlNonHdlResults(parsed.results);
   const dateKey = reportDateKey(parsed.collectedAt);
-  const existing = await findReportByDrawDate(dateKey);
+  let existing = await findReportByDrawDate(dateKey);
+  if (!existing) {
+    const twin = await findReportByLipidFingerprint(results, dateKey);
+    if (twin && sameDrawAsParsed(twin, parsed)) existing = twin;
+  }
+
+  const pdfBase64 = opts?.pdfBase64?.trim() || '';
+  const existingIdx = existing
+    ? existing.panels.findIndex((p) => p.panelType === parsed.panelType)
+    : -1;
+  const panelId =
+    existingIdx >= 0 && existing ? existing.panels[existingIdx]!.id : makeId();
+  if (pdfBase64) await writeLabPdf(panelId, pdfBase64);
+  const keptPdfId =
+    existingIdx >= 0 && existing ? existing.panels[existingIdx]!.pdfFileId : undefined;
   const panel: LabPanel = {
-    id: makeId(),
+    id: panelId,
     panelType: parsed.panelType,
-    results: parsed.results,
+    results,
     note: parsed.panelNote,
+    pdfFileId: pdfBase64 ? panelId : keptPdfId,
   };
 
   const now = new Date().toISOString();
@@ -626,7 +781,7 @@ export async function saveParsedLabPanel(parsed: ParsedLabPdf): Promise<LabRepor
       labProvider: parsed.labProvider !== 'unknown' ? parsed.labProvider : existing.labProvider,
       patientName: parsed.patientName ?? existing.patientName,
       patientId: parsed.patientId ?? existing.patientId,
-      collectedAt: parsed.collectedAt,
+      collectedAt: preferCollectedAt(existing, parsed),
       printedAt: parsed.printedAt ?? existing.printedAt,
       importedAt: now,
       source: 'pdf-ai',
@@ -656,9 +811,11 @@ export async function updateLabReport(report: LabReport): Promise<void> {
 }
 
 export async function deleteLabReport(id: string): Promise<void> {
+  const report = await readReport(id);
   await AsyncStorage.removeItem(storageKey(id));
   const ids = (await getReportIds()).filter((x) => x !== id);
   await setReportIds(ids);
+  if (report) await deleteLabPdfs(report.panels.map((p) => p.pdfFileId));
 }
 
 // ─── Export / Import ──────────────────────────────────────────────────────────

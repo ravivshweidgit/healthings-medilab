@@ -10,6 +10,11 @@ import {
   isActivityDayKey,
 } from './ActivityLogService';
 import { FOOD_STAPLES_KEY } from './FoodStaplesService';
+import {
+  injectLabPdfsSidecar,
+  LAB_PDFS_SIDECAR_KEY,
+  restoreLabPdfsSidecarFromAsyncStorage,
+} from './LabPdfFileService';
 
 const BACKUP_APP = 'healthings-medilab';
 const BACKUP_VERSION = 1;
@@ -31,6 +36,7 @@ const EXCLUDED_ASYNC_KEYS = new Set<string>([
   // prompt105 daily logs live as files under documentDirectory/healthings-logs/
   // (not AsyncStorage). Keep this comment so future AS keys for log pointers stay excluded.
   'healthings:app_daily_log_pointer',
+  'healthings:labPdfs',
 ]);
 
 type LocalBackupPayload = {
@@ -235,6 +241,7 @@ export async function buildLocalBackupPayload(opts?: {
   const includeWithingsTokens = opts?.includeWithingsTokens !== false;
   const asyncStorage = await collectAsyncStorageExport();
   await assertActivityBackupComplete(asyncStorage);
+  await injectLabPdfsSidecar(asyncStorage);
   return {
     version: BACKUP_VERSION,
     app: BACKUP_APP,
@@ -257,6 +264,10 @@ export async function applyLocalBackupPayload(
   let glucosePointsMerged = 0;
 
   for (const [key, incomingRaw] of Object.entries(payload.asyncStorage)) {
+    if (key === LAB_PDFS_SIDECAR_KEY) {
+      await restoreLabPdfsSidecarFromAsyncStorage({ [key]: incomingRaw });
+      continue;
+    }
     if (EXCLUDED_ASYNC_KEYS.has(key)) continue;
 
     const existingRaw = await AsyncStorage.getItem(key);

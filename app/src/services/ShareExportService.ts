@@ -18,6 +18,7 @@ import {
 } from './MetricsPersistenceService';
 import { getClientIdentity } from './ClientIdentity';
 import { clinicHardMacrosApplyToday } from './ClinicMacroBoundsService';
+import { injectLabPdfsSidecar } from './LabPdfFileService';
 const LEGACY_WITHINGS_STORE_KEY = 'healthings:withingsStore';
 
 /** Standard clinic snapshot window — ~1y; gzip typically well under 1 MB. */
@@ -46,6 +47,8 @@ const EXCLUDED_ASYNC_KEYS = new Set<string>([
   'usage_last_flush_at_v1',
   // prompt105 — daily app logs are files; reserve pointer key if ever used.
   'healthings:app_daily_log_pointer',
+  // prompt117 — PDF bytes live on disk; sidecar is injected at export only.
+  'healthings:labPdfs',
 ]);
 
 export type ClinicExportPayload = {
@@ -219,6 +222,8 @@ export async function buildClinicExport(
   if (await clinicHardMacrosApplyToday()) {
     delete asyncStorage['daily_macro_target'];
   }
+
+  await injectLabPdfsSidecar(asyncStorage);
 
   return {
     version: EXPORT_VERSION,
