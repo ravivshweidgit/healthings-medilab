@@ -356,7 +356,8 @@ Return JSON only (no markdown):
 {
   "bounds": [
     { "axis": "protein_g", "direction": "floor", "value": 90, "strength": "hard", "kind": "constant" },
-    { "axis": "protein_g", "direction": "ceiling", "value": 113, "strength": "hard", "kind": "constant" }
+    { "axis": "protein_g", "direction": "ceiling", "value": 113, "strength": "hard", "kind": "constant" },
+    { "axis": "carb_g", "direction": "ceiling", "kind": "percent", "of": "kcal_order", "value": 30, "resolvedValue": 150, "strength": "hard" }
   ],
   "markers": [
     { "marker": "SAT_FAT_G", "direction": "cap", "dailyTarget": 19, "percentOfEnergy": 10, "ofEnergy": "kcal_eaten" }
@@ -376,6 +377,7 @@ RULES
 - HARD / floor / ceiling / range only when the rules clearly give a number. FLEX = unlocked axis with NO value field and NO invented grams — example: { "axis": "fat_g", "direction": "ceiling", "kind": "constant", "strength": "flex" }.
 - Never invent a number just to fill FLEX. Prefer FLEX-with-no-value over guessing.
 - Kind is not HARD/FLEX. Prefer percent on carb_g when rules say share of daily calories; resolve against kcal_order; always fill resolvedValue.
+- "עד X% מסה״כ הקלוריות" / "up to X% of daily calories" is a HARD carb_g percent ceiling. "ניתן גם פחות" / "can also be less" does NOT unlock the axis — it is still ≤ X%. If this order also has a HARD kcal ceiling, you MUST emit carb_g with kind percent, of kcal_order, value X, resolvedValue (kcal×X/100/4), strength hard. Never leave carb_g as FLEX-empty while citing that % or the gram equivalent in reasoning.
 - ENERGY / kcal: when the rules give ONE clear daily energy number (e.g. "קלוריות: 1,690 קק״ל", "1690 kcal", "energy 2000"), ALWAYS emit a HARD kcal ceiling with that value (strip thousands separators). Do NOT leave kcal only in needsClinician when that number is present. Use needsClinician for kcal ONLY when energy is a range with no chosen target, or truly absent.
 - TRAINING: one kcal ceiling with activityAddBack { thresholdKcal, capValue } when rules give a higher training allowance. Omit activityAddBack if threshold is unknown — put a needsClinician question instead. Never set followsActivity.
 - Markers (SAT_FAT_G, SOLUBLE_FIBER_G, IODINE_MCG, SELENIUM_MCG, …) go in markers[], never in bounds. Prefer percentOfEnergy for sat fat when rules say % of energy. Return markers: [] when rules name none.
