@@ -11,6 +11,10 @@ import {
 } from './clinicAccess.js';
 import { ClinicError, getOverlayForMentor, getOverlayForPatient, type ClinicOverlay } from './clinicOverlay.js';
 import { proposeClinicMacroOrder } from './geminiClinic.js';
+import {
+  normalizePlateCollection,
+  type PlateCollection,
+} from './plateCollections.js';
 import { saveMarkersForPatient, type TreatmentMarker } from './treatmentMarkers.js';
 import { stripLegacyMacroTargetFromLatestBlob } from './sync.js';
 import { createHash } from 'crypto';
@@ -53,6 +57,8 @@ export type ClinicMacrosPayload = {
   needsClinician?: MacroNeedsClinician[];
   /** Present after a manual override that diverges from last rules-built order. */
   source?: 'rules' | 'clinic_override';
+  /** Example plates matching this order (prompt118) — versioned by `rulesHash`. */
+  plateCollection?: PlateCollection;
 };
 
 const AXES = new Set<MacroAxis>([
@@ -422,6 +428,7 @@ export async function saveMacrosForPatient(
     reasoning?: string;
     needsClinician?: MacroNeedsClinician[];
     source?: 'rules' | 'clinic_override';
+    plateCollection?: PlateCollection | null;
   } = {},
 ): Promise<ClinicOverlay> {
   await assertMentorPatientAccess(mentor, patientId, ClinicError);
@@ -437,6 +444,7 @@ export async function saveMacrosForPatient(
           ...(meta.rulesHash ? { rulesHash: meta.rulesHash } : {}),
           ...(meta.reasoning ? { reasoning: meta.reasoning } : {}),
           ...(meta.needsClinician?.length ? { needsClinician: meta.needsClinician } : {}),
+          ...(meta.plateCollection ? { plateCollection: meta.plateCollection } : {}),
           source: meta.source ?? 'clinic_override',
         };
 
@@ -478,6 +486,7 @@ export function macrosPayloadFromUnknown(raw: unknown): ClinicMacrosPayload | nu
   if (!Array.isArray(obj.bounds)) return null;
   const updatedAt =
     typeof obj.updatedAt === 'string' ? obj.updatedAt : new Date(0).toISOString();
+  const plateCollection = normalizePlateCollection(obj.plateCollection);
   if (obj.bounds.length === 0) {
     return {
       bounds: [],
@@ -486,6 +495,7 @@ export function macrosPayloadFromUnknown(raw: unknown): ClinicMacrosPayload | nu
       ...(obj.reasoning ? { reasoning: obj.reasoning } : {}),
       ...(obj.needsClinician ? { needsClinician: obj.needsClinician } : {}),
       ...(obj.source ? { source: obj.source } : {}),
+      ...(plateCollection ? { plateCollection } : {}),
     };
   }
   try {
@@ -500,6 +510,7 @@ export function macrosPayloadFromUnknown(raw: unknown): ClinicMacrosPayload | nu
       ...(obj.reasoning ? { reasoning: obj.reasoning } : {}),
       ...(obj.needsClinician ? { needsClinician: obj.needsClinician } : {}),
       ...(obj.source ? { source: obj.source } : {}),
+      ...(plateCollection ? { plateCollection } : {}),
     };
   } catch {
     return null;
@@ -535,6 +546,7 @@ export type ProposedClinicMacros = {
   impliedNotes: string[];
   needsClinician: MacroNeedsClinician[];
   rulesHash: string;
+  plateCollection: PlateCollection | null;
 };
 
 /** One engine — same Propose as clinic Rules Save. */
@@ -564,6 +576,7 @@ export async function proposeMacrosFromRulesText(
     impliedNotes: draft.impliedNotes,
     needsClinician,
     rulesHash: hashRulesText(rulesText),
+    plateCollection: draft.plateCollection,
   };
 }
 
@@ -587,6 +600,7 @@ function buildMacrosWritePayload(
     reasoning?: string;
     needsClinician?: MacroNeedsClinician[];
     source?: 'rules' | 'clinic_override';
+    plateCollection?: PlateCollection | null;
   },
 ): ClinicMacrosPayload {
   const setAt = new Date().toISOString();
@@ -598,6 +612,7 @@ function buildMacrosWritePayload(
         ...(meta.rulesHash ? { rulesHash: meta.rulesHash } : {}),
         ...(meta.reasoning ? { reasoning: meta.reasoning } : {}),
         ...(meta.needsClinician?.length ? { needsClinician: meta.needsClinician } : {}),
+        ...(meta.plateCollection ? { plateCollection: meta.plateCollection } : {}),
         source: meta.source ?? 'clinic_override',
       };
 }
@@ -635,6 +650,7 @@ export async function rebuildMacrosForPatientSelf(
     rulesHash: proposed.rulesHash,
     reasoning: proposed.reasoning,
     needsClinician: proposed.needsClinician,
+    plateCollection: proposed.plateCollection,
   });
   const orgs = await patientOrgIds(patient.id);
   for (const orgId of orgs) {
@@ -674,6 +690,7 @@ export async function rebuildMacrosFromRulesForPatient(
     rulesHash: proposed.rulesHash,
     reasoning: proposed.reasoning,
     needsClinician: needs,
+    plateCollection: proposed.plateCollection,
   });
 
   if (proposed.markers.length > 0) {

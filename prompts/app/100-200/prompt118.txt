@@ -1,6 +1,8 @@
 prompt118 — Example plates routed by the clinical order (rules-driven, not lab-guessed)
 
-Status: backlog (spec draft 2026-08-25, owner)
+Status: in_progress (2026-08-25) — A + B built, APK compile-checked, NOT phone-tested,
+  NOT deployed to VPS. Section C (glycemic collection) not started.
+  Propose contract committed `2228c3b`; plumbing + app wiring uncommitted pending phone test.
 Builds on: be-45 Propose (`proposeClinicMacroOrder` / `proposeMacrosFromRulesText`),
   clinic overlay macros (`ClinicMacroBoundsService`), website plates (`plates-locale-content.mjs`),
   `platesUrl()` (prompt81 help-URL pattern)
@@ -88,6 +90,11 @@ separate invalidation, no extra AI call.
 - `MacroProposeResult` and `ProposedClinicMacros` gain `plateCollection?: string | null`.
 - Persist it in the macros payload beside `rulesHash` / `reasoning`, and return it on
   `GET /v1/clinic/overlays` and `POST /v1/account/macros/rebuild`.
+- **Built:** no route edits were needed — both endpoints return the whole
+  `ClinicMacrosPayload` (overlays via `macrosPayloadFromUnknown`, rebuild via
+  `buildMacrosWritePayload`), so the field rides through. `macrosPayloadFromUnknown` runs
+  stored slugs back through `normalizePlateCollection`, so a slug retired from the registry
+  stops resolving on read instead of being trusted forever.
 
 ### B. App — resolver + dynamic links
 
@@ -104,6 +111,10 @@ separate invalidation, no extra AI call.
 - `MacroTargetStrip`: after **Accept**, a calm inline row — label from
   `foodLogUiCopy.examplePlates`, plus one short line that these are illustrations and
   every meal is confirmed in the app. Text link, no auto-open.
+  **Built as:** the row renders whenever the strip is on the `active` screen and a slug
+  resolves — not only on the Accept frame — so the link is still there when My Macros is
+  reopened. New i18n key: `examplePlatesDisclaimer` (10 locales).
+  **Open taste call (owner, on device):** tighten to Accept-only if it reads as clutter.
 
 ### C. Website — second collection
 
@@ -174,17 +185,29 @@ Deferred, with the reason (do not "add anyway"):
 
 ## Phone checklist
 
-- [ ] Clinic writes a lipid order → Accept macros → plates row appears → `lipid-protocol`
-- [ ] Clinic writes a glycemic order → link resolves to `glycemic-protocol` (once live)
-- [ ] Rules with no matching collection → **no link anywhere** (not lipid)
-- [ ] No rules, lipid lab PDF imported → labs fallback gives `lipid-protocol`
-- [ ] No rules, no labs → no link
+Testable **now** on this APK — server is not deployed, so routing comes from the labs
+fallback only. Absence of rules-driven routing is expected here, not a bug.
+
+- [ ] Lipid labs actionable → **Example plates** shows in Log Meal, opens `lipid-protocol`
+- [ ] Lipids normal / no lab report → **no link anywhere** (this is the fix; not lipid)
+- [ ] My Macros active screen → plates row + illustrations-only line, correct app language
+- [ ] Nothing auto-opens the browser on Rules Save or Accept
+- [ ] he/ar: plates row reads as plain local prose; URL locale matches app language
+- [ ] Older store without `plateCollection` → labs fallback, no crash
+
+Needs the **VPS deploy** first (server plumbing + Propose contract):
+
+- [ ] Clinic writes a lipid order → Accept macros → plates row → `lipid-protocol`
+- [ ] Rules with no matching collection → no link (Propose returned null)
 - [ ] Treated patient (LDL normal, lipid order) → still `lipid-protocol` via rules
 - [ ] Editing rules → Propose reruns → collection follows the new `rulesHash`
-- [ ] Nothing auto-opens the browser on Rules Save or Accept
-- [ ] Server given a bogus slug from Gemini → stored as none, app hides link (no 404)
-- [ ] he/ar: plates row reads as plain local prose; URL locale matches app language
-- [ ] Older build / older store without `plateCollection` → labs fallback, no crash
+- [ ] Bogus slug from Gemini → stored as none, app hides link (no 404)
+- [ ] **Regression watch:** first Propose after deploy still returns sane bounds/markers —
+      the prompt gained a block, so confirm the order did not degrade
+
+Needs section C:
+
+- [ ] Clinic writes a glycemic order → resolves to `glycemic-protocol` (once pages live)
 
 ## Related
 
