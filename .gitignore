@@ -47,6 +47,13 @@ __pycache__/
 # Throwaway review evidence (screenshots, fixtures) — referenced by path, never committed
 tmp/
 
+# VPS / agent one-off probes — patient-named queries, lab PDFs, PHI; keep generic scripts tracked
+server/scripts/_q_*
+server/scripts/_lab_pull/
+server/scripts/_lab_prompt_ab.mjs
+server/scripts/_parse_lab_pdf.mjs
+server/scripts/_*.pdf
+
 # --- OS / editor ---
 .DS_Store
 Thumbs.db
