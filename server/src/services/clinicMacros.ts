@@ -11,10 +11,7 @@ import {
 } from './clinicAccess.js';
 import { ClinicError, getOverlayForMentor, getOverlayForPatient, type ClinicOverlay } from './clinicOverlay.js';
 import { proposeClinicMacroOrder } from './geminiClinic.js';
-import {
-  normalizePlateCollection,
-  type PlateCollection,
-} from './plateCollections.js';
+import { normalizePlateCollection, type PlateCollection } from './plateCollections.js';
 import { saveMarkersForPatient, type TreatmentMarker } from './treatmentMarkers.js';
 import { stripLegacyMacroTargetFromLatestBlob } from './sync.js';
 import { createHash } from 'crypto';
@@ -57,7 +54,7 @@ export type ClinicMacrosPayload = {
   needsClinician?: MacroNeedsClinician[];
   /** Present after a manual override that diverges from last rules-built order. */
   source?: 'rules' | 'clinic_override';
-  /** Example plates matching this order (prompt118) — versioned by `rulesHash`. */
+  /** Example plates the clinic picked for this patient (prompt118). */
   plateCollection?: PlateCollection;
 };
 
@@ -428,6 +425,7 @@ export async function saveMacrosForPatient(
     reasoning?: string;
     needsClinician?: MacroNeedsClinician[];
     source?: 'rules' | 'clinic_override';
+    /** `undefined` keeps the clinic's current pick; `null` clears it. */
     plateCollection?: PlateCollection | null;
   } = {},
 ): Promise<ClinicOverlay> {
@@ -435,16 +433,26 @@ export async function saveMacrosForPatient(
   const orgId = await requireMentorOrg(mentor.id);
   const setAt = new Date().toISOString();
   const bounds = normalizeClinicMacroBounds(input);
+  // A rules rebuild must not wipe a profile the clinic chose by hand.
+  const plateCollection =
+    meta.plateCollection === undefined
+      ? ((await getOverlayForMentor(mentor, patientId)).macros?.plateCollection ?? null)
+      : meta.plateCollection;
   const payload: ClinicMacrosPayload =
     bounds.length === 0
-      ? { bounds: [], updatedAt: setAt, ...(meta.source ? { source: meta.source } : {}) }
+      ? {
+          bounds: [],
+          updatedAt: setAt,
+          ...(meta.source ? { source: meta.source } : {}),
+          ...(plateCollection ? { plateCollection } : {}),
+        }
       : {
           bounds,
           updatedAt: setAt,
           ...(meta.rulesHash ? { rulesHash: meta.rulesHash } : {}),
           ...(meta.reasoning ? { reasoning: meta.reasoning } : {}),
           ...(meta.needsClinician?.length ? { needsClinician: meta.needsClinician } : {}),
-          ...(meta.plateCollection ? { plateCollection: meta.plateCollection } : {}),
+          ...(plateCollection ? { plateCollection } : {}),
           source: meta.source ?? 'clinic_override',
         };
 
@@ -453,7 +461,9 @@ export async function saveMacrosForPatient(
   await writeMacrosPayload(
     patientId,
     orgId,
-    bounds.length === 0 && !meta.rulesHash ? { bounds: [], updatedAt: setAt } : payload,
+    bounds.length === 0 && !meta.rulesHash
+      ? { bounds: [], updatedAt: setAt, ...(plateCollection ? { plateCollection } : {}) }
+      : payload,
     mentor.id,
   );
 
@@ -475,6 +485,41 @@ export async function saveMacrosForPatient(
       );
     }
   }
+
+  return getOverlayForMentor(mentor, patientId);
+}
+
+/**
+ * Set (or clear) the example-plate collection the clinic picked for this patient.
+ *
+ * Deliberately independent of the macro bounds: the clinic chooses a profile once
+ * and it survives every later bounds edit or rules rebuild. An unknown slug lands
+ * as null rather than 400 — the app treats null as "no plates link".
+ */
+export async function setPlateCollectionForPatient(
+  mentor: PublicUser,
+  patientId: string,
+  raw: unknown,
+): Promise<ClinicOverlay> {
+  await assertMentorPatientAccess(mentor, patientId, ClinicError);
+  const orgId = await requireMentorOrg(mentor.id);
+  const collection = normalizePlateCollection(raw);
+  const current = (await getOverlayForMentor(mentor, patientId)).macros;
+
+  const next: ClinicMacrosPayload = {
+    ...(current ?? { bounds: [] }),
+    updatedAt: new Date().toISOString(),
+    ...(collection ? { plateCollection: collection } : {}),
+  };
+  if (!collection) delete next.plateCollection;
+
+  await writeMacrosPayload(patientId, orgId, next, mentor.id);
+  await recordPatientAccess({
+    patientId,
+    actorUserId: mentor.id,
+    orgId,
+    action: 'macros.write',
+  });
 
   return getOverlayForMentor(mentor, patientId);
 }
@@ -546,7 +591,6 @@ export type ProposedClinicMacros = {
   impliedNotes: string[];
   needsClinician: MacroNeedsClinician[];
   rulesHash: string;
-  plateCollection: PlateCollection | null;
 };
 
 /** One engine — same Propose as clinic Rules Save. */
@@ -576,7 +620,6 @@ export async function proposeMacrosFromRulesText(
     impliedNotes: draft.impliedNotes,
     needsClinician,
     rulesHash: hashRulesText(rulesText),
-    plateCollection: draft.plateCollection,
   };
 }
 
@@ -650,7 +693,8 @@ export async function rebuildMacrosForPatientSelf(
     rulesHash: proposed.rulesHash,
     reasoning: proposed.reasoning,
     needsClinician: proposed.needsClinician,
-    plateCollection: proposed.plateCollection,
+    // Rebuilding from rules must not drop the clinic's picked profile.
+    plateCollection: overlay?.macros?.plateCollection ?? null,
   });
   const orgs = await patientOrgIds(patient.id);
   for (const orgId of orgs) {
@@ -690,7 +734,7 @@ export async function rebuildMacrosFromRulesForPatient(
     rulesHash: proposed.rulesHash,
     reasoning: proposed.reasoning,
     needsClinician: needs,
-    plateCollection: proposed.plateCollection,
+    // plateCollection omitted — saveMacrosForPatient keeps the clinic's current pick.
   });
 
   if (proposed.markers.length > 0) {

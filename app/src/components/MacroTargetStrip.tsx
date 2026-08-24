@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   Pressable,
   StyleSheet,
@@ -14,6 +15,8 @@ import {
   View,
 } from 'react-native';
 import { formatLocalizedDate, formatLocalizedTime } from '../i18n/dateLocale';
+import { getFoodLogUiCopy } from '../i18n/foodLogUiCopy';
+import { platesUrl } from '../i18n/helpUrls';
 import { suggestMacroTargets, confirmSavedMacroTarget, macroSuggestionToDailyTarget } from '../logic/macroAutoAdjust';
 import { contentAlignStyle } from '../logic/textDirection';
 import { ClinicLiveMacroBars } from './ClinicLiveMacroBars';
@@ -293,6 +296,8 @@ export function MacroTargetStrip({
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
+  const foodLogUi = useMemo(() => getFoodLogUiCopy(lang?.code), [lang?.code]);
+  const rtl = lang?.code === 'he' || lang?.code === 'ar';
   const [screen, setScreen] = useState<Screen>('idle');
   const [target, setTarget] = useState<DailyMacroTarget | null>(null);
   const [suggestion, setSuggestion] = useState<DailyMacroTarget | null>(null);
@@ -314,6 +319,7 @@ export function MacroTargetStrip({
   const [exportBusy, setExportBusy] = useState(false);
   const [rulesAdvice, setRulesAdvice] = useState<string | null>(null);
   const [liveMeters, setLiveMeters] = useState<ResolvedAxisMeter[]>([]);
+  const [plateCollectionSlug, setPlateCollectionSlug] = useState<string | null>(null);
   const lastAnalyzeRequestId = useRef(0);
 
   useEffect(() => {
@@ -348,9 +354,18 @@ export function MacroTargetStrip({
     );
   }, []);
 
+  const reloadPlateCollection = useCallback(async () => {
+    const store = await loadClinicMacroBounds();
+    setPlateCollectionSlug(store?.plateCollection?.trim() || null);
+  }, []);
+
   useEffect(() => {
     void reloadLiveMeters();
   }, [reloadLiveMeters, expanded, savedTarget]);
+
+  useEffect(() => {
+    if (screen === 'active') void reloadPlateCollection();
+  }, [screen, reloadPlateCollection, savedTarget]);
 
   const displayMeters =
     clinicMetersProp && clinicMetersProp.length > 0 ? clinicMetersProp : liveMeters;
@@ -466,7 +481,8 @@ export function MacroTargetStrip({
     onSaved?.(suggestion);
     setSuggestionHint(null);
     setScreen('active');
-  }, [suggestion, onSaved]);
+    await reloadPlateCollection();
+  }, [suggestion, onSaved, reloadPlateCollection]);
 
   const energyLab = energyUnitLabel(unitsPrefs.energy);
   const waterLab = waterUnitLabel(unitsPrefs.water);
@@ -774,6 +790,22 @@ export function MacroTargetStrip({
               <Pressable style={styles.reanalyzeBtn} onPress={() => void handleAsk()}>
                 <Text style={styles.reanalyzeBtnText}>{profileTitles.macrosUpdate}</Text>
               </Pressable>
+              {plateCollectionSlug ? (
+                <View style={styles.platesRow}>
+                  <Pressable
+                    onPress={() =>
+                      void Linking.openURL(platesUrl(lang?.code ?? 'en', plateCollectionSlug))
+                    }
+                    accessibilityRole="link"
+                    accessibilityLabel={foodLogUi.examplePlates}
+                  >
+                    <Text style={[styles.platesLinkText, rtl && styles.rtl]}>{foodLogUi.examplePlates}</Text>
+                  </Pressable>
+                  <Text style={[styles.platesDisclaimer, rtl && styles.rtl]}>
+                    {foodLogUi.examplePlatesDisclaimer}
+                  </Text>
+                </View>
+              ) : null}
               {exportPromptLink}
             </View>
           )}
@@ -940,4 +972,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   reanalyzeBtnText: { fontSize: 12, color: c.textSecondary, fontWeight: '600' },
   exportPromptBtn: { marginTop: 10, paddingVertical: 8, alignItems: 'center' },
   exportPromptText: { fontSize: 12, color: c.accentBlue, textDecorationLine: 'underline' },
+  platesRow: { marginTop: 12, gap: 4 },
+  platesLinkText: { fontSize: 12, color: c.accentBlue, textDecorationLine: 'underline' },
+  platesDisclaimer: { fontSize: 11, color: c.textSecondary, lineHeight: 16 },
 });

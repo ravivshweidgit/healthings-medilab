@@ -44,6 +44,8 @@ export type ClinicMacroBoundsStore = {
   rulesHash?: string;
   reasoning?: string;
   needsClinician?: Array<{ axis: string; question: string }>;
+  /** Server-validated slug from Propose (prompt118). */
+  plateCollection?: string;
 };
 
 const AXES = new Set<MacroAxis>([
@@ -139,7 +141,14 @@ async function resolveEffectiveFrom(
   return lookbackFloorDayKey(anchor, REBUILD_RECOVERY_DAYS);
 }
 
+function parsePlateCollection(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const s = raw.trim();
+  return s.length > 0 ? s : undefined;
+}
+
 function storeFromParsed(parsed: ClinicMacroBoundsStore, bounds: MacroBound[]): ClinicMacroBoundsStore {
+  const plateCollection = parsePlateCollection(parsed.plateCollection);
   return {
     bounds,
     updatedAt: String(parsed.updatedAt || ''),
@@ -149,6 +158,7 @@ function storeFromParsed(parsed: ClinicMacroBoundsStore, bounds: MacroBound[]): 
     ...(parsed.rulesHash ? { rulesHash: parsed.rulesHash } : {}),
     ...(parsed.reasoning ? { reasoning: parsed.reasoning } : {}),
     ...(parsed.needsClinician ? { needsClinician: parsed.needsClinician } : {}),
+    ...(plateCollection ? { plateCollection } : {}),
   };
 }
 
@@ -182,7 +192,14 @@ export async function clearClinicMacroBounds(): Promise<void> {
  * wipe a live order the phone already has (self-rebuild / other org).
  */
 export async function applyClinicMacrosFromOverlay(
-  macros: { bounds?: unknown[]; updatedAt?: string; rulesHash?: string; reasoning?: string; needsClinician?: unknown } | null,
+  macros: {
+    bounds?: unknown[];
+    updatedAt?: string;
+    rulesHash?: string;
+    reasoning?: string;
+    needsClinician?: unknown;
+    plateCollection?: unknown;
+  } | null,
   overlayUpdatedAt: string,
 ): Promise<ClinicMacroBoundsStore | null> {
   if (macros == null || !Array.isArray(macros.bounds)) {
@@ -205,6 +222,7 @@ export async function applyClinicMacrosFromOverlay(
     )) ||
     dayKeyFromIso(incomingIso) ||
     localDayKeyFromMs(Date.now());
+  const plateCollection = parsePlateCollection(macros.plateCollection);
   const store: ClinicMacroBoundsStore = {
     bounds,
     updatedAt: incomingIso,
@@ -213,6 +231,7 @@ export async function applyClinicMacrosFromOverlay(
     source: 'clinic',
     ...(typeof macros.rulesHash === 'string' ? { rulesHash: macros.rulesHash } : {}),
     ...(typeof macros.reasoning === 'string' ? { reasoning: macros.reasoning } : {}),
+    ...(plateCollection ? { plateCollection } : {}),
   };
   await AsyncStorage.setItem(CLINIC_MACRO_BOUNDS_KEY, JSON.stringify(store));
   if (bounds.some((b) => b.strength === 'hard')) {

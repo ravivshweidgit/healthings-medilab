@@ -1,5 +1,5 @@
 /**
- * Generate /{lang}/plates/index.html + lipid-protocol.html for all HELP_LOCALES.
+ * Generate /{lang}/plates/index.html + one page per collection for all HELP_LOCALES.
  * Run: node website/scripts/gen-plates-locales.mjs
  */
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
@@ -15,6 +15,16 @@ import {
 } from './plates-locale-content.mjs';
 import { registerMoreLocales } from './plates-locale-more.mjs';
 import { DOWNLOADS_UI } from './downloads-locale-content.mjs';
+import {
+  PLATE_COLLECTION_SLUGS,
+  LEGACY_LIPID_SLUG,
+  collectionFile,
+} from './plates-collections-registry.mjs';
+import {
+  bundledPageUi,
+  bundledIndexCard,
+  bundledPlates,
+} from './plates-collections-bundled.mjs';
 
 registerMoreLocales(
   (code, o) => {
@@ -40,7 +50,6 @@ function pageUrl(lang, file) {
   return `https://healthings.ai/${lang}/plates/${file}`;
 }
 
-/** Same nav label the downloads page uses for itself — one spelling per locale. */
 function downloadsLabel(lang) {
   return (DOWNLOADS_UI[lang] || DOWNLOADS_UI.en).nav;
 }
@@ -115,9 +124,12 @@ function plateCards(lang, ui, list) {
     .join('\n\n        ');
 }
 
-function platesJson(lang, list) {
+function platesJson(slug, lang, list) {
   const ui = PLATES_UI[lang] || PLATES_UI.en;
-  const enList = PLATE_COPY.en;
+  const enList =
+    slug === LEGACY_LIPID_SLUG
+      ? PLATE_COPY.en
+      : bundledPlates(slug, 'en') || list;
   const plates = list.map((p, idx) => {
     const en = enList[idx];
     return {
@@ -126,15 +138,17 @@ function platesJson(lang, list) {
         ? 'breakfast'
         : p.id.includes('lunch')
           ? 'lunch'
-          : p.id.includes('sashimi')
+          : p.id.includes('dinner') || p.id.includes('sashimi') || p.id.includes('steak')
             ? 'dinner'
-            : 'after_dinner',
-      name_en: en.title,
+            : p.id.includes('snack') || p.id.includes('evening') || p.id.includes('yogurt')
+              ? 'after_dinner'
+              : 'snack',
+      name_en: en?.title || p.title,
       name: p.title,
       items: p.items.map(([name, key], j) => {
-        const enItem = en.items[j];
+        const enItem = en?.items?.[j];
         const row = {
-          name_en: enItem[0],
+          name_en: enItem?.[0] || name,
           name,
         };
         if (key === 'fresh') row.amount = 'fresh';
@@ -155,21 +169,92 @@ function platesJson(lang, list) {
     };
   });
   return JSON.stringify(
-    { collection: 'lipid-protocol', version: 2, locale: lang, plates },
+    { collection: slug, version: 2, locale: lang, plates },
     null,
     2,
   );
 }
 
-function protocolHtml(langMeta) {
+function collectionPlates(slug, lang) {
+  if (slug === LEGACY_LIPID_SLUG) {
+    return PLATE_COPY[lang] || PLATE_COPY.en;
+  }
+  return bundledPlates(slug, lang);
+}
+
+function collectionPageUi(slug, lang) {
+  const base = PLATES_UI[lang] || PLATES_UI.en;
+  if (slug === LEGACY_LIPID_SLUG) {
+    return {
+      pageTitle: base.pageTitle,
+      h1: base.h1,
+      lead: base.lead,
+      disclaimer: base.disclaimer,
+      moreTitle: base.moreTitle,
+      moreBody: base.moreBody,
+    };
+  }
+  const bundled = bundledPageUi(slug, lang);
+  return {
+    pageTitle: bundled.pageTitle,
+    h1: bundled.h1,
+    lead: bundled.lead,
+    disclaimer: bundled.disclaimer,
+    moreTitle: base.moreTitle,
+    moreBody: base.moreBody,
+  };
+}
+
+function collectionIndexCard(slug, lang) {
+  if (slug === LEGACY_LIPID_SLUG) {
+    const ui = PLATES_UI[lang] || PLATES_UI.en;
+    return {
+      slot: ui.indexCardSlot,
+      title: ui.indexCardTitle,
+      why: ui.indexCardWhy,
+      img: 'yogurt-breakfast.jpg?v=20260816a',
+    };
+  }
+  return bundledIndexCard(slug, lang);
+}
+
+function indexCardsHtml(lang) {
+  return PLATE_COLLECTION_SLUGS.map((slug, i) => {
+    const card = collectionIndexCard(slug, lang);
+    const href = collectionFile(slug);
+    const loading = i === 0 ? 'eager' : 'lazy';
+    return `<a class="plate-card plate-card-link" href="${href}">
+          <div class="plate-visual">
+            <img
+              src="../../images/plates/${card.img}"
+              width="1200"
+              height="800"
+              alt=""
+              loading="${loading}"
+              decoding="async"
+            />
+            <div class="plate-visual-fade" aria-hidden="true"></div>
+          </div>
+          <div class="plate-body">
+            <p class="plate-slot">${esc(card.slot)}</p>
+            <h2>${esc(card.title)}</h2>
+            <p class="plate-why">${esc(card.why)}</p>
+          </div>
+        </a>`;
+  }).join('\n\n        ');
+}
+
+function protocolHtml(langMeta, slug) {
   const code = langMeta.code;
   const ui = PLATES_UI[code] || PLATES_UI.en;
-  const list = PLATE_COPY[code] || PLATE_COPY.en;
+  const page = collectionPageUi(slug, code);
+  const list = collectionPlates(slug, code);
   const helpUi = HELP_UI[code] || HELP_UI.en;
   const rtl = langMeta.dir === 'rtl';
   const bodyClass = rtl ? 'help-rtl plates-page' : 'plates-page';
+  const file = collectionFile(slug);
   const desc = esc(
-    `${ui.h1}. ${ui.indexLead}`.replace(/<[^>]+>/g, '').slice(0, 160),
+    `${page.h1}. ${ui.indexLead}`.replace(/<[^>]+>/g, '').slice(0, 160),
   );
   return `<!DOCTYPE html>
 <html lang="${code}" dir="${langMeta.dir}" class="theme-auto">
@@ -177,13 +262,13 @@ function protocolHtml(langMeta) {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="${desc}" />
-    <title>${esc(ui.pageTitle)} — Healthings</title>
-    <link rel="canonical" href="${pageUrl(code, 'lipid-protocol.html')}" />
+    <title>${esc(page.pageTitle)} — Healthings</title>
+    <link rel="canonical" href="${pageUrl(code, file)}" />
     <link rel="icon" href="../../assets/icon.png" type="image/png" />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../../tokens.css?v=${CSS_VER}" />
     <link rel="stylesheet" href="../../styles.css?v=${CSS_VER}" />
-    ${hreflang('lipid-protocol.html')}
+    ${hreflang(file)}
   </head>
   <body class="${bodyClass}">
     <main class="wrap">
@@ -193,30 +278,30 @@ function protocolHtml(langMeta) {
         <a href="../downloads/index.html">${esc(downloadsLabel(code))}</a>
         <a href="../../index.html">${esc(helpUi.home)}</a>
       </nav>
-      ${langSwitcher(code, 'lipid-protocol.html', helpUi.langLabel)}
+      ${langSwitcher(code, file, helpUi.langLabel)}
 
       <section class="hero">
         <p class="badge">${esc(ui.badge)}</p>
-        <h1>${esc(ui.h1)}</h1>
-        <p class="lead">${ui.lead}</p>
+        <h1>${esc(page.h1)}</h1>
+        <p class="lead">${page.lead}</p>
       </section>
 
-      <p class="plates-disclaimer">${ui.disclaimer}</p>
+      <p class="plates-disclaimer">${page.disclaimer}</p>
 
       <div class="plates-grid">
         ${plateCards(code, ui, list)}
       </div>
 
       <section class="card prose">
-        <h2>${esc(ui.moreTitle)}</h2>
-        <p>${esc(ui.moreBody)}</p>
+        <h2>${esc(page.moreTitle)}</h2>
+        <p>${esc(page.moreBody)}</p>
         <p class="help-next"><a href="../help/meal-logging.html">${esc(ui.howToLog)}</a></p>
         <p class="help-back"><a href="index.html">${esc(ui.allPlates)}</a></p>
       </section>
     </main>
 
     <script type="application/json" id="plates-data">
-${platesJson(code, list)}
+${platesJson(slug, code, list)}
     </script>
   </body>
 </html>
@@ -257,24 +342,7 @@ function indexHtml(langMeta) {
         <p class="lead">${esc(ui.indexLead)}</p>
       </section>
       <div class="plates-grid">
-        <a class="plate-card plate-card-link" href="lipid-protocol.html">
-          <div class="plate-visual">
-            <img
-              src="../../images/plates/yogurt-breakfast.jpg?v=20260816a"
-              width="1200"
-              height="800"
-              alt=""
-              loading="eager"
-              decoding="async"
-            />
-            <div class="plate-visual-fade" aria-hidden="true"></div>
-          </div>
-          <div class="plate-body">
-            <p class="plate-slot">${esc(ui.indexCardSlot)}</p>
-            <h2>${esc(ui.indexCardTitle)}</h2>
-            <p class="plate-why">${esc(ui.indexCardWhy)}</p>
-          </div>
-        </a>
+        ${indexCardsHtml(code)}
       </div>
       <p class="plates-disclaimer">${ui.indexDisclaimer}</p>
     </main>
@@ -288,16 +356,13 @@ function patchHelpIndex(lang) {
   const file = join(WEB, lang, 'help', 'index.html');
   if (!existsSync(file)) return;
   let html = readFileSync(file, 'utf8');
-  const link = `<li><a href="../plates/lipid-protocol.html">${esc(ui.helpIndexLink)}</a></li>`;
-  if (html.includes('../plates/lipid-protocol.html')) {
+  const link = `<li><a href="../plates/index.html">${esc(ui.helpIndexLink)}</a></li>`;
+  if (html.includes('../plates/index.html') || html.includes('../plates/lipid-protocol.html')) {
     html = html.replace(
-      /<li><a href="\.\.\/plates\/lipid-protocol\.html">[^<]*<\/a><\/li>/,
+      /<li><a href="\.\.\/plates\/(?:index|lipid-protocol)\.html">[^<]*<\/a><\/li>/,
       link,
     );
   } else {
-    // Follow "How to log meals" — the plates page is that topic's worked
-    // example. Inserting after `<ul>` instead put it first in a list that reads
-    // as Quick Start order, so the bonus page looked like step one.
     const afterMealLogging = /(<li><a href="meal-logging\.html">[^<]*<\/a><\/li>\n)/;
     html = afterMealLogging.test(html)
       ? html.replace(afterMealLogging, `$1          ${link}\n`)
@@ -311,16 +376,16 @@ function patchMealLogging(lang) {
   const file = join(WEB, lang, 'help', 'meal-logging.html');
   if (!existsSync(file)) return;
   let html = readFileSync(file, 'utf8');
-  const blurb = ui.mealLoggingBlurb;
-  if (html.includes('../plates/lipid-protocol.html')) {
+  const blurb = ui.mealLoggingBlurb.replace(
+    '../plates/lipid-protocol.html',
+    '../plates/index.html',
+  );
+  if (html.includes('../plates/')) {
     html = html.replace(
-      /<p><a href="\.\.\/plates\/lipid-protocol\.html">[\s\S]*?<\/p>/,
+      /<p><a href="\.\.\/plates\/[^"]+\.html">[\s\S]*?<\/p>/,
       blurb,
     );
   } else {
-    // Anchored on the newline that ends the steps list, not on `\s*`: swallowing
-    // trailing whitespace and writing it back added a blank line to the page on
-    // every regeneration.
     html = html.replace(/(<ol>[\s\S]*?<\/ol>\n)/, `$1        ${blurb}\n`);
   }
   writeFileSync(file, html);
@@ -334,11 +399,13 @@ for (const lang of HELP_LOCALES) {
   }
   const dir = join(WEB, lang.code, 'plates');
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, 'lipid-protocol.html'), protocolHtml(lang));
+  for (const slug of PLATE_COLLECTION_SLUGS) {
+    writeFileSync(join(dir, collectionFile(slug)), protocolHtml(lang, slug));
+  }
   writeFileSync(join(dir, 'index.html'), indexHtml(lang));
   patchHelpIndex(lang.code);
   patchMealLogging(lang.code);
   n++;
-  console.log('wrote', lang.code, '/plates');
+  console.log('wrote', lang.code, '/plates', `(${PLATE_COLLECTION_SLUGS.length} collections)`);
 }
 console.log('done', n, 'locales');

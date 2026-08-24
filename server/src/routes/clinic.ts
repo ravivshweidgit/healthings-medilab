@@ -22,6 +22,7 @@ import {
 } from '../services/treatmentMarkers.js';
 import {
   saveMacrosForPatient,
+  setPlateCollectionForPatient,
   proposeMacrosForPatient,
   rebuildMacrosFromRulesForPatient,
 } from '../services/clinicMacros.js';
@@ -188,6 +189,32 @@ export async function registerClinicRoutes(app: FastifyInstance) {
       return reply.code(500).send({ error: 'Failed to save macros' });
     }
   });
+
+  /** Example plates the clinic picked (prompt118). Independent of macro bounds. */
+  app.put(
+    '/v1/clinic/patients/:patientId/plate-collection',
+    { preHandler: authenticate },
+    async (request, reply) => {
+      const params = z.object({ patientId: z.string().uuid() }).parse(request.params);
+      const body = z
+        .object({ collection: z.string().nullable().optional() })
+        .parse(request.body);
+      const user = await findUserById(request.userId!);
+      if (!user) return reply.code(404).send({ error: 'User not found' });
+      try {
+        const overlay = await setPlateCollectionForPatient(
+          user,
+          params.patientId,
+          body.collection ?? null,
+        );
+        return { overlay, macros: overlay.macros };
+      } catch (err) {
+        if (err instanceof ClinicError) return reply.code(err.status).send({ error: err.message });
+        request.log.error(err);
+        return reply.code(500).send({ error: 'Failed to save plate collection' });
+      }
+    },
+  );
 
   /** Propose only — does not write. */
   app.post('/v1/clinic/patients/:patientId/macros/propose', { preHandler: authenticate }, async (request, reply) => {

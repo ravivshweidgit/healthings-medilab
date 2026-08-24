@@ -525,6 +525,7 @@ export function FoodLogModal({
   const [browseDayMs, setBrowseDayMs] = useState(() => startOfLocalDay(Date.now()));
   const [pastDayMeals, setPastDayMeals] = useState<FoodEntry[]>([]);
   const [pastDayLoading, setPastDayLoading] = useState(false);
+  const [plateCollectionSlug, setPlateCollectionSlug] = useState<string | null>(null);
   const [staples, setStaples] = useState<FoodStaple[]>([]);
   const [stapleFlash, setStapleFlash] = useState<string | null>(null);
   const chatInputRef = useRef<TextInput>(null);
@@ -898,6 +899,19 @@ export function FoodLogModal({
       cancelled = true;
     };
   }, [visible, mealCompositionKey, lang?.code]);
+
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    void (async () => {
+      const store = await loadClinicMacroBounds();
+      if (cancelled) return;
+      setPlateCollectionSlug(store?.plateCollection?.trim() || null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
 
   React.useEffect(() => {
     if (items.length === 0) {
@@ -1534,16 +1548,20 @@ export function FoodLogModal({
                     <Pressable style={styles.fromPastBtn} onPress={openPastMealPicker}>
                       <Text style={styles.fromPastBtnText}>{ui.fromPastMeal}</Text>
                     </Pressable>
-                    <Pressable
-                      style={styles.examplePlatesLink}
-                      onPress={() => void Linking.openURL(platesUrl(lang?.code ?? 'en'))}
-                      accessibilityRole="link"
-                      accessibilityLabel={ui.examplePlates}
-                    >
-                      <Text style={[styles.examplePlatesLinkText, rtl && styles.textRtl]}>
-                        {ui.examplePlates}
-                      </Text>
-                    </Pressable>
+                    {plateCollectionSlug ? (
+                      <Pressable
+                        style={styles.examplePlatesLink}
+                        onPress={() =>
+                          void Linking.openURL(platesUrl(lang?.code ?? 'en', plateCollectionSlug))
+                        }
+                        accessibilityRole="link"
+                        accessibilityLabel={ui.examplePlates}
+                      >
+                        <Text style={[styles.examplePlatesLinkText, rtl && styles.textRtl]}>
+                          {ui.examplePlates}
+                        </Text>
+                      </Pressable>
+                    ) : null}
                   </>
                 ) : null}
 

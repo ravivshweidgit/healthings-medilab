@@ -2610,6 +2610,87 @@
     }
   }
 
+  /**
+   * Example plates the clinic picks for this patient (prompt118).
+   * Slugs must stay in step with PLATE_COLLECTIONS in the server registry — an
+   * unknown slug is stored as null there, so the app just shows no plates link.
+   * Labels live in the workspace i18n catalog, keyed `wsPlates<Slug>`.
+   */
+  const PLATE_COLLECTIONS = [
+    'lipid-protocol',
+    'glycemic-protocol',
+    'weight-protocol',
+    'glp1-support',
+    'renal-protocol',
+    'low-carb-protocol',
+  ];
+
+  function plateCollectionLabelKey(slug) {
+    return `wsPlates${slug.replace(/(^|-)([a-z])/g, (_, __, c) => c.toUpperCase())}`;
+  }
+
+  function plateCollectionSectionHtml(ctx) {
+    const current = ctx.overlay?.macros?.plateCollection || '';
+    const options = [`<option value="">${esc(t('wsPlatesNone'))}</option>`]
+      .concat(
+        PLATE_COLLECTIONS.map(
+          (slug) =>
+            `<option value="${esc(slug)}"${slug === current ? ' selected' : ''}>${esc(t(plateCollectionLabelKey(slug)))}</option>`,
+        ),
+      )
+      .join('');
+
+    return `
+        <div class="rules-fold rules-plates-section is-open">
+          <div class="rules-fold-body">
+            <label class="treat-field" for="plates-pick">
+              <span>${esc(t('wsPlatesTitle'))}</span>
+              <select id="plates-pick">${options}</select>
+            </label>
+            <p class="rules-hint">${esc(t('wsPlatesHint'))}</p>
+            <span id="plates-status" class="sub"></span>
+            <div id="plates-error" class="ws-inline-error" hidden role="alert"></div>
+          </div>
+        </div>`;
+  }
+
+  function wirePlateCollection(panel, ctx) {
+    const select = panel.querySelector('#plates-pick');
+    if (!select) return;
+    select.addEventListener('change', () => void savePlateCollection(ctx, panel));
+  }
+
+  async function savePlateCollection(ctx, panel) {
+    const select = panel.querySelector('#plates-pick');
+    if (!select) return;
+    const status = panel.querySelector('#plates-status');
+    const err = panel.querySelector('#plates-error');
+    if (err) { err.hidden = true; err.innerHTML = ''; }
+    select.disabled = true;
+    if (status) status.textContent = t('wsPlatesSaving');
+    try {
+      const res = await ctx.api(`/v1/clinic/patients/${ctx.patientId}/plate-collection`, {
+        method: 'PUT',
+        body: JSON.stringify({ collection: select.value || null }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || t('wsPlatesSaveFailed'));
+      }
+      const data = await res.json();
+      if (data.overlay) ctx.overlay = data.overlay;
+      if (status) status.textContent = t('wsPlatesSaved');
+    } catch (e) {
+      if (status) status.textContent = '';
+      if (err) {
+        err.hidden = false;
+        err.innerHTML = `<span>${esc(e?.message || t('wsPlatesSaveFailed'))}</span>`;
+      }
+    } finally {
+      select.disabled = false;
+    }
+  }
+
   function renderRules(panel, ctx) {
     const rules = effectiveRules(ctx.parsed, ctx.overlay);
     const raw = rules?.rawText || '';
@@ -2621,6 +2702,8 @@
     const sourceHint = ctx.selfView
       ? t('wsRulesHintSelfEdit')
       : rulesSourceHint(ctx.parsed, ctx.overlay);
+    // Mentor-only: the plate-collection route asserts mentor access, so self view would 403.
+    const hidePlates = !!ctx.selfView;
 
     panel.innerHTML = `
       <p class="sub rules-intro">${esc(t(ctx.selfView ? 'wsRulesIntroSelf' : 'wsRulesIntro'))}</p>
@@ -2641,6 +2724,7 @@
             <p class="rules-hint">${esc(sourceHint)}</p>
           </div>
         </div>
+        ${hidePlates ? '' : plateCollectionSectionHtml(ctx)}
         ${hideHistory ? '' : `
         <div class="rules-fold rules-history-section${historyOpen ? ' is-open' : ''}">
           <button type="button" class="rules-fold-toggle" id="rules-history-toggle" aria-expanded="${historyOpen ? 'true' : 'false'}">
@@ -2656,6 +2740,7 @@
 
     panel.querySelector('#rules-save')?.addEventListener('click', () => void saveRules(ctx, panel));
     wireRulesFolds(panel, ctx);
+    if (!hidePlates) wirePlateCollection(panel, ctx);
     if (!hideHistory) void loadRulesHistory(panel, ctx);
   }
 
