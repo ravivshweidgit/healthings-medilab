@@ -1,0 +1,76 @@
+---
+description: Writing on the company's behalf — vendor/clinic/investor/patient email, pitches, landing copy. Claim discipline, patient privacy, and the never-press-Send rule.
+alwaysApply: true
+---
+
+# Outbound communication — the owner signs it, so the owner sends it
+
+Applies whenever text leaves the building with the founder's name on it: email to a supplier, clinic,
+dietitian, investor or tester; pitch decks; landing copy; app-store text.
+
+## Never press Send
+
+Draft, format, verify — then **stop and hand it over**. No Send, no Submit, no Publish, no "reply
+all", even when the user says "send it"; that means *prepare it to be sent*. Email cannot be
+recalled: Gmail's Undo Send is a few seconds, and after that the only options are living with it or
+an awkward second email. **A silently wrong sentence in a sent email costs more than a phone
+round-trip** (`model-budget.mdc`) — spend the extra read.
+
+## Every claim traces to a source
+
+Same rule as `product-truth.mdc`, tighter: an outbound sentence about what the company *is* or *does*
+must be quotable from `website/`, `investor-pov/`, `marketing/`, or shipped code. Do not add a third
+clause to a sentence because it sounds like a startup. Do not upgrade "supervised protocol" to
+"trial", "pilot" to "partnership", or "one patient" to "our patients".
+
+## Clinical claims
+
+| Never | Instead |
+|---|---|
+| Call an n=1 supervised protocol a *trial*, *study*, or *clinical validation* | "a six-month supervised protocol", "one patient under follow-up" |
+| Attribute an outcome to one ingredient | Name it as one component of a full protocol, and say so |
+| Send patient name, ID, DOB, contact, or a raw export | Anonymized chart or aggregate only — no identifiers in the image either |
+| Imply the app diagnosed, treated, or prescribed | The clinician's protocol did; the app measured and kept the loop |
+
+If the recipient is a supplier or partner, they will screenshot whatever you write. Assume it ends up
+on their website.
+
+## One language per letter
+
+Do not mix Hebrew and English in the same message; pick the recipient's language and stay there
+(`language-policy.mdc`). Hebrew copy must read like a person wrote it, not like a translation
+(`localize-speak-like-a-person.mdc`). Always-English glossary still applies: brand, units, `CGM`,
+device names.
+
+Right-to-left bodies: email addresses, URLs and numbers keep `dir="ltr"` inside Hebrew prose, or the
+domain paints to the wrong side and looks like corrupted data.
+
+## Gmail mechanics that have already bitten us
+
+- **Plain-text mode silently drops inline images.** Before pasting a formatted letter, switch the
+  compose window to **rich text**. A letter sent from plain-text mode arrives with the charts gone.
+- **Also attach the image with the paperclip**, not only inline — inline images get stripped by some
+  clients and by forwarding.
+- **Browser automation cannot paste an image** into Gmail: `navigator.clipboard.read()` throws
+  `NotAllowedError: Document is not focused` in the agent-driven tab, and Gmail's body is a
+  Trusted-Types-protected contenteditable, so `innerHTML` assignment fails. Build the letter as a
+  standalone HTML file, have the owner copy-paste it, and let the owner drop the image.
+- Compose in a background tab may render the "taking longer than usual" shell — poll
+  `document.title` for `Compose Mail` before trusting a snapshot.
+- Check the **To** chip and subject after any programmatic edit; a `?to=&su=` URL is not proof the
+  fields stuck.
+
+## Before handing it back
+
+Say plainly what is ready and what is still the owner's call. Flag anything you could not verify —
+a link you did not open, a number you could not source, a claim that depends on their judgment.
+
+## Agent checklist
+
+- [ ] Draft only — nothing sent, and said so?
+- [ ] Every product claim traceable; no invented capability or third clause?
+- [ ] Clinical language proportional to the evidence (protocol ≠ trial)?
+- [ ] No patient identifiers in the text **or** the attached image?
+- [ ] One language, correct `dir` on emails/URLs?
+- [ ] Rich text confirmed, image attached as well as inline?
+- [ ] Brand written **HEALTHINGS.AI**?

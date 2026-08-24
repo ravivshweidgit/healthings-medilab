@@ -1,0 +1,88 @@
+---
+description: What HEALTHINGS.AI actually is — read the docs before describing the product to anyone, inside or outside the repo.
+alwaysApply: true
+---
+
+# Product truth — describe HEALTHINGS.AI from the docs, never from memory
+
+**You do not get to summarize this product from vibes.** The definition is written down. Read it,
+quote it, link it. If a sentence about what Healthings *is* cannot be traced to a file below, do not
+write that sentence.
+
+Written 2026-08-25 after an outbound email to a supplier described the company as *"an innovative
+startup aiming to disrupt metabolic care with advanced technologies: clinical protocols, continuous
+measurement, and AI-guided nutrition."* The last clause is **false**, the email had already been sent
+twice, and the correct wording was sitting in `website/index.html` the whole time.
+
+## One line (source: `website/index.html`)
+
+> **From lab report and nutritionist plan to today's targets.** Log meals and body trends; Healthings
+> turns that loop into daily numbers and meal decisions **you confirm before they apply**.
+
+Landing `<title>` calls it a **Metabolic OS**. The investor one-liner
+(`investor-pov/EXECUTIVE-SUMMARY.md`) says it closes the loop between CGM, food log, smart scale and
+blood labs — *"with human confirm, not black-box AI."*
+
+## The loop
+
+| Step | What happens |
+|---|---|
+| Import | Blood labs + the nutritionist's plan (PDF) |
+| Log | Meals and weigh-ins — the app learns the body |
+| Review | Daily targets — **user confirms before update** |
+| Ask | AI mentors between visits, **on that plan** |
+| Share | Weekly brief to the nutritionist / linked clinic |
+
+## What it is **not**
+
+- **Not "AI-guided nutrition."** Nutrition authority is the clinician's protocol, the imported
+  directive, and My Rules. The model works **inside** those constraints and explains what moved
+  (`ai-judgment-not-regex.mdc`). It does not set the diet.
+- **Not autonomous.** Confirm-before-apply is a product promise, not an implementation detail. Never
+  describe changes as applied automatically.
+- **Not a medical device.** Alpha wellness app. No diagnosis, no prescribing, emergencies stay with
+  licensed clinicians — the public pages say this out loud; so must you.
+- **Not a CGM dashboard.** Charts are table stakes; the product sells the decision.
+- **Not cloud-by-default.** Labs, meals, weight, glucose live **on the phone**. The server holds an
+  email address plus whatever the user chooses to send. Clinic share and cloud backup are **opt-in
+  and revocable**.
+
+## Naming
+
+| Context | Correct |
+|---|---|
+| Brand, outbound copy, signatures | **HEALTHINGS.AI** (caps, with `.AI`) |
+| Running prose, help pages | Healthings |
+| URL | `https://healthings.ai` |
+| Repo / app package | `healthings-medilab`, "Healthings.ai Medilab" |
+
+Never "Healthings AI", "Healthing", or the bare word "Medilab" to an outsider.
+
+## Where the truth lives
+
+| Question | File |
+|---|---|
+| Public product story, loop, privacy stance | `website/index.html` |
+| Plain-language welcome, "not medical care" | `website/en/help/quick-start-welcome.html` |
+| The clinic and who runs it | `website/en/the-clinic/index.html` |
+| Positioning, competitors, honest weaknesses | `investor-pov/EXECUTIVE-SUMMARY.md`, `investor-pov/COMPETITOR-SCORES.md` |
+| Who the user is, who is **not** the user | `investor-pov/key-rule.md`, `marketing/README.md` |
+| What actually shipped | `prompts/app/*/done/`, `prompts/backend/done/` |
+| How a behavior really works | the service in `app/src/services/` — e.g. `NutritionDirectiveService`, `TargetService`, `LabLogService`, `ClinicOverlayService`, `TreatmentMarkerService`, `GeminiService`, `CoachService` |
+
+**When docs disagree, shipped code and `website/` win.** Root `readme.md` carries older framing
+(AWS-centric, "MediLab") — treat it as history, not as the current pitch.
+
+## Verify before quoting — these go stale
+
+Platform gaps (live CGM on iOS), device support, pricing, user counts, market size, which clinics or
+dietitians are live, and anything in `expenses/`. Open the file and check the date. An outdated number
+in an outbound email is the same failure as an invented one.
+
+## Agent checklist
+
+- [ ] Every claim about the product traceable to a file above?
+- [ ] Brand written **HEALTHINGS.AI**?
+- [ ] No implication that AI decides nutrition, or that changes apply without confirmation?
+- [ ] Medical-device / diagnosis disclaimer respected?
+- [ ] Volatile facts re-read rather than recalled?
