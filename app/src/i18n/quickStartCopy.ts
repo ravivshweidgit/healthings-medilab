@@ -286,7 +286,7 @@ const EN: QuickStartCopy = {
     helpLabel: 'What is Withings?',
     exampleCaption: 'Example — any Withings scale\non your account',
     lead:
-      'No is fine — enter weight in the next steps; the app still works. Yes — we sync weight and composition from your Withings account (cloud, not Bluetooth). Body, Body Scan, and similar all work.',
+      'No is fine — enter weight in the next steps; the app still works. Yes — we sync weight and composition from your Withings account (cloud, not Bluetooth). Body Comp is our usual pick; Body Scan 2 is optional — segmental and ECG extras stay in Withings only.',
   },
   watch: {
     title: 'Do you use a Withings watch or band?',
@@ -461,7 +461,7 @@ const HE: QuickStartCopy = {
     helpLabel: 'מה זה Withings?',
     exampleCaption: 'דוגמה — כל משקל Withings\nבחשבון שלכם',
     lead:
-      'אין? אין בעיה — תזינו משקל בהמשך, האפליקציה עובדת גם בלי. יש? נסנכרן משקל והרכב גוף מחשבון Withings (ענן, לא Bluetooth). Body, Body Scan ודומיהם מתאימים.',
+      'אין? אין בעיה — תזינו משקל בהמשך, האפליקציה עובדת גם בלי. יש? נסנכרן משקל והרכב גוף מחשבון Withings (ענן, לא Bluetooth). ל־Healthings בדרך כלל מספיק Body Comp; Body Scan 2 אופציונלי — מדידות סגמנט ו־ECG נשארות ב־Withings בלבד.',
   },
   watch: {
     title: 'יש שעון או צמיד Withings?',
@@ -635,7 +635,7 @@ const DE: QuickStartCopy = {
     helpLabel: 'Was ist Withings?',
     exampleCaption: 'Beispiel — jede Withings-Waage\nin Ihrem Konto',
     lead:
-      'Nein ist in Ordnung — Gewicht in den nächsten Schritten eingeben; die App funktioniert trotzdem. Ja — Sync von Gewicht und Körperzusammensetzung aus Ihrem Withings-Konto (Cloud, nicht Bluetooth). Body, Body Scan und ähnliche passen.',
+      'Nein ist in Ordnung — Gewicht in den nächsten Schritten eingeben; die App funktioniert trotzdem. Ja — Sync von Gewicht und Körperzusammensetzung aus Ihrem Withings-Konto (Cloud, nicht Bluetooth). Für Healthings meist Body Comp; Body Scan 2 optional — Segment- und ECG-Daten bleiben in Withings.',
   },
   watch: {
     title: 'Nutzen Sie eine Withings-Uhr oder ein Band?',
@@ -809,7 +809,7 @@ const ES: QuickStartCopy = {
     helpLabel: '¿Qué es Withings?',
     exampleCaption: 'Ejemplo — cualquier báscula Withings\nde su cuenta',
     lead:
-      'No pasa nada — introduzca el peso en los siguientes pasos; la app sigue funcionando. Sí — sincronizamos peso y composición desde su cuenta Withings (nube, no Bluetooth). Body, Body Scan y similares sirven.',
+      'No pasa nada — introduzca el peso en los siguientes pasos; la app sigue funcionando. Sí — sincronizamos peso y composición desde su cuenta Withings (nube, no Bluetooth). Para Healthings suele bastar Body Comp; Body Scan 2 opcional — segmentación y ECG solo en Withings.',
   },
   watch: {
     title: '¿Usa un reloj o pulsera Withings?',
@@ -983,7 +983,7 @@ const FR: QuickStartCopy = {
     helpLabel: 'Qu’est-ce que Withings ?',
     exampleCaption: 'Exemple — toute balance Withings\nsur votre compte',
     lead:
-      'Non, ce n’est pas un problème — saisissez le poids aux étapes suivantes ; l’app fonctionne quand même. Oui — sync du poids et de la composition depuis votre compte Withings (cloud, pas Bluetooth). Body, Body Scan et similaires conviennent.',
+      'Non, ce n’est pas un problème — saisissez le poids aux étapes suivantes ; l’app fonctionne quand même. Oui — sync du poids et de la composition depuis votre compte Withings (cloud, pas Bluetooth). Pour Healthings, Body Comp suffit en général ; Body Scan 2 optionnel — segmentaire et ECG restent dans Withings.',
   },
   watch: {
     title: 'Utilisez-vous une montre ou un bracelet Withings ?',
@@ -1157,7 +1157,7 @@ const AR: QuickStartCopy = {
     helpLabel: 'ما هو Withings؟',
     exampleCaption: 'مثال — أي ميزان Withings\nفي حسابكم',
     lead:
-      'لا؟ لا بأس — أدخلوا الوزن في الخطوات التالية؛ التطبيق يعمل أيضاً بدونها. نعم — نزامن الوزن وتركيب الجسم من حساب Withings (سحابة، وليس Bluetooth). Body و Body Scan وما شابه تناسب.',
+      'لا؟ لا بأس — أدخلوا الوزن في الخطوات التالية؛ التطبيق يعمل أيضاً بدونها. نعم — نزامن الوزن وتركيب الجسم من حساب Withings (سحابة، وليس Bluetooth). لـ Healthings يكفي عادةً Body Comp؛ Body Scan 2 اختياري — قياسات الأجزاء و ECG تبقى في Withings فقط.',
   },
   watch: {
     title: 'هل تستخدمون ساعة أو سوار Withings؟',
@@ -1331,7 +1331,7 @@ const RU: QuickStartCopy = {
     helpLabel: 'Что такое Withings?',
     exampleCaption: 'Пример — любые весы Withings\nв вашем аккаунте',
     lead:
-      'Нет — нормально: введите вес на следующих шагах, приложение работает и без них. Да — синхронизируем вес и состав тела из аккаунта Withings (облако, не Bluetooth). Подойдут Body, Body Scan и похожие.',
+      'Нет — нормально: введите вес на следующих шагах, приложение работает и без них. Да — синхронизируем вес и состав тела из аккаунта Withings (облако, не Bluetooth). Для Healthings обычно хватает Body Comp; Body Scan 2 опционально — сегменты и ECG только в Withings.',
   },
   watch: {
     title: 'Пользуетесь часами или браслетом Withings?',
@@ -1505,7 +1505,7 @@ const PT: QuickStartCopy = {
     helpLabel: 'O que é Withings?',
     exampleCaption: 'Exemplo — qualquer balança Withings\nda sua conta',
     lead:
-      'Não tem problema — digite o peso nos próximos passos; o app funciona mesmo assim. Sim — sincronizamos peso e composição da sua conta Withings (nuvem, não Bluetooth). Body, Body Scan e similares servem.',
+      'Não tem problema — digite o peso nos próximos passos; o app funciona mesmo assim. Sim — sincronizamos peso e composição da sua conta Withings (nuvem, não Bluetooth). Para Healthings, Body Comp costuma bastar; Body Scan 2 opcional — segmentos e ECG ficam só no Withings.',
   },
   watch: {
     title: 'Você usa um relógio ou pulseira Withings?',
@@ -1680,7 +1680,7 @@ const IT: QuickStartCopy = {
     helpLabel: 'Cos’è Withings?',
     exampleCaption: 'Esempio — qualsiasi bilancia Withings\nnel tuo account',
     lead:
-      'Nessun problema — inserisci il peso nei passaggi successivi; l’app funziona lo stesso. Sì — sincronizziamo peso e composizione dal tuo account Withings (cloud, non Bluetooth). Body, Body Scan e simili vanno bene.',
+      'Nessun problema — inserisci il peso nei passaggi successivi; l’app funziona lo stesso. Sì — sincronizziamo peso e composizione dal tuo account Withings (cloud, non Bluetooth). Per Healthings di solito basta Body Comp; Body Scan 2 opzionale — segmenti ed ECG restano solo in Withings.',
   },
   watch: {
     title: 'Usi un orologio o bracciale Withings?',
@@ -1855,7 +1855,7 @@ const TR: QuickStartCopy = {
     helpLabel: 'Withings nedir?',
     exampleCaption: 'Örnek — hesabınızdaki herhangi bir\nWithings tartı',
     lead:
-      'Hayır sorun değil — sonraki adımlarda kilo girin; uygulama yine çalışır. Evet — kilo ve vücut kompozisyonunu Withings hesabınızdan senkronlarız (bulut, Bluetooth değil). Body, Body Scan ve benzerleri uygundur.',
+      'Hayır sorun değil — sonraki adımlarda kilo girin; uygulama yine çalışır. Evet — kilo ve vücut kompozisyonunu Withings hesabınızdan senkronlarız (bulut, Bluetooth değil). Healthings için genelde Body Comp yeterli; Body Scan 2 isteğe bağlı — segment ve ECG Withings’te kalır.',
   },
   watch: {
     title: 'Withings saat veya bileklik kullanıyor musunuz?',

@@ -204,7 +204,7 @@ Turn on CGM in Profile & Settings → Gear. Glucose arrives through the phone he
 
 ## Withings devices [withings-manual]
 
-Link once with your Withings account email — the same link covers scale and watch, and reads the Withings cloud (not Bluetooth). Any Withings scale works (Body, Body Scan, and similar). The body card shows sync marks; its menu offers Normal sync (recent days), Deep sync (long history), and Re-link account. The watch supplies activity calories, heart rate, and workouts; with watch No, steps come from the phone health store instead.
+Link once with your Withings account email — the same link covers scale and watch, and reads the Withings cloud (not Bluetooth). Any Withings scale works (Body Comp, Body Smart, Body Scan, and similar). **Body Comp** is our usual recommendation for Healthings — weight, muscle, fat, and BMR on the body card. **Body Scan 2** also works; segmental and ECG extras appear in the Withings app only, not in Healthings. The body card shows sync marks; its menu offers Normal sync (recent days), Deep sync (long history), and Re-link account. The watch supplies activity calories, heart rate, and workouts; with watch No, steps come from the phone health store instead.
 
 ## Login and account [login]
 
