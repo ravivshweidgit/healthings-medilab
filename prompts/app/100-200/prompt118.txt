@@ -1,0 +1,195 @@
+prompt118 — Example plates routed by the clinical order (rules-driven, not lab-guessed)
+
+Status: backlog (spec draft 2026-08-25, owner)
+Builds on: be-45 Propose (`proposeClinicMacroOrder` / `proposeMacrosFromRulesText`),
+  clinic overlay macros (`ClinicMacroBoundsService`), website plates (`plates-locale-content.mjs`),
+  `platesUrl()` (prompt81 help-URL pattern)
+Depends on: nothing server-side blocking — Propose already runs on Rules Save.
+  A collection may only be emitted once it exists on the website (see Roadmap).
+Model to implement: Auto for the resolver + link wiring (mechanical, compile-checked).
+  Opus 5 for the Propose prompt wording and the collection registry — that is clinical
+  judgment and a wrong slug ships a wrong diet example. Plate photography / page taste
+  is owner + Michal, not an agent.
+
+## Problem
+
+The website has one plate collection (`lipid-protocol`) and the app links it from
+**Log Meal** — hardcoded, for **every user**:
+
+    onPress={() => void Linking.openURL(platesUrl(lang?.code ?? 'en'))}
+
+So a pre-diabetes patient whose clinician wrote a glycemic order is shown a
+cholesterol-period food diary. That is the bug this batch fixes.
+
+The clinical decision already exists in the product: **the clinic writes rules**, and
+Rules Save (or phone Analyze) runs Propose, which reads those rules as a clinician and
+returns structured bounds + markers. Plates should ride that same decision — one more
+field on a call we already pay for — not a second inference path.
+
+## Design (owner, 2026-08-25)
+
+**Rules drive the profile. Labs are the fallback, not the driver.**
+
+Lab-only routing fails two real patients:
+
+- **Treated:** statin patient with a clinician-written lipid order reads LDL `normal`,
+  so `hasActionableMarker` is false — lab routing hides lipid plates from exactly the
+  person whose clinician just ordered that diet.
+- **Mismatched:** high LDL on paper while the actual order centers a renal protein cap —
+  lab routing shows plates the clinician did not intend.
+
+Precedence, highest first:
+
+| # | Source | When |
+|---|--------|------|
+| 1 | Clinic explicit pin (`source: 'clinic_override'`) | Clinician overrides the AI read — **reserved, not v1** |
+| 2 | **Propose `plate_collection`** from rules text | Whenever rules exist — the normal path |
+| 3 | Labs `computeClinicalProfile().primary` → map | No rules yet; lab PDF imported |
+| 4 | none | Hide the link (do **not** fall back to lipid) |
+
+`ClinicMacroBoundsStore` already carries `rulesHash`, so the collection is versioned with
+the rules that produced it: rules change → Propose reruns → collection refreshes. No
+separate invalidation, no extra AI call.
+
+## Design rules
+
+- **Closed enum, validated server-side.** Propose returns a slug from a registry the
+  server owns. Unknown / invented slug (`mediterranean-protocol`) → `null`, never a
+  deep link to a 404. The registry is the single source of truth and must mirror what
+  actually exists under `website/{lang}/plates/`.
+- **Never string-match prose.** Do not route off `clinical_profile` — that field is
+  deliberately free-form medical English (`"Lipid-primary + renal protein cap"`).
+  Substring-matching it is the same failure mode as regexing the rules
+  (`ai-judgment-not-regex`).
+- **The app never reads rules text** to pick plates. It reads a slug.
+- **No auto-navigation.** Never open the browser on Save / Accept. Show a link the user
+  taps. Plates are illustrations, not a prescription.
+- **Content gates routing.** Propose may only emit a slug whose pages exist in all
+  `HELP_LOCALES`. Ship the website collection first, then widen the enum.
+- Plates stay on the **website** (photos, disclaimers, 10 locales). The app only routes
+  locale + slug, exactly like `helpUrl()`. Do not bundle plate content in RN.
+- Plates are **Log Meal examples**, not validated meal plans. They do not have to satisfy
+  the patient's macro bounds and must not claim to. Keep the existing
+  "Not medical advice / confirm every meal in the app" disclaimer on every collection.
+
+## What ships
+
+### A. Server — collection registry + Propose field
+
+- New `server/src/services/plateCollections.ts`: the enum, plus
+  `normalizePlateCollection(raw): string | null` (trim, lowercase, membership check).
+  v1 members: `lipid-protocol`, `glycemic-protocol` (add the second only when its pages
+  are live).
+- `proposeClinicMacroOrder()`: add `"plate_collection"` to the returned JSON shape and a
+  short instruction block — choose the collection that matches the **primary intent of
+  the order**, or `null` when no collection fits. List the allowed slugs verbatim in the
+  prompt. Explicitly: `null` is correct and preferred over a near-miss.
+- Parse it with `normalizePlateCollection` (same defensive style as `markers[]`).
+- `MacroProposeResult` and `ProposedClinicMacros` gain `plateCollection?: string | null`.
+- Persist it in the macros payload beside `rulesHash` / `reasoning`, and return it on
+  `GET /v1/clinic/overlays` and `POST /v1/account/macros/rebuild`.
+
+### B. App — resolver + dynamic links
+
+- `ClinicMacroBoundsStore` gains `plateCollection?: string`. Parse defensively; an
+  unknown slug on an older/newer build resolves to none.
+- New `app/src/logic/plateRouting.ts`:
+  - `PROFILE_TO_COLLECTION: Partial<Record<ClinicalProfilePrimary, string>>` — the labs
+    fallback map. `lipid → lipid-protocol`. Leave `weight` unmapped until a weight
+    collection exists (unmapped = hide, not lipid).
+  - `resolvePlateCollection({ store, labsPrimary }): string | null` implementing the
+    precedence table.
+- `FoodLogModal`: replace the hardcoded call with the resolved slug. **Hide the
+  "Example plates" link entirely when the resolver returns none** — no lipid default.
+- `MacroTargetStrip`: after **Accept**, a calm inline row — label from
+  `foodLogUiCopy.examplePlates`, plus one short line that these are illustrations and
+  every meal is confirmed in the app. Text link, no auto-open.
+
+### C. Website — second collection
+
+- Extend `plates-locale-content.mjs` / `plates-locale-more.mjs` with the new collection
+  in all `HELP_LOCALES`; regenerate with `gen-plates-locales.mjs`.
+- `/{lang}/plates/index.html` lists collections with a one-line "for a
+  Glycemic-primary order" style caption — no clinical claim.
+- Keep the `plates-data` JSON block per page (id, slot, items, grams) so a future
+  one-tap import stays possible.
+
+## Collection roadmap — which profiles to build
+
+Only profiles the product can actually route to are worth pages. Available canonical lab
+codes today: `CREATININE`, `UREA`/`BUN`, `CHOLESTEROL_LDL`, `NON_HDL_CHOLESTEROL`,
+`CHOLESTEROL`, `CHOLESTEROL_HDL`, `TRIGLYCERIDES`, `GLUCOSE`, `HBA1C`, `TSH`.
+Lab-status scanners exist for kidney, lipid, glycemic only.
+
+| Priority | Slug | Order it serves | Routing signal | Note |
+|---|------|-----------------|----------------|------|
+| shipped | `lipid-protocol` | Lipid-primary | lipid labs + rules | Live, 10 locales |
+| **next** | `glycemic-protocol` | Glycemic-primary — pre-diabetes → T2D | `HBA1C` / `GLUCOSE` high + rules | Biggest overlap with our users; CGM makes the meal→response loop visible in-app |
+| 2 | `weight-protocol` | Body-composition-primary — protein-forward, satiety | default `weight` primary | Covers the largest self-serve group, who today see nothing |
+| 3 | `glp1-support` | Rapid loss on GLP-1 — lean-mass protection, small volumes, protein + fiber floors | **rules only** (no lab code) | Timely, and Withings muscle-mass trend is real supporting data |
+| 4 | `renal-protocol` | Renal protein cap | `CREATININE` / `UREA` high | Clinician-gated — never route from labs alone; protein-controlled portions carry real risk |
+| on demand | `low-carb-protocol` | Explicit low-carb / keto | `explicit_low_carb` only | Must stay explicit; never inferred (`ai-judgment-not-regex`) |
+
+**Pre-diabetes vs diabetes — one collection in v1.** `scanGlycemicLabStatus` only knows
+`flag === 'high'` from the lab's own reference range; it cannot separate pre-diabetes
+(HbA1c 5.7–6.4%) from diabetes. Do **not** ship a pre-diabetes-specific page or copy that
+implies banding until HbA1c banding exists. The clinician's rules already carry that
+distinction, which is another reason routing belongs to rules.
+
+Deferred, with the reason (do not "add anyway"):
+
+- **DASH / hypertension** — professionally standard, but there is no sodium code and no
+  blood pressure in the snapshot. No routing signal, so no page.
+- **MASLD / fatty liver** — needs `ALT` / `AST` canonical codes first (lab catalog work).
+- **Thyroid** — `TSH` parses, but iodine / selenium are be-45 **markers**, i.e. a
+  constraint layered on any plate, not a diet profile of its own.
+- **Mediterranean** — a pattern, not a lab-routed order, and it overlaps lipid. If it ever
+  ships, it is the generic example on the plates index, never a routed slug.
+
+## Out of scope (explicit)
+
+- One-tap "import this plate into Food Log" (the `plates-data` JSON keeps it possible)
+- Checking plate macros against the patient's bounds / meters
+- Clinic portal UI for pinning a collection (precedence slot 1 is reserved, not built)
+- Per-plate deep links from coach chat (`#yogurt-breakfast`)
+- Translating clinic-written rule text — still the open question in `language-policy.mdc`
+- Plate photography, page layout, and Hebrew plate copy — owner + Michal
+
+## Files
+
+| File | Change |
+|------|--------|
+| server/src/services/plateCollections.ts | new: enum + `normalizePlateCollection` |
+| server/src/services/geminiClinic.ts | `plate_collection` in Propose JSON + prompt block + parse |
+| server/src/services/clinicMacros.ts | carry `plateCollection` through `ProposedClinicMacros` + write payload |
+| server/src/routes/account.ts | return it from `/v1/account/macros/rebuild` |
+| server/src/routes/clinic.ts | return it from `/v1/clinic/overlays` |
+| app/src/services/ClinicMacroBoundsService.ts | `plateCollection?` on the store; defensive parse |
+| app/src/logic/plateRouting.ts | new: labs fallback map + `resolvePlateCollection` |
+| app/src/components/FoodLogModal.tsx | resolved slug; hide link when none |
+| app/src/components/MacroTargetStrip.tsx | post-Accept plates row |
+| app/src/i18n/foodLogUiCopy.ts | one short "illustrations only" line, 10 locales |
+| website/scripts/plates-locale-content.mjs | new collection copy |
+| website/scripts/gen-plates-locales.mjs | regenerate pages |
+
+## Phone checklist
+
+- [ ] Clinic writes a lipid order → Accept macros → plates row appears → `lipid-protocol`
+- [ ] Clinic writes a glycemic order → link resolves to `glycemic-protocol` (once live)
+- [ ] Rules with no matching collection → **no link anywhere** (not lipid)
+- [ ] No rules, lipid lab PDF imported → labs fallback gives `lipid-protocol`
+- [ ] No rules, no labs → no link
+- [ ] Treated patient (LDL normal, lipid order) → still `lipid-protocol` via rules
+- [ ] Editing rules → Propose reruns → collection follows the new `rulesHash`
+- [ ] Nothing auto-opens the browser on Rules Save or Accept
+- [ ] Server given a bogus slug from Gemini → stored as none, app hides link (no 404)
+- [ ] he/ar: plates row reads as plain local prose; URL locale matches app language
+- [ ] Older build / older store without `plateCollection` → labs fallback, no crash
+
+## Related
+
+- be-45 — Propose engine and clinic macro bounds (this rides it; do not fork it)
+- prompt114 — clinic live macro bounds on Food Log meters
+- ai-judgment-not-regex.mdc — rules read by Gemini, returned as a slug; app never parses text
+- language-policy.mdc — clinic-written text reaching a patient in another language stays open
+- michal/macro-document/ — Michal writes rules only; plate content is hers + owner's, not an agent's
