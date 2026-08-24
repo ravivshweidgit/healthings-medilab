@@ -2,6 +2,11 @@ import { gunzipSync, inflateSync } from 'node:zlib';
 import { config } from '../config.js';
 import { query } from '../db/pool.js';
 import type { ClinicChatMessage, ClinicUserRules } from './clinicOverlay.js';
+import {
+  normalizePlateCollection,
+  plateCollectionPromptBlock,
+  type PlateCollection,
+} from './plateCollections.js';
 import { markerShortLabelMap } from './treatmentMarkers.js';
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
@@ -327,6 +332,7 @@ export type MacroProposeResult = {
   reasoning: string;
   impliedNotes: string[];
   needsClinician: Array<{ axis: string; question: string }>;
+  plateCollection: PlateCollection | null;
 };
 
 /**
@@ -345,6 +351,7 @@ export async function proposeClinicMacroOrder(input: {
       reasoning: 'Rules text is empty.',
       impliedNotes: [],
       needsClinician: [],
+      plateCollection: null,
     };
   }
 
@@ -362,6 +369,7 @@ Return JSON only (no markdown):
   "markers": [
     { "marker": "SAT_FAT_G", "direction": "cap", "dailyTarget": 19, "percentOfEnergy": 10, "ofEnergy": "kcal_eaten" }
   ],
+  "plate_collection": null,
   "reasoning": "short clinical English",
   "impliedNotes": [],
   "needsClinician": [{ "axis": "kcal", "question": "…" }]
@@ -385,6 +393,8 @@ RULES
 - Soluble fiber / iodine / selenium: constant grams or mcg floors/caps as stated. Upsert only what rules name; never delete other markers.
 - When a HARD number is missing but required (e.g. % carb with no kcal), omit that HARD bound and add needsClinician — still include the axis as FLEX with no value if you are not locking it.
 - Do not parse with regex — read as a clinician.
+
+${plateCollectionPromptBlock()}
 
 CLINIC RULES:
 """
@@ -437,6 +447,7 @@ ${input.markersSummary || '(none)'}
     reasoning: String(parsed.reasoning || '').slice(0, 4000),
     impliedNotes,
     needsClinician,
+    plateCollection: normalizePlateCollection(parsed.plate_collection),
   };
 }
 
