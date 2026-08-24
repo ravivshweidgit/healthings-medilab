@@ -35,6 +35,8 @@ FB/videos/assets/audio/**
 !FB/videos/assets/audio/README.md
 FB/videos/assets/qa/
 FB/videos/elevenlabs/api-key.local.txt
+FB/videos/elevenlabs/_*.py
+FB/tempFileForShare_*
 
 # Hosted explainer mp4s (prompt107) — publish script copies from FB exports; keep HTML tracked
 website/videos/en/*.mp4
@@ -46,6 +48,7 @@ __pycache__/
 
 # Throwaway review evidence (screenshots, fixtures) — referenced by path, never committed
 tmp/
+michal/macro-document/_macros_extract.txt
 
 # VPS / agent one-off probes — patient-named queries, lab PDFs, PHI; keep generic scripts tracked
 server/scripts/_q_*
