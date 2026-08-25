@@ -104,6 +104,8 @@ export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function
   const [viewReport, setViewReport] = useState<LabReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  /** Mount on first expand; collapse only hides. */
+  const [bodyMounted, setBodyMounted] = useState(false);
   const [lipidExpanded, setLipidExpanded] = useState(true);
   const [customExpanded, setCustomExpanded] = useState(true);
   const [customCode, setCustomCode] = useState<string | null>(null);
@@ -158,7 +160,10 @@ export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function
           AsyncStorage.getItem(CUSTOM_EXPANDED_KEY),
           AsyncStorage.getItem(LAB_CUSTOM_TREND_CODE_KEY),
         ]);
-        if (v === 'true') setExpanded(true);
+        if (v === 'true') {
+          setExpanded(true);
+          setBodyMounted(true);
+        }
         if (lip === 'false') setLipidExpanded(false);
         if (cus === 'false') setCustomExpanded(false);
         if (code && code.trim()) setCustomCode(code.trim());
@@ -200,6 +205,7 @@ export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function
     ref,
     () => ({
       expand: () => {
+        setBodyMounted(true);
         setExpanded(true);
         setLipidExpanded(true);
       },
@@ -297,7 +303,13 @@ export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function
         title={copy.title}
         subtitle={latestLine}
         expanded={expanded}
-        onToggle={() => setExpanded((v) => !v)}
+        onToggle={() =>
+          setExpanded((v) => {
+            const next = !v;
+            if (next) setBodyMounted(true);
+            return next;
+          })
+        }
         titleRtl={rtl}
         collapseLabel={copy.collapseA11y}
         expandLabel={copy.expandA11y}
@@ -306,8 +318,13 @@ export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function
         perfTag="LabResultsStrip"
       />
 
-      {expanded ? (
-      <>
+      {bodyMounted ? (
+      <View
+        style={!expanded ? styles.bodyCollapsed : undefined}
+        pointerEvents={expanded ? 'auto' : 'none'}
+        accessibilityElementsHidden={!expanded}
+        importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+      >
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
         <Pressable
           style={({ pressed }) => [styles.chip, styles.addChip, pressed && styles.chipPressed]}
@@ -486,7 +503,7 @@ export const LabResultsStrip = forwardRef<LabResultsStripHandle, Props>(function
           )}
         </Pressable>
       </View>
-      </>
+      </View>
       ) : null}
 
       <LabReportModal
@@ -515,6 +532,9 @@ const makeStyles = (c: ThemeColors) =>
   },
   cardCollapsed: {
     paddingBottom: 8,
+  },
+  bodyCollapsed: {
+    display: 'none',
   },
   chipsRow: { gap: 8, paddingBottom: 2, paddingTop: 4 },
   chip: {

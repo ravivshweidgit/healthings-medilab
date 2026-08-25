@@ -1,6 +1,6 @@
 # be-53 — Clinic meal-photo lightbox + snapshot size for 30-day thumbs
 
-**Status:** ready  
+**Status:** blocked — prompt116 thumbs pulled 2026-08-25 for phone performance; revisit with 116  
 **Model to implement:** Auto (caps + portal modal). Chart mark placement is taste — owner in the portal.  
 **Authored by:** owner request 2026-08-22  
 **Depends on:** prompt116 (phone writes thumbs + injects `healthings:mealPhotos` on Share)

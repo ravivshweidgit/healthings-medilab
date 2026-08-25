@@ -37,6 +37,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { getClinicLinkCopy } from '../i18n/clinicLinkCopy';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
+import { keepMountedCollapsedStyles, useKeepMountedExpand } from '../hooks/useKeepMountedExpand';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import type { UserLanguage } from '../services/TargetService';
 
@@ -50,6 +51,7 @@ type Props = {
 export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const bodyMounted = useKeepMountedExpand(expanded);
   const L = useMemo(() => getClinicLinkCopy(lang?.code), [lang?.code]);
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
@@ -152,8 +154,13 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
         subtitleNumberOfLines={2}
       />
 
-      {expanded && (
-        <View style={styles.body}>
+      {bodyMounted ? (
+        <View
+          style={[styles.body, !expanded && keepMountedCollapsedStyles.bodyCollapsed]}
+          pointerEvents={expanded ? 'auto' : 'none'}
+          accessibilityElementsHidden={!expanded}
+          importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+        >
           {clinicShareEmail ? (
           <View style={styles.healthingsBlock}>
             {healthingsPending && !healthingsApproved ? (
@@ -350,7 +357,7 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

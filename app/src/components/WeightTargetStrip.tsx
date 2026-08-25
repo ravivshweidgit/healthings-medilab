@@ -263,6 +263,7 @@ export function WeightTargetStrip({
   const [suggestion, setSuggestion] = useState<BodyTarget | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [bodyMounted, setBodyMounted] = useState(false);
 
   // Edit fields
   const [editWeight, setEditWeight] = useState('');
@@ -274,7 +275,7 @@ export function WeightTargetStrip({
   useEffect(() => {
     getBodyTarget().then((t) => {
       if (t) { setTarget(t); setScreen('active'); }
-      else { setExpanded(true); }  // open by default if no targets yet
+      else { setBodyMounted(true); setExpanded(true); }  // open by default if no targets yet
     });
   }, []);
 
@@ -411,7 +412,13 @@ export function WeightTargetStrip({
         title={profileTitles.myTargets}
         subtitle={headerSub}
         expanded={expanded}
-        onToggle={() => setExpanded((e) => !e)}
+        onToggle={() =>
+          setExpanded((e) => {
+            const next = !e;
+            if (next) setBodyMounted(true);
+            return next;
+          })
+        }
         titleRtl={lang?.code === 'he' || lang?.code === 'ar'}
         collapseLabel="Collapse my targets"
         expandLabel="Expand my targets"
@@ -419,7 +426,13 @@ export function WeightTargetStrip({
         perfTag="WeightTargetStrip"
       />
 
-      {!expanded ? null : <View style={styles.body}>
+      {bodyMounted ? (
+      <View
+        style={[styles.body, !expanded && styles.bodyCollapsed]}
+        pointerEvents={expanded ? 'auto' : 'none'}
+        accessibilityElementsHidden={!expanded}
+        importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+      >
 
       {/* ── idle ── */}
       {screen === 'idle' && (
@@ -624,7 +637,8 @@ export function WeightTargetStrip({
           ) : null}
         </View>
       )}
-      </View>}
+      </View>
+      ) : null}
     </View>
   );
 }
@@ -639,6 +653,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   },
   // ── Expanded body ──
   body: { marginTop: 8, paddingHorizontal: 4 },
+  bodyCollapsed: { display: 'none' },
 
   // idle
   idleWrap: { alignItems: 'stretch', paddingVertical: 8, gap: 10 },

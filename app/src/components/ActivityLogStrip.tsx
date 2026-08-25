@@ -97,6 +97,8 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
   const energyU = unitsPrefs.energy;
 
   const [expanded, setExpanded] = useState(true);
+  /** Mount once; collapse only hides — same keep-alive as Food Log / glucose. */
+  const [bodyMounted, setBodyMounted] = useState(true);
   const [expandPrefsLoaded, setExpandPrefsLoaded] = useState(false);
   /** User collapsed Activity while today still has 0 manual sessions — don't fight that this session. */
   const skipEmptyAutoExpand = useRef(false);
@@ -230,6 +232,7 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
         onToggle={() =>
           setExpanded((v) => {
             const next = !v;
+            if (next) setBodyMounted(true);
             if (!next && isToday && entries.length === 0) {
               skipEmptyAutoExpand.current = true;
             }
@@ -243,8 +246,13 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
         perfTag="ActivityLogStrip"
       />
 
-      {expanded ? (
-        <>
+      {bodyMounted ? (
+        <View
+          style={!expanded ? styles.bodyCollapsed : undefined}
+          pointerEvents={expanded ? 'auto' : 'none'}
+          accessibilityElementsHidden={!expanded}
+          importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+        >
           <View style={styles.dayNav}>
             <Pressable onPress={() => shiftDay(-1)} hitSlop={8} style={styles.dayNavBtn}>
               <Text style={styles.dayNavArrow}>‹</Text>
@@ -331,7 +339,7 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
               )}
             </ScrollView>
           )}
-        </>
+        </View>
       ) : null}
     </View>
   );
@@ -339,6 +347,9 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
 
 const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
+    bodyCollapsed: {
+      display: 'none',
+    },
     card: {
       backgroundColor: c.surface,
       borderRadius: 24,

@@ -46,7 +46,18 @@ import { ClinicLinkStrip } from '../components/ClinicLinkStrip';
 import { ReportsStrip } from '../components/ReportsStrip';
 import { LocalBackupStrip } from '../components/LocalBackupStrip';
 import { HelpStrip } from '../components/HelpStrip';
-import { DashboardCollapseHeader } from '../components/DashboardCollapseHeader';
+import {
+  DashCollapseHeader,
+  DashCollapseView,
+  DashExpandEffect,
+  DashExpandGate,
+  withDashExpand,
+} from '../components/DashExpand';
+import {
+  hydrateDashExpand,
+  isDashExpanded,
+  setDashExpanded,
+} from '../hooks/dashExpandStore';
 import { ActionIcons, ActiveMentorIcons, DashIcon, StripIcons } from '../theme/icons';
 import { RulesStrip } from '../components/RulesStrip';
 import { NutritionDirectivesStrip, type NutritionDirectivesStripHandle } from '../components/NutritionDirectivesStrip';
@@ -166,7 +177,7 @@ import {
   parseCareSensAirExportWithSessions,
   readCareSensCsvText,
 } from '../services/careSensCsv';
-import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getRecentMeals, getDailyMacros, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
+import { foodLogDayKey, defaultMealTimestampForDay, getTodayMeals, getRecentMeals, getDailyMacros, findMealById, buildMealsAiContext, type FoodEntry } from '../services/FoodLogService';
 import {
   defaultActivityTimestampForDay,
   getActivitiesForDay,
@@ -239,13 +250,6 @@ import { applyPullRefreshTriggerDistance } from '../utils/pullRefreshTrigger';
 const SCROLL_HORIZONTAL_PADDING = 20;
 /** How far back to load meals for historical chart markers (days). */
 const CHART_MEAL_LOOKBACK_DAYS = 31;
-/** Persist glucose / trend expand state so compact stays default after relaunch. */
-const DASH_TREND_EXPANDED_KEY = 'dash_trend_chart_expanded';
-const DASH_SETTINGS_CARD_EXPANDED_KEY = 'dash_settings_card_expanded';
-const DASH_LANGUAGE_EXPANDED_KEY = 'dash_language_expanded';
-const DASH_UNITS_EXPANDED_KEY = 'dash_units_expanded';
-const DASH_APPEARANCE_EXPANDED_KEY = 'dash_appearance_expanded';
-const DASH_GEAR_EXPANDED_KEY = 'dash_gear_expanded';
 /** Show Activity Log strip on dashboard (prompt104). Default on. */
 const DASH_ACTIVITY_LOG_VISIBLE_KEY = 'dash_activity_log_visible';
 /** Appearance — show LDL/total/HDL/TG charts under Lab results (default Yes). */
@@ -257,6 +261,27 @@ const BRAND_LOGO = require('../../assets/brand-logo.png');
 // transparent background instead of the white plate.
 const BRAND_LOGO_DARK = require('../../assets/brand-logo-dark.png');
 const BRAND_HEADER_HEIGHT_FALLBACK = 96;
+
+// Strips whose open/closed state comes from `dashExpandStore` instead of screen state.
+// Declared at module scope so the wrapper identity is stable across dashboard renders.
+const HelpStripBound = withDashExpand(HelpStrip, 'help');
+const LanguageStripBound = withDashExpand(LanguageStrip, 'language');
+const UnitsStripBound = withDashExpand(UnitsStrip, 'units');
+const AppearanceStripBound = withDashExpand(AppearanceStrip, 'appearance');
+const GearSetupStripBound = withDashExpand(GearSetupStrip, 'gear');
+const MentorStripBound = withDashExpand(MentorStrip, 'mentor');
+const RulesStripBound = withDashExpand(RulesStrip, 'rules');
+const MacroTargetStripBound = withDashExpand(MacroTargetStrip, 'macro');
+const AccountStripBound = withDashExpand(AccountStrip, 'account');
+const ClinicLinkStripBound = withDashExpand(ClinicLinkStrip, 'clinic');
+const ReportsStripBound = withDashExpand(ReportsStrip, 'reports');
+const LocalBackupStripBound = withDashExpand(LocalBackupStrip, 'backup');
+
+/** "Open Your setup" links under sync/scan errors. */
+function openYourSetupStrips(): void {
+  setDashExpanded('profile', true);
+  setDashExpanded('gear', true);
+}
 
 // Primary-tier anchor (audit F6) — navy left edge groups the top "today" cards
 // (AI chat, body metrics, Food Log) so secondary strips below read as lighter.
@@ -355,6 +380,9 @@ type DashboardScreenProps = {
 export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  /** Stable array identities — `DashCollapseView` memoizes on the style prop. */
+  const groupCardStyle = useMemo(() => [styles.groupCard, cardShadow], [styles]);
+  const trendCardStyle = useMemo(() => [styles.trendCardBleed, cardShadow], [styles]);
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const brandHeaderHeight = useMemo(() => computeBrandHeaderHeight(windowWidth), [windowWidth]);
@@ -414,11 +442,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const [visitReportBusy, setVisitReportBusy] = useState(false);
-  const [accountExpanded, setAccountExpanded] = useState(false);
-  const [clinicExpanded, setClinicExpanded] = useState(false);
-  const [reportsExpanded, setReportsExpanded] = useState(false);
-  const [backupExpanded, setBackupExpanded] = useState(false);
-  const [helpExpanded, setHelpExpanded] = useState(false);
 
   const [trendPeriodDays, setTrendPeriodDays] = useState<number>(DEFAULT_TREND_PERIOD_DAYS);
 
@@ -485,15 +508,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   const [effectiveMacroTarget, setEffectiveMacroTarget] = useState<DailyMacroTarget | null>(null);
   const [userLanguage, setUserLanguage] = useState<UserLanguage>(SUPPORTED_LANGUAGES[0]);
   const [unitsPrefs, setUnitsPrefs] = useState<UnitsPrefs>(DEFAULT_UNITS_PREFS);
-  // expanded state for each collapsible row in the grouped card
-  const [mentorExpanded, setMentorExpanded] = useState(false);
-  const [rulesExpanded, setRulesExpanded] = useState(false);
-  const [macroExpanded, setMacroExpanded] = useState(false);
-  /** Glucose + trend (incl. energy) charts: collapsed by default so Food Log sits higher. */
-  const [trendExpanded, setTrendExpanded] = useState(false);
+  // Expanded state for every collapsible strip lives in `dashExpandStore`, so a header
+  // tap notifies that strip instead of re-rendering this screen and all of its children.
   /** Lazy keep-alive for trend + energy charts (same as Food Log). */
   const [trendChartMounted, setTrendChartMounted] = useState(false);
-  const [settingsCardExpanded, setSettingsCardExpanded] = useState(false);
+  /** Mount profile/settings body once; collapse only hides. */
+  const [settingsBodyMounted, setSettingsBodyMounted] = useState(false);
   const [dashExpandPrefsLoaded, setDashExpandPrefsLoaded] = useState(false);
   const [macroWeighInSuggestion, setMacroWeighInSuggestion] = useState<DailyMacroTarget | null>(null);
   const [macroWeighInHint, setMacroWeighInHint] = useState<string | null>(null);
@@ -529,11 +549,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     setTodayActivityCount(list.length);
   }, []);
 
-  const [profileExpanded, setProfileExpanded] = useState(false);
-  const [languageExpanded, setLanguageExpanded] = useState(false);
-  const [unitsExpanded, setUnitsExpanded] = useState(false);
-  const [appearanceExpanded, setAppearanceExpanded] = useState(false);
-  const [gearExpanded, setGearExpanded] = useState(false);
   /** Activity Log strip on dashboard — Profile → Appearance Yes/No. */
   const [activityLogVisible, setActivityLogVisible] = useState(true);
   /** Cholesterol trend charts under Lab results — Profile → Appearance Yes/No. */
@@ -720,7 +735,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     if (needQuickStart) {
       setQuickStartVisible(true);
     } else if (!gd || !storedBd) {
-      setProfileExpanded(true);
+      setDashExpanded('profile', true);
     }
   }, [loadManualTrend]);
 
@@ -760,8 +775,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, [loadTodayFood]);
 
   const handleEditMeal = useCallback((entry: FoodEntry) => {
+    // Open immediately with the chip/chart entry — do not block menus on a full food-log walk.
     setFoodEditEntry(entry);
     setFoodModalVisible(true);
+    void findMealById(entry.id, entry.timestamp).then((located) => {
+      if (located?.entry) setFoodEditEntry(located.entry);
+    });
   }, []);
 
   const handleActivitySaved = useCallback(async () => {
@@ -1824,62 +1843,36 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   useEffect(() => {
     void (async () => {
       try {
-        const [t, s, langEx, unitsEx, appearanceEx, gearEx, actVis, lipidVis] = await AsyncStorage.multiGet([
-          DASH_TREND_EXPANDED_KEY,
-          DASH_SETTINGS_CARD_EXPANDED_KEY,
-          DASH_LANGUAGE_EXPANDED_KEY,
-          DASH_UNITS_EXPANDED_KEY,
-          DASH_APPEARANCE_EXPANDED_KEY,
-          DASH_GEAR_EXPANDED_KEY,
+        const [actVis, lipidVis] = await AsyncStorage.multiGet([
           DASH_ACTIVITY_LOG_VISIBLE_KEY,
           DASH_LAB_LIPID_CHARTS_VISIBLE_KEY,
         ]);
-        if (t[1] === 'true') {
-          setTrendExpanded(true);
-          setTrendChartMounted(true);
-        }
-        if (s[1] === 'true') setSettingsCardExpanded(true);
-        if (langEx[1] === 'true') setLanguageExpanded(true);
-        if (unitsEx[1] === 'true') setUnitsExpanded(true);
-        if (appearanceEx[1] === 'true') setAppearanceExpanded(true);
-        if (gearEx[1] === 'true') setGearExpanded(true);
         if (actVis[1] === 'false') setActivityLogVisible(false);
         if (lipidVis[1] === 'false') setLipidChartsVisible(false);
+
+        // Persisted expand flags — the store owns reading and writing them.
+        await hydrateDashExpand();
+        if (isDashExpanded('trend')) setTrendChartMounted(true);
+        if (isDashExpanded('settingsCard')) setSettingsBodyMounted(true);
       } finally {
         setDashExpandPrefsLoaded(true);
       }
     })();
   }, []);
 
-  useEffect(() => {
-    if (!dashExpandPrefsLoaded) return;
-    void AsyncStorage.setItem(DASH_TREND_EXPANDED_KEY, trendExpanded ? 'true' : 'false');
-  }, [trendExpanded, dashExpandPrefsLoaded]);
-
-  useEffect(() => {
-    if (!dashExpandPrefsLoaded) return;
-    void AsyncStorage.setItem(DASH_SETTINGS_CARD_EXPANDED_KEY, settingsCardExpanded ? 'true' : 'false');
-  }, [settingsCardExpanded, dashExpandPrefsLoaded]);
-
-  /** Collapsing Profile & Settings also collapses every nested strip. */
-  useEffect(() => {
-    if (settingsCardExpanded) return;
-    setProfileExpanded(false);
-    setLanguageExpanded(false);
-    setUnitsExpanded(false);
-    setAppearanceExpanded(false);
-    setGearExpanded(false);
-    setMentorExpanded(false);
-    setRulesExpanded(false);
-    setMacroExpanded(false);
-    setAccountExpanded(false);
-    setClinicExpanded(false);
-    setReportsExpanded(false);
-    setBackupExpanded(false);
-  }, [settingsCardExpanded]);
-
-  const setStripNode = useCallback((id: DashNavTarget) => (node: View | null) => {
-    stripNodeRefs.current[id] = node;
+  // Stable per-target ref callback: a fresh closure per render makes React detach and
+  // reattach all ~22 strip views on every pass.
+  const stripNodeSetters = useRef<
+    Partial<Record<DashNavTarget, (node: View | null) => void>>
+  >({});
+  const setStripNode = useCallback((id: DashNavTarget) => {
+    const cached = stripNodeSetters.current[id];
+    if (cached) return cached;
+    const setter = (node: View | null) => {
+      stripNodeRefs.current[id] = node;
+    };
+    stripNodeSetters.current[id] = setter;
+    return setter;
   }, []);
 
   const navPulseStyle = useCallback(
@@ -1897,24 +1890,25 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     if (target !== 'lab-results') labResultsStripRef.current?.collapse();
     if (target !== 'nutritionist-sessions') nutritionSessionsStripRef.current?.collapse();
     if (target !== 'glucose-chart') glucoseChartStripRef.current?.collapse();
-    if (target !== 'trend-energy') setTrendExpanded(false);
+    if (target !== 'trend-energy') setDashExpanded('trend', false);
 
     if (!inSettings) {
-      setSettingsCardExpanded(false);
+      setDashExpanded('settingsCard', false);
     } else {
-      setSettingsCardExpanded(true);
-      setProfileExpanded(target === 'profile');
-      setLanguageExpanded(target === 'language');
-      setUnitsExpanded(target === 'units');
-      setAppearanceExpanded(target === 'appearance');
-      setGearExpanded(target === 'gear');
-      setMentorExpanded(target === 'mentors');
-      setRulesExpanded(target === 'rules');
-      setMacroExpanded(target === 'macros');
-      setAccountExpanded(target === 'account');
-      setClinicExpanded(target === 'data-sharing');
-      setReportsExpanded(target === 'reports');
-      setBackupExpanded(target === 'app-backup');
+      setSettingsBodyMounted(true);
+      setDashExpanded('settingsCard', true);
+      setDashExpanded('profile', target === 'profile');
+      setDashExpanded('language', target === 'language');
+      setDashExpanded('units', target === 'units');
+      setDashExpanded('appearance', target === 'appearance');
+      setDashExpanded('gear', target === 'gear');
+      setDashExpanded('mentor', target === 'mentors');
+      setDashExpanded('rules', target === 'rules');
+      setDashExpanded('macro', target === 'macros');
+      setDashExpanded('account', target === 'account');
+      setDashExpanded('clinic', target === 'data-sharing');
+      setDashExpanded('reports', target === 'reports');
+      setDashExpanded('backup', target === 'app-backup');
     }
 
     switch (target) {
@@ -1935,7 +1929,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         break;
       case 'trend-energy':
         setTrendChartMounted(true);
-        setTrendExpanded(true);
+        setDashExpanded('trend', true);
         break;
       case 'ai-chat':
         setChatVisible(true);
@@ -1976,21 +1970,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
   useEffect(() => {
     if (!dashExpandPrefsLoaded) return;
-    void AsyncStorage.setItem(DASH_LANGUAGE_EXPANDED_KEY, languageExpanded ? 'true' : 'false');
-  }, [languageExpanded, dashExpandPrefsLoaded]);
-
-  useEffect(() => {
-    if (!dashExpandPrefsLoaded) return;
-    void AsyncStorage.setItem(DASH_UNITS_EXPANDED_KEY, unitsExpanded ? 'true' : 'false');
-  }, [unitsExpanded, dashExpandPrefsLoaded]);
-
-  useEffect(() => {
-    if (!dashExpandPrefsLoaded) return;
-    void AsyncStorage.setItem(DASH_APPEARANCE_EXPANDED_KEY, appearanceExpanded ? 'true' : 'false');
-  }, [appearanceExpanded, dashExpandPrefsLoaded]);
-
-  useEffect(() => {
-    if (!dashExpandPrefsLoaded) return;
     void AsyncStorage.setItem(
       DASH_ACTIVITY_LOG_VISIBLE_KEY,
       activityLogVisible ? 'true' : 'false',
@@ -2004,11 +1983,6 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       lipidChartsVisible ? 'true' : 'false',
     );
   }, [lipidChartsVisible, dashExpandPrefsLoaded]);
-
-  useEffect(() => {
-    if (!dashExpandPrefsLoaded) return;
-    void AsyncStorage.setItem(DASH_GEAR_EXPANDED_KEY, gearExpanded ? 'true' : 'false');
-  }, [gearExpanded, dashExpandPrefsLoaded]);
 
   useEffect(() => {
     void (async () => {
@@ -2094,7 +2068,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         if (t == null) void refreshClinicMacroMeters();
       },
       onNeedsReview: async ({ proposal, source, triggerDetail }) => {
-        setMacroExpanded(true);
+        setDashExpanded('macro', true);
         const he = userLanguage?.code === 'he';
         if (source === 'gemini') {
           const [rules, mentorList] = await Promise.all([getUserRules(), getMentors()]);
@@ -2171,8 +2145,36 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     void refreshWithingsLinkState();
   }, [refreshWithingsLinkState]);
 
-  useEffect(() => {
-    if (!profileExpanded) {
+  const handleToggleTrend = useCallback(() => {
+    if (!isDashExpanded('trend')) setTrendChartMounted(true);
+    setDashExpanded('trend', !isDashExpanded('trend'));
+  }, []);
+
+  const handleToggleSettingsCard = useCallback(() => {
+    const next = !isDashExpanded('settingsCard');
+    if (next) setSettingsBodyMounted(true);
+    setDashExpanded('settingsCard', next);
+  }, []);
+
+  const handleToggleProfile = useCallback(() => {
+    if (!isDashExpanded('profile')) {
+      // Coerce before expand so the height TextInput never mounts with ft'in" under cm prefs (iOS crash).
+      setHeightInput(coerceHeightInputForUnit(heightInput, unitsPrefs.height, heightCm));
+      setFirstNameInput(user.firstName?.trim() || '');
+      setLastNameInput(user.lastName?.trim() || '');
+      void fetchCurrentUser().then((me) => {
+        if (!me) return;
+        setFirstNameInput(me.firstName?.trim() || '');
+        setLastNameInput(me.lastName?.trim() || '');
+        setProfileNameLabel([me.firstName, me.lastName].filter(Boolean).join(' ').trim());
+      });
+    }
+    setDashExpanded('profile', !isDashExpanded('profile'));
+  }, [heightInput, unitsPrefs.height, heightCm, user.firstName, user.lastName]);
+
+  /** Rendered as `<DashExpandEffect k="profile">` so this screen never subscribes to it. */
+  const handleProfileExpandChange = useCallback((expanded: boolean) => {
+    if (!expanded) {
       setShowDatePickerDialog(false);
       return;
     }
@@ -2180,13 +2182,17 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       setSourceConfig(c);
       setSetupToggles(togglesFromSourceConfig(c));
     });
-  }, [profileExpanded]);
+  }, []);
 
   // Sync height field before paint whenever prefs/unit and draft disagree (iOS TextInput crash guard).
+  // The profile header also coerces before it expands, so the TextInput never mounts
+  // with a value the current unit cannot parse.
   useLayoutEffect(() => {
     const next = coerceHeightInputForUnit(heightInput, unitsPrefs.height, heightCm);
     if (next !== heightInput) setHeightInput(next);
-  }, [profileExpanded, unitsPrefs.height, heightCm]);
+    // `heightInput` is intentionally not a dep — coercing mid-typing would fight the user.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unitsPrefs.height, heightCm]);
 
   const handleLinkWithings = useCallback(async () => {
     setLinkError(null);
@@ -2472,6 +2478,110 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     [userLanguage, visitReportUi],
   );
 
+  // Stable handlers for the store-bound strips — `withDashExpand` memoizes them, so an
+  // arrow rebuilt inline here would make every strip re-render on any dashboard update.
+  const handleAfterLanguagePersist = useCallback(async () => {
+    await refreshCoachForLanguage();
+  }, [refreshCoachForLanguage]);
+
+  const handleUnitsChange = useCallback(
+    (next: UnitsPrefs) => {
+      if (next.height !== unitsPrefs.height) {
+        setHeightInput(coerceHeightInputForUnit(heightInput, next.height, heightCm));
+      }
+      setUnitsPrefs(next);
+      void saveUnitsPrefs(next);
+    },
+    [unitsPrefs.height, heightInput, heightCm],
+  );
+
+  const handlePersistToggles = useCallback(
+    (next: SetupToggles) => {
+      void persistSetupToggles(next);
+    },
+    [persistSetupToggles],
+  );
+
+  const handlePhoneHealthPermissionGranted = useCallback(() => {
+    void syncWithings().then(() => loadHcStepTotals(false));
+  }, [syncWithings, loadHcStepTotals]);
+
+  const handlePhoneHealthSync = useCallback(
+    async (deep: boolean): Promise<PhoneHealthSyncSummary> => {
+      const store = await syncWithings(deep ? { deep: true } : undefined);
+      const stepMap = (await loadHcStepTotals(deep)) ?? new Map<string, number>();
+      if (deep) {
+        await loadManualTrend(undefined, { deepSteps: true });
+      }
+      const lookback = deep
+        ? PHONE_HEALTH_DEEP_LOOKBACK_DAYS
+        : PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS;
+      let stepDays = 0;
+      for (const n of stepMap.values()) {
+        if (n > 0) stepDays += 1;
+      }
+      const activityDays = store.bodyTrendDays.filter(
+        (d) => d.activityKcalDay != null && d.activityKcalDay > 0,
+      ).length;
+      return {
+        deep,
+        lookbackDays: lookback,
+        stepDays,
+        activityDays,
+        hrSamples: store.heartRate.length,
+        workouts: store.workouts.length,
+      };
+    },
+    [syncWithings, loadHcStepTotals, loadManualTrend],
+  );
+
+  const handleQuickStartAgain = useCallback(() => {
+    void clearOnboardingCompletedAt().then(() => setQuickStartVisible(true));
+  }, []);
+
+  const handleCareSensImport = useCallback(() => {
+    void handleImportCareSensCsv();
+  }, [handleImportCareSensCsv]);
+
+  const handleMentorsChanged = useCallback(async (m: MentorType[]) => {
+    setMentorsState(m);
+    await saveMentors(m);
+  }, []);
+
+  const handleMentorGenderChange = useCallback((g: Gender) => {
+    setMentorGenderPicker(g);
+    setUserMentorGender(g);
+  }, []);
+
+  const handleMacroTargetSaved = useCallback(
+    (t: DailyMacroTarget | null | undefined) => {
+      setMacroTarget(t ?? null);
+      setEffectiveMacroTarget(t ?? null);
+      if (t == null) void refreshClinicMacroMeters();
+    },
+    [refreshClinicMacroMeters],
+  );
+
+  const handleWeighInSuggestionConsumed = useCallback(() => {
+    setMacroWeighInSuggestion(null);
+    setMacroWeighInHint(null);
+  }, []);
+
+  const handleShareVisitReportDays = useCallback(
+    (days: VisitReportDayCount) => {
+      void handleShareVisitReport(days);
+    },
+    [handleShareVisitReport],
+  );
+
+  const handleExportBackupPress = useCallback(() => {
+    void handleExportBackup();
+  }, [handleExportBackup]);
+
+  const handleImportBackupPress = useCallback(() => {
+    void handleImportBackup();
+  }, [handleImportBackup]);
+
   const demoNotice = demoNoticeCopy(dataSource);
 
   return (
@@ -2654,14 +2764,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         </View>
 
         {/* App Help — product Q&A (not mentor chat); near AI entry for discoverability */}
-        <View style={[styles.groupCard, cardShadow, !helpExpanded && styles.groupCardCollapsed]}>
-          <HelpStrip
-            expanded={helpExpanded}
-            onToggleExpand={() => setHelpExpanded((e) => !e)}
-            lang={userLanguage}
-            onNavigate={focusStrip}
-          />
-        </View>
+        <DashCollapseView
+          k="help"
+          style={groupCardStyle}
+          collapsedStyle={styles.groupCardCollapsed}
+        >
+          <HelpStripBound lang={userLanguage} onNavigate={focusStrip} />
+        </DashCollapseView>
 
         <View style={[styles.bodyScanCard, cardShadow]}>
           {showBodySourcesHeader || bodyScanLoading ? (
@@ -2757,8 +2866,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               <Text style={styles.linkErrorText}>{whatsNextCopy.syncFailedHint}</Text>
               <Pressable
                 onPress={() => {
-                  setProfileExpanded(true);
-                  setGearExpanded(true);
+                  openYourSetupStrips();
                 }}
                 hitSlop={8}
                 accessibilityRole="button"
@@ -2774,8 +2882,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               <Text style={styles.bodyScanErrorText}>{whatsNextCopy.syncFailedHint}</Text>
               <Pressable
                 onPress={() => {
-                  setProfileExpanded(true);
-                  setGearExpanded(true);
+                  openYourSetupStrips();
                 }}
                 hitSlop={8}
                 accessibilityRole="button"
@@ -2907,8 +3014,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               <Text style={styles.bodyScanEmpty}>{whatsNextCopy.emptyBodyScan}</Text>
               <Pressable
                 onPress={() => {
-                  setProfileExpanded(true);
-                  setGearExpanded(true);
+                  openYourSetupStrips();
                 }}
                 hitSlop={8}
                 accessibilityRole="button"
@@ -3008,6 +3114,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               workoutSessions={workoutSessions}
               bmrKcalDay={effectiveBodyScan?.bmrKcalDay}
               foodEntries={chartMeals}
+              onMealPress={handleEditMeal}
               glucoseDisplayUnit={unitsPrefs.glucose}
               energyDisplayUnit={unitsPrefs.energy}
               langCode={userLanguage.code}
@@ -3016,14 +3123,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         ) : null}
 
         <View ref={setStripNode('trend-energy')} collapsable={false} style={[styles.trendBleed, navPulseStyle('trend-energy')]}>
-          <View
-            style={[
-              styles.trendCardBleed,
-              !trendExpanded && styles.trendCardBleedCollapsed,
-              cardShadow,
-            ]}
+          <DashCollapseView
+            k="trend"
+            style={trendCardStyle}
+            collapsedStyle={styles.trendCardBleedCollapsed}
           >
-            <DashboardCollapseHeader
+            <DashCollapseHeader
+              k="trend"
               title={metabolicStripCopy.trendTitle}
               subtitle={
                 trendCompactSummary
@@ -3036,13 +3142,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     ? metabolicStripCopy.loading
                     : metabolicStripCopy.tapToOpenCharts
               }
-              expanded={trendExpanded}
-              onToggle={() => {
-                setTrendExpanded((v) => {
-                  if (!v) setTrendChartMounted(true);
-                  return !v;
-                });
-              }}
+              onToggle={handleToggleTrend}
               titleRtl={userLanguage.code === 'he' || userLanguage.code === 'ar'}
               collapseLabel={metabolicStripCopy.a11yCollapseTrend}
               expandLabel={metabolicStripCopy.a11yExpandTrend}
@@ -3050,11 +3150,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               perfTag="MetabolicTrendChart7d"
             />
             {trendChartMounted ? (
-              <View
-                style={!trendExpanded ? styles.chartBodyCollapsed : undefined}
-                pointerEvents={trendExpanded ? 'auto' : 'none'}
-                accessibilityElementsHidden={!trendExpanded}
-                importantForAccessibility={trendExpanded ? 'yes' : 'no-hide-descendants'}
+              <DashCollapseView
+                k="trend"
+                collapsedStyle={styles.chartBodyCollapsed}
+                hideContent
               >
                 {trendError && !useManualWeightTrend ? (
                   <View style={styles.bodyScanEmptyWrap}>
@@ -3062,8 +3161,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     <Text style={styles.bodyScanEmpty}>{whatsNextCopy.refreshHint}</Text>
                     <Pressable
                       onPress={() => {
-                        setProfileExpanded(true);
-                        setGearExpanded(true);
+                        openYourSetupStrips();
                       }}
                       hitSlop={8}
                       accessibilityRole="button"
@@ -3104,8 +3202,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     <Text style={styles.bodyScanEmpty}>{whatsNextCopy.refreshHint}</Text>
                     <Pressable
                       onPress={() => {
-                        setProfileExpanded(true);
-                        setGearExpanded(true);
+                        openYourSetupStrips();
                       }}
                       hitSlop={8}
                       accessibilityRole="button"
@@ -3131,9 +3228,9 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     />
                   </View>
                 ) : null}
-              </View>
+              </DashCollapseView>
             ) : null}
-          </View>
+          </DashCollapseView>
         </View>
 
         {dataSource === 'health-connect' && error ? (
@@ -3158,12 +3255,17 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         ) : null}
 
         {/* My Profile + My Targets — single grouped card */}
-        <View style={[styles.groupCard, cardShadow, !settingsCardExpanded && styles.groupCardCollapsed]}>
-          <DashboardCollapseHeader
+        <DashCollapseView
+          k="settingsCard"
+          style={groupCardStyle}
+          collapsedStyle={styles.groupCardCollapsed}
+        >
+          <DashExpandEffect k="profile" onChange={handleProfileExpandChange} />
+          <DashCollapseHeader
+            k="settingsCard"
             title={metabolicStripCopy.profileSettingsTitle}
             subtitle={settingsCardSummary}
-            expanded={settingsCardExpanded}
-            onToggle={() => setSettingsCardExpanded((v) => !v)}
+            onToggle={handleToggleSettingsCard}
             titleRtl={userLanguage.code === 'he' || userLanguage.code === 'ar'}
             collapseLabel={metabolicStripCopy.a11yCollapseProfileSettings}
             expandLabel={metabolicStripCopy.a11yExpandProfileSettings}
@@ -3171,10 +3273,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             icon={StripIcons.profile}
             perfTag="ProfileSettings"
           />
-          {settingsCardExpanded ? (
-          <>
+          {settingsBodyMounted ? (
+          <DashCollapseView
+            k="settingsCard"
+            collapsedStyle={styles.chartBodyCollapsed}
+            hideContent
+          >
           <View ref={setStripNode('profile')} collapsable={false} style={navPulseStyle('profile')}>
-          <DashboardCollapseHeader
+          <DashCollapseHeader
+            k="profile"
             title={profileStripCopy.myProfile}
             subtitle={
               [
@@ -3205,24 +3312,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                 .filter(Boolean)
                 .join(' · ') || 'Tap to set name, gender, height & birthdate'
             }
-            expanded={profileExpanded}
-            onToggle={() => {
-              // Coerce before expand so the height TextInput never mounts with ft'in" under cm prefs (iOS crash).
-              if (!profileExpanded) {
-                setHeightInput(coerceHeightInputForUnit(heightInput, unitsPrefs.height, heightCm));
-                setFirstNameInput(user.firstName?.trim() || '');
-                setLastNameInput(user.lastName?.trim() || '');
-                void fetchCurrentUser().then((me) => {
-                  if (!me) return;
-                  setFirstNameInput(me.firstName?.trim() || '');
-                  setLastNameInput(me.lastName?.trim() || '');
-                  setProfileNameLabel(
-                    [me.firstName, me.lastName].filter(Boolean).join(' ').trim(),
-                  );
-                });
-              }
-              setProfileExpanded((e) => !e);
-            }}
+            onToggle={handleToggleProfile}
             titleRtl={userLanguage.code === 'he' || userLanguage.code === 'ar'}
             collapseLabel="Collapse my profile"
             expandLabel="Expand my profile"
@@ -3230,7 +3320,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             perfTag="MyProfile"
           />
 
-          {profileExpanded && (
+          <DashExpandGate k="profile">
+            {() => (
             <DebugErrorBoundary label="My Profile">
             <View style={styles.profileBody}>
               <Text style={styles.birthdateSectionTitle}>{yourSetupCopy.firstName}</Text>
@@ -3371,14 +3462,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
                     if (bodyResult === 'error') return;
                   }
 
-                  setProfileExpanded(false);
+                  setDashExpanded('profile', false);
                 }}
               >
                 <Text style={styles.birthdateSaveBtnText}>{yourSetupCopy.save}</Text>
               </Pressable>
             </View>
             </DebugErrorBoundary>
-          )}
+            )}
+          </DashExpandGate>
 
           <Modal
             visible={showDatePickerDialog && Platform.OS === 'ios'}
@@ -3425,14 +3517,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           <View style={styles.groupDivider} />
 
           <View ref={setStripNode('language')} collapsable={false} style={navPulseStyle('language')}>
-          <LanguageStrip
-            expanded={languageExpanded}
-            onToggleExpand={() => setLanguageExpanded((e) => !e)}
+          <LanguageStripBound
             language={userLanguage}
             onLanguageChanged={setUserLanguage}
-            onAfterLanguagePersist={async () => {
-              await refreshCoachForLanguage();
-            }}
+            onAfterLanguagePersist={handleAfterLanguagePersist}
           />
           </View>
 
@@ -3441,8 +3529,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           <Pressable
             style={styles.profileHelpLink}
             onPress={() => {
-              setSettingsCardExpanded(false);
-              setHelpExpanded(true);
+              setDashExpanded('settingsCard', false);
+              setDashExpanded('help', true);
             }}
             accessibilityRole="button"
             accessibilityLabel={helpStripCopy.openFromProfile}
@@ -3456,29 +3544,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           <View style={styles.groupDivider} />
 
           <View ref={setStripNode('units')} collapsable={false} style={navPulseStyle('units')}>
-          <UnitsStrip
-            expanded={unitsExpanded}
-            onToggleExpand={() => setUnitsExpanded((e) => !e)}
-            prefs={unitsPrefs}
-            lang={userLanguage}
-            onChange={(next) => {
-              if (next.height !== unitsPrefs.height) {
-                setHeightInput(
-                  coerceHeightInputForUnit(heightInput, next.height, heightCm),
-                );
-              }
-              setUnitsPrefs(next);
-              void saveUnitsPrefs(next);
-            }}
-          />
+          <UnitsStripBound prefs={unitsPrefs} lang={userLanguage} onChange={handleUnitsChange} />
           </View>
 
           <View style={styles.groupDivider} />
 
           <View ref={setStripNode('appearance')} collapsable={false} style={navPulseStyle('appearance')}>
-          <AppearanceStrip
-            expanded={appearanceExpanded}
-            onToggleExpand={() => setAppearanceExpanded((e) => !e)}
+          <AppearanceStripBound
             lang={userLanguage}
             activityLogVisible={activityLogVisible}
             onActivityLogVisibleChange={setActivityLogVisible}
@@ -3490,51 +3562,21 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           <View style={styles.groupDivider} />
 
           <View ref={setStripNode('gear')} collapsable={false} style={navPulseStyle('gear')}>
-          <GearSetupStrip
-            expanded={gearExpanded}
-            onToggleExpand={() => setGearExpanded((e) => !e)}
+          <GearSetupStripBound
             lang={userLanguage}
             setupToggles={setupToggles}
-            onPersistToggles={(next) => void persistSetupToggles(next)}
+            onPersistToggles={handlePersistToggles}
             withingsLinked={withingsLinked}
             linkBusy={linkBusy}
             linkError={linkError}
             showLinkError={manualBodyScaleActive && !!setupToggles?.withingsWatch}
             onWithingsAccountPress={handleWithingsAccountPress}
-            onPhoneHealthPermissionGranted={() => {
-              void syncWithings().then(() => loadHcStepTotals(false));
-            }}
-            onPhoneHealthSync={async (deep): Promise<PhoneHealthSyncSummary> => {
-              const store = await syncWithings(deep ? { deep: true } : undefined);
-              const stepMap = (await loadHcStepTotals(deep)) ?? new Map<string, number>();
-              if (deep) {
-                await loadManualTrend(undefined, { deepSteps: true });
-              }
-              const lookback = deep
-                ? PHONE_HEALTH_DEEP_LOOKBACK_DAYS
-                : PHONE_HEALTH_SHALLOW_LOOKBACK_DAYS;
-              let stepDays = 0;
-              for (const n of stepMap.values()) {
-                if (n > 0) stepDays += 1;
-              }
-              const activityDays = store.bodyTrendDays.filter(
-                (d) => d.activityKcalDay != null && d.activityKcalDay > 0,
-              ).length;
-              return {
-                deep,
-                lookbackDays: lookback,
-                stepDays,
-                activityDays,
-                hrSamples: store.heartRate.length,
-                workouts: store.workouts.length,
-              };
-            }}
-            onQuickStartAgain={() => {
-              void clearOnboardingCompletedAt().then(() => setQuickStartVisible(true));
-            }}
+            onPhoneHealthPermissionGranted={handlePhoneHealthPermissionGranted}
+            onPhoneHealthSync={handlePhoneHealthSync}
+            onQuickStartAgain={handleQuickStartAgain}
             careSensImportBusy={importBusy}
             careSensImportResult={careSensImportResult}
-            onCareSensImport={() => void handleImportCareSensCsv()}
+            onCareSensImport={handleCareSensImport}
           />
           </View>
 
@@ -3559,17 +3601,12 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           <View style={styles.groupDivider} />
 
           <View ref={setStripNode('mentors')} collapsable={false} style={navPulseStyle('mentors')}>
-          <MentorStrip
+          <MentorStripBound
             mentors={mentors}
-            onChanged={async (m) => { setMentorsState(m); await saveMentors(m); }}
-            expanded={mentorExpanded}
-            onToggleExpand={() => setMentorExpanded((e) => !e)}
+            onChanged={handleMentorsChanged}
             lang={userLanguage}
             mentorGender={userMentorGender ?? mentorGenderPicker}
-            onMentorGenderChange={(g) => {
-              setMentorGenderPicker(g);
-              setUserMentorGender(g);
-            }}
+            onMentorGenderChange={handleMentorGenderChange}
             userGender={userGender}
           />
           </View>
@@ -3577,12 +3614,10 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           <View style={styles.groupDivider} />
 
           <View ref={setStripNode('rules')} collapsable={false} style={navPulseStyle('rules')}>
-          <RulesStrip
+          <RulesStripBound
             userRules={userRules}
             mentors={mentors}
             onSaved={setUserRules}
-            expanded={rulesExpanded}
-            onToggleExpand={() => setRulesExpanded((e) => !e)}
             lang={userLanguage}
           />
           </View>
@@ -3590,7 +3625,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           <View style={styles.groupDivider} />
 
           <View ref={setStripNode('macros')} collapsable={false} style={navPulseStyle('macros')}>
-          <MacroTargetStrip
+          <MacroTargetStripBound
             actualProtein_g={todayActualMacros.protein_g}
             actualFat_g={todayActualMacros.fat_g}
             actualCarb_g={todayActualMacros.carb_g}
@@ -3609,20 +3644,11 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             mentors={mentors}
             savedTarget={macroTarget}
             clinicMeters={clinicMacroMeters}
-            onSaved={(t) => {
-              setMacroTarget(t ?? null);
-              setEffectiveMacroTarget(t ?? null);
-              if (t == null) void refreshClinicMacroMeters();
-            }}
+            onSaved={handleMacroTargetSaved}
             weighInSuggestion={macroWeighInSuggestion}
             weighInSuggestionHint={macroWeighInHint}
-            onWeighInSuggestionConsumed={() => {
-              setMacroWeighInSuggestion(null);
-              setMacroWeighInHint(null);
-            }}
+            onWeighInSuggestionConsumed={handleWeighInSuggestionConsumed}
             analyzeRequestId={macroAnalyzeRequestId}
-            expanded={macroExpanded}
-            onToggleExpand={() => setMacroExpanded((e) => !e)}
             lang={userLanguage}
             unitsPrefs={unitsPrefs}
           />
@@ -3631,10 +3657,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
           <View style={styles.groupDivider} />
 
           <View ref={setStripNode('account')} collapsable={false} style={navPulseStyle('account')}>
-          <AccountStrip
+          <AccountStripBound
             user={user}
-            expanded={accountExpanded}
-            onToggleExpand={() => setAccountExpanded((e) => !e)}
             onSignedOut={onSignedOut}
             onDataRestored={refreshAfterBackupRestore}
             lang={userLanguage}
@@ -3643,41 +3667,32 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
           <View style={styles.groupDivider} />
           <View ref={setStripNode('data-sharing')} collapsable={false} style={navPulseStyle('data-sharing')}>
-          <ClinicLinkStrip
-            user={user}
-            expanded={clinicExpanded}
-            onToggleExpand={() => setClinicExpanded((e) => !e)}
-            lang={userLanguage}
-          />
+          <ClinicLinkStripBound user={user} lang={userLanguage} />
           </View>
 
           <View style={styles.groupDivider} />
           <View ref={setStripNode('reports')} collapsable={false} style={navPulseStyle('reports')}>
-          <ReportsStrip
-            expanded={reportsExpanded}
-            onToggleExpand={() => setReportsExpanded((e) => !e)}
+          <ReportsStripBound
             busy={visitReportBusy}
             visitReportUi={visitReportUi}
-            onShareVisitReport={(days) => void handleShareVisitReport(days)}
+            onShareVisitReport={handleShareVisitReportDays}
             lang={userLanguage}
           />
           </View>
 
           <View style={styles.groupDivider} />
           <View ref={setStripNode('app-backup')} collapsable={false} style={navPulseStyle('app-backup')}>
-          <LocalBackupStrip
-            expanded={backupExpanded}
-            onToggleExpand={() => setBackupExpanded((e) => !e)}
+          <LocalBackupStripBound
             busy={backupBusy}
             message={backupMessage}
-            onExport={() => void handleExportBackup()}
-            onImport={() => void handleImportBackup()}
+            onExport={handleExportBackupPress}
+            onImport={handleImportBackupPress}
             lang={userLanguage}
           />
           </View>
-          </>
+          </DashCollapseView>
           ) : null}
-        </View>
+        </DashCollapseView>
 
         {/* Nutrition + lab archives — bottom of dashboard */}
         <View ref={setStripNode('nutritionist-sessions')} collapsable={false} style={navPulseStyle('nutritionist-sessions')}>

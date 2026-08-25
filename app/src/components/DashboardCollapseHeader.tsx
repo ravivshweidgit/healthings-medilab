@@ -16,7 +16,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { DashIcon, type LucideIcon } from '../theme/icons';
 
-type Props = {
+export type DashboardCollapseHeaderProps = {
   title: string;
   /** Collapsed subtitle — string or nested Text nodes (e.g. colored kcal). */
   subtitle?: React.ReactNode;
@@ -35,6 +35,8 @@ type Props = {
   /** Stable English method/component id for perf logs — never UI title. Required to log. */
   perfTag?: string;
 };
+
+type Props = DashboardCollapseHeaderProps;
 
 export function DashboardCollapseHeader({
   title,

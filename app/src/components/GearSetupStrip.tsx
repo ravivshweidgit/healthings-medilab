@@ -26,6 +26,7 @@ import type { SetupToggles } from '../services/SourceConfigService';
 import type { UserLanguage } from '../services/TargetService';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
+import { keepMountedCollapsedStyles, useKeepMountedExpand } from '../hooks/useKeepMountedExpand';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import { PhoneHealthActivityStrip } from './PhoneHealthActivityStrip';
 import { SetupToggleRow } from './SetupToggleRow';
@@ -72,6 +73,7 @@ export function GearSetupStrip({
 }: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const bodyMounted = useKeepMountedExpand(expanded);
   const titles = getProfileSettingsStripCopy(lang?.code);
   const setup = getYourSetupCopy(lang?.code);
   const careSensCopy = getCareSensImportCopy(lang?.code);
@@ -96,8 +98,13 @@ export function GearSetupStrip({
         subtitleNumberOfLines={2}
       />
 
-      {expanded ? (
-        <View style={styles.body}>
+      {bodyMounted ? (
+        <View
+          style={[styles.body, !expanded && keepMountedCollapsedStyles.bodyCollapsed]}
+          pointerEvents={expanded ? 'auto' : 'none'}
+          accessibilityElementsHidden={!expanded}
+          importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+        >
           {setupToggles ? (
             <>
               <SetupToggleRow

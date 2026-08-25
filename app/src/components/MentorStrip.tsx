@@ -25,6 +25,7 @@ import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import { MentorIcon } from '../theme/icons';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
+import { keepMountedCollapsedStyles, useKeepMountedExpand } from '../hooks/useKeepMountedExpand';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 
 const MENTOR_TYPES: MentorType[] = ['doctor', 'nutritionist', 'coach'];
@@ -88,6 +89,7 @@ export function MentorStrip({
 }: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const bodyMounted = useKeepMountedExpand(expanded);
   const [hint, setHint] = useState(false);
   const [freq, setFreq] = useState<MentorFrequency>({ afterEachMeal: true, minGapHours: 4 });
 
@@ -141,8 +143,13 @@ export function MentorStrip({
         perfTag="MentorStrip"
       />
 
-      {expanded && (
-        <View style={styles.body}>
+      {bodyMounted ? (
+        <View
+          style={[styles.body, !expanded && keepMountedCollapsedStyles.bodyCollapsed]}
+          pointerEvents={expanded ? 'auto' : 'none'}
+          accessibilityElementsHidden={!expanded}
+          importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+        >
           <Text style={styles.bodyHint}>{selectHint}</Text>
           <View style={styles.cardsRow}>
             {MENTOR_TYPES.map((type) => {
@@ -219,7 +226,7 @@ export function MentorStrip({
             <Text style={styles.freqSliderValue}>{minGapLabel(freq.minGapHours, lang)}</Text>
           </View>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

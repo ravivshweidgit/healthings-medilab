@@ -1,11 +1,16 @@
 prompt116 — Meal camera thumbs: 30-day keep, clinic tap-to-view
 
-Status: backlog (spec draft 2026-08-22, owner)
+Status: backlog (attempted 2026-08-25, **pulled for performance** — snapshot inject of
+  base64 thumbs froze dashboard menus; owner kept expand/mount-once fixes, dropped thumbs)
 Builds on: Food Log camera-ai (`FoodEntry.source`), clinic snapshot (`ShareExportService`),
   clinic metabolic chart meal triangles (be-28 chart mirror)
 Depends on: be-53 (server gzip cap + clinic lightbox — ship with this, not after)
 Model to implement: Auto (persist / purge / share inject / camera mark). Overlay layout on
   the glucose strip is taste — owner on device (`prompt106`). Do not invent a photo CDN.
+
+**Note (2026-08-25):** Camera → Gemini analysis still works; only on-device thumb persistence,
+  share/backup sidecar, and clinic lightbox were removed. Revisit with object storage or
+  deferred/off-thread inject — do not re-block the JS thread on launch/foreground sync.
 
 ## Problem
 

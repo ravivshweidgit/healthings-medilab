@@ -190,21 +190,74 @@ export function buildMealsAiContext(
   };
 }
 
+async function writeMealsForDay(dk: string, meals: FoodEntry[]): Promise<void> {
+  if (meals.length === 0) {
+    await AsyncStorage.removeItem(storageKey(dk));
+    const keys = (await getDayKeys()).filter((k) => k !== dk);
+    await AsyncStorage.setItem(KEY_INDEX, JSON.stringify(keys));
+    return;
+  }
+  meals.sort((a, b) => a.timestamp - b.timestamp);
+  await AsyncStorage.setItem(storageKey(dk), JSON.stringify(meals));
+  await addDayKey(dk);
+}
+
+/** Locate a meal by stable id — needed when timestamp moves it to another day key. */
+export async function findMealById(
+  entryId: string,
+  hintTimestamp?: number,
+): Promise<{ dk: string; entry: FoodEntry } | null> {
+  const keys = await getDayKeys();
+  // Same-day hit first — time edits almost always stay on the tip day.
+  if (hintTimestamp != null && Number.isFinite(hintTimestamp)) {
+    const hintDk = dayKey(hintTimestamp);
+    const meals = await getMealsForDay(hintDk);
+    const entry = meals.find((m) => m.id === entryId);
+    if (entry) return { dk: hintDk, entry };
+  }
+  // Newest days first — recent meals are the common case.
+  for (let i = keys.length - 1; i >= 0; i -= 1) {
+    const dk = keys[i]!;
+    if (hintTimestamp != null && dk === dayKey(hintTimestamp)) continue;
+    const meals = await getMealsForDay(dk);
+    const entry = meals.find((m) => m.id === entryId);
+    if (entry) return { dk, entry };
+  }
+  return null;
+}
+
 export async function saveMeal(entry: Omit<FoodEntry, 'id'> & { id?: string }): Promise<FoodEntry> {
   const dk = dayKey(entry.timestamp);
   const saved: FoodEntry = { ...entry, id: entry.id ?? makeId() };
+
+  const located = saved.id ? await findMealById(saved.id, entry.timestamp) : null;
+  const prevAnywhere = located?.entry;
+  const prevDk = located?.dk;
+
+  if (prevAnywhere) {
+    if (prevAnywhere.note && !saved.note) saved.note = prevAnywhere.note;
+  }
+
+  if (prevDk && prevDk !== dk) {
+    const oldMeals = await getMealsForDay(prevDk);
+    await writeMealsForDay(
+      prevDk,
+      oldMeals.filter((m) => m.id !== saved.id),
+    );
+  }
+
   const meals = await getMealsForDay(dk);
   const idx = meals.findIndex((m) => m.id === saved.id);
 
   // Prefer item-level estimates; never blank an existing meal's markers when Gemini omitted them.
   let markers = entryMarkerTotals(saved);
-  if (Object.keys(markers).length === 0 && idx >= 0) {
-    const prev = meals[idx]!;
-    const prevMarkers = entryMarkerTotals(prev);
+  const markerPrev = idx >= 0 ? meals[idx]! : prevAnywhere;
+  if (Object.keys(markers).length === 0 && markerPrev) {
+    const prevMarkers = entryMarkerTotals(markerPrev);
     if (Object.keys(prevMarkers).length > 0) {
       markers = prevMarkers;
       saved.items = saved.items.map((it, i) => {
-        const prevItem = prev.items[i];
+        const prevItem = markerPrev.items[i];
         if (it.markers && Object.keys(it.markers).length > 0) return it;
         if (prevItem?.markers && Object.keys(prevItem.markers).length > 0) {
           return { ...it, markers: prevItem.markers };
@@ -225,23 +278,18 @@ export async function saveMeal(entry: Omit<FoodEntry, 'id'> & { id?: string }): 
   } else {
     meals.push(saved);
   }
-  meals.sort((a, b) => a.timestamp - b.timestamp);
-  await AsyncStorage.setItem(storageKey(dk), JSON.stringify(meals));
-  await addDayKey(dk);
+  await writeMealsForDay(dk, meals);
   return saved;
 }
 
 export async function deleteMeal(entryId: string, timestamp: number): Promise<void> {
-  const dk = dayKey(timestamp);
+  const located = await findMealById(entryId, timestamp);
+  const dk = located?.dk ?? dayKey(timestamp);
   const meals = await getMealsForDay(dk);
-  const filtered = meals.filter((m) => m.id !== entryId);
-  if (filtered.length === 0) {
-    await AsyncStorage.removeItem(storageKey(dk));
-    const keys = (await getDayKeys()).filter((k) => k !== dk);
-    await AsyncStorage.setItem(KEY_INDEX, JSON.stringify(keys));
-  } else {
-    await AsyncStorage.setItem(storageKey(dk), JSON.stringify(filtered));
-  }
+  await writeMealsForDay(
+    dk,
+    meals.filter((m) => m.id !== entryId),
+  );
 }
 
 export async function getDailyMacros(dk: string): Promise<DailyMacros> {

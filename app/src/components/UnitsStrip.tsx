@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { keepMountedCollapsedStyles, useKeepMountedExpand } from '../hooks/useKeepMountedExpand';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import type { UnitsPrefs } from '../services/UnitsPreferenceService';
 import type { UserLanguage } from '../services/TargetService';
@@ -20,6 +21,7 @@ type Props = {
 };
 
 export function UnitsStrip({ expanded, onToggleExpand, prefs, onChange, lang }: Props) {
+  const bodyMounted = useKeepMountedExpand(expanded);
   const t = getProfileSettingsStripCopy(lang?.code);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
 
@@ -34,8 +36,13 @@ export function UnitsStrip({ expanded, onToggleExpand, prefs, onChange, lang }: 
         expandLabel={`Expand ${t.units}`}
       />
 
-      {expanded ? (
-        <View style={styles.body}>
+      {bodyMounted ? (
+        <View
+          style={[styles.body, !expanded && keepMountedCollapsedStyles.bodyCollapsed]}
+          pointerEvents={expanded ? 'auto' : 'none'}
+          accessibilityElementsHidden={!expanded}
+          importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+        >
           <UnitsPreferenceSection
             prefs={prefs}
             langCode={lang?.code}

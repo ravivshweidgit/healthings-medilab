@@ -31,6 +31,7 @@ import {
 import { buildAndExportMacroPrompt } from '../services/macroPromptExport';
 import { RulesAdviceBanner } from './RulesAdviceBanner';
 import { MacroClinicalProfileBanner } from './MacroClinicalProfileBanner';
+import { keepMountedCollapsedStyles, useKeepMountedExpand } from '../hooks/useKeepMountedExpand';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import {
@@ -295,6 +296,7 @@ export function MacroTargetStrip({
 }: MacroTargetProps) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const bodyMounted = useKeepMountedExpand(expanded);
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const foodLogUi = useMemo(() => getFoodLogUiCopy(lang?.code), [lang?.code]);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
@@ -595,8 +597,13 @@ export function MacroTargetStrip({
         perfTag="MacroTargetStrip"
       />
 
-      {expanded && (
-        <View style={styles.body}>
+      {bodyMounted ? (
+        <View
+          style={[styles.body, !expanded && keepMountedCollapsedStyles.bodyCollapsed]}
+          pointerEvents={expanded ? 'auto' : 'none'}
+          accessibilityElementsHidden={!expanded}
+          importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+        >
           {/* idle */}
           {screen === 'idle' && (
             <View style={styles.idleWrap}>
@@ -810,7 +817,7 @@ export function MacroTargetStrip({
             </View>
           )}
         </View>
-      )}
+      ) : null}
 
       <Modal visible={waterGoalModalVisible} transparent animationType="fade" onRequestClose={() => setWaterGoalModalVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setWaterGoalModalVisible(false)}>

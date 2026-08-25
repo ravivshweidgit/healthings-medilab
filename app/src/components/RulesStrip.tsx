@@ -30,6 +30,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import { getRulesStripCopy, rulesSubtitleFromRaw } from '../i18n/rulesStripCopy';
+import { keepMountedCollapsedStyles, useKeepMountedExpand } from '../hooks/useKeepMountedExpand';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import { contentAlignStyle } from '../logic/textDirection';
 
@@ -47,6 +48,7 @@ type Props = {
 export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, onToggleExpand, lang }: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const bodyMounted = useKeepMountedExpand(expanded);
   const insets = useSafeAreaInsets();
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const t = getRulesStripCopy(lang?.code);
@@ -178,8 +180,13 @@ export function RulesStrip({ userRules, mentors: _mentors, onSaved, expanded, on
         perfTag="RulesStrip"
       />
 
-      {expanded ? (
-        <View style={styles.body}>
+      {bodyMounted ? (
+        <View
+          style={[styles.body, !expanded && keepMountedCollapsedStyles.bodyCollapsed]}
+          pointerEvents={expanded ? 'auto' : 'none'}
+          accessibilityElementsHidden={!expanded}
+          importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+        >
           <View style={styles.topRow}>
             <Pressable style={styles.editTopBtn} onPress={openEdit}>
               <Text style={styles.editTopBtnText}>{raw ? t.editRules : t.addRules}</Text>

@@ -14,6 +14,7 @@ import {
 } from '../services/TargetService';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
+import { keepMountedCollapsedStyles, useKeepMountedExpand } from '../hooks/useKeepMountedExpand';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 
 type Props = {
@@ -34,6 +35,7 @@ export function LanguageStrip({
 }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const bodyMounted = useKeepMountedExpand(expanded);
   const t = getProfileSettingsStripCopy(language.code);
   const rtl = language.code === 'he' || language.code === 'ar';
   const [busy, setBusy] = useState(false);
@@ -65,8 +67,13 @@ export function LanguageStrip({
         expandLabel={`Expand ${t.language}`}
       />
 
-      {expanded ? (
-        <View style={styles.body}>
+      {bodyMounted ? (
+        <View
+          style={[styles.body, !expanded && keepMountedCollapsedStyles.bodyCollapsed]}
+          pointerEvents={expanded ? 'auto' : 'none'}
+          accessibilityElementsHidden={!expanded}
+          importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+        >
           <View style={styles.langRow}>
             {SUPPORTED_LANGUAGES.map((lang) => (
               <Pressable
