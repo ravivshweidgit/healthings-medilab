@@ -1,16 +1,75 @@
 prompt116 — Meal camera thumbs: 30-day keep, clinic tap-to-view
 
-Status: backlog (attempted 2026-08-25, **pulled for performance** — snapshot inject of
-  base64 thumbs froze dashboard menus; owner kept expand/mount-once fixes, dropped thumbs)
+Status: backlog (attempted 2026-08-25, **pulled for performance** — two separate bugs, below;
+  owner kept expand/mount-once fixes on `perf/dash-expand-no-meal-thumbs`, dropped thumbs)
 Builds on: Food Log camera-ai (`FoodEntry.source`), clinic snapshot (`ShareExportService`),
   clinic metabolic chart meal triangles (be-28 chart mirror)
-Depends on: be-53 (server gzip cap + clinic lightbox — ship with this, not after)
-Model to implement: Auto (persist / purge / share inject / camera mark). Overlay layout on
-  the glucose strip is taste — owner on device (`prompt106`). Do not invent a photo CDN.
+Depends on: be-53 (clinic lightbox — **not** the cap raise; see Rebuild contract)
+Model to implement: Auto for the phases; the transport contract is already decided below.
+  Overlay layout on the glucose strip is taste — owner on device (`prompt106`).
 
-**Note (2026-08-25):** Camera → Gemini analysis still works; only on-device thumb persistence,
-  share/backup sidecar, and clinic lightbox were removed. Revisit with object storage or
-  deferred/off-thread inject — do not re-block the JS thread on launch/foreground sync.
+## Why v1 was pulled (2026-08-25) — read before rebuilding
+
+**One** camera meal was enough to make the whole dashboard feel slow. Neither cause was the
+JPEG, and the sections below were rewritten because they prescribed both:
+
+1. **Disk I/O on the render path.** `resolveMealPhotoIds` in `MetabolicChart.tsx` ran one
+   `getInfoAsync` per camera meal to decide the 📷 mark, from a `useEffect` keyed on
+   `foodEntries` — a fresh array every dashboard render — then `setState`, forcing another
+   render. Cost scaled with *re-render frequency*, not photo count. `photoId` already was the
+   answer.
+2. **File bytes inside the gzipped snapshot.** `injectMealPhotosSidecar` base64'd thumbs into
+   the `asyncStorage` map, so every `buildClinicExport` re-ran `JSON.stringify` + `pako.deflate`
+   over a year of unrelated data with the photo attached. That export is **not** Share-only: it
+   runs on launch and foreground (`pushSnapshotForWebView`), on clinic Refresh
+   (`fulfillPendingClinicSyncRequests`), and on cloud backup.
+
+Both were mitigated first (TTL file-index cache, 15s debounced purge, deferred launch purge,
+`setTimeout(0)` yields) and still felt wrong — the mitigations were the signal. See
+`render-path-reads-memory.mdc`.
+
+Camera → Gemini analysis was never removed and still works.
+
+## Rebuild contract (supersedes "Design rules" and section C below)
+
+Four cuts, all four required. Any one alone is insufficient:
+
+| Cut | Rule |
+|---|---|
+| **Trigger** | Photos move only on an explicit Share tap. Auto sync / web-view push / cloud backup stay photo-free **forever**. |
+| **Transport** | File bytes never join the snapshot JSON. Separate binary endpoint. Snapshot carries `photoId` strings only (~64 B/meal). |
+| **Representation** | Bytes never enter JS: `FileSystem.uploadAsync(url, fileUri, { uploadType: BINARY_CONTENT })`. No base64 anywhere — not on disk, not in AsyncStorage, not in a body. |
+| **Repetition** | `photoId` = a **stable unique id per file**, so `POST /v1/meal-photos/missing` with the id list returns only what the server lacks. Second Share uploads nothing; retries idempotent. |
+
+**How to get that id — do not reach for sha256.** There is no way to SHA-256 a file on this
+stack without pulling its bytes into JS (`expo-crypto` hashes strings only, and is not
+installed), which is the exact bug this batch exists to avoid. Two acceptable options:
+
+- **Native md5** — `FileSystem.getInfoAsync(uri, { md5: true })` (legacy) or `File.md5` (new
+  API). Computed natively, no bytes in JS. Content-addressed, so identical plates dedupe free.
+  MD5 is fine here: the id is a storage key, not a security boundary — the server authorizes by
+  share, never by id secrecy.
+- **Random UUID** at capture. Simpler, no hash step, loses dedupe. The upload-once property
+  only needs *stable and unique*, not content-derived.
+
+Pick md5 unless it measurably slows capture. Either way the id is computed **once, at capture**,
+and never recomputed — never on a render path.
+
+Structural guard: put upload in its own module that `ShareExportService` **does not import**.
+No gzip on JPEG (already compressed). Existing sync/cloud caps stay as they are — if a rebuild
+wants them raised, bytes got back into the JSON.
+
+Ship in three separately-verifiable phases; v1 shipped all of it at once, which is why one
+photo was a mystery:
+
+- **Phase 0 — protect the baseline.** Push / merge `perf/dash-expand-no-meal-thumbs` first.
+  It is the only copy of the expand fixes and the reference the Phase 1 gate compares against.
+- **Phase 1 — local only.** Capture, store, `photoId`, mark, meal-card display, purge. Zero
+  server, zero export change. Take one photo, exercise every expand. Any change in feel = stop.
+  Only new dependency in the whole batch: `expo-image-manipulator` (removed in the rollback).
+- **Phase 2 — upload on tap.** Hash ids, missing-check, native upload. Everything except the
+  Share button must feel identical.
+- **Phase 3 — clinic lightbox** (be-53).
 
 ## Problem
 
@@ -35,28 +94,34 @@ fight glucose / HR / walks.
 
 ## Design rules
 
-- Photos leave the phone only on **Share**, **local backup**, and **cloud backup**. Same
-  exclusion lists as other health keys — do not add a parallel store.
-- **Persistence parity:** `photoId` on `FoodEntry` is the canonical pointer (meal `id`).
-  Files live under `documentDirectory/healthings-meal-photos/{id}.jpg` — **no** `Platform.OS`
-  in the path or AsyncStorage key. Restore writes the same files back.
-- **Do not** keep JPEG base64 in day `food_log_*` JSON or in AsyncStorage at rest.
-  Inject a sidecar map at export time only (`healthings:mealPhotos`).
-- **Do not** parse meal names to decide what to show (`ai-judgment-not-regex`). Camera
-  meals with a live file show the mark; everyone else does not.
+- Photos leave the phone **only on an explicit Share tap**, as a binary upload. Never inside
+  the snapshot, never on auto sync / web-view push / opportunistic cloud backup.
+- **Persistence parity:** `photoId` on `FoodEntry` is the canonical pointer (native md5 or
+  UUID — see Rebuild contract). Files live under
+  `documentDirectory/healthings-meal-photos/{photoId}.jpg` — **no** `Platform.OS` in the path
+  or AsyncStorage key. Same shape Android ↔ iOS.
+- **No base64 anywhere** — not in `food_log_*` JSON, not in AsyncStorage, not in a request
+  body, not as a `data:` URI. Raw JPEG in a file is the only at-rest form.
+- **No I/O to decide the mark.** 📷 comes from `Boolean(entry.photoId)` on data already in
+  memory. A mark pointing at a purged file is cosmetic — handle it with `onError` on the
+  `<Image>` in the open card (`render-path-reads-memory.mdc`).
+- **Do not** parse meal names to decide what to show (`ai-judgment-not-regex`).
 - **Do not** dump thumbs into mentor chat or clinic Gemini context. Human lightbox only.
-- JPEGs barely gzip. Today clinic upload is **15 MB gzipped** (`sync.ts`) — 30d of thumbs
-  can fill that alone. **be-53 raises the cap** (see that batch). Target thumb so 5×30 stays
-  ~15 MB of JPEG, not 50.
+- Existing caps stay: clinic upload **15 MB gzipped**, cloud backup **25 MB**. The snapshot
+  grows by one id string per camera meal, so neither is under pressure.
 
 ## What ships (app)
 
 ### A. Save thumb on camera save
 
 - After a new/edited meal is saved from a photo, write one JPEG: longest edge ~720–800 px,
-  quality such that typical plates land **~80–120 KB** (owner math: 100 KB).
-- Set `FoodEntry.photoId` to that meal’s `id` (stable across edits of the same entry).
-  Replacing the photo overwrites the same file. Deleting the meal deletes the file.
+  quality such that typical plates land **~80–120 KB** (owner math: 100 KB). This resize is
+  the only compression in the design.
+- Set `FoodEntry.photoId` from the native md5 (or a UUID). Editing a meal (time,
+  items) must carry `photoId` forward untouched — v1 lost the plate on a time edit because the
+  entry moved day-key and was re-saved without it.
+- Replacing the photo writes a new file and repoints `photoId`; the orphan goes on the next
+  purge. Deleting the meal deletes the file.
 - Text-only / manual meals: leave `photoId` unset.
 
 ### B. 30-day purge
@@ -66,22 +131,34 @@ fight glucose / HR / walks.
   those entries so the JSON does not point at a missing file.
 - Cap is **days**, not a 15 MB quota. Quiet weeks just use less disk.
 
-### C. Export / restore
+### C. Share upload (own module, not the export path)
 
-- `ShareExportService`, `LocalBackupService`, and cloud backup: after building
-  `asyncStorage`, inject `healthings:mealPhotos` = JSON `{ [photoId]: "<jpeg-base64>" }`
-  for files that still exist (≤30d). Same key on all three paths.
-- On backup import / cloud restore: write files from that map, then drop the key from
-  live AsyncStorage (files on disk are source of truth).
-- Debug/ephemeral exclusion lists: do **not** exclude this sidecar on export; do **not**
-  leave the fat base64 map sitting in AsyncStorage after import.
+- New `MealPhotoUpload.ts` — the only module allowed to touch photo bytes. `ShareExportService`
+  must **not** import it; the tap handler calls both.
+- On Share tap, after the snapshot upload succeeds: collect `photoId`s of meals inside the
+  window, `POST /v1/meal-photos/missing` with the id list, then `uploadAsync` each returned id
+  with `uploadType: BINARY_CONTENT`. Queue failures for the next Share — never retry in a loop.
+- Photo upload failure must not fail the Share. Numbers are the product; the plate is a bonus.
+
+**Backup — decided (owner, 2026-08-25): photos do not travel in backups.** Local and cloud
+backup carry meal numbers as they do today and no plate bytes, ever. A restored phone shows
+every meal, kcal, and item with no camera mark — the same state as a meal whose file aged past
+30 days, which the design already treats as normal ("missing file = no camera mark, not a
+broken meal"). Photos are cosmetic and 30-day; keeping backups base64-free is worth more.
+
+This is why `LocalBackupService.ts` and `CloudBackupService.ts` appear in *unchanged on
+purpose* below. A future owner who wants plates to survive a phone switch should add a
+zip/folder beside the JSON — a new batch, never an inline map.
 
 ### D. Phone chart + Food Log (light)
 
-- Metabolic chart: camera glyph on the orange triangle only when `photoId` resolves to a
-  file. Tap opens the meal (existing Food Log edit/view) with the thumb — **not** a second
-  photo-only overlay unless the current meal sheet cannot show an image.
-- Food Log chips: same camera hint when a thumb exists.
+- Metabolic chart: camera glyph on the orange triangle when `Boolean(entry.photoId)` — a pure
+  expression, no effect, no state, **no disk check**. Tap opens the meal (existing Food Log
+  edit/view) with the thumb — **not** a second photo-only overlay unless the current meal sheet
+  cannot show an image.
+- Food Log chips: same camera hint, same pure check.
+- The meal card is the **only** place an `<Image>` mounts, with a fixed width/height so there
+  is no re-layout, and `source={{ uri: 'file://…' }}` so decode stays on the native thread.
 - Dense 6H/24H: skip the glyph before skipping the kcal label if the lane is crowded;
   never overlay a thumbnail on the plot.
 
@@ -96,32 +173,53 @@ fight glucose / HR / walks.
 
 ## Files
 
-| File | Change |
-|------|--------|
-| app/src/services/MealPhotoService.ts | new: write / read / purge / export map |
-| app/src/services/FoodLogService.ts | `FoodEntry.photoId?`; delete file with meal |
-| app/src/components/FoodLogModal.tsx | save thumb when `fromPhoto` |
-| app/src/components/MetabolicChart.tsx | camera mark + tap → meal |
-| app/src/services/ShareExportService.ts | inject `healthings:mealPhotos` |
-| app/src/services/LocalBackupService.ts | export + restore files |
-| app/src/services/CloudBackupService.ts | same sidecar (cap: be-53) |
-| app/src/i18n/*Copy.ts | short “photo” / camera hint if a visible string is needed |
+| File | Change | Phase |
+|------|--------|-------|
+| app/src/services/MealPhotoService.ts | new: write (resize + native md5) / uri / purge. **No base64, no export map.** | 1 |
+| app/src/services/FoodLogService.ts | `FoodEntry.photoId?`; carry forward on edit; delete file with meal | 1 |
+| app/src/components/FoodLogModal.tsx | write thumb when `fromPhoto`; `<Image>` on the card | 1 |
+| app/src/components/MetabolicChart.tsx | mark from `Boolean(photoId)`; `Pressable` hit target → meal | 1 |
+| app/src/components/FoodMacroStrip.tsx | same pure mark on chips | 1 |
+| app/src/services/MealPhotoUpload.ts | new: missing-check + `uploadAsync`. Not imported by export. | 2 |
+| server/src/routes/mealPhotos.ts | new: `PUT /:photoId` (octet-stream, per-route bodyLimit ~2 MB), `POST /missing`, `GET /:photoId` | 2 |
+| server/src/db/schema.sql | new `meal_photos` table: `patient_id` FK **ON DELETE CASCADE**, `photo_id TEXT`, `bytes BYTEA`, `UNIQUE (patient_id, photo_id)` — same idempotent `IF NOT EXISTS` style as `sync_blobs` | 2 |
+| server/verify/prompt116-photo-transport.mjs | new: pin the four cuts (see Rebuild contract) | 2 |
+| app/src/i18n/*Copy.ts | short “photo” / camera hint if a visible string is needed | 1 |
+
+**Unchanged on purpose:** `ShareExportService.ts`, `LocalBackupService.ts`,
+`CloudBackupService.ts`, `server/src/services/sync.ts` caps. A diff touching any of these is
+the tripwire that bytes reached the JSON again.
 
 ## Phone checklist
 
-- [ ] Camera meal → file on disk ~100 KB; `photoId` set; triangle shows camera mark
+**Phase 1 gate — one photo, then stop and feel it.** This is the check v1 never ran.
+
+- [ ] Camera meal → file on disk ~100 KB; `photoId` = sha; triangle shows camera mark
+- [ ] With exactly **one** photo saved: expand/collapse Mentors, Glucose, Food Log, Activity,
+      Your setup — indistinguishable from `perf/dash-expand-no-meal-thumbs`. Any drag = stop.
+- [ ] Edit that meal's **time** → plate survives; edit items → plate survives
 - [ ] Text meal → no file, no mark
 - [ ] Tap triangle / chip → plate on the meal card, then items / kcal as today
-- [ ] Meal from 31+ days ago: numbers remain, file gone, no mark
+- [ ] Meal from 31+ days ago: numbers remain, file gone; stale mark opens a card that degrades
+      quietly via `onError` (no crash, no spinner)
 - [ ] Delete meal → file gone
-- [ ] Share while thumbs exist → clinic (be-53) can open them; Share with 0 photos still works
-- [ ] Local backup export/import on a second install restores remaining thumbs (Android↔iOS shape identical)
-- [ ] he/ar: meal names still `dir=auto`; no extra Latin in running copy
 - [ ] 24H strip still readable (no photo tiles under Walk / kcal)
+- [ ] he/ar: meal names still `dir=auto`; no extra Latin in running copy
+
+**Phase 2 gate**
+
+- [ ] Share with photos → clinic (be-53) can open them; Share with 0 photos still works
+- [ ] **Second** Share uploads nothing (missing-check returns empty)
+- [ ] Airplane mode mid-Share → snapshot result unaffected, photos queue for next tap
+- [ ] Launch / foreground / clinic Refresh with photos on disk → no photo traffic at all
+- [ ] Backup export/import on a second install: every meal number intact, **no plates, no
+      camera marks, no base64 in the file** (decision (a), section C)
 
 ## Related
 
-- be-53 — gzip/cloud caps + clinic lightbox (meal modal + chart tap)
+- be-53 — clinic lightbox (meal modal + chart tap). Its cap raise is **void**; fetch one image
+  by id on tap instead.
+- render-path-reads-memory.mdc — written from this pull; the contract above is its precedent
 - persistence-parity.mdc — files + `photoId`, not a platform-prefixed blob
 - language-policy.mdc — patient meal names unchanged; clinic chrome `clinicLocale`
 - prompt106 — chart taste on device

@@ -1,28 +1,37 @@
 # be-53 — Clinic meal-photo lightbox + snapshot size for 30-day thumbs
 
 **Status:** blocked — prompt116 thumbs pulled 2026-08-25 for phone performance; revisit with 116  
-**Model to implement:** Auto (caps + portal modal). Chart mark placement is taste — owner in the portal.  
+**Model to implement:** Auto (blob route + portal modal). Chart mark placement is taste — owner in the portal.  
 **Authored by:** owner request 2026-08-22  
-**Depends on:** prompt116 (phone writes thumbs + injects `healthings:mealPhotos` on Share)
+**Depends on:** prompt116 Phase 2 (phone uploads each JPEG as binary, keyed by `photoId`)
+
+> **Cap raise is void (2026-08-25).** The sections below were written when the phone injected
+> base64 thumbs into the gzipped snapshot, and the 32 MB / 40 MB raises existed to make that
+> fit. That transport is what got pulled. **Do not raise either cap** — a request to do so
+> means file bytes reached the JSON again (`render-path-reads-memory.mdc`). Photos now arrive
+> on their own binary route and the portal fetches one image by id when the lightbox opens.
 
 ## Problem
 
 The clinic metabolic chart already shows orange kcal triangles (same 24H strip as the phone).
-Tapping a meal chip opens item macros. There is no plate. After prompt116, Share can include
-~15 MB of JPEG thumbs (5 camera meals/day × 30 days × ~100 KB). Today clinic upload is
-**15 MB gzipped** (`server/src/services/sync.ts`) — JPEGs do not gzip, so the existing cap
-would reject a full window. Cloud backup is **25 MB** and has the same problem.
+Tapping a meal chip opens item macros. There is no plate. The snapshot carries `photoId` on
+each meal but no way to see the picture.
 
 ## Goal
 
 Clinician taps the triangle or the meal chip → the existing meal card shows the plate on top
-when a thumb exists. Camera mark only when a photo is in the snapshot. Payload limits allow
-a worst-case 30-day thumb set plus the current health blob.
+when one exists. Camera mark from `photoId` presence in the snapshot. The snapshot itself stays
+the size it is today.
 
 ## Files to touch
 
-- `server/src/services/sync.ts` — gzip upload cap (today 15 MB)
-- `server/src/services/cloudBackup.ts` — cloud cap (today 25 MB)
+- `server/src/routes/mealPhotos.ts` — new: `PUT /v1/meal-photos/:photoId` (octet-stream,
+  per-route `bodyLimit` ~2 MB), `POST /v1/meal-photos/missing`, `GET /v1/meal-photos/:photoId`
+  for the portal behind the same share authorization as the snapshot
+- `server/src/db/schema.sql` — `meal_photos` (`patient_id` FK ON DELETE CASCADE, `photo_id`,
+  `bytes BYTEA`, `UNIQUE (patient_id, photo_id)`), following the `sync_blobs` pattern. Cascade
+  gives be-19 account deletion for free; unshare/purge still needs an explicit sweep (be-17)
+- Do **not** touch `server/src/services/sync.ts` or `cloudBackup.ts` caps — see the note above
 - `website/clinic/clinic-workspace.js` — `showMealModal` plate; meal-chip camera hint
 - `website/clinic/clinic-charts.js` — clickable meal triangle when photo exists; camera mark
 - `website/clinic/clinic-workspace.css` — modal image, chip hint (existing portal tokens)
@@ -32,16 +41,17 @@ a worst-case 30-day thumb set plus the current health blob.
 
 ## Design rules
 
-- **Lazy:** do not decode every thumb on workspace load. Lookup by meal `photoId` when the
-  modal opens (or when the chart hit-target is built).
-- **One plate per meal.** Missing map entry = no camera mark (older than 30d or text meal).
+- **Lazy:** nothing image-related on workspace load. Set the `<img src>` to the blob URL when
+  the modal opens — the browser fetches and decodes it, and never for meals nobody taps.
+- **One plate per meal.** No `photoId` = no camera mark (text meal). `photoId` present but the
+  blob 404s = the phone purged it past 30 days before a Share; degrade quietly, no broken icon.
 - Meal names, rules, chat stay patient-authored (`dir=auto`). Emails/IDs stay `dir=ltr`.
 - Always-English glossary: kcal stays kcal. Do not machine-translate the plate.
 - Do not tile photos under the calorie strip. Mark + tap only (same as prompt116).
-- Inflated snapshot already allows 64 MB; **gzipped** upload is the constraint. Raise gzip
-  clinic upload to **32 MB** (headroom over ~15 MB JPEG + existing blob). Raise cloud backup
-  to **40 MB** so restore can carry the same sidecar. If a later owner wants object storage
-  instead of inline base64, that is a new batch — not this one.
+- **Caps unchanged.** Clinic upload stays **15 MB gzipped**, cloud backup **25 MB**. The
+  snapshot gains one sha string per camera meal, so there is nothing to raise.
+- Blobs follow the snapshot's lifecycle: same share authorization, and deletion on unshare /
+  account delete / snapshot purge (be-17, be-19). A revoked clinic must not keep plate URLs.
 
 ## Implementation notes
 
