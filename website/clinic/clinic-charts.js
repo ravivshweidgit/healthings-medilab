@@ -668,7 +668,7 @@
       el.addEventListener('click', () => {
         if (typeof ctx.openMeal !== 'function') return;
         const ts = Number(el.getAttribute('data-meal-ts'));
-        const meal = (data.meals || []).find((m) => m.timestamp === ts);
+        const meal = (data.meals || []).find((m) => Number(m.timestamp) === ts);
         if (meal) ctx.openMeal(meal);
       });
     });

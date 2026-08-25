@@ -239,9 +239,18 @@ export function AccountStrip({
     setWebViewBusy(true);
     setWebViewMessage(null);
     try {
-      await shareSnapshotNow();
+      const shared = await shareSnapshotNow();
       await refreshWebViewStatus();
-      setWebViewMessage('Snapshot sent — refresh healthings.ai/account to see it.');
+      const photos = shared.mealPhotos;
+      const photoBit =
+        photos && photos.candidates > 0
+          ? photos.uploaded > 0
+            ? ` Plates uploaded: ${photos.uploaded}.`
+            : photos.failed > 0
+              ? ` Plates not uploaded: ${photos.failed}.`
+              : ' Plates already on server.'
+          : ' No meal plates found on phone.';
+      setWebViewMessage(`Snapshot sent — refresh healthings.ai/account to see it.${photoBit}`);
     } catch (e: unknown) {
       setWebViewMessage(e instanceof Error ? e.message : 'Could not send snapshot.');
     } finally {

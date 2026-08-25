@@ -142,3 +142,23 @@ export async function purgeOldMealPhotos(): Promise<void> {
     console.warn('[MealPhoto] purge failed:', err);
   }
 }
+
+/**
+ * Photo ids still on disk — Share upload uses this so a stale `food_log_days`
+ * index cannot hide plates that the snapshot already exported.
+ */
+export async function listMealPhotoIdsOnDisk(): Promise<string[]> {
+  try {
+    const dir = rootDir();
+    const info = await FileSystem.getInfoAsync(dir);
+    if (!info.exists) return [];
+    const names = await FileSystem.readDirectoryAsync(dir);
+    return names
+      .filter((n) => n.endsWith('.jpg'))
+      .map((n) => n.slice(0, -4))
+      .filter((id) => id.length > 0);
+  } catch (err) {
+    console.warn('[MealPhoto] list on disk failed:', err);
+    return [];
+  }
+}

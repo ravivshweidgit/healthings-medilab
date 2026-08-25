@@ -620,21 +620,30 @@
    * (be-53 / render-path-reads-memory). 404 = phone purged past 30d before Share.
    */
   async function loadMealPlate(imgEl, meal, ctx) {
-    if (!imgEl || !meal.photoId || !ctx?.api || !ctx.patientId) return;
+    if (!imgEl || !meal.photoId || !ctx?.api || !ctx.patientId) {
+      imgEl?.remove();
+      return;
+    }
     try {
       const q = '?patientId=' + encodeURIComponent(ctx.patientId);
       const res = await ctx.api('/v1/meal-photos/' + encodeURIComponent(meal.photoId) + q);
       if (!res.ok) {
-        imgEl.hidden = true;
+        // No row yet (Share upload pending) or purged — drop the slot; never leave
+        // a broken <img> (display:block on .meal-modal-plate can beat [hidden]).
+        imgEl.remove();
         return;
       }
       const blob = await res.blob();
+      if (!blob || !blob.size || !(blob.type || '').startsWith('image/')) {
+        imgEl.remove();
+        return;
+      }
       const url = URL.createObjectURL(blob);
       imgEl.dataset.objectUrl = url;
       imgEl.src = url;
       imgEl.hidden = false;
     } catch {
-      imgEl.hidden = true;
+      imgEl.remove();
     }
   }
 
@@ -1177,12 +1186,14 @@
   function renderDashboard(panel, ctx) {
     // Coach nudge is patient-phone UX (second-person + action-item counts).
     // Clinicians who want that text use Profile → Coach summary (collapsed).
+    // meal-modal-root: chart triangle/camera openMeal (same host as Food Log chips).
     panel.innerHTML = `
       <div class="dash-card metabolic-card"><div id="metabolic-host"></div></div>
       <div class="charts-row">
         <div class="dash-card chart-half"><div id="trend-host"></div></div>
         <div class="dash-card chart-half"><div id="energy-host"></div></div>
-      </div>`;
+      </div>
+      <div id="meal-modal-root" hidden></div>`;
     paintDashboardCharts(panel, ctx);
   }
 

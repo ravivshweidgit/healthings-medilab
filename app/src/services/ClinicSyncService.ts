@@ -11,7 +11,10 @@ import { fetchCurrentUser } from './AuthApiService';
 import { listShares } from './ShareApiService';
 import { fetchSyncUpdateRequests } from './SyncApiService';
 import { shareClinicExport, type ShareExportResult } from './ShareExportService';
-import { uploadMealPhotosOnShare } from './MealPhotoUpload';
+import {
+  uploadMealPhotosOnShare,
+  type MealPhotoUploadResult,
+} from './MealPhotoUpload';
 
 /** Poll while dashboard is mounted so clinic refresh works if app was already open. */
 export const CLINIC_SYNC_POLL_MS = 10_000;
@@ -41,9 +44,25 @@ async function hasSnapshotConsumer(): Promise<boolean> {
 }
 
 /**
- * Upload latest snapshot if any pending sync request exists.
- * Clinic refresh and account Refresh snapshot both create requests;
- * upload when a clinic share is approved and/or My web view is on.
+ * Snapshot first, then plates on the binary channel.
+ * Numbers must land even if a plate fails; missing-check keeps repeats cheap.
+ * Pass photoIds from the same export the clinic just received.
+ */
+async function shareExportThenPlates(): Promise<MealPhotoUploadResult | undefined> {
+  const exported = await shareClinicExport('365d');
+  try {
+    return await uploadMealPhotosOnShare(exported.photoIds);
+  } catch (err) {
+    console.warn('[ClinicSync] meal photo upload failed:', err);
+    return { uploaded: 0, failed: 0, candidates: 0 };
+  }
+}
+
+/**
+ * Upload latest snapshot (+ plates) if any pending sync request exists.
+ * Clinic Refresh snapshot and account Refresh both create requests — that is how
+ * clinicians usually pull data, so plates must ride along here too (not only the
+ * phone Share button). Still gated: approved clinic and/or My web view on.
  */
 export async function fulfillPendingClinicSyncRequests(): Promise<boolean> {
   if (inFlight) return inFlight;
@@ -63,7 +82,7 @@ export async function fulfillPendingClinicSyncRequests(): Promise<boolean> {
       ]);
       if (requests.length === 0) return false;
       if (approved.length === 0 && !webView) return false;
-      await shareClinicExport('365d');
+      await shareExportThenPlates();
       return true;
     } catch (err) {
       console.warn('[ClinicSync] upload failed:', err);
@@ -76,32 +95,39 @@ export async function fulfillPendingClinicSyncRequests(): Promise<boolean> {
   return inFlight;
 }
 
-/** First consumer — push a snapshot so the clinic portal or /account/ is not empty. */
+/** First consumer — push snapshot + plates so the clinic portal or /account/ is not empty. */
 export async function shareSnapshotIfAnyConsumer(): Promise<boolean> {
   try {
     if (!(await hasSnapshotConsumer())) return false;
-    await shareClinicExport('365d');
+    await shareExportThenPlates();
     return true;
   } catch {
     return false;
   }
 }
 
-/** Patient taps Share — upload snapshot for a clinic or their own web view to read. */
-export async function shareSnapshotNow(): Promise<ShareExportResult> {
+export type ShareSnapshotResult = ShareExportResult & {
+  mealPhotos?: MealPhotoUploadResult;
+};
+
+/** Patient taps Share — upload snapshot + plates for a clinic or their own web view. */
+export async function shareSnapshotNow(): Promise<ShareSnapshotResult> {
   if (!(await hasSnapshotConsumer())) {
     throw new Error('Nothing reads your data yet — link a clinic or turn on your web view');
   }
-  // Snapshot first. Plates are a separate binary channel — never inside the gzip JSON —
-  // and only run on this explicit tap (not web-view push / clinic refresh / auto sync).
+  // Snapshot first. Plates are a separate binary channel — never inside the gzip JSON.
+  // Clinic Refresh uses fulfillPendingClinicSyncRequests → same plate path.
+  // Background web-view push stays numbers-only (throttled, no user gesture).
   const result = await shareClinicExport('365d');
+  let mealPhotos: MealPhotoUploadResult | undefined;
   try {
-    await uploadMealPhotosOnShare();
+    mealPhotos = await uploadMealPhotosOnShare(result.photoIds);
   } catch (err) {
     // Numbers already landed; a plate failure must not fail Share.
     console.warn('[ClinicSync] meal photo upload failed:', err);
+    mealPhotos = { uploaded: 0, failed: 0, candidates: 0 };
   }
-  return result;
+  return { ...result, mealPhotos };
 }
 
 /**

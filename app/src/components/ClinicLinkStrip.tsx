@@ -171,8 +171,17 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
                 onPress={() =>
                   void run(async () => {
                     if (healthingsApproved) {
-                      await shareSnapshotNow();
-                      Alert.alert(L.share, L.shareOk);
+                      const shared = await shareSnapshotNow();
+                      const photos = shared.mealPhotos;
+                      const photoLine =
+                        photos && photos.candidates > 0
+                          ? photos.uploaded > 0
+                            ? `\nPlates uploaded: ${photos.uploaded}`
+                            : photos.failed > 0
+                              ? `\nPlates not uploaded: ${photos.failed} (tap Share again)`
+                              : '\nPlates already on server'
+                          : '\nNo meal plates found on phone';
+                      Alert.alert(L.share, `${L.shareOk}${photoLine}`);
                       return;
                     }
                     await requestClinicLink(clinicShareEmail);
@@ -291,8 +300,17 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
                   style={[styles.btnPrimary, busy && styles.btnDisabled]}
                   onPress={() =>
                     void run(async () => {
-                      await shareSnapshotNow();
-                      Alert.alert(L.share, L.shareOk);
+                      const shared = await shareSnapshotNow();
+                      const photos = shared.mealPhotos;
+                      const photoLine =
+                        photos && photos.candidates > 0
+                          ? photos.uploaded > 0
+                            ? `\nPlates uploaded: ${photos.uploaded}`
+                            : photos.failed > 0
+                              ? `\nPlates not uploaded: ${photos.failed} (tap Share again)`
+                              : '\nPlates already on server'
+                          : '\nNo meal plates found on phone';
+                      Alert.alert(L.share, `${L.shareOk}${photoLine}`);
                     })
                   }
                   disabled={busy}

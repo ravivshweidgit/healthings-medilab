@@ -23,14 +23,18 @@ const missingBody = z.object({
 });
 
 export async function registerMealPhotoRoutes(app: FastifyInstance) {
-  // Raw JPEG body — registered once; other routes keep using JSON.
-  app.addContentTypeParser(
-    'application/octet-stream',
-    { parseAs: 'buffer' },
-    (_req, body, done) => {
-      done(null, body);
-    },
-  );
+  // Raw JPEG body. Phone Share uses FileSystem.uploadAsync with Content-Type
+  // image/jpeg (BINARY_CONTENT); accept octet-stream too for the same path.
+  // Without both, Fastify returns 415 and meal_photos stays empty.
+  const parseBinary = (
+    _req: unknown,
+    body: Buffer,
+    done: (err: Error | null, body?: Buffer) => void,
+  ) => {
+    done(null, body);
+  };
+  app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, parseBinary);
+  app.addContentTypeParser('image/jpeg', { parseAs: 'buffer' }, parseBinary);
 
   app.put(
     '/v1/meal-photos/:photoId',

@@ -1526,6 +1526,10 @@ h3,
   margin: 0 0 12px;
   background: var(--surface-2);
 }
+/* class display:block must not override the initial hidden slot before fetch */
+.meal-modal-plate[hidden] {
+  display: none !important;
+}
 .meal-items-card {
   border: 1px solid var(--grid);
   border-radius: 12px;

@@ -69,7 +69,28 @@ export type ShareExportResult = {
   blobVersion: number;
   byteSize: number;
   summary: SyncSummary;
+  /** photoIds found in food_log_* keys of this snapshot — feed plate upload. */
+  photoIds: string[];
 };
+
+/** Pull meal photoIds from the same food_log_* blobs the clinic already reads. */
+export function photoIdsFromAsyncStorage(asyncStorage: Record<string, string>): string[] {
+  const ids = new Set<string>();
+  for (const [key, raw] of Object.entries(asyncStorage)) {
+    if (!isFoodDayKey(key) || !raw) continue;
+    try {
+      const meals = JSON.parse(raw) as unknown;
+      if (!Array.isArray(meals)) continue;
+      for (const meal of meals) {
+        const photoId = (meal as { photoId?: unknown })?.photoId;
+        if (typeof photoId === 'string' && photoId.length > 0) ids.add(photoId);
+      }
+    } catch {
+      /* skip corrupt day */
+    }
+  }
+  return [...ids];
+}
 
 function todayKey(): string {
   const d = new Date();
@@ -255,9 +276,16 @@ export async function shareClinicExport(lookbackMode: SyncLookbackMode = '365d')
   };
 
   const blob = await uploadSyncPayload(payloadGzipBase64, summary);
+  const photoIds = photoIdsFromAsyncStorage(payload.asyncStorage);
+  if (photoIds.length > 0) {
+    console.warn('[ClinicExport] photoIds in snapshot:', photoIds.length, photoIds.slice(0, 3));
+  } else {
+    console.warn('[ClinicExport] no photoIds in snapshot food_log_* keys');
+  }
   return {
     blobVersion: blob.version,
     byteSize: blob.byteSize,
     summary,
+    photoIds,
   };
 }
