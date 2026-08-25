@@ -1056,7 +1056,11 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
               style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
               onPress={() => onEditMeal?.(item.entry)}
             >
-              <Text style={styles.chipTime}>{formatTime(item.entry.timestamp)}</Text>
+              <Text style={styles.chipTime}>
+                {formatTime(item.entry.timestamp)}
+                {/* Pure read of `photoId` — never a disk check on a render path. */}
+                {item.entry.photoId ? ' 📷' : ''}
+              </Text>
               <Text style={styles.chipLabel}>{mealLabel(item.entry, ui)}</Text>
               <Text style={styles.chipKcal}>{formatEnergy(item.entry.totalKcal, energyU)}</Text>
               <Text style={styles.chipEdit}>✎ {ui.editItem}</Text>

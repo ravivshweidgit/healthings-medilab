@@ -1,6 +1,7 @@
 # be-53 — Clinic meal-photo lightbox + snapshot size for 30-day thumbs
 
-**Status:** blocked — prompt116 thumbs pulled 2026-08-25 for phone performance; revisit with 116  
+**Status:** needs-review — clinic lightbox + binary GET wired 2026-08-25; **needs API deploy**
+  (`meal_photos` table + `/v1/meal-photos/*`) before plates appear after Share  
 **Model to implement:** Auto (blob route + portal modal). Chart mark placement is taste — owner in the portal.  
 **Authored by:** owner request 2026-08-22  
 **Depends on:** prompt116 Phase 2 (phone uploads each JPEG as binary, keyed by `photoId`)
@@ -55,23 +56,19 @@ the size it is today.
 
 ## Implementation notes
 
-- Snapshot key `healthings:mealPhotos`: `{ [photoId]: "<jpeg-base64>" }` (prompt116).
-  JPEG data URLs in the modal: `data:image/jpeg;base64,…`
-- Chart: reuse meal timestamp hit area; cursor pointer when photo exists. Tap opens
-  `showMealModal` for that meal (same card as the chip).
-- Meal chip: small camera affordance when `photoId` is in the map; chip click still opens
-  the same modal (photo on top, then items).
-- Copy: keep short (localize-speak-like-a-person). Example intent: “Plate” / “No photo for
-  this meal” — not a privacy essay.
+- Snapshot carries `photoId` on each meal only (string). Bytes live in `meal_photos` and are
+  fetched with `GET /v1/meal-photos/:photoId?patientId=` when the modal opens — never inlined.
+- Chart: meal triangle hit target opens `showMealModal`; 📷 mark when `photoId` is set.
+- Meal chip: same camera affordance; chip click opens the same modal (photo on top, then items).
+- Copy: short (localize-speak-like-a-person). `wsMealPlate` = “Plate”.
 
 ## Acceptance criteria
 
-- [ ] Share with camera meals from the last 30 days: clinic modal shows the plate
+- [ ] Share with camera meals from the last 30 days: clinic modal shows the plate (after API deploy)
 - [ ] Text-only meal: modal unchanged, no camera mark
-- [ ] Meal older than 30d (numbers in food log, no sidecar): no mark, items still show
-- [ ] 24H chart stays readable; tap 579-style triangle opens that meal
-- [ ] Worst-case ~15 MB thumbs + current snapshot uploads (no 413) after cap bump
-- [ ] Cloud backup restore on a new phone still has remaining thumbs (with prompt116)
+- [ ] Meal older than 30d (numbers in food log, file purged): no mark / quiet 404, items still show
+- [ ] 24H chart stays readable; tap triangle opens that meal
+- [ ] Sync/cloud caps unchanged (15 MB / 25 MB) — no raise
 - [ ] Desktop (~1280) and clinic workspace on a laptop: modal image fits the card, close still works
 - [ ] he/ar portal: photo on top, item names `dir=auto`
 - [ ] No regression: Share with zero photos; existing meal modal macros

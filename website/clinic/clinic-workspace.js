@@ -609,9 +609,39 @@
     return `${Math.round(meal.totalKcal || 0)} kcal · P ${Math.round(meal.totalProtein_g || 0)}g · C ${Math.round(meal.totalCarb_g || 0)}g · F ${Math.round(meal.totalFat_g || 0)}g · Fi ${Math.round(entryFiber(meal))}g`;
   }
 
-  function showMealModal(panel, meal, selfView) {
+  function closeMealModal(modalRoot, objectUrl) {
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    modalRoot.hidden = true;
+    modalRoot.innerHTML = '';
+  }
+
+  /**
+   * Fetch one plate by photoId only when the modal opens — never on workspace load
+   * (be-53 / render-path-reads-memory). 404 = phone purged past 30d before Share.
+   */
+  async function loadMealPlate(imgEl, meal, ctx) {
+    if (!imgEl || !meal.photoId || !ctx?.api || !ctx.patientId) return;
+    try {
+      const q = '?patientId=' + encodeURIComponent(ctx.patientId);
+      const res = await ctx.api('/v1/meal-photos/' + encodeURIComponent(meal.photoId) + q);
+      if (!res.ok) {
+        imgEl.hidden = true;
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      imgEl.dataset.objectUrl = url;
+      imgEl.src = url;
+      imgEl.hidden = false;
+    } catch {
+      imgEl.hidden = true;
+    }
+  }
+
+  function showMealModal(panel, meal, ctx) {
     const modalRoot = panel.querySelector('#meal-modal-root');
     if (!modalRoot) return;
+    const selfView = !!(ctx && ctx.selfView);
     const items = meal.items || [];
     const title = mealLabel(meal);
     const time = new Date(meal.timestamp).toLocaleString(undefined, {
@@ -622,7 +652,7 @@
       minute: '2-digit',
     });
     const itemsHtml = items.length
-      ? items.map((item, i) => {
+      ? items.map((item) => {
         const flagged = item.rule_conflict;
         const name = esc(item.name_local || item.name || t('wsMealItemFallback'));
         return `
@@ -642,6 +672,10 @@
            · P ${Math.round(meal.totalProtein_g || 0)}g · C ${Math.round(meal.totalCarb_g || 0)}g · F ${Math.round(meal.totalFat_g || 0)}g
          </div>`;
 
+    const plateSlot = meal.photoId
+      ? `<img class="meal-modal-plate" alt="${esc(t('wsMealPlate'))}" hidden />`
+      : '';
+
     modalRoot.hidden = false;
     modalRoot.innerHTML = `
       <div class="meal-modal-overlay" data-close-meal>
@@ -653,6 +687,7 @@
             </div>
             <button type="button" class="meal-modal-close" data-close-meal aria-label="${esc(t('wsCloseAria'))}">✕</button>
           </div>
+          ${plateSlot}
           ${meal.note ? `<p class="meal-modal-note">${esc(meal.note)}</p>` : ''}
           <div class="meal-items-card">${itemsHtml}
             <div class="meal-item-row meal-item-total">
@@ -663,17 +698,20 @@
         </div>
       </div>`;
 
+    const plateImg = modalRoot.querySelector('.meal-modal-plate');
+    const objectUrlRef = { current: null };
+    if (plateImg) {
+      void loadMealPlate(plateImg, meal, ctx).then(() => {
+        objectUrlRef.current = plateImg.dataset.objectUrl || null;
+      });
+    }
+
+    const dismiss = () => closeMealModal(modalRoot, objectUrlRef.current || plateImg?.dataset.objectUrl);
     modalRoot.querySelector('.meal-modal-overlay')?.addEventListener('click', (e) => {
-      if (e.target.classList.contains('meal-modal-overlay')) {
-        modalRoot.hidden = true;
-        modalRoot.innerHTML = '';
-      }
+      if (e.target.classList.contains('meal-modal-overlay')) dismiss();
     });
     modalRoot.querySelector('.meal-modal-card')?.addEventListener('click', (e) => e.stopPropagation());
-    modalRoot.querySelector('.meal-modal-close')?.addEventListener('click', () => {
-      modalRoot.hidden = true;
-      modalRoot.innerHTML = '';
-    });
+    modalRoot.querySelector('.meal-modal-close')?.addEventListener('click', dismiss);
   }
 
   function renderFoodLog(host, ctx, panel) {
@@ -760,7 +798,7 @@
         <div class="meal-chips-row">
           ${meals.length ? meals.map((m, i) => `
             <button type="button" class="meal-chip" data-meal-idx="${i}">
-              <span class="chip-time">${new Date(m.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+              <span class="chip-time">${new Date(m.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}${m.photoId ? ' 📷' : ''}</span>
               <span class="chip-label">${esc(mealLabel(m))}</span>
               <span class="chip-kcal">${Math.round(m.totalKcal || 0)} kcal</span>
               <span class="chip-view">${esc(t('wsMealView'))}</span>
@@ -784,7 +822,7 @@
       chip.addEventListener('click', () => {
         const idx = parseInt(chip.getAttribute('data-meal-idx'), 10);
         const meal = meals[idx];
-        if (meal && panel) showMealModal(panel, meal, !!ctx.selfView);
+        if (meal && panel) showMealModal(panel, meal, ctx);
       });
     });
   }
@@ -1104,6 +1142,7 @@
     if (metabolicHost) {
       if (ctx.chartVp == null) ctx.chartVp = 2;
       if (ctx.chartEndMs == null) ctx.chartEndMs = Date.now();
+      ctx.openMeal = (meal) => showMealModal(panel, meal, ctx);
       charts.drawMetabolicChart(metabolicHost, ctx.parsed, ctx, () => paintDashboardCharts(panel, ctx));
     }
     const trendHost = panel.querySelector('#trend-host');

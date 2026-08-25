@@ -9,6 +9,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import type { FoodItem } from './GeminiService';
 import type { DietMarkerCode, MarkerAmounts, TreatmentMarker } from './TreatmentMarkerService';
 import { formatMarkerAmountsVsTargets, sumMarkerAmounts } from './TreatmentMarkerService';
+import { deleteMealPhoto } from './MealPhotoService';
 
 export type { FoodItem };
 
@@ -24,6 +25,13 @@ export type FoodEntry = {
   /** Clinic treatment-marker estimates for this meal (prompt110). Absent = no data. */
   markers?: MarkerAmounts;
   note?: string;
+  /**
+   * Points at `documentDirectory/healthings-meal-photos/{photoId}.jpg` when the meal
+   * was logged from the camera. Presence alone drives the camera mark — never stat the
+   * file to decide (`render-path-reads-memory.mdc`). May outlive the file after the
+   * 30-day purge; the meal card degrades via `onError`.
+   */
+  photoId?: string;
   source: 'camera-ai' | 'text-ai' | 'manual';
 };
 
@@ -236,6 +244,10 @@ export async function saveMeal(entry: Omit<FoodEntry, 'id'> & { id?: string }): 
 
   if (prevAnywhere) {
     if (prevAnywhere.note && !saved.note) saved.note = prevAnywhere.note;
+    // Editing time or items must not drop the plate. `findMealById` is used above
+    // precisely because a time edit can move the entry to another day key, and v1
+    // lost the photo by re-saving it there without this.
+    if (prevAnywhere.photoId && !saved.photoId) saved.photoId = prevAnywhere.photoId;
   }
 
   if (prevDk && prevDk !== dk) {
@@ -290,6 +302,9 @@ export async function deleteMeal(entryId: string, timestamp: number): Promise<vo
     dk,
     meals.filter((m) => m.id !== entryId),
   );
+  // Deleting a meal should take its plate with it, not leave it for the 30-day purge.
+  const photoId = located?.entry.photoId;
+  if (photoId) await deleteMealPhoto(photoId);
 }
 
 export async function getDailyMacros(dk: string): Promise<DailyMacros> {

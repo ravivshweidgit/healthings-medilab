@@ -126,9 +126,14 @@ fight glucose / HR / walks.
 
 ### B. 30-day purge
 
-- On launch and after meal save: delete files whose meal timestamp is older than 30
-  calendar days (local timezone, same day-key rules as `food_log_*`). Clear `photoId` on
-  those entries so the JSON does not point at a missing file.
+- `photoId` is `{dayKey}_{md5}`, so the day is **in the filename**. Purge is one
+  `readDirectoryAsync` plus a string compare per name — no `getInfoAsync` per file, no
+  food-log read, no meal-JSON write. (v1 walked every food-log day and stat-ed per meal,
+  after every save.)
+- **Do not clear `photoId`** on old entries. Rewriting day records to tidy a pointer costs
+  writes on the save path to prevent a cosmetic stale mark; the open meal card handles the
+  miss with `onError` instead.
+- Runs **once per launch, deferred ~15s** (`App.tsx`). Never on meal save.
 - Cap is **days**, not a 15 MB quota. Quiet weeks just use less disk.
 
 ### C. Share upload (own module, not the export path)

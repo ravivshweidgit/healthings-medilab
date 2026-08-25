@@ -702,3 +702,18 @@ CREATE TABLE IF NOT EXISTS diet_marker_catalog (
 CREATE INDEX IF NOT EXISTS diet_marker_catalog_enabled_idx
   ON diet_marker_catalog (sort_order, code)
   WHERE enabled;
+
+-- Meal plate thumbs (prompt116 Phase 2). Binary channel — never inside sync_blobs JSON.
+-- patient_id CASCADE covers account deletion (be-19); unshare still needs an explicit
+-- sweep so a revoked clinic cannot keep working plate URLs (be-53 / be-17).
+CREATE TABLE IF NOT EXISTS meal_photos (
+  patient_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  photo_id TEXT NOT NULL,
+  bytes BYTEA NOT NULL,
+  byte_size INT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (patient_id, photo_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_meal_photos_patient_created
+  ON meal_photos (patient_id, created_at DESC);

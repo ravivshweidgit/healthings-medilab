@@ -1486,6 +1486,19 @@ export function MetabolicChartInner({
                 {energyLabel}
               </SvgText>
             ) : null}
+            {/*
+              Camera mark: a pure read of `photoId`, never a disk check — v1 stat-ed the
+              file here and one photo was enough to slow every expand. Gated on the kcal
+              label so a crowded lane drops the glyph first, not the number.
+            */}
+            {entry.photoId && showKcalLabel ? (
+              <SvgText
+                x={x + 8} y={prepared.axisY - 22}
+                fill={colors.chart.mealMarker} fontSize={7} textAnchor="middle"
+              >
+                📷
+              </SvgText>
+            ) : null}
           </G>
         );
       })

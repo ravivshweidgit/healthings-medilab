@@ -69,6 +69,7 @@
   "wsMealView": "view",
   "wsNoMealsThisDay": "No meals this day",
   "wsMealDetailsAria": "Meal details",
+  "wsMealPlate": "Plate",
   "wsCloseAria": "Close",
   "wsMealItemFallback": "Item",
   "wsNoItemBreakdown": "No item breakdown in snapshot (totals only).",
