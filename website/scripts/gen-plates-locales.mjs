@@ -88,10 +88,11 @@ function plateCards(lang, ui, list) {
   return list
     .map((p, i) => {
       const items = p.items
-        .map(
-          ([name, key]) =>
-            `<li><span>${esc(name)}</span><span class="grams">${esc(formatAmount(ui, key))}</span></li>`,
-        )
+        .map(([name, key]) => {
+          const amount = formatAmount(ui, key);
+          const grams = amount ? `<span class="grams">${esc(amount)}</span>` : '';
+          return `<li><span>${esc(name)}</span>${grams}</li>`;
+        })
         .join('\n              ');
       const hint = p.hint.replace(
         '{log}',
@@ -152,7 +153,7 @@ function platesJson(slug, lang, list) {
           name,
         };
         if (key === 'fresh') row.amount = 'fresh';
-        else {
+        else if (key && AMOUNT_DEFS[key]) {
           const formatted = formatAmount(ui, key);
           const def = AMOUNT_DEFS[key];
           if (formatted) row.amount = formatted;

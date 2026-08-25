@@ -2645,7 +2645,7 @@
           <div class="rules-fold-body">
             <label class="treat-field" for="plates-pick">
               <span>${esc(t('wsPlatesTitle'))}</span>
-              <select id="plates-pick">${options}</select>
+              <select id="plates-pick" class="portal-select">${options}</select>
             </label>
             <p class="rules-hint">${esc(t('wsPlatesHint'))}</p>
             <span id="plates-status" class="sub"></span>

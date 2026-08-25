@@ -1810,6 +1810,10 @@ h3,
   border-radius: 8px;
   background: var(--bg);
 }
+html[dir='rtl'] .rules-plates-section .treat-field select {
+  direction: rtl;
+  text-align: right;
+}
 .treat-field-wide { grid-column: 1 / -1; }
 .treat-unit { font-weight: 600; margin-top: 4px; }
 #treat-add-btn { grid-column: 1 / -1; justify-self: start; }
