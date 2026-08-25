@@ -11,7 +11,7 @@ import {
   useWindowDimensions,
   type GestureResponderEvent,
 } from 'react-native';
-import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { curveMonotoneX, line } from 'd3-shape';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { formatLocalizedDate, formatLocalizedTime } from '../i18n/dateLocale';
@@ -534,6 +534,8 @@ type Props = {
   bmrKcalDay?: number | null;
   /** Logged food entries — rendered as meal markers (▼) on the time axis. */
   foodEntries?: FoodEntry[];
+  /** Tap orange triangle → open meal card. */
+  onMealPress?: (entry: FoodEntry) => void;
   /**
    * Scrubber / badge display only. Plot + green band stay mg/dL so HR (bpm) shares the Y scale.
    */
@@ -542,6 +544,8 @@ type Props = {
   energyDisplayUnit?: EnergyUnit;
   /** Coach language — axis / viewport date labels. */
   langCode?: string | null;
+  /** Parent strip collapsed — pause timers / skip hit targets; keep SVG mounted. */
+  collapsed?: boolean;
 };
 
 export function MetabolicChartInner({
@@ -552,9 +556,11 @@ export function MetabolicChartInner({
   workoutSessions,
   bmrKcalDay,
   foodEntries,
+  onMealPress,
   glucoseDisplayUnit = 'mgdl',
   energyDisplayUnit = 'kcal',
   langCode,
+  collapsed = false,
 }: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
@@ -578,7 +584,7 @@ export function MetabolicChartInner({
   const [endTimeOverrideMs, setEndTimeOverrideMs] = useState<number | null>(null);
   /** Selected instant for touch scrub tooltip (ms). Cleared on horizontal pan / zoom change. */
   const [scrubMs, setScrubMs] = useState<number | null>(null);
-  const chartTouchRef = useRef({ x0: 0, y0: 0, tapPending: false });
+  const chartTouchRef = useRef({ x0: 0, y0: 0, tapPending: false, mealZone: false });
   const chartScrollRef = useRef<ScrollView>(null);
   const chipScrollRef = useRef<ScrollView>(null);
   const chipLayoutsRef = useRef<Record<number, { x: number; width: number }>>({});
@@ -599,6 +605,7 @@ export function MetabolicChartInner({
     const id = requestAnimationFrame(() => centerViewportChip(viewportPresetIndex, true));
     return () => cancelAnimationFrame(id);
   }, [viewportPresetIndex, centerViewportChip, langCode]);
+
   /** Latest day-step actions for the stable date-header `PanResponder`. */
   const dateSwipeRef = useRef<{
     shiftDay: (delta: number) => void;
@@ -666,9 +673,10 @@ export function MetabolicChartInner({
   }, [chartGlucose, chartHeartRate]);
 
   useEffect(() => {
+    if (collapsed) return;
     const id = setInterval(() => setNowAnchor(Date.now()), 60_000);
     return () => clearInterval(id);
-  }, []);
+  }, [collapsed]);
 
   const prepared = useMemo(() => {
     const bounds = mergeTimeBounds(chartGlucose, chartHeartRate);
@@ -844,6 +852,13 @@ export function MetabolicChartInner({
       GLUCOSE_TARGET_MIN <= yMax &&
       targetBandBottomY - targetBandTopY > 1;
 
+    const visibleMeals = (foodEntries ?? [])
+      .filter((e) => e.timestamp >= mapTMin && e.timestamp <= mapTMax)
+      .map((entry) => ({
+        entry,
+        x: timeToX(entry.timestamp, mapTMin, spanT, padL, innerW),
+      }));
+
     return {
       glucosePath,
       heartRatePath,
@@ -856,6 +871,9 @@ export function MetabolicChartInner({
       axisY,
       calStripTop,
       calStripBottom,
+      mealHitTop: axisY - 38,
+      mealHitBottom: axisY + 6,
+      visibleMeals,
       workoutLabelY,
       chartW,
       plotH,
@@ -885,7 +903,7 @@ export function MetabolicChartInner({
       targetBandBottomY,
       targetBandVisible,
     };
-  }, [activityZones, chartGlucose, chartHeartRate, endTimeOverrideMs, langCode, nowAnchor, plotH, plotWidthPx, scrollX, stripCopy, viewportPresetIndex, windowW]);
+  }, [activityZones, chartGlucose, chartHeartRate, endTimeOverrideMs, foodEntries, langCode, nowAnchor, plotH, plotWidthPx, scrollX, stripCopy, viewportPresetIndex, windowW]);
 
   /** Compute 30-min calorie bars for the currently visible time window. */
   const caloriePrepared = useMemo(() => {
@@ -1174,10 +1192,14 @@ export function MetabolicChartInner({
     (e: GestureResponderEvent) => {
       if (!prepared || scrubMs != null) return;
       const { locationX, locationY } = e.nativeEvent;
-      if (locationY > prepared.calStripTop) return;
-      chartTouchRef.current = { x0: locationX, y0: locationY, tapPending: true };
+      const inMealZone =
+        locationY >= prepared.mealHitTop &&
+        locationY <= prepared.mealHitBottom &&
+        Boolean(onMealPress);
+      if (locationY > prepared.calStripTop && !inMealZone) return;
+      chartTouchRef.current = { x0: locationX, y0: locationY, tapPending: true, mealZone: inMealZone };
     },
-    [prepared, scrubMs]
+    [prepared, scrubMs, onMealPress]
   );
 
   const handleChartTouchMove = useCallback(
@@ -1196,13 +1218,29 @@ export function MetabolicChartInner({
   const handleChartTouchEnd = useCallback(
     (e: GestureResponderEvent) => {
       if (!prepared || scrubMs != null) return;
-      const { locationX, locationY } = e.nativeEvent;
-      if (chartTouchRef.current.tapPending && locationY <= prepared.calStripTop) {
-        applyScrubFromX(locationX);
+      const { locationX } = e.nativeEvent;
+      if (chartTouchRef.current.tapPending) {
+        const x = Math.min(
+          prepared.chartW - prepared.padL - SVG_PAD_R,
+          Math.max(prepared.padL, locationX),
+        );
+        if (chartTouchRef.current.mealZone && onMealPress) {
+          const hit = prepared.visibleMeals.find((m) => Math.abs(m.x - x) <= 18);
+          if (hit) {
+            onMealPress(hit.entry);
+            chartTouchRef.current.tapPending = false;
+            chartTouchRef.current.mealZone = false;
+            return;
+          }
+        }
+        if (!chartTouchRef.current.mealZone) {
+          applyScrubFromX(locationX);
+        }
       }
       chartTouchRef.current.tapPending = false;
+      chartTouchRef.current.mealZone = false;
     },
-    [applyScrubFromX, prepared, scrubMs]
+    [applyScrubFromX, onMealPress, prepared, scrubMs]
   );
 
   if (!prepared) {
@@ -1420,38 +1458,51 @@ export function MetabolicChartInner({
         </React.Fragment>
       ))}
 
-      {/* Meal markers — orange ▼ above the time axis for each logged food entry */}
-      {foodEntries?.map((entry) => {
+      {/* Meal markers — skip while collapsed so the kept-alive SVG stays cheap. */}
+      {!collapsed
+        ? foodEntries?.map((entry) => {
         const x = timeToX(entry.timestamp, prepared.mapTMin, prepared.spanT, prepared.padL, prepared.innerW);
         if (x < prepared.padL - 4 || x > prepared.padL + prepared.innerW + 4) return null;
         const energyLabel = Math.round(kcalToDisplay(entry.totalKcal, energyDisplayUnit));
+        const showKcalLabel = stripLabels.mealLabelIds.has(entry.id);
         return (
-          <React.Fragment key={`meal-${entry.id}`}>
-            {/* Vertical dashed line from axis up */}
+          <G key={`meal-${entry.id}`}>
             <Line
               x1={x} y1={prepared.axisY - 20}
               x2={x} y2={prepared.axisY - 4}
               stroke={colors.chart.mealMarker} strokeWidth={1.5} strokeDasharray="3,2" opacity={0.8}
             />
-            {/* Downward triangle marker */}
             <SvgText
               x={x} y={prepared.axisY - 22}
               fill={colors.chart.mealMarker} fontSize={10} textAnchor="middle" fontWeight="700"
             >
               ▼
             </SvgText>
-            {/* energy label — hidden when it would overprint a neighbour */}
-            {stripLabels.mealLabelIds.has(entry.id) && (
+            {showKcalLabel ? (
               <SvgText
                 x={x} y={prepared.axisY - 32}
                 fill={colors.chart.mealMarker} fontSize={STRIP_LABEL_FONT_SIZE} textAnchor="middle"
               >
                 {energyLabel}
               </SvgText>
-            )}
-          </React.Fragment>
+            ) : null}
+            {/*
+              Camera mark: a pure read of `photoId`, never a disk check — v1 stat-ed the
+              file here and one photo was enough to slow every expand. Gated on the kcal
+              label so a crowded lane drops the glyph first, not the number.
+            */}
+            {entry.photoId && showKcalLabel ? (
+              <SvgText
+                x={x + 8} y={prepared.axisY - 22}
+                fill={colors.chart.mealMarker} fontSize={7} textAnchor="middle"
+              >
+                📷
+              </SvgText>
+            ) : null}
+          </G>
         );
-      })}
+      })
+        : null}
     </Svg>
   );
 
@@ -1687,6 +1738,25 @@ export function MetabolicChartInner({
           >
             <View style={{ width: Math.max(prepared.totalW, prepared.chartW), height: prepared.svgH, backgroundColor: 'transparent' }} />
           </ScrollView>
+          {onMealPress && !collapsed
+            ? prepared.visibleMeals.map(({ entry, x }) => (
+                <Pressable
+                  key={`meal-hit-${entry.id}`}
+                  style={{
+                    position: 'absolute',
+                    left: Math.max(0, x - 22),
+                    top: prepared.mealHitTop,
+                    width: 44,
+                    height: prepared.mealHitBottom - prepared.mealHitTop,
+                    zIndex: 4,
+                    elevation: 6,
+                  }}
+                  onPress={() => onMealPress(entry)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open meal"
+                />
+              ))
+            : null}
           </View>
           {rangeBusy ? (
             <View style={styles.rangeBusyOverlay} pointerEvents="none">

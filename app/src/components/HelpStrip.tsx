@@ -24,6 +24,7 @@ import { dashNavLabel, type DashNavTarget } from '../logic/dashboardNav';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { StripIcons } from '../theme/icons';
+import { keepMountedCollapsedStyles, useKeepMountedExpand } from '../hooks/useKeepMountedExpand';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 
 type Props = {
@@ -43,6 +44,7 @@ const TOPIC_CHIPS: { slug: HelpSlug; labelEn: string }[] = [
 export function HelpStrip({ expanded, onToggleExpand, lang, onNavigate }: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const bodyMounted = useKeepMountedExpand(expanded);
   const t = getHelpStripCopy(lang.code);
   const explainer = useMemo(() => getExplainerCopy(lang.code), [lang.code]);
   const rtl = lang.code === 'he' || lang.code === 'ar';
@@ -88,8 +90,13 @@ export function HelpStrip({ expanded, onToggleExpand, lang, onNavigate }: Props)
         icon={StripIcons.help}
       />
 
-      {expanded ? (
-        <View style={styles.body}>
+      {bodyMounted ? (
+        <View
+          style={[styles.body, !expanded && keepMountedCollapsedStyles.bodyCollapsed]}
+          pointerEvents={expanded ? 'auto' : 'none'}
+          accessibilityElementsHidden={!expanded}
+          importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+        >
           <Text style={[styles.hint, rtl && styles.textRtl]}>{t.emptyHint}</Text>
           <TextInput
             style={[styles.input, rtl && styles.textRtl]}

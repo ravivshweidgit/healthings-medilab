@@ -12,6 +12,7 @@ import type { UserLanguage } from '../services/TargetService';
 import type { ThemePref } from '../services/ThemePreferenceService';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
+import { keepMountedCollapsedStyles, useKeepMountedExpand } from '../hooks/useKeepMountedExpand';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import { SetupToggleRow } from './SetupToggleRow';
 
@@ -38,6 +39,7 @@ export function AppearanceStrip({
 }: Props) {
   const { colors, isDark, pref, setThemePref } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const bodyMounted = useKeepMountedExpand(expanded);
   const t = getAppearanceCopy(lang?.code);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
 
@@ -58,8 +60,13 @@ export function AppearanceStrip({
         expandLabel={`Expand ${t.title}`}
       />
 
-      {expanded ? (
-        <View style={styles.body}>
+      {bodyMounted ? (
+        <View
+          style={[styles.body, !expanded && keepMountedCollapsedStyles.bodyCollapsed]}
+          pointerEvents={expanded ? 'auto' : 'none'}
+          accessibilityElementsHidden={!expanded}
+          importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+        >
           <View style={[styles.row, rtl && styles.rowRtl]}>
             <Text style={[styles.rowLabel, rtl && styles.rowLabelRtl]}>{t.theme}</Text>
             <View style={styles.chips}>

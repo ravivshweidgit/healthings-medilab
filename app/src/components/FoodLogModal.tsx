@@ -34,6 +34,7 @@ import {
   type GeminiTurn,
 } from '../services/GeminiService';
 import { saveMeal, deleteMeal, foodLogDayKey, getDailyMacros, getRecentMeals, getMealsForDay, entryMarkerTotals, entryFiber_g, type FoodEntry } from '../services/FoodLogService';
+import { mealPhotoUri, writeMealPhoto } from '../services/MealPhotoService';
 import { fillMissingMarkersForDay } from '../services/MarkersBackfillService';
 import { scaleMarkerAmounts } from '../services/TreatmentMarkerService';
 import { logMethodTiming, PERF_WARN_AI_MS, PERF_WARN_MEAL_MS, timeAsync } from '../services/AppDailyLogService';
@@ -495,6 +496,13 @@ export function FoodLogModal({
   const [editingId, setEditingId] = useState<string | undefined>(() => editEntry?.id);
   const [hadPhotoForSave, setHadPhotoForSave] = useState(false);
   const [analyzingPhotoUri, setAnalyzingPhotoUri] = useState<string | null>(null);
+  /**
+   * Source shot for the meal being logged, kept only until save writes the thumb.
+   * A ref, not state — the picker result must not re-render the modal.
+   */
+  const pendingPhotoRef = useRef<{ uri: string; width?: number; height?: number } | null>(null);
+  /** Set when the saved plate cannot be read, so a purged file hides the image quietly. */
+  const [plateMissing, setPlateMissing] = useState(false);
   const [mealIssues, setMealIssues] = useState<MealIssue[]>([]);
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [overrideSaveOnce, setOverrideSaveOnce] = useState(false);
@@ -701,6 +709,8 @@ export function FoodLogModal({
     setDescription('');
     setSuggestion(undefined);
     setAnalyzingPhotoUri(null);
+    pendingPhotoRef.current = null;
+    setPlateMissing(false);
     setMealIssues([]);
     setShowIssueModal(false);
     setOverrideSaveOnce(false);
@@ -712,6 +722,17 @@ export function FoodLogModal({
     setPastDayMeals([]);
     setPastDayLoading(false);
   }, [initialTimestamp]);
+
+  /**
+   * Plate to show on the meal card. Either the shot taken in this session or the
+   * stored thumb, built as a **pure string** — no `getInfoAsync`, since a stale
+   * pointer is handled by `onError` below and a stat here would run on every render.
+   */
+  const plateUri = useMemo(() => {
+    if (plateMissing) return null;
+    if (analyzingPhotoUri) return analyzingPhotoUri;
+    return editEntry?.photoId ? mealPhotoUri(editEntry.photoId) : null;
+  }, [plateMissing, analyzingPhotoUri, editEntry?.photoId]);
 
   const recomputeMealIssues = useCallback(async (
     mealItems: FoodItem[],
@@ -782,10 +803,26 @@ export function FoodLogModal({
             totalFat_g: 0,
             source: 'manual',
           });
+          // Write the plate here: once, while the user is already waiting on the save,
+          // so nothing downstream ever has to ask the disk about it again. A failure
+          // costs the photo, never the meal.
+          let photoId: string | undefined;
+          const pendingPhoto = pendingPhotoRef.current;
+          if (opts.fromPhoto && pendingPhoto) {
+            photoId =
+              (await writeMealPhoto(
+                pendingPhoto.uri,
+                opts.timestamp,
+                pendingPhoto.width,
+                pendingPhoto.height,
+              )) ?? undefined;
+          }
           const saved = await saveMeal({
             id: opts.id,
             timestamp: opts.timestamp,
             items: opts.mealItems,
+            // Omitted on a plain edit — `saveMeal` carries the existing plate forward.
+            ...(photoId ? { photoId } : {}),
             totalKcal: Math.round(totals.totalKcal),
             totalProtein_g: Math.round(totals.totalProtein_g * 10) / 10,
             totalCarb_g: Math.round(totals.totalCarb_g * 10) / 10,
@@ -1115,6 +1152,9 @@ export function FoodLogModal({
               });
         if (result.canceled || !result.assets[0]) return;
         const asset = result.assets[0];
+        // Dimensions come along so the thumb caps the *longest* edge at save time.
+        pendingPhotoRef.current = { uri: asset.uri, width: asset.width, height: asset.height };
+        setPlateMissing(false);
         const b64 = asset.base64 ?? null;
         if (b64 && b64.length > 4_000_000) {
           Alert.alert(alerts.imageTooLargeTitle, alerts.imageTooLargeBody);
@@ -1661,6 +1701,15 @@ export function FoodLogModal({
 
             {(screen === 'result' || screen === 'saving') && (
               <View style={styles.resultWrap}>
+                {plateUri ? (
+                  <Image
+                    source={{ uri: plateUri }}
+                    style={styles.platePhoto}
+                    resizeMode="cover"
+                    // File purged past 30 days while the meal kept its pointer.
+                    onError={() => setPlateMissing(true)}
+                  />
+                ) : null}
                 {autoSavedBanner ? (
                   <View style={styles.autoSavedBanner}>
                     <Text
@@ -2420,6 +2469,8 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   analyzingLabel: { marginTop: 16, color: c.textSecondary, fontSize: 14 },
 
   resultWrap: { gap: 12 },
+  /** Fixed height on purpose — a self-sizing image would re-layout the card. */
+  platePhoto: { width: '100%', height: 180, borderRadius: 16 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: c.textPrimary },
   sectionTitleRtl: { textAlign: 'right', writingDirection: 'rtl' },
   mealSection: { gap: 8 },

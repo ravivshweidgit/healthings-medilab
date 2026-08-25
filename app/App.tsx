@@ -19,6 +19,7 @@ import {
   fulfillPendingClinicSyncRequests,
 } from './src/services/ClinicSyncService';
 import { flushUsageQueueIfDue } from './src/services/UsageQueueService';
+import { purgeOldMealPhotos } from './src/services/MealPhotoService';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
@@ -27,6 +28,13 @@ WebBrowser.maybeCompleteAuthSession();
 
 /** Silent refresh on foreground — slides the 30-day refresh token without OTP. */
 const SESSION_KEEPALIVE_MIN_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Meal-thumb purge is one directory listing, but it is also the least urgent thing
+ * the app does — run it well after the dashboard has settled, once per launch, never
+ * on meal save (`render-path-reads-memory.mdc`).
+ */
+const MEAL_PHOTO_PURGE_DELAY_MS = 15_000;
 
 export default function App() {
   return (
@@ -64,8 +72,14 @@ function AppInner() {
         if (!cancelled) setBooting(false);
       }
     })();
+
+    const purgeTimer = setTimeout(() => {
+      void purgeOldMealPhotos();
+    }, MEAL_PHOTO_PURGE_DELAY_MS);
+
     return () => {
       cancelled = true;
+      clearTimeout(purgeTimer);
     };
   }, []);
 

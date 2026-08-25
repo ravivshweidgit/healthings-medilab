@@ -18,13 +18,14 @@ import {
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
+import { keepMountedCollapsedStyles, useKeepMountedExpand } from '../hooks/useKeepMountedExpand';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import type { UserLanguage } from '../services/TargetService';
 
 export type VisitReportUiCopy = {
   title: string;
   subtitle: string;
-  dayLabel: (n: number) => string;
+  dayLabel: (n: VisitReportDayCount) => string;
   busy: string;
   doneTitle: string;
   doneMessage: string;
@@ -51,6 +52,7 @@ export function ReportsStrip({
 }: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const bodyMounted = useKeepMountedExpand(expanded);
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const headerSub = useMemo(
     () => VISIT_REPORT_DAY_OPTIONS.join(' / '),
@@ -70,8 +72,13 @@ export function ReportsStrip({
         perfTag="ReportsStrip"
       />
 
-      {expanded ? (
-        <View style={styles.body}>
+      {bodyMounted ? (
+        <View
+          style={[styles.body, !expanded && keepMountedCollapsedStyles.bodyCollapsed]}
+          pointerEvents={expanded ? 'auto' : 'none'}
+          accessibilityElementsHidden={!expanded}
+          importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+        >
           <Text style={styles.sectionTitle}>{visitReportUi.title}</Text>
           <Text style={styles.sectionSubtitle}>{visitReportUi.subtitle}</Text>
           <View style={styles.buttonGrid}>

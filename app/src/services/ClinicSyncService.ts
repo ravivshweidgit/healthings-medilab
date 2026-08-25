@@ -11,6 +11,7 @@ import { fetchCurrentUser } from './AuthApiService';
 import { listShares } from './ShareApiService';
 import { fetchSyncUpdateRequests } from './SyncApiService';
 import { shareClinicExport, type ShareExportResult } from './ShareExportService';
+import { uploadMealPhotosOnShare } from './MealPhotoUpload';
 
 /** Poll while dashboard is mounted so clinic refresh works if app was already open. */
 export const CLINIC_SYNC_POLL_MS = 10_000;
@@ -91,7 +92,16 @@ export async function shareSnapshotNow(): Promise<ShareExportResult> {
   if (!(await hasSnapshotConsumer())) {
     throw new Error('Nothing reads your data yet — link a clinic or turn on your web view');
   }
-  return shareClinicExport('365d');
+  // Snapshot first. Plates are a separate binary channel — never inside the gzip JSON —
+  // and only run on this explicit tap (not web-view push / clinic refresh / auto sync).
+  const result = await shareClinicExport('365d');
+  try {
+    await uploadMealPhotosOnShare();
+  } catch (err) {
+    // Numbers already landed; a plate failure must not fail Share.
+    console.warn('[ClinicSync] meal photo upload failed:', err);
+  }
+  return result;
 }
 
 /**

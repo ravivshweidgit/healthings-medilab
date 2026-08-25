@@ -1,0 +1,110 @@
+---
+description: A render path may only read what is already in memory — no disk, network, or AsyncStorage, and no image bytes through JS.
+alwaysApply: true
+---
+
+# Render path reads memory
+
+**Anything a component needs while rendering must already be in memory.** If answering a question
+requires I/O, answer it at **write** time and store the answer. Never re-derive it at **read** time.
+
+Written 2026-08-25 after meal thumbs (prompt116) were pulled. One photo made the whole dashboard
+feel slow — not because a JPEG is heavy, but because two paths asked about it constantly.
+
+## The 60 fps test
+
+Before adding state or an effect to anything on a screen, ask: **if this re-rendered 60 times a
+second, what would it touch?**
+
+| Free — do this | Costly — never on a render path |
+|---|---|
+| Fields already on loaded objects (`entry.photoId`) | `FileSystem.getInfoAsync` / `readDirectoryAsync` |
+| `Boolean(...)`, arithmetic, string compare | `AsyncStorage.getItem` / `multiGet` / `getAllKeys` |
+| `<Image source={{ uri: 'file://…' }} />` — native decode | `readAsStringAsync` (any encoding) |
+| A path or id **string** | `fetch`, or a `data:` URI |
+
+An `await` inside a `useEffect` keyed on a prop that changes identity every render is the shape to
+watch for. It fires far more than it looks like it will, and each pass usually calls `setState`,
+which schedules another render.
+
+## Write time, not read time
+
+The failure was asking a question whose answer was already known:
+
+```ts
+// wrong — one disk stat per meal, on every chart refresh
+useEffect(() => {
+  void resolveMealPhotoIds(foodEntries).then(setMealPhotoIds); // getInfoAsync per meal
+}, [foodEntries]);
+
+// right — the pointer written at save time IS the answer
+const hasPhoto = Boolean(entry.photoId);
+```
+
+Prefer a stale flag over a fresh `stat`. A mark that points at a purged file is cosmetic and
+self-corrects; handle it with `onError` on the `<Image>` in the already-open card, where it is free.
+I/O in a render path drops frames every single time.
+
+## Lazy is not the goal — the right timing is
+
+"Load it lazily" is not the fix by itself. v1 *was* lazy about the bytes and still stalled,
+because it was lazy about a question that had a permanent answer.
+
+| Work | Timing | Why |
+|---|---|---|
+| Expensive one-time transform (resize, hash, parse) | **Eager, once**, at write | The user is already waiting; every later read is free |
+| "Does this record have X?" | **Pre-answered** — a field written at the same time | A lazy check here repeats per render forever |
+| Decoding / fetching the payload | **Lazy**, when the view that needs it mounts | Only the window that demands it pays |
+| Sending it anywhere | **Lazy**, on an explicit tap | Never on a timer, foreground, or poll |
+
+Gate by **tree structure, not a boolean prop.** If only the open card imports `<Image>`, there
+is nothing to flag off — closed means absent. A `loadPhoto={false}` prop means the dashboard
+knows about photos, and the next person adds a check beside it.
+
+Unmounting a modal is right; unmounting a strip the user toggles constantly is not (see the
+mount-once pattern in `useKeepMountedExpand`). Cheap-to-build and rarely-opened unmounts;
+expensive native view trees stay mounted and hide.
+
+## Corollary — bytes never enter JS
+
+JS is one thread, shared by rendering, gestures, and every service. Work proportional to file size
+on that thread starves the UI even when nothing is displayed.
+
+- **No base64 as storage.** 33% larger, and `<Image>` cannot read it without pulling the string
+ through JS. Base64 is an escape hatch for text-only channels, not a format.
+- **Never inline file bytes in a snapshot.** `buildClinicExport` dumps AsyncStorage wholesale, then
+ `JSON.stringify` + `pako.deflate` the result — joining that payload means re-serializing a year of
+ unrelated data on every auto sync.
+- **Upload files natively:** `FileSystem.uploadAsync(url, fileUri, { uploadType: BINARY_CONTENT })`.
+ Native code streams the socket; JS gets `{ status }`.
+- **Do not gzip JPEG or PDF.** Already compressed. Resize + JPEG quality at capture is the only
+ compression that pays.
+- Files, not SQLite blobs, for anything an image view renders — the filesystem is the only store the
+ native decoder can read without JS seeing a byte.
+
+## Mitigations are a smell
+
+Debounce, TTL cache, `InteractionManager`, `setTimeout(0)`, deferred launch — each of these hides
+the problem well enough to pass review. If a path needs them to feel acceptable, the work does not
+belong on that path. Move it, don't tune it.
+
+## Precedent
+
+- **prompt116 pulled** — `resolveMealPhotoIds` statted disk per meal per chart refresh, and
+ `injectMealPhotosSidecar` put base64 thumbs inside the gzipped clinic snapshot that runs on launch,
+ foreground, and clinic poll. Both were mitigated with caches and yields before being removed.
+- **A request to raise a payload cap is the tripwire.** be-53 needed sync at 32 MB and cloud backup
+ at 40 MB. That was not the fix — it was file bytes announcing they had reached the JSON.
+- `injectLabPdfsSidecar` still runs inside `buildClinicExport`. Accepted at a handful of small PDFs
+ (prompt117); the same chain, so do not grow it.
+
+## Checklist
+
+- [ ] Nothing on a render path touches disk, network, or AsyncStorage?
+- [ ] Every derived flag stored at write time, not re-derived per render?
+- [ ] Heavy payload gated by which component is mounted, not by a boolean prop threaded down?
+- [ ] One-time transforms done eagerly at write, not lazily on each view?
+- [ ] No effect awaiting I/O keyed on a prop with unstable identity?
+- [ ] Image bytes stay in files and native upload — no base64, no `data:` URI, no snapshot inline?
+- [ ] No debounce/yield/TTL added to make a hot path tolerable?
+- [ ] No payload cap raised to fit file bytes?

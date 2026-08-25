@@ -579,6 +579,12 @@
     for (const m of chartMeals) {
       const x = xOf(m.timestamp);
       svg += `<text x="${x}" y="${mealTriangleY}" fill="${MEAL_ORANGE}" font-size="9" text-anchor="middle">▼</text>`;
+      // Camera mark only when the snapshot carried photoId — no disk/network here.
+      if (m.photoId) {
+        svg += `<text x="${x + 9}" y="${mealTriangleY - 1}" fill="${MEAL_ORANGE}" font-size="8" text-anchor="middle">📷</text>`;
+      }
+      // Hit target opens the meal card (plate loads lazily inside the modal).
+      svg += `<circle class="meal-hit" data-meal-ts="${m.timestamp}" cx="${x}" cy="${mealTriangleY - 4}" r="14" fill="transparent" style="cursor:pointer"/>`;
     }
     for (const lbl of mealLabels) {
       svg += `<text x="${lbl.x}" y="${mealLabelY}" fill="${MEAL_ORANGE}" font-size="9" text-anchor="middle">${escapeXml(lbl.label)}</text>`;
@@ -656,6 +662,14 @@
         ctx.chartEndMs = (ctx.chartEndMs ?? Date.now()) + shift * preset.ms;
         if (ctx.chartEndMs > Date.now()) ctx.chartEndMs = Date.now();
         onChange();
+      });
+    });
+    host.querySelectorAll('.meal-hit').forEach((el) => {
+      el.addEventListener('click', () => {
+        if (typeof ctx.openMeal !== 'function') return;
+        const ts = Number(el.getAttribute('data-meal-ts'));
+        const meal = (data.meals || []).find((m) => m.timestamp === ts);
+        if (meal) ctx.openMeal(meal);
       });
     });
   }

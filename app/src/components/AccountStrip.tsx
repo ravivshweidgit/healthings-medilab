@@ -49,6 +49,7 @@ import { shareTodayAppLog } from '../services/AppDailyLogService';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
+import { keepMountedCollapsedStyles, useKeepMountedExpand } from '../hooks/useKeepMountedExpand';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 import type { UserLanguage } from '../services/TargetService';
 
@@ -74,6 +75,7 @@ export function AccountStrip({
 }: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const bodyMounted = useKeepMountedExpand(expanded);
   const profileTitles = getProfileSettingsStripCopy(lang?.code);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -471,8 +473,13 @@ export function AccountStrip({
         perfTag="AccountStrip"
       />
 
-      {expanded && (
-        <View style={styles.body}>
+      {bodyMounted ? (
+        <View
+          style={[styles.body, !expanded && keepMountedCollapsedStyles.bodyCollapsed]}
+          pointerEvents={expanded ? 'auto' : 'none'}
+          accessibilityElementsHidden={!expanded}
+          importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+        >
           <Text style={styles.signedInLine}>{user.email}</Text>
           <Text style={styles.roleLine}>
             {user.role === 'mentor' ? 'Mentor / clinic' : 'Patient'}
@@ -668,7 +675,7 @@ export function AccountStrip({
             <Text style={styles.deleteLinkText}>Delete account</Text>
           </Pressable>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

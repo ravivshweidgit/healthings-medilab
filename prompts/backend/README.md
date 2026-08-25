@@ -40,7 +40,7 @@ Run in this order. The reason is the dependency, not preference.
 | `be-49-help-xdrip-caresens.md` | Help topic: xDrip+ for CareSens Air + APK mirror | needs-review | Pages generated in 10 locales. **Blocking: get the mirror onto the VPS and deploy — the download 404s until then** |
 | `be-50-website-downloads.md` | Downloads page — companion apps per phone (10 locales) | needs-review | Android vs iPhone lists, auto-detected. Shares be-49's blocking mirror step |
 | `be-52-the-clinic-page.md` | Healthings main clinic page + one-tap share | needs-review | `/{lang}/the-clinic/`; homepage Clinic ≠ portal login |
-| `be-53-clinic-meal-photos.md` | Clinic meal-photo lightbox + snapshot size | ready | Depends on prompt116 thumbs; raise 15 MB gzip cap |
+| `be-53-clinic-meal-photos.md` | Clinic meal-photo lightbox (blob route, **no cap raise**) | needs-review | lightbox + GET wired; **API deploy required** before plates show |
 
 
 

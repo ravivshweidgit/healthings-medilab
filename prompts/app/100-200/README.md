@@ -11,6 +11,6 @@ Shipped specs: [`done/README.md`](./done/README.md). Layout: [`../README.md`](..
 | [`prompt110.txt`](./prompt110.txt) | Treatment markers — clinic-set custom macros w/ lab provenance; needs be-41 first |
 | [`prompt113.txt`](./prompt113.txt) | Lab country gate + server catalog (be-43) — **in_progress** (VPS migrate + phone) |
 | [`prompt114.txt`](./prompt114.txt) | Clinic live macro bounds on Food Log meters (≤ ≥ / bands) + AI HARD; needs be-45 first |
-| [`prompt116.txt`](./prompt116.txt) | Camera meal thumbs, 30-day keep, clinic tap-to-view; needs be-53 (upload cap + lightbox) |
+| [`prompt116.txt`](./prompt116.txt) | Camera meal thumbs, 30-day keep, clinic tap-to-view — **v1 pulled 2026-08-25 for perf**; respec'd with a binary-upload contract + 3 phases. Read "Why v1 was pulled" before touching. |
 | [`prompt118.txt`](./prompt118.txt) | Example plates routed by the clinical order — **in_progress** (A+B built, awaiting phone + VPS deploy); glycemic collection next |
 

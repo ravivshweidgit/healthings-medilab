@@ -14,6 +14,7 @@ import { getProfileSettingsStripCopy } from '../i18n/profileSettingsStripCopy';
 import type { UserLanguage } from '../services/TargetService';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
+import { keepMountedCollapsedStyles, useKeepMountedExpand } from '../hooks/useKeepMountedExpand';
 import { DashboardCollapseHeader } from './DashboardCollapseHeader';
 
 type Props = {
@@ -37,6 +38,7 @@ export function LocalBackupStrip({
 }: Props) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
+  const bodyMounted = useKeepMountedExpand(expanded);
   const t = getProfileSettingsStripCopy(lang?.code);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
   const headerSub = `${t.exportBackup} · ${t.importBackup}`;
@@ -53,8 +55,13 @@ export function LocalBackupStrip({
         expandLabel="Expand app backup"
       />
 
-      {expanded ? (
-        <View style={styles.body}>
+      {bodyMounted ? (
+        <View
+          style={[styles.body, !expanded && keepMountedCollapsedStyles.bodyCollapsed]}
+          pointerEvents={expanded ? 'auto' : 'none'}
+          accessibilityElementsHidden={!expanded}
+          importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+        >
           <View style={styles.buttonRow}>
             <Pressable
               style={[styles.button, busy && styles.buttonDisabled]}

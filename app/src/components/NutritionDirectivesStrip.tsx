@@ -65,6 +65,7 @@ export const NutritionDirectivesStrip = forwardRef<
   const [autoPick, setAutoPick] = useState(false);
   const [detailEntry, setDetailEntry] = useState<NutritionDirective | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [bodyMounted, setBodyMounted] = useState(false);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const copy = getNutritionSessionsStripCopy(lang?.code);
   const rtl = lang?.code === 'he' || lang?.code === 'ar';
@@ -72,7 +73,10 @@ export const NutritionDirectivesStrip = forwardRef<
   useImperativeHandle(
     ref,
     () => ({
-      expand: () => setExpanded(true),
+      expand: () => {
+        setBodyMounted(true);
+        setExpanded(true);
+      },
       collapse: () => setExpanded(false),
     }),
     [],
@@ -88,7 +92,10 @@ export const NutritionDirectivesStrip = forwardRef<
     void (async () => {
       try {
         const v = await AsyncStorage.getItem(EXPANDED_KEY);
-        if (v === 'true') setExpanded(true);
+        if (v === 'true') {
+          setExpanded(true);
+          setBodyMounted(true);
+        }
       } finally {
         setPrefsLoaded(true);
       }
@@ -149,7 +156,13 @@ export const NutritionDirectivesStrip = forwardRef<
         title={copy.title}
         subtitle={summaryLine}
         expanded={expanded}
-        onToggle={() => setExpanded((v) => !v)}
+        onToggle={() =>
+          setExpanded((v) => {
+            const next = !v;
+            if (next) setBodyMounted(true);
+            return next;
+          })
+        }
         titleRtl={rtl}
         collapseLabel={copy.collapseA11y}
         expandLabel={copy.expandA11y}
@@ -157,8 +170,13 @@ export const NutritionDirectivesStrip = forwardRef<
         icon={StripIcons.sessions}
       />
 
-      {expanded ? (
-      <>
+      {bodyMounted ? (
+      <View
+        style={!expanded ? styles.bodyCollapsed : undefined}
+        pointerEvents={expanded ? 'auto' : 'none'}
+        accessibilityElementsHidden={!expanded}
+        importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+      >
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
         <Pressable
           style={({ pressed }) => [styles.chip, styles.addChip, pressed && styles.chipPressed]}
@@ -192,7 +210,7 @@ export const NutritionDirectivesStrip = forwardRef<
           );
         })}
       </ScrollView>
-      </>
+      </View>
       ) : null}
 
       <NutritionDirectiveReviewModal
@@ -255,6 +273,9 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   },
   cardCollapsed: {
     paddingBottom: 8,
+  },
+  bodyCollapsed: {
+    display: 'none',
   },
   chipsRow: { gap: 8, paddingBottom: 2, paddingTop: 4 },
   chip: {

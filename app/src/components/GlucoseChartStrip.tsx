@@ -1,7 +1,10 @@
 /**
  * Glucose chart strip — expand/collapse isolated from DashboardScreen so toggling
- * does not reconcile the whole dashboard. Collapse flips chrome first, then
- * unmounts the SVG after interactions (full unmount on a settled chart was laggy).
+ * does not reconcile the whole dashboard.
+ *
+ * After first expand the SVG stays mounted (expand stays cheap). Collapse only
+ * hides it — never unmounts. Prefer height:0 + overflow:hidden over display:none
+ * so Android does not tear down the native SVG tree on every collapse.
  */
 
 import React, {
@@ -13,7 +16,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { InteractionManager, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ActivityZone } from '../logic/MetabolicLogic';
 import type { FoodEntry } from '../services/FoodLogService';
@@ -48,6 +51,7 @@ type Props = {
   workoutSessions: WorkoutSession[];
   bmrKcalDay?: number | null;
   foodEntries: FoodEntry[];
+  onMealPress?: (entry: FoodEntry) => void;
   glucoseDisplayUnit: 'mgdl' | 'mmol';
   energyDisplayUnit: EnergyUnit;
   langCode?: string | null;
@@ -68,6 +72,7 @@ export const GlucoseChartStrip = forwardRef<GlucoseChartStripHandle, Props>(
       workoutSessions,
       bmrKcalDay,
       foodEntries,
+      onMealPress,
       glucoseDisplayUnit,
       energyDisplayUnit,
       langCode,
@@ -77,40 +82,26 @@ export const GlucoseChartStrip = forwardRef<GlucoseChartStripHandle, Props>(
     const { colors } = useTheme();
     const styles = useMemo(() => makeStyles(colors), [colors]);
     const [expanded, setExpanded] = useState(false);
-    /** Chart fiber/native tree — cleared after collapse paints so unmount is off the tap path. */
-    const [chartAlive, setChartAlive] = useState(false);
+    /** Keep chart mounted after first expand — collapse only hides it. */
+    const [chartMounted, setChartMounted] = useState(false);
     const [prefsLoaded, setPrefsLoaded] = useState(false);
-    const unmountTask = useRef<{ cancel?: () => void } | null>(null);
-
-    const cancelDeferredUnmount = useCallback(() => {
-      unmountTask.current?.cancel?.();
-      unmountTask.current = null;
-    }, []);
+    const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const collapse = useCallback(() => {
       setExpanded(false);
-      cancelDeferredUnmount();
-      const task = InteractionManager.runAfterInteractions(() => {
-        requestAnimationFrame(() => {
-          setChartAlive(false);
-          unmountTask.current = null;
-        });
-      });
-      unmountTask.current = task;
-    }, [cancelDeferredUnmount]);
+    }, []);
 
     const expand = useCallback(() => {
-      cancelDeferredUnmount();
-      setChartAlive(true);
+      setChartMounted(true);
       setExpanded(true);
-    }, [cancelDeferredUnmount]);
+    }, []);
 
     useImperativeHandle(ref, () => ({ expand, collapse }), [expand, collapse]);
 
     useEffect(() => {
       void AsyncStorage.getItem(DASH_GLUCOSE_EXPANDED_KEY).then((v) => {
         if (v === 'true') {
-          setChartAlive(true);
+          setChartMounted(true);
           setExpanded(true);
         }
         setPrefsLoaded(true);
@@ -119,10 +110,14 @@ export const GlucoseChartStrip = forwardRef<GlucoseChartStripHandle, Props>(
 
     useEffect(() => {
       if (!prefsLoaded) return;
-      void AsyncStorage.setItem(DASH_GLUCOSE_EXPANDED_KEY, expanded ? 'true' : 'false');
+      if (persistTimer.current) clearTimeout(persistTimer.current);
+      persistTimer.current = setTimeout(() => {
+        void AsyncStorage.setItem(DASH_GLUCOSE_EXPANDED_KEY, expanded ? 'true' : 'false');
+      }, 300);
+      return () => {
+        if (persistTimer.current) clearTimeout(persistTimer.current);
+      };
     }, [expanded, prefsLoaded]);
-
-    useEffect(() => () => cancelDeferredUnmount(), [cancelDeferredUnmount]);
 
     return (
       <View style={styles.chartBleed}>
@@ -143,7 +138,7 @@ export const GlucoseChartStrip = forwardRef<GlucoseChartStripHandle, Props>(
             icon={StripIcons.glucose}
             perfTag="MetabolicChart"
           />
-          {chartAlive ? (
+          {chartMounted ? (
             <View
               style={!expanded ? styles.chartBodyCollapsed : undefined}
               pointerEvents={expanded ? 'auto' : 'none'}
@@ -158,9 +153,11 @@ export const GlucoseChartStrip = forwardRef<GlucoseChartStripHandle, Props>(
                 workoutSessions={workoutSessions}
                 bmrKcalDay={bmrKcalDay ?? undefined}
                 foodEntries={foodEntries}
+                onMealPress={onMealPress}
                 glucoseDisplayUnit={glucoseDisplayUnit}
                 energyDisplayUnit={energyDisplayUnit}
                 langCode={langCode}
+                collapsed={!expanded}
               />
             </View>
           ) : null}
@@ -182,17 +179,21 @@ const makeStyles = (c: ThemeColors) =>
       paddingHorizontal: 18,
       paddingTop: 14,
       paddingBottom: 4,
-      minHeight: 328,
+      // No fixed minHeight — a 328→0 jump on collapse reflows the whole dashboard ScrollView.
       overflow: 'visible',
     },
     chartCardBleedCollapsed: {
-      minHeight: 0,
       paddingTop: 14,
       paddingBottom: 12,
       paddingHorizontal: 18,
     },
-    /** Brief hide before deferred unmount — skip SVG layout on the collapse tap. */
+    /**
+     * Hide without display:'none' — that tears down native SVG children on Android
+     * and feels like an unmount. height:0 keeps the fiber + native views alive.
+     */
     chartBodyCollapsed: {
-      display: 'none',
+      height: 0,
+      overflow: 'hidden',
+      opacity: 0,
     },
   });
