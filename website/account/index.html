@@ -618,6 +618,45 @@
         }
       }
 
+      function startWaitingPoll(patientId, opts) {
+        const initialHint = opts?.initialHint || t('wsWaitingForUpload');
+        const maxAttempts = opts?.maxAttempts === undefined ? 20 : opts.maxAttempts;
+        stopPolling();
+        setSyncHint(initialHint, true);
+
+        let attempts = 0;
+        pollTimer = setInterval(async () => {
+          attempts += 1;
+          const status = await fetchSyncStatus(patientId);
+          if (!status?.waitingOnPatient) {
+            stopPolling();
+            setSyncHint(t('wsNewSnapshotReceived'), true);
+            await renderSnapshot();
+            setSyncHint(t('wsNewSnapshotReceived'), true);
+            setTimeout(() => setSyncHint('', false), 4000);
+            return;
+          }
+          if (maxAttempts != null && attempts >= maxAttempts) {
+            stopPolling();
+            setSyncHint(t('wsStillWaiting'), true);
+          }
+        }, 3000);
+      }
+
+      async function resumePendingSyncWait(patientId) {
+        if (!patientId) return;
+        const status = await fetchSyncStatus(patientId);
+        if (!status?.waitingOnPatient) return;
+
+        const requestedAt = status.updateRequest?.requestedAt;
+        const ageMs = requestedAt ? Date.now() - Date.parse(requestedAt) : 0;
+        const stale = Number.isFinite(ageMs) && ageMs >= 60_000;
+        startWaitingPoll(patientId, {
+          initialHint: t(stale ? 'wsStillWaiting' : 'wsWaitingForUpload'),
+          maxAttempts: stale ? null : 20,
+        });
+      }
+
       function showSkeleton() {
         document.getElementById('ws-tabs').hidden = true;
         document.getElementById('ws-main').innerHTML =
@@ -715,30 +754,13 @@
 
           await renderSnapshot();
 
-          let status = await fetchSyncStatus(patientId);
+          const status = await fetchSyncStatus(patientId);
           if (!status?.waitingOnPatient) {
             setSyncHint('', false);
             return;
           }
 
-          setSyncHint(t('wsWaitingForUpload'), true);
-
-          let attempts = 0;
-          pollTimer = setInterval(async () => {
-            attempts += 1;
-            status = await fetchSyncStatus(patientId);
-            if (!status?.waitingOnPatient) {
-              stopPolling();
-              setSyncHint(t('wsNewSnapshotReceived'), true);
-              await renderSnapshot();
-              setTimeout(() => setSyncHint('', false), 4000);
-              return;
-            }
-            if (attempts >= 20) {
-              stopPolling();
-              setSyncHint(t('wsStillWaiting'), true);
-            }
-          }, 3000);
+          startWaitingPoll(patientId);
         } finally {
           btn.disabled = false;
           btn.textContent = prevLabel;
@@ -776,6 +798,7 @@
 
         try {
           await renderSnapshot();
+          await resumePendingSyncWait(workspacePatientId);
         } catch (e) {
           showFatal(e instanceof Error ? e.message : 'Could not open your snapshot.');
         }
