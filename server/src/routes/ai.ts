@@ -36,7 +36,7 @@ const requestSchema = z.object({
   clientEventId: z.string().uuid(),
   reason: reasonSchema,
   body: z.object({
-    contents: z.array(z.unknown()).min(1).max(64),
+    contents: z.array(z.unknown()).min(1).max(256),
     generationConfig: z.record(z.unknown()).optional(),
   }),
 });
