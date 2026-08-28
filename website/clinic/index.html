@@ -2130,30 +2130,34 @@
           return { type: 'on-target', label: '' };
         }
         const underType = axis === 'kcal' ? 'neutral' : 'under';
+
+        // 2% tolerance margin (at least 1g / 10 kcal) to forgive minor rounding & borderline deviations (e.g. 127g vs 126g)
+        const tol = (val) => Math.max(val * 0.02, axis === 'kcal' ? 10 : 1);
+
         if (targetInfo.floor != null && targetInfo.ceiling != null) {
-          if (actual < targetInfo.floor) return { type: underType, label: t('macroStatusUnder') };
-          if (actual > targetInfo.ceiling) return { type: 'over', label: t('macroStatusOver') };
+          if (actual < targetInfo.floor - tol(targetInfo.floor)) return { type: underType, label: t('macroStatusUnder') };
+          if (actual > targetInfo.ceiling + tol(targetInfo.ceiling)) return { type: 'over', label: t('macroStatusOver') };
           return { type: 'on-target', label: t('macroStatusOnTarget') };
         }
         if (targetInfo.floor != null) {
-          if (actual < targetInfo.floor) return { type: underType, label: t('macroStatusUnder') };
+          if (actual < targetInfo.floor - tol(targetInfo.floor)) return { type: underType, label: t('macroStatusUnder') };
           return { type: 'on-target', label: t('macroStatusOnTarget') };
         }
         if (targetInfo.ceiling != null) {
-          if (actual > targetInfo.ceiling) return { type: 'over', label: t('macroStatusOver') };
+          if (actual > targetInfo.ceiling + tol(targetInfo.ceiling)) return { type: 'over', label: t('macroStatusOver') };
           return { type: 'on-target', label: t('macroStatusOnTarget') };
         }
         if (targetInfo.direction === 'floor') {
-          if (actual < targetInfo.dailyTarget) return { type: underType, label: t('macroStatusUnder') };
+          if (actual < targetInfo.dailyTarget - tol(targetInfo.dailyTarget)) return { type: underType, label: t('macroStatusUnder') };
           return { type: 'on-target', label: t('macroStatusOnTarget') };
         }
         if (targetInfo.direction === 'cap') {
-          if (actual > targetInfo.dailyTarget) return { type: 'over', label: t('macroStatusOver') };
+          if (actual > targetInfo.dailyTarget + tol(targetInfo.dailyTarget)) return { type: 'over', label: t('macroStatusOver') };
           return { type: 'on-target', label: t('macroStatusOnTarget') };
         }
         if (targetInfo.value != null) {
-          if (actual > targetInfo.value * 1.1) return { type: 'over', label: t('macroStatusOver') };
-          if (actual < targetInfo.value * 0.9) return { type: underType, label: t('macroStatusUnder') };
+          if (actual > targetInfo.value + tol(targetInfo.value)) return { type: 'over', label: t('macroStatusOver') };
+          if (actual < targetInfo.value - tol(targetInfo.value)) return { type: underType, label: t('macroStatusUnder') };
           return { type: 'on-target', label: t('macroStatusOnTarget') };
         }
         return { type: 'on-target', label: '' };
