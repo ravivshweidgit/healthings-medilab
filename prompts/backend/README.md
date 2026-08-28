@@ -41,15 +41,10 @@ Run in this order. The reason is the dependency, not preference.
 | `be-50-website-downloads.md` | Downloads page — companion apps per phone (10 locales) | needs-review | Android vs iPhone lists, auto-detected. Shares be-49's blocking mirror step |
 | `be-52-the-clinic-page.md` | Healthings main clinic page + one-tap share | needs-review | `/{lang}/the-clinic/`; homepage Clinic ≠ portal login |
 | `be-53-clinic-meal-photos.md` | Clinic meal-photo lightbox (blob route, **no cap raise**) | needs-review | lightbox + GET wired; **API deploy required** before plates show |
-| `be-55-clinic-macro-trends-report.md` | Clinic macro trends report (Target vs Actual) Phase 1 | needs-review | Portal panel + 7d/14d avg calc + AI summary |
-| `be-56-clinic-modern-ui.md` | Modern Clinic Portal UI (Operator Sidebar Shell) | in_progress | Sidebar shell + view routing + topbar chip + responsive |
-
-
-
 
 ## Done
 
-See [`done/README.md`](./done/README.md) — be-01 through be-38 (incl. be-08, be-22).
+See [`done/README.md`](./done/README.md) — be-01 through be-38, be-55, be-56 (incl. be-08, be-22).
 
 ## Status values
 

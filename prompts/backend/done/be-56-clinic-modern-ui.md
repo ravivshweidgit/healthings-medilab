@@ -1,6 +1,6 @@
 # be-56 — Modern Clinic Portal UI (Operator Sidebar Shell)
 
-**Status:** needs-review (implemented 2026-08-28 — evidence below; website deploy pending owner)  
+**Status:** done (2026-08-28 — shipped & owner accepted; deployed to VPS)  
 **Model to implement:** Auto (portal CSS + shell markup + view switching + i18n)  
 **Authored by:** Owner (2026-08-28 — bring Operator console's modern sidebar UI layout to the Clinic portal)  
 **Depends on:** be-25 (clinic portal UI), be-55 (macro trends report)  
@@ -31,3 +31,12 @@ The Operator console (`website/admin/index.html`) has a modern, clean sidebar sh
 | `website/clinic/index.html` | Portal shell layout with sidebar, navigation tabs, views, and view switching |
 | `website/clinic/clinic-portal.css` | Shell styles, sidebar styling, card styles, topbar, responsive layout |
 | `website/clinic/clinic-i18n.js` | Tab titles, navigation labels, and descriptions |
+
+## Verification Checklist
+
+- [x] Modern sidebar navigation with icons and tab switching
+- [x] 5 dedicated views: Patients, Macro Trends, AI Usage, Billing, My Clinic
+- [x] Topbar with view titles, user email chip, and live balance
+- [x] Full 10-language i18n and RTL layout support
+- [x] Theme switching (Dark/Light/System) preserved
+- [x] Mobile drawer / responsive navigation for narrow screens
