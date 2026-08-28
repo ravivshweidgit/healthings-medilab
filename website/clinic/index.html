@@ -2148,8 +2148,8 @@
         try {
           const locale = getLocale() || 'he';
           const prompt = locale.startsWith('he')
-            ? `עבור ${days} הימים האחרונים: תן סיכום לכל מקרו , הכי תמציתי שאפשר : יעד | ממוצע בפועל`
-            : `For the last ${days} days: give a concise summary for each macro: target | actual average`;
+            ? `עבור ${days} הימים האחרונים (לא כולל היום הנוכחי): תן סיכום לכל מקרו , הכי תמציתי שאפשר : יעד | ממוצע בפועל`
+            : `For the last ${days} days (excluding today): give a concise summary for each macro: target | actual average`;
           const res = await api(`/v1/clinic/patients/${encodeURIComponent(patientId)}/chat`, {
             method: 'POST',
             body: JSON.stringify({
@@ -2190,7 +2190,8 @@
         outputEl.innerHTML = '';
 
         const todayKey = todayLocalKey();
-        const startKey = shiftLocalDayKey(todayKey, -(rangeDays - 1));
+        const endKey = shiftLocalDayKey(todayKey, -1);
+        const startKey = shiftLocalDayKey(endKey, -(rangeDays - 1));
 
         for (let i = 0; i < approvedPatients.length; i++) {
           const p = approvedPatients[i];
@@ -2255,7 +2256,7 @@
             continue;
           }
 
-          const mealsInRange = (parsed.meals || []).filter((m) => m.day >= startKey && m.day <= todayKey);
+          const mealsInRange = (parsed.meals || []).filter((m) => m.day >= startKey && m.day <= endKey);
           const daysMap = new Map();
           for (const m of mealsInRange) {
             const dayMeals = daysMap.get(m.day) || [];

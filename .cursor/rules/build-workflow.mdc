@@ -14,10 +14,13 @@ alwaysApply: true
 | **build** / compile check | release APK only | `app\build-APK.bat` |
 | **build ios** | iOS EAS build only | `app\build-ios.bat` |
 | **submit ios** | Upload latest iOS build to TestFlight | `app\submit-ios.bat` |
+| **cpd** | commit + push + deploy | Stage, commit, push & deploy to VPS (`ssh healthings-api "cd /opt/healthings-api && git pull && bash server/scripts/deploy-website.sh"`) |
 
 Treat **bi**, **build install**, and **build and install** as equivalent.
 
 Treat **bi-os** and **bios** as equivalent (iOS TestFlight pipeline).
+
+Treat **cpd** and **commit push deploy** as equivalent (web/backend VPS deploy).
 
 ## Canonical build script — always use this
 

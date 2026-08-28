@@ -1,0 +1,40 @@
+---
+description: CPD (Commit, Push, Deploy) shorthand and workflow for web/backend changes
+alwaysApply: true
+---
+
+# CPD Workflow (Commit, Push, Deploy)
+
+## User Shorthand
+
+| Shorthand | Meaning | Agent Action |
+|-----------|---------|--------------|
+| **cpd** | Commit + Push + Deploy | Stage modified files, commit with a concise message, git push, and deploy to VPS |
+| **commit push deploy** | Same as **cpd** | Full cycle: `git add` + `git commit` + `git push` + VPS deploy |
+
+Treat **cpd**, **commit push deploy**, and **commit, push, deploy** as equivalent.
+
+## What CPD does
+
+1. **Stage & Commit**:
+   Stage only the relevant modified/created files (never commit secrets, `.env`, `keystore.properties`, or ephemeral temp scripts).
+   ```powershell
+   git add <modified-files>
+   git commit -m "<concise descriptive message>"
+   ```
+
+2. **Push**:
+   Push to origin branch:
+   ```powershell
+   git push
+   ```
+
+3. **Deploy to VPS**:
+   Pull the latest commit on the Hetzner VPS and run website/server deployment:
+   ```powershell
+   ssh healthings-api "cd /opt/healthings-api && git pull && bash server/scripts/deploy-website.sh"
+   ```
+   *(If server backend code was changed, restart the node service `pm2 restart api` / `systemctl restart healthings-api` as needed).*
+
+4. **Verify**:
+   Confirm deploy output shows HTTP 200 OK.
