@@ -276,14 +276,14 @@ body.clinic-console {
 
 .theme-pref-dark .clinic-card-head,
 html.theme-pref-dark .clinic-card-head {
-  background: #14171d;
-  border-bottom-color: #262c36;
+  background: var(--surface-2);
+  border-bottom-color: var(--line);
 }
 
 .theme-pref-dark .clinic-card,
 html.theme-pref-dark .clinic-card {
-  background: #101318;
-  border-color: #262c36;
+  background: var(--surface);
+  border-color: var(--line);
 }
 
 .clinic-card-head h2 {
@@ -1337,54 +1337,53 @@ html[dir='rtl'] .ux-filter-input {
 /* Dark mode specific styling for macro report controls and patient cards */
 .theme-pref-dark .macro-report-controls,
 html.theme-pref-dark .macro-report-controls {
-  background: #14171d;
-  border-color: #262c36;
+  background: var(--surface-2);
+  border-color: var(--line);
 }
 
 .theme-pref-dark .macro-days-label,
 html.theme-pref-dark .macro-days-label {
   background: #000000;
-  border-color: #262c36;
+  border-color: var(--line);
   color: var(--text);
 }
 
 .theme-pref-dark #btn-generate-macro-report,
 html.theme-pref-dark #btn-generate-macro-report {
   background: #000000;
-  color: #ffffff;
-  border: 1px solid #3b4453;
+  color: var(--text);
+  border: 1px solid var(--line);
 }
 
 .theme-pref-dark #btn-generate-macro-report:hover,
 html.theme-pref-dark #btn-generate-macro-report:hover {
-  background: #1a202c;
-  border-color: #556277;
+  background: var(--surface-2);
 }
 
 .theme-pref-dark .macro-chip-days,
 html.theme-pref-dark .macro-chip-days {
   background: #000000;
-  border-color: #262c36;
+  border-color: var(--line);
   color: var(--text);
 }
 
 .theme-pref-dark .macro-chip-days.muted,
 html.theme-pref-dark .macro-chip-days.muted {
   color: var(--muted);
-  border-color: #262c36;
+  border-color: var(--line);
 }
 
 .theme-pref-dark .macro-patient-meta .portal-btn.secondary,
 html.theme-pref-dark .macro-patient-meta .portal-btn.secondary {
   background: #000000;
-  border-color: #262c36;
+  border-color: var(--line);
   color: var(--text);
 }
 
 .theme-pref-dark .macro-patient-card,
 html.theme-pref-dark .macro-patient-card {
-  background: #101318;
-  border-color: #262c36;
+  background: var(--surface);
+  border-color: var(--line);
 }
 
 .theme-pref-dark .macro-badge-on-target,
