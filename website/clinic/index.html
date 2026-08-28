@@ -2284,7 +2284,7 @@
                 </div>
                 <div class="macro-patient-meta">
                   <span class="macro-chip-days muted">${escHtml(t('macroNoSnapshot'))}</span>
-                  <a class="portal-btn secondary" href="patient.html?patientId=${encodeURIComponent(p.patientId)}${resolvedName ? '&name=' + encodeURIComponent(resolvedName) : ''}" target="_blank" style="padding: 4px 8px; min-height: auto; font-size: 12px;">${escHtml(t('macroOpenPatient'))}</a>
+                  <a class="portal-btn secondary" href="patient.html?patientId=${encodeURIComponent(p.patientId)}${resolvedName ? '&name=' + encodeURIComponent(resolvedName) : ''}" target="_blank">${escHtml(t('macroOpenPatient'))}</a>
                 </div>
               </div>
             `;
@@ -2310,7 +2310,7 @@
                 </div>
                 <div class="macro-patient-meta">
                   <span class="macro-chip-days muted">${escHtml(t('macroNoLoggedDays'))} (0/${rangeDays})</span>
-                  <a class="portal-btn secondary" href="patient.html?patientId=${encodeURIComponent(p.patientId)}${resolvedName ? '&name=' + encodeURIComponent(resolvedName) : ''}" target="_blank" style="padding: 4px 8px; min-height: auto; font-size: 12px;">${escHtml(t('macroOpenPatient'))}</a>
+                  <a class="portal-btn secondary" href="patient.html?patientId=${encodeURIComponent(p.patientId)}${resolvedName ? '&name=' + encodeURIComponent(resolvedName) : ''}" target="_blank">${escHtml(t('macroOpenPatient'))}</a>
                 </div>
               </div>
             `;
@@ -2447,7 +2447,7 @@
               </div>
               <div class="macro-patient-meta">
                 <span class="macro-chip-days">${escHtml(t('macroLoggedDaysCount', { logged: loggedDaysCount, total: rangeDays }))}</span>
-                <a class="portal-btn secondary" href="patient.html?patientId=${encodeURIComponent(p.patientId)}${resolvedName ? '&name=' + encodeURIComponent(resolvedName) : ''}" target="_blank" style="padding: 4px 8px; min-height: auto; font-size: 12px;">${escHtml(t('macroOpenPatient'))}</a>
+                <a class="portal-btn secondary" href="patient.html?patientId=${encodeURIComponent(p.patientId)}${resolvedName ? '&name=' + encodeURIComponent(resolvedName) : ''}" target="_blank">${escHtml(t('macroOpenPatient'))}</a>
               </div>
             </div>
             <div class="macro-metrics-grid">
