@@ -60,6 +60,7 @@ import {
   type MealIssue,
 } from '../logic/mealIssueAnalysis';
 import {
+  deleteFoodStaple,
   getFoodStaples,
   saveFoodStapleFromItem,
   stapleToFoodItem,
@@ -1415,6 +1416,28 @@ export function FoodLogModal({
     setOverrideSnapshotKey(null);
   }, []);
 
+  const handleLongPressStaple = useCallback(
+    (staple: FoodStaple) => {
+      Alert.alert(
+        ui.deleteItem,
+        `${staple.name_local ?? staple.name}?`,
+        [
+          { text: ui.cancel, style: 'cancel' },
+          {
+            text: ui.deleteItem,
+            style: 'destructive',
+            onPress: async () => {
+              await deleteFoodStaple(staple.id);
+              const list = await getFoodStaples();
+              setStaples(list);
+            },
+          },
+        ],
+      );
+    },
+    [ui.deleteItem, ui.cancel],
+  );
+
   const handleDelete = useCallback(async () => {
     if (!editingId) return;
     Alert.alert(ui.deleteMealTitle, ui.deleteMealMessage, [
@@ -1553,7 +1576,7 @@ export function FoodLogModal({
                   </Pressable>
                 </View>
 
-                {!editEntry && staples.length > 0 ? (
+                {staples.length > 0 ? (
                   <View style={styles.staplesWrap}>
                     <Text style={[styles.staplesLabel, rtl && styles.textRtl]}>{ui.staples}</Text>
                     <ScrollView
@@ -1567,6 +1590,7 @@ export function FoodLogModal({
                           key={staple.id}
                           style={styles.stapleChip}
                           onPress={() => applyStaple(staple)}
+                          onLongPress={() => handleLongPressStaple(staple)}
                           accessibilityRole="button"
                           accessibilityLabel={staple.name_local ?? staple.name}
                         >
@@ -1956,6 +1980,34 @@ export function FoodLogModal({
                       </Pressable>
                     </View>
                   </>
+                ) : null}
+
+                {staples.length > 0 ? (
+                  <View style={styles.staplesWrap}>
+                    <Text style={[styles.staplesLabel, rtl && styles.textRtl]}>{ui.staples}</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.staplesRow}
+                      keyboardShouldPersistTaps="handled"
+                    >
+                      {staples.map((staple) => (
+                        <Pressable
+                          key={staple.id}
+                          style={styles.stapleChip}
+                          onPress={() => applyStaple(staple)}
+                          onLongPress={() => handleLongPressStaple(staple)}
+                          accessibilityRole="button"
+                          accessibilityLabel={staple.name_local ?? staple.name}
+                        >
+                          <Text style={styles.stapleChipText} numberOfLines={1}>
+                            {staple.name_local ?? staple.name}
+                          </Text>
+                          <Text style={styles.stapleChipGrams}>{staple.grams}g</Text>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </View>
                 ) : null}
 
                 <Pressable style={styles.timeRow} onPress={openMealDateTimePicker}>
