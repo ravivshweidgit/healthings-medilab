@@ -717,3 +717,23 @@ CREATE TABLE IF NOT EXISTS meal_photos (
 
 CREATE INDEX IF NOT EXISTS idx_meal_photos_patient_created
   ON meal_photos (patient_id, created_at DESC);
+
+-- Clinic capabilities, licensing & credentials (be-57).
+-- 8 Personas based on 3-bit capabilities: nutrition (N), training (T), medical (D).
+CREATE TABLE IF NOT EXISTS clinic_profiles (
+  account_id UUID PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+  clinic_name VARCHAR(255) NOT NULL DEFAULT '',
+  can_nutrition BOOLEAN NOT NULL DEFAULT TRUE,
+  can_training BOOLEAN NOT NULL DEFAULT FALSE,
+  can_medical BOOLEAN NOT NULL DEFAULT FALSE,
+  license_number VARCHAR(100),
+  issuing_body VARCHAR(255),
+  specialty VARCHAR(255),
+  credential_filename VARCHAR(255),
+  credential_content_type VARCHAR(100),
+  credential_bytes BYTEA,
+  credential_size INT,
+  show_credentials_to_patient BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

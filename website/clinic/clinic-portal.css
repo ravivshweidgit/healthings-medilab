@@ -1587,3 +1587,189 @@ details.macro-ai-summary-box summary.macro-ai-header:hover {
   margin: 0;
 }
 
+/* ── Clinic Capabilities & Credentials (be-57) ────────────────────────── */
+
+.capability-options-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.capability-option-card {
+  display: block;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  user-select: none;
+}
+
+.capability-option-card:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 3%, var(--surface));
+}
+
+.capability-option-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.capability-checkbox {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.capability-option-icon {
+  font-size: 18px;
+}
+
+.capability-option-desc {
+  margin: 0 0 0 28px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.capability-summary-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--surface-2, #f9fafb);
+  border: 1px solid var(--line);
+  margin-top: 10px;
+}
+
+.capability-persona-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--navy);
+  color: var(--bg-page);
+  white-space: nowrap;
+}
+
+.capability-persona-desc {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.credentials-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 600px) {
+  .credentials-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.credential-doc-section {
+  padding: 14px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--surface-2, #f9fafb);
+  margin-top: 6px;
+}
+
+.credential-doc-preview {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  margin-bottom: 10px;
+}
+
+.credential-file-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.credential-file-icon {
+  font-size: 24px;
+}
+
+.credential-file-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.credential-filename {
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.credential-filesize {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.credential-file-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.credential-file-actions .portal-btn {
+  margin: 0;
+  padding: 4px 10px;
+  min-height: 28px;
+  font-size: 12px;
+}
+
+.theme-pref-dark .capability-option-card,
+html.theme-pref-dark .capability-option-card {
+  background: #000000;
+  border-color: var(--line);
+}
+
+.theme-pref-dark .capability-option-card:hover,
+html.theme-pref-dark .capability-option-card:hover {
+  background: #111111;
+}
+
+.theme-pref-dark .capability-summary-box,
+html.theme-pref-dark .capability-summary-box {
+  background: #000000;
+  border-color: var(--line);
+}
+
+.theme-pref-dark .credential-doc-section,
+html.theme-pref-dark .credential-doc-section {
+  background: #000000;
+  border-color: var(--line);
+}
+
+.theme-pref-dark .credential-doc-preview,
+html.theme-pref-dark .credential-doc-preview {
+  background: #111111;
+  border-color: var(--line);
+}
+

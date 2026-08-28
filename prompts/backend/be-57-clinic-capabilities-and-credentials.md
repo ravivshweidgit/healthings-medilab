@@ -1,14 +1,15 @@
 # be-57 — Clinic Capabilities, Roles & Professional Credentials
 
-Status: ready
+Status: needs-review
 Date: 2026-08-29
 Builds on: be-55 (Macro Trends Report), be-56 (Modern Clinic UI), be-26 (Portal i18n)
 Primary files:
 - `website/clinic/index.html` (Clinic settings view & capabilities picker)
 - `website/clinic/clinic-portal.css` (Credentials & capability badge styles)
-- `server/src/db/migrations/0xx_clinic_profiles.sql` (Capabilities & credentials schema)
+- `website/clinic/clinic-i18n.js` (10-locale translation keys for capabilities & credentials)
+- `server/src/db/schema.sql` (Capabilities & credentials schema)
+- `server/src/services/clinicProfiles.ts` (Profile & credential blob service)
 - `server/src/routes/clinic.ts` (Profile & credential upload routes)
-- `app/src/services/ClinicOverlayService.ts` (Role-based consent scoping)
 
 ---
 

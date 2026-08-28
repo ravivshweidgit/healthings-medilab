@@ -36,6 +36,13 @@ import {
   getSyncStatusForActor,
   requestSyncUpdate,
 } from '../services/syncRequests.js';
+import {
+  getClinicProfile,
+  upsertClinicProfile,
+  saveClinicCredentialDoc,
+  deleteClinicCredentialDoc,
+  getClinicCredentialBlob,
+} from '../services/clinicProfiles.js';
 
 export async function registerClinicRoutes(app: FastifyInstance) {
   app.get('/v1/clinic/patients/:patientId/overlay', { preHandler: authenticate }, async (request, reply) => {
@@ -382,5 +389,97 @@ export async function registerClinicRoutes(app: FastifyInstance) {
       if (err instanceof SyncRequestError) return reply.code(err.status).send({ error: err.message });
       throw err;
     }
+  });
+
+  // ── Clinic Capabilities & Professional Credentials (be-57) ───────────────────
+
+  app.get('/v1/clinic/profile', { preHandler: authenticate }, async (request, reply) => {
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    if (user.role !== 'mentor') {
+      return reply.code(403).send({ error: 'Only clinic accounts have clinic profiles' });
+    }
+    const profile = await getClinicProfile(user.id);
+    return { profile };
+  });
+
+  app.put('/v1/clinic/profile', { preHandler: authenticate }, async (request, reply) => {
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    if (user.role !== 'mentor') {
+      return reply.code(403).send({ error: 'Only clinic accounts have clinic profiles' });
+    }
+
+    const schema = z.object({
+      clinicName: z.string().max(255).optional(),
+      canNutrition: z.boolean().optional(),
+      canTraining: z.boolean().optional(),
+      canMedical: z.boolean().optional(),
+      licenseNumber: z.string().max(100).nullable().optional(),
+      issuingBody: z.string().max(255).nullable().optional(),
+      specialty: z.string().max(255).nullable().optional(),
+      showCredentialsToPatient: z.boolean().optional(),
+    });
+
+    const body = schema.parse(request.body);
+    const profile = await upsertClinicProfile(user.id, body);
+    return { profile };
+  });
+
+  app.post('/v1/clinic/credentials/upload', { preHandler: authenticate }, async (request, reply) => {
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    if (user.role !== 'mentor') {
+      return reply.code(403).send({ error: 'Only clinic accounts can upload credentials' });
+    }
+
+    const schema = z.object({
+      filename: z.string().min(1).max(255),
+      contentType: z.string().min(1).max(100),
+      bytesBase64: z.string().min(1),
+    });
+
+    const body = schema.parse(request.body);
+    const buf = Buffer.from(body.bytesBase64, 'base64');
+    const MAX_DOC_BYTES = 10 * 1024 * 1024; // 10MB
+    if (buf.length > MAX_DOC_BYTES) {
+      return reply.code(413).send({ error: 'Credential document exceeds 10 MB limit' });
+    }
+
+    const profile = await saveClinicCredentialDoc(user.id, body.filename, body.contentType, buf);
+    return { profile };
+  });
+
+  app.delete('/v1/clinic/credentials', { preHandler: authenticate }, async (request, reply) => {
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    if (user.role !== 'mentor') {
+      return reply.code(403).send({ error: 'Only clinic accounts can manage credentials' });
+    }
+
+    const profile = await deleteClinicCredentialDoc(user.id);
+    return { profile };
+  });
+
+  app.get('/v1/clinic/credentials/download', { preHandler: authenticate }, async (request, reply) => {
+    const user = await findUserById(request.userId!);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+
+    // Allowed for mentor self, or linked patient
+    const query = z.object({ clinicId: z.string().uuid().optional() }).parse(request.query);
+    const targetMentorId = query.clinicId || (user.role === 'mentor' ? user.id : null);
+    if (!targetMentorId) {
+      return reply.code(400).send({ error: 'clinicId query parameter required for patients' });
+    }
+
+    const blob = await getClinicCredentialBlob(targetMentorId);
+    if (!blob) {
+      return reply.code(404).send({ error: 'No credential document on file' });
+    }
+
+    reply.header('Content-Type', blob.contentType);
+    reply.header('Content-Disposition', `inline; filename="${encodeURIComponent(blob.filename)}"`);
+    reply.header('Content-Length', blob.size);
+    return reply.send(blob.bytes);
   });
 }

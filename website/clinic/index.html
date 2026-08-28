@@ -8,8 +8,8 @@
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="../styles.css?v=20260726g" />
-    <link rel="stylesheet" href="clinic-portal.css?v=20260828i" />
-    <link rel="stylesheet" href="clinic-theme.css?v=20260828i" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260829a" />
+    <link rel="stylesheet" href="clinic-theme.css?v=20260829a" />
   </head>
   <body class="clinic-console">
     <div id="login-wrap" class="clinic-login-wrap">
@@ -395,16 +395,16 @@
           </div>
         </section>
 
-        <!-- VIEW 5: MY CLINIC SETTINGS -->
+        <!-- VIEW 5: MY CLINIC SETTINGS & CAPABILITIES (be-57) -->
         <section id="settings-panel-view" class="clinic-view" data-view-panel="settings" role="tabpanel">
-          <div class="clinic-card">
+          <div class="clinic-card" style="margin-bottom: 20px;">
             <div class="clinic-card-head">
               <div>
-                <h2 data-i18n="myClinicSummary">My clinic</h2>
-                <p data-i18n="myClinicHint">display name shown to patients</p>
+                <h2 data-i18n="myClinicSummary">My clinic &amp; branding</h2>
+                <p data-i18n="myClinicHint">Clinic name and identity shown to patients.</p>
               </div>
             </div>
-            <div class="clinic-card-body" style="max-width: 480px;">
+            <div class="clinic-card-body" style="max-width: 540px;">
               <label class="field-label" for="display-name" data-i18n="displayNameLabel">Clinic display name</label>
               <input
                 id="display-name"
@@ -414,6 +414,120 @@
               />
               <button id="save-name" class="portal-btn secondary" type="button" data-i18n="saveName">Save name</button>
               <p id="name-status" class="portal-status" role="status" aria-live="polite" hidden></p>
+            </div>
+          </div>
+
+          <!-- Professional Capabilities & 8 Personas (be-57) -->
+          <div class="clinic-card" style="margin-bottom: 20px;">
+            <div class="clinic-card-head">
+              <div>
+                <h2 data-i18n="capabilitiesTitle">Professional capabilities &amp; scope</h2>
+                <p data-i18n="capabilitiesLead">Select the services provided by your clinic. Controls visible workspaces and patient consent scopes.</p>
+              </div>
+            </div>
+            <div class="clinic-card-body" style="max-width: 640px;">
+              <div class="capability-options-grid">
+                <label class="capability-option-card">
+                  <div class="capability-option-header">
+                    <input type="checkbox" id="cap-nutrition" class="capability-checkbox" />
+                    <span class="capability-option-icon">🥗</span>
+                    <strong data-i18n="capNutritionTitle">Nutrition &amp; Dietetics</strong>
+                  </div>
+                  <p class="capability-option-desc" data-i18n="capNutritionDesc">Manage patient meal logs, macro targets, dietary directives, and nutritional trends.</p>
+                </label>
+
+                <label class="capability-option-card">
+                  <div class="capability-option-header">
+                    <input type="checkbox" id="cap-training" class="capability-checkbox" />
+                    <span class="capability-option-icon">🏋️</span>
+                    <strong data-i18n="capTrainingTitle">Fitness &amp; Training</strong>
+                  </div>
+                  <p class="capability-option-desc" data-i18n="capTrainingDesc">Track workout volume, active calorie burn, step counts, heart rate zones, and body composition.</p>
+                </label>
+
+                <label class="capability-option-card">
+                  <div class="capability-option-header">
+                    <input type="checkbox" id="cap-medical" class="capability-checkbox" />
+                    <span class="capability-option-icon">🩺</span>
+                    <strong data-i18n="capMedicalTitle">Medical &amp; Clinical Oversight</strong>
+                  </div>
+                  <p class="capability-option-desc" data-i18n="capMedicalDesc">Access full 360° clinical lab panels, continuous glucose monitoring (CGM), and set hard treatment markers.</p>
+                </label>
+              </div>
+
+              <div class="capability-summary-box" id="capability-persona-summary">
+                <span class="capability-persona-badge" id="capability-persona-badge">🥗 Nutritionist Only</span>
+                <span class="capability-persona-desc" id="capability-persona-desc">Optimized for nutrition and dietary guidance.</span>
+              </div>
+
+              <button id="save-capabilities-btn" class="portal-btn" type="button" data-i18n="saveCapabilities" style="margin-top: 14px;">
+                Save capabilities
+              </button>
+              <p id="capabilities-status" class="portal-status" role="status" aria-live="polite" hidden></p>
+            </div>
+          </div>
+
+          <!-- Professional Credentials & Licensing (be-57) -->
+          <div class="clinic-card">
+            <div class="clinic-card-head">
+              <div>
+                <h2 data-i18n="credentialsTitle">Professional credentials &amp; licensing</h2>
+                <p data-i18n="credentialsLead">Optional: Upload licensing certificates or board credentials to establish patient trust.</p>
+              </div>
+            </div>
+            <div class="clinic-card-body" style="max-width: 640px;">
+              <div class="credentials-form-grid">
+                <div class="form-group">
+                  <label class="field-label" for="license-number" data-i18n="licenseNumberLabel">License / Registration number</label>
+                  <input id="license-number" class="portal-input" type="text" placeholder="e.g. MD-123456 / RD-98765" />
+                </div>
+                <div class="form-group">
+                  <label class="field-label" for="issuing-body" data-i18n="issuingBodyLabel">Issuing board / Authority</label>
+                  <input id="issuing-body" class="portal-input" type="text" placeholder="e.g. Ministry of Health / State Medical Board" />
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                  <label class="field-label" for="specialty" data-i18n="specialtyLabel">Clinical / Coaching specialty</label>
+                  <input id="specialty" class="portal-input" type="text" placeholder="e.g. Clinical Nutrition, Sports Cardiology, Longevity Medicine" />
+                </div>
+              </div>
+
+              <div class="credential-doc-section">
+                <label class="field-label" data-i18n="credentialDocLabel">Verification certificate (PDF / Image)</label>
+                
+                <div id="credential-doc-preview" class="credential-doc-preview" hidden>
+                  <div class="credential-file-info">
+                    <span class="credential-file-icon">📄</span>
+                    <div class="credential-file-details">
+                      <strong id="credential-doc-filename" class="credential-filename">certificate.pdf</strong>
+                      <span id="credential-doc-size" class="credential-filesize">2.4 MB</span>
+                    </div>
+                  </div>
+                  <div class="credential-file-actions">
+                    <a id="btn-view-credential" class="portal-btn secondary" target="_blank" data-i18n="viewDoc">View</a>
+                    <button type="button" id="btn-delete-credential" class="portal-btn danger" data-i18n="deleteDoc">Delete</button>
+                  </div>
+                </div>
+
+                <div id="credential-upload-zone" class="credential-upload-zone">
+                  <input type="file" id="credential-file-input" accept=".pdf,image/png,image/jpeg,image/webp" style="display: none;" />
+                  <button type="button" class="portal-btn secondary" id="btn-choose-credential-file" data-i18n="uploadCertificate">
+                    📎 Upload certificate document
+                  </button>
+                  <span class="muted" style="font-size: 12px; margin-inline-start: 8px;" data-i18n="uploadLimitHint">PDF or Image (Max 10 MB)</span>
+                </div>
+              </div>
+
+              <div style="margin-top: 14px;">
+                <label class="macro-ai-toggle-label">
+                  <input type="checkbox" id="show-credentials-patient" checked />
+                  <span data-i18n="showCredentialsToPatientLabel">Display verified credentials badge to linked patients in the app</span>
+                </label>
+              </div>
+
+              <button id="save-credentials-btn" class="portal-btn" type="button" data-i18n="saveCredentials" style="margin-top: 16px;">
+                Save credentials
+              </button>
+              <p id="credentials-status" class="portal-status" role="status" aria-live="polite" hidden></p>
             </div>
           </div>
         </section>
@@ -1402,6 +1516,9 @@
           billingState.wallet = wallet;
           paintBillingPanels();
 
+          // Load clinic capabilities, branding & credentials (be-57)
+          void loadClinicProfile();
+
         const BUSY_LABEL = {
           approve: 'approving',
           reject: 'rejecting',
@@ -1755,6 +1872,244 @@
         worklistState.page += 1;
         renderWorklist();
       };
+
+      /* ── Clinic Profile, Capabilities & Credentials (be-57) ────────── */
+
+      let clinicProfileState = {
+        canNutrition: true,
+        canTraining: false,
+        canMedical: false,
+        licenseNumber: null,
+        issuingBody: null,
+        specialty: null,
+        hasCredentialDoc: false,
+        credentialFilename: null,
+        credentialSize: null,
+        showCredentialsToPatient: true,
+      };
+
+      function updatePersonaSummary() {
+        const n = document.getElementById('cap-nutrition')?.checked ?? true;
+        const tVal = document.getElementById('cap-training')?.checked ?? false;
+        const d = document.getElementById('cap-medical')?.checked ?? false;
+
+        const badgeEl = document.getElementById('capability-persona-badge');
+        const descEl = document.getElementById('capability-persona-desc');
+        if (!badgeEl || !descEl) return;
+
+        let personaTitle = '';
+        let personaDesc = '';
+
+        if (n && tVal && d) {
+          personaTitle = '🩺🥗🏋️ ' + t('personaAllInOne');
+          personaDesc = t('personaDescAllInOne');
+        } else if (n && tVal && !d) {
+          personaTitle = '🥗🏋️ ' + t('personaCoachDiet');
+          personaDesc = t('personaDescCoachDiet');
+        } else if (n && !tVal && d) {
+          personaTitle = '🩺🥗 ' + t('personaMetabolicMed');
+          personaDesc = t('personaDescMetabolicMed');
+        } else if (!n && tVal && d) {
+          personaTitle = '🩺🏋️ ' + t('personaSportsMed');
+          personaDesc = t('personaDescSportsMed');
+        } else if (n && !tVal && !d) {
+          personaTitle = '🥗 ' + t('personaNutritionistOnly');
+          personaDesc = t('personaDescNutritionistOnly');
+        } else if (!n && tVal && !d) {
+          personaTitle = '🏋️ ' + t('personaTrainerOnly');
+          personaDesc = t('personaDescTrainerOnly');
+        } else if (!n && !tVal && d) {
+          personaTitle = '🩺 ' + t('personaDoctorOnly');
+          personaDesc = t('personaDescDoctorOnly');
+        } else {
+          personaTitle = '👁️ ' + t('personaViewerOnly');
+          personaDesc = t('personaDescViewerOnly');
+        }
+
+        badgeEl.textContent = personaTitle;
+        descEl.textContent = personaDesc;
+      }
+
+      function applyClinicAdaptiveNav(profile) {
+        const macroNavBtn = document.querySelector('.clinic-nav-btn[data-view="macro-report"]');
+        if (macroNavBtn) {
+          // Macro trends is shown if Nutrition or Medical is active
+          const showMacro = profile.canNutrition || profile.canMedical;
+          macroNavBtn.style.display = showMacro ? '' : 'none';
+        }
+      }
+
+      async function loadClinicProfile() {
+        try {
+          const res = await api('/v1/clinic/profile');
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data && data.profile) {
+            clinicProfileState = data.profile;
+            const capN = document.getElementById('cap-nutrition');
+            const capT = document.getElementById('cap-training');
+            const capD = document.getElementById('cap-medical');
+            const licNum = document.getElementById('license-number');
+            const issBody = document.getElementById('issuing-body');
+            const spec = document.getElementById('specialty');
+            const showCred = document.getElementById('show-credentials-patient');
+
+            if (capN) capN.checked = Boolean(clinicProfileState.canNutrition);
+            if (capT) capT.checked = Boolean(clinicProfileState.canTraining);
+            if (capD) capD.checked = Boolean(clinicProfileState.canMedical);
+            if (licNum) licNum.value = clinicProfileState.licenseNumber || '';
+            if (issBody) issBody.value = clinicProfileState.issuingBody || '';
+            if (spec) spec.value = clinicProfileState.specialty || '';
+            if (showCred) showCred.checked = Boolean(clinicProfileState.showCredentialsToPatient);
+
+            updatePersonaSummary();
+            renderCredentialDocSection(clinicProfileState);
+            applyClinicAdaptiveNav(clinicProfileState);
+          }
+        } catch (err) {
+          console.error('Error loading clinic profile:', err);
+        }
+      }
+
+      function renderCredentialDocSection(profile) {
+        const previewEl = document.getElementById('credential-doc-preview');
+        const uploadZone = document.getElementById('credential-upload-zone');
+        const filenameEl = document.getElementById('credential-doc-filename');
+        const sizeEl = document.getElementById('credential-doc-size');
+        const viewBtn = document.getElementById('btn-view-credential');
+
+        if (profile.hasCredentialDoc) {
+          if (previewEl) previewEl.hidden = false;
+          if (filenameEl) filenameEl.textContent = profile.credentialFilename || 'certificate.pdf';
+          if (sizeEl) {
+            const kb = profile.credentialSize ? Math.round(profile.credentialSize / 1024) : 0;
+            sizeEl.textContent = kb > 1024 ? (kb / 1024).toFixed(1) + ' MB' : kb + ' KB';
+          }
+          if (viewBtn) {
+            viewBtn.href = `/v1/clinic/credentials/download?t=${Date.now()}`;
+          }
+        } else {
+          if (previewEl) previewEl.hidden = true;
+        }
+      }
+
+      document.getElementById('cap-nutrition')?.addEventListener('change', updatePersonaSummary);
+      document.getElementById('cap-training')?.addEventListener('change', updatePersonaSummary);
+      document.getElementById('cap-medical')?.addEventListener('change', updatePersonaSummary);
+
+      document.getElementById('save-capabilities-btn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('save-capabilities-btn');
+        const canNutrition = document.getElementById('cap-nutrition').checked;
+        const canTraining = document.getElementById('cap-training').checked;
+        const canMedical = document.getElementById('cap-medical').checked;
+        setStatus('capabilities-status', '', '');
+
+        await withBusy(btn, t('saving'), async () => {
+          try {
+            const res = await api('/v1/clinic/profile', {
+              method: 'PUT',
+              body: JSON.stringify({ canNutrition, canTraining, canMedical }),
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              setStatus('capabilities-status', 'err', err.error || t('couldNotSaveCapabilities'));
+              return;
+            }
+            const data = await res.json();
+            clinicProfileState = data.profile;
+            applyClinicAdaptiveNav(clinicProfileState);
+            setStatus('capabilities-status', 'ok', t('capabilitiesSavedOk'));
+          } catch (err) {
+            setStatus('capabilities-status', 'err', err instanceof Error ? err.message : t('couldNotSaveCapabilities'));
+          }
+        });
+      });
+
+      document.getElementById('save-credentials-btn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('save-credentials-btn');
+        const licenseNumber = document.getElementById('license-number').value.trim();
+        const issuingBody = document.getElementById('issuing-body').value.trim();
+        const specialty = document.getElementById('specialty').value.trim();
+        const showCredentialsToPatient = document.getElementById('show-credentials-patient').checked;
+        setStatus('credentials-status', '', '');
+
+        await withBusy(btn, t('saving'), async () => {
+          try {
+            const res = await api('/v1/clinic/profile', {
+              method: 'PUT',
+              body: JSON.stringify({ licenseNumber, issuingBody, specialty, showCredentialsToPatient }),
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              setStatus('credentials-status', 'err', err.error || t('couldNotSaveCredentials'));
+              return;
+            }
+            const data = await res.json();
+            clinicProfileState = data.profile;
+            setStatus('credentials-status', 'ok', t('credentialsSavedOk'));
+          } catch (err) {
+            setStatus('credentials-status', 'err', err instanceof Error ? err.message : t('couldNotSaveCredentials'));
+          }
+        });
+      });
+
+      document.getElementById('btn-choose-credential-file')?.addEventListener('click', () => {
+        document.getElementById('credential-file-input')?.click();
+      });
+
+      document.getElementById('credential-file-input')?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setStatus('credentials-status', '', '');
+
+        const reader = new FileReader();
+        reader.onload = async () => {
+          try {
+            const b64 = reader.result.split(',')[1];
+            const res = await api('/v1/clinic/credentials/upload', {
+              method: 'POST',
+              body: JSON.stringify({
+                filename: file.name,
+                contentType: file.type || 'application/pdf',
+                bytesBase64: b64,
+              }),
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              setStatus('credentials-status', 'err', err.error || t('couldNotUploadCredentialDoc'));
+              return;
+            }
+            const data = await res.json();
+            clinicProfileState = data.profile;
+            renderCredentialDocSection(clinicProfileState);
+            setStatus('credentials-status', 'ok', t('credentialDocUploadedOk'));
+          } catch (err) {
+            setStatus('credentials-status', 'err', err instanceof Error ? err.message : t('couldNotUploadCredentialDoc'));
+          } finally {
+            e.target.value = '';
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+
+      document.getElementById('btn-delete-credential')?.addEventListener('click', async () => {
+        if (!confirm(t('confirmDeleteCredentialDoc'))) return;
+        setStatus('credentials-status', '', '');
+        try {
+          const res = await api('/v1/clinic/credentials', { method: 'DELETE' });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            setStatus('credentials-status', 'err', err.error || t('couldNotDeleteCredentialDoc'));
+            return;
+          }
+          const data = await res.json();
+          clinicProfileState = data.profile;
+          renderCredentialDocSection(clinicProfileState);
+          setStatus('credentials-status', 'ok', t('credentialDocDeletedOk'));
+        } catch (err) {
+          setStatus('credentials-status', 'err', err instanceof Error ? err.message : t('couldNotDeleteCredentialDoc'));
+        }
+      });
 
       document.getElementById('save-name').onclick = async () => {
         showError(appErrorEl(), '');
