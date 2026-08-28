@@ -1,5 +1,4 @@
 import { pool } from '../db/pool.js';
-import type { User } from '../services/users.js';
 
 export interface ClinicProfile {
   accountId: string;
