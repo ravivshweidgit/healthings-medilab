@@ -8,7 +8,7 @@
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="../styles.css?v=20260726g" />
-    <link rel="stylesheet" href="clinic-portal.css?v=20260828f" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260828g" />
     <link rel="stylesheet" href="clinic-theme.css?v=20260728e" />
   </head>
   <body class="clinic-console">
@@ -2094,19 +2094,20 @@
         };
       }
 
-      function getMetricStatus(actual, targetInfo) {
+      function getMetricStatus(actual, targetInfo, axis) {
         if (actual == null) return null;
         if (!targetInfo) {
           // If there is no specific target (e.g. fat flex fill), it counts as on-target / green.
           return { type: 'on-target', label: '' };
         }
+        const underType = axis === 'kcal' ? 'neutral' : 'under';
         if (targetInfo.floor != null && targetInfo.ceiling != null) {
-          if (actual < targetInfo.floor) return { type: 'under', label: t('macroStatusUnder') };
+          if (actual < targetInfo.floor) return { type: underType, label: t('macroStatusUnder') };
           if (actual > targetInfo.ceiling) return { type: 'over', label: t('macroStatusOver') };
           return { type: 'on-target', label: t('macroStatusOnTarget') };
         }
         if (targetInfo.floor != null) {
-          if (actual < targetInfo.floor) return { type: 'under', label: t('macroStatusUnder') };
+          if (actual < targetInfo.floor) return { type: underType, label: t('macroStatusUnder') };
           return { type: 'on-target', label: t('macroStatusOnTarget') };
         }
         if (targetInfo.ceiling != null) {
@@ -2114,7 +2115,7 @@
           return { type: 'on-target', label: t('macroStatusOnTarget') };
         }
         if (targetInfo.direction === 'floor') {
-          if (actual < targetInfo.dailyTarget) return { type: 'under', label: t('macroStatusUnder') };
+          if (actual < targetInfo.dailyTarget) return { type: underType, label: t('macroStatusUnder') };
           return { type: 'on-target', label: t('macroStatusOnTarget') };
         }
         if (targetInfo.direction === 'cap') {
@@ -2123,7 +2124,7 @@
         }
         if (targetInfo.value != null) {
           if (actual > targetInfo.value * 1.1) return { type: 'over', label: t('macroStatusOver') };
-          if (actual < targetInfo.value * 0.9) return { type: 'under', label: t('macroStatusUnder') };
+          if (actual < targetInfo.value * 0.9) return { type: underType, label: t('macroStatusUnder') };
           return { type: 'on-target', label: t('macroStatusOnTarget') };
         }
         return { type: 'on-target', label: '' };
@@ -2382,7 +2383,7 @@
           }
 
           const gridHtml = metrics.map((m) => {
-            const status = getMetricStatus(m.avg, m.target);
+            const status = getMetricStatus(m.avg, m.target, m.axis);
             const statusType = status ? status.type : 'on-target';
             const badgeHtml = (status && status.label) ? `<span class="macro-metric-badge macro-badge-${status.type}">${escHtml(status.label)}</span>` : '';
             const tgtDisplay = m.target?.display ? escHtml(m.target.display) : '—';

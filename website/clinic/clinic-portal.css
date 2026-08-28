@@ -1239,6 +1239,11 @@ html[dir='rtl'] .ux-filter-input {
   border-color: var(--portal-err-line);
 }
 
+.macro-metric-item.macro-item-neutral {
+  background: var(--portal-neutral-bg, #f3f4f6);
+  border-color: var(--portal-neutral-line, var(--line));
+}
+
 .macro-metric-item.macro-item-on-target .macro-metric-label {
   color: var(--portal-ok-ink);
 }
@@ -1246,6 +1251,10 @@ html[dir='rtl'] .ux-filter-input {
 .macro-metric-item.macro-item-over .macro-metric-label,
 .macro-metric-item.macro-item-under .macro-metric-label {
   color: var(--portal-err-ink);
+}
+
+.macro-metric-item.macro-item-neutral .macro-metric-label {
+  color: var(--muted);
 }
 
 .macro-metric-head {
@@ -1288,7 +1297,8 @@ html[dir='rtl'] .ux-filter-input {
   border: 1px solid var(--portal-err-line);
 }
 
-.macro-badge-flex {
+.macro-badge-flex,
+.macro-badge-neutral {
   background: #ffffff;
   color: var(--portal-neutral-ink);
   border: 1px solid var(--portal-neutral-line);
