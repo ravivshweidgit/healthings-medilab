@@ -84,9 +84,14 @@
         return id.length > 8 ? id.slice(0, 8) : id || 'unknown';
       }
 
+      function getPatientIdParam() {
+        const params = new URLSearchParams(location.search);
+        return params.get('patientId') || params.get('id');
+      }
+
       function applyPatientLabel(label) {
         patientLabel = label;
-        const tip = shortPatientId(new URLSearchParams(location.search).get('patientId'));
+        const tip = shortPatientId(getPatientIdParam());
         document.title = label + ' — Healthings clinic';
         if (workspaceCtx) {
           workspaceCtx.displayName = label;
@@ -224,7 +229,7 @@
 
       async function loadWorkspace() {
         const params = new URLSearchParams(location.search);
-        const patientId = params.get('patientId');
+        const patientId = getPatientIdParam();
         if (!patientId) {
           showError(t('wsErrMissingPatientId'));
           return;
@@ -317,7 +322,7 @@
       }
 
       async function refreshSnapshot() {
-        const patientId = new URLSearchParams(location.search).get('patientId');
+        const patientId = getPatientIdParam();
         if (!patientId) return;
 
         const btn = document.getElementById('refresh-snapshot-btn');
@@ -355,7 +360,7 @@
       document.getElementById('refresh-snapshot-btn').onclick = () => void refreshSnapshot();
       void (async () => {
         await loadWorkspace();
-        const patientId = new URLSearchParams(location.search).get('patientId');
+        const patientId = getPatientIdParam();
         if (patientId) await resumePendingSyncWait(patientId);
       })();
     </script>

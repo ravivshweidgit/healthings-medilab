@@ -1148,11 +1148,11 @@ html[dir='rtl'] .ux-filter-input {
 .macro-report-output {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 8px;
 }
 
 .macro-report-placeholder {
-  padding: 18px;
+  padding: 16px;
   text-align: center;
   margin: 0;
 }
@@ -1160,9 +1160,9 @@ html[dir='rtl'] .ux-filter-input {
 .macro-patient-card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius-md, 10px);
-  padding: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border-radius: var(--radius-md, 8px);
+  padding: 8px 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .macro-patient-header {
@@ -1170,40 +1170,40 @@ html[dir='rtl'] .ux-filter-input {
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding-bottom: 5px;
   border-bottom: 1px solid var(--line);
 }
 
 .macro-patient-title {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .macro-patient-name {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text);
 }
 
 .macro-patient-email {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
 }
 
 .macro-patient-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .macro-chip-days {
-  font-size: 12px;
-  padding: 3px 8px;
-  border-radius: 12px;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 10px;
   background: var(--surface-2, #f3f4f6);
   color: var(--text);
   border: 1px solid var(--line);
@@ -1212,19 +1212,19 @@ html[dir='rtl'] .ux-filter-input {
 
 .macro-metrics-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 10px;
-  margin-bottom: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 6px;
+  margin-bottom: 4px;
 }
 
 .macro-metric-item {
   background: var(--surface-2, #f9fafb);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px 12px;
+  border-radius: 6px;
+  padding: 4px 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .macro-metric-head {
@@ -1234,17 +1234,17 @@ html[dir='rtl'] .ux-filter-input {
 }
 
 .macro-metric-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--muted);
 }
 
 .macro-metric-badge {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 1px 4px;
+  border-radius: 3px;
   white-space: nowrap;
 }
 
@@ -1275,20 +1275,20 @@ html[dir='rtl'] .ux-filter-input {
 .macro-metric-body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 4px;
+  gap: 1px;
+  margin-top: 1px;
 }
 
 .macro-metric-row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 6px;
-  font-size: 13px;
+  gap: 4px;
+  font-size: 11px;
 }
 
 .macro-metric-sublabel {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--muted);
   font-weight: 500;
 }
@@ -1300,24 +1300,24 @@ html[dir='rtl'] .ux-filter-input {
 }
 
 .macro-row-actual .macro-metric-num {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .macro-row-target .macro-metric-num {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
 }
 
 details.macro-ai-summary-box {
   background: var(--surface-2, #f9fafb);
   border: 1px solid var(--line);
-  border-inline-start: 4px solid var(--accent, #3b82f6);
-  border-radius: 8px;
+  border-inline-start: 3px solid var(--accent, #3b82f6);
+  border-radius: 6px;
   padding: 0;
-  margin-top: 12px;
-  font-size: 14px;
-  line-height: 1.5;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
   color: var(--text);
   overflow: hidden;
 }
@@ -1326,10 +1326,10 @@ details.macro-ai-summary-box summary.macro-ai-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 14px;
+  padding: 4px 8px;
   cursor: pointer;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--accent, #3b82f6);
   user-select: none;
   list-style: none;
@@ -1344,7 +1344,7 @@ details.macro-ai-summary-box summary.macro-ai-header:hover {
 }
 
 .macro-ai-content {
-  padding: 10px 14px 14px;
+  padding: 8px 10px;
   border-top: 1px solid var(--line);
   background: var(--surface);
 }
@@ -1355,8 +1355,8 @@ details.macro-ai-summary-box summary.macro-ai-header:hover {
 }
 
 .macro-btn-rerun {
-  font-size: 12px;
-  padding: 4px 8px;
+  font-size: 11px;
+  padding: 2px 6px;
   min-height: auto;
   margin: 0;
 }
