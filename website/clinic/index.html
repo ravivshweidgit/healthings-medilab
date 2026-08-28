@@ -8,7 +8,7 @@
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="../styles.css?v=20260726g" />
-    <link rel="stylesheet" href="clinic-portal.css?v=20260828c" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260828d" />
     <link rel="stylesheet" href="clinic-theme.css?v=20260728e" />
   </head>
   <body class="clinic-console">
@@ -2065,11 +2065,16 @@
           if (flexCeil != null) return { display: `≤ ${flexCeil}`, ceiling: flexCeil, strength: 'flex' };
         }
         const tgt = parsed?.macroTarget;
+        // In Healthings, fat is a flex fill to chosen kcal (unless hard bounds set by clinic).
+        // If there are explicit clinic bounds on other axes but not fat, fat is flex fill without target.
+        if (axis === 'fat_g' && bounds.length > 0 && !axisBounds.length) {
+          return null;
+        }
         if (tgt) {
           if (axis === 'kcal' && tgt.kcal) return { display: `${Math.round(tgt.kcal)}`, value: tgt.kcal, strength: 'target' };
           if (axis === 'protein_g' && tgt.protein_g) return { display: `${Math.round(tgt.protein_g)}`, value: tgt.protein_g, strength: 'target' };
           if (axis === 'carb_g' && tgt.carb_g) return { display: `${Math.round(tgt.carb_g)}`, value: tgt.carb_g, strength: 'target' };
-          if (axis === 'fat_g' && tgt.fat_g) return { display: `${Math.round(tgt.fat_g)}`, value: tgt.fat_g, strength: 'target' };
+          if (axis === 'fat_g' && tgt.fat_g && (!bounds.length || axisBounds.length)) return { display: `${Math.round(tgt.fat_g)}`, value: tgt.fat_g, strength: 'target' };
           if (axis === 'fiber_g' && tgt.fiber_g) return { display: `≥ ${Math.round(tgt.fiber_g)}`, floor: tgt.fiber_g, strength: 'target' };
         }
         return null;

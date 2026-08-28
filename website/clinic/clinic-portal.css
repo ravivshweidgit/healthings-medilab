@@ -1261,6 +1261,12 @@ html[dir='rtl'] .ux-filter-input {
 }
 
 .macro-badge-under {
+  background: var(--portal-warn-bg);
+  color: var(--portal-warn-ink);
+  border: 1px solid var(--portal-warn-line);
+}
+
+.macro-badge-flex {
   background: var(--portal-neutral-bg);
   color: var(--portal-neutral-ink);
   border: 1px solid var(--portal-neutral-line);
