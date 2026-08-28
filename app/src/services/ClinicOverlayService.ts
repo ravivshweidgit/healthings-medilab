@@ -15,6 +15,10 @@ import {
   type ClinicMacroBoundsStore,
 } from './ClinicMacroBoundsService';
 import { runPendingMarkersBackfill } from './MarkersBackfillService';
+import {
+  saveActiveTrainingProgram,
+  type TrainingProgramPrescription,
+} from './TrainingDirectiveService';
 
 const CLINIC_RULES_SYNC_AT_KEY = 'healthings:clinicRulesSyncedAt';
 
@@ -106,6 +110,19 @@ export async function pullClinicOverlaysFull(): Promise<ClinicOverlayPullResult>
           ...(bf.error ? { error: bf.error } : {}),
         };
       }
+    }
+
+    // Sync active trainer program & workout split (be-58)
+    try {
+      const trainRes = await authFetch('/v1/patient/training/active');
+      if (trainRes.ok) {
+        const trainData = (await trainRes.json()) as { assignment?: { program?: TrainingProgramPrescription } | null };
+        if (trainData?.assignment?.program) {
+          await saveActiveTrainingProgram(trainData.assignment.program);
+        }
+      }
+    } catch {
+      /* non-blocking */
     }
 
     const rules = overlay.rules;

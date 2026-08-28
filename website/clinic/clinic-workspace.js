@@ -237,12 +237,37 @@
     const burnByDay = withings && global.ClinicCharts ? global.ClinicCharts.computeBurnByDay(withings) : {};
     const water = parseWater(store);
 
+    const workouts = [];
+    if (Array.isArray(withings?.workouts)) {
+      workouts.push(...withings.workouts);
+    }
+    for (const [key, raw] of Object.entries(store)) {
+      const am = key.match(/^activity_log_(\d{4}-\d{2}-\d{2})$/);
+      if (am) {
+        try {
+          for (const act of JSON.parse(raw)) {
+            workouts.push({
+              day: am[1],
+              startMs: act.timestamp || (act.startTime ? Date.parse(act.startTime) : Date.now()),
+              activityLabel: act.name || act.title || 'Workout',
+              category: 0,
+              kcal: act.activityKcal || act.kcal || 0,
+              durationMinutes: act.minutes || act.durationMinutes || 0,
+              source: act.source || 'manual',
+            });
+          }
+        } catch { /* */ }
+      }
+    }
+    workouts.sort((a, b) => (b.startMs || 0) - (a.startMs || 0));
+
     return {
       meals,
       mealsByDay,
       todayMeals,
       eatenByDay,
       burnByDay,
+      workouts,
       glucose: cgm?.glucose || [],
       withings,
       macroTarget,
@@ -3257,6 +3282,320 @@
       </div>`;
   }
 
+  const DEFAULT_WEEKLY_SCHEDULE = [
+    { dayName: 'Sunday', workoutType: 'strength', title: 'Upper Body & Core', durationMinutes: 45, targetKcal: 350, targetZone2Minutes: 0, notes: 'Chest press, Rows, Overhead press, Planks' },
+    { dayName: 'Monday', workoutType: 'cardio', title: 'Zone 2 Cardio (Bike/Run)', durationMinutes: 45, targetKcal: 400, targetZone2Minutes: 40, notes: 'Steady state heart rate Zone 2 (60-70% max HR)' },
+    { dayName: 'Tuesday', workoutType: 'rest', title: 'Active Recovery & Mobility', durationMinutes: 20, targetKcal: 100, targetZone2Minutes: 0, notes: 'Stretching, light walk' },
+    { dayName: 'Wednesday', workoutType: 'strength', title: 'Lower Body & Posterior Chain', durationMinutes: 50, targetKcal: 400, targetZone2Minutes: 0, notes: 'Squats, Romanian deadlifts, Lunges, Calf raises' },
+    { dayName: 'Thursday', workoutType: 'cardio', title: 'Zone 2 Cardio / Incline Walk', durationMinutes: 40, targetKcal: 350, targetZone2Minutes: 35, notes: 'Target distance or steady cycling' },
+    { dayName: 'Friday', workoutType: 'hiit', title: 'Full Body Circuit / Conditioning', durationMinutes: 35, targetKcal: 350, targetZone2Minutes: 15, notes: 'Kettlebells, battle ropes, rowing machine intervals' },
+    { dayName: 'Saturday', workoutType: 'rest', title: 'Rest & Regeneration', durationMinutes: 0, targetKcal: 0, targetZone2Minutes: 0, notes: 'Full recovery day' },
+  ];
+
+  async function renderTrainingTab(panel, ctx) {
+    panel.innerHTML = `<div class="ws-loading" style="padding: 24px; text-align: center;"><p>${esc(t('loading'))}</p></div>`;
+
+    let templates = [];
+    let currentAssignment = null;
+
+    try {
+      const [tplRes, assignRes] = await Promise.all([
+        ClinicApi.api('/v1/clinic/training/programs'),
+        ClinicApi.api(`/v1/clinic/patients/${encodeURIComponent(ctx.patientId)}/training`),
+      ]);
+      if (tplRes.ok) {
+        const data = await tplRes.json();
+        templates = data.programs || [];
+      }
+      if (assignRes.ok) {
+        const data = await assignRes.json();
+        currentAssignment = data.assignment || null;
+      }
+    } catch (err) {
+      console.warn('Failed loading training data', err);
+    }
+
+    const initialProgram = currentAssignment?.program || {
+      id: null,
+      title: 'Balanced Metabolic Hypertrophy & Zone 2',
+      description: 'Progressive overload strength split paired with weekly Zone 2 base building.',
+      targetSessionsPerWeek: 4,
+      targetActiveBurnWeekly: 2500,
+      targetZone2MinutesWeekly: 120,
+      targetDailySteps: 8000,
+      schedule: DEFAULT_WEEKLY_SCHEDULE,
+    };
+
+    let schedule = Array.isArray(initialProgram.schedule) && initialProgram.schedule.length === 7
+      ? initialProgram.schedule
+      : DEFAULT_WEEKLY_SCHEDULE;
+
+    function renderView() {
+      const tplOptions = [
+        `<option value="custom">${esc(t('trainingCustomProgram'))}</option>`,
+        ...templates.map(
+          (p) => `<option value="${esc(p.id)}"${currentAssignment?.programId === p.id ? ' selected' : ''}>${esc(p.title)} (${p.targetSessionsPerWeek} sessions/wk)</option>`
+        ),
+      ].join('');
+
+      const scheduleHtml = schedule
+        .map((day, idx) => {
+          return `
+            <div class="training-day-card" data-day-idx="${idx}">
+              <div class="training-day-head">
+                <span class="training-day-name">${esc(day.dayName || `Day ${idx + 1}`)}</span>
+                <select class="training-day-type-select" data-day-idx="${idx}" style="font-size: 0.8rem; padding: 2px 6px; border-radius: 6px;">
+                  <option value="strength"${day.workoutType === 'strength' ? ' selected' : ''}>🏋️ ${esc(t('trainingTypeStrength'))}</option>
+                  <option value="cardio"${day.workoutType === 'cardio' ? ' selected' : ''}>🏃 ${esc(t('trainingTypeCardio'))}</option>
+                  <option value="hiit"${day.workoutType === 'hiit' ? ' selected' : ''}>⚡ ${esc(t('trainingTypeHiit'))}</option>
+                  <option value="mobility"${day.workoutType === 'mobility' ? ' selected' : ''}>🧘 ${esc(t('trainingTypeMobility'))}</option>
+                  <option value="rest"${day.workoutType === 'rest' ? ' selected' : ''}>🛌 ${esc(t('trainingTypeRest'))}</option>
+                </select>
+              </div>
+              <input type="text" class="training-day-title" data-day-idx="${idx}" placeholder="${esc(t('trainingDayTitlePlaceholder'))}" value="${esc(day.title || '')}" />
+              <div class="training-day-inputs">
+                <label>
+                  ${esc(t('trainingDurationMin'))}
+                  <input type="number" class="training-day-dur" data-day-idx="${idx}" min="0" step="5" value="${esc(String(day.durationMinutes ?? 0))}" dir="ltr" />
+                </label>
+                <label>
+                  ${esc(t('trainingTargetKcal'))}
+                  <input type="number" class="training-day-kcal" data-day-idx="${idx}" min="0" step="25" value="${esc(String(day.targetKcal ?? 0))}" dir="ltr" />
+                </label>
+              </div>
+              <label style="font-size: 0.75rem; color: var(--muted); margin-top: 2px;">
+                ${esc(t('trainingZone2Min'))}
+                <input type="number" class="training-day-z2" data-day-idx="${idx}" min="0" step="5" value="${esc(String(day.targetZone2Minutes ?? 0))}" dir="ltr" />
+              </label>
+              <textarea class="training-day-notes" data-day-idx="${idx}" placeholder="${esc(t('trainingNotesPlaceholder'))}">${esc(day.notes || '')}</textarea>
+            </div>
+          `;
+        })
+        .join('');
+
+      const recentWorkouts = ctx.parsed?.workouts || [];
+      const workoutsHtml = recentWorkouts.length
+        ? recentWorkouts.slice(0, 10).map((w) => `
+            <div class="training-workout-row">
+              <div>
+                <strong>${esc(w.activityLabel || 'Workout')}</strong>
+                <div style="font-size: 0.75rem; color: var(--muted);">${esc(w.day || '')} · ${esc(w.source || 'device')}</div>
+              </div>
+              <div style="text-align: end; font-weight: 600;">
+                <div>${w.durationMinutes ? `${Math.round(w.durationMinutes)} min` : '—'}</div>
+                <div style="font-size: 0.75rem; color: var(--accent-ink);">${w.kcal ? `${Math.round(w.kcal)} kcal` : ''}</div>
+              </div>
+            </div>
+          `).join('')
+        : `<p class="muted" style="font-size: 0.85rem; padding: 12px 0;">${esc(t('trainingNoLoggedWorkouts'))}</p>`;
+
+      panel.innerHTML = `
+        <div class="rules-tab-scroll">
+          <div class="training-tab-header">
+            <div>
+              <h2 style="margin: 0; font-size: 1.25rem;">${esc(t('trainingTabHeading'))}</h2>
+              <p class="sub" style="margin: 4px 0 0;">${esc(t('trainingTabSub'))}</p>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <select id="training-template-select" class="portal-select" style="min-width: 220px;">
+                ${tplOptions}
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 16px;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--muted); margin-bottom: 4px;">
+              ${esc(t('trainingProgramTitleLabel'))}
+            </label>
+            <input type="text" id="training-prog-title" class="portal-input" style="width: 100%; box-sizing: border-box; font-weight: 600;" value="${esc(initialProgram.title || '')}" />
+          </div>
+
+          <div style="margin-bottom: 18px;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--muted); margin-bottom: 4px;">
+              ${esc(t('trainingProgramDescLabel'))}
+            </label>
+            <textarea id="training-prog-desc" class="portal-input" style="width: 100%; box-sizing: border-box; min-height: 48px;">${esc(initialProgram.description || '')}</textarea>
+          </div>
+
+          <h3 style="font-size: 1rem; margin: 0 0 8px;">${esc(t('trainingActivityMacrosHeading'))}</h3>
+          <div class="training-macros-grid">
+            <div class="training-macro-card">
+              <label>🏋️ ${esc(t('trainingMacroSessions'))}</label>
+              <input type="number" id="training-macro-sessions" min="1" max="14" step="1" value="${esc(String(initialProgram.targetSessionsPerWeek || 4))}" dir="ltr" />
+            </div>
+            <div class="training-macro-card">
+              <label>⚡ ${esc(t('trainingMacroBurnWeekly'))}</label>
+              <input type="number" id="training-macro-burn" min="0" step="100" value="${esc(String(initialProgram.targetActiveBurnWeekly || 2500))}" dir="ltr" />
+            </div>
+            <div class="training-macro-card">
+              <label>💓 ${esc(t('trainingMacroZone2Weekly'))}</label>
+              <input type="number" id="training-macro-z2" min="0" step="15" value="${esc(String(initialProgram.targetZone2MinutesWeekly || 120))}" dir="ltr" />
+            </div>
+            <div class="training-macro-card">
+              <label>👟 ${esc(t('trainingMacroDailySteps'))}</label>
+              <input type="number" id="training-macro-steps" min="0" step="500" value="${esc(String(initialProgram.targetDailySteps || 8000))}" dir="ltr" />
+            </div>
+          </div>
+
+          <h3 style="font-size: 1rem; margin: 0 0 10px;">${esc(t('trainingSplitHeading'))}</h3>
+          <div class="training-split-grid">
+            ${scheduleHtml}
+          </div>
+
+          <div style="display: flex; gap: 10px; align-items: center; margin: 20px 0;">
+            <button type="button" id="training-save-patient-btn" class="portal-btn">
+              ${esc(t('trainingSaveAndAssignPatient'))}
+            </button>
+            <button type="button" id="training-save-template-btn" class="portal-btn secondary">
+              ${esc(t('trainingSaveAsTemplate'))}
+            </button>
+            <span id="training-status-msg" class="portal-status" role="status" aria-live="polite" hidden></span>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--grid); margin: 24px 0;" />
+
+          <h3 style="font-size: 1rem; margin: 0 0 6px;">${esc(t('trainingRecentLoggedWorkoutsHeading'))}</h3>
+          <p class="sub" style="margin: 0 0 12px;">${esc(t('trainingRecentLoggedWorkoutsSub'))}</p>
+          <div class="training-workouts-list">
+            ${workoutsHtml}
+          </div>
+        </div>
+      `;
+
+      attachListeners();
+    }
+
+    function collectCurrentSchedule() {
+      const cards = panel.querySelectorAll('.training-day-card');
+      const updated = [];
+      cards.forEach((card, idx) => {
+        const dayName = schedule[idx]?.dayName || `Day ${idx + 1}`;
+        const workoutType = card.querySelector('.training-day-type-select')?.value || 'strength';
+        const title = card.querySelector('.training-day-title')?.value || '';
+        const durationMinutes = parseInt(card.querySelector('.training-day-dur')?.value || '0', 10);
+        const targetKcal = parseInt(card.querySelector('.training-day-kcal')?.value || '0', 10);
+        const targetZone2Minutes = parseInt(card.querySelector('.training-day-z2')?.value || '0', 10);
+        const notes = card.querySelector('.training-day-notes')?.value || '';
+        updated.push({
+          dayName,
+          workoutType,
+          title,
+          durationMinutes,
+          targetKcal,
+          targetZone2Minutes,
+          notes,
+        });
+      });
+      return updated;
+    }
+
+    function showStatus(msg, isErr = false) {
+      const el = panel.querySelector('#training-status-msg');
+      if (!el) return;
+      el.textContent = msg;
+      el.className = isErr ? 'portal-status error' : 'portal-status ok';
+      el.hidden = false;
+      setTimeout(() => { if (el) el.hidden = true; }, 4000);
+    }
+
+    function attachListeners() {
+      const tplSelect = panel.querySelector('#training-template-select');
+      tplSelect?.addEventListener('change', () => {
+        const selectedId = tplSelect.value;
+        if (selectedId === 'custom') return;
+        const found = templates.find((t) => t.id === selectedId);
+        if (found) {
+          panel.querySelector('#training-prog-title').value = found.title || '';
+          panel.querySelector('#training-prog-desc').value = found.description || '';
+          panel.querySelector('#training-macro-sessions').value = found.targetSessionsPerWeek || 4;
+          panel.querySelector('#training-macro-burn').value = found.targetActiveBurnWeekly || 2500;
+          panel.querySelector('#training-macro-z2').value = found.targetZone2MinutesWeekly || 120;
+          panel.querySelector('#training-macro-steps').value = found.targetDailySteps || 8000;
+          schedule = Array.isArray(found.schedule) ? found.schedule : DEFAULT_WEEKLY_SCHEDULE;
+          renderView();
+        }
+      });
+
+      panel.querySelector('#training-save-patient-btn')?.addEventListener('click', async () => {
+        const title = panel.querySelector('#training-prog-title')?.value.trim() || 'Custom Training Program';
+        const description = panel.querySelector('#training-prog-desc')?.value.trim() || '';
+        const targetSessionsPerWeek = parseInt(panel.querySelector('#training-macro-sessions')?.value || '4', 10);
+        const targetActiveBurnWeekly = parseInt(panel.querySelector('#training-macro-burn')?.value || '2500', 10);
+        const targetZone2MinutesWeekly = parseInt(panel.querySelector('#training-macro-z2')?.value || '120', 10);
+        const targetDailySteps = parseInt(panel.querySelector('#training-macro-steps')?.value || '8000', 10);
+        const updatedSchedule = collectCurrentSchedule();
+
+        try {
+          const createRes = await ClinicApi.api('/v1/clinic/training/programs', {
+            method: 'POST',
+            body: JSON.stringify({
+              title,
+              description,
+              targetSessionsPerWeek,
+              targetActiveBurnWeekly,
+              targetZone2MinutesWeekly,
+              targetDailySteps,
+              schedule: updatedSchedule,
+              isTemplate: false,
+            }),
+          });
+          if (!createRes.ok) throw new Error('Failed to create program');
+          const progData = await createRes.json();
+          const programId = progData.program.id;
+
+          const assignRes = await ClinicApi.api('/v1/clinic/training/assign', {
+            method: 'POST',
+            body: JSON.stringify({
+              programId,
+              patientIds: [ctx.patientId],
+            }),
+          });
+          if (!assignRes.ok) throw new Error('Failed to assign program');
+
+          showStatus(t('trainingAssignedOk'));
+        } catch (err) {
+          console.error(err);
+          showStatus(t('trainingAssignFailed'), true);
+        }
+      });
+
+      panel.querySelector('#training-save-template-btn')?.addEventListener('click', async () => {
+        const title = panel.querySelector('#training-prog-title')?.value.trim() || 'Template Program';
+        const description = panel.querySelector('#training-prog-desc')?.value.trim() || '';
+        const targetSessionsPerWeek = parseInt(panel.querySelector('#training-macro-sessions')?.value || '4', 10);
+        const targetActiveBurnWeekly = parseInt(panel.querySelector('#training-macro-burn')?.value || '2500', 10);
+        const targetZone2MinutesWeekly = parseInt(panel.querySelector('#training-macro-z2')?.value || '120', 10);
+        const targetDailySteps = parseInt(panel.querySelector('#training-macro-steps')?.value || '8000', 10);
+        const updatedSchedule = collectCurrentSchedule();
+
+        try {
+          const createRes = await ClinicApi.api('/v1/clinic/training/programs', {
+            method: 'POST',
+            body: JSON.stringify({
+              title,
+              description,
+              targetSessionsPerWeek,
+              targetActiveBurnWeekly,
+              targetZone2MinutesWeekly,
+              targetDailySteps,
+              schedule: updatedSchedule,
+              isTemplate: true,
+            }),
+          });
+          if (!createRes.ok) throw new Error('Failed to save template');
+          const progData = await createRes.json();
+          templates.push(progData.program);
+          showStatus(t('trainingTemplateSavedOk'));
+        } catch (err) {
+          console.error(err);
+          showStatus(t('trainingTemplateSaveFailed'), true);
+        }
+      });
+    }
+
+    renderView();
+  }
+
   const ALL_TABS = [
     { id: 'dashboard', labelKey: 'wsTabDashboard', group: 'read' },
     { id: 'profile', labelKey: 'wsTabProfile', group: 'read' },
@@ -3268,6 +3607,7 @@
     { id: 'rules', labelKey: 'wsTabRules', group: 'write', live: true },
     { id: 'markers', labelKey: 'wsTabMarkers', group: 'write', live: true, clinicOnly: true },
     { id: 'macros', labelKey: 'wsTabMacros', group: 'write', live: true, clinicOnly: true },
+    { id: 'training', labelKey: 'wsTabTraining', group: 'write', live: true, clinicOnly: true },
     // selfOnly: /v1/usage/events is payer-scoped — on the clinic patient page it
     // would show the mentor's whole-clinic ledger, not this patient's usage.
     { id: 'usage', labelKey: 'wsTabUsage', group: 'read', selfOnly: true },
@@ -3412,6 +3752,7 @@
     else if (tab === 'rules') renderRules(body, ctx);
     else if (tab === 'markers') renderMarkers(body, ctx);
     else if (tab === 'macros') renderMacros(body, ctx);
+    else if (tab === 'training') void renderTrainingTab(body, ctx);
     else if (tab === 'labs') renderLabs(body, ctx);
     else if (tab === 'usage') void renderUsage(body, ctx);
 

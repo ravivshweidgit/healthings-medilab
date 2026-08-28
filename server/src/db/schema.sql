@@ -737,3 +737,40 @@ CREATE TABLE IF NOT EXISTS clinic_profiles (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Trainer programs, workout templates & activity macros (be-58).
+CREATE TABLE IF NOT EXISTS training_programs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  mentor_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  target_sessions_per_week INT NOT NULL DEFAULT 3,
+  target_active_burn_weekly INT NOT NULL DEFAULT 2500,
+  target_zone2_minutes_weekly INT NOT NULL DEFAULT 120,
+  target_daily_steps INT NOT NULL DEFAULT 8000,
+  schedule_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  is_template BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_training_programs_mentor
+  ON training_programs (mentor_id, is_template);
+
+CREATE TABLE IF NOT EXISTS training_assignments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  program_id UUID NOT NULL REFERENCES training_programs (id) ON DELETE CASCADE,
+  patient_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  mentor_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  custom_adjustments_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  start_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_training_assignments_patient_active
+  ON training_assignments (patient_id, active);
+CREATE INDEX IF NOT EXISTS idx_training_assignments_mentor
+  ON training_assignments (mentor_id);
+

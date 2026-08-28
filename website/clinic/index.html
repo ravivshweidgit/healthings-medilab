@@ -8,8 +8,8 @@
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="../styles.css?v=20260726g" />
-    <link rel="stylesheet" href="clinic-portal.css?v=20260829a" />
-    <link rel="stylesheet" href="clinic-theme.css?v=20260829a" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260829b" />
+    <link rel="stylesheet" href="clinic-theme.css?v=20260829b" />
   </head>
   <body class="clinic-console">
     <div id="login-wrap" class="clinic-login-wrap">
@@ -92,6 +92,10 @@
           <button type="button" class="clinic-nav-btn" data-view="macro-report" role="tab" aria-controls="macro-report-panel-view">
             <span class="clinic-nav-ico" aria-hidden="true">📊</span>
             <span data-i18n="navMacroReport">Macro trends</span>
+          </button>
+          <button type="button" class="clinic-nav-btn" data-view="training-programs" role="tab" aria-controls="training-programs-panel-view">
+            <span class="clinic-nav-ico" aria-hidden="true">🏋️</span>
+            <span data-i18n="navTrainingPrograms">Training programs</span>
           </button>
           <button type="button" class="clinic-nav-btn" data-view="usage" role="tab" aria-controls="usage-panel-view">
             <span class="clinic-nav-ico" aria-hidden="true">⚡</span>
@@ -342,6 +346,23 @@
           </div>
         </section>
 
+        <!-- VIEW: TRAINING PROGRAMS & TEMPLATES -->
+        <section id="training-programs-panel-view" class="clinic-view" data-view-panel="training-programs" role="tabpanel">
+          <div class="clinic-card">
+            <div class="clinic-card-head">
+              <div>
+                <h2 data-i18n="trainingProgramsPanelTitle">Training programs & templates</h2>
+                <p data-i18n="trainingProgramsLead">Reusable periodized workout programs, split schedules and activity macro targets.</p>
+              </div>
+            </div>
+            <div class="clinic-card-body">
+              <div id="training-templates-list">
+                <p class="muted" style="padding: 16px 0;" data-i18n="trainingTemplatesLoading">Loading templates...</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- VIEW 3: AI USAGE -->
         <section id="usage-panel-view" class="clinic-view" data-view-panel="usage" role="tabpanel">
           <div class="clinic-card">
@@ -535,8 +556,8 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
-    <script src="clinic-i18n.js?v=20260828c"></script>
-    <script src="clinic-workspace.js?v=20260828a"></script>
+    <script src="clinic-i18n.js?v=20260829b"></script>
+    <script src="clinic-workspace.js?v=20260829b"></script>
     <script src="clinic-theme.js?v=20260727c"></script>
     <script src="clinic-api.js?v=20260726k"></script>
     <script>
@@ -638,6 +659,10 @@
           titleKey: 'viewMacroReportTitle',
           leadKey: 'viewMacroReportLead',
         },
+        'training-programs': {
+          titleKey: 'viewTrainingProgramsTitle',
+          leadKey: 'viewTrainingProgramsLead',
+        },
         usage: {
           titleKey: 'viewUsageTitle',
           leadKey: 'viewUsageLead',
@@ -675,6 +700,9 @@
         });
 
         updateViewHeader();
+        if (viewName === 'training-programs') {
+          loadTrainingTemplatesView();
+        }
       }
 
       function updateViewHeader() {
@@ -1936,6 +1964,55 @@
           // Macro trends is shown if Nutrition or Medical is active
           const showMacro = profile.canNutrition || profile.canMedical;
           macroNavBtn.style.display = showMacro ? '' : 'none';
+        }
+        const trainingNavBtn = document.querySelector('.clinic-nav-btn[data-view="training-programs"]');
+        if (trainingNavBtn) {
+          // Training programs is shown if Training or Medical is active
+          const showTraining = profile.canTraining || profile.canMedical;
+          trainingNavBtn.style.display = showTraining ? '' : 'none';
+        }
+      }
+
+      async function loadTrainingTemplatesView() {
+        const listEl = document.getElementById('training-templates-list');
+        if (!listEl) return;
+        listEl.innerHTML = `<p class="muted" style="padding: 16px 0;">${esc(t('trainingTemplatesLoading'))}</p>`;
+        try {
+          const res = await api('/v1/clinic/training/programs');
+          if (!res.ok) throw new Error('Failed to load templates');
+          const data = await res.json();
+          const programs = data.programs || [];
+          if (!programs.length) {
+            listEl.innerHTML = `<p class="muted" style="padding: 16px 0;">${esc(t('trainingNoTemplatesYet'))}</p>`;
+            return;
+          }
+          listEl.innerHTML = `
+            <div class="capability-options-grid" style="grid-template-columns: 1fr; gap: 12px;">
+              ${programs.map((p) => {
+                const days = Array.isArray(p.schedule) ? p.schedule.filter((d) => d.workoutType !== 'rest').length : 0;
+                return `
+                  <div class="capability-option-card" style="cursor: default;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                      <div>
+                        <strong style="font-size: 1.05rem;">${esc(p.title)}</strong>
+                        <p style="font-size: 0.85rem; color: var(--muted); margin: 4px 0 8px;">${esc(p.description || '')}</p>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.8rem;">
+                          <span class="chip ok">🏋️ ${p.targetSessionsPerWeek || days} ${esc(t('trainingSessionsPerWk'))}</span>
+                          <span class="chip">⚡ ${p.targetActiveBurnWeekly || 0} kcal/wk</span>
+                          <span class="chip">💓 ${p.targetZone2MinutesWeekly || 0} min Zone 2</span>
+                          <span class="chip">👟 ${p.targetDailySteps || 0} ${esc(t('trainingStepsPerDay'))}</span>
+                        </div>
+                      </div>
+                      <span class="capability-persona-badge">${p.isTemplate ? esc(t('trainingBadgeTemplate')) : esc(t('trainingBadgePatientCustom'))}</span>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `;
+        } catch (err) {
+          console.error(err);
+          listEl.innerHTML = `<p class="portal-status error">${esc(t('trainingLoadTemplatesFailed'))}</p>`;
         }
       }
 

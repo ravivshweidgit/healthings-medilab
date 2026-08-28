@@ -26,6 +26,11 @@ import {
   getDailyActivityKcal,
   type ActivityEntry,
 } from '../services/ActivityLogService';
+import {
+  loadActiveTrainingProgram,
+  getTodayPrescribedWorkout,
+  type PrescribedWorkoutDay,
+} from '../services/TrainingDirectiveService';
 import type { WorkoutSession } from '../services/WithingsApiService';
 import { getActivityLogUiCopy } from '../i18n/activityLogUiCopy';
 import { formatFoodLogDayLabel } from '../i18n/dateLocale';
@@ -112,6 +117,14 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [entriesLoaded, setEntriesLoaded] = useState(false);
   const [manualKcal, setManualKcal] = useState(0);
+  const [prescribedDay, setPrescribedDay] = useState<PrescribedWorkoutDay | null>(null);
+
+  useEffect(() => {
+    void loadActiveTrainingProgram().then((prog) => {
+      const prescribed = getTodayPrescribedWorkout(prog, new Date(selectedMs));
+      setPrescribedDay(prescribed);
+    });
+  }, [selectedMs, refreshKey]);
 
   useEffect(() => {
     void AsyncStorage.getItem(ACTIVITY_LOG_EXPANDED_KEY).then((v) => {
@@ -289,6 +302,31 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
               : null}
           </Text>
 
+          {prescribedDay && prescribedDay.workoutType !== 'rest' ? (
+            <View style={styles.prescribedCard}>
+              <View style={styles.prescribedHead}>
+                <Text style={styles.prescribedTitle}>
+                  {prescribedDay.workoutType === 'strength'
+                    ? '🏋️ '
+                    : prescribedDay.workoutType === 'cardio'
+                      ? '🏃 '
+                      : prescribedDay.workoutType === 'hiit'
+                        ? '⚡ '
+                        : '🧘 '}
+                  {prescribedDay.title || 'Prescribed Workout'}
+                </Text>
+                <Text style={styles.prescribedMeta}>
+                  {prescribedDay.durationMinutes} min · ~{formatEnergy(prescribedDay.targetKcal, energyU)}
+                </Text>
+              </View>
+              {prescribedDay.notes ? (
+                <Text style={styles.prescribedNotes} numberOfLines={2}>
+                  {prescribedDay.notes}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
           {timelineChips.length === 0 ? (
             <Text style={styles.empty}>{ui.noSessions}</Text>
           ) : (
@@ -419,4 +457,36 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     chipMeta: { fontSize: 11, color: c.textPrimary, marginTop: 4, fontVariant: ['tabular-nums'] },
     chipBadge: { fontSize: 10, color: c.textSecondary, marginTop: 4 },
     chipBadgeWearable: { fontSize: 10, color: isDark ? c.accentBlue : '#1E88E5', marginTop: 4, fontWeight: '600' },
+    prescribedCard: {
+      padding: 12,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(142, 155, 255, 0.4)' : 'rgba(31, 61, 92, 0.2)',
+      backgroundColor: isDark ? 'rgba(142, 155, 255, 0.08)' : 'rgba(31, 61, 92, 0.04)',
+      marginBottom: 10,
+    },
+    prescribedHead: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 8,
+    },
+    prescribedTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: c.textPrimary,
+      flex: 1,
+    },
+    prescribedMeta: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: isDark ? c.accentBlue : '#1F3D5C',
+      fontVariant: ['tabular-nums'],
+    },
+    prescribedNotes: {
+      fontSize: 11,
+      color: c.textSecondary,
+      marginTop: 4,
+      lineHeight: 15,
+    },
   });

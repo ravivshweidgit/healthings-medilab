@@ -1914,3 +1914,120 @@ html[dir='rtl'] .rules-plates-section .treat-field select {
   .lab-pdf-split { grid-template-columns: 1fr; }
   .lab-pdf-frame { height: 42vh; }
 }
+
+/* Training & Workout Split (be-58) */
+.training-tab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.training-macros-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.training-macro-card {
+  padding: 10px 12px;
+  border: 1px solid var(--grid);
+  border-radius: var(--radius);
+  background: var(--surface, var(--bg));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.training-macro-card label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.training-macro-card input {
+  font-size: 1.1rem;
+  font-weight: 700;
+  border: 1px solid var(--grid);
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: var(--bg);
+  color: var(--text);
+  width: 100%;
+  box-sizing: border-box;
+}
+.training-split-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.training-day-card {
+  border: 1px solid var(--grid);
+  border-radius: var(--radius);
+  background: var(--surface, var(--bg));
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.training-day-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.training-day-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.training-day-type {
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--grid);
+  background: var(--bg);
+}
+.training-day-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.training-day-inputs label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.training-day-inputs input,
+.training-day-card textarea {
+  font: inherit;
+  font-size: 0.85rem;
+  border: 1px solid var(--grid);
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+.training-day-card textarea {
+  resize: vertical;
+  min-height: 48px;
+}
+.training-workouts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.training-workout-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--grid);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 0.85rem;
+}
+

@@ -42,6 +42,7 @@ Run in this order. The reason is the dependency, not preference.
 | `be-52-the-clinic-page.md` | Healthings main clinic page + one-tap share | needs-review | `/{lang}/the-clinic/`; homepage Clinic ≠ portal login |
 | `be-53-clinic-meal-photos.md` | Clinic meal-photo lightbox (blob route, **no cap raise**) | needs-review | lightbox + GET wired; **API deploy required** before plates show |
 | `be-57-clinic-capabilities-and-credentials.md` | Clinic capabilities, roles (N/T/D 8 personas) & credentials upload | needs-review | Self-serve practitioner declaration, license upload, and role-based sharing |
+| `be-58-trainer-programs-and-activity-macros.md` | Trainer programs, workout templates & activity macros | needs-review | 3-tier periodization (Daily/Weekly/Monthly), 1-to-many template sharing, hybrid burn math |
 
 ## Done
 
