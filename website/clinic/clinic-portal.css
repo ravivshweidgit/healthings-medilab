@@ -1298,32 +1298,85 @@ html[dir='rtl'] .ux-filter-input {
   padding: 1px 4px;
   border-radius: 3px;
   white-space: nowrap;
-  background: var(--surface);
+  background: transparent;
 }
 
 .macro-badge-on-target {
-  background: #ffffff;
+  background: color-mix(in srgb, var(--portal-ok-bg) 80%, #ffffff);
   color: var(--portal-ok-ink);
   border: 1px solid var(--portal-ok-line);
 }
 
-.macro-badge-over {
-  background: #ffffff;
-  color: var(--portal-err-ink);
-  border: 1px solid var(--portal-err-line);
-}
-
+.macro-badge-over,
 .macro-badge-under {
-  background: #ffffff;
+  background: color-mix(in srgb, var(--portal-err-bg) 80%, #ffffff);
   color: var(--portal-err-ink);
   border: 1px solid var(--portal-err-line);
 }
 
 .macro-badge-flex,
 .macro-badge-neutral {
-  background: #ffffff;
+  background: color-mix(in srgb, var(--portal-neutral-bg) 80%, #ffffff);
   color: var(--portal-neutral-ink);
   border: 1px solid var(--portal-neutral-line);
+}
+
+/* Dark mode specific styling for badges and chip contents */
+.theme-pref-dark .macro-badge-on-target,
+html.theme-pref-dark .macro-badge-on-target {
+  background: #111111;
+  color: var(--portal-ok-ink);
+  border: 1px solid #2e4d34;
+}
+
+.theme-pref-dark .macro-badge-over,
+.theme-pref-dark .macro-badge-under,
+html.theme-pref-dark .macro-badge-over,
+html.theme-pref-dark .macro-badge-under {
+  background: #1a0d0e;
+  color: var(--portal-err-ink);
+  border: 1px solid #5f2226;
+}
+
+.theme-pref-dark .macro-badge-flex,
+.theme-pref-dark .macro-badge-neutral,
+html.theme-pref-dark .macro-badge-flex,
+html.theme-pref-dark .macro-badge-neutral {
+  background: #181715;
+  color: var(--portal-neutral-ink);
+  border: 1px solid #42413c;
+}
+
+.theme-pref-dark .macro-metric-item.macro-item-on-target,
+html.theme-pref-dark .macro-metric-item.macro-item-on-target {
+  background: #000000;
+  border-color: #1e3a24;
+}
+
+.theme-pref-dark .macro-metric-item.macro-item-over,
+.theme-pref-dark .macro-metric-item.macro-item-under,
+html.theme-pref-dark .macro-metric-item.macro-item-over,
+html.theme-pref-dark .macro-metric-item.macro-item-under {
+  background: #000000;
+  border-color: #4a191d;
+}
+
+.theme-pref-dark .macro-metric-item.macro-item-neutral,
+html.theme-pref-dark .macro-metric-item.macro-item-neutral {
+  background: #000000;
+  border-color: #2c2b27;
+}
+
+.theme-pref-dark .macro-metric-item.macro-item-on-target .macro-row-actual .macro-metric-num,
+html.theme-pref-dark .macro-metric-item.macro-item-on-target .macro-row-actual .macro-metric-num {
+  color: var(--portal-ok-ink);
+}
+
+.theme-pref-dark .macro-metric-item.macro-item-over .macro-row-actual .macro-metric-num,
+.theme-pref-dark .macro-metric-item.macro-item-under .macro-row-actual .macro-metric-num,
+html.theme-pref-dark .macro-metric-item.macro-item-over .macro-row-actual .macro-metric-num,
+html.theme-pref-dark .macro-metric-item.macro-item-under .macro-row-actual .macro-metric-num {
+  color: var(--portal-err-ink);
 }
 
 .macro-metric-body {
