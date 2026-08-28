@@ -76,8 +76,9 @@ body.clinic-console {
 .clinic-shell {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
-  min-height: 100vh;
+  height: 100vh;
   width: 100%;
+  overflow: hidden;
 }
 
 .clinic-sidebar {
@@ -88,6 +89,16 @@ body.clinic-console {
   background: color-mix(in srgb, var(--surface) 88%, var(--invert-bg));
   border-inline-end: 1px solid var(--line);
   backdrop-filter: blur(12px);
+  height: 100vh;
+  box-sizing: border-box;
+  overflow-y: auto;
+  position: sticky;
+  top: 0;
+  scrollbar-width: none;
+}
+
+.clinic-sidebar::-webkit-scrollbar {
+  display: none;
 }
 
 .clinic-sidebar .panel-brand {
@@ -160,7 +171,7 @@ body.clinic-console {
   gap: 8px;
   padding: 12px 8px 4px;
   border-top: 1px solid var(--line);
-  margin-top: 12px;
+  margin-top: auto;
 }
 
 .clinic-side-foot .portal-select {
@@ -177,6 +188,9 @@ body.clinic-console {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  height: 100vh;
+  box-sizing: border-box;
+  overflow-y: auto;
   padding: 24px 32px 48px;
 }
 
@@ -284,11 +298,17 @@ body.clinic-console {
 @media (max-width: 900px) {
   .clinic-shell {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
   }
   .clinic-sidebar {
     border-inline-end: none;
     border-bottom: 1px solid var(--line);
     padding: 12px 12px 8px;
+    height: auto;
+    position: static;
+    overflow-y: visible;
   }
   .clinic-nav {
     flex-direction: row;
@@ -309,6 +329,8 @@ body.clinic-console {
     width: auto;
   }
   .clinic-main {
+    height: auto;
+    overflow-y: visible;
     padding: 16px 14px 36px;
   }
 }
