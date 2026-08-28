@@ -174,17 +174,20 @@ body.clinic-console {
   margin-top: auto;
 }
 
-.clinic-side-foot .portal-select {
+.clinic-side-foot .portal-select,
+.clinic-side-foot .theme-pref-select {
   margin: 0;
-  width: 100%;
+  width: 100% !important;
+  max-width: 100% !important;
   box-sizing: border-box;
   min-height: 38px;
 }
 
 .clinic-side-foot .portal-btn {
   margin: 0;
-  width: 100%;
+  width: 100% !important;
   box-sizing: border-box;
+  min-height: 38px;
 }
 
 .clinic-main {
@@ -1378,6 +1381,20 @@ html.theme-pref-dark #btn-generate-macro-report {
   background: #000000;
   color: var(--text);
   border: 1px solid var(--line);
+}
+
+.theme-pref-dark .clinic-side-foot .portal-select,
+.theme-pref-dark .clinic-side-foot .portal-btn,
+html.theme-pref-dark .clinic-side-foot .portal-select,
+html.theme-pref-dark .clinic-side-foot .portal-btn {
+  background: #000000;
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.theme-pref-dark .clinic-side-foot .portal-btn:hover,
+html.theme-pref-dark .clinic-side-foot .portal-btn:hover {
+  background: #111111;
 }
 
 .theme-pref-dark #btn-generate-macro-report:hover,

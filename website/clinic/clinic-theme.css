@@ -362,6 +362,20 @@ html.theme-pref-dark .row-actions .portal-btn.danger {
 html.theme-pref-dark .row-actions .portal-btn.danger:hover {
   background: #1a1a1a;
 }
+.theme-pref-dark .clinic-side-foot .portal-select,
+.theme-pref-dark .clinic-side-foot .portal-btn,
+.theme-pref-dark .login-card .portal-select,
+html.theme-pref-dark .clinic-side-foot .portal-select,
+html.theme-pref-dark .clinic-side-foot .portal-btn,
+html.theme-pref-dark .login-card .portal-select {
+  background: #000000;
+  border-color: var(--line);
+  color: var(--text);
+}
+.theme-pref-dark .clinic-side-foot .portal-btn:hover,
+html.theme-pref-dark .clinic-side-foot .portal-btn:hover {
+  background: #111111;
+}
 
 @media (prefers-color-scheme: dark) {
   .theme-pref-system .ws-banner-stats,
@@ -559,9 +573,28 @@ html.theme-pref-dark .row-actions .portal-btn.danger:hover {
   html.theme-pref-system .row-actions .portal-btn.danger:hover {
     background: #1a1a1a;
   }
+  .theme-pref-system .clinic-side-foot .portal-select,
+  .theme-pref-system .clinic-side-foot .portal-btn,
+  .theme-pref-system .login-card .portal-select,
+  html.theme-pref-system .clinic-side-foot .portal-select,
+  html.theme-pref-system .clinic-side-foot .portal-btn,
+  html.theme-pref-system .login-card .portal-select {
+    background: #000000;
+    border-color: var(--line);
+    color: var(--text);
+  }
+  .theme-pref-system .clinic-side-foot .portal-btn:hover,
+  html.theme-pref-system .clinic-side-foot .portal-btn:hover {
+    background: #111111;
+  }
 }
 
 .theme-pref-select {
   min-width: 7.5rem;
-  max-width: 9rem;
+}
+
+.clinic-side-foot .theme-pref-select,
+.login-card .theme-pref-select {
+  max-width: none;
+  width: 100%;
 }
