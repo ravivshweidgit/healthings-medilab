@@ -1322,6 +1322,59 @@ html[dir='rtl'] .ux-filter-input {
 }
 
 /* Dark mode specific styling for badges and chip contents */
+/* Dark mode specific styling for macro report controls and patient cards */
+.theme-pref-dark .macro-report-controls,
+html.theme-pref-dark .macro-report-controls {
+  background: #181715;
+  border-color: #2c2b27;
+}
+
+.theme-pref-dark .macro-days-label,
+html.theme-pref-dark .macro-days-label {
+  background: #000000;
+  border-color: #333333;
+  color: var(--text);
+}
+
+.theme-pref-dark #btn-generate-macro-report,
+html.theme-pref-dark #btn-generate-macro-report {
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #444444;
+}
+
+.theme-pref-dark #btn-generate-macro-report:hover,
+html.theme-pref-dark #btn-generate-macro-report:hover {
+  background: #1a1a1a;
+  border-color: #666666;
+}
+
+.theme-pref-dark .macro-chip-days,
+html.theme-pref-dark .macro-chip-days {
+  background: #000000;
+  border-color: #2c2b27;
+  color: var(--text);
+}
+
+.theme-pref-dark .macro-chip-days.muted,
+html.theme-pref-dark .macro-chip-days.muted {
+  color: var(--muted);
+  border-color: #222222;
+}
+
+.theme-pref-dark .macro-patient-meta .portal-btn.secondary,
+html.theme-pref-dark .macro-patient-meta .portal-btn.secondary {
+  background: #000000;
+  border-color: #2c2b27;
+  color: var(--text);
+}
+
+.theme-pref-dark .macro-patient-card,
+html.theme-pref-dark .macro-patient-card {
+  background: #151412;
+  border-color: #2c2b27;
+}
+
 .theme-pref-dark .macro-badge-on-target,
 html.theme-pref-dark .macro-badge-on-target {
   background: #111111;
