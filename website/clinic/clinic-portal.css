@@ -1225,6 +1225,27 @@ html[dir='rtl'] .ux-filter-input {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.macro-metric-item.macro-item-on-target {
+  background: var(--portal-ok-bg);
+  border-color: var(--portal-ok-line);
+}
+
+.macro-metric-item.macro-item-over,
+.macro-metric-item.macro-item-under {
+  background: var(--portal-err-bg);
+  border-color: var(--portal-err-line);
+}
+
+.macro-metric-item.macro-item-on-target .macro-metric-label {
+  color: var(--portal-ok-ink);
+}
+
+.macro-metric-item.macro-item-over .macro-metric-label,
+.macro-metric-item.macro-item-under .macro-metric-label {
+  color: var(--portal-err-ink);
 }
 
 .macro-metric-head {
@@ -1246,28 +1267,29 @@ html[dir='rtl'] .ux-filter-input {
   padding: 1px 4px;
   border-radius: 3px;
   white-space: nowrap;
+  background: var(--surface);
 }
 
 .macro-badge-on-target {
-  background: var(--portal-ok-bg);
+  background: #ffffff;
   color: var(--portal-ok-ink);
   border: 1px solid var(--portal-ok-line);
 }
 
 .macro-badge-over {
-  background: var(--portal-err-bg);
+  background: #ffffff;
   color: var(--portal-err-ink);
   border: 1px solid var(--portal-err-line);
 }
 
 .macro-badge-under {
-  background: var(--portal-err-bg);
+  background: #ffffff;
   color: var(--portal-err-ink);
   border: 1px solid var(--portal-err-line);
 }
 
 .macro-badge-flex {
-  background: var(--portal-neutral-bg);
+  background: #ffffff;
   color: var(--portal-neutral-ink);
   border: 1px solid var(--portal-neutral-line);
 }

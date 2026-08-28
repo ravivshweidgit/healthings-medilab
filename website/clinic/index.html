@@ -2095,7 +2095,11 @@
       }
 
       function getMetricStatus(actual, targetInfo) {
-        if (!targetInfo || actual == null) return null;
+        if (actual == null) return null;
+        if (!targetInfo) {
+          // If there is no specific target (e.g. fat flex fill), it counts as on-target / green.
+          return { type: 'on-target', label: '' };
+        }
         if (targetInfo.floor != null && targetInfo.ceiling != null) {
           if (actual < targetInfo.floor) return { type: 'under', label: t('macroStatusUnder') };
           if (actual > targetInfo.ceiling) return { type: 'over', label: t('macroStatusOver') };
@@ -2122,7 +2126,7 @@
           if (actual < targetInfo.value * 0.9) return { type: 'under', label: t('macroStatusUnder') };
           return { type: 'on-target', label: t('macroStatusOnTarget') };
         }
-        return null;
+        return { type: 'on-target', label: '' };
       }
 
       function renderMacroPatientTitleHtml(dispName, email) {
@@ -2379,10 +2383,11 @@
 
           const gridHtml = metrics.map((m) => {
             const status = getMetricStatus(m.avg, m.target);
-            const badgeHtml = status ? `<span class="macro-metric-badge macro-badge-${status.type}">${escHtml(status.label)}</span>` : '';
+            const statusType = status ? status.type : 'on-target';
+            const badgeHtml = (status && status.label) ? `<span class="macro-metric-badge macro-badge-${status.type}">${escHtml(status.label)}</span>` : '';
             const tgtDisplay = m.target?.display ? escHtml(m.target.display) : '—';
             return `
-              <div class="macro-metric-item">
+              <div class="macro-metric-item macro-item-${statusType}">
                 <div class="macro-metric-head">
                   <span class="macro-metric-label">${escHtml(m.label)}</span>
                   ${badgeHtml}
