@@ -8,7 +8,7 @@
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="../styles.css?v=20260726g" />
-    <link rel="stylesheet" href="clinic-portal.css?v=20260828b" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260828c" />
     <link rel="stylesheet" href="clinic-theme.css?v=20260728e" />
   </head>
   <body class="clinic-console">
@@ -421,7 +421,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
-    <script src="clinic-i18n.js?v=20260828b"></script>
+    <script src="clinic-i18n.js?v=20260828c"></script>
     <script src="clinic-workspace.js?v=20260828a"></script>
     <script src="clinic-theme.js?v=20260727c"></script>
     <script src="clinic-api.js?v=20260726k"></script>
@@ -2122,10 +2122,22 @@
         return null;
       }
 
-      async function runAiSummaryForPatient(patientId, days, summaryEl, rerunBtn) {
-        if (!summaryEl) return;
-        summaryEl.hidden = false;
-        const textEl = summaryEl.querySelector('.macro-ai-text');
+      function renderMacroPatientTitleHtml(dispName, email) {
+        const cleanName = (dispName || '').trim();
+        const cleanEmail = (email || '').trim();
+        if (cleanName && cleanName.toLowerCase() !== cleanEmail.toLowerCase()) {
+          return `
+            <span class="macro-patient-name">${escHtml(cleanName)}</span>
+            <span class="macro-patient-email" dir="ltr">(${escHtml(cleanEmail)})</span>
+          `;
+        }
+        return `<span class="macro-patient-name" dir="ltr">${escHtml(cleanEmail)}</span>`;
+      }
+
+      async function runAiSummaryForPatient(patientId, days, detailsEl, rerunBtn) {
+        if (!detailsEl) return;
+        detailsEl.hidden = false;
+        const textEl = detailsEl.querySelector('.macro-ai-text');
         if (textEl) textEl.textContent = t('macroAiRunning');
         if (rerunBtn) rerunBtn.disabled = true;
         try {
@@ -2177,9 +2189,9 @@
 
         for (let i = 0; i < approvedPatients.length; i++) {
           const p = approvedPatients[i];
-          const name = p.patientDisplayName || p.patientEmail;
+          const initialName = patientDisplayName(p) || p.patientEmail;
           progressText.textContent = t('macroReportLoadingPatient', {
-            name,
+            name: initialName,
             current: i + 1,
             total: approvedPatients.length,
           });
@@ -2214,6 +2226,10 @@
             console.error('Error fetching snapshot/overlay for patient', p.patientId, err);
           }
 
+          const resolvedName = patientDisplayName(p) || (parsed?.profile?.name || parsed?.profile?.displayName || '').trim();
+          const email = p.patientEmail || '';
+          const titleHtml = renderMacroPatientTitleHtml(resolvedName, email);
+
           const card = document.createElement('div');
           card.className = 'macro-patient-card';
           card.dataset.patientId = p.patientId;
@@ -2222,8 +2238,7 @@
             card.innerHTML = `
               <div class="macro-patient-header">
                 <div class="macro-patient-title">
-                  <span class="macro-patient-name">${escHtml(name)}</span>
-                  <span class="macro-patient-email" dir="ltr">${escHtml(p.patientEmail)}</span>
+                  ${titleHtml}
                 </div>
                 <div class="macro-patient-meta">
                   <span class="macro-chip-days muted">${escHtml(t('macroNoSnapshot'))}</span>
@@ -2249,8 +2264,7 @@
             card.innerHTML = `
               <div class="macro-patient-header">
                 <div class="macro-patient-title">
-                  <span class="macro-patient-name">${escHtml(name)}</span>
-                  <span class="macro-patient-email" dir="ltr">${escHtml(p.patientEmail)}</span>
+                  ${titleHtml}
                 </div>
                 <div class="macro-patient-meta">
                   <span class="macro-chip-days muted">${escHtml(t('macroNoLoggedDays'))} (0/${rangeDays})</span>
@@ -2362,7 +2376,7 @@
           const gridHtml = metrics.map((m) => {
             const status = getMetricStatus(m.avg, m.target);
             const badgeHtml = status ? `<span class="macro-metric-badge macro-badge-${status.type}">${escHtml(status.label)}</span>` : '';
-            const tgtDisplay = m.target?.display ? `${escHtml(t('macroTargetLabel'))}: ${escHtml(m.target.display)}` : `${escHtml(t('macroTargetLabel'))}: —`;
+            const tgtDisplay = m.target?.display ? escHtml(m.target.display) : '—';
             return `
               <div class="macro-metric-item">
                 <div class="macro-metric-head">
@@ -2370,8 +2384,14 @@
                   ${badgeHtml}
                 </div>
                 <div class="macro-metric-body">
-                  <span class="macro-metric-val">${escHtml(String(m.avg))} ${escHtml(m.unit)}</span>
-                  <span class="macro-metric-target">${tgtDisplay}</span>
+                  <div class="macro-metric-row macro-row-actual">
+                    <span class="macro-metric-sublabel">${escHtml(t('macroActualLabel'))}:</span>
+                    <span class="macro-metric-num" dir="ltr"><strong>${escHtml(String(m.avg))}</strong> ${escHtml(m.unit)}</span>
+                  </div>
+                  <div class="macro-metric-row macro-row-target">
+                    <span class="macro-metric-sublabel">${escHtml(t('macroTargetLabel'))}:</span>
+                    <span class="macro-metric-num" dir="ltr">${tgtDisplay}</span>
+                  </div>
                 </div>
               </div>
             `;
@@ -2380,8 +2400,7 @@
           card.innerHTML = `
             <div class="macro-patient-header">
               <div class="macro-patient-title">
-                <span class="macro-patient-name">${escHtml(name)}</span>
-                <span class="macro-patient-email" dir="ltr">${escHtml(p.patientEmail)}</span>
+                ${titleHtml}
               </div>
               <div class="macro-patient-meta">
                 <span class="macro-chip-days">${escHtml(t('macroLoggedDaysCount', { logged: loggedDaysCount, total: rangeDays }))}</span>
@@ -2391,21 +2410,27 @@
             <div class="macro-metrics-grid">
               ${gridHtml}
             </div>
-            <div class="macro-ai-summary-box" ${includeAi ? '' : 'hidden'}>
-              <div class="macro-ai-header">
+            <details class="macro-ai-summary-box" ${includeAi ? '' : 'hidden'}>
+              <summary class="macro-ai-header">
                 <span>🤖 ${escHtml(t('macroAiSummaryTitle'))}</span>
                 <button type="button" class="portal-btn secondary macro-btn-rerun">${escHtml(t('macroRerunAi'))}</button>
+              </summary>
+              <div class="macro-ai-content">
+                <div class="macro-ai-text">${includeAi ? escHtml(t('macroAiRunning')) : ''}</div>
               </div>
-              <div class="macro-ai-text">${includeAi ? escHtml(t('macroAiRunning')) : ''}</div>
-            </div>
+            </details>
           `;
 
           outputEl.appendChild(card);
 
-          const aiBox = card.querySelector('.macro-ai-summary-box');
+          const aiBox = card.querySelector('details.macro-ai-summary-box');
           const rerunBtn = card.querySelector('.macro-btn-rerun');
           if (rerunBtn) {
-            rerunBtn.addEventListener('click', () => void runAiSummaryForPatient(p.patientId, rangeDays, aiBox, rerunBtn));
+            rerunBtn.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              void runAiSummaryForPatient(p.patientId, rangeDays, aiBox, rerunBtn);
+            });
           }
 
           if (includeAi) {
