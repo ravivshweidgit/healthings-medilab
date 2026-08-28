@@ -2056,13 +2056,42 @@
         const bounds = overlay?.macros?.bounds || [];
         const axisBounds = bounds.filter((b) => b.axis === axis);
         if (axisBounds.length) {
-          const floor = axisBounds.find((b) => b.direction === 'floor' && b.strength === 'hard')?.value;
-          const ceil = axisBounds.find((b) => b.direction === 'ceiling' && b.strength === 'hard')?.value;
-          const flexCeil = axisBounds.find((b) => b.direction === 'ceiling' && b.strength === 'flex')?.value;
-          if (floor != null && ceil != null) return { display: `${floor}–${ceil}`, floor, ceiling: ceil, strength: 'hard' };
-          if (floor != null) return { display: `≥ ${floor}`, floor, strength: 'hard' };
-          if (ceil != null) return { display: `≤ ${ceil}`, ceiling: ceil, strength: 'hard' };
-          if (flexCeil != null) return { display: `≤ ${flexCeil}`, ceiling: flexCeil, strength: 'flex' };
+          const kcalCeilBound = bounds.find((b) => b.axis === 'kcal' && b.direction === 'ceiling');
+          const kcalBase = kcalCeilBound?.value != null ? Number(kcalCeilBound.value) : (parsed?.macroTarget?.kcal || null);
+
+          const resolveBoundVal = (b) => {
+            if (!b) return null;
+            if (b.kind === 'percent' && b.of === 'kcal_order') {
+              if (b.resolvedValue != null && Number(b.resolvedValue) > 0) return Number(b.resolvedValue);
+              if (kcalBase != null && Number(b.value) > 0) {
+                const denom = axis === 'fat_g' ? 9 : 4;
+                return Math.round(((Number(b.value) / 100) * kcalBase) / denom * 10) / 10;
+              }
+            }
+            return b.resolvedValue != null ? Number(b.resolvedValue) : (b.value != null ? Number(b.value) : null);
+          };
+
+          const floorBound = axisBounds.find((b) => b.direction === 'floor' && b.strength === 'hard');
+          const ceilBound = axisBounds.find((b) => b.direction === 'ceiling' && b.strength === 'hard');
+          const flexCeilBound = axisBounds.find((b) => b.direction === 'ceiling' && b.strength === 'flex');
+
+          const floor = resolveBoundVal(floorBound);
+          const ceil = resolveBoundVal(ceilBound);
+          const flexCeil = resolveBoundVal(flexCeilBound);
+
+          const formatDisp = (val, boundObj) => {
+            if (val == null) return '';
+            const numStr = String(Math.round(val));
+            if (boundObj?.kind === 'percent' && boundObj?.value != null) {
+              return `${numStr} (${boundObj.value}%)`;
+            }
+            return numStr;
+          };
+
+          if (floor != null && ceil != null) return { display: `${Math.round(floor)}–${Math.round(ceil)}`, floor, ceiling: ceil, strength: 'hard' };
+          if (floor != null) return { display: `≥ ${formatDisp(floor, floorBound)}`, floor, strength: 'hard' };
+          if (ceil != null) return { display: `≤ ${formatDisp(ceil, ceilBound)}`, ceiling: ceil, strength: 'hard' };
+          if (flexCeil != null) return { display: `≤ ${formatDisp(flexCeil, flexCeilBound)}`, ceiling: flexCeil, strength: 'flex' };
         }
         // In Healthings, fat is always a flex fill to chosen kcal (unless explicit clinic bounds are set).
         if (axis === 'fat_g') {
