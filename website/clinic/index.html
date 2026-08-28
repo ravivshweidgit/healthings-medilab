@@ -8,12 +8,12 @@
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="../styles.css?v=20260726g" />
-    <link rel="stylesheet" href="clinic-portal.css?v=20260727i" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260828b" />
     <link rel="stylesheet" href="clinic-theme.css?v=20260728e" />
   </head>
-  <body>
-    <div class="portal-wrap">
-      <section id="login-view" class="card login-card">
+  <body class="clinic-console">
+    <div id="login-wrap" class="clinic-login-wrap">
+      <section id="login-view" class="login-card">
         <a class="panel-brand" href="../index.html" style="margin-bottom: 16px">
           <img src="../assets/icon.png" alt="" width="36" height="36" />
           <span>
@@ -72,254 +72,357 @@
           data-i18n-aria="appearanceLabel"
         ></select>
       </section>
+    </div>
 
-      <section id="app-view" hidden>
-        <header class="panel-header">
-          <a class="panel-brand" href="../index.html">
-            <img src="../assets/icon.png" alt="" width="36" height="36" />
-            <span>
-              <span class="panel-brand-text" data-i18n="brand">Healthings</span><br />
-              <span class="panel-brand-sub" data-i18n="brandSub">Clinic</span>
-            </span>
-          </a>
-          <div class="panel-header-meta">
-            <span class="muted" id="header-email" dir="ltr"></span>
+    <div id="app-wrap" class="clinic-shell" hidden>
+      <aside class="clinic-sidebar" aria-label="Clinic navigation">
+        <a class="panel-brand" href="../index.html">
+          <img src="../assets/icon.png" alt="" width="32" height="32" />
+          <span>
+            <span class="panel-brand-text" data-i18n="brand">Healthings</span><br />
+            <span class="panel-brand-sub" data-i18n="brandSub">Clinic</span>
+          </span>
+        </a>
+
+        <nav class="clinic-nav" role="tablist" aria-label="Sections">
+          <button type="button" class="clinic-nav-btn" data-view="patients" role="tab" aria-controls="patients-panel">
+            <span class="clinic-nav-ico" aria-hidden="true">👥</span>
+            <span data-i18n="navPatients">Patients</span>
+          </button>
+          <button type="button" class="clinic-nav-btn" data-view="macro-report" role="tab" aria-controls="macro-report-panel-view">
+            <span class="clinic-nav-ico" aria-hidden="true">📊</span>
+            <span data-i18n="navMacroReport">Macro trends</span>
+          </button>
+          <button type="button" class="clinic-nav-btn" data-view="usage" role="tab" aria-controls="usage-panel-view">
+            <span class="clinic-nav-ico" aria-hidden="true">⚡</span>
+            <span data-i18n="navUsage">AI usage</span>
+          </button>
+          <button type="button" class="clinic-nav-btn" data-view="billing" role="tab" aria-controls="billing-panel-view">
+            <span class="clinic-nav-ico" aria-hidden="true">💳</span>
+            <span data-i18n="navBilling">Billing</span>
+          </button>
+          <button type="button" class="clinic-nav-btn" data-view="settings" role="tab" aria-controls="settings-panel-view">
+            <span class="clinic-nav-ico" aria-hidden="true">⚙️</span>
+            <span data-i18n="navSettings">My clinic</span>
+          </button>
+        </nav>
+
+        <div class="clinic-side-foot">
+          <select
+            id="locale-app"
+            class="portal-select"
+            data-locale-picker
+            data-i18n-aria="languageLabel"
+          ></select>
+          <select
+            id="theme-app"
+            class="portal-select theme-pref-select"
+            data-theme-picker
+            data-i18n-aria="appearanceLabel"
+          ></select>
+          <button id="logout" class="portal-btn secondary" type="button" data-i18n="signOut">
+            Sign out
+          </button>
+        </div>
+      </aside>
+
+      <main class="clinic-main">
+        <header class="clinic-topbar">
+          <div>
+            <h1 id="view-title" data-i18n="viewPatientsTitle">Patients</h1>
+            <p class="lead" id="view-lead" data-i18n="viewPatientsLead">
+              Manage linked patients, review sync status, invite new patients, and cover AI.
+            </p>
+          </div>
+          <div class="clinic-topbar-meta">
+            <span class="clinic-email-chip" id="header-email" dir="ltr"></span>
             <span class="balance-chip" id="balance-chip">—</span>
-            <select
-              id="locale-app"
-              class="portal-select"
-              data-locale-picker
-              data-i18n-aria="languageLabel"
-            ></select>
-            <select
-              id="theme-app"
-              class="portal-select theme-pref-select"
-              data-theme-picker
-              data-i18n-aria="appearanceLabel"
-            ></select>
-            <button id="logout" class="portal-btn secondary" type="button" data-i18n="signOut">
-              Sign out
-            </button>
           </div>
         </header>
 
         <p id="app-flash" class="portal-status" role="status" aria-live="polite" hidden></p>
+        <p id="app-error" class="error" role="alert" hidden></p>
 
-        <div class="invite-strip">
-          <div class="invite-field">
-            <label class="field-label" for="patient-email" data-i18n="inviteLabel">Invite patient</label>
-            <input
-              id="patient-email"
-              class="portal-input"
-              type="email"
-              dir="ltr"
-              data-i18n-placeholder="invitePlaceholder"
-              autocomplete="email"
-            />
+        <!-- VIEW 1: PATIENTS -->
+        <section id="patients-panel" class="clinic-view" data-view-panel="patients" role="tabpanel">
+          <div class="invite-strip">
+            <div class="invite-field">
+              <label class="field-label" for="patient-email" data-i18n="inviteLabel">Invite patient</label>
+              <input
+                id="patient-email"
+                class="portal-input"
+                type="email"
+                name="patient-email"
+                dir="ltr"
+                data-i18n-placeholder="invitePlaceholder"
+                autocomplete="email"
+              />
+            </div>
+            <button id="invite-btn" class="portal-btn" type="button" data-i18n="sendInvite">Send invite</button>
+            <p
+              id="invite-status"
+              class="portal-status"
+              role="status"
+              aria-live="polite"
+              hidden
+              style="flex: 1 1 100%"
+            ></p>
           </div>
-          <button id="invite-btn" class="portal-btn" type="button" data-i18n="sendInvite">Send invite</button>
-          <p
-            id="invite-status"
-            class="portal-status"
-            role="status"
-            aria-live="polite"
-            hidden
-            style="flex: 1 1 100%"
-          ></p>
-        </div>
-        <p class="muted invite-note" data-i18n="inviteNote"></p>
+          <p class="muted invite-note" data-i18n="inviteNote"></p>
 
-        <div class="invite-strip cover-ai-strip">
-          <div class="invite-field">
-            <label class="field-label" for="cover-ai-email" data-i18n="coverAiLabel">Cover AI by email</label>
-            <input
-              id="cover-ai-email"
-              class="portal-input"
-              type="email"
-              dir="ltr"
-              data-i18n-placeholder="coverAiPlaceholder"
-              autocomplete="email"
-            />
+          <div class="invite-strip cover-ai-strip">
+            <div class="invite-field">
+              <label class="field-label" for="cover-ai-email" data-i18n="coverAiLabel">Cover AI by email</label>
+              <input
+                id="cover-ai-email"
+                class="portal-input"
+                type="email"
+                name="cover-ai-email"
+                dir="ltr"
+                data-i18n-placeholder="coverAiPlaceholder"
+                autocomplete="email"
+              />
+            </div>
+            <button id="cover-ai-btn" class="portal-btn secondary" type="button" data-i18n="coverAiSend">
+              Cover AI (90 days)
+            </button>
+            <p
+              id="cover-ai-status"
+              class="portal-status"
+              role="status"
+              aria-live="polite"
+              hidden
+              style="flex: 1 1 100%"
+            ></p>
           </div>
-          <button id="cover-ai-btn" class="portal-btn secondary" type="button" data-i18n="coverAiSend">
-            Cover AI (90 days)
-          </button>
-          <p
-            id="cover-ai-status"
-            class="portal-status"
-            role="status"
-            aria-live="polite"
-            hidden
-            style="flex: 1 1 100%"
-          ></p>
-        </div>
-        <p class="muted invite-note" data-i18n="coverAiNote"></p>
+          <p class="muted invite-note" data-i18n="coverAiNote"></p>
 
-        <div class="worklist-toolbar">
-          <!-- aria-pressed, not role=tab: these filter a table in place, they do not
-               switch tabpanels, and role=tab without a panel misleads a screen reader. -->
-          <div class="filter-chips" role="group" data-i18n-aria="filterLabel">
-            <button type="button" class="chip-btn active" data-filter="linked" aria-pressed="true">
-              <span data-i18n="filterLinked">Linked</span> <span class="n" id="count-linked">(0)</span>
-            </button>
-            <button type="button" class="chip-btn" data-filter="pending" aria-pressed="false">
-              <span data-i18n="filterPending">Pending</span> <span class="n" id="count-pending">(0)</span>
-            </button>
-            <button type="button" class="chip-btn" data-filter="outgoing" aria-pressed="false">
-              <span data-i18n="filterOutgoing">Outgoing</span> <span class="n" id="count-outgoing">(0)</span>
-            </button>
-            <button type="button" class="chip-btn" data-filter="ai-only" aria-pressed="false">
-              <span data-i18n="filterAiOnly">AI only</span> <span class="n" id="count-ai-only">(0)</span>
-            </button>
-            <button type="button" class="chip-btn" data-filter="all" aria-pressed="false">
-              <span data-i18n="filterAll">All</span> <span class="n" id="count-all">(0)</span>
-            </button>
-          </div>
-          <select id="worklist-sort" class="portal-select worklist-sort" data-i18n-aria="sortLabel">
-            <option value="name" data-i18n="sortName">Name A–Z</option>
-            <option value="email" data-i18n="sortEmail">Email A–Z</option>
-            <option value="sync" data-i18n="sortSync">Last sync</option>
-            <option value="sponsor" data-i18n="sortSponsor">Sponsorship</option>
-          </select>
-        </div>
-
-        <div class="worklist-panel">
-          <table class="worklist-table">
-            <thead>
-              <tr>
-                <th scope="col" class="col-name">
-                  <span class="col-head-label" data-i18n="colName">Name</span>
-                  <div class="ux-filter">
-                    <input
-                      id="filter-name"
-                      class="ux-filter-input"
-                      type="search"
-                      data-i18n-placeholder="filterNamePlaceholder"
-                      autocomplete="off"
-                      spellcheck="false"
-                    />
-                    <button
-                      type="button"
-                      class="ux-filter-clear"
-                      id="filter-name-clear"
-                      data-i18n-aria="clearNameFilter"
-                      aria-label="Clear name filter"
-                      hidden
-                    >
-                      ×
-                    </button>
-                  </div>
-                </th>
-                <th scope="col" class="col-email">
-                  <span class="col-head-label" data-i18n="colEmail">Email</span>
-                  <div class="ux-filter">
-                    <input
-                      id="filter-email"
-                      class="ux-filter-input"
-                      type="search"
-                      dir="ltr"
-                      data-i18n-placeholder="filterEmailPlaceholder"
-                      autocomplete="off"
-                      spellcheck="false"
-                    />
-                    <button
-                      type="button"
-                      class="ux-filter-clear"
-                      id="filter-email-clear"
-                      data-i18n-aria="clearEmailFilter"
-                      aria-label="Clear email filter"
-                      hidden
-                    >
-                      ×
-                    </button>
-                  </div>
-                </th>
-                <th scope="col" class="col-sync" data-i18n="colSync">Sync</th>
-                <th scope="col" class="col-sponsor" data-i18n="colSponsor">Sponsor</th>
-                <th scope="col" class="col-actions" data-i18n="colActions">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="worklist-skeleton" class="worklist-skeleton" aria-busy="true" hidden>
-              <tr aria-hidden="true"><td colspan="5"><div class="worklist-skel-block"></div></td></tr>
-              <tr aria-hidden="true"><td colspan="5"><div class="worklist-skel-block"></div></td></tr>
-              <tr aria-hidden="true"><td colspan="5"><div class="worklist-skel-block"></div></td></tr>
-              <tr aria-hidden="true"><td colspan="5"><div class="worklist-skel-block"></div></td></tr>
-              <tr aria-hidden="true"><td colspan="5"><div class="worklist-skel-block"></div></td></tr>
-            </tbody>
-            <tbody id="worklist-body"></tbody>
-          </table>
-          <div id="worklist-empty" class="worklist-empty muted" hidden></div>
-          <div class="worklist-pager" id="worklist-pager" hidden>
-            <span id="pager-label" class="muted"></span>
-            <div class="row-actions">
-              <button type="button" class="portal-btn secondary" id="pager-prev" data-i18n="previous">
-                Previous
+          <div class="worklist-toolbar">
+            <div class="filter-chips" role="group" data-i18n-aria="filterLabel">
+              <button type="button" class="chip-btn active" data-filter="linked" aria-pressed="true">
+                <span data-i18n="filterLinked">Linked</span> <span class="n" id="count-linked">(0)</span>
               </button>
-              <button type="button" class="portal-btn secondary" id="pager-next" data-i18n="next">Next</button>
+              <button type="button" class="chip-btn" data-filter="pending" aria-pressed="false">
+                <span data-i18n="filterPending">Pending</span> <span class="n" id="count-pending">(0)</span>
+              </button>
+              <button type="button" class="chip-btn" data-filter="outgoing" aria-pressed="false">
+                <span data-i18n="filterOutgoing">Outgoing</span> <span class="n" id="count-outgoing">(0)</span>
+              </button>
+              <button type="button" class="chip-btn" data-filter="ai-only" aria-pressed="false">
+                <span data-i18n="filterAiOnly">AI only</span> <span class="n" id="count-ai-only">(0)</span>
+              </button>
+              <button type="button" class="chip-btn" data-filter="all" aria-pressed="false">
+                <span data-i18n="filterAll">All</span> <span class="n" id="count-all">(0)</span>
+              </button>
+            </div>
+            <select id="worklist-sort" class="portal-select worklist-sort" data-i18n-aria="sortLabel">
+              <option value="name" data-i18n="sortName">Name A–Z</option>
+              <option value="email" data-i18n="sortEmail">Email A–Z</option>
+              <option value="sync" data-i18n="sortSync">Last sync</option>
+              <option value="sponsor" data-i18n="sortSponsor">Sponsorship</option>
+            </select>
+          </div>
+
+          <div class="clinic-card worklist-panel">
+            <table class="worklist-table">
+              <thead>
+                <tr>
+                  <th scope="col" class="col-name">
+                    <span class="col-head-label" data-i18n="colName">Name</span>
+                    <div class="ux-filter">
+                      <input
+                        id="filter-name"
+                        class="ux-filter-input"
+                        type="search"
+                        data-i18n-placeholder="filterNamePlaceholder"
+                        autocomplete="off"
+                        spellcheck="false"
+                      />
+                      <button
+                        type="button"
+                        class="ux-filter-clear"
+                        id="filter-name-clear"
+                        data-i18n-aria="clearNameFilter"
+                        aria-label="Clear name filter"
+                        hidden
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </th>
+                  <th scope="col" class="col-email">
+                    <span class="col-head-label" data-i18n="colEmail">Email</span>
+                    <div class="ux-filter">
+                      <input
+                        id="filter-email"
+                        class="ux-filter-input"
+                        type="search"
+                        dir="ltr"
+                        data-i18n-placeholder="filterEmailPlaceholder"
+                        autocomplete="off"
+                        spellcheck="false"
+                      />
+                      <button
+                        type="button"
+                        class="ux-filter-clear"
+                        id="filter-email-clear"
+                        data-i18n-aria="clearEmailFilter"
+                        aria-label="Clear email filter"
+                        hidden
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </th>
+                  <th scope="col" class="col-sync" data-i18n="colSync">Sync</th>
+                  <th scope="col" class="col-sponsor" data-i18n="colSponsor">Sponsor</th>
+                  <th scope="col" class="col-actions" data-i18n="colActions">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="worklist-skeleton" class="worklist-skeleton" aria-busy="true" hidden>
+                <tr aria-hidden="true"><td colspan="5"><div class="worklist-skel-block"></div></td></tr>
+                <tr aria-hidden="true"><td colspan="5"><div class="worklist-skel-block"></div></td></tr>
+                <tr aria-hidden="true"><td colspan="5"><div class="worklist-skel-block"></div></td></tr>
+                <tr aria-hidden="true"><td colspan="5"><div class="worklist-skel-block"></div></td></tr>
+                <tr aria-hidden="true"><td colspan="5"><div class="worklist-skel-block"></div></td></tr>
+              </tbody>
+              <tbody id="worklist-body"></tbody>
+            </table>
+            <div id="worklist-empty" class="worklist-empty muted" hidden></div>
+            <div class="worklist-pager" id="worklist-pager" hidden>
+              <span id="pager-label" class="muted"></span>
+              <div class="row-actions">
+                <button type="button" class="portal-btn secondary" id="pager-prev" data-i18n="previous">
+                  Previous
+                </button>
+                <button type="button" class="portal-btn secondary" id="pager-next" data-i18n="next">Next</button>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <details class="secondary-panel">
-          <summary>
-            <strong data-i18n="myClinicSummary">My clinic</strong> —
-            <span class="muted" data-i18n="myClinicHint">display name shown to patients</span>
-          </summary>
-          <label class="field-label" for="display-name" data-i18n="displayNameLabel">Clinic display name</label>
-          <input
-            id="display-name"
-            class="portal-input"
-            type="text"
-            data-i18n-placeholder="displayNamePlaceholder"
-          />
-          <button id="save-name" class="portal-btn secondary" type="button" data-i18n="saveName">Save name</button>
-          <p id="name-status" class="portal-status" role="status" aria-live="polite" hidden></p>
-        </details>
-
-        <details class="secondary-panel" id="usage-panel">
-          <summary>
-            <strong data-i18n="usagePanelTitle">AI usage</strong> —
-            <span class="muted" data-i18n="usageLead"></span>
-          </summary>
-          <div id="usage-summary"></div>
-          <div id="usage-events"></div>
-        </details>
-
-        <details class="secondary-panel" id="billing-panel">
-          <summary>
-            <strong data-i18n="billingTitle">Billing &amp; invoices</strong> —
-            <span class="muted" id="billing-summary-balance">—</span>
-          </summary>
-          <p class="muted" data-i18n="billingLead"></p>
-          <p>
-            <strong data-i18n="balance">Balance:</strong>
-            <span id="wallet-balance-money">—</span>
-            <span class="muted" id="wallet-balance">—</span>
-          </p>
-          <p class="muted" id="wallet-pm"></p>
-          <p class="muted" id="billing-alpha-note" data-i18n="billingAlphaNote" hidden></p>
-          <p id="billing-delinquent" class="portal-status err" hidden role="status"></p>
-          <div class="row-actions" id="billing-card-actions">
-            <button id="add-card-btn" class="portal-btn" type="button" data-i18n="addCard">
-              Add card
-            </button>
+        <!-- VIEW 2: MACRO TRENDS REPORT -->
+        <section id="macro-report-panel-view" class="clinic-view" data-view-panel="macro-report" role="tabpanel">
+          <div class="clinic-card">
+            <div class="clinic-card-head">
+              <div>
+                <h2 data-i18n="macroReportSummary">Macro trends report (Target vs Actual)</h2>
+                <p data-i18n="macroReportLead">Summarize all linked patients: target | actual average (7 / 14 days) with AI summary</p>
+              </div>
+            </div>
+            <div class="clinic-card-body">
+              <div class="macro-report-controls">
+                <div class="macro-report-days" role="radiogroup" aria-label="Time range">
+                  <label class="macro-days-label">
+                    <input type="radio" name="macro-report-range" value="7" checked />
+                    <span data-i18n="macroDays7">7 days</span>
+                  </label>
+                  <label class="macro-days-label">
+                    <input type="radio" name="macro-report-range" value="14" />
+                    <span data-i18n="macroDays14">14 days</span>
+                  </label>
+                </div>
+                <button type="button" class="portal-btn" id="btn-generate-macro-report" data-i18n="btnGenerateMacroReport">
+                  Generate report for all patients
+                </button>
+                <label class="macro-ai-toggle-label">
+                  <input type="checkbox" id="macro-report-include-ai" checked />
+                  <span data-i18n="macroIncludeAi">Run AI summary per patient</span>
+                </label>
+              </div>
+              <div id="macro-report-progress" class="macro-report-progress" hidden>
+                <span id="macro-report-progress-text"></span>
+              </div>
+              <div id="macro-report-output" class="macro-report-output">
+                <p class="muted macro-report-placeholder" data-i18n="macroReportPlaceholder">
+                  Click 'Generate report for all patients' to calculate target vs actual averages across all linked patients.
+                </p>
+              </div>
+            </div>
           </div>
-          <div id="invoice-list"></div>
-          <div class="row-actions dev-only" hidden>
-            <button id="simulate-card-btn" class="portal-btn secondary" type="button" data-i18n="attachCard">
-              Attach test card (alpha)
-            </button>
-            <button id="load-pack-btn" class="portal-btn" type="button" data-i18n="manualPack">
-              Manual token pack
-            </button>
-          </div>
-        </details>
+        </section>
 
-        <p id="app-error" class="error" role="alert" hidden></p>
-      </section>
+        <!-- VIEW 3: AI USAGE -->
+        <section id="usage-panel-view" class="clinic-view" data-view-panel="usage" role="tabpanel">
+          <div class="clinic-card">
+            <div class="clinic-card-head">
+              <div>
+                <h2 data-i18n="usagePanelTitle">AI usage</h2>
+                <p data-i18n="usageLead"></p>
+              </div>
+            </div>
+            <div class="clinic-card-body">
+              <div id="usage-summary"></div>
+              <div id="usage-events" style="margin-top: 16px;"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 4: BILLING -->
+        <section id="billing-panel-view" class="clinic-view" data-view-panel="billing" role="tabpanel">
+          <div class="clinic-card">
+            <div class="clinic-card-head">
+              <div>
+                <h2 data-i18n="billingTitle">Billing &amp; invoices</h2>
+                <p data-i18n="billingLead"></p>
+              </div>
+              <span class="muted" id="billing-summary-balance">—</span>
+            </div>
+            <div class="clinic-card-body">
+              <p>
+                <strong data-i18n="balance">Balance:</strong>
+                <span id="wallet-balance-money">—</span>
+                <span class="muted" id="wallet-balance">—</span>
+              </p>
+              <p class="muted" id="wallet-pm"></p>
+              <p class="muted" id="billing-alpha-note" data-i18n="billingAlphaNote" hidden></p>
+              <p id="billing-delinquent" class="portal-status err" hidden role="status"></p>
+              <div class="row-actions" id="billing-card-actions" style="justify-content: flex-start; margin: 12px 0;">
+                <button id="add-card-btn" class="portal-btn" type="button" data-i18n="addCard">
+                  Add card
+                </button>
+              </div>
+              <div id="invoice-list"></div>
+              <div class="row-actions dev-only" hidden style="margin-top: 16px;">
+                <button id="simulate-card-btn" class="portal-btn secondary" type="button" data-i18n="attachCard">
+                  Attach test card (alpha)
+                </button>
+                <button id="load-pack-btn" class="portal-btn" type="button" data-i18n="manualPack">
+                  Manual token pack
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 5: MY CLINIC SETTINGS -->
+        <section id="settings-panel-view" class="clinic-view" data-view-panel="settings" role="tabpanel">
+          <div class="clinic-card">
+            <div class="clinic-card-head">
+              <div>
+                <h2 data-i18n="myClinicSummary">My clinic</h2>
+                <p data-i18n="myClinicHint">display name shown to patients</p>
+              </div>
+            </div>
+            <div class="clinic-card-body" style="max-width: 480px;">
+              <label class="field-label" for="display-name" data-i18n="displayNameLabel">Clinic display name</label>
+              <input
+                id="display-name"
+                class="portal-input"
+                type="text"
+                data-i18n-placeholder="displayNamePlaceholder"
+              />
+              <button id="save-name" class="portal-btn secondary" type="button" data-i18n="saveName">Save name</button>
+              <p id="name-status" class="portal-status" role="status" aria-live="polite" hidden></p>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
 
-    <script src="clinic-i18n.js?v=20260803b"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+    <script src="clinic-i18n.js?v=20260828b"></script>
+    <script src="clinic-workspace.js?v=20260828a"></script>
     <script src="clinic-theme.js?v=20260727c"></script>
     <script src="clinic-api.js?v=20260726k"></script>
     <script>
@@ -410,7 +513,72 @@
         }
       }
 
-      /* ── i18n plumbing ─────────────────────────────────────────────────── */
+      /* ── navigation / views ────────────────────────────────────────────── */
+
+      const VIEW_META = {
+        patients: {
+          titleKey: 'viewPatientsTitle',
+          leadKey: 'viewPatientsLead',
+        },
+        'macro-report': {
+          titleKey: 'viewMacroReportTitle',
+          leadKey: 'viewMacroReportLead',
+        },
+        usage: {
+          titleKey: 'viewUsageTitle',
+          leadKey: 'viewUsageLead',
+        },
+        billing: {
+          titleKey: 'viewBillingTitle',
+          leadKey: 'viewBillingLead',
+        },
+        settings: {
+          titleKey: 'viewSettingsTitle',
+          leadKey: 'viewSettingsLead',
+        },
+      };
+
+      let activeView = 'patients';
+
+      function switchView(viewName) {
+        if (!VIEW_META[viewName]) viewName = 'patients';
+        activeView = viewName;
+
+        document.querySelectorAll('.clinic-nav-btn').forEach((btn) => {
+          const match = btn.getAttribute('data-view') === viewName;
+          if (match) {
+            btn.setAttribute('aria-current', 'page');
+            btn.setAttribute('aria-selected', 'true');
+          } else {
+            btn.removeAttribute('aria-current');
+            btn.setAttribute('aria-selected', 'false');
+          }
+        });
+
+        document.querySelectorAll('[data-view-panel]').forEach((panel) => {
+          const match = panel.getAttribute('data-view-panel') === viewName;
+          panel.classList.toggle('is-active', match);
+        });
+
+        updateViewHeader();
+      }
+
+      function updateViewHeader() {
+        const meta = VIEW_META[activeView] || VIEW_META.patients;
+        const titleEl = document.getElementById('view-title');
+        const leadEl = document.getElementById('view-lead');
+        if (titleEl) titleEl.textContent = t(meta.titleKey);
+        if (leadEl) leadEl.textContent = t(meta.leadKey);
+      }
+
+      function initNavigation() {
+        document.querySelectorAll('.clinic-nav-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const v = btn.getAttribute('data-view');
+            if (v) switchView(v);
+          });
+        });
+      }
 
       function hydrateStaticCopy() {
         document.querySelectorAll('[data-i18n]').forEach((el) => {
@@ -444,6 +612,7 @@
       function applyLocale() {
         ClinicI18n.applyDocumentLocale();
         hydrateStaticCopy();
+        updateViewHeader();
         buildLocalePickers();
         ClinicTheme.bindThemePickers();
         renderWorklist();
@@ -973,8 +1142,15 @@
           const tdSync = document.createElement('td');
           tdSync.className = 'sync-cell';
           tdSync.dataset.label = t('colSync');
-          tdSync.textContent = share.status === 'approved' ? relativeSync(share.lastSyncAt) : '—';
-          if (share.lastSyncAt) tdSync.title = formatExpiry(share.lastSyncAt);
+          const syncAgo = document.createElement('span');
+          syncAgo.className = 'sync-ago';
+          syncAgo.textContent = share.status === 'approved' ? relativeSync(share.lastSyncAt) : '—';
+          if (share.lastSyncAt) {
+            const when = formatExpiry(share.lastSyncAt);
+            syncAgo.title = when;
+            tdSync.title = when;
+          }
+          tdSync.appendChild(syncAgo);
           const clientBits = [];
           if (share.patientClientPlatform === 'android') clientBits.push('Android');
           else if (share.patientClientPlatform === 'ios') clientBits.push('iOS');
@@ -988,7 +1164,7 @@
           }
           if (clientBits.length) {
             const clientLine = document.createElement('div');
-            clientLine.className = 'sync-client meta';
+            clientLine.className = 'sync-client';
             clientLine.textContent = clientBits.join(' · ');
             if (share.patientClientSeenAt) clientLine.title = formatExpiry(share.patientClientSeenAt);
             tdSync.appendChild(clientLine);
@@ -1345,14 +1521,14 @@
 
       function showLoginView() {
         document.body.classList.remove('portal-app');
-        document.getElementById('login-view').hidden = false;
-        document.getElementById('app-view').hidden = true;
+        document.getElementById('login-wrap').hidden = false;
+        document.getElementById('app-wrap').hidden = true;
       }
 
       function showAppView() {
         document.body.classList.add('portal-app');
-        document.getElementById('login-view').hidden = true;
-        document.getElementById('app-view').hidden = false;
+        document.getElementById('login-wrap').hidden = true;
+        document.getElementById('app-wrap').hidden = false;
         applyDevMode();
       }
 
@@ -1386,6 +1562,8 @@
       }
 
       async function boot() {
+        initNavigation();
+        switchView('patients');
         applyLocale();
         applyDevMode();
         const tokens = loadTokens();
@@ -1835,6 +2013,414 @@
           }
         });
       };
+
+      /* ── Macro Trends Report (Phase 1) ────────────────────────────────── */
+
+      function todayLocalKey() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+
+      function shiftLocalDayKey(dayKey, delta) {
+        const ms = Date.parse(dayKey + 'T12:00:00');
+        const d = Number.isNaN(ms) ? new Date() : new Date(ms);
+        d.setDate(d.getDate() + delta);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+
+      function resolveMealMarkers(meal) {
+        const out = {};
+        if (Array.isArray(meal.items) && meal.items.length) {
+          for (const it of meal.items) {
+            if (it.markers && typeof it.markers === 'object') {
+              for (const [k, v] of Object.entries(it.markers)) {
+                if (typeof v === 'number' && Number.isFinite(v)) {
+                  out[k] = (out[k] || 0) + v;
+                }
+              }
+            }
+          }
+          if (Object.keys(out).length > 0) return out;
+        }
+        if (meal.markers && typeof meal.markers === 'object') {
+          for (const [k, v] of Object.entries(meal.markers)) {
+            if (typeof v === 'number' && Number.isFinite(v)) {
+              out[k] = (out[k] || 0) + v;
+            }
+          }
+        }
+        return out;
+      }
+
+      function extractMacroTarget(axis, overlay, parsed) {
+        const bounds = overlay?.macros?.bounds || [];
+        const axisBounds = bounds.filter((b) => b.axis === axis);
+        if (axisBounds.length) {
+          const floor = axisBounds.find((b) => b.direction === 'floor' && b.strength === 'hard')?.value;
+          const ceil = axisBounds.find((b) => b.direction === 'ceiling' && b.strength === 'hard')?.value;
+          const flexCeil = axisBounds.find((b) => b.direction === 'ceiling' && b.strength === 'flex')?.value;
+          if (floor != null && ceil != null) return { display: `${floor}–${ceil}`, floor, ceiling: ceil, strength: 'hard' };
+          if (floor != null) return { display: `≥ ${floor}`, floor, strength: 'hard' };
+          if (ceil != null) return { display: `≤ ${ceil}`, ceiling: ceil, strength: 'hard' };
+          if (flexCeil != null) return { display: `≤ ${flexCeil}`, ceiling: flexCeil, strength: 'flex' };
+        }
+        const tgt = parsed?.macroTarget;
+        if (tgt) {
+          if (axis === 'kcal' && tgt.kcal) return { display: `${Math.round(tgt.kcal)}`, value: tgt.kcal, strength: 'target' };
+          if (axis === 'protein_g' && tgt.protein_g) return { display: `${Math.round(tgt.protein_g)}`, value: tgt.protein_g, strength: 'target' };
+          if (axis === 'carb_g' && tgt.carb_g) return { display: `${Math.round(tgt.carb_g)}`, value: tgt.carb_g, strength: 'target' };
+          if (axis === 'fat_g' && tgt.fat_g) return { display: `${Math.round(tgt.fat_g)}`, value: tgt.fat_g, strength: 'target' };
+          if (axis === 'fiber_g' && tgt.fiber_g) return { display: `≥ ${Math.round(tgt.fiber_g)}`, floor: tgt.fiber_g, strength: 'target' };
+        }
+        return null;
+      }
+
+      function extractMarkerTarget(code, overlay, parsed) {
+        const markers = overlay?.markers || parsed?.treatmentMarkers || [];
+        const m = markers.find((item) => item.marker === code);
+        if (!m) return null;
+        const dir = m.direction === 'floor' ? '≥' : '≤';
+        const unit = m.unit || (code.endsWith('_MCG') ? 'mcg' : code.endsWith('_MG') ? 'mg' : 'g');
+        let valStr = `${m.dailyTarget}${unit}`;
+        if (m.percentOfEnergy != null) valStr += ` (${m.percentOfEnergy}%)`;
+        return {
+          display: `${dir} ${valStr}`,
+          direction: m.direction,
+          dailyTarget: m.dailyTarget,
+          unit,
+        };
+      }
+
+      function getMetricStatus(actual, targetInfo) {
+        if (!targetInfo || actual == null) return null;
+        if (targetInfo.floor != null && targetInfo.ceiling != null) {
+          if (actual < targetInfo.floor) return { type: 'under', label: t('macroStatusUnder') };
+          if (actual > targetInfo.ceiling) return { type: 'over', label: t('macroStatusOver') };
+          return { type: 'on-target', label: t('macroStatusOnTarget') };
+        }
+        if (targetInfo.floor != null) {
+          if (actual < targetInfo.floor) return { type: 'under', label: t('macroStatusUnder') };
+          return { type: 'on-target', label: t('macroStatusOnTarget') };
+        }
+        if (targetInfo.ceiling != null) {
+          if (actual > targetInfo.ceiling) return { type: 'over', label: t('macroStatusOver') };
+          return { type: 'on-target', label: t('macroStatusOnTarget') };
+        }
+        if (targetInfo.direction === 'floor') {
+          if (actual < targetInfo.dailyTarget) return { type: 'under', label: t('macroStatusUnder') };
+          return { type: 'on-target', label: t('macroStatusOnTarget') };
+        }
+        if (targetInfo.direction === 'cap') {
+          if (actual > targetInfo.dailyTarget) return { type: 'over', label: t('macroStatusOver') };
+          return { type: 'on-target', label: t('macroStatusOnTarget') };
+        }
+        if (targetInfo.value != null) {
+          if (actual > targetInfo.value * 1.1) return { type: 'over', label: t('macroStatusOver') };
+          if (actual < targetInfo.value * 0.9) return { type: 'under', label: t('macroStatusUnder') };
+          return { type: 'on-target', label: t('macroStatusOnTarget') };
+        }
+        return null;
+      }
+
+      async function runAiSummaryForPatient(patientId, days, summaryEl, rerunBtn) {
+        if (!summaryEl) return;
+        summaryEl.hidden = false;
+        const textEl = summaryEl.querySelector('.macro-ai-text');
+        if (textEl) textEl.textContent = t('macroAiRunning');
+        if (rerunBtn) rerunBtn.disabled = true;
+        try {
+          const locale = getLocale() || 'he';
+          const prompt = locale.startsWith('he')
+            ? `עבור ${days} הימים האחרונים: תן סיכום לכל מקרו , הכי תמציתי שאפשר : יעד | ממוצע בפועל`
+            : `For the last ${days} days: give a concise summary for each macro: target | actual average`;
+          const res = await api(`/v1/clinic/patients/${encodeURIComponent(patientId)}/chat`, {
+            method: 'POST',
+            body: JSON.stringify({
+              mentorType: 'nutritionist',
+              message: prompt,
+              locale: locale,
+            }),
+          });
+          if (!res.ok) {
+            throw new Error((await res.json().catch(() => ({}))).error || t('macroAiFailed'));
+          }
+          const data = await res.json();
+          if (textEl) textEl.textContent = data.reply || t('macroAiFailed');
+        } catch (e) {
+          if (textEl) textEl.textContent = `${t('macroAiFailed')}: ${e.message || e}`;
+        } finally {
+          if (rerunBtn) rerunBtn.disabled = false;
+        }
+      }
+
+      async function generateMacroTrendsReport() {
+        const btn = document.getElementById('btn-generate-macro-report');
+        const progressEl = document.getElementById('macro-report-progress');
+        const progressText = document.getElementById('macro-report-progress-text');
+        const outputEl = document.getElementById('macro-report-output');
+        const rangeDays = Number(document.querySelector('input[name="macro-report-range"]:checked')?.value || 7);
+        const includeAi = Boolean(document.getElementById('macro-report-include-ai')?.checked);
+
+        const approvedPatients = worklistState.approved || [];
+        if (!approvedPatients.length) {
+          outputEl.innerHTML = `<p class="muted macro-report-placeholder">${escHtml(t('macroNoApprovedPatients'))}</p>`;
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = t('btnGeneratingMacroReport');
+        progressEl.hidden = false;
+        outputEl.innerHTML = '';
+
+        const todayKey = todayLocalKey();
+        const startKey = shiftLocalDayKey(todayKey, -(rangeDays - 1));
+
+        for (let i = 0; i < approvedPatients.length; i++) {
+          const p = approvedPatients[i];
+          const name = p.patientDisplayName || p.patientEmail;
+          progressText.textContent = t('macroReportLoadingPatient', {
+            name,
+            current: i + 1,
+            total: approvedPatients.length,
+          });
+
+          let parsed = null;
+          let overlay = null;
+          let hasSnapshot = false;
+
+          try {
+            const [syncRes, ovRes] = await Promise.all([
+              api('/v1/sync/latest?patientId=' + encodeURIComponent(p.patientId)),
+              api('/v1/clinic/patients/' + encodeURIComponent(p.patientId) + '/overlay'),
+            ]);
+
+            if (syncRes.ok) {
+              const syncData = await syncRes.json();
+              if (syncData.payloadGzipBase64 && typeof pako !== 'undefined') {
+                const bytes = Uint8Array.from(atob(syncData.payloadGzipBase64), (c) => c.charCodeAt(0));
+                const payload = JSON.parse(pako.inflate(bytes, { to: 'string' }));
+                if (window.ClinicWorkspace?.parseSnapshot) {
+                  parsed = ClinicWorkspace.parseSnapshot(payload);
+                  hasSnapshot = true;
+                }
+              }
+            }
+
+            if (ovRes.ok) {
+              const ovData = await ovRes.json();
+              overlay = ovData.overlay;
+            }
+          } catch (err) {
+            console.error('Error fetching snapshot/overlay for patient', p.patientId, err);
+          }
+
+          const card = document.createElement('div');
+          card.className = 'macro-patient-card';
+          card.dataset.patientId = p.patientId;
+
+          if (!hasSnapshot || !parsed) {
+            card.innerHTML = `
+              <div class="macro-patient-header">
+                <div class="macro-patient-title">
+                  <span class="macro-patient-name">${escHtml(name)}</span>
+                  <span class="macro-patient-email" dir="ltr">${escHtml(p.patientEmail)}</span>
+                </div>
+                <div class="macro-patient-meta">
+                  <span class="macro-chip-days muted">${escHtml(t('macroNoSnapshot'))}</span>
+                  <a class="portal-btn secondary" href="patient.html?id=${encodeURIComponent(p.patientId)}" target="_blank" style="padding: 4px 8px; min-height: auto; font-size: 12px;">${escHtml(t('macroOpenPatient'))}</a>
+                </div>
+              </div>
+            `;
+            outputEl.appendChild(card);
+            continue;
+          }
+
+          const mealsInRange = (parsed.meals || []).filter((m) => m.day >= startKey && m.day <= todayKey);
+          const daysMap = new Map();
+          for (const m of mealsInRange) {
+            const dayMeals = daysMap.get(m.day) || [];
+            dayMeals.push(m);
+            daysMap.set(m.day, dayMeals);
+          }
+
+          const loggedDaysCount = daysMap.size;
+
+          if (loggedDaysCount === 0) {
+            card.innerHTML = `
+              <div class="macro-patient-header">
+                <div class="macro-patient-title">
+                  <span class="macro-patient-name">${escHtml(name)}</span>
+                  <span class="macro-patient-email" dir="ltr">${escHtml(p.patientEmail)}</span>
+                </div>
+                <div class="macro-patient-meta">
+                  <span class="macro-chip-days muted">${escHtml(t('macroNoLoggedDays'))} (0/${rangeDays})</span>
+                  <a class="portal-btn secondary" href="patient.html?id=${encodeURIComponent(p.patientId)}" target="_blank" style="padding: 4px 8px; min-height: auto; font-size: 12px;">${escHtml(t('macroOpenPatient'))}</a>
+                </div>
+              </div>
+            `;
+            outputEl.appendChild(card);
+            continue;
+          }
+
+          let sumKcal = 0;
+          let sumProtein = 0;
+          let sumCarb = 0;
+          let sumFat = 0;
+          let sumFiber = 0;
+          const markerSums = {};
+
+          for (const [dk, dayMeals] of daysMap.entries()) {
+            let dayKcal = 0;
+            let dayP = 0;
+            let dayC = 0;
+            let dayF = 0;
+            let dayFi = 0;
+            const dayMarkers = {};
+
+            for (const meal of dayMeals) {
+              dayKcal += meal.totalKcal || 0;
+              dayP += meal.totalProtein_g || 0;
+              dayC += meal.totalCarb_g || 0;
+              dayF += meal.totalFat_g || 0;
+              if (meal.totalFiber_g != null) dayFi += meal.totalFiber_g;
+              else if (Array.isArray(meal.items)) dayFi += meal.items.reduce((a, it) => a + (it.fiber_g || 0), 0);
+
+              const mRes = resolveMealMarkers(meal);
+              for (const [k, v] of Object.entries(mRes)) {
+                dayMarkers[k] = (dayMarkers[k] || 0) + v;
+              }
+            }
+
+            sumKcal += dayKcal;
+            sumProtein += dayP;
+            sumCarb += dayC;
+            sumFat += dayF;
+            sumFiber += dayFi;
+
+            for (const [k, v] of Object.entries(dayMarkers)) {
+              markerSums[k] = (markerSums[k] || 0) + v;
+            }
+          }
+
+          const avgKcal = Math.round(sumKcal / loggedDaysCount);
+          const avgProtein = Math.round(sumProtein / loggedDaysCount);
+          const avgCarb = Math.round(sumCarb / loggedDaysCount);
+          const avgFat = Math.round(sumFat / loggedDaysCount);
+          const avgFiber = Math.round(sumFiber / loggedDaysCount);
+
+          const metrics = [
+            { axis: 'kcal', label: t('macroAxisKcal'), unit: 'kcal', avg: avgKcal, target: extractMacroTarget('kcal', overlay, parsed) },
+            { axis: 'protein_g', label: t('macroAxisProtein'), unit: 'g', avg: avgProtein, target: extractMacroTarget('protein_g', overlay, parsed) },
+            { axis: 'carb_g', label: t('macroAxisCarb'), unit: 'g', avg: avgCarb, target: extractMacroTarget('carb_g', overlay, parsed) },
+            { axis: 'fat_g', label: t('macroAxisFat'), unit: 'g', avg: avgFat, target: extractMacroTarget('fat_g', overlay, parsed) },
+            { axis: 'fiber_g', label: t('macroAxisFiber'), unit: 'g', avg: avgFiber, target: extractMacroTarget('fiber_g', overlay, parsed) },
+          ];
+
+          // Check treatment markers
+          const satFatTarget = extractMarkerTarget('SAT_FAT_G', overlay, parsed);
+          if (satFatTarget || markerSums.SAT_FAT_G != null) {
+            const avgSatFat = markerSums.SAT_FAT_G ? Math.round((markerSums.SAT_FAT_G / loggedDaysCount) * 10) / 10 : 0;
+            metrics.push({
+              axis: 'SAT_FAT_G',
+              label: t('macroAxisSatFat'),
+              unit: 'g',
+              avg: avgSatFat,
+              target: satFatTarget,
+            });
+          }
+
+          const solFiberTarget = extractMarkerTarget('SOLUBLE_FIBER_G', overlay, parsed);
+          if (solFiberTarget || markerSums.SOLUBLE_FIBER_G != null) {
+            const avgSolFiber = markerSums.SOLUBLE_FIBER_G ? Math.round((markerSums.SOLUBLE_FIBER_G / loggedDaysCount) * 10) / 10 : 0;
+            metrics.push({
+              axis: 'SOLUBLE_FIBER_G',
+              label: t('macroAxisSolFiber'),
+              unit: 'g',
+              avg: avgSolFiber,
+              target: solFiberTarget,
+            });
+          }
+
+          // Other active markers
+          const activeMarkers = overlay?.markers || parsed?.treatmentMarkers || [];
+          for (const m of activeMarkers) {
+            if (m.marker === 'SAT_FAT_G' || m.marker === 'SOLUBLE_FIBER_G') continue;
+            const code = m.marker;
+            const target = extractMarkerTarget(code, overlay, parsed);
+            const sum = markerSums[code] || 0;
+            const avg = Math.round((sum / loggedDaysCount) * 10) / 10;
+            const label = m.labels?.he?.short || m.labels?.en?.short || code;
+            metrics.push({
+              axis: code,
+              label,
+              unit: target?.unit || 'g',
+              avg,
+              target,
+            });
+          }
+
+          const gridHtml = metrics.map((m) => {
+            const status = getMetricStatus(m.avg, m.target);
+            const badgeHtml = status ? `<span class="macro-metric-badge macro-badge-${status.type}">${escHtml(status.label)}</span>` : '';
+            const tgtDisplay = m.target?.display ? `${escHtml(t('macroTargetLabel'))}: ${escHtml(m.target.display)}` : `${escHtml(t('macroTargetLabel'))}: —`;
+            return `
+              <div class="macro-metric-item">
+                <div class="macro-metric-head">
+                  <span class="macro-metric-label">${escHtml(m.label)}</span>
+                  ${badgeHtml}
+                </div>
+                <div class="macro-metric-body">
+                  <span class="macro-metric-val">${escHtml(String(m.avg))} ${escHtml(m.unit)}</span>
+                  <span class="macro-metric-target">${tgtDisplay}</span>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          card.innerHTML = `
+            <div class="macro-patient-header">
+              <div class="macro-patient-title">
+                <span class="macro-patient-name">${escHtml(name)}</span>
+                <span class="macro-patient-email" dir="ltr">${escHtml(p.patientEmail)}</span>
+              </div>
+              <div class="macro-patient-meta">
+                <span class="macro-chip-days">${escHtml(t('macroLoggedDaysCount', { logged: loggedDaysCount, total: rangeDays }))}</span>
+                <a class="portal-btn secondary" href="patient.html?id=${encodeURIComponent(p.patientId)}" target="_blank" style="padding: 4px 8px; min-height: auto; font-size: 12px;">${escHtml(t('macroOpenPatient'))}</a>
+              </div>
+            </div>
+            <div class="macro-metrics-grid">
+              ${gridHtml}
+            </div>
+            <div class="macro-ai-summary-box" ${includeAi ? '' : 'hidden'}>
+              <div class="macro-ai-header">
+                <span>🤖 ${escHtml(t('macroAiSummaryTitle'))}</span>
+                <button type="button" class="portal-btn secondary macro-btn-rerun">${escHtml(t('macroRerunAi'))}</button>
+              </div>
+              <div class="macro-ai-text">${includeAi ? escHtml(t('macroAiRunning')) : ''}</div>
+            </div>
+          `;
+
+          outputEl.appendChild(card);
+
+          const aiBox = card.querySelector('.macro-ai-summary-box');
+          const rerunBtn = card.querySelector('.macro-btn-rerun');
+          if (rerunBtn) {
+            rerunBtn.addEventListener('click', () => void runAiSummaryForPatient(p.patientId, rangeDays, aiBox, rerunBtn));
+          }
+
+          if (includeAi) {
+            void runAiSummaryForPatient(p.patientId, rangeDays, aiBox, rerunBtn);
+          }
+        }
+
+        progressEl.hidden = true;
+        btn.disabled = false;
+        btn.textContent = t('btnGenerateMacroReport');
+      }
+
+      document.getElementById('btn-generate-macro-report')?.addEventListener('click', () => {
+        void generateMacroTrendsReport();
+      });
 
       boot();
     </script>

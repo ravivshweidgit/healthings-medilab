@@ -29,6 +29,290 @@ body.portal-app .portal-wrap {
   max-width: var(--wrap-wide);
 }
 
+/* ── Modern Clinic Shell & Sidebar Layout ────────────────────────────────── */
+
+body.clinic-console {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 480px at 10% -10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent),
+    radial-gradient(900px 420px at 100% 0%, color-mix(in srgb, var(--bg-sky) 55%, transparent), transparent),
+    var(--bg-page);
+  color: var(--text);
+  font-family: var(--font-text);
+}
+
+.clinic-login-wrap {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 48px 16px 64px;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.clinic-login-wrap[hidden],
+.clinic-shell[hidden] {
+  display: none !important;
+}
+
+.clinic-login-wrap .login-card {
+  width: 100%;
+  padding: 28px 24px 24px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.clinic-login-wrap h1 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  margin: 12px 0 6px;
+  color: var(--navy);
+}
+
+.clinic-shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  min-height: 100vh;
+  width: 100%;
+}
+
+.clinic-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 14px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--invert-bg));
+  border-inline-end: 1px solid var(--line);
+  backdrop-filter: blur(12px);
+}
+
+.clinic-sidebar .panel-brand {
+  margin: 4px 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.clinic-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.clinic-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.92rem;
+  text-align: start;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.clinic-nav-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.clinic-nav-btn[aria-current='page'] {
+  background: var(--accent-light);
+  color: var(--accent-ink);
+}
+
+.clinic-nav-ico {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 7px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  background: var(--surface);
+  color: var(--navy);
+  border: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.clinic-nav-btn[aria-current='page'] .clinic-nav-ico {
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+}
+
+.clinic-side-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 8px 4px;
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+}
+
+.clinic-side-foot .portal-select {
+  margin: 0;
+  min-height: 38px;
+}
+
+.clinic-side-foot .portal-btn {
+  margin: 0;
+  width: 100%;
+}
+
+.clinic-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 24px 32px 48px;
+}
+
+.clinic-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.clinic-topbar h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 2.2vw, 1.85rem);
+  color: var(--navy);
+  letter-spacing: -0.02em;
+}
+
+.clinic-topbar .lead {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.94rem;
+  max-width: 58ch;
+}
+
+.clinic-topbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.clinic-email-chip {
+  font-size: 0.85rem;
+  color: var(--muted);
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.clinic-view {
+  display: none;
+  flex-direction: column;
+  gap: 18px;
+  animation: clinicIn 0.18s ease;
+}
+
+.clinic-view.is-active {
+  display: flex;
+}
+
+@keyframes clinicIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.clinic-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.clinic-card-head {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-2) 80%, var(--surface));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.clinic-card-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.clinic-card-head p {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.clinic-card-body {
+  padding: 18px 20px;
+}
+
+.clinic-card-body.no-pad {
+  padding: 0;
+}
+
+@media (max-width: 900px) {
+  .clinic-shell {
+    grid-template-columns: 1fr;
+  }
+  .clinic-sidebar {
+    border-inline-end: none;
+    border-bottom: 1px solid var(--line);
+    padding: 12px 12px 8px;
+  }
+  .clinic-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 6px;
+  }
+  .clinic-nav-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .clinic-side-foot {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 8px;
+    padding-top: 10px;
+  }
+  .clinic-side-foot .portal-btn {
+    width: auto;
+  }
+  .clinic-main {
+    padding: 16px 14px 36px;
+  }
+}
+
 .portal-input {
   width: 100%;
   box-sizing: border-box;
@@ -414,19 +698,20 @@ summary:focus-visible {
   line-height: 1.4;
 }
 .worklist-table th.col-name {
-  width: 17%;
+  width: 16%;
 }
 .worklist-table th.col-email {
-  width: 27%;
+  width: 24%;
 }
 .worklist-table th.col-sync {
-  width: 8%;
+  /* Needs room for relative time + "Android · 1.2.44 (73)" — 8% overflowed into Sponsor. */
+  width: 15%;
 }
 .worklist-table th.col-sponsor {
-  width: 17%;
+  width: 18%;
 }
 .worklist-table th.col-actions {
-  width: 31%;
+  width: 27%;
   text-align: end;
 }
 .worklist-table td {
@@ -483,18 +768,48 @@ summary:focus-visible {
   font-size: 0.78rem;
   font-weight: 500;
   color: var(--muted);
-  white-space: nowrap;
-  line-height: 1.25;
+  line-height: 1.35;
   font-variant-numeric: tabular-nums;
+  min-width: 0;
+  overflow: hidden;
+}
+.worklist-table .sync-cell .sync-ago {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.worklist-table .sync-cell .sync-client {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--muted);
+  opacity: 0.9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+  /* Platform · version is LTR; keeps "Android · 1.2.44 (73)" from bidi-scrambling in he/ar. */
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: start;
 }
 html[lang]:not([lang='en']) .worklist-table .sync-cell {
   font-size: 0.72rem;
   letter-spacing: -0.01em;
 }
+.worklist-table .sponsor-cell {
+  min-width: 0;
+  overflow: hidden;
+}
 .worklist-table .sponsor-cell .chip {
+  display: inline-block;
   max-width: 100%;
+  box-sizing: border-box;
   overflow: hidden;
   text-overflow: ellipsis;
+  vertical-align: middle;
 }
 
 /* Modern column filters — compact search + clear × */
@@ -752,3 +1067,253 @@ html[dir='rtl'] .ux-filter-input {
     width: 100%;
   }
 }
+
+/* ── Macro Trends Report (Phase 1) ───────────────────────────────────────── */
+
+.macro-report-panel {
+  margin: 16px 0 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 12px);
+  padding: 14px 18px;
+}
+
+.macro-report-panel[open] summary {
+  margin-bottom: 14px;
+}
+
+.macro-report-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 12px 14px;
+  background: var(--surface-2, #f9fafb);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md, 8px);
+  margin-bottom: 16px;
+}
+
+.macro-report-days {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.macro-days-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  user-select: none;
+}
+
+.macro-days-label input[type='radio'] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.macro-ai-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--muted);
+  user-select: none;
+}
+
+.macro-ai-toggle-label input[type='checkbox'] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.macro-report-progress {
+  padding: 10px 14px;
+  background: var(--portal-ok-bg);
+  border: 1px solid var(--portal-ok-line);
+  color: var(--portal-ok-ink);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.macro-report-output {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.macro-report-placeholder {
+  padding: 18px;
+  text-align: center;
+  margin: 0;
+}
+
+.macro-patient-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md, 10px);
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.macro-patient-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.macro-patient-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.macro-patient-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.macro-patient-email {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.macro-patient-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.macro-chip-days {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: var(--surface-2, #f3f4f6);
+  color: var(--text);
+  border: 1px solid var(--line);
+  font-weight: 600;
+}
+
+.macro-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.macro-metric-item {
+  background: var(--surface-2, #f9fafb);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.macro-metric-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.macro-metric-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.macro-metric-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.macro-badge-on-target {
+  background: var(--portal-ok-bg);
+  color: var(--portal-ok-ink);
+  border: 1px solid var(--portal-ok-line);
+}
+
+.macro-badge-over {
+  background: var(--portal-warn-bg);
+  color: var(--portal-warn-ink);
+  border: 1px solid var(--portal-warn-line);
+}
+
+.macro-badge-under {
+  background: var(--portal-neutral-bg);
+  color: var(--portal-neutral-ink);
+  border: 1px solid var(--portal-neutral-line);
+}
+
+.macro-metric-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.macro-metric-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.macro-metric-target {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.macro-ai-summary-box {
+  background: var(--surface-2, #f9fafb);
+  border: 1px solid var(--line);
+  border-inline-start: 4px solid var(--accent, #3b82f6);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.macro-ai-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--accent, #3b82f6);
+}
+
+.macro-ai-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.macro-btn-rerun {
+  font-size: 12px;
+  padding: 4px 8px;
+  min-height: auto;
+  margin: 0;
+}
+
