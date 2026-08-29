@@ -2028,10 +2028,10 @@ html[dir='rtl'] .rules-plates-section .treat-field select {
 .training-activity-row {
   border: 1px solid var(--grid);
   border-radius: 8px;
-  padding: 8px;
+  padding: 7px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   background: var(--bg);
 }
 .training-activity-head {
@@ -2087,9 +2087,11 @@ html[dir='rtl'] .rules-plates-section .treat-field select {
   width: 100%;
   box-sizing: border-box;
 }
+/* Five of these stack per day — keep an unused notes field near single-line. */
 .training-activity-notes {
   resize: vertical;
-  min-height: 38px;
+  min-height: 30px;
+  height: 30px;
 }
 .training-add-activity {
   font: inherit;
