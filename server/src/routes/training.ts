@@ -40,14 +40,30 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
     return { program };
   });
 
+  const activitySessionSchema = z.object({
+    id: z.string().max(64).optional().default(''),
+    timeSlot: z.enum(['morning', 'noon', 'evening', 'anytime']).optional().default('anytime'),
+    workoutType: z.enum(['strength', 'cardio', 'hiit', 'mobility', 'rest']),
+    title: z.string().max(120).optional().default(''),
+    durationMinutes: z.number().int().min(0).max(600).optional().default(0),
+    targetKcal: z.number().int().min(0).max(5000).optional().default(0),
+    targetZone2Minutes: z.number().int().min(0).max(600).optional().default(0),
+    notes: z.string().max(1000).optional().default(''),
+    matchType: z.enum(['bike', 'walk', 'run', 'gym', 'any']).optional().default('any'),
+  });
+
+  // Accepts both the multi-activity shape and the legacy single-workout day;
+  // normalizeSchedule() collapses them to one shape before persisting.
   const workoutDaySchema = z.object({
     dayName: z.string().min(1).max(50),
-    workoutType: z.enum(['strength', 'cardio', 'hiit', 'mobility', 'rest']),
-    title: z.string().max(100).default(''),
-    durationMinutes: z.number().int().min(0).max(360).default(0),
-    targetKcal: z.number().int().min(0).max(3000).default(0),
-    targetZone2Minutes: z.number().int().min(0).max(360).optional().default(0),
-    notes: z.string().max(1000).optional().default(''),
+    dayFocus: z.string().max(120).optional().default(''),
+    activities: z.array(activitySessionSchema).max(12).optional(),
+    workoutType: z.enum(['strength', 'cardio', 'hiit', 'mobility', 'rest']).optional(),
+    title: z.string().max(120).optional(),
+    durationMinutes: z.number().int().min(0).max(600).optional(),
+    targetKcal: z.number().int().min(0).max(5000).optional(),
+    targetZone2Minutes: z.number().int().min(0).max(600).optional(),
+    notes: z.string().max(1000).optional(),
   });
 
   app.post('/v1/clinic/training/programs', { preHandler: authenticate }, async (request, reply) => {
@@ -60,9 +76,10 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
     const schema = z.object({
       title: z.string().min(1).max(255),
       description: z.string().max(2000).optional(),
-      targetSessionsPerWeek: z.number().int().min(1).max(14).optional(),
+      // A multi-activity week counts every discrete session, not just gym days.
+      targetSessionsPerWeek: z.number().int().min(1).max(60).optional(),
       targetActiveBurnWeekly: z.number().int().min(0).max(20000).optional(),
-      targetZone2MinutesWeekly: z.number().int().min(0).max(1000).optional(),
+      targetZone2MinutesWeekly: z.number().int().min(0).max(2000).optional(),
       targetDailySteps: z.number().int().min(1000).max(50000).optional(),
       schedule: z.array(workoutDaySchema).optional(),
       isTemplate: z.boolean().optional(),
@@ -94,9 +111,9 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
     const schema = z.object({
       title: z.string().min(1).max(255).optional(),
       description: z.string().max(2000).optional(),
-      targetSessionsPerWeek: z.number().int().min(1).max(14).optional(),
+      targetSessionsPerWeek: z.number().int().min(1).max(60).optional(),
       targetActiveBurnWeekly: z.number().int().min(0).max(20000).optional(),
-      targetZone2MinutesWeekly: z.number().int().min(0).max(1000).optional(),
+      targetZone2MinutesWeekly: z.number().int().min(0).max(2000).optional(),
       targetDailySteps: z.number().int().min(1000).max(50000).optional(),
       schedule: z.array(workoutDaySchema).optional(),
       isTemplate: z.boolean().optional(),

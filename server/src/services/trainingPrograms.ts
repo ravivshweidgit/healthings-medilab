@@ -1,13 +1,86 @@
 import { pool } from '../db/pool.js';
 
-export interface TrainingWorkoutDay {
-  dayName: string; // 'Sunday', 'Monday', etc. or 'Day 1'
-  workoutType: 'strength' | 'cardio' | 'hiit' | 'mobility' | 'rest';
+export type TrainingTimeSlot = 'morning' | 'noon' | 'evening' | 'anytime';
+export type TrainingWorkoutType = 'strength' | 'cardio' | 'hiit' | 'mobility' | 'rest';
+/** Which wearable/manual session can satisfy this prescription without a manual tap. */
+export type TrainingMatchType = 'bike' | 'walk' | 'run' | 'gym' | 'any';
+
+export interface PrescribedActivitySession {
+  id: string;
+  timeSlot: TrainingTimeSlot;
+  workoutType: TrainingWorkoutType;
   title: string;
   durationMinutes: number;
   targetKcal: number;
   targetZone2Minutes?: number;
   notes?: string;
+  matchType?: TrainingMatchType;
+}
+
+export interface TrainingWorkoutDay {
+  dayName: string; // 'Sunday', 'Monday', etc. or 'Day 1'
+  dayFocus?: string;
+  activities?: PrescribedActivitySession[];
+  /** Legacy single-session fields (pre multi-activity). Read for migration only. */
+  workoutType?: TrainingWorkoutType;
+  title?: string;
+  durationMinutes?: number;
+  targetKcal?: number;
+  targetZone2Minutes?: number;
+  notes?: string;
+}
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/**
+ * Programs saved before multi-activity carried one workout per day on the day object.
+ * Lift those into a single-element activities array so every reader sees one shape.
+ */
+export function normalizeSchedule(raw: unknown): TrainingWorkoutDay[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((entry, idx) => {
+    const day = (entry ?? {}) as TrainingWorkoutDay;
+    const dayName = day.dayName || DAY_NAMES[idx] || `Day ${idx + 1}`;
+    if (Array.isArray(day.activities)) {
+      return {
+        dayName,
+        dayFocus: day.dayFocus || '',
+        activities: day.activities.map((a, i) => ({
+          id: a.id || `${dayName.toLowerCase()}-${i}`,
+          timeSlot: a.timeSlot || 'anytime',
+          workoutType: a.workoutType || 'cardio',
+          title: a.title || '',
+          durationMinutes: Number(a.durationMinutes) || 0,
+          targetKcal: Number(a.targetKcal) || 0,
+          targetZone2Minutes: Number(a.targetZone2Minutes) || 0,
+          notes: a.notes || '',
+          matchType: a.matchType || 'any',
+        })),
+      };
+    }
+
+    const legacyType = day.workoutType || 'rest';
+    return {
+      dayName,
+      dayFocus: day.title || '',
+      activities:
+        legacyType === 'rest' && !Number(day.durationMinutes)
+          ? []
+          : [
+              {
+                id: `${dayName.toLowerCase()}-0`,
+                timeSlot: 'anytime' as TrainingTimeSlot,
+                workoutType: legacyType,
+                title: day.title || '',
+                durationMinutes: Number(day.durationMinutes) || 0,
+                targetKcal: Number(day.targetKcal) || 0,
+                targetZone2Minutes: Number(day.targetZone2Minutes) || 0,
+                notes: day.notes || '',
+                matchType: 'any' as TrainingMatchType,
+              },
+            ],
+    };
+  });
 }
 
 export interface TrainingProgram {
@@ -59,7 +132,7 @@ export async function listTrainingPrograms(mentorId: string): Promise<TrainingPr
     targetActiveBurnWeekly: Number(row.target_active_burn_weekly || 2500),
     targetZone2MinutesWeekly: Number(row.target_zone2_minutes_weekly || 120),
     targetDailySteps: Number(row.target_daily_steps || 8000),
-    schedule: Array.isArray(row.schedule_json) ? row.schedule_json : [],
+    schedule: normalizeSchedule(row.schedule_json),
     isTemplate: Boolean(row.is_template),
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
@@ -88,7 +161,7 @@ export async function getTrainingProgram(mentorId: string, programId: string): P
     targetActiveBurnWeekly: Number(row.target_active_burn_weekly || 2500),
     targetZone2MinutesWeekly: Number(row.target_zone2_minutes_weekly || 120),
     targetDailySteps: Number(row.target_daily_steps || 8000),
-    schedule: Array.isArray(row.schedule_json) ? row.schedule_json : [],
+    schedule: normalizeSchedule(row.schedule_json),
     isTemplate: Boolean(row.is_template),
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
@@ -114,7 +187,7 @@ export async function createTrainingProgram(
   const burn = data.targetActiveBurnWeekly ?? 2500;
   const z2 = data.targetZone2MinutesWeekly ?? 120;
   const steps = data.targetDailySteps ?? 8000;
-  const schedule = data.schedule || [];
+  const schedule = normalizeSchedule(data.schedule || []);
   const isTemplate = data.isTemplate ?? true;
 
   const res = await pool.query(
@@ -142,7 +215,7 @@ export async function createTrainingProgram(
     targetActiveBurnWeekly: Number(row.target_active_burn_weekly),
     targetZone2MinutesWeekly: Number(row.target_zone2_minutes_weekly),
     targetDailySteps: Number(row.target_daily_steps),
-    schedule: Array.isArray(row.schedule_json) ? row.schedule_json : [],
+    schedule: normalizeSchedule(row.schedule_json),
     isTemplate: Boolean(row.is_template),
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
@@ -172,7 +245,7 @@ export async function updateTrainingProgram(
   const burn = data.targetActiveBurnWeekly !== undefined ? data.targetActiveBurnWeekly : current.targetActiveBurnWeekly;
   const z2 = data.targetZone2MinutesWeekly !== undefined ? data.targetZone2MinutesWeekly : current.targetZone2MinutesWeekly;
   const steps = data.targetDailySteps !== undefined ? data.targetDailySteps : current.targetDailySteps;
-  const schedule = data.schedule !== undefined ? data.schedule : current.schedule;
+  const schedule = data.schedule !== undefined ? normalizeSchedule(data.schedule) : current.schedule;
   const isTemplate = data.isTemplate !== undefined ? data.isTemplate : current.isTemplate;
 
   const res = await pool.query(
@@ -205,7 +278,7 @@ export async function updateTrainingProgram(
     targetActiveBurnWeekly: Number(row.target_active_burn_weekly),
     targetZone2MinutesWeekly: Number(row.target_zone2_minutes_weekly),
     targetDailySteps: Number(row.target_daily_steps),
-    schedule: Array.isArray(row.schedule_json) ? row.schedule_json : [],
+    schedule: normalizeSchedule(row.schedule_json),
     isTemplate: Boolean(row.is_template),
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
@@ -305,7 +378,7 @@ export async function getActivePatientAssignment(
       targetActiveBurnWeekly: Number(row.p_burn || 2500),
       targetZone2MinutesWeekly: Number(row.p_z2 || 120),
       targetDailySteps: Number(row.p_steps || 8000),
-      schedule: Array.isArray(row.p_schedule) ? row.p_schedule : [],
+      schedule: normalizeSchedule(row.p_schedule),
       isTemplate: false,
       createdAt: new Date(row.created_at).toISOString(),
       updatedAt: new Date(row.updated_at).toISOString(),

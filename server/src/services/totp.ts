@@ -33,7 +33,7 @@ export class TotpInvalidCodeError extends Error {
   }
 }
 
-export async function beginTotpEnroll(userId: string): Promise<{ emailed: true }> {
+export async function beginTotpEnroll(userId: string): Promise<{ emailed: true; dataUrl: string; secret: string }> {
   const user = await findUserById(userId);
   if (!user) throw new Error('User not found');
   if (user.totpEnabled) throw new TotpAlreadyEnabledError();
@@ -46,14 +46,24 @@ export async function beginTotpEnroll(userId: string): Promise<{ emailed: true }
   );
 
   const otpauth = totpOtpauthUrl(user.email, secret);
+  const dataUrl = await QRCode.toDataURL(otpauth, {
+    margin: 2,
+    width: 240,
+    errorCorrectionLevel: 'M',
+  });
   const png = await QRCode.toBuffer(otpauth, {
     type: 'png',
     width: 280,
     margin: 2,
     errorCorrectionLevel: 'M',
   });
-  await sendTotpEnrollEmail(user.email, png, secret);
-  return { emailed: true };
+  try {
+    await sendTotpEnrollEmail(user.email, png, secret);
+  } catch (emailErr) {
+    // If SMTP fails, the user still gets the direct QR code dataUrl on the screen.
+    console.warn('TOTP email send warning:', emailErr);
+  }
+  return { emailed: true, dataUrl, secret };
 }
 
 export async function confirmTotpEnroll(userId: string, code: string): Promise<void> {

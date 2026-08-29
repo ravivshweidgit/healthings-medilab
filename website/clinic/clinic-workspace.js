@@ -3282,15 +3282,183 @@
       </div>`;
   }
 
+  const TRAINING_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const TRAINING_TIME_SLOTS = ['morning', 'noon', 'evening', 'anytime'];
+  const TRAINING_WORKOUT_TYPES = ['strength', 'cardio', 'hiit', 'mobility', 'rest'];
+  const TRAINING_MATCH_TYPES = ['bike', 'walk', 'run', 'gym', 'any'];
+
+  const TRAINING_TYPE_ICON = {
+    strength: '🏋️',
+    cardio: '🏃',
+    hiit: '⚡',
+    mobility: '🧘',
+    rest: '🛌',
+  };
+  const TRAINING_SLOT_ICON = {
+    morning: '🌅',
+    noon: '☀️',
+    evening: '🌙',
+    anytime: '🕒',
+  };
+  const TRAINING_TYPE_KEY = {
+    strength: 'trainingTypeStrength',
+    cardio: 'trainingTypeCardio',
+    hiit: 'trainingTypeHiit',
+    mobility: 'trainingTypeMobility',
+    rest: 'trainingTypeRest',
+  };
+  const TRAINING_SLOT_KEY = {
+    morning: 'trainingSlotMorning',
+    noon: 'trainingSlotNoon',
+    evening: 'trainingSlotEvening',
+    anytime: 'trainingSlotAnytime',
+  };
+  const TRAINING_MATCH_KEY = {
+    bike: 'trainingMatchBike',
+    walk: 'trainingMatchWalk',
+    run: 'trainingMatchRun',
+    gym: 'trainingMatchGym',
+    any: 'trainingMatchAny',
+  };
+
+  /** Daily commute routine every day carries, before the trainer adds targeted sessions. */
+  function defaultBaselineActivities(dayName) {
+    const key = dayName.toLowerCase();
+    return [
+      { id: `${key}-bike-am`, timeSlot: 'morning', workoutType: 'cardio', title: 'Morning ride', durationMinutes: 22, targetKcal: 120, targetZone2Minutes: 15, notes: '', matchType: 'bike' },
+      { id: `${key}-walk-noon`, timeSlot: 'noon', workoutType: 'cardio', title: 'Midday walk', durationMinutes: 20, targetKcal: 75, targetZone2Minutes: 5, notes: '', matchType: 'walk' },
+      { id: `${key}-bike-pm`, timeSlot: 'evening', workoutType: 'cardio', title: 'Evening ride', durationMinutes: 30, targetKcal: 160, targetZone2Minutes: 20, notes: '', matchType: 'bike' },
+      { id: `${key}-walk-pm`, timeSlot: 'evening', workoutType: 'cardio', title: 'Evening walk', durationMinutes: 60, targetKcal: 225, targetZone2Minutes: 10, notes: '', matchType: 'walk' },
+    ];
+  }
+
+  function strengthActivity(dayName, title, notes, minutes, kcal) {
+    return {
+      id: `${dayName.toLowerCase()}-strength`,
+      timeSlot: 'evening',
+      workoutType: 'strength',
+      title,
+      durationMinutes: minutes,
+      targetKcal: kcal,
+      targetZone2Minutes: 0,
+      notes,
+      matchType: 'gym',
+    };
+  }
+
   const DEFAULT_WEEKLY_SCHEDULE = [
-    { dayName: 'Sunday', workoutType: 'strength', title: 'Upper Body & Core', durationMinutes: 45, targetKcal: 350, targetZone2Minutes: 0, notes: 'Chest press, Rows, Overhead press, Planks' },
-    { dayName: 'Monday', workoutType: 'cardio', title: 'Zone 2 Cardio (Bike/Run)', durationMinutes: 45, targetKcal: 400, targetZone2Minutes: 40, notes: 'Steady state heart rate Zone 2 (60-70% max HR)' },
-    { dayName: 'Tuesday', workoutType: 'rest', title: 'Active Recovery & Mobility', durationMinutes: 20, targetKcal: 100, targetZone2Minutes: 0, notes: 'Stretching, light walk' },
-    { dayName: 'Wednesday', workoutType: 'strength', title: 'Lower Body & Posterior Chain', durationMinutes: 50, targetKcal: 400, targetZone2Minutes: 0, notes: 'Squats, Romanian deadlifts, Lunges, Calf raises' },
-    { dayName: 'Thursday', workoutType: 'cardio', title: 'Zone 2 Cardio / Incline Walk', durationMinutes: 40, targetKcal: 350, targetZone2Minutes: 35, notes: 'Target distance or steady cycling' },
-    { dayName: 'Friday', workoutType: 'hiit', title: 'Full Body Circuit / Conditioning', durationMinutes: 35, targetKcal: 350, targetZone2Minutes: 15, notes: 'Kettlebells, battle ropes, rowing machine intervals' },
-    { dayName: 'Saturday', workoutType: 'rest', title: 'Rest & Regeneration', durationMinutes: 0, targetKcal: 0, targetZone2Minutes: 0, notes: 'Full recovery day' },
+    {
+      dayName: 'Sunday',
+      dayFocus: 'Upper body + daily commute',
+      activities: [
+        ...defaultBaselineActivities('Sunday'),
+        strengthActivity('Sunday', 'Upper Body & Core', 'Chest press, Rows, Overhead press, Planks', 45, 350),
+      ],
+    },
+    { dayName: 'Monday', dayFocus: 'Zone 2 base', activities: defaultBaselineActivities('Monday') },
+    { dayName: 'Tuesday', dayFocus: 'Mobility + commute', activities: defaultBaselineActivities('Tuesday') },
+    {
+      dayName: 'Wednesday',
+      dayFocus: 'Lower body + daily commute',
+      activities: [
+        ...defaultBaselineActivities('Wednesday'),
+        strengthActivity('Wednesday', 'Lower Body & Posterior Chain', 'Squats, Romanian deadlifts, Lunges, Calf raises', 50, 400),
+      ],
+    },
+    { dayName: 'Thursday', dayFocus: 'Zone 2 base', activities: defaultBaselineActivities('Thursday') },
+    {
+      dayName: 'Friday',
+      dayFocus: 'Conditioning + daily commute',
+      activities: [
+        ...defaultBaselineActivities('Friday'),
+        strengthActivity('Friday', 'Full Body Circuit / Conditioning', 'Kettlebells, battle ropes, rowing intervals', 35, 300),
+      ],
+    },
+    {
+      dayName: 'Saturday',
+      dayFocus: 'Rest & regeneration',
+      activities: [
+        { id: 'saturday-walk', timeSlot: 'evening', workoutType: 'cardio', title: 'Easy recovery walk', durationMinutes: 40, targetKcal: 150, targetZone2Minutes: 10, notes: 'Full recovery day — no strength work', matchType: 'walk' },
+      ],
+    },
   ];
+
+  /**
+   * Programs saved before multi-activity carried one workout per day object.
+   * Lift those into an activities array so the editor only ever renders one shape.
+   */
+  function normalizeTrainingSchedule(raw) {
+    const source = Array.isArray(raw) && raw.length ? raw : [];
+    return TRAINING_DAY_NAMES.map((dayName, idx) => {
+      const day = source[idx] || source.find((d) => (d?.dayName || '').toLowerCase() === dayName.toLowerCase()) || {};
+      if (Array.isArray(day.activities)) {
+        return {
+          dayName,
+          dayFocus: day.dayFocus || '',
+          activities: day.activities.map((a, i) => ({
+            id: a.id || `${dayName.toLowerCase()}-${i}`,
+            timeSlot: TRAINING_TIME_SLOTS.includes(a.timeSlot) ? a.timeSlot : 'anytime',
+            workoutType: TRAINING_WORKOUT_TYPES.includes(a.workoutType) ? a.workoutType : 'cardio',
+            title: a.title || '',
+            durationMinutes: Number(a.durationMinutes) || 0,
+            targetKcal: Number(a.targetKcal) || 0,
+            targetZone2Minutes: Number(a.targetZone2Minutes) || 0,
+            notes: a.notes || '',
+            matchType: TRAINING_MATCH_TYPES.includes(a.matchType) ? a.matchType : 'any',
+          })),
+        };
+      }
+
+      const legacyType = TRAINING_WORKOUT_TYPES.includes(day.workoutType) ? day.workoutType : 'rest';
+      const legacyMinutes = Number(day.durationMinutes) || 0;
+      return {
+        dayName,
+        dayFocus: day.title || '',
+        activities:
+          legacyType === 'rest' && !legacyMinutes
+            ? []
+            : [
+                {
+                  id: `${dayName.toLowerCase()}-0`,
+                  timeSlot: 'anytime',
+                  workoutType: legacyType,
+                  title: day.title || '',
+                  durationMinutes: legacyMinutes,
+                  targetKcal: Number(day.targetKcal) || 0,
+                  targetZone2Minutes: Number(day.targetZone2Minutes) || 0,
+                  notes: day.notes || '',
+                  matchType: 'any',
+                },
+              ],
+      };
+    });
+  }
+
+  function trainingDayTotals(day) {
+    return (day.activities || []).reduce(
+      (acc, a) => ({
+        minutes: acc.minutes + (Number(a.durationMinutes) || 0),
+        kcal: acc.kcal + (Number(a.targetKcal) || 0),
+        zone2: acc.zone2 + (Number(a.targetZone2Minutes) || 0),
+      }),
+      { minutes: 0, kcal: 0, zone2: 0 },
+    );
+  }
+
+  function trainingWeeklyTotals(schedule) {
+    return schedule.reduce(
+      (acc, day) => {
+        const totals = trainingDayTotals(day);
+        const sessions = (day.activities || []).filter((a) => a.workoutType !== 'rest' && (Number(a.durationMinutes) || 0) > 0).length;
+        return {
+          sessions: acc.sessions + sessions,
+          kcal: acc.kcal + totals.kcal,
+          zone2: acc.zone2 + totals.zone2,
+        };
+      },
+      { sessions: 0, kcal: 0, zone2: 0 },
+    );
+  }
 
   async function renderTrainingTab(panel, ctx) {
     panel.innerHTML = `<div class="ws-loading" style="padding: 24px; text-align: center;"><p>${esc(t('loading'))}</p></div>`;
@@ -3327,9 +3495,94 @@
     };
 
     let selectedTemplateId = currentAssignment?.programId || 'custom';
-    let schedule = Array.isArray(currentProgram.schedule) && currentProgram.schedule.length === 7
-      ? currentProgram.schedule
-      : DEFAULT_WEEKLY_SCHEDULE;
+    let schedule = Array.isArray(currentProgram.schedule) && currentProgram.schedule.length
+      ? normalizeTrainingSchedule(currentProgram.schedule)
+      : normalizeTrainingSchedule(DEFAULT_WEEKLY_SCHEDULE);
+
+    function selectOptions(values, selected, labelFor) {
+      return values
+        .map((v) => `<option value="${esc(v)}"${v === selected ? ' selected' : ''}>${esc(labelFor(v))}</option>`)
+        .join('');
+    }
+
+    function renderActivityRow(activity, dayIdx, actIdx) {
+      const attr = `data-day-idx="${dayIdx}" data-act-idx="${actIdx}"`;
+      return `
+        <div class="training-activity-row" ${attr}>
+          <div class="training-activity-head">
+            <select class="training-activity-input training-activity-slot" ${attr} data-field="timeSlot" aria-label="${esc(t('trainingSlotAnytime'))}">
+              ${selectOptions(TRAINING_TIME_SLOTS, activity.timeSlot, (v) => `${TRAINING_SLOT_ICON[v]} ${t(TRAINING_SLOT_KEY[v])}`)}
+            </select>
+            <select class="training-activity-input training-activity-type" ${attr} data-field="workoutType" aria-label="${esc(t('trainingTypeStrength'))}">
+              ${selectOptions(TRAINING_WORKOUT_TYPES, activity.workoutType, (v) => `${TRAINING_TYPE_ICON[v]} ${t(TRAINING_TYPE_KEY[v])}`)}
+            </select>
+            <button type="button" class="training-activity-remove" ${attr} title="${esc(t('trainingRemoveActivity'))}" aria-label="${esc(t('trainingRemoveActivity'))}">×</button>
+          </div>
+          <input type="text" class="training-activity-input training-activity-title" ${attr} data-field="title"
+                 placeholder="${esc(t('trainingDayTitlePlaceholder'))}" value="${esc(activity.title || '')}" />
+          <div class="training-activity-nums">
+            <label>
+              ${esc(t('trainingDurationMin'))}
+              <input type="number" class="training-activity-input" ${attr} data-field="durationMinutes" min="0" step="5" value="${esc(String(activity.durationMinutes ?? 0))}" dir="ltr" />
+            </label>
+            <label>
+              ${esc(t('trainingTargetKcal'))}
+              <input type="number" class="training-activity-input" ${attr} data-field="targetKcal" min="0" step="25" value="${esc(String(activity.targetKcal ?? 0))}" dir="ltr" />
+            </label>
+            <label>
+              ${esc(t('trainingZone2Min'))}
+              <input type="number" class="training-activity-input" ${attr} data-field="targetZone2Minutes" min="0" step="5" value="${esc(String(activity.targetZone2Minutes ?? 0))}" dir="ltr" />
+            </label>
+          </div>
+          <label class="training-activity-match">
+            ${esc(t('trainingMatchLabel'))}
+            <select class="training-activity-input" ${attr} data-field="matchType">
+              ${selectOptions(TRAINING_MATCH_TYPES, activity.matchType || 'any', (v) => t(TRAINING_MATCH_KEY[v]))}
+            </select>
+          </label>
+          <textarea class="training-activity-input training-activity-notes" ${attr} data-field="notes"
+                    placeholder="${esc(t('trainingNotesPlaceholder'))}">${esc(activity.notes || '')}</textarea>
+        </div>
+      `;
+    }
+
+    function renderDayCard(day, dayIdx) {
+      const totals = trainingDayTotals(day);
+      const activities = day.activities || [];
+      const rows = activities.length
+        ? activities.map((a, i) => renderActivityRow(a, dayIdx, i)).join('')
+        : `<p class="training-day-empty">${esc(t('trainingNoActivitiesYet'))}</p>`;
+
+      return `
+        <div class="training-day-card" data-day-idx="${dayIdx}">
+          <div class="training-day-head">
+            <span class="training-day-name">${esc(day.dayName || `Day ${dayIdx + 1}`)}</span>
+            <span class="training-day-total" dir="ltr">${totals.minutes} min · ${totals.kcal} kcal · Z2 ${totals.zone2}</span>
+          </div>
+          <input type="text" class="training-day-focus" data-day-idx="${dayIdx}" data-field="dayFocus"
+                 placeholder="${esc(t('trainingDayFocusPlaceholder'))}" value="${esc(day.dayFocus || '')}" />
+          <div class="training-activity-list">${rows}</div>
+          <button type="button" class="training-add-activity" data-day-idx="${dayIdx}">
+            ${esc(t('trainingAddActivity'))}
+          </button>
+        </div>
+      `;
+    }
+
+    /** Repaint one day only, so typing in other days is never thrown away. */
+    function refreshDayCard(dayIdx) {
+      const card = panel.querySelector(`.training-day-card[data-day-idx="${dayIdx}"]`);
+      if (!card) return;
+      card.outerHTML = renderDayCard(schedule[dayIdx], dayIdx);
+    }
+
+    function refreshDayTotal(dayIdx) {
+      const card = panel.querySelector(`.training-day-card[data-day-idx="${dayIdx}"]`);
+      const el = card?.querySelector('.training-day-total');
+      if (!el) return;
+      const totals = trainingDayTotals(schedule[dayIdx]);
+      el.textContent = `${totals.minutes} min · ${totals.kcal} kcal · Z2 ${totals.zone2}`;
+    }
 
     function renderView() {
       const tplOptions = [
@@ -3339,40 +3592,7 @@
         ),
       ].join('');
 
-      const scheduleHtml = schedule
-        .map((day, idx) => {
-          return `
-            <div class="training-day-card" data-day-idx="${idx}">
-              <div class="training-day-head">
-                <span class="training-day-name">${esc(day.dayName || `Day ${idx + 1}`)}</span>
-                <select class="training-day-type-select" data-day-idx="${idx}" style="font-size: 0.8rem; padding: 2px 6px; border-radius: 6px;">
-                  <option value="strength"${day.workoutType === 'strength' ? ' selected' : ''}>🏋️ ${esc(t('trainingTypeStrength'))}</option>
-                  <option value="cardio"${day.workoutType === 'cardio' ? ' selected' : ''}>🏃 ${esc(t('trainingTypeCardio'))}</option>
-                  <option value="hiit"${day.workoutType === 'hiit' ? ' selected' : ''}>⚡ ${esc(t('trainingTypeHiit'))}</option>
-                  <option value="mobility"${day.workoutType === 'mobility' ? ' selected' : ''}>🧘 ${esc(t('trainingTypeMobility'))}</option>
-                  <option value="rest"${day.workoutType === 'rest' ? ' selected' : ''}>🛌 ${esc(t('trainingTypeRest'))}</option>
-                </select>
-              </div>
-              <input type="text" class="training-day-title" data-day-idx="${idx}" placeholder="${esc(t('trainingDayTitlePlaceholder'))}" value="${esc(day.title || '')}" />
-              <div class="training-day-inputs">
-                <label>
-                  ${esc(t('trainingDurationMin'))}
-                  <input type="number" class="training-day-dur" data-day-idx="${idx}" min="0" step="5" value="${esc(String(day.durationMinutes ?? 0))}" dir="ltr" />
-                </label>
-                <label>
-                  ${esc(t('trainingTargetKcal'))}
-                  <input type="number" class="training-day-kcal" data-day-idx="${idx}" min="0" step="25" value="${esc(String(day.targetKcal ?? 0))}" dir="ltr" />
-                </label>
-              </div>
-              <label style="font-size: 0.75rem; color: var(--muted); margin-top: 2px;">
-                ${esc(t('trainingZone2Min'))}
-                <input type="number" class="training-day-z2" data-day-idx="${idx}" min="0" step="5" value="${esc(String(day.targetZone2Minutes ?? 0))}" dir="ltr" />
-              </label>
-              <textarea class="training-day-notes" data-day-idx="${idx}" placeholder="${esc(t('trainingNotesPlaceholder'))}">${esc(day.notes || '')}</textarea>
-            </div>
-          `;
-        })
-        .join('');
+      const scheduleHtml = schedule.map((day, idx) => renderDayCard(day, idx)).join('');
 
       const recentWorkouts = ctx.parsed?.workouts || [];
       const workoutsHtml = recentWorkouts.length
@@ -3438,7 +3658,12 @@
             </div>
           </div>
 
-          <h3 style="font-size: 1rem; margin: 0 0 10px;">${esc(t('trainingSplitHeading'))}</h3>
+          <div class="training-split-head">
+            <h3 style="font-size: 1rem; margin: 0;">${esc(t('trainingSplitHeading'))}</h3>
+            <button type="button" id="training-recalc-btn" class="portal-btn secondary training-recalc-btn">
+              ${esc(t('trainingRecalcFromSchedule'))}
+            </button>
+          </div>
           <div class="training-split-grid">
             ${scheduleHtml}
           </div>
@@ -3466,31 +3691,26 @@
       attachListeners();
     }
 
+    /**
+     * The model is written on every keystroke by the delegated input handler,
+     * so saving only has to fill blanks the server would otherwise reject.
+     */
     function collectCurrentSchedule() {
-      const cards = panel.querySelectorAll('.training-day-card');
-      const updated = [];
-      cards.forEach((card, idx) => {
-        const dayName = schedule[idx]?.dayName || `Day ${idx + 1}`;
-        const workoutType = card.querySelector('.training-day-type-select')?.value || 'strength';
-        const title = card.querySelector('.training-day-title')?.value?.trim() || (workoutType === 'rest' ? 'Rest' : 'Workout');
-        const durVal = parseInt(card.querySelector('.training-day-dur')?.value, 10);
-        const durationMinutes = Number.isFinite(durVal) && durVal >= 0 ? durVal : 0;
-        const kcalVal = parseInt(card.querySelector('.training-day-kcal')?.value, 10);
-        const targetKcal = Number.isFinite(kcalVal) && kcalVal >= 0 ? kcalVal : 0;
-        const z2Val = parseInt(card.querySelector('.training-day-z2')?.value, 10);
-        const targetZone2Minutes = Number.isFinite(z2Val) && z2Val >= 0 ? z2Val : 0;
-        const notes = card.querySelector('.training-day-notes')?.value?.trim() || '';
-        updated.push({
-          dayName,
-          workoutType,
-          title,
-          durationMinutes,
-          targetKcal,
-          targetZone2Minutes,
-          notes,
-        });
-      });
-      return updated;
+      return schedule.map((day, dayIdx) => ({
+        dayName: day.dayName || TRAINING_DAY_NAMES[dayIdx] || `Day ${dayIdx + 1}`,
+        dayFocus: (day.dayFocus || '').trim(),
+        activities: (day.activities || []).map((a, i) => ({
+          id: a.id || `${(day.dayName || `day${dayIdx}`).toLowerCase()}-${i}`,
+          timeSlot: a.timeSlot || 'anytime',
+          workoutType: a.workoutType || 'cardio',
+          title: (a.title || '').trim() || (a.workoutType === 'rest' ? 'Rest' : 'Workout'),
+          durationMinutes: Number(a.durationMinutes) || 0,
+          targetKcal: Number(a.targetKcal) || 0,
+          targetZone2Minutes: Number(a.targetZone2Minutes) || 0,
+          notes: (a.notes || '').trim(),
+          matchType: a.matchType || 'any',
+        })),
+      }));
     }
 
     function showStatus(msg, isErr = false) {
@@ -3502,7 +3722,94 @@
       setTimeout(() => { if (el) el.hidden = true; }, 4000);
     }
 
+    /**
+     * Writes straight into the schedule model so no repaint can lose a keystroke.
+     * Delegated on the panel, which survives innerHTML swaps — bind exactly once.
+     */
+    let scheduleEditingBound = false;
+    function bindScheduleEditing() {
+      if (scheduleEditingBound) return;
+      scheduleEditingBound = true;
+      const NUMERIC_FIELDS = ['durationMinutes', 'targetKcal', 'targetZone2Minutes'];
+
+      const onEdit = (event) => {
+        const el = event.target;
+        if (!el?.dataset) return;
+        const field = el.dataset.field;
+        if (!field) return;
+        const dayIdx = Number(el.dataset.dayIdx);
+        if (!Number.isInteger(dayIdx) || !schedule[dayIdx]) return;
+
+        if (field === 'dayFocus') {
+          schedule[dayIdx].dayFocus = el.value;
+          return;
+        }
+
+        const actIdx = Number(el.dataset.actIdx);
+        const activity = schedule[dayIdx].activities?.[actIdx];
+        if (!activity) return;
+
+        if (NUMERIC_FIELDS.includes(field)) {
+          const parsed = parseInt(el.value, 10);
+          activity[field] = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+          refreshDayTotal(dayIdx);
+        } else {
+          activity[field] = el.value;
+        }
+      };
+
+      panel.addEventListener('input', onEdit);
+      panel.addEventListener('change', onEdit);
+
+      panel.addEventListener('click', (event) => {
+        const addBtn = event.target.closest('.training-add-activity');
+        if (addBtn) {
+          const dayIdx = Number(addBtn.dataset.dayIdx);
+          const day = schedule[dayIdx];
+          if (!day) return;
+          day.activities = day.activities || [];
+          day.activities.push({
+            id: `${(day.dayName || `day${dayIdx}`).toLowerCase()}-${Date.now()}`,
+            timeSlot: 'anytime',
+            workoutType: 'cardio',
+            title: '',
+            durationMinutes: 0,
+            targetKcal: 0,
+            targetZone2Minutes: 0,
+            notes: '',
+            matchType: 'any',
+          });
+          refreshDayCard(dayIdx);
+          return;
+        }
+
+        const removeBtn = event.target.closest('.training-activity-remove');
+        if (removeBtn) {
+          const dayIdx = Number(removeBtn.dataset.dayIdx);
+          const actIdx = Number(removeBtn.dataset.actIdx);
+          if (!schedule[dayIdx]?.activities) return;
+          schedule[dayIdx].activities.splice(actIdx, 1);
+          refreshDayCard(dayIdx);
+        }
+      });
+    }
+
     function attachListeners() {
+      bindScheduleEditing();
+
+      panel.querySelector('#training-recalc-btn')?.addEventListener('click', () => {
+        const totals = trainingWeeklyTotals(schedule);
+        const sessionsEl = panel.querySelector('#training-macro-sessions');
+        const burnEl = panel.querySelector('#training-macro-burn');
+        const z2El = panel.querySelector('#training-macro-z2');
+        // Clamped to the same bounds the API enforces, so recalc can never
+        // produce a value that the save button then rejects.
+        if (sessionsEl) sessionsEl.value = String(Math.max(1, Math.min(60, totals.sessions)));
+        if (burnEl) burnEl.value = String(Math.min(20000, totals.kcal));
+        if (z2El) z2El.value = String(Math.min(2000, totals.zone2));
+        showStatus(`${t('trainingWeeklyPlanned')}: ${totals.sessions} · ${totals.kcal} kcal · Z2 ${totals.zone2}`);
+      });
+
       const tplSelect = panel.querySelector('#training-template-select');
       tplSelect?.addEventListener('change', () => {
         const selectedId = tplSelect.value;
@@ -3520,9 +3827,9 @@
             targetZone2MinutesWeekly: found.targetZone2MinutesWeekly || 120,
             targetDailySteps: found.targetDailySteps || 8000,
           };
-          schedule = Array.isArray(found.schedule) && found.schedule.length === 7
-            ? found.schedule
-            : DEFAULT_WEEKLY_SCHEDULE;
+          schedule = Array.isArray(found.schedule) && found.schedule.length
+            ? normalizeTrainingSchedule(found.schedule)
+            : normalizeTrainingSchedule(DEFAULT_WEEKLY_SCHEDULE);
           renderView();
         }
       });
