@@ -27,6 +27,10 @@ import {
   useDashExpanded,
   type DashExpandKey,
 } from '../hooks/dashExpandStore';
+import {
+  keepMountedCollapsedStyles,
+  useKeepMountedExpand,
+} from '../hooks/useKeepMountedExpand';
 
 type BoundHeaderProps = Omit<DashboardCollapseHeaderProps, 'expanded' | 'onToggle'> & {
   k: DashExpandKey;
@@ -96,6 +100,28 @@ export function DashExpandGate({
 }) {
   const expanded = useDashExpanded(k);
   return <>{expanded ? children() : null}</>;
+}
+
+export function DashKeepMountedGate({
+  k,
+  children,
+}: {
+  k: DashExpandKey;
+  children: () => React.ReactNode;
+}) {
+  const expanded = useDashExpanded(k);
+  const mounted = useKeepMountedExpand(expanded);
+  if (!mounted) return null;
+  return (
+    <View
+      style={!expanded ? keepMountedCollapsedStyles.bodyCollapsed : undefined}
+      pointerEvents={expanded ? 'auto' : 'none'}
+      accessibilityElementsHidden={!expanded}
+      importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
+    >
+      {children()}
+    </View>
+  );
 }
 
 export function DashExpandEffect({

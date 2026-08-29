@@ -534,7 +534,13 @@ const makeStyles = (c: ThemeColors) =>
     paddingBottom: 8,
   },
   bodyCollapsed: {
-    display: 'none',
+    height: 0,
+    overflow: 'hidden',
+    opacity: 0,
+    marginTop: 0,
+    marginBottom: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   chipsRow: { gap: 8, paddingBottom: 2, paddingTop: 4 },
   chip: {

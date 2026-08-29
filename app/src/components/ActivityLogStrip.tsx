@@ -19,7 +19,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   activityLogDayKey,
   getActivitiesForDay,
@@ -29,6 +28,10 @@ import {
 import {
   loadActiveTrainingProgram,
   getTodayPrescribedWorkout,
+  getPrescribedActivities,
+  resolveSessionMatchType,
+  sortActivitiesByTimeSlot,
+  type PrescribedActivitySession,
   type PrescribedWorkoutDay,
 } from '../services/TrainingDirectiveService';
 import type { WorkoutSession } from '../services/WithingsApiService';
@@ -44,8 +47,10 @@ import { DEFAULT_UNITS_PREFS } from '../services/UnitsPreferenceService';
 import type { UserLanguage } from '../services/TargetService';
 import { DEFAULT_LANGUAGE } from '../services/TargetService';
 import { formatEnergy } from '../logic/unitConvert';
-
-const ACTIVITY_LOG_EXPANDED_KEY = 'dash_activity_log_expanded';
+import {
+  keepMountedCollapsedStyles,
+  useKeepMountedExpand,
+} from '../hooks/useKeepMountedExpand';
 
 function startOfLocalDay(ms: number): number {
   const d = new Date(ms);
@@ -67,6 +72,154 @@ function workoutMinutes(w: WorkoutSession): number {
   return Math.max(1, Math.round((w.endMs - w.startMs) / 60_000));
 }
 
+const TYPE_ICON: Record<PrescribedActivitySession['workoutType'], string> = {
+  strength: '🏋️',
+  cardio: '🏃',
+  hiit: '⚡',
+  mobility: '🧘',
+  rest: '🛌',
+};
+
+const SLOT_ICON: Record<PrescribedActivitySession['timeSlot'], string> = {
+  morning: '🌅',
+  noon: '☀️',
+  evening: '🌙',
+  anytime: '🕒',
+};
+
+export type MatchedPrescription = {
+  status: 'pending' | 'logged' | 'watch';
+  actualKcal: number;
+  actualMinutes: number;
+  actualDistanceKm?: number;
+  targetKcal: number;
+  targetMinutes: number;
+  targetDistanceKm?: number;
+  percent: number;
+};
+
+/**
+ * Greedy one-to-one assignment of the day's real sessions to the prescription.
+ * Two prescribed rides need two recorded rides — the first cannot tick both.
+ * Pure over data already in memory; nothing here touches disk (render path).
+ */
+function matchPrescribedActivities(
+  activities: PrescribedActivitySession[],
+  entries: ActivityEntry[],
+  workouts: WorkoutSession[],
+): Record<string, MatchedPrescription> {
+  type Candidate = {
+    key: string;
+    matchType: string;
+    name: string;
+    origin: 'logged' | 'watch';
+    kcal: number;
+    minutes: number;
+  };
+  const candidates: Candidate[] = [
+    ...entries.map((e, i) => ({
+      key: `m-${e.id ?? i}`,
+      matchType: resolveSessionMatchType({ name: e.name }),
+      name: (e.name || '').toLowerCase().trim(),
+      origin: 'logged' as const,
+      kcal: Math.round(e.activityKcal || 0),
+      minutes: Math.round(e.minutes || 0),
+    })),
+    ...workouts.map((w, i) => ({
+      key: `w-${w.startMs}-${i}`,
+      matchType: resolveSessionMatchType({ category: w.category, activityLabel: w.activityLabel }),
+      name: (w.activityLabel || '').toLowerCase().trim(),
+      origin: 'watch' as const,
+      kcal: Math.round(w.kcal || 0),
+      minutes: Math.round(workoutMinutes(w)),
+    })),
+  ];
+
+  const used = new Set<string>();
+  const claims = new Map<string, Candidate>();
+
+  const claim = (predicate: (c: Candidate) => boolean): Candidate | null => {
+    const hit = candidates.find((c) => !used.has(c.key) && predicate(c));
+    if (hit) used.add(hit.key);
+    return hit ?? null;
+  };
+
+  // Exact title first — a 1-tap log carries the prescribed title verbatim.
+  const byTitle = new Map<string, PrescribedActivitySession[]>();
+  for (const a of activities) {
+    const title = (a.title || '').toLowerCase().trim();
+    if (!title) continue;
+    byTitle.set(title, [...(byTitle.get(title) ?? []), a]);
+  }
+  for (const [title, list] of byTitle) {
+    for (const a of list) {
+      const hit = claim((c) => c.name === title);
+      if (hit) claims.set(a.id, hit);
+    }
+  }
+
+  // Then by declared match type; 'any' accepts whatever is left.
+  for (const a of activities) {
+    if (claims.has(a.id)) continue;
+    const want = a.matchType || 'any';
+    const hit = want === 'any' ? claim(() => true) : claim((c) => c.matchType === want);
+    if (hit) claims.set(a.id, hit);
+  }
+
+  const result: Record<string, MatchedPrescription> = {};
+  for (const a of activities) {
+    const hit = claims.get(a.id);
+    const targetKcal = a.targetKcal || 0;
+    const targetMinutes = a.durationMinutes || 0;
+    const targetDistanceKm = a.targetDistanceKm || 0;
+    if (!hit) {
+      result[a.id] = {
+        status: 'pending',
+        actualKcal: 0,
+        actualMinutes: 0,
+        actualDistanceKm: 0,
+        targetKcal,
+        targetMinutes,
+        targetDistanceKm,
+        percent: 0,
+      };
+    } else {
+      const actualKcal = hit.kcal;
+      const actualMinutes = hit.minutes;
+      let actualDistanceKm = 0;
+      if (targetDistanceKm > 0) {
+        if (targetKcal > 0 && actualKcal > 0) {
+          actualDistanceKm = Number(((actualKcal / targetKcal) * targetDistanceKm).toFixed(1));
+        } else if (targetMinutes > 0 && actualMinutes > 0) {
+          actualDistanceKm = Number(((actualMinutes / targetMinutes) * targetDistanceKm).toFixed(1));
+        } else {
+          actualDistanceKm = targetDistanceKm;
+        }
+      }
+      let percent = 100;
+      if (targetDistanceKm > 0 && actualDistanceKm > 0) {
+        percent = Math.round((actualDistanceKm / targetDistanceKm) * 100);
+      } else if (targetKcal > 0 && actualKcal > 0) {
+        percent = Math.round((actualKcal / targetKcal) * 100);
+      } else if (targetMinutes > 0 && actualMinutes > 0) {
+        percent = Math.round((actualMinutes / targetMinutes) * 100);
+      }
+      result[a.id] = {
+        status: hit.origin,
+        actualKcal,
+        actualMinutes,
+        actualDistanceKm,
+        targetKcal,
+        targetMinutes,
+        targetDistanceKm,
+        percent,
+      };
+    }
+  }
+
+  return result;
+}
+
 export type ActivityLogStripHandle = {
   reload: () => Promise<void>;
   expand: () => void;
@@ -77,7 +230,7 @@ type Props = {
   dayKey?: string;
   onAddActivity: (dayKey: string) => void;
   onEditActivity?: (entry: ActivityEntry) => void;
-  onLogPrescribedWorkout?: (workout: PrescribedWorkoutDay, dayKey: string) => void;
+  onLogPrescribedWorkout?: (workout: PrescribedActivitySession, dayKey: string) => void;
   refreshKey?: number;
   workoutSessions?: WorkoutSession[];
   unitsPrefs?: UnitsPrefs;
@@ -103,12 +256,9 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
   const titleRtl = lang?.code === 'he' || lang?.code === 'ar';
   const energyU = unitsPrefs.energy;
 
-  const [expanded, setExpanded] = useState(true);
-  /** Mount once; collapse only hides — same keep-alive as Food Log / glucose. */
-  const [bodyMounted, setBodyMounted] = useState(true);
-  const [expandPrefsLoaded, setExpandPrefsLoaded] = useState(false);
-  /** User collapsed Activity while today still has 0 manual sessions — don't fight that this session. */
-  const skipEmptyAutoExpand = useRef(false);
+  const [expanded, setExpanded] = useState(false);
+  /** Mount once; collapse only hides — pre-warmed via hook for 60fps responsiveness. */
+  const bodyMounted = useKeepMountedExpand(expanded);
   const [selectedMs, setSelectedMs] = useState(() => {
     if (initialDayKey) {
       const parts = initialDayKey.split('-').map(Number);
@@ -121,25 +271,14 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
   const [manualKcal, setManualKcal] = useState(0);
   const [prescribedDay, setPrescribedDay] = useState<PrescribedWorkoutDay | null>(null);
 
+  // selectedMs and refreshKey are stable numbers, so this disk read fires on an
+  // explicit day change only — never repeatedly on a render pass.
   useEffect(() => {
     void loadActiveTrainingProgram().then((prog) => {
       const prescribed = getTodayPrescribedWorkout(prog, new Date(selectedMs));
       setPrescribedDay(prescribed);
     });
   }, [selectedMs, refreshKey]);
-
-  useEffect(() => {
-    void AsyncStorage.getItem(ACTIVITY_LOG_EXPANDED_KEY).then((v) => {
-      if (v === 'false') setExpanded(false);
-      if (v === 'true') setExpanded(true);
-      setExpandPrefsLoaded(true);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!expandPrefsLoaded) return;
-    void AsyncStorage.setItem(ACTIVITY_LOG_EXPANDED_KEY, expanded ? 'true' : 'false');
-  }, [expanded, expandPrefsLoaded]);
 
   const activeDayKey = activityLogDayKey(selectedMs);
   const todayKey = activityLogDayKey(Date.now());
@@ -177,15 +316,42 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
 
   const dayTotal = Math.round(manualKcal + wearableKcal);
 
-  const isPrescribedCompleted = useMemo(() => {
-    if (!prescribedDay) return false;
-    const targetTitle = prescribedDay.title.toLowerCase().trim();
-    return entries.some(
-      (e) =>
-        e.name.toLowerCase().trim() === targetTitle ||
-        e.name.toLowerCase().includes(prescribedDay.workoutType),
-    );
-  }, [prescribedDay, entries]);
+  const prescribedActivities = useMemo(
+    () => sortActivitiesByTimeSlot(getPrescribedActivities(prescribedDay)),
+    [prescribedDay],
+  );
+
+  const prescribedStatus = useMemo(
+    () => matchPrescribedActivities(prescribedActivities, entries, dayWorkouts),
+    [prescribedActivities, entries, dayWorkouts],
+  );
+
+  const prescribedDoneCount = useMemo(
+    () => prescribedActivities.filter((a) => prescribedStatus[a.id]?.status !== 'pending').length,
+    [prescribedActivities, prescribedStatus],
+  );
+
+  const overallScore = useMemo(() => {
+    if (!prescribedActivities.length) return 0;
+    return Math.round((prescribedDoneCount / prescribedActivities.length) * 100);
+  }, [prescribedActivities.length, prescribedDoneCount]);
+
+  const targetTotals = useMemo(() => {
+    let targetKcal = 0;
+    let targetMin = 0;
+    let actualKcal = 0;
+    let actualMin = 0;
+    for (const a of prescribedActivities) {
+      targetKcal += a.targetKcal || 0;
+      targetMin += a.durationMinutes || 0;
+      const m = prescribedStatus[a.id];
+      if (m && m.status !== 'pending') {
+        actualKcal += m.actualKcal;
+        actualMin += m.actualMinutes;
+      }
+    }
+    return { targetKcal, targetMin, actualKcal, actualMin };
+  }, [prescribedActivities, prescribedStatus]);
 
   const load = useCallback(async () => {
     const [list, kcal] = await Promise.all([
@@ -201,17 +367,6 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
     setEntriesLoaded(false);
     void load();
   }, [load, refreshKey]);
-
-  // Empty today: open Activity so Add is one tap (pairs with What’s next). Respect a same-session collapse.
-  useEffect(() => {
-    if (!expandPrefsLoaded || !entriesLoaded || !isToday) return;
-    if (entries.length > 0) {
-      skipEmptyAutoExpand.current = false;
-      return;
-    }
-    if (skipEmptyAutoExpand.current) return;
-    setExpanded(true);
-  }, [expandPrefsLoaded, entriesLoaded, isToday, entries.length]);
 
   useImperativeHandle(
     ref,
@@ -254,16 +409,7 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
         title={ui.title}
         subtitle={collapsedSub}
         expanded={expanded}
-        onToggle={() =>
-          setExpanded((v) => {
-            const next = !v;
-            if (next) setBodyMounted(true);
-            if (!next && isToday && entries.length === 0) {
-              skipEmptyAutoExpand.current = true;
-            }
-            return next;
-          })
-        }
+        onToggle={() => setExpanded((v) => !v)}
         titleRtl={titleRtl}
         collapseLabel={ui.collapse}
         expandLabel={ui.expand}
@@ -273,7 +419,7 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
 
       {bodyMounted ? (
         <View
-          style={!expanded ? styles.bodyCollapsed : undefined}
+          style={[!expanded && keepMountedCollapsedStyles.bodyCollapsed]}
           pointerEvents={expanded ? 'auto' : 'none'}
           accessibilityElementsHidden={!expanded}
           importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
@@ -314,54 +460,157 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
               : null}
           </Text>
 
-          {prescribedDay && prescribedDay.workoutType !== 'rest' ? (
-            <Pressable
-              style={({ pressed }) => [
-                styles.prescribedCard,
-                isPrescribedCompleted && styles.prescribedCardCompleted,
-                pressed && !isPrescribedCompleted && styles.prescribedCardPressed,
-              ]}
-              onPress={() => {
-                if (onLogPrescribedWorkout) {
-                  onLogPrescribedWorkout(prescribedDay, activeDayKey);
-                } else {
-                  onAddActivity(activeDayKey);
-                }
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={prescribedDay.title}
-            >
-              <View style={styles.prescribedHead}>
-                <Text style={styles.prescribedTitle}>
-                  {prescribedDay.workoutType === 'strength'
-                    ? '🏋️ '
-                    : prescribedDay.workoutType === 'cardio'
-                      ? '🏃 '
-                      : prescribedDay.workoutType === 'hiit'
-                        ? '⚡ '
-                        : '🧘 '}
-                  {prescribedDay.title || 'Prescribed Workout'}
-                </Text>
-                <View style={styles.prescribedStatusRow}>
-                  <Text style={styles.prescribedMeta}>
-                    {prescribedDay.durationMinutes} min · ~{formatEnergy(prescribedDay.targetKcal, energyU)}
-                  </Text>
-                  <Text
+          {prescribedActivities.length > 0 ? (
+            <View style={styles.planBlock}>
+              <View style={styles.planSummaryCard}>
+                <View style={styles.planSummaryHead}>
+                  <View style={styles.planSummaryTitleCol}>
+                    <Text style={[styles.planHeading, titleRtl && styles.rtl]}>
+                      {ui.planToday}
+                      {prescribedDay?.dayFocus ? ` · ${prescribedDay.dayFocus}` : ''}
+                    </Text>
+                  </View>
+                  <View
                     style={[
-                      styles.prescribedActionChip,
-                      isPrescribedCompleted && styles.prescribedActionChipDone,
+                      styles.planScoreBadge,
+                      overallScore === 100 && styles.planScoreBadgeDone,
                     ]}
                   >
-                    {isPrescribedCompleted ? '✓ Done' : '+ Log'}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.planScoreText,
+                        overallScore === 100 && styles.planScoreTextDone,
+                      ]}
+                    >
+                      {overallScore}% · {prescribedDoneCount}/{prescribedActivities.length}
+                    </Text>
+                  </View>
                 </View>
+
+                {/* Overall Plan Progress Meter Bar */}
+                <View style={styles.progressBarTrack}>
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      { width: `${Math.min(100, overallScore)}%` },
+                      overallScore === 100 && styles.progressBarFillDone,
+                    ]}
+                  />
+                </View>
+
+                {(targetTotals.targetKcal > 0 || targetTotals.targetMin > 0) ? (
+                  <View style={styles.planTotalsRow}>
+                    <Text style={styles.planTotalsText}>
+                      {formatEnergy(targetTotals.actualKcal, energyU)} / {formatEnergy(targetTotals.targetKcal, energyU)} {ui.total}
+                      {targetTotals.targetMin > 0
+                        ? ` · ${targetTotals.actualMin} / ${targetTotals.targetMin} ${ui.minutes.toLowerCase()}`
+                        : ''}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
-              {prescribedDay.notes ? (
-                <Text style={styles.prescribedNotes} numberOfLines={2}>
-                  {prescribedDay.notes}
-                </Text>
-              ) : null}
-            </Pressable>
+
+              {prescribedActivities.map((activity) => {
+                const match = prescribedStatus[activity.id] ?? {
+                  status: 'pending',
+                  actualKcal: 0,
+                  actualMinutes: 0,
+                  targetKcal: activity.targetKcal || 0,
+                  targetMinutes: activity.durationMinutes || 0,
+                  percent: 0,
+                };
+                const done = match.status !== 'pending';
+                const slotLabel =
+                  activity.timeSlot === 'morning'
+                    ? ui.slotMorning
+                    : activity.timeSlot === 'noon'
+                      ? ui.slotNoon
+                      : activity.timeSlot === 'evening'
+                        ? ui.slotEvening
+                        : '';
+                return (
+                  <Pressable
+                    key={activity.id}
+                    style={({ pressed }) => [
+                      styles.prescribedCard,
+                      done && styles.prescribedCardCompleted,
+                      pressed && !done && styles.prescribedCardPressed,
+                    ]}
+                    onPress={() => {
+                      if (onLogPrescribedWorkout) {
+                        onLogPrescribedWorkout(activity, activeDayKey);
+                      } else {
+                        onAddActivity(activeDayKey);
+                      }
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={activity.title || ui.planToday}
+                  >
+                    <View style={styles.prescribedHead}>
+                      <Text style={styles.prescribedTitle} numberOfLines={2}>
+                        {SLOT_ICON[activity.timeSlot]} {TYPE_ICON[activity.workoutType]}{' '}
+                        {activity.title || ui.planToday}
+                        {slotLabel ? ` · ${slotLabel}` : ''}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.prescribedActionChip,
+                          done && styles.prescribedActionChipDone,
+                        ]}
+                      >
+                        {match.status === 'watch'
+                          ? ui.planFromWatch
+                          : match.status === 'logged'
+                            ? ui.planDone
+                            : ui.planLog}
+                      </Text>
+                    </View>
+
+                    {/* Per-Activity Progress Meter Bar */}
+                    <View style={styles.activityMeterTrack}>
+                      <View
+                        style={[
+                          styles.activityMeterFill,
+                          { width: `${Math.min(100, match.percent)}%` },
+                          done && styles.activityMeterFillDone,
+                        ]}
+                      />
+                    </View>
+
+                    <View style={styles.activityMeterNumbersRow}>
+                      <Text style={styles.prescribedMeta}>
+                        {activity.targetDistanceKm && activity.targetDistanceKm > 0
+                          ? done
+                            ? `${match.actualDistanceKm ?? activity.targetDistanceKm} / ${activity.targetDistanceKm} km · ${formatEnergy(match.actualKcal, energyU)} / ${formatEnergy(activity.targetKcal, energyU)}`
+                            : `${activity.targetDistanceKm} km · ~${formatEnergy(activity.targetKcal, energyU)}`
+                          : done
+                            ? `${match.actualMinutes} / ${activity.durationMinutes} min · ${formatEnergy(match.actualKcal, energyU)} / ${formatEnergy(activity.targetKcal, energyU)}`
+                            : `${activity.durationMinutes} min · ~${formatEnergy(activity.targetKcal, energyU)}`}
+                        {activity.targetZone2Minutes
+                          ? ` · Z2 ${activity.targetZone2Minutes} min`
+                          : ''}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.activityMeterPct,
+                          done && styles.activityMeterPctDone,
+                        ]}
+                      >
+                        {match.percent}%
+                      </Text>
+                    </View>
+
+                    {activity.notes ? (
+                      <Text style={styles.prescribedNotes} numberOfLines={2}>
+                        {activity.notes}
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : prescribedDay ? (
+            <Text style={styles.planRestLine}>{ui.planRestDay}</Text>
           ) : null}
 
           {timelineChips.length === 0 ? (
@@ -422,9 +671,6 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
 
 const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
-    bodyCollapsed: {
-      display: 'none',
-    },
     card: {
       backgroundColor: c.surface,
       borderRadius: 24,
@@ -494,13 +740,85 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     chipMeta: { fontSize: 11, color: c.textPrimary, marginTop: 4, fontVariant: ['tabular-nums'] },
     chipBadge: { fontSize: 10, color: c.textSecondary, marginTop: 4 },
     chipBadgeWearable: { fontSize: 10, color: isDark ? c.accentBlue : '#1E88E5', marginTop: 4, fontWeight: '600' },
+    planBlock: {
+      marginBottom: 4,
+    },
+    planSummaryCard: {
+      padding: 10,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+      marginBottom: 10,
+    },
+    planSummaryHead: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 8,
+    },
+    planSummaryTitleCol: {
+      flex: 1,
+    },
+    planScoreBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 8,
+      backgroundColor: isDark ? 'rgba(142, 155, 255, 0.15)' : 'rgba(31, 61, 92, 0.08)',
+    },
+    planScoreBadgeDone: {
+      backgroundColor: isDark ? 'rgba(76, 175, 80, 0.2)' : 'rgba(76, 175, 80, 0.12)',
+    },
+    planScoreText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: isDark ? c.accentBlue : '#1F3D5C',
+      fontVariant: ['tabular-nums'],
+    },
+    planScoreTextDone: {
+      color: isDark ? '#81C784' : '#2E7D32',
+    },
+    progressBarTrack: {
+      height: 6,
+      borderRadius: 999,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+      marginVertical: 6,
+      overflow: 'hidden',
+    },
+    progressBarFill: {
+      height: '100%',
+      borderRadius: 999,
+      backgroundColor: isDark ? c.accentBlue : '#1E88E5',
+    },
+    progressBarFillDone: {
+      backgroundColor: isDark ? '#81C784' : '#2E7D32',
+    },
+    planTotalsRow: {
+      marginTop: 2,
+    },
+    planTotalsText: {
+      fontSize: 11,
+      color: c.textSecondary,
+      fontVariant: ['tabular-nums'],
+    },
+    planHeading: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: c.textSecondary,
+      marginBottom: 2,
+    },
+    planRestLine: {
+      fontSize: 12,
+      color: c.textSecondary,
+      marginBottom: 10,
+    },
     prescribedCard: {
-      padding: 12,
+      padding: 10,
       borderRadius: 14,
       borderWidth: 1,
       borderColor: isDark ? 'rgba(142, 155, 255, 0.4)' : 'rgba(31, 61, 92, 0.2)',
       backgroundColor: isDark ? 'rgba(142, 155, 255, 0.08)' : 'rgba(31, 61, 92, 0.04)',
-      marginBottom: 10,
+      marginBottom: 8,
     },
     prescribedCardCompleted: {
       borderColor: isDark ? 'rgba(76, 175, 80, 0.5)' : 'rgba(46, 125, 50, 0.3)',
@@ -512,7 +830,7 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     prescribedHead: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       gap: 8,
     },
     prescribedTitle: {
@@ -521,16 +839,43 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
       color: c.textPrimary,
       flex: 1,
     },
-    prescribedStatusRow: {
+    activityMeterTrack: {
+      height: 5,
+      borderRadius: 999,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+      marginTop: 6,
+      marginBottom: 4,
+      overflow: 'hidden',
+    },
+    activityMeterFill: {
+      height: '100%',
+      borderRadius: 999,
+      backgroundColor: isDark ? 'rgba(142, 155, 255, 0.4)' : 'rgba(31, 61, 92, 0.3)',
+    },
+    activityMeterFillDone: {
+      backgroundColor: isDark ? '#81C784' : '#2E7D32',
+    },
+    activityMeterNumbersRow: {
       flexDirection: 'row',
+      justifyContent: 'space-between',
       alignItems: 'center',
       gap: 6,
+    },
+    activityMeterPct: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: isDark ? c.accentBlue : '#1F3D5C',
+      fontVariant: ['tabular-nums'],
+    },
+    activityMeterPctDone: {
+      color: isDark ? '#81C784' : '#2E7D32',
     },
     prescribedMeta: {
       fontSize: 12,
       fontWeight: '600',
       color: isDark ? c.accentBlue : '#1F3D5C',
       fontVariant: ['tabular-nums'],
+      flex: 1,
     },
     prescribedActionChip: {
       fontSize: 11,

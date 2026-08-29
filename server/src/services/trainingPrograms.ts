@@ -12,6 +12,7 @@ export interface PrescribedActivitySession {
   title: string;
   durationMinutes: number;
   targetKcal: number;
+  targetDistanceKm?: number;
   targetZone2Minutes?: number;
   notes?: string;
   matchType?: TrainingMatchType;
@@ -52,6 +53,7 @@ export function normalizeSchedule(raw: unknown): TrainingWorkoutDay[] {
           title: a.title || '',
           durationMinutes: Number(a.durationMinutes) || 0,
           targetKcal: Number(a.targetKcal) || 0,
+          targetDistanceKm: Number.isFinite(Number(a.targetDistanceKm)) ? Number(a.targetDistanceKm) : 0,
           targetZone2Minutes: Number(a.targetZone2Minutes) || 0,
           notes: a.notes || '',
           matchType: a.matchType || 'any',

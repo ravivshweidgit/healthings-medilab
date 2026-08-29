@@ -52,6 +52,15 @@ export type ActivityLogUiCopy = {
   noSessionsThatDay: string;
   back: string;
   orDivider: string;
+  /** Trainer prescription (be-58 multi-activity). */
+  planToday: string;
+  planLog: string;
+  planDone: string;
+  planFromWatch: string;
+  planRestDay: string;
+  slotMorning: string;
+  slotNoon: string;
+  slotEvening: string;
 };
 
 const EN: ActivityLogUiCopy = {
@@ -99,6 +108,14 @@ const EN: ActivityLogUiCopy = {
   noSessionsThatDay: 'No sessions that day',
   back: 'Back',
   orDivider: 'or',
+  planToday: 'Trainer plan',
+  planLog: '+ Log',
+  planDone: '✓ Done',
+  planFromWatch: '✓ Watch',
+  planRestDay: 'Rest day — nothing prescribed.',
+  slotMorning: 'Morning',
+  slotNoon: 'Noon',
+  slotEvening: 'Evening',
 };
 
 const HE: ActivityLogUiCopy = {
@@ -142,6 +159,14 @@ const HE: ActivityLogUiCopy = {
   minutesRequired: 'הזינו דקות',
   collapse: 'כווץ יומן פעילות',
   expand: 'הרחב יומן פעילות',
+  planToday: 'תוכנית המאמן',
+  planLog: '+ תעד',
+  planDone: '✓ בוצע',
+  planFromWatch: '✓ מהשעון',
+  planRestDay: 'יום מנוחה — אין אימון מתוכנן.',
+  slotMorning: 'בוקר',
+  slotNoon: 'צהריים',
+  slotEvening: 'ערב',
 };
 
 const ES: ActivityLogUiCopy = {
@@ -163,6 +188,14 @@ const ES: ActivityLogUiCopy = {
   back: 'Atrás',
   collapse: 'Contraer registro de actividad',
   expand: 'Expandir registro de actividad',
+  planToday: 'Plan del entrenador',
+  planLog: '+ Registrar',
+  planDone: '✓ Hecho',
+  planFromWatch: '✓ Reloj',
+  planRestDay: 'Día de descanso: nada prescrito.',
+  slotMorning: 'Mañana',
+  slotNoon: 'Mediodía',
+  slotEvening: 'Tarde',
 };
 
 const FR: ActivityLogUiCopy = {
@@ -184,6 +217,14 @@ const FR: ActivityLogUiCopy = {
   back: 'Retour',
   collapse: 'Réduire le journal d’activité',
   expand: 'Développer le journal d’activité',
+  planToday: 'Plan du coach',
+  planLog: '+ Noter',
+  planDone: '✓ Fait',
+  planFromWatch: '✓ Montre',
+  planRestDay: 'Jour de repos — rien de prescrit.',
+  slotMorning: 'Matin',
+  slotNoon: 'Midi',
+  slotEvening: 'Soir',
 };
 
 const DE: ActivityLogUiCopy = {
@@ -205,6 +246,14 @@ const DE: ActivityLogUiCopy = {
   back: 'Zurück',
   collapse: 'Aktivitätslog einklappen',
   expand: 'Aktivitätslog ausklappen',
+  planToday: 'Trainerplan',
+  planLog: '+ Erfassen',
+  planDone: '✓ Erledigt',
+  planFromWatch: '✓ Uhr',
+  planRestDay: 'Ruhetag — nichts vorgesehen.',
+  slotMorning: 'Morgen',
+  slotNoon: 'Mittag',
+  slotEvening: 'Abend',
 };
 
 const AR: ActivityLogUiCopy = {
@@ -226,6 +275,14 @@ const AR: ActivityLogUiCopy = {
   back: 'رجوع',
   collapse: 'طي سجل النشاط',
   expand: 'توسيع سجل النشاط',
+  planToday: 'خطة المدرب',
+  planLog: '+ تسجيل',
+  planDone: '✓ تم',
+  planFromWatch: '✓ الساعة',
+  planRestDay: 'يوم راحة — لا يوجد تمرين مقرر.',
+  slotMorning: 'الصباح',
+  slotNoon: 'الظهر',
+  slotEvening: 'المساء',
 };
 
 const RU: ActivityLogUiCopy = {
@@ -247,6 +304,14 @@ const RU: ActivityLogUiCopy = {
   back: 'Назад',
   collapse: 'Свернуть дневник активности',
   expand: 'Развернуть дневник активности',
+  planToday: 'План тренера',
+  planLog: '+ Записать',
+  planDone: '✓ Готово',
+  planFromWatch: '✓ Часы',
+  planRestDay: 'День отдыха — ничего не назначено.',
+  slotMorning: 'Утро',
+  slotNoon: 'День',
+  slotEvening: 'Вечер',
 };
 
 const PT: ActivityLogUiCopy = {
@@ -268,6 +333,14 @@ const PT: ActivityLogUiCopy = {
   back: 'Voltar',
   collapse: 'Recolher diário de atividade',
   expand: 'Expandir diário de atividade',
+  planToday: 'Plano do treinador',
+  planLog: '+ Registrar',
+  planDone: '✓ Feito',
+  planFromWatch: '✓ Relógio',
+  planRestDay: 'Dia de descanso — nada prescrito.',
+  slotMorning: 'Manhã',
+  slotNoon: 'Meio-dia',
+  slotEvening: 'Noite',
 };
 
 const IT: ActivityLogUiCopy = {
@@ -289,6 +362,14 @@ const IT: ActivityLogUiCopy = {
   back: 'Indietro',
   collapse: 'Comprimi diario attività',
   expand: 'Espandi diario attività',
+  planToday: 'Piano del trainer',
+  planLog: '+ Registra',
+  planDone: '✓ Fatto',
+  planFromWatch: '✓ Orologio',
+  planRestDay: 'Giorno di riposo — nulla prescritto.',
+  slotMorning: 'Mattina',
+  slotNoon: 'Mezzogiorno',
+  slotEvening: 'Sera',
 };
 
 const TR: ActivityLogUiCopy = {
@@ -310,6 +391,14 @@ const TR: ActivityLogUiCopy = {
   back: 'Geri',
   collapse: 'Aktivite günlüğünü daralt',
   expand: 'Aktivite günlüğünü genişlet',
+  planToday: 'Antrenör planı',
+  planLog: '+ Kaydet',
+  planDone: '✓ Tamam',
+  planFromWatch: '✓ Saat',
+  planRestDay: 'Dinlenme günü — planlı antrenman yok.',
+  slotMorning: 'Sabah',
+  slotNoon: 'Öğle',
+  slotEvening: 'Akşam',
 };
 
 const BY_CODE: Record<string, ActivityLogUiCopy> = {

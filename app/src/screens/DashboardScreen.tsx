@@ -51,6 +51,7 @@ import {
   DashCollapseView,
   DashExpandEffect,
   DashExpandGate,
+  DashKeepMountedGate,
   withDashExpand,
 } from '../components/DashExpand';
 import {
@@ -1755,6 +1756,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     }
     const nudge = await loadLabMarkerNudge();
     setLabMarkerNudge(nudge);
+    setActivityRefreshKey((k) => k + 1);
     if (fromClinic.backfillResult) {
       foodMacroStripRef.current?.reload();
     }
@@ -3333,7 +3335,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             perfTag="MyProfile"
           />
 
-          <DashExpandGate k="profile">
+          <DashKeepMountedGate k="profile">
             {() => (
             <DebugErrorBoundary label="My Profile">
             <View style={styles.profileBody}>
@@ -3483,7 +3485,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             </View>
             </DebugErrorBoundary>
             )}
-          </DashExpandGate>
+          </DashKeepMountedGate>
 
           <Modal
             visible={showDatePickerDialog && Platform.OS === 'ios'}

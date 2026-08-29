@@ -27,6 +27,10 @@ import {
 import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import {
+  keepMountedCollapsedStyles,
+  useKeepMountedExpand,
+} from '../hooks/useKeepMountedExpand';
+import {
   displayToKg,
   formatMass,
   kgToDisplay,
@@ -263,7 +267,7 @@ export function WeightTargetStrip({
   const [suggestion, setSuggestion] = useState<BodyTarget | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const [bodyMounted, setBodyMounted] = useState(false);
+  const bodyMounted = useKeepMountedExpand(expanded);
 
   // Edit fields
   const [editWeight, setEditWeight] = useState('');
@@ -275,7 +279,7 @@ export function WeightTargetStrip({
   useEffect(() => {
     getBodyTarget().then((t) => {
       if (t) { setTarget(t); setScreen('active'); }
-      else { setBodyMounted(true); setExpanded(true); }  // open by default if no targets yet
+      else { setExpanded(true); }  // open by default if no targets yet
     });
   }, []);
 
@@ -412,13 +416,7 @@ export function WeightTargetStrip({
         title={profileTitles.myTargets}
         subtitle={headerSub}
         expanded={expanded}
-        onToggle={() =>
-          setExpanded((e) => {
-            const next = !e;
-            if (next) setBodyMounted(true);
-            return next;
-          })
-        }
+        onToggle={() => setExpanded((e) => !e)}
         titleRtl={lang?.code === 'he' || lang?.code === 'ar'}
         collapseLabel="Collapse my targets"
         expandLabel="Expand my targets"
@@ -428,7 +426,7 @@ export function WeightTargetStrip({
 
       {bodyMounted ? (
       <View
-        style={[styles.body, !expanded && styles.bodyCollapsed]}
+        style={[styles.body, !expanded && keepMountedCollapsedStyles.bodyCollapsed]}
         pointerEvents={expanded ? 'auto' : 'none'}
         accessibilityElementsHidden={!expanded}
         importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
@@ -653,7 +651,6 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
   },
   // ── Expanded body ──
   body: { marginTop: 8, paddingHorizontal: 4 },
-  bodyCollapsed: { display: 'none' },
 
   // idle
   idleWrap: { alignItems: 'stretch', paddingVertical: 8, gap: 10 },

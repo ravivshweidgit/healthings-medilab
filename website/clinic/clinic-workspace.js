@@ -3325,10 +3325,10 @@
   function defaultBaselineActivities(dayName) {
     const key = dayName.toLowerCase();
     return [
-      { id: `${key}-bike-am`, timeSlot: 'morning', workoutType: 'cardio', title: 'Morning ride', durationMinutes: 22, targetKcal: 120, targetZone2Minutes: 15, notes: '', matchType: 'bike' },
-      { id: `${key}-walk-noon`, timeSlot: 'noon', workoutType: 'cardio', title: 'Midday walk', durationMinutes: 20, targetKcal: 75, targetZone2Minutes: 5, notes: '', matchType: 'walk' },
-      { id: `${key}-bike-pm`, timeSlot: 'evening', workoutType: 'cardio', title: 'Evening ride', durationMinutes: 30, targetKcal: 160, targetZone2Minutes: 20, notes: '', matchType: 'bike' },
-      { id: `${key}-walk-pm`, timeSlot: 'evening', workoutType: 'cardio', title: 'Evening walk', durationMinutes: 60, targetKcal: 225, targetZone2Minutes: 10, notes: '', matchType: 'walk' },
+      { id: `${key}-bike-am`, timeSlot: 'morning', workoutType: 'cardio', title: 'Morning ride', durationMinutes: 22, targetDistanceKm: 5.5, targetKcal: 120, targetZone2Minutes: 15, notes: '', matchType: 'bike' },
+      { id: `${key}-walk-noon`, timeSlot: 'noon', workoutType: 'cardio', title: 'Midday walk', durationMinutes: 20, targetDistanceKm: 2.0, targetKcal: 82, targetZone2Minutes: 5, notes: '', matchType: 'walk' },
+      { id: `${key}-bike-pm`, timeSlot: 'evening', workoutType: 'cardio', title: 'Evening ride', durationMinutes: 30, targetDistanceKm: 5.5, targetKcal: 125, targetZone2Minutes: 20, notes: '', matchType: 'bike' },
+      { id: `${key}-walk-pm`, timeSlot: 'evening', workoutType: 'cardio', title: 'Evening walk', durationMinutes: 60, targetDistanceKm: 4.0, targetKcal: 165, targetZone2Minutes: 10, notes: '', matchType: 'walk' },
     ];
   }
 
@@ -3402,6 +3402,7 @@
             title: a.title || '',
             durationMinutes: Number(a.durationMinutes) || 0,
             targetKcal: Number(a.targetKcal) || 0,
+            targetDistanceKm: Number.isFinite(Number(a.targetDistanceKm)) ? Number(a.targetDistanceKm) : 0,
             targetZone2Minutes: Number(a.targetZone2Minutes) || 0,
             notes: a.notes || '',
             matchType: TRAINING_MATCH_TYPES.includes(a.matchType) ? a.matchType : 'any',
@@ -3521,6 +3522,10 @@
           <input type="text" class="training-activity-input training-activity-title" ${attr} data-field="title"
                  placeholder="${esc(t('trainingDayTitlePlaceholder'))}" value="${esc(activity.title || '')}" />
           <div class="training-activity-nums">
+            <label>
+              ${esc(t('trainingDistanceKm'))}
+              <input type="number" class="training-activity-input" ${attr} data-field="targetDistanceKm" min="0" step="0.5" value="${esc(String(activity.targetDistanceKm ?? 0))}" dir="ltr" />
+            </label>
             <label>
               ${esc(t('trainingDurationMin'))}
               <input type="number" class="training-activity-input" ${attr} data-field="durationMinutes" min="0" step="5" value="${esc(String(activity.durationMinutes ?? 0))}" dir="ltr" />
@@ -3730,7 +3735,8 @@
     function bindScheduleEditing() {
       if (scheduleEditingBound) return;
       scheduleEditingBound = true;
-      const NUMERIC_FIELDS = ['durationMinutes', 'targetKcal', 'targetZone2Minutes'];
+      const NUMERIC_FIELDS = ['durationMinutes', 'targetKcal', 'targetDistanceKm', 'targetZone2Minutes'];
+      const patientWeightKg = ctx.parsed?.withings?.bodyScan?.weightKg || ctx.parsed?.profile?.weightKg || 74.9;
 
       const onEdit = (event) => {
         const el = event.target;
@@ -3749,7 +3755,19 @@
         const activity = schedule[dayIdx].activities?.[actIdx];
         if (!activity) return;
 
-        if (NUMERIC_FIELDS.includes(field)) {
+        if (field === 'targetDistanceKm') {
+          const parsed = parseFloat(el.value);
+          const km = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+          activity.targetDistanceKm = km;
+          if (km > 0) {
+            // Automatic physics-based calculation: Distance × Weight × 0.55
+            const autoKcal = Math.round(km * patientWeightKg * 0.55);
+            activity.targetKcal = autoKcal;
+            const kcalInput = el.closest('.training-activity-row')?.querySelector('input[data-field="targetKcal"]');
+            if (kcalInput) kcalInput.value = String(autoKcal);
+          }
+          refreshDayTotal(dayIdx);
+        } else if (NUMERIC_FIELDS.includes(field)) {
           const parsed = parseInt(el.value, 10);
           activity[field] = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
           refreshDayTotal(dayIdx);
