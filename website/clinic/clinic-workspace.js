@@ -3315,7 +3315,7 @@
       console.warn('Failed loading training data', err);
     }
 
-    const initialProgram = currentAssignment?.program || {
+    let currentProgram = currentAssignment?.program || {
       id: null,
       title: 'Balanced Metabolic Hypertrophy & Zone 2',
       description: 'Progressive overload strength split paired with weekly Zone 2 base building.',
@@ -3326,15 +3326,16 @@
       schedule: DEFAULT_WEEKLY_SCHEDULE,
     };
 
-    let schedule = Array.isArray(initialProgram.schedule) && initialProgram.schedule.length === 7
-      ? initialProgram.schedule
+    let selectedTemplateId = currentAssignment?.programId || 'custom';
+    let schedule = Array.isArray(currentProgram.schedule) && currentProgram.schedule.length === 7
+      ? currentProgram.schedule
       : DEFAULT_WEEKLY_SCHEDULE;
 
     function renderView() {
       const tplOptions = [
-        `<option value="custom">${esc(t('trainingCustomProgram'))}</option>`,
+        `<option value="custom"${selectedTemplateId === 'custom' ? ' selected' : ''}>${esc(t('trainingCustomProgram'))}</option>`,
         ...templates.map(
-          (p) => `<option value="${esc(p.id)}"${currentAssignment?.programId === p.id ? ' selected' : ''}>${esc(p.title)} (${p.targetSessionsPerWeek} sessions/wk)</option>`
+          (p) => `<option value="${esc(p.id)}"${selectedTemplateId === p.id ? ' selected' : ''}>${esc(p.title)} (${p.targetSessionsPerWeek} sessions/wk)</option>`
         ),
       ].join('');
 
@@ -3407,33 +3408,33 @@
             <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--muted); margin-bottom: 4px;">
               ${esc(t('trainingProgramTitleLabel'))}
             </label>
-            <input type="text" id="training-prog-title" class="portal-input" style="width: 100%; box-sizing: border-box; font-weight: 600;" value="${esc(initialProgram.title || '')}" />
+            <input type="text" id="training-prog-title" class="portal-input" style="width: 100%; box-sizing: border-box; font-weight: 600;" value="${esc(currentProgram.title || '')}" />
           </div>
 
           <div style="margin-bottom: 18px;">
             <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--muted); margin-bottom: 4px;">
               ${esc(t('trainingProgramDescLabel'))}
             </label>
-            <textarea id="training-prog-desc" class="portal-input" style="width: 100%; box-sizing: border-box; min-height: 48px;">${esc(initialProgram.description || '')}</textarea>
+            <textarea id="training-prog-desc" class="portal-input" style="width: 100%; box-sizing: border-box; min-height: 48px;">${esc(currentProgram.description || '')}</textarea>
           </div>
 
           <h3 style="font-size: 1rem; margin: 0 0 8px;">${esc(t('trainingActivityMacrosHeading'))}</h3>
           <div class="training-macros-grid">
             <div class="training-macro-card">
               <label>🏋️ ${esc(t('trainingMacroSessions'))}</label>
-              <input type="number" id="training-macro-sessions" min="1" max="14" step="1" value="${esc(String(initialProgram.targetSessionsPerWeek || 4))}" dir="ltr" />
+              <input type="number" id="training-macro-sessions" min="1" max="14" step="1" value="${esc(String(currentProgram.targetSessionsPerWeek || 4))}" dir="ltr" />
             </div>
             <div class="training-macro-card">
               <label>⚡ ${esc(t('trainingMacroBurnWeekly'))}</label>
-              <input type="number" id="training-macro-burn" min="0" step="100" value="${esc(String(initialProgram.targetActiveBurnWeekly || 2500))}" dir="ltr" />
+              <input type="number" id="training-macro-burn" min="0" step="100" value="${esc(String(currentProgram.targetActiveBurnWeekly || 2500))}" dir="ltr" />
             </div>
             <div class="training-macro-card">
               <label>💓 ${esc(t('trainingMacroZone2Weekly'))}</label>
-              <input type="number" id="training-macro-z2" min="0" step="15" value="${esc(String(initialProgram.targetZone2MinutesWeekly || 120))}" dir="ltr" />
+              <input type="number" id="training-macro-z2" min="0" step="15" value="${esc(String(currentProgram.targetZone2MinutesWeekly || 120))}" dir="ltr" />
             </div>
             <div class="training-macro-card">
               <label>👟 ${esc(t('trainingMacroDailySteps'))}</label>
-              <input type="number" id="training-macro-steps" min="0" step="500" value="${esc(String(initialProgram.targetDailySteps || 8000))}" dir="ltr" />
+              <input type="number" id="training-macro-steps" min="0" step="500" value="${esc(String(currentProgram.targetDailySteps || 8000))}" dir="ltr" />
             </div>
           </div>
 
@@ -3505,16 +3506,23 @@
       const tplSelect = panel.querySelector('#training-template-select');
       tplSelect?.addEventListener('change', () => {
         const selectedId = tplSelect.value;
-        if (selectedId === 'custom') return;
+        selectedTemplateId = selectedId;
+        if (selectedId === 'custom') {
+          renderView();
+          return;
+        }
         const found = templates.find((t) => t.id === selectedId);
         if (found) {
-          panel.querySelector('#training-prog-title').value = found.title || '';
-          panel.querySelector('#training-prog-desc').value = found.description || '';
-          panel.querySelector('#training-macro-sessions').value = found.targetSessionsPerWeek || 4;
-          panel.querySelector('#training-macro-burn').value = found.targetActiveBurnWeekly || 2500;
-          panel.querySelector('#training-macro-z2').value = found.targetZone2MinutesWeekly || 120;
-          panel.querySelector('#training-macro-steps').value = found.targetDailySteps || 8000;
-          schedule = Array.isArray(found.schedule) ? found.schedule : DEFAULT_WEEKLY_SCHEDULE;
+          currentProgram = {
+            ...found,
+            targetSessionsPerWeek: found.targetSessionsPerWeek || 4,
+            targetActiveBurnWeekly: found.targetActiveBurnWeekly || 2500,
+            targetZone2MinutesWeekly: found.targetZone2MinutesWeekly || 120,
+            targetDailySteps: found.targetDailySteps || 8000,
+          };
+          schedule = Array.isArray(found.schedule) && found.schedule.length === 7
+            ? found.schedule
+            : DEFAULT_WEEKLY_SCHEDULE;
           renderView();
         }
       });
