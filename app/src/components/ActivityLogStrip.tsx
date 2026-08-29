@@ -91,12 +91,67 @@ export type MatchedPrescription = {
   status: 'pending' | 'logged' | 'watch';
   actualKcal: number;
   actualMinutes: number;
+  actualDistanceM?: number;
   actualDistanceKm?: number;
   targetKcal: number;
   targetMinutes: number;
+  targetDistanceM?: number;
   targetDistanceKm?: number;
   percent: number;
 };
+
+export function resolveWorkoutDistanceMeters(w: WorkoutSession, weightKg: number): number | null {
+  if (w.distanceM != null && Number.isFinite(w.distanceM) && w.distanceM > 0) {
+    return Math.round(w.distanceM);
+  }
+  const label = (w.activityLabel || '').toLowerCase();
+  const isDistanceSport =
+    w.category === 1 || // Walk
+    w.category === 2 || // Run
+    w.category === 3 || // Hike
+    w.category === 6 || // Biking
+    w.category === 187 || // Indoor Biking
+    w.category === 306 || // Cycling
+    w.category === 307 ||
+    /walk|run|hike|bike|cycl|bicycl|ride|הליכה|ריצה|אופני|רכיב/i.test(label);
+  if (isDistanceSport && w.kcal > 0 && weightKg > 0) {
+    return Math.round((w.kcal / (weightKg * 0.55)) * 1000);
+  }
+  return null;
+}
+
+export function resolveManualDistanceMeters(e: ActivityEntry, weightKg: number): number | null {
+  const isDistanceSport = /walk|run|hike|bike|cycl|bicycl|ride|הליכה|ריצה|אופני|רכיב/i.test(e.name || '');
+  if (isDistanceSport && e.activityKcal > 0 && weightKg > 0) {
+    return Math.round((e.activityKcal / (weightKg * 0.55)) * 1000);
+  }
+  return null;
+}
+
+export function formatDistanceLabel(meters: number): string {
+  if (meters >= 1000) {
+    const km = (meters / 1000).toFixed(2);
+    return `${km.replace(/\.?0+$/, '')} km`;
+  }
+  return `${meters} m`;
+}
+
+export function isDistanceSportSession(activity: {
+  workoutType?: string;
+  matchType?: string;
+  title?: string;
+  targetDistanceM?: number;
+  targetDistanceKm?: number;
+}): boolean {
+  if (activity.targetDistanceM != null && activity.targetDistanceM > 0) return true;
+  if (activity.targetDistanceKm != null && activity.targetDistanceKm > 0) return true;
+  const match = (activity.matchType || '').toLowerCase();
+  if (match === 'walk' || match === 'bike' || match === 'run') return true;
+  const type = (activity.workoutType || '').toLowerCase();
+  if (type === 'cardio') return true;
+  const title = (activity.title || '').toLowerCase();
+  return /walk|run|hike|bike|cycl|bicycl|ride|הליכה|ריצה|אופני|רכיב|workout/i.test(title);
+}
 
 /**
  * Greedy one-to-one assignment of the day's real sessions to the prescription.
@@ -107,6 +162,8 @@ function matchPrescribedActivities(
   activities: PrescribedActivitySession[],
   entries: ActivityEntry[],
   workouts: WorkoutSession[],
+  weightKg: number = 74.9,
+  dayDistanceM: number = 0,
 ): Record<string, MatchedPrescription> {
   type Candidate = {
     key: string;
@@ -115,6 +172,7 @@ function matchPrescribedActivities(
     origin: 'logged' | 'watch';
     kcal: number;
     minutes: number;
+    distanceM: number;
   };
   const candidates: Candidate[] = [
     ...entries.map((e, i) => ({
@@ -124,6 +182,7 @@ function matchPrescribedActivities(
       origin: 'logged' as const,
       kcal: Math.round(e.activityKcal || 0),
       minutes: Math.round(e.minutes || 0),
+      distanceM: resolveManualDistanceMeters(e, weightKg) || 0,
     })),
     ...workouts.map((w, i) => ({
       key: `w-${w.startMs}-${i}`,
@@ -132,6 +191,7 @@ function matchPrescribedActivities(
       origin: 'watch' as const,
       kcal: Math.round(w.kcal || 0),
       minutes: Math.round(workoutMinutes(w)),
+      distanceM: resolveWorkoutDistanceMeters(w, weightKg) || 0,
     })),
   ];
 
@@ -166,39 +226,86 @@ function matchPrescribedActivities(
     if (hit) claims.set(a.id, hit);
   }
 
+  // Number of distance sports to share day distance
+  const distanceActivities = activities.filter((a) => isDistanceSportSession(a));
+  // If total day distance is reported from watch/health, allocate it across the day's distance activities
+  const perActivityAllocatedDist =
+    distanceActivities.length > 0 && dayDistanceM > 0
+      ? Math.round(dayDistanceM / distanceActivities.length)
+      : 0;
+
   const result: Record<string, MatchedPrescription> = {};
   for (const a of activities) {
     const hit = claims.get(a.id);
     const targetKcal = a.targetKcal || 0;
     const targetMinutes = a.durationMinutes || 0;
-    const targetDistanceKm = a.targetDistanceKm || 0;
-    if (!hit) {
-      result[a.id] = {
-        status: 'pending',
-        actualKcal: 0,
-        actualMinutes: 0,
-        actualDistanceKm: 0,
-        targetKcal,
-        targetMinutes,
-        targetDistanceKm,
-        percent: 0,
-      };
-    } else {
-      const actualKcal = hit.kcal;
-      const actualMinutes = hit.minutes;
-      let actualDistanceKm = 0;
-      if (targetDistanceKm > 0) {
-        if (targetKcal > 0 && actualKcal > 0) {
-          actualDistanceKm = Number(((actualKcal / targetKcal) * targetDistanceKm).toFixed(1));
-        } else if (targetMinutes > 0 && actualMinutes > 0) {
-          actualDistanceKm = Number(((actualMinutes / targetMinutes) * targetDistanceKm).toFixed(1));
-        } else {
-          actualDistanceKm = targetDistanceKm;
-        }
+    const isDistSport = isDistanceSportSession(a);
+
+    let targetDistanceM =
+      a.targetDistanceM || (a.targetDistanceKm ? Math.round(a.targetDistanceKm * 1000) : 0);
+    if (targetDistanceM <= 0 && isDistSport) {
+      if (targetKcal > 0 && weightKg > 0) {
+        targetDistanceM = Math.round((targetKcal / (weightKg * 0.55)) * 1000);
+      } else if (targetMinutes > 0) {
+        targetDistanceM = Math.round(targetMinutes * 70); // ~4.2 km for 60 min
       }
+    }
+    const targetDistanceKm =
+      targetDistanceM > 0 ? Number((targetDistanceM / 1000).toFixed(2)) : 0;
+
+    if (!hit) {
+      // If we have passive day distance that can fulfill this activity:
+      if (isDistSport && perActivityAllocatedDist > 0) {
+        const actualDistanceM = perActivityAllocatedDist;
+        const actualDistanceKm = Number((actualDistanceM / 1000).toFixed(2));
+        const actualKcal = Math.round((actualDistanceM / 1000) * weightKg * 0.55);
+        const percent = targetDistanceM > 0 ? Math.round((actualDistanceM / targetDistanceM) * 100) : 100;
+        result[a.id] = {
+          status: 'watch',
+          actualKcal,
+          actualMinutes: Math.round((actualDistanceM / 1000) * 12),
+          actualDistanceM,
+          actualDistanceKm,
+          targetKcal,
+          targetMinutes,
+          targetDistanceM,
+          targetDistanceKm,
+          percent,
+        };
+      } else {
+        result[a.id] = {
+          status: 'pending',
+          actualKcal: 0,
+          actualMinutes: 0,
+          actualDistanceM: 0,
+          actualDistanceKm: 0,
+          targetKcal,
+          targetMinutes,
+          targetDistanceM,
+          targetDistanceKm,
+          percent: 0,
+        };
+      }
+    } else {
+      let actualDistanceM = hit.distanceM || 0;
+      if (isDistSport && actualDistanceM <= 0 && hit.kcal > 0 && weightKg > 0) {
+        actualDistanceM = Math.round((hit.kcal / (weightKg * 0.55)) * 1000);
+      }
+      // If dayDistanceM is higher than discrete hit, give the activity its full fair share of the day's distance
+      if (isDistSport && perActivityAllocatedDist > actualDistanceM) {
+        actualDistanceM = perActivityAllocatedDist;
+      }
+      const actualDistanceKm =
+        actualDistanceM > 0 ? Number((actualDistanceM / 1000).toFixed(2)) : 0;
+      const actualKcal =
+        isDistSport && actualDistanceM > 0
+          ? Math.round((actualDistanceM / 1000) * weightKg * 0.55)
+          : hit.kcal;
+      const actualMinutes = hit.minutes;
+
       let percent = 100;
-      if (targetDistanceKm > 0 && actualDistanceKm > 0) {
-        percent = Math.round((actualDistanceKm / targetDistanceKm) * 100);
+      if (targetDistanceM > 0 && actualDistanceM > 0) {
+        percent = Math.round((actualDistanceM / targetDistanceM) * 100);
       } else if (targetKcal > 0 && actualKcal > 0) {
         percent = Math.round((actualKcal / targetKcal) * 100);
       } else if (targetMinutes > 0 && actualMinutes > 0) {
@@ -208,9 +315,11 @@ function matchPrescribedActivities(
         status: hit.origin,
         actualKcal,
         actualMinutes,
+        actualDistanceM,
         actualDistanceKm,
         targetKcal,
         targetMinutes,
+        targetDistanceM,
         targetDistanceKm,
         percent,
       };
@@ -235,6 +344,8 @@ type Props = {
   workoutSessions?: WorkoutSession[];
   unitsPrefs?: UnitsPrefs;
   lang?: UserLanguage | null;
+  weightKg?: number | null;
+  distanceByDay?: Map<string, number>;
 };
 
 export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(function ActivityLogStrip(
@@ -247,6 +358,8 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
     workoutSessions = [],
     unitsPrefs = DEFAULT_UNITS_PREFS,
     lang = DEFAULT_LANGUAGE,
+    weightKg = 74.9,
+    distanceByDay,
   },
   ref,
 ) {
@@ -255,6 +368,7 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
   const ui = useMemo(() => getActivityLogUiCopy(lang?.code), [lang?.code]);
   const titleRtl = lang?.code === 'he' || lang?.code === 'ar';
   const energyU = unitsPrefs.energy;
+  const effectiveWeight = weightKg && Number.isFinite(weightKg) && weightKg > 0 ? weightKg : 74.9;
 
   const [expanded, setExpanded] = useState(false);
   /** Mount once; collapse only hides — pre-warmed via hook for 60fps responsiveness. */
@@ -321,9 +435,11 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
     [prescribedDay],
   );
 
+  const dayDistanceM = distanceByDay?.get(activeDayKey) || 0;
+
   const prescribedStatus = useMemo(
-    () => matchPrescribedActivities(prescribedActivities, entries, dayWorkouts),
-    [prescribedActivities, entries, dayWorkouts],
+    () => matchPrescribedActivities(prescribedActivities, entries, dayWorkouts, effectiveWeight, dayDistanceM),
+    [prescribedActivities, entries, dayWorkouts, effectiveWeight, dayDistanceM],
   );
 
   const prescribedDoneCount = useMemo(
@@ -331,27 +447,47 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
     [prescribedActivities, prescribedStatus],
   );
 
-  const overallScore = useMemo(() => {
-    if (!prescribedActivities.length) return 0;
-    return Math.round((prescribedDoneCount / prescribedActivities.length) * 100);
-  }, [prescribedActivities.length, prescribedDoneCount]);
-
   const targetTotals = useMemo(() => {
     let targetKcal = 0;
     let targetMin = 0;
+    let targetDistanceM = 0;
     let actualKcal = 0;
     let actualMin = 0;
+    let actualDistanceM = 0;
     for (const a of prescribedActivities) {
+      const m = prescribedStatus[a.id];
+      const isDist = isDistanceSportSession(a);
+      const tDist =
+        m?.targetDistanceM ||
+        a.targetDistanceM ||
+        (a.targetDistanceKm ? Math.round(a.targetDistanceKm * 1000) : 0) ||
+        (isDist && a.targetKcal ? Math.round((a.targetKcal / (effectiveWeight * 0.55)) * 1000) : 0);
+
       targetKcal += a.targetKcal || 0;
       targetMin += a.durationMinutes || 0;
-      const m = prescribedStatus[a.id];
+      targetDistanceM += tDist;
       if (m && m.status !== 'pending') {
         actualKcal += m.actualKcal;
         actualMin += m.actualMinutes;
+        actualDistanceM += m.actualDistanceM || (m.actualDistanceKm ? Math.round(m.actualDistanceKm * 1000) : 0);
       }
     }
-    return { targetKcal, targetMin, actualKcal, actualMin };
-  }, [prescribedActivities, prescribedStatus]);
+    return { targetKcal, targetMin, targetDistanceM, actualKcal, actualMin, actualDistanceM };
+  }, [prescribedActivities, prescribedStatus, effectiveWeight]);
+
+  const overallScore = useMemo(() => {
+    if (!prescribedActivities.length) return 0;
+    // When distance targets exist, score is total actual distance / total target distance
+    if (targetTotals.targetDistanceM > 0 && targetTotals.actualDistanceM > 0) {
+      return Math.round((targetTotals.actualDistanceM / targetTotals.targetDistanceM) * 100);
+    }
+    // When calorie targets exist:
+    if (targetTotals.targetKcal > 0 && targetTotals.actualKcal > 0) {
+      return Math.round((targetTotals.actualKcal / targetTotals.targetKcal) * 100);
+    }
+    // Fallback:
+    return Math.round((prescribedDoneCount / prescribedActivities.length) * 100);
+  }, [prescribedActivities.length, prescribedDoneCount, targetTotals]);
 
   const load = useCallback(async () => {
     const [list, kcal] = await Promise.all([
@@ -473,13 +609,13 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
                   <View
                     style={[
                       styles.planScoreBadge,
-                      overallScore === 100 && styles.planScoreBadgeDone,
+                      overallScore >= 100 && styles.planScoreBadgeDone,
                     ]}
                   >
                     <Text
                       style={[
                         styles.planScoreText,
-                        overallScore === 100 && styles.planScoreTextDone,
+                        overallScore >= 100 && styles.planScoreTextDone,
                       ]}
                     >
                       {overallScore}% · {prescribedDoneCount}/{prescribedActivities.length}
@@ -493,16 +629,19 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
                     style={[
                       styles.progressBarFill,
                       { width: `${Math.min(100, overallScore)}%` },
-                      overallScore === 100 && styles.progressBarFillDone,
+                      overallScore >= 100 && styles.progressBarFillDone,
                     ]}
                   />
                 </View>
 
-                {(targetTotals.targetKcal > 0 || targetTotals.targetMin > 0) ? (
+                {(targetTotals.targetKcal > 0 || targetTotals.targetMin > 0 || targetTotals.targetDistanceM > 0) ? (
                   <View style={styles.planTotalsRow}>
                     <Text style={styles.planTotalsText}>
+                      {targetTotals.targetDistanceM > 0
+                        ? `${formatDistanceLabel(targetTotals.actualDistanceM)} / ${formatDistanceLabel(targetTotals.targetDistanceM)} · `
+                        : ''}
                       {formatEnergy(targetTotals.actualKcal, energyU)} / {formatEnergy(targetTotals.targetKcal, energyU)} {ui.total}
-                      {targetTotals.targetMin > 0
+                      {targetTotals.targetMin > 0 && targetTotals.targetDistanceM === 0
                         ? ` · ${targetTotals.actualMin} / ${targetTotals.targetMin} ${ui.minutes.toLowerCase()}`
                         : ''}
                     </Text>
@@ -579,19 +718,26 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
 
                     <View style={styles.activityMeterNumbersRow}>
                       <Text style={styles.prescribedMeta}>
-                        {(activity.targetDistanceM && activity.targetDistanceM > 0) || (activity.targetDistanceKm && activity.targetDistanceKm > 0)
-                          ? (() => {
-                              const targetM = activity.targetDistanceM || Math.round((activity.targetDistanceKm || 0) * 1000);
-                              const actualM = match.actualDistanceKm ? Math.round(match.actualDistanceKm * 1000) : targetM;
-                              const targetDistStr = targetM >= 1000 ? `${(targetM / 1000).toFixed(2)} km` : `${targetM} m`;
-                              const actualDistStr = actualM >= 1000 ? `${(actualM / 1000).toFixed(2)} km` : `${actualM} m`;
-                              return done
-                                ? `${actualDistStr} / ${targetDistStr} · ${formatEnergy(match.actualKcal, energyU)} / ${formatEnergy(activity.targetKcal, energyU)}`
-                                : `${targetDistStr} · ~${formatEnergy(activity.targetKcal, energyU)}`;
-                            })()
-                          : done
+                        {(() => {
+                          const isDistSport = isDistanceSportSession(activity);
+                          const targetM =
+                            match.targetDistanceM ||
+                            activity.targetDistanceM ||
+                            (activity.targetDistanceKm ? Math.round(activity.targetDistanceKm * 1000) : 0) ||
+                            (isDistSport && activity.targetKcal ? Math.round((activity.targetKcal / (effectiveWeight * 0.55)) * 1000) : 0);
+
+                          if (isDistSport || targetM > 0) {
+                            const actualM = match.actualDistanceM || (match.actualDistanceKm ? Math.round(match.actualDistanceKm * 1000) : 0);
+                            const targetDistStr = formatDistanceLabel(targetM || 4000);
+                            const actualDistStr = formatDistanceLabel(actualM);
+                            return done
+                              ? `${actualDistStr} / ${targetDistStr} · ${formatEnergy(match.actualKcal, energyU)} / ${formatEnergy(activity.targetKcal, energyU)}`
+                              : `${targetDistStr} · ~${formatEnergy(activity.targetKcal, energyU)}`;
+                          }
+                          return done
                             ? `${match.actualMinutes} / ${activity.durationMinutes} min · ${formatEnergy(match.actualKcal, energyU)} / ${formatEnergy(activity.targetKcal, energyU)}`
-                            : `${activity.durationMinutes} min · ~${formatEnergy(activity.targetKcal, energyU)}`}
+                            : `${activity.durationMinutes} min · ~${formatEnergy(activity.targetKcal, energyU)}`;
+                        })()}
                         {activity.targetZone2Minutes
                           ? ` · Z2 ${activity.targetZone2Minutes} min`
                           : ''}
@@ -639,7 +785,11 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
                       {chip.entry.name}
                     </Text>
                     <Text style={styles.chipMeta}>
-                      {chip.entry.minutes} min · {formatEnergy(chip.entry.activityKcal, energyU)}
+                      {(() => {
+                        const distM = resolveManualDistanceMeters(chip.entry, effectiveWeight);
+                        const distStr = distM ? `${formatDistanceLabel(distM)} · ` : '';
+                        return `${distStr}${chip.entry.minutes} min · ${formatEnergy(chip.entry.activityKcal, energyU)}`;
+                      })()}
                       {chip.entry.equipmentWeightKg != null && chip.entry.equipmentWeightKg > 0
                         ? ` · ${chip.entry.equipmentWeightKg} kg`
                         : ''}
@@ -658,8 +808,11 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
                       {chip.workout.activityLabel || 'Workout'}
                     </Text>
                     <Text style={styles.chipMeta}>
-                      {workoutMinutes(chip.workout)} min ·{' '}
-                      {formatEnergy(chip.workout.kcal, energyU)}
+                      {(() => {
+                        const distM = resolveWorkoutDistanceMeters(chip.workout, effectiveWeight);
+                        const distStr = distM ? `${formatDistanceLabel(distM)} · ` : '';
+                        return `${distStr}${workoutMinutes(chip.workout)} min · ${formatEnergy(chip.workout.kcal, energyU)}`;
+                      })()}
                     </Text>
                     <Text style={styles.chipBadgeWearable}>
                       {chip.workout.source === 'health-connect' ? 'HC' : ui.wearable}

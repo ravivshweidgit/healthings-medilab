@@ -1385,6 +1385,21 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     userGender,
   ]);
 
+  const dailyDistanceByDay = useMemo((): Map<string, number> => {
+    const map = new Map<string, number>();
+    for (const d of bodyTrendDays) {
+      if (d.distanceM != null && Number.isFinite(d.distanceM) && d.distanceM > 0) {
+        map.set(d.dayKey, d.distanceM);
+      }
+    }
+    for (const d of bodyTrendDaysWithActivity) {
+      if (d.distanceM != null && Number.isFinite(d.distanceM) && d.distanceM > 0) {
+        map.set(d.dayKey, d.distanceM);
+      }
+    }
+    return map;
+  }, [bodyTrendDays, bodyTrendDaysWithActivity]);
+
   /** Wearable/hybrid activity + manual Activity Log kcal (prompt104 merge). */
   const burnPartsMerged = useMemo((): Record<string, { bmr: number; activity: number }> => {
     const result: Record<string, { bmr: number; activity: number }> = {};
@@ -3106,6 +3121,8 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             workoutSessions={workoutSessions}
             unitsPrefs={unitsPrefs}
             lang={userLanguage}
+            weightKg={effectiveBodyScan?.weightKg ?? manualBodySnap?.weight_kg ?? null}
+            distanceByDay={dailyDistanceByDay}
           />
           </View>
         ) : null}

@@ -81,6 +81,8 @@ Full record: `be-08-clinic-portal-ux.md`.
 | `be-51-refresh-slide-no-kick.md` | Refresh slides the same token; no Sign-in kick after rotate+kill | 2026-08-21 — owner: phone looks ok; `3065a16` |
 | `be-55-clinic-macro-trends-report.md` | Clinic macro trends report (Target vs Actual 7d/14d) | 2026-08-28 — owner accepted; deployed to VPS |
 | `be-56-clinic-modern-ui.md` | Modern Clinic Portal UI (Operator Sidebar Shell) | 2026-08-28 — owner accepted; deployed to VPS |
+| `be-57-clinic-capabilities-and-credentials.md` | Clinic capabilities, roles (N/T/D 8 personas) & credentials upload | 2026-08-29 — owner accepted; deployed to VPS |
+| `be-58-trainer-programs-and-activity-macros.md` | Trainer programs, workout templates & activity macros (multi-activity days) | 2026-08-29 — owner accepted; phone tested; deployed to VPS |
 
 be-22 was written first, then mostly absorbed by be-25 on the home page; what shipped under be-22 is the
 patient workspace half plus money-led balance. be-25 and be-26 are one decision split in two: the owner

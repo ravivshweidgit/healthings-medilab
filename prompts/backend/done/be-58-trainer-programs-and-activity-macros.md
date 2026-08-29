@@ -1,6 +1,6 @@
 # be-58 — Trainer Programs, Workout Templates & Activity Macros
 
-Status: needs-review
+Status: done
 Date: 2026-08-29
 Builds on: be-57 (Clinic Capabilities & Personas), be-56 (Modern Clinic UI), prompt80 (Hybrid Energy Burn)
 Primary files:

@@ -117,7 +117,7 @@ export function getPrescribedActivities(
 
   if (Array.isArray(day.activities)) {
     return day.activities
-      .filter((a) => a && (a.workoutType !== 'rest' || (a.durationMinutes || 0) > 0))
+      .filter((a) => a && (a.workoutType !== 'rest' || (a.durationMinutes || 0) > 0 || (a.targetDistanceM || 0) > 0 || (a.targetDistanceKm || 0) > 0))
       .map((a, i) => ({
         id: a.id || `${(day.dayName || 'day').toLowerCase()}-${i}`,
         timeSlot: a.timeSlot || 'anytime',
@@ -126,6 +126,8 @@ export function getPrescribedActivities(
         durationMinutes: Number(a.durationMinutes) || 0,
         targetKcal: Number(a.targetKcal) || 0,
         targetZone2Minutes: Number(a.targetZone2Minutes) || 0,
+        targetDistanceKm: a.targetDistanceKm != null ? Number(a.targetDistanceKm) : undefined,
+        targetDistanceM: a.targetDistanceM != null ? Number(a.targetDistanceM) : undefined,
         notes: a.notes || '',
         matchType: a.matchType || 'any',
       }));

@@ -1,6 +1,6 @@
 # be-57 — Clinic Capabilities, Roles & Professional Credentials
 
-Status: needs-review
+Status: done
 Date: 2026-08-29
 Builds on: be-55 (Macro Trends Report), be-56 (Modern Clinic UI), be-26 (Portal i18n)
 Primary files:

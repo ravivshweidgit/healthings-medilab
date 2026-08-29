@@ -1170,6 +1170,10 @@ export type WorkoutSession = {
   kcal: number;
   /** Total calories including BMR component (kcal), if available. */
   totalKcal?: number;
+  /** Total distance in meters, if recorded. */
+  distanceM?: number;
+  /** Total steps, if recorded. */
+  steps?: number;
   /** Data origin when not from Withings cloud API. */
   source?: 'withings' | 'health-connect';
 };
@@ -1202,6 +1206,9 @@ type WithingsWorkoutsBody = {
       calories?: number;
       totalcalories?: number;
       manual_calories?: number;
+      distance?: number;
+      manual_distance?: number;
+      steps?: number;
     };
   }>;
   more?: boolean | number;
@@ -1295,6 +1302,9 @@ function parseWorkoutSeriesRow(
   }
   const kcal =
     w.data?.calories ?? w.data?.manual_calories ?? w.data?.totalcalories ?? 0;
+  const dist = w.data?.distance ?? w.data?.manual_distance;
+  const distanceM = Number.isFinite(dist) && (dist as number) > 0 ? Math.round(dist as number) : undefined;
+  const steps = Number.isFinite(w.data?.steps) && (w.data?.steps as number) > 0 ? Math.round(w.data?.steps as number) : undefined;
   return {
     startMs,
     endMs,
@@ -1306,6 +1316,8 @@ function parseWorkoutSeriesRow(
       endMs,
       kcal: Number.isFinite(kcal) && kcal > 0 ? kcal : 0,
       totalKcal: w.data?.totalcalories,
+      distanceM,
+      steps,
       source: 'withings',
     },
   };
