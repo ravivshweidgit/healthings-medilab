@@ -14,7 +14,49 @@ Primary files:
 - `website/clinic/clinic-i18n.js` (10-language translations for training programs & activity macros)
 - `app/src/services/TrainingDirectiveService.ts` (App-side training plan loader & parser)
 - `app/src/services/ClinicOverlayService.ts` (Auto-pull active training program on sync)
-- `app/src/components/ActivityLogStrip.tsx` (Activity Macros & prescribed workout card)
+- `app/src/components/ActivityLogStrip.tsx` (Activity Macros & prescribed session checklist)
+- `app/src/i18n/activityLogUiCopy.ts` (10-language prescription copy)
+
+---
+
+## 0. Amendment 2026-08-29 — multi-activity days
+
+The first cut allowed **one workout per day**, which does not describe a real day. The owner's
+routine is four discrete blocks — morning ride, midday walk, evening ride, evening walk — before
+Ilya adds a targeted gym session on top. Collapsing those into a single 175-minute card is neither
+plannable nor matchable against a watch, which records each block as its own session.
+
+A day now carries an **array of sessions**:
+
+```ts
+interface PrescribedActivitySession {
+  id: string;
+  timeSlot: 'morning' | 'noon' | 'evening' | 'anytime';
+  workoutType: 'strength' | 'cardio' | 'hiit' | 'mobility' | 'rest';
+  title: string;
+  durationMinutes: number;
+  targetKcal: number;
+  targetZone2Minutes?: number;
+  notes?: string;
+  /** Which recorded session ticks this off without a manual tap. */
+  matchType?: 'bike' | 'walk' | 'run' | 'gym' | 'any';
+}
+```
+
+| Change | Where |
+|---|---|
+| `activities[]` per day, `dayFocus` replaces the day-level `title` | `trainingPrograms.ts`, `training.ts` |
+| `normalizeSchedule()` lifts legacy single-workout days into a one-element list on read | `trainingPrograms.ts` |
+| Add / remove session per day, time-slot + auto-match pickers, live day totals | `clinic-workspace.js` |
+| "Fill weekly targets from schedule" sums the week into the four activity macros | `clinic-workspace.js` |
+| Session caps raised — a multi-activity week has ~30 sessions, not 4 | `training.ts` (`max(60)`, Z2 `max(2000)`) |
+| Greedy one-to-one match of watch/manual sessions to prescriptions | `ActivityLogStrip.tsx` |
+
+**No migration.** Legacy rows are normalized on read, so programs saved before this keep working.
+
+Matching is greedy and one-to-one: two prescribed rides need two recorded rides, and an exact title
+match (what 1-tap logging writes) is claimed before the looser `matchType` pass. Gym sessions carry
+`matchType: 'gym'` because a watch does not reliably record strength work — those stay a manual tap.
 
 ---
 
@@ -144,3 +186,12 @@ CREATE TABLE IF NOT EXISTS training_assignments (
 - [x] Distance calculations use exact $\text{km} \times \text{kg} \times 0.55$ physics formula.
 - [x] Continuous HR stream attached to workout chips only when explicit session started on watch.
 - [x] Full 10-language localization (`en he es fr de ar ru pt it tr`) across portal and app.
+
+### Multi-activity amendment
+
+- [x] `normalizeSchedule` round-trips a 7-day / 31-session week and lifts legacy days (verified against `dist`).
+- [x] Portal day card renders add/remove, time slot, auto-match and live day totals — light and dark.
+- [x] 170 new locale strings resolve on the deployed portal across all 10 locales.
+- [x] Release APK bundles clean with the session checklist.
+- [ ] **Phone test** — watch-recorded ride flips its card to `✓ Watch`; gym session still needs the tap.
+- [ ] **Portal test** — build a full week, save as template, reselect it and confirm every session returns.
