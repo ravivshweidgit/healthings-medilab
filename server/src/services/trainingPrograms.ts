@@ -119,17 +119,24 @@ export interface TrainingAssignment {
   updatedAt: string;
 }
 
-export async function listTrainingPrograms(mentorId: string): Promise<TrainingProgram[]> {
-  const res = await pool.query(
-    `SELECT id, mentor_id, title, description,
-            target_sessions_per_week, target_active_burn_weekly,
-            target_zone2_minutes_weekly, target_daily_steps,
-            schedule_json, is_template, created_at, updated_at
-     FROM training_programs
-     WHERE mentor_id = $1
-     ORDER BY created_at DESC`,
-    [mentorId],
-  );
+export async function listTrainingPrograms(mentorId: string, templatesOnly: boolean = false): Promise<TrainingProgram[]> {
+  const query = templatesOnly
+    ? `SELECT id, mentor_id, title, description,
+              target_sessions_per_week, target_active_burn_weekly,
+              target_zone2_minutes_weekly, target_daily_steps,
+              schedule_json, is_template, created_at, updated_at
+       FROM training_programs
+       WHERE mentor_id = $1 AND is_template = TRUE
+       ORDER BY created_at DESC`
+    : `SELECT id, mentor_id, title, description,
+              target_sessions_per_week, target_active_burn_weekly,
+              target_zone2_minutes_weekly, target_daily_steps,
+              schedule_json, is_template, created_at, updated_at
+       FROM training_programs
+       WHERE mentor_id = $1
+       ORDER BY created_at DESC`;
+
+  const res = await pool.query(query, [mentorId]);
 
   return res.rows.map((row) => ({
     id: row.id,

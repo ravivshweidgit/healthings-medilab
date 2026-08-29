@@ -8,8 +8,8 @@
     <link rel="icon" href="../assets/icon.png" type="image/png" />
     <link rel="stylesheet" href="../tokens.css?v=20260726j" />
     <link rel="stylesheet" href="../styles.css?v=20260726g" />
-    <link rel="stylesheet" href="clinic-portal.css?v=20260829g" />
-    <link rel="stylesheet" href="clinic-theme.css?v=20260829g" />
+    <link rel="stylesheet" href="clinic-portal.css?v=20260829h" />
+    <link rel="stylesheet" href="clinic-theme.css?v=20260829h" />
   </head>
   <body class="clinic-console">
     <div id="login-wrap" class="clinic-login-wrap">
@@ -2026,7 +2026,7 @@
         if (!listEl) return;
         listEl.innerHTML = `<p class="muted" style="padding: 16px 0;">${esc(t('trainingTemplatesLoading'))}</p>`;
         try {
-          const res = await api('/v1/clinic/training/programs');
+          const res = await api('/v1/clinic/training/programs?templatesOnly=true');
           if (!res.ok) throw new Error('Failed to load templates');
           const data = await res.json();
           const programs = data.programs || [];

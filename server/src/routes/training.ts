@@ -23,7 +23,12 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: 'Only clinic/coach accounts have training programs' });
     }
 
-    const programs = await listTrainingPrograms(user.id);
+    const query = z.object({
+      templatesOnly: z.enum(['true', 'false', '1', '0']).optional(),
+    }).safeParse(request.query);
+    const templatesOnly = query.success && (query.data.templatesOnly === 'true' || query.data.templatesOnly === '1');
+
+    const programs = await listTrainingPrograms(user.id, templatesOnly);
     return { programs };
   });
 

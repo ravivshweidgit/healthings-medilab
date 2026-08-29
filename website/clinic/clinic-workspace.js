@@ -3474,7 +3474,7 @@
 
     try {
       const [tplRes, assignRes] = await Promise.all([
-        ClinicApi.api('/v1/clinic/training/programs'),
+        ClinicApi.api('/v1/clinic/training/programs?templatesOnly=true'),
         ClinicApi.api(`/v1/clinic/patients/${encodeURIComponent(ctx.patientId)}/training`),
       ]);
       if (tplRes.ok) {
