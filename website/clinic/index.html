@@ -551,13 +551,61 @@
               <p id="credentials-status" class="portal-status" role="status" aria-live="polite" hidden></p>
             </div>
           </div>
+
+          <!-- Security & 2FA / Google Authenticator -->
+          <div class="clinic-card" style="margin-bottom: 20px;">
+            <div class="clinic-card-head">
+              <div>
+                <h2 data-i18n="totpCardTitle">Two-factor authentication (2FA)</h2>
+                <p data-i18n="totpCardLead">Protect your clinic account with Google Authenticator or any TOTP app.</p>
+              </div>
+            </div>
+            <div class="clinic-card-body" style="max-width: 540px;">
+              <div id="totp-status-box" style="margin-bottom: 14px;">
+                <span id="totp-badge" class="chip off">Authenticator app is not configured</span>
+              </div>
+
+              <div id="totp-idle-actions">
+                <button id="btn-totp-setup" class="portal-btn secondary" type="button" data-i18n="totpEnableBtn">
+                  Set up Google Authenticator
+                </button>
+                <button id="btn-totp-disable" class="portal-btn danger" type="button" data-i18n="totpDisableBtn" hidden>
+                  Remove authenticator
+                </button>
+              </div>
+
+              <!-- Setup / QR Code enroll box -->
+              <div id="totp-enroll-box" style="margin-top: 16px; padding: 14px; background: var(--surface-2, #f5f5f7); border: 1px solid var(--line, #e2e8f0); border-radius: 8px;" hidden>
+                <p style="margin: 0 0 10px; font-weight: 600; font-size: 0.9rem;" data-i18n="totpScanInstruction">
+                  Scan this QR code in Google Authenticator or enter the key manually:
+                </p>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 12px 0;">
+                  <img id="totp-qr-img" src="" alt="Google Authenticator QR Code" style="width: 180px; height: 180px; background: #ffffff; padding: 8px; border-radius: 6px; border: 1px solid #ccc;" />
+                  <div style="font-family: monospace; font-size: 0.85rem; color: var(--text-muted, #64748b);">
+                    <span data-i18n="totpSecretKeyLabel">Secret key:</span> <strong id="totp-secret-key" style="letter-spacing: 1px; color: var(--text, #0f172a); user-select: all;"></strong>
+                  </div>
+                </div>
+
+                <div style="margin-top: 14px;">
+                  <label class="field-label" for="totp-confirm-code" data-i18n="totpConfirmCodeLabel">Enter 6-digit code from app to confirm:</label>
+                  <div style="display: flex; gap: 8px; margin-top: 6px;">
+                    <input id="totp-confirm-code" class="portal-input" type="text" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="123456" style="max-width: 160px; font-size: 1.1rem; letter-spacing: 2px; text-align: center;" />
+                    <button id="btn-totp-confirm" class="portal-btn" type="button" data-i18n="totpConfirmBtn">Confirm & Activate</button>
+                    <button id="btn-totp-cancel" class="portal-btn secondary" type="button">Cancel</button>
+                  </div>
+                </div>
+              </div>
+
+              <p id="totp-feedback-status" class="portal-status" role="status" aria-live="polite" hidden></p>
+            </div>
+          </div>
         </section>
       </main>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
-    <script src="clinic-i18n.js?v=20260829b"></script>
-    <script src="clinic-workspace.js?v=20260829b"></script>
+    <script src="clinic-i18n.js?v=20260829d"></script>
+    <script src="clinic-workspace.js?v=20260829d"></script>
     <script src="clinic-theme.js?v=20260727c"></script>
     <script src="clinic-api.js?v=20260726k"></script>
     <script>
@@ -2043,9 +2091,36 @@
             renderCredentialDocSection(clinicProfileState);
             applyClinicAdaptiveNav(clinicProfileState);
           }
+          await checkClinicTotpStatus();
         } catch (err) {
           console.error('Error loading clinic profile:', err);
         }
+      }
+
+      async function checkClinicTotpStatus() {
+        try {
+          const res = await api('/v1/me');
+          if (!res.ok) return;
+          const data = await res.json();
+          renderTotpUi(Boolean(data?.user?.totpEnabled));
+        } catch (err) {
+          console.error('Error fetching totp status:', err);
+        }
+      }
+
+      function renderTotpUi(enabled) {
+        const badge = document.getElementById('totp-badge');
+        const setupBtn = document.getElementById('btn-totp-setup');
+        const disableBtn = document.getElementById('btn-totp-disable');
+        const enrollBox = document.getElementById('totp-enroll-box');
+
+        if (badge) {
+          badge.className = enabled ? 'chip ok' : 'chip off';
+          badge.textContent = enabled ? t('totpStatusEnabled') : t('totpStatusDisabled');
+        }
+        if (setupBtn) setupBtn.hidden = enabled;
+        if (disableBtn) disableBtn.hidden = !enabled;
+        if (enrollBox) enrollBox.hidden = true;
       }
 
       function renderCredentialDocSection(profile) {
@@ -2186,6 +2261,94 @@
         } catch (err) {
           setStatus('credentials-status', 'err', err instanceof Error ? err.message : t('couldNotDeleteCredentialDoc'));
         }
+      });
+
+      /* ── 2FA / Google Authenticator Handlers ── */
+      document.getElementById('btn-totp-setup')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-totp-setup');
+        const enrollBox = document.getElementById('totp-enroll-box');
+        const qrImg = document.getElementById('totp-qr-img');
+        const secretKeyEl = document.getElementById('totp-secret-key');
+        const codeInput = document.getElementById('totp-confirm-code');
+        setStatus('totp-feedback-status', '', '');
+
+        await withBusy(btn, t('loading'), async () => {
+          try {
+            const res = await api('/v1/me/totp/begin', { method: 'POST' });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              setStatus('totp-feedback-status', 'err', err.error || t('totpEnrollError'));
+              return;
+            }
+            const data = await res.json();
+            if (qrImg) qrImg.src = data.dataUrl || '';
+            if (secretKeyEl) secretKeyEl.textContent = data.secret || '';
+            if (codeInput) codeInput.value = '';
+            if (enrollBox) enrollBox.hidden = false;
+            btn.hidden = true;
+          } catch (err) {
+            setStatus('totp-feedback-status', 'err', err instanceof Error ? err.message : t('totpEnrollError'));
+          }
+        });
+      });
+
+      document.getElementById('btn-totp-cancel')?.addEventListener('click', () => {
+        const enrollBox = document.getElementById('totp-enroll-box');
+        const setupBtn = document.getElementById('btn-totp-setup');
+        if (enrollBox) enrollBox.hidden = true;
+        if (setupBtn) setupBtn.hidden = false;
+        setStatus('totp-feedback-status', '', '');
+      });
+
+      document.getElementById('btn-totp-confirm')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-totp-confirm');
+        const codeInput = document.getElementById('totp-confirm-code');
+        const code = codeInput ? codeInput.value.trim() : '';
+        if (code.length !== 6 || !/^\d+$/.test(code)) {
+          setStatus('totp-feedback-status', 'err', t('totpInvalidCode'));
+          if (codeInput) codeInput.focus();
+          return;
+        }
+
+        setStatus('totp-feedback-status', '', '');
+        await withBusy(btn, t('saving'), async () => {
+          try {
+            const res = await api('/v1/me/totp/confirm', {
+              method: 'POST',
+              body: JSON.stringify({ code }),
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              setStatus('totp-feedback-status', 'err', err.error || t('totpInvalidCode'));
+              return;
+            }
+            renderTotpUi(true);
+            setStatus('totp-feedback-status', 'ok', t('totpActivatedOk'));
+          } catch (err) {
+            setStatus('totp-feedback-status', 'err', err instanceof Error ? err.message : t('totpInvalidCode'));
+          }
+        });
+      });
+
+      document.getElementById('btn-totp-disable')?.addEventListener('click', async () => {
+        if (!confirm(t('totpConfirmRemove'))) return;
+        const btn = document.getElementById('btn-totp-disable');
+        setStatus('totp-feedback-status', '', '');
+
+        await withBusy(btn, t('saving'), async () => {
+          try {
+            const res = await api('/v1/me/totp', { method: 'DELETE' });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              setStatus('totp-feedback-status', 'err', err.error || 'Failed to disable 2FA');
+              return;
+            }
+            renderTotpUi(false);
+            setStatus('totp-feedback-status', 'ok', t('totpRemovedOk'));
+          } catch (err) {
+            setStatus('totp-feedback-status', 'err', err instanceof Error ? err.message : 'Failed to disable 2FA');
+          }
+        });
       });
 
       document.getElementById('save-name').onclick = async () => {

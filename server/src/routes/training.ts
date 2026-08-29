@@ -43,11 +43,11 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
   const workoutDaySchema = z.object({
     dayName: z.string().min(1).max(50),
     workoutType: z.enum(['strength', 'cardio', 'hiit', 'mobility', 'rest']),
-    title: z.string().min(1).max(100),
-    durationMinutes: z.number().int().min(0).max(360),
-    targetKcal: z.number().int().min(0).max(3000),
-    targetZone2Minutes: z.number().int().min(0).max(360).optional(),
-    notes: z.string().max(500).optional(),
+    title: z.string().max(100).default(''),
+    durationMinutes: z.number().int().min(0).max(360).default(0),
+    targetKcal: z.number().int().min(0).max(3000).default(0),
+    targetZone2Minutes: z.number().int().min(0).max(360).optional().default(0),
+    notes: z.string().max(1000).optional().default(''),
   });
 
   app.post('/v1/clinic/training/programs', { preHandler: authenticate }, async (request, reply) => {

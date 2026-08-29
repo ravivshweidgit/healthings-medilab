@@ -3471,11 +3471,14 @@
       cards.forEach((card, idx) => {
         const dayName = schedule[idx]?.dayName || `Day ${idx + 1}`;
         const workoutType = card.querySelector('.training-day-type-select')?.value || 'strength';
-        const title = card.querySelector('.training-day-title')?.value || '';
-        const durationMinutes = parseInt(card.querySelector('.training-day-dur')?.value || '0', 10);
-        const targetKcal = parseInt(card.querySelector('.training-day-kcal')?.value || '0', 10);
-        const targetZone2Minutes = parseInt(card.querySelector('.training-day-z2')?.value || '0', 10);
-        const notes = card.querySelector('.training-day-notes')?.value || '';
+        const title = card.querySelector('.training-day-title')?.value?.trim() || (workoutType === 'rest' ? 'Rest' : 'Workout');
+        const durVal = parseInt(card.querySelector('.training-day-dur')?.value, 10);
+        const durationMinutes = Number.isFinite(durVal) && durVal >= 0 ? durVal : 0;
+        const kcalVal = parseInt(card.querySelector('.training-day-kcal')?.value, 10);
+        const targetKcal = Number.isFinite(kcalVal) && kcalVal >= 0 ? kcalVal : 0;
+        const z2Val = parseInt(card.querySelector('.training-day-z2')?.value, 10);
+        const targetZone2Minutes = Number.isFinite(z2Val) && z2Val >= 0 ? z2Val : 0;
+        const notes = card.querySelector('.training-day-notes')?.value?.trim() || '';
         updated.push({
           dayName,
           workoutType,
@@ -3519,7 +3522,7 @@
       panel.querySelector('#training-save-patient-btn')?.addEventListener('click', async () => {
         const title = panel.querySelector('#training-prog-title')?.value.trim() || 'Custom Training Program';
         const description = panel.querySelector('#training-prog-desc')?.value.trim() || '';
-        const targetSessionsPerWeek = parseInt(panel.querySelector('#training-macro-sessions')?.value || '4', 10);
+        const targetSessionsPerWeek = parseInt(panel.querySelector('#training-macro-sessions')?.value || '3', 10);
         const targetActiveBurnWeekly = parseInt(panel.querySelector('#training-macro-burn')?.value || '2500', 10);
         const targetZone2MinutesWeekly = parseInt(panel.querySelector('#training-macro-z2')?.value || '120', 10);
         const targetDailySteps = parseInt(panel.querySelector('#training-macro-steps')?.value || '8000', 10);
@@ -3539,7 +3542,10 @@
               isTemplate: false,
             }),
           });
-          if (!createRes.ok) throw new Error('Failed to create program');
+          if (!createRes.ok) {
+            const errData = await createRes.json().catch(() => ({}));
+            throw new Error(errData.error || t('trainingAssignFailed'));
+          }
           const progData = await createRes.json();
           const programId = progData.program.id;
 
@@ -3550,19 +3556,22 @@
               patientIds: [ctx.patientId],
             }),
           });
-          if (!assignRes.ok) throw new Error('Failed to assign program');
+          if (!assignRes.ok) {
+            const errData = await assignRes.json().catch(() => ({}));
+            throw new Error(errData.error || t('trainingAssignFailed'));
+          }
 
           showStatus(t('trainingAssignedOk'));
         } catch (err) {
           console.error(err);
-          showStatus(t('trainingAssignFailed'), true);
+          showStatus(err.message || t('trainingAssignFailed'), true);
         }
       });
 
       panel.querySelector('#training-save-template-btn')?.addEventListener('click', async () => {
         const title = panel.querySelector('#training-prog-title')?.value.trim() || 'Template Program';
         const description = panel.querySelector('#training-prog-desc')?.value.trim() || '';
-        const targetSessionsPerWeek = parseInt(panel.querySelector('#training-macro-sessions')?.value || '4', 10);
+        const targetSessionsPerWeek = parseInt(panel.querySelector('#training-macro-sessions')?.value || '3', 10);
         const targetActiveBurnWeekly = parseInt(panel.querySelector('#training-macro-burn')?.value || '2500', 10);
         const targetZone2MinutesWeekly = parseInt(panel.querySelector('#training-macro-z2')?.value || '120', 10);
         const targetDailySteps = parseInt(panel.querySelector('#training-macro-steps')?.value || '8000', 10);
@@ -3582,13 +3591,16 @@
               isTemplate: true,
             }),
           });
-          if (!createRes.ok) throw new Error('Failed to save template');
+          if (!createRes.ok) {
+            const errData = await createRes.json().catch(() => ({}));
+            throw new Error(errData.error || t('trainingTemplateSaveFailed'));
+          }
           const progData = await createRes.json();
           templates.push(progData.program);
           showStatus(t('trainingTemplateSavedOk'));
         } catch (err) {
           console.error(err);
-          showStatus(t('trainingTemplateSaveFailed'), true);
+          showStatus(err.message || t('trainingTemplateSaveFailed'), true);
         }
       });
     }
