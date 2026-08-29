@@ -98,12 +98,20 @@ export type ActivityBodyProfile = {
   bmrKcal: number | null;
 };
 
+export type ActivityPreset = {
+  name?: string;
+  minutes?: number;
+  activityKcal?: number;
+  note?: string;
+};
+
 type Props = {
   visible: boolean;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
   initialTimestamp: number;
   editEntry?: ActivityEntry;
+  initialPreset?: ActivityPreset | null;
   lang?: UserLanguage | null;
   energyUnit?: EnergyUnit;
   bodyProfile?: ActivityBodyProfile | null;
@@ -131,6 +139,7 @@ export function ActivityLogModal({
   onSaved,
   initialTimestamp,
   editEntry,
+  initialPreset,
   lang = DEFAULT_LANGUAGE,
   energyUnit = 'kcal',
   bodyProfile = null,
@@ -142,6 +151,7 @@ export function ActivityLogModal({
 
   const [mode, setMode] = useState<Mode>('form');
   const [name, setName] = useState('');
+  const [note, setNote] = useState('');
   const [minutes, setMinutes] = useState('30');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [equipmentKg, setEquipmentKg] = useState('');
@@ -188,6 +198,7 @@ export function ActivityLogModal({
     setAiHint(null);
     if (editEntry) {
       setName(editEntry.name);
+      setNote(editEntry.note ?? '');
       setYoutubeUrl(editEntry.youtubeUrl ?? '');
       setEquipmentKg(
         editEntry.equipmentWeightKg != null && editEntry.equipmentWeightKg > 0
@@ -197,8 +208,20 @@ export function ActivityLogModal({
       seedMinutesAndKcal(editEntry.minutes, editEntry.activityKcal);
       setFavoriteId(editEntry.favoriteId);
       setSaveAsFav(false);
+    } else if (initialPreset) {
+      setName(initialPreset.name ?? '');
+      setNote(initialPreset.note ?? '');
+      setYoutubeUrl('');
+      setEquipmentKg('');
+      seedMinutesAndKcal(
+        initialPreset.minutes ?? 30,
+        initialPreset.activityKcal ?? estimateActivityKcal(initialPreset.minutes ?? 30),
+      );
+      setFavoriteId(undefined);
+      setSaveAsFav(false);
     } else {
       setName('');
+      setNote('');
       setYoutubeUrl('');
       setEquipmentKg('');
       seedMinutesAndKcal(30, estimateActivityKcal(30));
@@ -206,7 +229,7 @@ export function ActivityLogModal({
       setSaveAsFav(false);
     }
     setManagingFavs(false);
-  }, [visible, editEntry, energyUnit, reloadFavs, seedMinutesAndKcal]);
+  }, [visible, editEntry, initialPreset, energyUnit, reloadFavs, seedMinutesAndKcal]);
 
   useEffect(() => {
     if (!visible || mode !== 'pickPast') return;
@@ -476,7 +499,7 @@ export function ActivityLogModal({
             timestamp: editEntry?.timestamp ?? initialTimestamp,
             name: trimmed,
             minutes: mins,
-            note: editEntry?.note,
+            note: note.trim() || undefined,
             youtubeUrl: youtubeUrl.trim() || undefined,
             equipmentWeightKg,
             activityKcal,

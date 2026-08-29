@@ -35,7 +35,7 @@ import {
 import { BmrHistoryChart7d } from '../components/BmrHistoryChart7d';
 import { FoodLogModal } from '../components/FoodLogModal';
 import { FoodMacroStrip, type FoodMacroStripHandle } from '../components/FoodMacroStrip';
-import { ActivityLogModal } from '../components/ActivityLogModal';
+import { ActivityLogModal, type ActivityPreset } from '../components/ActivityLogModal';
 import { ActivityLogStrip, type ActivityLogStripHandle } from '../components/ActivityLogStrip';
 import { GlucoseChartStrip, type GlucoseChartStripHandle } from '../components/GlucoseChartStrip';
 import { MetabolicTrendChart7d } from '../components/MetabolicTrendChart7d';
@@ -462,6 +462,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
   const [activityModalVisible, setActivityModalVisible] = useState(false);
   const [activityEditEntry, setActivityEditEntry] = useState<ActivityEntry | undefined>();
+  const [activityInitialPreset, setActivityInitialPreset] = useState<ActivityPreset | null>(null);
   const [activityInitialTimestamp, setActivityInitialTimestamp] = useState<number | undefined>();
   const [activityRefreshKey, setActivityRefreshKey] = useState(0);
   /** Manual/favorite session kcal by day — added on top of wearable/hybrid activity. */
@@ -3083,6 +3084,18 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
             dayKey={todayDayKey}
             onAddActivity={(dayKey) => {
               setActivityEditEntry(undefined);
+              setActivityInitialPreset(null);
+              setActivityInitialTimestamp(defaultActivityTimestampForDay(dayKey));
+              setActivityModalVisible(true);
+            }}
+            onLogPrescribedWorkout={(prescribed, dayKey) => {
+              setActivityEditEntry(undefined);
+              setActivityInitialPreset({
+                name: prescribed.title,
+                minutes: prescribed.durationMinutes,
+                activityKcal: prescribed.targetKcal,
+                note: prescribed.notes,
+              });
               setActivityInitialTimestamp(defaultActivityTimestampForDay(dayKey));
               setActivityModalVisible(true);
             }}
@@ -3759,11 +3772,13 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         onClose={() => {
           setActivityModalVisible(false);
           setActivityEditEntry(undefined);
+          setActivityInitialPreset(null);
           setActivityInitialTimestamp(undefined);
         }}
         onSaved={handleActivitySaved}
         initialTimestamp={activityInitialTimestamp ?? Date.now()}
         editEntry={activityEditEntry}
+        initialPreset={activityInitialPreset}
         lang={userLanguage}
         energyUnit={unitsPrefs.energy}
         bodyProfile={{

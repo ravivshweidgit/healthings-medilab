@@ -77,6 +77,7 @@ type Props = {
   dayKey?: string;
   onAddActivity: (dayKey: string) => void;
   onEditActivity?: (entry: ActivityEntry) => void;
+  onLogPrescribedWorkout?: (workout: PrescribedWorkoutDay, dayKey: string) => void;
   refreshKey?: number;
   workoutSessions?: WorkoutSession[];
   unitsPrefs?: UnitsPrefs;
@@ -88,6 +89,7 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
     dayKey: initialDayKey,
     onAddActivity,
     onEditActivity,
+    onLogPrescribedWorkout,
     refreshKey,
     workoutSessions = [],
     unitsPrefs = DEFAULT_UNITS_PREFS,
@@ -174,6 +176,16 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
   }, [entries, dayWorkouts]);
 
   const dayTotal = Math.round(manualKcal + wearableKcal);
+
+  const isPrescribedCompleted = useMemo(() => {
+    if (!prescribedDay) return false;
+    const targetTitle = prescribedDay.title.toLowerCase().trim();
+    return entries.some(
+      (e) =>
+        e.name.toLowerCase().trim() === targetTitle ||
+        e.name.toLowerCase().includes(prescribedDay.workoutType),
+    );
+  }, [prescribedDay, entries]);
 
   const load = useCallback(async () => {
     const [list, kcal] = await Promise.all([
@@ -303,7 +315,22 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
           </Text>
 
           {prescribedDay && prescribedDay.workoutType !== 'rest' ? (
-            <View style={styles.prescribedCard}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.prescribedCard,
+                isPrescribedCompleted && styles.prescribedCardCompleted,
+                pressed && !isPrescribedCompleted && styles.prescribedCardPressed,
+              ]}
+              onPress={() => {
+                if (onLogPrescribedWorkout) {
+                  onLogPrescribedWorkout(prescribedDay, activeDayKey);
+                } else {
+                  onAddActivity(activeDayKey);
+                }
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={prescribedDay.title}
+            >
               <View style={styles.prescribedHead}>
                 <Text style={styles.prescribedTitle}>
                   {prescribedDay.workoutType === 'strength'
@@ -315,16 +342,26 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
                         : '🧘 '}
                   {prescribedDay.title || 'Prescribed Workout'}
                 </Text>
-                <Text style={styles.prescribedMeta}>
-                  {prescribedDay.durationMinutes} min · ~{formatEnergy(prescribedDay.targetKcal, energyU)}
-                </Text>
+                <View style={styles.prescribedStatusRow}>
+                  <Text style={styles.prescribedMeta}>
+                    {prescribedDay.durationMinutes} min · ~{formatEnergy(prescribedDay.targetKcal, energyU)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.prescribedActionChip,
+                      isPrescribedCompleted && styles.prescribedActionChipDone,
+                    ]}
+                  >
+                    {isPrescribedCompleted ? '✓ Done' : '+ Log'}
+                  </Text>
+                </View>
               </View>
               {prescribedDay.notes ? (
                 <Text style={styles.prescribedNotes} numberOfLines={2}>
                   {prescribedDay.notes}
                 </Text>
               ) : null}
-            </View>
+            </Pressable>
           ) : null}
 
           {timelineChips.length === 0 ? (
@@ -465,6 +502,13 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
       backgroundColor: isDark ? 'rgba(142, 155, 255, 0.08)' : 'rgba(31, 61, 92, 0.04)',
       marginBottom: 10,
     },
+    prescribedCardCompleted: {
+      borderColor: isDark ? 'rgba(76, 175, 80, 0.5)' : 'rgba(46, 125, 50, 0.3)',
+      backgroundColor: isDark ? 'rgba(76, 175, 80, 0.1)' : 'rgba(76, 175, 80, 0.06)',
+    },
+    prescribedCardPressed: {
+      opacity: 0.8,
+    },
     prescribedHead: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -477,11 +521,30 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
       color: c.textPrimary,
       flex: 1,
     },
+    prescribedStatusRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
     prescribedMeta: {
       fontSize: 12,
       fontWeight: '600',
       color: isDark ? c.accentBlue : '#1F3D5C',
       fontVariant: ['tabular-nums'],
+    },
+    prescribedActionChip: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: isDark ? c.accentBlue : '#1F3D5C',
+      backgroundColor: isDark ? 'rgba(142, 155, 255, 0.2)' : 'rgba(31, 61, 92, 0.1)',
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 8,
+      overflow: 'hidden',
+    },
+    prescribedActionChipDone: {
+      color: isDark ? '#81C784' : '#2E7D32',
+      backgroundColor: isDark ? 'rgba(76, 175, 80, 0.2)' : 'rgba(76, 175, 80, 0.12)',
     },
     prescribedNotes: {
       fontSize: 11,
