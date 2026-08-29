@@ -3775,8 +3775,11 @@
           const meters = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
           activity.targetDistanceM = meters;
           activity.targetDistanceKm = Number((meters / 1000).toFixed(2));
-          if (meters > 0) {
-            // Automatic physics-based calculation: (Distance_meters / 1000) × Weight × 0.55
+          // Distance × weight × 0.55 is a walking figure, and the phone scores a
+          // walk on distance anyway. A ride is scored on burn instead, so its kcal
+          // is the trainer's to set from the real sessions listed below — never
+          // overwritten from kilometres.
+          if (meters > 0 && activity.matchType !== 'bike') {
             const autoKcal = Math.round((meters / 1000) * patientWeightKg * 0.55);
             activity.targetKcal = autoKcal;
             const kcalInput = el.closest('.training-activity-row')?.querySelector('input[data-field="targetKcal"]');
