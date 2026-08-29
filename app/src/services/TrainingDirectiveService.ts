@@ -19,6 +19,7 @@ export interface PrescribedActivitySession {
   title: string;
   durationMinutes: number;
   targetKcal: number;
+  targetDistanceM?: number;
   targetDistanceKm?: number;
   targetZone2Minutes?: number;
   notes?: string;

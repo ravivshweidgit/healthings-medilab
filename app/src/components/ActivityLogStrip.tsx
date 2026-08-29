@@ -579,10 +579,16 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
 
                     <View style={styles.activityMeterNumbersRow}>
                       <Text style={styles.prescribedMeta}>
-                        {activity.targetDistanceKm && activity.targetDistanceKm > 0
-                          ? done
-                            ? `${match.actualDistanceKm ?? activity.targetDistanceKm} / ${activity.targetDistanceKm} km · ${formatEnergy(match.actualKcal, energyU)} / ${formatEnergy(activity.targetKcal, energyU)}`
-                            : `${activity.targetDistanceKm} km · ~${formatEnergy(activity.targetKcal, energyU)}`
+                        {(activity.targetDistanceM && activity.targetDistanceM > 0) || (activity.targetDistanceKm && activity.targetDistanceKm > 0)
+                          ? (() => {
+                              const targetM = activity.targetDistanceM || Math.round((activity.targetDistanceKm || 0) * 1000);
+                              const actualM = match.actualDistanceKm ? Math.round(match.actualDistanceKm * 1000) : targetM;
+                              const targetDistStr = targetM >= 1000 ? `${(targetM / 1000).toFixed(2)} km` : `${targetM} m`;
+                              const actualDistStr = actualM >= 1000 ? `${(actualM / 1000).toFixed(2)} km` : `${actualM} m`;
+                              return done
+                                ? `${actualDistStr} / ${targetDistStr} · ${formatEnergy(match.actualKcal, energyU)} / ${formatEnergy(activity.targetKcal, energyU)}`
+                                : `${targetDistStr} · ~${formatEnergy(activity.targetKcal, energyU)}`;
+                            })()
                           : done
                             ? `${match.actualMinutes} / ${activity.durationMinutes} min · ${formatEnergy(match.actualKcal, energyU)} / ${formatEnergy(activity.targetKcal, energyU)}`
                             : `${activity.durationMinutes} min · ~${formatEnergy(activity.targetKcal, energyU)}`}

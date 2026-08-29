@@ -3402,6 +3402,11 @@
             title: a.title || '',
             durationMinutes: Number(a.durationMinutes) || 0,
             targetKcal: Number(a.targetKcal) || 0,
+            targetDistanceM: Number.isFinite(Number(a.targetDistanceM))
+              ? Number(a.targetDistanceM)
+              : Number.isFinite(Number(a.targetDistanceKm))
+                ? Math.round(Number(a.targetDistanceKm) * 1000)
+                : 0,
             targetDistanceKm: Number.isFinite(Number(a.targetDistanceKm)) ? Number(a.targetDistanceKm) : 0,
             targetZone2Minutes: Number(a.targetZone2Minutes) || 0,
             notes: a.notes || '',
@@ -3523,8 +3528,8 @@
                  placeholder="${esc(t('trainingDayTitlePlaceholder'))}" value="${esc(activity.title || '')}" />
           <div class="training-activity-nums">
             <label>
-              ${esc(t('trainingDistanceKm'))}
-              <input type="number" class="training-activity-input" ${attr} data-field="targetDistanceKm" min="0" step="0.5" value="${esc(String(activity.targetDistanceKm ?? 0))}" dir="ltr" />
+              ${esc(t('trainingDistanceM'))}
+              <input type="number" class="training-activity-input" ${attr} data-field="targetDistanceM" min="0" step="50" value="${esc(String(activity.targetDistanceM ?? (activity.targetDistanceKm ? Math.round(activity.targetDistanceKm * 1000) : 0)))}" dir="ltr" />
             </label>
             <label>
               ${esc(t('trainingDurationMin'))}
@@ -3735,7 +3740,7 @@
     function bindScheduleEditing() {
       if (scheduleEditingBound) return;
       scheduleEditingBound = true;
-      const NUMERIC_FIELDS = ['durationMinutes', 'targetKcal', 'targetDistanceKm', 'targetZone2Minutes'];
+      const NUMERIC_FIELDS = ['durationMinutes', 'targetKcal', 'targetDistanceM', 'targetDistanceKm', 'targetZone2Minutes'];
       const patientWeightKg = ctx.parsed?.withings?.bodyScan?.weightKg || ctx.parsed?.profile?.weightKg || 74.9;
 
       const onEdit = (event) => {
@@ -3755,13 +3760,14 @@
         const activity = schedule[dayIdx].activities?.[actIdx];
         if (!activity) return;
 
-        if (field === 'targetDistanceKm') {
-          const parsed = parseFloat(el.value);
-          const km = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-          activity.targetDistanceKm = km;
-          if (km > 0) {
-            // Automatic physics-based calculation: Distance × Weight × 0.55
-            const autoKcal = Math.round(km * patientWeightKg * 0.55);
+        if (field === 'targetDistanceM') {
+          const parsed = parseInt(el.value, 10);
+          const meters = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+          activity.targetDistanceM = meters;
+          activity.targetDistanceKm = Number((meters / 1000).toFixed(2));
+          if (meters > 0) {
+            // Automatic physics-based calculation: (Distance_meters / 1000) × Weight × 0.55
+            const autoKcal = Math.round((meters / 1000) * patientWeightKg * 0.55);
             activity.targetKcal = autoKcal;
             const kcalInput = el.closest('.training-activity-row')?.querySelector('input[data-field="targetKcal"]');
             if (kcalInput) kcalInput.value = String(autoKcal);

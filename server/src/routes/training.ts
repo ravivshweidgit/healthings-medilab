@@ -47,6 +47,7 @@ export async function registerTrainingRoutes(app: FastifyInstance) {
     title: z.string().max(120).optional().default(''),
     durationMinutes: z.number().int().min(0).max(600).optional().default(0),
     targetKcal: z.number().int().min(0).max(5000).optional().default(0),
+    targetDistanceM: z.number().int().min(0).max(500000).optional().default(0),
     targetDistanceKm: z.number().min(0).max(500).optional().default(0),
     targetZone2Minutes: z.number().int().min(0).max(600).optional().default(0),
     notes: z.string().max(1000).optional().default(''),
