@@ -101,8 +101,9 @@ export function nonDistanceWorkoutKcalForDay(
     if (w.source === 'health-connect') continue;
     if (localDayKeyFromMs(w.startMs) !== dayKey) continue;
     if (isDistanceCoveredWorkout(w)) continue;
-    if (!Number.isFinite(w.kcal) || w.kcal <= 0) continue;
-    sum += w.kcal * factor;
+    const effKcal = w.manualKcal != null && Number.isFinite(w.manualKcal) ? w.manualKcal : w.kcal;
+    if (!Number.isFinite(effKcal) || effKcal <= 0) continue;
+    sum += effKcal * factor;
   }
   return sum;
 }

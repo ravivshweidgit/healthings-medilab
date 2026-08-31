@@ -36,7 +36,7 @@ import { BmrHistoryChart7d } from '../components/BmrHistoryChart7d';
 import { FoodLogModal } from '../components/FoodLogModal';
 import { FoodMacroStrip, type FoodMacroStripHandle } from '../components/FoodMacroStrip';
 import { ActivityLogModal, type ActivityPreset } from '../components/ActivityLogModal';
-import { ActivityLogStrip, type ActivityLogStripHandle } from '../components/ActivityLogStrip';
+import { ActivityLogStrip, isFootWorkout, type ActivityLogStripHandle } from '../components/ActivityLogStrip';
 import { GlucoseChartStrip, type GlucoseChartStripHandle } from '../components/GlucoseChartStrip';
 import { MetabolicTrendChart7d } from '../components/MetabolicTrendChart7d';
 import { WeightTargetStrip } from '../components/WeightTargetStrip';
@@ -119,7 +119,7 @@ import {
   stepsToActiveKcal,
 } from '../services/SamsungStepsAdapter';
 import { hybridWithingsActivityKcal } from '../services/hybridActivityBurn';
-import { loadMetricsStore } from '../services/MetricsPersistenceService';
+import { loadMetricsStore, updateWorkoutSessionOverride } from '../services/MetricsPersistenceService';
 import { clearOnboardingCompletedAt, shouldShowQuickStart } from '../services/ProfileCompletenessService';
 import { AUTH_CLEARED_EVENT } from '../services/AuthTokenStore';
 import { appLog, pruneOldAppLogs, PERF_WARN_SYNC_MS, timeAsync } from '../services/AppDailyLogService';
@@ -463,6 +463,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
 
   const [activityModalVisible, setActivityModalVisible] = useState(false);
   const [activityEditEntry, setActivityEditEntry] = useState<ActivityEntry | undefined>();
+  const [activityEditWorkout, setActivityEditWorkout] = useState<WorkoutSession | null>(null);
   const [activityInitialPreset, setActivityInitialPreset] = useState<ActivityPreset | null>(null);
   const [activityInitialTimestamp, setActivityInitialTimestamp] = useState<number | undefined>();
   const [activityRefreshKey, setActivityRefreshKey] = useState(0);
@@ -793,9 +794,32 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
   }, []);
 
   const handleEditActivity = useCallback((entry: ActivityEntry) => {
+    setActivityEditWorkout(null);
     setActivityEditEntry(entry);
     setActivityModalVisible(true);
   }, []);
+
+  const handleEditWorkout = useCallback((workout: WorkoutSession) => {
+    // Foot sports need distance meters in the editor first — skip until then.
+    if (isFootWorkout(workout)) return;
+    setActivityEditEntry(undefined);
+    setActivityEditWorkout(workout);
+    setActivityInitialPreset(null);
+    setActivityInitialTimestamp(workout.startMs);
+    setActivityModalVisible(true);
+  }, []);
+
+  const handleSaveWorkoutOverride = useCallback(
+    async (
+      startMs: number,
+      override: { manualKcal?: number; manualMinutes?: number },
+    ) => {
+      await updateWorkoutSessionOverride(startMs, override);
+      await refreshTodayIntraday();
+      setActivityRefreshKey((k) => k + 1);
+    },
+    [refreshTodayIntraday],
+  );
 
   useEffect(() => {
     void getAllActivityKcalByDay().then(setManualActivityByDay);
@@ -3117,6 +3141,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
               setActivityModalVisible(true);
             }}
             onEditActivity={handleEditActivity}
+            onEditWorkout={handleEditWorkout}
             refreshKey={activityRefreshKey}
             workoutSessions={workoutSessions}
             unitsPrefs={unitsPrefs}
@@ -3791,12 +3816,15 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
         onClose={() => {
           setActivityModalVisible(false);
           setActivityEditEntry(undefined);
+          setActivityEditWorkout(null);
           setActivityInitialPreset(null);
           setActivityInitialTimestamp(undefined);
         }}
         onSaved={handleActivitySaved}
         initialTimestamp={activityInitialTimestamp ?? Date.now()}
         editEntry={activityEditEntry}
+        editWorkout={activityEditWorkout}
+        onSaveWorkoutOverride={handleSaveWorkoutOverride}
         initialPreset={activityInitialPreset}
         lang={userLanguage}
         energyUnit={unitsPrefs.energy}

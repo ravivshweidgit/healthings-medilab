@@ -1176,6 +1176,12 @@ export type WorkoutSession = {
   steps?: number;
   /** Data origin when not from Withings cloud API. */
   source?: 'withings' | 'health-connect';
+  /** User manual override calories (kcal) — takes precedence over watch kcal. */
+  manualKcal?: number;
+  /** User manual override duration (minutes) — takes precedence over watch duration. */
+  manualMinutes?: number;
+  /** Timestamp when the user edited/overrode this session. */
+  manualUpdatedAt?: number;
 };
 
 /** True when the session has a real end time at least MIN_WORKOUT_DURATION_MS long. */

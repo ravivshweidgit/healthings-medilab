@@ -69,7 +69,17 @@ function formatTime(ms: number): string {
 }
 
 function workoutMinutes(w: WorkoutSession): number {
+  if (w.manualMinutes != null && Number.isFinite(w.manualMinutes) && w.manualMinutes > 0) {
+    return Math.round(w.manualMinutes);
+  }
   return Math.max(1, Math.round((w.endMs - w.startMs) / 60_000));
+}
+
+function workoutKcal(w: WorkoutSession): number {
+  if (w.manualKcal != null && Number.isFinite(w.manualKcal) && w.manualKcal >= 0) {
+    return Math.round(w.manualKcal);
+  }
+  return Math.round(w.kcal || 0);
 }
 
 const TYPE_ICON: Record<PrescribedActivitySession['workoutType'], string> = {
@@ -108,7 +118,8 @@ const KCAL_PER_KG_KM = 0.55;
 const FOOT_RE = /walk|run|hike|jog|treadmill|הליכה|ריצה|צעיד/i;
 const BIKE_RE = /bike|cycl|bicycl|ride|spin|אופני|רכיב/i;
 
-function isFootWorkout(w: WorkoutSession): boolean {
+/** Walk/run/hike — scored on distance; not editable until meters exist in the editor. */
+export function isFootWorkout(w: WorkoutSession): boolean {
   return (
     w.category === 1 || // Walk
     w.category === 2 || // Run
@@ -129,8 +140,9 @@ export function resolveWorkoutDistanceMeters(w: WorkoutSession, weightKg: number
   if (w.distanceM != null && Number.isFinite(w.distanceM) && w.distanceM > 0) {
     return Math.round(w.distanceM);
   }
-  if (isFootWorkout(w) && w.kcal > 0 && weightKg > 0) {
-    return Math.round((w.kcal / (weightKg * KCAL_PER_KG_KM)) * 1000);
+  const effKcal = workoutKcal(w);
+  if (isFootWorkout(w) && effKcal > 0 && weightKg > 0) {
+    return Math.round((effKcal / (weightKg * KCAL_PER_KG_KM)) * 1000);
   }
   return null;
 }
@@ -199,9 +211,11 @@ export function resolveActivityMetric(activity: PrescriptionShape): ActivityMetr
 }
 
 /**
- * Greedy one-to-one assignment of the day's real sessions to the prescription.
- * Two prescribed rides need two recorded rides — the first cannot tick both.
- * Pure over data already in memory; nothing here touches disk (render path).
+ * Daily pool waterfall allocation:
+ * Takes the day's total recorded activity per type (bike, foot, gym, any)
+ * and waterfall-fills the day's prescribed activities in order.
+ * No brittle time-of-day matching — total daily effort is loaded directly onto the plan.
+ * Pure over data already in memory; nothing touches disk (render path).
  */
 function matchPrescribedActivities(
   activities: PrescribedActivitySession[],
@@ -219,6 +233,7 @@ function matchPrescribedActivities(
     minutes: number;
     distanceM: number;
   };
+
   const candidates: Candidate[] = [
     ...entries.map((e, i) => ({
       key: `m-${e.id ?? i}`,
@@ -234,108 +249,275 @@ function matchPrescribedActivities(
       matchType: resolveSessionMatchType({ category: w.category, activityLabel: w.activityLabel }),
       name: (w.activityLabel || '').toLowerCase().trim(),
       origin: 'watch' as const,
-      kcal: Math.round(w.kcal || 0),
+      kcal: workoutKcal(w),
       minutes: Math.round(workoutMinutes(w)),
       distanceM: resolveWorkoutDistanceMeters(w, weightKg) || 0,
     })),
   ];
 
-  const used = new Set<string>();
-  const claims = new Map<string, Candidate>();
+  // Group candidates by broad activity bucket
+  const bikeCandidates = candidates.filter((c) => c.matchType === 'bike');
+  const footCandidates = candidates.filter(
+    (c) => c.matchType === 'walk' || c.matchType === 'run',
+  );
+  const gymCandidates = candidates.filter((c) => c.matchType === 'gym');
+  const otherCandidates = candidates.filter(
+    (c) => c.matchType !== 'bike' && c.matchType !== 'walk' && c.matchType !== 'run' && c.matchType !== 'gym',
+  );
 
-  const claim = (predicate: (c: Candidate) => boolean): Candidate | null => {
-    const hit = candidates.find((c) => !used.has(c.key) && predicate(c));
-    if (hit) used.add(hit.key);
-    return hit ?? null;
-  };
+  // Totals for Bike
+  const totalBikeKcal = bikeCandidates.reduce((s, c) => s + c.kcal, 0);
+  const totalBikeMin = bikeCandidates.reduce((s, c) => s + c.minutes, 0);
+  const hasBikeWatch = bikeCandidates.some((c) => c.origin === 'watch');
+  const hasBikeLogged = bikeCandidates.some((c) => c.origin === 'logged');
 
-  // Exact title first — a 1-tap log carries the prescribed title verbatim.
-  const byTitle = new Map<string, PrescribedActivitySession[]>();
-  for (const a of activities) {
-    const title = (a.title || '').toLowerCase().trim();
-    if (!title) continue;
-    byTitle.set(title, [...(byTitle.get(title) ?? []), a]);
-  }
-  for (const [title, list] of byTitle) {
-    for (const a of list) {
-      const hit = claim((c) => c.name === title);
-      if (hit) claims.set(a.id, hit);
-    }
-  }
+  // Totals for Foot (Walk / Run)
+  const workoutFootDistSum = footCandidates.reduce((s, c) => s + (c.distanceM || 0), 0);
+  const totalFootDistanceM = Math.max(dayDistanceM, workoutFootDistSum);
+  const hasFootWatch = footCandidates.some((c) => c.origin === 'watch') || dayDistanceM > 0;
+  const hasFootLogged = footCandidates.some((c) => c.origin === 'logged');
 
-  // Then by declared match type; 'any' accepts whatever is left.
-  for (const a of activities) {
-    if (claims.has(a.id)) continue;
-    const want = a.matchType || 'any';
-    const hit = want === 'any' ? claim(() => true) : claim((c) => c.matchType === want);
-    if (hit) claims.set(a.id, hit);
-  }
+  // Totals for Gym / Strength
+  const totalGymKcal = gymCandidates.reduce((s, c) => s + c.kcal, 0);
+  const totalGymMin = gymCandidates.reduce((s, c) => s + c.minutes, 0);
+  const hasGymWatch = gymCandidates.some((c) => c.origin === 'watch');
+  const hasGymLogged = gymCandidates.some((c) => c.origin === 'logged');
 
-  // The day's total distance comes off the step counter, so it belongs to the
-  // sessions walked on foot. Splitting it across a ride would credit a bike with
-  // kilometres that were walked.
-  const footActivities = activities.filter((a) => resolveActivityMetric(a) === 'distance');
-  const perFootShare =
-    footActivities.length > 0 && dayDistanceM > 0
-      ? Math.round(dayDistanceM / footActivities.length)
-      : 0;
+  // Totals for Other
+  const totalOtherKcal = otherCandidates.reduce((s, c) => s + c.kcal, 0);
+  const totalOtherMin = otherCandidates.reduce((s, c) => s + c.minutes, 0);
+  const hasOtherWatch = otherCandidates.some((c) => c.origin === 'watch');
+  const hasOtherLogged = otherCandidates.some((c) => c.origin === 'logged');
+
+  // Filter activities into buckets while keeping their original order
+  const bikeActivities = activities.filter(
+    (a) => a.matchType === 'bike' || (!a.matchType && BIKE_RE.test(a.title || '')),
+  );
+  const footActivities = activities.filter(
+    (a) => resolveActivityMetric(a) === 'distance',
+  );
+  const gymActivities = activities.filter(
+    (a) => a.matchType === 'gym' || a.workoutType === 'strength' || a.workoutType === 'hiit',
+  );
+  const otherActivities = activities.filter(
+    (a) =>
+      !bikeActivities.includes(a) &&
+      !footActivities.includes(a) &&
+      !gymActivities.includes(a),
+  );
 
   const result: Record<string, MatchedPrescription> = {};
-  for (const a of activities) {
-    const hit = claims.get(a.id);
-    const metric = resolveActivityMetric(a);
+
+  // 1. Waterfall for Bike activities
+  let remainingBikeKcal = totalBikeKcal;
+  let remainingBikeMin = totalBikeMin;
+  for (let i = 0; i < bikeActivities.length; i++) {
+    const a = bikeActivities[i];
     const targetKcal = a.targetKcal || 0;
     const targetMinutes = a.durationMinutes || 0;
     const targetDistanceM = prescribedTargetDistanceM(a);
     const targetDistanceKm =
       targetDistanceM > 0 ? Number((targetDistanceM / 1000).toFixed(2)) : 0;
+    const isLast = i === bikeActivities.length - 1;
 
-    let actualDistanceM = hit?.distanceM || 0;
-    let actualKcal = hit?.kcal || 0;
-    const actualMinutes = hit?.minutes || 0;
+    let fillKcal = 0;
+    let fillMin = 0;
 
-    if (metric === 'distance') {
-      // A walk the watch logged as its own session and the day's step distance are
-      // the same kilometres counted twice — take the larger, never the sum.
-      actualDistanceM = Math.max(actualDistanceM, perFootShare);
-      if (actualDistanceM > 0) {
-        actualKcal = Math.round((actualDistanceM / 1000) * weightKg * KCAL_PER_KG_KM);
-      }
+    if (isLast) {
+      fillKcal = remainingBikeKcal;
+      fillMin = remainingBikeMin;
+      remainingBikeKcal = 0;
+      remainingBikeMin = 0;
+    } else {
+      fillKcal = Math.min(remainingBikeKcal, targetKcal > 0 ? targetKcal : remainingBikeKcal);
+      fillMin = Math.min(remainingBikeMin, targetMinutes > 0 ? targetMinutes : remainingBikeMin);
+      remainingBikeKcal = Math.max(0, remainingBikeKcal - fillKcal);
+      remainingBikeMin = Math.max(0, remainingBikeMin - fillMin);
     }
 
-    const status: MatchedPrescription['status'] = hit
-      ? hit.origin
-      : metric === 'distance' && actualDistanceM > 0
-        ? 'watch'
+    const status: MatchedPrescription['status'] =
+      fillKcal > 0 || fillMin > 0
+        ? hasBikeWatch
+          ? 'watch'
+          : 'logged'
         : 'pending';
 
-    let percent = 0;
-    if (status !== 'pending') {
-      if (metric === 'distance' && targetDistanceM > 0) {
-        percent = Math.round((actualDistanceM / targetDistanceM) * 100);
-      } else if (metric === 'kcal' && targetKcal > 0) {
-        percent = Math.round((actualKcal / targetKcal) * 100);
-      } else if (metric === 'minutes' && targetMinutes > 0) {
-        percent = Math.round((actualMinutes / targetMinutes) * 100);
-      } else {
-        percent = 100;
-      }
-    }
+    const percent =
+      status === 'pending'
+        ? 0
+        : targetKcal > 0
+          ? Math.round((fillKcal / targetKcal) * 100)
+          : targetMinutes > 0
+            ? Math.round((fillMin / targetMinutes) * 100)
+            : 100;
 
     result[a.id] = {
       status,
-      metric,
-      actualKcal: status === 'pending' ? 0 : actualKcal,
-      actualMinutes: status === 'pending' ? 0 : actualMinutes,
-      actualDistanceM: status === 'pending' ? 0 : actualDistanceM,
-      actualDistanceKm:
-        status === 'pending' || actualDistanceM <= 0
-          ? 0
-          : Number((actualDistanceM / 1000).toFixed(2)),
+      metric: 'kcal',
+      actualKcal: fillKcal,
+      actualMinutes: fillMin,
+      actualDistanceM: targetDistanceM > 0 ? Math.round((fillKcal / 200) * targetDistanceM) : 0,
+      actualDistanceKm: targetDistanceM > 0 ? Number(((fillKcal / 200) * targetDistanceKm).toFixed(2)) : 0,
       targetKcal,
       targetMinutes,
       targetDistanceM,
       targetDistanceKm,
+      percent,
+    };
+  }
+
+  // 2. Waterfall for Foot activities (Walk / Run)
+  let remainingFootM = totalFootDistanceM;
+  for (let i = 0; i < footActivities.length; i++) {
+    const a = footActivities[i];
+    const targetKcal = a.targetKcal || 0;
+    const targetMinutes = a.durationMinutes || 0;
+    const targetDistanceM = prescribedTargetDistanceM(a);
+    const targetDistanceKm =
+      targetDistanceM > 0 ? Number((targetDistanceM / 1000).toFixed(2)) : 0;
+    const isLast = i === footActivities.length - 1;
+
+    let fillM = 0;
+    if (isLast) {
+      fillM = remainingFootM;
+      remainingFootM = 0;
+    } else {
+      fillM = Math.min(remainingFootM, targetDistanceM > 0 ? targetDistanceM : remainingFootM);
+      remainingFootM = Math.max(0, remainingFootM - fillM);
+    }
+
+    const actualKcal = fillM > 0 ? Math.round((fillM / 1000) * weightKg * KCAL_PER_KG_KM) : 0;
+    const actualMinutes = fillM > 0 ? Math.round((fillM / 1000) * 12) : 0;
+
+    const status: MatchedPrescription['status'] =
+      fillM > 0
+        ? hasFootWatch
+          ? 'watch'
+          : hasFootLogged
+            ? 'logged'
+            : 'pending'
+        : 'pending';
+
+    const percent =
+      status === 'pending'
+        ? 0
+        : targetDistanceM > 0
+          ? Math.round((fillM / targetDistanceM) * 100)
+          : targetKcal > 0
+            ? Math.round((actualKcal / targetKcal) * 100)
+            : 100;
+
+    result[a.id] = {
+      status,
+      metric: 'distance',
+      actualKcal,
+      actualMinutes,
+      actualDistanceM: fillM,
+      actualDistanceKm: fillM > 0 ? Number((fillM / 1000).toFixed(2)) : 0,
+      targetKcal,
+      targetMinutes,
+      targetDistanceM,
+      targetDistanceKm,
+      percent,
+    };
+  }
+
+  // 3. Waterfall for Gym / Strength activities
+  let remainingGymKcal = totalGymKcal;
+  let remainingGymMin = totalGymMin;
+  for (let i = 0; i < gymActivities.length; i++) {
+    const a = gymActivities[i];
+    const targetKcal = a.targetKcal || 0;
+    const targetMinutes = a.durationMinutes || 0;
+    const isLast = i === gymActivities.length - 1;
+
+    let fillKcal = 0;
+    let fillMin = 0;
+    if (isLast) {
+      fillKcal = remainingGymKcal;
+      fillMin = remainingGymMin;
+      remainingGymKcal = 0;
+      remainingGymMin = 0;
+    } else {
+      fillKcal = Math.min(remainingGymKcal, targetKcal > 0 ? targetKcal : remainingGymKcal);
+      fillMin = Math.min(remainingGymMin, targetMinutes > 0 ? targetMinutes : remainingGymMin);
+      remainingGymKcal = Math.max(0, remainingGymKcal - fillKcal);
+      remainingGymMin = Math.max(0, remainingGymMin - fillMin);
+    }
+
+    const status: MatchedPrescription['status'] =
+      fillKcal > 0 || fillMin > 0
+        ? hasGymWatch
+          ? 'watch'
+          : 'logged'
+        : 'pending';
+
+    const percent =
+      status === 'pending'
+        ? 0
+        : targetKcal > 0
+          ? Math.round((fillKcal / targetKcal) * 100)
+          : targetMinutes > 0
+            ? Math.round((fillMin / targetMinutes) * 100)
+            : 100;
+
+    result[a.id] = {
+      status,
+      metric: (a.targetKcal || 0) > 0 ? 'kcal' : 'minutes',
+      actualKcal: fillKcal,
+      actualMinutes: fillMin,
+      targetKcal,
+      targetMinutes,
+      percent,
+    };
+  }
+
+  // 4. Other remaining activities
+  let remainingOtherKcal = totalOtherKcal;
+  let remainingOtherMin = totalOtherMin;
+  for (let i = 0; i < otherActivities.length; i++) {
+    const a = otherActivities[i];
+    const targetKcal = a.targetKcal || 0;
+    const targetMinutes = a.durationMinutes || 0;
+    const isLast = i === otherActivities.length - 1;
+
+    let fillKcal = 0;
+    let fillMin = 0;
+    if (isLast) {
+      fillKcal = remainingOtherKcal;
+      fillMin = remainingOtherMin;
+      remainingOtherKcal = 0;
+      remainingOtherMin = 0;
+    } else {
+      fillKcal = Math.min(remainingOtherKcal, targetKcal > 0 ? targetKcal : remainingOtherKcal);
+      fillMin = Math.min(remainingOtherMin, targetMinutes > 0 ? targetMinutes : remainingOtherMin);
+      remainingOtherKcal = Math.max(0, remainingOtherKcal - fillKcal);
+      remainingOtherMin = Math.max(0, remainingOtherMin - fillMin);
+    }
+
+    const status: MatchedPrescription['status'] =
+      fillKcal > 0 || fillMin > 0
+        ? hasOtherWatch
+          ? 'watch'
+          : 'logged'
+        : 'pending';
+
+    const percent =
+      status === 'pending'
+        ? 0
+        : targetKcal > 0
+          ? Math.round((fillKcal / targetKcal) * 100)
+          : targetMinutes > 0
+            ? Math.round((fillMin / targetMinutes) * 100)
+            : 100;
+
+    result[a.id] = {
+      status,
+      metric: resolveActivityMetric(a),
+      actualKcal: fillKcal,
+      actualMinutes: fillMin,
+      targetKcal,
+      targetMinutes,
       percent,
     };
   }
@@ -353,6 +535,7 @@ type Props = {
   dayKey?: string;
   onAddActivity: (dayKey: string) => void;
   onEditActivity?: (entry: ActivityEntry) => void;
+  onEditWorkout?: (workout: WorkoutSession) => void;
   onLogPrescribedWorkout?: (workout: PrescribedActivitySession, dayKey: string) => void;
   refreshKey?: number;
   workoutSessions?: WorkoutSession[];
@@ -367,6 +550,7 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
     dayKey: initialDayKey,
     onAddActivity,
     onEditActivity,
+    onEditWorkout,
     onLogPrescribedWorkout,
     refreshKey,
     workoutSessions = [],
@@ -418,7 +602,7 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
   );
 
   const wearableKcal = useMemo(
-    () => dayWorkouts.reduce((s, w) => s + (Number.isFinite(w.kcal) ? w.kcal : 0), 0),
+    () => dayWorkouts.reduce((s, w) => s + workoutKcal(w), 0),
     [dayWorkouts],
   );
 
@@ -810,25 +994,56 @@ export const ActivityLogStrip = forwardRef<ActivityLogStripHandle, Props>(functi
                     </Text>
                   </Pressable>
                 ) : (
-                  <View
-                    key={`w-${chip.workout.startMs}-${chip.workout.category}`}
-                    style={[styles.chip, styles.chipWearable]}
-                  >
-                    <Text style={styles.chipTime}>{formatTime(chip.workout.startMs)}</Text>
-                    <Text style={styles.chipLabel} numberOfLines={2}>
-                      {chip.workout.activityLabel || 'Workout'}
-                    </Text>
-                    <Text style={styles.chipMeta}>
-                      {(() => {
-                        const distM = resolveWorkoutDistanceMeters(chip.workout, effectiveWeight);
-                        const distStr = distM ? `${formatDistanceLabel(distM)} · ` : '';
-                        return `${distStr}${workoutMinutes(chip.workout)} min · ${formatEnergy(chip.workout.kcal, energyU)}`;
-                      })()}
-                    </Text>
-                    <Text style={styles.chipBadgeWearable}>
-                      {chip.workout.source === 'health-connect' ? 'HC' : ui.wearable}
-                    </Text>
-                  </View>
+                  (() => {
+                    // Foot sports are scored on distance — no meters field in the editor yet,
+                    // so walk/run chips stay read-only. Bike (kcal) and gym stay editable.
+                    const footOnly = isFootWorkout(chip.workout);
+                    const badgeBase = chip.workout.manualUpdatedAt
+                      ? ui.manual
+                      : chip.workout.source === 'health-connect'
+                        ? 'HC'
+                        : ui.wearable;
+                    const meta = (() => {
+                      const distM = resolveWorkoutDistanceMeters(chip.workout, effectiveWeight);
+                      const distStr = distM ? `${formatDistanceLabel(distM)} · ` : '';
+                      return `${distStr}${workoutMinutes(chip.workout)} min · ${formatEnergy(workoutKcal(chip.workout), energyU)}`;
+                    })();
+                    if (footOnly) {
+                      return (
+                        <View
+                          key={`w-${chip.workout.startMs}-${chip.workout.category}`}
+                          style={[styles.chip, styles.chipWearable]}
+                        >
+                          <Text style={styles.chipTime}>{formatTime(chip.workout.startMs)}</Text>
+                          <Text style={styles.chipLabel} numberOfLines={2}>
+                            {chip.workout.activityLabel || 'Workout'}
+                          </Text>
+                          <Text style={styles.chipMeta}>{meta}</Text>
+                          <Text style={styles.chipBadgeWearable}>{badgeBase}</Text>
+                        </View>
+                      );
+                    }
+                    return (
+                      <Pressable
+                        key={`w-${chip.workout.startMs}-${chip.workout.category}`}
+                        style={({ pressed }) => [
+                          styles.chip,
+                          styles.chipWearable,
+                          pressed && styles.chipPressed,
+                        ]}
+                        onPress={() => onEditWorkout?.(chip.workout)}
+                        accessibilityRole="button"
+                        accessibilityLabel={chip.workout.activityLabel || 'Workout'}
+                      >
+                        <Text style={styles.chipTime}>{formatTime(chip.workout.startMs)}</Text>
+                        <Text style={styles.chipLabel} numberOfLines={2}>
+                          {chip.workout.activityLabel || 'Workout'}
+                        </Text>
+                        <Text style={styles.chipMeta}>{meta}</Text>
+                        <Text style={styles.chipBadgeWearable}>{`${badgeBase} · ✎`}</Text>
+                      </Pressable>
+                    );
+                  })()
                 ),
               )}
             </ScrollView>

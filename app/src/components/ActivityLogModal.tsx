@@ -48,6 +48,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../theme/tokens';
 import type { UserLanguage } from '../services/TargetService';
 import { DEFAULT_LANGUAGE } from '../services/TargetService';
+import type { WorkoutSession } from '../services/WithingsApiService';
 import {
   displayToKcal,
   formatEnergy,
@@ -111,6 +112,11 @@ type Props = {
   onSaved: () => void | Promise<void>;
   initialTimestamp: number;
   editEntry?: ActivityEntry;
+  editWorkout?: WorkoutSession | null;
+  onSaveWorkoutOverride?: (
+    startMs: number,
+    override: { manualKcal?: number; manualMinutes?: number },
+  ) => Promise<void>;
   initialPreset?: ActivityPreset | null;
   lang?: UserLanguage | null;
   energyUnit?: EnergyUnit;
@@ -139,6 +145,8 @@ export function ActivityLogModal({
   onSaved,
   initialTimestamp,
   editEntry,
+  editWorkout,
+  onSaveWorkoutOverride,
   initialPreset,
   lang = DEFAULT_LANGUAGE,
   energyUnit = 'kcal',
@@ -196,7 +204,20 @@ export function ActivityLogModal({
     void reloadFavs();
     setMode('form');
     setAiHint(null);
-    if (editEntry) {
+    if (editWorkout) {
+      setName(editWorkout.activityLabel || 'Workout');
+      setNote('');
+      setYoutubeUrl('');
+      setEquipmentKg('');
+      const defaultMins =
+        editWorkout.manualMinutes ??
+        Math.max(1, Math.round((editWorkout.endMs - editWorkout.startMs) / 60000));
+      const defaultKcal =
+        editWorkout.manualKcal ?? Math.round(editWorkout.kcal || 0);
+      seedMinutesAndKcal(defaultMins, defaultKcal);
+      setFavoriteId(undefined);
+      setSaveAsFav(false);
+    } else if (editEntry) {
       setName(editEntry.name);
       setNote(editEntry.note ?? '');
       setYoutubeUrl(editEntry.youtubeUrl ?? '');
@@ -229,7 +250,7 @@ export function ActivityLogModal({
       setSaveAsFav(false);
     }
     setManagingFavs(false);
-  }, [visible, editEntry, initialPreset, energyUnit, reloadFavs, seedMinutesAndKcal]);
+  }, [visible, editEntry, editWorkout, initialPreset, energyUnit, reloadFavs, seedMinutesAndKcal]);
 
   useEffect(() => {
     if (!visible || mode !== 'pickPast') return;
@@ -481,6 +502,15 @@ export function ActivityLogModal({
       await timeAsync(
         'ActivityLogModal.save',
         async () => {
+          if (editWorkout && onSaveWorkoutOverride) {
+            await onSaveWorkoutOverride(editWorkout.startMs, {
+              manualKcal: activityKcal,
+              manualMinutes: mins,
+            });
+            await onSaved();
+            onClose();
+            return;
+          }
           const equipmentWeightKg = parseEquipmentKg();
           let favId = favoriteId;
           if (saveAsFav) {
@@ -509,7 +539,7 @@ export function ActivityLogModal({
           await onSaved();
           onClose();
         },
-        { edit: Boolean(editEntry?.id) },
+        { edit: Boolean(editEntry?.id || editWorkout) },
         PERF_WARN_MEAL_MS,
       );
     } catch (e: unknown) {
@@ -527,6 +557,8 @@ export function ActivityLogModal({
     favoriteId,
     saveAsFav,
     editEntry,
+    editWorkout,
+    onSaveWorkoutOverride,
     initialTimestamp,
     onSaved,
     onClose,
@@ -535,7 +567,7 @@ export function ActivityLogModal({
   ]);
 
   const handleDelete = useCallback(() => {
-    if (!editEntry) return;
+    if (!editEntry && !editWorkout) return;
     Alert.alert(ui.deleteTitle, ui.deleteMessage, [
       { text: ui.cancel, style: 'cancel' },
       {
@@ -543,14 +575,21 @@ export function ActivityLogModal({
         style: 'destructive',
         onPress: () => {
           void (async () => {
-            await deleteActivity(editEntry.id, editEntry.timestamp);
+            if (editWorkout && onSaveWorkoutOverride) {
+              await onSaveWorkoutOverride(editWorkout.startMs, {
+                manualKcal: undefined,
+                manualMinutes: undefined,
+              });
+            } else if (editEntry) {
+              await deleteActivity(editEntry.id, editEntry.timestamp);
+            }
             await onSaved();
             onClose();
           })();
         },
       },
     ]);
-  }, [editEntry, ui, onSaved, onClose]);
+  }, [editEntry, editWorkout, onSaveWorkoutOverride, ui, onSaved, onClose]);
 
   const handleDeleteFavorite = useCallback(
     (fav: ActivityFavorite) => {
@@ -871,7 +910,7 @@ export function ActivityLogModal({
                 </ScrollView>
 
                 <View style={styles.btns}>
-                  {editEntry ? (
+                  {editEntry || editWorkout ? (
                     <Pressable style={styles.btnClear} onPress={handleDelete} disabled={busy}>
                       <Text style={styles.btnClearText}>{ui.delete}</Text>
                     </Pressable>

@@ -284,12 +284,25 @@ function mergeWorkouts(prev: WorkoutSession[], next: WorkoutSession[]): WorkoutS
   const map = new Map<number, WorkoutSession>();
   const durationMs = (w: WorkoutSession) => Math.max(0, w.endMs - w.startMs);
   const prefer = (a: WorkoutSession, b: WorkoutSession): WorkoutSession => {
+    // Preserve manual user overrides across background syncs
+    const manualKcal = b.manualKcal ?? a.manualKcal;
+    const manualMinutes = b.manualMinutes ?? a.manualMinutes;
+    const manualUpdatedAt = Math.max(a.manualUpdatedAt ?? 0, b.manualUpdatedAt ?? 0) || undefined;
+
     const aDur = durationMs(a);
     const bDur = durationMs(b);
-    if (aDur <= 0 && bDur > 0) return b;
-    if (bDur <= 0 && aDur > 0) return a;
-    if (bDur !== aDur) return bDur > aDur ? b : a;
-    return b.kcal >= a.kcal ? b : a;
+    let chosen: WorkoutSession;
+    if (aDur <= 0 && bDur > 0) chosen = b;
+    else if (bDur <= 0 && aDur > 0) chosen = a;
+    else if (bDur !== aDur) chosen = bDur > aDur ? b : a;
+    else chosen = b.kcal >= a.kcal ? b : a;
+
+    return {
+      ...chosen,
+      ...(manualKcal != null ? { manualKcal } : {}),
+      ...(manualMinutes != null ? { manualMinutes } : {}),
+      ...(manualUpdatedAt != null ? { manualUpdatedAt } : {}),
+    };
   };
   for (const w of filterKeepableWorkouts(prev)) map.set(w.startMs, w);
   for (const w of filterKeepableWorkouts(next)) {
@@ -568,6 +581,32 @@ export async function saveMetricsStore(store: MetricsPersistedStore): Promise<vo
     calories: trimIntradayHistory(store.calories),
   };
   await AsyncStorage.setItem(METRICS_STORE_KEY, JSON.stringify(trimmed));
+}
+
+/**
+ * Update user manual override on a specific workout session without losing watch provenance.
+ * Background syncs will preserve this override via `mergeWorkouts`.
+ */
+export async function updateWorkoutSessionOverride(
+  startMs: number,
+  override: { manualKcal?: number; manualMinutes?: number },
+): Promise<MetricsPersistedStore> {
+  const store = await loadMetricsStore();
+  const workouts = (store.workouts ?? []).map((w) => {
+    if (w.startMs !== startMs) return w;
+    return {
+      ...w,
+      manualKcal: override.manualKcal !== undefined ? override.manualKcal : w.manualKcal,
+      manualMinutes: override.manualMinutes !== undefined ? override.manualMinutes : w.manualMinutes,
+      manualUpdatedAt: Date.now(),
+    };
+  });
+  const updated: MetricsPersistedStore = {
+    ...store,
+    workouts,
+  };
+  await saveMetricsStore(updated);
+  return updated;
 }
 
 /** @deprecated Use saveMetricsStore */

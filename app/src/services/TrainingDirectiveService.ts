@@ -164,12 +164,12 @@ export function sortActivitiesByTimeSlot(
 
 /**
  * Withings numeric activity categories we can map to a prescription match type.
- * 1 = walk, 2 = run, 187/306 = bike. Health Connect rows arrive with the same
- * numeric category assigned by the adapter.
+ * 1 = walk, 2 = run, 3 = hike, 5 = bmx, 6 = biking, 187/306/307 = cycling variants.
+ * Health Connect / wearable exercise types also map here.
  */
-const BIKE_CATEGORIES = new Set([187, 306, 307]);
-const WALK_CATEGORIES = new Set([1, 3]);
-const RUN_CATEGORIES = new Set([2]);
+const BIKE_CATEGORIES = new Set([5, 6, 8, 9, 187, 306, 307]);
+const WALK_CATEGORIES = new Set([1, 3, 37, 79]);
+const RUN_CATEGORIES = new Set([2, 56]);
 
 function labelMatches(label: string, needles: string[]): boolean {
   const l = label.toLowerCase();
