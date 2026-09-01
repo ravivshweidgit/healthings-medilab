@@ -155,11 +155,13 @@ export function resolveManualDistanceMeters(e: ActivityEntry, weightKg: number):
 }
 
 export function formatDistanceLabel(meters: number): string {
-  if (meters >= 1000) {
-    const km = (meters / 1000).toFixed(2);
+  if (!Number.isFinite(meters) || meters <= 0) return '0 m';
+  const m = Math.round(meters);
+  if (m >= 1000) {
+    const km = (m / 1000).toFixed(2);
     return `${km.replace(/\.?0+$/, '')} km`;
   }
-  return `${meters} m`;
+  return `${m} m`;
 }
 
 /** The single number a prescribed session is judged on. */
@@ -273,7 +275,7 @@ function matchPrescribedActivities(
 
   // Totals for Foot (Walk / Run)
   const workoutFootDistSum = footCandidates.reduce((s, c) => s + (c.distanceM || 0), 0);
-  const totalFootDistanceM = Math.max(dayDistanceM, workoutFootDistSum);
+  const totalFootDistanceM = Math.round(Math.max(dayDistanceM, workoutFootDistSum));
   const hasFootWatch = footCandidates.some((c) => c.origin === 'watch') || dayDistanceM > 0;
   const hasFootLogged = footCandidates.some((c) => c.origin === 'logged');
 
@@ -412,7 +414,7 @@ function matchPrescribedActivities(
       metric: 'distance',
       actualKcal,
       actualMinutes,
-      actualDistanceM: fillM,
+      actualDistanceM: Math.round(fillM),
       actualDistanceKm: fillM > 0 ? Number((fillM / 1000).toFixed(2)) : 0,
       targetKcal,
       targetMinutes,
