@@ -699,6 +699,13 @@ CREATE TABLE IF NOT EXISTS diet_marker_catalog (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Set only for markers a clinic may cap as a share of daily energy (sat fat 9, sugar 4).
+-- NULL means grams/mg only — percentOfEnergy is rejected.
+ALTER TABLE diet_marker_catalog ADD COLUMN IF NOT EXISTS kcal_per_gram NUMERIC(4,1);
+-- Operator edited this row in /admin. The seed upsert then leaves it alone, so a
+-- guidance fix made in the UI survives the next deploy.
+ALTER TABLE diet_marker_catalog ADD COLUMN IF NOT EXISTS admin_edited BOOLEAN NOT NULL DEFAULT FALSE;
+
 CREATE INDEX IF NOT EXISTS diet_marker_catalog_enabled_idx
   ON diet_marker_catalog (sort_order, code)
   WHERE enabled;

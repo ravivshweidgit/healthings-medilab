@@ -27,6 +27,8 @@ export type TreatmentMarker = {
   setBy: string;
   labels?: DietMarkerLabels;
   estimateGuidance?: string;
+  /** From the server catalog. Absent on markers stored before be-47b — see markerKcalPerGram. */
+  kcalPerGram?: number;
   /** Additive (be-45). Absent ⇒ constant grams. */
   percentOfEnergy?: number;
   ofEnergy?: 'kcal_eaten';
@@ -84,6 +86,9 @@ function cleanMarkerList(
       ...(m.note?.trim() ? { note: m.note.trim().slice(0, 500) } : {}),
       ...(labels ? { labels } : {}),
       ...(guidance ? { estimateGuidance: guidance.slice(0, 2000) } : {}),
+      ...(typeof m.kcalPerGram === 'number' && m.kcalPerGram > 0 && m.kcalPerGram <= 20
+        ? { kcalPerGram: m.kcalPerGram }
+        : {}),
       ...(typeof m.percentOfEnergy === 'number' &&
       m.percentOfEnergy > 0 &&
       m.percentOfEnergy <= 100 &&
@@ -131,11 +136,17 @@ export function dietMarkerJsonField(code: DietMarkerCode): string {
   return code.toLowerCase();
 }
 
-/** kcal/g for percent-of-energy caps (sat fat 9, simple sugar 4). */
-export function markerKcalPerGram(code: string): number | null {
-  if (code === 'SAT_FAT_G') return 9;
-  if (code === 'SUGAR_G') return 4;
-  return null;
+/**
+ * kcal/g for percent-of-energy caps. The server hydrates `kcalPerGram` from the catalog,
+ * so this map is only reached for markers stored before that field existed — a new
+ * percent-capable marker needs a catalog row, not a change here.
+ */
+const LEGACY_KCAL_PER_GRAM: Record<string, number> = { SAT_FAT_G: 9, SUGAR_G: 4 };
+
+export function markerKcalPerGram(marker: TreatmentMarker | string): number | null {
+  if (typeof marker !== 'string' && marker?.kcalPerGram != null) return marker.kcalPerGram;
+  const code = typeof marker === 'string' ? marker : marker?.marker;
+  return LEGACY_KCAL_PER_GRAM[code] ?? null;
 }
 
 export function isDietMarkerCode(raw: string): raw is DietMarkerCode {

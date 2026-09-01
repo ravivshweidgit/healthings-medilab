@@ -1086,7 +1086,7 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                   const val = markerDayTotals[m.marker];
                   const hasVal = val != null && Number.isFinite(val);
                   const eatenKcal = macros?.kcal ?? 0;
-                  const kcalPerG = markerKcalPerGram(m.marker) ?? 9;
+                  const kcalPerG = markerKcalPerGram(m) ?? 9;
                   const pctTarget =
                     m.percentOfEnergy != null && m.ofEnergy === 'kcal_eaten' && eatenKcal > 0
                       ? Math.round((m.percentOfEnergy / 100) * eatenKcal / kcalPerG * 10) / 10

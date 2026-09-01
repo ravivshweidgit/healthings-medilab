@@ -2,7 +2,7 @@ import { gunzipSync, inflateSync } from 'node:zlib';
 import { config } from '../config.js';
 import { query } from '../db/pool.js';
 import type { ClinicChatMessage, ClinicUserRules } from './clinicOverlay.js';
-import { markerShortLabelMap } from './treatmentMarkers.js';
+import { markerKcalPerGram, markerShortLabelMap } from './treatmentMarkers.js';
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_TIMEOUT_MS = 60_000;
@@ -411,9 +411,9 @@ ${input.markersSummary || '(none)'}
     const hasPct = Number.isFinite(pct) && pct > 0 && pct <= 100;
     let dailyTarget = Number(row.dailyTarget);
     // Percent-only energy markers: Gemini sometimes omits dailyTarget; derive grams
-    // from a kcal ceiling in the same proposal (sat fat ÷9, sugar ÷4).
+    // from a kcal ceiling in the same proposal, using the catalog's kcal/g.
     if ((!Number.isFinite(dailyTarget) || dailyTarget <= 0) && hasPct) {
-      const kcalPerG = marker === 'SUGAR_G' ? 4 : marker === 'SAT_FAT_G' ? 9 : 0;
+      const kcalPerG = (await markerKcalPerGram(marker)) ?? 0;
       if (kcalPerG > 0) {
         const kcalCeil = bounds.find(
           (b) =>

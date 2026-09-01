@@ -336,6 +336,38 @@
         min-height: 1.2em;
         font-size: 0.85rem;
       }
+      .catalog-form .cat-hint {
+        font: inherit;
+        line-height: 1.45;
+        resize: vertical;
+      }
+      .cat-count {
+        font-size: 0.75rem;
+      }
+      .catalog-form .cat-cancel {
+        background: transparent;
+        border: 1px solid var(--line, #d8dee9);
+        color: var(--muted);
+      }
+      .cat-guidance {
+        max-width: 30ch;
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+      /* A marker with no guidance sends Gemini a bare field name — make it impossible to miss. */
+      .cat-missing {
+        color: #b42318;
+        font-weight: 600;
+      }
+      .cat-edit {
+        cursor: pointer;
+        background: none;
+        border: 0;
+        padding: 0;
+        font: inherit;
+        color: var(--accent, #1f4b99);
+        text-decoration: underline;
+      }
 
       .admin-mobile-nav {
         display: none;
@@ -565,11 +597,36 @@
                   Label (HE)
                   <input id="cat-he" class="portal-input" type="text" maxlength="80" dir="rtl" />
                 </label>
+                <label>
+                  kcal per gram
+                  <input
+                    id="cat-kcal"
+                    class="portal-input"
+                    type="number"
+                    min="0"
+                    max="20"
+                    step="0.1"
+                    placeholder="blank = grams only"
+                    dir="ltr"
+                  />
+                </label>
                 <label class="field-wide">
-                  Estimate guidance (phone AI)
-                  <input id="cat-hint" class="portal-input" type="text" maxlength="500" dir="auto" />
+                  Estimate guidance (phone AI) — required
+                  <textarea
+                    id="cat-hint"
+                    class="portal-input cat-hint"
+                    maxlength="2000"
+                    rows="6"
+                    dir="auto"
+                    required
+                    placeholder="What counts, what does not, and which macro must never be copied in."
+                  ></textarea>
+                  <span id="cat-hint-count" class="muted cat-count"></span>
                 </label>
                 <button id="cat-add" class="portal-btn" type="submit">Add to catalog</button>
+                <button id="cat-cancel" class="portal-btn cat-cancel" type="button" hidden>
+                  Cancel edit
+                </button>
               </form>
               <p id="catalog-status" class="muted catalog-status" role="status"></p>
             </div>
@@ -838,31 +895,115 @@
           el.innerHTML = '<p class="muted">Catalog empty.</p>';
           return;
         }
+        CATALOG_ROWS = rows;
+        const missing = rows.filter((r) => !String(r.estimateGuidance || '').trim()).length;
         el.innerHTML = `
+          ${
+            missing
+              ? `<p class="cat-missing" style="padding:0 18px">${missing} marker${
+                  missing === 1 ? '' : 's'
+                } with no guidance — Gemini estimates those from the field name alone.</p>`
+              : ''
+          }
           <table class="usage-table">
             <thead><tr>
               <th>Code</th>
               <th>Unit</th>
               <th>Default</th>
+              <th>kcal/g</th>
               <th class="admin-name">EN</th>
               <th class="admin-name">HE</th>
+              <th>Guidance</th>
+              <th></th>
             </tr></thead>
             <tbody>
               ${rows
                 .map((r) => {
                   const en = (r.labels && r.labels.en && r.labels.en.full) || '';
                   const he = (r.labels && r.labels.he && r.labels.he.full) || '';
+                  const hint = String(r.estimateGuidance || '').trim();
+                  const hintCell = hint
+                    ? `<span title="${escHtml(hint)}">${escHtml(
+                        hint.length > 70 ? hint.slice(0, 70) + '…' : hint,
+                      )}</span>`
+                    : '<span class="cat-missing">missing</span>';
                   return `<tr>
                     <td class="admin-cell" dir="ltr">${escHtml(r.code)}</td>
                     <td class="admin-cell">${escHtml(r.unit)}</td>
                     <td class="admin-cell">${escHtml(r.defaultDirection)}</td>
+                    <td class="admin-cell" dir="ltr">${
+                      r.kcalPerGram == null ? '—' : escHtml(r.kcalPerGram)
+                    }</td>
                     <td class="admin-name"><span dir="ltr">${escHtml(en)}</span></td>
                     <td class="admin-name"><span dir="rtl">${escHtml(he)}</span></td>
+                    <td class="admin-cell cat-guidance">${hintCell}</td>
+                    <td class="admin-cell">
+                      <button type="button" class="cat-edit" data-code="${escHtml(r.code)}">Edit</button>
+                    </td>
                   </tr>`;
                 })
                 .join('')}
             </tbody>
           </table>`;
+        el.querySelectorAll('.cat-edit').forEach((btn) => {
+          btn.addEventListener('click', () => startCatalogEdit(btn.dataset.code));
+        });
+      }
+
+      let CATALOG_ROWS = [];
+      /** Non-null while editing an existing row — the form then PATCHes instead of POSTing. */
+      let CATALOG_EDIT_CODE = null;
+
+      function setCatalogFormMode(row) {
+        CATALOG_EDIT_CODE = row ? row.code : null;
+        const editing = Boolean(row);
+        document.getElementById('cat-code').disabled = editing;
+        document.getElementById('cat-unit').disabled = editing;
+        document.getElementById('cat-add').textContent = editing
+          ? 'Save ' + row.code
+          : 'Add to catalog';
+        document.getElementById('cat-cancel').hidden = !editing;
+      }
+
+      function startCatalogEdit(code) {
+        const row = CATALOG_ROWS.find((r) => r.code === code);
+        if (!row) return;
+        document.getElementById('cat-code').value = row.code;
+        document.getElementById('cat-unit').value = row.unit;
+        document.getElementById('cat-dir').value = row.defaultDirection;
+        document.getElementById('cat-en').value =
+          (row.labels && row.labels.en && row.labels.en.full) || '';
+        document.getElementById('cat-he').value =
+          (row.labels && row.labels.he && row.labels.he.full) || '';
+        document.getElementById('cat-kcal').value = row.kcalPerGram == null ? '' : row.kcalPerGram;
+        document.getElementById('cat-hint').value = row.estimateGuidance || '';
+        updateHintCount();
+        setCatalogFormMode(row);
+        document.getElementById('cat-hint').focus();
+      }
+
+      function resetCatalogForm() {
+        document.getElementById('cat-code').value = '';
+        document.getElementById('cat-en').value = '';
+        document.getElementById('cat-he').value = '';
+        document.getElementById('cat-kcal').value = '';
+        document.getElementById('cat-hint').value = '';
+        updateHintCount();
+        setCatalogFormMode(null);
+      }
+
+      const MIN_GUIDANCE_CHARS = 40;
+
+      function updateHintCount() {
+        const el = document.getElementById('cat-hint');
+        const out = document.getElementById('cat-hint-count');
+        if (!el || !out) return;
+        const n = el.value.trim().length;
+        out.textContent =
+          n >= MIN_GUIDANCE_CHARS
+            ? n + ' / 2000'
+            : n + ' / 2000 — at least ' + MIN_GUIDANCE_CHARS + ' characters';
+        out.classList.toggle('cat-missing', n > 0 && n < MIN_GUIDANCE_CHARS);
       }
 
       async function loadCatalog() {
@@ -1054,8 +1195,23 @@
         const en = document.getElementById('cat-en').value.trim();
         const he = document.getElementById('cat-he').value.trim();
         const estimateGuidance = document.getElementById('cat-hint').value.trim();
+        const kcalRaw = document.getElementById('cat-kcal').value.trim();
         if (!code || !en) {
           if (status) status.textContent = 'Code and English label required.';
+          return;
+        }
+        if (estimateGuidance.length < MIN_GUIDANCE_CHARS) {
+          if (status) {
+            status.textContent =
+              'Estimate guidance is required — at least ' +
+              MIN_GUIDANCE_CHARS +
+              ' characters. Say what counts, what does not, and which macro must not be copied in.';
+          }
+          return;
+        }
+        const kcalPerGram = kcalRaw === '' ? null : Number(kcalRaw);
+        if (kcalPerGram != null && (!Number.isFinite(kcalPerGram) || kcalPerGram <= 0)) {
+          if (status) status.textContent = 'kcal per gram must be a positive number, or blank.';
           return;
         }
         btn.disabled = true;
@@ -1063,32 +1219,50 @@
         try {
           const labels = { en: { full: en, short: en } };
           if (he) labels.he = { full: he, short: he };
-          const res = await api('/v1/admin/marker-catalog', {
-            method: 'POST',
-            body: JSON.stringify({
-              code,
-              unit,
-              defaultDirection,
-              labels,
-              ...(estimateGuidance ? { estimateGuidance } : {}),
-            }),
-          });
+          const editing = CATALOG_EDIT_CODE;
+          const res = editing
+            ? await api('/v1/admin/marker-catalog/' + encodeURIComponent(editing), {
+                method: 'PATCH',
+                body: JSON.stringify({
+                  defaultDirection,
+                  labels,
+                  estimateGuidance,
+                  kcalPerGram,
+                }),
+              })
+            : await api('/v1/admin/marker-catalog', {
+                method: 'POST',
+                body: JSON.stringify({
+                  code,
+                  unit,
+                  defaultDirection,
+                  labels,
+                  estimateGuidance,
+                  kcalPerGram,
+                }),
+              });
           if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || 'Could not add catalog item');
+            throw new Error(err.error || (editing ? 'Could not save changes' : 'Could not add catalog item'));
           }
-          document.getElementById('cat-code').value = '';
-          document.getElementById('cat-en').value = '';
-          document.getElementById('cat-he').value = '';
-          document.getElementById('cat-hint').value = '';
+          resetCatalogForm();
           await loadCatalog();
-          if (status) status.textContent = 'Added ' + code;
+          if (status) status.textContent = (editing ? 'Saved ' : 'Added ') + code;
         } catch (err) {
           if (status) status.textContent = err.message || String(err);
         } finally {
           btn.disabled = false;
         }
       });
+
+      document.getElementById('cat-cancel').addEventListener('click', () => {
+        resetCatalogForm();
+        const status = document.getElementById('catalog-status');
+        if (status) status.textContent = '';
+      });
+
+      document.getElementById('cat-hint').addEventListener('input', updateHintCount);
+      updateHintCount();
 
       document.getElementById('active-prev').addEventListener('click', () => {
         activeYmd = shiftYmd(activeYmd || ymdLocal(new Date()), -1);

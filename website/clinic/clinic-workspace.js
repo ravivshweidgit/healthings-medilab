@@ -1570,11 +1570,11 @@
   }
 
   const FALLBACK_MARKER_CATALOG = [
-    { code: 'SAT_FAT_G', unit: 'g', defaultDirection: 'cap', linkedLabCodes: ['CHOLESTEROL_LDL', 'CHOLESTEROL'] },
+    { code: 'SAT_FAT_G', unit: 'g', defaultDirection: 'cap', kcalPerGram: 9, linkedLabCodes: ['CHOLESTEROL_LDL', 'CHOLESTEROL'] },
     { code: 'CHOLESTEROL_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: ['CHOLESTEROL_LDL', 'CHOLESTEROL'] },
     { code: 'SOLUBLE_FIBER_G', unit: 'g', defaultDirection: 'floor', linkedLabCodes: ['CHOLESTEROL_LDL'] },
     { code: 'OMEGA3_G', unit: 'g', defaultDirection: 'floor', linkedLabCodes: ['TRIGLYCERIDES'] },
-    { code: 'SUGAR_G', unit: 'g', defaultDirection: 'cap', linkedLabCodes: ['HBA1C', 'GLUCOSE', 'TRIGLYCERIDES'] },
+    { code: 'SUGAR_G', unit: 'g', defaultDirection: 'cap', kcalPerGram: 4, linkedLabCodes: ['HBA1C', 'GLUCOSE', 'TRIGLYCERIDES'] },
     { code: 'SODIUM_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: [] },
     { code: 'POTASSIUM_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: ['CREATININE', 'UREA'] },
     { code: 'PHOSPHORUS_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: ['CREATININE', 'UREA'] },
@@ -1795,12 +1795,15 @@
     const kindSel = panel.querySelector('#treat-kind');
     const labHint = panel.querySelector('#treat-lab-hint');
 
-    function markerAllowsPct(code) {
-      return code === 'SAT_FAT_G' || code === 'SUGAR_G';
-    }
+    // Percent-of-energy is a catalog property (kcal_per_gram), not a code list — a new
+    // marker becomes percent-capable by getting the column set, with no portal change.
     function markerKcalPerG(code) {
-      if (code === 'SUGAR_G') return 4;
-      return 9;
+      const meta = DIET_MARKER_CATALOG.find((c) => c.code === code);
+      const n = Number(meta?.kcalPerGram);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+    function markerAllowsPct(code) {
+      return markerKcalPerG(code) != null;
     }
 
     function refreshAddHint() {

@@ -751,7 +751,7 @@ export async function rebuildMacrosFromRulesForPatient(
       let dailyTarget = Number(m.dailyTarget);
       if (m.percentOfEnergy != null && m.percentOfEnergy > 0) {
         // Grams fallback at kcal order (compat) — phone resolves live from kcal eaten.
-        const kcalPerG = markerKcalPerGram(m.marker) ?? 9;
+        const kcalPerG = (await markerKcalPerGram(m.marker)) ?? 9;
         const fromPct = round1((m.percentOfEnergy / 100) * kcalBase / kcalPerG);
         if (!Number.isFinite(dailyTarget) || dailyTarget <= 0) dailyTarget = fromPct;
       }

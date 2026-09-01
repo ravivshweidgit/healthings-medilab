@@ -39,8 +39,12 @@ export type DietMarkerCatalogRow = {
   linkedLabCodes: string[];
   labels: DietMarkerLabels;
   estimateGuidance: string | null;
+  /** Set only for markers a clinic may cap as a share of energy. NULL = grams only. */
+  kcalPerGram: number | null;
   sortOrder: number;
   seeded: boolean;
+  /** Operator edited this row in /admin — the seed upsert leaves it alone. */
+  adminEdited: boolean;
 };
 
 export type TreatmentMarker = {
@@ -54,6 +58,8 @@ export type TreatmentMarker = {
   setBy: string;
   labels?: DietMarkerLabels;
   estimateGuidance?: string;
+  /** Hydrated from the catalog so the phone resolves percent caps without a code map. */
+  kcalPerGram?: number;
   /** Additive — absent means constant grams (be-45 compat). */
   percentOfEnergy?: number;
   ofEnergy?: 'kcal_eaten';
@@ -66,8 +72,10 @@ type CatalogDbRow = {
   linked_lab_codes: unknown;
   labels: unknown;
   estimate_guidance: string | null;
+  kcal_per_gram: string | number | null;
   sort_order: number;
   seeded: boolean;
+  admin_edited: boolean;
 };
 
 let catalogSeedPromise: Promise<void> | null = null;
@@ -102,6 +110,8 @@ function parseLabCodes(raw: unknown): string[] {
 }
 
 function rowToCatalog(row: CatalogDbRow): DietMarkerCatalogRow {
+  // NUMERIC comes back as a string from pg.
+  const kcalPerGram = row.kcal_per_gram == null ? null : Number(row.kcal_per_gram);
   return {
     code: row.code,
     unit: row.unit,
@@ -109,10 +119,16 @@ function rowToCatalog(row: CatalogDbRow): DietMarkerCatalogRow {
     linkedLabCodes: parseLabCodes(row.linked_lab_codes),
     labels: parseLabels(row.labels),
     estimateGuidance: row.estimate_guidance?.trim() || null,
+    kcalPerGram: Number.isFinite(kcalPerGram) && (kcalPerGram as number) > 0 ? kcalPerGram : null,
     sortOrder: row.sort_order,
     seeded: row.seeded,
+    adminEdited: Boolean(row.admin_edited),
   };
 }
+
+const CATALOG_COLUMNS =
+  'code, unit, default_direction, linked_lab_codes, labels, estimate_guidance, ' +
+  'kcal_per_gram, sort_order, seeded, admin_edited';
 
 export async function ensureDietMarkerCatalogSeeded(): Promise<void> {
   if (!catalogSeedPromise) {
@@ -126,28 +142,34 @@ export async function ensureDietMarkerCatalogSeeded(): Promise<void> {
 
 async function seedDietMarkerCatalogOnce(): Promise<void> {
   for (const s of DIET_MARKER_CATALOG_SEED) {
+    // `admin_edited` guard: once an operator fixes a row in /admin, the deploy stops
+    // overwriting it. Without this the table cannot be the source of truth for guidance.
     await query(
       `INSERT INTO diet_marker_catalog
-         (code, unit, default_direction, linked_lab_codes, labels, estimate_guidance, sort_order, enabled, seeded, updated_at)
-       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, TRUE, TRUE, NOW())
+         (code, unit, default_direction, linked_lab_codes, labels, estimate_guidance,
+          kcal_per_gram, sort_order, enabled, seeded, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, $8, TRUE, TRUE, NOW())
        ON CONFLICT (code) DO UPDATE SET
          unit = EXCLUDED.unit,
          default_direction = EXCLUDED.default_direction,
          linked_lab_codes = EXCLUDED.linked_lab_codes,
          labels = EXCLUDED.labels,
          estimate_guidance = EXCLUDED.estimate_guidance,
+         kcal_per_gram = EXCLUDED.kcal_per_gram,
          sort_order = EXCLUDED.sort_order,
          enabled = TRUE,
          seeded = TRUE,
          updated_at = NOW()
-       WHERE diet_marker_catalog.seeded = TRUE`,
+       WHERE diet_marker_catalog.seeded = TRUE
+         AND diet_marker_catalog.admin_edited = FALSE`,
       [
         s.code,
         s.unit,
         s.defaultDirection,
         JSON.stringify(s.linkedLabCodes),
         JSON.stringify(s.labels),
-        s.estimateGuidance ?? null,
+        s.estimateGuidance,
+        s.kcalPerGram ?? null,
         s.sortOrder,
       ],
     );
@@ -160,23 +182,38 @@ async function seedDietMarkerCatalogOnce(): Promise<void> {
      WHERE markers_json::text LIKE '%ADDED_SUGAR_G%'`,
   );
   await query(`DELETE FROM diet_marker_catalog WHERE code = 'ADDED_SUGAR_G'`);
+  await warnOnMissingGuidance();
 }
 
-/** kcal/g for percent-of-energy markers (sat fat 9, simple sugar 4). */
-export function markerKcalPerGram(code: string): number | null {
-  if (code === 'SAT_FAT_G') return 9;
-  if (code === 'SUGAR_G') return 4;
-  return null;
+/**
+ * An enabled marker with no guidance ships a bare `sat_fat_g` field to Gemini and lets it
+ * guess the definition — the failure is silent and lands in patient meal totals. Loud on
+ * boot beats discovering it from a wrong day total.
+ */
+async function warnOnMissingGuidance(): Promise<void> {
+  const { rows } = await query<{ code: string }>(
+    `SELECT code FROM diet_marker_catalog
+     WHERE enabled = TRUE AND COALESCE(NULLIF(TRIM(estimate_guidance), ''), NULL) IS NULL
+     ORDER BY code`,
+  );
+  if (rows.length) {
+    console.warn(
+      `[diet_marker_catalog] ${rows.length} enabled marker(s) have no estimate guidance: ` +
+        `${rows.map((r) => r.code).join(', ')}. Gemini will estimate these from the field name alone.`,
+    );
+  }
 }
 
-export function markerAllowsPercentOfEnergy(code: string): boolean {
-  return markerKcalPerGram(code) != null;
+/** kcal/g for percent-of-energy caps — catalog column, not a code map. */
+export async function markerKcalPerGram(code: string): Promise<number | null> {
+  const catalog = await loadCatalogMap();
+  return catalog.get(code)?.kcalPerGram ?? null;
 }
 
 export async function listDietMarkerCatalog(): Promise<DietMarkerCatalogRow[]> {
   await ensureDietMarkerCatalogSeeded();
   const { rows } = await query<CatalogDbRow>(
-    `SELECT code, unit, default_direction, linked_lab_codes, labels, estimate_guidance, sort_order, seeded
+    `SELECT ${CATALOG_COLUMNS}
      FROM diet_marker_catalog
      WHERE enabled = TRUE
      ORDER BY sort_order ASC, code ASC`,
@@ -204,7 +241,9 @@ type CatalogInsertInput = {
   defaultDirection: DietMarkerDirection;
   linkedLabCodes?: string[];
   labels: DietMarkerLabels;
-  estimateGuidance?: string;
+  /** Required — a marker with no definition is a silent wrong estimate on every meal. */
+  estimateGuidance: string;
+  kcalPerGram?: number | null;
 };
 
 export async function addDietMarkerCatalogRow(input: CatalogInsertInput): Promise<DietMarkerCatalogRow> {
@@ -225,20 +264,23 @@ export async function addDietMarkerCatalogRow(input: CatalogInsertInput): Promis
   if (!labels.en) labels.en = { short: enFull, full: enFull };
   if (!labels.en.short) labels.en.short = labels.en.full;
   const linked = parseLabCodes(input.linkedLabCodes);
-  const guidance = typeof input.estimateGuidance === 'string' ? input.estimateGuidance.trim().slice(0, 2000) : '';
+  const guidance = normalizeGuidance(input.estimateGuidance);
+  const kcalPerGram = normalizeKcalPerGram(input.kcalPerGram);
   try {
     const { rows } = await query<CatalogDbRow>(
       `INSERT INTO diet_marker_catalog
-         (code, unit, default_direction, linked_lab_codes, labels, estimate_guidance, sort_order, enabled, seeded, updated_at)
-       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, 500, TRUE, FALSE, NOW())
-       RETURNING code, unit, default_direction, linked_lab_codes, labels, estimate_guidance, sort_order, seeded`,
+         (code, unit, default_direction, linked_lab_codes, labels, estimate_guidance,
+          kcal_per_gram, sort_order, enabled, seeded, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, 500, TRUE, FALSE, NOW())
+       RETURNING ${CATALOG_COLUMNS}`,
       [
         code,
         input.unit,
         input.defaultDirection,
         JSON.stringify(linked),
         JSON.stringify(labels),
-        guidance || null,
+        guidance,
+        kcalPerGram,
       ],
     );
     catalogSeedPromise = null;
@@ -252,6 +294,86 @@ export async function addDietMarkerCatalogRow(input: CatalogInsertInput): Promis
   }
 }
 
+/** Long enough to actually define the nutrient — a two-word hint teaches Gemini nothing. */
+const MIN_GUIDANCE_CHARS = 40;
+
+function normalizeGuidance(raw: unknown): string {
+  const text = typeof raw === 'string' ? raw.trim().slice(0, 2000) : '';
+  if (text.length < MIN_GUIDANCE_CHARS) {
+    throw new ClinicError(
+      `Estimate guidance is required (at least ${MIN_GUIDANCE_CHARS} characters). ` +
+        'Say what counts, what does not, and which macro must not be copied in.',
+      400,
+    );
+  }
+  return text;
+}
+
+function normalizeKcalPerGram(raw: unknown): number | null {
+  if (raw == null || raw === '') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0 || n > 20) {
+    throw new ClinicError('kcalPerGram must be between 0 and 20, or empty', 400);
+  }
+  return Math.round(n * 10) / 10;
+}
+
+type CatalogUpdateInput = {
+  defaultDirection?: DietMarkerDirection;
+  linkedLabCodes?: string[];
+  labels?: DietMarkerLabels;
+  estimateGuidance?: string;
+  kcalPerGram?: number | null;
+  enabled?: boolean;
+};
+
+/**
+ * Operator edit. Marks the row `admin_edited` so the next deploy's seed upsert skips it —
+ * otherwise a guidance fix made here silently reverts on the following `npm run migrate`.
+ * Unit and code are immutable: patient meal JSON is already keyed on both.
+ */
+export async function updateDietMarkerCatalogRow(
+  rawCode: string,
+  input: CatalogUpdateInput,
+): Promise<DietMarkerCatalogRow> {
+  await ensureDietMarkerCatalogSeeded();
+  const code = String(rawCode || '').trim().toUpperCase();
+  if (!isDietMarkerCode(code)) {
+    throw new ClinicError('Invalid marker code', 400);
+  }
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  const push = (sql: string, value: unknown) => {
+    values.push(value);
+    sets.push(`${sql} = $${values.length}`);
+  };
+
+  if (input.defaultDirection) push('default_direction', input.defaultDirection);
+  if (input.linkedLabCodes) push('linked_lab_codes', JSON.stringify(parseLabCodes(input.linkedLabCodes)));
+  if (input.labels) {
+    const labels = parseLabels(input.labels);
+    if (!labels.en?.full) throw new ClinicError('English label required', 400);
+    push('labels', JSON.stringify(labels));
+  }
+  if (input.estimateGuidance !== undefined) push('estimate_guidance', normalizeGuidance(input.estimateGuidance));
+  if (input.kcalPerGram !== undefined) push('kcal_per_gram', normalizeKcalPerGram(input.kcalPerGram));
+  if (input.enabled !== undefined) push('enabled', input.enabled);
+
+  if (!sets.length) throw new ClinicError('Nothing to update', 400);
+
+  values.push(code);
+  const { rows } = await query<CatalogDbRow>(
+    `UPDATE diet_marker_catalog
+     SET ${sets.join(', ')}, admin_edited = TRUE, updated_at = NOW()
+     WHERE code = $${values.length}
+     RETURNING ${CATALOG_COLUMNS}`,
+    values,
+  );
+  if (!rows[0]) throw new ClinicError(`Unknown marker code: ${code}`, 404);
+  catalogSeedPromise = null;
+  return rowToCatalog(rows[0]);
+}
+
 function attachCatalogMeta(marker: TreatmentMarker, meta: DietMarkerCatalogRow): TreatmentMarker {
   return {
     ...marker,
@@ -259,6 +381,7 @@ function attachCatalogMeta(marker: TreatmentMarker, meta: DietMarkerCatalogRow):
     linkedLabCodes: marker.linkedLabCodes?.length ? marker.linkedLabCodes : meta.linkedLabCodes,
     labels: meta.labels,
     ...(meta.estimateGuidance ? { estimateGuidance: meta.estimateGuidance } : {}),
+    ...(meta.kcalPerGram != null ? { kcalPerGram: meta.kcalPerGram } : {}),
   };
 }
 
@@ -400,8 +523,8 @@ export async function normalizeTreatmentMarkers(
       if (row.ofEnergy !== 'kcal_eaten') {
         throw new ClinicError(`ofEnergy must be kcal_eaten for percent marker ${code}`, 400);
       }
-      // Percent-of-energy: sat fat (9 kcal/g) and simple sugars (4 kcal/g).
-      if (!markerAllowsPercentOfEnergy(code)) {
+      // Only markers the catalog gives a kcal/g conversion for can be a share of energy.
+      if (meta.kcalPerGram == null) {
         throw new ClinicError(`${code}: percent of energy is not allowed for this marker`, 400);
       }
       markerRow.percentOfEnergy = Math.round(pct * 10) / 10;
