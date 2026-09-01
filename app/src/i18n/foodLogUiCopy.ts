@@ -93,6 +93,32 @@ export type FoodLogUiCopy = {
   examplePlates: string;
   /** Illustrations-only disclaimer beside example plates link */
   examplePlatesDisclaimer: string;
+  /**
+   * prompt119 — macro meter target, phrased in words instead of ≤ ≥.
+   * `amount` arrives already formatted with its unit (`100g`, `1800`).
+   */
+  targetUpTo: (amount: string) => string;
+  targetAbove: (amount: string) => string;
+  /** Ranges always ascend; `hi` carries the unit. */
+  targetRange: (lo: string, hi: string) => string;
+  /** prompt114 — kcal ceiling raised by measured activity. */
+  activityAdded: (base: string, extra: string) => string;
+  /** prompt114 — add-back configured but no activity measured today. */
+  activityNotCounted: (base: string) => string;
+  /** prompt114 — percent bound resolved against the kcal order. */
+  percentOfTarget: (percent: string, base: string) => string;
+  /** prompt114 — collapsed Food Log header prefix for the clinic order. */
+  clinicOrder: string;
+  /**
+   * prompt119 — meter row labels as words, not P/C/F/Fi/C-Fi.
+   * Short enough for one line; clinic portal keeps letter codes.
+   */
+  barProtein: string;
+  barCarb: string;
+  barFat: string;
+  barFiber: string;
+  /** Net carbs (C − Fi). */
+  barNetCarb: string;
 };
 
 const EN: FoodLogUiCopy = {
@@ -174,6 +200,18 @@ const EN: FoodLogUiCopy = {
   noStaplesYet: 'Save foods you eat often — tap Save staple on an item.',
   examplePlates: 'Example plates',
   examplePlatesDisclaimer: 'Illustrations only — confirm every meal in the app.',
+  targetUpTo: (amount) => `up to ${amount}`,
+  targetAbove: (amount) => `above ${amount}`,
+  targetRange: (lo, hi) => `${lo}–${hi}`,
+  activityAdded: (base, extra) => `${base} + ${extra} activity`,
+  activityNotCounted: (base) => `${base} — no activity measured today`,
+  percentOfTarget: (percent, base) => `${percent}% of ${base}`,
+  clinicOrder: 'Clinic order',
+  barProtein: 'Protein',
+  barCarb: 'Carbs',
+  barFat: 'Fat',
+  barFiber: 'Fiber',
+  barNetCarb: 'Net carbs',
 };
 
 const HE: FoodLogUiCopy = {
@@ -254,6 +292,18 @@ const HE: FoodLogUiCopy = {
   noStaplesYet: 'שמרו מזונות שחוזרים — לחצו שמור כקבוע על פריט.',
   examplePlates: 'צלחות לדוגמה',
   examplePlatesDisclaimer: 'להמחשה בלבד — כל ארוחה מאושרת באפליקציה.',
+  targetUpTo: (amount) => `עד ${amount}`,
+  targetAbove: (amount) => `מעל ${amount}`,
+  targetRange: (lo, hi) => `${lo}–${hi}`,
+  activityAdded: (base, extra) => `${base} + ${extra} מפעילות`,
+  activityNotCounted: (base) => `${base} — לא נמדדה פעילות היום`,
+  percentOfTarget: (percent, base) => `${percent}% מתוך ${base}`,
+  clinicOrder: 'הוראת המרפאה',
+  barProtein: 'חלבון',
+  barCarb: 'פחמימות',
+  barFat: 'שומן',
+  barFiber: 'סיבים',
+  barNetCarb: 'פח׳ נטו',
 };
 
 const ES: FoodLogUiCopy = {
@@ -335,6 +385,18 @@ const ES: FoodLogUiCopy = {
   noStaplesYet: 'Guarda alimentos frecuentes — toca Guardar básico en un ítem.',
   examplePlates: 'Platos de ejemplo',
   examplePlatesDisclaimer: 'Solo ilustraciones — confirma cada comida en la app.',
+  targetUpTo: (amount) => `hasta ${amount}`,
+  targetAbove: (amount) => `más de ${amount}`,
+  targetRange: (lo, hi) => `${lo}–${hi}`,
+  activityAdded: (base, extra) => `${base} + ${extra} por actividad`,
+  activityNotCounted: (base) => `${base} — hoy sin actividad medida`,
+  percentOfTarget: (percent, base) => `${percent}% de ${base}`,
+  clinicOrder: 'Indicación de la clínica',
+  barProtein: 'Proteína',
+  barCarb: 'Carbos',
+  barFat: 'Grasa',
+  barFiber: 'Fibra',
+  barNetCarb: 'Carbos netos',
 };
 
 const FR: FoodLogUiCopy = {
@@ -417,6 +479,18 @@ const FR: FoodLogUiCopy = {
   noStaplesYet: 'Enregistrez les aliments fréquents — touchez Enregistrer en basique.',
   examplePlates: 'Assiettes exemples',
   examplePlatesDisclaimer: 'Exemples seulement — validez chaque repas dans l’app.',
+  targetUpTo: (amount) => `jusqu’à ${amount}`,
+  targetAbove: (amount) => `plus de ${amount}`,
+  targetRange: (lo, hi) => `${lo}–${hi}`,
+  activityAdded: (base, extra) => `${base} + ${extra} d’activité`,
+  activityNotCounted: (base) => `${base} — aucune activité mesurée aujourd’hui`,
+  percentOfTarget: (percent, base) => `${percent}% de ${base}`,
+  clinicOrder: 'Consigne de la clinique',
+  barProtein: 'Protéines',
+  barCarb: 'Glucides',
+  barFat: 'Lipides',
+  barFiber: 'Fibres',
+  barNetCarb: 'Glucides nets',
 };
 
 const DE: FoodLogUiCopy = {
@@ -499,6 +573,18 @@ const DE: FoodLogUiCopy = {
   noStaplesYet: 'Speichere häufige Lebensmittel — tippe Als Staple speichern.',
   examplePlates: 'Beispielteller',
   examplePlatesDisclaimer: 'Nur Beispiele — jede Mahlzeit bestätigen Sie in der App.',
+  targetUpTo: (amount) => `bis ${amount}`,
+  targetAbove: (amount) => `über ${amount}`,
+  targetRange: (lo, hi) => `${lo}–${hi}`,
+  activityAdded: (base, extra) => `${base} + ${extra} Aktivität`,
+  activityNotCounted: (base) => `${base} — heute keine Aktivität gemessen`,
+  percentOfTarget: (percent, base) => `${percent}% von ${base}`,
+  clinicOrder: 'Vorgabe der Praxis',
+  barProtein: 'Eiweiß',
+  barCarb: 'Kohlenhydr.',
+  barFat: 'Fett',
+  barFiber: 'Ballastst.',
+  barNetCarb: 'Netto-KH',
 };
 
 const AR: FoodLogUiCopy = {
@@ -579,6 +665,18 @@ const AR: FoodLogUiCopy = {
   noStaplesYet: 'احفظ الأطعمة المتكررة — اضغط حفظ كأساسي على صنف.',
   examplePlates: 'أطباق كمثال',
   examplePlatesDisclaimer: 'للتوضيح فقط — أكّد كل وجبة في التطبيق.',
+  targetUpTo: (amount) => `حتى ${amount}`,
+  targetAbove: (amount) => `أكثر من ${amount}`,
+  targetRange: (lo, hi) => `${lo}–${hi}`,
+  activityAdded: (base, extra) => `${base} + ${extra} من النشاط`,
+  activityNotCounted: (base) => `${base} — لا نشاط مقيس اليوم`,
+  percentOfTarget: (percent, base) => `${percent}% من ${base}`,
+  clinicOrder: 'توجيه العيادة',
+  barProtein: 'بروتين',
+  barCarb: 'كربوهيدرات',
+  barFat: 'دهون',
+  barFiber: 'ألياف',
+  barNetCarb: 'صافي الكربو',
 };
 
 const RU: FoodLogUiCopy = {
@@ -661,6 +759,18 @@ const RU: FoodLogUiCopy = {
   noStaplesYet: 'Сохраняйте частые продукты — нажмите Сохранить основу.',
   examplePlates: 'Примеры тарелок',
   examplePlatesDisclaimer: 'Только примеры — каждую еду подтверждайте в приложении.',
+  targetUpTo: (amount) => `до ${amount}`,
+  targetAbove: (amount) => `больше ${amount}`,
+  targetRange: (lo, hi) => `${lo}–${hi}`,
+  activityAdded: (base, extra) => `${base} + ${extra} за активность`,
+  activityNotCounted: (base) => `${base} — активность сегодня не измерена`,
+  percentOfTarget: (percent, base) => `${percent}% от ${base}`,
+  clinicOrder: 'Назначение клиники',
+  barProtein: 'Белки',
+  barCarb: 'Углеводы',
+  barFat: 'Жиры',
+  barFiber: 'Клетчатка',
+  barNetCarb: 'Чистые угл.',
 };
 
 const PT: FoodLogUiCopy = {
@@ -743,6 +853,18 @@ const PT: FoodLogUiCopy = {
   noStaplesYet: 'Guarde alimentos frequentes — toque Guardar básico num item.',
   examplePlates: 'Pratos de exemplo',
   examplePlatesDisclaimer: 'Só ilustrações — confirme cada refeição no app.',
+  targetUpTo: (amount) => `até ${amount}`,
+  targetAbove: (amount) => `mais de ${amount}`,
+  targetRange: (lo, hi) => `${lo}–${hi}`,
+  activityAdded: (base, extra) => `${base} + ${extra} de atividade`,
+  activityNotCounted: (base) => `${base} — hoje sem atividade medida`,
+  percentOfTarget: (percent, base) => `${percent}% de ${base}`,
+  clinicOrder: 'Orientação da clínica',
+  barProtein: 'Proteína',
+  barCarb: 'Carboidratos',
+  barFat: 'Gordura',
+  barFiber: 'Fibra',
+  barNetCarb: 'Carb. líquidos',
 };
 
 const IT: FoodLogUiCopy = {
@@ -825,6 +947,18 @@ const IT: FoodLogUiCopy = {
   noStaplesYet: 'Salva cibi frequenti — tocca Salva base su un alimento.',
   examplePlates: 'Piatti di esempio',
   examplePlatesDisclaimer: 'Solo esempi — conferma ogni pasto nell’app.',
+  targetUpTo: (amount) => `fino a ${amount}`,
+  targetAbove: (amount) => `più di ${amount}`,
+  targetRange: (lo, hi) => `${lo}–${hi}`,
+  activityAdded: (base, extra) => `${base} + ${extra} di attività`,
+  activityNotCounted: (base) => `${base} — oggi nessuna attività misurata`,
+  percentOfTarget: (percent, base) => `${percent}% di ${base}`,
+  clinicOrder: 'Indicazione della clinica',
+  barProtein: 'Proteine',
+  barCarb: 'Carboidrati',
+  barFat: 'Grassi',
+  barFiber: 'Fibre',
+  barNetCarb: 'Carb. netti',
 };
 
 const TR: FoodLogUiCopy = {
@@ -907,6 +1041,18 @@ const TR: FoodLogUiCopy = {
   noStaplesYet: 'Sık yediklerinizi kaydedin — öğede Sabit kaydet’e dokunun.',
   examplePlates: 'Örnek tabaklar',
   examplePlatesDisclaimer: 'Yalnızca örnek — her öğünü uygulamada onaylayın.',
+  targetUpTo: (amount) => `en fazla ${amount}`,
+  targetAbove: (amount) => `${amount} üzeri`,
+  targetRange: (lo, hi) => `${lo}–${hi}`,
+  activityAdded: (base, extra) => `${base} + ${extra} aktivite`,
+  activityNotCounted: (base) => `${base} — bugün aktivite ölçülmedi`,
+  percentOfTarget: (percent, base) => `%${percent} · ${base}`,
+  clinicOrder: 'Klinik talimatı',
+  barProtein: 'Protein',
+  barCarb: 'Karbonhidrat',
+  barFat: 'Yağ',
+  barFiber: 'Lif',
+  barNetCarb: 'Net karbonh.',
 };
 
 const BY_CODE: Record<string, FoodLogUiCopy> = {

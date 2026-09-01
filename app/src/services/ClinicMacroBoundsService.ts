@@ -289,12 +289,23 @@ export function resolveKcalCeilingForDay(
   return Math.min(base + extra, add.capValue);
 }
 
+/**
+ * Structured so the caller can render it in `appLocale`. The English `caption` below stays for
+ * non-UI callers (prompt blocks, exports) — a screen must format from this instead.
+ */
+export type MeterCaption =
+  | { kind: 'activityAdded'; base: number; extra: number }
+  | { kind: 'activityNotCounted'; base: number }
+  | { kind: 'percentOfOrder'; percent: number; base: number };
+
 export type ResolvedAxisMeter = {
   axis: MacroAxis;
   strength: MacroStrength;
   floor?: number;
   ceiling?: number;
+  /** English; UI should use `captionInfo`. */
   caption?: string;
+  captionInfo?: MeterCaption;
 };
 
 /**
@@ -350,10 +361,28 @@ export function resolveClinicMacroMeters(
     const floor = resolveOne(pair.floor);
     const ceiling = resolveOne(pair.ceiling);
     let caption: string | undefined;
-    if (axis === 'kcal' && kcalCeiling?.activityAddBack && boosted != null && kcalBase != null && boosted > kcalBase) {
-      caption = `${kcalBase} + ${Math.round(boosted - kcalBase)} activity`;
-    } else if (pair.ceiling?.kind === 'percent' && pair.ceiling.of === 'kcal_order' && kcalBase != null) {
+    let captionInfo: MeterCaption | undefined;
+    if (axis === 'kcal' && kcalCeiling?.activityAddBack && kcalBase != null) {
+      const measured =
+        opts.activityKcal != null && Number.isFinite(opts.activityKcal);
+      if (!measured) {
+        // A watch-off day must not look like a rest day — without this the ceiling silently
+        // shows its base and the patient cannot tell the add-back was skipped (prompt114 gap).
+        caption = `${kcalBase} — no activity measured today`;
+        captionInfo = { kind: 'activityNotCounted', base: kcalBase };
+      } else if (boosted != null && boosted > kcalBase) {
+        const extra = Math.round(boosted - kcalBase);
+        caption = `${kcalBase} + ${extra} activity`;
+        captionInfo = { kind: 'activityAdded', base: kcalBase, extra };
+      }
+    } else if (
+      pair.ceiling?.kind === 'percent' &&
+      pair.ceiling.of === 'kcal_order' &&
+      pair.ceiling.value != null &&
+      kcalBase != null
+    ) {
       caption = `${pair.ceiling.value}% of ${kcalBase}`;
+      captionInfo = { kind: 'percentOfOrder', percent: pair.ceiling.value, base: kcalBase };
     }
 
     out.push({
@@ -362,6 +391,7 @@ export function resolveClinicMacroMeters(
       ...(floor != null ? { floor } : {}),
       ...(ceiling != null ? { ceiling } : {}),
       ...(caption ? { caption } : {}),
+      ...(captionInfo ? { captionInfo } : {}),
     });
   }
   return out;

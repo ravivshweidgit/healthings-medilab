@@ -41,8 +41,8 @@ export const DIET_MARKER_CATALOG_SEED: DietMarkerCatalogSeedRow[] = [
     defaultDirection: 'cap',
     linkedLabCodes: ['CHOLESTEROL_LDL', 'CHOLESTEROL'],
     labels: {
-      en: { short: 'SatF', full: 'Saturated fat' },
-      he: { short: 'שומן רווי', full: 'שומן רווי' },
+      en: { short: 'Sat. fat', full: 'Saturated fat' },
+      he: { short: 'רווי', full: 'שומן רווי' },
     },
     sortOrder: 10,
   },
@@ -52,8 +52,8 @@ export const DIET_MARKER_CATALOG_SEED: DietMarkerCatalogSeedRow[] = [
     defaultDirection: 'cap',
     linkedLabCodes: ['CHOLESTEROL_LDL', 'CHOLESTEROL'],
     labels: {
-      en: { short: 'Chol', full: 'Dietary cholesterol' },
-      he: { short: 'כולסטרול', full: 'כולסטרול תזונתי' },
+      en: { short: 'Chol.', full: 'Dietary cholesterol' },
+      he: { short: 'כול׳', full: 'כולסטרול תזונתי' },
     },
     sortOrder: 20,
   },
@@ -63,8 +63,8 @@ export const DIET_MARKER_CATALOG_SEED: DietMarkerCatalogSeedRow[] = [
     defaultDirection: 'floor',
     linkedLabCodes: ['CHOLESTEROL_LDL'],
     labels: {
-      en: { short: 'SolFi', full: 'Soluble fiber' },
-      he: { short: 'סיבים מסיסים', full: 'סיבים מסיסים' },
+      en: { short: 'Sol. fiber', full: 'Soluble fiber' },
+      he: { short: 'מסיסים', full: 'סיבים מסיסים' },
     },
     sortOrder: 30,
   },

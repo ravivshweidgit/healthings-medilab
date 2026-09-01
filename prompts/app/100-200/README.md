@@ -13,4 +13,5 @@ Shipped specs: [`done/README.md`](./done/README.md). Layout: [`../README.md`](..
 | [`prompt114.txt`](./prompt114.txt) | Clinic live macro bounds on Food Log meters (≤ ≥ / bands) + AI HARD; needs be-45 first |
 | [`prompt116.txt`](./prompt116.txt) | Camera meal thumbs, 30-day keep, clinic tap-to-view — **v1 pulled 2026-08-25 for perf**; respec'd with a binary-upload contract + 3 phases. Read "Why v1 was pulled" before touching. |
 | [`prompt118.txt`](./prompt118.txt) | Example plates routed by the clinical order — **in_progress** (A+B built, awaiting phone + VPS deploy); glycemic collection next |
+| [`prompt119.txt`](./prompt119.txt) | Macro meter chrome — eaten / target columns, `≤ ≥` become words, direction shaded on the track; supersedes prompt114 § B display text |
 

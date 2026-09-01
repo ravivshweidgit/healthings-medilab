@@ -1,0 +1,82 @@
+Extract of Macros-deafult.docx (Michal, 2026-09-01). Text as written; layout notes in [ ].
+
+Macros
+במקרים מסויימים מעבר מעל ערך זה הצבע ישאר בירוק ולפעמים מעבר מעל הערך יסומן באדום – בהתאם לאם הערך סומן כמינימום או כמקסימום.
+הברים יסומנו ב 3 צבעים בלבד- ירוק כתום ואדום
+איור בסוף המסמך להדגמה
+
+קלוריות:
+טווח קלוריות
+הוצאה קלורית מקסימלית תחושב לפי האריס בנדיקט (BMR) ובהכפלת פקטור פעילות (לפי התיאור של המטופל. מי שמחובר לשעון- המערכת תוכל לדייק לפי הנתונים של השעון)
+למטופלים בעודף משקל יסומן גרעון קלורי מומלץ ברירת מחדל של 500 אם לא הוגדר ספציפית ויוגדר כצריכה מקסימלית.
+כאשר יעברו את הקלוריות מעל ההמלצה הבר יסומן באדום
+מינימום ייקבע לגברים: 1500 קק"ל
+מינימום לנשים: 1200 קקל
+
+חלבון:
+בגרמים.
+הערך שיופיע יהיה המינימום שהומלץ.
+מעבר מעל ערך זה – הצבע ישאר ירוק
+ברירת מחדל: מינימום של 1.2 גרם/ ק"ג משקל גוף
+מטופלים עם BMI  מעל 25 – החישוב יעשה לפי משקל מתוקנן.
+התייחסות למספר הארוחות ביום של המטופל וחלוקת החלבון בהתאם.
+
+[שומן:]
+בגרמים
+יוצג ערך מקסימלי
+אם אין חוקים על השומן – אין התייחסות בגרף וזה נכנס כחלק מהקלוריות
+
+פחמימות:
+בגרמים
+יוצג ערך מקסימלי
+אם לא הוגדר אחרת ערך מקסימלי של 45% מהקלוריות – למטופל יוצג בגרמים
+
+סיבים:
+יחושב ערך רצוי בגרמים כמינימום
+גברים: עד גיל 50: 38 גרם
+מעל גיל 51: 30 גרם
+נשים: עד גיל 50: 25 גרם
+מעל גיל 51: 21 גרם
+לפי ה DRI
+מטופלים עם LDL גבוה: הוספת מאקרו של סיבים מסיסים 10 גרם ליום.
+יש לשים לב להפחתה נדרשת בצריכת הסיבים עבור מטופלים הסובלים ממעי רגיש- בהתאם לשיחה עם המטופל.
+
+אפשרות לבטל את האחוזים למי שזה מבלבל אותו
+
+
+--- איור (Word shapes, לא צילום מסך) ---
+
+[Two column headers over the bars:]
+  צריכה בפועל          [bar]          צריכה מומלצת
+
+[Rows — actual on the leading side, target on the trailing side:]
+  קלוריות (קק"ל)   1300    [bar]    1800 - 1200   [red]
+  חלבון (גרם)      40      [bar]    מעל 80        [green]
+  פחמימות (גרם)    120     [bar]    מתחת ל- 100   [red]
+  סיבים (גרם)      28      [bar]    מעל- 25       [green]
+
+[No fat row. No blue percent line. No slash between the two numbers.]
+
+
+--- הערות שלנו על החומר ---
+
+1. This is the point of 002: the meter LAYOUT. Eaten before the bar, target after it, and the
+   target written as a phrase instead of `40 / 80g`. See macros-review.txt.
+
+2. Leftover from 001, still embedded in the file:
+   - The old screenshot (word/media/image1.png) with the blue percent bars and the
+     ירוק / אדום / כתום legend — that is the 001 design, already answered.
+   - The closing line "אפשרות לבטל את האחוזים" — there are no percent bars to cancel.
+
+3. Two wording problems in the illustration, corrected in our reply:
+   - `מתחת ל- 100` is strict less-than. Our ceiling INCLUDES the bound (113 allowed, 114 not),
+     so the correct phrase is `עד 100`.
+   - `1800 - 1200` is written high-to-low. Ranges must ascend: `1200–1800`.
+
+4. Standing clinical defaults in the body (1.2 g/kg, adjusted weight over BMI 25, 45% carbs,
+   DRI fiber table, 1200/1500 kcal minimums, Harris-Benedict x activity factor) are NOT part of
+   the layout question and are not phone fallbacks. Owner lock in
+   prompts/backend/be-45-michal-plan.md: meters never invent from silence. Her numbers belong in
+   the rules text she saves, or in a clinic template. Shipped fallbacks differ (watch 7-day TDEE
+   rather than Harris-Benedict; ~1.8 x lean mass protein; 1400/1650 kcal floors) — deliberately
+   left out of the reply so the letter stays on one subject.

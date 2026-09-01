@@ -21,16 +21,16 @@ export type TreatmentMarkersCopy = {
 };
 
 const SHORT_EN: Record<string, string> = {
-  SAT_FAT_G: 'SatF',
-  CHOLESTEROL_MG: 'Chol',
-  SOLUBLE_FIBER_G: 'SolFi',
+  SAT_FAT_G: 'Sat. fat',
+  CHOLESTEROL_MG: 'Chol.',
+  SOLUBLE_FIBER_G: 'Sol. fiber',
   OMEGA3_G: 'Ω3',
   ADDED_SUGAR_G: 'Sugar',
-  SODIUM_MG: 'Na',
-  POTASSIUM_MG: 'K',
-  PHOSPHORUS_MG: 'P',
-  IODINE_MCG: 'Iod',
-  SELENIUM_MCG: 'Se',
+  SODIUM_MG: 'Sodium',
+  POTASSIUM_MG: 'Potass.',
+  PHOSPHORUS_MG: 'Phos.',
+  IODINE_MCG: 'Iodine',
+  SELENIUM_MCG: 'Selenium',
 };
 
 const FULL_EN: Record<string, string> = {
@@ -69,7 +69,7 @@ const HE: TreatmentMarkersCopy = {
   capLabel: 'תקרה',
   floorLabel: 'רצפה',
   detailTitle: 'מדד טיפול',
-  setByClinic: 'הוגדר על ידי המרפאה',
+  setByClinic: 'הוגדר ע״י המרפאה',
   noLab: 'אין עדיין תוצאת מעבדה מקושרת',
   labProvenance: (code, value, date) => `${code} ${value} · ${date}`,
   nudgeTitle: 'תוצאת מעבדה חדשה',
@@ -77,9 +77,9 @@ const HE: TreatmentMarkersCopy = {
     `תוצאת ${labCode} חדשה — בדקו עם התזונאית את יעד ${markerLabel}.`,
   nudgeDismiss: 'הבנתי',
   shortLabel: {
-    SAT_FAT_G: 'שומן רווי',
-    CHOLESTEROL_MG: 'כולסטרול',
-    SOLUBLE_FIBER_G: 'סיבים מסיסים',
+    SAT_FAT_G: 'רווי',
+    CHOLESTEROL_MG: 'כול׳',
+    SOLUBLE_FIBER_G: 'מסיסים',
     OMEGA3_G: 'אומגה‑3',
     ADDED_SUGAR_G: 'סוכר',
     SODIUM_MG: 'נתרן',
@@ -116,9 +116,13 @@ export function markerUiLabel(
   kind: 'short' | 'full',
 ): string {
   const loc = (langCode || 'en').toLowerCase().slice(0, 2);
+  const copy = getTreatmentMarkersCopy(langCode);
+  const local = (kind === 'short' ? copy.shortLabel : copy.fullLabel)[marker.marker];
+  // Meter chrome needs a short word that fits the label column. Catalog seed used to store the
+  // full Hebrew phrase as `short` (סיבים מסיסים) — that ellipsizes and crowds the strip.
+  // Built-in short wins for known codes; catalog still owns the full name in the detail sheet.
+  if (kind === 'short' && local) return local;
   const fromCatalog = marker.labels?.[loc]?.[kind] || marker.labels?.en?.[kind];
   if (fromCatalog) return fromCatalog;
-  const copy = getTreatmentMarkersCopy(langCode);
-  const map = kind === 'short' ? copy.shortLabel : copy.fullLabel;
-  return map[marker.marker] ?? marker.marker;
+  return local ?? marker.marker;
 }

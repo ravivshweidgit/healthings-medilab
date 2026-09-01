@@ -152,6 +152,7 @@ function MacroBar({
   color,
   unit = 'g',
   goalIsFloor,
+  langCode,
   onPress,
 }: {
   label: string;
@@ -161,29 +162,46 @@ function MacroBar({
   unit?: 'g' | 'kcal' | 'kj' | 'ml' | 'floz';
   /** Hitting the target is the win — no over-target penalty colour (water). */
   goalIsFloor?: boolean;
+  /** `appLocale` — mirrors the row for he/ar so eaten stays on the leading edge. */
+  langCode?: string | null;
   onPress?: () => void;
 }) {
   const { colors, isDark } = useTheme();
   const barStyles = useMemo(() => makeBarStyles(colors, isDark), [colors, isDark]);
-  const pct = actual != null && target > 0 ? Math.min(1, actual / target) : 0;
   const met = goalIsFloor === true && actual != null && target > 0 && actual >= target;
   const over = !goalIsFloor && actual != null && actual > target * 1.1;
+  // Scale past a floor target so the allowed zone has width, same as the Food Log meter.
+  const scaleMax = goalIsFloor
+    ? Math.max(target * 1.25, actual ?? 0, 1)
+    : Math.max(target, actual ?? 0, 1);
+  const pct = actual != null ? Math.max(0, Math.min(1, actual / scaleMax)) : 0;
+  const zoneStart = goalIsFloor && target > 0 ? Math.min(1, target / scaleMax) : null;
   const suffix =
     unit === 'g' ? 'g' : unit === 'ml' ? 'ml' : unit === 'floz' ? 'fl oz' : '';
   const fmt = (v: number) =>
     unit === 'floz' ? v.toFixed(1) : String(Math.round(v));
   const actualText = actual != null ? fmt(actual) : '—';
-  const valueText =
-    unit === 'kcal' || unit === 'kj'
-      ? `${actualText} / ${Math.round(target)}`
-      : `${actualText} / ${fmt(target)}${suffix}`;
+  const targetText =
+    unit === 'kcal' || unit === 'kj' ? String(Math.round(target)) : `${fmt(target)}${suffix}`;
 
   const row = (
     <View style={barStyles.row}>
-      <Text style={barStyles.label} numberOfLines={1}>
+      <Text style={barStyles.label} numberOfLines={1} ellipsizeMode="tail">
         {label}
       </Text>
+      <Text
+        style={[barStyles.eaten, met && barStyles.numsMet, over && barStyles.numsOver]}
+        numberOfLines={1}
+        maxFontSizeMultiplier={1.15}
+      >
+        {actualText}
+      </Text>
       <View style={barStyles.track}>
+        {zoneStart != null ? (
+          <View
+            style={[barStyles.zone, { left: `${zoneStart * 100}%`, width: `${(1 - zoneStart) * 100}%` }]}
+          />
+        ) : null}
         <View
           style={[
             barStyles.fill,
@@ -193,13 +211,12 @@ function MacroBar({
             },
           ]}
         />
+        {zoneStart != null && zoneStart > 0.02 && zoneStart < 0.98 ? (
+          <View style={[barStyles.mark, { left: `${zoneStart * 100}%` }]} />
+        ) : null}
       </View>
-      <Text
-        style={[barStyles.nums, met && barStyles.numsMet, over && barStyles.numsOver]}
-        numberOfLines={1}
-        maxFontSizeMultiplier={1.15}
-      >
-        {valueText}
+      <Text style={barStyles.target} numberOfLines={1} maxFontSizeMultiplier={1.15}>
+        {targetText}
       </Text>
     </View>
   );
@@ -214,31 +231,61 @@ function MacroBar({
 
 const makeBarStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8, width: '100%' },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    gap: 6,
+    width: '100%',
+  },
   rowPressable: { alignSelf: 'stretch' },
   label: {
-    width: 34,
+    width: 70,
     flexShrink: 0,
     fontSize: 11,
     fontWeight: '700',
     color: c.textSecondary,
+    textAlign: 'right',
   },
   track: {
     flex: 1,
+    minWidth: 48,
     height: 6,
     borderRadius: 3,
     // Dark: unfilled remainder reads as canvas, like the Food log meters.
     backgroundColor: isDark ? c.background : (c.progressTrack ?? c.gridLine),
     overflow: 'hidden',
   },
+  zone: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    backgroundColor: isDark ? 'rgba(102, 187, 106, 0.22)' : 'rgba(46, 125, 50, 0.14)',
+  },
+  mark: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 2,
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.32)',
+  },
   fill: { height: '100%', borderRadius: 3 },
-  nums: {
-    width: 98,
+  eaten: {
+    width: 44,
+    flexShrink: 0,
+    fontSize: 11,
+    fontWeight: '700',
+    color: c.textPrimary,
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
+  },
+  target: {
+    width: 88,
     flexShrink: 0,
     fontSize: 11,
     fontWeight: '600',
-    color: c.textPrimary,
-    textAlign: 'right',
+    color: c.textSecondary,
+    textAlign: 'left',
     fontVariant: ['tabular-nums'],
   },
   numsMet: { color: c.accentGreen },
@@ -610,6 +657,7 @@ export function MacroTargetStrip({
               {displayMeters.length > 0 ? (
                 <ClinicLiveMacroBars
                   meters={displayMeters}
+                  langCode={lang?.code}
                   eaten={{
                     kcal: actualKcal ?? 0,
                     protein_g: actualProtein_g ?? 0,
@@ -766,13 +814,14 @@ export function MacroTargetStrip({
                 target={kcalToDisplay(target.kcal, unitsPrefs.energy)}
                 color="#5C6BC0"
                 unit={unitsPrefs.energy === 'kj' ? 'kj' : 'kcal'}
+                langCode={lang?.code}
               />
-              <MacroBar label="P" actual={actualProtein_g} target={target.protein_g} color="#4CAF50" />
-              <MacroBar label="C" actual={actualCarb_g}    target={target.carb_g}    color="#FF9800" />
-              <MacroBar label="F" actual={actualFat_g}     target={target.fat_g}     color="#2196F3" />
-              <MacroBar label="Fi" actual={actualFiber_g} target={resolveFiberTarget_g(target)} color="#66BB6A" goalIsFloor />
+              <MacroBar label={foodLogUi.barProtein} actual={actualProtein_g} target={target.protein_g} color="#4CAF50" langCode={lang?.code} />
+              <MacroBar label={foodLogUi.barCarb} actual={actualCarb_g}    target={target.carb_g}    color="#FF9800" langCode={lang?.code} />
+              <MacroBar label={foodLogUi.barFat} actual={actualFat_g}     target={target.fat_g}     color="#2196F3" langCode={lang?.code} />
+              <MacroBar label={foodLogUi.barFiber} actual={actualFiber_g} target={resolveFiberTarget_g(target)} color="#66BB6A" goalIsFloor langCode={lang?.code} />
               <MacroBar
-                label="Net"
+                label={foodLogUi.barNetCarb}
                 actual={
                   actualCarb_g != null && actualFiber_g != null
                     ? Math.max(0, Math.round(actualCarb_g - actualFiber_g))
@@ -780,17 +829,19 @@ export function MacroTargetStrip({
                 }
                 target={resolveNetCarbTarget_g(target)}
                 color="#FB8C00"
+                langCode={lang?.code}
               />
               <MacroBar
-                label="H2O"
+                label={foodLogUi.water}
                 actual={mlToDisplay(waterMl, unitsPrefs.water)}
                 target={mlToDisplay(waterGoalMl, unitsPrefs.water)}
                 color="#29B6F6"
                 unit={unitsPrefs.water === 'floz' ? 'floz' : 'ml'}
                 goalIsFloor
+                langCode={lang?.code}
                 onPress={openWaterGoalModal}
               />
-              <Text style={styles.h2oHint}>Tap H2O bar to edit water goal</Text>
+              <Text style={styles.h2oHint}>Tap water bar to edit water goal</Text>
               <Pressable style={[styles.btn, styles.btnEdit, styles.editTargetsBtn]} onPress={() => openEdit(target)}>
                 <Text style={styles.btnTextEdit}>✎ Edit</Text>
               </Pressable>

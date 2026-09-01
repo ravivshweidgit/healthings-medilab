@@ -40,6 +40,7 @@ import {
   loadClinicMacroBounds,
   resolveClinicMacroMeters,
   clinicMacroMetersApplyToDay,
+  type MeterCaption,
   type ResolvedAxisMeter,
 } from '../services/ClinicMacroBoundsService';
 import { getAllLabReports, type LabReport } from '../services/LabLogService';
@@ -721,6 +722,33 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   const waterBarUnit = waterU === 'floz' ? 'floz' : 'ml';
   const energyBarUnit = energyU === 'kj' ? 'kj' : 'kcal';
   const energyBarLabel = energyU === 'kj' ? 'kJ' : 'kcal';
+  const langCode = lang?.code;
+
+  /** Meter captions arrive structured so they can be spoken in `appLocale` (prompt114 gap). */
+  const clinicCaptionText = (info?: MeterCaption): string | undefined => {
+    if (!info) return undefined;
+    const n = (kcal: number) => disp(kcal).toLocaleString();
+    if (info.kind === 'activityAdded') return ui.activityAdded(n(info.base), n(info.extra));
+    if (info.kind === 'activityNotCounted') return ui.activityNotCounted(n(info.base));
+    return ui.percentOfTarget(String(info.percent), n(info.base));
+  };
+  const kcalMeter = clinicMeters.find((m) => m.axis === 'kcal');
+  /** Any HARD clinic meter today → leftover phone points must not label FLEX axes (prompt114). */
+  const clinicOwnsDay = clinicMeters.length > 0;
+  const clinicAxis = (axis: ResolvedAxisMeter['axis']) =>
+    clinicMeters.find((m) => m.axis === axis);
+  /** Point target only when clinic does not own the day. */
+  const pointTarget = clinicOwnsDay ? null : displayTarget;
+  /** Fill scale for a FLEX / unlocked axis — no labeled goal. */
+  const flexFillScale = Math.max(
+    ...clinicMeters.map((m) => m.ceiling ?? m.floor ?? 0),
+    macros?.protein_g ?? 0,
+    macros?.carb_g ?? 0,
+    macros?.fat_g ?? 0,
+    macros?.fiber_g ?? 0,
+    netCarbEaten,
+    1,
+  );
 
   const todayEaten = isToday ? eaten : todayEnergy?.eaten ?? 0;
   const todayBurnRaw = burnKcalByDay?.[todayKey] ?? null;
@@ -731,10 +759,50 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
   const todayBalance = todayBurn != null && todayEaten > 0 ? todayEaten - todayBurn : null;
   const todayIsDeficit = todayBalance != null && todayBalance < 0;
 
+  /**
+   * Collapsed summary of the clinic order (prompt114 § B). Only while the log is on today —
+   * `clinicMeters` resolves for the browsed day, and the collapsed header speaks for today.
+   */
+  const axisWord = (axis: ResolvedAxisMeter['axis']): string => {
+    if (axis === 'kcal') return energyBarLabel;
+    if (axis === 'protein_g') return ui.barProtein;
+    if (axis === 'carb_g') return ui.barCarb;
+    if (axis === 'fat_g') return ui.barFat;
+    if (axis === 'fiber_g') return ui.barFiber;
+    return ui.barNetCarb;
+  };
+  const clinicOrderSummary = useMemo(() => {
+    if (!isToday || clinicMeters.length === 0) return null;
+    return clinicMeters
+      .slice(0, 3)
+      .map((m) => {
+        const short = axisWord(m.axis);
+        const sfx = m.axis === 'kcal' ? '' : 'g';
+        const conv = (n: number) =>
+          m.axis === 'kcal' ? Math.round(kcalToDisplay(n, energyU)) : Math.round(n);
+        if (m.floor != null && m.ceiling != null) {
+          return `${short} ${ui.targetRange(String(conv(m.floor)), `${conv(m.ceiling)}${sfx}`)}`;
+        }
+        if (m.ceiling != null) return `${short} ${ui.targetUpTo(`${conv(m.ceiling)}${sfx}`)}`;
+        if (m.floor != null) return `${short} ${ui.targetAbove(`${conv(m.floor)}${sfx}`)}`;
+        return short;
+      })
+      .join(' · ');
+  }, [isToday, clinicMeters, energyBarLabel, energyU, ui]);
+
   const collapsedSub =
-    !expanded && todayBalance != null ? (
-      <Text style={{ color: balanceInkFor(todayIsDeficit) }}>
-        {`${eLab} ${todayIsDeficit ? '−' : '+'}${disp(Math.abs(todayBalance)).toLocaleString()}`}
+    !expanded && (todayBalance != null || clinicOrderSummary != null) ? (
+      <Text numberOfLines={1}>
+        {todayBalance != null ? (
+          <Text style={{ color: balanceInkFor(todayIsDeficit) }}>
+            {`${eLab} ${todayIsDeficit ? '−' : '+'}${disp(Math.abs(todayBalance)).toLocaleString()}`}
+          </Text>
+        ) : null}
+        {clinicOrderSummary != null ? (
+          <Text style={styles.collapsedClinic}>
+            {todayBalance != null ? `  ·  ${clinicOrderSummary}` : clinicOrderSummary}
+          </Text>
+        ) : null}
       </Text>
     ) : null;
 
@@ -897,132 +965,168 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
       <View style={[styles.barsWrap, { marginTop: 10 }]}>
         {(!isEmpty || displayTarget || treatmentMarkers.length > 0 || clinicMeters.length > 0) ? (
           <>
-            {displayTarget || clinicMeters.length > 0 ? (
+            {pointTarget || clinicOwnsDay ? (
               <MacroMeterBar
                 label={energyBarLabel}
                 value={kcalToDisplay(eaten, energyU)}
                 target={
-                  displayTarget
-                    ? kcalToDisplay(displayTarget.kcal, energyU)
-                    : kcalToDisplay(clinicMeters.find((m) => m.axis === 'kcal')?.ceiling
-                        ?? clinicMeters.find((m) => m.axis === 'kcal')?.floor
-                        ?? 0, energyU)
+                  kcalMeter
+                    ? kcalToDisplay(kcalMeter.ceiling ?? kcalMeter.floor ?? 0, energyU)
+                    : pointTarget
+                      ? kcalToDisplay(pointTarget.kcal, energyU)
+                      : Math.max(kcalToDisplay(eaten, energyU), 1)
                 }
                 color="#5C6BC0"
-                showTarget={!!displayTarget || !!clinicMeters.find((m) => m.axis === 'kcal')}
+                showTarget={!!kcalMeter || !!pointTarget}
                 unit={energyBarUnit}
+                langCode={langCode}
                 clinicFloor={
-                  clinicMeters.find((m) => m.axis === 'kcal')?.floor != null
-                    ? kcalToDisplay(clinicMeters.find((m) => m.axis === 'kcal')!.floor!, energyU)
-                    : undefined
+                  kcalMeter?.floor != null ? kcalToDisplay(kcalMeter.floor, energyU) : undefined
                 }
                 clinicCeiling={
-                  clinicMeters.find((m) => m.axis === 'kcal')?.ceiling != null
-                    ? kcalToDisplay(clinicMeters.find((m) => m.axis === 'kcal')!.ceiling!, energyU)
-                    : undefined
+                  kcalMeter?.ceiling != null ? kcalToDisplay(kcalMeter.ceiling, energyU) : undefined
                 }
-                clinicCaption={clinicMeters.find((m) => m.axis === 'kcal')?.caption}
+                clinicCaption={clinicCaptionText(kcalMeter?.captionInfo)}
               />
             ) : null}
-            {(!isEmpty || displayTarget || clinicMeters.length > 0) ? (
+            {(!isEmpty || pointTarget || clinicOwnsDay) ? (
               <>
             <MacroMeterBar
-              label="P"
+              label={ui.barProtein}
               value={macros?.protein_g ?? 0}
-              target={displayTarget ? displayTarget.protein_g : maxMacro}
+              target={
+                clinicAxis('protein_g')?.ceiling ??
+                clinicAxis('protein_g')?.floor ??
+                pointTarget?.protein_g ??
+                flexFillScale
+              }
               color={COLOR_PROTEIN}
-              showTarget={!!displayTarget || !!clinicMeters.find((m) => m.axis === 'protein_g')}
-              clinicFloor={clinicMeters.find((m) => m.axis === 'protein_g')?.floor}
-              clinicCeiling={clinicMeters.find((m) => m.axis === 'protein_g')?.ceiling}
-              clinicCaption={clinicMeters.find((m) => m.axis === 'protein_g')?.caption}
+              showTarget={!!clinicAxis('protein_g') || !!pointTarget}
+              langCode={langCode}
+              clinicFloor={clinicAxis('protein_g')?.floor}
+              clinicCeiling={clinicAxis('protein_g')?.ceiling}
+              clinicCaption={clinicCaptionText(clinicAxis('protein_g')?.captionInfo)}
             />
             <MacroMeterBar
-              label="C"
+              label={ui.barCarb}
               value={macros?.carb_g ?? 0}
-              target={displayTarget ? displayTarget.carb_g : maxMacro}
+              target={
+                clinicAxis('carb_g')?.ceiling ??
+                clinicAxis('carb_g')?.floor ??
+                pointTarget?.carb_g ??
+                flexFillScale
+              }
               color={COLOR_CARB}
-              showTarget={!!displayTarget || !!clinicMeters.find((m) => m.axis === 'carb_g')}
-              clinicFloor={clinicMeters.find((m) => m.axis === 'carb_g')?.floor}
-              clinicCeiling={clinicMeters.find((m) => m.axis === 'carb_g')?.ceiling}
-              clinicCaption={clinicMeters.find((m) => m.axis === 'carb_g')?.caption}
+              showTarget={!!clinicAxis('carb_g') || !!pointTarget}
+              langCode={langCode}
+              clinicFloor={clinicAxis('carb_g')?.floor}
+              clinicCeiling={clinicAxis('carb_g')?.ceiling}
+              clinicCaption={clinicCaptionText(clinicAxis('carb_g')?.captionInfo)}
             />
             <MacroMeterBar
-              label="F"
+              label={ui.barFat}
               value={macros?.fat_g ?? 0}
-              target={displayTarget ? displayTarget.fat_g : maxMacro}
+              target={
+                clinicAxis('fat_g')?.ceiling ??
+                clinicAxis('fat_g')?.floor ??
+                pointTarget?.fat_g ??
+                flexFillScale
+              }
               color={COLOR_FAT}
-              showTarget={!!displayTarget || !!clinicMeters.find((m) => m.axis === 'fat_g')}
-              clinicFloor={clinicMeters.find((m) => m.axis === 'fat_g')?.floor}
-              clinicCeiling={clinicMeters.find((m) => m.axis === 'fat_g')?.ceiling}
-              clinicCaption={clinicMeters.find((m) => m.axis === 'fat_g')?.caption}
+              showTarget={!!clinicAxis('fat_g') || !!pointTarget}
+              langCode={langCode}
+              clinicFloor={clinicAxis('fat_g')?.floor}
+              clinicCeiling={clinicAxis('fat_g')?.ceiling}
+              clinicCaption={clinicCaptionText(clinicAxis('fat_g')?.captionInfo)}
             />
             <MacroMeterBar
-              label="Fi"
+              label={ui.barFiber}
               value={macros?.fiber_g ?? 0}
-              target={fiberBarTarget}
+              target={
+                clinicAxis('fiber_g')?.ceiling ??
+                clinicAxis('fiber_g')?.floor ??
+                (pointTarget ? fiberBarTarget : flexFillScale)
+              }
               color={COLOR_FIBER}
-              showTarget={!!displayTarget || !!clinicMeters.find((m) => m.axis === 'fiber_g')}
+              showTarget={!!clinicAxis('fiber_g') || !!pointTarget}
               goalIsFloor
-              clinicFloor={clinicMeters.find((m) => m.axis === 'fiber_g')?.floor}
-              clinicCeiling={clinicMeters.find((m) => m.axis === 'fiber_g')?.ceiling}
+              langCode={langCode}
+              clinicFloor={clinicAxis('fiber_g')?.floor}
+              clinicCeiling={clinicAxis('fiber_g')?.ceiling}
             />
             <MacroMeterBar
-              label="C-Fi"
+              label={ui.barNetCarb}
               value={netCarbEaten}
-              target={netCarbBarTarget}
+              target={
+                clinicAxis('net_carb_g')?.ceiling ??
+                clinicAxis('net_carb_g')?.floor ??
+                (pointTarget ? netCarbBarTarget : flexFillScale)
+              }
               color={COLOR_NET_CARB}
-              showTarget={!!displayTarget || !!clinicMeters.find((m) => m.axis === 'net_carb_g')}
-              clinicFloor={clinicMeters.find((m) => m.axis === 'net_carb_g')?.floor}
-              clinicCeiling={clinicMeters.find((m) => m.axis === 'net_carb_g')?.ceiling}
+              showTarget={!!clinicAxis('net_carb_g') || !!pointTarget}
+              langCode={langCode}
+              clinicFloor={clinicAxis('net_carb_g')?.floor}
+              clinicCeiling={clinicAxis('net_carb_g')?.ceiling}
             />
               </>
             ) : null}
-            {treatmentMarkers.map((m) => {
-              const val = markerDayTotals[m.marker];
-              const hasVal = val != null && Number.isFinite(val);
-              const eatenKcal = macros?.kcal ?? 0;
-              const pctTarget =
-                m.percentOfEnergy != null && m.ofEnergy === 'kcal_eaten' && eatenKcal > 0
-                  ? Math.round((m.percentOfEnergy / 100) * eatenKcal / 9 * 10) / 10
-                  : m.dailyTarget;
-              const isFloor = m.direction === 'floor';
-              const clinicMarkerSigns = clinicMeters.length > 0;
-              return (
-                <MacroMeterBar
-                  key={m.marker}
-                  label={markerUiLabel(m, lang?.code, 'short')}
-                  value={hasVal ? val! : 0}
-                  target={pctTarget}
-                  color="#8D6E63"
-                  showTarget
-                  unit={m.unit}
-                  goalIsFloor={isFloor}
-                  clinicFloor={clinicMarkerSigns && isFloor ? pctTarget : undefined}
-                  clinicCeiling={clinicMarkerSigns && !isFloor ? pctTarget : undefined}
-                  clinicCaption={
-                    clinicMarkerSigns && m.percentOfEnergy != null
-                      ? `${m.percentOfEnergy}%`
-                      : undefined
-                  }
-                  onPress={() => setMarkerDetail(m)}
-                />
-              );
-            })}
-            {(treatmentMarkers.length > 0 || clinicMeters.length > 0) ? (
-              <Text style={styles.treatClinicHint}>
-                {treatCopy.setByClinic} · {treatCopy.estimated}
-              </Text>
+            {treatmentMarkers.length > 0 ? (
+              <View style={styles.clinicGroup}>
+                <View style={styles.clinicGroupRule} />
+                <Text
+                  style={[styles.clinicGroupTitle, titleRtl && styles.clinicGroupTitleRtl]}
+                  numberOfLines={1}
+                >
+                  {treatCopy.setByClinic}
+                  {' · '}
+                  {treatCopy.estimated}
+                </Text>
+                {treatmentMarkers.map((m) => {
+                  const val = markerDayTotals[m.marker];
+                  const hasVal = val != null && Number.isFinite(val);
+                  const eatenKcal = macros?.kcal ?? 0;
+                  const pctTarget =
+                    m.percentOfEnergy != null && m.ofEnergy === 'kcal_eaten' && eatenKcal > 0
+                      ? Math.round((m.percentOfEnergy / 100) * eatenKcal / 9 * 10) / 10
+                      : m.dailyTarget;
+                  const isFloor = m.direction === 'floor';
+                  const clinicMarkerSigns = clinicMeters.length > 0;
+                  return (
+                    <MacroMeterBar
+                      key={m.marker}
+                      label={markerUiLabel(m, lang?.code, 'short')}
+                      value={hasVal ? val! : 0}
+                      target={pctTarget}
+                      color="#8D6E63"
+                      showTarget
+                      unit={m.unit}
+                      goalIsFloor={isFloor}
+                      langCode={langCode}
+                      clinicFloor={clinicMarkerSigns && isFloor ? pctTarget : undefined}
+                      clinicCeiling={clinicMarkerSigns && !isFloor ? pctTarget : undefined}
+                      percentChip={
+                        clinicMarkerSigns && m.percentOfEnergy != null
+                          ? `${m.percentOfEnergy}%`
+                          : undefined
+                      }
+                      onPress={() => setMarkerDetail(m)}
+                    />
+                  );
+                })}
+                <View style={styles.clinicGroupRule} />
+              </View>
             ) : null}
           </>
         ) : null}
         <MacroMeterBar
-          label="H2O"
+          label={ui.water}
           value={mlToDisplay(waterMl, waterU)}
           target={mlToDisplay(waterGoalMl, waterU)}
           color={COLOR_WATER}
           showTarget
           unit={waterBarUnit}
           goalIsFloor
+          langCode={langCode}
           onPress={openWaterSheet}
         />
       </View>
@@ -1541,12 +1645,25 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     opacity: 0.9,
   },
   barsWrap: { marginBottom: 12 },
-  treatClinicHint: {
-    fontSize: 11,
-    color: c.textSecondary,
+  /** Clinic order in the collapsed header — quieter than the energy figure beside it. */
+  collapsedClinic: { color: c.textSecondary },
+  /** Treatment markers grouped by rules only — no inset, so columns stay aligned. */
+  clinicGroup: {
     marginTop: 4,
     marginBottom: 2,
   },
+  clinicGroupRule: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0, 0, 0, 0.12)',
+    marginVertical: 6,
+  },
+  clinicGroupTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: c.textSecondary,
+    marginBottom: 4,
+  },
+  clinicGroupTitleRtl: { textAlign: 'right', writingDirection: 'rtl' },
   addActionsRow: {
     flexDirection: 'row',
     gap: 10,

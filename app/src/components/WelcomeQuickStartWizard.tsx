@@ -2405,6 +2405,7 @@ export function WelcomeQuickStartWizard({ visible, onComplete, onOpenFoodLog }: 
                         <ClinicLiveMacroBars
                           meters={liveClinicMeters}
                           energyUnit={unitsPrefs.energy}
+                          langCode={language.code}
                         />
                       </View>
                     ) : (

@@ -1,0 +1,184 @@
+prompt119 — Macro meter chrome: eaten / target columns, words not signs
+
+Status: built 2026-09-01 — compiles (`BUILD SUCCESSFUL`, release APK); **phone test + owner taste
+call on the zone contrast still open.** Not committed.
+Builds on: prompt114 (clinic bound resolution — unchanged), prompt110 (marker rows), prompt70 (kcal bar)
+Supersedes: prompt114 § B **right-hand text** column only. Bound semantics, daily resolution
+(§ B2), HARD wiring (§ C) and My Macros rules (§ D) all stand as written.
+Model to implement: Auto (layout + formatter + copy). **Zone contrast and the final Hebrew wording
+are owner taste on device** — do not settle those from a screenshot (`model-budget`, prompt106).
+Source: `michal/macro-document/002/Macros-deafult.docx` + reply `002/macros-review.txt`
+
+## Problem
+
+Michal (clinical nutritionist) could not read the meters and redrew them. Today both numbers sit
+**after** the bar in one string — `MacroMeterBar.tsx` `valueText`, and the twin `MacroBar` in
+`MacroTargetStrip.tsx`:
+
+```
+P  [========]  40 / 80g
+```
+
+Three defects, all in the same 118dp column:
+
+1. **The slash is ambiguous.** Two unlike quantities, one separator, no cue which is which.
+2. **Nothing aligns.** `40 / 80g`, `1772 / 1686`, `102  90–113g` are all different widths, so the
+   column cannot be scanned vertically across kcal / P / C / F / Fi / C−Fi / markers / H2O.
+3. **Direction rides on one glyph.** `≤` vs `≥` is a memorized convention; a real share of adults
+   cannot tell them apart at 11px. A ceiling read as a goal is the worst possible misread — the
+   patient chases a number they must stay under.
+
+## Owner decisions (2026-09-01)
+
+| Decision | Note |
+|---|---|
+| Adopt Michal's split — eaten before the bar, target after | Her drawing, her wording intent |
+| **Words only, one mode** — `up to 100` / `above 80` / `1200–1800` | No math mode for the patient |
+| **No toggle, no pref** | Rejected: a switch for how one number is phrased is a smell, doubles copy across 10 locales, and ~nobody opens it |
+| Track carries direction — allowed zone + target mark | Reads pre-verbally; makes the words a confirmation, not the only signal |
+| Clinic portal keeps `≤ ≥` | Reader there is a clinician (`language-policy` — `clinicLocale`, unchanged) |
+
+## What ships
+
+### A. Column split — LTR chrome (eaten before bar, target after)
+
+Dashboard strip chrome stays LTR even when `appLocale` is he/ar (`language-policy`). A
+`row-reverse` attempt (2026-09-01) overflowed the card and **clipped the target column off
+the phone** — reverted. Layout is always:
+
+| Slot | Content |
+|---|---|
+| Leading | eaten number only — carries the status color |
+| Middle | track |
+| Trailing | target only — `80g`, `up to 100g`, `1200–1800` |
+
+**Row labels are words in `appLocale`, not letter codes.** Michal (2026-09-01 phone):
+`P C F Fi C-Fi` is unclear to patients. Food Log / My Macros / Quick Start meters use
+`barProtein` / `barCarb` / `barFat` / `barFiber` / `barNetCarb` from `foodLogUiCopy`
+(e.g. he: חלבון / פחמימות / שומן / סיבים / פח׳ נטו). Water uses `ui.water`. Units
+`kcal` / `kJ` stay English (`language-policy`). Clinic portal may keep letter codes.
+Label column width ~78 with ellipsis — the track still has `minWidth: 56`.
+
+Drop `actual / target` everywhere it renders, including kcal, H2O and marker rows. No row keeps
+the slash — a mixed strip is worse than either style alone.
+
+**Width guard (this is the risk).** Today: label 40, one number column 118, track `flex: 1`,
+gap 8 — roughly 126dp of track on a small phone. Two columns wide enough for `1772` and
+`1200–1800` push the track under 100dp. **The bar is the fastest signal on the row and must not
+pay for the text:** give the track a `minWidth` and let the trailing column ellipsize. Verify at
+full row count (markers + H2O visible), in de / ru / tr, at max font scale.
+
+### B. Wording — one formatter, `appLocale`
+
+| Bound | English | Hebrew |
+|---|---|---|
+| Ceiling | `up to 100g` | `עד 100g` |
+| Floor | `above 80g` | `מעל 80g` |
+| Band | `1200–1800` | `1200–1800` (`ltr`) |
+| No bound (point target) | `80g` | `80g` |
+
+Two corrections to Michal's sketch — tell her, do not silently follow it:
+
+- **`up to`, not `under`.** Her `מתחת ל-100` is strict less-than. Our HARD ceiling **includes**
+  the bound (owner: 113 allowed, 114 not), so `עד` / `up to` is the only correct reading.
+- **Ranges ascend.** Her `1800 - 1200` reads as a descending pair and looks like a data bug.
+  Always `1200–1800`, en-dash, `dir="ltr"` inside RTL rows.
+
+10 locales in `foodLogUiCopy.ts`. Plain local prose, not translated English word order
+(`localize-speak-like-a-person`). Units (`g`, `kcal`) stay English (`language-policy`).
+
+Markers keep their `%` chip from prompt114 (`18` … `up to 19g` `10%`).
+
+### C. Track zone + mark
+
+Direction becomes graphic instead of a glyph:
+
+| Bound | Track |
+|---|---|
+| Ceiling | allowed zone to the mark, dead/tinted beyond |
+| Floor | muted until the mark, allowed past it |
+| Band | allowed between floor and ceiling marks, dead outside |
+| No bound | unchanged fill |
+
+- Colors from `theme/tokens.ts` only. Zone must hold contrast in **both** themes
+  (`dark-theme-tokens`) without competing with the status fill sitting on top of it.
+- Status colors on the fill are **unchanged** — green when met / in band, red when out, axis hue
+  otherwise. This is backdrop, not a new state. Michal's orange "below recommendation" legend is
+  still **not** adopted (settled in `002/001` reply); do not reopen it here.
+
+### D. Files
+
+| File | Change |
+|---|---|
+| `app/src/components/MacroMeterBar.tsx` | columns, zone + mark, words formatter |
+| `app/src/components/MacroTargetStrip.tsx` | same treatment on the twin `MacroBar` |
+| `app/src/i18n/foodLogUiCopy.ts` | `up to` / `above`, 10 locales |
+| `app/src/components/FoodMacroStrip.tsx` | layout re-check at full row count |
+| `app/src/components/ClinicLiveMacroBars.tsx` | layout re-check |
+
+Display only. Bounds still arrive from clinic HARD (`ClinicMacroBoundsService`) or
+`daily_macro_target`; **no new parsing of rules text** (`ai-judgment-not-regex`). No pref means
+nothing to load, so nothing new touches a render path (`render-path-reads-memory`).
+
+## Decisions taken while building (2026-09-01) — three refinements to the spec above
+
+**1. A local goal keeps a plain number; only a clinic bound gets words.**
+Writing every floor as `above N` produced `above 2000ml` on the water bar, which reads as a
+warning about drinking too little rather than a goal to reach. Fibre without a clinic order has
+the same problem. So: **clinic floor/ceiling/band → words; no clinic bound → plain `80g`.** The
+zone still shows the direction in both cases, so nothing is lost. This keeps prompt119's intent
+(kill the slash, phrase inequalities in words) without inventing an order the clinician did not
+give.
+
+**2. The track scale runs 25% past the target (`SCALE_HEADROOM`).**
+An allowed zone is invisible if the target sits at the right edge, which is where the old
+`value / target` scale put it. With headroom the mark lands near 80% and an overshoot reads as
+visible distance instead of a pinned full bar. **This changes what a full bar means** — that is
+the owner taste call, and it is why this needs a device, not a screenshot.
+
+**3. Marker percents moved from a caption regex to an explicit `percentChip` prop.**
+The bar used to sniff `^(\d+)%` out of the caption string to decide whether to render an inline
+chip. That broke as soon as the caption was localized — Turkish writes `%30`, not `30%`. The
+caller now says what it wants, and a regex left a render path.
+
+Implementation notes worth keeping:
+
+- `ResolvedAxisMeter.captionInfo` is the structured caption (`activityAdded` /
+  `activityNotCounted` / `percentOfOrder`); the English `caption` string stays for prompt blocks
+  and exports. **A screen must format from `captionInfo`** or the caption ships in English.
+- The collapsed clinic summary renders **only when the log is on today**, because `clinicMeters`
+  resolves for the browsed day while the collapsed header speaks for today. Showing a past day's
+  order under today's energy would be a false claim.
+- Meter rows stay **LTR** (label · eaten · track · target). `row-reverse` for he/ar was tried and
+  clipped the target column off a phone-width card — do not reintroduce. Hebrew/Arabic copy still
+  uses `appLocale`; target phrases that mix digits + `%` use an LTR isolate (`\u2066…\u2069`).
+- A percent ceiling with no `value` no longer emits `undefined% of 2000`.
+
+## Out of scope
+
+- Bound semantics, `effectiveFrom` history, activity add-back — prompt114, unchanged
+- Orange "below recommendation" third status — rejected in the 001 reply
+- Clinic portal wording — stays `≤ ≥`
+- Michal's standing protocol defaults in the same Word file (1.2 g/kg, 45% C, DRI fiber,
+  Harris–Benedict). Not chrome, and **not phone fallbacks** — `be-45-michal-plan` owner lock is
+  "meters never invent from silence". Her numbers belong in rules or a clinic template.
+
+## Phone-tested
+
+- [ ] Ceiling row: eaten leading, `עד 100g` / `up to 100g` trailing, zone ends at the mark
+- [ ] Floor row (Fi, H2O): allowed only past the mark, green when met
+- [ ] Band row: allowed between marks, red outside, printed ascending
+- [ ] Point-target row (no clinic bound): plain `80g`, no slash anywhere on the strip
+- [ ] Marker row: grams + `%` chip survives the new columns
+- [ ] `he` / `ar`: eaten on the **right**, range still LTR, labels RTL
+- [ ] Track not squeezed at full row count (markers + H2O) in de / ru / tr at max font scale
+- [ ] Light **and** dark hold zone contrast under the status fill
+- [ ] Clinic portal unchanged — still `≤ ≥`
+- [ ] Michal reads a screenshot and does not ask which number is which
+
+## Related
+
+- prompt114 — clinic bound resolution and HARD wiring; its § B right-hand text is replaced here
+- prompt110 — treatment marker rows inherit the same chrome
+- be-45 / `be-45-michal-plan.md` — clinician writes rules, engine models the meters
+- `michal/macro-document/002/` — her spec + our reply (the reply is the outbound record)
