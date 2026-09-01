@@ -298,10 +298,20 @@
         text-underline-offset: 2px;
       }
 
-      .catalog-layout {
+      .catalog-card-head {
         display: flex;
-        flex-direction: column;
-        gap: 14px;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .catalog-card-head .portal-btn {
+        margin: 0;
+        flex-shrink: 0;
+        width: auto;
+        white-space: nowrap;
+      }
+      .catalog-layout {
+        display: block;
       }
       .catalog-table-wrap {
         overflow-x: auto;
@@ -402,14 +412,76 @@
         border-bottom: 1px solid var(--line);
         font-size: 0.85rem;
       }
-      .catalog-form-card .admin-card-head h2#catalog-form-title {
+      .cat-modal[hidden] {
+        display: none !important;
+      }
+      .cat-modal-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: color-mix(in srgb, var(--navy) 45%, transparent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .cat-modal-card {
+        background: var(--surface);
+        border-radius: var(--radius-md, 12px);
+        width: 100%;
+        max-width: 640px;
+        max-height: 90vh;
+        overflow-y: auto;
+        padding: 18px 20px 20px;
+        box-shadow: var(--shadow-lg, 0 12px 40px rgba(0, 0, 0, 0.18));
+        border: 1px solid var(--line);
+      }
+      .cat-modal-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .cat-modal-head h2 {
         margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--navy);
+      }
+      .cat-modal-head p {
+        margin: 4px 0 0;
+        font-size: 0.82rem;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+      .cat-modal-close {
+        border: none;
+        background: var(--surface-2);
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        flex-shrink: 0;
+        color: var(--muted);
+      }
+      .cat-modal-close:hover {
+        background: var(--line);
+        color: var(--navy);
+      }
+      .cat-modal-status {
+        margin: 10px 0 0;
+        min-height: 1.2em;
+        font-size: 0.85rem;
       }
       .catalog-form {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 12px 14px;
-        padding: 16px 18px 18px;
+        padding: 0;
         align-items: end;
       }
       .catalog-form .field-wide {
@@ -653,91 +725,106 @@
         <section id="catalog-panel" class="admin-view" data-view-panel="catalog" role="tabpanel">
           <div class="catalog-layout">
             <div class="admin-card">
-              <div class="admin-card-head">
-                <h2>Shared catalog</h2>
-                <p>Codes clinics pick for Treatment markers.</p>
+              <div class="admin-card-head catalog-card-head">
+                <div>
+                  <h2>Shared catalog</h2>
+                  <p>Codes clinics pick for Treatment markers.</p>
+                </div>
+                <button id="catalog-add-btn" class="portal-btn" type="button">Add nutrient</button>
               </div>
               <div class="admin-card-body" id="catalog-body"></div>
-            </div>
-            <div class="admin-card catalog-form-card">
-              <div class="admin-card-head">
-                <h2 id="catalog-form-title">Add nutrient</h2>
-                <p id="catalog-form-lead">Invent codes here — never in the clinic portal.</p>
-              </div>
-              <form id="catalog-form" class="catalog-form">
-                <label>
-                  Code
-                  <input
-                    id="cat-code"
-                    class="portal-input"
-                    type="text"
-                    maxlength="48"
-                    placeholder="IODINE_MCG"
-                    dir="ltr"
-                    required
-                  />
-                </label>
-                <label>
-                  Unit
-                  <select id="cat-unit" class="portal-select">
-                    <option value="g">g</option>
-                    <option value="mg">mg</option>
-                    <option value="mcg" selected>mcg</option>
-                  </select>
-                </label>
-                <label>
-                  Default
-                  <select id="cat-dir" class="portal-select">
-                    <option value="floor" selected>floor</option>
-                    <option value="cap">cap</option>
-                  </select>
-                </label>
-                <label class="field-span-2">
-                  Label (EN)
-                  <input id="cat-en" class="portal-input" type="text" maxlength="80" dir="ltr" required />
-                </label>
-                <label>
-                  Label (HE)
-                  <input id="cat-he" class="portal-input" type="text" maxlength="80" dir="rtl" />
-                </label>
-                <label>
-                  kcal per gram
-                  <input
-                    id="cat-kcal"
-                    class="portal-input"
-                    type="number"
-                    min="0"
-                    max="20"
-                    step="0.1"
-                    placeholder="blank = grams only"
-                    dir="ltr"
-                  />
-                </label>
-                <label class="field-wide">
-                  Estimate guidance (phone AI) — required
-                  <textarea
-                    id="cat-hint"
-                    class="portal-input cat-hint"
-                    maxlength="2000"
-                    rows="6"
-                    dir="auto"
-                    required
-                    placeholder="What counts, what does not, and which macro must never be copied in."
-                  ></textarea>
-                  <span id="cat-hint-count" class="muted cat-count"></span>
-                </label>
-                <div class="cat-actions">
-                  <button id="cat-add" class="portal-btn" type="submit">Add to catalog</button>
-                  <button id="cat-cancel" class="portal-btn cat-cancel" type="button" hidden>
-                    Cancel edit
-                  </button>
-                </div>
-              </form>
               <p id="catalog-status" class="muted catalog-status" role="status"></p>
             </div>
           </div>
         </section>
       </main>
+
+      <div id="catalog-modal" class="cat-modal" hidden>
+        <div class="cat-modal-overlay">
+          <div
+            class="cat-modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="catalog-form-title"
+          >
+            <div class="cat-modal-head">
+              <div>
+                <h2 id="catalog-form-title">Add nutrient</h2>
+                <p id="catalog-form-lead">Invent codes here — never in the clinic portal.</p>
+              </div>
+              <button type="button" class="cat-modal-close" data-close-cat aria-label="Close">✕</button>
+            </div>
+            <form id="catalog-form" class="catalog-form">
+              <label>
+                Code
+                <input
+                  id="cat-code"
+                  class="portal-input"
+                  type="text"
+                  maxlength="48"
+                  placeholder="IODINE_MCG"
+                  dir="ltr"
+                  required
+                />
+              </label>
+              <label>
+                Unit
+                <select id="cat-unit" class="portal-select">
+                  <option value="g">g</option>
+                  <option value="mg">mg</option>
+                  <option value="mcg" selected>mcg</option>
+                </select>
+              </label>
+              <label>
+                Default
+                <select id="cat-dir" class="portal-select">
+                  <option value="floor" selected>floor</option>
+                  <option value="cap">cap</option>
+                </select>
+              </label>
+              <label class="field-span-2">
+                Label (EN)
+                <input id="cat-en" class="portal-input" type="text" maxlength="80" dir="ltr" required />
+              </label>
+              <label>
+                Label (HE)
+                <input id="cat-he" class="portal-input" type="text" maxlength="80" dir="rtl" />
+              </label>
+              <label>
+                kcal per gram
+                <input
+                  id="cat-kcal"
+                  class="portal-input"
+                  type="number"
+                  min="0"
+                  max="20"
+                  step="0.1"
+                  placeholder="blank = grams only"
+                  dir="ltr"
+                />
+              </label>
+              <label class="field-wide">
+                Estimate guidance (phone AI) — required
+                <textarea
+                  id="cat-hint"
+                  class="portal-input cat-hint"
+                  maxlength="2000"
+                  rows="6"
+                  dir="auto"
+                  required
+                  placeholder="What counts, what does not, and which macro must never be copied in."
+                ></textarea>
+                <span id="cat-hint-count" class="muted cat-count"></span>
+              </label>
+              <div class="cat-actions">
+                <button id="cat-add" class="portal-btn" type="submit">Add to catalog</button>
+                <button id="cat-cancel" class="portal-btn cat-cancel" type="button">Cancel</button>
+              </div>
+            </form>
+            <p id="catalog-modal-status" class="muted cat-modal-status" role="status"></p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script src="../clinic/clinic-theme.js?v=20260727c"></script>
@@ -1074,10 +1161,47 @@
         document.getElementById('cat-code').disabled = editing;
         document.getElementById('cat-unit').disabled = editing;
         document.getElementById('cat-add').textContent = editing ? 'Save changes' : 'Add to catalog';
-        document.getElementById('cat-cancel').hidden = !editing;
         document.querySelectorAll('.catalog-table tbody tr').forEach((tr) => {
           tr.classList.toggle('cat-row-editing', tr.dataset.code === CATALOG_EDIT_CODE);
         });
+      }
+
+      function clearCatalogModalStatus() {
+        const el = document.getElementById('catalog-modal-status');
+        if (el) el.textContent = '';
+      }
+
+      function openCatalogModal(row) {
+        const modal = document.getElementById('catalog-modal');
+        if (!modal) return;
+        setCatalogFormMode(row || null);
+        clearCatalogModalStatus();
+        modal.hidden = false;
+        document.body.style.overflow = 'hidden';
+        const focusEl = row ? document.getElementById('cat-hint') : document.getElementById('cat-code');
+        focusEl?.focus();
+      }
+
+      function closeCatalogModal() {
+        const modal = document.getElementById('catalog-modal');
+        if (!modal || modal.hidden) return;
+        modal.hidden = true;
+        document.body.style.overflow = '';
+        clearCatalogModalStatus();
+      }
+
+      function startCatalogAdd() {
+        document.getElementById('cat-code').value = '';
+        document.getElementById('cat-en').value = '';
+        document.getElementById('cat-he').value = '';
+        document.getElementById('cat-kcal').value = '';
+        document.getElementById('cat-hint').value = '';
+        document.getElementById('cat-dir').value = 'floor';
+        document.getElementById('cat-unit').value = 'mcg';
+        document.getElementById('cat-code').disabled = false;
+        document.getElementById('cat-unit').disabled = false;
+        updateHintCount();
+        openCatalogModal(null);
       }
 
       function startCatalogEdit(code) {
@@ -1093,17 +1217,18 @@
         document.getElementById('cat-kcal').value = row.kcalPerGram == null ? '' : row.kcalPerGram;
         document.getElementById('cat-hint').value = row.estimateGuidance || '';
         updateHintCount();
-        setCatalogFormMode(row);
-        document.getElementById('cat-hint').focus();
-        document.getElementById('catalog-form')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        openCatalogModal(row);
       }
 
       function resetCatalogForm() {
+        closeCatalogModal();
         document.getElementById('cat-code').value = '';
         document.getElementById('cat-en').value = '';
         document.getElementById('cat-he').value = '';
         document.getElementById('cat-kcal').value = '';
         document.getElementById('cat-hint').value = '';
+        document.getElementById('cat-code').disabled = false;
+        document.getElementById('cat-unit').disabled = false;
         updateHintCount();
         setCatalogFormMode(null);
       }
@@ -1301,9 +1426,26 @@
         else if (raw.endsWith('_G')) unit.value = 'g';
       });
 
+      document.getElementById('catalog-add-btn').addEventListener('click', () => {
+        startCatalogAdd();
+      });
+
+      document.querySelector('.cat-modal-overlay')?.addEventListener('click', (e) => {
+        if (e.target.classList.contains('cat-modal-overlay')) resetCatalogForm();
+      });
+      document.querySelectorAll('[data-close-cat]').forEach((el) => {
+        el.addEventListener('click', () => resetCatalogForm());
+      });
+      document.querySelector('.cat-modal-card')?.addEventListener('click', (e) => e.stopPropagation());
+      document.addEventListener('keydown', (e) => {
+        const modal = document.getElementById('catalog-modal');
+        if (e.key === 'Escape' && modal && !modal.hidden) resetCatalogForm();
+      });
+
       document.getElementById('catalog-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const status = document.getElementById('catalog-status');
+        const modalStatus = document.getElementById('catalog-modal-status');
         const btn = document.getElementById('cat-add');
         const code = document.getElementById('cat-code').value.trim().toUpperCase();
         const unit = document.getElementById('cat-unit').value;
@@ -1312,13 +1454,14 @@
         const he = document.getElementById('cat-he').value.trim();
         const estimateGuidance = document.getElementById('cat-hint').value.trim();
         const kcalRaw = document.getElementById('cat-kcal').value.trim();
+        clearCatalogModalStatus();
         if (!code || !en) {
-          if (status) status.textContent = 'Code and English label required.';
+          if (modalStatus) modalStatus.textContent = 'Code and English label required.';
           return;
         }
         if (estimateGuidance.length < MIN_GUIDANCE_CHARS) {
-          if (status) {
-            status.textContent =
+          if (modalStatus) {
+            modalStatus.textContent =
               'Estimate guidance is required — at least ' +
               MIN_GUIDANCE_CHARS +
               ' characters. Say what counts, what does not, and which macro must not be copied in.';
@@ -1327,11 +1470,11 @@
         }
         const kcalPerGram = kcalRaw === '' ? null : Number(kcalRaw);
         if (kcalPerGram != null && (!Number.isFinite(kcalPerGram) || kcalPerGram <= 0)) {
-          if (status) status.textContent = 'kcal per gram must be a positive number, or blank.';
+          if (modalStatus) modalStatus.textContent = 'kcal per gram must be a positive number, or blank.';
           return;
         }
         btn.disabled = true;
-        if (status) status.textContent = 'Saving…';
+        if (modalStatus) modalStatus.textContent = 'Saving…';
         try {
           const labels = { en: { full: en, short: en } };
           if (he) labels.he = { full: he, short: he };
@@ -1361,11 +1504,12 @@
             const err = await res.json().catch(() => ({}));
             throw new Error(err.error || (editing ? 'Could not save changes' : 'Could not add catalog item'));
           }
+          const savedCode = editing || code;
           resetCatalogForm();
           await loadCatalog();
-          if (status) status.textContent = (editing ? 'Saved ' : 'Added ') + code;
+          if (status) status.textContent = (editing ? 'Saved ' : 'Added ') + savedCode;
         } catch (err) {
-          if (status) status.textContent = err.message || String(err);
+          if (modalStatus) modalStatus.textContent = err.message || String(err);
         } finally {
           btn.disabled = false;
         }
