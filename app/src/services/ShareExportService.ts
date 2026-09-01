@@ -40,6 +40,9 @@ const EXCLUDED_ASYNC_KEYS = new Set<string>([
   'last_day_close_date',
   'coach_last_weigh_in_at',
   'coach_last_workout_start_ms',
+  // prompt120: which day already pushed. A restored value would suppress the
+  // first daily push on the new phone. The preference key itself does travel.
+  'healthings:clinicDailySharedDay',
   // Billing telemetry (be-33) — not health data; server is source of truth.
   'usage_queue_v1',
   'usage_credits_left_v1',

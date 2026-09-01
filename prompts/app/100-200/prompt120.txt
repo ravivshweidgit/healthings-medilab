@@ -1,0 +1,105 @@
+prompt120 — Daily clinic snapshot (the missing week was a schedule, not a logging gap)
+
+Status: built 2026-09-01, phone-tested auto upload (1.2.47), portal 7/7 pending
+Model: Opus 5 (privacy-promise wording + consent basis); the wiring itself is mechanical
+Builds on: be-15 (patient web view push), be-24 (clinic snapshot), prompt117 (lab sidecar)
+Related: be-55 (clinic macro trends report — the screen that exposed this)
+
+---
+
+## Problem
+
+Michal opened the macro report on 2026-09-01 with five linked patients. Two of them
+read "3 of 7 days logged". That was read as under-logging, and the kcal columns
+(894, 996, 1120) supported it.
+
+It was wrong. The clinic snapshot is **pull-based**:
+
+- `fulfillPendingClinicSyncRequests` uploads only when a `sync_update_requests`
+  row exists — i.e. after a clinician presses Refresh snapshot — and only while
+  the dashboard is mounted to see it (10s poll).
+- `pushSnapshotForWebView` does run on launch and foreground, but returns early
+  unless the patient turned on their **own** web view. No trigger existed for a
+  linked clinic.
+
+The snapshot carries `'365d'`, so one fresh upload fills the whole week at once.
+"3 of 7" therefore means the snapshot the clinic holds is four days old — not
+that the patient logged three days.
+
+Why it matters more than it looks: the report colours those days red. A dietitian
+reading protein 40 g concludes her patient stopped eating protein, when the meals
+were simply logged after the last upload. Discover that once and she stops
+trusting the screen — the one damage a later release cannot repair.
+
+---
+
+## What shipped
+
+| Piece | File |
+|---|---|
+| Preference + once-a-day marker | `app/src/services/ClinicDailyShareService.ts` (new) |
+| `pushDailyClinicSnapshot()` + `resetDailyPushThrottle()` | `app/src/services/ClinicSyncService.ts` |
+| Launch + foreground trigger | `app/src/screens/DashboardScreen.tsx` |
+| Patient toggle in the share card | `app/src/components/ClinicLinkStrip.tsx` |
+| `dailyShareTitle` / `dailyShareHint`, 10 locales | `app/src/i18n/clinicLinkCopy.ts` |
+| Day marker excluded from export + backup | `ShareExportService.ts`, `LocalBackupService.ts` |
+
+### Keys
+
+| Key | Travels in backup? | Why |
+|---|---|---|
+| `healthings:clinicDailyShare` (`'on' \| 'off'`, default on) | **Yes** | Patient preference |
+| `healthings:clinicDailySharedDay` (`YYYY-MM-DD`, local day) | **No** | A restored value would suppress the first push on a new phone |
+
+### Rules the implementation follows
+
+- **Numbers only.** Plates ride on an explicit Share tap or on clinic Refresh,
+  both gestures. A background push must not stream image bytes on its own —
+  the same rule the web-view push already followed.
+- **Local day, not UTC.** "Once a day" has to mean the patient's day.
+- **Marked after the upload lands**, with a 10-minute in-memory retry window, so
+  an offline morning retries the same day instead of being written off.
+- **Retry window claimed only once a push is actually due** — an unlinked patient
+  must not swallow the first attempt after linking.
+- **Turning the toggle on pushes immediately** (`clearClinicDailyShareDay` +
+  `resetDailyPushThrottle`), so the clinic does not wait for tomorrow.
+
+### Consent basis — why default on
+
+An approved `account_shares` row is already the opt-in, and a clinician can pull
+the identical snapshot with Refresh at any time. This changes **when** it
+arrives, not **who** may read it. Revoking the share still stops everything, and
+the toggle is there for a patient who wants upload to stay manual. The hint says
+plainly what is sent, when, and what Off means.
+
+---
+
+## Limits, stated honestly in the copy
+
+There are no push notifications and no background task in this app
+(no `expo-notifications`, no push tokens). So "once a day" is **the first app
+open of each day**. A patient who does not open the app for four days still
+shows a gap — and after this change that gap is real, which is the point: the
+day count on Michal's report becomes a retention signal instead of an artifact.
+
+---
+
+## Phone test (pending)
+
+- [x] Linked patient, app opened: auto snapshot upload on first open (1.2.47, owner confirmed)
+- [ ] Clinic macro report shows 7/7 days after refresh (not 3/7)
+- [ ] Second open the same day does **not** re-upload (marker holds)
+- [ ] Next calendar day, first open uploads once
+- [ ] Toggle off → no automatic upload; clinic Refresh still works
+- [ ] Toggle back on → uploads immediately, no waiting for tomorrow
+- [ ] Airplane mode at first open → retries ~10 min later, same day
+- [ ] Hebrew RTL: title and hint read naturally in the share card, light + dark
+- [ ] Unlinked patient: no upload, no error
+
+## Deferred
+
+- Clinic-side "quiet N days" / "labs due" list — the coordinator surface. Portal
+  and server only; no APK. The report shows compliance, not urgency.
+- Distinguishing "over target" from "not logged" on the clinic report. This batch
+  removes the false reds caused by stale snapshots; a genuinely unlogged day
+  still paints like a miss.

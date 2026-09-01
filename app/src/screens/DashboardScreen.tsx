@@ -232,6 +232,7 @@ import { getTreatmentMarkersCopy, markerUiLabel } from '../i18n/treatmentMarkers
 import {
   CLINIC_SYNC_POLL_MS,
   fulfillPendingClinicSyncRequests,
+  pushDailyClinicSnapshot,
   pushSnapshotForWebView,
 } from '../services/ClinicSyncService';
 import {
@@ -2052,11 +2053,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     // The patient's own web page cannot request a refresh the way a clinic can,
     // so the app pushes for it. Self-throttled; a no-op when the view is off.
     void pushSnapshotForWebView();
+    // Once per local day, so the clinic's week is not truncated at the last pull.
+    void pushDailyClinicSnapshot();
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         void applyClinicOverlays();
         void maybeRunOpportunisticCloudBackup();
         void pushSnapshotForWebView();
+        void pushDailyClinicSnapshot();
       }
     });
     const poll = setInterval(() => {

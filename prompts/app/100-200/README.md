@@ -14,4 +14,5 @@ Shipped specs: [`done/README.md`](./done/README.md). Layout: [`../README.md`](..
 | [`prompt116.txt`](./prompt116.txt) | Camera meal thumbs, 30-day keep, clinic tap-to-view — **v1 pulled 2026-08-25 for perf**; respec'd with a binary-upload contract + 3 phases. Read "Why v1 was pulled" before touching. |
 | [`prompt118.txt`](./prompt118.txt) | Example plates routed by the clinical order — **in_progress** (A+B built, awaiting phone + VPS deploy); glycemic collection next |
 | [`prompt119.txt`](./prompt119.txt) | Macro meter chrome — eaten / target columns, `≤ ≥` become words, direction shaded on the track; supersedes prompt114 § B display text |
+| [`prompt120.txt`](./prompt120.txt) | Daily clinic snapshot — one push on the first app open each day; auto upload phone-tested, portal 7/7 pending |
 

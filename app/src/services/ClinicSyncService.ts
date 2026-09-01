@@ -15,6 +15,11 @@ import {
   uploadMealPhotosOnShare,
   type MealPhotoUploadResult,
 } from './MealPhotoUpload';
+import {
+  clinicDailySharePending,
+  isClinicDailyShareOn,
+  markClinicDailyShareDone,
+} from './ClinicDailyShareService';
 
 /** Poll while dashboard is mounted so clinic refresh works if app was already open. */
 export const CLINIC_SYNC_POLL_MS = 10_000;
@@ -26,8 +31,12 @@ export const CLINIC_SYNC_POLL_MS = 10_000;
  */
 const WEB_VIEW_PUSH_MIN_INTERVAL_MS = 10 * 60_000;
 
+/** Retry window within the same day when the daily push fails (offline, token). */
+const DAILY_PUSH_RETRY_MS = 10 * 60_000;
+
 let inFlight: Promise<boolean> | null = null;
 let lastWebViewPushAt = 0;
+let lastDailyPushAttemptAt = 0;
 
 async function webViewIsOn(): Promise<boolean> {
   const me = await fetchCurrentUser().catch(() => null);
@@ -153,4 +162,38 @@ export async function pushSnapshotForWebView(): Promise<boolean> {
 /** Enabling the web view should show data immediately, not after the next launch. */
 export function resetWebViewPushThrottle(): void {
   lastWebViewPushAt = 0;
+}
+
+/**
+ * One snapshot on the first app open of each local day, so a linked clinic reads
+ * the whole week instead of whatever the last pull happened to catch.
+ *
+ * Numbers only. Plates ride on an explicit Share tap or on clinic Refresh, which
+ * are gestures — a background push must not stream image bytes on its own.
+ */
+export async function pushDailyClinicSnapshot(): Promise<boolean> {
+  const now = Date.now();
+  if (now - lastDailyPushAttemptAt < DAILY_PUSH_RETRY_MS) return false;
+  try {
+    if (!(await isClinicDailyShareOn())) return false;
+    if (!(await clinicDailySharePending(now))) return false;
+    const approved = await listShares('approved').catch(() => []);
+    if (approved.length === 0) return false;
+    // Claim the retry window only once we know a push is actually due, so an
+    // unlinked patient does not swallow the first attempt after linking.
+    lastDailyPushAttemptAt = now;
+    await shareClinicExport('365d');
+    // Marked after the upload lands: a failed day retries in ten minutes
+    // instead of being written off until tomorrow.
+    await markClinicDailyShareDone(now);
+    return true;
+  } catch (err) {
+    console.warn('[ClinicSync] daily clinic push failed:', err);
+    return false;
+  }
+}
+
+/** Turning the daily update on should push now, not on the next launch. */
+export function resetDailyPushThrottle(): void {
+  lastDailyPushAttemptAt = 0;
 }

@@ -22,6 +22,8 @@ export type ClinicLinkCopy = {
   mentorWeb: string;
   lastShared: string;
   neverShared: string;
+  dailyShareTitle: string;
+  dailyShareHint: string;
   sponsored: string;
   sponsoredUntil: string;
   sponsorshipExpired: string;
@@ -61,6 +63,9 @@ const EN: ClinicLinkCopy = {
   mentorWeb: 'Clinic account: patients and AI sponsorship live at healthings.ai/clinic',
   lastShared: 'Last shared',
   neverShared: 'Nothing uploaded yet — tap Share, or wait if your clinic asked for an update.',
+  dailyShareTitle: 'Daily update to your clinic',
+  dailyShareHint:
+    'Sends one update the first time you open the app each day, so your clinic sees the whole week instead of only the last upload. Off: they see what you tap Share for, or what they ask for.',
   sponsored: 'AI sponsored by',
   sponsoredUntil: 'until',
   sponsorshipExpired: 'AI sponsorship ended',
@@ -105,6 +110,9 @@ const HE: ClinicLinkCopy = {
   mentorWeb: 'חשבון קליניקה: מטופלים וחסויות AI ב־healthings.ai/clinic',
   lastShared: 'שותף לאחרונה',
   neverShared: 'עדיין לא הועלה — לחצו שתפו, או המתינו אם הקליניקה ביקשה עדכון.',
+  dailyShareTitle: 'עדכון יומי לקליניקה',
+  dailyShareHint:
+    'שולח עדכון אחד בפעם הראשונה שפותחים את האפליקציה כל יום, כדי שהקליניקה תראה את כל השבוע ולא רק את מה שהועלה לאחרונה. כשכבוי — היא רואה מה ששיתפתם או מה שביקשה.',
   sponsored: 'AI בחסות',
   sponsoredUntil: 'עד',
   sponsorshipExpired: 'חסות ה־AI הסתיימה',
@@ -149,6 +157,9 @@ const ES: ClinicLinkCopy = {
   mentorWeb: 'Cuenta de clínica: pacientes y patrocinio AI en healthings.ai/clinic',
   lastShared: 'Último envío',
   neverShared: 'Aún no hay envío — toca Compartir, o espera si la clínica pidió una actualización.',
+  dailyShareTitle: 'Actualización diaria a tu clínica',
+  dailyShareHint:
+    'Envía una actualización la primera vez que abres la app cada día, así tu clínica ve la semana completa y no solo el último envío. Apagado: ve lo que compartes tú o lo que pide.',
   sponsored: 'AI patrocinado por',
   sponsoredUntil: 'hasta',
   sponsorshipExpired: 'El patrocinio de AI terminó',
@@ -193,6 +204,9 @@ const FR: ClinicLinkCopy = {
   mentorWeb: 'Compte cabinet : patients et parrainage AI sur healthings.ai/clinic',
   lastShared: 'Dernier envoi',
   neverShared: 'Rien d’envoyé — touchez Partager, ou attendez si le cabinet a demandé une mise à jour.',
+  dailyShareTitle: 'Mise à jour quotidienne au cabinet',
+  dailyShareHint:
+    'Envoie une mise à jour à la première ouverture de l’app chaque jour, pour que le cabinet voie toute la semaine et pas seulement le dernier envoi. Désactivé : il voit ce que vous partagez ou ce qu’il demande.',
   sponsored: 'AI pris en charge par',
   sponsoredUntil: 'jusqu’au',
   sponsorshipExpired: 'Le parrainage AI est terminé',
@@ -237,6 +251,9 @@ const DE: ClinicLinkCopy = {
   mentorWeb: 'Praxis-Konto: Patienten und AI-Sponsoring unter healthings.ai/clinic',
   lastShared: 'Zuletzt geteilt',
   neverShared: 'Noch nichts hochgeladen — tippen Sie Teilen, oder warten Sie, wenn die Praxis ein Update angefordert hat.',
+  dailyShareTitle: 'Täglicher Stand für die Praxis',
+  dailyShareHint:
+    'Sendet einmal täglich beim ersten Öffnen der App einen Stand, damit die Praxis die ganze Woche sieht und nicht nur den letzten Upload. Aus: Sie sieht, was Sie teilen oder was sie anfordert.',
   sponsored: 'AI gesponsert von',
   sponsoredUntil: 'bis',
   sponsorshipExpired: 'AI-Sponsoring beendet',
@@ -281,6 +298,9 @@ const AR: ClinicLinkCopy = {
   mentorWeb: 'حساب العيادة: المرضى ورعاية AI على healthings.ai/clinic',
   lastShared: 'آخر مشاركة',
   neverShared: 'لم يُرفع شيء بعد — اضغطوا شاركوا، أو انتظروا إذا طلبت العيادة تحديثًا.',
+  dailyShareTitle: 'تحديث يومي للعيادة',
+  dailyShareHint:
+    'يرسل تحديثًا واحدًا عند أول فتح للتطبيق كل يوم، لترى العيادة الأسبوع كاملًا لا آخر رفعة فقط. عند الإيقاف: ترى ما تشاركونه أو ما تطلبه.',
   sponsored: 'AI برعاية',
   sponsoredUntil: 'حتى',
   sponsorshipExpired: 'انتهت رعاية AI',
@@ -325,6 +345,9 @@ const RU: ClinicLinkCopy = {
   mentorWeb: 'Аккаунт клиники: пациенты и спонсорство AI на healthings.ai/clinic',
   lastShared: 'Последняя отправка',
   neverShared: 'Ещё ничего не загружено — нажмите «Поделиться» или подождите, если клиника запросила обновление.',
+  dailyShareTitle: 'Ежедневное обновление для клиники',
+  dailyShareHint:
+    'Отправляет одно обновление при первом открытии приложения каждый день, чтобы клиника видела всю неделю, а не только последнюю загрузку. Выключено: она видит то, что вы отправили, или то, что запросила.',
   sponsored: 'AI спонсирует',
   sponsoredUntil: 'до',
   sponsorshipExpired: 'Спонсорство AI закончилось',
@@ -369,6 +392,9 @@ const PT: ClinicLinkCopy = {
   mentorWeb: 'Conta da clínica: pacientes e patrocínio AI em healthings.ai/clinic',
   lastShared: 'Último envio',
   neverShared: 'Ainda sem envio — toque em Partilhar, ou aguarde se a clínica pediu uma atualização.',
+  dailyShareTitle: 'Atualização diária para a clínica',
+  dailyShareHint:
+    'Envia uma atualização na primeira vez que abre a app em cada dia, para a clínica ver a semana toda e não só o último envio. Desligado: vê o que partilha ou o que pede.',
   sponsored: 'AI patrocinado por',
   sponsoredUntil: 'até',
   sponsorshipExpired: 'O patrocínio AI terminou',
@@ -413,6 +439,9 @@ const IT: ClinicLinkCopy = {
   mentorWeb: 'Account clinica: pazienti e sponsor AI su healthings.ai/clinic',
   lastShared: 'Ultimo invio',
   neverShared: 'Ancora niente — tocca Condividi, o aspetta se la clinica ha chiesto un aggiornamento.',
+  dailyShareTitle: 'Aggiornamento giornaliero alla clinica',
+  dailyShareHint:
+    'Invia un aggiornamento alla prima apertura dell’app ogni giorno, così la clinica vede tutta la settimana e non solo l’ultimo invio. Spento: vede ciò che condividi o ciò che chiede.',
   sponsored: 'AI sponsorizzato da',
   sponsoredUntil: 'fino al',
   sponsorshipExpired: 'Sponsor AI terminato',
@@ -457,6 +486,9 @@ const TR: ClinicLinkCopy = {
   mentorWeb: 'Klinik hesabı: hastalar ve AI sponsorluğu healthings.ai/clinic',
   lastShared: 'Son paylaşım',
   neverShared: 'Henüz yükleme yok — Paylaş’a dokunun veya klinik güncelleme istediyse bekleyin.',
+  dailyShareTitle: 'Kliniğe günlük güncelleme',
+  dailyShareHint:
+    'Her gün uygulamayı ilk açtığınızda tek bir güncelleme gönderir; böylece klinik son yükleme yerine tüm haftayı görür. Kapalıyken: sizin paylaştığınızı veya istediğini görür.',
   sponsored: 'AI sponsoru',
   sponsoredUntil: 'bitiş',
   sponsorshipExpired: 'AI sponsorluğu bitti',
