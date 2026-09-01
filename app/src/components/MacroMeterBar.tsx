@@ -4,9 +4,11 @@
  * Eaten sits before the bar, the target after it, and the track between them carries
  * floor-vs-ceiling as a shaded allowed zone. The old `40 / 80g` string is gone.
  *
- * Row direction stays LTR even in he/ar — dashboard chrome is LTR
- * (`language-policy`); mirroring the row overflowed a phone-width card and clipped
- * the target column off the screen.
+ * he/ar: row-reverse + track scaleX(-1) so labels sit on the right, fill grows
+ * right→left, targets on the left. Other locales stay LTR (label · eaten · track · target).
+ * Narrow side columns keep the mirrored row from clipping on a phone card.
+ *
+ * Labels are short catalog forms in every locale — do not widen for long words.
  */
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -19,6 +21,12 @@ import type { ThemeColors } from '../theme/tokens';
  * reads as distance, not a pinned full bar.
  */
 const SCALE_HEADROOM = 1.25;
+
+/** Shared with MacroTargetStrip twin — change both or the strips drift. */
+export const METER_LABEL_W = 56;
+export const METER_EATEN_W = 40;
+export const METER_TARGET_W = 78;
+export const METER_COL_GAP = 4;
 
 export type MacroMeterBarProps = {
   label: string;
@@ -37,7 +45,7 @@ export type MacroMeterBarProps = {
   clinicCaption?: string;
   /** Short chip appended to the target, for markers anchored to a percent of energy. */
   percentChip?: string;
-  /** `appLocale` — picks the target wording. */
+  /** `appLocale` — picks the target wording and he/ar chrome mirror. */
   langCode?: string | null;
   onPress?: () => void;
 };
@@ -58,9 +66,9 @@ export function MacroMeterBar({
   onPress,
 }: MacroMeterBarProps) {
   const { colors, isDark } = useTheme();
-  const barStyles = useMemo(() => makeBarStyles(colors, isDark), [colors, isDark]);
+  const rtl = langCode === 'he' || langCode === 'ar';
+  const barStyles = useMemo(() => makeBarStyles(colors, isDark, rtl), [colors, isDark, rtl]);
   const copy = getFoodLogUiCopy(langCode);
-  const rtlCopy = langCode === 'he' || langCode === 'ar';
 
   const hasBand =
     clinicFloor != null && clinicCeiling != null && clinicFloor > 0 && clinicCeiling > 0;
@@ -150,7 +158,7 @@ export function MacroMeterBar({
     }
     if (percentChip) targetText = `${targetText}  ${percentChip}`;
     // Isolate so RTL copy doesn't reorder "13g" past "7%".
-    if (rtlCopy && targetText) targetText = `\u2066${targetText}\u2069`;
+    if (rtl && targetText) targetText = `\u2066${targetText}\u2069`;
   }
 
   const zoneStart = zone ? pctOf(zone.start) : 0;
@@ -176,7 +184,8 @@ export function MacroMeterBar({
         >
           {eatenText}
         </Text>
-        <View style={barStyles.track}>
+        {/* scaleX(-1) flips fill + zone + marks together for he/ar growth direction. */}
+        <View style={[barStyles.track, rtl && barStyles.trackRtl]}>
           {zone ? (
             <View
               style={[
@@ -229,40 +238,45 @@ export function MacroMeterBar({
   );
 }
 
-const makeBarStyles = (c: ThemeColors, isDark: boolean) =>
+const makeBarStyles = (c: ThemeColors, isDark: boolean, rtl: boolean) =>
   StyleSheet.create({
     row: {
-      flexDirection: 'row',
+      flexDirection: rtl ? 'row-reverse' : 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: METER_COL_GAP,
       marginBottom: 5,
       width: '100%',
     },
     rowWrap: { width: '100%', marginBottom: 2 },
     rowPressable: { alignSelf: 'stretch' },
     label: {
-      width: 70,
+      width: METER_LABEL_W,
       flexShrink: 0,
       fontSize: 11,
       fontWeight: '700',
       color: c.textSecondary,
-      textAlign: 'right',
+      // Hug the eaten/track side in both directions.
+      textAlign: rtl ? 'left' : 'right',
     },
     caption: {
       fontSize: 10,
       color: c.textSecondary,
       marginBottom: 4,
-      marginLeft: 76,
+      // Sit under the track — past the label column on the leading edge.
+      marginLeft: rtl ? 0 : METER_LABEL_W + METER_COL_GAP,
+      marginRight: rtl ? METER_LABEL_W + METER_COL_GAP : 0,
+      textAlign: rtl ? 'right' : 'left',
     },
     // Track is the optical center — side columns sized to fit a phone card without clipping.
     track: {
       flex: 1,
-      minWidth: 48,
+      minWidth: 64,
       height: 6,
       borderRadius: 3,
       backgroundColor: isDark ? c.background : c.progressTrack,
       overflow: 'hidden',
     },
+    trackRtl: { transform: [{ scaleX: -1 }] },
     zone: {
       position: 'absolute',
       top: 0,
@@ -278,25 +292,25 @@ const makeBarStyles = (c: ThemeColors, isDark: boolean) =>
     },
     fill: { height: '100%', borderRadius: 3 },
     eaten: {
-      width: 44,
+      width: METER_EATEN_W,
       flexShrink: 0,
       fontSize: 11,
       fontWeight: '700',
       color: c.textPrimary,
-      textAlign: 'right',
+      textAlign: rtl ? 'left' : 'right',
       fontVariant: ['tabular-nums'],
     },
     eatenMet: { color: c.accentGreen },
     eatenOver: { color: isDark ? c.accentRed : '#EF5350' },
     target: {
-      width: 88,
+      width: METER_TARGET_W,
       flexShrink: 0,
       fontSize: 11,
       fontWeight: '600',
       color: c.textSecondary,
-      textAlign: 'left',
+      textAlign: rtl ? 'right' : 'left',
       fontVariant: ['tabular-nums'],
       writingDirection: 'ltr',
     },
-    targetSlot: { width: 88, flexShrink: 0 },
+    targetSlot: { width: METER_TARGET_W, flexShrink: 0 },
   });

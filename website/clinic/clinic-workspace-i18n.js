@@ -2472,7 +2472,7 @@
       wsTreatIntro:
         'Up to 3 daily intake targets the patient meters in Food Log. Caps and floors sync to their phone on next open.',
       wsTreatAddedSugarHint:
-        'Added sugar ≠ carbs/net: only sugars added in processing (sweet drinks, candy, syrups). Whole fruit and unsweetened dairy are usually 0. Prefer this marker when HbA1c or glucose is elevated — type the daily gram cap yourself.',
+        'Simple sugars (SUGAR_G) = mono- and disaccharides only — not total carbs or starch. Includes fruit, milk lactose, honey, and sweetened foods. Prefer when HbA1c or glucose is elevated; gram cap or % of energy eaten.',
       wsTreatEmpty: 'No treatment markers yet — add up to 3.',
       wsTreatMax: 'Maximum 3 markers',
       wsTreatAdd: 'Add marker',
@@ -2511,7 +2511,7 @@
       wsTreat_CHOLESTEROL_MG: 'Dietary cholesterol',
       wsTreat_SOLUBLE_FIBER_G: 'Soluble fiber',
       wsTreat_OMEGA3_G: 'Omega-3',
-      wsTreat_ADDED_SUGAR_G: 'Added sugar',
+      wsTreat_SUGAR_G: 'Simple sugars',
       wsTreat_SODIUM_MG: 'Sodium',
       wsTreat_POTASSIUM_MG: 'Potassium',
       wsTreat_PHOSPHORUS_MG: 'Phosphorus',
@@ -2533,7 +2533,7 @@
       wsTreatIntro:
         'עד 3 יעדי צריכה יומיים שהמטופל מודד ביומן הארוחות. תקרות ורצפות מסתנכרנות לטלפון בפתיחה הבאה.',
       wsTreatAddedSugarHint:
-        'סוכר מוסף ≠ פחמימות/נטו: רק סוכר שנוסף בעיבוד (משקאות ממותקים, ממתקים, סירופים). פרי שלם וחלב לא־ממותק בדרך כלל 0. עדיף כשיש HbA1c או גלוקוז גבוהים — אתם מקלידים את תקרת הגרם.',
+        'סוכרים פשוטים (SUGAR_G) = חד־סוכר ודו־סוכר בלבד — לא סך פחמימות ולא עמילן. כולל פרי, לקטוז בחלב, דבש ומזונות ממותקים. עדיף כשיש HbA1c או גלוקוז גבוהים; תקרת גרם או % מהאנרגיה שנאכלה.',
       wsTreatEmpty: 'אין עדיין מדדי טיפול — הוסיפו עד 3.',
       wsTreatMax: 'מקסימום 3 מדדים',
       wsTreatAdd: 'הוספת מדד',
@@ -2572,7 +2572,7 @@
       wsTreat_CHOLESTEROL_MG: 'כולסטרול תזונתי',
       wsTreat_SOLUBLE_FIBER_G: 'סיבים מסיסים',
       wsTreat_OMEGA3_G: 'אומגה‑3',
-      wsTreat_ADDED_SUGAR_G: 'סוכר מוסף',
+      wsTreat_SUGAR_G: 'סוכרים פשוטים',
       wsTreat_SODIUM_MG: 'נתרן',
       wsTreat_POTASSIUM_MG: 'אשלגן',
       wsTreat_PHOSPHORUS_MG: 'זרחן',

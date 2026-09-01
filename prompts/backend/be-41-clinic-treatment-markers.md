@@ -42,7 +42,7 @@ codes. Units stay always-English glossary (`g`, `mg`).
 | `CHOLESTEROL_MG` | mg | cap | `CHOLESTEROL_LDL`, `CHOLESTEROL` |
 | `SOLUBLE_FIBER_G` | g | floor | `CHOLESTEROL_LDL` |
 | `OMEGA3_G` | g | floor | `TRIGLYCERIDES` |
-| `ADDED_SUGAR_G` | g | cap | `HBA1C`, `GLUCOSE`, `TRIGLYCERIDES` |
+| `SUGAR_G` | g | cap | `HBA1C`, `GLUCOSE`, `TRIGLYCERIDES` — **simple sugars** (mono- + disaccharides), not total carbs. May use `percentOfEnergy` (÷4 kcal/g). |
 | `SODIUM_MG` | mg | cap | — (blood pressure, no lab code yet) |
 | `POTASSIUM_MG` | mg | cap or floor | `CREATININE`, `UREA` |
 | `PHOSPHORUS_MG` | mg | cap | `CREATININE`, `UREA` |

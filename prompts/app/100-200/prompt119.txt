@@ -40,33 +40,33 @@ Three defects, all in the same 118dp column:
 
 ## What ships
 
-### A. Column split — LTR chrome (eaten before bar, target after)
+### A. Column split — eaten before bar, target after (mirrored for he/ar)
 
-Dashboard strip chrome stays LTR even when `appLocale` is he/ar (`language-policy`). A
-`row-reverse` attempt (2026-09-01) overflowed the card and **clipped the target column off
-the phone** — reverted. Layout is always:
+Logical order is always label · eaten · track · target. In LTR locales the row paints
+left→right; in he/ar it paints with `row-reverse` and the track is `scaleX(-1)` so fill
+grows right→left. An early reverse clipped the target on fat columns — safe only with the
+narrow `METER_*` widths below.
 
-| Slot | Content |
+| Slot (logical) | Content |
 |---|---|
-| Leading | eaten number only — carries the status color |
-| Middle | track |
-| Trailing | target only — `80g`, `up to 100g`, `1200–1800` |
+| Label | axis word in `appLocale` |
+| Eaten | number only — carries the status color |
+| Track | zone + fill + mark |
+| Target | `80g`, `up to 100g`, `1200–1800` |
 
 **Row labels are words in `appLocale`, not letter codes.** Michal (2026-09-01 phone):
 `P C F Fi C-Fi` is unclear to patients. Food Log / My Macros / Quick Start meters use
 `barProtein` / `barCarb` / `barFat` / `barFiber` / `barNetCarb` from `foodLogUiCopy`
 (e.g. he: חלבון / פחמימות / שומן / סיבים / פח׳ נטו). Water uses `ui.water`. Units
 `kcal` / `kJ` stay English (`language-policy`). Clinic portal may keep letter codes.
-Label column width ~78 with ellipsis — the track still has `minWidth: 56`.
 
 Drop `actual / target` everywhere it renders, including kcal, H2O and marker rows. No row keeps
 the slash — a mixed strip is worse than either style alone.
 
-**Width guard (this is the risk).** Today: label 40, one number column 118, track `flex: 1`,
-gap 8 — roughly 126dp of track on a small phone. Two columns wide enough for `1772` and
-`1200–1800` push the track under 100dp. **The bar is the fastest signal on the row and must not
-pay for the text:** give the track a `minWidth` and let the trailing column ellipsize. Verify at
-full row count (markers + H2O visible), in de / ru / tr, at max font scale.
+**Width guard (this is the risk).** Side columns: label 56 / eaten 40 / target 78 / gap 4,
+track `minWidth` 64. **The bar is the fastest signal on the row and must not pay for the
+text:** shorten `bar*` catalog strings rather than widen the label. Verify at full row count
+(markers + H2O visible), in de / ru / tr / he, at max font scale.
 
 ### B. Wording — one formatter, `appLocale`
 
@@ -149,10 +149,17 @@ Implementation notes worth keeping:
 - The collapsed clinic summary renders **only when the log is on today**, because `clinicMeters`
   resolves for the browsed day while the collapsed header speaks for today. Showing a past day's
   order under today's energy would be a false claim.
-- Meter rows stay **LTR** (label · eaten · track · target). `row-reverse` for he/ar was tried and
-  clipped the target column off a phone-width card — do not reintroduce. Hebrew/Arabic copy still
-  uses `appLocale`; target phrases that mix digits + `%` use an LTR isolate (`\u2066…\u2069`).
+- **he/ar chrome mirror (2026-09-01):** logical order stays label · eaten · track · target;
+  `flexDirection: 'row-reverse'` puts labels on the right and targets on the left; track
+  `scaleX(-1)` makes fill + zone + marks grow right→left. Other locales stay LTR. An earlier
+  reverse clipped the target on fat columns — narrow `METER_*` widths are what make this safe.
+  Target phrases that mix digits + `%` still use an LTR isolate (`\u2066…\u2069`).
 - A percent ceiling with no `value` no longer emits `undefined% of 2000`.
+- **Width pass (2026-09-01 evening):** label/eaten/target/gap tightened (`56` / `40` / `78` / `4`,
+  track `minWidth` 64) so the bar gains ~25% on a phone card. Shared constants
+  `METER_*` in `MacroMeterBar` keep the My Macros twin aligned. Long `bar*` strings were
+  shortened in **all** locales (de-style: `Carbos`, `كربو`, `Karb.`, `Gluc. nets`, …) — never
+  widen the column for one language.
 
 ## Out of scope
 
@@ -170,7 +177,8 @@ Implementation notes worth keeping:
 - [ ] Band row: allowed between marks, red outside, printed ascending
 - [ ] Point-target row (no clinic bound): plain `80g`, no slash anywhere on the strip
 - [ ] Marker row: grams + `%` chip survives the new columns
-- [ ] `he` / `ar`: eaten on the **right**, range still LTR, labels RTL
+- [ ] `he` / `ar`: label on the **right**, fill grows right→left, target on the **left**, range still LTR
+- [ ] `en` (and other LTR locales): label left, fill left→right, target right
 - [ ] Track not squeezed at full row count (markers + H2O) in de / ru / tr at max font scale
 - [ ] Light **and** dark hold zone contrast under the status fill
 - [ ] Clinic portal unchanged — still `≤ ≥`

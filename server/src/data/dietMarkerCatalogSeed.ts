@@ -19,10 +19,11 @@ export type DietMarkerCatalogSeedRow = {
 };
 
 const SUGAR_GUIDANCE =
-  'ADDED_SUGAR_G (added_sugar_g): count only sugars **added** in making/processing ' +
-  '(table sugar, syrups, honey used as sweetener, sweetened drinks, candy, sweetened yogurt/sauces). ' +
-  'Use **0** for whole unsweetened fruit, plain milk/unsweetened dairy (intrinsic lactose), ' +
-  'unsweetened starches (rice, bread, potato). Do **not** copy carb_g or net carbs into this field.';
+  'SUGAR_G (sugar_g): count **simple sugars only** — mono- and disaccharides ' +
+  '(glucose, fructose, sucrose, lactose, maltose; Hebrew: חד־סוכר ודו־סוכר / סוכרים פשוטים). ' +
+  'Include intrinsic sugars in fruit, milk, honey, and sweetened foods. ' +
+  'Do **not** count starch (bread, rice, potato, pasta) or fiber. ' +
+  'Do **not** copy total carb_g or net carbs into this field — only the simple-sugar portion.';
 
 const IODINE_GUIDANCE =
   'IODINE_MCG (iodine_mcg): estimate dietary iodine in **mcg** (not mg). Count iodized salt, ' +
@@ -80,13 +81,13 @@ export const DIET_MARKER_CATALOG_SEED: DietMarkerCatalogSeedRow[] = [
     sortOrder: 40,
   },
   {
-    code: 'ADDED_SUGAR_G',
+    code: 'SUGAR_G',
     unit: 'g',
     defaultDirection: 'cap',
     linkedLabCodes: ['HBA1C', 'GLUCOSE', 'TRIGLYCERIDES'],
     labels: {
-      en: { short: 'Sugar', full: 'Added sugar' },
-      he: { short: 'סוכר', full: 'סוכר מוסף' },
+      en: { short: 'Sugar', full: 'Simple sugars' },
+      he: { short: 'סוכר', full: 'סוכרים פשוטים' },
     },
     estimateGuidance: SUGAR_GUIDANCE,
     sortOrder: 50,

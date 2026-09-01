@@ -60,15 +60,21 @@ function cleanMarkerList(
   fallbackAt: string,
 ): TreatmentMarker[] {
   const cleaned: TreatmentMarker[] = [];
+  const seen = new Set<string>();
   for (const m of markers || []) {
-    if (!m || !isDietMarkerCode(m.marker)) continue;
+    if (!m) continue;
+    const markerCode =
+      String(m.marker || '').trim().toUpperCase() === 'ADDED_SUGAR_G' ? 'SUGAR_G' : m.marker;
+    if (!isDietMarkerCode(markerCode)) continue;
+    if (seen.has(markerCode)) continue;
+    seen.add(markerCode);
     if (m.direction !== 'cap' && m.direction !== 'floor') continue;
     const dailyTarget = Number(m.dailyTarget);
     if (!Number.isFinite(dailyTarget) || dailyTarget <= 0) continue;
     const labels = parseLabels(m.labels);
     const guidance = m.estimateGuidance?.trim();
     cleaned.push({
-      marker: m.marker,
+      marker: markerCode,
       direction: m.direction,
       dailyTarget,
       unit: normalizeUnit(m.unit),
@@ -123,6 +129,13 @@ export type MarkerAmounts = Partial<Record<DietMarkerCode, number>>;
 /** JSON field names Gemini returns per item (snake of the code). */
 export function dietMarkerJsonField(code: DietMarkerCode): string {
   return code.toLowerCase();
+}
+
+/** kcal/g for percent-of-energy caps (sat fat 9, simple sugar 4). */
+export function markerKcalPerGram(code: string): number | null {
+  if (code === 'SAT_FAT_G') return 9;
+  if (code === 'SUGAR_G') return 4;
+  return null;
 }
 
 export function isDietMarkerCode(raw: string): raw is DietMarkerCode {
@@ -360,7 +373,11 @@ export function extractMarkersFromFoodItem(
   const out: MarkerAmounts = {};
   for (const code of active) {
     const field = dietMarkerJsonField(code);
-    const raw = it[field] ?? it[code] ?? nested?.[code] ?? nested?.[field];
+    let raw = it[field] ?? it[code] ?? nested?.[code] ?? nested?.[field];
+    // Legacy meal fields (added_sugar_g) → SUGAR_G totals.
+    if ((raw == null || raw === '') && code === 'SUGAR_G') {
+      raw = it.added_sugar_g ?? nested?.added_sugar_g ?? it.sugar_g ?? nested?.sugar_g;
+    }
     const n = Number(raw);
     if (Number.isFinite(n) && n >= 0) out[code] = Math.round(n * 10) / 10;
   }
@@ -415,7 +432,7 @@ export function formatMarkerAmountsVsTargets(
 
 /**
  * Per-marker estimation rules for Gemini (definition only — no clinical targets).
- * ADDED_SUGAR_G must not be confused with total carbs / net / intrinsic fruit sugar.
+ * SUGAR_G = simple sugars (mono/di); do not confuse with total carbs / starch.
  */
 export function markerEstimateGuidance(markers: TreatmentMarker[]): string {
   const lines = markers

@@ -1574,7 +1574,7 @@
     { code: 'CHOLESTEROL_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: ['CHOLESTEROL_LDL', 'CHOLESTEROL'] },
     { code: 'SOLUBLE_FIBER_G', unit: 'g', defaultDirection: 'floor', linkedLabCodes: ['CHOLESTEROL_LDL'] },
     { code: 'OMEGA3_G', unit: 'g', defaultDirection: 'floor', linkedLabCodes: ['TRIGLYCERIDES'] },
-    { code: 'ADDED_SUGAR_G', unit: 'g', defaultDirection: 'cap', linkedLabCodes: ['HBA1C', 'GLUCOSE', 'TRIGLYCERIDES'] },
+    { code: 'SUGAR_G', unit: 'g', defaultDirection: 'cap', linkedLabCodes: ['HBA1C', 'GLUCOSE', 'TRIGLYCERIDES'] },
     { code: 'SODIUM_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: [] },
     { code: 'POTASSIUM_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: ['CREATININE', 'UREA'] },
     { code: 'PHOSPHORUS_MG', unit: 'mg', defaultDirection: 'cap', linkedLabCodes: ['CREATININE', 'UREA'] },
@@ -1795,6 +1795,14 @@
     const kindSel = panel.querySelector('#treat-kind');
     const labHint = panel.querySelector('#treat-lab-hint');
 
+    function markerAllowsPct(code) {
+      return code === 'SAT_FAT_G' || code === 'SUGAR_G';
+    }
+    function markerKcalPerG(code) {
+      if (code === 'SUGAR_G') return 4;
+      return 9;
+    }
+
     function refreshAddHint() {
       const code = codeSel?.value;
       const meta = DIET_MARKER_CATALOG.find((c) => c.code === code);
@@ -1804,10 +1812,10 @@
         return;
       }
       if (unitEl) {
-        const asPct = kindSel?.value === 'percent' && code === 'SAT_FAT_G';
+        const asPct = kindSel?.value === 'percent' && markerAllowsPct(code);
         unitEl.textContent = asPct ? '%' : meta.unit;
       }
-      if (kindWrap) kindWrap.hidden = code !== 'SAT_FAT_G';
+      if (kindWrap) kindWrap.hidden = !markerAllowsPct(code);
       if (dirSel && !dirSel.dataset.touched) dirSel.value = meta.defaultDirection;
       const hit = findLinkedLabHit(labs, meta.linkedLabCodes);
       if (labHint) {
@@ -1842,12 +1850,12 @@
       const dailyTarget = Number(panel.querySelector('#treat-target')?.value);
       if (!meta || !Number.isFinite(dailyTarget) || dailyTarget <= 0) return null;
       const note = String(panel.querySelector('#treat-note')?.value || '').trim();
-      const asPct = code === 'SAT_FAT_G' && kindSel?.value === 'percent';
+      const asPct = markerAllowsPct(code) && kindSel?.value === 'percent';
       const row = {
         marker: meta.code,
         direction: dirSel?.value === 'floor' ? 'floor' : 'cap',
         dailyTarget: asPct
-          ? Math.max(1, Math.round((dailyTarget / 100) * 1740 * 10) / 10)
+          ? Math.max(0.1, Math.round((dailyTarget / 100) * 1740 / markerKcalPerG(code) * 10) / 10)
           : dailyTarget,
         unit: meta.unit,
         linkedLabCodes: [...meta.linkedLabCodes],

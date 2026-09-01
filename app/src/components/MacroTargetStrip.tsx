@@ -21,6 +21,12 @@ import { suggestMacroTargets, confirmSavedMacroTarget, macroSuggestionToDailyTar
 import { contentAlignStyle } from '../logic/textDirection';
 import { ClinicLiveMacroBars } from './ClinicLiveMacroBars';
 import {
+  METER_COL_GAP,
+  METER_EATEN_W,
+  METER_LABEL_W,
+  METER_TARGET_W,
+} from './MacroMeterBar';
+import {
   clinicHardMacrosApplyToday,
   clinicMacroMetersApplyToDay,
   formatEffectiveDailyMacroTargetLine,
@@ -162,12 +168,13 @@ function MacroBar({
   unit?: 'g' | 'kcal' | 'kj' | 'ml' | 'floz';
   /** Hitting the target is the win — no over-target penalty colour (water). */
   goalIsFloor?: boolean;
-  /** `appLocale` — mirrors the row for he/ar so eaten stays on the leading edge. */
+  /** `appLocale` — he/ar mirrors chrome like MacroMeterBar (prompt119). */
   langCode?: string | null;
   onPress?: () => void;
 }) {
   const { colors, isDark } = useTheme();
-  const barStyles = useMemo(() => makeBarStyles(colors, isDark), [colors, isDark]);
+  const rtl = langCode === 'he' || langCode === 'ar';
+  const barStyles = useMemo(() => makeBarStyles(colors, isDark, rtl), [colors, isDark, rtl]);
   const met = goalIsFloor === true && actual != null && target > 0 && actual >= target;
   const over = !goalIsFloor && actual != null && actual > target * 1.1;
   // Scale past a floor target so the allowed zone has width, same as the Food Log meter.
@@ -196,7 +203,7 @@ function MacroBar({
       >
         {actualText}
       </Text>
-      <View style={barStyles.track}>
+      <View style={[barStyles.track, rtl && barStyles.trackRtl]}>
         {zoneStart != null ? (
           <View
             style={[barStyles.zone, { left: `${zoneStart * 100}%`, width: `${(1 - zoneStart) * 100}%` }]}
@@ -229,33 +236,34 @@ function MacroBar({
   );
 }
 
-const makeBarStyles = (c: ThemeColors, isDark: boolean) =>
+const makeBarStyles = (c: ThemeColors, isDark: boolean, rtl: boolean) =>
   StyleSheet.create({
   row: {
-    flexDirection: 'row',
+    flexDirection: rtl ? 'row-reverse' : 'row',
     alignItems: 'center',
     marginBottom: 6,
-    gap: 6,
+    gap: METER_COL_GAP,
     width: '100%',
   },
   rowPressable: { alignSelf: 'stretch' },
   label: {
-    width: 70,
+    width: METER_LABEL_W,
     flexShrink: 0,
     fontSize: 11,
     fontWeight: '700',
     color: c.textSecondary,
-    textAlign: 'right',
+    textAlign: rtl ? 'left' : 'right',
   },
   track: {
     flex: 1,
-    minWidth: 48,
+    minWidth: 64,
     height: 6,
     borderRadius: 3,
     // Dark: unfilled remainder reads as canvas, like the Food log meters.
     backgroundColor: isDark ? c.background : (c.progressTrack ?? c.gridLine),
     overflow: 'hidden',
   },
+  trackRtl: { transform: [{ scaleX: -1 }] },
   zone: {
     position: 'absolute',
     top: 0,
@@ -271,22 +279,23 @@ const makeBarStyles = (c: ThemeColors, isDark: boolean) =>
   },
   fill: { height: '100%', borderRadius: 3 },
   eaten: {
-    width: 44,
+    width: METER_EATEN_W,
     flexShrink: 0,
     fontSize: 11,
     fontWeight: '700',
     color: c.textPrimary,
-    textAlign: 'right',
+    textAlign: rtl ? 'left' : 'right',
     fontVariant: ['tabular-nums'],
   },
   target: {
-    width: 88,
+    width: METER_TARGET_W,
     flexShrink: 0,
     fontSize: 11,
     fontWeight: '600',
     color: c.textSecondary,
-    textAlign: 'left',
+    textAlign: rtl ? 'right' : 'left',
     fontVariant: ['tabular-nums'],
+    writingDirection: 'ltr',
   },
   numsMet: { color: c.accentGreen },
   numsOver: { color: isDark ? c.accentRed : '#EF5350' },

@@ -360,7 +360,8 @@ Return JSON only (no markdown):
     { "axis": "carb_g", "direction": "ceiling", "kind": "percent", "of": "kcal_order", "value": 30, "resolvedValue": 150, "strength": "hard" }
   ],
   "markers": [
-    { "marker": "SAT_FAT_G", "direction": "cap", "dailyTarget": 19, "percentOfEnergy": 10, "ofEnergy": "kcal_eaten" }
+    { "marker": "SAT_FAT_G", "direction": "cap", "dailyTarget": 19, "percentOfEnergy": 10, "ofEnergy": "kcal_eaten" },
+    { "marker": "SUGAR_G", "direction": "cap", "dailyTarget": 26, "percentOfEnergy": 5, "ofEnergy": "kcal_eaten" }
   ],
   "reasoning": "short clinical English",
   "impliedNotes": [],
@@ -380,8 +381,9 @@ RULES
 - "עד X% מסה״כ הקלוריות" / "up to X% of daily calories" is a HARD carb_g percent ceiling. "ניתן גם פחות" / "can also be less" does NOT unlock the axis — it is still ≤ X%. If this order also has a HARD kcal ceiling, you MUST emit carb_g with kind percent, of kcal_order, value X, resolvedValue (kcal×X/100/4), strength hard. Never leave carb_g as FLEX-empty while citing that % or the gram equivalent in reasoning.
 - ENERGY / kcal: when the rules give ONE clear daily energy number (e.g. "קלוריות: 1,690 קק״ל", "1690 kcal", "energy 2000"), ALWAYS emit a HARD kcal ceiling with that value (strip thousands separators). Do NOT leave kcal only in needsClinician when that number is present. Use needsClinician for kcal ONLY when energy is a range with no chosen target, or truly absent.
 - TRAINING: one kcal ceiling with activityAddBack { thresholdKcal, capValue } when rules give a higher training allowance. Omit activityAddBack if threshold is unknown — put a needsClinician question instead. Never set followsActivity.
-- Markers (SAT_FAT_G, SOLUBLE_FIBER_G, IODINE_MCG, SELENIUM_MCG, …) go in markers[], never in bounds. Prefer percentOfEnergy for sat fat when rules say % of energy. Return markers: [] when rules name none.
-- When rules say saturated fat as a share of daily energy (e.g. "פחות מ-7% מסך האנרגיה", "<10% of energy"), ALWAYS return SAT_FAT_G with percentOfEnergy + ofEnergy "kcal_eaten" and a dailyTarget grams fallback at the kcal order (kcal×pct/100/9). Do not leave sat fat as a constant-only grams cap when the rules are clearly %.
+- Markers (SAT_FAT_G, SUGAR_G, SOLUBLE_FIBER_G, IODINE_MCG, SELENIUM_MCG, …) go in markers[], never in bounds. Prefer percentOfEnergy for sat fat / simple sugars when rules say % of energy. Return markers: [] when rules name none.
+- When rules say saturated fat as a share of daily energy — including Hebrew "שומן רווי עד 10% מסה״כ הקלוריות" / "פחות מ-7% מסך האנרגיה" / "<10% of energy" — ALWAYS put SAT_FAT_G in markers[] with percentOfEnergy + ofEnergy "kcal_eaten" and dailyTarget grams = kcal_ceiling×pct/100/9. Never leave sat fat only in reasoning. Do not leave sat fat as a constant-only grams cap when the rules are clearly %.
+- When rules say sugars / simple sugars as a share of daily energy — including Hebrew "סוכרים: פחות מ-5% מסה״כ הקלוריות" — ALWAYS put SUGAR_G (simple sugars: mono- and disaccharides) in markers[] with percentOfEnergy + ofEnergy "kcal_eaten" and dailyTarget grams = kcal_ceiling×pct/100/4. Never leave sugar only in reasoning.
 - Soluble fiber / iodine / selenium: constant grams or mcg floors/caps as stated. Upsert only what rules name; never delete other markers.
 - When a HARD number is missing but required (e.g. % carb with no kcal), omit that HARD bound and add needsClinician — still include the axis as FLEX with no value if you are not locking it.
 - Do not parse with regex — read as a clinician.
@@ -405,11 +407,29 @@ ${input.markersSummary || '(none)'}
     const row = m as Record<string, unknown>;
     const marker = String(row.marker || '').trim().toUpperCase();
     const direction = row.direction === 'floor' ? 'floor' : row.direction === 'cap' ? 'cap' : null;
-    const dailyTarget = Number(row.dailyTarget);
+    const pct = Number(row.percentOfEnergy);
+    const hasPct = Number.isFinite(pct) && pct > 0 && pct <= 100;
+    let dailyTarget = Number(row.dailyTarget);
+    // Percent-only energy markers: Gemini sometimes omits dailyTarget; derive grams
+    // from a kcal ceiling in the same proposal (sat fat ÷9, sugar ÷4).
+    if ((!Number.isFinite(dailyTarget) || dailyTarget <= 0) && hasPct) {
+      const kcalPerG = marker === 'SUGAR_G' ? 4 : marker === 'SAT_FAT_G' ? 9 : 0;
+      if (kcalPerG > 0) {
+        const kcalCeil = bounds.find(
+          (b) =>
+            b &&
+            typeof b === 'object' &&
+            (b as Record<string, unknown>).axis === 'kcal' &&
+            (b as Record<string, unknown>).direction === 'ceiling' &&
+            Number((b as Record<string, unknown>).value) > 0,
+        ) as Record<string, unknown> | undefined;
+        const kcalBase = Number(kcalCeil?.value) || 0;
+        if (kcalBase > 0) dailyTarget = Math.round(((pct / 100) * kcalBase) / kcalPerG * 10) / 10;
+      }
+    }
     if (!marker || !direction || !Number.isFinite(dailyTarget) || dailyTarget <= 0) continue;
     const draft: MacroProposeMarkerDraft = { marker, direction, dailyTarget };
-    const pct = Number(row.percentOfEnergy);
-    if (Number.isFinite(pct) && pct > 0 && pct <= 100) {
+    if (hasPct) {
       draft.percentOfEnergy = pct;
       draft.ofEnergy = 'kcal_eaten';
     }
@@ -539,7 +559,7 @@ const MARKER_SHORT_FALLBACK: Record<string, string> = {
   CHOLESTEROL_MG: 'Chol',
   SOLUBLE_FIBER_G: 'SolFi',
   OMEGA3_G: 'n3',
-  ADDED_SUGAR_G: 'AddSug',
+  SUGAR_G: 'Sugar',
   SODIUM_MG: 'Na',
   POTASSIUM_MG: 'K',
   PHOSPHORUS_MG: 'P',

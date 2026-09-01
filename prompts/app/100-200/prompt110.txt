@@ -19,7 +19,7 @@ as HARD in every AI macro decision, and show the patient *why* the number exists
 
 - Markers are **structured**, never parsed from rules text. Codes are exact matches
   from the shared enum (SAT_FAT_G, CHOLESTEROL_MG, SOLUBLE_FIBER_G, OMEGA3_G,
-  ADDED_SUGAR_G, SODIUM_MG, POTASSIUM_MG, PHOSPHORUS_MG, IODINE_MCG). No keyword tables
+  SUGAR_G, SODIUM_MG, POTASSIUM_MG, PHOSPHORUS_MG, IODINE_MCG). No keyword tables
   (ai-judgment-not-regex).
 - Precedence: clinic-set = HARD (AI may not revise; patient may not edit — view only).
   Phase 2 adds AI-proposed (solo) and user-added soft slots; v1 is clinic-only.

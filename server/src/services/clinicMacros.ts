@@ -12,7 +12,7 @@ import {
 import { ClinicError, getOverlayForMentor, getOverlayForPatient, type ClinicOverlay } from './clinicOverlay.js';
 import { proposeClinicMacroOrder } from './geminiClinic.js';
 import { normalizePlateCollection, type PlateCollection } from './plateCollections.js';
-import { saveMarkersForPatient, type TreatmentMarker } from './treatmentMarkers.js';
+import { markerKcalPerGram, saveMarkersForPatient, type TreatmentMarker } from './treatmentMarkers.js';
 import { stripLegacyMacroTargetFromLatestBlob } from './sync.js';
 import { createHash } from 'crypto';
 
@@ -751,7 +751,8 @@ export async function rebuildMacrosFromRulesForPatient(
       let dailyTarget = Number(m.dailyTarget);
       if (m.percentOfEnergy != null && m.percentOfEnergy > 0) {
         // Grams fallback at kcal order (compat) — phone resolves live from kcal eaten.
-        const fromPct = round1((m.percentOfEnergy / 100) * kcalBase / 9);
+        const kcalPerG = markerKcalPerGram(m.marker) ?? 9;
+        const fromPct = round1((m.percentOfEnergy / 100) * kcalBase / kcalPerG);
         if (!Number.isFinite(dailyTarget) || dailyTarget <= 0) dailyTarget = fromPct;
       }
       if (!Number.isFinite(dailyTarget) || dailyTarget <= 0) continue;
@@ -789,8 +790,13 @@ export async function rebuildMacrosFromRulesForPatient(
     }));
     try {
       await saveMarkersForPatient(mentor, patientId, merged);
-    } catch {
+    } catch (err) {
       // Marker upsert must not undo a successful macros write.
+      console.warn(
+        '[clinicMacros] marker upsert after rules rebuild failed',
+        patientId,
+        err instanceof Error ? err.message : err,
+      );
     }
   }
 

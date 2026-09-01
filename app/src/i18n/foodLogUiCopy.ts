@@ -207,11 +207,12 @@ const EN: FoodLogUiCopy = {
   activityNotCounted: (base) => `${base} — no activity measured today`,
   percentOfTarget: (percent, base) => `${percent}% of ${base}`,
   clinicOrder: 'Clinic order',
+  // Meter column only — keep ≤ ~8 Latin glyphs so the track can stay long (prompt119).
   barProtein: 'Protein',
   barCarb: 'Carbs',
   barFat: 'Fat',
   barFiber: 'Fiber',
-  barNetCarb: 'Net carbs',
+  barNetCarb: 'Net carb',
 };
 
 const HE: FoodLogUiCopy = {
@@ -392,11 +393,11 @@ const ES: FoodLogUiCopy = {
   activityNotCounted: (base) => `${base} — hoy sin actividad medida`,
   percentOfTarget: (percent, base) => `${percent}% de ${base}`,
   clinicOrder: 'Indicación de la clínica',
-  barProtein: 'Proteína',
+  barProtein: 'Prot.',
   barCarb: 'Carbos',
   barFat: 'Grasa',
   barFiber: 'Fibra',
-  barNetCarb: 'Carbos netos',
+  barNetCarb: 'Netos',
 };
 
 const FR: FoodLogUiCopy = {
@@ -486,11 +487,11 @@ const FR: FoodLogUiCopy = {
   activityNotCounted: (base) => `${base} — aucune activité mesurée aujourd’hui`,
   percentOfTarget: (percent, base) => `${percent}% de ${base}`,
   clinicOrder: 'Consigne de la clinique',
-  barProtein: 'Protéines',
+  barProtein: 'Prot.',
   barCarb: 'Glucides',
   barFat: 'Lipides',
   barFiber: 'Fibres',
-  barNetCarb: 'Glucides nets',
+  barNetCarb: 'Gluc. nets',
 };
 
 const DE: FoodLogUiCopy = {
@@ -673,10 +674,10 @@ const AR: FoodLogUiCopy = {
   percentOfTarget: (percent, base) => `${percent}% من ${base}`,
   clinicOrder: 'توجيه العيادة',
   barProtein: 'بروتين',
-  barCarb: 'كربوهيدرات',
+  barCarb: 'كربو',
   barFat: 'دهون',
   barFiber: 'ألياف',
-  barNetCarb: 'صافي الكربو',
+  barNetCarb: 'صافي كربو',
 };
 
 const RU: FoodLogUiCopy = {
@@ -767,10 +768,10 @@ const RU: FoodLogUiCopy = {
   percentOfTarget: (percent, base) => `${percent}% от ${base}`,
   clinicOrder: 'Назначение клиники',
   barProtein: 'Белки',
-  barCarb: 'Углеводы',
+  barCarb: 'Углев.',
   barFat: 'Жиры',
-  barFiber: 'Клетчатка',
-  barNetCarb: 'Чистые угл.',
+  barFiber: 'Клетч.',
+  barNetCarb: 'Чист. угл.',
 };
 
 const PT: FoodLogUiCopy = {
@@ -860,11 +861,11 @@ const PT: FoodLogUiCopy = {
   activityNotCounted: (base) => `${base} — hoje sem atividade medida`,
   percentOfTarget: (percent, base) => `${percent}% de ${base}`,
   clinicOrder: 'Orientação da clínica',
-  barProtein: 'Proteína',
-  barCarb: 'Carboidratos',
+  barProtein: 'Prot.',
+  barCarb: 'Carbos',
   barFat: 'Gordura',
   barFiber: 'Fibra',
-  barNetCarb: 'Carb. líquidos',
+  barNetCarb: 'Carb. líq.',
 };
 
 const IT: FoodLogUiCopy = {
@@ -954,8 +955,8 @@ const IT: FoodLogUiCopy = {
   activityNotCounted: (base) => `${base} — oggi nessuna attività misurata`,
   percentOfTarget: (percent, base) => `${percent}% di ${base}`,
   clinicOrder: 'Indicazione della clinica',
-  barProtein: 'Proteine',
-  barCarb: 'Carboidrati',
+  barProtein: 'Prot.',
+  barCarb: 'Carboidr.',
   barFat: 'Grassi',
   barFiber: 'Fibre',
   barNetCarb: 'Carb. netti',
@@ -1049,10 +1050,10 @@ const TR: FoodLogUiCopy = {
   percentOfTarget: (percent, base) => `%${percent} · ${base}`,
   clinicOrder: 'Klinik talimatı',
   barProtein: 'Protein',
-  barCarb: 'Karbonhidrat',
+  barCarb: 'Karb.',
   barFat: 'Yağ',
   barFiber: 'Lif',
-  barNetCarb: 'Net karbonh.',
+  barNetCarb: 'Net karb.',
 };
 
 const BY_CODE: Record<string, FoodLogUiCopy> = {

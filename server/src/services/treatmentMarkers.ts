@@ -152,6 +152,25 @@ async function seedDietMarkerCatalogOnce(): Promise<void> {
       ],
     );
   }
+  // ADDED_SUGAR_G → SUGAR_G (simple sugars). Drop legacy catalog row after overlay rewrite.
+  await query(
+    `UPDATE clinic_org_overlays
+     SET markers_json = replace(markers_json::text, 'ADDED_SUGAR_G', 'SUGAR_G')::jsonb,
+         updated_at = NOW()
+     WHERE markers_json::text LIKE '%ADDED_SUGAR_G%'`,
+  );
+  await query(`DELETE FROM diet_marker_catalog WHERE code = 'ADDED_SUGAR_G'`);
+}
+
+/** kcal/g for percent-of-energy markers (sat fat 9, simple sugar 4). */
+export function markerKcalPerGram(code: string): number | null {
+  if (code === 'SAT_FAT_G') return 9;
+  if (code === 'SUGAR_G') return 4;
+  return null;
+}
+
+export function markerAllowsPercentOfEnergy(code: string): boolean {
+  return markerKcalPerGram(code) != null;
 }
 
 export async function listDietMarkerCatalog(): Promise<DietMarkerCatalogRow[]> {
@@ -341,7 +360,8 @@ export async function normalizeTreatmentMarkers(
   const seen = new Set<string>();
   const out: TreatmentMarker[] = [];
   for (const row of input) {
-    const code = String(row?.marker || '').trim().toUpperCase();
+    let code = String(row?.marker || '').trim().toUpperCase();
+    if (code === 'ADDED_SUGAR_G') code = 'SUGAR_G';
     const meta = catalog.get(code);
     if (!meta) {
       throw new ClinicError(`Unknown marker code: ${row?.marker}`, 400);
@@ -380,9 +400,9 @@ export async function normalizeTreatmentMarkers(
       if (row.ofEnergy !== 'kcal_eaten') {
         throw new ClinicError(`ofEnergy must be kcal_eaten for percent marker ${code}`, 400);
       }
-      // Until catalog.kcal_per_gram ships: only sat fat may be % of energy.
-      if (code !== 'SAT_FAT_G') {
-        throw new ClinicError(`${code}: percent of energy is only allowed for SAT_FAT_G`, 400);
+      // Percent-of-energy: sat fat (9 kcal/g) and simple sugars (4 kcal/g).
+      if (!markerAllowsPercentOfEnergy(code)) {
+        throw new ClinicError(`${code}: percent of energy is not allowed for this marker`, 400);
       }
       markerRow.percentOfEnergy = Math.round(pct * 10) / 10;
       markerRow.ofEnergy = 'kcal_eaten';

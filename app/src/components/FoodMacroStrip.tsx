@@ -32,6 +32,7 @@ import { getBurnCorrection, setBurnCorrection } from '../services/BurnCorrection
 import { getDailyMacros, foodLogDayKey, exportFoodLog, importFoodLog, dayMarkerTotals, type DailyMacros, type FoodEntry } from '../services/FoodLogService';
 import {
   loadTreatmentMarkers,
+  markerKcalPerGram,
   markersForDay,
   type TreatmentMarker,
 } from '../services/TreatmentMarkerService';
@@ -1085,9 +1086,10 @@ export const FoodMacroStrip = forwardRef<FoodMacroStripHandle, Props>(function F
                   const val = markerDayTotals[m.marker];
                   const hasVal = val != null && Number.isFinite(val);
                   const eatenKcal = macros?.kcal ?? 0;
+                  const kcalPerG = markerKcalPerGram(m.marker) ?? 9;
                   const pctTarget =
                     m.percentOfEnergy != null && m.ofEnergy === 'kcal_eaten' && eatenKcal > 0
-                      ? Math.round((m.percentOfEnergy / 100) * eatenKcal / 9 * 10) / 10
+                      ? Math.round((m.percentOfEnergy / 100) * eatenKcal / kcalPerG * 10) / 10
                       : m.dailyTarget;
                   const isFloor = m.direction === 'floor';
                   const clinicMarkerSigns = clinicMeters.length > 0;
