@@ -299,20 +299,124 @@
       }
 
       .catalog-layout {
-        display: grid;
-        grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
+        display: flex;
+        flex-direction: column;
         gap: 14px;
-        align-items: start;
+      }
+      .catalog-table-wrap {
+        overflow-x: auto;
+        max-height: min(52vh, 520px);
+        overflow-y: auto;
+      }
+      .catalog-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+        table-layout: fixed;
+      }
+      .catalog-table th,
+      .catalog-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: middle;
+      }
+      .catalog-table th {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        font-weight: 700;
+        background: var(--surface-2);
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+      .catalog-table tbody tr:hover {
+        background: color-mix(in srgb, var(--accent-light) 55%, transparent);
+      }
+      .catalog-table tbody tr.cat-row-editing {
+        background: color-mix(in srgb, var(--accent-light) 80%, transparent);
+      }
+      .catalog-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+      .catalog-table .col-code {
+        width: 9.5rem;
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 0.82rem;
+      }
+      .catalog-table .col-label {
+        width: auto;
+      }
+      .catalog-table .col-meta {
+        width: 4.5rem;
+        white-space: nowrap;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+      .catalog-table .col-hint {
+        width: 5.5rem;
+        white-space: nowrap;
+        text-align: right;
+      }
+      .catalog-table .col-act {
+        width: 4.25rem;
+        text-align: right;
+      }
+      .cat-label-en {
+        display: block;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+      .cat-label-he {
+        display: block;
+        font-size: 0.82rem;
+        color: var(--muted);
+        line-height: 1.3;
+        margin-top: 2px;
+      }
+      .cat-hint-ok {
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+      .cat-edit {
+        cursor: pointer;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 5px 10px;
+        font: inherit;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--accent-ink, var(--accent, #1f4b99));
+        white-space: nowrap;
+      }
+      .cat-edit:hover {
+        background: var(--accent-light);
+        border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+      }
+      .cat-missing-banner {
+        margin: 0;
+        padding: 10px 18px;
+        border-bottom: 1px solid var(--line);
+        font-size: 0.85rem;
+      }
+      .catalog-form-card .admin-card-head h2#catalog-form-title {
+        margin: 0;
       }
       .catalog-form {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px 14px;
         padding: 16px 18px 18px;
         align-items: end;
       }
       .catalog-form .field-wide {
         grid-column: 1 / -1;
+      }
+      .catalog-form .field-span-2 {
+        grid-column: span 2;
       }
       .catalog-form label {
         display: flex;
@@ -326,9 +430,23 @@
       .catalog-form .portal-select {
         margin: 0;
       }
-      .catalog-form .portal-btn {
-        margin: 0;
+      .cat-actions {
         grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        padding-top: 4px;
+      }
+      .cat-actions .portal-btn {
+        margin: 0;
+        width: auto;
+        min-width: 9rem;
+      }
+      .catalog-form .cat-cancel {
+        background: transparent;
+        border: 1px solid var(--line, #d8dee9);
+        color: var(--muted);
       }
       .catalog-status {
         margin: 0;
@@ -340,33 +458,15 @@
         font: inherit;
         line-height: 1.45;
         resize: vertical;
+        min-height: 7rem;
       }
       .cat-count {
         font-size: 0.75rem;
-      }
-      .catalog-form .cat-cancel {
-        background: transparent;
-        border: 1px solid var(--line, #d8dee9);
-        color: var(--muted);
-      }
-      .cat-guidance {
-        max-width: 30ch;
-        font-size: 0.8rem;
-        color: var(--muted);
       }
       /* A marker with no guidance sends Gemini a bare field name — make it impossible to miss. */
       .cat-missing {
         color: #b42318;
         font-weight: 600;
-      }
-      .cat-edit {
-        cursor: pointer;
-        background: none;
-        border: 0;
-        padding: 0;
-        font: inherit;
-        color: var(--accent, #1f4b99);
-        text-decoration: underline;
       }
 
       .admin-mobile-nav {
@@ -400,8 +500,11 @@
         .admin-side-foot .portal-btn {
           width: auto;
         }
-        .catalog-layout {
-          grid-template-columns: 1fr;
+        .catalog-form {
+          grid-template-columns: 1fr 1fr;
+        }
+        .catalog-form .field-span-2 {
+          grid-column: 1 / -1;
         }
         .admin-main {
           padding: 16px 14px 32px;
@@ -556,10 +659,10 @@
               </div>
               <div class="admin-card-body" id="catalog-body"></div>
             </div>
-            <div class="admin-card">
+            <div class="admin-card catalog-form-card">
               <div class="admin-card-head">
-                <h2>Add nutrient</h2>
-                <p>Invent codes here — never in the clinic portal.</p>
+                <h2 id="catalog-form-title">Add nutrient</h2>
+                <p id="catalog-form-lead">Invent codes here — never in the clinic portal.</p>
               </div>
               <form id="catalog-form" class="catalog-form">
                 <label>
@@ -589,11 +692,11 @@
                     <option value="cap">cap</option>
                   </select>
                 </label>
-                <label>
+                <label class="field-span-2">
                   Label (EN)
                   <input id="cat-en" class="portal-input" type="text" maxlength="80" dir="ltr" required />
                 </label>
-                <label class="field-wide">
+                <label>
                   Label (HE)
                   <input id="cat-he" class="portal-input" type="text" maxlength="80" dir="rtl" />
                 </label>
@@ -623,10 +726,12 @@
                   ></textarea>
                   <span id="cat-hint-count" class="muted cat-count"></span>
                 </label>
-                <button id="cat-add" class="portal-btn" type="submit">Add to catalog</button>
-                <button id="cat-cancel" class="portal-btn cat-cancel" type="button" hidden>
-                  Cancel edit
-                </button>
+                <div class="cat-actions">
+                  <button id="cat-add" class="portal-btn" type="submit">Add to catalog</button>
+                  <button id="cat-cancel" class="portal-btn cat-cancel" type="button" hidden>
+                    Cancel edit
+                  </button>
+                </div>
               </form>
               <p id="catalog-status" class="muted catalog-status" role="status"></p>
             </div>
@@ -900,21 +1005,20 @@
         el.innerHTML = `
           ${
             missing
-              ? `<p class="cat-missing" style="padding:0 18px">${missing} marker${
+              ? `<p class="cat-missing cat-missing-banner">${missing} marker${
                   missing === 1 ? '' : 's'
                 } with no guidance — Gemini estimates those from the field name alone.</p>`
               : ''
           }
-          <table class="usage-table">
+          <div class="catalog-table-wrap">
+          <table class="catalog-table">
             <thead><tr>
-              <th>Code</th>
-              <th>Unit</th>
-              <th>Default</th>
-              <th>kcal/g</th>
-              <th class="admin-name">EN</th>
-              <th class="admin-name">HE</th>
-              <th>Guidance</th>
-              <th></th>
+              <th class="col-code">Code</th>
+              <th class="col-label">Label</th>
+              <th class="col-meta">Dir</th>
+              <th class="col-meta">kcal/g</th>
+              <th class="col-hint">Guidance</th>
+              <th class="col-act"></th>
             </tr></thead>
             <tbody>
               ${rows
@@ -922,29 +1026,31 @@
                   const en = (r.labels && r.labels.en && r.labels.en.full) || '';
                   const he = (r.labels && r.labels.he && r.labels.he.full) || '';
                   const hint = String(r.estimateGuidance || '').trim();
+                  const hintLen = hint.length;
                   const hintCell = hint
-                    ? `<span title="${escHtml(hint)}">${escHtml(
-                        hint.length > 70 ? hint.slice(0, 70) + '…' : hint,
-                      )}</span>`
+                    ? `<span class="cat-hint-ok">${hintLen} chars</span>`
                     : '<span class="cat-missing">missing</span>';
-                  return `<tr>
-                    <td class="admin-cell" dir="ltr">${escHtml(r.code)}</td>
-                    <td class="admin-cell">${escHtml(r.unit)}</td>
-                    <td class="admin-cell">${escHtml(r.defaultDirection)}</td>
-                    <td class="admin-cell" dir="ltr">${
+                  const editing = CATALOG_EDIT_CODE === r.code ? ' cat-row-editing' : '';
+                  return `<tr class="${editing}" data-code="${escHtml(r.code)}">
+                    <td class="col-code" dir="ltr">${escHtml(r.code)}</td>
+                    <td class="col-label">
+                      <span class="cat-label-en" dir="ltr">${escHtml(en || '—')}</span>
+                      ${he ? `<span class="cat-label-he" dir="rtl">${escHtml(he)}</span>` : ''}
+                    </td>
+                    <td class="col-meta">${escHtml(r.defaultDirection)}</td>
+                    <td class="col-meta" dir="ltr">${
                       r.kcalPerGram == null ? '—' : escHtml(r.kcalPerGram)
                     }</td>
-                    <td class="admin-name"><span dir="ltr">${escHtml(en)}</span></td>
-                    <td class="admin-name"><span dir="rtl">${escHtml(he)}</span></td>
-                    <td class="admin-cell cat-guidance">${hintCell}</td>
-                    <td class="admin-cell">
+                    <td class="col-hint">${hintCell}</td>
+                    <td class="col-act">
                       <button type="button" class="cat-edit" data-code="${escHtml(r.code)}">Edit</button>
                     </td>
                   </tr>`;
                 })
                 .join('')}
             </tbody>
-          </table>`;
+          </table>
+          </div>`;
         el.querySelectorAll('.cat-edit').forEach((btn) => {
           btn.addEventListener('click', () => startCatalogEdit(btn.dataset.code));
         });
@@ -957,12 +1063,21 @@
       function setCatalogFormMode(row) {
         CATALOG_EDIT_CODE = row ? row.code : null;
         const editing = Boolean(row);
+        const title = document.getElementById('catalog-form-title');
+        const lead = document.getElementById('catalog-form-lead');
+        if (title) title.textContent = editing ? 'Edit ' + row.code : 'Add nutrient';
+        if (lead) {
+          lead.textContent = editing
+            ? 'Guidance text is what Gemini reads when estimating meals. Saving marks this row admin-edited — deploy will not overwrite it.'
+            : 'Invent codes here — never in the clinic portal.';
+        }
         document.getElementById('cat-code').disabled = editing;
         document.getElementById('cat-unit').disabled = editing;
-        document.getElementById('cat-add').textContent = editing
-          ? 'Save ' + row.code
-          : 'Add to catalog';
+        document.getElementById('cat-add').textContent = editing ? 'Save changes' : 'Add to catalog';
         document.getElementById('cat-cancel').hidden = !editing;
+        document.querySelectorAll('.catalog-table tbody tr').forEach((tr) => {
+          tr.classList.toggle('cat-row-editing', tr.dataset.code === CATALOG_EDIT_CODE);
+        });
       }
 
       function startCatalogEdit(code) {
@@ -980,6 +1095,7 @@
         updateHintCount();
         setCatalogFormMode(row);
         document.getElementById('cat-hint').focus();
+        document.getElementById('catalog-form')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
 
       function resetCatalogForm() {
