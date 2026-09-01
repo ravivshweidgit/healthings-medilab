@@ -22,8 +22,6 @@ export type ClinicLinkCopy = {
   mentorWeb: string;
   lastShared: string;
   neverShared: string;
-  dailyShareTitle: string;
-  dailyShareHint: string;
   sponsored: string;
   sponsoredUntil: string;
   sponsorshipExpired: string;
@@ -46,7 +44,7 @@ export type ClinicLinkCopy = {
 const EN: ClinicLinkCopy = {
   subtitle: 'Who can see your data — optional.',
   clinicSyncHint:
-    'After you tap Share, your clinic can pick it up from the server — even if you close the app. Opening the app also uploads when they ask for an update.',
+    'While a clinic is linked, one update goes out the first time you open the app each day. Tap Share anytime for an immediate upload (including meal photos). Stop sharing removes access.',
   emailPh: 'clinic@example.com',
   send: 'Send request',
   waiting: 'Waiting for approval',
@@ -62,10 +60,7 @@ const EN: ClinicLinkCopy = {
   noShares: 'No one on the list — the app works fine without sharing.',
   mentorWeb: 'Clinic account: patients and AI sponsorship live at healthings.ai/clinic',
   lastShared: 'Last shared',
-  neverShared: 'Nothing uploaded yet — tap Share, or wait if your clinic asked for an update.',
-  dailyShareTitle: 'Daily update to your clinic',
-  dailyShareHint:
-    'Sends one update the first time you open the app each day, so your clinic sees the whole week instead of only the last upload. Off: they see what you tap Share for, or what they ask for.',
+  neverShared: 'Nothing uploaded yet — open the app once while linked, or tap Share.',
   sponsored: 'AI sponsored by',
   sponsoredUntil: 'until',
   sponsorshipExpired: 'AI sponsorship ended',
@@ -93,7 +88,7 @@ const EN: ClinicLinkCopy = {
 const HE: ClinicLinkCopy = {
   subtitle: 'מי יוכל לראות את הנתונים שלכם — לא חובה.',
   clinicSyncHint:
-    'אחרי שתלחצו שתפו, הקליניקה יכולה לאסוף מהשרת — גם אם סוגרים את האפליקציה. כשפותחים אותה שוב, היא גם מעלה אם הקליניקה ביקשה עדכון.',
+    'כשקליניקה מקושרת, עדכון אחד יוצא בפעם הראשונה שפותחים את האפליקציה בכל יום. שתפו — להעלאה מיידית (כולל צילומי ארוחות). הפסקת שיתוף מורידה גישה.',
   emailPh: 'clinic@example.com',
   send: 'שלחו בקשה',
   waiting: 'ממתינים לאישור',
@@ -109,10 +104,7 @@ const HE: ClinicLinkCopy = {
   noShares: 'אין אף אחד ברשימה — האפליקציה עובדת גם בלי שיתוף.',
   mentorWeb: 'חשבון קליניקה: מטופלים וחסויות AI ב־healthings.ai/clinic',
   lastShared: 'שותף לאחרונה',
-  neverShared: 'עדיין לא הועלה — לחצו שתפו, או המתינו אם הקליניקה ביקשה עדכון.',
-  dailyShareTitle: 'עדכון יומי לקליניקה',
-  dailyShareHint:
-    'שולח עדכון אחד בפעם הראשונה שפותחים את האפליקציה כל יום, כדי שהקליניקה תראה את כל השבוע ולא רק את מה שהועלה לאחרונה. כשכבוי — היא רואה מה ששיתפתם או מה שביקשה.',
+  neverShared: 'עדיין לא הועלה — פתחו את האפליקציה פעם אחת כשמקושרים, או לחצו שתפו.',
   sponsored: 'AI בחסות',
   sponsoredUntil: 'עד',
   sponsorshipExpired: 'חסות ה־AI הסתיימה',
@@ -141,7 +133,7 @@ const ES: ClinicLinkCopy = {
   ...EN,
   subtitle: 'Quién puede ver tus datos — opcional.',
   clinicSyncHint:
-    'Cuando tocas Compartir, la clínica lo recoge del servidor — aunque cierres la app. Al abrirla también se sube si piden una actualización.',
+    'Con una clínica vinculada, se envía una actualización la primera vez que abres la app cada día. Toca Compartir para subir al momento (incluidas fotos de comidas). Dejar de compartir quita el acceso.',
   send: 'Enviar solicitud',
   waiting: 'Esperando aprobación',
   invited: 'te invitó a compartir',
@@ -156,10 +148,7 @@ const ES: ClinicLinkCopy = {
   noShares: 'Nadie en la lista — la app funciona bien sin compartir.',
   mentorWeb: 'Cuenta de clínica: pacientes y patrocinio AI en healthings.ai/clinic',
   lastShared: 'Último envío',
-  neverShared: 'Aún no hay envío — toca Compartir, o espera si la clínica pidió una actualización.',
-  dailyShareTitle: 'Actualización diaria a tu clínica',
-  dailyShareHint:
-    'Envía una actualización la primera vez que abres la app cada día, así tu clínica ve la semana completa y no solo el último envío. Apagado: ve lo que compartes tú o lo que pide.',
+  neverShared: 'Aún no hay envío — abre la app una vez estando vinculado, o toca Compartir.',
   sponsored: 'AI patrocinado por',
   sponsoredUntil: 'hasta',
   sponsorshipExpired: 'El patrocinio de AI terminó',
@@ -188,7 +177,7 @@ const FR: ClinicLinkCopy = {
   ...EN,
   subtitle: 'Qui peut voir vos données — facultatif.',
   clinicSyncHint:
-    'Après Partager, le cabinet peut récupérer depuis le serveur — même si vous fermez l’app. À la réouverture, elle envoie aussi si le cabinet demande une mise à jour.',
+    'Clinique liée : une mise à jour part à la première ouverture de l’app chaque jour. Touchez Partager pour un envoi immédiat (photos de repas incluses). Arrêter le partage retire l’accès.',
   send: 'Envoyer la demande',
   waiting: 'En attente d’accord',
   invited: 'vous invite à partager',
@@ -203,10 +192,7 @@ const FR: ClinicLinkCopy = {
   noShares: 'Personne sur la liste — l’app marche très bien sans partage.',
   mentorWeb: 'Compte cabinet : patients et parrainage AI sur healthings.ai/clinic',
   lastShared: 'Dernier envoi',
-  neverShared: 'Rien d’envoyé — touchez Partager, ou attendez si le cabinet a demandé une mise à jour.',
-  dailyShareTitle: 'Mise à jour quotidienne au cabinet',
-  dailyShareHint:
-    'Envoie une mise à jour à la première ouverture de l’app chaque jour, pour que le cabinet voie toute la semaine et pas seulement le dernier envoi. Désactivé : il voit ce que vous partagez ou ce qu’il demande.',
+  neverShared: 'Rien d’envoyé — ouvrez l’app une fois en étant lié, ou touchez Partager.',
   sponsored: 'AI pris en charge par',
   sponsoredUntil: 'jusqu’au',
   sponsorshipExpired: 'Le parrainage AI est terminé',
@@ -235,7 +221,7 @@ const DE: ClinicLinkCopy = {
   ...EN,
   subtitle: 'Wer Ihre Daten sehen darf — freiwillig.',
   clinicSyncHint:
-    'Nach Teilen kann die Praxis es vom Server holen — auch wenn Sie die App schließen. Beim Öffnen lädt sie auch hoch, wenn die Praxis ein Update anfordert.',
+    'Mit verknüpfter Praxis geht einmal täglich beim ersten App-Start ein Update raus. Teilen tippt für sofortigen Upload (inkl. Mahlzeitfotos). Teilen beenden entzieht den Zugang.',
   send: 'Anfrage senden',
   waiting: 'Wartet auf Freigabe',
   invited: 'lädt Sie zum Teilen ein',
@@ -250,10 +236,7 @@ const DE: ClinicLinkCopy = {
   noShares: 'Niemand auf der Liste — die App läuft auch ohne Teilen.',
   mentorWeb: 'Praxis-Konto: Patienten und AI-Sponsoring unter healthings.ai/clinic',
   lastShared: 'Zuletzt geteilt',
-  neverShared: 'Noch nichts hochgeladen — tippen Sie Teilen, oder warten Sie, wenn die Praxis ein Update angefordert hat.',
-  dailyShareTitle: 'Täglicher Stand für die Praxis',
-  dailyShareHint:
-    'Sendet einmal täglich beim ersten Öffnen der App einen Stand, damit die Praxis die ganze Woche sieht und nicht nur den letzten Upload. Aus: Sie sieht, was Sie teilen oder was sie anfordert.',
+  neverShared: 'Noch nichts hochgeladen — App einmal öffnen wenn verknüpft, oder Teilen tippen.',
   sponsored: 'AI gesponsert von',
   sponsoredUntil: 'bis',
   sponsorshipExpired: 'AI-Sponsoring beendet',
@@ -282,7 +265,7 @@ const AR: ClinicLinkCopy = {
   ...EN,
   subtitle: 'من يمكنه رؤية بياناتكم — اختياري.',
   clinicSyncHint:
-    'بعد مشاركة، تستطيع العيادة جمعها من الخادم — حتى بعد إغلاق التطبيق. عند فتحه يُرفع أيضًا إذا طلبت العيادة تحديثًا.',
+    'مع عيادة مرتبطة، يُرسل تحديث واحد عند أول فتح للتطبيق كل يوم. اضغطوا مشاركة للرفع فورًا (بما فيها صور الوجبات). إيقاف المشاركة يلغي الوصول.',
   send: 'أرسلوا الطلب',
   waiting: 'بانتظار الموافقة',
   invited: 'دعتكم للمشاركة',
@@ -297,10 +280,7 @@ const AR: ClinicLinkCopy = {
   noShares: 'لا أحد في القائمة — التطبيق يعمل جيدًا بلا مشاركة.',
   mentorWeb: 'حساب العيادة: المرضى ورعاية AI على healthings.ai/clinic',
   lastShared: 'آخر مشاركة',
-  neverShared: 'لم يُرفع شيء بعد — اضغطوا شاركوا، أو انتظروا إذا طلبت العيادة تحديثًا.',
-  dailyShareTitle: 'تحديث يومي للعيادة',
-  dailyShareHint:
-    'يرسل تحديثًا واحدًا عند أول فتح للتطبيق كل يوم، لترى العيادة الأسبوع كاملًا لا آخر رفعة فقط. عند الإيقاف: ترى ما تشاركونه أو ما تطلبه.',
+  neverShared: 'لم يُرفع شيء بعد — افتحوا التطبيق مرة واحدة وأنتم مرتبطون، أو اضغطوا مشاركة.',
   sponsored: 'AI برعاية',
   sponsoredUntil: 'حتى',
   sponsorshipExpired: 'انتهت رعاية AI',
@@ -329,7 +309,7 @@ const RU: ClinicLinkCopy = {
   ...EN,
   subtitle: 'Кто видит ваши данные — по желанию.',
   clinicSyncHint:
-    'После «Поделиться» клиника заберёт снимок с сервера — даже если закрыть приложение. При открытии оно тоже отправит, если клиника запросила обновление.',
+    'При привязанной клинике раз в день при первом открытии приложения уходит одно обновление. «Поделиться» — сразу (включая фото еды). Отзыв доступа прекращает отправку.',
   send: 'Отправить запрос',
   waiting: 'Ждём подтверждения',
   invited: 'пригласила вас поделиться',
@@ -344,10 +324,7 @@ const RU: ClinicLinkCopy = {
   noShares: 'В списке никого — приложение работает и без общего доступа.',
   mentorWeb: 'Аккаунт клиники: пациенты и спонсорство AI на healthings.ai/clinic',
   lastShared: 'Последняя отправка',
-  neverShared: 'Ещё ничего не загружено — нажмите «Поделиться» или подождите, если клиника запросила обновление.',
-  dailyShareTitle: 'Ежедневное обновление для клиники',
-  dailyShareHint:
-    'Отправляет одно обновление при первом открытии приложения каждый день, чтобы клиника видела всю неделю, а не только последнюю загрузку. Выключено: она видит то, что вы отправили, или то, что запросила.',
+  neverShared: 'Ещё ничего не загружено — откройте приложение раз при привязке или нажмите «Поделиться».',
   sponsored: 'AI спонсирует',
   sponsoredUntil: 'до',
   sponsorshipExpired: 'Спонсорство AI закончилось',
@@ -376,7 +353,7 @@ const PT: ClinicLinkCopy = {
   ...EN,
   subtitle: 'Quem pode ver os seus dados — opcional.',
   clinicSyncHint:
-    'Depois de Partilhar, a clínica recolhe no servidor — mesmo se fechar a app. Ao abrir, também envia se a clínica pediu uma atualização.',
+    'Com clínica ligada, vai um update na primeira abertura da app em cada dia. Partilhar envia já (inclui fotos das refeições). Parar de partilhar remove o acesso.',
   send: 'Enviar pedido',
   waiting: 'A aguardar aprovação',
   invited: 'convidou-o a partilhar',
@@ -391,10 +368,7 @@ const PT: ClinicLinkCopy = {
   noShares: 'Ninguém na lista — a app funciona bem sem partilhar.',
   mentorWeb: 'Conta da clínica: pacientes e patrocínio AI em healthings.ai/clinic',
   lastShared: 'Último envio',
-  neverShared: 'Ainda sem envio — toque em Partilhar, ou aguarde se a clínica pediu uma atualização.',
-  dailyShareTitle: 'Atualização diária para a clínica',
-  dailyShareHint:
-    'Envia uma atualização na primeira vez que abre a app em cada dia, para a clínica ver a semana toda e não só o último envio. Desligado: vê o que partilha ou o que pede.',
+  neverShared: 'Ainda sem envio — abra a app uma vez ligado, ou toque em Partilhar.',
   sponsored: 'AI patrocinado por',
   sponsoredUntil: 'até',
   sponsorshipExpired: 'O patrocínio AI terminou',
@@ -423,7 +397,7 @@ const IT: ClinicLinkCopy = {
   ...EN,
   subtitle: 'Chi può vedere i tuoi dati — facoltativo.',
   clinicSyncHint:
-    'Dopo Condividi, la clinica lo raccoglie dal server — anche se chiudi l’app. All’apertura carica anche se la clinica chiede un aggiornamento.',
+    'Con clinica collegata, un aggiornamento parte alla prima apertura dell’app ogni giorno. Condividi per l’invio immediato (anche foto pasti). Interrompere la condivisione toglie l’accesso.',
   send: 'Invia richiesta',
   waiting: 'In attesa di conferma',
   invited: 'ti ha invitato a condividere',
@@ -438,10 +412,7 @@ const IT: ClinicLinkCopy = {
   noShares: 'Nessuno in elenco — l’app funziona bene anche senza condividere.',
   mentorWeb: 'Account clinica: pazienti e sponsor AI su healthings.ai/clinic',
   lastShared: 'Ultimo invio',
-  neverShared: 'Ancora niente — tocca Condividi, o aspetta se la clinica ha chiesto un aggiornamento.',
-  dailyShareTitle: 'Aggiornamento giornaliero alla clinica',
-  dailyShareHint:
-    'Invia un aggiornamento alla prima apertura dell’app ogni giorno, così la clinica vede tutta la settimana e non solo l’ultimo invio. Spento: vede ciò che condividi o ciò che chiede.',
+  neverShared: 'Ancora niente — apri l’app una volta se collegato, o tocca Condividi.',
   sponsored: 'AI sponsorizzato da',
   sponsoredUntil: 'fino al',
   sponsorshipExpired: 'Sponsor AI terminato',
@@ -470,7 +441,7 @@ const TR: ClinicLinkCopy = {
   ...EN,
   subtitle: 'Verilerinizi kim görebilir — isteğe bağlı.',
   clinicSyncHint:
-    'Paylaş’a basınca klinik sunucudan alır — uygulamayı kapatsanız da. Açınca, klinik güncelleme istediyse yine yükler.',
+    'Klinik bağlıyken her gün uygulamayı ilk açışınızda bir güncelleme gider. Paylaş — anında yükleme (yemek fotoğrafları dahil). Paylaşımı durdurmak erişimi kaldırır.',
   send: 'İstek gönder',
   waiting: 'Onay bekleniyor',
   invited: 'sizi paylaşmaya davet etti',
@@ -485,10 +456,7 @@ const TR: ClinicLinkCopy = {
   noShares: 'Listede kimse yok — uygulama paylaşmadan da çalışır.',
   mentorWeb: 'Klinik hesabı: hastalar ve AI sponsorluğu healthings.ai/clinic',
   lastShared: 'Son paylaşım',
-  neverShared: 'Henüz yükleme yok — Paylaş’a dokunun veya klinik güncelleme istediyse bekleyin.',
-  dailyShareTitle: 'Kliniğe günlük güncelleme',
-  dailyShareHint:
-    'Her gün uygulamayı ilk açtığınızda tek bir güncelleme gönderir; böylece klinik son yükleme yerine tüm haftayı görür. Kapalıyken: sizin paylaştığınızı veya istediğini görür.',
+  neverShared: 'Henüz yükleme yok — bağlıyken uygulamayı bir kez açın veya Paylaş’a dokunun.',
   sponsored: 'AI sponsoru',
   sponsoredUntil: 'bitiş',
   sponsorshipExpired: 'AI sponsorluğu bitti',

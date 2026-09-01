@@ -9,23 +9,12 @@ import {
   Alert,
   Pressable,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import type { AuthUser } from '../services/AuthApiService';
-import {
-  pushDailyClinicSnapshot,
-  resetDailyPushThrottle,
-  shareSnapshotIfAnyConsumer,
-  shareSnapshotNow,
-} from '../services/ClinicSyncService';
-import {
-  clearClinicDailyShareDay,
-  isClinicDailyShareOn,
-  setClinicDailyShareOn,
-} from '../services/ClinicDailyShareService';
+import { shareSnapshotIfAnyConsumer, shareSnapshotNow } from '../services/ClinicSyncService';
 import {
   addTokenPack,
   approveShare,
@@ -74,8 +63,6 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
   const [lastSync, setLastSync] = useState<PublicSyncBlob | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [clinicShareEmail, setClinicShareEmail] = useState('');
-  const [dailyShareOn, setDailyShareOn] = useState(true);
-  const [dailyShareBusy, setDailyShareBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     if (user.role !== 'patient') return;
@@ -112,31 +99,6 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
   useEffect(() => {
     if (expanded) void refresh();
   }, [expanded, refresh]);
-
-  useEffect(() => {
-    if (user.role !== 'patient') return;
-    void isClinicDailyShareOn().then(setDailyShareOn);
-  }, [user.role]);
-
-  const handleDailyShareToggle = useCallback((next: boolean) => {
-    setDailyShareBusy(true);
-    setDailyShareOn(next);
-    void (async () => {
-      try {
-        await setClinicDailyShareOn(next);
-        if (next) {
-          // Do not make the clinic wait for tomorrow's first open.
-          await clearClinicDailyShareDay();
-          resetDailyPushThrottle();
-          await pushDailyClinicSnapshot();
-        }
-      } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : L.actionFailed);
-      } finally {
-        setDailyShareBusy(false);
-      }
-    })();
-  }, [L.actionFailed]);
 
   const run = useCallback(
     async (fn: () => Promise<void>) => {
@@ -288,19 +250,6 @@ export function ClinicLinkStrip({ user, expanded, onToggleExpand, lang }: Props)
                   : L.neverShared}
               </Text>
               <Text style={styles.hint}>{L.clinicSyncHint}</Text>
-              <View style={styles.toggleRow}>
-                <View style={styles.toggleText}>
-                  <Text style={styles.cardText}>{L.dailyShareTitle}</Text>
-                  <Text style={styles.hint}>{L.dailyShareHint}</Text>
-                </View>
-                <Switch
-                  value={dailyShareOn}
-                  onValueChange={handleDailyShareToggle}
-                  disabled={dailyShareBusy}
-                  trackColor={{ false: colors.gridLine, true: colors.accentGreen }}
-                  thumbColor="#fff"
-                />
-              </View>
             </View>
           ) : null}
 
@@ -460,15 +409,6 @@ const makeStyles = (c: ThemeColors, isDark: boolean) =>
     },
     cardText: { fontSize: 14, color: c.textPrimary },
     row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-    toggleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      borderTopWidth: 1,
-      borderTopColor: c.gridLine,
-      paddingTop: 10,
-    },
-    toggleText: { flex: 1, gap: 2 },
     btnPrimary: {
       backgroundColor: isDark ? c.background : '#2E7D5A',
       borderWidth: isDark ? 1 : 0,

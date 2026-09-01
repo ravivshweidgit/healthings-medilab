@@ -1,6 +1,6 @@
 prompt120 — Daily clinic snapshot (the missing week was a schedule, not a logging gap)
 
-Status: built 2026-09-01, phone-tested auto upload (1.2.47), portal 7/7 pending
+Status: shipped 1.2.48 (77) internal Play 2026-09-02; phone-tested auto upload + toggle removed
 Model: Opus 5 (privacy-promise wording + consent basis); the wiring itself is mechanical
 Builds on: be-15 (patient web view push), be-24 (clinic snapshot), prompt117 (lab sidecar)
 Related: be-55 (clinic macro trends report — the screen that exposed this)
@@ -40,15 +40,13 @@ trusting the screen — the one damage a later release cannot repair.
 | Preference + once-a-day marker | `app/src/services/ClinicDailyShareService.ts` (new) |
 | `pushDailyClinicSnapshot()` + `resetDailyPushThrottle()` | `app/src/services/ClinicSyncService.ts` |
 | Launch + foreground trigger | `app/src/screens/DashboardScreen.tsx` |
-| Patient toggle in the share card | `app/src/components/ClinicLinkStrip.tsx` |
-| `dailyShareTitle` / `dailyShareHint`, 10 locales | `app/src/i18n/clinicLinkCopy.ts` |
+| Hint copy (daily = linked clinic), 10 locales | `app/src/i18n/clinicLinkCopy.ts` |
 | Day marker excluded from export + backup | `ShareExportService.ts`, `LocalBackupService.ts` |
 
 ### Keys
 
 | Key | Travels in backup? | Why |
 |---|---|---|
-| `healthings:clinicDailyShare` (`'on' \| 'off'`, default on) | **Yes** | Patient preference |
 | `healthings:clinicDailySharedDay` (`YYYY-MM-DD`, local day) | **No** | A restored value would suppress the first push on a new phone |
 
 ### Rules the implementation follows
@@ -64,13 +62,11 @@ trusting the screen — the one damage a later release cannot repair.
 - **Turning the toggle on pushes immediately** (`clearClinicDailyShareDay` +
   `resetDailyPushThrottle`), so the clinic does not wait for tomorrow.
 
-### Consent basis — why default on
+### Consent basis
 
-An approved `account_shares` row is already the opt-in, and a clinician can pull
-the identical snapshot with Refresh at any time. This changes **when** it
-arrives, not **who** may read it. Revoking the share still stops everything, and
-the toggle is there for a patient who wants upload to stay manual. The hint says
-plainly what is sent, when, and what Off means.
+An approved `account_shares` row is the opt-in. Revoke stops all uploads. No separate
+daily toggle — linked clinic means daily push on first open; Share is for immediate
+upload + meal photos.
 
 ---
 
@@ -90,8 +86,7 @@ day count on Michal's report becomes a retention signal instead of an artifact.
 - [ ] Clinic macro report shows 7/7 days after refresh (not 3/7)
 - [ ] Second open the same day does **not** re-upload (marker holds)
 - [ ] Next calendar day, first open uploads once
-- [ ] Toggle off → no automatic upload; clinic Refresh still works
-- [ ] Toggle back on → uploads immediately, no waiting for tomorrow
+- [ ] Toggle off → **removed** — revoke share is the off switch
 - [ ] Airplane mode at first open → retries ~10 min later, same day
 - [ ] Hebrew RTL: title and hint read naturally in the share card, light + dark
 - [ ] Unlinked patient: no upload, no error

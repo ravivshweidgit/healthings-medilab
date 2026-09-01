@@ -17,7 +17,6 @@ import {
 } from './MealPhotoUpload';
 import {
   clinicDailySharePending,
-  isClinicDailyShareOn,
   markClinicDailyShareDone,
 } from './ClinicDailyShareService';
 
@@ -175,7 +174,6 @@ export async function pushDailyClinicSnapshot(): Promise<boolean> {
   const now = Date.now();
   if (now - lastDailyPushAttemptAt < DAILY_PUSH_RETRY_MS) return false;
   try {
-    if (!(await isClinicDailyShareOn())) return false;
     if (!(await clinicDailySharePending(now))) return false;
     const approved = await listShares('approved').catch(() => []);
     if (approved.length === 0) return false;
@@ -191,9 +189,4 @@ export async function pushDailyClinicSnapshot(): Promise<boolean> {
     console.warn('[ClinicSync] daily clinic push failed:', err);
     return false;
   }
-}
-
-/** Turning the daily update on should push now, not on the next launch. */
-export function resetDailyPushThrottle(): void {
-  lastDailyPushAttemptAt = 0;
 }
