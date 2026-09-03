@@ -55,6 +55,8 @@ import {
   saveWithingsHrSyncDiag,
 } from './withingsHrSyncDiag';
 import { syncPerfParallel, syncPerfTrack } from './SyncPerf';
+import { appLog } from './AppDailyLogService';
+import { isSqliteFullError } from './asyncStorageFull';
 
 /** Canonical AsyncStorage key for body + activity metrics (Withings + Health Connect). */
 export const METRICS_STORE_KEY = 'healthings:metricsStore';
@@ -70,6 +72,13 @@ export const WITHINGS_STORE_KEY = METRICS_STORE_KEY;
 
 /** Keep this many days of intraday HR/calories — matches deep sync window. */
 const MAX_INTRADAY_STORE_DAYS = METRICS_DEEP_LOOKBACK_DAYS;
+
+/**
+ * Fallback intraday windows when the storage DB reports full, tried in order.
+ * Both stay clear of `HR_THIN_COVERAGE_DAYS`: pruning below that makes the next
+ * sync deep-pull 128 days straight back into the cap.
+ */
+const EMERGENCY_INTRADAY_STORE_DAYS = [32, 14] as const;
 
 export type MetricsPersistedStore = {
   version: 1;
@@ -109,8 +118,11 @@ export function hasMetricsData(store: MetricsPersistedStore): boolean {
 /** @deprecated Use hasMetricsData */
 export const hasWithingsData = hasMetricsData;
 
-function trimIntradayHistory<T extends { timestamp: string }>(points: T[]): T[] {
-  const cutoffMs = Date.now() - MAX_INTRADAY_STORE_DAYS * 24 * 60 * 60 * 1000;
+function trimIntradayHistory<T extends { timestamp: string }>(
+  points: T[],
+  retainDays: number = MAX_INTRADAY_STORE_DAYS,
+): T[] {
+  const cutoffMs = Date.now() - retainDays * 24 * 60 * 60 * 1000;
   return points.filter((p) => {
     const ms = Date.parse(p.timestamp);
     return !Number.isNaN(ms) && ms >= cutoffMs;
@@ -586,13 +598,49 @@ export async function loadMetricsStore(): Promise<MetricsPersistedStore> {
 /** @deprecated Use loadMetricsStore */
 export const loadWithingsStore = loadMetricsStore;
 
+/**
+ * Persist the metrics store, shedding old intraday samples if the storage DB is
+ * at its cap. A dropped write costs the user their edit — a workout duration
+ * override was lost this way — while older HR/calorie resolution only shallows
+ * out wide `/N` reviews, and Withings can re-pull it.
+ */
 export async function saveMetricsStore(store: MetricsPersistedStore): Promise<void> {
   const trimmed: MetricsPersistedStore = {
     ...store,
     heartRate: trimIntradayHistory(store.heartRate),
     calories: trimIntradayHistory(store.calories),
   };
-  await AsyncStorage.setItem(METRICS_STORE_KEY, JSON.stringify(trimmed));
+  try {
+    await AsyncStorage.setItem(METRICS_STORE_KEY, JSON.stringify(trimmed));
+    return;
+  } catch (err) {
+    if (!isSqliteFullError(err)) throw err;
+  }
+
+  for (const retainDays of EMERGENCY_INTRADAY_STORE_DAYS) {
+    const emergency: MetricsPersistedStore = {
+      ...trimmed,
+      heartRate: trimIntradayHistory(trimmed.heartRate, retainDays),
+      calories: trimIntradayHistory(trimmed.calories, retainDays),
+    };
+    try {
+      await AsyncStorage.setItem(METRICS_STORE_KEY, JSON.stringify(emergency));
+      appLog('WARN', 'metrics/save_prune', {
+        hr_from_n: trimmed.heartRate.length,
+        hr_to_n: emergency.heartRate.length,
+        cal_from_n: trimmed.calories.length,
+        cal_to_n: emergency.calories.length,
+        retain_d: retainDays,
+      });
+      return;
+    } catch (err) {
+      if (!isSqliteFullError(err)) throw err;
+    }
+  }
+
+  throw new Error(
+    `AsyncStorage full: metrics store rejected even at ${EMERGENCY_INTRADAY_STORE_DAYS.at(-1)}d of intraday history`,
+  );
 }
 
 /**

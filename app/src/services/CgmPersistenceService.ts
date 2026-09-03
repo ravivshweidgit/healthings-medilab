@@ -19,6 +19,7 @@ import {
 import { healthConnectService, type RecentMetrics, type TimePoint } from './HealthConnectService';
 import { healthKitService } from './HealthKitService';
 import { appLog, flushAppLogWrites } from './AppDailyLogService';
+import { isSqliteFullError } from './asyncStorageFull';
 import { latestGlucosePoint, saveCgmSyncDiag } from './cgmSyncDiag';
 import { syncPerfTrack } from './SyncPerf';
 
@@ -69,11 +70,6 @@ function pruneCgmStore(store: CgmStore, retainDays: number): CgmStore {
     glucose: pruneGlucosePoints(store.glucose, retainDays),
     cgmSessionStarts: (store.cgmSessionStarts ?? []).filter((s) => s.startMs >= cutoff),
   };
-}
-
-function isSqliteFullError(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message : String(err ?? '');
-  return /SQLITE_FULL|database or disk is full/i.test(msg);
 }
 
 export async function loadCgmStore(): Promise<CgmStore | null> {
