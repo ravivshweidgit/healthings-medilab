@@ -330,7 +330,14 @@ function replaceHealthConnectWorkouts(
 
 /**
  * Apply getworkouts to the store.
- * - Short aborts tombstone by startMs.
+ * - Short API spans (<2 min): do **not** wipe a solid cached session at that
+ *   startMs. Withings often reports a short span mid-edit / after an on-watch
+ *   update; treating that as a tombstone made Gym/Nike-style sessions vanish
+ *   from the Activity Log while bike/walk chips stayed. Retain prior keepable
+ *   (same as zero-span incomplete rows). Only a full absence from the paginated
+ *   fetch deletes a session inside the lookback window.
+ * - Priors that the API also returns (same startMs) stay in the merge input so
+ *   `mergeWorkouts` can copy manualKcal / manualMinutes onto the fresh row.
  * - Incomplete API rows (seen, not keepable): retain prior keepable cache.
  * - Inside lookback and not seen at all: drop (paginated fetch is authoritative).
  * - Outside lookback: retain prior keepable.
@@ -345,9 +352,14 @@ function applyWithingsWorkoutsFetch(
   const hc = prev.filter((w) => w.source === 'health-connect');
   const retained = prev.filter((w) => {
     if (w.source === 'health-connect') return false;
-    if (abort.has(w.startMs)) return false;
-    if (apiStarts.has(w.startMs)) return false;
     if (!isKeepableWorkout(w)) return false;
+    // Keep priors that the API also returned — mergeWorkouts dedupes by startMs
+    // and copies manualKcal / manualMinutes onto the fresh row. Dropping them
+    // here wiped user duration/kcal fixes on every sync.
+    if (apiStarts.has(w.startMs)) return true;
+    // Short span after an edit: keep the solid prior until Withings returns a
+    // real keepable row or drops the startdate from the fetch entirely.
+    if (abort.has(w.startMs)) return true;
     // API still lists this start but without a usable span — keep our prior copy.
     if (seen.has(w.startMs)) return true;
     // Older than this fetch window — keep.

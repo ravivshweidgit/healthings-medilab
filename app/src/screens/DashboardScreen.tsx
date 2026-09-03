@@ -419,6 +419,7 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
     trendError,
     sync: syncWithings,
     refreshTodayIntraday,
+    adoptStore,
     hrSyncDiagLine,
   } = useWithingsData();
 
@@ -815,11 +816,14 @@ export const DashboardScreen = ({ user, onSignedOut }: DashboardScreenProps) => 
       startMs: number,
       override: { manualKcal?: number; manualMinutes?: number },
     ) => {
-      await updateWorkoutSessionOverride(startMs, override);
-      await refreshTodayIntraday();
+      const store = await updateWorkoutSessionOverride(startMs, override);
+      // Push override into React state immediately — refreshTodayIntraday can
+      // early-return without applyStore when today's HR/cal fetch is empty.
+      adoptStore(store);
       setActivityRefreshKey((k) => k + 1);
+      void refreshTodayIntraday();
     },
-    [refreshTodayIntraday],
+    [adoptStore, refreshTodayIntraday],
   );
 
   useEffect(() => {

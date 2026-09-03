@@ -1222,10 +1222,10 @@ type WithingsWorkoutsBody = {
 };
 type WithingsWorkoutsJson = { status: number; body?: WithingsWorkoutsBody; error?: string };
 
-/** Result of getworkouts — keepable sessions plus startMs tombstones for short aborts. */
+/** Result of getworkouts — keepable sessions plus startMs markers for short non-keepable spans. */
 export type WithingsWorkoutsFetch = {
   keepable: WorkoutSession[];
-  /** Positive duration under MIN — remove any cached session at this startMs. */
+  /** Positive duration under MIN — not keepable; store retains prior solid session at this startMs. */
   abortStartMs: number[];
   /** Every startdate seen in the API (including incomplete zero-span rows). */
   seenStartMs: number[];
@@ -1338,7 +1338,9 @@ function parseWorkoutSeriesRow(
  * recent rides (e.g. today's bike) are often missing when lookback is long.
  *
  * Note: Withings often returns calories:0 even for real sessions — do not drop on kcal.
- * Short positive durations (<2 min) are returned as abortStartMs so the store can purge them.
+ * Short positive durations (<2 min) are flagged in abortStartMs as "not keepable".
+ * The metrics store retains any prior solid session at that startMs (edit glitch);
+ * only absence from the paginated fetch removes a cached workout.
  * Zero-span rows (enddate === startdate) are seen but not keepable (retain prior if any).
  */
 export async function fetchWorkoutsHistory(

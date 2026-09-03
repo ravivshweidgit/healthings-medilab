@@ -170,6 +170,14 @@ export function useWithingsData() {
     return () => sub.remove();
   }, [refreshTodayIntraday]);
 
+  /** Push an already-loaded metrics store into React state (e.g. after a workout override). */
+  const adoptStore = useCallback(
+    (store: MetricsPersistedStore) => {
+      applyStore(store);
+    },
+    [applyStore],
+  );
+
   return {
     ...state,
     bodyScanLoading,
@@ -179,6 +187,7 @@ export function useWithingsData() {
     sync,
     reloadWithingsHistory,
     refreshTodayIntraday,
+    adoptStore,
     hrSyncDiag,
     hrSyncDiagLine: formatHrSyncDiagLine(hrSyncDiag),
   };
