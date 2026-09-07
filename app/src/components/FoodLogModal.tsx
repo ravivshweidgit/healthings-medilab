@@ -1,6 +1,6 @@
 /**
  * Food Log Modal — camera / text → Gemini AI → correction chat → save.
- * New meal: text or first photo auto-saves when clean, then closes (habit speed).
+ * AI fills the editor only; the meal is written only after the user taps Save.
  * Photo add/remove merge on existing meals still uses approve preview.
  */
 
@@ -11,6 +11,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Image,
   InteractionManager,
   KeyboardAvoidingView,
@@ -97,7 +98,7 @@ type PhotoSession = {
 type Props = {
   visible: boolean;
   onClose: () => void;
-  /** Refresh dashboard meal chips; await before closing so reopen sees committed JSON. Pass `{ close: false }` to keep the modal open (auto-save review). */
+  /** Refresh dashboard meal chips; await before closing so reopen sees committed JSON. */
   onSaved: (opts?: { close?: boolean }) => void | Promise<void>;
   initialTimestamp?: number;
   editEntry?: FoodEntry;
@@ -509,7 +510,6 @@ export function FoodLogModal({
   const [overrideSaveOnce, setOverrideSaveOnce] = useState(false);
   const [overrideSnapshotKey, setOverrideSnapshotKey] = useState<string | null>(null);
   const [foodLogHistoryContext, setFoodLogHistoryContext] = useState<string | null>(null);
-  const [autoSavedBanner, setAutoSavedBanner] = useState(false);
   const [editItemIndex, setEditItemIndex] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState({
     name: '',
@@ -648,7 +648,6 @@ export function FoodLogModal({
       setMealIssues([]);
       setOverrideSaveOnce(false);
       setOverrideSnapshotKey(null);
-      setAutoSavedBanner(false);
       setMealTime(initialTimestamp ?? Date.now());
       setScreen('result');
     },
@@ -717,7 +716,6 @@ export function FoodLogModal({
     setOverrideSaveOnce(false);
     setOverrideSnapshotKey(null);
     setFoodLogHistoryContext(null);
-    setAutoSavedBanner(false);
     setEditItemIndex(null);
     setBrowseDayMs(startOfLocalDay(Date.now()));
     setPastDayMeals([]);
@@ -838,21 +836,10 @@ export function FoodLogModal({
           } catch {
             /* credits / network — keep the meal; meter may undercount until next save */
           }
-          if (opts.stayOpen) {
-            setEditingId(saved.id);
-            setItems(saved.items);
-            setMealTime(saved.timestamp);
-            setMealHistory((h) => (h.length > 0 ? h : []));
-            setScreen('result');
-            setAutoSavedBanner(true);
-            await onSaved({ close: false });
-            return;
-          }
           await onSaved({ close: true });
           reset();
         },
         {
-          stay_open: Boolean(opts.stayOpen),
           item_count: opts.mealItems.length,
           edit: Boolean(opts.id),
         },
@@ -861,50 +848,6 @@ export function FoodLogModal({
     },
     [reset, onSaved],
   );
-
-  /**
-   * New meal (text or first photo): analyze → save when clean, then close.
-   * Issue / nutritionist alert and photo+/- merge stay multi-step (modal stays open).
-   * Edit a chip on the Food strip if time or items need a tweak after close.
-   */
-  const tryAutoSaveNewMeal = useCallback(
-    async (
-      mealItems: FoodItem[],
-      opts: { fromPhoto: boolean; historyLen: number },
-    ): Promise<boolean> => {
-      if (editingId || mealItems.length === 0) return false;
-      setScreen('saving');
-      const issues = await recomputeMealIssues(mealItems, mealTime, undefined);
-      setMealIssues(issues);
-      if (issues.length > 0) {
-        setScreen('result');
-        setShowIssueModal(true);
-        return false;
-      }
-      try {
-        await persistMealItems({
-          mealItems,
-          historyLen: opts.historyLen,
-          fromPhoto: opts.fromPhoto,
-          timestamp: mealTime,
-          stayOpen: false,
-        });
-        return true;
-      } catch {
-        setError(alerts.failedToSave);
-        setScreen('result');
-        return false;
-      }
-    },
-    [editingId, mealTime, recomputeMealIssues, persistMealItems, alerts.failedToSave],
-  );
-
-  // Recipe "Log meal" — same one-tap save when clean.
-  React.useEffect(() => {
-    if (!visible || editEntry) return;
-    if (!prefillItems || prefillItems.length === 0) return;
-    void tryAutoSaveNewMeal(prefillItems, { fromPhoto: false, historyLen: 0 });
-  }, [visible, prefillItems, editEntry, tryAutoSaveNewMeal]);
 
   React.useEffect(() => {
     if (!visible || items.length === 0) return;
@@ -1017,15 +960,6 @@ export function FoodLogModal({
             setSuggestion(result.suggestion);
             setMealHistory(updatedHistory);
 
-            // First parse (text): describe + send → auto-save when clean.
-            if (hist.length === 0 && !editingId && result.items.length > 0) {
-              const saved = await tryAutoSaveNewMeal(result.items, {
-                fromPhoto: false,
-                historyLen: updatedHistory.length,
-              });
-              if (saved) return;
-            }
-
             setScreen('result');
           },
           { photo: 0, history_n: hist.length },
@@ -1036,7 +970,7 @@ export function FoodLogModal({
         setScreen(editingId ? 'result' : 'idle');
       }
     },
-    [lang, resolveFoodLogHistory, editingId, tryAutoSaveNewMeal, mapFoodAiError],
+    [lang, resolveFoodLogHistory, mapFoodAiError],
   );
 
   const runPhotoAnalysis = useCallback(
@@ -1046,6 +980,7 @@ export function FoodLogModal({
       userText: string,
       hist: GeminiTurn[],
     ) => {
+      const mealIsEmpty = items.length === 0;
       setScreen('analyzing');
       setAnalyzingPhotoUri(uri);
       setError(null);
@@ -1068,38 +1003,22 @@ export function FoodLogModal({
             setMealHistory(updatedHistory);
             setHadPhotoForSave(true);
 
-            const isFirstPhotoNewMeal =
-              hist.length === 0 && !editingId && items.length === 0 && result.items.length > 0;
-
-            // First photo on a new meal: same as text — auto-save, stay open, Done (no Use/Approve/Save).
-            // Do NOT setItems for edit / add-photo paths — photo lives in photoSession until
-            // "+ Add to meal" / "Use as meal" → Approve (prompt20). Overwriting items wiped the meal.
-            if (isFirstPhotoNewMeal) {
-              const saved = await tryAutoSaveNewMeal(result.items, {
-                fromPhoto: true,
-                historyLen: updatedHistory.length,
-              });
-              if (saved) {
-                // persistMealItems(stayOpen) already set items from the saved entry.
-                setConfidence(result.confidence);
-                setDescription(result.description);
-                setSuggestion(result.suggestion);
-                setPhotoSession(null);
-                setMergePreview(null);
-                return;
-              }
-              // Nutritionist alert path: keep analyzed items in the editor so Save anyway
-              // does not persist an empty meal (text flow already setItems before tryAutoSave).
+            // Nothing in the editor yet: the photo IS the meal, so fill it
+            // directly and let the user review once and Save. The merge
+            // preview reconciles a photo against items already logged; with
+            // no items there is no decision to make, only extra taps.
+            if (mealIsEmpty && result.items.length > 0) {
               setItems(result.items);
               setConfidence(result.confidence);
               setDescription(result.description);
               setSuggestion(result.suggestion);
               setPhotoSession(null);
-              setMergePreview(null);
               setScreen('result');
               return;
             }
 
+            // Existing meal: keep Add / Remove explicit so a second photo
+            // cannot silently rewrite items the user already has.
             setPhotoSession({
               uri,
               base64: imageBase64,
@@ -1115,7 +1034,7 @@ export function FoodLogModal({
         setScreen(items.length > 0 || editEntry ? 'result' : 'idle');
       }
     },
-    [lang, items.length, editEntry, editingId, resolveFoodLogHistory, tryAutoSaveNewMeal, mapFoodAiError],
+    [lang, items.length, editEntry, resolveFoodLogHistory, mapFoodAiError],
   );
 
   const pickImage = useCallback(
@@ -1321,6 +1240,29 @@ export function FoodLogModal({
     setEditItemIndex(null);
     setEditGramsOrigin(0);
   }, []);
+
+  /**
+   * Back unwinds one layer at a time. Declared after `closeEditItem` on purpose:
+   * a dep array referencing a later `const` is a TDZ read that Hermes silently
+   * resolves to undefined and JSC throws on.
+   */
+  useEffect(() => {
+    if (Platform.OS !== 'android' || !visible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (screen === 'saving') return true;
+      if (editItemIndex != null) {
+        closeEditItem();
+        return true;
+      }
+      if (screen === 'pickPast') {
+        setScreen('idle');
+        return true;
+      }
+      handleClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, screen, editItemIndex, closeEditItem, handleClose]);
 
   const editGramsSliderMax = editGramsOrigin * 2;
   const editGramsSliderValue = useMemo(() => {
@@ -1734,15 +1676,6 @@ export function FoodLogModal({
                     onError={() => setPlateMissing(true)}
                   />
                 ) : null}
-                {autoSavedBanner ? (
-                  <View style={styles.autoSavedBanner}>
-                    <Text
-                      style={[styles.autoSavedBannerText, rtl && styles.autoSavedBannerRtl]}
-                    >
-                      {ui.autoSavedHint}
-                    </Text>
-                  </View>
-                ) : null}
                 {mergePreview ? (
                   <View style={styles.previewSection}>
                     <Text style={[styles.sectionTitle, rtl && styles.sectionTitleRtl]}>
@@ -2053,32 +1986,18 @@ export function FoodLogModal({
                   <Text style={styles.cancelBtnText} numberOfLines={1}>{ui.cancel}</Text>
                 </Pressable>
               )}
-              {autoSavedBanner && editingId ? (
-                <Pressable
-                  style={[styles.saveBtn, screen === 'saving' && styles.saveBtnDisabled]}
-                  onPress={() => void handleSave()}
-                  disabled={screen === 'saving'}
-                >
-                  {screen === 'saving' ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.saveBtnText} numberOfLines={1}>{ui.done}</Text>
-                  )}
-                </Pressable>
-              ) : (
-                <Pressable
-                  style={[styles.saveBtn, (screen === 'saving' || items.length === 0) && styles.saveBtnDisabled]}
-                  onPress={handleSave}
-                  disabled={screen === 'saving' || items.length === 0}
-                >
-                  {screen === 'saving' ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.saveBtnText} numberOfLines={1}>{ui.saveItem}</Text>
-                  )}
-                </Pressable>
-              )}
-              {editingId && !autoSavedBanner ? (
+              <Pressable
+                style={[styles.saveBtn, (screen === 'saving' || items.length === 0) && styles.saveBtnDisabled]}
+                onPress={handleSave}
+                disabled={screen === 'saving' || items.length === 0}
+              >
+                {screen === 'saving' ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveBtnText} numberOfLines={1}>{ui.saveItem}</Text>
+                )}
+              </Pressable>
+              {editingId ? (
                 <Pressable style={styles.cancelBtn} onPress={handleClose}>
                   <Text style={styles.cancelBtnText} numberOfLines={1}>{ui.cancel}</Text>
                 </Pressable>
@@ -2261,23 +2180,6 @@ export function FoodLogModal({
 const makeStyles = (c: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
   kav: { flex: 1 },
-  autoSavedBanner: {
-    backgroundColor: c.iconTintGreen,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 8,
-  },
-  autoSavedBannerText: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: c.textPrimary,
-    fontWeight: '600',
-  },
-  autoSavedBannerRtl: {
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
   container: {
     flex: 1,
     backgroundColor: c.background,

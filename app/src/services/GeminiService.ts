@@ -701,7 +701,7 @@ RULES:
 - Estimate grams from plate size (standard plate = 26cm).
 - Split dishes into ingredients. Use USDA values.
 - "fiber_g" = dietary fiber only (not total carbs); estimate per ingredient.
-- For corrections: return full updated JSON, keep all items; keep both name fields in the correct languages. When grams change (half / double / divide the meal), scale any treatment-marker fields by the same factor as grams — they are amounts for that portion, not a constant.
+- For corrections: return full updated JSON, keep all existing items unless the user explicitly taps a Delete item button outside this chat. In chat/photo corrections NEVER delete items implicitly: only correct existing quantities/details or add missing items. Keep both name fields in the correct languages. When grams change (half / double / divide the meal), scale any treatment-marker fields by the same factor as grams — they are amounts for that portion, not a constant.
 - If unsure: best guess with confidence "low".
 - When USER DIETARY RULES are provided: evaluate EACH item line — set rule_conflict true only if THAT item violates rules (not because the meal lacks something). Read name_local carefully (e.g. plant protein מהצומח vs whey מי גבינה). rule_message = one short sentence why (attention wording, not "forbidden", unless rules are absolute). The sentence must match this line's name and macros — do not invent a fat % that contradicts name_local or fat_g. rule_severity = "warning" (count toward totals / moderation) or "critical" (hard ban / allergen). Otherwise rule_conflict false, rule_severity "", and rule_message "".`;
 
@@ -834,6 +834,28 @@ function lastFoodItemsFromHistory(
     }
   }
   return [];
+}
+
+/**
+ * Correction turns may omit an item that already exists in the meal. Chat/photo
+ * corrections are not allowed to delete items implicitly, so preserve prior
+ * rows and only let Gemini update rows it actually returned. Extra rows are
+ * treated as additions and appended.
+ */
+function mergeCorrectionItems(prior: FoodItem[], corrected: FoodItem[]): FoodItem[] {
+  if (prior.length === 0) return corrected;
+  if (corrected.length === 0) return prior;
+  const merged: FoodItem[] = [];
+  const shared = Math.min(prior.length, corrected.length);
+  for (let i = 0; i < shared; i++) {
+    merged.push(corrected[i]!);
+  }
+  if (prior.length > corrected.length) {
+    merged.push(...prior.slice(corrected.length));
+  } else if (corrected.length > prior.length) {
+    merged.push(...corrected.slice(prior.length));
+  }
+  return merged;
 }
 
 // ─── Main API ─────────────────────────────────────────────────────────────────
@@ -986,10 +1008,17 @@ export async function analyzeFood(
   }
 
   let result = parseGeminiJson(rawText, finishReason, activeMarkerCodes);
-  if (history.length > 0 && activeMarkerCodes.length > 0) {
+  if (history.length > 0) {
     const prior = lastFoodItemsFromHistory(history, activeMarkerCodes);
     if (prior.length > 0) {
-      result = { ...result, items: rescaleMarkersWhenGramsChange(result.items, prior) };
+      const mergedItems = mergeCorrectionItems(prior, result.items);
+      result = {
+        ...result,
+        items:
+          activeMarkerCodes.length > 0
+            ? rescaleMarkersWhenGramsChange(mergedItems, prior)
+            : mergedItems,
+      };
     }
   }
 
