@@ -505,51 +505,157 @@
     return next > todayKey() ? todayKey() : next;
   }
 
-  /** unit: 'g' | 'ml' | 'mg' | '' (kcal bar has no unit suffix — label carries it). opts.goalIsFloor = no over-target red. */
-  function macroBar(label, val, tgt, tone, unit, opts) {
+  /**
+   * Track scale runs past the target so the allowed zone has visible width and an
+   * overshoot reads as distance, not a pinned full bar. Mirrors the app meter.
+   */
+  const SCALE_HEADROOM = 1.25;
+
+  /** Isolate a target so RTL copy cannot reorder "13g" past "7%". */
+  function isolateLtr(text) {
+    return text ? `\u2066${text}\u2069` : text;
+  }
+
+  /**
+   * Shared macro meter — the web twin of the app's `MacroMeterBar` (prompt119).
+   * Columns are label · eaten · track · target, the track carries floor-vs-ceiling
+   * as a shaded allowed zone, and targets read as words rather than ≤ / ≥ signs.
+   * Keep this in step with `app/src/components/MacroMeterBar.tsx`.
+   */
+  function macroMeterRow(opts) {
+    const {
+      label,
+      value,
+      target,
+      tone,
+      unit,
+      goalIsFloor,
+      clinicFloor,
+      clinicCeiling,
+      percentChip,
+    } = opts;
     const u = unit === undefined ? 'g' : unit;
-    const goalIsFloor = !!opts?.goalIsFloor;
-    const clinicFloor = opts?.clinicFloor;
-    const clinicCeiling = opts?.clinicCeiling;
-    const hasBand = clinicFloor != null && clinicCeiling != null && clinicFloor > 0 && clinicCeiling > 0;
+    const suffix = u === '' || u == null ? '' : u;
+    const fmt = (n) => String(Math.round(n));
+    const val = Number.isFinite(value) ? value : 0;
+
+    const hasBand =
+      clinicFloor != null && clinicCeiling != null && clinicFloor > 0 && clinicCeiling > 0;
     const hasClinicCeiling = clinicCeiling != null && clinicCeiling > 0 && clinicFloor == null;
     const hasClinicFloor = clinicFloor != null && clinicFloor > 0 && clinicCeiling == null;
-    const effectiveTarget = hasBand
-      ? clinicCeiling
-      : hasClinicCeiling
+    const hasLocalTarget = target != null && Number.isFinite(target) && target > 0;
+    const showTarget = hasBand || hasClinicCeiling || hasClinicFloor || hasLocalTarget;
+
+    const effectiveTarget = !showTarget
+      ? 0
+      : hasBand
         ? clinicCeiling
+        : hasClinicCeiling
+          ? clinicCeiling
+          : hasClinicFloor
+            ? clinicFloor
+            : target;
+
+    const met = !showTarget
+      ? false
+      : hasBand
+        ? val >= clinicFloor && val <= clinicCeiling
         : hasClinicFloor
-          ? clinicFloor
-          : tgt;
-    const ratio = effectiveTarget > 0 ? Math.min(1, val / effectiveTarget) : 0;
-    const over = hasBand
-      ? val < clinicFloor || val > clinicCeiling
-      : hasClinicCeiling
-        ? val > clinicCeiling
-        : !goalIsFloor && !hasClinicFloor && tgt > 0 && val > tgt * 1.05;
-    const underFloor = hasClinicFloor && val < clinicFloor;
+          ? val >= clinicFloor
+          : hasClinicCeiling
+            ? val <= clinicCeiling
+            : goalIsFloor && effectiveTarget > 0 && val >= effectiveTarget;
+    const over = !showTarget
+      ? false
+      : hasBand
+        ? val < clinicFloor || val > clinicCeiling
+        : hasClinicCeiling
+          ? val > clinicCeiling
+          : !goalIsFloor && !hasClinicFloor && val > effectiveTarget * 1.05;
+    const underFloor = showTarget && hasClinicFloor && val < clinicFloor;
     const bad = over || underFloor;
-    const suffix = u === '' || u == null ? '' : u;
-    let text;
-    if (hasBand) {
-      text = `${Math.round(val)}  ${Math.round(clinicFloor)}–${Math.round(clinicCeiling)}${suffix}`;
-    } else if (hasClinicCeiling) {
-      text = `${Math.round(val)} ≤ ${Math.round(clinicCeiling)}${suffix}`;
-    } else if (hasClinicFloor) {
-      text = `${Math.round(val)} ≥ ${Math.round(clinicFloor)}${suffix}`;
-    } else if (tgt) {
-      text = `${Math.round(val)} / ${Math.round(tgt)}${suffix}`;
-    } else {
-      text = `${Math.round(val)}${suffix}`;
+
+    // `end: null` means the allowed zone runs off the end of the track (a floor).
+    const zone = !showTarget
+      ? null
+      : hasBand
+        ? { start: clinicFloor, end: clinicCeiling }
+        : hasClinicCeiling
+          ? { start: 0, end: clinicCeiling }
+          : hasClinicFloor
+            ? { start: clinicFloor, end: null }
+            : goalIsFloor && effectiveTarget > 0
+              ? { start: effectiveTarget, end: null }
+              : null;
+
+    const scaleMax = zone
+      ? Math.max((zone.end == null ? zone.start : zone.end) * SCALE_HEADROOM, val, 1)
+      : Math.max(effectiveTarget, val, 1);
+    const pctOf = (n) => Math.max(0, Math.min(1, n / scaleMax));
+    const ratio = showTarget ? pctOf(val) : 0;
+
+    const zoneStart = zone ? pctOf(zone.start) : 0;
+    const zoneEnd = zone ? (zone.end == null ? 1 : pctOf(zone.end)) : 0;
+    const marks = zone
+      ? [zoneStart, zoneEnd].filter((p, i, arr) => p > 0.02 && p < 0.98 && arr.indexOf(p) === i)
+      : [];
+
+    const eatenText =
+      opts.eatenOverride != null
+        ? opts.eatenOverride
+        : showTarget
+          ? fmt(val)
+          : `${fmt(val)}${suffix}`;
+
+    let targetText = '';
+    if (showTarget) {
+      if (hasBand) {
+        targetText = t('wsMeterRange', {
+          lo: fmt(clinicFloor),
+          hi: `${fmt(clinicCeiling)}${suffix}`,
+        });
+      } else if (hasClinicCeiling) {
+        targetText = t('wsMeterUpTo', { v: `${fmt(clinicCeiling)}${suffix}` });
+      } else if (hasClinicFloor) {
+        targetText = t('wsMeterAbove', { v: `${fmt(clinicFloor)}${suffix}` });
+      } else {
+        // A local goal (water, fibre) is something to reach, not an order to stay
+        // under — "above 2000ml" would read as a warning. Plain number instead.
+        targetText = `${fmt(target)}${suffix}`;
+      }
+      if (percentChip) targetText = `${targetText}  ${percentChip}`;
+      targetText = isolateLtr(targetText);
     }
-    const pctInline = String(opts?.clinicCaption || '').match(/^(\d+(?:\.\d+)?)%/);
-    if (pctInline) text = `${text}  ${pctInline[1]}%`;
-    const fillClass = bad ? 'macro-fill-over' : 'macro-fill-' + tone;
+
+    const fillClass = met && !bad ? 'macro-fill-met' : bad ? 'macro-fill-over' : 'macro-fill-' + tone;
+    const eatenClass = met && !bad ? ' is-met' : bad ? ' is-over' : '';
+
     return `<div class="macro-row">
       <span class="macro-label">${esc(label)}</span>
-      <div class="track"><div class="fill ${fillClass}" style="width:${ratio * 100}%"></div></div>
-      <span class="macro-value ${bad ? 'macro-over' : ''}">${text}</span>
+      <span class="macro-eaten${eatenClass}">${esc(eatenText)}</span>
+      <div class="track">
+        ${zone ? `<span class="zone" style="left:${zoneStart * 100}%;width:${Math.max(0, zoneEnd - zoneStart) * 100}%"></span>` : ''}
+        <span class="fill ${fillClass}" style="width:${ratio * 100}%"></span>
+        ${marks.map((p) => `<i class="mark" style="left:${p * 100}%"></i>`).join('')}
+      </div>
+      <span class="macro-target">${showTarget ? esc(targetText) : ''}</span>
     </div>`;
+  }
+
+  /** unit: 'g' | 'ml' | 'mg' | '' (kcal bar has no unit suffix — label carries it). opts.goalIsFloor = no over-target red. */
+  function macroBar(label, val, tgt, tone, unit, opts) {
+    const pctInline = String(opts?.clinicCaption || '').match(/^(\d+(?:\.\d+)?)%/);
+    return macroMeterRow({
+      label,
+      value: val,
+      target: tgt,
+      tone,
+      unit,
+      goalIsFloor: !!opts?.goalIsFloor,
+      clinicFloor: opts?.clinicFloor,
+      clinicCeiling: opts?.clinicCeiling,
+      percentChip: pctInline ? `${pctInline[1]}%` : null,
+    });
   }
 
   /** Sum meal/item treatment markers for the day (same rules as app dayMarkerTotals). */
@@ -823,14 +929,14 @@
           <div class="macro-bars">
             ${target || meter('kcal') ? macroBar('kcal', eaten, target?.kcal, 'kcal', '', axisOpts('kcal')) : ''}
             ${(meals.length || target || clinicMeters.length) ? `
-            ${macroBar('P', macros.protein_g, target?.protein_g, 'p', 'g', axisOpts('protein_g'))}
-            ${macroBar('C', macros.carb_g, target?.carb_g, 'c', 'g', axisOpts('carb_g'))}
-            ${macroBar('F', macros.fat_g, target?.fat_g, 'f', 'g', axisOpts('fat_g'))}
-            ${macroBar('Fi', macros.fiber_g || 0, target ? fiberT : null, 'fi', 'g', axisOpts('fiber_g', { goalIsFloor: true }))}
-            ${macroBar('C-Fi', netEaten, netT, 'net', 'g', axisOpts('net_carb_g'))}
+            ${macroBar(t('wsBarProtein'), macros.protein_g, target?.protein_g, 'p', 'g', axisOpts('protein_g'))}
+            ${macroBar(t('wsBarCarb'), macros.carb_g, target?.carb_g, 'c', 'g', axisOpts('carb_g'))}
+            ${macroBar(t('wsBarFat'), macros.fat_g, target?.fat_g, 'f', 'g', axisOpts('fat_g'))}
+            ${macroBar(t('wsBarFiber'), macros.fiber_g || 0, target ? fiberT : null, 'fi', 'g', axisOpts('fiber_g', { goalIsFloor: true }))}
+            ${macroBar(t('wsBarNetCarb'), netEaten, netT, 'net', 'g', axisOpts('net_carb_g'))}
             ` : ''}
             ${treatmentMarkerBarsHtml(meals, treatMarkers, { clinicSigns: clinicMeters.length > 0 })}
-            ${macroBar('H2O', waterMl, waterGoal, 'h2o', 'ml', { goalIsFloor: true })}
+            ${macroBar(t('wsBarWater'), waterMl, waterGoal, 'h2o', 'ml', { goalIsFloor: true })}
           </div>` : ''}
         </div>
         <div class="meal-chips-row">
@@ -943,15 +1049,14 @@
 
   function macroBarWithActual(label, actual, tgt, tone) {
     const hasActual = actual > 0;
-    const ratio = tgt > 0 && hasActual ? Math.min(1, actual / tgt) : 0;
-    const over = tgt > 0 && hasActual && actual > tgt * 1.05;
-    const text = tgt ? `${hasActual ? Math.round(actual) : '—'} / ${Math.round(tgt)}g` : `${hasActual ? Math.round(actual) : '—'}g`;
-    const fillClass = over ? 'macro-fill-over' : 'macro-fill-' + tone;
-    return `<div class="macro-row">
-      <span class="macro-label">${label}</span>
-      <div class="track"><div class="fill ${fillClass}" style="width:${ratio * 100}%"></div></div>
-      <span class="macro-value ${over ? 'macro-over' : ''}">${text}</span>
-    </div>`;
+    return macroMeterRow({
+      label,
+      value: hasActual ? actual : 0,
+      target: tgt,
+      tone,
+      unit: 'g',
+      eatenOverride: hasActual ? null : '—',
+    });
   }
 
   function renderMacroTargetsBody(mt, ctx) {

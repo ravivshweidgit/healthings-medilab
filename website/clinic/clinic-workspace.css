@@ -475,6 +475,8 @@ h3,
 .macro-fill-h2o { background: var(--ws-chart-bmr); }
 .macro-fill-treat { background: #8D6E63; }
 .macro-fill-over { background: var(--red); }
+/* In-zone wins over the series colour, same as the app meter. */
+.macro-fill-met { background: var(--ws-chart-glucose); }
 .treat-food-hint {
   margin: 6px 0 0;
   font-size: 12px;
@@ -862,22 +864,83 @@ h3,
 }
 .energy-svg { display: block; width: 100%; }
 
+/* Macro meter — web twin of the app's MacroMeterBar (prompt119).
+   Columns are label · eaten · track · target; he/ar mirrors the row and the track
+   so the fill grows right-to-left. Widths match METER_* in MacroMeterBar.tsx. */
 .macro-row {
-  display: grid;
-  grid-template-columns: 28px 1fr 82px;
-  gap: 10px;
+  display: flex;
+  flex-direction: row;
   align-items: center;
-  margin-bottom: 10px;
-  font-size: 0.82rem;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 7px;
+  font-size: 0.6875rem;
 }
-.macro-row .track {
-  height: 10px;
-  background: color-mix(in srgb, var(--track) 88%, white 12%);
-  border-radius: 999px;
+[dir='rtl'] .macro-row { flex-direction: row-reverse; }
+.macro-row .macro-label {
+  flex: 0 0 56px;
+  width: 56px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
   overflow: hidden;
-  box-shadow: inset 0 1px 2px rgba(26, 43, 74, 0.08);
+  text-overflow: ellipsis;
 }
-.macro-row .fill { height: 100%; border-radius: 999px; }
+[dir='rtl'] .macro-row .macro-label { text-align: left; }
+.macro-row .macro-eaten {
+  flex: 0 0 40px;
+  width: 40px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+[dir='rtl'] .macro-row .macro-eaten { text-align: left; }
+.macro-row .macro-eaten.is-met { color: var(--ws-chart-glucose); }
+.macro-row .macro-eaten.is-over { color: var(--ws-over-ink); }
+.macro-row .track {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 64px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--track);
+  overflow: hidden;
+}
+[dir='rtl'] .macro-row .track { transform: scaleX(-1); }
+.macro-row .track .zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(46, 125, 50, 0.14);
+}
+.macro-row .track .fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 3px;
+}
+.macro-row .track .mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(0, 0, 0, 0.32);
+}
+.macro-row .macro-target {
+  flex: 0 0 78px;
+  width: 78px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: left;
+  direction: ltr;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+[dir='rtl'] .macro-row .macro-target { text-align: right; }
 
 /* Chat */
 .chat-layout {
@@ -1478,97 +1541,67 @@ h3,
   margin: 0 auto;
   width: 100%;
 }
+/* Energy block mirrors FoodMacroStrip: a fixed 72px right-aligned number column
+   followed by the label. The app builds this with a plain LTR row even in Hebrew,
+   so the figures stack on the left — pin `direction` or he/ar would mirror it. */
 .food-log-card .energy-lines {
-  margin: 12px 0 16px;
+  direction: ltr;
+  margin: 12px 0 14px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  gap: 3px;
 }
 .food-log-card .energy-row {
   display: flex;
+  flex-direction: row;
   align-items: baseline;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 4px;
-  font-size: 0.92rem;
-  flex-wrap: wrap;
 }
 .food-log-card .energy-num {
-  font-size: 1.55rem;
-  font-weight: 800;
-  min-width: 4.75rem;
-  text-align: center;
+  flex: 0 0 72px;
+  min-width: 72px;
+  margin-right: 8px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 .food-log-card .energy-label {
+  flex: 1 1 auto;
+  font-size: 0.9375rem;
+  font-weight: 400;
   color: var(--muted);
-  font-size: 0.88rem;
-  text-align: center;
 }
 .food-log-card .energy-target {
   display: block;
   color: var(--muted);
-  font-size: 0.8rem;
-  margin-top: 2px;
+  font-size: 0.75rem;
+  font-weight: 400;
 }
-.food-balance-row {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  margin-top: 8px;
-}
+.food-balance-row { direction: ltr; width: 100%; margin-top: 2px; }
 .food-log-card .balance-pill {
-  display: inline-flex;
+  display: flex;
+  flex-direction: row;
   align-items: baseline;
-  gap: 6px;
-  padding: 10px 16px;
-  border-radius: var(--radius-chip);
-  font-weight: 700;
+  width: 100%;
+  padding: 5px 6px;
+  border-radius: 8px;
   border: 1px solid transparent;
-  justify-content: center;
-  min-width: 210px;
 }
-.food-log-card .balance-pill.deficit {
-  background: rgba(76, 175, 80, 0.15);
-  color: var(--ws-clinical-ink);
-}
-.food-log-card .balance-pill.surplus {
-  background: rgba(255, 152, 0, 0.15);
-  color: var(--ws-flag-ink);
-}
-.food-log-card .balance-pill .energy-num { font-size: 1.1rem; min-width: auto; text-align: start; }
+.food-log-card .balance-pill.deficit { background: #e8f5e9; }
+.food-log-card .balance-pill.surplus { background: #ffebee; }
+.food-log-card .balance-pill.deficit .energy-num,
+.food-log-card .balance-pill.deficit .energy-label { color: #2e7d32; }
+.food-log-card .balance-pill.surplus .energy-num,
+.food-log-card .balance-pill.surplus .energy-label { color: #c62828; }
+.food-log-card .balance-pill .energy-label { font-weight: 700; }
 .food-log-card .balance-pill .energy-label { font-size: 0.88rem; font-weight: 700; }
 .food-log-card .macro-bars {
   margin: 14px auto 18px;
   width: 100%;
   max-width: 480px;
 }
-.food-log-card .macro-row {
-  display: grid;
-  grid-template-columns: minmax(92px, auto) 1fr minmax(78px, auto);
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-  font-size: 0.82rem;
-}
-.food-log-card .macro-row .macro-label {
-  color: var(--text);
-  text-align: end;
-  font-weight: 700;
-}
-.food-log-card .macro-row .macro-value {
-  font-variant-numeric: tabular-nums;
-  text-align: start;
-  white-space: nowrap;
-  font-weight: 700;
-}
-.food-log-card .macro-row .track {
-  height: 10px;
-  background: color-mix(in srgb, var(--track) 88%, white 12%);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.food-log-card .macro-row .fill { height: 100%; border-radius: 999px; }
-.food-log-card .macro-over { color: var(--ws-over-ink); font-weight: 700; }
+/* Food Log inherits the shared `.macro-row` meter — no local column model here. */
 .food-log-panel { width: 100%; }
 .food-log-grid {
   display: flex;
@@ -1819,21 +1852,7 @@ h3,
 .mentor-pill.active { border-color: var(--accent); background: var(--accent-light); }
 .macro-updated { display: block; font-size: 0.75rem; color: var(--accent-ink); margin-top: 4px; font-weight: 600; }
 .profile-macros { margin: 0 0 10px; }
-.profile-macros .macro-row {
-  display: grid;
-  grid-template-columns: 28px 1fr auto;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-size: 0.82rem;
-}
-.profile-macros .macro-row .track {
-  height: 6px;
-  background: var(--track);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.profile-macros .macro-row .fill { height: 100%; border-radius: 3px; }
+/* Profile macros inherit the shared `.macro-row` meter. */
 .macro-kcal-row {
   text-align: center;
   font-size: 0.88rem;

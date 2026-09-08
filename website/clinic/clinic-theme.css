@@ -824,3 +824,83 @@ html.theme-pref-dark .clinic-side-foot .portal-btn:hover {
   max-width: none;
   width: 100%;
 }
+
+/* Balance block — dark keeps the canvas black and carries deficit/surplus on the
+   border instead of a tinted fill, same as FoodMacroStrip. */
+.theme-pref-dark .food-log-card .balance-pill.deficit,
+html.theme-pref-dark .food-log-card .balance-pill.deficit {
+  background: #000000;
+  border-color: var(--ws-chart-glucose);
+}
+.theme-pref-dark .food-log-card .balance-pill.surplus,
+html.theme-pref-dark .food-log-card .balance-pill.surplus {
+  background: #000000;
+  border-color: var(--red);
+}
+.theme-pref-dark .food-log-card .balance-pill.deficit .energy-num,
+.theme-pref-dark .food-log-card .balance-pill.deficit .energy-label,
+html.theme-pref-dark .food-log-card .balance-pill.deficit .energy-num,
+html.theme-pref-dark .food-log-card .balance-pill.deficit .energy-label {
+  color: var(--ws-chart-glucose);
+}
+.theme-pref-dark .food-log-card .balance-pill.surplus .energy-num,
+.theme-pref-dark .food-log-card .balance-pill.surplus .energy-label,
+html.theme-pref-dark .food-log-card .balance-pill.surplus .energy-num,
+html.theme-pref-dark .food-log-card .balance-pill.surplus .energy-label {
+  color: var(--red);
+}
+
+@media (prefers-color-scheme: dark) {
+  .theme-pref-system .food-log-card .balance-pill.deficit,
+  html.theme-pref-system .food-log-card .balance-pill.deficit {
+    background: #000000;
+    border-color: var(--ws-chart-glucose);
+  }
+  .theme-pref-system .food-log-card .balance-pill.surplus,
+  html.theme-pref-system .food-log-card .balance-pill.surplus {
+    background: #000000;
+    border-color: var(--red);
+  }
+  .theme-pref-system .food-log-card .balance-pill.deficit .energy-num,
+  .theme-pref-system .food-log-card .balance-pill.deficit .energy-label,
+  html.theme-pref-system .food-log-card .balance-pill.deficit .energy-num,
+  html.theme-pref-system .food-log-card .balance-pill.deficit .energy-label {
+    color: var(--ws-chart-glucose);
+  }
+  .theme-pref-system .food-log-card .balance-pill.surplus .energy-num,
+  .theme-pref-system .food-log-card .balance-pill.surplus .energy-label,
+  html.theme-pref-system .food-log-card .balance-pill.surplus .energy-num,
+  html.theme-pref-system .food-log-card .balance-pill.surplus .energy-label {
+    color: var(--red);
+  }
+}
+
+/* Macro meter — dark values mirror MacroMeterBar's dark branch: the track drops to
+   the app background rather than a lifted surface, and the zone/ticks lighten. */
+.theme-pref-dark .macro-row .track,
+html.theme-pref-dark .macro-row .track {
+  background: #000000;
+}
+.theme-pref-dark .macro-row .track .zone,
+html.theme-pref-dark .macro-row .track .zone {
+  background: rgba(102, 187, 106, 0.22);
+}
+.theme-pref-dark .macro-row .track .mark,
+html.theme-pref-dark .macro-row .track .mark {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+@media (prefers-color-scheme: dark) {
+  .theme-pref-system .macro-row .track,
+  html.theme-pref-system .macro-row .track {
+    background: #000000;
+  }
+  .theme-pref-system .macro-row .track .zone,
+  html.theme-pref-system .macro-row .track .zone {
+    background: rgba(102, 187, 106, 0.22);
+  }
+  .theme-pref-system .macro-row .track .mark,
+  html.theme-pref-system .macro-row .track .mark {
+    background: rgba(255, 255, 255, 0.45);
+  }
+}
