@@ -1457,36 +1457,75 @@ h3,
   letter-spacing: var(--ws-section-label-spacing);
   color: var(--muted);
   text-align: center;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 .food-log-card .food-date-nav {
   justify-content: center;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
-.food-log-card .energy-lines { margin: 10px 0 14px; }
+.food-log-page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.food-log-card {
+  max-width: 760px;
+  margin-inline: auto;
+}
+.food-log-summary {
+  max-width: 520px;
+  margin: 0 auto;
+  width: 100%;
+}
+.food-log-card .energy-lines {
+  margin: 12px 0 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 .food-log-card .energy-row {
   display: flex;
   align-items: baseline;
-  gap: 6px;
-  margin-bottom: 6px;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 4px;
   font-size: 0.92rem;
+  flex-wrap: wrap;
 }
 .food-log-card .energy-num {
-  font-size: 1.35rem;
+  font-size: 1.55rem;
   font-weight: 800;
-  min-width: 4.5rem;
+  min-width: 4.75rem;
+  text-align: center;
 }
-.food-log-card .energy-label { color: var(--muted); font-size: 0.88rem; }
-.food-log-card .energy-target { color: var(--muted); }
+.food-log-card .energy-label {
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-align: center;
+}
+.food-log-card .energy-target {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+.food-balance-row {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
 .food-log-card .balance-pill {
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
-  margin-top: 6px;
   padding: 10px 16px;
   border-radius: var(--radius-chip);
   font-weight: 700;
   border: 1px solid transparent;
+  justify-content: center;
+  min-width: 210px;
 }
 .food-log-card .balance-pill.deficit {
   background: rgba(76, 175, 80, 0.15);
@@ -1496,21 +1535,31 @@ h3,
   background: rgba(255, 152, 0, 0.15);
   color: var(--ws-flag-ink);
 }
-.food-log-card .balance-pill .energy-num { font-size: 1.1rem; min-width: auto; }
+.food-log-card .balance-pill .energy-num { font-size: 1.1rem; min-width: auto; text-align: start; }
 .food-log-card .balance-pill .energy-label { font-size: 0.88rem; font-weight: 700; }
-.food-log-card .macro-bars { margin: 12px 0 16px; }
+.food-log-card .macro-bars {
+  margin: 14px auto 18px;
+  width: 100%;
+  max-width: 480px;
+}
 .food-log-card .macro-row {
   display: grid;
-  grid-template-columns: 40px 1fr minmax(96px, auto);
+  grid-template-columns: minmax(92px, auto) 1fr minmax(78px, auto);
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 10px;
   font-size: 0.82rem;
 }
-.food-log-card .macro-row span:last-child {
-  font-variant-numeric: tabular-nums;
+.food-log-card .macro-row .macro-label {
+  color: var(--text);
   text-align: end;
+  font-weight: 700;
+}
+.food-log-card .macro-row .macro-value {
+  font-variant-numeric: tabular-nums;
+  text-align: start;
   white-space: nowrap;
+  font-weight: 700;
 }
 .food-log-card .macro-row .track {
   height: 10px;
@@ -1522,16 +1571,18 @@ h3,
 .food-log-card .macro-over { color: var(--ws-over-ink); font-weight: 700; }
 .food-log-panel { width: 100%; }
 .food-log-grid {
-  display: grid;
-  grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-items: center;
 }
 .meal-chips-row {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 10px;
-  padding: 4px 2px 8px;
+  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+  gap: 12px;
+  padding: 8px 0 2px;
+  width: 100%;
+  max-width: 560px;
 }
 .meal-chip {
   width: 100%;

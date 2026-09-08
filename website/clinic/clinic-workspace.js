@@ -545,7 +545,11 @@
     const pctInline = String(opts?.clinicCaption || '').match(/^(\d+(?:\.\d+)?)%/);
     if (pctInline) text = `${text}  ${pctInline[1]}%`;
     const fillClass = bad ? 'macro-fill-over' : 'macro-fill-' + tone;
-    return `<div class="macro-row"><span>${esc(label)}</span><div class="track"><div class="fill ${fillClass}" style="width:${ratio * 100}%"></div></div><span class="${bad ? 'macro-over' : ''}">${text}</span></div>`;
+    return `<div class="macro-row">
+      <span class="macro-label">${esc(label)}</span>
+      <div class="track"><div class="fill ${fillClass}" style="width:${ratio * 100}%"></div></div>
+      <span class="macro-value ${bad ? 'macro-over' : ''}">${text}</span>
+    </div>`;
   }
 
   /** Sum meal/item treatment markers for the day (same rules as app dayMarkerTotals). */
@@ -813,7 +817,7 @@
                   : esc(t('wsEnergyBmrDetail', { n: parts.bmr.toLocaleString() }))}</span>`
                 : ''}</span>
             </div>` : ''}
-            ${balance != null ? `<div class="balance-pill ${isDeficit ? 'deficit' : 'surplus'}"><span class="energy-num">${Math.abs(Math.round(balance)).toLocaleString()}</span><span class="energy-label">${isDeficit ? esc(t('wsKcalDeficit')) : esc(t('wsKcalSurplus'))}</span></div>` : ''}
+            ${balance != null ? `<div class="food-balance-row"><div class="balance-pill ${isDeficit ? 'deficit' : 'surplus'}"><span class="energy-num">${Math.abs(Math.round(balance)).toLocaleString()}</span><span class="energy-label">${isDeficit ? esc(t('wsKcalDeficit')) : esc(t('wsKcalSurplus'))}</span></div></div>` : ''}
           </div>
           ${showBars ? `
           <div class="macro-bars">
@@ -943,7 +947,11 @@
     const over = tgt > 0 && hasActual && actual > tgt * 1.05;
     const text = tgt ? `${hasActual ? Math.round(actual) : '—'} / ${Math.round(tgt)}g` : `${hasActual ? Math.round(actual) : '—'}g`;
     const fillClass = over ? 'macro-fill-over' : 'macro-fill-' + tone;
-    return `<div class="macro-row"><span>${label}</span><div class="track"><div class="fill ${fillClass}" style="width:${ratio * 100}%"></div></div><span class="${over ? 'macro-over' : ''}">${text}</span></div>`;
+    return `<div class="macro-row">
+      <span class="macro-label">${label}</span>
+      <div class="track"><div class="fill ${fillClass}" style="width:${ratio * 100}%"></div></div>
+      <span class="macro-value ${over ? 'macro-over' : ''}">${text}</span>
+    </div>`;
   }
 
   function renderMacroTargetsBody(mt, ctx) {
