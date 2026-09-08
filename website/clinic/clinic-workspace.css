@@ -7,10 +7,27 @@
   --red: var(--danger);
   --orange: var(--warn);
   --shadow: var(--shadow-sm);
-  --radius: var(--radius-md);
+  --radius: 24px;
+  --radius-soft: 16px;
+  --radius-chip: 999px;
   --grid: var(--line);
   --track: var(--surface-2);
   --max-w: 1440px;
+  --ws-gap: 14px;
+  --ws-panel-pad: 22px;
+  --ws-section-label-size: 11px;
+  --ws-section-label-spacing: 0.08em;
+  --ws-btn-shadow: 0 8px 20px rgba(26, 43, 74, 0.08);
+  --ws-card-shadow: 0 8px 24px rgba(26, 43, 74, 0.07);
+  --ws-strong-shadow: 0 14px 36px rgba(26, 43, 74, 0.1);
+  --ws-btn-text: var(--navy);
+  --ws-topbar-bg: color-mix(in srgb, var(--surface) 92%, var(--bg-accent) 8%);
+  --ws-tab-active-bg: var(--surface);
+  --ws-tab-idle-bg: transparent;
+  --ws-tab-idle-text: var(--muted);
+  --ws-pill-bg: color-mix(in srgb, var(--surface-2) 74%, white 26%);
+  --ws-input-bg: color-mix(in srgb, var(--surface) 88%, white 12%);
+  --ws-input-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 
   /* Chart series — light app chart.*; dark remap in clinic-theme.css (be-31). */
   --ws-chart-glucose: #4caf50;
@@ -82,16 +99,18 @@ h3,
   top: 0;
   z-index: 20;
   background: var(--bg);
+  backdrop-filter: blur(18px);
 }
 
 .ws-topbar {
-  background: var(--surface);
-  border-bottom: 1px solid var(--grid);
-  padding: 12px 24px;
+  background: var(--ws-topbar-bg);
+  border-bottom: 1px solid color-mix(in srgb, var(--grid) 88%, transparent);
+  padding: 16px 24px 14px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 16px;
+  box-shadow: 0 6px 20px rgba(26, 43, 74, 0.04);
 }
 
 .ws-topbar a,
@@ -128,18 +147,21 @@ h3,
 .ws-topbar h1 { margin: 0; font-size: 1.15rem; font-weight: 700; }
 .ws-topbar .meta { color: var(--muted); font-size: 0.88rem; flex: 1; min-width: 200px; }
 .ws-topbar .badge {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   background: var(--accent-light);
   color: var(--navy);
-  padding: 4px 10px;
-  border-radius: var(--radius-pill);
+  padding: 6px 12px;
+  border-radius: var(--radius-chip);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  letter-spacing: var(--ws-section-label-spacing);
+  text-transform: uppercase;
 }
 
 /* Clinic case: back + one identity/stats strip + refresh — no second banner row. */
 .ws-topbar--case {
   gap: 10px 14px;
-  padding: 10px 20px;
+  padding: 14px 20px;
   flex-wrap: nowrap;
 }
 .ws-topbar--case .ws-case-header {
@@ -242,8 +264,8 @@ h3,
   gap: 2px;
   background: var(--surface);
   border: 1px solid var(--grid);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  border-radius: 18px;
+  box-shadow: var(--ws-strong-shadow);
   z-index: 40;
 }
 .ws-account-menu-item {
@@ -269,20 +291,33 @@ h3,
   color: var(--danger);
 }
 .ws-btn {
-  border: 1px solid var(--grid);
+  border: 1px solid color-mix(in srgb, var(--grid) 90%, transparent);
   background: var(--surface);
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-weight: 600;
+  border-radius: var(--radius-chip);
+  padding: 10px 16px;
+  font-weight: 700;
   cursor: pointer;
   font-size: 0.88rem;
   min-height: var(--tap-min);
+  color: var(--ws-btn-text);
+  box-shadow: var(--ws-btn-shadow);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background 0.16s ease;
 }
-.ws-btn.primary { background: var(--navy); color: var(--num-fg); border-color: var(--navy); }
+.ws-btn:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--grid));
+  box-shadow: 0 10px 24px rgba(26, 43, 74, 0.1);
+}
+.ws-btn.primary {
+  background: var(--navy);
+  color: var(--num-fg);
+  border-color: var(--navy);
+  box-shadow: 0 12px 28px rgba(26, 43, 74, 0.16);
+}
 .ws-btn.secondary {
-  background: var(--surface);
+  background: var(--ws-pill-bg);
   color: var(--text);
-  border: 1px solid var(--grid);
+  border: 1px solid color-mix(in srgb, var(--grid) 90%, transparent);
 }
 .ws-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .sync-status-hint { color: var(--danger); font-weight: 600; }
@@ -349,10 +384,11 @@ h3,
   align-items: stretch;
   gap: 2px 0;
   margin-inline-start: auto;
-  padding: 4px 6px;
-  background: var(--surface-2);
+  padding: 5px 6px;
+  background: color-mix(in srgb, var(--surface-2) 82%, white 18%);
   border: 1px solid var(--grid);
-  border-radius: 10px;
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
 }
 .ws-stat {
   display: flex;
@@ -364,15 +400,15 @@ h3,
 }
 .ws-stat:first-of-type { border-inline-start: none; }
 .ws-stat-lbl {
-  font-size: 0.65rem;
+  font-size: 0.64rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--ws-section-label-spacing);
   text-transform: uppercase;
   color: var(--muted);
   line-height: 1.2;
 }
 .ws-stat-val {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   color: var(--text);
@@ -416,7 +452,7 @@ h3,
   gap: 8px;
   margin-top: 8px;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: 16px;
   background: var(--portal-err-bg, color-mix(in srgb, var(--danger) 12%, transparent));
   color: var(--portal-err-ink, var(--danger));
   font-size: 0.85rem;
@@ -449,33 +485,41 @@ h3,
   margin: 0 auto;
   padding: 12px 24px 0;
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
   background: var(--bg);
-  border-bottom: 1px solid var(--grid);
+  border-bottom: 1px solid color-mix(in srgb, var(--grid) 88%, transparent);
 }
 .ws-tabs[hidden] {
   display: none !important;
 }
 .ws-tab {
-  border: none;
-  background: transparent;
-  padding: 10px 18px;
-  border-radius: 8px 8px 0 0;
-  font-weight: 600;
-  color: var(--muted);
+  border: 1px solid transparent;
+  background: var(--ws-tab-idle-bg);
+  padding: 11px 18px;
+  border-radius: 16px;
+  font-weight: 700;
+  color: var(--ws-tab-idle-text);
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
   flex: 0 0 auto;
   min-height: var(--tap-min);
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+.ws-tab:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  border-color: color-mix(in srgb, var(--grid) 70%, transparent);
 }
 .ws-tab.active {
-  background: var(--surface);
+  background: var(--ws-tab-active-bg);
   color: var(--accent-ink);
-  box-shadow: var(--shadow);
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--grid));
+  box-shadow: var(--ws-btn-shadow);
 }
 .ws-tab-divider {
   width: 1px;
@@ -527,7 +571,7 @@ h3,
 .ws-main {
   max-width: var(--max-w);
   margin: 0 auto;
-  padding: 0 24px 24px;
+  padding: 8px 24px 28px;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -537,9 +581,10 @@ h3,
 
 .ws-panel {
   background: var(--surface);
-  border-radius: 0 var(--radius) var(--radius) var(--radius);
-  box-shadow: var(--shadow);
-  padding: 20px 24px 28px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--grid) 88%, transparent);
+  box-shadow: var(--ws-card-shadow);
+  padding: var(--ws-panel-pad) calc(var(--ws-panel-pad) + 2px) 30px;
   min-height: 400px;
 }
 
@@ -562,10 +607,11 @@ h3,
 
 /* Kept for /account/ gate cards — do not delete */
 .card {
-  background: var(--surface-2);
-  border: 1px solid var(--grid);
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--grid) 88%, transparent);
   border-radius: var(--radius);
   padding: 16px 18px;
+  box-shadow: var(--ws-card-shadow);
 }
 .card h2, .card h3 { margin: 0 0 12px; font-size: 1rem; }
 .card .sub { color: var(--muted); font-size: 0.82rem; margin: -8px 0 12px; }
@@ -593,11 +639,18 @@ h3,
 .chip {
   font-size: 0.72rem;
   font-weight: 700;
-  padding: 4px 8px;
-  border-radius: 6px;
-  border: 1px solid var(--grid);
-  background: var(--surface);
+  padding: 6px 11px;
+  border-radius: var(--radius-chip);
+  border: 1px solid color-mix(in srgb, var(--grid) 88%, transparent);
+  background: var(--ws-pill-bg);
   cursor: pointer;
+  color: var(--text);
+  letter-spacing: 0.02em;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+.chip:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--grid));
 }
 .chip.active { background: var(--ws-chip-active-bg); color: var(--accent-ink); border-color: var(--ws-chip-active-line); }
 .chip.disabled, .chip:disabled { opacity: 0.35; cursor: default; }
@@ -706,9 +759,10 @@ h3,
 .lab-chart-details {
   margin-top: 12px;
   border: 1px solid var(--grid);
-  border-radius: 14px;
+  border-radius: 20px;
   background: var(--surface);
   overflow: hidden;
+  box-shadow: var(--ws-card-shadow);
 }
 .lab-chart-details > summary.lab-chart-summary {
   cursor: pointer;
@@ -754,10 +808,11 @@ h3,
   font: inherit;
   font-size: 0.9rem;
   padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid var(--grid);
-  background: var(--bg, var(--background, #fff));
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--grid) 88%, transparent);
+  background: var(--ws-input-bg);
   color: var(--text);
+  box-shadow: var(--ws-input-shadow);
 }
 .marker-default-hint { margin: 0 0 8px; font-size: 0.78rem; }
 .lipid-wrap {
@@ -809,14 +864,20 @@ h3,
 
 .macro-row {
   display: grid;
-  grid-template-columns: 16px 1fr 72px;
+  grid-template-columns: 28px 1fr 82px;
   gap: 10px;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   font-size: 0.82rem;
 }
-.macro-row .track { height: 8px; background: var(--track); border-radius: 4px; overflow: hidden; }
-.macro-row .fill { height: 100%; border-radius: 4px; }
+.macro-row .track {
+  height: 10px;
+  background: color-mix(in srgb, var(--track) 88%, white 12%);
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(26, 43, 74, 0.08);
+}
+.macro-row .fill { height: 100%; border-radius: 999px; }
 
 /* Chat */
 .chat-layout {
@@ -913,13 +974,14 @@ h3,
 .mentor-nav button {
   text-align: left;
   padding: 12px 14px;
-  border: 1px solid var(--grid);
-  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--grid) 88%, transparent);
+  border-radius: 16px;
   background: var(--surface);
   cursor: pointer;
   font-weight: 600;
+  box-shadow: var(--ws-btn-shadow);
 }
-.mentor-nav button.active { border-color: var(--navy); background: var(--accent-light); color: var(--navy); }
+.mentor-nav button.active { border-color: color-mix(in srgb, var(--accent) 30%, var(--grid)); background: var(--accent-light); color: var(--navy); }
 
 .chat-thread {
   display: flex;
@@ -927,7 +989,8 @@ h3,
   border: 1px solid var(--grid);
   border-radius: var(--radius);
   overflow: hidden;
-  background: var(--surface-2);
+  background: color-mix(in srgb, var(--surface-2) 82%, white 18%);
+  box-shadow: var(--ws-card-shadow);
 }
 .chat-messages {
   flex: 1;
@@ -939,14 +1002,14 @@ h3,
 .bubble {
   max-width: 85%;
   margin-bottom: 12px;
-  padding: 10px 14px;
-  border-radius: 14px;
+  padding: 12px 15px;
+  border-radius: 18px;
   font-size: 0.92rem;
   line-height: 1.45;
   white-space: pre-wrap;
 }
-.bubble.user { margin-left: auto; background: var(--ws-bubble-user); border-bottom-right-radius: 4px; }
-.bubble.assistant { background: var(--surface); border: 1px solid var(--grid); border-bottom-left-radius: 4px; }
+.bubble.user { margin-left: auto; background: var(--ws-bubble-user); border-bottom-right-radius: 6px; }
+.bubble.assistant { background: var(--surface); border: 1px solid var(--grid); border-bottom-left-radius: 6px; }
 .bubble .time { font-size: 0.7rem; color: var(--muted); margin-top: 6px; }
 
 .bubble.thinking {
@@ -987,10 +1050,13 @@ h3,
   max-height: 120px;
   resize: vertical;
   border: 1px solid var(--grid);
-  border-radius: 10px;
+  border-radius: 16px;
   padding: 10px 12px;
   font-family: inherit;
   font-size: 0.92rem;
+  background: var(--ws-input-bg);
+  color: var(--text);
+  box-shadow: var(--ws-input-shadow);
 }
 
 /* Rules */
@@ -1012,9 +1078,10 @@ h3,
 }
 .rules-fold {
   border: 1px solid var(--grid);
-  border-radius: 10px;
+  border-radius: 18px;
   background: var(--surface);
   overflow: hidden;
+  box-shadow: var(--ws-card-shadow);
 }
 .rules-fold-toggle {
   display: flex;
@@ -1022,9 +1089,9 @@ h3,
   gap: 10px;
   width: 100%;
   text-align: left;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border: none;
-  background: var(--surface-2);
+  background: color-mix(in srgb, var(--surface-2) 76%, white 24%);
   cursor: pointer;
   font: inherit;
 }
@@ -1064,7 +1131,7 @@ h3,
   width: 100%;
   min-height: 120px;
   border: 1px solid var(--grid);
-  border-radius: 10px;
+  border-radius: 16px;
   padding: 12px;
   font-family: inherit;
   font-size: 0.95rem;
@@ -1072,6 +1139,9 @@ h3,
   resize: vertical;
   overflow-y: hidden;
   box-sizing: border-box;
+  background: var(--ws-input-bg);
+  color: var(--text);
+  box-shadow: var(--ws-input-shadow);
 }
 .rules-actions {
   flex-shrink: 0;
@@ -1120,7 +1190,13 @@ h3,
 
 /* Labs table */
 .data-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-.data-table th, .data-table td { border-bottom: 1px solid var(--grid); padding: 10px 8px; text-align: left; }
+.data-table th, .data-table td { border-bottom: 1px solid var(--grid); padding: 12px 10px; text-align: left; }
+.data-table th {
+  font-size: 0.72rem;
+  letter-spacing: var(--ws-section-label-spacing);
+  text-transform: uppercase;
+  color: var(--muted);
+}
 .lab-panel { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--grid); }
 
 /* Verbatim PDF label under the canonical English name (prompt99 / lab i18n). */
@@ -1142,10 +1218,10 @@ h3,
 .nutrition-tab-wrap { width: 100%; }
 .nutrition-card {
   background: var(--surface);
-  border: 1px solid var(--grid);
-  border-radius: 24px;
-  padding: 14px 18px 16px;
-  box-shadow: var(--shadow);
+  border: 1px solid color-mix(in srgb, var(--grid) 88%, transparent);
+  border-radius: var(--radius);
+  padding: 16px 18px 18px;
+  box-shadow: var(--ws-card-shadow);
 }
 .nutrition-layout {
   display: grid;
@@ -1192,10 +1268,10 @@ h3,
   min-width: 100px;
   max-width: 160px;
   text-align: left;
-  background: var(--bg);
-  border: 1px solid var(--grid);
-  border-radius: 12px;
-  padding: 8px 12px;
+  background: var(--ws-pill-bg);
+  border: 1px solid color-mix(in srgb, var(--grid) 88%, transparent);
+  border-radius: 18px;
+  padding: 10px 13px;
   cursor: pointer;
   font: inherit;
   color: inherit;
@@ -1258,10 +1334,10 @@ h3,
 }
 .nutrition-detail-body {
   margin: 0;
-  padding: 12px;
+  padding: 14px 15px;
   background: var(--surface);
   border: 1px solid var(--grid);
-  border-radius: 10px;
+  border-radius: 18px;
   font-family: inherit;
   font-size: 14px;
   line-height: 1.55;
@@ -1280,25 +1356,26 @@ h3,
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 12px 16px;
   background: var(--ws-nudge-bg);
   border: 1px solid var(--ws-nudge-line);
-  border-radius: 10px;
+  border-radius: 18px;
   margin-bottom: 16px;
   font-size: 0.88rem;
+  box-shadow: var(--ws-btn-shadow);
 }
 .nudge-count { font-weight: 800; color: var(--accent-ink); }
 .nudge-text { flex: 1; color: var(--ws-nudge-ink); }
 
 .dash-card {
   background: var(--surface);
-  border: 1px solid var(--grid);
+  border: 1px solid color-mix(in srgb, var(--grid) 88%, transparent);
   border-radius: var(--radius);
-  padding: 16px 18px;
-  margin-bottom: 16px;
-  box-shadow: var(--shadow);
+  padding: 18px 20px;
+  margin-bottom: var(--ws-gap);
+  box-shadow: var(--ws-card-shadow);
 }
-.metabolic-card { padding: 14px 16px 10px; }
+.metabolic-card { padding: 16px 18px 12px; }
 
 .chart-toolbar {
   display: flex;
@@ -1375,9 +1452,9 @@ h3,
 .bmr-row { margin-top: 10px; font-size: 0.88rem; color: var(--muted); }
 
 .food-log-card .food-log-title {
-  font-size: 0.72rem;
+  font-size: var(--ws-section-label-size);
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--ws-section-label-spacing);
   color: var(--muted);
   text-align: center;
   margin-bottom: 8px;
@@ -1406,9 +1483,10 @@ h3,
   align-items: baseline;
   gap: 6px;
   margin-top: 6px;
-  padding: 8px 14px;
-  border-radius: 999px;
+  padding: 10px 16px;
+  border-radius: var(--radius-chip);
   font-weight: 700;
+  border: 1px solid transparent;
 }
 .food-log-card .balance-pill.deficit {
   background: rgba(76, 175, 80, 0.15);
@@ -1423,7 +1501,7 @@ h3,
 .food-log-card .macro-bars { margin: 12px 0 16px; }
 .food-log-card .macro-row {
   display: grid;
-  grid-template-columns: 36px 1fr minmax(88px, auto);
+  grid-template-columns: 40px 1fr minmax(96px, auto);
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
@@ -1435,12 +1513,12 @@ h3,
   white-space: nowrap;
 }
 .food-log-card .macro-row .track {
-  height: 8px;
-  background: var(--track);
-  border-radius: 4px;
+  height: 10px;
+  background: color-mix(in srgb, var(--track) 88%, white 12%);
+  border-radius: 999px;
   overflow: hidden;
 }
-.food-log-card .macro-row .fill { height: 100%; border-radius: 4px; }
+.food-log-card .macro-row .fill { height: 100%; border-radius: 999px; }
 .food-log-card .macro-over { color: var(--ws-over-ink); font-weight: 700; }
 .food-log-panel { width: 100%; }
 .food-log-grid {
@@ -1457,18 +1535,20 @@ h3,
 }
 .meal-chip {
   width: 100%;
-  padding: 12px 10px;
-  border: 1px solid var(--grid);
-  border-radius: 12px;
+  padding: 14px 12px;
+  border: 1px solid color-mix(in srgb, var(--grid) 88%, transparent);
+  border-radius: 20px;
   background: var(--surface);
   text-align: left;
   cursor: pointer;
   font: inherit;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  box-shadow: var(--ws-btn-shadow);
 }
 .meal-chip:hover {
+  transform: translateY(-1px);
   border-color: var(--accent);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 12px 26px rgba(26, 43, 74, 0.1);
 }
 .meal-chip .chip-time { display: block; font-size: 0.72rem; color: var(--muted); margin-bottom: 4px; }
 .meal-chip .chip-label { display: block; font-weight: 700; font-size: 0.9rem; margin-bottom: 6px; }
@@ -1486,12 +1566,13 @@ h3,
 }
 .meal-modal-card {
   background: var(--surface);
-  border-radius: 16px;
+  border-radius: 26px;
+  border: 1px solid color-mix(in srgb, var(--grid) 88%, transparent);
   width: 100%;
   max-width: 480px;
   max-height: 85vh;
   overflow-y: auto;
-  padding: 20px;
+  padding: 22px;
   box-shadow: var(--ws-modal-shadow);
 }
 .meal-modal-head {
@@ -1504,10 +1585,10 @@ h3,
 .meal-modal-time { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
 .meal-modal-close {
   border: none;
-  background: var(--surface-2);
+  background: var(--ws-pill-bg);
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: 999px;
   cursor: pointer;
   font-size: 1rem;
 }
@@ -1532,8 +1613,9 @@ h3,
 }
 .meal-items-card {
   border: 1px solid var(--grid);
-  border-radius: 12px;
+  border-radius: 18px;
   overflow: hidden;
+  background: color-mix(in srgb, var(--surface-2) 68%, white 32%);
 }
 .meal-item-row {
   padding: 12px 14px;
@@ -1617,9 +1699,9 @@ h3,
 }
 .profile-col {
   background: var(--surface);
-  border: 1px solid var(--grid);
+  border: 1px solid color-mix(in srgb, var(--grid) 88%, transparent);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  box-shadow: var(--ws-card-shadow);
 }
 .profile-group { padding: 4px 0; }
 .profile-group .group-divider {
@@ -1677,11 +1759,11 @@ h3,
 .rules-list li { margin-bottom: 4px; }
 .mentor-pills { display: flex; flex-wrap: wrap; gap: 8px; }
 .mentor-pill {
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--grid);
+  padding: 9px 13px;
+  border-radius: var(--radius-chip);
+  border: 1px solid color-mix(in srgb, var(--grid) 88%, transparent);
   font-size: 0.85rem;
-  background: var(--surface-2);
+  background: var(--ws-pill-bg);
 }
 .mentor-pill.active { border-color: var(--accent); background: var(--accent-light); }
 .macro-updated { display: block; font-size: 0.75rem; color: var(--accent-ink); margin-top: 4px; font-weight: 600; }
@@ -1716,8 +1798,8 @@ h3,
 .clinical-profile-banner {
   background: var(--ws-clinical-bg);
   border: 1px solid var(--ws-clinical-line);
-  border-radius: 10px;
-  padding: 10px;
+  border-radius: 18px;
+  padding: 12px 14px;
   margin-bottom: 12px;
 }
 .clinical-profile-title {
@@ -1781,8 +1863,9 @@ h3,
   gap: 12px;
   padding: 12px 14px;
   border: 1px solid var(--grid);
-  border-radius: var(--radius);
+  border-radius: 20px;
   background: var(--surface, var(--bg));
+  box-shadow: var(--ws-btn-shadow);
 }
 .treat-row-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .treat-meta { font-size: 0.85rem; color: var(--muted); }
@@ -1809,7 +1892,7 @@ h3,
   gap: 10px 14px;
   padding: 14px;
   border: 1px dashed var(--grid);
-  border-radius: var(--radius);
+  border-radius: 20px;
   margin-bottom: 8px;
 }
 .treat-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
@@ -1820,8 +1903,9 @@ h3,
   color: var(--ws-clinical-ink, inherit);
   padding: 8px 10px;
   border: 1px solid var(--grid);
-  border-radius: 8px;
-  background: var(--bg);
+  border-radius: 14px;
+  background: var(--ws-input-bg);
+  box-shadow: var(--ws-input-shadow);
 }
 html[dir='rtl'] .rules-plates-section .treat-field select {
   direction: rtl;
@@ -1869,7 +1953,8 @@ html[dir='rtl'] .rules-plates-section .treat-field select {
 }
 .lab-pdf-card {
   background: var(--surface);
-  border-radius: 16px;
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--grid) 88%, transparent);
   width: min(1100px, 100%);
   max-height: 92vh;
   display: flex;
@@ -1906,7 +1991,7 @@ html[dir='rtl'] .rules-plates-section .treat-field select {
   width: 100%;
   height: min(70vh, 640px);
   border: 1px solid var(--grid);
-  border-radius: 10px;
+  border-radius: 18px;
   background: #fff;
 }
 .lab-pdf-table { overflow: auto; max-height: min(70vh, 640px); }
@@ -1933,11 +2018,12 @@ html[dir='rtl'] .rules-plates-section .treat-field select {
 .training-macro-card {
   padding: 10px 12px;
   border: 1px solid var(--grid);
-  border-radius: var(--radius);
+  border-radius: 18px;
   background: var(--surface, var(--bg));
   display: flex;
   flex-direction: column;
   gap: 4px;
+  box-shadow: var(--ws-btn-shadow);
 }
 .training-macro-card label {
   font-size: 0.75rem;
@@ -1949,9 +2035,9 @@ html[dir='rtl'] .rules-plates-section .treat-field select {
   font-size: 1.1rem;
   font-weight: 700;
   border: 1px solid var(--grid);
-  border-radius: 6px;
+  border-radius: 14px;
   padding: 4px 8px;
-  background: var(--bg);
+  background: var(--ws-input-bg);
   color: var(--text);
   width: 100%;
   box-sizing: border-box;
@@ -1978,12 +2064,13 @@ html[dir='rtl'] .rules-plates-section .treat-field select {
 }
 .training-day-card {
   border: 1px solid var(--grid);
-  border-radius: var(--radius);
+  border-radius: 22px;
   background: var(--surface, var(--bg));
-  padding: 12px 14px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  box-shadow: var(--ws-card-shadow);
 }
 .training-day-head {
   display: flex;
@@ -2008,9 +2095,9 @@ html[dir='rtl'] .rules-plates-section .treat-field select {
   font-size: 0.82rem;
   font-weight: 600;
   border: 1px solid var(--grid);
-  border-radius: 6px;
+  border-radius: 14px;
   padding: 6px 8px;
-  background: var(--bg);
+  background: var(--ws-input-bg);
   color: var(--text);
   width: 100%;
   box-sizing: border-box;
@@ -2027,12 +2114,12 @@ html[dir='rtl'] .rules-plates-section .treat-field select {
 }
 .training-activity-row {
   border: 1px solid var(--grid);
-  border-radius: 8px;
-  padding: 7px;
+  border-radius: 16px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 5px;
-  background: var(--bg);
+  background: color-mix(in srgb, var(--surface-2) 72%, white 28%);
 }
 .training-activity-head {
   display: flex;
@@ -2051,7 +2138,7 @@ html[dir='rtl'] .rules-plates-section .treat-field select {
   font-size: 1.05rem;
   font-weight: 700;
   border: 1px solid var(--grid);
-  border-radius: 6px;
+  border-radius: 999px;
   background: var(--surface, var(--bg));
   color: var(--muted);
   cursor: pointer;
@@ -2080,12 +2167,13 @@ html[dir='rtl'] .rules-plates-section .treat-field select {
   font: inherit;
   font-size: 0.8rem;
   border: 1px solid var(--grid);
-  border-radius: 6px;
+  border-radius: 12px;
   padding: 5px 7px;
-  background: var(--surface, var(--bg));
+  background: var(--ws-input-bg);
   color: var(--text);
   width: 100%;
   box-sizing: border-box;
+  box-shadow: var(--ws-input-shadow);
 }
 /* Five of these stack per day — keep an unused notes field near single-line. */
 .training-activity-notes {
@@ -2098,7 +2186,7 @@ html[dir='rtl'] .rules-plates-section .treat-field select {
   font-size: 0.8rem;
   font-weight: 600;
   border: 1px dashed var(--grid);
-  border-radius: 8px;
+  border-radius: 16px;
   padding: 7px 10px;
   background: transparent;
   color: var(--accent-ink, var(--text));
@@ -2112,7 +2200,7 @@ html[dir='rtl'] .rules-plates-section .treat-field select {
 .training-day-type {
   font-size: 0.8rem;
   padding: 2px 8px;
-  border-radius: 12px;
+  border-radius: 999px;
   border: 1px solid var(--grid);
   background: var(--bg);
 }
@@ -2133,10 +2221,11 @@ html[dir='rtl'] .rules-plates-section .treat-field select {
   font: inherit;
   font-size: 0.85rem;
   border: 1px solid var(--grid);
-  border-radius: 6px;
+  border-radius: 12px;
   padding: 6px 8px;
-  background: var(--bg);
+  background: var(--ws-input-bg);
   color: var(--text);
+  box-shadow: var(--ws-input-shadow);
 }
 .training-day-card textarea {
   resize: vertical;
@@ -2154,8 +2243,9 @@ html[dir='rtl'] .rules-plates-section .treat-field select {
   align-items: center;
   padding: 8px 12px;
   border: 1px solid var(--grid);
-  border-radius: 8px;
+  border-radius: 16px;
   background: var(--surface);
   font-size: 0.85rem;
+  box-shadow: var(--ws-btn-shadow);
 }
 

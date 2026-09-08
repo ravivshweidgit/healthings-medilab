@@ -73,6 +73,17 @@ html.theme-pref-dark {
   --ws-strip-title: #ffeec0;
   --ws-chrome-icon: #e6bc2a;
   --ws-chart-plot-bg: #000000;
+  --ws-btn-text: #f5f5f4;
+  --ws-pill-bg: #000000;
+  --ws-topbar-bg: rgba(15, 15, 15, 0.92);
+  --ws-tab-active-bg: #2c2b27;
+  --ws-tab-idle-bg: transparent;
+  --ws-tab-idle-text: #c9c8c4;
+  --ws-input-bg: #000000;
+  --ws-input-shadow: none;
+  --ws-btn-shadow: 0 8px 24px rgba(0, 0, 0, 0.34);
+  --ws-card-shadow: 0 12px 32px rgba(0, 0, 0, 0.34);
+  --ws-strong-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -145,6 +156,17 @@ html.theme-pref-dark {
     --ws-strip-title: #ffeec0;
     --ws-chrome-icon: #e6bc2a;
     --ws-chart-plot-bg: #000000;
+    --ws-btn-text: #f5f5f4;
+    --ws-pill-bg: #000000;
+    --ws-topbar-bg: rgba(15, 15, 15, 0.92);
+    --ws-tab-active-bg: #2c2b27;
+    --ws-tab-idle-bg: transparent;
+    --ws-tab-idle-text: #c9c8c4;
+    --ws-input-bg: #000000;
+    --ws-input-shadow: none;
+    --ws-btn-shadow: 0 8px 24px rgba(0, 0, 0, 0.34);
+    --ws-card-shadow: 0 12px 32px rgba(0, 0, 0, 0.34);
+    --ws-strong-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -158,6 +180,76 @@ html.theme-pref-light {
 html.theme-pref-dark .ws-banner-stats {
   background: #000000;
   border-color: #2a2a2a;
+  box-shadow: none;
+}
+
+.theme-pref-dark .ws-topbar,
+.theme-pref-dark .ws-tabs,
+.theme-pref-dark .ws-panel,
+.theme-pref-dark .dash-card,
+.theme-pref-dark .profile-col,
+.theme-pref-dark .nutrition-card,
+.theme-pref-dark .lab-chart-details,
+.theme-pref-dark .training-day-card,
+.theme-pref-dark .training-macro-card,
+.theme-pref-dark .meal-modal-card,
+.theme-pref-dark .lab-pdf-card,
+html.theme-pref-dark .ws-topbar,
+html.theme-pref-dark .ws-tabs,
+html.theme-pref-dark .ws-panel,
+html.theme-pref-dark .dash-card,
+html.theme-pref-dark .profile-col,
+html.theme-pref-dark .nutrition-card,
+html.theme-pref-dark .lab-chart-details,
+html.theme-pref-dark .training-day-card,
+html.theme-pref-dark .training-macro-card,
+html.theme-pref-dark .meal-modal-card,
+html.theme-pref-dark .lab-pdf-card {
+  border-color: #42413c;
+}
+
+.theme-pref-dark .ws-topbar,
+html.theme-pref-dark .ws-topbar {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+}
+
+.theme-pref-dark .ws-tab:hover,
+html.theme-pref-dark .ws-tab:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: #42413c;
+}
+
+.theme-pref-dark .ws-tab.active,
+html.theme-pref-dark .ws-tab.active {
+  background: #2c2b27;
+  border-color: #42413c;
+}
+
+.theme-pref-dark .ws-btn,
+html.theme-pref-dark .ws-btn {
+  background: #000000;
+  border-color: #2a2a2a;
+  color: var(--text);
+}
+
+.theme-pref-dark .ws-btn:hover,
+html.theme-pref-dark .ws-btn:hover {
+  background: #111111;
+  border-color: #42413c;
+}
+
+.theme-pref-dark .ws-btn.primary,
+html.theme-pref-dark .ws-btn.primary {
+  background: #3e6ea5;
+  border-color: #3e6ea5;
+  color: #f5f5f4;
+}
+
+.theme-pref-dark .ws-btn.secondary,
+html.theme-pref-dark .ws-btn.secondary {
+  background: #000000;
+  border-color: #2a2a2a;
+  color: var(--text);
 }
 
 /* Chart range chips (6H…32D) — black fill; active keeps accent border/text. */
@@ -224,6 +316,20 @@ html.theme-pref-dark .meal-chip {
   border-color: #2a2a2a;
 }
 
+.theme-pref-dark .meal-items-card,
+.theme-pref-dark .training-activity-row,
+.theme-pref-dark .chat-thread,
+.theme-pref-dark .treat-row,
+.theme-pref-dark .profile-group .collapse-header:hover,
+html.theme-pref-dark .meal-items-card,
+html.theme-pref-dark .training-activity-row,
+html.theme-pref-dark .chat-thread,
+html.theme-pref-dark .treat-row,
+html.theme-pref-dark .profile-group .collapse-header:hover {
+  background: #000000;
+  border-color: #2a2a2a;
+}
+
 /* Energy balance pill */
 .theme-pref-dark .food-log-card .balance-pill.deficit,
 .theme-pref-dark .food-log-card .balance-pill.surplus,
@@ -237,6 +343,7 @@ html.theme-pref-dark .food-log-card .balance-pill.surplus {
 .theme-pref-dark .macro-row .track,
 html.theme-pref-dark .macro-row .track {
   background: #000000;
+  box-shadow: none;
 }
 
 /* Nutrition report body */
@@ -292,6 +399,11 @@ html.theme-pref-dark .bubble.assistant {
   border-color: #2a2a2a;
 }
 
+.theme-pref-dark .bubble.user,
+html.theme-pref-dark .bubble.user {
+  background: #233252;
+}
+
 /* Rules editor + clinical text blocks */
 .theme-pref-dark .rules-fold,
 html.theme-pref-dark .rules-fold {
@@ -329,6 +441,18 @@ html.theme-pref-dark .reasoning-block {
 
 /* Worklist column filters */
 .theme-pref-dark .ux-filter-input,
+.theme-pref-dark .marker-filter,
+.theme-pref-dark .marker-pick,
+.theme-pref-dark .chat-compose textarea,
+.theme-pref-dark .treat-field select,
+.theme-pref-dark .treat-field input,
+.theme-pref-dark .training-day-focus,
+.theme-pref-dark .training-day-inputs input,
+.theme-pref-dark .training-day-card textarea,
+.theme-pref-dark .training-macro-card input,
+.theme-pref-dark .training-activity-row input,
+.theme-pref-dark .training-activity-row select,
+.theme-pref-dark .training-activity-row textarea,
 html.theme-pref-dark .ux-filter-input {
   background: #000000;
   border-color: #2a2a2a;
@@ -382,6 +506,76 @@ html.theme-pref-dark .clinic-side-foot .portal-btn:hover {
   html.theme-pref-system .ws-banner-stats {
     background: #000000;
     border-color: #2a2a2a;
+    box-shadow: none;
+  }
+
+  .theme-pref-system .ws-topbar,
+  .theme-pref-system .ws-tabs,
+  .theme-pref-system .ws-panel,
+  .theme-pref-system .dash-card,
+  .theme-pref-system .profile-col,
+  .theme-pref-system .nutrition-card,
+  .theme-pref-system .lab-chart-details,
+  .theme-pref-system .training-day-card,
+  .theme-pref-system .training-macro-card,
+  .theme-pref-system .meal-modal-card,
+  .theme-pref-system .lab-pdf-card,
+  html.theme-pref-system .ws-topbar,
+  html.theme-pref-system .ws-tabs,
+  html.theme-pref-system .ws-panel,
+  html.theme-pref-system .dash-card,
+  html.theme-pref-system .profile-col,
+  html.theme-pref-system .nutrition-card,
+  html.theme-pref-system .lab-chart-details,
+  html.theme-pref-system .training-day-card,
+  html.theme-pref-system .training-macro-card,
+  html.theme-pref-system .meal-modal-card,
+  html.theme-pref-system .lab-pdf-card {
+    border-color: #42413c;
+  }
+
+  .theme-pref-system .ws-topbar,
+  html.theme-pref-system .ws-topbar {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  }
+
+  .theme-pref-system .ws-tab:hover,
+  html.theme-pref-system .ws-tab:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: #42413c;
+  }
+
+  .theme-pref-system .ws-tab.active,
+  html.theme-pref-system .ws-tab.active {
+    background: #2c2b27;
+    border-color: #42413c;
+  }
+
+  .theme-pref-system .ws-btn,
+  html.theme-pref-system .ws-btn {
+    background: #000000;
+    border-color: #2a2a2a;
+    color: var(--text);
+  }
+
+  .theme-pref-system .ws-btn:hover,
+  html.theme-pref-system .ws-btn:hover {
+    background: #111111;
+    border-color: #42413c;
+  }
+
+  .theme-pref-system .ws-btn.primary,
+  html.theme-pref-system .ws-btn.primary {
+    background: #3e6ea5;
+    border-color: #3e6ea5;
+    color: #f5f5f4;
+  }
+
+  .theme-pref-system .ws-btn.secondary,
+  html.theme-pref-system .ws-btn.secondary {
+    background: #000000;
+    border-color: #2a2a2a;
+    color: var(--text);
   }
 
   .theme-pref-system .chip,
@@ -444,6 +638,20 @@ html.theme-pref-dark .clinic-side-foot .portal-btn:hover {
     border-color: #2a2a2a;
   }
 
+  .theme-pref-system .meal-items-card,
+  .theme-pref-system .training-activity-row,
+  .theme-pref-system .chat-thread,
+  .theme-pref-system .treat-row,
+  .theme-pref-system .profile-group .collapse-header:hover,
+  html.theme-pref-system .meal-items-card,
+  html.theme-pref-system .training-activity-row,
+  html.theme-pref-system .chat-thread,
+  html.theme-pref-system .treat-row,
+  html.theme-pref-system .profile-group .collapse-header:hover {
+    background: #000000;
+    border-color: #2a2a2a;
+  }
+
   .theme-pref-system .food-log-card .balance-pill.deficit,
   .theme-pref-system .food-log-card .balance-pill.surplus,
   html.theme-pref-system .food-log-card .balance-pill.deficit,
@@ -455,6 +663,7 @@ html.theme-pref-dark .clinic-side-foot .portal-btn:hover {
   .theme-pref-system .macro-row .track,
   html.theme-pref-system .macro-row .track {
     background: #000000;
+    box-shadow: none;
   }
 
   .theme-pref-system .nutrition-detail-body,
@@ -506,6 +715,11 @@ html.theme-pref-dark .clinic-side-foot .portal-btn:hover {
     border-color: #2a2a2a;
   }
 
+  .theme-pref-system .bubble.user,
+  html.theme-pref-system .bubble.user {
+    background: #233252;
+  }
+
   .theme-pref-system .rules-fold,
   html.theme-pref-system .rules-fold {
     background: #000000;
@@ -541,6 +755,18 @@ html.theme-pref-dark .clinic-side-foot .portal-btn:hover {
   }
 
   .theme-pref-system .ux-filter-input,
+  .theme-pref-system .marker-filter,
+  .theme-pref-system .marker-pick,
+  .theme-pref-system .chat-compose textarea,
+  .theme-pref-system .treat-field select,
+  .theme-pref-system .treat-field input,
+  .theme-pref-system .training-day-focus,
+  .theme-pref-system .training-day-inputs input,
+  .theme-pref-system .training-day-card textarea,
+  .theme-pref-system .training-macro-card input,
+  .theme-pref-system .training-activity-row input,
+  .theme-pref-system .training-activity-row select,
+  .theme-pref-system .training-activity-row textarea,
   html.theme-pref-system .ux-filter-input {
     background: #000000;
     border-color: #2a2a2a;
